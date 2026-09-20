@@ -8,6 +8,7 @@ import { closeDb, connectDb } from './db.js';
 import { requireEnv } from './env.js';
 import { parseCommand } from './lib/parse.js';
 import { resolvePrefixSource } from './lib/prefix-source.js';
+import { migrateInventory } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -29,6 +30,14 @@ async function main(): Promise<void> {
 
   await connectDb();
   console.log('Connected to MongoDB.');
+
+  // One time only: turn the old item counts into one document per copy. Later starts skip it.
+  const migration = await migrateInventory();
+  if (!migration.skipped) {
+    console.log(
+      `Moved ${migration.stacks} item stacks into ${migration.copies} item copies and updated ${migration.equipped} equipped items.`,
+    );
+  }
 
   // Unless ENV=LOCAL, the command prefix lives in the database (settings collection, default
   // "k!"). Re-read it every minute so an edit in MongoDB takes effect without restarting the bot.

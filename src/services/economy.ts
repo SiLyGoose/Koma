@@ -1,12 +1,14 @@
 import { CONFIG } from '../config.js';
 import { MINUTE_MS } from '../constants.js';
 import { collections } from '../db.js';
+import { groupCopies, newCopyId, type InventoryEntry } from '../lib/copies.js';
 import { gearEffects } from '../lib/equipment.js';
 import { rollItem } from '../lib/gacha.js';
 import { claimAmount, pullCost, robFine, robStolenAmount, robSuccessChance } from '../lib/perks.js';
 import { chance, randInt } from '../lib/random.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
-import type { InventoryDoc, ItemDef, LedgerDoc, MemberDoc } from '../types.js';
+import type { ItemCopyDoc, ItemDef, LedgerDoc, MemberDoc } from '../types.js';
+import { resolveGear } from './gear.js';
 
 /*
  * Every points change goes through a single conditional MongoDB update, so two people
@@ -134,8 +136,10 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
   };
 }
 
-export async function getInventory(guildId: string, userId: string): Promise<InventoryDoc[]> {
-  return collections().inventory.find({ guildId, userId }).toArray();
+/** What a member owns, one entry per kind of item, with how many copies they have. */
+export async function getInventory(guildId: string, userId: string): Promise<InventoryEntry[]> {
+  const copies = await collections().items.find({ guildId, userId }).toArray();
+  return groupCopies(copies);
 }
 
 export async function getLeaderboard(guildId: string, limit: number): Promise<MemberDoc[]> {
@@ -163,7 +167,7 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
   // Equipped gear can add a bonus on top of the roll.
   const member = await collections().members.findOne({ guildId, userId });
   const rolled = randInt(CONFIG.claim.min, CONFIG.claim.max);
-  const amount = claimAmount(rolled, gearEffects(member?.equipment));
+  const amount = claimAmount(rolled, gearEffects(await resolveGear(guildId, userId, member?.equipment)));
 
   // Only matches if this member has not claimed during the current hour.
   const updated = await collections().members.findOneAndUpdate(
@@ -185,19 +189,16 @@ export type PullResult =
   | { ok: true; item: ItemDef; isNew: boolean; count: number; balance: number; cost: number; baseCost: number }
   | { ok: false; balance: number; cost: number };
 
-async function addToInventory(guildId: string, userId: string, itemId: string): Promise<InventoryDoc> {
-  const { inventory } = collections();
+/** Gives the member a new copy of an item. `count` is how many copies of it they now have. */
+async function addCopy(guildId: string, userId: string, itemId: string): Promise<{ copy: ItemCopyDoc; count: number }> {
+  const { items } = collections();
   for (let attempt = 0; ; attempt++) {
+    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 0, obtainedAt: new Date() };
     try {
-      const doc = await inventory.findOneAndUpdate(
-        { guildId, userId, itemId },
-        { $inc: { count: 1 }, $setOnInsert: { firstObtainedAt: new Date() } },
-        { upsert: true, returnDocument: 'after' },
-      );
-      if (!doc) throw new Error('Inventory upsert returned no document');
-      return doc;
+      await items.insertOne(copy);
+      return { copy, count: await items.countDocuments({ guildId, userId, itemId }) };
     } catch (err) {
-      // Two simultaneous first-time pulls of the same item can collide on the unique index.
+      // A random id colliding is practically impossible, but a retry costs nothing.
       if (isDuplicateKey(err) && attempt < 2) continue;
       throw err;
     }
@@ -211,7 +212,7 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
 
   // Equipped gear can discount the pull.
   const member = await members.findOne({ guildId, userId });
-  const cost = pullCost(baseCost, gearEffects(member?.equipment));
+  const cost = pullCost(baseCost, gearEffects(await resolveGear(guildId, userId, member?.equipment)));
 
   // Take the payment first, only if the member can afford it.
   const debited = await members.findOneAndUpdate(
@@ -225,9 +226,9 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
   }
 
   const item = rollItem();
-  let entry: InventoryDoc;
+  let owned: { copy: ItemCopyDoc; count: number };
   try {
-    entry = await addToInventory(guildId, userId, item.id);
+    owned = await addCopy(guildId, userId, item.id);
   } catch (err) {
     // Could not hand over the item, so refund the pull.
     await members.updateOne({ guildId, userId }, { $inc: { points: cost, totalPulls: -1 } });
@@ -238,8 +239,8 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
   return {
     ok: true,
     item,
-    isNew: entry.count === 1,
-    count: entry.count,
+    isNew: owned.count === 1,
+    count: owned.count,
     balance: debited.points,
     cost,
     baseCost,
@@ -312,8 +313,10 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     members.updateOne({ guildId, userId: robberId }, { $set: { lastRobAt: before.lastRobAt } });
 
   // Gear: the robber's weapon and the victim's armor (which protects even while they're offline).
-  const robberGear = gearEffects(before.equipment);
-  const victimGear = gearEffects(victim?.equipment);
+  const [robberGear, victimGear] = await Promise.all([
+    resolveGear(guildId, robberId, before.equipment).then(gearEffects),
+    resolveGear(guildId, victimId, victim?.equipment).then(gearEffects),
+  ]);
   const successChance = robSuccessChance(cfg.successChance, cfg, robberGear, victimGear);
 
   // Set once this rob has started the victim's protection timer, so it can be undone on failure.

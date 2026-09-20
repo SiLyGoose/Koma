@@ -6,6 +6,7 @@ import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../sr
 import { describeEffects, describeTotals, equippedItems, totalEffects } from '../src/lib/equipment.js';
 import { claimAmount, pullCost, robFine, robStolenAmount, robSuccessChance } from '../src/lib/perks.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
+import type { ItemDef } from '../src/types.js';
 
 const gear = (overrides: Partial<EffectTotals>): EffectTotals => ({ ...emptyTotals(), ...overrides });
 const none = emptyTotals();
@@ -132,7 +133,15 @@ test('totalEffects adds up every equipped item using the live settings', () => {
 });
 
 test('effects read as plain text', () => {
-  const blade = ITEMS_BY_ID.get('starfall-blade')!;
+  // A made-up item, so this test doesn't break when the real catalog is edited.
+  const blade: ItemDef = {
+    id: 'test-blade',
+    name: 'Test Blade',
+    stars: 3,
+    slot: 'weapon',
+    description: '',
+    effects: ['robChance', 'robAmount', 'fineReduction'],
+  };
   assert.deepEqual(describeEffects(blade), [
     '+15% rob success chance',
     '+30% points stolen',

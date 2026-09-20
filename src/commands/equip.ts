@@ -51,7 +51,7 @@ export const equip: Command = {
       await reply(message, TEXT.equip.notOwned(p, item.name));
       return;
     }
-    if (result.previousId === item.id) {
+    if (result.alreadyEquipped) {
       await reply(message, TEXT.equip.alreadyEquipped(item.name, item.slot));
       return;
     }

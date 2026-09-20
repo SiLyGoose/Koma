@@ -1,3 +1,4 @@
+import type { ObjectId } from 'mongodb';
 import type { EffectId } from './data/effects.js';
 
 export type Stars = 1 | 2 | 3 | 4;
@@ -23,8 +24,20 @@ export interface ItemDef {
   effects: readonly EffectId[];
 }
 
-/** Ids of the items a member currently has equipped (null or missing means empty). */
+/**
+ * What a member has equipped, as stored on their member document: the id of the specific copy
+ * (ItemCopyDoc._id) in each slot. Null or missing means empty.
+ */
 export interface EquipmentDoc {
+  weapon?: string | null;
+  armor?: string | null;
+}
+
+/**
+ * The same loadout as item ids (ItemDef.id), which is what the effect math works with. Made
+ * from an EquipmentDoc by resolveGear, counting only copies the member still owns.
+ */
+export interface GearIds {
   weapon?: string | null;
   armor?: string | null;
 }
@@ -48,13 +61,41 @@ export interface MemberDoc {
   createdAt: Date;
 }
 
-/** One document per (server, user, item). */
-export interface InventoryDoc {
+/**
+ * One document per copy of an item a member owns, per server. Two copies of the same item are
+ * separate documents, so each can have its own level and can be traded on its own.
+ */
+export interface ItemCopyDoc {
+  /** Unique id of this copy. Equipment points at it. */
+  _id: string;
+  guildId: string;
+  userId: string;
+  /** The catalog item (ItemDef.id) this is a copy of. */
+  itemId: string;
+  /** Refinement level. 0 for a new copy. Reserved for upgrades: it has no effect yet. */
+  level: number;
+  obtainedAt: Date;
+}
+
+/**
+ * The old inventory: one document per (server, user, item) with a count. Nothing writes to it
+ * any more; it is only read once, by the migration to ItemCopyDoc (services/migrate.ts).
+ */
+export interface LegacyInventoryDoc {
+  _id: ObjectId;
   guildId: string;
   userId: string;
   itemId: string;
   count: number;
   firstObtainedAt: Date;
+  /** Set by the migration once this stack has been turned into copies. */
+  migratedAt?: Date | null;
+}
+
+/** Small bookkeeping records, like "the inventory migration has finished". */
+export interface MetaDoc {
+  _id: string;
+  [key: string]: unknown;
 }
 
 export type LedgerReason =

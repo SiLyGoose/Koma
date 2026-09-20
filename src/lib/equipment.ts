@@ -2,7 +2,7 @@ import { CONFIG } from '../config.js';
 import { EFFECT_TEXT } from '../constants.js';
 import { EFFECT_IDS, emptyTotals, type EffectId, type EffectTotals } from '../data/effects.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { SLOTS, type EquipmentDoc, type ItemDef, type Stars } from '../types.js';
+import { SLOTS, type GearIds, type ItemDef, type Stars } from '../types.js';
 import { formatPercent } from './format.js';
 
 /** How strong an effect is on an item of the given star tier, from the live settings. */
@@ -14,7 +14,7 @@ export function effectStrength(effect: EffectId, stars: Stars): number {
  * The catalog items a member has equipped. Ids that are no longer in the catalog, or that sit
  * in the wrong slot (say the catalog changed), are ignored rather than trusted.
  */
-export function equippedItems(equipment: EquipmentDoc | null | undefined): ItemDef[] {
+export function equippedItems(equipment: GearIds | null | undefined): ItemDef[] {
   const items: ItemDef[] = [];
   for (const slot of SLOTS) {
     const id = equipment?.[slot];
@@ -35,7 +35,7 @@ export function totalEffects(items: readonly ItemDef[]): EffectTotals {
 }
 
 /** Shortcut: the combined effects of everything a member has equipped. */
-export function gearEffects(equipment: EquipmentDoc | null | undefined): EffectTotals {
+export function gearEffects(equipment: GearIds | null | undefined): EffectTotals {
   return totalEffects(equippedItems(equipment));
 }
 

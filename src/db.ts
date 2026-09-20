@@ -1,12 +1,16 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { InventoryDoc, LedgerDoc, MemberDoc, SettingsDoc } from './types.js';
+import type { ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
-  inventory: Collection<InventoryDoc>;
+  /** One document per copy of an item a member owns. */
+  items: Collection<ItemCopyDoc>;
+  /** The old inventory (a count per item). Only read by the one-time migration. */
+  inventory: Collection<LegacyInventoryDoc>;
   ledger: Collection<LedgerDoc>;
   settings: Collection<SettingsDoc>;
+  meta: Collection<MetaDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -22,9 +26,11 @@ export async function connectDb(): Promise<Collections> {
 
   const collections: Collections = {
     members: db.collection<MemberDoc>('members'),
-    inventory: db.collection<InventoryDoc>('inventory'),
+    items: db.collection<ItemCopyDoc>('items'),
+    inventory: db.collection<LegacyInventoryDoc>('inventory'),
     ledger: db.collection<LedgerDoc>('ledger'),
     settings: db.collection<SettingsDoc>('settings'),
+    meta: db.collection<MetaDoc>('meta'),
   };
 
   await Promise.all([
@@ -32,7 +38,8 @@ export async function connectDb(): Promise<Collections> {
     collections.members.createIndex({ guildId: 1, userId: 1 }, { unique: true }),
     // Leaderboard lookups.
     collections.members.createIndex({ guildId: 1, points: -1 }),
-    collections.inventory.createIndex({ guildId: 1, userId: 1, itemId: 1 }, { unique: true }),
+    // A member's copies, and their copies of one item.
+    collections.items.createIndex({ guildId: 1, userId: 1, itemId: 1 }),
     collections.ledger.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
   ]);
 
