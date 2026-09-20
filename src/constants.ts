@@ -271,6 +271,10 @@ export const TEXT = {
     unknownAction: (p: string) =>
       `Use \`${p}config\` to see the settings, or \`${p}config set <setting> <value>\` (admin only).`,
     adminOnly: 'Only the bot admin can change settings.',
+    /** Shown when someone tries to change the prefix while the bot runs with ENV=LOCAL. */
+    prefixFromEnv: "This bot is running with ENV=LOCAL, so its prefix comes from the .env file and can't be changed here.",
+    /** The prefix in the settings list while it comes from .env. */
+    prefixFromEnvValue: (prefix: string) => `${prefix} (from .env)`,
     usageSet: (p: string) => `Usage: \`${p}config set <setting> <value>\`. See \`${p}config\` for the setting names.`,
     usageReset: (p: string) => `Usage: \`${p}config reset <setting>\`. See \`${p}config\` for the setting names.`,
     noSuchSetting: (p: string, key: string) => `There is no setting called \`${key}\`. See \`${p}config\` for the list.`,

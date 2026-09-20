@@ -7,12 +7,22 @@ import { validateItems } from './data/items.js';
 import { closeDb, connectDb } from './db.js';
 import { requireEnv } from './env.js';
 import { parseCommand } from './lib/parse.js';
-import { getPrefix, loadSettings, refreshSettings } from './services/settings.js';
+import { resolvePrefixSource } from './lib/prefix-source.js';
+import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
   validateConstants();
   validateConfig();
   validateItems();
+
+  // With ENV=LOCAL the prefix comes from .env (DS_PREFIX); otherwise it is read from MongoDB.
+  const prefixSource = resolvePrefixSource(process.env);
+  if (prefixSource.source === 'env') {
+    setEnvPrefix(prefixSource.prefix);
+    console.log(`ENV=LOCAL: using the prefix "${prefixSource.prefix}" from .env. The prefix stored in MongoDB is ignored.`);
+  } else {
+    console.log('Using the prefix stored in MongoDB.');
+  }
 
   // Fail fast on a missing token, before opening the database connection.
   const token = requireEnv('DS_TOKEN');
@@ -20,8 +30,8 @@ async function main(): Promise<void> {
   await connectDb();
   console.log('Connected to MongoDB.');
 
-  // The command prefix lives in the database (settings collection, default "k!"). Re-read it
-  // every minute so an edit in MongoDB takes effect without restarting the bot.
+  // Unless ENV=LOCAL, the command prefix lives in the database (settings collection, default
+  // "k!"). Re-read it every minute so an edit in MongoDB takes effect without restarting the bot.
   await loadSettings();
   const settingsTimer = setInterval(() => {
     refreshSettings().catch((err) => console.error('Failed to refresh settings:', err));

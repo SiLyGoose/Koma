@@ -24,8 +24,24 @@ import {
 const SETTINGS_ID = 'global';
 export const DEFAULT_PREFIX = DEFAULTS.prefix;
 
+/**
+ * Set when the bot runs with ENV=LOCAL: the prefix then comes from .env (see
+ * lib/prefix-source.ts) and the `prefix` setting in MongoDB is ignored. Null means the prefix
+ * is read from MongoDB like every other setting.
+ */
+let envPrefix: string | null = null;
+
+export function setEnvPrefix(prefix: string | null): void {
+  envPrefix = prefix;
+}
+
+/** True when the prefix comes from .env instead of MongoDB. */
+export function isPrefixFromEnv(): boolean {
+  return envPrefix !== null;
+}
+
 export function getPrefix(): string {
-  return CONFIG.prefix;
+  return envPrefix ?? CONFIG.prefix;
 }
 
 let lastWarning = '';
@@ -104,6 +120,7 @@ export type ChangeResult =
   | { ok: false; reason: 'forbidden' | 'unknown_setting' | 'invalid'; error: string };
 
 const FORBIDDEN: ChangeResult = { ok: false, reason: 'forbidden', error: TEXT.config.adminOnly };
+const PREFIX_FROM_ENV: ChangeResult = { ok: false, reason: 'invalid', error: TEXT.config.prefixFromEnv };
 
 function unknownSetting(key: string): ChangeResult {
   return { ok: false, reason: 'unknown_setting', error: TEXT.config.unknownSetting(key) };
@@ -127,6 +144,7 @@ export async function changeSetting(actorId: string, key: string, rawValue: stri
   if (!isAdmin(actorId)) return FORBIDDEN;
   const spec = findSpec(key);
   if (!spec) return unknownSetting(key);
+  if (spec.key === 'prefix' && isPrefixFromEnv()) return PREFIX_FROM_ENV;
 
   const parsed = parseInput(spec, rawValue);
   if (!parsed.ok) return { ok: false, reason: 'invalid', error: TEXT.config.invalidValue(spec.key, parsed.error) };
@@ -138,5 +156,6 @@ export async function resetSetting(actorId: string, key: string): Promise<Change
   if (!isAdmin(actorId)) return FORBIDDEN;
   const spec = findSpec(key);
   if (!spec) return unknownSetting(key);
+  if (spec.key === 'prefix' && isPrefixFromEnv()) return PREFIX_FROM_ENV;
   return applyChange(spec, getPath(DEFAULTS, spec.key) as string | number);
 }

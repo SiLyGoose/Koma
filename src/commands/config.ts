@@ -3,7 +3,7 @@ import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../data/effects.js';
 import { findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
-import { changeSetting, getPrefix, resetSetting } from '../services/settings.js';
+import { changeSetting, getPrefix, isPrefixFromEnv, resetSetting } from '../services/settings.js';
 import { reply } from './reply.js';
 import type { Command } from './types.js';
 
@@ -12,6 +12,9 @@ const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Rob', 'Equ
 function describeValue(spec: SettingSpec): string {
   const value = getPath(CONFIG, spec.key);
   const shown = formatValue(spec, value);
+
+  // With ENV=LOCAL the prefix in use is the one from .env, not the one stored in MongoDB.
+  if (spec.key === 'prefix' && isPrefixFromEnv()) return TEXT.config.prefixFromEnvValue(getPrefix());
 
   // Show each star weight as the chance it actually works out to.
   if (spec.key.startsWith('gacha.starWeights.') && typeof value === 'number') {
