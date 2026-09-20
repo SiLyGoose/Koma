@@ -1,0 +1,106 @@
+import { CONFIG, isAdmin, STARS } from '../config.js';
+import { TEXT } from '../constants.js';
+import { createEmbed } from '../lib/embed.js';
+import { EFFECT_IDS } from '../data/effects.js';
+import { findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
+import { changeSetting, getPrefix, resetSetting } from '../services/settings.js';
+import { reply } from './reply.js';
+import type { Command } from './types.js';
+
+const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Rob', 'Equipment'];
+
+function describeValue(spec: SettingSpec): string {
+  const value = getPath(CONFIG, spec.key);
+  const shown = formatValue(spec, value);
+
+  // Show each star weight as the chance it actually works out to.
+  if (spec.key.startsWith('gacha.starWeights.') && typeof value === 'number') {
+    const total = STARS.reduce((sum, stars) => sum + CONFIG.gacha.starWeights[stars], 0);
+    if (total > 0) return TEXT.config.starShare(shown, Number(((value / total) * 100).toFixed(1)));
+  }
+  return shown;
+}
+
+/** The lines for one group of the list. Equipment shows one line per effect with all three tiers. */
+function groupLines(group: SettingSpec['group']): string[] {
+  if (group === 'Equipment') {
+    return EFFECT_IDS.map((id) => {
+      const tiers = STARS.map((stars) => {
+        const spec = findSpec(`equipment.${id}.${stars}`) as SettingSpec;
+        return describeValue(spec);
+      });
+      return TEXT.config.equipmentSetting(id, STARS.join('|'), tiers.join(' / '));
+    });
+  }
+  return SPECS.filter((spec) => spec.group === group).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+}
+
+export const config: Command = {
+  name: 'config',
+  aliases: ['settings'],
+  description: 'See the bot settings. Only the bot admin can change them.',
+  usage: 'config [set <setting> <value> | reset <setting>]',
+
+  async execute({ message, args }) {
+    const p = getPrefix();
+    const action = args[0]?.toLowerCase();
+
+    if (action === undefined || action === 'list' || action === 'view') {
+      const embed = createEmbed()
+        .setTitle(TEXT.config.title)
+        .setFooter({
+          text: isAdmin(message.author.id) ? TEXT.config.footerAdmin(p) : TEXT.config.footerOthers,
+        });
+      for (const group of GROUPS) {
+        embed.addFields({
+          name: group === 'Equipment' ? TEXT.config.equipmentGroup(STARS.map((stars) => `${stars}-star`).join(' / ')) : group,
+          value: groupLines(group).join('\n'),
+        });
+      }
+      await reply(message, { embeds: [embed] });
+      return;
+    }
+
+    if (action !== 'set' && action !== 'reset') {
+      await reply(message, TEXT.config.unknownAction(p));
+      return;
+    }
+
+    // Everything below changes something, so it is admin only.
+    if (!isAdmin(message.author.id)) {
+      await reply(message, TEXT.config.adminOnly);
+      return;
+    }
+
+    const key = args[1];
+    if (!key) {
+      await reply(message, action === 'set' ? TEXT.config.usageSet(p) : TEXT.config.usageReset(p));
+      return;
+    }
+    if (!findSpec(key)) {
+      await reply(message, TEXT.config.noSuchSetting(p, key));
+      return;
+    }
+
+    let result;
+    if (action === 'set') {
+      const value = args.slice(2).join(' ');
+      if (!value) {
+        await reply(message, TEXT.config.askValue(p, key));
+        return;
+      }
+      result = await changeSetting(message.author.id, key, value);
+    } else {
+      result = await resetSetting(message.author.id, key);
+    }
+
+    if (!result.ok) {
+      await reply(message, result.error);
+      return;
+    }
+    await reply(
+      message,
+      (action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(result.key, result.oldValue, result.newValue),
+    );
+  },
+};

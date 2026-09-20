@@ -1,0 +1,83 @@
+import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { commandMap } from './commands/index.js';
+import { reply } from './commands/reply.js';
+import { validateConfig } from './config.js';
+import { SETTINGS_REFRESH_MS, TEXT, validateConstants } from './constants.js';
+import { validateItems } from './data/items.js';
+import { closeDb, connectDb } from './db.js';
+import { requireEnv } from './env.js';
+import { parseCommand } from './lib/parse.js';
+import { getPrefix, loadSettings, refreshSettings } from './services/settings.js';
+
+async function main(): Promise<void> {
+  validateConstants();
+  validateConfig();
+  validateItems();
+
+  // Fail fast on a missing token, before opening the database connection.
+  const token = requireEnv('DS_TOKEN');
+
+  await connectDb();
+  console.log('Connected to MongoDB.');
+
+  // The command prefix lives in the database (settings collection, default "k!"). Re-read it
+  // every minute so an edit in MongoDB takes effect without restarting the bot.
+  await loadSettings();
+  const settingsTimer = setInterval(() => {
+    refreshSettings().catch((err) => console.error('Failed to refresh settings:', err));
+  }, SETTINGS_REFRESH_MS);
+  settingsTimer.unref();
+
+  // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
+  // (your application > Bot > Privileged Gateway Intents > Message Content Intent).
+  const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  });
+
+  client.once(Events.ClientReady, (readyClient) => {
+    console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"`);
+  });
+
+  client.on(Events.MessageCreate, async (message) => {
+    if (message.author.bot || !message.inGuild()) return;
+
+    const parsed = parseCommand(message.content, getPrefix());
+    if (!parsed) return;
+
+    const command = commandMap.get(parsed.name);
+    if (!command) return;
+
+    try {
+      await command.execute({ message, args: parsed.args });
+    } catch (err) {
+      console.error(`Error running ${getPrefix()}${parsed.name}:`, err);
+      try {
+        await reply(message, TEXT.common.error);
+      } catch (replyErr) {
+        console.error('Could not send the error message:', replyErr);
+      }
+    }
+  });
+
+  const shutdown = async (signal: string): Promise<void> => {
+    console.log(`Received ${signal}, shutting down.`);
+    await client.destroy();
+    await closeDb();
+    process.exit(0);
+  };
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+
+  await client.login(token);
+}
+
+main().catch((err) => {
+  console.error('Fatal error during startup:', err);
+  if (err instanceof Error && /disallowed intents/i.test(err.message)) {
+    console.error(
+      'Turn on "Message Content Intent" in the Discord Developer Portal: ' +
+        'your application > Bot > Privileged Gateway Intents.',
+    );
+  }
+  process.exit(1);
+});
