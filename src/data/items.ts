@@ -46,7 +46,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 2,
     slot: 'armor',
     description: 'Pockets everywhere, every one of them lined with silk.',
-    effects: ['robDefense', 'claimBonus'],
+    effects: ['claimBonus'],
   },
 
   // 3 stars
@@ -56,15 +56,15 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 3,
     slot: 'weapon',
     description: 'Hammered from a meteor. When it moves, the guards look the other way.',
-    effects: ['robChance', 'robAmount', 'fineReduction'],
+    effects: ['robChance', 'fineReduction'],
   },
   {
     id: 'dragonscale-aegis',
     name: 'Dragonscale Aegis',
     stars: 3,
     slot: 'armor',
-    description: 'A shield grown, not forged. Dragons never pay full price, and neither does its bearer.',
-    effects: ['robDefense', 'robShield', 'pullDiscount'],
+    description: 'A shield grown, not forged. It is said to have been worn by a dragon slayer.',
+    effects: ['robDefense', 'robShield'],
   },
 
   // 4 stars
