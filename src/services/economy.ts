@@ -1,9 +1,9 @@
 import { CONFIG } from '../config.js';
-import { MINUTE_MS } from '../constants.js';
+import { MINUTE_MS, PITY_STARS } from '../constants.js';
 import { collections } from '../db.js';
 import { groupCopies, newCopyId, type InventoryEntry } from '../lib/copies.js';
 import { gearEffects } from '../lib/equipment.js';
-import { rollItem } from '../lib/gacha.js';
+import { rollItem, topChance } from '../lib/gacha.js';
 import { claimAmount, pullCost, robFine, robStolenAmount, robSuccessChance } from '../lib/perks.js';
 import { chance, randInt } from '../lib/random.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
@@ -56,6 +56,7 @@ export async function ensureMember(guildId: string, userId: string): Promise<voi
           lastRobAt: null,
           lastRobbedAt: null,
           totalPulls: 0,
+          pity: 0,
           createdAt: new Date(),
         },
       },
@@ -186,7 +187,21 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
 // ---------------------------------------------------------------------------
 
 export type PullResult =
-  | { ok: true; item: ItemDef; isNew: boolean; count: number; balance: number; cost: number; baseCost: number }
+  | {
+      ok: true;
+      item: ItemDef;
+      isNew: boolean;
+      count: number;
+      balance: number;
+      cost: number;
+      baseCost: number;
+      /**
+       * Where the member is on the pity counter after this pull (0 right after a top-tier item),
+       * and the pull that is guaranteed. Null when pity isn't in effect (turned off, or the tier
+       * can't be pulled).
+       */
+      pity: { count: number; hardPity: number } | null;
+    }
   | { ok: false; balance: number; cost: number };
 
 /** Gives the member a new copy of an item. `count` is how many copies of it they now have. */
@@ -214,10 +229,17 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
   const member = await members.findOne({ guildId, userId });
   const cost = pullCost(baseCost, gearEffects(await resolveGear(guildId, userId, member?.equipment)));
 
-  // Take the payment first, only if the member can afford it.
+  // Pity only counts while it is in effect (turned on, and the top tier can actually be pulled),
+  // so pulls made before an admin switches it on don't build up a guarantee.
+  const { hardPity } = CONFIG.gacha.pity;
+  const pityOn = hardPity > 0 && topChance(1) > 0;
+
+  // Take the payment first, only if the member can afford it. The same update counts this pull
+  // toward pity, and what it returns is which pull this is since their last top-tier item, so
+  // two pulls at once can never be given the same number.
   const debited = await members.findOneAndUpdate(
     { guildId, userId, points: { $gte: cost } },
-    { $inc: { points: -cost, totalPulls: 1 } },
+    { $inc: { points: -cost, totalPulls: 1, ...(pityOn ? { pity: 1 } : {}) } },
     { returnDocument: 'after' },
   );
   if (!debited) {
@@ -225,13 +247,24 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
     return { ok: false, balance: current?.points ?? 0, cost };
   }
 
-  const item = rollItem();
+  const pullNumber = pityOn ? (debited.pity ?? 1) : 1;
+  const item = rollItem(pullNumber);
+  const resetsPity = pityOn && item.stars === PITY_STARS;
+
+  // What this pull has added to the pity counter so far, so a failure can undo exactly that.
+  let pityChange = pityOn ? 1 : 0;
   let owned: { copy: ItemCopyDoc; count: number };
   try {
+    if (resetsPity) {
+      // Start counting again. Subtracting (instead of setting 0) keeps any pull that was
+      // counted at the same moment.
+      await members.updateOne({ guildId, userId }, { $inc: { pity: -pullNumber } });
+      pityChange -= pullNumber;
+    }
     owned = await addCopy(guildId, userId, item.id);
   } catch (err) {
     // Could not hand over the item, so refund the pull.
-    await members.updateOne({ guildId, userId }, { $inc: { points: cost, totalPulls: -1 } });
+    await members.updateOne({ guildId, userId }, { $inc: { points: cost, totalPulls: -1, ...(pityChange !== 0 ? { pity: -pityChange } : {}) } });
     throw err;
   }
 
@@ -244,6 +277,7 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
     balance: debited.points,
     cost,
     baseCost,
+    pity: pityOn ? { count: resetsPity ? 0 : pullNumber, hardPity } : null,
   };
 }
 

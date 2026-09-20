@@ -1,4 +1,4 @@
-import { TEXT } from '../constants.js';
+import { PITY_STARS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, starString } from '../lib/format.js';
 import { pullGacha } from '../services/economy.js';
@@ -37,6 +37,13 @@ export const gacha: Command = {
       )
       .setFooter({ text: result.isNew ? TEXT.gacha.footerNew : TEXT.gacha.footerOwned(result.count) })
       .setAuthor({ name: TEXT.gacha.author(message.author.displayName), iconURL: message.author.displayAvatarURL() });
+    // if (result.pity) {
+    //   embed.addFields({
+    //     name: TEXT.gacha.pityField(starString(PITY_STARS)),
+    //     value: TEXT.gacha.pityProgress(fmt(result.pity.count), fmt(result.pity.hardPity)),
+    //     inline: true,
+    //   });
+    // }
     await reply(message, { embeds: [embed] });
   },
 };

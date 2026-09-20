@@ -1,5 +1,5 @@
 import type { EffectId } from './data/effects.js';
-import type { Slot } from './types.js';
+import type { Slot, Stars } from './types.js';
 
 /*
  * Every fixed value and every piece of text the bot sends, in one place, so you can change
@@ -57,6 +57,16 @@ export const MAX_LEADERBOARD_SIZE = 25;
 
 /** Longest command prefix the settings accept. */
 export const MAX_PREFIX_LENGTH = 10;
+
+/** Highest pull count the pity settings accept. */
+export const MAX_PITY = 1000;
+
+/**
+ * The star tier the pity system works on: a member's pity counts the pulls since their last item
+ * of this tier, the chance of getting one rises as it grows, and one is guaranteed at the hard
+ * pity pull (settings gacha.pity.*). Pity does nothing while this tier's pull weight is 0.
+ */
+export const PITY_STARS: Stars = 4;
 
 /** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
 export const FIELD_MAX_LENGTH = 1000;
@@ -158,6 +168,9 @@ export const TEXT = {
     spent: (cost: string) => cost,
     spentWithGear: (cost: string, saved: string) => `${cost} (gear saved ${saved})`,
     balanceField: 'Balance',
+    /** Field showing how close the member is to a guaranteed top-tier item. `stars` is the star string. */
+    pityField: (stars: string) => `Pity (${stars})`,
+    pityProgress: (count: string, hardPity: string) => `${count} / ${hardPity}`,
     footerNew: 'New item!',
     footerOwned: (count: number) => `You now own ${count}`,
   },
@@ -323,6 +336,7 @@ export function validateConstants(): void {
     ['MAX_SETTING_POINTS', MAX_SETTING_POINTS],
     ['MAX_TIMER_MINUTES', MAX_TIMER_MINUTES],
     ['MAX_LEADERBOARD_SIZE', MAX_LEADERBOARD_SIZE],
+    ['MAX_PITY', MAX_PITY],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) problems.push(`${name} must be a whole number of at least 1`);

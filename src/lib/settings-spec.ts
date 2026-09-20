@@ -1,10 +1,12 @@
 import {
   MAX_LEADERBOARD_SIZE,
+  MAX_PITY,
   MAX_PREFIX_LENGTH,
   MAX_SETTING_POINTS,
   MAX_TIMER_MINUTES,
   NUMBER_LOCALE,
   PERCENT_DECIMALS,
+  PITY_STARS,
 } from '../constants.js';
 import { EFFECT_IDS, EFFECTS } from '../data/effects.js';
 import { STARS } from '../types.js';
@@ -67,6 +69,20 @@ export const SPECS: readonly SettingSpec[] = [
   int('gacha.starWeights.2', 'Gacha', 'Relative chance of a 2-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.3', 'Gacha', 'Relative chance of a 3-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.4', 'Gacha', 'Relative chance of a 4-star pull.', 0, MAX_POINTS),
+  int(
+    'gacha.pity.softStart',
+    'Gacha',
+    `Pull number (since the last ${PITY_STARS}-star) where the ${PITY_STARS}-star chance starts rising.`,
+    1,
+    MAX_PITY,
+  ),
+  int(
+    'gacha.pity.hardPity',
+    'Gacha',
+    `Pull number (since the last ${PITY_STARS}-star) that is guaranteed to give one (0 turns pity off).`,
+    0,
+    MAX_PITY,
+  ),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
   int('rob.minStolen', 'Rob', 'Lowest number of points a successful rob takes.', 1, MAX_POINTS),
@@ -219,6 +235,10 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.rob.minChance > settings.rob.maxChance) {
     return 'rob.minChance cannot be higher than rob.maxChance';
+  }
+  const { softStart, hardPity } = settings.gacha.pity;
+  if (hardPity > 0 && softStart > hardPity) {
+    return 'gacha.pity.softStart cannot be higher than gacha.pity.hardPity';
   }
   const weights = settings.gacha.starWeights;
   if (STARS.reduce((sum, stars) => sum + weights[stars], 0) <= 0) {

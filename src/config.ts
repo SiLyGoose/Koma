@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID } from './constants.js';
+import { ADMIN_USER_ID, PITY_STARS } from './constants.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './data/effects.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -28,6 +28,15 @@ export interface Settings {
     cost: number;
     /** Relative weights for each star tier. They do not need to add up to 100. */
     starWeights: Record<Stars, number>;
+    /**
+     * Pity for the top tier (PITY_STARS in constants.ts). The Nth pull since the last top-tier
+     * item has its chance raised: from softStart the chance climbs a step per pull, and reaches
+     * 100% at hardPity. hardPity 0 turns pity off.
+     */
+    pity: {
+      softStart: number;
+      hardPity: number;
+    };
   };
   rob: {
     /** Minutes a robber must wait between attempts. */
@@ -73,7 +82,9 @@ export const DEFAULTS: Readonly<Settings> = {
   claim: { min: 100, max: 500 },
   gacha: {
     cost: 280,
-    starWeights: { 1: 70, 2: 25, 3: 5, 4: 0 },
+    // 4-star is 0.6% (6 in 1000). Pity only works while the 4-star weight is above 0.
+    starWeights: { 1: 694, 2: 250, 3: 50, 4: 6 },
+    pity: { softStart: 70, hardPity: 90 },
   },
   rob: {
     cooldownMinutes: 60,
@@ -98,6 +109,7 @@ export const DEFAULTS: Readonly<Settings> = {
 export const CONFIG: Settings = structuredClone(DEFAULTS);
 
 export function validateConfig(): void {
+  if (!STARS.includes(PITY_STARS)) throw new Error(`PITY_STARS (${PITY_STARS}) must be one of ${STARS.join(', ')}`);
   const problems = validateSettings(CONFIG);
   if (problems.length > 0) throw new Error(`Invalid settings: ${problems.join('; ')}`);
 }

@@ -90,6 +90,26 @@ test('cross-setting rules', () => {
   assert.equal(checkConstraints(fourOnly), null);
 });
 
+test('pity settings: whole numbers, hard pity can be 0 (off), soft start can not pass hard pity', () => {
+  const soft = spec('gacha.pity.softStart');
+  const hard = spec('gacha.pity.hardPity');
+  assert.deepEqual(parseInput(soft, '70'), { ok: true, value: 70 });
+  assert.deepEqual(parseInput(hard, '90'), { ok: true, value: 90 });
+  assert.deepEqual(parseInput(hard, '0'), { ok: true, value: 0 });
+  for (const bad of ['0', '-1', '2.5', 'lots']) assert.equal(parseInput(soft, bad).ok, false, `softStart "${bad}"`);
+  for (const bad of ['-1', '1.5', '1001']) assert.equal(parseInput(hard, bad).ok, false, `hardPity "${bad}"`);
+
+  const s = structuredClone(DEFAULTS);
+  assert.equal(checkConstraints(s), null);
+  s.gacha.pity = { softStart: 95, hardPity: 90 };
+  assert.match(checkConstraints(s) ?? '', /softStart/);
+  s.gacha.pity = { softStart: 90, hardPity: 90 };
+  assert.equal(checkConstraints(s), null);
+  // With pity off, the soft start doesn't matter.
+  s.gacha.pity = { softStart: 500, hardPity: 0 };
+  assert.equal(checkConstraints(s), null);
+});
+
 test('the 4-star weight is a setting like the others', () => {
   const weight = spec('gacha.starWeights.4');
   assert.deepEqual(parseInput(weight, '2'), { ok: true, value: 2 });

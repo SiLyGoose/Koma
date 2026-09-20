@@ -56,6 +56,11 @@ export interface MemberDoc {
    */
   lastRobbedAt?: Date | null;
   totalPulls: number;
+  /**
+   * Pulls since this member's last item of the pity tier (constants.ts PITY_STARS), counting the
+   * latest one. Missing means 0.
+   */
+  pity?: number;
   /** Missing on members who have never equipped anything. */
   equipment?: EquipmentDoc;
   createdAt: Date;
