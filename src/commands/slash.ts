@@ -145,11 +145,11 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   leaderboard: { build: () => {}, toArgs: () => [] },
 
-  rob: {
-    description: 'Steal points from another member. One rob per hour, and a member can be robbed once an hour.',
-    build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),
-    toArgs: (i) => [mention(i.options.getUser('user', true).id)],
-  },
+  // rob: {
+  //   description: 'Steal points from another member. One rob per hour, and a member can be robbed once an hour.',
+  //   build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),
+  //   toArgs: (i) => [mention(i.options.getUser('user', true).id)],
+  // },
 
   sell: {
     description: 'Sell items you are not wearing: one copy, all copies of an item, or a whole star tier.',

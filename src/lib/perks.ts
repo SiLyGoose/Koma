@@ -21,11 +21,24 @@ export function robSuccessChance(
   robber: EffectTotals,
   victim: EffectTotals,
 ): number {
-  const delta = robber.robChance - victim.robDefense;
+  const delta = robber.robChance - victim.robDefense - victim.slothDefense;
   if (delta === 0) return base;
   const low = Math.min(base, limits.minChance);
   const high = Math.max(base, limits.maxChance);
   return clamp(base + delta, low, high);
+}
+
+/** How many times longer the wearer's rob cooldown is (1 with no sloth gear, 2 at +100%). */
+export function robCooldownScale(gear: EffectTotals): number {
+  return 1 + Math.max(0, gear.slothCooldown);
+}
+
+/**
+ * How many clock hours the wearer waits between claims. The claim resets on the hour, so the
+ * extra wait is counted in whole hours: 1 normally, 2 at +100% (every second hour). Never below 1.
+ */
+export function claimGapHours(gear: EffectTotals): number {
+  return Math.max(1, Math.round(robCooldownScale(gear)));
 }
 
 /**

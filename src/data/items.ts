@@ -104,8 +104,8 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     usableBy: ['570657734870171648'], // JJ
     slot: 'armor',
-    description: 'A sloth. It is a sloth.', // protection is doubled but the wearer is slower to rob and claim, so it is a tradeoff.
-    effects: [],
+    description: 'Slow and steady wins the race.',
+    effects: ['slothDefense', 'slothCooldown'],
   },
   {
     id: 'wheelchair',

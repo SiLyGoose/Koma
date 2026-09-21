@@ -57,6 +57,17 @@ export interface MemberDoc {
   lastClaimHour: number;
   lastRobAt: Date | null;
   /**
+   * How many times longer than usual the cooldown that started at lastRobAt is (2 = doubled, from
+   * the slothCooldown gear effect), fixed when that rob was made. Missing or null means 1.
+   */
+  robCooldownScale?: number | null;
+  /**
+   * How many clock hours must pass after lastClaimHour before the next normal claim (2 = every
+   * second hour, from the slothCooldown gear effect), fixed when that claim was made. Missing or
+   * null means 1.
+   */
+  claimGapHours?: number | null;
+  /**
    * When this member was last robbed successfully. They can't be robbed again until
    * rob.victimProtectionMinutes after this. Missing or null means never.
    */

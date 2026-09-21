@@ -8,10 +8,12 @@ import { gearEffects } from '../lib/equipment.js';
 import { rollPulls, topChance } from '../lib/gacha.js';
 import {
   claimAmount,
+  claimGapHours,
   claimTaxAmount,
   claimTaxRate,
   d20Chance,
   pullCost,
+  robCooldownScale,
   robFine,
   robStolenAmount,
   robSuccessChance,
@@ -191,10 +193,11 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
   const hour = currentHour(now);
   return {
     points: member?.points ?? 0,
-    canClaim: !member || member.lastClaimHour < hour || hasBonusClaim(member, hour),
+    canClaim: !member || claimReadyHour(member) <= hour || hasBonusClaim(member, hour),
     bonusClaim: member !== null && hasBonusClaim(member, hour),
-    nextClaimUnix: nextHourUnix(hour),
-    robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS, now),
+    // The end of the hour before the one they can claim in (the end of this hour, normally).
+    nextClaimUnix: nextHourUnix(Math.max(hour, member ? claimReadyHour(member) - 1 : hour)),
+    robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS * (member?.robCooldownScale ?? 1), now),
     robProtectedUntilUnix: timerEndsAtUnix(member?.lastRobbedAt, CONFIG.rob.victimProtectionMinutes * MINUTE_MS, now),
     withered:
       member?.claimTaxRate && member.claimTaxBy ? { rate: member.claimTaxRate, byUserId: member.claimTaxBy } : null,
@@ -249,6 +252,14 @@ export type ClaimResult =
     }
   | { ok: false; nextClaimUnix: number };
 
+/**
+ * The first clock hour in which the member can make a normal claim: the hour after their last
+ * claim, or later if that claim was made in gear that lengthens the wait (claimGapHours).
+ */
+function claimReadyHour(member: Pick<MemberDoc, 'lastClaimHour' | 'claimGapHours'>): number {
+  return member.lastClaimHour + Math.max(1, member.claimGapHours ?? 1);
+}
+
 /** True when the member earned one more claim for this hour (a critical success on the D20) and hasn't used it. */
 function hasBonusClaim(member: Pick<MemberDoc, 'lastClaimHour' | 'bonusClaimHour'>, hour: number): boolean {
   return member.lastClaimHour === hour && member.bonusClaimHour === hour;
@@ -276,10 +287,16 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     const member = await members.findOne({ guildId, userId });
     // A member who rolled a critical success can claim once more in the same hour.
     const extra = member !== null && hasBonusClaim(member, hour);
+    // Otherwise they have to wait out the last claim: an hour, or longer if it was made in gear
+    // that slows them down (the wait is fixed when the claim is made, so taking the gear off
+    // doesn't skip it).
+    const readyHour = member ? claimReadyHour(member) : hour;
+    if (!extra && readyHour > hour) return { ok: false, nextClaimUnix: nextHourUnix(readyHour - 1) };
 
     // Equipped gear can add a bonus on top of the roll, the wheel can then multiply it, and the
     // D20 comes last: it can wipe the claim out, double it or scale it by the number rolled.
     const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
+    const gap = claimGapHours(gear);
     const withGear = claimAmount(rolled, gear);
     const wheel = spinWheel(wheelChance(gear), wheelDice);
     const afterWheel = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
@@ -300,7 +317,7 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
       {
         guildId,
         userId,
-        ...(extra ? { lastClaimHour: hour, bonusClaimHour: hour } : { lastClaimHour: { $lt: hour } }),
+        ...(extra ? { lastClaimHour: hour, bonusClaimHour: hour } : { lastClaimHour: { $lte: hour - Math.max(1, member?.claimGapHours ?? 1) } }),
         claimTaxRate: taxRate,
         claimTaxBy: taxBy,
       },
@@ -308,6 +325,8 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
         $inc: { points: kept },
         $set: {
           lastClaimHour: hour,
+          // How long until the next normal claim (2 = every second hour, with sloth gear).
+          claimGapHours: gap,
           // A critical success earns one more claim this hour; any other claim uses up the one it made.
           bonusClaimHour: bonusLeft ? hour : null,
           ...(failed ? {} : { claimTaxRate: null, claimTaxBy: null }),
@@ -317,8 +336,8 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     );
     if (!updated) {
       const current = await members.findOne({ guildId, userId });
-      if (current && (current.lastClaimHour < hour || hasBonusClaim(current, hour))) continue; // only the tax changed: try again
-      return { ok: false, nextClaimUnix };
+      if (current && (claimReadyHour(current) <= hour || hasBonusClaim(current, hour))) continue; // only the tax changed: try again
+      return { ok: false, nextClaimUnix: nextHourUnix(current ? Math.max(hour, claimReadyHour(current) - 1) : hour) };
     }
 
     // Pay the tax to whoever robbed them. If that fails, the member gets it back instead.
@@ -355,7 +374,7 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
       bonusLeft,
       taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
       balance: updated.points + (tax > 0 && paid === 0 ? tax : 0),
-      nextClaimUnix,
+      nextClaimUnix: nextHourUnix(hour + gap - 1),
     };
   }
   return { ok: false, nextClaimUnix };
@@ -599,7 +618,14 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
   // Start the robber's cooldown atomically. Only one of several rapid attempts can win this. The
   // robber also has to hold at least the base fine, so a rob never starts from less than they
   // could be fined (a bigger fine from their gear can still put them in debt).
-  const cooldownMs = cfg.cooldownMinutes * MINUTE_MS;
+  //
+  // The cooldown a rob starts is fixed at that moment: a robber in gear that slows them down
+  // (slothCooldown) waits longer, and taking the gear off doesn't skip it. So the length that
+  // applies now is the one the last rob started, and the one this rob starts comes from the
+  // robber's gear right now.
+  const robberDoc = await members.findOne({ guildId, userId: robberId });
+  const robberGear = gearEffects(await resolveGear(guildId, robberId, robberDoc?.equipment), robberId);
+  const cooldownMs = cfg.cooldownMinutes * MINUTE_MS * (robberDoc?.robCooldownScale ?? 1);
   const before = await members.findOneAndUpdate(
     {
       guildId,
@@ -607,26 +633,26 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       points: { $gte: cfg.failFine },
       $or: [{ lastRobAt: null }, { lastRobAt: { $lte: new Date(now - cooldownMs) } }],
     },
-    { $set: { lastRobAt: new Date(now) } },
+    { $set: { lastRobAt: new Date(now), robCooldownScale: robCooldownScale(robberGear) } },
     { returnDocument: 'before' },
   );
   if (!before) {
-    const robber = await members.findOne({ guildId, userId: robberId });
-    const last = robber?.lastRobAt?.getTime();
+    const latest = await members.findOne({ guildId, userId: robberId });
+    const last = latest?.lastRobAt?.getTime();
     if (last !== undefined && last > now - cooldownMs) {
       return { ok: false, reason: 'cooldown', availableAtUnix: Math.ceil((last + cooldownMs) / 1000) };
     }
-    return { ok: false, reason: 'robber_too_poor', fine: cfg.failFine, balance: robber?.points ?? 0 };
+    return { ok: false, reason: 'robber_too_poor', fine: cfg.failFine, balance: latest?.points ?? 0 };
   }
 
   const restoreCooldown = () =>
-    members.updateOne({ guildId, userId: robberId }, { $set: { lastRobAt: before.lastRobAt } });
+    members.updateOne(
+      { guildId, userId: robberId },
+      { $set: { lastRobAt: before.lastRobAt, robCooldownScale: before.robCooldownScale ?? null } },
+    );
 
-  // Gear: the robber's weapon and the victim's armor (which protects even while they're offline).
-  const [robberGear, victimGear] = await Promise.all([
-    resolveGear(guildId, robberId, before.equipment).then((gear) => gearEffects(gear, robberId)),
-    resolveGear(guildId, victimId, victim?.equipment).then((gear) => gearEffects(gear, victimId)),
-  ]);
+  // The victim's armor protects them even while they're offline.
+  const victimGear = gearEffects(await resolveGear(guildId, victimId, victim?.equipment), victimId);
   const successChance = robSuccessChance(cfg.successChance, cfg, robberGear, victimGear);
 
   // Set once this rob has started the victim's protection timer, so it can be undone on failure.

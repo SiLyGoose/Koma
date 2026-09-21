@@ -58,6 +58,23 @@ export const EFFECTS = {
     max: MAX_REDUCTION,
   },
 
+  // Sid the Sloth: much better protection from robbers, paid for with slower cooldowns. An item that
+  // should be a sloth lists both effects. The protection stacks with robDefense.
+  slothDefense: {
+    description:
+      "Sloth, protection: taken off the chance of a robber succeeding against the wearer (percentage points). Stacks with robDefense.",
+    defaults: { 1: 0.1, 2: 0.2, 3: 0.3, 4: 0.4 },
+    min: 0,
+    max: 1,
+  },
+  slothCooldown: {
+    description:
+      "Sloth, cost: how much longer the wearer's rob and claim cooldowns are, as a percent (100% doubles them). The rob cooldown is stretched exactly; the claim resets on the hour, so its wait is counted in whole hours (100% makes it every second hour).",
+    defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
+    min: 0,
+    max: 10,
+  },
+
   // Caught protection: the wearer robbing and failing.
   fineReduction: {
     description: 'Percent of the fine waived when the wearer is caught robbing.',
@@ -100,8 +117,8 @@ export const EFFECTS = {
   },
   glassCannonPenalty: {
     description:
-      'Glass cannon, risk: extra fine the wearer pays when caught robbing, as a percent of the normal fine (250% is 3.5x).',
-    defaults: { 1: 0.625, 2: 1.25, 3: 1.875, 4: 2.5 },
+      'Glass cannon, risk: extra fine the wearer pays when caught robbing, as a percent of the normal fine (150% is 2.5x).',
+    defaults: { 1: 0.75, 2: 1, 3: 1.25, 4: 1.5 },
     min: 0,
     max: 10,
   },

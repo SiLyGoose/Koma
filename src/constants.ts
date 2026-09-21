@@ -167,6 +167,8 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   wheelSpin: (value) => `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel`,
   d20: (value) =>
     `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
+  slothDefense: (value) => `Sloth: -${value} chance of being robbed`,
+  slothCooldown: (value) => `Sloth: +${value} rob and claim cooldowns`,
   glassCannon: (value) => `Glass cannon: +${value} points stolen`,
   glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
   claimBonus: (value) => `+${value} points from hourly claims`,
@@ -258,7 +260,7 @@ export const TEXT = {
     title: 'Hourly claim',
     claimed: (user: string, amount: string) => `${user} claimed **${amount}** points.`,
     claimedWithGear: (user: string, amount: string, bonus: string) =>
-      `${user} claimed **${amount}** points. (${bonus} of that came from your gear.)`,
+      `${user} claimed **${amount}** points. (+${bonus} from gear.)`,
     /** Added when part of the claim was taxed by someone who robbed them. `taker` is a mention. */
     taxed: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** of it. You kept **${kept}**.`,
     balanceField: 'Balance',
