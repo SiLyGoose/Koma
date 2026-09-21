@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS } from './constants.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS } from './constants.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './data/effects.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -69,6 +69,17 @@ export interface Settings {
     /** Points a member gets for selling one item of each star tier (sell command). */
     price: Record<Stars, number>;
   };
+  plinko: {
+    /** The smallest and biggest bet. */
+    minBet: number;
+    maxBet: number;
+    /**
+     * What each slot pays, as a multiple of the bet. The board is mirrored, so there is one number
+     * per slot counting in from the edge: 1 is the two outermost slots, and the last one is the
+     * middle slot (PLINKO_ROWS / 2 + 1 numbers in all).
+     */
+    payout: Record<number, number>;
+  };
   /** How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. */
   equipment: EquipmentSettings;
   leaderboardSize: number;
@@ -103,6 +114,9 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
   sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 } },
+  // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
+  // least: these average out to about 98% of the bet.
+  plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
   equipment: defaultEquipmentSettings(),
   leaderboardSize: 10,
 };
@@ -116,6 +130,10 @@ export const CONFIG: Settings = structuredClone(DEFAULTS);
 
 export function validateConfig(): void {
   if (!STARS.includes(PITY_STARS)) throw new Error(`PITY_STARS (${PITY_STARS}) must be one of ${STARS.join(', ')}`);
+  const payoutKeys = Object.keys(DEFAULTS.plinko.payout).length;
+  if (payoutKeys !== PLINKO_ROWS / 2 + 1) {
+    throw new Error(`DEFAULTS.plinko.payout needs ${PLINKO_ROWS / 2 + 1} numbers for PLINKO_ROWS ${PLINKO_ROWS}, it has ${payoutKeys}`);
+  }
   const problems = validateSettings(CONFIG);
   if (problems.length > 0) throw new Error(`Invalid settings: ${problems.join('; ')}`);
 }

@@ -10,6 +10,7 @@ import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
 import { parseGiveArgs } from '../src/lib/give.js';
 import { parseUserArg } from '../src/lib/parse.js';
+import { parseBetArg } from '../src/lib/plinko.js';
 import { parseSellArgs } from '../src/lib/sell.js';
 import { createEmbed } from '../src/lib/embed.js';
 
@@ -165,6 +166,13 @@ test('slash options: each sell mode reads back as the same request the prefix co
   assert.deepEqual(all, { ok: true, request: { kind: 'allOf', query: 'Some Item' } });
   const stars = parseSellArgs(args('sell', { sub: 'stars', ints: { tier: 3 } }));
   assert.deepEqual(stars, { ok: true, request: { kind: 'stars', stars: 3 } });
+});
+
+test('slash options: the plinko bet reads back as the same bet the prefix command would read', () => {
+  assert.deepEqual(parseBetArg(args('plinko', { strings: { bet: '100' } })), { ok: true, bet: 100 });
+  assert.deepEqual(parseBetArg(args('plinko', { strings: { bet: 'all' } })), { ok: true, bet: 'all' });
+  assert.deepEqual(args('plinko', { strings: { bet: '1,000' } }), ['1,000']);
+  assert.throws(() => args('plinko', {}), /missing bet/, 'the bet is required');
 });
 
 test('slash options: unequip, give and config', () => {

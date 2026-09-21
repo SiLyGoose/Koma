@@ -9,6 +9,7 @@ import { give } from './give.js';
 import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
+import { plinko } from './plinko.js';
 import { rob } from './rob.js';
 import { sell } from './sell.js';
 import type { Command } from './types.js';
@@ -25,6 +26,7 @@ export const commands: Command[] = [
   databank,
   balance,
   rob,
+  plinko,
   leaderboard,
   config,
   give,

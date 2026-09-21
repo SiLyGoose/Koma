@@ -156,6 +156,15 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   leaderboard: { build: () => {}, toArgs: () => [] },
 
+  plinko: {
+    description: 'Bet points and drop a ball down the plinko board. The slot it lands in decides the payout.',
+    build: (b) =>
+      void b.addStringOption((o) =>
+        o.setName('bet').setDescription('Points to bet, or "all" for the most you can').setRequired(true).setMaxLength(20),
+      ),
+    toArgs: (i) => [i.options.getString('bet', true)],
+  },
+
   rob: {
     description: 'Steal points from another member. One rob per hour, and a member can be robbed once an hour.',
     build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),

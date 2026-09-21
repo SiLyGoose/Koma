@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import type { CommandContext, ReplyOptions, SentReply } from './types.js';
+import type { CommandContext, EditOptions, ReplyOptions, SentReply } from './types.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -72,6 +72,34 @@ export async function playAnimation(
     return;
   }
 
+  await playFrames(sent, plan, embed, spinning, {
+    onEditFailed: async (files) => {
+      await ctx.reply({ embeds: [embed], files, ...options });
+    },
+  });
+}
+
+/** Something whose message can be edited: a reply the bot sent, or the message a button was pressed on. */
+export interface FrameSurface {
+  edit(options: EditOptions): Promise<void>;
+}
+
+/**
+ * The rest of an animation, once its first picture is showing on `surface`: swaps in pictures
+ * 1 up to `plan.steps` every `plan.frameMs` (skipping any it is too late for, if Discord is
+ * slow), then replaces the message with `embed`, the real result, and the finished picture.
+ * `components` (buttons) are added to that last edit. If the last edit fails, `onEditFailed`
+ * is called with the finished picture so the result can still be sent another way.
+ */
+export async function playFrames(
+  surface: FrameSurface,
+  plan: AnimationPlan,
+  embed: BotEmbed,
+  spinning: BotEmbed,
+  options: { components?: EditOptions['components']; onEditFailed: (files: { attachment: Buffer; name: string }[]) => Promise<void> },
+): Promise<void> {
+  const imageUrl = `attachment://${plan.imageName}`;
+  const file = (png: Buffer): { attachment: Buffer; name: string } => ({ attachment: png, name: plan.imageName });
   const { steps, frameMs } = plan;
   const start = Date.now();
   try {
@@ -79,7 +107,7 @@ export async function playAnimation(
       const wait = start + step * frameMs - Date.now();
       if (wait < -frameMs / 2) continue; // running behind (Discord is slow): skip this picture
       if (wait > 0) await sleep(wait);
-      await sent.edit({ embeds: [spinning], files: [file(plan.frame(step))], attachments: [] });
+      await surface.edit({ embeds: [spinning], files: [file(plan.frame(step))], attachments: [] });
     }
     const wait = start + steps * frameMs - Date.now();
     if (wait > 0) await sleep(wait);
@@ -96,9 +124,9 @@ export async function playAnimation(
     console.error('Could not draw the finished picture:', err);
   }
   try {
-    await sent.edit({ embeds: [embed], files, attachments: [] });
+    await surface.edit({ embeds: [embed], files, attachments: [], ...(options.components ? { components: options.components } : {}) });
   } catch (err) {
     console.error('Could not show the result, sending it as a new message:', err);
-    await ctx.reply({ embeds: [embed], files, ...options });
+    await options.onEditFailed(files);
   }
 }

@@ -1,12 +1,14 @@
 import {
   MAX_LEADERBOARD_SIZE,
   MAX_PITY,
+  MAX_PLINKO_MULTIPLIER,
   MAX_PREFIX_LENGTH,
   MAX_SETTING_POINTS,
   MAX_TIMER_MINUTES,
   NUMBER_LOCALE,
   PERCENT_DECIMALS,
   PITY_STARS,
+  PLINKO_ROWS,
 } from '../constants.js';
 import { EFFECT_IDS, EFFECTS } from '../data/effects.js';
 import { STARS } from '../types.js';
@@ -20,13 +22,15 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
   max?: number;
   /** Shown and accepted as a percentage: 0.4 or "40%". */
   percent?: boolean;
+  /** Shown and accepted as a multiplier of a bet: 2.5 or "2.5x". */
+  multiplier?: boolean;
   /** For strings: what a valid value looks like. */
   pattern?: RegExp;
   /** Human wording for `pattern`, used in error messages. */
@@ -121,6 +125,23 @@ export const SPECS: readonly SettingSpec[] = [
     percent: true,
   },
 
+  int('plinko.minBet', 'Plinko', 'Smallest bet on plinko.', 1, MAX_POINTS),
+  int('plinko.maxBet', 'Plinko', 'Biggest bet on plinko.', 1, MAX_POINTS),
+  // One payout per slot counting in from the edge (the board is mirrored), generated from PLINKO_ROWS.
+  ...Array.from({ length: PLINKO_ROWS / 2 + 1 }, (_, i): SettingSpec => {
+    const place = i + 1;
+    const where = place === 1 ? 'the two outermost slots' : place === PLINKO_ROWS / 2 + 1 ? 'the middle slot' : `the two slots ${i} in from the edge`;
+    return {
+      key: `plinko.payout.${place}`,
+      group: 'Plinko',
+      description: `What ${where} pay, as a multiple of the bet (2x pays double, 0.5x pays half back).`,
+      type: 'number',
+      min: 0,
+      max: MAX_PLINKO_MULTIPLIER,
+      multiplier: true,
+    };
+  }),
+
   // One setting per effect per star tier, generated from the effect registry.
   ...EFFECT_IDS.flatMap((id) =>
     STARS.map(
@@ -171,6 +192,7 @@ export function setPath(target: object, path: string, value: unknown): void {
 // ---------------------------------------------------------------------------
 
 function formatNumber(spec: SettingSpec, n: number): string {
+  if (spec.multiplier) return `${Number(n.toFixed(2))}x`;
   return spec.percent ? `${Number((n * 100).toFixed(PERCENT_DECIMALS))}%` : n.toLocaleString(NUMBER_LOCALE);
 }
 
@@ -191,7 +213,8 @@ export function validateValue(spec: SettingSpec, value: unknown): string | null 
     return null;
   }
 
-  const kind = spec.type === 'int' ? 'a whole number' : spec.percent ? 'a percentage like 40% or 0.4' : 'a number';
+  const kind =
+    spec.type === 'int' ? 'a whole number' : spec.percent ? 'a percentage like 40% or 0.4' : spec.multiplier ? 'a multiplier like 2.5 or 2.5x' : 'a number';
   if (
     typeof value !== 'number' ||
     !Number.isFinite(value) ||
@@ -215,6 +238,9 @@ export function parseInput(spec: SettingSpec, raw: string): ParseResult {
     value = spec.normalize ? spec.normalize(text) : text;
   } else if (text === '') {
     value = Number.NaN;
+  } else if (spec.multiplier && /x$/i.test(text)) {
+    const number = text.slice(0, -1).trim();
+    value = number === '' ? Number.NaN : Number(number);
   } else if (spec.percent && text.endsWith('%')) {
     value = Number(text.slice(0, -1).trim()) / 100;
   } else {
@@ -237,6 +263,9 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.rob.minStolen > settings.rob.maxStolen) {
     return 'rob.minStolen cannot be higher than rob.maxStolen';
+  }
+  if (settings.plinko.minBet > settings.plinko.maxBet) {
+    return 'plinko.minBet cannot be higher than plinko.maxBet';
   }
   if (settings.rob.minChance > settings.rob.maxChance) {
     return 'rob.minChance cannot be higher than rob.maxChance';

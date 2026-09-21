@@ -153,6 +153,8 @@ export type LedgerReason =
   | 'claim_tax_received'
   | 'gacha'
   | 'sell'
+  | 'plinko_bet'
+  | 'plinko_payout'
   | 'rob_won'
   | 'rob_lost'
   | 'rob_fine_paid'

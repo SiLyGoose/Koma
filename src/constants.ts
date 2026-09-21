@@ -91,6 +91,28 @@ export const WHEEL_IMAGE_NAME = 'wheel.png';
  */
 export const WHEEL_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
 
+/** File name of the plinko board picture. */
+export const PLINKO_IMAGE_NAME = 'plinko.png';
+
+/**
+ * How many rows of pegs the plinko board has. The ball bounces once per row, so the board has
+ * PLINKO_ROWS + 1 slots. It must be even, from 2 to 10: the payouts are mirrored left to right, so
+ * there is one payout setting for each slot from the edge to the middle (PLINKO_ROWS / 2 + 1 of them).
+ */
+export const PLINKO_ROWS = 8;
+
+/** The plinko payout settings are multipliers of the bet, up to this many times it. */
+export const MAX_PLINKO_MULTIPLIER = 1000;
+
+/**
+ * How the plinko drop plays: the picture is swapped every `frameMs` milliseconds as the ball falls
+ * one row (keep it at 500 or more, Discord limits message edits). The ball takes PLINKO_ROWS + 1
+ * pictures to land. `idleMs` is how long the buttons under a finished game (again, double, half)
+ * keep working after the last time they were used.
+ */
+export const PLINKO_ANIMATION = { frameMs: 1000 };
+export const PLINKO_BUTTONS = { idleMs: 60_000 };
+
 /** File name of the die picture attached to a claim that rolled the D20. */
 export const D20_IMAGE_NAME = 'd20.png';
 
@@ -318,6 +340,36 @@ export const TEXT = {
     multiTier: (stars: string, count: number) => `${stars} x${count}`,
     multiFooterNew: (count: number) => (count === 1 ? '1 new item!' : `${count} new items!`),
     multiFooterNoneNew: 'No new items',
+  },
+
+  plinko: {
+    usage: (p: string) => `Use \`${p}plinko <bet>\` to drop a ball, like \`${p}plinko 100\`, or \`${p}plinko all\`.`,
+    badBet: (p: string) => `The bet has to be a whole number of points, like \`${p}plinko 100\`, or \`all\`.`,
+    tooSmall: (min: string) => `The smallest bet is **${min}** points.`,
+    tooBig: (max: string) => `The biggest bet is **${max}** points.`,
+    cantAfford: (p: string, bet: string, balance: string) =>
+      `That bet is **${bet}** points and you have **${balance}**. Use \`${p}claim\` to earn more.`,
+    dropTitle: 'Plinko',
+    dropping: (user: string, bet: string) => `${user} drops a ball for **${bet}** points...`,
+    /** `multiplier` is like "3x". */
+    resultTitle: (multiplier: string) => `Plinko: ${multiplier}`,
+    landed: (user: string, bet: string, multiplier: string) => `${user} bet **${bet}** and the ball landed on **${multiplier}**.`,
+    paidMore: (payout: string) => `They won **${payout}** points!`,
+    paidSame: 'They got their bet back.',
+    paidLess: (payout: string) => `They got **${payout}** points back.`,
+    paidNothing: 'They lost it all.',
+    author: (name: string) => `${name} played plinko`,
+    betField: 'Bet',
+    payoutField: 'Payout',
+    /** `change` is signed, like "+200" or "-50". */
+    payout: (payout: string, change: string) => `${payout} (${change})`,
+    balanceField: 'Balance',
+    /** `percent` is like "98%": what the board pays back on average. */
+    footer: (percent: string) => `The board pays back ${percent} of a bet on average.`,
+    againButton: (bet: string) => `Again (${bet})`,
+    doubleButton: (bet: string) => `Double (${bet})`,
+    halfButton: (bet: string) => `Half (${bet})`,
+    notYours: 'This is not your game.',
   },
 
   sell: {
@@ -608,6 +660,11 @@ export function validateConstants(): void {
   if (!Number.isInteger(D20.sides) || D20.sides < 3) problems.push('D20.sides must be a whole number of at least 3');
   if (!(D20.critMultiplier >= 1)) problems.push('D20.critMultiplier must be at least 1');
   if (!(D20.divisor > 0)) problems.push('D20.divisor must be above 0');
+  if (!Number.isInteger(PLINKO_ROWS) || PLINKO_ROWS < 2 || PLINKO_ROWS > 10 || PLINKO_ROWS % 2 !== 0) {
+    problems.push('PLINKO_ROWS must be an even number from 2 to 10');
+  }
+  if (!(PLINKO_ANIMATION.frameMs >= 500)) problems.push('PLINKO_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
+  if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');
@@ -621,6 +678,7 @@ export function validateConstants(): void {
     ['MULTI_PULLS', MULTI_PULLS],
     ['MAX_WHEEL_SLICES', MAX_WHEEL_SLICES],
     ['MAX_WHEEL_MULTIPLIER', MAX_WHEEL_MULTIPLIER],
+    ['MAX_PLINKO_MULTIPLIER', MAX_PLINKO_MULTIPLIER],
     ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {
