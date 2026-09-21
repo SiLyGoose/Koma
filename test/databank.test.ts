@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { DATABANK_PAGE_LENGTH, FIELD_MAX_LENGTH, SLOT_LABELS, validateConstants } from '../src/constants.js';
-import { ITEMS } from '../src/data/items.js';
-import { buildDatabank, itemBlock } from '../src/lib/databank.js';
+import { DATABANK_PAGE_LENGTH, FIELD_MAX_LENGTH, SLOT_LABELS, TEXT, validateConstants } from '../src/constants.js';
+import { ITEMS, findItem } from '../src/data/items.js';
+import { buildDatabank, itemBlock, itemDetail } from '../src/lib/databank.js';
 import { describeEffects } from '../src/lib/equipment.js';
 import type { ItemDef } from '../src/types.js';
 
@@ -89,4 +89,59 @@ test('databank: an exclusive item names who it is for, and an open one says noth
   assert.equal(lines.at(-1), 'Exclusive to <@111111111111111111>, <@222222222222222222>');
   assert.ok(!itemBlock(made('o', 4)).includes('Exclusive'));
   assert.ok(allText(buildDatabank([exclusive])).includes('Exclusive to <@111111111111111111>'));
+});
+
+// ---------------------------------------------------------------------------
+// `databank <item>`: one item in full
+
+test('databank item: the details show the name and stars, flavor text, slot, and every effect', () => {
+  const item: ItemDef = { id: 'sword', name: 'Big Sword', stars: 3, slot: 'weapon', description: 'It is big.', effects: ['robChance', 'robAmount'] };
+  const detail = itemDetail(item);
+  assert.equal(detail.title, '★★★  Big Sword');
+  assert.equal(detail.description, '*It is big.*');
+  const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
+  assert.equal(byName[TEXT.databank.detailSlotField], 'Weapon');
+  assert.equal(byName[TEXT.databank.detailEffectsField], describeEffects(item).join('\n'));
+  assert.equal(describeEffects(item).length, 2);
+  assert.equal(TEXT.databank.detailExclusiveField in byName, false, 'nothing about exclusivity for a normal item');
+});
+
+test('databank item: an exclusive item names who can use it, and an item with no effects or flavor text says so plainly', () => {
+  const excl: ItemDef = { ...made('e', 4, []), usableBy: ['123456789012345678', '223456789012345678'] };
+  const detail = itemDetail(excl);
+  const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
+  assert.equal(byName[TEXT.databank.detailEffectsField], TEXT.databank.noEffects);
+  assert.equal(byName[TEXT.databank.detailExclusiveField], 'Only <@123456789012345678>, <@223456789012345678> can use its effects. Anyone can pull and equip it.');
+  assert.equal(detail.description, '', 'no flavor text means no description line');
+});
+
+test('databank item: strengths come from the live settings', () => {
+  const item = made('live', 1, ['robChance']);
+  const before = CONFIG.equipment.robChance[1];
+  try {
+    CONFIG.equipment.robChance[1] = 0.33;
+    const detail = itemDetail(item);
+    assert.match(detail.fields.find((f) => f.name === TEXT.databank.detailEffectsField)?.value ?? '', /33%/);
+  } finally {
+    CONFIG.equipment.robChance[1] = before;
+  }
+});
+
+test('databank item: it can be found by id, by name, or by part of the name, ignoring case and punctuation', () => {
+  for (const item of ITEMS) {
+    for (const query of [item.id, item.name, item.name.toUpperCase(), item.id.toUpperCase()]) {
+      const found = findItem(query);
+      assert.equal(found.kind, 'found', `${query}`);
+      if (found.kind === 'found') assert.equal(found.item.id, item.id);
+    }
+  }
+  const coat = ITEMS.find((i) => i.name.includes("'"));
+  if (coat) assert.equal((findItem(coat.name.replace(/'/g, '')) as { item?: ItemDef }).item?.id, coat.id);
+  assert.equal(findItem('definitely not an item').kind, 'none');
+  assert.equal(findItem('   ').kind, 'none');
+});
+
+test('databank item: the messages', () => {
+  assert.equal(TEXT.databank.noSuchItem('k!', 'zzz'), 'There is no item called "zzz". `k!databank` lists every item.');
+  assert.equal(TEXT.databank.ambiguous(['A', 'B']), 'That could be more than one item: **A**, **B**. Type more of the name.');
 });

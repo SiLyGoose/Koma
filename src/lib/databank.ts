@@ -75,3 +75,27 @@ export function buildDatabank(
   if (page.length > 0) pages.push(page);
   return pages;
 }
+
+/** The full page of one item: what `databank <item>` shows. */
+export interface ItemDetail {
+  title: string;
+  /** The item's flavor text. */
+  description: string;
+  fields: { name: string; value: string; inline: boolean }[];
+}
+
+/** Lays out one item in full: its name and stars, flavor text, slot, effects at today's strength, and who it is exclusive to. */
+export function itemDetail(item: ItemDef): ItemDetail {
+  const effects = describeEffects(item);
+  return {
+    title: TEXT.databank.detailTitle(starString(item.stars), item.name),
+    description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
+    fields: [
+      { name: TEXT.databank.detailSlotField, value: SLOT_LABELS[item.slot], inline: true },
+      { name: TEXT.databank.detailEffectsField, value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
+      ...(item.usableBy
+        ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy)), inline: false }]
+        : []),
+    ],
+  };
+}
