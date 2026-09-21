@@ -1,23 +1,34 @@
 import { TEXT } from '../constants.js';
 import { ITEMS, findItem } from '../data/items.js';
+import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
-import { buildDatabank, itemDetail } from '../lib/databank.js';
+import { buildDatabank, itemDetail, parseStarQuery } from '../lib/databank.js';
+import { starString } from '../lib/format.js';
 import type { Command } from './types.js';
 
 export const databank: Command = {
   name: 'databank',
   aliases: ['items', 'db'],
-  description: 'See every item and what it does. Add an item name or id to see just that one.',
-  usage: 'databank [item]',
-  slashUsage: 'databank [item]',
+  description: 'See every item and what it does. Add an item name or id to see just that one, or a star tier (1-4) to see that tier.',
+  usage: 'databank [item | stars]',
+  slashUsage: 'databank [item] [stars]',
 
   async execute(ctx) {
     const { args } = ctx;
     const p = ctx.prefix;
 
-    // With a name or id: the full details of that one item.
     const query = args.join(' ').trim();
-    if (query !== '') {
+
+    // With a star tier (`3`, `3 star`, `★★★`): every item of that tier.
+    const tier = parseStarQuery(query);
+    if (tier?.kind === 'bad_tier') {
+      await ctx.reply(TEXT.databank.badTier(p, Math.min(...STARS), Math.max(...STARS)));
+      return;
+    }
+    const wanted = tier?.stars;
+
+    // With a name or id: the full details of that one item.
+    if (query !== '' && wanted === undefined) {
       const lookup = findItem(query);
       if (lookup.kind === 'none') {
         await ctx.reply(TEXT.databank.noSuchItem(p, query));
@@ -34,14 +45,22 @@ export const databank: Command = {
       return;
     }
 
-    const pages = buildDatabank(ITEMS);
+    const items = wanted === undefined ? ITEMS : ITEMS.filter((item) => item.stars === wanted);
+    const pages = buildDatabank(items);
+    if (wanted !== undefined && pages.length === 0) {
+      await ctx.reply(TEXT.databank.noItemsInTier(starString(wanted)));
+      return;
+    }
+    // The title and description of a single tier name that tier.
+    const title = wanted === undefined ? TEXT.databank.title : TEXT.databank.tierTitle(starString(wanted));
+    const description = wanted === undefined ? TEXT.databank.description : TEXT.databank.tierDescription(starString(wanted));
 
     // Usually one message. A very long catalog carries on in more messages.
     for (const [index, fields] of pages.entries()) {
       const embed = createEmbed()
-        .setTitle(pages.length > 1 ? TEXT.databank.titlePage(TEXT.databank.title, index + 1, pages.length) : TEXT.databank.title)
+        .setTitle(pages.length > 1 ? TEXT.databank.titlePage(title, index + 1, pages.length) : title)
         .addFields(fields);
-      if (index === 0) embed.setDescription(TEXT.databank.description);
+      if (index === 0) embed.setDescription(description);
       if (index === pages.length - 1) embed.setFooter({ text: TEXT.databank.footer(p) });
       await ctx.reply({ embeds: [embed] });
     }

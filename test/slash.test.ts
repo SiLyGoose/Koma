@@ -132,6 +132,9 @@ test('slash options: gacha multi', () => {
 test('slash options: databank with and without an item', () => {
   assert.deepEqual(args('databank', {}), []);
   assert.deepEqual(args('databank', { strings: { item: 'wheelchair' } }), ['wheelchair']);
+  // A star tier becomes the number a member would type, which the databank reads as a tier; an item wins if both are given.
+  assert.deepEqual(args('databank', { ints: { stars: 3 } }), ['3']);
+  assert.deepEqual(args('databank', { strings: { item: 'wheelchair' }, ints: { stars: 3 } }), ['wheelchair']);
   assert.deepEqual(args('equip', { strings: { item: 'Some Item' } }), ['Some Item']);
 });
 

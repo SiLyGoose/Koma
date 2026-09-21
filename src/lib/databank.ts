@@ -1,5 +1,5 @@
-import { DATABANK_PAGE_LENGTH, FIELD_MAX_LENGTH, SLOT_LABELS, TEXT } from '../constants.js';
-import { STARS, type ItemDef } from '../types.js';
+import { DATABANK_PAGE_LENGTH, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../constants.js';
+import { STARS, type ItemDef, type Stars } from '../types.js';
 import { describeEffects } from './equipment.js';
 import { mentionList, starString } from './format.js';
 
@@ -74,6 +74,30 @@ export function buildDatabank(
   }
   if (page.length > 0) pages.push(page);
   return pages;
+}
+
+/** What `databank <something>` asked for, when it is a star tier rather than an item. */
+export type StarQuery = { kind: 'tier'; stars: Stars } | { kind: 'bad_tier' };
+
+/**
+ * Reads a databank argument as a star tier: `3`, `3 star`, `3 stars`, `3-star`, `3star`, `3*`,
+ * `star 3` or `stars 3` (any letter case), or that many star symbols (`★★★`). A number that isn't
+ * one of the tiers is `bad_tier`. Anything else isn't a tier (null), so it is looked up as an item.
+ */
+export function parseStarQuery(query: string): StarQuery | null {
+  const text = query.trim().toLowerCase();
+  if (text === '') return null;
+
+  let count: number | null = null;
+  const symbols = STAR_SYMBOL.length > 0 ? text.split(STAR_SYMBOL).join('') : text;
+  if (STAR_SYMBOL.length > 0 && symbols === '') {
+    count = text.length / STAR_SYMBOL.length;
+  } else {
+    const match = /^(?:stars?\s*)?(\d+)(?:\s*-?\s*(?:stars?|\*))?$/.exec(text);
+    if (match) count = Number(match[1]);
+  }
+  if (count === null) return null;
+  return (STARS as readonly number[]).includes(count) ? { kind: 'tier', stars: count as Stars } : { kind: 'bad_tier' };
 }
 
 /** The full page of one item: what `databank <item>` shows. */

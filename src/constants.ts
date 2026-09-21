@@ -368,9 +368,17 @@ export const TEXT = {
     tierMore: (stars: string) => `${stars} (continued)`,
     item: (name: string, slot: string) => `**${name}** · ${slot}`,
     noEffects: 'No effects',
+    /** The list of one star tier (`databank <1-4>`). `stars` is the star string. */
+    tierTitle: (stars: string) => `Databank: ${stars}`,
+    tierDescription: (stars: string) => `Every ${stars} item and what it does while equipped.`,
+    /** Asked for a number that isn't a tier. `low` and `high` are the lowest and highest tier. */
+    badTier: (p: string, low: number, high: number) =>
+      `Pick a star tier from ${low} to ${high}, like \`${p}databank ${high}\`. \`${p}databank\` lists every item.`,
+    noItemsInTier: (stars: string) => `There are no ${stars} items.`,
     /** Last line of an item that only some members can use. `owners` is mentions. */
     exclusive: (owners: string) => `Exclusive to ${owners}`,
-    footer: (p: string) => `${p}databank <item> shows one item in full. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+    footer: (p: string) =>
+      `${p}databank <item> shows one item in full, and ${p}databank <1-4> one star tier. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
     /** The details of one item (`databank <item>`). `stars` is the star string. */
     detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
     detailSlotField: 'Slot',

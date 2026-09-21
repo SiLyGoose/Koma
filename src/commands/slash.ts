@@ -97,12 +97,22 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   databank: {
     build: (b) =>
-      void b.addStringOption((o) =>
-        o.setName('item').setDescription('An item to see in detail (the whole list, if left out)').setAutocomplete(true).setMaxLength(100),
-      ),
+      void b
+        .addStringOption((o) =>
+          o.setName('item').setDescription('An item to see in detail (the whole list, if left out)').setAutocomplete(true).setMaxLength(100),
+        )
+        .addIntegerOption((o) =>
+          o
+            .setName('stars')
+            .setDescription('Only the items of one star tier')
+            .addChoices(...STARS.map((stars) => ({ name: `${stars}-star (${starString(stars)})`, value: stars }))),
+        ),
+    // An item, if given, wins over the star tier.
     toArgs: (i) => {
       const item = i.options.getString('item');
-      return item ? [item] : [];
+      if (item) return [item];
+      const stars = i.options.getInteger('stars');
+      return stars === null ? [] : [String(stars)];
     },
     autocomplete: anyItem,
   },

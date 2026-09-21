@@ -3,7 +3,10 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
 import { DATABANK_PAGE_LENGTH, FIELD_MAX_LENGTH, SLOT_LABELS, TEXT, validateConstants } from '../src/constants.js';
 import { ITEMS, findItem } from '../src/data/items.js';
-import { buildDatabank, itemBlock, itemDetail } from '../src/lib/databank.js';
+import type { Message } from 'discord.js';
+import { messageContext } from '../src/commands/context.js';
+import { databank } from '../src/commands/databank.js';
+import { buildDatabank, itemBlock, itemDetail, parseStarQuery } from '../src/lib/databank.js';
 import { describeEffects } from '../src/lib/equipment.js';
 import type { ItemDef } from '../src/types.js';
 
@@ -144,4 +147,98 @@ test('databank item: it can be found by id, by name, or by part of the name, ign
 test('databank item: the messages', () => {
   assert.equal(TEXT.databank.noSuchItem('k!', 'zzz'), 'There is no item called "zzz". `k!databank` lists every item.');
   assert.equal(TEXT.databank.ambiguous(['A', 'B']), 'That could be more than one item: **A**, **B**. Type more of the name.');
+});
+
+// ---------------------------------------------------------------------------
+// One star tier (`databank 3`)
+
+test('databank tier: a number, a star word or star symbols name a tier', () => {
+  for (const [text, stars] of [
+    ['3', 3],
+    [' 2 ', 2],
+    ['3 star', 3],
+    ['3 stars', 3],
+    ['3-star', 3],
+    ['3star', 3],
+    ['3*', 3],
+    ['3 *', 3],
+    ['star 3', 3],
+    ['Stars 4', 4],
+    ['4 STAR', 4],
+    ['\u2605', 1],
+    ['\u2605\u2605\u2605', 3],
+  ] as const) {
+    assert.deepEqual(parseStarQuery(text), { kind: 'tier', stars }, text);
+  }
+});
+
+test('databank tier: a number that is not a tier is refused, and item names are left alone', () => {
+  for (const text of ['0', '5', '10', '5 star', '\u2605\u2605\u2605\u2605\u2605', 'stars 9']) {
+    assert.deepEqual(parseStarQuery(text), { kind: 'bad_tier' }, text);
+  }
+  for (const text of ['', '  ', 'c4', 'frog', 'wheelchair', 'star', 'stars', '3 rusty', 'x3', 'kippah 3', 'four']) {
+    assert.equal(parseStarQuery(text), null, text);
+  }
+  // No catalog item can be mistaken for a tier: none is named with only a number or star symbols.
+  for (const item of ITEMS) {
+    assert.equal(parseStarQuery(item.name), null, item.name);
+    assert.equal(parseStarQuery(item.id), null, item.id);
+  }
+});
+
+/** Runs the databank command with a stand-in message and returns every reply. */
+async function ask(...words: string[]): Promise<{ title?: string | null; description?: string | null; fields: { name: string; value: string }[]; footer?: string; content?: string }[]> {
+  const replies: any[] = [];
+  const message = {
+    author: { toString: () => '<@1>' },
+    reply: async (options: any) => {
+      replies.push(options);
+      return { edit: async () => undefined };
+    },
+  } as unknown as Message<true>;
+  await databank.execute(messageContext(message, words, 'k!'));
+  return replies.map((r) => (r.embeds ? { ...r.embeds[0].data, fields: r.embeds[0].data.fields ?? [], footer: r.embeds[0].data.footer?.text } : { fields: [], content: String(r.content ?? r) }));
+}
+
+test('databank tier: shows every item of that tier and nothing from the others', async () => {
+  for (const stars of [1, 2, 3, 4] as const) {
+    const mine = ITEMS.filter((item) => item.stars === stars);
+    const others = ITEMS.filter((item) => item.stars !== stars);
+    for (const words of [[String(stars)], [String(stars), 'star'], ['\u2605'.repeat(stars)]]) {
+      const replies = await ask(...words);
+      assert.equal(replies.length, 1, `${words.join(' ')}: one message`);
+      const reply = replies[0]!;
+      assert.equal(reply.title, TEXT.databank.tierTitle('\u2605'.repeat(stars)));
+      assert.equal(reply.description, TEXT.databank.tierDescription('\u2605'.repeat(stars)));
+      assert.deepEqual(reply.fields.map((f) => f.name), [TEXT.databank.tierField('\u2605'.repeat(stars), mine.length)]);
+      const text = reply.fields.map((f) => f.value).join('\n');
+      for (const item of mine) {
+        assert.ok(text.includes(`**${item.name}** \u00b7 ${SLOT_LABELS[item.slot]}`), `${item.name} is listed`);
+        for (const line of describeEffects(item)) assert.ok(text.includes(line), `${item.name}: ${line}`);
+      }
+      for (const item of others) assert.ok(!text.includes(`**${item.name}**`), `${item.name} is left out of ${stars}-star`);
+      assert.equal(reply.footer, TEXT.databank.footer('k!'));
+    }
+  }
+});
+
+test('databank tier: a number that is not a tier gets a hint, and nothing is listed', async () => {
+  for (const word of ['0', '5', '12']) {
+    const replies = await ask(word);
+    assert.equal(replies.length, 1);
+    assert.equal(replies[0]?.content, TEXT.databank.badTier('k!', 1, 4));
+  }
+  assert.match(TEXT.databank.badTier('k!', 1, 4), /1 to 4/);
+});
+
+test('databank tier: the whole list, and one item by name, still work', async () => {
+  const all = await ask();
+  assert.equal(all[0]?.title, TEXT.databank.title);
+  assert.equal(all[0]?.fields.length, new Set(ITEMS.map((item) => item.stars)).size);
+
+  const item = ITEMS[0] as ItemDef;
+  const one = await ask(item.id);
+  assert.equal(one[0]?.title, TEXT.databank.detailTitle('\u2605'.repeat(item.stars), item.name));
+  const byName = await ask(...item.name.split(' '));
+  assert.equal(byName[0]?.title, one[0]?.title);
 });
