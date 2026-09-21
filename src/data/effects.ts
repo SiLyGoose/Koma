@@ -61,12 +61,12 @@ export const EFFECTS = {
   // Caught protection: the wearer robbing and failing.
   fineReduction: {
     description: 'Percent of the fine waived when the wearer is caught robbing.',
-    defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
+    defaults: { 1: 0.1, 2: 0.15, 3: 0.2, 4: 0.25 },
     min: 0,
     max: 1,
   },
 
-  // Coughing baby and Jew frog: a weaker rob (robAmountCut), paired with a tax on something the
+  // Coughing baby and frog: a weaker rob (robAmountCut), paired with a tax on something the
   // victim does next. The baby taxes their next claim, the frog their next successful rob.
   robAmountCut: {
     description: 'Percent cut from the points the wearer steals on a successful rob (25% means 75% of the amount).',
