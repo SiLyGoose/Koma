@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type Client, type Message, type SendableChannels } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { CRATE, TEXT } from '../constants.js';
+import { CRATE, CURRENCY_EMOJI, TEXT } from '../constants.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt } from '../lib/format.js';
 import { crateTier, rollPile, splitPile, type CrateShare, type CrateTier } from '../lib/events/crate.js';
@@ -286,7 +286,7 @@ async function resumeCrates(client: Client): Promise<void> {
 export const pointCrate: GameEvent = {
   id: 'crate',
   label: 'Point crate',
-  description: 'A crate of points falls into the channel. Everyone who presses Grab in time splits it.',
+  description: `A crate of ${CURRENCY_EMOJI} falls into the channel. Everyone who presses Grab in time splits it.`,
   weight: 1,
   run: runCrate,
   resume: resumeCrates,

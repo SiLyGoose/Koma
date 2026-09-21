@@ -1,4 +1,4 @@
-import { MAX_REDUCTION } from '../constants.js';
+import { CURRENCY_EMOJI, MAX_REDUCTION } from '../constants.js';
 import type { Stars } from '../types.js';
 
 /*
@@ -38,7 +38,7 @@ export const EFFECTS = {
     max: 1,
   },
   robAmount: {
-    description: 'Extra points the wearer steals on a successful rob, as a percent of the amount rolled.',
+    description: `Extra ${CURRENCY_EMOJI} the wearer steals on a successful rob, as a percent of the amount rolled.`,
     defaults: { 1: 0.1, 2: 0.2, 3: 0.3, 4: 0.4 },
     min: 0,
     max: 5,
@@ -86,7 +86,7 @@ export const EFFECTS = {
   // Coughing baby and frog: a weaker rob (robAmountCut), paired with a tax on something the
   // victim does next. The baby taxes their next claim, the frog their next successful rob.
   robAmountCut: {
-    description: 'Percent cut from the points the wearer steals on a successful rob (25% means 75% of the amount).',
+    description: `Percent cut from the ${CURRENCY_EMOJI} the wearer steals on a successful rob (25% means 75% of the amount).`,
     defaults: { 1: 0.0625, 2: 0.125, 3: 0.1875, 4: 0.25 },
     min: 0,
     max: MAX_REDUCTION,
@@ -100,7 +100,7 @@ export const EFFECTS = {
   },
   robTax: {
     description:
-      "Percent of the points the victim steals on their next successful rob that are taken and paid to the wearer, after the wearer robs them successfully.",
+      `Percent of the ${CURRENCY_EMOJI} the victim steals on their next successful rob that are taken and paid to the wearer, after the wearer robs them successfully.`,
     defaults: { 1: 0.0625, 2: 0.125, 3: 0.1875, 4: 0.25 },
     min: 0,
     max: 1,
@@ -110,7 +110,7 @@ export const EFFECTS = {
   // An item that should be a glass cannon lists both effects.
   glassCannon: {
     description:
-      'Glass cannon, reward: extra points the wearer steals on a successful rob, as a percent of the amount rolled (100% is 2x). Stacks with robAmount.',
+      `Glass cannon, reward: extra ${CURRENCY_EMOJI} the wearer steals on a successful rob, as a percent of the amount rolled (100% is 2x). Stacks with robAmount.`,
     defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
     min: 0,
     max: 5,
@@ -127,7 +127,7 @@ export const EFFECTS = {
   // may spin and multiply the points.
   wheelSpin: {
     description:
-      'Chance that the wearer\'s hourly claim or successful rob spins the wheel (data/wheel.ts), which multiplies the points.',
+      `Chance that the wearer's hourly claim or successful rob spins the wheel (data/wheel.ts), which multiplies the ${CURRENCY_EMOJI}.`,
     defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
     min: 0,
     max: 1,
@@ -144,7 +144,7 @@ export const EFFECTS = {
 
   // Economy perks.
   claimBonus: {
-    description: 'Extra points on the wearer\'s hourly claim, as a percent.',
+    description: `Extra ${CURRENCY_EMOJI} on the wearer's hourly claim, as a percent.`,
     defaults: { 1: 0.05, 2: 0.1, 3: 0.2, 4: 0.3 },
     min: 0,
     max: 10,

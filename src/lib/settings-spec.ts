@@ -1,4 +1,5 @@
 import {
+  CURRENCY_EMOJI,
   MAX_CRATE_SECONDS,
   MAX_LEADERBOARD_SIZE,
   MAX_PITY,
@@ -66,10 +67,10 @@ export const SPECS: readonly SettingSpec[] = [
   },
   int('leaderboardSize', 'General', 'Rows shown on the leaderboard.', 1, MAX_LEADERBOARD_SIZE),
 
-  int('claim.min', 'Claim', 'Lowest number of points an hourly claim can give.', 0, MAX_POINTS),
-  int('claim.max', 'Claim', 'Highest number of points an hourly claim can give.', 0, MAX_POINTS),
+  int('claim.min', 'Claim', `Lowest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
+  int('claim.max', 'Claim', `Highest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
 
-  int('gacha.cost', 'Gacha', 'Points one pull costs.', 1, MAX_POINTS),
+  int('gacha.cost', 'Gacha', `Cost of one pull, in ${CURRENCY_EMOJI}.`, 1, MAX_POINTS),
   int('gacha.starWeights.1', 'Gacha', 'Relative chance of a 1-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.2', 'Gacha', 'Relative chance of a 2-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.3', 'Gacha', 'Relative chance of a 3-star pull.', 0, MAX_POINTS),
@@ -89,16 +90,16 @@ export const SPECS: readonly SettingSpec[] = [
     MAX_PITY,
   ),
 
-  int('sell.price.1', 'Sell', 'Points for selling one 1-star item.', 0, MAX_POINTS),
-  int('sell.price.2', 'Sell', 'Points for selling one 2-star item.', 0, MAX_POINTS),
-  int('sell.price.3', 'Sell', 'Points for selling one 3-star item.', 0, MAX_POINTS),
-  int('sell.price.4', 'Sell', 'Points for selling one 4-star item.', 0, MAX_POINTS),
+  int('sell.price.1', 'Sell', `${CURRENCY_EMOJI} for selling one 1-star item.`, 0, MAX_POINTS),
+  int('sell.price.2', 'Sell', `${CURRENCY_EMOJI} for selling one 2-star item.`, 0, MAX_POINTS),
+  int('sell.price.3', 'Sell', `${CURRENCY_EMOJI} for selling one 3-star item.`, 0, MAX_POINTS),
+  int('sell.price.4', 'Sell', `${CURRENCY_EMOJI} for selling one 4-star item.`, 0, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
-  int('rob.minStolen', 'Rob', 'Lowest number of points a successful rob takes.', 1, MAX_POINTS),
-  int('rob.maxStolen', 'Rob', 'Highest number of points a successful rob takes.', 1, MAX_POINTS),
-  int('rob.minVictimBalance', 'Rob', 'Members with fewer points than this cannot be robbed (1 means anyone who has points).', 1, MAX_POINTS),
-  int('rob.failFine', 'Rob', 'Fine a caught robber pays the victim. A member needs at least this many points to rob.', 0, MAX_POINTS),
+  int('rob.minStolen', 'Rob', `Lowest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),
+  int('rob.maxStolen', 'Rob', `Highest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),
+  int('rob.minVictimBalance', 'Rob', `Members with fewer ${CURRENCY_EMOJI} than this cannot be robbed (1 means anyone who has some).`, 1, MAX_POINTS),
+  int('rob.failFine', 'Rob', `Fine a caught robber pays the victim. A member needs at least this many ${CURRENCY_EMOJI} to rob.`, 0, MAX_POINTS),
   int('rob.cooldownMinutes', 'Rob', 'Minutes a robber must wait between attempts.', 1, MAX_TIMER_MINUTES),
   int(
     'rob.victimProtectionMinutes',
@@ -145,8 +146,8 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
   int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
-  int('events.crate.minPoints', 'Events', 'Fewest points a point crate can hold.', 1, MAX_POINTS),
-  int('events.crate.maxPoints', 'Events', 'Most points a point crate can hold.', 1, MAX_POINTS),
+  int('events.crate.minPoints', 'Events', `Fewest ${CURRENCY_EMOJI} a point crate can hold.`, 1, MAX_POINTS),
+  int('events.crate.maxPoints', 'Events', `Most ${CURRENCY_EMOJI} a point crate can hold.`, 1, MAX_POINTS),
   int('events.crate.seconds', 'Events', 'Seconds the point crate stays open for grabbing.', 10, MAX_CRATE_SECONDS),
 
   // One setting per effect per star tier, generated from the effect registry.

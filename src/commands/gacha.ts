@@ -1,7 +1,7 @@
 import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
-import { fmt, mentionList, starString } from '../lib/format.js';
+import { fmt, mentionList, money, starString } from '../lib/format.js';
 import { STARS } from '../config.js';
 import { pullGacha, pullMulti } from '../services/economy.js';
 import type { Command, CommandContext } from '../discord/types.js';
@@ -49,7 +49,7 @@ export const gacha: Command = {
               : TEXT.gacha.spent(fmt(result.cost)),
           inline: true,
         },
-        { name: TEXT.gacha.balanceField, value: fmt(result.balance), inline: true },
+        { name: TEXT.gacha.balanceField, value: money(result.balance), inline: true },
       )
       .setFooter({ text: result.isNew ? TEXT.gacha.footerNew : TEXT.gacha.footerOwned(result.count) })
       .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
@@ -108,7 +108,7 @@ async function multiPull(ctx: CommandContext): Promise<void> {
             : TEXT.gacha.spent(fmt(result.cost)),
         inline: true,
       },
-      { name: TEXT.gacha.balanceField, value: fmt(result.balance), inline: true },
+      { name: TEXT.gacha.balanceField, value: money(result.balance), inline: true },
     )
     .setFooter({ text: newCount > 0 ? TEXT.gacha.multiFooterNew(newCount) : TEXT.gacha.multiFooterNoneNew })
     .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });

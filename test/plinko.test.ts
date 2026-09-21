@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { inflateSync } from 'node:zlib';
 import { AGAIN_ID, DOUBLE_ID, HALF_ID, betForButton } from '../src/commands/plinko.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
-import { PLINKO_ROWS, TEXT, validateConstants } from '../src/constants.js';
+import { CURRENCY_EMOJI, PLINKO_ROWS, TEXT, validateConstants } from '../src/constants.js';
 import {
   ballOffset,
   buttonPlan,
@@ -307,14 +307,14 @@ test('plinko picture: the pegs sit in a triangle with the slots under the last r
 
 test('plinko text', () => {
   assert.equal(TEXT.plinko.usage('k!'), 'Use `k!plinko <bet>` to drop a ball, like `k!plinko 100`, or `k!plinko all`.');
-  assert.equal(TEXT.plinko.badBet('k!'), 'The bet has to be a whole number of points, like `k!plinko 100`, or `all`.');
-  assert.equal(TEXT.plinko.tooSmall('10'), 'The smallest bet is **10** points.');
-  assert.equal(TEXT.plinko.tooBig('1,000'), 'The biggest bet is **1,000** points.');
-  assert.equal(TEXT.plinko.cantAfford('k!', '500', '20'), 'That bet is **500** points and you have **20**. Use `k!claim` to earn more.');
-  assert.equal(TEXT.plinko.dropping('<@1>', '100'), '<@1> drops a ball for **100** points...');
+  assert.equal(TEXT.plinko.badBet('k!'), `The bet has to be a whole number of ${CURRENCY_EMOJI}, like \`k!plinko 100\`, or \`all\`.`);
+  assert.equal(TEXT.plinko.tooSmall('10'), `The smallest bet is **10** ${CURRENCY_EMOJI}.`);
+  assert.equal(TEXT.plinko.tooBig('1,000'), `The biggest bet is **1,000** ${CURRENCY_EMOJI}.`);
+  assert.equal(TEXT.plinko.cantAfford('k!', '500', '20'), `That bet is **500** ${CURRENCY_EMOJI} and you have **20** ${CURRENCY_EMOJI}. Use \`k!claim\` to earn more.`);
+  assert.equal(TEXT.plinko.dropping('<@1>', '100'), `<@1> drops a ball for **100** ${CURRENCY_EMOJI}...`);
   assert.equal(TEXT.plinko.resultTitle('3x'), 'Plinko: 3x');
-  assert.equal(TEXT.plinko.landed('<@1>', '100', '3x'), '<@1> bet **100** and the ball landed on **3x**.');
-  assert.equal(TEXT.plinko.payout('300', '+200'), '300 (+200)');
+  assert.equal(TEXT.plinko.landed('<@1>', '100', '3x'), `<@1> bet **100** ${CURRENCY_EMOJI} and the ball landed on **3x**.`);
+  assert.equal(TEXT.plinko.payout('300', '+200'), `300 ${CURRENCY_EMOJI} (+200 ${CURRENCY_EMOJI})`);
   assert.equal(TEXT.plinko.footer('98%'), 'The board pays back 98% of a bet on average.');
   assert.equal(TEXT.plinko.againButton('100'), 'Again (100)');
   assert.equal(TEXT.plinko.doubleButton('200'), 'Double (200)');

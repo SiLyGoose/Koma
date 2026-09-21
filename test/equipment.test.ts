@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { CONFIG, DEFAULTS, STARS, validateConfig } from '../src/config.js';
 import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals } from '../src/data/effects.js';
 import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
-import { ADMIN_USER_ID } from '../src/constants.js';
+import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/game/equipment.js';
 import {
   claimAmount,
@@ -174,19 +174,19 @@ function effectsReadAsPlainText(): void {
   };
   assert.deepEqual(describeEffects(blade), [
     '+15% rob success chance',
-    '+30% points stolen',
+    `+30% ${CURRENCY_EMOJI} stolen`,
     '-75% fine when caught',
   ]);
   assert.deepEqual(describeEffects({ ...blade, effects: ['glassCannon', 'glassCannonPenalty'], stars: 4 }), [
-    'Glass cannon: +50% points stolen',
+    `Glass cannon: +50% ${CURRENCY_EMOJI} stolen`,
     'Glass cannon: +250% fine when caught',
   ]);
   assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'claimTax'], stars: 4 }), [
-    '-25% points stolen',
+    `-25% ${CURRENCY_EMOJI} stolen`,
     'Wither: members you rob lose 25% of their next claim to you',
   ]);
   assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'robTax'], stars: 4 }), [
-    '-25% points stolen',
+    `-25% ${CURRENCY_EMOJI} stolen`,
     'Yowch, My Coins! You get 25% of the next rob by members you rob',
   ]);
   assert.deepEqual(describeTotals(emptyTotals()), []);

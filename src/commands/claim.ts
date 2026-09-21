@@ -1,6 +1,6 @@
 import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, signed } from '../lib/format.js';
+import { fmt, formatMultiplier, money, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy.js';
 import { replyWithDice } from '../animations/dice-reply.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
@@ -46,7 +46,7 @@ export const claim: Command = {
       .setTitle(failed ? TEXT.d20.failTitle : d20?.kind === 'success' ? TEXT.d20.successTitle : TEXT.claim.title)
       .setDescription(lines.join('\n'))
       .addFields(
-        { name: TEXT.claim.balanceField, value: fmt(result.balance), inline: true },
+        { name: TEXT.claim.balanceField, value: money(result.balance), inline: true },
         {
           name: TEXT.claim.nextField,
           value: result.bonusLeft ? TEXT.d20.nextBonus(result.nextClaimUnix) : TEXT.claim.next(result.nextClaimUnix),

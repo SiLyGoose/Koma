@@ -1,7 +1,7 @@
 import { TEXT } from '../constants.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt, joinLimited, starString } from '../lib/format.js';
+import { fmt, joinLimited, money, starString } from '../lib/format.js';
 import { parseSellArgs } from '../lib/game/sell.js';
 import { getInventory } from '../services/economy.js';
 import { planSale, sellCopies, type SalePlan, type SaleResult, type SellTarget } from '../services/sell.js';
@@ -24,7 +24,7 @@ function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, rema
         : `${TEXT.sell.soldMany(user, result.lines.reduce((sum, line) => sum + line.count, 0), fmt(result.earned))}\n\n${joinLimited(result.lines.map(lineText), 3500)}`) +
         (result.skipped > 0 ? `\n${TEXT.sell.skipped(result.skipped)}` : ''),
     )
-    .addFields({ name: TEXT.sell.balanceField, value: fmt(result.balance), inline: true });
+    .addFields({ name: TEXT.sell.balanceField, value: money(result.balance), inline: true });
   if (remaining !== null) embed.setFooter({ text: TEXT.sell.footerLeft(remaining) });
   return embed;
 }

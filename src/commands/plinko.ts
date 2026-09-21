@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFla
 import { CONFIG } from '../config.js';
 import { PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent, money, signed } from '../lib/format.js';
 import { buttonPlan, expectedReturn, parseBetArg, slotMultipliers } from '../lib/game/plinko.js';
 import { renderPlinko } from '../animations/images/plinko-image.js';
 import { getBalance, playPlinko, type PlinkoResult } from '../services/economy.js';
@@ -30,9 +30,9 @@ function resultEmbed(ctx: CommandContext, played: Played): BotEmbed {
     .setTitle(TEXT.plinko.resultTitle(formatMultiplier(multiplier)))
     .setDescription(`${TEXT.plinko.landed(ctx.user.toString(), fmt(bet), formatMultiplier(multiplier))} ${ending}`)
     .addFields(
-      { name: TEXT.plinko.betField, value: fmt(bet), inline: true },
+      { name: TEXT.plinko.betField, value: money(bet), inline: true },
       { name: TEXT.plinko.payoutField, value: TEXT.plinko.payout(fmt(payout), signed(net)), inline: true },
-      { name: TEXT.plinko.balanceField, value: fmt(played.balance), inline: true },
+      { name: TEXT.plinko.balanceField, value: money(played.balance), inline: true },
     )
     .setFooter({ text: TEXT.plinko.footer(formatPercent(expectedReturn(CONFIG.plinko.payout))) })
     .setAuthor({ name: TEXT.plinko.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });

@@ -46,6 +46,14 @@ export const SETTINGS_REFRESH_MS = MINUTE_MS;
 /** Gear can never cut a rob or a pull by this much or more (0.9 = 90%), so nothing goes to zero. */
 export const MAX_REDUCTION = 0.9;
 
+/**
+ * The emoji shown wherever points (the game's currency) are mentioned or an amount of them is shown. Change it here and it
+ * changes everywhere. It has to be the full code, like `<:name:id>` (type `\:name:` in Discord to get it). Discord shows it in
+ * message text, embed descriptions and field values, but not in slash command menus, button labels or embed footers, which
+ * keep the word "points".
+ */
+export const CURRENCY_EMOJI = '<:komagem:1551635240210927736>';
+
 /** Highest value a points setting accepts (claim range, pull cost, stolen amount, fine...). */
 export const MAX_SETTING_POINTS = 1_000_000;
 
@@ -217,11 +225,11 @@ export const FAILURE_TITLES: readonly string[] = ['L+Ratio', 'Your XP was too lo
 
 export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   robChance: (value) => `+${value} rob success chance`,
-  robAmount: (value) => `+${value} points stolen`,
+  robAmount: (value) => `+${value} ${CURRENCY_EMOJI} stolen`,
   robDefense: (value) => `-${value} chance of being robbed`,
-  robShield: (value) => `-${value} points lost when robbed`,
+  robShield: (value) => `-${value} ${CURRENCY_EMOJI} lost when robbed`,
   fineReduction: (value) => `-${value} fine when caught`,
-  robAmountCut: (value) => `-${value} points stolen`,
+  robAmountCut: (value) => `-${value} ${CURRENCY_EMOJI} stolen`,
   claimTax: (value) => `Wither: members you rob lose ${value} of their next claim to you`,
   robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
   wheelSpin: (value) => `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel`,
@@ -229,9 +237,9 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
     `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
   slothDefense: (value) => `Sloth: -${value} chance of being robbed`,
   slothCooldown: (value) => `Sloth: +${value} rob and claim cooldowns`,
-  glassCannon: (value) => `Glass cannon: +${value} points stolen`,
+  glassCannon: (value) => `Glass cannon: +${value} ${CURRENCY_EMOJI} stolen`,
   glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
-  claimBonus: (value) => `+${value} points from hourly claims`,
+  claimBonus: (value) => `+${value} ${CURRENCY_EMOJI} from hourly claims`,
   pullDiscount: (value) => `-${value} gacha pull cost`,
 };
 
@@ -261,7 +269,7 @@ export const TEXT = {
 
   balance: {
     title: (name: string) => `${name}'s balance`,
-    points: (points: string) => `**${points}** points`,
+    points: (points: string) => `**${points}** ${CURRENCY_EMOJI}`,
     claimField: 'Hourly claim',
     claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
     /** A critical success on the D20 left one more claim this hour. */
@@ -288,7 +296,7 @@ export const TEXT = {
   wheel: {
     /** Added under a claim or rob when the wheel spun. `multiplier` is like "1.5x". */
     /** `change` is what the spin did to the points with its sign, like "+50" or "-90"; left out when it changed nothing. */
-    landed: (multiplier: string, change = '') => `The wheel landed on **${multiplier}**${change ? ` (**${change}**)` : ''}.`,
+    landed: (multiplier: string, change = '') => `The wheel landed on **${multiplier}**${change ? ` (**${change}** ${CURRENCY_EMOJI})` : ''}.`,
     /** Shown while the wheel is still turning. `user` is a mention. */
     spinningTitle: 'The wheel is spinning...',
     spinning: (user: string) => `${user} spins the wheel...`,
@@ -305,10 +313,10 @@ export const TEXT = {
       `${user} rolled a **${roll}** on the D20. Critical fail! Nothing to claim, and no more claims this hour.`,
     /** Added under a claim that rolled 2 up to one below the top. `multiplier` is like "1.3x". */
     /** `change` is what the die did to the points with its sign, like "+30" or "-40"; left out when it changed nothing. */
-    landed: (roll: number, multiplier: string, change = '') => `The D20 landed on **${roll}**: **${multiplier}**${change ? ` (**${change}**)` : ''}.`,
+    landed: (roll: number, multiplier: string, change = '') => `The D20 landed on **${roll}**: **${multiplier}**${change ? ` (**${change}** ${CURRENCY_EMOJI})` : ''}.`,
     /** Added under a claim that rolled the top number. */
     critical: (roll: number, multiplier: string, change = '') =>
-      `Critical success! The D20 landed on **${roll}** and paid **${multiplier}**${change ? ` (**${change}**)` : ''}.`,
+      `Critical success! The D20 landed on **${roll}** and paid **${multiplier}**${change ? ` (**${change}** ${CURRENCY_EMOJI})` : ''}.`,
     claimAgain: 'You can claim again this hour.',
     /** The "Next claim" field after a critical success: right now (once more), then the usual hour. */
     nextBonus: (unix: number) => `**Now**, once more. Then <t:${unix}:R>`,
@@ -318,11 +326,11 @@ export const TEXT = {
   claim: {
     already: (unix: number) => `You already claimed this hour. Come back <t:${unix}:R>`,
     title: 'Hourly claim',
-    claimed: (user: string, amount: string) => `${user} claimed **${amount}** points.`,
+    claimed: (user: string, amount: string) => `${user} claimed **${amount}** ${CURRENCY_EMOJI}.`,
     claimedWithGear: (user: string, amount: string, bonus: string) =>
-      `${user} claimed **${amount}** points. (+${bonus} from gear.)`,
+      `${user} claimed **${amount}** ${CURRENCY_EMOJI}. (+${bonus} ${CURRENCY_EMOJI} from gear.)`,
     /** Added when part of the claim was taxed by someone who robbed them. `taker` is a mention. */
-    taxed: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** of it. You kept **${kept}**.`,
+    taxed: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** ${CURRENCY_EMOJI} of it. You kept **${kept}** ${CURRENCY_EMOJI}.`,
     balanceField: 'Balance',
     nextField: 'Next claim',
     next: (unix: number) => `<t:${unix}:R>`,
@@ -330,7 +338,7 @@ export const TEXT = {
 
   gacha: {
     cantAfford: (p: string, cost: string, balance: string) =>
-      `A pull costs **${cost}** points and you have **${balance}**. Use \`${p}claim\` to earn more.`,
+      `A pull costs **${cost}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
     /** `stars` is the star string, like "★★". */
     title: (stars: string, name: string) => `${stars}  ${name}`,
     description: (itemDescription: string) => `*${itemDescription}*`,
@@ -338,8 +346,8 @@ export const TEXT = {
     exclusive: (owners: string) => `Only ${owners} can use this one.`,
     author: (name: string) => `${name} pulled`,
     spentField: 'Spent',
-    spent: (cost: string) => cost,
-    spentWithGear: (cost: string, saved: string) => `${cost} (gear saved ${saved})`,
+    spent: (cost: string) => `${cost} ${CURRENCY_EMOJI}`,
+    spentWithGear: (cost: string, saved: string) => `${cost} ${CURRENCY_EMOJI} (gear saved ${saved} ${CURRENCY_EMOJI})`,
     balanceField: 'Balance',
     /** Field showing how close the member is to a guaranteed top-tier item. `stars` is the star string. */
     pityField: (stars: string) => `Pity (${stars})`,
@@ -349,7 +357,7 @@ export const TEXT = {
     /** When the argument after the command isn't "multi". */
     usage: (p: string) => `Use \`${p}gacha\` for one pull, or \`${p}gacha multi\` for ${MULTI_PULLS} pulls at once.`,
     multiCantAfford: (p: string, pulls: number, cost: string, balance: string) =>
-      `A multi pull (${pulls} pulls) costs **${cost}** points and you have **${balance}**. Use \`${p}claim\` to earn more.`,
+      `A multi pull (${pulls} pulls) costs **${cost}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
     multiTitle: (pulls: number) => `Multi pull x${pulls}`,
     /** One line per pull. `stars` is the star string; `isNew` when it is the first copy the member has ever owned. */
     multiLine: (stars: string, name: string, isNew: boolean) => `${stars}  ${name}${isNew ? ' · New!' : ''}`,
@@ -366,25 +374,25 @@ export const TEXT = {
 
   plinko: {
     usage: (p: string) => `Use \`${p}plinko <bet>\` to drop a ball, like \`${p}plinko 100\`, or \`${p}plinko all\`.`,
-    badBet: (p: string) => `The bet has to be a whole number of points, like \`${p}plinko 100\`, or \`all\`.`,
-    tooSmall: (min: string) => `The smallest bet is **${min}** points.`,
-    tooBig: (max: string) => `The biggest bet is **${max}** points.`,
+    badBet: (p: string) => `The bet has to be a whole number of ${CURRENCY_EMOJI}, like \`${p}plinko 100\`, or \`all\`.`,
+    tooSmall: (min: string) => `The smallest bet is **${min}** ${CURRENCY_EMOJI}.`,
+    tooBig: (max: string) => `The biggest bet is **${max}** ${CURRENCY_EMOJI}.`,
     cantAfford: (p: string, bet: string, balance: string) =>
-      `That bet is **${bet}** points and you have **${balance}**. Use \`${p}claim\` to earn more.`,
+      `That bet is **${bet}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
     dropTitle: 'Plinko',
-    dropping: (user: string, bet: string) => `${user} drops a ball for **${bet}** points...`,
+    dropping: (user: string, bet: string) => `${user} drops a ball for **${bet}** ${CURRENCY_EMOJI}...`,
     /** `multiplier` is like "3x". */
     resultTitle: (multiplier: string) => `Plinko: ${multiplier}`,
-    landed: (user: string, bet: string, multiplier: string) => `${user} bet **${bet}** and the ball landed on **${multiplier}**.`,
-    paidMore: (payout: string) => `They won **${payout}** points!`,
+    landed: (user: string, bet: string, multiplier: string) => `${user} bet **${bet}** ${CURRENCY_EMOJI} and the ball landed on **${multiplier}**.`,
+    paidMore: (payout: string) => `They won **${payout}** ${CURRENCY_EMOJI}!`,
     paidSame: 'They got their bet back.',
-    paidLess: (payout: string) => `They got **${payout}** points back.`,
+    paidLess: (payout: string) => `They got **${payout}** ${CURRENCY_EMOJI} back.`,
     paidNothing: 'They lost it all.',
     author: (name: string) => `${name} played plinko`,
     betField: 'Bet',
     payoutField: 'Payout',
     /** `change` is signed, like "+200" or "-50". */
-    payout: (payout: string, change: string) => `${payout} (${change})`,
+    payout: (payout: string, change: string) => `${payout} ${CURRENCY_EMOJI} (${change} ${CURRENCY_EMOJI})`,
     balanceField: 'Balance',
     /** `percent` is like "98%": what the board pays back on average. */
     footer: (percent: string) => `The board pays back ${percent} of a bet on average.`,
@@ -415,10 +423,10 @@ export const TEXT = {
     onlyEquippedTier: (p: string, stars: string) => `The only ${stars} items you have are equipped, so none can be sold. Take them off with \`${p}unequip\` first.`,
     /** Result of selling. `user` is a mention, `stars` the star string, `points` already formatted. */
     soldTitle: 'Sold',
-    soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for **${points}** points.`,
-    soldMany: (user: string, count: number, points: string) => `${user} sold **${count}** items for **${points}** points.`,
+    soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for **${points}** ${CURRENCY_EMOJI}.`,
+    soldMany: (user: string, count: number, points: string) => `${user} sold **${count}** items for **${points}** ${CURRENCY_EMOJI}.`,
     /** One line of a sale: an item, how many, and what they were worth together. */
-    line: (stars: string, name: string, count: number, points: string) => `${stars}  ${name} x${count} · ${points}`,
+    line: (stars: string, name: string, count: number, points: string) => `${stars}  ${name} x${count} · ${points} ${CURRENCY_EMOJI}`,
     balanceField: 'Balance',
     footerLeft: (count: number) => (count === 0 ? 'You have none left' : `You have ${count} left`),
     /** Shown when some of what was planned could no longer be sold (equipped or already sold in the meantime). */
@@ -426,7 +434,7 @@ export const TEXT = {
     nothingLeft: 'None of those can be sold any more (they were equipped, or already sold).',
     /** The confirmation prompt for selling many. */
     confirmTitle: 'Sell these?',
-    confirmDescription: (total: string, count: number, lines: string) => `${lines}\n\nTotal: **${total}** points for **${count}** items.`,
+    confirmDescription: (total: string, count: number, lines: string) => `${lines}\n\nTotal: **${total}** ${CURRENCY_EMOJI} for **${count}** items.`,
     confirmFooter: (seconds: number) => `Equipped items are never sold. Confirm within ${seconds} seconds.`,
     confirmButton: 'Sell',
     cancelButton: 'Cancel',
@@ -438,7 +446,7 @@ export const TEXT = {
   },
 
   inventory: {
-    emptySelf: (p: string) => `Your inventory is empty. Use \`${p}claim\` to earn points, then \`${p}gacha\` to pull items.`,
+    emptySelf: (p: string) => `Your inventory is empty. Use \`${p}claim\` to earn ${CURRENCY_EMOJI}, then \`${p}gacha\` to pull items.`,
     emptyOther: (name: string) => `${name} has no items yet.`,
     title: (name: string) => `${name}'s inventory`,
     summary: (total: string, unique: number, catalogSize: number) =>
@@ -490,8 +498,8 @@ export const TEXT = {
 
   leaderboard: {
     title: 'Leaderboard',
-    empty: (p: string) => `Nobody has any points yet. Be the first with \`${p}claim\`!`,
-    row: (rank: number, userId: string, points: string) => `**${rank}.** <@${userId}> — ${points}`,
+    empty: (p: string) => `Nobody has any ${CURRENCY_EMOJI} yet. Be the first with \`${p}claim\`!`,
+    row: (rank: number, userId: string, points: string) => `**${rank}.** <@${userId}> — ${points} ${CURRENCY_EMOJI}`,
   },
 
   help: {
@@ -552,32 +560,32 @@ export const TEXT = {
     cooldown: (unix: number) => `You can rob again <t:${unix}:R>.`,
     victimProtected: (victim: string, unix: number) =>
       `${victim} was robbed recently. They can be robbed again <t:${unix}:R>.`,
-    victimBroke: (victim: string) => `${victim} has no points to steal.`,
+    victimBroke: (victim: string) => `${victim} has no ${CURRENCY_EMOJI} to steal.`,
     victimBusy: (victim: string) => `Someone else is robbing ${victim} right now. Try again in a moment.`,
     footer: (chance: string) => `Success chance: ${chance}`,
     success: (robber: string, victim: string, stolen: string) =>
-      `${robber} robbed ${victim} and got away with **${stolen}** points.`,
+      `${robber} robbed ${victim} and got away with **${stolen}** ${CURRENCY_EMOJI}.`,
     /** Added to a successful rob when the robber's gear made the take bigger. `amount` is how many points more. */
-    gearAdded: (amount: string) => `Your gear added **${amount}** to it.`,
+    gearAdded: (amount: string) => `Your gear added **${amount}** ${CURRENCY_EMOJI} to it.`,
     /** Added when the robber's gear made the take smaller (a cut, like the Coughing Baby's). */
-    gearCut: (amount: string) => `Your gear took **${amount}** off it.`,
+    gearCut: (amount: string) => `Your gear took **${amount}** ${CURRENCY_EMOJI} off it.`,
     /** Added when the victim's armor kept part of the take from the robber. */
-    shielded: (victim: string, amount: string) => `${victim}'s armor blocked **${amount}** of it.`,
+    shielded: (victim: string, amount: string) => `${victim}'s armor blocked **${amount}** ${CURRENCY_EMOJI} of it.`,
     /** Added to a caught rob when the robber's gear made the fine bigger (a glass cannon). */
-    fineRaised: (amount: string) => `Your gear added **${amount}** to the fine.`,
+    fineRaised: (amount: string) => `Your gear added **${amount}** ${CURRENCY_EMOJI} to the fine.`,
     /** Added to a successful rob when the wearer's gear taxes the victim's next claim. */
     claimTaxed: (victim: string, rate: string) => `${victim}'s next claim will be taxed ${rate}.`,
     /** Added to a successful rob when the wearer's gear taxes the victim's next successful rob. */
     robTaxed: (victim: string, rate: string) => `${victim}'s next rob will be taxed ${rate}.`,
     /** Added when part of this rob went to a Jew Frog wearer who robbed the robber earlier. `taker` is a mention. */
-    robTaxPaid: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** of it. You kept **${kept}**.`,
+    robTaxPaid: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** ${CURRENCY_EMOJI} of it. You kept **${kept}** ${CURRENCY_EMOJI}.`,
     /** Used instead of `success` when the victim was left with nothing. */
     successEverything: (robber: string, victim: string, stolen: string) =>
-      `${robber} robbed ${victim} and got away with **${stolen}** points. That was everything they had...`,
+      `${robber} robbed ${victim} and got away with **${stolen}** ${CURRENCY_EMOJI}. That was everything they had...`,
     caughtFined: (robber: string, victim: string, fine: string) =>
-      `${robber} tried to rob ${victim} but got caught, and paid them a fine of **${fine}** points.`,
+      `${robber} tried to rob ${victim} but got caught, and paid them a fine of **${fine}** ${CURRENCY_EMOJI}.`,
     caughtFinedWithGear: (robber: string, victim: string, fine: string, waived: string) =>
-      `${robber} tried to rob ${victim} but got caught, and paid them a fine of **${fine}** points (their gear cancelled ${waived}).`,
+      `${robber} tried to rob ${victim} but got caught, and paid them a fine of **${fine}** ${CURRENCY_EMOJI} (their gear cancelled ${waived} ${CURRENCY_EMOJI}).`,
     /** Gear cancelled the whole fine. */
     caughtGearSaved: (robber: string, victim: string) =>
       `${robber} tried to rob ${victim} but got caught, though their gear got them out of the fine.`,
@@ -586,7 +594,7 @@ export const TEXT = {
       `${robber} tried to rob ${victim} but got caught. There was no fine to pay.`,
     /** The robber has fewer points than the base fine. */
     robberTooPoor: (p: string, fine: string, balance: string) =>
-      `You need at least **${fine}** points to rob, in case you get caught. You have **${balance}**. Use \`${p}claim\` to earn more.`,
+      `You need at least **${fine}** ${CURRENCY_EMOJI} to rob, in case you get caught. You have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
   },
 
   events: {
@@ -619,7 +627,7 @@ export const TEXT = {
     title: 'A crate landed!',
     /** `pile` is the points inside, `unix` is when it opens, in seconds. */
     description: (pile: string, unix: number) =>
-      `A crate with **${pile}** points fell into the channel! Press **Grab** before it opens <t:${unix}:R>. Everyone who grabs splits the points evenly.`,
+      `A crate with **${pile}** ${CURRENCY_EMOJI} fell into the channel! Press **Grab** before it opens <t:${unix}:R>. Everyone who grabs splits the ${CURRENCY_EMOJI} evenly.`,
     button: 'Grab',
     grabbedField: 'Grabbed so far',
     grabbedNobody: 'Nobody yet',
@@ -629,16 +637,16 @@ export const TEXT = {
     openedTitle: 'The crate opened!',
     /** `each` is what everyone got, `extra` how many got one more to use up the remainder. */
     opened: (pile: string, count: number, each: string, extra: number) =>
-      `**${pile}** points split between **${count}** ${count === 1 ? 'person' : 'people'}: **${each}** each${
+      `**${pile}** ${CURRENCY_EMOJI} split between **${count}** ${count === 1 ? 'person' : 'people'}: **${each}** ${CURRENCY_EMOJI} each${
         extra > 0 ? `, and ${extra} lucky ${extra === 1 ? 'grabber' : 'grabbers'} got 1 more` : ''
       }.`,
-    shareLine: (user: string, amount: string) => `${user} **+${amount}**`,
+    shareLine: (user: string, amount: string) => `${user} **+${amount}** ${CURRENCY_EMOJI}`,
     moreShares: (count: number) => `...and ${count} more`,
     sharesField: 'Who got what',
     crumbledTitle: 'The crate crumbled',
-    crumbled: (pile: string) => `Nobody grabbed the **${pile}** points, so they blew away.`,
+    crumbled: (pile: string) => `Nobody grabbed the **${pile}** ${CURRENCY_EMOJI}, so they blew away.`,
     failedTitle: 'The crate got stuck',
-    failed: 'Something went wrong while handing out the points, so nobody was paid. Ask the bot admin to look at the logs.',
+    failed: `Something went wrong while handing out the ${CURRENCY_EMOJI}, so nobody was paid. Ask the bot admin to look at the logs.`,
     someFailed: (count: number) => `${count} ${count === 1 ? 'payout' : 'payouts'} could not be made. Ask the bot admin to look at the logs.`,
   },
 
@@ -714,6 +722,7 @@ export function validateConstants(): void {
     problems.push('PERCENT_DECIMALS must be a whole number from 0 to 10');
   }
   if (STAR_SYMBOL === '') problems.push('STAR_SYMBOL cannot be empty');
+  if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(CURRENCY_EMOJI)) problems.push('CURRENCY_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
   if (!/^\d{17,20}$/.test(ADMIN_USER_ID)) problems.push('ADMIN_USER_ID must be a Discord user id (17 to 20 digits)');
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');

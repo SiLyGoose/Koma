@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   ADMIN_USER_ID,
+  CURRENCY_EMOJI,
   EFFECT_TEXT,
   FAILURE_TITLES,
   HOUR_MS,
@@ -14,7 +15,7 @@ import {
 } from '../src/constants.js';
 import { EFFECT_IDS } from '../src/data/effects.js';
 import { isAdmin } from '../src/config.js';
-import { formatPercent, fmt, joinLimited, mentionList, starString } from '../src/lib/format.js';
+import { formatPercent, fmt, joinLimited, mentionList, money, starString } from '../src/lib/format.js';
 import { pickRandom } from '../src/lib/random.js';
 import { HOUR_MS as HOUR_MS_FROM_TIME } from '../src/lib/time.js';
 import { SLOTS } from '../src/types.js';
@@ -65,8 +66,8 @@ test('formatting helpers use the constants', () => {
 
 test('message templates fill in their values', () => {
   assert.equal(TEXT.common.memberNotFound('k!', 'rob @user'), 'Could not find member in server. Mention via `k!rob @user`.');
-  assert.match(TEXT.rob.success('<@1>', '<@2>', '250'), /<@1> robbed <@2>.*\*\*250\*\* points/);
-  assert.match(TEXT.rob.caughtFinedWithGear('<@1>', '<@2>', '25', '75'), /fine of \*\*25\*\* points \(their gear cancelled 75\)/);
+  assert.ok(TEXT.rob.success('<@1>', '<@2>', '250').includes(`**250** ${CURRENCY_EMOJI}`));
+  assert.ok(TEXT.rob.caughtFinedWithGear('<@1>', '<@2>', '25', '75').includes(`fine of **25** ${CURRENCY_EMOJI} (their gear cancelled 75 ${CURRENCY_EMOJI})`));
   assert.equal(TEXT.equip.ambiguous(['A', 'B']), 'That could be more than one of your items: **A**, **B**. Type more of the name.');
   assert.equal(TEXT.unequip.tookOff(['A', 'B']), 'You took off **A** and **B**.');
   assert.equal(TEXT.config.reset('claim.min', '200', '100'), 'Reset `claim.min` from **200** to **100**.');
@@ -83,12 +84,23 @@ test('message templates fill in their values', () => {
   assert.equal(mentionList([]), '');
   assert.equal(
     TEXT.rob.robberTooPoor('k!', '100', '40'),
-    'You need at least **100** points to rob, in case you get caught. You have **40**. Use `k!claim` to earn more.',
+    `You need at least **100** ${CURRENCY_EMOJI} to rob, in case you get caught. You have **40** ${CURRENCY_EMOJI}. Use \`k!claim\` to earn more.`,
   );
   assert.equal(TEXT.rob.victimBusy('Bob'), 'Someone else is robbing Bob right now. Try again in a moment.');
   assert.equal(TEXT.wheel.landed('1.5x'), 'The wheel landed on **1.5x**.');
   assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "<@2>'s next rob will be taxed 25%.");
-  assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), '<@1> took **50** of it. You kept **150**.');
+  assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), `<@1> took **50** ${CURRENCY_EMOJI} of it. You kept **150** ${CURRENCY_EMOJI}.`);
+});
+
+test('the currency emoji is one full custom emoji code, and money() puts it after an amount', () => {
+  assert.match(CURRENCY_EMOJI, /^<a?:\w{2,32}:\d{17,20}>$/);
+  assert.equal(money(1500), `1,500 ${CURRENCY_EMOJI}`);
+  assert.equal(money(0), `0 ${CURRENCY_EMOJI}`);
+  // The word "points" is gone from what players read: amounts in the messages carry the emoji instead.
+  assert.ok(!TEXT.claim.claimed('<@1>', '250').includes('points'));
+  assert.ok(!TEXT.leaderboard.empty('k!').includes('points'));
+  assert.equal(TEXT.balance.points('1,000'), `**1,000** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.leaderboard.row(1, '5', '900'), `**1.** <@5> — 900 ${CURRENCY_EMOJI}`);
 });
 
 test('the startup check catches a bad edit', () => {
