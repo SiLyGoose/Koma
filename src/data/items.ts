@@ -99,10 +99,10 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['robAmountCut', 'robTax'],
   },
   {
-    // Aaron
     id: 'wheelchair',
     name: 'Wheelchair',
     stars: 4,
+    usableBy: ['658356661240463380'], // Aaron
     slot: 'armor',
     description: 'A wheelchair. It is a wheelchair.',
     effects: ['wheelSpin'],
