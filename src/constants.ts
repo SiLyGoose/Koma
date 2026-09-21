@@ -147,8 +147,8 @@ export const PERCENT_DECIMALS = 2;
 // Add as many as you like, but keep at least one in each list.
 // ---------------------------------------------------------------------------
 
-export const SUCCESS_TITLES: readonly string[] = ["IT'S A STICKUP!", "YOU'VE BEEN SLIMED!"];
-export const FAILURE_TITLES: readonly string[] = ['L+Ratio', 'Your XP was too low'];
+export const SUCCESS_TITLES: readonly string[] = ['IT\'S A STICKUP!', 'THEY\'VE BEEN SLIMED!'];
+export const FAILURE_TITLES: readonly string[] = ['L+Ratio', 'Your XP was too low', 'You\'re washed..'];
 
 // ---------------------------------------------------------------------------
 // Gear lines: how each effect reads on an item or in the gear summary. `value` is the
@@ -225,7 +225,8 @@ export const TEXT = {
 
   wheel: {
     /** Added under a claim or rob when the wheel spun. `multiplier` is like "1.5x". */
-    landed: (multiplier: string) => `The wheel landed on **${multiplier}**.`,
+    /** `change` is what the spin did to the points with its sign, like "+50" or "-90"; left out when it changed nothing. */
+    landed: (multiplier: string, change = '') => `The wheel landed on **${multiplier}**${change ? ` (**${change}**)` : ''}.`,
     /** Shown while the wheel is still turning. `user` is a mention. */
     spinningTitle: 'The wheel is spinning...',
     spinning: (user: string) => `${user} spins the wheel...`,
@@ -241,9 +242,11 @@ export const TEXT = {
     fail: (user: string, roll: number) =>
       `${user} rolled a **${roll}** on the D20. Critical fail! Nothing to claim, and no more claims this hour.`,
     /** Added under a claim that rolled 2 up to one below the top. `multiplier` is like "1.3x". */
-    landed: (roll: number, multiplier: string) => `The D20 landed on **${roll}**: **${multiplier}**.`,
+    /** `change` is what the die did to the points with its sign, like "+30" or "-40"; left out when it changed nothing. */
+    landed: (roll: number, multiplier: string, change = '') => `The D20 landed on **${roll}**: **${multiplier}**${change ? ` (**${change}**)` : ''}.`,
     /** Added under a claim that rolled the top number. */
-    critical: (roll: number, multiplier: string) => `Critical success! The D20 landed on **${roll}** and paid **${multiplier}**.`,
+    critical: (roll: number, multiplier: string, change = '') =>
+      `Critical success! The D20 landed on **${roll}** and paid **${multiplier}**${change ? ` (**${change}**)` : ''}.`,
     claimAgain: 'You can claim again this hour.',
     /** The "Next claim" field after a critical success: right now (once more), then the usual hour. */
     nextBonus: (unix: number) => `**Now**, once more. Then <t:${unix}:R>`,
@@ -447,6 +450,14 @@ export const TEXT = {
     footer: (chance: string) => `Success chance: ${chance}`,
     success: (robber: string, victim: string, stolen: string) =>
       `${robber} robbed ${victim} and got away with **${stolen}** points.`,
+    /** Added to a successful rob when the robber's gear made the take bigger. `amount` is how many points more. */
+    gearAdded: (amount: string) => `Your gear added **${amount}** to it.`,
+    /** Added when the robber's gear made the take smaller (a cut, like the Coughing Baby's). */
+    gearCut: (amount: string) => `Your gear took **${amount}** off it.`,
+    /** Added when the victim's armor kept part of the take from the robber. */
+    shielded: (victim: string, amount: string) => `${victim}'s armor blocked **${amount}** of it.`,
+    /** Added to a caught rob when the robber's gear made the fine bigger (a glass cannon). */
+    fineRaised: (amount: string) => `Your gear added **${amount}** to the fine.`,
     /** Added to a successful rob when the wearer's gear taxes the victim's next claim. */
     claimTaxed: (victim: string, rate: string) => `${victim}'s next claim will be taxed ${rate}.`,
     /** Added to a successful rob when the wearer's gear taxes the victim's next successful rob. */

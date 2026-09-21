@@ -20,6 +20,9 @@ export function joinLimited(lines: string[], maxLength = FIELD_MAX_LENGTH): stri
 /** Discord mentions for a list of user ids, like "<@1>, <@2>". */
 export const mentionList = (userIds: readonly string[]): string => userIds.map((id) => `<@${id}>`).join(', ');
 
+/** A change in points with its sign: 25 -> "+25", -90 -> "-90", 0 -> "0". */
+export const signed = (n: number): string => `${n > 0 ? '+' : n < 0 ? '-' : ''}${fmt(Math.abs(n))}`;
+
 /** 1.5 -> "1.5x", 2 -> "2x", 0.1 -> "0.1x". */
 export const formatMultiplier = (multiplier: number): string => `${Number(multiplier.toFixed(2))}x`;
 

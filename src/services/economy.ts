@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { MINUTE_MS, MULTI_PULLS } from '../constants.js';
 import { collections } from '../db.js';
+import { emptyTotals } from '../data/effects.js';
 import { applyD20, rollD20, rollD20Dice, type D20Dice, type D20Roll } from '../lib/d20.js';
 import { groupCopies, newCopyId, type InventoryEntry } from '../lib/copies.js';
 import { gearEffects } from '../lib/equipment.js';
@@ -228,11 +229,15 @@ export type ClaimResult =
       bonus: number;
       /** Set when the wheel (wheelSpin gear) spun for this claim and multiplied `amount`. */
       wheel: WheelSpin | null;
+      /** How many points the wheel added (negative if it took some away); 0 when it didn't spin. */
+      wheelBonus: number;
       /**
        * Set when the D20 (d20 gear) rolled for this claim. A fail makes `amount` 0 (and the hour is
        * used up), a success doubled it and left one more claim this hour (`bonusLeft`).
        */
       d20: D20Roll | null;
+      /** How many points the D20 added (negative if it took some away, all of them on a fail); 0 when it didn't roll. */
+      d20Bonus: number;
       /** This claim was the extra one earned by a critical success earlier in the hour. */
       extra: boolean;
       /** One more claim can be made this hour (this claim was a critical success). */
@@ -343,7 +348,9 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
       amount,
       bonus: withGear - rolled,
       wheel,
+      wheelBonus: afterWheel - withGear,
       d20,
+      d20Bonus: amount - afterWheel,
       extra,
       bonusLeft,
       taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
@@ -543,6 +550,12 @@ export type RobResult =
       robTaxPaid: { amount: number; toUserId: string } | null;
       /** Set when the wheel (wheelSpin gear) spun for this rob and multiplied what was stolen. */
       wheel: WheelSpin | null;
+      /** How many points the robber's gear added to what was taken (negative when it cut it, like a robAmountCut). */
+      gearBonus: number;
+      /** How many points the victim's armor kept from the robber. */
+      shielded: number;
+      /** How many points the wheel added to what was taken (negative if it took some away); 0 when it didn't spin. */
+      wheelBonus: number;
     }
   | {
       ok: true;
@@ -554,6 +567,8 @@ export type RobResult =
       owed: number;
       /** How much of the fine the robber's gear cancelled. */
       waived: number;
+      /** How much the robber's gear added to the fine (a glass cannon). 0 when it made it smaller or did nothing. */
+      raised: number;
       robberBalance: number;
       victimBalance: number;
     };
@@ -643,7 +658,11 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         );
 
       // The wheel multiplies what is taken, so the victim loses exactly what the robber gets.
-      const stolen = robStolenAmount(randInt(cfg.minStolen, cfg.maxStolen), robberGear, victimGear);
+      const rolled = randInt(cfg.minStolen, cfg.maxStolen);
+      const stolen = robStolenAmount(rolled, robberGear, victimGear);
+      // What each effect did, so the reply can show it: the robber's gear, then the victim's armor,
+      // then the wheel. Each step is the difference between two whole numbers, so they add up.
+      const beforeArmor = robStolenAmount(rolled, robberGear, emptyTotals());
       const wheel = spinWheel(wheelChance(robberGear), rollWheelDice());
       const wanted = wheel ? applyWheel(stolen, wheel.multiplier) : stolen;
       const transfer = await transferClamped(guildId, victimId, robberId, wanted, cfg.minVictimBalance);
@@ -748,6 +767,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         robTax,
         robTaxPaid,
         wheel,
+        gearBonus: beforeArmor - rolled,
+        shielded: Math.max(0, beforeArmor - stolen),
+        wheelBonus: wanted - stolen,
       };
     }
 
@@ -757,6 +779,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     const owed = robFine(cfg.failFine, robberGear);
     // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
     const waived = Math.max(0, cfg.failFine - owed);
+    const raised = Math.max(0, owed - cfg.failFine);
     const transfer = owed > 0 ? await transferInDebt(guildId, robberId, victimId, owed) : null;
     if (!transfer) {
       const robber = await members.findOne({ guildId, userId: robberId });
@@ -767,6 +790,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         fine: 0,
         owed,
         waived,
+        raised,
         robberBalance: robber?.points ?? 0,
         victimBalance: victim?.points ?? 0,
       };
@@ -782,6 +806,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       fine: transfer.moved,
       owed,
       waived,
+      raised,
       robberBalance: transfer.fromBalance,
       victimBalance: transfer.toBalance,
     };

@@ -117,7 +117,7 @@ test('d20 item: wearing it lists what the die does, with the chance', () => {
   assert.deepEqual(item.effects, ['d20']);
   const lines = describeEffects(item);
   assert.equal(lines.length, 1);
-  assert.match(lines[0] as string, /Roll the die/);
+  assert.match(lines[0] as string, /100% of your claims roll a D20/);
   assert.match(EFFECT_TEXT.d20('40%'), /40% of your claims roll a D20/);
 });
 

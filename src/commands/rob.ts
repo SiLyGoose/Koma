@@ -1,6 +1,6 @@
 import { FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, formatPercent } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
 import { rob as robService } from '../services/economy.js';
 import { replyWithWheel } from './wheel-reply.js';
@@ -10,13 +10,15 @@ import type { Command } from './types.js';
 function caughtText(
   robber: string,
   victim: string,
-  result: { fine: number; owed: number; waived: number },
+  result: { fine: number; owed: number; waived: number; raised: number },
 ): string {
   if (result.owed === 0 && result.waived > 0) return TEXT.rob.caughtGearSaved(robber, victim);
   if (result.fine === 0) return TEXT.rob.caughtNothingToFine(robber, victim);
-  return result.waived > 0
-    ? TEXT.rob.caughtFinedWithGear(robber, victim, fmt(result.fine), fmt(result.waived))
-    : TEXT.rob.caughtFined(robber, victim, fmt(result.fine));
+  const text =
+    result.waived > 0
+      ? TEXT.rob.caughtFinedWithGear(robber, victim, fmt(result.fine), fmt(result.waived))
+      : TEXT.rob.caughtFined(robber, victim, fmt(result.fine));
+  return result.raised > 0 ? `${text}\n${TEXT.rob.fineRaised(fmt(result.raised))}` : text;
 }
 
 /** Extra lines under a successful rob: a tax paid out of it, and taxes now waiting on the victim. */
@@ -28,10 +30,19 @@ function successNotes(
     robTax: number | null;
     robTaxPaid: { amount: number; toUserId: string } | null;
     wheel: { multiplier: number } | null;
+    gearBonus: number;
+    shielded: number;
+    wheelBonus: number;
   },
 ): string {
   const lines: string[] = [];
-  if (result.wheel !== null) lines.push(TEXT.wheel.landed(formatMultiplier(result.wheel.multiplier)));
+  // What each effect did to the amount, in the order it was applied.
+  if (result.gearBonus > 0) lines.push(TEXT.rob.gearAdded(fmt(result.gearBonus)));
+  if (result.gearBonus < 0) lines.push(TEXT.rob.gearCut(fmt(-result.gearBonus)));
+  if (result.shielded > 0) lines.push(TEXT.rob.shielded(victim, fmt(result.shielded)));
+  if (result.wheel !== null) {
+    lines.push(TEXT.wheel.landed(formatMultiplier(result.wheel.multiplier), result.wheelBonus === 0 ? '' : signed(result.wheelBonus)));
+  }
   if (result.robTaxPaid !== null) {
     const { amount, toUserId } = result.robTaxPaid;
     lines.push(TEXT.rob.robTaxPaid(`<@${toUserId}>`, fmt(amount), fmt(result.stolen - amount)));

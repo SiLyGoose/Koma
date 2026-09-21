@@ -1,6 +1,6 @@
 import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier } from '../lib/format.js';
+import { fmt, formatMultiplier, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy.js';
 import { replyWithDice } from './dice-reply.js';
 import { replyWithWheel } from './wheel-reply.js';
@@ -19,7 +19,7 @@ export const claim: Command = {
     }
 
     const user = ctx.user.toString();
-    const { d20, wheel } = result;
+    const { d20, wheel, wheelBonus, d20Bonus } = result;
     const failed = d20?.kind === 'fail';
 
     // What happened, in the order it happened: the claim, the wheel, then the D20.
@@ -30,10 +30,12 @@ export const claim: Command = {
           ? TEXT.claim.claimedWithGear(user, fmt(result.amount), fmt(result.bonus))
           : TEXT.claim.claimed(user, fmt(result.amount)),
     ];
-    if (wheel && !failed) lines.push(TEXT.wheel.landed(formatMultiplier(wheel.multiplier)));
+    // Each line says how many points the effect added (or took away), so the changes add up to the claim.
+    if (wheel && !failed) lines.push(TEXT.wheel.landed(formatMultiplier(wheel.multiplier), wheelBonus === 0 ? '' : signed(wheelBonus)));
     if (d20 && !failed) {
       const multiplier = formatMultiplier(d20.multiplier);
-      lines.push(d20.kind === 'success' ? TEXT.d20.critical(d20.roll, multiplier) : TEXT.d20.landed(d20.roll, multiplier));
+      const change = d20Bonus === 0 ? '' : signed(d20Bonus);
+      lines.push(d20.kind === 'success' ? TEXT.d20.critical(d20.roll, multiplier, change) : TEXT.d20.landed(d20.roll, multiplier, change));
     }
     if (result.bonusLeft) lines.push(TEXT.d20.claimAgain);
     if (result.taxed) {
