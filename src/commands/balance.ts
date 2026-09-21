@@ -62,11 +62,11 @@ export const balance: Command = {
 
     // Status effects on the member, shown only while there is one, to anyone looking.
     const effects: string[] = [];
-    if (info.wisteria) {
-      // The Wisteria poison from a Coughing Baby.
-      const rate = formatPercent(info.wisteria.rate);
-      const taker = `<@${info.wisteria.byUserId}>`;
-      effects.push(isSelf ? TEXT.balance.wisteriaSelf(rate, taker) : TEXT.balance.wisteriaOther(rate, taker));
+    if (info.withered) {
+      // The Withered status from a Coughing Baby.
+      const rate = formatPercent(info.withered.rate);
+      const taker = `<@${info.withered.byUserId}>`;
+      effects.push(isSelf ? TEXT.balance.witheredSelf(rate, taker) : TEXT.balance.witheredOther(rate, taker));
     }
     if (info.robTax) {
       // The Yowch, My Coins! mark from a Jew Frog.

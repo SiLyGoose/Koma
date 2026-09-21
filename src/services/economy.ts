@@ -126,10 +126,10 @@ export interface BalanceInfo {
   /** Until when this member can't be robbed (unix seconds), or null if they can be robbed now. */
   robProtectedUntilUnix: number | null;
   /**
-   * Set while a Coughing Baby wearer has poisoned this member (Wisteria): the share of their next
-   * claim that will be taken, and who it will be paid to. Null when they are not poisoned.
+   * Set while a Coughing Baby wearer has withered this member (Wither): the share of their next
+   * claim that will be taken, and who it will be paid to. Null when they are not withered.
    */
-  wisteria: { rate: number; byUserId: string } | null;
+  withered: { rate: number; byUserId: string } | null;
   /**
    * Set while a Jew Frog wearer has marked this member: the share of their next successful rob
    * that will be taken, and who it will be paid to. Null when they are not marked.
@@ -154,7 +154,7 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
     nextClaimUnix: nextHourUnix(hour),
     robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS, now),
     robProtectedUntilUnix: timerEndsAtUnix(member?.lastRobbedAt, CONFIG.rob.victimProtectionMinutes * MINUTE_MS, now),
-    wisteria:
+    withered:
       member?.claimTaxRate && member.claimTaxBy ? { rate: member.claimTaxRate, byUserId: member.claimTaxBy } : null,
     robTax: member?.robTaxRate && member.robTaxBy ? { rate: member.robTaxRate, byUserId: member.robTaxBy } : null,
   };

@@ -70,8 +70,8 @@ test('message templates fill in their values', () => {
   assert.equal(TEXT.unequip.tookOff(['A', 'B']), 'You took off **A** and **B**.');
   assert.equal(TEXT.config.reset('claim.min', '200', '100'), 'Reset `claim.min` from **200** to **100**.');
   assert.match(TEXT.balance.claimWait(1700000000), /<t:1700000000:R>/);
-  assert.equal(TEXT.balance.wisteriaSelf('25%', '<@1>'), 'Wisteriosis: <@1> takes 25% of your next claim.');
-  assert.equal(TEXT.balance.wisteriaOther('25%', '<@1>'), 'Wisteriosis: <@1> takes 25% of their next claim.');
+  assert.equal(TEXT.balance.witheredSelf('25%', '<@1>'), 'Withered: <@1> takes 25% of your next claim.');
+  assert.equal(TEXT.balance.witheredOther('25%', '<@1>'), 'Withered: <@1> takes 25% of their next claim.');
   assert.equal(TEXT.balance.robTaxSelf('25%', '<@1>'), 'Yowch, My Coins! <@1> takes 25% of your next rob.');
   assert.equal(TEXT.balance.robTaxOther('25%', '<@1>'), 'Yowch, My Coins! <@1> takes 25% of their next rob.');
   assert.equal(TEXT.databank.exclusive('<@1>, <@2>'), 'Exclusive to <@1>, <@2>');

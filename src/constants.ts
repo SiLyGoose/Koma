@@ -113,7 +113,7 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   robShield: (value) => `-${value} points lost when robbed`,
   fineReduction: (value) => `-${value} fine when caught`,
   robAmountCut: (value) => `-${value} points stolen`,
-  claimTax: (value) => `Wisteria: members you rob lose ${value} of their next claim to you`,
+  claimTax: (value) => `Wither: members you rob lose ${value} of their next claim to you`,
   robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
   glassCannon: (value) => `Glass cannon: +${value} points stolen`,
   glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
@@ -157,10 +157,10 @@ export const TEXT = {
     protectionEndsOther: (unix: number) => `They can be robbed <t:${unix}:R>`,
     /** Status effects on the member, one line each. The field only appears while there is one. */
     effectsField: 'Effects',
-    /** Poisoned by a Coughing Baby wearer. `taker` is a mention, `rate` like "25%". */
-    wisteriaSelf: (rate: string, taker: string) => `Wisteriosis: ${taker} takes ${rate} of your next claim.`,
-    wisteriaOther: (rate: string, taker: string) => `Wisteriosis: ${taker} takes ${rate} of their next claim.`,
-    /** Marked by a Jew Frog wearer: part of their next successful rob goes to `taker` (a mention). */
+    /** Withered by a Coughing Baby wearer. `taker` is a mention, `rate` like "25%". */
+    witheredSelf: (rate: string, taker: string) => `Withered: ${taker} takes ${rate} of your next claim.`,
+    witheredOther: (rate: string, taker: string) => `Withered: ${taker} takes ${rate} of their next claim.`,
+    /** Marked by a Frog wearer: part of their next successful rob goes to `taker` (a mention). */
     robTaxSelf: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of your next rob.`,
     robTaxOther: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of their next rob.`,
   },

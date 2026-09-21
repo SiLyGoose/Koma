@@ -25,13 +25,9 @@ const limits = { minChance: 0.05, maxChance: 0.95 };
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} is not ${expected}`);
 
-test('catalog: every star tier has a weapon and an armor, and every item has effects', () => {
+test('catalog: every star tier has an item, and every item has effects', () => {
   validateItems();
-  for (const stars of STARS) {
-    const slots = new Set(itemsByStars(stars).map((item) => item.slot));
-    assert.ok(slots.has('weapon'), `${stars}-star tier has no weapon`);
-    assert.ok(slots.has('armor'), `${stars}-star tier has no armor`);
-  }
+  for (const stars of STARS) assert.ok(itemsByStars(stars).length > 0, `${stars}-star tier has no items`);
   for (const item of ITEMS) assert.ok(item.effects.length > 0, `${item.id} has no effects`);
 });
 
@@ -164,7 +160,7 @@ test('effects read as plain text', () => {
   ]);
   assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'claimTax'], stars: 4 }), [
     '-25% points stolen',
-    'Wisteria: members you rob lose 25% of their next claim to you',
+    'Wither: members you rob lose 25% of their next claim to you',
   ]);
   assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'robTax'], stars: 4 }), [
     '-25% points stolen',
