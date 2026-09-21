@@ -61,6 +61,9 @@ export const MAX_PREFIX_LENGTH = 10;
 /** Most copies of an item the admin's give command hands out in one go. */
 export const MAX_GIVE_AMOUNT = 100;
 
+/** How many pulls one multi pull (`gacha multi`) makes. It costs that many single pulls, and the results are shown in one embed, so keep it from 2 to 30. */
+export const MULTI_PULLS = 10;
+
 /** Highest pull count the pity settings accept. */
 export const MAX_PITY = 1000;
 
@@ -222,6 +225,22 @@ export const TEXT = {
     pityProgress: (count: string, hardPity: string) => `${count} / ${hardPity}`,
     footerNew: 'New item!',
     footerOwned: (count: number) => `You now own ${count}`,
+    /** When the argument after the command isn't "multi". */
+    usage: (p: string) => `Use \`${p}gacha\` for one pull, or \`${p}gacha multi\` for ${MULTI_PULLS} pulls at once.`,
+    multiCantAfford: (p: string, pulls: number, cost: string, balance: string) =>
+      `A multi pull (${pulls} pulls) costs **${cost}** points and you have **${balance}**. Use \`${p}claim\` to earn more.`,
+    multiTitle: (pulls: number) => `Multi pull x${pulls}`,
+    /** One line per pull. `stars` is the star string; `isNew` when it is the first copy the member has ever owned. */
+    multiLine: (stars: string, name: string, isNew: boolean) => `${stars}  ${name}${isNew ? ' · New!' : ''}`,
+    /** Same, for a top-tier pull, which is set apart in bold. */
+    multiLineTop: (stars: string, name: string, isNew: boolean) => `**${stars}  ${name}**${isNew ? ' · New!' : ''}`,
+    /** Added under the list for each pulled item that is exclusive to other members. `owners` is mentions. */
+    multiExclusive: (name: string, owners: string) => `Only ${owners} can use ${name}.`,
+    multiSummaryField: 'Summary',
+    /** One part of the summary: how many pulls gave items of a tier. `stars` is the star string. */
+    multiTier: (stars: string, count: number) => `${stars} x${count}`,
+    multiFooterNew: (count: number) => (count === 1 ? '1 new item!' : `${count} new items!`),
+    multiFooterNoneNew: 'No new items',
   },
 
   inventory: {
@@ -425,6 +444,7 @@ export function validateConstants(): void {
   if (!/^\d{17,20}$/.test(ADMIN_USER_ID)) problems.push('ADMIN_USER_ID must be a Discord user id (17 to 20 digits)');
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');
+  if (MULTI_PULLS < 2 || MULTI_PULLS > 30) problems.push('MULTI_PULLS must be from 2 to 30');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');
@@ -435,6 +455,7 @@ export function validateConstants(): void {
     ['MAX_LEADERBOARD_SIZE', MAX_LEADERBOARD_SIZE],
     ['MAX_PITY', MAX_PITY],
     ['MAX_GIVE_AMOUNT', MAX_GIVE_AMOUNT],
+    ['MULTI_PULLS', MULTI_PULLS],
     ['MAX_WHEEL_SLICES', MAX_WHEEL_SLICES],
     ['MAX_WHEEL_MULTIPLIER', MAX_WHEEL_MULTIPLIER],
     ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],

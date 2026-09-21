@@ -1,8 +1,10 @@
-import { PITY_STARS, TEXT } from '../constants.js';
+import type { Message } from 'discord.js';
+import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/equipment.js';
 import { fmt, mentionList, starString } from '../lib/format.js';
-import { pullGacha } from '../services/economy.js';
+import { STARS } from '../config.js';
+import { pullGacha, pullMulti } from '../services/economy.js';
 import { reply } from './reply.js';
 import type { Command } from './types.js';
 import { getPrefix } from '../services/settings.js';
@@ -10,10 +12,21 @@ import { getPrefix } from '../services/settings.js';
 export const gacha: Command = {
   name: 'gacha',
   aliases: ['pull'],
-  description: 'Spend points to pull a random item.',
-  usage: 'gacha [amount]',
+  description: `Spend points to pull a random item. Add "multi" to pull ${MULTI_PULLS} at once.`,
+  usage: 'gacha [multi]',
 
-  async execute({ message }) {
+  async execute({ message, args }) {
+    // `gacha` is one pull and `gacha multi` is a multi pull; anything else gets a hint.
+    const mode = args[0]?.toLowerCase();
+    if (args.length > 1 || (mode !== undefined && mode !== 'multi')) {
+      await reply(message, TEXT.gacha.usage(getPrefix()));
+      return;
+    }
+    if (mode === 'multi') {
+      await multiPull(message);
+      return;
+    }
+
     const result = await pullGacha(message.guildId, message.author.id);
 
     if (!result.ok) {
@@ -51,3 +64,54 @@ export const gacha: Command = {
     await reply(message, { embeds: [embed] });
   },
 };
+
+/** `gacha multi`: all the pulls in one embed, in the order they were pulled. */
+async function multiPull(message: Message<true>): Promise<void> {
+  const result = await pullMulti(message.guildId, message.author.id);
+
+  if (!result.ok) {
+    await reply(message, TEXT.gacha.multiCantAfford(getPrefix(), MULTI_PULLS, fmt(result.cost), fmt(result.balance)));
+    return;
+  }
+
+  const lines = result.pulls.map(({ item, isNew }) =>
+    (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(starString(item.stars), item.name, isNew),
+  );
+
+  // One note per exclusive item that this member can't use the effects of.
+  const notes: string[] = [];
+  const noted = new Set<string>();
+  for (const { item } of result.pulls) {
+    if (!item.usableBy || canUseItem(item, message.author.id) || noted.has(item.id)) continue;
+    noted.add(item.id);
+    notes.push(TEXT.gacha.multiExclusive(item.name, mentionList(item.usableBy)));
+  }
+
+  // How many pulls gave each tier, best tier first.
+  const summary = [...STARS]
+    .reverse()
+    .map((stars) => ({ stars, count: result.pulls.filter((pull) => pull.item.stars === stars).length }))
+    .filter((tier) => tier.count > 0)
+    .map((tier) => TEXT.gacha.multiTier(starString(tier.stars), tier.count))
+    .join(' · ');
+
+  const newCount = result.pulls.filter((pull) => pull.isNew).length;
+  const embed = createEmbed()
+    .setTitle(TEXT.gacha.multiTitle(MULTI_PULLS))
+    .setDescription([...lines, ...(notes.length > 0 ? ['', ...notes] : [])].join('\n'))
+    .addFields(
+      { name: TEXT.gacha.multiSummaryField, value: summary, inline: false },
+      {
+        name: TEXT.gacha.spentField,
+        value:
+          result.cost < result.baseCost
+            ? TEXT.gacha.spentWithGear(fmt(result.cost), fmt(result.baseCost - result.cost))
+            : TEXT.gacha.spent(fmt(result.cost)),
+        inline: true,
+      },
+      { name: TEXT.gacha.balanceField, value: fmt(result.balance), inline: true },
+    )
+    .setFooter({ text: newCount > 0 ? TEXT.gacha.multiFooterNew(newCount) : TEXT.gacha.multiFooterNoneNew })
+    .setAuthor({ name: TEXT.gacha.author(message.author.displayName), iconURL: message.author.displayAvatarURL() });
+  await reply(message, { embeds: [embed] });
+}

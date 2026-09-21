@@ -73,3 +73,26 @@ export function rollItem(pullNumber = 1): ItemDef {
   const pool = itemsByStars(rollStarsAtPull(pullNumber));
   return pool[randomInt(0, pool.length)] as ItemDef;
 }
+
+/**
+ * Rolls `times` pulls in a row for a member whose pity counter stands at `counter` (pulls since
+ * their last pity-tier item, not counting these). Each pull is number counter + 1, and a
+ * pity-tier item starts the count over for the pulls after it. Returns the items in order and
+ * where the counter ends up. With pity off (`pityOn` false) every pull is just number 1 and the
+ * counter means nothing. `roll` is only replaced in tests.
+ */
+export function rollPulls(
+  counter: number,
+  times: number,
+  pityOn: boolean,
+  roll: (pullNumber: number) => ItemDef = rollItem,
+): { items: ItemDef[]; counter: number } {
+  const items: ItemDef[] = [];
+  for (let i = 0; i < times; i++) {
+    counter = pityOn ? counter + 1 : 1;
+    const item = roll(counter);
+    items.push(item);
+    if (pityOn && item.stars === PITY_STARS) counter = 0;
+  }
+  return { items, counter };
+}
