@@ -1,12 +1,12 @@
 import { mix, type Rgb } from './raster.js';
 
 /*
- * Colors for the numbers in a picture (the plinko slots and the D20's faces; the wheel keeps its
- * own fixed colors, see sliceColor in wheel-image.ts). They depend on the whole set of numbers
- * being drawn, not on each number alone: the biggest one is gold, the smallest is red, and the
- * ones in between blend from red through orange to gold. `reversed` flips that, so the biggest
- * is red and the smallest gold. So whatever the numbers are set to, the picture always uses the
- * full range of colors.
+ * Colors for the numbers in a picture, chosen from the whole set of numbers being drawn rather
+ * than from each number alone (the plinko slots use this; the prize wheel and the D20 keep their
+ * own fixed colors, see sliceColor in wheel-image.ts). The biggest number is gold, the smallest
+ * is red, and the ones in between blend from red through orange to gold. `reversed` flips that,
+ * so the biggest is red and the smallest gold. So whatever the numbers are set to, the picture
+ * always uses the full range of colors.
  */
 
 const RED: Rgb = [220, 70, 75];

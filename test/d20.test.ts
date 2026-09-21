@@ -93,17 +93,10 @@ test('d20: the claim after the roll', () => {
   assert.equal(applyD20(0, at(15)), 1, 'but the amount is at least 1 for any roll but a fail');
 });
 
-test('d20: the die colors run from red for the lowest multiplier to gold for the highest, blending in between', () => {
-  const rolls = Array.from({ length: D20.sides }, (_, i) => i + 1);
-  const best = rolls.reduce((a, b) => (d20Multiplier(b) > d20Multiplier(a) ? b : a));
-  const worst = rolls.reduce((a, b) => (d20Multiplier(b) < d20Multiplier(a) ? b : a));
-  assert.ok(d20Color(worst)[0] > d20Color(worst)[2], 'the lowest is reddish');
-  assert.ok(d20Color(best)[0] > 200 && d20Color(best)[2] < 120, 'the highest is gold');
-  assert.notDeepEqual(d20Color(worst), d20Color(best));
-  // A bigger multiplier is never redder (the green channel rises from red to gold).
-  for (const a of rolls) for (const b of rolls) if (d20Multiplier(a) < d20Multiplier(b)) assert.ok(d20Color(a)[1] <= d20Color(b)[1], `roll ${a} is not greener than roll ${b}`);
-  assert.deepEqual(d20Color(0), d20Color(1), 'a roll below 1 is clamped');
-  assert.deepEqual(d20Color(99), d20Color(D20.sides), 'a roll above the top is clamped');
+test('d20: the die colors match the wheel: red for a 1, gold for a 20', () => {
+  assert.notDeepEqual(d20Color(1), d20Color(20));
+  assert.ok(d20Color(1)[0] > d20Color(1)[2], 'a 1 is reddish');
+  assert.ok(d20Color(20)[0] > 200 && d20Color(20)[2] < 120, 'a 20 is gold');
 });
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 import { randomInt } from 'node:crypto';
 import { D20 } from '../../constants.js';
 import { d20Multiplier } from '../../lib/game/d20.js';
-import { rangeColors } from './palette.js';
 import { drawText } from './pixel-font.js';
 import { encodePng } from './png.js';
 import { luminance, shrink, type Rgb } from './raster.js';
+import { sliceColor } from './wheel-image.js';
 
 /*
  * Draws the D20 as a PNG: the classic front view of the die (a hexagon of ten triangular faces)
@@ -56,13 +56,9 @@ const FACES: { points: [Point, Point, Point]; light: number }[] = [
   { points: [T[2] as Point, V[4] as Point, V[5] as Point], light: 1 },
 ];
 
-/**
- * The color of the die showing `roll`: where its multiplier sits among the multipliers of all the
- * faces, like the wheel's slices (red for a 1, gold for the top number, a blend in between).
- */
+/** The color of the die showing `roll`: the wheel's colors for the same multiplier (red for a 1, gold for a 20). */
 export function d20Color(roll: number): Rgb {
-  const faces = rangeColors(Array.from({ length: D20.sides }, (_, i) => d20Multiplier(i + 1)));
-  return faces[Math.min(D20.sides, Math.max(1, roll)) - 1] as Rgb;
+  return sliceColor(d20Multiplier(roll));
 }
 
 const shade = (color: Rgb, light: number): Rgb => [
