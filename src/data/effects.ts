@@ -111,7 +111,7 @@ export const EFFECTS = {
   glassCannon: {
     description:
       `Glass cannon, reward: extra ${CURRENCY_EMOJI} the wearer steals on a successful rob, as a percent of the amount rolled (100% is 2x). Stacks with robAmount.`,
-    defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
+    defaults: { 1: 0.5, 2: 1, 3: 1.5, 4: 2 },
     min: 0,
     max: 5,
   },
