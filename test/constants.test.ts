@@ -6,6 +6,7 @@ import {
   FAILURE_TITLES,
   HOUR_MS,
   MINUTE_MS,
+  ROB_LOCK,
   SLOT_LABELS,
   SUCCESS_TITLES,
   TEXT,
@@ -84,6 +85,7 @@ test('message templates fill in their values', () => {
     TEXT.rob.robberTooPoor('k!', '100', '40'),
     'You need at least **100** points to rob, in case you get caught. You have **40**. Use `k!claim` to earn more.',
   );
+  assert.equal(TEXT.rob.victimBusy('Bob'), 'Someone else is robbing Bob right now. Try again in a moment.');
   assert.equal(TEXT.wheel.landed('1.5x'), 'The wheel landed on **1.5x**.');
   assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "<@2>'s next rob will be taxed 25%.");
   assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), '<@1> took **50** of it. You kept **150**.');
@@ -96,6 +98,22 @@ test('the startup check catches a bad edit', () => {
     assert.throws(() => validateConstants(), /SUCCESS_TITLES has an empty title/);
   } finally {
     titles.pop();
+  }
+  validateConstants();
+});
+
+test('the rob lock settings are checked at startup: a lock must outlast every wait for it', () => {
+  const lock = ROB_LOCK as { holdMs: number; retryMs: number; attempts: number };
+  const original = { ...lock };
+  try {
+    lock.holdMs = lock.retryMs * lock.attempts; // a waiter could outlast the lock it waits for
+    assert.throws(() => validateConstants(), /ROB_LOCK/);
+    Object.assign(lock, original, { attempts: 0 });
+    assert.throws(() => validateConstants(), /ROB_LOCK/);
+    Object.assign(lock, original, { retryMs: 1 });
+    assert.throws(() => validateConstants(), /ROB_LOCK/);
+  } finally {
+    Object.assign(lock, original);
   }
   validateConstants();
 });

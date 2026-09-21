@@ -118,6 +118,14 @@ export const D20 = { sides: 20, critMultiplier: 2, divisor: 10 };
 export const SLASH_DEFER_AFTER_MS = 2500;
 
 /**
+ * The lock taken on a victim while a rob on them runs (see `rob` in services/economy.ts), so two
+ * robbers can't act on the same victim at the same moment. A second robber waits for it: every
+ * `retryMs` they look again, for at most `attempts` looks, then are told to try again. `holdMs` is
+ * how long a lock lasts if the bot stops before it is released; a rob takes well under a second.
+ */
+export const ROB_LOCK = { holdMs: 15_000, retryMs: 100, attempts: 50 } as const;
+
+/**
  * Commands that can only be used with the prefix (`k!rob`), not as slash commands. They aren't
  * registered with Discord, a slash command with that name is answered as unknown, and `/help`
  * leaves them out. Their entries in `SLASH` (commands/slash.ts) can stay, so taking a name off
@@ -471,6 +479,7 @@ export const TEXT = {
     victimProtected: (victim: string, unix: number) =>
       `${victim} was robbed recently. They can be robbed again <t:${unix}:R>.`,
     victimBroke: (victim: string) => `${victim} has no points to steal.`,
+    victimBusy: (victim: string) => `Someone else is robbing ${victim} right now. Try again in a moment.`,
     footer: (chance: string) => `Success chance: ${chance}`,
     success: (robber: string, victim: string, stolen: string) =>
       `${robber} robbed ${victim} and got away with **${stolen}** points.`,
@@ -584,6 +593,9 @@ export function validateConstants(): void {
   if (MULTI_PULLS < 2 || MULTI_PULLS > 30) problems.push('MULTI_PULLS must be from 2 to 30');
   if (!(SLASH_DEFER_AFTER_MS >= 500 && SLASH_DEFER_AFTER_MS < 3000)) {
     problems.push('SLASH_DEFER_AFTER_MS must be from 500 to under 3000 (Discord fails a command that is not answered in 3 seconds)');
+  }
+  if (!(ROB_LOCK.retryMs >= 10 && ROB_LOCK.attempts >= 1 && ROB_LOCK.holdMs > ROB_LOCK.retryMs * ROB_LOCK.attempts)) {
+    problems.push('ROB_LOCK: retryMs must be at least 10, attempts at least 1, and holdMs longer than every wait (retryMs x attempts)');
   }
   if (SLASH_EXCLUDED.some((name) => name === '' || name !== name.toLowerCase())) {
     problems.push('SLASH_EXCLUDED names must be command names in lower case');

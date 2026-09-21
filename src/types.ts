@@ -72,6 +72,14 @@ export interface MemberDoc {
    * rob.victimProtectionMinutes after this. Missing or null means never.
    */
   lastRobbedAt?: Date | null;
+  /**
+   * A short lock held while someone is robbing this member, so two robs on the same victim run one
+   * after the other instead of at the same time. `robLockBy` is the holder's token and
+   * `robLockUntil` when the lock lapses on its own (in case the bot stops before releasing it).
+   * Both are missing or null when nobody is robbing them.
+   */
+  robLockUntil?: Date | null;
+  robLockBy?: string | null;
   totalPulls: number;
   /**
    * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share

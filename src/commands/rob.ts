@@ -88,6 +88,8 @@ export const rob: Command = {
         await ctx.reply(TEXT.rob.robberTooPoor(ctx.prefix, fmt(result.fine), fmt(result.balance)));
       } else if (result.reason === 'victim_recently_robbed') {
         await ctx.reply(TEXT.rob.victimProtected(target.displayName, result.availableAtUnix));
+      } else if (result.reason === 'victim_busy') {
+        await ctx.reply(TEXT.rob.victimBusy(target.displayName));
       } else {
         await ctx.reply(TEXT.rob.victimBroke(target.displayName));
       }

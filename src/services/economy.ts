@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../config.js';
-import { MINUTE_MS, MULTI_PULLS } from '../constants.js';
+import { MINUTE_MS, MULTI_PULLS, ROB_LOCK } from '../constants.js';
 import { collections } from '../db.js';
 import { emptyTotals } from '../data/effects.js';
 import { applyD20, rollD20, rollD20Dice, type D20Dice, type D20Roll } from '../lib/d20.js';
@@ -520,6 +521,8 @@ export type RobResult =
   | { ok: false; reason: 'robber_too_poor'; fine: number; balance: number }
   | { ok: false; reason: 'victim_too_poor'; minBalance: number }
   | { ok: false; reason: 'victim_recently_robbed'; availableAtUnix: number }
+  /** Another robber has held the victim for longer than a rob takes; nothing happened, try again. */
+  | { ok: false; reason: 'victim_busy' }
   | {
       ok: true;
       success: true;
@@ -572,7 +575,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     reason: 'victim_recently_robbed',
     availableAtUnix: Math.ceil(protectedUntilMs / 1000),
   });
-  const victim = await members.findOne({ guildId, userId: victimId });
+  let victim = await members.findOne({ guildId, userId: victimId });
   const lastRobbed = victim?.lastRobbedAt?.getTime();
   if (lastRobbed !== undefined && lastRobbed > now - protectionMs) return recentlyRobbed(lastRobbed + protectionMs);
 
@@ -623,8 +626,56 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
   // Set once this rob has started the victim's protection timer, so it can be undone on failure.
   let releaseVictimSlot: (() => Promise<unknown>) | null = null;
+  // Set once this rob holds the victim's lock, and released when the rob is over, however it ends.
+  let lockToken: string | null = null;
 
   try {
+    // Only one rob at a time acts on a victim. Without this, two robbers who both read the victim
+    // before either had finished would both roll: one could win while the other, who should have
+    // found the victim protected, was fined or robbed them too. A second robber waits here, and
+    // once the first is done they are judged against what really happened: a victim who was just
+    // robbed is protected, one whose robber was caught is not.
+    const token = randomUUID();
+    for (let attempt = 0; lockToken === null; attempt++) {
+      const held = await members.findOneAndUpdate(
+        {
+          guildId,
+          userId: victimId,
+          $or: [{ robLockUntil: null }, { robLockUntil: { $lte: new Date(Date.now()) } }],
+        },
+        { $set: { robLockUntil: new Date(Date.now() + ROB_LOCK.holdMs), robLockBy: token } },
+        { returnDocument: 'before' },
+      );
+      if (held) {
+        lockToken = token;
+        break;
+      }
+      // Someone else is robbing them right now. If that has already protected them, no need to wait.
+      const latest = await members.findOne({ guildId, userId: victimId });
+      const robbedAt = latest?.lastRobbedAt?.getTime();
+      if (robbedAt !== undefined && robbedAt > now - protectionMs) {
+        await restoreCooldown();
+        return recentlyRobbed(robbedAt + protectionMs);
+      }
+      if (attempt + 1 >= ROB_LOCK.attempts) {
+        await restoreCooldown();
+        return { ok: false, reason: 'victim_busy' };
+      }
+      await new Promise((resolve) => setTimeout(resolve, ROB_LOCK.retryMs));
+    }
+
+    // The victim may have been robbed, or spent their points, since the first look, so look again.
+    victim = await members.findOne({ guildId, userId: victimId });
+    const robbedSince = victim?.lastRobbedAt?.getTime();
+    if (robbedSince !== undefined && robbedSince > now - protectionMs) {
+      await restoreCooldown();
+      return recentlyRobbed(robbedSince + protectionMs);
+    }
+    if ((victim?.points ?? 0) < cfg.minVictimBalance) {
+      await restoreCooldown();
+      return { ok: false, reason: 'victim_too_poor', minBalance: cfg.minVictimBalance };
+    }
+
     if (chance(successChance)) {
       // Start the victim's protection timer first, so two simultaneous robbers can't both get through.
       const robbedAt = new Date(now);
@@ -805,5 +856,17 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     if (releaseVictimSlot) await releaseVictimSlot();
     await restoreCooldown();
     throw err;
+  } finally {
+    if (lockToken !== null) {
+      try {
+        await members.updateOne(
+          { guildId, userId: victimId, robLockBy: lockToken },
+          { $set: { robLockUntil: null, robLockBy: null } },
+        );
+      } catch (err) {
+        // It lapses by itself after ROB_LOCK.holdMs.
+        console.error('Could not release a rob lock:', err);
+      }
+    }
   }
 }
