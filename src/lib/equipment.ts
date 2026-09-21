@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js';
-import { EFFECT_TEXT } from '../constants.js';
+import { ADMIN_USER_ID, EFFECT_TEXT } from '../constants.js';
 import { EFFECT_IDS, emptyTotals, type EffectId, type EffectTotals } from '../data/effects.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../types.js';
@@ -25,6 +25,20 @@ export function equippedItems(equipment: GearIds | null | undefined): ItemDef[] 
   return items;
 }
 
+/**
+ * Whether `userId` gets this item's effects. Items with no `usableBy` list work for everyone;
+ * otherwise only the listed users, plus the admin (who can use everything, to test with).
+ */
+export function canUseItem(item: ItemDef, userId: string): boolean {
+  if (!item.usableBy) return true;
+  return userId === ADMIN_USER_ID || item.usableBy.includes(userId);
+}
+
+/** The items `userId` actually gets effects from. */
+export function usableItems(items: readonly ItemDef[], userId: string): ItemDef[] {
+  return items.filter((item) => canUseItem(item, userId));
+}
+
 /** Adds up every effect across the given items. */
 export function totalEffects(items: readonly ItemDef[]): EffectTotals {
   const totals = emptyTotals();
@@ -34,9 +48,12 @@ export function totalEffects(items: readonly ItemDef[]): EffectTotals {
   return totals;
 }
 
-/** Shortcut: the combined effects of everything a member has equipped. */
-export function gearEffects(equipment: GearIds | null | undefined): EffectTotals {
-  return totalEffects(equippedItems(equipment));
+/**
+ * Shortcut: the combined effects of everything a member has equipped. Exclusive items they may
+ * not use are equipped but add nothing. `userId` is the member the gear belongs to.
+ */
+export function gearEffects(equipment: GearIds | null | undefined, userId: string): EffectTotals {
+  return totalEffects(usableItems(equippedItems(equipment), userId));
 }
 
 /** One readable line per effect on an item, like "+10% rob success chance". */

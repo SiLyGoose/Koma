@@ -20,6 +20,26 @@ function caughtText(
     : TEXT.rob.caughtFined(robber, victim, fmt(result.fine));
 }
 
+/** Extra lines under a successful rob: a tax paid out of it, and taxes now waiting on the victim. */
+function successNotes(
+  victim: string,
+  result: {
+    stolen: number;
+    claimTax: number | null;
+    robTax: number | null;
+    robTaxPaid: { amount: number; toUserId: string } | null;
+  },
+): string {
+  const lines: string[] = [];
+  if (result.robTaxPaid !== null) {
+    const { amount, toUserId } = result.robTaxPaid;
+    lines.push(TEXT.rob.robTaxPaid(`<@${toUserId}>`, fmt(amount), fmt(result.stolen - amount)));
+  }
+  if (result.claimTax !== null) lines.push(TEXT.rob.claimTaxed(victim, formatPercent(result.claimTax)));
+  if (result.robTax !== null) lines.push(TEXT.rob.robTaxed(victim, formatPercent(result.robTax)));
+  return lines.map((line) => `\n${line}`).join('');
+}
+
 export const rob: Command = {
   name: 'rob',
   description: 'Steal points from another member. You can rob once per hour, and each member can only be robbed once per hour.',
@@ -68,7 +88,7 @@ export const rob: Command = {
             message.author.toString(),
             target.toString(),
             fmt(result.stolen),
-          ),
+          ) + successNotes(target.toString(), result),
         );
     } else {
       embed

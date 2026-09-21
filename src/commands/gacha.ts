@@ -1,6 +1,7 @@
 import { PITY_STARS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, starString } from '../lib/format.js';
+import { canUseItem } from '../lib/equipment.js';
+import { fmt, mentionList, starString } from '../lib/format.js';
 import { pullGacha } from '../services/economy.js';
 import { reply } from './reply.js';
 import type { Command } from './types.js';
@@ -23,7 +24,10 @@ export const gacha: Command = {
     const { item } = result;
     const embed = createEmbed()
       .setTitle(TEXT.gacha.title(starString(item.stars), item.name))
-      .setDescription(TEXT.gacha.description(item.description))
+      .setDescription(
+        TEXT.gacha.description(item.description) +
+          (item.usableBy && !canUseItem(item, message.author.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy))}` : ''),
+      )
       .addFields(
         {
           name: TEXT.gacha.spentField,

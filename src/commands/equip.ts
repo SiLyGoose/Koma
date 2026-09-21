@@ -1,8 +1,8 @@
 import { TEXT } from '../constants.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { describeEffects } from '../lib/equipment.js';
-import { starString } from '../lib/format.js';
+import { canUseItem, describeEffects } from '../lib/equipment.js';
+import { mentionList, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy.js';
 import { equipItem } from '../services/equipment.js';
 import { getPrefix } from '../services/settings.js';
@@ -66,6 +66,10 @@ export const equip: Command = {
       )
       .addFields({ name: TEXT.equip.effectsField, value: describeEffects(item).join('\n') || TEXT.equip.noEffects })
       .setFooter({ text: TEXT.equip.footer(p) });
+    // Anyone can wear an exclusive item, but only the members it is for get its effects.
+    if (item.usableBy && !canUseItem(item, message.author.id)) {
+      embed.addFields({ name: TEXT.equip.exclusiveField, value: TEXT.equip.exclusive(mentionList(item.usableBy)) });
+    }
     await reply(message, { embeds: [embed] });
   },
 };

@@ -13,7 +13,7 @@ import {
 } from '../src/constants.js';
 import { EFFECT_IDS } from '../src/data/effects.js';
 import { isAdmin } from '../src/config.js';
-import { formatPercent, fmt, joinLimited, starString } from '../src/lib/format.js';
+import { formatPercent, fmt, joinLimited, mentionList, starString } from '../src/lib/format.js';
 import { pickRandom } from '../src/lib/random.js';
 import { HOUR_MS as HOUR_MS_FROM_TIME } from '../src/lib/time.js';
 import { SLOTS } from '../src/types.js';
@@ -70,6 +70,18 @@ test('message templates fill in their values', () => {
   assert.equal(TEXT.unequip.tookOff(['A', 'B']), 'You took off **A** and **B**.');
   assert.equal(TEXT.config.reset('claim.min', '200', '100'), 'Reset `claim.min` from **200** to **100**.');
   assert.match(TEXT.balance.claimWait(1700000000), /<t:1700000000:R>/);
+  assert.equal(TEXT.balance.wisteriaSelf('25%', '<@1>'), 'Wisteriosis: <@1> takes 25% of your next claim.');
+  assert.equal(TEXT.balance.wisteriaOther('25%', '<@1>'), 'Wisteriosis: <@1> takes 25% of their next claim.');
+  assert.equal(TEXT.balance.robTaxSelf('25%', '<@1>'), 'Yowch, My Coins! <@1> takes 25% of your next rob.');
+  assert.equal(TEXT.balance.robTaxOther('25%', '<@1>'), 'Yowch, My Coins! <@1> takes 25% of their next rob.');
+  assert.equal(TEXT.databank.exclusive('<@1>, <@2>'), 'Exclusive to <@1>, <@2>');
+  assert.equal(TEXT.equip.exclusive('<@1>'), 'Only <@1> can use its effects. It does nothing for you.');
+  assert.equal(TEXT.gear.exclusive('<@1>'), 'Exclusive to <@1>. It does nothing for this member.');
+  assert.equal(TEXT.gacha.exclusive('<@1>'), 'Only <@1> can use this one.');
+  assert.equal(mentionList(['1', '2']), '<@1>, <@2>');
+  assert.equal(mentionList([]), '');
+  assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "<@2>'s next rob will be taxed 25%.");
+  assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), '<@1> took **50** of it. You kept **150**.');
 });
 
 test('the startup check catches a bad edit', () => {

@@ -1,8 +1,8 @@
 import { SLOT_LABELS, TEXT } from '../constants.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { describeEffects, describeTotals, equippedItems, totalEffects } from '../lib/equipment.js';
-import { starString } from '../lib/format.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, totalEffects, usableItems } from '../lib/equipment.js';
+import { mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/equipment.js';
 import { getPrefix } from '../services/settings.js';
 import { SLOTS } from '../types.js';
@@ -45,13 +45,18 @@ export const gear: Command = {
         });
         continue;
       }
+      // An exclusive item worn by someone it isn't for gives nothing, so say that instead of its effects.
+      const lines =
+        item.usableBy && !canUseItem(item, target.id)
+          ? [TEXT.gear.exclusive(mentionList(item.usableBy))]
+          : describeEffects(item);
       embed.addFields({
         name: label,
-        value: [TEXT.gear.item(item.name, starString(item.stars)), ...describeEffects(item)].join('\n'),
+        value: [TEXT.gear.item(item.name, starString(item.stars)), ...lines].join('\n'),
       });
     }
 
-    const totals = describeTotals(totalEffects(equippedItems(equipment)));
+    const totals = describeTotals(totalEffects(usableItems(equippedItems(equipment), target.id)));
     if (totals.length > 0) embed.addBlankField().addFields({ name: TEXT.gear.totalsField, value: totals.join('\n') });
 
     await reply(message, { embeds: [embed] });

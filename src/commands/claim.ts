@@ -20,9 +20,12 @@ export const claim: Command = {
     const embed = createEmbed()
       .setTitle(TEXT.claim.title)
       .setDescription(
-        result.bonus > 0
+        (result.bonus > 0
           ? TEXT.claim.claimedWithGear(message.author.toString(), fmt(result.amount), fmt(result.bonus))
-          : TEXT.claim.claimed(message.author.toString(), fmt(result.amount)),
+          : TEXT.claim.claimed(message.author.toString(), fmt(result.amount))) +
+          (result.taxed
+            ? `\n${TEXT.claim.taxed(`<@${result.taxed.toUserId}>`, fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount))}`
+            : ''),
       )
       .addFields(
         { name: TEXT.claim.balanceField, value: fmt(result.balance), inline: true },

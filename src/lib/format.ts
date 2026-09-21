@@ -17,5 +17,8 @@ export function joinLimited(lines: string[], maxLength = FIELD_MAX_LENGTH): stri
   return out;
 }
 
+/** Discord mentions for a list of user ids, like "<@1>, <@2>". */
+export const mentionList = (userIds: readonly string[]): string => userIds.map((id) => `<@${id}>`).join(', ');
+
 /** 0.1 -> "10%", 0.125 -> "12.5%". */
 export const formatPercent = (fraction: number): string => `${Number((fraction * 100).toFixed(PERCENT_DECIMALS))}%`;

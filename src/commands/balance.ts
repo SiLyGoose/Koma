@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt } from '../lib/format.js';
+import { fmt, formatPercent } from '../lib/format.js';
 import { getBalance } from '../services/economy.js';
 import { reply } from './reply.js';
 import { memberNotFound, resolveUserArg } from './resolve.js';
@@ -29,25 +29,22 @@ export const balance: Command = {
 
     const embed = createEmbed()
       .setTitle(TEXT.balance.title(target.displayName))
-      .setDescription(TEXT.balance.points(fmt(info.points)));
+      .setDescription(TEXT.balance.points(fmt(info.points)))
+      .addFields(
+      {
+        name: TEXT.balance.claimField,
+        value: info.canClaim ? TEXT.balance.claimReady(getPrefix()) : TEXT.balance.claimWait(info.nextClaimUnix),
+      },
+      {
+        name: TEXT.balance.robField,
+        value:
+          info.robReadyAtUnix === null
+            ? TEXT.balance.robReady(getPrefix())
+            : TEXT.balance.robWait(info.robReadyAtUnix),
+      },
+    );
 
     const isSelf = target.id === message.author.id;
-
-    if (isSelf) {
-      embed.addFields(
-        {
-          name: TEXT.balance.claimField,
-          value: info.canClaim ? TEXT.balance.claimReady(getPrefix()) : TEXT.balance.claimWait(info.nextClaimUnix),
-        },
-        {
-          name: TEXT.balance.robField,
-          value:
-            info.robReadyAtUnix === null
-              ? TEXT.balance.robReady(getPrefix())
-              : TEXT.balance.robWait(info.robReadyAtUnix),
-        },
-      );
-    }
 
     if (CONFIG.rob.victimProtectionMinutes > 0) {
       embed.addFields({
@@ -62,6 +59,22 @@ export const balance: Command = {
               : TEXT.balance.protectionEndsOther(info.robProtectedUntilUnix),
       });
     }
+
+    // Status effects on the member, shown only while there is one, to anyone looking.
+    const effects: string[] = [];
+    if (info.wisteria) {
+      // The Wisteria poison from a Coughing Baby.
+      const rate = formatPercent(info.wisteria.rate);
+      const taker = `<@${info.wisteria.byUserId}>`;
+      effects.push(isSelf ? TEXT.balance.wisteriaSelf(rate, taker) : TEXT.balance.wisteriaOther(rate, taker));
+    }
+    if (info.robTax) {
+      // The Yowch, My Coins! mark from a Jew Frog.
+      const rate = formatPercent(info.robTax.rate);
+      const taker = `<@${info.robTax.byUserId}>`;
+      effects.push(isSelf ? TEXT.balance.robTaxSelf(rate, taker) : TEXT.balance.robTaxOther(rate, taker));
+    }
+    if (effects.length > 0) embed.addFields({ name: TEXT.balance.effectsField, value: effects.join('\n') });
 
     await reply(message, { embeds: [embed] });
   },

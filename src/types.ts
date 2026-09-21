@@ -22,6 +22,12 @@ export interface ItemDef {
    * star tier and is set in the settings (equipment.<effect>.<stars>), not on the item.
    */
   effects: readonly EffectId[];
+  /**
+   * Discord user ids that can use this item's effects. Anyone can pull, own and equip it, but for
+   * everyone else it does nothing (the admin, ADMIN_USER_ID, can use every item, for testing).
+   * Missing means everyone can use it. When present it must list at least one id.
+   */
+  usableBy?: readonly string[];
 }
 
 /**
@@ -56,6 +62,19 @@ export interface MemberDoc {
    */
   lastRobbedAt?: Date | null;
   totalPulls: number;
+  /**
+   * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
+   * of that claim, and who it is paid to. Both are missing or null when there is none. They are
+   * cleared by the claim they apply to.
+   */
+  claimTaxRate?: number | null;
+  claimTaxBy?: string | null;
+  /**
+   * The same for this member's next successful rob (see the robTax gear effect): the share of what
+   * they steal, and who it is paid to. Cleared by the rob it applies to.
+   */
+  robTaxRate?: number | null;
+  robTaxBy?: string | null;
   /**
    * Pulls since this member's last item of the pity tier (constants.ts PITY_STARS), counting the
    * latest one. Missing means 0.
@@ -105,11 +124,15 @@ export interface MetaDoc {
 
 export type LedgerReason =
   | 'claim'
+  | 'claim_tax_paid'
+  | 'claim_tax_received'
   | 'gacha'
   | 'rob_won'
   | 'rob_lost'
   | 'rob_fine_paid'
-  | 'rob_fine_received';
+  | 'rob_fine_received'
+  | 'rob_tax_paid'
+  | 'rob_tax_received';
 
 /** Append-only record of every points change, for auditing. */
 export interface LedgerDoc {

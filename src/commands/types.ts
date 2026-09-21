@@ -13,5 +13,7 @@ export interface Command {
   description: string;
   /** Shown by the help command without the prefix, e.g. "rob @user". Defaults to the name. */
   usage?: string;
+  /** Only the bot admin can use it, so the help command lists it for the admin only. */
+  adminOnly?: boolean;
   execute(ctx: CommandContext): Promise<void>;
 }

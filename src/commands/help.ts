@@ -1,5 +1,5 @@
 import { createEmbed } from '../lib/embed.js';
-import { CONFIG } from '../config.js';
+import { CONFIG, isAdmin } from '../config.js';
 import { TEXT } from '../constants.js';
 import { fmt } from '../lib/format.js';
 import { reply } from './reply.js';
@@ -15,12 +15,14 @@ export function createHelpCommand(getCommands: () => Command[]): Command {
 
     async execute({ message }) {
       const p = getPrefix();
-      const lines = getCommands().map((command) => {
-        const aliases = command.aliases?.length
-          ? TEXT.help.aliases(command.aliases.map((alias) => TEXT.help.alias(p, alias)).join(', '))
-          : '';
-        return TEXT.help.entry(`${p}${command.usage ?? command.name}`, aliases, command.description);
-      });
+      const lines = getCommands()
+        .filter((command) => !command.adminOnly || isAdmin(message.author.id))
+        .map((command) => {
+          const aliases = command.aliases?.length
+            ? TEXT.help.aliases(command.aliases.map((alias) => TEXT.help.alias(p, alias)).join(', '))
+            : '';
+          return TEXT.help.entry(`${p}${command.usage ?? command.name}`, aliases, command.description);
+        });
 
       const embed = createEmbed()
         .setTitle(TEXT.help.title)

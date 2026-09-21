@@ -1,9 +1,11 @@
 import { balance } from './balance.js';
 import { claim } from './claim.js';
 import { config } from './config.js';
+import { databank } from './databank.js';
 import { equip } from './equip.js';
 import { gacha } from './gacha.js';
 import { gear } from './gear.js';
+import { give } from './give.js';
 import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
@@ -18,10 +20,12 @@ export const commands: Command[] = [
   equip,
   unequip,
   gear,
+  databank,
   balance,
   rob,
   leaderboard,
   config,
+  give,
   createHelpCommand(() => commands),
 ];
 

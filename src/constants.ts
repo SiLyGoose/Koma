@@ -58,6 +58,9 @@ export const MAX_LEADERBOARD_SIZE = 25;
 /** Longest command prefix the settings accept. */
 export const MAX_PREFIX_LENGTH = 10;
 
+/** Most copies of an item the admin's give command hands out in one go. */
+export const MAX_GIVE_AMOUNT = 100;
+
 /** Highest pull count the pity settings accept. */
 export const MAX_PITY = 1000;
 
@@ -70,6 +73,9 @@ export const PITY_STARS: Stars = 4;
 
 /** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
 export const FIELD_MAX_LENGTH = 1000;
+
+/** Most characters of item text in one databank message. Discord cuts an embed off at 6000, so this leaves room for titles. */
+export const DATABANK_PAGE_LENGTH = 4500;
 
 /** Rob and effect chances are rolled in this many steps. Only worth changing for very precise chances. */
 export const CHANCE_STEPS = 1_000_000;
@@ -106,6 +112,11 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   robDefense: (value) => `-${value} chance of being robbed`,
   robShield: (value) => `-${value} points lost when robbed`,
   fineReduction: (value) => `-${value} fine when caught`,
+  robAmountCut: (value) => `-${value} points stolen`,
+  claimTax: (value) => `Wisteria: members you rob lose ${value} of their next claim to you`,
+  robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
+  glassCannon: (value) => `Glass cannon: +${value} points stolen`,
+  glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
   claimBonus: (value) => `+${value} points from hourly claims`,
   pullDiscount: (value) => `-${value} gacha pull cost`,
 };
@@ -144,6 +155,14 @@ export const TEXT = {
     protectionNoneOther: 'None. They can be robbed.',
     protectionEndsSelf: (unix: number) => `You can be robbed <t:${unix}:R>`,
     protectionEndsOther: (unix: number) => `They can be robbed <t:${unix}:R>`,
+    /** Status effects on the member, one line each. The field only appears while there is one. */
+    effectsField: 'Effects',
+    /** Poisoned by a Coughing Baby wearer. `taker` is a mention, `rate` like "25%". */
+    wisteriaSelf: (rate: string, taker: string) => `Wisteriosis: ${taker} takes ${rate} of your next claim.`,
+    wisteriaOther: (rate: string, taker: string) => `Wisteriosis: ${taker} takes ${rate} of their next claim.`,
+    /** Marked by a Jew Frog wearer: part of their next successful rob goes to `taker` (a mention). */
+    robTaxSelf: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of your next rob.`,
+    robTaxOther: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of their next rob.`,
   },
 
   claim: {
@@ -152,6 +171,8 @@ export const TEXT = {
     claimed: (user: string, amount: string) => `${user} claimed **${amount}** points.`,
     claimedWithGear: (user: string, amount: string, bonus: string) =>
       `${user} claimed **${amount}** points. (${bonus} of that came from your gear.)`,
+    /** Added when part of the claim was taxed by someone who robbed them. `taker` is a mention. */
+    taxed: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** of it. You kept **${kept}**.`,
     balanceField: 'Balance',
     nextField: 'Next claim',
     next: (unix: number) => `<t:${unix}:R>`,
@@ -163,6 +184,8 @@ export const TEXT = {
     /** `stars` is the star string, like "★★". */
     title: (stars: string, name: string) => `${stars}  ${name}`,
     description: (itemDescription: string) => `*${itemDescription}*`,
+    /** Added under the description when the pulled item is exclusive to other members. `owners` is mentions. */
+    exclusive: (owners: string) => `Only ${owners} can use this one.`,
     author: (name: string) => `${name} pulled`,
     spentField: 'Spent',
     spent: (cost: string) => cost,
@@ -191,6 +214,22 @@ export const TEXT = {
     otherItem: (id: string, count: number) => `${id} ×${count}`,
   },
 
+  databank: {
+    title: 'Databank',
+    /** Added to the title when the list needs more than one message, like "Databank (2/3)". */
+    titlePage: (title: string, page: number, pages: number) => `${title} (${page}/${pages})`,
+    description: 'Every item and what it does while equipped.',
+    /** `stars` is the star string; `count` is how many items are in that tier. */
+    tierField: (stars: string, count: number) => `${stars} (${count})`,
+    /** Name of a field that carries on from the one before it. */
+    tierMore: (stars: string) => `${stars} (continued)`,
+    item: (name: string, slot: string) => `**${name}** · ${slot}`,
+    noEffects: 'No effects',
+    /** Last line of an item that only some members can use. `owners` is mentions. */
+    exclusive: (owners: string) => `Exclusive to ${owners}`,
+    footer: (p: string) => `Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+  },
+
   leaderboard: {
     title: 'Leaderboard',
     empty: (p: string) => `Nobody has any points yet. Be the first with \`${p}claim\`!`,
@@ -216,6 +255,8 @@ export const TEXT = {
     /** The first line of a filled slot; the item's effects follow on their own lines. */
     item: (name: string, stars: string) => `**${name}** ${stars}`,
     totalsField: 'Overall Effects',
+    /** Shown instead of the effects when the item is equipped by someone it is not for. `owners` is mentions. */
+    exclusive: (owners: string) => `Exclusive to ${owners}. It does nothing for this member.`,
   },
 
   equip: {
@@ -232,6 +273,9 @@ export const TEXT = {
       `${user} equipped it as their ${slot}. (Replaced **${replaced}**.)`,
     effectsField: 'Effects',
     noEffects: 'None',
+    /** Extra field when the item is exclusive to other members. `owners` is mentions. */
+    exclusiveField: 'Exclusive',
+    exclusive: (owners: string) => `Only ${owners} can use its effects. It does nothing for you.`,
     footer: (p: string) => `See everything you have on with ${p}gear`,
   },
 
@@ -254,6 +298,12 @@ export const TEXT = {
     footer: (chance: string) => `Success chance: ${chance}`,
     success: (robber: string, victim: string, stolen: string) =>
       `${robber} robbed ${victim} and got away with **${stolen}** points.`,
+    /** Added to a successful rob when the wearer's gear taxes the victim's next claim. */
+    claimTaxed: (victim: string, rate: string) => `${victim}'s next claim will be taxed ${rate}.`,
+    /** Added to a successful rob when the wearer's gear taxes the victim's next successful rob. */
+    robTaxed: (victim: string, rate: string) => `${victim}'s next rob will be taxed ${rate}.`,
+    /** Added when part of this rob went to a Jew Frog wearer who robbed the robber earlier. `taker` is a mention. */
+    robTaxPaid: (taker: string, tax: string, kept: string) => `${taker} took **${tax}** of it. You kept **${kept}**.`,
     /** Used instead of `success` when the victim was left with nothing. */
     successEverything: (robber: string, victim: string, stolen: string) =>
       `${robber} robbed ${victim} and got away with **${stolen}** points. That was everything they had...`,
@@ -267,6 +317,18 @@ export const TEXT = {
     /** The robber had no points left to fine. */
     caughtNothingToFine: (robber: string, victim: string) =>
       `${robber} tried to rob ${victim} but got caught. They had nothing left to fine.`,
+  },
+
+  give: {
+    adminOnly: 'Only the bot admin can use this command.',
+    usage: (p: string, max: string) =>
+      `Use \`${p}give <item id> [amount]\` to give yourself an item (amount 1 to ${max}). This is for testing.`,
+    badAmount: (max: string) => `The amount must be a whole number from 1 to ${max}.`,
+    /** `ids` is a comma-separated list of every item id in the catalog. */
+    unknownItem: (id: string, ids: string) => `There is no item with the id "${id}". The ids are: ${ids}`,
+    /** `stars` is the star string; `given` is how many copies were added, `total` how many they own now. */
+    done: (stars: string, name: string, id: string, given: string, total: string) =>
+      `Gave you ${stars} **${name}** (\`${id}\`) ×${given}. You now own ${total}.`,
   },
 
   config: {
@@ -337,6 +399,8 @@ export function validateConstants(): void {
     ['MAX_TIMER_MINUTES', MAX_TIMER_MINUTES],
     ['MAX_LEADERBOARD_SIZE', MAX_LEADERBOARD_SIZE],
     ['MAX_PITY', MAX_PITY],
+    ['MAX_GIVE_AMOUNT', MAX_GIVE_AMOUNT],
+    ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) problems.push(`${name} must be a whole number of at least 1`);
