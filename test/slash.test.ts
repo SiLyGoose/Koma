@@ -141,6 +141,8 @@ test('slash options: databank with and without an item', () => {
 test('slash options: each sell mode reads back as the same request the prefix command would make', () => {
   const one = parseSellArgs(args('sell', { sub: 'one', strings: { item: 'Some Item' } }));
   assert.deepEqual(one, { ok: true, request: { kind: 'one', query: 'Some Item' } });
+  const some = parseSellArgs(args('sell', { sub: 'some', strings: { item: 'Some Item' }, ints: { amount: 3 } }));
+  assert.deepEqual(some, { ok: true, request: { kind: 'some', amount: 3, query: 'Some Item' } });
   const all = parseSellArgs(args('sell', { sub: 'all', strings: { item: 'Some Item' } }));
   assert.deepEqual(all, { ok: true, request: { kind: 'allOf', query: 'Some Item' } });
   const stars = parseSellArgs(args('sell', { sub: 'stars', ints: { tier: 3 } }));
@@ -383,7 +385,7 @@ test('slash command: /help lists slash usage, no aliases and no prefix, and only
   assert.equal(data.flags, EPHEMERAL);
   const text: string = data.embeds[0].data.description;
   assert.ok(text.includes('**/rob <user>**'), text);
-  assert.ok(text.includes('**/sell one | all | stars**'), text);
+  assert.ok(text.includes('**/sell one | some | all | stars**'), text);
   assert.ok(text.includes('**/gacha [multi]**'), text);
   assert.equal(text.includes('(also'), false, 'no aliases');
   assert.equal(text.includes('k!'), false, 'no prefix');

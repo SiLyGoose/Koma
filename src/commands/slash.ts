@@ -162,7 +162,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   // },
 
   sell: {
-    description: 'Sell items you are not wearing: one copy, all copies of an item, or a whole star tier.',
+    description: 'Sell items you are not wearing: one copy, some copies, all copies of an item, or a star tier.',
     build: (b) =>
       void b
         .addSubcommand((s) =>
@@ -170,6 +170,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
             .setName('one')
             .setDescription('Sell one copy of an item')
             .addStringOption((o) => o.setName('item').setDescription('The item to sell').setRequired(true).setAutocomplete(true).setMaxLength(100)),
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('some')
+            .setDescription('Sell a number of copies of an item (you are asked to confirm)')
+            .addStringOption((o) => o.setName('item').setDescription('The item to sell').setRequired(true).setAutocomplete(true).setMaxLength(100))
+            .addIntegerOption((o) => o.setName('amount').setDescription('How many copies').setRequired(true).setMinValue(1)),
         )
         .addSubcommand((s) =>
           s
@@ -192,6 +199,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: (i) => {
       const mode = i.options.getSubcommand();
       if (mode === 'all') return ['all', i.options.getString('item', true)];
+      if (mode === 'some') return [String(i.options.getInteger('amount', true)), i.options.getString('item', true)];
       if (mode === 'stars') return ['stars', String(i.options.getInteger('tier', true))];
       return [i.options.getString('item', true)];
     },

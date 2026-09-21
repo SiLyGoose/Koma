@@ -306,9 +306,15 @@ export const TEXT = {
 
   sell: {
     usage: (p: string) =>
-      `Use \`${p}sell <item>\` to sell one copy, \`${p}sell all <item>\` to sell every copy you aren't wearing, or \`${p}sell stars <1-4>\` to sell everything of a star tier that you aren't wearing.`,
+      `Use \`${p}sell <item>\` to sell one copy, \`${p}sell <number> <item>\` to sell that many copies, \`${p}sell all <item>\` to sell every copy you aren't wearing, or \`${p}sell stars <1-4>\` to sell everything of a star tier that you aren't wearing.`,
     badStars: (p: string) => `Pick a star tier from 1 to 4, like \`${p}sell stars 1\`.`,
     askWhichAll: (p: string) => `Which item? Use \`${p}sell all <item name>\`.`,
+    /** Typed a number but no item. */
+    askWhichAmount: (p: string) => `Which item? Use \`${p}sell <number> <item name>\`.`,
+    badAmount: (p: string) => `The amount must be a whole number, 1 or more, like \`${p}sell 3 <item name>\`.`,
+    /** Asked for more copies than can be sold. `available` is how many aren't worn. */
+    notEnough: (p: string, name: string, wanted: number, available: number) =>
+      `You asked to sell ${wanted} but you only have **${available}** ${available === 1 ? 'copy' : 'copies'} of **${name}** that you aren't wearing. Use \`${p}sell all ${name}\` to sell ${available === 1 ? 'it' : 'them all'}.`,
     ambiguous: (names: string[]) =>
       `That could be more than one of your items: ${names.map((name) => `**${name}**`).join(', ')}. Type more of the name.`,
     noSuchItem: (p: string, query: string) => `You don't have an item called "${query}". \`${p}inventory\` shows what you own.`,

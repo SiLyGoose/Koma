@@ -29,8 +29,22 @@ function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, rema
   return embed;
 }
 
+/** The reply to something that couldn't be read as a sale. */
+function sellError(p: string, error: 'usage' | 'missing_item' | 'bad_stars' | 'bad_amount', args: readonly string[]): string {
+  if (error === 'bad_stars') return TEXT.sell.badStars(p);
+  if (error === 'bad_amount') return TEXT.sell.badAmount(p);
+  if (error === 'missing_item') {
+    // "sell all" and "sell 3" each ask which item, in their own words.
+    return /^\d+$/.test((args[0] ?? '').trim()) ? TEXT.sell.askWhichAmount(p) : TEXT.sell.askWhichAll(p);
+  }
+  return TEXT.sell.usage(p);
+}
+
 /** Says why nothing can be sold. */
 function refusal(p: string, plan: Extract<SalePlan, { ok: false }>, target: SellTarget): string {
+  if (plan.reason === 'not_enough' && target.kind === 'some') {
+    return TEXT.sell.notEnough(p, target.item.name, target.amount, plan.available);
+  }
   if (target.kind === 'stars') {
     const stars = `${target.stars}-star`;
     return plan.reason === 'not_owned' ? TEXT.sell.noneInTier(stars) : TEXT.sell.onlyEquippedTier(p, stars);
@@ -40,17 +54,16 @@ function refusal(p: string, plan: Extract<SalePlan, { ok: false }>, target: Sell
 
 export const sell: Command = {
   name: 'sell',
-  description: 'Sell items you are not wearing for points: one copy, all copies of an item, or a whole star tier.',
-  usage: 'sell <item> | sell all <item> | sell stars <1-4>',
-  slashUsage: 'sell one | all | stars',
+  description: 'Sell items you are not wearing for points: one copy, some copies, all copies of an item, or a whole star tier.',
+  usage: 'sell <item> | sell <number> <item> | sell all <item> | sell stars <1-4>',
+  slashUsage: 'sell one | some | all | stars',
 
   async execute(ctx) {
     const { args } = ctx;
     const p = ctx.prefix;
     const parsed = parseSellArgs(args);
     if (!parsed.ok) {
-      await ctx.reply(parsed.error === 'bad_stars' ? TEXT.sell.badStars(p) : parsed.error === 'missing_item' ? TEXT.sell.askWhichAll(p) : TEXT.sell.usage(p),
-      );
+      await ctx.reply(sellError(p, parsed.error, args));
       return;
     }
     const { request } = parsed;
@@ -73,7 +86,8 @@ export const sell: Command = {
         await ctx.reply(anywhere.kind === 'found' ? TEXT.sell.notOwned(anywhere.item.name) : TEXT.sell.noSuchItem(p, request.query));
         return;
       }
-      target = { kind: request.kind, item: lookup.item };
+      target =
+        request.kind === 'some' ? { kind: 'some', item: lookup.item, amount: request.amount } : { kind: request.kind, item: lookup.item };
     }
 
     const plan = await planSale(ctx.guildId, ctx.user.id, target);

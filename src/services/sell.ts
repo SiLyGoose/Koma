@@ -1,6 +1,6 @@
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { equippedCopyIds, saleCount, saleLines, saleTotal, worstCopy, type SaleLine } from '../lib/sell.js';
+import { equippedCopyIds, saleCount, saleLines, saleTotal, worstCopies, worstCopy, type SaleLine } from '../lib/sell.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../types.js';
 import { ensureMember } from './economy.js';
 
@@ -16,6 +16,8 @@ import { ensureMember } from './economy.js';
 /** What to sell. */
 export type SellTarget =
   | { kind: 'one'; item: ItemDef }
+  /** `amount` copies of an item, the ones they would sell first. */
+  | { kind: 'some'; item: ItemDef; amount: number }
   | { kind: 'allOf'; item: ItemDef }
   | { kind: 'stars'; stars: Stars };
 
@@ -24,7 +26,9 @@ export type SalePlan =
   /** They own none of it. */
   | { ok: false; reason: 'not_owned' }
   /** They own some, but every copy is worn. */
-  | { ok: false; reason: 'only_equipped' };
+  | { ok: false; reason: 'only_equipped' }
+  /** They asked for more copies than they can sell (`available` are not worn). */
+  | { ok: false; reason: 'not_enough'; available: number };
 
 /** Works out what selling `target` would sell and earn, without changing anything. */
 export async function planSale(guildId: string, userId: string, target: SellTarget): Promise<SalePlan> {
@@ -42,7 +46,10 @@ export async function planSale(guildId: string, userId: string, target: SellTarg
   const sellable = inScope.filter((copy) => !worn.has(copy._id));
   if (sellable.length === 0) return { ok: false, reason: 'only_equipped' };
 
-  const chosen = target.kind === 'one' ? [worstCopy(sellable) as ItemCopyDoc] : sellable;
+  if (target.kind === 'some' && sellable.length < target.amount) return { ok: false, reason: 'not_enough', available: sellable.length };
+
+  const chosen =
+    target.kind === 'one' ? [worstCopy(sellable) as ItemCopyDoc] : target.kind === 'some' ? worstCopies(sellable, target.amount) : sellable;
   const lines = saleLines(chosen.map((copy) => copy.itemId));
   return { ok: true, copyIds: chosen.map((copy) => copy._id), lines, count: saleCount(lines), total: saleTotal(lines) };
 }

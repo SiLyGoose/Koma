@@ -11,6 +11,8 @@ import { STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } 
 export type SellRequest =
   /** One copy of an item (the least valuable one they aren't wearing). */
   | { kind: 'one'; query: string }
+  /** A number of copies of an item (two or more; asking for one is `one`), the least valuable ones they aren't wearing. */
+  | { kind: 'some'; amount: number; query: string }
   /** Every copy of an item they aren't wearing. */
   | { kind: 'allOf'; query: string }
   /** Everything of a star tier they aren't wearing. */
@@ -18,11 +20,12 @@ export type SellRequest =
 
 export type ParsedSell =
   | { ok: true; request: SellRequest }
-  | { ok: false; error: 'usage' | 'missing_item' | 'bad_stars' };
+  | { ok: false; error: 'usage' | 'missing_item' | 'bad_stars' | 'bad_amount' };
 
 /**
  * Reads the words after `sell`:
  *   `<item>`          one copy
+ *   `<n> <item>`      that many copies (`1 <item>` is the same as `<item>`)
  *   `all <item>`      every copy that isn't worn
  *   `stars <1-4>`     every unworn item of a star tier (`star` works too)
  */
@@ -42,6 +45,14 @@ export function parseSellArgs(args: readonly string[]): ParsedSell {
     if (!(STARS as readonly number[]).includes(stars)) return { ok: false, error: 'bad_stars' };
     return { ok: true, request: { kind: 'stars', stars: stars as Stars } };
   }
+  // A whole number first, then the item: that many copies.
+  if (/^\d+$/.test(first)) {
+    const query = words.slice(1).join(' ');
+    if (query === '') return { ok: false, error: 'missing_item' };
+    const amount = Number(first);
+    if (!(amount >= 1)) return { ok: false, error: 'bad_amount' };
+    return { ok: true, request: amount === 1 ? { kind: 'one', query } : { kind: 'some', amount, query } };
+  }
   return { ok: true, request: { kind: 'one', query: words.join(' ') } };
 }
 
@@ -55,6 +66,18 @@ export function equippedCopyIds(equipment: EquipmentDoc | null | undefined): Set
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt'>;
+
+/** Orders copies the way they are sold: the one to sell first comes first (see `worstCopy`). */
+function sellsBefore(a: CopyInfo, b: CopyInfo): number {
+  if (a.level !== b.level) return a.level - b.level;
+  if (a.obtainedAt.getTime() !== b.obtainedAt.getTime()) return b.obtainedAt.getTime() - a.obtainedAt.getTime();
+  return a._id < b._id ? 1 : a._id > b._id ? -1 : 0;
+}
+
+/** The `count` copies to sell first, in the order they would be sold (each pick is what `worstCopy` would choose). */
+export function worstCopies<T extends CopyInfo>(copies: readonly T[], count: number): T[] {
+  return [...copies].sort(sellsBefore).slice(0, Math.max(0, count));
+}
 
 /**
  * The copy to sell when selling just one: the lowest level, then the one obtained most recently

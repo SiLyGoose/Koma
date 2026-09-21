@@ -7,8 +7,9 @@ import { messageContext } from '../src/commands/context.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { TEXT } from '../src/constants.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { equippedCopyIds, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopy } from '../src/lib/sell.js';
+import { equippedCopyIds, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/sell.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
+import { ITEMS } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
 
 const item = (id: string, stars: Stars): ItemDef => ({ id, name: `Item ${id}`, stars, slot: 'weapon', description: '', effects: [] });
@@ -24,6 +25,28 @@ test('sell: `<item>` sells one copy, `all <item>` every unworn copy, `stars <n>`
   assert.deepEqual(parseSellArgs(['stars', '1']), { ok: true, request: { kind: 'stars', stars: 1 } });
   assert.deepEqual(parseSellArgs(['Stars', '4']), { ok: true, request: { kind: 'stars', stars: 4 } });
   assert.deepEqual(parseSellArgs(['star', '2']), { ok: true, request: { kind: 'stars', stars: 2 } });
+});
+
+test('sell: `<number> <item>` sells that many copies, and 1 is the same as no number', () => {
+  assert.deepEqual(parseSellArgs(['3', 'rusty', 'dagger']), { ok: true, request: { kind: 'some', amount: 3, query: 'rusty dagger' } });
+  assert.deepEqual(parseSellArgs(['2', 'C4']), { ok: true, request: { kind: 'some', amount: 2, query: 'C4' } });
+  assert.deepEqual(parseSellArgs(['10', 'Kippah']), { ok: true, request: { kind: 'some', amount: 10, query: 'Kippah' } });
+  assert.deepEqual(parseSellArgs(['1', 'rusty', 'dagger']), { ok: true, request: { kind: 'one', query: 'rusty dagger' } });
+  assert.deepEqual(parseSellArgs(['007', 'Kippah']), { ok: true, request: { kind: 'some', amount: 7, query: 'Kippah' } });
+  // The words `all` and `stars` still mean what they did.
+  assert.deepEqual(parseSellArgs(['all', '3']), { ok: true, request: { kind: 'allOf', query: '3' } });
+  assert.deepEqual(parseSellArgs(['stars', '3']), { ok: true, request: { kind: 'stars', stars: 3 } });
+  // Not a whole number, so it is part of an item name.
+  assert.deepEqual(parseSellArgs(['2.5', 'dagger']), { ok: true, request: { kind: 'one', query: '2.5 dagger' } });
+  assert.deepEqual(parseSellArgs(['-1', 'dagger']), { ok: true, request: { kind: 'one', query: '-1 dagger' } });
+  // No catalog item starts with a whole number, so a name can't be mistaken for an amount.
+  for (const item of ITEMS) assert.ok(!/^\d+(\s|$)/.test(item.name), item.name);
+});
+
+test('sell: a number with no item, or a zero amount, is reported', () => {
+  assert.deepEqual(parseSellArgs(['3']), { ok: false, error: 'missing_item' });
+  assert.deepEqual(parseSellArgs(['0', 'dagger']), { ok: false, error: 'bad_amount' });
+  assert.deepEqual(parseSellArgs(['000', 'dagger']), { ok: false, error: 'bad_amount' });
 });
 
 test('sell: a missing or bad part is reported', () => {
@@ -52,6 +75,24 @@ test('sell: the copy sold first is the lowest level, then the newest, then the h
   assert.equal(worstCopy([]), undefined);
   // The reverse of what gets equipped: a level 3 copy is the last to go.
   assert.equal(worstCopy([{ _id: 'hi', level: 3, obtainedAt: at(1) }, { _id: 'lo', level: 0, obtainedAt: at(9) }])?._id, 'lo');
+});
+
+test('sell: several copies go in the order one would be sold: lowest level, then newest, then highest id', () => {
+  const copies = [
+    { _id: 'a', level: 1, obtainedAt: at(1) },
+    { _id: 'b', level: 0, obtainedAt: at(2) },
+    { _id: 'c', level: 0, obtainedAt: at(3) },
+    { _id: 'd', level: 2, obtainedAt: at(4) },
+    { _id: 'e', level: 0, obtainedAt: at(3) },
+  ];
+  assert.deepEqual(worstCopies(copies, 3).map((c) => c._id), ['e', 'c', 'b']);
+  assert.deepEqual(worstCopies(copies, 5).map((c) => c._id), ['e', 'c', 'b', 'a', 'd']);
+  assert.deepEqual(worstCopies(copies, 99).length, 5, 'never more than there are');
+  assert.deepEqual(worstCopies(copies, 0), []);
+  assert.deepEqual(worstCopies([], 3), []);
+  // The first of them is the one `worstCopy` picks, and asking does not change the list.
+  assert.equal(worstCopies(copies, 1)[0]?._id, worstCopy(copies)?._id);
+  assert.deepEqual(copies.map((c) => c._id), ['a', 'b', 'c', 'd', 'e']);
 });
 
 test('sell: the worn copies are the weapon and armor ids, and empty slots count for nothing', () => {
@@ -120,7 +161,14 @@ test('sell: the messages', () => {
   assert.equal(TEXT.sell.onlyEquipped('k!', 'Kippah'), "Your **Kippah** is equipped, so it can't be sold. Take it off with `k!unequip` first.");
   assert.equal(TEXT.sell.noneInTier('3-star'), "You don't own any 3-star items.");
   assert.equal(TEXT.sell.confirmDescription('200', 2, 'LINES'), 'LINES\n\nTotal: **200** points for **2** items.');
-  assert.match(TEXT.sell.usage('k!'), /k!sell <item>.*k!sell all <item>.*k!sell stars <1-4>/);
+  assert.match(TEXT.sell.usage('k!'), /k!sell <item>.*k!sell <number> <item>.*k!sell all <item>.*k!sell stars <1-4>/);
+  assert.equal(TEXT.sell.askWhichAmount('k!'), 'Which item? Use `k!sell <number> <item name>`.');
+  assert.match(TEXT.sell.badAmount('k!'), /whole number, 1 or more/);
+  assert.equal(
+    TEXT.sell.notEnough('k!', 'Kippah', 5, 2),
+    "You asked to sell 5 but you only have **2** copies of **Kippah** that you aren't wearing. Use `k!sell all Kippah` to sell them all.",
+  );
+  assert.match(TEXT.sell.notEnough('k!', 'Kippah', 3, 1), /\*\*1\*\* copy of .*sell it\./);
 });
 
 // ---------------------------------------------------------------------------
