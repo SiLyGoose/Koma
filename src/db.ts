@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -13,6 +13,8 @@ export interface Collections {
   meta: Collection<MetaDoc>;
   /** Per-server data that is not in the settings: the events channel and when the next event is due. */
   guilds: Collection<GuildDoc>;
+  /** Points that are on a blackjack table right now (see services/blackjack.ts). */
+  blackjackBets: Collection<BlackjackBetDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -34,6 +36,7 @@ export async function connectDb(): Promise<Collections> {
     settings: db.collection<SettingsDoc>('settings'),
     meta: db.collection<MetaDoc>('meta'),
     guilds: db.collection<GuildDoc>('guilds'),
+    blackjackBets: db.collection<BlackjackBetDoc>('blackjack_bets'),
   };
 
   await Promise.all([
@@ -44,6 +47,9 @@ export async function connectDb(): Promise<Collections> {
     // A member's copies, and their copies of one item.
     collections.items.createIndex({ guildId: 1, userId: 1, itemId: 1 }),
     collections.ledger.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
+    // The sweeper looks for bets whose lease ran out; a table renews the bets it owns by game.
+    collections.blackjackBets.createIndex({ leaseUntil: 1 }),
+    collections.blackjackBets.createIndex({ gameId: 1 }),
   ]);
 
   client = mongo;

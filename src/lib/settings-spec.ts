@@ -1,5 +1,7 @@
 import {
   CURRENCY_EMOJI,
+  MAX_BLACKJACK_NATURAL,
+  MAX_BLACKJACK_SECONDS,
   MAX_CRATE_SECONDS,
   MAX_LEADERBOARD_SIZE,
   MAX_PITY,
@@ -24,7 +26,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Events' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -143,6 +145,20 @@ export const SPECS: readonly SettingSpec[] = [
       multiplier: true,
     };
   }),
+
+  int('blackjack.minBet', 'Blackjack', 'Smallest bet on blackjack.', 1, MAX_POINTS),
+  int('blackjack.maxBet', 'Blackjack', 'Biggest bet on blackjack (a double can go above it).', 1, MAX_POINTS),
+  {
+    key: 'blackjack.naturalPayout',
+    group: 'Blackjack',
+    description: 'What a blackjack pays as a multiple of the bet, on top of getting the bet back (1.5x is 3 to 2, 1x is even money).',
+    type: 'number',
+    min: 0,
+    max: MAX_BLACKJACK_NATURAL,
+    multiplier: true,
+  },
+  int('blackjack.joinSeconds', 'Blackjack', 'Seconds a blackjack party stays open for joining.', 5, MAX_BLACKJACK_SECONDS),
+  int('blackjack.turnSeconds', 'Blackjack', 'Seconds a blackjack player has to act before they stand.', 5, MAX_BLACKJACK_SECONDS),
 
   int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
   int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
@@ -274,6 +290,9 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.plinko.minBet > settings.plinko.maxBet) {
     return 'plinko.minBet cannot be higher than plinko.maxBet';
+  }
+  if (settings.blackjack.minBet > settings.blackjack.maxBet) {
+    return 'blackjack.minBet cannot be higher than blackjack.maxBet';
   }
   if (settings.events.minMinutes > settings.events.maxMinutes) {
     return 'events.minMinutes cannot be higher than events.maxMinutes';

@@ -1,4 +1,5 @@
 import { balance } from './balance.js';
+import { blackjack } from './blackjack.js';
 import { claim } from './claim.js';
 import { config } from './config.js';
 import { databank } from './databank.js';
@@ -28,6 +29,7 @@ export const commands: Command[] = [
   balance,
   rob,
   plinko,
+  blackjack,
   leaderboard,
   config,
   events,

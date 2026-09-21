@@ -65,6 +65,31 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: userArgs,
   },
 
+  blackjack: {
+    description: 'Play blackjack against the dealer, alone or at a party table of up to 5 players.',
+    build: (b) =>
+      void b
+        .addSubcommand((s) =>
+          s
+            .setName('play')
+            .setDescription('Play alone against the dealer')
+            .addStringOption((o) => o.setName('bet').setDescription('Points to bet, or "all" for the most you can').setRequired(true).setMaxLength(20)),
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('party')
+            .setDescription('Open a table that others can join')
+            .addStringOption((o) => o.setName('bet').setDescription('Your bet, to sit down right away (others pick theirs when they join)').setMaxLength(20)),
+        ),
+    toArgs: (i) => {
+      if (i.options.getSubcommand() === 'party') {
+        const bet = i.options.getString('bet');
+        return ['party', ...(bet === null ? [] : [bet])];
+      }
+      return [i.options.getString('bet', true)];
+    },
+  },
+
   claim: { build: () => {}, toArgs: () => [] },
 
   config: {

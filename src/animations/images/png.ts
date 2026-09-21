@@ -33,8 +33,11 @@ function chunk(type: string, data: Buffer): Buffer {
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-/** Encodes 8-bit RGBA pixels (row by row, 4 bytes each) as a PNG file. */
-export function encodePng(width: number, height: number, rgba: Uint8Array): Buffer {
+/**
+ * Encodes 8-bit RGBA pixels (row by row, 4 bytes each) as a PNG file. `level` is zlib's effort, 1 to 9:
+ * 9 (the default) squeezes hardest, and a big picture is much faster to make at 6 for almost the same size.
+ */
+export function encodePng(width: number, height: number, rgba: Uint8Array, level = 9): Buffer {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
     throw new Error(`Bad PNG size ${width}x${height}`);
   }
@@ -54,5 +57,5 @@ export function encodePng(width: number, height: number, rgba: Uint8Array): Buff
   header[9] = 6; // color type: RGBA
   // compression, filter and interlace stay 0
 
-  return Buffer.concat([SIGNATURE, chunk('IHDR', header), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
+  return Buffer.concat([SIGNATURE, chunk('IHDR', header), chunk('IDAT', deflateSync(raw, { level })), chunk('IEND', Buffer.alloc(0))]);
 }

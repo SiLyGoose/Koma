@@ -155,6 +155,10 @@ export type LedgerReason =
   | 'sell'
   | 'plinko_bet'
   | 'plinko_payout'
+  | 'blackjack_bet'
+  | 'blackjack_double'
+  | 'blackjack_payout'
+  | 'blackjack_refund'
   | 'event_crate'
   | 'rob_won'
   | 'rob_lost'
@@ -162,6 +166,26 @@ export type LedgerReason =
   | 'rob_fine_received'
   | 'rob_tax_paid'
   | 'rob_tax_received';
+
+/**
+ * A bet on a blackjack table that has not been settled yet. The points were taken from the member
+ * when they sat down, so this document is what says "this many points are on the table": whoever
+ * deletes it is the one that pays them back out (as a payout when the round ends, or as a refund
+ * if it never finishes), so a bet is paid out exactly once. `leaseUntil` is pushed forward while
+ * the table is being played; a bet whose lease has run out belongs to a table that died (the bot
+ * restarted) and is refunded by the sweeper (see services/blackjack.ts).
+ */
+export interface BlackjackBetDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  /** Which table it is on. */
+  gameId: string;
+  /** Points on the table: the bet, and again after a double. */
+  bet: number;
+  leaseUntil: Date;
+  createdAt: Date;
+}
 
 /** Append-only record of every points change, for auditing. */
 export interface LedgerDoc {

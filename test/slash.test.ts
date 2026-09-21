@@ -11,6 +11,7 @@ import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
 import { parseGiveArgs } from '../src/lib/game/give.js';
 import { GAME_EVENTS } from '../src/events/registry.js';
 import { parseChannelArg, parseUserArg } from '../src/lib/parse.js';
+import { parseBlackjackArgs } from '../src/lib/game/blackjack.js';
 import { parseBetArg } from '../src/lib/game/plinko.js';
 import { parseSellArgs } from '../src/lib/game/sell.js';
 import { createEmbed } from '../src/lib/embed.js';
@@ -184,6 +185,14 @@ test('slash options: the plinko bet reads back as the same bet the prefix comman
   assert.throws(() => args('plinko', {}), /missing bet/, 'the bet is required');
 });
 
+test('slash options: blackjack play and party read back as the words the prefix command reads', () => {
+  assert.deepEqual(parseBlackjackArgs(args('blackjack', { sub: 'play', strings: { bet: '100' } })), { ok: true, kind: 'solo', bet: 100 });
+  assert.deepEqual(parseBlackjackArgs(args('blackjack', { sub: 'play', strings: { bet: 'all' } })), { ok: true, kind: 'solo', bet: 'all' });
+  assert.throws(() => args('blackjack', { sub: 'play' }), /missing bet/, 'playing alone needs a bet');
+  assert.deepEqual(parseBlackjackArgs(args('blackjack', { sub: 'party' })), { ok: true, kind: 'party', bet: null });
+  assert.deepEqual(parseBlackjackArgs(args('blackjack', { sub: 'party', strings: { bet: '250' } })), { ok: true, kind: 'party', bet: 250 });
+});
+
 test('slash options: unequip, give and config', () => {
   assert.deepEqual(args('unequip', { strings: { slot: 'armor' } }), ['armor']);
   assert.deepEqual(args('unequip', { strings: { slot: 'all' } }), ['all']);
@@ -218,6 +227,17 @@ test('slash definition: /events has its four subcommands, a choice for every eve
   const channel = json.options.find((o: any) => o.name === 'channel').options[0];
   assert.equal(channel.required, true);
   assert.deepEqual([...channel.channel_types].sort(), [0, 5], 'text and announcement channels only');
+});
+
+test('slash definition: /blackjack has play and party, and only playing alone needs a bet', () => {
+  const json = slashCommandData(commands).find((d) => d.name === 'blackjack') as any;
+  assert.ok(json, '/blackjack is registered');
+  assert.deepEqual(json.options.map((o: any) => o.name), ['play', 'party']);
+  const [play, party] = json.options;
+  assert.equal(play.options[0].name, 'bet');
+  assert.equal(play.options[0].required, true);
+  assert.equal(party.options[0].name, 'bet');
+  assert.notEqual(party.options[0].required ?? false, true, 'a host can open a table without sitting down');
 });
 
 // ---------------------------------------------------------------------------

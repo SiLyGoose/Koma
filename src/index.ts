@@ -12,6 +12,7 @@ import { resumeOpenEvents } from './events/runner.js';
 import { startEventScheduler } from './events/scheduler.js';
 import { requireEnv } from './env.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
+import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
 import { migrateInventory } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
   });
 
   let stopEvents: () => void = () => {};
+  let stopBetSweeper: () => void = () => {};
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"${slashOn ? ' or "/"' : ''}.`);
@@ -73,6 +75,9 @@ async function main(): Promise<void> {
     // that was still open when the bot last stopped (a restart, a deploy) is picked up again first.
     await resumeOpenEvents(readyClient);
     stopEvents = startEventScheduler(readyClient);
+
+    // Points that were on a blackjack table when the bot last stopped are given back.
+    stopBetSweeper = startBetSweeper();
 
     // Tell Discord which slash commands exist. This replaces the whole list every start, so a
     // command removed from the code disappears from Discord too. A failure here only costs the
@@ -102,6 +107,9 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`Received ${signal}, shutting down.`);
     stopEvents();
+    stopBetSweeper();
+    // Tables are being closed with the bot: give their bets back now instead of waiting for the sweeper.
+    await refundLiveBets();
     await client.destroy();
     await closeDb();
     process.exit(0);

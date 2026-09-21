@@ -80,6 +80,17 @@ export interface Settings {
      */
     payout: Record<number, number>;
   };
+  blackjack: {
+    /** The smallest and biggest bet (per player; a double can take a hand above the biggest). */
+    minBet: number;
+    maxBet: number;
+    /** A blackjack pays this many times the bet (1.5 is 3 to 2). */
+    naturalPayout: number;
+    /** Seconds a party table stays open for joining. */
+    joinSeconds: number;
+    /** Seconds a player has for each decision before they stand. */
+    turnSeconds: number;
+  };
   events: {
     /**
      * Random events (see src/events): after one starts, the next comes between minMinutes and
@@ -132,6 +143,7 @@ export const DEFAULTS: Readonly<Settings> = {
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
+  blackjack: { minBet: 10, maxBet: 1000, naturalPayout: 1.5, joinSeconds: 15, turnSeconds: 30 },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   events: { minMinutes: 120, maxMinutes: 360, crate: { minPoints: 200, maxPoints: 600, seconds: 60 } },
   equipment: defaultEquipmentSettings(),

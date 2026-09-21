@@ -97,7 +97,7 @@ export const WHEEL_IMAGE_NAME = 'wheel.png';
  * lasted somewhere from `minSeconds` to `maxSeconds`, and the wheel stops on the result. Discord
  * limits how often a message can be edited, so keep `frameMs` at 1000 or more.
  */
-export const WHEEL_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
+export const WHEEL_ANIMATION = { frameMs: 1_000, minSeconds: 3, maxSeconds: 5 };
 
 /** File name of the plinko board picture. */
 export const PLINKO_IMAGE_NAME = 'plinko.png';
@@ -118,8 +118,55 @@ export const MAX_PLINKO_MULTIPLIER = 1000;
  * pictures to land. `idleMs` is how long the buttons under a finished game (again, double, half)
  * keep working after the last time they were used.
  */
-export const PLINKO_ANIMATION = { frameMs: 800 };
+export const PLINKO_ANIMATION = { frameMs: 1_000 };
 export const PLINKO_BUTTONS = { idleMs: 60_000 };
+
+// ---------------------------------------------------------------------------
+// Blackjack
+// ---------------------------------------------------------------------------
+
+/** File name of the blackjack table picture. */
+export const BLACKJACK_IMAGE_NAME = 'blackjack.png';
+
+/** A blackjack can pay up to this many times the bet (the `blackjack.naturalPayout` setting). */
+export const MAX_BLACKJACK_NATURAL = 10;
+
+/** The longest, in seconds, a party stays open or a player gets to decide (the `blackjack.joinSeconds` and `blackjack.turnSeconds` settings). */
+export const MAX_BLACKJACK_SECONDS = 300;
+
+/**
+ * How blackjack plays.
+ * - `decks`: the shoe is this many decks, shuffled again for every round.
+ * - `maxSeats`: how many players a party table seats (the table picture fits up to 6).
+ * - `dealMs` and `dealerMs`: the picture is swapped this often while cards are dealt, and while the dealer
+ *   plays (keep both at 500 or more, Discord limits message edits).
+ * - `buttonsIdleMs`: how long the buttons under a finished solo game (again, double, half) keep working.
+ * - `modalMs`: how long a player has to fill in the bet pop-up after pressing Join.
+ * - `leaseMs`, `heartbeatMs`, `sweepMs`: the bets on a table are marked as "in use" for `leaseMs`, renewed
+ *   every `heartbeatMs` while the table is played. Every `sweepMs` the bot looks for bets whose mark ran out
+ *   (their table died, because the bot restarted) and gives the points back.
+ */
+export const BLACKJACK = {
+  /** How many times bigger than its 640 by 400 layout the table picture is drawn (1.5 gives 960 by 600). Bigger is sharper but takes longer to draw. */
+  imageScale: 1.5,
+  decks: 4,
+  maxSeats: 5,
+  dealMs: 1_000,
+  dealerMs: 1_000,
+  buttonsIdleMs: 60_000,
+  modalMs: 60_000,
+  leaseMs: 90_000,
+  heartbeatMs: 30_000,
+  sweepMs: 60_000,
+} as const;
+
+/**
+ * Fetching a member's profile picture for the blackjack table (src/discord/profile.ts): the size
+ * asked from Discord (a power of two from 16 to 4096; the picture is drawn 34 pixels across), how
+ * long to wait for it, the biggest file taken, and how many pictures are kept in memory. If the
+ * picture doesn't arrive in time the table shows a coloured circle with the first letter instead.
+ */
+export const AVATAR = { size: 64, timeoutMs: 3000, maxBytes: 300_000, cacheMax: 200 } as const;
 
 // ---------------------------------------------------------------------------
 // Random events (src/events)
@@ -151,7 +198,7 @@ export const D20_IMAGE_NAME = 'd20.png';
  * picture is swapped every `frameMs` milliseconds (the die slowing down and showing other numbers)
  * for `minSeconds` to `maxSeconds`, and then it lands on the real roll. Keep `frameMs` at 500 or more.
  */
-export const D20_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
+export const D20_ANIMATION = { frameMs: 1_000, minSeconds: 3, maxSeconds: 5 };
 
 /**
  * What a roll of the D20 (the `d20` effect, on the D20 item) does to a claim. A roll of 1 is a
@@ -189,10 +236,10 @@ export const SLASH_EXCLUDED: readonly string[] = ['rob'];
 export const AUTOCOMPLETE_MAX_CHOICES = 25;
 
 /** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
-export const FIELD_MAX_LENGTH = 1000;
+export const FIELD_MAX_LENGTH = 1_000;
 
 /** Most characters of item text in one databank message. Discord cuts an embed off at 6000, so this leaves room for titles. */
-export const DATABANK_PAGE_LENGTH = 4500;
+export const DATABANK_PAGE_LENGTH = 4_500;
 
 /** Rob and effect chances are rolled in this many steps. Only worth changing for very precise chances. */
 export const CHANCE_STEPS = 1_000_000;
@@ -400,6 +447,82 @@ export const TEXT = {
     doubleButton: (bet: string) => `Double (${bet})`,
     halfButton: (bet: string) => `Half (${bet})`,
     notYours: 'This is not your game.',
+  },
+
+  blackjack: {
+    usage: (p: string) =>
+      `Use \`${p}blackjack <bet>\` to play alone, like \`${p}blackjack 100\` or \`${p}blackjack all\`, or \`${p}blackjack party\` (optionally with a bet) to open a table others can join.`,
+    badBet: (p: string) => `The bet has to be a whole number of ${CURRENCY_EMOJI}, like \`${p}blackjack 100\`, or \`all\`.`,
+    tooSmall: (min: string) => `The smallest bet is **${min}** ${CURRENCY_EMOJI}.`,
+    tooBig: (max: string) => `The biggest bet is **${max}** ${CURRENCY_EMOJI}.`,
+    cantAfford: (p: string, bet: string, balance: string) =>
+      `That bet is **${bet}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
+    /** For a member who is at one table and tries to sit at another. */
+    alreadyPlaying: 'You are already at a blackjack table. Finish that game first.',
+    title: 'Blackjack',
+    partyTitle: 'Blackjack party',
+    /** `closes` is a Discord timestamp that counts down by itself, like "in 12 seconds". */
+    lobby: (host: string, closes: string, max: number) =>
+      `${host} opened a table for up to ${max} players. Press **Join** and type your bet. The game starts ${closes}, or as soon as a player at the table presses **Start now**.`,
+    playersField: (count: number, max: number) => `Players (${count}/${max})`,
+    nobody: 'Nobody has joined yet.',
+    /** One player at a party table: `seat` counts from 1. */
+    seatLine: (seat: number, user: string, bet: string) => `**${seat}.** ${user} · ${bet} ${CURRENCY_EMOJI}`,
+    joinButton: 'Join',
+    leaveButton: 'Leave',
+    startButton: 'Start now',
+    modalTitle: 'Join the table',
+    betLabel: (min: string, max: string) => `Bet (${min} to ${max}) or "all"`,
+    betPlaceholder: 'For example 100',
+    tableFull: 'The table is full.',
+    tableClosed: 'That table has already started.',
+    alreadySeated: 'You already have a seat at this table.',
+    notSeated: 'You do not have a seat at this table.',
+    joinFirst: 'Join the table first, then you can start it.',
+    /** The party closed with nobody at it. */
+    noPlayers: 'Nobody joined, so the table closed.',
+    dealing: (count: number) => (count === 1 ? 'Dealing the cards...' : `Dealing to ${count} players...`),
+    /** `deadline` is a Discord timestamp: the player stands by themselves then. */
+    turn: (user: string, deadline: string) => `${user}, hit, stand or double? You stand automatically ${deadline}.`,
+    timedOut: (user: string) => `${user} took too long and stands.`,
+    hitButton: 'Hit',
+    standButton: 'Stand',
+    doubleButton: (bet: string) => `Double (${bet})`,
+    notYourTurn: 'It is not your turn.',
+    notYours: 'This is not your game.',
+    badBetBox: 'The bet has to be a whole number, like 100, or "all".',
+    notAtTable: 'You are not playing at this table.',
+    doubleCantAfford: (bet: string, balance: string) => `Doubling costs **${bet}** ${CURRENCY_EMOJI} more and you have **${balance}** ${CURRENCY_EMOJI}.`,
+    dealerPlays: 'The dealer plays...',
+    dealerBlackjack: 'The dealer has blackjack!',
+    /** `total` is a number, or "?" while a card is face down. */
+    dealerLine: (total: string, status: string) => `**Dealer:** ${total}${status ? ` · ${status}` : ''}`,
+    /** One player during a game: their total, and what they did or what they bet. */
+    playerLine: (seat: number, user: string, total: number, soft: boolean, status: string, bet: string) =>
+      `**${seat}.** ${user}: **${soft ? `soft ${total}` : total}**${status ? ` · ${status}` : ''} · ${bet} ${CURRENCY_EMOJI}`,
+    statusBlackjack: 'blackjack!',
+    statusBust: 'bust',
+    statusStand: 'stands',
+    statusDoubled: 'doubled',
+    statusActive: 'to play',
+    resultTitle: 'Blackjack: results',
+    /** One player in the results: `change` is signed, like "+200" or "-50", `verb` is the outcome. */
+    resultLine: (seat: number, user: string, verb: string, total: number, change: string) =>
+      `**${seat}.** ${user}: ${verb} (${total}) · **${change}** ${CURRENCY_EMOJI}`,
+    outcomeBlackjack: 'Blackjack!',
+    outcomeWin: 'Won',
+    outcomePush: 'Push',
+    outcomeLose: 'Lost',
+    outcomeBust: 'Bust',
+    balanceField: 'Balance',
+    /** `payout` is like "3 to 2". */
+    footer: (payout: string) => `Blackjack pays ${payout}. The dealer stands on 17. Double on your first two cards.`,
+    againButton: (bet: string) => `Again (${bet})`,
+    doubleBetButton: (bet: string) => `Double bet (${bet})`,
+    halfButton: (bet: string) => `Half (${bet})`,
+    /** Shown when a bet was already given back (the table was thought to be dead) so it can't pay out. */
+    betReturned: (user: string) => `${user}'s bet had already been returned.`,
+    cancelled: 'Something went wrong at this table, so the game was called off and the bets were returned.',
   },
 
   sell: {
@@ -749,6 +872,25 @@ export function validateConstants(): void {
   }
   if (!(PLINKO_ANIMATION.frameMs >= 500)) problems.push('PLINKO_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
+  if (!(BLACKJACK.imageScale >= 1 && BLACKJACK.imageScale <= 3 && Number.isInteger(640 * BLACKJACK.imageScale) && Number.isInteger(400 * BLACKJACK.imageScale))) {
+    problems.push('BLACKJACK.imageScale must be from 1 to 3 and give a whole number of pixels (640 x scale and 400 x scale), like 1, 1.5 or 2');
+  }
+  if (!(BLACKJACK.dealMs >= 500 && BLACKJACK.dealerMs >= 500)) problems.push('BLACKJACK.dealMs and dealerMs must be at least 500 (Discord limits message edits)');
+  if (!(Number.isInteger(BLACKJACK.decks) && BLACKJACK.decks >= 1 && BLACKJACK.decks <= 8)) problems.push('BLACKJACK.decks must be a whole number from 1 to 8');
+  if (!(Number.isInteger(BLACKJACK.maxSeats) && BLACKJACK.maxSeats >= 1 && BLACKJACK.maxSeats <= 6)) {
+    problems.push('BLACKJACK.maxSeats must be a whole number from 1 to 6 (the table picture has room for 6)');
+  }
+  if (!(BLACKJACK.buttonsIdleMs >= 5000 && BLACKJACK.modalMs >= 5000)) problems.push('BLACKJACK.buttonsIdleMs and modalMs must be at least 5000');
+  if (!(BLACKJACK.heartbeatMs >= 1000 && BLACKJACK.leaseMs >= 2 * BLACKJACK.heartbeatMs)) {
+    problems.push('BLACKJACK.leaseMs must be at least twice BLACKJACK.heartbeatMs (and heartbeatMs at least 1000), or a live table could be mistaken for a dead one');
+  }
+  if (!(BLACKJACK.sweepMs >= 5000)) problems.push('BLACKJACK.sweepMs must be at least 5000');
+  if (!(Number.isInteger(AVATAR.size) && AVATAR.size >= 16 && AVATAR.size <= 4096 && (AVATAR.size & (AVATAR.size - 1)) === 0)) {
+    problems.push('AVATAR.size must be a power of two from 16 to 4096 (Discord only serves those sizes)');
+  }
+  if (!(AVATAR.timeoutMs >= 500 && AVATAR.maxBytes >= 1000 && Number.isInteger(AVATAR.cacheMax) && AVATAR.cacheMax >= 1)) {
+    problems.push('AVATAR.timeoutMs must be at least 500, maxBytes at least 1000 and cacheMax a whole number of at least 1');
+  }
   if (!(EVENTS.tickMs >= 10_000)) problems.push('EVENTS.tickMs must be at least 10000');
   if (!(EVENTS.staleMs > EVENTS.tickMs)) problems.push('EVENTS.staleMs must be longer than EVENTS.tickMs');
   if (!(CRATE.refreshMs >= 1000)) problems.push('CRATE.refreshMs must be at least 1000 (Discord limits message edits)');
@@ -767,6 +909,8 @@ export function validateConstants(): void {
     ['MAX_WHEEL_SLICES', MAX_WHEEL_SLICES],
     ['MAX_WHEEL_MULTIPLIER', MAX_WHEEL_MULTIPLIER],
     ['MAX_PLINKO_MULTIPLIER', MAX_PLINKO_MULTIPLIER],
+    ['MAX_BLACKJACK_NATURAL', MAX_BLACKJACK_NATURAL],
+    ['MAX_BLACKJACK_SECONDS', MAX_BLACKJACK_SECONDS],
     ['MAX_CRATE_SECONDS', MAX_CRATE_SECONDS],
     ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
