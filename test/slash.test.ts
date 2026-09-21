@@ -4,8 +4,8 @@ import type { AutocompleteInteraction, ChatInputCommandInteraction, Message } fr
 import { interactionContext, isEphemeral, messageContext } from '../src/commands/context.js';
 import { handleAutocomplete, handleSlash } from '../src/commands/dispatch.js';
 import { commands } from '../src/commands/index.js';
-import { MAX_SLASH_DESCRIPTION, SLASH, slashCommandData } from '../src/commands/slash.js';
-import { MAX_GIVE_AMOUNT, TEXT } from '../src/constants.js';
+import { MAX_SLASH_DESCRIPTION, SLASH, hasSlash, slashCommandData } from '../src/commands/slash.js';
+import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src/constants.js';
 import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
 import { parseGiveArgs } from '../src/lib/give.js';
@@ -17,14 +17,32 @@ import { createEmbed } from '../src/lib/embed.js';
 // What is registered with Discord
 // ---------------------------------------------------------------------------
 
-test('slash: every command has a slash version and there are none for commands that do not exist', () => {
+/** The commands that are registered as slash commands: all of them except the ones in SLASH_EXCLUDED. */
+const slashed = commands.filter((command) => !SLASH_EXCLUDED.includes(command.name));
+
+test('slash: every command has a slash version unless it is excluded, and there are none for commands that do not exist', () => {
   const names = commands.map((command) => command.name).sort();
+  // An excluded command keeps its definition, so taking it off the list brings it back.
   assert.deepEqual(Object.keys(SLASH).sort(), names);
+  for (const command of commands) assert.equal(hasSlash(command.name), !SLASH_EXCLUDED.includes(command.name), command.name);
+});
+
+test('slash: the excluded commands are real commands, are not registered, and are kept out of the list', () => {
+  for (const name of SLASH_EXCLUDED) {
+    assert.ok(commands.some((command) => command.name === name), `${name} is not a command`);
+    assert.equal(hasSlash(name), false);
+  }
+  assert.equal(new Set(SLASH_EXCLUDED).size, SLASH_EXCLUDED.length, 'no name twice');
+  const registered = slashCommandData(commands).map((d) => d.name);
+  for (const name of SLASH_EXCLUDED) assert.ok(!registered.includes(name), `/${name} is registered`);
+  assert.deepEqual(registered.sort(), slashed.map((command) => command.name).sort());
+  // Nothing is excluded that the startup check would refuse.
+  validateConstants();
 });
 
 test('slash: the definitions follow Discord rules', () => {
   const data = slashCommandData(commands);
-  assert.equal(data.length, commands.length);
+  assert.equal(data.length, slashed.length);
   assert.ok(data.length <= 100, 'Discord allows 100 slash commands');
   assert.equal(new Set(data.map((d) => d.name)).size, data.length, 'no duplicate names');
 
@@ -62,7 +80,7 @@ test('slash: the definitions follow Discord rules', () => {
 
 test('slash: only the admin command is hidden from ordinary members', () => {
   const data = slashCommandData(commands);
-  for (const command of commands) {
+  for (const command of slashed) {
     const json = data.find((d) => d.name === command.name) as any;
     if (command.adminOnly) assert.notEqual(json.default_member_permissions ?? null, null, `/${command.name} is hidden`);
     else assert.equal(json.default_member_permissions ?? null, null, `/${command.name} is visible`);
@@ -384,7 +402,8 @@ test('slash command: /help lists slash usage, no aliases and no prefix, and only
   const data = f.calls[0]?.data;
   assert.equal(data.flags, EPHEMERAL);
   const text: string = data.embeds[0].data.description;
-  assert.ok(text.includes('**/rob <user>**'), text);
+  assert.ok(text.includes('**/balance [user]**'), text);
+  for (const name of SLASH_EXCLUDED) assert.equal(text.includes(`/${name}`), false, `/${name} is excluded, so it is not listed`);
   assert.ok(text.includes('**/sell one | some | all | stars**'), text);
   assert.ok(text.includes('**/gacha [multi]**'), text);
   assert.equal(text.includes('(also'), false, 'no aliases');
@@ -407,6 +426,14 @@ test('slash command: a command the bot no longer has, or one used outside a serv
   await handleSlash(gone.interaction);
   assert.equal(gone.calls[0]?.data.content, TEXT.common.unknownSlash);
   assert.equal(gone.calls[0]?.data.flags, EPHEMERAL);
+
+  // A command that is excluded from slash commands is answered the same way, in case Discord still shows it.
+  for (const name of SLASH_EXCLUDED) {
+    const excluded = fakeSlashCommand(name);
+    await handleSlash(excluded.interaction);
+    assert.equal(excluded.calls[0]?.data.content, TEXT.common.unknownSlash, name);
+    assert.equal(excluded.calls[0]?.data.flags, EPHEMERAL);
+  }
 
   // An alias is not a slash command.
   const alias = fakeSlashCommand('bal');

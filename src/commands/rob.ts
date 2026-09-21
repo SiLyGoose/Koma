@@ -109,10 +109,7 @@ export const rob: Command = {
     } else {
       embed
         .setTitle(pickRandom(FAILURE_TITLES))
-        .setDescription(
-          caughtText(ctx.user.toString(), target.toString(), result) +
-            (result.robberBalance < 0 ? `\n${TEXT.rob.inDebt(ctx.user.toString(), fmt(-result.robberBalance))}` : ''),
-        );
+        .setDescription(caughtText(ctx.user.toString(), target.toString(), result));
     }
 
     // Ping only the victim so they know it happened.

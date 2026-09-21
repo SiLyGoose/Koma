@@ -117,6 +117,14 @@ export const D20 = { sides: 20, critMultiplier: 2, divisor: 10 };
  */
 export const SLASH_DEFER_AFTER_MS = 2500;
 
+/**
+ * Commands that can only be used with the prefix (`k!rob`), not as slash commands. They aren't
+ * registered with Discord, a slash command with that name is answered as unknown, and `/help`
+ * leaves them out. Their entries in `SLASH` (commands/slash.ts) can stay, so taking a name off
+ * this list brings the slash command back at the next start. Names are command names, in lower case.
+ */
+export const SLASH_EXCLUDED: readonly string[] = ['rob'];
+
 /** Most choices Discord shows in an autocomplete list. */
 export const AUTOCOMPLETE_MAX_CHOICES = 25;
 
@@ -493,8 +501,6 @@ export const TEXT = {
     /** The fine is set to 0, so there was nothing to pay. */
     caughtNothingToFine: (robber: string, victim: string) =>
       `${robber} tried to rob ${victim} but got caught. There was no fine to pay.`,
-    /** Added when a fine left the robber with a negative balance. `debt` is how far below 0 they are. */
-    inDebt: (robber: string, debt: string) => `${robber} is now **${debt}** points in debt.`,
     /** The robber has fewer points than the base fine. */
     robberTooPoor: (p: string, fine: string, balance: string) =>
       `You need at least **${fine}** points to rob, in case you get caught. You have **${balance}**. Use \`${p}claim\` to earn more.`,
@@ -578,6 +584,9 @@ export function validateConstants(): void {
   if (MULTI_PULLS < 2 || MULTI_PULLS > 30) problems.push('MULTI_PULLS must be from 2 to 30');
   if (!(SLASH_DEFER_AFTER_MS >= 500 && SLASH_DEFER_AFTER_MS < 3000)) {
     problems.push('SLASH_DEFER_AFTER_MS must be from 500 to under 3000 (Discord fails a command that is not answered in 3 seconds)');
+  }
+  if (SLASH_EXCLUDED.some((name) => name === '' || name !== name.toLowerCase())) {
+    problems.push('SLASH_EXCLUDED names must be command names in lower case');
   }
   if (!(AUTOCOMPLETE_MAX_CHOICES >= 1 && AUTOCOMPLETE_MAX_CHOICES <= 25)) problems.push('AUTOCOMPLETE_MAX_CHOICES must be from 1 to 25');
   if (!(D20_ANIMATION.frameMs >= 500)) problems.push('D20_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');

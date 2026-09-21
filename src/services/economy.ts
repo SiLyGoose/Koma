@@ -120,40 +120,6 @@ async function transferClamped(
   }
 }
 
-/**
- * Moves exactly `amount` points from one member to another, even if the sender has fewer: they
- * go into debt (a negative balance). Used for the fine a caught robber pays. If crediting the
- * receiver fails, the sender is given the points back.
- */
-async function transferInDebt(
-  guildId: string,
-  fromId: string,
-  toId: string,
-  amount: number,
-): Promise<{ moved: number; fromBalance: number; toBalance: number } | null> {
-  const { members } = collections();
-
-  const from = await members.findOneAndUpdate(
-    { guildId, userId: fromId },
-    { $inc: { points: -amount } },
-    { returnDocument: 'after' },
-  );
-  if (!from) return null;
-
-  try {
-    const to = await members.findOneAndUpdate(
-      { guildId, userId: toId },
-      { $inc: { points: amount } },
-      { returnDocument: 'after' },
-    );
-    if (!to) throw new Error(`Member ${toId} not found while crediting a fine`);
-    return { moved: amount, fromBalance: from.points, toBalance: to.points };
-  } catch (err) {
-    await members.updateOne({ guildId, userId: fromId }, { $inc: { points: amount } });
-    throw err;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -580,13 +546,13 @@ export type RobResult =
       ok: true;
       success: false;
       chance: number;
-      /** What the robber paid. The same as `owed`: a fine is never cut down to what they can afford. */
+      /** What the robber paid (capped at what they had). */
       fine: number;
-      /** The fine after the robber's gear. */
+      /** The fine after the robber's gear, before checking what they could afford. */
       owed: number;
       /** How much of the fine the robber's gear cancelled. */
       waived: number;
-      /** How much the robber's gear added to the fine (a glass cannon). 0 when it made it smaller or did nothing. */
+      /** How much more than the base fine the robber paid because of their gear (a glass cannon). 0 when gear made it smaller or did nothing, or when they couldn't afford more than the base fine. */
       raised: number;
       robberBalance: number;
       victimBalance: number;
@@ -617,7 +583,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
   // Start the robber's cooldown atomically. Only one of several rapid attempts can win this. The
   // robber also has to hold at least the base fine, so a rob never starts from less than they
-  // could be fined (a bigger fine from their gear can still put them in debt).
+  // could be fined.
   //
   // The cooldown a rob starts is fixed at that moment: a robber in gear that slows them down
   // (slothCooldown) waits longer, and taking the gear off doesn't skip it. So the length that
@@ -799,14 +765,12 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       };
     }
 
-    // Caught: the robber pays a fine to the victim, less any protection from their gear. The whole
-    // fine is paid even if it is more than they have (a glass cannon can make it bigger than the
-    // base fine they were checked against), and they are left in debt.
+    // Caught: the robber pays a fine to the victim (whatever they can afford, so their balance
+    // never goes below 0), less any protection from their gear.
     const owed = robFine(cfg.failFine, robberGear);
     // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
     const waived = Math.max(0, cfg.failFine - owed);
-    const raised = Math.max(0, owed - cfg.failFine);
-    const transfer = owed > 0 ? await transferInDebt(guildId, robberId, victimId, owed) : null;
+    const transfer = owed > 0 ? await transferClamped(guildId, robberId, victimId, owed, 1) : null;
     if (!transfer) {
       const robber = await members.findOne({ guildId, userId: robberId });
       return {
@@ -816,7 +780,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         fine: 0,
         owed,
         waived,
-        raised,
+        raised: 0,
         robberBalance: robber?.points ?? 0,
         victimBalance: victim?.points ?? 0,
       };
@@ -832,7 +796,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       fine: transfer.moved,
       owed,
       waived,
-      raised,
+      // Only what was really paid above the base fine counts, so a fine cut short by what the robber had adds nothing.
+      raised: Math.max(0, transfer.moved - cfg.failFine),
       robberBalance: transfer.fromBalance,
       victimBalance: transfer.toBalance,
     };

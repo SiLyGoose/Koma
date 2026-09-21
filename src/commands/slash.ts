@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { MAX_GIVE_AMOUNT, SLOT_LABELS } from '../constants.js';
+import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { starString } from '../lib/format.js';
@@ -96,6 +96,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   databank: {
+    description: 'See every item and what it does, or just one item, or just one star tier.',
     build: (b) =>
       void b
         .addStringOption((o) =>
@@ -155,11 +156,11 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   leaderboard: { build: () => {}, toArgs: () => [] },
 
-  // rob: {
-  //   description: 'Steal points from another member. One rob per hour, and a member can be robbed once an hour.',
-  //   build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),
-  //   toArgs: (i) => [mention(i.options.getUser('user', true).id)],
-  // },
+  rob: {
+    description: 'Steal points from another member. One rob per hour, and a member can be robbed once an hour.',
+    build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),
+    toArgs: (i) => [mention(i.options.getUser('user', true).id)],
+  },
 
   sell: {
     description: 'Sell items you are not wearing: one copy, some copies, all copies of an item, or a star tier.',
@@ -219,6 +220,9 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 };
 
+/** True when the command is available as a slash command: it has an entry in `SLASH` and isn't in `SLASH_EXCLUDED`. */
+export const hasSlash = (name: string): boolean => Object.hasOwn(SLASH, name) && !SLASH_EXCLUDED.includes(name);
+
 /** The slash command for `command`, or null if it doesn't have one. Throws if Discord would refuse it. */
 export function buildSlashCommand(command: Command, spec: SlashSpec | undefined = SLASH[command.name]): SlashCommandBuilder | null {
   if (!spec) return null;
@@ -235,9 +239,10 @@ export function buildSlashCommand(command: Command, spec: SlashSpec | undefined 
   return builder;
 }
 
-/** What to register with Discord: every command that has a slash version. */
+/** What to register with Discord: every command that has a slash version (see `hasSlash`). */
 export function slashCommandData(commands: readonly Command[]): RESTPostAPIChatInputApplicationCommandsJSONBody[] {
   return commands.flatMap((command) => {
+    if (!hasSlash(command.name)) return [];
     const builder = buildSlashCommand(command);
     return builder ? [builder.toJSON()] : [];
   });

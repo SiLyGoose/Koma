@@ -4,7 +4,7 @@ import { parseCommand } from '../lib/parse.js';
 import { interactionContext, messageContext } from './context.js';
 import { commandMap } from './index.js';
 import { reply } from './reply.js';
-import { SLASH } from './slash.js';
+import { SLASH, hasSlash } from './slash.js';
 
 /** Runs the prefix command in a message, if it is one. */
 export async function handleMessage(message: Message, prefix: string): Promise<void> {
@@ -31,7 +31,7 @@ export async function handleMessage(message: Message, prefix: string): Promise<v
 /** Runs a slash command. */
 export async function handleSlash(interaction: ChatInputCommandInteraction): Promise<void> {
   const command = commandMap.get(interaction.commandName);
-  const spec = SLASH[interaction.commandName];
+  const spec = hasSlash(interaction.commandName) ? SLASH[interaction.commandName] : undefined;
   if (!command || !spec || command.name !== interaction.commandName) {
     await interaction.reply({ content: TEXT.common.unknownSlash, flags: MessageFlags.Ephemeral }).catch((err) => {
       console.error('Could not answer an unknown slash command:', err);
@@ -66,7 +66,7 @@ export async function handleSlash(interaction: ChatInputCommandInteraction): Pro
 export async function handleAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
   let choices: { name: string; value: string }[] = [];
   try {
-    choices = (await SLASH[interaction.commandName]?.autocomplete?.(interaction)) ?? [];
+    choices = (await (hasSlash(interaction.commandName) ? SLASH[interaction.commandName]?.autocomplete?.(interaction) : undefined)) ?? [];
   } catch (err) {
     console.error(`Error listing suggestions for /${interaction.commandName}:`, err);
   }
