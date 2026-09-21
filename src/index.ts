@@ -1,7 +1,7 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
-import { handleAutocomplete, handleMessage, handleSlash } from './commands/dispatch.js';
+import { handleAutocomplete, handleMessage, handleSlash } from './discord/dispatch.js';
 import { commands } from './commands/index.js';
-import { slashCommandData } from './commands/slash.js';
+import { slashCommandData } from './discord/slash.js';
 import { validateConfig } from './config.js';
 import { SETTINGS_REFRESH_MS, validateConstants } from './constants.js';
 import { validateItems } from './data/items.js';
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
   });
 
   // Slash commands and the suggestion lists of their options. Button presses are handled where the
-  // buttons are made (see commands/confirm.ts), so they are ignored here.
+  // buttons are made (see discord/confirm.ts), so they are ignored here.
   client.on(Events.InteractionCreate, (interaction) => {
     if (interaction.isChatInputCommand()) void handleSlash(interaction);
     else if (interaction.isAutocomplete()) void handleAutocomplete(interaction);

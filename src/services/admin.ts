@@ -2,7 +2,7 @@ import { isAdmin } from '../config.js';
 import { MAX_GIVE_AMOUNT } from '../constants.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { newCopyId } from '../lib/copies.js';
+import { newCopyId } from '../lib/game/copies.js';
 import type { ItemCopyDoc, ItemDef } from '../types.js';
 
 /*

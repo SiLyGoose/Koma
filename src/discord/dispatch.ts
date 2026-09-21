@@ -2,7 +2,7 @@ import { MessageFlags, type AutocompleteInteraction, type ChatInputCommandIntera
 import { TEXT } from '../constants.js';
 import { parseCommand } from '../lib/parse.js';
 import { interactionContext, messageContext } from './context.js';
-import { commandMap } from './index.js';
+import { commandMap } from '../commands/index.js';
 import { reply } from './reply.js';
 import { SLASH, hasSlash } from './slash.js';
 

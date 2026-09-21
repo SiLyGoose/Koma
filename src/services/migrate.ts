@@ -1,5 +1,5 @@
 import { collections } from '../db.js';
-import { bestCopy } from '../lib/copies.js';
+import { bestCopy } from '../lib/game/copies.js';
 import type { ItemCopyDoc } from '../types.js';
 import { SLOTS } from '../types.js';
 

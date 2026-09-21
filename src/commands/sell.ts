@@ -2,12 +2,12 @@ import { TEXT } from '../constants.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
-import { parseSellArgs } from '../lib/sell.js';
+import { parseSellArgs } from '../lib/game/sell.js';
 import { getInventory } from '../services/economy.js';
 import { planSale, sellCopies, type SalePlan, type SaleResult, type SellTarget } from '../services/sell.js';
 import type { ItemDef } from '../types.js';
-import { CONFIRM_TIMEOUT_MS, askToConfirm } from './confirm.js';
-import type { Command } from './types.js';
+import { CONFIRM_TIMEOUT_MS, askToConfirm } from '../discord/confirm.js';
+import type { Command } from '../discord/types.js';
 
 const lineText = (line: { item: ItemDef; count: number; total: number }) =>
   TEXT.sell.line(starString(line.item.stars), line.item.name, line.count, fmt(line.total));

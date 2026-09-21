@@ -2,9 +2,9 @@ import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy.js';
-import { replyWithDice } from './dice-reply.js';
-import { replyWithWheel } from './wheel-reply.js';
-import type { Command } from './types.js';
+import { replyWithDice } from '../animations/dice-reply.js';
+import { replyWithWheel } from '../animations/wheel-reply.js';
+import type { Command } from '../discord/types.js';
 
 export const claim: Command = {
   name: 'claim',

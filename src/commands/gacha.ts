@@ -1,10 +1,10 @@
 import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem } from '../lib/equipment.js';
+import { canUseItem } from '../lib/game/equipment.js';
 import { fmt, mentionList, starString } from '../lib/format.js';
 import { STARS } from '../config.js';
 import { pullGacha, pullMulti } from '../services/economy.js';
-import type { Command, CommandContext } from './types.js';
+import type { Command, CommandContext } from '../discord/types.js';
 
 export const gacha: Command = {
   name: 'gacha',

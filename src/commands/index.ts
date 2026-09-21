@@ -12,7 +12,7 @@ import { leaderboard } from './leaderboard.js';
 import { plinko } from './plinko.js';
 import { rob } from './rob.js';
 import { sell } from './sell.js';
-import type { Command } from './types.js';
+import type { Command } from '../discord/types.js';
 import { unequip } from './unequip.js';
 
 export const commands: Command[] = [

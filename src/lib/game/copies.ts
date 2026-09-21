@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { ItemCopyDoc } from '../types.js';
+import type { ItemCopyDoc } from '../../types.js';
 
 /**
  * What a member owns is stored as one document per copy of an item (see ItemCopyDoc), so two

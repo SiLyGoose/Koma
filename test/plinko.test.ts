@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { inflateSync } from 'node:zlib';
 import { AGAIN_ID, DOUBLE_ID, HALF_ID, betForButton } from '../src/commands/plinko.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { PLINKO_ROWS, TEXT, validateConstants } from '../src/constants.js';
@@ -16,8 +17,8 @@ import {
   slotMultiplier,
   slotMultipliers,
   slotOf,
-} from '../src/lib/plinko.js';
-import { renderPlinko, boardLayout } from '../src/lib/plinko-image.js';
+} from '../src/lib/game/plinko.js';
+import { renderPlinko, boardLayout } from '../src/animations/images/plinko-image.js';
 import { SPECS, checkConstraints, findSpec, formatValue, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
 const close = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`);
@@ -250,6 +251,40 @@ test('plinko picture: a board of any size draws, and bad input is refused', () =
   assert.throws(() => renderPlinko(MULTIPLIERS, PATH, 9), /no frame 9/);
   assert.throws(() => renderPlinko(MULTIPLIERS, PATH, -1), /no frame/);
   assert.throws(() => renderPlinko(MULTIPLIERS, PATH, 1.5), /no frame/);
+});
+
+/** The RGBA of one pixel of a PNG made by our encoder (no filtering, 8-bit RGBA). */
+function pixelOf(png: Buffer, x: number, y: number): number[] {
+  const { width } = pngSize(png);
+  const data: Buffer[] = [];
+  for (let at = 8; at < png.length; ) {
+    const length = png.readUInt32BE(at);
+    if (png.subarray(at + 4, at + 8).toString('ascii') === 'IDAT') data.push(png.subarray(at + 8, at + 8 + length));
+    at += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(data));
+  const start = y * (width * 4 + 1) + 1 + x * 4;
+  return [...raw.subarray(start, start + 4)];
+}
+
+test('plinko picture: the slots that pay the most are red, the ones that pay the least are gold, with a gradient between', () => {
+  const layout = boardLayout(PLINKO_ROWS);
+  // Above the label, inside the slot's colored box.
+  const slotColor = (png: Buffer, slot: number) => {
+    const { x, y } = layout.slot(slot);
+    return pixelOf(png, Math.round(x), Math.round(y) + 8);
+  };
+  const png = renderPlinko([29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29], PATH, 0);
+  assert.deepEqual(slotColor(png, 0), [220, 70, 75, 255], 'the biggest payout is red');
+  assert.deepEqual(slotColor(png, 8), [220, 70, 75, 255]);
+  assert.deepEqual(slotColor(png, 4), [245, 197, 66, 255], 'the smallest payout is gold');
+  // Going in from the edge the boxes get less red (the green channel rises) and no two neighbours match.
+  for (let slot = 1; slot <= 4; slot++) {
+    assert.ok((slotColor(png, slot)[1] as number) > (slotColor(png, slot - 1)[1] as number), `slot ${slot} is less red than slot ${slot - 1}`);
+  }
+  // A finished picture dims the other slots but keeps the one the ball is in.
+  const done = renderPlinko([29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29], [false, false, false, false, false, false, false, false], PLINKO_ROWS, true);
+  assert.notDeepEqual(slotColor(done, 8), [220, 70, 75, 255], 'a slot the ball is not in is dimmed');
 });
 
 test('plinko picture: the pegs sit in a triangle with the slots under the last row', () => {

@@ -2,9 +2,9 @@ import { TEXT } from '../constants.js';
 import { ITEMS, findItem } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
-import { buildDatabank, itemDetail, parseStarQuery } from '../lib/databank.js';
+import { buildDatabank, itemDetail, parseStarQuery } from '../lib/game/databank.js';
 import { starString } from '../lib/format.js';
-import type { Command } from './types.js';
+import type { Command } from '../discord/types.js';
 
 export const databank: Command = {
   name: 'databank',

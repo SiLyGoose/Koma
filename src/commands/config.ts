@@ -4,7 +4,7 @@ import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../data/effects.js';
 import { findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetSetting } from '../services/settings.js';
-import type { Command } from './types.js';
+import type { Command } from '../discord/types.js';
 
 const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Equipment'];
 

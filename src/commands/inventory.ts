@@ -5,8 +5,8 @@ import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy.js';
 import { getEquipment } from '../services/equipment.js';
-import { memberNotFound, resolveUserArg } from './resolve.js';
-import type { Command } from './types.js';
+import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
+import type { Command } from '../discord/types.js';
 
 export const inventory: Command = {
   name: 'inventory',

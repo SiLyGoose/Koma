@@ -4,8 +4,8 @@ import { CONFIG } from '../src/config.js';
 import { EFFECT_TEXT } from '../src/constants.js';
 import { EFFECTS, emptyTotals } from '../src/data/effects.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects } from '../src/lib/equipment.js';
-import { claimGapHours, robCooldownScale, robSuccessChance } from '../src/lib/perks.js';
+import { describeEffects } from '../src/lib/game/equipment.js';
+import { claimGapHours, robCooldownScale, robSuccessChance } from '../src/lib/game/perks.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 
 const gear = (over: Partial<ReturnType<typeof emptyTotals>>) => ({ ...emptyTotals(), ...over });

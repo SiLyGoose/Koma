@@ -1,4 +1,4 @@
-import { PLINKO_ROWS } from '../constants.js';
+import { PLINKO_ROWS } from '../../constants.js';
 
 /*
  * The rules of plinko, with no database and no pictures. A ball is dropped on a board of

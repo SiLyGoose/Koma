@@ -1,6 +1,6 @@
-import { CONFIG } from '../config.js';
-import { ITEMS } from '../data/items.js';
-import { STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } from '../types.js';
+import { CONFIG } from '../../config.js';
+import { ITEMS } from '../../data/items.js';
+import { STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } from '../../types.js';
 
 /*
  * The pure parts of selling items: reading what the member typed, choosing which copies to sell,

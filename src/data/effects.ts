@@ -13,7 +13,7 @@ import type { Stars } from '../types.js';
  *      this entry automatically.
  *   2. Add its gear-card line to EFFECT_TEXT in constants.ts (the compiler reminds you).
  *   3. Give it to one or more items in data/items.ts.
- *   4. Use it where it matters: read the effect from the totals in lib/perks.ts (add a small
+ *   4. Use it where it matters: read the effect from the totals in lib/game/perks.ts (add a small
  *      function there) and call that function from the service that needs it.
  * Nothing else has to change. (Effects are percentages of something; the settings show and
  * accept them as "10%" or 0.1.)

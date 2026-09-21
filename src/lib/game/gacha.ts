@@ -1,9 +1,9 @@
 import { randomInt } from 'node:crypto';
-import { CONFIG, STARS } from '../config.js';
-import { PITY_STARS } from '../constants.js';
-import { itemsByStars } from '../data/items.js';
-import type { ItemDef, Stars } from '../types.js';
-import { chance } from './random.js';
+import { CONFIG, STARS } from '../../config.js';
+import { PITY_STARS } from '../../constants.js';
+import { itemsByStars } from '../../data/items.js';
+import type { ItemDef, Stars } from '../../types.js';
+import { chance } from '../random.js';
 
 type Weights = Record<Stars, number>;
 export type PitySettings = { softStart: number; hardPity: number };

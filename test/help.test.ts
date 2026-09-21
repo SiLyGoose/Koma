@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { sortCommands } from '../src/commands/help.js';
-import type { Command } from '../src/commands/types.js';
+import type { Command } from '../src/discord/types.js';
 
 const command = (name: string): Command => ({ name, description: '', execute: async () => {} });
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bestCopy, groupCopies, newCopyId } from '../src/lib/copies.js';
+import { bestCopy, groupCopies, newCopyId } from '../src/lib/game/copies.js';
 
 const at = (minutes: number) => new Date(Date.UTC(2026, 8, 20, 0, minutes));
 const copy = (_id: string, level: number, minutes: number, itemId = 'sword') => ({ _id, itemId, level, obtainedAt: at(minutes) });

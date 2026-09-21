@@ -3,11 +3,11 @@ import { CONFIG } from '../config.js';
 import { PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
-import { buttonPlan, expectedReturn, parseBetArg, slotMultipliers } from '../lib/plinko.js';
-import { renderPlinko } from '../lib/plinko-image.js';
+import { buttonPlan, expectedReturn, parseBetArg, slotMultipliers } from '../lib/game/plinko.js';
+import { renderPlinko } from '../animations/images/plinko-image.js';
 import { getBalance, playPlinko, type PlinkoResult } from '../services/economy.js';
-import { playFrames, type AnimationPlan, type FrameSurface } from './animation.js';
-import type { Command, CommandContext, SentReply } from './types.js';
+import { playFrames, type AnimationPlan, type FrameSurface } from '../animations/play.js';
+import type { Command, CommandContext, SentReply } from '../discord/types.js';
 
 export const AGAIN_ID = 'plinko_again';
 export const DOUBLE_ID = 'plinko_double';

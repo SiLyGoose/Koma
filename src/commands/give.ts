@@ -2,9 +2,9 @@ import { isAdmin } from '../config.js';
 import { MAX_GIVE_AMOUNT, TEXT } from '../constants.js';
 import { ITEMS } from '../data/items.js';
 import { fmt, starString } from '../lib/format.js';
-import { parseGiveArgs } from '../lib/give.js';
+import { parseGiveArgs } from '../lib/game/give.js';
 import { giveItems } from '../services/admin.js';
-import type { Command } from './types.js';
+import type { Command } from '../discord/types.js';
 
 /** Every item id, comma separated, kept short enough for a message. */
 function idList(): string {

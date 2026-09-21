@@ -1,15 +1,15 @@
-import { ballOffset, slotOf, type PlinkoPath } from './plinko.js';
+import { ballOffset, slotOf, type PlinkoPath } from '../../lib/game/plinko.js';
 import { GLYPHS, GLYPH_HEIGHT, textWidth } from './pixel-font.js';
 import { encodePng } from './png.js';
+import { rangeColors } from './palette.js';
 import { luminance, mix, shrinkRect, type Rgb } from './raster.js';
-import { sliceColor } from './wheel-image.js';
 
 /*
  * Draws the plinko board as a PNG: rows of pegs in a triangle, a slot for each payout at the
- * bottom (colored by how much it pays, like the wheel), and the ball. Frame 0 has the ball on
- * the top peg; each next frame it has fallen one row, and the last frame has it in its slot.
- * No image library: shapes are painted onto a pixel buffer drawn at twice the size and shrunk
- * to smooth the edges.
+ * bottom (colored by how much it pays compared with the other slots: red for the most, gold for
+ * the least), and the ball. Frame 0 has the ball on the top peg; each next frame it has fallen
+ * one row, and the last frame has it in its slot. No image library: shapes are painted onto a
+ * pixel buffer drawn at twice the size and shrunk to smooth the edges.
  */
 
 const SUPERSAMPLE = 2;
@@ -128,13 +128,14 @@ export function renderPlinko(multipliers: readonly number[], path: PlinkoPath, f
   canvas.fill(BACKGROUND);
   const landed = slotOf(path);
 
-  // The slots, each colored by what it pays, with its multiplier.
+  // The slots, each colored by what it pays compared with the other slots (red for the most, gold for the least), with its multiplier.
   const gap = 2;
+  const slotColors = rangeColors(multipliers, { reversed: true });
   for (let slot = 0; slot < layout.slots; slot++) {
     const { x, y } = layout.slot(slot);
     const half = layout.spacing / 2;
     const multiplier = multipliers[slot] as number;
-    let color = sliceColor(multiplier);
+    let color = slotColors[slot] as Rgb;
     const won = finished && slot === landed;
     if (finished && !won) color = mix(color, LINE, 0.55);
     if (won) canvas.rect((x - half + gap - 3) * s, (y - 3) * s, (x + half - gap + 3) * s, (y + SLOT_HEIGHT + 3) * s, WINNER_EDGE);

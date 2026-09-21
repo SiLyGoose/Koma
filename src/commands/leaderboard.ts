@@ -3,7 +3,7 @@ import { CONFIG } from '../config.js';
 import { TEXT } from '../constants.js';
 import { fmt } from '../lib/format.js';
 import { getLeaderboard } from '../services/economy.js';
-import type { Command } from './types.js';
+import type { Command } from '../discord/types.js';
 
 export const leaderboard: Command = {
   name: 'leaderboard',

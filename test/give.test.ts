@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MAX_GIVE_AMOUNT, TEXT, validateConstants } from '../src/constants.js';
-import { parseGiveArgs } from '../src/lib/give.js';
+import { parseGiveArgs } from '../src/lib/game/give.js';
 
 test('give: an id alone gives one, an amount gives that many, and the id is not case-sensitive', () => {
   assert.deepEqual(parseGiveArgs(['c4'], 100), { ok: true, itemId: 'c4', count: 1 });

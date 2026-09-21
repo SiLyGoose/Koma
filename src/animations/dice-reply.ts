@@ -1,9 +1,9 @@
 import { D20_ANIMATION, D20_IMAGE_NAME, TEXT } from '../constants.js';
-import type { D20Roll } from '../lib/d20.js';
-import { dieFrames, renderD20 } from '../lib/d20-image.js';
+import type { D20Roll } from '../lib/game/d20.js';
+import { dieFrames, renderD20 } from './images/d20-image.js';
 import type { BotEmbed } from '../lib/embed.js';
-import { playAnimation, stepsFor } from './animation.js';
-import type { CommandContext, ReplyOptions } from './types.js';
+import { playAnimation, stepsFor } from './play.js';
+import type { CommandContext, ReplyOptions } from '../discord/types.js';
 
 /**
  * Sends the result of a claim that rolled the D20, as a short animation: a "rolling" message with

@@ -1,5 +1,5 @@
 import { collections } from '../db.js';
-import { bestCopy } from '../lib/copies.js';
+import { bestCopy } from '../lib/game/copies.js';
 import type { GearIds, ItemDef, Slot } from '../types.js';
 import { ensureMember } from './economy.js';
 import { resolveGear } from './gear.js';

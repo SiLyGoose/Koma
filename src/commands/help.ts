@@ -2,8 +2,8 @@ import { createEmbed } from '../lib/embed.js';
 import { CONFIG, isAdmin } from '../config.js';
 import { TEXT } from '../constants.js';
 import { fmt } from '../lib/format.js';
-import { hasSlash } from './slash.js';
-import type { Command } from './types.js';
+import { hasSlash } from '../discord/slash.js';
+import type { Command } from '../discord/types.js';
 
 /** The commands in alphabetical order by name (a new list; the one passed in is left as it is). */
 export function sortCommands(commands: readonly Command[]): Command[] {

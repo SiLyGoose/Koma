@@ -3,9 +3,9 @@ import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
 import { rob as robService } from '../services/economy.js';
-import { replyWithWheel } from './wheel-reply.js';
-import { memberNotFound, resolveUserArg } from './resolve.js';
-import type { Command } from './types.js';
+import { replyWithWheel } from '../animations/wheel-reply.js';
+import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
+import type { Command } from '../discord/types.js';
 
 function caughtText(
   robber: string,

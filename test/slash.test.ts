@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AutocompleteInteraction, ChatInputCommandInteraction, Message } from 'discord.js';
-import { interactionContext, isEphemeral, messageContext } from '../src/commands/context.js';
-import { handleAutocomplete, handleSlash } from '../src/commands/dispatch.js';
+import { interactionContext, isEphemeral, messageContext } from '../src/discord/context.js';
+import { handleAutocomplete, handleSlash } from '../src/discord/dispatch.js';
 import { commands } from '../src/commands/index.js';
-import { MAX_SLASH_DESCRIPTION, SLASH, hasSlash, slashCommandData } from '../src/commands/slash.js';
+import { MAX_SLASH_DESCRIPTION, SLASH, hasSlash, slashCommandData } from '../src/discord/slash.js';
 import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src/constants.js';
 import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
-import { parseGiveArgs } from '../src/lib/give.js';
+import { parseGiveArgs } from '../src/lib/game/give.js';
 import { parseUserArg } from '../src/lib/parse.js';
-import { parseBetArg } from '../src/lib/plinko.js';
-import { parseSellArgs } from '../src/lib/sell.js';
+import { parseBetArg } from '../src/lib/game/plinko.js';
+import { parseSellArgs } from '../src/lib/game/sell.js';
 import { createEmbed } from '../src/lib/embed.js';
 
 // ---------------------------------------------------------------------------

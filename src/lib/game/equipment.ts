@@ -1,9 +1,9 @@
-import { CONFIG } from '../config.js';
-import { ADMIN_USER_ID, EFFECT_TEXT } from '../constants.js';
-import { EFFECT_IDS, emptyTotals, type EffectId, type EffectTotals } from '../data/effects.js';
-import { ITEMS_BY_ID } from '../data/items.js';
-import { SLOTS, type GearIds, type ItemDef, type Stars } from '../types.js';
-import { formatPercent } from './format.js';
+import { CONFIG } from '../../config.js';
+import { ADMIN_USER_ID, EFFECT_TEXT } from '../../constants.js';
+import { EFFECT_IDS, emptyTotals, type EffectId, type EffectTotals } from '../../data/effects.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
+import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../types.js';
+import { formatPercent } from '../format.js';
 
 /** How strong an effect is on an item of the given star tier, from the live settings. */
 export function effectStrength(effect: EffectId, stars: Stars): number {

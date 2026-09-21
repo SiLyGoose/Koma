@@ -150,7 +150,7 @@ export const ROB_LOCK = { holdMs: 15_000, retryMs: 100, attempts: 50 } as const;
 /**
  * Commands that can only be used with the prefix (`k!rob`), not as slash commands. They aren't
  * registered with Discord, a slash command with that name is answered as unknown, and `/help`
- * leaves them out. Their entries in `SLASH` (commands/slash.ts) can stay, so taking a name off
+ * leaves them out. Their entries in `SLASH` (discord/slash.ts) can stay, so taking a name off
  * this list brings the slash command back at the next start. Names are command names, in lower case.
  */
 export const SLASH_EXCLUDED: readonly string[] = ['rob'];

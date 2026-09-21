@@ -1,10 +1,10 @@
 import { TEXT, WHEEL_ANIMATION, WHEEL_IMAGE_NAME } from '../constants.js';
 import { WHEEL_SLICES } from '../data/wheel.js';
 import type { BotEmbed } from '../lib/embed.js';
-import type { WheelSpin } from '../lib/wheel.js';
-import { renderSpinningWheel, renderWheel, spinTurns } from '../lib/wheel-image.js';
-import { playAnimation, stepsFor } from './animation.js';
-import type { CommandContext, ReplyOptions } from './types.js';
+import type { WheelSpin } from '../lib/game/wheel.js';
+import { renderSpinningWheel, renderWheel, spinTurns } from './images/wheel-image.js';
+import { playAnimation, stepsFor } from './play.js';
+import type { CommandContext, ReplyOptions } from '../discord/types.js';
 
 /** How many picture changes this spin takes: it lasts between minSeconds and maxSeconds, one change per frameMs. */
 export function spinSteps(): number {

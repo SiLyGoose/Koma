@@ -1,5 +1,5 @@
-import { MAX_REDUCTION } from '../constants.js';
-import type { EffectTotals } from '../data/effects.js';
+import { MAX_REDUCTION } from '../../constants.js';
+import type { EffectTotals } from '../../data/effects.js';
 
 /*
  * What each equipment effect actually does to the numbers. These are pure functions: give them

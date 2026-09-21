@@ -1,12 +1,12 @@
 import { SLOT_LABELS, TEXT } from '../constants.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem, describeEffects, describeTotals, equippedItems, totalEffects, usableItems } from '../lib/equipment.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, totalEffects, usableItems } from '../lib/game/equipment.js';
 import { mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/equipment.js';
 import { SLOTS } from '../types.js';
-import { memberNotFound, resolveUserArg } from './resolve.js';
-import type { Command } from './types.js';
+import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
+import type { Command } from '../discord/types.js';
 
 export const gear: Command = {
   name: 'gear',

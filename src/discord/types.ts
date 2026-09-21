@@ -36,7 +36,7 @@ export interface CommandContext {
   user: User;
   /**
    * The words after the command name. A slash command's options are turned into the same words
-   * (see commands/slash.ts), so the command reads them the same way in both cases.
+   * (see discord/slash.ts), so the command reads them the same way in both cases.
    */
   args: string[];
   /** Sends a reply. The first reply answers the command; later ones are extra messages. */

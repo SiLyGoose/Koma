@@ -4,7 +4,7 @@ import { CONFIG, DEFAULTS, STARS, validateConfig } from '../src/config.js';
 import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals } from '../src/data/effects.js';
 import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
 import { ADMIN_USER_ID } from '../src/constants.js';
-import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/equipment.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/game/equipment.js';
 import {
   claimAmount,
   claimTaxAmount,
@@ -15,7 +15,7 @@ import {
   robSuccessChance,
   robTaxAmount,
   robTaxRate,
-} from '../src/lib/perks.js';
+} from '../src/lib/game/perks.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import type { ItemDef, Stars } from '../src/types.js';
 

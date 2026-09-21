@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MULTI_PULLS, TEXT, validateConstants } from '../src/constants.js';
-import { rollPulls } from '../src/lib/gacha.js';
+import { rollPulls } from '../src/lib/game/gacha.js';
 import type { ItemDef, Stars } from '../src/types.js';
 
 const item = (stars: Stars): ItemDef => ({ id: `t${stars}`, name: `Test ${stars}`, stars, slot: 'weapon', description: '', effects: [] });

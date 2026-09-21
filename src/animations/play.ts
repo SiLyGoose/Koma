@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import type { CommandContext, EditOptions, ReplyOptions, SentReply } from './types.js';
+import type { CommandContext, EditOptions, ReplyOptions, SentReply } from '../discord/types.js';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
