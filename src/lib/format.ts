@@ -2,7 +2,7 @@ import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NUMBER_LOCALE, PERCENT_DECIMALS, STAR
 
 export const fmt = (n: number): string => n.toLocaleString(NUMBER_LOCALE);
 
-/** An amount of points with the currency emoji after it: 1500 -> "1,500 <:komagem:...>". For embed fields that show only an amount. */
+/** An amount of points with the currency emoji after it: 1500 -> "1,500 <:zeiucoin:...>". For embed fields that show only an amount. */
 export const money = (n: number): string => `${fmt(n)} ${CURRENCY_EMOJI}`;
 
 export const starString = (stars: number): string => STAR_SYMBOL.repeat(stars);

@@ -52,7 +52,7 @@ export const MAX_REDUCTION = 0.9;
  * message text, embed descriptions and field values, but not in slash command menus, button labels or embed footers, which
  * keep the word "points".
  */
-export const CURRENCY_EMOJI = '<:komagem:1551635240210927736>';
+export const CURRENCY_EMOJI = '<:zeiucoin:1551675032424546320>';
 
 /** Highest value a points setting accepts (claim range, pull cost, stolen amount, fine...). */
 export const MAX_SETTING_POINTS = 1_000_000;

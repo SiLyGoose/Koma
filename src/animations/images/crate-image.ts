@@ -1,10 +1,12 @@
 import { encodePng } from './png.js';
 import type { CrateTier } from '../../lib/events/crate.js';
 import { GLYPHS } from './pixel-font.js';
+import { ZEIUCOIN_SIZE, zeiucoinPixels } from './coin-art.js';
 import { BURST_NOISE, BURST_SPARKLES, CLOSED_NOISE, CLOSED_SPARKLES, HIDDEN_SPARKLES, HIDDEN_STREAKS, RIBBONS, type Sparkle } from './crate-layout.js';
 import {
   atStops,
   cubic,
+  ellipsePoints,
   group,
   hex,
   Layer,
@@ -271,11 +273,11 @@ function drawBody(ctx: Ctx, look: Look, opened: boolean): void {
     ctx.canvas.fillEllipse(164, y, 2.4, 2.4, solid(rgb('#8794a8')));
     ctx.canvas.fillEllipse(382, y, 2.4, 2.4, solid(rgb('#8794a8')));
   }
-  // The front plate with its star.
+  // The front plate with the coin stamped on it.
   rrect(ctx, 212, 256, 110, 60, 8, solid(rgb('#0f151d')));
   outline(ctx, 212, 256, 110, 60, 8, 3, solid(rgb('#5c6a80')));
   if (!look.dead) ctx.canvas.fillEllipse(267, 286, 46, 26, tierPaint.ground(ctx.col, 267, 286, 46, 26));
-  star(ctx, 267, 286, 22, look.dead ? 0.5 : 1, look.dead ? rgb('#5a6578') : ctx.col, look.dead ? rgb('#8792a6') : ctx.core);
+  zeiuCoin(ctx, 267, 284, 16, 1, 0, look.dead ? 0.8 : 1, look.dead);
   dotText(ctx, 'KOMA KM-3', 267, 304, solid(rgb('#8fa0b8')), 2);
   // The hazard label on the side.
   const hazard: Paint = (x, y) => {
@@ -514,51 +516,98 @@ function openedCrate(ctx: Ctx): void {
   burst(ctx);
 }
 
+/** The coin artwork shrunk by half again and again (96, 48, 24, 12 pixels across), so a small coin is drawn from a matching size. */
+let coinLevels: { size: number; px: Float32Array }[] | undefined;
+
+/** The coin's levels, with the colours multiplied by their opacity so shrinking does not leave dark fringes. */
+function coinMips(): { size: number; px: Float32Array }[] {
+  if (coinLevels) return coinLevels;
+  const src = zeiucoinPixels();
+  let px = new Float32Array(ZEIUCOIN_SIZE * ZEIUCOIN_SIZE * 4);
+  for (let i = 0; i < ZEIUCOIN_SIZE * ZEIUCOIN_SIZE; i++) {
+    const al = (src[i * 4 + 3] as number) / 255;
+    px[i * 4] = ((src[i * 4] as number) / 255) * al;
+    px[i * 4 + 1] = ((src[i * 4 + 1] as number) / 255) * al;
+    px[i * 4 + 2] = ((src[i * 4 + 2] as number) / 255) * al;
+    px[i * 4 + 3] = al;
+  }
+  const levels = [{ size: ZEIUCOIN_SIZE, px }];
+  for (let size = ZEIUCOIN_SIZE / 2; size >= 12; size /= 2) {
+    const prev = px;
+    const ps = size * 2;
+    px = new Float32Array(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        for (let c = 0; c < 4; c++) {
+          const at = (xx: number, yy: number): number => prev[((yy * ps) + xx) * 4 + c] as number;
+          px[(y * size + x) * 4 + c] = (at(x * 2, y * 2) + at(x * 2 + 1, y * 2) + at(x * 2, y * 2 + 1) + at(x * 2 + 1, y * 2 + 1)) / 4;
+        }
+      }
+    }
+    levels.push({ size, px });
+  }
+  coinLevels = levels;
+  return levels;
+}
+
+/** The coin artwork at (u, v), each from -1 to 1 across the disc: red, green, blue, alpha (not premultiplied). */
+function coinAt(level: { size: number; px: Float32Array }, u: number, v: number): [number, number, number, number] {
+  const { size, px } = level;
+  const fx = Math.min(size - 1, Math.max(0, ((u + 1) / 2) * size - 0.5));
+  const fy = Math.min(size - 1, Math.max(0, ((v + 1) / 2) * size - 0.5));
+  const x0 = Math.floor(fx);
+  const y0 = Math.floor(fy);
+  const x1 = Math.min(size - 1, x0 + 1);
+  const y1 = Math.min(size - 1, y0 + 1);
+  const tx = fx - x0;
+  const ty = fy - y0;
+  const out: [number, number, number, number] = [0, 0, 0, 0];
+  for (let c = 0; c < 4; c++) {
+    const p = (xx: number, yy: number): number => px[(yy * size + xx) * 4 + c] as number;
+    out[c] = (p(x0, y0) * (1 - tx) + p(x1, y0) * tx) * (1 - ty) + (p(x0, y1) * (1 - tx) + p(x1, y1) * tx) * ty;
+  }
+  const al = out[3];
+  if (al <= 0.0001) return [0, 0, 0, 0];
+  return [out[0] / al, out[1] / al, out[2] / al, al];
+}
+
 /**
- * A gem, the currency, as a four-pointed faceted star: eight facets lit from the upper left, a pale edge,
- * and a bright spark in the middle. `turn` tips it (in degrees), as if it were tumbling.
+ * The zeiucoin, the currency: the coin artwork (see coin-art.ts) drawn as a round disc. `squash` is how edge-on it is
+ * turned (1 is facing us, near 0 is on its edge), and `tilt` (degrees) turns it about the picture. It is a little
+ * darker the further it is turned. `dead` makes it a dull grey one.
  */
-function gem(ctx: Ctx, x: number, y: number, size: number, turn: number, opacity: number): void {
-  const { col, core } = ctx;
-  const a = (turn * Math.PI) / 180;
+function zeiuCoin(ctx: Ctx, x: number, y: number, radius: number, squash: number, tilt: number, opacity: number, dead = false): void {
+  const a = (tilt * Math.PI) / 180;
   const cos = Math.cos(a);
   const sin = Math.sin(a);
-  const at = ([px, py]: Point): Point => [x + (px * cos - py * sin) * size, y + (px * sin + py * cos) * size];
-  const T: Point = [0, -1];
-  const R: Point = [1, 0];
-  const B: Point = [0, 1];
-  const L: Point = [-1, 0];
-  const inner = 0.3;
-  const NE: Point = [inner, -inner];
-  const SE: Point = [inner, inner];
-  const SW: Point = [-inner, inner];
-  const NW: Point = [-inner, -inner];
-  const C: Point = [0, 0];
-  const dark = mixColor(col, [0, 0, 0], 0.72);
-  const shade = (f: number): Color => (f < 0.7 ? mixColor(dark, col, (f - 0.35) / 0.35) : mixColor(col, core, ((f - 0.7) / 0.3) * 0.75));
-  // Facet, then how brightly it is lit.
-  const facets: [Point[], number][] = [
-    [[C, NW, T], 1],
-    [[C, T, NE], 0.95],
-    [[C, NE, R], 0.7],
-    [[C, R, SE], 0.55],
-    [[C, SE, B], 0.4],
-    [[C, B, SW], 0.5],
-    [[C, SW, L], 0.75],
-    [[C, L, NW], 0.9],
-  ];
+  const ry = Math.max(0.5, radius * squash);
+  const at = ([px, py]: Point): Point => [x + px * cos - py * sin, y + px * sin + py * cos];
+  const disc = (dy = 0): Point[] => ellipsePoints(0, dy, radius, ry).map(at);
+  const thickness = radius * 0.2 * (1 - squash * 0.6);
+  const levels = coinMips();
+  // Use the smallest copy that still has at least a pixel of artwork for each pixel drawn.
+  const big = levels.filter((l) => l.size >= radius * 2);
+  const level = big[big.length - 1] ?? (levels[0] as { size: number; px: Float32Array });
+  const shade = (dead ? 0.6 : 1) * (0.78 + 0.22 * squash);
+  const paint: Paint = (px, py) => {
+    const dx = px - x;
+    const dy = py - y;
+    const [r, g, b, al] = coinAt(level, (dx * cos + dy * sin) / radius, (-dx * sin + dy * cos) / ry);
+    if (dead) {
+      const grey = 0.3 * r + 0.59 * g + 0.11 * b;
+      return [grey * shade, grey * shade * 1.03, grey * shade * 1.1, al];
+    }
+    return [r * shade, g * shade, b * shade, al];
+  };
   group(ctx.canvas, ctx.scratch, { opacity }, (l) => {
-    for (const [points, f] of facets) l.fillPolygon(points.map(at), solid(shade(f)));
-    const outline = [T, NE, R, SE, B, SW, L, NW, T].map(at);
-    l.strokePath(outline, Math.max(0.8, size * 0.09), solid(mixColor(col, core, 0.8)), 0.9);
-    // The bright spark in the middle, and the glint along the two upper arms.
-    l.fillPolygon([[0, -0.32], [0.09, 0], [0, 0.32], [-0.09, 0]].map((p) => at([p[0] as number, p[1] as number])), solid(core));
-    l.fillPolygon([[-0.32, 0], [0, -0.09], [0.32, 0], [0, 0.09]].map((p) => at([p[0] as number, p[1] as number])), solid(core));
+    // The edge of the coin, seen below the face as it tips.
+    l.fillPolygon(disc(thickness), solid(rgb(dead ? '#3a404b' : '#9a6a0a')));
+    l.fillPolygon(disc(), paint);
   });
 }
 
-/** Gems thrown out of the opening, each leaving a short soft trail behind it. */
-function gemsFlyingOut(ctx: Ctx, from: Point, list: readonly Sparkle[]): void {
+/** Coins thrown out of the opening, each leaving a short soft trail in the light's colour behind it. */
+function coinsFlyingOut(ctx: Ctx, from: Point, list: readonly Sparkle[]): void {
   const { col, core } = ctx;
   soft(ctx, BLUR_FINE, 'screen', 1, (l) => {
     for (const [x, y, size, opacity] of list) {
@@ -578,7 +627,9 @@ function gemsFlyingOut(ctx: Ctx, from: Point, list: readonly Sparkle[]): void {
   list.forEach(([x, y, size, opacity], i) => {
     const r = Math.max(4, size * 0.95);
     soft(ctx, BLUR_WIDE, 'screen', 0.4 * opacity, (l) => l.fillEllipse(x, y, r * 1.3, r * 1.3, solid(col)));
-    gem(ctx, x, y, r, ((i * 37) % 60) - 30, opacity);
+    // Most face us so the Z shows; every third or so is turned well over.
+    const squash = i % 3 === 2 ? 0.35 + 0.2 * Math.abs(Math.cos(i * 1.7)) : 0.72 + 0.28 * Math.abs(Math.cos(i * 1.7));
+    zeiuCoin(ctx, x, y, r, squash, ((i * 37) % 60) - 30, opacity);
   });
 }
 
@@ -626,7 +677,7 @@ function burst(ctx: Ctx): void {
   // A bright bloom sitting in the opening itself.
   soft(ctx, BLUR_WIDE, 'screen', 0.85, (l) => l.fillEllipse(ox, oy, 120, 18, solid(core)));
   soft(ctx, BLUR_HAZE, 'screen', 0.7, (l) => l.fillEllipse(ox, oy, 170, 34, solid(col)));
-  gemsFlyingOut(ctx, [ox, oy], BURST_SPARKLES);
+  coinsFlyingOut(ctx, [ox, oy], BURST_SPARKLES);
 }
 
 /** The lights are out: the lid has slipped off, the front is cracked, and dust hangs over it. */
