@@ -110,8 +110,8 @@ export const EFFECTS = {
   // An item that should be a glass cannon lists both effects.
   glassCannon: {
     description:
-      'Glass cannon, reward: extra points the wearer steals on a successful rob, as a percent of the amount rolled (50% is 1.5x). Stacks with robAmount.',
-    defaults: { 1: 0.125, 2: 0.25, 3: 0.375, 4: 0.5 },
+      'Glass cannon, reward: extra points the wearer steals on a successful rob, as a percent of the amount rolled (100% is 2x). Stacks with robAmount.',
+    defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
     min: 0,
     max: 5,
   },
