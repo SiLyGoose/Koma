@@ -71,6 +71,23 @@ export const MAX_PITY = 1000;
  */
 export const PITY_STARS: Stars = 4;
 
+/** Most slices the prize wheel (data/wheel.ts) may have, so the picture stays readable. */
+export const MAX_WHEEL_SLICES = 16;
+
+/** Largest multiplier a wheel slice may have. */
+export const MAX_WHEEL_MULTIPLIER = 100;
+
+/** File name of the wheel picture attached to a claim or rob reply. */
+export const WHEEL_IMAGE_NAME = 'wheel.png';
+
+/**
+ * How the wheel animation plays. The reply first shows the wheel spinning, then the picture is
+ * swapped every `frameMs` milliseconds (the wheel slowing down each time) until the spin has
+ * lasted somewhere from `minSeconds` to `maxSeconds`, and the wheel stops on the result. Discord
+ * limits how often a message can be edited, so keep `frameMs` at 1000 or more.
+ */
+export const WHEEL_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
+
 /** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
 export const FIELD_MAX_LENGTH = 1000;
 
@@ -115,6 +132,7 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   robAmountCut: (value) => `-${value} points stolen`,
   claimTax: (value) => `Wither: members you rob lose ${value} of their next claim to you`,
   robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
+  wheelSpin: (value) => `High Roller: ${value} of your claims and successful robs spin the wheel`,
   glassCannon: (value) => `Glass cannon: +${value} points stolen`,
   glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
   claimBonus: (value) => `+${value} points from hourly claims`,
@@ -163,6 +181,14 @@ export const TEXT = {
     /** Marked by a Frog wearer: part of their next successful rob goes to `taker` (a mention). */
     robTaxSelf: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of your next rob.`,
     robTaxOther: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of their next rob.`,
+  },
+
+  wheel: {
+    /** Added under a claim or rob when the wheel spun. `multiplier` is like "1.5x". */
+    landed: (multiplier: string) => `The wheel landed on **${multiplier}**.`,
+    /** Shown while the wheel is still turning. `user` is a mention. */
+    spinningTitle: 'The wheel is spinning...',
+    spinning: (user: string) => `${user} spins the wheel...`,
   },
 
   claim: {
@@ -399,12 +425,18 @@ export function validateConstants(): void {
   if (!/^\d{17,20}$/.test(ADMIN_USER_ID)) problems.push('ADMIN_USER_ID must be a Discord user id (17 to 20 digits)');
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');
+  if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
+  if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
+    problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');
+  }
   for (const [name, value] of [
     ['MAX_SETTING_POINTS', MAX_SETTING_POINTS],
     ['MAX_TIMER_MINUTES', MAX_TIMER_MINUTES],
     ['MAX_LEADERBOARD_SIZE', MAX_LEADERBOARD_SIZE],
     ['MAX_PITY', MAX_PITY],
     ['MAX_GIVE_AMOUNT', MAX_GIVE_AMOUNT],
+    ['MAX_WHEEL_SLICES', MAX_WHEEL_SLICES],
+    ['MAX_WHEEL_MULTIPLIER', MAX_WHEEL_MULTIPLIER],
     ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {

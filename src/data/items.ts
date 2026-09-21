@@ -105,7 +105,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'armor',
     description: 'A wheelchair. It is a wheelchair.',
-    effects: ['robDefense', 'robShield', 'pullDiscount'],
+    effects: ['wheelSpin'],
   },
   {
     id: 'coughing-baby',

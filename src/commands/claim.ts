@@ -1,8 +1,9 @@
 import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt } from '../lib/format.js';
+import { fmt, formatMultiplier } from '../lib/format.js';
 import { claimHourly } from '../services/economy.js';
 import { reply } from './reply.js';
+import { replyWithWheel } from './wheel-reply.js';
 import type { Command } from './types.js';
 
 export const claim: Command = {
@@ -23,6 +24,7 @@ export const claim: Command = {
         (result.bonus > 0
           ? TEXT.claim.claimedWithGear(message.author.toString(), fmt(result.amount), fmt(result.bonus))
           : TEXT.claim.claimed(message.author.toString(), fmt(result.amount))) +
+          (result.wheel ? `\n${TEXT.wheel.landed(formatMultiplier(result.wheel.multiplier))}` : '') +
           (result.taxed
             ? `\n${TEXT.claim.taxed(`<@${result.taxed.toUserId}>`, fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount))}`
             : ''),
@@ -31,6 +33,10 @@ export const claim: Command = {
         { name: TEXT.claim.balanceField, value: fmt(result.balance), inline: true },
         { name: TEXT.claim.nextField, value: TEXT.claim.next(result.nextClaimUnix), inline: true },
       );
-    await reply(message, { embeds: [embed] });
+    if (result.wheel) {
+      await replyWithWheel(message, embed, result.wheel);
+    } else {
+      await reply(message, { embeds: [embed] });
+    }
   },
 };

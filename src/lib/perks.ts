@@ -68,6 +68,11 @@ export function robTaxAmount(amount: number, rate: number): number {
   return claimTaxAmount(amount, rate);
 }
 
+/** The chance (0 to 1) that a claim or successful rob by this gear spins the wheel. */
+export function wheelChance(gear: EffectTotals): number {
+  return clamp(gear.wheelSpin, 0, 1);
+}
+
 /** Points from an hourly claim, after the claim bonus. */
 export function claimAmount(rolled: number, gear: EffectTotals): number {
   return Math.round(rolled * (1 + gear.claimBonus));

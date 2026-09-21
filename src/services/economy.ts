@@ -14,9 +14,11 @@ import {
   robSuccessChance,
   robTaxAmount,
   robTaxRate,
+  wheelChance,
 } from '../lib/perks.js';
 import { chance, randInt } from '../lib/random.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
+import { applyWheel, rollWheelDice, spinWheel, type WheelSpin } from '../lib/wheel.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, MemberDoc } from '../types.js';
 import { resolveGear } from './gear.js';
 
@@ -215,10 +217,12 @@ export async function getLeaderboard(guildId: string, limit: number): Promise<Me
 export type ClaimResult =
   | {
       ok: true;
-      /** What the claim was worth, before any tax. */
+      /** What the claim was worth, after the gear bonus and the wheel, before any tax. */
       amount: number;
-      /** How much of `amount` came from the member's gear. */
+      /** How much the member's gear added to the roll (not counting the wheel). */
       bonus: number;
+      /** Set when the wheel (wheelSpin gear) spun for this claim and multiplied `amount`. */
+      wheel: WheelSpin | null;
       /** Set when a member who robbed them took part of this claim (see the claimTax effect). */
       taxed: { amount: number; toUserId: string } | null;
       balance: number;
@@ -234,6 +238,8 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
 
   const { members } = collections();
   const rolled = randInt(CONFIG.claim.min, CONFIG.claim.max);
+  // Thrown once, before the loop, so a retry below keeps the same spin.
+  const wheelDice = rollWheelDice();
 
   // A tax left on this member by a robbery (claimTax gear) is taken out of this claim, in the
   // same update that records the claim, so it applies exactly once. The update only goes through
@@ -241,8 +247,11 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
 
-    // Equipped gear can add a bonus on top of the roll.
-    const amount = claimAmount(rolled, gearEffects(await resolveGear(guildId, userId, member?.equipment), userId));
+    // Equipped gear can add a bonus on top of the roll, and the wheel can then multiply it.
+    const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
+    const withGear = claimAmount(rolled, gear);
+    const wheel = spinWheel(wheelChance(gear), wheelDice);
+    const amount = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
 
     const taxRate = member?.claimTaxRate ?? null;
     const taxBy = member?.claimTaxBy ?? null;
@@ -286,7 +295,8 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
     return {
       ok: true,
       amount,
-      bonus: amount - rolled,
+      bonus: withGear - rolled,
+      wheel,
       taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
       balance: updated.points + (tax > 0 && paid === 0 ? tax : 0),
       nextClaimUnix,
@@ -417,6 +427,8 @@ export type RobResult =
       robTax: number | null;
       /** Set when a Jew Frog wearer who robbed the robber earlier took part of this rob. */
       robTaxPaid: { amount: number; toUserId: string } | null;
+      /** Set when the wheel (wheelSpin gear) spun for this rob and multiplied what was stolen. */
+      wheel: WheelSpin | null;
     }
   | {
       ok: true;
@@ -516,7 +528,10 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
           { $set: { lastRobbedAt: slot.lastRobbedAt ?? null } },
         );
 
-      const wanted = robStolenAmount(randInt(cfg.minStolen, cfg.maxStolen), robberGear, victimGear);
+      // The wheel multiplies what is taken, so the victim loses exactly what the robber gets.
+      const stolen = robStolenAmount(randInt(cfg.minStolen, cfg.maxStolen), robberGear, victimGear);
+      const wheel = spinWheel(wheelChance(robberGear), rollWheelDice());
+      const wanted = wheel ? applyWheel(stolen, wheel.multiplier) : stolen;
       const transfer = await transferClamped(guildId, victimId, robberId, wanted, cfg.minVictimBalance);
       if (!transfer) {
         // The victim spent their points between the check and the steal, so nothing was robbed.
@@ -618,6 +633,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         claimTax,
         robTax,
         robTaxPaid,
+        wheel,
       };
     }
 

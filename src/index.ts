@@ -4,6 +4,7 @@ import { reply } from './commands/reply.js';
 import { validateConfig } from './config.js';
 import { SETTINGS_REFRESH_MS, TEXT, validateConstants } from './constants.js';
 import { validateItems } from './data/items.js';
+import { validateWheel } from './data/wheel.js';
 import { closeDb, connectDb } from './db.js';
 import { requireEnv } from './env.js';
 import { parseCommand } from './lib/parse.js';
@@ -15,6 +16,7 @@ async function main(): Promise<void> {
   validateConstants();
   validateConfig();
   validateItems();
+  validateWheel();
 
   // With ENV=LOCAL the prefix comes from .env (DS_PREFIX); otherwise it is read from MongoDB.
   const prefixSource = resolvePrefixSource(process.env);

@@ -85,6 +85,7 @@ test('message templates fill in their values', () => {
     'You need at least **100** points to rob, in case you get caught. You have **40**. Use `k!claim` to earn more.',
   );
   assert.equal(TEXT.rob.inDebt('<@1>', '200'), '<@1> is now **200** points in debt.');
+  assert.equal(TEXT.wheel.landed('1.5x'), 'The wheel landed on **1.5x**.');
   assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "<@2>'s next rob will be taxed 25%.");
   assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), '<@1> took **50** of it. You kept **150**.');
 });

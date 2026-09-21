@@ -1,9 +1,10 @@
 import { FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatPercent } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
 import { rob as robService } from '../services/economy.js';
 import { reply } from './reply.js';
+import { replyWithWheel } from './wheel-reply.js';
 import { memberNotFound, resolveUserArg } from './resolve.js';
 import type { Command } from './types.js';
 import { getPrefix } from '../services/settings.js';
@@ -28,9 +29,11 @@ function successNotes(
     claimTax: number | null;
     robTax: number | null;
     robTaxPaid: { amount: number; toUserId: string } | null;
+    wheel: { multiplier: number } | null;
   },
 ): string {
   const lines: string[] = [];
+  if (result.wheel !== null) lines.push(TEXT.wheel.landed(formatMultiplier(result.wheel.multiplier)));
   if (result.robTaxPaid !== null) {
     const { amount, toUserId } = result.robTaxPaid;
     lines.push(TEXT.rob.robTaxPaid(`<@${toUserId}>`, fmt(amount), fmt(result.stolen - amount)));
@@ -102,9 +105,13 @@ export const rob: Command = {
     }
 
     // Ping only the victim so they know it happened.
-    await reply(message, {
-      embeds: [embed],
-      allowedMentions: { users: [target.id] },
-    });
+    const allowedMentions = { users: [target.id] };
+
+    // A successful rob that spun the wheel plays the wheel animation before showing the result.
+    if (result.success && result.wheel) {
+      await replyWithWheel(message, embed, result.wheel, { allowedMentions });
+    } else {
+      await reply(message, { embeds: [embed], allowedMentions });
+    }
   },
 };
