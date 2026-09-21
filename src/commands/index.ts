@@ -10,6 +10,7 @@ import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
 import { rob } from './rob.js';
+import { sell } from './sell.js';
 import type { Command } from './types.js';
 import { unequip } from './unequip.js';
 
@@ -19,6 +20,7 @@ export const commands: Command[] = [
   inventory,
   equip,
   unequip,
+  sell,
   gear,
   databank,
   balance,

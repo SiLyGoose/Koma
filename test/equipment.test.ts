@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG, DEFAULTS, STARS, validateConfig } from '../src/config.js';
-import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectTotals } from '../src/data/effects.js';
+import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals } from '../src/data/effects.js';
 import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
 import { ADMIN_USER_ID } from '../src/constants.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/equipment.js';
@@ -17,7 +17,7 @@ import {
   robTaxRate,
 } from '../src/lib/perks.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
-import type { ItemDef } from '../src/types.js';
+import type { ItemDef, Stars } from '../src/types.js';
 
 const gear = (overrides: Partial<EffectTotals>): EffectTotals => ({ ...emptyTotals(), ...overrides });
 const none = emptyTotals();
@@ -140,6 +140,29 @@ test('totalEffects adds up every equipped item using the live settings', () => {
 });
 
 test('effects read as plain text', () => {
+  // Pin the strengths this test reads, so it doesn't break when the default strengths are tuned.
+  const pinned: [EffectId, Stars, number][] = [
+    ['robChance', 3, 0.15],
+    ['robAmount', 3, 0.3],
+    ['fineReduction', 3, 0.75],
+    ['glassCannon', 4, 0.5],
+    ['glassCannonPenalty', 4, 2.5],
+    ['robAmountCut', 4, 0.25],
+    ['claimTax', 4, 0.25],
+    ['robTax', 4, 0.25],
+  ];
+  const saved = pinned.map(([effect, stars]) => CONFIG.equipment[effect][stars]);
+  for (const [effect, stars, value] of pinned) CONFIG.equipment[effect][stars] = value;
+  try {
+    effectsReadAsPlainText();
+  } finally {
+    pinned.forEach(([effect, stars], k) => {
+      CONFIG.equipment[effect][stars] = saved[k] as number;
+    });
+  }
+});
+
+function effectsReadAsPlainText(): void {
   // A made-up item, so this test doesn't break when the real catalog is edited.
   const blade: ItemDef = {
     id: 'test-blade',
@@ -168,7 +191,7 @@ test('effects read as plain text', () => {
   ]);
   assert.deepEqual(describeTotals(emptyTotals()), []);
   assert.deepEqual(describeTotals(gear({ pullDiscount: 0.15 })), ['-15% gacha pull cost']);
-});
+}
 
 // ---------------------------------------------------------------------------
 

@@ -7,7 +7,7 @@ import { changeSetting, getPrefix, isPrefixFromEnv, resetSetting } from '../serv
 import { reply } from './reply.js';
 import type { Command } from './types.js';
 
-const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Rob', 'Equipment'];
+const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Equipment'];
 
 function describeValue(spec: SettingSpec): string {
   const value = getPath(CONFIG, spec.key);

@@ -65,6 +65,10 @@ export interface Settings {
     minChance: number;
     maxChance: number;
   };
+  sell: {
+    /** Points a member gets for selling one item of each star tier (sell command). */
+    price: Record<Stars, number>;
+  };
   /** How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. */
   equipment: EquipmentSettings;
   leaderboardSize: number;
@@ -97,6 +101,8 @@ export const DEFAULTS: Readonly<Settings> = {
     minChance: 0.05,
     maxChance: 0.95,
   },
+  // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
+  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 } },
   equipment: defaultEquipmentSettings(),
   leaderboardSize: 10,
 };

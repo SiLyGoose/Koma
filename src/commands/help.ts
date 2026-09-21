@@ -6,6 +6,11 @@ import { reply } from './reply.js';
 import type { Command } from './types.js';
 import { getPrefix } from '../services/settings.js';
 
+/** The commands in alphabetical order by name (a new list; the one passed in is left as it is). */
+export function sortCommands(commands: readonly Command[]): Command[] {
+  return [...commands].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+}
+
 /** Takes a getter so the help command can list itself without a circular import. */
 export function createHelpCommand(getCommands: () => Command[]): Command {
   return {
@@ -15,7 +20,7 @@ export function createHelpCommand(getCommands: () => Command[]): Command {
 
     async execute({ message }) {
       const p = getPrefix();
-      const lines = getCommands()
+      const lines = sortCommands(getCommands())
         .filter((command) => !command.adminOnly || isAdmin(message.author.id))
         .map((command) => {
           const aliases = command.aliases?.length

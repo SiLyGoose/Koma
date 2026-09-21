@@ -243,6 +243,43 @@ export const TEXT = {
     multiFooterNoneNew: 'No new items',
   },
 
+  sell: {
+    usage: (p: string) =>
+      `Use \`${p}sell <item>\` to sell one copy, \`${p}sell all <item>\` to sell every copy you aren't wearing, or \`${p}sell stars <1-4>\` to sell everything of a star tier that you aren't wearing.`,
+    badStars: (p: string) => `Pick a star tier from 1 to 4, like \`${p}sell stars 1\`.`,
+    askWhichAll: (p: string) => `Which item? Use \`${p}sell all <item name>\`.`,
+    ambiguous: (names: string[]) =>
+      `That could be more than one of your items: ${names.map((name) => `**${name}**`).join(', ')}. Type more of the name.`,
+    noSuchItem: (p: string, query: string) => `You don't have an item called "${query}". \`${p}inventory\` shows what you own.`,
+    notOwned: (name: string) => `You don't own **${name}**.`,
+    /** Every copy of the item is worn. */
+    onlyEquipped: (p: string, name: string) => `Your **${name}** is equipped, so it can't be sold. Take it off with \`${p}unequip\` first.`,
+    noneInTier: (stars: string) => `You don't own any ${stars} items.`,
+    onlyEquippedTier: (p: string, stars: string) => `The only ${stars} items you have are equipped, so none can be sold. Take them off with \`${p}unequip\` first.`,
+    /** Result of selling. `user` is a mention, `stars` the star string, `points` already formatted. */
+    soldTitle: 'Sold',
+    soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for **${points}** points.`,
+    soldMany: (user: string, count: number, points: string) => `${user} sold **${count}** items for **${points}** points.`,
+    /** One line of a sale: an item, how many, and what they were worth together. */
+    line: (stars: string, name: string, count: number, points: string) => `${stars}  ${name} x${count} · ${points}`,
+    balanceField: 'Balance',
+    footerLeft: (count: number) => (count === 0 ? 'You have none left' : `You have ${count} left`),
+    /** Shown when some of what was planned could no longer be sold (equipped or already sold in the meantime). */
+    skipped: (count: number) => (count === 1 ? '1 item could not be sold any more and was kept.' : `${count} items could not be sold any more and were kept.`),
+    nothingLeft: 'None of those can be sold any more (they were equipped, or already sold).',
+    /** The confirmation prompt for selling many. */
+    confirmTitle: 'Sell these?',
+    confirmDescription: (total: string, count: number, lines: string) => `${lines}\n\nTotal: **${total}** points for **${count}** items.`,
+    confirmFooter: (seconds: number) => `Equipped items are never sold. Confirm within ${seconds} seconds.`,
+    confirmButton: 'Sell',
+    cancelButton: 'Cancel',
+    cancelledTitle: 'Sale cancelled',
+    cancelled: 'Nothing was sold.',
+    timedOutTitle: 'Sale cancelled',
+    timedOut: 'You took too long to answer, so nothing was sold.',
+    notYours: "That sale isn't yours to confirm.",
+  },
+
   inventory: {
     emptySelf: (p: string) => `Your inventory is empty. Use \`${p}claim\` to earn points, then \`${p}gacha\` to pull items.`,
     emptyOther: (name: string) => `${name} has no items yet.`,

@@ -20,7 +20,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Rob' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -83,6 +83,11 @@ export const SPECS: readonly SettingSpec[] = [
     0,
     MAX_PITY,
   ),
+
+  int('sell.price.1', 'Sell', 'Points for selling one 1-star item.', 0, MAX_POINTS),
+  int('sell.price.2', 'Sell', 'Points for selling one 2-star item.', 0, MAX_POINTS),
+  int('sell.price.3', 'Sell', 'Points for selling one 3-star item.', 0, MAX_POINTS),
+  int('sell.price.4', 'Sell', 'Points for selling one 4-star item.', 0, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
   int('rob.minStolen', 'Rob', 'Lowest number of points a successful rob takes.', 1, MAX_POINTS),
