@@ -11,6 +11,10 @@ import type { ItemDef, Stars } from '../types.js';
  * equipped. Effect strength depends on the star tier and lives in the settings
  * (equipment.<effect>.<stars>), so a 3-star item is always stronger than a 1-star one that
  * lists the same effect. Weapons lean toward offense and armor toward defense, plus a perk.
+ *
+ * An item can be made exclusive with `usableBy: ['<discord user id>', ...]`. Anyone can pull, own
+ * and equip it, but only the listed members (and the admin, for testing) get its effects. Leave
+ * `usableBy` out and everyone can use it.
  */
 export const ITEMS: readonly ItemDef[] = [
   // 1 star
@@ -48,6 +52,14 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'Pockets everywhere, every one of them lined with silk.',
     effects: ['claimBonus'],
   },
+  {
+    id: 'kippah',
+    name: 'Kippah',
+    stars: 2,
+    slot: 'armor',
+    description: 'A small cap worn on the head. It is said to bring good luck.',
+    effects: ['pullDiscount'],
+  },
 
   // 3 stars
   {
@@ -69,50 +81,45 @@ export const ITEMS: readonly ItemDef[] = [
 
   // 4 stars
   {
-    // Alvin
     id: 'c4',
     name: 'C4',
     stars: 4,
+    usableBy: ['137980346393165824'], // Alvin
     slot: 'weapon',
-    description: 'Explosions? I love explosions.',
-    effects: ['robChance', 'robAmount', 'fineReduction'], // rob effectiveness and punishments will be boosted
+    description: 'Explosions first, questions later.',
+    effects: ['glassCannon', 'glassCannonPenalty'],
   },
   {
-    // Helen
-    id: 'jew-frog',
-    name: 'Jew Frog',
+    id: 'frog',
+    name: 'Frog',
     stars: 4,
+    usableBy: ['262072810422140929'], // Helen
     slot: 'weapon',
-    description: 'A frog. It is a frog.',
-    effects: ['robChance', 'robAmount'], // user robbed will have next rob taxed
+    description: 'A frog with a kippah.',
+    effects: ['robAmountCut', 'robTax'],
   },
+  // {
+  //   // Aaron
+  //   id: 'wheelchair',
+  //   name: 'Wheelchair',
+  //   stars: 4,
+  //   slot: 'armor',
+  //   description: 'A wheelchair. It is a wheelchair.',
+  //   effects: ['robDefense', 'robShield', 'pullDiscount'],
+  // },
   {
-    // JJ
-    id: 'mustache',
-    name: 'Mustache',
-    stars: 4,
-    slot: 'armor',
-    description: 'A mustache. It is a mustache.',
-    effects: ['robDefense', 'robShield', 'pullDiscount'],
-  },
-  {
-    // Aaron
-    id: 'wheelchair',
-    name: 'Wheelchair',
-    stars: 4,
-    slot: 'armor',
-    description: 'A wheelchair. It is a wheelchair.',
-    effects: ['robDefense', 'robShield', 'pullDiscount'],
-  },
-  {
-    // Gene
     id: 'coughing-baby',
     name: 'Coughing Baby',
     stars: 4,
+    usableBy: ['184130311620263936'], // Gene
     slot: 'weapon',
     description: 'A baby. It is a baby.',
-    effects: ['robDefense', 'robShield', 'pullDiscount'], // user robbed will have next claim taxed
-  }
+    effects: ['robAmountCut', 'claimTax'],
+  },
+  // {
+  //   // Simon
+  //   id: ''
+  // }
 ];
 
 export const ITEMS_BY_ID: ReadonlyMap<string, ItemDef> = new Map(
@@ -160,6 +167,12 @@ export function validateItems(): void {
     names.add(name);
 
     if (!SLOTS.includes(item.slot)) throw new Error(`${item.id} has an unknown slot: ${item.slot}`);
+    if (item.usableBy !== undefined) {
+      if (item.usableBy.length === 0) throw new Error(`${item.id} has an empty usableBy list, so nobody could use it. Remove it or add ids.`);
+      for (const userId of item.usableBy) {
+        if (!/^\d{17,20}$/.test(userId)) throw new Error(`${item.id} has a usableBy entry that is not a Discord user id: "${userId}"`);
+      }
+    }
     for (const effect of item.effects) {
       if (!(effect in EFFECTS)) throw new Error(`${item.id} has an unknown effect: ${effect}`);
     }

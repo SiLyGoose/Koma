@@ -4,7 +4,17 @@ import { collections } from '../db.js';
 import { groupCopies, newCopyId, type InventoryEntry } from '../lib/copies.js';
 import { gearEffects } from '../lib/equipment.js';
 import { rollItem, topChance } from '../lib/gacha.js';
-import { claimAmount, pullCost, robFine, robStolenAmount, robSuccessChance } from '../lib/perks.js';
+import {
+  claimAmount,
+  claimTaxAmount,
+  claimTaxRate,
+  pullCost,
+  robFine,
+  robStolenAmount,
+  robSuccessChance,
+  robTaxAmount,
+  robTaxRate,
+} from '../lib/perks.js';
 import { chance, randInt } from '../lib/random.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, MemberDoc } from '../types.js';
@@ -115,6 +125,16 @@ export interface BalanceInfo {
   robReadyAtUnix: number | null;
   /** Until when this member can't be robbed (unix seconds), or null if they can be robbed now. */
   robProtectedUntilUnix: number | null;
+  /**
+   * Set while a Coughing Baby wearer has poisoned this member (Wisteria): the share of their next
+   * claim that will be taken, and who it will be paid to. Null when they are not poisoned.
+   */
+  wisteria: { rate: number; byUserId: string } | null;
+  /**
+   * Set while a Jew Frog wearer has marked this member: the share of their next successful rob
+   * that will be taken, and who it will be paid to. Null when they are not marked.
+   */
+  robTax: { rate: number; byUserId: string } | null;
 }
 
 /** The moment a timer that started at `startedAt` runs out (unix seconds), or null if it already has. */
@@ -134,6 +154,9 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
     nextClaimUnix: nextHourUnix(hour),
     robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS, now),
     robProtectedUntilUnix: timerEndsAtUnix(member?.lastRobbedAt, CONFIG.rob.victimProtectionMinutes * MINUTE_MS, now),
+    wisteria:
+      member?.claimTaxRate && member.claimTaxBy ? { rate: member.claimTaxRate, byUserId: member.claimTaxBy } : null,
+    robTax: member?.robTaxRate && member.robTaxBy ? { rate: member.robTaxRate, byUserId: member.robTaxBy } : null,
   };
 }
 
@@ -156,7 +179,17 @@ export async function getLeaderboard(guildId: string, limit: number): Promise<Me
 // ---------------------------------------------------------------------------
 
 export type ClaimResult =
-  | { ok: true; amount: number; bonus: number; balance: number; nextClaimUnix: number }
+  | {
+      ok: true;
+      /** What the claim was worth, before any tax. */
+      amount: number;
+      /** How much of `amount` came from the member's gear. */
+      bonus: number;
+      /** Set when a member who robbed them took part of this claim (see the claimTax effect). */
+      taxed: { amount: number; toUserId: string } | null;
+      balance: number;
+      nextClaimUnix: number;
+    }
   | { ok: false; nextClaimUnix: number };
 
 export async function claimHourly(guildId: string, userId: string): Promise<ClaimResult> {
@@ -165,21 +198,67 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
   const hour = currentHour();
   const nextClaimUnix = nextHourUnix(hour);
 
-  // Equipped gear can add a bonus on top of the roll.
-  const member = await collections().members.findOne({ guildId, userId });
+  const { members } = collections();
   const rolled = randInt(CONFIG.claim.min, CONFIG.claim.max);
-  const amount = claimAmount(rolled, gearEffects(await resolveGear(guildId, userId, member?.equipment)));
 
-  // Only matches if this member has not claimed during the current hour.
-  const updated = await collections().members.findOneAndUpdate(
-    { guildId, userId, lastClaimHour: { $lt: hour } },
-    { $inc: { points: amount }, $set: { lastClaimHour: hour } },
-    { returnDocument: 'after' },
-  );
-  if (!updated) return { ok: false, nextClaimUnix };
+  // A tax left on this member by a robbery (claimTax gear) is taken out of this claim, in the
+  // same update that records the claim, so it applies exactly once. The update only goes through
+  // if the tax is still what we read; if someone set one in between, read again.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const member = await members.findOne({ guildId, userId });
 
-  await recordLedger([{ guildId, userId, delta: amount, reason: 'claim' }]);
-  return { ok: true, amount, bonus: amount - rolled, balance: updated.points, nextClaimUnix };
+    // Equipped gear can add a bonus on top of the roll.
+    const amount = claimAmount(rolled, gearEffects(await resolveGear(guildId, userId, member?.equipment), userId));
+
+    const taxRate = member?.claimTaxRate ?? null;
+    const taxBy = member?.claimTaxBy ?? null;
+    const tax = taxRate !== null && taxBy !== null ? claimTaxAmount(amount, taxRate) : 0;
+    const kept = amount - tax;
+
+    // Only matches if this member has not claimed during the current hour.
+    const updated = await members.findOneAndUpdate(
+      { guildId, userId, lastClaimHour: { $lt: hour }, claimTaxRate: taxRate, claimTaxBy: taxBy },
+      { $inc: { points: kept }, $set: { lastClaimHour: hour, claimTaxRate: null, claimTaxBy: null } },
+      { returnDocument: 'after' },
+    );
+    if (!updated) {
+      const current = await members.findOne({ guildId, userId });
+      if (current && current.lastClaimHour < hour) continue; // only the tax changed: try again
+      return { ok: false, nextClaimUnix };
+    }
+
+    // Pay the tax to whoever robbed them. If that fails, the member gets it back instead.
+    let paid = 0;
+    if (tax > 0 && taxBy !== null) {
+      try {
+        await ensureMember(guildId, taxBy);
+        await members.updateOne({ guildId, userId: taxBy }, { $inc: { points: tax } });
+        paid = tax;
+      } catch (err) {
+        console.error('Could not pay out a claim tax, giving it back:', err);
+        await members.updateOne({ guildId, userId }, { $inc: { points: tax } });
+      }
+    }
+
+    const entries: LedgerInput[] = [{ guildId, userId, delta: amount, reason: 'claim' }];
+    if (paid > 0 && taxBy !== null) {
+      entries.push(
+        { guildId, userId, delta: -paid, reason: 'claim_tax_paid', otherUserId: taxBy },
+        { guildId, userId: taxBy, delta: paid, reason: 'claim_tax_received', otherUserId: userId },
+      );
+    }
+    await recordLedger(entries);
+
+    return {
+      ok: true,
+      amount,
+      bonus: amount - rolled,
+      taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
+      balance: updated.points + (tax > 0 && paid === 0 ? tax : 0),
+      nextClaimUnix,
+    };
+  }
+  return { ok: false, nextClaimUnix };
 }
 
 // ---------------------------------------------------------------------------
@@ -227,7 +306,7 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
 
   // Equipped gear can discount the pull.
   const member = await members.findOne({ guildId, userId });
-  const cost = pullCost(baseCost, gearEffects(await resolveGear(guildId, userId, member?.equipment)));
+  const cost = pullCost(baseCost, gearEffects(await resolveGear(guildId, userId, member?.equipment), userId));
 
   // Pity only counts while it is in effect (turned on, and the top tier can actually be pulled),
   // so pulls made before an admin switches it on don't build up a guarantee.
@@ -289,7 +368,20 @@ export type RobResult =
   | { ok: false; reason: 'cooldown'; availableAtUnix: number }
   | { ok: false; reason: 'victim_too_poor'; minBalance: number }
   | { ok: false; reason: 'victim_recently_robbed'; availableAtUnix: number }
-  | { ok: true; success: true; chance: number; stolen: number; robberBalance: number; victimBalance: number }
+  | {
+      ok: true;
+      success: true;
+      chance: number;
+      stolen: number;
+      robberBalance: number;
+      victimBalance: number;
+      /** The share of the victim's next claim now set aside for the robber, or null if none was. */
+      claimTax: number | null;
+      /** The share of the victim's next successful rob now set aside for the robber, or null if none was. */
+      robTax: number | null;
+      /** Set when a Jew Frog wearer who robbed the robber earlier took part of this rob. */
+      robTaxPaid: { amount: number; toUserId: string } | null;
+    }
   | {
       ok: true;
       success: false;
@@ -348,8 +440,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
   // Gear: the robber's weapon and the victim's armor (which protects even while they're offline).
   const [robberGear, victimGear] = await Promise.all([
-    resolveGear(guildId, robberId, before.equipment).then(gearEffects),
-    resolveGear(guildId, victimId, victim?.equipment).then(gearEffects),
+    resolveGear(guildId, robberId, before.equipment).then((gear) => gearEffects(gear, robberId)),
+    resolveGear(guildId, victimId, victim?.equipment).then((gear) => gearEffects(gear, victimId)),
   ]);
   const successChance = robSuccessChance(cfg.successChance, cfg, robberGear, victimGear);
 
@@ -389,24 +481,108 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         await restoreCooldown();
         return { ok: false, reason: 'victim_too_poor', minBalance: cfg.minVictimBalance };
       }
-      await recordLedger([
+      const ledger: LedgerInput[] = [
         { guildId, userId: robberId, delta: transfer.moved, reason: 'rob_won', otherUserId: victimId },
         { guildId, userId: victimId, delta: -transfer.moved, reason: 'rob_lost', otherUserId: robberId },
-      ]);
+      ];
+      let robberBalance = transfer.toBalance;
+
+      // If a Jew Frog wearer marked the robber earlier, part of this rob is theirs. The mark is
+      // cleared in one conditional update, so it is taken at most once, and put back if the payout
+      // could not be made.
+      let robTaxPaid: { amount: number; toUserId: string } | null = null;
+      const owedRate = before.robTaxRate ?? null;
+      const owedTo = before.robTaxBy ?? null;
+      if (owedRate !== null && owedTo !== null) {
+        try {
+          const taken = await members.findOneAndUpdate(
+            { guildId, userId: robberId, robTaxRate: owedRate, robTaxBy: owedTo },
+            { $set: { robTaxRate: null, robTaxBy: null } },
+            { returnDocument: 'before' },
+          );
+          if (taken) {
+            const tax = robTaxAmount(transfer.moved, owedRate);
+            let paid: { moved: number; fromBalance: number } | null = null;
+            try {
+              await ensureMember(guildId, owedTo);
+              paid = tax > 0 ? await transferClamped(guildId, robberId, owedTo, tax, 1) : null;
+            } catch (err) {
+              console.error('Could not pay out a rob tax:', err);
+            }
+            if (paid) {
+              robTaxPaid = { amount: paid.moved, toUserId: owedTo };
+              robberBalance = paid.fromBalance;
+              ledger.push(
+                { guildId, userId: robberId, delta: -paid.moved, reason: 'rob_tax_paid', otherUserId: owedTo },
+                { guildId, userId: owedTo, delta: paid.moved, reason: 'rob_tax_received', otherUserId: robberId },
+              );
+            } else if (tax > 0) {
+              // Nothing was paid, so the mark stays for the next successful rob.
+              await members.updateOne(
+                { guildId, userId: robberId, robTaxRate: null },
+                { $set: { robTaxRate: owedRate, robTaxBy: owedTo } },
+              );
+            }
+          }
+        } catch (err) {
+          console.error('Could not apply a rob tax:', err);
+        }
+      }
+      await recordLedger(ledger);
+
+      // The robber's gear can also tax the victim's next claim. Only one tax waits at a time, so
+      // if they already have one this rob doesn't add another.
+      let claimTax: number | null = null;
+      const taxRate = claimTaxRate(robberGear);
+      if (taxRate > 0) {
+        try {
+          const set = await members.findOneAndUpdate(
+            { guildId, userId: victimId, claimTaxRate: null },
+            { $set: { claimTaxRate: taxRate, claimTaxBy: robberId } },
+            { returnDocument: 'after' },
+          );
+          if (set) claimTax = taxRate;
+        } catch (err) {
+          // The steal already happened; don't undo it over the tax.
+          console.error('Could not set a claim tax:', err);
+        }
+      }
+
+      // The robber's gear can also mark the victim, so part of their next successful rob comes
+      // back to this robber. Same rule: one mark waits at a time.
+      let robTax: number | null = null;
+      const markRate = robTaxRate(robberGear);
+      if (markRate > 0) {
+        try {
+          const set = await members.findOneAndUpdate(
+            { guildId, userId: victimId, robTaxRate: null },
+            { $set: { robTaxRate: markRate, robTaxBy: robberId } },
+            { returnDocument: 'after' },
+          );
+          if (set) robTax = markRate;
+        } catch (err) {
+          console.error('Could not set a rob tax:', err);
+        }
+      }
+
       return {
         ok: true,
         success: true,
         chance: successChance,
         stolen: transfer.moved,
-        robberBalance: transfer.toBalance,
+        robberBalance,
         victimBalance: transfer.fromBalance,
+        claimTax,
+        robTax,
+        robTaxPaid,
       };
     }
 
     // Caught: the robber pays a fine to the victim (whatever they can afford), less any
     // protection from their gear.
     const owed = robFine(cfg.failFine, robberGear);
-    const waived = cfg.failFine - owed;
+    // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
+    const waived = Math.max(0, cfg.failFine - owed);
     const transfer = owed > 0 ? await transferClamped(guildId, robberId, victimId, owed, 1) : null;
     if (!transfer) {
       const robber = await members.findOne({ guildId, userId: robberId });

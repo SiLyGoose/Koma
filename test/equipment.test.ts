@@ -3,8 +3,19 @@ import { test } from 'node:test';
 import { CONFIG, DEFAULTS, STARS, validateConfig } from '../src/config.js';
 import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectTotals } from '../src/data/effects.js';
 import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
-import { describeEffects, describeTotals, equippedItems, totalEffects } from '../src/lib/equipment.js';
-import { claimAmount, pullCost, robFine, robStolenAmount, robSuccessChance } from '../src/lib/perks.js';
+import { ADMIN_USER_ID } from '../src/constants.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/equipment.js';
+import {
+  claimAmount,
+  claimTaxAmount,
+  claimTaxRate,
+  pullCost,
+  robFine,
+  robStolenAmount,
+  robSuccessChance,
+  robTaxAmount,
+  robTaxRate,
+} from '../src/lib/perks.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import type { ItemDef } from '../src/types.js';
 
@@ -147,6 +158,18 @@ test('effects read as plain text', () => {
     '+30% points stolen',
     '-75% fine when caught',
   ]);
+  assert.deepEqual(describeEffects({ ...blade, effects: ['glassCannon', 'glassCannonPenalty'], stars: 4 }), [
+    'Glass cannon: +50% points stolen',
+    'Glass cannon: +250% fine when caught',
+  ]);
+  assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'claimTax'], stars: 4 }), [
+    '-25% points stolen',
+    'Wisteria: members you rob lose 25% of their next claim to you',
+  ]);
+  assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'robTax'], stars: 4 }), [
+    '-25% points stolen',
+    'Yowch, My Coins! You get 25% of the next rob by members you rob',
+  ]);
   assert.deepEqual(describeTotals(emptyTotals()), []);
   assert.deepEqual(describeTotals(gear({ pullDiscount: 0.15 })), ['-15% gacha pull cost']);
 });
@@ -194,4 +217,172 @@ test('fine, claim and pull perks', () => {
   assert.equal(pullCost(280, gear({ pullDiscount: 0.1 })), 252);
   assert.equal(pullCost(280, gear({ pullDiscount: 5 })), 28);
   assert.equal(pullCost(1, gear({ pullDiscount: 0.9 })), 1);
+});
+
+test('glass cannon: 1.5x the points stolen and 3.5x the fine at the 4-star defaults, and shows on the item', () => {
+  const cannon = gear({ glassCannon: 0.5, glassCannonPenalty: 2.5 });
+  assert.equal(robStolenAmount(200, cannon, none), 300);
+  assert.equal(robFine(100, cannon), 350);
+
+  // Each half works on its own, and neither touches the other's number.
+  assert.equal(robStolenAmount(200, gear({ glassCannon: 0.5 }), none), 300);
+  assert.equal(robFine(100, gear({ glassCannon: 0.5 })), 100);
+  assert.equal(robStolenAmount(200, gear({ glassCannonPenalty: 2.5 }), none), 200);
+  assert.equal(robFine(100, gear({ glassCannonPenalty: 2.5 })), 350);
+
+  // Stacks with the other rob effects instead of replacing them.
+  assert.equal(robStolenAmount(200, gear({ glassCannon: 0.5, robAmount: 0.4 }), none), 420);
+  assert.equal(robStolenAmount(200, cannon, gear({ robShield: 0.5 })), 150);
+  assert.equal(robFine(100, gear({ glassCannonPenalty: 2.5, fineReduction: 0.5 })), 175);
+  assert.equal(robFine(100, gear({ glassCannonPenalty: 2.5, fineReduction: 1 })), 0);
+
+  // Only the robber's gear counts: wearing it as the victim changes nothing.
+  assert.equal(robStolenAmount(200, none, cannon), 200);
+
+  // The 4-star defaults are exactly 1.5x and 3.5x, and both are normal settings.
+  close(1 + CONFIG.equipment.glassCannon[4], 1.5);
+  close(1 + CONFIG.equipment.glassCannonPenalty[4], 3.5);
+  const c4: ItemDef = { id: 'test-c4', name: 'Test C4', stars: 4, slot: 'weapon', description: '', effects: ['glassCannon', 'glassCannonPenalty'] };
+  const totals = totalEffects([c4]);
+  assert.equal(totals.glassCannon, CONFIG.equipment.glassCannon[4]);
+  assert.equal(totals.glassCannonPenalty, CONFIG.equipment.glassCannonPenalty[4]);
+  for (const id of ['glassCannon', 'glassCannonPenalty']) {
+    assert.equal(findSpec(`equipment.${id}.4`)?.group, 'Equipment');
+  }
+  assert.deepEqual(parseInput(findSpec('equipment.glassCannonPenalty.4')!, '250%'), { ok: true, value: 2.5 });
+  assert.equal(parseInput(findSpec('equipment.glassCannon.4')!, '600%').ok, false);
+});
+
+test('robAmountCut (coughing baby, jew frog): a 25% cut leaves 75% of what the wearer steals', () => {
+  assert.equal(robStolenAmount(200, gear({ robAmountCut: 0.25 }), none), 150);
+  assert.equal(robStolenAmount(200, gear({ robAmountCut: 0.5 }), none), 100);
+  assert.equal(robStolenAmount(200, gear({ robAmountCut: 0.5, robAmount: 0.5 }), none), 150);
+  assert.equal(robStolenAmount(200, gear({ robAmountCut: 0.5, glassCannon: 0.5 }), none), 150);
+  assert.equal(robStolenAmount(200, gear({ robAmountCut: 0.5 }), gear({ robShield: 0.5 })), 50);
+  // Never below 1, and a cut over the cap is held to it like the other reductions.
+  assert.equal(robStolenAmount(1, gear({ robAmountCut: 0.5 }), none), 1);
+  assert.equal(robStolenAmount(100, gear({ robAmountCut: 5 }), none), 10);
+  // It is the robber's own gear only: a victim wearing it loses nothing less.
+  assert.equal(robStolenAmount(200, none, gear({ robAmountCut: 0.5 })), 200);
+  // Doesn't touch the fine.
+  assert.equal(robFine(100, gear({ robAmountCut: 0.5 })), 100);
+});
+
+test('coughing baby: the tax rate is held between 0 and 100%, and a tax never takes more than the claim', () => {
+  assert.equal(claimTaxRate(none), 0);
+  assert.equal(claimTaxRate(gear({ claimTax: 0.25 })), 0.25);
+  assert.equal(claimTaxRate(gear({ claimTax: 3 })), 1);
+  assert.equal(claimTaxRate(gear({ claimTax: -1 })), 0);
+
+  assert.equal(claimTaxAmount(400, 0.25), 100);
+  assert.equal(claimTaxAmount(333, 0.25), 83); // 83.25 rounds to 83
+  assert.equal(claimTaxAmount(400, 0), 0);
+  assert.equal(claimTaxAmount(400, 1), 400);
+  assert.equal(claimTaxAmount(400, 2), 400);
+  assert.equal(claimTaxAmount(0, 0.25), 0);
+});
+
+test('coughing baby: 4-star defaults are a 25% cut and a 25% claim tax, both normal settings', () => {
+  assert.equal(CONFIG.equipment.robAmountCut[4], 0.25);
+  assert.equal(CONFIG.equipment.claimTax[4], 0.25);
+  for (const id of ['robAmountCut', 'claimTax']) {
+    assert.equal(findSpec(`equipment.${id}.4`)?.group, 'Equipment');
+  }
+  assert.deepEqual(parseInput(findSpec('equipment.claimTax.4')!, '30%'), { ok: true, value: 0.3 });
+  assert.equal(parseInput(findSpec('equipment.robAmountCut.4')!, '95%').ok, false, 'a cut of 90% or more is refused');
+  assert.equal(parseInput(findSpec('equipment.claimTax.4')!, '101%').ok, false);
+  const baby: ItemDef = { id: 'test-baby', name: 'Test Baby', stars: 4, slot: 'weapon', description: '', effects: ['robAmountCut', 'claimTax'] };
+  const totals = totalEffects([baby]);
+  assert.equal(totals.robAmountCut, 0.25);
+  assert.equal(totals.claimTax, 0.25);
+});
+
+test('jew frog: the rob tax rate is held between 0 and 100%, and a tax never takes more than the rob', () => {
+  assert.equal(robTaxRate(none), 0);
+  assert.equal(robTaxRate(gear({ robTax: 0.25 })), 0.25);
+  assert.equal(robTaxRate(gear({ robTax: 3 })), 1);
+  assert.equal(robTaxRate(gear({ robTax: -1 })), 0);
+
+  assert.equal(robTaxAmount(200, 0.25), 50);
+  assert.equal(robTaxAmount(201, 0.25), 50); // 50.25 rounds to 50
+  assert.equal(robTaxAmount(30, 0.5), 15);
+  assert.equal(robTaxAmount(200, 0), 0);
+  assert.equal(robTaxAmount(200, 1), 200);
+  assert.equal(robTaxAmount(200, 2), 200);
+});
+
+test('jew frog: 4-star defaults are a 25% cut and a 25% rob tax, both normal settings', () => {
+  assert.equal(CONFIG.equipment.robAmountCut[4], 0.25);
+  assert.equal(CONFIG.equipment.robTax[4], 0.25);
+  assert.equal(findSpec('equipment.robTax.4')?.group, 'Equipment');
+  assert.deepEqual(parseInput(findSpec('equipment.robTax.4')!, '30%'), { ok: true, value: 0.3 });
+  assert.equal(parseInput(findSpec('equipment.robTax.4')!, '101%').ok, false);
+
+  const frog: ItemDef = { id: 'test-frog', name: 'Test Frog', stars: 4, slot: 'weapon', description: '', effects: ['robAmountCut', 'robTax'] };
+  const totals = totalEffects([frog]);
+  assert.equal(totals.robAmountCut, CONFIG.equipment.robAmountCut[4]);
+  assert.equal(totals.robTax, CONFIG.equipment.robTax[4]);
+  // Stealing from someone who wears nothing: 75% of the roll.
+  assert.equal(robStolenAmount(200, totals, none), 150);
+});
+
+// ---------------------------------------------------------------------------
+// Exclusive items (usableBy)
+
+const ALVIN = '111111111111111111';
+const HELEN = '222222222222222222';
+const STRANGER = '333333333333333333';
+const exclusiveBlade: ItemDef = {
+  id: 'test-exclusive-blade',
+  name: 'Exclusive Blade',
+  stars: 4,
+  slot: 'weapon',
+  description: '',
+  effects: ['robChance', 'robAmount'],
+  usableBy: [ALVIN, HELEN],
+};
+const openBlade: ItemDef = { ...exclusiveBlade, id: 'test-open-blade', name: 'Open Blade', usableBy: undefined };
+
+test('exclusive items: only the listed members and the admin can use one, and no list means everyone', () => {
+  assert.equal(canUseItem(exclusiveBlade, ALVIN), true);
+  assert.equal(canUseItem(exclusiveBlade, HELEN), true);
+  assert.equal(canUseItem(exclusiveBlade, STRANGER), false);
+  assert.equal(canUseItem(exclusiveBlade, ADMIN_USER_ID), true, 'the admin can test everything');
+  assert.equal(canUseItem(openBlade, STRANGER), true);
+  assert.deepEqual(usableItems([exclusiveBlade, openBlade], STRANGER).map((item) => item.id), ['test-open-blade']);
+  assert.deepEqual(usableItems([exclusiveBlade, openBlade], ALVIN).map((item) => item.id), ['test-exclusive-blade', 'test-open-blade']);
+});
+
+test('exclusive items: an equipped one adds effects only for members it is for', () => {
+  ITEMS_BY_ID.set(exclusiveBlade.id, exclusiveBlade);
+  try {
+    const equipment = { weapon: exclusiveBlade.id };
+    assert.equal(gearEffects(equipment, ALVIN).robChance, CONFIG.equipment.robChance[4]);
+    assert.equal(gearEffects(equipment, ALVIN).robAmount, CONFIG.equipment.robAmount[4]);
+    assert.deepEqual(gearEffects(equipment, STRANGER), emptyTotals());
+    assert.equal(gearEffects(equipment, ADMIN_USER_ID).robChance, CONFIG.equipment.robChance[4]);
+    // Still equipped for the stranger: the slot is not emptied, it just gives nothing.
+    assert.equal(equippedItems(equipment).length, 1);
+  } finally {
+    ITEMS_BY_ID.delete(exclusiveBlade.id);
+  }
+});
+
+test('exclusive items: the catalog check refuses an empty list or something that is not a user id', () => {
+  const catalog = ITEMS as ItemDef[];
+  const check = (usableBy: readonly string[] | undefined) => {
+    const test: ItemDef = { ...exclusiveBlade, id: 'test-check', name: 'Check Blade', usableBy };
+    catalog.push(test);
+    try {
+      validateItems();
+    } finally {
+      catalog.pop();
+    }
+  };
+  check([ALVIN]);
+  check(undefined);
+  assert.throws(() => check([]), /empty usableBy/);
+  assert.throws(() => check(['alvin']), /not a Discord user id/);
+  assert.throws(() => check([ALVIN, '12345']), /not a Discord user id/);
+  validateItems();
 });

@@ -28,15 +28,44 @@ export function robSuccessChance(
   return clamp(base + delta, low, high);
 }
 
-/** Points taken on a successful rob: boosted by the robber's gear, cut by the victim's. At least 1. */
+/**
+ * Points taken on a successful rob: boosted by the robber's gear (robAmount, and glassCannon on
+ * top of it, each multiplying the amount), cut by the robber's own robAmountCut and by the
+ * victim's shield. At least 1.
+ */
 export function robStolenAmount(rolled: number, robber: EffectTotals, victim: EffectTotals): number {
-  const scaled = rolled * (1 + robber.robAmount) * (1 - Math.min(victim.robShield, MAX_REDUCTION));
+  const scaled =
+    rolled *
+    (1 + robber.robAmount) *
+    (1 + robber.glassCannon) *
+    (1 - Math.min(robber.robAmountCut, MAX_REDUCTION)) *
+    (1 - Math.min(victim.robShield, MAX_REDUCTION));
   return Math.max(1, Math.round(scaled));
 }
 
-/** Fine a caught robber pays, after their caught protection. */
+/** Fine a caught robber pays: raised by glassCannonPenalty, then cut by their caught protection. */
 export function robFine(base: number, robber: EffectTotals): number {
-  return Math.round(base * (1 - clamp(robber.fineReduction, 0, 1)));
+  return Math.round(base * (1 + robber.glassCannonPenalty) * (1 - clamp(robber.fineReduction, 0, 1)));
+}
+
+/** The share (0 to 1) of the victim's next claim that a successful robber's gear taxes. */
+export function claimTaxRate(robber: EffectTotals): number {
+  return clamp(robber.claimTax, 0, 1);
+}
+
+/** Points taken from a claim of `amount` by a tax of `rate`. Never more than the claim. */
+export function claimTaxAmount(amount: number, rate: number): number {
+  return Math.min(amount, Math.max(0, Math.round(amount * rate)));
+}
+
+/** The share (0 to 1) of the victim's next successful rob that a successful robber's gear taxes. */
+export function robTaxRate(robber: EffectTotals): number {
+  return clamp(robber.robTax, 0, 1);
+}
+
+/** Points taken from a rob that stole `amount` by a tax of `rate`. Never more than the rob. */
+export function robTaxAmount(amount: number, rate: number): number {
+  return claimTaxAmount(amount, rate);
 }
 
 /** Points from an hourly claim, after the claim bonus. */

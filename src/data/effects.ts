@@ -53,7 +53,7 @@ export const EFFECTS = {
   },
   robShield: {
     description: 'Percent of the stolen amount the wearer keeps when they are robbed successfully.',
-    defaults: { 1: 0.1, 2: 0.2, 3: 0.3, 4: 0.4 },
+    defaults: { 1: 0.1, 2: 0.15, 3: 0.2, 4: 0.25 },
     min: 0,
     max: MAX_REDUCTION,
   },
@@ -64,6 +64,46 @@ export const EFFECTS = {
     defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
     min: 0,
     max: 1,
+  },
+
+  // Coughing baby and Jew frog: a weaker rob (robAmountCut), paired with a tax on something the
+  // victim does next. The baby taxes their next claim, the frog their next successful rob.
+  robAmountCut: {
+    description: 'Percent cut from the points the wearer steals on a successful rob (25% means 75% of the amount).',
+    defaults: { 1: 0.0625, 2: 0.125, 3: 0.1875, 4: 0.25 },
+    min: 0,
+    max: MAX_REDUCTION,
+  },
+  claimTax: {
+    description:
+      "Percent of the victim's next hourly claim that is taken and paid to the wearer, after the wearer robs them successfully.",
+    defaults: { 1: 0.0625, 2: 0.125, 3: 0.1875, 4: 0.25 },
+    min: 0,
+    max: 1,
+  },
+  robTax: {
+    description:
+      "Percent of the points the victim steals on their next successful rob that are taken and paid to the wearer, after the wearer robs them successfully.",
+    defaults: { 1: 0.0625, 2: 0.125, 3: 0.1875, 4: 0.25 },
+    min: 0,
+    max: 1,
+  },
+
+  // Risk and reward, the glass cannon pair: the wearer steals more, but pays much more when caught.
+  // An item that should be a glass cannon lists both effects.
+  glassCannon: {
+    description:
+      'Glass cannon, reward: extra points the wearer steals on a successful rob, as a percent of the amount rolled (50% is 1.5x). Stacks with robAmount.',
+    defaults: { 1: 0.125, 2: 0.25, 3: 0.375, 4: 0.5 },
+    min: 0,
+    max: 5,
+  },
+  glassCannonPenalty: {
+    description:
+      'Glass cannon, risk: extra fine the wearer pays when caught robbing, as a percent of the normal fine (250% is 3.5x).',
+    defaults: { 1: 0.625, 2: 1.25, 3: 1.875, 4: 2.5 },
+    min: 0,
+    max: 10,
   },
 
   // Economy perks.
