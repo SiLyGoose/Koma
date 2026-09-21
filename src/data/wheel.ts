@@ -13,7 +13,7 @@ import { MAX_WHEEL_MULTIPLIER, MAX_WHEEL_SLICES } from '../constants.js';
  *
  * How often the wheel spins at all is the wheelSpin effect's setting (equipment.wheelSpin.<stars>).
  */
-export const WHEEL_SLICES: readonly number[] = [1, 0.1, 1.5, 0.4, 2, 0.75, 1.25, 0.3] as const;
+export const WHEEL_SLICES: readonly number[] = [1, 0.1, 1.5, 0.4, 2.5, 0.75, 1.25, 0.5] as const;
 
 /** Throws at startup if the wheel would break the game or could not be drawn. */
 export function validateWheel(slices: readonly number[] = WHEEL_SLICES): void {
