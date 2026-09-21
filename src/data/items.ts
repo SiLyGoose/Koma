@@ -104,8 +104,8 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     usableBy: ['570657734870171648'], // JJ
     slot: 'armor',
-    description: 'A sloth. It is a sloth.',
-    effects: ['claimTax', 'fineReduction'],
+    description: 'A sloth. It is a sloth.', // protection is doubled but the wearer is slower to rob and claim, so it is a tradeoff.
+    effects: [],
   },
   {
     id: 'wheelchair',
@@ -136,7 +136,7 @@ export const ITEMS: readonly ItemDef[] = [
     usableBy: ['1014831847487840307'], // Harrison
     slot: 'weapon',
     description: 'Madness is at the heart of all gambling.', 
-    effects: ['robChance', 'robAmount'],
+    effects: ['d20'],
   }
 ];
 

@@ -1,4 +1,6 @@
+import { drawText } from './pixel-font.js';
 import { encodePng } from './png.js';
+import { luminance, mix, shrink, type Rgb } from './raster.js';
 
 /*
  * Draws the prize wheel as a PNG: equal slices, one label each, a pointer at the top, and the
@@ -11,8 +13,6 @@ export interface WheelLanding {
   index: number;
   offset: number;
 }
-
-type Rgb = readonly [number, number, number];
 
 const SUPERSAMPLE = 2;
 const TAU = Math.PI * 2;
@@ -33,63 +33,10 @@ export function sliceColor(multiplier: number): Rgb {
   return [220, 70, 75];
 }
 
-const luminance = ([r, g, b]: Rgb): number => 0.299 * r + 0.587 * g + 0.114 * b;
-const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-
-// A 5x7 bitmap font: just what the labels need.
-const GLYPHS: Record<string, readonly string[]> = {
-  '0': ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
-  '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'],
-  '2': ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
-  '3': ['.###.', '#...#', '....#', '..##.', '....#', '#...#', '.###.'],
-  '4': ['...#.', '..##.', '.#.#.', '#..#.', '#####', '...#.', '...#.'],
-  '5': ['#####', '#....', '####.', '....#', '....#', '#...#', '.###.'],
-  '6': ['..##.', '.#...', '#....', '####.', '#...#', '#...#', '.###.'],
-  '7': ['#####', '....#', '...#.', '..#..', '.#...', '.#...', '.#...'],
-  '8': ['.###.', '#...#', '#...#', '.###.', '#...#', '#...#', '.###.'],
-  '9': ['.###.', '#...#', '#...#', '.####', '....#', '...#.', '.##..'],
-  '.': ['..', '..', '..', '..', '..', '##', '##'],
-  x: ['.....', '.....', '#...#', '.#.#.', '..#..', '.#.#.', '#...#'],
-};
-const GLYPH_HEIGHT = 7;
-
 /** "1.5x", "0.1x", "2x". */
 function label(multiplier: number): string {
   return `${Number(multiplier.toFixed(2))}x`;
 }
-
-/** Width of a piece of text in font dots (one dot of space between letters). */
-function textWidth(text: string): number {
-  let width = 0;
-  for (const ch of text) width += (GLYPHS[ch]?.[0]?.length ?? 0) + 1;
-  return width - 1;
-}
-
-/** Turns on the mask pixels of `text`, centered on (cx, cy), each font dot being `scale` pixels square. */
-function drawText(mask: Uint8Array, size: number, text: string, cx: number, cy: number, scale: number): void {
-  let x = Math.round(cx - (textWidth(text) * scale) / 2);
-  const top = Math.round(cy - (GLYPH_HEIGHT * scale) / 2);
-  for (const ch of text) {
-    const glyph = GLYPHS[ch];
-    if (!glyph) continue;
-    for (let row = 0; row < GLYPH_HEIGHT; row++) {
-      const line = glyph[row] as string;
-      for (let col = 0; col < line.length; col++) {
-        if (line[col] !== '#') continue;
-        for (let dy = 0; dy < scale; dy++) {
-          for (let dx = 0; dx < scale; dx++) {
-            const px = x + col * scale + dx;
-            const py = top + row * scale + dy;
-            if (px >= 0 && px < size && py >= 0 && py < size) mask[py * size + px] = 1;
-          }
-        }
-      }
-    }
-    x += (line0Width(glyph) + 1) * scale;
-  }
-}
-
-const line0Width = (glyph: readonly string[]): number => (glyph[0] as string).length;
 
 /**
  * How far the wheel is turned (in radians, clockwise from straight up) when the pointer sits
@@ -200,33 +147,6 @@ function draw(slices: readonly number[], turn: number, winner: number | null, pi
     }
   }
 
-  // Shrink by averaging each SUPERSAMPLE x SUPERSAMPLE block (weighted by opacity).
-  const out = new Uint8Array(pixels * pixels * 4);
-  const samples = SUPERSAMPLE * SUPERSAMPLE;
-  for (let y = 0; y < pixels; y++) {
-    for (let x = 0; x < pixels; x++) {
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      let a = 0;
-      for (let sy = 0; sy < SUPERSAMPLE; sy++) {
-        for (let sx = 0; sx < SUPERSAMPLE; sx++) {
-          const at = ((y * SUPERSAMPLE + sy) * size + x * SUPERSAMPLE + sx) * 4;
-          const alpha = rgba[at + 3] as number;
-          r += (rgba[at] as number) * alpha;
-          g += (rgba[at + 1] as number) * alpha;
-          b += (rgba[at + 2] as number) * alpha;
-          a += alpha;
-        }
-      }
-      const to = (y * pixels + x) * 4;
-      if (a > 0) {
-        out[to] = Math.round(r / a);
-        out[to + 1] = Math.round(g / a);
-        out[to + 2] = Math.round(b / a);
-        out[to + 3] = Math.round(a / samples);
-      }
-    }
-  }
+  const out = shrink(rgba, size, pixels, SUPERSAMPLE);
   return encodePng(pixels, pixels, out);
 }

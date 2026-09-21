@@ -91,6 +91,25 @@ export const WHEEL_IMAGE_NAME = 'wheel.png';
  */
 export const WHEEL_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
 
+/** File name of the die picture attached to a claim that rolled the D20. */
+export const D20_IMAGE_NAME = 'd20.png';
+
+/**
+ * How the D20 animation plays, like WHEEL_ANIMATION: the reply first shows the die tumbling, the
+ * picture is swapped every `frameMs` milliseconds (the die slowing down and showing other numbers)
+ * for `minSeconds` to `maxSeconds`, and then it lands on the real roll. Keep `frameMs` at 500 or more.
+ */
+export const D20_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
+
+/**
+ * What a roll of the D20 (the `d20` effect, on the D20 item) does to a claim. A roll of 1 is a
+ * critical fail: the claim pays nothing and the hour is used up. A roll of `sides` is a critical
+ * success: it pays `critMultiplier` times as much and lets the member claim once more in the same
+ * hour (and that extra claim rolls the die too). Any roll in between multiplies the claim by
+ * roll / `divisor` (with 10, a 2 is 0.2x, a 10 is 1x and a 19 is 1.9x).
+ */
+export const D20 = { sides: 20, critMultiplier: 2, divisor: 10 };
+
 /**
  * How long a slash command may go without a reply before the bot tells Discord "one moment"
  * (shown as "Koma is thinking..."). Discord fails a slash command that isn't answered within 3
@@ -145,7 +164,9 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   robAmountCut: (value) => `-${value} points stolen`,
   claimTax: (value) => `Wither: members you rob lose ${value} of their next claim to you`,
   robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
-  wheelSpin: (value) => `High Roller: ${value} of your claims and successful robs spin the wheel`,
+  wheelSpin: (value) => `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel`,
+  d20: (value) =>
+    `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
   glassCannon: (value) => `Glass cannon: +${value} points stolen`,
   glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
   claimBonus: (value) => `+${value} points from hourly claims`,
@@ -181,6 +202,8 @@ export const TEXT = {
     points: (points: string) => `**${points}** points`,
     claimField: 'Hourly claim',
     claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
+    /** A critical success on the D20 left one more claim this hour. */
+    claimBonusReady: (p: string) => `Bonus claim ready. Use \`${p}claim\` before the hour ends!`,
     claimWait: (unix: number) => `Claimed. Next one <t:${unix}:R>`,
     robField: 'Rob cooldown',
     robReady: (p: string) => `Ready. Use \`${p}rob @user\`!`,
@@ -206,6 +229,25 @@ export const TEXT = {
     /** Shown while the wheel is still turning. `user` is a mention. */
     spinningTitle: 'The wheel is spinning...',
     spinning: (user: string) => `${user} spins the wheel...`,
+  },
+
+  d20: {
+    /** Shown while the die is still tumbling. `user` is a mention. */
+    spinningTitle: 'The die is rolling...',
+    spinning: (user: string) => `${user} rolls the D20...`,
+    failTitle: 'Critical fail!',
+    successTitle: 'Critical success!',
+    /** A roll of 1: the whole claim text. */
+    fail: (user: string, roll: number) =>
+      `${user} rolled a **${roll}** on the D20. Critical fail! Nothing to claim, and no more claims this hour.`,
+    /** Added under a claim that rolled 2 up to one below the top. `multiplier` is like "1.3x". */
+    landed: (roll: number, multiplier: string) => `The D20 landed on **${roll}**: **${multiplier}**.`,
+    /** Added under a claim that rolled the top number. */
+    critical: (roll: number, multiplier: string) => `Critical success! The D20 landed on **${roll}** and paid **${multiplier}**.`,
+    claimAgain: 'You can claim again this hour.',
+    /** The "Next claim" field after a critical success: right now (once more), then the usual hour. */
+    nextBonus: (unix: number) => `**Now**, once more. Then <t:${unix}:R>`,
+    bonusFooter: 'A bonus claim from a critical success.',
   },
 
   claim: {
@@ -511,6 +553,13 @@ export function validateConstants(): void {
     problems.push('SLASH_DEFER_AFTER_MS must be from 500 to under 3000 (Discord fails a command that is not answered in 3 seconds)');
   }
   if (!(AUTOCOMPLETE_MAX_CHOICES >= 1 && AUTOCOMPLETE_MAX_CHOICES <= 25)) problems.push('AUTOCOMPLETE_MAX_CHOICES must be from 1 to 25');
+  if (!(D20_ANIMATION.frameMs >= 500)) problems.push('D20_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
+  if (!(D20_ANIMATION.minSeconds > 0 && D20_ANIMATION.minSeconds <= D20_ANIMATION.maxSeconds)) {
+    problems.push('D20_ANIMATION needs 0 < minSeconds <= maxSeconds');
+  }
+  if (!Number.isInteger(D20.sides) || D20.sides < 3) problems.push('D20.sides must be a whole number of at least 3');
+  if (!(D20.critMultiplier >= 1)) problems.push('D20.critMultiplier must be at least 1');
+  if (!(D20.divisor > 0)) problems.push('D20.divisor must be above 0');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');

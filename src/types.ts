@@ -80,6 +80,12 @@ export interface MemberDoc {
    * latest one. Missing means 0.
    */
   pity?: number;
+  /**
+   * The clock hour (see lastClaimHour) in which this member has one more claim to make, earned by a
+   * critical success on the D20. It only counts while it equals the current hour, and the claim that
+   * uses it clears it. Missing or null means none.
+   */
+  bonusClaimHour?: number | null;
   /** Missing on members who have never equipped anything. */
   equipment?: EquipmentDoc;
   createdAt: Date;

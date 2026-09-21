@@ -116,6 +116,15 @@ export const EFFECTS = {
     max: 1,
   },
 
+  // The D20's die: when the wearer claims, the D20 (constants.ts) may roll and change the claim.
+  d20: {
+    description:
+      "Chance that the wearer's hourly claim rolls the D20: a 1 pays nothing, 2 to 19 multiplies the claim by the roll divided by 10, and a 20 pays double and allows one more claim that hour.",
+    defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
+    min: 0,
+    max: 1,
+  },
+
   // Economy perks.
   claimBonus: {
     description: 'Extra points on the wearer\'s hourly claim, as a percent.',

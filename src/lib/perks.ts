@@ -73,6 +73,11 @@ export function wheelChance(gear: EffectTotals): number {
   return clamp(gear.wheelSpin, 0, 1);
 }
 
+/** The chance (0 to 1) that a claim by this gear rolls the D20. */
+export function d20Chance(gear: EffectTotals): number {
+  return clamp(gear.d20, 0, 1);
+}
+
 /** Points from an hourly claim, after the claim bonus. */
 export function claimAmount(rolled: number, gear: EffectTotals): number {
   return Math.round(rolled * (1 + gear.claimBonus));

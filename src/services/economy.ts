@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { MINUTE_MS, MULTI_PULLS } from '../constants.js';
 import { collections } from '../db.js';
+import { applyD20, rollD20, rollD20Dice, type D20Dice, type D20Roll } from '../lib/d20.js';
 import { groupCopies, newCopyId, type InventoryEntry } from '../lib/copies.js';
 import { gearEffects } from '../lib/equipment.js';
 import { rollPulls, topChance } from '../lib/gacha.js';
@@ -8,6 +9,7 @@ import {
   claimAmount,
   claimTaxAmount,
   claimTaxRate,
+  d20Chance,
   pullCost,
   robFine,
   robStolenAmount,
@@ -156,6 +158,8 @@ async function transferInDebt(
 export interface BalanceInfo {
   points: number;
   canClaim: boolean;
+  /** True when the claim that can be made now is the extra one earned by a critical success on the D20 this hour. */
+  bonusClaim: boolean;
   nextClaimUnix: number;
   /** When this member can rob again (unix seconds), or null if they can rob now. */
   robReadyAtUnix: number | null;
@@ -186,7 +190,8 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
   const hour = currentHour(now);
   return {
     points: member?.points ?? 0,
-    canClaim: !member || member.lastClaimHour < hour,
+    canClaim: !member || member.lastClaimHour < hour || hasBonusClaim(member, hour),
+    bonusClaim: member !== null && hasBonusClaim(member, hour),
     nextClaimUnix: nextHourUnix(hour),
     robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS, now),
     robProtectedUntilUnix: timerEndsAtUnix(member?.lastRobbedAt, CONFIG.rob.victimProtectionMinutes * MINUTE_MS, now),
@@ -223,6 +228,15 @@ export type ClaimResult =
       bonus: number;
       /** Set when the wheel (wheelSpin gear) spun for this claim and multiplied `amount`. */
       wheel: WheelSpin | null;
+      /**
+       * Set when the D20 (d20 gear) rolled for this claim. A fail makes `amount` 0 (and the hour is
+       * used up), a success doubled it and left one more claim this hour (`bonusLeft`).
+       */
+      d20: D20Roll | null;
+      /** This claim was the extra one earned by a critical success earlier in the hour. */
+      extra: boolean;
+      /** One more claim can be made this hour (this claim was a critical success). */
+      bonusLeft: boolean;
       /** Set when a member who robbed them took part of this claim (see the claimTax effect). */
       taxed: { amount: number; toUserId: string } | null;
       balance: number;
@@ -230,7 +244,16 @@ export type ClaimResult =
     }
   | { ok: false; nextClaimUnix: number };
 
-export async function claimHourly(guildId: string, userId: string): Promise<ClaimResult> {
+/** True when the member earned one more claim for this hour (a critical success on the D20) and hasn't used it. */
+function hasBonusClaim(member: Pick<MemberDoc, 'lastClaimHour' | 'bonusClaimHour'>, hour: number): boolean {
+  return member.lastClaimHour === hour && member.bonusClaimHour === hour;
+}
+
+/**
+ * Makes the member's hourly claim. `d20Dice` is the random numbers the D20 uses; leave it out (only
+ * tests set it, to force a roll).
+ */
+export async function claimHourly(guildId: string, userId: string, d20Dice: D20Dice = rollD20Dice()): Promise<ClaimResult> {
   await ensureMember(guildId, userId);
 
   const hour = currentHour();
@@ -238,7 +261,7 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
 
   const { members } = collections();
   const rolled = randInt(CONFIG.claim.min, CONFIG.claim.max);
-  // Thrown once, before the loop, so a retry below keeps the same spin.
+  // Thrown once, before the loop, so a retry below keeps the same spin (and the same roll of the D20).
   const wheelDice = rollWheelDice();
 
   // A tax left on this member by a robbery (claimTax gear) is taken out of this claim, in the
@@ -246,27 +269,50 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
   // if the tax is still what we read; if someone set one in between, read again.
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
+    // A member who rolled a critical success can claim once more in the same hour.
+    const extra = member !== null && hasBonusClaim(member, hour);
 
-    // Equipped gear can add a bonus on top of the roll, and the wheel can then multiply it.
+    // Equipped gear can add a bonus on top of the roll, the wheel can then multiply it, and the
+    // D20 comes last: it can wipe the claim out, double it or scale it by the number rolled.
     const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
     const withGear = claimAmount(rolled, gear);
     const wheel = spinWheel(wheelChance(gear), wheelDice);
-    const amount = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
+    const afterWheel = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
+    const d20 = rollD20(d20Chance(gear), d20Dice);
+    const amount = d20 ? applyD20(afterWheel, d20) : afterWheel;
+    const failed = d20?.kind === 'fail';
+    const bonusLeft = d20?.kind === 'success';
 
+    // A critical fail pays nothing, so it leaves a waiting tax alone for the next claim that pays.
     const taxRate = member?.claimTaxRate ?? null;
     const taxBy = member?.claimTaxBy ?? null;
-    const tax = taxRate !== null && taxBy !== null ? claimTaxAmount(amount, taxRate) : 0;
+    const tax = !failed && taxRate !== null && taxBy !== null ? claimTaxAmount(amount, taxRate) : 0;
     const kept = amount - tax;
 
-    // Only matches if this member has not claimed during the current hour.
+    // Only matches if this member has not claimed during the current hour (or is using the extra
+    // claim they earned this hour).
     const updated = await members.findOneAndUpdate(
-      { guildId, userId, lastClaimHour: { $lt: hour }, claimTaxRate: taxRate, claimTaxBy: taxBy },
-      { $inc: { points: kept }, $set: { lastClaimHour: hour, claimTaxRate: null, claimTaxBy: null } },
+      {
+        guildId,
+        userId,
+        ...(extra ? { lastClaimHour: hour, bonusClaimHour: hour } : { lastClaimHour: { $lt: hour } }),
+        claimTaxRate: taxRate,
+        claimTaxBy: taxBy,
+      },
+      {
+        $inc: { points: kept },
+        $set: {
+          lastClaimHour: hour,
+          // A critical success earns one more claim this hour; any other claim uses up the one it made.
+          bonusClaimHour: bonusLeft ? hour : null,
+          ...(failed ? {} : { claimTaxRate: null, claimTaxBy: null }),
+        },
+      },
       { returnDocument: 'after' },
     );
     if (!updated) {
       const current = await members.findOne({ guildId, userId });
-      if (current && current.lastClaimHour < hour) continue; // only the tax changed: try again
+      if (current && (current.lastClaimHour < hour || hasBonusClaim(current, hour))) continue; // only the tax changed: try again
       return { ok: false, nextClaimUnix };
     }
 
@@ -283,7 +329,7 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
       }
     }
 
-    const entries: LedgerInput[] = [{ guildId, userId, delta: amount, reason: 'claim' }];
+    const entries: LedgerInput[] = amount > 0 ? [{ guildId, userId, delta: amount, reason: 'claim' }] : [];
     if (paid > 0 && taxBy !== null) {
       entries.push(
         { guildId, userId, delta: -paid, reason: 'claim_tax_paid', otherUserId: taxBy },
@@ -297,6 +343,9 @@ export async function claimHourly(guildId: string, userId: string): Promise<Clai
       amount,
       bonus: withGear - rolled,
       wheel,
+      d20,
+      extra,
+      bonusLeft,
       taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
       balance: updated.points + (tax > 0 && paid === 0 ? tax : 0),
       nextClaimUnix,
