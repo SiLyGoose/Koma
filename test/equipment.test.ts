@@ -238,7 +238,7 @@ test('fine, claim and pull perks', () => {
   assert.equal(pullCost(1, gear({ pullDiscount: 0.9 })), 1);
 });
 
-test('glass cannon: 1.5x the points stolen and 2.5x the fine at the 4-star defaults, and shows on the item', () => {
+test('glass cannon: the reward and the risk are separate multipliers that stack with the other rob effects, and show on the item', () => {
   const cannon = gear({ glassCannon: 0.5, glassCannonPenalty: 2.5 });
   assert.equal(robStolenAmount(200, cannon, none), 300);
   assert.equal(robFine(100, cannon), 350);
@@ -258,9 +258,7 @@ test('glass cannon: 1.5x the points stolen and 2.5x the fine at the 4-star defau
   // Only the robber's gear counts: wearing it as the victim changes nothing.
   assert.equal(robStolenAmount(200, none, cannon), 200);
 
-  // The 4-star defaults are exactly 1.5x and 2.5x, and both are normal settings.
-  close(1 + CONFIG.equipment.glassCannon[4], 1.5);
-  close(1 + CONFIG.equipment.glassCannonPenalty[4], 2.5);
+  // The 4-star numbers are balance settings (see data/effects.ts) that get retuned, so this does not pin them: the item just gets whatever they are.
   const c4: ItemDef = { id: 'test-c4', name: 'Test C4', stars: 4, slot: 'weapon', description: '', effects: ['glassCannon', 'glassCannonPenalty'] };
   const totals = totalEffects([c4]);
   assert.equal(totals.glassCannon, CONFIG.equipment.glassCannon[4]);

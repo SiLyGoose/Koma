@@ -3,6 +3,7 @@ import { claim } from './claim.js';
 import { config } from './config.js';
 import { databank } from './databank.js';
 import { equip } from './equip.js';
+import { events } from './events.js';
 import { gacha } from './gacha.js';
 import { gear } from './gear.js';
 import { give } from './give.js';
@@ -29,6 +30,7 @@ export const commands: Command[] = [
   plinko,
   leaderboard,
   config,
+  events,
   give,
   createHelpCommand(() => commands),
 ];

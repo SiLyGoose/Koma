@@ -7,6 +7,9 @@ import { SETTINGS_REFRESH_MS, validateConstants } from './constants.js';
 import { validateItems } from './data/items.js';
 import { validateWheel } from './data/wheel.js';
 import { closeDb, connectDb } from './db.js';
+import { validateEvents } from './events/registry.js';
+import { resumeOpenEvents } from './events/runner.js';
+import { startEventScheduler } from './events/scheduler.js';
 import { requireEnv } from './env.js';
 import { resolvePrefixSource } from './lib/prefix-source.js';
 import { migrateInventory } from './services/migrate.js';
@@ -17,6 +20,7 @@ async function main(): Promise<void> {
   validateConfig();
   validateItems();
   validateWheel();
+  validateEvents();
 
   // With ENV=LOCAL the prefix comes from .env (DS_PREFIX); otherwise it is read from MongoDB.
   const prefixSource = resolvePrefixSource(process.env);
@@ -55,8 +59,15 @@ async function main(): Promise<void> {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   });
 
+  let stopEvents: () => void = () => {};
+
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}" or "/".`);
+
+    // Random events in the servers that chose an events channel (see the event command). An event
+    // that was still open when the bot last stopped (a restart, a deploy) is picked up again first.
+    await resumeOpenEvents(readyClient);
+    stopEvents = startEventScheduler(readyClient);
 
     // Tell Discord which slash commands exist. This replaces the whole list every start, so a
     // command removed from the code disappears from Discord too. A failure here only costs the
@@ -83,6 +94,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`Received ${signal}, shutting down.`);
+    stopEvents();
     await client.destroy();
     await closeDb();
     process.exit(0);

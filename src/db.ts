@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, SettingsDoc } from './types.js';
+import type { GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -11,6 +11,8 @@ export interface Collections {
   ledger: Collection<LedgerDoc>;
   settings: Collection<SettingsDoc>;
   meta: Collection<MetaDoc>;
+  /** Per-server data that is not in the settings: the events channel and when the next event is due. */
+  guilds: Collection<GuildDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -31,6 +33,7 @@ export async function connectDb(): Promise<Collections> {
     ledger: db.collection<LedgerDoc>('ledger'),
     settings: db.collection<SettingsDoc>('settings'),
     meta: db.collection<MetaDoc>('meta'),
+    guilds: db.collection<GuildDoc>('guilds'),
   };
 
   await Promise.all([

@@ -110,8 +110,30 @@ export const MAX_PLINKO_MULTIPLIER = 1000;
  * pictures to land. `idleMs` is how long the buttons under a finished game (again, double, half)
  * keep working after the last time they were used.
  */
-export const PLINKO_ANIMATION = { frameMs: 1000 };
+export const PLINKO_ANIMATION = { frameMs: 800 };
 export const PLINKO_BUTTONS = { idleMs: 60_000 };
+
+// ---------------------------------------------------------------------------
+// Random events (src/events)
+// ---------------------------------------------------------------------------
+
+/**
+ * How the bot decides when an event happens. Every `tickMs` it looks at each server that has an
+ * events channel and starts an event in the ones that are due. An event that became due more than
+ * `staleMs` ago (the bot was switched off at the time) is not started late: a new time is picked
+ * instead, so a restart never causes a burst of events.
+ */
+export const EVENTS = { tickMs: 60_000, staleMs: 10 * MINUTE_MS } as const;
+
+/** Longest the point crate can stay open, in seconds (the `events.crate.seconds` setting). */
+export const MAX_CRATE_SECONDS = 600;
+
+/**
+ * The point crate's button and screen. `refreshMs` is the shortest time between edits of the
+ * "grabbed so far" count, so a rush of presses is one edit (Discord limits message edits).
+ * `listMax` is how many members the result names before saying "...and N more".
+ */
+export const CRATE = { grabId: 'crate_grab', refreshMs: 3_000, listMax: 15, imageName: 'crate.png' } as const;
 
 /** File name of the die picture attached to a claim that rolled the D20. */
 export const D20_IMAGE_NAME = 'd20.png';
@@ -567,6 +589,59 @@ export const TEXT = {
       `You need at least **${fine}** points to rob, in case you get caught. You have **${balance}**. Use \`${p}claim\` to earn more.`,
   },
 
+  events: {
+    adminOnly: 'Only the bot admin can use this command.',
+    usage: (p: string) =>
+      `Use \`${p}events\` to see this server's events channel and every event, \`${p}events start [event]\` to start one now, or \`${p}events channel <#channel | off>\` to choose where they happen.`,
+    statusTitle: 'Random events',
+    channelField: 'Channel',
+    channelSet: (channel: string) => channel,
+    channelNone: 'None yet, so no events happen here.',
+    listField: 'Events',
+    /** One line of the list of events: the id you type to start it, its name, its chance of being picked at random, and what it does. */
+    listLine: (id: string, label: string, description: string, chance: string) => `\`${id}\` **${label}** (${chance}): ${description}`,
+    channelChanged: (channel: string) => `Events will now happen in ${channel}. The first one comes at a random time.`,
+    channelOff: 'Events are turned off in this server.',
+    /** Why a channel can't be used. */
+    channelMissing: "I can't find that channel in this server.",
+    channelNotText: 'That is not a text channel I can send messages in. Pick a normal text channel.',
+    channelNoPermission: (channel: string) => `I need to see ${channel}, send messages there and embed links. Give me those permissions there first.`,
+    channelUsage: (p: string) => `Use \`${p}events channel #channel\` to choose the channel, or \`${p}events channel off\` to turn events off.`,
+    startNoChannel: (p: string) => `Choose a channel first with \`${p}events channel #channel\`.`,
+    startBusy: 'An event is already happening in this server. Wait until it is over.',
+    startBadChannel: 'I could not use the events channel any more (it is gone, or I lost permission there). Choose it again.',
+    /** `ids` is the list of event ids. */
+    startUnknown: (name: string, ids: string) => `There is no event called "${name}". The events are: ${ids}`,
+    started: (label: string, channel: string) => `Started **${label}** in ${channel}.`,
+  },
+
+  crate: {
+    title: 'A crate landed!',
+    /** `pile` is the points inside, `unix` is when it opens, in seconds. */
+    description: (pile: string, unix: number) =>
+      `A crate with **${pile}** points fell into the channel! Press **Grab** before it opens <t:${unix}:R>. Everyone who grabs splits the points evenly.`,
+    button: 'Grab',
+    grabbedField: 'Grabbed so far',
+    grabbedNobody: 'Nobody yet',
+    grabbedCount: (count: number) => `${count} ${count === 1 ? 'person' : 'people'}`,
+    grabbed: 'You are in! The crate opens when the timer ends, and everyone who grabbed splits it.',
+    alreadyGrabbed: 'You already grabbed this crate.',
+    openedTitle: 'The crate opened!',
+    /** `each` is what everyone got, `extra` how many got one more to use up the remainder. */
+    opened: (pile: string, count: number, each: string, extra: number) =>
+      `**${pile}** points split between **${count}** ${count === 1 ? 'person' : 'people'}: **${each}** each${
+        extra > 0 ? `, and ${extra} lucky ${extra === 1 ? 'grabber' : 'grabbers'} got 1 more` : ''
+      }.`,
+    shareLine: (user: string, amount: string) => `${user} **+${amount}**`,
+    moreShares: (count: number) => `...and ${count} more`,
+    sharesField: 'Who got what',
+    crumbledTitle: 'The crate crumbled',
+    crumbled: (pile: string) => `Nobody grabbed the **${pile}** points, so they blew away.`,
+    failedTitle: 'The crate got stuck',
+    failed: 'Something went wrong while handing out the points, so nobody was paid. Ask the bot admin to look at the logs.',
+    someFailed: (count: number) => `${count} ${count === 1 ? 'payout' : 'payouts'} could not be made. Ask the bot admin to look at the logs.`,
+  },
+
   give: {
     adminOnly: 'Only the bot admin can use this command.',
     usage: (p: string, max: string) =>
@@ -665,6 +740,10 @@ export function validateConstants(): void {
   }
   if (!(PLINKO_ANIMATION.frameMs >= 500)) problems.push('PLINKO_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
+  if (!(EVENTS.tickMs >= 10_000)) problems.push('EVENTS.tickMs must be at least 10000');
+  if (!(EVENTS.staleMs > EVENTS.tickMs)) problems.push('EVENTS.staleMs must be longer than EVENTS.tickMs');
+  if (!(CRATE.refreshMs >= 1000)) problems.push('CRATE.refreshMs must be at least 1000 (Discord limits message edits)');
+  if (!(Number.isInteger(CRATE.listMax) && CRATE.listMax >= 1 && CRATE.listMax <= 50)) problems.push('CRATE.listMax must be a whole number from 1 to 50');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');
@@ -679,6 +758,7 @@ export function validateConstants(): void {
     ['MAX_WHEEL_SLICES', MAX_WHEEL_SLICES],
     ['MAX_WHEEL_MULTIPLIER', MAX_WHEEL_MULTIPLIER],
     ['MAX_PLINKO_MULTIPLIER', MAX_PLINKO_MULTIPLIER],
+    ['MAX_CRATE_SECONDS', MAX_CRATE_SECONDS],
     ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {

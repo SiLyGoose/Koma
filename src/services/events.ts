@@ -1,0 +1,144 @@
+import { isAdmin } from '../config.js';
+import type { OpenCrateDoc } from '../types.js';
+import { collections } from '../db.js';
+import type { CrateShare } from '../lib/events/crate.js';
+import { ensureMember } from './economy.js';
+
+/*
+ * The database side of the random events: which channel each server uses, when its next event is
+ * due, and handing out what an event pays. Points only move through single conditional updates,
+ * like everywhere else in the bot.
+ */
+
+/** What the scheduler needs to know about one server that has events turned on. */
+export interface EventGuild {
+  guildId: string;
+  channelId: string;
+  nextEventAt: Date | null;
+}
+
+/** A server's events channel and when its next event is due (both null when there is none). */
+export async function getEventInfo(guildId: string): Promise<{ channelId: string | null; nextEventAt: Date | null }> {
+  const doc = await collections().guilds.findOne({ _id: guildId });
+  return { channelId: doc?.eventChannelId ?? null, nextEventAt: doc?.nextEventAt ?? null };
+}
+
+export type SetChannelResult = { ok: true } | { ok: false; reason: 'forbidden' };
+
+/**
+ * Chooses the channel a server's events happen in, or turns them off with null. Only the bot admin
+ * may do this; the check lives here so no caller can skip it. The next event time is cleared, so
+ * the scheduler picks a fresh random one.
+ */
+export async function setEventChannel(actorId: string, guildId: string, channelId: string | null): Promise<SetChannelResult> {
+  if (!isAdmin(actorId)) return { ok: false, reason: 'forbidden' };
+  await collections().guilds.updateOne({ _id: guildId }, { $set: { eventChannelId: channelId, nextEventAt: null } }, { upsert: true });
+  return { ok: true };
+}
+
+/** Every server that has an events channel. */
+export async function listEventGuilds(): Promise<EventGuild[]> {
+  const docs = await collections().guilds.find({ eventChannelId: { $ne: null } }).toArray();
+  return docs.flatMap((doc) =>
+    typeof doc.eventChannelId === 'string' ? [{ guildId: doc._id, channelId: doc.eventChannelId, nextEventAt: doc.nextEventAt ?? null }] : [],
+  );
+}
+
+/**
+ * Moves a server's next event time from `observed` (what the caller saw) to `next`, in one
+ * conditional update. Returns false if it was no longer `observed`, because something else got
+ * there first (another copy of the bot, or a channel change), and then the caller must do nothing.
+ * `fired` also records that an event is starting now.
+ */
+export async function claimEventSlot(guildId: string, observed: Date | null, next: Date, fired: boolean, now: Date): Promise<boolean> {
+  const set: { nextEventAt: Date; lastEventAt?: Date } = { nextEventAt: next };
+  if (fired) set.lastEventAt = now;
+  const claimed = await collections().guilds.findOneAndUpdate(
+    { _id: guildId, nextEventAt: observed, eventChannelId: { $ne: null } },
+    { $set: set },
+  );
+  return claimed !== null;
+}
+
+/**
+ * Saves a crate that has just been posted, so it survives a restart of the bot (see
+ * `OpenCrateDoc`). Replaces whatever was saved before for the server.
+ */
+export async function saveOpenCrate(guildId: string, crate: Omit<OpenCrateDoc, 'grabbers'>): Promise<void> {
+  await collections().guilds.updateOne({ _id: guildId }, { $set: { openCrate: { ...crate, grabbers: [] } } }, { upsert: true });
+}
+
+/** Adds a member to the saved crate's grabbers (once), but only if that crate is still the one that is open. */
+export async function recordGrab(guildId: string, messageId: string, userId: string): Promise<void> {
+  await collections().guilds.updateOne({ _id: guildId, 'openCrate.messageId': messageId }, { $addToSet: { 'openCrate.grabbers': userId } });
+}
+
+/**
+ * Removes the saved crate, in one conditional update, and returns it (null if it was already
+ * removed, or is a different crate). The caller that gets it back is the one that pays the
+ * grabbers, so a crate is never paid twice, whichever copy of the bot or whichever start of the
+ * bot gets here.
+ */
+export async function takeOpenCrate(guildId: string, messageId: string): Promise<OpenCrateDoc | null> {
+  const before = await collections().guilds.findOneAndUpdate(
+    { _id: guildId, 'openCrate.messageId': messageId },
+    { $unset: { openCrate: '' } },
+    { returnDocument: 'before' },
+  );
+  return before?.openCrate ?? null;
+}
+
+/** Every crate that was left open, for the bot to pick up when it starts. */
+export async function listOpenCrates(): Promise<{ guildId: string; crate: OpenCrateDoc }[]> {
+  const docs = await collections().guilds.find({ openCrate: { $ne: null } }).toArray();
+  return docs.flatMap((doc) => (doc.openCrate ? [{ guildId: doc._id, crate: doc.openCrate }] : []));
+}
+
+export interface CratePayout {
+  /** Who was paid, in the order given. */
+  paid: CrateShare[];
+  /** Who could not be paid (their share was not added). */
+  failed: string[];
+}
+
+/** How many members are paid at the same time. */
+const PAY_AT_ONCE = 10;
+
+/**
+ * Adds each share to its member's points. A share that fails is reported and left alone, never
+ * retried, because a retry could add it twice. Shares of 0 are skipped. The ledger records every
+ * payment that went through.
+ */
+export async function payCrate(guildId: string, shares: readonly CrateShare[]): Promise<CratePayout> {
+  const { members, ledger } = collections();
+  const results = new Map<string, boolean>();
+
+  const pay = async (share: CrateShare): Promise<void> => {
+    try {
+      await ensureMember(guildId, share.userId);
+      await members.updateOne({ guildId, userId: share.userId }, { $inc: { points: share.amount } });
+      results.set(share.userId, true);
+    } catch (err) {
+      console.error(`Could not pay ${share.amount} points from a crate to ${share.userId} in ${guildId}:`, err);
+      results.set(share.userId, false);
+    }
+  };
+
+  const owed = shares.filter((share) => share.amount > 0);
+  for (let i = 0; i < owed.length; i += PAY_AT_ONCE) {
+    await Promise.all(owed.slice(i, i + PAY_AT_ONCE).map(pay));
+  }
+
+  const paid = owed.filter((share) => results.get(share.userId) === true);
+  const failed = owed.filter((share) => results.get(share.userId) === false).map((share) => share.userId);
+
+  if (paid.length > 0) {
+    const createdAt = new Date();
+    try {
+      await ledger.insertMany(paid.map((share) => ({ guildId, userId: share.userId, delta: share.amount, reason: 'event_crate' as const, createdAt })));
+    } catch (err) {
+      console.error('Failed to write ledger entries:', err);
+    }
+  }
+  return { paid, failed };
+}

@@ -6,7 +6,7 @@ import { findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/
 import { changeSetting, getPrefix, isPrefixFromEnv, resetSetting } from '../services/settings.js';
 import type { Command } from '../discord/types.js';
 
-const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Equipment'];
+const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Events', 'Equipment'];
 
 function describeValue(spec: SettingSpec): string {
   const value = getPath(CONFIG, spec.key);

@@ -155,6 +155,7 @@ export type LedgerReason =
   | 'sell'
   | 'plinko_bet'
   | 'plinko_payout'
+  | 'event_crate'
   | 'rob_won'
   | 'rob_lost'
   | 'rob_fine_paid'
@@ -171,6 +172,40 @@ export interface LedgerDoc {
   otherUserId?: string;
   itemId?: string;
   createdAt: Date;
+}
+
+/**
+ * One document per server for the random events (src/events). `_id` is the server's id. Settings
+ * that are the same everywhere (how often, how big) are in SettingsDoc instead; this holds what
+ * differs between servers.
+ */
+export interface GuildDoc {
+  _id: string;
+  /** The channel events happen in. Missing or null means events are off in this server. */
+  eventChannelId?: string | null;
+  /** When the next event is due. Missing or null means one has not been scheduled yet. */
+  nextEventAt?: Date | null;
+  /** When the last event started. */
+  lastEventAt?: Date | null;
+  /**
+   * The point crate that is open in this server right now, saved so that a restart of the bot
+   * does not lose it (it is picked up again, or paid out, when the bot starts). Removed when the
+   * crate is settled: whoever removes it is the one that pays.
+   */
+  openCrate?: OpenCrateDoc | null;
+}
+
+/** A point crate that has been posted and not settled yet. */
+export interface OpenCrateDoc {
+  channelId: string;
+  /** The crate message, which has the Grab button. */
+  messageId: string;
+  /** The points inside. */
+  pile: number;
+  /** When the crate opens (the grabbing stops). */
+  endsAt: Date;
+  /** Who has grabbed it so far (user ids), each once. */
+  grabbers: string[];
 }
 
 /**

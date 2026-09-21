@@ -1,5 +1,6 @@
 import {
   ApplicationIntegrationType,
+  ChannelType,
   InteractionContextType,
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -9,6 +10,7 @@ import {
 } from 'discord.js';
 import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
+import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { starString } from '../lib/format.js';
 import { SPECS } from '../lib/settings-spec.js';
@@ -123,6 +125,47 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
       void b.addStringOption((o) => o.setName('item').setDescription('The weapon or armor to wear').setRequired(true).setAutocomplete(true).setMaxLength(100)),
     toArgs: (i) => [i.options.getString('item', true)],
     autocomplete: ownedItem,
+  },
+
+  events: {
+    description: 'Random events: see the channel and events, start one now, or choose the channel (bot admin only).',
+    build: (b) =>
+      void b
+        .addSubcommand((s) => s.setName('status').setDescription('See the events channel and every event that can happen'))
+        .addSubcommand((s) =>
+          s
+            .setName('start')
+            .setDescription('Start an event now, in the events channel')
+            .addStringOption((o) =>
+              o
+                .setName('event')
+                .setDescription('Which event (a random one, if left out)')
+                .addChoices(...GAME_EVENTS.map((event) => ({ name: event.label, value: event.id }))),
+            ),
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('channel')
+            .setDescription('Choose the channel events happen in')
+            .addChannelOption((o) =>
+              o
+                .setName('channel')
+                .setDescription('A text channel the bot can send messages and embeds in')
+                .setRequired(true)
+                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+            ),
+        )
+        .addSubcommand((s) => s.setName('disable').setDescription('Turn events off in this server')),
+    toArgs: (i) => {
+      const action = i.options.getSubcommand();
+      if (action === 'start') {
+        const chosen = i.options.getString('event');
+        return chosen === null ? ['start'] : ['start', chosen];
+      }
+      if (action === 'channel') return ['channel', `<#${i.options.getChannel('channel', true).id}>`];
+      if (action === 'disable') return ['channel', 'off'];
+      return ['status'];
+    },
   },
 
   gacha: {

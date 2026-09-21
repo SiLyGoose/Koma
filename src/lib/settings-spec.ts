@@ -1,4 +1,5 @@
 import {
+  MAX_CRATE_SECONDS,
   MAX_LEADERBOARD_SIZE,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
@@ -22,7 +23,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Events' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -141,6 +142,12 @@ export const SPECS: readonly SettingSpec[] = [
       multiplier: true,
     };
   }),
+
+  int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
+  int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
+  int('events.crate.minPoints', 'Events', 'Fewest points a point crate can hold.', 1, MAX_POINTS),
+  int('events.crate.maxPoints', 'Events', 'Most points a point crate can hold.', 1, MAX_POINTS),
+  int('events.crate.seconds', 'Events', 'Seconds the point crate stays open for grabbing.', 10, MAX_CRATE_SECONDS),
 
   // One setting per effect per star tier, generated from the effect registry.
   ...EFFECT_IDS.flatMap((id) =>
@@ -266,6 +273,12 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.plinko.minBet > settings.plinko.maxBet) {
     return 'plinko.minBet cannot be higher than plinko.maxBet';
+  }
+  if (settings.events.minMinutes > settings.events.maxMinutes) {
+    return 'events.minMinutes cannot be higher than events.maxMinutes';
+  }
+  if (settings.events.crate.minPoints > settings.events.crate.maxPoints) {
+    return 'events.crate.minPoints cannot be higher than events.crate.maxPoints';
   }
   if (settings.rob.minChance > settings.rob.maxChance) {
     return 'rob.minChance cannot be higher than rob.maxChance';

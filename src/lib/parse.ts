@@ -21,3 +21,12 @@ export function parseUserArg(arg: string | undefined): string | null {
   const match = USER_ARG.exec(arg);
   return match ? (match[1] ?? match[2] ?? null) : null;
 }
+
+const CHANNEL_ARG = /^(?:<#(\d{17,20})>|(\d{17,20}))$/;
+
+/** The channel id in a channel mention like `<#123456789012345678>`, or a bare id. Null if it is neither. */
+export function parseChannelArg(arg: string | undefined): string | null {
+  if (!arg) return null;
+  const match = CHANNEL_ARG.exec(arg);
+  return match ? (match[1] ?? match[2] ?? null) : null;
+}

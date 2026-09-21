@@ -9,7 +9,8 @@ import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src
 import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
 import { parseGiveArgs } from '../src/lib/game/give.js';
-import { parseUserArg } from '../src/lib/parse.js';
+import { GAME_EVENTS } from '../src/events/registry.js';
+import { parseChannelArg, parseUserArg } from '../src/lib/parse.js';
 import { parseBetArg } from '../src/lib/game/plinko.js';
 import { parseSellArgs } from '../src/lib/game/sell.js';
 import { createEmbed } from '../src/lib/embed.js';
@@ -99,7 +100,7 @@ test('slash: names match the prefix commands, and slashUsage starts with the com
 // ---------------------------------------------------------------------------
 
 /** A stand-in for the chosen options of a slash command. */
-function fakeOptions(values: { sub?: string; strings?: Record<string, string>; ints?: Record<string, number>; bools?: Record<string, boolean>; users?: Record<string, string> }) {
+function fakeOptions(values: { sub?: string; strings?: Record<string, string>; ints?: Record<string, number>; bools?: Record<string, boolean>; users?: Record<string, string>; channels?: Record<string, string> }) {
   return {
     options: {
       getSubcommand: () => values.sub as string,
@@ -116,6 +117,14 @@ function fakeOptions(values: { sub?: string; strings?: Record<string, string>; i
       getBoolean: (name: string) => values.bools?.[name] ?? null,
       getUser: (name: string, required?: boolean) => {
         const id = values.users?.[name];
+        if (id === undefined) {
+          if (required) throw new Error(`missing ${name}`);
+          return null;
+        }
+        return { id };
+      },
+      getChannel: (name: string, required?: boolean) => {
+        const id = values.channels?.[name];
         if (id === undefined) {
           if (required) throw new Error(`missing ${name}`);
           return null;
@@ -186,6 +195,29 @@ test('slash options: unequip, give and config', () => {
   // The value keeps its spaces as one word; the command joins the words after the setting name.
   assert.deepEqual(args('config', { sub: 'set', strings: { setting: 'claim.min', value: '10' } }), ['set', 'claim.min', '10']);
   assert.deepEqual(args('config', { sub: 'reset', strings: { setting: 'claim.min' } }), ['reset', 'claim.min']);
+});
+
+test('slash options: event subcommands read back as the words the prefix command reads', () => {
+  assert.deepEqual(args('events', { sub: 'status' }), ['status']);
+  assert.deepEqual(args('events', { sub: 'start' }), ['start']);
+  assert.deepEqual(args('events', { sub: 'start', strings: { event: 'crate' } }), ['start', 'crate']);
+  assert.deepEqual(args('events', { sub: 'disable' }), ['channel', 'off']);
+  const words = args('events', { sub: 'channel', channels: { channel: ID } });
+  assert.equal(words[0], 'channel');
+  assert.equal(parseChannelArg(words[1]), ID);
+  assert.throws(() => args('events', { sub: 'channel' }), /missing channel/, 'the channel is required');
+});
+
+test('slash definition: /events has its four subcommands, a choice for every event, and a channel option limited to text channels', () => {
+  const json = slashCommandData(commands).find((d) => d.name === 'events') as any;
+  assert.ok(json, '/events is registered');
+  assert.deepEqual(json.options.map((o: any) => o.name), ['status', 'start', 'channel', 'disable']);
+  const start = json.options.find((o: any) => o.name === 'start');
+  assert.deepEqual(start.options[0].choices.map((c: any) => c.value), GAME_EVENTS.map((e) => e.id));
+  assert.notEqual(start.options[0].required ?? false, true, 'a random event is started when none is chosen');
+  const channel = json.options.find((o: any) => o.name === 'channel').options[0];
+  assert.equal(channel.required, true);
+  assert.deepEqual([...channel.channel_types].sort(), [0, 5], 'text and announcement channels only');
 });
 
 // ---------------------------------------------------------------------------

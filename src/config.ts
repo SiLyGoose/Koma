@@ -80,6 +80,21 @@ export interface Settings {
      */
     payout: Record<number, number>;
   };
+  events: {
+    /**
+     * Random events (see src/events): after one starts, the next comes between minMinutes and
+     * maxMinutes later, at a random time, in every server that has an events channel.
+     */
+    minMinutes: number;
+    maxMinutes: number;
+    crate: {
+      /** The points in a crate are a random whole number between these (inclusive). */
+      minPoints: number;
+      maxPoints: number;
+      /** How long the crate stays open for grabbing, in seconds. */
+      seconds: number;
+    };
+  };
   /** How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. */
   equipment: EquipmentSettings;
   leaderboardSize: number;
@@ -117,6 +132,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
+  // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
+  events: { minMinutes: 120, maxMinutes: 360, crate: { minPoints: 200, maxPoints: 600, seconds: 60 } },
   equipment: defaultEquipmentSettings(),
   leaderboardSize: 10,
 };
