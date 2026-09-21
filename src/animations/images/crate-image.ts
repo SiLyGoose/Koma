@@ -1,934 +1,698 @@
 import { encodePng } from './png.js';
 import type { CrateTier } from '../../lib/events/crate.js';
-import { mix, shrinkRect, type Rgb } from './raster.js';
+import { GLYPHS } from './pixel-font.js';
+import { BURST_NOISE, BURST_SPARKLES, CLOSED_NOISE, CLOSED_SPARKLES, HIDDEN_SPARKLES, HIDDEN_STREAKS, RIBBONS, type Sparkle } from './crate-layout.js';
+import {
+  atStops,
+  cubic,
+  group,
+  hex,
+  Layer,
+  linear,
+  radial,
+  roundRectPoints,
+  mixColor,
+  solid,
+  toBytes,
+  type Color,
+  type Paint,
+  type Point,
+  type Stop,
+} from './vector.js';
 
 /*
- * Draws the point crate as a PNG: an old stone chest, mossy and cracked, its lid carved with a
- * ring of runes that glow emerald, standing on flagstones under a moonlit sky. It is drawn by
- * tracing a ray through every pixel against a few flat faces (the chest, its lid and the ground),
- * so the perspective is right and the carving on each face follows it. No image library, like
- * the other pictures (see png.ts). Three states: `closed` (waiting to be grabbed, the runes
- * glowing softly), `opened` (the lid is thrown back, the runes blaze and light pours out with gold
- * and drifting runes) and `lost` (nobody came: the chest has crumbled to rubble and dust). The
- * runes glow emerald for a small pile, violet for a middling one and red for a big one (`tier`).
+ * Draws the point crate as a PNG: a sci-fi supply crate on a dark backdrop of soft, slow waves. The
+ * lid is hinged at the back and has no handles. While it is `closed` (waiting to be grabbed) light
+ * leaks out of the crack round the lid, more of it at the corners, with a soft glow from a crack round
+ * the back and a few drifting sparkles. When it is `opened` the lid stands up and light pours out of
+ * the opening in every direction. If it is `lost` (nobody came) the lights are out, the lid has
+ * slipped off, and dust hangs over it. The light is emerald for a small pile, violet for a middling
+ * one and red for a big one (`tier`). It is drawn with the little painter in vector.ts (shapes,
+ * gradients, blurred light), with no image library, like the other pictures (see png.ts).
  */
 
 export type CrateState = 'closed' | 'opened' | 'lost';
 
 const WIDTH = 640;
 const HEIGHT = 400;
-const SUPERSAMPLE = 2;
 
-type V3 = [number, number, number];
-const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const scale = (a: V3, k: number): V3 => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a: V3, b: V3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const norm = (a: V3): V3 => scale(a, 1 / Math.hypot(a[0], a[1], a[2]));
-
-const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
-const smooth = (a: number, b: number, x: number): number => {
-  const t = clamp01((x - a) / (b - a));
-  return t * t * (3 - 2 * t);
+const TIER_COLORS: Record<CrateTier, { col: Color; core: Color }> = {
+  low: { col: hex('#3dffb0'), core: hex('#eafff6') },
+  mid: { col: hex('#b58cff'), core: hex('#f3eaff') },
+  high: { col: hex('#ff5a4d'), core: hex('#ffe9e6') },
 };
-const fract = (x: number): number => x - Math.floor(x);
-const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
-// ---------------------------------------------------------------------------
-// Noise (the same every time: no Math.random, so the picture never changes between runs)
-// ---------------------------------------------------------------------------
+/** The middle of the chest, where the light comes from. */
+const CENTER: Point = [315, 231];
 
-function hash(ix: number, iy: number, seed: number): number {
-  let h = Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(seed, 1442695041);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967295;
+// Blur strengths (in picture pixels) used for the different kinds of light.
+const BLUR_FINE = 1.8;
+const BLUR_SOFT = 3;
+const BLUR_MEDIUM = 4.5;
+const BLUR_WIDE = 6;
+const BLUR_HAZE = 12;
+
+const rgb = (code: string): Color => hex(code);
+const mod = (n: number, m: number): number => ((n % m) + m) % m;
+
+/** What every drawing step needs: the picture, a scratch layer for blurred groups, and the tier's colours. */
+interface Ctx {
+  canvas: Layer;
+  scratch: Layer;
+  col: Color;
+  core: Color;
+  /** A more vivid version of `col`, for the crack itself. */
+  vivid: Color;
 }
 
-function vnoise(x: number, y: number, seed: number): number {
-  const ix = Math.floor(x);
-  const iy = Math.floor(y);
-  const fx = x - ix;
-  const fy = y - iy;
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  const a = hash(ix, iy, seed);
-  const b = hash(ix + 1, iy, seed);
-  const c = hash(ix, iy + 1, seed);
-  const d = hash(ix + 1, iy + 1, seed);
-  return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
-}
-
-function fbm(x: number, y: number, seed: number, octaves = 4): number {
-  let sum = 0;
-  let amp = 0.5;
-  let freq = 1;
-  for (let i = 0; i < octaves; i++) {
-    sum += amp * vnoise(x * freq, y * freq, seed + i * 17);
-    amp *= 0.5;
-    freq *= 2;
+function vividOf(c: Color): Color {
+  const [r, g, b] = c;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d > 0) {
+    if (max === r) h = mod((g - b) / d, 6);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
   }
-  return sum / (1 - Math.pow(0.5, octaves));
+  const s = Math.min(1, (max === 0 ? 0 : d / max) * 1.25 + 0.1);
+  const v = 1;
+  const k = (n: number): number => v - v * s * Math.max(0, Math.min(1, Math.min(mod(n + h, 6), 4 - mod(n + h, 6))));
+  return [k(5), k(3), k(1)];
 }
+
+const tierPaint = {
+  /** A glow that is strongest in the middle of an ellipse and gone at its edge. */
+  ground: (col: Color, cx: number, cy: number, rx: number, ry: number): Paint =>
+    radial(cx, cy, rx, ry, [
+      [0, col, 0.9],
+      [0.45, col, 0.26],
+      [1, col, 0],
+    ]),
+  halo: (col: Color, cx: number, cy: number, rx: number, ry: number): Paint =>
+    radial(cx, cy, rx, ry, [
+      [0, col, 0.55],
+      [0.4, col, 0.2],
+      [1, col, 0],
+    ]),
+};
 
 // ---------------------------------------------------------------------------
-// The scene: a stone chest with a lid, seen from a little above and to the side
+// Small helpers
 // ---------------------------------------------------------------------------
 
-const TURN = Math.PI + 0.58; // how the chest is turned toward the viewer
-const PITCH = 0.16; // how far the camera looks down
-const DISTANCE = 9.8;
-const FOCAL = WIDTH * 1.4;
-const LIFT = 0; // moves the scene up or down in the picture (negative is down)
-/** How far down the picture the camera's straight-ahead point is (0.5 is the middle): lower puts more sky above the horizon. */
-const EYE_LEVEL = 0.57;
-const CENTER: V3 = [0, 1.25, 0];
+const STAR: Point[] = [
+  [0, -1],
+  [0.2, -0.2],
+  [1, 0],
+  [0.2, 0.2],
+  [0, 1],
+  [-0.2, 0.2],
+  [-1, 0],
+  [-0.2, -0.2],
+];
 
-const HALF_X = 1.4; // half the chest's length and depth, in meters
-const HALF_Z = 1.0;
-const BASE_HEIGHT = 1.1;
-const LID_HEIGHT = 0.55;
-
-const cosT = Math.cos(TURN);
-const sinT = Math.sin(TURN);
-const cosP = Math.cos(PITCH);
-const sinP = Math.sin(PITCH);
-
-/** A direction from the model's space to the camera's (x right, y up, z away from the viewer). */
-function turn(v: V3): V3 {
-  const x = v[0] * cosT + v[2] * sinT;
-  const z = -v[0] * sinT + v[2] * cosT;
-  return [x, v[1] * cosP + z * sinP, -v[1] * sinP + z * cosP];
-}
-const toCamera = (p: V3): V3 => add(turn(sub(p, CENTER)), [0, LIFT, DISTANCE]);
-
-/** The model's direction for a direction in the camera's space (the reverse of `turn`). */
-function unturn(c: V3): V3 {
-  const y = c[1] * cosP - c[2] * sinP;
-  const z = c[1] * sinP + c[2] * cosP;
-  return [c[0] * cosT - z * sinT, y, c[0] * sinT + z * cosT];
-}
-
-/** How a part of the model is moved before it is drawn (the lid swinging open); the identity for everything else. */
-interface Move {
-  point(p: V3): V3;
-  dir(d: V3): V3;
-}
-const STAY: Move = { point: (p) => p, dir: (d) => d };
-
-/** The lid swung open about its back edge by `angle` radians (0 is shut, a little over a quarter turn leans it back). */
-function swing(angle: number): Move {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  const hinge: V3 = [0, BASE_HEIGHT, -HALF_Z];
-  const dir = (d: V3): V3 => [d[0], d[1] * c + d[2] * s, -d[1] * s + d[2] * c];
-  return { point: (p) => add(hinge, dir(sub(p, hinge))), dir };
-}
-const OPEN_LID = swing(1.98);
-
-type FaceKind = 'body' | 'rim' | 'lidSide' | 'lidTop' | 'lidInner';
-
-interface Face {
-  origin: V3;
-  u: V3;
-  v: V3;
-  /** The outward direction, in the camera's space. */
-  normal: V3;
-  uLen: number;
-  vLen: number;
-  flipU: boolean;
-  kind: FaceKind;
-  seed: number;
-}
-
-/** One side of a box, seen from outside: `u` runs to the right, `v` runs down (or, for a top, toward the viewer). */
-function makeFace(kind: FaceKind, origin: V3, u: V3, v: V3, normal: V3, seed: number, move: Move): Face {
-  const uCam = turn(move.dir(u));
-  return {
-    origin: toCamera(move.point(origin)),
-    u: uCam,
-    v: turn(move.dir(v)),
-    normal: norm(turn(move.dir(normal))),
-    uLen: Math.hypot(...u),
-    vLen: Math.hypot(...v),
-    flipU: uCam[0] < 0,
-    kind,
-    seed,
-  };
-}
-
-interface BoxKinds {
-  side: FaceKind;
-  top: FaceKind;
-  /** Given, the underside is made too (for a lid that is turned over). */
-  bottom?: FaceKind;
-}
-
-/** The four sides and the top (and maybe the bottom) of a box standing on `y0`, with half-length HALF_X, half-depth HALF_Z and height h. */
-function boxFaces(kinds: BoxKinds, y0: number, h: number, seed: number, move: Move = STAY): Face[] {
-  const up: V3 = [0, 1, 0];
-  const faces: Face[] = [];
-  const sides: { n: V3; half: number; wide: number }[] = [
-    { n: [0, 0, 1], half: HALF_Z, wide: HALF_X },
-    { n: [0, 0, -1], half: HALF_Z, wide: HALF_X },
-    { n: [1, 0, 0], half: HALF_X, wide: HALF_Z },
-    { n: [-1, 0, 0], half: HALF_X, wide: HALF_Z },
-  ];
-  sides.forEach(({ n, half, wide }, index) => {
-    const right = cross(up, n);
-    const origin = add(add([0, y0 + h, 0], scale(n, half)), scale(right, -wide));
-    faces.push(makeFace(kinds.side, origin, scale(right, 2 * wide), [0, -h, 0], n, seed + index, move));
+/** A four-pointed sparkle with a bright middle. */
+function star(ctx: Ctx, x: number, y: number, size: number, opacity: number, col = ctx.col, core = ctx.core): void {
+  group(ctx.canvas, ctx.scratch, { opacity }, (l) => {
+    l.fillPolygon(
+      STAR.map(([px, py]) => [x + px * size * 1.06, y + py * size * 1.06] as Point),
+      solid(col),
+    );
+    l.fillPolygon(
+      STAR.map(([px, py]) => [x + px * size * 0.62, y + py * size * 0.62] as Point),
+      solid(core),
+    );
   });
-  // The top: `u` to the right (+x), `v` toward +z.
-  faces.push(makeFace(kinds.top, [-HALF_X, y0 + h, -HALF_Z], [2 * HALF_X, 0, 0], [0, 0, 2 * HALF_Z], up, seed + 9, move));
-  if (kinds.bottom) {
-    // The underside: `v` runs from the back edge (the hinge) to the front.
-    faces.push(makeFace(kinds.bottom, [-HALF_X, y0, -HALF_Z], [2 * HALF_X, 0, 0], [0, 0, 2 * HALF_Z], [0, -1, 0], seed + 10, move));
-  }
-  return faces;
 }
 
-const baseFaces = boxFaces({ side: 'body', top: 'rim' }, 0, BASE_HEIGHT, 100);
-const closedFaces = [...baseFaces, ...boxFaces({ side: 'lidSide', top: 'lidTop' }, BASE_HEIGHT, LID_HEIGHT, 200)];
-const openFaces = [...baseFaces, ...boxFaces({ side: 'lidSide', top: 'lidTop', bottom: 'lidInner' }, BASE_HEIGHT, LID_HEIGHT, 200, OPEN_LID)];
-
-const groundNormal = norm(turn([0, 1, 0]));
-const groundPoint = toCamera([0, 0, 0]);
-
-// The moon is upper left, a little toward the viewer.
-const LIGHT = norm([-0.55, 0.8, -0.45]);
-const LIGHT_MODEL = unturn(LIGHT);
-/** Moonlight is cool: it tints everything it falls on a little blue. */
-const MOON: Rgb = [0.9, 0.97, 1.1];
-
-// ---------------------------------------------------------------------------
-// Runes
-// ---------------------------------------------------------------------------
-
-/** How the runes shine: their colour, the paler colour of the brightest part, the light they throw about, and tints for the lit stone. */
-interface Palette {
-  glow: Rgb;
-  core: Rgb;
-  light: Rgb;
-  /** Added to the sides of an open chest, which the light falls on. */
-  spill: Rgb;
-  /** The lit lining of the open lid. */
-  lining: Rgb;
-}
-const PALETTES: Record<CrateTier, Palette> = {
-  low: { glow: [70, 255, 170], core: [214, 255, 236], light: [186, 255, 224], spill: [70, 170, 120], lining: [96, 168, 146] },
-  mid: { glow: [170, 105, 255], core: [232, 214, 255], light: [196, 156, 255], spill: [120, 80, 170], lining: [128, 104, 170] },
-  high: { glow: [255, 60, 50], core: [255, 200, 184], light: [255, 130, 108], spill: [180, 70, 50], lining: [176, 100, 84] },
+const sparkles = (ctx: Ctx, list: readonly Sparkle[]): void => {
+  for (const [x, y, size, opacity] of list) star(ctx, x, y, size, opacity);
 };
 
-type Seg = readonly [number, number, number, number];
-/** Old alphabet letters, each a few straight strokes inside a 0-1 box (x to the right, y down). */
-const GLYPHS: Seg[][] = [
-  [[0.25, 0, 0.25, 1], [0.25, 0.25, 0.8, 0], [0.25, 0.55, 0.8, 0.3]],
-  [[0.2, 1, 0.2, 0], [0.2, 0, 0.8, 0.25], [0.8, 0.25, 0.8, 1]],
-  [[0.25, 0, 0.25, 1], [0.25, 0.25, 0.75, 0.5], [0.75, 0.5, 0.25, 0.75]],
-  [[0.2, 0, 0.2, 1], [0.2, 0.1, 0.8, 0.35], [0.2, 0.4, 0.8, 0.65]],
-  [[0.2, 0, 0.2, 1], [0.2, 0, 0.75, 0.2], [0.75, 0.2, 0.2, 0.5], [0.2, 0.5, 0.8, 1]],
-  [[0.75, 0.1, 0.25, 0.5], [0.25, 0.5, 0.75, 0.9]],
-  [[0.15, 0.05, 0.85, 0.95], [0.85, 0.05, 0.15, 0.95]],
-  [[0.2, 0, 0.2, 1], [0.8, 0, 0.8, 1], [0.2, 0.3, 0.8, 0.7]],
-  [[0.5, 0, 0.5, 1], [0.2, 0.35, 0.8, 0.6]],
-  [[0.7, 0, 0.3, 0.35], [0.3, 0.35, 0.7, 0.65], [0.7, 0.65, 0.3, 1]],
-  [[0.5, 0, 0.5, 1], [0.2, 0.3, 0.5, 0], [0.8, 0.3, 0.5, 0]],
-  [[0.5, 0, 0.9, 0.5], [0.9, 0.5, 0.5, 1], [0.5, 1, 0.1, 0.5], [0.1, 0.5, 0.5, 0]],
-  [[0.2, 0.1, 0.2, 0.9], [0.8, 0.1, 0.8, 0.9], [0.2, 0.1, 0.8, 0.9], [0.8, 0.1, 0.2, 0.9]],
-];
-const DIAMOND = 11;
-const CROSSED = 6;
-const glyphOf = (n: number): number => Math.abs(Math.floor(n)) % GLYPHS.length;
+/** Fills a polygon on the picture itself. */
+const poly = (ctx: Ctx, points: readonly Point[], paint: Paint, opacity = 1): void => ctx.canvas.fillPolygon(points, paint, opacity);
+const rect = (x: number, y: number, w: number, h: number): Point[] => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+const rrect = (ctx: Ctx, x: number, y: number, w: number, h: number, r: number, paint: Paint, opacity = 1): void =>
+  ctx.canvas.fillPolygon(roundRectPoints(x, y, w, h, r), paint, opacity);
 
-function segDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const t = clamp01(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy));
-  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
-}
+/** A line round a rounded rectangle, centred on its edge. */
+const outline = (ctx: Ctx, x: number, y: number, w: number, h: number, r: number, width: number, paint: Paint, opacity = 1): void => {
+  const pts = roundRectPoints(x, y, w, h, r);
+  ctx.canvas.strokePath([...pts, pts[0] as Point], width, paint, opacity);
+};
 
-/** How far (lx, ly), in the glyph's own 0-1 box, is from the nearest stroke of glyph `g`. */
-function glyphDistance(lx: number, ly: number, g: number): number {
-  let best = Infinity;
-  for (const s of GLYPHS[g] as Seg[]) best = Math.min(best, segDistance(lx, ly, s[0], s[1], s[2], s[3]));
-  return best;
-}
+/** Runs `draw` on a blurred, blended group (see vector.ts). */
+const soft = (ctx: Ctx, blur: number, blend: 'normal' | 'screen', opacity: number, draw: (l: Layer) => void): void =>
+  group(ctx.canvas, ctx.scratch, { blur, blend, opacity }, draw);
 
-/** How brightly a stroke shines `m` meters away from it: a bright core and a soft halo (a bit over 1 in the core). */
-const strokeGlow = (m: number): number => (1 - smooth(0.02, 0.038, m)) * 1.15 + 0.5 * Math.exp(-(m * m) / 0.0028);
-
-/** The glow of glyph `g` drawn `size` meters tall, centred at (cx, cy), at the point (x, y) (meters on a face). */
-function glyphGlow(x: number, y: number, cx: number, cy: number, size: number, g: number): number {
-  const lx = (x - cx) / size + 0.5;
-  const ly = (y - cy) / size + 0.5;
-  if (lx < -0.5 || lx > 1.5 || ly < -0.5 || ly > 1.5) return 0;
-  return strokeGlow(glyphDistance(lx, ly, g) * size);
-}
-
-/** The glow of a circle of radius `r` centred at (cx, cy), with `ticks` short marks outside it. */
-function ringGlow(x: number, y: number, cx: number, cy: number, r: number, ticks = 0): number {
-  const dx = x - cx;
-  const dy = y - cy;
-  const dist = Math.hypot(dx, dy);
-  if (Math.abs(dist - r) > 0.3) return 0;
-  let glow = strokeGlow(Math.abs(dist - r));
-  if (ticks > 0 && dist > r + 0.04 && dist < r + 0.09) {
-    const across = fract((Math.atan2(dy, dx) / (2 * Math.PI)) * ticks);
-    if (Math.abs(across - 0.5) < 0.06) glow = Math.max(glow, 1);
+/** Text in the little 5x7 letters of the pixel font (plus the few letters the plate needs), centred on (cx, top). */
+const LETTERS: Record<string, readonly string[]> = {
+  ...GLYPHS,
+  K: ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
+  O: ['.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.'],
+  M: ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
+  A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
+  '-': ['.....', '.....', '.....', '#####', '.....', '.....', '.....'],
+  ' ': ['..', '..', '..', '..', '..', '..', '..'],
+};
+function dotText(ctx: Ctx, text: string, cx: number, top: number, paint: Paint, gap = 1, opacity = 1): void {
+  let width = -gap;
+  for (const ch of text) width += (LETTERS[ch]?.[0]?.length ?? 0) + gap;
+  let x = Math.round(cx - width / 2);
+  for (const ch of text) {
+    const glyph = LETTERS[ch];
+    if (!glyph) continue;
+    glyph.forEach((row, ry) => {
+      for (let rx = 0; rx < row.length; rx++) if (row[rx] === '#') poly(ctx, rect(x + rx, top + ry, 1, 1), paint, opacity);
+    });
+    x += (glyph[0]?.length ?? 0) + gap;
   }
-  return glow;
 }
 
 // ---------------------------------------------------------------------------
-// Paint
+// The backdrop: deep blue fading to black, with soft waves of light across it
 // ---------------------------------------------------------------------------
 
-/** What a face looks like at one point: its stone, and how much of the rune light is shining there. */
-interface Paint {
-  color: Rgb;
-  glow: number;
-}
+function backdrop(ctx: Ctx): void {
+  const { canvas } = ctx;
+  // Base gradient runs corner to corner (in the picture's own proportions).
+  const base: Stop[] = [
+    [0, rgb('#040a18')],
+    [0.5, rgb('#070f24')],
+    [1, rgb('#020307')],
+  ];
+  canvas.fillAll((x, y) => atStops(base, (x / WIDTH + y / HEIGHT) / 2));
+  canvas.fillAll(radial(0.62 * WIDTH, 0.38 * HEIGHT, 0.7 * WIDTH, 0.7 * HEIGHT, [[0, rgb('#1a4a90'), 0.2], [1, rgb('#1a4a90'), 0]]));
 
-const STONE_DARK: Rgb = [70, 76, 86];
-const MORTAR: Rgb = [30, 34, 40];
-
-/** Weathered stone laid in courses `course` meters high, in blocks of different lengths. */
-function stoneBlocks(x: number, y: number, seed: number, course: number): Rgb {
-  const row = Math.floor(y / course);
-  const inRow = y / course - row;
-  const length = 0.62 + 0.45 * hash(row, 0, seed);
-  const shift = hash(row, 1, seed) * length;
-  const bx = (x + shift) / length;
-  const col = Math.floor(bx);
-  const inBlock = bx - col;
-  const tone = hash(col, row, seed + 5);
-  const grain = fbm(x * 9, y * 9, seed + 7);
-  let color = mix([94, 102, 112], [132, 136, 138], clamp01(tone * 0.65 + grain * 0.35));
-  const joint = Math.min(inBlock * length, (1 - inBlock) * length, inRow * course, (1 - inRow) * course);
-  // Edges of each block are worn dark, the middle catches the light.
-  color = mix(color, STONE_DARK, 0.5 * (1 - smooth(0, 0.07, joint)));
-  if (joint < 0.014) color = mix(color, MORTAR, 0.9);
-  // Hairline cracks and chips.
-  if (Math.abs(fbm(x * 5 + seed, y * 5, seed + 9) - 0.5) < 0.011) color = mix(color, [26, 30, 36], 0.8);
-  if (fbm(x * 40, y * 40, seed + 12) > 0.8) color = mix(color, STONE_DARK, 0.6);
-  return color;
-}
-
-/** Moss creeping over the stone where `amount` (0 to 1) is high, in clumps. */
-function withMoss(color: Rgb, amount: number, x: number, y: number, seed: number): Rgb {
-  const clump = fbm(x * 7 + 3, y * 7, seed + 21);
-  const k = clamp01((amount * 0.6 + clump - 0.7) * 3);
-  if (k <= 0) return color;
-  return mix(color, mix([46, 76, 40], [96, 128, 64], fbm(x * 20, y * 20, seed + 22)), k * 0.92);
-}
-
-/** A round carved medallion of smooth stone at (cx, cy) with a glowing ring and rune. */
-function medallion(color: Rgb, x: number, y: number, cx: number, cy: number, radius: number, glyph: number, seed: number): Paint {
-  const r = Math.hypot(x - cx, y - cy);
-  let out = color;
-  if (r < radius + 0.03) {
-    const grain = fbm(x * 10, y * 10, seed + 11);
-    out = mix([106, 112, 118], [134, 140, 142], smooth(0.2, 0.8, grain));
-    out = mix(out, [80, 86, 96], smooth(radius * 0.55, radius, r) * 0.55);
-    if (r > radius - 0.02) out = mix(out, MORTAR, 0.9);
+  // Wide soft bands: long S-curves, heavily blurred, in a few dark blues and one teal.
+  const bands: [string, number, number, number, number, number, number][] = [
+    ['#2b4f9a', 0.2, 110, -30, 150, 650, 60],
+    ['#1d3f86', 0.22, 80, 20, 250, 690, 140],
+    ['#1f6f9c', 0.12, 64, -10, 330, 660, 210],
+    ['#3a3f9e', 0.16, 90, 40, 120, 700, 300],
+    ['#153468', 0.24, 120, -40, 200, 620, 370],
+  ];
+  for (const [color, opacity, width, y0, y1, x1, y2] of bands) {
+    const path: Point[] = [
+      ...cubic([-60, y0 + 60], [120, y1 - 90], [260, y1 + 70], [380, y0 + 150]),
+      ...cubic([380, y0 + 150], [500, 2 * (y0 + 150) - (y1 + 70)], [x1 - 80, y2 - 40], [x1, y2]).slice(1),
+    ];
+    soft(ctx, BLUR_HAZE, 'screen', opacity * 0.4, (l) => l.strokePath(path, width, solid(rgb(color)), 1, true));
   }
-  const flicker = 0.85 + 0.15 * fbm(x * 6, y * 6, seed + 13);
-  const shine = Math.max(ringGlow(x, y, cx, cy, radius * 0.72, 12), glyphGlow(x, y, cx, cy, radius * 0.9, glyph));
-  return { color: out, glow: shine * flicker * (1 - smooth(radius * 0.95, radius * 1.15, r)) };
-}
 
-/** The sides of the lower half of the chest. */
-function paintBody(u: number, v: number, w: number, h: number, seed: number): Paint {
-  const x = u * w;
-  const y = v * h;
-  let color = stoneBlocks(x, y, seed, 0.35);
-  // Squared corner posts, with a groove down their inner edge.
-  const edge = Math.min(x, w - x);
-  if (edge < 0.17) {
-    color = mix([86, 92, 100], [118, 122, 126], fbm(x * 7, y * 7, seed + 2));
-    if (edge > 0.156) color = mix(color, MORTAR, 0.9);
-  }
-  // The cornice along the top.
-  if (y < 0.11) {
-    color = mix([120, 126, 130], [142, 146, 146], fbm(x * 8, y * 8, seed + 3));
-    if (y > 0.097) color = mix(color, MORTAR, 0.9);
-  }
-  color = withMoss(color, smooth(h - 0.5, h, y), x, y, seed);
-  if (w > 2.4) {
-    const seal = medallion(color, x, y, w / 2, h * 0.52, 0.44, DIAMOND, seed);
-    // A rune either side of it, worn: some shine fainter.
-    let glow = seal.glow;
-    for (const side of [0.19, 0.81]) {
-      const glyph = glyphOf(hash(Math.round(side * 10), 0, seed) * 40);
-      glow = Math.max(glow, glyphGlow(x, y, w * side, h * 0.52, 0.42, glyph) * (side < 0.5 ? 1 : 0.55));
+  // Thin ribbons on top, so the waves have a visible flow.
+  soft(ctx, BLUR_FINE, 'normal', 1, (l) => {
+    for (const ribbon of RIBBONS) {
+      const path = ribbon.ys.map((y, i) => [-20 + (i * (WIDTH + 40)) / 16, y] as Point);
+      l.strokePath(path, ribbon.width, solid(rgb('#7fa6e8')), ribbon.opacity);
     }
-    return { color: seal.color, glow };
-  }
-  return medallion(color, x, y, w / 2, h * 0.52, 0.34, CROSSED, seed);
-}
+  });
 
-/** The sides of the lid: a dark frieze of runes running round it. */
-function paintLidSide(u: number, v: number, w: number, h: number, seed: number): Paint {
-  const x = u * w;
-  const y = v * h;
-  let color = stoneBlocks(x, y, seed, 0.28);
-  const edge = Math.min(x, w - x);
-  if (edge < 0.17) {
-    color = mix([88, 94, 102], [120, 124, 128], fbm(x * 7, y * 7, seed + 2));
-    if (edge > 0.156) color = mix(color, MORTAR, 0.9);
-  }
-  // The frieze: a recessed dark band with a rune in each cell.
-  let glow = 0;
-  if (y > 0.11 && y < 0.44 && edge > 0.17) {
-    color = mix([46, 52, 60], [58, 64, 72], fbm(x * 8, y * 8, seed + 4));
-    if (y < 0.125 || y > 0.425) color = mix(color, MORTAR, 0.9);
-    const cell = Math.floor(x / 0.36);
-    const alive = hash(cell, 3, seed) > 0.18;
-    glow = glyphGlow(x, y, (cell + 0.5) * 0.36, 0.275, 0.2, glyphOf(hash(cell, 4, seed) * 60)) * (alive ? 1 : 0.12);
-  }
-  // The lip along the bottom edge, where the lid sits on the chest.
-  if (y > h - 0.07) {
-    color = mix([124, 128, 132], [96, 102, 108], fbm(x * 8, y * 8, seed + 5));
-    if (y < h - 0.058) color = mix(color, MORTAR, 0.9);
-  }
-  return { color, glow };
-}
+  // Light sweeping in from the top right.
+  const sweep: Stop[] = [[0, rgb('#7fb0ff'), 0.35], [1, rgb('#7fb0ff'), 0]];
+  soft(ctx, BLUR_HAZE, 'normal', 0.2, (l) =>
+    l.fillPolygon([[470, 0], [640, 0], [640, 180], [420, 400], [360, 400]], (x, y) => atStops(sweep, (1 - (x - 360) / 280 + y / 400) / 2)),
+  );
 
-/** The top of the lid: a slab with a great ring of runes carved in it. */
-function paintLidTop(u: number, v: number, w: number, h: number, seed: number): Paint {
-  const x = u * w;
-  const y = v * h;
-  const grain = fbm(x * 8, y * 8, seed);
-  let color = mix([100, 108, 116], [134, 138, 140], smooth(0.25, 0.8, grain));
-  if (Math.abs(fbm(x * 4 + seed, y * 4, seed + 9) - 0.5) < 0.012) color = mix(color, [26, 30, 36], 0.8);
-  const edge = Math.min(x, w - x, y, h - y);
-  // A raised, lighter border round the edge with a groove inside it.
-  if (edge < 0.11) color = mix([128, 134, 136], [150, 154, 154], grain);
-  if (edge > 0.1 && edge < 0.115) color = mix(color, MORTAR, 0.9);
-  color = withMoss(color, 0.6 * (1 - smooth(0, 0.55, edge)), x, y, seed);
-  const cx = w / 2;
-  const cy = h / 2;
-  const r = Math.hypot(x - cx, y - cy);
-  // The seal: smooth stone inside the outer ring.
-  if (r < 0.7) color = mix(color, mix([112, 118, 124], [96, 102, 110], smooth(0.3, 0.7, r)), 0.85);
-  let glow = Math.max(ringGlow(x, y, cx, cy, 0.62, 16), ringGlow(x, y, cx, cy, 0.3), glyphGlow(x, y, cx, cy, 0.34, DIAMOND));
-  // Eight runes between the two rings.
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2 + Math.PI / 8;
-    glow = Math.max(glow, glyphGlow(x, y, cx + Math.cos(angle) * 0.46, cy + Math.sin(angle) * 0.46, 0.17, glyphOf(hash(i, 1, seed) * 60)));
-  }
-  return { color, glow: glow * (0.85 + 0.15 * fbm(x * 6, y * 6, seed + 13)) * (1 - smooth(0.62, 0.8, r) * 0.6) };
-}
-
-/** The inside of the open lid: dark stone, bathed in light from the chest, the seal glowing on it. */
-function paintLidInner(u: number, v: number, w: number, h: number, seed: number, pal: Palette): Paint {
-  const x = u * w;
-  const y = v * h;
-  const grain = fbm(x * 10, y * 10, seed);
-  // Brightest near the hinge end, where the light from the chest is nearest.
-  const lit = 1 - 0.55 * smooth(0, 1, v);
-  let color = mix([18, 28, 32], pal.lining, lit * (0.35 + 0.5 * grain));
-  const edge = Math.min(x, w - x, y, h - y);
-  if (edge < 0.11) color = mix(color, [176, 236, 214], 0.35 * lit);
-  const cx = w / 2;
-  const cy = h / 2;
-  const glow = Math.max(ringGlow(x, y, cx, cy, 0.62, 16), ringGlow(x, y, cx, cy, 0.3), glyphGlow(x, y, cx, cy, 0.34, DIAMOND));
-  return { color, glow: glow * 1.1 };
-}
-
-/** The top edge of the chest, seen when the lid is open: a stone rim round a heap of gold. */
-function paintRim(u: number, v: number, w: number, h: number, seed: number, pal: Palette): Paint {
-  const x = u * w;
-  const y = v * h;
-  const edge = Math.min(x, w - x, y, h - y);
-  if (edge < 0.15) {
-    const stone = mix([116, 122, 126], [148, 152, 152], fbm(x * 9, y * 9, seed));
-    return { color: edge > 0.135 ? mix(stone, MORTAR, 0.85) : stone, glow: 0 };
-  }
-  // The heap of gold: coins catching the light.
-  const coins = fbm(x * 15, y * 15, seed + 3);
-  const crevice = fbm(x * 34, y * 34, seed + 4);
-  const centre = 1 - smooth(0, 0.9, Math.hypot((x - w / 2) / (w / 2), (y - h / 2) / (h / 2)));
-  let color: Rgb = mix([204, 148, 40], [255, 226, 122], coins * 0.6 + centre * 0.5);
-  color = mix(color, [96, 62, 16], 0.6 * (1 - smooth(0.28, 0.5, crevice)));
-  if (crevice > 0.72) color = mix(color, [255, 252, 224], (crevice - 0.72) * 3);
-  return { color: mix(color, pal.core, centre * 0.3), glow: 0 };
+  // A vignette to keep the corners dark, and a faint haze under the chest so it sits on something.
+  canvas.fillAll(radial(320, 200, 0.75 * WIDTH, 0.75 * HEIGHT, [[0.55, rgb('#000000'), 0], [1, rgb('#000000'), 0.7]]));
+  soft(ctx, BLUR_HAZE, 'normal', 0.12, (l) => l.fillEllipse(320, 350, 330, 34, solid(rgb('#4d78c9'))));
 }
 
 // ---------------------------------------------------------------------------
-// Sky and ground
+// The crate
 // ---------------------------------------------------------------------------
 
-const HAZE: Rgb = [84, 100, 122];
-
-/** The colour of the sky at the picture's (x, y), both 0 to 1: deep blue night, a moon, a few stars and a misty horizon. */
-function skyColor(x: number, y: number): Rgb {
-  const t = smooth(0, 0.62, y);
-  let color = mix([14, 20, 44], [104, 120, 150], t);
-  // Thin cloud drifting across it.
-  const cloud = fbm(x * 3.2 + 1.7, y * 6 + 0.3, 40, 5);
-  const veil = smooth(0.45, 0.85, cloud) * (1 - smooth(0.3, 0.6, y));
-  color = mix(color, [52, 60, 86], 0.55 * veil);
-  // Stars, fewer where the cloud is and near the horizon.
-  if (hash(Math.floor(x * WIDTH), Math.floor(y * HEIGHT), 55) > 0.9982) {
-    color = mix(color, [232, 238, 255], 0.85 * (1 - smooth(0.05, 0.4, y)) * (1 - veil));
-  }
-  // The moon, with a halo.
-  const moon = Math.hypot((x - 0.17) * 1.6, y - 0.15);
-  color = mix(color, [238, 242, 252], 1 - smooth(0.042, 0.047, moon));
-  const halo = Math.exp(-moon * moon * 90) * 0.4;
-  return [color[0] + halo * 70, color[1] + halo * 84, color[2] + halo * 116];
+/** How a part of the crate is moved (the lid slipping off in the lost picture); the identity for everything else. */
+interface Move {
+  fwd(p: Point): Point;
+  inv(x: number, y: number): Point;
 }
-
-/** The far hills at the horizon: how high they reach above it, in picture heights, at x. */
-function hillHeight(x: number): number {
-  return 0.03 + 0.055 * fbm(x * 4.2, 0.5, 60, 4);
-}
-
-/** The flagstones the chest stands on, at world position (wx, wz) and `dist` meters away. */
-function paintGround(wx: number, wz: number, dist: number): Rgb {
-  const slab = 2.3;
-  const row = Math.floor(wz / slab + 0.1);
-  const off = hash(row, 0, 50) * slab;
-  const cell = Math.floor((wx + off) / slab);
-  const gx = fract((wx + off) / slab);
-  const gz = fract(wz / slab + 0.1);
-  const seam = Math.min(gx, 1 - gx, gz, 1 - gz) * slab;
-  const grain = fbm(wx * 3.1, wz * 3.1, 70, 5);
-  let color: Rgb = mix([66, 74, 84], [106, 112, 116], clamp01(0.55 * hash(cell, row, 51) + 0.45 * smooth(0.25, 0.8, grain)));
-  // Seams between the stones, cracks, and moss growing in both.
-  color = mix(color, [24, 28, 34], 0.85 * (1 - smooth(0.02, 0.08, seam)));
-  if (Math.abs(fbm(wx * 1.6 + 4, wz * 1.6, 72, 4) - 0.5) < 0.012) color = mix(color, [24, 28, 34], 0.8);
-  const patch = fbm(wx * 0.7 + 5, wz * 0.7, 75, 4);
-  const moss = clamp01((patch - 0.5) * 4) * 0.8 + (seam < 0.14 ? clamp01((fbm(wx * 3, wz * 3, 76, 3) - 0.45) * 4) * 0.7 : 0);
-  color = mix(color, mix([44, 72, 38], [90, 122, 60], fbm(wx * 9, wz * 9, 77, 3)), Math.min(1, moss));
-  // Far away everything fades into the mist.
-  return mix(color, HAZE, smooth(6, 30, dist) * 0.85);
-}
-
-/** A rubble stone lying on the ground where the chest was: position, size and how it is turned. */
-interface Chunk {
-  x: number;
-  z: number;
-  angle: number;
-  length: number;
-  depth: number;
-  tone: number;
-  /** A rune still glowing on it, or -1. */
-  rune: number;
-}
-/** The way the camera looks along the ground, in the model's space: a raised thing seems to sit this way from where it stands. */
-const AWAY: [number, number] = (() => {
-  const d = unturn([0, 0, 1]);
-  const len = Math.hypot(d[0], d[2]);
-  return [d[0] / len, d[2] / len];
-})();
-/** How far along the ground a stone one meter tall seems to lean toward the far side, seen from the camera. */
-const LEAN = 3.2;
-
-const CHUNKS: Chunk[] = Array.from({ length: 46 }, (_, i) => {
-  const angle = hash(i, 1, 300) * Math.PI * 2;
-  const radius = 0.1 + 2.5 * Math.pow(hash(i, 2, 300), 1.2);
-  // Bigger stones toward the middle, where the walls fell in.
-  const size = (0.25 + 0.6 * hash(i, 4, 300)) * (1.3 - radius / 3.2);
-  return {
-    x: Math.cos(angle) * radius * 1.15,
-    z: Math.sin(angle) * radius * 0.9,
-    angle: hash(i, 3, 300) * Math.PI,
-    length: size,
-    depth: size * (0.55 + 0.4 * hash(i, 6, 300)),
-    tone: hash(i, 5, 300),
-    rune: hash(i, 7, 300) > 0.72 ? glyphOf(hash(i, 8, 300) * 60) : -1,
+const STAY: Move = { fwd: (p) => p, inv: (x, y) => [x, y] };
+const moved =
+  (move: Move) =>
+  (paint: Paint): Paint =>
+  (x, y) => {
+    const [ix, iy] = move.inv(x, y);
+    return paint(ix, iy);
   };
-}).sort((a, b) => (b.x * AWAY[0] + b.z * AWAY[1]) - (a.x * AWAY[0] + a.z * AWAY[1])); // far ones first, so near ones cover them
-const CHUNK_SHADOW: [number, number] = (() => {
-  const len = Math.hypot(LIGHT_MODEL[0], LIGHT_MODEL[2]);
-  return [(-LIGHT_MODEL[0] / len) * 0.14, (-LIGHT_MODEL[2] / len) * 0.14];
-})();
+function shove(dx: number, dy: number, degrees: number, about: Point): Move {
+  const a = (degrees * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return {
+    fwd: ([x, y]) => [about[0] + (x - about[0]) * c - (y - about[1]) * s + dx, about[1] + (x - about[0]) * s + (y - about[1]) * c + dy],
+    inv: (x, y) => {
+      const px = x - dx - about[0];
+      const py = y - dy - about[1];
+      return [about[0] + px * c + py * s, about[1] - px * s + py * c];
+    },
+  };
+}
 
-const inChunk = (dx: number, dz: number, chunk: Chunk): { along: number; across: number } | null => {
-  const along = dx * Math.cos(chunk.angle) + dz * Math.sin(chunk.angle);
-  const across = -dx * Math.sin(chunk.angle) + dz * Math.cos(chunk.angle);
-  return Math.abs(along) < chunk.length / 2 && Math.abs(across) < chunk.depth / 2 ? { along, across } : null;
-};
+/** The colours of the crate's parts: lit for a live crate, dull grey for a dead one. */
+interface Look {
+  led: Color;
+  ledCore: Color;
+  panelLight: Color;
+  dead: boolean;
+}
 
-/** The rubble, dust-stain and glowing rune scraps on the ground where the chest was; `paving` is what is there already. */
-function paintWreck(paving: Rgb, wx: number, wz: number): Paint {
-  const wobble = fbm(wx * 1.4 + 9, wz * 1.4, 310, 4);
-  const radius = Math.hypot(wx / 1.9, wz / 1.45) * (0.75 + 0.5 * wobble);
-  let color = mix(paving, [28, 30, 36], 0.55 * (1 - smooth(0.5, 1.4, radius)));
-  // Cracks in the flagstones spreading out from where it fell.
-  if (radius < 1.4 && Math.abs(fbm(wx * 4 + 2, wz * 4, 320, 4) - 0.5) < 0.014) color = mix(color, [14, 16, 20], 0.85);
-  let glow = 0;
-  for (const chunk of CHUNKS) {
-    if (Math.abs(wx - chunk.x) > 2.2 || Math.abs(wz - chunk.z) > 2.2) continue;
-    const height = chunk.depth * 0.75;
-    const lift = LEAN * height;
-    if (inChunk(wx - chunk.x - CHUNK_SHADOW[0] * height * 4, wz - chunk.z - CHUNK_SHADOW[1] * height * 4, chunk)) color = mix(color, [8, 10, 14], 0.55);
-    // The top of the stone seems shifted away by its height; below it, its sides down to the ground.
-    const top = inChunk(wx - chunk.x - AWAY[0] * lift, wz - chunk.z - AWAY[1] * lift, chunk);
-    let side = null as { along: number; across: number } | null;
-    let sideDepth = 0;
-    if (!top) {
-      for (const t of [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0]) {
-        side = inChunk(wx - chunk.x - AWAY[0] * lift * t, wz - chunk.z - AWAY[1] * lift * t, chunk);
-        if (side) {
-          sideDepth = t;
-          break;
-        }
-      }
-    }
-    if (top) {
-      // Lit from the upper left, darker at its far edges.
-      const shade = 0.72 + 0.5 * (0.5 - (top.along / chunk.length) * 0.5 - (top.across / chunk.depth) * 0.5);
-      const edge = Math.min(chunk.length / 2 - Math.abs(top.along), chunk.depth / 2 - Math.abs(top.across));
-      let stone = mix([84, 90, 98], [122, 126, 128], chunk.tone);
-      stone = mix(stone, [140, 146, 148], 0.5 * (1 - smooth(0, 0.03, edge)));
-      color = [stone[0] * shade * MOON[0], stone[1] * shade * MOON[1], stone[2] * shade * MOON[2]];
-      glow = 0;
-      if (chunk.rune >= 0) glow = glyphGlow(top.along, top.across, 0, 0, Math.min(chunk.length, chunk.depth) * 0.85, chunk.rune) * 0.65;
-    } else if (side) {
-      const stone = mix([50, 56, 64], [84, 90, 98], chunk.tone);
-      const dark = 0.55 + 0.45 * sideDepth;
-      color = [stone[0] * dark * MOON[0], stone[1] * dark * MOON[1], stone[2] * dark * MOON[2]];
-      glow = 0;
-    }
+function drawBody(ctx: Ctx, look: Look, opened: boolean): void {
+  const bodySide: Stop[] = [[0, rgb('#2a3444')], [1, rgb('#141a24')]];
+  const bodyFront: Stop[] = [[0, rgb('#3a475b')], [1, rgb('#1f2733')]];
+  poly(ctx, [[390, 240], [474, 222], [474, 318], [390, 338]], linear(0, 222, 0, 338, bodySide));
+  poly(ctx, rect(156, 240, 234, 98), linear(0, 240, 0, 338, bodyFront));
+  poly(ctx, rect(156, 240, 16, 98), solid(rgb('#1b222d')));
+  poly(ctx, rect(374, 240, 16, 98), solid(rgb('#1b222d')));
+  for (const y of [252, 274, 300, 324]) {
+    ctx.canvas.fillEllipse(164, y, 2.4, 2.4, solid(rgb('#8794a8')));
+    ctx.canvas.fillEllipse(382, y, 2.4, 2.4, solid(rgb('#8794a8')));
   }
-  return { color, glow };
-}
-
-/** Bits of gold floating up out of an open chest: model position, size in meters, and the phase of their spin. */
-const COINS: { at: V3; size: number; phase: number }[] = [
-  { at: [-0.7, 3.1, 0.3], size: 0.15, phase: 0.2 },
-  { at: [0.6, 3.5, 0.5], size: 0.13, phase: 1.4 },
-  { at: [1.05, 2.5, 0.9], size: 0.14, phase: 2.5 },
-  { at: [-1.15, 2.3, 0.9], size: 0.12, phase: 0.9 },
-  { at: [0.05, 3.75, 0.1], size: 0.11, phase: 2.0 },
-  { at: [-0.35, 2.8, 1.3], size: 0.13, phase: 3.0 },
-  { at: [1.5, 3.4, -0.2], size: 0.11, phase: 1.8 },
-];
-/** Runes drifting up out of an open chest: model position, size in meters and which rune. */
-const FLOATERS: { at: V3; size: number; glyph: number }[] = [
-  { at: [-1.35, 2.2, 0.9], size: 0.5, glyph: 0 },
-  { at: [1.25, 1.9, 1.1], size: 0.42, glyph: 9 },
-  { at: [-0.7, 3.0, 0.6], size: 0.4, glyph: 4 },
-  { at: [0.85, 2.85, 0.7], size: 0.46, glyph: 2 },
-  { at: [-1.6, 3.1, -0.2], size: 0.34, glyph: 10 },
-  { at: [0.15, 3.3, 0.3], size: 0.36, glyph: 7 },
-];
-const SPARKLES: { at: V3; size: number }[] = [
-  { at: [-1.0, 1.7, 1.0], size: 0.28 },
-  { at: [0.9, 2.0, 1.0], size: 0.26 },
-  { at: [-0.2, 2.6, 0.6], size: 0.34 },
-  { at: [1.35, 2.8, -0.1], size: 0.26 },
-  { at: [0.4, 3.0, 0.9], size: 0.2 },
-];
-
-// ---------------------------------------------------------------------------
-// Putting it together
-// ---------------------------------------------------------------------------
-
-/** The point where the ray with direction `d` from the camera meets the face, and how far along the ray it is; null if it misses. */
-function hitFace(face: Face, d: V3): { t: number; u: number; v: number } | null {
-  const facing = dot(face.normal, d);
-  if (facing >= 0) return null; // the back of it
-  const t = dot(face.normal, face.origin) / facing;
-  if (t <= 0) return null;
-  const point = scale(d, t);
-  const rel = sub(point, face.origin);
-  const u = dot(rel, face.u) / (face.uLen * face.uLen);
-  const v = dot(rel, face.v) / (face.vLen * face.vLen);
-  if (u < 0 || u > 1 || v < 0 || v > 1) return null;
-  return { t, u: face.flipU ? 1 - u : u, v };
-}
-
-/** How much the runes shine: dim while the chest waits, blazing once it is open. */
-const RUNE_POWER: Record<CrateState, number> = { closed: 0.85, opened: 1.25, lost: 0.6 };
-
-/** Adds the rune light to a lit colour: the palette's colour, going pale where it is brightest. */
-function withGlow(color: Rgb, glow: number, power: number, pal: Palette): Rgb {
-  if (glow <= 0.002) return color;
-  const g = glow * power;
-  const light = mix(pal.glow, pal.core, smooth(0.9, 1.5, g));
-  return [Math.min(255, color[0] * (1 - 0.4 * clamp01(g)) + light[0] * g), Math.min(255, color[1] * (1 - 0.4 * clamp01(g)) + light[1] * g), Math.min(255, color[2] * (1 - 0.4 * clamp01(g)) + light[2] * g)];
-}
-
-function shadeFace(face: Face, u: number, v: number, state: CrateState, pal: Palette): Rgb {
-  let paint: Paint;
-  switch (face.kind) {
-    case 'body':
-      paint = paintBody(u, v, face.uLen, face.vLen, face.seed);
-      break;
-    case 'lidSide':
-      paint = paintLidSide(u, v, face.uLen, face.vLen, face.seed);
-      break;
-    case 'lidTop':
-      paint = paintLidTop(u, v, face.uLen, face.vLen, face.seed);
-      break;
-    case 'lidInner':
-      // Lit from inside, not by the moon.
-      paint = paintLidInner(u, v, face.uLen, face.vLen, face.seed, pal);
-      return withGlow(paint.color, paint.glow, RUNE_POWER[state], pal);
-    default:
-      return paintRim(u, v, face.uLen, face.vLen, face.seed, pal).color;
+  // The front plate with its star.
+  rrect(ctx, 212, 256, 110, 60, 8, solid(rgb('#0f151d')));
+  outline(ctx, 212, 256, 110, 60, 8, 3, solid(rgb('#5c6a80')));
+  if (!look.dead) ctx.canvas.fillEllipse(267, 286, 46, 26, tierPaint.ground(ctx.col, 267, 286, 46, 26));
+  star(ctx, 267, 286, 22, look.dead ? 0.5 : 1, look.dead ? rgb('#5a6578') : ctx.col, look.dead ? rgb('#8792a6') : ctx.core);
+  dotText(ctx, 'KOMA KM-3', 267, 304, solid(rgb('#8fa0b8')), 2);
+  // The hazard label on the side.
+  const hazard: Paint = (x, y) => {
+    const a = (25 * Math.PI) / 180;
+    const px = x * Math.cos(a) - y * Math.sin(a);
+    const t = mod(px, 12);
+    const edge = Math.min(Math.abs(t - 0), Math.abs(t - 6), Math.abs(t - 12));
+    const k = Math.min(1, edge / 0.7);
+    const isDark = t < 6;
+    const dark = rgb('#14171d');
+    const yellow = rgb('#f2c230');
+    const c = isDark ? dark : yellow;
+    const o = isDark ? yellow : dark;
+    const m = 0.5 + 0.5 * k;
+    return [c[0] * m + o[0] * (1 - m), c[1] * m + o[1] * (1 - m), c[2] * m + o[2] * (1 - m), 1];
+  };
+  poly(ctx, [[409, 261.2], [457, 252], [457, 286], [409, 295.2]], solid(rgb('#0d1117')));
+  poly(ctx, [[411, 262.3], [455, 254], [455, 284], [411, 293]], look.dead ? (x, y) => darker(hazard(x, y)) : hazard);
+  // The latch clamps.
+  for (const x of [180, 338]) {
+    rrect(ctx, x, 232, 24, 94, 5, solid(rgb('#0f151d')));
+    rrect(ctx, x + 4, 236, 16, 30, 3, solid(rgb('#5c6a80')));
+    if (!look.dead) soft(ctx, BLUR_SOFT, 'normal', 1, (l) => l.fillEllipse(x + 12, 312, 6, 6, solid(look.led)));
+    ctx.canvas.fillEllipse(x + 12, 312, 3.4, 3.4, solid(look.ledCore));
   }
-  const lit = 0.42 + 0.66 * Math.max(0, dot(face.normal, LIGHT));
-  // A thin bright line along the edges of a side, and a dark one where two sides meet.
-  const edge = Math.min(u, 1 - u) * face.uLen;
-  const edgeShade = 1 + 0.16 * (1 - smooth(0.005, 0.04, edge)) - 0.3 * (1 - smooth(0, 0.008, edge));
-  // Darker near the ground, where the flagstones block the light.
-  const ground = face.kind === 'body' ? 1 - 0.22 * smooth(0.7, 1, v) : 1;
-  const k = lit * ground * edgeShade;
-  let out: Rgb = [paint.color[0] * k * MOON[0], paint.color[1] * k * MOON[1], paint.color[2] * k * MOON[2]];
-  // An open chest throws its light on its own sides and on the lid's ends.
-  if (state === 'opened' && (face.kind === 'body' || face.kind === 'lidSide')) {
-    const spill = face.kind === 'body' ? smooth(0.55, 0, v) * 0.55 : 0.25;
-    out = mix(out, [out[0] * 0.4 + pal.spill[0], out[1] * 0.4 + pal.spill[1], out[2] * 0.4 + pal.spill[2]], spill);
+  // The vents along the bottom.
+  for (let x = 184; x < 372; x += 9) rrect(ctx, x, 328, 5, 6, 1, solid(rgb('#0b0f15')));
+  void opened;
+}
+
+const darker = (c: readonly [number, number, number, number]): readonly [number, number, number, number] => [c[0] * 0.45, c[1] * 0.45, c[2] * 0.5, c[3]];
+
+/** The lid: shut on top of the body, or (with a `move`) slipped off. */
+function drawLid(ctx: Ctx, look: Look, move: Move = STAY): void {
+  const t = moved(move);
+  const at = (pts: readonly Point[]): Point[] => pts.map((p) => move.fwd(p));
+  const top: Stop[] = [[0, rgb('#8898b2')], [1, rgb('#5a6a84')]];
+  const front: Stop[] = [[0, rgb('#6b7b95')], [1, rgb('#3f4d64')]];
+  const sideStops: Stop[] = [[0, rgb('#4a5870')], [1, rgb('#2c384a')]];
+  poly(ctx, at([[156, 200], [386, 200], [474, 180], [244, 180]]), t(linear(0, 200, 0, 180, top)));
+  poly(ctx, at([[390, 200], [474, 180], [474, 222], [390, 240]]), t((x, y) => atStops(sideStops, ((x - 390) / 84 + (y - 180) / 60) / 2)));
+  poly(ctx, at(rect(156, 200, 234, 40)), t(linear(0, 200, 0, 240, front)));
+  // Recessed panels with indicator lights.
+  poly(ctx, at(roundRectPoints(176, 210, 60, 20, 4)), t(solid(rgb('#141a23'))));
+  poly(ctx, at(roundRectPoints(182, 215, 20, 4, 2)), t(solid(look.panelLight)));
+  poly(ctx, at(roundRectPoints(182, 222, 34, 4, 2)), t(solid(rgb('#f2c230'))), look.dead ? 0.35 : 0.9);
+  poly(ctx, at(roundRectPoints(262, 210, 102, 20, 4)), t(solid(rgb('#141a23'))));
+  poly(ctx, at(roundRectPoints(266, 214, 94, 12, 3)), t(solid(look.panelLight)), look.dead ? 0.06 : 0.19);
+  // The inset in the top face, and the highlight along the top edge.
+  poly(ctx, at([[190, 196], [352, 196], [418, 182], [262, 182]]), t(solid(rgb('#111823'))), 0.55);
+  const a = move.fwd([156, 200]);
+  const b = move.fwd([386, 200]);
+  ctx.canvas.strokeLine(a[0], a[1], b[0], b[1], 1.5, solid(rgb('#dfe8f7')), 0.5);
+}
+
+/** The light from the crack round the lid: spilling onto the metal, then the glowing crack itself. */
+function seamGlow(ctx: Ctx): void {
+  const { col, vivid } = ctx;
+  const down: Stop[] = [[0, col, 0.9], [0.35, col, 0.32], [1, col, 0]];
+  soft(ctx, 0, 'screen', 1, (l) => {
+    l.fillPolygon(rect(156, 243, 234, 44), linear(0, 243, 0, 287, down));
+    l.fillPolygon(rect(156, 200, 234, 40), linear(0, 240, 0, 200, down));
+    l.fillPolygon([[390, 243], [474, 225], [474, 269], [390, 287]], linear(0, 225, 0, 287, down));
+    l.fillPolygon([[390, 240], [474, 222], [474, 182], [390, 200]], linear(0, 240, 0, 182, down));
+  });
+  // The crack's colour eases from the glow colour to the vivid one and back, so it melts into the glow round it.
+  const crack: Stop[] = [[0, col, 0.55], [0.18, vivid, 0.85], [0.6, vivid, 0.95], [1, vivid, 0.6]];
+  const along = linear(156, 0, 474, 0, crack);
+  const segments: [number, number, number, number][] = [
+    [156, 240, 390, 240],
+    [390, 240, 474, 222],
+  ];
+  for (const [x1, y1, x2, y2] of segments) {
+    soft(ctx, BLUR_WIDE, 'screen', 0.75, (l) => l.strokeLine(x1, y1, x2, y2, 18, solid(col), 1, true));
+    soft(ctx, BLUR_MEDIUM, 'screen', 0.7, (l) => l.strokeLine(x1, y1 + 0.5, x2, y2 + 0.5, 9, along, 1, true));
+    soft(ctx, BLUR_FINE, 'screen', 0.95, (l) => l.strokeLine(x1, y1 + 0.5, x2, y2 + 0.5, 3.4, along, 1, true));
   }
-  return withGlow(out, paint.glow, RUNE_POWER[state], pal);
-}
-
-/** The world position of a point on the ground seen from the camera, for the paving and the shadow. */
-function groundWorld(p: V3): { x: number; z: number } {
-  const m = unturn(sub(p, [0, LIFT, DISTANCE]));
-  return { x: m[0] + CENTER[0], z: m[2] + CENTER[2] };
-}
-
-interface Slab {
-  min: V3;
-  max: V3;
-}
-const CHEST_SLABS: Record<CrateState, Slab[]> = {
-  closed: [{ min: [-HALF_X, 0, -HALF_Z], max: [HALF_X, BASE_HEIGHT + LID_HEIGHT, HALF_Z] }],
-  // The lid stands leaning back over the hinge.
-  opened: [
-    { min: [-HALF_X, 0, -HALF_Z], max: [HALF_X, BASE_HEIGHT, HALF_Z] },
-    { min: [-HALF_X, BASE_HEIGHT, -HALF_Z - 0.8], max: [HALF_X, BASE_HEIGHT + 1.9, -HALF_Z] },
-  ],
-  lost: [],
-};
-
-/** True if the ray from `o` along `d` passes through the box (a standard slab test). */
-function rayHitsSlab(o: V3, d: V3, slab: Slab): boolean {
-  let near = -Infinity;
-  let far = Infinity;
-  for (let i = 0; i < 3; i++) {
-    const di = d[i] as number;
-    const oi = o[i] as number;
-    if (Math.abs(di) < 1e-9) {
-      if (oi < (slab.min[i] as number) || oi > (slab.max[i] as number)) return false;
-      continue;
-    }
-    const a = ((slab.min[i] as number) - oi) / di;
-    const b = ((slab.max[i] as number) - oi) / di;
-    near = Math.max(near, Math.min(a, b));
-    far = Math.min(far, Math.max(a, b));
+  // Brighter where the crack turns the corners.
+  for (const [x, y] of [[156, 240], [390, 240], [474, 222]] as const) {
+    soft(ctx, BLUR_WIDE, 'screen', 0.75, (l) => l.fillEllipse(x, y, 9, 9, solid(col)));
   }
-  return far > Math.max(near, 0);
 }
-
-/** How much of the moonlight is blocked at ground position (x, z) by the chest: 0 for none, 1 for all. */
-function shadowAt(x: number, z: number, state: CrateState): number {
-  const slabs = CHEST_SLABS[state];
-  if (slabs.length === 0) return 0;
-  let blocked = 0;
-  // Four slightly different light directions, so the edge of the shadow is soft.
-  for (const [jx, jz] of [[0.07, 0], [-0.07, 0], [0, 0.07], [0, -0.07]] as [number, number][]) {
-    const d = norm([LIGHT_MODEL[0] + jx, LIGHT_MODEL[1], LIGHT_MODEL[2] + jz]);
-    if (slabs.some((slab) => rayHitsSlab([x, 0.001, z], d, slab))) blocked += 0.25;
-  }
-  // And a soft dark patch hugging the foot of the chest.
-  const outside = footprintDistance(x, z);
-  const contact = 0.55 * (1 - smooth(0, 0.7, outside));
-  return Math.max(0.68 * blocked, contact);
-}
-
-/** How far (x, z) is outside the chest's footprint, in meters (negative inside). */
-function footprintDistance(x: number, z: number): number {
-  const ox = Math.abs(x) - HALF_X;
-  const oz = Math.abs(z) - HALF_Z;
-  return Math.hypot(Math.max(ox, 0), Math.max(oz, 0)) + Math.min(Math.max(ox, oz), 0);
-}
-
-/** How brightly the rune light falls on the ground at each distance from the chest. */
-const GROUND_GLOW: Record<CrateState, number> = { closed: 0.22, opened: 0.62, lost: 0 };
 
 /**
- * The picture of the crate in `state`, its runes shining in the colour of `tier`, as a PNG file.
- * It takes a few seconds of work, done in slices that let the rest of the bot run in between.
+ * Light from the middle of the chest leaking out through the cracks (front, right side and round the corners).
+ * Every point of a crack sends its light straight outward from the middle, so it fans out from the chest instead
+ * of lying in lines: the middle of the front crack sends short rays down, the ends spread sideways, and the corners spread widest.
  */
-export async function renderCrate(state: CrateState = 'closed', tier: CrateTier = 'low'): Promise<Buffer> {
-  const w = WIDTH * SUPERSAMPLE;
-  const h = HEIGHT * SUPERSAMPLE;
-  const rgba = new Uint8Array(w * h * 4);
-  const faces = state === 'closed' ? closedFaces : state === 'opened' ? openFaces : [];
-  const cx = w / 2;
-  const cy = h * EYE_LEVEL;
-  const focal = FOCAL * SUPERSAMPLE;
-  const horizonPy = cy - focal * Math.tan(PITCH);
-  const power = RUNE_POWER[state];
-  const pal = PALETTES[tier];
+function closedGlow(ctx: Ctx): void {
+  const { col, core } = ctx;
+  soft(ctx, 0, 'screen', 0.85, (l) => l.fillEllipse(285, 352, 215, 22, tierPaint.ground(col, 285, 352, 215, 22)));
 
-  const project = (p: V3): { x: number; y: number; scale: number } => {
-    const c = toCamera(p);
-    return { x: cx + (c[0] / c[2]) * focal, y: cy - (c[1] / c[2]) * focal, scale: focal / c[2] };
+  const noise = (x: number): number => {
+    const i = Math.floor(x);
+    let f = x - i;
+    f = f * f * (3 - 2 * f);
+    return (CLOSED_NOISE[mod(i, 64)] as number) * (1 - f) + (CLOSED_NOISE[mod(i + 1, 64)] as number) * f;
   };
-
-  // Where the middle of the chest's footprint is in the picture (0 to 1), for the dust of the wreck.
-  const footprint = project([0, 0, 0]);
-  const wreck = { x: footprint.x / w, y: footprint.y / h };
-
-  // Where the light comes out of an open chest (a little above the heap), for the glow and rays.
-  const glow = project([0, BASE_HEIGHT + 0.25, 0]);
-  const coins = COINS.map((coin) => {
-    const at = project(coin.at);
-    return { x: at.x, y: at.y, r: coin.size * at.scale, phase: coin.phase };
-  });
-  const floaters = FLOATERS.map((floater) => {
-    const at = project(floater.at);
-    return { x: at.x, y: at.y, px: floater.size * at.scale, meters: floater.size, glyph: floater.glyph };
-  });
-  const sparkles = SPARKLES.map((sparkle) => {
-    const at = project(sparkle.at);
-    return { x: at.x, y: at.y, r: sparkle.size * at.scale };
-  });
-  const shine = (x: number, y: number): number => {
-    let light = 0;
-    for (const s of sparkles) {
-      const dx = Math.abs(x - s.x) / s.r;
-      const dy = Math.abs(y - s.y) / s.r;
-      if (dx > 1.6 || dy > 1.6) continue;
-      // A four-pointed star (an astroid) with a soft glow round its middle.
-      const star = Math.pow(dx, 0.55) + Math.pow(dy, 0.55);
-      light += 1 - smooth(0.7, 1, star) + 0.5 * Math.exp(-(dx * dx + dy * dy) * 6);
-    }
-    return clamp01(light);
+  const [cx, cy] = CENTER;
+  type Ray = { x: number; y: number; dx: number; dy: number; length: number; strength: number };
+  const rays: Ray[] = [];
+  const outward = (px: number, py: number, length: number, strength: number): void => {
+    const dx = px - cx;
+    const dy = py - cy;
+    const d = Math.hypot(dx, dy);
+    rays.push({ x: px, y: py, dx: dx / d, dy: dy / d, length, strength });
   };
-  const drift = (x: number, y: number): number => {
-    let light = 0;
-    for (const f of floaters) {
-      const lx = (x - f.x) / f.px + 0.5;
-      const ly = (y - f.y) / f.px + 0.5;
-      if (lx < -0.6 || lx > 1.6 || ly < -0.6 || ly > 1.6) continue;
-      light = Math.max(light, strokeGlow(glyphDistance(lx, ly, f.glyph) * f.meters));
-    }
-    return light;
+  const angled = (px: number, py: number, degrees: number, length: number, strength: number): void => {
+    const a = (degrees * Math.PI) / 180;
+    rays.push({ x: px, y: py, dx: Math.cos(a), dy: Math.sin(a), length, strength });
   };
-
-  for (let py = 0; py < h; py++) {
-    // Let the rest of the bot have a turn every few rows.
-    if (py % 16 === 15) await new Promise<void>((resolve) => setImmediate(resolve));
-    for (let px = 0; px < w; px++) {
-      const nx = px / w;
-      const ny = py / h;
-      const d: V3 = [(px + 0.5 - cx) / focal, -(py + 0.5 - cy) / focal, 1];
-
-      let best = Infinity;
-      let color: Rgb | null = null;
-      for (const face of faces) {
-        const hit = hitFace(face, d);
-        if (hit && hit.t < best) {
-          best = hit.t;
-          color = shadeFace(face, hit.u, hit.v, state, pal);
-        }
-      }
-
-      if (color === null) {
-        // The ground, if the ray goes down to it; the sky and the hills if not.
-        const facing = dot(groundNormal, d);
-        const tGround = facing < 0 ? dot(groundNormal, groundPoint) / facing : -1;
-        if (tGround > 0) {
-          const world = groundWorld(scale(d, tGround));
-          const paving = paintGround(world.x, world.z, tGround);
-          let lit: Rgb = [paving[0] * MOON[0], paving[1] * MOON[1], paving[2] * MOON[2]];
-          let runes = 0;
-          if (state === 'lost') {
-            const wrecked = paintWreck(lit, world.x, world.z);
-            lit = wrecked.color;
-            runes = wrecked.glow;
-          }
-          lit = mix(lit, [8, 10, 16], shadowAt(world.x, world.z, state));
-          // The rune light on the flagstones round the chest.
-          const near = Math.max(0, footprintDistance(world.x, world.z));
-          const spill = GROUND_GLOW[state] * Math.exp(-(near * near) / 1.6);
-          color = withGlow(mix(lit, pal.light, spill * 0.45), runes, power, pal);
-        } else {
-          color = skyColor(nx, ny);
-          // The far hills, drawn over the sky just above the horizon.
-          const top = horizonPy - hillHeight(nx) * h;
-          if (py > top) {
-            const shade = smooth(0, 1, (py - top) / (hillHeight(nx) * h + 1));
-            color = mix(mix([30, 38, 54], HAZE, 0.4), HAZE, shade * 0.7);
-          }
-        }
-      }
-
-      let [r, g, b] = color as Rgb;
-
-      if (state === 'opened') {
-        // The glow: a soft light over the open chest, with rays fanning up and out of it.
-        const gx = (px - glow.x) / w;
-        const gy = (glow.y - py) / w;
-        const dist = Math.hypot(gx, gy * 0.8);
-        const halo = Math.exp(-dist * dist * 34) * 0.6 + Math.exp(-dist * 6.5) * 0.24;
-        const angle = Math.atan2(gx, gy + 1e-6);
-        const rays = gy > -0.01 ? Math.pow(0.5 + 0.5 * Math.cos(angle * 11 + 0.5), 3) * Math.exp(-dist * 4) * 0.5 : 0;
-        const light = clamp01(halo + rays);
-        r = lerp(r, pal.light[0], light * 0.8);
-        g = lerp(g, pal.light[1], light * 0.78);
-        b = lerp(b, pal.light[2], light * 0.7);
-        // Runes drifting up out of it.
-        const rune = drift(px, py);
-        if (rune > 0.002) {
-          const c = withGlow([r, g, b], rune, 1.1, pal);
-          r = c[0];
-          g = c[1];
-          b = c[2];
-        }
-        // Coins tumbling up out of it.
-        for (const coin of coins) {
-          const dx = (px - coin.x) / coin.r;
-          const dy = (py - coin.y) / (coin.r * (0.3 + 0.7 * Math.abs(Math.cos(coin.phase))));
-          const dist2 = dx * dx + dy * dy;
-          if (dist2 < 1) {
-            const face = dist2 > 0.62 ? 0.45 : 0.9 - 0.4 * (dx * 0.5 + dy * 0.5);
-            r = 255 * face;
-            g = 205 * face;
-            b = 80 * face;
-          }
-        }
-        const sparkle = shine(px, py);
-        r = lerp(r, pal.core[0], sparkle);
-        g = lerp(g, pal.core[1], sparkle);
-        b = lerp(b, pal.core[2], sparkle);
-      }
-
-      if (state === 'lost') {
-        // Dust kicked up where the chest was, thick in the middle and thin at the edges.
-        const dx = (nx - wreck.x) / 0.27;
-        const dy = (ny - (wreck.y - 0.1)) / 0.18;
-        const body = 1 - smooth(0.2, 1, Math.hypot(dx, dy));
-        const puff = fbm(nx * 11, ny * 11, 120, 5);
-        const dust = clamp01(body * (0.2 + 1.4 * puff) * 0.9);
-        r = lerp(r, 138, dust);
-        g = lerp(g, 148, dust);
-        b = lerp(b, 158, dust);
-      }
-
-      // A soft vignette and a little grain, so it reads as a photograph rather than flat colour.
-      const vx = nx - 0.5;
-      const vy = ny - 0.5;
-      const vignette = 1 - 0.4 * smooth(0.28, 0.75, Math.hypot(vx * 1.1, vy * 1.25));
-      const grain = (hash(px, py, 7) - 0.5) * 7;
-      const at = (py * w + px) * 4;
-      rgba[at] = Math.max(0, Math.min(255, r * vignette + grain));
-      rgba[at + 1] = Math.max(0, Math.min(255, g * vignette + grain));
-      rgba[at + 2] = Math.max(0, Math.min(255, b * vignette + grain));
-      rgba[at + 3] = 255;
-    }
+  // Along the front crack and the right side crack, every point sends a ray straight out from the middle.
+  for (let i = 0; i < 110; i++) {
+    const t = i / 109;
+    const x = 156 + 234 * t;
+    const side = Math.abs(x - cx) / 159;
+    outward(x, 240, 34 + 62 * (1 - side) * (0.6 + 0.8 * noise(t * 9)) + 80 * side ** 3 * (0.6 + 0.8 * noise(t * 9 + 30)), 0.15 + 0.14 * noise(t * 14 + 5));
   }
-  return encodePng(WIDTH, HEIGHT, shrinkRect(rgba, w, h, SUPERSAMPLE));
+  for (let i = 0; i < 60; i++) {
+    const t = i / 59;
+    const bump = Math.exp(-(((t - 0.5) / 0.24) ** 2));
+    outward(390 + 84 * t, 240 - 18 * t, 40 + 32 * noise(t * 7 + 20) + 58 * bump, 0.05 + 0.05 * noise(t * 11 + 9) + 0.13 * bump);
+  }
+  // Round the two ends, where the light spreads widest.
+  for (let i = 0; i < 26; i++) angled(156, 240, 163 + (28 * i) / 25, 58 + 56 * noise(i * 0.7 + 40), 0.045 + 0.06 * noise(i * 0.9));
+  for (let i = 0; i < 26; i++) angled(474, 222, -17 + (26 * i) / 25, 62 + 50 * noise(i * 0.7 + 60), 0.035 + 0.05 * noise(i * 0.9 + 3));
+  // Out to the left, about 10 degrees above level, from just above the front-left corner.
+  for (let i = 0; i < 30; i++) angled(156, 234 - (10 * i) / 29, 184 + (12 * i) / 29, 68 + 64 * noise(i * 0.6 + 80), 0.055 + 0.07 * noise(i * 0.8 + 7));
+
+  soft(ctx, BLUR_SOFT, 'screen', 1, (l) => {
+    for (const r of rays) {
+      const nx = -r.dy;
+      const ny = r.dx;
+      const w0 = 1.6;
+      const w1 = 3 + 0.06 * r.length;
+      const ex = r.x + r.dx * r.length;
+      const ey = r.y + r.dy * r.length;
+      const stops: Stop[] = [[0, core, 0.95], [0.25, col, 0.6], [1, col, 0]];
+      l.fillPolygon(
+        [
+          [r.x + nx * w0, r.y + ny * w0],
+          [ex + nx * w1, ey + ny * w1],
+          [ex - nx * w1, ey - ny * w1],
+          [r.x - nx * w0, r.y - ny * w0],
+        ],
+        linear(r.x, r.y, ex, ey, stops),
+        Math.min(1, r.strength),
+      );
+    }
+  });
+  sparkles(ctx, CLOSED_SPARKLES);
+}
+
+/**
+ * Light from a crack we can't see, round the back-left of the chest. It is drawn BEHIND the chest, so the chest hides
+ * where it starts: all that shows is a bloom at the edge and soft streaks fanning out past it.
+ */
+function hiddenLight(ctx: Ctx): void {
+  const { col, core } = ctx;
+  soft(ctx, BLUR_WIDE, 'screen', 0.3, (l) => l.fillEllipse(150, 228, 36, 26, solid(core)));
+  soft(ctx, BLUR_WIDE, 'screen', 0.19, (l) => l.fillEllipse(140, 230, 72, 40, solid(col)));
+  const [ox, oy] = [232, 232];
+  const layers: { blur: number; w0: number; wk: number }[] = [
+    { blur: BLUR_WIDE, w0: 5, wk: 0.09 },
+    { blur: BLUR_MEDIUM, w0: 3, wk: 0.05 },
+  ];
+  layers.forEach(({ blur, w0, wk }, index) => {
+    soft(ctx, blur, 'screen', 1, (l) => {
+      for (const [degrees, length, strength] of HIDDEN_STREAKS[index] as readonly (readonly [number, number, number])[]) {
+        const a = (degrees * Math.PI) / 180;
+        const dx = Math.cos(a);
+        const dy = Math.sin(a);
+        const nx = -dy;
+        const ny = dx;
+        const w1 = w0 + wk * length;
+        const ex = ox + dx * length;
+        const ey = oy + dy * length;
+        const stops: Stop[] = [[0, core, 0.9], [0.3, col, 0.5], [1, col, 0]];
+        l.fillPolygon(
+          [
+            [ox + nx * w0, oy + ny * w0],
+            [ex + nx * w1, ey + ny * w1],
+            [ex - nx * w1, ey - ny * w1],
+            [ox - nx * w0, oy - ny * w0],
+          ],
+          linear(ox, oy, ex, ey, stops),
+          strength,
+        );
+      }
+    });
+  });
+  sparkles(ctx, HIDDEN_SPARKLES);
+}
+
+/** The crate seen from the front-left, shut. */
+function closedCrate(ctx: Ctx): void {
+  const { col, core } = ctx;
+  const look: Look = { led: col, ledCore: core, panelLight: col, dead: false };
+  soft(ctx, BLUR_WIDE, 'normal', 0.55, (l) => l.fillEllipse(335, 344, 200, 20, solid(rgb('#000000'))));
+  ctx.canvas.fillEllipse(330, 332, 230, 52, tierPaint.ground(col, 330, 332, 230, 52));
+  // Light from inside, centred on the middle of the chest, haloing round its outline.
+  soft(ctx, 0, 'screen', 1, (l) => l.fillEllipse(315, 262, 270, 150, tierPaint.halo(col, 315, 262, 270, 150)));
+  hiddenLight(ctx);
+  drawBody(ctx, look, false);
+  drawLid(ctx, look);
+  seamGlow(ctx);
+  closedGlow(ctx);
+}
+
+/** The lid stands up on its back hinge; light pours out of the opening. */
+function openedCrate(ctx: Ctx): void {
+  const { col, core } = ctx;
+  const look: Look = { led: col, ledCore: core, panelLight: col, dead: false };
+  soft(ctx, BLUR_WIDE, 'normal', 0.55, (l) => l.fillEllipse(335, 344, 200, 20, solid(rgb('#000000'))));
+  ctx.canvas.fillEllipse(330, 332, 250, 58, tierPaint.ground(col, 330, 332, 250, 58));
+
+  // The lid, seen from inside, lit from below by the opening.
+  poly(ctx, [[474, 222], [474, 80], [486, 77], [486, 219]], solid(rgb('#2a3444')));
+  poly(ctx, rect(240, 80, 234, 142), solid(rgb('#232d3c')));
+  const wash: Stop[] = [[0, core, 0.95], [0.35, col, 0.7], [1, col, 0.05]];
+  poly(ctx, rect(240, 80, 234, 142), linear(0, 222, 0, 80, wash));
+  rrect(ctx, 262, 120, 190, 80, 6, solid(rgb('#0f151d')), 0.55);
+  outline(ctx, 262, 120, 190, 80, 6, 2, solid(rgb('#6b7b95')), 0.6);
+  rrect(ctx, 292, 176, 60, 6, 3, solid(col), 0.9);
+  rrect(ctx, 292, 188, 90, 4, 2, solid(rgb('#f2c230')), 0.8);
+  ctx.canvas.strokeLine(240, 222, 474, 222, 3, solid(rgb('#8fa0b8')));
+  ctx.canvas.strokeLine(240, 80, 474, 80, 2, solid(rgb('#aebbd0')), 0.7);
+
+  // The body again, with the top open: a rim round a glowing opening.
+  soft(ctx, BLUR_WIDE, 'normal', 0.55, (l) => l.fillEllipse(335, 344, 200, 20, solid(rgb('#000000'))));
+  ctx.canvas.fillEllipse(330, 332, 230, 52, tierPaint.ground(col, 330, 332, 230, 52));
+  drawBody(ctx, look, true);
+  poly(ctx, [[156, 240], [390, 240], [474, 222], [240, 222]], solid(rgb('#2a3444')));
+  poly(ctx, [[174, 238], [374, 238], [452, 224], [262, 224]], solid(col));
+  poly(ctx, [[192, 236], [360, 236], [432, 226], [274, 226]], solid(core));
+  burst(ctx);
+}
+
+/**
+ * A gem, the currency, as a four-pointed faceted star: eight facets lit from the upper left, a pale edge,
+ * and a bright spark in the middle. `turn` tips it (in degrees), as if it were tumbling.
+ */
+function gem(ctx: Ctx, x: number, y: number, size: number, turn: number, opacity: number): void {
+  const { col, core } = ctx;
+  const a = (turn * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const at = ([px, py]: Point): Point => [x + (px * cos - py * sin) * size, y + (px * sin + py * cos) * size];
+  const T: Point = [0, -1];
+  const R: Point = [1, 0];
+  const B: Point = [0, 1];
+  const L: Point = [-1, 0];
+  const inner = 0.3;
+  const NE: Point = [inner, -inner];
+  const SE: Point = [inner, inner];
+  const SW: Point = [-inner, inner];
+  const NW: Point = [-inner, -inner];
+  const C: Point = [0, 0];
+  const dark = mixColor(col, [0, 0, 0], 0.72);
+  const shade = (f: number): Color => (f < 0.7 ? mixColor(dark, col, (f - 0.35) / 0.35) : mixColor(col, core, ((f - 0.7) / 0.3) * 0.75));
+  // Facet, then how brightly it is lit.
+  const facets: [Point[], number][] = [
+    [[C, NW, T], 1],
+    [[C, T, NE], 0.95],
+    [[C, NE, R], 0.7],
+    [[C, R, SE], 0.55],
+    [[C, SE, B], 0.4],
+    [[C, B, SW], 0.5],
+    [[C, SW, L], 0.75],
+    [[C, L, NW], 0.9],
+  ];
+  group(ctx.canvas, ctx.scratch, { opacity }, (l) => {
+    for (const [points, f] of facets) l.fillPolygon(points.map(at), solid(shade(f)));
+    const outline = [T, NE, R, SE, B, SW, L, NW, T].map(at);
+    l.strokePath(outline, Math.max(0.8, size * 0.09), solid(mixColor(col, core, 0.8)), 0.9);
+    // The bright spark in the middle, and the glint along the two upper arms.
+    l.fillPolygon([[0, -0.32], [0.09, 0], [0, 0.32], [-0.09, 0]].map((p) => at([p[0] as number, p[1] as number])), solid(core));
+    l.fillPolygon([[-0.32, 0], [0, -0.09], [0.32, 0], [0, 0.09]].map((p) => at([p[0] as number, p[1] as number])), solid(core));
+  });
+}
+
+/** Gems thrown out of the opening, each leaving a short soft trail behind it. */
+function gemsFlyingOut(ctx: Ctx, from: Point, list: readonly Sparkle[]): void {
+  const { col, core } = ctx;
+  soft(ctx, BLUR_FINE, 'screen', 1, (l) => {
+    for (const [x, y, size, opacity] of list) {
+      const dx = x - from[0];
+      const dy = y - from[1];
+      const d = Math.hypot(dx, dy) || 1;
+      const length = Math.min(30, d * 0.3) + size * 0.8;
+      const tx = x - (dx / d) * length;
+      const ty = y - (dy / d) * length;
+      const w = 0.3 * size;
+      const nx = (-dy / d) * w;
+      const ny = (dx / d) * w;
+      const stops: Stop[] = [[0, core, 0.6 * opacity], [0.35, col, 0.35 * opacity], [1, col, 0]];
+      l.fillPolygon([[x + nx, y + ny], [x - nx, y - ny], [tx, ty]], linear(x, y, tx, ty, stops));
+    }
+  });
+  list.forEach(([x, y, size, opacity], i) => {
+    const r = Math.max(4, size * 0.95);
+    soft(ctx, BLUR_WIDE, 'screen', 0.4 * opacity, (l) => l.fillEllipse(x, y, r * 1.3, r * 1.3, solid(col)));
+    gem(ctx, x, y, r, ((i * 37) % 60) - 30, opacity);
+  });
+}
+
+/** Light spreading out from the opening in every direction above the chest. */
+function burst(ctx: Ctx): void {
+  const { col, core } = ctx;
+  const ox = 315;
+  const oy = 228;
+  soft(ctx, 0, 'screen', 1, (l) => l.fillEllipse(ox, oy, 330, 210, tierPaint.halo(col, ox, oy, 330, 210)));
+  const n1 = (x: number, layer: number): number => {
+    const i = Math.floor(x);
+    let f = x - i;
+    f = f * f * (3 - 2 * f);
+    const t = BURST_NOISE[layer] as readonly number[];
+    return (t[mod(i, 64)] as number) * (1 - f) + (t[mod(i + 1, 64)] as number) * f;
+  };
+  // The light is uneven, but it changes gradually, so no single ray stands out.
+  const intensity = (deg: number): number => {
+    const v = 0.5 * n1(deg * 0.09 + 3, 0) + 0.3 * n1(deg * 0.35 + 11, 1) + 0.2 * n1(deg * 1.4 + 27, 2);
+    return Math.max(0, (v - 0.3) / 0.5) ** 1.15;
+  };
+  const stops: Stop[] = [[0, core, 0.95], [0.5, col, 0.45], [1, col, 0]];
+  const rayPaint = radial(ox, oy, 330, 330, stops);
+  soft(ctx, BLUR_MEDIUM, 'screen', 1, (l) => {
+    const N = 420;
+    const step = 178 / N;
+    for (let k = 0; k < N; k++) {
+      const deg = -179 + k * step;
+      const w = intensity(deg);
+      if (w < 0.03) continue;
+      const length = 170 + 170 * intensity(deg + 40);
+      const a0 = ((deg - step * 1.1) * Math.PI) / 180;
+      const a1 = ((deg + step * 1.1) * Math.PI) / 180;
+      l.fillPolygon(
+        [
+          [ox, oy],
+          [ox + length * Math.cos(a0), oy + length * Math.sin(a0) * 0.92],
+          [ox + length * Math.cos(a1), oy + length * Math.sin(a1) * 0.92],
+        ],
+        rayPaint,
+        Math.min(1, w * 0.55),
+      );
+    }
+  });
+  // A bright bloom sitting in the opening itself.
+  soft(ctx, BLUR_WIDE, 'screen', 0.85, (l) => l.fillEllipse(ox, oy, 120, 18, solid(core)));
+  soft(ctx, BLUR_HAZE, 'screen', 0.7, (l) => l.fillEllipse(ox, oy, 170, 34, solid(col)));
+  gemsFlyingOut(ctx, [ox, oy], BURST_SPARKLES);
+}
+
+/** The lights are out: the lid has slipped off, the front is cracked, and dust hangs over it. */
+function lostCrate(ctx: Ctx): void {
+  const { col } = ctx;
+  const look: Look = { led: rgb('#3a4252'), ledCore: rgb('#596274'), panelLight: rgb('#4a5568'), dead: true };
+  soft(ctx, BLUR_WIDE, 'normal', 0.6, (l) => l.fillEllipse(335, 344, 200, 20, solid(rgb('#000000'))));
+  drawBody(ctx, look, false);
+  // The empty top where the lid used to sit.
+  poly(ctx, [[156, 240], [390, 240], [474, 222], [240, 222]], solid(rgb('#2a3444')));
+  poly(ctx, [[172, 238], [376, 238], [456, 224], [256, 224]], solid(rgb('#06080c')));
+  // Cracks across the front, dark with a faint pale edge.
+  const cracks: Point[][] = [
+    [[300, 240], [292, 262], [304, 276], [296, 300], [306, 326]],
+    [[222, 240], [230, 256], [222, 270]],
+    [[350, 262], [362, 274], [354, 292], [366, 310]],
+  ];
+  for (const path of cracks) {
+    ctx.canvas.strokePath(path.map(([x, y]) => [x + 1.2, y] as Point), 1.4, solid(rgb('#7f8ea6')), 0.35);
+    ctx.canvas.strokePath(path, 2.2, solid(rgb('#05070b')), 0.9);
+  }
+  // The lid, slid off to the right and tilted, resting against the side.
+  drawLid(ctx, look, shove(58, 30, 7, [315, 220]));
+  // Broken bits on the ground.
+  const shards: Point[][] = [
+    [[120, 330], [138, 322], [146, 332], [128, 338]],
+    [[500, 336], [520, 332], [526, 342], [508, 346]],
+    [[92, 352], [104, 348], [108, 356], [96, 358]],
+    [[548, 318], [560, 314], [562, 322]],
+  ];
+  for (const shard of shards) {
+    poly(ctx, shard, solid(rgb('#1b222d')));
+    ctx.canvas.strokePath([...shard, shard[0] as Point], 1, solid(rgb('#6b7b95')), 0.5);
+  }
+  // A last faint spark or two in the colour it would have been.
+  soft(ctx, BLUR_SOFT, 'screen', 0.5, (l) => {
+    for (const [x, y] of [[292, 214], [338, 206], [318, 190]] as const) l.fillEllipse(x, y, 2.4, 2.4, solid(col));
+  });
+  // Dust: low clouds round the base and a few thin wisps rising from the opening.
+  const dust = solid(rgb('#9fb0c8'));
+  soft(ctx, BLUR_HAZE, 'screen', 1, (l) => {
+    l.fillEllipse(230, 338, 130, 20, dust, 0.14);
+    l.fillEllipse(400, 344, 120, 18, dust, 0.12);
+    l.fillEllipse(315, 356, 210, 16, dust, 0.09);
+  });
+  soft(ctx, BLUR_WIDE + 4, 'screen', 1, (l) => {
+    l.fillEllipse(300, 200, 60, 26, dust, 0.2);
+    l.fillEllipse(322, 168, 34, 44, dust, 0.14);
+    l.fillEllipse(340, 122, 26, 40, dust, 0.09);
+    l.fillEllipse(296, 92, 20, 34, dust, 0.06);
+  });
+}
+
+/** Lets the rest of the bot run for a moment (drawing a picture takes about a second, so it is done in a few steps). */
+const breathe = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+export async function renderCrate(state: CrateState = 'closed', tier: CrateTier = 'low'): Promise<Buffer> {
+  const canvas = new Layer(WIDTH, HEIGHT);
+  const scratch = new Layer(WIDTH, HEIGHT);
+  const { col, core } = TIER_COLORS[tier];
+  const ctx: Ctx = { canvas, scratch, col, core, vivid: vividOf(col) };
+  backdrop(ctx);
+  await breathe();
+  if (state === 'closed') closedCrate(ctx);
+  else if (state === 'opened') openedCrate(ctx);
+  else lostCrate(ctx);
+  await breathe();
+  return encodePng(WIDTH, HEIGHT, toBytes(canvas));
 }
