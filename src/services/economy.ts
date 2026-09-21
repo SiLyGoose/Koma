@@ -113,6 +113,40 @@ async function transferClamped(
   }
 }
 
+/**
+ * Moves exactly `amount` points from one member to another, even if the sender has fewer: they
+ * go into debt (a negative balance). Used for the fine a caught robber pays. If crediting the
+ * receiver fails, the sender is given the points back.
+ */
+async function transferInDebt(
+  guildId: string,
+  fromId: string,
+  toId: string,
+  amount: number,
+): Promise<{ moved: number; fromBalance: number; toBalance: number } | null> {
+  const { members } = collections();
+
+  const from = await members.findOneAndUpdate(
+    { guildId, userId: fromId },
+    { $inc: { points: -amount } },
+    { returnDocument: 'after' },
+  );
+  if (!from) return null;
+
+  try {
+    const to = await members.findOneAndUpdate(
+      { guildId, userId: toId },
+      { $inc: { points: amount } },
+      { returnDocument: 'after' },
+    );
+    if (!to) throw new Error(`Member ${toId} not found while crediting a fine`);
+    return { moved: amount, fromBalance: from.points, toBalance: to.points };
+  } catch (err) {
+    await members.updateOne({ guildId, userId: fromId }, { $inc: { points: amount } });
+    throw err;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -366,6 +400,8 @@ export async function pullGacha(guildId: string, userId: string): Promise<PullRe
 
 export type RobResult =
   | { ok: false; reason: 'cooldown'; availableAtUnix: number }
+  /** The robber has fewer points than rob.failFine, so they can't afford to be caught. */
+  | { ok: false; reason: 'robber_too_poor'; fine: number; balance: number }
   | { ok: false; reason: 'victim_too_poor'; minBalance: number }
   | { ok: false; reason: 'victim_recently_robbed'; availableAtUnix: number }
   | {
@@ -386,9 +422,9 @@ export type RobResult =
       ok: true;
       success: false;
       chance: number;
-      /** What the robber actually paid (capped at what they had). */
+      /** What the robber paid. The same as `owed`: a fine is never cut down to what they can afford. */
       fine: number;
-      /** The fine after the robber's gear, before checking what they could afford. */
+      /** The fine after the robber's gear. */
       owed: number;
       /** How much of the fine the robber's gear cancelled. */
       waived: number;
@@ -419,20 +455,27 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     return { ok: false, reason: 'victim_too_poor', minBalance: cfg.minVictimBalance };
   }
 
-  // Start the robber's cooldown atomically. Only one of several rapid attempts can win this.
+  // Start the robber's cooldown atomically. Only one of several rapid attempts can win this. The
+  // robber also has to hold at least the base fine, so a rob never starts from less than they
+  // could be fined (a bigger fine from their gear can still put them in debt).
+  const cooldownMs = cfg.cooldownMinutes * MINUTE_MS;
   const before = await members.findOneAndUpdate(
     {
       guildId,
       userId: robberId,
-      $or: [{ lastRobAt: null }, { lastRobAt: { $lte: new Date(now - cfg.cooldownMinutes * MINUTE_MS) } }],
+      points: { $gte: cfg.failFine },
+      $or: [{ lastRobAt: null }, { lastRobAt: { $lte: new Date(now - cooldownMs) } }],
     },
     { $set: { lastRobAt: new Date(now) } },
     { returnDocument: 'before' },
   );
   if (!before) {
     const robber = await members.findOne({ guildId, userId: robberId });
-    const last = robber?.lastRobAt?.getTime() ?? now;
-    return { ok: false, reason: 'cooldown', availableAtUnix: Math.ceil((last + cfg.cooldownMinutes * MINUTE_MS) / 1000) };
+    const last = robber?.lastRobAt?.getTime();
+    if (last !== undefined && last > now - cooldownMs) {
+      return { ok: false, reason: 'cooldown', availableAtUnix: Math.ceil((last + cooldownMs) / 1000) };
+    }
+    return { ok: false, reason: 'robber_too_poor', fine: cfg.failFine, balance: robber?.points ?? 0 };
   }
 
   const restoreCooldown = () =>
@@ -578,12 +621,13 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       };
     }
 
-    // Caught: the robber pays a fine to the victim (whatever they can afford), less any
-    // protection from their gear.
+    // Caught: the robber pays a fine to the victim, less any protection from their gear. The whole
+    // fine is paid even if it is more than they have (a glass cannon can make it bigger than the
+    // base fine they were checked against), and they are left in debt.
     const owed = robFine(cfg.failFine, robberGear);
     // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
     const waived = Math.max(0, cfg.failFine - owed);
-    const transfer = owed > 0 ? await transferClamped(guildId, robberId, victimId, owed, 1) : null;
+    const transfer = owed > 0 ? await transferInDebt(guildId, robberId, victimId, owed) : null;
     if (!transfer) {
       const robber = await members.findOne({ guildId, userId: robberId });
       return {

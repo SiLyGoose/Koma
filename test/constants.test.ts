@@ -80,6 +80,11 @@ test('message templates fill in their values', () => {
   assert.equal(TEXT.gacha.exclusive('<@1>'), 'Only <@1> can use this one.');
   assert.equal(mentionList(['1', '2']), '<@1>, <@2>');
   assert.equal(mentionList([]), '');
+  assert.equal(
+    TEXT.rob.robberTooPoor('k!', '100', '40'),
+    'You need at least **100** points to rob, in case you get caught. You have **40**. Use `k!claim` to earn more.',
+  );
+  assert.equal(TEXT.rob.inDebt('<@1>', '200'), '<@1> is now **200** points in debt.');
   assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "<@2>'s next rob will be taxed 25%.");
   assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), '<@1> took **50** of it. You kept **150**.');
 });

@@ -98,15 +98,15 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'A frog with a kippah.',
     effects: ['robAmountCut', 'robTax'],
   },
-  // {
-  //   // Aaron
-  //   id: 'wheelchair',
-  //   name: 'Wheelchair',
-  //   stars: 4,
-  //   slot: 'armor',
-  //   description: 'A wheelchair. It is a wheelchair.',
-  //   effects: ['robDefense', 'robShield', 'pullDiscount'],
-  // },
+  {
+    // Aaron
+    id: 'wheelchair',
+    name: 'Wheelchair',
+    stars: 4,
+    slot: 'armor',
+    description: 'A wheelchair. It is a wheelchair.',
+    effects: ['robDefense', 'robShield', 'pullDiscount'],
+  },
   {
     id: 'coughing-baby',
     name: 'Coughing Baby',

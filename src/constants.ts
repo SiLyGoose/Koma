@@ -314,9 +314,14 @@ export const TEXT = {
     /** Gear cancelled the whole fine. */
     caughtGearSaved: (robber: string, victim: string) =>
       `${robber} tried to rob ${victim} but got caught, though their gear got them out of the fine.`,
-    /** The robber had no points left to fine. */
+    /** The fine is set to 0, so there was nothing to pay. */
     caughtNothingToFine: (robber: string, victim: string) =>
-      `${robber} tried to rob ${victim} but got caught. They had nothing left to fine.`,
+      `${robber} tried to rob ${victim} but got caught. There was no fine to pay.`,
+    /** Added when a fine left the robber with a negative balance. `debt` is how far below 0 they are. */
+    inDebt: (robber: string, debt: string) => `${robber} is now **${debt}** points in debt.`,
+    /** The robber has fewer points than the base fine. */
+    robberTooPoor: (p: string, fine: string, balance: string) =>
+      `You need at least **${fine}** points to rob, in case you get caught. You have **${balance}**. Use \`${p}claim\` to earn more.`,
   },
 
   give: {

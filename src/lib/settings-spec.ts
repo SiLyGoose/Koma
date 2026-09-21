@@ -88,7 +88,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('rob.minStolen', 'Rob', 'Lowest number of points a successful rob takes.', 1, MAX_POINTS),
   int('rob.maxStolen', 'Rob', 'Highest number of points a successful rob takes.', 1, MAX_POINTS),
   int('rob.minVictimBalance', 'Rob', 'Members with fewer points than this cannot be robbed (1 means anyone who has points).', 1, MAX_POINTS),
-  int('rob.failFine', 'Rob', 'Fine a caught robber pays the victim.', 0, MAX_POINTS),
+  int('rob.failFine', 'Rob', 'Fine a caught robber pays the victim. A member needs at least this many points to rob.', 0, MAX_POINTS),
   int('rob.cooldownMinutes', 'Rob', 'Minutes a robber must wait between attempts.', 1, MAX_TIMER_MINUTES),
   int(
     'rob.victimProtectionMinutes',

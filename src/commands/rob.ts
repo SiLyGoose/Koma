@@ -70,6 +70,8 @@ export const rob: Command = {
     if (!result.ok) {
       if (result.reason === 'cooldown') {
         await reply(message, TEXT.rob.cooldown(result.availableAtUnix));
+      } else if (result.reason === 'robber_too_poor') {
+        await reply(message, TEXT.rob.robberTooPoor(getPrefix(), fmt(result.fine), fmt(result.balance)));
       } else if (result.reason === 'victim_recently_robbed') {
         await reply(message, TEXT.rob.victimProtected(target.displayName, result.availableAtUnix));
       } else {
@@ -93,7 +95,10 @@ export const rob: Command = {
     } else {
       embed
         .setTitle(pickRandom(FAILURE_TITLES))
-        .setDescription(caughtText(message.author.toString(), target.toString(), result));
+        .setDescription(
+          caughtText(message.author.toString(), target.toString(), result) +
+            (result.robberBalance < 0 ? `\n${TEXT.rob.inDebt(message.author.toString(), fmt(-result.robberBalance))}` : ''),
+        );
     }
 
     // Ping only the victim so they know it happened.
