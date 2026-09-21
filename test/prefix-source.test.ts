@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { resolvePrefixSource } from '../src/lib/prefix-source.js';
+import { isLocalMode, resolvePrefixSource, slashCommandsEnabled } from '../src/lib/prefix-source.js';
 
 test('ENV=LOCAL reads the prefix from DS_PREFIX', () => {
   assert.deepEqual(resolvePrefixSource({ ENV: 'LOCAL', DS_PREFIX: 'dev.' }), { source: 'env', prefix: 'dev.' });
@@ -29,4 +29,15 @@ test('ENV=LOCAL without a usable DS_PREFIX stops with a message that says what t
   assert.throws(() => resolvePrefixSource({ ENV: 'LOCAL', DS_PREFIX: '   ' }), /DS_PREFIX is missing or empty/);
   assert.throws(() => resolvePrefixSource({ ENV: 'LOCAL', DS_PREFIX: 'has space' }), /DS_PREFIX in \.env must be/);
   assert.throws(() => resolvePrefixSource({ ENV: 'LOCAL', DS_PREFIX: 'waytoolongprefix' }), /DS_PREFIX in \.env must be/);
+});
+
+test('slash commands are off with ENV=LOCAL (any letter case) and on for everything else', () => {
+  for (const env of [{ ENV: 'LOCAL', DS_PREFIX: 'd.' }, { ENV: ' local ' }, { ENV: 'Local' }]) {
+    assert.equal(isLocalMode(env), true, JSON.stringify(env));
+    assert.equal(slashCommandsEnabled(env), false, JSON.stringify(env));
+  }
+  for (const env of [{ ENV: 'PROD' }, { ENV: 'production' }, { ENV: '' }, { DS_PREFIX: 'd.' }, {}]) {
+    assert.equal(isLocalMode(env), false, JSON.stringify(env));
+    assert.equal(slashCommandsEnabled(env), true, JSON.stringify(env));
+  }
 });

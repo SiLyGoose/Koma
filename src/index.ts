@@ -11,7 +11,7 @@ import { validateEvents } from './events/registry.js';
 import { resumeOpenEvents } from './events/runner.js';
 import { startEventScheduler } from './events/scheduler.js';
 import { requireEnv } from './env.js';
-import { resolvePrefixSource } from './lib/prefix-source.js';
+import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { migrateInventory } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
@@ -30,6 +30,11 @@ async function main(): Promise<void> {
   } else {
     console.log('Using the prefix stored in MongoDB.');
   }
+
+  // A local test bot shares the Discord application (and so the slash commands) with the real bot, so
+  // with ENV=LOCAL it neither registers nor answers slash commands; the prefix commands still work.
+  const slashOn = slashCommandsEnabled(process.env);
+  if (!slashOn) console.log('ENV=LOCAL: slash commands are off (not registered, not answered), so this bot does not interfere with the real one.');
 
   // Fail fast on a missing token, before opening the database connection.
   const token = requireEnv('DS_TOKEN');
@@ -62,7 +67,7 @@ async function main(): Promise<void> {
   let stopEvents: () => void = () => {};
 
   client.once(Events.ClientReady, async (readyClient) => {
-    console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}" or "/".`);
+    console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"${slashOn ? ' or "/"' : ''}.`);
 
     // Random events in the servers that chose an events channel (see the event command). An event
     // that was still open when the bot last stopped (a restart, a deploy) is picked up again first.
@@ -72,6 +77,7 @@ async function main(): Promise<void> {
     // Tell Discord which slash commands exist. This replaces the whole list every start, so a
     // command removed from the code disappears from Discord too. A failure here only costs the
     // slash commands; the prefix commands keep working.
+    if (!slashOn) return;
     try {
       const data = slashCommandData(commands);
       await readyClient.application.commands.set(data);
@@ -88,6 +94,7 @@ async function main(): Promise<void> {
   // Slash commands and the suggestion lists of their options. Button presses are handled where the
   // buttons are made (see discord/confirm.ts), so they are ignored here.
   client.on(Events.InteractionCreate, (interaction) => {
+    if (!slashOn) return;
     if (interaction.isChatInputCommand()) void handleSlash(interaction);
     else if (interaction.isAutocomplete()) void handleAutocomplete(interaction);
   });

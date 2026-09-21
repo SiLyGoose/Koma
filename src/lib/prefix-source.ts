@@ -7,6 +7,19 @@ export const ENV_PREFIX_VAR = 'DS_PREFIX';
 /** The value of ENV that makes the bot use the prefix from .env (any letter case). */
 export const LOCAL_MODE = 'LOCAL';
 
+/** True when ENV=LOCAL (any letter case, stray spaces ignored): this copy of the bot is a local test bot, not the real one. */
+export function isLocalMode(env: Record<string, string | undefined>): boolean {
+  return env[ENV_MODE_VAR]?.trim().toUpperCase() === LOCAL_MODE;
+}
+
+/**
+ * Whether this copy of the bot registers and answers slash commands. Slash commands belong to the
+ * Discord application, which the local test bot and the real bot share (same token), so a local copy
+ * that registered or answered them would replace the real bot's list and steal its interactions.
+ * With ENV=LOCAL they are off: only the prefix commands (with DS_PREFIX) work.
+ */
+export const slashCommandsEnabled = (env: Record<string, string | undefined>): boolean => !isLocalMode(env);
+
 export type PrefixSource = { source: 'env'; prefix: string } | { source: 'database' };
 
 /**
@@ -20,8 +33,7 @@ export type PrefixSource = { source: 'env'; prefix: string } | { source: 'databa
  * Throws with a message saying what to fix if LOCAL is on but DS_PREFIX is missing or invalid.
  */
 export function resolvePrefixSource(env: Record<string, string | undefined>): PrefixSource {
-  const mode = env[ENV_MODE_VAR]?.trim().toUpperCase();
-  if (mode !== LOCAL_MODE) return { source: 'database' };
+  if (!isLocalMode(env)) return { source: 'database' };
 
   const prefix = env[ENV_PREFIX_VAR]?.trim();
   if (!prefix) {
