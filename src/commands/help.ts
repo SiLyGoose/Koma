@@ -2,9 +2,7 @@ import { createEmbed } from '../lib/embed.js';
 import { CONFIG, isAdmin } from '../config.js';
 import { TEXT } from '../constants.js';
 import { fmt } from '../lib/format.js';
-import { reply } from './reply.js';
 import type { Command } from './types.js';
-import { getPrefix } from '../services/settings.js';
 
 /** The commands in alphabetical order by name (a new list; the one passed in is left as it is). */
 export function sortCommands(commands: readonly Command[]): Command[] {
@@ -18,15 +16,19 @@ export function createHelpCommand(getCommands: () => Command[]): Command {
     aliases: ['commands'],
     description: 'Show this list.',
 
-    async execute({ message }) {
-      const p = getPrefix();
+    async execute(ctx) {
+      const p = ctx.prefix;
+      const slash = ctx.source === 'slash';
       const lines = sortCommands(getCommands())
-        .filter((command) => !command.adminOnly || isAdmin(message.author.id))
+        .filter((command) => !command.adminOnly || isAdmin(ctx.user.id))
         .map((command) => {
-          const aliases = command.aliases?.length
-            ? TEXT.help.aliases(command.aliases.map((alias) => TEXT.help.alias(p, alias)).join(', '))
-            : '';
-          return TEXT.help.entry(`${p}${command.usage ?? command.name}`, aliases, command.description);
+          // Slash commands have no aliases, and their options read differently from typed arguments.
+          const aliases =
+            !slash && command.aliases?.length
+              ? TEXT.help.aliases(command.aliases.map((alias) => TEXT.help.alias(p, alias)).join(', '))
+              : '';
+          const usage = slash ? (command.slashUsage ?? command.name) : (command.usage ?? command.name);
+          return TEXT.help.entry(`${p}${usage}`, aliases, command.description);
         });
 
       const embed = createEmbed()
@@ -35,7 +37,8 @@ export function createHelpCommand(getCommands: () => Command[]): Command {
         .setFooter({
           text: TEXT.help.footer(fmt(CONFIG.claim.min), fmt(CONFIG.claim.max), fmt(CONFIG.gacha.cost)),
         });
-      await reply(message, { embeds: [embed] });
+      // The list is long, so a slash command shows it only to the person who asked.
+      await ctx.reply({ embeds: [embed], ephemeral: true });
     },
   };
 }

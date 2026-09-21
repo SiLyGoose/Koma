@@ -99,6 +99,15 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['robAmountCut', 'robTax'],
   },
   {
+    id: 'sid-the-sloth',
+    name: 'Sid the Sloth',
+    stars: 4,
+    usableBy: ['570657734870171648'], // JJ
+    slot: 'armor',
+    description: 'A sloth. It is a sloth.',
+    effects: ['claimTax', 'fineReduction'],
+  },
+  {
     id: 'wheelchair',
     name: 'Wheelchair',
     stars: 4,
@@ -120,6 +129,15 @@ export const ITEMS: readonly ItemDef[] = [
   //   // Simon
   //   id: ''
   // }
+  {
+    id: 'd20',
+    name: 'D20',
+    stars: 4,
+    usableBy: ['1014831847487840307'], // Harrison
+    slot: 'weapon',
+    description: 'Madness is at the heart of all gambling.', 
+    effects: ['robChance', 'robAmount'],
+  }
 ];
 
 export const ITEMS_BY_ID: ReadonlyMap<string, ItemDef> = new Map(
@@ -131,7 +149,7 @@ export function itemsByStars(stars: Stars): ItemDef[] {
 }
 
 /** Lowercase and drop punctuation so "merchants coat" finds "Merchant's Coat". */
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text.toLowerCase().replace(/['’`".,!?-]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 

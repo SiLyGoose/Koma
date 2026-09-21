@@ -2,7 +2,6 @@ import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier } from '../lib/format.js';
 import { claimHourly } from '../services/economy.js';
-import { reply } from './reply.js';
 import { replyWithWheel } from './wheel-reply.js';
 import type { Command } from './types.js';
 
@@ -10,11 +9,11 @@ export const claim: Command = {
   name: 'claim',
   description: 'Claim your points for this hour.',
 
-  async execute({ message }) {
-    const result = await claimHourly(message.guildId, message.author.id);
+  async execute(ctx) {
+    const result = await claimHourly(ctx.guildId, ctx.user.id);
 
     if (!result.ok) {
-      await reply(message, TEXT.claim.already(result.nextClaimUnix));
+      await ctx.reply(TEXT.claim.already(result.nextClaimUnix));
       return;
     }
 
@@ -22,8 +21,8 @@ export const claim: Command = {
       .setTitle(TEXT.claim.title)
       .setDescription(
         (result.bonus > 0
-          ? TEXT.claim.claimedWithGear(message.author.toString(), fmt(result.amount), fmt(result.bonus))
-          : TEXT.claim.claimed(message.author.toString(), fmt(result.amount))) +
+          ? TEXT.claim.claimedWithGear(ctx.user.toString(), fmt(result.amount), fmt(result.bonus))
+          : TEXT.claim.claimed(ctx.user.toString(), fmt(result.amount))) +
           (result.wheel ? `\n${TEXT.wheel.landed(formatMultiplier(result.wheel.multiplier))}` : '') +
           (result.taxed
             ? `\n${TEXT.claim.taxed(`<@${result.taxed.toUserId}>`, fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount))}`
@@ -34,9 +33,9 @@ export const claim: Command = {
         { name: TEXT.claim.nextField, value: TEXT.claim.next(result.nextClaimUnix), inline: true },
       );
     if (result.wheel) {
-      await replyWithWheel(message, embed, result.wheel);
+      await replyWithWheel(ctx, embed, result.wheel);
     } else {
-      await reply(message, { embeds: [embed] });
+      await ctx.reply({ embeds: [embed] });
     }
   },
 };

@@ -3,11 +3,9 @@ import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
 import { rob as robService } from '../services/economy.js';
-import { reply } from './reply.js';
 import { replyWithWheel } from './wheel-reply.js';
 import { memberNotFound, resolveUserArg } from './resolve.js';
 import type { Command } from './types.js';
-import { getPrefix } from '../services/settings.js';
 
 function caughtText(
   robber: string,
@@ -47,38 +45,40 @@ export const rob: Command = {
   name: 'rob',
   description: 'Steal points from another member. You can rob once per hour, and each member can only be robbed once per hour.',
   usage: 'rob @user',
+  slashUsage: 'rob <user>',
 
-  async execute({ message, args }) {
+  async execute(ctx) {
+    const { args } = ctx;
     if (!args[0]) {
-      await reply(message, TEXT.rob.usage(getPrefix()));
+      await ctx.reply(TEXT.rob.usage(ctx.prefix));
       return;
     }
 
-    const target = await resolveUserArg(message, args[0]);
+    const target = await resolveUserArg(ctx, args[0]);
     if (!target) {
-      await reply(message, memberNotFound('rob @user'));
+      await ctx.reply(memberNotFound(ctx, 'rob @user'));
       return;
     }
     if (target.bot) {
-      await reply(message, TEXT.rob.botTarget);
+      await ctx.reply(TEXT.rob.botTarget);
       return;
     }
-    if (target.id === message.author.id) {
-      await reply(message, TEXT.rob.selfTarget);
+    if (target.id === ctx.user.id) {
+      await ctx.reply(TEXT.rob.selfTarget);
       return;
     }
 
-    const result = await robService(message.guildId, message.author.id, target.id);
+    const result = await robService(ctx.guildId, ctx.user.id, target.id);
 
     if (!result.ok) {
       if (result.reason === 'cooldown') {
-        await reply(message, TEXT.rob.cooldown(result.availableAtUnix));
+        await ctx.reply(TEXT.rob.cooldown(result.availableAtUnix));
       } else if (result.reason === 'robber_too_poor') {
-        await reply(message, TEXT.rob.robberTooPoor(getPrefix(), fmt(result.fine), fmt(result.balance)));
+        await ctx.reply(TEXT.rob.robberTooPoor(ctx.prefix, fmt(result.fine), fmt(result.balance)));
       } else if (result.reason === 'victim_recently_robbed') {
-        await reply(message, TEXT.rob.victimProtected(target.displayName, result.availableAtUnix));
+        await ctx.reply(TEXT.rob.victimProtected(target.displayName, result.availableAtUnix));
       } else {
-        await reply(message, TEXT.rob.victimBroke(target.displayName));
+        await ctx.reply(TEXT.rob.victimBroke(target.displayName));
       }
       return;
     }
@@ -90,7 +90,7 @@ export const rob: Command = {
         .setTitle(pickRandom(SUCCESS_TITLES))
         .setDescription(
           (result.victimBalance === 0 ? TEXT.rob.successEverything : TEXT.rob.success)(
-            message.author.toString(),
+            ctx.user.toString(),
             target.toString(),
             fmt(result.stolen),
           ) + successNotes(target.toString(), result),
@@ -99,8 +99,8 @@ export const rob: Command = {
       embed
         .setTitle(pickRandom(FAILURE_TITLES))
         .setDescription(
-          caughtText(message.author.toString(), target.toString(), result) +
-            (result.robberBalance < 0 ? `\n${TEXT.rob.inDebt(message.author.toString(), fmt(-result.robberBalance))}` : ''),
+          caughtText(ctx.user.toString(), target.toString(), result) +
+            (result.robberBalance < 0 ? `\n${TEXT.rob.inDebt(ctx.user.toString(), fmt(-result.robberBalance))}` : ''),
         );
     }
 
@@ -109,9 +109,9 @@ export const rob: Command = {
 
     // A successful rob that spun the wheel plays the wheel animation before showing the result.
     if (result.success && result.wheel) {
-      await replyWithWheel(message, embed, result.wheel, { allowedMentions });
+      await replyWithWheel(ctx, embed, result.wheel, { allowedMentions });
     } else {
-      await reply(message, { embeds: [embed], allowedMentions });
+      await ctx.reply({ embeds: [embed], allowedMentions });
     }
   },
 };

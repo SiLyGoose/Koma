@@ -5,39 +5,37 @@ import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy.js';
 import { getEquipment } from '../services/equipment.js';
-import { reply } from './reply.js';
 import { memberNotFound, resolveUserArg } from './resolve.js';
 import type { Command } from './types.js';
-import { getPrefix } from '../services/settings.js';
 
 export const inventory: Command = {
   name: 'inventory',
   aliases: ['inv'],
   description: 'See the items you have collected, yours or another member\'s.',
   usage: 'inventory [@user]',
+  slashUsage: 'inventory [user]',
 
-  async execute({ message, args }) {
-    let target = message.author;
+  async execute(ctx) {
+    const { args } = ctx;
+    let target = ctx.user;
     if (args[0]) {
-      const resolved = await resolveUserArg(message, args[0]);
+      const resolved = await resolveUserArg(ctx, args[0]);
       if (!resolved) {
-        await reply(message, memberNotFound('inventory @user'));
+        await ctx.reply(memberNotFound(ctx, 'inventory @user'));
         return;
       }
       target = resolved;
     }
 
     const [entries, equipment] = await Promise.all([
-      getInventory(message.guildId, target.id),
-      getEquipment(message.guildId, target.id),
+      getInventory(ctx.guildId, target.id),
+      getEquipment(ctx.guildId, target.id),
     ]);
     const equippedIds = new Set([equipment.weapon, equipment.armor]);
 
     if (entries.length === 0) {
-      await reply(
-        message,
-        target.id === message.author.id
-          ? TEXT.inventory.emptySelf(getPrefix())
+      await ctx.reply(target.id === ctx.user.id
+          ? TEXT.inventory.emptySelf(ctx.prefix)
           : TEXT.inventory.emptyOther(target.displayName),
       );
       return;
@@ -73,6 +71,6 @@ export const inventory: Command = {
       embed.addFields({ name: TEXT.inventory.otherField, value: joinLimited(unknown) });
     }
 
-    await reply(message, { embeds: [embed] });
+    await ctx.reply({ embeds: [embed] });
   },
 };

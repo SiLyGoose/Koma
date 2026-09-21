@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { EventEmitter } from 'node:events';
 import type { Message } from 'discord.js';
 import { CANCEL_ID, CONFIRM_ID, askToConfirm } from '../src/commands/confirm.js';
+import { messageContext } from '../src/commands/context.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { TEXT } from '../src/constants.js';
 import { createEmbed } from '../src/lib/embed.js';
@@ -177,7 +178,7 @@ const settle = async () => {
 
 test('confirm: the question has a confirm and a cancel button and waits for a limited time', async () => {
   const f = fakeButtons();
-  const pending = askToConfirm(f.message, createEmbed().setTitle('Q'), 'u1', labels, 1234);
+  const pending = askToConfirm(messageContext(f.message as Message<true>, [], 'k!'), createEmbed().setTitle('Q'), 'u1', labels, 1234);
   await settle();
   const { collectorOptions, replyOptions } = f.options();
   assert.equal(collectorOptions.time, 1234);
@@ -189,7 +190,7 @@ test('confirm: the question has a confirm and a cancel button and waits for a li
 
 test('confirm: the member pressing confirm gets a confirm, and the answer replaces the question', async () => {
   const f = fakeButtons();
-  const pending = askToConfirm(f.message, createEmbed(), 'u1', labels);
+  const pending = askToConfirm(messageContext(f.message as Message<true>, [], 'k!'), createEmbed(), 'u1', labels);
   await settle();
   f.click('u1', CONFIRM_ID);
   const outcome = await pending;
@@ -206,7 +207,7 @@ test('confirm: the member pressing confirm gets a confirm, and the answer replac
 
 test('confirm: cancel is a cancel', async () => {
   const f = fakeButtons();
-  const pending = askToConfirm(f.message, createEmbed(), 'u1', labels);
+  const pending = askToConfirm(messageContext(f.message as Message<true>, [], 'k!'), createEmbed(), 'u1', labels);
   await settle();
   f.click('u1', CANCEL_ID);
   assert.equal((await pending).decision, 'cancel');
@@ -215,7 +216,7 @@ test('confirm: cancel is a cancel', async () => {
 test("confirm: someone else's button press is told it isn't theirs and doesn't answer the question", async () => {
   const f = fakeButtons();
   let outcome: string | undefined;
-  const pending = askToConfirm(f.message, createEmbed(), 'u1', labels).then((o) => {
+  const pending = askToConfirm(messageContext(f.message as Message<true>, [], 'k!'), createEmbed(), 'u1', labels).then((o) => {
     outcome = o.decision;
     return o;
   });
@@ -233,7 +234,7 @@ test("confirm: someone else's button press is told it isn't theirs and doesn't a
 
 test('confirm: only the first answer counts', async () => {
   const f = fakeButtons();
-  const pending = askToConfirm(f.message, createEmbed(), 'u1', labels);
+  const pending = askToConfirm(messageContext(f.message as Message<true>, [], 'k!'), createEmbed(), 'u1', labels);
   await settle();
   f.click('u1', CONFIRM_ID);
   f.click('u1', CANCEL_ID);
@@ -245,7 +246,7 @@ test('confirm: only the first answer counts', async () => {
 
 test('confirm: with no answer it times out, and the message is edited to say so', async () => {
   const f = fakeButtons();
-  const pending = askToConfirm(f.message, createEmbed(), 'u1', labels);
+  const pending = askToConfirm(messageContext(f.message as Message<true>, [], 'k!'), createEmbed(), 'u1', labels);
   await settle();
   f.collector.emit('end', new Map(), 'time');
   const outcome = await pending;

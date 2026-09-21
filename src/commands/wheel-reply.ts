@@ -1,11 +1,10 @@
 import { randomInt } from 'node:crypto';
-import type { Message, MessageReplyOptions } from 'discord.js';
 import { TEXT, WHEEL_ANIMATION, WHEEL_IMAGE_NAME } from '../constants.js';
 import { WHEEL_SLICES } from '../data/wheel.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import type { WheelSpin } from '../lib/wheel.js';
 import { renderSpinningWheel, renderWheel, spinTurns } from '../lib/wheel-image.js';
-import { reply } from './reply.js';
+import type { CommandContext, ReplyOptions, SentReply } from './types.js';
 
 const IMAGE_URL = `attachment://${WHEEL_IMAGE_NAME}`;
 const file = (png: Buffer) => ({ attachment: png, name: WHEEL_IMAGE_NAME });
@@ -31,25 +30,25 @@ export function spinSteps(): number {
  * than letting the spin run long.
  */
 export async function replyWithWheel(
-  message: Message,
+  ctx: CommandContext,
   embed: BotEmbed,
   spin: WheelSpin,
-  options: Pick<MessageReplyOptions, 'allowedMentions'> = {},
+  options: Pick<ReplyOptions, 'allowedMentions'> = {},
 ): Promise<void> {
   const steps = spinSteps();
-  const spinning = createEmbed().setTitle(TEXT.wheel.spinningTitle).setDescription(TEXT.wheel.spinning(message.author.toString()));
+  const spinning = createEmbed().setTitle(TEXT.wheel.spinningTitle).setDescription(TEXT.wheel.spinning(ctx.user.toString()));
   spinning.setImage(IMAGE_URL);
 
   let turns: number[];
-  let sent: Message;
+  let sent: SentReply;
   try {
     turns = spinTurns(WHEEL_SLICES.length, spin, steps);
     const first = renderSpinningWheel(WHEEL_SLICES, turns[0] as number);
-    sent = await reply(message, { embeds: [spinning], files: [file(first)], ...options });
+    sent = await ctx.reply({ embeds: [spinning], files: [file(first)], ...options });
   } catch (err) {
     // No animation: just send the result.
     console.error('Could not start the wheel animation:', err);
-    await reply(message, { embeds: [embed], ...options });
+    await ctx.reply({ embeds: [embed], ...options });
     return;
   }
 
@@ -80,6 +79,6 @@ export async function replyWithWheel(
     await sent.edit({ embeds: [embed], files, attachments: [] });
   } catch (err) {
     console.error('Could not show the wheel result, sending it as a new message:', err);
-    await reply(message, { embeds: [embed], files, ...options });
+    await ctx.reply({ embeds: [embed], files, ...options });
   }
 }

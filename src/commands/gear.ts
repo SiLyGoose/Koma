@@ -4,9 +4,7 @@ import { createEmbed } from '../lib/embed.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, totalEffects, usableItems } from '../lib/equipment.js';
 import { mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/equipment.js';
-import { getPrefix } from '../services/settings.js';
 import { SLOTS } from '../types.js';
-import { reply } from './reply.js';
 import { memberNotFound, resolveUserArg } from './resolve.js';
 import type { Command } from './types.js';
 
@@ -15,19 +13,21 @@ export const gear: Command = {
   aliases: ['equipment', 'loadout'],
   description: "See what you (or another member) have equipped and what it does.",
   usage: 'gear [@user]',
+  slashUsage: 'gear [user]',
 
-  async execute({ message, args }) {
-    let target = message.author;
+  async execute(ctx) {
+    const { args } = ctx;
+    let target = ctx.user;
     if (args[0]) {
-      const resolved = await resolveUserArg(message, args[0]);
+      const resolved = await resolveUserArg(ctx, args[0]);
       if (!resolved) {
-        await reply(message, memberNotFound('gear @user'));
+        await ctx.reply(memberNotFound(ctx, 'gear @user'));
         return;
       }
       target = resolved;
     }
-    const isSelf = target.id === message.author.id;
-    const equipment = await getEquipment(message.guildId, target.id);
+    const isSelf = target.id === ctx.user.id;
+    const equipment = await getEquipment(ctx.guildId, target.id);
 
     const embed = createEmbed().setTitle(TEXT.gear.title(target.displayName));
     for (const slot of SLOTS) {
@@ -40,7 +40,7 @@ export const gear: Command = {
           value: id
             ? TEXT.gear.unknownItem(id)
             : isSelf
-              ? TEXT.gear.emptySelf(getPrefix())
+              ? TEXT.gear.emptySelf(ctx.prefix)
               : TEXT.gear.emptyOther,
         });
         continue;
@@ -59,6 +59,6 @@ export const gear: Command = {
     const totals = describeTotals(totalEffects(usableItems(equippedItems(equipment), target.id)));
     if (totals.length > 0) embed.addBlankField().addFields({ name: TEXT.gear.totalsField, value: totals.join('\n') });
 
-    await reply(message, { embeds: [embed] });
+    await ctx.reply({ embeds: [embed] });
   },
 };

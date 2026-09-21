@@ -4,10 +4,9 @@ import {
   ButtonStyle,
   ComponentType,
   MessageFlags,
-  type Message,
 } from 'discord.js';
 import type { BotEmbed } from '../lib/embed.js';
-import { reply } from './reply.js';
+import type { CommandContext } from './types.js';
 
 /** How long a member has to answer a confirmation, in milliseconds. */
 export const CONFIRM_TIMEOUT_MS = 30_000;
@@ -29,7 +28,7 @@ export interface ConfirmOutcome {
  * (like a sale) never makes Discord say the button failed.
  */
 export async function askToConfirm(
-  message: Message,
+  ctx: CommandContext,
   embed: BotEmbed,
   userId: string,
   labels: { confirm: string; cancel: string; notYours: string },
@@ -39,11 +38,12 @@ export async function askToConfirm(
     new ButtonBuilder().setCustomId(CONFIRM_ID).setLabel(labels.confirm).setStyle(ButtonStyle.Danger),
     new ButtonBuilder().setCustomId(CANCEL_ID).setLabel(labels.cancel).setStyle(ButtonStyle.Secondary),
   );
-  const sent = await reply(message, { embeds: [embed], components: [row] });
+  const sent = await ctx.reply({ embeds: [embed], components: [row], ephemeral: false });
+  const message = await sent.fetchMessage();
 
   return new Promise<ConfirmOutcome>((resolve) => {
     let decided = false;
-    const collector = sent.createMessageComponentCollector({ componentType: ComponentType.Button, time: timeoutMs });
+    const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: timeoutMs });
 
     collector.on('collect', (interaction) => {
       void (async () => {

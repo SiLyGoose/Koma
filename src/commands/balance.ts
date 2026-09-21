@@ -3,29 +3,29 @@ import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
 import { getBalance } from '../services/economy.js';
-import { reply } from './reply.js';
 import { memberNotFound, resolveUserArg } from './resolve.js';
 import type { Command } from './types.js';
-import { getPrefix } from '../services/settings.js';
 
 export const balance: Command = {
   name: 'balance',
   aliases: ['bal', 'p', 'profile'],
   description: 'Check your points, or another member\'s.',
   usage: 'balance [@user]',
+  slashUsage: 'balance [user]',
 
-  async execute({ message, args }) {
-    let target = message.author;
+  async execute(ctx) {
+    const { args } = ctx;
+    let target = ctx.user;
     if (args[0]) {
-      const resolved = await resolveUserArg(message, args[0]);
+      const resolved = await resolveUserArg(ctx, args[0]);
       if (!resolved) {
-        await reply(message, memberNotFound('balance @user'));
+        await ctx.reply(memberNotFound(ctx, 'balance @user'));
         return;
       }
       target = resolved;
     }
 
-    const info = await getBalance(message.guildId, target.id);
+    const info = await getBalance(ctx.guildId, target.id);
 
     const embed = createEmbed()
       .setTitle(TEXT.balance.title(target.displayName))
@@ -33,18 +33,18 @@ export const balance: Command = {
       .addFields(
       {
         name: TEXT.balance.claimField,
-        value: info.canClaim ? TEXT.balance.claimReady(getPrefix()) : TEXT.balance.claimWait(info.nextClaimUnix),
+        value: info.canClaim ? TEXT.balance.claimReady(ctx.prefix) : TEXT.balance.claimWait(info.nextClaimUnix),
       },
       {
         name: TEXT.balance.robField,
         value:
           info.robReadyAtUnix === null
-            ? TEXT.balance.robReady(getPrefix())
+            ? TEXT.balance.robReady(ctx.prefix)
             : TEXT.balance.robWait(info.robReadyAtUnix),
       },
     );
 
-    const isSelf = target.id === message.author.id;
+    const isSelf = target.id === ctx.user.id;
 
     if (CONFIG.rob.victimProtectionMinutes > 0) {
       embed.addFields({
@@ -76,6 +76,6 @@ export const balance: Command = {
     }
     if (effects.length > 0) embed.addFields({ name: TEXT.balance.effectsField, value: effects.join('\n') });
 
-    await reply(message, { embeds: [embed] });
+    await ctx.reply({ embeds: [embed] });
   },
 };

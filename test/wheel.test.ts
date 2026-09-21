@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { inflateSync } from 'node:zlib';
 import { CONFIG } from '../src/config.js';
 import type { Message } from 'discord.js';
+import { messageContext } from '../src/commands/context.js';
 import { replyWithWheel, spinSteps } from '../src/commands/wheel-reply.js';
 import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, validateConstants } from '../src/constants.js';
 import { emptyTotals } from '../src/data/effects.js';
@@ -313,7 +314,7 @@ test('animation: the reply shows the spinning wheel, swaps pictures, then ends o
     const { message, calls } = fakeMessage();
     const result = createEmbed().setTitle('Result');
     const started = Date.now();
-    await replyWithWheel(message, result, { index: 4, multiplier: 2, offset: 0.4 }, { allowedMentions: { users: ['2'] } });
+    await replyWithWheel(messageContext(message as Message<true>, [], 'k!'), result, { index: 4, multiplier: 2, offset: 0.4 }, { allowedMentions: { users: ['2'] } });
     const elapsed = Date.now() - started;
 
     assert.equal(calls[0]?.kind, 'reply');
@@ -349,7 +350,7 @@ test('animation: if the message can not be edited, the result is sent as a new m
   await withQuickAnimation(async () => {
     const { message, calls } = fakeMessage({ editFails: true });
     const result = createEmbed().setTitle('Result');
-    await replyWithWheel(message, result, { index: 1, multiplier: 0.1, offset: 0.5 });
+    await replyWithWheel(messageContext(message as Message<true>, [], 'k!'), result, { index: 1, multiplier: 0.1, offset: 0.5 });
     const replies = calls.filter((call) => call.kind === 'reply');
     assert.equal(replies.length, 2);
     assert.equal(replies[1]?.options.embeds[0], result);

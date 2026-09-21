@@ -1,20 +1,21 @@
-import type { Message, User } from 'discord.js';
+import type { User } from 'discord.js';
 import { TEXT } from '../constants.js';
 import { parseUserArg } from '../lib/parse.js';
-import { getPrefix } from '../services/settings.js';
+import type { CommandContext } from './types.js';
 
 /** Turns a mention or user ID argument into a user who is a member of this server, or null. */
-export async function resolveUserArg(message: Message<true>, arg: string): Promise<User | null> {
+export async function resolveUserArg(ctx: CommandContext, arg: string): Promise<User | null> {
   const id = parseUserArg(arg);
   if (!id) return null;
   try {
-    const member = await message.guild.members.fetch(id);
+    const member = await ctx.guild.members.fetch(id);
     return member.user;
   } catch {
     return null;
   }
 }
 
-export function memberNotFound(usage: string): string {
-  return TEXT.common.memberNotFound(getPrefix(), usage);
+/** `usage` is the command as typed after the prefix, like "rob @user". */
+export function memberNotFound(ctx: CommandContext, usage: string): string {
+  return TEXT.common.memberNotFound(ctx.prefix, usage);
 }

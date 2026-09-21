@@ -1,13 +1,13 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
-import { commandMap } from './commands/index.js';
-import { reply } from './commands/reply.js';
+import { handleAutocomplete, handleMessage, handleSlash } from './commands/dispatch.js';
+import { commands } from './commands/index.js';
+import { slashCommandData } from './commands/slash.js';
 import { validateConfig } from './config.js';
-import { SETTINGS_REFRESH_MS, TEXT, validateConstants } from './constants.js';
+import { SETTINGS_REFRESH_MS, validateConstants } from './constants.js';
 import { validateItems } from './data/items.js';
 import { validateWheel } from './data/wheel.js';
 import { closeDb, connectDb } from './db.js';
 import { requireEnv } from './env.js';
-import { parseCommand } from './lib/parse.js';
 import { resolvePrefixSource } from './lib/prefix-source.js';
 import { migrateInventory } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
@@ -55,29 +55,30 @@ async function main(): Promise<void> {
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   });
 
-  client.once(Events.ClientReady, (readyClient) => {
-    console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"`);
+  client.once(Events.ClientReady, async (readyClient) => {
+    console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}" or "/".`);
+
+    // Tell Discord which slash commands exist. This replaces the whole list every start, so a
+    // command removed from the code disappears from Discord too. A failure here only costs the
+    // slash commands; the prefix commands keep working.
+    try {
+      const data = slashCommandData(commands);
+      await readyClient.application.commands.set(data);
+      console.log(`Registered ${data.length} slash commands.`);
+    } catch (err) {
+      console.error('Could not register the slash commands:', err);
+    }
   });
 
-  client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot || !message.inGuild()) return;
+  client.on(Events.MessageCreate, (message) => {
+    void handleMessage(message, getPrefix());
+  });
 
-    const parsed = parseCommand(message.content, getPrefix());
-    if (!parsed) return;
-
-    const command = commandMap.get(parsed.name);
-    if (!command) return;
-
-    try {
-      await command.execute({ message, args: parsed.args });
-    } catch (err) {
-      console.error(`Error running ${getPrefix()}${parsed.name}:`, err);
-      try {
-        await reply(message, TEXT.common.error);
-      } catch (replyErr) {
-        console.error('Could not send the error message:', replyErr);
-      }
-    }
+  // Slash commands and the suggestion lists of their options. Button presses are handled where the
+  // buttons are made (see commands/confirm.ts), so they are ignored here.
+  client.on(Events.InteractionCreate, (interaction) => {
+    if (interaction.isChatInputCommand()) void handleSlash(interaction);
+    else if (interaction.isAutocomplete()) void handleAutocomplete(interaction);
   });
 
   const shutdown = async (signal: string): Promise<void> => {

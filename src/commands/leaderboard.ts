@@ -3,20 +3,18 @@ import { CONFIG } from '../config.js';
 import { TEXT } from '../constants.js';
 import { fmt } from '../lib/format.js';
 import { getLeaderboard } from '../services/economy.js';
-import { reply } from './reply.js';
 import type { Command } from './types.js';
-import { getPrefix } from '../services/settings.js';
 
 export const leaderboard: Command = {
   name: 'leaderboard',
   aliases: ['lb', 'top'],
   description: 'See who has the most points in this server.',
 
-  async execute({ message }) {
-    const rows = await getLeaderboard(message.guildId, CONFIG.leaderboardSize);
+  async execute(ctx) {
+    const rows = await getLeaderboard(ctx.guildId, CONFIG.leaderboardSize);
 
     if (rows.length === 0) {
-      await reply(message, TEXT.leaderboard.empty(getPrefix()));
+      await ctx.reply(TEXT.leaderboard.empty(ctx.prefix));
       return;
     }
 
@@ -24,6 +22,6 @@ export const leaderboard: Command = {
     const embed = createEmbed()
       .setTitle(TEXT.leaderboard.title)
       .setDescription(lines.join('\n'));
-    await reply(message, { embeds: [embed] });
+    await ctx.reply({ embeds: [embed] });
   },
 };

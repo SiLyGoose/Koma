@@ -1,36 +1,35 @@
-import type { Message } from 'discord.js';
 import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/equipment.js';
 import { fmt, mentionList, starString } from '../lib/format.js';
 import { STARS } from '../config.js';
 import { pullGacha, pullMulti } from '../services/economy.js';
-import { reply } from './reply.js';
-import type { Command } from './types.js';
-import { getPrefix } from '../services/settings.js';
+import type { Command, CommandContext } from './types.js';
 
 export const gacha: Command = {
   name: 'gacha',
   aliases: ['pull'],
   description: `Spend points to pull a random item. Add "multi" to pull ${MULTI_PULLS} at once.`,
   usage: 'gacha [multi]',
+  slashUsage: 'gacha [multi]',
 
-  async execute({ message, args }) {
+  async execute(ctx) {
+    const { args } = ctx;
     // `gacha` is one pull and `gacha multi` is a multi pull; anything else gets a hint.
     const mode = args[0]?.toLowerCase();
     if (args.length > 1 || (mode !== undefined && mode !== 'multi')) {
-      await reply(message, TEXT.gacha.usage(getPrefix()));
+      await ctx.reply(TEXT.gacha.usage(ctx.prefix));
       return;
     }
     if (mode === 'multi') {
-      await multiPull(message);
+      await multiPull(ctx);
       return;
     }
 
-    const result = await pullGacha(message.guildId, message.author.id);
+    const result = await pullGacha(ctx.guildId, ctx.user.id);
 
     if (!result.ok) {
-      await reply(message, TEXT.gacha.cantAfford(getPrefix(), fmt(result.cost), fmt(result.balance)));
+      await ctx.reply(TEXT.gacha.cantAfford(ctx.prefix, fmt(result.cost), fmt(result.balance)));
       return;
     }
 
@@ -39,7 +38,7 @@ export const gacha: Command = {
       .setTitle(TEXT.gacha.title(starString(item.stars), item.name))
       .setDescription(
         TEXT.gacha.description(item.description) +
-          (item.usableBy && !canUseItem(item, message.author.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy))}` : ''),
+          (item.usableBy && !canUseItem(item, ctx.user.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy))}` : ''),
       )
       .addFields(
         {
@@ -53,7 +52,7 @@ export const gacha: Command = {
         { name: TEXT.gacha.balanceField, value: fmt(result.balance), inline: true },
       )
       .setFooter({ text: result.isNew ? TEXT.gacha.footerNew : TEXT.gacha.footerOwned(result.count) })
-      .setAuthor({ name: TEXT.gacha.author(message.author.displayName), iconURL: message.author.displayAvatarURL() });
+      .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
     // if (result.pity) {
     //   embed.addFields({
     //     name: TEXT.gacha.pityField(starString(PITY_STARS)),
@@ -61,16 +60,16 @@ export const gacha: Command = {
     //     inline: true,
     //   });
     // }
-    await reply(message, { embeds: [embed] });
+    await ctx.reply({ embeds: [embed] });
   },
 };
 
 /** `gacha multi`: all the pulls in one embed, in the order they were pulled. */
-async function multiPull(message: Message<true>): Promise<void> {
-  const result = await pullMulti(message.guildId, message.author.id);
+async function multiPull(ctx: CommandContext): Promise<void> {
+  const result = await pullMulti(ctx.guildId, ctx.user.id);
 
   if (!result.ok) {
-    await reply(message, TEXT.gacha.multiCantAfford(getPrefix(), MULTI_PULLS, fmt(result.cost), fmt(result.balance)));
+    await ctx.reply(TEXT.gacha.multiCantAfford(ctx.prefix, MULTI_PULLS, fmt(result.cost), fmt(result.balance)));
     return;
   }
 
@@ -82,7 +81,7 @@ async function multiPull(message: Message<true>): Promise<void> {
   const notes: string[] = [];
   const noted = new Set<string>();
   for (const { item } of result.pulls) {
-    if (!item.usableBy || canUseItem(item, message.author.id) || noted.has(item.id)) continue;
+    if (!item.usableBy || canUseItem(item, ctx.user.id) || noted.has(item.id)) continue;
     noted.add(item.id);
     notes.push(TEXT.gacha.multiExclusive(item.name, mentionList(item.usableBy)));
   }
@@ -112,6 +111,6 @@ async function multiPull(message: Message<true>): Promise<void> {
       { name: TEXT.gacha.balanceField, value: fmt(result.balance), inline: true },
     )
     .setFooter({ text: newCount > 0 ? TEXT.gacha.multiFooterNew(newCount) : TEXT.gacha.multiFooterNoneNew })
-    .setAuthor({ name: TEXT.gacha.author(message.author.displayName), iconURL: message.author.displayAvatarURL() });
-  await reply(message, { embeds: [embed] });
+    .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
+  await ctx.reply({ embeds: [embed] });
 }

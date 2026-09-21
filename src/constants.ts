@@ -91,6 +91,16 @@ export const WHEEL_IMAGE_NAME = 'wheel.png';
  */
 export const WHEEL_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
 
+/**
+ * How long a slash command may go without a reply before the bot tells Discord "one moment"
+ * (shown as "Koma is thinking..."). Discord fails a slash command that isn't answered within 3
+ * seconds, so keep this under 3000. A reply made after this is always public.
+ */
+export const SLASH_DEFER_AFTER_MS = 2500;
+
+/** Most choices Discord shows in an autocomplete list. */
+export const AUTOCOMPLETE_MAX_CHOICES = 25;
+
 /** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
 export const FIELD_MAX_LENGTH = 1000;
 
@@ -158,6 +168,10 @@ export const TEXT = {
     error: 'Something went wrong. Please try again.',
     /** `usage` is the command as typed after the prefix, like "rob @user". */
     memberNotFound: (p: string, usage: string) => `Could not find member in server. Mention via \`${p}${usage}\`.`,
+    /** Sent when a slash command is used outside a server. */
+    serverOnly: 'Koma only works in servers.',
+    /** Sent when a slash command is still registered with Discord but the bot no longer has it. */
+    unknownSlash: 'That command is no longer available.',
     /** Ends a list that was too long for one field. */
     moreLines: (count: number) => `...and ${count} more`,
   },
@@ -493,6 +507,10 @@ export function validateConstants(): void {
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');
   if (MULTI_PULLS < 2 || MULTI_PULLS > 30) problems.push('MULTI_PULLS must be from 2 to 30');
+  if (!(SLASH_DEFER_AFTER_MS >= 500 && SLASH_DEFER_AFTER_MS < 3000)) {
+    problems.push('SLASH_DEFER_AFTER_MS must be from 500 to under 3000 (Discord fails a command that is not answered in 3 seconds)');
+  }
+  if (!(AUTOCOMPLETE_MAX_CHOICES >= 1 && AUTOCOMPLETE_MAX_CHOICES <= 25)) problems.push('AUTOCOMPLETE_MAX_CHOICES must be from 1 to 25');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');

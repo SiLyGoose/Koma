@@ -5,10 +5,8 @@ import { fmt, joinLimited, starString } from '../lib/format.js';
 import { parseSellArgs } from '../lib/sell.js';
 import { getInventory } from '../services/economy.js';
 import { planSale, sellCopies, type SalePlan, type SaleResult, type SellTarget } from '../services/sell.js';
-import { getPrefix } from '../services/settings.js';
 import type { ItemDef } from '../types.js';
 import { CONFIRM_TIMEOUT_MS, askToConfirm } from './confirm.js';
-import { reply } from './reply.js';
 import type { Command } from './types.js';
 
 const lineText = (line: { item: ItemDef; count: number; total: number }) =>
@@ -44,14 +42,14 @@ export const sell: Command = {
   name: 'sell',
   description: 'Sell items you are not wearing for points: one copy, all copies of an item, or a whole star tier.',
   usage: 'sell <item> | sell all <item> | sell stars <1-4>',
+  slashUsage: 'sell one | all | stars',
 
-  async execute({ message, args }) {
-    const p = getPrefix();
+  async execute(ctx) {
+    const { args } = ctx;
+    const p = ctx.prefix;
     const parsed = parseSellArgs(args);
     if (!parsed.ok) {
-      await reply(
-        message,
-        parsed.error === 'bad_stars' ? TEXT.sell.badStars(p) : parsed.error === 'missing_item' ? TEXT.sell.askWhichAll(p) : TEXT.sell.usage(p),
+      await ctx.reply(parsed.error === 'bad_stars' ? TEXT.sell.badStars(p) : parsed.error === 'missing_item' ? TEXT.sell.askWhichAll(p) : TEXT.sell.usage(p),
       );
       return;
     }
@@ -62,39 +60,39 @@ export const sell: Command = {
     if (request.kind === 'stars') {
       target = { kind: 'stars', stars: request.stars };
     } else {
-      const entries = await getInventory(message.guildId, message.author.id);
+      const entries = await getInventory(ctx.guildId, ctx.user.id);
       const owned = entries.map((entry) => ITEMS_BY_ID.get(entry.itemId)).filter((item): item is ItemDef => item !== undefined);
       const lookup = findItem(request.query, owned);
       if (lookup.kind === 'ambiguous') {
-        await reply(message, TEXT.sell.ambiguous(lookup.matches.map((item) => item.name)));
+        await ctx.reply(TEXT.sell.ambiguous(lookup.matches.map((item) => item.name)));
         return;
       }
       if (lookup.kind === 'none') {
         // Tell "you don't have it" apart from "there is no such item".
         const anywhere = findItem(request.query);
-        await reply(message, anywhere.kind === 'found' ? TEXT.sell.notOwned(anywhere.item.name) : TEXT.sell.noSuchItem(p, request.query));
+        await ctx.reply(anywhere.kind === 'found' ? TEXT.sell.notOwned(anywhere.item.name) : TEXT.sell.noSuchItem(p, request.query));
         return;
       }
       target = { kind: request.kind, item: lookup.item };
     }
 
-    const plan = await planSale(message.guildId, message.author.id, target);
+    const plan = await planSale(ctx.guildId, ctx.user.id, target);
     if (!plan.ok) {
-      await reply(message, refusal(p, plan, target));
+      await ctx.reply(refusal(p, plan, target));
       return;
     }
 
-    const user = message.author.toString();
+    const user = ctx.user.toString();
 
     // One copy sells straight away.
     if (target.kind === 'one') {
-      const result = await sellCopies(message.guildId, message.author.id, plan.copyIds);
+      const result = await sellCopies(ctx.guildId, ctx.user.id, plan.copyIds);
       if (!result.ok) {
-        await reply(message, TEXT.sell.nothingLeft);
+        await ctx.reply(TEXT.sell.nothingLeft);
         return;
       }
-      const left = (await getInventory(message.guildId, message.author.id)).find((entry) => entry.itemId === target.item.id)?.count ?? 0;
-      await reply(message, { embeds: [soldEmbed(user, result, left)] });
+      const left = (await getInventory(ctx.guildId, ctx.user.id)).find((entry) => entry.itemId === target.item.id)?.count ?? 0;
+      await ctx.reply({ embeds: [soldEmbed(user, result, left)] });
       return;
     }
 
@@ -103,7 +101,7 @@ export const sell: Command = {
       .setTitle(TEXT.sell.confirmTitle)
       .setDescription(TEXT.sell.confirmDescription(fmt(plan.total), plan.count, joinLimited(plan.lines.map(lineText), 3500)))
       .setFooter({ text: TEXT.sell.confirmFooter(CONFIRM_TIMEOUT_MS / 1000) });
-    const outcome = await askToConfirm(message, prompt, message.author.id, {
+    const outcome = await askToConfirm(ctx, prompt, ctx.user.id, {
       confirm: TEXT.sell.confirmButton,
       cancel: TEXT.sell.cancelButton,
       notYours: TEXT.sell.notYours,
@@ -119,7 +117,7 @@ export const sell: Command = {
     }
 
     // Sell exactly the copies that were shown (each is checked again as it is sold).
-    const result = await sellCopies(message.guildId, message.author.id, plan.copyIds);
+    const result = await sellCopies(ctx.guildId, ctx.user.id, plan.copyIds);
     await outcome.finish(
       result.ok
         ? [soldEmbed(user, result, null)]

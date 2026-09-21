@@ -4,7 +4,6 @@ import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../data/effects.js';
 import { findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetSetting } from '../services/settings.js';
-import { reply } from './reply.js';
 import type { Command } from './types.js';
 
 const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Equipment'];
@@ -43,16 +42,18 @@ export const config: Command = {
   aliases: ['settings'],
   description: 'See the bot settings. Only the bot admin can change them.',
   usage: 'config [set <setting> <value> | reset <setting>]',
+  slashUsage: 'config list | set | reset',
 
-  async execute({ message, args }) {
-    const p = getPrefix();
+  async execute(ctx) {
+    const { args } = ctx;
+    const p = ctx.prefix;
     const action = args[0]?.toLowerCase();
 
     if (action === undefined || action === 'list' || action === 'view') {
       const embed = createEmbed()
         .setTitle(TEXT.config.title)
         .setFooter({
-          text: isAdmin(message.author.id) ? TEXT.config.footerAdmin(p) : TEXT.config.footerOthers,
+          text: isAdmin(ctx.user.id) ? TEXT.config.footerAdmin(p) : TEXT.config.footerOthers,
         });
       for (const group of GROUPS) {
         embed.addFields({
@@ -60,28 +61,28 @@ export const config: Command = {
           value: groupLines(group).join('\n'),
         });
       }
-      await reply(message, { embeds: [embed] });
+      await ctx.reply({ embeds: [embed] });
       return;
     }
 
     if (action !== 'set' && action !== 'reset') {
-      await reply(message, TEXT.config.unknownAction(p));
+      await ctx.reply(TEXT.config.unknownAction(p));
       return;
     }
 
     // Everything below changes something, so it is admin only.
-    if (!isAdmin(message.author.id)) {
-      await reply(message, TEXT.config.adminOnly);
+    if (!isAdmin(ctx.user.id)) {
+      await ctx.reply(TEXT.config.adminOnly);
       return;
     }
 
     const key = args[1];
     if (!key) {
-      await reply(message, action === 'set' ? TEXT.config.usageSet(p) : TEXT.config.usageReset(p));
+      await ctx.reply(action === 'set' ? TEXT.config.usageSet(p) : TEXT.config.usageReset(p));
       return;
     }
     if (!findSpec(key)) {
-      await reply(message, TEXT.config.noSuchSetting(p, key));
+      await ctx.reply(TEXT.config.noSuchSetting(p, key));
       return;
     }
 
@@ -89,21 +90,19 @@ export const config: Command = {
     if (action === 'set') {
       const value = args.slice(2).join(' ');
       if (!value) {
-        await reply(message, TEXT.config.askValue(p, key));
+        await ctx.reply(TEXT.config.askValue(p, key));
         return;
       }
-      result = await changeSetting(message.author.id, key, value);
+      result = await changeSetting(ctx.user.id, key, value);
     } else {
-      result = await resetSetting(message.author.id, key);
+      result = await resetSetting(ctx.user.id, key);
     }
 
     if (!result.ok) {
-      await reply(message, result.error);
+      await ctx.reply(result.error);
       return;
     }
-    await reply(
-      message,
-      (action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(result.key, result.oldValue, result.newValue),
+    await ctx.reply((action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(result.key, result.oldValue, result.newValue),
     );
   },
 };

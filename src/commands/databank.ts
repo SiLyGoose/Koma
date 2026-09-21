@@ -2,8 +2,6 @@ import { TEXT } from '../constants.js';
 import { ITEMS, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { buildDatabank, itemDetail } from '../lib/databank.js';
-import { getPrefix } from '../services/settings.js';
-import { reply } from './reply.js';
 import type { Command } from './types.js';
 
 export const databank: Command = {
@@ -11,26 +9,28 @@ export const databank: Command = {
   aliases: ['items', 'db'],
   description: 'See every item and what it does. Add an item name or id to see just that one.',
   usage: 'databank [item]',
+  slashUsage: 'databank [item]',
 
-  async execute({ message, args }) {
-    const p = getPrefix();
+  async execute(ctx) {
+    const { args } = ctx;
+    const p = ctx.prefix;
 
     // With a name or id: the full details of that one item.
     const query = args.join(' ').trim();
     if (query !== '') {
       const lookup = findItem(query);
       if (lookup.kind === 'none') {
-        await reply(message, TEXT.databank.noSuchItem(p, query));
+        await ctx.reply(TEXT.databank.noSuchItem(p, query));
         return;
       }
       if (lookup.kind === 'ambiguous') {
-        await reply(message, TEXT.databank.ambiguous(lookup.matches.map((item) => item.name)));
+        await ctx.reply(TEXT.databank.ambiguous(lookup.matches.map((item) => item.name)));
         return;
       }
       const detail = itemDetail(lookup.item);
       const embed = createEmbed().setTitle(detail.title).addFields(detail.fields).setFooter({ text: TEXT.databank.detailFooter(p) });
       if (detail.description !== '') embed.setDescription(detail.description);
-      await reply(message, { embeds: [embed] });
+      await ctx.reply({ embeds: [embed] });
       return;
     }
 
@@ -43,7 +43,7 @@ export const databank: Command = {
         .addFields(fields);
       if (index === 0) embed.setDescription(TEXT.databank.description);
       if (index === pages.length - 1) embed.setFooter({ text: TEXT.databank.footer(p) });
-      await reply(message, { embeds: [embed] });
+      await ctx.reply({ embeds: [embed] });
     }
   },
 };
