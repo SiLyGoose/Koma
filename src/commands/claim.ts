@@ -19,7 +19,7 @@ export const claim: Command = {
     }
 
     const user = ctx.user.toString();
-    const { d20, wheel, wheelBonus, d20Bonus } = result;
+    const { d20, wheel, wheelBonus, d20Bonus, stonks, stonksBonus } = result;
     const failed = d20?.kind === 'fail';
 
     // What happened, in the order it happened: the claim, the wheel, then the D20.
@@ -37,6 +37,7 @@ export const claim: Command = {
       const change = d20Bonus === 0 ? '' : signed(d20Bonus);
       lines.push(d20.kind === 'success' ? TEXT.d20.critical(d20.roll, multiplier, change) : TEXT.d20.landed(d20.roll, multiplier, change));
     }
+    if (stonks) lines.push(TEXT.stonks.landed(formatMultiplier(stonks), stonksBonus === 0 ? '' : signed(stonksBonus)));
     if (result.bonusLeft) lines.push(TEXT.d20.claimAgain);
     if (result.taxed) {
       lines.push(TEXT.claim.taxed(`<@${result.taxed.toUserId}>`, fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount)));

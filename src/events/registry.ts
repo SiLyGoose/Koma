@@ -1,12 +1,13 @@
 import { randomUnit } from '../lib/random.js';
 import { pointCrate } from './point-crate.js';
 import type { GameEvent } from './types.js';
+import { vaultBreaker } from './vault-breaker.js';
 
 /*
  * Every event the bot can run. To add one, write it (see GameEvent in types.ts) and add it here:
  * the scheduler, `events start` and the slash command's choices all read this list.
  */
-export const GAME_EVENTS: readonly GameEvent[] = [pointCrate];
+export const GAME_EVENTS: readonly GameEvent[] = [pointCrate, vaultBreaker];
 
 /** Discord shows at most this many choices for one slash option. */
 const MAX_EVENTS = 25;

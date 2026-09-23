@@ -190,6 +190,22 @@ export const MAX_CRATE_SECONDS = 600;
  */
 export const CRATE = { grabId: 'crate_grab', refreshMs: 3_000, listMax: 15, imageName: 'crate.png' } as const;
 
+/** Longest a vault breaker can stay open for joining, in seconds (the `events.vault.joinSeconds` setting). */
+export const MAX_VAULT_SECONDS = 1_800;
+
+/** Biggest `events.vault.multiplier` can be set to. */
+export const MAX_VAULT_MULTIPLIER = 50;
+
+/** Longest STONKS!'s claim multiplier can take to reach its cap, in hours (the `stonks.capHours` setting). */
+export const MAX_STONKS_HOURS = 168;
+
+/**
+ * The vault breaker's button and screen, like CRATE's. `refreshMs` is the shortest time between
+ * edits of the "who's joined" count. `listMax` is how many members the result names before saying
+ * "...and N more".
+ */
+export const VAULT = { joinId: 'vault_join', refreshMs: 3_000, listMax: 15 } as const;
+
 /** File name of the die picture attached to a claim that rolled the D20. */
 export const D20_IMAGE_NAME = 'd20.png';
 
@@ -198,7 +214,7 @@ export const D20_IMAGE_NAME = 'd20.png';
  * picture is swapped every `frameMs` milliseconds (the die slowing down and showing other numbers)
  * for `minSeconds` to `maxSeconds`, and then it lands on the real roll. Keep `frameMs` at 500 or more.
  */
-export const D20_ANIMATION = { frameMs: 1_000, minSeconds: 3, maxSeconds: 5 };
+export const D20_ANIMATION = { frameMs: 1000, minSeconds: 3, maxSeconds: 5 };
 
 /**
  * What a roll of the D20 (the `d20` effect, on the D20 item) does to a claim. A roll of 1 is a
@@ -282,6 +298,7 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   wheelSpin: (value) => `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel`,
   d20: (value) =>
     `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
+  stackosaurus: (value) => `Stackosaurus: your claim multiplier climbs the longer you go without claiming, up to +${value}`,
   slothDefense: (value) => `Sloth: -${value} chance of being robbed`,
   slothCooldown: (value) => `Sloth: +${value} rob and claim cooldowns`,
   glassCannon: (value) => `Glass cannon: +${value} ${CURRENCY_EMOJI} stolen`,
@@ -294,6 +311,7 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
 export const SLOT_LABELS: Record<Slot, string> = {
   weapon: 'Weapon',
   armor: 'Armor',
+  unique: 'Unique Treasure',
 };
 
 // ---------------------------------------------------------------------------
@@ -368,6 +386,11 @@ export const TEXT = {
     /** The "Next claim" field after a critical success: right now (once more), then the usual hour. */
     nextBonus: (unix: number) => `**Now**, once more. Then <t:${unix}:R>`,
     bonusFooter: 'A bonus claim from a critical success.',
+  },
+
+  stonks: {
+    /** Added under a claim STONKS! multiplied. `multiplier` is like "6.3x". `change` is signed, like "+230"; left out at 1x. */
+    landed: (multiplier: string, change = '') => `STONKS! multiplied it **${multiplier}**${change ? ` (**${change}** ${CURRENCY_EMOJI})` : ''}.`,
   },
 
   claim: {
@@ -669,11 +692,13 @@ export const TEXT = {
   },
 
   unequip: {
-    usage: (p: string) => `Which one? Use \`${p}unequip weapon\`, \`${p}unequip armor\` or \`${p}unequip all\`.`,
+    usage: (p: string) =>
+      `Which one? Use \`${p}unequip weapon\`, \`${p}unequip armor\`, \`${p}unequip unique\` or \`${p}unequip all\`.`,
     tookOff: (names: string[]) => `You took off ${names.map((name) => `**${name}**`).join(' and ')}.`,
     nothingAtAll: "You aren't wearing anything.",
     noArmor: "You don't have any armor equipped.",
     noWeapon: "You don't have a weapon equipped.",
+    noUnique: "You don't have a unique treasure equipped.",
   },
 
   rob: {
@@ -744,6 +769,9 @@ export const TEXT = {
     /** `ids` is the list of event ids. */
     startUnknown: (name: string, ids: string) => `There is no event called "${name}". The events are: ${ids}`,
     started: (label: string, channel: string) => `Started **${label}** in ${channel}.`,
+    vaultField: 'Vault',
+    /** `pool` is what's been lost so far, `prize` is that times the multiplier: what a vault breaker would pay out right now. */
+    vaultInfo: (pool: string, prize: string, multiplier: string) => `**${pool}** ${CURRENCY_EMOJI} lost so far. A vault breaker right now would attempt **${prize}** ${CURRENCY_EMOJI} (${multiplier}).`,
   },
 
   crate: {
@@ -770,6 +798,38 @@ export const TEXT = {
     crumbled: (pile: string) => `Nobody grabbed the **${pile}** ${CURRENCY_EMOJI}, so they blew away.`,
     failedTitle: 'The crate got stuck',
     failed: `Something went wrong while handing out the ${CURRENCY_EMOJI}, so nobody was paid. Ask the bot admin to look at the logs.`,
+    someFailed: (count: number) => `${count} ${count === 1 ? 'payout' : 'payouts'} could not be made. Ask the bot admin to look at the logs.`,
+  },
+
+  vault: {
+    title: 'Vault Breaker',
+    /** `prize` is what's at stake, `min` how many are needed, `unix` when joining closes. */
+    description: (prize: string, min: number, unix: number) =>
+      `A vault holding **${prize}** ${CURRENCY_EMOJI} has been found! It needs at least **${min}** people to crack it. Press **Join** before <t:${unix}:R>. The more who join, the better the odds — but if the crack fails, everyone who joined pays a fine.`,
+    button: 'Join',
+    joinedField: 'Joined so far',
+    joinedNobody: 'Nobody yet',
+    joinedCount: (count: number, min: number) => `${count} ${count === 1 ? 'person' : 'people'}${count < min ? ` (needs ${min})` : ''}`,
+    joined: 'You are in! The vault opens when the timer ends.',
+    alreadyJoined: 'You already joined this vault breaker.',
+    notEnoughTitle: 'Not enough safecrackers',
+    /** `count` joined, `min` were needed. */
+    notEnough: (count: number, min: number) => `Only **${count}** ${count === 1 ? 'person' : 'people'} joined; it takes at least **${min}**. The vault stays locked.`,
+    successTitle: 'The vault is cracked!',
+    /** `prize` split between `count` people, `chance` was the odds, `each`/`extra` as the crate's `opened`. */
+    success: (prize: string, count: number, chance: string, each: string, extra: number) =>
+      `The crew pulled it off (**${chance}** odds with **${count}** ${count === 1 ? 'person' : 'people'})! **${prize}** ${CURRENCY_EMOJI} split: **${each}** ${CURRENCY_EMOJI} each${
+        extra > 0 ? `, and ${extra} lucky ${extra === 1 ? 'cracker' : 'crackers'} got 1 more` : ''
+      }.`,
+    shareLine: (user: string, amount: string) => `${user} **+${amount}** ${CURRENCY_EMOJI}`,
+    moreShares: (count: number) => `...and ${count} more`,
+    sharesField: 'Who got what',
+    failTitle: 'The vault held',
+    /** `chance` were the odds, `count` joined, `fine` is what each of them paid. */
+    fail: (chance: string, count: number, fine: string) =>
+      `The crew got caught (**${chance}** odds with **${count}** ${count === 1 ? 'person' : 'people'}). Every safecracker pays a **${fine}** ${CURRENCY_EMOJI} fine, added back to the vault.`,
+    failedTitle: 'The vault jammed',
+    failed: `Something went wrong while settling the vault, so nobody was paid or fined. Ask the bot admin to look at the logs.`,
     someFailed: (count: number) => `${count} ${count === 1 ? 'payout' : 'payouts'} could not be made. Ask the bot admin to look at the logs.`,
   },
 
@@ -895,6 +955,8 @@ export function validateConstants(): void {
   if (!(EVENTS.staleMs > EVENTS.tickMs)) problems.push('EVENTS.staleMs must be longer than EVENTS.tickMs');
   if (!(CRATE.refreshMs >= 1000)) problems.push('CRATE.refreshMs must be at least 1000 (Discord limits message edits)');
   if (!(Number.isInteger(CRATE.listMax) && CRATE.listMax >= 1 && CRATE.listMax <= 50)) problems.push('CRATE.listMax must be a whole number from 1 to 50');
+  if (!(VAULT.refreshMs >= 1000)) problems.push('VAULT.refreshMs must be at least 1000 (Discord limits message edits)');
+  if (!(Number.isInteger(VAULT.listMax) && VAULT.listMax >= 1 && VAULT.listMax <= 50)) problems.push('VAULT.listMax must be a whole number from 1 to 50');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');
@@ -912,6 +974,9 @@ export function validateConstants(): void {
     ['MAX_BLACKJACK_NATURAL', MAX_BLACKJACK_NATURAL],
     ['MAX_BLACKJACK_SECONDS', MAX_BLACKJACK_SECONDS],
     ['MAX_CRATE_SECONDS', MAX_CRATE_SECONDS],
+    ['MAX_VAULT_SECONDS', MAX_VAULT_SECONDS],
+    ['MAX_VAULT_MULTIPLIER', MAX_VAULT_MULTIPLIER],
+    ['MAX_STONKS_HOURS', MAX_STONKS_HOURS],
     ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {

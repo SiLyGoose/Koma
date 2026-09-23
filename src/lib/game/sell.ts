@@ -1,6 +1,6 @@
 import { CONFIG } from '../../config.js';
 import { ITEMS } from '../../data/items.js';
-import { STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } from '../../types.js';
+import { SLOTS, STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } from '../../types.js';
 
 /*
  * The pure parts of selling items: reading what the member typed, choosing which copies to sell,
@@ -56,10 +56,11 @@ export function parseSellArgs(args: readonly string[]): ParsedSell {
   return { ok: true, request: { kind: 'one', query: words.join(' ') } };
 }
 
-/** The ids of the copies a member is wearing (their weapon and armor slots). */
+/** The ids of the copies a member is wearing (their weapon, armor and unique treasure slots). */
 export function equippedCopyIds(equipment: EquipmentDoc | null | undefined): Set<string> {
   const ids = new Set<string>();
-  for (const id of [equipment?.weapon, equipment?.armor]) {
+  for (const slot of SLOTS) {
+    const id = equipment?.[slot];
     if (typeof id === 'string' && id !== '') ids.add(id);
   }
   return ids;

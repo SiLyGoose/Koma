@@ -31,7 +31,7 @@ export const inventory: Command = {
       getInventory(ctx.guildId, target.id),
       getEquipment(ctx.guildId, target.id),
     ]);
-    const equippedIds = new Set([equipment.weapon, equipment.armor]);
+    const equippedIds = new Set([equipment.weapon, equipment.armor, equipment.unique]);
 
     if (entries.length === 0) {
       await ctx.reply(target.id === ctx.user.id

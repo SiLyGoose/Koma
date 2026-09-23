@@ -100,3 +100,39 @@ export function claimAmount(rolled: number, gear: EffectTotals): number {
 export function pullCost(base: number, gear: EffectTotals): number {
   return Math.max(1, Math.round(base * (1 - Math.min(gear.pullDiscount, MAX_REDUCTION))));
 }
+
+/**
+ * The claim multiplier from STONKS!: 1x right after a claim, climbing on a smooth exponential
+ * curve to a cap (1 + gear.stackosaurus, the effect's strength) at `capHours` hours since the
+ * member's last claim, and no higher after that. With the defaults (a 4-star cap of 10x and
+ * capHours 5) that is 1x, 1.6x, 2.5x, 4x, 6.3x, 10x at hours 0 through 5. Nothing equipped
+ * (gear.stackosaurus 0) always returns 1x.
+ */
+export function stonksMultiplier(hoursUnclaimed: number, gear: EffectTotals, capHours: number): number {
+  const cap = 1 + Math.max(0, gear.stackosaurus);
+  if (!(cap > 1) || !(capHours > 0)) return 1;
+  const hours = Math.min(Math.max(0, hoursUnclaimed), capHours);
+  return cap ** (hours / capHours);
+}
+
+/**
+ * A handful of points along STONKS!'s curve, for its own gear-card description (the numbers a
+ * player actually sees, in multiplier form, not the raw "added percent" strength): at most 5
+ * evenly spaced hour marks, always ending exactly at `capHours` (the cap). Empty when there's
+ * nothing to climb (`strength` 0 or less) or `capHours` isn't positive.
+ */
+export function stonksCurvePoints(strength: number, capHours: number): { hours: number; multiplier: number }[] {
+  const cap = 1 + Math.max(0, strength);
+  if (!(cap > 1) || !(capHours > 0)) return [];
+  const count = Math.min(5, Math.max(1, Math.round(capHours)));
+  return Array.from({ length: count }, (_, i) => {
+    const hours = ((i + 1) * capHours) / count;
+    return { hours, multiplier: cap ** (hours / capHours) };
+  });
+}
+
+/** Points after STONKS!, rounded, and at least 1 if it multiplied a real claim. A no-op at 1x. */
+export function applyStonks(amount: number, multiplier: number): number {
+  if (amount <= 0 || multiplier === 1) return amount;
+  return Math.max(1, Math.round(amount * multiplier));
+}

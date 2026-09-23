@@ -1,4 +1,5 @@
 import { collections } from '../db.js';
+import { ITEMS_BY_ID } from '../data/items.js';
 import { bestCopy } from '../lib/game/copies.js';
 import type { ItemCopyDoc } from '../types.js';
 import { SLOTS } from '../types.js';
@@ -87,4 +88,67 @@ export async function migrateInventory(): Promise<MigrationResult> {
 
   await meta.updateOne({ _id: MARKER_ID }, { $set: { migratedAt: new Date(), stacks, copies, equipped } }, { upsert: true });
   return { skipped: false, stacks, copies, equipped };
+}
+
+/*
+ * One-time move for the unique-treasure (UT) refactor: Wheelchair and D20 moved out of their
+ * old slot (armor and weapon) into the new 'unique' slot. A member who had one of them
+ * equipped before the refactor has its copy id sitting in the wrong equipment field, so this
+ * moves it into equipment.unique and clears the old field. Gated by its own marker, separate
+ * from the item-copies migration above, so it only ever runs once.
+ *
+ * The only way a member could have needed two moves at once (a UT item equipped as their
+ * weapon AND another as their armor) is the admin, since real unique treasures are each
+ * exclusive to one other person. If that happens, the weapon one wins the unique slot and
+ * the armor one is unequipped (Claude's call: there is no ordering the user specified, and
+ * this is very unlikely to matter for anyone but the admin testing gear).
+ */
+
+const UNIQUE_SLOT_MARKER_ID = 'uniqueSlot';
+
+export interface UniqueSlotMigrationResult {
+  skipped: boolean;
+  moved: number;
+  dropped: number;
+}
+
+export async function migrateUniqueSlot(): Promise<UniqueSlotMigrationResult> {
+  const { items, members, meta } = collections();
+
+  if (await meta.findOne({ _id: UNIQUE_SLOT_MARKER_ID })) return { skipped: true, moved: 0, dropped: 0 };
+
+  let moved = 0;
+  let dropped = 0;
+  const wearing = await members
+    .find({ $or: [{ 'equipment.weapon': { $ne: null } }, { 'equipment.armor': { $ne: null } }] })
+    .toArray();
+  for (const member of wearing) {
+    const { guildId, userId } = member;
+    const weaponId = member.equipment?.weapon ?? null;
+    const armorId = member.equipment?.armor ?? null;
+    if (!weaponId && !armorId) continue;
+
+    const copyIds = [weaponId, armorId].filter((id): id is string => typeof id === 'string' && id !== '');
+    const copies = await items.find({ guildId, userId, _id: { $in: copyIds } }).toArray();
+    const weaponCopy = weaponId ? copies.find((copy) => copy._id === weaponId) : undefined;
+    const armorCopy = armorId ? copies.find((copy) => copy._id === armorId) : undefined;
+    const weaponIsUnique = weaponCopy ? ITEMS_BY_ID.get(weaponCopy.itemId)?.slot === 'unique' : false;
+    const armorIsUnique = armorCopy ? ITEMS_BY_ID.get(armorCopy.itemId)?.slot === 'unique' : false;
+    if (!weaponIsUnique && !armorIsUnique) continue;
+
+    const winnerId = weaponIsUnique ? weaponId : armorId;
+    const update: Record<string, unknown> = { 'equipment.unique': winnerId };
+    if (weaponIsUnique) update['equipment.weapon'] = null;
+    if (armorIsUnique) update['equipment.armor'] = null;
+    await members.updateOne({ guildId, userId }, { $set: update });
+    moved += 1;
+    if (weaponIsUnique && armorIsUnique) dropped += 1;
+  }
+
+  await meta.updateOne(
+    { _id: UNIQUE_SLOT_MARKER_ID },
+    { $set: { migratedAt: new Date(), moved, dropped } },
+    { upsert: true },
+  );
+  return { skipped: false, moved, dropped };
 }

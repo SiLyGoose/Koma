@@ -4,10 +4,19 @@ import { unequipSlot } from '../services/equipment.js';
 import { SLOTS, type Slot } from '../types.js';
 import type { Command } from '../discord/types.js';
 
+/** Words a member can type for each slot; several spellings point at the unique treasure slot. */
+const SLOT_WORDS: Record<string, Slot> = {
+  weapon: 'weapon',
+  armor: 'armor',
+  unique: 'unique',
+  ut: 'unique',
+  treasure: 'unique',
+};
+
 export const unequip: Command = {
   name: 'unequip',
-  description: 'Take off your weapon, your armor, or both.',
-  usage: 'unequip weapon|armor|all',
+  description: 'Take off your weapon, your armor, your unique treasure, or everything.',
+  usage: 'unequip weapon|armor|unique|all',
   slashUsage: 'unequip <slot>',
 
   async execute(ctx) {
@@ -17,7 +26,7 @@ export const unequip: Command = {
 
     let slots: readonly Slot[];
     if (choice === 'all' || choice === 'both') slots = SLOTS;
-    else if (choice === 'weapon' || choice === 'armor') slots = [choice];
+    else if (choice !== undefined && choice in SLOT_WORDS) slots = [SLOT_WORDS[choice] as Slot];
     else {
       await ctx.reply(TEXT.unequip.usage(p));
       return;
@@ -35,7 +44,9 @@ export const unequip: Command = {
           ? TEXT.unequip.nothingAtAll
           : choice === 'armor'
             ? TEXT.unequip.noArmor
-            : TEXT.unequip.noWeapon,
+            : choice === 'weapon'
+              ? TEXT.unequip.noWeapon
+              : TEXT.unequip.noUnique,
     );
   },
 };

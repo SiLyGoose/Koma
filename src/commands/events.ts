@@ -1,12 +1,13 @@
-import { isAdmin } from '../config.js';
+import { CONFIG, isAdmin } from '../config.js';
 import { TEXT } from '../constants.js';
 import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { GAME_EVENTS, eventChances, findEvent, pickEvent } from '../events/registry.js';
 import { startEvent } from '../events/runner.js';
 import { createEmbed } from '../lib/embed.js';
-import { formatPercent, joinLimited } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent, joinLimited } from '../lib/format.js';
 import { parseChannelArg } from '../lib/parse.js';
 import { getEventInfo, setEventChannel } from '../services/events.js';
+import { getVaultPool } from '../services/vault.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
 /** Why a channel can't be used, in words. */
@@ -17,11 +18,12 @@ function channelProblemText(problem: ChannelProblem, channelId: string): string 
 
 /** The events channel and every event that can happen, with the chance of each being picked at random. */
 async function showStatus(ctx: CommandContext): Promise<void> {
-  const info = await getEventInfo(ctx.guildId);
+  const [info, pool] = await Promise.all([getEventInfo(ctx.guildId), getVaultPool(ctx.guildId)]);
   const embed = createEmbed()
     .setTitle(TEXT.events.statusTitle)
     .addFields(
       { name: TEXT.events.channelField, value: info.channelId === null ? TEXT.events.channelNone : TEXT.events.channelSet(`<#${info.channelId}>`) },
+      { name: TEXT.events.vaultField, value: TEXT.events.vaultInfo(fmt(pool), fmt(Math.round(pool * CONFIG.events.vault.multiplier)), formatMultiplier(CONFIG.events.vault.multiplier)) },
       {
         name: TEXT.events.listField,
         value: joinLimited(eventChances().map(({ event, chance }) => TEXT.events.listLine(event.id, event.label, event.description, formatPercent(chance)))),

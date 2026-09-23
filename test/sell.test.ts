@@ -95,10 +95,14 @@ test('sell: several copies go in the order one would be sold: lowest level, then
   assert.deepEqual(copies.map((c) => c._id), ['a', 'b', 'c', 'd', 'e']);
 });
 
-test('sell: the worn copies are the weapon and armor ids, and empty slots count for nothing', () => {
+test('sell: the worn copies are every slot\'s id, including the unique treasure, and empty slots count for nothing', () => {
   assert.deepEqual([...equippedCopyIds({ weapon: 'w1', armor: 'a1' })].sort(), ['a1', 'w1']);
   assert.deepEqual([...equippedCopyIds({ weapon: 'w1', armor: null })], ['w1']);
   assert.deepEqual([...equippedCopyIds({ weapon: '', armor: undefined })], []);
+  // A worn unique treasure (e.g. STONKS!) is protected too, not just weapon/armor.
+  assert.deepEqual([...equippedCopyIds({ weapon: 'w1', armor: 'a1', unique: 'u1' })].sort(), ['a1', 'u1', 'w1']);
+  assert.deepEqual([...equippedCopyIds({ unique: 'u1' })], ['u1']);
+  assert.deepEqual([...equippedCopyIds({ unique: null })], []);
   assert.equal(equippedCopyIds(null).size, 0);
   assert.equal(equippedCopyIds(undefined).size, 0);
 });

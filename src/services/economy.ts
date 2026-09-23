@@ -8,6 +8,7 @@ import { groupCopies, newCopyId, type InventoryEntry } from '../lib/game/copies.
 import { gearEffects } from '../lib/game/equipment.js';
 import { rollPulls, topChance } from '../lib/game/gacha.js';
 import {
+  applyStonks,
   claimAmount,
   claimGapHours,
   claimTaxAmount,
@@ -20,6 +21,7 @@ import {
   robSuccessChance,
   robTaxAmount,
   robTaxRate,
+  stonksMultiplier,
   wheelChance,
 } from '../lib/game/perks.js';
 import { checkBet, payoutFor, rollPath, slotMultiplier, slotOf } from '../lib/game/plinko.js';
@@ -28,6 +30,7 @@ import { currentHour, nextHourUnix } from '../lib/time.js';
 import { applyWheel, rollWheelDice, spinWheel, type WheelSpin } from '../lib/game/wheel.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, MemberDoc } from '../types.js';
 import { resolveGear } from './gear.js';
+import { addVaultLoss } from './vault.js';
 
 /*
  * Every points change goes through a single conditional MongoDB update, so two people
@@ -209,6 +212,15 @@ export type ClaimResult =
       d20: D20Roll | null;
       /** How many points the D20 added (negative if it took some away, all of them on a fail); 0 when it didn't roll. */
       d20Bonus: number;
+      /**
+       * The multiplier STONKS! (stonks gear) applied, from how many hours passed since the last
+       * claim: null when the member has none equipped or it changed nothing (1x, right after a
+       * claim). Only one unique treasure can be equipped at a time, so this and `wheel`/`d20` are
+       * never both set for a real member.
+       */
+      stonks: number | null;
+      /** How many points STONKS! added; 0 when it didn't apply. */
+      stonksBonus: number;
       /** This claim was the extra one earned by a critical success earlier in the hour. */
       extra: boolean;
       /** One more claim can be made this hour (this claim was a critical success). */
@@ -269,9 +281,16 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     const wheel = spinWheel(wheelChance(gear), wheelDice);
     const afterWheel = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
     const d20 = rollD20(d20Chance(gear), d20Dice);
-    const amount = d20 ? applyD20(afterWheel, d20) : afterWheel;
+    const afterD20 = d20 ? applyD20(afterWheel, d20) : afterWheel;
     const failed = d20?.kind === 'fail';
     const bonusLeft = d20?.kind === 'success';
+    // STONKS!: the longer since the member's last claim, the bigger the multiplier (capped; see
+    // stonksMultiplier). Only one unique treasure can be worn at a time, so this never actually
+    // runs alongside the wheel or the D20 for a real member, but it is harmless either way (a
+    // fail's 0 stays 0, and applyStonks is a no-op at 1x).
+    const hoursUnclaimed = member ? hour - member.lastClaimHour : 0;
+    const stonksMult = stonksMultiplier(hoursUnclaimed, gear, CONFIG.stonks.capHours);
+    const amount = applyStonks(afterD20, stonksMult);
 
     // A critical fail pays nothing, so it leaves a waiting tax alone for the next claim that pays.
     const taxRate = member?.claimTaxRate ?? null;
@@ -337,7 +356,9 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
       wheel,
       wheelBonus: afterWheel - withGear,
       d20,
-      d20Bonus: amount - afterWheel,
+      d20Bonus: afterD20 - afterWheel,
+      stonks: stonksMult > 1 ? stonksMult : null,
+      stonksBonus: amount - afterD20,
       extra,
       bonusLeft,
       taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
@@ -841,6 +862,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       { guildId, userId: robberId, delta: -transfer.moved, reason: 'rob_fine_paid', otherUserId: victimId },
       { guildId, userId: victimId, delta: transfer.moved, reason: 'rob_fine_received', otherUserId: robberId },
     ]);
+    // The fine goes to the victim, not the house, but it still counts toward the vault (the user asked for this).
+    if (transfer.moved > 0) await addVaultLoss(guildId, transfer.moved);
     return {
       ok: true,
       success: false,
@@ -946,5 +969,8 @@ export async function playPlinko(
   if (payout > 0) entries.push({ guildId, userId, delta: payout, reason: 'plinko_payout' });
   await recordLedger(entries);
 
-  return { ok: true, bet, path, slot, multiplier, payout, net: payout - bet, balance };
+  const net = payout - bet;
+  if (net < 0) await addVaultLoss(guildId, -net);
+
+  return { ok: true, bet, path, slot, multiplier, payout, net, balance };
 }

@@ -291,7 +291,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
           .setName('slot')
           .setDescription('What to take off')
           .setRequired(true)
-          .addChoices(...SLOTS.map((slot) => ({ name: SLOT_LABELS[slot], value: slot })), { name: 'Both', value: 'all' }),
+          .addChoices(...SLOTS.map((slot) => ({ name: SLOT_LABELS[slot], value: slot })), { name: 'All', value: 'all' }),
       ),
     toArgs: (i) => [i.options.getString('slot', true)],
   },

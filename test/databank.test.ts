@@ -210,7 +210,11 @@ test('databank tier: shows every item of that tier and nothing from the others',
       const reply = replies[0]!;
       assert.equal(reply.title, TEXT.databank.tierTitle('\u2605'.repeat(stars)));
       assert.equal(reply.description, TEXT.databank.tierDescription('\u2605'.repeat(stars)));
-      assert.deepEqual(reply.fields.map((f) => f.name), [TEXT.databank.tierField('\u2605'.repeat(stars), mine.length)]);
+      // A tier's fields normally fit in one, but a big-enough tier legitimately spills into a
+      // "(continued)" field (buildDatabank's own field-limit logic, tested separately) — so the
+      // expected field names are whatever buildDatabank itself produces for just this tier.
+      const expectedFields = buildDatabank(mine)[0] ?? [];
+      assert.deepEqual(reply.fields.map((f) => f.name), expectedFields.map((f) => f.name));
       const text = reply.fields.map((f) => f.value).join('\n');
       for (const item of mine) {
         assert.ok(text.includes(`**${item.name}** \u00b7 ${SLOT_LABELS[item.slot]}`), `${item.name} is listed`);
@@ -234,7 +238,10 @@ test('databank tier: a number that is not a tier gets a hint, and nothing is lis
 test('databank tier: the whole list, and one item by name, still work', async () => {
   const all = await ask();
   assert.equal(all[0]?.title, TEXT.databank.title);
-  assert.equal(all[0]?.fields.length, new Set(ITEMS.map((item) => item.stars)).size);
+  // One field per star tier, unless a tier is long enough to spill into a "(continued)" field —
+  // buildDatabank is the source of truth for exactly how many that produces.
+  const expectedPages = buildDatabank(ITEMS);
+  assert.equal(all[0]?.fields.length, expectedPages[0]?.length);
 
   const item = ITEMS[0] as ItemDef;
   const one = await ask(item.id);

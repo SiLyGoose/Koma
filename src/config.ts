@@ -105,6 +105,31 @@ export interface Settings {
       /** How long the crate stays open for grabbing, in seconds. */
       seconds: number;
     };
+    vault: {
+      /** Fewest people who have to join before a vault breaker can succeed. */
+      minPlayers: number;
+      /** How long a vault breaker stays open for joining, in seconds. */
+      joinSeconds: number;
+      /** What a vault breaker attempts, as a multiple of the points lost to gambling since the last one. */
+      multiplier: number;
+      /** What every joiner pays, added back to the vault, when the crack fails. */
+      fine: number;
+      /** The success chance with exactly minPlayers joined. */
+      baseChance: number;
+      /** Added to the chance for every joiner past minPlayers. */
+      chancePerPlayer: number;
+      /** The chance can never climb past this, however many join. */
+      maxChance: number;
+    };
+  };
+  /**
+   * STONKS!'s claim multiplier curve (lib/game/perks.ts stonksMultiplier). The multiplier's cap
+   * is the stackosaurus effect's own strength (equipment.stackosaurus.<stars>); this is the shape
+   * of the climb to it.
+   */
+  stonks: {
+    /** Hours unclaimed at which the multiplier reaches its cap and stops climbing. */
+    capHours: number;
   };
   /** How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. */
   equipment: EquipmentSettings;
@@ -145,7 +170,18 @@ export const DEFAULTS: Readonly<Settings> = {
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
   blackjack: { minBet: 10, maxBet: 1000, naturalPayout: 1.5, joinSeconds: 15, turnSeconds: 30 },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
-  events: { minMinutes: 120, maxMinutes: 360, crate: { minPoints: 200, maxPoints: 600, seconds: 60 } },
+  // A vault breaker attempts 10x what's been lost to gambling since the last one; 3+ people have 5 minutes to
+  // join, starting at a 30% success chance and climbing 10% per joiner past the third, capped at 90%. A failed
+  // attempt costs each joiner 50 points, added back to the pool.
+  events: {
+    minMinutes: 120,
+    maxMinutes: 360,
+    crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
+    vault: { minPlayers: 3, joinSeconds: 300, multiplier: 10, fine: 50, baseChance: 0.3, chancePerPlayer: 0.1, maxChance: 0.9 },
+  },
+  // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
+  // 10x) by 5 hours unclaimed, climbing on a smooth curve rather than jumping there.
+  stonks: { capHours: 5 },
   equipment: defaultEquipmentSettings(),
   leaderboardSize: 10,
 };

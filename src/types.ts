@@ -6,10 +6,15 @@ export type Stars = 1 | 2 | 3 | 4;
 /** Every star tier, lowest first. */
 export const STARS: readonly Stars[] = [1, 2, 3, 4];
 
-/** Where an item can be equipped. A member can wear one item per slot. */
-export type Slot = 'weapon' | 'armor';
+/**
+ * Where an item can be equipped. A member can wear one weapon, one armor, and one unique
+ * treasure (UT): a third slot every member has, which stacks with weapon and armor but only
+ * holds one item at a time. An item that is a unique treasure competes with every other unique
+ * treasure a member owns for that one slot (see data/items.ts: Wheelchair, D20, STONKS!).
+ */
+export type Slot = 'weapon' | 'armor' | 'unique';
 
-export const SLOTS: readonly Slot[] = ['weapon', 'armor'];
+export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'unique'];
 
 export interface ItemDef {
   id: string;
@@ -37,6 +42,8 @@ export interface ItemDef {
 export interface EquipmentDoc {
   weapon?: string | null;
   armor?: string | null;
+  /** The unique treasure slot (see Slot above). */
+  unique?: string | null;
 }
 
 /**
@@ -46,6 +53,7 @@ export interface EquipmentDoc {
 export interface GearIds {
   weapon?: string | null;
   armor?: string | null;
+  unique?: string | null;
 }
 
 /** One document per (server, user). */
@@ -165,7 +173,9 @@ export type LedgerReason =
   | 'rob_fine_paid'
   | 'rob_fine_received'
   | 'rob_tax_paid'
-  | 'rob_tax_received';
+  | 'rob_tax_received'
+  | 'vault_loot'
+  | 'vault_fine';
 
 /**
  * A bet on a blackjack table that has not been settled yet. The points were taken from the member
@@ -217,6 +227,19 @@ export interface GuildDoc {
    * crate is settled: whoever removes it is the one that pays.
    */
   openCrate?: OpenCrateDoc | null;
+  /**
+   * Points lost to gambling (a losing plinko drop, a lost blackjack hand, a caught rob's fine)
+   * that have not yet been paid out by a vault breaker, or by 0 if there is none. `events.vault.multiplier`
+   * times this is what a vault breaker attempts. Fed by `addVaultLoss` (services/vault.ts) from
+   * every game that loses points; a game added later feeds it the same way, one function call.
+   * Missing means 0 (no losses recorded yet).
+   */
+  vaultPool?: number;
+  /**
+   * The vault breaker that is open in this server right now, saved so a restart does not lose it.
+   * Removed when it is settled: whoever removes it is the one that pays or fines.
+   */
+  openVault?: OpenVaultDoc | null;
 }
 
 /** A point crate that has been posted and not settled yet. */
@@ -230,6 +253,24 @@ export interface OpenCrateDoc {
   endsAt: Date;
   /** Who has grabbed it so far (user ids), each once. */
   grabbers: string[];
+}
+
+/**
+ * A vault breaker that has been posted and not settled yet. `basePool` is the server's vaultPool
+ * at the moment it was posted, and `prize` is that times `events.vault.multiplier`: both are fixed
+ * for this attempt, so a change to the settings or new losses while it is open don't alter what it
+ * pays (new losses join the pool for the *next* attempt instead).
+ */
+export interface OpenVaultDoc {
+  channelId: string;
+  /** The vault breaker message, which has the Join button. */
+  messageId: string;
+  basePool: number;
+  prize: number;
+  /** When the vault breaker resolves (joining stops). */
+  endsAt: Date;
+  /** Who has joined so far (user ids), each once. */
+  joiners: string[];
 }
 
 /**

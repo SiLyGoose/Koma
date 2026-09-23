@@ -13,7 +13,7 @@ import { startEventScheduler } from './events/scheduler.js';
 import { requireEnv } from './env.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
-import { migrateInventory } from './services/migrate.js';
+import { migrateInventory, migrateUniqueSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -48,6 +48,15 @@ async function main(): Promise<void> {
   if (!migration.skipped) {
     console.log(
       `Moved ${migration.stacks} item stacks into ${migration.copies} item copies and updated ${migration.equipped} equipped items.`,
+    );
+  }
+
+  // One time only: Wheelchair and D20 moved into the new unique-treasure slot. Later starts skip it.
+  const uniqueSlotMigration = await migrateUniqueSlot();
+  if (!uniqueSlotMigration.skipped) {
+    console.log(
+      `Moved ${uniqueSlotMigration.moved} equipped items into the new unique-treasure slot` +
+        (uniqueSlotMigration.dropped > 0 ? ` (${uniqueSlotMigration.dropped} had to drop a second one that no longer fit).` : '.'),
     );
   }
 

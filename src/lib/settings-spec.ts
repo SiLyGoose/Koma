@@ -8,7 +8,10 @@ import {
   MAX_PLINKO_MULTIPLIER,
   MAX_PREFIX_LENGTH,
   MAX_SETTING_POINTS,
+  MAX_STONKS_HOURS,
   MAX_TIMER_MINUTES,
+  MAX_VAULT_MULTIPLIER,
+  MAX_VAULT_SECONDS,
   NUMBER_LOCALE,
   PERCENT_DECIMALS,
   PITY_STARS,
@@ -26,7 +29,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Stonks' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -166,6 +169,54 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.crate.maxPoints', 'Events', `Most ${CURRENCY_EMOJI} a point crate can hold.`, 1, MAX_POINTS),
   int('events.crate.seconds', 'Events', 'Seconds the point crate stays open for grabbing.', 10, MAX_CRATE_SECONDS),
 
+  int('events.vault.minPlayers', 'Events', 'Fewest people who have to join a vault breaker before it can succeed.', 2, 50),
+  int('events.vault.joinSeconds', 'Events', 'Seconds a vault breaker stays open for joining.', 30, MAX_VAULT_SECONDS),
+  {
+    key: 'events.vault.multiplier',
+    group: 'Events',
+    description: 'What a vault breaker attempts, as a multiple of the points lost to gambling since the last one.',
+    type: 'number',
+    min: 1,
+    max: MAX_VAULT_MULTIPLIER,
+    multiplier: true,
+  },
+  int('events.vault.fine', 'Events', 'What every joiner pays, added back to the vault, when the crack fails.', 0, MAX_POINTS),
+
+  int(
+    'stonks.capHours',
+    'Stonks',
+    "Hours unclaimed at which STONKS!'s claim multiplier reaches its cap (equipment.stackosaurus.<stars>) and stops climbing.",
+    1,
+    MAX_STONKS_HOURS,
+  ),
+  {
+    key: 'events.vault.baseChance',
+    group: 'Events',
+    description: 'The vault breaker success chance with exactly minPlayers joined.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'events.vault.chancePerPlayer',
+    group: 'Events',
+    description: 'Added to the vault breaker success chance for every joiner past minPlayers.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'events.vault.maxChance',
+    group: 'Events',
+    description: 'The vault breaker success chance can never climb past this, however many join.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+
   // One setting per effect per star tier, generated from the effect registry.
   ...EFFECT_IDS.flatMap((id) =>
     STARS.map(
@@ -299,6 +350,9 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.events.crate.minPoints > settings.events.crate.maxPoints) {
     return 'events.crate.minPoints cannot be higher than events.crate.maxPoints';
+  }
+  if (settings.events.vault.baseChance > settings.events.vault.maxChance) {
+    return 'events.vault.baseChance cannot be higher than events.vault.maxChance';
   }
   if (settings.rob.minChance > settings.rob.maxChance) {
     return 'rob.minChance cannot be higher than rob.maxChance';

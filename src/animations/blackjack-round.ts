@@ -6,6 +6,7 @@ import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, money, signed } from '../lib/format.js';
 import { handValue, isBlackjack, isBust, newShoe, payoutFor, payoutRatio, Round, type Card, type Outcome, type Seat } from '../lib/game/blackjack.js';
 import { doubleBet, refundBet, renewLeases, settleBet } from '../services/blackjack.js';
+import { addVaultLoss } from '../services/vault.js';
 import type { EditOptions } from '../discord/types.js';
 import type { Profile } from '../discord/profile.js';
 
@@ -372,6 +373,12 @@ export async function playRound(message: Message, players: readonly TablePlayer[
       } else {
         results.push({ userId: player.userId, outcome, bet: seat.bet, payout, net: payout - seat.bet, total, balance: paid === 'failed' ? null : paid.balance });
       }
+    }
+
+    // What the table lost overall (the house's side of the payouts, not any one player's bet) feeds the vault.
+    if (message.guildId) {
+      const lost = results.reduce((sum, r) => sum + (r.net < 0 ? -r.net : 0), 0);
+      if (lost > 0) await addVaultLoss(message.guildId, lost);
     }
 
     await show(view({ headline: '', hideHole: false, outcomes, results, components: options.finalComponents?.(results) ?? [] }));
