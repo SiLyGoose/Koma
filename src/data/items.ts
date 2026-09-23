@@ -7,13 +7,13 @@ import type { ItemDef, Stars } from '../types.js';
  * once players own the item (inventories store the id). Items in the same star tier are
  * equally likely to be pulled.
  *
- * Every item goes in one slot (weapon, armor, or unique) and lists the effects it gives while
+ * Every item goes in one slot (weapon, armor, or treasure) and lists the effects it gives while
  * equipped. Effect strength depends on the star tier and lives in the settings
  * (equipment.<effect>.<stars>), so a 3-star item is always stronger than a 1-star one that
  * lists the same effect. Weapons lean toward offense and armor toward defense, plus a perk.
- * Unique treasures (slot 'unique') are a third slot every member has, on top of their weapon
+ * Unique treasures (slot 'treasure') are a third slot every member has, on top of their weapon
  * and armor: it stacks with those two, but only one unique treasure can be equipped at a
- * time (Wheelchair, D20 and STONKS! all compete for that one slot).
+ * time (every current 4-star item is a unique treasure and competes for that one slot).
  *
  * An item can be made exclusive with `usableBy: ['<discord user id>', ...]`. Anyone can pull, own
  * and equip it, but only the listed members (and the admin, for testing) get its effects. Leave
@@ -88,7 +88,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'C4',
     stars: 4,
     usableBy: ['137980346393165824'], // Alvin
-    slot: 'weapon',
+    slot: 'treasure',
     description: 'Explosions first, questions later.',
     effects: ['glassCannon', 'glassCannonPenalty'],
   },
@@ -97,7 +97,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'Frog',
     stars: 4,
     usableBy: ['262072810422140929'], // Helen
-    slot: 'weapon',
+    slot: 'treasure',
     description: 'A frog with a kippah.',
     effects: ['robAmountCut', 'robTax'],
   },
@@ -106,7 +106,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'Sid the Sloth',
     stars: 4,
     usableBy: ['570657734870171648'], // JJ
-    slot: 'armor',
+    slot: 'treasure',
     description: 'Slow and steady wins the race.',
     effects: ['slothDefense', 'slothCooldown'],
   },
@@ -115,7 +115,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'Wheelchair',
     stars: 4,
     usableBy: ['658356661240463380'], // Aaron
-    slot: 'unique', // Unique treasure: moved out of armor in the UT refactor.
+    slot: 'treasure',
     description: 'A wheelchair. It is a wheelchair.',
     effects: ['wheelSpin'],
   },
@@ -124,7 +124,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'Coughing Baby',
     stars: 4,
     usableBy: ['184130311620263936'], // Gene
-    slot: 'weapon',
+    slot: 'treasure',
     description: 'A baby. It is a baby.',
     effects: ['robAmountCut', 'claimTax'],
   },
@@ -137,7 +137,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'D20',
     stars: 4,
     usableBy: ['1014831847487840307'], // Harrison
-    slot: 'unique', // Unique treasure: moved out of weapon in the UT refactor.
+    slot: 'treasure',
     description: 'Madness is at the heart of all gambling.', 
     effects: ['d20'],
   },
@@ -146,7 +146,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: 'STONKS!',
     stars: 4,
     usableBy: ['659644281031622697'], // Caitlyn
-    slot: 'unique',
+    slot: 'treasure',
     description: 'Patience is a virtue.',
     effects: ['stackosaurus'],
   }

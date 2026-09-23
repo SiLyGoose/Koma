@@ -8,13 +8,14 @@ export const STARS: readonly Stars[] = [1, 2, 3, 4];
 
 /**
  * Where an item can be equipped. A member can wear one weapon, one armor, and one unique
- * treasure (UT): a third slot every member has, which stacks with weapon and armor but only
- * holds one item at a time. An item that is a unique treasure competes with every other unique
- * treasure a member owns for that one slot (see data/items.ts: Wheelchair, D20, STONKS!).
+ * treasure: a third slot every member has (its key is 'treasure' -- the slot itself isn't
+ * unique, the items that go in it are), which stacks with weapon and armor but only holds one
+ * item at a time. An item that is a unique treasure competes with every other one a member owns
+ * for that one slot (see data/items.ts for the current list).
  */
-export type Slot = 'weapon' | 'armor' | 'unique';
+export type Slot = 'weapon' | 'armor' | 'treasure';
 
-export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'unique'];
+export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'treasure'];
 
 export interface ItemDef {
   id: string;
@@ -43,7 +44,7 @@ export interface EquipmentDoc {
   weapon?: string | null;
   armor?: string | null;
   /** The unique treasure slot (see Slot above). */
-  unique?: string | null;
+  treasure?: string | null;
 }
 
 /**
@@ -53,7 +54,7 @@ export interface EquipmentDoc {
 export interface GearIds {
   weapon?: string | null;
   armor?: string | null;
-  unique?: string | null;
+  treasure?: string | null;
 }
 
 /** One document per (server, user). */

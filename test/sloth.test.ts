@@ -53,7 +53,7 @@ test('sloth effects: normal per-star settings, 4 stars doubling the cooldowns an
 test('Sid the Sloth: wears the two sloth effects and lists them with their strengths', () => {
   const sid = ITEMS_BY_ID.get('sid-the-sloth');
   assert.ok(sid, 'the catalog has Sid');
-  assert.equal(sid.slot, 'armor');
+  assert.equal(sid.slot, 'treasure'); // Sid became a unique treasure along with the other 4-star items.
   assert.deepEqual([...sid.effects].sort(), ['slothCooldown', 'slothDefense']);
   const lines = describeEffects(sid);
   assert.equal(lines.length, 2);

@@ -8,15 +8,15 @@ import type { Command } from '../discord/types.js';
 const SLOT_WORDS: Record<string, Slot> = {
   weapon: 'weapon',
   armor: 'armor',
-  unique: 'unique',
-  ut: 'unique',
-  treasure: 'unique',
+  unique: 'treasure',
+  ut: 'treasure',
+  treasure: 'treasure',
 };
 
 export const unequip: Command = {
   name: 'unequip',
   description: 'Take off your weapon, your armor, your unique treasure, or everything.',
-  usage: 'unequip weapon|armor|unique|all',
+  usage: 'unequip weapon|armor|treasure|all',
   slashUsage: 'unequip <slot>',
 
   async execute(ctx) {
@@ -46,7 +46,7 @@ export const unequip: Command = {
             ? TEXT.unequip.noArmor
             : choice === 'weapon'
               ? TEXT.unequip.noWeapon
-              : TEXT.unequip.noUnique,
+              : TEXT.unequip.noTreasure,
     );
   },
 };

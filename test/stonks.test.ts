@@ -137,7 +137,7 @@ test('stonks.capHours: a normal setting, 5 by default, held between 1 hour and M
 test('stonks item: STONKS! is a 4-star unique treasure exclusive to one member, and describes its effect', () => {
   const item = ITEMS_BY_ID.get('stonks!');
   assert.ok(item, 'the catalog has STONKS!');
-  assert.equal(item.slot, 'unique');
+  assert.equal(item.slot, 'treasure');
   assert.equal(item.stars, 4);
   assert.deepEqual(item.effects, ['stackosaurus']);
   assert.ok(item.usableBy && item.usableBy.length > 0, 'STONKS! is exclusive');

@@ -91,33 +91,52 @@ export async function migrateInventory(): Promise<MigrationResult> {
 }
 
 /*
- * One-time move for the unique-treasure (UT) refactor: Wheelchair and D20 moved out of their
- * old slot (armor and weapon) into the new 'unique' slot. A member who had one of them
- * equipped before the refactor has its copy id sitting in the wrong equipment field, so this
- * moves it into equipment.unique and clears the old field. Gated by its own marker, separate
- * from the item-copies migration above, so it only ever runs once.
+ * Keeps unique-treasure items in the right equipment field. Unlike the marker-gated migration
+ * above, this is NOT gated to run once: it is cheap and fully idempotent, and it has to be
+ * repeatable, because the treasure list keeps growing as items in the catalog get turned into
+ * unique treasures (this happened once already: Wheelchair and D20 moved first, then C4, Frog,
+ * Sid the Sloth and Coughing Baby followed later, after some members already had them equipped
+ * as their weapon or armor). It does two things, every start:
  *
- * The only way a member could have needed two moves at once (a UT item equipped as their
- * weapon AND another as their armor) is the admin, since real unique treasures are each
- * exclusive to one other person. If that happens, the weapon one wins the unique slot and
- * the armor one is unequipped (Claude's call: there is no ordering the user specified, and
- * this is very unlikely to matter for anyone but the admin testing gear).
+ *   1. Field rename: the treasure slot used to be stored as `equipment.unique` (from the
+ *      original refactor). Any member still holding that old field name gets it renamed to
+ *      `equipment.treasure` in one atomic $rename.
+ *   2. Stale slot: an item's catalog `slot` can change after members already have it equipped.
+ *      `equippedItems()` (lib/game/equipment.ts) only counts a copy that sits in the field
+ *      matching its *current* catalog slot, so a copy left behind in the wrong field gives its
+ *      wearer nothing and shows as a broken/unknown slot in `k!gear`. This step finds any
+ *      weapon/armor copy whose current catalog slot is 'treasure' and reconciles it: moves it
+ *      into the treasure slot if that slot is empty, or -- if the member is already wearing a
+ *      different treasure item -- just clears it from weapon/armor, since it wasn't doing
+ *      anything there anyway.
+ *
+ * The only way a member could need the move step for two items at once (a treasure item
+ * equipped as their weapon AND another as their armor, with the treasure slot itself still
+ * empty) is the admin, since real unique treasures are each exclusive to one other person. If
+ * that happens, the weapon one wins the treasure slot and the armor one is unequipped (same
+ * tie-break the original one-time migration used).
  */
 
-const UNIQUE_SLOT_MARKER_ID = 'uniqueSlot';
-
-export interface UniqueSlotMigrationResult {
-  skipped: boolean;
+export interface TreasureSlotSyncResult {
+  renamed: number;
   moved: number;
+  cleared: number;
   dropped: number;
 }
 
-export async function migrateUniqueSlot(): Promise<UniqueSlotMigrationResult> {
-  const { items, members, meta } = collections();
+export async function syncTreasureSlot(): Promise<TreasureSlotSyncResult> {
+  const { items, members } = collections();
 
-  if (await meta.findOne({ _id: UNIQUE_SLOT_MARKER_ID })) return { skipped: true, moved: 0, dropped: 0 };
+  // Step 1: equipment.unique -> equipment.treasure (the old field name from before the rename).
+  const renameResult = await members.updateMany(
+    { 'equipment.unique': { $exists: true } },
+    { $rename: { 'equipment.unique': 'equipment.treasure' } },
+  );
+  const renamed = renameResult.modifiedCount;
 
+  // Step 2: a treasure item stuck in weapon or armor (the catalog changed after it was equipped).
   let moved = 0;
+  let cleared = 0;
   let dropped = 0;
   const wearing = await members
     .find({ $or: [{ 'equipment.weapon': { $ne: null } }, { 'equipment.armor': { $ne: null } }] })
@@ -132,23 +151,27 @@ export async function migrateUniqueSlot(): Promise<UniqueSlotMigrationResult> {
     const copies = await items.find({ guildId, userId, _id: { $in: copyIds } }).toArray();
     const weaponCopy = weaponId ? copies.find((copy) => copy._id === weaponId) : undefined;
     const armorCopy = armorId ? copies.find((copy) => copy._id === armorId) : undefined;
-    const weaponIsUnique = weaponCopy ? ITEMS_BY_ID.get(weaponCopy.itemId)?.slot === 'unique' : false;
-    const armorIsUnique = armorCopy ? ITEMS_BY_ID.get(armorCopy.itemId)?.slot === 'unique' : false;
-    if (!weaponIsUnique && !armorIsUnique) continue;
+    const weaponIsTreasure = weaponCopy ? ITEMS_BY_ID.get(weaponCopy.itemId)?.slot === 'treasure' : false;
+    const armorIsTreasure = armorCopy ? ITEMS_BY_ID.get(armorCopy.itemId)?.slot === 'treasure' : false;
+    if (!weaponIsTreasure && !armorIsTreasure) continue;
 
-    const winnerId = weaponIsUnique ? weaponId : armorId;
-    const update: Record<string, unknown> = { 'equipment.unique': winnerId };
-    if (weaponIsUnique) update['equipment.weapon'] = null;
-    if (armorIsUnique) update['equipment.armor'] = null;
+    const currentTreasureId = member.equipment?.treasure ?? null;
+    const update: Record<string, unknown> = {};
+    if (currentTreasureId) {
+      // Already wearing a (different) treasure item: the stale one wasn't doing anything, just clear it.
+      if (weaponIsTreasure) update['equipment.weapon'] = null;
+      if (armorIsTreasure) update['equipment.armor'] = null;
+      cleared += 1;
+    } else {
+      const winnerId = weaponIsTreasure ? weaponId : armorId;
+      update['equipment.treasure'] = winnerId;
+      if (weaponIsTreasure) update['equipment.weapon'] = null;
+      if (armorIsTreasure) update['equipment.armor'] = null;
+      moved += 1;
+      if (weaponIsTreasure && armorIsTreasure) dropped += 1;
+    }
     await members.updateOne({ guildId, userId }, { $set: update });
-    moved += 1;
-    if (weaponIsUnique && armorIsUnique) dropped += 1;
   }
 
-  await meta.updateOne(
-    { _id: UNIQUE_SLOT_MARKER_ID },
-    { $set: { migratedAt: new Date(), moved, dropped } },
-    { upsert: true },
-  );
-  return { skipped: false, moved, dropped };
+  return { renamed, moved, cleared, dropped };
 }

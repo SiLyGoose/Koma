@@ -320,7 +320,7 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
 export const SLOT_LABELS: Record<Slot, string> = {
   weapon: 'Weapon',
   armor: 'Armor',
-  unique: 'Unique Treasure',
+  treasure: 'Treasure',
 };
 
 // ---------------------------------------------------------------------------
@@ -700,12 +700,12 @@ export const TEXT = {
 
   unequip: {
     usage: (p: string) =>
-      `Which one? Use \`${p}unequip weapon\`, \`${p}unequip armor\`, \`${p}unequip unique\` or \`${p}unequip all\`.`,
+      `Which one? Use \`${p}unequip weapon\`, \`${p}unequip armor\`, \`${p}unequip treasure\` or \`${p}unequip all\`.`,
     tookOff: (names: string[]) => `You took off ${names.map((name) => `**${name}**`).join(' and ')}.`,
     nothingAtAll: "You aren't wearing anything.",
     noArmor: "You don't have any armor equipped.",
     noWeapon: "You don't have a weapon equipped.",
-    noUnique: "You don't have a unique treasure equipped.",
+    noTreasure: "You don't have a treasure equipped.",
   },
 
   rob: {
