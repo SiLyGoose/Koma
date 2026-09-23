@@ -1,9 +1,10 @@
-import { TEXT } from '../constants.js';
+import { DATABANK_BUTTONS, TEXT } from '../constants.js';
 import { ITEMS, findItem } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
 import { buildDatabank, itemDetail, parseStarQuery } from '../lib/game/databank.js';
 import { starString } from '../lib/format.js';
+import { paginate } from '../discord/paginate.js';
 import type { Command } from '../discord/types.js';
 
 export const databank: Command = {
@@ -55,14 +56,23 @@ export const databank: Command = {
     const title = wanted === undefined ? TEXT.databank.title : TEXT.databank.tierTitle(starString(wanted));
     const description = wanted === undefined ? TEXT.databank.description : TEXT.databank.tierDescription(starString(wanted));
 
-    // Usually one message. A very long catalog carries on in more messages.
-    for (const [index, fields] of pages.entries()) {
+    // Usually one page. A long tier or the whole catalog becomes a book: Previous/Next buttons
+    // flip between pages on the same message instead of dumping every page into the channel.
+    const render = (index: number) => {
       const embed = createEmbed()
         .setTitle(pages.length > 1 ? TEXT.databank.titlePage(title, index + 1, pages.length) : title)
-        .addFields(fields);
+        .addFields(pages[index] ?? []);
       if (index === 0) embed.setDescription(description);
       if (index === pages.length - 1) embed.setFooter({ text: TEXT.databank.footer(p) });
-      await ctx.reply({ embeds: [embed] });
-    }
+      return { embeds: [embed] };
+    };
+    await paginate(
+      ctx,
+      pages.length,
+      render,
+      ctx.user.id,
+      { previous: TEXT.databank.previousButton, next: TEXT.databank.nextButton, notYours: TEXT.databank.notYours },
+      DATABANK_BUTTONS.idleMs,
+    );
   },
 };

@@ -254,8 +254,15 @@ export const AUTOCOMPLETE_MAX_CHOICES = 25;
 /** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
 export const FIELD_MAX_LENGTH = 1_000;
 
-/** Most characters of item text in one databank message. Discord cuts an embed off at 6000, so this leaves room for titles. */
-export const DATABANK_PAGE_LENGTH = 4_500;
+/**
+ * Most items shown on one page of the databank: it's a flip-through book, not one long list, so
+ * a tier with more than this splits into pages you page through with buttons instead of everything
+ * landing in one message.
+ */
+export const DATABANK_ITEMS_PER_PAGE = 5;
+
+/** How long the databank's Previous/Next buttons keep working after the last time they were used. */
+export const DATABANK_BUTTONS = { idleMs: 120_000 };
 
 /** Rob and effect chances are rolled in this many steps. Only worth changing for very precise chances. */
 export const CHANCE_STEPS = 1_000_000;
@@ -614,8 +621,8 @@ export const TEXT = {
     description: 'Every item and what it does while equipped.',
     /** `stars` is the star string; `count` is how many items are in that tier. */
     tierField: (stars: string, count: number) => `${stars} (${count})`,
-    /** Name of a field that carries on from the one before it. */
-    tierMore: (stars: string) => `${stars} (continued)`,
+    /** A tier long enough to need more than one page of its own, e.g. "★★★★ (7) — page 2/2". */
+    tierFieldPage: (stars: string, count: number, page: number, pages: number) => `${stars} (${count}) — page ${page}/${pages}`,
     item: (name: string, slot: string) => `**${name}** · ${slot}`,
     noEffects: 'No effects',
     /** The list of one star tier (`databank <1-4>`). `stars` is the star string. */
@@ -625,6 +632,9 @@ export const TEXT = {
     badTier: (p: string, low: number, high: number) =>
       `Pick a star tier from ${low} to ${high}, like \`${p}databank ${high}\`. \`${p}databank\` lists every item.`,
     noItemsInTier: (stars: string) => `There are no ${stars} items.`,
+    previousButton: 'Previous',
+    nextButton: 'Next',
+    notYours: "This isn't your databank to flip through.",
     /** Last line of an item that only some members can use. `owners` is mentions. */
     exclusive: (owners: string) => `Exclusive to ${owners}`,
     footer: (p: string) =>
@@ -932,6 +942,7 @@ export function validateConstants(): void {
   }
   if (!(PLINKO_ANIMATION.frameMs >= 500)) problems.push('PLINKO_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
+  if (!(DATABANK_BUTTONS.idleMs >= 5000)) problems.push('DATABANK_BUTTONS.idleMs must be at least 5000');
   if (!(BLACKJACK.imageScale >= 1 && BLACKJACK.imageScale <= 3 && Number.isInteger(640 * BLACKJACK.imageScale) && Number.isInteger(400 * BLACKJACK.imageScale))) {
     problems.push('BLACKJACK.imageScale must be from 1 to 3 and give a whole number of pixels (640 x scale and 400 x scale), like 1, 1.5 or 2');
   }
@@ -977,7 +988,7 @@ export function validateConstants(): void {
     ['MAX_VAULT_SECONDS', MAX_VAULT_SECONDS],
     ['MAX_VAULT_MULTIPLIER', MAX_VAULT_MULTIPLIER],
     ['MAX_STONKS_HOURS', MAX_STONKS_HOURS],
-    ['DATABANK_PAGE_LENGTH', DATABANK_PAGE_LENGTH],
+    ['DATABANK_ITEMS_PER_PAGE', DATABANK_ITEMS_PER_PAGE],
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) problems.push(`${name} must be a whole number of at least 1`);

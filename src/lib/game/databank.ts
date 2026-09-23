@@ -1,4 +1,4 @@
-import { DATABANK_PAGE_LENGTH, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants.js';
+import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants.js';
 import { STARS, type ItemDef, type Stars } from '../../types.js';
 import { describeEffects } from './equipment.js';
 import { mentionList, starString } from '../format.js';
@@ -8,9 +8,6 @@ export interface DatabankField {
   name: string;
   value: string;
 }
-
-/** Discord allows at most 25 fields in an embed. */
-const MAX_FIELDS_PER_PAGE = 25;
 
 /**
  * The text for one item: its name and slot, then one line per effect at today's strength, then
@@ -26,51 +23,69 @@ export function itemBlock(item: ItemDef): string {
 }
 
 /**
- * Lays every item out for the databank: one group per star tier (highest first), each split
- * into fields that fit Discord's field limit, then packed into pages that fit one message.
- * Effect strengths are read from the live settings, so the list always matches the game.
- * Returns at least one page unless there are no items at all.
+ * Lays every item out for the databank as a flip-through book: one chapter per star tier
+ * (highest first), each chapter split into pages of at most `itemsPerPage` items (never a fresh
+ * field just to say "continued" — a tier that needs more than one page gets separate pages,
+ * numbered in its own header). Pages from different tiers still share a page when there's room
+ * (so a small catalog reads as one screen), but a page never shows more than `itemsPerPage`
+ * items in total, and a tier's own page is never split once it's under the limit. Effect
+ * strengths are read from the live settings, so the list always matches the game. Returns at
+ * least one page unless there are no items at all.
  */
 export function buildDatabank(
   items: readonly ItemDef[],
+  itemsPerPage = DATABANK_ITEMS_PER_PAGE,
   maxField = FIELD_MAX_LENGTH,
-  maxPage = DATABANK_PAGE_LENGTH,
 ): DatabankField[][] {
-  const fields: DatabankField[] = [];
-
+  // Chapter by chapter: each tier's items chunked into fields of at most `itemsPerPage` items
+  // (or fewer, if Discord's own field-length limit would be hit first).
+  const chapters: { field: DatabankField; count: number }[][] = [];
   for (const stars of [...STARS].reverse()) {
     const tier = items.filter((item) => item.stars === stars);
     if (tier.length === 0) continue;
 
     const symbol = starString(stars);
+    const chunks: { field: DatabankField; count: number }[] = [];
     let value = '';
-    let first = true;
+    let count = 0;
     const flush = () => {
       if (value === '') return;
-      fields.push({ name: first ? TEXT.databank.tierField(symbol, tier.length) : TEXT.databank.tierMore(symbol), value });
-      first = false;
+      chunks.push({ field: { name: '', value }, count });
       value = '';
+      count = 0;
     };
     for (const item of tier) {
       const block = itemBlock(item).slice(0, maxField);
-      if (value !== '' && value.length + 2 + block.length > maxField) flush();
+      if (value !== '' && (count >= itemsPerPage || value.length + 2 + block.length > maxField)) flush();
       value = value === '' ? block : `${value}\n\n${block}`;
+      count += 1;
     }
     flush();
+
+    // Only a tier that needed more than one page says which page of how many; a tier that fits
+    // on one just shows its total count, same as before.
+    for (const [i, chunk] of chunks.entries()) {
+      chunk.field.name =
+        chunks.length > 1 ? TEXT.databank.tierFieldPage(symbol, tier.length, i + 1, chunks.length) : TEXT.databank.tierField(symbol, tier.length);
+    }
+    chapters.push(chunks);
   }
 
+  // Page by page: pack chunks in, never splitting one, never letting a page's item count go
+  // over `itemsPerPage`.
   const pages: DatabankField[][] = [];
   let page: DatabankField[] = [];
-  let length = 0;
-  for (const field of fields) {
-    const size = field.name.length + field.value.length;
-    if (page.length > 0 && (length + size > maxPage || page.length >= MAX_FIELDS_PER_PAGE)) {
-      pages.push(page);
-      page = [];
-      length = 0;
+  let pageCount = 0;
+  for (const chunks of chapters) {
+    for (const chunk of chunks) {
+      if (page.length > 0 && pageCount + chunk.count > itemsPerPage) {
+        pages.push(page);
+        page = [];
+        pageCount = 0;
+      }
+      page.push(chunk.field);
+      pageCount += chunk.count;
     }
-    page.push(field);
-    length += size;
   }
   if (page.length > 0) pages.push(page);
   return pages;
