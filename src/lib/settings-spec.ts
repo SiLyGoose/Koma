@@ -185,7 +185,7 @@ export const SPECS: readonly SettingSpec[] = [
   int(
     'stonks.capHours',
     'Stonks',
-    "Hours unclaimed at which STONKS!'s claim multiplier reaches its cap (equipment.stackosaurus.<stars>) and stops climbing.",
+    "Hours after a claim is first ready that STONKS!'s claim multiplier takes to reach its cap (equipment.stackosaurus.<stars>) and stop climbing.",
     1,
     MAX_STONKS_HOURS,
   ),

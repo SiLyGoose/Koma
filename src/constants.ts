@@ -1,5 +1,6 @@
 import type { EffectId } from './data/effects.js';
 import type { Slot, Stars } from './types.js';
+import { WHEEL_SLICES } from './data/wheel.js';
 
 /*
  * Every fixed value and every piece of text the bot sends, in one place, so you can change
@@ -302,7 +303,8 @@ export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
   robAmountCut: (value) => `-${value} ${CURRENCY_EMOJI} stolen`,
   claimTax: (value) => `Wither: members you rob lose ${value} of their next claim to you`,
   robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
-  wheelSpin: (value) => `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel`,
+  wheelSpin: (value) =>
+    `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel, multiplying the ${CURRENCY_EMOJI} by ${Math.min(...WHEEL_SLICES)}x to ${Math.max(...WHEEL_SLICES)}x`,
   d20: (value) =>
     `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
   stackosaurus: (value) => `Stackosaurus: your claim multiplier climbs the longer you go without claiming, up to +${value}`,

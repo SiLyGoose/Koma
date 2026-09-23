@@ -67,7 +67,7 @@ function stackosaurusLine(strength: number): string {
   if (points.length === 0) return EFFECT_TEXT.stackosaurus(formatPercent(strength));
   const parts = points.map(({ hours, multiplier }) => `${formatMultiplier(multiplier)} at ${Number(hours.toFixed(1))}h`);
   const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : (parts[0] as string);
-  return `Stackosaurus: your claim multiplier starts at 1x right after claiming and climbs the longer you wait, reaching ${list} (the cap).`;
+  return `Stackosaurus: your claim multiplier starts at 1x once your claim is ready and climbs the longer you wait after that, reaching ${list} (the cap).`;
 }
 
 /** The gear-card text for one effect at this strength: STONKS!'s own hour-by-hour line, or the registry's plain "+N%" text. */

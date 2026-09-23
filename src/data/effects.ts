@@ -142,15 +142,16 @@ export const EFFECTS = {
     max: 1,
   },
 
-  // STONKS!: no roll, no chance, just time. The claim multiplier climbs the longer the wearer
-  // goes without claiming, on a smooth exponential curve from 1x right after a claim up to a
-  // cap (this effect's strength, as an added percent: 100% is a cap of 2x, same convention as
-  // glassCannon) at stonks.capHours hours unclaimed, and no higher after that. See
-  // lib/game/perks.ts stonksMultiplier for the curve.
+  // STONKS!: no roll, no chance, just time. 1x through the wearer's earliest possible reclaim
+  // (gear that stretches the claim gap, like Sid the Sloth's slothCooldown, pushes this out too),
+  // then a smooth ease-in-out climb -- slower than a straight line at first, faster than one
+  // later, crossing it exactly halfway through -- up to a cap (this effect's strength, as an
+  // added percent: 100% is a cap of 2x, same convention as glassCannon) stonks.capHours hours
+  // after that point, and no higher after that. See lib/game/perks.ts stonksMultiplier.
   stackosaurus: {
     description:
-      "The claim multiplier the wearer's next claim reaches once enough hours have passed since their last one, as an added percent (100% is a cap of 2x). Climbs on a smooth curve, not a jump, and stops growing at the cap (stonks.capHours).",
-    defaults: { 1: 1, 2: 3, 3: 5, 4: 9 },
+      "The claim multiplier the wearer's next claim reaches once enough hours have passed since their earliest possible reclaim, as an added percent (100% is a cap of 2x). Climbs on a smooth ease-in-out curve, not a jump, and stops growing at the cap (stonks.capHours).",
+    defaults: { 1: 1, 2: 3, 3: 5, 4: 6.5 },
     min: 0,
     max: 99,
   },

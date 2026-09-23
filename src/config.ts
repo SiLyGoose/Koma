@@ -180,7 +180,8 @@ export const DEFAULTS: Readonly<Settings> = {
     vault: { minPlayers: 3, joinSeconds: 300, multiplier: 10, fine: 50, baseChance: 0.3, chancePerPlayer: 0.1, maxChance: 0.9 },
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
-  // 10x) by 5 hours unclaimed, climbing on a smooth curve rather than jumping there.
+  // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
+  // rather than jumping there.
   stonks: { capHours: 5 },
   equipment: defaultEquipmentSettings(),
   leaderboardSize: 10,

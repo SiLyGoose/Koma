@@ -1,5 +1,5 @@
 import { MAX_REDUCTION } from '../../constants.js';
-import type { EffectTotals } from '../../data/effects.js';
+import { emptyTotals, type EffectTotals } from '../../data/effects.js';
 
 /*
  * What each equipment effect actually does to the numbers. These are pure functions: give them
@@ -102,32 +102,51 @@ export function pullCost(base: number, gear: EffectTotals): number {
 }
 
 /**
- * The claim multiplier from STONKS!: 1x right after a claim, climbing on a smooth exponential
- * curve to a cap (1 + gear.stackosaurus, the effect's strength) at `capHours` hours since the
- * member's last claim, and no higher after that. With the defaults (a 4-star cap of 10x and
- * capHours 5) that is 1x, 1.6x, 2.5x, 4x, 6.3x, 10x at hours 0 through 5. Nothing equipped
- * (gear.stackosaurus 0) always returns 1x.
+ * Ease-in-out: 0 at t=0, 1 at t=1, and (unlike a plain curve or a straight line) it crosses the
+ * straight line y=x exactly at the halfway point -- below it for the first half (a slow start),
+ * above it for the second (a fast finish). https://en.wikipedia.org/wiki/Smoothstep
+ */
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+/** How long, with no gear stretching it, a member waits between claims -- the curve's own "hour 1". */
+const BASE_CLAIM_GAP_HOURS = claimGapHours(emptyTotals());
+
+/**
+ * The claim multiplier from STONKS!: 1x up through the member's earliest possible reclaim (gear
+ * can stretch that wait -- see claimGapHours -- so this reads it live off `gear` too, the same
+ * gear the multiplier itself is being asked about), then climbs on a smooth ease-in-out curve to
+ * a cap (1 + gear.stackosaurus, the effect's strength) at `capHours` hours after that point, and
+ * no higher after that. It climbs slower than a straight line for the first half of the wait and
+ * faster than one for the second half, crossing that straight line exactly at the halfway point.
+ * With the defaults (a 4-star cap of 7.5x, capHours 5, a 1-hour claim gap) that's 1x at hour 1,
+ * climbing to 7.5x at hour 6, crossing the straight-line reference exactly at hour 3.5. Nothing
+ * equipped (gear.stackosaurus 0) always returns 1x.
  */
 export function stonksMultiplier(hoursUnclaimed: number, gear: EffectTotals, capHours: number): number {
   const cap = 1 + Math.max(0, gear.stackosaurus);
   if (!(cap > 1) || !(capHours > 0)) return 1;
-  const hours = Math.min(Math.max(0, hoursUnclaimed), capHours);
-  return cap ** (hours / capHours);
+  const waited = Math.max(0, hoursUnclaimed - claimGapHours(gear));
+  const t = Math.min(1, waited / capHours);
+  return 1 + (cap - 1) * smoothstep(t);
 }
 
 /**
  * A handful of points along STONKS!'s curve, for its own gear-card description (the numbers a
  * player actually sees, in multiplier form, not the raw "added percent" strength): at most 5
- * evenly spaced hour marks, always ending exactly at `capHours` (the cap). Empty when there's
- * nothing to climb (`strength` 0 or less) or `capHours` isn't positive.
+ * evenly spaced hour marks, always ending exactly at `capHours` hours after the earliest a claim
+ * could be ready (BASE_CLAIM_GAP_HOURS -- this is the item's own generic description, not tied to
+ * any one member's gear, so it assumes no sloth-style gear stretching that wait). Empty when
+ * there's nothing to climb (`strength` 0 or less) or `capHours` isn't positive.
  */
 export function stonksCurvePoints(strength: number, capHours: number): { hours: number; multiplier: number }[] {
   const cap = 1 + Math.max(0, strength);
   if (!(cap > 1) || !(capHours > 0)) return [];
   const count = Math.min(5, Math.max(1, Math.round(capHours)));
   return Array.from({ length: count }, (_, i) => {
-    const hours = ((i + 1) * capHours) / count;
-    return { hours, multiplier: cap ** (hours / capHours) };
+    const t = (i + 1) / count;
+    return { hours: BASE_CLAIM_GAP_HOURS + t * capHours, multiplier: 1 + (cap - 1) * smoothstep(t) };
   });
 }
 
