@@ -1,4 +1,3 @@
-import { CONFIG } from '../config.js';
 import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
@@ -53,19 +52,6 @@ export const balance: Command = {
 
     const isSelf = target.id === ctx.user.id;
 
-    if (CONFIG.rob.victimProtectionMinutes > 0) {
-      embed.addFields({
-        name: TEXT.balance.protectionField,
-        value:
-          info.robProtectedUntilUnix === null
-            ? isSelf
-              ? TEXT.balance.protectionNoneSelf
-              : TEXT.balance.protectionNoneOther
-            : isSelf
-              ? TEXT.balance.protectionEndsSelf(info.robProtectedUntilUnix)
-              : TEXT.balance.protectionEndsOther(info.robProtectedUntilUnix),
-      });
-    }
 
     // Status effects on the member, shown only while there is one, to anyone looking.
     const effects: string[] = [];

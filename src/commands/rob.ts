@@ -54,7 +54,7 @@ function successNotes(
 
 export const rob: Command = {
   name: 'rob',
-  description: 'Steal points from another member. You can rob once per hour, and each member can only be robbed once per hour.',
+  description: 'Steal points from another member. You can rob once per hour.',
   usage: 'rob @user',
   slashUsage: 'rob <user>',
 
@@ -86,8 +86,6 @@ export const rob: Command = {
         await ctx.reply(TEXT.rob.cooldown(result.availableAtUnix));
       } else if (result.reason === 'robber_too_poor') {
         await ctx.reply(TEXT.rob.robberTooPoor(ctx.prefix, fmt(result.fine), fmt(result.balance)));
-      } else if (result.reason === 'victim_recently_robbed') {
-        await ctx.reply(TEXT.rob.victimProtected(target.displayName, result.availableAtUnix));
       } else if (result.reason === 'victim_busy') {
         await ctx.reply(TEXT.rob.victimBusy(target.displayName));
       } else {

@@ -137,8 +137,6 @@ export interface BalanceInfo {
   nextClaimUnix: number;
   /** When this member can rob again (unix seconds), or null if they can rob now. */
   robReadyAtUnix: number | null;
-  /** Until when this member can't be robbed (unix seconds), or null if they can be robbed now. */
-  robProtectedUntilUnix: number | null;
   /**
    * Set while a Coughing Baby wearer has withered this member (Wither): the share of their next
    * claim that will be taken, and who it will be paid to. Null when they are not withered.
@@ -169,7 +167,6 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
     // The end of the hour before the one they can claim in (the end of this hour, normally).
     nextClaimUnix: nextHourUnix(Math.max(hour, member ? claimReadyHour(member) - 1 : hour)),
     robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS * (member?.robCooldownScale ?? 1), now),
-    robProtectedUntilUnix: timerEndsAtUnix(member?.lastRobbedAt, CONFIG.rob.victimProtectionMinutes * MINUTE_MS, now),
     withered:
       member?.claimTaxRate && member.claimTaxBy ? { rate: member.claimTaxRate, byUserId: member.claimTaxBy } : null,
     robTax: member?.robTaxRate && member.robTaxBy ? { rate: member.robTaxRate, byUserId: member.robTaxBy } : null,
@@ -542,7 +539,6 @@ export type RobResult =
   /** The robber has fewer points than rob.failFine, so they can't afford to be caught. */
   | { ok: false; reason: 'robber_too_poor'; fine: number; balance: number }
   | { ok: false; reason: 'victim_too_poor'; minBalance: number }
-  | { ok: false; reason: 'victim_recently_robbed'; availableAtUnix: number }
   /** Another robber has held the victim for longer than a rob takes; nothing happened, try again. */
   | { ok: false; reason: 'victim_busy' }
   | {
@@ -589,17 +585,10 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
   await Promise.all([ensureMember(guildId, robberId), ensureMember(guildId, victimId)]);
 
-  // After being robbed, a member is protected for a while, counted from that robbery.
+  // Robbing no longer checks how recently a member was robbed (the user removed the once-an-hour
+  // protection), but the timestamp is still recorded below, in case it's wanted again later.
   const now = Date.now();
-  const protectionMs = cfg.victimProtectionMinutes * MINUTE_MS;
-  const recentlyRobbed = (protectedUntilMs: number): RobResult => ({
-    ok: false,
-    reason: 'victim_recently_robbed',
-    availableAtUnix: Math.ceil(protectedUntilMs / 1000),
-  });
   let victim = await members.findOne({ guildId, userId: victimId });
-  const lastRobbed = victim?.lastRobbedAt?.getTime();
-  if (lastRobbed !== undefined && lastRobbed > now - protectionMs) return recentlyRobbed(lastRobbed + protectionMs);
 
   // Not worth a cooldown if there is nothing to take.
   if ((victim?.points ?? 0) < cfg.minVictimBalance) {
@@ -672,13 +661,6 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         lockToken = token;
         break;
       }
-      // Someone else is robbing them right now. If that has already protected them, no need to wait.
-      const latest = await members.findOne({ guildId, userId: victimId });
-      const robbedAt = latest?.lastRobbedAt?.getTime();
-      if (robbedAt !== undefined && robbedAt > now - protectionMs) {
-        await restoreCooldown();
-        return recentlyRobbed(robbedAt + protectionMs);
-      }
       if (attempt + 1 >= ROB_LOCK.attempts) {
         await restoreCooldown();
         return { ok: false, reason: 'victim_busy' };
@@ -686,13 +668,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       await new Promise((resolve) => setTimeout(resolve, ROB_LOCK.retryMs));
     }
 
-    // The victim may have been robbed, or spent their points, since the first look, so look again.
+    // The victim may have spent their points since the first look, so look again.
     victim = await members.findOne({ guildId, userId: victimId });
-    const robbedSince = victim?.lastRobbedAt?.getTime();
-    if (robbedSince !== undefined && robbedSince > now - protectionMs) {
-      await restoreCooldown();
-      return recentlyRobbed(robbedSince + protectionMs);
-    }
     if ((victim?.points ?? 0) < cfg.minVictimBalance) {
       await restoreCooldown();
       return { ok: false, reason: 'victim_too_poor', minBalance: cfg.minVictimBalance };
@@ -700,26 +677,18 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
     if (chance(successChance)) {
       // Start the victim's protection timer first, so two simultaneous robbers can't both get through.
+      // Recorded for its own sake (not used to block anything any more): if the steal below
+      // doesn't end up happening, releaseVictimSlot puts the old value back.
       const robbedAt = new Date(now);
       const slot = await members.findOneAndUpdate(
-        {
-          guildId,
-          userId: victimId,
-          $or: [{ lastRobbedAt: null }, { lastRobbedAt: { $lte: new Date(now - protectionMs) } }],
-        },
+        { guildId, userId: victimId },
         { $set: { lastRobbedAt: robbedAt } },
         { returnDocument: 'before' },
       );
-      if (!slot) {
-        // Someone else robbed them a moment ago. This attempt doesn't count against the robber.
-        await restoreCooldown();
-        const latest = await members.findOne({ guildId, userId: victimId });
-        return recentlyRobbed((latest?.lastRobbedAt?.getTime() ?? now) + protectionMs);
-      }
       releaseVictimSlot = () =>
         members.updateOne(
           { guildId, userId: victimId, lastRobbedAt: robbedAt },
-          { $set: { lastRobbedAt: slot.lastRobbedAt ?? null } },
+          { $set: { lastRobbedAt: slot?.lastRobbedAt ?? null } },
         );
 
       // The wheel multiplies what is taken, so the victim loses exactly what the robber gets.

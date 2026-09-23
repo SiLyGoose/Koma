@@ -286,7 +286,7 @@ export const PERCENT_DECIMALS = 2;
 // Add as many as you like, but keep at least one in each list.
 // ---------------------------------------------------------------------------
 
-export const SUCCESS_TITLES: readonly string[] = ['IT\'S A STICKUP!', 'THEY\'VE BEEN SLIMED!'];
+export const SUCCESS_TITLES: readonly string[] = ['IT\'S A STICKUP!', 'THEY\'VE BEEN SLIMED!', 'EMPTY THY POCKETS WANKAH'];
 export const FAILURE_TITLES: readonly string[] = ['L+Ratio', 'Your XP was too low', 'You\'re washed..'];
 
 // ---------------------------------------------------------------------------
@@ -352,11 +352,6 @@ export const TEXT = {
     robField: 'Rob cooldown',
     robReady: (p: string) => `Ready. Use \`${p}rob @user\`!`,
     robWait: (unix: number) => `Recovering. Ready <t:${unix}:R>`,
-    protectionField: 'Robbery protection',
-    protectionNoneSelf: 'None. You can be robbed.',
-    protectionNoneOther: 'None. They can be robbed.',
-    protectionEndsSelf: (unix: number) => `You can be robbed <t:${unix}:R>`,
-    protectionEndsOther: (unix: number) => `They can be robbed <t:${unix}:R>`,
     /** Status effects on the member, one line each. The field only appears while there is one. */
     effectsField: 'Effects',
     /** Withered by a Coughing Baby wearer. `taker` is a mention, `rate` like "25%". */
@@ -718,8 +713,6 @@ export const TEXT = {
     botTarget: 'You thought...',
     selfTarget: 'Vro..',
     cooldown: (unix: number) => `You can rob again <t:${unix}:R>.`,
-    victimProtected: (victim: string, unix: number) =>
-      `${victim} was robbed recently. They can be robbed again <t:${unix}:R>.`,
     victimBroke: (victim: string) => `${victim} has no ${CURRENCY_EMOJI} to steal.`,
     victimBusy: (victim: string) => `Someone else is robbing ${victim} right now. Try again in a moment.`,
     footer: (chance: string) => `Success chance: ${chance}`,
