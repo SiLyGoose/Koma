@@ -877,11 +877,15 @@ export const TEXT = {
     /** The prefix in the settings list while it comes from .env. */
     prefixFromEnvValue: (prefix: string) => `${prefix} (from .env)`,
     usageSet: (p: string) => `Usage: \`${p}config set <setting> <value>\`. See \`${p}config\` for the setting names.`,
-    usageReset: (p: string) => `Usage: \`${p}config reset <setting>\`. See \`${p}config\` for the setting names.`,
+    usageReset: (p: string) =>
+      `Usage: \`${p}config reset <setting>\`. See \`${p}config\` for the setting names, or \`${p}config reset equipment.<effect>\` to reset every star tier of an equipment effect at once.`,
     noSuchSetting: (p: string, key: string) => `There is no setting called \`${key}\`. See \`${p}config\` for the list.`,
     askValue: (p: string, key: string) => `What should \`${key}\` be set to? Usage: \`${p}config set ${key} <value>\`.`,
     changed: (key: string, from: string, to: string) => `Changed \`${key}\` from **${from}** to **${to}**.`,
     reset: (key: string, from: string, to: string) => `Reset \`${key}\` from **${from}** to **${to}**.`,
+    /** `results` is one row per star tier, from resetEquipmentEffect. */
+    resetEquipment: (effect: string, results: readonly { key: string; oldValue: string; newValue: string }[]) =>
+      `Reset every star tier of \`${effect}\`:\n${results.map((r) => `Reset \`${r.key}\` from **${r.oldValue}** to **${r.newValue}**.`).join('\n')}`,
     /** Errors from the settings service itself (the admin check is enforced there too). */
     unknownSetting: (key: string) => `There is no setting called \`${key}\`.`,
     breaksRule: (problem: string) => `That would break a rule: ${problem}.`,

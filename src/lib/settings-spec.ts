@@ -17,7 +17,7 @@ import {
   PITY_STARS,
   PLINKO_ROWS,
 } from '../constants.js';
-import { EFFECT_IDS, EFFECTS } from '../data/effects.js';
+import { EFFECT_IDS, EFFECTS, type EffectId } from '../data/effects.js';
 import { STARS } from '../types.js';
 import type { Settings } from '../config.js';
 
@@ -236,6 +236,18 @@ export const SPECS: readonly SettingSpec[] = [
 export function findSpec(key: string): SettingSpec | undefined {
   const wanted = key.trim().toLowerCase();
   return SPECS.find((spec) => spec.key.toLowerCase() === wanted);
+}
+
+/**
+ * Matches "equipment.<effect>" with no star tier (e.g. from `config reset equipment.robChance`), the
+ * form that means "every star tier of this effect", and returns the effect's canonical id. Returns
+ * undefined for anything else, including a full `equipment.<effect>.<stars>` key.
+ */
+export function findEquipmentEffectId(key: string): EffectId | undefined {
+  const match = /^equipment\.([^.]+)$/i.exec(key.trim());
+  if (!match) return undefined;
+  const wanted = (match[1] as string).toLowerCase();
+  return EFFECT_IDS.find((id) => id.toLowerCase() === wanted);
 }
 
 // ---------------------------------------------------------------------------

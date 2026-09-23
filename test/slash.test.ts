@@ -4,8 +4,9 @@ import type { AutocompleteInteraction, ChatInputCommandInteraction, Message } fr
 import { interactionContext, isEphemeral, messageContext } from '../src/discord/context.js';
 import { handleAutocomplete, handleSlash } from '../src/discord/dispatch.js';
 import { commands } from '../src/commands/index.js';
-import { MAX_SLASH_DESCRIPTION, SLASH, hasSlash, slashCommandData } from '../src/discord/slash.js';
+import { MAX_SLASH_DESCRIPTION, SLASH, commandPrefix, hasSlash, slashCommandData } from '../src/discord/slash.js';
 import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src/constants.js';
+import { getPrefix } from '../src/services/settings.js';
 import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
 import { parseGiveArgs } from '../src/lib/game/give.js';
@@ -28,6 +29,33 @@ test('slash: every command has a slash version unless it is excluded, and there 
   // An excluded command keeps its definition, so taking it off the list brings it back.
   assert.deepEqual(Object.keys(SLASH).sort(), names);
   for (const command of commands) assert.equal(hasSlash(command.name), !SLASH_EXCLUDED.includes(command.name), command.name);
+});
+
+test('commandPrefix: a command with a slash version is named with ctx.prefix, "/" in a slash context', () => {
+  const f = fakeInteraction();
+  const { ctx, dispose } = interactionContext(f.interaction, guild, []);
+  assert.equal(ctx.prefix, '/');
+  assert.ok(hasSlash('balance') && hasSlash('claim'));
+  assert.equal(commandPrefix(ctx, 'balance'), '/');
+  assert.equal(commandPrefix(ctx, 'claim'), '/');
+  dispose();
+});
+
+test('commandPrefix: an excluded command (like rob) is always named with the real message prefix, never "/"', () => {
+  const f = fakeInteraction();
+  const { ctx, dispose } = interactionContext(f.interaction, guild, []);
+  assert.equal(ctx.prefix, '/', 'balance itself was run as a slash command');
+  assert.equal(hasSlash('rob'), false);
+  assert.equal(commandPrefix(ctx, 'rob'), getPrefix());
+  assert.notEqual(commandPrefix(ctx, 'rob'), '/', 'rob has no /rob slash command to point at');
+  dispose();
+});
+
+test('commandPrefix: in a message context it is just the real prefix either way', () => {
+  const f = fakeMessage();
+  const ctx = messageContext(f.message, [], 'k!');
+  assert.equal(commandPrefix(ctx, 'balance'), 'k!');
+  assert.equal(commandPrefix(ctx, 'rob'), 'k!');
 });
 
 test('slash: the excluded commands are real commands, are not registered, and are kept out of the list', () => {

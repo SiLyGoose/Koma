@@ -15,8 +15,9 @@ import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { starString } from '../lib/format.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy.js';
+import { getPrefix } from '../services/settings.js';
 import { SLOTS, STARS, type ItemDef } from '../types.js';
-import type { Command } from './types.js';
+import type { Command, CommandContext } from './types.js';
 
 /*
  * The slash version of each command. A slash command doesn't re-implement anything: its options
@@ -299,6 +300,17 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
 /** True when the command is available as a slash command: it has an entry in `SLASH` and isn't in `SLASH_EXCLUDED`. */
 export const hasSlash = (name: string): boolean => Object.hasOwn(SLASH, name) && !SLASH_EXCLUDED.includes(name);
+
+/**
+ * The prefix to show in a hint that names `name`, like "use ${commandPrefix(ctx, 'rob')}rob
+ * @user!": `ctx.prefix` normally, so a hint shown from a command run as a slash command still
+ * says "/" -- but the real message prefix instead when `name` itself has no slash command
+ * (SLASH_EXCLUDED), so the hint never points at a "/command" that doesn't actually exist, even
+ * when it's shown from a different command that does have one and was run that way.
+ */
+export function commandPrefix(ctx: CommandContext, name: string): string {
+  return hasSlash(name) ? ctx.prefix : getPrefix();
+}
 
 /** The slash command for `command`, or null if it doesn't have one. Throws if Discord would refuse it. */
 export function buildSlashCommand(command: Command, spec: SlashSpec | undefined = SLASH[command.name]): SlashCommandBuilder | null {

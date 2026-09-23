@@ -3,6 +3,7 @@ import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
 import { getBalance } from '../services/economy.js';
+import { commandPrefix } from '../discord/slash.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
 
@@ -43,7 +44,9 @@ export const balance: Command = {
         name: TEXT.balance.robField,
         value:
           info.robReadyAtUnix === null
-            ? TEXT.balance.robReady(ctx.prefix)
+            ? // rob has no slash command (SLASH_EXCLUDED), so its hint always names the real
+              // message prefix, never "/", even when balance itself was run as a slash command.
+              TEXT.balance.robReady(commandPrefix(ctx, 'rob'))
             : TEXT.balance.robWait(info.robReadyAtUnix),
       },
     );

@@ -71,6 +71,15 @@ test('message templates fill in their values', () => {
   assert.equal(TEXT.equip.ambiguous(['A', 'B']), 'That could be more than one of your items: **A**, **B**. Type more of the name.');
   assert.equal(TEXT.unequip.tookOff(['A', 'B']), 'You took off **A** and **B**.');
   assert.equal(TEXT.config.reset('claim.min', '200', '100'), 'Reset `claim.min` from **200** to **100**.');
+  assert.equal(
+    TEXT.config.resetEquipment('equipment.robChance', [
+      { key: 'equipment.robChance.1', oldValue: '3%', newValue: '5%' },
+      { key: 'equipment.robChance.2', oldValue: '8%', newValue: '10%' },
+    ]),
+    'Reset every star tier of `equipment.robChance`:\n' +
+      'Reset `equipment.robChance.1` from **3%** to **5%**.\n' +
+      'Reset `equipment.robChance.2` from **8%** to **10%**.',
+  );
   assert.match(TEXT.balance.claimWait(1700000000), /<t:1700000000:R>/);
   assert.equal(TEXT.balance.witheredSelf('25%', '<@1>'), 'Withered: <@1> takes 25% of your next claim.');
   assert.equal(TEXT.balance.witheredOther('25%', '<@1>'), 'Withered: <@1> takes 25% of their next claim.');

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { DEFAULTS, isAdmin, ADMIN_USER_ID } from '../src/config.js';
 import {
   checkConstraints,
+  findEquipmentEffectId,
   findSpec,
   formatValue,
   getPath,
@@ -138,4 +139,14 @@ test('the victim protection timer is a setting, and 0 turns it off', () => {
   assert.deepEqual(parseInput(s, '30'), { ok: true, value: 30 });
   assert.deepEqual(parseInput(s, '0'), { ok: true, value: 0 });
   for (const bad of ['-1', 'abc', '1.5', '999999']) assert.equal(parseInput(s, bad).ok, false, bad);
+});
+
+test('findEquipmentEffectId matches "equipment.<effect>" with no star tier, case-insensitively', () => {
+  assert.equal(findEquipmentEffectId('equipment.robChance'), 'robChance');
+  assert.equal(findEquipmentEffectId('EQUIPMENT.ROBCHANCE'), 'robChance');
+  assert.equal(findEquipmentEffectId('  equipment.robChance  '), 'robChance');
+  // A full key (with a star tier) or an unknown effect is not a bulk match.
+  assert.equal(findEquipmentEffectId('equipment.robChance.2'), undefined);
+  assert.equal(findEquipmentEffectId('equipment.notARealEffect'), undefined);
+  assert.equal(findEquipmentEffectId('claim.min'), undefined);
 });

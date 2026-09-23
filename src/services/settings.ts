@@ -1,8 +1,9 @@
-import { CONFIG, DEFAULTS, isAdmin } from '../config.js';
+import { CONFIG, DEFAULTS, isAdmin, STARS } from '../config.js';
 import { TEXT } from '../constants.js';
 import { collections } from '../db.js';
 import {
   checkConstraints,
+  findEquipmentEffectId,
   findSpec,
   formatValue,
   getPath,
@@ -115,14 +116,15 @@ export async function refreshSettings(): Promise<void> {
 // Changing settings (admin only)
 // ---------------------------------------------------------------------------
 
-export type ChangeResult =
-  | { ok: true; key: string; oldValue: string; newValue: string }
-  | { ok: false; reason: 'forbidden' | 'unknown_setting' | 'invalid'; error: string };
+/** Shared by ChangeResult and BulkResetResult: what either one looks like when it failed. */
+type SettingsFailure = { ok: false; reason: 'forbidden' | 'unknown_setting' | 'invalid'; error: string };
 
-const FORBIDDEN: ChangeResult = { ok: false, reason: 'forbidden', error: TEXT.config.adminOnly };
+export type ChangeResult = { ok: true; key: string; oldValue: string; newValue: string } | SettingsFailure;
+
+const FORBIDDEN: SettingsFailure = { ok: false, reason: 'forbidden', error: TEXT.config.adminOnly };
 const PREFIX_FROM_ENV: ChangeResult = { ok: false, reason: 'invalid', error: TEXT.config.prefixFromEnv };
 
-function unknownSetting(key: string): ChangeResult {
+function unknownSetting(key: string): SettingsFailure {
   return { ok: false, reason: 'unknown_setting', error: TEXT.config.unknownSetting(key) };
 }
 
@@ -158,4 +160,25 @@ export async function resetSetting(actorId: string, key: string): Promise<Change
   if (!spec) return unknownSetting(key);
   if (spec.key === 'prefix' && isPrefixFromEnv()) return PREFIX_FROM_ENV;
   return applyChange(spec, getPath(DEFAULTS, spec.key) as string | number);
+}
+
+export type BulkResetResult = { ok: true; key: string; results: readonly { key: string; oldValue: string; newValue: string }[] } | SettingsFailure;
+
+/**
+ * Puts every star tier of one equipment effect back to its default in one go, so the admin does not
+ * have to reset `equipment.<effect>.1` through `.4` one at a time. Only the admin may do this.
+ */
+export async function resetEquipmentEffect(actorId: string, effectId: string): Promise<BulkResetResult> {
+  if (!isAdmin(actorId)) return FORBIDDEN;
+  const id = findEquipmentEffectId(`equipment.${effectId}`);
+  if (!id) return unknownSetting(`equipment.${effectId}`);
+
+  const results: { key: string; oldValue: string; newValue: string }[] = [];
+  for (const stars of STARS) {
+    const spec = findSpec(`equipment.${id}.${stars}`) as SettingSpec;
+    const result = await applyChange(spec, getPath(DEFAULTS, spec.key) as number);
+    if (!result.ok) return result;
+    results.push({ key: result.key, oldValue: result.oldValue, newValue: result.newValue });
+  }
+  return { ok: true, key: `equipment.${id}`, results };
 }

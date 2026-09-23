@@ -2,8 +2,8 @@ import { CONFIG, isAdmin, STARS } from '../config.js';
 import { TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../data/effects.js';
-import { findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
-import { changeSetting, getPrefix, isPrefixFromEnv, resetSetting } from '../services/settings.js';
+import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
+import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting } from '../services/settings.js';
 import type { Command } from '../discord/types.js';
 
 const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Events', 'Equipment'];
@@ -41,7 +41,7 @@ export const config: Command = {
   name: 'config',
   aliases: ['settings'],
   description: 'See the bot settings. Only the bot admin can change them.',
-  usage: 'config [set <setting> <value> | reset <setting>]',
+  usage: 'config [set <setting> <value> | reset <setting> | reset equipment.<effect>]',
   slashUsage: 'config list | set | reset',
 
   async execute(ctx) {
@@ -81,6 +81,23 @@ export const config: Command = {
       await ctx.reply(action === 'set' ? TEXT.config.usageSet(p) : TEXT.config.usageReset(p));
       return;
     }
+
+    // "config reset equipment.<effect>" (no star tier) resets all star tiers of that effect at once,
+    // instead of doing equipment.<effect>.1 through .4 one at a time. A single tier can still be reset
+    // on its own with the usual equipment.<effect>.<stars> key.
+    if (action === 'reset') {
+      const effectId = findEquipmentEffectId(key);
+      if (effectId) {
+        const result = await resetEquipmentEffect(ctx.user.id, effectId);
+        if (!result.ok) {
+          await ctx.reply(result.error);
+          return;
+        }
+        await ctx.reply(TEXT.config.resetEquipment(result.key, result.results));
+        return;
+      }
+    }
+
     if (!findSpec(key)) {
       await ctx.reply(TEXT.config.noSuchSetting(p, key));
       return;
