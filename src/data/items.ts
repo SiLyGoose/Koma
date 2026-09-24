@@ -162,7 +162,7 @@ export const ITEMS: readonly ItemDef[] = [
     usableBy: ['391017642208526348'], // Allen
     slot: 'treasure',
     description: 'Placeholder',
-    effects: [],
+    effects: ['smart', 'iconicByMistake'],
   }
 ];
 

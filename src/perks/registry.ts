@@ -5,6 +5,7 @@ import type { PerkDef } from './define.js';
 import { fineReduction } from './fine-reduction.js';
 import { glassCannonPenalty } from './glass-cannon-penalty.js';
 import { glassCannon } from './glass-cannon.js';
+import { iconicByMistake } from './iconic-by-mistake.js';
 import { pullDiscount } from './pull-discount.js';
 import { robAmountCut } from './rob-amount-cut.js';
 import { robAmount } from './rob-amount.js';
@@ -14,6 +15,7 @@ import { robShield } from './rob-shield.js';
 import { robTax } from './rob-tax.js';
 import { slothCooldown } from './sloth-cooldown.js';
 import { slothDefense } from './sloth-defense.js';
+import { smart } from './smart.js';
 import { stackosaurus } from './stackosaurus.js';
 import { wheelSpin } from './wheel-spin/index.js';
 import type { Stars } from '../types.js';
@@ -44,6 +46,9 @@ export const EFFECTS = {
   // Glass cannon.
   glassCannon,
   glassCannonPenalty,
+  // Chaewon Photocard.
+  smart,
+  iconicByMistake,
   // Unique-treasure perks.
   wheelSpin,
   d20,
