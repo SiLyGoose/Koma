@@ -1,27 +1,23 @@
-import { CONFIG, isAdmin } from '../config.js';
+import { isAdmin } from '../config.js';
 import { TEXT } from '../constants/index.js';
 import { GAME_EVENTS, eventChances, findEvent, pickEvent } from '../events/registry.js';
 import { startEvent } from '../events/runner.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, formatPercent, joinLimited } from '../lib/format.js';
-import { getVaultPool } from '../services/vault.js';
+import { formatPercent, joinLimited } from '../lib/format.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
 /**
  * Every event that can happen, with the chance of each being picked at random. Which channel
  * they spawn in is `k!config`'s business now (the `channel` setting), not shown here.
  */
+// The vault's size is the `vault` command's job (commands/vault.ts).
 async function showStatus(ctx: CommandContext): Promise<void> {
-  const pool = await getVaultPool(ctx.guildId);
   const embed = createEmbed()
     .setTitle(TEXT.events.statusTitle)
-    .addFields(
-      { name: TEXT.events.vaultField, value: TEXT.events.vaultInfo(fmt(pool), fmt(Math.round(pool * CONFIG.events.vault.multiplier)), formatMultiplier(CONFIG.events.vault.multiplier)) },
-      {
-        name: TEXT.events.listField,
-        value: joinLimited(eventChances().map(({ event, chance }) => TEXT.events.listLine(event.id, event.label, event.description, formatPercent(chance)))),
-      },
-    )
+    .addFields({
+      name: TEXT.events.listField,
+      value: joinLimited(eventChances().map(({ event, chance }) => TEXT.events.listLine(event.id, event.label, event.description, formatPercent(chance)))),
+    })
     .setFooter({ text: TEXT.events.usage(ctx.prefix) });
   await ctx.reply({ embeds: [embed] });
 }

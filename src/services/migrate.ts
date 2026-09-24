@@ -188,3 +188,14 @@ export async function renameEventChannelField(): Promise<number> {
   const result = await guilds.updateMany({ eventChannelId: { $exists: true } }, { $rename: { eventChannelId: 'channelId' } });
   return result.modifiedCount;
 }
+
+/*
+ * The vault breaker event was replaced by Greedy Heist and Split or Steal, which don't save
+ * themselves. A vault breaker left open when the bot last stopped is just cleared: it only moved
+ * points once it settled, so dropping it takes nothing from anyone. Idempotent, runs every start.
+ */
+export async function clearOpenVaults(): Promise<number> {
+  const { guilds } = collections();
+  const result = await guilds.updateMany({ openVault: { $exists: true } }, { $unset: { openVault: '' } });
+  return result.modifiedCount;
+}

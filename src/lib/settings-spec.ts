@@ -11,7 +11,8 @@ import {
   MAX_STONKS_HOURS,
   MAX_TIMER_MINUTES,
   MAX_VAULT_MULTIPLIER,
-  MAX_VAULT_SECONDS,
+  MAX_EVENT_SECONDS,
+  MAX_HEIST_ROUNDS,
   NUMBER_LOCALE,
   PERCENT_DECIMALS,
   PITY_STARS,
@@ -169,18 +170,40 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.crate.maxPoints', 'Events', `Most ${CURRENCY_EMOJI} a point crate can hold.`, 1, MAX_POINTS),
   int('events.crate.seconds', 'Events', 'Seconds the point crate stays open for grabbing.', 10, MAX_CRATE_SECONDS),
 
-  int('events.vault.minPlayers', 'Events', 'Fewest people who have to join a vault breaker before it can succeed.', 2, 50),
-  int('events.vault.joinSeconds', 'Events', 'Seconds a vault breaker stays open for joining.', 30, MAX_VAULT_SECONDS),
   {
     key: 'events.vault.multiplier',
     group: 'Events',
-    description: 'What a vault breaker attempts, as a multiple of the points lost to gambling since the last one.',
+    description: 'What a vault game (Greedy Heist, Split or Steal) puts up, as a multiple of the points lost to gambling since the last payout.',
     type: 'number',
     min: 1,
     max: MAX_VAULT_MULTIPLIER,
     multiplier: true,
   },
-  int('events.vault.fine', 'Events', 'What every joiner pays, added back to the vault, when the crack fails.', 0, MAX_POINTS),
+  int('events.heist.joinSeconds', 'Events', 'Seconds a Greedy Heist stays open for joining.', 10, MAX_EVENT_SECONDS),
+  int('events.heist.rounds', 'Events', 'Most rounds a Greedy Heist lasts. The prize is handed out a slice per round.', 1, MAX_HEIST_ROUNDS),
+  int('events.heist.roundSeconds', 'Events', 'Seconds each Greedy Heist round lasts (time to decide whether to escape).', 2, 60),
+  {
+    key: 'events.heist.alarmStart',
+    group: 'Events',
+    description: 'The chance the alarm goes off in the first round of a Greedy Heist.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'events.heist.alarmStep',
+    group: 'Events',
+    description: 'Added to the Greedy Heist alarm chance every round after the first.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  int('events.heist.fine', 'Events', 'What everyone still inside a Greedy Heist when the alarm goes off pays, added to the vault.', 0, MAX_POINTS),
+  int('events.splitSteal.minPlayers', 'Events', 'Fewest people who have to join Split or Steal for it to be played.', 2, 50),
+  int('events.splitSteal.joinSeconds', 'Events', 'Seconds Split or Steal stays open for joining.', 10, MAX_EVENT_SECONDS),
+  int('events.splitSteal.decideSeconds', 'Events', 'Seconds the Split or Steal players have to choose.', 10, MAX_EVENT_SECONDS),
 
   int(
     'stonks.capHours',
@@ -189,33 +212,6 @@ export const SPECS: readonly SettingSpec[] = [
     1,
     MAX_STONKS_HOURS,
   ),
-  {
-    key: 'events.vault.baseChance',
-    group: 'Events',
-    description: 'The vault breaker success chance with exactly minPlayers joined.',
-    type: 'number',
-    min: 0,
-    max: 1,
-    percent: true,
-  },
-  {
-    key: 'events.vault.chancePerPlayer',
-    group: 'Events',
-    description: 'Added to the vault breaker success chance for every joiner past minPlayers.',
-    type: 'number',
-    min: 0,
-    max: 1,
-    percent: true,
-  },
-  {
-    key: 'events.vault.maxChance',
-    group: 'Events',
-    description: 'The vault breaker success chance can never climb past this, however many join.',
-    type: 'number',
-    min: 0,
-    max: 1,
-    percent: true,
-  },
 
   // One setting per effect per star tier, generated from the effect registry.
   ...EFFECT_IDS.flatMap((id) =>
@@ -362,9 +358,6 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.events.crate.minPoints > settings.events.crate.maxPoints) {
     return 'events.crate.minPoints cannot be higher than events.crate.maxPoints';
-  }
-  if (settings.events.vault.baseChance > settings.events.vault.maxChance) {
-    return 'events.vault.baseChance cannot be higher than events.vault.maxChance';
   }
   if (settings.rob.minChance > settings.rob.maxChance) {
     return 'rob.minChance cannot be higher than rob.maxChance';

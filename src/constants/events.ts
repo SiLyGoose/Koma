@@ -1,7 +1,7 @@
 import { MINUTE_MS } from './core.js';
 
 /*
- * Random events (src/events): the event loop, crates and vaults.
+ * Random events (src/events): the event loop, the point crate and the vault games.
  */
 
 /**
@@ -22,15 +22,21 @@ export const MAX_CRATE_SECONDS = 600;
  */
 export const CRATE = { grabId: 'crate_grab', refreshMs: 3_000, listMax: 15, imageName: 'crate.png' } as const;
 
-/** Longest a vault breaker can stay open for joining, in seconds (the `events.vault.joinSeconds` setting). */
-export const MAX_VAULT_SECONDS = 1_800;
+/** Longest a vault game's join window (or Split or Steal's choosing time) can be, in seconds. */
+export const MAX_EVENT_SECONDS = 1_800;
 
 /** Biggest `events.vault.multiplier` can be set to. */
 export const MAX_VAULT_MULTIPLIER = 50;
 
+/** Most rounds a Greedy Heist can have (the `events.heist.rounds` setting). */
+export const MAX_HEIST_ROUNDS = 20;
+
 /**
- * The vault breaker's button and screen, like CRATE's. `refreshMs` is the shortest time between
- * edits of the "who's joined" count. `listMax` is how many members the result names before saying
- * "...and N more".
+ * Greedy Heist's buttons and screen. `refreshMs` is the shortest time between edits of the live
+ * message (Discord limits message edits). `listMax` is how many members a list names before
+ * saying "...and N more".
  */
-export const VAULT = { joinId: 'vault_join', refreshMs: 3_000, listMax: 15 } as const;
+export const HEIST = { joinId: 'heist_join', escapeId: 'heist_escape', refreshMs: 1_500, listMax: 15 } as const;
+
+/** Split or Steal's buttons and screen, like HEIST's. */
+export const SPLIT_STEAL = { joinId: 'ss_join', splitId: 'ss_split', stealId: 'ss_steal', refreshMs: 3_000, listMax: 15 } as const;

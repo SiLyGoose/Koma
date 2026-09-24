@@ -1,5 +1,3 @@
-import { boldMoney } from './currency.js';
-
 export const eventsText = {
   adminOnly: 'Only the bot admin can use this command.',
   usage: (p: string) => `Use \`${p}events\` to see every random event that can happen, or \`${p}events start [event]\` to start one now.`,
@@ -13,7 +11,4 @@ export const eventsText = {
   /** `ids` is the list of event ids. */
   startUnknown: (name: string, ids: string) => `There is no event called "${name}". The events are: ${ids}`,
   started: (label: string, channel: string) => `Started **${label}** in ${channel}.`,
-  vaultField: 'Vault',
-  /** `pool` is what's been lost so far, `prize` is that times the multiplier: what a vault breaker would pay out right now. */
-  vaultInfo: (pool: string, prize: string, multiplier: string) => `${boldMoney(pool)} lost so far. A vault breaker right now would attempt ${boldMoney(prize)} (${multiplier}).`,
 };

@@ -6,12 +6,23 @@ import { ensureMember } from './economy/index.js';
  * The vault pool: a running total of points lost to gambling (a losing plinko drop, a lost
  * blackjack hand) and to caught robbers' fines, kept on each server's GuildDoc (vaultPool). Any
  * game that takes points away without paying them all back out calls addVaultLoss with what was
- * lost, so a game added later feeds the vault the same way, in one extra call. The vault breaker
- * event (src/events/vault-breaker.ts) reads the pool to post an attempt and calls back in here to
- * actually move the points once it is settled.
+ * lost, so a game added later feeds the vault the same way, in one extra call. The vault games
+ * (src/events/greedy-heist.ts, src/events/split-or-steal.ts) put up the pool times
+ * events.vault.multiplier, and call back in here to take out what they paid (vaultCost,
+ * takeFromVault) and to add their fines (fineIntoVault).
  */
 
 type LedgerInput = Omit<LedgerDoc, 'createdAt'>;
+
+/**
+ * How much of the pool a payout used up. A game snapshots the pool (`basePool`) and puts up
+ * `prize` (basePool times the multiplier); paying out `paid` of that prize costs the pool the same
+ * share of basePool. Rounded, never more than basePool, and 0 when nothing was paid.
+ */
+export function vaultCost(basePool: number, prize: number, paid: number): number {
+  if (!(prize > 0) || !(paid > 0) || !(basePool > 0)) return 0;
+  return Math.min(basePool, Math.round((basePool * Math.min(paid, prize)) / prize));
+}
 
 /** Best effort: a ledger failure is logged but never undoes a completed action. */
 async function recordLedger(entries: LedgerInput[]): Promise<void> {
@@ -25,9 +36,9 @@ async function recordLedger(entries: LedgerInput[]): Promise<void> {
 }
 
 /**
- * Records points lost to gambling, or a caught robber's fine, so a future vault breaker can pay
+ * Records points lost to gambling, or a caught robber's fine, so a future vault game can pay
  * them out. Best effort: a failure here never undoes the game action that lost the points, it
- * just means this particular loss doesn't inflate the next vault breaker (logged, not thrown).
+ * just means this particular loss doesn't inflate the next vault game (logged, not thrown).
  */
 export async function addVaultLoss(guildId: string, amount: number): Promise<void> {
   if (!Number.isFinite(amount) || amount <= 0) return;
@@ -45,18 +56,18 @@ export async function getVaultPool(guildId: string): Promise<number> {
 }
 
 /**
- * Takes `basePool` back out of the vault pool (never below 0), once a vault breaker posted with
- * that snapshot has succeeded. Losses added to the pool during the join window (or since) are
- * left alone, so they carry over to the next vault breaker instead of being erased by this one.
+ * Takes `amount` out of the vault pool (never below 0), once a vault game has paid out (see
+ * vaultCost). Losses added to the pool while the game ran are left alone, so they carry over to
+ * the next one instead of being erased by this one.
  */
-export async function settleVaultSuccess(guildId: string, basePool: number): Promise<void> {
-  if (!Number.isSafeInteger(basePool) || basePool <= 0) return;
+export async function takeFromVault(guildId: string, amount: number): Promise<void> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) return;
   try {
     await collections().guilds.updateOne({ _id: guildId }, [
-      { $set: { vaultPool: { $subtract: ['$vaultPool', { $min: ['$vaultPool', basePool] }] } } },
+      { $set: { vaultPool: { $subtract: ['$vaultPool', { $min: ['$vaultPool', amount] }] } } },
     ]);
   } catch (err) {
-    console.error(`Could not take ${basePool} back out of the vault pool in ${guildId}:`, err);
+    console.error(`Could not take ${amount} out of the vault pool in ${guildId}:`, err);
   }
 }
 
@@ -70,12 +81,12 @@ export interface VaultFine {
 const FINE_AT_ONCE = 10;
 
 /**
- * Charges each joiner up to `fine` points, capped at what they have (like every other fine in the
- * bot, so a fine never puts anyone below 0), records the ledger entries, and adds what was
- * collected back to the vault pool. A member with fewer points than the fine still counts as
+ * Charges each member up to `fine` points, capped at what they have (like every other fine in the
+ * bot, so a fine never puts anyone below 0), records the ledger entries under `reason`, and adds
+ * what was collected to the vault pool. A member with fewer points than the fine still counts as
  * having paid it, they just can't lose more than they had.
  */
-export async function fineVaultJoiners(guildId: string, userIds: readonly string[], fine: number): Promise<VaultFine[]> {
+export async function fineIntoVault(guildId: string, userIds: readonly string[], fine: number, reason: 'heist_fine'): Promise<VaultFine[]> {
   if (userIds.length === 0 || fine <= 0) return userIds.map((userId) => ({ userId, amount: 0 }));
   const { members } = collections();
 
@@ -90,7 +101,7 @@ export async function fineVaultJoiners(guildId: string, userIds: readonly string
       const amount = before ? Math.min(fine, before.points) : 0;
       return { userId, amount };
     } catch (err) {
-      console.error(`Could not fine ${userId} in ${guildId} for a failed vault breaker:`, err);
+      console.error(`Could not fine ${userId} in ${guildId} (${reason}):`, err);
       return { userId, amount: 0 };
     }
   };
@@ -102,7 +113,7 @@ export async function fineVaultJoiners(guildId: string, userIds: readonly string
 
   const fined = results.filter((r) => r.amount > 0);
   if (fined.length > 0) {
-    await recordLedger(fined.map((r) => ({ guildId, userId: r.userId, delta: -r.amount, reason: 'vault_fine' as const })));
+    await recordLedger(fined.map((r) => ({ guildId, userId: r.userId, delta: -r.amount, reason })));
     await addVaultLoss(guildId, fined.reduce((sum, r) => sum + r.amount, 0));
   }
   return results;

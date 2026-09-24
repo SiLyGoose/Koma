@@ -16,6 +16,7 @@ import { rob } from './rob.js';
 import { sell } from './sell.js';
 import type { Command } from '../discord/types.js';
 import { unequip } from './unequip.js';
+import { vault } from './vault.js';
 
 export const commands: Command[] = [
   claim,
@@ -31,6 +32,7 @@ export const commands: Command[] = [
   plinko,
   blackjack,
   leaderboard,
+  vault,
   config,
   events,
   give,
