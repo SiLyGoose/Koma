@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { inflateSync } from 'node:zlib';
 import { PLINKO_BET_IDS } from '../src/commands/plinko.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { CURRENCY_EMOJI, PLINKO_ROWS, TEXT, validateConstants } from '../src/constants/index.js';
@@ -17,6 +16,7 @@ import {
 } from '../src/lib/game/plinko.js';
 import { betForButton, buttonPlan, checkBet, isBetButton, parseBetArg } from '../src/lib/game/bet.js';
 import { renderPlinko, boardLayout } from '../src/animations/images/plinko-image.js';
+import { pixelAt, pngSize, readPng } from './helpers/png.js';
 import { SPECS, checkConstraints, findSpec, formatValue, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
 const close = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`);
@@ -209,8 +209,6 @@ test('plinko settings: the smallest bet cannot be above the biggest', () => {
 // ---------------------------------------------------------------------------
 // The picture
 
-/** Reads the width and height out of a PNG file. */
-const pngSize = (png: Buffer) => ({ width: png.readUInt32BE(16), height: png.readUInt32BE(20) });
 const PATH = [true, false, true, true, false, true, true, true];
 const MULTIPLIERS = slotMultipliers(PAYOUT);
 
@@ -254,26 +252,12 @@ test('plinko picture: a board of any size draws, and bad input is refused', () =
   assert.throws(() => renderPlinko(MULTIPLIERS, PATH, 1.5), /no frame/);
 });
 
-/** The RGBA of one pixel of a PNG made by our encoder (no filtering, 8-bit RGBA). */
-function pixelOf(png: Buffer, x: number, y: number): number[] {
-  const { width } = pngSize(png);
-  const data: Buffer[] = [];
-  for (let at = 8; at < png.length; ) {
-    const length = png.readUInt32BE(at);
-    if (png.subarray(at + 4, at + 8).toString('ascii') === 'IDAT') data.push(png.subarray(at + 8, at + 8 + length));
-    at += 12 + length;
-  }
-  const raw = inflateSync(Buffer.concat(data));
-  const start = y * (width * 4 + 1) + 1 + x * 4;
-  return [...raw.subarray(start, start + 4)];
-}
-
 test('plinko picture: the slots that pay the most are red, the ones that pay the least are gold, with a gradient between', () => {
   const layout = boardLayout(PLINKO_ROWS);
   // Above the label, inside the slot's colored box.
   const slotColor = (png: Buffer, slot: number) => {
     const { x, y } = layout.slot(slot);
-    return pixelOf(png, Math.round(x), Math.round(y) + 8);
+    return pixelAt(readPng(png), Math.round(x), Math.round(y) + 8);
   };
   const png = renderPlinko([29, 4, 1.5, 0.3, 0.2, 0.3, 1.5, 4, 29], PATH, 0);
   assert.deepEqual(slotColor(png, 0), [220, 70, 75, 255], 'the biggest payout is red');

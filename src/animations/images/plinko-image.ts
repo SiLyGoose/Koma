@@ -1,8 +1,8 @@
 import { ballOffset, slotOf, type PlinkoPath } from '../../lib/game/plinko.js';
 import { GLYPHS, GLYPH_HEIGHT, textWidth } from './pixel-font.js';
 import { encodePng } from './png.js';
-import { rangeColors } from './palette.js';
-import { luminance, mix, shrinkRect, type Rgb } from './raster.js';
+import { ACCENT_RED, LINE, rangeColors, textOn } from './palette.js';
+import { mix, shrinkRect, type Rgb } from './raster.js';
 
 /*
  * Draws the plinko board as a PNG: rows of pegs in a triangle, a slot for each payout at the
@@ -26,12 +26,9 @@ const BALL_RADIUS = 11;
 
 const BACKGROUND: Rgb = [32, 34, 38];
 const PEG: Rgb = [200, 204, 212];
-const LINE: Rgb = [30, 31, 34];
 const BALL: Rgb = [255, 255, 255];
-const BALL_EDGE: Rgb = [237, 66, 69];
+const BALL_EDGE = ACCENT_RED;
 const TRAIL: Rgb = [95, 99, 108];
-const DARK_TEXT: Rgb = [30, 31, 34];
-const LIGHT_TEXT: Rgb = [255, 255, 255];
 const WINNER_EDGE: Rgb = [255, 255, 255];
 
 /** "9x", "0.4x". */
@@ -140,7 +137,7 @@ export function renderPlinko(multipliers: readonly number[], path: PlinkoPath, f
     if (finished && !won) color = mix(color, LINE, 0.55);
     if (won) canvas.rect((x - half + gap - 3) * s, (y - 3) * s, (x + half - gap + 3) * s, (y + SLOT_HEIGHT + 3) * s, WINNER_EDGE);
     canvas.rect((x - half + gap) * s, y * s, (x + half - gap) * s, (y + SLOT_HEIGHT) * s, color);
-    const textColor = luminance(color) > 150 ? DARK_TEXT : LIGHT_TEXT;
+    const textColor = textOn(color);
     canvas.text(label(multiplier), x * s, (y + SLOT_HEIGHT - 22) * s, 2 * s, textColor);
   }
 

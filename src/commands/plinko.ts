@@ -1,4 +1,4 @@
-import { ComponentType, MessageFlags } from 'discord.js';
+import { ComponentType } from 'discord.js';
 import { CONFIG } from '../config.js';
 import { CURRENCY_NAME, PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
@@ -10,6 +10,7 @@ import { renderPlinko } from '../animations/images/plinko-image.js';
 import { playPlinko, type PlinkoResult } from '../services/economy/index.js';
 import { playFrames, type AnimationPlan, type FrameSurface } from '../animations/play.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
+import { followUpPrivately, replyPrivately } from '../discord/reply.js';
 
 export const PLINKO_BET_IDS: BetButtonIds = { again: 'plinko_again', double: 'plinko_double', half: 'plinko_half' };
 
@@ -119,7 +120,7 @@ async function watchButtons(ctx: CommandContext, sent: SentReply, firstBet: numb
   collector.on('collect', (interaction) => {
     void (async () => {
       if (interaction.user.id !== ctx.user.id) {
-        await interaction.reply({ content: TEXT.plinko.notYours, flags: MessageFlags.Ephemeral }).catch(() => {});
+        await replyPrivately(interaction, TEXT.plinko.notYours);
         return;
       }
       // Acknowledge at once: a game takes longer than the three seconds Discord allows.
@@ -133,7 +134,7 @@ async function watchButtons(ctx: CommandContext, sent: SentReply, firstBet: numb
         try {
           const result = await playPlinko(ctx.guildId, ctx.user.id, wanted);
           if (!result.ok) {
-            await interaction.followUp({ content: refusalText(ctx.prefix, wanted, result), flags: MessageFlags.Ephemeral }).catch(() => {});
+            await followUpPrivately(interaction, refusalText(ctx.prefix, wanted, result));
             return;
           }
           bet = result.bet;

@@ -1,5 +1,6 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import type { CommandContext, ReplyOptions } from './types.js';
+import { replyPrivately } from './reply.js';
 
 export const PREV_ID = 'databank_prev';
 export const NEXT_ID = 'databank_next';
@@ -50,7 +51,7 @@ export async function paginate(
   collector.on('collect', (interaction) => {
     void (async () => {
       if (interaction.user.id !== userId) {
-        await interaction.reply({ content: labels.notYours, flags: MessageFlags.Ephemeral }).catch(() => {});
+        await replyPrivately(interaction, labels.notYours);
         return;
       }
       await interaction.deferUpdate().catch(() => {});

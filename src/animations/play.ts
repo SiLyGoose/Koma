@@ -1,8 +1,8 @@
 import { randomInt } from 'node:crypto';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import type { CommandContext, EditOptions, ReplyOptions, SentReply } from '../discord/types.js';
+import { sleep } from '../lib/time.js';
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** How an animation is timed: one picture change per `frameMs`, for `minSeconds` to `maxSeconds`. */
 export interface AnimationTiming {

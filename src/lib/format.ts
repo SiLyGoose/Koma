@@ -20,8 +20,11 @@ export function joinLimited(lines: string[], maxLength = FIELD_MAX_LENGTH): stri
   return out;
 }
 
+/** A Discord mention of a user, like "<@1>". */
+export const mention = (userId: string): string => `<@${userId}>`;
+
 /** Discord mentions for a list of user ids, like "<@1>, <@2>". */
-export const mentionList = (userIds: readonly string[]): string => userIds.map((id) => `<@${id}>`).join(', ');
+export const mentionList = (userIds: readonly string[]): string => userIds.map(mention).join(', ');
 
 /** A change in points with its sign: 25 -> "+25", -90 -> "-90", 0 -> "0". */
 export const signed = (n: number): string => `${n > 0 ? '+' : n < 0 ? '-' : ''}${fmt(Math.abs(n))}`;

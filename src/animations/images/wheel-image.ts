@@ -1,6 +1,7 @@
 import { drawText } from './pixel-font.js';
+import { ACCENT_RED, LINE, textOn } from './palette.js';
 import { encodePng } from './png.js';
-import { luminance, mix, shrink, type Rgb } from './raster.js';
+import { mix, shrink, type Rgb } from './raster.js';
 
 /*
  * Draws the prize wheel as a PNG: equal slices, one label each, a pointer at the top, and the
@@ -19,10 +20,7 @@ const TAU = Math.PI * 2;
 
 const RIM: Rgb = [242, 243, 245];
 const HUB: Rgb = [43, 45, 49];
-const LINE: Rgb = [30, 31, 34];
-const POINTER: Rgb = [237, 66, 69];
-const DARK_TEXT: Rgb = [30, 31, 34];
-const LIGHT_TEXT: Rgb = [255, 255, 255];
+const POINTER = ACCENT_RED;
 
 /** Slice colors by multiplier: low is red, below 1 is orange, exactly 1 is blue, above 1 is green, 2 and up is gold. */
 export function sliceColor(multiplier: number): Rgb {
@@ -133,7 +131,7 @@ function draw(slices: readonly number[], turn: number, winner: number | null, pi
           let base = sliceColor(slices[index] as number);
           if (winner !== null && index !== winner) base = mix(base, LINE, 0.55);
           color = edge < lineHalf ? LINE : base;
-          if (mask[y * size + x]) color = luminance(base) > 150 ? DARK_TEXT : LIGHT_TEXT;
+          if (mask[y * size + x]) color = textOn(base);
         }
       }
 

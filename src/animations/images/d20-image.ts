@@ -2,8 +2,9 @@ import { randomInt } from 'node:crypto';
 import { D20 } from '../../constants/index.js';
 import { d20Multiplier } from '../../perks/index.js';
 import { drawText } from './pixel-font.js';
+import { LINE, textOn } from './palette.js';
 import { encodePng } from './png.js';
-import { luminance, shrink, type Rgb } from './raster.js';
+import { shrink, type Rgb } from './raster.js';
 import { sliceColor } from './wheel-image.js';
 
 /*
@@ -28,9 +29,6 @@ export interface DiePose {
 const SUPERSAMPLE = 2;
 const TAU = Math.PI * 2;
 
-const LINE: Rgb = [30, 31, 34];
-const DARK_TEXT: Rgb = [30, 31, 34];
-const LIGHT_TEXT: Rgb = [255, 255, 255];
 
 // The die's shape, in units of its radius (x right, y down). Six outer corners going clockwise
 // from the top, and the corners of the middle triangle.
@@ -110,7 +108,7 @@ export function renderD20(pose: DiePose, landed: boolean, pixels = 400): Buffer 
   const mask = new Uint8Array(size * size);
   const scale = Math.max(1, Math.round(size * 0.0155));
   drawText(mask, size, String(pose.shown), cx, cy, scale);
-  const textColor = luminance(color) > 150 ? DARK_TEXT : LIGHT_TEXT;
+  const textColor = textOn(color);
 
   const rgba = new Uint8Array(size * size * 4);
   for (let y = 0; y < size; y++) {

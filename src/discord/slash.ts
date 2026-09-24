@@ -11,7 +11,7 @@ import { CURRENCY_NAME, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
-import { starString } from '../lib/format.js';
+import { mention, starString } from '../lib/format.js';
 import { GROUPS } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy/index.js';
@@ -40,7 +40,6 @@ export interface SlashSpec {
 /** The longest text Discord accepts for a command or option description. */
 export const MAX_SLASH_DESCRIPTION = 100;
 
-const mention = (id: string) => `<@${id}>`;
 
 /** The description of a bet option (blackjack, plinko). */
 const BET_OPTION = `How many ${CURRENCY_NAME} to bet, or "all" for the most you can`;

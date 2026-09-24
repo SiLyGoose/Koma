@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { BLACKJACK, TEXT, validateConstants } from '../src/constants/index.js';
 import { IMAGE_HEIGHT, IMAGE_WIDTH, renderTable, TABLE_HEIGHT, TABLE_WIDTH } from '../src/animations/images/blackjack-image.js';
+import { pngSize } from './helpers/png.js';
 import {
   RANKS,
   Round,
@@ -397,13 +398,6 @@ test('blackjack: the messages fit the limits Discord sets', () => {
 
 // ---------------------------------------------------------------------------
 // The picture
-
-/** The width and height from a PNG's header, and its pixels after decoding (8-bit RGBA, no filters assumed beyond the ones used). */
-function pngSize(bytes: Uint8Array): { width: number; height: number } {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  assert.equal(view.getUint32(0), 0x89504e47, 'PNG signature');
-  return { width: view.getUint32(16), height: view.getUint32(20) };
-}
 
 test('blackjack picture: it is a PNG of the documented size, for every kind of table', () => {
   const views = [

@@ -1,6 +1,6 @@
 import { CURRENCY_NAME, FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent, mention, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
 import { rob as robService } from '../services/economy/index.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
@@ -45,7 +45,7 @@ function successNotes(
   }
   if (result.robTaxPaid !== null) {
     const { amount, toUserId } = result.robTaxPaid;
-    lines.push(TEXT.rob.robTaxPaid(`<@${toUserId}>`, fmt(amount), fmt(result.stolen - amount)));
+    lines.push(TEXT.rob.robTaxPaid(mention(toUserId), fmt(amount), fmt(result.stolen - amount)));
   }
   if (result.claimTax !== null) lines.push(TEXT.rob.claimTaxed(victim, formatPercent(result.claimTax)));
   if (result.robTax !== null) lines.push(TEXT.rob.robTaxed(victim, formatPercent(result.robTax)));

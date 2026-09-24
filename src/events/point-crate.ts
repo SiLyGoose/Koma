@@ -1,8 +1,8 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type Client, type Message, type SendableChannels } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, type Client, type Message, type SendableChannels } from 'discord.js';
 import { CONFIG } from '../config.js';
 import { CRATE, CURRENCY_EMOJI, TEXT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt } from '../lib/format.js';
+import { fmt, mention } from '../lib/format.js';
 import { crateTier, rollPile, splitPile, type CrateShare, type CrateTier } from '../lib/events/crate.js';
 import { listOpenCrates, payCrate, recordGrab, saveOpenCrate, takeOpenCrate } from '../services/events.js';
 import type { OpenCrateDoc } from '../types.js';
@@ -10,6 +10,7 @@ import { claimGuild } from './busy.js';
 import { checkEventChannel } from './channel.js';
 import { crateFile, prepareEndPictures, type CrateFile } from './crate-picture.js';
 import type { EventContext, GameEvent } from './types.js';
+import { replyPrivately } from '../discord/reply.js';
 
 /*
  * The point crate: a pile of points falls into the channel with a Grab button. Everyone who
@@ -42,7 +43,7 @@ export function grabRow(disabled = false): ActionRowBuilder<ButtonBuilder> {
 
 /** What each grabber got, as lines for a field: the first CRATE.listMax, then how many more there were. */
 function shareLines(shares: readonly CrateShare[]): string {
-  const lines = shares.slice(0, CRATE.listMax).map((share) => TEXT.crate.shareLine(`<@${share.userId}>`, fmt(share.amount)));
+  const lines = shares.slice(0, CRATE.listMax).map((share) => TEXT.crate.shareLine(mention(share.userId), fmt(share.amount)));
   if (shares.length > CRATE.listMax) lines.push(TEXT.crate.moreShares(shares.length - CRATE.listMax));
   return lines.join('\n');
 }
@@ -138,7 +139,7 @@ async function collectGrabs(crate: OpenCrate): Promise<void> {
     if (!already && crate.persisted) {
       recordGrab(crate.guildId, crate.messageId, interaction.user.id).catch((err) => console.error('Could not save a crate grab:', err));
     }
-    interaction.reply({ content: already ? TEXT.crate.alreadyGrabbed : TEXT.crate.grabbed, flags: MessageFlags.Ephemeral }).catch(() => {});
+    void replyPrivately(interaction, already ? TEXT.crate.alreadyGrabbed : TEXT.crate.grabbed);
   });
 
   await new Promise<void>((resolve) => collector.once('end', () => resolve()));

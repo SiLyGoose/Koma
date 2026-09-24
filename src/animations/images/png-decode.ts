@@ -1,4 +1,5 @@
 import { inflateSync } from 'node:zlib';
+import { PNG_SIGNATURE } from './png.js';
 
 /*
  * A small PNG reader, so the bot can put a member's profile picture into a drawn picture without an
@@ -18,7 +19,6 @@ export interface Avatar {
 /** The largest picture that is read, in pixels on a side (Discord sends 64 to 128; anything huge is not an avatar). */
 export const MAX_DECODE_SIZE = 1024;
 
-const SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 
 /** Samples per pixel for each colour type: grey, colour, palette, grey + alpha, colour + alpha. */
 const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
@@ -101,7 +101,7 @@ export function decodePng(file: Uint8Array): Avatar | null {
 }
 
 function decode(file: Uint8Array): Avatar | null {
-  if (file.length < 33 || SIGNATURE.some((b, i) => file[i] !== b)) return null;
+  if (file.length < 33 || PNG_SIGNATURE.some((b, i) => file[i] !== b)) return null;
   const view = new DataView(file.buffer, file.byteOffset, file.byteLength);
 
   let width = 0;

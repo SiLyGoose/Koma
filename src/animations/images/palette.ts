@@ -1,4 +1,20 @@
-import { mix, type Rgb } from './raster.js';
+import { luminance, mix, type Rgb } from './raster.js';
+
+/*
+ * Colors shared by the pictures drawn in whole color values (the prize wheel, the D20, plinko).
+ */
+
+/** Outlines between shapes, and the dimming mixed into what didn't win. Discord's dark background. */
+export const LINE: Rgb = [30, 31, 34];
+
+/** Discord's red: the wheel's pointer and the edge of the plinko ball. */
+export const ACCENT_RED: Rgb = [237, 66, 69];
+
+const DARK_TEXT: Rgb = [30, 31, 34];
+const LIGHT_TEXT: Rgb = [255, 255, 255];
+
+/** Text that can be read on `background`: dark on light colors, white on dark ones. */
+export const textOn = (background: Rgb): Rgb => (luminance(background) > 150 ? DARK_TEXT : LIGHT_TEXT);
 
 /*
  * Colors for the numbers in a picture, chosen from the whole set of numbers being drawn rather

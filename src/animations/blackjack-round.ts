@@ -1,14 +1,16 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type ButtonInteraction, type Message } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, type ButtonInteraction, type Message } from 'discord.js';
 import { CONFIG } from '../config.js';
 import { BLACKJACK, BLACKJACK_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { renderTable, type SeatView } from './images/blackjack-image.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt, money, signed } from '../lib/format.js';
+import { fmt, mention, money, signed } from '../lib/format.js';
 import { handValue, isBlackjack, isBust, newShoe, payoutFor, payoutRatio, Round, type Card, type Outcome, type Seat } from '../lib/game/blackjack.js';
 import { doubleBet, refundBet, renewLeases, settleBet } from '../services/blackjack.js';
 import { addVaultLoss } from '../services/vault.js';
 import type { EditOptions } from '../discord/types.js';
 import type { Profile } from '../discord/profile.js';
+import { sleep } from '../lib/time.js';
+import { followUpPrivately, replyPrivately } from '../discord/reply.js';
 
 /*
  * Plays one round of blackjack on a Discord message: deals the cards one by one (the picture is
@@ -24,9 +26,7 @@ const HIT_ID = 'bj_hit';
 const STAND_ID = 'bj_stand';
 const DOUBLE_ID = 'bj_double';
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-const mention = (userId: string): string => `<@${userId}>`;
 
 // ---------------------------------------------------------------------------
 // Who is at a table
@@ -242,14 +242,14 @@ export async function playRound(message: Message, players: readonly TablePlayer[
       if (press.customId !== HIT_ID && press.customId !== STAND_ID && press.customId !== DOUBLE_ID) return;
       const who = players.findIndex((p) => p.userId === press.user.id);
       if (who === -1) {
-        await press.reply({ content: TEXT.blackjack.notAtTable, flags: MessageFlags.Ephemeral }).catch(() => {});
+        await replyPrivately(press, TEXT.blackjack.notAtTable);
         return;
       }
       const wanted = waiter;
       if (!wanted || wanted.seat !== who) {
         // Their own second press of the same button is just acknowledged; a press out of turn is told so.
         if (who === currentSeat) await press.deferUpdate().catch(() => {});
-        else await press.reply({ content: TEXT.blackjack.notYourTurn, flags: MessageFlags.Ephemeral }).catch(() => {});
+        else await replyPrivately(press, TEXT.blackjack.notYourTurn);
         return;
       }
       waiter = null; // taken: a second press can't act again
@@ -324,9 +324,7 @@ export async function playRound(message: Message, players: readonly TablePlayer[
               player.bet = doubled.bet;
               round.double(seat);
             } else if (doubled.reason === 'too_poor') {
-              await action.interaction
-                .followUp({ content: TEXT.blackjack.doubleCantAfford(fmt(round.seat(seat).bet), fmt(doubled.balance)), flags: MessageFlags.Ephemeral })
-                .catch(() => {});
+              await followUpPrivately(action.interaction, TEXT.blackjack.doubleCantAfford(fmt(round.seat(seat).bet), fmt(doubled.balance)));
             } else {
               // The bet was already returned (this table looked dead for a while): they can't play on.
               returned.add(seat);

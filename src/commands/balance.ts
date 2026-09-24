@@ -1,6 +1,6 @@
 import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatPercent } from '../lib/format.js';
+import { fmt, formatPercent, mention } from '../lib/format.js';
 import { getBalance } from '../services/economy/index.js';
 import { commandPrefix } from '../discord/slash.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
@@ -58,13 +58,13 @@ export const balance: Command = {
     if (info.withered) {
       // The Withered status from a Coughing Baby.
       const rate = formatPercent(info.withered.rate);
-      const taker = `<@${info.withered.byUserId}>`;
+      const taker = mention(info.withered.byUserId);
       effects.push(isSelf ? TEXT.balance.witheredSelf(rate, taker) : TEXT.balance.witheredOther(rate, taker));
     }
     if (info.robTax) {
       // The Yowch, My Coins! mark from a Jew Frog.
       const rate = formatPercent(info.robTax.rate);
-      const taker = `<@${info.robTax.byUserId}>`;
+      const taker = mention(info.robTax.byUserId);
       effects.push(isSelf ? TEXT.balance.robTaxSelf(rate, taker) : TEXT.balance.robTaxOther(rate, taker));
     }
     if (effects.length > 0) embed.addFields({ name: TEXT.balance.effectsField, value: effects.join('\n') });

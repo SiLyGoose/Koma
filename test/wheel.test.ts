@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { inflateSync } from 'node:zlib';
 import { CONFIG } from '../src/config.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
@@ -19,47 +18,12 @@ import { createEmbed } from '../src/lib/embed.js';
 import { describeEffects } from '../src/lib/game/equipment.js';
 import { formatMultiplier } from '../src/lib/format.js';
 import { crc32, encodePng } from '../src/animations/images/png.js';
+import { pixelAt, readPng } from './helpers/png.js';
 import { landingTurn, renderSpinningWheel, renderWheel, sliceColor, spinTurns } from '../src/animations/images/wheel-image.js';
 import type { ItemDef } from '../src/types.js';
 
 const dice = (trigger: number, slice: number, offset = 0.5): WheelDice => ({ trigger, slice, offset });
 
-/** Reads a PNG apart: its chunks (with their checksums checked) and its pixels. */
-function decodePng(png: Buffer): { width: number; height: number; pixels: Uint8Array; chunks: string[] } {
-  assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'PNG signature');
-  const chunks: string[] = [];
-  const data: Buffer[] = [];
-  let width = 0;
-  let height = 0;
-  let at = 8;
-  while (at < png.length) {
-    const length = png.readUInt32BE(at);
-    const type = png.subarray(at + 4, at + 8).toString('ascii');
-    const body = png.subarray(at + 8, at + 8 + length);
-    assert.equal(png.readUInt32BE(at + 8 + length), crc32(png.subarray(at + 4, at + 8 + length)), `${type} checksum`);
-    chunks.push(type);
-    if (type === 'IHDR') {
-      width = body.readUInt32BE(0);
-      height = body.readUInt32BE(4);
-      assert.equal(body[8], 8, 'bit depth');
-      assert.equal(body[9], 6, 'RGBA');
-    }
-    if (type === 'IDAT') data.push(body);
-    at += 12 + length;
-  }
-  const raw = inflateSync(Buffer.concat(data));
-  assert.equal(raw.length, (width * 4 + 1) * height);
-  const pixels = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y++) {
-    assert.equal(raw[y * (width * 4 + 1)], 0, 'filter type 0');
-    raw.copy(pixels, y * width * 4, y * (width * 4 + 1) + 1, (y + 1) * (width * 4 + 1));
-  }
-  return { width, height, pixels, chunks };
-}
-const pixelAt = (img: { width: number; pixels: Uint8Array }, x: number, y: number) => {
-  const at = (y * img.width + x) * 4;
-  return [...img.pixels.subarray(at, at + 4)];
-};
 
 // ---------------------------------------------------------------------------
 // PNG writer
@@ -71,7 +35,7 @@ test('png: the checksum matches the standard test value', () => {
 
 test('png: pixels survive the round trip and the file is well formed', () => {
   const pixels = new Uint8Array([255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 10, 20, 30, 40]);
-  const img = decodePng(encodePng(2, 2, pixels));
+  const img = readPng(encodePng(2, 2, pixels));
   assert.deepEqual(img.chunks, ['IHDR', 'IDAT', 'IEND']);
   assert.equal(img.width, 2);
   assert.equal(img.height, 2);
@@ -89,7 +53,7 @@ test('png: refuses a size that does not match the pixels', () => {
 const SLICES = [1, 0.1, 1.5, 0.4, 2, 0.75, 1.25, 1];
 
 test('wheel picture: a valid square PNG with a transparent background and the pointer at the top', () => {
-  const img = decodePng(renderWheel(SLICES, { index: 4, offset: 0.4 }, 256));
+  const img = readPng(renderWheel(SLICES, { index: 4, offset: 0.4 }, 256));
   assert.equal(img.width, 256);
   assert.equal(img.height, 256);
   assert.equal(pixelAt(img, 0, 0)[3], 0, 'corner is transparent');
@@ -101,13 +65,13 @@ test('wheel picture: a valid square PNG with a transparent background and the po
 
 test('wheel picture: the slice under the pointer keeps its bright color and the others are dimmed', () => {
   for (let index = 0; index < SLICES.length; index++) {
-    const img = decodePng(renderWheel(SLICES, { index, offset: 0.4 }, 256));
+    const img = readPng(renderWheel(SLICES, { index, offset: 0.4 }, 256));
     // On the pointer's line, out toward the rim (past where the labels sit).
     const top = pixelAt(img, 128, Math.round(128 - 0.8 * 0.42 * 256));
     assert.deepEqual(top, [...sliceColor(SLICES[index] as number), 255], `slice ${index} is bright under the pointer`);
   }
   // A slice on the opposite side (half a turn away) is the dimmed version of its color.
-  const img = decodePng(renderWheel(SLICES, { index: 0, offset: 0.4 }, 256));
+  const img = readPng(renderWheel(SLICES, { index: 0, offset: 0.4 }, 256));
   const bottom = pixelAt(img, 128, Math.round(128 + 0.8 * 0.42 * 256));
   assert.notDeepEqual(bottom.slice(0, 3), [...sliceColor(SLICES[4] as number)]);
 });
@@ -122,7 +86,7 @@ test('wheel picture: the same spin draws the same picture, a different landing d
 test('wheel picture: works for any slice count from 2 to the maximum, and refuses a bad landing', () => {
   for (const count of [2, 3, 5, MAX_WHEEL_SLICES]) {
     const slices = Array.from({ length: count }, (_, i) => 0.5 + i * 0.25);
-    const img = decodePng(renderWheel(slices, { index: count - 1, offset: 0.5 }, 128));
+    const img = readPng(renderWheel(slices, { index: count - 1, offset: 0.5 }, 128));
     assert.equal(img.width, 128);
   }
   assert.throws(() => renderWheel([1], { index: 0, offset: 0.5 }), /at least two/);
@@ -132,7 +96,7 @@ test('wheel picture: works for any slice count from 2 to the maximum, and refuse
 
 test('wheel picture: the full size stays a reasonable file', () => {
   const png = renderWheel(SLICES, { index: 4, offset: 0.4 });
-  assert.equal(decodePng(png).width, 512);
+  assert.equal(readPng(png).width, 512);
   assert.ok(png.length < 100_000, `${png.length} bytes`);
 });
 
@@ -243,8 +207,8 @@ test('animation: the first picture is well before the landing, and a step never 
 test('animation: a spinning picture has every slice bright, unlike the finished one', () => {
   const landing = { index: 0, offset: 0.4 };
   const turn = landingTurn(SLICES.length, landing);
-  const stopped = decodePng(renderWheel(SLICES, landing, 256));
-  const spinning = decodePng(renderSpinningWheel(SLICES, turn, 256));
+  const stopped = readPng(renderWheel(SLICES, landing, 256));
+  const spinning = readPng(renderSpinningWheel(SLICES, turn, 256));
   const bottom = (img: typeof stopped) => pixelAt(img, 128, Math.round(128 + 0.8 * 0.42 * 256));
   // Half a turn from the pointer is slice 4 (the 2x slice): dimmed when stopped, full color when spinning.
   assert.deepEqual(bottom(spinning), [...sliceColor(SLICES[4] as number), 255]);
@@ -253,7 +217,7 @@ test('animation: a spinning picture has every slice bright, unlike the finished 
   const top = (img: typeof stopped) => pixelAt(img, 128, Math.round(128 - 0.8 * 0.42 * 256));
   assert.deepEqual(top(spinning), top(stopped));
   // Any turn works, including negative and over a full circle.
-  for (const t of [-7, 0, 3, 40]) assert.equal(decodePng(renderSpinningWheel(SLICES, t, 64)).width, 64);
+  for (const t of [-7, 0, 3, 40]) assert.equal(readPng(renderSpinningWheel(SLICES, t, 64)).width, 64);
   assert.throws(() => renderSpinningWheel([1], 0), /at least two/);
 });
 

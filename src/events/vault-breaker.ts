@@ -1,8 +1,8 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type Client, type Message, type SendableChannels } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, type Client, type Message, type SendableChannels } from 'discord.js';
 import { CONFIG } from '../config.js';
 import { TEXT, VAULT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt, formatPercent } from '../lib/format.js';
+import { fmt, formatPercent, mention } from '../lib/format.js';
 import { splitPile, type CrateShare } from '../lib/events/crate.js';
 import { vaultChance } from '../lib/events/vault.js';
 import { chance } from '../lib/random.js';
@@ -12,6 +12,7 @@ import type { OpenVaultDoc } from '../types.js';
 import { claimGuild } from './busy.js';
 import { checkEventChannel } from './channel.js';
 import type { EventContext, GameEvent } from './types.js';
+import { replyPrivately } from '../discord/reply.js';
 
 /*
  * The vault breaker: a vault holding everything lost to gambling (and to caught robbers) so far,
@@ -37,7 +38,7 @@ export function joinRow(disabled = false): ActionRowBuilder<ButtonBuilder> {
 
 /** What each cracker got, as lines for a field: the first VAULT.listMax, then how many more there were. */
 function shareLines(shares: readonly CrateShare[]): string {
-  const lines = shares.slice(0, VAULT.listMax).map((share) => TEXT.vault.shareLine(`<@${share.userId}>`, fmt(share.amount)));
+  const lines = shares.slice(0, VAULT.listMax).map((share) => TEXT.vault.shareLine(mention(share.userId), fmt(share.amount)));
   if (shares.length > VAULT.listMax) lines.push(TEXT.vault.moreShares(shares.length - VAULT.listMax));
   return lines.join('\n');
 }
@@ -127,7 +128,7 @@ async function collectJoiners(vault: OpenVault): Promise<void> {
     if (!already && vault.persisted) {
       recordJoin(vault.guildId, vault.messageId, interaction.user.id).catch((err) => console.error('Could not save a vault breaker join:', err));
     }
-    interaction.reply({ content: already ? TEXT.vault.alreadyJoined : TEXT.vault.joined, flags: MessageFlags.Ephemeral }).catch(() => {});
+    void replyPrivately(interaction, already ? TEXT.vault.alreadyJoined : TEXT.vault.joined);
   });
 
   await new Promise<void>((resolve) => collector.once('end', () => resolve()));

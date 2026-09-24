@@ -5,6 +5,7 @@ import { collections } from '../db.js';
 import { checkBet, type BetRefusal } from '../lib/game/bet.js';
 import type { BlackjackBetDoc, LedgerDoc } from '../types.js';
 import { ensureMember } from './economy/index.js';
+import { sleep } from '../lib/time.js';
 
 /*
  * The points side of blackjack. A table can last minutes, so nothing is ever left to memory:
@@ -122,7 +123,7 @@ async function credit(guildId: string, userId: string, amount: number): Promise<
       return paid.points;
     } catch (err) {
       lastError = err;
-      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+      await sleep(250 * (attempt + 1));
     }
   }
   throw lastError;

@@ -1,6 +1,6 @@
 import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, money, signed } from '../lib/format.js';
+import { fmt, formatMultiplier, mention, money, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy/index.js';
 import { replyWithDice } from '../animations/dice-reply.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
@@ -40,7 +40,7 @@ export const claim: Command = {
     if (stonks) lines.push(TEXT.stonks.landed(formatMultiplier(stonks), stonksBonus === 0 ? '' : signed(stonksBonus)));
     if (result.bonusLeft) lines.push(TEXT.d20.claimAgain);
     if (result.taxed) {
-      lines.push(TEXT.claim.taxed(`<@${result.taxed.toUserId}>`, fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount)));
+      lines.push(TEXT.claim.taxed(mention(result.taxed.toUserId), fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount)));
     }
 
     const embed = createEmbed()

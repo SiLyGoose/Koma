@@ -4,7 +4,6 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-  MessageFlags,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -14,7 +13,7 @@ import { CONFIG } from '../config.js';
 import { BLACKJACK, BLACKJACK_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { renderTable } from '../animations/images/blackjack-image.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt } from '../lib/format.js';
+import { fmt, mention } from '../lib/format.js';
 import { parseBetText, parseBlackjackArgs, payoutRatio } from '../lib/game/blackjack.js';
 import { betForButton, isBetButton, type BetButtonIds } from '../lib/game/bet.js';
 import { placeBet, refundBet } from '../services/blackjack.js';
@@ -22,19 +21,13 @@ import { betButtonRow, refusalText, resolveBet } from '../discord/bet.js';
 import { loadProfile } from '../discord/profile.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { enterTable, leaveTable, openingMessage, playRound, startHeartbeat, type TablePlayer } from '../animations/blackjack-round.js';
+import { followUpPrivately, replyPrivately } from '../discord/reply.js';
 
 const JOIN_ID = 'bj_join';
 const LEAVE_ID = 'bj_leave';
 const START_ID = 'bj_start';
 const BET_IDS: BetButtonIds = { again: 'bj_again', double: 'bj_double_bet', half: 'bj_half' };
 
-const mention = (userId: string): string => `<@${userId}>`;
-
-const say = (press: ButtonInteraction, content: string): Promise<void> =>
-  press
-    .reply({ content, flags: MessageFlags.Ephemeral })
-    .then(() => undefined)
-    .catch(() => undefined);
 
 /** A player as far as their name and picture go: the Discord user, and their server member if it is known. */
 interface Who {
@@ -103,7 +96,7 @@ async function playSolo(ctx: CommandContext, wanted: number | 'all'): Promise<vo
             filter: (b) => {
               if (!isBetButton(BET_IDS, b.customId)) return false;
               if (b.user.id === userId) return true;
-              void say(b, TEXT.blackjack.notYours);
+              void replyPrivately(b, TEXT.blackjack.notYours);
               return false;
             },
           })
@@ -116,7 +109,7 @@ async function playSolo(ctx: CommandContext, wanted: number | 'all'): Promise<vo
         const bet = betForButton(BET_IDS, press.customId, baseBet);
         if (bet === null) continue;
         if (!enterTable(guildId, userId)) {
-          await press.followUp({ content: TEXT.blackjack.alreadyPlaying, flags: MessageFlags.Ephemeral }).catch(() => {});
+          await followUpPrivately(press, TEXT.blackjack.alreadyPlaying);
           continue;
         }
         entered = true;
@@ -125,7 +118,7 @@ async function playSolo(ctx: CommandContext, wanted: number | 'all'): Promise<vo
           if (!again.ok) {
             leaveTable(guildId, userId);
             entered = false;
-            await press.followUp({ content: refusalText(ctx.prefix, bet, again), flags: MessageFlags.Ephemeral }).catch(() => {});
+            await followUpPrivately(press, refusalText(ctx.prefix, bet, again));
             continue;
           }
           current = { userId, betId: again.betId, bet: again.bet, profile: current.profile };
@@ -256,9 +249,9 @@ async function playParty(ctx: CommandContext, hostBet: number | 'all' | null): P
       const at = lobby.findIndex((p) => p.userId === userId);
 
       if (press.customId === JOIN_ID) {
-        if (phase !== 'open') return say(press, TEXT.blackjack.tableClosed);
-        if (at !== -1) return say(press, TEXT.blackjack.alreadySeated);
-        if (lobby.length >= max) return say(press, TEXT.blackjack.tableFull);
+        if (phase !== 'open') return replyPrivately(press, TEXT.blackjack.tableClosed);
+        if (at !== -1) return replyPrivately(press, TEXT.blackjack.alreadySeated);
+        if (lobby.length >= max) return replyPrivately(press, TEXT.blackjack.tableFull);
 
         const modalId = `bj_bet_${gameId}_${userId}`;
         await press.showModal(
@@ -282,11 +275,7 @@ async function playParty(ctx: CommandContext, hostBet: number | 'all' | null): P
           .catch(() => null);
         if (!submit) return;
 
-        const reject = (content: string): Promise<void> =>
-          submit
-            .reply({ content, flags: MessageFlags.Ephemeral })
-            .then(() => undefined)
-            .catch(() => undefined);
+        const reject = (content: string): Promise<void> => replyPrivately(submit, content);
         const wanted = parseBetText(submit.fields.getTextInputValue('bet'));
         if (wanted === null) return reject(TEXT.blackjack.badBetBox);
         if (phase !== 'open') return reject(TEXT.blackjack.tableClosed);
@@ -298,8 +287,8 @@ async function playParty(ctx: CommandContext, hostBet: number | 'all' | null): P
       }
 
       if (press.customId === LEAVE_ID) {
-        if (phase !== 'open') return say(press, TEXT.blackjack.tableClosed);
-        if (at === -1) return say(press, TEXT.blackjack.notSeated);
+        if (phase !== 'open') return replyPrivately(press, TEXT.blackjack.tableClosed);
+        if (at === -1) return replyPrivately(press, TEXT.blackjack.notSeated);
         const [gone] = lobby.splice(at, 1) as [TablePlayer];
         await press.deferUpdate().catch(() => {});
         await refundBet(gone.betId).catch(logRefundFailure(userId));
@@ -310,7 +299,7 @@ async function playParty(ctx: CommandContext, hostBet: number | 'all' | null): P
       }
 
       if (press.customId === START_ID) {
-        if (at === -1) return say(press, TEXT.blackjack.joinFirst);
+        if (at === -1) return replyPrivately(press, TEXT.blackjack.joinFirst);
         await press.deferUpdate().catch(() => {});
         if (phase === 'open') collector.stop('start');
       }

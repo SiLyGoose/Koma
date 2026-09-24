@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { inflateSync } from 'node:zlib';
 import type { Message } from 'discord.js';
 import { CONFIG } from '../src/config.js';
 import { messageContext } from '../src/discord/context.js';
@@ -20,34 +19,10 @@ import { ITEMS_BY_ID } from '../src/data/items.js';
 import { d20Color, dieFrames, renderD20 } from '../src/animations/images/d20-image.js';
 import { createEmbed } from '../src/lib/embed.js';
 import { describeEffects } from '../src/lib/game/equipment.js';
-import { crc32 } from '../src/animations/images/png.js';
+import { readPng } from './helpers/png.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 
 const dice = (trigger: number, face: number): D20Dice => ({ trigger, face });
-
-/** The size of a PNG and whether every chunk's checksum is right. */
-function pngSize(png: Buffer): { width: number; height: number; pixels: Uint8Array } {
-  assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'PNG signature');
-  const data: Buffer[] = [];
-  let width = 0;
-  let height = 0;
-  let at = 8;
-  while (at < png.length) {
-    const length = png.readUInt32BE(at);
-    const type = png.subarray(at + 4, at + 8).toString('ascii');
-    assert.equal(png.readUInt32BE(at + 8 + length), crc32(png.subarray(at + 4, at + 8 + length)), `${type} checksum`);
-    if (type === 'IHDR') {
-      width = png.readUInt32BE(at + 8);
-      height = png.readUInt32BE(at + 12);
-    }
-    if (type === 'IDAT') data.push(png.subarray(at + 8, at + 8 + length));
-    at += 12 + length;
-  }
-  const raw = inflateSync(Buffer.concat(data));
-  const pixels = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y++) raw.copy(pixels, y * width * 4, y * (width * 4 + 1) + 1, (y + 1) * (width * 4 + 1));
-  return { width, height, pixels };
-}
 
 const pose = (shown: number, over: Partial<{ turn: number; lift: number; squash: number }> = {}) => ({ shown, turn: 0, lift: 0, squash: 1, ...over });
 
@@ -161,13 +136,13 @@ test('d20 text: the messages say the roll and what it paid', () => {
 // The picture
 
 test('d20 image: a valid 400 by 400 PNG, with the die drawn on a clear background', () => {
-  const img = pngSize(renderD20(pose(13), false));
+  const img = readPng(renderD20(pose(13), false));
   assert.equal(img.width, 400);
   assert.equal(img.height, 400);
   assert.equal(img.pixels[3], 0, 'the corner is clear');
   const middle = (200 * 400 + 200) * 4;
   assert.equal(img.pixels[middle + 3], 255, 'the die is opaque in the middle');
-  assert.equal(pngSize(renderD20(pose(13), false, 100)).width, 100);
+  assert.equal(readPng(renderD20(pose(13), false, 100)).width, 100);
 });
 
 test('d20 image: the number, the tumble and the landing all change the picture', () => {
@@ -181,8 +156,8 @@ test('d20 image: the number, the tumble and the landing all change the picture',
 });
 
 test('d20 image: the landed die has a ring in its own color, which a tumbling one does not', () => {
-  const landed = pngSize(renderD20(pose(20), true));
-  const tumbling = pngSize(renderD20(pose(20), false));
+  const landed = readPng(renderD20(pose(20), true));
+  const tumbling = readPng(renderD20(pose(20), false));
   // 1.13 radii (the ring) from the middle, straight up: radius is 0.4 of the picture.
   const y = Math.round(200 - 0.4 * 400 * 1.13);
   const at = (y * 400 + 200) * 4;

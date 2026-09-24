@@ -3,10 +3,10 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-  MessageFlags,
 } from 'discord.js';
 import type { BotEmbed } from '../lib/embed.js';
 import type { CommandContext } from './types.js';
+import { replyPrivately } from './reply.js';
 
 /** How long a member has to answer a confirmation, in milliseconds. */
 export const CONFIRM_TIMEOUT_MS = 30_000;
@@ -48,7 +48,7 @@ export async function askToConfirm(
     collector.on('collect', (interaction) => {
       void (async () => {
         if (interaction.user.id !== userId) {
-          await interaction.reply({ content: labels.notYours, flags: MessageFlags.Ephemeral }).catch(() => {});
+          await replyPrivately(interaction, labels.notYours);
           return;
         }
         if (decided) return;

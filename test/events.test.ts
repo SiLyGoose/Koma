@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { inflateSync } from 'node:zlib';
 import { renderCrate } from '../src/animations/images/crate-image.js';
-import { crc32 } from '../src/animations/images/png.js';
+import { readPng } from './helpers/png.js';
 import type { CommandContext } from '../src/discord/types.js';
 import { events as eventCommand } from '../src/commands/events.js';
 import { commands } from '../src/commands/index.js';
@@ -318,30 +317,6 @@ test('crate pictures: each is drawn once per state and glow, named for the embed
   }
 });
 
-/** The pixels of a PNG (and a check of its signature and every chunk's checksum). */
-function decodePng(png: Buffer): { width: number; height: number; pixels: Uint8Array } {
-  assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'PNG signature');
-  const parts: Buffer[] = [];
-  let width = 0;
-  let height = 0;
-  let at = 8;
-  while (at < png.length) {
-    const length = png.readUInt32BE(at);
-    const type = png.subarray(at + 4, at + 8).toString('ascii');
-    assert.equal(png.readUInt32BE(at + 8 + length), crc32(png.subarray(at + 4, at + 8 + length)), `${type} checksum`);
-    if (type === 'IHDR') {
-      width = png.readUInt32BE(at + 8);
-      height = png.readUInt32BE(at + 12);
-    }
-    if (type === 'IDAT') parts.push(png.subarray(at + 8, at + 8 + length));
-    at += 12 + length;
-  }
-  const raw = inflateSync(Buffer.concat(parts));
-  const pixels = new Uint8Array(width * height * 4);
-  for (let y = 0; y < height; y++) raw.copy(pixels, y * width * 4, y * (width * 4 + 1) + 1, (y + 1) * (width * 4 + 1));
-  return { width, height, pixels };
-}
-
 /** How many bright pixels in the picture are emerald, violet and red. */
 function glowColours(pixels: Uint8Array): { emerald: number; violet: number; red: number } {
   const counts = { emerald: 0, violet: 0, red: 0 };
@@ -357,17 +332,17 @@ function glowColours(pixels: Uint8Array): { emerald: number; violet: number; red
 }
 
 test('crate picture: a 640 by 400 PNG in each state, the three differ, and the runes glow emerald, violet or red by tier', async () => {
-  const closed = decodePng(await renderCrate('closed', 'low'));
-  const opened = decodePng(await renderCrate('opened', 'low'));
-  const lost = decodePng(await renderCrate('lost', 'low'));
+  const closed = readPng(await renderCrate('closed', 'low'));
+  const opened = readPng(await renderCrate('opened', 'low'));
+  const lost = readPng(await renderCrate('lost', 'low'));
   for (const picture of [closed, opened, lost]) assert.deepEqual([picture.width, picture.height], [640, 400]);
   const same = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
   assert.equal(same(closed.pixels, opened.pixels), false);
   assert.equal(same(closed.pixels, lost.pixels), false);
   assert.equal(same(opened.pixels, lost.pixels), false);
 
-  const mid = decodePng(await renderCrate('closed', 'mid'));
-  const high = decodePng(await renderCrate('closed', 'high'));
+  const mid = readPng(await renderCrate('closed', 'mid'));
+  const high = readPng(await renderCrate('closed', 'high'));
   const winner = (counts: { emerald: number; violet: number; red: number }) => Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
   assert.equal(winner(glowColours(closed.pixels)), 'emerald');
   assert.equal(winner(glowColours(mid.pixels)), 'violet');

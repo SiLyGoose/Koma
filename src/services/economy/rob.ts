@@ -22,6 +22,7 @@ import {
 import { resolveGear } from '../gear.js';
 import { addVaultLoss } from '../vault.js';
 import { type LedgerInput, recordLedger, ensureMember, transferClamped } from './shared.js';
+import { sleep } from '../../lib/time.js';
 
 /*
  * Robbing another member.
@@ -158,7 +159,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         await restoreCooldown();
         return { ok: false, reason: 'victim_busy' };
       }
-      await new Promise((resolve) => setTimeout(resolve, ROB_LOCK.retryMs));
+      await sleep(ROB_LOCK.retryMs);
     }
 
     // The victim may have spent their points since the first look, so look again.
