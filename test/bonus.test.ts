@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CURRENCY_EMOJI, TEXT } from '../src/constants.js';
+import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { fmt, signed } from '../src/lib/format.js';
 
 test('signed: a change in points is shown with its sign', () => {

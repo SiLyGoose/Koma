@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AVATAR, BLACKJACK, validateConstants } from '../src/constants.js';
+import { AVATAR, BLACKJACK, validateConstants } from '../src/constants/index.js';
 import { cleanName, fitName, imagePaint, renderTable, TABLE_WIDTH } from '../src/animations/images/blackjack-image.js';
 import { encodePng } from '../src/animations/images/png.js';
 import { decodePng, type Avatar } from '../src/animations/images/png-decode.js';

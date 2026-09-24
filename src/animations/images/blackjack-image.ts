@@ -1,4 +1,4 @@
-import { BLACKJACK } from '../../constants.js';
+import { BLACKJACK } from '../../constants/index.js';
 import { handValue, type Card, type Suit } from '../../lib/game/blackjack.js';
 import { GLYPHS, GLYPH_HEIGHT } from './pixel-font.js';
 import { encodePng } from './png.js';

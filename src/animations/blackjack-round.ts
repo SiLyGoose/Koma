@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type ButtonInteraction, type Message } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { BLACKJACK, BLACKJACK_IMAGE_NAME, TEXT } from '../constants.js';
+import { BLACKJACK, BLACKJACK_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { renderTable, type SeatView } from './images/blackjack-image.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, money, signed } from '../lib/format.js';

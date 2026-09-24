@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type Client, type Message, type SendableChannels } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { TEXT, VAULT } from '../constants.js';
+import { TEXT, VAULT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
 import { splitPile, type CrateShare } from '../lib/events/crate.js';

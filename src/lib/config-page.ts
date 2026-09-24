@@ -1,4 +1,4 @@
-import { FIELD_MAX_LENGTH, TEXT } from '../constants.js';
+import { FIELD_MAX_LENGTH, TEXT } from '../constants/index.js';
 
 /** One settings group's raw content before it's laid out as a page. */
 export interface ConfigGroup {

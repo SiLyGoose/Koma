@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NUMBER_LOCALE, PERCENT_DECIMALS, STAR_SYMBOL, TEXT } from '../constants.js';
+import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NUMBER_LOCALE, PERCENT_DECIMALS, STAR_SYMBOL, TEXT } from '../constants/index.js';
 
 export const fmt = (n: number): string => n.toLocaleString(NUMBER_LOCALE);
 

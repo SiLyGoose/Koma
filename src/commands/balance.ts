@@ -1,4 +1,4 @@
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
 import { getBalance } from '../services/economy.js';

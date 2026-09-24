@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS } from './constants.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -6,7 +6,7 @@ import type { Stars } from './types.js';
 
 export { STARS };
 
-/** The admin's user id is set in constants.ts. It is re-exported here so existing imports keep working. */
+/** The admin's user id is set in constants/core.ts. It is re-exported here so existing imports keep working. */
 export { ADMIN_USER_ID };
 
 export function isAdmin(userId: string): boolean {
@@ -29,7 +29,7 @@ export interface Settings {
     /** Relative weights for each star tier. They do not need to add up to 100. */
     starWeights: Record<Stars, number>;
     /**
-     * Pity for the top tier (PITY_STARS in constants.ts). The Nth pull since the last top-tier
+     * Pity for the top tier (PITY_STARS in constants/gacha.ts). The Nth pull since the last top-tier
      * item has its chance raised: from softStart the chance climbs a step per pull, and reaches
      * 100% at hardPity. hardPity 0 turns pity off.
      */

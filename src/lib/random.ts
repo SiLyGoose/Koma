@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { CHANCE_STEPS } from '../constants.js';
+import { CHANCE_STEPS } from '../constants/index.js';
 
 /** Uniform random integer between min and max, both inclusive. */
 export function randInt(min: number, max: number): number {

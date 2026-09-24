@@ -1,4 +1,4 @@
-import { FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants.js';
+import { FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';

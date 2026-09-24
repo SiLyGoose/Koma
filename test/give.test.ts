@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { MAX_GIVE_AMOUNT, TEXT, validateConstants } from '../src/constants.js';
+import { MAX_GIVE_AMOUNT, TEXT, validateConstants } from '../src/constants/index.js';
 import { parseGiveArgs } from '../src/lib/game/give.js';
 
 test('give: an id alone gives one, an amount gives that many, and the id is not case-sensitive', () => {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { MAX_VAULT_MULTIPLIER, MAX_VAULT_SECONDS, TEXT, VAULT, validateConstants } from '../src/constants.js';
+import { MAX_VAULT_MULTIPLIER, MAX_VAULT_SECONDS, TEXT, VAULT, validateConstants } from '../src/constants/index.js';
 import { GAME_EVENTS, validateEvents } from '../src/events/registry.js';
 import { failedEmbed, heldEmbed, joinRow, notEnoughEmbed, successEmbed, vaultBreaker, vaultEmbed } from '../src/events/vault-breaker.js';
 import { splitPile } from '../src/lib/events/crate.js';

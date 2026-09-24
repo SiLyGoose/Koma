@@ -18,7 +18,7 @@ import {
   type EffectTotals,
 } from '../src/perks/index.js';
 import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
-import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants.js';
+import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants/index.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/game/equipment.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import type { ItemDef, Stars } from '../src/types.js';

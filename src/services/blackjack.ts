@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../config.js';
-import { BLACKJACK } from '../constants.js';
+import { BLACKJACK } from '../constants/index.js';
 import { collections } from '../db.js';
 import { checkBet } from '../lib/game/plinko.js';
 import type { BlackjackBetDoc, LedgerDoc } from '../types.js';

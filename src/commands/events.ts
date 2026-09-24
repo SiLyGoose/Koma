@@ -1,5 +1,5 @@
 import { CONFIG, isAdmin } from '../config.js';
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { GAME_EVENTS, eventChances, findEvent, pickEvent } from '../events/registry.js';
 import { startEvent } from '../events/runner.js';
 import { createEmbed } from '../lib/embed.js';

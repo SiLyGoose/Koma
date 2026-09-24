@@ -1,5 +1,5 @@
 import { CONFIG } from '../../config.js';
-import { ADMIN_USER_ID } from '../../constants.js';
+import { ADMIN_USER_ID } from '../../constants/index.js';
 import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals, type PerkDef } from '../../perks/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../types.js';

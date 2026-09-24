@@ -104,7 +104,7 @@ export interface MemberDoc {
   robTaxRate?: number | null;
   robTaxBy?: string | null;
   /**
-   * Pulls since this member's last item of the pity tier (constants.ts PITY_STARS), counting the
+   * Pulls since this member's last item of the pity tier (constants/gacha.ts PITY_STARS), counting the
    * latest one. Missing means 0.
    */
   pity?: number;

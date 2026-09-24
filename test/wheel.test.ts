@@ -5,7 +5,7 @@ import { CONFIG } from '../src/config.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
 import { replyWithWheel, spinSteps } from '../src/animations/wheel-reply.js';
-import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, validateConstants } from '../src/constants.js';
+import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, validateConstants } from '../src/constants/index.js';
 import {
   applyWheel,
   emptyTotals,

@@ -1,5 +1,5 @@
 import { isAdmin } from '../config.js';
-import { MAX_GIVE_AMOUNT } from '../constants.js';
+import { MAX_GIVE_AMOUNT } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { newCopyId } from '../lib/game/copies.js';

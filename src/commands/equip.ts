@@ -1,4 +1,4 @@
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem, describeEffects } from '../lib/game/equipment.js';

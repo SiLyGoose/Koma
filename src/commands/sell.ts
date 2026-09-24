@@ -1,4 +1,4 @@
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, joinLimited, money, starString } from '../lib/format.js';

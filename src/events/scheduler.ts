@@ -1,6 +1,6 @@
 import type { Client } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { EVENTS } from '../constants.js';
+import { EVENTS } from '../constants/index.js';
 import { claimEventSlot, listEventGuilds } from '../services/events.js';
 import { GAME_EVENTS } from './registry.js';
 import { startRandomEvent } from './runner.js';

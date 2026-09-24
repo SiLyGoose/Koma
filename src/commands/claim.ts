@@ -1,4 +1,4 @@
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, money, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy.js';

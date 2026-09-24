@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FIELD_MAX_LENGTH, TEXT, validateConstants } from '../src/constants.js';
+import { FIELD_MAX_LENGTH, TEXT, validateConstants } from '../src/constants/index.js';
 import { buildConfigPages, type ConfigGroup } from '../src/lib/config-page.js';
 
 const group = (name: string, lineCount: number, lineLength = 20): ConfigGroup => ({

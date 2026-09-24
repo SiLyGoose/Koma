@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants.js';
+import { PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, money, signed } from '../lib/format.js';
 import { buttonPlan, expectedReturn, parseBetArg, slotMultipliers } from '../lib/game/plinko.js';

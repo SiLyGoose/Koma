@@ -1,4 +1,4 @@
-import { SLOT_LABELS, TEXT } from '../constants.js';
+import { SLOT_LABELS, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, totalEffects, usableItems } from '../lib/game/equipment.js';

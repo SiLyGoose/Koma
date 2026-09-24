@@ -1,5 +1,5 @@
 import { CONFIG, DEFAULTS, isAdmin, STARS } from '../config.js';
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { collections } from '../db.js';
 import {
   checkConstraints,

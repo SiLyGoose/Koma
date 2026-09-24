@@ -3,7 +3,7 @@ import { handleAutocomplete, handleMessage, handleSlash } from './discord/dispat
 import { commands } from './commands/index.js';
 import { slashCommandData } from './discord/slash.js';
 import { validateConfig } from './config.js';
-import { SETTINGS_REFRESH_MS, validateConstants } from './constants.js';
+import { SETTINGS_REFRESH_MS, validateConstants } from './constants/index.js';
 import { validateItems } from './data/items.js';
 import { validateWheel } from './perks/index.js';
 import { closeDb, connectDb } from './db.js';

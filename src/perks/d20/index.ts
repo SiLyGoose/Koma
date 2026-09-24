@@ -3,7 +3,7 @@ import type { EffectTotals } from '../index.js';
 
 /*
  * The D20's perk: when the wearer claims, the die may roll and change the claim. The die itself is
- * in roll.ts, its numbers (sides, divisor, crit multiplier) are D20 in constants.ts, and the
+ * in roll.ts, its numbers (sides, divisor, crit multiplier) are D20 in constants/d20.ts, and the
  * picture is in animations/.
  */
 

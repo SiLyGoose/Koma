@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI } from '../constants.js';
+import { CURRENCY_EMOJI } from '../constants/index.js';
 import { definePerk } from './define.js';
 
 /** Offense: the wearer steals more. Used in rob-formulas.ts robStolenAmount. */

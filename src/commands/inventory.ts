@@ -1,5 +1,5 @@
 import { STARS } from '../config.js';
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';

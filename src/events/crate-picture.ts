@@ -1,5 +1,5 @@
 import { renderCrate, type CrateState } from '../animations/images/crate-image.js';
-import { CRATE } from '../constants.js';
+import { CRATE } from '../constants/index.js';
 import type { CrateTier } from '../lib/events/crate.js';
 
 /*

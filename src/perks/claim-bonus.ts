@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI } from '../constants.js';
+import { CURRENCY_EMOJI } from '../constants/index.js';
 import { definePerk } from './define.js';
 import type { EffectTotals } from './index.js';
 

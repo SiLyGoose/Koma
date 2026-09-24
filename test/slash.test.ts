@@ -5,7 +5,7 @@ import { interactionContext, isEphemeral, messageContext } from '../src/discord/
 import { handleAutocomplete, handleSlash } from '../src/discord/dispatch.js';
 import { commands } from '../src/commands/index.js';
 import { MAX_SLASH_DESCRIPTION, SLASH, commandPrefix, hasSlash, slashCommandData } from '../src/discord/slash.js';
-import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src/constants.js';
+import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src/constants/index.js';
 import { getPrefix } from '../src/services/settings.js';
 import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';

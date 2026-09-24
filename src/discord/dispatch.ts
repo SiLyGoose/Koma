@@ -1,5 +1,5 @@
 import { MessageFlags, type AutocompleteInteraction, type ChatInputCommandInteraction, type Message } from 'discord.js';
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { parseCommand } from '../lib/parse.js';
 import { isAllowedChannel } from '../services/channel.js';
 import { interactionContext, messageContext } from './context.js';

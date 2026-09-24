@@ -1,5 +1,5 @@
 import type { User } from 'discord.js';
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { parseUserArg } from '../lib/parse.js';
 import type { CommandContext } from './types.js';
 

@@ -1,5 +1,5 @@
 import { decodePng, type Avatar } from '../animations/images/png-decode.js';
-import { AVATAR } from '../constants.js';
+import { AVATAR } from '../constants/index.js';
 
 /*
  * What the blackjack table shows for a player: their name and profile picture. The picture is

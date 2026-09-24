@@ -1,5 +1,5 @@
 import { CONFIG, isAdmin, STARS } from '../config.js';
-import { CONFIG_BUTTONS, TEXT } from '../constants.js';
+import { CONFIG_BUTTONS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../perks/index.js';
 import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';

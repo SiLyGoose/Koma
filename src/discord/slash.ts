@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants.js';
+import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';

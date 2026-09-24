@@ -1,6 +1,6 @@
 import { createEmbed } from '../lib/embed.js';
 import { CONFIG, isAdmin } from '../config.js';
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { fmt } from '../lib/format.js';
 import { hasSlash } from '../discord/slash.js';
 import type { Command } from '../discord/types.js';

@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI, MAX_REDUCTION } from '../constants.js';
+import { CURRENCY_EMOJI, MAX_REDUCTION } from '../constants/index.js';
 import { definePerk } from './define.js';
 
 /** Defense: the wearer keeps part of what a successful robber takes. Used in rob-formulas.ts robStolenAmount. */

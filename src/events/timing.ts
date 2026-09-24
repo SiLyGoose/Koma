@@ -1,4 +1,4 @@
-import { MINUTE_MS } from '../constants.js';
+import { MINUTE_MS } from '../constants/index.js';
 import { randInt } from '../lib/random.js';
 
 /*

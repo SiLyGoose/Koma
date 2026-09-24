@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG, DEFAULTS } from '../src/config.js';
-import { BLACKJACK, TEXT, validateConstants } from '../src/constants.js';
+import { BLACKJACK, TEXT, validateConstants } from '../src/constants/index.js';
 import { IMAGE_HEIGHT, IMAGE_WIDTH, renderTable, TABLE_HEIGHT, TABLE_WIDTH } from '../src/animations/images/blackjack-image.js';
 import {
   RANKS,

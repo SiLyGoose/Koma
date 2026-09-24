@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { D20 } from '../../constants.js';
+import { D20 } from '../../constants/index.js';
 import { d20Multiplier } from '../../perks/index.js';
 import { drawText } from './pixel-font.js';
 import { encodePng } from './png.js';

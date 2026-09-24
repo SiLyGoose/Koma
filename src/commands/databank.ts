@@ -1,4 +1,4 @@
-import { DATABANK_BUTTONS, TEXT } from '../constants.js';
+import { DATABANK_BUTTONS, TEXT } from '../constants/index.js';
 import { ITEMS, findItem } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { inflateSync } from 'node:zlib';
 import { AGAIN_ID, DOUBLE_ID, HALF_ID, betForButton } from '../src/commands/plinko.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
-import { CURRENCY_EMOJI, PLINKO_ROWS, TEXT, validateConstants } from '../src/constants.js';
+import { CURRENCY_EMOJI, PLINKO_ROWS, TEXT, validateConstants } from '../src/constants/index.js';
 import {
   ballOffset,
   buttonPlan,

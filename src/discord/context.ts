@@ -7,7 +7,7 @@ import {
   type Message,
   type MessageEditOptions,
 } from 'discord.js';
-import { SLASH_DEFER_AFTER_MS } from '../constants.js';
+import { SLASH_DEFER_AFTER_MS } from '../constants/index.js';
 import { reply } from './reply.js';
 import type { CommandContext, EditOptions, ReplyOptions, SentReply } from './types.js';
 

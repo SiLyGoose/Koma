@@ -1,5 +1,5 @@
 import { isAdmin } from '../config.js';
-import { MAX_GIVE_AMOUNT, TEXT } from '../constants.js';
+import { MAX_GIVE_AMOUNT, TEXT } from '../constants/index.js';
 import { ITEMS } from '../data/items.js';
 import { fmt, starString } from '../lib/format.js';
 import { parseGiveArgs } from '../lib/game/give.js';

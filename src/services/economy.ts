@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../config.js';
-import { MINUTE_MS, MULTI_PULLS, ROB_LOCK } from '../constants.js';
+import { MINUTE_MS, MULTI_PULLS, ROB_LOCK } from '../constants/index.js';
 import { collections } from '../db.js';
 import { groupCopies, newCopyId, type InventoryEntry } from '../lib/game/copies.js';
 import { gearEffects } from '../lib/game/equipment.js';

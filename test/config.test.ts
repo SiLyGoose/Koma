@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EventEmitter } from 'node:events';
 import type { Message } from 'discord.js';
-import { TEXT } from '../src/constants.js';
+import { TEXT } from '../src/constants/index.js';
 import { config, GROUPS } from '../src/commands/config.js';
 import { messageContext } from '../src/discord/context.js';
 

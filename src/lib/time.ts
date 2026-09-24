@@ -1,4 +1,4 @@
-import { HOUR_MS } from '../constants.js';
+import { HOUR_MS } from '../constants/index.js';
 
 export { HOUR_MS };
 

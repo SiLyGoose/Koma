@@ -1,4 +1,4 @@
-import { TEXT, WHEEL_ANIMATION, WHEEL_IMAGE_NAME } from '../constants.js';
+import { TEXT, WHEEL_ANIMATION, WHEEL_IMAGE_NAME } from '../constants/index.js';
 import { WHEEL_SLICES } from '../perks/index.js';
 import type { BotEmbed } from '../lib/embed.js';
 import type { WheelSpin } from '../perks/index.js';

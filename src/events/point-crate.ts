@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags, type Client, type Message, type SendableChannels } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { CRATE, CURRENCY_EMOJI, TEXT } from '../constants.js';
+import { CRATE, CURRENCY_EMOJI, TEXT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt } from '../lib/format.js';
 import { crateTier, rollPile, splitPile, type CrateShare, type CrateTier } from '../lib/events/crate.js';

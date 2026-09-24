@@ -1,4 +1,4 @@
-import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants.js';
+import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
 import { fmt, mentionList, money, starString } from '../lib/format.js';

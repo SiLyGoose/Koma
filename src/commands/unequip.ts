@@ -1,4 +1,4 @@
-import { TEXT } from '../constants.js';
+import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { unequipSlot } from '../services/equipment.js';
 import { SLOTS, type Slot } from '../types.js';

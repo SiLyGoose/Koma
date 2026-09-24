@@ -1,8 +1,8 @@
-import { D20 } from '../../constants.js';
+import { D20 } from '../../constants/index.js';
 import { randomUnit } from '../../lib/random.js';
 
 /*
- * The D20 item's die, as pure functions. The roll decides everything (see D20 in constants.ts):
+ * The D20 item's die, as pure functions. The roll decides everything (see D20 in constants/d20.ts):
  * 1 is a critical fail, the top number a critical success, and anything between multiplies the claim.
  */
 

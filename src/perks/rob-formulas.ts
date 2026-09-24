@@ -1,4 +1,4 @@
-import { MAX_REDUCTION } from '../constants.js';
+import { MAX_REDUCTION } from '../constants/index.js';
 import { clamp } from './define.js';
 import type { EffectTotals } from './index.js';
 

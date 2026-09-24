@@ -1,4 +1,4 @@
-import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants.js';
+import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants/index.js';
 import { STARS, type ItemDef, type Stars } from '../../types.js';
 import { describeEffects } from './equipment.js';
 import { mentionList, starString } from '../format.js';

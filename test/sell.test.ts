@@ -5,7 +5,7 @@ import type { Message } from 'discord.js';
 import { CANCEL_ID, CONFIRM_ID, askToConfirm } from '../src/discord/confirm.js';
 import { messageContext } from '../src/discord/context.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
-import { CURRENCY_EMOJI, TEXT } from '../src/constants.js';
+import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { createEmbed } from '../src/lib/embed.js';
 import { equippedCopyIds, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/game/sell.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';

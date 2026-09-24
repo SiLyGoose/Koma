@@ -11,7 +11,7 @@ import {
   SUCCESS_TITLES,
   TEXT,
   validateConstants,
-} from '../src/constants.js';
+} from '../src/constants/index.js';
 import { EFFECT_IDS, EFFECTS } from '../src/perks/index.js';
 import { isAdmin } from '../src/config.js';
 import { formatPercent, fmt, joinLimited, mentionList, money, starString } from '../src/lib/format.js';

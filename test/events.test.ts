@@ -7,7 +7,7 @@ import type { CommandContext } from '../src/discord/types.js';
 import { events as eventCommand } from '../src/commands/events.js';
 import { commands } from '../src/commands/index.js';
 import { ADMIN_USER_ID, DEFAULTS } from '../src/config.js';
-import { CRATE, EVENTS, MAX_CRATE_SECONDS, MINUTE_MS, TEXT, validateConstants } from '../src/constants.js';
+import { CRATE, EVENTS, MAX_CRATE_SECONDS, MINUTE_MS, TEXT, validateConstants } from '../src/constants/index.js';
 import { crumbledEmbed, failedEmbed, grabRow, openedEmbed, crateEmbed, pointCrate } from '../src/events/point-crate.js';
 import { claimGuild, isEventRunning } from '../src/events/busy.js';
 import { crateFile, prepareEndPictures, setCrateRenderer } from '../src/events/crate-picture.js';

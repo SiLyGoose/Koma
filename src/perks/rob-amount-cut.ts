@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI, MAX_REDUCTION } from '../constants.js';
+import { CURRENCY_EMOJI, MAX_REDUCTION } from '../constants/index.js';
 import { definePerk } from './define.js';
 
 /**

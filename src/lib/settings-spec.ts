@@ -16,7 +16,7 @@ import {
   PERCENT_DECIMALS,
   PITY_STARS,
   PLINKO_ROWS,
-} from '../constants.js';
+} from '../constants/index.js';
 import { EFFECT_IDS, EFFECTS, type EffectId } from '../perks/index.js';
 import { STARS } from '../types.js';
 import type { Settings } from '../config.js';

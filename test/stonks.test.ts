@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants.js';
+import { MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants/index.js';
 import { applyStonks, EFFECTS, emptyTotals, stonksCurvePoints, stonksMultiplier } from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { formatMultiplier, signed } from '../src/lib/format.js';

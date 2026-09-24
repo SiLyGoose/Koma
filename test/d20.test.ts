@@ -5,7 +5,7 @@ import type { Message } from 'discord.js';
 import { CONFIG } from '../src/config.js';
 import { messageContext } from '../src/discord/context.js';
 import { replyWithDice } from '../src/animations/dice-reply.js';
-import { D20, D20_ANIMATION, TEXT, validateConstants } from '../src/constants.js';
+import { D20, D20_ANIMATION, TEXT, validateConstants } from '../src/constants/index.js';
 import {
   applyD20,
   d20Chance,

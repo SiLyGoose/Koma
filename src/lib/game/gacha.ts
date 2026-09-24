@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG, STARS } from '../../config.js';
-import { PITY_STARS } from '../../constants.js';
+import { PITY_STARS } from '../../constants/index.js';
 import { itemsByStars } from '../../data/items.js';
 import type { ItemDef, Stars } from '../../types.js';
 import { chance } from '../random.js';

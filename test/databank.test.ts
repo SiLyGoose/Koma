@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EventEmitter } from 'node:events';
 import { CONFIG } from '../src/config.js';
-import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, TEXT, validateConstants } from '../src/constants.js';
+import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS, findItem } from '../src/data/items.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';

@@ -1,4 +1,4 @@
-import { D20_ANIMATION, D20_IMAGE_NAME, TEXT } from '../constants.js';
+import { D20_ANIMATION, D20_IMAGE_NAME, TEXT } from '../constants/index.js';
 import type { D20Roll } from '../perks/index.js';
 import { dieFrames, renderD20 } from './images/d20-image.js';
 import type { BotEmbed } from '../lib/embed.js';

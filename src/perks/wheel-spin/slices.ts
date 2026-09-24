@@ -1,4 +1,4 @@
-import { MAX_WHEEL_MULTIPLIER, MAX_WHEEL_SLICES } from '../../constants.js';
+import { MAX_WHEEL_MULTIPLIER, MAX_WHEEL_SLICES } from '../../constants/index.js';
 
 /**
  * The prize wheel that the Wheelchair (any item with the wheelSpin effect) spins when its wearer
