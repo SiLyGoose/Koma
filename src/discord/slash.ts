@@ -169,10 +169,10 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   events: {
-    description: 'Random events: see the dedicated channel and every event, or start one now. Bot admin only.',
+    description: 'Random events: see every event that can happen, or start one now. Bot admin only.',
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('status').setDescription('See the dedicated channel and every event that can happen'))
+        .addSubcommand((s) => s.setName('status').setDescription('See every event that can happen'))
         .addSubcommand((s) =>
           s
             .setName('start')
@@ -224,6 +224,8 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   leaderboard: { build: () => {}, toArgs: () => [] },
+
+  vault: { build: () => {}, toArgs: () => [] },
 
   plinko: {
     description: `Bet ${CURRENCY_NAME} and drop a ball down the plinko board. The slot it lands in decides the payout.`,

@@ -20,6 +20,9 @@ import { robText } from './rob.js';
 import { eventsText } from './events.js';
 import { crateText } from './crate.js';
 import { vaultText } from './vault.js';
+import { heistText } from './heist.js';
+import { splitStealText } from './split-steal.js';
+import { codedleText } from './codedle.js';
 import { giveText } from './give.js';
 import { configText } from './config.js';
 
@@ -55,6 +58,9 @@ export const TEXT = {
   events: eventsText,
   crate: crateText,
   vault: vaultText,
+  heist: heistText,
+  splitSteal: splitStealText,
+  codedle: codedleText,
   give: giveText,
   config: configText,
 };

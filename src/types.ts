@@ -180,8 +180,15 @@ export type LedgerReason =
   | 'rob_fine_received'
   | 'rob_tax_paid'
   | 'rob_tax_received'
+  // The old vault breaker's reasons: no longer written, kept so older ledger entries still type-check.
   | 'vault_loot'
-  | 'vault_fine';
+  | 'vault_fine'
+  | 'heist_loot'
+  | 'heist_fine'
+  | 'split_steal'
+  | 'code_guess'
+  | 'code_refund'
+  | 'code_prize';
 
 /**
  * A bet on a blackjack table that has not been settled yet. The points were taken from the member
@@ -240,17 +247,17 @@ export interface GuildDoc {
   openCrate?: OpenCrateDoc | null;
   /**
    * Points lost to gambling (a losing plinko drop, a lost blackjack hand, a caught rob's fine)
-   * that have not yet been paid out by a vault breaker, or by 0 if there is none. `events.vault.multiplier`
-   * times this is what a vault breaker attempts. Fed by `addVaultLoss` (services/vault.ts) from
+   * that have not yet been paid out by a vault game (Greedy Heist, Split or Steal), or 0 if there is
+   * none. `events.vault.multiplier` times this is what a vault game puts up. Fed by `addVaultLoss` (services/vault.ts) from
    * every game that loses points; a game added later feeds it the same way, one function call.
    * Missing means 0 (no losses recorded yet).
    */
   vaultPool?: number;
   /**
-   * The vault breaker that is open in this server right now, saved so a restart does not lose it.
-   * Removed when it is settled: whoever removes it is the one that pays or fines.
+   * Left over from the removed vault breaker event, which saved its open attempt here. Nothing
+   * writes it any more; services/migrate.ts clears it on start.
    */
-  openVault?: OpenVaultDoc | null;
+  openVault?: unknown;
 }
 
 /** A point crate that has been posted and not settled yet. */
@@ -264,24 +271,6 @@ export interface OpenCrateDoc {
   endsAt: Date;
   /** Who has grabbed it so far (user ids), each once. */
   grabbers: string[];
-}
-
-/**
- * A vault breaker that has been posted and not settled yet. `basePool` is the server's vaultPool
- * at the moment it was posted, and `prize` is that times `events.vault.multiplier`: both are fixed
- * for this attempt, so a change to the settings or new losses while it is open don't alter what it
- * pays (new losses join the pool for the *next* attempt instead).
- */
-export interface OpenVaultDoc {
-  channelId: string;
-  /** The vault breaker message, which has the Join button. */
-  messageId: string;
-  basePool: number;
-  prize: number;
-  /** When the vault breaker resolves (joining stops). */
-  endsAt: Date;
-  /** Who has joined so far (user ids), each once. */
-  joiners: string[];
 }
 
 /**

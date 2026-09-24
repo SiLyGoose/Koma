@@ -53,6 +53,9 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const SKY_TOP = rgb('#0c1548');
 const SKY_BOTTOM = rgb('#3a2472');
 
+/** How many frames each twinkle of the stars lasts. */
+const TWINKLE_EVERY = 5;
+
 interface Star {
   x: number;
   y: number;
@@ -403,7 +406,9 @@ function renderFrame(stars: Stars, frame: number, frames: number, finale = 0, pu
 
   // Stars, twinkling a little from frame to frame.
   for (const star of STARS) {
-    const twinkle = 0.7 + 0.3 * Math.sin(star.phase + frame * 0.6);
+    // A new twinkle every TWINKLE_EVERY frames rather than every frame: in between the sky doesn't
+    // change at all, so the GIF stores nothing for it (see gif.ts) and stays small.
+    const twinkle = 0.7 + 0.3 * Math.sin(star.phase + Math.floor(frame / TWINKLE_EVERY) * 3);
     light.glow(star.x, star.y, 2.5, [0.9, 0.93, 1], (r) => star.brightness * twinkle * Math.exp(-((r / star.size) ** 2)));
   }
 

@@ -15,7 +15,7 @@ import { prepareShootingStars } from './animations/gacha-reply.js';
 import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
-import { migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
+import { clearOpenVaults, migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -71,6 +71,10 @@ async function main(): Promise<void> {
   if (channelFieldRenames > 0) {
     console.log(`Renamed the dedicated-channel field (eventChannelId -> channelId) in ${channelFieldRenames} server(s).`);
   }
+
+  // Every start: clears any vault breaker left open by the old event (see clearOpenVaults).
+  const clearedVaults = await clearOpenVaults();
+  if (clearedVaults > 0) console.log(`Cleared ${clearedVaults} vault breaker(s) left open by the removed event.`);
 
   // Unless ENV=LOCAL, the command prefix lives in the database (settings collection, default
   // "k!"). Re-read it every minute so an edit in MongoDB takes effect without restarting the bot.

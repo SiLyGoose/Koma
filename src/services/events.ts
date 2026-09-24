@@ -1,4 +1,4 @@
-import type { OpenCrateDoc, OpenVaultDoc } from '../types.js';
+import type { OpenCrateDoc } from '../types.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
 import { ensureMember } from './economy/index.js';
@@ -90,9 +90,9 @@ const PAY_AT_ONCE = 10;
  * Adds each share to its member's points, under the given ledger reason. A share that fails is
  * reported and left alone, never retried, because a retry could add it twice. Shares of 0 are
  * skipped. The ledger records every payment that went through. Shared by every event that splits
- * a pile of points between whoever showed up (the point crate, the vault breaker).
+ * a pile of points between whoever showed up (the point crate, the vault games).
  */
-export async function payShares(guildId: string, shares: readonly CrateShare[], reason: 'event_crate' | 'vault_loot'): Promise<SharesPayout> {
+export async function payShares(guildId: string, shares: readonly CrateShare[], reason: 'event_crate' | 'heist_loot' | 'split_steal' | 'code_prize'): Promise<SharesPayout> {
   const { members, ledger } = collections();
   const results = new Map<string, boolean>();
 
@@ -130,43 +130,3 @@ export type CratePayout = SharesPayout;
 
 /** Splits a point crate's pile between its grabbers. Kept as its own name for existing callers and tests. */
 export const payCrate = (guildId: string, shares: readonly CrateShare[]): Promise<CratePayout> => payShares(guildId, shares, 'event_crate');
-
-/** Splits a vault breaker's prize between its crew. */
-export const payVaultLoot = (guildId: string, shares: readonly CrateShare[]): Promise<SharesPayout> => payShares(guildId, shares, 'vault_loot');
-
-// ---------------------------------------------------------------------------
-// Vault breaker persistence (mirrors the point crate functions above)
-// ---------------------------------------------------------------------------
-
-/**
- * Saves a vault breaker that has just been posted, so it survives a restart of the bot (see
- * `OpenVaultDoc`). Replaces whatever was saved before for the server.
- */
-export async function saveOpenVault(guildId: string, vault: Omit<OpenVaultDoc, 'joiners'>): Promise<void> {
-  await collections().guilds.updateOne({ _id: guildId }, { $set: { openVault: { ...vault, joiners: [] } } }, { upsert: true });
-}
-
-/** Adds a member to the saved vault breaker's joiners (once), but only if that vault is still the one that is open. */
-export async function recordJoin(guildId: string, messageId: string, userId: string): Promise<void> {
-  await collections().guilds.updateOne({ _id: guildId, 'openVault.messageId': messageId }, { $addToSet: { 'openVault.joiners': userId } });
-}
-
-/**
- * Removes the saved vault breaker, in one conditional update, and returns it (null if it was
- * already removed, or is a different vault). The caller that gets it back is the one that
- * settles it, so it is never paid out or fined twice.
- */
-export async function takeOpenVault(guildId: string, messageId: string): Promise<OpenVaultDoc | null> {
-  const before = await collections().guilds.findOneAndUpdate(
-    { _id: guildId, 'openVault.messageId': messageId },
-    { $unset: { openVault: '' } },
-    { returnDocument: 'before' },
-  );
-  return before?.openVault ?? null;
-}
-
-/** Every vault breaker that was left open, for the bot to pick up when it starts. */
-export async function listOpenVaults(): Promise<{ guildId: string; vault: OpenVaultDoc }[]> {
-  const docs = await collections().guilds.find({ openVault: { $ne: null } }).toArray();
-  return docs.flatMap((doc) => (doc.openVault ? [{ guildId: doc._id, vault: doc.openVault }] : []));
-}

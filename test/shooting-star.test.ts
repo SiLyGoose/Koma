@@ -62,6 +62,39 @@ test('gif: more colours than fit and noisy pictures still decode (the compressio
   assert.equal(readGif(encodeGif(4, 4, [{ rgba: flat(4, 4, [1, 2, 3]), delayMs: 50 }], { plays: 0 })).plays, 0, 'can loop forever');
 });
 
+test('gif: after the first frame only what changed is stored, and every frame still reads back whole', () => {
+  const w = 60;
+  const h = 40;
+  // A blocky background (150 colours, few enough for the palette to keep exactly) with a small
+  // square moving across it.
+  const picture = (at: number): Uint8Array => {
+    const out = new Uint8Array(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const inside = x >= at && x < at + 4 && y >= 10 && y < 14;
+        out.set(inside ? [248, 248, 248, 255] : [(x >> 2) * 16, (y >> 2) * 16, 128, 255], (y * w + x) * 4);
+      }
+    }
+    return out;
+  };
+  const pictures = [0, 5, 10, 10].map(picture);
+  const gif = readGif(encodeGif(w, h, pictures.map((rgba) => ({ rgba, delayMs: 50 })), { dither: false }));
+  assert.equal(gif.frames.length, 4);
+  // Each frame reads back as the whole picture it was.
+  pictures.forEach((rgba, f) => {
+    for (const [x, y] of [[0, 0], [2, 11], [7, 12], [12, 13], [59, 39]] as const) {
+      const got = gifPixel(gif, f, x, y);
+      const want = [...rgba.subarray((y * w + x) * 4, (y * w + x) * 4 + 3)];
+      assert.ok(got.every((v, c) => Math.abs(v - (want[c] as number)) <= 4), `frame ${f} at ${x},${y}: ${got} is not ${want}`);
+    }
+  });
+  // But only the first is stored whole; the others just the area the square moved through.
+  assert.deepEqual(gif.frames[0]?.stored, { left: 0, top: 0, width: w, height: h });
+  assert.deepEqual(gif.frames[1]?.stored, { left: 0, top: 10, width: 9, height: 4 });
+  assert.deepEqual(gif.frames[2]?.stored, { left: 5, top: 10, width: 9, height: 4 });
+  assert.equal((gif.frames[3]?.stored.width ?? 0) * (gif.frames[3]?.stored.height ?? 0), 1, 'nothing changed: one pixel keeps the timing');
+});
+
 test('gif: a frame of the wrong size is refused', () => {
   assert.throws(() => encodeGif(4, 4, [{ rgba: new Uint8Array(10), delayMs: 50 }]), /needs 64 bytes/);
   assert.throws(() => encodeGif(4, 4, []), /at least one frame/);

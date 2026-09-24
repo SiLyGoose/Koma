@@ -106,20 +106,36 @@ export interface Settings {
       seconds: number;
     };
     vault: {
-      /** Fewest people who have to join before a vault breaker can succeed. */
-      minPlayers: number;
-      /** How long a vault breaker stays open for joining, in seconds. */
-      joinSeconds: number;
-      /** What a vault breaker attempts, as a multiple of the points lost to gambling since the last one. */
+      /** What a vault game (Greedy Heist, Split or Steal) puts up, as a multiple of the points lost to gambling since the last payout. */
       multiplier: number;
-      /** What every joiner pays, added back to the vault, when the crack fails. */
+    };
+    heist: {
+      /** How long the crew has to join, in seconds. */
+      joinSeconds: number;
+      /** How many rounds the heist lasts, at most. The prize is handed out a slice per round. */
+      rounds: number;
+      /** How long each round lasts, in seconds: the time the crew has to decide whether to escape. */
+      roundSeconds: number;
+      /** The chance the alarm goes off in the first round. */
+      alarmStart: number;
+      /** Added to the alarm chance every round after the first. */
+      alarmStep: number;
+      /** What everyone still inside when the alarm goes off pays, added to the vault. */
       fine: number;
-      /** The success chance with exactly minPlayers joined. */
-      baseChance: number;
-      /** Added to the chance for every joiner past minPlayers. */
-      chancePerPlayer: number;
-      /** The chance can never climb past this, however many join. */
-      maxChance: number;
+    };
+    codedle: {
+      /** How long the crew has to crack the code, in seconds. */
+      seconds: number;
+      /** What each guess costs, added to the vault. 0 makes guessing free. */
+      guessCost: number;
+    };
+    splitSteal: {
+      /** Fewest people who have to join for the game to be played. */
+      minPlayers: number;
+      /** How long people have to join, in seconds. */
+      joinSeconds: number;
+      /** How long the players have to choose Split or Steal, in seconds. */
+      decideSeconds: number;
     };
   };
   /**
@@ -170,14 +186,19 @@ export const DEFAULTS: Readonly<Settings> = {
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
   blackjack: { minBet: 10, maxBet: 1000, naturalPayout: 1.5, joinSeconds: 15, turnSeconds: 30 },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
-  // A vault breaker attempts 10x what's been lost to gambling since the last one; 3+ people have 5 minutes to
-  // join, starting at a 30% success chance and climbing 10% per joiner past the third, capped at 90%. A failed
-  // attempt costs each joiner 50 points, added back to the pool.
+  // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has
+  // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
+  // a round (about a 3% chance of lasting all 10), and anyone caught pays 50. Split or Steal needs 2+
+  // players, with a minute to join and 30 seconds to choose. Codedle gives 5 minutes to guess a
+  // 5-digit code, at 10 points a guess (added to the vault).
   events: {
     minMinutes: 120,
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
-    vault: { minPlayers: 3, joinSeconds: 300, multiplier: 10, fine: 50, baseChance: 0.3, chancePerPlayer: 0.1, maxChance: 0.9 },
+    vault: { multiplier: 10 },
+    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
+    splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
+    codedle: { seconds: 300, guessCost: 10 },
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
