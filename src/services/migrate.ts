@@ -175,3 +175,16 @@ export async function syncTreasureSlot(): Promise<TreasureSlotSyncResult> {
 
   return { renamed, moved, cleared, dropped };
 }
+
+/*
+ * Field rename: a server's one dedicated channel used to be stored as `eventChannelId`, back
+ * when it only chose where random events happened; it's now `channelId` (see services/channel.ts
+ * and types.ts's GuildDoc), since commands are confined to it too. Cheap, fully idempotent (a
+ * $rename on a document that doesn't have the old field is a no-op), so like syncTreasureSlot
+ * above this runs every start instead of being gated behind a one-time marker.
+ */
+export async function renameEventChannelField(): Promise<number> {
+  const { guilds } = collections();
+  const result = await guilds.updateMany({ eventChannelId: { $exists: true } }, { $rename: { eventChannelId: 'channelId' } });
+  return result.modifiedCount;
+}

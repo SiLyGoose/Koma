@@ -1,28 +1,21 @@
 import { CONFIG, isAdmin } from '../config.js';
 import { TEXT } from '../constants.js';
-import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { GAME_EVENTS, eventChances, findEvent, pickEvent } from '../events/registry.js';
 import { startEvent } from '../events/runner.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited } from '../lib/format.js';
-import { parseChannelArg } from '../lib/parse.js';
-import { getEventInfo, setEventChannel } from '../services/events.js';
 import { getVaultPool } from '../services/vault.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
-/** Why a channel can't be used, in words. */
-function channelProblemText(problem: ChannelProblem, channelId: string): string {
-  if (problem === 'missing') return TEXT.events.channelMissing;
-  return problem === 'not_text' ? TEXT.events.channelNotText : TEXT.events.channelNoPermission(`<#${channelId}>`);
-}
-
-/** The events channel and every event that can happen, with the chance of each being picked at random. */
+/**
+ * Every event that can happen, with the chance of each being picked at random. Which channel
+ * they spawn in is `k!config`'s business now (the `channel` setting), not shown here.
+ */
 async function showStatus(ctx: CommandContext): Promise<void> {
-  const [info, pool] = await Promise.all([getEventInfo(ctx.guildId), getVaultPool(ctx.guildId)]);
+  const pool = await getVaultPool(ctx.guildId);
   const embed = createEmbed()
     .setTitle(TEXT.events.statusTitle)
     .addFields(
-      { name: TEXT.events.channelField, value: info.channelId === null ? TEXT.events.channelNone : TEXT.events.channelSet(`<#${info.channelId}>`) },
       { name: TEXT.events.vaultField, value: TEXT.events.vaultInfo(fmt(pool), fmt(Math.round(pool * CONFIG.events.vault.multiplier)), formatMultiplier(CONFIG.events.vault.multiplier)) },
       {
         name: TEXT.events.listField,
@@ -31,28 +24,6 @@ async function showStatus(ctx: CommandContext): Promise<void> {
     )
     .setFooter({ text: TEXT.events.usage(ctx.prefix) });
   await ctx.reply({ embeds: [embed] });
-}
-
-async function chooseChannel(ctx: CommandContext): Promise<void> {
-  const arg = ctx.args[1]?.toLowerCase();
-  if (arg === 'off' || arg === 'none' || arg === 'disable') {
-    const result = await setEventChannel(ctx.user.id, ctx.guildId, null);
-    await ctx.reply(result.ok ? TEXT.events.channelOff : TEXT.events.adminOnly);
-    return;
-  }
-
-  const channelId = parseChannelArg(ctx.args[1]);
-  if (channelId === null) {
-    await ctx.reply(TEXT.events.channelUsage(ctx.prefix));
-    return;
-  }
-  const checked = await checkEventChannel(ctx.guild, channelId);
-  if (!checked.ok) {
-    await ctx.reply(channelProblemText(checked.problem, channelId));
-    return;
-  }
-  const result = await setEventChannel(ctx.user.id, ctx.guildId, channelId);
-  await ctx.reply(result.ok ? TEXT.events.channelChanged(`<#${channelId}>`) : TEXT.events.adminOnly);
 }
 
 async function startNow(ctx: CommandContext): Promise<void> {
@@ -69,16 +40,16 @@ async function startNow(ctx: CommandContext): Promise<void> {
     return;
   }
   if (result.reason === 'busy') await ctx.reply(TEXT.events.startBusy);
-  else if (result.reason === 'no_channel') await ctx.reply(TEXT.events.startNoChannel(ctx.prefix));
+  else if (result.reason === 'no_channel') await ctx.reply(TEXT.events.startNoChannel);
   else await ctx.reply(TEXT.events.startBadChannel);
 }
 
 export const events: Command = {
   name: 'events',
   aliases: ['event'],
-  description: 'Random events: see them, start one now, or choose the events channel. Bot admin only.',
-  usage: 'events [status | start [event] | channel <#channel | off>]',
-  slashUsage: 'events status | start | channel | disable',
+  description: 'Random events: see every event that can happen, or start one now. Bot admin only.',
+  usage: 'events [status | start [event]]',
+  slashUsage: 'events status | start',
   adminOnly: true,
 
   async execute(ctx) {
@@ -89,7 +60,6 @@ export const events: Command = {
 
     const action = ctx.args[0]?.toLowerCase();
     if (action === undefined || action === 'status') await showStatus(ctx);
-    else if (action === 'channel') await chooseChannel(ctx);
     else if (action === 'start') await startNow(ctx);
     else await ctx.reply(TEXT.events.usage(ctx.prefix));
   },

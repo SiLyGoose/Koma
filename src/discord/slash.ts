@@ -1,6 +1,5 @@
 import {
   ApplicationIntegrationType,
-  ChannelType,
   InteractionContextType,
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -13,6 +12,7 @@ import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { starString } from '../lib/format.js';
+import { GROUPS } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy.js';
 import { getPrefix } from '../services/settings.js';
@@ -96,7 +96,17 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   config: {
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('list').setDescription('See every setting'))
+        .addSubcommand((s) =>
+          s
+            .setName('list')
+            .setDescription('See every setting, or jump straight to one group')
+            .addStringOption((o) =>
+              o
+                .setName('group')
+                .setDescription('Jump straight to this group instead of starting on page one')
+                .addChoices(...GROUPS.map((group) => ({ name: group, value: group.toLowerCase() }))),
+            ),
+        )
         .addSubcommand((s) =>
           s
             .setName('set')
@@ -114,12 +124,15 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
       const action = i.options.getSubcommand();
       if (action === 'set') return ['set', i.options.getString('setting', true), i.options.getString('value', true)];
       if (action === 'reset') return ['reset', i.options.getString('setting', true)];
-      return ['list'];
+      const group = i.options.getString('group');
+      return group ? [group] : ['list'];
     },
     autocomplete: async (i) =>
       nameChoices(
         i.options.getFocused(),
-        SPECS.map((spec) => spec.key),
+        // 'channel' isn't a real SettingSpec entry (see commands/config.ts's handleChannelChange),
+        // but it's set/reset the same way, so it belongs in the same suggestion list.
+        [...SPECS.map((spec) => spec.key), 'channel'],
       ),
   },
 
@@ -154,42 +167,27 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   events: {
-    description: 'Random events: see the channel and events, start one now, or choose the channel (bot admin only).',
+    description: 'Random events: see the dedicated channel and every event, or start one now. Bot admin only.',
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('status').setDescription('See the events channel and every event that can happen'))
+        .addSubcommand((s) => s.setName('status').setDescription('See the dedicated channel and every event that can happen'))
         .addSubcommand((s) =>
           s
             .setName('start')
-            .setDescription('Start an event now, in the events channel')
+            .setDescription('Start an event now, in the dedicated channel')
             .addStringOption((o) =>
               o
                 .setName('event')
                 .setDescription('Which event (a random one, if left out)')
                 .addChoices(...GAME_EVENTS.map((event) => ({ name: event.label, value: event.id }))),
             ),
-        )
-        .addSubcommand((s) =>
-          s
-            .setName('channel')
-            .setDescription('Choose the channel events happen in')
-            .addChannelOption((o) =>
-              o
-                .setName('channel')
-                .setDescription('A text channel the bot can send messages and embeds in')
-                .setRequired(true)
-                .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-            ),
-        )
-        .addSubcommand((s) => s.setName('disable').setDescription('Turn events off in this server')),
+        ),
     toArgs: (i) => {
       const action = i.options.getSubcommand();
       if (action === 'start') {
         const chosen = i.options.getString('event');
         return chosen === null ? ['start'] : ['start', chosen];
       }
-      if (action === 'channel') return ['channel', `<#${i.options.getChannel('channel', true).id}>`];
-      if (action === 'disable') return ['channel', 'off'];
       return ['status'];
     },
   },

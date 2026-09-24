@@ -265,6 +265,9 @@ export const DATABANK_ITEMS_PER_PAGE = 5;
 /** How long the databank's Previous/Next buttons keep working after the last time they were used. */
 export const DATABANK_BUTTONS = { idleMs: 120_000 };
 
+/** How long the settings list's Previous/Next buttons keep working after the last time they were used. */
+export const CONFIG_BUTTONS = { idleMs: 120_000 };
+
 /** Rob and effect chances are rolled in this many steps. Only worth changing for very precise chances. */
 export const CHANCE_STEPS = 1_000_000;
 
@@ -752,25 +755,14 @@ export const TEXT = {
 
   events: {
     adminOnly: 'Only the bot admin can use this command.',
-    usage: (p: string) =>
-      `Use \`${p}events\` to see this server's events channel and every event, \`${p}events start [event]\` to start one now, or \`${p}events channel <#channel | off>\` to choose where they happen.`,
+    usage: (p: string) => `Use \`${p}events\` to see every random event that can happen, or \`${p}events start [event]\` to start one now.`,
     statusTitle: 'Random events',
-    channelField: 'Channel',
-    channelSet: (channel: string) => channel,
-    channelNone: 'None yet, so no events happen here.',
     listField: 'Events',
     /** One line of the list of events: the id you type to start it, its name, its chance of being picked at random, and what it does. */
     listLine: (id: string, label: string, description: string, chance: string) => `\`${id}\` **${label}** (${chance}): ${description}`,
-    channelChanged: (channel: string) => `Events will now happen in ${channel}. The first one comes at a random time.`,
-    channelOff: 'Events are turned off in this server.',
-    /** Why a channel can't be used. */
-    channelMissing: "I can't find that channel in this server.",
-    channelNotText: 'That is not a text channel I can send messages in. Pick a normal text channel.',
-    channelNoPermission: (channel: string) => `I need to see ${channel}, send messages there and embed links. Give me those permissions there first.`,
-    channelUsage: (p: string) => `Use \`${p}events channel #channel\` to choose the channel, or \`${p}events channel off\` to turn events off.`,
-    startNoChannel: (p: string) => `Choose a channel first with \`${p}events channel #channel\`.`,
+    startNoChannel: 'No dedicated channel is set for this server.',
     startBusy: 'An event is already happening in this server. Wait until it is over.',
-    startBadChannel: 'I could not use the events channel any more (it is gone, or I lost permission there). Choose it again.',
+    startBadChannel: 'I could not use the channel any more (it is gone, or I lost permission there). An admin needs to choose it again.',
     /** `ids` is the list of event ids. */
     startUnknown: (name: string, ids: string) => `There is no event called "${name}". The events are: ${ids}`,
     started: (label: string, channel: string) => `Started **${label}** in ${channel}.`,
@@ -852,6 +844,13 @@ export const TEXT = {
 
   config: {
     title: 'Settings',
+    /** A settings list long enough to need more than one page, like "Settings (2/3)". */
+    titlePage: (title: string, page: number, pages: number) => `${title} (${page}/${pages})`,
+    /** A group long enough to need more than one page of its own, e.g. "Rob — page 2/2". */
+    groupFieldPage: (name: string, page: number, pages: number) => `${name} — page ${page}/${pages}`,
+    previousButton: 'Previous',
+    nextButton: 'Next',
+    notYours: "This isn't your settings list to flip through.",
     footerAdmin: (p: string) =>
       `Change one with ${p}config set <setting> <value>, or put it back with ${p}config reset <setting>.`,
     footerOthers: 'Only the bot admin can change these.',
@@ -883,6 +882,17 @@ export const TEXT = {
     unknownSetting: (key: string) => `There is no setting called \`${key}\`.`,
     breaksRule: (problem: string) => `That would break a rule: ${problem}.`,
     invalidValue: (key: string, problem: string) => `\`${key}\` ${problem}.`,
+    /**
+     * The `channel` setting: the one channel every command (and random events) is confined to in
+     * this server. Not a real SettingSpec entry (it's per-server, not one of the bot's global
+     * settings, so it can't go through the usual database), but shown in the General group and set
+     * with `config set channel` / cleared with `config reset channel` just like any other setting.
+     */
+    channelNone: 'None',
+    channelInvalid: 'must be a channel mention or id, or "off"',
+    channelMissing: "I can't find that channel in this server.",
+    channelNotText: 'That is not a text channel I can send messages in. Pick a normal text channel.',
+    channelNoPermission: (channel: string) => `I need to see ${channel}, send messages there and embed links. Give me those permissions there first.`,
   },
 };
 
@@ -942,6 +952,7 @@ export function validateConstants(): void {
   if (!(PLINKO_ANIMATION.frameMs >= 500)) problems.push('PLINKO_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
   if (!(DATABANK_BUTTONS.idleMs >= 5000)) problems.push('DATABANK_BUTTONS.idleMs must be at least 5000');
+  if (!(CONFIG_BUTTONS.idleMs >= 5000)) problems.push('CONFIG_BUTTONS.idleMs must be at least 5000');
   if (!(BLACKJACK.imageScale >= 1 && BLACKJACK.imageScale <= 3 && Number.isInteger(640 * BLACKJACK.imageScale) && Number.isInteger(400 * BLACKJACK.imageScale))) {
     problems.push('BLACKJACK.imageScale must be from 1 to 3 and give a whole number of pixels (640 x scale and 400 x scale), like 1, 1.5 or 2');
   }

@@ -1,13 +1,14 @@
-import { isAdmin } from '../config.js';
 import type { OpenCrateDoc, OpenVaultDoc } from '../types.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
 import { ensureMember } from './economy.js';
 
 /*
- * The database side of the random events: which channel each server uses, when its next event is
- * due, and handing out what an event pays. Points only move through single conditional updates,
- * like everywhere else in the bot.
+ * The database side of the random events: when each server's next event is due, and handing out
+ * what an event pays. Which channel a server is confined to (and so where its events spawn) is
+ * services/channel.ts's job, not this file's; `listEventGuilds` and `claimEventSlot` below just
+ * read/filter on that same `channelId` field. Points only move through single conditional
+ * updates, like everywhere else in the bot.
  */
 
 /** What the scheduler needs to know about one server that has events turned on. */
@@ -17,30 +18,11 @@ export interface EventGuild {
   nextEventAt: Date | null;
 }
 
-/** A server's events channel and when its next event is due (both null when there is none). */
-export async function getEventInfo(guildId: string): Promise<{ channelId: string | null; nextEventAt: Date | null }> {
-  const doc = await collections().guilds.findOne({ _id: guildId });
-  return { channelId: doc?.eventChannelId ?? null, nextEventAt: doc?.nextEventAt ?? null };
-}
-
-export type SetChannelResult = { ok: true } | { ok: false; reason: 'forbidden' };
-
-/**
- * Chooses the channel a server's events happen in, or turns them off with null. Only the bot admin
- * may do this; the check lives here so no caller can skip it. The next event time is cleared, so
- * the scheduler picks a fresh random one.
- */
-export async function setEventChannel(actorId: string, guildId: string, channelId: string | null): Promise<SetChannelResult> {
-  if (!isAdmin(actorId)) return { ok: false, reason: 'forbidden' };
-  await collections().guilds.updateOne({ _id: guildId }, { $set: { eventChannelId: channelId, nextEventAt: null } }, { upsert: true });
-  return { ok: true };
-}
-
-/** Every server that has an events channel. */
+/** Every server that has a channel to spawn events in (see services/channel.ts). */
 export async function listEventGuilds(): Promise<EventGuild[]> {
-  const docs = await collections().guilds.find({ eventChannelId: { $ne: null } }).toArray();
+  const docs = await collections().guilds.find({ channelId: { $ne: null } }).toArray();
   return docs.flatMap((doc) =>
-    typeof doc.eventChannelId === 'string' ? [{ guildId: doc._id, channelId: doc.eventChannelId, nextEventAt: doc.nextEventAt ?? null }] : [],
+    typeof doc.channelId === 'string' ? [{ guildId: doc._id, channelId: doc.channelId, nextEventAt: doc.nextEventAt ?? null }] : [],
   );
 }
 
@@ -54,7 +36,7 @@ export async function claimEventSlot(guildId: string, observed: Date | null, nex
   const set: { nextEventAt: Date; lastEventAt?: Date } = { nextEventAt: next };
   if (fired) set.lastEventAt = now;
   const claimed = await collections().guilds.findOneAndUpdate(
-    { _id: guildId, nextEventAt: observed, eventChannelId: { $ne: null } },
+    { _id: guildId, nextEventAt: observed, channelId: { $ne: null } },
     { $set: set },
   );
   return claimed !== null;

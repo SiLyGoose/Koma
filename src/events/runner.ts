@@ -1,5 +1,5 @@
 import type { Client, Guild } from 'discord.js';
-import { getEventInfo } from '../services/events.js';
+import { getChannelId } from '../services/channel.js';
 import { claimGuild, isEventRunning } from './busy.js';
 import { checkEventChannel, type ChannelProblem } from './channel.js';
 import { GAME_EVENTS, pickEvent } from './registry.js';
@@ -30,7 +30,7 @@ export async function startEvent(guild: Guild, event: GameEvent, channelId: stri
 
   let handedOver = false;
   try {
-    const target = channelId ?? (await getEventInfo(guild.id)).channelId;
+    const target = channelId ?? (await getChannelId(guild.id));
     if (!target) return { ok: false, reason: 'no_channel' };
     const checked = await checkEventChannel(guild, target);
     if (!checked.ok) return { ok: false, reason: 'bad_channel', problem: checked.problem };

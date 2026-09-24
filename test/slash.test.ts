@@ -11,7 +11,7 @@ import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
 import { parseGiveArgs } from '../src/lib/game/give.js';
 import { GAME_EVENTS } from '../src/events/registry.js';
-import { parseChannelArg, parseUserArg } from '../src/lib/parse.js';
+import { parseUserArg } from '../src/lib/parse.js';
 import { parseBlackjackArgs } from '../src/lib/game/blackjack.js';
 import { parseBetArg } from '../src/lib/game/plinko.js';
 import { parseSellArgs } from '../src/lib/game/sell.js';
@@ -232,29 +232,25 @@ test('slash options: unequip, give and config', () => {
   // The value keeps its spaces as one word; the command joins the words after the setting name.
   assert.deepEqual(args('config', { sub: 'set', strings: { setting: 'claim.min', value: '10' } }), ['set', 'claim.min', '10']);
   assert.deepEqual(args('config', { sub: 'reset', strings: { setting: 'claim.min' } }), ['reset', 'claim.min']);
+  // 'channel' isn't a real setting key, but it reads back the same way every other one does --
+  // it's the config command itself (commands/config.ts) that treats it specially, not this option.
+  assert.deepEqual(args('config', { sub: 'set', strings: { setting: 'channel', value: '<#123456789012345678>' } }), ['set', 'channel', '<#123456789012345678>']);
+  assert.deepEqual(args('config', { sub: 'reset', strings: { setting: 'channel' } }), ['reset', 'channel']);
 });
 
 test('slash options: event subcommands read back as the words the prefix command reads', () => {
   assert.deepEqual(args('events', { sub: 'status' }), ['status']);
   assert.deepEqual(args('events', { sub: 'start' }), ['start']);
   assert.deepEqual(args('events', { sub: 'start', strings: { event: 'crate' } }), ['start', 'crate']);
-  assert.deepEqual(args('events', { sub: 'disable' }), ['channel', 'off']);
-  const words = args('events', { sub: 'channel', channels: { channel: ID } });
-  assert.equal(words[0], 'channel');
-  assert.equal(parseChannelArg(words[1]), ID);
-  assert.throws(() => args('events', { sub: 'channel' }), /missing channel/, 'the channel is required');
 });
 
-test('slash definition: /events has its four subcommands, a choice for every event, and a channel option limited to text channels', () => {
+test('slash definition: /events has just its two subcommands (choosing the channel moved into /config), and a choice for every event', () => {
   const json = slashCommandData(commands).find((d) => d.name === 'events') as any;
   assert.ok(json, '/events is registered');
-  assert.deepEqual(json.options.map((o: any) => o.name), ['status', 'start', 'channel', 'disable']);
+  assert.deepEqual(json.options.map((o: any) => o.name), ['status', 'start']);
   const start = json.options.find((o: any) => o.name === 'start');
   assert.deepEqual(start.options[0].choices.map((c: any) => c.value), GAME_EVENTS.map((e) => e.id));
   assert.notEqual(start.options[0].required ?? false, true, 'a random event is started when none is chosen');
-  const channel = json.options.find((o: any) => o.name === 'channel').options[0];
-  assert.equal(channel.required, true);
-  assert.deepEqual([...channel.channel_types].sort(), [0, 5], 'text and announcement channels only');
 });
 
 test('slash definition: /blackjack has play and party, and only playing alone needs a bet', () => {

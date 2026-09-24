@@ -1,10 +1,18 @@
 import { MessageFlags, type AutocompleteInteraction, type ChatInputCommandInteraction, type Message } from 'discord.js';
 import { TEXT } from '../constants.js';
 import { parseCommand } from '../lib/parse.js';
+import { isAllowedChannel } from '../services/channel.js';
 import { interactionContext, messageContext } from './context.js';
 import { commandMap } from '../commands/index.js';
 import { reply } from './reply.js';
 import { SLASH, hasSlash } from './slash.js';
+
+/**
+ * The one command that always works everywhere: `config` is how the admin sets or clears the
+ * channel restriction (the `channel` setting, see commands/config.ts), so it can never lock
+ * itself out (a channel deleted, or set wrong, would otherwise leave no way back in).
+ */
+const CHANNEL_EXEMPT = 'config';
 
 /** Runs the prefix command in a message, if it is one. */
 export async function handleMessage(message: Message, prefix: string): Promise<void> {
@@ -17,6 +25,11 @@ export async function handleMessage(message: Message, prefix: string): Promise<v
   if (!command) return;
 
   try {
+    // A server confined to one channel (services/channel.ts) ignores every command used
+    // elsewhere, without any reply: the point is that other channels stay quiet, not that they
+    // get told why. The check is inside this try so a database hiccup here is reported the same
+    // way as one during the command itself, instead of crashing out unhandled.
+    if (command.name !== CHANNEL_EXEMPT && !(await isAllowedChannel(message.guildId, message.channelId))) return;
     await command.execute(messageContext(message, parsed.args, prefix));
   } catch (err) {
     console.error(`Error running ${prefix}${parsed.name}:`, err);
@@ -44,6 +57,23 @@ export async function handleSlash(interaction: ChatInputCommandInteraction): Pro
     });
     return;
   }
+
+  // Same restriction as handleMessage above, and the same silent ignore: Discord shows the asker
+  // an "app didn't respond" failure on its own when nothing ever answers the interaction, which is
+  // the closest a slash command can get to being ignored quietly. The check gets its own
+  // try/catch (ctx doesn't exist yet to reply through) so a database hiccup here is reported the
+  // same way as one during the command itself, instead of crashing out unhandled.
+  let allowed: boolean;
+  try {
+    allowed = command.name === CHANNEL_EXEMPT || (await isAllowedChannel(interaction.guildId, interaction.channelId));
+  } catch (err) {
+    console.error(`Error checking the dedicated channel for /${command.name}:`, err);
+    await interaction.reply({ content: TEXT.common.error, flags: MessageFlags.Ephemeral }).catch((replyErr) => {
+      console.error('Could not send the error message:', replyErr);
+    });
+    return;
+  }
+  if (!allowed) return;
 
   const guild = interaction.guild ?? (await interaction.client.guilds.fetch(interaction.guildId));
   const { ctx, dispose } = interactionContext(interaction, guild, []);

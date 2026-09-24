@@ -456,18 +456,20 @@ test('event command: a member who is not the bot admin is turned away from every
   }
 });
 
-test('event command: the admin gets a usage hint for an unknown action, a channel it cannot read, and an event that does not exist', async () => {
+test('event command: the admin gets a usage hint for an unknown action (channel is not one any more), and an event that does not exist', async () => {
   let { ctx, replies } = fakeContext(ADMIN_USER_ID, ['dance']);
   await eventCommand.execute(ctx);
   assert.deepEqual(replies, [TEXT.events.usage('k!')]);
 
+  // Choosing the channel moved into k!config (see config.test.ts); "channel" is just an
+  // unknown action here now, same as any other typo.
   ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['channel']));
   await eventCommand.execute(ctx);
-  assert.deepEqual(replies, [TEXT.events.channelUsage('k!')]);
+  assert.deepEqual(replies, [TEXT.events.usage('k!')]);
 
   ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['channel', 'general']));
   await eventCommand.execute(ctx);
-  assert.deepEqual(replies, [TEXT.events.channelUsage('k!')]);
+  assert.deepEqual(replies, [TEXT.events.usage('k!')]);
 
   ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['start', 'piñata']));
   await eventCommand.execute(ctx);
@@ -482,10 +484,12 @@ test('event command: `list` is not an action any more, it gets the usage hint (t
   assert.deepEqual(replies, [TEXT.events.usage('k!')]);
 });
 
-test('event command: the usage hint and the help usage name the actions that exist', () => {
+test('event command: the usage hint and the help usage name the actions that exist, and say nothing about the channel (that is k!config\'s job now)', () => {
   assert.match(TEXT.events.usage('k!'), /k!events start/);
-  assert.match(TEXT.events.usage('k!'), /k!events channel/);
+  assert.doesNotMatch(TEXT.events.usage('k!'), /channel/i, 'the events command has nothing to say about the channel any more');
   assert.doesNotMatch(TEXT.events.usage('k!'), /list/);
   assert.doesNotMatch(eventCommand.usage ?? '', /list/);
+  assert.doesNotMatch(eventCommand.usage ?? '', /channel/);
   assert.doesNotMatch(eventCommand.slashUsage ?? '', /list/);
+  assert.doesNotMatch(eventCommand.slashUsage ?? '', /channel/);
 });

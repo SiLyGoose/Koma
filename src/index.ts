@@ -13,7 +13,7 @@ import { startEventScheduler } from './events/scheduler.js';
 import { requireEnv } from './env.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
-import { migrateInventory, syncTreasureSlot } from './services/migrate.js';
+import { migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -61,6 +61,13 @@ async function main(): Promise<void> {
         (treasureSync.dropped > 0 ? ` (${treasureSync.dropped} had to drop a second one that no longer fit)` : '') +
         (treasureSync.cleared > 0 ? `, cleared ${treasureSync.cleared} stale item(s) that already had a different treasure equipped.` : '.'),
     );
+  }
+
+  // Every start: renames the old eventChannelId field to channelId (see services/channel.ts) in
+  // any server still holding it. Cheap and a no-op once every server has been renamed.
+  const channelFieldRenames = await renameEventChannelField();
+  if (channelFieldRenames > 0) {
+    console.log(`Renamed the dedicated-channel field (eventChannelId -> channelId) in ${channelFieldRenames} server(s).`);
   }
 
   // Unless ENV=LOCAL, the command prefix lives in the database (settings collection, default

@@ -12,11 +12,14 @@ export interface PaginateLabels {
 }
 
 /**
- * Sends `render(0)` and, when there is more than one page, a Previous/Next row under it so the
- * member who asked can flip through the rest like a book: each press edits the same message in
- * place rather than sending a new one. Only `userId` can flip pages; anyone else pressing a
- * button is told it isn't theirs and nothing changes. The buttons come off after `idleMs` of
- * nobody using them. A single page (or none) is just sent as-is, with no buttons at all.
+ * Sends `render(startIndex)` and, when there is more than one page, a Previous/Next row under it
+ * so the member who asked can flip through the rest like a book: each press edits the same
+ * message in place rather than sending a new one. `startIndex` (default the first page) lets a
+ * caller jump straight into the middle of the book -- e.g. `config plinko` opening right on the
+ * Plinko settings page -- while Previous/Next still reach every other page from there. Only
+ * `userId` can flip pages; anyone else pressing a button is told it isn't theirs and nothing
+ * changes. The buttons come off after `idleMs` of nobody using them. A single page (or none) is
+ * just sent as-is, with no buttons at all.
  */
 export async function paginate(
   ctx: CommandContext,
@@ -25,11 +28,13 @@ export async function paginate(
   userId: string,
   labels: PaginateLabels,
   idleMs: number,
+  startIndex = 0,
 ): Promise<void> {
   if (pageCount <= 1) {
     await ctx.reply(render(0));
     return;
   }
+  const start = Math.min(Math.max(startIndex, 0), pageCount - 1);
 
   const buttons = (index: number) =>
     new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -37,8 +42,8 @@ export async function paginate(
       new ButtonBuilder().setCustomId(NEXT_ID).setLabel(labels.next).setStyle(ButtonStyle.Secondary).setDisabled(index === pageCount - 1),
     );
 
-  let index = 0;
-  const sent = await ctx.reply({ ...render(0), components: [buttons(0)] });
+  let index = start;
+  const sent = await ctx.reply({ ...render(start), components: [buttons(start)] });
   const message = await sent.fetchMessage();
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, idle: idleMs });
 
