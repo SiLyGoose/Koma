@@ -5,6 +5,7 @@ import { d20Text } from './d20.js';
 import { stonksText } from './stonks.js';
 import { claimText } from './claim.js';
 import { gachaText } from './gacha.js';
+import { betText } from './bet.js';
 import { plinkoText } from './plinko.js';
 import { blackjackText } from './blackjack.js';
 import { sellText } from './sell.js';
@@ -39,6 +40,7 @@ export const TEXT = {
   stonks: stonksText,
   claim: claimText,
   gacha: gachaText,
+  bet: betText,
   plinko: plinkoText,
   blackjack: blackjackText,
   sell: sellText,

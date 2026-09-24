@@ -22,9 +22,12 @@ export const MAX_REDUCTION = 0.9;
  * The emoji shown wherever points (the game's currency) are mentioned or an amount of them is shown. Change it here and it
  * changes everywhere. It has to be the full code, like `<:name:id>` (type `\:name:` in Discord to get it). Discord shows it in
  * message text, embed descriptions and field values, but not in slash command menus, button labels or embed footers, which
- * keep the word "points".
+ * use CURRENCY_NAME instead.
  */
 export const CURRENCY_EMOJI = '<:zeiucoin:1551675032424546320>';
+
+/** The currency's name, lowercase and plural, for where the emoji can't show: slash command menus, help and embed footers. */
+export const CURRENCY_NAME = 'points';
 
 /** Highest value a points setting accepts (claim range, pull cost, stolen amount, fine...). */
 export const MAX_SETTING_POINTS = 1_000_000;

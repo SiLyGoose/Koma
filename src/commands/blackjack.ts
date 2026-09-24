@@ -15,10 +15,10 @@ import { BLACKJACK, BLACKJACK_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { renderTable } from '../animations/images/blackjack-image.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt } from '../lib/format.js';
-import { allBet, parseBetText, parseBlackjackArgs, payoutRatio } from '../lib/game/blackjack.js';
-import { buttonPlan } from '../lib/game/plinko.js';
-import { placeBet, refundBet, type PlaceBetResult } from '../services/blackjack.js';
-import { getBalance } from '../services/economy/index.js';
+import { parseBetText, parseBlackjackArgs, payoutRatio } from '../lib/game/blackjack.js';
+import { betForButton, isBetButton, type BetButtonIds } from '../lib/game/bet.js';
+import { placeBet, refundBet } from '../services/blackjack.js';
+import { betButtonRow, refusalText, resolveBet } from '../discord/bet.js';
 import { loadProfile } from '../discord/profile.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { enterTable, leaveTable, openingMessage, playRound, startHeartbeat, type TablePlayer } from '../animations/blackjack-round.js';
@@ -26,9 +26,7 @@ import { enterTable, leaveTable, openingMessage, playRound, startHeartbeat, type
 const JOIN_ID = 'bj_join';
 const LEAVE_ID = 'bj_leave';
 const START_ID = 'bj_start';
-const AGAIN_ID = 'bj_again';
-const DOUBLE_BET_ID = 'bj_double_bet';
-const HALF_ID = 'bj_half';
+const BET_IDS: BetButtonIds = { again: 'bj_again', double: 'bj_double_bet', half: 'bj_half' };
 
 const mention = (userId: string): string => `<@${userId}>`;
 
@@ -37,19 +35,6 @@ const say = (press: ButtonInteraction, content: string): Promise<void> =>
     .reply({ content, flags: MessageFlags.Ephemeral })
     .then(() => undefined)
     .catch(() => undefined);
-
-/** Says why a bet was refused. */
-function refusalText(prefix: string, bet: number, result: Exclude<PlaceBetResult, { ok: true }>): string {
-  if (result.reason === 'too_poor') return TEXT.blackjack.cantAfford(prefix, fmt(bet), fmt(result.balance));
-  return result.reason === 'too_small' ? TEXT.blackjack.tooSmall(fmt(result.limit)) : TEXT.blackjack.tooBig(fmt(result.limit));
-}
-
-/** The bet a member asked for in points: "all" is as much as they have, up to the biggest bet. */
-async function resolveBet(guildId: string, userId: string, wanted: number | 'all'): Promise<number> {
-  if (wanted !== 'all') return wanted;
-  const { points } = await getBalance(guildId, userId);
-  return allBet(points, CONFIG.blackjack.minBet, CONFIG.blackjack.maxBet);
-}
 
 /** A player as far as their name and picture go: the Discord user, and their server member if it is known. */
 interface Who {
@@ -65,20 +50,9 @@ const logRefundFailure = (userId: string) => (err: unknown) =>
 // ---------------------------------------------------------------------------
 
 /** The buttons under a finished solo game: play again, double the bet, halve it. */
-function againButtons(baseBet: number, balance: number | null): ActionRowBuilder<ButtonBuilder>[] {
-  const { minBet, maxBet } = CONFIG.blackjack;
-  const plan = buttonPlan(baseBet, balance ?? 0, minBet, maxBet);
-  return [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(AGAIN_ID).setLabel(TEXT.blackjack.againButton(fmt(plan.again.bet))).setStyle(ButtonStyle.Primary).setDisabled(!plan.again.enabled),
-      new ButtonBuilder().setCustomId(DOUBLE_BET_ID).setLabel(TEXT.blackjack.doubleBetButton(fmt(plan.double.bet))).setStyle(ButtonStyle.Secondary).setDisabled(!plan.double.enabled),
-      new ButtonBuilder().setCustomId(HALF_ID).setLabel(TEXT.blackjack.halfButton(fmt(plan.half.bet))).setStyle(ButtonStyle.Secondary).setDisabled(!plan.half.enabled),
-    ),
-  ];
-}
-
-const betForButton = (customId: string, bet: number): number | null =>
-  customId === AGAIN_ID ? bet : customId === DOUBLE_BET_ID ? bet * 2 : customId === HALF_ID ? Math.floor(bet / 2) : null;
+const againButtons = (baseBet: number, balance: number | null): ActionRowBuilder<ButtonBuilder>[] => [
+  betButtonRow(BET_IDS, baseBet, balance ?? 0, CONFIG.blackjack, TEXT.blackjack.doubleBetButton),
+];
 
 /**
  * A game against the dealer for one member. When it ends the buttons offer another game on the same
@@ -100,7 +74,7 @@ async function playSolo(ctx: CommandContext, wanted: number | 'all'): Promise<vo
   try {
     // Their name and picture are fetched while the bet is taken (this never fails: no picture is fine).
     const profileLoading = loadProfile(ctx.user, ctx.guild.members?.cache?.get(userId));
-    let baseBet = await resolveBet(guildId, userId, wanted);
+    let baseBet = await resolveBet(guildId, userId, wanted, CONFIG.blackjack);
     const placed = await placeBet(guildId, userId, gameId, baseBet);
     if (!placed.ok) {
       await ctx.reply(refusalText(ctx.prefix, baseBet, placed));
@@ -127,7 +101,7 @@ async function playSolo(ctx: CommandContext, wanted: number | 'all'): Promise<vo
             componentType: ComponentType.Button,
             time: BLACKJACK.buttonsIdleMs,
             filter: (b) => {
-              if (b.customId !== AGAIN_ID && b.customId !== DOUBLE_BET_ID && b.customId !== HALF_ID) return false;
+              if (!isBetButton(BET_IDS, b.customId)) return false;
               if (b.user.id === userId) return true;
               void say(b, TEXT.blackjack.notYours);
               return false;
@@ -139,7 +113,7 @@ async function playSolo(ctx: CommandContext, wanted: number | 'all'): Promise<vo
           return;
         }
         await press.deferUpdate().catch(() => {});
-        const bet = betForButton(press.customId, baseBet);
+        const bet = betForButton(BET_IDS, press.customId, baseBet);
         if (bet === null) continue;
         if (!enterTable(guildId, userId)) {
           await press.followUp({ content: TEXT.blackjack.alreadyPlaying, flags: MessageFlags.Ephemeral }).catch(() => {});
@@ -199,7 +173,7 @@ async function playParty(ctx: CommandContext, hostBet: number | 'all' | null): P
     marked.add(userId);
     try {
       const profileLoading = loadProfile(who.user, who.member);
-      const bet = await resolveBet(guildId, userId, wanted);
+      const bet = await resolveBet(guildId, userId, wanted, CONFIG.blackjack);
       const placed = await placeBet(guildId, userId, gameId, bet);
       if (!placed.ok) {
         leaveTable(guildId, userId);

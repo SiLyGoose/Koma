@@ -1,25 +1,19 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
+import { ComponentType, MessageFlags } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, PLINKO_ANIMATION, PLINKO_BUTTONS, PLINKO_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, money, signed } from '../lib/format.js';
-import { buttonPlan, expectedReturn, parseBetArg, slotMultipliers } from '../lib/game/plinko.js';
+import { betForButton, parseBetArg, type BetButtonIds } from '../lib/game/bet.js';
+import { expectedReturn, slotMultipliers } from '../lib/game/plinko.js';
+import { betButtonRow, refusalText, resolveBet } from '../discord/bet.js';
 import { renderPlinko } from '../animations/images/plinko-image.js';
-import { getBalance, playPlinko, type PlinkoResult } from '../services/economy/index.js';
+import { playPlinko, type PlinkoResult } from '../services/economy/index.js';
 import { playFrames, type AnimationPlan, type FrameSurface } from '../animations/play.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 
-export const AGAIN_ID = 'plinko_again';
-export const DOUBLE_ID = 'plinko_double';
-export const HALF_ID = 'plinko_half';
+export const PLINKO_BET_IDS: BetButtonIds = { again: 'plinko_again', double: 'plinko_double', half: 'plinko_half' };
 
 type Played = Extract<PlinkoResult, { ok: true }>;
-
-/** Says why a bet was refused, for a result that isn't `ok`. */
-function refusalText(prefix: string, bet: number, result: Exclude<PlinkoResult, { ok: true }>): string {
-  if (result.reason === 'too_poor') return TEXT.plinko.cantAfford(prefix, fmt(bet), fmt(result.balance));
-  return result.reason === 'too_small' ? TEXT.plinko.tooSmall(fmt(result.limit)) : TEXT.plinko.tooBig(fmt(result.limit));
-}
 
 /** The result of a game, shown when the ball has landed. */
 function resultEmbed(ctx: CommandContext, played: Played): BotEmbed {
@@ -36,25 +30,6 @@ function resultEmbed(ctx: CommandContext, played: Played): BotEmbed {
     )
     .setFooter({ text: TEXT.plinko.footer(formatPercent(expectedReturn(CONFIG.plinko.payout))) })
     .setAuthor({ name: TEXT.plinko.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
-}
-
-/** The three buttons under a finished game. A button is switched off when its bet isn't possible. */
-function buttons(played: Played): ActionRowBuilder<ButtonBuilder> {
-  const { minBet, maxBet } = CONFIG.plinko;
-  const plan = buttonPlan(played.bet, played.balance, minBet, maxBet);
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(AGAIN_ID).setLabel(TEXT.plinko.againButton(fmt(plan.again.bet))).setStyle(ButtonStyle.Primary).setDisabled(!plan.again.enabled),
-    new ButtonBuilder().setCustomId(DOUBLE_ID).setLabel(TEXT.plinko.doubleButton(fmt(plan.double.bet))).setStyle(ButtonStyle.Secondary).setDisabled(!plan.double.enabled),
-    new ButtonBuilder().setCustomId(HALF_ID).setLabel(TEXT.plinko.halfButton(fmt(plan.half.bet))).setStyle(ButtonStyle.Secondary).setDisabled(!plan.half.enabled),
-  );
-}
-
-/** The bet a button asks for, from the bet of the game it is under. */
-export function betForButton(customId: string, bet: number): number | null {
-  if (customId === AGAIN_ID) return bet;
-  if (customId === DOUBLE_ID) return bet * 2;
-  if (customId === HALF_ID) return Math.floor(bet / 2);
-  return null;
 }
 
 /** The ball falling, one picture per row of pegs, ending on the picture of it in its slot. */
@@ -89,7 +64,7 @@ type Target = { kind: 'new'; ctx: CommandContext } | { kind: 'edit'; ctx: Comman
 async function showGame(target: Target, played: Played): Promise<SentReply | null> {
   const { ctx } = target;
   const embed = resultEmbed(ctx, played);
-  const components = [buttons(played)];
+  const components = [betButtonRow(PLINKO_BET_IDS, played.bet, played.balance, CONFIG.plinko)];
 
   let plan: AnimationPlan;
   let spinning: BotEmbed;
@@ -150,7 +125,7 @@ async function watchButtons(ctx: CommandContext, sent: SentReply, firstBet: numb
       // Acknowledge at once: a game takes longer than the three seconds Discord allows.
       await interaction.deferUpdate().catch(() => {});
       if (busy) return;
-      const wanted = betForButton(interaction.customId, bet);
+      const wanted = betForButton(PLINKO_BET_IDS, interaction.customId, bet);
       if (wanted === null) return;
 
       busy = true;
@@ -191,7 +166,7 @@ async function watchButtons(ctx: CommandContext, sent: SentReply, firstBet: numb
 
 export const plinko: Command = {
   name: 'plinko',
-  description: 'Bet points and drop a ball down the board. What you win depends on the slot it lands in. Buttons let you play again, double or halve the bet.',
+  description: `Bet ${CURRENCY_NAME} and drop a ball down the board. What you win depends on the slot it lands in. Buttons let you play again, double or halve the bet.`,
   usage: 'plinko <bet | all>',
   slashUsage: 'plinko <bet>',
 
@@ -202,14 +177,7 @@ export const plinko: Command = {
       return;
     }
 
-    let bet: number;
-    if (parsed.bet === 'all') {
-      // As much as they have, up to the biggest bet (and at least the smallest, so a member with less is told what a bet costs).
-      const { points } = await getBalance(ctx.guildId, ctx.user.id);
-      bet = Math.max(CONFIG.plinko.minBet, Math.min(points, CONFIG.plinko.maxBet));
-    } else {
-      bet = parsed.bet;
-    }
+    const bet = await resolveBet(ctx.guildId, ctx.user.id, parsed.bet, CONFIG.plinko);
 
     const result = await playPlinko(ctx.guildId, ctx.user.id, bet);
     if (!result.ok) {

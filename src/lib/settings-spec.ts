@@ -75,7 +75,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('claim.min', 'Claim', `Lowest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
   int('claim.max', 'Claim', `Highest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
 
-  int('gacha.cost', 'Gacha', `Cost of one pull, in ${CURRENCY_EMOJI}.`, 1, MAX_POINTS),
+  int('gacha.cost', 'Gacha', `Cost of one pull, in ${CURRENCY_EMOJI}`, 1, MAX_POINTS),
   int('gacha.starWeights.1', 'Gacha', 'Relative chance of a 1-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.2', 'Gacha', 'Relative chance of a 2-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.3', 'Gacha', 'Relative chance of a 3-star pull.', 0, MAX_POINTS),

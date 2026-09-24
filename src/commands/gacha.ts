@@ -1,4 +1,4 @@
-import { MULTI_PULLS, PITY_STARS, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
 import { fmt, mentionList, money, starString } from '../lib/format.js';
@@ -9,7 +9,7 @@ import type { Command, CommandContext } from '../discord/types.js';
 export const gacha: Command = {
   name: 'gacha',
   aliases: ['pull'],
-  description: `Spend points to pull a random item. Add "multi" to pull ${MULTI_PULLS} at once.`,
+  description: `Spend ${CURRENCY_NAME} to pull a random item. Add "multi" to pull ${MULTI_PULLS} at once.`,
   usage: 'gacha [multi]',
   slashUsage: 'gacha [multi]',
 

@@ -1,4 +1,4 @@
-import { TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
 import { getBalance } from '../services/economy/index.js';
@@ -9,7 +9,7 @@ import type { Command } from '../discord/types.js';
 export const balance: Command = {
   name: 'balance',
   aliases: ['bal', 'p', 'profile'],
-  description: 'Check your points, or another member\'s.',
+  description: `Check your ${CURRENCY_NAME}, or another member's.`,
   usage: 'balance [@user]',
   slashUsage: 'balance [user]',
 

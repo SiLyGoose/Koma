@@ -13,7 +13,7 @@ export * from './slices.js';
 export * from './spin.js';
 
 export const wheelSpin = definePerk({
-  description: `Chance that the wearer's hourly claim or successful rob spins the wheel (perks/wheel-spin/slices.ts), which multiplies the ${CURRENCY_EMOJI}.`,
+  description: `Chance that the wearer's hourly claim or successful rob spins the wheel (perks/wheel-spin/slices.ts), which multiplies the ${CURRENCY_EMOJI}`,
   defaults: { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 },
   min: 0,
   max: 1,

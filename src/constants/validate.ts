@@ -1,5 +1,5 @@
 import { MAX_BLACKJACK_NATURAL, MAX_BLACKJACK_SECONDS, BLACKJACK } from './blackjack.js';
-import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
+import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_VAULT_SECONDS, MAX_VAULT_MULTIPLIER, VAULT } from './events.js';
@@ -37,6 +37,7 @@ export function validateConstants(): void {
   }
   if (STAR_SYMBOL === '') problems.push('STAR_SYMBOL cannot be empty');
   if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(CURRENCY_EMOJI)) problems.push('CURRENCY_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
+  if (!/^[a-z][a-z ]*$/.test(CURRENCY_NAME)) problems.push('CURRENCY_NAME must be lowercase words, like points');
   if (!/^\d{17,20}$/.test(ADMIN_USER_ID)) problems.push('ADMIN_USER_ID must be a Discord user id (17 to 20 digits)');
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');

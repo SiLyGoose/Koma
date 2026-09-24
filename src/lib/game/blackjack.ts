@@ -1,5 +1,5 @@
 import { randomUnit } from '../random.js';
-import { parseBetArg } from './plinko.js';
+import { parseBetArg } from './bet.js';
 
 /*
  * The rules of blackjack, with no database, no Discord and no pictures.
@@ -311,6 +311,3 @@ export function parseBetText(text: string): number | 'all' | null {
   const parsed = parseBetArg([text.trim()]);
   return parsed.ok ? parsed.bet : null;
 }
-
-/** The bet an "all" means: as much as they have, up to the biggest bet (and at least the smallest, so they are told what a bet costs). */
-export const allBet = (points: number, minBet: number, maxBet: number): number => Math.max(minBet, Math.min(points, maxBet));

@@ -1,4 +1,4 @@
-import { FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
@@ -54,7 +54,7 @@ function successNotes(
 
 export const rob: Command = {
   name: 'rob',
-  description: 'Steal points from another member. You can rob once per hour.',
+  description: `Steal ${CURRENCY_NAME} from another member. You can rob once per hour.`,
   usage: 'rob @user',
   slashUsage: 'rob <user>',
 

@@ -1,4 +1,4 @@
-import { TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, money, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy/index.js';
@@ -8,7 +8,7 @@ import type { Command } from '../discord/types.js';
 
 export const claim: Command = {
   name: 'claim',
-  description: 'Claim your points for this hour.',
+  description: `Claim your ${CURRENCY_NAME} for this hour.`,
 
   async execute(ctx) {
     const result = await claimHourly(ctx.guildId, ctx.user.id);

@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI } from '../core.js';
+import { boldMoney } from './currency.js';
 
 export const eventsText = {
   adminOnly: 'Only the bot admin can use this command.',
@@ -15,5 +15,5 @@ export const eventsText = {
   started: (label: string, channel: string) => `Started **${label}** in ${channel}.`,
   vaultField: 'Vault',
   /** `pool` is what's been lost so far, `prize` is that times the multiplier: what a vault breaker would pay out right now. */
-  vaultInfo: (pool: string, prize: string, multiplier: string) => `**${pool}** ${CURRENCY_EMOJI} lost so far. A vault breaker right now would attempt **${prize}** ${CURRENCY_EMOJI} (${multiplier}).`,
+  vaultInfo: (pool: string, prize: string, multiplier: string) => `${boldMoney(pool)} lost so far. A vault breaker right now would attempt ${boldMoney(prize)} (${multiplier}).`,
 };

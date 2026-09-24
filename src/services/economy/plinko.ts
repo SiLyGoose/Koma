@@ -1,6 +1,7 @@
 import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
-import { checkBet, payoutFor, rollPath, slotMultiplier, slotOf } from '../../lib/game/plinko.js';
+import { checkBet, type BetRefusal } from '../../lib/game/bet.js';
+import { payoutFor, rollPath, slotMultiplier, slotOf } from '../../lib/game/plinko.js';
 import { chance } from '../../lib/random.js';
 import { addVaultLoss } from '../vault.js';
 import { type LedgerInput, recordLedger, ensureMember } from './shared.js';
@@ -10,9 +11,8 @@ import { type LedgerInput, recordLedger, ensureMember } from './shared.js';
  */
 
 export type PlinkoResult =
-  /** The bet is outside plinko.minBet .. plinko.maxBet; `limit` is the one it broke. Nothing was charged. */
-  | { ok: false; reason: 'too_small' | 'too_big'; limit: number }
-  | { ok: false; reason: 'too_poor'; balance: number }
+  /** Out of plinko.minBet .. plinko.maxBet, or more than they have. */
+  | BetRefusal
   | {
       ok: true;
       bet: number;

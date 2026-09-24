@@ -1,13 +1,10 @@
 import { CURRENCY_EMOJI } from '../core.js';
+import { boldMoney } from './currency.js';
 
 export const blackjackText = {
   usage: (p: string) =>
     `Use \`${p}blackjack <bet>\` to play alone, like \`${p}blackjack 100\` or \`${p}blackjack all\`, or \`${p}blackjack party\` (optionally with a bet) to open a table others can join.`,
   badBet: (p: string) => `The bet has to be a whole number of ${CURRENCY_EMOJI}, like \`${p}blackjack 100\`, or \`all\`.`,
-  tooSmall: (min: string) => `The smallest bet is **${min}** ${CURRENCY_EMOJI}.`,
-  tooBig: (max: string) => `The biggest bet is **${max}** ${CURRENCY_EMOJI}.`,
-  cantAfford: (p: string, bet: string, balance: string) =>
-    `That bet is **${bet}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
   /** For a member who is at one table and tries to sit at another. */
   alreadyPlaying: 'You are already at a blackjack table. Finish that game first.',
   title: 'Blackjack',
@@ -43,7 +40,7 @@ export const blackjackText = {
   notYours: 'This is not your game.',
   badBetBox: 'The bet has to be a whole number, like 100, or "all".',
   notAtTable: 'You are not playing at this table.',
-  doubleCantAfford: (bet: string, balance: string) => `Doubling costs **${bet}** ${CURRENCY_EMOJI} more and you have **${balance}** ${CURRENCY_EMOJI}.`,
+  doubleCantAfford: (bet: string, balance: string) => `Doubling costs ${boldMoney(bet)} more and you have ${boldMoney(balance)}`,
   dealerPlays: 'The dealer plays...',
   dealerBlackjack: 'The dealer has blackjack!',
   /** `total` is a number, or "?" while a card is face down. */
@@ -59,7 +56,7 @@ export const blackjackText = {
   resultTitle: 'Blackjack: results',
   /** One player in the results: `change` is signed, like "+200" or "-50", `verb` is the outcome. */
   resultLine: (seat: number, user: string, verb: string, total: number, change: string) =>
-    `**${seat}.** ${user}: ${verb} (${total}) · **${change}** ${CURRENCY_EMOJI}`,
+    `**${seat}.** ${user}: ${verb} (${total}) · ${boldMoney(change)}`,
   outcomeBlackjack: 'Blackjack!',
   outcomeWin: 'Won',
   outcomePush: 'Push',
@@ -68,9 +65,8 @@ export const blackjackText = {
   balanceField: 'Balance',
   /** `payout` is like "3 to 2". */
   footer: (payout: string) => `Blackjack pays ${payout}. The dealer stands on 17. Double on your first two cards.`,
-  againButton: (bet: string) => `Again (${bet})`,
+  /** The "double the bet" button under a finished game; "Double" alone is the move during a hand. */
   doubleBetButton: (bet: string) => `Double bet (${bet})`,
-  halfButton: (bet: string) => `Half (${bet})`,
   /** Shown when a bet was already given back (the table was thought to be dead) so it can't pay out. */
   betReturned: (user: string) => `${user}'s bet had already been returned.`,
   cancelled: 'Something went wrong at this table, so the game was called off and the bets were returned.',

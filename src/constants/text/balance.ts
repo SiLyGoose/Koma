@@ -1,8 +1,8 @@
-import { CURRENCY_EMOJI } from '../core.js';
+import { boldMoney } from './currency.js';
 
 export const balanceText = {
   title: (name: string) => `${name}'s balance`,
-  points: (points: string) => `**${points}** ${CURRENCY_EMOJI}`,
+  points: (points: string) => `${boldMoney(points)}`,
   claimField: 'Hourly claim',
   claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
   /** A critical success on the D20 left one more claim this hour. */

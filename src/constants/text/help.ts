@@ -1,3 +1,5 @@
+import { CURRENCY_NAME } from '../core.js';
+
 export const helpText = {
   title: 'Commands',
   /** `list` is the aliases already formatted, like "`k!pull`, `k!p`". */
@@ -6,5 +8,5 @@ export const helpText = {
   /** `usage` already has the prefix, like "k!rob @user". */
   entry: (usage: string, aliases: string, description: string) => `**${usage}**${aliases}\n${description}`,
   footer: (claimMin: string, claimMax: string, pullCost: string) =>
-    `Claim ${claimMin}-${claimMax} points every hour. A pull costs ${pullCost}.`,
+    `Claim ${claimMin}-${claimMax} ${CURRENCY_NAME} every hour. A pull costs ${pullCost}.`,
 };

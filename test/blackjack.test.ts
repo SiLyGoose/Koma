@@ -7,7 +7,6 @@ import {
   RANKS,
   Round,
   SUITS,
-  allBet,
   cardText,
   dealerShouldHit,
   handValue,
@@ -25,6 +24,7 @@ import {
   type Outcome,
   type Suit,
 } from '../src/lib/game/blackjack.js';
+import { allBet } from '../src/lib/game/bet.js';
 import { SPECS, checkConstraints, findSpec, formatValue, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
 const SUIT_OF: Record<string, Suit> = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };
@@ -386,7 +386,7 @@ test('blackjack: the messages fit the limits Discord sets', () => {
   // A modal label is at most 45 characters, a button label 80, a modal title 45.
   assert.ok(t.betLabel('1,000,000', '1,000,000').length <= 45, t.betLabel('1,000,000', '1,000,000'));
   assert.ok(t.modalTitle.length <= 45);
-  for (const label of [t.hitButton, t.standButton, t.doubleButton('1,000,000'), t.joinButton, t.leaveButton, t.startButton, t.againButton('1,000,000'), t.doubleBetButton('1,000,000'), t.halfButton('1,000,000')]) {
+  for (const label of [t.hitButton, t.standButton, t.doubleButton('1,000,000'), t.joinButton, t.leaveButton, t.startButton, TEXT.bet.againButton('1,000,000'), t.doubleBetButton('1,000,000'), TEXT.bet.halfButton('1,000,000')]) {
     assert.ok(label.length > 0 && label.length <= 80, label);
   }
   assert.ok(t.betPlaceholder.length <= 100);

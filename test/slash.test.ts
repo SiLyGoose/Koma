@@ -13,7 +13,7 @@ import { parseGiveArgs } from '../src/lib/game/give.js';
 import { GAME_EVENTS } from '../src/events/registry.js';
 import { parseUserArg } from '../src/lib/parse.js';
 import { parseBlackjackArgs } from '../src/lib/game/blackjack.js';
-import { parseBetArg } from '../src/lib/game/plinko.js';
+import { parseBetArg } from '../src/lib/game/bet.js';
 import { parseSellArgs } from '../src/lib/game/sell.js';
 import { createEmbed } from '../src/lib/embed.js';
 

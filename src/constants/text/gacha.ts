@@ -1,9 +1,10 @@
 import { CURRENCY_EMOJI } from '../core.js';
+import { boldMoney } from './currency.js';
 import { MULTI_PULLS } from '../gacha.js';
 
 export const gachaText = {
   cantAfford: (p: string, cost: string, balance: string) =>
-    `A pull costs **${cost}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
+    `A pull costs ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
   /** `stars` is the star string, like "★★". */
   title: (stars: string, name: string) => `${stars}  ${name}`,
   description: (itemDescription: string) => `*${itemDescription}*`,
@@ -22,7 +23,7 @@ export const gachaText = {
   /** When the argument after the command isn't "multi". */
   usage: (p: string) => `Use \`${p}gacha\` for one pull, or \`${p}gacha multi\` for ${MULTI_PULLS} pulls at once.`,
   multiCantAfford: (p: string, pulls: number, cost: string, balance: string) =>
-    `A multi pull (${pulls} pulls) costs **${cost}** ${CURRENCY_EMOJI} and you have **${balance}** ${CURRENCY_EMOJI}. Use \`${p}claim\` to earn more.`,
+    `A multi pull (${pulls} pulls) costs ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
   multiTitle: (pulls: number) => `Multi pull x${pulls}`,
   /** One line per pull. `stars` is the star string; `isNew` when it is the first copy the member has ever owned. */
   multiLine: (stars: string, name: string, isNew: boolean) => `${stars}  ${name}${isNew ? ' · New!' : ''}`,

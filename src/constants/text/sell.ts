@@ -1,4 +1,5 @@
 import { CURRENCY_EMOJI } from '../core.js';
+import { boldMoney } from './currency.js';
 
 export const sellText = {
   usage: (p: string) =>
@@ -21,8 +22,8 @@ export const sellText = {
   onlyEquippedTier: (p: string, stars: string) => `The only ${stars} items you have are equipped, so none can be sold. Take them off with \`${p}unequip\` first.`,
   /** Result of selling. `user` is a mention, `stars` the star string, `points` already formatted. */
   soldTitle: 'Sold',
-  soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for **${points}** ${CURRENCY_EMOJI}.`,
-  soldMany: (user: string, count: number, points: string) => `${user} sold **${count}** items for **${points}** ${CURRENCY_EMOJI}.`,
+  soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for ${boldMoney(points)}`,
+  soldMany: (user: string, count: number, points: string) => `${user} sold **${count}** items for ${boldMoney(points)}`,
   /** One line of a sale: an item, how many, and what they were worth together. */
   line: (stars: string, name: string, count: number, points: string) => `${stars}  ${name} x${count} · ${points} ${CURRENCY_EMOJI}`,
   balanceField: 'Balance',
@@ -32,7 +33,7 @@ export const sellText = {
   nothingLeft: 'None of those can be sold any more (they were equipped, or already sold).',
   /** The confirmation prompt for selling many. */
   confirmTitle: 'Sell these?',
-  confirmDescription: (total: string, count: number, lines: string) => `${lines}\n\nTotal: **${total}** ${CURRENCY_EMOJI} for **${count}** items.`,
+  confirmDescription: (total: string, count: number, lines: string) => `${lines}\n\nTotal: ${boldMoney(total)} for **${count}** items.`,
   confirmFooter: (seconds: number) => `Equipped items are never sold. Confirm within ${seconds} seconds.`,
   confirmButton: 'Sell',
   cancelButton: 'Cancel',

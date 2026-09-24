@@ -1,15 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { inflateSync } from 'node:zlib';
-import { AGAIN_ID, DOUBLE_ID, HALF_ID, betForButton } from '../src/commands/plinko.js';
+import { PLINKO_BET_IDS } from '../src/commands/plinko.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { CURRENCY_EMOJI, PLINKO_ROWS, TEXT, validateConstants } from '../src/constants/index.js';
 import {
   ballOffset,
-  buttonPlan,
-  checkBet,
   expectedReturn,
-  parseBetArg,
   payoutFor,
   rollPath,
   slotChances,
@@ -18,6 +15,7 @@ import {
   slotMultipliers,
   slotOf,
 } from '../src/lib/game/plinko.js';
+import { betForButton, buttonPlan, checkBet, isBetButton, parseBetArg } from '../src/lib/game/bet.js';
 import { renderPlinko, boardLayout } from '../src/animations/images/plinko-image.js';
 import { SPECS, checkConstraints, findSpec, formatValue, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
@@ -157,12 +155,15 @@ test('plinko: the buttons are on only for bets that are in range and that the me
 });
 
 test('plinko: each button asks for the bet its name says', () => {
-  assert.equal(betForButton(AGAIN_ID, 100), 100);
-  assert.equal(betForButton(DOUBLE_ID, 100), 200);
-  assert.equal(betForButton(HALF_ID, 100), 50);
-  assert.equal(betForButton(HALF_ID, 15), 7);
-  assert.equal(betForButton('something else', 100), null);
-  assert.equal(new Set([AGAIN_ID, DOUBLE_ID, HALF_ID]).size, 3);
+  const { again, double, half } = PLINKO_BET_IDS;
+  assert.equal(betForButton(PLINKO_BET_IDS, again, 100), 100);
+  assert.equal(betForButton(PLINKO_BET_IDS, double, 100), 200);
+  assert.equal(betForButton(PLINKO_BET_IDS, half, 100), 50);
+  assert.equal(betForButton(PLINKO_BET_IDS, half, 15), 7);
+  assert.equal(betForButton(PLINKO_BET_IDS, 'something else', 100), null);
+  assert.equal(new Set([again, double, half]).size, 3);
+  assert.ok(isBetButton(PLINKO_BET_IDS, half));
+  assert.ok(!isBetButton(PLINKO_BET_IDS, 'bj_again'), "another game's button is not plinko's");
 });
 
 // ---------------------------------------------------------------------------
@@ -308,19 +309,19 @@ test('plinko picture: the pegs sit in a triangle with the slots under the last r
 test('plinko text', () => {
   assert.equal(TEXT.plinko.usage('k!'), 'Use `k!plinko <bet>` to drop a ball, like `k!plinko 100`, or `k!plinko all`.');
   assert.equal(TEXT.plinko.badBet('k!'), `The bet has to be a whole number of ${CURRENCY_EMOJI}, like \`k!plinko 100\`, or \`all\`.`);
-  assert.equal(TEXT.plinko.tooSmall('10'), `The smallest bet is **10** ${CURRENCY_EMOJI}.`);
-  assert.equal(TEXT.plinko.tooBig('1,000'), `The biggest bet is **1,000** ${CURRENCY_EMOJI}.`);
-  assert.equal(TEXT.plinko.cantAfford('k!', '500', '20'), `That bet is **500** ${CURRENCY_EMOJI} and you have **20** ${CURRENCY_EMOJI}. Use \`k!claim\` to earn more.`);
-  assert.equal(TEXT.plinko.dropping('<@1>', '100'), `<@1> drops a ball for **100** ${CURRENCY_EMOJI}...`);
+  assert.equal(TEXT.bet.tooSmall('10'), `The smallest bet is **10** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.bet.tooBig('1,000'), `The biggest bet is **1,000** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.bet.cantAfford('k!', '500', '20'), `That bet is **500** ${CURRENCY_EMOJI} and you have **20** ${CURRENCY_EMOJI} Use \`k!claim\` to earn more.`);
+  assert.equal(TEXT.plinko.dropping('<@1>', '100'), `<@1> drops a ball for **100** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.plinko.resultTitle('3x'), 'Plinko: 3x');
   assert.equal(TEXT.plinko.landed('<@1>', '100', '3x'), `<@1> bet **100** ${CURRENCY_EMOJI} and the ball landed on **3x**.`);
   assert.equal(TEXT.plinko.payout('300', '+200'), `300 ${CURRENCY_EMOJI} (+200 ${CURRENCY_EMOJI})`);
   assert.equal(TEXT.plinko.footer('98%'), 'The board pays back 98% of a bet on average.');
-  assert.equal(TEXT.plinko.againButton('100'), 'Again (100)');
-  assert.equal(TEXT.plinko.doubleButton('200'), 'Double (200)');
-  assert.equal(TEXT.plinko.halfButton('50'), 'Half (50)');
+  assert.equal(TEXT.bet.againButton('100'), 'Again (100)');
+  assert.equal(TEXT.bet.doubleButton('200'), 'Double (200)');
+  assert.equal(TEXT.bet.halfButton('50'), 'Half (50)');
   // Discord button labels are at most 80 characters.
-  assert.ok(TEXT.plinko.doubleButton('1,000,000,000').length <= 80);
+  assert.ok(TEXT.bet.doubleButton('1,000,000,000').length <= 80);
 });
 
 test('plinko constants: the startup check wants an even number of rows from 2 to 10 and sensible timing', () => {

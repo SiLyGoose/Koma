@@ -1,6 +1,6 @@
 import { createEmbed } from '../lib/embed.js';
 import { CONFIG } from '../config.js';
-import { TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { fmt } from '../lib/format.js';
 import { getLeaderboard } from '../services/economy/index.js';
 import type { Command } from '../discord/types.js';
@@ -8,7 +8,7 @@ import type { Command } from '../discord/types.js';
 export const leaderboard: Command = {
   name: 'leaderboard',
   aliases: ['lb', 'top'],
-  description: 'See who has the most points in this server.',
+  description: `See who has the most ${CURRENCY_NAME} in this server.`,
 
   async execute(ctx) {
     const rows = await getLeaderboard(ctx.guildId, CONFIG.leaderboardSize);

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../config.js';
 import { BLACKJACK } from '../constants/index.js';
 import { collections } from '../db.js';
-import { checkBet } from '../lib/game/plinko.js';
+import { checkBet, type BetRefusal } from '../lib/game/bet.js';
 import type { BlackjackBetDoc, LedgerDoc } from '../types.js';
 import { ensureMember } from './economy/index.js';
 
@@ -42,9 +42,8 @@ const live = new Set<string>();
 const leaseEnd = (): Date => new Date(Date.now() + BLACKJACK.leaseMs);
 
 export type PlaceBetResult =
-  /** The bet is outside blackjack.minBet .. blackjack.maxBet; `limit` is the one it broke. Nothing was taken. */
-  | { ok: false; reason: 'too_small' | 'too_big'; limit: number }
-  | { ok: false; reason: 'too_poor'; balance: number }
+  /** Out of blackjack.minBet .. blackjack.maxBet, or more than they have. */
+  | BetRefusal
   | { ok: true; betId: string; bet: number; balance: number };
 
 /** Takes a bet from a member and puts it on the table `gameId`. */
