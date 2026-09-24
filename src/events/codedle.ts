@@ -13,7 +13,7 @@ import { CONFIG } from '../config.js';
 import { CODE, CODE_LENGTH, TEXT } from '../constants/index.js';
 import { replyPrivately } from '../discord/reply.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { parseGuess, rollCode, ruledOut, scoreGuess, type Mark } from '../lib/events/code.js';
+import { parseGuess, rollCode, scoreGuess, type Mark } from '../lib/events/code.js';
 import { fmt, mention } from '../lib/format.js';
 import { payShares } from '../services/events.js';
 import { chargeIntoVault, getVaultPool, refundFromVault, takeFromVault, vaultCost } from '../services/vault.js';
@@ -24,8 +24,9 @@ import { LiveMessage, showResult } from './vault-game.js';
  * Codedle: the vault is locked with a random CODE_LENGTH-digit code, and the first person
  * to guess it wins the prize (the vault pool times events.vault.multiplier). Anyone can guess, as
  * often as they like, through a pop-up; each guess costs events.codedle.guessCost, added to the
- * vault. Every guess is scored Wordle-style on a shared board (lib/events/code.ts), so everyone
- * learns from everyone's guesses. If time runs out the code is revealed and the money stays in
+ * vault. Every guess is scored Wordle-style (lib/events/code.ts), but only the guesser sees their
+ * own guesses and hints (privately, after each guess or with My guesses); the live screen only
+ * counts them. The full board is revealed when the game ends. If time runs out the code is revealed and the money stays in
  * the vault. Like the other vault games it isn't saved to the database: a restart mid-game
  * ends it without a payout, and guess fees already paid stay in the vault.
  */
@@ -43,27 +44,35 @@ export const squares = (marks: readonly Mark[]): string => marks.map((mark) => S
 export function guessRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(CODE.guessId).setLabel(TEXT.codedle.guessButton).setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId(CODE.mineId).setLabel(TEXT.codedle.mineButton).setStyle(ButtonStyle.Secondary),
   );
 }
 
-/** The most recent guesses, oldest first, with a note about any older ones. */
-function boardText(guesses: readonly CodeGuess[]): string {
+/**
+ * The most recent guesses, oldest first, with a note about any older ones. `withNames` adds who
+ * made each guess (the board revealed at the end); a player's own board leaves it out.
+ */
+function boardText(guesses: readonly CodeGuess[], withNames = true): string {
   if (guesses.length === 0) return TEXT.codedle.boardEmpty;
   const shown = guesses.slice(-CODE.boardMax);
-  const lines = shown.map((g) => TEXT.codedle.boardLine(squares(g.marks), g.guess, mention(g.userId)));
+  const lines = shown.map((g) => TEXT.codedle.boardLine(squares(g.marks), g.guess, withNames ? mention(g.userId) : ''));
   const older = guesses.length - shown.length;
   return older > 0 ? [TEXT.codedle.olderGuesses(older), ...lines].join('\n') : lines.join('\n');
 }
 
-/** The live game: the rules, the board and which digits are ruled out. */
+/** One player's own guesses and their hints, shown only to them. */
+export function myBoardText(guesses: readonly CodeGuess[], userId: string): string {
+  const mine = guesses.filter((g) => g.userId === userId);
+  if (mine.length === 0) return TEXT.codedle.mineEmpty;
+  return `${TEXT.codedle.mineTitle(mine.length)}\n${boardText(mine, false)}`;
+}
+
+/** The live game: the rules and how many guesses there have been. The guesses themselves are private. */
 export function codeEmbed(prize: number, guessCost: number, endsAtUnix: number, guesses: readonly CodeGuess[]): BotEmbed {
-  const embed = createEmbed()
+  return createEmbed()
     .setTitle(TEXT.codedle.title)
     .setDescription(TEXT.codedle.description(fmt(prize), CODE_LENGTH, guessCost > 0 ? fmt(guessCost) : '', endsAtUnix))
-    .addFields({ name: TEXT.codedle.boardField, value: boardText(guesses) });
-  const out = ruledOut(guesses);
-  if (out.length > 0) embed.addFields({ name: TEXT.codedle.ruledOutField, value: out.join(' ') });
-  return embed.setFooter({ text: TEXT.codedle.guessCount(guesses.length) });
+    .setFooter({ text: TEXT.codedle.guessCount(guesses.length) });
 }
 
 /** How it ended: cracked by `winner`, or not (the code is revealed either way). */
@@ -162,10 +171,14 @@ async function runCodedle(ctx: EventContext): Promise<void> {
       return replyPrivately(submit, TEXT.codedle.youWon(fmt(prize)));
     }
     live.show(view());
-    return replyPrivately(submit, TEXT.codedle.wrong(squares(marks), guess));
+    return replyPrivately(submit, `${TEXT.codedle.wrong(squares(marks), guess)}\n\n${myBoardText(guesses, userId)}`);
   };
 
   collector.on('collect', (press) => {
+    if (press.customId === CODE.mineId) {
+      void replyPrivately(press, myBoardText(guesses, press.user.id));
+      return;
+    }
     if (press.customId !== CODE.guessId) return;
     handleGuess(press).catch((err) => console.error(`A Codedle guess failed in ${guild.id}:`, err));
   });
@@ -192,7 +205,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
 export const codedle: GameEvent = {
   id: 'codedle',
   label: 'Codedle',
-  description: `The vault is locked with a ${CODE_LENGTH}-digit code. Anyone can guess (for a small fee); every guess shows Wordle-style hints to everyone. The first to crack it takes the prize.`,
+  description: `The vault is locked with a ${CODE_LENGTH}-digit code. Anyone can guess (for a small fee); each guesser sees Wordle-style hints for their own guesses only. The first to crack it takes the prize.`,
   weight: 1,
   run: runCodedle,
 };

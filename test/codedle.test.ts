@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { CODE, CODE_LENGTH, HEIST, SPLIT_STEAL, TEXT, validateConstants } from '../src/constants/index.js';
-import { codeEmbed, codeResultEmbed, codedle, guessRow, squares, type CodeGuess } from '../src/events/codedle.js';
+import { codeEmbed, codeResultEmbed, codedle, guessRow, myBoardText, squares, type CodeGuess } from '../src/events/codedle.js';
 import { GAME_EVENTS, validateEvents } from '../src/events/registry.js';
-import { parseGuess, rollCode, ruledOut, scoreGuess } from '../src/lib/events/code.js';
+import { parseGuess, rollCode, scoreGuess } from '../src/lib/events/code.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
 const data = (embed: { toJSON(): unknown }) =>
@@ -49,16 +49,6 @@ test('score: a digit is never counted more often than the code has it', () => {
   assert.equal(s('12344', '44444'), '⬛⬛⬛🟩🟩');
 });
 
-test('ruled out: only digits that missed and never scored anywhere', () => {
-  const guesses = [
-    { guess: '11111', marks: scoreGuess('10000', '11111') },
-    { guess: '23456', marks: scoreGuess('10000', '23456') },
-  ];
-  // 1 missed four times but hit once, so it is still in play.
-  assert.deepEqual(ruledOut(guesses), ['2', '3', '4', '5', '6']);
-  assert.deepEqual(ruledOut([]), []);
-});
-
 // ---------------------------------------------------------------------------
 // Registry, settings, constants
 // ---------------------------------------------------------------------------
@@ -82,11 +72,12 @@ test('codedle settings: defaults valid, in the Events group, held to their limit
   assert.equal(parseInput(cost, '-1').ok, false);
 });
 
-test('codedle constants pass the startup check, and its button id is unique', () => {
+test('codedle constants pass the startup check, and its button ids are unique', () => {
   validateConstants();
-  const ids = [CODE.guessId, HEIST.joinId, HEIST.escapeId, SPLIT_STEAL.joinId, SPLIT_STEAL.splitId, SPLIT_STEAL.stealId];
+  const ids = [CODE.guessId, CODE.mineId, HEIST.joinId, HEIST.escapeId, SPLIT_STEAL.joinId, SPLIT_STEAL.splitId, SPLIT_STEAL.stealId];
   assert.equal(new Set(ids).size, ids.length);
-  assert.equal((guessRow().toJSON().components[0] as { custom_id: string }).custom_id, CODE.guessId);
+  const buttons = guessRow().toJSON().components as { custom_id: string }[];
+  assert.deepEqual(buttons.map((b) => b.custom_id), [CODE.guessId, CODE.mineId]);
 });
 
 // ---------------------------------------------------------------------------
@@ -95,27 +86,33 @@ test('codedle constants pass the startup check, and its button id is unique', ()
 
 const guess = (userId: string, code: string, g: string): CodeGuess => ({ userId, guess: g, marks: scoreGuess(code, g) });
 
-test('live screen: prize, cost, board with hints, and ruled-out digits', () => {
+test("live screen: prize, cost and a guess count, but nobody's guesses or hints", () => {
   const empty = data(codeEmbed(5000, 10, 1_700_000_000, []));
   assert.equal(empty.title, TEXT.codedle.title);
   assert.match(empty.description ?? '', /5,000/);
   assert.match(empty.description ?? '', /5-digit/);
   assert.match(empty.description ?? '', /<t:1700000000:R>/);
-  assert.equal(empty.fields?.[0]?.value, TEXT.codedle.boardEmpty);
-  assert.equal(empty.fields?.length, 1, 'nothing ruled out yet');
   assert.match(data(codeEmbed(5000, 0, 1, [])).description ?? '', /free/);
 
   const live = data(codeEmbed(5000, 10, 1, [guess('1', '12345', '67890')]));
-  assert.equal(live.fields?.[0]?.value, '⬛⬛⬛⬛⬛ `67890` <@1>');
-  assert.equal(live.fields?.[1]?.value, '0 6 7 8 9');
+  assert.equal(live.fields?.length ?? 0, 0, 'no board on the public screen');
+  assert.doesNotMatch(JSON.stringify(live), /67890/);
   assert.equal(live.footer?.text, TEXT.codedle.guessCount(1));
 });
 
-test('board: only the most recent guesses, with a count of older ones', () => {
+test('my guesses: only the asker\'s own guesses and hints, without names', () => {
+  const guesses = [guess('1', '12345', '67890'), guess('2', '12345', '12399'), guess('1', '12345', '15000')];
+  const mine = myBoardText(guesses, '1');
+  assert.equal(mine, [TEXT.codedle.mineTitle(2), '⬛⬛⬛⬛⬛ `67890`', '🟩🟨⬛⬛⬛ `15000`'].join('\n'));
+  assert.doesNotMatch(mine, /12399|<@/, 'nobody else\'s guesses, and no mentions');
+  assert.equal(myBoardText(guesses, '3'), TEXT.codedle.mineEmpty);
+});
+
+test('my guesses: only the most recent, with a count of older ones', () => {
   const many = Array.from({ length: CODE.boardMax + 3 }, (_, i) => guess('1', '99999', String(i).padStart(5, '0')));
-  const board = data(codeEmbed(1, 0, 1, many)).fields?.[0]?.value ?? '';
-  assert.equal(board.split('\n').length, CODE.boardMax + 1);
-  assert.match(board, /3 older guesses/);
+  const lines = myBoardText(many, '1').split('\n');
+  assert.equal(lines.filter((line) => /`\d{5}`/.test(line)).length, CODE.boardMax);
+  assert.ok(lines.some((line) => /3 older guesses/.test(line)));
 });
 
 test('result: the winner and the code, or the code revealed when nobody got it', () => {
@@ -128,4 +125,6 @@ test('result: the winner and the code, or the code revealed when nobody got it',
   const lost = data(codeResultEmbed('04471', 5000, guesses.slice(0, 1), null));
   assert.equal(lost.title, TEXT.codedle.lockedTitle);
   assert.match(lost.description ?? '', /`04471`/);
+  // Once it's over, the full board is revealed with who guessed what.
+  assert.equal(won.fields?.[0]?.value, '🟨⬛⬛🟨⬛ `12345` <@1>\n🟩🟩🟩🟩🟩 `04471` <@2>');
 });

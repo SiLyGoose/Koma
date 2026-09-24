@@ -44,19 +44,3 @@ export function scoreGuess(code: string, guess: string): Mark[] {
   return marks;
 }
 
-/**
- * Digits the guesses so far prove are nowhere in the code: marked a miss somewhere and never a hit
- * or near anywhere (a miss alone isn't enough, since with repeats a digit can miss in one spot
- * and still be in the code). In order, 0 to 9.
- */
-export function ruledOut(guesses: readonly { guess: string; marks: readonly Mark[] }[]): string[] {
-  const seenMiss = new Set<string>();
-  const found = new Set<string>();
-  for (const { guess, marks } of guesses) {
-    for (let i = 0; i < guess.length; i++) {
-      if (marks[i] === 'miss') seenMiss.add(guess[i] as string);
-      else found.add(guess[i] as string);
-    }
-  }
-  return [...'0123456789'].filter((digit) => seenMiss.has(digit) && !found.has(digit));
-}
