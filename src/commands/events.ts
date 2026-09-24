@@ -18,11 +18,16 @@ async function showStatus(ctx: CommandContext): Promise<void> {
       name: TEXT.events.listField,
       value: joinLimited(eventChances().map(({ event, chance }) => TEXT.events.listLine(event.id, event.label, event.description, formatPercent(chance)))),
     })
-    .setFooter({ text: TEXT.events.usage(ctx.prefix) });
+    .setFooter({ text: isAdmin(ctx.user.id) ? TEXT.events.usage(ctx.prefix) : TEXT.events.footerOthers });
   await ctx.reply({ embeds: [embed] });
 }
 
 async function startNow(ctx: CommandContext): Promise<void> {
+  if (!isAdmin(ctx.user.id)) {
+    await ctx.reply(TEXT.events.adminOnly);
+    return;
+  }
+
   const name = ctx.args.slice(1).join(' ');
   const event = name === '' ? pickEvent() : findEvent(name);
   if (!event) {
@@ -43,17 +48,12 @@ async function startNow(ctx: CommandContext): Promise<void> {
 export const events: Command = {
   name: 'events',
   aliases: ['event'],
-  description: 'Random events: see every event that can happen, or start one now. Bot admin only.',
+  description: 'Random events: see every event that can happen. Only the bot admin can start one.',
   usage: 'events [status | start [event]]',
   slashUsage: 'events status | start',
-  adminOnly: true,
 
+  // Anyone can see the list; only starting an event is admin only (checked in startNow).
   async execute(ctx) {
-    if (!isAdmin(ctx.user.id)) {
-      await ctx.reply(TEXT.events.adminOnly);
-      return;
-    }
-
     const action = ctx.args[0]?.toLowerCase();
     if (action === undefined || action === 'status') await showStatus(ctx);
     else if (action === 'start') await startNow(ctx);

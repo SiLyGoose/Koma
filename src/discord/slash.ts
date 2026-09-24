@@ -169,14 +169,14 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   events: {
-    description: 'Random events: see every event that can happen, or start one now. Bot admin only.',
+    description: 'Random events: see every event that can happen. Only the bot admin can start one.',
     build: (b) =>
       void b
         .addSubcommand((s) => s.setName('status').setDescription('See every event that can happen'))
         .addSubcommand((s) =>
           s
             .setName('start')
-            .setDescription('Start an event now, in the dedicated channel')
+            .setDescription('Start an event now, in the dedicated channel (bot admin only)')
             .addStringOption((o) =>
               o
                 .setName('event')

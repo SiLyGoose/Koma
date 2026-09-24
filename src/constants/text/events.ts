@@ -1,5 +1,7 @@
 export const eventsText = {
-  adminOnly: 'Only the bot admin can use this command.',
+  adminOnly: 'Only the bot admin can start an event.',
+  /** The list's footer for everyone but the admin, who gets the usage hint instead. */
+  footerOthers: 'Only the bot admin can start an event.',
   usage: (p: string) => `Use \`${p}events\` to see every random event that can happen, or \`${p}events start [event]\` to start one now.`,
   statusTitle: 'Random events',
   listField: 'Events',

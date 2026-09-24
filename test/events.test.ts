@@ -414,17 +414,31 @@ function fakeContext(userId: string, args: string[]): { ctx: CommandContext; rep
   return { ctx, replies };
 }
 
-test('event command: registered, admin only, and its names do not clash', () => {
+test('event command: registered, open to everyone (so help and slash show it), and its names do not clash', () => {
   assert.ok(commands.includes(eventCommand));
-  assert.equal(eventCommand.adminOnly, true);
+  assert.ok(!eventCommand.adminOnly);
   assert.equal(eventCommand.name, 'events');
   assert.ok(eventCommand.aliases?.includes('event'), 'the old name still works');
   const names = commands.flatMap((c) => [c.name, ...(c.aliases ?? [])]);
   assert.equal(new Set(names).size, names.length);
 });
 
-test('event command: a member who is not the bot admin is turned away from every action', async () => {
-  for (const args of [[], ['status'], ['list'], ['start'], ['start', 'crate'], ['channel', '<#123456789012345678>'], ['channel', 'off'], ['nonsense']]) {
+test('event command: anyone can see the list; the admin gets the usage hint as its footer, everyone else is told only the admin can start one', async () => {
+  const footer = (reply: unknown) => (reply as { embeds: { data: { footer?: { text: string } } }[] }).embeds[0]?.data.footer?.text;
+  for (const args of [[], ['status']]) {
+    let { ctx, replies } = fakeContext('42', args);
+    await eventCommand.execute(ctx);
+    assert.equal(replies.length, 1, args.join(' '));
+    assert.equal(footer(replies[0]), TEXT.events.footerOthers, args.join(' '));
+
+    ({ ctx, replies } = fakeContext(ADMIN_USER_ID, args));
+    await eventCommand.execute(ctx);
+    assert.equal(footer(replies[0]), TEXT.events.usage('k!'), args.join(' '));
+  }
+});
+
+test('event command: a member who is not the bot admin cannot start an event', async () => {
+  for (const args of [['start'], ['start', 'crate'], ['START', 'crate']]) {
     const { ctx, replies } = fakeContext('42', args);
     await eventCommand.execute(ctx);
     assert.deepEqual(replies, [TEXT.events.adminOnly], args.join(' '));
