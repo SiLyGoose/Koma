@@ -3,7 +3,7 @@ import { definePerk } from './define.js';
 /**
  * Sid the Sloth, protection half: much better protection from robbers, paid for with slower
  * cooldowns (sloth-cooldown.ts). An item that should be a sloth lists both perks. Stacks with
- * robDefense; used in rob-formulas.ts robSuccessChance.
+ * robDefense.
  */
 export const slothDefense = definePerk({
   description:
@@ -12,4 +12,5 @@ export const slothDefense = definePerk({
   min: 0,
   max: 1,
   text: (value) => `Sloth: -${value} chance of being robbed`,
+  modifies: { robChance: { whose: 'target', add: (s) => -s } },
 });

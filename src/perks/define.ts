@@ -1,5 +1,6 @@
 import type { Settings } from '../config.js';
 import type { Stars } from '../types.js';
+import type { StatId, StatModifier } from './stats.js';
 
 /**
  * The shape every perk file exports (see perks/index.ts for how to add one).
@@ -23,6 +24,13 @@ export interface PerkDef {
    * line is more than "text at N%" (STONKS!'s hour-by-hour curve). Used instead of `text` when set.
    */
   line?: (strength: number, settings: Settings) => string;
+  /**
+   * The numbers this perk changes, and how (see stats.ts for the list and how they are worked
+   * out). A perk that only changes numbers needs no other code: every claim, rob and pull picks
+   * it up. A perk that is its own mechanic (the wheel, the D20, STONKS!'s clock) can still list the
+   * numbers it changes here (like its chance), but the mechanic itself is called where it happens.
+   */
+  modifies?: Partial<Record<StatId, StatModifier>>;
 }
 
 /** Declares a perk. Only checks the shape; the perk is returned unchanged. */

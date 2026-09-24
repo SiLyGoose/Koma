@@ -1,7 +1,6 @@
 import { CURRENCY_EMOJI } from '../constants/index.js';
 import { claimTaxAmount } from './claim-tax.js';
-import { clamp, definePerk } from './define.js';
-import type { EffectTotals } from './index.js';
+import { definePerk } from './define.js';
 
 /** Yowch, My Coins! (Frog): after a successful rob, the victim's next successful rob is taxed and paid to the wearer. */
 export const robTax = definePerk({
@@ -10,12 +9,8 @@ export const robTax = definePerk({
   min: 0,
   max: 1,
   text: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
+  modifies: { robTaxRate: { add: (s) => s } },
 });
-
-/** The share (0 to 1) of the victim's next successful rob that a successful robber's gear taxes. */
-export function robTaxRate(robber: EffectTotals): number {
-  return clamp(robber.robTax, 0, 1);
-}
 
 /** Points taken from a rob that stole `amount` by a tax of `rate`. Never more than the rob. */
 export function robTaxAmount(amount: number, rate: number): number {

@@ -3,7 +3,7 @@ import { definePerk } from './define.js';
 
 /**
  * Coughing Baby and Frog: a weaker rob, paired with a tax on something the victim does next
- * (claim-tax.ts for the baby, rob-tax.ts for the frog). Used in rob-formulas.ts robStolenAmount.
+ * (claim-tax.ts for the baby, rob-tax.ts for the frog).
  */
 export const robAmountCut = definePerk({
   description: `Percent cut from the ${CURRENCY_EMOJI} the wearer steals on a successful rob (25% means 75% of the amount).`,
@@ -11,4 +11,5 @@ export const robAmountCut = definePerk({
   min: 0,
   max: MAX_REDUCTION,
   text: (value) => `-${value} ${CURRENCY_EMOJI} stolen`,
+  modifies: { robStolen: { factor: (s) => 1 - Math.min(s, MAX_REDUCTION) } },
 });

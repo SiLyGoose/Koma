@@ -1,6 +1,5 @@
 import { CURRENCY_EMOJI } from '../constants/index.js';
 import { definePerk } from './define.js';
-import type { EffectTotals } from './index.js';
 
 /** Economy: more points from the hourly claim. */
 export const claimBonus = definePerk({
@@ -9,9 +8,5 @@ export const claimBonus = definePerk({
   min: 0,
   max: 10,
   text: (value) => `+${value} ${CURRENCY_EMOJI} from hourly claims`,
+  modifies: { claimAmount: { factor: (s) => 1 + s } },
 });
-
-/** Points from an hourly claim, after the claim bonus. */
-export function claimAmount(rolled: number, gear: EffectTotals): number {
-  return Math.round(rolled * (1 + gear.claimBonus));
-}

@@ -1,6 +1,5 @@
 import { CURRENCY_EMOJI } from '../../constants/index.js';
-import { clamp, definePerk } from '../define.js';
-import type { EffectTotals } from '../index.js';
+import { definePerk } from '../define.js';
 import { WHEEL_SLICES } from './slices.js';
 
 /*
@@ -19,9 +18,5 @@ export const wheelSpin = definePerk({
   max: 1,
   text: (value) =>
     `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel, multiplying the ${CURRENCY_EMOJI} by ${Math.min(...WHEEL_SLICES)}x to ${Math.max(...WHEEL_SLICES)}x`,
+  modifies: { wheelChance: { add: (s) => s } },
 });
-
-/** The chance (0 to 1) that a claim or successful rob by this gear spins the wheel. */
-export function wheelChance(gear: EffectTotals): number {
-  return clamp(gear.wheelSpin, 0, 1);
-}

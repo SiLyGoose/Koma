@@ -4,7 +4,7 @@ import { definePerk } from './define.js';
 /**
  * Glass cannon, reward half: the wearer steals much more, but pays much more when caught
  * (glass-cannon-penalty.ts). An item that should be a glass cannon lists both perks. Stacks with
- * robAmount; used in rob-formulas.ts robStolenAmount.
+ * robAmount.
  */
 export const glassCannon = definePerk({
   description: `Glass cannon, reward: extra ${CURRENCY_EMOJI} the wearer steals on a successful rob, as a percent of the amount rolled (100% is 2x). Stacks with robAmount.`,
@@ -12,4 +12,5 @@ export const glassCannon = definePerk({
   min: 0,
   max: 5,
   text: (value) => `Glass cannon: +${value} ${CURRENCY_EMOJI} stolen`,
+  modifies: { robStolen: { factor: (s) => 1 + s } },
 });

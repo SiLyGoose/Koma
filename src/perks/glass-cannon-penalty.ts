@@ -1,6 +1,6 @@
 import { definePerk } from './define.js';
 
-/** Glass cannon, risk half (see glass-cannon.ts). Used in rob-formulas.ts robFine. */
+/** Glass cannon, risk half (see glass-cannon.ts). */
 export const glassCannonPenalty = definePerk({
   description:
     'Glass cannon, risk: extra fine the wearer pays when caught robbing, as a percent of the normal fine (150% is 2.5x).',
@@ -8,4 +8,5 @@ export const glassCannonPenalty = definePerk({
   min: 0,
   max: 10,
   text: (value) => `Glass cannon: +${value} fine when caught`,
+  modifies: { robFine: { factor: (s) => 1 + s } },
 });

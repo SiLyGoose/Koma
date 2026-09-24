@@ -1,6 +1,5 @@
 import { MAX_REDUCTION } from '../constants/index.js';
 import { definePerk } from './define.js';
-import type { EffectTotals } from './index.js';
 
 /** Economy: gacha pulls cost less. */
 export const pullDiscount = definePerk({
@@ -9,9 +8,5 @@ export const pullDiscount = definePerk({
   min: 0,
   max: MAX_REDUCTION,
   text: (value) => `-${value} gacha pull cost`,
+  modifies: { pullCost: { factor: (s) => 1 - Math.min(s, MAX_REDUCTION) } },
 });
-
-/** Cost of a gacha pull, after the discount. Never below 1. */
-export function pullCost(base: number, gear: EffectTotals): number {
-  return Math.max(1, Math.round(base * (1 - Math.min(gear.pullDiscount, MAX_REDUCTION))));
-}

@@ -1,5 +1,4 @@
 import { definePerk } from './define.js';
-import type { EffectTotals } from './index.js';
 
 /** Sid the Sloth, cost half: the wearer's rob and claim cooldowns are longer (see sloth-defense.ts). */
 export const slothCooldown = definePerk({
@@ -9,17 +8,6 @@ export const slothCooldown = definePerk({
   min: 0,
   max: 10,
   text: (value) => `Sloth: +${value} rob and claim cooldowns`,
+  // Never shorter than normal, whatever the setting says.
+  modifies: { cooldownScale: { add: (s) => Math.max(0, s) } },
 });
-
-/** How many times longer the wearer's rob cooldown is (1 with no sloth gear, 2 at +100%). */
-export function robCooldownScale(gear: Pick<EffectTotals, 'slothCooldown'>): number {
-  return 1 + Math.max(0, gear.slothCooldown);
-}
-
-/**
- * How many clock hours the wearer waits between claims. The claim resets on the hour, so the
- * extra wait is counted in whole hours: 1 normally, 2 at +100% (every second hour). Never below 1.
- */
-export function claimGapHours(gear: Pick<EffectTotals, 'slothCooldown'>): number {
-  return Math.max(1, Math.round(robCooldownScale(gear)));
-}

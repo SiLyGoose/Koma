@@ -1,7 +1,7 @@
 import { formatMultiplier, formatPercent } from '../lib/format.js';
 import { definePerk } from './define.js';
 import type { EffectTotals } from './index.js';
-import { claimGapHours } from './sloth-cooldown.js';
+import { claimGapHours } from './stats.js';
 
 /*
  * STONKS!'s perk: no roll, no chance, just time. 1x through the wearer's earliest possible reclaim
@@ -21,8 +21,12 @@ function smoothstep(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/** How long, with no gear stretching it, a member waits between claims -- the curve's own "hour 1". */
-const BASE_CLAIM_GAP_HOURS = claimGapHours({ slothCooldown: 0 });
+/**
+ * How long, with no gear stretching it, a member waits between claims -- the curve's own "hour 1".
+ * A function, not a value worked out at load: the perk registry (which the stats need) loads this
+ * file before it is ready.
+ */
+const baseClaimGapHours = (): number => claimGapHours({});
 
 /**
  * The claim multiplier from STONKS!: 1x up through the member's earliest possible reclaim (gear
@@ -47,7 +51,7 @@ export function stonksMultiplier(hoursUnclaimed: number, gear: EffectTotals, cap
  * A handful of points along STONKS!'s curve, for its own gear-card line (the numbers a player
  * actually sees, in multiplier form, not the raw "added percent" strength): at most 5 evenly
  * spaced hour marks, always ending exactly at `capHours` hours after the earliest a claim could be
- * ready (BASE_CLAIM_GAP_HOURS -- this is the item's own generic description, not tied to any one
+ * ready (baseClaimGapHours() -- this is the item's own generic description, not tied to any one
  * member's gear, so it assumes no sloth-style gear stretching that wait). Empty when there's
  * nothing to climb (`strength` 0 or less) or `capHours` isn't positive.
  */
@@ -57,7 +61,7 @@ export function stonksCurvePoints(strength: number, capHours: number): { hours: 
   const count = Math.min(5, Math.max(1, Math.round(capHours)));
   return Array.from({ length: count }, (_, i) => {
     const t = (i + 1) / count;
-    return { hours: BASE_CLAIM_GAP_HOURS + t * capHours, multiplier: 1 + (cap - 1) * smoothstep(t) };
+    return { hours: baseClaimGapHours() + t * capHours, multiplier: 1 + (cap - 1) * smoothstep(t) };
   });
 }
 

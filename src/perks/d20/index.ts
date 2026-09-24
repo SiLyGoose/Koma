@@ -1,5 +1,4 @@
-import { clamp, definePerk } from '../define.js';
-import type { EffectTotals } from '../index.js';
+import { definePerk } from '../define.js';
 
 /*
  * The D20's perk: when the wearer claims, the die may roll and change the claim. The die itself is
@@ -17,9 +16,5 @@ export const d20 = definePerk({
   max: 1,
   text: (value) =>
     `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
+  modifies: { d20Chance: { add: (s) => s } },
 });
-
-/** The chance (0 to 1) that a claim by this gear rolls the D20. */
-export function d20Chance(gear: EffectTotals): number {
-  return clamp(gear.d20, 0, 1);
-}
