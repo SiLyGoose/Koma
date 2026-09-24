@@ -1,5 +1,5 @@
 import { D20 } from '../../constants.js';
-import { randomUnit } from '../random.js';
+import { randomUnit } from '../../lib/random.js';
 
 /*
  * The D20 item's die, as pure functions. The roll decides everything (see D20 in constants.ts):

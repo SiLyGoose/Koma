@@ -1,7 +1,7 @@
 import { TEXT, WHEEL_ANIMATION, WHEEL_IMAGE_NAME } from '../constants.js';
-import { WHEEL_SLICES } from '../data/wheel.js';
+import { WHEEL_SLICES } from '../perks/index.js';
 import type { BotEmbed } from '../lib/embed.js';
-import type { WheelSpin } from '../lib/game/wheel.js';
+import type { WheelSpin } from '../perks/index.js';
 import { renderSpinningWheel, renderWheel, spinTurns } from './images/wheel-image.js';
 import { playAnimation, stepsFor } from './play.js';
 import type { CommandContext, ReplyOptions } from '../discord/types.js';

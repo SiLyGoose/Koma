@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { EFFECT_TEXT } from '../src/constants.js';
-import { EFFECTS, emptyTotals } from '../src/data/effects.js';
+import { claimGapHours, EFFECTS, emptyTotals, robCooldownScale, robSuccessChance } from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { describeEffects } from '../src/lib/game/equipment.js';
-import { claimGapHours, robCooldownScale, robSuccessChance } from '../src/lib/game/perks.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 
 const gear = (over: Partial<ReturnType<typeof emptyTotals>>) => ({ ...emptyTotals(), ...over });
@@ -46,8 +44,8 @@ test('sloth effects: normal per-star settings, 4 stars doubling the cooldowns an
   assert.ok(findSpec('equipment.slothDefense.4'));
   assert.ok(findSpec('equipment.slothCooldown.4'));
   assert.deepEqual(validateSettings(CONFIG), []);
-  assert.match(EFFECT_TEXT.slothDefense('40%'), /40%/);
-  assert.match(EFFECT_TEXT.slothCooldown('100%'), /100%/);
+  assert.match(EFFECTS.slothDefense.text('40%'), /40%/);
+  assert.match(EFFECTS.slothCooldown.text('100%'), /100%/);
 });
 
 test('Sid the Sloth: wears the two sloth effects and lists them with their strengths', () => {

@@ -1,6 +1,4 @@
-import type { EffectId } from './data/effects.js';
 import type { Slot, Stars } from './types.js';
-import { WHEEL_SLICES } from './data/wheel.js';
 
 /*
  * Every fixed value and every piece of text the bot sends, in one place, so you can change
@@ -10,7 +8,7 @@ import { WHEEL_SLICES } from './data/wheel.js';
  *   - The settings you change while the bot runs (prefix, embed color, claim range, pull cost,
  *     rob numbers, gear strength...). Those live in MongoDB; their starting values are DEFAULTS
  *     in config.ts, and `k!config` edits them.
- *   - The item catalog (data/items.ts) and the effect registry (data/effects.ts).
+ *   - The item catalog (data/items.ts) and the perk registry (perks/index.ts). Each perk's gear-card line lives in its own perk file.
  *   - Database names (collections, the settings document id, ledger reasons). They are stored
  *     data: renaming one makes the bot stop seeing what it saved under the old name.
  *   - Command names, aliases and help descriptions. They stay on each command.
@@ -83,7 +81,7 @@ export const MAX_PITY = 1000;
  */
 export const PITY_STARS: Stars = 4;
 
-/** Most slices the prize wheel (data/wheel.ts) may have, so the picture stays readable. */
+/** Most slices the prize wheel (perks/wheel-spin/slices.ts) may have, so the picture stays readable. */
 export const MAX_WHEEL_SLICES = 16;
 
 /** Largest multiplier a wheel slice may have. */
@@ -291,33 +289,6 @@ export const PERCENT_DECIMALS = 2;
 
 export const SUCCESS_TITLES: readonly string[] = ['IT\'S A STICKUP!', 'THEY\'VE BEEN SLIMED!', 'EMPTY THY POCKETS WANKAH'];
 export const FAILURE_TITLES: readonly string[] = ['L+Ratio', 'Your XP was too low', 'You\'re washed..'];
-
-// ---------------------------------------------------------------------------
-// Gear lines: how each effect reads on an item or in the gear summary. `value` is the
-// strength, like "10%". Every effect in data/effects.ts needs a line here.
-// ---------------------------------------------------------------------------
-
-export const EFFECT_TEXT: Record<EffectId, (value: string) => string> = {
-  robChance: (value) => `+${value} rob success chance`,
-  robAmount: (value) => `+${value} ${CURRENCY_EMOJI} stolen`,
-  robDefense: (value) => `-${value} chance of being robbed`,
-  robShield: (value) => `-${value} ${CURRENCY_EMOJI} lost when robbed`,
-  fineReduction: (value) => `-${value} fine when caught`,
-  robAmountCut: (value) => `-${value} ${CURRENCY_EMOJI} stolen`,
-  claimTax: (value) => `Wither: members you rob lose ${value} of their next claim to you`,
-  robTax: (value) => `Yowch, My Coins! You get ${value} of the next rob by members you rob`,
-  wheelSpin: (value) =>
-    `Wheel of Fortune: ${value} of your claims and successful robs spin the wheel, multiplying the ${CURRENCY_EMOJI} by ${Math.min(...WHEEL_SLICES)}x to ${Math.max(...WHEEL_SLICES)}x`,
-  d20: (value) =>
-    `High Roller: ${value} of your claims roll a D20. A 1 pays nothing, 2 to 19 pays the roll divided by 10 (a 7 is 0.7x), and a 20 pays double and lets you claim again this hour`,
-  stackosaurus: (value) => `Stackosaurus: your claim multiplier climbs the longer you go without claiming, up to +${value}`,
-  slothDefense: (value) => `Sloth: -${value} chance of being robbed`,
-  slothCooldown: (value) => `Sloth: +${value} rob and claim cooldowns`,
-  glassCannon: (value) => `Glass cannon: +${value} ${CURRENCY_EMOJI} stolen`,
-  glassCannonPenalty: (value) => `Glass cannon: +${value} fine when caught`,
-  claimBonus: (value) => `+${value} ${CURRENCY_EMOJI} from hourly claims`,
-  pullDiscount: (value) => `-${value} gacha pull cost`,
-};
 
 /** What each gear slot is called on the gear card. */
 export const SLOT_LABELS: Record<Slot, string> = {

@@ -2,18 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../config.js';
 import { MINUTE_MS, MULTI_PULLS, ROB_LOCK } from '../constants.js';
 import { collections } from '../db.js';
-import { emptyTotals } from '../data/effects.js';
-import { applyD20, rollD20, rollD20Dice, type D20Dice, type D20Roll } from '../lib/game/d20.js';
 import { groupCopies, newCopyId, type InventoryEntry } from '../lib/game/copies.js';
 import { gearEffects } from '../lib/game/equipment.js';
 import { rollPulls, topChance } from '../lib/game/gacha.js';
 import {
+  applyD20,
   applyStonks,
+  applyWheel,
   claimAmount,
   claimGapHours,
   claimTaxAmount,
   claimTaxRate,
   d20Chance,
+  emptyTotals,
   pullCost,
   robCooldownScale,
   robFine,
@@ -21,13 +22,19 @@ import {
   robSuccessChance,
   robTaxAmount,
   robTaxRate,
+  rollD20,
+  rollD20Dice,
+  rollWheelDice,
+  spinWheel,
   stonksMultiplier,
   wheelChance,
-} from '../lib/game/perks.js';
+  type D20Dice,
+  type D20Roll,
+  type WheelSpin,
+} from '../perks/index.js';
 import { checkBet, payoutFor, rollPath, slotMultiplier, slotOf } from '../lib/game/plinko.js';
 import { chance, randInt } from '../lib/random.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
-import { applyWheel, rollWheelDice, spinWheel, type WheelSpin } from '../lib/game/wheel.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, MemberDoc } from '../types.js';
 import { resolveGear } from './gear.js';
 import { addVaultLoss } from './vault.js';

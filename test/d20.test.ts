@@ -5,15 +5,22 @@ import type { Message } from 'discord.js';
 import { CONFIG } from '../src/config.js';
 import { messageContext } from '../src/discord/context.js';
 import { replyWithDice } from '../src/animations/dice-reply.js';
-import { D20, D20_ANIMATION, EFFECT_TEXT, TEXT, validateConstants } from '../src/constants.js';
-import { emptyTotals } from '../src/data/effects.js';
+import { D20, D20_ANIMATION, TEXT, validateConstants } from '../src/constants.js';
+import {
+  applyD20,
+  d20Chance,
+  d20Kind,
+  d20Multiplier,
+  EFFECTS,
+  emptyTotals,
+  rollD20,
+  type D20Dice,
+} from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { applyD20, d20Kind, d20Multiplier, rollD20, type D20Dice } from '../src/lib/game/d20.js';
 import { d20Color, dieFrames, renderD20 } from '../src/animations/images/d20-image.js';
 import { createEmbed } from '../src/lib/embed.js';
 import { describeEffects } from '../src/lib/game/equipment.js';
 import { crc32 } from '../src/animations/images/png.js';
-import { d20Chance } from '../src/lib/game/perks.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 
 const dice = (trigger: number, face: number): D20Dice => ({ trigger, face });
@@ -118,7 +125,7 @@ test('d20 item: wearing it lists what the die does, with the chance', () => {
   const lines = describeEffects(item);
   assert.equal(lines.length, 1);
   assert.match(lines[0] as string, /100% of your claims roll a D20/);
-  assert.match(EFFECT_TEXT.d20('40%'), /40% of your claims roll a D20/);
+  assert.match(EFFECTS.d20.text('40%'), /40% of your claims roll a D20/);
 });
 
 test('d20 constants: the startup check refuses settings that would break the die', () => {

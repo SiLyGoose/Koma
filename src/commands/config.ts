@@ -1,7 +1,7 @@
 import { CONFIG, isAdmin, STARS } from '../config.js';
 import { CONFIG_BUTTONS, TEXT } from '../constants.js';
 import { createEmbed } from '../lib/embed.js';
-import { EFFECT_IDS } from '../data/effects.js';
+import { EFFECT_IDS } from '../perks/index.js';
 import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
 import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg } from '../lib/parse.js';

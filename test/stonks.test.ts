@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { EFFECT_TEXT, MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants.js';
-import { emptyTotals } from '../src/data/effects.js';
+import { MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants.js';
+import { applyStonks, EFFECTS, emptyTotals, stonksCurvePoints, stonksMultiplier } from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { formatMultiplier, signed } from '../src/lib/format.js';
-import { applyStonks, stonksCurvePoints, stonksMultiplier } from '../src/lib/game/perks.js';
 import { describeEffects } from '../src/lib/game/equipment.js';
 import { findSpec, parseInput } from '../src/lib/settings-spec.js';
 
@@ -144,7 +143,7 @@ test('stonks item: STONKS! is a 4-star unique treasure exclusive to one member, 
   const lines = describeEffects(item);
   assert.equal(lines.length, 1);
   assert.match(lines[0] as string, /claim multiplier/);
-  assert.match(EFFECT_TEXT.stackosaurus('+10x'), /climbs the longer you go without claiming.*\+10x/);
+  assert.match(EFFECTS.stackosaurus.text('+10x'), /climbs the longer you go without claiming.*\+10x/);
 });
 
 test('stonks item: its gear-card line names the effect "Stackosaurus" and spells out the curve in multipliers by hour, live off the settings', () => {

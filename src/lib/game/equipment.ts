@@ -1,10 +1,9 @@
 import { CONFIG } from '../../config.js';
-import { ADMIN_USER_ID, EFFECT_TEXT } from '../../constants.js';
-import { EFFECT_IDS, emptyTotals, type EffectId, type EffectTotals } from '../../data/effects.js';
+import { ADMIN_USER_ID } from '../../constants.js';
+import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals, type PerkDef } from '../../perks/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../types.js';
-import { formatMultiplier, formatPercent } from '../format.js';
-import { stonksCurvePoints } from './perks.js';
+import { formatPercent } from '../format.js';
 
 /** How strong an effect is on an item of the given star tier, from the live settings. */
 export function effectStrength(effect: EffectId, stars: Stars): number {
@@ -58,21 +57,12 @@ export function gearEffects(equipment: GearIds | null | undefined, userId: strin
 }
 
 /**
- * STONKS!'s own line, in the multiplier form a player actually sees (not the raw "added percent"
- * strength every other effect's text is built from): at most 5 hour marks along its curve, read
- * live off `CONFIG.stonks.capHours` so the line always matches what the effect really does.
+ * The gear-card text for one perk at this strength: the perk's own `line` when it has one (like
+ * STONKS!'s hour-by-hour curve), otherwise its plain text at the formatted strength ("+10% ...").
  */
-function stackosaurusLine(strength: number): string {
-  const points = stonksCurvePoints(strength, CONFIG.stonks.capHours);
-  if (points.length === 0) return EFFECT_TEXT.stackosaurus(formatPercent(strength));
-  const parts = points.map(({ hours, multiplier }) => `${formatMultiplier(multiplier)} at ${Number(hours.toFixed(1))}h`);
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : (parts[0] as string);
-  return `Stackosaurus: your claim multiplier starts at 1x once your claim is ready and climbs the longer you wait after that, reaching ${list} (the cap).`;
-}
-
-/** The gear-card text for one effect at this strength: STONKS!'s own hour-by-hour line, or the registry's plain "+N%" text. */
 function effectLine(effect: EffectId, strength: number): string {
-  return effect === 'stackosaurus' ? stackosaurusLine(strength) : EFFECT_TEXT[effect](formatPercent(strength));
+  const perk: PerkDef = EFFECTS[effect];
+  return perk.line ? perk.line(strength, CONFIG) : perk.text(formatPercent(strength));
 }
 
 /** One readable line per effect on an item, like "+10% rob success chance". */

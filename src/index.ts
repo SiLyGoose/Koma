@@ -5,7 +5,7 @@ import { slashCommandData } from './discord/slash.js';
 import { validateConfig } from './config.js';
 import { SETTINGS_REFRESH_MS, validateConstants } from './constants.js';
 import { validateItems } from './data/items.js';
-import { validateWheel } from './data/wheel.js';
+import { validateWheel } from './perks/index.js';
 import { closeDb, connectDb } from './db.js';
 import { validateEvents } from './events/registry.js';
 import { resumeOpenEvents } from './events/runner.js';

@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import {
   ADMIN_USER_ID,
   CURRENCY_EMOJI,
-  EFFECT_TEXT,
   FAILURE_TITLES,
   HOUR_MS,
   MINUTE_MS,
@@ -13,7 +12,7 @@ import {
   TEXT,
   validateConstants,
 } from '../src/constants.js';
-import { EFFECT_IDS } from '../src/data/effects.js';
+import { EFFECT_IDS, EFFECTS } from '../src/perks/index.js';
 import { isAdmin } from '../src/config.js';
 import { formatPercent, fmt, joinLimited, mentionList, money, starString } from '../src/lib/format.js';
 import { pickRandom } from '../src/lib/random.js';
@@ -43,7 +42,7 @@ test('pickRandom only returns items from the list, and eventually returns each o
 });
 
 test('every effect has a gear line, and every slot has a label', () => {
-  for (const id of EFFECT_IDS) assert.match(EFFECT_TEXT[id]('10%'), /10%/, `${id} should show its strength`);
+  for (const id of EFFECT_IDS) assert.match(EFFECTS[id].text('10%'), /10%/, `${id} should show its strength`);
   for (const slot of SLOTS) assert.ok(SLOT_LABELS[slot].length > 0);
 });
 

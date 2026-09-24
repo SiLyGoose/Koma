@@ -6,14 +6,19 @@ import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
 import { replyWithWheel, spinSteps } from '../src/animations/wheel-reply.js';
 import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, validateConstants } from '../src/constants.js';
-import { emptyTotals } from '../src/data/effects.js';
+import {
+  applyWheel,
+  emptyTotals,
+  spinWheel,
+  validateWheel,
+  WHEEL_SLICES,
+  wheelChance,
+  type WheelDice,
+} from '../src/perks/index.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { WHEEL_SLICES, validateWheel } from '../src/data/wheel.js';
 import { describeEffects } from '../src/lib/game/equipment.js';
 import { formatMultiplier } from '../src/lib/format.js';
 import { crc32, encodePng } from '../src/animations/images/png.js';
-import { wheelChance } from '../src/lib/game/perks.js';
-import { applyWheel, spinWheel, type WheelDice } from '../src/lib/game/wheel.js';
 import { landingTurn, renderSpinningWheel, renderWheel, sliceColor, spinTurns } from '../src/animations/images/wheel-image.js';
 import type { ItemDef } from '../src/types.js';
 

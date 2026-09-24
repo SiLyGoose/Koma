@@ -1,5 +1,5 @@
-import { WHEEL_SLICES } from '../../data/wheel.js';
-import { randomUnit } from '../random.js';
+import { WHEEL_SLICES } from './slices.js';
+import { randomUnit } from '../../lib/random.js';
 
 /** The result of one spin of the wheel. */
 export interface WheelSpin {

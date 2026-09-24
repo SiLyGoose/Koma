@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { D20 } from '../../constants.js';
-import { d20Multiplier } from '../../lib/game/d20.js';
+import { d20Multiplier } from '../../perks/index.js';
 import { drawText } from './pixel-font.js';
 import { encodePng } from './png.js';
 import { luminance, shrink, type Rgb } from './raster.js';

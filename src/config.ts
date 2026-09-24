@@ -1,5 +1,5 @@
 import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS } from './constants.js';
-import { defaultEquipmentSettings, type EquipmentSettings } from './data/effects.js';
+import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
 import type { Stars } from './types.js';
@@ -123,7 +123,7 @@ export interface Settings {
     };
   };
   /**
-   * STONKS!'s claim multiplier curve (lib/game/perks.ts stonksMultiplier). The multiplier's cap
+   * STONKS!'s claim multiplier curve (perks/stackosaurus.ts stonksMultiplier). The multiplier's cap
    * is the stackosaurus effect's own strength (equipment.stackosaurus.<stars>); this is the shape
    * of the climb to it.
    */

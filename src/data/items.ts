@@ -1,4 +1,4 @@
-import { EFFECTS } from './effects.js';
+import { EFFECTS } from '../perks/index.js';
 import { SLOTS, STARS } from '../types.js';
 import type { ItemDef, Stars } from '../types.js';
 

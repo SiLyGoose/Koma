@@ -1,5 +1,5 @@
 import type { ObjectId } from 'mongodb';
-import type { EffectId } from './data/effects.js';
+import type { EffectId } from './perks/index.js';
 
 export type Stars = 1 | 2 | 3 | 4;
 

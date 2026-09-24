@@ -1,21 +1,25 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG, DEFAULTS, STARS, validateConfig } from '../src/config.js';
-import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals } from '../src/data/effects.js';
-import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
-import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants.js';
-import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/game/equipment.js';
 import {
   claimAmount,
   claimTaxAmount,
   claimTaxRate,
+  EFFECT_IDS,
+  EFFECTS,
+  emptyTotals,
   pullCost,
   robFine,
   robStolenAmount,
   robSuccessChance,
   robTaxAmount,
   robTaxRate,
-} from '../src/lib/game/perks.js';
+  type EffectId,
+  type EffectTotals,
+} from '../src/perks/index.js';
+import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
+import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/game/equipment.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import type { ItemDef, Stars } from '../src/types.js';
 
@@ -258,7 +262,7 @@ test('glass cannon: the reward and the risk are separate multipliers that stack 
   // Only the robber's gear counts: wearing it as the victim changes nothing.
   assert.equal(robStolenAmount(200, none, cannon), 200);
 
-  // The 4-star numbers are balance settings (see data/effects.ts) that get retuned, so this does not pin them: the item just gets whatever they are.
+  // The 4-star numbers are balance settings (see perks/) that get retuned, so this does not pin them: the item just gets whatever they are.
   const c4: ItemDef = { id: 'test-c4', name: 'Test C4', stars: 4, slot: 'weapon', description: '', effects: ['glassCannon', 'glassCannonPenalty'] };
   const totals = totalEffects([c4]);
   assert.equal(totals.glassCannon, CONFIG.equipment.glassCannon[4]);

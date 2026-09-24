@@ -1,0 +1,33 @@
+import type { Settings } from '../config.js';
+import type { Stars } from '../types.js';
+
+/**
+ * The shape every perk file exports (see perks/index.ts for how to add one).
+ *
+ * How strong a perk is depends only on the item's star tier, and those numbers live in the
+ * settings as `equipment.<perk id>.<stars>` (for example `equipment.robChance.2`). `defaults` are
+ * just the starting values. Strengths are fractions: 0.1 means 10%.
+ */
+export interface PerkDef {
+  /** What the setting does. Shown in the settings list. */
+  description: string;
+  /** Starting values for each star tier (fractions: 0.1 means 10%). */
+  defaults: Record<Stars, number>;
+  /** Limits for the setting, as fractions. */
+  min: number;
+  max: number;
+  /** The perk's line on the gear card. `value` is its strength already formatted, like "10%". */
+  text: (value: string) => string;
+  /**
+   * Optional: a gear-card line built from the raw strength and the live settings, for a perk whose
+   * line is more than "text at N%" (STONKS!'s hour-by-hour curve). Used instead of `text` when set.
+   */
+  line?: (strength: number, settings: Settings) => string;
+}
+
+/** Declares a perk. Only checks the shape; the perk is returned unchanged. */
+export function definePerk<T extends PerkDef>(perk: T): T {
+  return perk;
+}
+
+export const clamp = (n: number, low: number, high: number): number => Math.min(high, Math.max(low, n));
