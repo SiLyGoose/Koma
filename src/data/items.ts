@@ -128,10 +128,15 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'A baby. It is a baby.',
     effects: ['robAmountCut', 'claimTax'],
   },
-  // {
-  //   // Simon
-  //   id: ''
-  // }
+  {
+    id: 'zeiu-placeholder-item',
+    name: 'Zeiu Placeholder Item',
+    stars: 4,
+    usableBy: ['257214680823627777'], // Simon
+    slot: 'treasure',
+    description: 'Placeholder',
+    effects: [],
+  },
   {
     id: 'd20',
     name: 'D20',
@@ -149,6 +154,15 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'treasure',
     description: 'Patience is a virtue.',
     effects: ['stackosaurus'],
+  },
+  {
+    id: 'chaewon-photocard',
+    name: 'Chaewon Photocard',
+    stars: 4,
+    usableBy: ['391017642208526348'], // Allen
+    slot: 'treasure',
+    description: 'Placeholder',
+    effects: [],
   }
 ];
 
