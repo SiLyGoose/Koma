@@ -123,6 +123,12 @@ export interface Settings {
       /** What everyone still inside when the alarm goes off pays, added to the vault. */
       fine: number;
     };
+    codedle: {
+      /** How long the crew has to crack the code, in seconds. */
+      seconds: number;
+      /** What each guess costs, added to the vault. 0 makes guessing free. */
+      guessCost: number;
+    };
     splitSteal: {
       /** Fewest people who have to join for the game to be played. */
       minPlayers: number;
@@ -183,7 +189,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
   // a round (about a 3% chance of lasting all 10), and anyone caught pays 50. Split or Steal needs 2+
-  // players, with a minute to join and 30 seconds to choose.
+  // players, with a minute to join and 30 seconds to choose. Codedle gives 5 minutes to guess a
+  // 5-digit code, at 10 points a guess (added to the vault).
   events: {
     minMinutes: 120,
     maxMinutes: 360,
@@ -191,6 +198,7 @@ export const DEFAULTS: Readonly<Settings> = {
     vault: { multiplier: 10 },
     heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
+    codedle: { seconds: 300, guessCost: 10 },
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve

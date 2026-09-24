@@ -7,7 +7,7 @@ import type { Command } from '../discord/types.js';
 
 /**
  * How much is in this server's vault: everything lost to gambling and caught robbers' fines so
- * far, and what the next vault game (Greedy Heist, Split or Steal) would put up.
+ * far, and what the next vault game would put up.
  */
 export const vault: Command = {
   name: 'vault',

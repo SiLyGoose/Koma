@@ -2,7 +2,7 @@ import { MAX_BLACKJACK_NATURAL, MAX_BLACKJACK_SECONDS, BLACKJACK } from './black
 import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
-import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL } from './events.js';
+import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
@@ -104,6 +104,7 @@ export function validateConstants(): void {
   for (const [name, game] of [
     ['HEIST', HEIST],
     ['SPLIT_STEAL', SPLIT_STEAL],
+    ['CODE', { refreshMs: CODE.refreshMs, listMax: CODE.boardMax }],
   ] as const) {
     if (!(game.refreshMs >= 1000)) problems.push(`${name}.refreshMs must be at least 1000 (Discord limits message edits)`);
     if (!(Number.isInteger(game.listMax) && game.listMax >= 1 && game.listMax <= 50)) problems.push(`${name}.listMax must be a whole number from 1 to 50`);
@@ -127,6 +128,7 @@ export function validateConstants(): void {
     ['MAX_CRATE_SECONDS', MAX_CRATE_SECONDS],
     ['MAX_EVENT_SECONDS', MAX_EVENT_SECONDS],
     ['MAX_HEIST_ROUNDS', MAX_HEIST_ROUNDS],
+    ['CODE_LENGTH', CODE_LENGTH],
     ['MAX_VAULT_MULTIPLIER', MAX_VAULT_MULTIPLIER],
     ['MAX_STONKS_HOURS', MAX_STONKS_HOURS],
     ['DATABANK_ITEMS_PER_PAGE', DATABANK_ITEMS_PER_PAGE],
@@ -134,6 +136,9 @@ export function validateConstants(): void {
   ] as const) {
     if (!Number.isInteger(value) || value < 1) problems.push(`${name} must be a whole number of at least 1`);
   }
+
+  if (!(CODE_LENGTH >= 1 && CODE_LENGTH <= 10)) problems.push('CODE_LENGTH must be from 1 to 10 (the pop-up box and the board have to fit it)');
+  if (!(CODE.modalMs >= 10_000 && CODE.modalMs <= 900_000)) problems.push('CODE.modalMs must be from 10000 to 900000 (Discord drops a pop-up after 15 minutes)');
 
   if (problems.length > 0) throw new Error(`Invalid constants (src/constants/): ${problems.join('; ')}`);
 }

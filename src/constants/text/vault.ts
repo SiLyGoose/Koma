@@ -9,5 +9,5 @@ export const vaultText = {
   commandTitle: 'Vault',
   /** `pool` is what's been lost so far, `prize` is that times the multiplier: what the next vault game would put up. */
   commandInfo: (pool: string, prize: string, multiplier: string) =>
-    `${boldMoney(pool)} lost so far. The next vault game (Greedy Heist or Split or Steal) would put up ${boldMoney(prize)} (${multiplier}).`,
+    `${boldMoney(pool)} lost so far. The next vault game would put up ${boldMoney(prize)} (${multiplier}).`,
 };

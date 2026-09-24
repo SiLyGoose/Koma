@@ -22,6 +22,7 @@ import { crateText } from './crate.js';
 import { vaultText } from './vault.js';
 import { heistText } from './heist.js';
 import { splitStealText } from './split-steal.js';
+import { codedleText } from './codedle.js';
 import { giveText } from './give.js';
 import { configText } from './config.js';
 
@@ -59,6 +60,7 @@ export const TEXT = {
   vault: vaultText,
   heist: heistText,
   splitSteal: splitStealText,
+  codedle: codedleText,
   give: giveText,
   config: configText,
 };

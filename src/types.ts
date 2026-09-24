@@ -185,7 +185,10 @@ export type LedgerReason =
   | 'vault_fine'
   | 'heist_loot'
   | 'heist_fine'
-  | 'split_steal';
+  | 'split_steal'
+  | 'code_guess'
+  | 'code_refund'
+  | 'code_prize';
 
 /**
  * A bet on a blackjack table that has not been settled yet. The points were taken from the member

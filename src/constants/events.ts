@@ -38,5 +38,15 @@ export const MAX_HEIST_ROUNDS = 20;
  */
 export const HEIST = { joinId: 'heist_join', escapeId: 'heist_escape', refreshMs: 1_500, listMax: 15 } as const;
 
+/** How many digits Codedle's code has. */
+export const CODE_LENGTH = 5;
+
+/**
+ * Codedle's button, pop-up and screen. `inputId` is the pop-up's text box. `modalMs` is how
+ * long a player has to type their guess after pressing Guess. `boardMax` is how many recent
+ * guesses the screen shows. `refreshMs` as HEIST's.
+ */
+export const CODE = { guessId: 'code_guess', inputId: 'code', modalMs: 120_000, boardMax: 10, refreshMs: 1_500 } as const;
+
 /** Split or Steal's buttons and screen, like HEIST's. */
 export const SPLIT_STEAL = { joinId: 'ss_join', splitId: 'ss_split', stealId: 'ss_steal', refreshMs: 3_000, listMax: 15 } as const;

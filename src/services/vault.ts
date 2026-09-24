@@ -118,3 +118,26 @@ export async function fineIntoVault(guildId: string, userIds: readonly string[],
   }
   return results;
 }
+
+/**
+ * Takes `amount` from a member for something that feeds the vault (a Codedle guess), in
+ * one conditional update: only if they have that much. Returns false (and takes nothing) if they
+ * don't. What's taken is recorded in the ledger and added to the vault pool.
+ */
+export async function chargeIntoVault(guildId: string, userId: string, amount: number, reason: 'code_guess'): Promise<boolean> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) return true;
+  await ensureMember(guildId, userId);
+  const charged = await collections().members.findOneAndUpdate({ guildId, userId, points: { $gte: amount } }, { $inc: { points: -amount } });
+  if (!charged) return false;
+  await recordLedger([{ guildId, userId, delta: -amount, reason }]);
+  await addVaultLoss(guildId, amount);
+  return true;
+}
+
+/** Undoes chargeIntoVault: gives `amount` back and takes it back out of the vault pool. */
+export async function refundFromVault(guildId: string, userId: string, amount: number, reason: 'code_refund'): Promise<void> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) return;
+  await collections().members.updateOne({ guildId, userId }, { $inc: { points: amount } });
+  await recordLedger([{ guildId, userId, delta: amount, reason }]);
+  await takeFromVault(guildId, amount);
+}
