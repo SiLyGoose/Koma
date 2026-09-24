@@ -11,6 +11,8 @@ import { validateEvents } from './events/registry.js';
 import { resumeOpenEvents } from './events/runner.js';
 import { startEventScheduler } from './events/scheduler.js';
 import { requireEnv } from './env.js';
+import { prepareShootingStars } from './animations/gacha-reply.js';
+import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
 import { migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
@@ -97,6 +99,9 @@ async function main(): Promise<void> {
 
     // Points that were on a blackjack table when the bot last stopped are given back.
     stopBetSweeper = startBetSweeper();
+
+    // The gacha's shooting stars take a moment to draw, so draw them now rather than on the first pulls.
+    prepareShootingStars(STARS);
 
     // Tell Discord which slash commands exist. This replaces the whole list every start, so a
     // command removed from the code disappears from Discord too. A failure here only costs the

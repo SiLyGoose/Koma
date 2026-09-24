@@ -4,7 +4,7 @@ import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_VAULT_SECONDS, MAX_VAULT_MULTIPLIER, VAULT } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS } from './formatting.js';
-import { MULTI_PULLS, MAX_PITY } from './gacha.js';
+import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
@@ -42,6 +42,18 @@ export function validateConstants(): void {
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');
   if (MULTI_PULLS < 2 || MULTI_PULLS > 30) problems.push('MULTI_PULLS must be from 2 to 30');
+  if (!(Number.isInteger(GACHA_ANIMATION.frames) && GACHA_ANIMATION.frames >= 2 && GACHA_ANIMATION.frames <= 120)) {
+    problems.push('GACHA_ANIMATION.frames must be a whole number from 2 to 120');
+  }
+  if (!(Number.isInteger(GACHA_ANIMATION.flashFrames) && GACHA_ANIMATION.flashFrames >= 1 && GACHA_ANIMATION.flashFrames <= 30)) {
+    problems.push('GACHA_ANIMATION.flashFrames must be a whole number from 1 to 30');
+  }
+  if (!(GACHA_ANIMATION.frameMs >= 20)) problems.push('GACHA_ANIMATION.frameMs must be at least 20 (GIF counts in hundredths of a second)');
+  if (!(GACHA_ANIMATION.igniteAt > 0 && GACHA_ANIMATION.igniteAt < 1)) problems.push('GACHA_ANIMATION.igniteAt must be between 0 and 1');
+  if (!(GACHA_ANIMATION.holdMs >= 0)) problems.push('GACHA_ANIMATION.holdMs cannot be negative');
+  for (const [stars, color] of Object.entries(STAR_COLORS)) {
+    if (!/^#[0-9a-f]{6}$/i.test(color)) problems.push(`STAR_COLORS[${stars}] must be a colour like #ff4a5a`);
+  }
   if (!(SLASH_DEFER_AFTER_MS >= 500 && SLASH_DEFER_AFTER_MS < 3000)) {
     problems.push('SLASH_DEFER_AFTER_MS must be from 500 to under 3000 (Discord fails a command that is not answered in 3 seconds)');
   }

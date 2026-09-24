@@ -30,8 +30,8 @@ export interface AnimationPlan {
   imageName: string;
   /** Draws picture `step` (0 up to but not including `steps`) of the spin. */
   frame(step: number): Buffer;
-  /** Draws the finished picture that goes with the result. */
-  finish(): Buffer;
+  /** Draws the finished picture that goes with the result; without one the result has no picture. */
+  finish?(): Buffer;
 }
 
 /**
@@ -98,7 +98,6 @@ export async function playFrames(
   spinning: BotEmbed,
   options: { components?: EditOptions['components']; onEditFailed: (files: { attachment: Buffer; name: string }[]) => Promise<void> },
 ): Promise<void> {
-  const imageUrl = `attachment://${plan.imageName}`;
   const file = (png: Buffer): { attachment: Buffer; name: string } => ({ attachment: png, name: plan.imageName });
   const { steps, frameMs } = plan;
   const start = Date.now();
@@ -115,11 +114,13 @@ export async function playFrames(
     console.error('The animation stopped early:', err);
   }
 
-  // The spin has stopped: swap in the real result with the finished picture.
+  // The spin has stopped: swap in the real result with the finished picture, if there is one.
   let files: { attachment: Buffer; name: string }[] = [];
   try {
-    files = [file(plan.finish())];
-    embed.setImage(imageUrl);
+    if (plan.finish) {
+      files = [file(plan.finish())];
+      embed.setImage(`attachment://${plan.imageName}`);
+    }
   } catch (err) {
     console.error('Could not draw the finished picture:', err);
   }

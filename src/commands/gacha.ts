@@ -5,6 +5,8 @@ import { fmt, mentionList, money, starString } from '../lib/format.js';
 import { STARS } from '../config.js';
 import { pullGacha, pullMulti } from '../services/economy/index.js';
 import type { Command, CommandContext } from '../discord/types.js';
+import { replyWithShootingStar } from '../animations/gacha-reply.js';
+import type { Stars } from '../types.js';
 
 export const gacha: Command = {
   name: 'gacha',
@@ -60,7 +62,7 @@ export const gacha: Command = {
     //     inline: true,
     //   });
     // }
-    await ctx.reply({ embeds: [embed] });
+    await replyWithShootingStar(ctx, embed, item.stars, 'single');
   },
 };
 
@@ -112,5 +114,7 @@ async function multiPull(ctx: CommandContext): Promise<void> {
     )
     .setFooter({ text: newCount > 0 ? TEXT.gacha.multiFooterNew(newCount) : TEXT.gacha.multiFooterNoneNew })
     .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
-  await ctx.reply({ embeds: [embed] });
+  // The shooting star takes the colour of the best item pulled.
+  const best = Math.max(...result.pulls.map((pull) => pull.item.stars)) as Stars;
+  await replyWithShootingStar(ctx, embed, best, 'multi');
 }

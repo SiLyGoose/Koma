@@ -11,6 +11,9 @@ export const gachaText = {
   /** Added under the description when the pulled item is exclusive to other members. `owners` is mentions. */
   exclusive: (owners: string) => `Only ${owners} can use this one.`,
   author: (name: string) => `${name} pulled`,
+  /** The message the shooting star plays in, before the result. */
+  pullingTitle: 'A star is falling...',
+  pulling: (user: string) => `${user} makes a wish...`,
   spentField: 'Spent',
   spent: (cost: string) => `${cost} ${CURRENCY_EMOJI}`,
   spentWithGear: (cost: string, saved: string) => `${cost} ${CURRENCY_EMOJI} (gear saved ${saved} ${CURRENCY_EMOJI})`,
