@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 Claude outputs
+CLAUDE.md
+.claude
+graphify-out
