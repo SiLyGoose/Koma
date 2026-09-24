@@ -29,7 +29,7 @@ export const GACHA_ANIMATION_NAME = 'shooting-star.gif';
  * ((frames + flashFrames) x frameMs + holdMs in all). One GIF plays smoothly without editing the
  * message, so `frameMs` can be short; keep it at 20 or more (GIF counts in hundredths of a second).
  */
-export const GACHA_ANIMATION = { frames: 50, flashFrames: 8, frameMs: 60, igniteAt: 0.35, holdMs: 500 };
+export const GACHA_ANIMATION = { frames: 50, flashFrames: 4, frameMs: 60, igniteAt: 0.4, holdMs: 500 };
 
 /** The shooting star's colour for each star tier of the best item pulled (#rrggbb). */
 export const STAR_COLORS: Readonly<Record<Stars, string>> = {

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 /*
  * Reading the bot's own GIFs back in tests: a plain GIF89a decoder written from the spec, apart
  * from the encoder in src/animations/images/gif.ts, so a mistake in one isn't hidden by the other.
- * It only understands what the encoder writes (a global palette, full-screen frames, no interlace).
+ * It only understands what the encoder writes (a global palette, no interlace), and draws each
+ * frame over the one before (disposal 1), as a viewer does, so `frames` are the full pictures seen.
  */
 
 export interface ReadGif {
@@ -11,7 +12,8 @@ export interface ReadGif {
   height: number;
   /** How many times it plays: 1 when there is no NETSCAPE2.0 block, 0 for forever. */
   plays: number;
-  frames: { delayMs: number; rgb: Uint8Array }[];
+  /** Each picture as seen (drawn over the one before), and the rectangle the file stored for it. */
+  frames: { delayMs: number; rgb: Uint8Array; stored: { left: number; top: number; width: number; height: number } }[];
 }
 
 function unlzw(data: Uint8Array, minCodeSize: number, pixels: number): Uint8Array {
@@ -77,13 +79,20 @@ export function readGif(gif: Uint8Array): ReadGif {
   let at = 13 + paletteSize * 3;
   let plays = 1;
   let delayMs = 0;
+  let transparent: number | null = null;
   const frames: ReadGif['frames'] = [];
+  let screen = new Uint8Array(width * height * 3);
   for (;;) {
     const kind = bytes[at++];
     if (kind === 0x3b) break;
     if (kind === 0x21) {
       const label = bytes[at++];
-      if (label === 0xf9) delayMs = bytes.readUInt16LE(at + 2) * 10;
+      if (label === 0xf9) {
+        const flags = bytes[at + 1] as number;
+        assert.equal((flags >> 2) & 7, 1, 'disposal 1: frames are drawn over the one before');
+        delayMs = bytes.readUInt16LE(at + 2) * 10;
+        transparent = flags & 1 ? (bytes[at + 4] as number) : null;
+      }
       if (label === 0xff && bytes.subarray(at + 1, at + 12).toString('ascii') === 'NETSCAPE2.0') {
         const repeats = bytes.readUInt16LE(at + 14);
         plays = repeats === 0 ? 0 : repeats + 1;
@@ -93,8 +102,12 @@ export function readGif(gif: Uint8Array): ReadGif {
       continue;
     }
     assert.equal(kind, 0x2c, `unexpected block 0x${kind?.toString(16)}`);
-    assert.equal(bytes.readUInt16LE(at + 4), width, 'frame covers the whole width');
-    assert.equal(bytes.readUInt16LE(at + 6), height, 'frame covers the whole height');
+    const left = bytes.readUInt16LE(at);
+    const top = bytes.readUInt16LE(at + 2);
+    const w = bytes.readUInt16LE(at + 4);
+    const h = bytes.readUInt16LE(at + 6);
+    assert.ok(w > 0 && h > 0 && left + w <= width && top + h <= height, 'frame fits on the screen');
+    if (frames.length === 0) assert.deepEqual([left, top, w, h], [0, 0, width, height], 'the first frame covers the whole screen');
     assert.equal(bytes[at + 8], 0, 'no local palette, no interlace');
     at += 9;
     const minCodeSize = bytes[at++] as number;
@@ -105,10 +118,17 @@ export function readGif(gif: Uint8Array): ReadGif {
       at += size + 1;
     }
     at++;
-    const indices = unlzw(Buffer.concat(parts), minCodeSize, width * height);
-    const rgb = new Uint8Array(width * height * 3);
-    for (let p = 0; p < indices.length; p++) rgb.set(palette.subarray((indices[p] as number) * 3, (indices[p] as number) * 3 + 3), p * 3);
-    frames.push({ delayMs, rgb });
+    const indices = unlzw(Buffer.concat(parts), minCodeSize, w * h);
+    const rgb = screen.slice();
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const index = indices[y * w + x] as number;
+        if (index === transparent) continue;
+        rgb.set(palette.subarray(index * 3, index * 3 + 3), ((top + y) * width + left + x) * 3);
+      }
+    }
+    screen = rgb;
+    frames.push({ delayMs, rgb, stored: { left, top, width: w, height: h } });
   }
   return { width, height, plays, frames };
 }

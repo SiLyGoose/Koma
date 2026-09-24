@@ -6,6 +6,11 @@
  * across the whole animation so a still background doesn't flicker between frames. The palette is
  * picked by median cut (split the colour space where the most pixels are), and an ordered dither
  * spreads the rounding over neighbouring pixels so soft glows don't turn into visible bands.
+ *
+ * After the first frame, each frame only stores what changed: the smallest rectangle around the
+ * pixels that differ from the frame before, with the unchanged pixels inside it left transparent
+ * so they show the frame underneath. A still background then costs almost nothing after the
+ * first frame, and the file (which every viewer has to download before it plays) stays small.
  * https://www.w3.org/Graphics/GIF/spec-gif89a.txt
  */
 
@@ -24,6 +29,10 @@ export interface GifOptions {
 
 /** 4 by 4 ordered-dither thresholds, 0 to 15. */
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+/** Palette entries for colours; the last of the 256 is kept for "unchanged" (transparent). */
+const COLORS = 255;
+const TRANSPARENT = 255;
 
 /** Colours are sorted into 32 levels a channel (15 bits in all) before the palette is picked. */
 const BITS = 5;
@@ -91,7 +100,7 @@ function medianCut(counts: Uint32Array, sums: Float64Array): { palette: Uint8Arr
   for (let bin = 0; bin < counts.length; bin++) if ((counts[bin] as number) > 0) used.push(bin);
 
   const boxes: number[][] = [used];
-  while (boxes.length < 256) {
+  while (boxes.length < COLORS) {
     // Split the box with the most pixels among those that still have more than one bin.
     let pick = -1;
     let most = 0;
@@ -257,16 +266,52 @@ export function encodeGif(width: number, height: number, frames: readonly GifFra
   // Looping: the NETSCAPE2.0 block counts repeats after the first play; leaving it out plays once.
   if (plays !== 1) push(0x21, 0xff, 11, ...Buffer.from('NETSCAPE2.0', 'ascii'), 3, 1, ...u16(Math.max(0, plays - 1)), 0);
 
+  let previous: Uint8Array | null = null;
   for (let f = 0; f < frames.length; f++) {
     const frame = frames[f] as GifFrame;
     const frameBins = bins[f] as Uint16Array;
     const indices = new Uint8Array(width * height);
     for (let p = 0; p < indices.length; p++) indices[p] = lookup[frameBins[p] as number] as number;
-    // Graphic control: each frame replaces the last (disposal 1), delay in hundredths of a second.
-    push(0x21, 0xf9, 4, 0x04, ...u16(Math.max(2, Math.round(frame.delayMs / 10))), 0, 0);
-    // The frame covers the whole screen and uses the global palette.
-    push(0x2c, ...u16(0), ...u16(0), ...u16(width), ...u16(height), 0);
-    lzw(indices, bytes);
+
+    // The rectangle that changed since the last frame (all of the first frame).
+    let left = 0;
+    let top = 0;
+    let right = width - 1;
+    let bottom = height - 1;
+    if (previous) {
+      left = width;
+      top = height;
+      right = -1;
+      bottom = -1;
+      for (let y = 0, p = 0; y < height; y++) {
+        for (let x = 0; x < width; x++, p++) {
+          if (indices[p] === previous[p]) continue;
+          if (x < left) left = x;
+          if (x > right) right = x;
+          if (y < top) top = y;
+          bottom = y;
+        }
+      }
+      // Nothing changed: a single unchanged pixel still carries the frame's delay.
+      if (right < 0) left = right = top = bottom = 0;
+    }
+    const w = right - left + 1;
+    const h = bottom - top + 1;
+    const part = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = (top + y) * width + left + x;
+        part[y * w + x] = previous && indices[p] === previous[p] ? TRANSPARENT : (indices[p] as number);
+      }
+    }
+    previous = indices;
+
+    // Graphic control: each frame is drawn over the last (disposal 1), its unchanged pixels
+    // transparent (after the first), delay in hundredths of a second.
+    push(0x21, 0xf9, 4, f === 0 ? 0x04 : 0x05, ...u16(Math.max(2, Math.round(frame.delayMs / 10))), f === 0 ? 0 : TRANSPARENT, 0);
+    // Where the frame goes on the screen; it uses the global palette.
+    push(0x2c, ...u16(left), ...u16(top), ...u16(w), ...u16(h), 0);
+    lzw(part, bytes);
   }
   push(0x3b);
   return bytes.toBuffer();
