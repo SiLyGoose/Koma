@@ -109,6 +109,11 @@ export interface MemberDoc {
    */
   pity?: number;
   /**
+   * Set when this member's last pity-tier item (unique treasure) was someone else's: their next
+   * one is guaranteed to be one of their own. Cleared when they get their own. Missing means false.
+   */
+  guaranteed?: boolean;
+  /**
    * The clock hour (see lastClaimHour) in which this member has one more claim to make, earned by a
    * critical success on the D20. It only counts while it equals the current hour, and the claim that
    * uses it clears it. Missing or null means none.
@@ -210,14 +215,19 @@ export interface LedgerDoc {
 }
 
 /**
- * One document per server for the random events (src/events). `_id` is the server's id. Settings
- * that are the same everywhere (how often, how big) are in SettingsDoc instead; this holds what
- * differs between servers.
+ * One document per server: the one channel it confines the bot to (services/channel.ts), and its
+ * state for the random events (src/events). `_id` is the server's id. Settings that are the same
+ * everywhere (how often, how big) are in SettingsDoc instead; this holds what differs between servers.
  */
 export interface GuildDoc {
   _id: string;
-  /** The channel events happen in. Missing or null means events are off in this server. */
-  eventChannelId?: string | null;
+  /**
+   * The one channel commands (message or slash) are confined to in this server, and where random
+   * events spawn. Missing or null means there's no restriction, and events are off. Used to be
+   * called `eventChannelId`, from when it only chose where events happened; renamed once commands
+   * became confined to it too (see services/migrate.ts's field-rename step).
+   */
+  channelId?: string | null;
   /** When the next event is due. Missing or null means one has not been scheduled yet. */
   nextEventAt?: Date | null;
   /** When the last event started. */

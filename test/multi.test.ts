@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CURRENCY_EMOJI, MULTI_PULLS, TEXT, validateConstants } from '../src/constants.js';
-import { rollPulls } from '../src/lib/game/gacha.js';
+import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/gacha.js';
+import { itemsByStars } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
 
 const item = (stars: Stars): ItemDef => ({ id: `t${stars}`, name: `Test ${stars}`, stars, slot: 'weapon', description: '', effects: [] });
@@ -64,4 +65,43 @@ test('multi: the messages', () => {
   assert.equal(TEXT.gacha.multiTier('★', 9), '★ x9');
   assert.equal(TEXT.gacha.multiFooterNew(1), '1 new item!');
   assert.equal(TEXT.gacha.multiFooterNew(3), '3 new items!');
+});
+
+// Helen's own treasure is the Frog; C4 is someone else's.
+const HELEN = '262072810422140929';
+const NOBODY = '1';
+const treasure = (id: string): ItemDef => itemsByStars(4).find((i) => i.id === id) as ItemDef;
+
+test('guarantee: ownTreasures lists the treasures made for the member', () => {
+  assert.deepEqual(ownTreasures(HELEN).map((i) => i.id), ['frog']);
+  assert.deepEqual(ownTreasures(NOBODY), []);
+});
+
+test('guarantee: a treasure made for someone else sets it, your own clears it, and it never sets for a member with no treasure', () => {
+  assert.equal(nextGuarantee(HELEN, treasure('c4')), true);
+  assert.equal(nextGuarantee(HELEN, treasure('frog')), false);
+  assert.equal(nextGuarantee(NOBODY, treasure('c4')), false);
+});
+
+test('guarantee: carried through a multi pull, and only lower tiers leave it alone', () => {
+  const seen: boolean[] = [];
+  const order = [item(1), treasure('c4'), item(2), treasure('frog'), item(3), treasure('c4')];
+  const { items, guaranteed, counter } = rollPulls(0, order.length, true, (_n, g) => {
+    seen.push(g);
+    return order[seen.length - 1] as ItemDef;
+  }, { userId: HELEN, guaranteed: false });
+  assert.equal(items.length, 6);
+  // Set after the C4, cleared after the Frog, set again after the last C4.
+  assert.deepEqual(seen, [false, false, true, true, false, false]);
+  assert.equal(guaranteed, true);
+  assert.equal(counter, 0);
+});
+
+test('guarantee: a guaranteed treasure pull always gives the member their own treasure', () => {
+  // Pull 90 is hard pity with the default settings, so it is always a treasure.
+  for (let i = 0; i < 200; i++) assert.equal(rollItem(90, HELEN, true).id, 'frog');
+  // Without the guarantee every treasure can come up.
+  const ids = new Set<string>();
+  for (let i = 0; i < 2000; i++) ids.add(rollItem(90, HELEN, false).id);
+  assert.equal(ids.size, itemsByStars(4).length);
 });

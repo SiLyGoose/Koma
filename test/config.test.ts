@@ -150,3 +150,21 @@ test('config: a word that matches no group and no action is still an unknown act
   const [reply] = await ask('zzzznotagroup');
   assert.equal(reply?.content, TEXT.config.unknownAction('k!'));
 });
+
+test('config: the General page shows the per-server channel setting (services/channel.ts, not a real SettingSpec)', async () => {
+  // fakeMessage() has no real guild, so getChannelId's database read fails -- config.ts catches
+  // that and shows the channel as unset instead of crashing the whole listing over one field.
+  const [reply] = await ask();
+  assert.equal(reply?.fields[0]?.name, 'General');
+  assert.match(reply?.fields[0]?.value ?? '', /`channel`: \*\*None\*\*$/);
+});
+
+test('config: set/reset channel is turned away for a non-admin, the same as every other setting, before touching the database', async () => {
+  for (const words of [
+    ['set', 'channel', '<#123456789012345678>'],
+    ['reset', 'channel'],
+  ]) {
+    const [reply] = await ask(...words);
+    assert.equal(reply?.content, TEXT.config.adminOnly, words.join(' '));
+  }
+});

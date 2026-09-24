@@ -79,6 +79,7 @@ export async function ensureMember(guildId: string, userId: string): Promise<voi
           lastRobbedAt: null,
           totalPulls: 0,
           pity: 0,
+          guaranteed: false,
           createdAt: new Date(),
         },
       },
@@ -462,19 +463,29 @@ async function pullMany(guildId: string, userId: string, times: number): Promise
 
   // Roll every pull in order, counting pity as we go.
   const counted = pityOn ? (debited.pity ?? times) : 0; // the counter after paying, counting all of these pulls
-  const { items: rolled, counter } = rollPulls(counted - times, times, pityOn);
+  // The guarantee: after someone else's treasure, the member's next treasure is their own.
+  const wasGuaranteed = debited.guaranteed ?? false;
+  const { items: rolled, counter, guaranteed } = rollPulls(counted - times, times, pityOn, undefined, {
+    userId,
+    guaranteed: wasGuaranteed,
+  });
   // The payment counted every pull; take back what the resets undo. Subtracting (instead of
   // setting the counter) keeps any pull that was counted at the same moment.
   const pityReset = pityOn ? counter - counted : 0;
 
   // What these pulls have added to the pity counter so far, so a failure can undo exactly that.
   let pityChange = pityOn ? times : 0;
+  let guaranteeChanged = false;
   const pulls: PulledItem[] = [];
   const addedIds: string[] = [];
   try {
     if (pityReset !== 0) {
       await members.updateOne({ guildId, userId }, { $inc: { pity: pityReset } });
       pityChange += pityReset;
+    }
+    if (guaranteed !== wasGuaranteed) {
+      await members.updateOne({ guildId, userId }, { $set: { guaranteed } });
+      guaranteeChanged = true;
     }
     for (const item of rolled) {
       const owned = await addCopy(guildId, userId, item.id);
@@ -492,7 +503,10 @@ async function pullMany(guildId: string, userId: string, times: number): Promise
     }
     await members.updateOne(
       { guildId, userId },
-      { $inc: { points: total, totalPulls: -times, ...(pityChange !== 0 ? { pity: -pityChange } : {}) } },
+      {
+        $inc: { points: total, totalPulls: -times, ...(pityChange !== 0 ? { pity: -pityChange } : {}) },
+        ...(guaranteeChanged ? { $set: { guaranteed: wasGuaranteed } } : {}),
+      },
     );
     throw err;
   }
