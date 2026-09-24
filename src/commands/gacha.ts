@@ -3,7 +3,7 @@ import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
 import { fmt, mentionList, money, starString } from '../lib/format.js';
 import { STARS } from '../config.js';
-import { pullGacha, pullMulti } from '../services/economy.js';
+import { pullGacha, pullMulti } from '../services/economy/index.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
 export const gacha: Command = {

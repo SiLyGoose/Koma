@@ -18,7 +18,7 @@ import { fmt } from '../lib/format.js';
 import { allBet, parseBetText, parseBlackjackArgs, payoutRatio } from '../lib/game/blackjack.js';
 import { buttonPlan } from '../lib/game/plinko.js';
 import { placeBet, refundBet, type PlaceBetResult } from '../services/blackjack.js';
-import { getBalance } from '../services/economy.js';
+import { getBalance } from '../services/economy/index.js';
 import { loadProfile } from '../discord/profile.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { enterTable, leaveTable, openingMessage, playRound, startHeartbeat, type TablePlayer } from '../animations/blackjack-round.js';

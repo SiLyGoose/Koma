@@ -1,6 +1,6 @@
 import { collections } from '../db.js';
 import type { LedgerDoc } from '../types.js';
-import { ensureMember } from './economy.js';
+import { ensureMember } from './economy/index.js';
 
 /*
  * The vault pool: a running total of points lost to gambling (a losing plinko drop, a lost

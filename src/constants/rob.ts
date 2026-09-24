@@ -6,7 +6,7 @@
  */
 
 /**
- * The lock taken on a victim while a rob on them runs (see `rob` in services/economy.ts), so two
+ * The lock taken on a victim while a rob on them runs (see services/economy/rob.ts), so two
  * robbers can't act on the same victim at the same moment. A second robber waits for it: every
  * `retryMs` they look again, for at most `attempts` looks, then are told to try again. `holdMs` is
  * how long a lock lasts if the bot stops before it is released; a rob takes well under a second.

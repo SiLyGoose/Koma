@@ -4,7 +4,7 @@ import { BLACKJACK } from '../constants/index.js';
 import { collections } from '../db.js';
 import { checkBet } from '../lib/game/plinko.js';
 import type { BlackjackBetDoc, LedgerDoc } from '../types.js';
-import { ensureMember } from './economy.js';
+import { ensureMember } from './economy/index.js';
 
 /*
  * The points side of blackjack. A table can last minutes, so nothing is ever left to memory:

@@ -3,7 +3,7 @@ import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, joinLimited, money, starString } from '../lib/format.js';
 import { parseSellArgs } from '../lib/game/sell.js';
-import { getInventory } from '../services/economy.js';
+import { getInventory } from '../services/economy/index.js';
 import { planSale, sellCopies, type SalePlan, type SaleResult, type SellTarget } from '../services/sell.js';
 import type { ItemDef } from '../types.js';
 import { CONFIRM_TIMEOUT_MS, askToConfirm } from '../discord/confirm.js';

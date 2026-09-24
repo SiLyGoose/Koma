@@ -3,7 +3,7 @@ import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
-import { getInventory } from '../services/economy.js';
+import { getInventory } from '../services/economy/index.js';
 import { getEquipment } from '../services/equipment.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';

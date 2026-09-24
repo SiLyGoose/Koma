@@ -1,7 +1,7 @@
 import type { OpenCrateDoc, OpenVaultDoc } from '../types.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
-import { ensureMember } from './economy.js';
+import { ensureMember } from './economy/index.js';
 
 /*
  * The database side of the random events: when each server's next event is due, and handing out

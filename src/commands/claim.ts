@@ -1,7 +1,7 @@
 import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, money, signed } from '../lib/format.js';
-import { claimHourly } from '../services/economy.js';
+import { claimHourly } from '../services/economy/index.js';
 import { replyWithDice } from '../animations/dice-reply.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
 import type { Command } from '../discord/types.js';

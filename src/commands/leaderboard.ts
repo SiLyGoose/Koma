@@ -2,7 +2,7 @@ import { createEmbed } from '../lib/embed.js';
 import { CONFIG } from '../config.js';
 import { TEXT } from '../constants/index.js';
 import { fmt } from '../lib/format.js';
-import { getLeaderboard } from '../services/economy.js';
+import { getLeaderboard } from '../services/economy/index.js';
 import type { Command } from '../discord/types.js';
 
 export const leaderboard: Command = {

@@ -1,7 +1,7 @@
 import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatPercent } from '../lib/format.js';
-import { getBalance } from '../services/economy.js';
+import { getBalance } from '../services/economy/index.js';
 import { commandPrefix } from '../discord/slash.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';

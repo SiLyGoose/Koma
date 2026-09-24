@@ -3,7 +3,7 @@ import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem, describeEffects } from '../lib/game/equipment.js';
 import { mentionList, starString } from '../lib/format.js';
-import { getInventory } from '../services/economy.js';
+import { getInventory } from '../services/economy/index.js';
 import { equipItem } from '../services/equipment.js';
 import type { ItemDef } from '../types.js';
 import type { Command } from '../discord/types.js';

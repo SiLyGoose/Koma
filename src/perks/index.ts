@@ -33,8 +33,8 @@ import type { Stars } from '../types.js';
  *   2. Add it to EFFECTS below. The key is the perk's id; its settings (equipment.<id>.<stars>),
  *      validation and config listing all come from this automatically.
  *   3. Give it to one or more items in data/items.ts.
- *   4. Call its function from the service where it matters (services/economy.ts for claims,
- *      robs and pulls).
+ *   4. Call its function where it matters: services/economy/claim.ts for claims, rob.ts for
+ *      robs, gacha.ts for pulls.
  * (Strengths are percentages of something; the settings show and accept them as "10%" or 0.1.)
  */
 

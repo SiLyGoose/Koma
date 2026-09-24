@@ -2,7 +2,7 @@ import { FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
-import { rob as robService } from '../services/economy.js';
+import { rob as robService } from '../services/economy/index.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';

@@ -14,7 +14,7 @@ import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { starString } from '../lib/format.js';
 import { GROUPS } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
-import { getInventory } from '../services/economy.js';
+import { getInventory } from '../services/economy/index.js';
 import { getPrefix } from '../services/settings.js';
 import { SLOTS, STARS, type ItemDef } from '../types.js';
 import type { Command, CommandContext } from './types.js';

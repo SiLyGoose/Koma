@@ -5,7 +5,7 @@ import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, money, signed } from '../lib/format.js';
 import { buttonPlan, expectedReturn, parseBetArg, slotMultipliers } from '../lib/game/plinko.js';
 import { renderPlinko } from '../animations/images/plinko-image.js';
-import { getBalance, playPlinko, type PlinkoResult } from '../services/economy.js';
+import { getBalance, playPlinko, type PlinkoResult } from '../services/economy/index.js';
 import { playFrames, type AnimationPlan, type FrameSurface } from '../animations/play.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 
