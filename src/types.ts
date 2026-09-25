@@ -188,7 +188,9 @@ export type LedgerReason =
   | 'split_steal'
   | 'code_guess'
   | 'code_refund'
-  | 'code_prize';
+  | 'code_prize'
+  // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
+  | 'admin_correction';
 
 /**
  * A bet on a blackjack table that has not been settled yet. The points were taken from the member
