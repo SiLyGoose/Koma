@@ -410,11 +410,12 @@ test('komaTokens: the raid pays 10 by default, and pulls show what tokens and po
   // No tokens used: just the points.
   assert.doesNotMatch(spentText({ cost: 2800, baseCost: 2800, tokensUsed: 0 }), /zeiutoken/);
 
-  // The tokens left are always shown under the points, even at 0.
-  assert.match(balanceText({ balance: 1200, tokens: 3 }), /1,200.*\n\*\*3\*\* <:zeiutoken:1552921364489572362>$/);
-  assert.match(balanceText({ balance: 1200, tokens: 0 }), /\n\*\*0\*\* <:zeiutoken:1552921364489572362>$/);
+  // The tokens left are shown under the points only when the pull used some, even if none are left.
+  assert.match(balanceText({ balance: 1200, tokens: 3, tokensUsed: 1 }), /1,200.*\n\*\*3\*\* <:zeiutoken:1552921364489572362>$/);
+  assert.match(balanceText({ balance: 1200, tokens: 0, tokensUsed: 1 }), /\n\*\*0\*\* <:zeiutoken:1552921364489572362>$/);
+  assert.doesNotMatch(balanceText({ balance: 1200, tokens: 0, tokensUsed: 0 }), /zeiutoken/);
   // No token name anywhere, only the emoji.
-  assert.doesNotMatch(boldTokens(2) + spentText({ cost: 0, baseCost: 0, tokensUsed: 2 }) + balanceText({ balance: 0, tokens: 2 }), /komaToken/i);
+  assert.doesNotMatch(boldTokens(2) + spentText({ cost: 0, baseCost: 0, tokensUsed: 2 }) + balanceText({ balance: 0, tokens: 2, tokensUsed: 2 }), /komaToken/i);
 });
 
 test('the boss hits as hard as it announced, even if it enrages in between (the regression where guards looked broken)', () => {

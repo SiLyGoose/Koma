@@ -16,8 +16,9 @@ export function spentText(paid: { cost: number; baseCost: number; tokensUsed: nu
   return paid.cost === 0 && paid.baseCost === 0 ? TEXT.gacha.spentTokens(paid.tokensUsed) : TEXT.gacha.spentTokensAndPoints(paid.tokensUsed, points);
 }
 
-/** The balance after a pull: points, and the komaTokens left under them. */
-export function balanceText(after: { balance: number; tokens: number }): string {
+/** The balance after a pull: points, and the komaTokens left under them if the pull used any. */
+export function balanceText(after: { balance: number; tokens: number; tokensUsed: number }): string {
+  if (after.tokensUsed === 0) return money(after.balance);
   return TEXT.gacha.balanceWithTokens(money(after.balance), after.tokens);
 }
 
