@@ -333,12 +333,12 @@ test('raid gear items: a 2-star and a 3-star item for each raid perk, and their 
     assert.equal(item.slot, slot, id);
     assert.deepEqual(item.effects, [effect], id);
   }
-  assert.equal(DEFAULTS.equipment.healSplash[3], 0.05);
+  assert.equal(DEFAULTS.equipment.healSplash[3], 0.2);
   assert.equal(DEFAULTS.equipment.guardBoost[3], 0.25);
   assert.equal(DEFAULTS.equipment.rallyBoost[3], 0.25);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('war-banner') as ItemDef), ['Raid: your rallies give a 25% bigger attack bonus']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: Guard blocks 25% more of the hits you take']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 5% of the heal']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 20% of the heal']);
 });
 
 test('heal picker: "whoever needs it most" first, then the knocked out, then the most hurt, never anyone at full HP', () => {

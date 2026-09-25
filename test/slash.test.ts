@@ -488,8 +488,16 @@ function fakeSlashCommand(commandName: string, extra: Record<string, unknown> = 
 }
 
 test('slash command: /help lists slash usage, no aliases and no prefix, and only the asker sees it', async () => {
+  // Runs help through the real slash context. handleSlash would first ask the database whether
+  // the channel is allowed (services/channel.ts), and tests have no database, so that one step is skipped.
   const f = fakeSlashCommand('help');
-  await handleSlash(f.interaction);
+  const { ctx, dispose } = interactionContext(f.interaction, guild, []);
+  try {
+    ctx.args = SLASH.help!.toArgs(f.interaction);
+    await commands.find((c) => c.name === 'help')!.execute(ctx);
+  } finally {
+    dispose();
+  }
   assert.deepEqual(kinds(f.calls), ['reply', 'fetchReply']);
   const data = f.calls[0]?.data;
   assert.equal(data.flags, EPHEMERAL);
