@@ -53,7 +53,7 @@ async function addCopy(guildId: string, userId: string, itemId: string): Promise
 /** One pull inside a multi pull. */
 export interface PulledItem {
   item: ItemDef;
-  /** True when it is the first copy of this item the member has ever owned. */
+  /** True when it is the first copy of this item the member has ever owned (selling one doesn't make it new again). */
   isNew: boolean;
   /** How many copies of the item they own after this pull. */
   count: number;
@@ -83,7 +83,7 @@ export type MultiPullResult =
  * every pull is made and paid for, or nothing is.
  */
 async function pullMany(guildId: string, userId: string, times: number): Promise<MultiPullResult> {
-  const { members, items } = collections();
+  const { members, items, ledger } = collections();
   await ensureMember(guildId, userId);
 
   // Equipped gear can discount each pull.
@@ -143,10 +143,20 @@ async function pullMany(guildId: string, userId: string, times: number): Promise
       await members.updateOne({ guildId, userId }, { $set: { guaranteed } });
       guaranteeChanged = true;
     }
+    // Items the member has had before: every earlier pull and sale is in the ledger with its item, so
+    // one they have since sold still counts. (This batch's entries aren't written until below.)
+    const hadBefore = new Set(
+      // `$exists` matches the partial index's filter, so the query is allowed to use it.
+      await ledger.distinct('itemId', {
+        guildId,
+        userId,
+        itemId: { $exists: true, $in: [...new Set(rolled.map((item) => item.id))] },
+      }),
+    );
     for (const item of rolled) {
       const owned = await addCopy(guildId, userId, item.id);
       addedIds.push(owned.copy._id);
-      pulls.push({ item, isNew: owned.count === 1, count: owned.count });
+      pulls.push({ item, isNew: owned.count === 1 && !hadBefore.has(item.id), count: owned.count });
     }
   } catch (err) {
     // Could not hand everything over, so take back the copies already given and refund it all.

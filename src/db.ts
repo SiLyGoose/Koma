@@ -50,6 +50,11 @@ export async function connectDb(): Promise<Collections> {
     // A member's copies, and their copies of one item.
     collections.items.createIndex({ guildId: 1, userId: 1, itemId: 1 }),
     collections.ledger.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
+    // Which items a member has ever pulled or sold (the gacha's "New!"). Only entries with an item.
+    collections.ledger.createIndex(
+      { guildId: 1, userId: 1, itemId: 1 },
+      { partialFilterExpression: { itemId: { $exists: true } } },
+    ),
     // The sweeper looks for bets whose lease ran out; a table renews the bets it owns by game.
     collections.blackjackBets.createIndex({ leaseUntil: 1 }),
     collections.blackjackBets.createIndex({ gameId: 1 }),
