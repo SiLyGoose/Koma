@@ -400,7 +400,11 @@ export function bossInfoEmbed(cfg: RaidSettings): BotEmbed {
   return createEmbed()
     .setTitle(r.bossTitle(r.bossName))
     .setDescription([r.bossInfoHp(fmt(cfg.hpPerPlayer), formatPercent(cfg.hpGrowth), fmt(cfg.minBossHp), examples), r.bossRounds(cfg.maxRounds)].join('\n'))
-    .addFields({ name: r.phasesField, value: phases.join('\n') }, { name: r.movesField, value: moveLines.join('\n') })
+    .addFields(
+      { name: r.rewardsField, value: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) },
+      { name: r.phasesField, value: phases.join('\n') },
+      { name: r.movesField, value: moveLines.join('\n') },
+    )
     .setImage(`attachment://${RAID.imageName}`)
     .setFooter({ text: r.bossFooter });
 }

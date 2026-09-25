@@ -721,6 +721,14 @@ test('raid stats: the dragon itself, its HP, its phases with their crowd-control
   assert.ok(description.includes(`5 raiders: ${bossHpFor(5, cfg).toLocaleString('en-US')}`), description);
   assert.ok(description.includes(`**${cfg.maxRounds}** rounds`), description);
 
+  const rewards = embed.fields?.find((f) => f.name === 'Rewards')?.value ?? '';
+  assert.ok(rewards.includes(`**${cfg.reward.toLocaleString('en-US')}** <:zeiucoin:1551675032424546320>`), rewards);
+  assert.ok(rewards.includes(`**${cfg.tokenReward}** <:zeiutoken:1552921364489572362>`), rewards);
+  assert.ok(rewards.includes(`**${cfg.gemReward}** ${GEM_EMOJI}`), rewards);
+  assert.equal(embed.fields?.[0]?.name, 'Rewards', 'the rewards come first');
+  const noGems = bossInfoEmbed({ ...cfg, gemReward: 0 }).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
+  assert.ok(!noGems.includes(GEM_EMOJI), 'a reward set to 0 is left out');
+
   const phases = embed.fields?.find((f) => f.name === 'Phases')?.value.split('\n') ?? [];
   assert.equal(phases.length, 3);
   assert.match(phases[0] as string, /Calm.*\*\*1x\*\* as hard.*every \*\*5 rounds\*\*, on 1 raider\./);

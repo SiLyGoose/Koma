@@ -238,6 +238,10 @@ Grows with every raider (at least ${min}).`,
     `❤️ **HP**: ${perRaider} per raider, growing ${growth} more for every raider past the first, and never below ${min}.\n${examples}`,
   bossHpExample: (raiders: number, hp: string) => `${plural(raiders, 'raider', 'raiders')}: ${hp}`,
   bossRounds: (rounds: number) => `⏳ It flies off (and the raid is lost) if it is still standing after **${rounds}** rounds.`,
+  rewardsField: 'Rewards',
+  /** What each raider who takes part gets when the dragon is slain (nothing if it wins or flies off). */
+  bossRewards: (reward: string, tokens: number, gems: number) =>
+    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems)}.`,
   phasesField: 'Phases',
   /** `below` is the share of HP the phase starts at (null for the first), `multiplier` how hard it hits. */
   phaseLine: (name: string, below: string | null, multiplier: string, cooldown: number, targets: number) =>
