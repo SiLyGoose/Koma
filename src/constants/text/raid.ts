@@ -161,6 +161,33 @@ Grows with every raider (at least ${min}).`,
   interrupted: 'The bot stopped in the middle of this raid. Everything spent on boosts or stolen by the dragon has been given back, and the raid can be started again this week.',
   failed: 'Something went wrong in the middle of this raid. Everything spent on boosts or stolen by the dragon has been given back, and the raid can be started again this week.',
 
+  // Admin test tools (`raid test ...`), for seeing each phase and ending on Discord
+  test: {
+    usage: (p: string) =>
+      [
+        `**Raid test tools** (admin only, on the fight going on in this server):`,
+        `\`${p}raid test calm | enraged | furious\`: jump to that phase (sets the dragon's HP just inside it)`,
+        `\`${p}raid test hp 40%\` or \`${p}raid test hp 1200\`: set the dragon's HP`,
+        `\`${p}raid test shield\`: raise or drop the Scale Shield for this turn`,
+        `\`${p}raid test next\`: end this turn now`,
+        `\`${p}raid test kill | wipe | flee\`: end the fight with that result`,
+        `A fight the tools changed pays no rewards. \`${p}raid reset\` frees the week again afterwards.`,
+      ].join('\n'),
+    noFight: 'There is no raid fight going on in this server right now. Start one (and press Start now to skip the lobby).',
+    badHp: 'Give the HP as a number or a percentage, like `1200` or `40%`.',
+    hp: (hp: string, max: string) => `Dragon HP set to **${hp}** / ${max}.`,
+    phase: (phase: string, hp: string) => `Dragon set to **${phase}** (${hp} HP).`,
+    shieldOn: 'Scale Shield raised for this turn.',
+    shieldOff: 'Scale Shield dropped.',
+    next: 'Ending this turn now.',
+    kill: 'Killing the dragon: the victory screen is coming up.',
+    wipe: 'Knocking out the whole party: the defeat screen is coming up.',
+    flee: 'The dragon flies off: the escape screen is coming up.',
+    /** The line the fight's action log shows for a test change. */
+    logLine: (user: string, what: string) => `🛠️ ${user} (test): ${what}`,
+    noRewards: (p: string) => `Test raid: no rewards were paid. Use ${p}raid reset to run another this week.`,
+  },
+
   // Admin
   resetDone: "This week's raid has been reset. It can be started again.",
   resetNothing: 'There is no finished raid this week to reset (one still being played cannot be reset).',

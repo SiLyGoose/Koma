@@ -26,6 +26,7 @@ import {
   createRaid,
   damageRanking,
   endRound,
+  enrageLevel,
   findPlayer,
   isAlive,
   livingPlayers,
@@ -415,6 +416,20 @@ interface Turn {
 }
 
 /** Plays the fight on `message` until the boss falls, the party falls, or the rounds run out. */
+/**
+ * The fight going on in each server, for the admin's test tools (`raid test ...`), which change it
+ * while it runs. `endTurn` ends the current turn at once. A fight the tools touched is `tested`, and
+ * pays no rewards.
+ */
+interface LiveFight {
+  state: RaidState;
+  log: string[];
+  update: () => void;
+  endTurn: () => void;
+  tested: boolean;
+}
+const LIVE = new Map<string, LiveFight>();
+
 async function runFight(
   first: Message,
   state: RaidState,
@@ -422,7 +437,7 @@ async function runFight(
   raidId: string,
   guildId: string,
   onMove: (message: Message) => void,
-): Promise<void> {
+): Promise<{ tested: boolean }> {
   const log: string[] = [];
   const paying = new Set<string>();
   let turn: Turn = { round: state.round, open: false, endsAt: 0, choices: new Map(), allIn: () => {} };
@@ -574,9 +589,16 @@ async function runFight(
     return replyPrivately(press, commitText(result, action, 0));
   };
 
+  const live: LiveFight = { state, log, update: () => screen.update(), endTurn: () => {}, tested: false };
+  LIVE.set(guildId, live);
   try {
     await first.edit({ ...view(), files: [dragonFile('calm')], attachments: [] });
     for (;;) {
+      // A test tool can end the fight between turns.
+      if (state.outcome !== 'ongoing') {
+        await screen.now();
+        break;
+      }
       // The players' turn. If chat pushed the fight up since the last one, it is re-sent at the bottom first.
       const choices = new Map<string, RaidChoice>();
       const endsAt = Date.now() + cfg.turnSeconds * 1000;
@@ -590,6 +612,7 @@ async function runFight(
       }
       const collector = screen.current.createMessageComponentCollector({ componentType: ComponentType.Button, time: Math.max(1_000, endsAt - Date.now()) });
       current.allIn = () => collector.stop('all');
+      live.endTurn = () => collector.stop('test');
       collector.on('collect', (press) => {
         void handlePress(press, current).catch((err) => console.error('A raid button failed:', err));
       });
@@ -614,8 +637,79 @@ async function runFight(
       await sleep(RAID.resultMs);
     }
   } finally {
+    LIVE.delete(guildId);
     await screen.stop();
   }
+  return { tested: live.tested };
+}
+
+type TestAction = 'hp' | 'calm' | 'enraged' | 'furious' | 'shield' | 'next' | 'kill' | 'wipe' | 'flee';
+const TEST_ACTIONS: readonly TestAction[] = ['hp', 'calm', 'enraged', 'furious', 'shield', 'next', 'kill', 'wipe', 'flee'];
+
+/**
+ * Admin only: changes the fight going on in the server so each phase and ending can be seen on
+ * Discord without playing it out. Returns what to tell the admin.
+ */
+export function applyRaidTest(fight: LiveFight, action: TestAction, userId: string, value?: string): string {
+  const { state } = fight;
+  const t = TEXT.raid.test;
+  const setHp = (hp: number): void => {
+    state.bossHp = Math.max(1, Math.min(state.bossMaxHp, Math.round(hp)));
+    state.enrage = enrageLevel(state.bossHp, state.bossMaxHp);
+  };
+  let reply: string;
+  switch (action) {
+    case 'hp': {
+      const text = (value ?? '').trim();
+      const n = Number(text.replace(/[%,]/g, ''));
+      if (text === '' || !Number.isFinite(n) || n <= 0) return t.badHp;
+      setHp(text.endsWith('%') ? (state.bossMaxHp * n) / 100 : n);
+      reply = t.hp(fmt(state.bossHp), fmt(state.bossMaxHp));
+      break;
+    }
+    case 'calm':
+    case 'enraged':
+    case 'furious': {
+      // Just inside each phase: full HP, then a hair under each enrage threshold.
+      const [first = 0.5, second = 0.25] = RAID_COMBAT.enrage.thresholds;
+      const share = action === 'calm' ? 1 : action === 'enraged' ? first - 0.01 : second - 0.01;
+      setHp(state.bossMaxHp * share);
+      reply = t.phase(action, fmt(state.bossHp));
+      break;
+    }
+    case 'shield':
+      state.shielded = !state.shielded;
+      reply = state.shielded ? t.shieldOn : t.shieldOff;
+      break;
+    case 'next':
+      fight.endTurn();
+      return t.next;
+    case 'kill':
+      fight.tested = true;
+      state.bossHp = 0;
+      state.lastHit = userId;
+      state.outcome = 'won';
+      fight.log.push(TEXT.raid.log.defeated(mention(userId)));
+      fight.endTurn();
+      return t.kill;
+    case 'wipe':
+      fight.tested = true;
+      for (const player of state.players) player.hp = 0;
+      state.outcome = 'wiped';
+      fight.log.push(TEXT.raid.log.wiped);
+      fight.endTurn();
+      return t.wipe;
+    case 'flee':
+      fight.tested = true;
+      state.outcome = 'fled';
+      fight.log.push(TEXT.raid.log.fled);
+      fight.endTurn();
+      return t.flee;
+  }
+  fight.tested = true;
+  fight.log.push(t.logLine(mention(userId), reply));
+  fight.update();
+  return reply;
 }
 
 // ---------------------------------------------------------------------------
@@ -658,7 +752,7 @@ async function runRaid(ctx: CommandContext): Promise<void> {
 
     await updateRaid(id, { status: 'fighting' });
     const state = createRaid(players, bossHpFor(players.length, cfg), cfg.playerHp, cfg.maxRounds);
-    await runFight(message, state, cfg, id, ctx.guildId, (moved) => {
+    const { tested } = await runFight(message, state, cfg, id, ctx.guildId, (moved) => {
       message = moved;
     });
 
@@ -670,8 +764,10 @@ async function runRaid(ctx: CommandContext): Promise<void> {
 
     let reward: RaidReward | null = null;
     const fought = participants(state);
-    if (outcome === 'won' && fought.length > 0) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward);
-    await message.edit({ embeds: [resultEmbed(state, cfg, week.next, reward, intoVault)], components: [], files: [dragonFile(moodOf(state))], attachments: [] });
+    if (outcome === 'won' && fought.length > 0 && !tested) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward);
+    const result = resultEmbed(state, cfg, week.next, reward, intoVault);
+    if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });
+    await message.edit({ embeds: [result], components: [], files: [dragonFile(moodOf(state))], attachments: [] });
     console.log(`Raid ${id} ended (${outcome}) after ${state.round} rounds with ${players.length} players.`);
   } finally {
     // A raid that stopped part way (an error) is called off: points are given back and the week is freed.
@@ -727,6 +823,24 @@ export const raid: Command = {
       }
       const done = await resetRaidWeek(ctx.guildId, raidWeek().key);
       await ctx.reply(done ? TEXT.raid.resetDone : TEXT.raid.resetNothing);
+      return;
+    }
+    if (action === 'test') {
+      if (!isAdmin(ctx.user.id)) {
+        await ctx.reply(TEXT.raid.adminOnly);
+        return;
+      }
+      const what = ctx.args[1]?.toLowerCase() as TestAction | undefined;
+      if (!what || !TEST_ACTIONS.includes(what)) {
+        await ctx.reply(TEXT.raid.test.usage(ctx.prefix));
+        return;
+      }
+      const fight = LIVE.get(ctx.guildId);
+      if (!fight) {
+        await ctx.reply(TEXT.raid.test.noFight);
+        return;
+      }
+      await ctx.reply(applyRaidTest(fight, what, ctx.user.id, ctx.args[2]));
       return;
     }
     if (ctx.args.length > 0) {

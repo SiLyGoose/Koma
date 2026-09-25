@@ -434,3 +434,47 @@ test('the boss hits as hard as it announced, even if it enrages in between (the 
   assert.equal(state.intent.move, 'claw');
   assert.match(intentText(state), new RegExp(`\(${Math.round(claw * RAID_COMBAT.enrage.multipliers[2])} damage\)`));
 });
+
+test('raid test tools: jump between phases, set HP, and force each ending', async () => {
+  const { applyRaidTest } = await import('../src/commands/raid.js');
+  const state = fight(['a', 'b'], 4000);
+  let ended = 0;
+  let updated = 0;
+  const live = { state, log: [] as string[], update: () => void updated++, endTurn: () => void ended++, tested: false };
+
+  applyRaidTest(live, 'enraged', 'admin');
+  assert.equal(state.enrage, 1);
+  assert.ok(state.bossHp < 2000 && state.bossHp > 1000);
+  assert.equal(moodOf(state), 'enraged');
+  applyRaidTest(live, 'furious', 'admin');
+  assert.equal(state.enrage, 2);
+  applyRaidTest(live, 'calm', 'admin');
+  assert.equal(state.enrage, 0);
+  assert.equal(state.bossHp, 4000);
+  assert.equal(live.tested, true);
+
+  applyRaidTest(live, 'hp', 'admin', '40%');
+  assert.equal(state.bossHp, 1600);
+  applyRaidTest(live, 'hp', 'admin', '1,234');
+  assert.equal(state.bossHp, 1234);
+  assert.match(applyRaidTest(live, 'hp', 'admin', 'lots'), /number or a percentage/);
+
+  applyRaidTest(live, 'shield', 'admin');
+  assert.equal(moodOf(state), 'shielded');
+  applyRaidTest(live, 'shield', 'admin');
+  assert.equal(state.shielded, false);
+  assert.ok(updated >= 6);
+  assert.ok(live.log.every((line) => line.startsWith('🛠️')));
+
+  applyRaidTest(live, 'kill', 'admin');
+  assert.equal(state.outcome, 'won');
+  assert.equal(state.bossHp, 0);
+  assert.equal(state.lastHit, 'admin');
+  assert.equal(moodOf(state), 'defeated');
+  assert.equal(ended, 1);
+
+  const wiped = fight(['a', 'b']);
+  applyRaidTest({ state: wiped, log: [], update: () => {}, endTurn: () => {}, tested: false }, 'wipe', 'admin');
+  assert.equal(wiped.outcome, 'wiped');
+  assert.ok(wiped.players.every((p) => p.hp === 0));
+});
