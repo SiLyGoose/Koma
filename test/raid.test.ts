@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
-import { eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, resultEmbed, statsReply } from '../src/commands/raid.js';
+import { eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, statsReply } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
 import { RAID, RAID_COMBAT, validateConstants } from '../src/constants/index.js';
 import {
@@ -443,6 +443,26 @@ test('pickIntent: a tail sweep is aimed at different players', () => {
 // ---------------------------------------------------------------------------
 // What it looks like
 // ---------------------------------------------------------------------------
+
+test('player HP bars: green when healthy, yellow from half, red from a quarter, empty when knocked out', () => {
+  assert.equal(playerHpBar(100, 100), '🟩'.repeat(6));
+  assert.equal(playerHpBar(51, 100), '🟩'.repeat(3) + '⬛'.repeat(3));
+  assert.equal(playerHpBar(50, 100), '🟨'.repeat(3) + '⬛'.repeat(3));
+  assert.equal(playerHpBar(25, 100), '🟥'.repeat(2) + '⬛'.repeat(4));
+  assert.equal(playerHpBar(1, 100), '🟥' + '⬛'.repeat(5));
+  assert.equal(playerHpBar(0, 100), '⬛'.repeat(6));
+});
+
+test("the party list shows each player's bar and HP, and a full list still fits one embed field", () => {
+  const state = fight(Array.from({ length: 40 }, (_, i) => `${100000000000000000 + i}`));
+  for (const player of state.players) {
+    (player as { hp: number }).hp = 99;
+    (player as { cursed: number }).cursed = 2;
+  }
+  const party = fightEmbed(state, new Map(), [], Date.now() + 60_000, DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Party')?.value ?? '';
+  assert.ok(party.startsWith(`⏳ <@100000000000000000> ${'🟩'.repeat(6)} ❤️ 99/100 🌑 cursed (2)`), party.split('\n')[0]);
+  assert.ok(party.length <= 1024, `${party.length} characters`);
+});
 
 test('hpBar: always the full width, empty only at 0', () => {
   assert.equal(hpBar(100, 100, 10), '🟥'.repeat(10));

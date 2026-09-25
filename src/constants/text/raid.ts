@@ -63,8 +63,9 @@ Grows with every raider (at least ${min}).`,
   logField: 'Recent actions',
   logEmpty: 'Nothing yet.',
   footer: (boostCost: string, maxBoost: number) => `Boost: ${boostCost} points per 1%, up to +${maxBoost}%.`,
-  partyLine: (status: string, user: string, hp: number, maxHp: number, cursed: number) =>
-    `${status} ${user} ❤️ ${hp}/${maxHp}${cursed > 0 ? ` 🌑 cursed (${cursed})` : ''}`,
+  /** `bar` is the player's HP bar. */
+  partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cursed: number) =>
+    `${status} ${user} ${bar} ❤️ ${hp}/${maxHp}${cursed > 0 ? ` 🌑 cursed (${cursed})` : ''}`,
   statusChosen: '✅',
   statusWaiting: '⏳',
   statusDown: '💀',

@@ -52,8 +52,10 @@ export const RAID = {
   boostPresets: [5, 10, 25] as readonly number[],
   modalMs: 60_000,
   listMax: 15,
-  /** How many blocks wide the HP bars are. */
+  /** How many blocks wide the boss's HP bar is. */
   barWidth: 10,
+  /** How many blocks wide each player's HP bar is (narrower, so a full party list fits in one embed field). */
+  playerBarWidth: 6,
 } as const;
 
 /**

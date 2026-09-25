@@ -86,9 +86,16 @@ const unixOfDate = (date: Date): number => Math.floor(date.getTime() / 1000);
 // ---------------------------------------------------------------------------
 
 /** A bar of `width` blocks, filled for the share of `hp` left. Never empty while there's HP left. */
-export function hpBar(hp: number, max: number, width: number = RAID.barWidth): string {
+export function hpBar(hp: number, max: number, width: number = RAID.barWidth, fill = '🟥'): string {
   const filled = hp <= 0 ? 0 : Math.max(1, Math.round((hp / max) * width));
-  return '🟥'.repeat(filled) + '⬛'.repeat(width - filled);
+  return fill.repeat(filled) + '⬛'.repeat(width - filled);
+}
+
+/** A player's HP bar: green when healthy, yellow from half HP, red from a quarter. */
+export function playerHpBar(hp: number, max: number): string {
+  const share = hp / max;
+  const fill = share > 0.5 ? '🟩' : share > 0.25 ? '🟨' : '🟥';
+  return hpBar(hp, max, RAID.playerBarWidth, fill);
 }
 
 /** What the boss is about to do, in words. */
@@ -200,7 +207,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
   ].join('\n');
   const party = state.players.map((p) => {
     const status = !isAlive(p) ? r.statusDown : choices.has(p.userId) ? r.statusChosen : r.statusWaiting;
-    return r.partyLine(status, mention(p.userId), p.hp, p.maxHp, p.cursed);
+    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, p.cursed);
   });
   return createEmbed()
     .setTitle(r.fightTitle(r.bossName, state.round, state.maxRounds))
