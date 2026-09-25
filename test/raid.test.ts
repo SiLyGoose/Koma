@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
-import { eventText, fightEmbed, hpBar, intentText, moodOf, resultEmbed, statsReply } from '../src/commands/raid.js';
+import { eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, resultEmbed, statsReply } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
-import { RAID_COMBAT, validateConstants } from '../src/constants/index.js';
+import { RAID, RAID_COMBAT, validateConstants } from '../src/constants/index.js';
 import {
   actionProblem,
   bossHpFor,
@@ -214,6 +214,59 @@ test('heal: revives the knocked out first, otherwise heals the most hurt, never 
   const full = fight();
   const events = resolvePlayerTurn(full, choose(['a', 'heal']), low);
   assert.deepEqual(events, [{ kind: 'healWasted', userId: 'a' }]);
+});
+
+test('heal: goes to the ally the healer picked, and falls back to the usual pick if they no longer need it', () => {
+  const pick = (userId: string, target: string, boost = 0): Map<string, RaidChoice> => new Map([[userId, { action: 'heal', boost, target }]]);
+  const state = fight();
+  (state.players[0] as { hp: number }).hp = 0;
+  (state.players[1] as { hp: number }).hp = 90;
+
+  // b is healed though a is knocked out, because c picked b.
+  const healed = resolvePlayerTurn(state, pick('c', 'b'), low);
+  assert.deepEqual(healed, [{ kind: 'heal', userId: 'c', targetId: 'b', amount: 10, boost: 0 }]);
+  assert.equal(state.players[0]?.hp, 0);
+
+  // A knocked-out pick is brought back.
+  const revived = resolvePlayerTurn(state, pick('c', 'a'), low);
+  assert.equal(revived[0]?.kind, 'revive');
+  assert.equal(state.players[0]?.hp, Math.round(100 * RAID_COMBAT.heal.reviveShare));
+
+  // The pick is at full HP by the time it resolves (another heal got there first): the most hurt ally gets it instead.
+  (state.players[1] as { hp: number }).hp = 80;
+  const heals = new Map<string, RaidChoice>([
+    ['b', { action: 'heal', boost: 0, target: 'b' }],
+    ['c', { action: 'heal', boost: 0, target: 'b' }],
+  ]);
+  const events = resolvePlayerTurn(state, heals, low);
+  assert.deepEqual(events.map((e) => (e.kind === 'heal' ? e.targetId : e.kind)), ['b', 'a']);
+  assert.equal(state.players[1]?.hp, 100);
+
+  // A healer can pick themselves.
+  const self = fight();
+  (self.players[0] as { hp: number }).hp = 50;
+  resolvePlayerTurn(self, pick('a', 'a'), low);
+  assert.equal(self.players[0]?.hp, 50 + RAID_COMBAT.heal.amount);
+});
+
+test('heal picker: "whoever needs it most" first, then the knocked out, then the most hurt, never anyone at full HP', () => {
+  const state = fight(['a', 'b', 'c', 'd']);
+  (state.players[1] as { hp: number }).hp = 70;
+  (state.players[2] as { hp: number }).hp = 0;
+  (state.players[3] as { hp: number }).hp = 40;
+  const options = healOptions(state, 'd', new Map([['b', 'Ana'], ['c', 'Ben'], ['d', 'Cy']]));
+  assert.deepEqual(options.map((o) => o.value), [RAID.healAutoValue, 'c', 'd', 'b']);
+  assert.deepEqual(options.map((o) => o.label).slice(1), ['Ben', 'Cy (you)', 'Ana']);
+  assert.match(options[1]?.description ?? '', /Knocked out/);
+  assert.equal(options[2]?.description, '❤️ 40/100 HP');
+
+  // Nobody hurt: only the automatic choice, so no picker is shown.
+  assert.equal(healOptions(fight(), 'a', new Map()).length, 1);
+
+  // A big party is cut to what one Discord menu can hold.
+  const big = fight(Array.from({ length: 40 }, (_, i) => `p${i}`));
+  for (const player of big.players) (player as { hp: number }).hp = 50;
+  assert.equal(healOptions(big, 'p0', new Map()).length, RAID.selectMax);
 });
 
 test('knocked-out players cannot act, and a party that all falls loses', () => {

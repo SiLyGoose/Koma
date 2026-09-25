@@ -27,6 +27,7 @@ export const MAX_RAID_BOOST = 1_000;
  * - `boostPresets`: the quick boost buttons, in percent (a Custom button takes any other number).
  * - `modalMs`: how long a player has to type a custom boost.
  * - `listMax`: how many players a list names before saying "...and N more".
+ * - `healTargetId`, `healAutoValue`, `selectMax`: the private picker Heal uses to choose who to heal.
  */
 export const RAID = {
   joinId: 'raid_join',
@@ -39,6 +40,11 @@ export const RAID = {
   boostPrefix: 'raid_boost_',
   boostCustomId: 'raid_boost_custom',
   boostInputId: 'percent',
+  healTargetId: 'raid_heal_target',
+  /** The heal picker's "let the bot choose" option. */
+  healAutoValue: 'auto',
+  /** Most options a Discord select menu can hold (the heal picker's Auto plus allies). */
+  selectMax: 25,
   imageName: 'raid-boss.png',
   refreshMs: 2_000,
   logSize: 10,
@@ -55,8 +61,9 @@ export const RAID = {
  *
  * Players:
  * - `attack`: an attack does a random amount from min to max, and a `critChance` of that doubles.
- * - `heal`: a heal restores `amount` HP to the hurt ally with the least HP left; if someone is
- *   knocked out it revives them instead, with `reviveShare` of their HP.
+ * - `heal`: a heal restores `amount` HP to the ally the healer picked, or revives them with
+ *   `reviveShare` of their HP if they are knocked out. With no pick (or one that no longer needs
+ *   it), a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
  * - `guard`: a guard takes `takenShare` of any hit, jumps in front of single-target moves aimed at
  *   someone else (the guard with the most HP does), and cuts the damage everyone else takes from
  *   moves that hit several players by `aoeCutPerGuard` each, up to `aoeCutMax`.

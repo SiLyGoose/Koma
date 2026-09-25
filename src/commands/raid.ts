@@ -3,12 +3,15 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  GuildMember,
   MessageFlags,
   ModalBuilder,
+  StringSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle,
   type ButtonInteraction,
   type Client,
+  type Interaction,
   type Message,
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
@@ -272,6 +275,35 @@ export function statsReply(raid: RaidDoc | null, prefix: string, nextRaid: Date)
   return statsEmbed(raid);
 }
 
+export interface HealOption {
+  label: string;
+  value: string;
+  description: string;
+}
+
+/**
+ * The heal picker for `userId`: "whoever needs it most" first, then every ally who needs healing,
+ * knocked-out ones first and then the most hurt. Allies at full HP are left out. `names` has the
+ * display names seen in the lobby (a missing one shows as the user id).
+ */
+export function healOptions(state: RaidState, userId: string, names: ReadonlyMap<string, string>): HealOption[] {
+  const r = TEXT.raid;
+  const share = (p: RaidState['players'][number]): number => p.hp / p.maxHp;
+  const allies = state.players
+    .filter((p) => p.hp < p.maxHp)
+    .sort((a, b) => share(a) - share(b))
+    .slice(0, RAID.selectMax - 1)
+    .map((p) => ({
+      label: r.healOption(names.get(p.userId) ?? p.userId, p.userId === userId).slice(0, 100),
+      value: p.userId,
+      description: isAlive(p) ? r.healOptionHurt(p.hp, p.maxHp) : r.healOptionDown,
+    }));
+  return [{ label: r.healAuto, value: RAID.healAutoValue, description: r.healAutoDescription }, ...allies];
+}
+
+/** The name a member goes by in the server, from a button they pressed. */
+const displayNameOf = (press: Interaction): string => (press.member instanceof GuildMember ? press.member.displayName : press.user.displayName);
+
 // ---------------------------------------------------------------------------
 // Keeping the message up to date
 // ---------------------------------------------------------------------------
@@ -391,7 +423,7 @@ function lobbyView(host: string, players: readonly string[], closesAt: number, c
 }
 
 /** Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order they joined. */
-async function runLobby(message: Message, host: string, cfg: RaidSettings, raidId: string): Promise<string[]> {
+async function runLobby(message: Message, host: string, cfg: RaidSettings, raidId: string, names: Map<string, string>): Promise<string[]> {
   const players = [host];
   const closesAt = Date.now() + cfg.prepareSeconds * 1000;
   const screen = new RaidScreen(message, () => lobbyView(host, players, closesAt, cfg, true), () => 'calm', 'calm');
@@ -403,6 +435,7 @@ async function runLobby(message: Message, host: string, cfg: RaidSettings, raidI
     if (press.customId === RAID.joinId) {
       if (at !== -1) return void replyPrivately(press, TEXT.raid.alreadyJoined);
       players.push(userId);
+      names.set(userId, displayNameOf(press));
       screen.update();
       return void replyPrivately(press, TEXT.raid.joined);
     }
@@ -474,6 +507,7 @@ async function runFight(
   cfg: RaidSettings,
   raidId: string,
   guildId: string,
+  names: ReadonlyMap<string, string>,
   onMove: (message: Message) => void,
 ): Promise<{ tested: boolean }> {
   const log: string[] = [];
@@ -491,7 +525,7 @@ async function runFight(
   };
 
   /** Locks in a player's pick for the turn, paying for its boost first. */
-  const commit = async (userId: string, action: RaidAction, percent: number, forTurn: Turn): Promise<Commit> => {
+  const commit = async (userId: string, action: RaidAction, percent: number, forTurn: Turn, target?: string): Promise<Commit> => {
     const stillOpen = (): boolean => forTurn === turn && forTurn.open;
     if (!stillOpen()) return { kind: 'late' };
     const problem = problemText(actionProblem(state, userId, action), userId);
@@ -514,7 +548,7 @@ async function runFight(
         paying.delete(userId);
       }
     }
-    forTurn.choices.set(userId, { action, boost: percent });
+    forTurn.choices.set(userId, { action, boost: percent, ...(target === undefined ? {} : { target }) });
     const player = findPlayer(state, userId);
     if (player) player.stats.spent += cost;
     screen.update();
@@ -522,11 +556,12 @@ async function runFight(
     return { kind: 'ok', cost };
   };
 
-  const commitText = (result: Commit, action: RaidAction, percent: number): string => {
+  const commitText = (result: Commit, action: RaidAction, percent: number, target?: string): string => {
     const name = TEXT.raid.actions[action];
+    const whom = target === undefined ? '' : mention(target);
     switch (result.kind) {
       case 'ok':
-        return result.cost > 0 ? TEXT.raid.choseBoosted(name, percent, fmt(result.cost)) : TEXT.raid.chose(name);
+        return result.cost > 0 ? TEXT.raid.choseBoosted(name, percent, fmt(result.cost), whom) : TEXT.raid.chose(name, whom);
       case 'late':
         return TEXT.raid.turnOver;
       case 'already':
@@ -540,10 +575,52 @@ async function runFight(
     }
   };
 
-  /** Attack and Heal ask privately how much to boost them before they are locked in. */
-  const askBoost = async (press: ButtonInteraction, action: RaidAction, forTurn: Turn): Promise<void> => {
+  const remainingOf = (forTurn: Turn): number => forTurn.endsAt - Date.now();
+
+  /**
+   * Heal asks privately who to heal. Returns their user id, undefined to let the bot choose, or
+   * null if the turn ended first (the reply then says so).
+   */
+  const askHealTarget = async (press: ButtonInteraction, forTurn: Turn): Promise<string | undefined | null> => {
     const userId = press.user.id;
+    const options = healOptions(state, userId, names);
+    // Nobody needs healing right now: nothing to pick, and the heal is played as usual.
+    if (options.length === 1) return undefined;
+    const menu = new StringSelectMenuBuilder().setCustomId(RAID.healTargetId).setPlaceholder(TEXT.raid.healPlaceholder).addOptions(options);
+    const prompt = await press.editReply({ content: TEXT.raid.healPrompt, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] });
+    const pick = await prompt
+      .awaitMessageComponent({ componentType: ComponentType.StringSelect, time: Math.max(1_000, remainingOf(forTurn)), filter: (m) => m.user.id === userId })
+      .catch(() => null);
+    if (!pick) {
+      await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
+      return null;
+    }
+    await pick.deferUpdate().catch(() => {});
+    const value = pick.values[0];
+    return value === undefined || value === RAID.healAutoValue ? undefined : value;
+  };
+
+  /**
+   * Attack and Heal are picked privately: Heal first asks who to heal, then both ask how much to
+   * boost them (when boosts are on) before they are locked in.
+   */
+  const askPrivately = async (press: ButtonInteraction, action: RaidAction, forTurn: Turn): Promise<void> => {
     await press.deferReply({ flags: MessageFlags.Ephemeral });
+    let target: string | undefined;
+    if (action === 'heal') {
+      const picked = await askHealTarget(press, forTurn);
+      if (picked === null) return;
+      target = picked;
+    }
+    const percent = cfg.maxBoost > 0 ? await askBoost(press, action, forTurn) : 0;
+    if (percent === null) return;
+    const result = await commit(press.user.id, action, percent, forTurn, target);
+    await press.editReply({ content: commitText(result, action, percent, target), components: [] }).catch(() => {});
+  };
+
+  /** Asks privately how much to boost the action. Returns the percent, or null if it wasn't given in time or made no sense (the reply then says so). */
+  const askBoost = async (press: ButtonInteraction, action: RaidAction, forTurn: Turn): Promise<number | null> => {
+    const userId = press.user.id;
     const balance = await walletOf(guildId, userId);
     const name = TEXT.raid.actions[action];
     const presets = RAID.boostPresets.filter((percent) => percent <= cfg.maxBoost);
@@ -560,13 +637,13 @@ async function runFight(
     );
     const prompt = await press.editReply({ content: TEXT.raid.boostPrompt(name, fmt(cfg.boostCost), fmt(balance)), components: [row] });
 
-    const remaining = (): number => forTurn.endsAt - Date.now();
+    const remaining = (): number => remainingOf(forTurn);
     const pick = await prompt
       .awaitMessageComponent({ componentType: ComponentType.Button, time: Math.max(1_000, remaining()), filter: (b) => b.user.id === userId })
       .catch(() => null);
     if (!pick) {
       await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
-      return;
+      return null;
     }
 
     let percent: number;
@@ -592,14 +669,14 @@ async function runFight(
         .catch(() => null);
       if (!submit) {
         await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
-        return;
+        return null;
       }
       const typed = submit.fields.getTextInputValue(RAID.boostInputId).trim().replace(/%$/, '');
       const parsed = /^\d+$/.test(typed) ? Number(typed) : Number.NaN;
       if (!Number.isInteger(parsed) || parsed < 0 || parsed > cfg.maxBoost) {
         await submit.deferUpdate().catch(() => {});
         await press.editReply({ content: TEXT.raid.badBoost(cfg.maxBoost), components: [] }).catch(() => {});
-        return;
+        return null;
       }
       percent = parsed;
       await submit.deferUpdate().catch(() => {});
@@ -607,9 +684,7 @@ async function runFight(
       percent = Number(pick.customId.slice(RAID.boostPrefix.length));
       await pick.deferUpdate().catch(() => {});
     }
-
-    const result = await commit(userId, action, percent, forTurn);
-    await press.editReply({ content: commitText(result, action, percent), components: [] }).catch(() => {});
+    return percent;
   };
 
   const handlePress = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
@@ -622,7 +697,7 @@ async function runFight(
     const already = forTurn.choices.get(userId);
     if (already) return replyPrivately(press, TEXT.raid.alreadyChose(TEXT.raid.actions[already.action]));
 
-    if ((action === 'attack' || action === 'heal') && cfg.maxBoost > 0) return askBoost(press, action, forTurn);
+    if (action === 'heal' || (action === 'attack' && cfg.maxBoost > 0)) return askPrivately(press, action, forTurn);
     const result = await commit(userId, action, 0, forTurn);
     return replyPrivately(press, commitText(result, action, 0));
   };
@@ -779,7 +854,8 @@ async function runRaid(ctx: CommandContext): Promise<void> {
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 
-    const players = await runLobby(message, ctx.user.id, cfg, id);
+    const names = new Map([[ctx.user.id, ctx.guild.members.cache.get(ctx.user.id)?.displayName ?? ctx.user.displayName]]);
+    const players = await runLobby(message, ctx.user.id, cfg, id, names);
     if (players.length === 0) {
       await abandonRaid(id);
       settled = true;
@@ -790,7 +866,7 @@ async function runRaid(ctx: CommandContext): Promise<void> {
 
     await updateRaid(id, { status: 'fighting' });
     const state = createRaid(players, bossHpFor(players.length, cfg), cfg.playerHp, cfg.maxRounds);
-    const { tested } = await runFight(message, state, cfg, id, ctx.guildId, (moved) => {
+    const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, (moved) => {
       message = moved;
     });
 

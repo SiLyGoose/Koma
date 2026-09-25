@@ -78,10 +78,14 @@ export interface RaidState {
   outcome: RaidOutcome;
 }
 
-/** A player's pick for the round. `boost` is the percent they paid to strengthen it (attack and heal only). */
+/**
+ * A player's pick for the round. `boost` is the percent they paid to strengthen it (attack and heal
+ * only). `target` is who a heal is for, if the healer picked someone; left out, it is chosen for them.
+ */
 export interface RaidChoice {
   action: RaidAction;
   boost: number;
+  target?: string;
 }
 
 export type RaidEvent =
@@ -197,19 +201,24 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     events.push({ kind: 'guard', userId });
   }
 
-  // Heals: a knocked-out ally is revived first; otherwise the hurt ally with the least HP left is healed.
-  for (const [userId, { boost }] of byAction('heal')) {
+  // Heals: the ally the healer picked, if they are knocked out or hurt. Otherwise (no pick, or the
+  // pick no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
+  for (const [userId, { boost, target }] of byAction('heal')) {
     const healer = findPlayer(state, userId) as RaidPlayer;
-    const down = state.players.find((p) => !isAlive(p));
+    const picked = target === undefined ? undefined : findPlayer(state, target);
+    const wanted = picked && picked.hp < picked.maxHp ? picked : undefined;
+    const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
       down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare, boost))));
       healer.stats.healed += down.hp;
       events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost });
       continue;
     }
-    const hurt = livingPlayers(state)
-      .filter((p) => p.hp < p.maxHp)
-      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+    const hurt =
+      wanted ??
+      livingPlayers(state)
+        .filter((p) => p.hp < p.maxHp)
+        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (!hurt) {
       events.push({ kind: 'healWasted', userId });
       continue;
