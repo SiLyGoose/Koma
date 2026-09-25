@@ -158,11 +158,6 @@ export async function abandonRaid(id: string): Promise<RaidDoc | null> {
   return raid;
 }
 
-/** This week's raid in the server, if one was started. */
-export async function findRaid(guildId: string, weekKey: string): Promise<RaidDoc | null> {
-  return collections().raids.findOne({ _id: raidId(guildId, weekKey) });
-}
-
 /** Raids that were still being played when the bot last stopped. */
 export async function listUnfinishedRaids(): Promise<RaidDoc[]> {
   return collections().raids.find({ status: { $in: ACTIVE } }).toArray();

@@ -57,7 +57,6 @@ import { sleep } from '../lib/time.js';
 import type { RaidDoc } from '../types.js';
 import {
   abandonRaid,
-  findRaid,
   finishRaid,
   listUnfinishedRaids,
   payForBoost,
@@ -352,10 +351,11 @@ ${r.intoVault(fmt(intoVault))}` : '';
 }
 
 /**
- * `raid stats`: this week's fight, looked back on once the dragon has been slain. Raids saved
- * before every stat was kept only have damage; the rest shows as nothing for them.
+ * What `raid` shows once this week's raid has been fought (won or lost): how it ended, who did
+ * what, and when the next one can be started. Raids saved before every stat was kept only have
+ * damage; the rest shows as nothing for them.
  */
-export function statsEmbed(raid: RaidDoc): BotEmbed {
+export function weekResultEmbed(raid: RaidDoc & { status: 'won' | 'wiped' | 'fled' }, nextRaid: Date): BotEmbed {
   const r = TEXT.raid;
   const players = raid.players.map((userId) => ({
     userId,
@@ -363,19 +363,46 @@ export function statsEmbed(raid: RaidDoc): BotEmbed {
   }));
   const ended = raid.endedAt ? unixOfDate(raid.endedAt) : null;
   const embed = createEmbed()
-    .setTitle(r.statsTitle(r.bossName))
-    .setDescription(r.statsDescription(raid.rounds ?? 0, players.length, ended));
+    .setTitle(r.weekTitle(r.bossName, raid.status))
+    .setDescription(r.weekDescription(raid.status, raid.rounds ?? 0, players.length, ended, unixOfDate(nextRaid)));
   addStatsFields(embed, players, raid.lastHit ?? null);
   return embed;
 }
 
-/** What `raid stats` says for this week's raid: the stats once the dragon is slain, otherwise why there are none. */
-export function statsReply(raid: RaidDoc | null, prefix: string, nextRaid: Date): string | BotEmbed {
+/** Whether a raid has been fought to the end (not still in its lobby or fight). */
+export const isFinished = (raid: RaidDoc): raid is RaidDoc & { status: 'won' | 'wiped' | 'fled' } =>
+  raid.status === 'won' || raid.status === 'wiped' || raid.status === 'fled';
+
+/** `raid stats`: the dragon itself, with the live raid settings: its HP, its phases, and its moves. */
+export function bossInfoEmbed(cfg: RaidSettings): BotEmbed {
   const r = TEXT.raid;
-  if (!raid) return r.statsNoRaid(prefix);
-  if (raid.status === 'preparing' || raid.status === 'fighting') return r.statsOngoing;
-  if (raid.status !== 'won') return r.statsNotDefeated(unixOfDate(nextRaid));
-  return statsEmbed(raid);
+  const { moves, cc, enrage, support } = RAID_COMBAT;
+  const examples = [1, 3, 5, 8].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, cfg)))).join(' · ');
+  const phases = enrage.multipliers.map((multiplier, level) =>
+    r.phaseLine(
+      r.phaseNames[level] ?? `Phase ${level + 1}`,
+      level === 0 ? null : formatPercent(enrage.thresholds[level - 1] ?? 0),
+      formatMultiplier(multiplier),
+      cc.cooldown[level] ?? cc.cooldown[0],
+      cc.targets[level] ?? cc.targets[0],
+    ),
+  );
+  const moveLines = [
+    r.moves.claw(moves.claw.damage),
+    r.moves.breath(moves.breath.damage),
+    r.moves.sweep(moves.sweep.damage, moves.sweep.minTargets, moves.sweep.maxTargets),
+    r.moves.hoard(fmt(moves.hoard.min), fmt(moves.hoard.max)),
+    r.moves.shield(support.shieldBreak),
+    ...(['stun', 'disarm', 'taunt'] as const).map((move) => r.moves.cc(CC_EFFECT[move], cc.rounds)),
+    '',
+    r.movesCcNote,
+  ];
+  return createEmbed()
+    .setTitle(r.bossTitle(r.bossName))
+    .setDescription([r.bossInfoHp(fmt(cfg.hpPerPlayer), formatPercent(cfg.hpGrowth), fmt(cfg.minBossHp), examples), r.bossRounds(cfg.maxRounds)].join('\n'))
+    .addFields({ name: r.phasesField, value: phases.join('\n') }, { name: r.movesField, value: moveLines.join('\n') })
+    .setImage(`attachment://${RAID.imageName}`)
+    .setFooter({ text: r.bossFooter });
 }
 
 export interface HealOption {
@@ -958,7 +985,10 @@ async function runRaid(ctx: CommandContext): Promise<void> {
   try {
     const started = await startRaidWeek(ctx.guildId, week, ctx.user.id);
     if (!started.ok) {
-      await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
+      // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
+      const existing = started.existing;
+      if (existing && isFinished(existing)) await ctx.reply({ embeds: [weekResultEmbed(existing, week.next)] });
+      else await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
       settled = true;
       return;
     }
@@ -1046,16 +1076,14 @@ export const raid: Command = {
   name: 'raid',
   aliases: ['boss'],
   description:
-    'Start the weekly raid: everyone joins in to fight a dragon together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern). `raid stats` shows who did what once the dragon is slain.',
+    "Start the weekly raid: everyone joins in to fight a dragon together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern); once it's been fought, `raid` shows how it went. `raid stats` shows the dragon's stats and moves.",
   usage: 'raid [stats]',
   slashUsage: 'raid start  or  raid stats',
 
   async execute(ctx) {
     const action = ctx.args[0]?.toLowerCase();
     if (action === 'stats' && ctx.args.length === 1) {
-      const week = raidWeek();
-      const reply = statsReply(await findRaid(ctx.guildId, week.key), ctx.prefix, week.next);
-      await ctx.reply(typeof reply === 'string' ? reply : { embeds: [reply] });
+      await ctx.reply({ embeds: [bossInfoEmbed(CONFIG.raid)], files: [dragonFile('calm')] });
       return;
     }
     if (action === 'reset') {

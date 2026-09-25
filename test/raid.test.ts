@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
-import { eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, statsReply } from '../src/commands/raid.js';
+import { eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
-import { RAID, RAID_COMBAT, RAID_EMOJI, validateConstants } from '../src/constants/index.js';
+import { RAID, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import {
   BOSS_MOVES,
   canAct,
@@ -628,7 +628,7 @@ test('fight and result embeds fit Discord and name the players', () => {
   assert.ok(result.fields?.some((f) => f.value.includes(`<@${state.players[1]?.userId}>`)));
 });
 
-test('raid stats: shown only once the dragon is slain, with damage, healing and support', () => {
+test('raid, once this week\'s raid has been fought: how it ended, who did what, and when the next one is', () => {
   const next = new Date('2026-10-03T04:00:00Z');
   const base: RaidDoc = {
     _id: 'g:2026-09-26',
@@ -653,15 +653,16 @@ test('raid stats: shown only once the dragon is slain, with damage, healing and 
     endedAt: new Date('2026-09-26T05:10:00Z'),
   };
 
-  // No raid, still going, or the dragon lived: a line saying why, no stats.
-  assert.match(statsReply(null, 'k!', next) as string, /k!raid/);
-  assert.match(statsReply({ ...base, status: 'fighting' }, 'k!', next) as string, /still going/);
-  for (const status of ['wiped', 'fled'] as const) assert.match(statsReply({ ...base, status }, 'k!', next) as string, /wasn't slain/);
+  // Only a raid fought to the end counts; one still in its lobby or fight doesn't.
+  assert.ok(isFinished(base));
+  for (const status of ['wiped', 'fled'] as const) assert.ok(isFinished({ ...base, status }));
+  for (const status of ['preparing', 'fighting'] as const) assert.equal(isFinished({ ...base, status }), false);
 
-  const reply = statsReply(base, 'k!', next);
-  assert.notEqual(typeof reply, 'string');
-  const embed = (reply as Exclude<typeof reply, string>).toJSON();
+  const nextUnix = Math.floor(next.getTime() / 1000);
+  const embed = weekResultEmbed(base, next).toJSON();
+  assert.match(embed.title ?? '', /was slain/);
   assert.match(embed.description ?? '', /5 rounds.*3 raiders/);
+  assert.ok(embed.description?.includes(`<t:${nextUnix}:R>`), 'says when the next raid can be started');
   const field = (name: string) => embed.fields?.find((f) => f.name === name)?.value ?? '';
   assert.match(field('Damage'), /^🥇 <@a>: \*\*900\*\* \(90%\)\n🥈 <@b>: \*\*100\*\*/);
   assert.equal(field('Final blow'), '<@a>');
@@ -669,9 +670,41 @@ test('raid stats: shown only once the dragon is slain, with damage, healing and 
   assert.ok(field('Team play').includes(`<@c>: ${RAID_EMOJI.heal} 240 healed · ${RAID_EMOJI.guard} 0 · ✨ 2`));
   assert.match(field('Points lost'), /<@a>: 💸 500 on boosts/);
 
+  // A lost raid shows the same stats, and says how it was lost.
+  const wiped = weekResultEmbed({ ...base, status: 'wiped' }, next).toJSON();
+  assert.match(wiped.title ?? '', /won/);
+  assert.match(wiped.description ?? '', /knocked out in round \*\*5\*\*/);
+  assert.ok(wiped.fields?.some((f) => f.name === 'Team play'));
+  const fled = weekResultEmbed({ ...base, status: 'fled' }, next).toJSON();
+  assert.match(fled.title ?? '', /got away/);
+  assert.match(fled.description ?? '', /still standing after \*\*5 rounds\*\*/);
+
   // A raid saved before every stat was kept still shows its damage.
-  const old = (statsReply({ ...base, stats: undefined }, 'k!', next) as Exclude<typeof reply, string>).toJSON();
+  const old = weekResultEmbed({ ...base, stats: undefined }, next).toJSON();
   assert.match(old.fields?.find((f) => f.name === 'Damage')?.value ?? '', /<@a>: \*\*900\*\*/);
+});
+
+test('raid stats: the dragon itself, its HP, its phases with their crowd-control cooldowns, and every move', () => {
+  const cfg = DEFAULTS.raid;
+  const embed = bossInfoEmbed(cfg).toJSON();
+  assert.equal(embed.title, `🐉 ${TEXT.raid.bossName}`);
+  const description = embed.description ?? '';
+  assert.ok(description.includes(`${cfg.hpPerPlayer} per raider`), description);
+  assert.ok(description.includes(`5 raiders: ${bossHpFor(5, cfg).toLocaleString('en-US')}`), description);
+  assert.ok(description.includes(`**${cfg.maxRounds}** rounds`), description);
+
+  const phases = embed.fields?.find((f) => f.name === 'Phases')?.value.split('\n') ?? [];
+  assert.equal(phases.length, 3);
+  assert.match(phases[0] as string, /Calm.*\*\*1x\*\* as hard.*every \*\*5 rounds\*\*, on 1 raider\./);
+  assert.match(phases[1] as string, /Enraged\*\* \(below 50% HP\).*\*\*1\.25x\*\*.*every \*\*4 rounds\*\*, on 2 raiders/);
+  assert.match(phases[2] as string, /Furious\*\* \(below 25% HP\).*\*\*1\.5x\*\*.*every \*\*3 rounds\*\*, on 3 raiders/);
+
+  const moves = embed.fields?.find((f) => f.name === 'Moves')?.value ?? '';
+  for (const name of ['Claw', 'Fire Breath', 'Tail Sweep', 'Hoard', 'Scale Shield', 'Stun', 'Disarm', 'Taunt']) assert.ok(moves.includes(`**${name}**`), name);
+  assert.ok(moves.includes(`${RAID_COMBAT.moves.claw.damage} damage to one raider`));
+  assert.ok(moves.includes(`${RAID_EMOJI.stunned} **Stun**`));
+  assert.match(moves, /share one cooldown/);
+  for (const field of embed.fields ?? []) assert.ok(field.value.length <= 1024, field.name);
 });
 
 test('the dragon draws in every mood, at its size, and each mood looks different', () => {

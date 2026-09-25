@@ -233,8 +233,8 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     description: "This week's raid: fight a dragon together for a reward (resets Saturday midnight Eastern).",
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('start').setDescription("Start this week's raid"))
-        .addSubcommand((s) => s.setName('stats').setDescription("See who did what in this week's raid, once the dragon is slain")),
+        .addSubcommand((s) => s.setName('start').setDescription("Start this week's raid, or see how it went once it's been fought"))
+        .addSubcommand((s) => s.setName('stats').setDescription("See the dragon's stats: its HP, phases and moves")),
     toArgs: (i) => (i.options.getSubcommand() === 'stats' ? ['stats'] : []),
   },
 

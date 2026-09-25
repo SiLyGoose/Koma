@@ -23,7 +23,7 @@ const andList = (items: readonly string[]): string =>
 export const raidText = {
   /** The boss's name (bosses with their own personalities come later). */
   bossName: 'Ember Wyrm',
-  usage: (p: string) => `Use \`${p}raid\` to start this week's raid, or \`${p}raid stats\` to see who did what once the dragon is slain.`,
+  usage: (p: string) => `Use \`${p}raid\` to start this week's raid (or see how it went, once it has been fought), or \`${p}raid stats\` to see the dragon's stats and moves.`,
   busy: 'Something else is going on in this server right now. Try again when it is over.',
   /** `unix` is when the next raid week starts. */
   alreadyRaided: (unix: number) => `This week's raid has already been started. The next one can be started <t:${unix}:F> (<t:${unix}:R>).`,
@@ -213,15 +213,46 @@ Grows with every raider (at least ${min}).`,
   places: ['🥇', '🥈', '🥉'],
   payFailed: (count: number) => `${plural(count, 'reward', 'rewards')} could not be paid. Ask the admin.`,
 
-  // `raid stats`: this week's fight, once the dragon is slain
-  statsTitle: (boss: string) => `📊 Raid stats: the ${boss}`,
-  /** `unix` is when the fight ended, or null if that wasn't saved. */
-  statsDescription: (rounds: number, players: number, unix: number | null) =>
-    `Slain in **${plural(rounds, 'round', 'rounds')}** by ${plural(players, 'raider', 'raiders')}${unix === null ? '' : ` <t:${unix}:R>`}.`,
-  statsNoRaid: (p: string) => `Nobody has raided the dragon this week. Use \`${p}raid\` to start the fight.`,
-  statsOngoing: "This week's raid is still going. The stats show up once the dragon is slain.",
-  /** `unix` is when the next raid week starts. */
-  statsNotDefeated: (unix: number) => `The dragon wasn't slain this week, so there are no stats to show. The next raid can be started <t:${unix}:R>.`,
+  // `raid` once this week's raid has been fought: how it went
+  weekTitle: (boss: string, outcome: 'won' | 'wiped' | 'fled') =>
+    outcome === 'won' ? `📊 This week's raid: the ${boss} was slain` : outcome === 'wiped' ? `📊 This week's raid: the ${boss} won` : `📊 This week's raid: the ${boss} got away`,
+  /** `ended` is when the fight ended (null if that wasn't saved), `next` when the next raid can be started. */
+  weekDescription: (outcome: 'won' | 'wiped' | 'fled', rounds: number, players: number, ended: number | null, next: number) =>
+    [
+      outcome === 'won'
+        ? `Slain in **${plural(rounds, 'round', 'rounds')}** by ${plural(players, 'raider', 'raiders')}${ended === null ? '' : ` <t:${ended}:R>`}.`
+        : outcome === 'wiped'
+          ? `All ${plural(players, 'raider', 'raiders')} were knocked out in round **${rounds}**${ended === null ? '' : ` <t:${ended}:R>`}.`
+          : `It was still standing after **${plural(rounds, 'round', 'rounds')}** and flew off${ended === null ? '' : ` <t:${ended}:R>`}.`,
+      `The next raid can be started <t:${next}:R>.`,
+    ].join('\n'),
+
+  // `raid stats`: the boss itself
+  bossTitle: (boss: string) => `🐉 ${boss}`,
+  /** `examples` is a few party sizes and the HP the dragon has for them, already formatted. */
+  bossInfoHp: (perRaider: string, growth: string, min: string, examples: string) =>
+    `❤️ **HP**: ${perRaider} per raider, growing ${growth} more for every raider past the first, and never below ${min}.\n${examples}`,
+  bossHpExample: (raiders: number, hp: string) => `${plural(raiders, 'raider', 'raiders')}: ${hp}`,
+  bossRounds: (rounds: number) => `⏳ It flies off (and the raid is lost) if it is still standing after **${rounds}** rounds.`,
+  phasesField: 'Phases',
+  /** `below` is the share of HP the phase starts at (null for the first), `multiplier` how hard it hits. */
+  phaseLine: (name: string, below: string | null, multiplier: string, cooldown: number, targets: number) =>
+    `**${name}**${below === null ? '' : ` (below ${below} HP)`}: hits **${multiplier}** as hard. Crowd control once every **${plural(cooldown, 'round', 'rounds')}**, on ${plural(targets, 'raider', 'raiders')}.`,
+  phaseNames: ['😌 Calm', '😠 Enraged', '😡 Furious'],
+  movesField: 'Moves',
+  /** Its moves at their base damage (calm); each phase multiplies the damage. */
+  moves: {
+    claw: (damage: number) => `🦴 **Claw**: ${damage} damage to one raider. Other raiders can guard to redirect attack to themselves.`,
+    breath: (damage: number) => `🔥 **Fire Breath**: ${damage} damage to everyone. Guards reduce damage taken.`,
+    sweep: (damage: number, min: number, max: number) => `🌀 **Tail Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
+    hoard: (min: string, max: string) => `💰 **Hoard**: steals ${boldMoney(min)} to ${boldMoney(max)} from one raider's wallet. A guard can stop it.`,
+    shield: (supports: number) => `🔷 **Scale Shield**: attacks bounce off for a turn unless ${supports} raiders Support.`,
+    cc: (effect: CrowdControl, rounds: number) =>
+      `${E[effect]} **${ccMove[effect]}**: ${CC[effect].name} raiders ${CC[effect].does} for ${plural(rounds, 'turn', 'turns')}. A Support frees them.`,
+  },
+  /** Under the moves: crowd control shares one cooldown, which the phases set. */
+  movesCcNote: 'Stun, Disarm and Taunt are crowd control: they share one cooldown, set by the phase.',
+  bossFooter: 'Aimed moves go after whoever the dragon has aimed at least so far, so everyone gets hit about equally.',
 
   // A raid the bot didn't finish
   interruptedTitle: 'The raid was cut short',
