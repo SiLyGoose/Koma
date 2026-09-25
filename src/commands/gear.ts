@@ -2,7 +2,7 @@ import { RAID_COMBAT, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { guardTakenShare, rallyMultiplierOf, raidGearFrom, type RaidGear } from '../lib/events/raid.js';
+import { emptyGear, guardTakenShare, rallyMultiplierOf, raidGearFrom, type RaidGear } from '../lib/events/raid.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, itemEffectiveness, totalEffects } from '../lib/game/equipment.js';
 import { formatMultiplier, formatPercent, mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/equipment.js';
@@ -18,13 +18,14 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
   const t = TEXT.gear;
   const { attack, heal, support } = RAID_COMBAT;
   const range = (min: number, max: number): string => (min === max ? `${min}` : `${min}–${max}`);
-  const base = { gear: { healSplash: 0, guardBoost: 0, rallyBoost: 0 } };
+  const base = { gear: emptyGear() };
   const guard = guardTakenShare({ gear });
   const rally = rallyMultiplierOf({ gear });
 
   const lines = [
     t.statsHp(playerHp),
     t.statsAttack(range(attack.min, attack.max)),
+    ...(gear.maxHpDamage > 0 ? [t.statsMaxHpDamage(formatPercent(gear.maxHpDamage), t.statsGearMark)] : []),
     t.statsCrit(formatPercent(attack.critChance), range(attack.min * attack.critMultiplier, attack.max * attack.critMultiplier)),
     t.statsHeal(heal.amount, Math.max(1, Math.round(playerHp * heal.reviveShare))),
   ];
@@ -33,7 +34,7 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
     t.statsGuard(formatPercent(guard), gear.guardBoost > 0 ? formatPercent(guardTakenShare(base)) : null, t.statsGearMark),
     t.statsRally(formatMultiplier(rally), support.rallyTurns, gear.rallyBoost > 0 ? formatMultiplier(rallyMultiplierOf(base)) : null, t.statsGearMark),
   );
-  const hasGear = gear.healSplash > 0 || gear.guardBoost > 0 || gear.rallyBoost > 0;
+  const hasGear = gear.healSplash > 0 || gear.guardBoost > 0 || gear.rallyBoost > 0 || gear.maxHpDamage > 0;
   if (!hasGear) lines.push('', t.statsNoGear(prefix));
 
   const embed = createEmbed().setTitle(t.statsTitle(name)).setDescription(lines.join('\n'));

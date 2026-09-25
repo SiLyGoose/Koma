@@ -50,12 +50,14 @@ export interface RaidGear {
   guardBoost: number;
   /** How much bigger the attack bonus of their rallies is (0.25 turns +50% into +62.5%). */
   rallyBoost: number;
+  /** Share of the boss's max HP each of their attacks deals on top. */
+  maxHpDamage: number;
 }
 
-export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0 });
+export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0 });
 
 /** The raid perks out of a member's gear totals (lib/game/equipment.ts gearEffects). */
-export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost }: RaidGear): RaidGear => ({ healSplash, guardBoost, rallyBoost });
+export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost, maxHpDamage }: RaidGear): RaidGear => ({ healSplash, guardBoost, rallyBoost, maxHpDamage });
 
 export interface RaidPlayer {
   userId: string;
@@ -329,7 +331,10 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     }
     const { min, max, critChance, critMultiplier } = RAID_COMBAT.attack;
     const crit = rng.chance(critChance);
-    const damage = Math.max(1, Math.round(boosted(rng.int(min, max), boost) * rallyMultiplier * (crit ? critMultiplier : 1)));
+    // maxHpDamage gear adds a share of the boss's max HP after everything else, so it stays that share.
+    const attacker = findPlayer(state, userId) as RaidPlayer;
+    const extra = state.bossMaxHp * attacker.gear.maxHpDamage;
+    const damage = Math.max(1, Math.round(boosted(rng.int(min, max), boost) * rallyMultiplier * (crit ? critMultiplier : 1) + extra));
     const dealt = Math.min(damage, state.bossHp);
     state.bossHp -= dealt;
     (findPlayer(state, userId) as RaidPlayer).stats.damage += dealt;

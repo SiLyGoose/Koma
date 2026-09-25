@@ -9,6 +9,7 @@ import { glassCannon } from './glass-cannon.js';
 import { guardBoost } from './guard-boost.js';
 import { healSplash } from './heal-splash.js';
 import { iconicByMistake } from './iconic-by-mistake.js';
+import { maxHpDamage } from './max-hp-damage.js';
 import { pullDiscount } from './pull-discount.js';
 import { rallyBoost } from './rally-boost.js';
 import { robAmountCut } from './rob-amount-cut.js';
@@ -67,6 +68,7 @@ export const EFFECTS = {
   healSplash,
   guardBoost,
   rallyBoost,
+  maxHpDamage,
 } as const satisfies Record<string, PerkDef>;
 
 registerPerks(EFFECTS);

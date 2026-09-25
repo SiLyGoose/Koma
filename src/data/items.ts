@@ -37,6 +37,30 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'Splintered at the rim and smelling of old pine.',
     effects: ['robDefense'],
   },
+  {
+    id: 'sapling-wand',
+    name: 'Sapling Wand',
+    stars: 1,
+    slot: 'weapon',
+    description: 'A green stick that still has leaves on it. Its heals drip onto whoever is nearby.',
+    effects: ['healSplash'],
+  },
+  {
+    id: 'padded-gambeson',
+    name: 'Padded Gambeson',
+    stars: 1,
+    slot: 'armor',
+    description: 'Quilted cloth, stuffed thick. Not pretty, but it takes a hit.',
+    effects: ['guardBoost'],
+  },
+  {
+    id: 'tin-whistle',
+    name: 'Tin Whistle',
+    stars: 1,
+    slot: 'weapon',
+    description: 'Shrill enough to wake the whole party. They swing a little harder to make it stop.',
+    effects: ['rallyBoost'],
+  },
 
   // 2 stars
   {
@@ -128,6 +152,14 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Tattered from a hundred raids. Raise it, and the party remembers why they came.',
     effects: ['rallyBoost'],
+  },
+  {
+    id: 'wyrmpiercer',
+    name: 'Wyrmpiercer',
+    stars: 3,
+    slot: 'weapon',
+    description: 'A lance forged for one thing only. The bigger the beast, the deeper it bites.',
+    effects: ['maxHpDamage'],
   },
 
   // 4 stars

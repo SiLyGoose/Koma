@@ -304,6 +304,29 @@ test('healSplash gear: a heal also mends the most hurt other ally by a share of 
   assert.deepEqual(resolvePlayerTurn(plain, choose(['a', 'heal']), low).map((e) => e.kind), ['heal']);
 });
 
+test('maxHpDamage gear: each attack also deals a share of the dragon\'s max HP, added after rallies and crits, and nothing through the shield', () => {
+  const state = fight(['a', 'b'], 4000);
+  state.players[0]!.gear.maxHpDamage = 0.005;
+  const plain = RAID_COMBAT.attack.min;
+  const events = resolvePlayerTurn(state, choose(['a', 'attack'], ['b', 'attack']), low);
+  const hit = (userId: string, list = events) => (list.find((e) => e.kind === 'attack' && e.userId === userId) as { damage: number }).damage;
+  assert.equal(hit('a'), plain + 20);
+  assert.equal(hit('b'), plain);
+
+  // A crit doubles the attack, not the extra.
+  const crit = fight(['a'], 4000);
+  crit.players[0]!.gear.maxHpDamage = 0.005;
+  assert.equal(hit('a', resolvePlayerTurn(crit, choose(['a', 'attack']), high)), RAID_COMBAT.attack.max * RAID_COMBAT.attack.critMultiplier + 20);
+
+  // Through the Scale Shield: still bounces.
+  const shielded = fight(['a'], 4000);
+  shielded.players[0]!.gear.maxHpDamage = 0.005;
+  shielded.shielded = true;
+  assert.deepEqual(resolvePlayerTurn(shielded, choose(['a', 'attack']), low), [{ kind: 'bounced', userId: 'a' }]);
+  assert.equal(DEFAULTS.equipment.maxHpDamage[3], 0.005);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmpiercer') as ItemDef), ["Raid: attacks also deal 0.5% of the dragon's max HP"]);
+});
+
 test('rallyBoost gear: a rally from the wearer gives a bigger attack bonus, and a weaker rally does not cut it short', () => {
   const state = fight();
   (state.players[0] as { gear: { rallyBoost: number } }).gear.rallyBoost = 0.25;
@@ -318,14 +341,18 @@ test('rallyBoost gear: a rally from the wearer gives a bigger attack bonus, and 
   assert.equal(state.rallied, RAID_COMBAT.support.rallyTurns);
 });
 
-test('raid gear items: a 2-star and a 3-star item for each raid perk, and their gear cards say what they do', () => {
+test('raid gear items: a 1-star, a 2-star and a 3-star item for each raid perk, and their gear cards say what they do', () => {
   for (const [id, stars, slot, effect] of [
+    ['sapling-wand', 1, 'weapon', 'healSplash'],
+    ['padded-gambeson', 1, 'armor', 'guardBoost'],
+    ['tin-whistle', 1, 'weapon', 'rallyBoost'],
     ['willow-wand', 2, 'weapon', 'healSplash'],
     ['dragonbone-staff', 3, 'weapon', 'healSplash'],
     ['studded-brigandine', 2, 'armor', 'guardBoost'],
     ['wyrmscale-plate', 3, 'armor', 'guardBoost'],
     ['battle-horn', 2, 'weapon', 'rallyBoost'],
     ['war-banner', 3, 'weapon', 'rallyBoost'],
+    ['wyrmpiercer', 3, 'weapon', 'maxHpDamage'],
   ] as const) {
     const item = ITEMS_BY_ID.get(id);
     assert.ok(item, id);
@@ -861,7 +888,7 @@ test('moodOf: each phase and each ending has its own picture', () => {
 
 test('gear stats: the raid numbers a member fights with, and the ones their gear changed', async () => {
   const { raidStatsEmbed } = await import('../src/commands/gear.js');
-  const none = raidStatsEmbed('Ana', { healSplash: 0, guardBoost: 0, rallyBoost: 0 }, 100, 'k!').toJSON();
+  const none = raidStatsEmbed('Ana', { healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0 }, 100, 'k!').toJSON();
   assert.equal(none.title, "⚔️ Ana's raid stats");
   const plain = none.description ?? '';
   assert.match(plain, /❤️ \*\*HP\*\*: 100/);
@@ -872,9 +899,10 @@ test('gear stats: the raid numbers a member fights with, and the ones their gear
   assert.doesNotMatch(plain, /🎒|second ally/);
   assert.equal(none.footer, undefined);
 
-  const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25 }, 100, 'k!').toJSON();
+  const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25, maxHpDamage: 0.005 }, 100, 'k!').toJSON();
   const text = geared.description ?? '';
   assert.match(text, /second ally for 20% of it \(6 HP\) 🎒/);
+  assert.match(text, /plus 0\.5% of the dragon's max HP per hit 🎒/);
   assert.match(text, /you take 37\.5% of a hit \(normally 50%\) 🎒/);
   assert.match(text, /attacks do 1\.63x damage for 2 turns \(normally 1\.5x\) 🎒/);
   assert.doesNotMatch(text, /No raid gear/);

@@ -17,6 +17,7 @@ export const gearText = {
   statsHp: (hp: number) => `❤️ **HP**: ${hp}`,
   /** `damage` and `crit` are already formatted (a number, or a range like "60–100"). */
   statsAttack: (damage: string) => `${E.attack} **Attack**: ${damage} damage`,
+  statsMaxHpDamage: (share: string, gear: string) => `↳ plus ${share} of the dragon's max HP per hit ${gear}`,
   statsCrit: (critChance: string, crit: string) => `${E.crit} **Crit chance**: ${critChance}, for ${crit} damage`,
   statsHeal: (amount: number, revive: number) => `${E.heal} **Heal**: ${amount} HP, or brings back a knocked-out ally with ${revive} HP`,
   statsHealSplash: (share: string, amount: number, gear: string) => `↳ and mends a second ally for ${share} of it (${amount} HP) ${gear}`,
