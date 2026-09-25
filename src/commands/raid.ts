@@ -28,6 +28,9 @@ import {
   bossTurn,
   createRaid,
   damageRanking,
+  emptyGear,
+  raidGearFrom,
+  type RaidGear,
   emptyStats,
   endRound,
   enrageLevel,
@@ -45,6 +48,8 @@ import {
   type RaidStats,
 } from '../lib/events/raid.js';
 import { raidWeek } from '../lib/events/raid-week.js';
+import { gearEffects } from '../lib/game/equipment.js';
+import { getEquipment } from '../services/equipment.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited, mention } from '../lib/format.js';
 import { sleep } from '../lib/time.js';
 import type { RaidDoc } from '../types.js';
@@ -118,10 +123,12 @@ export function eventText(event: RaidEvent): string {
       return log.heal(mention(event.userId), mention(event.targetId), event.amount, boost(event.boost));
     case 'revive':
       return log.revive(mention(event.userId), mention(event.targetId), event.hp, boost(event.boost));
+    case 'healSplash':
+      return log.healSplash(mention(event.userId), mention(event.targetId), event.amount);
     case 'healWasted':
       return log.healWasted(mention(event.userId));
     case 'rally':
-      return log.rally(mention(event.userId), formatMultiplier(RAID_COMBAT.support.attackMultiplier), event.turns);
+      return log.rally(mention(event.userId), formatMultiplier(event.multiplier), event.turns);
     case 'cleansed':
       return log.cleansed(mention(event.userId), mention(event.targetId));
     case 'shieldBroken':
@@ -182,7 +189,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
   const tags = [
     state.enrage > 0 ? r.enraged(state.enrage) : '',
     state.shielded ? r.shielded : '',
-    state.rallied > 0 ? r.rallied(formatMultiplier(RAID_COMBAT.support.attackMultiplier), state.rallied) : '',
+    state.rallied > 0 ? r.rallied(formatMultiplier(state.rallyMultiplier), state.rallied) : '',
   ].filter(Boolean);
   const description = [
     r.bossHp(hpBar(state.bossHp, state.bossMaxHp), fmt(state.bossHp), fmt(state.bossMaxHp)),
@@ -825,6 +832,16 @@ export function applyRaidTest(fight: LiveFight, action: TestAction, userId: stri
   return reply;
 }
 
+/** A raider's raid perks, from what they have equipped when the fight starts. No gear (or no way to read it) means none. */
+async function raidGearOf(guildId: string, userId: string): Promise<RaidGear> {
+  try {
+    return raidGearFrom(gearEffects(await getEquipment(guildId, userId), userId));
+  } catch (err) {
+    console.error(`Could not read the raid gear of ${userId} in ${guildId}:`, err);
+    return emptyGear();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The whole raid
 // ---------------------------------------------------------------------------
@@ -866,6 +883,11 @@ async function runRaid(ctx: CommandContext): Promise<void> {
 
     await updateRaid(id, { status: 'fighting' });
     const state = createRaid(players, bossHpFor(players.length, cfg), cfg.playerHp, cfg.maxRounds);
+    // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
+    const gear = await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId)));
+    state.players.forEach((p, i) => {
+      p.gear = gear[i] ?? p.gear;
+    });
     const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, (moved) => {
       message = moved;
     });

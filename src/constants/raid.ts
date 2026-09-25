@@ -60,15 +60,17 @@ export const RAID = {
  * How a fight plays out. Damage and healing are HP. Every "share" is 0 to 1.
  *
  * Players:
- * - `attack`: an attack does a random amount from min to max, and a `critChance` of that doubles.
+ * - `attack`: an attack does a random amount from min to max (the same number for a flat hit), and a
+ *   `critChance` of that doubles.
  * - `heal`: a heal restores `amount` HP to the ally the healer picked, or revives them with
  *   `reviveShare` of their HP if they are knocked out. With no pick (or one that no longer needs
  *   it), a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
- * - `guard`: a guard takes `takenShare` of any hit, jumps in front of single-target moves aimed at
+ * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost perk), jumps in front of single-target moves aimed at
  *   someone else (the guard with the most HP does), and cuts the damage everyone else takes from
  *   moves that hit several players by `aoeCutPerGuard` each, up to `aoeCutMax`.
  * - `support`: each support lifts one player's curse; with nobody cursed it rallies the party
- *   instead, multiplying everyone's attacks by `attackMultiplier` for the next `rallyTurns` turns (a
+ *   instead, multiplying everyone's attacks by `attackMultiplier` (its bonus bigger with the
+ *   rallyBoost perk) for the next `rallyTurns` turns (a
  *   second rally resets the count, it doesn't stack). `shieldBreak` supports in the same turn shatter
  *   the boss's Scale Shield, whatever else they did.
  *
@@ -81,7 +83,7 @@ export const RAID = {
  * - `curse` stops its target attacking for `rounds` turns.
  */
 export const RAID_COMBAT = {
-  attack: { min: 60, max: 100, critChance: 0.1, critMultiplier: 2 },
+  attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
   guard: { takenShare: 0.5, aoeCutPerGuard: 0.15, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },

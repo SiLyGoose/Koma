@@ -180,6 +180,14 @@ test('slash options: a user option becomes a mention that the prefix commands un
   assert.equal(parseUserArg(args('rob', { users: { user: ID } })[0]), ID);
 });
 
+test('slash options: gear stats', () => {
+  assert.deepEqual(args('gear', { bools: { stats: true } }), ['stats']);
+  assert.deepEqual(args('gear', { bools: { stats: false } }), []);
+  const words = args('gear', { bools: { stats: true }, users: { user: ID } });
+  assert.equal(words[0], 'stats');
+  assert.equal(parseUserArg(words[1]), ID);
+});
+
 test('slash options: gacha multi', () => {
   assert.deepEqual(args('gacha', {}), []);
   assert.deepEqual(args('gacha', { bools: { multi: false } }), []);

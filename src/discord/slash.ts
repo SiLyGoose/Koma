@@ -200,8 +200,12 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   gear: {
-    build: (b) => void b.addUserOption((o) => o.setName('user').setDescription("Whose gear to see (yours, if left out)")),
-    toArgs: userArgs,
+    description: 'See what you (or another member) have equipped, or with stats, the raid stats it gives.',
+    build: (b) =>
+      void b
+        .addUserOption((o) => o.setName('user').setDescription("Whose gear to see (yours, if left out)"))
+        .addBooleanOption((o) => o.setName('stats').setDescription('Show the raid stats the gear gives instead')),
+    toArgs: (i) => (i.options.getBoolean('stats') ? ['stats', ...userArgs(i)] : userArgs(i)),
   },
 
   give: {

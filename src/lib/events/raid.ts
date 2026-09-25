@@ -32,6 +32,24 @@ export interface RaidStats {
   stolen: number;
 }
 
+/**
+ * The raid perks from a player's equipped gear (perks/heal-splash.ts, guard-boost.ts,
+ * rally-boost.ts), as fractions. All 0 with no raid gear on.
+ */
+export interface RaidGear {
+  /** Share of each heal's value that also goes to a second hurt ally. */
+  healSplash: number;
+  /** How much more of a hit their Guard blocks (0.25 turns taking 50% into 37.5%). */
+  guardBoost: number;
+  /** How much bigger the attack bonus of their rallies is (0.25 turns +50% into +62.5%). */
+  rallyBoost: number;
+}
+
+export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0 });
+
+/** The raid perks out of a member's gear totals (lib/game/equipment.ts gearEffects). */
+export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost }: RaidGear): RaidGear => ({ healSplash, guardBoost, rallyBoost });
+
 export interface RaidPlayer {
   userId: string;
   hp: number;
@@ -39,6 +57,8 @@ export interface RaidPlayer {
   /** Turns left that the player can't attack (0 = not cursed). */
   cursed: number;
   stats: RaidStats;
+  /** Their raid perks, set when the fight starts (commands/raid.ts reads their gear). */
+  gear: RaidGear;
 }
 
 /**
@@ -65,8 +85,10 @@ export interface RaidState {
   intent: BossIntent;
   /** The Scale Shield is up for this round's attacks. */
   shielded: boolean;
-  /** Turns left that everyone's attacks are multiplied by RAID_COMBAT.support.attackMultiplier (from a rally). */
+  /** Turns left that everyone's attacks are multiplied by `rallyMultiplier` (from a rally). */
   rallied: number;
+  /** What attacks are multiplied by while rallied: RAID_COMBAT.support.attackMultiplier, bigger when the rally came from a player with rallyBoost. */
+  rallyMultiplier: number;
   /** 0 calm, then 1 and 2 as the boss drops below each share in RAID_COMBAT.enrage.thresholds. */
   enrage: number;
   /** Who guarded this round (they are the ones the boss's move meets first). */
@@ -91,9 +113,10 @@ export interface RaidChoice {
 export type RaidEvent =
   | { kind: 'guard'; userId: string }
   | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number }
+  | { kind: 'healSplash'; userId: string; targetId: string; amount: number }
   | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number }
   | { kind: 'healWasted'; userId: string }
-  | { kind: 'rally'; userId: string; turns: number }
+  | { kind: 'rally'; userId: string; turns: number; multiplier: number }
   | { kind: 'cleansed'; userId: string; targetId: string }
   | { kind: 'shieldBroken' }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
@@ -139,6 +162,13 @@ export const bossMultiplier = (state: RaidState): number => RAID_COMBAT.enrage.m
 /** A percent boost as a multiplier: 25 -> 1.25. */
 const boosted = (amount: number, boost: number): number => amount * (1 + boost / 100);
 
+/** The share of a hit a guarding player takes: RAID_COMBAT.guard.takenShare, less with guardBoost (never below 0). */
+export const guardTakenShare = (player: { gear: RaidGear }): number =>
+  Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost));
+
+/** What a rally from this player multiplies attacks by: RAID_COMBAT.support.attackMultiplier, with its bonus made bigger by rallyBoost. */
+export const rallyMultiplierOf = (player: { gear: RaidGear }): number => 1 + (RAID_COMBAT.support.attackMultiplier - 1) * (1 + player.gear.rallyBoost);
+
 /**
  * The boss's HP for a party of `players`: `hpPerPlayer` each, times 1 + `hpGrowth` for every player
  * past the first, and never below `minBossHp`. The growth is there because the boss's own hits don't
@@ -156,10 +186,11 @@ export function createRaid(userIds: readonly string[], bossHp: number, playerHp:
     bossMaxHp: bossHp,
     round: 1,
     maxRounds,
-    players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cursed: 0, stats: emptyStats() })),
+    players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cursed: 0, stats: emptyStats(), gear: emptyGear() })),
     intent: { move: 'claw', targets: [], multiplier: 1 },
     shielded: false,
     rallied: 0,
+    rallyMultiplier: RAID_COMBAT.support.attackMultiplier,
     enrage: 0,
     guarding: [],
     lastHit: null,
@@ -203,6 +234,18 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
 
   // Heals: the ally the healer picked, if they are knocked out or hurt. Otherwise (no pick, or the
   // pick no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
+  // A healer with healSplash also mends the most hurt other ally, by that share of the heal's value.
+  const splashHeal = (healer: RaidPlayer, boost: number, healedId: string): void => {
+    if (healer.gear.healSplash <= 0) return;
+    const other = livingPlayers(state)
+      .filter((p) => p.userId !== healedId && p.hp < p.maxHp)
+      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+    if (!other) return;
+    const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(boosted(RAID_COMBAT.heal.amount, boost) * healer.gear.healSplash)));
+    other.hp += amount;
+    healer.stats.healed += amount;
+    events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
+  };
   for (const [userId, { boost, target }] of byAction('heal')) {
     const healer = findPlayer(state, userId) as RaidPlayer;
     const picked = target === undefined ? undefined : findPlayer(state, target);
@@ -212,6 +255,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare, boost))));
       healer.stats.healed += down.hp;
       events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost });
+      splashHeal(healer, boost, down.userId);
       continue;
     }
     const hurt =
@@ -227,22 +271,26 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     hurt.hp += amount;
     healer.stats.healed += amount;
     events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost });
+    splashHeal(healer, boost, hurt.userId);
   }
 
   // Supports: each one lifts a curse if anyone is cursed (the one with the most turns left first);
   // one with no curse to lift rallies the party instead, for the next turns' attacks. Every support
   // counts toward shattering the shield either way.
   const supports = byAction('support');
-  let rally = false;
+  // The strongest rally made this turn (0 if none).
+  let rally = 0;
   for (const [userId] of supports) {
-    (findPlayer(state, userId) as RaidPlayer).stats.supports++;
+    const supporter = findPlayer(state, userId) as RaidPlayer;
+    supporter.stats.supports++;
     const cursed = state.players.filter((p) => p.cursed > 0).sort((a, b) => b.cursed - a.cursed)[0];
     if (cursed) {
       cursed.cursed = 0;
       events.push({ kind: 'cleansed', userId, targetId: cursed.userId });
     } else {
-      rally = true;
-      events.push({ kind: 'rally', userId, turns: RAID_COMBAT.support.rallyTurns });
+      const multiplier = rallyMultiplierOf(supporter);
+      rally = Math.max(rally, multiplier);
+      events.push({ kind: 'rally', userId, turns: RAID_COMBAT.support.rallyTurns, multiplier });
     }
   }
   if (state.shielded && supports.length >= RAID_COMBAT.support.shieldBreak) {
@@ -250,7 +298,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     events.push({ kind: 'shieldBroken' });
   }
   // A rally from an earlier turn powers this turn's attacks; one made this turn starts with the next.
-  const rallyMultiplier = state.rallied > 0 ? RAID_COMBAT.support.attackMultiplier : 1;
+  const rallyMultiplier = state.rallied > 0 ? state.rallyMultiplier : 1;
 
   // Attacks, until the boss falls.
   for (const [userId, { boost }] of byAction('attack')) {
@@ -274,10 +322,14 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   }
 
   // The shield only lasts the one round; a curse and a rally wear off by a turn. Rallies don't stack:
-  // a new one sets the turns left back to the full count.
+  // a new one sets the turns left back to the full count, at the stronger of its bonus and the one
+  // still running.
   state.shielded = false;
   if (state.rallied > 0) state.rallied--;
-  if (rally) state.rallied = RAID_COMBAT.support.rallyTurns;
+  if (rally > 0) {
+    state.rallyMultiplier = state.rallied > 0 ? Math.max(state.rallyMultiplier, rally) : rally;
+    state.rallied = RAID_COMBAT.support.rallyTurns;
+  }
   for (const player of state.players) if (player.cursed > 0) player.cursed--;
 
   if (state.outcome === 'ongoing') {
@@ -332,11 +384,10 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     events.push({ kind: 'hit', move: hitMove, userId: player.userId, damage: taken, guarded: state.guarding.includes(player.userId), coveredFor });
     if (player.hp === 0) events.push({ kind: 'knockedOut', userId: player.userId });
   };
-  const guardShare = RAID_COMBAT.guard.takenShare;
   const aoeCut = Math.min(RAID_COMBAT.guard.aoeCutMax, state.guarding.filter((id) => isAlive(findPlayer(state, id) as RaidPlayer)).length * RAID_COMBAT.guard.aoeCutPerGuard);
   /** A move that hits several players: guards take their share, everyone else gets the guards' cut. */
   const splash = (player: RaidPlayer, base: number, hitMove: 'breath' | 'sweep'): void => {
-    const share = state.guarding.includes(player.userId) ? guardShare : 1 - aoeCut;
+    const share = state.guarding.includes(player.userId) ? guardTakenShare(player) : 1 - aoeCut;
     damage(player, base * multiplier * share, hitMove, null);
   };
 
@@ -345,8 +396,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       const target = standing(state.intent.targets[0]);
       if (!target) break;
       const cover = coverFor(target);
-      if (cover) damage(cover, RAID_COMBAT.moves.claw.damage * multiplier * guardShare, 'claw', target.userId);
-      else damage(target, RAID_COMBAT.moves.claw.damage * multiplier * (state.guarding.includes(target.userId) ? guardShare : 1), 'claw', null);
+      if (cover) damage(cover, RAID_COMBAT.moves.claw.damage * multiplier * guardTakenShare(cover), 'claw', target.userId);
+      else damage(target, RAID_COMBAT.moves.claw.damage * multiplier * (state.guarding.includes(target.userId) ? guardTakenShare(target) : 1), 'claw', null);
       break;
     }
     case 'breath':

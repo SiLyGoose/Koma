@@ -6,8 +6,11 @@ import type { PerkDef } from './define.js';
 import { fineReduction } from './fine-reduction.js';
 import { glassCannonPenalty } from './glass-cannon-penalty.js';
 import { glassCannon } from './glass-cannon.js';
+import { guardBoost } from './guard-boost.js';
+import { healSplash } from './heal-splash.js';
 import { iconicByMistake } from './iconic-by-mistake.js';
 import { pullDiscount } from './pull-discount.js';
+import { rallyBoost } from './rally-boost.js';
 import { robAmountCut } from './rob-amount-cut.js';
 import { robAmount } from './rob-amount.js';
 import { robChance } from './rob-chance.js';
@@ -60,6 +63,10 @@ export const EFFECTS = {
   // Economy.
   claimBonus,
   pullDiscount,
+  // Raid battles.
+  healSplash,
+  guardBoost,
+  rallyBoost,
 } as const satisfies Record<string, PerkDef>;
 
 registerPerks(EFFECTS);

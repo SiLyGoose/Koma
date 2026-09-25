@@ -63,6 +63,30 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'A small cap worn on the head. It is said to bring good luck.',
     effects: ['pullDiscount'],
   },
+  {
+    id: 'willow-wand',
+    name: 'Willow Wand',
+    stars: 2,
+    slot: 'weapon',
+    description: 'Cut from a tree that grew beside a healing spring. Its warmth spills over.',
+    effects: ['healSplash'],
+  },
+  {
+    id: 'studded-brigandine',
+    name: 'Studded Brigandine',
+    stars: 2,
+    slot: 'armor',
+    description: 'Riveted plates sewn into leather. Made for standing in front of things.',
+    effects: ['guardBoost'],
+  },
+  {
+    id: 'battle-horn',
+    name: 'Battle Horn',
+    stars: 2,
+    slot: 'weapon',
+    description: 'One blast and everyone swings a little harder.',
+    effects: ['rallyBoost'],
+  },
 
   // 3 stars
   {
@@ -80,6 +104,30 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'armor',
     description: 'A shield grown, not forged. It is said to have been worn by a dragon slayer.',
     effects: ['robDefense', 'robShield'],
+  },
+  {
+    id: 'dragonbone-staff',
+    name: 'Dragonbone Staff',
+    stars: 3,
+    slot: 'weapon',
+    description: 'Carved from an old wyrm. Every heal it casts finds a second wound to close.',
+    effects: ['healSplash'],
+  },
+  {
+    id: 'wyrmscale-plate',
+    name: 'Wyrmscale Plate',
+    stars: 3,
+    slot: 'armor',
+    description: 'Scales shed by a dragon, hammered flat. Fire slides right off.',
+    effects: ['guardBoost'],
+  },
+  {
+    id: 'war-banner',
+    name: 'War Banner',
+    stars: 3,
+    slot: 'weapon',
+    description: 'Tattered from a hundred raids. Raise it, and the party remembers why they came.',
+    effects: ['rallyBoost'],
   },
 
   // 4 stars

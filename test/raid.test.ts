@@ -23,7 +23,9 @@ import {
 import { raidWeek } from '../src/lib/events/raid-week.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { raidTakings } from '../src/services/raid.js';
-import type { RaidDoc } from '../src/types.js';
+import { ITEMS_BY_ID } from '../src/data/items.js';
+import { describeEffects } from '../src/lib/game/equipment.js';
+import type { ItemDef, RaidDoc } from '../src/types.js';
 import { readPng } from './helpers/png.js';
 
 // ---------------------------------------------------------------------------
@@ -106,7 +108,7 @@ test('support with nobody cursed rallies: attacks do more damage for the next tu
   const { attackMultiplier, rallyTurns } = RAID_COMBAT.support;
   const state = fight(['a', 'b'], 10_000);
   const events = resolvePlayerTurn(state, choose(['a', 'support'], ['b', 'attack']), low);
-  assert.deepEqual(events.find((e) => e.kind === 'rally'), { kind: 'rally', userId: 'a', turns: rallyTurns });
+  assert.deepEqual(events.find((e) => e.kind === 'rally'), { kind: 'rally', userId: 'a', turns: rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier });
   assert.equal(state.bossHp, 10_000 - min); // the rally starts next turn
   assert.equal(state.rallied, rallyTurns);
 
@@ -142,7 +144,7 @@ test('support lifts a curse first; only a support with no curse left to lift ral
   const two = resolvePlayerTurn(state, choose(['b', 'support'], ['c', 'support']), low);
   assert.deepEqual(two, [
     { kind: 'cleansed', userId: 'b', targetId: 'a' },
-    { kind: 'rally', userId: 'c', turns: RAID_COMBAT.support.rallyTurns },
+    { kind: 'rally', userId: 'c', turns: RAID_COMBAT.support.rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier },
   ]);
 });
 
@@ -247,6 +249,86 @@ test('heal: goes to the ally the healer picked, and falls back to the usual pick
   (self.players[0] as { hp: number }).hp = 50;
   resolvePlayerTurn(self, pick('a', 'a'), low);
   assert.equal(self.players[0]?.hp, 50 + RAID_COMBAT.heal.amount);
+});
+
+test('guardBoost gear: the wearer takes less of every hit while guarding, and the cut for the rest of the party is unchanged', () => {
+  const state = fight();
+  (state.players[0] as { gear: { guardBoost: number } }).gear.guardBoost = 0.25;
+  const breath = RAID_COMBAT.moves.breath.damage;
+  state.intent = { move: 'breath', targets: [], multiplier: 1 };
+  state.guarding = ['a', 'b'];
+  const { events } = bossTurn(state, low);
+  const hit = (userId: string) => events.find((e) => e.kind === 'hit' && e.userId === userId) as { damage: number } | undefined;
+  assert.equal(hit('a')?.damage, Math.round(breath * 0.375));
+  assert.equal(hit('b')?.damage, Math.round(breath * RAID_COMBAT.guard.takenShare));
+  assert.equal(hit('c')?.damage, Math.round(breath * (1 - 2 * RAID_COMBAT.guard.aoeCutPerGuard)));
+
+  // Jumping in front of a Claw for someone else, the wearer still takes the smaller share.
+  const claw = fight();
+  (claw.players[0] as { gear: { guardBoost: number } }).gear.guardBoost = 0.25;
+  claw.intent = { move: 'claw', targets: ['b'], multiplier: 1 };
+  claw.guarding = ['a'];
+  const covered = bossTurn(claw, low).events.find((e) => e.kind === 'hit');
+  assert.deepEqual(covered, { kind: 'hit', move: 'claw', userId: 'a', damage: Math.round(RAID_COMBAT.moves.claw.damage * 0.375), guarded: true, coveredFor: 'b' });
+});
+
+test('healSplash gear: a heal also mends the most hurt other ally by a share of the heal, and never the one just healed', () => {
+  const state = fight();
+  (state.players[0] as { gear: { healSplash: number } }).gear.healSplash = 0.5;
+  (state.players[1] as { hp: number }).hp = 40;
+  (state.players[2] as { hp: number }).hp = 80;
+  const events = resolvePlayerTurn(state, choose(['a', 'heal', 20]), low);
+  const splash = Math.round(RAID_COMBAT.heal.amount * 1.2 * 0.5);
+  assert.deepEqual(events[1], { kind: 'healSplash', userId: 'a', targetId: 'c', amount: splash });
+  assert.equal(state.players[2]?.hp, 80 + splash);
+  assert.equal(state.players[0]?.stats.healed, Math.round(RAID_COMBAT.heal.amount * 1.2) + splash);
+
+  // Only the one ally hurt: nothing to spill onto. And no gear, no spill.
+  const alone = fight();
+  (alone.players[0] as { gear: { healSplash: number } }).gear.healSplash = 0.5;
+  (alone.players[1] as { hp: number }).hp = 40;
+  assert.deepEqual(resolvePlayerTurn(alone, choose(['a', 'heal']), low).map((e) => e.kind), ['heal']);
+  const plain = fight();
+  (plain.players[1] as { hp: number }).hp = 40;
+  (plain.players[2] as { hp: number }).hp = 80;
+  assert.deepEqual(resolvePlayerTurn(plain, choose(['a', 'heal']), low).map((e) => e.kind), ['heal']);
+});
+
+test('rallyBoost gear: a rally from the wearer gives a bigger attack bonus, and a weaker rally does not cut it short', () => {
+  const state = fight();
+  (state.players[0] as { gear: { rallyBoost: number } }).gear.rallyBoost = 0.25;
+  const rally = resolvePlayerTurn(state, choose(['a', 'support']), low).find((e) => e.kind === 'rally');
+  assert.equal((rally as { multiplier: number }).multiplier, 1.625);
+  assert.equal(state.rallyMultiplier, 1.625);
+
+  // Next turn: b attacks with the bigger bonus while c rallies without gear (the stronger bonus stays).
+  const events = resolvePlayerTurn(state, choose(['b', 'attack'], ['c', 'support']), low);
+  assert.equal((events.find((e) => e.kind === 'attack') as { damage: number }).damage, Math.round(RAID_COMBAT.attack.min * 1.625));
+  assert.equal(state.rallyMultiplier, 1.625);
+  assert.equal(state.rallied, RAID_COMBAT.support.rallyTurns);
+});
+
+test('raid gear items: a 2-star and a 3-star item for each raid perk, and their gear cards say what they do', () => {
+  for (const [id, stars, slot, effect] of [
+    ['willow-wand', 2, 'weapon', 'healSplash'],
+    ['dragonbone-staff', 3, 'weapon', 'healSplash'],
+    ['studded-brigandine', 2, 'armor', 'guardBoost'],
+    ['wyrmscale-plate', 3, 'armor', 'guardBoost'],
+    ['battle-horn', 2, 'weapon', 'rallyBoost'],
+    ['war-banner', 3, 'weapon', 'rallyBoost'],
+  ] as const) {
+    const item = ITEMS_BY_ID.get(id);
+    assert.ok(item, id);
+    assert.equal(item.stars, stars, id);
+    assert.equal(item.slot, slot, id);
+    assert.deepEqual(item.effects, [effect], id);
+  }
+  assert.equal(DEFAULTS.equipment.healSplash[3], 0.05);
+  assert.equal(DEFAULTS.equipment.guardBoost[3], 0.25);
+  assert.equal(DEFAULTS.equipment.rallyBoost[3], 0.25);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('war-banner') as ItemDef), ['Raid: your rallies give a 25% bigger attack bonus']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: Guard blocks 25% more of the hits you take']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 5% of the heal']);
 });
 
 test('heal picker: "whoever needs it most" first, then the knocked out, then the most hurt, never anyone at full HP', () => {
@@ -597,4 +679,26 @@ test('moodOf: each phase and each ending has its own picture', () => {
   state.bossHp = 0;
   state.outcome = 'won';
   assert.equal(moodOf(state), 'defeated');
+});
+
+test('gear stats: the raid numbers a member fights with, and the ones their gear changed', async () => {
+  const { raidStatsEmbed } = await import('../src/commands/gear.js');
+  const none = raidStatsEmbed('Ana', { healSplash: 0, guardBoost: 0, rallyBoost: 0 }, 100, 'k!').toJSON();
+  assert.equal(none.title, "⚔️ Ana's raid stats");
+  const plain = none.description ?? '';
+  assert.match(plain, /❤️ \*\*HP\*\*: 100/);
+  assert.ok(plain.includes(`**Attack**: ${RAID_COMBAT.attack.min}`));
+  assert.match(plain, /you take 50% of a hit$/m);
+  assert.match(plain, /attacks do 1\.5x damage for 2 turns$/m);
+  assert.match(plain, /No raid gear equipped.*k!gacha/);
+  assert.doesNotMatch(plain, /🎒|second ally/);
+  assert.equal(none.footer, undefined);
+
+  const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25 }, 100, 'k!').toJSON();
+  const text = geared.description ?? '';
+  assert.match(text, /second ally for 20% of it \(6 HP\) 🎒/);
+  assert.match(text, /you take 37\.5% of a hit \(normally 50%\) 🎒/);
+  assert.match(text, /attacks do 1\.63x damage for 2 turns \(normally 1\.5x\) 🎒/);
+  assert.doesNotMatch(text, /No raid gear/);
+  assert.match(geared.footer?.text ?? '', /changed by gear/);
 });
