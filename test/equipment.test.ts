@@ -191,7 +191,7 @@ function effectsReadAsPlainText(): void {
   ]);
   assert.deepEqual(describeEffects({ ...blade, effects: ['robAmountCut', 'robTax'], stars: 4 }), [
     `-25% ${CURRENCY_EMOJI} stolen`,
-    'Yowch, My Coins! You get 25% of the next rob by members you rob',
+    'Yowch, My Coins! You get 25% of the next successful rob by members you rob',
   ]);
   assert.deepEqual(describeTotals(emptyTotals()), []);
   assert.deepEqual(describeTotals(gear({ pullDiscount: 0.15 })), ['-15% gacha pull cost']);
