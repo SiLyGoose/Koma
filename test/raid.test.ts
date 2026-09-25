@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
-import { eventText, fightEmbed, hpBar, intentText, moodOf, resultEmbed } from '../src/commands/raid.js';
+import { eventText, fightEmbed, hpBar, intentText, moodOf, resultEmbed, statsReply } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
 import { RAID_COMBAT, validateConstants } from '../src/constants/index.js';
 import {
@@ -23,6 +23,7 @@ import {
 import { raidWeek } from '../src/lib/events/raid-week.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { raidTakings } from '../src/services/raid.js';
+import type { RaidDoc } from '../src/types.js';
 import { readPng } from './helpers/png.js';
 
 // ---------------------------------------------------------------------------
@@ -345,6 +346,52 @@ test('fight and result embeds fit Discord and name the players', () => {
   const result = resultEmbed(state, cfg, new Date('2026-10-03T04:00:00Z'), null).toJSON();
   assert.match(result.title ?? '', /got away/);
   assert.ok(result.fields?.some((f) => f.value.includes(`<@${state.players[1]?.userId}>`)));
+});
+
+test('raid stats: shown only once the dragon is slain, with damage, healing and support', () => {
+  const next = new Date('2026-10-03T04:00:00Z');
+  const base: RaidDoc = {
+    _id: 'g:2026-09-26',
+    guildId: 'g',
+    weekKey: '2026-09-26',
+    startedBy: 'a',
+    status: 'won',
+    channelId: null,
+    messageId: null,
+    players: ['a', 'b', 'c'],
+    spent: { a: 500 },
+    stolen: {},
+    damage: { a: 900, b: 100, c: 0 },
+    stats: {
+      a: { damage: 900, healed: 0, guards: 0, supports: 0, actions: 5, spent: 500, stolen: 0 },
+      b: { damage: 100, healed: 0, guards: 3, supports: 0, actions: 5, spent: 0, stolen: 0 },
+      c: { damage: 0, healed: 240, guards: 0, supports: 2, actions: 5, spent: 0, stolen: 0 },
+    },
+    lastHit: 'a',
+    rounds: 5,
+    createdAt: new Date('2026-09-26T05:00:00Z'),
+    endedAt: new Date('2026-09-26T05:10:00Z'),
+  };
+
+  // No raid, still going, or the dragon lived: a line saying why, no stats.
+  assert.match(statsReply(null, 'k!', next) as string, /k!raid/);
+  assert.match(statsReply({ ...base, status: 'fighting' }, 'k!', next) as string, /still going/);
+  for (const status of ['wiped', 'fled'] as const) assert.match(statsReply({ ...base, status }, 'k!', next) as string, /wasn't slain/);
+
+  const reply = statsReply(base, 'k!', next);
+  assert.notEqual(typeof reply, 'string');
+  const embed = (reply as Exclude<typeof reply, string>).toJSON();
+  assert.match(embed.description ?? '', /5 rounds.*3 raiders/);
+  const field = (name: string) => embed.fields?.find((f) => f.name === name)?.value ?? '';
+  assert.match(field('Damage'), /^🥇 <@a>: \*\*900\*\* \(90%\)\n🥈 <@b>: \*\*100\*\*/);
+  assert.equal(field('Final blow'), '<@a>');
+  assert.match(field('Team play'), /<@b>: 💚 0 healed · 🛡️ 3 · ✨ 0/);
+  assert.match(field('Team play'), /<@c>: 💚 240 healed · 🛡️ 0 · ✨ 2/);
+  assert.match(field('Points lost'), /<@a>: 💸 500 on boosts/);
+
+  // A raid saved before every stat was kept still shows its damage.
+  const old = (statsReply({ ...base, stats: undefined }, 'k!', next) as Exclude<typeof reply, string>).toJSON();
+  assert.match(old.fields?.find((f) => f.name === 'Damage')?.value ?? '', /<@a>: \*\*900\*\*/);
 });
 
 test('the dragon draws in every mood, at its size, and each mood looks different', () => {

@@ -115,7 +115,7 @@ export interface RaidRng {
 
 export const defaultRaidRng: RaidRng = { int: randInt, chance, pick: pickRandom };
 
-const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, guards: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
+export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, guards: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
 
 export const isAlive = (player: RaidPlayer): boolean => player.hp > 0;
 
@@ -437,5 +437,5 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
 export const participants = (state: RaidState): string[] => state.players.filter((p) => p.stats.actions > 0).map((p) => p.userId);
 
 /** Players by damage dealt, most first (for the summary; it doesn't change anyone's reward). */
-export const damageRanking = (state: RaidState): RaidPlayer[] =>
+export const damageRanking = <P extends { stats: RaidStats }>(state: { players: readonly P[] }): P[] =>
   [...state.players].filter((p) => p.stats.damage > 0).sort((a, b) => b.stats.damage - a.stats.damage);

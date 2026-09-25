@@ -1,5 +1,6 @@
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
+import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
 import { ensureMember, giveTokens } from './economy/index.js';
@@ -102,7 +103,7 @@ export const raidTakings = (raid: Pick<RaidDoc, 'spent' | 'stolen'>): number =>
 export async function finishRaid(
   id: string,
   status: 'won' | 'wiped' | 'fled',
-  summary: { damage: Record<string, number>; lastHit: string | null; rounds: number },
+  summary: { damage: Record<string, number>; stats: Record<string, RaidStats>; lastHit: string | null; rounds: number },
 ): Promise<number> {
   const raid = await collections().raids.findOneAndUpdate(
     { _id: id, status: { $in: ACTIVE } },
@@ -155,6 +156,11 @@ export async function abandonRaid(id: string): Promise<RaidDoc | null> {
   const payout = await payShares(raid.guildId, shares, 'raid_refund');
   if (payout.failed.length > 0) console.error(`Could not refund raid ${id} to: ${payout.failed.join(', ')}`);
   return raid;
+}
+
+/** This week's raid in the server, if one was started. */
+export async function findRaid(guildId: string, weekKey: string): Promise<RaidDoc | null> {
+  return collections().raids.findOne({ _id: raidId(guildId, weekKey) });
 }
 
 /** Raids that were still being played when the bot last stopped. */

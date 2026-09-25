@@ -25,6 +25,7 @@ import {
   bossTurn,
   createRaid,
   damageRanking,
+  emptyStats,
   endRound,
   enrageLevel,
   findPlayer,
@@ -38,12 +39,15 @@ import {
   type RaidChoice,
   type RaidEvent,
   type RaidState,
+  type RaidStats,
 } from '../lib/events/raid.js';
 import { raidWeek } from '../lib/events/raid-week.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited, mention } from '../lib/format.js';
 import { sleep } from '../lib/time.js';
+import type { RaidDoc } from '../types.js';
 import {
   abandonRaid,
+  findRaid,
   finishRaid,
   listUnfinishedRaids,
   payForBoost,
@@ -213,27 +217,59 @@ export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date,
       .setDescription(`${how}\n${r.bossLeft(fmt(state.bossHp), fmt(state.bossMaxHp))}\n${r.nextRaid(unixOfDate(nextRaid))}`);
   }
 
-  const total = state.players.reduce((sum, p) => sum + p.stats.damage, 0);
-  const ranking = damageRanking(state).map((p, i) =>
+  addStatsFields(embed, state.players, state.lastHit, intoVault);
+  if (reward && reward.failed.length > 0) embed.setFooter({ text: r.payFailed(reward.failed.length) });
+  return embed;
+}
+
+/** Who did what in a fight: damage ranking, the final blow, team play, and points lost. */
+function addStatsFields(embed: BotEmbed, players: readonly { userId: string; stats: RaidStats }[], lastHit: string | null, intoVault = 0): void {
+  const r = TEXT.raid;
+  const total = players.reduce((sum, p) => sum + p.stats.damage, 0);
+  const ranking = damageRanking({ players }).map((p, i) =>
     r.rankingLine(r.places[i] ?? `**${i + 1}.**`, mention(p.userId), fmt(p.stats.damage), formatPercent(total > 0 ? p.stats.damage / total : 0)),
   );
   embed.addFields({ name: r.rankingField, value: ranking.length === 0 ? r.noDamage : joinLimited(ranking) });
-  if (state.lastHit) embed.addFields({ name: r.lastHitField, value: mention(state.lastHit), inline: true });
+  if (lastHit) embed.addFields({ name: r.lastHitField, value: mention(lastHit), inline: true });
 
-  const team = state.players
+  const team = players
     .filter((p) => p.stats.healed > 0 || p.stats.guards > 0 || p.stats.supports > 0)
     .map((p) => r.teamLine(mention(p.userId), p.stats.healed, p.stats.guards, p.stats.supports));
   if (team.length > 0) embed.addFields({ name: r.teamField, value: joinLimited(team) });
 
-  const lost = state.players
+  const lost = players
     .filter((p) => p.stats.spent > 0 || p.stats.stolen > 0)
     .map((p) => r.pointsLine(mention(p.userId), fmt(p.stats.spent), fmt(p.stats.stolen)));
   const vaultLine = intoVault > 0 ? `
 ${r.intoVault(fmt(intoVault))}` : '';
   embed.addFields({ name: r.pointsField, value: lost.length === 0 ? r.noPointsLost : `${joinLimited(lost, 950)}${vaultLine}` });
+}
 
-  if (reward && reward.failed.length > 0) embed.setFooter({ text: r.payFailed(reward.failed.length) });
+/**
+ * `raid stats`: this week's fight, looked back on once the dragon has been slain. Raids saved
+ * before every stat was kept only have damage; the rest shows as nothing for them.
+ */
+export function statsEmbed(raid: RaidDoc): BotEmbed {
+  const r = TEXT.raid;
+  const players = raid.players.map((userId) => ({
+    userId,
+    stats: raid.stats?.[userId] ?? { ...emptyStats(), damage: raid.damage?.[userId] ?? 0, spent: raid.spent[userId] ?? 0, stolen: raid.stolen[userId] ?? 0 },
+  }));
+  const ended = raid.endedAt ? unixOfDate(raid.endedAt) : null;
+  const embed = createEmbed()
+    .setTitle(r.statsTitle(r.bossName))
+    .setDescription(r.statsDescription(raid.rounds ?? 0, players.length, ended));
+  addStatsFields(embed, players, raid.lastHit ?? null);
   return embed;
+}
+
+/** What `raid stats` says for this week's raid: the stats once the dragon is slain, otherwise why there are none. */
+export function statsReply(raid: RaidDoc | null, prefix: string, nextRaid: Date): string | BotEmbed {
+  const r = TEXT.raid;
+  if (!raid) return r.statsNoRaid(prefix);
+  if (raid.status === 'preparing' || raid.status === 'fighting') return r.statsOngoing;
+  if (raid.status !== 'won') return r.statsNotDefeated(unixOfDate(nextRaid));
+  return statsEmbed(raid);
 }
 
 // ---------------------------------------------------------------------------
@@ -761,7 +797,8 @@ async function runRaid(ctx: CommandContext): Promise<void> {
     // The end. Only the outcome decides the reward; the ranking and the last hit are for show.
     const outcome = state.outcome === 'won' || state.outcome === 'wiped' ? state.outcome : 'fled';
     const damage = Object.fromEntries(state.players.map((p) => [p.userId, p.stats.damage]));
-    const intoVault = await finishRaid(id, outcome, { damage, lastHit: state.lastHit, rounds: state.round });
+    const stats = Object.fromEntries(state.players.map((p) => [p.userId, p.stats]));
+    const intoVault = await finishRaid(id, outcome, { damage, stats, lastHit: state.lastHit, rounds: state.round });
     settled = true;
 
     let reward: RaidReward | null = null;
@@ -813,11 +850,18 @@ export const raid: Command = {
   name: 'raid',
   aliases: ['boss'],
   description:
-    'Start the weekly raid: everyone joins in to fight a dragon together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern).',
-  usage: 'raid',
+    'Start the weekly raid: everyone joins in to fight a dragon together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern). `raid stats` shows who did what once the dragon is slain.',
+  usage: 'raid [stats]',
+  slashUsage: 'raid start  or  raid stats',
 
   async execute(ctx) {
     const action = ctx.args[0]?.toLowerCase();
+    if (action === 'stats' && ctx.args.length === 1) {
+      const week = raidWeek();
+      const reply = statsReply(await findRaid(ctx.guildId, week.key), ctx.prefix, week.next);
+      await ctx.reply(typeof reply === 'string' ? reply : { embeds: [reply] });
+      return;
+    }
     if (action === 'reset') {
       if (!isAdmin(ctx.user.id)) {
         await ctx.reply(TEXT.raid.adminOnly);

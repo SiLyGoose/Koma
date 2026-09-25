@@ -9,7 +9,7 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
 export const raidText = {
   /** The boss's name (bosses with their own personalities come later). */
   bossName: 'Ember Wyrm',
-  usage: (p: string) => `Use \`${p}raid\` to start this week's raid.`,
+  usage: (p: string) => `Use \`${p}raid\` to start this week's raid, or \`${p}raid stats\` to see who did what once the dragon is slain.`,
   busy: 'Something else is going on in this server right now. Try again when it is over.',
   /** `unix` is when the next raid week starts. */
   alreadyRaided: (unix: number) => `This week's raid has already been started. The next one can be started <t:${unix}:F> (<t:${unix}:R>).`,
@@ -155,6 +155,16 @@ Grows with every raider (at least ${min}).`,
   noPointsLost: 'None.',
   places: ['🥇', '🥈', '🥉'],
   payFailed: (count: number) => `${plural(count, 'reward', 'rewards')} could not be paid. Ask the admin.`,
+
+  // `raid stats`: this week's fight, once the dragon is slain
+  statsTitle: (boss: string) => `📊 Raid stats: the ${boss}`,
+  /** `unix` is when the fight ended, or null if that wasn't saved. */
+  statsDescription: (rounds: number, players: number, unix: number | null) =>
+    `Slain in **${plural(rounds, 'round', 'rounds')}** by ${plural(players, 'raider', 'raiders')}${unix === null ? '' : ` <t:${unix}:R>`}.`,
+  statsNoRaid: (p: string) => `Nobody has raided the dragon this week. Use \`${p}raid\` to start the fight.`,
+  statsOngoing: "This week's raid is still going. The stats show up once the dragon is slain.",
+  /** `unix` is when the next raid week starts. */
+  statsNotDefeated: (unix: number) => `The dragon wasn't slain this week, so there are no stats to show. The next raid can be started <t:${unix}:R>.`,
 
   // A raid the bot didn't finish
   interruptedTitle: 'The raid was cut short',

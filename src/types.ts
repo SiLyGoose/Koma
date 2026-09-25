@@ -1,5 +1,6 @@
 import type { ObjectId } from 'mongodb';
 import type { EffectId } from './perks/index.js';
+import type { RaidStats } from './lib/events/raid.js';
 
 export type Stars = 1 | 2 | 3 | 4;
 
@@ -314,6 +315,8 @@ export interface RaidDoc {
   stolen: Record<string, number>;
   /** Filled in when it ends: damage dealt by user id, and whose hit beat the boss. */
   damage?: Record<string, number>;
+  /** Filled in when it ends: everything each player did, by user id (for `raid stats`). Raids from before it was saved only have `damage`. */
+  stats?: Record<string, RaidStats>;
   lastHit?: string | null;
   rounds?: number;
   createdAt: Date;
