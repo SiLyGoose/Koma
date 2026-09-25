@@ -16,6 +16,10 @@ const CC: Record<CrowdControl, { name: string; does: string }> = {
 };
 const ccMove: Record<CrowdControl, string> = { stunned: 'Stun', disarmed: 'Disarm', taunted: 'Taunt' };
 
+/** "A", "A and B", "A, B and C". */
+const andList = (items: readonly string[]): string =>
+  items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+
 export const raidText = {
   /** The boss's name (bosses with their own personalities come later). */
   bossName: 'Ember Wyrm',
@@ -101,8 +105,27 @@ Grows with every raider (at least ${min}).`,
       `${E[effect]} **${ccMove[effect]}** on ${targets}: ${CC[effect].does} for ${plural(rounds, 'turn', 'turns')}. A Support can free them.`,
   },
 
-  // The action log
+  // The action log. The plural lines are several of the same thing in one turn, on one line
+  // (`users` and `parts` are lists, joined here).
+  andList,
   log: {
+    guards: (users: readonly string[]) => `${E.guard} ${andList(users)} stand guard.`,
+    /** Several attacks that all did the same (no crits, same boost). */
+    attacks: (users: readonly string[], damage: string, boost: string) => `${E.attack} ${andList(users)} hit for **${damage}** each${boost}.`,
+    /** Several attacks that did different amounts; each part is attackPart. */
+    attacksMixed: (parts: readonly string[]) => `${E.attack} Hits: ${parts.join(', ')}.`,
+    attackPart: (user: string, damage: string, crit: boolean, boost: string) => `${user} **${damage}**${crit ? ` (${E.crit} critical!)` : ''}${boost}`,
+    bouncedMany: (users: readonly string[]) => `🔷 Attacks from ${andList(users)} bounced off the Scale Shield.`,
+    /** A move that hit several players for the same damage. */
+    hits: (move: 'breath' | 'sweep', users: readonly string[], damage: number) =>
+      move === 'breath' ? `🔥 Fire Breath burned ${andList(users)} for **${damage}** each.` : `🌀 Tail Sweep hit ${andList(users)} for **${damage}** each.`,
+    /** A move that hit several players for different damage (a guard took less); each part is hitPart. */
+    hitsMixed: (move: 'breath' | 'sweep', parts: readonly string[]) =>
+      move === 'breath' ? `🔥 Fire Breath burned ${andList(parts)}.` : `🌀 Tail Sweep hit ${andList(parts)}.`,
+    hitPart: (user: string, damage: number) => `${user} for **${damage}**`,
+    knockedOutMany: (users: readonly string[]) => `💀 ${andList(users)} were knocked out!`,
+    ccMany: (effect: CrowdControl, users: readonly string[]) => `${E[effect]} ${andList(users)} are ${CC[effect].name}: ${CC[effect].does}.`,
+
     guard: (user: string) => `${E.guard} ${user} stands guard.`,
     heal: (user: string, target: string, amount: number, boost: string) => `${E.heal} ${user} healed ${target} for **${amount}**${boost}.`,
     revive: (user: string, target: string, hp: number, boost: string) => `${E.heal} ${user} brought ${target} back with **${hp}** HP${boost}!`,

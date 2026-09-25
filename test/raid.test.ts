@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
-import { eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, statsReply } from '../src/commands/raid.js';
+import { eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, statsReply } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
 import { RAID, RAID_COMBAT, RAID_EMOJI, validateConstants } from '../src/constants/index.js';
 import {
@@ -542,6 +542,58 @@ test('hpBar: always the full width, empty only at 0', () => {
   assert.equal(hpBar(1, 100, 10), '🟥' + '⬛'.repeat(9));
   assert.equal(hpBar(0, 100, 10), '⬛'.repeat(10));
   assert.equal(hpBar(50, 100, 10), '🟥'.repeat(5) + '⬛'.repeat(5));
+});
+
+test('the action log puts several of the same thing in one turn on one line', () => {
+  const [z, h, i, p] = ['zeiu', 'hxlon', 'inu', 'potatoe'];
+  const E = RAID_EMOJI;
+  // Two plain attacks for the same amount, two guards.
+  assert.deepEqual(
+    eventLines([
+      { kind: 'guard', userId: i },
+      { kind: 'guard', userId: p },
+      { kind: 'attack', userId: z, damage: 60, crit: false, boost: 0 },
+      { kind: 'attack', userId: h, damage: 60, crit: false, boost: 0 },
+    ]),
+    [`${E.guard} <@inu> and <@potatoe> stand guard.`, `${E.attack} <@zeiu> and <@hxlon> hit for **60** each.`],
+  );
+  // Different amounts (a boost, a crit): one line, each with its own.
+  assert.deepEqual(
+    eventLines([
+      { kind: 'attack', userId: z, damage: 75, crit: false, boost: 25 },
+      { kind: 'attack', userId: h, damage: 120, crit: true, boost: 0 },
+      { kind: 'attack', userId: i, damage: 60, crit: false, boost: 0 },
+    ]),
+    [`${E.attack} Hits: <@zeiu> **75** (+25%), <@hxlon> **120** (${E.crit} critical!), <@inu> **60**.`],
+  );
+  // A Fire Breath with its knock-outs after it; a guard who took less makes it list each.
+  assert.deepEqual(
+    eventLines([
+      { kind: 'hit', move: 'breath', userId: z, damage: 24, guarded: false, coveredFor: null },
+      { kind: 'hit', move: 'breath', userId: h, damage: 24, guarded: false, coveredFor: null },
+      { kind: 'knockedOut', userId: h },
+      { kind: 'hit', move: 'breath', userId: i, damage: 24, guarded: false, coveredFor: null },
+      { kind: 'knockedOut', userId: i },
+    ]),
+    ['🔥 Fire Breath burned <@zeiu>, <@hxlon> and <@inu> for **24** each.', '💀 <@hxlon> and <@inu> were knocked out!'],
+  );
+  assert.deepEqual(
+    eventLines([
+      { kind: 'hit', move: 'sweep', userId: z, damage: 16, guarded: true, coveredFor: null },
+      { kind: 'hit', move: 'sweep', userId: h, damage: 32, guarded: false, coveredFor: null },
+    ]),
+    ['🌀 Tail Sweep hit <@zeiu> for **16** and <@hxlon> for **32**.'],
+  );
+  // Crowd control on several at once; a lone event keeps its own line; heals are never merged.
+  assert.deepEqual(eventLines([{ kind: 'cc', effect: 'stunned', userId: z }, { kind: 'cc', effect: 'stunned', userId: h }]), [
+    `${E.stunned} <@zeiu> and <@hxlon> are stunned: can't act.`,
+  ]);
+  assert.deepEqual(eventLines([{ kind: 'guard', userId: z }]), [eventText({ kind: 'guard', userId: z })]);
+  const heals = [
+    { kind: 'heal', userId: z, targetId: h, amount: 30, boost: 0 },
+    { kind: 'heal', userId: i, targetId: p, amount: 30, boost: 0 },
+  ] as const;
+  assert.deepEqual(eventLines(heals), heals.map(eventText));
 });
 
 test('every event and every move has a line of text', () => {

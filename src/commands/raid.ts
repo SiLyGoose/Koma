@@ -172,6 +172,89 @@ export function eventText(event: RaidEvent): string {
   }
 }
 
+/**
+ * The action log lines for one turn's events: several of the same thing in a row (guards, attacks,
+ * attacks bouncing off, players hit by the same Fire Breath or Tail Sweep, knocked out, or put
+ * under the same crowd control) share one line; everything else gets its own (eventText). A
+ * multi-target hit's knock-outs come on one line after it.
+ */
+export function eventLines(events: readonly RaidEvent[]): string[] {
+  const log = TEXT.raid.log;
+  const boost = (percent: number): string => (percent > 0 ? log.boost(percent) : '');
+  /** Which events can share a line with this one, or null if it always has its own. */
+  const groupOf = (event: RaidEvent): string | null => {
+    switch (event.kind) {
+      case 'guard':
+      case 'attack':
+      case 'bounced':
+      case 'knockedOut':
+        return event.kind;
+      case 'cc':
+        return `cc:${event.effect}`;
+      case 'hit':
+        return event.move !== 'claw' && event.coveredFor === null ? `hit:${event.move}` : null;
+      default:
+        return null;
+    }
+  };
+
+  const lines: string[] = [];
+  for (let i = 0; i < events.length; ) {
+    const first = events[i] as RaidEvent;
+    const group = groupOf(first);
+    if (group === null) {
+      lines.push(eventText(first));
+      i++;
+      continue;
+    }
+    // The run of events in this group. A multi-target hit also takes in the knock-outs between its hits.
+    const run: RaidEvent[] = [];
+    const knockedOut: string[] = [];
+    let j = i;
+    for (; j < events.length; j++) {
+      const next = events[j] as RaidEvent;
+      if (groupOf(next) === group) run.push(next);
+      else if (first.kind === 'hit' && next.kind === 'knockedOut') knockedOut.push(mention(next.userId));
+      else break;
+    }
+    i = j;
+    if (run.length === 1) lines.push(eventText(first));
+    else lines.push(groupLine(run));
+    if (knockedOut.length === 1) lines.push(log.knockedOut(knockedOut[0] as string));
+    if (knockedOut.length > 1) lines.push(log.knockedOutMany(knockedOut));
+  }
+  return lines;
+
+  function groupLine(run: RaidEvent[]): string {
+    const first = run[0] as RaidEvent;
+    const users = run.map((event) => mention('userId' in event ? event.userId : ''));
+    switch (first.kind) {
+      case 'guard':
+        return log.guards(users);
+      case 'bounced':
+        return log.bouncedMany(users);
+      case 'knockedOut':
+        return log.knockedOutMany(users);
+      case 'cc':
+        return log.ccMany(first.effect, users);
+      case 'attack': {
+        const attacks = run as Extract<RaidEvent, { kind: 'attack' }>[];
+        const same = attacks.every((a) => !a.crit && a.damage === first.damage && a.boost === first.boost);
+        if (same) return log.attacks(users, fmt(first.damage), boost(first.boost));
+        return log.attacksMixed(attacks.map((a) => log.attackPart(mention(a.userId), fmt(a.damage), a.crit, boost(a.boost))));
+      }
+      case 'hit': {
+        const hits = run as Extract<RaidEvent, { kind: 'hit' }>[];
+        const move = first.move as 'breath' | 'sweep';
+        if (hits.every((h) => h.damage === first.damage)) return log.hits(move, users, first.damage);
+        return log.hitsMixed(move, hits.map((h) => log.hitPart(mention(h.userId), h.damage)));
+      }
+      default:
+        return run.map(eventText).join('\n');
+    }
+  }
+}
+
 /** Which picture of the dragon fits the fight right now. */
 export function moodOf(state: RaidState): DragonMood {
   if (state.bossHp <= 0) return 'defeated';
@@ -766,7 +849,7 @@ async function runFight(
         events.push(recordTheft(state, boss.theft.userId, taken));
       }
       events.push(...endRound(state));
-      log.push(...events.map(eventText));
+      log.push(...eventLines(events));
       await screen.now();
       if (state.outcome !== 'ongoing') break;
       await sleep(RAID.resultMs);
