@@ -129,13 +129,13 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['robAmountCut', 'claimTax'],
   },
   {
-    id: 'zeiu-placeholder-item',
-    name: 'Zeiu Placeholder Item',
+    id: 'piplup',
+    name: 'Piplup',
     stars: 4,
     usableBy: ['257214680823627777'], // Simon
     slot: 'treasure',
-    description: 'Placeholder',
-    effects: [],
+    description: 'Pip-pip.',
+    effects: ['bubbleBeam', 'bubbleBeamPenalty'],
   },
   {
     id: 'd20',

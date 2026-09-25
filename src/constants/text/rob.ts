@@ -25,6 +25,12 @@ export const robText = {
   robTaxed: (victim: string, rate: string) => `${victim}'s next rob will be taxed ${rate}.`,
   /** Added when part of this rob went to a Jew Frog wearer who robbed the robber earlier. `taker` is a mention. */
   robTaxPaid: (taker: string, tax: string, kept: string) => `${taker} took ${boldMoney(tax)} of it. You kept ${boldMoney(kept)}`,
+  /**
+   * Added last when the rob slipped (Piplup): `returned` went back to the victim, plus `penalty`
+   * ('' when there was none). Placeholder wording.
+   */
+  slipped: (victim: string, returned: string, penalty: string) =>
+    `🐧 ...and slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
   /** Used instead of `success` when the victim was left with nothing. */
   successEverything: (robber: string, victim: string, stolen: string) =>
     `${robber} robbed ${victim} and got away with ${boldMoney(stolen)} That was everything they had...`,

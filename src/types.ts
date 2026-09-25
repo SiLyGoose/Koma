@@ -180,6 +180,9 @@ export type LedgerReason =
   | 'rob_fine_received'
   | 'rob_tax_paid'
   | 'rob_tax_received'
+  // A successful rob that slipped (Piplup): the take plus a penalty goes back to the victim.
+  | 'rob_slip_paid'
+  | 'rob_slip_received'
   // The old vault breaker's reasons: no longer written, kept so older ledger entries still type-check.
   | 'vault_loot'
   | 'vault_fine'

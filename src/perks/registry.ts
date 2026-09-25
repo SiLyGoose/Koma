@@ -1,3 +1,4 @@
+import { bubbleBeam, bubbleBeamPenalty } from './bubble-beam.js';
 import { claimBonus } from './claim-bonus.js';
 import { claimTax } from './claim-tax.js';
 import { d20 } from './d20/index.js';
@@ -49,6 +50,9 @@ export const EFFECTS = {
   // Chaewon Photocard.
   smart,
   iconicByMistake,
+  // Piplup.
+  bubbleBeam,
+  bubbleBeamPenalty,
   // Unique-treasure perks.
   wheelSpin,
   d20,

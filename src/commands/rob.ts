@@ -33,6 +33,7 @@ function successNotes(
     gearBonus: number;
     shielded: number;
     wheelBonus: number;
+    slip: { returned: number; penalty: number } | null;
   },
 ): string {
   const lines: string[] = [];
@@ -49,6 +50,10 @@ function successNotes(
   }
   if (result.claimTax !== null) lines.push(TEXT.rob.claimTaxed(victim, formatPercent(result.claimTax)));
   if (result.robTax !== null) lines.push(TEXT.rob.robTaxed(victim, formatPercent(result.robTax)));
+  if (result.slip !== null) {
+    const { returned, penalty } = result.slip;
+    lines.push(TEXT.rob.slipped(victim, fmt(returned), penalty > 0 ? fmt(penalty) : ''));
+  }
   return lines.map((line) => `\n${line}`).join('');
 }
 

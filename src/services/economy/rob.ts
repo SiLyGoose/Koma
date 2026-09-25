@@ -15,6 +15,8 @@ import {
   robTaxAmount,
   robTaxRate,
   rollWheelDice,
+  slipChance,
+  slipPenaltyAmount,
   spinWheel,
   wheelChance,
   type WheelSpin,
@@ -56,6 +58,11 @@ export type RobResult =
       shielded: number;
       /** How many points the wheel added to what was taken (negative if it took some away); 0 when it didn't spin. */
       wheelBonus: number;
+      /**
+       * Set when the rob slipped (Piplup on either side): `returned` of what was taken went back to
+       * the victim, plus `penalty` from the robber. The balances above are after it.
+       */
+      slip: { returned: number; penalty: number } | null;
     }
   | {
       ok: true;
@@ -206,6 +213,42 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       ];
       let robberBalance = transfer.toBalance;
 
+      // Piplup on either side: the robber may slip and hand everything back, plus a penalty. A
+      // slipped rob is undone, so nothing below happens (no tax is paid out of it, no marks are left).
+      if (chance(slipChance(robberGear, victimGear))) {
+        const penalty = slipPenaltyAmount(transfer.moved, robberGear, victimGear);
+        try {
+          // The robber was just paid transfer.moved, so that always goes back; the penalty is capped at what they have.
+          const back = await transferClamped(guildId, robberId, victimId, transfer.moved + penalty, 0);
+          if (back) {
+            ledger.push(
+              { guildId, userId: robberId, delta: -back.moved, reason: 'rob_slip_paid', otherUserId: victimId },
+              { guildId, userId: victimId, delta: back.moved, reason: 'rob_slip_received', otherUserId: robberId },
+            );
+            await recordLedger(ledger);
+            return {
+              ok: true,
+              success: true,
+              chance: successChance,
+              stolen: transfer.moved,
+              robberBalance: back.fromBalance,
+              victimBalance: back.toBalance,
+              claimTax: null,
+              robTax: null,
+              robTaxPaid: null,
+              wheel,
+              gearBonus: beforeArmor - rolled,
+              shielded: Math.max(0, beforeArmor - stolen),
+              wheelBonus: wanted - stolen,
+              slip: { returned: Math.min(back.moved, transfer.moved), penalty: Math.max(0, back.moved - transfer.moved) },
+            };
+          }
+        } catch (err) {
+          // The rob already happened; if the slip can't be paid, it simply didn't slip.
+          console.error('Could not pay out a slip:', err);
+        }
+      }
+
       // If a Jew Frog wearer marked the robber earlier, part of this rob is theirs. The mark is
       // cleared in one conditional update, so it is taken at most once, and put back if the payout
       // could not be made.
@@ -298,6 +341,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         gearBonus: beforeArmor - rolled,
         shielded: Math.max(0, beforeArmor - stolen),
         wheelBonus: wanted - stolen,
+        slip: null,
       };
     }
 
