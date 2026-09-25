@@ -8,7 +8,7 @@ import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js'
 import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE } from './refine.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
-import { ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
+import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
 import { MAX_WHEEL_SLICES, MAX_WHEEL_MULTIPLIER, WHEEL_ANIMATION } from './wheel.js';
 
@@ -33,6 +33,7 @@ export function validateConstants(): void {
   }
 
   if (!(MAX_REDUCTION > 0 && MAX_REDUCTION < 1)) problems.push('MAX_REDUCTION must be above 0 and below 1');
+  if (!(BUBBLE_BEAM_ROBBER_SHARE >= 0 && BUBBLE_BEAM_ROBBER_SHARE <= 1)) problems.push('BUBBLE_BEAM_ROBBER_SHARE must be from 0 to 1');
   if (!(FIELD_MAX_LENGTH >= 50 && FIELD_MAX_LENGTH <= 1024)) problems.push('FIELD_MAX_LENGTH must be between 50 and 1024');
   if (!Number.isInteger(PERCENT_DECIMALS) || PERCENT_DECIMALS < 0 || PERCENT_DECIMALS > 10) {
     problems.push('PERCENT_DECIMALS must be a whole number from 0 to 10');

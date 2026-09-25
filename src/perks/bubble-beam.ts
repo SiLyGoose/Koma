@@ -1,4 +1,4 @@
-import { CURRENCY_EMOJI } from '../constants/index.js';
+import { BUBBLE_BEAM_ROBBER_SHARE, CURRENCY_EMOJI } from '../constants/index.js';
 import { clamp, definePerk } from './define.js';
 import type { EffectTotals } from './registry.js';
 
@@ -11,10 +11,12 @@ import type { EffectTotals } from './registry.js';
 
 /**
  * The chance a successful rob slips. Both sides' gear counts, each rolled on its own: a Piplup on
- * either side is enough, and one on both sides makes it more likely (1 - (1 - a)(1 - b)).
+ * either side is enough, and one on both sides makes it more likely (1 - (1 - a)(1 - b)). The
+ * robber's own Piplup only counts at BUBBLE_BEAM_ROBBER_SHARE (half), so its holder slips half as
+ * often when they are the one robbing.
  */
 export function slipChance(robber: EffectTotals, victim: EffectTotals): number {
-  const a = clamp(robber.bubbleBeam, 0, 1);
+  const a = clamp(robber.bubbleBeam, 0, 1) * BUBBLE_BEAM_ROBBER_SHARE;
   const b = clamp(victim.bubbleBeam, 0, 1);
   return 1 - (1 - a) * (1 - b);
 }
@@ -30,11 +32,11 @@ export function slipPenaltyAmount(stolen: number, robber: EffectTotals, victim: 
 
 export const bubbleBeam = definePerk({
   description:
-    "Bubble Beam (Piplup), chance: chance that a successful rob slips when the wearer is the robber or the victim. A slip gives everything taken back to the victim, plus bubbleBeamPenalty.",
+    "Bubble Beam (Piplup), chance: chance that a successful rob against the wearer slips (half that when the wearer is the robber). A slip gives everything taken back to the victim, plus bubbleBeamPenalty.",
   defaults: { 1: 0.05, 2: 0.1, 3: 0.15, 4: 0.2 },
   min: 0,
   max: 1,
-  text: (value) => `Piplup used *Bubble Beam*: ${value} chance a successful rob by or against you slips, and the ${CURRENCY_EMOJI} goes back to the victim`,
+  text: (value) => `Piplup used *Bubble Beam*: ${value} chance a successful rob against you slips (half that when you rob), and the ${CURRENCY_EMOJI} goes back to the victim`,
 });
 
 export const bubbleBeamPenalty = definePerk({

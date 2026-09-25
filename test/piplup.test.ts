@@ -9,14 +9,16 @@ import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 
 const gear = (over: Partial<ReturnType<typeof emptyTotals>>) => ({ ...emptyTotals(), ...over });
 const none = emptyTotals();
-const close = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} is not ${expected}`);
+const close = (actual: number, expected: number, note = '') => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} is not ${expected}${note ? ` (${note})` : ''}`);
 
 test('slip chance: a Piplup on either side is enough, and one on both sides rolls twice', () => {
   close(slipChance(none, none), 0);
-  close(slipChance(gear({ bubbleBeam: 0.1 }), none), 0.1); // the wearer robs
-  close(slipChance(none, gear({ bubbleBeam: 0.1 })), 0.1); // the wearer is robbed
-  close(slipChance(gear({ bubbleBeam: 0.1 }), gear({ bubbleBeam: 0.1 })), 0.19);
-  close(slipChance(gear({ bubbleBeam: 2 }), gear({ bubbleBeam: -1 })), 1, 'held to 0..1');
+  close(slipChance(gear({ bubbleBeam: 0.1 }), none), 0.05); // the wearer robs: half as likely
+  close(slipChance(none, gear({ bubbleBeam: 0.1 })), 0.1); // the wearer is robbed: in full
+  close(slipChance(gear({ bubbleBeam: 0.1 }), gear({ bubbleBeam: 0.1 })), 1 - 0.95 * 0.9);
+  close(slipChance(gear({ bubbleBeam: 0.2 }), none), 0.1, 'the 4-star default: 10% when robbing');
+  close(slipChance(gear({ bubbleBeam: 2 }), gear({ bubbleBeam: -1 })), 0.5, 'held to 0..1, then halved for the robber');
+  close(slipChance(none, gear({ bubbleBeam: 2 })), 1, 'held to 0..1');
 });
 
 test('slip penalty: a share of what was taken, from either side, rounded', () => {

@@ -13,6 +13,12 @@
  */
 export const ROB_LOCK = { holdMs: 15_000, retryMs: 100, attempts: 50 } as const;
 
+/**
+ * Bubble Beam (Piplup, perks/bubble-beam.ts): how much of the wearer's slip chance counts when
+ * the wearer is the one robbing (0.5: half as likely). As the victim, it counts in full.
+ */
+export const BUBBLE_BEAM_ROBBER_SHARE = 0.5;
+
 export const SUCCESS_TITLES: readonly string[] = ['IT\'S A STICKUP!', 'THEY\'VE BEEN SLIMED!', 'EMPTY THY POCKETS WANKAH'];
 
 export const FAILURE_TITLES: readonly string[] = ['L+Ratio', 'Your XP was too low', 'You\'re washed..'];
