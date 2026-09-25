@@ -61,7 +61,7 @@ test('multi: the messages', () => {
   assert.equal(TEXT.gacha.multiLine('★★', 'Kippah', false), '★★  Kippah');
   assert.equal(TEXT.gacha.multiLine('★★', 'Kippah', true), '★★  Kippah · New!');
   assert.equal(TEXT.gacha.multiLineTop('★★★★', 'C4', true), '**★★★★  C4** · New!');
-  assert.equal(TEXT.gacha.multiExclusive('C4', '<@1>'), 'Only <@1> can use C4.');
+  assert.equal(TEXT.gacha.multiExclusive('C4', '<@1>', '50%'), 'C4 is made for <@1>. It only works at 50% for you.');
   assert.equal(TEXT.gacha.multiTier('★', 9), '★ x9');
   assert.equal(TEXT.gacha.multiFooterNew(1), '1 new item!');
   assert.equal(TEXT.gacha.multiFooterNew(3), '3 new items!');

@@ -1,8 +1,8 @@
 import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
-import { fmt, mentionList, money, starString } from '../lib/format.js';
-import { STARS } from '../config.js';
+import { fmt, formatPercent, mentionList, money, starString } from '../lib/format.js';
+import { CONFIG, STARS } from '../config.js';
 import { pullGacha, pullMulti } from '../services/economy/index.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { replyWithShootingStar } from '../animations/gacha-reply.js';
@@ -40,7 +40,7 @@ export const gacha: Command = {
       .setTitle(TEXT.gacha.title(starString(item.stars), item.name))
       .setDescription(
         TEXT.gacha.description(item.description) +
-          (item.usableBy && !canUseItem(item, ctx.user.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy))}` : ''),
+          (item.usableBy && !canUseItem(item, ctx.user.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness))}` : ''),
       )
       .addFields(
         {
@@ -79,13 +79,13 @@ async function multiPull(ctx: CommandContext): Promise<void> {
     (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(starString(item.stars), item.name, isNew),
   );
 
-  // One note per exclusive item that this member can't use the effects of.
+  // One note per exclusive item that only works part way for this member.
   const notes: string[] = [];
   const noted = new Set<string>();
   for (const { item } of result.pulls) {
     if (!item.usableBy || canUseItem(item, ctx.user.id) || noted.has(item.id)) continue;
     noted.add(item.id);
-    notes.push(TEXT.gacha.multiExclusive(item.name, mentionList(item.usableBy)));
+    notes.push(TEXT.gacha.multiExclusive(item.name, mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)));
   }
 
   // How many pulls gave each tier, best tier first.

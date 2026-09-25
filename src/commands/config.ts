@@ -91,13 +91,17 @@ function describeValue(spec: SettingSpec): string {
  */
 function groupLines(group: SettingSpec['group'], channelId: string | null): string[] {
   if (group === 'Equipment') {
-    return EFFECT_IDS.map((id) => {
+    // The Equipment settings that aren't per-effect (like equipment.borrowed.effectiveness), then one line per effect.
+    const perEffect = new Set(EFFECT_IDS.flatMap((id) => STARS.map((stars) => `equipment.${id}.${stars}`)));
+    const others = SPECS.filter((spec) => spec.group === group && !perEffect.has(spec.key));
+    const general = others.map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+    return [...general, ...EFFECT_IDS.map((id) => {
       const tiers = STARS.map((stars) => {
         const spec = findSpec(`equipment.${id}.${stars}`) as SettingSpec;
         return describeValue(spec);
       });
       return TEXT.config.equipmentSetting(id, STARS.join('|'), tiers.join(' / '));
-    });
+    })];
   }
   const lines = SPECS.filter((spec) => spec.group === group).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
   if (group === 'General') {

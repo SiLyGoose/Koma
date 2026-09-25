@@ -28,9 +28,9 @@ test('slip penalty: a share of what was taken, from either side, rounded', () =>
   assert.equal(slipPenaltyAmount(0, gear({ bubbleBeamPenalty: 0.1 }), none), 0);
 });
 
-test('Bubble Beam effects: per-star settings, 4 stars a 10% chance and a 10% penalty', () => {
-  assert.equal(CONFIG.equipment.bubbleBeam[4], 0.1);
-  assert.equal(CONFIG.equipment.bubbleBeamPenalty[4], 0.1);
+test('Bubble Beam effects: per-star settings, 4 stars a 20% chance and a 25% penalty', () => {
+  assert.equal(CONFIG.equipment.bubbleBeam[4], 0.2);
+  assert.equal(CONFIG.equipment.bubbleBeamPenalty[4], 0.25);
   assert.ok(findSpec('equipment.bubbleBeam.4'));
   assert.ok(findSpec('equipment.bubbleBeamPenalty.4'));
   assert.deepEqual(validateSettings(CONFIG), []);
@@ -45,7 +45,7 @@ test('Piplup: wears both Bubble Beam effects and lists them with their strengths
   assert.deepEqual([...piplup.effects].sort(), ['bubbleBeam', 'bubbleBeamPenalty']);
   const lines = describeEffects(piplup);
   assert.equal(lines.length, 2);
-  assert.ok(lines.every((line) => /10%/.test(line)));
+  assert.ok(lines.some((line) => /20%/.test(line)) && lines.some((line) => /25%/.test(line)));
 });
 
 test('slip reply: what went back, and the penalty only when there was one', () => {

@@ -19,7 +19,8 @@ import {
 } from '../src/perks/index.js';
 import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
 import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants/index.js';
-import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, totalEffects, usableItems } from '../src/lib/game/equipment.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, itemEffectiveness, totalEffects } from '../src/lib/game/equipment.js';
+import { formatPercent } from '../src/lib/format.js';
 import { checkConstraints, findSpec, getPath, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import type { ItemDef, Stars } from '../src/types.js';
 
@@ -370,20 +371,33 @@ test('exclusive items: only the listed members and the admin can use one, and no
   assert.equal(canUseItem(exclusiveBlade, STRANGER), false);
   assert.equal(canUseItem(exclusiveBlade, ADMIN_USER_ID), true, 'the admin can test everything');
   assert.equal(canUseItem(openBlade, STRANGER), true);
-  assert.deepEqual(usableItems([exclusiveBlade, openBlade], STRANGER).map((item) => item.id), ['test-open-blade']);
-  assert.deepEqual(usableItems([exclusiveBlade, openBlade], ALVIN).map((item) => item.id), ['test-exclusive-blade', 'test-open-blade']);
 });
 
-test('exclusive items: an equipped one adds effects only for members it is for', () => {
+test("exclusive items: someone else's works at equipment.borrowed.effectiveness, everything else in full", () => {
+  assert.equal(CONFIG.equipment.borrowed.effectiveness, 0.5);
+  assert.equal(itemEffectiveness(exclusiveBlade, STRANGER), 0.5);
+  assert.equal(itemEffectiveness(exclusiveBlade, ALVIN), 1);
+  assert.equal(itemEffectiveness(exclusiveBlade, ADMIN_USER_ID), 1);
+  assert.equal(itemEffectiveness(openBlade, STRANGER), 1);
+  // The gear card shows what the wearer really gets.
+  const full = describeEffects(exclusiveBlade);
+  const half = describeEffects(exclusiveBlade, 0.5);
+  assert.notDeepEqual(half, full);
+  assert.ok(half[0]?.includes(formatPercent(CONFIG.equipment.robChance[4] * 0.5)), half[0]);
+});
+
+test('exclusive items: an equipped one adds all its effects for members it is for, and half for anyone else', () => {
   ITEMS_BY_ID.set(exclusiveBlade.id, exclusiveBlade);
   try {
     const equipment = { weapon: exclusiveBlade.id };
     assert.equal(gearEffects(equipment, ALVIN).robChance, CONFIG.equipment.robChance[4]);
     assert.equal(gearEffects(equipment, ALVIN).robAmount, CONFIG.equipment.robAmount[4]);
-    assert.deepEqual(gearEffects(equipment, STRANGER), emptyTotals());
+    assert.equal(gearEffects(equipment, STRANGER).robChance, CONFIG.equipment.robChance[4] * 0.5);
+    assert.equal(gearEffects(equipment, STRANGER).robAmount, CONFIG.equipment.robAmount[4] * 0.5);
     assert.equal(gearEffects(equipment, ADMIN_USER_ID).robChance, CONFIG.equipment.robChance[4]);
-    // Still equipped for the stranger: the slot is not emptied, it just gives nothing.
-    assert.equal(equippedItems(equipment).length, 1);
+    // Mixed with an item that's open to everyone, only the borrowed one is scaled.
+    assert.equal(totalEffects([exclusiveBlade, openBlade], STRANGER).robChance, CONFIG.equipment.robChance[4] * 1.5);
+    assert.equal(totalEffects([exclusiveBlade, openBlade]).robChance, CONFIG.equipment.robChance[4] * 2, 'no member: everything in full');
   } finally {
     ITEMS_BY_ID.delete(exclusiveBlade.id);
   }

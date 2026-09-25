@@ -85,9 +85,9 @@ test('message templates fill in their values', () => {
   assert.equal(TEXT.balance.robTaxSelf('25%', '<@1>'), 'Yowch, My Coins! <@1> takes 25% of your next rob.');
   assert.equal(TEXT.balance.robTaxOther('25%', '<@1>'), 'Yowch, My Coins! <@1> takes 25% of their next rob.');
   assert.equal(TEXT.databank.exclusive('<@1>, <@2>'), 'Exclusive to <@1>, <@2>');
-  assert.equal(TEXT.equip.exclusive('<@1>'), 'Only <@1> can use its effects. It does nothing for you.');
-  assert.equal(TEXT.gear.exclusive('<@1>'), 'Exclusive to <@1>. It does nothing for this member.');
-  assert.equal(TEXT.gacha.exclusive('<@1>'), 'Only <@1> can use this one.');
+  assert.equal(TEXT.equip.exclusive('<@1>', '50%'), 'Made for <@1>, so it only works at 50% for you.');
+  assert.equal(TEXT.gear.exclusive('<@1>', '50%'), 'Made for <@1>, so it only works at 50% for this member.');
+  assert.equal(TEXT.gacha.exclusive('<@1>', '50%'), 'Made for <@1>. It only works at 50% for you.');
   assert.equal(mentionList(['1', '2']), '<@1>, <@2>');
   assert.equal(mentionList([]), '');
   assert.equal(

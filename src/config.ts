@@ -147,8 +147,12 @@ export interface Settings {
     /** Hours unclaimed at which the multiplier reaches its cap and stops climbing. */
     capHours: number;
   };
-  /** How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. */
-  equipment: EquipmentSettings;
+  /**
+   * How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. Plus
+   * `borrowed`: exclusive items (usableBy, the unique treasures) worn by someone they aren't made
+   * for, where `effectiveness` is the share (0 to 1) of the item's effects that member gets.
+   */
+  equipment: EquipmentSettings & { borrowed: { effectiveness: number } };
   leaderboardSize: number;
 }
 
@@ -204,7 +208,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
   // rather than jumping there.
   stonks: { capHours: 5 },
-  equipment: defaultEquipmentSettings(),
+  // Someone else's unique treasure works at half strength.
+  equipment: { ...defaultEquipmentSettings(), borrowed: { effectiveness: 0.5 } },
   leaderboardSize: 10,
 };
 

@@ -215,6 +215,17 @@ export const SPECS: readonly SettingSpec[] = [
     MAX_STONKS_HOURS,
   ),
 
+  {
+    key: 'equipment.borrowed.effectiveness',
+    group: 'Equipment',
+    description:
+      "How much of an exclusive item's effects (someone else's unique treasure) a member gets while wearing it. The members it is made for, and the admin, always get all of it.",
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+
   // One setting per effect per star tier, generated from the effect registry.
   ...EFFECT_IDS.flatMap((id) =>
     STARS.map(

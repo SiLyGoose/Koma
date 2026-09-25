@@ -1,8 +1,8 @@
 import { SLOT_LABELS, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem, describeEffects, describeTotals, equippedItems, totalEffects, usableItems } from '../lib/game/equipment.js';
-import { mentionList, starString } from '../lib/format.js';
+import { canUseItem, describeEffects, describeTotals, equippedItems, itemEffectiveness, totalEffects } from '../lib/game/equipment.js';
+import { formatPercent, mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/equipment.js';
 import { SLOTS } from '../types.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
@@ -45,18 +45,17 @@ export const gear: Command = {
         });
         continue;
       }
-      // An exclusive item worn by someone it isn't for gives nothing, so say that instead of its effects.
-      const lines =
-        item.usableBy && !canUseItem(item, target.id)
-          ? [TEXT.gear.exclusive(mentionList(item.usableBy))]
-          : describeEffects(item);
+      // Someone else's exclusive item works at part strength: show the effects they really get, and say why.
+      const share = itemEffectiveness(item, target.id);
+      const lines = describeEffects(item, share);
+      if (item.usableBy && !canUseItem(item, target.id)) lines.unshift(TEXT.gear.exclusive(mentionList(item.usableBy), formatPercent(share)));
       embed.addFields({
         name: label,
         value: [TEXT.gear.item(item.name, starString(item.stars)), ...lines].join('\n'),
       });
     }
 
-    const totals = describeTotals(totalEffects(usableItems(equippedItems(equipment), target.id)));
+    const totals = describeTotals(totalEffects(equippedItems(equipment), target.id));
     if (totals.length > 0) embed.addBlankField().addFields({ name: TEXT.gear.totalsField, value: totals.join('\n') });
 
     await ctx.reply({ embeds: [embed] });

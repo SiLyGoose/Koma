@@ -29,7 +29,9 @@ export const databankText = {
   detailEffectsField: 'Effects',
   detailExclusiveField: 'Exclusive',
   /** `owners` is mentions. */
-  detailExclusive: (owners: string) => `Only ${owners} can use its effects. Anyone can pull and equip it.`,
+  /** `share` is how much of its effects everyone else gets, like "50%". */
+  detailExclusive: (owners: string, share: string) =>
+    `Made for ${owners}. Anyone can pull and equip it, but it only works at ${share} for everyone else.`,
   detailFooter: (p: string) => `${p}databank lists every item. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
   noSuchItem: (p: string, query: string) => `There is no item called "${query}". \`${p}databank\` lists every item.`,
   ambiguous: (names: string[]) =>

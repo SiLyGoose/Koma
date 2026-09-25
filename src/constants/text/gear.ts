@@ -6,6 +6,6 @@ export const gearText = {
   /** The first line of a filled slot; the item's effects follow on their own lines. */
   item: (name: string, stars: string) => `**${name}** ${stars}`,
   totalsField: 'Overall Effects',
-  /** Shown instead of the effects when the item is equipped by someone it is not for. `owners` is mentions. */
-  exclusive: (owners: string) => `Exclusive to ${owners}. It does nothing for this member.`,
+  /** Shown above the effects when the item is equipped by someone it is not for. `owners` is mentions, `share` is how much of its effects this member gets, like "50%"; the lines under it are already at that. */
+  exclusive: (owners: string, share: string) => `Made for ${owners}, so it only works at ${share} for this member.`,
 };

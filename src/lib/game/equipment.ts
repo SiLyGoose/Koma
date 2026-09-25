@@ -34,26 +34,33 @@ export function canUseItem(item: ItemDef, userId: string): boolean {
   return userId === ADMIN_USER_ID || item.usableBy.includes(userId);
 }
 
-/** The items `userId` actually gets effects from. */
-export function usableItems(items: readonly ItemDef[], userId: string): ItemDef[] {
-  return items.filter((item) => canUseItem(item, userId));
+/**
+ * How much of an item's effects `userId` gets (1 is all of it): everything from an item they can
+ * use, and equipment.borrowed.effectiveness from someone else's exclusive item (a borrowed unique treasure).
+ */
+export function itemEffectiveness(item: ItemDef, userId: string): number {
+  return canUseItem(item, userId) ? 1 : CONFIG.equipment.borrowed.effectiveness;
 }
 
-/** Adds up every effect across the given items. */
-export function totalEffects(items: readonly ItemDef[]): EffectTotals {
+/**
+ * Adds up every effect across the given items. With `userId`, each item counts at the share of
+ * its effects that member gets (itemEffectiveness); without it, every item counts in full.
+ */
+export function totalEffects(items: readonly ItemDef[], userId?: string): EffectTotals {
   const totals = emptyTotals();
   for (const item of items) {
-    for (const effect of item.effects) totals[effect] += effectStrength(effect, item.stars);
+    const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
+    for (const effect of item.effects) totals[effect] += effectStrength(effect, item.stars) * share;
   }
   return totals;
 }
 
 /**
- * Shortcut: the combined effects of everything a member has equipped. Exclusive items they may
- * not use are equipped but add nothing. `userId` is the member the gear belongs to.
+ * Shortcut: the combined effects of everything a member has equipped. Someone else's exclusive
+ * item counts at equipment.borrowed.effectiveness. `userId` is the member the gear belongs to.
  */
 export function gearEffects(equipment: GearIds | null | undefined, userId: string): EffectTotals {
-  return totalEffects(usableItems(equippedItems(equipment), userId));
+  return totalEffects(equippedItems(equipment), userId);
 }
 
 /**
@@ -65,9 +72,12 @@ function effectLine(effect: EffectId, strength: number): string {
   return perk.line ? perk.line(strength, CONFIG) : perk.text(formatPercent(strength));
 }
 
-/** One readable line per effect on an item, like "+10% rob success chance". */
-export function describeEffects(item: ItemDef): string[] {
-  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars)));
+/**
+ * One readable line per effect on an item, like "+10% rob success chance". `share` scales the
+ * strengths, for an item worn at less than full effect (see itemEffectiveness).
+ */
+export function describeEffects(item: ItemDef, share = 1): string[] {
+  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share));
 }
 
 /** One readable line per effect that is active in the totals, in the registry's order. */

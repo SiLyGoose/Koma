@@ -142,7 +142,7 @@ test('databank item: an exclusive item names who can use it, and an item with no
   const detail = itemDetail(excl);
   const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
   assert.equal(byName[TEXT.databank.detailEffectsField], TEXT.databank.noEffects);
-  assert.equal(byName[TEXT.databank.detailExclusiveField], 'Only <@123456789012345678>, <@223456789012345678> can use its effects. Anyone can pull and equip it.');
+  assert.equal(byName[TEXT.databank.detailExclusiveField], 'Made for <@123456789012345678>, <@223456789012345678>. Anyone can pull and equip it, but it only works at 50% for everyone else.');
   assert.equal(detail.description, '', 'no flavor text means no description line');
 });
 

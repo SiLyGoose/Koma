@@ -1,8 +1,8 @@
 import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem, describeEffects } from '../lib/game/equipment.js';
-import { mentionList, starString } from '../lib/format.js';
+import { canUseItem, describeEffects, itemEffectiveness } from '../lib/game/equipment.js';
+import { formatPercent, mentionList, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { equipItem } from '../services/equipment.js';
 import type { ItemDef } from '../types.js';
@@ -54,6 +54,7 @@ export const equip: Command = {
       return;
     }
 
+    const share = itemEffectiveness(item, ctx.user.id);
     const replaced = result.previousId ? ITEMS_BY_ID.get(result.previousId) : undefined;
     const embed = createEmbed()
       .setTitle(TEXT.equip.title(starString(item.stars), item.name))
@@ -62,11 +63,11 @@ export const equip: Command = {
           ? TEXT.equip.doneReplacing(ctx.user.toString(), item.slot, replaced.name)
           : TEXT.equip.done(ctx.user.toString(), item.slot),
       )
-      .addFields({ name: TEXT.equip.effectsField, value: describeEffects(item).join('\n') || TEXT.equip.noEffects })
+      .addFields({ name: TEXT.equip.effectsField, value: describeEffects(item, share).join('\n') || TEXT.equip.noEffects })
       .setFooter({ text: TEXT.equip.footer(p) });
-    // Anyone can wear an exclusive item, but only the members it is for get its effects.
+    // Anyone can wear an exclusive item, but only the members it is for get all of its effects.
     if (item.usableBy && !canUseItem(item, ctx.user.id)) {
-      embed.addFields({ name: TEXT.equip.exclusiveField, value: TEXT.equip.exclusive(mentionList(item.usableBy)) });
+      embed.addFields({ name: TEXT.equip.exclusiveField, value: TEXT.equip.exclusive(mentionList(item.usableBy), formatPercent(share)) });
     }
     await ctx.reply({ embeds: [embed] });
   },

@@ -9,7 +9,7 @@ export const gachaText = {
   title: (stars: string, name: string) => `${stars}  ${name}`,
   description: (itemDescription: string) => `*${itemDescription}*`,
   /** Added under the description when the pulled item is exclusive to other members. `owners` is mentions. */
-  exclusive: (owners: string) => `Only ${owners} can use this one.`,
+  exclusive: (owners: string, share: string) => `Made for ${owners}. It only works at ${share} for you.`,
   author: (name: string) => `${name} pulled`,
   /** The message the shooting star plays in, before the result. */
   pullingTitle: 'A star is falling...',
@@ -33,7 +33,7 @@ export const gachaText = {
   /** Same, for a top-tier pull, which is set apart in bold. */
   multiLineTop: (stars: string, name: string, isNew: boolean) => `**${stars}  ${name}**${isNew ? ' · New!' : ''}`,
   /** Added under the list for each pulled item that is exclusive to other members. `owners` is mentions. */
-  multiExclusive: (name: string, owners: string) => `Only ${owners} can use ${name}.`,
+  multiExclusive: (name: string, owners: string, share: string) => `${name} is made for ${owners}. It only works at ${share} for you.`,
   multiSummaryField: 'Summary',
   /** One part of the summary: how many pulls gave items of a tier. `stars` is the star string. */
   multiTier: (stars: string, count: number) => `${stars} x${count}`,

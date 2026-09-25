@@ -14,6 +14,7 @@ export const equipText = {
   noEffects: 'None',
   /** Extra field when the item is exclusive to other members. `owners` is mentions. */
   exclusiveField: 'Exclusive',
-  exclusive: (owners: string) => `Only ${owners} can use its effects. It does nothing for you.`,
+  /** `share` is how much of its effects the wearer gets, like "50%"; the effects above are already at that. */
+  exclusive: (owners: string, share: string) => `Made for ${owners}, so it only works at ${share} for you.`,
   footer: (p: string) => `See everything you have on with ${p}gear`,
 };

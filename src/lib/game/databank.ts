@@ -1,7 +1,8 @@
+import { CONFIG } from '../../config.js';
 import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants/index.js';
 import { STARS, type ItemDef, type Stars } from '../../types.js';
 import { describeEffects } from './equipment.js';
-import { mentionList, starString } from '../format.js';
+import { formatPercent, mentionList, starString } from '../format.js';
 
 /** One embed field of the databank. */
 export interface DatabankField {
@@ -133,7 +134,7 @@ export function itemDetail(item: ItemDef): ItemDetail {
       { name: TEXT.databank.detailSlotField, value: SLOT_LABELS[item.slot], inline: true },
       { name: TEXT.databank.detailEffectsField, value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
       ...(item.usableBy
-        ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy)), inline: false }]
+        ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),
     ],
   };
