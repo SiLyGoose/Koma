@@ -1,6 +1,7 @@
 import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NUMBER_LOCALE, PERCENT_DECIMALS, STAR_SYMBOL, TEXT } from '../constants/index.js';
 
-export const fmt = (n: number): string => n.toLocaleString(NUMBER_LOCALE);
+/** A whole amount with thousands separators: 1500 -> "1,500". A stored -0 shows as 0. */
+export const fmt = (n: number): string => (Object.is(n, -0) ? 0 : n).toLocaleString(NUMBER_LOCALE);
 
 /** An amount of points with the currency emoji after it: 1500 -> "1,500 <:zeiucoin:...>". For embed fields that show only an amount. */
 export const money = (n: number): string => `${fmt(n)} ${CURRENCY_EMOJI}`;

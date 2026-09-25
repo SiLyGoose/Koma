@@ -789,6 +789,8 @@ test('komaTokens: the raid pays 10 by default, and pulls show what tokens and po
   assert.ok(findSpec('raid.tokenReward'));
   assert.equal(boldTokens(1), '**1** <:zeiutoken:1552921364489572362>');
   assert.equal(boldTokens(1500), '**1,500** <:zeiutoken:1552921364489572362>');
+  // A balance saved as -0 (an old $inc by -0 on a missing field) shows as 0.
+  assert.equal(boldTokens(-0), '**0** <:zeiutoken:1552921364489572362>');
 
   // All tokens: no points at all.
   assert.equal(spentText({ cost: 0, baseCost: 0, tokensUsed: 10 }), '**10** <:zeiutoken:1552921364489572362>');
@@ -907,4 +909,12 @@ test('gear stats: the raid numbers a member fights with, and the ones their gear
   assert.match(text, /attacks do 1\.63x damage for 2 turns \(normally 1\.5x\) 🎒/);
   assert.doesNotMatch(text, /No raid gear/);
   assert.match(geared.footer?.text ?? '', /changed by gear/);
+});
+
+test('fmt: a stored -0 shows as 0, not "-0"', async () => {
+  const { fmt } = await import('../src/lib/format.js');
+  assert.equal(fmt(-0), '0');
+  assert.equal(fmt(0), '0');
+  assert.equal(fmt(-5), '-5');
+  assert.equal(fmt(1500), '1,500');
 });

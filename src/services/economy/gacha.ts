@@ -108,7 +108,15 @@ async function pullMany(guildId: string, userId: string, times: number): Promise
     total = cost * (times - tokensUsed);
     debited = await members.findOneAndUpdate(
       { guildId, userId, points: { $gte: total }, ...(tokensUsed > 0 ? { tokens: { $gte: tokensUsed } } : {}) },
-      { $inc: { points: -total, tokens: -tokensUsed, totalPulls: times, ...(pityOn ? { pity: times } : {}) } },
+      // Only what was actually spent: an $inc by -0 on a field the member doesn't have yet saves it as -0 (shown as "-0").
+      {
+        $inc: {
+          ...(total > 0 ? { points: -total } : {}),
+          ...(tokensUsed > 0 ? { tokens: -tokensUsed } : {}),
+          totalPulls: times,
+          ...(pityOn ? { pity: times } : {}),
+        },
+      },
       { returnDocument: 'after' },
     );
     if (debited) break;
