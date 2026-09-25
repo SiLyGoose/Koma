@@ -29,6 +29,15 @@ export const CURRENCY_EMOJI = '<:zeiucoin:1551675032424546320>';
 /** The currency's name, lowercase and plural, for where the emoji can't show: slash command menus, help and embed footers. */
 export const CURRENCY_NAME = 'points';
 
+/**
+ * komaTokens: a second currency that only buys gacha pulls, one token for one pull (won by beating
+ * the weekly raid). A pull spends the member's tokens before their points. The emoji and name work
+ * like CURRENCY_EMOJI and CURRENCY_NAME: the emoji is the full custom emoji code, and only shows in
+ * message text, embed descriptions and field values.
+ */
+export const TOKEN_EMOJI = '<:zeiutoken:1552921364489572362>';
+export const TOKEN_NAME = 'komaTokens';
+
 /** Highest value a points setting accepts (claim range, pull cost, stolen amount, fine...). */
 export const MAX_SETTING_POINTS = 1_000_000;
 

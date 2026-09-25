@@ -1,4 +1,8 @@
-import { CURRENCY_EMOJI } from '../core.js';
+import { CURRENCY_EMOJI, TOKEN_EMOJI } from '../core.js';
+import { NUMBER_LOCALE } from '../formatting.js';
 
 /** An already formatted amount in bold with the currency emoji after it: "1,500" -> "**1,500** <:zeiucoin:...>". */
 export const boldMoney = (amount: string): string => `**${amount}** ${CURRENCY_EMOJI}`;
+
+/** An amount of komaTokens in bold with the token emoji after it (no name, the emoji is the name): 3 -> "**3** <:zeiutoken:...>". */
+export const boldTokens = (amount: number): string => `**${amount.toLocaleString(NUMBER_LOCALE)}** ${TOKEN_EMOJI}`;

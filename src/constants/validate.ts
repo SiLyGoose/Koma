@@ -1,10 +1,11 @@
 import { MAX_BLACKJACK_NATURAL, MAX_BLACKJACK_SECONDS, BLACKJACK } from './blackjack.js';
-import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
+import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKEN_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
+import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_COMBAT } from './raid.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
@@ -37,6 +38,7 @@ export function validateConstants(): void {
   }
   if (STAR_SYMBOL === '') problems.push('STAR_SYMBOL cannot be empty');
   if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(CURRENCY_EMOJI)) problems.push('CURRENCY_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
+  if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(TOKEN_EMOJI)) problems.push('TOKEN_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
   if (!/^[a-z][a-z ]*$/.test(CURRENCY_NAME)) problems.push('CURRENCY_NAME must be lowercase words, like points');
   if (!/^\d{17,20}$/.test(ADMIN_USER_ID)) problems.push('ADMIN_USER_ID must be a Discord user id (17 to 20 digits)');
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
@@ -105,6 +107,7 @@ export function validateConstants(): void {
     ['HEIST', HEIST],
     ['SPLIT_STEAL', SPLIT_STEAL],
     ['CODE', { refreshMs: CODE.refreshMs, listMax: CODE.boardMax }],
+    ['RAID', RAID],
   ] as const) {
     if (!(game.refreshMs >= 1000)) problems.push(`${name}.refreshMs must be at least 1000 (Discord limits message edits)`);
     if (!(Number.isInteger(game.listMax) && game.listMax >= 1 && game.listMax <= 50)) problems.push(`${name}.listMax must be a whole number from 1 to 50`);
@@ -128,6 +131,9 @@ export function validateConstants(): void {
     ['MAX_CRATE_SECONDS', MAX_CRATE_SECONDS],
     ['MAX_EVENT_SECONDS', MAX_EVENT_SECONDS],
     ['MAX_HEIST_ROUNDS', MAX_HEIST_ROUNDS],
+    ['MAX_RAID_SECONDS', MAX_RAID_SECONDS],
+    ['MAX_RAID_ROUNDS', MAX_RAID_ROUNDS],
+    ['MAX_RAID_BOOST', MAX_RAID_BOOST],
     ['CODE_LENGTH', CODE_LENGTH],
     ['MAX_VAULT_MULTIPLIER', MAX_VAULT_MULTIPLIER],
     ['MAX_STONKS_HOURS', MAX_STONKS_HOURS],
@@ -135,6 +141,24 @@ export function validateConstants(): void {
     ['SETTINGS_REFRESH_MS', SETTINGS_REFRESH_MS],
   ] as const) {
     if (!Number.isInteger(value) || value < 1) problems.push(`${name} must be a whole number of at least 1`);
+  }
+
+  if (!(Number.isInteger(RAID.logSize) && RAID.logSize >= 1 && RAID.logSize <= 25)) problems.push('RAID.logSize must be a whole number from 1 to 25');
+  if (!(Number.isInteger(RAID.barWidth) && RAID.barWidth >= 1 && RAID.barWidth <= 20)) problems.push('RAID.barWidth must be a whole number from 1 to 20');
+  // One row of buttons holds No boost, the presets and Custom: at most 5.
+  if (RAID.boostPresets.length > 3 || RAID.boostPresets.some((p) => !Number.isInteger(p) || p < 1)) problems.push('RAID.boostPresets must be up to 3 whole numbers of at least 1');
+  if (!(RAID_COMBAT.attack.min >= 1 && RAID_COMBAT.attack.min <= RAID_COMBAT.attack.max)) problems.push('RAID_COMBAT.attack needs 1 <= min <= max');
+  if (!(RAID_COMBAT.moves.hoard.min >= 0 && RAID_COMBAT.moves.hoard.min <= RAID_COMBAT.moves.hoard.max)) problems.push('RAID_COMBAT.moves.hoard needs 0 <= min <= max');
+  if (!(RAID_COMBAT.moves.sweep.minTargets >= 1 && RAID_COMBAT.moves.sweep.minTargets <= RAID_COMBAT.moves.sweep.maxTargets)) {
+    problems.push('RAID_COMBAT.moves.sweep needs 1 <= minTargets <= maxTargets');
+  }
+  const enrage = RAID_COMBAT.enrage;
+  if (enrage.multipliers.length !== enrage.thresholds.length + 1 || RAID_COMBAT.weights.length !== enrage.multipliers.length) {
+    problems.push('RAID_COMBAT needs one enrage multiplier and one set of move weights per enrage level (thresholds + 1)');
+  }
+  for (const [level, weights] of RAID_COMBAT.weights.entries()) {
+    const values = Object.values(weights);
+    if (values.some((w) => !(w >= 0)) || values.filter((w) => w > 0).length < 2) problems.push(`RAID_COMBAT.weights[${level}] needs at least two moves above 0 and none below`);
   }
 
   if (!(CODE_LENGTH >= 1 && CODE_LENGTH <= 10)) problems.push('CODE_LENGTH must be from 1 to 10 (the pop-up box and the board have to fit it)');

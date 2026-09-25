@@ -139,6 +139,36 @@ export interface Settings {
     };
   };
   /**
+   * The weekly raid boss (commands/raid.ts). Its combat math is RAID_COMBAT in constants/raid.ts;
+   * these are the numbers worth tuning while the bot runs.
+   */
+  raid: {
+    /**
+     * The boss's HP scales with the party (see bossHpFor in lib/events/raid.ts): `hpPerPlayer` for
+     * each raider, times 1 + `hpGrowth` for every raider past the first (so a big party's boss grows a
+     * little faster than the party does), and never below `minBossHp`, so a raid needs a few people.
+     */
+    hpPerPlayer: number;
+    hpGrowth: number;
+    minBossHp: number;
+    /** Every player's HP. */
+    playerHp: number;
+    /** Rounds before the boss flies off (the raid is lost). */
+    maxRounds: number;
+    /** Seconds players have to pick their action each round. */
+    turnSeconds: number;
+    /** Seconds the lobby stays open for joining before the fight starts. */
+    prepareSeconds: number;
+    /** Points each player who took part gets when the boss is beaten. */
+    reward: number;
+    /** komaTokens (one free gacha pull each) each player who took part gets when the boss is beaten. */
+    tokenReward: number;
+    /** Points one percent of boost costs (a boosted attack or heal is that many percent stronger). */
+    boostCost: number;
+    /** The biggest boost one action can have, in percent. */
+    maxBoost: number;
+  };
+  /**
    * STONKS!'s claim multiplier curve (perks/stackosaurus.ts stonksMultiplier). The multiplier's cap
    * is the stackosaurus effect's own strength (equipment.stackosaurus.<stars>); this is the shape
    * of the climb to it.
@@ -204,6 +234,12 @@ export const DEFAULTS: Readonly<Settings> = {
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { seconds: 300, guessCost: 10 },
   },
+  // The raid boss has 600 HP per raider, +6% for each raider past the first, and at least 3,000 (7
+  // raiders: 5,712). In simulated fights a party of 5 or more that works together wins about 9 weeks in
+  // 10, and one that only attacks about 1 in 3; 2 or 3 raiders almost never win. Up to 15 rounds of 60
+  // seconds after a 5-minute lobby. Beating it pays everyone who took part 1,000 and a multi
+  // pull's worth of komaTokens (10). A boost costs 250 per 1%, up to +100%.
+  raid: { hpPerPlayer: 600, hpGrowth: 0.06, minBossHp: 3_000, playerHp: 100, maxRounds: 15, turnSeconds: 60, prepareSeconds: 300, reward: 1_000, tokenReward: 10, boostCost: 250, maxBoost: 100 },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
   // rather than jumping there.

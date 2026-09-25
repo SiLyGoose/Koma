@@ -1,5 +1,6 @@
 import {
   CURRENCY_EMOJI,
+  TOKEN_NAME,
   MAX_BLACKJACK_NATURAL,
   MAX_BLACKJACK_SECONDS,
   MAX_CRATE_SECONDS,
@@ -13,6 +14,9 @@ import {
   MAX_VAULT_MULTIPLIER,
   MAX_EVENT_SECONDS,
   MAX_HEIST_ROUNDS,
+  MAX_RAID_BOOST,
+  MAX_RAID_ROUNDS,
+  MAX_RAID_SECONDS,
   NUMBER_LOCALE,
   PERCENT_DECIMALS,
   PITY_STARS,
@@ -30,7 +34,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Stonks' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Raid' | 'Stonks' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -206,6 +210,26 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.splitSteal.decideSeconds', 'Events', 'Seconds the Split or Steal players have to choose.', 10, MAX_EVENT_SECONDS),
   int('events.codedle.seconds', 'Events', 'Seconds everyone has to crack the code in Codedle.', 30, MAX_EVENT_SECONDS),
   int('events.codedle.guessCost', 'Events', `What each Codedle guess costs, added to the vault (0 makes guessing free).`, 0, MAX_POINTS),
+
+  int('raid.hpPerPlayer', 'Raid', "The raid boss's HP for each raider in the fight.", 1, MAX_POINTS),
+  {
+    key: 'raid.hpGrowth',
+    group: 'Raid',
+    description: "Extra raid boss HP for every raider past the first, as a share of the per-raider HP (so big parties don't have it easier).",
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  int('raid.minBossHp', 'Raid', 'The least HP the raid boss has, however few raiders there are (so a raid needs a few people).', 1, MAX_POINTS),
+  int('raid.playerHp', 'Raid', "Every raid player's HP.", 1, MAX_POINTS),
+  int('raid.maxRounds', 'Raid', 'Rounds before the raid boss flies off and the raid is lost.', 1, MAX_RAID_ROUNDS),
+  int('raid.turnSeconds', 'Raid', 'Seconds raid players have to pick their action each round.', 10, MAX_RAID_SECONDS),
+  int('raid.prepareSeconds', 'Raid', 'Seconds the raid lobby stays open for joining before the fight starts.', 10, MAX_RAID_SECONDS),
+  int('raid.reward', 'Raid', `${CURRENCY_EMOJI} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
+  int('raid.tokenReward', 'Raid', `${TOKEN_NAME} (one free gacha pull each) each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
+  int('raid.boostCost', 'Raid', `${CURRENCY_EMOJI} one percent of raid boost costs (a boosted attack or heal is that many percent stronger).`, 1, MAX_POINTS),
+  int('raid.maxBoost', 'Raid', 'The biggest boost one raid action can have, in percent.', 0, MAX_RAID_BOOST),
 
   int(
     'stonks.capHours',

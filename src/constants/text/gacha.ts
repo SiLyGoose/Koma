@@ -1,5 +1,5 @@
 import { CURRENCY_EMOJI } from '../core.js';
-import { boldMoney } from './currency.js';
+import { boldMoney, boldTokens } from './currency.js';
 import { MULTI_PULLS } from '../gacha.js';
 
 export const gachaText = {
@@ -17,7 +17,12 @@ export const gachaText = {
   spentField: 'Spent',
   spent: (cost: string) => `${cost} ${CURRENCY_EMOJI}`,
   spentWithGear: (cost: string, saved: string) => `${cost} ${CURRENCY_EMOJI} (gear saved ${saved} ${CURRENCY_EMOJI})`,
+  /** Pulls paid with komaTokens, alone or with points for the rest. `points` is what the points part says. */
+  spentTokens: (tokens: number) => boldTokens(tokens),
+  spentTokensAndPoints: (tokens: number, points: string) => `${boldTokens(tokens)} + ${points}`,
   balanceField: 'Balance',
+  /** The balance field: points, and the komaTokens left under them (always shown, even at 0). */
+  balanceWithTokens: (points: string, tokens: number) => `${points}\n${boldTokens(tokens)}`,
   /** Field showing how close the member is to a guaranteed top-tier item. `stars` is the star string. */
   pityField: (stars: string) => `Pity (${stars})`,
   pityProgress: (count: string, hardPity: string) => `${count} / ${hardPity}`,
@@ -27,6 +32,9 @@ export const gachaText = {
   usage: (p: string) => `Use \`${p}gacha\` for one pull, or \`${p}gacha multi\` for ${MULTI_PULLS} pulls at once.`,
   multiCantAfford: (p: string, pulls: number, cost: string, balance: string) =>
     `A multi pull (${pulls} pulls) costs ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
+  /** The same, when the member's komaTokens cover some of the pulls and points have to pay for the rest. */
+  multiCantAffordWithTokens: (p: string, pulls: number, tokens: number, cost: string, balance: string) =>
+    `Your ${boldTokens(tokens)} cover ${tokens} of the ${pulls} pulls. The rest cost ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
   multiTitle: (pulls: number) => `Multi pull x${pulls}`,
   /** One line per pull. `stars` is the star string; `isNew` when it is the first copy the member has ever owned. */
   multiLine: (stars: string, name: string, isNew: boolean) => `${stars}  ${name}${isNew ? ' · New!' : ''}`,

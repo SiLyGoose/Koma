@@ -90,6 +90,8 @@ export interface MemberDoc {
   robLockUntil?: Date | null;
   robLockBy?: string | null;
   totalPulls: number;
+  /** komaTokens: free gacha pulls, one each, spent before points. Missing means 0. */
+  tokens?: number;
   /**
    * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
    * of that claim, and who it is paid to. Both are missing or null when there is none. They are
@@ -192,6 +194,16 @@ export type LedgerReason =
   | 'code_guess'
   | 'code_refund'
   | 'code_prize'
+  // A gacha pull paid for with a komaToken instead of points (0 points, tokenDelta -1).
+  | 'gacha_token'
+  // The weekly raid (commands/raid.ts): a boost paid for, points the boss stole, the points and the
+  // komaTokens (0 points, tokenDelta) for beating it, and points given back when a raid never
+  // finished (the bot stopped during it).
+  | 'raid_boost'
+  | 'raid_stolen'
+  | 'raid_reward'
+  | 'raid_tokens'
+  | 'raid_refund'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 
@@ -220,6 +232,8 @@ export interface LedgerDoc {
   guildId: string;
   userId: string;
   delta: number;
+  /** Change in komaTokens, when the entry moved any. */
+  tokenDelta?: number;
   reason: LedgerReason;
   otherUserId?: string;
   itemId?: string;
@@ -276,6 +290,34 @@ export interface OpenCrateDoc {
   endsAt: Date;
   /** Who has grabbed it so far (user ids), each once. */
   grabbers: string[];
+}
+
+/**
+ * One document per server per raid week (see lib/events/raid-week.ts): `_id` is
+ * "<server id>:<week key>", so a second raid in the same week can't be started. While the raid is
+ * being played (`preparing` or `fighting`) it also records every point that moved because of it, so
+ * a raid the bot never finished (it stopped part way) can give them back; see services/raid.ts.
+ */
+export interface RaidDoc {
+  _id: string;
+  guildId: string;
+  weekKey: string;
+  startedBy: string;
+  status: 'preparing' | 'fighting' | 'won' | 'wiped' | 'fled';
+  channelId: string | null;
+  messageId: string | null;
+  /** Who is in the fight. */
+  players: string[];
+  /** Points each player spent on boosts, by user id. */
+  spent: Record<string, number>;
+  /** Points the boss stole from each player, by user id. */
+  stolen: Record<string, number>;
+  /** Filled in when it ends: damage dealt by user id, and whose hit beat the boss. */
+  damage?: Record<string, number>;
+  lastHit?: string | null;
+  rounds?: number;
+  createdAt: Date;
+  endedAt?: Date | null;
 }
 
 /**

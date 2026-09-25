@@ -1,0 +1,738 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  type ButtonInteraction,
+  type Client,
+  type Message,
+} from 'discord.js';
+import { CONFIG, isAdmin, type Settings } from '../config.js';
+import { RAID, RAID_COMBAT, TEXT } from '../constants/index.js';
+import { dragonPicture, type DragonMood } from '../animations/images/dragon-image.js';
+import { replyPrivately } from '../discord/reply.js';
+import type { Command, CommandContext } from '../discord/types.js';
+import { claimGuild } from '../events/busy.js';
+import { limitedLines } from '../events/vault-game.js';
+import { createEmbed, type BotEmbed } from '../lib/embed.js';
+import {
+  actionProblem,
+  bossHpFor,
+  bossTurn,
+  createRaid,
+  damageRanking,
+  endRound,
+  findPlayer,
+  isAlive,
+  livingPlayers,
+  participants,
+  recordTheft,
+  resolvePlayerTurn,
+  type BossIntent,
+  type RaidAction,
+  type RaidChoice,
+  type RaidEvent,
+  type RaidState,
+} from '../lib/events/raid.js';
+import { raidWeek } from '../lib/events/raid-week.js';
+import { fmt, formatMultiplier, formatPercent, joinLimited, mention } from '../lib/format.js';
+import { sleep } from '../lib/time.js';
+import {
+  abandonRaid,
+  finishRaid,
+  listUnfinishedRaids,
+  payForBoost,
+  refundBoost,
+  resetRaidWeek,
+  rewardRaid,
+  startRaidWeek,
+  stealFromWallet,
+  updateRaid,
+  walletOf,
+  type RaidReward,
+} from '../services/raid.js';
+
+/*
+ * The weekly raid boss: `raid` opens a lobby, and when it closes the party fights the dragon in
+ * rounds on one live message (lib/events/raid.ts has the rules). One raid per server per week,
+ * resetting every Saturday at midnight Eastern (lib/events/raid-week.ts). The server counts as busy
+ * for the whole raid, so no random event starts in the middle of it.
+ */
+
+type RaidSettings = Settings['raid'];
+
+const unixOf = (ms: number): number => Math.ceil(ms / 1000);
+const unixOfDate = (date: Date): number => Math.floor(date.getTime() / 1000);
+
+// ---------------------------------------------------------------------------
+// What the fight looks like
+// ---------------------------------------------------------------------------
+
+/** A bar of `width` blocks, filled for the share of `hp` left. Never empty while there's HP left. */
+export function hpBar(hp: number, max: number, width: number = RAID.barWidth): string {
+  const filled = hp <= 0 ? 0 : Math.max(1, Math.round((hp / max) * width));
+  return '🟥'.repeat(filled) + '⬛'.repeat(width - filled);
+}
+
+/** What the boss is about to do, in words. */
+export function intentText(state: RaidState, intent: BossIntent = state.intent): string {
+  const { multiplier } = intent;
+  const target = mention(intent.targets[0] ?? '');
+  const { moves, support } = RAID_COMBAT;
+  switch (intent.move) {
+    case 'claw':
+      return TEXT.raid.intent.claw(target, Math.round(moves.claw.damage * multiplier));
+    case 'breath':
+      return TEXT.raid.intent.breath(Math.round(moves.breath.damage * multiplier));
+    case 'sweep':
+      return TEXT.raid.intent.sweep(intent.targets.map(mention).join(', '), Math.round(moves.sweep.damage * multiplier));
+    case 'hoard':
+      return TEXT.raid.intent.hoard(target);
+    case 'shield':
+      return TEXT.raid.intent.shield(support.shieldBreak);
+    case 'curse':
+      return TEXT.raid.intent.curse(target, moves.curse.rounds);
+  }
+}
+
+/** One line of the action log. */
+export function eventText(event: RaidEvent): string {
+  const log = TEXT.raid.log;
+  const boost = (percent: number): string => (percent > 0 ? log.boost(percent) : '');
+  switch (event.kind) {
+    case 'guard':
+      return log.guard(mention(event.userId));
+    case 'heal':
+      return log.heal(mention(event.userId), mention(event.targetId), event.amount, boost(event.boost));
+    case 'revive':
+      return log.revive(mention(event.userId), mention(event.targetId), event.hp, boost(event.boost));
+    case 'healWasted':
+      return log.healWasted(mention(event.userId));
+    case 'rally':
+      return log.rally(mention(event.userId), formatMultiplier(RAID_COMBAT.support.attackMultiplier), event.turns);
+    case 'cleansed':
+      return log.cleansed(mention(event.userId), mention(event.targetId));
+    case 'shieldBroken':
+      return log.shieldBroken;
+    case 'attack':
+      return log.attack(mention(event.userId), fmt(event.damage), event.crit, boost(event.boost));
+    case 'bounced':
+      return log.bounced(mention(event.userId));
+    case 'defeated':
+      return log.defeated(mention(event.userId));
+    case 'enrage':
+      return log.enrage(event.level);
+    case 'hit':
+      if (event.coveredFor) return log.clawCovered(mention(event.userId), mention(event.coveredFor), event.damage);
+      return log[event.move](mention(event.userId), event.damage);
+    case 'knockedOut':
+      return log.knockedOut(mention(event.userId));
+    case 'shieldUp':
+      return log.shieldUp;
+    case 'curse':
+      return log.curse(mention(event.userId));
+    case 'hoardBlocked':
+      return log.hoardBlocked(mention(event.userId), mention(event.targetId));
+    case 'stole':
+      return event.amount > 0 ? log.stole(mention(event.userId), fmt(event.amount)) : log.stoleNothing(mention(event.userId));
+    case 'wiped':
+      return log.wiped;
+    case 'fled':
+      return log.fled;
+  }
+}
+
+/** Which picture of the dragon fits the fight right now. */
+export function moodOf(state: RaidState): DragonMood {
+  if (state.bossHp <= 0) return 'defeated';
+  if (state.shielded) return 'shielded';
+  return state.enrage > 0 ? 'enraged' : 'calm';
+}
+
+const dragonFile = (mood: DragonMood) => ({ attachment: dragonPicture(mood), name: RAID.imageName });
+
+function actionRow(disabled: boolean): ActionRowBuilder<ButtonBuilder> {
+  const button = (id: string, label: string, emoji: string, style: ButtonStyle) =>
+    new ButtonBuilder().setCustomId(id).setLabel(label).setEmoji(emoji).setStyle(style).setDisabled(disabled);
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    button(RAID.attackId, TEXT.raid.attackButton, '⚔️', ButtonStyle.Danger),
+    button(RAID.guardId, TEXT.raid.guardButton, '🛡️', ButtonStyle.Primary),
+    button(RAID.healId, TEXT.raid.healButton, '💚', ButtonStyle.Success),
+    button(RAID.supportId, TEXT.raid.supportButton, '✨', ButtonStyle.Secondary),
+  );
+}
+
+/** The live fight screen. `turnEndsAt` is when the turn closes, or null while it is being resolved. */
+export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidChoice>, log: readonly string[], turnEndsAt: number | null, cfg: RaidSettings): BotEmbed {
+  const r = TEXT.raid;
+  const tags = [
+    state.enrage > 0 ? r.enraged(state.enrage) : '',
+    state.shielded ? r.shielded : '',
+    state.rallied > 0 ? r.rallied(formatMultiplier(RAID_COMBAT.support.attackMultiplier), state.rallied) : '',
+  ].filter(Boolean);
+  const description = [
+    r.bossHp(hpBar(state.bossHp, state.bossMaxHp), fmt(state.bossHp), fmt(state.bossMaxHp)),
+    ...tags,
+    '',
+    r.nextMove(intentText(state)),
+    turnEndsAt === null ? r.resolving : r.turnEnds(unixOf(turnEndsAt)),
+  ].join('\n');
+  const party = state.players.map((p) => {
+    const status = !isAlive(p) ? r.statusDown : choices.has(p.userId) ? r.statusChosen : r.statusWaiting;
+    return r.partyLine(status, mention(p.userId), p.hp, p.maxHp, p.cursed);
+  });
+  return createEmbed()
+    .setTitle(r.fightTitle(r.bossName, state.round, state.maxRounds))
+    .setDescription(description)
+    .addFields(
+      { name: r.partyField, value: limitedLines(party, RAID.listMax, TEXT.common.moreLines, r.nobody) },
+      { name: r.logField, value: log.length === 0 ? r.logEmpty : joinLimited(log.slice(-RAID.logSize)) },
+    )
+    .setImage(`attachment://${RAID.imageName}`)
+    .setFooter({ text: r.footer(fmt(cfg.boostCost), cfg.maxBoost) });
+}
+
+/** The screen once the fight is over: how it ended, and who did what (none of it changes the rewards). */
+export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date, reward: RaidReward | null, intoVault = 0): BotEmbed {
+  const r = TEXT.raid;
+  const embed = createEmbed().setImage(`attachment://${RAID.imageName}`);
+  const rounds = state.round;
+  if (state.outcome === 'won') {
+    embed.setTitle(r.wonTitle(r.bossName)).setDescription(r.won(rounds, fmt(cfg.reward), cfg.tokenReward));
+  } else {
+    const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(rounds);
+    embed
+      .setTitle(state.outcome === 'wiped' ? r.wipedTitle(r.bossName) : r.fledTitle(r.bossName))
+      .setDescription(`${how}\n${r.bossLeft(fmt(state.bossHp), fmt(state.bossMaxHp))}\n${r.nextRaid(unixOfDate(nextRaid))}`);
+  }
+
+  const total = state.players.reduce((sum, p) => sum + p.stats.damage, 0);
+  const ranking = damageRanking(state).map((p, i) =>
+    r.rankingLine(r.places[i] ?? `**${i + 1}.**`, mention(p.userId), fmt(p.stats.damage), formatPercent(total > 0 ? p.stats.damage / total : 0)),
+  );
+  embed.addFields({ name: r.rankingField, value: ranking.length === 0 ? r.noDamage : joinLimited(ranking) });
+  if (state.lastHit) embed.addFields({ name: r.lastHitField, value: mention(state.lastHit), inline: true });
+
+  const team = state.players
+    .filter((p) => p.stats.healed > 0 || p.stats.guards > 0 || p.stats.supports > 0)
+    .map((p) => r.teamLine(mention(p.userId), p.stats.healed, p.stats.guards, p.stats.supports));
+  if (team.length > 0) embed.addFields({ name: r.teamField, value: joinLimited(team) });
+
+  const lost = state.players
+    .filter((p) => p.stats.spent > 0 || p.stats.stolen > 0)
+    .map((p) => r.pointsLine(mention(p.userId), fmt(p.stats.spent), fmt(p.stats.stolen)));
+  const vaultLine = intoVault > 0 ? `
+${r.intoVault(fmt(intoVault))}` : '';
+  embed.addFields({ name: r.pointsField, value: lost.length === 0 ? r.noPointsLost : `${joinLimited(lost, 950)}${vaultLine}` });
+
+  if (reward && reward.failed.length > 0) embed.setFooter({ text: r.payFailed(reward.failed.length) });
+  return embed;
+}
+
+// ---------------------------------------------------------------------------
+// Keeping the message up to date
+// ---------------------------------------------------------------------------
+
+/**
+ * Edits the raid message at a safe pace (Discord limits message edits), always drawing the latest
+ * state when an edit goes out. The dragon's picture is only uploaded again when its mood changes.
+ * `toBottom` moves the fight back to the bottom of the channel when chat has pushed it up.
+ */
+class RaidScreen {
+  private dirty = false;
+  private inFlight: Promise<void> | null = null;
+  private readonly timer: ReturnType<typeof setInterval>;
+
+  constructor(
+    private message: Message,
+    private readonly view: () => { embeds: BotEmbed[]; components: ActionRowBuilder<ButtonBuilder>[] },
+    private readonly mood: () => DragonMood,
+    private shownMood: DragonMood,
+  ) {
+    this.timer = setInterval(() => this.flush(), RAID.refreshMs);
+  }
+
+  /** Something changed: it goes out with the next edit. */
+  update(): void {
+    this.dirty = true;
+  }
+
+  private flush(): void {
+    if (this.inFlight || !this.dirty) return;
+    this.dirty = false;
+    const mood = this.mood();
+    const newPicture = mood !== this.shownMood;
+    this.inFlight = this.message
+      .edit({ ...this.view(), ...(newPicture ? { files: [dragonFile(mood)], attachments: [] } : {}) })
+      .then(
+        () => {
+          if (newPicture) this.shownMood = mood;
+        },
+        (err) => console.error('Could not update the raid message:', err),
+      )
+      .finally(() => {
+        this.inFlight = null;
+      });
+  }
+
+  /** Waits for an edit that is going out, then sends the latest state at once. */
+  async now(): Promise<void> {
+    await this.inFlight;
+    this.dirty = true;
+    this.flush();
+    await this.inFlight;
+  }
+
+  async stop(): Promise<void> {
+    clearInterval(this.timer);
+    await this.inFlight;
+  }
+
+  /** The message the raid is on right now (it changes when toBottom moves it). */
+  get current(): Message {
+    return this.message;
+  }
+
+  /**
+   * If anything has been posted below the raid message, deletes it and sends the latest state as a
+   * new message at the bottom of the channel, so the fight never scrolls out of sight. Returns true
+   * when it moved (its buttons are then on the new message). If the new message can't be sent it
+   * stays where it is; if the old one can't be deleted its buttons are taken away, so only the new
+   * one can be pressed.
+   */
+  async toBottom(): Promise<boolean> {
+    await this.inFlight;
+    const old = this.message;
+    const channel = old.channel;
+    if (!channel.isSendable() || channel.lastMessageId === old.id) return false;
+    const mood = this.mood();
+    let moved: Message;
+    try {
+      moved = await channel.send({ ...this.view(), files: [dragonFile(mood)] });
+    } catch (err) {
+      console.error('Could not move the raid message to the bottom of the channel:', err);
+      return false;
+    }
+    this.message = moved;
+    this.shownMood = mood;
+    this.dirty = false;
+    await old.delete().catch(async () => {
+      await old.edit({ components: [] }).catch(() => {});
+    });
+    return true;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The lobby
+// ---------------------------------------------------------------------------
+
+function lobbyView(host: string, players: readonly string[], closesAt: number, cfg: RaidSettings, open: boolean) {
+  const r = TEXT.raid;
+  const lines = players.map((userId, i) => `${mention(userId)}${i === 0 ? r.hostTag : ''}`);
+  const embed = createEmbed()
+    .setTitle(r.lobbyTitle(r.bossName))
+    .setDescription(r.lobby(mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward))
+    .addFields(
+      { name: r.howToField, value: r.howTo(cfg.turnSeconds, fmt(cfg.boostCost), RAID_COMBAT.support.shieldBreak, formatMultiplier(RAID_COMBAT.support.attackMultiplier), RAID_COMBAT.support.rallyTurns) },
+      { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
+      { name: r.bossHpField, value: r.lobbyBossHp(fmt(bossHpFor(Math.max(1, players.length), cfg)), fmt(cfg.minBossHp)), inline: true },
+    )
+    .setImage(`attachment://${RAID.imageName}`);
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(RAID.joinId).setLabel(r.joinButton).setStyle(ButtonStyle.Success).setDisabled(!open),
+    new ButtonBuilder().setCustomId(RAID.leaveId).setLabel(r.leaveButton).setStyle(ButtonStyle.Secondary).setDisabled(!open),
+    new ButtonBuilder().setCustomId(RAID.startId).setLabel(r.startButton).setStyle(ButtonStyle.Primary).setDisabled(!open || players.length === 0),
+  );
+  return { embeds: [embed], components: [row] };
+}
+
+/** Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order they joined. */
+async function runLobby(message: Message, host: string, cfg: RaidSettings, raidId: string): Promise<string[]> {
+  const players = [host];
+  const closesAt = Date.now() + cfg.prepareSeconds * 1000;
+  const screen = new RaidScreen(message, () => lobbyView(host, players, closesAt, cfg, true), () => 'calm', 'calm');
+  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.prepareSeconds * 1000 });
+
+  collector.on('collect', (press) => {
+    const userId = press.user.id;
+    const at = players.indexOf(userId);
+    if (press.customId === RAID.joinId) {
+      if (at !== -1) return void replyPrivately(press, TEXT.raid.alreadyJoined);
+      players.push(userId);
+      screen.update();
+      return void replyPrivately(press, TEXT.raid.joined);
+    }
+    if (press.customId === RAID.leaveId) {
+      if (at === -1) return void replyPrivately(press, TEXT.raid.notJoined);
+      players.splice(at, 1);
+      screen.update();
+      return void replyPrivately(press, TEXT.raid.left);
+    }
+    if (press.customId === RAID.startId) {
+      if (at !== 0) return void replyPrivately(press, TEXT.raid.onlyHost);
+      void press.deferUpdate().catch(() => {});
+      collector.stop('start');
+    }
+  });
+
+  await new Promise<void>((resolve) => collector.once('end', () => resolve()));
+  await screen.stop();
+  await updateRaid(raidId, { players }).catch((err) => console.error(`Could not save the players of raid ${raidId}:`, err));
+  return [...players];
+}
+
+// ---------------------------------------------------------------------------
+// The fight
+// ---------------------------------------------------------------------------
+
+const ACTION_BY_ID: Record<string, RaidAction> = {
+  [RAID.attackId]: 'attack',
+  [RAID.guardId]: 'guard',
+  [RAID.healId]: 'heal',
+  [RAID.supportId]: 'support',
+};
+
+type Commit =
+  | { kind: 'ok'; cost: number }
+  | { kind: 'late' }
+  | { kind: 'already'; action: RaidAction }
+  | { kind: 'paying' }
+  | { kind: 'broke'; cost: number; balance: number }
+  | { kind: 'problem'; text: string };
+
+interface Turn {
+  round: number;
+  open: boolean;
+  endsAt: number;
+  choices: Map<string, RaidChoice>;
+  /** Called when every standing player has picked. */
+  allIn: () => void;
+}
+
+/** Plays the fight on `message` until the boss falls, the party falls, or the rounds run out. */
+async function runFight(
+  first: Message,
+  state: RaidState,
+  cfg: RaidSettings,
+  raidId: string,
+  guildId: string,
+  onMove: (message: Message) => void,
+): Promise<void> {
+  const log: string[] = [];
+  const paying = new Set<string>();
+  let turn: Turn = { round: state.round, open: false, endsAt: 0, choices: new Map(), allIn: () => {} };
+
+  const view = () => ({ embeds: [fightEmbed(state, turn.choices, log, turn.open ? turn.endsAt : null, cfg)], components: [actionRow(!turn.open)] });
+  const screen = new RaidScreen(first, view, () => moodOf(state), 'calm');
+
+  const problemText = (problem: ReturnType<typeof actionProblem>, userId: string): string | null => {
+    if (problem === 'not_playing') return TEXT.raid.notPlaying;
+    if (problem === 'knocked_out') return TEXT.raid.knockedOut;
+    if (problem === 'cursed') return TEXT.raid.cursed(findPlayer(state, userId)?.cursed ?? 1);
+    return null;
+  };
+
+  /** Locks in a player's pick for the turn, paying for its boost first. */
+  const commit = async (userId: string, action: RaidAction, percent: number, forTurn: Turn): Promise<Commit> => {
+    const stillOpen = (): boolean => forTurn === turn && forTurn.open;
+    if (!stillOpen()) return { kind: 'late' };
+    const problem = problemText(actionProblem(state, userId, action), userId);
+    if (problem) return { kind: 'problem', text: problem };
+    const already = forTurn.choices.get(userId);
+    if (already) return { kind: 'already', action: already.action };
+    if (paying.has(userId)) return { kind: 'paying' };
+
+    const cost = percent * cfg.boostCost;
+    if (cost > 0) {
+      paying.add(userId);
+      try {
+        const paid = await payForBoost(guildId, userId, raidId, cost);
+        if (!paid.ok) return { kind: 'broke', cost, balance: paid.balance };
+        if (!stillOpen() || forTurn.choices.has(userId)) {
+          await refundBoost(guildId, userId, raidId, cost).catch((err) => console.error(`Could not refund a raid boost of ${userId}:`, err));
+          return { kind: 'late' };
+        }
+      } finally {
+        paying.delete(userId);
+      }
+    }
+    forTurn.choices.set(userId, { action, boost: percent });
+    const player = findPlayer(state, userId);
+    if (player) player.stats.spent += cost;
+    screen.update();
+    if (livingPlayers(state).every((p) => forTurn.choices.has(p.userId))) forTurn.allIn();
+    return { kind: 'ok', cost };
+  };
+
+  const commitText = (result: Commit, action: RaidAction, percent: number): string => {
+    const name = TEXT.raid.actions[action];
+    switch (result.kind) {
+      case 'ok':
+        return result.cost > 0 ? TEXT.raid.choseBoosted(name, percent, fmt(result.cost)) : TEXT.raid.chose(name);
+      case 'late':
+        return TEXT.raid.turnOver;
+      case 'already':
+        return TEXT.raid.alreadyChose(TEXT.raid.actions[result.action]);
+      case 'paying':
+        return TEXT.raid.paying;
+      case 'broke':
+        return TEXT.raid.cantAfford(fmt(result.cost), fmt(result.balance));
+      case 'problem':
+        return result.text;
+    }
+  };
+
+  /** Attack and Heal ask privately how much to boost them before they are locked in. */
+  const askBoost = async (press: ButtonInteraction, action: RaidAction, forTurn: Turn): Promise<void> => {
+    const userId = press.user.id;
+    await press.deferReply({ flags: MessageFlags.Ephemeral });
+    const balance = await walletOf(guildId, userId);
+    const name = TEXT.raid.actions[action];
+    const presets = RAID.boostPresets.filter((percent) => percent <= cfg.maxBoost);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId(`${RAID.boostPrefix}0`).setLabel(TEXT.raid.noBoostButton).setStyle(ButtonStyle.Secondary),
+      ...presets.map((percent) =>
+        new ButtonBuilder()
+          .setCustomId(`${RAID.boostPrefix}${percent}`)
+          .setLabel(TEXT.raid.boostButton(percent, fmt(percent * cfg.boostCost)))
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(percent * cfg.boostCost > balance),
+      ),
+      new ButtonBuilder().setCustomId(RAID.boostCustomId).setLabel(TEXT.raid.customBoostButton).setStyle(ButtonStyle.Primary),
+    );
+    const prompt = await press.editReply({ content: TEXT.raid.boostPrompt(name, fmt(cfg.boostCost), fmt(balance)), components: [row] });
+
+    const remaining = (): number => forTurn.endsAt - Date.now();
+    const pick = await prompt
+      .awaitMessageComponent({ componentType: ComponentType.Button, time: Math.max(1_000, remaining()), filter: (b) => b.user.id === userId })
+      .catch(() => null);
+    if (!pick) {
+      await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
+      return;
+    }
+
+    let percent: number;
+    if (pick.customId === RAID.boostCustomId) {
+      const modalId = `raid_boost_modal_${raidId}_${userId}_${forTurn.round}`;
+      await pick.showModal(
+        new ModalBuilder()
+          .setCustomId(modalId)
+          .setTitle(TEXT.raid.boostModalTitle)
+          .addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(
+              new TextInputBuilder()
+                .setCustomId(RAID.boostInputId)
+                .setLabel(TEXT.raid.boostLabel(cfg.maxBoost))
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+                .setMaxLength(6),
+            ),
+          ),
+      );
+      const submit = await pick
+        .awaitModalSubmit({ time: Math.max(1_000, Math.min(RAID.modalMs, remaining())), filter: (m) => m.customId === modalId && m.user.id === userId })
+        .catch(() => null);
+      if (!submit) {
+        await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
+        return;
+      }
+      const typed = submit.fields.getTextInputValue(RAID.boostInputId).trim().replace(/%$/, '');
+      const parsed = /^\d+$/.test(typed) ? Number(typed) : Number.NaN;
+      if (!Number.isInteger(parsed) || parsed < 0 || parsed > cfg.maxBoost) {
+        await submit.deferUpdate().catch(() => {});
+        await press.editReply({ content: TEXT.raid.badBoost(cfg.maxBoost), components: [] }).catch(() => {});
+        return;
+      }
+      percent = parsed;
+      await submit.deferUpdate().catch(() => {});
+    } else {
+      percent = Number(pick.customId.slice(RAID.boostPrefix.length));
+      await pick.deferUpdate().catch(() => {});
+    }
+
+    const result = await commit(userId, action, percent, forTurn);
+    await press.editReply({ content: commitText(result, action, percent), components: [] }).catch(() => {});
+  };
+
+  const handlePress = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
+    const action = ACTION_BY_ID[press.customId];
+    if (!action) return replyPrivately(press, TEXT.raid.lobbyClosed);
+    const userId = press.user.id;
+    if (!forTurn.open || forTurn !== turn) return replyPrivately(press, TEXT.raid.turnOver);
+    const problem = problemText(actionProblem(state, userId, action), userId);
+    if (problem) return replyPrivately(press, problem);
+    const already = forTurn.choices.get(userId);
+    if (already) return replyPrivately(press, TEXT.raid.alreadyChose(TEXT.raid.actions[already.action]));
+
+    if ((action === 'attack' || action === 'heal') && cfg.maxBoost > 0) return askBoost(press, action, forTurn);
+    const result = await commit(userId, action, 0, forTurn);
+    return replyPrivately(press, commitText(result, action, 0));
+  };
+
+  try {
+    await first.edit({ ...view(), files: [dragonFile('calm')], attachments: [] });
+    for (;;) {
+      // The players' turn. If chat pushed the fight up since the last one, it is re-sent at the bottom first.
+      const choices = new Map<string, RaidChoice>();
+      const endsAt = Date.now() + cfg.turnSeconds * 1000;
+      turn = { round: state.round, open: true, endsAt, choices, allIn: () => {} };
+      const current = turn;
+      if (await screen.toBottom()) {
+        onMove(screen.current);
+        void updateRaid(raidId, { messageId: screen.current.id }).catch((err) => console.error(`Could not save where raid ${raidId} moved to:`, err));
+      } else {
+        await screen.now();
+      }
+      const collector = screen.current.createMessageComponentCollector({ componentType: ComponentType.Button, time: Math.max(1_000, endsAt - Date.now()) });
+      current.allIn = () => collector.stop('all');
+      collector.on('collect', (press) => {
+        void handlePress(press, current).catch((err) => console.error('A raid button failed:', err));
+      });
+      await new Promise<void>((resolve) => collector.once('end', () => resolve()));
+      current.open = false;
+
+      // Resolve it: the players' actions, then the boss's move, then the next move is announced.
+      const events = resolvePlayerTurn(state, choices);
+      const boss = bossTurn(state);
+      events.push(...boss.events);
+      if (boss.theft) {
+        const taken = await stealFromWallet(guildId, boss.theft.userId, raidId, boss.theft.wanted).catch((err) => {
+          console.error(`The raid boss could not steal from ${boss.theft?.userId}:`, err);
+          return 0;
+        });
+        events.push(recordTheft(state, boss.theft.userId, taken));
+      }
+      events.push(...endRound(state));
+      log.push(...events.map(eventText));
+      await screen.now();
+      if (state.outcome !== 'ongoing') break;
+      await sleep(RAID.resultMs);
+    }
+  } finally {
+    await screen.stop();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The whole raid
+// ---------------------------------------------------------------------------
+
+async function runRaid(ctx: CommandContext): Promise<void> {
+  const release = claimGuild(ctx.guildId);
+  if (!release) {
+    await ctx.reply(TEXT.raid.busy);
+    return;
+  }
+  const cfg: RaidSettings = { ...CONFIG.raid };
+  const week = raidWeek();
+  let id: string | null = null;
+  let message: Message | null = null;
+  let settled = false;
+  try {
+    const started = await startRaidWeek(ctx.guildId, week, ctx.user.id);
+    if (!started.ok) {
+      await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
+      settled = true;
+      return;
+    }
+    id = started.id;
+
+    const closesAt = Date.now() + cfg.prepareSeconds * 1000;
+    const sent = await ctx.reply({ ...lobbyView(ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [dragonFile('calm')] });
+    message = await sent.fetchMessage();
+    await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
+
+    const players = await runLobby(message, ctx.user.id, cfg, id);
+    if (players.length === 0) {
+      await abandonRaid(id);
+      settled = true;
+      const embed = createEmbed().setTitle(TEXT.raid.noPlayersTitle).setDescription(TEXT.raid.noPlayers);
+      await message.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
+      return;
+    }
+
+    await updateRaid(id, { status: 'fighting' });
+    const state = createRaid(players, bossHpFor(players.length, cfg), cfg.playerHp, cfg.maxRounds);
+    await runFight(message, state, cfg, id, ctx.guildId, (moved) => {
+      message = moved;
+    });
+
+    // The end. Only the outcome decides the reward; the ranking and the last hit are for show.
+    const outcome = state.outcome === 'won' || state.outcome === 'wiped' ? state.outcome : 'fled';
+    const damage = Object.fromEntries(state.players.map((p) => [p.userId, p.stats.damage]));
+    const intoVault = await finishRaid(id, outcome, { damage, lastHit: state.lastHit, rounds: state.round });
+    settled = true;
+
+    let reward: RaidReward | null = null;
+    const fought = participants(state);
+    if (outcome === 'won' && fought.length > 0) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward);
+    await message.edit({ embeds: [resultEmbed(state, cfg, week.next, reward, intoVault)], components: [], files: [dragonFile(moodOf(state))], attachments: [] });
+    console.log(`Raid ${id} ended (${outcome}) after ${state.round} rounds with ${players.length} players.`);
+  } finally {
+    // A raid that stopped part way (an error) is called off: points are given back and the week is freed.
+    if (id && !settled) {
+      const called = await abandonRaid(id).catch((err) => {
+        console.error(`Could not call off raid ${id}:`, err);
+        return null;
+      });
+      if (called && message) {
+        const embed = createEmbed().setTitle(TEXT.raid.interruptedTitle).setDescription(TEXT.raid.failed);
+        await message.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
+      }
+    }
+    release();
+  }
+}
+
+/**
+ * Calls off every raid that was still going when the bot last stopped (a restart, a deploy): the
+ * players get back what they spent and what was stolen, the week is freed so it can be started
+ * again, and the raid's message says so. Run once the bot is ready.
+ */
+export async function settleUnfinishedRaids(client: Client): Promise<void> {
+  for (const raid of await listUnfinishedRaids()) {
+    try {
+      const called = await abandonRaid(raid._id);
+      if (!called?.channelId || !called.messageId) continue;
+      const channel = await client.channels.fetch(called.channelId).catch(() => null);
+      if (!channel?.isTextBased()) continue;
+      const message = await channel.messages.fetch(called.messageId).catch(() => null);
+      const embed = createEmbed().setTitle(TEXT.raid.interruptedTitle).setDescription(TEXT.raid.interrupted);
+      await message?.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
+      console.log(`Called off raid ${raid._id}, left unfinished when the bot stopped.`);
+    } catch (err) {
+      console.error(`Could not call off raid ${raid._id}:`, err);
+    }
+  }
+}
+
+export const raid: Command = {
+  name: 'raid',
+  aliases: ['boss'],
+  description:
+    'Start the weekly raid: everyone joins in to fight a dragon together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern).',
+  usage: 'raid',
+
+  async execute(ctx) {
+    const action = ctx.args[0]?.toLowerCase();
+    if (action === 'reset') {
+      if (!isAdmin(ctx.user.id)) {
+        await ctx.reply(TEXT.raid.adminOnly);
+        return;
+      }
+      const done = await resetRaidWeek(ctx.guildId, raidWeek().key);
+      await ctx.reply(done ? TEXT.raid.resetDone : TEXT.raid.resetNothing);
+      return;
+    }
+    if (ctx.args.length > 0) {
+      await ctx.reply(TEXT.raid.usage(ctx.prefix));
+      return;
+    }
+    await runRaid(ctx);
+  },
+};

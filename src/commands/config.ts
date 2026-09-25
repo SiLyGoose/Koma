@@ -14,7 +14,7 @@ import type { Command, CommandContext } from '../discord/types.js';
 // 'Stonks' was added as a settings-spec group (stonks.capHours) without ever being added here,
 // so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
 // in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
-export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Events', 'Stonks', 'Equipment'];
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Events', 'Raid', 'Stonks', 'Equipment'];
 
 /** Why a channel can't be used, in words. */
 function channelProblemText(problem: ChannelProblem, channelId: string): string {

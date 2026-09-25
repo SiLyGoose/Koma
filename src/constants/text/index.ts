@@ -25,6 +25,7 @@ import { splitStealText } from './split-steal.js';
 import { codedleText } from './codedle.js';
 import { giveText } from './give.js';
 import { configText } from './config.js';
+import { raidText } from './raid.js';
 
 /*
  * Every message the bot sends, one file per command or feature in this folder. `p` is the command
@@ -63,4 +64,5 @@ export const TEXT = {
   codedle: codedleText,
   give: giveText,
   config: configText,
+  raid: raidText,
 };

@@ -92,7 +92,7 @@ const PAY_AT_ONCE = 10;
  * skipped. The ledger records every payment that went through. Shared by every event that splits
  * a pile of points between whoever showed up (the point crate, the vault games).
  */
-export async function payShares(guildId: string, shares: readonly CrateShare[], reason: 'event_crate' | 'heist_loot' | 'split_steal' | 'code_prize'): Promise<SharesPayout> {
+export async function payShares(guildId: string, shares: readonly CrateShare[], reason: 'event_crate' | 'heist_loot' | 'split_steal' | 'code_prize' | 'raid_reward' | 'raid_refund'): Promise<SharesPayout> {
   const { members, ledger } = collections();
   const results = new Map<string, boolean>();
 

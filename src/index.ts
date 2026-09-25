@@ -15,6 +15,7 @@ import { prepareShootingStars } from './animations/gacha-reply.js';
 import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
+import { settleUnfinishedRaids } from './commands/raid.js';
 import { clearOpenVaults, migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
@@ -100,6 +101,9 @@ async function main(): Promise<void> {
     // that was still open when the bot last stopped (a restart, a deploy) is picked up again first.
     await resumeOpenEvents(readyClient);
     stopEvents = startEventScheduler(readyClient);
+
+    // A raid that was being played when the bot last stopped is called off, and its points given back.
+    await settleUnfinishedRaids(readyClient).catch((err) => console.error('Could not settle unfinished raids:', err));
 
     // Points that were on a blackjack table when the bot last stopped are given back.
     stopBetSweeper = startBetSweeper();

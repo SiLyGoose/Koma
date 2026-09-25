@@ -1,4 +1,4 @@
-import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, TEXT, TOKEN_NAME } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
 import { fmt, formatPercent, mentionList, money, starString } from '../lib/format.js';
@@ -8,10 +8,23 @@ import type { Command, CommandContext } from '../discord/types.js';
 import { replyWithShootingStar } from '../animations/gacha-reply.js';
 import type { Stars } from '../types.js';
 
+/** What a pull or multi pull was paid with: komaTokens, points (and what gear saved), or both. */
+export function spentText(paid: { cost: number; baseCost: number; tokensUsed: number }): string {
+  const points =
+    paid.cost < paid.baseCost ? TEXT.gacha.spentWithGear(fmt(paid.cost), fmt(paid.baseCost - paid.cost)) : TEXT.gacha.spent(fmt(paid.cost));
+  if (paid.tokensUsed === 0) return points;
+  return paid.cost === 0 && paid.baseCost === 0 ? TEXT.gacha.spentTokens(paid.tokensUsed) : TEXT.gacha.spentTokensAndPoints(paid.tokensUsed, points);
+}
+
+/** The balance after a pull: points, and the komaTokens left under them. */
+export function balanceText(after: { balance: number; tokens: number }): string {
+  return TEXT.gacha.balanceWithTokens(money(after.balance), after.tokens);
+}
+
 export const gacha: Command = {
   name: 'gacha',
   aliases: ['pull'],
-  description: `Spend ${CURRENCY_NAME} to pull a random item. Add "multi" to pull ${MULTI_PULLS} at once.`,
+  description: `Pull a random item with ${TOKEN_NAME} or ${CURRENCY_NAME}. Add "multi" for ${MULTI_PULLS} at once.`,
   usage: 'gacha [multi]',
   slashUsage: 'gacha [multi]',
 
@@ -43,15 +56,8 @@ export const gacha: Command = {
           (item.usableBy && !canUseItem(item, ctx.user.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness))}` : ''),
       )
       .addFields(
-        {
-          name: TEXT.gacha.spentField,
-          value:
-            result.cost < result.baseCost
-              ? TEXT.gacha.spentWithGear(fmt(result.cost), fmt(result.baseCost - result.cost))
-              : TEXT.gacha.spent(fmt(result.cost)),
-          inline: true,
-        },
-        { name: TEXT.gacha.balanceField, value: money(result.balance), inline: true },
+        { name: TEXT.gacha.spentField, value: spentText(result), inline: true },
+        { name: TEXT.gacha.balanceField, value: balanceText(result), inline: true },
       )
       .setFooter({ text: result.isNew ? TEXT.gacha.footerNew : TEXT.gacha.footerOwned(result.count) })
       .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
@@ -71,7 +77,12 @@ async function multiPull(ctx: CommandContext): Promise<void> {
   const result = await pullMulti(ctx.guildId, ctx.user.id);
 
   if (!result.ok) {
-    await ctx.reply(TEXT.gacha.multiCantAfford(ctx.prefix, MULTI_PULLS, fmt(result.cost), fmt(result.balance)));
+    const covered = Math.min(result.tokens, MULTI_PULLS);
+    await ctx.reply(
+      covered > 0
+        ? TEXT.gacha.multiCantAffordWithTokens(ctx.prefix, MULTI_PULLS, covered, fmt(result.cost), fmt(result.balance))
+        : TEXT.gacha.multiCantAfford(ctx.prefix, MULTI_PULLS, fmt(result.cost), fmt(result.balance)),
+    );
     return;
   }
 
@@ -102,15 +113,8 @@ async function multiPull(ctx: CommandContext): Promise<void> {
     .setDescription([...lines, ...(notes.length > 0 ? ['', ...notes] : [])].join('\n'))
     .addFields(
       { name: TEXT.gacha.multiSummaryField, value: summary, inline: false },
-      {
-        name: TEXT.gacha.spentField,
-        value:
-          result.cost < result.baseCost
-            ? TEXT.gacha.spentWithGear(fmt(result.cost), fmt(result.baseCost - result.cost))
-            : TEXT.gacha.spent(fmt(result.cost)),
-        inline: true,
-      },
-      { name: TEXT.gacha.balanceField, value: money(result.balance), inline: true },
+      { name: TEXT.gacha.spentField, value: spentText(result), inline: true },
+      { name: TEXT.gacha.balanceField, value: balanceText(result), inline: true },
     )
     .setFooter({ text: newCount > 0 ? TEXT.gacha.multiFooterNew(newCount) : TEXT.gacha.multiFooterNoneNew })
     .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });

@@ -1,8 +1,10 @@
-import { boldMoney } from './currency.js';
+import { boldMoney, boldTokens } from './currency.js';
 
 export const balanceText = {
   title: (name: string) => `${name}'s balance`,
   points: (points: string) => `${boldMoney(points)}`,
+  /** Under the points: the member's komaTokens (shown even at 0). */
+  tokens: (tokens: number) => boldTokens(tokens),
   claimField: 'Hourly claim',
   claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
   /** A critical success on the D20 left one more claim this hour. */

@@ -12,6 +12,7 @@ import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
 import { plinko } from './plinko.js';
+import { raid } from './raid.js';
 import { rob } from './rob.js';
 import { sell } from './sell.js';
 import type { Command } from '../discord/types.js';
@@ -31,6 +32,7 @@ export const commands: Command[] = [
   rob,
   plinko,
   blackjack,
+  raid,
   leaderboard,
   vault,
   config,

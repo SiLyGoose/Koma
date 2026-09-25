@@ -225,6 +225,8 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   leaderboard: { build: () => {}, toArgs: () => [] },
 
+  raid: { description: "Start this week's raid: fight a dragon together for a reward (resets Saturday midnight Eastern).", build: () => {}, toArgs: () => [] },
+
   vault: { build: () => {}, toArgs: () => [] },
 
   plinko: {
