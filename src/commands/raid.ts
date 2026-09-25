@@ -15,7 +15,7 @@ import {
   type Message,
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
-import { RAID, RAID_COMBAT, TEXT } from '../constants/index.js';
+import { RAID, RAID_COMBAT, RAID_EMOJI, TEXT } from '../constants/index.js';
 import { dragonPicture, type DragonMood } from '../animations/images/dragon-image.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command, CommandContext } from '../discord/types.js';
@@ -26,6 +26,8 @@ import {
   actionProblem,
   bossHpFor,
   bossTurn,
+  canAct,
+  CC_EFFECT,
   createRaid,
   damageRanking,
   emptyGear,
@@ -114,8 +116,10 @@ export function intentText(state: RaidState, intent: BossIntent = state.intent):
       return TEXT.raid.intent.hoard(target);
     case 'shield':
       return TEXT.raid.intent.shield(support.shieldBreak);
-    case 'curse':
-      return TEXT.raid.intent.curse(target, moves.curse.rounds);
+    case 'stun':
+    case 'disarm':
+    case 'taunt':
+      return TEXT.raid.intent.cc(CC_EFFECT[intent.move], intent.targets.map(mention).join(', '), RAID_COMBAT.cc.rounds);
   }
 }
 
@@ -137,7 +141,7 @@ export function eventText(event: RaidEvent): string {
     case 'rally':
       return log.rally(mention(event.userId), formatMultiplier(event.multiplier), event.turns);
     case 'cleansed':
-      return log.cleansed(mention(event.userId), mention(event.targetId));
+      return log.cleansed(mention(event.userId), mention(event.targetId), event.effect);
     case 'shieldBroken':
       return log.shieldBroken;
     case 'attack':
@@ -155,8 +159,8 @@ export function eventText(event: RaidEvent): string {
       return log.knockedOut(mention(event.userId));
     case 'shieldUp':
       return log.shieldUp;
-    case 'curse':
-      return log.curse(mention(event.userId));
+    case 'cc':
+      return log.cc(event.effect, mention(event.userId));
     case 'hoardBlocked':
       return log.hoardBlocked(mention(event.userId), mention(event.targetId));
     case 'stole':
@@ -183,9 +187,9 @@ function actionRow(disabled: boolean): ActionRowBuilder<ButtonBuilder> {
   const button = (id: string, label: string, emoji: string, style: ButtonStyle) =>
     new ButtonBuilder().setCustomId(id).setLabel(label).setEmoji(emoji).setStyle(style).setDisabled(disabled);
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    button(RAID.attackId, TEXT.raid.attackButton, '⚔️', ButtonStyle.Danger),
-    button(RAID.guardId, TEXT.raid.guardButton, '🛡️', ButtonStyle.Primary),
-    button(RAID.healId, TEXT.raid.healButton, '💚', ButtonStyle.Success),
+    button(RAID.attackId, TEXT.raid.attackButton, RAID_EMOJI.attack, ButtonStyle.Danger),
+    button(RAID.guardId, TEXT.raid.guardButton, RAID_EMOJI.guard, ButtonStyle.Primary),
+    button(RAID.healId, TEXT.raid.healButton, RAID_EMOJI.heal, ButtonStyle.Success),
     button(RAID.supportId, TEXT.raid.supportButton, '✨', ButtonStyle.Secondary),
   );
 }
@@ -206,14 +210,16 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     turnEndsAt === null ? r.resolving : r.turnEnds(unixOf(turnEndsAt)),
   ].join('\n');
   const party = state.players.map((p) => {
-    const status = !isAlive(p) ? r.statusDown : choices.has(p.userId) ? r.statusChosen : r.statusWaiting;
-    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, p.cursed);
+    const status = !isAlive(p) ? r.statusDown : !canAct(p) ? r.statusStunned : choices.has(p.userId) ? r.statusChosen : r.statusWaiting;
+    const cc = isAlive(p) && p.cc ? r.ccTag(p.cc.effect, p.cc.turns) : '';
+    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, cc);
   });
   return createEmbed()
     .setTitle(r.fightTitle(r.bossName, state.round, state.maxRounds))
     .setDescription(description)
     .addFields(
-      { name: r.partyField, value: limitedLines(party, RAID.listMax, TEXT.common.moreLines, r.nobody) },
+      // Cut by length, not a line count: the custom crowd-control emojis make some lines much longer than others.
+      { name: r.partyField, value: party.length === 0 ? r.nobody : joinLimited(party) },
       { name: r.logField, value: log.length === 0 ? r.logEmpty : joinLimited(log.slice(-RAID.logSize)) },
     )
     .setImage(`attachment://${RAID.imageName}`)
@@ -534,7 +540,7 @@ async function runFight(
   const problemText = (problem: ReturnType<typeof actionProblem>, userId: string): string | null => {
     if (problem === 'not_playing') return TEXT.raid.notPlaying;
     if (problem === 'knocked_out') return TEXT.raid.knockedOut;
-    if (problem === 'cursed') return TEXT.raid.cursed(findPlayer(state, userId)?.cursed ?? 1);
+    if (problem === 'stunned' || problem === 'disarmed' || problem === 'taunted') return TEXT.raid.held(problem, findPlayer(state, userId)?.cc?.turns ?? 1);
     return null;
   };
 
@@ -566,7 +572,7 @@ async function runFight(
     const player = findPlayer(state, userId);
     if (player) player.stats.spent += cost;
     screen.update();
-    if (livingPlayers(state).every((p) => forTurn.choices.has(p.userId))) forTurn.allIn();
+    if (state.players.filter(canAct).every((p) => forTurn.choices.has(p.userId))) forTurn.allIn();
     return { kind: 'ok', cost };
   };
 
@@ -739,6 +745,8 @@ async function runFight(
       }
       const collector = screen.current.createMessageComponentCollector({ componentType: ComponentType.Button, time: Math.max(1_000, endsAt - Date.now()) });
       current.allIn = () => collector.stop('all');
+      // Nobody can act (everyone standing is stunned): the turn doesn't wait for picks that can't come.
+      if (!state.players.some(canAct)) collector.stop('all');
       live.endTurn = () => collector.stop('test');
       collector.on('collect', (press) => {
         void handlePress(press, current).catch((err) => console.error('A raid button failed:', err));

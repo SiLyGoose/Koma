@@ -15,8 +15,15 @@ import { chance, pickRandom, randInt } from '../random.js';
 export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', 'support'];
 
-export type BossMove = 'claw' | 'breath' | 'sweep' | 'hoard' | 'shield' | 'curse';
-export const BOSS_MOVES: readonly BossMove[] = ['claw', 'breath', 'sweep', 'hoard', 'shield', 'curse'];
+export type BossMove = 'claw' | 'breath' | 'sweep' | 'hoard' | 'shield' | CcMove;
+export const BOSS_MOVES: readonly BossMove[] = ['claw', 'breath', 'sweep', 'hoard', 'shield', 'stun', 'disarm', 'taunt'];
+
+/** The boss's crowd-control moves, and the effect each one leaves on its targets. */
+export type CcMove = 'stun' | 'disarm' | 'taunt';
+/** Stunned: can't act. Disarmed: can't attack. Taunted: can only attack. */
+export type CrowdControl = 'stunned' | 'disarmed' | 'taunted';
+export const CC_EFFECT: Readonly<Record<CcMove, CrowdControl>> = { stun: 'stunned', disarm: 'disarmed', taunt: 'taunted' };
+export const isCcMove = (move: BossMove): move is CcMove => move in CC_EFFECT;
 
 /** What a player did over the whole fight, for the summary at the end (display only). */
 export interface RaidStats {
@@ -54,8 +61,10 @@ export interface RaidPlayer {
   userId: string;
   hp: number;
   maxHp: number;
-  /** Turns left that the player can't attack (0 = not cursed). */
-  cursed: number;
+  /** The crowd control they are under and the turns it has left, or null. One at a time: the boss only aims it at players without one. */
+  cc: { effect: CrowdControl; turns: number } | null;
+  /** How many times the boss has aimed a move at them, so it can spread its moves out evenly. */
+  targeted: number;
   stats: RaidStats;
   /** Their raid perks, set when the fight starts (commands/raid.ts reads their gear). */
   gear: RaidGear;
@@ -97,6 +106,8 @@ export interface RaidState {
   lastHit: string | null;
   /** The last move the boss made. */
   lastMove: BossMove | null;
+  /** The round the boss last made a crowd-control move in (its cooldown counts from there), or null. */
+  lastCc: number | null;
   outcome: RaidOutcome;
 }
 
@@ -117,7 +128,7 @@ export type RaidEvent =
   | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number }
   | { kind: 'healWasted'; userId: string }
   | { kind: 'rally'; userId: string; turns: number; multiplier: number }
-  | { kind: 'cleansed'; userId: string; targetId: string }
+  | { kind: 'cleansed'; userId: string; targetId: string; effect: CrowdControl }
   | { kind: 'shieldBroken' }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
   | { kind: 'bounced'; userId: string }
@@ -126,7 +137,7 @@ export type RaidEvent =
   | { kind: 'hit'; move: 'claw' | 'breath' | 'sweep'; userId: string; damage: number; guarded: boolean; coveredFor: string | null }
   | { kind: 'knockedOut'; userId: string }
   | { kind: 'shieldUp' }
-  | { kind: 'curse'; userId: string }
+  | { kind: 'cc'; effect: CrowdControl; userId: string }
   | { kind: 'hoardBlocked'; userId: string; targetId: string }
   | { kind: 'stole'; userId: string; amount: number }
   | { kind: 'wiped' }
@@ -186,7 +197,7 @@ export function createRaid(userIds: readonly string[], bossHp: number, playerHp:
     bossMaxHp: bossHp,
     round: 1,
     maxRounds,
-    players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cursed: 0, stats: emptyStats(), gear: emptyGear() })),
+    players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cc: null, targeted: 0, stats: emptyStats(), gear: emptyGear() })),
     intent: { move: 'claw', targets: [], multiplier: 1 },
     shielded: false,
     rallied: 0,
@@ -195,6 +206,7 @@ export function createRaid(userIds: readonly string[], bossHp: number, playerHp:
     guarding: [],
     lastHit: null,
     lastMove: null,
+    lastCc: null,
     outcome: 'ongoing',
   };
   state.intent = pickIntent(state, rng);
@@ -202,13 +214,19 @@ export function createRaid(userIds: readonly string[], bossHp: number, playerHp:
 }
 
 /** Why a player can't take `action` right now, or null if they can. */
-export function actionProblem(state: RaidState, userId: string, action: RaidAction): 'not_playing' | 'knocked_out' | 'cursed' | null {
+export function actionProblem(state: RaidState, userId: string, action: RaidAction): 'not_playing' | 'knocked_out' | CrowdControl | null {
   const player = findPlayer(state, userId);
   if (!player) return 'not_playing';
   if (!isAlive(player)) return 'knocked_out';
-  if (action === 'attack' && player.cursed > 0) return 'cursed';
+  const effect = player.cc?.effect;
+  if (effect === 'stunned') return effect;
+  if (effect === 'disarmed' && action === 'attack') return effect;
+  if (effect === 'taunted' && action !== 'attack') return effect;
   return null;
 }
+
+/** Whether a player can pick anything this turn: standing and not stunned. */
+export const canAct = (player: RaidPlayer): boolean => isAlive(player) && player.cc?.effect !== 'stunned';
 
 // ---------------------------------------------------------------------------
 // The players' half of a round
@@ -217,7 +235,7 @@ export function actionProblem(state: RaidState, userId: string, action: RaidActi
 /**
  * Resolves the players' picks for the round, in this order: guards, heals, supports, attacks
  * (each group in the order the picks were made, which is the map's order). Picks from players
- * who can't make them (knocked out, or cursed and attacking) are dropped.
+ * who can't make them (knocked out, or held back by crowd control) are dropped.
  */
 export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string, RaidChoice>, rng: RaidRng = defaultRaidRng): RaidEvent[] {
   const events: RaidEvent[] = [];
@@ -274,19 +292,21 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     splashHeal(healer, boost, hurt.userId);
   }
 
-  // Supports: each one lifts a curse if anyone is cursed (the one with the most turns left first);
-  // one with no curse to lift rallies the party instead, for the next turns' attacks. Every support
-  // counts toward shattering the shield either way.
+  // Supports: each one lifts a stun, disarm or taunt if anyone is under one (stuns first, then the
+  // one with the most turns left); one with nothing to lift rallies the party instead, for the next
+  // turns' attacks. Every support counts toward shattering the shield either way.
   const supports = byAction('support');
   // The strongest rally made this turn (0 if none).
   let rally = 0;
   for (const [userId] of supports) {
     const supporter = findPlayer(state, userId) as RaidPlayer;
     supporter.stats.supports++;
-    const cursed = state.players.filter((p) => p.cursed > 0).sort((a, b) => b.cursed - a.cursed)[0];
-    if (cursed) {
-      cursed.cursed = 0;
-      events.push({ kind: 'cleansed', userId, targetId: cursed.userId });
+    const held = state.players
+      .filter((p) => isAlive(p) && p.cc !== null)
+      .sort((a, b) => Number(b.cc?.effect === 'stunned') - Number(a.cc?.effect === 'stunned') || (b.cc?.turns ?? 0) - (a.cc?.turns ?? 0))[0];
+    if (held?.cc) {
+      events.push({ kind: 'cleansed', userId, targetId: held.userId, effect: held.cc.effect });
+      held.cc = null;
     } else {
       const multiplier = rallyMultiplierOf(supporter);
       rally = Math.max(rally, multiplier);
@@ -321,7 +341,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     }
   }
 
-  // The shield only lasts the one round; a curse and a rally wear off by a turn. Rallies don't stack:
+  // The shield only lasts the one round; crowd control and a rally wear off by a turn. Rallies don't stack:
   // a new one sets the turns left back to the full count, at the stronger of its bonus and the one
   // still running.
   state.shielded = false;
@@ -330,7 +350,11 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     state.rallyMultiplier = state.rallied > 0 ? Math.max(state.rallyMultiplier, rally) : rally;
     state.rallied = RAID_COMBAT.support.rallyTurns;
   }
-  for (const player of state.players) if (player.cursed > 0) player.cursed--;
+  for (const player of state.players) {
+    if (!player.cc) continue;
+    player.cc.turns--;
+    if (player.cc.turns <= 0) player.cc = null;
+  }
 
   if (state.outcome === 'ongoing') {
     const level = enrageLevel(state.bossHp, state.bossMaxHp);
@@ -421,12 +445,20 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       state.shielded = true;
       events.push({ kind: 'shieldUp' });
       break;
-    case 'curse': {
-      const target = standing(state.intent.targets[0]);
-      if (!target) break;
-      // Counted down at the end of each player turn, so it blocks exactly the next `rounds` turns.
-      target.cursed = RAID_COMBAT.moves.curse.rounds;
-      events.push({ kind: 'curse', userId: target.userId });
+    case 'stun':
+    case 'disarm':
+    case 'taunt': {
+      // Everyone it aimed at who is still standing; if they have all fallen, one other standing player without crowd control.
+      const aimed = state.intent.targets.map((id) => findPlayer(state, id)).filter((p): p is RaidPlayer => p !== undefined && isAlive(p));
+      const free = livingPlayers(state).filter((p) => p.cc === null);
+      const hit = aimed.length > 0 ? aimed : free.length > 0 ? [rng.pick(free)] : [];
+      const effect = CC_EFFECT[move];
+      for (const target of hit) {
+        // Counted down at the end of each player turn, so it holds exactly the next `rounds` turns.
+        target.cc = { effect, turns: RAID_COMBAT.cc.rounds };
+        events.push({ kind: 'cc', effect, userId: target.userId });
+      }
+      state.lastCc = state.round;
       break;
     }
   }
@@ -459,10 +491,37 @@ export function endRound(state: RaidState, rng: RaidRng = defaultRaidRng): RaidE
   return [];
 }
 
+/** Whether the boss's crowd-control moves are off cooldown for the round being planned (the cooldown depends on its enrage level). */
+export function ccReady(state: RaidState): boolean {
+  const cooldown = RAID_COMBAT.cc.cooldown[state.enrage] ?? RAID_COMBAT.cc.cooldown[0];
+  return state.lastCc === null || state.round - state.lastCc >= cooldown;
+}
+
+/**
+ * Picks `count` of `pool` (fewer if the pool is smaller), always among those aimed at least so far,
+ * so the boss's moves are spread evenly over the party (ties are random). Counts them as aimed at.
+ */
+export function fairTargets(pool: readonly RaidPlayer[], count: number, rng: RaidRng = defaultRaidRng): string[] {
+  const left = [...pool];
+  const picked: string[] = [];
+  while (picked.length < count && left.length > 0) {
+    const fewest = Math.min(...left.map((p) => p.targeted));
+    const next = rng.pick(left.filter((p) => p.targeted === fewest));
+    left.splice(left.indexOf(next), 1);
+    next.targeted++;
+    picked.push(next.userId);
+  }
+  return picked;
+}
+
 /** Picks the boss's next move by its weights at its enrage level, and who it is aimed at. */
 export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): BossIntent {
   const weights = RAID_COMBAT.weights[state.enrage] ?? RAID_COMBAT.weights[0];
-  const options = BOSS_MOVES.filter((move) => weights[move] > 0 && !(move === 'shield' && state.lastMove === 'shield'));
+  const free = livingPlayers(state).filter((p) => p.cc === null);
+  const ccAllowed = ccReady(state) && free.length > 0;
+  const options = BOSS_MOVES.filter(
+    (move) => weights[move] > 0 && !(move === 'shield' && state.lastMove === 'shield') && (ccAllowed || !isCcMove(move)),
+  );
   const total = options.reduce((sum, move) => sum + weights[move], 0);
   let roll = rng.int(1, total);
   let move = options[0] as BossMove;
@@ -475,20 +534,16 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
   }
 
   const multiplier = bossMultiplier(state);
-  const living = livingPlayers(state).map((p) => p.userId);
+  const living = livingPlayers(state);
   if (living.length === 0) return { move, targets: [], multiplier };
-  if (move === 'claw' || move === 'hoard' || move === 'curse') return { move, targets: [rng.pick(living)], multiplier };
+  if (move === 'claw' || move === 'hoard') return { move, targets: fairTargets(living, 1, rng), multiplier };
   if (move === 'sweep') {
     const { minTargets, maxTargets } = RAID_COMBAT.moves.sweep;
-    const count = Math.min(living.length, rng.int(minTargets, maxTargets));
-    const pool = [...living];
-    const targets: string[] = [];
-    while (targets.length < count) {
-      const next = rng.pick(pool);
-      pool.splice(pool.indexOf(next), 1);
-      targets.push(next);
-    }
-    return { move, targets, multiplier };
+    return { move, targets: fairTargets(living, rng.int(minTargets, maxTargets), rng), multiplier };
+  }
+  if (isCcMove(move)) {
+    const count = RAID_COMBAT.cc.targets[state.enrage] ?? RAID_COMBAT.cc.targets[0];
+    return { move, targets: fairTargets(free, count, rng), multiplier };
   }
   return { move, targets: [], multiplier };
 }

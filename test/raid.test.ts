@@ -3,8 +3,13 @@ import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
 import { eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, statsReply } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
-import { RAID, RAID_COMBAT, validateConstants } from '../src/constants/index.js';
+import { RAID, RAID_COMBAT, RAID_EMOJI, validateConstants } from '../src/constants/index.js';
 import {
+  BOSS_MOVES,
+  canAct,
+  defaultRaidRng,
+  fairTargets,
+  RAID_ACTIONS,
   actionProblem,
   bossHpFor,
   bossTurn,
@@ -133,19 +138,24 @@ test('rallies do not stack: a second one just resets the turns left', () => {
   assert.equal(state.rallied, RAID_COMBAT.support.rallyTurns);
 });
 
-test('support lifts a curse first; only a support with no curse left to lift rallies', () => {
-  const state = fight(['a', 'b', 'c']);
-  (state.players[0] as { cursed: number }).cursed = 2;
+test('support frees an ally from crowd control first (stuns before anything else); only one with nobody to free rallies', () => {
+  const state = fight(['a', 'b', 'c', 'd']);
+  state.players[0]!.cc = { effect: 'disarmed', turns: 2 };
   const one = resolvePlayerTurn(state, choose(['b', 'support']), low);
-  assert.deepEqual(one, [{ kind: 'cleansed', userId: 'b', targetId: 'a' }]);
+  assert.deepEqual(one, [{ kind: 'cleansed', userId: 'b', targetId: 'a', effect: 'disarmed' }]);
+  assert.equal(state.players[0]?.cc, null);
   assert.equal(state.rallied, 0);
 
-  (state.players[0] as { cursed: number }).cursed = 2;
+  state.players[0]!.cc = { effect: 'taunted', turns: 2 };
+  state.players[3]!.cc = { effect: 'stunned', turns: 1 };
   const two = resolvePlayerTurn(state, choose(['b', 'support'], ['c', 'support']), low);
-  assert.deepEqual(two, [
-    { kind: 'cleansed', userId: 'b', targetId: 'a' },
-    { kind: 'rally', userId: 'c', turns: RAID_COMBAT.support.rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier },
+  assert.deepEqual(two.slice(0, 2), [
+    { kind: 'cleansed', userId: 'b', targetId: 'd', effect: 'stunned' },
+    { kind: 'cleansed', userId: 'c', targetId: 'a', effect: 'taunted' },
   ]);
+
+  const three = resolvePlayerTurn(state, choose(['b', 'support']), low);
+  assert.deepEqual(three, [{ kind: 'rally', userId: 'b', turns: RAID_COMBAT.support.rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier }]);
 });
 
 test('the last hit beats the boss, and attacks after it do nothing', () => {
@@ -363,23 +373,86 @@ test('knocked-out players cannot act, and a party that all falls loses', () => {
   assert.equal(actionProblem(state, 'a', 'heal'), 'knocked_out');
 });
 
-test('curse: blocks attacking for the next turns, and a support lifts it', () => {
-  const state = fight();
-  state.intent = { move: 'curse', targets: ['a'], multiplier: 1 };
-  resolvePlayerTurn(state, choose(), low);
+test('stun, disarm and taunt: what each one blocks, for the next 2 turns, and a support frees them', () => {
+  const cases = [
+    ['stun', 'stunned', ['attack', 'guard', 'heal', 'support']],
+    ['disarm', 'disarmed', ['attack']],
+    ['taunt', 'taunted', ['guard', 'heal', 'support']],
+  ] as const;
+  for (const [move, effect, blocked] of cases) {
+    const state = fight();
+    state.intent = { move, targets: ['a', 'b'], multiplier: 1 };
+    const { events } = bossTurn(state, low);
+    assert.deepEqual(events, [
+      { kind: 'cc', effect, userId: 'a' },
+      { kind: 'cc', effect, userId: 'b' },
+    ]);
+    for (const action of RAID_ACTIONS) assert.equal(actionProblem(state, 'a', action), (blocked as readonly string[]).includes(action) ? effect : null, `${move} ${action}`);
+    assert.equal(canAct(state.players[0]!), effect !== 'stunned');
+
+    // A blocked pick is dropped, and a support frees one of them (a, first in the party) straight away.
+    const first = resolvePlayerTurn(state, choose(['a', blocked[0]], ['c', 'support']), low);
+    assert.deepEqual(first, [{ kind: 'cleansed', userId: 'c', targetId: 'a', effect }]);
+    assert.equal(state.players[0]?.cc, null);
+    // The other wears off a turn at a time, and is gone after 2.
+    assert.equal(state.players[1]?.cc?.turns, RAID_COMBAT.cc.rounds - 1);
+    resolvePlayerTurn(state, choose(), low);
+    assert.equal(state.players[1]?.cc, null);
+  }
+});
+
+test('crowd control: one every 5 rounds on 1 raider when calm, every 4 on 2 when enraged, every 3 on 3 when furious, never on someone already held', () => {
+  // A roll that always lands on the last move with any weight: stun, disarm or taunt when they are allowed.
+  const last: RaidRng = { int: (_, max) => max, chance: () => false, pick: (items) => items[0] as never };
+  const party = ['a', 'b', 'c', 'd', 'e'];
+  for (const [enrage, cooldown, targets] of [[0, 5, 1], [1, 4, 2], [2, 3, 3]] as const) {
+    const state = fight(party);
+    state.enrage = enrage;
+    state.round = 10;
+    state.lastCc = null;
+    const first = pickIntent(state, last);
+    assert.equal(first.move, 'taunt', `phase ${enrage}`);
+    assert.equal(first.targets.length, targets, `phase ${enrage}`);
+
+    // Too soon since the last one: no crowd control at all.
+    state.lastCc = 10 - cooldown + 1;
+    assert.ok(!['stun', 'disarm', 'taunt'].includes(pickIntent(state, last).move), `phase ${enrage} cooldown`);
+    state.lastCc = 10 - cooldown;
+    assert.equal(pickIntent(state, last).move, 'taunt', `phase ${enrage} ready`);
+  }
+
+  // Only raiders not already held are picked, and fewer when not enough are free.
+  const held = fight(['a', 'b', 'c']);
+  held.enrage = 2;
+  held.players[0]!.cc = { effect: 'stunned', turns: 1 };
+  held.players[1]!.cc = { effect: 'disarmed', turns: 2 };
+  assert.deepEqual(pickIntent(held, last).targets, ['c']);
+  held.players[2]!.cc = { effect: 'taunted', turns: 2 };
+  assert.ok(!['stun', 'disarm', 'taunt'].includes(pickIntent(held, last).move));
+
+  // Making the move starts the cooldown.
+  const state = fight(['a', 'b']);
+  state.intent = { move: 'stun', targets: ['a'], multiplier: 1 };
+  state.round = 7;
   bossTurn(state, low);
-  assert.equal(actionProblem(state, 'a', 'attack'), 'cursed');
-  assert.equal(actionProblem(state, 'a', 'guard'), null);
+  assert.equal(state.lastCc, 7);
+});
 
-  // A cursed attack is dropped; the curse wears off a turn at a time.
-  const events = resolvePlayerTurn(state, choose(['a', 'attack']), low);
-  assert.equal(events.length, 0);
-  assert.equal(state.players[0]?.cursed, RAID_COMBAT.moves.curse.rounds - 1);
-
-  const lifted = resolvePlayerTurn(state, choose(['b', 'support']), low);
-  assert.deepEqual(lifted, [{ kind: 'cleansed', userId: 'b', targetId: 'a' }]);
-  assert.equal(state.players[0]?.cursed, 0);
-  assert.equal(actionProblem(state, 'a', 'attack'), null);
+test('the boss spreads its aimed moves evenly: always at someone aimed at least so far', () => {
+  const state = fight(['a', 'b', 'c', 'd']);
+  // Creating the raid already aimed its first move at someone; start from a clean slate.
+  for (const player of state.players) player.targeted = 0;
+  const counts = new Map(state.players.map((p) => [p.userId, 0]));
+  for (let i = 0; i < 12; i++) {
+    for (const id of fairTargets(state.players, 1, defaultRaidRng)) counts.set(id, (counts.get(id) ?? 0) + 1);
+    const values = [...counts.values()];
+    assert.ok(Math.max(...values) - Math.min(...values) <= 1, `after ${i + 1}: ${values}`);
+  }
+  assert.deepEqual([...counts.values()], [3, 3, 3, 3]);
+  // Several at once are all different players, the least aimed at first.
+  state.players[0]!.targeted = 10;
+  assert.deepEqual(new Set(fairTargets(state.players, 3, low)), new Set(['b', 'c', 'd']));
+  assert.equal(fairTargets(state.players, 9, low).length, 4);
 });
 
 test('scale shield: attacks bounce for a turn unless enough players support', () => {
@@ -457,10 +530,10 @@ test("the party list shows each player's bar and HP, and a full list still fits 
   const state = fight(Array.from({ length: 40 }, (_, i) => `${100000000000000000 + i}`));
   for (const player of state.players) {
     (player as { hp: number }).hp = 99;
-    (player as { cursed: number }).cursed = 2;
+    player.cc = { effect: 'disarmed', turns: 2 };
   }
   const party = fightEmbed(state, new Map(), [], Date.now() + 60_000, DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Party')?.value ?? '';
-  assert.ok(party.startsWith(`⏳ <@100000000000000000> ${'🟩'.repeat(6)} ❤️ 99/100 🌑 cursed (2)`), party.split('\n')[0]);
+  assert.ok(party.startsWith(`⏳ <@100000000000000000> ${'🟩'.repeat(6)} ❤️ 99/100 ${RAID_EMOJI.disarmed} disarmed (2)`), party.split('\n')[0]);
   assert.ok(party.length <= 1024, `${party.length} characters`);
 });
 
@@ -473,7 +546,7 @@ test('hpBar: always the full width, empty only at 0', () => {
 
 test('every event and every move has a line of text', () => {
   const state = fight(['a', 'b']);
-  for (const move of ['claw', 'breath', 'sweep', 'hoard', 'shield', 'curse'] as const) {
+  for (const move of BOSS_MOVES) {
     assert.ok(intentText(state, { move, targets: ['a', 'b'], multiplier: 1 }).length > 0);
   }
   const events = [
@@ -540,8 +613,8 @@ test('raid stats: shown only once the dragon is slain, with damage, healing and 
   const field = (name: string) => embed.fields?.find((f) => f.name === name)?.value ?? '';
   assert.match(field('Damage'), /^🥇 <@a>: \*\*900\*\* \(90%\)\n🥈 <@b>: \*\*100\*\*/);
   assert.equal(field('Final blow'), '<@a>');
-  assert.match(field('Team play'), /<@b>: 💚 0 healed · 🛡️ 3 · ✨ 0/);
-  assert.match(field('Team play'), /<@c>: 💚 240 healed · 🛡️ 0 · ✨ 2/);
+  assert.ok(field('Team play').includes(`<@b>: ${RAID_EMOJI.heal} 0 healed · ${RAID_EMOJI.guard} 3 · ✨ 0`));
+  assert.ok(field('Team play').includes(`<@c>: ${RAID_EMOJI.heal} 240 healed · ${RAID_EMOJI.guard} 0 · ✨ 2`));
   assert.match(field('Points lost'), /<@a>: 💸 500 on boosts/);
 
   // A raid saved before every stat was kept still shows its damage.

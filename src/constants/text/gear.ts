@@ -1,3 +1,5 @@
+import { RAID_EMOJI as E } from '../raid.js';
+
 export const gearText = {
   title: (name: string) => `${name}'s gear`,
   unknownItem: (id: string) => `${id} (no longer exists)`,
@@ -10,14 +12,16 @@ export const gearText = {
   exclusive: (owners: string, share: string) => `Made for ${owners}, so it only works at ${share} for this member.`,
 
   // `gear stats`: what a member fights a raid with. `gear` is the mark on a line their gear changed.
+  // (Embed titles can't show custom emojis, so the title keeps a plain one.)
   statsTitle: (name: string) => `⚔️ ${name}'s raid stats`,
   statsHp: (hp: number) => `❤️ **HP**: ${hp}`,
   /** `damage` and `crit` are already formatted (a number, or a range like "60–100"). */
-  statsAttack: (damage: string, critChance: string, crit: string) => `⚔️ **Attack**: ${damage} damage (${critChance} chance of a ${crit} critical hit)`,
-  statsHeal: (amount: number, revive: number) => `💚 **Heal**: ${amount} HP, or brings back a knocked-out ally with ${revive} HP`,
+  statsAttack: (damage: string) => `${E.attack} **Attack**: ${damage} damage`,
+  statsCrit: (critChance: string, crit: string) => `${E.crit} **Crit chance**: ${critChance}, for ${crit} damage`,
+  statsHeal: (amount: number, revive: number) => `${E.heal} **Heal**: ${amount} HP, or brings back a knocked-out ally with ${revive} HP`,
   statsHealSplash: (share: string, amount: number, gear: string) => `↳ and mends a second ally for ${share} of it (${amount} HP) ${gear}`,
   statsGuard: (taken: string, normal: string | null, gear: string) =>
-    `🛡️ **Guard**: you take ${taken} of a hit${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
+    `${E.guard} **Guard**: you take ${taken} of a hit${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsRally: (multiplier: string, turns: number, normal: string | null, gear: string) =>
     `✨ **Rally**: attacks do ${multiplier} damage for ${turns} turns${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsGearMark: '🎒',

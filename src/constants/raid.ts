@@ -58,6 +58,17 @@ export const RAID = {
   playerBarWidth: 6,
 } as const;
 
+/** The raid's custom emojis (full codes, checked at startup): the actions, crits, and the boss's crowd-control effects. */
+export const RAID_EMOJI = {
+  attack: '<:raidattackdamage:1553098026837483721>',
+  guard: '<:raidarmor:1553096484784701511>',
+  heal: '<:raidheal:1553098428685353030>',
+  crit: '<:raidcriticalchance:1553098714908721313>',
+  stunned: '<:raidstatestunned:1553099233974952030>',
+  disarmed: '<:raidstatedisarmed:1553100171020075008>',
+  taunted: '<:raidstatetaunted:1553099804022939749>',
+} as const;
+
 /**
  * How a fight plays out. Damage and healing are HP. Every "share" is 0 to 1.
  *
@@ -70,7 +81,8 @@ export const RAID = {
  * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost perk), jumps in front of single-target moves aimed at
  *   someone else (the guard with the most HP does), and cuts the damage everyone else takes from
  *   moves that hit several players by `aoeCutPerGuard` each, up to `aoeCutMax`.
- * - `support`: each support lifts one player's curse; with nobody cursed it rallies the party
+ * - `support`: each support lifts one player's stun, disarm or taunt (stuns first); with nobody
+ *   under one it rallies the party
  *   instead, multiplying everyone's attacks by `attackMultiplier` (its bonus bigger with the
  *   rallyBoost perk) for the next `rallyTurns` turns (a
  *   second rally resets the count, it doesn't stack). `shieldBreak` supports in the same turn shatter
@@ -82,7 +94,12 @@ export const RAID = {
  * - Each move's base numbers are below; `weights[level]` is how often it picks each move at each
  *   enrage level. It never raises its shield twice in a row.
  * - `hoard` steals min to max points from one player's wallet (never more than they have).
- * - `curse` stops its target attacking for `rounds` turns.
+ * - Crowd control (`stun`, `disarm`, `taunt`, all under `cc`): stunned players can't act at all,
+ *   disarmed ones can't attack, and taunted ones can only attack, for `cc.rounds` turns. At each
+ *   enrage level the boss can use one only every `cc.cooldown[level]` rounds, and it hits
+ *   `cc.targets[level]` players (only ones not already under one).
+ * - Every aimed move goes after the players it has aimed at least so far, so everyone gets hit
+ *   about equally (ties are random).
  */
 export const RAID_COMBAT = {
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
@@ -95,11 +112,11 @@ export const RAID_COMBAT = {
     breath: { damage: 24 },
     sweep: { damage: 32, minTargets: 2, maxTargets: 3 },
     hoard: { min: 200, max: 600 },
-    curse: { rounds: 2 },
   },
+  cc: { rounds: 2, cooldown: [5, 4, 3], targets: [1, 2, 3] },
   weights: [
-    { claw: 30, breath: 20, sweep: 20, hoard: 12, shield: 8, curse: 10 },
-    { claw: 28, breath: 24, sweep: 20, hoard: 10, shield: 8, curse: 10 },
-    { claw: 25, breath: 30, sweep: 20, hoard: 8, shield: 7, curse: 10 },
+    { claw: 30, breath: 20, sweep: 20, hoard: 12, shield: 8, stun: 4, disarm: 3, taunt: 3 },
+    { claw: 28, breath: 24, sweep: 20, hoard: 10, shield: 8, stun: 4, disarm: 3, taunt: 3 },
+    { claw: 25, breath: 30, sweep: 20, hoard: 8, shield: 7, stun: 4, disarm: 3, taunt: 3 },
   ],
 } as const;

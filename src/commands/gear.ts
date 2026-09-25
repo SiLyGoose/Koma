@@ -24,7 +24,8 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
 
   const lines = [
     t.statsHp(playerHp),
-    t.statsAttack(range(attack.min, attack.max), formatPercent(attack.critChance), range(attack.min * attack.critMultiplier, attack.max * attack.critMultiplier)),
+    t.statsAttack(range(attack.min, attack.max)),
+    t.statsCrit(formatPercent(attack.critChance), range(attack.min * attack.critMultiplier, attack.max * attack.critMultiplier)),
     t.statsHeal(heal.amount, Math.max(1, Math.round(playerHp * heal.reviveShare))),
   ];
   if (gear.healSplash > 0) lines.push(t.statsHealSplash(formatPercent(gear.healSplash), Math.max(1, Math.round(heal.amount * gear.healSplash)), t.statsGearMark));

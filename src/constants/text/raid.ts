@@ -1,3 +1,4 @@
+import { RAID_EMOJI as E } from '../raid.js';
 import { boldMoney, boldTokens } from './currency.js';
 
 /*
@@ -5,6 +6,15 @@ import { boldMoney, boldTokens } from './currency.js';
  */
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+type CrowdControl = 'stunned' | 'disarmed' | 'taunted';
+/** What each crowd-control effect is called, and what it stops. */
+const CC: Record<CrowdControl, { name: string; does: string }> = {
+  stunned: { name: 'stunned', does: "can't act" },
+  disarmed: { name: 'disarmed', does: "can't attack" },
+  taunted: { name: 'taunted', does: 'can only attack' },
+};
+const ccMove: Record<CrowdControl, string> = { stunned: 'Stun', disarmed: 'Disarm', taunted: 'Taunt' };
 
 export const raidText = {
   /** The boss's name (bosses with their own personalities come later). */
@@ -25,10 +35,10 @@ export const raidText = {
   howTo: (turnSeconds: number, boostCost: string, shieldBreak: number, rallyMultiplier: string, rallyTurns: number) =>
     [
       `Each round you have **${turnSeconds}s** to pick one action. The dragon then makes the move it announced.`,
-      `⚔️ **Attack**: damage the dragon.`,
-      `🛡️ **Guard**: take half damage, jump in front of attacks aimed at others, and soften attacks that hit everyone.`,
-      `💚 **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most).`,
-      `✨ **Support**: lifts a curse. If nobody is cursed, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its shield.`,
+      `${E.attack} **Attack**: damage the dragon.`,
+      `${E.guard} **Guard**: take half damage, jump in front of attacks aimed at others, and soften attacks that hit everyone.`,
+      `${E.heal} **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most).`,
+      `✨ **Support**: frees an ally who is ${E.stunned} stunned, ${E.disarmed} disarmed or ${E.taunted} taunted. If nobody is, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its shield.`,
       `💸 Attack and Heal can be boosted: ${boostCost} per 1%. Points spent on boosts, and anything the dragon steals, go into the vault.`,
     ].join('\n'),
   playersField: (count: number) => `Raiders (${count})`,
@@ -63,9 +73,13 @@ Grows with every raider (at least ${min}).`,
   logField: 'Recent actions',
   logEmpty: 'Nothing yet.',
   footer: (boostCost: string, maxBoost: number) => `Boost: ${boostCost} points per 1%, up to +${maxBoost}%.`,
-  /** `bar` is the player's HP bar. */
-  partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cursed: number) =>
-    `${status} ${user} ${bar} ❤️ ${hp}/${maxHp}${cursed > 0 ? ` 🌑 cursed (${cursed})` : ''}`,
+  /** `bar` is the player's HP bar, `cc` their crowd-control tag (ccTag) or empty. */
+  partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cc: string) =>
+    `${status} ${user} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
+  /** A player's crowd control on the party list, with the turns it has left. */
+  ccTag: (effect: CrowdControl, turns: number) => `${E[effect]} ${CC[effect].name} (${turns})`,
+  /** The party list's status column for a stunned player (they can't pick anything). */
+  statusStunned: E.stunned,
   statusChosen: '✅',
   statusWaiting: '⏳',
   statusDown: '💀',
@@ -82,20 +96,22 @@ Grows with every raider (at least ${min}).`,
     sweep: (targets: string, damage: number) => `🌀 **Tail Sweep** at ${targets} (${damage} damage each)`,
     hoard: (target: string) => `💰 **Hoard**: it wants to steal from ${target}'s wallet. A guard can stop it.`,
     shield: (supports: number) => `🔷 **Scale Shield**: next turn attacks bounce off unless ${supports} raiders Support`,
-    curse: (target: string, rounds: number) => `🌑 **Curse** on ${target}: can't attack for ${plural(rounds, 'turn', 'turns')}`,
+    /** `targets` is one or more mentions. */
+    cc: (effect: CrowdControl, targets: string, rounds: number) =>
+      `${E[effect]} **${ccMove[effect]}** on ${targets}: ${CC[effect].does} for ${plural(rounds, 'turn', 'turns')}. A Support can free them.`,
   },
 
   // The action log
   log: {
-    guard: (user: string) => `🛡️ ${user} stands guard.`,
-    heal: (user: string, target: string, amount: number, boost: string) => `💚 ${user} healed ${target} for **${amount}**${boost}.`,
-    revive: (user: string, target: string, hp: number, boost: string) => `💚 ${user} brought ${target} back with **${hp}** HP${boost}!`,
-    healSplash: (user: string, target: string, amount: number) => `💚 ${user}'s heal spilled over onto ${target} for **${amount}**.`,
-    healWasted: (user: string) => `💚 ${user} tried to heal, but nobody was hurt.`,
+    guard: (user: string) => `${E.guard} ${user} stands guard.`,
+    heal: (user: string, target: string, amount: number, boost: string) => `${E.heal} ${user} healed ${target} for **${amount}**${boost}.`,
+    revive: (user: string, target: string, hp: number, boost: string) => `${E.heal} ${user} brought ${target} back with **${hp}** HP${boost}!`,
+    healSplash: (user: string, target: string, amount: number) => `${E.heal} ${user}'s heal spilled over onto ${target} for **${amount}**.`,
+    healWasted: (user: string) => `${E.heal} ${user} tried to heal, but nobody was hurt.`,
     rally: (user: string, multiplier: string, turns: number) => `✨ ${user} rallies the party: attacks do ${multiplier} damage for the next ${plural(turns, 'turn', 'turns')}.`,
-    cleansed: (user: string, target: string) => `✨ ${user} lifted ${target}'s curse.`,
+    cleansed: (user: string, target: string, effect: CrowdControl) => `✨ ${user} freed ${target}: no longer ${E[effect]} ${CC[effect].name}.`,
     shieldBroken: '💥 The Scale Shield shatters!',
-    attack: (user: string, damage: string, crit: boolean, boost: string) => `⚔️ ${user} hit for **${damage}**${crit ? ' (**critical!**)' : ''}${boost}.`,
+    attack: (user: string, damage: string, crit: boolean, boost: string) => `${E.attack} ${user} hit for **${damage}**${crit ? ` (${E.crit} **critical!**)` : ''}${boost}.`,
     bounced: (user: string) => `🔷 ${user}'s attack bounced off the Scale Shield.`,
     defeated: (user: string) => `🏆 ${user} landed the final blow!`,
     enrage: (level: number) =>
@@ -106,7 +122,7 @@ Grows with every raider (at least ${min}).`,
     sweep: (target: string, damage: number) => `🌀 Tail Sweep hit ${target} for **${damage}**.`,
     knockedOut: (user: string) => `💀 ${user} was knocked out!`,
     shieldUp: '🔷 The dragon raises its Scale Shield.',
-    curse: (user: string) => `🌑 ${user} is cursed.`,
+    cc: (effect: CrowdControl, user: string) => `${E[effect]} ${user} is ${CC[effect].name}: ${CC[effect].does}.`,
     hoardBlocked: (guard: string, target: string) => `💰 ${guard} kept the dragon's claws off ${target}'s wallet.`,
     stole: (user: string, amount: string) => `💰 The dragon stole ${boldMoney(amount)} from ${user}!`,
     stoleNothing: (user: string) => `💰 The dragon went for ${user}'s wallet and found it empty.`,
@@ -118,7 +134,13 @@ Grows with every raider (at least ${min}).`,
   // Private answers to the action buttons
   notPlaying: "You're not in this raid.",
   knockedOut: "You're knocked out. Someone has to heal you first.",
-  cursed: (turns: number) => `You're cursed and can't attack for ${plural(turns, 'more turn', 'more turns')}. Pick something else, or get a Support to lift it.`,
+  /** Why a player under crowd control can't make the pick they pressed. */
+  held: (effect: CrowdControl, turns: number) =>
+    effect === 'stunned'
+      ? `You're ${E.stunned} stunned and can't act for ${plural(turns, 'more turn', 'more turns')}, unless a Support frees you.`
+      : effect === 'disarmed'
+        ? `You're ${E.disarmed} disarmed and can't attack for ${plural(turns, 'more turn', 'more turns')}. Pick something else, or get a Support to free you.`
+        : `You're ${E.taunted} taunted and can only attack for ${plural(turns, 'more turn', 'more turns')}, unless a Support frees you.`,
   alreadyChose: (action: string) => `You already picked **${action}** this turn.`,
   paying: 'Your boost is still being paid for...',
   turnOver: 'Too late: the turn is over.',
@@ -159,7 +181,7 @@ Grows with every raider (at least ${min}).`,
   noDamage: 'Nobody landed a hit.',
   lastHitField: 'Final blow',
   teamField: 'Team play',
-  teamLine: (user: string, healed: number, guards: number, supports: number) => `${user}: 💚 ${healed} healed · 🛡️ ${guards} · ✨ ${supports}`,
+  teamLine: (user: string, healed: number, guards: number, supports: number) => `${user}: ${E.heal} ${healed} healed · ${E.guard} ${guards} · ✨ ${supports}`,
   pointsField: 'Points lost',
   /** Shown under the points lost when some went into the vault. */
   intoVault: (amount: string) => `${boldMoney(amount)} went into the vault.`,
