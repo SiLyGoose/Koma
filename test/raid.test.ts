@@ -275,7 +275,7 @@ test('enrage: the boss gets angrier below each threshold, and never shields twic
   state.bossHp = 260;
   const events = resolvePlayerTurn(state, choose(['a', 'attack']), low);
   assert.deepEqual(events.filter((e) => e.kind === 'enrage'), [{ kind: 'enrage', level: 1 }, { kind: 'enrage', level: 2 }]);
-  assert.equal(moodOf(state), 'enraged');
+  assert.equal(moodOf(state), 'furious');
 
   state.lastMove = 'shield';
   for (let roll = 1; roll <= 100; roll++) {
@@ -349,13 +349,13 @@ test('fight and result embeds fit Discord and name the players', () => {
 
 test('the dragon draws in every mood, at its size, and each mood looks different', () => {
   const seen = new Set<string>();
-  for (const mood of ['calm', 'enraged', 'shielded', 'defeated'] as DragonMood[]) {
+  for (const mood of ['calm', 'enraged', 'furious', 'shielded', 'defeated', 'gloating', 'fled'] as DragonMood[]) {
     const png = readPng(renderDragon(mood));
     assert.equal(png.width, DRAGON_SIZE.width);
     assert.equal(png.height, DRAGON_SIZE.height);
     seen.add(Buffer.from(png.pixels).toString('base64'));
   }
-  assert.equal(seen.size, 4);
+  assert.equal(seen.size, 7);
 });
 
 // ---------------------------------------------------------------------------
@@ -477,4 +477,23 @@ test('raid test tools: jump between phases, set HP, and force each ending', asyn
   applyRaidTest({ state: wiped, log: [], update: () => {}, endTurn: () => {}, tested: false }, 'wipe', 'admin');
   assert.equal(wiped.outcome, 'wiped');
   assert.ok(wiped.players.every((p) => p.hp === 0));
+});
+
+test('moodOf: each phase and each ending has its own picture', () => {
+  const state = fight(['a', 'b'], 1000);
+  assert.equal(moodOf(state), 'calm');
+  state.enrage = 1;
+  assert.equal(moodOf(state), 'enraged');
+  state.enrage = 2;
+  assert.equal(moodOf(state), 'furious');
+  state.shielded = true;
+  assert.equal(moodOf(state), 'shielded');
+  state.shielded = false;
+  state.outcome = 'wiped';
+  assert.equal(moodOf(state), 'gloating');
+  state.outcome = 'fled';
+  assert.equal(moodOf(state), 'fled');
+  state.bossHp = 0;
+  state.outcome = 'won';
+  assert.equal(moodOf(state), 'defeated');
 });

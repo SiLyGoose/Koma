@@ -150,8 +150,10 @@ export function eventText(event: RaidEvent): string {
 /** Which picture of the dragon fits the fight right now. */
 export function moodOf(state: RaidState): DragonMood {
   if (state.bossHp <= 0) return 'defeated';
+  if (state.outcome === 'wiped') return 'gloating';
+  if (state.outcome === 'fled') return 'fled';
   if (state.shielded) return 'shielded';
-  return state.enrage > 0 ? 'enraged' : 'calm';
+  return state.enrage >= 2 ? 'furious' : state.enrage === 1 ? 'enraged' : 'calm';
 }
 
 const dragonFile = (mood: DragonMood) => ({ attachment: dragonPicture(mood), name: RAID.imageName });
