@@ -1,11 +1,12 @@
 import { MAX_BLACKJACK_NATURAL, MAX_BLACKJACK_SECONDS, BLACKJACK } from './blackjack.js';
-import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKEN_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
+import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKEN_EMOJI, GEM_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
 import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_COMBAT, RAID_EMOJI } from './raid.js';
+import { REFINE } from './refine.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
@@ -39,6 +40,7 @@ export function validateConstants(): void {
   if (STAR_SYMBOL === '') problems.push('STAR_SYMBOL cannot be empty');
   if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(CURRENCY_EMOJI)) problems.push('CURRENCY_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
   if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(TOKEN_EMOJI)) problems.push('TOKEN_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
+  if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(GEM_EMOJI)) problems.push('GEM_EMOJI must be a full custom emoji code, like <:name:123456789012345678>');
   if (!/^[a-z][a-z ]*$/.test(CURRENCY_NAME)) problems.push('CURRENCY_NAME must be lowercase words, like points');
   if (!/^\d{17,20}$/.test(ADMIN_USER_ID)) problems.push('ADMIN_USER_ID must be a Discord user id (17 to 20 digits)');
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
@@ -151,6 +153,9 @@ export function validateConstants(): void {
   for (const [name, emoji] of Object.entries(RAID_EMOJI)) {
     if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`RAID_EMOJI.${name} must be a full custom emoji code, like <:name:123456789012345678>`);
   }
+  if (!(Number.isInteger(REFINE.maxLevel) && REFINE.maxLevel >= 1)) problems.push('REFINE.maxLevel must be a whole number of at least 1');
+  if (!(Number.isInteger(REFINE.bigStep) && REFINE.bigStep >= 1)) problems.push('REFINE.bigStep must be a whole number of at least 1');
+  if (REFINE.bigSteps.some((l) => !(Number.isInteger(l) && l >= 2 && l <= REFINE.maxLevel))) problems.push('REFINE.bigSteps must be levels from 2 to REFINE.maxLevel');
   const { cc } = RAID_COMBAT;
   if (!(Number.isInteger(cc.rounds) && cc.rounds >= 1)) problems.push('RAID_COMBAT.cc.rounds must be a whole number of at least 1');
   if (cc.cooldown.length !== RAID_COMBAT.enrage.multipliers.length || cc.targets.length !== RAID_COMBAT.enrage.multipliers.length) {

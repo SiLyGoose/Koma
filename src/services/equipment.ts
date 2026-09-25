@@ -3,6 +3,7 @@ import { bestCopy } from '../lib/game/copies.js';
 import type { GearIds, ItemDef, Slot } from '../types.js';
 import { ensureMember } from './economy/index.js';
 import { resolveGear } from './gear.js';
+import { refineLevel } from '../lib/game/refine.js';
 
 /*
  * What a member has equipped is stored on their member document (per server), as
@@ -27,6 +28,8 @@ export type EquipResult =
       previousId: string | null;
       /** True if this exact copy was already equipped, so nothing changed. */
       alreadyEquipped: boolean;
+      /** The refinement level of the copy put on. */
+      level: number;
     }
   | { ok: false; reason: 'not_owned' };
 
@@ -53,6 +56,7 @@ export async function equipItem(guildId: string, userId: string, item: ItemDef):
     item,
     previousId: previous?.itemId ?? null,
     alreadyEquipped: previousCopyId === copy._id,
+    level: refineLevel(copy.level),
   };
 }
 

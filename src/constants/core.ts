@@ -38,6 +38,13 @@ export const CURRENCY_NAME = 'points';
 export const TOKEN_EMOJI = '<:zeiutoken:1552921364489572362>';
 export const TOKEN_NAME = 'komaTokens';
 
+/**
+ * komaGems: a third currency, won by beating the weekly raid. They will be spent refining gear
+ * (not built yet). Works like TOKEN_EMOJI and TOKEN_NAME.
+ */
+export const GEM_EMOJI = '<:komagem:1551635240210927736>';
+export const GEM_NAME = 'komaGems';
+
 /** Highest value a points setting accepts (claim range, pull cost, stolen amount, fine...). */
 export const MAX_SETTING_POINTS = 1_000_000;
 

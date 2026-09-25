@@ -29,7 +29,7 @@ export const balance: Command = {
 
     const embed = createEmbed()
       .setTitle(TEXT.balance.title(target.displayName))
-      .setDescription(`${TEXT.balance.points(fmt(info.points))}\n${TEXT.balance.tokens(info.tokens)}`)
+      .setDescription(`${TEXT.balance.points(fmt(info.points))}\n${TEXT.balance.tokens(info.tokens)}\n${TEXT.balance.gems(info.gems)}`)
       .addFields(
       {
         name: TEXT.balance.claimField,

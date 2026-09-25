@@ -1,5 +1,6 @@
 import {
   CURRENCY_EMOJI,
+  GEM_NAME,
   TOKEN_NAME,
   MAX_BLACKJACK_NATURAL,
   MAX_BLACKJACK_SECONDS,
@@ -228,6 +229,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('raid.prepareSeconds', 'Raid', 'Seconds the raid lobby stays open for joining before the fight starts.', 10, MAX_RAID_SECONDS),
   int('raid.reward', 'Raid', `${CURRENCY_EMOJI} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.tokenReward', 'Raid', `${TOKEN_NAME} (one free gacha pull each) each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
+  int('raid.gemReward', 'Raid', `${GEM_NAME} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.boostCost', 'Raid', `${CURRENCY_EMOJI} one percent of raid boost costs (a boosted attack or heal is that many percent stronger).`, 1, MAX_POINTS),
   int('raid.maxBoost', 'Raid', 'The biggest boost one raid action can have, in percent.', 0, MAX_RAID_BOOST),
 

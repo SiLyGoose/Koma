@@ -34,7 +34,7 @@ export async function giveItems(actorId: string, guildId: string, itemId: string
     guildId,
     userId: actorId,
     itemId: item.id,
-    level: 0,
+    level: 1,
     obtainedAt: new Date(start + i),
   }));
   await items.insertMany(copies);

@@ -1,9 +1,9 @@
-import { RAID_COMBAT, SLOT_LABELS, TEXT } from '../constants/index.js';
+import { RAID_COMBAT, REFINE, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { emptyGear, guardTakenShare, rallyMultiplierOf, raidGearFrom, type RaidGear } from '../lib/events/raid.js';
-import { canUseItem, describeEffects, describeTotals, equippedItems, itemEffectiveness, totalEffects } from '../lib/game/equipment.js';
+import { canUseItem, describeEffects, describeTotals, equippedGear, itemEffectiveness, totalEffects } from '../lib/game/equipment.js';
 import { formatMultiplier, formatPercent, mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/equipment.js';
 import { SLOTS } from '../types.js';
@@ -65,7 +65,7 @@ export const gear: Command = {
     const equipment = await getEquipment(ctx.guildId, target.id);
 
     if (stats) {
-      const gear = raidGearFrom(totalEffects(equippedItems(equipment), target.id));
+      const gear = raidGearFrom(totalEffects(equippedGear(equipment), target.id));
       await ctx.reply({ embeds: [raidStatsEmbed(target.displayName, gear, CONFIG.raid.playerHp, ctx.prefix)] });
       return;
     }
@@ -88,15 +88,16 @@ export const gear: Command = {
       }
       // Someone else's exclusive item works at part strength: show the effects they really get, and say why.
       const share = itemEffectiveness(item, target.id);
-      const lines = describeEffects(item, share);
+      const level = equipment.levels?.[slot] ?? REFINE.maxLevel;
+      const lines = describeEffects(item, share, level);
       if (item.usableBy && !canUseItem(item, target.id)) lines.unshift(TEXT.gear.exclusive(mentionList(item.usableBy), formatPercent(share)));
       embed.addFields({
         name: label,
-        value: [TEXT.gear.item(item.name, starString(item.stars)), ...lines].join('\n'),
+        value: [TEXT.gear.item(item.name, starString(item.stars), level), ...lines].join('\n'),
       });
     }
 
-    const totals = describeTotals(totalEffects(equippedItems(equipment), target.id));
+    const totals = describeTotals(totalEffects(equippedGear(equipment), target.id));
     if (totals.length > 0) embed.addBlankField().addFields({ name: TEXT.gear.totalsField, value: totals.join('\n') });
 
     await ctx.reply({ embeds: [embed] });

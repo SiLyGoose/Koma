@@ -63,7 +63,7 @@ export const equip: Command = {
           ? TEXT.equip.doneReplacing(ctx.user.toString(), item.slot, replaced.name)
           : TEXT.equip.done(ctx.user.toString(), item.slot),
       )
-      .addFields({ name: TEXT.equip.effectsField, value: describeEffects(item, share).join('\n') || TEXT.equip.noEffects })
+      .addFields({ name: TEXT.equip.effectsField(result.level), value: describeEffects(item, share, result.level).join('\n') || TEXT.equip.noEffects })
       .setFooter({ text: TEXT.equip.footer(p) });
     // Anyone can wear an exclusive item, but only the members it is for get all of its effects.
     if (item.usableBy && !canUseItem(item, ctx.user.id)) {

@@ -13,6 +13,7 @@ import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
 import { plinko } from './plinko.js';
 import { raid } from './raid.js';
+import { refine } from './refine.js';
 import { rob } from './rob.js';
 import { sell } from './sell.js';
 import type { Command } from '../discord/types.js';
@@ -25,6 +26,7 @@ export const commands: Command[] = [
   inventory,
   equip,
   unequip,
+  refine,
   sell,
   gear,
   databank,

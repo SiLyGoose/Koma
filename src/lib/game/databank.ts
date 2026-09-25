@@ -1,5 +1,5 @@
 import { CONFIG } from '../../config.js';
-import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants/index.js';
+import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_LABELS, STAR_SYMBOL, TEXT } from '../../constants/index.js';
 import { STARS, type ItemDef, type Stars } from '../../types.js';
 import { describeEffects } from './equipment.js';
 import { formatPercent, mentionList, starString } from '../format.js';
@@ -11,11 +11,12 @@ export interface DatabankField {
 }
 
 /**
- * The text for one item: its name and slot, then one line per effect at today's strength, then
- * who it is exclusive to when only some members can use it.
+ * The text for one item: its name and slot, then one line per effect at today's strength at a
+ * refinement level (fully refined unless given), then who it is exclusive to when only some
+ * members can use it.
  */
-export function itemBlock(item: ItemDef): string {
-  const effects = describeEffects(item);
+export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel): string {
+  const effects = describeEffects(item, 1, level);
   return [
     TEXT.databank.item(item.name, SLOT_LABELS[item.slot]),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
@@ -37,7 +38,12 @@ export function buildDatabank(
   items: readonly ItemDef[],
   itemsPerPage = DATABANK_ITEMS_PER_PAGE,
   maxField = FIELD_MAX_LENGTH,
+  level: number = REFINE.maxLevel,
 ): DatabankField[][] {
+  // Pages break by each item's longest text at any refinement level, so the book is laid out the
+  // same whichever level is shown: flipping the level never moves an item to another page.
+  const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
+  const widest = (item: ItemDef): number => Math.max(...levels.map((l) => itemBlock(item, l).slice(0, maxField).length));
   // Chapter by chapter: each tier's items chunked into fields of at most `itemsPerPage` items
   // (or fewer, if Discord's own field-length limit would be hit first).
   const chapters: { field: DatabankField; count: number }[][] = [];
@@ -48,17 +54,21 @@ export function buildDatabank(
     const symbol = starString(stars);
     const chunks: { field: DatabankField; count: number }[] = [];
     let value = '';
+    let size = 0;
     let count = 0;
     const flush = () => {
       if (value === '') return;
       chunks.push({ field: { name: '', value }, count });
       value = '';
+      size = 0;
       count = 0;
     };
     for (const item of tier) {
-      const block = itemBlock(item).slice(0, maxField);
-      if (value !== '' && (count >= itemsPerPage || value.length + 2 + block.length > maxField)) flush();
+      const block = itemBlock(item, level).slice(0, maxField);
+      const width = widest(item);
+      if (value !== '' && (count >= itemsPerPage || size + 2 + width > maxField)) flush();
       value = value === '' ? block : `${value}\n\n${block}`;
+      size = size === 0 ? width : size + 2 + width;
       count += 1;
     }
     flush();
@@ -124,15 +134,15 @@ export interface ItemDetail {
   fields: { name: string; value: string; inline: boolean }[];
 }
 
-/** Lays out one item in full: its name and stars, flavor text, slot, effects at today's strength, and who it is exclusive to. */
-export function itemDetail(item: ItemDef): ItemDetail {
-  const effects = describeEffects(item);
+/** Lays out one item in full: its name and stars, flavor text, slot, effects at today's strength at a refinement level (fully refined unless given), and who it is exclusive to. */
+export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel): ItemDetail {
+  const effects = describeEffects(item, 1, level);
   return {
     title: TEXT.databank.detailTitle(starString(item.stars), item.name),
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
     fields: [
       { name: TEXT.databank.detailSlotField, value: SLOT_LABELS[item.slot], inline: true },
-      { name: TEXT.databank.detailEffectsField, value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
+      { name: TEXT.databank.detailEffectsField(level), value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),

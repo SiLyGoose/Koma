@@ -38,5 +38,6 @@ export * from './plinko.js';
 export * from './blackjack.js';
 export * from './events.js';
 export * from './raid.js';
+export * from './refine.js';
 export { TEXT } from './text/index.js';
 export { validateConstants } from './validate.js';

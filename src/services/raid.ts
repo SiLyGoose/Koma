@@ -3,7 +3,7 @@ import type { CrateShare } from '../lib/events/crate.js';
 import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
-import { ensureMember, giveTokens } from './economy/index.js';
+import { ensureMember, giveGems, giveTokens } from './economy/index.js';
 import { isDuplicateKey, recordLedger } from './economy/shared.js';
 import { payShares } from './events.js';
 import { addVaultLoss } from './vault.js';
@@ -117,12 +117,12 @@ export async function finishRaid(
 }
 
 export interface RaidReward {
-  /** Who could not be paid their points or their komaTokens (logged). Everyone else got both. */
+  /** Who could not be paid their points, komaTokens or komaGems (logged). Everyone else got all of it. */
   failed: string[];
 }
 
-/** Pays everyone who took part `reward` points and `tokens` komaTokens. */
-export async function rewardRaid(guildId: string, userIds: readonly string[], reward: number, tokens: number): Promise<RaidReward> {
+/** Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems. */
+export async function rewardRaid(guildId: string, userIds: readonly string[], reward: number, tokens: number, gems: number): Promise<RaidReward> {
   const shares: CrateShare[] = userIds.map((userId) => ({ userId, amount: reward }));
   const payout = await payShares(guildId, shares, 'raid_reward');
   const failed = new Set(payout.failed);
@@ -132,6 +132,16 @@ export async function rewardRaid(guildId: string, userIds: readonly string[], re
         await giveTokens(guildId, userId, tokens, 'raid_tokens');
       } catch (err) {
         console.error(`Could not give ${userId} their ${tokens} raid komaTokens in ${guildId}:`, err);
+        failed.add(userId);
+      }
+    }
+  }
+  if (gems > 0) {
+    for (const userId of userIds) {
+      try {
+        await giveGems(guildId, userId, gems, 'raid_gems');
+      } catch (err) {
+        console.error(`Could not give ${userId} their ${gems} raid komaGems in ${guildId}:`, err);
         failed.add(userId);
       }
     }

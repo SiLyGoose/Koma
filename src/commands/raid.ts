@@ -314,7 +314,7 @@ export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date,
   const embed = createEmbed().setImage(`attachment://${RAID.imageName}`);
   const rounds = state.round;
   if (state.outcome === 'won') {
-    embed.setTitle(r.wonTitle(r.bossName)).setDescription(r.won(rounds, fmt(cfg.reward), cfg.tokenReward));
+    embed.setTitle(r.wonTitle(r.bossName)).setDescription(r.won(rounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward));
   } else {
     const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(rounds);
     embed
@@ -537,7 +537,7 @@ function lobbyView(host: string, players: readonly string[], closesAt: number, c
   const lines = players.map((userId, i) => `${mention(userId)}${i === 0 ? r.hostTag : ''}`);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(r.bossName))
-    .setDescription(r.lobby(mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward))
+    .setDescription(r.lobby(mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward))
     .addFields(
       { name: r.howToField, value: r.howTo(cfg.turnSeconds, fmt(cfg.boostCost), RAID_COMBAT.support.shieldBreak, formatMultiplier(RAID_COMBAT.support.attackMultiplier), RAID_COMBAT.support.rallyTurns) },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
@@ -1029,7 +1029,7 @@ async function runRaid(ctx: CommandContext): Promise<void> {
 
     let reward: RaidReward | null = null;
     const fought = participants(state);
-    if (outcome === 'won' && fought.length > 0 && !tested) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward);
+    if (outcome === 'won' && fought.length > 0 && !tested) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward);
     const result = resultEmbed(state, cfg, week.next, reward, intoVault);
     if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });
     await message.edit({ embeds: [result], components: [], files: [dragonFile(moodOf(state))], attachments: [] });

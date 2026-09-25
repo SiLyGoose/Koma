@@ -5,6 +5,7 @@ import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { getEquipment } from '../services/equipment.js';
+import { refineLevel } from '../lib/game/refine.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
 
@@ -42,6 +43,7 @@ export const inventory: Command = {
     }
 
     const owned = new Map<string, number>(entries.map((entry): [string, number] => [entry.itemId, entry.count]));
+    const bestLevel = new Map<string, number>(entries.map((entry): [string, number] => [entry.itemId, refineLevel(entry.bestLevel)]));
     const totalItems = entries.reduce((sum, entry) => sum + entry.count, 0);
     const unique = entries.filter((entry) => ITEMS_BY_ID.has(entry.itemId)).length;
 
@@ -55,7 +57,7 @@ export const inventory: Command = {
         .filter((item) => owned.has(item.id))
         .map((item) => {
           const line = equippedIds.has(item.id) ? TEXT.inventory.itemEquipped : TEXT.inventory.item;
-          return line(item.name, owned.get(item.id) as number, item.slot);
+          return line(item.name, owned.get(item.id) as number, item.slot, bestLevel.get(item.id) ?? 1);
         });
       embed.addFields({
         name: TEXT.inventory.tierField(starString(stars), lines.length, tier.length),

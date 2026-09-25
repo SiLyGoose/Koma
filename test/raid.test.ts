@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
 import { eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
-import { RAID, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
+import { GEM_EMOJI, RAID, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
+import * as TEXT_CURRENCY from '../src/constants/text/currency.js';
 import {
   BOSS_MOVES,
   canAct,
@@ -917,4 +918,21 @@ test('fmt: a stored -0 shows as 0, not "-0"', async () => {
   assert.equal(fmt(0), '0');
   assert.equal(fmt(-5), '-5');
   assert.equal(fmt(1500), '1,500');
+});
+
+test('komaGems: a slain dragon gives every raider 5 by default, named next to the points and tokens', () => {
+  const { boldGems } = TEXT_CURRENCY;
+  assert.equal(DEFAULTS.raid.gemReward, 5);
+  assert.ok(findSpec('raid.gemReward'), 'it can be changed with the config command');
+  assert.equal(boldGems(5), `**5** ${GEM_EMOJI}`);
+  assert.equal(boldGems(-0), `**0** ${GEM_EMOJI}`);
+
+  const won = TEXT.raid.won(4, '1,000', 10, 5);
+  assert.ok(won.includes(`gets **1,000** <:zeiucoin:1551675032424546320>, **10** <:zeiutoken:1552921364489572362> and **5** ${GEM_EMOJI}.`), won);
+  const lobby = TEXT.raid.lobby('<@a>', 0, 15, '1,000', 10, 5);
+  assert.ok(lobby.includes(`**5** ${GEM_EMOJI}`), lobby);
+  // A reward set to 0 is left out rather than shown as "0".
+  assert.ok(TEXT.raid.won(4, '1,000', 10, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320> and **10** <:zeiutoken:1552921364489572362>.'));
+  assert.ok(TEXT.raid.won(4, '1,000', 0, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320>.'));
+  assert.equal(TEXT.balance.gems(3), `**3** ${GEM_EMOJI}`);
 });

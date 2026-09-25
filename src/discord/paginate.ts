@@ -4,6 +4,7 @@ import { replyPrivately } from './reply.js';
 
 export const PREV_ID = 'databank_prev';
 export const NEXT_ID = 'databank_next';
+export const TOGGLE_ID = 'databank_toggle';
 
 export interface PaginateLabels {
   previous: string;
@@ -21,30 +22,41 @@ export interface PaginateLabels {
  * `userId` can flip pages; anyone else pressing a button is told it isn't theirs and nothing
  * changes. The buttons come off after `idleMs` of nobody using them. A single page (or none) is
  * just sent as-is, with no buttons at all.
+ *
+ * `toggle`, when given, adds one more button that flips `render`'s second argument on and off (it
+ * starts off), labelled by `toggle(on)`, so the label can say what pressing it will show. It stays
+ * on the page you are on, and it is there even when there is only one page.
  */
 export async function paginate(
   ctx: CommandContext,
   pageCount: number,
-  render: (index: number) => Pick<ReplyOptions, 'content' | 'embeds' | 'files' | 'allowedMentions'>,
+  render: (index: number, on: boolean) => Pick<ReplyOptions, 'content' | 'embeds' | 'files' | 'allowedMentions'>,
   userId: string,
   labels: PaginateLabels,
   idleMs: number,
   startIndex = 0,
+  toggle?: (on: boolean) => string,
 ): Promise<void> {
-  if (pageCount <= 1) {
-    await ctx.reply(render(0));
+  if (pageCount <= 1 && !toggle) {
+    await ctx.reply(render(0, false));
     return;
   }
-  const start = Math.min(Math.max(startIndex, 0), pageCount - 1);
+  const start = Math.min(Math.max(startIndex, 0), Math.max(pageCount - 1, 0));
 
-  const buttons = (index: number) =>
+  const buttons = (index: number, on: boolean) =>
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(PREV_ID).setLabel(labels.previous).setStyle(ButtonStyle.Secondary).setDisabled(index === 0),
-      new ButtonBuilder().setCustomId(NEXT_ID).setLabel(labels.next).setStyle(ButtonStyle.Secondary).setDisabled(index === pageCount - 1),
+      ...(pageCount > 1
+        ? [
+            new ButtonBuilder().setCustomId(PREV_ID).setLabel(labels.previous).setStyle(ButtonStyle.Secondary).setDisabled(index === 0),
+            new ButtonBuilder().setCustomId(NEXT_ID).setLabel(labels.next).setStyle(ButtonStyle.Secondary).setDisabled(index === pageCount - 1),
+          ]
+        : []),
+      ...(toggle ? [new ButtonBuilder().setCustomId(TOGGLE_ID).setLabel(toggle(on)).setStyle(ButtonStyle.Primary)] : []),
     );
 
   let index = start;
-  const sent = await ctx.reply({ ...render(start), components: [buttons(start)] });
+  let on = false;
+  const sent = await ctx.reply({ ...render(start, on), components: [buttons(start, on)] });
   const message = await sent.fetchMessage();
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, idle: idleMs });
 
@@ -55,8 +67,9 @@ export async function paginate(
         return;
       }
       await interaction.deferUpdate().catch(() => {});
-      index = interaction.customId === NEXT_ID ? Math.min(index + 1, pageCount - 1) : Math.max(index - 1, 0);
-      await interaction.editReply({ ...render(index), components: [buttons(index)] }).catch(() => {});
+      if (interaction.customId === TOGGLE_ID) on = !on;
+      else index = interaction.customId === NEXT_ID ? Math.min(index + 1, pageCount - 1) : Math.max(index - 1, 0);
+      await interaction.editReply({ ...render(index, on), components: [buttons(index, on)] }).catch(() => {});
     })();
   });
 

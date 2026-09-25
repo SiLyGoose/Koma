@@ -163,6 +163,8 @@ export interface Settings {
     reward: number;
     /** komaTokens (one free gacha pull each) each player who took part gets when the boss is beaten. */
     tokenReward: number;
+    /** komaGems each player who took part gets when the boss is beaten. */
+    gemReward: number;
     /** Points one percent of boost costs (a boosted attack or heal is that many percent stronger). */
     boostCost: number;
     /** The biggest boost one action can have, in percent. */
@@ -239,7 +241,7 @@ export const DEFAULTS: Readonly<Settings> = {
   // 10, and one that only attacks about 1 in 3; 2 or 3 raiders almost never win. Up to 15 rounds of 60
   // seconds after a 5-minute lobby. Beating it pays everyone who took part 1,000 and a multi
   // pull's worth of komaTokens (10). A boost costs 250 per 1%, up to +100%.
-  raid: { hpPerPlayer: 600, hpGrowth: 0.06, minBossHp: 3_000, playerHp: 100, maxRounds: 15, turnSeconds: 60, prepareSeconds: 300, reward: 1_000, tokenReward: 10, boostCost: 250, maxBoost: 100 },
+  raid: { hpPerPlayer: 600, hpGrowth: 0.06, minBossHp: 3_000, playerHp: 100, maxRounds: 15, turnSeconds: 60, prepareSeconds: 300, reward: 1_000, tokenReward: 10, gemReward: 5, boostCost: 250, maxBoost: 100 },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
   // rather than jumping there.

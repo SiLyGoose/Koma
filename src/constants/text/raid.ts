@@ -1,5 +1,5 @@
 import { RAID_EMOJI as E } from '../raid.js';
-import { boldMoney, boldTokens } from './currency.js';
+import { boldGems, boldMoney, boldTokens } from './currency.js';
 
 /*
  * The weekly raid boss. `user`, `target` and the like are mentions; `unix` values are Unix seconds.
@@ -16,6 +16,10 @@ const CC: Record<CrowdControl, { name: string; does: string }> = {
 };
 const ccMove: Record<CrowdControl, string> = { stunned: 'Stun', disarmed: 'Disarm', taunted: 'Taunt' };
 
+/** What each raider gets for a win: the points, then komaTokens and komaGems (each left out at 0). */
+const rewards = (reward: string, tokens: number, gems: number): string =>
+  andList([boldMoney(reward), ...(tokens > 0 ? [boldTokens(tokens)] : []), ...(gems > 0 ? [boldGems(gems)] : [])]);
+
 /** "A", "A and B", "A, B and C". */
 const andList = (items: readonly string[]): string =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
@@ -31,10 +35,10 @@ export const raidText = {
   // The lobby
   lobbyTitle: (boss: string) => `🐉 A wild ${boss} appears!`,
   /** `host` found it, `unix` is when the fight starts, `rounds` how long the party has to win. */
-  lobby: (host: string, unix: number, rounds: number, reward: string, tokens: number) =>
+  lobby: (host: string, unix: number, rounds: number, reward: string, tokens: number, gems: number) =>
     `${host} found the dragon's lair. Press **Join** to fight. The battle starts <t:${unix}:R> (or when the host presses **Start now**). ` +
     `No one can join once it starts.\n\n` +
-    `Beat it within **${rounds}** rounds and everyone who takes part gets ${boldMoney(reward)} and ${boldTokens(tokens)}.`,
+    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
   howToField: 'How to fight',
   howTo: (turnSeconds: number, boostCost: string, shieldBreak: number, rallyMultiplier: string, rallyTurns: number) =>
     [
@@ -191,8 +195,8 @@ Grows with every raider (at least ${min}).`,
 
   // The end
   wonTitle: (boss: string) => `🏆 The ${boss} has been slain!`,
-  won: (rounds: number, reward: string, tokens: number) =>
-    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${boldMoney(reward)} and ${boldTokens(tokens)}.`,
+  won: (rounds: number, reward: string, tokens: number, gems: number) =>
+    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems)}.`,
   wipedTitle: (boss: string) => `☠️ The ${boss} wins`,
   wiped: (rounds: number) => `Every raider was knocked out in round **${rounds}**. No rewards this week.`,
   fledTitle: (boss: string) => `🌬️ The ${boss} got away`,

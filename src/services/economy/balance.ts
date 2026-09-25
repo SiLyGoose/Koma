@@ -14,6 +14,8 @@ export interface BalanceInfo {
   points: number;
   /** komaTokens (free gacha pulls). */
   tokens: number;
+  /** komaGems. */
+  gems: number;
   canClaim: boolean;
   /** True when the claim that can be made now is the extra one earned by a critical success on the D20 this hour. */
   bonusClaim: boolean;
@@ -46,6 +48,7 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
   return {
     points: member?.points ?? 0,
     tokens: member?.tokens ?? 0,
+    gems: member?.gems ?? 0,
     canClaim: !member || claimReadyHour(member) <= hour || hasBonusClaim(member, hour),
     bonusClaim: member !== null && hasBonusClaim(member, hour),
     // The end of the hour before the one they can claim in (the end of this hour, normally).

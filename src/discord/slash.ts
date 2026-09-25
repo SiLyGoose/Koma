@@ -300,6 +300,14 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     autocomplete: ownedItem,
   },
 
+  refine: {
+    description: 'Refine an item: use up a duplicate of it to raise it one level, up to its full strength.',
+    build: (b) =>
+      void b.addStringOption((o) => o.setName('item').setDescription('The item to refine (uses up one duplicate of it)').setRequired(true).setAutocomplete(true).setMaxLength(100)),
+    toArgs: (i) => [i.options.getString('item', true)],
+    autocomplete: ownedItem,
+  },
+
   unequip: {
     build: (b) =>
       void b.addStringOption((o) =>

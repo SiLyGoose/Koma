@@ -56,6 +56,11 @@ export interface GearIds {
   weapon?: string | null;
   armor?: string | null;
   treasure?: string | null;
+  /**
+   * The refinement level (1 to REFINE.maxLevel) of the copy in each slot, filled in by
+   * resolveGear. A slot left out here counts as fully refined (the item at its listed strength).
+   */
+  levels?: Partial<Record<Slot, number>>;
 }
 
 /** One document per (server, user). */
@@ -93,6 +98,8 @@ export interface MemberDoc {
   totalPulls: number;
   /** komaTokens: free gacha pulls, one each, spent before points. Missing means 0. */
   tokens?: number;
+  /** komaGems, won by beating the weekly raid. Missing means 0. */
+  gems?: number;
   /**
    * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
    * of that claim, and who it is paid to. Both are missing or null when there is none. They are
@@ -138,7 +145,11 @@ export interface ItemCopyDoc {
   userId: string;
   /** The catalog item (ItemDef.id) this is a copy of. */
   itemId: string;
-  /** Refinement level. 0 for a new copy. Reserved for upgrades: it has no effect yet. */
+  /**
+   * Refinement level, 1 to REFINE.maxLevel (see constants/refine.ts): how much of the item's
+   * strength this copy gives. New copies start at 1; copies from before refining existed are 0,
+   * which counts as 1 (lib/game/refine.ts refineLevel).
+   */
   level: number;
   obtainedAt: Date;
 }
@@ -204,7 +215,10 @@ export type LedgerReason =
   | 'raid_stolen'
   | 'raid_reward'
   | 'raid_tokens'
+  | 'raid_gems'
   | 'raid_refund'
+  // A duplicate copy used up to refine another (0 points; itemId is the item).
+  | 'refine'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 
@@ -235,6 +249,8 @@ export interface LedgerDoc {
   delta: number;
   /** Change in komaTokens, when the entry moved any. */
   tokenDelta?: number;
+  /** Change in komaGems, when the entry moved any. */
+  gemDelta?: number;
   reason: LedgerReason;
   otherUserId?: string;
   itemId?: string;

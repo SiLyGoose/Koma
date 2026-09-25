@@ -38,7 +38,7 @@ export type PullResult =
 async function addCopy(guildId: string, userId: string, itemId: string): Promise<{ copy: ItemCopyDoc; count: number }> {
   const { items } = collections();
   for (let attempt = 0; ; attempt++) {
-    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 0, obtainedAt: new Date() };
+    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 1, obtainedAt: new Date() };
     try {
       await items.insertOne(copy);
       return { copy, count: await items.countDocuments({ guildId, userId, itemId }) };

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EventEmitter } from 'node:events';
 import { CONFIG } from '../src/config.js';
-import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, SLOT_LABELS, TEXT, validateConstants } from '../src/constants/index.js';
+import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_LABELS, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS, findItem } from '../src/data/items.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
@@ -132,7 +132,7 @@ test('databank item: the details show the name and stars, flavor text, slot, and
   assert.equal(detail.description, '*It is big.*');
   const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
   assert.equal(byName[TEXT.databank.detailSlotField], 'Weapon');
-  assert.equal(byName[TEXT.databank.detailEffectsField], describeEffects(item).join('\n'));
+  assert.equal(byName[TEXT.databank.detailEffectsField(REFINE.maxLevel)], describeEffects(item).join('\n'));
   assert.equal(describeEffects(item).length, 2);
   assert.equal(TEXT.databank.detailExclusiveField in byName, false, 'nothing about exclusivity for a normal item');
 });
@@ -141,7 +141,7 @@ test('databank item: an exclusive item names who can use it, and an item with no
   const excl: ItemDef = { ...made('e', 4, []), usableBy: ['123456789012345678', '223456789012345678'] };
   const detail = itemDetail(excl);
   const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
-  assert.equal(byName[TEXT.databank.detailEffectsField], TEXT.databank.noEffects);
+  assert.equal(byName[TEXT.databank.detailEffectsField(REFINE.maxLevel)], TEXT.databank.noEffects);
   assert.equal(byName[TEXT.databank.detailExclusiveField], 'Made for <@123456789012345678>, <@223456789012345678>. Anyone can pull and equip it, but it only works at 50% for everyone else.');
   assert.equal(detail.description, '', 'no flavor text means no description line');
 });
@@ -152,7 +152,7 @@ test('databank item: strengths come from the live settings', () => {
   try {
     CONFIG.equipment.robChance[1] = 0.33;
     const detail = itemDetail(item);
-    assert.match(detail.fields.find((f) => f.name === TEXT.databank.detailEffectsField)?.value ?? '', /33%/);
+    assert.match(detail.fields.find((f) => f.name === TEXT.databank.detailEffectsField(REFINE.maxLevel))?.value ?? '', /33%/);
   } finally {
     CONFIG.equipment.robChance[1] = before;
   }
@@ -304,12 +304,9 @@ test('databank tier: shows every item of that tier across however many pages it 
     let view = pageView(f.replies[0]);
     const seen: string[] = [];
     for (let page = 0; page < expectedPages.length; page++) {
-      assert.equal(
-        view.title,
-        expectedPages.length > 1 ? TEXT.databank.titlePage(TEXT.databank.tierTitle(starLabel), page + 1, expectedPages.length) : TEXT.databank.tierTitle(starLabel),
-        `page ${page + 1} title`,
-      );
-      if (page === 0) assert.equal(view.description, TEXT.databank.tierDescription(starLabel));
+      const titled = TEXT.databank.titleAt(TEXT.databank.tierTitle(starLabel), REFINE.maxLevel);
+      assert.equal(view.title, expectedPages.length > 1 ? TEXT.databank.titlePage(titled, page + 1, expectedPages.length) : titled, `page ${page + 1} title`);
+      if (page === 0) assert.equal(view.description, TEXT.databank.tierDescription(starLabel, REFINE.maxLevel));
       assert.deepEqual(view.fields.map((fld) => fld.name), expectedPages[page]?.map((fld) => fld.name), `page ${page + 1} fields`);
       seen.push(view.fields.map((fld) => fld.value).join('\n'));
 
@@ -333,21 +330,56 @@ test('databank tier: shows every item of that tier across however many pages it 
   }
 });
 
-test('databank: Previous is disabled on the first page and Next on the last, a single-page tier has no buttons at all', async () => {
+test('databank: Previous is disabled on the first page and Next on the last, and a single page only has the refinement button', async () => {
   // 4-star, in the shipped catalog, needs more than one page; a small made-up tier does not.
   const [multi] = await ask('4');
   assert.ok((multi as any).components?.[0], 'a multi-page reply has a button row');
   const multiRow = (multi as any).components[0].toJSON();
-  assert.deepEqual(multiRow.components.map((c: any) => [c.custom_id, c.disabled]), [
-    ['databank_prev', true],
-    ['databank_next', false],
+  assert.deepEqual(multiRow.components.map((c: any) => [c.custom_id, c.disabled ?? false, c.label]), [
+    ['databank_prev', true, TEXT.databank.previousButton],
+    ['databank_next', false, TEXT.databank.nextButton],
+    ['databank_toggle', false, 'Show R1'],
   ]);
 
   const singlePageTiers = ([1, 2, 3, 4] as const).filter((stars) => buildDatabank(ITEMS.filter((item) => item.stars === stars)).length <= 1);
   if (singlePageTiers.length > 0) {
     const [single] = await ask(String(singlePageTiers[0]));
-    assert.equal((single as any).components, undefined, 'nothing to flip through, so no buttons at all');
+    const row = (single as any).components[0].toJSON();
+    assert.deepEqual(row.components.map((c: any) => c.custom_id), ['databank_toggle'], 'nothing to flip through, so only the refinement button');
   }
+});
+
+test('databank: the refinement button flips the strengths between R5 and R1, stays on the page, and says what it will show', async () => {
+  const f = fakeMessage('1');
+  await databank.execute(messageContext(f.message as Message<true>, ['3'], 'k!'));
+  const plate = ITEMS.find((item) => item.id === 'wyrmscale-plate') as ItemDef;
+  const first = pageView(f.replies[0]);
+  assert.match(first.title ?? '', / · R5/);
+  assert.ok(first.fields.some((fld) => fld.value.includes(describeEffects(plate)[0] as string)));
+
+  f.click('1', 'databank_toggle');
+  await settle();
+  const toR1 = f.events.filter((e) => e.kind === 'editReply').at(-1);
+  const r1 = pageView({ embeds: [toR1?.data.embeds[0]] });
+  assert.match(r1.title ?? '', / · R1/);
+  assert.ok(r1.fields.some((fld) => fld.value.includes(describeEffects(plate, 1, 1)[0] as string)), 'the R1 strengths');
+  assert.deepEqual(r1.fields.map((fld) => fld.name), first.fields.map((fld) => fld.name), 'same page');
+  const labels = toR1?.data.components[0].toJSON().components.map((c: any) => c.label);
+  assert.ok(labels.includes('Show R5'), `the button now offers R5: ${labels}`);
+
+  f.click('1', 'databank_toggle');
+  await settle();
+  const back = pageView({ embeds: [f.events.filter((e) => e.kind === 'editReply').at(-1)?.data.embeds[0]] });
+  assert.match(back.title ?? '', / · R5/);
+
+  // One item in full has the button too.
+  const g = fakeMessage('1');
+  await databank.execute(messageContext(g.message as Message<true>, ['wyrmscale', 'plate'], 'k!'));
+  assert.deepEqual((g.replies[0] as any).components[0].toJSON().components.map((c: any) => c.label), ['Show R1']);
+  g.click('1', 'databank_toggle');
+  await settle();
+  const detail = g.events.filter((e) => e.kind === 'editReply').at(-1)?.data.embeds[0].toJSON();
+  assert.ok(detail.fields.some((fld: any) => fld.name === 'Effects (at R1)'));
 });
 
 test("databank: a press from someone else is told it isn't theirs and does not change the page", async () => {
@@ -395,7 +427,8 @@ test('databank tier: the whole list, and one item by name, still work', async ()
   const all = await ask();
   const expectedPages = buildDatabank(ITEMS);
   assert.equal(all.length, 1, 'one message, however many pages the full catalog needs');
-  assert.equal(all[0]?.title, expectedPages.length > 1 ? TEXT.databank.titlePage(TEXT.databank.title, 1, expectedPages.length) : TEXT.databank.title);
+  const titled = TEXT.databank.titleAt(TEXT.databank.title, REFINE.maxLevel);
+  assert.equal(all[0]?.title, expectedPages.length > 1 ? TEXT.databank.titlePage(titled, 1, expectedPages.length) : titled);
   assert.equal(all[0]?.fields.length, expectedPages[0]?.length);
 
   const item = ITEMS[0] as ItemDef;
@@ -403,4 +436,25 @@ test('databank tier: the whole list, and one item by name, still work', async ()
   assert.equal(one[0]?.title, TEXT.databank.detailTitle('★'.repeat(item.stars), item.name));
   const byName = await ask(...item.name.split(' '));
   assert.equal(byName[0]?.title, one[0]?.title);
+});
+
+test('databank at a refinement level: effects at that level, a button to flip, and the same pages either way', () => {
+  const plate = ITEMS.find((item) => item.id === 'wyrmscale-plate') as ItemDef;
+  assert.match(itemBlock(plate), /25% more/, 'fully refined by default');
+  assert.match(itemBlock(plate, 1), /4\.17% more/, 'a new copy (R1) is a sixth of it');
+  const detail = itemDetail(plate, 1);
+  assert.ok(detail.fields.some((f) => f.name === 'Effects (at R1)' && /4\.17% more/.test(f.value)));
+
+  // The button says what pressing it shows.
+  assert.equal(TEXT.databank.showLevel(1), 'Show R1');
+  assert.equal(TEXT.databank.showLevel(REFINE.maxLevel), 'Show R5');
+  assert.equal(TEXT.databank.titleAt('Databank', 1), 'Databank · R1');
+  assert.match(TEXT.databank.description(1), /\*\*R1\*\* \(a new copy\)/);
+  assert.match(TEXT.databank.description(REFINE.maxLevel), /\*\*R5\*\* \(fully refined\)/);
+
+  // Flipping the level never moves an item to another page, even with tight pages.
+  for (const [perPage, maxField] of [[DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH], [3, FIELD_MAX_LENGTH], [50, 300]] as const) {
+    const layout = (level: number) => buildDatabank(ITEMS, perPage, maxField, level).map((page) => page.map((f) => `${f.name}:${f.value.split('\n\n').length}`));
+    for (let level = 1; level < REFINE.maxLevel; level++) assert.deepEqual(layout(level), layout(REFINE.maxLevel), `R${level}, ${perPage} per page, ${maxField} per field`);
+  }
 });

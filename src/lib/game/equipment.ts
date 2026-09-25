@@ -4,25 +4,39 @@ import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals, typ
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../types.js';
 import { formatPercent } from '../format.js';
+import { refineShare } from './refine.js';
+import { REFINE } from '../../constants/index.js';
 
 /** How strong an effect is on an item of the given star tier, from the live settings. */
 export function effectStrength(effect: EffectId, stars: Stars): number {
   return CONFIG.equipment[effect][stars];
 }
 
+/** One equipped item and the refinement level of the copy worn. */
+export interface GearPiece {
+  item: ItemDef;
+  level: number;
+}
+
 /**
- * The catalog items a member has equipped. Ids that are no longer in the catalog, or that sit
- * in the wrong slot (say the catalog changed), are ignored rather than trusted.
+ * The catalog items a member has equipped, with each copy's refinement level (fully refined when
+ * the gear doesn't say). Ids that are no longer in the catalog, or that sit in the wrong slot (say
+ * the catalog changed), are ignored rather than trusted.
  */
-export function equippedItems(equipment: GearIds | null | undefined): ItemDef[] {
-  const items: ItemDef[] = [];
+export function equippedGear(equipment: GearIds | null | undefined): GearPiece[] {
+  const pieces: GearPiece[] = [];
   for (const slot of SLOTS) {
     const id = equipment?.[slot];
     if (!id) continue;
     const item = ITEMS_BY_ID.get(id);
-    if (item && item.slot === slot) items.push(item);
+    if (item && item.slot === slot) pieces.push({ item, level: equipment?.levels?.[slot] ?? REFINE.maxLevel });
   }
-  return items;
+  return pieces;
+}
+
+/** Just the equipped items (see equippedGear). */
+export function equippedItems(equipment: GearIds | null | undefined): ItemDef[] {
+  return equippedGear(equipment).map((piece) => piece.item);
 }
 
 /**
@@ -43,13 +57,15 @@ export function itemEffectiveness(item: ItemDef, userId: string): number {
 }
 
 /**
- * Adds up every effect across the given items. With `userId`, each item counts at the share of
- * its effects that member gets (itemEffectiveness); without it, every item counts in full.
+ * Adds up every effect across the given gear. Each piece counts at its refinement level's share
+ * (refineShare); a bare item counts as fully refined. With `userId`, each also counts at the share
+ * of its effects that member gets (itemEffectiveness); without it, in full.
  */
-export function totalEffects(items: readonly ItemDef[], userId?: string): EffectTotals {
+export function totalEffects(gear: readonly (ItemDef | GearPiece)[], userId?: string): EffectTotals {
   const totals = emptyTotals();
-  for (const item of items) {
-    const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
+  for (const piece of gear) {
+    const { item, level } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
+    const share = (userId === undefined ? 1 : itemEffectiveness(item, userId)) * refineShare(level);
     for (const effect of item.effects) totals[effect] += effectStrength(effect, item.stars) * share;
   }
   return totals;
@@ -60,7 +76,7 @@ export function totalEffects(items: readonly ItemDef[], userId?: string): Effect
  * item counts at equipment.borrowed.effectiveness. `userId` is the member the gear belongs to.
  */
 export function gearEffects(equipment: GearIds | null | undefined, userId: string): EffectTotals {
-  return totalEffects(equippedItems(equipment), userId);
+  return totalEffects(equippedGear(equipment), userId);
 }
 
 /**
@@ -73,11 +89,12 @@ function effectLine(effect: EffectId, strength: number): string {
 }
 
 /**
- * One readable line per effect on an item, like "+10% rob success chance". `share` scales the
- * strengths, for an item worn at less than full effect (see itemEffectiveness).
+ * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
+ * (fully refined unless given). `share` scales the strengths further, for an item worn at less
+ * than full effect (see itemEffectiveness).
  */
-export function describeEffects(item: ItemDef, share = 1): string[] {
-  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share));
+export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string[] {
+  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * refineShare(level)));
 }
 
 /** One readable line per effect that is active in the totals, in the registry's order. */
