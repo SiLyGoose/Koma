@@ -49,6 +49,6 @@ test('Piplup: wears both Bubble Beam effects and lists them with their strengths
 });
 
 test('slip reply: what went back, and the penalty only when there was one', () => {
-  assert.equal(TEXT.rob.slipped('<@2>', '200', '20'), `🐧 ...and slipped! **200** ${CURRENCY_EMOJI} went back to <@2>, plus **20** ${CURRENCY_EMOJI} for the trouble.`);
-  assert.equal(TEXT.rob.slipped('<@2>', '200', ''), `🐧 ...and slipped! **200** ${CURRENCY_EMOJI} went back to <@2>.`);
+  assert.equal(TEXT.rob.slipped('<@2>', '200', '20'), `<:piplupsmirk:1553135037120250046> ...but slipped! **200** ${CURRENCY_EMOJI} went back to <@2>, plus **20** ${CURRENCY_EMOJI} for the trouble.`);
+  assert.equal(TEXT.rob.slipped('<@2>', '200', ''), `<:piplupsmirk:1553135037120250046> ...but slipped! **200** ${CURRENCY_EMOJI} went back to <@2>.`);
 });

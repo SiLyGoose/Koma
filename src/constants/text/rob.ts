@@ -30,7 +30,7 @@ export const robText = {
    * ('' when there was none). Placeholder wording.
    */
   slipped: (victim: string, returned: string, penalty: string) =>
-    `🐧 ...and slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
+    `<:piplupsmirk:1553135037120250046> ...but slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
   /** Used instead of `success` when the victim was left with nothing. */
   successEverything: (robber: string, victim: string, stolen: string) =>
     `${robber} robbed ${victim} and got away with ${boldMoney(stolen)} That was everything they had...`,
