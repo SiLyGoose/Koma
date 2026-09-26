@@ -11,7 +11,7 @@ import { LOADOUTS, LOADOUT_BUTTONS } from './loadouts.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
-import { MAX_WHEEL_SLICES, MAX_WHEEL_MULTIPLIER, WHEEL_ANIMATION } from './wheel.js';
+import { MAX_WHEEL_SLICES, MAX_WHEEL_MULTIPLIER, WHEEL_ANIMATION, WHEEL_MIN_CHANCE } from './wheel.js';
 
 // Checked when the bot starts, so a typo here stops it with a clear message instead of
 // causing odd behavior later.
@@ -117,6 +117,7 @@ export function validateConstants(): void {
     if (!(game.refreshMs >= 1000)) problems.push(`${name}.refreshMs must be at least 1000 (Discord limits message edits)`);
     if (!(Number.isInteger(game.listMax) && game.listMax >= 1 && game.listMax <= 50)) problems.push(`${name}.listMax must be a whole number from 1 to 50`);
   }
+  if (!(WHEEL_MIN_CHANCE >= 0 && WHEEL_MIN_CHANCE <= 1)) problems.push('WHEEL_MIN_CHANCE must be from 0 to 1');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(WHEEL_ANIMATION.minSeconds > 0 && WHEEL_ANIMATION.minSeconds <= WHEEL_ANIMATION.maxSeconds)) {
     problems.push('WHEEL_ANIMATION needs 0 < minSeconds <= maxSeconds');

@@ -4,7 +4,7 @@ import { CONFIG } from '../src/config.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
 import { replyWithWheel, spinSteps } from '../src/animations/wheel-reply.js';
-import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, validateConstants } from '../src/constants/index.js';
+import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, WHEEL_MIN_CHANCE, validateConstants } from '../src/constants/index.js';
 import {
   applyWheel,
   emptyTotals,
@@ -15,7 +15,7 @@ import {
   type WheelDice,
 } from '../src/perks/index.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { describeEffects } from '../src/lib/game/equipment.js';
+import { describeEffects, totalEffects } from '../src/lib/game/equipment.js';
 import { formatMultiplier } from '../src/lib/format.js';
 import { crc32, encodePng } from '../src/animations/images/png.js';
 import { pixelAt, readPng } from './helpers/png.js';
@@ -157,16 +157,21 @@ test('wheel data: the startup check refuses a wheel that would break', () => {
   assert.throws(() => validateWheel([1, 101]), /at most/);
 });
 
-test('wheelSpin effect: a normal per-star setting that is the chance a claim or rob spins, held to 0 to 100%', () => {
+test('wheelSpin effect: spins 50% of claims and robs at R1, climbing with the refine curve to every one at R5', () => {
   assert.equal(CONFIG.equipment.wheelSpin[4], 1);
+  assert.equal(WHEEL_MIN_CHANCE, 0.5);
   assert.equal(wheelChance(emptyTotals()), 0);
-  assert.equal(wheelChance({ ...emptyTotals(), wheelSpin: 0.5 }), 0.5);
-  assert.equal(wheelChance({ ...emptyTotals(), wheelSpin: 9 }), 1);
   assert.equal(wheelChance({ ...emptyTotals(), wheelSpin: -1 }), 0);
+  assert.equal(wheelChance({ ...emptyTotals(), wheelSpin: 9 }), 1);
+
   const chair: ItemDef = { id: 'test-chair', name: 'Test Chair', stars: 4, slot: 'armor', description: '', effects: ['wheelSpin'] };
-  const lines = describeEffects(chair);
-  assert.equal(lines.length, 1);
-  assert.match(lines[0] as string, /100% of your claims and successful robs spin the wheel/);
+  const byLevel = [1, 2, 3, 4, 5].map((level) => wheelChance(totalEffects([{ item: chair, level }])));
+  byLevel.forEach((chance, i) => assert.ok(Math.abs(chance - [0.5, 0.6, 0.7, 0.8, 1][i]!) < 1e-9, `R${i + 1}: ${chance}`));
+
+  // The gear card shows the spin chance at the worn copy's level.
+  assert.match(describeEffects(chair)[0] as string, /100% of your claims and successful robs spin the wheel/);
+  assert.match(describeEffects(chair, 1, 1)[0] as string, /50% of your claims and successful robs spin the wheel/);
+  assert.match(describeEffects(chair, 1, 3)[0] as string, /70% of your claims/);
 });
 
 test('multipliers read like 1.5x', () => {

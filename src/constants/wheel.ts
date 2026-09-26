@@ -5,6 +5,13 @@
 /** Most slices the prize wheel (perks/wheel-spin/slices.ts) may have, so the picture stays readable. */
 export const MAX_WHEEL_SLICES = 16;
 
+/**
+ * How often a Wheelchair at the lowest refine level (R1) spins the wheel on a claim or successful
+ * rob. Refining raises it until it always spins at full strength (R5); the levels in between
+ * climb with the refine share (constants/refine.ts): 50%, 60%, 70%, 80%, then 100% by default.
+ */
+export const WHEEL_MIN_CHANCE = 0.5;
+
 /** Largest multiplier a wheel slice may have. */
 export const MAX_WHEEL_MULTIPLIER = 100;
 

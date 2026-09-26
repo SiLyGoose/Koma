@@ -1,5 +1,21 @@
-import { WHEEL_SLICES } from './slices.js';
+import { WHEEL_MIN_CHANCE } from '../../constants/index.js';
 import { randomUnit } from '../../lib/random.js';
+import { refineShare } from '../../lib/game/refine-share.js';
+import { clamp } from '../define.js';
+import { WHEEL_SLICES } from './slices.js';
+
+/**
+ * The chance (0 to 1) that the wheel spins, from the wheelSpin strength the wearer's gear adds up
+ * to (the setting, times the worn copy's refine share, times how much of it they get). The lowest
+ * refine level spins WHEEL_MIN_CHANCE of the time and full strength always does; the levels in
+ * between climb with the refine share. Weaker than R1 (a borrowed one) falls below the minimum.
+ */
+export function wheelSpinChance(strength: number): number {
+  if (!(strength > 0)) return 0;
+  const lowest = refineShare(1);
+  if (lowest >= 1) return clamp(strength, 0, 1);
+  return clamp(WHEEL_MIN_CHANCE + ((1 - WHEEL_MIN_CHANCE) * (strength - lowest)) / (1 - lowest), 0, 1);
+}
 
 /** The result of one spin of the wheel. */
 export interface WheelSpin {

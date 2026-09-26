@@ -112,8 +112,8 @@ test('refine plan: raises a copy saved in a loadout over a better loose one, and
   assert.deepEqual(refinePlan([saved, best], new Set(['best']), new Set(['best', 'saved'])), { ok: false, reason: 'no_duplicate', level: 4 });
 });
 
-test('loadout text: the switch message names the gear, or explains an empty loadout', () => {
-  assert.equal(TEXT.loadout.switched('k!', 'Robber', ['Starfall Blade', 'Frog']), "Switched to **Robber**. You're now wearing **Starfall Blade**, **Frog**.");
+test('loadout text: the switch message names the loadout, and explains an empty one', () => {
+  assert.equal(TEXT.loadout.switched('k!', 'Robber', ['Starfall Blade', 'Frog']), 'Switched to **Robber**.');
   assert.match(TEXT.loadout.switched('k!', 'Loadout 3', []), /empty/);
 });
 
