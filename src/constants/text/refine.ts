@@ -16,5 +16,8 @@ export const refineText = {
   beforeField: (level: number) => `Before (R${level})`,
   afterField: (level: number) => `Now (R${level})`,
   noEffects: 'None',
+  /** The button under a refine that refines the same item again. `next` is the level it would reach. */
+  againButton: (next: number) => `Refine to R${next}`,
+  notYours: "That isn't your item to refine.",
   footer: (max: number) => `Every item goes up to R${max}, where it has its full listed strength.`,
 };

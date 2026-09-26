@@ -15,3 +15,6 @@ export const REFINE = {
   bigSteps: [5] as readonly number[],
   bigStep: 2,
 } as const;
+
+/** The "Refine again" button under a refine: its id, and how long it keeps working after the last time it was used. */
+export const REFINE_BUTTONS = { againId: 'refine_again', idleMs: 60_000 };

@@ -6,7 +6,7 @@ import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLI
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
 import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_COMBAT, RAID_EMOJI } from './raid.js';
-import { REFINE } from './refine.js';
+import { REFINE, REFINE_BUTTONS } from './refine.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
@@ -82,6 +82,7 @@ export function validateConstants(): void {
   if (!(PLINKO_ANIMATION.frameMs >= 500)) problems.push('PLINKO_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
   if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
   if (!(DATABANK_BUTTONS.idleMs >= 5000)) problems.push('DATABANK_BUTTONS.idleMs must be at least 5000');
+  if (!(REFINE_BUTTONS.idleMs >= 5000)) problems.push('REFINE_BUTTONS.idleMs must be at least 5000');
   if (!(CONFIG_BUTTONS.idleMs >= 5000)) problems.push('CONFIG_BUTTONS.idleMs must be at least 5000');
   if (!(BLACKJACK.imageScale >= 1 && BLACKJACK.imageScale <= 3 && Number.isInteger(640 * BLACKJACK.imageScale) && Number.isInteger(400 * BLACKJACK.imageScale))) {
     problems.push('BLACKJACK.imageScale must be from 1 to 3 and give a whole number of pixels (640 x scale and 400 x scale), like 1, 1.5 or 2');
