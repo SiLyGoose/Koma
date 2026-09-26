@@ -13,7 +13,7 @@ export const STARS: readonly Stars[] = [1, 2, 3, 4];
  * treasure: a third slot every member has (its key is 'treasure' -- the slot itself isn't
  * unique, the items that go in it are), which stacks with weapon and armor but only holds one
  * item at a time. An item that is a unique treasure competes with every other one a member owns
- * for that one slot (see data/items.ts for the current list).
+ * for that one slot (see data/items/catalog.ts for the current list).
  */
 export type Slot = 'weapon' | 'armor' | 'treasure';
 

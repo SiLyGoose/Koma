@@ -1,5 +1,5 @@
 import { AUTOCOMPLETE_MAX_CHOICES } from '../constants/index.js';
-import { normalize } from '../data/items.js';
+import { normalize } from './text.js';
 import type { ItemDef } from '../types.js';
 import { starString } from './format.js';
 

@@ -17,7 +17,7 @@
  *   - The settings you change while the bot runs (prefix, embed color, claim range, pull cost,
  *     rob numbers, gear strength...). Those live in MongoDB; their starting values are DEFAULTS
  *     in config.ts, and `k!config` edits them.
- *   - The item catalog (data/items.ts) and the perk registry (perks/index.ts). Each perk's gear-card line lives in its own perk file.
+ *   - The item catalog (data/items/catalog.ts) and the perk registry (perks/index.ts). Each perk's gear-card line lives in its own perk file.
  *   - Database names (collections, the settings document id, ledger reasons). They are stored
  *     data: renaming one makes the bot stop seeing what it saved under the old name.
  *   - Command names, aliases and help descriptions. They stay on each command.
