@@ -5,8 +5,8 @@ import { MULTI_PULLS } from '../gacha.js';
 export const gachaText = {
   cantAfford: (p: string, cost: string, balance: string) =>
     `A pull costs ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
-  /** `stars` is the star string, like "★★". */
-  title: (stars: string, name: string) => `${stars}  ${name}`,
+  /** `stars` is the star string, like "★★"; `slot` is the slot's emoji. */
+  title: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,
   description: (itemDescription: string) => `*${itemDescription}*`,
   /** Added under the description when the pulled item is exclusive to other members. `owners` is mentions. */
   exclusive: (owners: string, share: string) => `Made for ${owners}. It only works at ${share} for you.`,
@@ -14,8 +14,6 @@ export const gachaText = {
   /** The message the shooting star plays in, before the result. */
   pullingTitle: 'A star is falling...',
   pulling: (user: string) => `${user} makes a wish...`,
-  /** The single pull's slot field; its value is the slot's emoji. */
-  slotField: 'Slot',
   spentField: 'Spent',
   spent: (cost: string) => `${cost} ${CURRENCY_EMOJI}`,
   spentWithGear: (cost: string, saved: string) => `${cost} ${CURRENCY_EMOJI} (gear saved ${saved} ${CURRENCY_EMOJI})`,

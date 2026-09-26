@@ -51,13 +51,14 @@ export const gacha: Command = {
 
     const { item } = result;
     const embed = createEmbed()
-      .setTitle(TEXT.gacha.title(starString(item.stars), item.name))
+      .setTitle(TEXT.gacha.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
       .setDescription(
-        TEXT.gacha.description(item.description) +
-          (item.usableBy && !canUseItem(item, ctx.user.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness))}` : ''),
+        [
+          ...(item.description.trim() === '' ? [] : [TEXT.gacha.description(item.description)]),
+          ...(item.usableBy && !canUseItem(item, ctx.user.id) ? [TEXT.gacha.exclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness))] : []),
+        ].join('\n') || null,
       )
       .addFields(
-        { name: TEXT.gacha.slotField, value: SLOT_EMOJI[item.slot], inline: true },
         { name: TEXT.gacha.spentField, value: spentText(result), inline: true },
         { name: TEXT.gacha.balanceField, value: balanceText(result), inline: true },
       )
