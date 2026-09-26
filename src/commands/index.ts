@@ -11,6 +11,7 @@ import { give } from './give.js';
 import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
+import { loadout } from './loadout.js';
 import { plinko } from './plinko.js';
 import { raid } from './raid.js';
 import { refine } from './refine.js';
@@ -26,6 +27,7 @@ export const commands: Command[] = [
   inventory,
   equip,
   unequip,
+  loadout,
   refine,
   sell,
   gear,

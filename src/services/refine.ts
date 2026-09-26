@@ -1,6 +1,7 @@
 import { collections } from '../db.js';
 import { refinePlan } from '../lib/game/refine.js';
 import { equippedCopyIds } from '../lib/game/sell.js';
+import { loadoutCopyIds } from '../lib/game/loadouts.js';
 import type { ItemDef } from '../types.js';
 import { recordLedger } from './economy/shared.js';
 
@@ -24,11 +25,11 @@ export type RefineResult =
   /** The copies changed while refining (another refine, sale or gift at the same moment). Nothing was used up. */
   | { ok: false; reason: 'busy' };
 
-/** Refines the member's worn (or best) copy of `item` by one level, using up their lowest-level other copy. */
+/** Refines the member's worn (or saved, or best) copy of `item` by one level, using up their lowest-level copy that is in no loadout. */
 export async function refineItem(guildId: string, userId: string, item: ItemDef): Promise<RefineResult> {
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
-  const plan = refinePlan(copies, equippedCopyIds(member?.equipment));
+  const plan = refinePlan(copies, equippedCopyIds(member?.equipment), loadoutCopyIds(member));
   if (!plan.ok) return plan;
 
   const used = await items.findOneAndDelete({ _id: plan.fodder._id, guildId, userId });

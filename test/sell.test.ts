@@ -162,7 +162,7 @@ test('sell: the messages', () => {
   assert.equal(TEXT.sell.footerLeft(2), 'You have 2 left');
   assert.equal(TEXT.sell.skipped(1), '1 item could not be sold any more and was kept.');
   assert.equal(TEXT.sell.skipped(3), '3 items could not be sold any more and were kept.');
-  assert.equal(TEXT.sell.onlyEquipped('k!', 'Kippah'), "Your **Kippah** is equipped, so it can't be sold. Take it off with `k!unequip` first.");
+  assert.equal(TEXT.sell.onlyEquipped('k!', 'Kippah'), "Your **Kippah** is in one of your loadouts, so it can't be sold. Take it off with `k!unequip` first (for a saved loadout, switch to it with `k!loadout`).");
   assert.equal(TEXT.sell.noneInTier('3-star'), "You don't own any 3-star items.");
   assert.equal(TEXT.sell.confirmDescription('200', 2, 'LINES'), `LINES\n\nTotal: **200** ${CURRENCY_EMOJI} for **2** items.`);
   assert.match(TEXT.sell.usage('k!'), /k!sell <item>.*k!sell <number> <item>.*k!sell all <item>.*k!sell stars <1-4>/);
@@ -170,7 +170,7 @@ test('sell: the messages', () => {
   assert.match(TEXT.sell.badAmount('k!'), /whole number, 1 or more/);
   assert.equal(
     TEXT.sell.notEnough('k!', 'Kippah', 5, 2),
-    "You asked to sell 5 but you only have **2** copies of **Kippah** that you aren't wearing. Use `k!sell all Kippah` to sell them all.",
+    "You asked to sell 5 but you only have **2** copies of **Kippah** that aren't in a loadout. Use `k!sell all Kippah` to sell them all.",
   );
   assert.match(TEXT.sell.notEnough('k!', 'Kippah', 3, 1), /\*\*1\*\* copy of .*sell it\./);
 });

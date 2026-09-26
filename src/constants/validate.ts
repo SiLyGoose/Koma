@@ -7,6 +7,7 @@ import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
 import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './refine.js';
+import { LOADOUTS, LOADOUT_BUTTONS } from './loadouts.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
 import { MAX_STONKS_HOURS } from './stonks.js';
@@ -158,6 +159,9 @@ export function validateConstants(): void {
   if (!(Number.isInteger(REFINE.maxLevel) && REFINE.maxLevel >= 1)) problems.push('REFINE.maxLevel must be a whole number of at least 1');
   if (!(Number.isInteger(REFINE.bigStep) && REFINE.bigStep >= 1)) problems.push('REFINE.bigStep must be a whole number of at least 1');
   if (REFINE.bigSteps.some((l) => !(Number.isInteger(l) && l >= 2 && l <= REFINE.maxLevel))) problems.push('REFINE.bigSteps must be levels from 2 to REFINE.maxLevel');
+  if (!(Number.isInteger(LOADOUTS.count) && LOADOUTS.count >= 1 && LOADOUTS.count <= 9)) problems.push('LOADOUTS.count must be a whole number from 1 to 9');
+  if (!(Number.isInteger(LOADOUTS.maxNameLength) && LOADOUTS.maxNameLength >= 1 && LOADOUTS.maxNameLength <= 100)) problems.push('LOADOUTS.maxNameLength must be a whole number from 1 to 100');
+  if (!(LOADOUT_BUTTONS.idleMs >= 5000)) problems.push('LOADOUT_BUTTONS.idleMs must be at least 5000');
   const { cc } = RAID_COMBAT;
   if (!(Number.isInteger(cc.rounds) && cc.rounds >= 1)) problems.push('RAID_COMBAT.cc.rounds must be a whole number of at least 1');
   if (cc.cooldown.length !== RAID_COMBAT.enrage.multipliers.length || cc.targets.length !== RAID_COMBAT.enrage.multipliers.length) {

@@ -5,6 +5,7 @@
  * Where things are:
  *   - core.ts        access, timing, the currency emoji, general limits
  *   - formatting.ts  stars, number locale, percent decimals, gear slot labels
+ *   - loadouts.ts    how many gear loadouts a member has, and how long their names can be
  *   - discord.ts     slash commands, autocomplete, embed and button limits, avatars
  *   - gacha.ts, rob.ts, wheel.ts, d20.ts, stonks.ts, plinko.ts, blackjack.ts, events.ts, raid.ts
  *                    each feature's numbers
@@ -39,5 +40,6 @@ export * from './blackjack.js';
 export * from './events.js';
 export * from './raid.js';
 export * from './refine.js';
+export * from './loadouts.js';
 export { TEXT } from './text/index.js';
 export { validateConstants } from './validate.js';

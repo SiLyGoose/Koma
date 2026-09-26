@@ -130,9 +130,30 @@ export interface MemberDoc {
    * uses it clears it. Missing or null means none.
    */
   bonusClaimHour?: number | null;
-  /** Missing on members who have never equipped anything. */
+  /**
+   * What this member is wearing: the gear of their active loadout. Missing on members who have
+   * never equipped anything.
+   */
   equipment?: EquipmentDoc;
+  /**
+   * This member's loadouts, keyed by number ('1' to LOADOUTS.count). A missing entry is an empty
+   * loadout with its default name. See LoadoutDoc and constants/loadouts.ts.
+   */
+  loadouts?: Record<string, LoadoutDoc>;
+  /** Which loadout is active (1 to LOADOUTS.count); its gear is `equipment`. Missing means 1. */
+  activeLoadout?: number | null;
   createdAt: Date;
+}
+
+/** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
+export interface LoadoutDoc {
+  /** The name the member gave it. Missing or null means the default, "Loadout <number>". */
+  name?: string | null;
+  /**
+   * The gear it holds, kept only while it isn't active: the active loadout's gear is
+   * MemberDoc.equipment, and this is cleared when the loadout is switched to.
+   */
+  equipment?: EquipmentDoc | null;
 }
 
 /**

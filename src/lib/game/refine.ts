@@ -31,15 +31,16 @@ export type RefinePlan<T> =
 
 /**
  * Which of a member's copies of one item a refine raises, and which it uses up. It raises the copy
- * they are wearing, or their best one if none is worn, and uses up their lowest-level other copy
- * (never a worn one), so no refining is thrown away when it can be helped.
+ * they are wearing, else one saved in another of their loadouts (`kept`), else their best one, and
+ * uses up their lowest-level other copy (never a worn or kept one), so no refining is thrown away
+ * when it can be helped. `kept` includes the worn copies; left out, it is just those.
  */
-export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: ReadonlySet<string>): RefinePlan<T> {
-  const target = copies.find((copy) => worn.has(copy._id)) ?? bestCopy(copies);
+export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: ReadonlySet<string>, kept: ReadonlySet<string> = worn): RefinePlan<T> {
+  const target = copies.find((copy) => worn.has(copy._id)) ?? copies.find((copy) => kept.has(copy._id)) ?? bestCopy(copies);
   if (!target) return { ok: false, reason: 'not_owned', level: 0 };
   const from = refineLevel(target.level);
   if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from };
-  const fodder = worstCopy(copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id)));
+  const fodder = worstCopy(copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id)));
   if (!fodder) return { ok: false, reason: 'no_duplicate', level: from };
   return { ok: true, target, fodder, from, to: from + 1 };
 }

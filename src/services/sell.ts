@@ -1,12 +1,14 @@
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { equippedCopyIds, saleCount, saleLines, saleTotal, worstCopies, worstCopy, type SaleLine } from '../lib/game/sell.js';
+import { saleCount, saleLines, saleTotal, worstCopies, worstCopy, type SaleLine } from '../lib/game/sell.js';
+import { loadoutCopyIds } from '../lib/game/loadouts.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../types.js';
 import { ensureMember } from './economy/index.js';
 
 /*
  * Selling items for points. A member can sell copies they aren't wearing: one copy of an item,
- * every unworn copy of an item, or every unworn item of a star tier. Selling has two steps so a
+ * every unworn copy of an item, or every unworn item of a star tier. "Worn" here means in any of
+ * their loadouts, the active one or a saved one (lib/game/loadouts.ts). Selling has two steps so a
  * big sale can be confirmed first: `planSale` works out exactly which copies would be sold and
  * what they are worth, and `sellCopies` sells those copies (and only those, and only if they are
  * still theirs and still not worn). The worn copy of an item is never sold, but other copies of
@@ -34,7 +36,7 @@ export type SalePlan =
 export async function planSale(guildId: string, userId: string, target: SellTarget): Promise<SalePlan> {
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-  const worn = equippedCopyIds(member?.equipment);
+  const worn = loadoutCopyIds(member);
 
   const inScope = copies.filter((copy) => {
     const item = ITEMS_BY_ID.get(copy.itemId);
@@ -77,7 +79,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
   await ensureMember(guildId, userId);
 
   const member = await members.findOne({ guildId, userId });
-  const worn = equippedCopyIds(member?.equipment);
+  const worn = loadoutCopyIds(member);
   const candidates = (await items.find({ guildId, userId, _id: { $in: [...copyIds] } }).toArray()).filter(
     (copy) => !worn.has(copy._id) && ITEMS_BY_ID.has(copy.itemId),
   );

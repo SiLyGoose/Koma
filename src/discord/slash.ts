@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { CURRENCY_NAME, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants/index.js';
+import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
@@ -306,6 +306,35 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
       void b.addStringOption((o) => o.setName('item').setDescription('The item to refine (uses up one duplicate of it)').setRequired(true).setAutocomplete(true).setMaxLength(100)),
     toArgs: (i) => [i.options.getString('item', true)],
     autocomplete: ownedItem,
+  },
+
+  loadout: {
+    description: 'See your gear loadouts, switch to one, or rename one.',
+    build: (b) =>
+      void b
+        .addSubcommand((s) => s.setName('list').setDescription('See your loadouts and the gear in each'))
+        .addSubcommand((s) =>
+          s
+            .setName('switch')
+            .setDescription('Put on the gear of another loadout')
+            .addStringOption((o) => o.setName('loadout').setDescription('Its number or name').setRequired(true).setMaxLength(LOADOUTS.maxNameLength)),
+        )
+        .addSubcommand((s) =>
+          s
+            .setName('rename')
+            .setDescription('Name a loadout (leave the name out to reset it)')
+            .addIntegerOption((o) => o.setName('number').setDescription('Which loadout').setRequired(true).setMinValue(1).setMaxValue(LOADOUTS.count))
+            .addStringOption((o) => o.setName('name').setDescription('Its new name').setMaxLength(LOADOUTS.maxNameLength)),
+        ),
+    toArgs: (i) => {
+      const action = i.options.getSubcommand();
+      if (action === 'switch') return [i.options.getString('loadout', true)];
+      if (action === 'rename') {
+        const name = i.options.getString('name');
+        return ['rename', String(i.options.getInteger('number', true)), ...(name === null ? [] : [name])];
+      }
+      return ['list'];
+    },
   },
 
   unequip: {

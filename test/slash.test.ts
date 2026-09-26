@@ -246,6 +246,13 @@ test('slash options: unequip, give and config', () => {
   assert.deepEqual(args('config', { sub: 'reset', strings: { setting: 'channel' } }), ['reset', 'channel']);
 });
 
+test('slash options: loadout subcommands read back as the words the prefix command reads', () => {
+  assert.deepEqual(args('loadout', { sub: 'list' }), ['list']);
+  assert.deepEqual(args('loadout', { sub: 'switch', strings: { loadout: 'Raid Tank' } }), ['Raid Tank']);
+  assert.deepEqual(args('loadout', { sub: 'rename', ints: { number: 2 }, strings: { name: 'Gacha Luck' } }), ['rename', '2', 'Gacha Luck']);
+  assert.deepEqual(args('loadout', { sub: 'rename', ints: { number: 2 } }), ['rename', '2']);
+});
+
 test('slash options: event subcommands read back as the words the prefix command reads', () => {
   assert.deepEqual(args('events', { sub: 'status' }), ['status']);
   assert.deepEqual(args('events', { sub: 'start' }), ['start']);

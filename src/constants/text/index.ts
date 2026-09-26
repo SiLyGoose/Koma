@@ -16,6 +16,7 @@ import { helpText } from './help.js';
 import { gearText } from './gear.js';
 import { equipText } from './equip.js';
 import { unequipText } from './unequip.js';
+import { loadoutText } from './loadout.js';
 import { refineText } from './refine.js';
 import { robText } from './rob.js';
 import { eventsText } from './events.js';
@@ -56,6 +57,7 @@ export const TEXT = {
   gear: gearText,
   equip: equipText,
   unequip: unequipText,
+  loadout: loadoutText,
   refine: refineText,
   rob: robText,
   events: eventsText,
