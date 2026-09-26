@@ -9,7 +9,7 @@ export const refineText = {
     `Your **${name}** is at **R${level}**. Refining it uses up a duplicate, and you don't have a spare one. Pull another!`,
   maxed: (name: string, max: number) => `Your **${name}** is already fully refined (**R${max}**).`,
   busy: 'Your items changed while refining. Nothing was used up; try again.',
-  title: (stars: string, name: string) => `${stars}  ${name}`,
+  title: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,
   /** `left` is how many more copies of the item they have that later refines could use. */
   done: (user: string, from: number, to: number, left: number) =>
     `${user} refined it from **R${from}** to **R${to}**, using up a duplicate. ${left === 0 ? 'No duplicates left.' : `${left} ${left === 1 ? 'duplicate' : 'duplicates'} left.`}`,

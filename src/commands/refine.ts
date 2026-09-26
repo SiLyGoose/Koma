@@ -1,5 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
-import { REFINE, REFINE_BUTTONS, TEXT } from '../constants/index.js';
+import { REFINE, REFINE_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { describeEffects, itemEffectiveness } from '../lib/game/equipment.js';
@@ -28,7 +28,7 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const share = itemEffectiveness(item, ctx.user.id);
   const effects = (level: number) => describeEffects(item, share, level).join('\n') || t.noEffects;
   return createEmbed()
-    .setTitle(t.title(starString(item.stars), item.name))
+    .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
     .setDescription(t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft))
     .addFields(
       { name: t.beforeField(result.from), value: effects(result.from), inline: true },
