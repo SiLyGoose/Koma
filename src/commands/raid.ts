@@ -104,6 +104,11 @@ export function playerHpBar(hp: number, max: number): string {
 
 /** What the boss is about to do, in words. */
 export function intentText(state: RaidState, intent: BossIntent = state.intent): string {
+  const text = moveIntentText(state, intent);
+  return intent.empowered ? TEXT.raid.intent.empowered(text) : text;
+}
+
+function moveIntentText(state: RaidState, intent: BossIntent): string {
   const { multiplier } = intent;
   const target = mention(intent.targets[0] ?? '');
   const targets = intent.targets.map(mention).join(', ');
@@ -133,6 +138,17 @@ export function intentText(state: RaidState, intent: BossIntent = state.intent):
       return i.harvest(target, hit(moves.harvest.damage), fmt(Math.round(state.bossMaxHp * moves.harvest.maxHpShare * lifesteal)));
     case 'veil':
       return i.veil(support.shieldBreak);
+    case 'empower':
+      return i.empower(formatMultiplier(RAID_COMBAT.empower.multiplier));
+    case 'gather':
+      return i.gather(
+        moves.reckoning.chargeTurns - state.gathered,
+        hit(moves.reckoning.damage),
+        moves.reckoning.minTargets,
+        moves.reckoning.maxTargets,
+      );
+    case 'reckoning':
+      return i.reckoning(targets, hit(moves.reckoning.damage));
     case 'charge':
       return i.charge(hit(moves.drain.damage), RAID_COMBAT.requiem.casts);
     case 'requiem':
@@ -188,6 +204,10 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
       return log.charging(b);
     case 'requiem':
       return log.requiem(b);
+    case 'empowered':
+      return log.empowered(b);
+    case 'gathering':
+      return log.gathering(b, event.left);
     case 'cc':
       return log.cc(event.effect, mention(event.userId));
     case 'hoardBlocked':
@@ -204,7 +224,7 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
 }
 
 /** The moves that hit several raiders at once, whose hits can share a line of the log. */
-type ManyMove = 'breath' | 'sweep' | 'drain' | 'scythe';
+type ManyMove = 'breath' | 'sweep' | 'drain' | 'scythe' | 'reckoning';
 const isManyMove = (move: BossMove): move is ManyMove => MOVE_KIND[move] === 'all' || MOVE_KIND[move] === 'some';
 
 /**
@@ -457,6 +477,11 @@ export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', unti
         return r.moves.harvest(moves.harvest.damage, formatPercent(moves.harvest.maxHpShare));
       case 'veil':
         return r.moves.veil(support.shieldBreak);
+      case 'empower':
+        return r.moves.empower(formatMultiplier(RAID_COMBAT.empower.multiplier));
+      case 'gather':
+      case 'reckoning':
+        return r.moves.reckoning(moves.reckoning.chargeTurns, moves.reckoning.damage, moves.reckoning.minTargets, moves.reckoning.maxTargets);
       case 'charge':
       case 'requiem':
         return r.moves.requiem(r.phaseNames[RAID_COMBAT.requiem.phase] ?? `Phase ${RAID_COMBAT.requiem.phase + 1}`, RAID_COMBAT.requiem.casts, RAID_COMBAT.requiem.cooldown);

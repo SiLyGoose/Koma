@@ -99,6 +99,11 @@ export const RAID_EMOJI = {
  *   of its max HP instead. All of its healing is multiplied by `enrage.lifesteal[level]`, so it heals
  *   more as it gets angrier (on top of hitting harder, which already makes Reap and Soul Drain heal
  *   more). It never heals above its max HP. It has no crowd control.
+ * - `empower` (the reaper's Dark Empowerment): it spends its turn powering up, and its next move is
+ *   always an attack, doing `empower.multiplier` times the damage (on top of its enrage).
+ * - `gather` then `reckoning` (the reaper's Grim Reckoning): it spends `reckoning.chargeTurns` turns
+ *   gathering, announced each turn, then hits min to max raiders at once. It can't be interrupted, so
+ *   the party has those turns to guard and heal up.
  * - Crowd control (`stun`, `disarm`, `taunt`, all under `cc`): stunned players can't act at all,
  *   disarmed ones can't attack, and taunted ones can only attack, for `cc.rounds` turns. At each
  *   enrage level the boss can use one only every `cc.cooldown[level]` rounds, and it hits
@@ -109,11 +114,13 @@ export const RAID_EMOJI = {
 export const RAID_COMBAT = {
   /**
    * Each boss's HP as a share of the raid HP settings (`raid.hpPerPlayer`, `raid.minBossHp`). The
-   * reaper is frailer than the dragon, and makes up for it by hitting harder and healing. Both are
-   * tuned so that 5 raiders who play sensibly, without gear, beat it within the 15 rounds
-   * about 60% of the time (in simulated fights).
+   * reaper is frailer than the dragon, and makes up for it by hitting harder and healing. The dragon
+   * is tuned so that 5 raiders who play sensibly, without gear, beat it within the 15 rounds about
+   * 60% of the time (in simulated fights). The reaper is tuned to about 80% for 5 raiders without
+   * gear or boosts who guard and heal but never rally (simulated with its Dark Empowerment and
+   * Grim Reckoning); a party that also keeps a rally going wins about 95%.
    */
-  hpShare: { wyrm: 0.774, reaper: 0.445 },
+  hpShare: { wyrm: 0.774, reaper: 0.435 },
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
   guard: { takenShare: 0.5, aoeCutPerGuard: 0.15, aoeCutMax: 0.6 },
@@ -128,7 +135,9 @@ export const RAID_COMBAT = {
     drain: { damage: 22, lifesteal: 1 },
     scythe: { damage: 42, minTargets: 2, maxTargets: 3 },
     harvest: { damage: 30, maxHpShare: 0.03 },
+    reckoning: { damage: 70, minTargets: 2, maxTargets: 4, chargeTurns: 2 },
   },
+  empower: { multiplier: 1.5 },
   /**
    * The Soul Reaper's special attack, Soul Requiem: from enrage level `phase` on (furious), as soon as
    * it is ready it spends a turn charging (announced, so the party can brace), then casts Soul Drain
@@ -143,9 +152,9 @@ export const RAID_COMBAT = {
       { claw: 25, breath: 30, sweep: 20, hoard: 8, shield: 7, stun: 4, disarm: 3, taunt: 3 },
     ],
     reaper: [
-      { reap: 31, drain: 20, scythe: 23, harvest: 14, veil: 8 },
-      { reap: 29, drain: 24, scythe: 23, harvest: 14, veil: 8 },
-      { reap: 27, drain: 29, scythe: 22, harvest: 14, veil: 7 },
+      { reap: 28, drain: 18, scythe: 20, harvest: 13, veil: 7, empower: 7, gather: 7 },
+      { reap: 26, drain: 22, scythe: 20, harvest: 13, veil: 7, empower: 7, gather: 7 },
+      { reap: 24, drain: 26, scythe: 19, harvest: 13, veil: 6, empower: 7, gather: 7 },
     ],
   },
 } as const;

@@ -986,7 +986,7 @@ test('bossForWeek: the same server and week always get the same boss, never the 
 test('the reaper only uses its own moves, and the dragon only its own', () => {
   const reaper = new Set(movesOf('reaper'));
   const wyrm = new Set(movesOf('wyrm'));
-  assert.deepEqual([...reaper], ['reap', 'drain', 'scythe', 'harvest', 'veil']);
+  assert.deepEqual([...reaper], ['reap', 'drain', 'scythe', 'harvest', 'veil', 'empower', 'gather']);
   assert.deepEqual([...wyrm], ['claw', 'breath', 'sweep', 'hoard', 'shield', 'stun', 'disarm', 'taunt']);
   for (const [boss, own] of [['reaper', reaper], ['wyrm', wyrm]] as const) {
     for (const enrage of [0, 1, 2]) {
@@ -1288,6 +1288,96 @@ test('soul requiem: once furious, the reaper charges for a turn, then casts Soul
   const dragon = createRaid('wyrm', ['a'], 1000, 100, 15, low);
   dragon.enrage = 2;
   assert.notEqual(pickIntent(dragon, high).move, 'charge');
+});
+
+test('dark empowerment: the reaper spends its turn powering up, then always attacks for more damage', () => {
+  const { multiplier } = RAID_COMBAT.empower;
+  const state = reaperFight(['a', 'b', 'c'], 1000);
+  state.intent = { move: 'empower', targets: [], multiplier: 1 };
+  assert.match(intentText(state), /Dark Empowerment.*1\.5x damage/);
+  assert.deepEqual(bossTurn(state, low).events, [{ kind: 'empowered' }]);
+  assert.ok(state.players.every((p) => p.hp === 100), 'empowering does nothing else');
+  assert.equal(state.empowered, true);
+  assert.equal(eventText({ kind: 'empowered' }, 'reaper'), '💢 The reaper powers up. Its next attack will hit harder!');
+
+  // Whatever the roll, the next move hits raiders, with the empowerment locked into its multiplier.
+  for (let roll = 1; roll <= 100; roll++) {
+    const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
+    const intent = pickIntent(state, fixed);
+    assert.ok(['reap', 'drain', 'scythe', 'harvest'].includes(intent.move), `roll ${roll}: ${intent.move}`);
+    assert.equal(intent.multiplier, multiplier);
+    assert.equal(intent.empowered, true);
+  }
+
+  endRound(state, low);
+  assert.equal(state.intent.move, 'reap');
+  assert.match(intentText(state), new RegExp(`^💢 Empowered! 🩸 \\*\\*Reap\\*\\* at .* \\(${Math.round(RAID_COMBAT.moves.reap.damage * multiplier)} damage`));
+  const { events } = bossTurn(state, low);
+  assert.deepEqual(events[0], { kind: 'hit', move: 'reap', userId: state.intent.targets[0], damage: Math.round(RAID_COMBAT.moves.reap.damage * multiplier), guarded: false, coveredFor: null });
+  // Used up: the move after that is back to normal.
+  assert.equal(state.empowered, false);
+  endRound(state, low);
+  assert.equal(state.intent.multiplier, 1);
+  assert.equal(state.intent.empowered, undefined);
+});
+
+test('grim reckoning: the reaper gathers for two turns, then hits several raiders at once', () => {
+  const { damage, chargeTurns, minTargets } = RAID_COMBAT.moves.reckoning;
+  const state = reaperFight(['a', 'b', 'c', 'd'], 1000);
+  state.intent = { move: 'gather', targets: [], multiplier: 1 };
+  assert.match(intentText(state), new RegExp(`Grim Reckoning\\*\\* is gathering: ${chargeTurns} more turns, then it strikes`));
+
+  // Each gathering turn does nothing but warn, and it can't be talked out of it.
+  for (let turn = 1; turn <= chargeTurns; turn++) {
+    assert.deepEqual(bossTurn(state, low).events, [{ kind: 'gathering', left: chargeTurns - turn }]);
+    assert.ok(state.players.every((p) => p.hp === 100));
+    endRound(state, high);
+    assert.equal(state.intent.move, turn < chargeTurns ? 'gather' : 'reckoning', `turn ${turn}`);
+  }
+  assert.equal(eventText({ kind: 'gathering', left: 1 }, 'reaper'), '⚰️ The reaper gathers its strength for **Grim Reckoning** (1 more turn).');
+  assert.equal(eventText({ kind: 'gathering', left: 0 }, 'reaper'), '⚰️ The reaper has gathered its strength. **Grim Reckoning** strikes next turn!');
+
+  // Then it strikes more than one raider (high rolls: the most it can), guards softening it.
+  assert.ok(state.intent.targets.length > 1);
+  assert.equal(new Set(state.intent.targets).size, state.intent.targets.length);
+  const aimed = [...state.intent.targets];
+  const guard = aimed[0] as string;
+  resolvePlayerTurn(state, choose([guard, 'guard']), low);
+  const { events } = bossTurn(state, low);
+  const hits = events.filter((e) => e.kind === 'hit');
+  assert.deepEqual(hits.map((e) => (e as { userId: string }).userId), aimed);
+  assert.equal((hits[0] as { damage: number }).damage, Math.round(damage * RAID_COMBAT.guard.takenShare));
+  assert.equal((hits[1] as { damage: number }).damage, Math.round(damage * (1 - RAID_COMBAT.guard.aoeCutPerGuard)));
+  assert.equal(state.gathered, 0);
+  assert.match(eventLines(events, 'reaper').join('\n'), /⚰️ Grim Reckoning struck/);
+
+  // Back to its usual moves afterwards.
+  endRound(state, low);
+  assert.equal(state.intent.move, 'reap');
+  assert.ok(minTargets > 1);
+});
+
+test('the reaper finishes a Grim Reckoning or an empowered attack before starting its Soul Requiem', () => {
+  const { phase } = RAID_COMBAT.requiem;
+  const gathering = reaperFight(['a', 'b'], 1000);
+  gathering.enrage = phase;
+  gathering.gathered = 1;
+  assert.equal(pickIntent(gathering, high).move, 'gather');
+  gathering.gathered = RAID_COMBAT.moves.reckoning.chargeTurns;
+  assert.equal(pickIntent(gathering, high).move, 'reckoning');
+
+  const empowered = reaperFight(['a', 'b'], 1000);
+  empowered.enrage = phase;
+  empowered.empowered = true;
+  assert.notEqual(pickIntent(empowered, high).move, 'charge');
+  empowered.empowered = false;
+  assert.equal(pickIntent(empowered, high).move, 'charge');
+});
+
+test('raid stats: the reaper lists Dark Empowerment and Grim Reckoning', () => {
+  const moves = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '';
+  assert.ok(moves.includes('💢 **Dark Empowerment**: spends a turn powering up, and its next move is an attack doing **1.5x** damage.'), moves);
+  assert.ok(moves.includes('⚰️ **Grim Reckoning**: gathers for 2 turns, then hits 2 to 4 raiders for 70 damage each.'), moves);
 });
 
 test('raid stats: the reaper lists its Soul Requiem', () => {

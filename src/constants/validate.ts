@@ -170,13 +170,15 @@ export function validateConstants(): void {
   }
   if ([...cc.cooldown, ...cc.targets].some((n) => !(Number.isInteger(n) && n >= 1))) problems.push('RAID_COMBAT.cc cooldowns and target counts must be whole numbers of at least 1');
   if (!(RAID_COMBAT.moves.hoard.min >= 0 && RAID_COMBAT.moves.hoard.min <= RAID_COMBAT.moves.hoard.max)) problems.push('RAID_COMBAT.moves.hoard needs 0 <= min <= max');
-  for (const move of ['sweep', 'scythe'] as const) {
+  for (const move of ['sweep', 'scythe', 'reckoning'] as const) {
     const { minTargets, maxTargets } = RAID_COMBAT.moves[move];
     if (!(minTargets >= 1 && minTargets <= maxTargets)) problems.push(`RAID_COMBAT.moves.${move} needs 1 <= minTargets <= maxTargets`);
   }
   for (const move of ['reap', 'drain'] as const) {
     if (!(RAID_COMBAT.moves[move].lifesteal >= 0)) problems.push(`RAID_COMBAT.moves.${move}.lifesteal must be 0 or more`);
   }
+  if (!(Number.isInteger(RAID_COMBAT.moves.reckoning.chargeTurns) && RAID_COMBAT.moves.reckoning.chargeTurns >= 1)) problems.push('RAID_COMBAT.moves.reckoning.chargeTurns must be a whole number of at least 1');
+  if (!(RAID_COMBAT.empower.multiplier >= 1)) problems.push('RAID_COMBAT.empower.multiplier must be at least 1');
   if (!(RAID_COMBAT.moves.harvest.maxHpShare >= 0 && RAID_COMBAT.moves.harvest.maxHpShare <= 1)) problems.push('RAID_COMBAT.moves.harvest.maxHpShare must be from 0 to 1');
   const enrage = RAID_COMBAT.enrage;
   if (enrage.multipliers.length !== enrage.thresholds.length + 1 || enrage.lifesteal.length !== enrage.multipliers.length) {

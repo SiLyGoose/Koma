@@ -55,6 +55,7 @@ const HIT_MANY = {
   sweep: (who: string, rest: string) => `🌀 Tail Sweep hit ${who}${rest}.`,
   drain: (who: string, rest: string) => `👻 Soul Drain drained ${who}${rest}.`,
   scythe: (who: string, rest: string) => `🌙 Scythe Sweep cut ${who}${rest}.`,
+  reckoning: (who: string, rest: string) => `⚰️ Grim Reckoning struck ${who}${rest}.`,
 };
 type ManyMove = keyof typeof HIT_MANY;
 
@@ -183,6 +184,14 @@ Grows with every raider (at least ${min}).`,
     /** `heal` is the HP it would heal. */
     harvest: (target: string, damage: number, heal: string) => `🕯️ **Harvest**: it reaches for ${target}'s soul (${damage} damage, and it heals ${heal}). A guard can stop it.`,
     veil: (supports: number) => `🌫️ **Spectral Veil**: next turn attacks pass right through it unless ${supports} raiders Support`,
+    /** `multiplier` is how much harder its next attack hits, like "1.5x". */
+    empower: (multiplier: string) => `💢 **Dark Empowerment**: it spends this turn powering up, and its next attack does ${multiplier} damage`,
+    /** `turns` is how many turns of gathering are left, this one included. */
+    gather: (turns: number, damage: number, min: number, max: number) =>
+      `⚰️ **Grim Reckoning** is gathering: ${plural(turns, 'more turn', 'more turns')}, then it strikes ${min === max ? min : `${min} to ${max}`} raiders for ${damage} damage each. Guard and heal up!`,
+    reckoning: (targets: string, damage: number) => `⚰️ **Grim Reckoning** at ${targets} (${damage} damage each)`,
+    /** Put in front of an attack the boss empowered the turn before. */
+    empowered: (text: string) => `💢 Empowered! ${text}`,
     /** `damage` is each cast's damage to every raider, `casts` how many times Soul Drain is cast. */
     charge: (damage: number, casts: number) =>
       `🌑 **Soul Requiem** is charging: next turn it casts Soul Drain ${casts} times, hitting everyone for ${damage} damage each cast. Guard and heal up!`,
@@ -236,6 +245,13 @@ Grows with every raider (at least ${min}).`,
       move === 'claw' ? `🐉 ${guard} took the Claw for ${target}: **${damage}**.` : `🩸 ${guard} took the Reap for ${target}: **${damage}**.`,
     charging: (b: RaidBossText) => `🌑 ${b.It} gathers the souls around it. **Soul Requiem** is coming next turn!`,
     requiem: (b: RaidBossText) => `🌑 ${b.It} unleashes **Soul Requiem**!`,
+    empowered: (b: RaidBossText) => `💢 ${b.It} powers up. Its next attack will hit harder!`,
+    /** `left` is how many more turns it gathers (0: it strikes next turn). */
+    gathering: (b: RaidBossText, left: number) =>
+      left > 0
+        ? `⚰️ ${b.It} gathers its strength for **Grim Reckoning** (${plural(left, 'more turn', 'more turns')}).`
+        : `⚰️ ${b.It} has gathered its strength. **Grim Reckoning** strikes next turn!`,
+    reckoning: (target: string, damage: number) => `⚰️ Grim Reckoning struck ${target} for **${damage}**.`,
     /** `cut` is how much less it healed because of heal-cut gear ("25%"), or null. */
     lifesteal: (b: RaidBossText, amount: number, cut: string | null = null) =>
       `🩸 ${b.It} feeds on the stolen life and heals **${amount}** HP${cut === null ? '' : ` (${cut} less, cut by gear)`}.`,
@@ -350,6 +366,9 @@ Grows with every raider (at least ${min}).`,
     scythe: (damage: number, min: number, max: number) => `🌙 **Scythe Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
     harvest: (damage: number, share: string) => `🕯️ **Harvest**: Tears ${damage} HP out of one raider and heals **${share}** of its max HP. A guard can stop it.`,
     veil: (supports: number) => `🌫️ **Spectral Veil**: attacks pass right through it for a turn unless ${supports} raiders Support.`,
+    empower: (multiplier: string) => `💢 **Dark Empowerment**: spends a turn powering up, and its next move is an attack doing **${multiplier}** damage.`,
+    reckoning: (turns: number, damage: number, min: number, max: number) =>
+      `⚰️ **Grim Reckoning**: gathers for ${plural(turns, 'turn', 'turns')}, then hits ${min === max ? min : `${min} to ${max}`} raiders for ${damage} damage each. Guards reduce damage taken.`,
     /** Its special attack. `phase` is the phase's name. */
     requiem: (phase: string, casts: number, cooldown: number) =>
       `🌑 **Soul Requiem** (${phase} only): charges for a turn, then casts Soul Drain ${casts} times in a row. ${cooldown} round cooldown.`,

@@ -20,17 +20,36 @@ export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', 'support'];
 
 /** The moves that damage raiders directly. */
-export type HitMove = 'claw' | 'breath' | 'sweep' | 'reap' | 'drain' | 'scythe' | 'harvest';
-export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'charge' | 'requiem' | CcMove;
-export const BOSS_MOVES: readonly BossMove[] = ['claw', 'breath', 'sweep', 'hoard', 'shield', 'reap', 'drain', 'scythe', 'harvest', 'veil', 'charge', 'requiem', 'stun', 'disarm', 'taunt'];
+export type HitMove = 'claw' | 'breath' | 'sweep' | 'reap' | 'drain' | 'scythe' | 'harvest' | 'reckoning';
+export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'empower' | 'gather' | 'charge' | 'requiem' | CcMove;
+export const BOSS_MOVES: readonly BossMove[] = [
+  'claw',
+  'breath',
+  'sweep',
+  'hoard',
+  'shield',
+  'reap',
+  'drain',
+  'scythe',
+  'harvest',
+  'veil',
+  'empower',
+  'gather',
+  'reckoning',
+  'charge',
+  'requiem',
+  'stun',
+  'disarm',
+  'taunt',
+];
 
 /**
  * How each move works: `single` hits one raider (a guard can jump in front), `all` hits everyone,
  * `some` hits a few, `steal` goes for one raider and is stopped outright by a guard, `shield` makes
- * attacks bounce off for the next turn, `cc` puts raiders under crowd control, and `charge` does
- * nothing but warn that a special attack is coming next turn.
+ * attacks bounce off for the next turn, `cc` puts raiders under crowd control, `empower` makes the
+ * boss's next attack hit harder, and `charge` does nothing but warn that a special attack is coming.
  */
-export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'cc' | 'charge';
+export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'cc' | 'empower' | 'charge';
 export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   claw: 'single',
   reap: 'single',
@@ -38,10 +57,13 @@ export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   drain: 'all',
   sweep: 'some',
   scythe: 'some',
+  reckoning: 'some',
   hoard: 'steal',
   harvest: 'steal',
   shield: 'shield',
   veil: 'shield',
+  empower: 'empower',
+  gather: 'charge',
   charge: 'charge',
   requiem: 'all',
   stun: 'cc',
@@ -129,6 +151,8 @@ export interface BossIntent {
   multiplier: number;
   /** What the healing the move gives the boss (lifesteal) is multiplied by, locked in the same way. Missing means 1. */
   lifesteal?: number;
+  /** The boss empowered itself the turn before, so `multiplier` has RAID_COMBAT.empower.multiplier in it. */
+  empowered?: boolean;
 }
 
 export type RaidOutcome = 'ongoing' | 'won' | 'wiped' | 'fled';
@@ -161,6 +185,10 @@ export interface RaidState {
   lastCc: number | null;
   /** The round the boss last unleashed its Soul Requiem (its cooldown counts from there), or null. */
   lastRequiem: number | null;
+  /** The boss used Empower last turn: its next move is an attack that hits harder. */
+  empowered: boolean;
+  /** Turns the boss has spent gathering for its Grim Reckoning so far (0 when it isn't). */
+  gathered: number;
   outcome: RaidOutcome;
 }
 
@@ -195,6 +223,10 @@ export type RaidEvent =
   /** The reaper is charging its Soul Requiem, and when it is unleashed. */
   | { kind: 'charging' }
   | { kind: 'requiem' }
+  /** The boss powered up its next attack. */
+  | { kind: 'empowered' }
+  /** The boss spent a turn gathering for its Grim Reckoning, with `left` more to go (0: it lands next turn). */
+  | { kind: 'gathering'; left: number }
   | { kind: 'cc'; effect: CrowdControl; userId: string }
   | { kind: 'hoardBlocked'; userId: string; targetId: string }
   | { kind: 'harvestBlocked'; userId: string; targetId: string }
@@ -285,6 +317,8 @@ export function createRaid(
     lastMove: null,
     lastCc: null,
     lastRequiem: null,
+    empowered: false,
+    gathered: 0,
     outcome: 'ongoing',
   };
   state.intent = pickIntent(state, rng);
@@ -509,6 +543,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   };
   /** Its base damage, for the moves that hit raiders. */
   const baseDamage = (hitMove: Exclude<HitMove, 'harvest'>): number => RAID_COMBAT.moves[hitMove].damage;
+  // Empower lasts until the next move, whatever that is (pickIntent makes sure it is an attack).
+  state.empowered = move === 'empower';
 
   switch (move) {
     case 'claw':
@@ -525,7 +561,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       for (const player of livingPlayers(state)) splash(player, baseDamage(move), move);
       break;
     case 'sweep':
-    case 'scythe': {
+    case 'scythe':
+    case 'reckoning': {
       const aimed = state.intent.targets.map((id) => findPlayer(state, id)).filter((p): p is RaidPlayer => p !== undefined && isAlive(p));
       const hit = aimed.length > 0 ? aimed : [standing(undefined)].filter((p): p is RaidPlayer => p !== undefined);
       for (const player of hit) splash(player, baseDamage(move), move);
@@ -555,6 +592,13 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     case 'charge':
       events.push({ kind: 'charging' });
       break;
+    case 'empower':
+      events.push({ kind: 'empowered' });
+      break;
+    case 'gather':
+      state.gathered++;
+      events.push({ kind: 'gathering', left: RAID_COMBAT.moves.reckoning.chargeTurns - state.gathered });
+      break;
     case 'requiem':
       // Soul Drain, several times over: each cast hits everyone still standing and heals the reaper off what it took.
       events.push({ kind: 'requiem' });
@@ -582,6 +626,7 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       break;
     }
   }
+  if (move === 'reckoning') state.gathered = 0;
   // Lifesteal: the reaper's Reap and Soul Drain heal it off the HP they took (what guards blocked it doesn't get).
   if (move === 'reap' || move === 'drain') heal(dealt * RAID_COMBAT.moves[move].lifesteal, move);
   state.lastMove = move;
@@ -616,7 +661,8 @@ export function endRound(state: RaidState, rng: RaidRng = defaultRaidRng): RaidE
 /** Whether the boss has a Soul Requiem it can start charging for the round being planned (its phase reached, and off cooldown). */
 export function requiemReady(state: RaidState): boolean {
   const { boss, phase, cooldown } = RAID_COMBAT.requiem;
-  if (state.boss !== boss || state.enrage < phase || state.lastMove === 'charge') return false;
+  // Not in the middle of another move: charging it already, empowered for an attack, or gathering.
+  if (state.boss !== boss || state.enrage < phase || state.lastMove === 'charge' || state.empowered || state.gathered > 0) return false;
   return state.lastRequiem === null || state.round - state.lastRequiem >= cooldown;
 }
 
@@ -643,8 +689,18 @@ export function fairTargets(pool: readonly RaidPlayer[], count: number, rng: Rai
   return picked;
 }
 
+/** The moves an empowered boss can follow up with: the ones that hit raiders. */
+const isAttack = (move: BossMove): boolean => ['single', 'all', 'some'].includes(MOVE_KIND[move]) || move === 'harvest';
+
 /** Picks the boss's next move by its weights at its enrage level, and who it is aimed at. */
 export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): BossIntent {
+  const living = livingPlayers(state);
+  // Grim Reckoning: once it starts gathering it keeps on for its charge turns, then strikes.
+  if (state.gathered > 0) {
+    const { chargeTurns, minTargets, maxTargets } = RAID_COMBAT.moves.reckoning;
+    if (state.gathered < chargeTurns) return { move: 'gather', targets: [], multiplier: bossMultiplier(state) };
+    return { move: 'reckoning', targets: fairTargets(living, rng.int(minTargets, maxTargets), rng), multiplier: bossMultiplier(state) };
+  }
   // The Soul Requiem: unleashed the turn after it was charged, and charged as soon as it is ready.
   if (requiemReady(state) || state.lastMove === 'charge') {
     const move = state.lastMove === 'charge' ? 'requiem' : 'charge';
@@ -656,7 +712,11 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
   const free = livingPlayers(state).filter((p) => p.cc === null);
   const ccAllowed = ccReady(state) && free.length > 0;
   const options = BOSS_MOVES.filter(
-    (move) => weight(move) > 0 && !(MOVE_KIND[move] === 'shield' && state.lastMove === move) && (ccAllowed || !isCcMove(move)),
+    (move) =>
+      weight(move) > 0 &&
+      !(MOVE_KIND[move] === 'shield' && state.lastMove === move) &&
+      (ccAllowed || !isCcMove(move)) &&
+      (!state.empowered || isAttack(move)),
   );
   const total = options.reduce((sum, move) => sum + weight(move), 0);
   let roll = rng.int(1, total);
@@ -672,10 +732,10 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
   const intent = (targets: string[]): BossIntent => ({
     move,
     targets,
-    multiplier: bossMultiplier(state),
+    multiplier: bossMultiplier(state) * (state.empowered ? RAID_COMBAT.empower.multiplier : 1),
     ...(HEALING_MOVES.includes(move) ? { lifesteal: bossLifesteal(state) } : {}),
+    ...(state.empowered ? { empowered: true } : {}),
   });
-  const living = livingPlayers(state);
   if (living.length === 0) return intent([]);
   const kind = MOVE_KIND[move];
   if (kind === 'single' || kind === 'steal') return intent(fairTargets(living, 1, rng));
