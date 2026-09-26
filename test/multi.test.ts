@@ -105,3 +105,10 @@ test('guarantee: a guaranteed treasure pull always gives the member their own tr
   for (let i = 0; i < 2000; i++) ids.add(rollItem(90, HELEN, false).id);
   assert.equal(ids.size, itemsByStars(4).length);
 });
+
+test('gacha: every pull shows how far along the pity counter is', async () => {
+  const { pityField } = await import('../src/commands/gacha.js');
+  const { PITY_STARS } = await import('../src/constants/index.js');
+  const { starString } = await import('../src/lib/format.js');
+  assert.deepEqual(pityField({ count: 12, hardPity: 90 }), { name: `Pity (${starString(PITY_STARS)})`, value: '12 / 90', inline: true });
+});

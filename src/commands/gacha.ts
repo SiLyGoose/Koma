@@ -64,16 +64,15 @@ export const gacha: Command = {
       )
       .setFooter({ text: result.isNew ? TEXT.gacha.footerNew : TEXT.gacha.footerOwned(result.count) })
       .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
-    // if (result.pity) {
-    //   embed.addFields({
-    //     name: TEXT.gacha.pityField(starString(PITY_STARS)),
-    //     value: TEXT.gacha.pityProgress(fmt(result.pity.count), fmt(result.pity.hardPity)),
-    //     inline: true,
-    //   });
-    // }
+    if (result.pity) embed.addFields(pityField(result.pity));
     await replyWithShootingStar(ctx, embed, item.stars, 'single');
   },
 };
+
+/** How close the member now is to a guaranteed top-tier item, next to what they spent and have left. */
+export function pityField(pity: { count: number; hardPity: number }) {
+  return { name: TEXT.gacha.pityField(starString(PITY_STARS)), value: TEXT.gacha.pityProgress(fmt(pity.count), fmt(pity.hardPity)), inline: true };
+}
 
 /** `gacha multi`: all the pulls in one embed, in the order they were pulled. */
 async function multiPull(ctx: CommandContext): Promise<void> {
@@ -121,6 +120,7 @@ async function multiPull(ctx: CommandContext): Promise<void> {
     )
     .setFooter({ text: newCount > 0 ? TEXT.gacha.multiFooterNew(newCount) : TEXT.gacha.multiFooterNoneNew })
     .setAuthor({ name: TEXT.gacha.author(ctx.user.displayName), iconURL: ctx.user.displayAvatarURL() });
+  if (result.pity) embed.addFields(pityField(result.pity));
   // The shooting star takes the colour of the best item pulled.
   const best = Math.max(...result.pulls.map((pull) => pull.item.stars)) as Stars;
   await replyWithShootingStar(ctx, embed, best, 'multi');
