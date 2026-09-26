@@ -14,7 +14,7 @@ export const NUMBER_LOCALE = 'en-US';
 /** Most decimals shown on a percentage: 12.345% shows as 12.35% at 2. */
 export const PERCENT_DECIMALS = 2;
 
-/** What each gear slot is called in words (the slash command's slot picker). */
+/** What each gear slot is called in words (the gear card's headings and the slash command's slot picker). */
 export const SLOT_LABELS: Record<Slot, string> = {
   weapon: 'Weapon',
   armor: 'Armor',

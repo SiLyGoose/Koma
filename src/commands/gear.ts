@@ -1,4 +1,4 @@
-import { RAID_COMBAT, REFINE, SLOT_EMOJI, TEXT } from '../constants/index.js';
+import { RAID_COMBAT, REFINE, SLOT_EMOJI, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
@@ -72,7 +72,7 @@ export const gear: Command = {
 
     const embed = createEmbed().setTitle(TEXT.gear.title(target.displayName));
     for (const slot of SLOTS) {
-      const label = SLOT_EMOJI[slot];
+      const label = TEXT.gear.slotName(SLOT_LABELS[slot], SLOT_EMOJI[slot]);
       const id = equipment[slot];
       const item = id ? ITEMS_BY_ID.get(id) : undefined;
       if (!item || item.slot !== slot) {

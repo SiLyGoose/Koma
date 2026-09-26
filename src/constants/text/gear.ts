@@ -5,6 +5,8 @@ export const gearText = {
   unknownItem: (id: string) => `${id} (no longer exists)`,
   emptySelf: (p: string) => `Nothing equipped. Use \`${p}equip <item name>\`.`,
   emptyOther: 'Nothing equipped.',
+  /** A slot's heading: its name and its emoji. */
+  slotName: (label: string, emoji: string) => `${label} ${emoji}`,
   /** The first line of a filled slot; the item's effects follow on their own lines. */
   /** `level` is the worn copy's refinement, shown as R1 to R5. */
   item: (name: string, stars: string, level: number) => `**${name}** ${stars} · R${level}`,
