@@ -78,7 +78,7 @@ export interface RaidStats {
 
 /**
  * The raid perks from a player's equipped gear (perks/heal-splash.ts, guard-boost.ts,
- * rally-boost.ts), as fractions. All 0 with no raid gear on.
+ * rally-boost.ts, max-hp-damage.ts, heal-cut.ts), as fractions. All 0 with no raid gear on.
  */
 export interface RaidGear {
   /** Share of each heal's value that also goes to a second hurt ally. */
@@ -89,12 +89,20 @@ export interface RaidGear {
   rallyBoost: number;
   /** Share of the boss's max HP each of their attacks deals on top. */
   maxHpDamage: number;
+  /** Share less the boss heals while they are standing (the strongest in the party counts). */
+  healCut: number;
 }
 
-export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0 });
+export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0, healCut: 0 });
 
 /** The raid perks out of a member's gear totals (lib/game/equipment.ts gearEffects). */
-export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost, maxHpDamage }: RaidGear): RaidGear => ({ healSplash, guardBoost, rallyBoost, maxHpDamage });
+export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost, maxHpDamage, healCut }: RaidGear): RaidGear => ({
+  healSplash,
+  guardBoost,
+  rallyBoost,
+  maxHpDamage,
+  healCut,
+});
 
 export interface RaidPlayer {
   userId: string;
@@ -182,7 +190,7 @@ export type RaidEvent =
   | { kind: 'hit'; move: HitMove; userId: string; damage: number; guarded: boolean; coveredFor: string | null }
   | { kind: 'knockedOut'; userId: string }
   /** The boss healed itself off a move (never above its max HP). */
-  | { kind: 'lifesteal'; move: HitMove; amount: number }
+  | { kind: 'lifesteal'; move: HitMove; amount: number; cut?: number }
   | { kind: 'shieldUp' }
   /** The reaper is charging its Soul Requiem, and when it is unleashed. */
   | { kind: 'charging' }
@@ -223,6 +231,9 @@ export const bossMultiplier = (state: RaidState): number => RAID_COMBAT.enrage.m
 
 /** What the boss's healing (the reaper's lifesteal) is multiplied by at its enrage level. */
 export const bossLifesteal = (state: RaidState): number => RAID_COMBAT.enrage.lifesteal[state.enrage] ?? 1;
+
+/** How much less the boss heals right now: the strongest heal-cut gear among the raiders still standing (0 with none). */
+export const bossHealCut = (state: RaidState): number => Math.min(1, Math.max(0, ...livingPlayers(state).map((p) => p.gear.healCut)));
 
 /** The moves that heal the boss. */
 export const HEALING_MOVES: readonly BossMove[] = ['reap', 'drain', 'harvest', 'requiem'];
@@ -489,10 +500,12 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   };
   /** The boss heals `amount` (never above its max HP). */
   const heal = (amount: number, hitMove: HitMove): void => {
-    const healed = Math.min(state.bossMaxHp - state.bossHp, Math.round(amount * (state.intent.lifesteal ?? 1)));
+    // Heal-cut gear on a raider still standing (after this move's hits) takes its share off.
+    const cut = bossHealCut(state);
+    const healed = Math.min(state.bossMaxHp - state.bossHp, Math.round(amount * (state.intent.lifesteal ?? 1) * (1 - cut)));
     if (healed <= 0) return;
     state.bossHp += healed;
-    events.push({ kind: 'lifesteal', move: hitMove, amount: healed });
+    events.push({ kind: 'lifesteal', move: hitMove, amount: healed, ...(cut > 0 ? { cut } : {}) });
   };
   /** Its base damage, for the moves that hit raiders. */
   const baseDamage = (hitMove: Exclude<HitMove, 'harvest'>): number => RAID_COMBAT.moves[hitMove].damage;

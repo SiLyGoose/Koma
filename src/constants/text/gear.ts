@@ -28,6 +28,7 @@ export const gearText = {
     `${E.guard} **Guard**: you take ${taken} of a hit${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsRally: (multiplier: string, turns: number, normal: string | null, gear: string) =>
     `✨ **Rally**: attacks do ${multiplier} damage for ${turns} turns${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
+  statsHealCut: (share: string, gear: string) => `🩸 **Heal cut**: bosses heal ${share} less while you're standing ${gear}`,
   statsGearMark: '🎒',
   statsNoGear: (p: string) => `No raid gear equipped, so these are the base numbers. Raid gear can be pulled with \`${p}gacha\`.`,
   statsFooter: '🎒 = changed by gear. Gear counts as it is when a raid starts; boosts and rallies raise Attack and Heal further.',

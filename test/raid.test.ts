@@ -25,6 +25,7 @@ import {
   recordTheft,
   resolvePlayerTurn,
   type RaidChoice,
+  type RaidEvent,
   type RaidRng,
   type RaidState,
 } from '../src/lib/events/raid.js';
@@ -903,7 +904,7 @@ test('moodOf: each phase and each ending has its own picture', () => {
 
 test('gear stats: the raid numbers a member fights with, and the ones their gear changed', async () => {
   const { raidStatsEmbed } = await import('../src/commands/gear.js');
-  const none = raidStatsEmbed('Ana', { healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0 }, 100, 'k!').toJSON();
+  const none = raidStatsEmbed('Ana', { healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0, healCut: 0 }, 100, 'k!').toJSON();
   assert.equal(none.title, "⚔️ Ana's raid stats");
   const plain = none.description ?? '';
   assert.match(plain, /❤️ \*\*HP\*\*: 100/);
@@ -911,13 +912,14 @@ test('gear stats: the raid numbers a member fights with, and the ones their gear
   assert.match(plain, /you take 50% of a hit$/m);
   assert.match(plain, /attacks do 1\.5x damage for 2 turns$/m);
   assert.match(plain, /No raid gear equipped.*k!gacha/);
-  assert.doesNotMatch(plain, /🎒|second ally/);
+  assert.doesNotMatch(plain, /🎒|second ally|Heal cut/);
   assert.equal(none.footer, undefined);
 
-  const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25, maxHpDamage: 0.005 }, 100, 'k!').toJSON();
+  const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25, maxHpDamage: 0.005, healCut: 0.25 }, 100, 'k!').toJSON();
   const text = geared.description ?? '';
   assert.match(text, /second ally for 20% of it \(6 HP\) 🎒/);
   assert.match(text, /plus 0\.5% of the boss's max HP per hit 🎒/);
+  assert.match(text, /🩸 \*\*Heal cut\*\*: bosses heal 25% less while you're standing 🎒/);
   assert.match(text, /you take 37\.5% of a hit \(normally 50%\) 🎒/);
   assert.match(text, /attacks do 1\.63x damage for 2 turns \(normally 1\.5x\) 🎒/);
   assert.doesNotMatch(text, /No raid gear/);
@@ -1289,4 +1291,63 @@ test('raid stats: the reaper lists its Soul Requiem', () => {
   const moves = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '';
   assert.ok(moves.includes('🌑 **Soul Requiem** (😡 Furious only): charges for a turn, then casts Soul Drain 2 times in a row. 6 round cooldown.'), moves);
   assert.doesNotMatch(bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '', /Requiem/);
+});
+
+test('heal-cut weapons: a 1-, 2- and 3-star weapon, the 3-star one cutting boss heals by 25% at R5', async () => {
+  const { itemBlock } = await import('../src/lib/game/databank.js');
+  for (const [id, stars, cut] of [
+    ['thorned-club', 1, 0.1],
+    ['serrated-hatchet', 2, 0.15],
+    ['soulrender', 3, 0.25],
+  ] as const) {
+    const item = ITEMS_BY_ID.get(id);
+    assert.ok(item, id);
+    assert.equal(item.stars, stars, id);
+    assert.equal(item.slot, 'weapon', id);
+    assert.deepEqual(item.effects, ['healCut'], id);
+    assert.equal(DEFAULTS.equipment.healCut[stars], cut, id);
+  }
+  const soulrender = ITEMS_BY_ID.get('soulrender') as ItemDef;
+  assert.deepEqual(describeEffects(soulrender), ["Raid: the boss heals 25% less while you're standing"]);
+  // Below R5 it is weaker, like every perk.
+  assert.notDeepEqual(describeEffects(soulrender, 1, 1), describeEffects(soulrender));
+  assert.ok(itemBlock(soulrender).includes('Soulrender'));
+});
+
+test('heal cut: the strongest cut among the raiders still standing comes off every heal the boss gets, and they do not stack', () => {
+  const { damage, lifesteal } = RAID_COMBAT.moves.reap;
+  const full = Math.round(damage * lifesteal);
+  const reapAt = (gear: Record<string, number>, down: string[] = []): { state: RaidState; events: ReturnType<typeof bossTurn>['events'] } => {
+    const state = reaperFight(['a', 'b', 'c'], 4000);
+    state.bossHp = 1000;
+    for (const p of state.players) {
+      p.gear.healCut = gear[p.userId] ?? 0;
+      if (down.includes(p.userId)) p.hp = 0;
+    }
+    state.intent = { move: 'reap', targets: ['c'], multiplier: 1 };
+    return { state, events: bossTurn(state, low).events };
+  };
+
+  // No gear: the full heal, and no mention of a cut.
+  assert.deepEqual(reapAt({}).events.at(-1), { kind: 'lifesteal', move: 'reap', amount: full });
+
+  // 25% on one raider: a quarter less, and the log says so.
+  const cut = reapAt({ a: 0.25 });
+  assert.deepEqual(cut.events.at(-1), { kind: 'lifesteal', move: 'reap', amount: Math.round(damage * lifesteal * 0.75), cut: 0.25 });
+  assert.equal(eventText(cut.events.at(-1) as RaidEvent, 'reaper'), `🩸 The reaper feeds on the stolen life and heals **${Math.round(damage * lifesteal * 0.75)}** HP (25% less, cut by gear).`);
+
+  // Two wearers: only the strongest counts.
+  assert.deepEqual(reapAt({ a: 0.25, b: 0.15 }).events.at(-1), { kind: 'lifesteal', move: 'reap', amount: Math.round(damage * lifesteal * 0.75), cut: 0.25 });
+
+  // A wearer who is knocked out doesn't count.
+  assert.deepEqual(reapAt({ a: 0.25, b: 0.1 }, ['a']).events.at(-1), { kind: 'lifesteal', move: 'reap', amount: Math.round(damage * lifesteal * 0.9), cut: 0.1 });
+
+  // Harvest's heal is cut the same way, and the announcement shows the heal it will really get.
+  const harvesting = reaperFight(['a', 'b'], 4000);
+  harvesting.players[0]!.gear.healCut = 0.25;
+  harvesting.intent = { move: 'harvest', targets: ['b'], multiplier: 1 };
+  const expected = Math.round(4000 * RAID_COMBAT.moves.harvest.maxHpShare * 0.75);
+  assert.ok(intentText(harvesting).includes(`it heals ${expected})`), intentText(harvesting));
+  harvesting.bossHp = 1000;
+  assert.equal((bossTurn(harvesting, low).events.at(-1) as { amount: number }).amount, expected);
 });

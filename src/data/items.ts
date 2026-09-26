@@ -61,6 +61,14 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'Shrill enough to wake the whole party. They swing a little harder to make it stop.',
     effects: ['rallyBoost'],
   },
+  {
+    id: 'thorned-club',
+    name: 'Thorned Club',
+    stars: 1,
+    slot: 'weapon',
+    description: 'Wrapped in bramble. The scratches it leaves itch for days and never quite close.',
+    effects: ['healCut'],
+  },
 
   // 2 stars
   {
@@ -111,6 +119,14 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'One blast and everyone swings a little harder.',
     effects: ['rallyBoost'],
   },
+  {
+    id: 'serrated-hatchet',
+    name: 'Serrated Hatchet',
+    stars: 2,
+    slot: 'weapon',
+    description: 'Its teeth tear rather than cut. Whatever it wounds has a hard time mending.',
+    effects: ['healCut'],
+  },
 
   // 3 stars
   {
@@ -160,6 +176,14 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'A lance forged for one thing only. The bigger the beast, the deeper it bites.',
     effects: ['maxHpDamage'],
+  },
+  {
+    id: 'soulrender',
+    name: 'Soulrender',
+    stars: 3,
+    slot: 'weapon',
+    description: 'Forged to cut the threads that bind stolen life. Near it, nothing feeds as well as it used to.',
+    effects: ['healCut'],
   },
 
   // 4 stars

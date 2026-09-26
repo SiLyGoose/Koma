@@ -34,7 +34,8 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
     t.statsGuard(formatPercent(guard), gear.guardBoost > 0 ? formatPercent(guardTakenShare(base)) : null, t.statsGearMark),
     t.statsRally(formatMultiplier(rally), support.rallyTurns, gear.rallyBoost > 0 ? formatMultiplier(rallyMultiplierOf(base)) : null, t.statsGearMark),
   );
-  const hasGear = gear.healSplash > 0 || gear.guardBoost > 0 || gear.rallyBoost > 0 || gear.maxHpDamage > 0;
+  if (gear.healCut > 0) lines.push(t.statsHealCut(formatPercent(gear.healCut), t.statsGearMark));
+  const hasGear = gear.healSplash > 0 || gear.guardBoost > 0 || gear.rallyBoost > 0 || gear.maxHpDamage > 0 || gear.healCut > 0;
   if (!hasGear) lines.push('', t.statsNoGear(prefix));
 
   const embed = createEmbed().setTitle(t.statsTitle(name)).setDescription(lines.join('\n'));

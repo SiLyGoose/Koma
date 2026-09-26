@@ -25,6 +25,7 @@ import { limitedLines } from '../events/vault-game.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import {
   actionProblem,
+  bossHealCut,
   bossHpFor,
   bossTurn,
   canAct,
@@ -115,7 +116,8 @@ export function intentText(state: RaidState, intent: BossIntent = state.intent):
   const { moves, support } = RAID_COMBAT;
   const i = TEXT.raid.intent;
   const hit = (damage: number): number => Math.round(damage * multiplier);
-  const lifesteal = intent.lifesteal ?? 1;
+  // What it heals, after any heal-cut gear on a raider still standing.
+  const lifesteal = (intent.lifesteal ?? 1) * (1 - bossHealCut(state));
   switch (intent.move) {
     case 'claw':
       return i.claw(target, hit(moves.claw.damage));
@@ -185,7 +187,7 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
     case 'knockedOut':
       return log.knockedOut(mention(event.userId));
     case 'lifesteal':
-      return log.lifesteal(b, event.amount);
+      return log.lifesteal(b, event.amount, event.cut ? formatPercent(event.cut) : null);
     case 'shieldUp':
       return b.shieldUp;
     case 'charging':

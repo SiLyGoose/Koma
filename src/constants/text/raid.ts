@@ -238,7 +238,9 @@ Grows with every raider (at least ${min}).`,
       move === 'claw' ? `🐉 ${guard} took the Claw for ${target}: **${damage}**.` : `🩸 ${guard} took the Reap for ${target}: **${damage}**.`,
     charging: (b: RaidBossText) => `🌑 ${b.It} gathers the souls around it. **Soul Requiem** is coming next turn!`,
     requiem: (b: RaidBossText) => `🌑 ${b.It} unleashes **Soul Requiem**!`,
-    lifesteal: (b: RaidBossText, amount: number) => `🩸 ${b.It} feeds on the stolen life and heals **${amount}** HP.`,
+    /** `cut` is how much less it healed because of heal-cut gear ("25%"), or null. */
+    lifesteal: (b: RaidBossText, amount: number, cut: string | null = null) =>
+      `🩸 ${b.It} feeds on the stolen life and heals **${amount}** HP${cut === null ? '' : ` (${cut} less, cut by gear)`}.`,
     knockedOut: (user: string) => `💀 ${user} was knocked out!`,
     cc: (effect: CrowdControl, user: string) => `${E[effect]} ${user} is ${CC[effect].name}: ${CC[effect].does}.`,
     hoardBlocked: (guard: string, target: string) => `💰 ${guard} kept the dragon's claws off ${target}'s wallet.`,
