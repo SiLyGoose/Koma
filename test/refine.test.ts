@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { REFINE, TEXT, validateConstants } from '../src/constants/index.js';
+import { REFINE, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { describeEffects, equippedGear, gearEffects, totalEffects } from '../src/lib/game/equipment.js';
 import { refineLevel, refinePlan, refineShare } from '../src/lib/game/refine.js';
@@ -35,8 +35,8 @@ test('refinement strength: equal steps up to exactly the listed value at R5, wit
 
 test('refinement shows as R and the level', () => {
   assert.equal(TEXT.gear.item('Wyrmscale Plate', '★★★', 3), '**Wyrmscale Plate** ★★★ · R3');
-  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, 'armor', 3), 'Wyrmscale Plate ×2 · armor · R3');
-  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, 'armor', 1), 'Wyrmscale Plate ×2 · armor', 'R1 is left out of the inventory');
+  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2 · R3`);
+  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 1), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2`, 'R1 is left out of the inventory');
   assert.equal(TEXT.equip.effectsField(2), 'Effects (R2)');
   assert.match(TEXT.refine.done('<@a>', 2, 3, 1), /from \*\*R2\*\* to \*\*R3\*\*.*1 duplicate left/);
   assert.equal(TEXT.refine.maxed('Wyrmscale Plate', 5), 'Your **Wyrmscale Plate** is already fully refined (**R5**).');

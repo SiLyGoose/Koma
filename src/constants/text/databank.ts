@@ -19,7 +19,7 @@ export const databankText = {
   tierField: (stars: string, count: number) => `${stars} (${count})`,
   /** A tier long enough to need more than one page of its own, e.g. "★★★★ (7) — page 2/2". */
   tierFieldPage: (stars: string, count: number, page: number, pages: number) => `${stars} (${count}) — page ${page}/${pages}`,
-  item: (name: string, slot: string) => `**${name}** · ${slot}`,
+  item: (name: string, slot: string) => `${slot} **${name}**`,
   noEffects: 'No effects',
   /** The list of one star tier (`databank <1-4>`). `stars` is the star string. */
   tierTitle: (stars: string) => `Databank: ${stars}`,

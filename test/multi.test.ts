@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CURRENCY_EMOJI, MULTI_PULLS, TEXT, validateConstants } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, MULTI_PULLS, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/gacha.js';
 import { itemsByStars } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
@@ -58,9 +58,9 @@ test('multi: the messages', () => {
     `A multi pull (10 pulls) costs **2,800** ${CURRENCY_EMOJI} and you have **100** ${CURRENCY_EMOJI} Use \`k!claim\` to earn more.`,
   );
   assert.equal(TEXT.gacha.multiTitle(10), 'Multi pull x10');
-  assert.equal(TEXT.gacha.multiLine('★★', 'Kippah', false), '★★  Kippah');
-  assert.equal(TEXT.gacha.multiLine('★★', 'Kippah', true), '★★  Kippah · New!');
-  assert.equal(TEXT.gacha.multiLineTop('★★★★', 'C4', true), '**★★★★  C4** · New!');
+  assert.equal(TEXT.gacha.multiLine('★★', SLOT_EMOJI.armor, 'Kippah', false), `★★  Kippah ${SLOT_EMOJI.armor}`);
+  assert.equal(TEXT.gacha.multiLine('★★', SLOT_EMOJI.armor, 'Kippah', true), `★★  Kippah ${SLOT_EMOJI.armor} · New!`);
+  assert.equal(TEXT.gacha.multiLineTop('★★★★', SLOT_EMOJI.weapon, 'C4', true), `**★★★★  C4** ${SLOT_EMOJI.weapon} · New!`);
   assert.equal(TEXT.gacha.multiExclusive('C4', '<@1>', '50%'), 'C4 is made for <@1>. It only works at 50% for you.');
   assert.equal(TEXT.gacha.multiTier('★', 9), '★ x9');
   assert.equal(TEXT.gacha.multiFooterNew(1), '1 new item!');

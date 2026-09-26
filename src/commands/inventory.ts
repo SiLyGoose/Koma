@@ -1,5 +1,5 @@
 import { STARS } from '../config.js';
-import { TEXT } from '../constants/index.js';
+import { SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
@@ -57,7 +57,7 @@ export const inventory: Command = {
         .filter((item) => owned.has(item.id))
         .map((item) => {
           const line = equippedIds.has(item.id) ? TEXT.inventory.itemEquipped : TEXT.inventory.item;
-          return line(item.name, owned.get(item.id) as number, item.slot, bestLevel.get(item.id) ?? 1);
+          return line(item.name, owned.get(item.id) as number, SLOT_EMOJI[item.slot], bestLevel.get(item.id) ?? 1);
         });
       embed.addFields({
         name: TEXT.inventory.tierField(starString(stars), lines.length, tier.length),

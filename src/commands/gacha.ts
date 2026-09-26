@@ -1,4 +1,4 @@
-import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, TEXT, TOKEN_NAME } from '../constants/index.js';
+import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, SLOT_EMOJI, TEXT, TOKEN_NAME } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/equipment.js';
 import { fmt, formatPercent, mentionList, money, starString } from '../lib/format.js';
@@ -57,6 +57,7 @@ export const gacha: Command = {
           (item.usableBy && !canUseItem(item, ctx.user.id) ? `\n${TEXT.gacha.exclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness))}` : ''),
       )
       .addFields(
+        { name: TEXT.gacha.slotField, value: SLOT_EMOJI[item.slot], inline: true },
         { name: TEXT.gacha.spentField, value: spentText(result), inline: true },
         { name: TEXT.gacha.balanceField, value: balanceText(result), inline: true },
       )
@@ -88,7 +89,7 @@ async function multiPull(ctx: CommandContext): Promise<void> {
   }
 
   const lines = result.pulls.map(({ item, isNew }) =>
-    (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(starString(item.stars), item.name, isNew),
+    (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(starString(item.stars), SLOT_EMOJI[item.slot], item.name, isNew),
   );
 
   // One note per exclusive item that only works part way for this member.

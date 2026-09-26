@@ -14,6 +14,8 @@ export const gachaText = {
   /** The message the shooting star plays in, before the result. */
   pullingTitle: 'A star is falling...',
   pulling: (user: string) => `${user} makes a wish...`,
+  /** The single pull's slot field; its value is the slot's emoji. */
+  slotField: 'Slot',
   spentField: 'Spent',
   spent: (cost: string) => `${cost} ${CURRENCY_EMOJI}`,
   spentWithGear: (cost: string, saved: string) => `${cost} ${CURRENCY_EMOJI} (gear saved ${saved} ${CURRENCY_EMOJI})`,
@@ -36,10 +38,10 @@ export const gachaText = {
   multiCantAffordWithTokens: (p: string, pulls: number, tokens: number, cost: string, balance: string) =>
     `Your ${boldTokens(tokens)} cover ${tokens} of the ${pulls} pulls. The rest cost ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
   multiTitle: (pulls: number) => `Multi pull x${pulls}`,
-  /** One line per pull. `stars` is the star string; `isNew` when it is the first copy the member has ever owned. */
-  multiLine: (stars: string, name: string, isNew: boolean) => `${stars}  ${name}${isNew ? ' · New!' : ''}`,
+  /** One line per pull. `stars` is the star string; `slot` is the slot's emoji; `isNew` when it is the first copy the member has ever owned. */
+  multiLine: (stars: string, slot: string, name: string, isNew: boolean) => `${stars}  ${name} ${slot}${isNew ? ' · New!' : ''}`,
   /** Same, for a top-tier pull, which is set apart in bold. */
-  multiLineTop: (stars: string, name: string, isNew: boolean) => `**${stars}  ${name}**${isNew ? ' · New!' : ''}`,
+  multiLineTop: (stars: string, slot: string, name: string, isNew: boolean) => `**${stars}  ${name}** ${slot}${isNew ? ' · New!' : ''}`,
   /** Added under the list for each pulled item that is exclusive to other members. `owners` is mentions. */
   multiExclusive: (name: string, owners: string, share: string) => `${name} is made for ${owners}. It only works at ${share} for you.`,
   multiSummaryField: 'Summary',

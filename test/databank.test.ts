@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EventEmitter } from 'node:events';
 import { CONFIG } from '../src/config.js';
-import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_LABELS, TEXT, validateConstants } from '../src/constants/index.js';
+import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS, findItem } from '../src/data/items.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
@@ -27,7 +27,7 @@ test('databank: every catalog item is listed once, with its slot and every effec
   assert.ok(pages.length >= 1, 'at least one page');
   const text = allText(pages);
   for (const item of ITEMS) {
-    assert.equal(text.split(`**${item.name}** · ${SLOT_LABELS[item.slot]}`).length - 1, 1, `${item.name} appears once`);
+    assert.equal(text.split(`${SLOT_EMOJI[item.slot]} **${item.name}**`).length - 1, 1, `${item.name} appears once`);
     for (const line of describeEffects(item)) assert.ok(text.includes(line), `${item.name}: ${line}`);
   }
 });
@@ -131,7 +131,7 @@ test('databank item: the details show the name and stars, flavor text, slot, and
   assert.equal(detail.title, '★★★  Big Sword');
   assert.equal(detail.description, '*It is big.*');
   const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
-  assert.equal(byName[TEXT.databank.detailSlotField], 'Weapon');
+  assert.equal(byName[TEXT.databank.detailSlotField], SLOT_EMOJI.weapon);
   assert.equal(byName[TEXT.databank.detailEffectsField(REFINE.maxLevel)], describeEffects(item).join('\n'));
   assert.equal(describeEffects(item).length, 2);
   assert.equal(TEXT.databank.detailExclusiveField in byName, false, 'nothing about exclusivity for a normal item');
@@ -323,7 +323,7 @@ test('databank tier: shows every item of that tier across however many pages it 
 
     const text = seen.join('\n');
     for (const item of mine) {
-      assert.ok(text.includes(`**${item.name}** · ${SLOT_LABELS[item.slot]}`), `${item.name} is listed`);
+      assert.ok(text.includes(`${SLOT_EMOJI[item.slot]} **${item.name}**`), `${item.name} is listed`);
       for (const line of describeEffects(item)) assert.ok(text.includes(line), `${item.name}: ${line}`);
     }
     for (const item of others) assert.ok(!text.includes(`**${item.name}**`), `${item.name} is left out of ${stars}-star`);

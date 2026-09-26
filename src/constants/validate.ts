@@ -3,7 +3,7 @@ import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKE
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH } from './events.js';
-import { STAR_SYMBOL, PERCENT_DECIMALS } from './formatting.js';
+import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
 import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE } from './refine.js';
@@ -151,6 +151,9 @@ export function validateConstants(): void {
   // One row of buttons holds No boost, the presets and Custom: at most 5.
   if (RAID.boostPresets.length > 3 || RAID.boostPresets.some((p) => !Number.isInteger(p) || p < 1)) problems.push('RAID.boostPresets must be up to 3 whole numbers of at least 1');
   if (!(RAID_COMBAT.attack.min >= 1 && RAID_COMBAT.attack.min <= RAID_COMBAT.attack.max)) problems.push('RAID_COMBAT.attack needs 1 <= min <= max');
+  for (const [slot, emoji] of Object.entries(SLOT_EMOJI)) {
+    if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`SLOT_EMOJI.${slot} must be a full custom emoji code, like <:name:123456789012345678>`);
+  }
   for (const [name, emoji] of Object.entries(RAID_EMOJI)) {
     if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`RAID_EMOJI.${name} must be a full custom emoji code, like <:name:123456789012345678>`);
   }

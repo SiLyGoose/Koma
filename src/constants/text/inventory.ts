@@ -6,10 +6,10 @@ export const inventoryText = {
   title: (name: string) => `${name}'s inventory`,
   summary: (total: string, unique: number, catalogSize: number) =>
     `${total} items · ${unique}/${catalogSize} unique collected`,
-  /** `level` is the best refinement among the copies, shown once it is past 1. */
-  item: (name: string, count: number, slot: string, level: number) => `${name} ×${count} · ${slot}${level > 1 ? ` · R${level}` : ''}`,
+  /** `slot` is the slot's emoji; `level` is the best refinement among the copies, shown once it is past 1. */
+  item: (name: string, count: number, slot: string, level: number) => `${slot} ${name} ×${count}${level > 1 ? ` · R${level}` : ''}`,
   itemEquipped: (name: string, count: number, slot: string, level: number) =>
-    `${name} ×${count} · ${slot}${level > 1 ? ` · R${level}` : ''} · equipped`,
+    `${slot} ${name} ×${count}${level > 1 ? ` · R${level}` : ''} · equipped`,
   /** `stars` is the star string; `have` of `total` items in that tier are owned. */
   tierField: (stars: string, have: number, total: number) => `${stars} (${have}/${total})`,
   tierEmpty: 'None yet',
