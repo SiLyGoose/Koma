@@ -46,7 +46,7 @@ function successNotes(
   }
   if (result.robTaxPaid !== null) {
     const { amount, toUserId } = result.robTaxPaid;
-    lines.push(TEXT.rob.robTaxPaid(mention(toUserId), fmt(amount), fmt(result.stolen - amount)));
+    lines.push(TEXT.rob.robTaxPaid(mention(toUserId), fmt(amount), fmt(result.stolen + result.wheelBonus - amount)));
   }
   if (result.claimTax !== null) lines.push(TEXT.rob.claimTaxed(victim, formatPercent(result.claimTax)));
   if (result.robTax !== null) lines.push(TEXT.rob.robTaxed(victim, formatPercent(result.robTax)));

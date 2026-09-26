@@ -212,6 +212,8 @@ export type LedgerReason =
   | 'event_crate'
   | 'rob_won'
   | 'rob_lost'
+  // What the wheel (Wheelchair) added to or took from a robber's take. The victim never pays it.
+  | 'rob_wheel'
   | 'rob_fine_paid'
   | 'rob_fine_received'
   | 'rob_tax_paid'

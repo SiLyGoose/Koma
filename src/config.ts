@@ -176,6 +176,14 @@ export interface Settings {
     capHours: number;
   };
   /**
+   * The Wheelchair's prize wheel (perks/wheel-spin/slices.ts). Its winning slices are stretched so
+   * the biggest one is `maxMultiplier`; the losing slices (down to 0.1x) stay as they are.
+   */
+  wheel: {
+    /** The biggest multiplier on the wheel. */
+    maxMultiplier: number;
+  };
+  /**
    * How strong each equipment effect is, per star tier: equipment.<effect>.<stars>. Plus
    * `borrowed`: exclusive items (usableBy, the unique treasures) worn by someone they aren't made
    * for, where `effectiveness` is the share (0 to 1) of the item's effects that member gets.
@@ -241,6 +249,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
   // rather than jumping there.
   stonks: { capHours: 5 },
+  // The wheel goes from 0.1x up to 5x, which averages about 1.47x a spin.
+  wheel: { maxMultiplier: 5 },
   // Someone else's unique treasure works at half strength.
   equipment: { ...defaultEquipmentSettings(), borrowed: { effectiveness: 0.5 } },
   leaderboardSize: 10,

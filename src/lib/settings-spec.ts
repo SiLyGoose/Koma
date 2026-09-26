@@ -11,6 +11,7 @@ import {
   MAX_PREFIX_LENGTH,
   MAX_SETTING_POINTS,
   MAX_STONKS_HOURS,
+  MAX_WHEEL_MULTIPLIER,
   MAX_TIMER_MINUTES,
   MAX_VAULT_MULTIPLIER,
   MAX_EVENT_SECONDS,
@@ -34,7 +35,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Raid' | 'Stonks' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -237,6 +238,17 @@ export const SPECS: readonly SettingSpec[] = [
     1,
     MAX_STONKS_HOURS,
   ),
+
+  {
+    key: 'wheel.maxMultiplier',
+    group: 'Wheel',
+    description:
+      "The biggest multiplier on the Wheelchair's prize wheel. Its winning slices stretch to reach it; the losing ones (down to 0.1x) stay the same. 1x takes the wins off the wheel.",
+    type: 'number',
+    min: 1,
+    max: MAX_WHEEL_MULTIPLIER,
+    multiplier: true,
+  },
 
   {
     key: 'equipment.borrowed.effectiveness',

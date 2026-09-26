@@ -18,6 +18,7 @@ import {
   spinWheel,
   stonksMultiplier,
   wheelChance,
+  wheelSlices,
   type D20Dice,
   type D20Roll,
   type WheelSpin,
@@ -114,7 +115,7 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
     const gap = claimGapHours(gear);
     const withGear = claimAmount(rolled, gear);
-    const wheel = spinWheel(wheelChance(gear), wheelDice);
+    const wheel = spinWheel(wheelChance(gear), wheelDice, wheelSlices(CONFIG.wheel.maxMultiplier));
     const afterWheel = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
     const d20 = rollD20(d20Chance(gear), d20Dice);
     const afterD20 = d20 ? applyD20(afterWheel, d20) : afterWheel;

@@ -19,11 +19,12 @@ import {
   slipPenaltyAmount,
   spinWheel,
   wheelChance,
+  wheelSlices,
   type WheelSpin,
 } from '../../perks/index.js';
 import { resolveGear } from '../gear.js';
 import { addVaultLoss } from '../vault.js';
-import { type LedgerInput, recordLedger, ensureMember, transferClamped } from './shared.js';
+import { type LedgerInput, clampedDebit, recordLedger, ensureMember, transferClamped } from './shared.js';
 import { sleep } from '../../lib/time.js';
 
 /*
@@ -50,13 +51,16 @@ export type RobResult =
       robTax: number | null;
       /** Set when a Jew Frog wearer who robbed the robber earlier took part of this rob. */
       robTaxPaid: { amount: number; toUserId: string } | null;
-      /** Set when the wheel (wheelSpin gear) spun for this rob and multiplied what was stolen. */
+      /**
+       * Set when the wheel (wheelSpin gear) spun for this rob. It multiplies what the robber keeps;
+       * the victim only ever loses `stolen`.
+       */
       wheel: WheelSpin | null;
       /** How many points the robber's gear added to what was taken (negative when it cut it, like a robAmountCut). */
       gearBonus: number;
       /** How many points the victim's armor kept from the robber. */
       shielded: number;
-      /** How many points the wheel added to what was taken (negative if it took some away); 0 when it didn't spin. */
+      /** How many points the wheel added to the robber's take (negative if it took some away); 0 when it didn't spin. The victim doesn't pay it. */
       wheelBonus: number;
       /**
        * Set when the rob slipped (Piplup on either side): `returned` of what was taken went back to
@@ -192,15 +196,14 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
           { $set: { lastRobbedAt: slot?.lastRobbedAt ?? null } },
         );
 
-      // The wheel multiplies what is taken, so the victim loses exactly what the robber gets.
+      // The victim loses what is taken; the wheel (below) then multiplies only what the robber keeps.
       const rolled = randInt(cfg.minStolen, cfg.maxStolen);
       const stolen = robStolenAmount(rolled, robberGear, victimGear);
       // What each effect did, so the reply can show it: the robber's gear, then the victim's armor,
       // then the wheel. Each step is the difference between two whole numbers, so they add up.
       const beforeArmor = robStolenAmount(rolled, robberGear, emptyTotals());
-      const wheel = spinWheel(wheelChance(robberGear), rollWheelDice());
-      const wanted = wheel ? applyWheel(stolen, wheel.multiplier) : stolen;
-      const transfer = await transferClamped(guildId, victimId, robberId, wanted, cfg.minVictimBalance);
+      const wheel = spinWheel(wheelChance(robberGear), rollWheelDice(), wheelSlices(CONFIG.wheel.maxMultiplier));
+      const transfer = await transferClamped(guildId, victimId, robberId, stolen, cfg.minVictimBalance);
       if (!transfer) {
         // The victim spent their points between the check and the steal, so nothing was robbed.
         await releaseVictimSlot();
@@ -236,16 +239,41 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               claimTax: null,
               robTax: null,
               robTaxPaid: null,
-              wheel,
+              // The rob was undone before the wheel paid out, so it didn't spin.
+              wheel: null,
               gearBonus: beforeArmor - rolled,
               shielded: Math.max(0, beforeArmor - stolen),
-              wheelBonus: wanted - stolen,
+              wheelBonus: 0,
               slip: { returned: Math.min(back.moved, transfer.moved), penalty: Math.max(0, back.moved - transfer.moved) },
             };
           }
         } catch (err) {
           // The rob already happened; if the slip can't be paid, it simply didn't slip.
           console.error('Could not pay out a slip:', err);
+        }
+      }
+
+      // The wheel multiplies the robber's take. What it adds is new points; what it takes away comes
+      // out of the take. Either way the victim only lost what was taken.
+      let wheelBonus = 0;
+      if (wheel) {
+        const change = applyWheel(transfer.moved, wheel.multiplier) - transfer.moved;
+        if (change !== 0) {
+          try {
+            const robberBefore = await members.findOneAndUpdate(
+              { guildId, userId: robberId },
+              change > 0 ? { $inc: { points: change } } : clampedDebit(-change),
+              { returnDocument: 'before' },
+            );
+            if (robberBefore) {
+              wheelBonus = change > 0 ? change : -Math.min(-change, robberBefore.points);
+              robberBalance = robberBefore.points + wheelBonus;
+              ledger.push({ guildId, userId: robberId, delta: wheelBonus, reason: 'rob_wheel', otherUserId: victimId });
+            }
+          } catch (err) {
+            // The steal already happened; if the wheel can't pay, it just didn't change anything.
+            console.error('Could not pay out a rob wheel spin:', err);
+          }
         }
       }
 
@@ -263,7 +291,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
             { returnDocument: 'before' },
           );
           if (taken) {
-            const tax = robTaxAmount(transfer.moved, owedRate);
+            // A share of what the robber actually kept, after the wheel.
+            const tax = robTaxAmount(transfer.moved + wheelBonus, owedRate);
             let paid: { moved: number; fromBalance: number } | null = null;
             try {
               await ensureMember(guildId, owedTo);
@@ -340,7 +369,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         wheel,
         gearBonus: beforeArmor - rolled,
         shielded: Math.max(0, beforeArmor - stolen),
-        wheelBonus: wanted - stolen,
+        wheelBonus,
         slip: null,
       };
     }

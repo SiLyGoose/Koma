@@ -25,6 +25,8 @@ export interface WheelSpin {
   multiplier: number;
   /** How far into the slice the pointer stopped (0 to 1), only for the picture. */
   offset: number;
+  /** The wheel it was spun on (see wheelSlices), so the picture shows the same slices. */
+  slices: readonly number[];
 }
 
 /** The three random numbers (each 0 up to but not including 1) a spin needs. */
@@ -50,7 +52,7 @@ export function spinWheel(strength: number, dice: WheelDice, slices: readonly nu
   if (!(strength > 0) || dice.trigger >= Math.min(1, strength) || slices.length === 0) return null;
   const index = Math.min(slices.length - 1, Math.floor(dice.slice * slices.length));
   // Keep the pointer off the slice edges so the picture is never ambiguous.
-  return { index, multiplier: slices[index] as number, offset: 0.1 + 0.8 * dice.offset };
+  return { index, multiplier: slices[index] as number, offset: 0.1 + 0.8 * dice.offset, slices };
 }
 
 /** Points after the wheel's multiplier, rounded, and at least 1. */

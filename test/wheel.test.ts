@@ -4,7 +4,9 @@ import { CONFIG } from '../src/config.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
 import { replyWithWheel, spinSteps } from '../src/animations/wheel-reply.js';
-import { MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, WHEEL_MIN_CHANCE, validateConstants } from '../src/constants/index.js';
+import { MAX_WHEEL_MULTIPLIER, MAX_WHEEL_SLICES, TEXT, WHEEL_ANIMATION, WHEEL_MIN_CHANCE, validateConstants } from '../src/constants/index.js';
+import { findSpec } from '../src/lib/settings-spec.js';
+import { GROUPS } from '../src/commands/config.js';
 import {
   applyWheel,
   emptyTotals,
@@ -12,6 +14,7 @@ import {
   validateWheel,
   WHEEL_SLICES,
   wheelChance,
+  wheelSlices,
   type WheelDice,
 } from '../src/perks/index.js';
 import { createEmbed } from '../src/lib/embed.js';
@@ -288,7 +291,7 @@ test('animation: the reply shows the spinning wheel, swaps pictures, then ends o
     const { message, calls } = fakeMessage();
     const result = createEmbed().setTitle('Result');
     const started = Date.now();
-    await replyWithWheel(messageContext(message as Message<true>, [], 'k!'), result, { index: 4, multiplier: 2, offset: 0.4 }, { allowedMentions: { users: ['2'] } });
+    await replyWithWheel(messageContext(message as Message<true>, [], 'k!'), result, { index: 4, multiplier: 2, offset: 0.4, slices: WHEEL_SLICES }, { allowedMentions: { users: ['2'] } });
     const elapsed = Date.now() - started;
 
     assert.equal(calls[0]?.kind, 'reply');
@@ -324,10 +327,48 @@ test('animation: if the message can not be edited, the result is sent as a new m
   await withQuickAnimation(async () => {
     const { message, calls } = fakeMessage({ editFails: true });
     const result = createEmbed().setTitle('Result');
-    await replyWithWheel(messageContext(message as Message<true>, [], 'k!'), result, { index: 1, multiplier: 0.1, offset: 0.5 });
+    await replyWithWheel(messageContext(message as Message<true>, [], 'k!'), result, { index: 1, multiplier: 0.1, offset: 0.5, slices: WHEEL_SLICES });
     const replies = calls.filter((call) => call.kind === 'reply');
     assert.equal(replies.length, 2);
     assert.equal(replies[1]?.options.embeds[0], result);
     assert.equal(replies[1]?.options.files.length, 1);
   });
+});
+
+test('wheelSlices: winning slices stretch so the biggest is the max; losing slices and 1x stay put', () => {
+  assert.equal(CONFIG.wheel.maxMultiplier, 5);
+  assert.deepEqual(wheelSlices(5), [1, 0.1, 2.33, 0.4, 5, 0.75, 1.67, 0.5]);
+  // At the shape's own top (2.5x) it is the wheel as written.
+  assert.deepEqual(wheelSlices(2.5), [...WHEEL_SLICES]);
+  assert.deepEqual(wheelSlices(10), [1, 0.1, 4, 0.4, 10, 0.75, 2.5, 0.5]);
+  // 1x (or below) takes the wins off: every winning slice becomes 1x.
+  assert.deepEqual(wheelSlices(1), [1, 0.1, 1, 0.4, 1, 0.75, 1, 0.5]);
+  assert.deepEqual(wheelSlices(0.5), wheelSlices(1));
+  // Always 0.1x at the bottom, and a wheel that still passes the startup check.
+  for (const max of [1, 2.5, 5, 50, 100]) {
+    assert.equal(Math.min(...wheelSlices(max)), 0.1);
+    assert.equal(Math.max(...wheelSlices(max)), Math.max(1, max));
+    validateWheel(wheelSlices(max));
+  }
+  const average = wheelSlices(5).reduce((a, b) => a + b, 0) / WHEEL_SLICES.length;
+  assert.ok(Math.abs(average - 1.47) < 0.01, `average ${average}`);
+});
+
+test('wheel spin: lands on the wheel it was given, and carries it for the picture', () => {
+  const slices = wheelSlices(5);
+  const spin = spinWheel(1, { trigger: 0, slice: 4 / 8, offset: 0.5 }, slices);
+  assert.equal(spin?.multiplier, 5);
+  assert.deepEqual(spin?.slices, slices);
+});
+
+test('wheel.maxMultiplier: a Wheel setting, shown as a multiplier, from 1x to MAX_WHEEL_MULTIPLIER', () => {
+  const spec = findSpec('wheel.maxMultiplier');
+  assert.equal(spec?.group, 'Wheel');
+  assert.equal(spec?.multiplier, true);
+  assert.equal(spec?.min, 1);
+  assert.equal(spec?.max, MAX_WHEEL_MULTIPLIER);
+  assert.ok(GROUPS.includes('Wheel'));
+  // The gear card names the live range.
+  const chair: ItemDef = { id: 'test-chair', name: 'Test Chair', stars: 4, slot: 'armor', description: '', effects: ['wheelSpin'] };
+  assert.match(describeEffects(chair)[0] as string, /by 0\.1x to 5x/);
 });

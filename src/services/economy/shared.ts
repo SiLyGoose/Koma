@@ -10,7 +10,7 @@ export function isDuplicateKey(err: unknown): boolean {
 }
 
 /** Update pipeline that subtracts min(points, amount) from points in one atomic step. */
-function clampedDebit(amount: number) {
+export function clampedDebit(amount: number) {
   return [{ $set: { points: { $subtract: ['$points', { $min: ['$points', amount] }] } } }];
 }
 
