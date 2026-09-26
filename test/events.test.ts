@@ -482,3 +482,14 @@ test('event command: the usage hint and the help usage name the actions that exi
   assert.doesNotMatch(eventCommand.slashUsage ?? '', /list/);
   assert.doesNotMatch(eventCommand.slashUsage ?? '', /channel/);
 });
+
+test('event pings: the first message of an event pings the event role, only in a server that has it', async () => {
+  const { eventPing } = await import('../src/events/ping.js');
+  const { EVENT_PING_ROLE_IDS } = await import('../src/constants/index.js');
+  const guildWith = (ids: string[]) => ({ roles: { cache: new Map(ids.map((id) => [id, {}])) } }) as never;
+  const [role] = EVENT_PING_ROLE_IDS;
+  assert.equal(role, '1553233108780847116');
+  assert.deepEqual(eventPing(guildWith([role as string, '999'])), { content: `<@&${role}>`, allowedMentions: { parse: [], roles: [role] } });
+  // Another server, without the role: no ping, and no dead mention either.
+  assert.deepEqual(eventPing(guildWith(['999'])), {});
+});

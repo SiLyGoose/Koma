@@ -9,6 +9,7 @@ import type { OpenCrateDoc } from '../types.js';
 import { claimGuild } from './busy.js';
 import { checkEventChannel } from './channel.js';
 import { crateFile, prepareEndPictures, type CrateFile } from './crate-picture.js';
+import { eventPing } from './ping.js';
 import type { EventContext, GameEvent } from './types.js';
 import { replyPrivately } from '../discord/reply.js';
 
@@ -202,6 +203,7 @@ async function runCrate(ctx: EventContext): Promise<void> {
     embeds: [crateEmbed(pile, Math.floor(endsAtMs / 1000), 0, picture !== null)],
     components: [grabRow()],
     ...(picture ? { files: [picture] } : {}),
+    ...eventPing(guild),
   });
   prepareEndPictures(tier);
   console.log(`A crate of ${pile} points landed in ${guild.id}, open for ${seconds} seconds.`);

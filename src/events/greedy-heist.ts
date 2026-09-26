@@ -8,6 +8,7 @@ import { fmt, formatPercent, mention } from '../lib/format.js';
 import { chance } from '../lib/random.js';
 import { payShares } from '../services/events.js';
 import { fineIntoVault, getVaultPool, takeFromVault, vaultCost, type VaultFine } from '../services/vault.js';
+import { eventPing } from './ping.js';
 import type { EventContext, GameEvent } from './types.js';
 import { collectJoiners, limitedLines, LiveMessage, showResult } from './vault-game.js';
 
@@ -98,7 +99,7 @@ async function runHeist(ctx: EventContext): Promise<void> {
   // Joining.
   const endsAtMs = Date.now() + cfg.joinSeconds * 1000;
   const joinRow = heistRow(HEIST.joinId, TEXT.heist.joinButton, ButtonStyle.Success);
-  const message = await channel.send({ embeds: [heistJoinEmbed(prize, cfg.rounds, cfg.fine, Math.floor(endsAtMs / 1000), 0)], components: [joinRow] });
+  const message = await channel.send({ embeds: [heistJoinEmbed(prize, cfg.rounds, cfg.fine, Math.floor(endsAtMs / 1000), 0)], components: [joinRow], ...eventPing(guild) });
   console.log(`A Greedy Heist for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const ids = await collectJoiners({
     message,

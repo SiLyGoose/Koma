@@ -17,6 +17,7 @@ import { parseGuess, rollCode, scoreGuess, type Mark } from '../lib/events/code.
 import { fmt, mention } from '../lib/format.js';
 import { payShares } from '../services/events.js';
 import { chargeIntoVault, getVaultPool, refundFromVault, takeFromVault, vaultCost } from '../services/vault.js';
+import { eventPing } from './ping.js';
 import type { EventContext, GameEvent } from './types.js';
 import { LiveMessage, showResult } from './vault-game.js';
 
@@ -122,7 +123,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
   let winner: string | null = null;
   const view = () => ({ embeds: [codeEmbed(prize, cfg.guessCost, endsAtUnix, guesses)], components: [guessRow()] });
 
-  const message = await channel.send(view());
+  const message = await channel.send({ ...view(), ...eventPing(guild) });
   console.log(`Codedle for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const live = new LiveMessage(message, CODE.refreshMs);
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.seconds * 1000 });

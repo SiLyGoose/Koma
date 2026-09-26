@@ -8,6 +8,7 @@ import { choiceOf, resolveSplitSteal, type SplitStealChoice, type SplitStealOutc
 import { fmt, mention } from '../lib/format.js';
 import { payShares } from '../services/events.js';
 import { getVaultPool, takeFromVault, vaultCost } from '../services/vault.js';
+import { eventPing } from './ping.js';
 import type { EventContext, GameEvent } from './types.js';
 import { collectJoiners, limitedLines, LiveMessage, showResult } from './vault-game.js';
 
@@ -97,7 +98,7 @@ async function runSplitSteal(ctx: EventContext): Promise<void> {
   // Joining.
   const joinEndsMs = Date.now() + cfg.joinSeconds * 1000;
   const joinUnix = Math.floor(joinEndsMs / 1000);
-  const message = await channel.send({ embeds: [splitStealJoinEmbed(prize, cfg.minPlayers, joinUnix, 0)], components: [joinRow()] });
+  const message = await channel.send({ embeds: [splitStealJoinEmbed(prize, cfg.minPlayers, joinUnix, 0)], components: [joinRow()], ...eventPing(guild) });
   console.log(`Split or Steal for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const players = await collectJoiners({
     message,

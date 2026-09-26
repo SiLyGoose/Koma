@@ -51,3 +51,10 @@ export const CODE = { guessId: 'code_guess', mineId: 'code_mine', inputId: 'code
 
 /** Split or Steal's buttons and screen, like HEIST's. */
 export const SPLIT_STEAL = { joinId: 'ss_join', splitId: 'ss_split', stealId: 'ss_steal', refreshMs: 3_000, listMax: 15 } as const;
+
+/**
+ * Roles pinged when an event starts: in the event's first message, so members who opted in get a
+ * notification. A server that doesn't have a role listed here (the bot is in more than one) just
+ * doesn't ping it.
+ */
+export const EVENT_PING_ROLE_IDS: readonly string[] = ['1553233108780847116'];
