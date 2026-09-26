@@ -110,7 +110,7 @@ export const raidText = {
     `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
   howToField: 'How to fight',
   /** `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to lift. */
-  howTo: (b: RaidBossText, turnSeconds: number, boostCost: string, shieldBreak: number, rallyMultiplier: string, rallyTurns: number, steals: boolean, cc: boolean) =>
+  howTo: (b: RaidBossText, turnSeconds: number, shieldBreak: number, rallyMultiplier: string, rallyTurns: number, steals: boolean, cc: boolean) =>
     [
       `Each round you have **${turnSeconds}s** to pick one action. ${b.It} then makes the move it announced.`,
       `${E.attack} **Attack**: damage ${b.it}.`,
@@ -119,9 +119,7 @@ export const raidText = {
       cc
         ? `✨ **Support**: frees an ally who is ${E.stunned} stunned, ${E.disarmed} disarmed or ${E.taunted} taunted. If nobody is, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`
         : `✨ **Support**: rallies the party: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`,
-      steals
-        ? `💸 Attack and Heal can be boosted: ${boostCost} per 1%. Points spent on boosts, and anything ${b.it} steals, go into the vault.`
-        : `💸 Attack and Heal can be boosted: ${boostCost} per 1%. Points spent on boosts go into the vault.`,
+      ...(steals ? [`💰 Anything ${b.it} steals goes into the vault.`] : []),
     ].join('\n'),
   playersField: (count: number) => `Raiders (${count})`,
   nobody: 'Nobody yet',
@@ -153,7 +151,6 @@ Grows with every raider (at least ${min}).`,
   partyField: 'Party',
   logField: 'Recent actions',
   logEmpty: 'Nothing yet.',
-  footer: (boostCost: string, maxBoost: number) => `Boost: ${boostCost} points per 1%, up to +${maxBoost}%.`,
   /** `bar` is the player's HP bar, `cc` their crowd-control tag (ccTag) or empty. */
   partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cc: string) =>
     `${status} ${user} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
@@ -161,7 +158,8 @@ Grows with every raider (at least ${min}).`,
   ccTag: (effect: CrowdControl, turns: number) => `${E[effect]} ${CC[effect].name} (${turns})`,
   /** The party list's status column for a stunned player (they can't pick anything). */
   statusStunned: E.stunned,
-  statusChosen: '✅',
+  /** The party list's status column once a player has picked: the icon of what they picked. */
+  statusChosen: { attack: E.attack, guard: E.guard, heal: E.heal, support: '✨' },
   statusWaiting: '⏳',
   statusDown: '💀',
 
@@ -262,12 +260,9 @@ Grows with every raider (at least ${min}).`,
         ? `You're ${E.disarmed} disarmed and can't attack for ${plural(turns, 'more turn', 'more turns')}. Pick something else, or get a Support to free you.`
         : `You're ${E.taunted} taunted and can only attack for ${plural(turns, 'more turn', 'more turns')}, unless a Support frees you.`,
   alreadyChose: (action: string) => `You already picked **${action}** this turn.`,
-  paying: 'Your boost is still being paid for...',
   turnOver: 'Too late: the turn is over.',
   /** `target` is who a heal is for (a mention), or empty when the bot picks. */
   chose: (action: string, target = '') => `You'll **${action}**${target ? ` ${target}` : ''} this turn.`,
-  choseBoosted: (action: string, percent: number, cost: string, target = '') =>
-    `You'll **${action}**${target ? ` ${target}` : ''} this turn, boosted **+${percent}%** (${boldMoney(cost)} spent).`,
   healPrompt: 'Who do you want to heal? If they no longer need it when the turn ends, the heal goes to whoever needs it most.',
   healPlaceholder: 'Pick an ally',
   healAuto: 'Whoever needs it most',
@@ -276,14 +271,6 @@ Grows with every raider (at least ${min}).`,
   healOption: (name: string, you: boolean) => `${name}${you ? ' (you)' : ''}`,
   healOptionHurt: (hp: number, maxHp: number) => `❤️ ${hp}/${maxHp} HP`,
   healOptionDown: '💀 Knocked out: bring them back',
-  boostPrompt: (action: string, cost: string, balance: string) => `Boost your **${action}**? Each 1% costs ${boldMoney(cost)}. Your wallet: ${boldMoney(balance)}.`,
-  noBoostButton: 'No boost',
-  boostButton: (percent: number, cost: string) => `+${percent}% (${cost})`,
-  customBoostButton: 'Custom %',
-  boostModalTitle: 'Boost',
-  boostLabel: (max: number) => `Boost in percent (0 to ${max})`,
-  badBoost: (max: number) => `That's not a boost. Enter a whole number from 0 to ${max}, then press your action again.`,
-  cantAfford: (cost: string, balance: string) => `A boost that big costs ${boldMoney(cost)}, but you only have ${boldMoney(balance)}. Press your action again to pick another one.`,
   actions: { attack: 'Attack', guard: 'Guard', heal: 'Heal', support: 'Support' },
 
   // The end
@@ -305,7 +292,8 @@ Grows with every raider (at least ${min}).`,
   pointsField: 'Points lost',
   /** Shown under the points lost when some went into the vault. */
   intoVault: (amount: string) => `${boldMoney(amount)} went into the vault.`,
-  pointsLine: (user: string, spent: string, stolen: string) => `${user}: 💸 ${spent} on boosts · 💰 ${stolen} stolen`,
+  /** `spent` is what they spent on boosts, back when raids had them (null when nothing). */
+  pointsLine: (user: string, spent: string | null, stolen: string) => `${user}: ${spent === null ? '' : `💸 ${spent} on boosts · `}💰 ${stolen} stolen`,
   noPointsLost: 'None.',
   places: ['🥇', '🥈', '🥉'],
   payFailed: (count: number) => `${plural(count, 'reward', 'rewards')} could not be paid. Ask the admin.`,
@@ -374,8 +362,8 @@ Grows with every raider (at least ${min}).`,
 
   // A raid the bot didn't finish
   interruptedTitle: 'The raid was cut short',
-  interrupted: 'The bot stopped in the middle of this raid. Everything spent on boosts or stolen by the boss has been given back, and the raid can be started again this week.',
-  failed: 'Something went wrong in the middle of this raid. Everything spent on boosts or stolen by the boss has been given back, and the raid can be started again this week.',
+  interrupted: 'The bot stopped in the middle of this raid. Everything stolen by the boss has been given back, and the raid can be started again this week.',
+  failed: 'Something went wrong in the middle of this raid. Everything stolen by the boss has been given back, and the raid can be started again this week.',
 
   // Admin test tools (`raid test ...`), for seeing each phase and ending on Discord
   test: {
@@ -405,6 +393,10 @@ Grows with every raider (at least ${min}).`,
   },
 
   // Admin
+  /** `bosses` is every boss's name. */
+  forceUsage: (p: string, bosses: readonly string[]) =>
+    `Use \`${p}raid force <boss>\` to start this week's raid against a boss of your choice (${andList(bosses)}), instead of the one the week picked.`,
+  forceTaken: (p: string) => `This week's raid has already been started. Use \`${p}raid reset\` first, then \`${p}raid force <boss>\` again.`,
   resetDone: "This week's raid has been reset. It can be started again.",
   resetNothing: 'There is no finished raid this week to reset (one still being played cannot be reset).',
   adminOnly: 'Only the bot admin can do that.',

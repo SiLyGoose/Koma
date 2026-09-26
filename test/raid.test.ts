@@ -765,10 +765,13 @@ test('the dragon draws in every mood, at its size, and each mood looks different
 
 test('raid settings: the defaults are valid and every one can be changed', () => {
   assert.deepEqual(validateSettings(DEFAULTS), []);
-  for (const key of ['hpPerPlayer', 'hpGrowth', 'minBossHp', 'playerHp', 'maxRounds', 'turnSeconds', 'prepareSeconds', 'reward', 'boostCost', 'maxBoost']) {
+  for (const key of ['hpPerPlayer', 'hpGrowth', 'minBossHp', 'playerHp', 'maxRounds', 'turnSeconds', 'prepareSeconds', 'reward']) {
     assert.ok(findSpec(`raid.${key}`), key);
   }
-  assert.equal(DEFAULTS.raid.boostCost, 250);
+  // Raids no longer have boosts: no settings for them.
+  assert.equal(findSpec('raid.boostCost'), undefined);
+  assert.equal(findSpec('raid.maxBoost'), undefined);
+  assert.ok(!('boostCost' in DEFAULTS.raid) && !('maxBoost' in DEFAULTS.raid));
   assert.equal(DEFAULTS.raid.reward, 1000);
   assert.equal(DEFAULTS.raid.prepareSeconds, 300);
   assert.equal(DEFAULTS.raid.turnSeconds, 60);
@@ -1350,4 +1353,41 @@ test('heal cut: the strongest cut among the raiders still standing comes off eve
   assert.ok(intentText(harvesting).includes(`it heals ${expected})`), intentText(harvesting));
   harvesting.bossHp = 1000;
   assert.equal((bossTurn(harvesting, low).events.at(-1) as { amount: number }).amount, expected);
+});
+
+test('raid force: a boss can be named by its id, its name or any word of it, or what it is', async () => {
+  const { bossByName } = await import('../src/commands/raid.js');
+  for (const name of ['wyrm', 'Ember Wyrm', 'ember', 'DRAGON', ' dragon ']) assert.equal(bossByName(name), 'wyrm', name);
+  for (const name of ['reaper', 'Soul Reaper', 'soul']) assert.equal(bossByName(name), 'reaper', name);
+  for (const name of ['', 'lich', 'the']) assert.equal(bossByName(name), null, name);
+  assert.match(TEXT.raid.forceUsage('k!', ['Ember Wyrm', 'Soul Reaper']), /k!raid force <boss>.*\(Ember Wyrm and Soul Reaper\)/);
+  assert.match(TEXT.raid.forceTaken('k!'), /k!raid reset/);
+});
+
+test('raids have no boosts: the lobby and the fight screen never offer one', () => {
+  const howTo = TEXT.raid.howTo(TEXT.raid.bosses.wyrm, 60, 2, '1.5x', 2, true, true);
+  assert.doesNotMatch(howTo, /boost/i);
+  assert.match(howTo, /Anything the dragon steals goes into the vault/);
+  assert.doesNotMatch(TEXT.raid.howTo(TEXT.raid.bosses.reaper, 60, 2, '1.5x', 2, false, false), /vault|boost/i);
+  const embed = fightEmbed(fight(), new Map(), [], Date.now() + 60_000, DEFAULTS.raid).toJSON();
+  assert.equal(embed.footer, undefined);
+  // Old raids that had boosts still show them; newer ones only show what was stolen.
+  assert.equal(TEXT.raid.pointsLine('<@a>', null, '300'), '<@a>: 💰 300 stolen');
+  assert.equal(TEXT.raid.pointsLine('<@a>', '500', '0'), '<@a>: 💸 500 on boosts · 💰 0 stolen');
+});
+
+test('the party list shows what each raider picked this turn, and who is still choosing', () => {
+  const state = fight(['a', 'b', 'c', 'd', 'e']);
+  const picks = new Map<string, RaidChoice>([
+    ['a', { action: 'attack', boost: 0 }],
+    ['b', { action: 'guard', boost: 0 }],
+    ['c', { action: 'heal', boost: 0 }],
+    ['d', { action: 'support', boost: 0 }],
+  ]);
+  const party = fightEmbed(state, picks, [], Date.now() + 60_000, DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Party')?.value.split('\n') ?? [];
+  assert.ok(party[0]?.startsWith(`${RAID_EMOJI.attack} <@a>`), party[0]);
+  assert.ok(party[1]?.startsWith(`${RAID_EMOJI.guard} <@b>`), party[1]);
+  assert.ok(party[2]?.startsWith(`${RAID_EMOJI.heal} <@c>`), party[2]);
+  assert.ok(party[3]?.startsWith('✨ <@d>'), party[3]);
+  assert.ok(party[4]?.startsWith('⏳ <@e>'), party[4]);
 });

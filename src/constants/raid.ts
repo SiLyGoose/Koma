@@ -1,6 +1,6 @@
 /*
  * The weekly raid boss (commands/raid.ts, lib/raid). The numbers you'd tune while the bot runs (boss
- * HP, player HP, rounds, timers, the reward, the boost price) are settings (`raid.*`, see config.ts);
+ * HP, player HP, rounds, timers, the reward) are settings (`raid.*`, see config.ts);
  * the combat math that shapes a fight lives here.
  */
 
@@ -23,16 +23,11 @@ export const MAX_RAID_SECONDS = 1_800;
 /** Most rounds a raid can last (the `raid.maxRounds` setting). */
 export const MAX_RAID_ROUNDS = 50;
 
-/** Most a player can boost one action, in percent (the `raid.maxBoost` setting). */
-export const MAX_RAID_BOOST = 1_000;
-
 /**
  * The raid's buttons and screen.
  * - `refreshMs`: the shortest time between edits of the live message (Discord limits message edits).
  * - `logSize`: how many recent actions the live message shows.
  * - `resultMs`: how long a round's result stays up before the next turn starts.
- * - `boostPresets`: the quick boost buttons, in percent (a Custom button takes any other number).
- * - `modalMs`: how long a player has to type a custom boost.
  * - `listMax`: how many players a list names before saying "...and N more".
  * - `healTargetId`, `healAutoValue`, `selectMax`: the private picker Heal uses to choose who to heal.
  */
@@ -44,9 +39,6 @@ export const RAID = {
   guardId: 'raid_guard',
   healId: 'raid_heal',
   supportId: 'raid_support',
-  boostPrefix: 'raid_boost_',
-  boostCustomId: 'raid_boost_custom',
-  boostInputId: 'percent',
   healTargetId: 'raid_heal_target',
   /** The heal picker's "let the bot choose" option. */
   healAutoValue: 'auto',
@@ -56,8 +48,6 @@ export const RAID = {
   refreshMs: 2_000,
   logSize: 10,
   resultMs: 4_000,
-  boostPresets: [5, 10, 25] as readonly number[],
-  modalMs: 60_000,
   listMax: 15,
   /** How many blocks wide the boss's HP bar is. */
   barWidth: 10,
@@ -120,7 +110,7 @@ export const RAID_COMBAT = {
   /**
    * Each boss's HP as a share of the raid HP settings (`raid.hpPerPlayer`, `raid.minBossHp`). The
    * reaper is frailer than the dragon, and makes up for it by hitting harder and healing. Both are
-   * tuned so that 5 raiders who play sensibly, without boosts or gear, beat it within the 15 rounds
+   * tuned so that 5 raiders who play sensibly, without gear, beat it within the 15 rounds
    * about 60% of the time (in simulated fights).
    */
   hpShare: { wyrm: 0.774, reaper: 0.445 },

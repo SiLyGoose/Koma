@@ -5,7 +5,7 @@ import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES,
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH, EVENT_PING_ROLE_IDS } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
-import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
+import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './refine.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
@@ -137,7 +137,6 @@ export function validateConstants(): void {
     ['MAX_HEIST_ROUNDS', MAX_HEIST_ROUNDS],
     ['MAX_RAID_SECONDS', MAX_RAID_SECONDS],
     ['MAX_RAID_ROUNDS', MAX_RAID_ROUNDS],
-    ['MAX_RAID_BOOST', MAX_RAID_BOOST],
     ['CODE_LENGTH', CODE_LENGTH],
     ['MAX_VAULT_MULTIPLIER', MAX_VAULT_MULTIPLIER],
     ['MAX_STONKS_HOURS', MAX_STONKS_HOURS],
@@ -149,8 +148,6 @@ export function validateConstants(): void {
 
   if (!(Number.isInteger(RAID.logSize) && RAID.logSize >= 1 && RAID.logSize <= 25)) problems.push('RAID.logSize must be a whole number from 1 to 25');
   if (!(Number.isInteger(RAID.barWidth) && RAID.barWidth >= 1 && RAID.barWidth <= 20)) problems.push('RAID.barWidth must be a whole number from 1 to 20');
-  // One row of buttons holds No boost, the presets and Custom: at most 5.
-  if (RAID.boostPresets.length > 3 || RAID.boostPresets.some((p) => !Number.isInteger(p) || p < 1)) problems.push('RAID.boostPresets must be up to 3 whole numbers of at least 1');
   if (!(RAID_COMBAT.attack.min >= 1 && RAID_COMBAT.attack.min <= RAID_COMBAT.attack.max)) problems.push('RAID_COMBAT.attack needs 1 <= min <= max');
   for (const [slot, emoji] of Object.entries(SLOT_EMOJI)) {
     if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`SLOT_EMOJI.${slot} must be a full custom emoji code, like <:name:123456789012345678>`);

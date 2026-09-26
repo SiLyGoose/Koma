@@ -5,17 +5,14 @@ import {
   ComponentType,
   GuildMember,
   MessageFlags,
-  ModalBuilder,
   StringSelectMenuBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   type ButtonInteraction,
   type Client,
   type Interaction,
   type Message,
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
-import { RAID, RAID_COMBAT, RAID_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
+import { RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
 import { dragonPicture, type DragonMood } from '../animations/images/dragon-image.js';
 import { reaperPicture } from '../animations/images/reaper-image.js';
 import { replyPrivately } from '../discord/reply.js';
@@ -67,14 +64,11 @@ import {
   abandonRaid,
   finishRaid,
   listUnfinishedRaids,
-  payForBoost,
-  refundBoost,
   resetRaidWeek,
   rewardRaid,
   startRaidWeek,
   stealFromWallet,
   updateRaid,
-  walletOf,
   type RaidReward,
 } from '../services/raid.js';
 
@@ -337,7 +331,8 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     turnEndsAt === null ? r.resolving : r.turnEnds(unixOf(turnEndsAt)),
   ].join('\n');
   const party = state.players.map((p) => {
-    const status = !isAlive(p) ? r.statusDown : !canAct(p) ? r.statusStunned : choices.has(p.userId) ? r.statusChosen : r.statusWaiting;
+    const chosen = choices.get(p.userId);
+    const status = !isAlive(p) ? r.statusDown : !canAct(p) ? r.statusStunned : chosen ? r.statusChosen[chosen.action] : r.statusWaiting;
     const cc = isAlive(p) && p.cc ? r.ccTag(p.cc.effect, p.cc.turns) : '';
     return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, cc);
   });
@@ -349,8 +344,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
       { name: r.partyField, value: party.length === 0 ? r.nobody : joinLimited(party) },
       { name: r.logField, value: log.length === 0 ? r.logEmpty : joinLimited(log.slice(-RAID.logSize)) },
     )
-    .setImage(`attachment://${RAID.imageName}`)
-    .setFooter({ text: r.footer(fmt(cfg.boostCost), cfg.maxBoost) });
+    .setImage(`attachment://${RAID.imageName}`);
 }
 
 /** The screen once the fight is over: how it ended, and who did what (none of it changes the rewards). */
@@ -390,7 +384,7 @@ function addStatsFields(embed: BotEmbed, players: readonly { userId: string; sta
 
   const lost = players
     .filter((p) => p.stats.spent > 0 || p.stats.stolen > 0)
-    .map((p) => r.pointsLine(mention(p.userId), fmt(p.stats.spent), fmt(p.stats.stolen)));
+    .map((p) => r.pointsLine(mention(p.userId), p.stats.spent > 0 ? fmt(p.stats.spent) : null, fmt(p.stats.stolen)));
   const vaultLine = intoVault > 0 ? `
 ${r.intoVault(fmt(intoVault))}` : '';
   embed.addFields({ name: r.pointsField, value: lost.length === 0 ? r.noPointsLost : `${joinLimited(lost, 950)}${vaultLine}` });
@@ -632,7 +626,7 @@ function lobbyView(boss: RaidBossId, host: string, players: readonly string[], c
     .setTitle(r.lobbyTitle(b))
     .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward))
     .addFields(
-      { name: r.howToField, value: r.howTo(b, cfg.turnSeconds, fmt(cfg.boostCost), support.shieldBreak, formatMultiplier(support.attackMultiplier), support.rallyTurns, steals, hasCc) },
+      { name: r.howToField, value: r.howTo(b, cfg.turnSeconds, support.shieldBreak, formatMultiplier(support.attackMultiplier), support.rallyTurns, steals, hasCc) },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
       { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(Math.max(1, players.length), cfg, share)), fmt(Math.round(cfg.minBossHp * share))), inline: true },
     )
@@ -693,11 +687,9 @@ const ACTION_BY_ID: Record<string, RaidAction> = {
 };
 
 type Commit =
-  | { kind: 'ok'; cost: number }
+  | { kind: 'ok' }
   | { kind: 'late' }
   | { kind: 'already'; action: RaidAction }
-  | { kind: 'paying' }
-  | { kind: 'broke'; cost: number; balance: number }
   | { kind: 'problem'; text: string };
 
 interface Turn {
@@ -734,7 +726,6 @@ async function runFight(
   onMove: (message: Message) => void,
 ): Promise<{ tested: boolean }> {
   const log: string[] = [];
-  const paying = new Set<string>();
   let turn: Turn = { round: state.round, open: false, endsAt: 0, choices: new Map(), allIn: () => {} };
 
   const view = () => ({ embeds: [fightEmbed(state, turn.choices, log, turn.open ? turn.endsAt : null, cfg)], components: [actionRow(!turn.open)] });
@@ -747,52 +738,27 @@ async function runFight(
     return null;
   };
 
-  /** Locks in a player's pick for the turn, paying for its boost first. */
-  const commit = async (userId: string, action: RaidAction, percent: number, forTurn: Turn, target?: string): Promise<Commit> => {
-    const stillOpen = (): boolean => forTurn === turn && forTurn.open;
-    if (!stillOpen()) return { kind: 'late' };
+  /** Locks in a player's pick for the turn. */
+  const commit = (userId: string, action: RaidAction, forTurn: Turn, target?: string): Commit => {
+    if (forTurn !== turn || !forTurn.open) return { kind: 'late' };
     const problem = problemText(actionProblem(state, userId, action), userId);
     if (problem) return { kind: 'problem', text: problem };
     const already = forTurn.choices.get(userId);
     if (already) return { kind: 'already', action: already.action };
-    if (paying.has(userId)) return { kind: 'paying' };
-
-    const cost = percent * cfg.boostCost;
-    if (cost > 0) {
-      paying.add(userId);
-      try {
-        const paid = await payForBoost(guildId, userId, raidId, cost);
-        if (!paid.ok) return { kind: 'broke', cost, balance: paid.balance };
-        if (!stillOpen() || forTurn.choices.has(userId)) {
-          await refundBoost(guildId, userId, raidId, cost).catch((err) => console.error(`Could not refund a raid boost of ${userId}:`, err));
-          return { kind: 'late' };
-        }
-      } finally {
-        paying.delete(userId);
-      }
-    }
-    forTurn.choices.set(userId, { action, boost: percent, ...(target === undefined ? {} : { target }) });
-    const player = findPlayer(state, userId);
-    if (player) player.stats.spent += cost;
+    forTurn.choices.set(userId, { action, boost: 0, ...(target === undefined ? {} : { target }) });
     screen.update();
     if (state.players.filter(canAct).every((p) => forTurn.choices.has(p.userId))) forTurn.allIn();
-    return { kind: 'ok', cost };
+    return { kind: 'ok' };
   };
 
-  const commitText = (result: Commit, action: RaidAction, percent: number, target?: string): string => {
-    const name = TEXT.raid.actions[action];
-    const whom = target === undefined ? '' : mention(target);
+  const commitText = (result: Commit, action: RaidAction, target?: string): string => {
     switch (result.kind) {
       case 'ok':
-        return result.cost > 0 ? TEXT.raid.choseBoosted(name, percent, fmt(result.cost), whom) : TEXT.raid.chose(name, whom);
+        return TEXT.raid.chose(TEXT.raid.actions[action], target === undefined ? '' : mention(target));
       case 'late':
         return TEXT.raid.turnOver;
       case 'already':
         return TEXT.raid.alreadyChose(TEXT.raid.actions[result.action]);
-      case 'paying':
-        return TEXT.raid.paying;
-      case 'broke':
-        return TEXT.raid.cantAfford(fmt(result.cost), fmt(result.balance));
       case 'problem':
         return result.text;
     }
@@ -801,113 +767,30 @@ async function runFight(
   const remainingOf = (forTurn: Turn): number => forTurn.endsAt - Date.now();
 
   /**
-   * Heal asks privately who to heal. Returns their user id, undefined to let the bot choose, or
-   * null if the turn ended first (the reply then says so).
+   * Heal asks privately who to heal, then locks the heal in. The pick is undefined to let the bot
+   * choose; if the turn ends before a pick is made, the reply says so.
    */
-  const askHealTarget = async (press: ButtonInteraction, forTurn: Turn): Promise<string | undefined | null> => {
+  const askHealTarget = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
+    await press.deferReply({ flags: MessageFlags.Ephemeral });
     const userId = press.user.id;
     const options = healOptions(state, userId, names);
-    // Nobody needs healing right now: nothing to pick, and the heal is played as usual.
-    if (options.length === 1) return undefined;
-    const menu = new StringSelectMenuBuilder().setCustomId(RAID.healTargetId).setPlaceholder(TEXT.raid.healPlaceholder).addOptions(options);
-    const prompt = await press.editReply({ content: TEXT.raid.healPrompt, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] });
-    const pick = await prompt
-      .awaitMessageComponent({ componentType: ComponentType.StringSelect, time: Math.max(1_000, remainingOf(forTurn)), filter: (m) => m.user.id === userId })
-      .catch(() => null);
-    if (!pick) {
-      await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
-      return null;
-    }
-    await pick.deferUpdate().catch(() => {});
-    const value = pick.values[0];
-    return value === undefined || value === RAID.healAutoValue ? undefined : value;
-  };
-
-  /**
-   * Attack and Heal are picked privately: Heal first asks who to heal, then both ask how much to
-   * boost them (when boosts are on) before they are locked in.
-   */
-  const askPrivately = async (press: ButtonInteraction, action: RaidAction, forTurn: Turn): Promise<void> => {
-    await press.deferReply({ flags: MessageFlags.Ephemeral });
     let target: string | undefined;
-    if (action === 'heal') {
-      const picked = await askHealTarget(press, forTurn);
-      if (picked === null) return;
-      target = picked;
-    }
-    const percent = cfg.maxBoost > 0 ? await askBoost(press, action, forTurn) : 0;
-    if (percent === null) return;
-    const result = await commit(press.user.id, action, percent, forTurn, target);
-    await press.editReply({ content: commitText(result, action, percent, target), components: [] }).catch(() => {});
-  };
-
-  /** Asks privately how much to boost the action. Returns the percent, or null if it wasn't given in time or made no sense (the reply then says so). */
-  const askBoost = async (press: ButtonInteraction, action: RaidAction, forTurn: Turn): Promise<number | null> => {
-    const userId = press.user.id;
-    const balance = await walletOf(guildId, userId);
-    const name = TEXT.raid.actions[action];
-    const presets = RAID.boostPresets.filter((percent) => percent <= cfg.maxBoost);
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(`${RAID.boostPrefix}0`).setLabel(TEXT.raid.noBoostButton).setStyle(ButtonStyle.Secondary),
-      ...presets.map((percent) =>
-        new ButtonBuilder()
-          .setCustomId(`${RAID.boostPrefix}${percent}`)
-          .setLabel(TEXT.raid.boostButton(percent, fmt(percent * cfg.boostCost)))
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(percent * cfg.boostCost > balance),
-      ),
-      new ButtonBuilder().setCustomId(RAID.boostCustomId).setLabel(TEXT.raid.customBoostButton).setStyle(ButtonStyle.Primary),
-    );
-    const prompt = await press.editReply({ content: TEXT.raid.boostPrompt(name, fmt(cfg.boostCost), fmt(balance)), components: [row] });
-
-    const remaining = (): number => remainingOf(forTurn);
-    const pick = await prompt
-      .awaitMessageComponent({ componentType: ComponentType.Button, time: Math.max(1_000, remaining()), filter: (b) => b.user.id === userId })
-      .catch(() => null);
-    if (!pick) {
-      await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
-      return null;
-    }
-
-    let percent: number;
-    if (pick.customId === RAID.boostCustomId) {
-      const modalId = `raid_boost_modal_${raidId}_${userId}_${forTurn.round}`;
-      await pick.showModal(
-        new ModalBuilder()
-          .setCustomId(modalId)
-          .setTitle(TEXT.raid.boostModalTitle)
-          .addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(
-              new TextInputBuilder()
-                .setCustomId(RAID.boostInputId)
-                .setLabel(TEXT.raid.boostLabel(cfg.maxBoost))
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true)
-                .setMaxLength(6),
-            ),
-          ),
-      );
-      const submit = await pick
-        .awaitModalSubmit({ time: Math.max(1_000, Math.min(RAID.modalMs, remaining())), filter: (m) => m.customId === modalId && m.user.id === userId })
+    // Somebody needs healing: ask who. (With nobody hurt there is nothing to pick, and the heal is played as usual.)
+    if (options.length > 1) {
+      const menu = new StringSelectMenuBuilder().setCustomId(RAID.healTargetId).setPlaceholder(TEXT.raid.healPlaceholder).addOptions(options);
+      const prompt = await press.editReply({ content: TEXT.raid.healPrompt, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] });
+      const pick = await prompt
+        .awaitMessageComponent({ componentType: ComponentType.StringSelect, time: Math.max(1_000, remainingOf(forTurn)), filter: (m) => m.user.id === userId })
         .catch(() => null);
-      if (!submit) {
+      if (!pick) {
         await press.editReply({ content: TEXT.raid.turnOver, components: [] }).catch(() => {});
-        return null;
+        return;
       }
-      const typed = submit.fields.getTextInputValue(RAID.boostInputId).trim().replace(/%$/, '');
-      const parsed = /^\d+$/.test(typed) ? Number(typed) : Number.NaN;
-      if (!Number.isInteger(parsed) || parsed < 0 || parsed > cfg.maxBoost) {
-        await submit.deferUpdate().catch(() => {});
-        await press.editReply({ content: TEXT.raid.badBoost(cfg.maxBoost), components: [] }).catch(() => {});
-        return null;
-      }
-      percent = parsed;
-      await submit.deferUpdate().catch(() => {});
-    } else {
-      percent = Number(pick.customId.slice(RAID.boostPrefix.length));
       await pick.deferUpdate().catch(() => {});
+      const value = pick.values[0];
+      target = value === undefined || value === RAID.healAutoValue ? undefined : value;
     }
-    return percent;
+    await press.editReply({ content: commitText(commit(userId, 'heal', forTurn, target), 'heal', target), components: [] }).catch(() => {});
   };
 
   const handlePress = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
@@ -920,9 +803,8 @@ async function runFight(
     const already = forTurn.choices.get(userId);
     if (already) return replyPrivately(press, TEXT.raid.alreadyChose(TEXT.raid.actions[already.action]));
 
-    if (action === 'heal' || (action === 'attack' && cfg.maxBoost > 0)) return askPrivately(press, action, forTurn);
-    const result = await commit(userId, action, 0, forTurn);
-    return replyPrivately(press, commitText(result, action, 0));
+    if (action === 'heal') return askHealTarget(press, forTurn);
+    return replyPrivately(press, commitText(commit(userId, action, forTurn), action));
   };
 
   const live: LiveFight = { state, log, update: () => screen.update(), endTurn: () => {}, tested: false };
@@ -1065,7 +947,22 @@ async function raidGearOf(guildId: string, userId: string): Promise<RaidGear> {
 // The whole raid
 // ---------------------------------------------------------------------------
 
-async function runRaid(ctx: CommandContext): Promise<void> {
+/**
+ * The boss a name picks out, for `raid force`: its id (`wyrm`), its name (`soul reaper`) or any
+ * word of it (`ember`, `soul`), or what the text calls it (`dragon`, `reaper`). Null if it's none of them.
+ */
+export function bossByName(text: string): RaidBossId | null {
+  const wanted = text.trim().toLowerCase();
+  for (const id of RAID_BOSS_IDS) {
+    const b = TEXT.raid.bosses[id];
+    const names = [id, b.name.toLowerCase(), ...b.name.toLowerCase().split(/\s+/), b.it.toLowerCase().replace(/^the /, '')];
+    if (names.includes(wanted)) return id;
+  }
+  return null;
+}
+
+/** Starts this week's raid, against `forced` (the admin's `raid force`) or else the boss the week picked. */
+async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null): Promise<void> {
   const release = claimGuild(ctx.guildId);
   if (!release) {
     await ctx.reply(TEXT.raid.busy);
@@ -1073,7 +970,7 @@ async function runRaid(ctx: CommandContext): Promise<void> {
   }
   const cfg: RaidSettings = { ...CONFIG.raid };
   const week = raidWeek();
-  const boss = bossForWeek(ctx.guildId, week.key);
+  const boss = forced ?? bossForWeek(ctx.guildId, week.key);
   let id: string | null = null;
   let message: Message | null = null;
   let settled = false;
@@ -1082,7 +979,8 @@ async function runRaid(ctx: CommandContext): Promise<void> {
     if (!started.ok) {
       // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
       const existing = started.existing;
-      if (existing && isFinished(existing)) await ctx.reply({ embeds: [weekResultEmbed(existing, week.next)] });
+      if (forced) await ctx.reply(TEXT.raid.forceTaken(ctx.prefix));
+      else if (existing && isFinished(existing)) await ctx.reply({ embeds: [weekResultEmbed(existing, week.next)] });
       else await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
       settled = true;
       return;
@@ -1181,6 +1079,19 @@ export const raid: Command = {
       const week = raidWeek();
       const boss = bossForWeek(ctx.guildId, week.key);
       await ctx.reply({ embeds: [bossInfoEmbed(CONFIG.raid, boss, week.next)], files: [bossFile(boss, 'calm')] });
+      return;
+    }
+    if (action === 'force') {
+      if (!isAdmin(ctx.user.id)) {
+        await ctx.reply(TEXT.raid.adminOnly);
+        return;
+      }
+      const boss = ctx.args.length >= 2 ? bossByName(ctx.args.slice(1).join(' ')) : null;
+      if (!boss) {
+        await ctx.reply(TEXT.raid.forceUsage(ctx.prefix, RAID_BOSS_IDS.map((id) => TEXT.raid.bosses[id].name)));
+        return;
+      }
+      await runRaid(ctx, boss);
       return;
     }
     if (action === 'reset') {

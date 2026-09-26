@@ -31,5 +31,5 @@ export const gearText = {
   statsHealCut: (share: string, gear: string) => `🩸 **Heal cut**: bosses heal ${share} less while you're standing ${gear}`,
   statsGearMark: '🎒',
   statsNoGear: (p: string) => `No raid gear equipped, so these are the base numbers. Raid gear can be pulled with \`${p}gacha\`.`,
-  statsFooter: '🎒 = changed by gear. Gear counts as it is when a raid starts; boosts and rallies raise Attack and Heal further.',
+  statsFooter: '🎒 = changed by gear. Gear counts as it is when a raid starts; rallies raise Attack further.',
 };

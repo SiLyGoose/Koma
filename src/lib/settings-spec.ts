@@ -15,7 +15,6 @@ import {
   MAX_VAULT_MULTIPLIER,
   MAX_EVENT_SECONDS,
   MAX_HEIST_ROUNDS,
-  MAX_RAID_BOOST,
   MAX_RAID_ROUNDS,
   MAX_RAID_SECONDS,
   NUMBER_LOCALE,
@@ -230,8 +229,6 @@ export const SPECS: readonly SettingSpec[] = [
   int('raid.reward', 'Raid', `${CURRENCY_EMOJI} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.tokenReward', 'Raid', `${TOKEN_NAME} (one free gacha pull each) each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.gemReward', 'Raid', `${GEM_NAME} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
-  int('raid.boostCost', 'Raid', `${CURRENCY_EMOJI} one percent of raid boost costs (a boosted attack or heal is that many percent stronger).`, 1, MAX_POINTS),
-  int('raid.maxBoost', 'Raid', 'The biggest boost one raid action can have, in percent.', 0, MAX_RAID_BOOST),
 
   int(
     'stonks.capHours',

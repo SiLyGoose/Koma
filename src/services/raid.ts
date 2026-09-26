@@ -4,7 +4,7 @@ import type { CrateShare } from '../lib/events/crate.js';
 import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
-import { ensureMember, giveGems, giveTokens } from './economy/index.js';
+import { giveGems, giveTokens } from './economy/index.js';
 import { isDuplicateKey, recordLedger } from './economy/shared.js';
 import { payShares } from './events.js';
 import { addVaultLoss } from './vault.js';
@@ -13,8 +13,9 @@ import { addVaultLoss } from './vault.js';
  * The database side of the weekly raid (commands/raid.ts). The week's raid document is what makes
  * it one raid per server per week: it is inserted when the raid starts, and its id can only exist
  * once. While the raid is played, the document also keeps count of every point that moved because
- * of it (boosts bought, points the boss stole), so a raid the bot never finished can hand them back
- * (see abandonRaid). When a raid ends, all of those points go into the vault pool (see finishRaid).
+ * of it (points the boss stole, and boosts bought back when raids had them), so a raid the bot never
+ * finished can hand them back (see abandonRaid). When a raid ends, all of those points go into the
+ * vault pool (see finishRaid).
  * Points only move through single conditional updates, like everywhere else.
  */
 
@@ -52,30 +53,6 @@ export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidB
 /** Saves where the raid's message is, who is in it, or that the fight has started. */
 export async function updateRaid(id: string, set: Partial<Pick<RaidDoc, 'status' | 'channelId' | 'messageId' | 'players'>>): Promise<void> {
   await collections().raids.updateOne({ _id: id }, { $set: set });
-}
-
-export type BoostResult = { ok: true; balance: number } | { ok: false; balance: number };
-
-/** Takes `cost` points from the player for a boost, if they have that many. The raid records it. */
-export async function payForBoost(guildId: string, userId: string, id: string, cost: number): Promise<BoostResult> {
-  const { members, raids } = collections();
-  await ensureMember(guildId, userId);
-  const after = await members.findOneAndUpdate({ guildId, userId, points: { $gte: cost } }, { $inc: { points: -cost } }, { returnDocument: 'after' });
-  if (!after) {
-    const current = await members.findOne({ guildId, userId });
-    return { ok: false, balance: current?.points ?? 0 };
-  }
-  await raids.updateOne({ _id: id }, { $inc: { [`spent.${userId}`]: cost } });
-  await recordLedger([{ guildId, userId, delta: -cost, reason: 'raid_boost' }]);
-  return { ok: true, balance: after.points };
-}
-
-/** Gives back a boost that was paid for but couldn't be used (the turn ended while it was being paid). */
-export async function refundBoost(guildId: string, userId: string, id: string, cost: number): Promise<void> {
-  const { members, raids } = collections();
-  await members.updateOne({ guildId, userId }, { $inc: { points: cost } });
-  await raids.updateOne({ _id: id }, { $inc: { [`spent.${userId}`]: -cost } });
-  await recordLedger([{ guildId, userId, delta: cost, reason: 'raid_refund' }]);
 }
 
 /** The boss's Hoard: takes up to `wanted` points from the player's wallet (never their vault). Returns what it took. */
@@ -179,10 +156,4 @@ export async function listUnfinishedRaids(): Promise<RaidDoc[]> {
 export async function resetRaidWeek(guildId: string, weekKey: string): Promise<boolean> {
   const result = await collections().raids.deleteOne({ _id: raidId(guildId, weekKey), status: { $nin: ACTIVE } });
   return result.deletedCount > 0;
-}
-
-/** How many points a member has in their wallet right now. */
-export async function walletOf(guildId: string, userId: string): Promise<number> {
-  const member = await collections().members.findOne({ guildId, userId }, { projection: { points: 1 } });
-  return member?.points ?? 0;
 }
