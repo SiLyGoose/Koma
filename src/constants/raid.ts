@@ -5,6 +5,13 @@
  */
 
 /**
+ * The raid bosses. Each week every server gets one of them (lib/events/raid-boss.ts), never the
+ * same one two weeks running. Adding a boss here reshuffles which one each future week gets.
+ */
+export const RAID_BOSS_IDS = ['wyrm', 'reaper'] as const;
+export type RaidBossId = (typeof RAID_BOSS_IDS)[number];
+
+/**
  * When the weekly raid resets: every Saturday at midnight in this time zone (an IANA name, so
  * daylight saving time is followed).
  */
@@ -86,14 +93,22 @@ export const RAID_EMOJI = {
  *   instead, multiplying everyone's attacks by `attackMultiplier` (its bonus bigger with the
  *   rallyBoost perk) for the next `rallyTurns` turns (a
  *   second rally resets the count, it doesn't stack). `shieldBreak` supports in the same turn shatter
- *   the boss's Scale Shield, whatever else they did.
+ *   the boss's shield (the Scale Shield or the Spectral Veil), whatever else they did.
  *
- * Boss:
+ * Bosses:
  * - Its damage is multiplied by `enrage.multipliers[level]`; level 1 starts below the first share
  *   of HP in `enrage.thresholds`, level 2 below the second.
- * - Each move's base numbers are below; `weights[level]` is how often it picks each move at each
- *   enrage level. It never raises its shield twice in a row.
- * - `hoard` steals min to max points from one player's wallet (never more than they have).
+ * - Each move's base numbers are below; `weights[boss][level]` is how often that boss picks each of
+ *   its moves at each enrage level (a boss only uses the moves it has weights for). It never raises
+ *   its shield twice in a row.
+ * - The Ember Wyrm: `claw` (one raider), `breath` (everyone), `sweep` (min to max raiders), `hoard`
+ *   (steals min to max points from one player's wallet, never more than they have), `shield`.
+ * - The Soul Reaper: `reap` (one raider), `drain` (everyone), `scythe` (min to max raiders),
+ *   `harvest` (one raider, blocked by a guard like Hoard), `veil` (its shield). `lifesteal` heals it
+ *   that many times the damage the move dealt (so guarding cuts it); `harvest` heals it `maxHpShare`
+ *   of its max HP instead. All of its healing is multiplied by `enrage.lifesteal[level]`, so it heals
+ *   more as it gets angrier (on top of hitting harder, which already makes Reap and Soul Drain heal
+ *   more). It never heals above its max HP. It has no crowd control.
  * - Crowd control (`stun`, `disarm`, `taunt`, all under `cc`): stunned players can't act at all,
  *   disarmed ones can't attack, and taunted ones can only attack, for `cc.rounds` turns. At each
  *   enrage level the boss can use one only every `cc.cooldown[level]` rounds, and it hits
@@ -102,21 +117,45 @@ export const RAID_EMOJI = {
  *   about equally (ties are random).
  */
 export const RAID_COMBAT = {
+  /**
+   * Each boss's HP as a share of the raid HP settings (`raid.hpPerPlayer`, `raid.minBossHp`). The
+   * reaper is frailer than the dragon, and makes up for it by hitting harder and healing. Both are
+   * tuned so that 5 raiders who play sensibly, without boosts or gear, beat it within the 15 rounds
+   * about 60% of the time (in simulated fights).
+   */
+  hpShare: { wyrm: 0.774, reaper: 0.445 },
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
   guard: { takenShare: 0.5, aoeCutPerGuard: 0.15, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },
-  enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5] },
+  enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5], lifesteal: [1, 1.25, 1.5] },
   moves: {
     claw: { damage: 45 },
     breath: { damage: 24 },
     sweep: { damage: 32, minTargets: 2, maxTargets: 3 },
     hoard: { min: 200, max: 600 },
+    reap: { damage: 55, lifesteal: 1.5 },
+    drain: { damage: 22, lifesteal: 1 },
+    scythe: { damage: 42, minTargets: 2, maxTargets: 3 },
+    harvest: { damage: 30, maxHpShare: 0.03 },
   },
+  /**
+   * The Soul Reaper's special attack, Soul Requiem: from enrage level `phase` on (furious), as soon as
+   * it is ready it spends a turn charging (announced, so the party can brace), then casts Soul Drain
+   * `casts` times in a row. It is ready again `cooldown` rounds after it was unleashed.
+   */
+  requiem: { boss: 'reaper', phase: 2, cooldown: 6, casts: 2 },
   cc: { rounds: 2, cooldown: [5, 4, 3], targets: [1, 2, 3] },
-  weights: [
-    { claw: 30, breath: 20, sweep: 20, hoard: 12, shield: 8, stun: 4, disarm: 3, taunt: 3 },
-    { claw: 28, breath: 24, sweep: 20, hoard: 10, shield: 8, stun: 4, disarm: 3, taunt: 3 },
-    { claw: 25, breath: 30, sweep: 20, hoard: 8, shield: 7, stun: 4, disarm: 3, taunt: 3 },
-  ],
+  weights: {
+    wyrm: [
+      { claw: 30, breath: 20, sweep: 20, hoard: 12, shield: 8, stun: 4, disarm: 3, taunt: 3 },
+      { claw: 28, breath: 24, sweep: 20, hoard: 10, shield: 8, stun: 4, disarm: 3, taunt: 3 },
+      { claw: 25, breath: 30, sweep: 20, hoard: 8, shield: 7, stun: 4, disarm: 3, taunt: 3 },
+    ],
+    reaper: [
+      { reap: 31, drain: 20, scythe: 23, harvest: 14, veil: 8 },
+      { reap: 29, drain: 24, scythe: 23, harvest: 14, veil: 8 },
+      { reap: 27, drain: 29, scythe: 22, harvest: 14, veil: 7 },
+    ],
+  },
 } as const;

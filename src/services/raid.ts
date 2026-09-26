@@ -1,3 +1,4 @@
+import type { RaidBossId } from '../constants/index.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
 import type { RaidStats } from '../lib/events/raid.js';
@@ -23,14 +24,15 @@ export const raidId = (guildId: string, weekKey: string): string => `${guildId}:
 
 export type StartRaidResult = { ok: true; id: string } | { ok: false; existing: RaidDoc | null };
 
-/** Claims this week's raid for the server. Fails (with the raid already there) if one was started this week. */
-export async function startRaidWeek(guildId: string, week: RaidWeek, startedBy: string): Promise<StartRaidResult> {
+/** Claims this week's raid (against `boss`) for the server. Fails (with the raid already there) if one was started this week. */
+export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidBossId, startedBy: string): Promise<StartRaidResult> {
   const id = raidId(guildId, week.key);
   try {
     await collections().raids.insertOne({
       _id: id,
       guildId,
       weekKey: week.key,
+      boss,
       startedBy,
       status: 'preparing',
       channelId: null,

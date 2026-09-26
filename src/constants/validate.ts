@@ -5,7 +5,7 @@ import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES,
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './gacha.js';
-import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_COMBAT, RAID_EMOJI } from './raid.js';
+import { MAX_RAID_BOOST, MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './refine.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
@@ -168,16 +168,32 @@ export function validateConstants(): void {
   }
   if ([...cc.cooldown, ...cc.targets].some((n) => !(Number.isInteger(n) && n >= 1))) problems.push('RAID_COMBAT.cc cooldowns and target counts must be whole numbers of at least 1');
   if (!(RAID_COMBAT.moves.hoard.min >= 0 && RAID_COMBAT.moves.hoard.min <= RAID_COMBAT.moves.hoard.max)) problems.push('RAID_COMBAT.moves.hoard needs 0 <= min <= max');
-  if (!(RAID_COMBAT.moves.sweep.minTargets >= 1 && RAID_COMBAT.moves.sweep.minTargets <= RAID_COMBAT.moves.sweep.maxTargets)) {
-    problems.push('RAID_COMBAT.moves.sweep needs 1 <= minTargets <= maxTargets');
+  for (const move of ['sweep', 'scythe'] as const) {
+    const { minTargets, maxTargets } = RAID_COMBAT.moves[move];
+    if (!(minTargets >= 1 && minTargets <= maxTargets)) problems.push(`RAID_COMBAT.moves.${move} needs 1 <= minTargets <= maxTargets`);
   }
+  for (const move of ['reap', 'drain'] as const) {
+    if (!(RAID_COMBAT.moves[move].lifesteal >= 0)) problems.push(`RAID_COMBAT.moves.${move}.lifesteal must be 0 or more`);
+  }
+  if (!(RAID_COMBAT.moves.harvest.maxHpShare >= 0 && RAID_COMBAT.moves.harvest.maxHpShare <= 1)) problems.push('RAID_COMBAT.moves.harvest.maxHpShare must be from 0 to 1');
   const enrage = RAID_COMBAT.enrage;
-  if (enrage.multipliers.length !== enrage.thresholds.length + 1 || RAID_COMBAT.weights.length !== enrage.multipliers.length) {
-    problems.push('RAID_COMBAT needs one enrage multiplier and one set of move weights per enrage level (thresholds + 1)');
+  if (enrage.multipliers.length !== enrage.thresholds.length + 1 || enrage.lifesteal.length !== enrage.multipliers.length) {
+    problems.push('RAID_COMBAT.enrage needs one damage multiplier and one lifesteal multiplier per enrage level (thresholds + 1)');
   }
-  for (const [level, weights] of RAID_COMBAT.weights.entries()) {
-    const values = Object.values(weights);
-    if (values.some((w) => !(w >= 0)) || values.filter((w) => w > 0).length < 2) problems.push(`RAID_COMBAT.weights[${level}] needs at least two moves above 0 and none below`);
+  if (enrage.lifesteal.some((m) => !(m >= 0))) problems.push('RAID_COMBAT.enrage.lifesteal multipliers must be 0 or more');
+  const { requiem } = RAID_COMBAT;
+  if (!(Number.isInteger(requiem.phase) && requiem.phase >= 0 && requiem.phase < enrage.multipliers.length)) problems.push('RAID_COMBAT.requiem.phase must be one of the enrage levels');
+  // The charging turn is part of it, so it can't come round again before it has been unleashed.
+  if (!(Number.isInteger(requiem.cooldown) && requiem.cooldown >= 2)) problems.push('RAID_COMBAT.requiem.cooldown must be a whole number of at least 2');
+  if (!(Number.isInteger(requiem.casts) && requiem.casts >= 1)) problems.push('RAID_COMBAT.requiem.casts must be a whole number of at least 1');
+  for (const boss of RAID_BOSS_IDS) {
+    if (!(RAID_COMBAT.hpShare[boss] > 0)) problems.push(`RAID_COMBAT.hpShare.${boss} must be above 0`);
+    const levels: readonly object[] = RAID_COMBAT.weights[boss];
+    if (levels.length !== enrage.multipliers.length) problems.push(`RAID_COMBAT.weights.${boss} needs one set of move weights per enrage level (thresholds + 1)`);
+    for (const [level, weights] of levels.entries()) {
+      const values = Object.values(weights) as number[];
+      if (values.some((w) => !(w >= 0)) || values.filter((w) => w > 0).length < 2) problems.push(`RAID_COMBAT.weights.${boss}[${level}] needs at least two moves above 0 and none below`);
+    }
   }
 
   if (!(CODE_LENGTH >= 1 && CODE_LENGTH <= 10)) problems.push('CODE_LENGTH must be from 1 to 10 (the pop-up box and the board have to fit it)');

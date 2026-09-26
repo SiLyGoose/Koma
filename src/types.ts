@@ -1,6 +1,7 @@
 import type { ObjectId } from 'mongodb';
 import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
+import type { RaidBossId } from './constants/raid.js';
 
 export type Stars = 1 | 2 | 3 | 4;
 
@@ -319,6 +320,8 @@ export interface RaidDoc {
   _id: string;
   guildId: string;
   weekKey: string;
+  /** Which boss was fought. Raids saved before there was more than one boss don't have it: they were the dragon. */
+  boss?: RaidBossId;
   startedBy: string;
   status: 'preparing' | 'fighting' | 'won' | 'wiped' | 'fled';
   channelId: string | null;

@@ -1,5 +1,6 @@
 import { encodePng } from './png.js';
 import { mix, type Rgb } from './raster.js';
+import { blowUp, hash, inside, mapShades, paintParts, SpriteGrid, type Pt, type Shades } from './sprite.js';
 
 /*
  * Draws the raid boss as a PNG: a pixel-art red dragon standing on its hoard in a dark cave, facing
@@ -24,12 +25,10 @@ const H = 60;
 /** How many picture pixels each sprite pixel becomes. */
 const SCALE = 5;
 
-type Pt = readonly [number, number];
-
 /** The parts of the dragon, back to front. The order is also how they overlap. */
 const PARTS = ['wing', 'bone', 'tail', 'leg', 'neck', 'body', 'belly', 'arm', 'claw', 'spike', 'head', 'snout', 'horn', 'tooth', 'eye'] as const;
 type Part = (typeof PARTS)[number];
-const PART_ID = Object.fromEntries(PARTS.map((part, i) => [part, i])) as Record<Part, number>;
+type Grid = SpriteGrid<Part>;
 
 /**
  * Parts in the same group get no outline between them (the belly is painted onto the body, the
@@ -38,9 +37,6 @@ const PART_ID = Object.fromEntries(PARTS.map((part, i) => [part, i])) as Record<
 const GROUP: Partial<Record<Part, string>> = { body: 'skin', belly: 'skin', neck: 'skin', tail: 'skin', wing: 'wing', bone: 'wing' };
 /** Small details that are neither outlined nor shaded. */
 const FLAT: ReadonlySet<Part> = new Set<Part>(['eye', 'tooth', 'bone', 'claw']);
-
-/** Light, middle and dark shade of each part. */
-type Shades = readonly [Rgb, Rgb, Rgb];
 
 const RED: Shades = [
   [236, 98, 76],
@@ -107,8 +103,6 @@ function basePalette(): Palette {
   };
 }
 
-const mapShades = (shades: Shades, f: (c: Rgb) => Rgb): Shades => [f(shades[0]), f(shades[1]), f(shades[2])];
-
 function paletteFor(mood: DragonMood): Palette {
   const base = basePalette();
   const mapAll = (f: (c: Rgb) => Rgb): Palette => ({
@@ -161,76 +155,6 @@ function paletteFor(mood: DragonMood): Palette {
 }
 
 // ---------------------------------------------------------------------------
-// Filling shapes into the grid
-// ---------------------------------------------------------------------------
-
-class Grid {
-  readonly cells = new Int8Array(W * H).fill(-1);
-
-  at(x: number, y: number): number {
-    if (x < 0 || y < 0 || x >= W || y >= H) return -1;
-    return this.cells[y * W + x] as number;
-  }
-
-  /** Sets the cell, if `only` (when given) allows what is already there. */
-  set(x: number, y: number, part: Part, only?: readonly Part[]): void {
-    if (x < 0 || y < 0 || x >= W || y >= H) return;
-    if (only && !only.some((p) => PART_ID[p] === this.cells[y * W + x])) return;
-    this.cells[y * W + x] = PART_ID[part];
-  }
-
-  ellipse(cx: number, cy: number, rx: number, ry: number, part: Part, only?: readonly Part[]): void {
-    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
-      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-        const dx = (x + 0.5 - cx) / rx;
-        const dy = (y + 0.5 - cy) / ry;
-        if (dx * dx + dy * dy <= 1) this.set(x, y, part, only);
-      }
-    }
-  }
-
-  polygon(points: readonly Pt[], part: Part, only?: readonly Part[]): void {
-    const ys = points.map((p) => p[1]);
-    for (let y = Math.floor(Math.min(...ys)); y <= Math.ceil(Math.max(...ys)); y++) {
-      for (let x = 0; x < W; x++) {
-        if (inside(points, x + 0.5, y + 0.5)) this.set(x, y, part, only);
-      }
-    }
-  }
-
-  /** A thick line along a quadratic curve, `r0` thick at the start and `r1` at the end. */
-  limb(from: Pt, via: Pt, to: Pt, r0: number, r1: number, part: Part): void {
-    const steps = 40;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const u = 1 - t;
-      const x = u * u * from[0] + 2 * u * t * via[0] + t * t * to[0];
-      const y = u * u * from[1] + 2 * u * t * via[1] + t * t * to[1];
-      const r = r0 + (r1 - r0) * t;
-      this.ellipse(x, y, r, r, part);
-    }
-  }
-
-  line(from: Pt, to: Pt, part: Part, only?: readonly Part[]): void {
-    const steps = Math.ceil(Math.max(Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1]))) * 2;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      this.set(Math.floor(from[0] + (to[0] - from[0]) * t), Math.floor(from[1] + (to[1] - from[1]) * t), part, only);
-    }
-  }
-}
-
-function inside(points: readonly Pt[], x: number, y: number): boolean {
-  let hit = false;
-  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-    const [xi, yi] = points[i] as Pt;
-    const [xj, yj] = points[j] as Pt;
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
-  }
-  return hit;
-}
-
-// ---------------------------------------------------------------------------
 // The dragon
 // ---------------------------------------------------------------------------
 
@@ -276,7 +200,7 @@ const pair = (x: number, y: number): Pt[] => [
  * Everything but the tail is drawn once for the left side and mirrored.
  */
 function drawDragon(mood: DragonMood): { grid: Grid; face: Face } {
-  const g = new Grid();
+  const g: Grid = new SpriteGrid(PARTS, W, H);
   const eyeOpen = mood !== 'defeated' && mood !== 'gloating';
   // Furious, it rears its wings up higher.
   const rearing = mood === 'furious';
@@ -403,13 +327,6 @@ function drawDragon(mood: DragonMood): { grid: Grid; face: Face } {
 // Painting
 // ---------------------------------------------------------------------------
 
-/** A fixed pseudo-random number for (x, y), so the embers and coins land in the same places every time. */
-function hash(x: number, y: number, seed: number): number {
-  let h = (x * 374761393 + y * 668265263 + seed * 2147483647) >>> 0;
-  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-}
-
 function paintBackground(pixels: Rgb[], palette: Palette, mood: DragonMood): void {
   for (let y = 0; y < H; y++) {
     const sky = mix(palette.skyTop, palette.skyBottom, y / (H - 1));
@@ -458,44 +375,14 @@ function paintBackground(pixels: Rgb[], palette: Palette, mood: DragonMood): voi
 }
 
 function paintDragon(pixels: Rgb[], { grid, face }: { grid: Grid; face: Face }, palette: Palette, mood: DragonMood): void {
-  const partAt = (x: number, y: number): Part | null => {
-    const id = grid.at(x, y);
-    return id < 0 ? null : (PARTS[id] as Part);
-  };
-  const groupOf = (part: Part): string => GROUP[part] ?? part;
-
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const part = partAt(x, y);
-      if (part === null) {
-        // Outline round the outside of the dragon.
-        const touches = [partAt(x - 1, y), partAt(x + 1, y), partAt(x, y - 1), partAt(x, y + 1)].some((p) => p !== null && !FLAT.has(p));
-        if (touches) pixels[y * W + x] = palette.outline;
-        continue;
-      }
-      const [light, mid, dark] = palette.parts[part];
-      if (FLAT.has(part)) {
-        pixels[y * W + x] = part === 'eye' ? palette.eye : mid;
-        continue;
-      }
-      // A line where this part passes behind a part of another group.
-      const behind = [partAt(x - 1, y), partAt(x + 1, y), partAt(x, y - 1), partAt(x, y + 1)].some(
-        (p) => p !== null && !FLAT.has(p) && PART_ID[p] > PART_ID[part] && groupOf(p) !== groupOf(part),
-      );
-      if (behind) {
-        pixels[y * W + x] = mix(dark, palette.outline, 0.6);
-        continue;
-      }
-      // Shade from the edges: lit from the top left, in shadow at the bottom right.
-      const same = (dx: number, dy: number): boolean => {
-        const p = partAt(x + dx, y + dy);
-        return p !== null && groupOf(p) === groupOf(part);
-      };
-      if (!same(0, -1) || !same(-1, -1)) pixels[y * W + x] = light;
-      else if (!same(0, 2) || !same(2, 1) || !same(1, 2)) pixels[y * W + x] = dark;
-      else pixels[y * W + x] = mid;
-    }
-  }
+  const partAt = (x: number, y: number): Part | null => grid.partAt(x, y);
+  paintParts(pixels, grid, {
+    shades: palette.parts,
+    outline: palette.outline,
+    group: GROUP,
+    flat: FLAT,
+    flatColor: (part) => (part === 'eye' ? palette.eye : undefined),
+  });
 
   // Belly plates: a seam every few rows across the pale belly, glowing like lava when furious.
   const seam: Rgb = mood === 'furious' ? [255, 120, 30] : palette.parts.belly[2];
@@ -869,23 +756,6 @@ function paintFlight(pixels: Rgb[]): void {
   stamp(BIRD, 29, 18, [14, 10, 30]);
 }
 
-/** Scales every sprite pixel up to a SCALE x SCALE block. */
-function blowUp(pixels: readonly Rgb[]): Uint8Array {
-  const width = W * SCALE;
-  const out = new Uint8Array(width * H * SCALE * 4);
-  for (let y = 0; y < H * SCALE; y++) {
-    for (let x = 0; x < width; x++) {
-      const [r, g, b] = pixels[Math.floor(y / SCALE) * W + Math.floor(x / SCALE)] as Rgb;
-      const at = (y * width + x) * 4;
-      out[at] = Math.round(r);
-      out[at + 1] = Math.round(g);
-      out[at + 2] = Math.round(b);
-      out[at + 3] = 255;
-    }
-  }
-  return out;
-}
-
 /** The picture's size in pixels. */
 export const DRAGON_SIZE = { width: W * SCALE, height: H * SCALE } as const;
 
@@ -899,7 +769,7 @@ export function renderDragon(mood: DragonMood): Buffer {
     paintBackground(pixels, palette, mood);
     paintDragon(pixels, drawDragon(mood), palette, mood);
   }
-  return encodePng(DRAGON_SIZE.width, DRAGON_SIZE.height, blowUp(pixels));
+  return encodePng(DRAGON_SIZE.width, DRAGON_SIZE.height, blowUp(pixels, W, H, SCALE));
 }
 
 const cache = new Map<DragonMood, Buffer>();

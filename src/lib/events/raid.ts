@@ -1,4 +1,4 @@
-import { RAID_COMBAT } from '../../constants/index.js';
+import { RAID_COMBAT, type RaidBossId } from '../../constants/index.js';
 import { chance, pickRandom, randInt } from '../random.js';
 
 /*
@@ -8,6 +8,10 @@ import { chance, pickRandom, randInt } from '../random.js';
  * the move it announced the round before and announces its next one. Announcing a round ahead is
  * what gives guarding and healing a point: everyone can see what is coming.
  *
+ * Every boss (RAID_BOSS_IDS) plays by these rules; they differ in the moves they pick from
+ * (RAID_COMBAT.weights). Moves of different bosses can work alike (the dragon's Claw and the
+ * reaper's Reap both hit one raider), which MOVE_KIND sorts out.
+ *
  * The state is changed in place. Every function returns what happened as RaidEvents, which the
  * command turns into the lines of the action log.
  */
@@ -15,8 +19,41 @@ import { chance, pickRandom, randInt } from '../random.js';
 export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', 'support'];
 
-export type BossMove = 'claw' | 'breath' | 'sweep' | 'hoard' | 'shield' | CcMove;
-export const BOSS_MOVES: readonly BossMove[] = ['claw', 'breath', 'sweep', 'hoard', 'shield', 'stun', 'disarm', 'taunt'];
+/** The moves that damage raiders directly. */
+export type HitMove = 'claw' | 'breath' | 'sweep' | 'reap' | 'drain' | 'scythe' | 'harvest';
+export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'charge' | 'requiem' | CcMove;
+export const BOSS_MOVES: readonly BossMove[] = ['claw', 'breath', 'sweep', 'hoard', 'shield', 'reap', 'drain', 'scythe', 'harvest', 'veil', 'charge', 'requiem', 'stun', 'disarm', 'taunt'];
+
+/**
+ * How each move works: `single` hits one raider (a guard can jump in front), `all` hits everyone,
+ * `some` hits a few, `steal` goes for one raider and is stopped outright by a guard, `shield` makes
+ * attacks bounce off for the next turn, `cc` puts raiders under crowd control, and `charge` does
+ * nothing but warn that a special attack is coming next turn.
+ */
+export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'cc' | 'charge';
+export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
+  claw: 'single',
+  reap: 'single',
+  breath: 'all',
+  drain: 'all',
+  sweep: 'some',
+  scythe: 'some',
+  hoard: 'steal',
+  harvest: 'steal',
+  shield: 'shield',
+  veil: 'shield',
+  charge: 'charge',
+  requiem: 'all',
+  stun: 'cc',
+  disarm: 'cc',
+  taunt: 'cc',
+};
+
+/** The moves a boss uses: the ones it has a weight for at any enrage level. */
+export const movesOf = (boss: RaidBossId): BossMove[] => BOSS_MOVES.filter((move) => RAID_COMBAT.weights[boss].some((weights) => weightOf(weights, move) > 0));
+
+/** How often a boss picks `move` from one of its sets of weights (0 for a move it doesn't have). */
+const weightOf = (weights: object, move: BossMove): number => (weights as Partial<Record<BossMove, number>>)[move] ?? 0;
 
 /** The boss's crowd-control moves, and the effect each one leaves on its targets. */
 export type CcMove = 'stun' | 'disarm' | 'taunt';
@@ -82,11 +119,15 @@ export interface BossIntent {
   move: BossMove;
   targets: string[];
   multiplier: number;
+  /** What the healing the move gives the boss (lifesteal) is multiplied by, locked in the same way. Missing means 1. */
+  lifesteal?: number;
 }
 
 export type RaidOutcome = 'ongoing' | 'won' | 'wiped' | 'fled';
 
 export interface RaidState {
+  /** Which boss is being fought. */
+  boss: RaidBossId;
   bossHp: number;
   bossMaxHp: number;
   /** The round being played, from 1. */
@@ -94,7 +135,7 @@ export interface RaidState {
   maxRounds: number;
   players: RaidPlayer[];
   intent: BossIntent;
-  /** The Scale Shield is up for this round's attacks. */
+  /** The boss's shield (the Scale Shield, the Spectral Veil) is up for this round's attacks. */
   shielded: boolean;
   /** Turns left that everyone's attacks are multiplied by `rallyMultiplier` (from a rally). */
   rallied: number;
@@ -110,6 +151,8 @@ export interface RaidState {
   lastMove: BossMove | null;
   /** The round the boss last made a crowd-control move in (its cooldown counts from there), or null. */
   lastCc: number | null;
+  /** The round the boss last unleashed its Soul Requiem (its cooldown counts from there), or null. */
+  lastRequiem: number | null;
   outcome: RaidOutcome;
 }
 
@@ -136,11 +179,17 @@ export type RaidEvent =
   | { kind: 'bounced'; userId: string }
   | { kind: 'defeated'; userId: string }
   | { kind: 'enrage'; level: number }
-  | { kind: 'hit'; move: 'claw' | 'breath' | 'sweep'; userId: string; damage: number; guarded: boolean; coveredFor: string | null }
+  | { kind: 'hit'; move: HitMove; userId: string; damage: number; guarded: boolean; coveredFor: string | null }
   | { kind: 'knockedOut'; userId: string }
+  /** The boss healed itself off a move (never above its max HP). */
+  | { kind: 'lifesteal'; move: HitMove; amount: number }
   | { kind: 'shieldUp' }
+  /** The reaper is charging its Soul Requiem, and when it is unleashed. */
+  | { kind: 'charging' }
+  | { kind: 'requiem' }
   | { kind: 'cc'; effect: CrowdControl; userId: string }
   | { kind: 'hoardBlocked'; userId: string; targetId: string }
+  | { kind: 'harvestBlocked'; userId: string; targetId: string }
   | { kind: 'stole'; userId: string; amount: number }
   | { kind: 'wiped' }
   | { kind: 'fled' };
@@ -172,6 +221,12 @@ export function enrageLevel(hp: number, maxHp: number): number {
 /** What the boss's damage is multiplied by at its enrage level. */
 export const bossMultiplier = (state: RaidState): number => RAID_COMBAT.enrage.multipliers[state.enrage] ?? 1;
 
+/** What the boss's healing (the reaper's lifesteal) is multiplied by at its enrage level. */
+export const bossLifesteal = (state: RaidState): number => RAID_COMBAT.enrage.lifesteal[state.enrage] ?? 1;
+
+/** The moves that heal the boss. */
+export const HEALING_MOVES: readonly BossMove[] = ['reap', 'drain', 'harvest', 'requiem'];
+
 /** A percent boost as a multiplier: 25 -> 1.25. */
 const boosted = (amount: number, boost: number): number => amount * (1 + boost / 100);
 
@@ -186,21 +241,30 @@ export const rallyMultiplierOf = (player: { gear: RaidGear }): number => 1 + (RA
  * The boss's HP for a party of `players`: `hpPerPlayer` each, times 1 + `hpGrowth` for every player
  * past the first, and never below `minBossHp`. The growth is there because the boss's own hits don't
  * get stronger with more players, so without it a big party would have an easier time than a small one.
+ * `share` scales all of it, for a boss with less HP than the settings give (RAID_COMBAT.hpShare).
  */
-export function bossHpFor(players: number, hp: { hpPerPlayer: number; hpGrowth: number; minBossHp: number }): number {
+export function bossHpFor(players: number, hp: { hpPerPlayer: number; hpGrowth: number; minBossHp: number }, share = 1): number {
   const scaled = Math.round(hp.hpPerPlayer * players * (1 + hp.hpGrowth * Math.max(0, players - 1)));
-  return Math.max(hp.minBossHp, scaled);
+  return Math.round(Math.max(hp.minBossHp, scaled) * share);
 }
 
-/** A new fight against a boss with `bossHp`, with these players (in the order they joined). */
-export function createRaid(userIds: readonly string[], bossHp: number, playerHp: number, maxRounds: number, rng: RaidRng = defaultRaidRng): RaidState {
+/** A new fight against `boss` with `bossHp`, with these players (in the order they joined). */
+export function createRaid(
+  boss: RaidBossId,
+  userIds: readonly string[],
+  bossHp: number,
+  playerHp: number,
+  maxRounds: number,
+  rng: RaidRng = defaultRaidRng,
+): RaidState {
   const state: RaidState = {
+    boss,
     bossHp,
     bossMaxHp: bossHp,
     round: 1,
     maxRounds,
     players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cc: null, targeted: 0, stats: emptyStats(), gear: emptyGear() })),
-    intent: { move: 'claw', targets: [], multiplier: 1 },
+    intent: { move: movesOf(boss)[0] ?? 'claw', targets: [], multiplier: 1 },
     shielded: false,
     rallied: 0,
     rallyMultiplier: RAID_COMBAT.support.attackMultiplier,
@@ -209,6 +273,7 @@ export function createRaid(userIds: readonly string[], bossHp: number, playerHp:
     lastHit: null,
     lastMove: null,
     lastCc: null,
+    lastRequiem: null,
     outcome: 'ongoing',
   };
   state.intent = pickIntent(state, rng);
@@ -407,48 +472,85 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       .filter(isAlive)
       .sort((a, b) => b.hp - a.hp)[0];
   };
-  const damage = (player: RaidPlayer, amount: number, hitMove: 'claw' | 'breath' | 'sweep', coveredFor: string | null): void => {
+  /** HP the move took from raiders, for lifesteal. */
+  let dealt = 0;
+  const damage = (player: RaidPlayer, amount: number, hitMove: HitMove, coveredFor: string | null): void => {
     const taken = Math.max(1, Math.round(amount));
+    dealt += Math.min(taken, player.hp);
     player.hp = Math.max(0, player.hp - taken);
     events.push({ kind: 'hit', move: hitMove, userId: player.userId, damage: taken, guarded: state.guarding.includes(player.userId), coveredFor });
     if (player.hp === 0) events.push({ kind: 'knockedOut', userId: player.userId });
   };
   const aoeCut = Math.min(RAID_COMBAT.guard.aoeCutMax, state.guarding.filter((id) => isAlive(findPlayer(state, id) as RaidPlayer)).length * RAID_COMBAT.guard.aoeCutPerGuard);
   /** A move that hits several players: guards take their share, everyone else gets the guards' cut. */
-  const splash = (player: RaidPlayer, base: number, hitMove: 'breath' | 'sweep'): void => {
+  const splash = (player: RaidPlayer, base: number, hitMove: HitMove): void => {
     const share = state.guarding.includes(player.userId) ? guardTakenShare(player) : 1 - aoeCut;
     damage(player, base * multiplier * share, hitMove, null);
   };
+  /** The boss heals `amount` (never above its max HP). */
+  const heal = (amount: number, hitMove: HitMove): void => {
+    const healed = Math.min(state.bossMaxHp - state.bossHp, Math.round(amount * (state.intent.lifesteal ?? 1)));
+    if (healed <= 0) return;
+    state.bossHp += healed;
+    events.push({ kind: 'lifesteal', move: hitMove, amount: healed });
+  };
+  /** Its base damage, for the moves that hit raiders. */
+  const baseDamage = (hitMove: Exclude<HitMove, 'harvest'>): number => RAID_COMBAT.moves[hitMove].damage;
 
   switch (move) {
-    case 'claw': {
+    case 'claw':
+    case 'reap': {
       const target = standing(state.intent.targets[0]);
       if (!target) break;
       const cover = coverFor(target);
-      if (cover) damage(cover, RAID_COMBAT.moves.claw.damage * multiplier * guardTakenShare(cover), 'claw', target.userId);
-      else damage(target, RAID_COMBAT.moves.claw.damage * multiplier * (state.guarding.includes(target.userId) ? guardTakenShare(target) : 1), 'claw', null);
+      if (cover) damage(cover, baseDamage(move) * multiplier * guardTakenShare(cover), move, target.userId);
+      else damage(target, baseDamage(move) * multiplier * (state.guarding.includes(target.userId) ? guardTakenShare(target) : 1), move, null);
       break;
     }
     case 'breath':
-      for (const player of livingPlayers(state)) splash(player, RAID_COMBAT.moves.breath.damage, 'breath');
+    case 'drain':
+      for (const player of livingPlayers(state)) splash(player, baseDamage(move), move);
       break;
-    case 'sweep': {
+    case 'sweep':
+    case 'scythe': {
       const aimed = state.intent.targets.map((id) => findPlayer(state, id)).filter((p): p is RaidPlayer => p !== undefined && isAlive(p));
       const hit = aimed.length > 0 ? aimed : [standing(undefined)].filter((p): p is RaidPlayer => p !== undefined);
-      for (const player of hit) splash(player, RAID_COMBAT.moves.sweep.damage, 'sweep');
+      for (const player of hit) splash(player, baseDamage(move), move);
       break;
     }
-    case 'hoard': {
+    case 'hoard':
+    case 'harvest': {
+      // Goes for one raider's wallet (Hoard) or life (Harvest). A guard stops it outright.
       const target = standing(state.intent.targets[0]);
       if (!target) break;
       const guard = state.guarding.includes(target.userId) ? target : coverFor(target);
-      if (guard) events.push({ kind: 'hoardBlocked', userId: guard.userId, targetId: target.userId });
-      else theft = { userId: target.userId, wanted: rng.int(RAID_COMBAT.moves.hoard.min, RAID_COMBAT.moves.hoard.max) };
+      if (guard) {
+        events.push({ kind: move === 'hoard' ? 'hoardBlocked' : 'harvestBlocked', userId: guard.userId, targetId: target.userId });
+      } else if (move === 'hoard') {
+        theft = { userId: target.userId, wanted: rng.int(RAID_COMBAT.moves.hoard.min, RAID_COMBAT.moves.hoard.max) };
+      } else {
+        damage(target, RAID_COMBAT.moves.harvest.damage * multiplier, 'harvest', null);
+        heal(state.bossMaxHp * RAID_COMBAT.moves.harvest.maxHpShare, 'harvest');
+      }
       break;
     }
     case 'shield':
+    case 'veil':
       state.shielded = true;
       events.push({ kind: 'shieldUp' });
+      break;
+    case 'charge':
+      events.push({ kind: 'charging' });
+      break;
+    case 'requiem':
+      // Soul Drain, several times over: each cast hits everyone still standing and heals the reaper off what it took.
+      events.push({ kind: 'requiem' });
+      for (let cast = 0; cast < RAID_COMBAT.requiem.casts && livingPlayers(state).length > 0; cast++) {
+        dealt = 0;
+        for (const player of livingPlayers(state)) splash(player, RAID_COMBAT.moves.drain.damage, 'drain');
+        heal(dealt * RAID_COMBAT.moves.drain.lifesteal, 'drain');
+      }
+      state.lastRequiem = state.round;
       break;
     case 'stun':
     case 'disarm':
@@ -467,6 +569,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       break;
     }
   }
+  // Lifesteal: the reaper's Reap and Soul Drain heal it off the HP they took (what guards blocked it doesn't get).
+  if (move === 'reap' || move === 'drain') heal(dealt * RAID_COMBAT.moves[move].lifesteal, move);
   state.lastMove = move;
 
   if (livingPlayers(state).length === 0) {
@@ -496,6 +600,13 @@ export function endRound(state: RaidState, rng: RaidRng = defaultRaidRng): RaidE
   return [];
 }
 
+/** Whether the boss has a Soul Requiem it can start charging for the round being planned (its phase reached, and off cooldown). */
+export function requiemReady(state: RaidState): boolean {
+  const { boss, phase, cooldown } = RAID_COMBAT.requiem;
+  if (state.boss !== boss || state.enrage < phase || state.lastMove === 'charge') return false;
+  return state.lastRequiem === null || state.round - state.lastRequiem >= cooldown;
+}
+
 /** Whether the boss's crowd-control moves are off cooldown for the round being planned (the cooldown depends on its enrage level). */
 export function ccReady(state: RaidState): boolean {
   const cooldown = RAID_COMBAT.cc.cooldown[state.enrage] ?? RAID_COMBAT.cc.cooldown[0];
@@ -521,36 +632,49 @@ export function fairTargets(pool: readonly RaidPlayer[], count: number, rng: Rai
 
 /** Picks the boss's next move by its weights at its enrage level, and who it is aimed at. */
 export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): BossIntent {
-  const weights = RAID_COMBAT.weights[state.enrage] ?? RAID_COMBAT.weights[0];
+  // The Soul Requiem: unleashed the turn after it was charged, and charged as soon as it is ready.
+  if (requiemReady(state) || state.lastMove === 'charge') {
+    const move = state.lastMove === 'charge' ? 'requiem' : 'charge';
+    return { move, targets: [], multiplier: bossMultiplier(state), ...(move === 'requiem' ? { lifesteal: bossLifesteal(state) } : {}) };
+  }
+  const levels = RAID_COMBAT.weights[state.boss];
+  const weights = levels[state.enrage] ?? levels[0];
+  const weight = (move: BossMove): number => weightOf(weights, move);
   const free = livingPlayers(state).filter((p) => p.cc === null);
   const ccAllowed = ccReady(state) && free.length > 0;
   const options = BOSS_MOVES.filter(
-    (move) => weights[move] > 0 && !(move === 'shield' && state.lastMove === 'shield') && (ccAllowed || !isCcMove(move)),
+    (move) => weight(move) > 0 && !(MOVE_KIND[move] === 'shield' && state.lastMove === move) && (ccAllowed || !isCcMove(move)),
   );
-  const total = options.reduce((sum, move) => sum + weights[move], 0);
+  const total = options.reduce((sum, move) => sum + weight(move), 0);
   let roll = rng.int(1, total);
   let move = options[0] as BossMove;
   for (const option of options) {
-    roll -= weights[option];
+    roll -= weight(option);
     if (roll <= 0) {
       move = option;
       break;
     }
   }
 
-  const multiplier = bossMultiplier(state);
+  const intent = (targets: string[]): BossIntent => ({
+    move,
+    targets,
+    multiplier: bossMultiplier(state),
+    ...(HEALING_MOVES.includes(move) ? { lifesteal: bossLifesteal(state) } : {}),
+  });
   const living = livingPlayers(state);
-  if (living.length === 0) return { move, targets: [], multiplier };
-  if (move === 'claw' || move === 'hoard') return { move, targets: fairTargets(living, 1, rng), multiplier };
-  if (move === 'sweep') {
-    const { minTargets, maxTargets } = RAID_COMBAT.moves.sweep;
-    return { move, targets: fairTargets(living, rng.int(minTargets, maxTargets), rng), multiplier };
+  if (living.length === 0) return intent([]);
+  const kind = MOVE_KIND[move];
+  if (kind === 'single' || kind === 'steal') return intent(fairTargets(living, 1, rng));
+  if (move === 'sweep' || move === 'scythe') {
+    const { minTargets, maxTargets } = RAID_COMBAT.moves[move];
+    return intent(fairTargets(living, rng.int(minTargets, maxTargets), rng));
   }
   if (isCcMove(move)) {
     const count = RAID_COMBAT.cc.targets[state.enrage] ?? RAID_COMBAT.cc.targets[0];
-    return { move, targets: fairTargets(free, count, rng), multiplier };
+    return intent(fairTargets(free, count, rng));
   }
-  return { move, targets: [], multiplier };
+  return intent([]);
 }
 
 /** Everyone who took at least one action: the ones the reward goes to. */

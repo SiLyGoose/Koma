@@ -1,8 +1,9 @@
-import { RAID_EMOJI as E } from '../raid.js';
+import { RAID_EMOJI as E, type RaidBossId } from '../raid.js';
 import { boldGems, boldMoney, boldTokens } from './currency.js';
 
 /*
  * The weekly raid boss. `user`, `target` and the like are mentions; `unix` values are Unix seconds.
+ * Lines that name the boss take its RaidBossText (`b`), from `bosses`.
  */
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -24,34 +25,107 @@ const rewards = (reward: string, tokens: number, gems: number): string =>
 const andList = (items: readonly string[]): string =>
   items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 
+/** What changes from one boss to another. */
+export interface RaidBossText {
+  name: string;
+  emoji: string;
+  /** How a line calls it in the middle of a sentence, and at the start of one. */
+  it: string;
+  It: string;
+  /** The start of the lobby: where the host came across it. */
+  found: (host: string) => string;
+  /** Its shield, the emoji that goes with it, and what attacks do against it ("bounced off"). */
+  shield: string;
+  shieldEmoji: string;
+  bounce: string;
+  shieldUp: string;
+  shieldBroken: string;
+  /** The lobby's title when nobody joined. */
+  asleep: string;
+  /** How it gets away when the rounds run out: the emoji, the log line, the end of "It was still standing after 15 rounds and ...", and the same now ("It ... if"). */
+  fledEmoji: string;
+  fledLog: string;
+  fledHow: string;
+  fleesHow: string;
+}
+
+/** A group of players all hit by the same move, in one line. `rest` is " for **24** each" or empty. */
+const HIT_MANY = {
+  breath: (who: string, rest: string) => `🔥 Fire Breath burned ${who}${rest}.`,
+  sweep: (who: string, rest: string) => `🌀 Tail Sweep hit ${who}${rest}.`,
+  drain: (who: string, rest: string) => `👻 Soul Drain drained ${who}${rest}.`,
+  scythe: (who: string, rest: string) => `🌙 Scythe Sweep cut ${who}${rest}.`,
+};
+type ManyMove = keyof typeof HIT_MANY;
+
 export const raidText = {
-  /** The boss's name (bosses with their own personalities come later). */
-  bossName: 'Ember Wyrm',
-  usage: (p: string) => `Use \`${p}raid\` to start this week's raid (or see how it went, once it has been fought), or \`${p}raid stats\` to see the dragon's stats and moves.`,
+  bosses: {
+    wyrm: {
+      name: 'Ember Wyrm',
+      emoji: '🐉',
+      it: 'the dragon',
+      It: 'The dragon',
+      found: (host: string) => `${host} found the dragon's lair.`,
+      shield: 'Scale Shield',
+      shieldEmoji: '🔷',
+      bounce: 'bounced off',
+      shieldUp: '🔷 The dragon raises its Scale Shield.',
+      shieldBroken: '💥 The Scale Shield shatters!',
+      asleep: 'The dragon went back to sleep',
+      fledEmoji: '🌬️',
+      fledLog: '🌬️ The dragon grows bored and flies off with its hoard.',
+      fledHow: 'flew off',
+      fleesHow: 'flies off',
+    },
+    reaper: {
+      name: 'Soul Reaper',
+      emoji: '💀',
+      it: 'the reaper',
+      It: 'The reaper',
+      found: (host: string) => `${host} strayed into the reaper's graveyard.`,
+      shield: 'Spectral Veil',
+      shieldEmoji: '🌫️',
+      bounce: 'passed right through',
+      shieldUp: '🌫️ The reaper fades behind its Spectral Veil.',
+      shieldBroken: '💥 The Spectral Veil is torn away!',
+      asleep: 'The reaper found nobody to reap',
+      fledEmoji: '🌫️',
+      fledLog: '🌫️ The reaper fades back into the fog, its harvest done.',
+      fledHow: 'faded back into the fog',
+      fleesHow: 'fades back into the fog',
+    },
+  } satisfies Record<RaidBossId, RaidBossText>,
+
+  usage: (p: string) => `Use \`${p}raid\` to start this week's raid (or see how it went, once it has been fought), or \`${p}raid stats\` to see this week's boss, its stats and its moves.`,
   busy: 'Something else is going on in this server right now. Try again when it is over.',
   /** `unix` is when the next raid week starts. */
   alreadyRaided: (unix: number) => `This week's raid has already been started. The next one can be started <t:${unix}:F> (<t:${unix}:R>).`,
 
   // The lobby
-  lobbyTitle: (boss: string) => `🐉 A wild ${boss} appears!`,
+  lobbyTitle: (b: RaidBossText) => `${b.emoji} A wild ${b.name} appears!`,
   /** `host` found it, `unix` is when the fight starts, `rounds` how long the party has to win. */
-  lobby: (host: string, unix: number, rounds: number, reward: string, tokens: number, gems: number) =>
-    `${host} found the dragon's lair. Press **Join** to fight. The battle starts <t:${unix}:R> (or when the host presses **Start now**). ` +
+  lobby: (b: RaidBossText, host: string, unix: number, rounds: number, reward: string, tokens: number, gems: number) =>
+    `${b.found(host)} Press **Join** to fight. The battle starts <t:${unix}:R> (or when the host presses **Start now**). ` +
     `No one can join once it starts.\n\n` +
     `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
   howToField: 'How to fight',
-  howTo: (turnSeconds: number, boostCost: string, shieldBreak: number, rallyMultiplier: string, rallyTurns: number) =>
+  /** `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to lift. */
+  howTo: (b: RaidBossText, turnSeconds: number, boostCost: string, shieldBreak: number, rallyMultiplier: string, rallyTurns: number, steals: boolean, cc: boolean) =>
     [
-      `Each round you have **${turnSeconds}s** to pick one action. The dragon then makes the move it announced.`,
-      `${E.attack} **Attack**: damage the dragon.`,
+      `Each round you have **${turnSeconds}s** to pick one action. ${b.It} then makes the move it announced.`,
+      `${E.attack} **Attack**: damage ${b.it}.`,
       `${E.guard} **Guard**: take half damage, jump in front of attacks aimed at others, and soften attacks that hit everyone.`,
       `${E.heal} **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most).`,
-      `✨ **Support**: frees an ally who is ${E.stunned} stunned, ${E.disarmed} disarmed or ${E.taunted} taunted. If nobody is, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its shield.`,
-      `💸 Attack and Heal can be boosted: ${boostCost} per 1%. Points spent on boosts, and anything the dragon steals, go into the vault.`,
+      cc
+        ? `✨ **Support**: frees an ally who is ${E.stunned} stunned, ${E.disarmed} disarmed or ${E.taunted} taunted. If nobody is, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`
+        : `✨ **Support**: rallies the party: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`,
+      steals
+        ? `💸 Attack and Heal can be boosted: ${boostCost} per 1%. Points spent on boosts, and anything ${b.it} steals, go into the vault.`
+        : `💸 Attack and Heal can be boosted: ${boostCost} per 1%. Points spent on boosts go into the vault.`,
     ].join('\n'),
   playersField: (count: number) => `Raiders (${count})`,
   nobody: 'Nobody yet',
-  bossHpField: 'Dragon HP',
+  bossHpField: (b: RaidBossText) => `${b.name} HP`,
   /** The HP the boss will have with the party as it is now. */
   lobbyBossHp: (hp: string, min: string) => `**${hp}**
 Grows with every raider (at least ${min}).`,
@@ -65,14 +139,13 @@ Grows with every raider (at least ${min}).`,
   notJoined: "You haven't joined this raid.",
   onlyHost: 'Only the host (the first raider on the list) can start early.',
   lobbyClosed: 'The fight has already started, so no one else can join.',
-  noPlayersTitle: 'The dragon went back to sleep',
   noPlayers: 'Nobody joined the raid. It has not been used up: it can be started again this week.',
 
   // The fight
-  fightTitle: (boss: string, round: number, maxRounds: number) => `🐉 ${boss} (round ${round} of ${maxRounds})`,
+  fightTitle: (b: RaidBossText, round: number, maxRounds: number) => `${b.emoji} ${b.name} (round ${round} of ${maxRounds})`,
   bossHp: (bar: string, hp: string, max: string) => `${bar}\n**${hp}** / ${max} HP`,
   enraged: (level: number) => (level >= 2 ? '😡 **FURIOUS**' : '😠 **ENRAGED**'),
-  shielded: '🔷 **Scale Shield up**: attacks bounce off unless enough raiders Support',
+  shielded: (b: RaidBossText) => `${b.shieldEmoji} **${b.shield} up**: attacks do nothing unless enough raiders Support`,
   rallied: (multiplier: string, turns: number) => `✨ **Rallied**: attacks do ${multiplier} damage (${plural(turns, 'turn', 'turns')} left)`,
   nextMove: (text: string) => `**Next:** ${text}`,
   turnEnds: (unix: number) => `Pick your action. The turn ends <t:${unix}:R>.`,
@@ -97,13 +170,26 @@ Grows with every raider (at least ${min}).`,
   healButton: 'Heal',
   supportButton: 'Support',
 
-  // What the dragon is about to do
+  // What the boss is about to do
   intent: {
     claw: (target: string, damage: number) => `🦴 **Claw** at ${target} (${damage} damage)`,
     breath: (damage: number) => `🔥 **Fire Breath**, hitting everyone (${damage} damage each)`,
     sweep: (targets: string, damage: number) => `🌀 **Tail Sweep** at ${targets} (${damage} damage each)`,
     hoard: (target: string) => `💰 **Hoard**: it wants to steal from ${target}'s wallet. A guard can stop it.`,
     shield: (supports: number) => `🔷 **Scale Shield**: next turn attacks bounce off unless ${supports} raiders Support`,
+    /** `lifesteal` is how many times the damage dealt it heals. */
+    /** `lifesteal` is how many times the damage dealt it heals, like "3.75x". */
+    reap: (target: string, damage: number, lifesteal: string) => `🩸 **Reap** at ${target} (${damage} damage; it heals ${lifesteal} what it deals)`,
+    drain: (damage: number, lifesteal: string) => `👻 **Soul Drain**, hitting everyone (${damage} damage each; it heals ${lifesteal} what it drains)`,
+    scythe: (targets: string, damage: number) => `🌙 **Scythe Sweep** at ${targets} (${damage} damage each)`,
+    /** `heal` is the HP it would heal. */
+    harvest: (target: string, damage: number, heal: string) => `🕯️ **Harvest**: it reaches for ${target}'s soul (${damage} damage, and it heals ${heal}). A guard can stop it.`,
+    veil: (supports: number) => `🌫️ **Spectral Veil**: next turn attacks pass right through it unless ${supports} raiders Support`,
+    /** `damage` is each cast's damage to every raider, `casts` how many times Soul Drain is cast. */
+    charge: (damage: number, casts: number) =>
+      `🌑 **Soul Requiem** is charging: next turn it casts Soul Drain ${casts} times, hitting everyone for ${damage} damage each cast. Guard and heal up!`,
+    requiem: (damage: number, casts: number, lifesteal: string) =>
+      `🌑 **Soul Requiem**: Soul Drain ${casts} times on everyone (${damage} damage each cast; it heals ${lifesteal} what it drains)`,
     /** `targets` is one or more mentions. */
     cc: (effect: CrowdControl, targets: string, rounds: number) =>
       `${E[effect]} **${ccMove[effect]}** on ${targets}: ${CC[effect].does} for ${plural(rounds, 'turn', 'turns')}. A Support can free them.`,
@@ -119,13 +205,11 @@ Grows with every raider (at least ${min}).`,
     /** Several attacks that did different amounts; each part is attackPart. */
     attacksMixed: (parts: readonly string[]) => `${E.attack} Hits: ${parts.join(', ')}.`,
     attackPart: (user: string, damage: string, crit: boolean, boost: string) => `${user} **${damage}**${crit ? ` (${E.crit} critical!)` : ''}${boost}`,
-    bouncedMany: (users: readonly string[]) => `🔷 Attacks from ${andList(users)} bounced off the Scale Shield.`,
+    bouncedMany: (b: RaidBossText, users: readonly string[]) => `${b.shieldEmoji} Attacks from ${andList(users)} ${b.bounce} the ${b.shield}.`,
     /** A move that hit several players for the same damage. */
-    hits: (move: 'breath' | 'sweep', users: readonly string[], damage: number) =>
-      move === 'breath' ? `🔥 Fire Breath burned ${andList(users)} for **${damage}** each.` : `🌀 Tail Sweep hit ${andList(users)} for **${damage}** each.`,
+    hits: (move: ManyMove, users: readonly string[], damage: number) => HIT_MANY[move](andList(users), ` for **${damage}** each`),
     /** A move that hit several players for different damage (a guard took less); each part is hitPart. */
-    hitsMixed: (move: 'breath' | 'sweep', parts: readonly string[]) =>
-      move === 'breath' ? `🔥 Fire Breath burned ${andList(parts)}.` : `🌀 Tail Sweep hit ${andList(parts)}.`,
+    hitsMixed: (move: ManyMove, parts: readonly string[]) => HIT_MANY[move](andList(parts), ''),
     hitPart: (user: string, damage: number) => `${user} for **${damage}**`,
     knockedOutMany: (users: readonly string[]) => `💀 ${andList(users)} were knocked out!`,
     ccMany: (effect: CrowdControl, users: readonly string[]) => `${E[effect]} ${andList(users)} are ${CC[effect].name}: ${CC[effect].does}.`,
@@ -137,24 +221,31 @@ Grows with every raider (at least ${min}).`,
     healWasted: (user: string) => `${E.heal} ${user} tried to heal, but nobody was hurt.`,
     rally: (user: string, multiplier: string, turns: number) => `✨ ${user} rallies the party: attacks do ${multiplier} damage for the next ${plural(turns, 'turn', 'turns')}.`,
     cleansed: (user: string, target: string, effect: CrowdControl) => `✨ ${user} freed ${target}: no longer ${E[effect]} ${CC[effect].name}.`,
-    shieldBroken: '💥 The Scale Shield shatters!',
     attack: (user: string, damage: string, crit: boolean, boost: string) => `${E.attack} ${user} hit for **${damage}**${crit ? ` (${E.crit} **critical!**)` : ''}${boost}.`,
-    bounced: (user: string) => `🔷 ${user}'s attack bounced off the Scale Shield.`,
+    bounced: (b: RaidBossText, user: string) => `${b.shieldEmoji} ${user}'s attack ${b.bounce} the ${b.shield}.`,
     defeated: (user: string) => `🏆 ${user} landed the final blow!`,
-    enrage: (level: number) =>
-      level >= 2 ? '😡 The dragon is **furious**! From its next move on, it hits even harder.' : '😠 The dragon is **enraged**! From its next move on, it hits harder.',
+    enrage: (b: RaidBossText, level: number) =>
+      level >= 2 ? `😡 ${b.It} is **furious**! From its next move on, it hits even harder.` : `😠 ${b.It} is **enraged**! From its next move on, it hits harder.`,
     claw: (target: string, damage: number) => `🐉 Claw hit ${target} for **${damage}**.`,
-    clawCovered: (guard: string, target: string, damage: number) => `🐉 ${guard} took the Claw for ${target}: **${damage}**.`,
     breath: (target: string, damage: number) => `🔥 Fire Breath burned ${target} for **${damage}**.`,
     sweep: (target: string, damage: number) => `🌀 Tail Sweep hit ${target} for **${damage}**.`,
+    reap: (target: string, damage: number) => `🩸 Reap cut ${target} for **${damage}**.`,
+    drain: (target: string, damage: number) => `👻 Soul Drain drained ${target} for **${damage}**.`,
+    scythe: (target: string, damage: number) => `🌙 Scythe Sweep cut ${target} for **${damage}**.`,
+    harvest: (target: string, damage: number) => `🕯️ Harvest tore **${damage}** HP out of ${target}'s soul.`,
+    /** A guard who jumped in front of a one-target hit. */
+    covered: (move: 'claw' | 'reap', guard: string, target: string, damage: number) =>
+      move === 'claw' ? `🐉 ${guard} took the Claw for ${target}: **${damage}**.` : `🩸 ${guard} took the Reap for ${target}: **${damage}**.`,
+    charging: (b: RaidBossText) => `🌑 ${b.It} gathers the souls around it. **Soul Requiem** is coming next turn!`,
+    requiem: (b: RaidBossText) => `🌑 ${b.It} unleashes **Soul Requiem**!`,
+    lifesteal: (b: RaidBossText, amount: number) => `🩸 ${b.It} feeds on the stolen life and heals **${amount}** HP.`,
     knockedOut: (user: string) => `💀 ${user} was knocked out!`,
-    shieldUp: '🔷 The dragon raises its Scale Shield.',
     cc: (effect: CrowdControl, user: string) => `${E[effect]} ${user} is ${CC[effect].name}: ${CC[effect].does}.`,
     hoardBlocked: (guard: string, target: string) => `💰 ${guard} kept the dragon's claws off ${target}'s wallet.`,
+    harvestBlocked: (guard: string, target: string) => `🕯️ ${guard} kept the reaper's hand off ${target}'s soul.`,
     stole: (user: string, amount: string) => `💰 The dragon stole ${boldMoney(amount)} from ${user}!`,
     stoleNothing: (user: string) => `💰 The dragon went for ${user}'s wallet and found it empty.`,
     wiped: '☠️ The whole party has fallen.',
-    fled: '🌬️ The dragon grows bored and flies off with its hoard.',
     boost: (percent: number) => ` (+${percent}%)`,
   },
 
@@ -194,13 +285,13 @@ Grows with every raider (at least ${min}).`,
   actions: { attack: 'Attack', guard: 'Guard', heal: 'Heal', support: 'Support' },
 
   // The end
-  wonTitle: (boss: string) => `🏆 The ${boss} has been slain!`,
+  wonTitle: (b: RaidBossText) => `🏆 The ${b.name} has been slain!`,
   won: (rounds: number, reward: string, tokens: number, gems: number) =>
     `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems)}.`,
-  wipedTitle: (boss: string) => `☠️ The ${boss} wins`,
+  wipedTitle: (b: RaidBossText) => `☠️ The ${b.name} wins`,
   wiped: (rounds: number) => `Every raider was knocked out in round **${rounds}**. No rewards this week.`,
-  fledTitle: (boss: string) => `🌬️ The ${boss} got away`,
-  fled: (rounds: number) => `The dragon was still standing after **${plural(rounds, 'round', 'rounds')}** and flew off. No rewards this week.`,
+  fledTitle: (b: RaidBossText) => `${b.fledEmoji} The ${b.name} got away`,
+  fled: (b: RaidBossText, rounds: number) => `${b.It} was still standing after **${plural(rounds, 'round', 'rounds')}** and ${b.fledHow}. No rewards this week.`,
   bossLeft: (hp: string, max: string) => `It had **${hp}** / ${max} HP left.`,
   nextRaid: (unix: number) => `The next raid can be started <t:${unix}:R>.`,
   rankingField: 'Damage',
@@ -218,34 +309,42 @@ Grows with every raider (at least ${min}).`,
   payFailed: (count: number) => `${plural(count, 'reward', 'rewards')} could not be paid. Ask the admin.`,
 
   // `raid` once this week's raid has been fought: how it went
-  weekTitle: (boss: string, outcome: 'won' | 'wiped' | 'fled') =>
-    outcome === 'won' ? `📊 This week's raid: the ${boss} was slain` : outcome === 'wiped' ? `📊 This week's raid: the ${boss} won` : `📊 This week's raid: the ${boss} got away`,
+  weekTitle: (b: RaidBossText, outcome: 'won' | 'wiped' | 'fled') =>
+    outcome === 'won' ? `📊 This week's raid: the ${b.name} was slain` : outcome === 'wiped' ? `📊 This week's raid: the ${b.name} won` : `📊 This week's raid: the ${b.name} got away`,
   /** `ended` is when the fight ended (null if that wasn't saved), `next` when the next raid can be started. */
-  weekDescription: (outcome: 'won' | 'wiped' | 'fled', rounds: number, players: number, ended: number | null, next: number) =>
+  weekDescription: (b: RaidBossText, outcome: 'won' | 'wiped' | 'fled', rounds: number, players: number, ended: number | null, next: number) =>
     [
       outcome === 'won'
         ? `Slain in **${plural(rounds, 'round', 'rounds')}** by ${plural(players, 'raider', 'raiders')}${ended === null ? '' : ` <t:${ended}:R>`}.`
         : outcome === 'wiped'
           ? `All ${plural(players, 'raider', 'raiders')} were knocked out in round **${rounds}**${ended === null ? '' : ` <t:${ended}:R>`}.`
-          : `It was still standing after **${plural(rounds, 'round', 'rounds')}** and flew off${ended === null ? '' : ` <t:${ended}:R>`}.`,
+          : `It was still standing after **${plural(rounds, 'round', 'rounds')}** and ${b.fledHow}${ended === null ? '' : ` <t:${ended}:R>`}.`,
       `The next raid can be started <t:${next}:R>.`,
     ].join('\n'),
 
-  // `raid stats`: the boss itself
-  bossTitle: (boss: string) => `🐉 ${boss}`,
-  /** `examples` is a few party sizes and the HP the dragon has for them, already formatted. */
+  // `raid stats`: this week's boss
+  bossTitle: (b: RaidBossText) => `${b.emoji} ${b.name}`,
+  /** Above the stats: it is this week's boss, and until when. */
+  bossWeek: (unix: number) => `This week's raid boss, until <t:${unix}:F>.`,
+  /** `examples` is a few party sizes and the HP the boss has for them, already formatted. */
   bossInfoHp: (perRaider: string, growth: string, min: string, examples: string) =>
     `❤️ **HP**: ${perRaider} per raider, growing ${growth} more for every raider past the first, and never below ${min}.\n${examples}`,
   bossHpExample: (raiders: number, hp: string) => `${plural(raiders, 'raider', 'raiders')}: ${hp}`,
-  bossRounds: (rounds: number) => `⏳ It flies off (and the raid is lost) if it is still standing after **${rounds}** rounds.`,
+  bossRounds: (b: RaidBossText, rounds: number) => `⏳ It ${b.fleesHow} (and the raid is lost) if it is still standing after **${rounds}** rounds.`,
   rewardsField: 'Rewards',
-  /** What each raider who takes part gets when the dragon is slain (nothing if it wins or flies off). */
+  /** What each raider who takes part gets when the boss is slain (nothing if it wins or gets away). */
   bossRewards: (reward: string, tokens: number, gems: number) =>
     `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems)}.`,
   phasesField: 'Phases',
-  /** `below` is the share of HP the phase starts at (null for the first), `multiplier` how hard it hits. */
-  phaseLine: (name: string, below: string | null, multiplier: string, cooldown: number, targets: number) =>
-    `**${name}**${below === null ? '' : ` (below ${below} HP)`}: hits **${multiplier}** as hard. Crowd control once every **${plural(cooldown, 'round', 'rounds')}**, on ${plural(targets, 'raider', 'raiders')}.`,
+  /**
+   * `below` is the share of HP the phase starts at (null for the first), `multiplier` how hard it
+   * hits, `cc` how often and on how many raiders it uses crowd control (null for a boss without any),
+   * `heals` what its healing is multiplied by (null for a boss that doesn't heal).
+   */
+  phaseLine: (name: string, below: string | null, multiplier: string, cc: { cooldown: number; targets: number } | null, heals: string | null) =>
+    `**${name}**${below === null ? '' : ` (below ${below} HP)`}: hits **${multiplier}** as hard.` +
+    (cc === null ? '' : ` Crowd control once every **${plural(cc.cooldown, 'round', 'rounds')}**, on ${plural(cc.targets, 'raider', 'raiders')}.`) +
+    (heals === null ? '' : ` Heals **${heals}** as much.`),
   phaseNames: ['😌 Calm', '😠 Enraged', '😡 Furious'],
   movesField: 'Moves',
   /** Its moves at their base damage (calm); each phase multiplies the damage. */
@@ -255,40 +354,49 @@ Grows with every raider (at least ${min}).`,
     sweep: (damage: number, min: number, max: number) => `🌀 **Tail Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
     hoard: (min: string, max: string) => `💰 **Hoard**: steals ${boldMoney(min)} to ${boldMoney(max)} from one raider's wallet. A guard can stop it.`,
     shield: (supports: number) => `🔷 **Scale Shield**: attacks bounce off for a turn unless ${supports} raiders Support.`,
+    reap: (damage: number, lifesteal: number) =>
+      `🩸 **Reap**: ${damage} damage to one raider, and it heals **${lifesteal}x** the damage dealt. Other raiders can guard to take it instead, and guarding cuts what it heals.`,
+    drain: (damage: number, lifesteal: number) => `👻 **Soul Drain**: ${damage} damage to everyone, and it heals **${lifesteal}x** the damage dealt. Guards reduce both.`,
+    scythe: (damage: number, min: number, max: number) => `🌙 **Scythe Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
+    harvest: (damage: number, share: string) => `🕯️ **Harvest**: Tears ${damage} HP out of one raider and heals **${share}** of its max HP. A guard can stop it.`,
+    veil: (supports: number) => `🌫️ **Spectral Veil**: attacks pass right through it for a turn unless ${supports} raiders Support.`,
+    /** Its special attack. `phase` is the phase's name. */
+    requiem: (phase: string, casts: number, cooldown: number) =>
+      `🌑 **Soul Requiem** (${phase} only): charges for a turn, then casts Soul Drain ${casts} times in a row. ${cooldown} round cooldown.`,
     cc: (effect: CrowdControl, rounds: number) =>
       `${E[effect]} **${ccMove[effect]}**: ${CC[effect].name} raiders ${CC[effect].does} for ${plural(rounds, 'turn', 'turns')}. A Support frees them.`,
   },
   /** Under the moves: crowd control shares one cooldown, which the phases set. */
   movesCcNote: 'Stun, Disarm and Taunt are crowd control: they share one cooldown, set by the phase.',
-  bossFooter: 'Aimed moves go after whoever the dragon has aimed at least so far, so everyone gets hit about equally.',
+  bossFooter: 'Aimed moves go after whoever the boss has aimed at least so far, so everyone gets hit about equally.',
 
   // A raid the bot didn't finish
   interruptedTitle: 'The raid was cut short',
-  interrupted: 'The bot stopped in the middle of this raid. Everything spent on boosts or stolen by the dragon has been given back, and the raid can be started again this week.',
-  failed: 'Something went wrong in the middle of this raid. Everything spent on boosts or stolen by the dragon has been given back, and the raid can be started again this week.',
+  interrupted: 'The bot stopped in the middle of this raid. Everything spent on boosts or stolen by the boss has been given back, and the raid can be started again this week.',
+  failed: 'Something went wrong in the middle of this raid. Everything spent on boosts or stolen by the boss has been given back, and the raid can be started again this week.',
 
   // Admin test tools (`raid test ...`), for seeing each phase and ending on Discord
   test: {
     usage: (p: string) =>
       [
         `**Raid test tools** (admin only, on the fight going on in this server):`,
-        `\`${p}raid test calm | enraged | furious\`: jump to that phase (sets the dragon's HP just inside it)`,
-        `\`${p}raid test hp 40%\` or \`${p}raid test hp 1200\`: set the dragon's HP`,
-        `\`${p}raid test shield\`: raise or drop the Scale Shield for this turn`,
+        `\`${p}raid test calm | enraged | furious\`: jump to that phase (sets the boss's HP just inside it)`,
+        `\`${p}raid test hp 40%\` or \`${p}raid test hp 1200\`: set the boss's HP`,
+        `\`${p}raid test shield\`: raise or drop the boss's shield for this turn`,
         `\`${p}raid test next\`: end this turn now`,
         `\`${p}raid test kill | wipe | flee\`: end the fight with that result`,
         `A fight the tools changed pays no rewards. \`${p}raid reset\` frees the week again afterwards.`,
       ].join('\n'),
     noFight: 'There is no raid fight going on in this server right now. Start one (and press Start now to skip the lobby).',
     badHp: 'Give the HP as a number or a percentage, like `1200` or `40%`.',
-    hp: (hp: string, max: string) => `Dragon HP set to **${hp}** / ${max}.`,
-    phase: (phase: string, hp: string) => `Dragon set to **${phase}** (${hp} HP).`,
-    shieldOn: 'Scale Shield raised for this turn.',
-    shieldOff: 'Scale Shield dropped.',
+    hp: (hp: string, max: string) => `Boss HP set to **${hp}** / ${max}.`,
+    phase: (phase: string, hp: string) => `Boss set to **${phase}** (${hp} HP).`,
+    shieldOn: (b: RaidBossText) => `${b.shield} raised for this turn.`,
+    shieldOff: (b: RaidBossText) => `${b.shield} dropped.`,
     next: 'Ending this turn now.',
-    kill: 'Killing the dragon: the victory screen is coming up.',
+    kill: 'Killing the boss: the victory screen is coming up.',
     wipe: 'Knocking out the whole party: the defeat screen is coming up.',
-    flee: 'The dragon flies off: the escape screen is coming up.',
+    flee: 'The boss gets away: the escape screen is coming up.',
     /** The line the fight's action log shows for a test change. */
     logLine: (user: string, what: string) => `🛠️ ${user} (test): ${what}`,
     noRewards: (p: string) => `Test raid: no rewards were paid. Use ${p}raid reset to run another this week.`,

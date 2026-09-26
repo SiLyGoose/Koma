@@ -15,8 +15,9 @@ import {
   type Message,
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
-import { RAID, RAID_COMBAT, RAID_EMOJI, TEXT } from '../constants/index.js';
+import { RAID, RAID_COMBAT, RAID_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
 import { dragonPicture, type DragonMood } from '../animations/images/dragon-image.js';
+import { reaperPicture } from '../animations/images/reaper-image.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { claimGuild } from '../events/busy.js';
@@ -38,17 +39,23 @@ import {
   enrageLevel,
   findPlayer,
   isAlive,
+  HEALING_MOVES,
+  isCcMove,
   livingPlayers,
+  MOVE_KIND,
+  movesOf,
   participants,
   recordTheft,
   resolvePlayerTurn,
   type BossIntent,
+  type BossMove,
   type RaidAction,
   type RaidChoice,
   type RaidEvent,
   type RaidState,
   type RaidStats,
 } from '../lib/events/raid.js';
+import { bossForWeek } from '../lib/events/raid-boss.js';
 import { raidWeek } from '../lib/events/raid-week.js';
 import { gearEffects } from '../lib/game/equipment.js';
 import { getEquipment } from '../services/equipment.js';
@@ -71,10 +78,11 @@ import {
 } from '../services/raid.js';
 
 /*
- * The weekly raid boss: `raid` opens a lobby, and when it closes the party fights the dragon in
- * rounds on one live message (lib/events/raid.ts has the rules). One raid per server per week,
- * resetting every Saturday at midnight Eastern (lib/events/raid-week.ts). The server counts as busy
- * for the whole raid, so no random event starts in the middle of it.
+ * The weekly raid boss: `raid` opens a lobby, and when it closes the party fights this week's boss
+ * in rounds on one live message (lib/events/raid.ts has the rules). One raid per server per week,
+ * resetting every Saturday at midnight Eastern (lib/events/raid-week.ts), against the boss the
+ * week picked (lib/events/raid-boss.ts). The server counts as busy for the whole raid, so no random
+ * event starts in the middle of it.
  */
 
 type RaidSettings = Settings['raid'];
@@ -103,28 +111,47 @@ export function playerHpBar(hp: number, max: number): string {
 export function intentText(state: RaidState, intent: BossIntent = state.intent): string {
   const { multiplier } = intent;
   const target = mention(intent.targets[0] ?? '');
+  const targets = intent.targets.map(mention).join(', ');
   const { moves, support } = RAID_COMBAT;
+  const i = TEXT.raid.intent;
+  const hit = (damage: number): number => Math.round(damage * multiplier);
+  const lifesteal = intent.lifesteal ?? 1;
   switch (intent.move) {
     case 'claw':
-      return TEXT.raid.intent.claw(target, Math.round(moves.claw.damage * multiplier));
+      return i.claw(target, hit(moves.claw.damage));
     case 'breath':
-      return TEXT.raid.intent.breath(Math.round(moves.breath.damage * multiplier));
+      return i.breath(hit(moves.breath.damage));
     case 'sweep':
-      return TEXT.raid.intent.sweep(intent.targets.map(mention).join(', '), Math.round(moves.sweep.damage * multiplier));
+      return i.sweep(targets, hit(moves.sweep.damage));
     case 'hoard':
-      return TEXT.raid.intent.hoard(target);
+      return i.hoard(target);
     case 'shield':
-      return TEXT.raid.intent.shield(support.shieldBreak);
+      return i.shield(support.shieldBreak);
+    case 'reap':
+      return i.reap(target, hit(moves.reap.damage), formatMultiplier(moves.reap.lifesteal * lifesteal));
+    case 'drain':
+      return i.drain(hit(moves.drain.damage), formatMultiplier(moves.drain.lifesteal * lifesteal));
+    case 'scythe':
+      return i.scythe(targets, hit(moves.scythe.damage));
+    case 'harvest':
+      return i.harvest(target, hit(moves.harvest.damage), fmt(Math.round(state.bossMaxHp * moves.harvest.maxHpShare * lifesteal)));
+    case 'veil':
+      return i.veil(support.shieldBreak);
+    case 'charge':
+      return i.charge(hit(moves.drain.damage), RAID_COMBAT.requiem.casts);
+    case 'requiem':
+      return i.requiem(hit(moves.drain.damage), RAID_COMBAT.requiem.casts, formatMultiplier(moves.drain.lifesteal * lifesteal));
     case 'stun':
     case 'disarm':
     case 'taunt':
-      return TEXT.raid.intent.cc(CC_EFFECT[intent.move], intent.targets.map(mention).join(', '), RAID_COMBAT.cc.rounds);
+      return i.cc(CC_EFFECT[intent.move], targets, RAID_COMBAT.cc.rounds);
   }
 }
 
-/** One line of the action log. */
-export function eventText(event: RaidEvent): string {
+/** One line of the action log, in a fight against `boss`. */
+export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
   const log = TEXT.raid.log;
+  const b = TEXT.raid.bosses[boss];
   const boost = (percent: number): string => (percent > 0 ? log.boost(percent) : '');
   switch (event.kind) {
     case 'guard':
@@ -142,43 +169,57 @@ export function eventText(event: RaidEvent): string {
     case 'cleansed':
       return log.cleansed(mention(event.userId), mention(event.targetId), event.effect);
     case 'shieldBroken':
-      return log.shieldBroken;
+      return b.shieldBroken;
     case 'attack':
       return log.attack(mention(event.userId), fmt(event.damage), event.crit, boost(event.boost));
     case 'bounced':
-      return log.bounced(mention(event.userId));
+      return log.bounced(b, mention(event.userId));
     case 'defeated':
       return log.defeated(mention(event.userId));
     case 'enrage':
-      return log.enrage(event.level);
+      return log.enrage(b, event.level);
     case 'hit':
-      if (event.coveredFor) return log.clawCovered(mention(event.userId), mention(event.coveredFor), event.damage);
+      // Only a one-target hit (Claw, Reap) can be taken by a guard for someone else.
+      if (event.coveredFor) return log.covered(event.move === 'reap' ? 'reap' : 'claw', mention(event.userId), mention(event.coveredFor), event.damage);
       return log[event.move](mention(event.userId), event.damage);
     case 'knockedOut':
       return log.knockedOut(mention(event.userId));
+    case 'lifesteal':
+      return log.lifesteal(b, event.amount);
     case 'shieldUp':
-      return log.shieldUp;
+      return b.shieldUp;
+    case 'charging':
+      return log.charging(b);
+    case 'requiem':
+      return log.requiem(b);
     case 'cc':
       return log.cc(event.effect, mention(event.userId));
     case 'hoardBlocked':
       return log.hoardBlocked(mention(event.userId), mention(event.targetId));
+    case 'harvestBlocked':
+      return log.harvestBlocked(mention(event.userId), mention(event.targetId));
     case 'stole':
       return event.amount > 0 ? log.stole(mention(event.userId), fmt(event.amount)) : log.stoleNothing(mention(event.userId));
     case 'wiped':
       return log.wiped;
     case 'fled':
-      return log.fled;
+      return b.fledLog;
   }
 }
 
+/** The moves that hit several raiders at once, whose hits can share a line of the log. */
+type ManyMove = 'breath' | 'sweep' | 'drain' | 'scythe';
+const isManyMove = (move: BossMove): move is ManyMove => MOVE_KIND[move] === 'all' || MOVE_KIND[move] === 'some';
+
 /**
- * The action log lines for one turn's events: several of the same thing in a row (guards, attacks,
- * attacks bouncing off, players hit by the same Fire Breath or Tail Sweep, knocked out, or put
- * under the same crowd control) share one line; everything else gets its own (eventText). A
- * multi-target hit's knock-outs come on one line after it.
+ * The action log lines for one turn's events, in a fight against `boss`: several of the same thing
+ * in a row (guards, attacks, attacks bouncing off, players hit by the same move that hits several,
+ * knocked out, or put under the same crowd control) share one line; everything else gets its own
+ * (eventText). A multi-target hit's knock-outs come on one line after it.
  */
-export function eventLines(events: readonly RaidEvent[]): string[] {
+export function eventLines(events: readonly RaidEvent[], boss: RaidBossId = 'wyrm'): string[] {
   const log = TEXT.raid.log;
+  const b = TEXT.raid.bosses[boss];
   const boost = (percent: number): string => (percent > 0 ? log.boost(percent) : '');
   /** Which events can share a line with this one, or null if it always has its own. */
   const groupOf = (event: RaidEvent): string | null => {
@@ -191,7 +232,7 @@ export function eventLines(events: readonly RaidEvent[]): string[] {
       case 'cc':
         return `cc:${event.effect}`;
       case 'hit':
-        return event.move !== 'claw' && event.coveredFor === null ? `hit:${event.move}` : null;
+        return isManyMove(event.move) && event.coveredFor === null ? `hit:${event.move}` : null;
       default:
         return null;
     }
@@ -202,7 +243,7 @@ export function eventLines(events: readonly RaidEvent[]): string[] {
     const first = events[i] as RaidEvent;
     const group = groupOf(first);
     if (group === null) {
-      lines.push(eventText(first));
+      lines.push(eventText(first, boss));
       i++;
       continue;
     }
@@ -217,7 +258,7 @@ export function eventLines(events: readonly RaidEvent[]): string[] {
       else break;
     }
     i = j;
-    if (run.length === 1) lines.push(eventText(first));
+    if (run.length === 1) lines.push(eventText(first, boss));
     else lines.push(groupLine(run));
     if (knockedOut.length === 1) lines.push(log.knockedOut(knockedOut[0] as string));
     if (knockedOut.length > 1) lines.push(log.knockedOutMany(knockedOut));
@@ -231,7 +272,7 @@ export function eventLines(events: readonly RaidEvent[]): string[] {
       case 'guard':
         return log.guards(users);
       case 'bounced':
-        return log.bouncedMany(users);
+        return log.bouncedMany(b, users);
       case 'knockedOut':
         return log.knockedOutMany(users);
       case 'cc':
@@ -244,17 +285,17 @@ export function eventLines(events: readonly RaidEvent[]): string[] {
       }
       case 'hit': {
         const hits = run as Extract<RaidEvent, { kind: 'hit' }>[];
-        const move = first.move as 'breath' | 'sweep';
+        const move = first.move as ManyMove;
         if (hits.every((h) => h.damage === first.damage)) return log.hits(move, users, first.damage);
         return log.hitsMixed(move, hits.map((h) => log.hitPart(mention(h.userId), h.damage)));
       }
       default:
-        return run.map(eventText).join('\n');
+        return run.map((event) => eventText(event, boss)).join('\n');
     }
   }
 }
 
-/** Which picture of the dragon fits the fight right now. */
+/** Which picture of the boss fits the fight right now (every boss has the same moods). */
 export function moodOf(state: RaidState): DragonMood {
   if (state.bossHp <= 0) return 'defeated';
   if (state.outcome === 'wiped') return 'gloating';
@@ -263,7 +304,8 @@ export function moodOf(state: RaidState): DragonMood {
   return state.enrage >= 2 ? 'furious' : state.enrage === 1 ? 'enraged' : 'calm';
 }
 
-const dragonFile = (mood: DragonMood) => ({ attachment: dragonPicture(mood), name: RAID.imageName });
+/** The boss's picture in a mood, as a file to attach. */
+const bossFile = (boss: RaidBossId, mood: DragonMood) => ({ attachment: boss === 'reaper' ? reaperPicture(mood) : dragonPicture(mood), name: RAID.imageName });
 
 function actionRow(disabled: boolean): ActionRowBuilder<ButtonBuilder> {
   const button = (id: string, label: string, emoji: string, style: ButtonStyle) =>
@@ -279,9 +321,10 @@ function actionRow(disabled: boolean): ActionRowBuilder<ButtonBuilder> {
 /** The live fight screen. `turnEndsAt` is when the turn closes, or null while it is being resolved. */
 export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidChoice>, log: readonly string[], turnEndsAt: number | null, cfg: RaidSettings): BotEmbed {
   const r = TEXT.raid;
+  const b = r.bosses[state.boss];
   const tags = [
     state.enrage > 0 ? r.enraged(state.enrage) : '',
-    state.shielded ? r.shielded : '',
+    state.shielded ? r.shielded(b) : '',
     state.rallied > 0 ? r.rallied(formatMultiplier(state.rallyMultiplier), state.rallied) : '',
   ].filter(Boolean);
   const description = [
@@ -297,7 +340,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, cc);
   });
   return createEmbed()
-    .setTitle(r.fightTitle(r.bossName, state.round, state.maxRounds))
+    .setTitle(r.fightTitle(b, state.round, state.maxRounds))
     .setDescription(description)
     .addFields(
       // Cut by length, not a line count: the custom crowd-control emojis make some lines much longer than others.
@@ -311,14 +354,15 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
 /** The screen once the fight is over: how it ended, and who did what (none of it changes the rewards). */
 export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date, reward: RaidReward | null, intoVault = 0): BotEmbed {
   const r = TEXT.raid;
+  const b = r.bosses[state.boss];
   const embed = createEmbed().setImage(`attachment://${RAID.imageName}`);
   const rounds = state.round;
   if (state.outcome === 'won') {
-    embed.setTitle(r.wonTitle(r.bossName)).setDescription(r.won(rounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward));
+    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward));
   } else {
-    const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(rounds);
+    const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(b, rounds);
     embed
-      .setTitle(state.outcome === 'wiped' ? r.wipedTitle(r.bossName) : r.fledTitle(r.bossName))
+      .setTitle(state.outcome === 'wiped' ? r.wipedTitle(b) : r.fledTitle(b))
       .setDescription(`${how}\n${r.bossLeft(fmt(state.bossHp), fmt(state.bossMaxHp))}\n${r.nextRaid(unixOfDate(nextRaid))}`);
   }
 
@@ -357,14 +401,15 @@ ${r.intoVault(fmt(intoVault))}` : '';
  */
 export function weekResultEmbed(raid: RaidDoc & { status: 'won' | 'wiped' | 'fled' }, nextRaid: Date): BotEmbed {
   const r = TEXT.raid;
+  const b = r.bosses[raid.boss ?? 'wyrm'];
   const players = raid.players.map((userId) => ({
     userId,
     stats: raid.stats?.[userId] ?? { ...emptyStats(), damage: raid.damage?.[userId] ?? 0, spent: raid.spent[userId] ?? 0, stolen: raid.stolen[userId] ?? 0 },
   }));
   const ended = raid.endedAt ? unixOfDate(raid.endedAt) : null;
   const embed = createEmbed()
-    .setTitle(r.weekTitle(r.bossName, raid.status))
-    .setDescription(r.weekDescription(raid.status, raid.rounds ?? 0, players.length, ended, unixOfDate(nextRaid)));
+    .setTitle(r.weekTitle(b, raid.status))
+    .setDescription(r.weekDescription(b, raid.status, raid.rounds ?? 0, players.length, ended, unixOfDate(nextRaid)));
   addStatsFields(embed, players, raid.lastHit ?? null);
   return embed;
 }
@@ -373,33 +418,69 @@ export function weekResultEmbed(raid: RaidDoc & { status: 'won' | 'wiped' | 'fle
 export const isFinished = (raid: RaidDoc): raid is RaidDoc & { status: 'won' | 'wiped' | 'fled' } =>
   raid.status === 'won' || raid.status === 'wiped' || raid.status === 'fled';
 
-/** `raid stats`: the dragon itself, with the live raid settings: its HP, its phases, and its moves. */
-export function bossInfoEmbed(cfg: RaidSettings): BotEmbed {
+/**
+ * `raid stats`: a boss itself, with the live raid settings: its HP, its phases, and its moves.
+ * `until` is when its week ends, when it is this week's boss.
+ */
+export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
   const r = TEXT.raid;
+  const b = r.bosses[boss];
   const { moves, cc, enrage, support } = RAID_COMBAT;
-  const examples = [1, 3, 5, 8].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, cfg)))).join(' · ');
+  const share = RAID_COMBAT.hpShare[boss];
+  const examples = [1, 3, 5, 8].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, cfg, share)))).join(' · ');
+  const hasCc = movesOf(boss).some(isCcMove);
+  const heals = movesOf(boss).some((move) => HEALING_MOVES.includes(move));
   const phases = enrage.multipliers.map((multiplier, level) =>
     r.phaseLine(
       r.phaseNames[level] ?? `Phase ${level + 1}`,
       level === 0 ? null : formatPercent(enrage.thresholds[level - 1] ?? 0),
       formatMultiplier(multiplier),
-      cc.cooldown[level] ?? cc.cooldown[0],
-      cc.targets[level] ?? cc.targets[0],
+      hasCc ? { cooldown: cc.cooldown[level] ?? cc.cooldown[0], targets: cc.targets[level] ?? cc.targets[0] } : null,
+      heals ? formatMultiplier(enrage.lifesteal[level] ?? 1) : null,
     ),
   );
-  const moveLines = [
-    r.moves.claw(moves.claw.damage),
-    r.moves.breath(moves.breath.damage),
-    r.moves.sweep(moves.sweep.damage, moves.sweep.minTargets, moves.sweep.maxTargets),
-    r.moves.hoard(fmt(moves.hoard.min), fmt(moves.hoard.max)),
-    r.moves.shield(support.shieldBreak),
-    ...(['stun', 'disarm', 'taunt'] as const).map((move) => r.moves.cc(CC_EFFECT[move], cc.rounds)),
-    '',
-    r.movesCcNote,
-  ];
+  const moveLine = (move: BossMove): string => {
+    switch (move) {
+      case 'claw':
+        return r.moves.claw(moves.claw.damage);
+      case 'breath':
+        return r.moves.breath(moves.breath.damage);
+      case 'sweep':
+        return r.moves.sweep(moves.sweep.damage, moves.sweep.minTargets, moves.sweep.maxTargets);
+      case 'hoard':
+        return r.moves.hoard(fmt(moves.hoard.min), fmt(moves.hoard.max));
+      case 'shield':
+        return r.moves.shield(support.shieldBreak);
+      case 'reap':
+        return r.moves.reap(moves.reap.damage, moves.reap.lifesteal);
+      case 'drain':
+        return r.moves.drain(moves.drain.damage, moves.drain.lifesteal);
+      case 'scythe':
+        return r.moves.scythe(moves.scythe.damage, moves.scythe.minTargets, moves.scythe.maxTargets);
+      case 'harvest':
+        return r.moves.harvest(moves.harvest.damage, formatPercent(moves.harvest.maxHpShare));
+      case 'veil':
+        return r.moves.veil(support.shieldBreak);
+      case 'charge':
+      case 'requiem':
+        return r.moves.requiem(r.phaseNames[RAID_COMBAT.requiem.phase] ?? `Phase ${RAID_COMBAT.requiem.phase + 1}`, RAID_COMBAT.requiem.casts, RAID_COMBAT.requiem.cooldown);
+      case 'stun':
+      case 'disarm':
+      case 'taunt':
+        return r.moves.cc(CC_EFFECT[move], cc.rounds);
+    }
+  };
+  const special: BossMove[] = RAID_COMBAT.requiem.boss === boss ? ['requiem'] : [];
+  const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : [])];
   return createEmbed()
-    .setTitle(r.bossTitle(r.bossName))
-    .setDescription([r.bossInfoHp(fmt(cfg.hpPerPlayer), formatPercent(cfg.hpGrowth), fmt(cfg.minBossHp), examples), r.bossRounds(cfg.maxRounds)].join('\n'))
+    .setTitle(r.bossTitle(b))
+    .setDescription(
+      [
+        ...(until ? [r.bossWeek(unixOfDate(until))] : []),
+        r.bossInfoHp(fmt(Math.round(cfg.hpPerPlayer * share)), formatPercent(cfg.hpGrowth), fmt(Math.round(cfg.minBossHp * share)), examples),
+        r.bossRounds(b, cfg.maxRounds),
+      ].join('\n'),
+    )
     .addFields(
       { name: r.rewardsField, value: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) },
       { name: r.phasesField, value: phases.join('\n') },
@@ -444,7 +525,7 @@ const displayNameOf = (press: Interaction): string => (press.member instanceof G
 
 /**
  * Edits the raid message at a safe pace (Discord limits message edits), always drawing the latest
- * state when an edit goes out. The dragon's picture is only uploaded again when its mood changes.
+ * state when an edit goes out. The boss's picture is only uploaded again when its mood changes.
  * `toBottom` moves the fight back to the bottom of the channel when chat has pushed it up.
  */
 class RaidScreen {
@@ -453,6 +534,7 @@ class RaidScreen {
   private readonly timer: ReturnType<typeof setInterval>;
 
   constructor(
+    private readonly boss: RaidBossId,
     private message: Message,
     private readonly view: () => { embeds: BotEmbed[]; components: ActionRowBuilder<ButtonBuilder>[] },
     private readonly mood: () => DragonMood,
@@ -472,7 +554,7 @@ class RaidScreen {
     const mood = this.mood();
     const newPicture = mood !== this.shownMood;
     this.inFlight = this.message
-      .edit({ ...this.view(), ...(newPicture ? { files: [dragonFile(mood)], attachments: [] } : {}) })
+      .edit({ ...this.view(), ...(newPicture ? { files: [bossFile(this.boss, mood)], attachments: [] } : {}) })
       .then(
         () => {
           if (newPicture) this.shownMood = mood;
@@ -517,7 +599,7 @@ class RaidScreen {
     const mood = this.mood();
     let moved: Message;
     try {
-      moved = await channel.send({ ...this.view(), files: [dragonFile(mood)] });
+      moved = await channel.send({ ...this.view(), files: [bossFile(this.boss, mood)] });
     } catch (err) {
       console.error('Could not move the raid message to the bottom of the channel:', err);
       return false;
@@ -536,16 +618,21 @@ class RaidScreen {
 // The lobby
 // ---------------------------------------------------------------------------
 
-function lobbyView(host: string, players: readonly string[], closesAt: number, cfg: RaidSettings, open: boolean) {
+function lobbyView(boss: RaidBossId, host: string, players: readonly string[], closesAt: number, cfg: RaidSettings, open: boolean) {
   const r = TEXT.raid;
+  const b = r.bosses[boss];
+  const { support } = RAID_COMBAT;
   const lines = players.map((userId, i) => `${mention(userId)}${i === 0 ? r.hostTag : ''}`);
+  const steals = movesOf(boss).includes('hoard');
+  const share = RAID_COMBAT.hpShare[boss];
+  const hasCc = movesOf(boss).some(isCcMove);
   const embed = createEmbed()
-    .setTitle(r.lobbyTitle(r.bossName))
-    .setDescription(r.lobby(mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward))
+    .setTitle(r.lobbyTitle(b))
+    .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward))
     .addFields(
-      { name: r.howToField, value: r.howTo(cfg.turnSeconds, fmt(cfg.boostCost), RAID_COMBAT.support.shieldBreak, formatMultiplier(RAID_COMBAT.support.attackMultiplier), RAID_COMBAT.support.rallyTurns) },
+      { name: r.howToField, value: r.howTo(b, cfg.turnSeconds, fmt(cfg.boostCost), support.shieldBreak, formatMultiplier(support.attackMultiplier), support.rallyTurns, steals, hasCc) },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
-      { name: r.bossHpField, value: r.lobbyBossHp(fmt(bossHpFor(Math.max(1, players.length), cfg)), fmt(cfg.minBossHp)), inline: true },
+      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(Math.max(1, players.length), cfg, share)), fmt(Math.round(cfg.minBossHp * share))), inline: true },
     )
     .setImage(`attachment://${RAID.imageName}`);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -557,10 +644,10 @@ function lobbyView(host: string, players: readonly string[], closesAt: number, c
 }
 
 /** Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order they joined. */
-async function runLobby(message: Message, host: string, cfg: RaidSettings, raidId: string, names: Map<string, string>): Promise<string[]> {
+async function runLobby(boss: RaidBossId, message: Message, host: string, cfg: RaidSettings, raidId: string, names: Map<string, string>): Promise<string[]> {
   const players = [host];
   const closesAt = Date.now() + cfg.prepareSeconds * 1000;
-  const screen = new RaidScreen(message, () => lobbyView(host, players, closesAt, cfg, true), () => 'calm', 'calm');
+  const screen = new RaidScreen(boss, message, () => lobbyView(boss, host, players, closesAt, cfg, true), () => 'calm', 'calm');
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.prepareSeconds * 1000 });
 
   collector.on('collect', (press) => {
@@ -649,7 +736,7 @@ async function runFight(
   let turn: Turn = { round: state.round, open: false, endsAt: 0, choices: new Map(), allIn: () => {} };
 
   const view = () => ({ embeds: [fightEmbed(state, turn.choices, log, turn.open ? turn.endsAt : null, cfg)], components: [actionRow(!turn.open)] });
-  const screen = new RaidScreen(first, view, () => moodOf(state), 'calm');
+  const screen = new RaidScreen(state.boss, first, view, () => moodOf(state), 'calm');
 
   const problemText = (problem: ReturnType<typeof actionProblem>, userId: string): string | null => {
     if (problem === 'not_playing') return TEXT.raid.notPlaying;
@@ -839,7 +926,7 @@ async function runFight(
   const live: LiveFight = { state, log, update: () => screen.update(), endTurn: () => {}, tested: false };
   LIVE.set(guildId, live);
   try {
-    await first.edit({ ...view(), files: [dragonFile('calm')], attachments: [] });
+    await first.edit({ ...view(), files: [bossFile(state.boss, 'calm')], attachments: [] });
     for (;;) {
       // A test tool can end the fight between turns.
       if (state.outcome !== 'ongoing') {
@@ -880,7 +967,7 @@ async function runFight(
         events.push(recordTheft(state, boss.theft.userId, taken));
       }
       events.push(...endRound(state));
-      log.push(...eventLines(events));
+      log.push(...eventLines(events, state.boss));
       await screen.now();
       if (state.outcome !== 'ongoing') break;
       await sleep(RAID.resultMs);
@@ -902,6 +989,7 @@ const TEST_ACTIONS: readonly TestAction[] = ['hp', 'calm', 'enraged', 'furious',
 export function applyRaidTest(fight: LiveFight, action: TestAction, userId: string, value?: string): string {
   const { state } = fight;
   const t = TEXT.raid.test;
+  const b = TEXT.raid.bosses[state.boss];
   const setHp = (hp: number): void => {
     state.bossHp = Math.max(1, Math.min(state.bossMaxHp, Math.round(hp)));
     state.enrage = enrageLevel(state.bossHp, state.bossMaxHp);
@@ -928,7 +1016,7 @@ export function applyRaidTest(fight: LiveFight, action: TestAction, userId: stri
     }
     case 'shield':
       state.shielded = !state.shielded;
-      reply = state.shielded ? t.shieldOn : t.shieldOff;
+      reply = state.shielded ? t.shieldOn(b) : t.shieldOff(b);
       break;
     case 'next':
       fight.endTurn();
@@ -951,7 +1039,7 @@ export function applyRaidTest(fight: LiveFight, action: TestAction, userId: stri
     case 'flee':
       fight.tested = true;
       state.outcome = 'fled';
-      fight.log.push(TEXT.raid.log.fled);
+      fight.log.push(b.fledLog);
       fight.endTurn();
       return t.flee;
   }
@@ -983,11 +1071,12 @@ async function runRaid(ctx: CommandContext): Promise<void> {
   }
   const cfg: RaidSettings = { ...CONFIG.raid };
   const week = raidWeek();
+  const boss = bossForWeek(ctx.guildId, week.key);
   let id: string | null = null;
   let message: Message | null = null;
   let settled = false;
   try {
-    const started = await startRaidWeek(ctx.guildId, week, ctx.user.id);
+    const started = await startRaidWeek(ctx.guildId, week, boss, ctx.user.id);
     if (!started.ok) {
       // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
       const existing = started.existing;
@@ -999,22 +1088,22 @@ async function runRaid(ctx: CommandContext): Promise<void> {
     id = started.id;
 
     const closesAt = Date.now() + cfg.prepareSeconds * 1000;
-    const sent = await ctx.reply({ ...lobbyView(ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [dragonFile('calm')] });
+    const sent = await ctx.reply({ ...lobbyView(boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')] });
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 
     const names = new Map([[ctx.user.id, ctx.guild.members.cache.get(ctx.user.id)?.displayName ?? ctx.user.displayName]]);
-    const players = await runLobby(message, ctx.user.id, cfg, id, names);
+    const players = await runLobby(boss, message, ctx.user.id, cfg, id, names);
     if (players.length === 0) {
       await abandonRaid(id);
       settled = true;
-      const embed = createEmbed().setTitle(TEXT.raid.noPlayersTitle).setDescription(TEXT.raid.noPlayers);
+      const embed = createEmbed().setTitle(TEXT.raid.bosses[boss].asleep).setDescription(TEXT.raid.noPlayers);
       await message.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
       return;
     }
 
     await updateRaid(id, { status: 'fighting' });
-    const state = createRaid(players, bossHpFor(players.length, cfg), cfg.playerHp, cfg.maxRounds);
+    const state = createRaid(boss, players, bossHpFor(players.length, cfg, RAID_COMBAT.hpShare[boss]), cfg.playerHp, cfg.maxRounds);
     // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
     const gear = await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId)));
     state.players.forEach((p, i) => {
@@ -1036,7 +1125,7 @@ async function runRaid(ctx: CommandContext): Promise<void> {
     if (outcome === 'won' && fought.length > 0 && !tested) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward);
     const result = resultEmbed(state, cfg, week.next, reward, intoVault);
     if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });
-    await message.edit({ embeds: [result], components: [], files: [dragonFile(moodOf(state))], attachments: [] });
+    await message.edit({ embeds: [result], components: [], files: [bossFile(boss, moodOf(state))], attachments: [] });
     console.log(`Raid ${id} ended (${outcome}) after ${state.round} rounds with ${players.length} players.`);
   } finally {
     // A raid that stopped part way (an error) is called off: points are given back and the week is freed.
@@ -1080,14 +1169,16 @@ export const raid: Command = {
   name: 'raid',
   aliases: ['boss'],
   description:
-    "Start the weekly raid: everyone joins in to fight a dragon together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern); once it's been fought, `raid` shows how it went. `raid stats` shows the dragon's stats and moves.",
+    "Start the weekly raid: everyone joins in to fight this week's boss together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern), and a different boss from last week's; once it's been fought, `raid` shows how it went. `raid stats` shows this week's boss, its stats and moves.",
   usage: 'raid [stats]',
   slashUsage: 'raid start  or  raid stats',
 
   async execute(ctx) {
     const action = ctx.args[0]?.toLowerCase();
     if (action === 'stats' && ctx.args.length === 1) {
-      await ctx.reply({ embeds: [bossInfoEmbed(CONFIG.raid)], files: [dragonFile('calm')] });
+      const week = raidWeek();
+      const boss = bossForWeek(ctx.guildId, week.key);
+      await ctx.reply({ embeds: [bossInfoEmbed(CONFIG.raid, boss, week.next)], files: [bossFile(boss, 'calm')] });
       return;
     }
     if (action === 'reset') {

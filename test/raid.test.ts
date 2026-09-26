@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
+import { renderReaper } from '../src/animations/images/reaper-image.js';
 import { eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
-import { GEM_EMOJI, RAID, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
+import { GEM_EMOJI, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import * as TEXT_CURRENCY from '../src/constants/text/currency.js';
 import {
   BOSS_MOVES,
@@ -18,6 +19,7 @@ import {
   damageRanking,
   endRound,
   enrageLevel,
+  movesOf,
   participants,
   pickIntent,
   recordTheft,
@@ -26,6 +28,7 @@ import {
   type RaidRng,
   type RaidState,
 } from '../src/lib/events/raid.js';
+import { bossForWeek } from '../src/lib/events/raid-boss.js';
 import { raidWeek } from '../src/lib/events/raid-week.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { raidTakings } from '../src/services/raid.js';
@@ -80,7 +83,7 @@ const choose = (...picks: [string, RaidChoice['action'], number?][]): Map<string
   new Map(picks.map(([userId, action, boost]) => [userId, { action, boost: boost ?? 0 }]));
 
 function fight(players: string[] = ['a', 'b', 'c'], bossHp = 1000): RaidState {
-  return createRaid(players, bossHp, 100, 15, low);
+  return createRaid('wyrm', players, bossHp, 100, 15, low);
 }
 
 test('createRaid: everyone at full HP, round 1, a move announced', () => {
@@ -325,7 +328,7 @@ test('maxHpDamage gear: each attack also deals a share of the dragon\'s max HP, 
   shielded.shielded = true;
   assert.deepEqual(resolvePlayerTurn(shielded, choose(['a', 'attack']), low), [{ kind: 'bounced', userId: 'a' }]);
   assert.equal(DEFAULTS.equipment.maxHpDamage[3], 0.005);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmpiercer') as ItemDef), ["Raid: attacks also deal 0.5% of the dragon's max HP"]);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmpiercer') as ItemDef), ["Raid: attacks also deal 0.5% of the boss's max HP"]);
 });
 
 test('rallyBoost gear: a rally from the wearer gives a bigger attack bonus, and a weaker rally does not cut it short', () => {
@@ -496,7 +499,7 @@ test('scale shield: attacks bounce for a turn unless enough players support', ()
   assert.equal(bounced.shielded, false);
 
   const supporters = Array.from({ length: RAID_COMBAT.support.shieldBreak }, (_, i): [string, 'support'] => [`s${i}`, 'support']);
-  const party = createRaid(['a', ...supporters.map(([id]) => id)], 1000, 100, 15, low);
+  const party = createRaid('wyrm', ['a', ...supporters.map(([id]) => id)], 1000, 100, 15, low);
   party.shielded = true;
   const out = resolvePlayerTurn(party, choose(...supporters, ['a', 'attack']), low);
   assert.ok(out.some((e) => e.kind === 'shieldBroken'));
@@ -522,7 +525,7 @@ test('enrage: the boss gets angrier below each threshold, and never shields twic
 });
 
 test('the boss flies off after the last round', () => {
-  const state = createRaid(['a'], 1000, 100, 2, low);
+  const state = createRaid('wyrm', ['a'], 1000, 100, 2, low);
   endRound(state, low);
   assert.equal(state.round, 2);
   assert.deepEqual(endRound(state, low), [{ kind: 'fled' }]);
@@ -533,7 +536,7 @@ test('pickIntent: a tail sweep is aimed at different players', () => {
   const state = fight(['a', 'b', 'c', 'd']);
   const sweepRoll: RaidRng = {
     ...low,
-    int: (min, max) => (max > 10 ? RAID_COMBAT.weights[0].claw + RAID_COMBAT.weights[0].breath + 1 : max),
+    int: (min, max) => (max > 10 ? RAID_COMBAT.weights.wyrm[0].claw + RAID_COMBAT.weights.wyrm[0].breath + 1 : max),
   };
   const intent = pickIntent(state, sweepRoll);
   assert.equal(intent.move, 'sweep');
@@ -621,7 +624,7 @@ test('the action log puts several of the same thing in one turn on one line', ()
     { kind: 'heal', userId: z, targetId: h, amount: 30, boost: 0 },
     { kind: 'heal', userId: i, targetId: p, amount: 30, boost: 0 },
   ] as const;
-  assert.deepEqual(eventLines(heals), heals.map(eventText));
+  assert.deepEqual(eventLines(heals), heals.map((event) => eventText(event)));
 });
 
 test('every event and every move has a line of text', () => {
@@ -715,10 +718,11 @@ test('raid, once this week\'s raid has been fought: how it ended, who did what, 
 test('raid stats: the dragon itself, its HP, its phases with their crowd-control cooldowns, and every move', () => {
   const cfg = DEFAULTS.raid;
   const embed = bossInfoEmbed(cfg).toJSON();
-  assert.equal(embed.title, `🐉 ${TEXT.raid.bossName}`);
+  assert.equal(embed.title, `🐉 ${TEXT.raid.bosses.wyrm.name}`);
   const description = embed.description ?? '';
-  assert.ok(description.includes(`${cfg.hpPerPlayer} per raider`), description);
-  assert.ok(description.includes(`5 raiders: ${bossHpFor(5, cfg).toLocaleString('en-US')}`), description);
+  const share = RAID_COMBAT.hpShare.wyrm;
+  assert.ok(description.includes(`${Math.round(cfg.hpPerPlayer * share)} per raider`), description);
+  assert.ok(description.includes(`5 raiders: ${bossHpFor(5, cfg, share).toLocaleString('en-US')}`), description);
   assert.ok(description.includes(`**${cfg.maxRounds}** rounds`), description);
 
   const rewards = embed.fields?.find((f) => f.name === 'Rewards')?.value ?? '';
@@ -913,7 +917,7 @@ test('gear stats: the raid numbers a member fights with, and the ones their gear
   const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25, maxHpDamage: 0.005 }, 100, 'k!').toJSON();
   const text = geared.description ?? '';
   assert.match(text, /second ally for 20% of it \(6 HP\) 🎒/);
-  assert.match(text, /plus 0\.5% of the dragon's max HP per hit 🎒/);
+  assert.match(text, /plus 0\.5% of the boss's max HP per hit 🎒/);
   assert.match(text, /you take 37\.5% of a hit \(normally 50%\) 🎒/);
   assert.match(text, /attacks do 1\.63x damage for 2 turns \(normally 1\.5x\) 🎒/);
   assert.doesNotMatch(text, /No raid gear/);
@@ -937,10 +941,352 @@ test('komaGems: a slain dragon gives every raider 5 by default, named next to th
 
   const won = TEXT.raid.won(4, '1,000', 10, 5);
   assert.ok(won.includes(`gets **1,000** <:zeiucoin:1551675032424546320>, **10** <:zeiutoken:1552921364489572362> and **5** ${GEM_EMOJI}.`), won);
-  const lobby = TEXT.raid.lobby('<@a>', 0, 15, '1,000', 10, 5);
+  const lobby = TEXT.raid.lobby(TEXT.raid.bosses.wyrm, '<@a>', 0, 15, '1,000', 10, 5);
   assert.ok(lobby.includes(`**5** ${GEM_EMOJI}`), lobby);
   // A reward set to 0 is left out rather than shown as "0".
   assert.ok(TEXT.raid.won(4, '1,000', 10, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320> and **10** <:zeiutoken:1552921364489572362>.'));
   assert.ok(TEXT.raid.won(4, '1,000', 0, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320>.'));
   assert.equal(TEXT.balance.gems(3), `**3** ${GEM_EMOJI}`);
+});
+
+// ---------------------------------------------------------------------------
+// The Soul Reaper, and which boss each week gets
+// ---------------------------------------------------------------------------
+
+function reaperFight(players: string[] = ['a', 'b', 'c'], bossHp = 1000): RaidState {
+  return createRaid('reaper', players, bossHp, 100, 15, low);
+}
+
+test('bossForWeek: the same server and week always get the same boss, never the same one two weeks running', () => {
+  const week = (i: number): string => new Date(Date.UTC(2026, 0, 3 + 7 * i)).toISOString().slice(0, 10);
+  for (const guild of ['g1', 'g2', '123456789012345678']) {
+    let last: string | null = null;
+    const seen = new Set<string>();
+    for (let i = -10; i < 60; i++) {
+      const boss = bossForWeek(guild, week(i));
+      assert.equal(bossForWeek(guild, week(i)), boss, 'settled');
+      assert.notEqual(boss, last, `${guild} week ${week(i)}`);
+      last = boss;
+      seen.add(boss);
+    }
+    assert.deepEqual([...seen].sort(), [...RAID_BOSS_IDS].sort());
+  }
+  // With more bosses it still never repeats, and every one of them comes up.
+  const picks = Array.from({ length: 40 }, (_, i) => bossForWeek('g1', week(i), ['a', 'b', 'c'] as never));
+  for (let i = 1; i < picks.length; i++) assert.notEqual(picks[i], picks[i - 1]);
+  assert.equal(new Set(picks).size, 3);
+  assert.ok(RAID_BOSS_IDS.includes(bossForWeek('g1', raidWeek().key)));
+});
+
+test('the reaper only uses its own moves, and the dragon only its own', () => {
+  const reaper = new Set(movesOf('reaper'));
+  const wyrm = new Set(movesOf('wyrm'));
+  assert.deepEqual([...reaper], ['reap', 'drain', 'scythe', 'harvest', 'veil']);
+  assert.deepEqual([...wyrm], ['claw', 'breath', 'sweep', 'hoard', 'shield', 'stun', 'disarm', 'taunt']);
+  for (const [boss, own] of [['reaper', reaper], ['wyrm', wyrm]] as const) {
+    for (const enrage of [0, 1, 2]) {
+      for (let roll = 1; roll <= 100; roll++) {
+        const state = createRaid(boss, ['a', 'b', 'c'], 1000, 100, 15, low);
+        state.enrage = enrage;
+        state.lastRequiem = state.round; // its special is on cooldown: this is about its usual moves
+        const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
+        assert.ok(own.has(pickIntent(state, fixed).move), `${boss} ${enrage} ${roll}`);
+      }
+    }
+  }
+  assert.equal(reaperFight().intent.move, 'reap'); // the lowest roll lands on its first move
+});
+
+test('reap: heals the reaper a share of the damage it deals, so a guard taking it for someone cuts the heal', () => {
+  const { damage, lifesteal } = RAID_COMBAT.moves.reap;
+  const open = reaperFight();
+  open.bossHp = 500;
+  open.intent = { move: 'reap', targets: ['b'], multiplier: 1 };
+  assert.deepEqual(bossTurn(open, low).events, [
+    { kind: 'hit', move: 'reap', userId: 'b', damage, guarded: false, coveredFor: null },
+    { kind: 'lifesteal', move: 'reap', amount: Math.round(damage * lifesteal) },
+  ]);
+  assert.equal(open.bossHp, 500 + Math.round(damage * lifesteal));
+
+  const guarded = reaperFight();
+  guarded.bossHp = 500;
+  guarded.intent = { move: 'reap', targets: ['b'], multiplier: 1 };
+  resolvePlayerTurn(guarded, choose(['a', 'guard']), low);
+  const taken = Math.round(damage * RAID_COMBAT.guard.takenShare);
+  assert.deepEqual(bossTurn(guarded, low).events, [
+    { kind: 'hit', move: 'reap', userId: 'a', damage: taken, guarded: true, coveredFor: 'b' },
+    { kind: 'lifesteal', move: 'reap', amount: Math.round(taken * lifesteal) },
+  ]);
+
+  // Only the HP a raider actually had counts: reaping someone on 5 HP heals off those 5.
+  const nearlyOut = reaperFight();
+  nearlyOut.bossHp = 500;
+  nearlyOut.players[1]!.hp = 5;
+  nearlyOut.intent = { move: 'reap', targets: ['b'], multiplier: 1 };
+  assert.deepEqual(bossTurn(nearlyOut, low).events.at(-1), { kind: 'lifesteal', move: 'reap', amount: Math.round(5 * lifesteal) });
+});
+
+test('soul drain: hits everyone and heals 2x the total, never above the max HP', () => {
+  const { damage, lifesteal } = RAID_COMBAT.moves.drain;
+  const state = reaperFight(['a', 'b', 'c'], 1000);
+  state.bossHp = 700;
+  state.intent = { move: 'drain', targets: [], multiplier: 1 };
+  const { events } = bossTurn(state, low);
+  assert.equal(events.filter((e) => e.kind === 'hit').length, 3);
+  assert.deepEqual(events.at(-1), { kind: 'lifesteal', move: 'drain', amount: 3 * damage * lifesteal });
+
+  const full = reaperFight(['a', 'b', 'c'], 1000);
+  full.bossHp = 990;
+  full.intent = { move: 'drain', targets: [], multiplier: 1 };
+  assert.deepEqual(bossTurn(full, low).events.at(-1), { kind: 'lifesteal', move: 'drain', amount: 10 });
+  assert.equal(full.bossHp, 1000);
+  // Already at full HP: no heal at all.
+  const top = reaperFight();
+  top.intent = { move: 'drain', targets: [], multiplier: 1 };
+  assert.ok(!bossTurn(top, low).events.some((e) => e.kind === 'lifesteal'));
+});
+
+test('harvest: tears HP out of one raider and heals a share of the max HP, unless a guard is in the way', () => {
+  const { damage, maxHpShare } = RAID_COMBAT.moves.harvest;
+  const open = reaperFight(['a', 'b', 'c'], 4000);
+  open.bossHp = 2000;
+  open.intent = { move: 'harvest', targets: ['c'], multiplier: 1.5 };
+  assert.deepEqual(bossTurn(open, low).events, [
+    { kind: 'hit', move: 'harvest', userId: 'c', damage: Math.round(damage * 1.5), guarded: false, coveredFor: null },
+    { kind: 'lifesteal', move: 'harvest', amount: 4000 * maxHpShare },
+  ]);
+
+  const guarded = reaperFight(['a', 'b', 'c'], 4000);
+  guarded.bossHp = 2000;
+  guarded.intent = { move: 'harvest', targets: ['c'], multiplier: 1 };
+  resolvePlayerTurn(guarded, choose(['b', 'guard']), low);
+  assert.deepEqual(bossTurn(guarded, low).events, [{ kind: 'harvestBlocked', userId: 'b', targetId: 'c' }]);
+  assert.equal(guarded.bossHp, 2000);
+  assert.equal(guarded.players[2]?.hp, 100);
+});
+
+test('spectral veil: works like the Scale Shield, and is never raised twice in a row', () => {
+  const state = reaperFight();
+  state.intent = { move: 'veil', targets: [], multiplier: 1 };
+  assert.deepEqual(bossTurn(state, low).events, [{ kind: 'shieldUp' }]);
+  assert.equal(moodOf(state), 'shielded');
+  assert.deepEqual(resolvePlayerTurn(state, choose(['a', 'attack']), low), [{ kind: 'bounced', userId: 'a' }]);
+  state.lastMove = 'veil';
+  for (let roll = 1; roll <= 100; roll++) {
+    const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
+    assert.notEqual(pickIntent(state, fixed).move, 'veil');
+  }
+});
+
+test('the reaper has its own lines: its moves, lifesteal, its veil and how it gets away', () => {
+  const state = reaperFight(['a', 'b']);
+  for (const move of movesOf('reaper')) assert.ok(intentText(state, { move, targets: ['a', 'b'], multiplier: 1 }).length > 0, move);
+  const { reap, harvest } = RAID_COMBAT.moves;
+  assert.ok(intentText(state, { move: 'reap', targets: ['a'], multiplier: 1.5 }).includes(`**Reap** at <@a> (${Math.round(reap.damage * 1.5)} damage; it heals ${reap.lifesteal}x what it deals)`));
+  assert.ok(intentText(state, { move: 'harvest', targets: ['a'], multiplier: 1 }).includes(`it heals ${Math.round(state.bossMaxHp * harvest.maxHpShare)})`));
+
+  const lines = eventLines(
+    [
+      { kind: 'bounced', userId: 'a' },
+      { kind: 'bounced', userId: 'b' },
+      { kind: 'hit', move: 'drain', userId: 'a', damage: 16, guarded: false, coveredFor: null },
+      { kind: 'hit', move: 'drain', userId: 'b', damage: 16, guarded: false, coveredFor: null },
+      { kind: 'lifesteal', move: 'drain', amount: 64 },
+      { kind: 'harvestBlocked', userId: 'a', targetId: 'b' },
+      { kind: 'shieldUp' },
+      { kind: 'enrage', level: 1 },
+      { kind: 'fled' },
+    ],
+    'reaper',
+  );
+  assert.deepEqual(lines, [
+    '🌫️ Attacks from <@a> and <@b> passed right through the Spectral Veil.',
+    '👻 Soul Drain drained <@a> and <@b> for **16** each.',
+    '🩸 The reaper feeds on the stolen life and heals **64** HP.',
+    "🕯️ <@a> kept the reaper's hand off <@b>'s soul.",
+    '🌫️ The reaper fades behind its Spectral Veil.',
+    '😠 The reaper is **enraged**! From its next move on, it hits harder.',
+    '🌫️ The reaper fades back into the fog, its harvest done.',
+  ]);
+  assert.equal(eventText({ kind: 'hit', move: 'reap', userId: 'a', damage: 20, guarded: true, coveredFor: 'b' }, 'reaper'), '🩸 <@a> took the Reap for <@b>: **20**.');
+
+  // The fight screen and the ending name the reaper and its veil.
+  state.shielded = true;
+  const embed = fightEmbed(state, new Map(), [], Date.now() + 60_000, DEFAULTS.raid).toJSON();
+  assert.match(embed.title ?? '', /^💀 Soul Reaper \(round 1 of 15\)/);
+  assert.ok(embed.description?.includes('**Spectral Veil up**'));
+  state.outcome = 'fled';
+  const result = resultEmbed(state, DEFAULTS.raid, new Date('2026-10-03T04:00:00Z'), null).toJSON();
+  assert.equal(result.title, '🌫️ The Soul Reaper got away');
+  assert.match(result.description ?? '', /faded back into the fog/);
+});
+
+test('raid stats for the reaper: its own moves only, and whose week it is', () => {
+  const until = new Date('2026-10-03T04:00:00Z');
+  const embed = bossInfoEmbed(DEFAULTS.raid, 'reaper', until).toJSON();
+  assert.equal(embed.title, '💀 Soul Reaper');
+  assert.ok(embed.description?.startsWith(`This week's raid boss, until <t:${until.getTime() / 1000}:F>.`));
+  assert.match(embed.description ?? '', /It fades back into the fog \(and the raid is lost\)/);
+  const moves = embed.fields?.find((f) => f.name === 'Moves')?.value ?? '';
+  for (const name of ['Reap', 'Soul Drain', 'Scythe Sweep', 'Harvest', 'Spectral Veil']) assert.ok(moves.includes(`**${name}**`), name);
+  for (const name of ['Claw', 'Fire Breath', 'Hoard', 'Scale Shield', 'Stun', 'Disarm', 'Taunt']) assert.ok(!moves.includes(`**${name}**`), name);
+  assert.ok(moves.includes(`heals **${RAID_COMBAT.moves.harvest.maxHpShare * 100}%** of its max HP`), moves);
+  // It has less HP than the dragon: the HP lines are its share of the settings.
+  const share = RAID_COMBAT.hpShare.reaper;
+  assert.ok(share < RAID_COMBAT.hpShare.wyrm);
+  assert.ok(embed.description?.includes(`${Math.round(DEFAULTS.raid.hpPerPlayer * share)} per raider`), embed.description);
+  assert.ok(embed.description?.includes(`5 raiders: ${bossHpFor(5, DEFAULTS.raid, share).toLocaleString('en-US')}`), embed.description);
+  assert.equal(bossHpFor(5, DEFAULTS.raid, share), Math.round(bossHpFor(5, DEFAULTS.raid) * share));
+  // No crowd control, so no word of it: not in the moves, the phases, or what Support does.
+  assert.doesNotMatch(moves, /crowd control/i);
+  const phases = embed.fields?.find((f) => f.name === 'Phases')?.value ?? '';
+  assert.equal(phases.split('\n').length, 3);
+  assert.doesNotMatch(phases, /Crowd control/);
+  // Instead, each phase makes it heal more.
+  assert.match(phases, /Calm\*\*: hits \*\*1x\*\* as hard\. Heals \*\*1x\*\* as much\./);
+  assert.match(phases, /Furious\*\* \(below 25% HP\): hits \*\*1\.5x\*\* as hard\. Heals \*\*1\.5x\*\* as much\.$/);
+  // The dragon doesn't heal, so its phases don't mention it.
+  assert.doesNotMatch(bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Phases')?.value ?? '', /Heals/);
+  const support = TEXT.raid.howTo(TEXT.raid.bosses.reaper, 60, '250', 2, '1.5x', 2, false, false);
+  assert.match(support, /✨ \*\*Support\*\*: rallies the party/);
+  assert.doesNotMatch(support, /stunned|disarmed|taunted/);
+  for (const field of embed.fields ?? []) assert.ok(field.value.length <= 1024, field.name);
+  // The dragon's page doesn't say whose week it is unless told.
+  assert.ok(!bossInfoEmbed(DEFAULTS.raid).toJSON().description?.includes("This week's raid boss"));
+});
+
+test('a finished raid remembers its boss; older ones without one were the dragon', () => {
+  const base: RaidDoc = {
+    _id: 'g:2026-09-26',
+    guildId: 'g',
+    weekKey: '2026-09-26',
+    startedBy: 'a',
+    status: 'fled',
+    channelId: null,
+    messageId: null,
+    players: ['a'],
+    spent: {},
+    stolen: {},
+    rounds: 15,
+    createdAt: new Date(),
+  };
+  const next = new Date('2026-10-03T04:00:00Z');
+  const reaper = weekResultEmbed({ ...base, boss: 'reaper', status: 'fled' }, next).toJSON();
+  assert.match(reaper.title ?? '', /Soul Reaper got away/);
+  assert.match(reaper.description ?? '', /faded back into the fog/);
+  const old = weekResultEmbed({ ...base, status: 'fled' }, next).toJSON();
+  assert.match(old.title ?? '', /Ember Wyrm got away/);
+  assert.match(old.description ?? '', /flew off/);
+});
+
+test('the reaper draws in every mood, at the same size as the dragon, and each mood looks different', () => {
+  const seen = new Set<string>();
+  for (const mood of ['calm', 'enraged', 'furious', 'shielded', 'defeated', 'gloating', 'fled'] as DragonMood[]) {
+    const png = readPng(renderReaper(mood));
+    assert.equal(png.width, DRAGON_SIZE.width);
+    assert.equal(png.height, DRAGON_SIZE.height);
+    seen.add(Buffer.from(png.pixels).toString('base64'));
+  }
+  assert.equal(seen.size, 7);
+});
+
+test('the reaper heals more in each phase, at the strength it announced the move with', () => {
+  const { reap, harvest } = RAID_COMBAT.moves;
+  const [calm, enraged, furious] = RAID_COMBAT.enrage.lifesteal as unknown as [number, number, number];
+  assert.ok(calm < enraged && enraged < furious);
+
+  // Announced while furious: the damage and the heal are both locked in at the furious strength.
+  const state = reaperFight(['a', 'b', 'c'], 4000);
+  state.enrage = 2;
+  state.round = 3;
+  state.lastRequiem = 3; // Soul Requiem on cooldown
+  // The lowest roll picks its first move, Reap.
+  state.intent = pickIntent(state, low);
+  assert.equal(state.intent.move, 'reap');
+  assert.equal(state.intent.lifesteal, furious);
+  assert.ok(intentText(state).includes(`it heals ${reap.lifesteal * furious}x what it deals`), intentText(state));
+  state.bossHp = 1000;
+  const dealt = Math.round(reap.damage * (RAID_COMBAT.enrage.multipliers[2] ?? 1));
+  assert.deepEqual(bossTurn(state, low).events.at(-1), { kind: 'lifesteal', move: 'reap', amount: Math.round(dealt * reap.lifesteal * furious) });
+
+  // Harvest's share of its max HP grows the same way, and the announcement shows it.
+  const harvesting = reaperFight(['a', 'b', 'c'], 4000);
+  harvesting.bossHp = 1000;
+  harvesting.intent = { move: 'harvest', targets: ['a'], multiplier: 1, lifesteal: enraged };
+  assert.ok(intentText(harvesting).includes(`it heals ${4000 * harvest.maxHpShare * enraged})`), intentText(harvesting));
+  assert.deepEqual(bossTurn(harvesting, low).events.at(-1), { kind: 'lifesteal', move: 'harvest', amount: 4000 * harvest.maxHpShare * enraged });
+
+  // The dragon's moves don't heal, so they carry no lifesteal.
+  const dragon = createRaid('wyrm', ['a', 'b'], 1000, 100, 15, low);
+  dragon.enrage = 2;
+  assert.equal(pickIntent(dragon, low).lifesteal, undefined);
+});
+
+test('soul requiem: once furious, the reaper charges for a turn, then casts Soul Drain twice, then waits out its cooldown', () => {
+  const { cooldown, casts, phase } = RAID_COMBAT.requiem;
+  const { damage, lifesteal } = RAID_COMBAT.moves.drain;
+  const state = reaperFight(['a', 'b', 'c', 'd'], 4000);
+  state.bossHp = 900;
+  state.round = 7;
+
+  // Not yet furious: never.
+  state.enrage = phase - 1;
+  assert.notEqual(pickIntent(state, low).move, 'charge');
+
+  // Furious: it charges straight away, whatever the roll, and says what is coming.
+  state.enrage = phase;
+  state.intent = pickIntent(state, high);
+  assert.deepEqual(state.intent, { move: 'charge', targets: [], multiplier: RAID_COMBAT.enrage.multipliers[phase] });
+  const multiplier = state.intent.multiplier;
+  assert.ok(intentText(state).includes(`**Soul Requiem** is charging: next turn it casts Soul Drain ${casts} times, hitting everyone for ${Math.round(damage * multiplier)} damage each cast`), intentText(state));
+  assert.deepEqual(bossTurn(state, low).events, [{ kind: 'charging' }]);
+  assert.equal(state.players[0]?.hp, 100, 'charging does nothing else');
+
+  // Next turn it is unleashed: always, locked in at its furious strength.
+  endRound(state, high);
+  assert.equal(state.round, 8);
+  assert.equal(state.intent.move, 'requiem');
+  assert.equal(state.intent.lifesteal, RAID_COMBAT.enrage.lifesteal[phase]);
+  assert.match(intentText(state), /Soul Drain 2 times on everyone/);
+
+  // Two casts of Soul Drain on everyone, each healing it (a guard softens both for the party).
+  resolvePlayerTurn(state, choose(['a', 'guard']), low);
+  const { events } = bossTurn(state, low);
+  assert.equal(events[0]?.kind, 'requiem');
+  const hits = events.filter((e) => e.kind === 'hit');
+  assert.equal(hits.length, 4 * casts);
+  assert.ok(hits.every((e) => e.kind === 'hit' && e.move === 'drain'));
+  const heals = events.filter((e) => e.kind === 'lifesteal');
+  assert.equal(heals.length, casts);
+  const perCast = hits.slice(0, 4).reduce((sum, e) => sum + (e as { damage: number }).damage, 0);
+  assert.equal((heals[0] as { amount: number }).amount, Math.round(perCast * lifesteal * (RAID_COMBAT.enrage.lifesteal[phase] ?? 1)));
+  const guardTook = Math.round(damage * multiplier * RAID_COMBAT.guard.takenShare);
+  assert.equal(state.players[0]?.hp, 100 - casts * guardTook);
+  assert.equal(state.lastRequiem, 8);
+
+  // The log: the unleash, then each cast on its own line with its heal.
+  const lines = eventLines(events, 'reaper');
+  assert.equal(lines[0], '🌑 The reaper unleashes **Soul Requiem**!');
+  assert.equal(lines.filter((line) => line.startsWith('👻 Soul Drain drained')).length, casts);
+  assert.equal(eventText({ kind: 'charging' }, 'reaper'), '🌑 The reaper gathers the souls around it. **Soul Requiem** is coming next turn!');
+
+  // Then its usual moves until the cooldown is up, counted from the round it was unleashed.
+  for (let round = 9; round < 8 + cooldown; round++) {
+    state.round = round;
+    assert.notEqual(pickIntent(state, high).move, 'charge', `round ${round}`);
+  }
+  state.round = 8 + cooldown;
+  state.lastMove = 'reap';
+  assert.equal(pickIntent(state, high).move, 'charge');
+
+  // The dragon never has it.
+  const dragon = createRaid('wyrm', ['a'], 1000, 100, 15, low);
+  dragon.enrage = 2;
+  assert.notEqual(pickIntent(dragon, high).move, 'charge');
+});
+
+test('raid stats: the reaper lists its Soul Requiem', () => {
+  const moves = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '';
+  assert.ok(moves.includes('🌑 **Soul Requiem** (😡 Furious only): charges for a turn, then casts Soul Drain 2 times in a row. 6 round cooldown.'), moves);
+  assert.doesNotMatch(bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '', /Requiem/);
 });
