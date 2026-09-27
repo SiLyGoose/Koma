@@ -1,4 +1,5 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { getBalance } from './services/economy/index.js';
 import { handleAutocomplete, handleMessage, handleSlash } from './discord/dispatch.js';
 import { commands } from './commands/index.js';
 import { slashCommandData } from './discord/slash.js';
@@ -16,8 +17,9 @@ import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
 import { cashOutLiveRuns, startMineSweeper } from './services/mine.js';
-import { readMineWebConfig, setMineWebConfig } from './web/config.js';
-import { startMineServer } from './web/mine-server.js';
+import type { ApiDeps } from './web/api.js';
+import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
+import { startWebServer } from './web/server.js';
 import { settleUnfinishedRaids } from './commands/raid.js';
 import { clearOpenVaults, migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
@@ -46,10 +48,11 @@ async function main(): Promise<void> {
   // Fail fast on a missing token, before opening the database connection.
   const token = requireEnv('DS_TOKEN');
 
-  // The mine is played on its web page when MINE_WEB_URL and MINE_WS_URL are set, and with buttons in Discord otherwise.
-  const mineWeb = readMineWebConfig();
-  setMineWebConfig(mineWeb);
-  if (!mineWeb) console.log('MINE_WEB_URL is not set: the mine is played with buttons in Discord.');
+  // The games' web site (the mine and Pinecraft) when WEB_URL and WEB_API_URL are set. Without it the
+  // mine is played with buttons in Discord, and Pinecraft isn't played.
+  const web = readWebConfig();
+  setWebConfig(web);
+  if (!web) console.log('WEB_URL is not set: the mine is played with buttons in Discord, and Pinecraft is off.');
 
   await connectDb();
   console.log('Connected to MongoDB.');
@@ -102,7 +105,7 @@ async function main(): Promise<void> {
   let stopEvents: () => void = () => {};
   let stopBetSweeper: () => void = () => {};
   let stopMineSweeper: () => void = () => {};
-  let stopMineServer: () => Promise<void> = async () => {};
+  let stopWebServer: () => Promise<void> = async () => {};
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"${slashOn ? ' or "/"' : ''}.`);
@@ -119,7 +122,7 @@ async function main(): Promise<void> {
     stopBetSweeper = startBetSweeper();
     // Runs in the mine that were being played when the bot last stopped are cashed out.
     stopMineSweeper = startMineSweeper();
-    if (mineWeb) stopMineServer = startMineServer({ port: mineWeb.port, origin: mineWeb.origin });
+    if (web) stopWebServer = startWebServer({ port: web.port, api: siteDeps(readyClient, web) });
 
     // The gacha's shooting stars take a moment to draw, so draw them now rather than on the first pulls.
     prepareShootingStars(STARS);
@@ -154,7 +157,7 @@ async function main(): Promise<void> {
     stopEvents();
     stopBetSweeper();
     stopMineSweeper();
-    await stopMineServer();
+    await stopWebServer();
     // Tables are being closed with the bot: give their bets back now instead of waiting for the sweeper.
     await refundLiveBets();
     // And runs in the mine are cashed out at the multiplier they reached.
@@ -167,6 +170,28 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
   await client.login(token);
+}
+
+/** What the site's requests (web/api.ts) need to know from Discord and the database. */
+function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
+  return {
+    config,
+    clientId: () => client.application.id,
+    guild: (guildId) => {
+      const guild = client.guilds.cache.get(guildId);
+      return guild ? { name: guild.name, icon: guild.icon } : null;
+    },
+    memberName: async (guildId, userId) => {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return null;
+      try {
+        return (await guild.members.fetch(userId)).displayName;
+      } catch {
+        return null;
+      }
+    },
+    balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
+  };
 }
 
 main().catch((err) => {

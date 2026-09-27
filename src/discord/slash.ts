@@ -262,6 +262,12 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     },
   },
 
+  pinecraft: {
+    description: `Dig through your own mine in the browser. Ores pay ${CURRENCY_NAME}; digging takes energy.`,
+    build: () => {},
+    toArgs: () => [],
+  },
+
   rob: {
     description: `Steal ${CURRENCY_NAME} from another member. One rob per hour, and a member can be robbed once an hour.`,
     build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),

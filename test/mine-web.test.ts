@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { CENTER, TILE_COUNT, type MineRun, type MineTile } from '../src/lib/game/mine.js';
-import { readMineWebConfig, playLink } from '../src/web/config.js';
+import { gameLink, readWebConfig } from '../src/web/config.js';
 import { parseClientMessage, type ServerMessage } from '../src/web/mine-protocol.js';
 import { findSession, MineSession, type Peer, type SessionDeps } from '../src/web/mine-session.js';
 import { playerKey, signToken, verifyToken, type Player } from '../src/web/token.js';
@@ -44,17 +44,37 @@ test('mine web: a member plays one run at a time, in Discord and on the web alik
   releaseMiner('g9', 'u8');
 });
 
-test('mine web: the settings are both there or both left out, and the link carries the token after #', () => {
-  assert.equal(readMineWebConfig({}), null);
-  assert.throws(() => readMineWebConfig({ MINE_WEB_URL: 'https://koma-ui.vercel.app' }));
-  assert.throws(() => readMineWebConfig({ MINE_WEB_URL: 'http://koma-ui.vercel.app', MINE_WS_URL: 'wss://koma.duckdns.org/mine' }));
-  assert.throws(() => readMineWebConfig({ MINE_WEB_URL: 'https://koma-ui.vercel.app', MINE_WS_URL: 'ws://koma.duckdns.org/mine' }));
-  assert.throws(() => readMineWebConfig({ MINE_WEB_URL: 'https://a.app', MINE_WS_URL: 'wss://b/mine', MINE_WEB_PORT: 'x' }));
-  const config = readMineWebConfig({ MINE_WEB_URL: 'https://koma-ui.vercel.app/', MINE_WS_URL: 'wss://koma.duckdns.org/mine' });
-  assert.deepEqual(config, { pageUrl: 'https://koma-ui.vercel.app', origin: 'https://koma-ui.vercel.app', socketUrl: 'wss://koma.duckdns.org/mine', port: 8787 });
-  const link = playLink(config!, 'a.b.c');
-  assert.equal(link, 'https://koma-ui.vercel.app/#t=a.b.c&s=wss%3A%2F%2Fkoma.duckdns.org%2Fmine');
+test('web: the settings are both there or both left out, and a link carries the token after #', () => {
+  assert.equal(readWebConfig({}), null);
+  assert.throws(() => readWebConfig({ WEB_URL: 'https://koma-ui.vercel.app' }));
+  assert.throws(() => readWebConfig({ WEB_URL: 'http://koma-ui.vercel.app', WEB_API_URL: 'https://koma.duckdns.org' }));
+  assert.throws(() => readWebConfig({ WEB_URL: 'https://koma-ui.vercel.app', WEB_API_URL: 'http://koma.duckdns.org' }));
+  assert.throws(() => readWebConfig({ WEB_URL: 'https://a.app', WEB_API_URL: 'https://b', WEB_PORT: 'x' }));
+  const config = readWebConfig({ WEB_URL: 'https://koma-ui.vercel.app/', WEB_API_URL: 'https://koma.duckdns.org', DS_CLIENT_SECRET: 's3cret' });
+  assert.deepEqual(config, {
+    siteUrl: 'https://koma-ui.vercel.app',
+    origin: 'https://koma-ui.vercel.app',
+    apiUrl: 'https://koma.duckdns.org',
+    socketUrl: 'wss://koma.duckdns.org',
+    port: 8787,
+    clientSecret: 's3cret',
+  });
+  const link = gameLink(config!, 'mines', 'a.b.c');
+  assert.equal(link, 'https://koma-ui.vercel.app/games/mines/#t=a.b.c&s=wss%3A%2F%2Fkoma.duckdns.org%2Fmine');
+  assert.equal(gameLink(config!, 'pinecraft', 'a.b.c'), 'https://koma-ui.vercel.app/games/pinecraft/#t=a.b.c&s=wss%3A%2F%2Fkoma.duckdns.org%2Fpinecraft');
   assert.ok(link.length < 512); // Discord's limit on a link button
+});
+
+test('web: the older MINE_* settings still work', () => {
+  const config = readWebConfig({ MINE_WEB_URL: 'https://koma-ui.vercel.app/games/mines', MINE_WS_URL: 'wss://koma.duckdns.org/mine', MINE_WEB_PORT: '9000' });
+  assert.deepEqual(config, {
+    siteUrl: 'https://koma-ui.vercel.app',
+    origin: 'https://koma-ui.vercel.app',
+    apiUrl: 'https://koma.duckdns.org',
+    socketUrl: 'wss://koma.duckdns.org',
+    port: 9000,
+    clientSecret: null,
+  });
 });
 
 test('mine web: only well-formed messages from the page are read', () => {

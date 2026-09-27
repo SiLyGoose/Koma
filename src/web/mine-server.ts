@@ -1,67 +1,21 @@
-import { WebSocketServer, type WebSocket } from 'ws';
+import type { WebSocket } from 'ws';
 import { MINE_WEB } from '../constants/index.js';
 import { parseClientMessage, type ServerMessage } from './mine-protocol.js';
 import { findSession, lobbyFor, refuse, startWebRun, type MineSession, type Peer } from './mine-session.js';
 import { playerKey, verifyToken, type Player } from './token.js';
 
 /*
- * The WebSocket the mine's web page plays through. It listens on this machine only (Caddy in front
- * of it gives it its public wss:// address), and only takes connections from the page's own site.
- * A connection's first message must be `hello` with the token from the player's link. After that
+ * The web socket the mine's web page plays through (server.ts takes the connections, and only from
+ * the site). A connection's first message must be `hello` with the token from the player's link. After that
  * it plays that player's run if one is going (mine-session.ts), and otherwise gets the lobby, from
  * which it can start one. One page per player: a new one takes over from the one before.
  */
 
-export interface MineServerOptions {
-  port: number;
-  /** The page's origin, like "https://koma-ui.vercel.app": connections from anywhere else are turned away. */
-  origin: string;
-  host?: string;
-}
-
 /** The page connected for each player (playerKey). */
 const connected = new Map<string, Peer>();
 
-/** Starts the server. Returns a function that stops it. */
-export function startMineServer({ port, origin, host = '127.0.0.1' }: MineServerOptions): () => Promise<void> {
-  const wss = new WebSocketServer({
-    host,
-    port,
-    path: MINE_WEB.path,
-    maxPayload: MINE_WEB.maxMessageBytes,
-    verifyClient: (info: { origin: string }) => info.origin === origin,
-  });
-  wss.on('listening', () => console.log(`The mine's web socket is listening on ${host}:${port}${MINE_WEB.path} for ${origin}.`));
-  wss.on('error', (err) => console.error("The mine's web socket failed:", err));
-
-  // Connections that stopped answering (a phone gone to sleep) are dropped.
-  const alive = new WeakSet<WebSocket>();
-  wss.on('connection', (socket) => {
-    alive.add(socket);
-    socket.on('pong', () => alive.add(socket));
-    serve(socket);
-  });
-  const ping = setInterval(() => {
-    for (const socket of wss.clients) {
-      if (!alive.has(socket)) {
-        socket.terminate();
-        continue;
-      }
-      alive.delete(socket);
-      socket.ping();
-    }
-  }, MINE_WEB.pingMs);
-  ping.unref();
-
-  return () =>
-    new Promise((resolve) => {
-      clearInterval(ping);
-      for (const socket of wss.clients) socket.terminate();
-      wss.close(() => resolve());
-    });
-}
-
-function serve(socket: WebSocket): void {
+/** Plays the mine over a web socket just opened (server.ts has checked where it came from). */
+export function serveMine(socket: WebSocket): void {
   const peer: Peer = {
     send: (message: ServerMessage) => {
       if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(message));

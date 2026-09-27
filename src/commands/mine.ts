@@ -10,7 +10,7 @@ import { betButtonRow, refusalText, resolveBet } from '../discord/bet.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
 import type { Command, CommandContext, EditOptions, ReplyOptions } from '../discord/types.js';
 import { claimMiner, releaseMiner, renewMineLease, saveMultiplier, settleRun, startMineRun } from '../services/mine.js';
-import { mineWebConfig, playLink, type MineWebConfig } from '../web/config.js';
+import { gameLink, webConfig, type WebConfig } from '../web/config.js';
 import { MineSession } from '../web/mine-session.js';
 import { signToken, type Player } from '../web/token.js';
 
@@ -99,7 +99,7 @@ function endView(ctx: CommandContext, live: Live, ending: Ending, balance: numbe
     embeds: [embed],
     files: [picture(live, true)],
     attachments: [],
-    components: mineWebConfig() ? [betButtonRow(MINE_BET_IDS, live.bet, balance, CONFIG.mine), openRow()] : [betButtonRow(MINE_BET_IDS, live.bet, balance, CONFIG.mine)],
+    components: webConfig() ? [betButtonRow(MINE_BET_IDS, live.bet, balance, CONFIG.mine), openRow()] : [betButtonRow(MINE_BET_IDS, live.bet, balance, CONFIG.mine)],
   };
 }
 
@@ -228,14 +228,14 @@ const playerOf = (ctx: CommandContext): Player => ({ guildId: ctx.guildId, userI
  * which opens their run if one is going and the lobby otherwise. Anyone else is told it isn't theirs.
  * Listens for `ms`, or until stopped.
  */
-function handOutLinks(ctx: CommandContext, message: Message, config: MineWebConfig, ms?: number): () => void {
+function handOutLinks(ctx: CommandContext, message: Message, config: WebConfig, ms?: number): () => void {
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, filter: (b) => b.customId === OPEN_ID, time: ms });
   collector.on('collect', (press) => {
     if (press.user.id !== ctx.user.id) {
       void replyPrivately(press, TEXT.mine.notYours);
       return;
     }
-    const link = playLink(config, signToken(playerOf(ctx), MINE_WEB.linkTtlMs));
+    const link = gameLink(config, 'mines', signToken(playerOf(ctx), MINE_WEB.linkTtlMs));
     void press
       .reply({
         content: TEXT.mine.link,
@@ -279,13 +279,13 @@ async function digOnWeb(ctx: CommandContext, message: Message, live: Live, balan
 }
 
 /** The message a run starts with: the arrows in Discord, or the Open button on the web. */
-const startView = (ctx: CommandContext, live: Live): ReplyOptions & EditOptions => (mineWebConfig() ? webView(ctx, live) : playingView(ctx, live));
+const startView = (ctx: CommandContext, live: Live): ReplyOptions & EditOptions => (webConfig() ? webView(ctx, live) : playingView(ctx, live));
 
 /**
  * `k!mine` with no bet, on the web: a message with the Open button, whose link opens the page's
  * lobby (or the run they have going), where they can pick a bet and play.
  */
-async function openLobby(ctx: CommandContext, config: MineWebConfig): Promise<void> {
+async function openLobby(ctx: CommandContext, config: WebConfig): Promise<void> {
   const embed = createEmbed()
     .setTitle(TEXT.mine.title)
     .setDescription(TEXT.mine.lobby(ctx.user.toString()))
@@ -333,7 +333,7 @@ async function play(ctx: CommandContext, wanted: number | 'all'): Promise<void> 
     try {
       const sent = await ctx.reply(startView(ctx, live));
       message = await sent.fetchMessage();
-      const config = mineWebConfig();
+      const config = webConfig();
       if (config) stopLinks = handOutLinks(ctx, message, config);
     } catch (err) {
       // Nowhere to play it: give the bet back as it is (1x).
@@ -342,7 +342,7 @@ async function play(ctx: CommandContext, wanted: number | 'all'): Promise<void> 
     }
 
     for (;;) {
-      const balance = mineWebConfig() ? await digOnWeb(ctx, message, live, live.balance) : await dig(ctx, message, live);
+      const balance = webConfig() ? await digOnWeb(ctx, message, live, live.balance) : await dig(ctx, message, live);
       releaseMiner(guildId, userId);
       if (balance === null) return;
 
@@ -403,7 +403,7 @@ export const mine: Command = {
 
   async execute(ctx) {
     // With no bet, on the web: the link to the page, where they pick one.
-    const config = mineWebConfig();
+    const config = webConfig();
     if (ctx.args.length === 0 && config) {
       await openLobby(ctx, config);
       return;

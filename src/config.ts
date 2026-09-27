@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type MineOre } from './constants/index.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type MineOre, type PinecraftOre } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -105,6 +105,14 @@ export interface Settings {
     fieldBonus: number;
     /** Added to the multiplier by each ore. */
     value: Record<MineOre, number>;
+  };
+  pinecraft: {
+    /** The most energy a member can have. Digging a block takes one. */
+    maxEnergy: number;
+    /** Minutes for one energy to come back. */
+    energyMinutes: number;
+    /** Points each ore pays when dug. */
+    value: Record<PinecraftOre, number>;
   };
   events: {
     /**
@@ -252,6 +260,13 @@ export const DEFAULTS: Readonly<Settings> = {
     maxDynamite: 12,
     fieldBonus: 1,
     value: { coal: 0.1, iron: 0.2, gold: 0.5, diamond: 1 },
+  },
+  // 100 energy, one back every 3 minutes (480 a day). About 1 block in 11 holds an ore; around 40
+  // rows down an ore averages about 9 points, rarer and richer ones deeper.
+  pinecraft: {
+    maxEnergy: 100,
+    energyMinutes: 3,
+    value: { coal: 3, iron: 6, gold: 15, diamond: 35, ruby: 60, emerald: 100 },
   },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has

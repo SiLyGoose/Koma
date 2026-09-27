@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, RaidDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, PinecraftWorldDoc, RaidDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -17,6 +17,8 @@ export interface Collections {
   blackjackBets: Collection<BlackjackBetDoc>;
   /** Runs in the mine being played right now (see services/mine.ts). */
   mineRuns: Collection<MineRunDoc>;
+  /** One Pinecraft world per member per server (see services/pinecraft.ts). */
+  pinecraftWorlds: Collection<PinecraftWorldDoc>;
   /** One per server per raid week (see services/raid.ts). */
   raids: Collection<RaidDoc>;
 }
@@ -42,6 +44,7 @@ export async function connectDb(): Promise<Collections> {
     guilds: db.collection<GuildDoc>('guilds'),
     blackjackBets: db.collection<BlackjackBetDoc>('blackjack_bets'),
     mineRuns: db.collection<MineRunDoc>('mine_runs'),
+    pinecraftWorlds: db.collection<PinecraftWorldDoc>('pinecraft_worlds'),
     raids: db.collection<RaidDoc>('raids'),
   };
 

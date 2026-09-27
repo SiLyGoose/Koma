@@ -39,6 +39,7 @@ export * from './stonks.js';
 export * from './plinko.js';
 export * from './blackjack.js';
 export * from './mine.js';
+export * from './pinecraft.js';
 export * from './events.js';
 export * from './raid.js';
 export * from './refine.js';

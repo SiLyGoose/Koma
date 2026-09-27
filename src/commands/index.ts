@@ -13,6 +13,7 @@ import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
 import { loadout } from './loadout.js';
 import { mine } from './mine.js';
+import { pinecraft } from './pinecraft.js';
 import { plinko } from './plinko.js';
 import { raid } from './raid.js';
 import { refine } from './refine.js';
@@ -38,6 +39,7 @@ export const commands: Command[] = [
   plinko,
   blackjack,
   mine,
+  pinecraft,
   raid,
   leaderboard,
   vault,

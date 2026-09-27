@@ -212,6 +212,8 @@ export type LedgerReason =
   // The mine (commands/mine.ts): the bet, and what a cash out paid.
   | 'mine_bet'
   | 'mine_payout'
+  // Pinecraft (commands/pinecraft.ts): an ore dug (points, no bet).
+  | 'pinecraft_ore'
   | 'event_crate'
   | 'rob_won'
   | 'rob_lost'
@@ -284,6 +286,27 @@ export interface MineRunDoc {
   bet: number;
   multiplier: number;
   leaseUntil: Date;
+  createdAt: Date;
+}
+
+/**
+ * A member's Pinecraft world (see lib/game/pinecraft.ts): everything in it follows from `seed`, so
+ * all that is kept is which blocks have been dug, where the miner is, and their energy (as of
+ * `energyAt`; more has come back since). `_id` is "guildId:userId".
+ */
+export interface PinecraftWorldDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  seed: number;
+  /** The blocks dug, by index (row * width + column). */
+  mined: number[];
+  x: number;
+  y: number;
+  energy: number;
+  energyAt: Date;
+  /** Points its ores have paid, all told. */
+  earned: number;
   createdAt: Date;
 }
 

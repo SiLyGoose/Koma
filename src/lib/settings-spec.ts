@@ -9,6 +9,9 @@ import {
   MAX_MINE_DYNAMITE,
   MAX_MINE_MULTIPLIER,
   MINE_ORES,
+  MAX_PINECRAFT_ENERGY,
+  MAX_PINECRAFT_VALUE,
+  PINECRAFT_ORES,
   MINE_SIZE,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
@@ -39,7 +42,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Mine' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Mine' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -199,6 +202,10 @@ export const SPECS: readonly SettingSpec[] = [
       multiplier: true,
     }),
   ),
+
+  int('pinecraft.maxEnergy', 'Pinecraft', 'The most energy a member can have in Pinecraft. Digging a block takes one.', 1, MAX_PINECRAFT_ENERGY),
+  int('pinecraft.energyMinutes', 'Pinecraft', 'Minutes for one Pinecraft energy to come back.', 1, MAX_TIMER_MINUTES),
+  ...PINECRAFT_ORES.map((ore) => int(`pinecraft.value.${ore}`, 'Pinecraft', `${CURRENCY_EMOJI} paid for each ${ore} dug in Pinecraft.`, 0, MAX_PINECRAFT_VALUE)),
 
   int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
   int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
