@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, MINE_MINES, SLASH_EXCLUDED, SLOT_LABELS } from '../constants/index.js';
+import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
@@ -250,19 +250,10 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   mine: {
-    description: `Stake-style mines: bet ${CURRENCY_NAME}, pick the mines, turn over tiles for gems. Cash out any time.`,
-    // Left out: the link to the page, where the bet and mines are picked.
-    build: (b) =>
-      void b
-        .addStringOption((o) => o.setName('bet').setDescription(BET_OPTION).setRequired(false).setMaxLength(20))
-        .addIntegerOption((o) =>
-          o.setName('mines').setDescription(`How many mines hide on the board (${MINE_MINES.min} to ${MINE_MINES.max}, ${MINE_MINES.start} if left out)`).setMinValue(MINE_MINES.min).setMaxValue(MINE_MINES.max),
-        ),
-    toArgs: (i) => {
-      const bet = i.options.getString('bet');
-      const mines = i.options.getInteger('mines');
-      return bet ? (mines === null ? [bet] : [bet, String(mines)]) : [];
-    },
+    description: `Stake-style mines on the Koma site: bet ${CURRENCY_NAME}, pick the mines, turn over tiles for gems.`,
+    // The bet and mines are picked on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
   },
 
   pinecraft: {

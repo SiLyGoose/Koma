@@ -63,7 +63,6 @@ export const MAX_PINECRAFT_VALUE = 100_000;
  * - `look`: how far from the miner (in blocks) its tunnels are followed to see what they show.
  * - `breakGraceMs`: how much sooner than its break time a block may be finished, for the network's
  *   unevenness (the page starts breaking it and finishes it in two messages; see pinecraft-server.ts).
- * - `lobbyButtonMs`: how long the Open button under `k!pinecraft` keeps working.
  */
 export const PINECRAFT_WEB = {
   path: '/pinecraft',
@@ -71,5 +70,4 @@ export const PINECRAFT_WEB = {
   viewRows: 12,
   look: 40,
   breakGraceMs: 120,
-  lobbyButtonMs: 15 * 60_000,
 } as const;

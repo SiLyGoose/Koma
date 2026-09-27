@@ -72,6 +72,13 @@ export const GAMES = {
 } as const;
 export type Game = keyof typeof GAMES;
 
+/**
+ * The site's link to `game` in a server, for anyone: the front page logs them in with Discord (if
+ * they aren't already) and opens it. What the bot's buttons in Discord link to.
+ */
+export const siteGameLink = (config: WebConfig, game: Game, guildId: string): string =>
+  `${config.siteUrl}/?${new URLSearchParams({ play: game, guild: guildId })}`;
+
 /** The link that opens `game` for the holder of `token`. The token rides in the part after #, which browsers never send to the site's host. */
 export const gameLink = (config: WebConfig, game: Game, token: string): string =>
   `${config.siteUrl}${GAMES[game].page}/#t=${encodeURIComponent(token)}&s=${encodeURIComponent(config.socketUrl + GAMES[game].socket)}`;

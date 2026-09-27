@@ -1,24 +1,21 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, MessageFlags } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { CONFIG } from '../config.js';
-import { CURRENCY_NAME, MINE_WEB, PINECRAFT_WEB, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt } from '../lib/format.js';
 import { gearEffects } from '../lib/game/equipment.js';
 import { energyNow, pinecraftGear, pinecraftWeek, withGear } from '../lib/game/pinecraft.js';
-import { replyPrivately } from '../discord/reply.js';
 import type { Command } from '../discord/types.js';
 import { getEquipment } from '../services/equipment.js';
 import { loadWorld } from '../services/pinecraft.js';
-import { gameLink, webConfig } from '../web/config.js';
-import { signToken } from '../web/token.js';
+import { siteGameLink, webConfig } from '../web/config.js';
 
 /*
- * `k!pinecraft`: the member's energy and what their mine has paid, and the button that gives them
- * their own link to play it in the browser (web/pinecraft-server.ts). There is no bet: every block
- * dug takes energy, and ores pay as they are dug.
+ * `k!pinecraft`: the member's energy, what their mine has paid and when it next starts over, and a
+ * button to the games' site (the same link for everyone; the site logs them in with Discord). It is
+ * played there (web/pinecraft-server.ts). There is no bet: every block dug takes energy, and ores
+ * pay as they are dug.
  */
-
-const OPEN_ID = 'pinecraft_open';
 
 export const pinecraft: Command = {
   name: 'pinecraft',
@@ -48,28 +45,10 @@ export const pinecraft: Command = {
         { name: TEXT.pinecraft.resetField, value: TEXT.pinecraft.resetValue(`<t:${Math.floor(pinecraftWeek(now).next.getTime() / 1000)}:R>`) },
       )
       .setAuthor({ name: ctx.user.displayName, iconURL: ctx.user.displayAvatarURL() });
+    // The same link for everyone: the site logs them in with Discord and opens Pinecraft in this server.
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(OPEN_ID).setLabel(TEXT.pinecraft.openButton).setEmoji('⛏️').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(siteGameLink(config, 'pinecraft', ctx.guildId)).setLabel(TEXT.pinecraft.playButton).setEmoji('⛏️'),
     );
-    const sent = await ctx.reply({ embeds: [embed], components: [row] });
-    const message = await sent.fetchMessage();
-
-    // Only the member it is for gets a link; it lets them play as themselves in this server.
-    const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, filter: (b) => b.customId === OPEN_ID, time: PINECRAFT_WEB.lobbyButtonMs });
-    collector.on('collect', (press) => {
-      if (press.user.id !== ctx.user.id) {
-        void replyPrivately(press, TEXT.pinecraft.notYours);
-        return;
-      }
-      const link = gameLink(config, 'pinecraft', signToken({ guildId: ctx.guildId, userId: ctx.user.id, name: ctx.user.displayName }, MINE_WEB.linkTtlMs));
-      void press
-        .reply({
-          content: TEXT.pinecraft.link,
-          components: [new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(link).setLabel(TEXT.pinecraft.linkButton))],
-          flags: MessageFlags.Ephemeral,
-        })
-        .catch((err) => console.error('Could not send a Pinecraft link:', err));
-    });
-    collector.on('end', () => void message.edit({ components: [] }).catch(() => {}));
+    await ctx.reply({ embeds: [embed], components: [row] });
   },
 };

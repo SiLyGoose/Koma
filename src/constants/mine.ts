@@ -31,8 +31,7 @@ export const MINE = {
  * Playing the mine from the web page (src/web, and the Koma-UI repo), when MINE_WEB_URL is set:
  * - `path`: where the web socket listens (Caddy passes this path on to it).
  * - `defaultPort`: the port it listens on, on this machine only, unless MINE_WEB_PORT says otherwise.
- * - `linkTtlMs`: how long a "play in the browser" link works (a new one comes with every press of the button).
- * - `lobbyButtonMs`: how long the Open button under `k!mine` with no bet keeps working.
+ * - `linkTtlMs`: how long a link into a game works (the site asks for a new one each time it opens one).
  * - `helloMs`: how long a new connection has to say which run it is for.
  * - `messagesPerSecond` and `maxMessageBytes`: a connection sending more, or bigger, is cut off.
  * - `pingMs`: how often connections are checked; one that doesn't answer is dropped.
@@ -41,7 +40,6 @@ export const MINE_WEB = {
   path: '/mine',
   defaultPort: 8787,
   linkTtlMs: 2 * 60 * 60_000,
-  lobbyButtonMs: 15 * 60_000,
   helloMs: 10_000,
   messagesPerSecond: 30,
   maxMessageBytes: 512,

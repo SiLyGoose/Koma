@@ -4,6 +4,7 @@ import { CONFIG, DEFAULTS } from '../src/config.js';
 import { MINE_MINES, MINE_TILES, TEXT, validateConstants } from '../src/constants/index.js';
 import { expectedReturn, houseEdge, multiplierFor, payoutFor, pick, randomHidden, startRun, validMines, type MineRules, type MineRun } from '../src/lib/game/mine.js';
 import { checkConstraints, findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
+import { siteGameLink } from '../src/web/config.js';
 
 /** The rules the maths is checked with: the default edges, with a 100x cap (whatever the default cap is). */
 const RULES: MineRules = { ...DEFAULTS.mine, maxMultiplier: 100 };
@@ -130,8 +131,11 @@ test('mine: the constants pass the startup check', () => {
 });
 
 test('mine: the text reads right', () => {
-  assert.match(TEXT.mine.usage('k!', 1, 24), /k!mine 100 3.*1 to 24 mines/);
-  assert.match(TEXT.mine.boom('@a', '100', 1), /hit a mine after 1 gem and lost/);
-  assert.match(TEXT.mine.boom('@a', '100', 3), /after 3 gems/);
-  assert.match(TEXT.mine.start('@a', '100', 3, '1.1x'), /3.*1\.1x/);
+  assert.match(TEXT.mine.intro(1, 24, '24x'), /1 to 24.*\*\*24x\*\*/);
+});
+
+test('mine: the button in Discord is the same link for everyone: the site, opening Mines in that server', () => {
+  const config = { siteUrl: 'https://site', origin: 'https://site', apiUrl: 'https://bot', socketUrl: 'wss://bot', port: 0, clientSecret: null };
+  assert.equal(siteGameLink(config, 'mines', '123'), 'https://site/?play=mines&guild=123');
+  assert.equal(siteGameLink(config, 'pinecraft', '123'), 'https://site/?play=pinecraft&guild=123');
 });
