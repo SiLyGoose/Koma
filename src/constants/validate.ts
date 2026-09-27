@@ -1,3 +1,4 @@
+import { MAX_MINE_DYNAMITE, MINE, MINE_ORE_WEIGHTS, MINE_ORES, MINE_SIZE } from './mine.js';
 import { MAX_BLACKJACK_NATURAL, MAX_BLACKJACK_SECONDS, BLACKJACK } from './blackjack.js';
 import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKEN_EMOJI, GEM_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
 import { D20_ANIMATION, D20 } from './d20.js';
@@ -98,6 +99,18 @@ export function validateConstants(): void {
     problems.push('BLACKJACK.leaseMs must be at least twice BLACKJACK.heartbeatMs (and heartbeatMs at least 1000), or a live table could be mistaken for a dead one');
   }
   if (!(BLACKJACK.sweepMs >= 5000)) problems.push('BLACKJACK.sweepMs must be at least 5000');
+  if (!(Number.isInteger(MINE_SIZE) && MINE_SIZE >= 3 && MINE_SIZE % 2 === 1)) problems.push('MINE_SIZE must be an odd whole number of at least 3');
+  if (!(Number.isInteger(MAX_MINE_DYNAMITE) && MAX_MINE_DYNAMITE >= 1 && MAX_MINE_DYNAMITE <= MINE_SIZE * MINE_SIZE - 2)) {
+    problems.push('MAX_MINE_DYNAMITE must be a whole number from 1 to the tiles of a mine field less 2');
+  }
+  if (!MINE_ORES.every((ore) => Number.isInteger(MINE_ORE_WEIGHTS[ore]) && MINE_ORE_WEIGHTS[ore] >= 0) || MINE_ORES.every((ore) => MINE_ORE_WEIGHTS[ore] === 0)) {
+    problems.push('MINE_ORE_WEIGHTS must be whole numbers of 0 or more, at least one above 0');
+  }
+  if (!(MINE.idleMs >= 5000)) problems.push('MINE.idleMs must be at least 5000');
+  if (!(MINE.heartbeatMs >= 1000 && MINE.leaseMs >= 2 * MINE.heartbeatMs)) {
+    problems.push('MINE.leaseMs must be at least twice MINE.heartbeatMs (and heartbeatMs at least 1000), or a live run could be mistaken for a dead one');
+  }
+  if (!(MINE.sweepMs >= 5000)) problems.push('MINE.sweepMs must be at least 5000');
   if (!(Number.isInteger(AVATAR.size) && AVATAR.size >= 16 && AVATAR.size <= 4096 && (AVATAR.size & (AVATAR.size - 1)) === 0)) {
     problems.push('AVATAR.size must be a power of two from 16 to 4096 (Discord only serves those sizes)');
   }

@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, RaidDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, RaidDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -15,6 +15,8 @@ export interface Collections {
   guilds: Collection<GuildDoc>;
   /** Points that are on a blackjack table right now (see services/blackjack.ts). */
   blackjackBets: Collection<BlackjackBetDoc>;
+  /** Runs in the mine being played right now (see services/mine.ts). */
+  mineRuns: Collection<MineRunDoc>;
   /** One per server per raid week (see services/raid.ts). */
   raids: Collection<RaidDoc>;
 }
@@ -39,6 +41,7 @@ export async function connectDb(): Promise<Collections> {
     meta: db.collection<MetaDoc>('meta'),
     guilds: db.collection<GuildDoc>('guilds'),
     blackjackBets: db.collection<BlackjackBetDoc>('blackjack_bets'),
+    mineRuns: db.collection<MineRunDoc>('mine_runs'),
     raids: db.collection<RaidDoc>('raids'),
   };
 
@@ -58,6 +61,8 @@ export async function connectDb(): Promise<Collections> {
     // The sweeper looks for bets whose lease ran out; a table renews the bets it owns by game.
     collections.blackjackBets.createIndex({ leaseUntil: 1 }),
     collections.blackjackBets.createIndex({ gameId: 1 }),
+    // The mine's sweeper looks for runs whose lease ran out.
+    collections.mineRuns.createIndex({ leaseUntil: 1 }),
     // Raids left unfinished when the bot stopped are looked up by status on start.
     collections.raids.createIndex({ status: 1 }),
   ]);

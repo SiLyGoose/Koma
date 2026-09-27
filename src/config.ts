@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS } from './constants/index.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type MineOre } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -90,6 +90,21 @@ export interface Settings {
     joinSeconds: number;
     /** Seconds a player has for each decision before they stand. */
     turnSeconds: number;
+  };
+  mine: {
+    /** The smallest and biggest bet. */
+    minBet: number;
+    maxBet: number;
+    /** Ores on every field. */
+    ores: number;
+    /** Dynamite on the first field, how much more each next field has, and the most any field has. */
+    dynamite: number;
+    dynamiteStep: number;
+    maxDynamite: number;
+    /** Added to the multiplier for digging up every ore of a field. */
+    fieldBonus: number;
+    /** Added to the multiplier by each ore. */
+    value: Record<MineOre, number>;
   };
   events: {
     /**
@@ -225,6 +240,19 @@ export const DEFAULTS: Readonly<Settings> = {
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
   blackjack: { minBet: 10, maxBet: 1000, naturalPayout: 1.5, joinSeconds: 15, turnSeconds: 30 },
+  // 6 ores a field; 2 dynamite on the first, one more each field after, up to 12. Clearing a field
+  // adds 1x. Played as well as it can be (knowing when to stop), a run that digs pays back about
+  // 97.5% of the bet (expectedReturn in lib/game/mine.ts).
+  mine: {
+    minBet: 10,
+    maxBet: 1000,
+    ores: 6,
+    dynamite: 2,
+    dynamiteStep: 1,
+    maxDynamite: 12,
+    fieldBonus: 1,
+    value: { coal: 0.1, iron: 0.2, gold: 0.5, diamond: 1 },
+  },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%

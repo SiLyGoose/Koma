@@ -41,7 +41,7 @@ export interface SlashSpec {
 export const MAX_SLASH_DESCRIPTION = 100;
 
 
-/** The description of a bet option (blackjack, plinko). */
+/** The description of a bet option (blackjack, plinko, the mine). */
 const BET_OPTION = `How many ${CURRENCY_NAME} to bet, or "all" for the most you can`;
 
 /** Every item in the catalog, filtered by what has been typed. */
@@ -247,6 +247,19 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
         o.setName('bet').setDescription(BET_OPTION).setRequired(true).setMaxLength(20),
       ),
     toArgs: (i) => [i.options.getString('bet', true)],
+  },
+
+  mine: {
+    description: `Bet ${CURRENCY_NAME} and dig through a mine field. Ores raise the payout; dynamite ends the run.`,
+    // Left out, when the mine is played on the web: the link to the page, where the bet is picked.
+    build: (b) =>
+      void b.addStringOption((o) =>
+        o.setName('bet').setDescription(BET_OPTION).setRequired(false).setMaxLength(20),
+      ),
+    toArgs: (i) => {
+      const bet = i.options.getString('bet');
+      return bet ? [bet] : [];
+    },
   },
 
   rob: {

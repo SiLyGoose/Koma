@@ -6,6 +6,10 @@ import {
   MAX_BLACKJACK_SECONDS,
   MAX_CRATE_SECONDS,
   MAX_LEADERBOARD_SIZE,
+  MAX_MINE_DYNAMITE,
+  MAX_MINE_MULTIPLIER,
+  MINE_ORES,
+  MINE_SIZE,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
   MAX_PREFIX_LENGTH,
@@ -35,7 +39,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Mine' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -168,6 +172,33 @@ export const SPECS: readonly SettingSpec[] = [
   },
   int('blackjack.joinSeconds', 'Blackjack', 'Seconds a blackjack party stays open for joining.', 5, MAX_BLACKJACK_SECONDS),
   int('blackjack.turnSeconds', 'Blackjack', 'Seconds a blackjack player has to act before they stand.', 5, MAX_BLACKJACK_SECONDS),
+
+  int('mine.minBet', 'Mine', 'Smallest bet in the mine.', 1, MAX_POINTS),
+  int('mine.maxBet', 'Mine', 'Biggest bet in the mine.', 1, MAX_POINTS),
+  int('mine.ores', 'Mine', 'Ores on every mine field. Digging them all clears the field.', 1, MINE_SIZE * MINE_SIZE - 1),
+  int('mine.dynamite', 'Mine', 'Dynamite on the first mine field.', 1, MAX_MINE_DYNAMITE),
+  int('mine.dynamiteStep', 'Mine', 'How much more dynamite each next mine field has.', 0, MAX_MINE_DYNAMITE),
+  int('mine.maxDynamite', 'Mine', 'The most dynamite a mine field can have.', 1, MAX_MINE_DYNAMITE),
+  {
+    key: 'mine.fieldBonus',
+    group: 'Mine',
+    description: 'Added to the multiplier for digging up every ore of a mine field.',
+    type: 'number',
+    min: 0,
+    max: MAX_MINE_MULTIPLIER,
+    multiplier: true,
+  },
+  ...MINE_ORES.map(
+    (ore): SettingSpec => ({
+      key: `mine.value.${ore}`,
+      group: 'Mine',
+      description: `Added to the multiplier by each ${ore} dug up in the mine.`,
+      type: 'number',
+      min: 0,
+      max: MAX_MINE_MULTIPLIER,
+      multiplier: true,
+    }),
+  ),
 
   int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
   int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
@@ -400,6 +431,15 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.blackjack.minBet > settings.blackjack.maxBet) {
     return 'blackjack.minBet cannot be higher than blackjack.maxBet';
+  }
+  if (settings.mine.minBet > settings.mine.maxBet) {
+    return 'mine.minBet cannot be higher than mine.maxBet';
+  }
+  if (settings.mine.dynamite > settings.mine.maxDynamite) {
+    return 'mine.dynamite cannot be higher than mine.maxDynamite';
+  }
+  if (settings.mine.ores + settings.mine.maxDynamite > MINE_SIZE * MINE_SIZE - 1) {
+    return `mine.ores and mine.maxDynamite add up to more than the ${MINE_SIZE * MINE_SIZE - 1} tiles around the middle of a mine field`;
   }
   if (settings.events.minMinutes > settings.events.maxMinutes) {
     return 'events.minMinutes cannot be higher than events.maxMinutes';

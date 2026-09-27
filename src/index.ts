@@ -15,6 +15,9 @@ import { prepareShootingStars } from './animations/gacha-reply.js';
 import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
+import { cashOutLiveRuns, startMineSweeper } from './services/mine.js';
+import { readMineWebConfig, setMineWebConfig } from './web/config.js';
+import { startMineServer } from './web/mine-server.js';
 import { settleUnfinishedRaids } from './commands/raid.js';
 import { clearOpenVaults, migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
@@ -42,6 +45,11 @@ async function main(): Promise<void> {
 
   // Fail fast on a missing token, before opening the database connection.
   const token = requireEnv('DS_TOKEN');
+
+  // The mine is played on its web page when MINE_WEB_URL and MINE_WS_URL are set, and with buttons in Discord otherwise.
+  const mineWeb = readMineWebConfig();
+  setMineWebConfig(mineWeb);
+  if (!mineWeb) console.log('MINE_WEB_URL is not set: the mine is played with buttons in Discord.');
 
   await connectDb();
   console.log('Connected to MongoDB.');
@@ -93,6 +101,8 @@ async function main(): Promise<void> {
 
   let stopEvents: () => void = () => {};
   let stopBetSweeper: () => void = () => {};
+  let stopMineSweeper: () => void = () => {};
+  let stopMineServer: () => Promise<void> = async () => {};
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"${slashOn ? ' or "/"' : ''}.`);
@@ -107,6 +117,9 @@ async function main(): Promise<void> {
 
     // Points that were on a blackjack table when the bot last stopped are given back.
     stopBetSweeper = startBetSweeper();
+    // Runs in the mine that were being played when the bot last stopped are cashed out.
+    stopMineSweeper = startMineSweeper();
+    if (mineWeb) stopMineServer = startMineServer({ port: mineWeb.port, origin: mineWeb.origin });
 
     // The gacha's shooting stars take a moment to draw, so draw them now rather than on the first pulls.
     prepareShootingStars(STARS);
@@ -140,8 +153,12 @@ async function main(): Promise<void> {
     console.log(`Received ${signal}, shutting down.`);
     stopEvents();
     stopBetSweeper();
+    stopMineSweeper();
+    await stopMineServer();
     // Tables are being closed with the bot: give their bets back now instead of waiting for the sweeper.
     await refundLiveBets();
+    // And runs in the mine are cashed out at the multiplier they reached.
+    await cashOutLiveRuns();
     await client.destroy();
     await closeDb();
     process.exit(0);

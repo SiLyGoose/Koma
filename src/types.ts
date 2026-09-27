@@ -209,6 +209,9 @@ export type LedgerReason =
   | 'blackjack_double'
   | 'blackjack_payout'
   | 'blackjack_refund'
+  // The mine (commands/mine.ts): the bet, and what a cash out paid.
+  | 'mine_bet'
+  | 'mine_payout'
   | 'event_crate'
   | 'rob_won'
   | 'rob_lost'
@@ -262,6 +265,24 @@ export interface BlackjackBetDoc {
   gameId: string;
   /** Points on the table: the bet, and again after a double. */
   bet: number;
+  leaseUntil: Date;
+  createdAt: Date;
+}
+
+/**
+ * A run in the mine that has not been settled yet. The bet was taken when the run started, so this
+ * document is what says "these points are down the mine": whoever deletes it is the one that pays
+ * out (a cash out, or nothing when dynamite went off), so a run is paid exactly once. `multiplier`
+ * is saved after every ore, and `leaseUntil` pushed forward while the run is played; a run whose
+ * lease has run out was cut short (the bot restarted) and the sweeper cashes it out at its
+ * multiplier (see services/mine.ts).
+ */
+export interface MineRunDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  bet: number;
+  multiplier: number;
   leaseUntil: Date;
   createdAt: Date;
 }
