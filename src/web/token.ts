@@ -1,13 +1,20 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { optionalEnv } from '../env.js';
 
 /*
- * The token in a "play in the browser" link (to the mine or Pinecraft): who it lets play (a member
- * of one server), until when, signed so it can't be made up or changed. Whoever has the link can start runs with that
- * member's points until it runs out, which is why the bot only ever hands it to them privately.
- * The key is new every time the bot starts, so a restart makes every old link stop working.
+ * The token in a link into a game (Mines or Pinecraft): who it lets play (a member of one server),
+ * until when, signed so it can't be made up or changed. Whoever has the link can play with that
+ * member's points until it runs out, which is why the site only ever hands it to them.
+ *
+ * The key is made from the bot's token (DS_TOKEN), so it stays the same when the bot restarts (a
+ * deploy, or every code change under `yarn dev`) and open pages carry on with their links. Without
+ * a DS_TOKEN (the tests) it is new every start.
  */
 
-const KEY = randomBytes(32);
+const KEY = ((): Buffer => {
+  const secret = optionalEnv('DS_TOKEN');
+  return secret ? createHash('sha256').update(`koma-game-links:${secret}`).digest() : randomBytes(32);
+})();
 
 /** Who a link lets play. `name` is only for showing on the page. */
 export interface Player {
