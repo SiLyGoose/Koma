@@ -1,20 +1,21 @@
 import { CONFIG } from '../config.js';
-import { MINE, MINE_SIZE } from '../constants/index.js';
+import { MINE, MINE_MINES, MINE_SIZE, MINE_TILES } from '../constants/index.js';
 import { allBet } from '../lib/game/bet.js';
-import { dynamiteOn, payoutFor, startRun, step, type MineRules, type MineRun } from '../lib/game/mine.js';
+import { multiplierFor, payoutFor, pick, randomHidden, startRun, type MineRules, type MineRun } from '../lib/game/mine.js';
 import { getBalance } from '../services/economy/index.js';
 import { claimMiner, releaseMiner, renewMineLease, saveMultiplier, settleRun, startMineRun, type SettleRunResult } from '../services/mine.js';
 import type { ClientMessage, ErrorCode, Lobby, RunEvent, RunState, RunStatus, SeenTile, ServerMessage, StartRefusal } from './mine-protocol.js';
 import { playerKey, type Player } from './token.js';
 
 /*
- * A run in the mine played from the web page: the bot keeps the field and works out every move,
- * the page only shows what it is told (see mine-protocol.ts). One session per run, looked up by the
- * player it belongs to. The page can connect, drop and connect again for as long as the run lasts.
- * A run is started either by the mine command in Discord, or from the page's lobby (startWebRun).
+ * A round in the mine played from the web page: the bot keeps the board and works out every pick,
+ * the page only shows what it is told (see mine-protocol.ts). One session per round, looked up by
+ * the player it belongs to. The page can connect, drop and connect again for as long as the round
+ * lasts. A round is started either by the mine command in Discord, or from the page's lobby
+ * (startWebRun).
  *
- * The run ends with dynamite, a cash out, or MINE.idleMs without a move (which cashes out), and is
- * settled here: `ended` then says how, for whoever started it to show.
+ * The round ends with a mine, a cash out, every gem (or the cap) reached, or MINE.idleMs without a
+ * pick (which cashes out), and is settled here: `ended` then says how, for whoever started it to show.
  */
 
 /** Where the session sends its messages: a WebSocket, or a fake one in tests. */
@@ -25,7 +26,7 @@ export interface Peer {
 
 /** How a run ended, and what it paid (null when it had already been settled elsewhere, or couldn't be). */
 export interface RunEnd {
-  status: Exclude<RunStatus, 'digging'>;
+  status: Exclude<RunStatus, 'playing'>;
   settled: Extract<SettleRunResult, { ok: true }> | null;
 }
 
@@ -49,7 +50,7 @@ export interface SessionInit {
   rules: MineRules;
 }
 
-type Play = Extract<ClientMessage, { t: 'move' | 'cashout' }>;
+type Play = Extract<ClientMessage, { t: 'pick' | 'cashout' }>;
 
 /** Every run being played on the web, by player (playerKey). */
 const sessions = new Map<string, MineSession>();
@@ -66,7 +67,7 @@ export class MineSession {
   private balance: number | null;
   private readonly run: MineRun;
   private readonly rules: MineRules;
-  private status: RunStatus = 'digging';
+  private status: RunStatus = 'playing';
   private payout: number | null = null;
   private peer: Peer | null = null;
   /** Messages are worked out one at a time, in the order they came. */
@@ -93,8 +94,21 @@ export class MineSession {
     this.resetIdle();
   }
 
+  /** How many mines the round has, the gems turned over, and the multiplier reached. */
+  get mines(): number {
+    return this.run.mines;
+  }
+
+  get gems(): number {
+    return this.run.gems;
+  }
+
+  get multiplier(): number {
+    return this.run.multiplier;
+  }
+
   get over(): boolean {
-    return this.status !== 'digging';
+    return this.status !== 'playing';
   }
 
   /**
@@ -112,7 +126,7 @@ export class MineSession {
     if (this.peer === peer) this.peer = null;
   }
 
-  /** A move or cash out from the page. Resolves once it has been worked out. */
+  /** A pick or cash out from the page. Resolves once it has been worked out. */
   handle(peer: Peer, message: Play): Promise<void> {
     this.queue = this.queue.then(() => this.apply(peer, message)).catch((err) => this.fail(err));
     return this.queue;
@@ -121,16 +135,25 @@ export class MineSession {
   private async apply(peer: Peer, message: Play): Promise<void> {
     if (this.over || peer !== this.peer) return;
     this.resetIdle();
-    if (message.t === 'cashout') return this.end('cashed', { kind: 'cashout' }, message.seq);
-
-    const result = step(this.run, message.dir, this.rules);
-    if (result.kind === 'boom') return this.end('boom', { kind: 'boom' }, message.seq);
-    if (result.kind === 'ore' || result.kind === 'cleared') {
-      const saved = await this.deps.save(this.runId, this.run.multiplier);
-      // Gone from the database: the sweeper already cashed it out, so there is nothing left to play.
-      if (!saved) return this.close('failed', null, { kind: 'failed' }, message.seq);
+    if (message.t === 'cashout') {
+      // Like Stake: nothing to cash out before the first gem.
+      if (this.run.gems === 0) return peer.send({ t: 'state', seq: message.seq, state: this.view() });
+      return this.end('cashed', { kind: 'cashout' }, message.seq);
     }
-    peer.send({ t: 'state', seq: message.seq, state: this.view(), event: result });
+
+    const index = message.index === 'random' ? randomHidden(this.run) : message.index;
+    const result = index === null ? ({ kind: 'taken' } as const) : pick(this.run, index, this.rules);
+    if (result.kind === 'taken') return peer.send({ t: 'state', seq: message.seq, state: this.view() });
+    if (result.kind === 'boom') return this.end('boom', { kind: 'boom', index: index as number }, message.seq);
+    const saved = await this.deps.save(this.runId, this.run.multiplier);
+    // Gone from the database: the sweeper already cashed it out, so there is nothing left to play.
+    if (!saved) return this.close('failed', null, { kind: 'failed' }, message.seq);
+    // The last gem, or the cap: cashed out by itself (the page is shown the gem first).
+    if (result.done) {
+      peer.send({ t: 'state', seq: message.seq, state: this.view(), event: { kind: 'gem', index: index as number } });
+      return this.end('done', { kind: result.done }, message.seq);
+    }
+    peer.send({ t: 'state', seq: message.seq, state: this.view(), event: { kind: 'gem', index: index as number } });
   }
 
   /** Settles the run and tells the page and whoever started it. */
@@ -173,29 +196,28 @@ export class MineSession {
     this.idle.unref();
   }
 
-  /** The run as the page may see it: only what has been dug, until the run is over. */
+  /** The round as the page may see it: only what has been turned over, until the round is over. */
   view(): RunState {
     const { run, rules, bet } = this;
     const reveal = this.over;
-    const tiles: SeenTile[] = run.tiles.map((tile, i) => (!reveal && !run.dug[i] ? null : tile.kind === 'ore' ? tile.ore : tile.kind));
+    const tiles: SeenTile[] = run.mine.map((mine, i) => (!reveal && !run.revealed[i] ? null : mine ? 'mine' : 'gem'));
+    const more = run.gems < MINE_TILES - run.mines && run.multiplier < rules.maxMultiplier;
     return {
       player: this.player.name,
       size: MINE_SIZE,
+      mines: run.mines,
       tiles,
-      dug: [...run.dug],
-      pos: run.pos,
-      field: run.field,
-      oresLeft: run.oresLeft,
-      dynamite: dynamiteOn(rules, run.field),
+      revealed: [...run.revealed],
+      gems: run.gems,
       bet,
       balance: this.balance,
       multiplier: run.multiplier,
+      next: more ? multiplierFor(rules, run.mines, run.gems + 1) : null,
       cashOut: payoutFor(bet, run.multiplier),
+      maxMultiplier: rules.maxMultiplier,
       status: this.status,
       payout: this.payout,
       idleMs: MINE.idleMs,
-      values: { ...rules.value },
-      fieldBonus: rules.fieldBonus,
     };
   }
 }
@@ -206,8 +228,8 @@ export function refuse(peer: Peer, code: ErrorCode): void {
   peer.close();
 }
 
-/** What the lobby shows `player`: their balance, what a bet can be, and how a new run is laid out. */
-export async function lobbyFor(player: Player, lastBet: number | null): Promise<Lobby> {
+/** What the lobby shows `player`: their balance, what a bet can be, and how the multipliers work. */
+export async function lobbyFor(player: Player, lastBet: number | null, lastMines: number | null = null): Promise<Lobby> {
   const cfg = CONFIG.mine;
   const { points } = await getBalance(player.guildId, player.userId);
   return {
@@ -216,21 +238,26 @@ export async function lobbyFor(player: Player, lastBet: number | null): Promise<
     minBet: cfg.minBet,
     maxBet: cfg.maxBet,
     lastBet,
-    ores: cfg.ores,
-    dynamite: dynamiteOn(cfg, 1),
-    values: { ...cfg.value },
-    fieldBonus: cfg.fieldBonus,
+    lastMines,
+    minMines: MINE_MINES.min,
+    maxMines: MINE_MINES.max,
+    edgeFewest: cfg.edgeFewest,
+    edgeMost: cfg.edgeMost,
+    maxMultiplier: cfg.maxMultiplier,
   };
 }
 
 export type WebStart = { ok: true; session: MineSession } | ({ ok: false } & StartRefusal);
 
+/** A mine count kept to what a round can have. */
+export const clampMines = (mines: number): number => Math.min(MINE_MINES.max, Math.max(MINE_MINES.min, Math.round(mines)));
+
 /**
- * Starts a run from the page's lobby: takes the bet ("all" is as much as they have, within the
- * limits) and lays out the first field. Refused when the bet can't be taken or they already have a
- * run going (in Discord too). Their "playing" mark (claimMiner) is held until the run is over.
+ * Starts a round: takes the bet ("all" is as much as they have, within the limits) and hides `mines`
+ * mines (kept to what a round can have). Refused when the bet can't be taken or they already have a
+ * round going (in Discord too). Their "playing" mark (claimMiner) is held until the round is over.
  */
-export async function startWebRun(player: Player, wanted: number | 'all'): Promise<WebStart> {
+export async function startWebRun(player: Player, wanted: number | 'all', mines: number): Promise<WebStart> {
   const { guildId, userId } = player;
   if (!claimMiner(guildId, userId)) return { ok: false, reason: 'busy' };
   try {
@@ -241,9 +268,9 @@ export async function startWebRun(player: Player, wanted: number | 'all'): Promi
       releaseMiner(guildId, userId);
       return started;
     }
-    // The run keeps the settings it started with, whatever is changed while it is played.
-    const rules: MineRules = structuredClone(cfg);
-    const session = new MineSession({ runId: started.runId, player, bet: started.bet, balance: started.balance, run: startRun(rules), rules });
+    // The round keeps the settings it started with, whatever is changed while it is played.
+    const rules: MineRules = { edgeFewest: cfg.edgeFewest, edgeMost: cfg.edgeMost, maxMultiplier: cfg.maxMultiplier };
+    const session = new MineSession({ runId: started.runId, player, bet: started.bet, balance: started.balance, run: startRun(clampMines(mines)), rules });
     void session.ended.finally(() => releaseMiner(guildId, userId));
     return { ok: true, session };
   } catch (err) {

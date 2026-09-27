@@ -1,28 +1,17 @@
 /*
- * The mine (a 5 by 5 field of ores and dynamite, see lib/game/mine.ts).
+ * The mine, played like Stake's Mines (see lib/game/mine.ts): a 5 by 5 board with as many mines
+ * hidden in it as the player chooses, the rest gems.
  */
 
-/** File name of the mine field picture. */
-export const MINE_IMAGE_NAME = 'mine.png';
-
-/** The field is this many tiles wide and tall. It must be odd, so the miner can start in the middle. */
+/** The board is this many tiles wide and tall. */
 export const MINE_SIZE = 5;
+export const MINE_TILES = MINE_SIZE * MINE_SIZE;
 
-/** The ores, from the most common and least valuable to the rarest. What each adds is the `mine.value.<ore>` setting. */
-export const MINE_ORES = ['coal', 'iron', 'gold', 'diamond'] as const;
-export type MineOre = (typeof MINE_ORES)[number];
+/** How many mines a round can have (at least one tile is a gem), and how many the page starts at. */
+export const MINE_MINES = { min: 1, max: MINE_TILES - 1, start: 3 } as const;
 
-/** How often each ore turns up compared with the others: an ore tile is coal 50 times in 100, a diamond 5. */
-export const MINE_ORE_WEIGHTS: Readonly<Record<MineOre, number>> = { coal: 50, iron: 30, gold: 15, diamond: 5 };
-
-/**
- * The most dynamite a field can be set to have (of the 24 tiles around the middle). Every field is
- * laid out so its other tiles can all be reached; with more dynamite than this, few layouts are.
- */
-export const MAX_MINE_DYNAMITE = 18;
-
-/** The mine's ore values and field bonus are multipliers of the bet, up to this much each. */
-export const MAX_MINE_MULTIPLIER = 100;
+/** The most the `mine.maxMultiplier` setting may be set to. */
+export const MAX_MINE_MULTIPLIER = 10_000;
 
 /**
  * How a run in the mine is kept:

@@ -6,13 +6,10 @@ import {
   MAX_BLACKJACK_SECONDS,
   MAX_CRATE_SECONDS,
   MAX_LEADERBOARD_SIZE,
-  MAX_MINE_DYNAMITE,
   MAX_MINE_MULTIPLIER,
-  MINE_ORES,
   MAX_PINECRAFT_ENERGY,
   MAX_PINECRAFT_VALUE,
   PINECRAFT_ORES,
-  MINE_SIZE,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
   MAX_PREFIX_LENGTH,
@@ -178,30 +175,33 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('mine.minBet', 'Mine', 'Smallest bet in the mine.', 1, MAX_POINTS),
   int('mine.maxBet', 'Mine', 'Biggest bet in the mine.', 1, MAX_POINTS),
-  int('mine.ores', 'Mine', 'Ores on every mine field. Digging them all clears the field.', 1, MINE_SIZE * MINE_SIZE - 1),
-  int('mine.dynamite', 'Mine', 'Dynamite on the first mine field.', 1, MAX_MINE_DYNAMITE),
-  int('mine.dynamiteStep', 'Mine', 'How much more dynamite each next mine field has.', 0, MAX_MINE_DYNAMITE),
-  int('mine.maxDynamite', 'Mine', 'The most dynamite a mine field can have.', 1, MAX_MINE_DYNAMITE),
   {
-    key: 'mine.fieldBonus',
+    key: 'mine.edgeFewest',
     group: 'Mine',
-    description: 'Added to the multiplier for digging up every ore of a mine field.',
+    description: "The mine's house edge with 1 mine. With more mines it slides evenly to mine.edgeMost at the most mines.",
     type: 'number',
     min: 0,
+    max: 0.5,
+    percent: true,
+  },
+  {
+    key: 'mine.edgeMost',
+    group: 'Mine',
+    description: "The mine's house edge with the most mines (24).",
+    type: 'number',
+    min: 0,
+    max: 0.5,
+    percent: true,
+  },
+  {
+    key: 'mine.maxMultiplier',
+    group: 'Mine',
+    description: 'A mine round that reaches this multiplier is cashed out there by itself.',
+    type: 'number',
+    min: 1,
     max: MAX_MINE_MULTIPLIER,
     multiplier: true,
   },
-  ...MINE_ORES.map(
-    (ore): SettingSpec => ({
-      key: `mine.value.${ore}`,
-      group: 'Mine',
-      description: `Added to the multiplier by each ${ore} dug up in the mine.`,
-      type: 'number',
-      min: 0,
-      max: MAX_MINE_MULTIPLIER,
-      multiplier: true,
-    }),
-  ),
 
   int('pinecraft.maxEnergy', 'Pinecraft', 'The most energy a member can have in Pinecraft. Digging a block takes one.', 1, MAX_PINECRAFT_ENERGY),
   int('pinecraft.energyMinutes', 'Pinecraft', 'Minutes for one Pinecraft energy to come back.', 1, MAX_TIMER_MINUTES),
@@ -441,12 +441,6 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.mine.minBet > settings.mine.maxBet) {
     return 'mine.minBet cannot be higher than mine.maxBet';
-  }
-  if (settings.mine.dynamite > settings.mine.maxDynamite) {
-    return 'mine.dynamite cannot be higher than mine.maxDynamite';
-  }
-  if (settings.mine.ores + settings.mine.maxDynamite > MINE_SIZE * MINE_SIZE - 1) {
-    return `mine.ores and mine.maxDynamite add up to more than the ${MINE_SIZE * MINE_SIZE - 1} tiles around the middle of a mine field`;
   }
   if (settings.events.minMinutes > settings.events.maxMinutes) {
     return 'events.minMinutes cannot be higher than events.maxMinutes';

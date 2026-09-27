@@ -23,8 +23,9 @@ export function serveMine(socket: WebSocket): void {
     close: () => socket.close(),
   };
   let player: Player | null = null;
-  /** The bet of the last run played here, for the lobby's again / double / half. */
+  /** The bet and mines of the last round played here, for the lobby to start from. */
   let lastBet: number | null = null;
+  let lastMines: number | null = null;
   let starting = false;
 
   // A small budget of messages a second: far more than anyone can press keys, but not a flood.
@@ -39,7 +40,7 @@ export function serveMine(socket: WebSocket): void {
   const sendLobby = async (): Promise<void> => {
     if (!player || !isCurrent()) return;
     try {
-      peer.send({ t: 'lobby', lobby: await lobbyFor(player, lastBet) });
+      peer.send({ t: 'lobby', lobby: await lobbyFor(player, lastBet, lastMines) });
     } catch (err) {
       console.error('Could not show the mine lobby:', err);
     }
@@ -48,6 +49,7 @@ export function serveMine(socket: WebSocket): void {
   /** Plays `session` on this page, and goes back to the lobby when it is over. */
   const play = (session: MineSession, seq: number): void => {
     lastBet = session.bet;
+    lastMines = session.mines;
     session.attach(peer, seq);
     void session.ended.then(() => {
       session.detach(peer);
@@ -84,7 +86,7 @@ export function serveMine(socket: WebSocket): void {
         if ((session && !session.over) || starting) return peer.send({ t: 'refused', seq: message.seq, reason: 'busy' });
         starting = true;
         try {
-          const started = await startWebRun(player, message.bet);
+          const started = await startWebRun(player, message.bet, message.mines);
           if (!started.ok) {
             const { ok: _, ...refusal } = started;
             peer.send({ t: 'refused', seq: message.seq, ...refusal });

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { CENTER, TILE_COUNT, type MineRun, type MineTile } from '../src/lib/game/mine.js';
+import { MINE_TILES } from '../src/constants/index.js';
+import { multiplierFor, type MineRun } from '../src/lib/game/mine.js';
 import { gameLink, readWebConfig } from '../src/web/config.js';
 import { parseClientMessage, type ServerMessage } from '../src/web/mine-protocol.js';
 import { findSession, MineSession, type Peer, type SessionDeps } from '../src/web/mine-session.js';
@@ -79,11 +80,30 @@ test('web: the older MINE_* settings still work', () => {
 
 test('mine web: only well-formed messages from the page are read', () => {
   assert.deepEqual(parseClientMessage('{"t":"hello","token":"x"}'), { t: 'hello', token: 'x' });
-  assert.deepEqual(parseClientMessage('{"t":"move","dir":"up","seq":1}'), { t: 'move', dir: 'up', seq: 1 });
+  assert.deepEqual(parseClientMessage('{"t":"pick","index":24,"seq":1}'), { t: 'pick', index: 24, seq: 1 });
+  assert.deepEqual(parseClientMessage('{"t":"pick","index":"random","seq":2}'), { t: 'pick', index: 'random', seq: 2 });
   assert.deepEqual(parseClientMessage('{"t":"cashout","seq":7}'), { t: 'cashout', seq: 7 });
-  assert.deepEqual(parseClientMessage('{"t":"start","bet":100,"seq":1}'), { t: 'start', bet: 100, seq: 1 });
-  assert.deepEqual(parseClientMessage('{"t":"start","bet":"all","seq":2}'), { t: 'start', bet: 'all', seq: 2 });
-  for (const bad of ['{"t":"start","bet":0,"seq":1}', '{"t":"start","bet":1.5,"seq":1}', '{"t":"start","bet":"max","seq":1}', '{"t":"start","bet":10}', '', 'null', '[]', '{"t":"move","dir":"north","seq":1}', '{"t":"move","dir":"up"}', '{"t":"move","dir":"up","seq":0}', '{"t":"cashout","seq":1.5}', '{"t":"hello"}', '{"t":"x"}']) {
+  assert.deepEqual(parseClientMessage('{"t":"start","bet":100,"mines":3,"seq":1}'), { t: 'start', bet: 100, mines: 3, seq: 1 });
+  assert.deepEqual(parseClientMessage('{"t":"start","bet":"all","mines":24,"seq":2}'), { t: 'start', bet: 'all', mines: 24, seq: 2 });
+  for (const bad of [
+    '{"t":"start","bet":0,"mines":3,"seq":1}',
+    '{"t":"start","bet":1.5,"mines":3,"seq":1}',
+    '{"t":"start","bet":"max","mines":3,"seq":1}',
+    '{"t":"start","bet":10,"seq":1}',
+    '{"t":"start","bet":10,"mines":2.5,"seq":1}',
+    '',
+    'null',
+    '[]',
+    '{"t":"pick","index":25,"seq":1}',
+    '{"t":"pick","index":-1,"seq":1}',
+    '{"t":"pick","index":1.5,"seq":1}',
+    '{"t":"pick","seq":1}',
+    '{"t":"pick","index":3,"seq":0}',
+    '{"t":"move","dir":"up","seq":1}',
+    '{"t":"cashout","seq":1.5}',
+    '{"t":"hello"}',
+    '{"t":"x"}',
+  ]) {
     assert.equal(parseClientMessage(bad), null, bad);
   }
 });
@@ -93,10 +113,10 @@ test('mine web: only well-formed messages from the page are read', () => {
 
 const RULES = DEFAULTS.mine;
 
-/** A run on a hand-made field: everything rock except `tiles`, the miner in the middle. */
-function runWith(tiles: Record<number, MineTile>, oresLeft: number): MineRun {
-  const all = Array.from({ length: TILE_COUNT }, (_, i) => tiles[i] ?? ({ kind: 'rock' } as MineTile));
-  return { tiles: all, dug: all.map((_, i) => i === CENTER), pos: CENTER, field: 1, multiplier: 1, oresLeft, status: 'digging' };
+/** A round with mines exactly at `at`. */
+function runWith(at: readonly number[]): MineRun {
+  const mine = Array.from({ length: MINE_TILES }, (_, i) => at.includes(i));
+  return { mines: at.length, mine, revealed: mine.map(() => false), gems: 0, multiplier: 1, status: 'playing' };
 }
 
 function fakePeer(): Peer & { sent: ServerMessage[]; closed: boolean } {
@@ -122,10 +142,9 @@ function fakeDeps(): SessionDeps & { settled: [string, number | null][]; saved: 
   return deps;
 }
 
-test('mine web: the page is only told what has been dug, until the run is over', async () => {
+test('mine web: the page is only told what has been turned over, until the round is over', async () => {
   const deps = fakeDeps();
-  const run = runWith({ 7: { kind: 'ore', ore: 'gold' }, 13: { kind: 'dynamite' }, 0: { kind: 'ore', ore: 'diamond' } }, 2);
-  const session = new MineSession({ runId: 'r1', player: SIMON, bet: 100, balance: 900, run, rules: RULES }, deps);
+  const session = new MineSession({ runId: 'r1', player: SIMON, bet: 100, balance: 900, run: runWith([13, 20, 21]), rules: RULES }, deps);
   const peer = fakePeer();
   session.attach(peer);
 
@@ -135,58 +154,64 @@ test('mine web: the page is only told what has been dug, until the run is over',
   assert.equal(first.seq, 0);
   assert.equal(first.state.player, 'Simon');
   assert.equal(first.state.balance, 900);
-  assert.deepEqual(first.state.tiles.filter((t) => t !== null), ['rock']);
-  assert.equal(first.state.tiles[13], null);
-  assert.equal(first.state.tiles[7], null);
+  assert.equal(first.state.mines, 3);
+  assert.ok(first.state.tiles.every((t) => t === null));
+  assert.equal(first.state.next, multiplierFor(RULES, 3, 1));
 
-  await session.handle(peer, { t: 'move', dir: 'up', seq: 1 });
-  const dug = peer.sent[1];
-  assert.equal(dug?.t, 'state');
-  if (dug?.t !== 'state') return;
-  assert.equal(dug.seq, 1);
-  assert.deepEqual(dug.event, { kind: 'ore', ore: 'gold', gained: 0.5 });
-  assert.equal(dug.state.multiplier, 1.5);
-  assert.equal(dug.state.cashOut, 150);
-  assert.equal(dug.state.tiles[7], 'gold');
-  assert.equal(dug.state.tiles[13], null);
-  assert.deepEqual(deps.saved, [1.5]);
+  await session.handle(peer, { t: 'pick', index: 7, seq: 1 });
+  const gem = peer.sent[1];
+  assert.equal(gem?.t, 'state');
+  if (gem?.t !== 'state') return;
+  assert.equal(gem.seq, 1);
+  assert.deepEqual(gem.event, { kind: 'gem', index: 7 });
+  assert.equal(gem.state.multiplier, 1.1);
+  assert.equal(gem.state.cashOut, 110);
+  assert.equal(gem.state.tiles[7], 'gem');
+  assert.equal(gem.state.tiles[13], null);
+  assert.deepEqual(deps.saved, [1.1]);
 
-  await session.handle(peer, { t: 'move', dir: 'down', seq: 2 });
-  await session.handle(peer, { t: 'move', dir: 'right', seq: 3 });
+  // The same tile again changes nothing.
+  await session.handle(peer, { t: 'pick', index: 7, seq: 2 });
+  assert.equal(peer.sent.at(-1)?.t === 'state' && (peer.sent.at(-1) as { event?: unknown }).event, undefined);
+
+  await session.handle(peer, { t: 'pick', index: 13, seq: 3 });
   const boom = peer.sent.at(-1);
   assert.equal(boom?.t, 'state');
   if (boom?.t !== 'state') return;
   assert.equal(boom.seq, 3);
-  assert.deepEqual(boom.event, { kind: 'boom' });
+  assert.deepEqual(boom.event, { kind: 'boom', index: 13 });
   assert.equal(boom.state.status, 'boom');
-  assert.equal(boom.state.tiles[0], 'diamond'); // everything is shown now
+  assert.deepEqual([boom.state.tiles[20], boom.state.tiles[21], boom.state.tiles[0]], ['mine', 'mine', 'gem']); // everything is shown now
+  assert.deepEqual([boom.state.revealed[13], boom.state.revealed[20]], [true, false]);
   assert.equal(boom.state.balance, 1000); // after the payout (0 here)
   assert.deepEqual(deps.settled, [['r1', 0]]);
   assert.deepEqual(await session.ended, { status: 'boom', settled: { ok: true, bet: 100, payout: 0, balance: 1000 } });
   assert.equal(findSession(SIMON), undefined);
 
   // Nothing more happens once it is over.
-  await session.handle(peer, { t: 'move', dir: 'left', seq: 4 });
+  await session.handle(peer, { t: 'pick', index: 0, seq: 4 });
   assert.equal(deps.settled.length, 1);
 });
 
-test('mine web: cashing out pays the multiplier, and only the page attached last is listened to', async () => {
+test('mine web: cashing out pays the multiplier (not before the first gem), and only the page attached last is listened to', async () => {
   const deps = fakeDeps();
   const player = { ...SIMON, userId: 'u2' };
-  const session = new MineSession({ runId: 'r2', player, bet: 100, balance: 900, run: runWith({ 11: { kind: 'ore', ore: 'coal' } }, 2), rules: RULES }, deps);
+  const session = new MineSession({ runId: 'r2', player, bet: 100, balance: 900, run: runWith([0, 1, 2]), rules: RULES }, deps);
   assert.equal(findSession(player), session);
   const first = fakePeer();
   const second = fakePeer();
   session.attach(first);
-  await session.handle(first, { t: 'move', dir: 'left', seq: 1 });
-  session.attach(second, 1);
-  assert.equal(second.sent[0]?.t === 'state' && second.sent[0].seq, 1);
+  await session.handle(first, { t: 'cashout', seq: 1 });
+  assert.equal(deps.settled.length, 0); // no gem yet
+  await session.handle(first, { t: 'pick', index: 11, seq: 2 });
+  session.attach(second, 2);
+  assert.equal(second.sent[0]?.t === 'state' && second.sent[0].seq, 2);
 
   // The old page's messages are ignored.
-  await session.handle(first, { t: 'cashout', seq: 2 });
+  await session.handle(first, { t: 'cashout', seq: 3 });
   assert.equal(deps.settled.length, 0);
 
-  await session.handle(second, { t: 'cashout', seq: 1 });
+  await session.handle(second, { t: 'cashout', seq: 3 });
   assert.deepEqual(deps.settled, [['r2', 1.1]]);
   const end = await session.ended;
   assert.equal(end.status, 'cashed');
@@ -196,22 +221,35 @@ test('mine web: cashing out pays the multiplier, and only the page attached last
   assert.equal(last?.t === 'state' && last.state.payout, 110);
 });
 
-test('mine web: a run that failed partway is cashed out at what it reached', async () => {
+test('mine web: the last gem cashes the round out by itself', async () => {
+  const deps = fakeDeps();
+  const session = new MineSession({ runId: 'r4', player: { ...SIMON, userId: 'u4' }, bet: 100, balance: 900, run: runWith(Array.from({ length: 24 }, (_, i) => i + 1)), rules: RULES }, deps);
+  const peer = fakePeer();
+  session.attach(peer);
+  await session.handle(peer, { t: 'pick', index: 0, seq: 1 });
+  const end = await session.ended;
+  assert.equal(end.status, 'done');
+  assert.deepEqual(deps.settled, [['r4', 24.75]]);
+  const last = peer.sent.at(-1);
+  assert.deepEqual(last?.t === 'state' && last.event, { kind: 'cleared' });
+});
+
+test('mine web: a round that failed partway is cashed out at what it reached', async () => {
   const deps = fakeDeps();
   deps.save = async () => {
     throw new Error('database down');
   };
-  const session = new MineSession({ runId: 'r3', player: { ...SIMON, userId: 'u3' }, bet: 100, balance: 900, run: runWith({ 11: { kind: 'ore', ore: 'diamond' } }, 2), rules: RULES }, deps);
+  const session = new MineSession({ runId: 'r3', player: { ...SIMON, userId: 'u3' }, bet: 100, balance: 900, run: runWith([0]), rules: RULES }, deps);
   const peer = fakePeer();
   session.attach(peer);
   const errors = console.error;
   console.error = () => {};
   try {
-    await session.handle(peer, { t: 'move', dir: 'left', seq: 1 });
+    await session.handle(peer, { t: 'pick', index: 11, seq: 1 });
   } finally {
     console.error = errors;
   }
   const end = await session.ended;
   assert.equal(end.status, 'failed');
-  assert.deepEqual(deps.settled, [['r3', 2]]);
+  assert.deepEqual(deps.settled, [['r3', multiplierFor(RULES, 1, 1)]]);
 });
