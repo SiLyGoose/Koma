@@ -44,12 +44,12 @@ export const PINECRAFT_ORE_WEIGHTS: Readonly<Record<PinecraftOre, number>> = {
 export const PINECRAFT_BREAK_MS: Readonly<Record<'dirt' | 'stone' | PinecraftOre, number>> = {
   dirt: 250,
   stone: 500,
-  coal: 650,
-  iron: 800,
-  gold: 950,
-  diamond: 1150,
-  emerald: 1350,
-  ruby: 1600,
+  coal: 1050,
+  iron: 1600,
+  gold: 2250,
+  diamond: 3550,
+  emerald: 4650,
+  ruby: 5400,
 };
 
 /** The most energy (and points an ore pays) the settings may be set to. */

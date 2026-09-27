@@ -204,9 +204,14 @@ export function viewRows(world: PinecraftWorld, left: number, top: number, right
     }
   }
   const seen = (x: number, y: number): boolean => Object.values(STEP).some(([dx, dy]) => inWorld(x + dx, y + dy) && reached.has(indexOf(x + dx, y + dy)));
+  return lettersOf(world, left, top, right, bottom, seen);
+}
 
-  const ORE_LETTER: Record<PinecraftOre, string> = { coal: 'c', iron: 'i', gold: 'o', diamond: 'x', emerald: 'e', ruby: 'r' };
-  const GROUND_LETTER: Record<Exclude<Ground, 'open'>, string> = { dirt: 'd', stone: 's', bedrock: 'b' };
+const ORE_LETTER: Record<PinecraftOre, string> = { coal: 'c', iron: 'i', gold: 'o', diamond: 'x', emerald: 'e', ruby: 'r' };
+const GROUND_LETTER: Record<Exclude<Ground, 'open'>, string> = { dirt: 'd', stone: 's', bedrock: 'b' };
+
+/** The letters (see viewRows) of the blocks from (left, top) to (right, bottom), showing the blocks `seen` says the miner can see. */
+function lettersOf(world: PinecraftWorld, left: number, top: number, right: number, bottom: number, seen: (x: number, y: number) => boolean): string[] {
   const rows: string[] = [];
   for (let y = Math.max(0, top); y <= Math.min(SIZE - 1, bottom); y++) {
     let row = '';
@@ -221,4 +226,29 @@ export function viewRows(world: PinecraftWorld, left: number, top: number, right
     rows.push(row);
   }
   return rows;
+}
+
+/**
+ * Everything the miner has uncovered, for the map: the smallest box around the ground they have
+ * opened up (the starting room and every block dug) and the blocks next to it, with the same
+ * letters as viewRows. Every block dug joins up with the room (the miner walked into it), so the
+ * blocks next to open ground are the ones they have seen.
+ */
+export function mapRows(world: PinecraftWorld): { left: number; top: number; rows: string[] } {
+  let left = SPAWN.x - 1;
+  let right = SPAWN.x + 1;
+  let top = SPAWN.y - 1;
+  let bottom = SPAWN.y + 1;
+  for (const i of world.mined) {
+    const x = i % SIZE;
+    const y = Math.floor(i / SIZE);
+    left = Math.min(left, x);
+    right = Math.max(right, x);
+    top = Math.min(top, y);
+    bottom = Math.max(bottom, y);
+  }
+  left = Math.max(0, left - 1);
+  top = Math.max(0, top - 1);
+  const seen = (x: number, y: number): boolean => Object.values(STEP).some(([dx, dy]) => inWorld(x + dx, y + dy) && isOpen(world, x + dx, y + dy));
+  return { left, top, rows: lettersOf(world, left, top, right + 1, bottom + 1, seen) };
 }

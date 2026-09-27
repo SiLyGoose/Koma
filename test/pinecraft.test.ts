@@ -11,6 +11,7 @@ import {
   groundAt,
   indexOf,
   isOpen,
+  mapRows,
   move,
   newWorld,
   oreAt,
@@ -172,6 +173,20 @@ test('pinecraft: the page is only shown the blocks next to ground the miner can 
   assert.match(viewRows(next, ore.x, ore.y, ore.x, ore.y, 40)[0] ?? '', /^[ciorxe]$/);
 });
 
+test('pinecraft: the map is everything uncovered: the room, the tunnels, and the blocks beside them', () => {
+  const world = newWorld(11, RULES, 0);
+  // Just the room: it and the dirt around it.
+  assert.deepEqual(mapRows(world), { left: SPAWN.x - 2, top: SPAWN.y - 2, rows: ['?ddd?', 'd...d', 'd...d', 'd...d', '?ddd?'] });
+  // A tunnel three blocks right: the map grows to take it in, and shows what is beside it.
+  for (const dx of [2, 3, 4]) world.mined.add(indexOf(SPAWN.x + dx, SPAWN.y));
+  const { left, top, rows } = mapRows(world);
+  assert.deepEqual({ left, top, width: rows[0]?.length, height: rows.length }, { left: SPAWN.x - 2, top: SPAWN.y - 2, width: 8, height: 5 });
+  assert.equal(rows[2], 'd......' + rows[2]?.[7]);
+  assert.notEqual(rows[2]?.[7], '?'); // the block past the end of the tunnel
+  assert.notEqual(rows[1]?.[6], '?'); // and the ones beside it
+  assert.equal(rows[0]?.[6], '?'); // but nothing further off
+});
+
 test('pinecraft: blocks take longer to break from dirt to stone to the ores, ruby longest, and open ground and bedrock not at all', () => {
   const order = ['dirt', 'stone', 'coal', 'iron', 'gold', 'diamond', 'emerald', 'ruby'] as const;
   for (let k = 1; k < order.length; k++) assert.ok(PINECRAFT_BREAK_MS[order[k] as 'dirt'] > PINECRAFT_BREAK_MS[order[k - 1] as 'dirt'], order[k]);
@@ -189,7 +204,7 @@ test('pinecraft: blocks take longer to break from dirt to stone to the ores, rub
 // Settings
 
 test('pinecraft: the settings exist, are in their own group, and start at the tuned values', () => {
-  assert.deepEqual(DEFAULTS.pinecraft, { maxEnergy: 100, energyMinutes: 3, value: { coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, ruby: 40 } });
+  assert.deepEqual(DEFAULTS.pinecraft, { maxEnergy: 100, energyMinutes: 3, value: { coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, ruby: 500 } });
   assert.deepEqual(CONFIG.pinecraft, DEFAULTS.pinecraft);
   const keys = SPECS.filter((s) => s.key.startsWith('pinecraft.')).map((s) => s.key);
   assert.deepEqual(keys, ['pinecraft.maxEnergy', 'pinecraft.energyMinutes', ...PINECRAFT_ORES.map((ore) => `pinecraft.value.${ore}`)]);
@@ -204,6 +219,7 @@ test('pinecraft web: only well-formed messages from the page are read', () => {
   assert.deepEqual(parseClientMessage('{"t":"hello","token":"a.b"}'), { t: 'hello', token: 'a.b' });
   assert.deepEqual(parseClientMessage('{"t":"move","dir":"down","seq":3}'), { t: 'move', dir: 'down', seq: 3 });
   assert.deepEqual(parseClientMessage('{"t":"mine","dir":"left"}'), { t: 'mine', dir: 'left' });
+  assert.deepEqual(parseClientMessage('{"t":"map"}'), { t: 'map' });
   for (const bad of ['', 'null', '{"t":"move","dir":"north","seq":1}', '{"t":"move","dir":"up","seq":0}', '{"t":"move","dir":"up"}', '{"t":"cashout","seq":1}']) {
     assert.equal(parseClientMessage(bad), null, bad);
   }
@@ -265,6 +281,23 @@ test('pinecraft web: a block is only broken once its break time has passed since
   await session.handle(peer, { t: 'move', dir: 'up', seq: 5 });
   assert.equal(saved.waits.length, 2);
   assert.equal(saved.digs.length, 3);
+  await leave(session, peer);
+});
+
+test('pinecraft web: the page gets the map when it asks, and at most once a second', async () => {
+  const { deps, clock } = fakeDeps(6);
+  const session = await sessionFor({ guildId: 'g3', userId: 'u3', name: 'Simon' }, deps);
+  const peer = fakePeer();
+  session.attach(peer);
+  const hello = peer.got[0];
+  assert.ok(hello?.t === 'state');
+  assert.deepEqual(hello.state.spawn, SPAWN);
+  await session.sendMap(peer);
+  await session.sendMap(peer); // too soon: not sent again
+  assert.deepEqual(peer.got.slice(1), [{ t: 'map', map: mapRows(newWorld(6, RULES, 0)) }]);
+  clock.now += 1000;
+  await session.sendMap(peer);
+  assert.equal(peer.got.length, 3);
   await leave(session, peer);
 });
 

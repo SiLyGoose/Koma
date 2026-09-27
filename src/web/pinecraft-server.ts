@@ -1,7 +1,7 @@
 import type { WebSocket } from 'ws';
 import { CONFIG } from '../config.js';
 import { MINE_WEB, PINECRAFT_BREAK_MS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../constants/index.js';
-import { breakMs, energyNow, indexOf, move, stepFrom, viewRows, type PinecraftRules } from '../lib/game/pinecraft.js';
+import { breakMs, energyNow, indexOf, mapRows, move, SPAWN, stepFrom, viewRows, type PinecraftRules } from '../lib/game/pinecraft.js';
 import { getBalance } from '../services/economy/index.js';
 import { loadWorld, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
 import { parseClientMessage, type ClientMessage, type ErrorCode, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
@@ -52,6 +52,8 @@ const realDeps: PinecraftDeps = {
 
 /** How long after the last walk where the miner is gets saved. */
 const SAVE_AFTER_MS = 5000;
+/** A page is sent the map at most once in this long (it can take a moment to work out for a big one). */
+const MAP_EVERY_MS = 1000;
 
 export class PinecraftSession {
   peer: Peer | null = null;
@@ -59,6 +61,7 @@ export class PinecraftSession {
   private saveTimer: NodeJS.Timeout | null = null;
   /** The block the page started breaking (by index), and when. */
   private breaking: { index: number; since: number } | null = null;
+  private mapSentAt = -Infinity;
 
   constructor(
     readonly player: Player,
@@ -81,6 +84,17 @@ export class PinecraftSession {
       if (peer !== this.peer) return;
       const { x, y } = stepFrom(this.loaded.world, dir);
       this.breaking = breakMs(this.loaded.world, x, y) === null ? null : { index: indexOf(x, y), since };
+    });
+    return this.queue;
+  }
+
+  /** The page asks for the map. Resolves once it has been sent (or not, when asked for again too soon). */
+  sendMap(peer: Peer): Promise<void> {
+    this.queue = this.queue.then(() => {
+      const now = this.deps.now();
+      if (peer !== this.peer || now - this.mapSentAt < MAP_EVERY_MS) return;
+      this.mapSentAt = now;
+      peer.send({ t: 'map', map: mapRows(this.loaded.world) });
     });
     return this.queue;
   }
@@ -159,6 +173,7 @@ export class PinecraftSession {
     return {
       player: this.player.name,
       size: PINECRAFT_WORLD.size,
+      spawn: { ...SPAWN },
       left,
       top,
       rows: viewRows(world, left, top, world.x + viewCols, world.y + rowsAround, look),
@@ -253,6 +268,7 @@ export function servePinecraft(socket: WebSocket, deps: PinecraftDeps = realDeps
 
       if (!session || session.peer !== peer) return refuse(peer, 'bad_message');
       if (message.t === 'mine') return void (await session.startBreaking(peer, message.dir));
+      if (message.t === 'map') return void (await session.sendMap(peer));
       await session.handle(peer, message);
     })();
   });

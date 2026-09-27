@@ -262,7 +262,7 @@ export const DEFAULTS: Readonly<Settings> = {
     value: { coal: 0.1, iron: 0.2, gold: 0.5, diamond: 1 },
   },
   // 100 energy, one back every 3 minutes (480 a day). A block holds an ore 1 time in 10, anywhere;
-  // an ore averages about 9 points (coal is most of them), so digging pays about 1 point a block.
+  // an ore averages about 95 points, so digging pays about 9 points a block.
   pinecraft: {
     maxEnergy: 100,
     energyMinutes: 3,

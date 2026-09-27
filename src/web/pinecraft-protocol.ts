@@ -11,20 +11,23 @@ import type { Direction } from '../lib/game/pinecraft.js';
  *
  *   page -> bot   hello    first message: the token from the link
  *                 mine     starts breaking the block that way (no answer)
+ *                 map      asks for the map of everything uncovered
  *                 move     one step; `seq` counts up from 1 with every move. Into a block, it finishes
  *                          breaking it: the bot holds the move until the block's break time has
  *                          passed since its `mine` (or since now, without one)
  *   bot -> page   state    the world around the miner, after the page's move `seq` (0: not after one)
+ *                 map      the map asked for
  *                 error    and the bot closes the connection
  */
 
-export type ClientMessage = { t: 'hello'; token: string } | { t: 'mine'; dir: Direction } | { t: 'move'; dir: Direction; seq: number };
+export type ClientMessage = { t: 'hello'; token: string } | { t: 'mine'; dir: Direction } | { t: 'map' } | { t: 'move'; dir: Direction; seq: number };
 
 export interface WorldState {
   /** The player's name. */
   player: string;
-  /** The world is size by size blocks. */
+  /** The world is size by size blocks. The miner started in the middle of `spawn`, which the page calls 0,0. */
   size: number;
+  spawn: { x: number; y: number };
   /** The blocks around the miner: one string per row, a letter per block, from block (left, top). */
   left: number;
   top: number;
@@ -62,7 +65,17 @@ export type ErrorCode =
   /** The world couldn't be loaded or saved. */
   | 'failed';
 
-export type ServerMessage = { t: 'state'; seq: number; state: WorldState; event?: WorldEvent } | { t: 'error'; code: ErrorCode };
+/** Everything the miner has uncovered: the blocks from (left, top), one string per row, with the same letters as the state's rows. */
+export interface WorldMap {
+  left: number;
+  top: number;
+  rows: string[];
+}
+
+export type ServerMessage =
+  | { t: 'state'; seq: number; state: WorldState; event?: WorldEvent }
+  | { t: 'map'; map: WorldMap }
+  | { t: 'error'; code: ErrorCode };
 
 const DIRECTIONS = new Set(['up', 'down', 'left', 'right']);
 
@@ -77,6 +90,7 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
   if (m.t === 'hello' && typeof m.token === 'string' && m.token.length <= 512) return { t: 'hello', token: m.token };
+  if (m.t === 'map') return { t: 'map' };
   if (m.t === 'mine' && typeof m.dir === 'string' && DIRECTIONS.has(m.dir)) return { t: 'mine', dir: m.dir as Direction };
   if (m.t === 'move' && typeof m.seq === 'number' && Number.isSafeInteger(m.seq) && m.seq > 0 && typeof m.dir === 'string' && DIRECTIONS.has(m.dir)) {
     return { t: 'move', dir: m.dir as Direction, seq: m.seq };
