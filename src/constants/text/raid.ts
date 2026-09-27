@@ -175,7 +175,7 @@ Grows with every raider (at least ${min}).`,
     breath: (damage: number) => `🔥 **Fire Breath**, hitting everyone (${damage} damage each)`,
     sweep: (targets: string, damage: number) => `🌀 **Tail Sweep** at ${targets} (${damage} damage each)`,
     hoard: (target: string) => `💰 **Hoard**: it wants to steal from ${target}'s wallet. A guard can stop it.`,
-    shield: (supports: number) => `🔷 **Scale Shield**: next turn attacks bounce off unless ${supports} raiders Support`,
+    shield: (supports: number) => `🔷 **Scale Shield**: it raises its shield at the end of this turn. **Next turn**, attacks bounce off unless ${supports} raiders Support`,
     /** `lifesteal` is how many times the damage dealt it heals. */
     /** `lifesteal` is how many times the damage dealt it heals, like "3.75x". */
     reap: (target: string, damage: number, lifesteal: string) => `🩸 **Reap** at ${target} (${damage} damage; it heals ${lifesteal} what it deals)`,
@@ -183,7 +183,7 @@ Grows with every raider (at least ${min}).`,
     scythe: (targets: string, damage: number) => `🌙 **Scythe Sweep** at ${targets} (${damage} damage each)`,
     /** `heal` is the HP it would heal. */
     harvest: (target: string, damage: number, heal: string) => `🕯️ **Harvest**: it reaches for ${target}'s soul (${damage} damage, and it heals ${heal}). A guard can stop it.`,
-    veil: (supports: number) => `🌫️ **Spectral Veil**: next turn attacks pass right through it unless ${supports} raiders Support`,
+    veil: (supports: number) => `🌫️ **Spectral Veil**: it fades behind its veil at the end of this turn. **Next turn**, attacks pass right through it unless ${supports} raiders Support`,
     /** `multiplier` is how much harder its next attack hits, like "1.5x". */
     empower: (multiplier: string) => `💢 **Dark Empowerment**: it spends this turn powering up, and its next attack does ${multiplier} damage`,
     /** `turns` is how many turns of gathering are left, this one included. */
