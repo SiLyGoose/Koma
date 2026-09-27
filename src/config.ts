@@ -266,7 +266,7 @@ export const DEFAULTS: Readonly<Settings> = {
   pinecraft: {
     maxEnergy: 100,
     energyMinutes: 3,
-    value: { coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, ruby: 40 },
+    value: { coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, ruby: 500 },
   },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has
