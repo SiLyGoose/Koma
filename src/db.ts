@@ -16,7 +16,9 @@ export interface Collections {
   /** Points that are on a blackjack table right now (see services/blackjack.ts). */
   blackjackBets: Collection<BlackjackBetDoc>;
   /** Runs in the mine being played right now (see services/mines.ts). */
-  mineRuns: Collection<MineRunDoc>;
+  minesRuns: Collection<MineRunDoc>;
+  /** Where rounds were kept before the mine was renamed Mines. Only read by the one-time move (services/migrate.ts). */
+  oldMineRuns: Collection<MineRunDoc>;
   /** One Pinecraft world per member per server (see services/pinecraft.ts). */
   pinecraftWorlds: Collection<PinecraftWorldDoc>;
   /** One per server per raid week (see services/raid.ts). */
@@ -43,7 +45,8 @@ export async function connectDb(): Promise<Collections> {
     meta: db.collection<MetaDoc>('meta'),
     guilds: db.collection<GuildDoc>('guilds'),
     blackjackBets: db.collection<BlackjackBetDoc>('blackjack_bets'),
-    mineRuns: db.collection<MineRunDoc>('mine_runs'),
+    minesRuns: db.collection<MineRunDoc>('mines_runs'),
+    oldMineRuns: db.collection<MineRunDoc>('mine_runs'),
     pinecraftWorlds: db.collection<PinecraftWorldDoc>('pinecraft_worlds'),
     raids: db.collection<RaidDoc>('raids'),
   };
@@ -65,7 +68,7 @@ export async function connectDb(): Promise<Collections> {
     collections.blackjackBets.createIndex({ leaseUntil: 1 }),
     collections.blackjackBets.createIndex({ gameId: 1 }),
     // The mine's sweeper looks for runs whose lease ran out.
-    collections.mineRuns.createIndex({ leaseUntil: 1 }),
+    collections.minesRuns.createIndex({ leaseUntil: 1 }),
     // Raids left unfinished when the bot stopped are looked up by status on start.
     collections.raids.createIndex({ status: 1 }),
   ]);

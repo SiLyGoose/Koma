@@ -230,7 +230,7 @@ export function refuse(peer: Peer, code: ErrorCode): void {
 
 /** What the lobby shows `player`: their balance, what a bet can be, and how the multipliers work. */
 export async function lobbyFor(player: Player, lastBet: number | null, lastMines: number | null = null): Promise<Lobby> {
-  const cfg = CONFIG.mine;
+  const cfg = CONFIG.mines;
   const { points } = await getBalance(player.guildId, player.userId);
   return {
     player: player.name,
@@ -261,7 +261,7 @@ export async function startWebRun(player: Player, wanted: number | 'all', mines:
   const { guildId, userId } = player;
   if (!claimMiner(guildId, userId)) return { ok: false, reason: 'busy' };
   try {
-    const cfg = CONFIG.mine;
+    const cfg = CONFIG.mines;
     const bet = wanted === 'all' ? allBet((await getBalance(guildId, userId)).points, cfg.minBet, cfg.maxBet) : wanted;
     const started = await startMineRun(guildId, userId, bet);
     if (!started.ok) {

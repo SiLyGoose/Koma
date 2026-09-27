@@ -173,19 +173,19 @@ export const SPECS: readonly SettingSpec[] = [
   int('blackjack.joinSeconds', 'Blackjack', 'Seconds a blackjack party stays open for joining.', 5, MAX_BLACKJACK_SECONDS),
   int('blackjack.turnSeconds', 'Blackjack', 'Seconds a blackjack player has to act before they stand.', 5, MAX_BLACKJACK_SECONDS),
 
-  int('mine.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
-  int('mine.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
+  int('mines.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
+  int('mines.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
   {
-    key: 'mine.edgeFewest',
+    key: 'mines.edgeFewest',
     group: 'Mines',
-    description: "The mine's house edge with 1 mine. With more mines it slides evenly to mine.edgeMost at the most mines.",
+    description: "The mine's house edge with 1 mine. With more mines it slides evenly to mines.edgeMost at the most mines.",
     type: 'number',
     min: 0,
     max: 0.5,
     percent: true,
   },
   {
-    key: 'mine.edgeMost',
+    key: 'mines.edgeMost',
     group: 'Mines',
     description: "The mine's house edge with the most mines (24).",
     type: 'number',
@@ -194,7 +194,7 @@ export const SPECS: readonly SettingSpec[] = [
     percent: true,
   },
   {
-    key: 'mine.maxMultiplier',
+    key: 'mines.maxMultiplier',
     group: 'Mines',
     description: 'A mine round that reaches this multiplier is cashed out there by itself.',
     type: 'number',
@@ -439,8 +439,8 @@ export function checkConstraints(settings: Settings): string | null {
   if (settings.blackjack.minBet > settings.blackjack.maxBet) {
     return 'blackjack.minBet cannot be higher than blackjack.maxBet';
   }
-  if (settings.mine.minBet > settings.mine.maxBet) {
-    return 'mine.minBet cannot be higher than mine.maxBet';
+  if (settings.mines.minBet > settings.mines.maxBet) {
+    return 'mines.minBet cannot be higher than mines.maxBet';
   }
   if (settings.events.minMinutes > settings.events.maxMinutes) {
     return 'events.minMinutes cannot be higher than events.maxMinutes';

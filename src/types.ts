@@ -210,8 +210,8 @@ export type LedgerReason =
   | 'blackjack_payout'
   | 'blackjack_refund'
   // The mine (commands/mines.ts): the bet, and what a cash out paid.
-  | 'mine_bet'
-  | 'mine_payout'
+  | 'mines_bet'
+  | 'mines_payout'
   // Pinecraft (commands/pinecraft.ts): an ore dug (points, no bet).
   | 'pinecraft_ore'
   | 'event_crate'

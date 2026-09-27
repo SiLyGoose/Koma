@@ -10,7 +10,7 @@ export const MINE_TILES = MINE_SIZE * MINE_SIZE;
 /** How many mines a round can have (at least one tile is a gem), and how many the page starts at. */
 export const MINE_MINES = { min: 1, max: MINE_TILES - 1, start: 3 } as const;
 
-/** The most the `mine.maxMultiplier` setting may be set to. */
+/** The most the `mines.maxMultiplier` setting may be set to. */
 export const MAX_MINE_MULTIPLIER = 10_000;
 
 /**
@@ -37,7 +37,7 @@ export const MINE = {
  * - `pingMs`: how often connections are checked; one that doesn't answer is dropped.
  */
 export const MINE_WEB = {
-  path: '/mine',
+  path: '/mines',
   defaultPort: 8787,
   linkTtlMs: 2 * 60 * 60_000,
   helloMs: 10_000,

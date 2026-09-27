@@ -15,7 +15,7 @@ import { claimMiner, releaseMiner } from '../src/services/mines.js';
 
 const SIMON: Player = { guildId: 'g1', userId: 'u1', name: 'Simon' };
 
-test('mine web: a token lets its player in until it runs out, and a changed or foreign one lets nobody in', () => {
+test('mines web: a token lets its player in until it runs out, and a changed or foreign one lets nobody in', () => {
   const key = randomBytes(32);
   const token = signToken(SIMON, 1000, 5000, key);
   assert.deepEqual(verifyToken(token, 5500, key), SIMON);
@@ -35,7 +35,7 @@ test('mine web: a token lets its player in until it runs out, and a changed or f
   assert.ok(signToken(SIMON, 1000).length < 300);
 });
 
-test('mine web: a member plays one run at a time, in Discord and on the web alike', () => {
+test('mines web: a member plays one run at a time, in Discord and on the web alike', () => {
   assert.ok(claimMiner('g9', 'u9'));
   assert.equal(claimMiner('g9', 'u9'), false);
   assert.ok(claimMiner('g9', 'u8'));
@@ -61,7 +61,7 @@ test('web: the settings are both there or both left out, and a link carries the 
     clientSecret: 's3cret',
   });
   const link = gameLink(config!, 'mines', 'a.b.c');
-  assert.equal(link, 'https://koma-ui.vercel.app/games/mines/#t=a.b.c&s=wss%3A%2F%2Fkoma.duckdns.org%2Fmine');
+  assert.equal(link, 'https://koma-ui.vercel.app/games/mines/#t=a.b.c&s=wss%3A%2F%2Fkoma.duckdns.org%2Fmines');
   assert.equal(gameLink(config!, 'pinecraft', 'a.b.c'), 'https://koma-ui.vercel.app/games/pinecraft/#t=a.b.c&s=wss%3A%2F%2Fkoma.duckdns.org%2Fpinecraft');
   assert.ok(link.length < 512); // Discord's limit on a link button
 });
@@ -78,7 +78,7 @@ test('web: the older MINE_* settings still work', () => {
   });
 });
 
-test('mine web: only well-formed messages from the page are read', () => {
+test('mines web: only well-formed messages from the page are read', () => {
   assert.deepEqual(parseClientMessage('{"t":"hello","token":"x"}'), { t: 'hello', token: 'x' });
   assert.deepEqual(parseClientMessage('{"t":"pick","index":24,"seq":1}'), { t: 'pick', index: 24, seq: 1 });
   assert.deepEqual(parseClientMessage('{"t":"pick","index":"random","seq":2}'), { t: 'pick', index: 'random', seq: 2 });
@@ -111,7 +111,7 @@ test('mine web: only well-formed messages from the page are read', () => {
 // ---------------------------------------------------------------------------
 // A session
 
-const RULES = { ...DEFAULTS.mine, maxMultiplier: 100 };
+const RULES = { ...DEFAULTS.mines, maxMultiplier: 100 };
 
 /** A round with mines exactly at `at`. */
 function runWith(at: readonly number[]): MineRun {
@@ -142,7 +142,7 @@ function fakeDeps(): SessionDeps & { settled: [string, number | null][]; saved: 
   return deps;
 }
 
-test('mine web: the page is only told what has been turned over, until the round is over', async () => {
+test('mines web: the page is only told what has been turned over, until the round is over', async () => {
   const deps = fakeDeps();
   const session = new MineSession({ runId: 'r1', player: SIMON, bet: 100, balance: 900, run: runWith([13, 20, 21]), rules: RULES }, deps);
   const peer = fakePeer();
@@ -193,7 +193,7 @@ test('mine web: the page is only told what has been turned over, until the round
   assert.equal(deps.settled.length, 1);
 });
 
-test('mine web: cashing out pays the multiplier (not before the first gem), and only the page attached last is listened to', async () => {
+test('mines web: cashing out pays the multiplier (not before the first gem), and only the page attached last is listened to', async () => {
   const deps = fakeDeps();
   const player = { ...SIMON, userId: 'u2' };
   const session = new MineSession({ runId: 'r2', player, bet: 100, balance: 900, run: runWith([0, 1, 2]), rules: RULES }, deps);
@@ -221,7 +221,7 @@ test('mine web: cashing out pays the multiplier (not before the first gem), and 
   assert.equal(last?.t === 'state' && last.state.payout, 110);
 });
 
-test('mine web: the last gem cashes the round out by itself', async () => {
+test('mines web: the last gem cashes the round out by itself', async () => {
   const deps = fakeDeps();
   const session = new MineSession({ runId: 'r4', player: { ...SIMON, userId: 'u4' }, bet: 100, balance: 900, run: runWith(Array.from({ length: 24 }, (_, i) => i + 1)), rules: RULES }, deps);
   const peer = fakePeer();
@@ -234,7 +234,7 @@ test('mine web: the last gem cashes the round out by itself', async () => {
   assert.deepEqual(last?.t === 'state' && last.event, { kind: 'cleared' });
 });
 
-test('mine web: a round that failed partway is cashed out at what it reached', async () => {
+test('mines web: a round that failed partway is cashed out at what it reached', async () => {
   const deps = fakeDeps();
   deps.save = async () => {
     throw new Error('database down');

@@ -8,7 +8,7 @@ import { siteGameLink } from '../src/web/config.js';
 import { commandMap } from '../src/commands/index.js';
 
 /** The rules the maths is checked with: the default edges, with a 100x cap (whatever the default cap is). */
-const RULES: MineRules = { ...DEFAULTS.mine, maxMultiplier: 100 };
+const RULES: MineRules = { ...DEFAULTS.mines, maxMultiplier: 100 };
 
 /** A round with mines exactly at `at`. */
 function runWith(at: readonly number[]): MineRun {
@@ -19,7 +19,7 @@ function runWith(at: readonly number[]): MineRun {
 // ---------------------------------------------------------------------------
 // The board
 
-test('mine: a round hides as many mines as asked on the 5x5 board, anywhere, face down', () => {
+test('mines: a round hides as many mines as asked on the 5x5 board, anywhere, face down', () => {
   assert.equal(MINE_TILES, 25);
   for (const mines of [1, 3, 12, 24]) {
     const run = startRun(mines);
@@ -34,7 +34,7 @@ test('mine: a round hides as many mines as asked on the 5x5 board, anywhere, fac
   assert.ok(validMines(1) && validMines(24) && !validMines(0) && !validMines(25));
 });
 
-test('mine: a gem raises the multiplier, a mine ends the round, and a tile turned over is not turned over again', () => {
+test('mines: a gem raises the multiplier, a mine ends the round, and a tile turned over is not turned over again', () => {
   const run = runWith([4]);
   assert.deepEqual(pick(run, 0, RULES), { kind: 'gem', multiplier: multiplierFor(RULES, 1, 1), done: null });
   assert.deepEqual(pick(run, 0, RULES), { kind: 'taken' });
@@ -45,14 +45,14 @@ test('mine: a gem raises the multiplier, a mine ends the round, and a tile turne
   assert.throws(() => pick(run, 5, RULES));
 });
 
-test('mine: turning over every gem ends the round by itself', () => {
+test('mines: turning over every gem ends the round by itself', () => {
   const run = runWith(Array.from({ length: 24 }, (_, i) => i + 1));
   const result = pick(run, 0, RULES);
   assert.deepEqual(result, { kind: 'gem', multiplier: 24.75, done: 'cleared' });
   assert.equal(run.status, 'done');
 });
 
-test('mine: the round stops by itself at the cap', () => {
+test('mines: the round stops by itself at the cap', () => {
   const run = runWith(Array.from({ length: 12 }, (_, i) => i));
   let result = pick(run, 12, RULES);
   for (let i = 13; result.kind === 'gem' && !result.done; i++) result = pick(run, i, RULES);
@@ -61,7 +61,7 @@ test('mine: the round stops by itself at the cap', () => {
   assert.equal(run.multiplier, RULES.maxMultiplier);
 });
 
-test('mine: a random pick is a tile still face down', () => {
+test('mines: a random pick is a tile still face down', () => {
   const run = runWith([0]);
   for (let i = 1; i < 25; i++) run.revealed[i] = true;
   assert.equal(randomHidden(run), 0);
@@ -72,14 +72,14 @@ test('mine: a random pick is a tile still face down', () => {
 // ---------------------------------------------------------------------------
 // The multipliers
 
-test('mine: the house edge is 2.5% with 1 mine, sliding evenly to 1% (like Stake) with 24', () => {
+test('mines: the house edge is 2.5% with 1 mine, sliding evenly to 1% (like Stake) with 24', () => {
   assert.equal(houseEdge(RULES, 1), 0.025);
   assert.ok(Math.abs(houseEdge(RULES, 24) - 0.01) < 1e-12);
   assert.ok(Math.abs(houseEdge(RULES, 12.5) - 0.0175) < 1e-12);
   for (let m = 2; m <= 24; m++) assert.ok(houseEdge(RULES, m) < houseEdge(RULES, m - 1));
 });
 
-test('mine: each gem pays the true odds of getting there, less the edge, rounded down to the hundredth', () => {
+test('mines: each gem pays the true odds of getting there, less the edge, rounded down to the hundredth', () => {
   assert.equal(multiplierFor(RULES, 3, 0), 1);
   assert.equal(multiplierFor(RULES, 1, 1), 1.01); // 25/24 less 2.5%
   assert.equal(multiplierFor(RULES, 24, 1), 24.75); // 25/1 less 1%, what Stake pays
@@ -94,7 +94,7 @@ test('mine: each gem pays the true odds of getting there, less the edge, rounded
   assert.equal(multiplierFor({ ...RULES, maxMultiplier: 10_000 }, 12, 13) > 100, true);
 });
 
-test('mine: however far a player goes, a round pays back about 1 less the edge, never more', () => {
+test('mines: however far a player goes, a round pays back about 1 less the edge, never more', () => {
   for (const mines of [1, 3, 10, 24]) {
     for (let gems = 1; gems <= 25 - mines; gems++) {
       const back = expectedReturn(RULES, mines, gems);
@@ -109,33 +109,33 @@ test('mine: however far a player goes, a round pays back about 1 less the edge, 
 // ---------------------------------------------------------------------------
 // Settings, constants and text
 
-test('mine: the settings exist, are in their own group, and start at the tuned values', () => {
-  assert.deepEqual(DEFAULTS.mine, { minBet: 10, maxBet: 1000, edgeFewest: 0.025, edgeMost: 0.01, maxMultiplier: 24 });
-  assert.deepEqual(CONFIG.mine, DEFAULTS.mine);
-  const keys = SPECS.filter((s) => s.key.startsWith('mine.')).map((s) => s.key);
-  assert.deepEqual(keys, ['mine.minBet', 'mine.maxBet', 'mine.edgeFewest', 'mine.edgeMost', 'mine.maxMultiplier']);
+test('mines: the settings exist, are in their own group, and start at the tuned values', () => {
+  assert.deepEqual(DEFAULTS.mines, { minBet: 10, maxBet: 1000, edgeFewest: 0.025, edgeMost: 0.01, maxMultiplier: 24 });
+  assert.deepEqual(CONFIG.mines, DEFAULTS.mines);
+  const keys = SPECS.filter((s) => s.key.startsWith('mines.')).map((s) => s.key);
+  assert.deepEqual(keys, ['mines.minBet', 'mines.maxBet', 'mines.edgeFewest', 'mines.edgeMost', 'mines.maxMultiplier']);
   for (const key of keys) assert.equal(findSpec(key)?.group, 'Mines');
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
 });
 
-test('mine: a bet range upside down is refused', () => {
+test('mines: a bet range upside down is refused', () => {
   const settings = structuredClone(DEFAULTS);
-  settings.mine.minBet = 2000;
-  assert.match(checkConstraints(settings) ?? '', /mine\.minBet/);
-  settings.mine.minBet = 10;
+  settings.mines.minBet = 2000;
+  assert.match(checkConstraints(settings) ?? '', /mines\.minBet/);
+  settings.mines.minBet = 10;
   assert.equal(checkConstraints(settings), null);
 });
 
-test('mine: the constants pass the startup check', () => {
+test('mines: the constants pass the startup check', () => {
   assert.doesNotThrow(() => validateConstants());
   assert.deepEqual(MINE_MINES, { min: 1, max: 24, start: 3 });
 });
 
-test('mine: the text reads right', () => {
+test('mines: the text reads right', () => {
   assert.match(TEXT.mines.intro(1, 24, '24x'), /1 to 24.*\*\*24x\*\*/);
 });
 
-test('mine: the button in Discord is the same link for everyone: the site, opening Mines in that server', () => {
+test('mines: the button in Discord is the same link for everyone: the site, opening Mines in that server', () => {
   const config = { siteUrl: 'https://site', origin: 'https://site', apiUrl: 'https://bot', socketUrl: 'wss://bot', port: 0, clientSecret: null };
   assert.equal(siteGameLink(config, 'mines', '123'), 'https://site/?play=mines&guild=123');
   assert.equal(siteGameLink(config, 'pinecraft', '123'), 'https://site/?play=pinecraft&guild=123');

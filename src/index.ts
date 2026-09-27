@@ -21,7 +21,7 @@ import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
 import { settleUnfinishedRaids } from './commands/raid.js';
-import { clearOpenVaults, migrateInventory, renameEventChannelField, syncTreasureSlot } from './services/migrate.js';
+import { clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -82,6 +82,15 @@ async function main(): Promise<void> {
   const channelFieldRenames = await renameEventChannelField();
   if (channelFieldRenames > 0) {
     console.log(`Renamed the dedicated-channel field (eventChannelId -> channelId) in ${channelFieldRenames} server(s).`);
+  }
+
+  // Every start: moves what was stored under the mine's old names to Mines' (see renameMinesData).
+  // Before the settings are loaded, so the Mines settings keep the values they were set to.
+  const minesRename = await renameMinesData();
+  if (minesRename.settings || minesRename.rounds > 0 || minesRename.ledger > 0) {
+    console.log(
+      `Renamed the mine to Mines: settings ${minesRename.settings ? 'moved' : 'were already moved'}, ${minesRename.rounds} round(s) carried over, ${minesRename.ledger} ledger entries renamed.`,
+    );
   }
 
   // Every start: clears any vault breaker left open by the old event (see clearOpenVaults).

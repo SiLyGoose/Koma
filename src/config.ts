@@ -91,7 +91,7 @@ export interface Settings {
     /** Seconds a player has for each decision before they stand. */
     turnSeconds: number;
   };
-  mine: {
+  mines: {
     /** The smallest and biggest bet. */
     minBet: number;
     maxBet: number;
@@ -248,7 +248,7 @@ export const DEFAULTS: Readonly<Settings> = {
   blackjack: { minBet: 10, maxBet: 1000, naturalPayout: 1.5, joinSeconds: 15, turnSeconds: 30 },
   // Like Stake's Mines. The house edge is 2.5% with 1 mine and slides down to Stake's 1% with 24
   // (so a run pays back 97.5% to 99% of the bet on average), and a round stops at 100x.
-  mine: {
+  mines: {
     minBet: 10,
     maxBet: 1000,
     edgeFewest: 0.025,

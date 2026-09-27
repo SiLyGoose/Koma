@@ -28,19 +28,19 @@ const live = new Set<string>();
 const leaseEnd = (): Date => new Date(Date.now() + MINE.leaseMs);
 
 export type StartRunResult =
-  /** Out of mine.minBet .. mine.maxBet, or more than they have. */
+  /** Out of mines.minBet .. mines.maxBet, or more than they have. */
   | BetRefusal
   | { ok: true; runId: string; bet: number; balance: number };
 
 /** Takes a bet from a member and starts a run with it, at 1x. */
 export async function startMineRun(guildId: string, userId: string, bet: number): Promise<StartRunResult> {
   if (!Number.isSafeInteger(bet) || bet < 1) throw new Error(`A mine bet must be a whole number of points, got ${bet}`);
-  const cfg = CONFIG.mine;
+  const cfg = CONFIG.mines;
   const range = checkBet(bet, cfg.minBet, cfg.maxBet);
   if (!range.ok) return { ok: false, reason: range.reason, limit: range.limit };
 
   await ensureMember(guildId, userId);
-  const { members, mineRuns } = collections();
+  const { members, minesRuns } = collections();
 
   const charged = await members.findOneAndUpdate({ guildId, userId, points: { $gte: bet } }, { $inc: { points: -bet } }, { returnDocument: 'after' });
   if (!charged) {
@@ -50,26 +50,26 @@ export async function startMineRun(guildId: string, userId: string, bet: number)
 
   const runId = randomUUID();
   try {
-    await mineRuns.insertOne({ _id: runId, guildId, userId, bet, multiplier: 1, leaseUntil: leaseEnd(), createdAt: new Date() });
+    await minesRuns.insertOne({ _id: runId, guildId, userId, bet, multiplier: 1, leaseUntil: leaseEnd(), createdAt: new Date() });
   } catch (err) {
     // Nothing says the points are down the mine, so give them back.
     await members.updateOne({ guildId, userId }, { $inc: { points: bet } });
     throw err;
   }
   live.add(runId);
-  await recordLedger([{ guildId, userId, delta: -bet, reason: 'mine_bet' }]);
+  await recordLedger([{ guildId, userId, delta: -bet, reason: 'mines_bet' }]);
   return { ok: true, runId, bet, balance: charged.points };
 }
 
 /** Saves the multiplier a run has reached (and renews its lease). False when the run was already settled. */
 export async function saveMultiplier(runId: string, multiplier: number): Promise<boolean> {
-  const result = await collections().mineRuns.updateOne({ _id: runId }, { $set: { multiplier, leaseUntil: leaseEnd() } });
+  const result = await collections().minesRuns.updateOne({ _id: runId }, { $set: { multiplier, leaseUntil: leaseEnd() } });
   return result.matchedCount > 0;
 }
 
 /** Pushes a run's lease forward. Called every MINE.heartbeatMs while it is played. */
 export async function renewMineLease(runId: string): Promise<void> {
-  await collections().mineRuns.updateOne({ _id: runId }, { $set: { leaseUntil: leaseEnd() } });
+  await collections().minesRuns.updateOne({ _id: runId }, { $set: { leaseUntil: leaseEnd() } });
 }
 
 /** Adds points to a member, trying a few times: this is the step where a payout could otherwise be lost. */
@@ -99,8 +99,8 @@ export type SettleRunResult = { ok: true; bet: number; payout: number; balance: 
  * shortly, and the failure is rethrown.
  */
 export async function settleRun(runId: string, multiplier: number | null): Promise<SettleRunResult> {
-  const { mineRuns, members } = collections();
-  const doc = await mineRuns.findOneAndDelete({ _id: runId });
+  const { minesRuns, members } = collections();
+  const doc = await minesRuns.findOneAndDelete({ _id: runId });
   if (!doc) return { ok: false };
   live.delete(runId);
   const { guildId, userId, bet } = doc;
@@ -113,12 +113,12 @@ export async function settleRun(runId: string, multiplier: number | null): Promi
   }
   try {
     const balance = await credit(guildId, userId, payout);
-    await recordLedger([{ guildId, userId, delta: payout, reason: 'mine_payout' }]);
+    await recordLedger([{ guildId, userId, delta: payout, reason: 'mines_payout' }]);
     return { ok: true, bet, payout, balance };
   } catch (err) {
     console.error(`Could not pay ${payout} points of mine to ${userId}; leaving them for the sweeper:`, err);
     try {
-      await mineRuns.insertOne({ ...doc, multiplier: multiplier ?? doc.multiplier, leaseUntil: new Date(0) });
+      await minesRuns.insertOne({ ...doc, multiplier: multiplier ?? doc.multiplier, leaseUntil: new Date(0) });
     } catch (again) {
       console.error(`LOST MINE PAYOUT: ${payout} points for ${userId} in server ${guildId} (run ${runId}):`, again);
     }
@@ -132,11 +132,11 @@ export async function settleRun(runId: string, multiplier: number | null): Promi
  * lease well ahead of now.
  */
 export async function sweepMineRuns(now: Date = new Date()): Promise<number> {
-  const { mineRuns } = collections();
+  const { minesRuns } = collections();
   let settled = 0;
   // A generous cap, so a bad document can't keep this running forever.
   for (let i = 0; i < 1000; i++) {
-    const doc = await mineRuns.findOne({ leaseUntil: { $lt: now } });
+    const doc = await minesRuns.findOne({ leaseUntil: { $lt: now } });
     if (!doc) break;
     try {
       const paid = await settleRun(doc._id, null);

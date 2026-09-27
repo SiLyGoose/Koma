@@ -1,7 +1,8 @@
+import type { Filter } from 'mongodb';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { bestCopy } from '../lib/game/copies.js';
-import type { ItemCopyDoc } from '../types.js';
+import type { ItemCopyDoc, LedgerDoc } from '../types.js';
 import { SLOTS } from '../types.js';
 
 /*
@@ -198,4 +199,40 @@ export async function clearOpenVaults(): Promise<number> {
   const { guilds } = collections();
   const result = await guilds.updateMany({ openVault: { $exists: true } }, { $unset: { openVault: '' } });
   return result.modifiedCount;
+}
+
+/*
+ * The mine was renamed Mines: its settings (`mine.*` in the settings document), the collection its
+ * rounds are kept in (mine_runs), and its ledger reasons (mine_bet, mine_payout) all say "mines"
+ * now. This moves what was stored under the old names, keeping the values: settings as they were
+ * set, rounds still being played (so they are paid out as usual), and the ledger's history. It has
+ * to run before the settings are loaded (they would otherwise be filled in with the defaults) and
+ * before the rounds' sweeper starts. Idempotent, and cheap once done: runs every start.
+ */
+export async function renameMinesData(): Promise<{ settings: boolean; rounds: number; ledger: number }> {
+  const { settings, minesRuns, oldMineRuns, ledger } = collections();
+
+  // Settings: moved over unless the new ones are already there, in which case the old are dropped.
+  const moved = await settings.updateMany({ mine: { $exists: true }, mines: { $exists: false } }, { $rename: { mine: 'mines' } });
+  await settings.updateMany({ mine: { $exists: true } }, { $unset: { mine: '' } });
+
+  // Rounds: copied into the new collection (skipping any already there), then the old one is dropped.
+  let rounds = 0;
+  const old = await oldMineRuns.find({}).toArray();
+  for (const doc of old) {
+    const result = await minesRuns.updateOne({ _id: doc._id }, { $setOnInsert: doc }, { upsert: true });
+    rounds += result.upsertedCount;
+  }
+  if (old.length > 0) await oldMineRuns.drop().catch(() => {});
+
+  // The ledger's history.
+  let renamed = 0;
+  for (const [from, to] of [
+    ['mine_bet', 'mines_bet'],
+    ['mine_payout', 'mines_payout'],
+  ] as const) {
+    const result = await ledger.updateMany({ reason: from } as unknown as Filter<LedgerDoc>, { $set: { reason: to } });
+    renamed += result.modifiedCount;
+  }
+  return { settings: moved.modifiedCount > 0, rounds, ledger: renamed };
 }

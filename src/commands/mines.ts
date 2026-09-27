@@ -24,7 +24,7 @@ export const mines: Command = {
     }
     const embed = createEmbed()
       .setTitle(TEXT.mines.title)
-      .setDescription(TEXT.mines.intro(MINE_MINES.min, MINE_MINES.max, formatMultiplier(CONFIG.mine.maxMultiplier)))
+      .setDescription(TEXT.mines.intro(MINE_MINES.min, MINE_MINES.max, formatMultiplier(CONFIG.mines.maxMultiplier)))
       .setFooter({ text: TEXT.mines.footer });
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(siteGameLink(config, 'mines', ctx.guildId)).setLabel(TEXT.mines.playButton).setEmoji('💎'),
