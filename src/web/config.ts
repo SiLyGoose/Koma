@@ -75,3 +75,7 @@ export type Game = keyof typeof GAMES;
 /** The link that opens `game` for the holder of `token`. The token rides in the part after #, which browsers never send to the site's host. */
 export const gameLink = (config: WebConfig, game: Game, token: string): string =>
   `${config.siteUrl}${GAMES[game].page}/#t=${encodeURIComponent(token)}&s=${encodeURIComponent(config.socketUrl + GAMES[game].socket)}`;
+
+/** The link that opens `game` to watch someone, for the holder of a watch token (see signWatchToken). */
+export const watchLink = (config: WebConfig, game: Game, token: string): string =>
+  `${config.siteUrl}${GAMES[game].page}/#w=${encodeURIComponent(token)}&s=${encodeURIComponent(config.socketUrl + GAMES[game].socket)}`;

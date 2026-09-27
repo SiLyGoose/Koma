@@ -1,8 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MINE_WEB } from '../constants/index.js';
-import { GAMES, gameLink, type Game, type WebConfig } from './config.js';
+import { GAMES, gameLink, watchLink, type Game, type WebConfig } from './config.js';
+import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
-import { signToken } from './token.js';
+import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player } from './token.js';
 
 /*
  * What the site asks the bot over https, for members who log in on it with Discord (login.ts)
@@ -12,6 +13,12 @@ import { signToken } from './token.js';
  *   POST /api/login {code}    trades the code Discord gave the site for a session: { session, me }
  *   GET  /api/me              who is logged in, and the servers they can play in: Me
  *   POST /api/play {guild, game}   a link to play `game` in that server: { url }
+ *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
+ *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
+ *
+ * /api/live and /api/watch also take the token from a game page's own link, as
+ * "Authorization: Game <token>" (the server is the link's). The front page's /api/live counts as
+ * being on the site (live.ts).
  *
  * Everything but the first takes the session as "Authorization: Bearer <session>", and only answers
  * the site's own origin. Errors are { error } with a code the site knows.
@@ -26,7 +33,26 @@ export interface ApiDeps {
   /** A member's name in a server, or null when they aren't in it (any more). */
   memberName: (guildId: string, userId: string) => Promise<string | null>;
   balance: (guildId: string, userId: string) => Promise<number>;
+  /** A member's avatar picture in a server, if the bot knows it. */
+  avatar?: (guildId: string, userId: string) => string | null;
   login?: typeof exchangeCode;
+}
+
+/** Who's on the site in a server (GET /api/live). */
+export interface Live {
+  /** The one asking. */
+  you: string;
+  players: {
+    userId: string;
+    name: string;
+    avatar: string;
+    activity: 'hub' | LiveGame;
+    status: string;
+    watchers: number;
+    since: number;
+    /** Whether the one asking can watch them (they're in a game, and aren't the one asking). */
+    watchable: boolean;
+  }[];
 }
 
 /** Who is logged in, and where they can play. */
@@ -36,8 +62,8 @@ export interface Me {
   games: Game[];
 }
 
-type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found';
-const STATUS: Record<ErrorCode, number> = { bad_request: 400, no_login: 404, not_logged_in: 401, not_member: 403, discord_failed: 502, not_found: 404 };
+type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing';
+const STATUS: Record<ErrorCode, number> = { bad_request: 400, no_login: 404, not_logged_in: 401, not_member: 403, discord_failed: 502, not_found: 404, not_playing: 409 };
 
 const MAX_BODY_BYTES = 4096;
 
@@ -83,6 +109,34 @@ async function meFor(session: Session, deps: ApiDeps): Promise<Me> {
   return { user: { id: session.userId, name: session.name, avatar: avatarUrl(session.userId, session.avatar) }, servers, games: Object.keys(GAMES) as Game[] };
 }
 
+const LIVE_GAMES: readonly LiveGame[] = ['mines', 'pinecraft'];
+
+/** GET /api/live and POST /api/watch, for `viewer` (in the server they're asking about). */
+async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, deps: ApiDeps, viewer: Player): Promise<void> {
+  const { guildId } = viewer;
+  if (url.pathname === '/api/live' && req.method === 'GET') {
+    const live: Live = {
+      you: viewer.userId,
+      players: online(guildId).map((p) => ({
+        ...p,
+        avatar: deps.avatar?.(guildId, p.userId) ?? avatarUrl(p.userId, null),
+        watchable: p.activity !== 'hub' && p.userId !== viewer.userId,
+      })),
+    };
+    return send(res, 200, live);
+  }
+  if (url.pathname === '/api/watch' && req.method === 'POST') {
+    const body = await readJson(req);
+    const game = body?.game;
+    const target = body?.target;
+    if (typeof game !== 'string' || !LIVE_GAMES.includes(game as LiveGame) || typeof target !== 'string' || target === viewer.userId) return fail(res, 'bad_request');
+    if (!isPlaying(game as LiveGame, guildId, target)) return fail(res, 'not_playing');
+    const token = signWatchToken({ viewer, targetId: target }, MINE_WEB.linkTtlMs);
+    return send(res, 200, { url: watchLink(deps.config, game as Game, token) });
+  }
+  fail(res, 'not_found');
+}
+
 /** Answers a request under /api. Returns false for any other path. */
 export async function handleApi(req: IncomingMessage, res: ServerResponse, deps: ApiDeps): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://bot');
@@ -118,6 +172,16 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     // Everything else is for the site only.
     if (req.headers.origin !== config.origin) return (fail(res, 'not_found'), true);
+
+    // A game page asking with its link's token (to play, or to watch): no login needed.
+    const gameToken = /^Game (.+)$/.exec(req.headers.authorization ?? '')?.[1];
+    if (gameToken && (url.pathname === '/api/live' || url.pathname === '/api/watch')) {
+      const viewer = verifyToken(gameToken) ?? verifyWatchToken(gameToken)?.viewer ?? null;
+      if (!viewer || !deps.guild(viewer.guildId)) return (fail(res, 'not_logged_in'), true);
+      await liveRoutes(req, res, url, deps, viewer);
+      return true;
+    }
+
     if (!secret) return (fail(res, 'no_login'), true);
 
     if (url.pathname === '/api/login' && req.method === 'POST') {
@@ -143,6 +207,17 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     if (url.pathname === '/api/me' && req.method === 'GET') {
       send(res, 200, await meFor(session, deps));
+      return true;
+    }
+
+    // The front page, about one of the member's servers.
+    if (url.pathname === '/api/live' || url.pathname === '/api/watch') {
+      const guildId = url.searchParams.get('guild') ?? '';
+      if (!session.guildIds.includes(guildId) || !deps.guild(guildId)) return (fail(res, 'not_member'), true);
+      const name = await deps.memberName(guildId, session.userId);
+      if (name === null) return (fail(res, 'not_member'), true);
+      if (url.pathname === '/api/live') hubSeen(guildId, session.userId, name);
+      await liveRoutes(req, res, url, deps, { guildId, userId: session.userId, name });
       return true;
     }
 

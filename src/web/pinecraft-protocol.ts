@@ -18,9 +18,20 @@ import type { Direction } from '../lib/game/pinecraft.js';
  *   bot -> page   state    the world around the miner, after the page's move `seq` (0: not after one)
  *                 map      the map asked for
  *                 error    and the bot closes the connection
+ *
+ * Watching (live.ts): a watch-only page says `watch` with the token from its watch link instead of
+ * `hello`, and is then sent everything the player's page is sent about the game (not their errors),
+ * starting with `watching` (whose game it is) and the game as it is. `away` says the player's page
+ * went away (it may come back). The player is sent `watchers` whenever how many are watching changes.
+ * A watcher can ask for the player's `map` too, and is sent `breaking` when the player starts on a block.
  */
 
-export type ClientMessage = { t: 'hello'; token: string } | { t: 'mine'; dir: Direction } | { t: 'map' } | { t: 'move'; dir: Direction; seq: number };
+export type ClientMessage =
+  | { t: 'hello'; token: string }
+  | { t: 'watch'; token: string }
+  | { t: 'mine'; dir: Direction }
+  | { t: 'map' }
+  | { t: 'move'; dir: Direction; seq: number };
 
 export interface WorldState {
   /** The player's name. */
@@ -76,7 +87,10 @@ export type ErrorCode =
   /** A message that isn't one of the above, or too many of them. */
   | 'bad_message'
   /** The world couldn't be loaded or saved. */
-  | 'failed';
+  | 'failed'
+  /** Watching: the player isn't playing (any more), or has as many watching as can. */
+  | 'not_playing'
+  | 'full';
 
 /** Everything the miner has uncovered: the blocks from (left, top), one string per row, with the same letters as the state's rows. */
 export interface WorldMap {
@@ -88,7 +102,11 @@ export interface WorldMap {
 export type ServerMessage =
   | { t: 'state'; seq: number; state: WorldState; event?: WorldEvent }
   | { t: 'map'; map: WorldMap }
-  | { t: 'error'; code: ErrorCode };
+  | { t: 'error'; code: ErrorCode }
+  | { t: 'watching'; player: string }
+  | { t: 'watchers'; count: number }
+  | { t: 'away' }
+  | { t: 'breaking'; dir: Direction };
 
 const DIRECTIONS = new Set(['up', 'down', 'left', 'right']);
 
@@ -102,7 +120,7 @@ export function parseClientMessage(text: string): ClientMessage | null {
   }
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
-  if (m.t === 'hello' && typeof m.token === 'string' && m.token.length <= 512) return { t: 'hello', token: m.token };
+  if ((m.t === 'hello' || m.t === 'watch') && typeof m.token === 'string' && m.token.length <= 512) return { t: m.t, token: m.token };
   if (m.t === 'map') return { t: 'map' };
   if (m.t === 'mine' && typeof m.dir === 'string' && DIRECTIONS.has(m.dir)) return { t: 'mine', dir: m.dir as Direction };
   if (m.t === 'move' && typeof m.seq === 'number' && Number.isSafeInteger(m.seq) && m.seq > 0 && typeof m.dir === 'string' && DIRECTIONS.has(m.dir)) {

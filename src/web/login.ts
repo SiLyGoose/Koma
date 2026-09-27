@@ -82,7 +82,7 @@ export async function exchangeCode(code: string, clientId: string, clientSecret:
 export const avatarUrl = (userId: string, avatar: string | null): string =>
   avatar
     ? `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`
-    : `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(userId) >> 22n) % 6n)}.png`;
+    : `https://cdn.discordapp.com/embed/avatars/${/^\d+$/.test(userId) ? Number((BigInt(userId) >> 22n) % 6n) : 0}.png`;
 
 /** A server's icon, if it has one. */
 export const guildIconUrl = (guildId: string, icon: string | null): string | null => (icon ? `https://cdn.discordapp.com/icons/${guildId}/${icon}.png?size=64` : null);

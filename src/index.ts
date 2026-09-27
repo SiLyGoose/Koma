@@ -191,6 +191,7 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
       }
     },
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
+    avatar: (guildId, userId) => client.guilds.cache.get(guildId)?.members.cache.get(userId)?.displayAvatarURL({ size: 64 }) ?? client.users.cache.get(userId)?.displayAvatarURL({ size: 64 }) ?? null,
   };
 }
 

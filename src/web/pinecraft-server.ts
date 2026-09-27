@@ -8,7 +8,8 @@ import { getEquipment } from '../services/equipment.js';
 import { getBalance } from '../services/economy/index.js';
 import { loadWorld, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
 import { parseClientMessage, type ClientMessage, type ErrorCode, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
-import { playerKey, verifyToken, type Player } from './token.js';
+import { addWatcher, playerJoined, playerLeft, removeWatcher, toWatchers } from './live.js';
+import { playerKey, verifyToken, verifyWatchToken, type Player } from './token.js';
 
 /*
  * The web socket Pinecraft's page plays through (server.ts takes the connections, and only from the
@@ -115,6 +116,11 @@ export class PinecraftSession {
       this.breaking = breakMs(this.loaded.world, x, y) === null ? null : { index: indexOf(x, y), since };
     });
     return this.queue;
+  }
+
+  /** The map, for someone watching (they ask for it themselves; see servePinecraft). */
+  mapNow(): ReturnType<typeof mapRows> {
+    return mapRows(this.loaded.world);
   }
 
   /** The page asks for the map. Resolves once it has been sent (or not, when asked for again too soon). */
@@ -236,6 +242,16 @@ export class PinecraftSession {
 /** Every world being played, by player (playerKey): loading, or loaded. */
 const sessions = new Map<string, Promise<PinecraftSession>>();
 
+/** The world a member is playing right now, if it's loaded. */
+export const findPinecraftSession = (guildId: string, userId: string): Promise<PinecraftSession> | undefined => sessions.get(playerKey({ guildId, userId }));
+
+/** A few words on what a miner is doing, for the online list, from a message sent to their page. */
+function describe(message: ServerMessage): string | null {
+  if (message.t !== 'state') return null;
+  const { state } = message;
+  return `At ${state.x - state.spawn.x},${state.spawn.y - state.y} · ${state.dug.toLocaleString('en-US')} dug · ${state.earned.toLocaleString('en-US')} earned`;
+}
+
 /** Loads a player's world, or picks up the one already being played. */
 export function sessionFor(player: Player, deps: PinecraftDeps = realDeps): Promise<PinecraftSession> {
   const key = playerKey(player);
@@ -269,48 +285,80 @@ function refuse(peer: Peer, code: ErrorCode): void {
 
 /** Plays Pinecraft over a web socket just opened (server.ts has checked where it came from). */
 export function servePinecraft(socket: WebSocket, deps: PinecraftDeps = realDeps): void {
-  const peer: Peer = {
+  const page: Peer = {
     send: (message) => {
       if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(message));
     },
     close: () => socket.close(),
   };
+  /** What the game sends through: the page, and (once it's a player's) their watchers too. */
+  let peer: Peer = page;
   let session: PinecraftSession | null = null;
+  let player: Player | null = null;
   let greeted = false;
+  /** Set when this page only watches: whose world, and when it last asked for their map. */
+  let watching: { guildId: string; userId: string; mapAt: number } | null = null;
 
   let budget = MINE_WEB.messagesPerSecond;
   const refill = setInterval(() => (budget = MINE_WEB.messagesPerSecond), 1000);
   refill.unref();
-  const hello = setTimeout(() => refuse(peer, 'bad_message'), MINE_WEB.helloMs);
+  const hello = setTimeout(() => refuse(page, 'bad_message'), MINE_WEB.helloMs);
   hello.unref();
 
   socket.on('message', (data, isBinary) => {
     void (async () => {
-      if (isBinary || --budget < 0) return refuse(peer, 'bad_message');
+      if (isBinary || --budget < 0) return refuse(page, 'bad_message');
       const message = parseClientMessage(data.toString());
-      if (!message) return refuse(peer, 'bad_message');
+      if (!message) return refuse(page, 'bad_message');
 
-      if (message.t === 'hello') {
-        if (greeted) return refuse(peer, 'bad_message');
+      // Watching: the only thing a watcher can ask for is the player's map (once a second at most).
+      if (watching) {
+        if (message.t !== 'map' || Date.now() - watching.mapAt < 1000) return;
+        watching.mapAt = Date.now();
+        const theirs = await findPinecraftSession(watching.guildId, watching.userId)?.catch(() => undefined);
+        if (theirs) page.send({ t: 'map', map: theirs.mapNow() });
+        return;
+      }
+
+      if (message.t === 'watch') {
+        if (greeted) return refuse(page, 'bad_message');
         greeted = true;
         clearTimeout(hello);
-        const player = verifyToken(message.token);
-        if (!player) return refuse(peer, 'bad_token');
+        const watch = verifyWatchToken(message.token);
+        if (!watch) return refuse(page, 'bad_token');
+        const target = { guildId: watch.viewer.guildId, userId: watch.targetId };
+        const added = addWatcher('pinecraft', target.guildId, target.userId, page);
+        if (!added.ok) return refuse(page, added.reason);
+        watching = { ...target, mapAt: 0 };
+        return;
+      }
+
+      if (message.t === 'hello') {
+        if (greeted) return refuse(page, 'bad_message');
+        greeted = true;
+        clearTimeout(hello);
+        const who = verifyToken(message.token);
+        if (!who) return refuse(page, 'bad_token');
         try {
-          session = await sessionFor(player, deps);
+          session = await sessionFor(who, deps);
         } catch (err) {
           console.error('Could not load a Pinecraft world:', err);
-          return refuse(peer, 'failed');
+          return refuse(page, 'failed');
         }
         if (socket.readyState !== socket.OPEN) return;
+        player = who;
+        peer = playerJoined('pinecraft', who.guildId, who.userId, who.name, page, (m) => describe(m as ServerMessage));
         const before = session.peer;
         session.attach(peer);
         if (before && before !== peer) refuse(before, 'replaced');
         return;
       }
 
-      if (!session || session.peer !== peer) return refuse(peer, 'bad_message');
-      if (message.t === 'mine') return void (await session.startBreaking(peer, message.dir));
+      if (!session || session.peer !== peer || !player) return refuse(page, 'bad_message');
+      if (message.t === 'mine') {
+        toWatchers('pinecraft', player.guildId, player.userId, { t: 'breaking', dir: message.dir });
+        return void (await session.startBreaking(peer, message.dir));
+      }
       if (message.t === 'map') return void (await session.sendMap(peer));
       await session.handle(peer, message);
     })();
@@ -319,7 +367,9 @@ export function servePinecraft(socket: WebSocket, deps: PinecraftDeps = realDeps
   socket.on('close', () => {
     clearInterval(refill);
     clearTimeout(hello);
+    if (watching) removeWatcher('pinecraft', watching.guildId, watching.userId, page);
     if (session) void leave(session, peer);
+    if (player) playerLeft('pinecraft', player.guildId, player.userId, page);
   });
   socket.on('error', () => socket.terminate());
 }

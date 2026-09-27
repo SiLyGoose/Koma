@@ -47,13 +47,33 @@ export function signToken(player: Player, ttlMs: number, now = Date.now(), key: 
   return signData({ g: player.guildId, u: player.userId, n: player.name, e: now + ttlMs }, key);
 }
 
-/** Who a token lets play, or null when it is made up, changed or too old. */
+/** Who a token lets play, or null when it is made up, changed or too old (or a watch token, which only lets them watch). */
 export function verifyToken(token: string, now = Date.now(), key: Buffer = KEY): Player | null {
   const data = verifyData(token, key, now);
-  if (!data) return null;
+  if (!data || data.k !== undefined) return null;
   const { g, u, n } = data;
   if (typeof g !== 'string' || typeof u !== 'string' || typeof n !== 'string') return null;
   return { guildId: g, userId: u, name: n };
+}
+
+/** A watch link's token: a member (`viewer`) watching another (`target`) play, in one server. It can't be used to play. */
+export interface Watch {
+  viewer: Player;
+  targetId: string;
+}
+
+export function signWatchToken(watch: Watch, ttlMs: number, now = Date.now(), key: Buffer = KEY): string {
+  const { viewer } = watch;
+  return signData({ k: 'w', g: viewer.guildId, u: viewer.userId, n: viewer.name, t: watch.targetId, e: now + ttlMs }, key);
+}
+
+/** Who a watch token lets watch whom, or null when it isn't one (or is made up, changed or too old). */
+export function verifyWatchToken(token: string, now = Date.now(), key: Buffer = KEY): Watch | null {
+  const data = verifyData(token, key, now);
+  if (!data || data.k !== 'w') return null;
+  const { g, u, n, t } = data;
+  if (typeof g !== 'string' || typeof u !== 'string' || typeof n !== 'string' || typeof t !== 'string') return null;
+  return { viewer: { guildId: g, userId: u, name: n }, targetId: t };
 }
 
 /** One key per member per server, for looking up what they are playing. */

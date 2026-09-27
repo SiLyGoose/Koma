@@ -5,7 +5,8 @@ import { MINE_MINES, MINE_TILES, TEXT, validateConstants } from '../src/constant
 import { expectedReturn, houseEdge, multiplierFor, payoutFor, pick, randomHidden, startRun, validMines, type MineRules, type MineRun } from '../src/lib/game/mine.js';
 import { checkConstraints, findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 
-const RULES: MineRules = DEFAULTS.mine;
+/** The rules the maths is checked with: the default edges, with a 100x cap (whatever the default cap is). */
+const RULES: MineRules = { ...DEFAULTS.mine, maxMultiplier: 100 };
 
 /** A round with mines exactly at `at`. */
 function runWith(at: readonly number[]): MineRun {
@@ -55,7 +56,7 @@ test('mine: the round stops by itself at the cap', () => {
   for (let i = 13; result.kind === 'gem' && !result.done; i++) result = pick(run, i, RULES);
   assert.deepEqual(result, { kind: 'gem', multiplier: 100, done: 'capped' });
   assert.equal(run.status, 'done');
-  assert.equal(run.multiplier, CONFIG.mine.maxMultiplier);
+  assert.equal(run.multiplier, RULES.maxMultiplier);
 });
 
 test('mine: a random pick is a tile still face down', () => {
@@ -107,7 +108,7 @@ test('mine: however far a player goes, a round pays back about 1 less the edge, 
 // Settings, constants and text
 
 test('mine: the settings exist, are in their own group, and start at the tuned values', () => {
-  assert.deepEqual(DEFAULTS.mine, { minBet: 10, maxBet: 1000, edgeFewest: 0.025, edgeMost: 0.01, maxMultiplier: 100 });
+  assert.deepEqual(DEFAULTS.mine, { minBet: 10, maxBet: 1000, edgeFewest: 0.025, edgeMost: 0.01, maxMultiplier: 24 });
   assert.deepEqual(CONFIG.mine, DEFAULTS.mine);
   const keys = SPECS.filter((s) => s.key.startsWith('mine.')).map((s) => s.key);
   assert.deepEqual(keys, ['mine.minBet', 'mine.maxBet', 'mine.edgeFewest', 'mine.edgeMost', 'mine.maxMultiplier']);

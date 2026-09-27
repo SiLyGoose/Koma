@@ -111,7 +111,7 @@ test('mine web: only well-formed messages from the page are read', () => {
 // ---------------------------------------------------------------------------
 // A session
 
-const RULES = DEFAULTS.mine;
+const RULES = { ...DEFAULTS.mine, maxMultiplier: 100 };
 
 /** A round with mines exactly at `at`. */
 function runWith(at: readonly number[]): MineRun {
