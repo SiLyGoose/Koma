@@ -4,7 +4,7 @@ import { CURRENCY_NAME, MINE_WEB, PINECRAFT_WEB, TEXT } from '../constants/index
 import { createEmbed } from '../lib/embed.js';
 import { fmt } from '../lib/format.js';
 import { gearEffects } from '../lib/game/equipment.js';
-import { energyNow, pinecraftGear, withGear } from '../lib/game/pinecraft.js';
+import { energyNow, pinecraftGear, pinecraftWeek, withGear } from '../lib/game/pinecraft.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command } from '../discord/types.js';
 import { getEquipment } from '../services/equipment.js';
@@ -45,6 +45,7 @@ export const pinecraft: Command = {
       .addFields(
         { name: TEXT.pinecraft.energyField, value: TEXT.pinecraft.energyValue(energy, rules.maxEnergy, fullAt === null ? null : `<t:${Math.ceil(fullAt / 1000)}:R>`), inline: true },
         { name: TEXT.pinecraft.earnedField, value: TEXT.pinecraft.earnedValue(fmt(earned)), inline: true },
+        { name: TEXT.pinecraft.resetField, value: TEXT.pinecraft.resetValue(`<t:${Math.floor(pinecraftWeek(now).next.getTime() / 1000)}:R>`) },
       )
       .setAuthor({ name: ctx.user.displayName, iconURL: ctx.user.displayAvatarURL() });
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(

@@ -1,4 +1,5 @@
 import { blastEvery, oreEnergyExtra, type EffectTotals } from '../../perks/index.js';
+import { raidWeek, type RaidWeek } from '../events/raid-week.js';
 import { PINECRAFT_BREAK_MS, PINECRAFT_ORE_WEIGHTS, PINECRAFT_ORES, PINECRAFT_WORLD, type PinecraftOre } from '../../constants/index.js';
 
 /*
@@ -11,6 +12,9 @@ import { PINECRAFT_BREAK_MS, PINECRAFT_ORE_WEIGHTS, PINECRAFT_ORES, PINECRAFT_WO
  * for free. Moving into a block digs it, for one energy: an ore in it pays its value (the
  * `pinecraft.value.<ore>` setting), dirt and stone pay nothing. Bedrock, here and there, can't be
  * dug. Energy comes back by itself, one every `pinecraft.energyMinutes`, up to `pinecraft.maxEnergy`.
+ *
+ * Every week (the raid's week: from Saturday midnight, Eastern) each world starts over: a new seed,
+ * nothing dug, the miner back in the starting room. Energy and what it has earned are kept.
  *
  * Blocks are only shown once they are exposed: next to open ground the miner can walk to. Everything
  * else is dark, so digging is exploring.
@@ -90,6 +94,9 @@ export const withGear = (rules: PinecraftRules, gear: PinecraftGear): PinecraftR
 export const gearBreakMs = (ms: number, gear: PinecraftGear): number => Math.round(ms / (1 + gear.breakSpeed));
 
 const SIZE = PINECRAFT_WORLD.size;
+
+/** The week `now` (ms) falls in: a world made in an earlier one starts over. The same weeks as the raid's. */
+export const pinecraftWeek = (now: number): RaidWeek => raidWeek(new Date(now));
 
 export const indexOf = (x: number, y: number): number => y * SIZE + x;
 export const inWorld = (x: number, y: number): boolean => x >= 0 && x < SIZE && y >= 0 && y < SIZE;

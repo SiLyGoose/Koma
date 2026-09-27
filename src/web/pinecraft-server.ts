@@ -1,12 +1,13 @@
+import { randomInt } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { CONFIG } from '../config.js';
 import { MINE_WEB, PINECRAFT_BREAK_MS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../constants/index.js';
 import { gearEffects } from '../lib/game/equipment.js';
-import { breakMs, energyNow, gearBreakMs, indexOf, mapRows, move, NO_GEAR, pinecraftGear, SPAWN, stepFrom, viewRows, withGear, type PinecraftGear, type PinecraftRules } from '../lib/game/pinecraft.js';
+import { breakMs, energyNow, gearBreakMs, indexOf, mapRows, move, newWorld, NO_GEAR, pinecraftGear, pinecraftWeek, SPAWN, stepFrom, viewRows, withGear, type PinecraftGear, type PinecraftRules } from '../lib/game/pinecraft.js';
 import type { EffectTotals } from '../perks/index.js';
 import { getEquipment } from '../services/equipment.js';
 import { getBalance } from '../services/economy/index.js';
-import { loadWorld, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
+import { loadWorld, newWeek, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
 import { parseClientMessage, type ClientMessage, type ErrorCode, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
 import { addWatcher, playerJoined, playerLeft, removeWatcher, toWatchers } from './live.js';
 import { playerKey, verifyToken, verifyWatchToken, type Player } from './token.js';
@@ -36,6 +37,7 @@ export interface PinecraftDeps {
   load: (guildId: string, userId: string, rules: PinecraftRules) => Promise<LoadedWorld>;
   saveDig: typeof saveDig;
   saveWhere: typeof saveWhere;
+  newWeek: typeof newWeek;
   payOre: typeof payOre;
   balance: (guildId: string, userId: string) => Promise<number>;
   rules: () => PinecraftRules;
@@ -51,6 +53,7 @@ const realDeps: PinecraftDeps = {
   load: loadWorld,
   saveDig,
   saveWhere,
+  newWeek,
   payOre,
   balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
   rules: () => CONFIG.pinecraft,
@@ -146,8 +149,26 @@ export class PinecraftSession {
     return this.queue;
   }
 
+  /**
+   * A new week since the world was loaded: it starts over (a new seed, nothing dug, the miner back in
+   * the room; energy kept). True when it did.
+   */
+  private async rollOver(): Promise<boolean> {
+    const week = pinecraftWeek(this.deps.now()).key;
+    if (week === this.loaded.week) return false;
+    const old = this.loaded.world;
+    const fresh = newWorld(randomInt(0, 2 ** 32), this.deps.rules(), this.deps.now());
+    this.loaded.world = { ...fresh, energy: old.energy, energyAt: old.energyAt };
+    this.loaded.week = week;
+    this.breaking = null;
+    await this.deps.newWeek(this.player.guildId, this.player.userId, this.loaded.world, week);
+    return true;
+  }
+
   private async apply(peer: Peer, message: Extract<ClientMessage, { t: 'move' }>): Promise<void> {
     if (peer !== this.peer) return;
+    // A new week: the move is dropped, and the page is shown the new mine.
+    if (await this.rollOver()) return peer.send({ t: 'state', seq: message.seq, state: this.view() });
     const { world } = this.loaded;
     const { guildId, userId } = this.player;
     // Into a block: not until it has had its time to break, from when the page started on it.
@@ -219,6 +240,8 @@ export class PinecraftSession {
       player: this.player.name,
       size: PINECRAFT_WORLD.size,
       spawn: { ...SPAWN },
+      week: this.loaded.week,
+      resetsAt: pinecraftWeek(now).next.getTime(),
       left,
       top,
       rows: viewRows(world, left, top, world.x + viewCols, world.y + rowsAround, look),

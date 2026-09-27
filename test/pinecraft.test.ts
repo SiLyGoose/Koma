@@ -19,6 +19,7 @@ import {
   newWorld,
   NO_GEAR,
   pinecraftGear,
+  pinecraftWeek,
   oreAt,
   SPAWN,
   viewRows,
@@ -338,13 +339,14 @@ test('pinecraft web: only well-formed messages from the page are read', () => {
 });
 
 function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> = {}) {
-  const saved = { digs: [] as number[], where: 0, paid: [] as number[], waits: [] as number[] };
+  const saved = { digs: [] as number[], where: 0, paid: [] as number[], waits: [] as number[], weeks: [] as string[] };
   const clock = { now: 0 };
   let balance = 500;
   const deps: PinecraftDeps = {
-    load: async () => ({ world: newWorld(seed, RULES, 0), earned: 0 }),
+    load: async () => ({ world: newWorld(seed, RULES, 0), earned: 0, week: pinecraftWeek(0).key }),
     saveDig: async (_g, _u, _w, indices) => void saved.digs.push(...indices),
     saveWhere: async () => void saved.where++,
+    newWeek: async (_g, _u, _w, week) => void saved.weeks.push(week),
     payOre: async (_g, _u, points) => {
       saved.paid.push(points);
       return (balance += points);
@@ -412,6 +414,40 @@ test('pinecraft web: the page gets the map when it asks, and at most once a seco
   clock.now += 1000;
   await session.sendMap(peer);
   assert.equal(peer.got.length, 3);
+  await leave(session, peer);
+});
+
+test('pinecraft: the weeks are the same as the raid weeks, starting Saturday at midnight Eastern', () => {
+  // Thursday 1 January 1970 is in the week that started Saturday 27 December 1969.
+  assert.equal(pinecraftWeek(0).key, '1969-12-27');
+  assert.equal(pinecraftWeek(0).next.toISOString(), '1970-01-03T05:00:00.000Z');
+  assert.equal(pinecraftWeek(Date.UTC(1970, 0, 3, 5)).key, '1970-01-03');
+});
+
+test('pinecraft web: in a new week the world being played starts over, energy kept', async () => {
+  const { deps, saved, clock } = fakeDeps(4);
+  const session = await sessionFor({ guildId: 'g5', userId: 'u5', name: 'Simon' }, deps);
+  const peer = fakePeer();
+  session.attach(peer);
+  // Dig two blocks down, then Saturday comes.
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 1 });
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 2 });
+  const before = peer.got.at(-1);
+  assert.ok(before?.t === 'state' && before.state.dug === 1 && before.state.week === '1969-12-27');
+  assert.equal(before.state.resetsAt, Date.UTC(1970, 0, 3, 5));
+  clock.now = Date.UTC(1970, 0, 3, 6);
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 3 });
+  const after = peer.got.at(-1);
+  assert.ok(after?.t === 'state');
+  assert.equal(after.seq, 3);
+  assert.deepEqual({ x: after.state.x, y: after.state.y, dug: after.state.dug, week: after.state.week }, { ...SPAWN, dug: 0, week: '1970-01-03' });
+  assert.equal(after.state.energy, RULES.maxEnergy); // it had all come back by now anyway
+  assert.deepEqual(saved.weeks, ['1970-01-03']);
+  // The move that crossed over was dropped; the next is a normal one.
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 4 });
+  const next = peer.got.at(-1);
+  assert.ok(next?.t === 'state' && next.event?.kind === 'walk');
+  assert.deepEqual(saved.weeks, ['1970-01-03']);
   await leave(session, peer);
 });
 

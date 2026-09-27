@@ -301,6 +301,8 @@ export interface PinecraftWorldDoc {
   seed: number;
   /** Which layout of the world it was made with (PINECRAFT_WORLD.version); missing is the first. */
   version?: number;
+  /** The week it was made for (pinecraftWeek's key); in a later week it starts over. */
+  week?: string;
   /** The blocks dug, by index (row * size + column). */
   mined: number[];
   x: number;

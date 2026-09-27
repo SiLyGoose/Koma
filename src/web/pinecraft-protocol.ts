@@ -39,6 +39,10 @@ export interface WorldState {
   /** The world is size by size blocks. The miner started in the middle of `spawn`, which the page calls 0,0. */
   size: number;
   spawn: { x: number; y: number };
+  /** The week the world is for: a new one is a new mine (the page forgets the old one's blocks). */
+  week: string;
+  /** When the world next starts over (ms). */
+  resetsAt: number;
   /** The blocks around the miner: one string per row, a letter per block, from block (left, top). */
   left: number;
   top: number;

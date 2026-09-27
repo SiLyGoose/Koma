@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { PINECRAFT_WORLD } from '../constants/index.js';
 import { collections } from '../db.js';
-import { newWorld, type PinecraftRules, type PinecraftWorld } from '../lib/game/pinecraft.js';
+import { newWorld, pinecraftWeek, type PinecraftRules, type PinecraftWorld } from '../lib/game/pinecraft.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
 /*
@@ -16,32 +16,46 @@ export interface LoadedWorld {
   world: PinecraftWorld;
   /** Points its ores have paid, all told. */
   earned: number;
+  /** The week the world is for (pinecraftWeek's key). */
+  week: string;
 }
 
 /**
- * A member's world, made (with a new seed, full energy) the first time they play. A world made with
- * an older layout of the world is started over (its energy and what it earned are kept).
+ * A member's world, made (with a new seed, full energy) the first time they play. A world from an
+ * earlier week, or made with an older layout, is started over (its energy and what it earned are kept).
  */
 export async function loadWorld(guildId: string, userId: string, rules: PinecraftRules, now = Date.now()): Promise<LoadedWorld> {
   const { pinecraftWorlds } = collections();
   const _id = worldId(guildId, userId);
   const fresh = newWorld(randomInt(0, 2 ** 32), rules, now);
-  const layout = { seed: fresh.seed, version: PINECRAFT_WORLD.version, mined: [], x: fresh.x, y: fresh.y };
+  const week = pinecraftWeek(now).key;
+  const layout = { seed: fresh.seed, version: PINECRAFT_WORLD.version, week, mined: [], x: fresh.x, y: fresh.y, sinceBlast: 0 };
   let doc = await pinecraftWorlds.findOneAndUpdate(
     { _id },
     { $setOnInsert: { guildId, userId, ...layout, energy: fresh.energy, energyAt: new Date(fresh.energyAt), earned: 0, createdAt: new Date(now) } },
     { upsert: true, returnDocument: 'after' },
   );
-  if (doc && doc.version !== PINECRAFT_WORLD.version) {
+  if (doc && (doc.version !== PINECRAFT_WORLD.version || doc.week !== week)) {
     // Only if it is still the old one (another load may have just started it over).
-    const old = doc.version === undefined ? { $exists: false } : doc.version;
-    doc = (await pinecraftWorlds.findOneAndUpdate({ _id, version: old }, { $set: layout }, { returnDocument: 'after' })) ?? (await pinecraftWorlds.findOne({ _id }));
+    const was = <T>(value: T | undefined) => (value === undefined ? { $exists: false } : value);
+    doc =
+      (await pinecraftWorlds.findOneAndUpdate({ _id, version: was(doc.version), week: was(doc.week) }, { $set: layout }, { returnDocument: 'after' })) ??
+      (await pinecraftWorlds.findOne({ _id }));
   }
   if (!doc) throw new Error(`Could not load the Pinecraft world of ${userId}`);
   return {
     world: { seed: doc.seed, mined: new Set(doc.mined), x: doc.x, y: doc.y, energy: doc.energy, energyAt: doc.energyAt.getTime(), sinceBlast: doc.sinceBlast ?? 0 },
     earned: doc.earned,
+    week: doc.week ?? week,
   };
+}
+
+/** Starts a world over for a new week (while it is being played): a new seed, nothing dug, the miner back in the room. */
+export async function newWeek(guildId: string, userId: string, world: PinecraftWorld, week: string): Promise<void> {
+  await collections().pinecraftWorlds.updateOne(
+    { _id: worldId(guildId, userId) },
+    { $set: { seed: world.seed, version: PINECRAFT_WORLD.version, week, mined: [], x: world.x, y: world.y, sinceBlast: 0, energy: world.energy, energyAt: new Date(world.energyAt) } },
+  );
 }
 
 /** Saves where the miner is and their energy. */
