@@ -26,6 +26,7 @@ export * from './stats.js';
 export * from './claim-bonus.js';
 export * from './claim-tax.js';
 export * from './d20/index.js';
+export * from './pinecraft/index.js';
 export * from './pull-discount.js';
 export * from './rob-tax.js';
 export * from './bubble-beam.js';

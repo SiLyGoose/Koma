@@ -3,9 +3,11 @@ import { CONFIG } from '../config.js';
 import { CURRENCY_NAME, MINE_WEB, PINECRAFT_WEB, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt } from '../lib/format.js';
-import { energyNow } from '../lib/game/pinecraft.js';
+import { gearEffects } from '../lib/game/equipment.js';
+import { energyNow, pinecraftGear, withGear } from '../lib/game/pinecraft.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command } from '../discord/types.js';
+import { getEquipment } from '../services/equipment.js';
 import { loadWorld } from '../services/pinecraft.js';
 import { gameLink, webConfig } from '../web/config.js';
 import { signToken } from '../web/token.js';
@@ -29,7 +31,9 @@ export const pinecraft: Command = {
       await ctx.reply(TEXT.pinecraft.off);
       return;
     }
-    const rules = CONFIG.pinecraft;
+    // Energy comes back faster with some gear (Canary in a Cage).
+    const gear = pinecraftGear(gearEffects(await getEquipment(ctx.guildId, ctx.user.id), ctx.user.id));
+    const rules = withGear(CONFIG.pinecraft, gear);
     const now = Date.now();
     const { world, earned } = await loadWorld(ctx.guildId, ctx.user.id, rules, now);
     const { energy, energyAt } = energyNow(world, rules, now);

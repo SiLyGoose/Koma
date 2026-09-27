@@ -4,6 +4,8 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { PINECRAFT_BREAK_MS, PINECRAFT_ORES, PINECRAFT_ORE_WEIGHTS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../src/constants/index.js';
+import { ITEMS_BY_ID } from '../src/data/items.js';
+import { describeEffects, totalEffects } from '../src/lib/game/equipment.js';
 import { findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 import {
   breakMs,
@@ -11,9 +13,12 @@ import {
   groundAt,
   indexOf,
   isOpen,
+  gearBreakMs,
   mapRows,
   move,
   newWorld,
+  NO_GEAR,
+  pinecraftGear,
   oreAt,
   SPAWN,
   viewRows,
@@ -119,7 +124,8 @@ test('pinecraft: an ore pays its value when dug', () => {
   const at = find(8, (x, y) => oreAt(8, x, y) === 'iron');
   const world = worldAt(8, at.x - 1, at.y);
   const result = move(world, 'right', RULES, 0);
-  assert.deepEqual(result, { kind: 'dig', ground: groundAt(8, at.x, at.y), ore: 'iron', points: 4, index: indexOf(at.x, at.y) });
+  const index = indexOf(at.x, at.y);
+  assert.deepEqual(result, { kind: 'dig', ground: groundAt(8, at.x, at.y), ore: 'iron', points: 4, lucky: false, index, blast: null, indices: [index], total: 4 });
 });
 
 test('pinecraft: the edge and bedrock stop the miner, and with no energy nothing is dug', () => {
@@ -201,6 +207,112 @@ test('pinecraft: blocks take longer to break from dirt to stone to the ores, rub
 });
 
 // ---------------------------------------------------------------------------
+// Gear
+
+/** What a copy of `id` at refine level `level` does in Pinecraft. */
+const gearOf = (id: string, level: number) => pinecraftGear(totalEffects([{ item: ITEMS_BY_ID.get(id)!, level }]));
+
+test('pinecraft gear: the four items exist, in their tiers and slots, for everyone', () => {
+  const want = { 'golden-pickaxe': [2, 'weapon'], 'dynamite-stick': [4, 'weapon'], 'lucky-rabbits-foot': [3, 'treasure'], 'canary-in-a-cage': [3, 'treasure'] } as const;
+  for (const [id, [stars, slot]] of Object.entries(want)) {
+    const item = ITEMS_BY_ID.get(id);
+    assert.deepEqual(item && { stars: item.stars, slot: item.slot, usableBy: item.usableBy }, { stars, slot, usableBy: undefined }, id);
+  }
+});
+
+test('pinecraft gear: the Golden Pickaxe breaks 25% faster at R1 and 50% at R5, and its ores take 6 energy at R1 down to 2 at R5', () => {
+  const speed = [1, 2, 3, 4, 5].map((level) => Math.round(gearOf('golden-pickaxe', level).breakSpeed * 1000) / 10);
+  assert.deepEqual(speed, [25, 30, 35, 40, 50]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((level) => gearOf('golden-pickaxe', level).oreEnergy), [6, 5, 4, 3, 2]);
+  assert.equal(gearBreakMs(PINECRAFT_BREAK_MS.iron, gearOf('golden-pickaxe', 5)), Math.round(PINECRAFT_BREAK_MS.iron / 1.5));
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('golden-pickaxe')!, 1, 1), ['Pinecraft: breaks blocks 25% faster', 'Pinecraft: ores take 6 ⚡ each to dig']);
+});
+
+test('pinecraft gear: the Dynamite Stick blasts every 20 blocks at R1 down to every 10 at R5, ores in a blast paying half at every level', () => {
+  assert.deepEqual([1, 2, 3, 4, 5].map((level) => gearOf('dynamite-stick', level).blastEvery), [20, 18, 16, 14, 10]);
+  for (const level of [1, 3, 5]) assert.equal(gearOf('dynamite-stick', level).blastLoss, 0.5);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dynamite-stick')!, 1, 5), [
+    'Pinecraft: every 10th block dug blows up the blocks around it',
+    'Pinecraft: ores caught in a blast pay 50% less',
+  ]);
+});
+
+test('pinecraft gear: the rabbit\'s foot and the canary give 10% double ores and twice-as-fast energy at R5', () => {
+  assert.equal(gearOf('lucky-rabbits-foot', 5).luckyChance, 0.1);
+  assert.equal(gearOf('canary-in-a-cage', 5).energyRegen, 1);
+  assert.deepEqual(pinecraftGear({}), NO_GEAR);
+});
+
+test('pinecraft gear: an ore takes the pickaxe\'s energy, and not dug without it', () => {
+  const at = find(8, (x, y) => oreAt(8, x, y) !== null);
+  const gear = { ...NO_GEAR, oreEnergy: 4 };
+  const world = worldAt(8, at.x - 1, at.y);
+  world.energy = 3;
+  assert.deepEqual(move(world, 'right', RULES, 0, gear), { kind: 'tired' });
+  world.energy = 4;
+  assert.equal(move(world, 'right', RULES, 0, gear).kind, 'dig');
+  assert.equal(world.energy, 0);
+});
+
+test('pinecraft gear: a lucky ore pays double', () => {
+  const at = find(8, (x, y) => oreAt(8, x, y) === 'gold');
+  const lucky = move(worldAt(8, at.x - 1, at.y), 'right', RULES, 0, { ...NO_GEAR, luckyChance: 0.1 }, () => 0.05);
+  assert.ok(lucky.kind === 'dig' && lucky.lucky && lucky.points === 2 * RULES.value.gold && lucky.total === lucky.points);
+  const plain = move(worldAt(8, at.x - 1, at.y), 'right', RULES, 0, { ...NO_GEAR, luckyChance: 0.1 }, () => 0.5);
+  assert.ok(plain.kind === 'dig' && !plain.lucky && plain.points === RULES.value.gold);
+});
+
+test('pinecraft gear: every so many blocks, a blast breaks the 8 around the one dug (not bedrock), its ores paying less', () => {
+  const gear = { ...NO_GEAR, blastEvery: 3, blastLoss: 0.5 };
+  // A spot with an ore beside it and no bedrock, to dig into from the left.
+  const at = find(2, (x, y) => [-1, 0, 1].every((dy) => [-1, 0, 1, 2].every((dx) => !['bedrock', 'open'].includes(groundAt(2, x + dx, y + dy)))) && oreAt(2, x + 1, y) !== null && oreAt(2, x, y) === null);
+  const world = worldAt(2, at.x - 1, at.y);
+  world.sinceBlast = 2;
+  const result = move(world, 'right', RULES, 0, gear);
+  assert.ok(result.kind === 'dig');
+  assert.equal(world.sinceBlast, 0);
+  assert.equal(result.blast?.length, 8 - 1); // the 8 around, less the one the miner came from
+  assert.equal(result.indices.length, 8);
+  for (const i of result.indices) assert.ok(world.mined.has(i));
+  const ore = result.blast?.find((b) => b.x === at.x + 1 && b.y === at.y);
+  assert.equal(ore?.points, Math.round(RULES.value[oreAt(2, at.x + 1, at.y)!] * 0.5));
+  assert.equal(result.total, (result.blast ?? []).reduce((sum, b) => sum + b.points, result.points));
+  // The count starts again: the next dig doesn't blast.
+  const next = move(world, 'down', RULES, 0, gear);
+  assert.ok(next.kind !== 'dig' || next.blast === null);
+});
+
+test('pinecraft gear: energy comes back faster with the canary', () => {
+  const tired = { energy: 0, energyAt: 0 };
+  const canary = { ...NO_GEAR, energyRegen: 1 };
+  const after = (gear: typeof NO_GEAR) => move(Object.assign(newWorld(3, RULES, 0), tired, { y: SPAWN.y + 1 }), 'down', RULES, 3 * MINUTE, gear);
+  assert.deepEqual(after(NO_GEAR), { kind: 'dig', ground: 'dirt', ore: null, points: 0, lucky: false, index: indexOf(SPAWN.x, SPAWN.y + 2), blast: null, indices: [indexOf(SPAWN.x, SPAWN.y + 2)], total: 0 });
+  // 1.5 minutes is one energy with the canary, none without.
+  assert.equal(move(Object.assign(newWorld(3, RULES, 0), tired, { y: SPAWN.y + 1 }), 'down', RULES, 1.5 * MINUTE, NO_GEAR).kind, 'tired');
+  assert.equal(move(Object.assign(newWorld(3, RULES, 0), tired, { y: SPAWN.y + 1 }), 'down', RULES, 1.5 * MINUTE, canary).kind, 'dig');
+});
+
+test('pinecraft web: the page is told what the gear does, and a pickaxe breaks blocks sooner', async () => {
+  const { deps, saved } = fakeDeps(4, { pickaxeSpeed: 0.5, pickaxeEnergyPenalty: 1, dynamiteBlast: 10 });
+  const session = await sessionFor({ guildId: 'g4', userId: 'u4', name: 'Simon' }, deps);
+  const peer = fakePeer();
+  session.attach(peer);
+  const hello = peer.got[0];
+  assert.ok(hello?.t === 'state');
+  assert.equal(hello.state.breakMs.dirt, Math.round(PINECRAFT_BREAK_MS.dirt / 1.5));
+  assert.equal(hello.state.oreEnergy, 2);
+  assert.deepEqual(hello.state.blast, { every: 10, left: 10 });
+  // Down to the room's edge, then dirt with no start: the whole (faster) break time.
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 1 });
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 2 });
+  assert.deepEqual(saved.waits, [Math.round(PINECRAFT_BREAK_MS.dirt / 1.5) - PINECRAFT_WEB.breakGraceMs]);
+  const dug = peer.got.at(-1);
+  assert.ok(dug?.t === 'state');
+  assert.deepEqual(dug.state.blast, { every: 10, left: 9 });
+  await leave(session, peer);
+});
+
+// ---------------------------------------------------------------------------
 // Settings
 
 test('pinecraft: the settings exist, are in their own group, and start at the tuned values', () => {
@@ -225,18 +337,19 @@ test('pinecraft web: only well-formed messages from the page are read', () => {
   }
 });
 
-function fakeDeps(seed: number) {
-  const saved = { digs: [] as number[], where: 0, paid: [] as [string, number][], waits: [] as number[] };
+function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> = {}) {
+  const saved = { digs: [] as number[], where: 0, paid: [] as number[], waits: [] as number[] };
   const clock = { now: 0 };
   let balance = 500;
   const deps: PinecraftDeps = {
     load: async () => ({ world: newWorld(seed, RULES, 0), earned: 0 }),
-    saveDig: async (_g, _u, _w, index) => void saved.digs.push(index),
+    saveDig: async (_g, _u, _w, indices) => void saved.digs.push(...indices),
     saveWhere: async () => void saved.where++,
-    payOre: async (_g, _u, ore, points) => {
-      saved.paid.push([ore, points]);
+    payOre: async (_g, _u, points) => {
+      saved.paid.push(points);
       return (balance += points);
     },
+    gear: async () => gear,
     balance: async () => balance,
     rules: () => RULES,
     now: () => clock.now,
@@ -244,6 +357,7 @@ function fakeDeps(seed: number) {
       saved.waits.push(ms);
       clock.now += ms;
     },
+    chance: () => 0.99,
   };
   return { deps, saved, clock };
 }
@@ -322,7 +436,7 @@ test('pinecraft web: a dig is saved before its ore is paid, and a new page takes
   await session.handle(first, { t: 'move', dir: 'down', seq: 2 });
   const dug = first.got[2];
   assert.ok(dug?.t === 'state');
-  assert.deepEqual(dug.event, { kind: 'dig', ground: 'dirt', ore: null, points: 0 });
+  assert.deepEqual(dug.event, { kind: 'dig', ground: 'dirt', ore: null, points: 0, lucky: false, blast: null });
   assert.equal(dug.state.energy, RULES.maxEnergy - 1);
   assert.equal(dug.state.dug, 1);
   assert.deepEqual(saved.digs, [indexOf(SPAWN.x, SPAWN.y + 2)]);

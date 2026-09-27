@@ -17,6 +17,18 @@ export interface PerkDef {
   /** Limits for the setting, as fractions. */
   min: number;
   max: number;
+  /**
+   * Optional: the setting is a plain number (a count of blocks, an amount of energy), not a
+   * percent, and is shown and typed as one.
+   */
+  plain?: boolean;
+  /**
+   * Optional: how much of its full (R5) strength the perk gives at R1, when that isn't the usual
+   * share (1/6). The levels in between climb from there in the usual steps. Over 1 means it starts
+   * stronger and comes down as the item is refined (for a drawback that refining shrinks); 1 means
+   * refining doesn't change it.
+   */
+  atR1?: number;
   /** The perk's line on the gear card. `value` is its strength already formatted, like "10%". */
   text: (value: string) => string;
   /**

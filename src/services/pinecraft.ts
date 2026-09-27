@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { PINECRAFT_WORLD, type PinecraftOre } from '../constants/index.js';
+import { PINECRAFT_WORLD } from '../constants/index.js';
 import { collections } from '../db.js';
 import { newWorld, type PinecraftRules, type PinecraftWorld } from '../lib/game/pinecraft.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
@@ -39,7 +39,7 @@ export async function loadWorld(guildId: string, userId: string, rules: Pinecraf
   }
   if (!doc) throw new Error(`Could not load the Pinecraft world of ${userId}`);
   return {
-    world: { seed: doc.seed, mined: new Set(doc.mined), x: doc.x, y: doc.y, energy: doc.energy, energyAt: doc.energyAt.getTime() },
+    world: { seed: doc.seed, mined: new Set(doc.mined), x: doc.x, y: doc.y, energy: doc.energy, energyAt: doc.energyAt.getTime(), sinceBlast: doc.sinceBlast ?? 0 },
     earned: doc.earned,
   };
 }
@@ -52,20 +52,23 @@ export async function saveWhere(guildId: string, userId: string, world: Pinecraf
   );
 }
 
-/** Saves a block just dug (block `index`), with where the miner is and their energy after it. */
-export async function saveDig(guildId: string, userId: string, world: PinecraftWorld, index: number): Promise<void> {
+/** Saves the blocks just broken (a dig, and any blast), with where the miner is and their energy after it. */
+export async function saveDig(guildId: string, userId: string, world: PinecraftWorld, indices: readonly number[]): Promise<void> {
   await collections().pinecraftWorlds.updateOne(
     { _id: worldId(guildId, userId) },
-    { $addToSet: { mined: index }, $set: { x: world.x, y: world.y, energy: world.energy, energyAt: new Date(world.energyAt) } },
+    {
+      $addToSet: { mined: { $each: [...indices] } },
+      $set: { x: world.x, y: world.y, energy: world.energy, energyAt: new Date(world.energyAt), sinceBlast: world.sinceBlast },
+    },
   );
 }
 
-/** Pays a member `points` for an ore they dug. Returns their balance after it. */
-export async function payOre(guildId: string, userId: string, ore: PinecraftOre, points: number): Promise<number> {
+/** Pays a member `points` for the ores a dig (and any blast) broke. Returns their balance after it. */
+export async function payOre(guildId: string, userId: string, points: number): Promise<number> {
   await ensureMember(guildId, userId);
   const { members, pinecraftWorlds } = collections();
   const paid = await members.findOneAndUpdate({ guildId, userId }, { $inc: { points } }, { returnDocument: 'after' });
-  if (!paid) throw new Error(`Member ${userId} not found while paying for Pinecraft ${ore}`);
+  if (!paid) throw new Error(`Member ${userId} not found while paying for Pinecraft ores`);
   await pinecraftWorlds.updateOne({ _id: worldId(guildId, userId) }, { $inc: { earned: points } });
   await recordLedger([{ guildId, userId, delta: points, reason: 'pinecraft_ore' }]);
   return paid.points;

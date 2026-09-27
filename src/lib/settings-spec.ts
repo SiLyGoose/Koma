@@ -30,7 +30,7 @@ import {
   PITY_STARS,
   PLINKO_ROWS,
 } from '../constants/index.js';
-import { EFFECT_IDS, EFFECTS, type EffectId } from '../perks/index.js';
+import { EFFECT_IDS, EFFECTS, type EffectId, type PerkDef } from '../perks/index.js';
 import { STARS } from '../types.js';
 import type { Settings } from '../config.js';
 
@@ -309,7 +309,7 @@ export const SPECS: readonly SettingSpec[] = [
         type: 'number',
         min: EFFECTS[id].min,
         max: EFFECTS[id].max,
-        percent: true,
+        percent: !(EFFECTS[id] as PerkDef).plain,
       }),
     ),
   ),

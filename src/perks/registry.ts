@@ -11,6 +11,7 @@ import { healCut } from './heal-cut.js';
 import { healSplash } from './heal-splash.js';
 import { iconicByMistake } from './iconic-by-mistake.js';
 import { maxHpDamage } from './max-hp-damage.js';
+import { blastLoss, dynamiteBlast, energyRegen, luckyOre, pickaxeEnergyPenalty, pickaxeSpeed } from './pinecraft/index.js';
 import { pullDiscount } from './pull-discount.js';
 import { rallyBoost } from './rally-boost.js';
 import { robAmountCut } from './rob-amount-cut.js';
@@ -71,6 +72,13 @@ export const EFFECTS = {
   rallyBoost,
   maxHpDamage,
   healCut,
+  // Pinecraft.
+  pickaxeSpeed,
+  pickaxeEnergyPenalty,
+  dynamiteBlast,
+  blastLoss,
+  luckyOre,
+  energyRegen,
 } as const satisfies Record<string, PerkDef>;
 
 registerPerks(EFFECTS);

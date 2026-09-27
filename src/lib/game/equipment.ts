@@ -7,6 +7,18 @@ import { formatPercent } from '../format.js';
 import { refineShare } from './refine.js';
 import { REFINE } from '../../constants/index.js';
 
+/**
+ * How much of a perk's full strength a copy at this refinement level gives: the usual refine share,
+ * or, for a perk with its own R1 value (`atR1`), a climb from that to full in the same steps.
+ */
+export function perkShare(effect: EffectId, level: number): number {
+  const share = refineShare(level);
+  const atR1: number | undefined = (EFFECTS[effect] as PerkDef).atR1;
+  const lowest = refineShare(1);
+  if (atR1 === undefined || lowest >= 1) return share;
+  return atR1 + ((1 - atR1) * (share - lowest)) / (1 - lowest);
+}
+
 /** How strong an effect is on an item of the given star tier, from the live settings. */
 export function effectStrength(effect: EffectId, stars: Stars): number {
   return CONFIG.equipment[effect][stars];
@@ -58,15 +70,15 @@ export function itemEffectiveness(item: ItemDef, userId: string): number {
 
 /**
  * Adds up every effect across the given gear. Each piece counts at its refinement level's share
- * (refineShare); a bare item counts as fully refined. With `userId`, each also counts at the share
+ * (perkShare); a bare item counts as fully refined. With `userId`, each also counts at the share
  * of its effects that member gets (itemEffectiveness); without it, in full.
  */
 export function totalEffects(gear: readonly (ItemDef | GearPiece)[], userId?: string): EffectTotals {
   const totals = emptyTotals();
   for (const piece of gear) {
     const { item, level } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
-    const share = (userId === undefined ? 1 : itemEffectiveness(item, userId)) * refineShare(level);
-    for (const effect of item.effects) totals[effect] += effectStrength(effect, item.stars) * share;
+    const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
+    for (const effect of item.effects) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
   }
   return totals;
 }
@@ -94,7 +106,7 @@ function effectLine(effect: EffectId, strength: number): string {
  * than full effect (see itemEffectiveness).
  */
 export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string[] {
-  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * refineShare(level)));
+  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
 }
 
 /** One readable line per effect that is active in the totals, in the registry's order. */

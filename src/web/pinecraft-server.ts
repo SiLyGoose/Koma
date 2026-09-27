@@ -1,7 +1,10 @@
 import type { WebSocket } from 'ws';
 import { CONFIG } from '../config.js';
 import { MINE_WEB, PINECRAFT_BREAK_MS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../constants/index.js';
-import { breakMs, energyNow, indexOf, mapRows, move, SPAWN, stepFrom, viewRows, type PinecraftRules } from '../lib/game/pinecraft.js';
+import { gearEffects } from '../lib/game/equipment.js';
+import { breakMs, energyNow, gearBreakMs, indexOf, mapRows, move, NO_GEAR, pinecraftGear, SPAWN, stepFrom, viewRows, withGear, type PinecraftGear, type PinecraftRules } from '../lib/game/pinecraft.js';
+import type { EffectTotals } from '../perks/index.js';
+import { getEquipment } from '../services/equipment.js';
 import { getBalance } from '../services/economy/index.js';
 import { loadWorld, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
 import { parseClientMessage, type ClientMessage, type ErrorCode, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
@@ -35,8 +38,12 @@ export interface PinecraftDeps {
   payOre: typeof payOre;
   balance: (guildId: string, userId: string) => Promise<number>;
   rules: () => PinecraftRules;
+  /** The perks of the member's equipped gear. */
+  gear: (guildId: string, userId: string) => Promise<Partial<EffectTotals>>;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
+  /** Random numbers from 0 up to 1 (a lucky ore). */
+  chance: () => number;
 }
 
 const realDeps: PinecraftDeps = {
@@ -46,9 +53,14 @@ const realDeps: PinecraftDeps = {
   payOre,
   balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
   rules: () => CONFIG.pinecraft,
+  gear: async (guildId, userId) => gearEffects(await getEquipment(guildId, userId), userId),
   now: Date.now,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  chance: Math.random,
 };
+
+/** How often the member's gear is looked up again while they play (they may change it in Discord). */
+const GEAR_EVERY_MS = 10_000;
 
 /** How long after the last walk where the miner is gets saved. */
 const SAVE_AFTER_MS = 5000;
@@ -62,6 +74,8 @@ export class PinecraftSession {
   /** The block the page started breaking (by index), and when. */
   private breaking: { index: number; since: number } | null = null;
   private mapSentAt = -Infinity;
+  private gear: PinecraftGear = NO_GEAR;
+  private gearAt = -Infinity;
 
   constructor(
     readonly player: Player,
@@ -69,6 +83,21 @@ export class PinecraftSession {
     private balance: number | null,
     private readonly deps: PinecraftDeps = realDeps,
   ) {}
+
+  /**
+   * Looks up the member's gear again when it is GEAR_EVERY_MS old (or `force`d). A failed look-up
+   * keeps the gear known last.
+   */
+  async refreshGear(force = false): Promise<void> {
+    const now = this.deps.now();
+    if (!force && now - this.gearAt < GEAR_EVERY_MS) return;
+    this.gearAt = now;
+    try {
+      this.gear = pinecraftGear(await this.deps.gear(this.player.guildId, this.player.userId));
+    } catch (err) {
+      console.error('Could not look up the gear of a Pinecraft miner:', err);
+    }
+  }
 
   /** A page is playing this world: it is sent the world as it is, and gets every message about it from now on. */
   attach(peer: Peer): void {
@@ -116,8 +145,10 @@ export class PinecraftSession {
     const { world } = this.loaded;
     const { guildId, userId } = this.player;
     // Into a block: not until it has had its time to break, from when the page started on it.
+    await this.refreshGear();
     const at = stepFrom(world, message.dir);
-    const takes = breakMs(world, at.x, at.y);
+    const base = breakMs(world, at.x, at.y);
+    const takes = base === null ? null : gearBreakMs(base, this.gear);
     if (takes !== null) {
       const index = indexOf(at.x, at.y);
       const since = this.breaking?.index === index ? this.breaking.since : this.deps.now();
@@ -126,17 +157,24 @@ export class PinecraftSession {
       if (peer !== this.peer) return;
     }
     this.breaking = null;
-    const result = move(world, message.dir, this.deps.rules(), this.deps.now());
+    const result = move(world, message.dir, this.deps.rules(), this.deps.now(), this.gear, this.deps.chance);
     let event: WorldEvent;
     if (result.kind === 'dig') {
       if (this.saveTimer) clearTimeout(this.saveTimer);
       this.saveTimer = null;
-      await this.deps.saveDig(guildId, userId, world, result.index);
-      if (result.ore && result.points > 0) {
-        this.balance = await this.deps.payOre(guildId, userId, result.ore, result.points);
-        this.loaded.earned += result.points;
+      await this.deps.saveDig(guildId, userId, world, result.indices);
+      if (result.total > 0) {
+        this.balance = await this.deps.payOre(guildId, userId, result.total);
+        this.loaded.earned += result.total;
       }
-      event = { kind: 'dig', ground: result.ground, ore: result.ore, points: result.points };
+      event = {
+        kind: 'dig',
+        ground: result.ground,
+        ore: result.ore,
+        points: result.points,
+        lucky: result.lucky,
+        blast: result.blast?.map(({ x, y, ground, ore, points, lucky }) => ({ x, y, ground, ore, points, lucky })) ?? null,
+      };
     } else {
       if (result.kind === 'walk') this.saveSoon();
       event = { kind: result.kind };
@@ -163,9 +201,10 @@ export class PinecraftSession {
   /** The world as the page may see it. */
   view(): WorldState {
     const { world, earned } = this.loaded;
-    const rules = this.deps.rules();
+    const rules = withGear(this.deps.rules(), this.gear);
     const now = this.deps.now();
     const { energy, energyAt } = energyNow(world, rules, now);
+    const gear = this.gear;
     const { viewCols, viewRows: rowsAround, look } = PINECRAFT_WEB;
     const left = Math.max(0, world.x - viewCols);
     const top = Math.max(0, world.y - rowsAround);
@@ -187,7 +226,9 @@ export class PinecraftSession {
       earned,
       dug: world.mined.size,
       values: { ...rules.value },
-      breakMs: { ...PINECRAFT_BREAK_MS },
+      breakMs: Object.fromEntries(Object.entries(PINECRAFT_BREAK_MS).map(([block, ms]) => [block, gearBreakMs(ms, gear)])) as WorldState['breakMs'],
+      oreEnergy: gear.oreEnergy,
+      blast: gear.blastEvery > 0 ? { every: gear.blastEvery, left: Math.max(1, gear.blastEvery - world.sinceBlast) } : null,
     };
   }
 }
@@ -203,7 +244,9 @@ export function sessionFor(player: Player, deps: PinecraftDeps = realDeps): Prom
   const loading = (async () => {
     const loaded = await deps.load(player.guildId, player.userId, deps.rules());
     const balance = await deps.balance(player.guildId, player.userId).catch(() => null);
-    return new PinecraftSession(player, loaded, balance, deps);
+    const session = new PinecraftSession(player, loaded, balance, deps);
+    await session.refreshGear(true);
+    return session;
   })();
   sessions.set(key, loading);
   loading.catch(() => sessions.delete(key));

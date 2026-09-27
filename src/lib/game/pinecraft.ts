@@ -1,3 +1,4 @@
+import { blastEvery, oreEnergyExtra, type EffectTotals } from '../../perks/index.js';
 import { PINECRAFT_BREAK_MS, PINECRAFT_ORE_WEIGHTS, PINECRAFT_ORES, PINECRAFT_WORLD, type PinecraftOre } from '../../constants/index.js';
 
 /*
@@ -13,6 +14,10 @@ import { PINECRAFT_BREAK_MS, PINECRAFT_ORE_WEIGHTS, PINECRAFT_ORES, PINECRAFT_WO
  *
  * Blocks are only shown once they are exposed: next to open ground the miner can walk to. Everything
  * else is dark, so digging is exploring.
+ *
+ * Gear changes some of this (PinecraftGear, from the member's equipped perks): how fast blocks
+ * break, how much energy an ore takes, blasts that break the blocks around one dug, ores paying
+ * double, and how fast energy comes back.
  */
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
@@ -41,7 +46,48 @@ export interface PinecraftWorld {
   /** Energy as of `energyAt` (ms); more has come back since, see energyNow. */
   energy: number;
   energyAt: number;
+  /** Blocks dug since the last blast (with a Dynamite Stick). */
+  sinceBlast: number;
 }
+
+/** What a member's gear does in Pinecraft, worked out from their equipped perks (pinecraftGear). */
+export interface PinecraftGear {
+  /** How much faster blocks break (0.5: 50% faster, taking 2/3 as long). */
+  breakSpeed: number;
+  /** Energy an ore takes to dig (dirt and stone always take 1). */
+  oreEnergy: number;
+  /** Every this many blocks dug, the one dug blows up the 8 blocks around it (0: never). */
+  blastEvery: number;
+  /** How much less an ore caught in a blast pays (0.5: half). */
+  blastLoss: number;
+  /** Chance (0 to 1) each ore pays double. */
+  luckyChance: number;
+  /** How much faster energy comes back (1: twice as fast). */
+  energyRegen: number;
+}
+
+export const NO_GEAR: PinecraftGear = { breakSpeed: 0, oreEnergy: 1, blastEvery: 0, blastLoss: 0, luckyChance: 0, energyRegen: 0 };
+
+/** What gear with these perks does in Pinecraft. */
+export function pinecraftGear(totals: Partial<EffectTotals>): PinecraftGear {
+  return {
+    breakSpeed: Math.max(0, totals.pickaxeSpeed ?? 0),
+    oreEnergy: 1 + oreEnergyExtra(totals.pickaxeEnergyPenalty ?? 0),
+    blastEvery: blastEvery(totals.dynamiteBlast ?? 0),
+    blastLoss: Math.min(1, Math.max(0, totals.blastLoss ?? 0)),
+    luckyChance: Math.min(1, Math.max(0, totals.luckyOre ?? 0)),
+    energyRegen: Math.max(0, totals.energyRegen ?? 0),
+  };
+}
+
+/** The rules as they are for someone with this gear: energy comes back faster with energyRegen. */
+export const withGear = (rules: PinecraftRules, gear: PinecraftGear): PinecraftRules => ({
+  ...rules,
+  energyMinutes: rules.energyMinutes / (1 + gear.energyRegen),
+});
+
+/** How long a block that takes `ms` to break takes with this gear. */
+export const gearBreakMs = (ms: number, gear: PinecraftGear): number => Math.round(ms / (1 + gear.breakSpeed));
 
 const SIZE = PINECRAFT_WORLD.size;
 
@@ -136,7 +182,7 @@ export function energyNow(world: Pick<PinecraftWorld, 'energy' | 'energyAt'>, ru
 
 /** A new world, with full energy and its miner in the starting room. */
 export function newWorld(seed: number, rules: PinecraftRules, now: number): PinecraftWorld {
-  return { seed: seed >>> 0, mined: new Set(), x: SPAWN.x, y: SPAWN.y, energy: rules.maxEnergy, energyAt: now };
+  return { seed: seed >>> 0, mined: new Set(), x: SPAWN.x, y: SPAWN.y, energy: rules.maxEnergy, energyAt: now, sinceBlast: 0 };
 }
 
 /** What a move did. */
@@ -148,11 +194,43 @@ export type MoveResult =
   | { kind: 'bedrock' }
   /** Out of energy: the block wasn't dug. */
   | { kind: 'tired' }
-  /** Dug a block (and stepped into it). `ore` and `points` when there was an ore in it. */
-  | { kind: 'dig'; ground: 'dirt' | 'stone'; ore: PinecraftOre | null; points: number; index: number };
+  /**
+   * Dug a block (and stepped into it). `ore` and `points` when there was an ore in it (`lucky` when
+   * it paid double). `blast` is what a blast broke around it, if it set one off. `indices` are every
+   * block broken, and `total` what they paid.
+   */
+  | {
+      kind: 'dig';
+      ground: 'dirt' | 'stone';
+      ore: PinecraftOre | null;
+      points: number;
+      lucky: boolean;
+      index: number;
+      blast: BlastBlock[] | null;
+      indices: number[];
+      total: number;
+    };
 
-/** Moves the miner one block, digging it when it isn't open. */
-export function move(world: PinecraftWorld, direction: Direction, rules: PinecraftRules, now: number): MoveResult {
+/** A block broken by a blast. */
+export interface BlastBlock {
+  x: number;
+  y: number;
+  index: number;
+  ground: 'dirt' | 'stone';
+  ore: PinecraftOre | null;
+  points: number;
+  lucky: boolean;
+}
+
+/** Random numbers from 0 up to 1, so tests can choose them. */
+export type Chance = () => number;
+
+/**
+ * Moves the miner one block, digging it when it isn't open. With gear: an ore takes gear.oreEnergy,
+ * each ore may pay double, and every gear.blastEvery blocks the one dug also breaks the 8 around it
+ * (bedrock aside), the ores among them paying gear.blastLoss less.
+ */
+export function move(world: PinecraftWorld, direction: Direction, rules: PinecraftRules, now: number, gear: PinecraftGear = NO_GEAR, chance: Chance = Math.random): MoveResult {
   const [dx, dy] = STEP[direction];
   const x = world.x + dx;
   const y = world.y + dy;
@@ -165,18 +243,50 @@ export function move(world: PinecraftWorld, direction: Direction, rules: Pinecra
   const ground = groundAt(world.seed, x, y);
   if (ground === 'bedrock') return { kind: 'bedrock' };
 
-  const energy = energyNow(world, rules, now);
+  const energy = energyNow(world, withGear(rules, gear), now);
   world.energy = energy.energy;
   world.energyAt = energy.energyAt;
-  if (world.energy < 1) return { kind: 'tired' };
-  world.energy -= 1;
+  const ore = oreAt(world.seed, x, y);
+  const cost = ore ? gear.oreEnergy : 1;
+  if (world.energy < cost) return { kind: 'tired' };
+  world.energy -= cost;
 
   const index = indexOf(x, y);
   world.mined.add(index);
   world.x = x;
   world.y = y;
-  const ore = oreAt(world.seed, x, y);
-  return { kind: 'dig', ground: ground as 'dirt' | 'stone', ore, points: ore ? rules.value[ore] : 0, index };
+  const pay = (found: PinecraftOre | null, share: number): { points: number; lucky: boolean } => {
+    if (!found) return { points: 0, lucky: false };
+    const lucky = gear.luckyChance > 0 && chance() < gear.luckyChance;
+    return { points: Math.round(rules.value[found] * share) * (lucky ? 2 : 1), lucky };
+  };
+  const dug = pay(ore, 1);
+  const indices = [index];
+  let total = dug.points;
+
+  let blast: BlastBlock[] | null = null;
+  if (gear.blastEvery > 0) {
+    world.sinceBlast += 1;
+    if (world.sinceBlast >= gear.blastEvery) {
+      world.sinceBlast = 0;
+      blast = [];
+      for (let by = y - 1; by <= y + 1; by++) {
+        for (let bx = x - 1; bx <= x + 1; bx++) {
+          if (!inWorld(bx, by) || isOpen(world, bx, by)) continue;
+          const around = groundAt(world.seed, bx, by);
+          if (around === 'bedrock' || around === 'open') continue;
+          const i = indexOf(bx, by);
+          const found = oreAt(world.seed, bx, by);
+          const got = pay(found, 1 - gear.blastLoss);
+          world.mined.add(i);
+          indices.push(i);
+          total += got.points;
+          blast.push({ x: bx, y: by, index: i, ground: around, ore: found, ...got });
+        }
+      }
+    }
+  }
+  return { kind: 'dig', ground: ground as 'dirt' | 'stone', ore, ...dug, index, blast, indices, total };
 }
 
 /**

@@ -127,6 +127,15 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['healCut'],
   },
 
+  {
+    id: 'golden-pickaxe',
+    name: 'Golden Pickaxe',
+    stars: 2,
+    slot: 'weapon',
+    description: 'Fast, shiny, and not built to last.',
+    effects: ['pickaxeSpeed', 'pickaxeEnergyPenalty'],
+  },
+
   // 3 stars
   {
     id: 'starfall-blade',
@@ -183,6 +192,23 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Forged to cut the threads that bind stolen life. Near it, nothing feeds as well as it used to.',
     effects: ['healCut'],
+  },
+
+  {
+    id: 'lucky-rabbits-foot',
+    name: "Lucky Rabbit's Foot",
+    stars: 3,
+    slot: 'treasure',
+    description: 'Lucky for you. Less so for the rabbit.',
+    effects: ['luckyOre'],
+  },
+  {
+    id: 'canary-in-a-cage',
+    name: 'Canary in a Cage',
+    stars: 3,
+    slot: 'treasure',
+    description: 'It sings while you dig, and you never get tired of it.',
+    effects: ['energyRegen'],
   },
 
   // 4 stars
@@ -266,5 +292,13 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'treasure',
     description: 'Placeholder',
     effects: ['smart', 'iconicByMistake'],
+  },
+  {
+    id: 'dynamite-stick',
+    name: 'Dynamite Stick',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Fire in the hole!',
+    effects: ['dynamiteBlast', 'blastLoss'],
   },
 ];

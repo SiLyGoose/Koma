@@ -307,6 +307,8 @@ export interface PinecraftWorldDoc {
   y: number;
   energy: number;
   energyAt: Date;
+  /** Blocks dug since the last blast (with a Dynamite Stick); missing is 0. */
+  sinceBlast?: number;
   /** Points its ores have paid, all told. */
   earned: number;
   createdAt: Date;
