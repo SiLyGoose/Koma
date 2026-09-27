@@ -249,7 +249,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: (i) => [i.options.getString('bet', true)],
   },
 
-  mine: {
+  mines: {
     description: `Stake-style mines on the Koma site: bet ${CURRENCY_NAME}, pick the mines, turn over tiles for gems.`,
     // The bet and mines are picked on the site: this is just the link there.
     build: () => {},

@@ -1,6 +1,6 @@
-export const mineText = {
+export const minesText = {
   title: '💣 Mines',
-  /** What `k!mine` says, above the button to the site. `cap` is like "24x". */
+  /** What `k!mines` says, above the button to the site. `cap` is like "24x". */
   intro: (min: number, max: number, cap: string) =>
     `Play Mines on the Koma site: bet, pick how many mines hide on a 5x5 board (${min} to ${max}), then turn over tiles. ` +
     `Every gem raises your multiplier, a mine loses the bet. Cash out whenever you like, up to **${cap}**.`,

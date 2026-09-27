@@ -1,15 +1,15 @@
 import { CONFIG } from '../config.js';
 import { MINE, MINE_MINES, MINE_SIZE, MINE_TILES } from '../constants/index.js';
 import { allBet } from '../lib/game/bet.js';
-import { multiplierFor, payoutFor, pick, randomHidden, startRun, type MineRules, type MineRun } from '../lib/game/mine.js';
+import { multiplierFor, payoutFor, pick, randomHidden, startRun, type MineRules, type MineRun } from '../lib/game/mines.js';
 import { getBalance } from '../services/economy/index.js';
-import { claimMiner, releaseMiner, renewMineLease, saveMultiplier, settleRun, startMineRun, type SettleRunResult } from '../services/mine.js';
-import type { ClientMessage, ErrorCode, Lobby, RunEvent, RunState, RunStatus, SeenTile, ServerMessage, StartRefusal } from './mine-protocol.js';
+import { claimMiner, releaseMiner, renewMineLease, saveMultiplier, settleRun, startMineRun, type SettleRunResult } from '../services/mines.js';
+import type { ClientMessage, ErrorCode, Lobby, RunEvent, RunState, RunStatus, SeenTile, ServerMessage, StartRefusal } from './mines-protocol.js';
 import { playerKey, type Player } from './token.js';
 
 /*
  * A round in the mine played from the web page: the bot keeps the board and works out every pick,
- * the page only shows what it is told (see mine-protocol.ts). One session per round, looked up by
+ * the page only shows what it is told (see mines-protocol.ts). One session per round, looked up by
  * the player it belongs to. The page can connect, drop and connect again for as long as the round
  * lasts. A round is started either by the mine command in Discord, or from the page's lobby
  * (startWebRun).

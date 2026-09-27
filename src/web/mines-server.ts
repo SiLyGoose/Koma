@@ -1,14 +1,14 @@
 import type { WebSocket } from 'ws';
 import { MINE_WEB } from '../constants/index.js';
-import { parseClientMessage, type ServerMessage } from './mine-protocol.js';
+import { parseClientMessage, type ServerMessage } from './mines-protocol.js';
 import { addWatcher, playerJoined, playerLeft, removeWatcher } from './live.js';
-import { findSession, lobbyFor, refuse, startWebRun, type MineSession, type Peer } from './mine-session.js';
+import { findSession, lobbyFor, refuse, startWebRun, type MineSession, type Peer } from './mines-session.js';
 import { playerKey, verifyToken, verifyWatchToken, type Player } from './token.js';
 
 /*
  * The web socket the mine's web page plays through (server.ts takes the connections, and only from
  * the site). A connection's first message must be `hello` with the token from the player's link. After that
- * it plays that player's run if one is going (mine-session.ts), and otherwise gets the lobby, from
+ * it plays that player's run if one is going (mines-session.ts), and otherwise gets the lobby, from
  * which it can start one. One page per player: a new one takes over from the one before.
  *
  * A connection can say `watch` instead, with a watch link's token: it then only follows another

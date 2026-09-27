@@ -15,7 +15,7 @@ export interface Collections {
   guilds: Collection<GuildDoc>;
   /** Points that are on a blackjack table right now (see services/blackjack.ts). */
   blackjackBets: Collection<BlackjackBetDoc>;
-  /** Runs in the mine being played right now (see services/mine.ts). */
+  /** Runs in the mine being played right now (see services/mines.ts). */
   mineRuns: Collection<MineRunDoc>;
   /** One Pinecraft world per member per server (see services/pinecraft.ts). */
   pinecraftWorlds: Collection<PinecraftWorldDoc>;

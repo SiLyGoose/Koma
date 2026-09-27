@@ -3,12 +3,12 @@ import { randomBytes } from 'node:crypto';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { MINE_TILES } from '../src/constants/index.js';
-import { multiplierFor, type MineRun } from '../src/lib/game/mine.js';
+import { multiplierFor, type MineRun } from '../src/lib/game/mines.js';
 import { gameLink, readWebConfig } from '../src/web/config.js';
-import { parseClientMessage, type ServerMessage } from '../src/web/mine-protocol.js';
-import { findSession, MineSession, type Peer, type SessionDeps } from '../src/web/mine-session.js';
+import { parseClientMessage, type ServerMessage } from '../src/web/mines-protocol.js';
+import { findSession, MineSession, type Peer, type SessionDeps } from '../src/web/mines-session.js';
 import { playerKey, signToken, verifyToken, type Player } from '../src/web/token.js';
-import { claimMiner, releaseMiner } from '../src/services/mine.js';
+import { claimMiner, releaseMiner } from '../src/services/mines.js';
 
 // ---------------------------------------------------------------------------
 // Links

@@ -39,7 +39,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Mine' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -173,11 +173,11 @@ export const SPECS: readonly SettingSpec[] = [
   int('blackjack.joinSeconds', 'Blackjack', 'Seconds a blackjack party stays open for joining.', 5, MAX_BLACKJACK_SECONDS),
   int('blackjack.turnSeconds', 'Blackjack', 'Seconds a blackjack player has to act before they stand.', 5, MAX_BLACKJACK_SECONDS),
 
-  int('mine.minBet', 'Mine', 'Smallest bet in the mine.', 1, MAX_POINTS),
-  int('mine.maxBet', 'Mine', 'Biggest bet in the mine.', 1, MAX_POINTS),
+  int('mine.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
+  int('mine.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
   {
     key: 'mine.edgeFewest',
-    group: 'Mine',
+    group: 'Mines',
     description: "The mine's house edge with 1 mine. With more mines it slides evenly to mine.edgeMost at the most mines.",
     type: 'number',
     min: 0,
@@ -186,7 +186,7 @@ export const SPECS: readonly SettingSpec[] = [
   },
   {
     key: 'mine.edgeMost',
-    group: 'Mine',
+    group: 'Mines',
     description: "The mine's house edge with the most mines (24).",
     type: 'number',
     min: 0,
@@ -195,7 +195,7 @@ export const SPECS: readonly SettingSpec[] = [
   },
   {
     key: 'mine.maxMultiplier',
-    group: 'Mine',
+    group: 'Mines',
     description: 'A mine round that reaches this multiplier is cashed out there by itself.',
     type: 'number',
     min: 1,

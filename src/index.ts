@@ -16,7 +16,7 @@ import { prepareShootingStars } from './animations/gacha-reply.js';
 import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/blackjack.js';
-import { cashOutLiveRuns, startMineSweeper } from './services/mine.js';
+import { cashOutLiveRuns, startMineSweeper } from './services/mines.js';
 import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';

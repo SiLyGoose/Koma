@@ -12,7 +12,7 @@ import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
 import { loadout } from './loadout.js';
-import { mine } from './mine.js';
+import { mines } from './mines.js';
 import { pinecraft } from './pinecraft.js';
 import { plinko } from './plinko.js';
 import { raid } from './raid.js';
@@ -38,7 +38,7 @@ export const commands: Command[] = [
   rob,
   plinko,
   blackjack,
-  mine,
+  mines,
   pinecraft,
   raid,
   leaderboard,

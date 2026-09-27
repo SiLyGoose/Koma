@@ -3,7 +3,7 @@ import { MINE_TILES } from '../constants/index.js';
 /*
  * What the mine's web page (the Koma-UI repo) and the bot say to each other over the WebSocket.
  * Every message is one JSON object with a `t` saying what it is. The page keeps a copy of these
- * types (src/protocol.ts there): change both together.
+ * types (src/mines/protocol.ts there): change both together.
  *
  * The bot holds the board. The page is only ever told what has been turned over, so nothing in the
  * page (or its dev tools) gives away where the mines are; the whole board is shown once the round is over.

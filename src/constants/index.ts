@@ -7,7 +7,7 @@
  *   - formatting.ts  stars, number locale, percent decimals, gear slot labels
  *   - loadouts.ts    how many gear loadouts a member has, and how long their names can be
  *   - discord.ts     slash commands, autocomplete, embed and button limits, avatars
- *   - gacha.ts, rob.ts, wheel.ts, d20.ts, stonks.ts, plinko.ts, blackjack.ts, mine.ts, events.ts,
+ *   - gacha.ts, rob.ts, wheel.ts, d20.ts, stonks.ts, plinko.ts, blackjack.ts, mines.ts, events.ts,
  *                    raid.ts
  *                    each feature's numbers
  *   - text/          every message the bot sends, one file per command or feature (TEXT)
@@ -38,7 +38,7 @@ export * from './d20.js';
 export * from './stonks.js';
 export * from './plinko.js';
 export * from './blackjack.js';
-export * from './mine.js';
+export * from './mines.js';
 export * from './pinecraft.js';
 export * from './events.js';
 export * from './raid.js';

@@ -8,7 +8,7 @@ import { gachaText } from './gacha.js';
 import { betText } from './bet.js';
 import { plinkoText } from './plinko.js';
 import { blackjackText } from './blackjack.js';
-import { mineText } from './mine.js';
+import { minesText } from './mines.js';
 import { pinecraftText } from './pinecraft.js';
 import { sellText } from './sell.js';
 import { inventoryText } from './inventory.js';
@@ -51,7 +51,7 @@ export const TEXT = {
   bet: betText,
   plinko: plinkoText,
   blackjack: blackjackText,
-  mine: mineText,
+  mines: minesText,
   pinecraft: pinecraftText,
   sell: sellText,
   inventory: inventoryText,

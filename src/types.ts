@@ -209,7 +209,7 @@ export type LedgerReason =
   | 'blackjack_double'
   | 'blackjack_payout'
   | 'blackjack_refund'
-  // The mine (commands/mine.ts): the bet, and what a cash out paid.
+  // The mine (commands/mines.ts): the bet, and what a cash out paid.
   | 'mine_bet'
   | 'mine_payout'
   // Pinecraft (commands/pinecraft.ts): an ore dug (points, no bet).
@@ -277,7 +277,7 @@ export interface BlackjackBetDoc {
  * out (a cash out, or nothing when dynamite went off), so a run is paid exactly once. `multiplier`
  * is saved after every ore, and `leaseUntil` pushed forward while the run is played; a run whose
  * lease has run out was cut short (the bot restarted) and the sweeper cashes it out at its
- * multiplier (see services/mine.ts).
+ * multiplier (see services/mines.ts).
  */
 export interface MineRunDoc {
   _id: string;

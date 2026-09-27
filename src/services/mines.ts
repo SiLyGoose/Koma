@@ -3,7 +3,7 @@ import { CONFIG } from '../config.js';
 import { MINE } from '../constants/index.js';
 import { collections } from '../db.js';
 import { checkBet, type BetRefusal } from '../lib/game/bet.js';
-import { payoutFor } from '../lib/game/mine.js';
+import { payoutFor } from '../lib/game/mines.js';
 import { sleep } from '../lib/time.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 import { addVaultLoss } from './vault.js';

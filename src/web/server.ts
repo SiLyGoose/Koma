@@ -3,13 +3,13 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { MINE_WEB } from '../constants/index.js';
 import { handleApi, type ApiDeps } from './api.js';
 import { GAMES } from './config.js';
-import { serveMine } from './mine-server.js';
+import { serveMine } from './mines-server.js';
 import { servePinecraft } from './pinecraft-server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
- * (api.ts), and takes the games' web sockets: the mine's (mine-server.ts) and Pinecraft's
+ * (api.ts), and takes the games' web sockets: the mine's (mines-server.ts) and Pinecraft's
  * (pinecraft-server.ts). Only the site's own origin may connect.
  */
 

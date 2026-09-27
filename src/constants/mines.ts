@@ -1,5 +1,5 @@
 /*
- * The mine, played like Stake's Mines (see lib/game/mine.ts): a 5 by 5 board with as many mines
+ * The mine, played like Stake's Mines (see lib/game/mines.ts): a 5 by 5 board with as many mines
  * hidden in it as the player chooses, the rest gems.
  */
 

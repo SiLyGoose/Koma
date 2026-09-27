@@ -2,7 +2,7 @@
  * Who is on the games' site right now, and who is watching whom. Kept in memory: it only describes
  * this moment.
  *
- * Presence: a member is on the site while one of the games' pages is connected for them (mine-server.ts,
+ * Presence: a member is on the site while one of the games' pages is connected for them (mines-server.ts,
  * pinecraft-server.ts say so, and keep a short line of what they're doing up to date), or while the
  * front page keeps asking the bot who's online (api.ts; that counts for HUB_TTL_MS after each ask).
  *
