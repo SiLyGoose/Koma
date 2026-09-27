@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import type { PinecraftOre } from '../constants/index.js';
+import { PINECRAFT_WORLD, type PinecraftOre } from '../constants/index.js';
 import { collections } from '../db.js';
 import { newWorld, type PinecraftRules, type PinecraftWorld } from '../lib/game/pinecraft.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
@@ -18,28 +18,25 @@ export interface LoadedWorld {
   earned: number;
 }
 
-/** A member's world, made (with a new seed, full energy) the first time they play. */
+/**
+ * A member's world, made (with a new seed, full energy) the first time they play. A world made with
+ * an older layout of the world is started over (its energy and what it earned are kept).
+ */
 export async function loadWorld(guildId: string, userId: string, rules: PinecraftRules, now = Date.now()): Promise<LoadedWorld> {
   const { pinecraftWorlds } = collections();
+  const _id = worldId(guildId, userId);
   const fresh = newWorld(randomInt(0, 2 ** 32), rules, now);
-  const doc = await pinecraftWorlds.findOneAndUpdate(
-    { _id: worldId(guildId, userId) },
-    {
-      $setOnInsert: {
-        guildId,
-        userId,
-        seed: fresh.seed,
-        mined: [],
-        x: fresh.x,
-        y: fresh.y,
-        energy: fresh.energy,
-        energyAt: new Date(fresh.energyAt),
-        earned: 0,
-        createdAt: new Date(now),
-      },
-    },
+  const layout = { seed: fresh.seed, version: PINECRAFT_WORLD.version, mined: [], x: fresh.x, y: fresh.y };
+  let doc = await pinecraftWorlds.findOneAndUpdate(
+    { _id },
+    { $setOnInsert: { guildId, userId, ...layout, energy: fresh.energy, energyAt: new Date(fresh.energyAt), earned: 0, createdAt: new Date(now) } },
     { upsert: true, returnDocument: 'after' },
   );
+  if (doc && doc.version !== PINECRAFT_WORLD.version) {
+    // Only if it is still the old one (another load may have just started it over).
+    const old = doc.version === undefined ? { $exists: false } : doc.version;
+    doc = (await pinecraftWorlds.findOneAndUpdate({ _id, version: old }, { $set: layout }, { returnDocument: 'after' })) ?? (await pinecraftWorlds.findOne({ _id }));
+  }
   if (!doc) throw new Error(`Could not load the Pinecraft world of ${userId}`);
   return {
     world: { seed: doc.seed, mined: new Set(doc.mined), x: doc.x, y: doc.y, energy: doc.energy, energyAt: doc.energyAt.getTime() },

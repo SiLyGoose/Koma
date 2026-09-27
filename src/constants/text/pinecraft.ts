@@ -4,8 +4,8 @@ export const pinecraftText = {
   title: '⛏️ Pinecraft',
   /** The message under `k!pinecraft`. */
   lobby: (user: string) =>
-    `${user}, press **Open Pinecraft** to go down your mine in the browser. Dig with WASD or the arrow keys: ` +
-    'every block takes one ⚡ energy, and the ores you dig pay out straight away. The deeper you go, the rarer the ores.',
+    `${user}, press **Open Pinecraft** to go down your mine in the browser. Hold WASD or the arrow keys against a block to break it: ` +
+    'every block takes one ⚡ energy, and the ores you find pay out straight away. The rarer the ore, the longer it takes to break.',
   energyField: '⚡ Energy',
   energyValue: (energy: number, max: number, full: string | null) => `**${energy}** / ${max}${full ? ` (full ${full})` : ''}`,
   earnedField: 'Earned from ores',

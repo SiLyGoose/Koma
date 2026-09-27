@@ -3,10 +3,10 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { CONFIG, DEFAULTS } from '../src/config.js';
-import { PINECRAFT_ORES, PINECRAFT_ORE_TABLE, PINECRAFT_WORLD } from '../src/constants/index.js';
+import { PINECRAFT_BREAK_MS, PINECRAFT_ORES, PINECRAFT_ORE_WEIGHTS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../src/constants/index.js';
 import { findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 import {
-  depthOf,
+  breakMs,
   energyNow,
   groundAt,
   indexOf,
@@ -26,13 +26,14 @@ import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft-pro
 import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/pinecraft-server.js';
 import { verifyToken } from '../src/web/token.js';
 
-const RULES: PinecraftRules = { maxEnergy: 10, energyMinutes: 3, value: { coal: 3, iron: 6, gold: 15, diamond: 35, ruby: 60, emerald: 100 } };
+const RULES: PinecraftRules = { maxEnergy: 10, energyMinutes: 3, value: { coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, ruby: 40 } };
+const { size: SIZE } = PINECRAFT_WORLD;
 const MINUTE = 60_000;
 
-/** A block of `ground` (and holding `ore`, or none) somewhere in the world with `seed`, at least `minDepth` down. */
-function find(seed: number, want: (x: number, y: number) => boolean, minDepth = 1): { x: number; y: number } {
-  for (let y = PINECRAFT_WORLD.sky + minDepth; y < PINECRAFT_WORLD.depth - 1; y++) {
-    for (let x = 1; x < PINECRAFT_WORLD.width - 1; x++) if (want(x, y)) return { x, y };
+/** The first block in the world with `seed` that `want` says yes to, at least 5 blocks from the start. */
+function find(seed: number, want: (x: number, y: number) => boolean): { x: number; y: number } {
+  for (let y = 1; y < SIZE - 1; y++) {
+    for (let x = 1; x < SIZE - 1; x++) if (Math.max(Math.abs(x - SPAWN.x), Math.abs(y - SPAWN.y)) >= 5 && want(x, y)) return { x, y };
   }
   throw new Error('No such block');
 }
@@ -49,66 +50,75 @@ function worldAt(seed: number, x: number, y: number): PinecraftWorld {
 // ---------------------------------------------------------------------------
 // The world
 
-test('pinecraft: a world is the same every time for its seed, with sky, grass, dirt, stone and bedrock in order', () => {
-  for (let x = 0; x < PINECRAFT_WORLD.width; x++) {
-    assert.equal(groundAt(5, x, 0), 'sky');
-    assert.equal(groundAt(5, x, PINECRAFT_WORLD.sky), 'grass');
-    assert.equal(groundAt(5, x, PINECRAFT_WORLD.sky + 1), 'dirt');
-    assert.equal(groundAt(5, x, PINECRAFT_WORLD.depth - 1), 'bedrock');
-  }
-  const deep = PINECRAFT_WORLD.sky + PINECRAFT_WORLD.dirtRows + PINECRAFT_WORLD.mixRows + 1;
-  for (let x = 0; x < PINECRAFT_WORLD.width; x++) assert.ok(['stone', 'cave'].includes(groundAt(5, x, deep + 20)));
-  for (let y = 0; y < 100; y++) for (let x = 0; x < PINECRAFT_WORLD.width; x++) assert.equal(oreAt(5, x, y), oreAt(5, x, y));
-  // Different seeds, different worlds.
-  const differs = Array.from({ length: 200 }, (_, y) => y).some((y) => oreAt(1, 10, y) !== oreAt(2, 10, y) || groundAt(1, 10, y) !== groundAt(2, 10, y));
-  assert.ok(differs);
-});
-
-test('pinecraft: ores only turn up in ground, and each only from its depth down', () => {
-  let found = 0;
-  for (let seed = 1; seed <= 5; seed++) {
-    for (let y = 0; y < PINECRAFT_WORLD.depth; y++) {
-      for (let x = 0; x < PINECRAFT_WORLD.width; x++) {
-        const ore = oreAt(seed, x, y);
-        if (!ore) continue;
-        found++;
-        assert.ok(['dirt', 'stone'].includes(groundAt(seed, x, y)));
-        assert.ok(depthOf(y) >= PINECRAFT_ORE_TABLE[ore].from, `${ore} at depth ${depthOf(y)}`);
+test('pinecraft: a world is all underground: an open 3x3 room in the middle, dirt all around it, then dirt, stone and bedrock', () => {
+  for (const seed of [1, 5, 99]) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const ring = Math.max(Math.abs(dx), Math.abs(dy)) === 2;
+        assert.equal(groundAt(seed, SPAWN.x + dx, SPAWN.y + dy), ring ? 'dirt' : 'open', `${dx},${dy}`);
+        assert.equal(oreAt(seed, SPAWN.x + dx, SPAWN.y + dy), null);
       }
     }
   }
-  assert.ok(found > 500);
-  // Every ore can be found in some world.
-  for (const ore of PINECRAFT_ORES) find(1, (x, y) => oreAt(1, x, y) === ore);
+  assert.deepEqual(SPAWN, { x: (SIZE - 1) / 2, y: (SIZE - 1) / 2 });
+  // The same every time for its seed; another seed, another world.
+  const cells = (seed: number) => Array.from({ length: 300 }, (_, k) => `${groundAt(seed, 10 + k, 20)}${oreAt(seed, 10 + k, 20)}`).join();
+  assert.equal(cells(1), cells(1));
+  assert.notEqual(cells(1), cells(2));
+});
+
+test('pinecraft: past the room there are dirt, stone, a little bedrock, and every ore anywhere, rarer ones less often', () => {
+  const counts: Record<string, number> = {};
+  let blocks = 0;
+  for (let y = 0; y < SIZE; y += 2) {
+    for (let x = 0; x < SIZE; x++) {
+      blocks++;
+      const kind = oreAt(4, x, y) ?? groundAt(4, x, y);
+      counts[kind] = (counts[kind] ?? 0) + 1;
+      if (oreAt(4, x, y)) assert.ok(['dirt', 'stone'].includes(groundAt(4, x, y)));
+    }
+  }
+  const share = (kind: string): number => (counts[kind] ?? 0) / blocks;
+  assert.ok(share('dirt') > 0.3 && share('stone') > 0.2, 'both dirt and stone');
+  assert.ok(share('bedrock') > 0.01 && share('bedrock') < 0.06, `bedrock ${share('bedrock')}`);
+  const ores = PINECRAFT_ORES.map(share);
+  assert.ok(Math.abs(ores.reduce((a, b) => a + b, 0) - PINECRAFT_WORLD.oreChance) < 0.02);
+  // Every ore turns up, each a little rarer than the one before, and ruby isn't too rare.
+  for (let k = 1; k < ores.length; k++) assert.ok((ores[k] as number) < (ores[k - 1] as number), PINECRAFT_ORES[k]);
+  assert.ok(share('ruby') > 0.003, `ruby ${share('ruby')}`);
+  assert.ok(PINECRAFT_ORE_WEIGHTS.ruby / PINECRAFT_ORE_WEIGHTS.coal > 0.1);
+  // Near the room and far from it alike.
+  for (const ore of PINECRAFT_ORES) {
+    find(1, (x, y) => oreAt(1, x, y) === ore && Math.abs(y - SPAWN.y) < 30);
+    find(1, (x, y) => oreAt(1, x, y) === ore && y < 30);
+  }
 });
 
 // ---------------------------------------------------------------------------
 // Moving, digging and energy
 
-test('pinecraft: walking through sky and dug ground is free; digging a block takes one energy and moves into it', () => {
+test('pinecraft: walking through the room and dug ground is free; digging a block takes one energy and moves into it', () => {
   const world = newWorld(3, RULES, 0);
   assert.deepEqual({ x: world.x, y: world.y }, SPAWN);
   assert.deepEqual(move(world, 'left', RULES, 0), { kind: 'walk' });
-  assert.equal(world.energy, RULES.maxEnergy);
   assert.deepEqual(move(world, 'up', RULES, 0), { kind: 'walk' });
-  assert.deepEqual(move(world, 'down', RULES, 0), { kind: 'walk' });
-  const dig = move(world, 'down', RULES, 0);
-  assert.equal(dig.kind, 'dig');
-  assert.deepEqual(dig.kind === 'dig' && { ground: dig.ground, ore: dig.ore, points: dig.points }, { ground: 'grass', ore: null, points: 0 });
+  assert.equal(world.energy, RULES.maxEnergy);
+  const dig = move(world, 'up', RULES, 0);
+  assert.deepEqual(dig.kind === 'dig' && { ground: dig.ground, ore: dig.ore, points: dig.points }, { ground: 'dirt', ore: null, points: 0 });
   assert.equal(world.energy, RULES.maxEnergy - 1);
-  assert.equal(world.y, PINECRAFT_WORLD.sky);
+  assert.deepEqual({ x: world.x, y: world.y }, { x: SPAWN.x - 1, y: SPAWN.y - 2 });
   assert.ok(isOpen(world, world.x, world.y));
-  // Back up and down again: it is dug now, so it's free.
-  move(world, 'up', RULES, 0);
-  assert.deepEqual(move(world, 'down', RULES, 0), { kind: 'walk' });
+  // Back and forth again: it is dug now, so it's free.
+  move(world, 'down', RULES, 0);
+  assert.deepEqual(move(world, 'up', RULES, 0), { kind: 'walk' });
   assert.equal(world.energy, RULES.maxEnergy - 1);
 });
 
 test('pinecraft: an ore pays its value when dug', () => {
-  const at = find(8, (x, y) => oreAt(8, x, y) === 'iron' && groundAt(8, x - 1, y) !== 'cave');
+  const at = find(8, (x, y) => oreAt(8, x, y) === 'iron');
   const world = worldAt(8, at.x - 1, at.y);
   const result = move(world, 'right', RULES, 0);
-  assert.deepEqual(result, { kind: 'dig', ground: groundAt(8, at.x, at.y), ore: 'iron', points: 6, index: indexOf(at.x, at.y) });
+  assert.deepEqual(result, { kind: 'dig', ground: groundAt(8, at.x, at.y), ore: 'iron', points: 4, index: indexOf(at.x, at.y) });
 });
 
 test('pinecraft: the edge and bedrock stop the miner, and with no energy nothing is dug', () => {
@@ -118,15 +128,18 @@ test('pinecraft: the edge and bedrock stop the miner, and with no energy nothing
   world.y = 0;
   assert.deepEqual(move(world, 'up', RULES, 0), { kind: 'edge' });
 
-  const bottom = worldAt(3, 10, PINECRAFT_WORLD.depth - 2);
-  assert.deepEqual(move(bottom, 'down', RULES, 0), { kind: 'bedrock' });
-  assert.equal(bottom.energy, RULES.maxEnergy);
+  const rock = find(3, (x, y) => groundAt(3, x, y) === 'bedrock');
+  const nextTo = worldAt(3, rock.x, rock.y + 1);
+  assert.deepEqual(move(nextTo, 'up', RULES, 0), { kind: 'bedrock' });
+  assert.equal(nextTo.energy, RULES.maxEnergy);
+  assert.equal(breakMs(nextTo, rock.x, rock.y), null);
 
   const tired = newWorld(3, RULES, 0);
   tired.energy = 0;
   tired.energyAt = 0;
+  tired.y = SPAWN.y + 1;
   assert.deepEqual(move(tired, 'down', RULES, MINUTE), { kind: 'tired' });
-  assert.equal(tired.y, SPAWN.y);
+  assert.equal(tired.y, SPAWN.y + 1);
   assert.equal(tired.mined.size, 0);
 });
 
@@ -137,34 +150,46 @@ test('pinecraft: energy comes back one every energyMinutes, up to the most, and 
   // Digging from full: the next one comes back energyMinutes after that dig.
   const world = newWorld(3, RULES, 0);
   move(world, 'down', RULES, 5 * MINUTE);
+  move(world, 'down', RULES, 5 * MINUTE);
   assert.deepEqual({ energy: world.energy, energyAt: world.energyAt }, { energy: 9, energyAt: 5 * MINUTE });
   assert.equal(energyNow(world, RULES, 8 * MINUTE).energy, 10);
 });
 
-test('pinecraft: the page is only shown the ores next to ground the miner can walk to', () => {
-  const seed = 11;
-  const at = find(seed, (x, y) => oreAt(seed, x, y) !== null && groundAt(seed, x, y - 1) !== 'cave' && groundAt(seed, x, y - 2) !== 'cave' && oreAt(seed, x, y - 1) === null, 30);
-  // Tunnel straight down from the grass to two blocks above the ore.
-  const world = newWorld(seed, RULES, 0);
-  world.x = at.x;
-  for (let y = PINECRAFT_WORLD.sky; y <= at.y - 2; y++) world.mined.add(indexOf(at.x, y));
-  world.y = at.y - 2;
-  const rows = (w: PinecraftWorld) => viewRows(w, at.y, at.y, 40)[0] as string;
-  assert.match(rows(world)[at.x] as string, /[DS]/); // hidden: not next to the tunnel yet
-  // One more block down, and it's next to the tunnel.
-  world.mined.add(indexOf(at.x, at.y - 1));
-  world.y = at.y - 1;
-  assert.match(rows(world)[at.x] as string, /[ciorxe]/);
-  // The tunnel itself is open, and the sky is too.
-  assert.equal(viewRows(world, at.y - 1, at.y - 1, 40)[0]?.[at.x], '.');
-  assert.equal(viewRows(world, 0, 0, 400)[0], '.'.repeat(PINECRAFT_WORLD.width));
+test('pinecraft: the page is only shown the blocks next to ground the miner can walk to', () => {
+  const world = newWorld(11, RULES, 0);
+  const view = (w: PinecraftWorld) => viewRows(w, SPAWN.x - 4, SPAWN.y - 4, SPAWN.x + 4, SPAWN.y + 4, 40);
+  // At the start: the room, the dirt around it, and nothing further.
+  assert.deepEqual(view(world), ['?????????', '?????????', '???ddd???', '??d...d??', '??d...d??', '??d...d??', '???ddd???', '?????????', '?????????']);
+  // Tunnel two blocks up: the blocks beside the tunnel show, whatever they hold.
+  for (const y of [SPAWN.y - 2, SPAWN.y - 3]) world.mined.add(indexOf(SPAWN.x, y));
+  const rows = view(world);
+  assert.equal(rows[1]?.[4], '.');
+  for (const [row, col] of [[0, 4], [1, 3], [1, 5], [2, 3], [2, 5]] as const) assert.notEqual(rows[row]?.[col], '?', `${row},${col}`);
+  assert.equal(rows[0]?.[3], '?');
+  // An ore beside a tunnel shows as that ore.
+  const ore = find(11, (x, y) => oreAt(11, x, y) !== null);
+  const next = worldAt(11, ore.x - 1, ore.y);
+  assert.match(viewRows(next, ore.x, ore.y, ore.x, ore.y, 40)[0] ?? '', /^[ciorxe]$/);
+});
+
+test('pinecraft: blocks take longer to break from dirt to stone to the ores, ruby longest, and open ground and bedrock not at all', () => {
+  const order = ['dirt', 'stone', 'coal', 'iron', 'gold', 'diamond', 'emerald', 'ruby'] as const;
+  for (let k = 1; k < order.length; k++) assert.ok(PINECRAFT_BREAK_MS[order[k] as 'dirt'] > PINECRAFT_BREAK_MS[order[k - 1] as 'dirt'], order[k]);
+  const world = newWorld(9, RULES, 0);
+  assert.equal(breakMs(world, SPAWN.x, SPAWN.y), null); // the room
+  assert.equal(breakMs(world, SPAWN.x, SPAWN.y + 2), PINECRAFT_BREAK_MS.dirt);
+  assert.equal(breakMs(world, -1, 5), null);
+  const gold = find(9, (x, y) => oreAt(9, x, y) === 'gold');
+  assert.equal(breakMs(world, gold.x, gold.y), PINECRAFT_BREAK_MS.gold);
+  const stone = find(9, (x, y) => groundAt(9, x, y) === 'stone' && oreAt(9, x, y) === null);
+  assert.equal(breakMs(world, stone.x, stone.y), PINECRAFT_BREAK_MS.stone);
 });
 
 // ---------------------------------------------------------------------------
 // Settings
 
 test('pinecraft: the settings exist, are in their own group, and start at the tuned values', () => {
-  assert.deepEqual(DEFAULTS.pinecraft, { maxEnergy: 100, energyMinutes: 3, value: { coal: 3, iron: 6, gold: 15, diamond: 35, ruby: 60, emerald: 100 } });
+  assert.deepEqual(DEFAULTS.pinecraft, { maxEnergy: 100, energyMinutes: 3, value: { coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, ruby: 40 } });
   assert.deepEqual(CONFIG.pinecraft, DEFAULTS.pinecraft);
   const keys = SPECS.filter((s) => s.key.startsWith('pinecraft.')).map((s) => s.key);
   assert.deepEqual(keys, ['pinecraft.maxEnergy', 'pinecraft.energyMinutes', ...PINECRAFT_ORES.map((ore) => `pinecraft.value.${ore}`)]);
@@ -178,13 +203,15 @@ test('pinecraft: the settings exist, are in their own group, and start at the tu
 test('pinecraft web: only well-formed messages from the page are read', () => {
   assert.deepEqual(parseClientMessage('{"t":"hello","token":"a.b"}'), { t: 'hello', token: 'a.b' });
   assert.deepEqual(parseClientMessage('{"t":"move","dir":"down","seq":3}'), { t: 'move', dir: 'down', seq: 3 });
+  assert.deepEqual(parseClientMessage('{"t":"mine","dir":"left"}'), { t: 'mine', dir: 'left' });
   for (const bad of ['', 'null', '{"t":"move","dir":"north","seq":1}', '{"t":"move","dir":"up","seq":0}', '{"t":"move","dir":"up"}', '{"t":"cashout","seq":1}']) {
     assert.equal(parseClientMessage(bad), null, bad);
   }
 });
 
 function fakeDeps(seed: number) {
-  const saved = { digs: [] as number[], where: 0, paid: [] as [string, number][] };
+  const saved = { digs: [] as number[], where: 0, paid: [] as [string, number][], waits: [] as number[] };
+  const clock = { now: 0 };
   let balance = 500;
   const deps: PinecraftDeps = {
     load: async () => ({ world: newWorld(seed, RULES, 0), earned: 0 }),
@@ -196,15 +223,50 @@ function fakeDeps(seed: number) {
     },
     balance: async () => balance,
     rules: () => RULES,
-    now: () => 0,
+    now: () => clock.now,
+    sleep: async (ms) => {
+      saved.waits.push(ms);
+      clock.now += ms;
+    },
   };
-  return { deps, saved };
+  return { deps, saved, clock };
 }
+
+/** How long block (x, y) of the world with `seed` takes to break, before anything is dug. */
+const breakTime = (seed: number, x: number, y: number): number => breakMs(newWorld(seed, RULES, 0), x, y) as number;
 
 function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean } {
   const peer = { got: [] as ServerMessage[], closed: false, send: (m: ServerMessage) => void peer.got.push(m), close: () => void (peer.closed = true) };
   return peer;
 }
+
+test('pinecraft web: a block is only broken once its break time has passed since the page started on it', async () => {
+  const { deps, saved, clock } = fakeDeps(4);
+  const session = await sessionFor({ guildId: 'g2', userId: 'u2', name: 'Simon' }, deps);
+  const peer = fakePeer();
+  session.attach(peer);
+  const grace = PINECRAFT_WEB.breakGraceMs;
+  // To the edge of the room (a walk), then the dirt below it.
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 1 });
+  // Started, then finished after the dirt's time: no wait.
+  await session.startBreaking(peer, 'down');
+  clock.now += PINECRAFT_BREAK_MS.dirt;
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 2 });
+  assert.deepEqual(saved.waits, []);
+  assert.equal(saved.digs.length, 1);
+  // Finished too soon: held until the time is up (less the grace).
+  await session.startBreaking(peer, 'down');
+  clock.now += 100;
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 3 });
+  assert.deepEqual(saved.waits, [breakTime(4, SPAWN.x, SPAWN.y + 3) - 100 - grace]);
+  // Never started: the whole time. Walking through open ground never waits.
+  await session.handle(peer, { t: 'move', dir: 'down', seq: 4 });
+  assert.equal(saved.waits[1], breakTime(4, SPAWN.x, SPAWN.y + 4) - grace);
+  await session.handle(peer, { t: 'move', dir: 'up', seq: 5 });
+  assert.equal(saved.waits.length, 2);
+  assert.equal(saved.digs.length, 3);
+  await leave(session, peer);
+});
 
 test('pinecraft web: a dig is saved before its ore is paid, and a new page takes over the same world', async () => {
   const { deps, saved } = fakeDeps(4);
@@ -218,20 +280,25 @@ test('pinecraft web: a dig is saved before its ore is paid, and a new page takes
   assert.equal(hello.seq, 0);
   assert.equal(hello.state.energy, RULES.maxEnergy);
   assert.equal(hello.state.balance, 500);
-  assert.equal(hello.state.rows.length, hello.state.y - hello.state.top + 15);
+  assert.equal(hello.state.rows.length, 2 * PINECRAFT_WEB.viewRows + 1);
+  assert.equal(hello.state.rows[0]?.length, 2 * PINECRAFT_WEB.viewCols + 1);
+  assert.deepEqual({ x: hello.state.x - hello.state.left, y: hello.state.y - hello.state.top }, { x: PINECRAFT_WEB.viewCols, y: PINECRAFT_WEB.viewRows });
+  assert.equal(hello.state.dug, 0);
 
   await session.handle(first, { t: 'move', dir: 'down', seq: 1 });
-  const dug = first.got[1];
+  await session.handle(first, { t: 'move', dir: 'down', seq: 2 });
+  const dug = first.got[2];
   assert.ok(dug?.t === 'state');
-  assert.deepEqual(dug.event, { kind: 'dig', ground: 'grass', ore: null, points: 0 });
+  assert.deepEqual(dug.event, { kind: 'dig', ground: 'dirt', ore: null, points: 0 });
   assert.equal(dug.state.energy, RULES.maxEnergy - 1);
-  assert.deepEqual(saved.digs, [indexOf(SPAWN.x, SPAWN.y + 1)]);
+  assert.equal(dug.state.dug, 1);
+  assert.deepEqual(saved.digs, [indexOf(SPAWN.x, SPAWN.y + 2)]);
 
   // Another page takes over: the first is no longer listened to.
   const second = fakePeer();
   session.attach(second);
-  await session.handle(first, { t: 'move', dir: 'down', seq: 2 });
-  assert.equal(first.got.length, 2);
+  await session.handle(first, { t: 'move', dir: 'down', seq: 3 });
+  assert.equal(first.got.length, 3);
   await leave(session, first); // the old page closing changes nothing
   assert.equal(await sessionFor(player, deps), session);
   await leave(session, second);

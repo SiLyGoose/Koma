@@ -1,7 +1,7 @@
 import type { WebSocket } from 'ws';
 import { CONFIG } from '../config.js';
-import { MINE_WEB, PINECRAFT_ORE_TABLE, PINECRAFT_ORES, PINECRAFT_WEB, PINECRAFT_WORLD, type PinecraftOre } from '../constants/index.js';
-import { energyNow, move, viewRows, type PinecraftRules } from '../lib/game/pinecraft.js';
+import { MINE_WEB, PINECRAFT_BREAK_MS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../constants/index.js';
+import { breakMs, energyNow, indexOf, move, stepFrom, viewRows, type PinecraftRules } from '../lib/game/pinecraft.js';
 import { getBalance } from '../services/economy/index.js';
 import { loadWorld, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
 import { parseClientMessage, type ClientMessage, type ErrorCode, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
@@ -12,6 +12,10 @@ import { playerKey, verifyToken, type Player } from './token.js';
  * site). A connection's first message must be `hello` with the token from the player's link; then
  * the player's world is loaded and they can move. One page per player: a new one takes over from
  * the one before, carrying on with the same world.
+ *
+ * Blocks take time to break (PINECRAFT_BREAK_MS). The page says when it starts on one (`mine`) and
+ * sends the move when it is done; the bot holds that move until the block's time is up, counted from
+ * the `mine`, so a page can't break blocks faster than they break.
  *
  * The world is kept in memory while it is played. A block dug is saved before its ore is paid, and
  * where the miner is gets saved a few seconds after they stop walking, and when the page goes away.
@@ -32,6 +36,7 @@ export interface PinecraftDeps {
   balance: (guildId: string, userId: string) => Promise<number>;
   rules: () => PinecraftRules;
   now: () => number;
+  sleep: (ms: number) => Promise<void>;
 }
 
 const realDeps: PinecraftDeps = {
@@ -42,17 +47,18 @@ const realDeps: PinecraftDeps = {
   balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
   rules: () => CONFIG.pinecraft,
   now: Date.now,
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
 
 /** How long after the last walk where the miner is gets saved. */
 const SAVE_AFTER_MS = 5000;
 
-const FROM = Object.fromEntries(PINECRAFT_ORES.map((ore) => [ore, PINECRAFT_ORE_TABLE[ore].from])) as Record<PinecraftOre, number>;
-
 export class PinecraftSession {
   peer: Peer | null = null;
   private queue: Promise<void> = Promise.resolve();
   private saveTimer: NodeJS.Timeout | null = null;
+  /** The block the page started breaking (by index), and when. */
+  private breaking: { index: number; since: number } | null = null;
 
   constructor(
     readonly player: Player,
@@ -65,6 +71,18 @@ export class PinecraftSession {
   attach(peer: Peer): void {
     this.peer = peer;
     peer.send({ t: 'state', seq: 0, state: this.view() });
+  }
+
+  /** The page starts breaking the block `dir` of the miner. */
+  startBreaking(peer: Peer, dir: Extract<ClientMessage, { t: 'mine' }>['dir']): Promise<void> {
+    // Timed from when it came, but worked out after any move before it (which moves the miner).
+    const since = this.deps.now();
+    this.queue = this.queue.then(() => {
+      if (peer !== this.peer) return;
+      const { x, y } = stepFrom(this.loaded.world, dir);
+      this.breaking = breakMs(this.loaded.world, x, y) === null ? null : { index: indexOf(x, y), since };
+    });
+    return this.queue;
   }
 
   /** A move from the page. Resolves once it has been worked out. */
@@ -83,6 +101,17 @@ export class PinecraftSession {
     if (peer !== this.peer) return;
     const { world } = this.loaded;
     const { guildId, userId } = this.player;
+    // Into a block: not until it has had its time to break, from when the page started on it.
+    const at = stepFrom(world, message.dir);
+    const takes = breakMs(world, at.x, at.y);
+    if (takes !== null) {
+      const index = indexOf(at.x, at.y);
+      const since = this.breaking?.index === index ? this.breaking.since : this.deps.now();
+      const wait = since + takes - PINECRAFT_WEB.breakGraceMs - this.deps.now();
+      if (wait > 0) await this.deps.sleep(wait);
+      if (peer !== this.peer) return;
+    }
+    this.breaking = null;
     const result = move(world, message.dir, this.deps.rules(), this.deps.now());
     let event: WorldEvent;
     if (result.kind === 'dig') {
@@ -123,16 +152,16 @@ export class PinecraftSession {
     const rules = this.deps.rules();
     const now = this.deps.now();
     const { energy, energyAt } = energyNow(world, rules, now);
-    const top = Math.max(0, world.y - PINECRAFT_WEB.rowsAbove);
-    const bottom = Math.min(PINECRAFT_WORLD.depth - 1, world.y + PINECRAFT_WEB.rowsBelow);
+    const { viewCols, viewRows: rowsAround, look } = PINECRAFT_WEB;
+    const left = Math.max(0, world.x - viewCols);
+    const top = Math.max(0, world.y - rowsAround);
     const per = rules.energyMinutes * 60_000;
     return {
       player: this.player.name,
-      width: PINECRAFT_WORLD.width,
-      depth: PINECRAFT_WORLD.depth,
-      sky: PINECRAFT_WORLD.sky,
+      size: PINECRAFT_WORLD.size,
+      left,
       top,
-      rows: viewRows(world, top, bottom, PINECRAFT_WEB.lookRows),
+      rows: viewRows(world, left, top, world.x + viewCols, world.y + rowsAround, look),
       x: world.x,
       y: world.y,
       energy,
@@ -141,8 +170,9 @@ export class PinecraftSession {
       energyMs: per,
       balance: this.balance,
       earned,
+      dug: world.mined.size,
       values: { ...rules.value },
-      from: FROM,
+      breakMs: { ...PINECRAFT_BREAK_MS },
     };
   }
 }
@@ -222,6 +252,7 @@ export function servePinecraft(socket: WebSocket, deps: PinecraftDeps = realDeps
       }
 
       if (!session || session.peer !== peer) return refuse(peer, 'bad_message');
+      if (message.t === 'mine') return void (await session.startBreaking(peer, message.dir));
       await session.handle(peer, message);
     })();
   });

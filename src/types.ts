@@ -299,7 +299,9 @@ export interface PinecraftWorldDoc {
   guildId: string;
   userId: string;
   seed: number;
-  /** The blocks dug, by index (row * width + column). */
+  /** Which layout of the world it was made with (PINECRAFT_WORLD.version); missing is the first. */
+  version?: number;
+  /** The blocks dug, by index (row * size + column). */
   mined: number[];
   x: number;
   y: number;

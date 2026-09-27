@@ -10,21 +10,23 @@ import type { Direction } from '../lib/game/pinecraft.js';
  * can see in them (see viewRows in lib/game/pinecraft.ts).
  *
  *   page -> bot   hello    first message: the token from the link
- *                 move     one step; `seq` counts up from 1 with every move
+ *                 mine     starts breaking the block that way (no answer)
+ *                 move     one step; `seq` counts up from 1 with every move. Into a block, it finishes
+ *                          breaking it: the bot holds the move until the block's break time has
+ *                          passed since its `mine` (or since now, without one)
  *   bot -> page   state    the world around the miner, after the page's move `seq` (0: not after one)
  *                 error    and the bot closes the connection
  */
 
-export type ClientMessage = { t: 'hello'; token: string } | { t: 'move'; dir: Direction; seq: number };
+export type ClientMessage = { t: 'hello'; token: string } | { t: 'mine'; dir: Direction } | { t: 'move'; dir: Direction; seq: number };
 
 export interface WorldState {
   /** The player's name. */
   player: string;
-  /** Blocks across, rows in all, and rows of sky at the top. */
-  width: number;
-  depth: number;
-  sky: number;
-  /** The rows sent start at row `top`; one string per row, a letter per block (see viewRows). */
+  /** The world is size by size blocks. */
+  size: number;
+  /** The blocks around the miner: one string per row, a letter per block, from block (left, top). */
+  left: number;
   top: number;
   rows: string[];
   x: number;
@@ -36,17 +38,19 @@ export interface WorldState {
   energyMs: number;
   /** The player's points (null if unknown). */
   balance: number | null;
-  /** Points this world's ores have paid, all told. */
+  /** Points this world's ores have paid, all told, and blocks dug. */
   earned: number;
-  /** What each ore pays, and how many rows down it starts to turn up. */
+  dug: number;
+  /** What each ore pays. */
   values: Record<PinecraftOre, number>;
-  from: Record<PinecraftOre, number>;
+  /** How long each block takes to break, in ms. */
+  breakMs: Record<'dirt' | 'stone' | PinecraftOre, number>;
 }
 
 /** What the page's last move did. */
 export type WorldEvent =
   | { kind: 'walk' | 'edge' | 'bedrock' | 'tired' }
-  | { kind: 'dig'; ground: 'grass' | 'dirt' | 'stone'; ore: PinecraftOre | null; points: number };
+  | { kind: 'dig'; ground: 'dirt' | 'stone'; ore: PinecraftOre | null; points: number };
 
 export type ErrorCode =
   /** The link's token is wrong or too old (or the bot restarted since). */
@@ -73,6 +77,7 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
   if (m.t === 'hello' && typeof m.token === 'string' && m.token.length <= 512) return { t: 'hello', token: m.token };
+  if (m.t === 'mine' && typeof m.dir === 'string' && DIRECTIONS.has(m.dir)) return { t: 'mine', dir: m.dir as Direction };
   if (m.t === 'move' && typeof m.seq === 'number' && Number.isSafeInteger(m.seq) && m.seq > 0 && typeof m.dir === 'string' && DIRECTIONS.has(m.dir)) {
     return { t: 'move', dir: m.dir as Direction, seq: m.seq };
   }

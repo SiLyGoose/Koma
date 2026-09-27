@@ -261,12 +261,12 @@ export const DEFAULTS: Readonly<Settings> = {
     fieldBonus: 1,
     value: { coal: 0.1, iron: 0.2, gold: 0.5, diamond: 1 },
   },
-  // 100 energy, one back every 3 minutes (480 a day). About 1 block in 11 holds an ore; around 40
-  // rows down an ore averages about 9 points, rarer and richer ones deeper.
+  // 100 energy, one back every 3 minutes (480 a day). A block holds an ore 1 time in 10, anywhere;
+  // an ore averages about 9 points (coal is most of them), so digging pays about 1 point a block.
   pinecraft: {
     maxEnergy: 100,
     energyMinutes: 3,
-    value: { coal: 3, iron: 6, gold: 15, diamond: 35, ruby: 60, emerald: 100 },
+    value: { coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, ruby: 40 },
   },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has
