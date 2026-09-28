@@ -12,7 +12,7 @@ const round = (n: number): number => Math.round(n * 1e6) / 1e6;
 
 test('thoccy: the Thoccy Keyboard is a 4-star unique treasure, only for its owner', () => {
   assert.deepEqual({ name: KEYBOARD.name, stars: KEYBOARD.stars, slot: KEYBOARD.slot }, { name: 'Thoccy Keyboard', stars: 4, slot: 'treasure' });
-  assert.equal(MEMBERS.thoccy, '257061151542607872');
+  assert.equal(MEMBERS.trina, '257061151542607872');
   assert.ok(canUseItem(KEYBOARD, '257061151542607872'));
   assert.ok(!canUseItem(KEYBOARD, '137980346393165824'));
   assert.equal(ROB_STREAK_WINDOW_MS, 6 * 60 * 60 * 1000);

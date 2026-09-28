@@ -211,6 +211,15 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['energyRegen'],
   },
 
+  {
+    id: 'diamond-pickaxe',
+    name: 'Diamond Pickaxe',
+    stars: 3,
+    slot: 'weapon',
+    description: 'Sharper, sturdier, shinier.',
+    effects: ['pickaxeSpeed', 'pickaxeEnergyPenalty'],
+  },
+
   // 4 stars
   {
     id: 'c4',
@@ -301,6 +310,14 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'treasure',
     description: 'Clack clack clack.',
     effects: ['robStreak', 'robStreakCap', 'robVulnerable'],
+  },
+  {
+    id: 'ruby-pickaxe',
+    name: 'Ruby Pickaxe',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Every swing feels lucky.',
+    effects: ['pickaxeSpeed', 'pickaxeEnergyPenalty', 'luckyOre'],
   },
   {
     id: 'dynamite-stick',

@@ -16,7 +16,7 @@ const ordinal = (n: number): string => {
 /** Golden Pickaxe: blocks break faster (50% faster takes 2/3 as long). 25% at R1. */
 export const pickaxeSpeed = definePerk({
   description: 'Pinecraft: how much faster the wearer breaks blocks (50% faster takes 2/3 as long). Half as much at R1.',
-  defaults: { 1: 0.5, 2: 0.5, 3: 0.5, 4: 0.5 },
+  defaults: { 1: 0.2, 2: 0.5, 3: 2, 4: 4 },
   min: 0,
   max: 10,
   atR1: 0.5,
@@ -26,7 +26,7 @@ export const pickaxeSpeed = definePerk({
 /** Golden Pickaxe, drawback: an ore takes more energy to dig. The setting is the extra at R5 (1: 2 energy); R1 is 5 times that. */
 export const pickaxeEnergyPenalty = definePerk({
   description: 'Pinecraft: extra energy each ore takes the wearer to dig, at R5 (1 makes it 2). Five times as much at R1, coming down as it is refined.',
-  defaults: { 1: 3, 2: 2, 3: 2, 4: 1 },
+  defaults: { 1: 3, 2: 2, 3: 1, 4: 1 },
   min: 0,
   max: 100,
   plain: true,

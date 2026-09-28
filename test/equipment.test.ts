@@ -55,8 +55,12 @@ test('every effect has a default and a setting for every star tier', () => {
 test('higher star tiers are never weaker by default', () => {
   for (const id of EFFECT_IDS) {
     const values = STARS.map((stars) => EFFECTS[id].defaults[stars]);
+    // A drawback that refining shrinks (atR1 over 1, like pickaxeEnergyPenalty) is better smaller, so it never grows with the stars.
+    const atR1 = (EFFECTS[id] as { atR1?: number }).atR1;
+    const drawback = atR1 !== undefined && atR1 > 1;
     for (let i = 1; i < values.length; i++) {
-      assert.ok((values[i - 1] as number) <= (values[i] as number), `${id} gets weaker at ${STARS[i]} stars`);
+      const [was, now] = [values[i - 1] as number, values[i] as number];
+      assert.ok(drawback ? now <= was : was <= now, `${id} gets weaker at ${STARS[i]} stars`);
     }
   }
 });

@@ -221,12 +221,34 @@ test('pinecraft gear: the four items exist, in their tiers and slots, for everyo
   }
 });
 
-test('pinecraft gear: the Golden Pickaxe breaks 25% faster at R1 and 50% at R5, and its ores take 6 energy at R1 down to 2 at R5', () => {
+test('pinecraft gear: the Golden Pickaxe breaks 25% faster at R1 and 50% at R5, and its ores take 11 energy at R1 down to 3 at R5', () => {
   const speed = [1, 2, 3, 4, 5].map((level) => Math.round(gearOf('golden-pickaxe', level).breakSpeed * 1000) / 10);
   assert.deepEqual(speed, [25, 30, 35, 40, 50]);
-  assert.deepEqual([1, 2, 3, 4, 5].map((level) => gearOf('golden-pickaxe', level).oreEnergy), [6, 5, 4, 3, 2]);
+  assert.deepEqual([1, 2, 3, 4, 5].map((level) => gearOf('golden-pickaxe', level).oreEnergy), [11, 9, 7, 6, 3]);
   assert.equal(gearBreakMs(PINECRAFT_BREAK_MS.iron, gearOf('golden-pickaxe', 5)), Math.round(PINECRAFT_BREAK_MS.iron / 1.5));
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('golden-pickaxe')!, 1, 1), ['Pinecraft: breaks blocks 25% faster', 'Pinecraft: ores take 6 ⚡ each to dig']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('golden-pickaxe')!, 1, 1), ['Pinecraft: breaks blocks 25% faster', 'Pinecraft: ores take 11 ⚡ each to dig']);
+});
+
+test('pinecraft gear: the Diamond (3-star) and Ruby (4-star) pickaxes, for everyone, with the pickaxe perks at their tiers', () => {
+  const diamond = ITEMS_BY_ID.get('diamond-pickaxe')!;
+  const ruby = ITEMS_BY_ID.get('ruby-pickaxe')!;
+  assert.deepEqual([diamond.stars, diamond.slot, diamond.usableBy], [3, 'weapon', undefined]);
+  assert.deepEqual([ruby.stars, ruby.slot, ruby.usableBy], [4, 'weapon', undefined]);
+  assert.deepEqual(diamond.effects, ['pickaxeSpeed', 'pickaxeEnergyPenalty']);
+  assert.deepEqual(ruby.effects, ['pickaxeSpeed', 'pickaxeEnergyPenalty', 'luckyOre']);
+  // Stronger tiers dig faster (by the tier settings), and only the Ruby Pickaxe is lucky.
+  assert.ok(gearOf('ruby-pickaxe', 5).breakSpeed > gearOf('diamond-pickaxe', 5).breakSpeed);
+  assert.ok(gearOf('diamond-pickaxe', 5).breakSpeed > gearOf('golden-pickaxe', 5).breakSpeed);
+  assert.equal(gearOf('diamond-pickaxe', 5).luckyChance, 0);
+  assert.equal(gearOf('ruby-pickaxe', 5).luckyChance, 0.1);
+});
+
+test('pinecraft gear: the luck of the Ruby Pickaxe adds to the luck of the Rabbit Foot', () => {
+  const both = pinecraftGear(totalEffects([
+    { item: ITEMS_BY_ID.get('ruby-pickaxe')!, level: 5 },
+    { item: ITEMS_BY_ID.get('lucky-rabbits-foot')!, level: 5 },
+  ]));
+  assert.equal(Math.round(both.luckyChance * 1000) / 1000, 0.2);
 });
 
 test('pinecraft gear: the Dynamite Stick blasts every 20 blocks at R1 down to every 10 at R5, ores in a blast paying half at every level', () => {

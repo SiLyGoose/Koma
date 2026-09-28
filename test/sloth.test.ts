@@ -36,15 +36,15 @@ test('sloth cooldown: the claim wait is counted in whole clock hours, never belo
   assert.equal(claimGapHours(gear({ slothCooldown: -5 })), 1);
 });
 
-test('sloth effects: normal per-star settings, 4 stars doubling the cooldowns and taking 40% off the robber', () => {
-  assert.deepEqual(EFFECTS.slothDefense.defaults, { 1: 0.1, 2: 0.2, 3: 0.3, 4: 0.4 });
+test('sloth effects: normal per-star settings, 4 stars doubling the cooldowns and taking 15% off the robber', () => {
+  assert.deepEqual(EFFECTS.slothDefense.defaults, { 1: 0.05, 2: 0.075, 3: 0.1, 4: 0.15 });
   assert.deepEqual(EFFECTS.slothCooldown.defaults, { 1: 0.25, 2: 0.5, 3: 0.75, 4: 1 });
-  assert.equal(CONFIG.equipment.slothDefense[4], 0.4);
+  assert.equal(CONFIG.equipment.slothDefense[4], 0.15);
   assert.equal(CONFIG.equipment.slothCooldown[4], 1);
   assert.ok(findSpec('equipment.slothDefense.4'));
   assert.ok(findSpec('equipment.slothCooldown.4'));
   assert.deepEqual(validateSettings(CONFIG), []);
-  assert.match(EFFECTS.slothDefense.text('40%'), /40%/);
+  assert.match(EFFECTS.slothDefense.text('15%'), /15%/);
   assert.match(EFFECTS.slothCooldown.text('100%'), /100%/);
 });
 
@@ -55,6 +55,6 @@ test('Sid the Sloth: wears the two sloth effects and lists them with their stren
   assert.deepEqual([...sid.effects].sort(), ['slothCooldown', 'slothDefense']);
   const lines = describeEffects(sid);
   assert.equal(lines.length, 2);
-  assert.ok(lines.some((line) => /40%/.test(line) && /robbed/.test(line)));
+  assert.ok(lines.some((line) => /15%/.test(line) && /robbed/.test(line)));
   assert.ok(lines.some((line) => /100%/.test(line) && /cooldown/.test(line)));
 });
