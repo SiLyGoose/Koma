@@ -294,6 +294,15 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['smart', 'iconicByMistake'],
   },
   {
+    id: 'thoccy-keyboard',
+    name: 'Thoccy Keyboard',
+    stars: 4,
+    usableBy: [MEMBERS.trina],
+    slot: 'treasure',
+    description: 'Clack clack clack.',
+    effects: ['robStreak', 'robStreakCap', 'robVulnerable'],
+  },
+  {
     id: 'dynamite-stick',
     name: 'Dynamite Stick',
     stars: 4,

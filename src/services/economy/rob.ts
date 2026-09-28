@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../../config.js';
-import { MINUTE_MS, ROB_LOCK } from '../../constants/index.js';
+import { MINUTE_MS, ROB_LOCK, ROB_STREAK_WINDOW_MS } from '../../constants/index.js';
 import { collections } from '../../db.js';
 import { gearEffects } from '../../lib/game/equipment.js';
 import { chance, randInt } from '../../lib/random.js';
@@ -17,6 +17,7 @@ import {
   rollWheelDice,
   slipChance,
   slipPenaltyAmount,
+  streakRate,
   spinWheel,
   wheelChance,
   wheelSlices,
@@ -67,6 +68,10 @@ export type RobResult =
        * the victim, plus `penalty` from the robber. The balances above are after it.
        */
       slip: { returned: number; penalty: number } | null;
+      /** Thoccy Keyboard: the robber's streak (successful robs in the last 6 hours, this one included) and the points it added. */
+      streak: { count: number; rate: number; bonus: number } | null;
+      /** Thoccy Keyboard: the points taken because the victim was vulnerable (0 when they weren't). */
+      vulnerableBonus: number;
     }
   | {
       ok: true;
@@ -82,6 +87,8 @@ export type RobResult =
       raised: number;
       robberBalance: number;
       victimBalance: number;
+      /** Thoccy Keyboard: the robber is vulnerable now, and the next successful rob against them takes this share more (null when not). */
+      vulnerable: number | null;
     };
 
 export async function rob(guildId: string, robberId: string, victimId: string): Promise<RobResult> {
@@ -198,7 +205,15 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
       // The victim loses what is taken; the wheel (below) then multiplies only what the robber keeps.
       const rolled = randInt(cfg.minStolen, cfg.maxStolen);
-      const stolen = robStolenAmount(rolled, robberGear, victimGear);
+      const taken = robStolenAmount(rolled, robberGear, victimGear);
+      // Thoccy Keyboard: the robber's streak (this rob counts), and a vulnerable victim, each take a share more.
+      const recent = (before.robStreakAt ?? []).filter((at) => at.getTime() > now - ROB_STREAK_WINDOW_MS);
+      const streakCount = robberGear.robStreak > 0 ? recent.length + 1 : 0;
+      const rate = streakRate(streakCount, robberGear);
+      const vulnerableRate = Math.max(0, victim?.vulnerableRate ?? 0);
+      const streakExtra = Math.round(taken * rate);
+      const vulnerableExtra = Math.round(taken * vulnerableRate);
+      const stolen = taken + streakExtra + vulnerableExtra;
       // What each effect did, so the reply can show it: the robber's gear, then the victim's armor,
       // then the wheel. Each step is the difference between two whole numbers, so they add up.
       const beforeArmor = robStolenAmount(rolled, robberGear, emptyTotals());
@@ -245,6 +260,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               shielded: Math.max(0, beforeArmor - stolen),
               wheelBonus: 0,
               slip: { returned: Math.min(back.moved, transfer.moved), penalty: Math.max(0, back.moved - transfer.moved) },
+              // Undone, so neither counts: no streak, and the victim stays vulnerable.
+              streak: null,
+              vulnerableBonus: 0,
             };
           }
         } catch (err) {
@@ -356,6 +374,24 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         }
       }
 
+      // Thoccy Keyboard: the robber's streak goes on, and a successful rob ends their own vulnerability;
+      // the victim's vulnerability is used up by this rob.
+      const extraMoved = Math.max(0, transfer.moved - taken);
+      const streakBonus = Math.min(streakExtra, extraMoved);
+      const vulnerableBonus = Math.min(vulnerableExtra, extraMoved - streakBonus);
+      try {
+        if (streakCount > 0) {
+          await members.updateOne({ guildId, userId: robberId }, { $set: { robStreakAt: [...recent, new Date(now)] } });
+        }
+        if (before.vulnerableRate) await members.updateOne({ guildId, userId: robberId }, { $set: { vulnerableRate: null } });
+        if (vulnerableRate > 0) {
+          await members.updateOne({ guildId, userId: victimId, vulnerableRate: victim?.vulnerableRate ?? null }, { $set: { vulnerableRate: null } });
+        }
+      } catch (err) {
+        // The steal already happened; the streak and marks only miss this once.
+        console.error("Could not update a Thoccy Keyboard's streak or vulnerability:", err);
+      }
+
       return {
         ok: true,
         success: true,
@@ -368,13 +404,25 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         robTaxPaid,
         wheel,
         gearBonus: beforeArmor - rolled,
-        shielded: Math.max(0, beforeArmor - stolen),
+        shielded: Math.max(0, beforeArmor - taken),
         wheelBonus,
         slip: null,
+        streak: streakCount > 0 ? { count: streakCount, rate, bonus: streakBonus } : null,
+        vulnerableBonus,
       };
     }
 
-    // Caught: the robber pays a fine to the victim (whatever they can afford, so their balance
+    // Caught. Thoccy Keyboard: the streak is over, and its wearer is left vulnerable.
+    const vulnerable = robberGear.robVulnerable > 0 ? robberGear.robVulnerable : null;
+    if (vulnerable !== null || before.robStreakAt?.length) {
+      try {
+        await members.updateOne({ guildId, userId: robberId }, { $set: { robStreakAt: [], ...(vulnerable !== null ? { vulnerableRate: vulnerable } : {}) } });
+      } catch (err) {
+        console.error("Could not end a Thoccy Keyboard's streak:", err);
+      }
+    }
+
+    // The robber pays a fine to the victim (whatever they can afford, so their balance
     // never goes below 0), less any protection from their gear.
     const owed = robFine(cfg.failFine, robberGear);
     // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
@@ -392,6 +440,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         raised: 0,
         robberBalance: robber?.points ?? 0,
         victimBalance: victim?.points ?? 0,
+        vulnerable,
       };
     }
     await recordLedger([
@@ -411,6 +460,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       raised: Math.max(0, transfer.moved - cfg.failFine),
       robberBalance: transfer.fromBalance,
       victimBalance: transfer.toBalance,
+      vulnerable,
     };
   } catch (err) {
     if (releaseVictimSlot) await releaseVictimSlot();

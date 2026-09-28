@@ -1,4 +1,4 @@
-import { CURRENCY_NAME, FAILURE_TITLES, SUCCESS_TITLES, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, FAILURE_TITLES, ROB_STREAK_WINDOW_MS, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, mention, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
@@ -10,15 +10,17 @@ import type { Command } from '../discord/types.js';
 function caughtText(
   robber: string,
   victim: string,
-  result: { fine: number; owed: number; waived: number; raised: number },
+  result: { fine: number; owed: number; waived: number; raised: number; vulnerable: number | null },
 ): string {
-  if (result.owed === 0 && result.waived > 0) return TEXT.rob.caughtGearSaved(robber, victim);
-  if (result.fine === 0) return TEXT.rob.caughtNothingToFine(robber, victim);
+  // Thoccy Keyboard: a failed rob leaves its wearer vulnerable.
+  const after = result.vulnerable !== null ? `\n${TEXT.rob.nowVulnerable(robber, formatPercent(result.vulnerable))}` : '';
+  if (result.owed === 0 && result.waived > 0) return TEXT.rob.caughtGearSaved(robber, victim) + after;
+  if (result.fine === 0) return TEXT.rob.caughtNothingToFine(robber, victim) + after;
   const text =
     result.waived > 0
       ? TEXT.rob.caughtFinedWithGear(robber, victim, fmt(result.fine), fmt(result.waived))
       : TEXT.rob.caughtFined(robber, victim, fmt(result.fine));
-  return result.raised > 0 ? `${text}\n${TEXT.rob.fineRaised(fmt(result.raised))}` : text;
+  return (result.raised > 0 ? `${text}\n${TEXT.rob.fineRaised(fmt(result.raised))}` : text) + after;
 }
 
 /** Extra lines under a successful rob: a tax paid out of it, and taxes now waiting on the victim. */
@@ -34,9 +36,16 @@ function successNotes(
     shielded: number;
     wheelBonus: number;
     slip: { returned: number; penalty: number } | null;
+    streak: { count: number; rate: number; bonus: number } | null;
+    vulnerableBonus: number;
   },
 ): string {
   const lines: string[] = [];
+  // Thoccy Keyboard: the streak and a vulnerable victim, which add to the take first.
+  if (result.streak !== null && result.streak.bonus > 0) {
+    lines.push(TEXT.rob.streak(result.streak.count, ROB_STREAK_WINDOW_MS / 3_600_000, formatPercent(result.streak.rate), fmt(result.streak.bonus)));
+  }
+  if (result.vulnerableBonus > 0) lines.push(TEXT.rob.vulnerableTaken(victim, fmt(result.vulnerableBonus)));
   // What each effect did to the amount, in the order it was applied.
   if (result.gearBonus > 0) lines.push(TEXT.rob.gearAdded(fmt(result.gearBonus)));
   if (result.gearBonus < 0) lines.push(TEXT.rob.gearCut(fmt(-result.gearBonus)));

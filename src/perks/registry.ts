@@ -13,6 +13,7 @@ import { iconicByMistake } from './iconic-by-mistake.js';
 import { maxHpDamage } from './max-hp-damage.js';
 import { blastLoss, dynamiteBlast, energyRegen, luckyOre, pickaxeEnergyPenalty, pickaxeSpeed } from './pinecraft/index.js';
 import { pullDiscount } from './pull-discount.js';
+import { robStreak, robStreakCap, robVulnerable } from './thoccy.js';
 import { rallyBoost } from './rally-boost.js';
 import { robAmountCut } from './rob-amount-cut.js';
 import { robAmount } from './rob-amount.js';
@@ -72,6 +73,10 @@ export const EFFECTS = {
   rallyBoost,
   maxHpDamage,
   healCut,
+  // Thoccy Keyboard.
+  robStreak,
+  robStreakCap,
+  robVulnerable,
   // Pinecraft.
   pickaxeSpeed,
   pickaxeEnergyPenalty,

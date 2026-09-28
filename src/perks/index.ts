@@ -28,6 +28,7 @@ export * from './claim-tax.js';
 export * from './d20/index.js';
 export * from './pinecraft/index.js';
 export * from './pull-discount.js';
+export * from './thoccy.js';
 export * from './rob-tax.js';
 export * from './bubble-beam.js';
 export * from './sloth-cooldown.js';

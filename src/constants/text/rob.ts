@@ -15,6 +15,13 @@ export const robText = {
   gearAdded: (amount: string) => `Your gear added ${boldMoney(amount)} to it.`,
   /** Added when the robber's gear made the take smaller (a cut, like the Coughing Baby's). */
   gearCut: (amount: string) => `Your gear took ${boldMoney(amount)} off it.`,
+  /** Thoccy Keyboard: the robber's streak added to the take. `count` robs in the last `hours` hours, this one included. */
+  streak: (count: number, hours: number, rate: string, amount: string) =>
+    `⌨️ **Hot streak!** ${count} rob${count === 1 ? '' : 's'} in ${hours} hours: +${rate}, ${boldMoney(amount)} more.`,
+  /** Thoccy Keyboard: the victim was vulnerable (they failed a rob), so this rob took more. */
+  vulnerableTaken: (victim: string, amount: string) => `⌨️ ${victim} was vulnerable: you took ${boldMoney(amount)} more.`,
+  /** Thoccy Keyboard: the robber failed and is vulnerable now. */
+  nowVulnerable: (robber: string, rate: string) => `⌨️ Streak broken. ${robber} is vulnerable: the next successful rob against them takes +${rate}.`,
   /** Added when the victim's armor kept part of the take from the robber. */
   shielded: (victim: string, amount: string) => `${victim}'s armor blocked ${boldMoney(amount)} of it.`,
   /** Added to a caught rob when the robber's gear made the fine bigger (a glass cannon). */

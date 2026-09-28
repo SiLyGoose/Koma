@@ -115,6 +115,16 @@ export interface MemberDoc {
   robTaxRate?: number | null;
   robTaxBy?: string | null;
   /**
+   * Thoccy Keyboard: when this member's recent successful robs were, for its streak (only the ones
+   * in the last ROB_STREAK_WINDOW_MS are kept). Emptied by a failed rob.
+   */
+  robStreakAt?: Date[] | null;
+  /**
+   * Thoccy Keyboard: set when this member failed a rob wearing it. The next successful rob against
+   * them takes this share more; cleared by that rob, or by a successful rob of their own.
+   */
+  vulnerableRate?: number | null;
+  /**
    * Pulls since this member's last item of the pity tier (constants/gacha.ts PITY_STARS), counting the
    * latest one. Missing means 0.
    */

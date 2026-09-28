@@ -12,6 +12,7 @@ export const MEMBERS = {
   helen: '262072810422140929',
   jj: '570657734870171648',
   simon: '257214680823627777',
+  trina: '257061151542607872',
 } as const;
 
 export type MemberName = keyof typeof MEMBERS;
