@@ -9,6 +9,7 @@ import {
   dealRound,
   handTotal,
   returnFor,
+  lostChips,
   settleBets,
   totalBet,
   type BaccaratPayouts,
@@ -95,6 +96,15 @@ test('baccarat: Kirin wins when the Player wins with three cards worth 8, Phoeni
   assert.equal(betOutcome('phoenix', phoenix), 'win');
   assert.equal(returnFor('phoenix', 10, 'win', PAYOUTS), 410);
   assert.equal(betOutcome('kirin', phoenix), 'lose');
+});
+
+test('baccarat: every losing bet counts as lost (for the vault), even when the player comes out ahead', () => {
+  const phoenix = dealRound(shoe(3, 2, 3, 2, 3)); // the Banker wins with three cards worth 7
+  assert.equal(lostChips(settleBets({ banker: 100, kirin: 10 }, phoenix, PAYOUTS)), 10, 'Banker won, Kirin lost: 10 lost');
+  assert.equal(lostChips(settleBets({ player: 50, banker: 100, tie: 5, phoenix: 10 }, phoenix, PAYOUTS)), 55, 'Player and Tie lost');
+  const tie = dealRound(shoe(9, 9, 0, 0));
+  assert.equal(lostChips(settleBets({ player: 100, banker: 100 }, tie, PAYOUTS)), 0, 'a tie gives Player and Banker back');
+  assert.equal(lostChips(settleBets({ player: 100, tie: 10 }, tie, PAYOUTS)), 0);
 });
 
 test('baccarat: a table of bets is settled together, in spot order', () => {

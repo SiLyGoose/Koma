@@ -152,6 +152,12 @@ export function settleBets(bets: BaccaratBets, round: BaccaratRound, payouts: Ba
   });
 }
 
+/**
+ * The points lost on losing bets, each counted on its own: a Kirin bet that loses is lost even when
+ * the Player bet beside it wins. What goes into the vault (pushes and wins give their chips back).
+ */
+export const lostChips = (settled: readonly SettledBet[]): number => settled.reduce((sum, b) => sum + (b.outcome === 'lose' ? b.amount : 0), 0);
+
 /** The points on the table. */
 export const totalBet = (bets: BaccaratBets): number => BACCARAT_BETS.reduce((sum, spot) => sum + Math.max(0, bets[spot] ?? 0), 0);
 

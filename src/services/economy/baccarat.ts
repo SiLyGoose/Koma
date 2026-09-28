@@ -1,6 +1,6 @@
 import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
-import { dealRound, settleBets, totalBet, type BaccaratBets, type BaccaratRound, type SettledBet } from '../../lib/game/baccarat.js';
+import { dealRound, lostChips, settleBets, totalBet, type BaccaratBets, type BaccaratRound, type SettledBet } from '../../lib/game/baccarat.js';
 import { checkBet, type BetRefusal } from '../../lib/game/bet.js';
 import { addVaultLoss } from '../vault.js';
 import { type LedgerInput, recordLedger, ensureMember } from './shared.js';
@@ -67,8 +67,10 @@ export async function playBaccarat(guildId: string, userId: string, bets: Baccar
   if (payout > 0) entries.push({ guildId, userId, delta: payout, reason: 'baccarat_payout' });
   await recordLedger(entries);
 
+  // Every losing bet feeds the vault on its own, even when the player's other bets won more back.
+  const lost = lostChips(settled);
+  if (lost > 0) await addVaultLoss(guildId, lost);
   const net = payout - bet;
-  if (net < 0) await addVaultLoss(guildId, -net);
 
   return { ok: true, round, bets: settled, bet, payout, net, balance };
 }
