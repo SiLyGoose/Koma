@@ -318,6 +318,7 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Every swing feels lucky.',
     effects: ['pickaxeSpeed', 'pickaxeEnergyPenalty', 'luckyOre'],
+    bonus: { level: 5, text: 'Pinecraft: ores take no extra ⚡ to dig', removes: ['pickaxeEnergyPenalty'] },
   },
   {
     id: 'dynamite-stick',

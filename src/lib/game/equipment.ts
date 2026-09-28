@@ -5,7 +5,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../types.js';
 import { formatPercent } from '../format.js';
 import { refineShare } from './refine.js';
-import { REFINE } from '../../constants/index.js';
+import { REFINE, TEXT } from '../../constants/index.js';
 
 /**
  * How much of a perk's full strength a copy at this refinement level gives: the usual refine share,
@@ -22,6 +22,18 @@ export function perkShare(effect: EffectId, level: number): number {
 /** How strong an effect is on an item of the given star tier, from the live settings. */
 export function effectStrength(effect: EffectId, stars: Stars): number {
   return CONFIG.equipment[effect][stars];
+}
+
+/** Whether a copy of `item` at this refinement level has unlocked the item's refine bonus. */
+export function bonusUnlocked(item: ItemDef, level: number): boolean {
+  return item.bonus !== undefined && level >= item.bonus.level;
+}
+
+/** The perks an item gives at a refinement level: its own, changed by its refine bonus once that is unlocked. */
+export function itemEffects(item: ItemDef, level: number): EffectId[] {
+  if (!item.bonus || !bonusUnlocked(item, level)) return [...item.effects];
+  const removes = item.bonus.removes ?? [];
+  return [...item.effects.filter((effect) => !removes.includes(effect)), ...(item.bonus.adds ?? [])];
 }
 
 /** One equipped item and the refinement level of the copy worn. */
@@ -78,7 +90,7 @@ export function totalEffects(gear: readonly (ItemDef | GearPiece)[], userId?: st
   for (const piece of gear) {
     const { item, level } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
     const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
-    for (const effect of item.effects) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
+    for (const effect of itemEffects(item, level)) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
   }
   return totals;
 }
@@ -102,11 +114,13 @@ function effectLine(effect: EffectId, strength: number): string {
 
 /**
  * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
- * (fully refined unless given). `share` scales the strengths further, for an item worn at less
- * than full effect (see itemEffectiveness).
+ * (fully refined unless given), then its refine bonus, unlocked or locked. `share` scales the
+ * strengths further, for an item worn at less than full effect (see itemEffectiveness).
  */
 export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string[] {
-  return item.effects.map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
+  const lines = itemEffects(item, level).map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
+  if (item.bonus) lines.push(TEXT.gear.bonus(item.bonus.level, item.bonus.text, bonusUnlocked(item, level)));
+  return lines;
 }
 
 /** One readable line per effect that is active in the totals, in the registry's order. */

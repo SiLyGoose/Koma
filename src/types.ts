@@ -36,6 +36,24 @@ export interface ItemDef {
    * Missing means everyone can use it. When present it must list at least one id.
    */
   usableBy?: readonly string[];
+  /** Optional: a bonus perk the item unlocks once a copy is refined far enough (see ItemBonus). */
+  bonus?: ItemBonus;
+}
+
+/**
+ * A refine bonus: from refinement level `level` on, the item gains the perks in `adds` and loses
+ * the ones in `removes` (say a drawback it outgrows). Below that level it works as if the bonus
+ * weren't there, and the gear card shows the bonus as locked.
+ */
+export interface ItemBonus {
+  /** The refinement level that unlocks it (2 to REFINE.maxLevel). */
+  level: number;
+  /** What it does, for the gear card, like "Pinecraft: ores take no extra energy". */
+  text: string;
+  /** Perks it adds, at the item's star tier like its other perks. They must not already be on the item. */
+  adds?: readonly EffectId[];
+  /** Perks of the item's it turns off. */
+  removes?: readonly EffectId[];
 }
 
 /**

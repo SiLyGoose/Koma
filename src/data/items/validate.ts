@@ -1,3 +1,4 @@
+import { REFINE } from '../../constants/index.js';
 import { normalize } from '../../lib/text.js';
 import { EFFECTS } from '../../perks/index.js';
 import { SLOTS, STARS } from '../../types.js';
@@ -25,6 +26,19 @@ export function validateItems(): void {
     }
     for (const effect of item.effects) {
       if (!(effect in EFFECTS)) throw new Error(`${item.id} has an unknown effect: ${effect}`);
+    }
+    if (item.bonus) {
+      const { level, text, adds = [], removes = [] } = item.bonus;
+      if (!(Number.isInteger(level) && level >= 2 && level <= REFINE.maxLevel)) throw new Error(`${item.id}'s refine bonus must unlock at a level from 2 to ${REFINE.maxLevel}`);
+      if (text.trim() === '') throw new Error(`${item.id}'s refine bonus has no text`);
+      if (adds.length + removes.length === 0) throw new Error(`${item.id}'s refine bonus neither adds nor removes a perk`);
+      for (const effect of adds) {
+        if (!(effect in EFFECTS)) throw new Error(`${item.id}'s refine bonus adds an unknown effect: ${effect}`);
+        if (item.effects.includes(effect)) throw new Error(`${item.id}'s refine bonus adds ${effect}, which the item already has`);
+      }
+      for (const effect of removes) {
+        if (!item.effects.includes(effect)) throw new Error(`${item.id}'s refine bonus removes ${effect}, which the item doesn't have`);
+      }
     }
   }
   for (const stars of STARS) {
