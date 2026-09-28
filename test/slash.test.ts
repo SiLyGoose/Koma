@@ -366,7 +366,8 @@ test('reply: plain text is private in slash commands, an embed or a picture is p
 function fakeInteraction(options: { replyFails?: boolean } = {}) {
   const calls: { kind: string; data?: any }[] = [];
   let nextId = 1;
-  const message = () => ({ id: `m${nextId++}` });
+  // A message with buttons gets a collector that never hears a press (paginated replies listen on one).
+  const message = () => ({ id: `m${nextId++}`, createMessageComponentCollector: () => ({ on: () => {} }) });
   const interaction = {
     user: { id: ID, toString: () => `<@${ID}>`, displayName: 'Alice' },
     reply: async (data: unknown) => {
@@ -494,10 +495,11 @@ function fakeSlashCommand(commandName: string, extra: Record<string, unknown> = 
   return f;
 }
 
-test('slash command: /help lists slash usage, no aliases and no prefix, and only the asker sees it', async () => {
-  // Runs help through the real slash context. handleSlash would first ask the database whether
-  // the channel is allowed (services/channel.ts), and tests have no database, so that one step is skipped.
-  const f = fakeSlashCommand('help');
+/** Runs help through the real slash context, with `extra` options. handleSlash would first ask the
+ * database whether the channel is allowed (services/channel.ts), and tests have no database, so that
+ * one step is skipped. */
+async function slashHelp(extra: Record<string, unknown> = {}) {
+  const f = fakeSlashCommand('help', extra);
   const { ctx, dispose } = interactionContext(f.interaction, guild, []);
   try {
     ctx.args = SLASH.help!.toArgs(f.interaction);
@@ -505,17 +507,44 @@ test('slash command: /help lists slash usage, no aliases and no prefix, and only
   } finally {
     dispose();
   }
+  return f;
+}
+
+test('slash command: /help lists the slash commands by group, up to 10 a page, with no prefix, and only the asker sees it', async () => {
+  const f = await slashHelp();
   assert.deepEqual(kinds(f.calls), ['reply', 'fetchReply']);
   const data = f.calls[0]?.data;
   assert.equal(data.flags, EPHEMERAL);
-  const text: string = data.embeds[0].data.description;
-  assert.ok(text.includes('**/balance [user]**'), text);
-  for (const name of SLASH_EXCLUDED) assert.equal(text.includes(`/${name}`), false, `/${name} is excluded, so it is not listed`);
-  assert.ok(text.includes('**/sell one | some | all | stars**'), text);
-  assert.ok(text.includes('**/gacha [multi]**'), text);
-  assert.equal(text.includes('(also'), false, 'no aliases');
-  assert.equal(text.includes('k!'), false, 'no prefix');
-  assert.equal(text.includes('/give'), false, 'the admin command is not listed for an ordinary member');
+  const fields: { name: string; value: string; inline: boolean }[] = data.embeds[0].data.fields;
+  assert.equal(fields[0]?.name, '💰 Economy');
+  const lines = fields.flatMap((field) => field.value.split('\n'));
+  assert.ok(lines.length <= 10, JSON.stringify(fields));
+  for (const field of fields) {
+    assert.equal(field.inline, true);
+    // Just the names: no prefix, no slash, no descriptions, alphabetical in each group.
+    const names = field.value.split('\n').map((line) => line.match(/^`([a-z0-9-]+)`$/)?.[1]);
+    assert.ok(names.every(Boolean), field.value);
+    assert.deepEqual(names, [...names].sort(), `${field.name} is alphabetical`);
+  }
+  assert.ok(lines.includes('`balance`'), JSON.stringify(fields));
+  for (const name of SLASH_EXCLUDED) assert.equal(lines.includes(`\`${name}\``), false, `/${name} is excluded, so it is not listed`);
+  assert.equal(lines.includes('`give`'), false, 'the admin command is not listed for an ordinary member');
+  assert.match(data.embeds[0].data.footer.text, /^Page 1\/\d+ · \/help <command>/);
+  assert.equal(data.components[0].components.length, 2, 'Previous and Next');
+});
+
+test('slash command: /help <command> shows how that one works, privately', async () => {
+  const f = await slashHelp({ options: fakeOptions({ strings: { command: 'sell' } }).options });
+  const data = f.calls[0]?.data;
+  assert.equal(data.flags, EPHEMERAL);
+  const embed = data.embeds[0].data;
+  assert.equal(embed.title, '/sell · 🎒 Items');
+  const usage = embed.fields.find((field: { name: string }) => field.name === 'Usage');
+  assert.equal(usage.value, '`/sell one | some | all | stars`');
+  assert.equal(embed.fields.some((field: { name: string }) => field.name === 'Aliases'), false, 'slash commands have no aliases');
+
+  const unknown = await slashHelp({ options: fakeOptions({ strings: { command: 'nope' } }).options });
+  assert.match(unknown.calls[0]?.data.content, /no command called `nope`/);
 });
 
 test('slash command: something that goes wrong answers with the error message, privately', async (t) => {

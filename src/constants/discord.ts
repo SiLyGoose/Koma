@@ -37,6 +37,26 @@ export const DATABANK_BUTTONS = { idleMs: 120_000 };
 export const CONFIG_BUTTONS = { idleMs: 120_000 };
 
 /**
+ * The help list's groups, in the order it shows them, and each one's heading. Every command says
+ * which it is in (Command.category).
+ */
+export const COMMAND_CATEGORIES = {
+  economy: '💰 Economy',
+  casino: '🎰 Casino',
+  items: '🎒 Items',
+  gear: '🛡️ Gear',
+  adventure: '🗺️ Adventure',
+  bot: '⚙️ Bot',
+} as const;
+export type CommandCategory = keyof typeof COMMAND_CATEGORIES;
+
+/** The most commands the help list shows a page (a group is never split between pages unless it alone has more). */
+export const HELP_PAGE_SIZE = 10;
+
+/** How long the help list's Previous/Next buttons keep working after the last time they were used. */
+export const HELP_BUTTONS = { idleMs: 120_000 };
+
+/**
  * Fetching a member's profile picture for the blackjack table (src/discord/profile.ts): the size
  * asked from Discord (a power of two from 16 to 4096; the picture is drawn 34 pixels across), how
  * long to wait for it, the biggest file taken, and how many pictures are kept in memory. If the

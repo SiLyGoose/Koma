@@ -100,6 +100,7 @@ async function watchButton(ctx: CommandContext, sent: SentReply, item: ItemDef):
 
 export const refine: Command = {
   name: 'refine',
+  category: 'items',
   description: `Refine an item you own: use up a duplicate of it to raise it one level (up to R${REFINE.maxLevel}, its full strength).`,
   usage: 'refine <item name>',
   slashUsage: 'refine <item>',

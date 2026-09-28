@@ -24,6 +24,7 @@ export function balanceText(after: { balance: number; tokens: number; tokensUsed
 
 export const gacha: Command = {
   name: 'gacha',
+  category: 'items',
   aliases: ['pull'],
   description: `Pull a random item with ${TOKEN_NAME} or ${CURRENCY_NAME}. Add "multi" for ${MULTI_PULLS} at once.`,
   usage: 'gacha [multi]',

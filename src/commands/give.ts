@@ -14,6 +14,7 @@ function idList(): string {
 
 export const give: Command = {
   name: 'give',
+  category: 'bot',
   description: 'Admin only, for testing: give yourself an item by its id.',
   usage: 'give <item id> [amount]',
   slashUsage: 'give <item> [amount]',

@@ -14,6 +14,7 @@ import { siteGameLink, webConfig } from '../web/config.js';
 
 export const baccarat: Command = {
   name: 'baccarat',
+  category: 'casino',
   description: `Baccarat on the Koma site: bet ${CURRENCY_NAME} on Player, Banker or Tie, with the Kirin and Phoenix side bets.`,
 
   async execute(ctx) {

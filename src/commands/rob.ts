@@ -68,6 +68,7 @@ function successNotes(
 
 export const rob: Command = {
   name: 'rob',
+  category: 'economy',
   description: `Steal ${CURRENCY_NAME} from another member. You can rob once per hour.`,
   usage: 'rob @user',
   slashUsage: 'rob <user>',

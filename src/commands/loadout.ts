@@ -162,6 +162,7 @@ async function switchTo(ctx: CommandContext, query: string): Promise<void> {
 
 export const loadout: Command = {
   name: 'loadout',
+  category: 'gear',
   aliases: ['lo'],
   description: `Keep ${LOADOUTS.count} sets of gear and switch between them. Equipping changes the loadout you are using.`,
   usage: 'loadout [number or name] | loadout rename <number> [name]',

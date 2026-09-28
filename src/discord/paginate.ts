@@ -26,11 +26,14 @@ export interface PaginateLabels {
  * `toggle`, when given, adds one more button that flips `render`'s second argument on and off (it
  * starts off), labelled by `toggle(on)`, so the label can say what pressing it will show. It stays
  * on the page you are on, and it is there even when there is only one page.
+ *
+ * `ephemeral` in what `render` returns is used for the first reply only (a slash reply's privacy
+ * can't change afterwards).
  */
 export async function paginate(
   ctx: CommandContext,
   pageCount: number,
-  render: (index: number, on: boolean) => Pick<ReplyOptions, 'content' | 'embeds' | 'files' | 'allowedMentions'>,
+  render: (index: number, on: boolean) => Pick<ReplyOptions, 'content' | 'embeds' | 'files' | 'allowedMentions' | 'ephemeral'>,
   userId: string,
   labels: PaginateLabels,
   idleMs: number,
@@ -69,7 +72,8 @@ export async function paginate(
       await interaction.deferUpdate().catch(() => {});
       if (interaction.customId === TOGGLE_ID) on = !on;
       else index = interaction.customId === NEXT_ID ? Math.min(index + 1, pageCount - 1) : Math.max(index - 1, 0);
-      await interaction.editReply({ ...render(index, on), components: [buttons(index, on)] }).catch(() => {});
+      const { ephemeral: _, ...page } = render(index, on);
+      await interaction.editReply({ ...page, components: [buttons(index, on)] }).catch(() => {});
     })();
   });
 

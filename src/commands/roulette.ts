@@ -14,6 +14,7 @@ import { siteGameLink, webConfig } from '../web/config.js';
 
 export const roulette: Command = {
   name: 'roulette',
+  category: 'casino',
   description: `Roulette on the Koma site: bet ${CURRENCY_NAME} on numbers, colours, dozens and more.`,
 
   async execute(ctx) {

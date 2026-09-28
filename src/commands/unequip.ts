@@ -15,6 +15,7 @@ const SLOT_WORDS: Record<string, Slot> = {
 
 export const unequip: Command = {
   name: 'unequip',
+  category: 'gear',
   description: 'Take off your weapon, your armor, your unique treasure, or everything.',
   usage: 'unequip weapon|armor|treasure|all',
   slashUsage: 'unequip <slot>',

@@ -14,6 +14,7 @@ import { siteGameLink, webConfig } from '../web/config.js';
 
 export const mines: Command = {
   name: 'mines',
+  category: 'casino',
   description: `Stake-style mines on the Koma site: bet ${CURRENCY_NAME}, pick how many mines hide on a 5x5 board, then turn over tiles for gems.`,
 
   async execute(ctx) {

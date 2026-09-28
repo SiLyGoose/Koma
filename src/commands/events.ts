@@ -47,6 +47,7 @@ async function startNow(ctx: CommandContext): Promise<void> {
 
 export const events: Command = {
   name: 'events',
+  category: 'adventure',
   aliases: ['event'],
   description: 'Random events: see every event that can happen. Only the bot admin can start one.',
   usage: 'events [status | start [event]]',

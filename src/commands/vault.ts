@@ -11,6 +11,7 @@ import type { Command } from '../discord/types.js';
  */
 export const vault: Command = {
   name: 'vault',
+  category: 'economy',
   description: `See how many ${CURRENCY_NAME} are in the vault, and what the next vault game would put up.`,
 
   async execute(ctx) {

@@ -1,12 +1,21 @@
-import { CURRENCY_NAME } from '../core.js';
-
 export const helpText = {
   title: 'Commands',
-  /** `list` is the aliases already formatted, like "`k!pull`, `k!p`". */
-  aliases: (list: string) => ` (also ${list})`,
+  /** One line of the list: just the command's name, like "rob". */
+  entry: (name: string) => `\`${name}\``,
+  /** `more` is how to ask about one command, like "k!help <command>". */
+  footer: (page: number, pages: number, more: string) => `Page ${page}/${pages} · ${more} for how one works`,
+  previousButton: 'Previous',
+  nextButton: 'Next',
+  notYours: 'Run the help command yourself to flip through it.',
+
+  /** One command's card. `name` already has the prefix; `group` is its help group, like "🎰 Casino". */
+  commandTitle: (name: string, group: string) => `${name} · ${group}`,
+  usageField: 'Usage',
+  detailsField: 'Details',
+  aliasesField: 'Aliases',
   alias: (p: string, alias: string) => `\`${p}${alias}\``,
-  /** `usage` already has the prefix, like "k!rob @user". */
-  entry: (usage: string, aliases: string, description: string) => `**${usage}**${aliases}\n${description}`,
-  footer: (claimMin: string, claimMax: string, pullCost: string) =>
-    `Claim ${claimMin}-${claimMax} ${CURRENCY_NAME} every hour. A pull costs ${pullCost}.`,
+  /** `list` is how to see every command, like "k!help". */
+  detailFooter: (list: string) => `${list} for every command`,
+  /** `name` is what they asked about; `list` like "k!help". */
+  unknown: (name: string, list: string) => `There's no command called \`${name}\`. Try \`${list}\` for the list.`,
 };

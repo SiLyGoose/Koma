@@ -8,6 +8,7 @@ import type { Command } from '../discord/types.js';
 
 export const balance: Command = {
   name: 'balance',
+  category: 'economy',
   aliases: ['bal', 'p', 'profile'],
   description: `Check your ${CURRENCY_NAME}, or another member's.`,
   usage: 'balance [@user]',

@@ -45,6 +45,7 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
 
 export const gear: Command = {
   name: 'gear',
+  category: 'gear',
   aliases: ['equipment'],
   description: 'See what you (or another member) have equipped and what it does. `gear stats` shows the raid stats that gear gives.',
   usage: 'gear [stats] [@user]',

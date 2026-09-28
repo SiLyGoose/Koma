@@ -333,6 +333,7 @@ async function playParty(ctx: CommandContext, hostBet: number | 'all' | null): P
 
 export const blackjack: Command = {
   name: 'blackjack',
+  category: 'casino',
   aliases: ['bj'],
   description:
     'Play blackjack against the dealer: hit, stand or double. Bet to play alone, or open a party table that up to 5 players join.',

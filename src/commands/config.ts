@@ -112,6 +112,7 @@ function groupLines(group: SettingSpec['group'], channelId: string | null): stri
 
 export const config: Command = {
   name: 'config',
+  category: 'bot',
   aliases: ['settings'],
   description: 'See the bot settings. Only the bot admin can change them.',
   usage: 'config [list | <group> | set <setting> <value> | reset <setting> | reset equipment.<effect>]',

@@ -11,6 +11,7 @@ import type { Command } from '../discord/types.js';
 
 export const inventory: Command = {
   name: 'inventory',
+  category: 'items',
   aliases: ['inv'],
   description: 'See the items you have collected, yours or another member\'s.',
   usage: 'inventory [@user]',

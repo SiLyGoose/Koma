@@ -7,6 +7,7 @@ import type { Command } from '../discord/types.js';
 
 export const leaderboard: Command = {
   name: 'leaderboard',
+  category: 'economy',
   aliases: ['lb', 'top'],
   description: `See who has the most ${CURRENCY_NAME} in this server.`,
 

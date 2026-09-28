@@ -220,7 +220,21 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     autocomplete: anyItem,
   },
 
-  help: { build: () => {}, toArgs: () => [] },
+  help: {
+    build: (b) => void b.addStringOption((o) => o.setName('command').setDescription('Show how this command works, instead of the list').setAutocomplete(true)),
+    toArgs: (i) => {
+      const command = i.options.getString('command');
+      return command ? [command] : [];
+    },
+    autocomplete: async (i) => {
+      // Loaded here: the command list imports this file.
+      const { commands } = await import('../commands/index.js');
+      return nameChoices(
+        i.options.getFocused(),
+        commands.filter((c) => !c.adminOnly && hasSlash(c.name)).map((c) => c.name).sort(),
+      );
+    },
+  },
 
   inventory: {
     build: (b) => void b.addUserOption((o) => o.setName('user').setDescription("Whose items to see (yours, if left out)")),

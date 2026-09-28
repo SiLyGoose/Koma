@@ -9,6 +9,7 @@ import type { Command } from '../discord/types.js';
 
 export const databank: Command = {
   name: 'databank',
+  category: 'items',
   aliases: ['items', 'db'],
   description: 'See every item and what it does. Add an item name or id to see just that one, or a star tier (1-4) to see that tier.',
   usage: 'databank [item | stars]',

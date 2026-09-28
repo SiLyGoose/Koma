@@ -54,6 +54,7 @@ function refusal(p: string, plan: Extract<SalePlan, { ok: false }>, target: Sell
 
 export const sell: Command = {
   name: 'sell',
+  category: 'items',
   description: `Sell items you are not wearing for ${CURRENCY_NAME}: one copy, some copies, all copies of an item, or a whole star tier.`,
   usage: 'sell <item> | sell <number> <item> | sell all <item> | sell stars <1-4>',
   slashUsage: 'sell one | some | all | stars',

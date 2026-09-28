@@ -19,6 +19,7 @@ import { siteGameLink, webConfig } from '../web/config.js';
 
 export const pinecraft: Command = {
   name: 'pinecraft',
+  category: 'adventure',
   aliases: ['pc'],
   description: `Dig down through your own mine in the browser. Every block takes energy (it comes back over time), and the ores you find pay ${CURRENCY_NAME}.`,
 

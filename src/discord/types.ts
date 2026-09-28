@@ -1,4 +1,5 @@
 import type { BaseMessageOptions, Guild, Message, MessageEditOptions, User } from 'discord.js';
+import type { CommandCategory } from '../constants/index.js';
 
 /** What a command can send. */
 export type ReplyOptions = Pick<BaseMessageOptions, 'content' | 'embeds' | 'files' | 'components' | 'allowedMentions'> & {
@@ -45,12 +46,16 @@ export interface CommandContext {
 
 export interface Command {
   name: string;
+  /** Which group the help list shows it in. */
+  category: CommandCategory;
   aliases?: string[];
   description: string;
   /** Shown by the help command without the prefix, e.g. "rob @user". Defaults to the name. */
   usage?: string;
   /** How help shows it for slash commands, without the slash, e.g. "rob user". Defaults to the name. */
   slashUsage?: string;
+  /** More on how it works, shown by `help <command>` under the usage (left out: just the description). */
+  details?: string;
   /** Only the bot admin can use it, so the help command lists it for the admin only. */
   adminOnly?: boolean;
   execute(ctx: CommandContext): Promise<void>;

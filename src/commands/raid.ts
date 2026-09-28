@@ -1092,6 +1092,7 @@ export async function settleUnfinishedRaids(client: Client): Promise<void> {
 
 export const raid: Command = {
   name: 'raid',
+  category: 'adventure',
   aliases: ['boss'],
   description:
     "Start the weekly raid: everyone joins in to fight this week's boss together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern), and a different boss from last week's; once it's been fought, `raid` shows how it went. `raid stats` shows this week's boss, its stats and moves.",

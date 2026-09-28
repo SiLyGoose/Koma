@@ -167,6 +167,7 @@ async function watchButtons(ctx: CommandContext, sent: SentReply, firstBet: numb
 
 export const plinko: Command = {
   name: 'plinko',
+  category: 'casino',
   description: `Bet ${CURRENCY_NAME} and drop a ball down the board. What you win depends on the slot it lands in. Buttons let you play again, double or halve the bet.`,
   usage: 'plinko <bet | all>',
   slashUsage: 'plinko <bet>',

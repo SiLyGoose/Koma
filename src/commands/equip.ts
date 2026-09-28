@@ -10,6 +10,7 @@ import type { Command } from '../discord/types.js';
 
 export const equip: Command = {
   name: 'equip',
+  category: 'gear',
   description: 'Equip a weapon or armor you own. You can wear one of each, and a new one replaces the old.',
   usage: 'equip <item name>',
   slashUsage: 'equip <item>',

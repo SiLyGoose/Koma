@@ -8,6 +8,7 @@ import type { Command } from '../discord/types.js';
 
 export const claim: Command = {
   name: 'claim',
+  category: 'economy',
   description: `Claim your ${CURRENCY_NAME} for this hour.`,
 
   async execute(ctx) {
