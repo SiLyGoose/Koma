@@ -12,7 +12,7 @@ export const pinecraftText = {
   earnedValue: (earned: string) => boldMoney(earned),
   /** When everyone's mine starts over (a Discord timestamp, like "in 3 days"). */
   resetField: '🔄 New mine',
-  resetValue: (when: string) => `${when} (energy and earnings are kept)`,
+  resetValue: (when: string) => `${when}`,
   /** Without the web site, Pinecraft can't be played. */
   off: 'Pinecraft is played in the browser, and the web site is not set up on this bot yet.',
   playButton: 'Play Pinecraft',
