@@ -178,6 +178,37 @@ export async function chargeIntoVault(guildId: string, userId: string, amount: n
   return true;
 }
 
+export type Donation = { ok: true; donated: number; balance: number; pool: number } | { ok: false; reason: 'too_poor'; balance: number };
+
+/**
+ * A member gives `amount` of their points to the vault (or everything they have, for 'all'), in one
+ * conditional update: nothing is taken unless they have that much. Recorded in the ledger and
+ * added to the vault pool. `pool` is the vault right after, for showing.
+ */
+export async function donateToVault(guildId: string, userId: string, amount: number | 'all'): Promise<Donation> {
+  await ensureMember(guildId, userId);
+  const { members } = collections();
+  let donated: number;
+  let balance: number;
+  if (amount === 'all') {
+    const before = await members.findOneAndUpdate({ guildId, userId, points: { $gt: 0 } }, { $set: { points: 0 } }, { returnDocument: 'before' });
+    if (!before) return { ok: false, reason: 'too_poor', balance: 0 };
+    donated = before.points;
+    balance = 0;
+  } else {
+    const after = await members.findOneAndUpdate({ guildId, userId, points: { $gte: amount } }, { $inc: { points: -amount } }, { returnDocument: 'after' });
+    if (!after) {
+      const doc = await members.findOne({ guildId, userId });
+      return { ok: false, reason: 'too_poor', balance: doc?.points ?? 0 };
+    }
+    donated = amount;
+    balance = after.points;
+  }
+  await recordLedger([{ guildId, userId, delta: -donated, reason: 'vault_donation' }]);
+  await addVaultLoss(guildId, donated);
+  return { ok: true, donated, balance, pool: await getVaultPool(guildId) };
+}
+
 /** Undoes chargeIntoVault: gives `amount` back and takes it back out of the vault pool. */
 export async function refundFromVault(guildId: string, userId: string, amount: number, reason: 'code_refund'): Promise<void> {
   if (!Number.isSafeInteger(amount) || amount <= 0) return;

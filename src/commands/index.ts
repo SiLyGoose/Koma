@@ -3,6 +3,7 @@ import { blackjack } from './blackjack.js';
 import { claim } from './claim.js';
 import { config } from './config.js';
 import { databank } from './databank.js';
+import { donate } from './donate.js';
 import { equip } from './equip.js';
 import { events } from './events.js';
 import { gacha } from './gacha.js';
@@ -47,6 +48,7 @@ export const commands: Command[] = [
   raid,
   leaderboard,
   vault,
+  donate,
   config,
   events,
   give,

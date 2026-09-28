@@ -254,6 +254,14 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   vault: { build: () => {}, toArgs: () => [] },
 
+  donate: {
+    build: (b) =>
+      void b.addStringOption((o) =>
+        o.setName('amount').setDescription(`How many ${CURRENCY_NAME} to give the vault, or "all"`).setRequired(true).setMaxLength(20),
+      ),
+    toArgs: (i) => [i.options.getString('amount', true)],
+  },
+
   plinko: {
     description: `Bet ${CURRENCY_NAME} and drop a ball down the plinko board. The slot it lands in decides the payout.`,
     build: (b) =>

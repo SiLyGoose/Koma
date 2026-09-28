@@ -25,3 +25,18 @@ test('events command: the vault moved out of it', () => {
   assert.match(TEXT.vault.commandInfo('1', '10', '10x'), /next vault game/);
   assert.equal('vaultInfo' in TEXT.events, false);
 });
+
+test('donate command: registered for everyone, with a slash version', async () => {
+  const { donate } = await import('../src/commands/donate.js');
+  assert.equal(commandMap.get('donate'), donate);
+  assert.notEqual(donate.adminOnly, true);
+  assert.ok(hasSlash('donate'));
+});
+
+test('donate command: says what was given and what the vault holds now', () => {
+  const line = TEXT.vault.donateDone('<@1>', '500', '10,500');
+  assert.match(line, /500/);
+  assert.match(line, /10,500/);
+  assert.ok(line.includes(CURRENCY_EMOJI));
+  assert.match(TEXT.vault.donateUsage('k!'), /k!donate all/);
+});

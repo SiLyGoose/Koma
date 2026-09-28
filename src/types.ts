@@ -269,6 +269,8 @@ export type LedgerReason =
   | 'code_guess'
   | 'code_refund'
   | 'code_prize'
+  // Points a member gave to the vault of their own accord (commands/donate.ts).
+  | 'vault_donation'
   // A gacha pull paid for with a komaToken instead of points (0 points, tokenDelta -1).
   | 'gacha_token'
   // The weekly raid (commands/raid.ts): a boost paid for, points the boss stole, the points and the
