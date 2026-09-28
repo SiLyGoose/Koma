@@ -7,7 +7,7 @@ import { ensureMember } from './economy/index.js';
  * blackjack hand) and to caught robbers' fines, kept on each server's GuildDoc (vaultPool). Any
  * game that takes points away without paying them all back out calls addVaultLoss with what was
  * lost, so a game added later feeds the vault the same way, in one extra call. The vault games
- * (src/events/greedy-heist.ts, src/events/split-or-steal.ts) put up the pool times
+ * (src/events/games/greedy-heist.ts, src/events/games/split-or-steal.ts) put up the pool times
  * events.vault.multiplier, and call back in here to take out what they paid (vaultCost,
  * takeFromVault) and to add their fines (fineIntoVault).
  */

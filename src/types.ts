@@ -143,7 +143,7 @@ export interface MemberDoc {
    */
   vulnerableRate?: number | null;
   /**
-   * Pulls since this member's last item of the pity tier (constants/gacha.ts PITY_STARS), counting the
+   * Pulls since this member's last item of the pity tier (constants/items/gacha.ts PITY_STARS), counting the
    * latest one. Missing means 0.
    */
   pity?: number;
@@ -165,7 +165,7 @@ export interface MemberDoc {
   equipment?: EquipmentDoc;
   /**
    * This member's loadouts, keyed by number ('1' to LOADOUTS.count). A missing entry is an empty
-   * loadout with its default name. See LoadoutDoc and constants/loadouts.ts.
+   * loadout with its default name. See LoadoutDoc and constants/items/loadouts.ts.
    */
   loadouts?: Record<string, LoadoutDoc>;
   /** Which loadout is active (1 to LOADOUTS.count); its gear is `equipment`. Missing means 1. */
@@ -196,9 +196,9 @@ export interface ItemCopyDoc {
   /** The catalog item (ItemDef.id) this is a copy of. */
   itemId: string;
   /**
-   * Refinement level, 1 to REFINE.maxLevel (see constants/refine.ts): how much of the item's
+   * Refinement level, 1 to REFINE.maxLevel (see constants/items/refine.ts): how much of the item's
    * strength this copy gives. New copies start at 1; copies from before refining existed are 0,
-   * which counts as 1 (lib/game/refine.ts refineLevel).
+   * which counts as 1 (lib/game/items/refine.ts refineLevel).
    */
   level: number;
   obtainedAt: Date;
@@ -237,10 +237,10 @@ export type LedgerReason =
   | 'blackjack_double'
   | 'blackjack_payout'
   | 'blackjack_refund'
-  // Baccarat (web/baccarat-server.ts): every chip on the table, and what the winning ones paid back.
+  // Baccarat (web/baccarat/server.ts): every chip on the table, and what the winning ones paid back.
   | 'baccarat_bet'
   | 'baccarat_payout'
-  // Roulette (web/roulette-server.ts): the same.
+  // Roulette (web/roulette/server.ts): the same.
   | 'roulette_bet'
   | 'roulette_payout'
   // The mine (commands/mines.ts): the bet, and what a cash out paid.
@@ -291,7 +291,7 @@ export type LedgerReason =
  * deletes it is the one that pays them back out (as a payout when the round ends, or as a refund
  * if it never finishes), so a bet is paid out exactly once. `leaseUntil` is pushed forward while
  * the table is being played; a bet whose lease has run out belongs to a table that died (the bot
- * restarted) and is refunded by the sweeper (see services/blackjack.ts).
+ * restarted) and is refunded by the sweeper (see services/casino/blackjack.ts).
  */
 export interface BlackjackBetDoc {
   _id: string;
@@ -311,7 +311,7 @@ export interface BlackjackBetDoc {
  * out (a cash out, or nothing when dynamite went off), so a run is paid exactly once. `multiplier`
  * is saved after every ore, and `leaseUntil` pushed forward while the run is played; a run whose
  * lease has run out was cut short (the bot restarted) and the sweeper cashes it out at its
- * multiplier (see services/mines.ts).
+ * multiplier (see services/casino/mines.ts).
  */
 export interface MineRunDoc {
   _id: string;

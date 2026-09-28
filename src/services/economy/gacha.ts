@@ -1,12 +1,12 @@
 import { CONFIG } from '../../config.js';
 import { MULTI_PULLS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { newCopyId } from '../../lib/game/copies.js';
-import { gearEffects } from '../../lib/game/equipment.js';
-import { rollPulls, topChance } from '../../lib/game/gacha.js';
+import { newCopyId } from '../../lib/game/items/copies.js';
+import { gearEffects } from '../../lib/game/items/equipment.js';
+import { rollPulls, topChance } from '../../lib/game/items/gacha.js';
 import { pullCost } from '../../perks/index.js';
 import type { ItemCopyDoc, ItemDef, MemberDoc } from '../../types.js';
-import { resolveGear } from '../gear.js';
+import { resolveGear } from '../items/gear.js';
 import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
 /*

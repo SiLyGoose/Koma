@@ -29,7 +29,7 @@ export interface Settings {
     /** Relative weights for each star tier. They do not need to add up to 100. */
     starWeights: Record<Stars, number>;
     /**
-     * Pity for the top tier (PITY_STARS in constants/gacha.ts). The Nth pull since the last top-tier
+     * Pity for the top tier (PITY_STARS in constants/items/gacha.ts). The Nth pull since the last top-tier
      * item has its chance raised: from softStart the chance climbs a step per pull, and reaches
      * 100% at hardPity. hardPity 0 turns pity off.
      */
@@ -95,11 +95,11 @@ export interface Settings {
     /** The smallest and biggest round, counting every chip on the table. */
     minBet: number;
     maxBet: number;
-    /** What each winning bet pays, to 1 (Player always pays 1 to 1): see lib/game/baccarat.ts. */
+    /** What each winning bet pays, to 1 (Player always pays 1 to 1): see lib/game/casino/baccarat.ts. */
     payout: { banker: number; tie: number; kirin: number; phoenix: number };
   };
   roulette: {
-    /** The smallest and biggest round, counting every chip on the table. What bets pay is fixed (lib/game/roulette.ts). */
+    /** The smallest and biggest round, counting every chip on the table. What bets pay is fixed (lib/game/casino/roulette.ts). */
     minBet: number;
     maxBet: number;
   };
@@ -200,7 +200,7 @@ export interface Settings {
     gemReward: number;
   };
   /**
-   * STONKS!'s claim multiplier curve (perks/stackosaurus.ts stonksMultiplier). The multiplier's cap
+   * STONKS!'s claim multiplier curve (perks/items/stackosaurus.ts stonksMultiplier). The multiplier's cap
    * is the stackosaurus effect's own strength (equipment.stackosaurus.<stars>); this is the shape
    * of the climb to it.
    */

@@ -1,7 +1,7 @@
-import { drawText } from './pixel-font.js';
-import { ACCENT_RED, LINE, textOn } from './palette.js';
-import { encodePng } from './png.js';
-import { mix, shrink, type Rgb } from './raster.js';
+import { drawText } from './render/pixel-font.js';
+import { ACCENT_RED, LINE, textOn } from './render/palette.js';
+import { encodePng } from './render/png.js';
+import { mix, shrink, type Rgb } from './render/raster.js';
 
 /*
  * Draws the prize wheel as a PNG: equal slices, one label each, a pointer at the top, and the

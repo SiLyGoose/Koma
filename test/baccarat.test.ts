@@ -14,8 +14,8 @@ import {
   totalBet,
   type BaccaratPayouts,
   type BaccaratRound,
-} from '../src/lib/game/baccarat.js';
-import type { Card } from '../src/lib/game/blackjack.js';
+} from '../src/lib/game/casino/baccarat.js';
+import type { Card } from '../src/lib/game/casino/blackjack.js';
 import { checkConstraints, findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 import { GAMES } from '../src/web/config.js';
 

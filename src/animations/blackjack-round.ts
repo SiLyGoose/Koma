@@ -4,8 +4,8 @@ import { BLACKJACK, BLACKJACK_IMAGE_NAME, TEXT } from '../constants/index.js';
 import { renderTable, type SeatView } from './images/blackjack-image.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { fmt, mention, money, signed } from '../lib/format.js';
-import { handValue, isBlackjack, isBust, newShoe, payoutFor, payoutRatio, Round, type Card, type Outcome, type Seat } from '../lib/game/blackjack.js';
-import { doubleBet, refundBet, renewLeases, settleBet } from '../services/blackjack.js';
+import { handValue, isBlackjack, isBust, newShoe, payoutFor, payoutRatio, Round, type Card, type Outcome, type Seat } from '../lib/game/casino/blackjack.js';
+import { doubleBet, refundBet, renewLeases, settleBet } from '../services/casino/blackjack.js';
 import { addVaultLoss } from '../services/vault.js';
 import type { EditOptions } from '../discord/types.js';
 import type { Profile } from '../discord/profile.js';
@@ -15,7 +15,7 @@ import { followUpPrivately, replyPrivately } from '../discord/reply.js';
 /*
  * Plays one round of blackjack on a Discord message: deals the cards one by one (the picture is
  * swapped for every card), lets each player act in turn with buttons, plays the dealer, and pays
- * out. The rules are in lib/game/blackjack.ts and the points are in services/blackjack.ts; this is
+ * out. The rules are in lib/game/casino/blackjack.ts and the points are in services/casino/blackjack.ts; this is
  * only the part that talks to Discord and keeps time.
  *
  * Every bet given to `playRound` has already been taken from its owner. However the round ends,

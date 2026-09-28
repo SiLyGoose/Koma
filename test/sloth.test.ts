@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
 import { claimGapHours, EFFECTS, emptyTotals, robCooldownScale, robSuccessChance } from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects } from '../src/lib/game/equipment.js';
+import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 
 const gear = (over: Partial<ReturnType<typeof emptyTotals>>) => ({ ...emptyTotals(), ...over });

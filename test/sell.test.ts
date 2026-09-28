@@ -7,7 +7,7 @@ import { messageContext } from '../src/discord/context.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { equippedCopyIds, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/game/sell.js';
+import { equippedCopyIds, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/game/items/sell.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import { ITEMS } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';

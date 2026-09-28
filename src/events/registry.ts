@@ -1,8 +1,8 @@
 import { randomUnit } from '../lib/random.js';
-import { codedle } from './codedle.js';
-import { greedyHeist } from './greedy-heist.js';
-import { pointCrate } from './point-crate.js';
-import { splitOrSteal } from './split-or-steal.js';
+import { codedle } from './games/codedle.js';
+import { greedyHeist } from './games/greedy-heist.js';
+import { pointCrate } from './games/point-crate.js';
+import { splitOrSteal } from './games/split-or-steal.js';
 import type { GameEvent } from './types.js';
 
 /*

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BACCARAT_TABLE } from '../src/constants/index.js';
-import { dealRound, parseBets, settleBets, totalBet, type BaccaratPayouts } from '../src/lib/game/baccarat.js';
-import type { Card } from '../src/lib/game/blackjack.js';
-import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/baccarat-protocol.js';
-import { openConnection, type Peer } from '../src/web/baccarat-server.js';
-import { resetTables, tablesIn, type TableDeps } from '../src/web/baccarat-table.js';
+import { dealRound, parseBets, settleBets, totalBet, type BaccaratPayouts } from '../src/lib/game/casino/baccarat.js';
+import type { Card } from '../src/lib/game/casino/blackjack.js';
+import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/baccarat/protocol.js';
+import { openConnection, type Peer } from '../src/web/baccarat/server.js';
+import { resetTables, tablesIn, type TableDeps } from '../src/web/baccarat/table.js';
 import { online, resetLive } from '../src/web/live.js';
 import { signToken } from '../src/web/token.js';
 

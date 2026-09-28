@@ -2,7 +2,7 @@ import { isAdmin } from '../config.js';
 import { MAX_GIVE_AMOUNT, TEXT } from '../constants/index.js';
 import { ITEMS } from '../data/items.js';
 import { fmt, starString } from '../lib/format.js';
-import { parseGiveArgs } from '../lib/game/give.js';
+import { parseGiveArgs } from '../lib/game/items/give.js';
 import { giveItems } from '../services/admin.js';
 import type { Command } from '../discord/types.js';
 

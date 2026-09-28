@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CURRENCY_EMOJI, MULTI_PULLS, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
-import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/gacha.js';
+import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/items/gacha.js';
 import { itemsByStars } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
 

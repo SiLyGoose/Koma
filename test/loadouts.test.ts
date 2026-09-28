@@ -10,8 +10,8 @@ import {
   loadoutsOf,
   LOADOUT_NUMBERS,
   type LoadoutFields,
-} from '../src/lib/game/loadouts.js';
-import { refinePlan } from '../src/lib/game/refine.js';
+} from '../src/lib/game/items/loadouts.js';
+import { refinePlan } from '../src/lib/game/items/refine.js';
 
 const member: LoadoutFields = {
   activeLoadout: 2,

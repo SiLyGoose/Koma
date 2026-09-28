@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { PINECRAFT_BREAK_MS, PINECRAFT_ORES, PINECRAFT_ORE_WEIGHTS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../src/constants/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects, totalEffects } from '../src/lib/game/equipment.js';
+import { describeEffects, totalEffects } from '../src/lib/game/items/equipment.js';
 import { findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 import {
   breakMs,
@@ -30,8 +30,8 @@ import {
 import { handleApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { signSession, verifySession } from '../src/web/login.js';
-import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft-protocol.js';
-import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/pinecraft-server.js';
+import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft/protocol.js';
+import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/pinecraft/server.js';
 import { verifyToken } from '../src/web/token.js';
 
 const RULES: PinecraftRules = { maxEnergy: 10, energyMinutes: 3, value: { dirt: 0, stone: 0, coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, amethyst: 40, ruby: 40 } };

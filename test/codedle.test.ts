@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { CODE, CODE_LENGTH, HEIST, SPLIT_STEAL, TEXT, validateConstants } from '../src/constants/index.js';
-import { codeEmbed, codeResultEmbed, codedle, guessRow, myBoardText, squares, type CodeGuess } from '../src/events/codedle.js';
+import { codeEmbed, codeResultEmbed, codedle, guessRow, myBoardText, squares, type CodeGuess } from '../src/events/games/codedle.js';
 import { GAME_EVENTS, validateEvents } from '../src/events/registry.js';
 import { parseGuess, rollCode, scoreGuess } from '../src/lib/events/code.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';

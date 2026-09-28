@@ -1,6 +1,6 @@
 /*
- * The economy: every way points change hands, one file per feature in this folder. Import from
- * here (services/economy/index.js).
+ * The economy: every way points change hands, one file per feature in this folder (and the casino
+ * games' rounds, in services/casino/). Import from here (services/economy/index.js).
  *
  * Every points change goes through a single conditional MongoDB update, so two people
  * spamming a command at once can never double-claim or push a balance below zero.
@@ -19,9 +19,9 @@ export { giveGems } from './gems.js';
 export type { PullResult, PulledItem, MultiPullResult } from './gacha.js';
 export { rob } from './rob.js';
 export type { RobResult } from './rob.js';
-export { playPlinko } from './plinko.js';
-export type { PlinkoResult } from './plinko.js';
-export { playBaccarat } from './baccarat.js';
-export type { BaccaratResult } from './baccarat.js';
-export { playRoulette } from './roulette.js';
-export type { RouletteResult } from './roulette.js';
+export { playPlinko } from '../casino/plinko.js';
+export type { PlinkoResult } from '../casino/plinko.js';
+export { playBaccarat } from '../casino/baccarat.js';
+export type { BaccaratResult } from '../casino/baccarat.js';
+export { playRoulette } from '../casino/roulette.js';
+export type { RouletteResult } from '../casino/roulette.js';

@@ -1,6 +1,8 @@
 /*
- * The perk registry: every perk (effect) an item can have, one file each in this folder. A perk
- * with extra machinery (the wheel, the D20) gets its own folder with an index.ts instead.
+ * The perk registry: every perk (effect) an item can have, one file each, by what it's about: rob/
+ * (stealing and being stolen from), raid/ (the raid boss fight), economy/ (claims and pulls), and
+ * items/ (perks made for one item, like the Sloth's or Chaewon's pairs). A perk with extra machinery
+ * (the wheel, the D20, Pinecraft) gets its own folder with an index.ts instead.
  *
  * An item lists the perks it has by id (see data/items/catalog.ts). A perk file holds everything about
  * that perk: its settings (description, defaults per star tier, limits), its gear-card text, and
@@ -8,7 +10,7 @@
  * whichever perks change it, is in stats.ts.
  *
  * To add a new perk:
- *   1. Create a file here (copy a similar perk) that exports `definePerk({ ... })`.
+ *   1. Create a file in its folder (copy a similar perk) that exports `definePerk({ ... })`.
  *   2. Add it to EFFECTS in registry.ts. The key is the perk's id; its settings
  *      (equipment.<id>.<stars>), validation and config listing all come from this automatically.
  *   3. Give it to one or more items in data/items/catalog.ts.
@@ -23,15 +25,15 @@
 export * from './registry.js';
 export * from './stats.js';
 // Every perk's functions, so callers can import from one place.
-export * from './claim-bonus.js';
-export * from './claim-tax.js';
+export * from './economy/claim-bonus.js';
+export * from './rob/claim-tax.js';
 export * from './d20/index.js';
 export * from './pinecraft/index.js';
-export * from './pull-discount.js';
-export * from './thoccy.js';
-export * from './rob-tax.js';
-export * from './bubble-beam.js';
-export * from './sloth-cooldown.js';
-export * from './stackosaurus.js';
+export * from './economy/pull-discount.js';
+export * from './items/thoccy.js';
+export * from './rob/rob-tax.js';
+export * from './items/bubble-beam.js';
+export * from './items/sloth-cooldown.js';
+export * from './items/stackosaurus.js';
 export * from './wheel-spin/index.js';
 export type { PerkDef } from './define.js';

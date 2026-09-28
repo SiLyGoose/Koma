@@ -13,9 +13,9 @@ export interface Collections {
   meta: Collection<MetaDoc>;
   /** Per-server data that is not in the settings: the events channel and when the next event is due. */
   guilds: Collection<GuildDoc>;
-  /** Points that are on a blackjack table right now (see services/blackjack.ts). */
+  /** Points that are on a blackjack table right now (see services/casino/blackjack.ts). */
   blackjackBets: Collection<BlackjackBetDoc>;
-  /** Runs in the mine being played right now (see services/mines.ts). */
+  /** Runs in the mine being played right now (see services/casino/mines.ts). */
   minesRuns: Collection<MineRunDoc>;
   /** Where rounds were kept before the mine was renamed Mines. Only read by the one-time move (services/migrate.ts). */
   oldMineRuns: Collection<MineRunDoc>;

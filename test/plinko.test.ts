@@ -13,8 +13,8 @@ import {
   slotMultiplier,
   slotMultipliers,
   slotOf,
-} from '../src/lib/game/plinko.js';
-import { betForButton, buttonPlan, checkBet, isBetButton, parseBetArg } from '../src/lib/game/bet.js';
+} from '../src/lib/game/casino/plinko.js';
+import { betForButton, buttonPlan, checkBet, isBetButton, parseBetArg } from '../src/lib/game/casino/bet.js';
 import { renderPlinko, boardLayout } from '../src/animations/images/plinko-image.js';
 import { pixelAt, pngSize, readPng } from './helpers/png.js';
 import { SPECS, checkConstraints, findSpec, formatValue, parseInput, validateSettings } from '../src/lib/settings-spec.js';

@@ -1,8 +1,8 @@
-import { ballOffset, slotOf, type PlinkoPath } from '../../lib/game/plinko.js';
-import { Canvas } from './canvas.js';
-import { encodePng } from './png.js';
-import { ACCENT_RED, LINE, rangeColors, textOn } from './palette.js';
-import { mix, shrinkRect, type Rgb } from './raster.js';
+import { ballOffset, slotOf, type PlinkoPath } from '../../lib/game/casino/plinko.js';
+import { Canvas } from './render/canvas.js';
+import { encodePng } from './render/png.js';
+import { ACCENT_RED, LINE, rangeColors, textOn } from './render/palette.js';
+import { mix, shrinkRect, type Rgb } from './render/raster.js';
 
 /*
  * Draws the plinko board as a PNG: rows of pegs in a triangle, a slot for each payout at the

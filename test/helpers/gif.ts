@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 /*
  * Reading the bot's own GIFs back in tests: a plain GIF89a decoder written from the spec, apart
- * from the encoder in src/animations/images/gif.ts, so a mistake in one isn't hidden by the other.
+ * from the encoder in src/animations/images/render/gif.ts, so a mistake in one isn't hidden by the other.
  * It only understands what the encoder writes (a global palette, no interlace), and draws each
  * frame over the one before (disposal 1), as a viewer does, so `frames` are the full pictures seen.
  */

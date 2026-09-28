@@ -99,7 +99,7 @@ export interface RaidStats {
 }
 
 /**
- * The raid perks from a player's equipped gear (perks/heal-splash.ts, guard-boost.ts,
+ * The raid perks from a player's equipped gear (perks/raid/heal-splash.ts, guard-boost.ts,
  * rally-boost.ts, max-hp-damage.ts, heal-cut.ts), as fractions. All 0 with no raid gear on.
  */
 export interface RaidGear {
@@ -117,7 +117,7 @@ export interface RaidGear {
 
 export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0, healCut: 0 });
 
-/** The raid perks out of a member's gear totals (lib/game/equipment.ts gearEffects). */
+/** The raid perks out of a member's gear totals (lib/game/items/equipment.ts gearEffects). */
 export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost, maxHpDamage, healCut }: RaidGear): RaidGear => ({
   healSplash,
   guardBoost,

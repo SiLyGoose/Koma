@@ -1,6 +1,6 @@
 import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, SLOT_EMOJI, TEXT, TOKEN_NAME } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem } from '../lib/game/equipment.js';
+import { canUseItem } from '../lib/game/items/equipment.js';
 import { fmt, formatPercent, mentionList, money, starString } from '../lib/format.js';
 import { CONFIG, STARS } from '../config.js';
 import { pullGacha, pullMulti } from '../services/economy/index.js';

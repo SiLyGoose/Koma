@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AVATAR, BLACKJACK, validateConstants } from '../src/constants/index.js';
 import { cleanName, fitName, imagePaint, renderTable, TABLE_WIDTH } from '../src/animations/images/blackjack-image.js';
-import { encodePng } from '../src/animations/images/png.js';
-import { decodePng, type Avatar } from '../src/animations/images/png-decode.js';
+import { encodePng } from '../src/animations/images/render/png.js';
+import { decodePng, type Avatar } from '../src/animations/images/render/png-decode.js';
 import { clearAvatarCache, fetchAvatar, loadProfile, nameOf } from '../src/discord/profile.js';
-import type { Card } from '../src/lib/game/blackjack.js';
+import type { Card } from '../src/lib/game/casino/blackjack.js';
 
 /*
  * The profile pictures and names on the blackjack table: reading a PNG, the picture as a circle,

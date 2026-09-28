@@ -1,6 +1,6 @@
-import { encodePng } from './png.js';
-import { mix, type Rgb } from './raster.js';
-import { blowUp, hash, inside, mapShades, paintParts, SpriteGrid, type Pt, type Shades } from './sprite.js';
+import { encodePng } from './render/png.js';
+import { mix, type Rgb } from './render/raster.js';
+import { blowUp, hash, inside, mapShades, paintParts, SpriteGrid, type Pt, type Shades } from './render/sprite.js';
 
 /*
  * Draws the raid boss as a PNG: a pixel-art red dragon standing on its hoard in a dark cave, facing

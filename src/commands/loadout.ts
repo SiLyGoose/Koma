@@ -2,8 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'dis
 import { LOADOUT_BUTTONS, LOADOUTS, REFINE, SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { findLoadout, LOADOUT_NUMBERS } from '../lib/game/loadouts.js';
-import { getLoadoutViews, getLoadouts, renameLoadout, switchLoadout, type RenameResult, type ResolvedLoadout, type SwitchResult } from '../services/loadouts.js';
+import { findLoadout, LOADOUT_NUMBERS } from '../lib/game/items/loadouts.js';
+import { getLoadoutViews, getLoadouts, renameLoadout, switchLoadout, type RenameResult, type ResolvedLoadout, type SwitchResult } from '../services/items/loadouts.js';
 import { SLOTS, type GearIds } from '../types.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';

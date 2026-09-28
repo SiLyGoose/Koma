@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { GACHA_ANIMATION, STAR_COLORS, validateConstants } from '../src/constants/index.js';
 import { COMET_REST, COMET_SIZE, cometDurationMs, cometGif, renderCometFrame } from '../src/animations/images/comet-image.js';
-import { encodeGif } from '../src/animations/images/gif.js';
+import { encodeGif } from '../src/animations/images/render/gif.js';
 import { playFrames } from '../src/animations/play.js';
 import { createEmbed } from '../src/lib/embed.js';
 import { STARS } from '../src/types.js';

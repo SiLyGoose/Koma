@@ -18,7 +18,7 @@ import { reaperPicture } from '../animations/images/reaper-image.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { claimGuild } from '../events/busy.js';
-import { limitedLines } from '../events/vault-game.js';
+import { limitedLines } from '../events/games/vault-game.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import {
   actionProblem,
@@ -55,8 +55,8 @@ import {
 } from '../lib/events/raid.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
 import { raidWeek } from '../lib/events/raid-week.js';
-import { gearEffects } from '../lib/game/equipment.js';
-import { getEquipment } from '../services/equipment.js';
+import { gearEffects } from '../lib/game/items/equipment.js';
+import { getEquipment } from '../services/items/equipment.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited, mention } from '../lib/format.js';
 import { sleep } from '../lib/time.js';
 import type { RaidDoc } from '../types.js';

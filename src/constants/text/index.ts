@@ -4,42 +4,43 @@ import { wheelText } from './wheel.js';
 import { d20Text } from './d20.js';
 import { stonksText } from './stonks.js';
 import { claimText } from './claim.js';
-import { gachaText } from './gacha.js';
-import { betText } from './bet.js';
-import { plinkoText } from './plinko.js';
-import { baccaratText } from './baccarat.js';
-import { rouletteText } from './roulette.js';
-import { blackjackText } from './blackjack.js';
-import { minesText } from './mines.js';
+import { gachaText } from './items/gacha.js';
+import { betText } from './casino/bet.js';
+import { plinkoText } from './casino/plinko.js';
+import { baccaratText } from './casino/baccarat.js';
+import { rouletteText } from './casino/roulette.js';
+import { blackjackText } from './casino/blackjack.js';
+import { minesText } from './casino/mines.js';
 import { pinecraftText } from './pinecraft.js';
-import { sellText } from './sell.js';
-import { inventoryText } from './inventory.js';
-import { databankText } from './databank.js';
+import { sellText } from './items/sell.js';
+import { inventoryText } from './items/inventory.js';
+import { databankText } from './items/databank.js';
 import { leaderboardText } from './leaderboard.js';
 import { helpText } from './help.js';
-import { gearText } from './gear.js';
-import { equipText } from './equip.js';
-import { unequipText } from './unequip.js';
-import { loadoutText } from './loadout.js';
-import { refineText } from './refine.js';
+import { gearText } from './items/gear.js';
+import { equipText } from './items/equip.js';
+import { unequipText } from './items/unequip.js';
+import { loadoutText } from './items/loadout.js';
+import { refineText } from './items/refine.js';
 import { robText } from './rob.js';
-import { eventsText } from './events.js';
-import { crateText } from './crate.js';
-import { vaultText } from './vault.js';
-import { heistText } from './heist.js';
-import { splitStealText } from './split-steal.js';
-import { codedleText } from './codedle.js';
+import { eventsText } from './events/events.js';
+import { crateText } from './events/crate.js';
+import { vaultText } from './events/vault.js';
+import { heistText } from './events/heist.js';
+import { splitStealText } from './events/split-steal.js';
+import { codedleText } from './events/codedle.js';
 import { giveText } from './give.js';
 import { configText } from './config.js';
 import { raidText } from './raid.js';
 
 /*
- * Every message the bot sends, one file per command or feature in this folder. `p` is the command
+ * Every message the bot sends, one file per command or feature: the casino games' in casino/, the
+ * items' and gear's in items/, the events' in events/, and the rest here. `p` is the command
  * prefix (like "k!"), `user` and `victim` are mentions. Text templates are functions: the numbers
  * passed to them are already formatted with thousands separators ("1,250"), and `unix` values are
  * Unix seconds for Discord's <t:...:R> "in 5 minutes" timestamps.
  *
- * To add a section, create a file here and add it below. The key is how code reaches it
+ * To add a section, create a file (in its group's folder) and add it below. The key is how code reaches it
  * (TEXT.<key>).
  */
 export const TEXT = {

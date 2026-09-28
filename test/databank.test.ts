@@ -7,8 +7,8 @@ import { ITEMS, findItem } from '../src/data/items.js';
 import type { Message } from 'discord.js';
 import { messageContext } from '../src/discord/context.js';
 import { databank } from '../src/commands/databank.js';
-import { buildDatabank, itemBlock, itemDetail, parseStarQuery } from '../src/lib/game/databank.js';
-import { describeEffects } from '../src/lib/game/equipment.js';
+import { buildDatabank, itemBlock, itemDetail, parseStarQuery } from '../src/lib/game/items/databank.js';
+import { describeEffects } from '../src/lib/game/items/equipment.js';
 import type { ItemDef } from '../src/types.js';
 
 const allText = (pages: ReturnType<typeof buildDatabank>) => pages.flat().map((f) => `${f.name}\n${f.value}`).join('\n');

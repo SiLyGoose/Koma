@@ -1,6 +1,6 @@
 import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
-import { gearEffects } from '../../lib/game/equipment.js';
+import { gearEffects } from '../../lib/game/items/equipment.js';
 import { randInt } from '../../lib/random.js';
 import { currentHour, nextHourUnix } from '../../lib/time.js';
 import {
@@ -24,7 +24,7 @@ import {
   type WheelSpin,
 } from '../../perks/index.js';
 import type { MemberDoc } from '../../types.js';
-import { resolveGear } from '../gear.js';
+import { resolveGear } from '../items/gear.js';
 import { type LedgerInput, recordLedger, ensureMember } from './shared.js';
 
 /*

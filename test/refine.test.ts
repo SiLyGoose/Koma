@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { REFINE, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects, equippedGear, gearEffects, totalEffects } from '../src/lib/game/equipment.js';
-import { refineLevel, refinePlan, refineShare } from '../src/lib/game/refine.js';
+import { describeEffects, equippedGear, gearEffects, totalEffects } from '../src/lib/game/items/equipment.js';
+import { refineLevel, refinePlan, refineShare } from '../src/lib/game/items/refine.js';
 import type { ItemDef } from '../src/types.js';
 
 const item = (id: string) => ITEMS_BY_ID.get(id) as ItemDef;

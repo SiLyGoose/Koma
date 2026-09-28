@@ -1,6 +1,6 @@
-import { encodePng } from './png.js';
+import { encodePng } from './render/png.js';
 import type { CrateTier } from '../../lib/events/crate.js';
-import { GLYPHS } from './pixel-font.js';
+import { GLYPHS } from './render/pixel-font.js';
 import { ZEIUCOIN_SIZE, zeiucoinPixels } from './coin-art.js';
 import { BURST_NOISE, BURST_SPARKLES, CLOSED_NOISE, CLOSED_SPARKLES, HIDDEN_SPARKLES, HIDDEN_STREAKS, RIBBONS, type Sparkle } from './crate-layout.js';
 import {
@@ -20,7 +20,7 @@ import {
   type Paint,
   type Point,
   type Stop,
-} from './vector.js';
+} from './render/vector.js';
 
 /*
  * Draws the point crate as a PNG: a sci-fi supply crate on a dark backdrop of soft, slow waves. The

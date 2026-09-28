@@ -1,8 +1,8 @@
 import { BLACKJACK } from '../../constants/index.js';
-import { handValue, type Card, type Suit } from '../../lib/game/blackjack.js';
-import { GLYPHS, GLYPH_HEIGHT } from './pixel-font.js';
-import { encodePng } from './png.js';
-import type { Avatar } from './png-decode.js';
+import { handValue, type Card, type Suit } from '../../lib/game/casino/blackjack.js';
+import { GLYPHS, GLYPH_HEIGHT } from './render/pixel-font.js';
+import { encodePng } from './render/png.js';
+import type { Avatar } from './render/png-decode.js';
 import {
   cubic,
   ellipsePoints,
@@ -18,7 +18,7 @@ import {
   type Paint,
   type Point,
   type Rgba,
-} from './vector.js';
+} from './render/vector.js';
 
 /*
  * Draws a blackjack table as a PNG: the dealer's cards at the top and the players' seats along the

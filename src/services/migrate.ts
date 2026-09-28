@@ -1,7 +1,7 @@
 import type { Filter } from 'mongodb';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { bestCopy } from '../lib/game/copies.js';
+import { bestCopy } from '../lib/game/items/copies.js';
 import type { ItemCopyDoc, LedgerDoc } from '../types.js';
 import { SLOTS } from '../types.js';
 
@@ -103,7 +103,7 @@ export async function migrateInventory(): Promise<MigrationResult> {
  *      original refactor). Any member still holding that old field name gets it renamed to
  *      `equipment.treasure` in one atomic $rename.
  *   2. Stale slot: an item's catalog `slot` can change after members already have it equipped.
- *      `equippedItems()` (lib/game/equipment.ts) only counts a copy that sits in the field
+ *      `equippedItems()` (lib/game/items/equipment.ts) only counts a copy that sits in the field
  *      matching its *current* catalog slot, so a copy left behind in the wrong field gives its
  *      wearer nothing and shows as a broken/unknown slot in `k!gear`. This step finds any
  *      weapon/armor copy whose current catalog slot is 'treasure' and reconciles it: moves it

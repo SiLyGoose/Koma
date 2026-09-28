@@ -5,7 +5,7 @@ import { MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants/inde
 import { applyStonks, EFFECTS, emptyTotals, stonksCurvePoints, stonksMultiplier } from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { formatMultiplier, signed } from '../src/lib/format.js';
-import { describeEffects } from '../src/lib/game/equipment.js';
+import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { findSpec, parseInput } from '../src/lib/settings-spec.js';
 
 const gear = (stackosaurus: number) => ({ ...emptyTotals(), stackosaurus });

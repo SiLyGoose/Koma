@@ -1,6 +1,6 @@
 import { WHEEL_MIN_CHANCE } from '../../constants/index.js';
 import { randomUnit } from '../../lib/random.js';
-import { refineShare } from '../../lib/game/refine-share.js';
+import { refineShare } from '../../lib/game/items/refine-share.js';
 import { clamp } from '../define.js';
 import { WHEEL_SLICES } from './slices.js';
 

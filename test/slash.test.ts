@@ -9,12 +9,12 @@ import { MAX_GIVE_AMOUNT, SLASH_EXCLUDED, TEXT, validateConstants } from '../src
 import { getPrefix } from '../src/services/settings.js';
 import { ITEMS } from '../src/data/items.js';
 import { itemChoices, nameChoices } from '../src/lib/autocomplete.js';
-import { parseGiveArgs } from '../src/lib/game/give.js';
+import { parseGiveArgs } from '../src/lib/game/items/give.js';
 import { GAME_EVENTS } from '../src/events/registry.js';
 import { parseUserArg } from '../src/lib/parse.js';
-import { parseBlackjackArgs } from '../src/lib/game/blackjack.js';
-import { parseBetArg } from '../src/lib/game/bet.js';
-import { parseSellArgs } from '../src/lib/game/sell.js';
+import { parseBlackjackArgs } from '../src/lib/game/casino/blackjack.js';
+import { parseBetArg } from '../src/lib/game/casino/bet.js';
+import { parseSellArgs } from '../src/lib/game/items/sell.js';
 import { createEmbed } from '../src/lib/embed.js';
 
 // ---------------------------------------------------------------------------

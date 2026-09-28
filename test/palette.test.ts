@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gradientColor, rangeColors } from '../src/animations/images/palette.js';
+import { gradientColor, rangeColors } from '../src/animations/images/render/palette.js';
 
 const RED = [220, 70, 75];
 const ORANGE = [235, 140, 60];

@@ -2,7 +2,7 @@ import { DATABANK_BUTTONS, REFINE, TEXT } from '../constants/index.js';
 import { ITEMS, findItem } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
-import { buildDatabank, itemDetail, parseStarQuery } from '../lib/game/databank.js';
+import { buildDatabank, itemDetail, parseStarQuery } from '../lib/game/items/databank.js';
 import { starString } from '../lib/format.js';
 import { paginate } from '../discord/paginate.js';
 import type { Command } from '../discord/types.js';

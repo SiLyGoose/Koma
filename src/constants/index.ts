@@ -5,15 +5,17 @@
  * Where things are:
  *   - core.ts        access, timing, the currency emoji, general limits
  *   - formatting.ts  stars, number locale, percent decimals, gear slot labels
- *   - loadouts.ts    how many gear loadouts a member has, and how long their names can be
  *   - discord.ts     slash commands, autocomplete, embed and button limits, avatars
- *   - gacha.ts, rob.ts, wheel.ts, d20.ts, stonks.ts, plinko.ts, blackjack.ts, mines.ts, events.ts,
- *                    raid.ts
- *                    each feature's numbers
- *   - text/          every message the bot sends, one file per command or feature (TEXT)
+ *   - casino/        the betting games' numbers: baccarat, blackjack, mines, plinko, roulette, and
+ *                    what the shared-table games have in common (table.ts)
+ *   - items/         gacha, gear loadouts and refining
+ *   - rob.ts, wheel.ts, d20.ts, stonks.ts, pinecraft.ts, events.ts, raid.ts
+ *                    each other feature's numbers
+ *   - text/          every message the bot sends, one file per command or feature (TEXT), with the
+ *                    casino games', the items' and the events' in folders of their own
  *   - validate.ts    the startup check (validateConstants); add a check there for a new value
  *
- * To add a value, put it in the file for its feature (or a new file, exported below).
+ * To add a value, put it in the file for its feature (or a new file, in its group's folder, exported below).
  *
  * What is NOT here, on purpose:
  *   - The settings you change while the bot runs (prefix, embed color, claim range, pull cost,
@@ -31,21 +33,21 @@
 export * from './core.js';
 export * from './formatting.js';
 export * from './discord.js';
-export * from './gacha.js';
+export * from './items/gacha.js';
 export * from './rob.js';
 export * from './wheel.js';
 export * from './d20.js';
 export * from './stonks.js';
-export * from './plinko.js';
-export * from './blackjack.js';
-export * from './mines.js';
-export * from './table.js';
-export * from './baccarat.js';
-export * from './roulette.js';
+export * from './casino/plinko.js';
+export * from './casino/blackjack.js';
+export * from './casino/mines.js';
+export * from './casino/table.js';
+export * from './casino/baccarat.js';
+export * from './casino/roulette.js';
 export * from './pinecraft.js';
 export * from './events.js';
 export * from './raid.js';
-export * from './refine.js';
-export * from './loadouts.js';
+export * from './items/refine.js';
+export * from './items/loadouts.js';
 export { TEXT } from './text/index.js';
 export { validateConstants } from './validate.js';

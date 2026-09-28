@@ -4,8 +4,8 @@ import { createEmbed } from '../lib/embed.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
-import { getEquipment } from '../services/equipment.js';
-import { refineLevel } from '../lib/game/refine.js';
+import { getEquipment } from '../services/items/equipment.js';
+import { refineLevel } from '../lib/game/items/refine.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
 

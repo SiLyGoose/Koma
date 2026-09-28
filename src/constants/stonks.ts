@@ -1,5 +1,5 @@
 /*
- * STONKS!'s limits. The perk itself is in perks/stackosaurus.ts.
+ * STONKS!'s limits. The perk itself is in perks/items/stackosaurus.ts.
  */
 
 /** Longest STONKS!'s claim multiplier can take to reach its cap, in hours (the `stonks.capHours` setting). */

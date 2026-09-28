@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { MINE_MINES, MINE_TILES, TEXT, validateConstants } from '../src/constants/index.js';
-import { expectedReturn, houseEdge, multiplierFor, payoutFor, pick, randomHidden, startRun, validMines, type MineRules, type MineRun } from '../src/lib/game/mines.js';
+import { expectedReturn, houseEdge, multiplierFor, payoutFor, pick, randomHidden, startRun, validMines, type MineRules, type MineRun } from '../src/lib/game/casino/mines.js';
 import { checkConstraints, findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 import { siteGameLink } from '../src/web/config.js';
 import { commandMap } from '../src/commands/index.js';

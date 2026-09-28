@@ -1,12 +1,12 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { TEXT } from '../constants/index.js';
 import { fmt } from '../lib/format.js';
-import { allBet, buttonPlan, type BetButtonIds, type BetRefusal } from '../lib/game/bet.js';
+import { allBet, buttonPlan, type BetButtonIds, type BetRefusal } from '../lib/game/casino/bet.js';
 import { getBalance } from '../services/economy/index.js';
 
 /*
  * The Discord side of games that take a bet: the refusal message, "all" turned into a number,
- * and the again / double / half button row. The rules behind them are in lib/game/bet.ts.
+ * and the again / double / half button row. The rules behind them are in lib/game/casino/bet.ts.
  */
 
 /** The smallest and biggest bet a game allows, like CONFIG.plinko. */

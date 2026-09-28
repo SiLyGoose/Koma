@@ -1,4 +1,4 @@
-import { decodePng, type Avatar } from '../animations/images/png-decode.js';
+import { decodePng, type Avatar } from '../animations/images/render/png-decode.js';
 import { AVATAR } from '../constants/index.js';
 
 /*

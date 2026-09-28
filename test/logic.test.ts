@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { CONFIG, STARS, validateConfig } from '../src/config.js';
 import { ITEMS, itemsByStars, validateItems } from '../src/data/items.js';
 import { PITY_STARS } from '../src/constants/index.js';
-import { rollItem, rollStars, rollStarsAtPull, topChance } from '../src/lib/game/gacha.js';
+import { rollItem, rollStars, rollStarsAtPull, topChance } from '../src/lib/game/items/gacha.js';
 import { randInt } from '../src/lib/random.js';
 import { currentHour, nextHourUnix } from '../src/lib/time.js';
 

@@ -1,6 +1,6 @@
-import { encodePng } from './png.js';
-import { mix, type Rgb } from './raster.js';
-import { blowUp, hash, mapShades, paintParts, SpriteGrid, type Pt, type Shades } from './sprite.js';
+import { encodePng } from './render/png.js';
+import { mix, type Rgb } from './render/raster.js';
+import { blowUp, hash, mapShades, paintParts, SpriteGrid, type Pt, type Shades } from './render/sprite.js';
 import type { DragonMood } from './dragon-image.js';
 
 /*

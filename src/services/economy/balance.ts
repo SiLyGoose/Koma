@@ -1,7 +1,7 @@
 import { CONFIG } from '../../config.js';
 import { MINUTE_MS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { groupCopies, type InventoryEntry } from '../../lib/game/copies.js';
+import { groupCopies, type InventoryEntry } from '../../lib/game/items/copies.js';
 import { currentHour, nextHourUnix } from '../../lib/time.js';
 import type { MemberDoc } from '../../types.js';
 import { claimReadyHour, hasBonusClaim } from './claim.js';

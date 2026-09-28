@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { inflateSync } from 'node:zlib';
-import { crc32, PNG_SIGNATURE } from '../../src/animations/images/png.js';
+import { crc32, PNG_SIGNATURE } from '../../src/animations/images/render/png.js';
 
 /*
  * Reading the bot's own PNGs back in tests. This is stricter than the bot's decoder
- * (src/animations/images/png-decode.ts) on purpose: it checks that our encoder writes exactly what
+ * (src/animations/images/render/png-decode.ts) on purpose: it checks that our encoder writes exactly what
  * it should (every checksum right, 8-bit RGBA, no filtering), where the bot's decoder accepts any PNG.
  */
 

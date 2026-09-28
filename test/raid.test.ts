@@ -34,7 +34,7 @@ import { raidWeek } from '../src/lib/events/raid-week.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { raidTakings } from '../src/services/raid.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects } from '../src/lib/game/equipment.js';
+import { describeEffects } from '../src/lib/game/items/equipment.js';
 import type { ItemDef, RaidDoc } from '../src/types.js';
 import { readPng } from './helpers/png.js';
 
@@ -1387,7 +1387,7 @@ test('raid stats: the reaper lists its Soul Requiem', () => {
 });
 
 test('heal-cut weapons: a 1-, 2- and 3-star weapon, the 3-star one cutting boss heals by 25% at R5', async () => {
-  const { itemBlock } = await import('../src/lib/game/databank.js');
+  const { itemBlock } = await import('../src/lib/game/items/databank.js');
   for (const [id, stars, cut] of [
     ['thorned-club', 1, 0.1],
     ['serrated-hatchet', 2, 0.15],

@@ -18,9 +18,9 @@ import {
   type WheelDice,
 } from '../src/perks/index.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { describeEffects, totalEffects } from '../src/lib/game/equipment.js';
+import { describeEffects, totalEffects } from '../src/lib/game/items/equipment.js';
 import { formatMultiplier } from '../src/lib/format.js';
-import { crc32, encodePng } from '../src/animations/images/png.js';
+import { crc32, encodePng } from '../src/animations/images/render/png.js';
 import { pixelAt, readPng } from './helpers/png.js';
 import { landingTurn, renderSpinningWheel, renderWheel, sliceColor, spinTurns } from '../src/animations/images/wheel-image.js';
 import type { ItemDef } from '../src/types.js';

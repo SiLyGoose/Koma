@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { ROB_STREAK_WINDOW_MS, TEXT } from '../src/constants/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { MEMBERS } from '../src/data/members.js';
-import { canUseItem, describeEffects, totalEffects } from '../src/lib/game/equipment.js';
+import { canUseItem, describeEffects, totalEffects } from '../src/lib/game/items/equipment.js';
 import { streakRate } from '../src/perks/index.js';
 
 const KEYBOARD = ITEMS_BY_ID.get('thoccy-keyboard')!;

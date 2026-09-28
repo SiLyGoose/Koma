@@ -1,6 +1,6 @@
 import { GACHA_ANIMATION, STAR_COLORS } from '../../constants/index.js';
 import type { Stars } from '../../types.js';
-import { encodeGif, type GifFrame } from './gif.js';
+import { encodeGif, type GifFrame } from './render/gif.js';
 
 /*
  * The gacha pull's shooting star, after the comet in "Your Name": a night sky fading from purple

@@ -68,7 +68,7 @@ export const MAX_PINECRAFT_VALUE = 100_000;
  * - `viewCols`, `viewRows`: how many blocks either side of the miner the page is sent.
  * - `look`: how far from the miner (in blocks) its tunnels are followed to see what they show.
  * - `breakGraceMs`: how much sooner than its break time a block may be finished, for the network's
- *   unevenness (the page starts breaking it and finishes it in two messages; see pinecraft-server.ts).
+ *   unevenness (the page starts breaking it and finishes it in two messages; see web/pinecraft/server.ts).
  */
 export const PINECRAFT_WEB = {
   path: '/pinecraft',

@@ -18,7 +18,7 @@ import {
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { d20Color, dieFrames, renderD20 } from '../src/animations/images/d20-image.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { describeEffects } from '../src/lib/game/equipment.js';
+import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { readPng } from './helpers/png.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 

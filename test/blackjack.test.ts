@@ -24,8 +24,8 @@ import {
   type Card,
   type Outcome,
   type Suit,
-} from '../src/lib/game/blackjack.js';
-import { allBet } from '../src/lib/game/bet.js';
+} from '../src/lib/game/casino/blackjack.js';
+import { allBet } from '../src/lib/game/casino/bet.js';
 import { SPECS, checkConstraints, findSpec, formatValue, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
 const SUIT_OF: Record<string, Suit> = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' };

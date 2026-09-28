@@ -6,7 +6,7 @@ import { ensureMember, recordLedger } from './economy/shared.js';
 
 /*
  * The database side of Pinecraft. A member's world is loaded when they start playing and kept in
- * memory while they do (web/pinecraft-session.ts, one page per member), and every block dug is saved
+ * memory while they do (web/pinecraft/server.ts, one page per member), and every block dug is saved
  * as it is dug, before any ore in it is paid: a block can't be dug twice, so an ore can't be paid twice.
  */
 

@@ -1,10 +1,10 @@
 import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem, describeEffects, itemEffectiveness } from '../lib/game/equipment.js';
+import { canUseItem, describeEffects, itemEffectiveness } from '../lib/game/items/equipment.js';
 import { formatPercent, mentionList, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
-import { equipItem } from '../services/equipment.js';
+import { equipItem } from '../services/items/equipment.js';
 import type { ItemDef } from '../types.js';
 import type { Command } from '../discord/types.js';
 

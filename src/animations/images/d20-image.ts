@@ -1,10 +1,10 @@
 import { randomInt } from 'node:crypto';
 import { D20 } from '../../constants/index.js';
 import { d20Multiplier } from '../../perks/index.js';
-import { drawText } from './pixel-font.js';
-import { LINE, textOn } from './palette.js';
-import { encodePng } from './png.js';
-import { shrink, type Rgb } from './raster.js';
+import { drawText } from './render/pixel-font.js';
+import { LINE, textOn } from './render/palette.js';
+import { encodePng } from './render/png.js';
+import { shrink, type Rgb } from './render/raster.js';
 import { sliceColor } from './wheel-image.js';
 
 /*

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../../config.js';
 import { MINUTE_MS, ROB_LOCK, ROB_STREAK_WINDOW_MS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { gearEffects } from '../../lib/game/equipment.js';
+import { gearEffects } from '../../lib/game/items/equipment.js';
 import { chance, randInt } from '../../lib/random.js';
 import {
   applyWheel,
@@ -23,7 +23,7 @@ import {
   wheelSlices,
   type WheelSpin,
 } from '../../perks/index.js';
-import { resolveGear } from '../gear.js';
+import { resolveGear } from '../items/gear.js';
 import { addVaultLoss } from '../vault.js';
 import { type LedgerInput, clampedDebit, recordLedger, ensureMember, transferClamped } from './shared.js';
 import { sleep } from '../../lib/time.js';

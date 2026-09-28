@@ -2,10 +2,10 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'dis
 import { REFINE, REFINE_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { describeEffects, itemEffectiveness } from '../lib/game/equipment.js';
+import { describeEffects, itemEffectiveness } from '../lib/game/items/equipment.js';
 import { starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
-import { refineItem, type RefineResult } from '../services/refine.js';
+import { refineItem, type RefineResult } from '../services/items/refine.js';
 import type { ItemDef } from '../types.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
