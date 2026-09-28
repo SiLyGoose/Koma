@@ -252,7 +252,6 @@ test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its re
   assert.deepEqual(describeEffects(ruby, 1, 4).slice(1), [
     'Pinecraft: ores take 3 ⚡ each to dig',
     'Pinecraft: 6.67% chance an ore pays double',
-    '🔒 R5 bonus: Pinecraft: ores take no extra ⚡ to dig',
   ]);
   assert.deepEqual(describeEffects(ruby, 1, 5).slice(1), [
     'Pinecraft: 10% chance an ore pays double',

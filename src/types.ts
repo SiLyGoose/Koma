@@ -43,7 +43,7 @@ export interface ItemDef {
 /**
  * A refine bonus: from refinement level `level` on, the item gains the perks in `adds` and loses
  * the ones in `removes` (say a drawback it outgrows). Below that level it works as if the bonus
- * weren't there, and the gear card shows the bonus as locked.
+ * weren't there, and the gear card doesn't show the bonus.
  */
 export interface ItemBonus {
   /** The refinement level that unlocks it (2 to REFINE.maxLevel). */

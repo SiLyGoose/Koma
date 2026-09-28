@@ -114,12 +114,12 @@ function effectLine(effect: EffectId, strength: number): string {
 
 /**
  * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
- * (fully refined unless given), then its refine bonus, unlocked or locked. `share` scales the
+ * (fully refined unless given), then its refine bonus once unlocked (hidden until then). `share` scales the
  * strengths further, for an item worn at less than full effect (see itemEffectiveness).
  */
 export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string[] {
   const lines = itemEffects(item, level).map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
-  if (item.bonus) lines.push(TEXT.gear.bonus(item.bonus.level, item.bonus.text, bonusUnlocked(item, level)));
+  if (item.bonus && bonusUnlocked(item, level)) lines.push(TEXT.gear.bonus(item.bonus.level, item.bonus.text));
   return lines;
 }
 
