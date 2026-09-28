@@ -27,11 +27,11 @@ export const vaultText = {
   donateUsage: (p: string) => `Use \`${p}donate <amount>\` (or \`${p}donate all\`) to give some of your ${CURRENCY_NAME} to the vault.`,
   donateBadAmount: 'The amount must be a whole number of at least 1, or "all".',
   /** `balance` is what they have. */
-  donateTooPoor: (balance: string) => `You don't have that many to give. You have ${boldMoney(balance)}.`,
+  donateTooPoor: (balance: string) => `You don't have that many to give. You have ${boldMoney(balance)}`,
   donateNothing: `You don't have any ${CURRENCY_NAME} to give.`,
   donateTitle: 'Vault donation',
   /** `user` is a mention; `pool` is the vault right after. */
   donateDone: (user: string, amount: string, pool: string) =>
-    `${user} put ${boldMoney(amount)} into the vault. It now holds ${boldMoney(pool)}.`,
+    `${user} put ${boldMoney(amount)} into the vault. It now holds ${boldMoney(pool)}`,
   donateBalanceField: 'Your balance',
 };
