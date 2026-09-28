@@ -111,7 +111,7 @@ test('baccarat table: players are seated together, up to 8 a table, and see each
   assert.equal(state.table, 1);
   assert.equal(state.maxSeats, BACCARAT_TABLE.seats);
   assert.deepEqual(state.seats.map((s) => s.userId), Array.from({ length: seats }, (_, i) => `u${i + 1}`), 'one more went to another table');
-  assert.deepEqual(state.seats[0], { userId: 'u1', name: 'P1', avatar: 'https://cdn.example/u1.png', balance: 500, bets: {}, result: null, refused: false, lastBets: null });
+  assert.deepEqual(state.seats[0], { userId: 'u1', name: 'P1', avatar: 'https://cdn.example/u1.png', balance: 500, bets: {}, result: null, refused: false, lastBets: null, ready: false });
   assert.equal(state.phase, 'betting');
   assert.equal(state.msLeft, BACCARAT_TABLE.bettingMs);
   assert.equal(players[seats]!.page.last().table, 2);
@@ -225,4 +225,63 @@ test('baccarat table: a new page takes over the seat, and a bad message or token
   await other.receive(JSON.stringify({ t: 'hello', token: 'not.a-token' }));
   assert.deepEqual([stranger.got.at(-1), stranger.closed], [{ t: 'error', code: 'bad_token' }, true]);
   other.closed();
+});
+
+const vote = (ready = true): string => JSON.stringify({ t: 'deal', ready });
+
+test('baccarat table: alone at a table, voting to deal deals at once (with chips down)', async () => {
+  resetLive();
+  resetTables();
+  const { deps, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'Simon');
+  // No chips on the table: nothing to deal, the vote just stands.
+  await a.connection.receive(vote());
+  assert.deepEqual([a.page.last().phase, a.page.last().seats[0]?.ready], ['betting', true]);
+  await a.connection.receive(vote(false));
+  await a.connection.receive(bets(1, { player: 100 }));
+  await a.connection.receive(vote());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, [['u1', 100]]);
+  a.connection.closed();
+});
+
+test('baccarat table: with others, the round is dealt once everyone has voted, and a vote can be taken back', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'Simon');
+  const b = await join(deps, 'u2', 'Alvin');
+  const c3 = await join(deps, 'u3', 'Trina');
+  await a.connection.receive(bets(1, { player: 100 }));
+  await a.connection.receive(vote());
+  await b.connection.receive(vote());
+  assert.deepEqual(c3.page.last().seats.map((s) => s.ready), [true, true, false], 'everyone sees who voted');
+  await b.connection.receive(vote(false));
+  await c3.connection.receive(vote());
+  assert.equal(a.page.last().phase, 'betting', 'Alvin took his vote back');
+  await b.connection.receive(vote());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, [['u1', 100]], 'only the player with chips down plays');
+
+  // The next round starts with nobody's vote.
+  await tick(BACCARAT_TABLE.showMs);
+  assert.deepEqual(a.page.last().seats.map((s) => s.ready), [false, false, false]);
+  for (const p of [a, b, c3]) p.connection.closed();
+});
+
+test('baccarat table: the last one who hasn’t voted leaving deals the round', async () => {
+  resetLive();
+  resetTables();
+  const { deps, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'Simon');
+  const b = await join(deps, 'u2', 'Alvin');
+  await a.connection.receive(bets(1, { banker: 50 }));
+  await a.connection.receive(vote());
+  b.connection.closed();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, [['u1', 50]]);
+  a.connection.closed();
 });

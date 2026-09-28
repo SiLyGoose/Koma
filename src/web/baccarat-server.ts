@@ -92,8 +92,14 @@ export function openConnection(page: Peer, deps: TableDeps = realTableDeps): Tab
       return;
     }
 
-    // Chips.
     if (!player || !table) return refuse(peer, 'bad_message');
+    // A vote to deal now (turned down quietly once the round is being dealt).
+    if (message.t === 'deal') {
+      table.setReady(player.userId, message.ready);
+      return;
+    }
+
+    // Chips.
     const refusal = table.setBets(player.userId, message.bets);
     if (refusal) {
       peer.send({ t: 'refused', seq: message.seq, ...refusal });

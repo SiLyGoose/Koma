@@ -15,6 +15,8 @@ import { parseBets, type BaccaratBets, type BaccaratWinner, type BetOutcome } fr
  *   page -> bot   hello    first message: the token from the link (it is then seated at a table)
  *                 bets     the player's chips on the table now (all of them; {} takes them all back),
  *                          while the round is taking bets; `seq` counts up from 1 with each
+ *                 deal     the player's vote to deal now (`ready` false takes it back): the round is
+ *                          dealt as soon as everyone at the table has voted, if anyone has chips down
  *   bot -> page   table    the table as it is now: whenever anything about it changes
  *                 refused  chips that couldn't go down, and why (the table that follows says what's down)
  *                 error    and the bot closes the connection
@@ -25,7 +27,11 @@ import { parseBets, type BaccaratBets, type BaccaratWinner, type BetOutcome } fr
  * The player is sent `watchers` whenever how many are watching changes.
  */
 
-export type ClientMessage = { t: 'hello'; token: string } | { t: 'watch'; token: string } | { t: 'bets'; bets: BaccaratBets; seq: number };
+export type ClientMessage =
+  | { t: 'hello'; token: string }
+  | { t: 'watch'; token: string }
+  | { t: 'bets'; bets: BaccaratBets; seq: number }
+  | { t: 'deal'; ready: boolean };
 
 /** One bet of a player's in a round, and how it came out. */
 export interface SettledView {
@@ -51,6 +57,8 @@ export interface SeatView {
   refused: boolean;
   /** Their chips of the last round they played, to bet the same again. */
   lastBets: BaccaratBets | null;
+  /** They voted to deal this round now (see the `deal` message). */
+  ready: boolean;
 }
 
 /** The hands of a round dealt. */
@@ -129,5 +137,6 @@ export function parseClientMessage(text: string): ClientMessage | null {
     const bets = parseBets(m.bets);
     return bets ? { t: 'bets', bets, seq: m.seq } : null;
   }
+  if (m.t === 'deal' && typeof m.ready === 'boolean') return { t: 'deal', ready: m.ready };
   return null;
 }

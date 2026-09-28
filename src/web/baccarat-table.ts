@@ -18,6 +18,10 @@ import { playerKey, type Player } from './token.js';
  * can no longer cover are refused. The round is shown for BACCARAT_TABLE.showMs, and the next
  * betting starts with an empty table (Rebet puts a player's last chips back). When the time is up
  * and nobody has chips down, the betting just starts over.
+ *
+ * The round can also be dealt early: each player can vote to deal now, and once everyone at the
+ * table has (alone, that's straight away), it is dealt if anyone has chips down. The votes start
+ * over with each round.
  */
 
 /** Where the table sends a player's messages: their page (with their watchers), or a fake in tests. */
@@ -58,6 +62,8 @@ interface Seat {
   result: SeatView['result'];
   refused: boolean;
   lastBets: BaccaratBets | null;
+  /** Voted to deal this round now. */
+  ready: boolean;
   /** The page playing this seat (null for a moment while it is replaced). */
   peer: Peer | null;
 }
@@ -113,6 +119,7 @@ export class BaccaratTable {
       result: null,
       refused: false,
       lastBets: null,
+      ready: false,
       peer,
     };
     this.seats.push(seat);
@@ -131,7 +138,27 @@ export class BaccaratTable {
     if (i < 0) return;
     this.seats.splice(i, 1);
     if (this.seats.length === 0) return this.close();
+    // Everyone left may have voted to deal.
+    if (this.allReady()) return void this.dealNow();
     this.broadcast();
+  }
+
+  /**
+   * A player's vote to deal now (`ready` false takes it back). When everyone at the table has voted
+   * and someone has chips down, the round is dealt at once. False when the round isn't taking bets.
+   */
+  setReady(userId: string, ready: boolean): boolean {
+    const seat = this.seats.find((s) => s.player.userId === userId);
+    if (!seat || this.phase !== 'betting') return false;
+    seat.ready = ready;
+    if (this.allReady()) void this.dealNow();
+    else this.broadcast();
+    return true;
+  }
+
+  /** Everyone at the table voted to deal, and there are chips to deal for. */
+  private allReady(): boolean {
+    return this.phase === 'betting' && this.seats.length > 0 && this.seats.every((s) => s.ready) && this.seats.some((s) => totalBet(s.bets) > 0);
   }
 
   /** A player's chips on the table now. Null when they went down; why not otherwise. */
@@ -160,6 +187,7 @@ export class BaccaratTable {
       seat.bets = {};
       seat.result = null;
       seat.refused = false;
+      seat.ready = false;
     }
     this.endsAt = this.deps.now() + BACCARAT_TABLE.bettingMs;
     this.cancel = this.deps.schedule(BACCARAT_TABLE.bettingMs, () => void this.dealNow());
@@ -230,6 +258,7 @@ export class BaccaratTable {
         bets: { ...s.bets },
         result: s.result,
         refused: s.refused,
+        ready: s.ready,
         lastBets: s.lastBets,
       })),
       phase: this.phase,
