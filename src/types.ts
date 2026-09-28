@@ -407,6 +407,15 @@ export interface GuildDoc {
    */
   vaultGrownAt?: Date | null;
   /**
+   * Running totals of what has gone into the vault, by where it came from, for the vault command
+   * to show: losses and fines (everything through `addVaultLoss`), and the hourly growth. They only
+   * ever go up (a vault game paying out doesn't lower them), and count from when they were added,
+   * so older losses aren't in them. Donations are counted from the ledger instead ('vault_donation').
+   * Missing means 0.
+   */
+  vaultLosses?: number;
+  vaultGrown?: number;
+  /**
    * Left over from the removed vault breaker event, which saved its open attempt here. Nothing
    * writes it any more; services/migrate.ts clears it on start.
    */

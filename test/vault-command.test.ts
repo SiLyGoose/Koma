@@ -40,3 +40,14 @@ test('donate command: says what was given and what the vault holds now', () => {
   assert.ok(line.includes(CURRENCY_EMOJI));
   assert.match(TEXT.vault.donateUsage('k!'), /k!donate all/);
 });
+
+test('vault command: lists where the points came from, and the donors', () => {
+  const sources = TEXT.vault.sources('1,000', '250', '40');
+  assert.match(sources, /Losses: \*\*1,000\*\*/);
+  assert.match(sources, /Donations: \*\*250\*\*/);
+  assert.match(sources, /Hourly growth: \*\*40\*\*/);
+  assert.equal(sources.split('\n').length, 3);
+  assert.match(TEXT.vault.donorLine(1, '<@1>', '250'), /^1\. <@1>: \*\*250\*\*/);
+  assert.match(TEXT.vault.moreDonors(3), /3 more/);
+  assert.match(TEXT.vault.noDonors('/'), /\/donate/);
+});

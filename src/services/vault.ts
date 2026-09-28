@@ -46,7 +46,7 @@ async function recordLedger(entries: LedgerInput[]): Promise<void> {
 export async function addVaultLoss(guildId: string, amount: number): Promise<void> {
   if (!Number.isFinite(amount) || amount <= 0) return;
   try {
-    await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: amount } }, { upsert: true });
+    await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: amount, vaultLosses: amount } }, { upsert: true });
   } catch (err) {
     console.error(`Could not add ${amount} to the vault pool in ${guildId}:`, err);
   }
@@ -85,12 +85,51 @@ export async function growVaults(now: Date = new Date()): Promise<void> {
       if (amount <= 0) continue;
       await guilds.updateOne(
         { _id: doc._id, vaultGrownAt: last },
-        { $inc: { vaultPool: amount }, $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } },
+        { $inc: { vaultPool: amount, vaultGrown: amount }, $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } },
       );
     } catch (err) {
       console.error(`Could not grow the vault in ${doc._id}:`, err);
     }
   }
+}
+
+/** How many donors the vault command lists by name. */
+export const TOP_VAULT_DONORS = 5;
+
+export interface VaultBreakdown {
+  /** What's in the vault right now. */
+  pool: number;
+  /** Everything ever put in through losses and fines, donations, and the hourly growth. */
+  losses: number;
+  donated: number;
+  grown: number;
+  /** The biggest donors, most given first (at most TOP_VAULT_DONORS). */
+  donors: { userId: string; amount: number }[];
+  /** How many members have ever donated. */
+  donorCount: number;
+}
+
+/** What's in the server's vault, and what has gone into it from where (see GuildDoc.vaultLosses). */
+export async function getVaultBreakdown(guildId: string): Promise<VaultBreakdown> {
+  const { guilds, ledger } = collections();
+  const [doc, rows] = await Promise.all([
+    guilds.findOne({ _id: guildId }),
+    ledger
+      .aggregate<{ _id: string; amount: number }>([
+        { $match: { guildId, reason: 'vault_donation' } },
+        { $group: { _id: '$userId', amount: { $sum: { $multiply: ['$delta', -1] } } } },
+        { $sort: { amount: -1, _id: 1 } },
+      ])
+      .toArray(),
+  ]);
+  return {
+    pool: doc?.vaultPool ?? 0,
+    losses: doc?.vaultLosses ?? 0,
+    grown: doc?.vaultGrown ?? 0,
+    donated: rows.reduce((sum, row) => sum + row.amount, 0),
+    donors: rows.slice(0, TOP_VAULT_DONORS).map((row) => ({ userId: row._id, amount: row.amount })),
+    donorCount: rows.length,
+  };
 }
 
 /** The server's vault pool right now (0 if nothing has been lost yet). */
@@ -205,7 +244,11 @@ export async function donateToVault(guildId: string, userId: string, amount: num
     balance = after.points;
   }
   await recordLedger([{ guildId, userId, delta: -donated, reason: 'vault_donation' }]);
-  await addVaultLoss(guildId, donated);
+  try {
+    await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: donated } }, { upsert: true });
+  } catch (err) {
+    console.error(`Could not add a donation of ${donated} to the vault pool in ${guildId}:`, err);
+  }
   return { ok: true, donated, balance, pool: await getVaultPool(guildId) };
 }
 
@@ -215,4 +258,11 @@ export async function refundFromVault(guildId: string, userId: string, amount: n
   await collections().members.updateOne({ guildId, userId }, { $inc: { points: amount } });
   await recordLedger([{ guildId, userId, delta: amount, reason }]);
   await takeFromVault(guildId, amount);
+  try {
+    await collections().guilds.updateOne({ _id: guildId }, [
+      { $set: { vaultLosses: { $max: [0, { $subtract: [{ $ifNull: ['$vaultLosses', 0] }, amount] }] } } },
+    ]);
+  } catch (err) {
+    console.error(`Could not take a refund of ${amount} out of the vault's losses in ${guildId}:`, err);
+  }
 }

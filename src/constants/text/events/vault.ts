@@ -12,6 +12,17 @@ export const vaultText = {
   commandInfo: (pool: string, prize: string, multiplier: string) =>
     `${boldMoney(pool)} in the vault. The next vault game would put up ${boldMoney(prize)} (${multiplier}).`,
 
+  /** Where the vault's points came from, on the vault command. Every amount is already formatted. */
+  sourcesField: 'Put in so far',
+  sources: (losses: string, donated: string, grown: string) =>
+    [`Losses: ${boldMoney(losses)}`, `Donations: ${boldMoney(donated)}`, `Hourly growth: ${boldMoney(grown)}`].join('\n'),
+  donorsField: 'Top donors',
+  /** `rank` starts at 1; `user` is a mention. */
+  donorLine: (rank: number, user: string, amount: string) => `${rank}. ${user}: ${boldMoney(amount)}`,
+  /** `count` is how many donors weren't listed. */
+  moreDonors: (count: number) => `…and ${count} more`,
+  noDonors: (p: string) => `No one has donated yet. Use \`${p}donate <amount>\` to be the first.`,
+
   /** The `donate` command. */
   donateUsage: (p: string) => `Use \`${p}donate <amount>\` (or \`${p}donate all\`) to give some of your ${CURRENCY_NAME} to the vault.`,
   donateBadAmount: 'The amount must be a whole number of at least 1, or "all".',
