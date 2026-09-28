@@ -4,6 +4,7 @@ import { wheelText } from './wheel.js';
 import { d20Text } from './d20.js';
 import { stonksText } from './stonks.js';
 import { claimText } from './claim.js';
+import { skipText } from './skip.js';
 import { gachaText } from './items/gacha.js';
 import { betText } from './casino/bet.js';
 import { plinkoText } from './casino/plinko.js';
@@ -72,6 +73,7 @@ export const TEXT = {
   events: eventsText,
   crate: crateText,
   vault: vaultText,
+  skip: skipText,
   heist: heistText,
   splitSteal: splitStealText,
   codedle: codedleText,

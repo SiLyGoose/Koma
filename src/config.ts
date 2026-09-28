@@ -206,6 +206,15 @@ export interface Settings {
    * is the stackosaurus effect's own strength (equipment.stackosaurus.<stars>); this is the shape
    * of the climb to it.
    */
+  /**
+   * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
+   * skip of the day costs. Each one after it that day costs double the one before.
+   */
+  skip: {
+    claim: number;
+    /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
+    raid: number;
+  };
   stonks: {
     /** Hours unclaimed at which the multiplier reaches its cap and stops climbing. */
     capHours: number;
@@ -305,6 +314,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
   // rather than jumping there.
+  // The same as an average claim, so skipping only pays off with gear, and doubling stops it being farmed.
+  skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 0.1x up to 5x, which averages about 1.47x a spin.
   wheel: { maxMultiplier: 5 },

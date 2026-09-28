@@ -54,7 +54,10 @@ import {
   type RaidStats,
 } from '../lib/events/raid.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
-import { raidWeek } from '../lib/events/raid-week.js';
+import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
+import { pickRandom } from '../lib/random.js';
+import { commandPrefix } from '../discord/slash.js';
+import { chargeForSkip, raidWeekDocs, refundSkip } from '../services/skips.js';
 import { gearEffects } from '../lib/game/items/equipment.js';
 import { getEquipment } from '../services/items/equipment.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited, mention } from '../lib/format.js';
@@ -986,8 +989,65 @@ export function bossByName(text: string): RaidBossId | null {
   return null;
 }
 
-/** Starts this week's raid, against `forced` (the admin's `raid force`) or else the boss the week picked. */
-async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null): Promise<void> {
+/**
+ * `skip raid`'s side: once this week's raid has been fought, takes the price and claims the week's
+ * extra raid, against a boss other than the one already fought. Replies and returns null when it
+ * can't (not fought yet, the extra raid already used, can't pay); nothing is taken then.
+ */
+async function beginExtraRaid(ctx: CommandContext, week: RaidWeek): Promise<{ id: string; boss: RaidBossId } | null> {
+  const { main, extra } = await raidWeekDocs(ctx.guildId, week.key);
+  if (!main || !isFinished(main)) {
+    await ctx.reply(TEXT.skip.raidNotYet(commandPrefix(ctx, 'raid')));
+    return null;
+  }
+  if (extra) {
+    await ctx.reply(TEXT.skip.raidUsedUp(unixOfDate(week.next)));
+    return null;
+  }
+  const price = CONFIG.skip.raid;
+  const charged = await chargeForSkip(ctx.guildId, ctx.user.id, price, 'skip_raid');
+  if (!charged.ok) {
+    await ctx.reply(TEXT.skip.tooPoor(fmt(price), fmt(charged.balance)));
+    return null;
+  }
+  const fought = main.boss ?? 'wyrm';
+  const others = RAID_BOSS_IDS.filter((boss) => boss !== fought);
+  const boss = others.length > 0 ? pickRandom(others) : fought;
+  let started;
+  try {
+    started = await startRaidWeek(ctx.guildId, week, boss, ctx.user.id, price);
+  } catch (err) {
+    await refundSkip(ctx.guildId, ctx.user.id, price, 'skip_refund');
+    throw err;
+  }
+  if (!started.ok) {
+    // Someone bought it a moment before.
+    await refundSkip(ctx.guildId, ctx.user.id, price, 'skip_refund');
+    await ctx.reply(TEXT.skip.raidUsedUp(unixOfDate(week.next)));
+    return null;
+  }
+  return { id: started.id, boss };
+}
+
+/**
+ * What `raid` shows once this week's raid has been fought: the latest one (the extra raid, once it
+ * has been fought too), and while the extra raid is still to be had, how to buy it.
+ */
+async function latestResultEmbed(ctx: CommandContext, week: RaidWeek, main: RaidDoc & { status: 'won' | 'wiped' | 'fled' }): Promise<BotEmbed> {
+  const { extra } = await raidWeekDocs(ctx.guildId, week.key);
+  const embed = weekResultEmbed(extra && isFinished(extra) ? extra : main, week.next);
+  if (!extra) embed.setFooter({ text: TEXT.skip.raidHint(commandPrefix(ctx, 'skip'), fmt(CONFIG.skip.raid)) });
+  return embed;
+}
+
+/** `skip raid`: pays for the week's extra raid and starts it. */
+export const runExtraRaid = (ctx: CommandContext): Promise<void> => runRaid(ctx, null, true);
+
+/**
+ * Starts this week's raid, against `forced` (the admin's `raid force`) or else the boss the week
+ * picked; or with `extra`, the week's extra raid bought with `skip raid` (see beginExtraRaid).
+ */
+async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, extra = false): Promise<void> {
   const release = claimGuild(ctx.guildId);
   if (!release) {
     await ctx.reply(TEXT.raid.busy);
@@ -995,22 +1055,31 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null): P
   }
   const cfg: RaidSettings = { ...CONFIG.raid };
   const week = raidWeek();
-  const boss = forced ?? bossForWeek(ctx.guildId, week.key);
+  let boss: RaidBossId = forced ?? bossForWeek(ctx.guildId, week.key);
   let id: string | null = null;
   let message: Message | null = null;
   let settled = false;
   try {
-    const started = await startRaidWeek(ctx.guildId, week, boss, ctx.user.id);
-    if (!started.ok) {
-      // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
-      const existing = started.existing;
-      if (forced) await ctx.reply(TEXT.raid.forceTaken(ctx.prefix));
-      else if (existing && isFinished(existing)) await ctx.reply({ embeds: [weekResultEmbed(existing, week.next)] });
-      else await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
-      settled = true;
-      return;
+    if (extra) {
+      const begun = await beginExtraRaid(ctx, week);
+      if (!begun) {
+        settled = true;
+        return;
+      }
+      ({ id, boss } = begun);
+    } else {
+      const started = await startRaidWeek(ctx.guildId, week, boss, ctx.user.id);
+      if (!started.ok) {
+        // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
+        const existing = started.existing;
+        if (forced) await ctx.reply(TEXT.raid.forceTaken(ctx.prefix));
+        else if (existing && isFinished(existing)) await ctx.reply({ embeds: [await latestResultEmbed(ctx, week, existing)] });
+        else await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
+        settled = true;
+        return;
+      }
+      id = started.id;
     }
-    id = started.id;
 
     const closesAt = Date.now() + cfg.prepareSeconds * 1000;
     const sent = await ctx.reply({ ...lobbyView(boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')] });

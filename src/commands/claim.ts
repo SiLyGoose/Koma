@@ -2,6 +2,8 @@ import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, mention, money, signed } from '../lib/format.js';
 import { claimHourly } from '../services/economy/index.js';
+import { claimSkip } from '../services/skips.js';
+import { commandPrefix } from '../discord/slash.js';
 import { replyWithDice } from '../animations/dice-reply.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
 import type { Command } from '../discord/types.js';
@@ -15,7 +17,8 @@ export const claim: Command = {
     const result = await claimHourly(ctx.guildId, ctx.user.id);
 
     if (!result.ok) {
-      await ctx.reply(TEXT.claim.already(result.nextClaimUnix));
+      const { price } = await claimSkip.quote(ctx.guildId, ctx.user.id, Date.now());
+      await ctx.reply(`${TEXT.claim.already(result.nextClaimUnix)}\n${TEXT.skip.claimHint(commandPrefix(ctx, 'skip'), fmt(price))}`);
       return;
     }
 

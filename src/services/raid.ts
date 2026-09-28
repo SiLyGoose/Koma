@@ -15,19 +15,25 @@ import { addVaultLoss } from './vault.js';
  * once. While the raid is played, the document also keeps count of every point that moved because
  * of it (points the boss stole, and boosts bought back when raids had them), so a raid the bot never
  * finished can hand them back (see abandonRaid). When a raid ends, all of those points go into the
- * vault pool (see finishRaid).
+ * vault pool (see finishRaid). Once it's been fought, one extra raid a week can be bought with
+ * `skip raid` (services/skips.ts); it has its own document (extraRaidId), so it can only happen once.
  * Points only move through single conditional updates, like everywhere else.
  */
 
 const ACTIVE: RaidDoc['status'][] = ['preparing', 'fighting'];
 
 export const raidId = (guildId: string, weekKey: string): string => `${guildId}:${weekKey}`;
+/** The week's extra raid, bought with `skip raid` once the week's raid has been fought. Its id can only exist once, too. */
+export const extraRaidId = (guildId: string, weekKey: string): string => `${raidId(guildId, weekKey)}:extra`;
 
 export type StartRaidResult = { ok: true; id: string } | { ok: false; existing: RaidDoc | null };
 
-/** Claims this week's raid (against `boss`) for the server. Fails (with the raid already there) if one was started this week. */
-export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidBossId, startedBy: string): Promise<StartRaidResult> {
-  const id = raidId(guildId, week.key);
+/**
+ * Claims this week's raid (against `boss`) for the server. Fails (with the raid already there) if one
+ * was started this week. With `skipPaid` it is the week's extra raid instead, bought for that much.
+ */
+export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidBossId, startedBy: string, skipPaid: number | null = null): Promise<StartRaidResult> {
+  const id = skipPaid === null ? raidId(guildId, week.key) : extraRaidId(guildId, week.key);
   try {
     await collections().raids.insertOne({
       _id: id,
@@ -41,6 +47,7 @@ export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidB
       players: [],
       spent: {},
       stolen: {},
+      ...(skipPaid === null ? {} : { skipPaid }),
       createdAt: new Date(),
     });
     return { ok: true, id };
@@ -141,6 +148,8 @@ export async function abandonRaid(id: string): Promise<RaidDoc | null> {
   for (const bucket of [raid.spent, raid.stolen]) {
     for (const [userId, amount] of Object.entries(bucket ?? {})) owed.set(userId, (owed.get(userId) ?? 0) + amount);
   }
+  // An extra raid that never finished gives back what was paid to skip to it, too.
+  if (raid.skipPaid) owed.set(raid.startedBy, (owed.get(raid.startedBy) ?? 0) + raid.skipPaid);
   const shares = [...owed].filter(([, amount]) => amount > 0).map(([userId, amount]) => ({ userId, amount }));
   const payout = await payShares(raid.guildId, shares, 'raid_refund');
   if (payout.failed.length > 0) console.error(`Could not refund raid ${id} to: ${payout.failed.join(', ')}`);
@@ -152,8 +161,8 @@ export async function listUnfinishedRaids(): Promise<RaidDoc[]> {
   return collections().raids.find({ status: { $in: ACTIVE } }).toArray();
 }
 
-/** Admin only: forgets this week's finished raid so the server can raid again. False if there was none (or it is still going). */
+/** Admin only: forgets this week's finished raid (and its extra raid) so the server can raid again. False if there was none (or it is still going). */
 export async function resetRaidWeek(guildId: string, weekKey: string): Promise<boolean> {
-  const result = await collections().raids.deleteOne({ _id: raidId(guildId, weekKey), status: { $nin: ACTIVE } });
+  const result = await collections().raids.deleteMany({ _id: { $in: [raidId(guildId, weekKey), extraRaidId(guildId, weekKey)] }, status: { $nin: ACTIVE } });
   return result.deletedCount > 0;
 }

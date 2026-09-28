@@ -22,12 +22,14 @@ import { raid } from './raid.js';
 import { refine } from './refine.js';
 import { rob } from './rob.js';
 import { sell } from './sell.js';
+import { skip } from './skip.js';
 import type { Command } from '../discord/types.js';
 import { unequip } from './unequip.js';
 import { vault } from './vault.js';
 
 export const commands: Command[] = [
   claim,
+  skip,
   gacha,
   inventory,
   equip,

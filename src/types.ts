@@ -83,6 +83,15 @@ export interface GearIds {
 }
 
 /** One document per (server, user). */
+/** Something whose cooldown can be paid to skip (services/skips.ts). */
+export type SkipId = 'claim' | 'raid';
+
+/** How many times a member skipped one thing on `day` (YYYY-MM-DD, Eastern), for its doubling price. */
+export interface SkipUse {
+  day: string;
+  count: number;
+}
+
 export interface MemberDoc {
   guildId: string;
   userId: string;
@@ -101,6 +110,8 @@ export interface MemberDoc {
    * null means 1.
    */
   claimGapHours?: number | null;
+  /** Skips paid for today, per thing skipped (services/skips.ts). Missing means none. */
+  skips?: Partial<Record<SkipId, SkipUse>>;
   /**
    * When this member was last robbed successfully. They can't be robbed again until
    * rob.victimProtectionMinutes after this. Missing or null means never.
@@ -269,6 +280,11 @@ export type LedgerReason =
   | 'code_guess'
   | 'code_refund'
   | 'code_prize'
+  // Points paid to skip a cooldown (commands/skip.ts), one reason per thing skipped.
+  | 'skip_claim'
+  | 'skip_raid'
+  // A skip taken back because what it paid for couldn't happen (the extra raid was already taken).
+  | 'skip_refund'
   // Points a member gave to the vault of their own accord (commands/donate.ts).
   | 'vault_donation'
   // A gacha pull paid for with a komaToken instead of points (0 points, tokenDelta -1).
@@ -457,6 +473,8 @@ export interface RaidDoc {
   spent: Record<string, number>;
   /** Points the boss stole from each player, by user id. */
   stolen: Record<string, number>;
+  /** Set on the week's extra raid (see services/raid.ts extraRaidId): what `startedBy` paid to skip to it, given back if it never finishes. */
+  skipPaid?: number;
   /** Filled in when it ends: damage dealt by user id, and whose hit beat the boss. */
   damage?: Record<string, number>;
   /** Filled in when it ends: everything each player did, by user id (for `raid stats`). Raids from before it was saved only have `damage`. */

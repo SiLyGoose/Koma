@@ -7,7 +7,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS } from '../constants/index.js';
+import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
@@ -16,6 +16,7 @@ import { GROUPS } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy/index.js';
 import { getPrefix } from '../services/settings.js';
+import { SKIPS } from '../services/skips.js';
 import { SLOTS, STARS, type ItemDef } from '../types.js';
 import type { Command, CommandContext } from './types.js';
 
@@ -94,6 +95,21 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   claim: { build: () => {}, toArgs: () => [] },
+
+  skip: {
+    description: `Pay ${CURRENCY_NAME} to skip a cooldown. Leave "what" out to see the prices.`,
+    build: (b) =>
+      void b.addStringOption((o) =>
+        o
+          .setName('what')
+          .setDescription('What to skip the wait for (leave out to see the prices)')
+          .addChoices(...SKIPS.map((s) => ({ name: TEXT.skip.names[s.id], value: s.id }))),
+      ),
+    toArgs: (i) => {
+      const what = i.options.getString('what');
+      return what === null ? [] : [what];
+    },
+  },
 
   config: {
     build: (b) =>

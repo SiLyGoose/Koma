@@ -47,6 +47,12 @@ function zonedMidnight(year: number, month: number, day: number, timeZone: strin
   return guess - zoneOffset(guess - zoneOffset(guess, timeZone), timeZone);
 }
 
+/** The calendar date in `timeZone` at `now`, as YYYY-MM-DD: the day that daily limits (like skip prices) count within. */
+export function dayKey(now: Date = new Date(), timeZone: string = RAID_TIME_ZONE): string {
+  const { year, month, day } = zonedParts(now.getTime(), timeZone);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export interface RaidWeek {
   /** The Saturday the week starts on, as YYYY-MM-DD. Stored with the raid, so each week has one. */
   key: string;
