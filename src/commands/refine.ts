@@ -3,7 +3,7 @@ import { REFINE, REFINE_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js'
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { describeEffects, itemEffectiveness } from '../lib/game/items/equipment.js';
-import { starString } from '../lib/format.js';
+import { fmt, money, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { refineItem, type RefineResult } from '../services/items/refine.js';
 import type { ItemDef } from '../types.js';
@@ -17,6 +17,7 @@ function refusalText(p: string, item: ItemDef, result: Exclude<RefineResult, { o
   const t = TEXT.refine;
   if (result.reason === 'busy') return t.busy;
   if (result.reason === 'maxed') return t.maxed(item.name, REFINE.maxLevel);
+  if (result.reason === 'too_poor') return t.tooPoor(item.name, result.level + 1, fmt(result.price), fmt(result.balance));
   if (result.reason === 'no_duplicate') return t.noDuplicate(item.name, result.level);
   return t.notOwned(p, item.name);
 }
@@ -30,20 +31,28 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const effects = (level: number) => describeEffects(item, share, level, false).join('\n') || t.noEffects;
   return createEmbed()
     .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
-    .setDescription(t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft))
+    .setDescription(t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid)))
     .addFields(
       { name: t.beforeField(result.from), value: effects(result.from), inline: true },
       { name: t.afterField(result.to), value: effects(result.to), inline: true },
+      { name: t.balanceField, value: money(result.balance), inline: true },
     )
     .setFooter({ text: t.footer(REFINE.maxLevel) });
 }
 
-/** The "Refine again" button, while the item can still go up and there is a duplicate to use; no buttons otherwise. */
+/**
+ * The "Refine again" button (with what the next refine costs), while the item can still go up and
+ * there is a duplicate to use; no buttons otherwise. It's greyed out while they can't pay for it.
+ */
 function buttonRows(result: Refined): ActionRowBuilder<ButtonBuilder>[] {
-  if (result.to >= REFINE.maxLevel || result.duplicatesLeft <= 0) return [];
+  if (result.to >= REFINE.maxLevel || result.duplicatesLeft <= 0 || result.nextCost === null) return [];
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setCustomId(REFINE_BUTTONS.againId).setLabel(TEXT.refine.againButton(result.to + 1)).setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(REFINE_BUTTONS.againId)
+        .setLabel(TEXT.refine.againButton(result.to + 1, fmt(result.nextCost)))
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(result.balance < result.nextCost),
     ),
   ];
 }

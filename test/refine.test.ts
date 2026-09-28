@@ -4,7 +4,8 @@ import { DEFAULTS } from '../src/config.js';
 import { REFINE, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { describeEffects, equippedGear, gearEffects, totalEffects } from '../src/lib/game/items/equipment.js';
-import { refineLevel, refinePlan, refineShare } from '../src/lib/game/items/refine.js';
+import { refineCost, refineLevel, refinePlan, refineShare } from '../src/lib/game/items/refine.js';
+import { findSpec } from '../src/lib/settings-spec.js';
 import type { ItemDef } from '../src/types.js';
 
 const item = (id: string) => ITEMS_BY_ID.get(id) as ItemDef;
@@ -85,4 +86,21 @@ test('refine plan: raises the worn copy (or the best), uses up the lowest other 
   assert.deepEqual(refinePlan([worn], new Set(['worn'])), { ok: false, reason: 'no_duplicate', level: 3 });
   assert.deepEqual(refinePlan([], new Set()), { ok: false, reason: 'not_owned', level: 0 });
   assert.deepEqual(refinePlan([copy('max', 5, 1), spareLow], new Set()), { ok: false, reason: 'maxed', level: 5 });
+});
+
+test('refine cost: points by star tier and level, the lower tiers a share of the 4-star prices', () => {
+  assert.deepEqual([2, 3, 4, 5].map((to) => refineCost(4, to)), [2_000, 3_000, 4_000, 6_000]);
+  assert.deepEqual([2, 3, 4, 5].map((to) => refineCost(3, to)), [500, 750, 1_000, 1_500]);
+  assert.deepEqual([2, 3, 4, 5].map((to) => refineCost(2, to)), [200, 300, 400, 600]);
+  assert.deepEqual([2, 3, 4, 5].map((to) => refineCost(1, to)), [100, 150, 200, 300]);
+  assert.equal(refineCost(4, 6), 0, 'no price past the top level');
+  for (const stars of [1, 2, 3, 4]) for (const to of [2, 3, 4, 5]) assert.ok(findSpec(`refine.cost.${stars}.${to}`), `refine.cost.${stars}.${to} is a setting`);
+});
+
+test('refine cost: the messages say what it cost, and what it would cost when they can\'t pay', () => {
+  assert.match(TEXT.refine.done('<@1>', 1, 2, 3, '2,000'), /R1.*R2.*duplicate and \*\*2,000\*\*/);
+  assert.doesNotMatch(TEXT.refine.done('<@1>', 1, 2, 3, '0'), / and /, 'a free refine says nothing about points');
+  assert.match(TEXT.refine.tooPoor('Piplup', 3, '3,000', '1,200'), /Piplup.*R3.*3,000.*1,200/);
+  assert.equal(TEXT.refine.againButton(3, '3,000'), 'Refine to R3 (3,000)');
+  assert.equal(TEXT.refine.againButton(3, '0'), 'Refine to R3');
 });

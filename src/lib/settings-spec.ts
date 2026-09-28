@@ -86,6 +86,9 @@ export const SPECS: readonly SettingSpec[] = [
   int('claim.min', 'Claim', `Lowest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
   int('claim.max', 'Claim', `Highest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
 
+  ...STARS.flatMap((stars) =>
+    [2, 3, 4, 5].map((level) => int(`refine.cost.${stars}.${level}`, 'Refine', `${CURRENCY_EMOJI} to refine a ${stars}-star item to R${level} (on top of the duplicate it uses up).`, 0, MAX_POINTS)),
+  ),
   int('refine.masterworkGems', 'Refine', 'komaGems to forge one R5 copy of a 4-star item into a masterwork, turning on its bonus.', 0, MAX_POINTS),
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),

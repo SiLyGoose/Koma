@@ -1,5 +1,6 @@
+import { CONFIG, type RefineTarget } from '../../../config.js';
 import { REFINE } from '../../../constants/index.js';
-import type { ItemCopyDoc } from '../../../types.js';
+import type { ItemCopyDoc, Stars } from '../../../types.js';
 import { bestCopy } from './copies.js';
 import { worstCopy } from './sell.js';
 import { refineLevel } from './refine-share.js';
@@ -10,6 +11,11 @@ import { refineLevel } from './refine-share.js';
  */
 
 export { refineLevel, refineShare } from './refine-share.js';
+
+/** What refining an item of `stars` up to level `to` costs in points, from the live settings (0 for a level with no price). */
+export function refineCost(stars: Stars, to: number): number {
+  return CONFIG.refine.cost[stars]?.[to as RefineTarget] ?? 0;
+}
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>;
 

@@ -1,15 +1,17 @@
 import { collections } from '../../db.js';
-import { refinePlan } from '../../lib/game/items/refine.js';
+import { REFINE } from '../../constants/index.js';
+import { refineCost, refinePlan } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
 import { recordLedger } from '../economy/shared.js';
 
 /*
- * Refining (commands/refine.ts, rules in constants/items/refine.ts): one duplicate copy of an item is
- * used up to raise another copy of it by one level. The duplicate is removed first, in one
- * conditional delete, so two refines at once can never both use it; if the raise then fails (the
- * copy changed in the meantime), the duplicate is put back.
+ * Refining (commands/refine.ts, rules in constants/items/refine.ts): one duplicate copy of an item and
+ * some points (refine.cost, burned) are used up to raise another copy of it by one level. The points
+ * are taken first and the duplicate removed next, each in one conditional update, so two refines at
+ * once can never both use them; if a later step fails (the copies changed in the meantime), what was
+ * already taken is given back.
  */
 
 export type RefineResult =
@@ -20,20 +22,38 @@ export type RefineResult =
       to: number;
       /** Copies of the item left that could still be used for later refines. */
       duplicatesLeft: number;
+      /** Points this refine cost, and what the member has left. */
+      paid: number;
+      balance: number;
+      /** What the next refine would cost, or null at the top level. */
+      nextCost: number | null;
     }
   | { ok: false; reason: 'not_owned' | 'no_duplicate' | 'maxed'; level: number }
+  /** They can't pay for it. `price` is what it costs, `balance` what they have. Nothing was used up. */
+  | { ok: false; reason: 'too_poor'; level: number; price: number; balance: number }
   /** The copies changed while refining (another refine, sale or gift at the same moment). Nothing was used up. */
   | { ok: false; reason: 'busy' };
 
-/** Refines the member's worn (or saved, or best) copy of `item` by one level, using up their lowest-level copy that is in no loadout. */
+/** Refines the member's worn (or saved, or best) copy of `item` by one level, using up their lowest-level copy that is in no loadout, and the price. */
 export async function refineItem(guildId: string, userId: string, item: ItemDef): Promise<RefineResult> {
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
   const plan = refinePlan(copies, equippedCopyIds(member?.equipment), loadoutCopyIds(member));
   if (!plan.ok) return plan;
 
+  const cost = refineCost(item.stars, plan.to);
+  const charged = await members.findOneAndUpdate({ guildId, userId, points: { $gte: cost } }, { $inc: { points: -cost } }, { returnDocument: 'after' });
+  if (!charged) return { ok: false, reason: 'too_poor', level: plan.from, price: cost, balance: member?.points ?? 0 };
+  const refund = async () => {
+    if (cost <= 0) return;
+    await members.updateOne({ guildId, userId }, { $inc: { points: cost } }).catch((err) => console.error(`Could not give back ${cost} after a failed refine:`, err));
+  };
+
   const used = await items.findOneAndDelete({ _id: plan.fodder._id, guildId, userId });
-  if (!used) return { ok: false, reason: 'busy' };
+  if (!used) {
+    await refund();
+    return { ok: false, reason: 'busy' };
+  }
   const raised = await items.findOneAndUpdate(
     { _id: plan.target._id, guildId, userId, level: plan.target.level },
     { $set: { level: plan.to } },
@@ -41,8 +61,18 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef)
   );
   if (!raised) {
     await items.insertOne(used).catch((err) => console.error(`Could not give back the duplicate ${used._id} after a failed refine:`, err));
+    await refund();
     return { ok: false, reason: 'busy' };
   }
-  await recordLedger([{ guildId, userId, delta: 0, reason: 'refine', itemId: item.id }]);
-  return { ok: true, item, from: plan.from, to: plan.to, duplicatesLeft: copies.length - 2 };
+  await recordLedger([{ guildId, userId, delta: -cost, reason: 'refine', itemId: item.id }]);
+  return {
+    ok: true,
+    item,
+    from: plan.from,
+    to: plan.to,
+    duplicatesLeft: copies.length - 2,
+    paid: cost,
+    balance: charged.points,
+    nextCost: plan.to < REFINE.maxLevel ? refineCost(item.stars, plan.to + 1) : null,
+  };
 }

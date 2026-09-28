@@ -13,6 +13,9 @@ export function isAdmin(userId: string): boolean {
   return userId === ADMIN_USER_ID;
 }
 
+/** A level a refine can raise an item to. */
+export type RefineTarget = 2 | 3 | 4 | 5;
+
 export interface Settings {
   /** Messages must start with this to be treated as a command. */
   prefix: string;
@@ -207,14 +210,20 @@ export interface Settings {
    * of the climb to it.
    */
   /**
-   * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
-   * skip of the day costs. Each one after it that day costs double the one before.
-   */
   /** Refining gear (constants/items/refine.ts has the levels). */
   refine: {
+    /**
+     * Points each refine costs (burned), on top of the duplicate it uses up: by the item's star tier,
+     * then by the level it's raised to (2 to REFINE.maxLevel).
+     */
+    cost: Record<Stars, Record<RefineTarget, number>>;
     /** komaGems to forge an R5 copy of a 4-star item into a masterwork, turning on its bonus (`forge`). */
     masterworkGems: number;
   };
+  /**
+   * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
+   * skip of the day costs. Each one after it that day costs double the one before.
+   */
   skip: {
     claim: number;
     /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
@@ -306,7 +315,7 @@ export const DEFAULTS: Readonly<Settings> = {
     minMinutes: 120,
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
-    vault: { multiplier: 10, hourlyGrowth: 100 },
+    vault: { multiplier: 1, hourlyGrowth: 100 },
     heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { seconds: 300, guessCost: 10 },
@@ -321,7 +330,17 @@ export const DEFAULTS: Readonly<Settings> = {
   // rather than jumping there.
   // The same as an average claim, so skipping only pays off with gear, and doubling stops it being farmed.
   // Five raid wins' worth (a win gives 5 komaGems).
-  refine: { masterworkGems: 25 },
+  refine: {
+    // 4-star duplicates take ~116 pulls each (~32k in pulls), so the points are a smaller second
+    // cost on top; the lower tiers pay 5%, 10% and 25% of the 4-star prices.
+    cost: {
+      1: { 2: 100, 3: 150, 4: 200, 5: 300 },
+      2: { 2: 200, 3: 300, 4: 400, 5: 600 },
+      3: { 2: 500, 3: 750, 4: 1_000, 5: 1_500 },
+      4: { 2: 2_000, 3: 3_000, 4: 4_000, 5: 6_000 },
+    },
+    masterworkGems: 25,
+  },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 0.1x up to 5x, which averages about 1.47x a spin.
