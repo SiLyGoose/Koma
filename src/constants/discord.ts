@@ -30,8 +30,8 @@ export const FIELD_MAX_LENGTH = 1_000;
  */
 export const DATABANK_ITEMS_PER_PAGE = 5;
 
-/** How long the databank's Previous/Next buttons keep working after the last time they were used. */
-export const DATABANK_BUTTONS = { idleMs: 120_000 };
+/** How long the databank's buttons keep working after the last time they were used, and the id of its masterwork button. */
+export const DATABANK_BUTTONS = { idleMs: 120_000, masterworkId: 'databank_masterwork' };
 
 /** How long the settings list's Previous/Next buttons keep working after the last time they were used. */
 export const CONFIG_BUTTONS = { idleMs: 120_000 };

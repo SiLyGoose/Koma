@@ -8,10 +8,12 @@ const refineNote = (level: number): string =>
 
 export const databankText = {
   title: 'Databank',
-  /** The title with the refinement level the strengths are shown at, like "Databank · R5". */
-  titleAt: (title: string, level: number) => `${title} · R${level}`,
+  /** The title with the refinement level the strengths are shown at, like "Databank · R5", and "· Masterwork" when the bonuses are on. */
+  titleAt: (title: string, level: number, masterwork = false) => `${title} · R${level}${masterwork ? ' · Masterwork' : ''}`,
   /** The button that switches the strengths shown to `level`. */
   showLevel: (level: number) => `Show R${level}`,
+  /** The button that turns the masterwork bonuses on (`show`) or off. */
+  masterworkButton: (show: boolean) => (show ? 'Show masterwork' : 'Hide masterwork'),
   /** Added to the title when the list needs more than one message, like "Databank (2/3)". */
   titlePage: (title: string, page: number, pages: number) => `${title} (${page}/${pages})`,
   description: (level: number) => `Every item and what it does while equipped.\n${refineNote(level)}`,
@@ -38,7 +40,7 @@ export const databankText = {
   /** The details of one item (`databank <item>`). `stars` is the star string. */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',
-  detailEffectsField: (level: number) => `Effects (at R${level})`,
+  detailEffectsField: (level: number, masterwork = false) => `Effects (at R${level}${masterwork ? ', masterwork' : ''})`,
   detailExclusiveField: 'Exclusive',
   /** `owners` is mentions. */
   /** `share` is how much of its effects everyone else gets, like "50%". */

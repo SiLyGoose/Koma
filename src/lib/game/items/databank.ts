@@ -12,11 +12,11 @@ export interface DatabankField {
 
 /**
  * The text for one item: its name and slot, then one line per effect at today's strength at a
- * refinement level (fully refined unless given), then who it is exclusive to when only some
- * members can use it.
+ * refinement level (fully refined unless given) and with or without its masterwork bonus (without
+ * unless given: shown locked), then who it is exclusive to when only some members can use it.
  */
-export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel): string {
-  const effects = describeEffects(item, 1, level);
+export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): string {
+  const effects = describeEffects(item, 1, level, masterwork);
   return [
     TEXT.databank.item(item.name, SLOT_EMOJI[item.slot]),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
@@ -39,11 +39,14 @@ export function buildDatabank(
   itemsPerPage = DATABANK_ITEMS_PER_PAGE,
   maxField = FIELD_MAX_LENGTH,
   level: number = REFINE.maxLevel,
+  masterwork = false,
 ): DatabankField[][] {
-  // Pages break by each item's longest text at any refinement level, so the book is laid out the
-  // same whichever level is shown: flipping the level never moves an item to another page.
+  // Pages break by each item's longest text at any refinement level, with or without its
+  // masterwork, so the book is laid out the same whichever is shown: flipping them never moves an
+  // item to another page.
   const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
-  const widest = (item: ItemDef): number => Math.max(...levels.map((l) => itemBlock(item, l).slice(0, maxField).length));
+  const widest = (item: ItemDef): number =>
+    Math.max(...levels.flatMap((l) => [false, true].map((mw) => itemBlock(item, l, mw).slice(0, maxField).length)));
   // Chapter by chapter: each tier's items chunked into fields of at most `itemsPerPage` items
   // (or fewer, if Discord's own field-length limit would be hit first).
   const chapters: { field: DatabankField; count: number }[][] = [];
@@ -64,7 +67,7 @@ export function buildDatabank(
       count = 0;
     };
     for (const item of tier) {
-      const block = itemBlock(item, level).slice(0, maxField);
+      const block = itemBlock(item, level, masterwork).slice(0, maxField);
       const width = widest(item);
       if (value !== '' && (count >= itemsPerPage || size + 2 + width > maxField)) flush();
       value = value === '' ? block : `${value}\n\n${block}`;
@@ -134,15 +137,19 @@ export interface ItemDetail {
   fields: { name: string; value: string; inline: boolean }[];
 }
 
-/** Lays out one item in full: its name and stars, flavor text, slot, effects at today's strength at a refinement level (fully refined unless given), and who it is exclusive to. */
-export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel): ItemDetail {
-  const effects = describeEffects(item, 1, level);
+/**
+ * Lays out one item in full: its name and stars, flavor text, slot, effects at today's strength at a
+ * refinement level (fully refined unless given) and with or without its masterwork bonus, and who it
+ * is exclusive to.
+ */
+export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): ItemDetail {
+  const effects = describeEffects(item, 1, level, masterwork);
   return {
     title: TEXT.databank.detailTitle(starString(item.stars), item.name),
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
     fields: [
       { name: TEXT.databank.detailSlotField, value: SLOT_EMOJI[item.slot], inline: true },
-      { name: TEXT.databank.detailEffectsField(level), value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
+      { name: TEXT.databank.detailEffectsField(level, masterwork && item.bonus !== undefined && level >= item.bonus.level), value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),

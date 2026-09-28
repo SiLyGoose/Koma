@@ -28,8 +28,11 @@ test('databank: every catalog item is listed once, with its slot and every effec
   const text = allText(pages);
   for (const item of ITEMS) {
     assert.equal(text.split(`${SLOT_EMOJI[item.slot]} **${item.name}**`).length - 1, 1, `${item.name} appears once`);
-    for (const line of describeEffects(item)) assert.ok(text.includes(line), `${item.name}: ${line}`);
+    for (const line of describeEffects(item, 1, 5, false)) assert.ok(text.includes(line), `${item.name}: ${line}`);
   }
+  // The masterwork book has every item's bonus on instead.
+  const forged = allText(buildDatabank(ITEMS, undefined, undefined, 5, true));
+  for (const item of ITEMS) for (const line of describeEffects(item, 1, 5, true)) assert.ok(forged.includes(line), `${item.name} (masterwork): ${line}`);
 });
 
 test('databank: tiers run from the highest star count down, each headed with how many items it has', () => {
@@ -324,7 +327,7 @@ test('databank tier: shows every item of that tier across however many pages it 
     const text = seen.join('\n');
     for (const item of mine) {
       assert.ok(text.includes(`${SLOT_EMOJI[item.slot]} **${item.name}**`), `${item.name} is listed`);
-      for (const line of describeEffects(item)) assert.ok(text.includes(line), `${item.name}: ${line}`);
+      for (const line of describeEffects(item, 1, 5, false)) assert.ok(text.includes(line), `${item.name}: ${line}`);
     }
     for (const item of others) assert.ok(!text.includes(`**${item.name}**`), `${item.name} is left out of ${stars}-star`);
   }
@@ -339,13 +342,14 @@ test('databank: Previous is disabled on the first page and Next on the last, and
     ['databank_prev', true, TEXT.databank.previousButton],
     ['databank_next', false, TEXT.databank.nextButton],
     ['databank_toggle', false, 'Show R1'],
+    ['databank_masterwork', false, 'Show masterwork'],
   ]);
 
   const singlePageTiers = ([1, 2, 3, 4] as const).filter((stars) => buildDatabank(ITEMS.filter((item) => item.stars === stars)).length <= 1);
   if (singlePageTiers.length > 0) {
     const [single] = await ask(String(singlePageTiers[0]));
     const row = (single as any).components[0].toJSON();
-    assert.deepEqual(row.components.map((c: any) => c.custom_id), ['databank_toggle'], 'nothing to flip through, so only the refinement button');
+    assert.deepEqual(row.components.map((c: any) => c.custom_id), ['databank_toggle'], 'nothing to flip through and no masterworks, so only the refinement button');
   }
 });
 
@@ -380,6 +384,35 @@ test('databank: the refinement button flips the strengths between R5 and R1, sta
   await settle();
   const detail = g.events.filter((e) => e.kind === 'editReply').at(-1)?.data.embeds[0].toJSON();
   assert.ok(detail.fields.some((fld: any) => fld.name === 'Effects (at R1)'));
+});
+
+test('databank: the masterwork button turns the bonuses on at R5, is greyed out at R1, and only shows where an item has one', async () => {
+  const ruby = ITEMS.find((item) => item.id === 'ruby-pickaxe') as ItemDef;
+  const f = fakeMessage('1');
+  await databank.execute(messageContext(f.message as Message<true>, ['ruby', 'pickaxe'], 'k!'));
+  const buttons = (reply: any) => reply.components[0].toJSON().components.map((c: any) => [c.custom_id, c.label, c.disabled ?? false]);
+  assert.deepEqual(buttons(f.replies[0]), [['databank_toggle', 'Show R1', false], ['databank_masterwork', 'Show masterwork', false]]);
+  const effects = (embed: any) => embed.toJSON().fields.find((fld: any) => fld.name.startsWith('Effects')) as { name: string; value: string };
+  assert.match(effects((f.replies[0] as any).embeds[0]).value, /🔒 Masterwork/, 'starts without it, shown locked');
+
+  f.click('1', 'databank_masterwork');
+  await settle();
+  const on = f.events.filter((e) => e.kind === 'editReply').at(-1)?.data;
+  assert.equal(effects(on.embeds[0]).name, 'Effects (at R5, masterwork)');
+  assert.match(effects(on.embeds[0]).value, new RegExp(`✨ Masterwork: ${ruby.bonus!.text}`));
+  assert.deepEqual(buttons(on)[1], ['databank_masterwork', 'Hide masterwork', false]);
+
+  f.click('1', 'databank_toggle');
+  await settle();
+  const r1 = f.events.filter((e) => e.kind === 'editReply').at(-1)?.data;
+  assert.equal(effects(r1.embeds[0]).name, 'Effects (at R1)', 'no masterwork below R5');
+  assert.equal(buttons(r1)[1][2], true, 'greyed out at R1');
+
+  // An item with no masterwork bonus has only the refinement button.
+  const g = fakeMessage('1');
+  await databank.execute(messageContext(g.message as Message<true>, ['wyrmscale', 'plate'], 'k!'));
+  assert.deepEqual((g.replies[0] as any).components[0].toJSON().components.map((c: any) => c.custom_id), ['databank_toggle']);
+  assert.equal(TEXT.databank.titleAt('Databank', 5, true), 'Databank · R5 · Masterwork');
 });
 
 test("databank: a press from someone else is told it isn't theirs and does not change the page", async () => {
