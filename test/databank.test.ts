@@ -398,8 +398,10 @@ test('databank: the masterwork button turns the bonuses on at R5, is greyed out 
   f.click('1', 'databank_masterwork');
   await settle();
   const on = f.events.filter((e) => e.kind === 'editReply').at(-1)?.data;
-  assert.equal(effects(on.embeds[0]).name, 'Effects (at R5, masterwork)');
-  assert.match(effects(on.embeds[0]).value, new RegExp(`✨ Masterwork: ${ruby.bonus!.text}`));
+  assert.equal(effects(on.embeds[0]).name, 'Effects (at R5 · ✨ Masterwork)');
+  assert.equal(effects(on.embeds[0]).value, describeEffects(ruby, 1, 5, true).join('\n'), 'what it really does, forged');
+  assert.doesNotMatch(effects(on.embeds[0]).value, /🔒|⚡ each/);
+  assert.match(TEXT.databank.item(ruby.name, '⛏️', true), /\*\*Ruby Pickaxe\*\* · ✨ Masterwork$/);
   assert.deepEqual(buttons(on)[1], ['databank_masterwork', 'Hide masterwork', false]);
 
   f.click('1', 'databank_toggle');

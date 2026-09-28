@@ -34,8 +34,11 @@ export interface PerkDef {
   /**
    * Optional: a gear-card line built from the raw strength and the live settings, for a perk whose
    * line is more than "text at N%" (STONKS!'s hour-by-hour curve). Used instead of `text` when set.
+   * `strengthOf` gives the strength of any other perk on the same item (or the same gear, for the
+   * totals; 0 if it isn't there), for a line that reads differently next to another perk. An empty
+   * line is left out (for a perk that another perk's line already covers).
    */
-  line?: (strength: number, settings: Settings) => string;
+  line?: (strength: number, settings: Settings, strengthOf: (effect: string) => number) => string;
   /**
    * The numbers this perk changes, and how (see stats.ts for the list and how they are worked
    * out). A perk that only changes numbers needs no other code: every claim, rob and pull picks

@@ -10,12 +10,10 @@ export const gearText = {
   slotName: (label: string, emoji: string) => `${label} ${emoji}`,
   /** The first line of a filled slot; the item's effects follow on their own lines. */
   /** `level` is the worn copy's refinement, shown as R1 to R5. */
-  item: (name: string, stars: string, level: number) => `**${name}** ${stars} · R${level}`,
+  item: (name: string, stars: string, level: number, masterwork = false) => `**${name}** ${stars} · R${level}${masterwork ? ' · ✨ Masterwork' : ''}`,
   totalsField: 'Overall Effects',
   /** Shown above the effects when the item is equipped by someone it is not for. `owners` is mentions, `share` is how much of its effects this member gets, like "50%"; the lines under it are already at that. */
   exclusive: (owners: string, share: string) => `Made for ${owners}, so it only works at ${share} for this member.`,
-  /** A masterwork copy's bonus on its card. */
-  bonus: (text: string) => `✨ Masterwork: ${text}`,
   /** The same on an R5 copy that isn't a masterwork yet, with what forging one costs (`forge`); not shown below R5. */
   bonusDormant: (text: string, gems: number) => `🔒 Masterwork (\`forge\` for ${boldGems(gems)}): ${text}`,
 

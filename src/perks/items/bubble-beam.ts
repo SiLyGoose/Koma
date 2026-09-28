@@ -1,4 +1,5 @@
 import { BUBBLE_BEAM_ROBBER_SHARE, CURRENCY_EMOJI } from '../../constants/index.js';
+import { formatPercent } from '../../lib/format.js';
 import { clamp, definePerk } from '../define.js';
 import type { EffectTotals } from '../registry.js';
 
@@ -42,6 +43,14 @@ export const bubbleBeam = definePerk({
   min: 0,
   max: 1,
   text: (value) => `Piplup used *Bubble Beam*: ${value} chance a successful rob against you slips (half that when you rob), and the ${CURRENCY_EMOJI} goes back to the victim`,
+  // With slipGuard alongside (a masterwork Piplup), the part about slipping when you rob shrinks, or
+  // goes when you never do.
+  line: (strength, _settings, strengthOf) => {
+    const robbing = BUBBLE_BEAM_ROBBER_SHARE * (1 - clamp(strengthOf('slipGuard'), 0, 1));
+    const when =
+      robbing <= 0 ? '' : robbing === 0.5 ? ' (half that when you rob)' : ` (${formatPercent(robbing)} of that when you rob)`;
+    return `Piplup used *Bubble Beam*: ${formatPercent(strength)} chance a successful rob against you slips${when}, and the ${CURRENCY_EMOJI} goes back to the victim`;
+  },
 });
 
 export const bubbleBeamPenalty = definePerk({
@@ -66,5 +75,7 @@ export const slipGuard = definePerk({
   min: 0,
   max: 1,
   text: (value) => `Your own successful robs are ${value} less likely to slip`,
-  line: (strength) => (strength >= 1 ? 'Your own successful robs never slip' : `Your own successful robs are ${Math.round(strength * 100)}% less likely to slip`),
+  // Next to Bubble Beam, its line says it (by leaving out slipping when you rob): no line of its own.
+  line: (strength, _settings, strengthOf) =>
+    strengthOf('bubbleBeam') > 0 ? '' : strength >= 1 ? 'Your own successful robs never slip' : `Your own successful robs are ${formatPercent(strength)} less likely to slip`,
 });

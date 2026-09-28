@@ -10,7 +10,7 @@ export const equipText = {
   done: (user: string, slot: string) => `${user} equipped it as their ${slot}.`,
   doneReplacing: (user: string, slot: string, replaced: string) =>
     `${user} equipped it as their ${slot}. (Replaced **${replaced}**.)`,
-  effectsField: (level: number) => `Effects (R${level})`,
+  effectsField: (level: number, masterwork = false) => `Effects (R${level}${masterwork ? ' · ✨ Masterwork' : ''})`,
   noEffects: 'None',
   /** Extra field when the item is exclusive to other members. `owners` is mentions. */
   exclusiveField: 'Exclusive',

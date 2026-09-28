@@ -44,7 +44,7 @@ test('refine bonus: reaching R5 is not enough, the copy has to be forged into a 
   assert.match(lockedLines.at(-1)!, /^🔒 Masterwork \(`forge` for/);
   assert.ok(lockedLines.at(-1)!.includes(GEM_EMOJI));
   assert.ok(lockedLines.some((line) => /extra ⚡|⚡ each/.test(line)), 'the penalty still shows while dormant');
-  assert.match(describeEffects(ruby, 1, 5, true).at(-1)!, /^✨ Masterwork: /);
+  assert.ok(!describeEffects(ruby, 1, 5, true).some((line) => /Masterwork|⚡ each/.test(line)), 'forged: the penalty is gone, and no locked line');
   assert.ok(!describeEffects(ruby, 1, 4, false).some((line) => line.includes('bonus')), 'hidden below R5');
 });
 

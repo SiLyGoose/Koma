@@ -1,7 +1,7 @@
 import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { canUseItem, describeEffects, itemEffectiveness } from '../lib/game/items/equipment.js';
+import { canUseItem, describeEffects, itemEffectiveness, showsMasterwork } from '../lib/game/items/equipment.js';
 import { formatPercent, mentionList, starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { equipItem } from '../services/items/equipment.js';
@@ -64,7 +64,7 @@ export const equip: Command = {
           ? TEXT.equip.doneReplacing(ctx.user.toString(), item.slot, replaced.name)
           : TEXT.equip.done(ctx.user.toString(), item.slot),
       )
-      .addFields({ name: TEXT.equip.effectsField(result.level), value: describeEffects(item, share, result.level, result.masterwork).join('\n') || TEXT.equip.noEffects })
+      .addFields({ name: TEXT.equip.effectsField(result.level, showsMasterwork(item, result.level, result.masterwork)), value: describeEffects(item, share, result.level, result.masterwork).join('\n') || TEXT.equip.noEffects })
       .setFooter({ text: TEXT.equip.footer(p) });
     // Anyone can wear an exclusive item, but only the members it is for get all of its effects.
     if (item.usableBy && !canUseItem(item, ctx.user.id)) {

@@ -117,27 +117,49 @@ export function gearEffects(equipment: GearIds | null | undefined, userId: strin
 /**
  * The gear-card text for one perk at this strength: the perk's own `line` when it has one (like
  * STONKS!'s hour-by-hour curve), otherwise its plain text at the formatted strength ("+10% ...").
+ * `strengthOf` is the strength of the other perks alongside it (see PerkDef.line).
  */
-function effectLine(effect: EffectId, strength: number): string {
+function effectLine(effect: EffectId, strength: number, strengthOf: (effect: string) => number): string {
   const perk: PerkDef = EFFECTS[effect];
-  return perk.line ? perk.line(strength, CONFIG) : perk.text(formatPercent(strength));
+  return perk.line ? perk.line(strength, CONFIG, strengthOf) : perk.text(formatPercent(strength));
+}
+
+/**
+ * An item's masterwork bonus in words (ItemBonus.text), with any perk strengths it names worked out
+ * for this copy: at `share` of full effect (see itemEffectiveness) and refinement `level`.
+ */
+export function bonusText(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string {
+  const text = item.bonus?.text ?? '';
+  if (typeof text === 'string') return text;
+  return text((effect) => effectStrength(effect, item.stars) * share * perkShare(effect, level), formatPercent);
 }
 
 /**
  * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
- * (fully refined unless given), then its bonus: on once the copy is a `masterwork`, or dormant (with
- * what one costs) on an R5 copy that isn't (hidden below that level). `share` scales the
- * strengths further, for an item worn at less than full effect (see itemEffectiveness).
+ * (fully refined unless given). A `masterwork` copy lists the effects it really has, its bonus's
+ * changes included (whoever shows it tags the item as a masterwork, see showsMasterwork). An R5 copy
+ * that isn't one lists its own effects, then its bonus locked, with what forging it costs (hidden
+ * below that level). `share` scales the strengths further, for an item worn at less than full effect
+ * (see itemEffectiveness).
  */
 export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel, masterwork = true): string[] {
-  const lines = itemEffects(item, level, masterwork).map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
-  const state = bonusState(item, level, masterwork);
-  if (item.bonus && state === 'masterwork') lines.push(TEXT.gear.bonus(item.bonus.text));
-  if (item.bonus && state === 'dormant') lines.push(TEXT.gear.bonusDormant(item.bonus.text, CONFIG.refine.masterworkGems));
+  const effects = itemEffects(item, level, masterwork);
+  const strength = (effect: string): number =>
+    effects.includes(effect as EffectId) ? effectStrength(effect as EffectId, item.stars) * share * perkShare(effect as EffectId, level) : 0;
+  const lines = effects.map((effect) => effectLine(effect, strength(effect), strength)).filter((line) => line !== '');
+  if (bonusState(item, level, masterwork) === 'dormant') lines.push(TEXT.gear.bonusDormant(bonusText(item, share, level), CONFIG.refine.masterworkGems));
   return lines;
+}
+
+/** Whether a copy shown at this level, forged or not, is a masterwork with its bonus on: then it gets the Masterwork tag by its name. */
+export function showsMasterwork(item: ItemDef, level: number, masterwork: boolean): boolean {
+  return bonusActive(item, level, masterwork);
 }
 
 /** One readable line per effect that is active in the totals, in the registry's order. */
 export function describeTotals(totals: EffectTotals): string[] {
-  return EFFECT_IDS.filter((effect) => totals[effect] > 0).map((effect) => effectLine(effect, totals[effect]));
+  const strength = (effect: string): number => totals[effect as EffectId] ?? 0;
+  return EFFECT_IDS.filter((effect) => totals[effect] > 0)
+    .map((effect) => effectLine(effect, totals[effect], strength))
+    .filter((line) => line !== '');
 }

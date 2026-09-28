@@ -255,9 +255,12 @@ test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its bo
     'Pinecraft: ores take 3 ⚡ each to dig',
     'Pinecraft: 6.67% chance for double ore drops',
   ]);
-  assert.deepEqual(describeEffects(ruby, 1, 5).slice(1), [
+  // Forged, the energy penalty is gone from the card; not forged, it's there with the locked bonus.
+  assert.deepEqual(describeEffects(ruby, 1, 5, true).slice(1), ['Pinecraft: 10% chance for double ore drops']);
+  assert.deepEqual(describeEffects(ruby, 1, 5, false).slice(1), [
+    'Pinecraft: ores take 2 ⚡ each to dig',
     'Pinecraft: 10% chance for double ore drops',
-    '✨ Masterwork: Pinecraft: ores take no extra ⚡ to dig',
+    '🔒 Masterwork (`forge` for **25** <:komagem:1551635240210927736>): Pinecraft: ores take no extra ⚡ to dig',
   ]);
   // The Diamond Pickaxe has no bonus: still 2 energy at R5.
   assert.equal(gearOf('diamond-pickaxe', 5).oreEnergy, 2);

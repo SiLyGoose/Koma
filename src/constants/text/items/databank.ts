@@ -21,7 +21,7 @@ export const databankText = {
   tierField: (stars: string, count: number) => `${stars} (${count})`,
   /** A tier long enough to need more than one page of its own, e.g. "★★★★ (7) — page 2/2". */
   tierFieldPage: (stars: string, count: number, page: number, pages: number) => `${stars} (${count}) — page ${page}/${pages}`,
-  item: (name: string, slot: string) => `${slot} **${name}**`,
+  item: (name: string, slot: string, masterwork = false) => `${slot} **${name}**${masterwork ? ' · ✨ Masterwork' : ''}`,
   noEffects: 'No effects',
   /** The list of one star tier (`databank <1-4>`). `stars` is the star string. */
   tierTitle: (stars: string) => `Databank: ${stars}`,
@@ -40,7 +40,7 @@ export const databankText = {
   /** The details of one item (`databank <item>`). `stars` is the star string. */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',
-  detailEffectsField: (level: number, masterwork = false) => `Effects (at R${level}${masterwork ? ', masterwork' : ''})`,
+  detailEffectsField: (level: number, masterwork = false) => `Effects (at R${level}${masterwork ? ' · ✨ Masterwork' : ''})`,
   detailExclusiveField: 'Exclusive',
   /** `owners` is mentions. */
   /** `share` is how much of its effects everyone else gets, like "50%". */

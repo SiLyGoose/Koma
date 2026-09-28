@@ -3,6 +3,7 @@ import { SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { boldGems } from '../constants/text/currency.js';
 import { ITEMS_BY_ID, findItem } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
+import { bonusText, itemEffectiveness } from '../lib/game/items/equipment.js';
 import { starString } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { forgeMasterwork } from '../services/items/forge.js';
@@ -58,7 +59,7 @@ export const forge: Command = {
     const bonus = item.bonus!;
     const embed = createEmbed()
       .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
-      .setDescription(t.done(ctx.user.toString(), result.paid, bonus.text))
+      .setDescription(t.done(ctx.user.toString(), result.paid, bonusText(item, itemEffectiveness(item, ctx.user.id), bonus.level)))
       .addFields({ name: t.gemsField, value: boldGems(result.gemsLeft), inline: true });
     await ctx.reply({ embeds: [embed] });
   },

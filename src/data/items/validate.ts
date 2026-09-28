@@ -31,7 +31,7 @@ export function validateItems(): void {
       const { level, text, adds = [], removes = [] } = item.bonus;
       if (item.stars !== 4) throw new Error(`${item.id} has a refine bonus, but only 4-star items can have one`);
       if (level !== REFINE.maxLevel) throw new Error(`${item.id}'s refine bonus must be at R${REFINE.maxLevel}`);
-      if (text.trim() === '') throw new Error(`${item.id}'s refine bonus has no text`);
+      if ((typeof text === 'string' ? text : text(() => 0, () => '0%')).trim() === '') throw new Error(`${item.id}'s refine bonus has no text`);
       if (adds.length + removes.length === 0) throw new Error(`${item.id}'s refine bonus neither adds nor removes a perk`);
       for (const effect of adds) {
         if (!(effect in EFFECTS)) throw new Error(`${item.id}'s refine bonus adds an unknown effect: ${effect}`);

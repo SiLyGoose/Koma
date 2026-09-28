@@ -49,8 +49,14 @@ export interface ItemDef {
 export interface ItemBonus {
   /** The refinement level it needs (REFINE.maxLevel). */
   level: number;
-  /** What it does, for the gear card, like "Pinecraft: ores take no extra energy". */
-  text: string;
+  /**
+   * What it adds, for the gear card, like "Pinecraft: ores take no extra energy". The card keeps the
+   * item's own effect lines as they are and puts this under them, so it should say what changes on
+   * top of those (the perks in `adds` and `removes` don't get lines of their own). To show a number
+   * that follows the settings, make it a function: `strength(effect)` is a perk's strength on this
+   * copy (a fraction, 0.5 for 50%) and `percent(n)` formats one, like "25%".
+   */
+  text: string | ((strength: (effect: EffectId) => number, percent: (n: number) => string) => string);
   /** Perks it adds, at the item's star tier like its other perks. They must not already be on the item. */
   adds?: readonly EffectId[];
   /** Perks of the item's it turns off. */

@@ -1,7 +1,7 @@
 import { CONFIG } from '../../../config.js';
 import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_EMOJI, STAR_SYMBOL, TEXT } from '../../../constants/index.js';
 import { STARS, type ItemDef, type Stars } from '../../../types.js';
-import { describeEffects } from './equipment.js';
+import { describeEffects, showsMasterwork } from './equipment.js';
 import { formatPercent, mentionList, starString } from '../../format.js';
 
 /** One embed field of the databank. */
@@ -18,7 +18,7 @@ export interface DatabankField {
 export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): string {
   const effects = describeEffects(item, 1, level, masterwork);
   return [
-    TEXT.databank.item(item.name, SLOT_EMOJI[item.slot]),
+    TEXT.databank.item(item.name, SLOT_EMOJI[item.slot], showsMasterwork(item, level, masterwork)),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
     ...(item.usableBy ? [TEXT.databank.exclusive(mentionList(item.usableBy))] : []),
   ].join('\n');
@@ -149,7 +149,7 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, maste
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
     fields: [
       { name: TEXT.databank.detailSlotField, value: SLOT_EMOJI[item.slot], inline: true },
-      { name: TEXT.databank.detailEffectsField(level, masterwork && item.bonus !== undefined && level >= item.bonus.level), value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
+      { name: TEXT.databank.detailEffectsField(level, showsMasterwork(item, level, masterwork)), value: effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, inline: false },
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),

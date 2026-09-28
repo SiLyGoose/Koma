@@ -276,8 +276,9 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['bubbleBeam', 'bubbleBeamPenalty'],
     bonus: {
       level: 5,
-      text: "Your own robs never slip, and robbers who slip pay a bigger penalty",
-      adds: ['slipGuard', 'bubbleBeamMasterPenalty'],
+      text: (strength, percent) =>
+        `Your own robs never slip, and robbers who slip against you pay an additional +${percent(strength('bubbleBeamMasterPenalty') - strength('bubbleBeamPenalty'))} of what they took`,
+      adds: ['bubbleBeamMasterPenalty', 'slipGuard'],
       removes: ['bubbleBeamPenalty'],
     },
   },
