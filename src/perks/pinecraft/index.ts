@@ -63,13 +63,13 @@ export const blastLoss = definePerk({
   text: (value) => `Pinecraft: ores caught in a blast pay ${value} less`,
 });
 
-/** Lucky Rabbit's Foot: a chance an ore pays double. */
+/** Lucky Rabbit's Foot: a chance an ore drops double (so it pays double). */
 export const luckyOre = definePerk({
-  description: `Pinecraft: chance each ore the wearer digs pays double ${CURRENCY_EMOJI}.`,
+  description: `Pinecraft: chance each ore the wearer digs drops double (paying double ${CURRENCY_EMOJI}).`,
   defaults: { 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.1 },
   min: 0,
   max: 1,
-  text: (value) => `Pinecraft: ${value} chance an ore pays double`,
+  text: (value) => `Pinecraft: ${value} chance for double ore drops`,
 });
 
 /** Canary in a Cage: energy comes back faster (100% faster is twice as fast). */

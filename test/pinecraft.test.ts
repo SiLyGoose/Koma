@@ -253,10 +253,10 @@ test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its re
   assert.ok(gearOf('ruby-pickaxe', 5).breakSpeed > 0);
   assert.deepEqual(describeEffects(ruby, 1, 4).slice(1), [
     'Pinecraft: ores take 3 ⚡ each to dig',
-    'Pinecraft: 6.67% chance an ore pays double',
+    'Pinecraft: 6.67% chance for double ore drops',
   ]);
   assert.deepEqual(describeEffects(ruby, 1, 5).slice(1), [
-    'Pinecraft: 10% chance an ore pays double',
+    'Pinecraft: 10% chance for double ore drops',
     '✨ R5 bonus: Pinecraft: ores take no extra ⚡ to dig',
   ]);
   // The Diamond Pickaxe has no bonus: still 2 energy at R5.

@@ -64,7 +64,7 @@ export interface PinecraftGear {
   blastEvery: number;
   /** How much less an ore caught in a blast pays (0.5: half). */
   blastLoss: number;
-  /** Chance (0 to 1) each ore pays double. */
+  /** Chance (0 to 1) each ore drops double, paying double. */
   luckyChance: number;
   /** How much faster energy comes back (1: twice as fast). */
   energyRegen: number;
