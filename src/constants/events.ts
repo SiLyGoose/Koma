@@ -1,4 +1,4 @@
-import { MINUTE_MS } from './core.js';
+import { HOUR_MS, MINUTE_MS } from './core.js';
 
 /*
  * Random events (src/events): the event loop, the point crate and the vault games.
@@ -27,6 +27,12 @@ export const MAX_EVENT_SECONDS = 1_800;
 
 /** Biggest `events.vault.multiplier` can be set to. */
 export const MAX_VAULT_MULTIPLIER = 50;
+
+/**
+ * Most time the vault's hourly growth makes up for at once, so a server that had events off for a
+ * while (or a bot that was down a long time) doesn't get a huge lump when it comes back.
+ */
+export const MAX_VAULT_CATCH_UP_MS = 24 * HOUR_MS;
 
 /** Most rounds a Greedy Heist can have (the `events.heist.rounds` setting). */
 export const MAX_HEIST_ROUNDS = 20;

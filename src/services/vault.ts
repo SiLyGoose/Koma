@@ -1,3 +1,5 @@
+import { CONFIG } from '../config.js';
+import { HOUR_MS, MAX_VAULT_CATCH_UP_MS } from '../constants/index.js';
 import { collections } from '../db.js';
 import type { LedgerDoc } from '../types.js';
 import { ensureMember } from './economy/index.js';
@@ -9,7 +11,8 @@ import { ensureMember } from './economy/index.js';
  * lost, so a game added later feeds the vault the same way, in one extra call. The vault games
  * (src/events/games/greedy-heist.ts, src/events/games/split-or-steal.ts) put up the pool times
  * events.vault.multiplier, and call back in here to take out what they paid (vaultCost,
- * takeFromVault) and to add their fines (fineIntoVault).
+ * takeFromVault) and to add their fines (fineIntoVault). On top of that the vault grows by
+ * events.vault.hourlyGrowth an hour on its own (growVaults), in every server with events on.
  */
 
 type LedgerInput = Omit<LedgerDoc, 'createdAt'>;
@@ -46,6 +49,47 @@ export async function addVaultLoss(guildId: string, amount: number): Promise<voi
     await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: amount } }, { upsert: true });
   } catch (err) {
     console.error(`Could not add ${amount} to the vault pool in ${guildId}:`, err);
+  }
+}
+
+/**
+ * How much the vault grows over `elapsedMs` at `perHour`, in whole points, and how much of that
+ * time those points account for (the rest carries over to the next check, so nothing is lost to
+ * rounding). At most MAX_VAULT_CATCH_UP_MS is made up for; anything past that is dropped.
+ */
+export function vaultGrowth(elapsedMs: number, perHour: number): { amount: number; usedMs: number } {
+  if (!(perHour > 0) || !(elapsedMs > 0)) return { amount: 0, usedMs: 0 };
+  const capped = elapsedMs > MAX_VAULT_CATCH_UP_MS;
+  const amount = Math.floor((Math.min(elapsedMs, MAX_VAULT_CATCH_UP_MS) * perHour) / HOUR_MS);
+  return { amount, usedMs: capped ? elapsedMs : Math.round((amount * HOUR_MS) / perHour) };
+}
+
+/**
+ * Adds the vault's hourly growth to every server with events on, for the time since it was last
+ * added. A server seen for the first time just starts counting from `now`. Each server is one
+ * conditional update on the time it was last grown, so two copies of the bot never both add it.
+ */
+export async function growVaults(now: Date = new Date()): Promise<void> {
+  const perHour = CONFIG.events.vault.hourlyGrowth;
+  const { guilds } = collections();
+  for (const doc of await guilds.find({ channelId: { $ne: null } }).toArray()) {
+    try {
+      const last = doc.vaultGrownAt ?? null;
+      if (last === null || perHour <= 0) {
+        // Not counting yet, or growth is off: start (or keep) the clock at now, so turning it on
+        // later doesn't pay out for the time it was off.
+        await guilds.updateOne({ _id: doc._id, vaultGrownAt: last }, { $set: { vaultGrownAt: now } });
+        continue;
+      }
+      const { amount, usedMs } = vaultGrowth(now.getTime() - last.getTime(), perHour);
+      if (amount <= 0) continue;
+      await guilds.updateOne(
+        { _id: doc._id, vaultGrownAt: last },
+        { $inc: { vaultPool: amount }, $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } },
+      );
+    } catch (err) {
+      console.error(`Could not grow the vault in ${doc._id}:`, err);
+    }
   }
 }
 

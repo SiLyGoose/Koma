@@ -400,6 +400,11 @@ export interface GuildDoc {
    */
   vaultPool?: number;
   /**
+   * How far the vault's hourly growth (events.vault.hourlyGrowth, see growVaults in
+   * services/vault.ts) has been paid up to. Missing means it hasn't started counting yet.
+   */
+  vaultGrownAt?: Date | null;
+  /**
    * Left over from the removed vault breaker event, which saved its open attempt here. Nothing
    * writes it any more; services/migrate.ts clears it on start.
    */

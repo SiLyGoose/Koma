@@ -7,7 +7,7 @@ import { boldMoney } from '../currency.js';
 export const vaultText = {
   /** The `vault` command: how much is in the vault right now. */
   commandTitle: 'Vault',
-  /** `pool` is what's been lost so far, `prize` is that times the multiplier: what the next vault game would put up. */
+  /** `pool` is what's in the vault (losses, fines and its hourly growth), `prize` is that times the multiplier: what the next vault game would put up. */
   commandInfo: (pool: string, prize: string, multiplier: string) =>
-    `${boldMoney(pool)} lost so far. The next vault game would put up ${boldMoney(prize)} (${multiplier}).`,
+    `${boldMoney(pool)} in the vault. The next vault game would put up ${boldMoney(prize)} (${multiplier}).`,
 };

@@ -2,6 +2,7 @@ import type { Client } from 'discord.js';
 import { CONFIG } from '../config.js';
 import { EVENTS } from '../constants/index.js';
 import { claimEventSlot, listEventGuilds } from '../services/events.js';
+import { growVaults } from '../services/vault.js';
 import { GAME_EVENTS } from './registry.js';
 import { startRandomEvent } from './runner.js';
 import { decideTick, randomGapMs } from './timing.js';
@@ -67,14 +68,16 @@ export async function runSchedulerTick(client: Client, now: Date = new Date(), e
   return outcomes;
 }
 
-/** Starts checking every EVENTS.tickMs. Returns a function that stops it. */
+/** Starts checking every EVENTS.tickMs (and growing the vaults, see growVaults). Returns a function that stops it. */
 export function startEventScheduler(client: Client): () => void {
   let ticking = false;
   const timer = setInterval(() => {
     // A slow tick is never joined by the next one.
     if (ticking) return;
     ticking = true;
-    runSchedulerTick(client)
+    growVaults()
+      .catch((err) => console.error('Growing the vaults failed:', err))
+      .then(() => runSchedulerTick(client))
       .catch((err) => console.error('The event scheduler failed:', err))
       .finally(() => {
         ticking = false;

@@ -10,7 +10,7 @@ import { limitedLines } from '../src/events/games/vault-game.js';
 import { addRoundLoot, alarmChance, roundPot, type HeistPlayer } from '../src/lib/events/heist.js';
 import { choiceOf, resolveSplitSteal, type SplitStealChoice } from '../src/lib/events/split-steal.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
-import { vaultCost } from '../src/services/vault.js';
+import { vaultCost, vaultGrowth } from '../src/services/vault.js';
 
 /** Always gives leftover points to the first member still waiting, so splits are predictable. */
 const first = () => 0;
@@ -105,6 +105,15 @@ test('vaultCost: paying out part of the prize takes the same share of the pool',
 // ---------------------------------------------------------------------------
 // Registry, settings and constants
 // ---------------------------------------------------------------------------
+
+test('vaultGrowth: whole points per hour, the leftover time carries over, and catch-up is capped', () => {
+  const HOUR = 3_600_000;
+  assert.deepEqual(vaultGrowth(HOUR, 100), { amount: 100, usedMs: HOUR });
+  assert.deepEqual(vaultGrowth(60_000, 100), { amount: 1, usedMs: 36_000 }, 'a minute is 1 point, with 24s carried over');
+  assert.deepEqual(vaultGrowth(30_000, 100), { amount: 0, usedMs: 0 });
+  assert.deepEqual(vaultGrowth(HOUR, 0), { amount: 0, usedMs: 0 }, 'off');
+  assert.deepEqual(vaultGrowth(100 * HOUR, 100), { amount: 2_400, usedMs: 100 * HOUR }, 'at most a day is made up for');
+});
 
 test('events: the heist and split or steal are in the list, and the vault breaker is gone', () => {
   validateEvents();

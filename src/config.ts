@@ -141,6 +141,8 @@ export interface Settings {
     vault: {
       /** What a vault game (Greedy Heist, Split or Steal) puts up, as a multiple of the points lost to gambling since the last payout. */
       multiplier: number;
+      /** Points added to the vault every hour on their own, in every server with events on. 0 turns it off. */
+      hourlyGrowth: number;
     };
     heist: {
       /** How long the crew has to join, in seconds. */
@@ -280,7 +282,8 @@ export const DEFAULTS: Readonly<Settings> = {
     value: { dirt: 1, stone: 5, coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, amethyst: 500, ruby: 500 },
   },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
-  // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has
+  // The vault games put up 10x what's been lost to gambling since the last payout, and the vault
+  // also grows by 100 an hour on its own. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
   // a round (about a 3% chance of lasting all 10), and anyone caught pays 50. Split or Steal needs 2+
   // players, with a minute to join and 30 seconds to choose. Codedle gives 5 minutes to guess a
@@ -289,7 +292,7 @@ export const DEFAULTS: Readonly<Settings> = {
     minMinutes: 120,
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
-    vault: { multiplier: 10 },
+    vault: { multiplier: 10, hourlyGrowth: 100 },
     heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { seconds: 300, guessCost: 10 },

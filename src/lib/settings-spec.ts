@@ -244,6 +244,7 @@ export const SPECS: readonly SettingSpec[] = [
     max: MAX_VAULT_MULTIPLIER,
     multiplier: true,
   },
+  int('events.vault.hourlyGrowth', 'Events', `${CURRENCY_EMOJI} added to the vault every hour on its own, in every server with events on (0 turns it off).`, 0, MAX_POINTS),
   int('events.heist.joinSeconds', 'Events', 'Seconds a Greedy Heist stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.heist.rounds', 'Events', 'Most rounds a Greedy Heist lasts. The prize is handed out a slice per round.', 1, MAX_HEIST_ROUNDS),
   int('events.heist.roundSeconds', 'Events', 'Seconds each Greedy Heist round lasts (time to decide whether to escape).', 2, 60),
