@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
-import { handleApi, type ApiDeps, type Live } from '../src/web/api.js';
+import { handleApi, type ApiDeps, type Leaderboard, type Live } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { addWatcher, HUB_TTL_MS, hubSeen, isPlaying, online, playerJoined, playerLeft, removeWatcher, resetLive, toWatchers, type LivePeer } from '../src/web/live.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken } from '../src/web/token.js';
@@ -91,8 +91,9 @@ test('live: a watch token only lets its holder watch, and a play token only play
 
 const SITE: WebConfig = { siteUrl: 'https://site', origin: 'https://site', apiUrl: 'https://bot', socketUrl: 'wss://bot', port: 0, clientSecret: 'shh' };
 
-async function withApi(run: (base: string) => Promise<void>): Promise<void> {
+async function withApi(run: (base: string) => Promise<void>, extra: Partial<ApiDeps> = {}): Promise<void> {
   const deps: ApiDeps = {
+    ...extra,
     config: SITE,
     clientId: () => '1',
     guild: (id) => (id === 'g' ? { name: 'Friends', icon: null } : null),
@@ -132,4 +133,35 @@ test('live api: a game page lists who is online with its own link, and gets a li
     assert.equal((await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'mines', target: 'u2' }) })).status, 400);
     assert.equal((await fetch(`${base}/api/live`, { headers: { Origin: SITE.origin, Authorization: 'Game nonsense' } })).status, 401);
   });
+});
+
+test('live api: the Pinecraft leaderboard, by blocks dug or coins earned, with where the one asking stands', async () => {
+  const asked: string[] = [];
+  const leaderboard: ApiDeps['leaderboard'] = async (guildId, stat, userId) => {
+    asked.push(`${guildId} ${stat} ${userId}`);
+    return stat === 'dug'
+      ? { top: [{ userId: 'u1', value: 900 }, { userId: 'u2', value: 300 }], you: { userId: 'u2', value: 300, rank: 2 } }
+      : { top: [{ userId: 'u1', value: 5000 }], you: { userId: 'u2', value: 0, rank: 2 } };
+  };
+  const alvin = signToken({ guildId: 'g', userId: 'u2', name: 'Alvin' }, 60_000);
+  const headers = { Origin: SITE.origin, Authorization: `Game ${alvin}` };
+  await withApi(
+    async (base) => {
+      const dug = (await (await fetch(`${base}/api/pinecraft/leaderboard?stat=dug`, { headers })).json()) as Leaderboard;
+      assert.deepEqual(dug, {
+        stat: 'dug',
+        rows: [
+          { rank: 1, userId: 'u1', name: 'Alvin', avatar: 'https://cdn/simon.png', value: 900 },
+          { rank: 2, userId: 'u2', name: 'Alvin', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png', value: 300 },
+        ],
+        you: { rank: 2, value: 300 },
+      });
+      const earned = (await (await fetch(`${base}/api/pinecraft/leaderboard?stat=earned`, { headers })).json()) as Leaderboard;
+      assert.deepEqual(earned.rows.map((r) => [r.rank, r.userId, r.value]), [[1, 'u1', 5000]]);
+      assert.deepEqual(earned.you, { rank: 2, value: 0 });
+      assert.equal((await fetch(`${base}/api/pinecraft/leaderboard?stat=gems`, { headers })).status, 400);
+      assert.deepEqual(asked, ['g dug u2', 'g earned u2']);
+    },
+    { leaderboard },
+  );
 });

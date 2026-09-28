@@ -313,6 +313,8 @@ export interface PinecraftWorldDoc {
   sinceBlast?: number;
   /** Points its ores have paid, all told. */
   earned: number;
+  /** Blocks dug, all told (every week's; `mined` is only this week's). Missing: counted from `mined` when next loaded. */
+  dugTotal?: number;
   createdAt: Date;
 }
 

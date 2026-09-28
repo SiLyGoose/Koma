@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MINE_WEB } from '../constants/index.js';
 import { GAMES, gameLink, watchLink, type Game, type WebConfig } from './config.js';
+import { pinecraftLeaderboard, type PinecraftLeaderboard, type PinecraftStat } from '../services/pinecraft.js';
 import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player } from './token.js';
@@ -15,8 +16,9 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/play {guild, game}   a link to play `game` in that server: { url }
  *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
+ *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
  *
- * /api/live and /api/watch also take the token from a game page's own link, as
+ * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). The front page's /api/live counts as
  * being on the site (live.ts).
  *
@@ -35,7 +37,16 @@ export interface ApiDeps {
   balance: (guildId: string, userId: string) => Promise<number>;
   /** A member's avatar picture in a server, if the bot knows it. */
   avatar?: (guildId: string, userId: string) => string | null;
+  /** Pinecraft's leaderboards (the database's, unless a test says otherwise). */
+  leaderboard?: typeof pinecraftLeaderboard;
   login?: typeof exchangeCode;
+}
+
+/** A Pinecraft leaderboard (GET /api/pinecraft/leaderboard): the best miners by `stat`, and where the one asking stands. */
+export interface Leaderboard {
+  stat: PinecraftStat;
+  rows: { rank: number; userId: string; name: string; avatar: string; value: number }[];
+  you: { rank: number; value: number } | null;
 }
 
 /** Who's on the site in a server (GET /api/live). */
@@ -110,6 +121,8 @@ async function meFor(session: Session, deps: ApiDeps): Promise<Me> {
 }
 
 const LIVE_GAMES: readonly LiveGame[] = ['mines', 'pinecraft'];
+/** What a game page (with its link's token) or a logged-in member can ask about their server. */
+const LIVE_PATHS = new Set(['/api/live', '/api/watch', '/api/pinecraft/leaderboard']);
 
 /** GET /api/live and POST /api/watch, for `viewer` (in the server they're asking about). */
 async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, deps: ApiDeps, viewer: Player): Promise<void> {
@@ -124,6 +137,22 @@ async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
       })),
     };
     return send(res, 200, live);
+  }
+  if (url.pathname === '/api/pinecraft/leaderboard' && req.method === 'GET') {
+    const stat = url.searchParams.get('stat');
+    if (stat !== 'dug' && stat !== 'earned') return fail(res, 'bad_request');
+    const board: PinecraftLeaderboard = await (deps.leaderboard ?? pinecraftLeaderboard)(guildId, stat, viewer.userId);
+    const rows = await Promise.all(
+      board.top.map(async ({ userId, value }, i) => ({
+        rank: i + 1,
+        userId,
+        name: (userId === viewer.userId ? viewer.name : await deps.memberName(guildId, userId)) ?? 'Someone who left',
+        avatar: deps.avatar?.(guildId, userId) ?? avatarUrl(userId, null),
+        value,
+      })),
+    );
+    const leaderboard: Leaderboard = { stat, rows, you: board.you && { rank: board.you.rank, value: board.you.value } };
+    return send(res, 200, leaderboard);
   }
   if (url.pathname === '/api/watch' && req.method === 'POST') {
     const body = await readJson(req);
@@ -175,7 +204,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     // A game page asking with its link's token (to play, or to watch): no login needed.
     const gameToken = /^Game (.+)$/.exec(req.headers.authorization ?? '')?.[1];
-    if (gameToken && (url.pathname === '/api/live' || url.pathname === '/api/watch')) {
+    if (gameToken && LIVE_PATHS.has(url.pathname)) {
       const viewer = verifyToken(gameToken) ?? verifyWatchToken(gameToken)?.viewer ?? null;
       if (!viewer || !deps.guild(viewer.guildId)) return (fail(res, 'not_logged_in'), true);
       await liveRoutes(req, res, url, deps, viewer);
@@ -211,7 +240,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
     }
 
     // The front page, about one of the member's servers.
-    if (url.pathname === '/api/live' || url.pathname === '/api/watch') {
+    if (LIVE_PATHS.has(url.pathname)) {
       const guildId = url.searchParams.get('guild') ?? '';
       if (!session.guildIds.includes(guildId) || !deps.guild(guildId)) return (fail(res, 'not_member'), true);
       const name = await deps.memberName(guildId, session.userId);

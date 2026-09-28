@@ -69,6 +69,9 @@ export async function connectDb(): Promise<Collections> {
     collections.blackjackBets.createIndex({ gameId: 1 }),
     // The mine's sweeper looks for runs whose lease ran out.
     collections.minesRuns.createIndex({ leaseUntil: 1 }),
+    // Pinecraft's leaderboards: a server's miners by coins earned, and by blocks dug.
+    collections.pinecraftWorlds.createIndex({ guildId: 1, earned: -1 }),
+    collections.pinecraftWorlds.createIndex({ guildId: 1, dugTotal: -1 }),
     // Raids left unfinished when the bot stopped are looked up by status on start.
     collections.raids.createIndex({ status: 1 }),
   ]);
