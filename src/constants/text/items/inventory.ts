@@ -4,6 +4,8 @@ export const inventoryText = {
   emptySelf: (p: string) => `Your inventory is empty. Use \`${p}claim\` to earn ${CURRENCY_EMOJI}, then \`${p}gacha\` to pull items.`,
   emptyOther: (name: string) => `${name} has no items yet.`,
   title: (name: string) => `${name}'s inventory`,
+  /** The title of one category (`inventory armor`). `category` is its name, like "Armor". */
+  categoryTitle: (title: string, category: string) => `${title} · ${category}`,
   summary: (total: string, unique: number, catalogSize: number) =>
     `${total} items · ${unique}/${catalogSize} unique collected`,
   /** `slot` is the slot's emoji; `level` is the best refinement among the copies, shown once it is past 1. */

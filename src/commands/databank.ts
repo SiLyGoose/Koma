@@ -1,8 +1,9 @@
-import { DATABANK_BUTTONS, REFINE, TEXT } from '../constants/index.js';
+import { DATABANK_BUTTONS, REFINE, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { ITEMS, findItem } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
 import { buildDatabank, itemDetail, parseStarQuery } from '../lib/game/items/databank.js';
+import { takeSlot } from '../lib/game/items/slot-filter.js';
 import { starString } from '../lib/format.js';
 import { paginate, TOGGLE_ID, type PaginateToggle } from '../discord/paginate.js';
 import type { ItemDef } from '../types.js';
@@ -12,9 +13,9 @@ export const databank: Command = {
   name: 'databank',
   category: 'items',
   aliases: ['items', 'db'],
-  description: 'See every item and what it does. Add an item name or id to see just that one, or a star tier (1-4) to see that tier.',
-  usage: 'databank [item | stars]',
-  slashUsage: 'databank [item] [stars]',
+  description: 'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both.',
+  usage: 'databank [item | stars] [category]',
+  slashUsage: 'databank [item] [stars] [category]',
 
   async execute(ctx) {
     const { args } = ctx;
@@ -32,7 +33,12 @@ export const databank: Command = {
     ];
     const labels = { previous: TEXT.databank.previousButton, next: TEXT.databank.nextButton, notYours: TEXT.databank.notYours };
 
-    const query = args.join(' ').trim();
+    // A category (`weapon`, `armor`, `treasure`) only counts alone or next to a star tier; with
+    // other words, they are all an item's name.
+    const taken = takeSlot(args);
+    const takenRest = taken.rest.join(' ').trim();
+    const slot = taken.slot !== null && (takenRest === '' || parseStarQuery(takenRest) !== null) ? taken.slot : null;
+    const query = (slot === null ? args.join(' ') : takenRest).trim();
 
     // With a star tier (`3`, `3 star`, `★★★`): every item of that tier.
     const tier = parseStarQuery(query);
@@ -64,20 +70,27 @@ export const databank: Command = {
       return;
     }
 
-    const items = wanted === undefined ? ITEMS : ITEMS.filter((item) => item.stars === wanted);
+    const items = ITEMS.filter((item) => (wanted === undefined || item.stars === wanted) && (slot === null || item.slot === slot));
     // Laid out the same at every level (see buildDatabank), so the page count never changes with it.
     const book = (level: number, masterwork = false) => buildDatabank(items, undefined, undefined, level, masterwork);
     const pages = book(REFINE.maxLevel);
     const lowPages = book(1);
     const masterworkPages = book(REFINE.maxLevel, true);
-    if (wanted !== undefined && pages.length === 0) {
-      await ctx.reply(TEXT.databank.noItemsInTier(starString(wanted)));
+    if (pages.length === 0) {
+      await ctx.reply(
+        slot === null ? TEXT.databank.noItemsInTier(starString(wanted ?? 1)) : TEXT.databank.noItemsInCategory(SLOT_LABELS[slot], wanted === undefined ? null : starString(wanted)),
+      );
       return;
     }
-    // The title and description of a single tier name that tier.
-    const title = wanted === undefined ? TEXT.databank.title : TEXT.databank.tierTitle(starString(wanted));
+    // The title and description of a single tier or category name it.
+    const tierTitle = wanted === undefined ? TEXT.databank.title : TEXT.databank.tierTitle(starString(wanted));
+    const title = slot === null ? tierTitle : TEXT.databank.categoryTitle(tierTitle, SLOT_LABELS[slot]);
     const description = (level: number) =>
-      wanted === undefined ? TEXT.databank.description(level) : TEXT.databank.tierDescription(starString(wanted), level);
+      slot !== null
+        ? TEXT.databank.categoryDescription(SLOT_LABELS[slot], wanted === undefined ? null : starString(wanted), level)
+        : wanted === undefined
+          ? TEXT.databank.description(level)
+          : TEXT.databank.tierDescription(starString(wanted), level);
 
     // Usually one page. A long tier or the whole catalog becomes a book: Previous/Next buttons
     // flip between pages on the same message instead of dumping every page into the channel.

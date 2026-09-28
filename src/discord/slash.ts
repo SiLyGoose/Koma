@@ -3,6 +3,7 @@ import {
   InteractionContextType,
   PermissionFlagsBits,
   SlashCommandBuilder,
+  type SlashCommandStringOption,
   type AutocompleteInteraction,
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
@@ -55,6 +56,19 @@ const ownedItem = async (interaction: AutocompleteInteraction): Promise<Choice[]
   const entries = await getInventory(interaction.guildId, interaction.user.id);
   const owned = entries.map((entry) => ITEMS_BY_ID.get(entry.itemId)).filter((item): item is ItemDef => item !== undefined);
   return itemChoices(interaction.options.getFocused(), owned);
+};
+
+/** The `category` option of the item lists (databank, inventory): one gear slot, or every item if left out. */
+const categoryOption = (o: SlashCommandStringOption): SlashCommandStringOption =>
+  o
+    .setName('category')
+    .setDescription('Only the items of one category')
+    .addChoices(...SLOTS.map((slot) => ({ name: SLOT_LABELS[slot], value: slot })));
+
+/** The chosen category, as the word a prefix command reads (nothing when left out). */
+const categoryArgs = (interaction: ChatInputCommandInteraction): string[] => {
+  const slot = interaction.options.getString('category');
+  return slot === null ? [] : [slot];
 };
 
 /** A user option that is left out to mean "me". */
@@ -155,7 +169,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   databank: {
-    description: 'See every item and what it does, or just one item, or just one star tier.',
+    description: 'See every item and what it does, or just one item, star tier or category.',
     build: (b) =>
       void b
         .addStringOption((o) =>
@@ -166,13 +180,14 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
             .setName('stars')
             .setDescription('Only the items of one star tier')
             .addChoices(...STARS.map((stars) => ({ name: `${stars}-star (${starString(stars)})`, value: stars }))),
-        ),
-    // An item, if given, wins over the star tier.
+        )
+        .addStringOption(categoryOption),
+    // An item, if given, wins over the star tier and category.
     toArgs: (i) => {
       const item = i.options.getString('item');
       if (item) return [item];
       const stars = i.options.getInteger('stars');
-      return stars === null ? [] : [String(stars)];
+      return [...(stars === null ? [] : [String(stars)]), ...categoryArgs(i)];
     },
     autocomplete: anyItem,
   },
@@ -253,8 +268,10 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   inventory: {
-    build: (b) => void b.addUserOption((o) => o.setName('user').setDescription("Whose items to see (yours, if left out)")),
-    toArgs: userArgs,
+    description: "See the items you (or another member) have collected, or just one category.",
+    build: (b) =>
+      void b.addUserOption((o) => o.setName('user').setDescription("Whose items to see (yours, if left out)")).addStringOption(categoryOption),
+    toArgs: (i) => [...userArgs(i), ...categoryArgs(i)],
   },
 
   leaderboard: { build: () => {}, toArgs: () => [] },

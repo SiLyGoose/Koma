@@ -30,13 +30,18 @@ export const databankText = {
   badTier: (p: string, low: number, high: number) =>
     `Pick a star tier from ${low} to ${high}, like \`${p}databank ${high}\`. \`${p}databank\` lists every item.`,
   noItemsInTier: (stars: string) => `There are no ${stars} items.`,
+  /** One category (`databank weapon`), maybe of one tier too. `category` is its name, like "Weapon"; `stars` the star string or null. */
+  categoryTitle: (title: string, category: string) => `${title} · ${category}`,
+  categoryDescription: (category: string, stars: string | null, level: number) =>
+    `Every ${stars === null ? '' : `${stars} `}${category.toLowerCase()} item and what it does while equipped.\n${refineNote(level)}`,
+  noItemsInCategory: (category: string, stars: string | null) => `There are no ${stars === null ? '' : `${stars} `}${category.toLowerCase()} items.`,
   previousButton: 'Previous',
   nextButton: 'Next',
   notYours: "This isn't your databank to flip through.",
   /** Last line of an item that only some members can use. `owners` is mentions. */
   exclusive: (owners: string) => `Exclusive to ${owners}`,
   footer: (p: string) =>
-    `${p}databank <item> shows one item in full, and ${p}databank <1-4> one star tier. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+    `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, and ${p}databank <weapon | armor | treasure> one category. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
   /** The details of one item (`databank <item>`). `stars` is the star string. */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',

@@ -493,3 +493,15 @@ test('databank at a refinement level: effects at that level, a button to flip, a
     for (let level = 1; level < REFINE.maxLevel; level++) assert.deepEqual(layout(level), layout(REFINE.maxLevel), `R${level}, ${perPage} per page, ${maxField} per field`);
   }
 });
+
+test('databank category: `weapon` (alone, or with a star tier) lists only that category, and says so in the title', async () => {
+  const names = (view: ReturnType<typeof pageView>) => view.fields.map((fld) => fld.value).join('\n');
+  const [weapons] = await ask('weapon');
+  assert.match(weapons?.title ?? '', /^Databank · Weapon/);
+  for (const item of ITEMS.filter((i) => i.slot !== 'weapon')) assert.ok(!names(weapons!).includes(`**${item.name}**`), `${item.name} is left out`);
+  const [fourTreasure] = await ask('4', 'treasure');
+  assert.match(fourTreasure?.title ?? '', /^Databank: ★★★★ · Treasure/);
+  for (const item of ITEMS.filter((i) => i.stars === 4 && i.slot !== 'treasure')) assert.ok(!names(fourTreasure!).includes(`**${item.name}**`), `${item.name} is left out`);
+  const [sameOtherWay] = await ask('treasure', '4');
+  assert.deepEqual(sameOtherWay?.fields, fourTreasure?.fields, 'the order of the words does not matter');
+});
