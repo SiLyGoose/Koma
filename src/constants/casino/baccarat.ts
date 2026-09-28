@@ -33,9 +33,12 @@ export const BACCARAT_WEB = {
  * - `showMs`: how long after a deal before the next round's betting starts. The page deals the cards
  *   out one by one (3.4s for the first four, a 1.6s pause, and up to two third cards: about 6.3s
  *   at most), then shows how everyone did for the rest of it.
+ * - `history`: how many of the table's last hands it keeps for its scoreboard (the roads the page
+ *   draws: bead plate, big road and the three derived roads). 72 fills a 6 by 12 bead plate.
  */
 export const BACCARAT_TABLE = {
   seats: 8,
   bettingMs: 60_000,
   showMs: 12_000,
+  history: 72,
 } as const;

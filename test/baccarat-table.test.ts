@@ -5,7 +5,7 @@ import { dealRound, parseBets, settleBets, totalBet, type BaccaratPayouts } from
 import type { Card } from '../src/lib/game/casino/blackjack.js';
 import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/baccarat/protocol.js';
 import { openConnection, type Peer } from '../src/web/baccarat/server.js';
-import { resetTables, tablesIn, type TableDeps } from '../src/web/baccarat/table.js';
+import { baccaratGame, handCode, resetTables, tablesIn, type TableDeps } from '../src/web/baccarat/table.js';
 import { online, resetLive } from '../src/web/live.js';
 import { signToken } from '../src/web/token.js';
 
@@ -30,6 +30,25 @@ test('baccarat web: only well-formed messages from the page are read', () => {
     assert.equal(parseClientMessage(bad), null, bad);
   }
   assert.equal(parseBets([10]), null);
+});
+
+test('baccarat scoreboard: each hand is a short code of who won, the winning total, pairs and a natural', () => {
+  // Dealt Player, Banker, Player, Banker. Player 4+3 = 7, Banker 3+4 = 7: both stand, a tie on 7.
+  assert.equal(handCode(dealRound(shoe(4, 3, 3, 4))), 'T7');
+  // Player 5+3 = 8 (a natural), Banker 2+4 = 6.
+  assert.equal(handCode(dealRound(shoe(5, 2, 3, 4))), 'P8n');
+  // Player 4+4 = 8, Banker 3+3 = 6: a natural with a pair on each side.
+  assert.equal(handCode(dealRound(shoe(4, 3, 4, 3))), 'P8pbn');
+  // Player 5+2 = 7 stands, Banker 6+6 = 2 draws a king: Player wins on 7, a banker pair.
+  assert.equal(handCode(dealRound(shoe(5, 6, 2, 6))), 'P7b');
+});
+
+test('baccarat scoreboard: the table keeps its last hands, oldest first, up to BACCARAT_TABLE.history', () => {
+  const round = dealRound(shoe(5, 2, 3, 4));
+  let view = { ...baccaratGame.view(round, null), no: 1 };
+  assert.deepEqual(view.history, ['P8n']);
+  for (let no = 2; no <= BACCARAT_TABLE.history + 5; no++) view = { ...baccaratGame.view(round, view), no };
+  assert.equal(view.history.length, BACCARAT_TABLE.history);
 });
 
 function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean; last: () => TableState } {

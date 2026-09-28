@@ -19,6 +19,13 @@ export interface BaccaratRoundView {
   bankerTotal: number;
   winner: BaccaratWinner;
   natural: boolean;
+  /**
+   * The table's last hands, oldest first and this one last (up to BACCARAT_TABLE.history), for the
+   * scoreboard. Each is a short code (see handCode in table.ts): who won ('P', 'B' or 'T'), the
+   * winning total (a tie's total), then 'p' for a player pair, 'b' for a banker pair and 'n' for a
+   * natural, in that order, when they happened. "B7pn": Banker won with 7, a player pair, a natural.
+   */
+  history: string[];
 }
 
 /** What baccarat adds to the table: what each spot pays, to 1. */
