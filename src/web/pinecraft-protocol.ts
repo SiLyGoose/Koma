@@ -60,7 +60,7 @@ export interface WorldState {
   earned: number;
   dug: number;
   /** What each ore pays. */
-  values: Record<PinecraftOre, number>;
+  values: Record<'dirt' | 'stone' | PinecraftOre, number>;
   /** How long each block takes to break, in ms, with the miner's gear. */
   breakMs: Record<'dirt' | 'stone' | PinecraftOre, number>;
   /** Energy an ore takes to dig (dirt and stone take 1). */
@@ -72,7 +72,7 @@ export interface WorldState {
 }
 
 /** The pickaxes the miner can be drawn with (public/pinecraft/pickaxes/<name>.png on the page). */
-export type PinecraftPickaxe = 'wood' | 'gold' | 'diamond' | 'ruby';
+export type PinecraftPickaxe = 'wood' | 'gold' | 'diamond' | 'ruby' | 'amethyst';
 
 /** What the page's last move did. */
 export type WorldEvent =
@@ -84,6 +84,8 @@ export type WorldEvent =
       points: number;
       /** The ore paid double. */
       lucky: boolean;
+      /** The dig took no energy (an Amethyst Pickaxe). */
+      free: boolean;
       /** What a blast broke around the block, if it set one off. */
       blast: { x: number; y: number; ground: 'dirt' | 'stone'; ore: PinecraftOre | null; points: number; lucky: boolean }[] | null;
     };

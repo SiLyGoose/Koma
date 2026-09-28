@@ -80,3 +80,22 @@ export const energyRegen = definePerk({
   max: 10,
   text: (value) => `Pinecraft: energy comes back ${value} faster`,
 });
+
+/** Amethyst Pickaxe: a chance a block dug takes none of its energy. */
+export const freeDig = definePerk({
+  description: 'Pinecraft: chance each block the wearer digs takes no energy (an ore included, whatever it would take).',
+  defaults: { 1: 0.2, 2: 0.2, 3: 0.2, 4: 0.2 },
+  min: 0,
+  max: 1,
+  text: (value) => `Pinecraft: ${value} chance a dig takes no ⚡`,
+});
+
+/** Amethyst Pickaxe, drawback: every ore pays less. The same at every refine level. */
+export const oreValueCut = definePerk({
+  description: `Pinecraft: how much less ${CURRENCY_EMOJI} every ore the wearer digs pays (a blast's ores included). Refining doesn't change it.`,
+  defaults: { 1: 0.1, 2: 0.1, 3: 0.1, 4: 0.1 },
+  min: 0,
+  max: 1,
+  atR1: 1,
+  text: (value) => `Pinecraft: ores pay ${value} less`,
+});

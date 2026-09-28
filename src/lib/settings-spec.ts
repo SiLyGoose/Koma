@@ -9,7 +9,7 @@ import {
   MAX_MINE_MULTIPLIER,
   MAX_PINECRAFT_ENERGY,
   MAX_PINECRAFT_VALUE,
-  PINECRAFT_ORES,
+  PINECRAFT_PAYING,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
   MAX_PREFIX_LENGTH,
@@ -205,7 +205,7 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('pinecraft.maxEnergy', 'Pinecraft', 'The most energy a member can have in Pinecraft. Digging a block takes one.', 1, MAX_PINECRAFT_ENERGY),
   int('pinecraft.energyMinutes', 'Pinecraft', 'Minutes for one Pinecraft energy to come back.', 1, MAX_TIMER_MINUTES),
-  ...PINECRAFT_ORES.map((ore) => int(`pinecraft.value.${ore}`, 'Pinecraft', `${CURRENCY_EMOJI} paid for each ${ore} dug in Pinecraft.`, 0, MAX_PINECRAFT_VALUE)),
+  ...PINECRAFT_PAYING.map((block) => int(`pinecraft.value.${block}`, 'Pinecraft', `${CURRENCY_EMOJI} paid for each ${block} block dug in Pinecraft.`, 0, MAX_PINECRAFT_VALUE)),
 
   int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
   int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),

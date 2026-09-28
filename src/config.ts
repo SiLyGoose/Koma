@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftOre } from './constants/index.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftPaying } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -109,8 +109,8 @@ export interface Settings {
     maxEnergy: number;
     /** Minutes for one energy to come back. */
     energyMinutes: number;
-    /** Points each ore pays when dug. */
-    value: Record<PinecraftOre, number>;
+    /** Points each block pays when dug: dirt and stone, and the ores. */
+    value: Record<PinecraftPaying, number>;
   };
   events: {
     /**
@@ -260,7 +260,7 @@ export const DEFAULTS: Readonly<Settings> = {
   pinecraft: {
     maxEnergy: 100,
     energyMinutes: 3,
-    value: { coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, ruby: 500 },
+    value: { dirt: 1, stone: 5, coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, amethyst: 500, ruby: 500 },
   },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   // The vault games put up 10x what's been lost to gambling since the last payout. A Greedy Heist has

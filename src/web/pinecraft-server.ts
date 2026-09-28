@@ -71,6 +71,7 @@ const PICKAXE_OF: Readonly<Record<string, PinecraftPickaxe>> = {
   'golden-pickaxe': 'gold',
   'diamond-pickaxe': 'diamond',
   'ruby-pickaxe': 'ruby',
+  'amethyst-pickaxe': 'amethyst',
 };
 
 /** How often the member's gear is looked up again while they play (they may change it in Discord). */
@@ -213,6 +214,7 @@ export class PinecraftSession {
         ore: result.ore,
         points: result.points,
         lucky: result.lucky,
+        free: result.free,
         blast: result.blast?.map(({ x, y, ground, ore, points, lucky }) => ({ x, y, ground, ore, points, lucky })) ?? null,
       };
     } else {

@@ -6,8 +6,12 @@
  */
 
 /** The ores, from the most common and least valuable to the rarest. What each pays is the `pinecraft.value.<ore>` setting. */
-export const PINECRAFT_ORES = ['coal', 'iron', 'gold', 'diamond', 'emerald', 'ruby'] as const;
+export const PINECRAFT_ORES = ['coal', 'iron', 'gold', 'diamond', 'emerald', 'amethyst', 'ruby'] as const;
 export type PinecraftOre = (typeof PINECRAFT_ORES)[number];
+
+/** Every block that pays when dug: dirt and stone (a little), then the ores. What each pays is the `pinecraft.value.<block>` setting. */
+export const PINECRAFT_PAYING = ['dirt', 'stone', ...PINECRAFT_ORES] as const;
+export type PinecraftPaying = (typeof PINECRAFT_PAYING)[number];
 
 /**
  * The world: `size` by `size` blocks, the miner starting in an open 3x3 room in the middle with dirt
@@ -27,19 +31,20 @@ export const PINECRAFT_WORLD = {
   version: 2,
 } as const;
 
-/** How often each ore turns up compared with the others, anywhere in the world: an ore block is coal 32 times in 100, ruby 6. */
+/** How often each ore turns up compared with the others, anywhere in the world: an ore block is coal 32 times in 106, amethyst and ruby 6 each. */
 export const PINECRAFT_ORE_WEIGHTS: Readonly<Record<PinecraftOre, number>> = {
   coal: 32,
   iron: 24,
   gold: 17,
   diamond: 12,
   emerald: 9,
+  amethyst: 6,
   ruby: 6,
 };
 
 /**
  * How long each block takes to break, in ms, like Minecraft: dirt is quickest, then
- * stone, then the ores, rarer ones harder, up to ruby. Bedrock can't be broken at all.
+ * stone, then the ores, rarer ones harder, up to amethyst and ruby. Bedrock can't be broken at all.
  */
 export const PINECRAFT_BREAK_MS: Readonly<Record<'dirt' | 'stone' | PinecraftOre, number>> = {
   dirt: 250,
@@ -49,6 +54,7 @@ export const PINECRAFT_BREAK_MS: Readonly<Record<'dirt' | 'stone' | PinecraftOre
   gold: 2250,
   diamond: 3550,
   emerald: 4650,
+  amethyst: 5400,
   ruby: 5400,
 };
 

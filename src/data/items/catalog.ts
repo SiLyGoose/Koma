@@ -321,6 +321,14 @@ export const ITEMS: readonly ItemDef[] = [
     bonus: { level: 5, text: 'Pinecraft: ores take no extra ⚡ to dig', removes: ['pickaxeEnergyPenalty'] },
   },
   {
+    id: 'amethyst-pickaxe',
+    name: 'Amethyst Pickaxe',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Some swings cost nothing at all.',
+    effects: ['pickaxeSpeed', 'freeDig', 'oreValueCut'],
+  },
+  {
     id: 'dynamite-stick',
     name: 'Dynamite Stick',
     stars: 4,

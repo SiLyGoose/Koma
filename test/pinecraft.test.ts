@@ -23,6 +23,7 @@ import {
   oreAt,
   SPAWN,
   viewRows,
+  withGear,
   type PinecraftRules,
   type PinecraftWorld,
 } from '../src/lib/game/pinecraft.js';
@@ -33,7 +34,7 @@ import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft-pro
 import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/pinecraft-server.js';
 import { verifyToken } from '../src/web/token.js';
 
-const RULES: PinecraftRules = { maxEnergy: 10, energyMinutes: 3, value: { coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, ruby: 40 } };
+const RULES: PinecraftRules = { maxEnergy: 10, energyMinutes: 3, value: { dirt: 0, stone: 0, coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, amethyst: 40, ruby: 40 } };
 const { size: SIZE } = PINECRAFT_WORLD;
 const MINUTE = 60_000;
 
@@ -126,7 +127,7 @@ test('pinecraft: an ore pays its value when dug', () => {
   const world = worldAt(8, at.x - 1, at.y);
   const result = move(world, 'right', RULES, 0);
   const index = indexOf(at.x, at.y);
-  assert.deepEqual(result, { kind: 'dig', ground: groundAt(8, at.x, at.y), ore: 'iron', points: 4, lucky: false, index, blast: null, indices: [index], total: 4 });
+  assert.deepEqual(result, { kind: 'dig', ground: groundAt(8, at.x, at.y), ore: 'iron', points: 4, lucky: false, free: false, index, blast: null, indices: [index], total: 4 });
 });
 
 test('pinecraft: the edge and bedrock stop the miner, and with no energy nothing is dug', () => {
@@ -194,9 +195,10 @@ test('pinecraft: the map is everything uncovered: the room, the tunnels, and the
   assert.equal(rows[0]?.[6], '?'); // but nothing further off
 });
 
-test('pinecraft: blocks take longer to break from dirt to stone to the ores, ruby longest, and open ground and bedrock not at all', () => {
+test('pinecraft: blocks take longer to break from dirt to stone to the ores, amethyst and ruby longest, and open ground and bedrock not at all', () => {
   const order = ['dirt', 'stone', 'coal', 'iron', 'gold', 'diamond', 'emerald', 'ruby'] as const;
   for (let k = 1; k < order.length; k++) assert.ok(PINECRAFT_BREAK_MS[order[k] as 'dirt'] > PINECRAFT_BREAK_MS[order[k - 1] as 'dirt'], order[k]);
+  assert.equal(PINECRAFT_BREAK_MS.amethyst, PINECRAFT_BREAK_MS.ruby);
   const world = newWorld(9, RULES, 0);
   assert.equal(breakMs(world, SPAWN.x, SPAWN.y), null); // the room
   assert.equal(breakMs(world, SPAWN.x, SPAWN.y + 2), PINECRAFT_BREAK_MS.dirt);
@@ -295,6 +297,55 @@ test('pinecraft gear: an ore takes the pickaxe\'s energy, and not dug without it
   assert.equal(world.energy, 0);
 });
 
+test('pinecraft gear: the Amethyst Pickaxe is a 4-star weapon for everyone, digging faster, with a 20% chance at R5 a dig takes no energy, and ores paying 10% less', () => {
+  const amethyst = ITEMS_BY_ID.get('amethyst-pickaxe')!;
+  assert.deepEqual([amethyst.stars, amethyst.slot, amethyst.usableBy], [4, 'weapon', undefined]);
+  assert.deepEqual(amethyst.effects, ['pickaxeSpeed', 'freeDig', 'oreValueCut']);
+  assert.equal(gearOf('amethyst-pickaxe', 5).breakSpeed, gearOf('ruby-pickaxe', 5).breakSpeed);
+  assert.equal(gearOf('amethyst-pickaxe', 5).oreEnergy, 1);
+  assert.equal(Math.round(gearOf('amethyst-pickaxe', 5).freeDigChance * 1000) / 1000, 0.2);
+  for (const level of [1, 3, 5]) assert.equal(Math.round(gearOf('amethyst-pickaxe', level).oreValueCut * 1000) / 1000, 0.1);
+  assert.ok(gearOf('amethyst-pickaxe', 1).freeDigChance < gearOf('amethyst-pickaxe', 5).freeDigChance);
+  assert.deepEqual(describeEffects(amethyst, 1, 5).slice(1), ['Pinecraft: 20% chance a dig takes no ⚡', 'Pinecraft: ores pay 10% less']);
+});
+
+test('pinecraft gear: a free dig takes no energy (an ore included), but still needs the energy to start', () => {
+  const at = find(8, (x, y) => oreAt(8, x, y) !== null);
+  const gear = { ...NO_GEAR, oreEnergy: 3, freeDigChance: 0.3 };
+  const world = worldAt(8, at.x - 1, at.y);
+  world.energy = 2;
+  assert.deepEqual(move(world, 'right', RULES, 0, gear, () => 0.1), { kind: 'tired' });
+  world.energy = 5;
+  const free = move(world, 'right', RULES, 0, gear, () => 0.1);
+  assert.ok(free.kind === 'dig' && free.free);
+  assert.equal(world.energy, 5);
+  const paid = move(worldAt(8, at.x - 1, at.y), 'right', RULES, 0, gear, () => 0.9);
+  assert.ok(paid.kind === 'dig' && !paid.free);
+  const plain = move(worldAt(8, at.x - 1, at.y), 'right', RULES, 0, NO_GEAR);
+  assert.ok(plain.kind === 'dig' && !plain.free);
+});
+
+test('pinecraft gear: with a value cut, ores pay less (a lucky one double that), and the page is told the lower values', () => {
+  const at = find(8, (x, y) => oreAt(8, x, y) === 'gold');
+  const gear = { ...NO_GEAR, oreValueCut: 0.1 };
+  const cut = move(worldAt(8, at.x - 1, at.y), 'right', { ...RULES, value: { ...RULES.value, gold: 70 } }, 0, gear);
+  assert.ok(cut.kind === 'dig' && cut.points === 63);
+  const lucky = move(worldAt(8, at.x - 1, at.y), 'right', { ...RULES, value: { ...RULES.value, gold: 70 } }, 0, { ...gear, luckyChance: 1 }, () => 0);
+  assert.ok(lucky.kind === 'dig' && lucky.points === 126);
+  assert.equal(withGear(RULES, gear).value.ruby, Math.round(RULES.value.ruby * 0.9));
+  assert.deepEqual(withGear(RULES, NO_GEAR).value, RULES.value);
+});
+
+test('pinecraft: dirt and stone pay their own small values, in full even with an ore value cut or in a blast, and never double', () => {
+  const rules = { ...RULES, value: { ...RULES.value, dirt: 1, stone: 5 } };
+  for (const ground of ['dirt', 'stone'] as const) {
+    const at = find(8, (x, y) => groundAt(8, x, y) === ground && oreAt(8, x, y) === null);
+    const dug = move(worldAt(8, at.x - 1, at.y), 'right', rules, 0, { ...NO_GEAR, oreValueCut: 0.5, luckyChance: 1 }, () => 0);
+    assert.ok(dug.kind === 'dig' && dug.ore === null && dug.points === rules.value[ground] && !dug.lucky && dug.total === dug.points, ground);
+  }
+  assert.equal(withGear(rules, { ...NO_GEAR, oreValueCut: 0.5 }).value.stone, 5);
+});
+
 test('pinecraft gear: a lucky ore pays double', () => {
   const at = find(8, (x, y) => oreAt(8, x, y) === 'gold');
   const lucky = move(worldAt(8, at.x - 1, at.y), 'right', RULES, 0, { ...NO_GEAR, luckyChance: 0.1 }, () => 0.05);
@@ -327,7 +378,7 @@ test('pinecraft gear: energy comes back faster with the canary', () => {
   const tired = { energy: 0, energyAt: 0 };
   const canary = { ...NO_GEAR, energyRegen: 1 };
   const after = (gear: typeof NO_GEAR) => move(Object.assign(newWorld(3, RULES, 0), tired, { y: SPAWN.y + 1 }), 'down', RULES, 3 * MINUTE, gear);
-  assert.deepEqual(after(NO_GEAR), { kind: 'dig', ground: 'dirt', ore: null, points: 0, lucky: false, index: indexOf(SPAWN.x, SPAWN.y + 2), blast: null, indices: [indexOf(SPAWN.x, SPAWN.y + 2)], total: 0 });
+  assert.deepEqual(after(NO_GEAR), { kind: 'dig', ground: 'dirt', ore: null, points: 0, lucky: false, free: false, index: indexOf(SPAWN.x, SPAWN.y + 2), blast: null, indices: [indexOf(SPAWN.x, SPAWN.y + 2)], total: 0 });
   // 1.5 minutes is one energy with the canary, none without.
   assert.equal(move(Object.assign(newWorld(3, RULES, 0), tired, { y: SPAWN.y + 1 }), 'down', RULES, 1.5 * MINUTE, NO_GEAR).kind, 'tired');
   assert.equal(move(Object.assign(newWorld(3, RULES, 0), tired, { y: SPAWN.y + 1 }), 'down', RULES, 1.5 * MINUTE, canary).kind, 'dig');
@@ -375,10 +426,10 @@ test('pinecraft web: the miner is drawn with the pickaxe they have equipped, and
 // Settings
 
 test('pinecraft: the settings exist, are in their own group, and start at the tuned values', () => {
-  assert.deepEqual(DEFAULTS.pinecraft, { maxEnergy: 100, energyMinutes: 3, value: { coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, ruby: 500 } });
+  assert.deepEqual(DEFAULTS.pinecraft, { maxEnergy: 100, energyMinutes: 3, value: { dirt: 1, stone: 5, coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, amethyst: 500, ruby: 500 } });
   assert.deepEqual(CONFIG.pinecraft, DEFAULTS.pinecraft);
   const keys = SPECS.filter((s) => s.key.startsWith('pinecraft.')).map((s) => s.key);
-  assert.deepEqual(keys, ['pinecraft.maxEnergy', 'pinecraft.energyMinutes', ...PINECRAFT_ORES.map((ore) => `pinecraft.value.${ore}`)]);
+  assert.deepEqual(keys, ['pinecraft.maxEnergy', 'pinecraft.energyMinutes', 'pinecraft.value.dirt', 'pinecraft.value.stone', ...PINECRAFT_ORES.map((ore) => `pinecraft.value.${ore}`)]);
   for (const key of keys) assert.equal(findSpec(key)?.group, 'Pinecraft');
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
 });
@@ -530,7 +581,7 @@ test('pinecraft web: a dig is saved before its ore is paid, and a new page takes
   await session.handle(first, { t: 'move', dir: 'down', seq: 2 });
   const dug = first.got[2];
   assert.ok(dug?.t === 'state');
-  assert.deepEqual(dug.event, { kind: 'dig', ground: 'dirt', ore: null, points: 0, lucky: false, blast: null });
+  assert.deepEqual(dug.event, { kind: 'dig', ground: 'dirt', ore: null, points: 0, lucky: false, free: false, blast: null });
   assert.equal(dug.state.energy, RULES.maxEnergy - 1);
   assert.equal(dug.state.dug, 1);
   assert.deepEqual(saved.digs, [indexOf(SPAWN.x, SPAWN.y + 2)]);
