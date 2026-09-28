@@ -7,26 +7,31 @@ import type { EffectTotals } from '../registry.js';
  * victim), the robber may slip. A slip hands everything taken back to the victim, and the robber
  * pays the victim a penalty on top, as a share of what was taken. An item that should slip lists
  * both perks. The slip itself happens in services/economy/rob.ts.
+ *
+ * A masterwork Piplup (its R5 bonus, forged with komaGems) swaps bubbleBeamPenalty for the bigger
+ * bubbleBeamMasterPenalty and adds slipGuard, so its holder's own robs no longer slip.
  */
 
 /**
  * The chance a successful rob slips. Both sides' gear counts, each rolled on its own: a Piplup on
  * either side is enough, and one on both sides makes it more likely (1 - (1 - a)(1 - b)). The
  * robber's own Piplup only counts at BUBBLE_BEAM_ROBBER_SHARE (half), so its holder slips half as
- * often when they are the one robbing.
+ * often when they are the one robbing. A robber with slipGuard (a masterwork Piplup) slips that
+ * much less: at 100%, never, whoever's Piplup it is.
  */
 export function slipChance(robber: EffectTotals, victim: EffectTotals): number {
   const a = clamp(robber.bubbleBeam, 0, 1) * BUBBLE_BEAM_ROBBER_SHARE;
   const b = clamp(victim.bubbleBeam, 0, 1);
-  return 1 - (1 - a) * (1 - b);
+  return (1 - (1 - a) * (1 - b)) * (1 - clamp(robber.slipGuard, 0, 1));
 }
 
 /**
- * The penalty the robber pays the victim on a slip, as whole points: the larger of the two sides'
- * bubbleBeamPenalty times what was taken. 0 when nothing was taken or nobody has the perk.
+ * The penalty the robber pays the victim on a slip, as whole points: the largest penalty rate on
+ * either side (bubbleBeamPenalty, or a masterwork's bubbleBeamMasterPenalty) times what was taken.
+ * 0 when nothing was taken or nobody has the perk.
  */
 export function slipPenaltyAmount(stolen: number, robber: EffectTotals, victim: EffectTotals): number {
-  const rate = Math.max(0, robber.bubbleBeamPenalty, victim.bubbleBeamPenalty);
+  const rate = Math.max(0, robber.bubbleBeamPenalty, victim.bubbleBeamPenalty, robber.bubbleBeamMasterPenalty, victim.bubbleBeamMasterPenalty);
   return stolen > 0 ? Math.round(stolen * rate) : 0;
 }
 
@@ -45,4 +50,21 @@ export const bubbleBeamPenalty = definePerk({
   min: 0,
   max: 10,
   text: (value) => `Piplup used *Bubble Beam*: a robber who slips also pays +${value} of what they took`,
+});
+
+export const bubbleBeamMasterPenalty = definePerk({
+  description: `Bubble Beam (masterwork Piplup), penalty: replaces bubbleBeamPenalty once Piplup is a masterwork. What a robber who slips pays the victim on top of returning the ${CURRENCY_EMOJI}, as a percent of the amount taken.`,
+  defaults: { 1: 0.05, 2: 0.2, 3: 0.35, 4: 0.5 },
+  min: 0,
+  max: 10,
+  text: (value) => `Piplup used *Bubble Beam*: a robber who slips also pays +${value} of what they took`,
+});
+
+export const slipGuard = definePerk({
+  description: 'Bubble Beam (masterwork Piplup), guard: how much less likely the wearer is to slip when they rob (100% means never, whoever wears the Piplup).',
+  defaults: { 1: 1, 2: 1, 3: 1, 4: 1 },
+  min: 0,
+  max: 1,
+  text: (value) => `Your own successful robs are ${value} less likely to slip`,
+  line: (strength) => (strength >= 1 ? 'Your own successful robs never slip' : `Your own successful robs are ${Math.round(strength * 100)}% less likely to slip`),
 });

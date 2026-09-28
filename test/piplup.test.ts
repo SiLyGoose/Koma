@@ -45,9 +45,32 @@ test('Piplup: wears both Bubble Beam effects and lists them with their strengths
   assert.ok(piplup, 'the catalog has Piplup');
   assert.equal(piplup.slot, 'treasure');
   assert.deepEqual([...piplup.effects].sort(), ['bubbleBeam', 'bubbleBeamPenalty']);
-  const lines = describeEffects(piplup);
-  assert.equal(lines.length, 2);
+  const lines = describeEffects(piplup, 1, 5, false);
+  assert.equal(lines.length, 3, 'both perks, then the masterwork bonus it could have');
   assert.ok(lines.some((line) => /20%/.test(line)) && lines.some((line) => /25%/.test(line)));
+  assert.match(lines[2]!, /^🔒 Masterwork/);
+});
+
+test('Piplup masterwork: its holder never slips when robbing, and a slip against them costs 50%', () => {
+  const piplup = ITEMS_BY_ID.get('piplup')!;
+  assert.deepEqual(piplup.bonus?.adds, ['slipGuard', 'bubbleBeamMasterPenalty']);
+  assert.deepEqual(piplup.bonus?.removes, ['bubbleBeamPenalty']);
+  assert.equal(CONFIG.equipment.bubbleBeamMasterPenalty[4], 0.5);
+  assert.equal(CONFIG.equipment.slipGuard[4], 1);
+
+  const masterwork = gear({ bubbleBeam: 0.2, slipGuard: 1, bubbleBeamMasterPenalty: 0.5 });
+  const plain = gear({ bubbleBeam: 0.2, bubbleBeamPenalty: 0.25 });
+  close(slipChance(masterwork, none), 0, 'robbing with it: never slips');
+  close(slipChance(masterwork, plain), 0, "not even against someone else's Piplup");
+  close(slipChance(gear({ slipGuard: 0.5 }), gear({ bubbleBeam: 0.2 })), 0.1, 'a weaker guard only halves it');
+  close(slipChance(none, masterwork), 0.2, 'robbing its holder still slips as before');
+  assert.equal(slipPenaltyAmount(200, none, masterwork), 100, '50% of what was taken');
+  assert.equal(slipPenaltyAmount(200, plain, masterwork), 100, 'the bigger rate wins');
+
+  const lines = describeEffects(piplup, 1, 5, true);
+  assert.ok(lines.includes('Your own successful robs never slip'));
+  assert.ok(lines.some((line) => /\+50%/.test(line)) && !lines.some((line) => /\+25%/.test(line)), 'the 50% penalty replaces the 25%');
+  assert.match(lines.at(-1)!, /^✨ Masterwork: /);
 });
 
 test('slip reply: what went back, and the penalty only when there was one', () => {

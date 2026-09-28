@@ -36,8 +36,8 @@ test('catalog: every star tier has an item, and every item has effects', () => {
   for (const item of ITEMS) assert.ok(item.effects.length > 0, `${item.id} has no effects`);
 });
 
-test('catalog: every effect is used by at least one item', () => {
-  const used = new Set(ITEMS.flatMap((item) => item.effects));
+test('catalog: every effect is used by at least one item (its own perks, or its masterwork bonus)', () => {
+  const used = new Set(ITEMS.flatMap((item) => [...item.effects, ...(item.bonus?.adds ?? [])]));
   for (const id of EFFECT_IDS) assert.ok(used.has(id), `${id} is not on any item`);
 });
 

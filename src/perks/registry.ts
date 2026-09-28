@@ -1,4 +1,4 @@
-import { bubbleBeam, bubbleBeamPenalty } from './items/bubble-beam.js';
+import { bubbleBeam, bubbleBeamMasterPenalty, bubbleBeamPenalty, slipGuard } from './items/bubble-beam.js';
 import { claimBonus } from './economy/claim-bonus.js';
 import { claimTax } from './rob/claim-tax.js';
 import { d20 } from './d20/index.js';
@@ -60,6 +60,9 @@ export const EFFECTS = {
   // Piplup.
   bubbleBeam,
   bubbleBeamPenalty,
+  // Piplup's masterwork bonus.
+  bubbleBeamMasterPenalty,
+  slipGuard,
   // Unique-treasure perks.
   wheelSpin,
   d20,
