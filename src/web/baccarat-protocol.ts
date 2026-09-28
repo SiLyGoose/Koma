@@ -7,41 +7,56 @@ import { parseBets, type BaccaratBets, type BaccaratWinner, type BetOutcome } fr
  * Every message is one JSON object with a `t` saying what it is. The page keeps a copy of these
  * types (src/baccarat/protocol.ts there): change both together.
  *
- * A round is dealt all at once: the page sends its chips, the bot takes them, deals and pays, and
- * sends the whole round back for the page to deal out card by card.
+ * Baccarat is played at shared tables (web/baccarat-table.ts): up to BACCARAT_TABLE.seats players,
+ * one hand dealt for all of them every round. Each round has a betting time; the chips each player
+ * puts down are shown to everyone at the table as they go down, and when the time is up the round
+ * is dealt and everyone with chips down is settled on their own bets.
  *
- *   page -> bot   hello    first message: the token from the link
- *                 deal     a round with these chips on the table; `seq` counts up from 1 with each
- *   bot -> page   table    the balance, what a round can be, the chips, and what each bet pays
- *                 round    a round dealt, after the page's deal `seq`
- *                 refused  a deal that couldn't happen, and why (nothing was taken)
+ *   page -> bot   hello    first message: the token from the link (it is then seated at a table)
+ *                 bets     the player's chips on the table now (all of them; {} takes them all back),
+ *                          while the round is taking bets; `seq` counts up from 1 with each
+ *   bot -> page   table    the table as it is now: whenever anything about it changes
+ *                 refused  chips that couldn't go down, and why (the table that follows says what's down)
  *                 error    and the bot closes the connection
  *
  * Watching (live.ts): a watch-only page says `watch` with the token from its watch link instead of
- * `hello`, and is then sent everything the player's page is sent about the game (not their errors),
- * starting with `watching` (whose game it is). `away` says the player's page went away (it may come
- * back). The player is sent `watchers` whenever how many are watching changes.
+ * `hello`, and is then sent everything the player's page is sent (the table as they see it), starting
+ * with `watching` (whose game it is). `away` says the player's page went away (it may come back).
+ * The player is sent `watchers` whenever how many are watching changes.
  */
 
-export type ClientMessage = { t: 'hello'; token: string } | { t: 'watch'; token: string } | { t: 'deal'; bets: BaccaratBets; seq: number };
+export type ClientMessage = { t: 'hello'; token: string } | { t: 'watch'; token: string } | { t: 'bets'; bets: BaccaratBets; seq: number };
 
-/** Everything the page needs to take bets. */
-export interface Table {
-  player: string;
+/** One bet of a player's in a round, and how it came out. */
+export interface SettledView {
+  spot: BaccaratBet;
+  amount: number;
+  outcome: BetOutcome;
+  returned: number;
+}
+
+/** A player at the table. */
+export interface SeatView {
+  userId: string;
+  name: string;
+  /** Their Discord profile picture. */
+  avatar: string;
+  /** Their points, as of their last round (or sitting down). */
   balance: number;
-  /** The smallest and biggest round, counting every chip on the table. */
-  minBet: number;
-  maxBet: number;
-  /** The chips to bet with, smallest first. */
-  chips: number[];
-  /** What each winning bet pays, to 1. */
-  payouts: Record<BaccaratBet, number>;
-  /** The chips of the round played last on this page, to bet the same again. */
+  /** Their chips on the table this round (while betting; what they bet, once it's dealt). */
+  bets: BaccaratBets;
+  /** How the round just dealt went for them: null while betting, or if they had no chips down. */
+  result: { bets: SettledView[]; bet: number; payout: number; net: number } | null;
+  /** Their chips couldn't be taken when the round was dealt (they didn't have enough by then). */
+  refused: boolean;
+  /** Their chips of the last round they played, to bet the same again. */
   lastBets: BaccaratBets | null;
 }
 
-/** A round dealt, as the page shows it. */
+/** The hands of a round dealt. */
 export interface RoundView {
+  /** Counts up with each round the table deals, so the page knows a new one from one it has shown. */
+  no: number;
   player: Card[];
   banker: Card[];
   /** Who each card went to, in the order dealt (Player, Banker, Player, Banker, then any third cards). */
@@ -50,11 +65,26 @@ export interface RoundView {
   bankerTotal: number;
   winner: BaccaratWinner;
   natural: boolean;
-  bets: { spot: BaccaratBet; amount: number; outcome: BetOutcome; returned: number }[];
-  bet: number;
-  payout: number;
-  net: number;
-  balance: number;
+}
+
+export interface TableState {
+  /** The table's number in the server, from 1. */
+  table: number;
+  /** Which seat is the one this page plays (the player's, for someone watching them). */
+  you: string;
+  /** The players, in the order they sat down. */
+  seats: SeatView[];
+  /** 'betting': chips can go down until the time is up. 'dealing': the round is being shown. */
+  phase: 'betting' | 'dealing';
+  /** Milliseconds until the phase ends. */
+  msLeft: number;
+  /** The round being shown while dealing (and the last one dealt while betting; null before the first). */
+  round: RoundView | null;
+  minBet: number;
+  maxBet: number;
+  maxSeats: number;
+  chips: number[];
+  payouts: Record<BaccaratBet, number>;
 }
 
 export type ErrorCode =
@@ -68,18 +98,17 @@ export type ErrorCode =
   | 'not_playing'
   | 'full';
 
-export type DealRefusal =
-  /** Every chip together is out of the bet range (`limit` is the end it broke). */
-  | { reason: 'too_small' | 'too_big'; limit: number }
+export type BetRefusal =
+  /** Every chip together is more than a round can have (`limit`). */
+  | { reason: 'too_big'; limit: number }
   /** More than they have. */
   | { reason: 'too_poor'; balance: number }
-  /** A round is still being dealt, or came too soon after the last. */
-  | { reason: 'busy' };
+  /** The round isn't taking bets any more (it's being dealt). */
+  | { reason: 'closed' };
 
 export type ServerMessage =
-  | { t: 'table'; table: Table }
-  | { t: 'round'; seq: number; round: RoundView }
-  | ({ t: 'refused'; seq: number } & DealRefusal)
+  | { t: 'table'; state: TableState }
+  | ({ t: 'refused'; seq: number } & BetRefusal)
   | { t: 'error'; code: ErrorCode }
   | { t: 'watching'; player: string }
   | { t: 'watchers'; count: number }
@@ -96,9 +125,9 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
   if ((m.t === 'hello' || m.t === 'watch') && typeof m.token === 'string' && m.token.length <= 512) return { t: m.t, token: m.token };
-  if (m.t === 'deal' && typeof m.seq === 'number' && Number.isSafeInteger(m.seq) && m.seq > 0) {
+  if (m.t === 'bets' && typeof m.seq === 'number' && Number.isSafeInteger(m.seq) && m.seq > 0) {
     const bets = parseBets(m.bets);
-    return bets ? { t: 'deal', bets, seq: m.seq } : null;
+    return bets ? { t: 'bets', bets, seq: m.seq } : null;
   }
   return null;
 }

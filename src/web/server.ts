@@ -20,15 +20,16 @@ export interface WebServerOptions {
   api: ApiDeps;
 }
 
-const SOCKETS: Record<string, (socket: WebSocket) => void> = {
-  [GAMES.mines.socket]: serveMine,
-  [GAMES.pinecraft.socket]: (socket) => servePinecraft(socket),
-  [GAMES.baccarat.socket]: serveBaccarat,
-};
 
 /** Starts the server. Returns a function that stops it. */
 export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptions): () => Promise<void> {
   const { origin } = api.config;
+  const SOCKETS: Record<string, (socket: WebSocket) => void> = {
+    [GAMES.mines.socket]: serveMine,
+    [GAMES.pinecraft.socket]: (socket) => servePinecraft(socket),
+    // Baccarat shows each player's profile picture at the table.
+    [GAMES.baccarat.socket]: (socket) => serveBaccarat(socket, api.avatar),
+  };
   const http = createServer((req, res) => {
     void handleApi(req, res, api).then((handled) => {
       if (handled) return;

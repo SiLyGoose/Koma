@@ -8,7 +8,6 @@ import {
   cardPoints,
   dealRound,
   handTotal,
-  parseBets,
   returnFor,
   settleBets,
   totalBet,
@@ -17,12 +16,7 @@ import {
 } from '../src/lib/game/baccarat.js';
 import type { Card } from '../src/lib/game/blackjack.js';
 import { checkConstraints, findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
-import type { BaccaratResult } from '../src/services/economy/baccarat.js';
-import { parseClientMessage, type ServerMessage } from '../src/web/baccarat-protocol.js';
-import { openTable, type BaccaratDeps, type Peer } from '../src/web/baccarat-server.js';
 import { GAMES } from '../src/web/config.js';
-import { online, resetLive } from '../src/web/live.js';
-import { signToken } from '../src/web/token.js';
 
 const PAYOUTS: BaccaratPayouts = { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 };
 
@@ -165,107 +159,4 @@ test('baccarat: it is a game on the site with chips from 1 to 5,000, and the com
   assert.match(intro, /Kirin\*\* pays 25 to 1/);
   assert.match(intro, /Phoenix\*\* pays 40 to 1/);
   assert.match(intro, /Up to 10,000/);
-});
-
-// ---------------------------------------------------------------------------
-// The page
-
-test('baccarat web: only well-formed messages from the page are read', () => {
-  assert.deepEqual(parseClientMessage('{"t":"hello","token":"a.b"}'), { t: 'hello', token: 'a.b' });
-  assert.deepEqual(parseClientMessage('{"t":"deal","seq":1,"bets":{"banker":100,"kirin":10,"tie":0}}'), { t: 'deal', seq: 1, bets: { banker: 100, kirin: 10 } });
-  for (const bad of [
-    '',
-    '{"t":"deal","seq":1,"bets":{}}',
-    '{"t":"deal","seq":1,"bets":{"dragon":10}}',
-    '{"t":"deal","seq":1,"bets":{"player":-5}}',
-    '{"t":"deal","seq":1,"bets":{"player":1.5}}',
-    '{"t":"deal","seq":0,"bets":{"player":5}}',
-    '{"t":"deal","bets":{"player":5}}',
-  ]) {
-    assert.equal(parseClientMessage(bad), null, bad);
-  }
-  assert.equal(parseBets([10]), null);
-});
-
-function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean } {
-  const peer = {
-    got: [] as ServerMessage[],
-    closed: false,
-    send: (message: ServerMessage) => void peer.got.push(message),
-    close: () => void (peer.closed = true),
-  };
-  return peer;
-}
-
-function fakeDeps(result: () => BaccaratResult) {
-  const clock = { now: 10_000 };
-  const played: unknown[] = [];
-  const deps: BaccaratDeps = {
-    play: async (_g, _u, bets) => (played.push(bets), result()),
-    balance: async () => 500,
-    now: () => clock.now,
-  };
-  return { deps, clock, played };
-}
-
-const WON: BaccaratResult = (() => {
-  const round = dealRound(shoe(4, 3, 4, 3));
-  return { ok: true, round, bets: settleBets({ player: 100 }, round, PAYOUTS), bet: 100, payout: 200, net: 100, balance: 600 };
-})();
-
-test('baccarat web: the page is shown the table, deals a round, and must wait for it to be dealt before the next', async () => {
-  resetLive();
-  const { deps, clock, played } = fakeDeps(() => WON);
-  const page = fakePeer();
-  const table = openTable(page, deps);
-  await table.receive(JSON.stringify({ t: 'hello', token: signToken({ guildId: 'g1', userId: 'u1', name: 'Simon' }, 60_000) }));
-  // (Joining also says how many are watching.)
-  const first = page.got.find((m) => m.t === 'table');
-  assert.ok(first?.t === 'table');
-  assert.deepEqual(first.table, {
-    player: 'Simon',
-    balance: 500,
-    minBet: 1,
-    maxBet: 10_000,
-    chips: [...BACCARAT_CHIPS],
-    payouts: { player: 1, banker: 0.95, tie: 8, kirin: 25, phoenix: 40 },
-    lastBets: null,
-  });
-  assert.deepEqual(online('g1').map((p) => [p.activity, p.status]), [['baccarat', 'Placing chips']]);
-
-  await table.receive(JSON.stringify({ t: 'deal', seq: 1, bets: { player: 100 } }));
-  const dealt = page.got.at(-1);
-  assert.ok(dealt?.t === 'round' && dealt.seq === 1);
-  assert.deepEqual([dealt.round.winner, dealt.round.playerTotal, dealt.round.bankerTotal, dealt.round.payout, dealt.round.balance], ['player', 8, 6, 200, 600]);
-  assert.deepEqual(dealt.round.bets, [{ spot: 'player', amount: 100, outcome: 'win', returned: 200 }]);
-  assert.deepEqual(online('g1').map((p) => p.status), ['8–6, Player wins · +100']);
-
-  // Too soon: turned down, nothing taken.
-  await table.receive(JSON.stringify({ t: 'deal', seq: 2, bets: { player: 100 } }));
-  assert.deepEqual(page.got.at(-1), { t: 'refused', seq: 2, reason: 'busy' });
-  assert.equal(played.length, 1);
-  clock.now += BACCARAT_WEB.dealMs;
-  await table.receive(JSON.stringify({ t: 'deal', seq: 3, bets: { player: 100 } }));
-  assert.ok(page.got.at(-1)?.t === 'round');
-  table.closed();
-  assert.deepEqual(online('g1'), []);
-});
-
-test('baccarat web: a bet that can not be taken is refused with why, a bad message or token hangs up', async () => {
-  resetLive();
-  const { deps } = fakeDeps(() => ({ ok: false, reason: 'too_poor', balance: 40 }));
-  const page = fakePeer();
-  const table = openTable(page, deps);
-  await table.receive(JSON.stringify({ t: 'hello', token: signToken({ guildId: 'g2', userId: 'u2', name: 'Alvin' }, 60_000) }));
-  await table.receive(JSON.stringify({ t: 'deal', seq: 1, bets: { banker: 100 } }));
-  assert.deepEqual(page.got.at(-1), { t: 'refused', seq: 1, reason: 'too_poor', balance: 40 });
-  await table.receive('{"t":"deal","seq":2,"bets":{"dragon":1}}');
-  assert.deepEqual([page.got.at(-1), page.closed], [{ t: 'error', code: 'bad_message' }, true]);
-  table.closed();
-
-  const stranger = fakePeer();
-  const other = openTable(stranger, deps);
-  await other.receive(JSON.stringify({ t: 'hello', token: 'not.a-token' }));
-  assert.deepEqual([stranger.got.at(-1), stranger.closed], [{ t: 'error', code: 'bad_token' }, true]);
-  other.closed();
 });

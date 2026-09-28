@@ -21,12 +21,24 @@ export const BACCARAT_CHIPS = [1, 5, 25, 100, 500, 1000, 5000] as const;
  * - `path`: where its web socket listens.
  * - `helloMs`: how long a new connection has to say who it is.
  * - `messagesPerSecond`: a connection sending more is cut off.
- * - `dealMs`: the shortest time between two rounds for one player (the page deals the cards out in
- *   about this long, so a round can't be played faster than it can be seen).
  */
 export const BACCARAT_WEB = {
   path: '/baccarat',
   helloMs: 10_000,
   messagesPerSecond: 20,
-  dealMs: 2_500,
+} as const;
+
+/**
+ * The shared tables (web/baccarat-table.ts). Members opening baccarat are seated at the first table
+ * in their server with a free seat.
+ * - `seats`: how many players a table holds.
+ * - `bettingMs`: how long each round's betting lasts; when it's up the round is dealt for everyone
+ *   with chips down (a round with no chips on the table isn't dealt, the betting just starts over).
+ * - `showMs`: how long after a deal before the next round's betting starts (the page deals the
+ *   cards out one by one, then shows how everyone did).
+ */
+export const BACCARAT_TABLE = {
+  seats: 8,
+  bettingMs: 60_000,
+  showMs: 9_000,
 } as const;

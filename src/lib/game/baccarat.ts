@@ -158,7 +158,7 @@ export const totalBet = (bets: BaccaratBets): number => BACCARAT_BETS.reduce((su
 
 /**
  * Reads bets from the page: an object of spot to whole points. Null when it isn't one (an unknown
- * spot, a bet that isn't a positive whole number, or no bet at all). Spots at 0 are left out.
+ * spot, or a bet that isn't a whole number from 0 up). Spots at 0 are left out, so `{}` is no bets.
  */
 export function parseBets(data: unknown): BaccaratBets | null {
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
@@ -168,5 +168,5 @@ export function parseBets(data: unknown): BaccaratBets | null {
     if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount < 0) return null;
     if (amount > 0) bets[spot as BaccaratBet] = amount;
   }
-  return totalBet(bets) > 0 ? bets : null;
+  return bets;
 }

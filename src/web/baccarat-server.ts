@@ -1,94 +1,63 @@
 import type { WebSocket } from 'ws';
-import { CONFIG } from '../config.js';
-import { BACCARAT_CHIPS, BACCARAT_WEB } from '../constants/index.js';
-import type { BaccaratBets } from '../lib/game/baccarat.js';
-import { getBalance, playBaccarat } from '../services/economy/index.js';
-import { parseClientMessage, type ErrorCode, type RoundView, type ServerMessage, type Table } from './baccarat-protocol.js';
-import { addWatcher, playerJoined, playerLeft, removeWatcher, type LivePeer } from './live.js';
-import { playerKey, verifyToken, verifyWatchToken, type Player } from './token.js';
+import { BACCARAT_WEB } from '../constants/index.js';
+import { totalBet } from '../lib/game/baccarat.js';
+import { parseClientMessage, type ErrorCode, type ServerMessage } from './baccarat-protocol.js';
+import { realTableDeps, seatPlayer, type BaccaratTable, type Peer, type TableDeps } from './baccarat-table.js';
+import { addWatcher, playerJoined, playerLeft, removeWatcher } from './live.js';
+import { verifyToken, verifyWatchToken, type Player } from './token.js';
 
 /*
  * The web socket baccarat's page plays through (server.ts takes the connections, and only from the
- * site). A connection's first message must be `hello` with the token from the player's link; it is
- * then sent the table, and can deal rounds. Each round is settled at once (services/economy/baccarat.ts),
- * so nothing is left over if the page goes away. One page per player: a new one takes over.
+ * site). A connection's first message must be `hello` with the token from the player's link; the
+ * player is then seated at a shared table (baccarat-table.ts), and sends their chips as they put
+ * them down. One page per player: a new one takes over their seat.
  *
  * A connection can say `watch` instead, with a watch link's token: it then only follows another
- * member's rounds (live.ts), and anything else it says is ignored.
+ * member's table as they see it (live.ts), and anything else it says is ignored.
  */
 
-/** Where the table sends its messages: a WebSocket, or a fake one in tests. */
-export type Peer = LivePeer & { send(message: ServerMessage): void };
-
-/** The points side and the clock, so tests can stand in for them. */
-export interface BaccaratDeps {
-  play: typeof playBaccarat;
-  balance: (guildId: string, userId: string) => Promise<number>;
-  now: () => number;
-}
-
-const realDeps: BaccaratDeps = {
-  play: playBaccarat,
-  balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
-  now: Date.now,
-};
-
-const WINNER = { player: 'Player', banker: 'Banker', tie: 'Tie' } as const;
+export type { Peer } from './baccarat-table.js';
 
 /** A few words on what a player is doing, for the online list, from a message sent to their page. */
 function describe(message: ServerMessage): string | null {
-  if (message.t === 'table') return 'Placing chips';
-  if (message.t !== 'round') return null;
-  const { round } = message;
-  const net = round.net >= 0 ? `+${round.net.toLocaleString('en-US')}` : `−${(-round.net).toLocaleString('en-US')}`;
-  return `${round.playerTotal}–${round.bankerTotal}, ${WINNER[round.winner]}${round.winner === 'tie' ? '' : ' wins'} · ${net}`;
+  if (message.t !== 'table') return null;
+  const { state } = message;
+  const at = `Table ${state.table} · ${state.seats.length}/${state.maxSeats}`;
+  const you = state.seats.find((s) => s.userId === state.you);
+  if (state.phase === 'dealing' && state.round && you?.result) {
+    const { net } = you.result;
+    const winner = state.round.winner === 'tie' ? 'Tie' : `${state.round.winner === 'player' ? 'Player' : 'Banker'} wins`;
+    return `${at} · ${winner} · ${net >= 0 ? '+' : '−'}${Math.abs(net).toLocaleString('en-US')}`;
+  }
+  const down = you ? totalBet(you.bets) : 0;
+  return down > 0 ? `${at} · ${down.toLocaleString('en-US')} down` : `${at} · Placing chips`;
 }
-
-/** The page playing for each player (playerKey). */
-const connected = new Map<string, Peer>();
 
 function refuse(peer: Peer, code: ErrorCode): void {
   peer.send({ t: 'error', code });
   peer.close();
 }
 
-/** One connection to the table: what it says goes to `receive`, and `closed` when it goes away. */
+/** One connection to baccarat: what it says goes to `receive`, and `closed` when it goes away. */
 export interface TableConnection {
   receive(text: string): Promise<void>;
   closed(): void;
 }
 
 /** Plays baccarat with the page `page`. */
-export function openTable(page: Peer, deps: BaccaratDeps = realDeps): TableConnection {
-  /** What the game sends through: the page, and (once it's a player's) their watchers too. */
+export function openConnection(page: Peer, deps: TableDeps = realTableDeps): TableConnection {
+  /** What the table sends through: the page, and (once it's a player's) their watchers too. */
   let peer: Peer = page;
   let player: Player | null = null;
+  let table: BaccaratTable | null = null;
   let watching: { guildId: string; userId: string } | null = null;
-  let lastBets: BaccaratBets | null = null;
-  /** A round is being worked out; `lastDeal` is when the last one was dealt. */
-  let dealing = false;
-  let lastDeal = -Infinity;
+  let gone = false;
 
   let budget = BACCARAT_WEB.messagesPerSecond;
   const refill = setInterval(() => (budget = BACCARAT_WEB.messagesPerSecond), 1000);
   refill.unref();
   const hello = setTimeout(() => refuse(peer, 'bad_message'), BACCARAT_WEB.helloMs);
   hello.unref();
-
-  const isCurrent = (): boolean => player !== null && connected.get(playerKey(player)) === peer;
-
-  const table = async (who: Player): Promise<Table> => {
-    const { minBet, maxBet, payout } = CONFIG.baccarat;
-    return {
-      player: who.name,
-      balance: await deps.balance(who.guildId, who.userId),
-      minBet,
-      maxBet,
-      chips: [...BACCARAT_CHIPS],
-      payouts: { player: 1, ...payout },
-      lastBets,
-    };
-  };
 
   const receive = async (text: string): Promise<void> => {
     if (--budget < 0) return refuse(peer, 'bad_message');
@@ -115,83 +84,55 @@ export function openTable(page: Peer, deps: BaccaratDeps = realDeps): TableConne
       if (!who) return refuse(peer, 'bad_token');
       player = who;
       peer = playerJoined('baccarat', who.guildId, who.userId, who.name, page, (m) => describe(m as ServerMessage)) as Peer;
-      const key = playerKey(who);
-      const before = connected.get(key);
-      connected.set(key, peer);
-      if (before) refuse(before, 'replaced');
-      try {
-        peer.send({ t: 'table', table: await table(who) });
-      } catch (err) {
-        console.error('Could not show the baccarat table:', err);
-      }
+      const seated = await seatPlayer(who, peer, deps);
+      table = seated.table;
+      if (seated.replaced) refuse(seated.replaced, 'replaced');
+      // Gone while being seated: give the seat back.
+      if (gone) table.leave(who.userId, peer);
       return;
     }
 
-    // A deal.
-    if (!player || !isCurrent()) return refuse(peer, 'bad_message');
-    if (dealing || deps.now() - lastDeal < BACCARAT_WEB.dealMs) return peer.send({ t: 'refused', seq: message.seq, reason: 'busy' });
-    dealing = true;
-    try {
-      const result = await deps.play(player.guildId, player.userId, message.bets);
-      if (!result.ok) {
-        const { ok: _, ...refusal } = result;
-        peer.send({ t: 'refused', seq: message.seq, ...refusal });
-        return;
-      }
-      lastDeal = deps.now();
-      lastBets = message.bets;
-      const { round, bets, bet, payout, net, balance } = result;
-      const view: RoundView = {
-        player: round.player,
-        banker: round.banker,
-        order: round.order,
-        playerTotal: round.playerTotal,
-        bankerTotal: round.bankerTotal,
-        winner: round.winner,
-        natural: round.natural,
-        bets,
-        bet,
-        payout,
-        net,
-        balance,
-      };
-      peer.send({ t: 'round', seq: message.seq, round: view });
-    } catch (err) {
-      console.error('A baccarat round failed:', err);
-      peer.send({ t: 'refused', seq: message.seq, reason: 'busy' });
-    } finally {
-      dealing = false;
+    // Chips.
+    if (!player || !table) return refuse(peer, 'bad_message');
+    const refusal = table.setBets(player.userId, message.bets);
+    if (refusal) {
+      peer.send({ t: 'refused', seq: message.seq, ...refusal });
+      table.resend(player.userId);
     }
   };
 
   const closed = (): void => {
+    gone = true;
     clearInterval(refill);
     clearTimeout(hello);
     if (watching) removeWatcher('baccarat', watching.guildId, watching.userId, page);
     if (!player) return;
-    if (isCurrent()) connected.delete(playerKey(player));
+    table?.leave(player.userId, peer);
     playerLeft('baccarat', player.guildId, player.userId, page);
   };
 
   return { receive, closed };
 }
 
-/** Plays baccarat over a web socket just opened (server.ts has checked where it came from). */
-export function serveBaccarat(socket: WebSocket): void {
+/**
+ * Plays baccarat over a web socket just opened (server.ts has checked where it came from).
+ * `avatar` is the member's profile picture in the server, when the bot knows it.
+ */
+export function serveBaccarat(socket: WebSocket, avatar?: TableDeps['avatar']): void {
   const page: Peer = {
     send: (message: ServerMessage) => {
       if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(message));
     },
     close: () => socket.close(),
   };
-  const table = openTable(page);
+  const connection = openConnection(page, avatar ? { ...realTableDeps, avatar } : realTableDeps);
   socket.on('message', (data, isBinary) => {
     if (isBinary) {
       refuse(page, 'bad_message');
       return;
     }
-    void table.receive(data.toString());
+    void connection.receive(data.toString());
   });
-  socket.on('close', () => table.closed());
+  socket.on('close', () => connection.closed());
   socket.on('error', () => socket.terminate());
 }
