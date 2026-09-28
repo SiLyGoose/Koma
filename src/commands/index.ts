@@ -16,6 +16,7 @@ import { mines } from './mines.js';
 import { pinecraft } from './pinecraft.js';
 import { plinko } from './plinko.js';
 import { baccarat } from './baccarat.js';
+import { roulette } from './roulette.js';
 import { raid } from './raid.js';
 import { refine } from './refine.js';
 import { rob } from './rob.js';
@@ -39,6 +40,7 @@ export const commands: Command[] = [
   rob,
   plinko,
   baccarat,
+  roulette,
   blackjack,
   mines,
   pinecraft,

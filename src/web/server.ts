@@ -6,12 +6,14 @@ import { GAMES } from './config.js';
 import { serveMine } from './mines-server.js';
 import { servePinecraft } from './pinecraft-server.js';
 import { serveBaccarat } from './baccarat-server.js';
+import { serveRoulette } from './roulette-server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
  * (api.ts), and takes the games' web sockets: the mine's (mines-server.ts), Pinecraft's
- * (pinecraft-server.ts) and baccarat's (baccarat-server.ts). Only the site's own origin may connect.
+ * (pinecraft-server.ts), baccarat's (baccarat-server.ts) and roulette's (roulette-server.ts). Only
+ * the site's own origin may connect.
  */
 
 export interface WebServerOptions {
@@ -27,8 +29,9 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
   const SOCKETS: Record<string, (socket: WebSocket) => void> = {
     [GAMES.mines.socket]: serveMine,
     [GAMES.pinecraft.socket]: (socket) => servePinecraft(socket),
-    // Baccarat shows each player's profile picture at the table.
+    // The table games show each player's profile picture at the table.
     [GAMES.baccarat.socket]: (socket) => serveBaccarat(socket, api.avatar),
+    [GAMES.roulette.socket]: (socket) => serveRoulette(socket, api.avatar),
   };
   const http = createServer((req, res) => {
     void handleApi(req, res, api).then((handled) => {

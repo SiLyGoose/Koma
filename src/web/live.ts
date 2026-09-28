@@ -13,7 +13,7 @@
  * watching.
  */
 
-export type LiveGame = 'mines' | 'pinecraft' | 'baccarat';
+export type LiveGame = 'mines' | 'pinecraft' | 'baccarat' | 'roulette';
 export type Activity = LiveGame | 'hub';
 
 /** Something the bot can send a page: a WebSocket, or a fake one in tests. */
@@ -119,7 +119,7 @@ export function playerLeft(game: LiveGame, guildId: string, userId: string, page
 function mirror(room: Room, message: unknown): void {
   const t = (message as { t?: unknown }).t;
   if (t === 'error' || t === 'watchers' || t === 'refused' || t === 'map') return;
-  if (t === 'state' || t === 'lobby') room.latest = message;
+  if (t === 'state' || t === 'lobby' || t === 'table') room.latest = message;
   for (const watcher of room.watchers) watcher.send(message);
 }
 

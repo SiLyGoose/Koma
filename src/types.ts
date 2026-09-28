@@ -240,6 +240,9 @@ export type LedgerReason =
   // Baccarat (web/baccarat-server.ts): every chip on the table, and what the winning ones paid back.
   | 'baccarat_bet'
   | 'baccarat_payout'
+  // Roulette (web/roulette-server.ts): the same.
+  | 'roulette_bet'
+  | 'roulette_payout'
   // The mine (commands/mines.ts): the bet, and what a cash out paid.
   | 'mines_bet'
   | 'mines_payout'

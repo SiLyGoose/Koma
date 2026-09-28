@@ -40,7 +40,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -191,6 +191,9 @@ export const SPECS: readonly SettingSpec[] = [
     min: 0,
     max: MAX_BACCARAT_PAYOUT,
   })),
+
+  int('roulette.minBet', 'Roulette', 'Smallest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
+  int('roulette.maxBet', 'Roulette', 'Biggest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
 
   int('mines.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
   int('mines.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
@@ -460,6 +463,9 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.baccarat.minBet > settings.baccarat.maxBet) {
     return 'baccarat.minBet cannot be higher than baccarat.maxBet';
+  }
+  if (settings.roulette.minBet > settings.roulette.maxBet) {
+    return 'roulette.minBet cannot be higher than roulette.maxBet';
   }
   if (settings.mines.minBet > settings.mines.maxBet) {
     return 'mines.minBet cannot be higher than mines.maxBet';

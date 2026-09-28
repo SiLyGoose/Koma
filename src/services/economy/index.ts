@@ -23,3 +23,5 @@ export { playPlinko } from './plinko.js';
 export type { PlinkoResult } from './plinko.js';
 export { playBaccarat } from './baccarat.js';
 export type { BaccaratResult } from './baccarat.js';
+export { playRoulette } from './roulette.js';
+export type { RouletteResult } from './roulette.js';

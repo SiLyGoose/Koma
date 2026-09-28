@@ -1,4 +1,4 @@
-import { BACCARAT_WEB, MINE_WEB, PINECRAFT_WEB } from '../constants/index.js';
+import { BACCARAT_WEB, MINE_WEB, PINECRAFT_WEB, ROULETTE_WEB } from '../constants/index.js';
 import { optionalEnv } from '../env.js';
 
 /*
@@ -70,6 +70,7 @@ export const GAMES = {
   mines: { page: '/games/mines', socket: MINE_WEB.path },
   pinecraft: { page: '/games/pinecraft', socket: PINECRAFT_WEB.path },
   baccarat: { page: '/games/baccarat', socket: BACCARAT_WEB.path },
+  roulette: { page: '/games/roulette', socket: ROULETTE_WEB.path },
 } as const;
 export type Game = keyof typeof GAMES;
 

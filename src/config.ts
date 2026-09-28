@@ -98,6 +98,11 @@ export interface Settings {
     /** What each winning bet pays, to 1 (Player always pays 1 to 1): see lib/game/baccarat.ts. */
     payout: { banker: number; tie: number; kirin: number; phoenix: number };
   };
+  roulette: {
+    /** The smallest and biggest round, counting every chip on the table. What bets pay is fixed (lib/game/roulette.ts). */
+    minBet: number;
+    maxBet: number;
+  };
   mines: {
     /** The smallest and biggest bet. */
     minBet: number;
@@ -256,6 +261,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // Casino baccarat: Banker less a 5% commission, Tie 8 to 1, Kirin (Panda 8) 25 to 1, Phoenix (Dragon 7) 40 to 1.
   // The house keeps about 1.2% of a Player or Banker bet, 14% of a Tie, and 10% and 8% of Kirin and Phoenix.
   baccarat: { minBet: 1, maxBet: 10_000, payout: { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 } },
+  // American roulette (0 and 00): every bet pays 36 / its pockets - 1 to 1, so the house keeps 5.26%.
+  roulette: { minBet: 1, maxBet: 10_000 },
   // Like Stake's Mines. The house edge is 2.5% with 1 mine and slides down to Stake's 1% with 24
   // (so a run pays back 97.5% to 99% of the bet on average), and a round stops at 100x.
   mines: {

@@ -263,6 +263,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: () => [],
   },
 
+  roulette: {
+    description: `Roulette on the Koma site: bet ${CURRENCY_NAME} on numbers, colours, dozens and more.`,
+    // The chips are placed on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
+  },
+
   pinecraft: {
     description: `Dig through your own mine in the browser. Ores pay ${CURRENCY_NAME}; digging takes energy.`,
     build: () => {},

@@ -661,7 +661,7 @@ test('login: the site logs in with Discord, sees its servers, and gets a link to
     assert.equal(login.headers.get('access-control-allow-origin'), SITE.origin);
     const { session, me } = (await login.json()) as { session: string; me: { servers: { id: string; balance: number }[]; games: string[] } };
     assert.deepEqual(me.servers, [{ id: 'g1', name: 'Koma Club', icon: null, balance: 1234 }]); // g2 doesn't have the bot
-    assert.deepEqual(me.games, ['mines', 'pinecraft', 'baccarat']);
+    assert.deepEqual(me.games, ['mines', 'pinecraft', 'baccarat', 'roulette']);
 
     const auth = { ...site, Authorization: `Bearer ${session}` };
     assert.equal((await fetch(`${base}/api/me`, { headers: site })).status, 401);
