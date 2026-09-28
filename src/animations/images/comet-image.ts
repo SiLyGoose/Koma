@@ -502,6 +502,12 @@ export function cometGif(stars: Stars, pull: Pull = 'single'): Buffer {
   return gif;
 }
 
+/** Keeps an animation drawn elsewhere (the worker in comet-worker.ts), unless one is already kept. */
+export function keepCometGif(stars: Stars, pull: Pull, gif: Buffer): void {
+  const key = `${pull}:${stars}`;
+  if (!gifs.has(key)) gifs.set(key, gif);
+}
+
 /** How long the animation plays: the flight, the flash and the hold on the flash. */
 export const cometDurationMs = (): number =>
   (GACHA_ANIMATION.frames + GACHA_ANIMATION.flashFrames) * GACHA_ANIMATION.frameMs + GACHA_ANIMATION.holdMs;

@@ -1,7 +1,9 @@
 import { GACHA_ANIMATION_NAME, TEXT } from '../constants/index.js';
 import type { BotEmbed } from '../lib/embed.js';
 import type { Stars } from '../types.js';
-import { cometDurationMs, cometGif, type Pull } from './images/comet-image.js';
+import { Worker } from 'node:worker_threads';
+import { cometDurationMs, cometGif, keepCometGif, type Pull } from './images/comet-image.js';
+import type { CometDrawn, CometJob } from './images/comet-worker.js';
 import { playAnimation } from './play.js';
 import type { CommandContext } from '../discord/types.js';
 
@@ -26,12 +28,37 @@ export async function replyWithShootingStar(ctx: CommandContext, embed: BotEmbed
 }
 
 /**
- * Draws every tier's animations (single and multi) ahead of time, one at a time with a pause
- * between, so the first pull of each doesn't wait for it and the bot keeps answering meanwhile.
+ * Draws every tier's animations (single and multi) ahead of time, so the first pull of each doesn't
+ * wait for it. They're drawn on a worker thread (comet-worker.ts), so the bot keeps answering
+ * meanwhile; a pull that comes before its animation is ready just draws it itself, as it always could.
  */
-export function prepareShootingStars(tiers: readonly Stars[], gapMs = 1_000): void {
+export function prepareShootingStars(tiers: readonly Stars[]): void {
   const pulls: Pull[] = ['single', 'multi'];
-  const jobs = pulls.flatMap((pull) => tiers.map((stars) => ({ stars, pull })));
+  const jobs: CometJob[] = pulls.flatMap((pull) => tiers.map((stars) => ({ stars, pull })));
+  // The worker file sits next to this one's images/ folder: .js when built, .ts under tsx.
+  const ext = import.meta.url.endsWith('.ts') ? '.ts' : '.js';
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL(`./images/comet-worker${ext}`, import.meta.url), { workerData: jobs });
+  } catch (err) {
+    console.error('Could not start the shooting star worker, drawing them here instead:', err);
+    drawInTurn(jobs);
+    return;
+  }
+  const kept = new Set<string>();
+  worker.on('message', ({ stars, pull, gif }: CometDrawn) => {
+    keepCometGif(stars, pull, Buffer.from(gif.buffer, gif.byteOffset, gif.byteLength));
+    kept.add(`${pull}:${stars}`);
+  });
+  worker.on('error', (err) => {
+    console.error('The shooting star worker failed, drawing the rest here instead:', err);
+    drawInTurn(jobs.filter(({ stars, pull }) => !kept.has(`${pull}:${stars}`)));
+  });
+  worker.unref();
+}
+
+/** The fallback: draws on this thread, one at a time with a pause between, so the bot still answers in the gaps. */
+function drawInTurn(jobs: readonly CometJob[], gapMs = 1_000): void {
   jobs.forEach(({ stars, pull }, i) => {
     setTimeout(() => {
       try {
