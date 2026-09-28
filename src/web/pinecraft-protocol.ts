@@ -67,7 +67,12 @@ export interface WorldState {
   oreEnergy: number;
   /** With a Dynamite Stick: a blast every `every` blocks dug, the next in `left`. */
   blast: { every: number; left: number } | null;
+  /** The pickaxe the miner swings: their equipped one, or the plain wooden one. */
+  pickaxe: PinecraftPickaxe;
 }
+
+/** The pickaxes the miner can be drawn with (public/pinecraft/pickaxes/<name>.png on the page). */
+export type PinecraftPickaxe = 'wood' | 'gold' | 'diamond' | 'ruby';
 
 /** What the page's last move did. */
 export type WorldEvent =

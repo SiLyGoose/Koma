@@ -8,7 +8,7 @@ import type { EffectTotals } from '../perks/index.js';
 import { getEquipment } from '../services/equipment.js';
 import { getBalance } from '../services/economy/index.js';
 import { loadWorld, newWeek, payOre, saveDig, saveWhere, type LoadedWorld } from '../services/pinecraft.js';
-import { parseClientMessage, type ClientMessage, type ErrorCode, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
+import { parseClientMessage, type ClientMessage, type ErrorCode, type PinecraftPickaxe, type ServerMessage, type WorldEvent, type WorldState } from './pinecraft-protocol.js';
 import { addWatcher, playerJoined, playerLeft, removeWatcher, toWatchers } from './live.js';
 import { playerKey, verifyToken, verifyWatchToken, type Player } from './token.js';
 
@@ -41,8 +41,8 @@ export interface PinecraftDeps {
   payOre: typeof payOre;
   balance: (guildId: string, userId: string) => Promise<number>;
   rules: () => PinecraftRules;
-  /** The perks of the member's equipped gear. */
-  gear: (guildId: string, userId: string) => Promise<Partial<EffectTotals>>;
+  /** The perks of the member's equipped gear, and the id of their weapon (null for none). */
+  gear: (guildId: string, userId: string) => Promise<{ effects: Partial<EffectTotals>; weapon: string | null }>;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
   /** Random numbers from 0 up to 1 (a lucky ore). */
@@ -57,10 +57,20 @@ const realDeps: PinecraftDeps = {
   payOre,
   balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
   rules: () => CONFIG.pinecraft,
-  gear: async (guildId, userId) => gearEffects(await getEquipment(guildId, userId), userId),
+  gear: async (guildId, userId) => {
+    const equipment = await getEquipment(guildId, userId);
+    return { effects: gearEffects(equipment, userId), weapon: equipment.weapon ?? null };
+  },
   now: Date.now,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   chance: Math.random,
+};
+
+/** The pickaxe drawn for each weapon that is one; any other weapon (or none) gets the wooden one. */
+const PICKAXE_OF: Readonly<Record<string, PinecraftPickaxe>> = {
+  'golden-pickaxe': 'gold',
+  'diamond-pickaxe': 'diamond',
+  'ruby-pickaxe': 'ruby',
 };
 
 /** How often the member's gear is looked up again while they play (they may change it in Discord). */
@@ -79,6 +89,7 @@ export class PinecraftSession {
   private breaking: { index: number; since: number } | null = null;
   private mapSentAt = -Infinity;
   private gear: PinecraftGear = NO_GEAR;
+  private pickaxe: PinecraftPickaxe = 'wood';
   private gearAt = -Infinity;
 
   constructor(
@@ -97,7 +108,9 @@ export class PinecraftSession {
     if (!force && now - this.gearAt < GEAR_EVERY_MS) return;
     this.gearAt = now;
     try {
-      this.gear = pinecraftGear(await this.deps.gear(this.player.guildId, this.player.userId));
+      const { effects, weapon } = await this.deps.gear(this.player.guildId, this.player.userId);
+      this.gear = pinecraftGear(effects);
+      this.pickaxe = (weapon !== null && PICKAXE_OF[weapon]) || 'wood';
     } catch (err) {
       console.error('Could not look up the gear of a Pinecraft miner:', err);
     }
@@ -258,6 +271,7 @@ export class PinecraftSession {
       breakMs: Object.fromEntries(Object.entries(PINECRAFT_BREAK_MS).map(([block, ms]) => [block, gearBreakMs(ms, gear)])) as WorldState['breakMs'],
       oreEnergy: gear.oreEnergy,
       blast: gear.blastEvery > 0 ? { every: gear.blastEvery, left: Math.max(1, gear.blastEvery - world.sinceBlast) } : null,
+      pickaxe: this.pickaxe,
     };
   }
 }

@@ -343,6 +343,7 @@ test('pinecraft web: the page is told what the gear does, and a pickaxe breaks b
   assert.equal(hello.state.breakMs.dirt, Math.round(PINECRAFT_BREAK_MS.dirt / 1.5));
   assert.equal(hello.state.oreEnergy, 2);
   assert.deepEqual(hello.state.blast, { every: 10, left: 10 });
+  assert.equal(hello.state.pickaxe, 'wood');
   // Down to the room's edge, then dirt with no start: the whole (faster) break time.
   await session.handle(peer, { t: 'move', dir: 'down', seq: 1 });
   await session.handle(peer, { t: 'move', dir: 'down', seq: 2 });
@@ -351,6 +352,23 @@ test('pinecraft web: the page is told what the gear does, and a pickaxe breaks b
   assert.ok(dug?.t === 'state');
   assert.deepEqual(dug.state.blast, { every: 10, left: 9 });
   await leave(session, peer);
+});
+
+test('pinecraft web: the miner is drawn with the pickaxe they have equipped, and a wooden one otherwise', async () => {
+  const pickaxeOf = async (weapon: string | null) => {
+    const { deps } = fakeDeps(4, {}, weapon);
+    const session = await sessionFor({ guildId: 'g5', userId: `u5-${weapon}`, name: 'Simon' }, deps);
+    const peer = fakePeer();
+    session.attach(peer);
+    const hello = peer.got[0];
+    await leave(session, peer);
+    return hello?.t === 'state' ? hello.state.pickaxe : null;
+  };
+  assert.equal(await pickaxeOf('golden-pickaxe'), 'gold');
+  assert.equal(await pickaxeOf('diamond-pickaxe'), 'diamond');
+  assert.equal(await pickaxeOf('ruby-pickaxe'), 'ruby');
+  assert.equal(await pickaxeOf('dynamite-stick'), 'wood');
+  assert.equal(await pickaxeOf(null), 'wood');
 });
 
 // ---------------------------------------------------------------------------
@@ -378,7 +396,7 @@ test('pinecraft web: only well-formed messages from the page are read', () => {
   }
 });
 
-function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> = {}) {
+function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> = {}, weapon: string | null = null) {
   const saved = { digs: [] as number[], where: 0, paid: [] as number[], waits: [] as number[], weeks: [] as string[] };
   const clock = { now: 0 };
   let balance = 500;
@@ -391,7 +409,7 @@ function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> =
       saved.paid.push(points);
       return (balance += points);
     },
-    gear: async () => gear,
+    gear: async () => ({ effects: gear, weapon }),
     balance: async () => balance,
     rules: () => RULES,
     now: () => clock.now,
