@@ -24,22 +24,33 @@ export function effectStrength(effect: EffectId, stars: Stars): number {
   return CONFIG.equipment[effect][stars];
 }
 
-/** Whether a copy of `item` at this refinement level has unlocked the item's refine bonus. */
-export function bonusUnlocked(item: ItemDef, level: number): boolean {
-  return item.bonus !== undefined && level >= item.bonus.level;
+/**
+ * Where a copy of `item` stands with the item's bonus: the item has none, the copy isn't refined far
+ * enough yet, it is but isn't a masterwork (bought with komaGems), or it is and the bonus is on.
+ */
+export function bonusState(item: ItemDef, level: number, masterwork: boolean): 'none' | 'too_low' | 'dormant' | 'masterwork' {
+  if (!item.bonus) return 'none';
+  if (level < item.bonus.level) return 'too_low';
+  return masterwork ? 'masterwork' : 'dormant';
 }
 
-/** The perks an item gives at a refinement level: its own, changed by its refine bonus once that is unlocked. */
-export function itemEffects(item: ItemDef, level: number): EffectId[] {
-  if (!item.bonus || !bonusUnlocked(item, level)) return [...item.effects];
+/** Whether a copy of `item` at this refinement level has its bonus on (refined far enough, and a masterwork). */
+export function bonusActive(item: ItemDef, level: number, masterwork: boolean): boolean {
+  return bonusState(item, level, masterwork) === 'masterwork';
+}
+
+/** The perks an item gives at a refinement level: its own, changed by its refine bonus once that is on. */
+export function itemEffects(item: ItemDef, level: number, masterwork: boolean): EffectId[] {
+  if (!item.bonus || !bonusActive(item, level, masterwork)) return [...item.effects];
   const removes = item.bonus.removes ?? [];
   return [...item.effects.filter((effect) => !removes.includes(effect)), ...(item.bonus.adds ?? [])];
 }
 
-/** One equipped item and the refinement level of the copy worn. */
+/** One equipped item, the refinement level of the copy worn, and whether that copy is a masterwork (left out: yes). */
 export interface GearPiece {
   item: ItemDef;
   level: number;
+  bonus?: boolean;
 }
 
 /**
@@ -53,7 +64,7 @@ export function equippedGear(equipment: GearIds | null | undefined): GearPiece[]
     const id = equipment?.[slot];
     if (!id) continue;
     const item = ITEMS_BY_ID.get(id);
-    if (item && item.slot === slot) pieces.push({ item, level: equipment?.levels?.[slot] ?? REFINE.maxLevel });
+    if (item && item.slot === slot) pieces.push({ item, level: equipment?.levels?.[slot] ?? REFINE.maxLevel, bonus: equipment?.bonuses?.[slot] ?? true });
   }
   return pieces;
 }
@@ -88,9 +99,9 @@ export function itemEffectiveness(item: ItemDef, userId: string): number {
 export function totalEffects(gear: readonly (ItemDef | GearPiece)[], userId?: string): EffectTotals {
   const totals = emptyTotals();
   for (const piece of gear) {
-    const { item, level } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
+    const { item, level, bonus = true } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
     const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
-    for (const effect of itemEffects(item, level)) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
+    for (const effect of itemEffects(item, level, bonus)) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
   }
   return totals;
 }
@@ -114,12 +125,15 @@ function effectLine(effect: EffectId, strength: number): string {
 
 /**
  * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
- * (fully refined unless given), then its refine bonus once unlocked (hidden until then). `share` scales the
+ * (fully refined unless given), then its bonus: on once the copy is a `masterwork`, or dormant (with
+ * what one costs) on an R5 copy that isn't (hidden below that level). `share` scales the
  * strengths further, for an item worn at less than full effect (see itemEffectiveness).
  */
-export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string[] {
-  const lines = itemEffects(item, level).map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
-  if (item.bonus && bonusUnlocked(item, level)) lines.push(TEXT.gear.bonus(item.bonus.level, item.bonus.text));
+export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel, masterwork = true): string[] {
+  const lines = itemEffects(item, level, masterwork).map((effect) => effectLine(effect, effectStrength(effect, item.stars) * share * perkShare(effect, level)));
+  const state = bonusState(item, level, masterwork);
+  if (item.bonus && state === 'masterwork') lines.push(TEXT.gear.bonus(item.bonus.text));
+  if (item.bonus && state === 'dormant') lines.push(TEXT.gear.bonusDormant(item.bonus.text, CONFIG.refine.masterworkGems));
   return lines;
 }
 

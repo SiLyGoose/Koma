@@ -1,4 +1,5 @@
 import { RAID_EMOJI as E } from '../../raid.js';
+import { boldGems } from '../currency.js';
 
 export const gearText = {
   title: (name: string) => `${name}'s gear`,
@@ -13,8 +14,10 @@ export const gearText = {
   totalsField: 'Overall Effects',
   /** Shown above the effects when the item is equipped by someone it is not for. `owners` is mentions, `share` is how much of its effects this member gets, like "50%"; the lines under it are already at that. */
   exclusive: (owners: string, share: string) => `Made for ${owners}, so it only works at ${share} for this member.`,
-  /** An item's refine bonus on its card, once unlocked (from R`level` on; not shown below it). */
-  bonus: (level: number, text: string) => `✨ R${level} bonus: ${text}`,
+  /** A masterwork copy's bonus on its card. */
+  bonus: (text: string) => `✨ Masterwork: ${text}`,
+  /** The same on an R5 copy that isn't a masterwork yet, with what forging one costs (`forge`); not shown below R5. */
+  bonusDormant: (text: string, gems: number) => `🔒 Masterwork (\`forge\` for ${boldGems(gems)}): ${text}`,
 
   // `gear stats`: what a member fights a raid with. `gear` is the mark on a line their gear changed.
   // (Embed titles can't show custom emojis, so the title keeps a plain one.)

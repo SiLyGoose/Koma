@@ -66,11 +66,12 @@ export function equippedCopyIds(equipment: EquipmentDoc | null | undefined): Set
   return ids;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>;
 
-/** Orders copies the way they are sold: the one to sell first comes first (see `worstCopy`). */
+/** Orders copies the way they are sold: the one to sell first comes first (see `worstCopy`). A masterwork copy goes after the others of its level. */
 function sellsBefore(a: CopyInfo, b: CopyInfo): number {
   if (a.level !== b.level) return a.level - b.level;
+  if ((a.masterwork === true) !== (b.masterwork === true)) return a.masterwork ? 1 : -1;
   if (a.obtainedAt.getTime() !== b.obtainedAt.getTime()) return b.obtainedAt.getTime() - a.obtainedAt.getTime();
   return a._id < b._id ? 1 : a._id > b._id ? -1 : 0;
 }
@@ -81,24 +82,12 @@ export function worstCopies<T extends CopyInfo>(copies: readonly T[], count: num
 }
 
 /**
- * The copy to sell when selling just one: the lowest level, then the one obtained most recently
- * (the opposite of the copy that gets equipped), then the highest id so the choice never varies.
+ * The copy to sell when selling just one: the lowest level, then one that isn't a masterwork, then the one obtained most recently (the opposite of the copy that gets equipped), then
+ * the highest id so the choice never varies.
  */
 export function worstCopy<T extends CopyInfo>(copies: readonly T[]): T | undefined {
   let worst: T | undefined;
-  for (const copy of copies) {
-    if (!worst) {
-      worst = copy;
-      continue;
-    }
-    if (copy.level !== worst.level) {
-      if (copy.level < worst.level) worst = copy;
-    } else if (copy.obtainedAt.getTime() !== worst.obtainedAt.getTime()) {
-      if (copy.obtainedAt.getTime() > worst.obtainedAt.getTime()) worst = copy;
-    } else if (copy._id > worst._id) {
-      worst = copy;
-    }
-  }
+  for (const copy of copies) if (!worst || sellsBefore(copy, worst) < 0) worst = copy;
   return worst;
 }
 

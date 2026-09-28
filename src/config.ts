@@ -210,6 +210,11 @@ export interface Settings {
    * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
    * skip of the day costs. Each one after it that day costs double the one before.
    */
+  /** Refining gear (constants/items/refine.ts has the levels). */
+  refine: {
+    /** komaGems to forge an R5 copy of a 4-star item into a masterwork, turning on its bonus (`forge`). */
+    masterworkGems: number;
+  };
   skip: {
     claim: number;
     /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
@@ -315,6 +320,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve
   // rather than jumping there.
   // The same as an average claim, so skipping only pays off with gear, and doubling stops it being farmed.
+  // Five raid wins' worth (a win gives 5 komaGems).
+  refine: { masterworkGems: 25 },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 0.1x up to 5x, which averages about 1.47x a spin.

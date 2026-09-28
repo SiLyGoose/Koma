@@ -23,6 +23,7 @@ import { equipText } from './items/equip.js';
 import { unequipText } from './items/unequip.js';
 import { loadoutText } from './items/loadout.js';
 import { refineText } from './items/refine.js';
+import { forgeText } from './items/forge.js';
 import { robText } from './rob.js';
 import { eventsText } from './events/events.js';
 import { crateText } from './events/crate.js';
@@ -69,6 +70,7 @@ export const TEXT = {
   unequip: unequipText,
   loadout: loadoutText,
   refine: refineText,
+  forge: forgeText,
   rob: robText,
   events: eventsText,
   crate: crateText,

@@ -25,6 +25,7 @@ import { sell } from './sell.js';
 import { skip } from './skip.js';
 import type { Command } from '../discord/types.js';
 import { unequip } from './unequip.js';
+import { forge } from './forge.js';
 import { vault } from './vault.js';
 
 export const commands: Command[] = [
@@ -36,6 +37,7 @@ export const commands: Command[] = [
   unequip,
   loadout,
   refine,
+  forge,
   sell,
   gear,
   databank,

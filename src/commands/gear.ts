@@ -91,7 +91,7 @@ export const gear: Command = {
       // Someone else's exclusive item works at part strength: show the effects they really get, and say why.
       const share = itemEffectiveness(item, target.id);
       const level = equipment.levels?.[slot] ?? REFINE.maxLevel;
-      const lines = describeEffects(item, share, level);
+      const lines = describeEffects(item, share, level, equipment.bonuses?.[slot] ?? true);
       if (item.usableBy && !canUseItem(item, target.id)) lines.unshift(TEXT.gear.exclusive(mentionList(item.usableBy), formatPercent(share)));
       embed.addFields({
         name: label,

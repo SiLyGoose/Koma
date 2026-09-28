@@ -11,7 +11,7 @@ import { refineLevel } from './refine-share.js';
 
 export { refineLevel, refineShare } from './refine-share.js';
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>;
 
 export type RefinePlan<T> =
   | { ok: true; target: T; fodder: T; from: number; to: number }
@@ -28,7 +28,8 @@ export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: Reado
   if (!target) return { ok: false, reason: 'not_owned', level: 0 };
   const from = refineLevel(target.level);
   if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from };
-  const fodder = worstCopy(copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id)));
+  // A copy whose refine bonus was bought with komaGems is never used up.
+  const fodder = worstCopy(copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.masterwork));
   if (!fodder) return { ok: false, reason: 'no_duplicate', level: from };
   return { ok: true, target, fodder, from, to: from + 1 };
 }

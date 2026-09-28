@@ -245,7 +245,7 @@ test('pinecraft gear: the Diamond (3-star) and Ruby (4-star) pickaxes, for every
   assert.equal(gearOf('ruby-pickaxe', 5).luckyChance, 0.1);
 });
 
-test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its refine bonus', () => {
+test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its bonus once a masterwork', () => {
   const ruby = ITEMS_BY_ID.get('ruby-pickaxe')!;
   assert.deepEqual([1, 2, 3, 4, 5].map((level) => gearOf('ruby-pickaxe', level).oreEnergy), [6, 5, 4, 3, 1]);
   // The rest of the pickaxe is untouched by the bonus.
@@ -257,7 +257,7 @@ test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its re
   ]);
   assert.deepEqual(describeEffects(ruby, 1, 5).slice(1), [
     'Pinecraft: 10% chance for double ore drops',
-    '✨ R5 bonus: Pinecraft: ores take no extra ⚡ to dig',
+    '✨ Masterwork: Pinecraft: ores take no extra ⚡ to dig',
   ]);
   // The Diamond Pickaxe has no bonus: still 2 energy at R5.
   assert.equal(gearOf('diamond-pickaxe', 5).oreEnergy, 2);

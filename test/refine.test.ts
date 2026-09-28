@@ -52,7 +52,7 @@ test('gear counts at the worn copy\'s refinement; gear that does not say counts 
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 3 } }, 'u').guardBoost - full / 2) < 1e-12);
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 1 } }, 'u').guardBoost - full / 6) < 1e-12);
   assert.ok(Math.abs(gearEffects({ armor: armor.id }, 'u').guardBoost - full) < 1e-12, 'no level given: full strength');
-  assert.deepEqual(equippedGear({ armor: armor.id, levels: { armor: 3 } }), [{ item: armor, level: 3 }]);
+  assert.deepEqual(equippedGear({ armor: armor.id, levels: { armor: 3 } }), [{ item: armor, level: 3, bonus: true }]);
   // Bare items (the catalog describing itself) are fully refined too.
   assert.equal(totalEffects([armor]).guardBoost, full);
   assert.deepEqual(describeEffects(armor), ['Raid: Guard blocks 25% more of the hits you take']);

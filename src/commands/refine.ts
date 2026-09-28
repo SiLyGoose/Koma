@@ -26,7 +26,8 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const t = TEXT.refine;
   const { item } = result;
   const share = itemEffectiveness(item, ctx.user.id);
-  const effects = (level: number) => describeEffects(item, share, level).join('\n') || t.noEffects;
+  // A copy being refined is below the bonus level, so it can't be a masterwork yet: at R5 its bonus shows dormant.
+  const effects = (level: number) => describeEffects(item, share, level, false).join('\n') || t.noEffects;
   return createEmbed()
     .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
     .setDescription(t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft))
@@ -101,6 +102,7 @@ async function watchButton(ctx: CommandContext, sent: SentReply, item: ItemDef):
 export const refine: Command = {
   name: 'refine',
   category: 'items',
+  aliases: ['rf', 'enhance'],
   description: `Refine an item you own: use up a duplicate of it to raise it one level (up to R${REFINE.maxLevel}, its full strength).`,
   usage: 'refine <item name>',
   slashUsage: 'refine <item>',

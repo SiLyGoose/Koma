@@ -40,7 +40,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Refine' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -85,6 +85,8 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('claim.min', 'Claim', `Lowest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
   int('claim.max', 'Claim', `Highest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
+
+  int('refine.masterworkGems', 'Refine', 'komaGems to forge one R5 copy of a 4-star item into a masterwork, turning on its bonus.', 0, MAX_POINTS),
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
   int('skip.raid', 'Skip', `Price of the week's extra raid (once per server per week, after the raid has been fought), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),

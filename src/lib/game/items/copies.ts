@@ -38,10 +38,10 @@ export function groupCopies(copies: readonly CopyInfo[]): InventoryEntry[] {
 }
 
 /**
- * The copy to use when someone equips an item by name: the highest level, then the one
- * obtained first, then the lowest id so the choice is always the same.
+ * The copy to use when someone equips an item by name: the highest level, then one with its refine
+ * a masterwork, then the one obtained first, then the lowest id so the choice is always the same.
  */
-export function bestCopy<T extends Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt'>>(copies: readonly T[]): T | undefined {
+export function bestCopy<T extends Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>>(copies: readonly T[]): T | undefined {
   let best: T | undefined;
   for (const copy of copies) {
     if (!best) {
@@ -50,6 +50,8 @@ export function bestCopy<T extends Pick<ItemCopyDoc, '_id' | 'level' | 'obtained
     }
     if (copy.level !== best.level) {
       if (copy.level > best.level) best = copy;
+    } else if ((copy.masterwork === true) !== (best.masterwork === true)) {
+      if (copy.masterwork) best = copy;
     } else if (copy.obtainedAt.getTime() !== best.obtainedAt.getTime()) {
       if (copy.obtainedAt.getTime() < best.obtainedAt.getTime()) best = copy;
     } else if (copy._id < best._id) {

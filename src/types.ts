@@ -36,17 +36,18 @@ export interface ItemDef {
    * Missing means everyone can use it. When present it must list at least one id.
    */
   usableBy?: readonly string[];
-  /** Optional: a bonus perk the item unlocks once a copy is refined far enough (see ItemBonus). */
+  /** Optional: a bonus an R5 copy gets once forged into a masterwork with komaGems (see ItemBonus). */
   bonus?: ItemBonus;
 }
 
 /**
- * A refine bonus: from refinement level `level` on, the item gains the perks in `adds` and loses
- * the ones in `removes` (say a drawback it outgrows). Below that level it works as if the bonus
- * weren't there, and the gear card doesn't show the bonus.
+ * A 4-star item's bonus, at REFINE.maxLevel: once a copy is at `level` AND has been made a
+ * masterwork with komaGems (`forge`, ItemCopyDoc.masterwork), the item gains the perks in `adds` and loses the ones in
+ * `removes` (say a drawback it outgrows). Until then it works as if the bonus weren't there; the
+ * gear card shows it dormant once the level is reached.
  */
 export interface ItemBonus {
-  /** The refinement level that unlocks it (2 to REFINE.maxLevel). */
+  /** The refinement level it needs (REFINE.maxLevel). */
   level: number;
   /** What it does, for the gear card, like "Pinecraft: ores take no extra energy". */
   text: string;
@@ -80,6 +81,11 @@ export interface GearIds {
    * resolveGear. A slot left out here counts as fully refined (the item at its listed strength).
    */
   levels?: Partial<Record<Slot, number>>;
+  /**
+   * Whether the copy in each slot is a masterwork (bought with komaGems), filled in by resolveGear.
+   * A slot left out here counts as one (the item at its full strength).
+   */
+  bonuses?: Partial<Record<Slot, boolean>>;
 }
 
 /** One document per (server, user). */
@@ -212,6 +218,8 @@ export interface ItemCopyDoc {
    * which counts as 1 (lib/game/items/refine.ts refineLevel).
    */
   level: number;
+  /** This copy has been forged into a masterwork with komaGems (`forge`), turning on its item's bonus. Missing means not. */
+  masterwork?: boolean;
   obtainedAt: Date;
 }
 
@@ -297,6 +305,8 @@ export type LedgerReason =
   | 'raid_reward'
   | 'raid_tokens'
   | 'raid_gems'
+  // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item).
+  | 'forge'
   | 'raid_refund'
   // A duplicate copy used up to refine another (0 points; itemId is the item).
   | 'refine'
