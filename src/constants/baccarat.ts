@@ -34,11 +34,12 @@ export const BACCARAT_WEB = {
  * - `seats`: how many players a table holds.
  * - `bettingMs`: how long each round's betting lasts; when it's up the round is dealt for everyone
  *   with chips down (a round with no chips on the table isn't dealt, the betting just starts over).
- * - `showMs`: how long after a deal before the next round's betting starts (the page deals the
- *   cards out one by one, then shows how everyone did).
+ * - `showMs`: how long after a deal before the next round's betting starts. The page deals the cards
+ *   out one by one (3.4s for the first four, a 1.6s pause, and up to two third cards: about 6.3s
+ *   at most), then shows how everyone did for the rest of it.
  */
 export const BACCARAT_TABLE = {
   seats: 8,
   bettingMs: 60_000,
-  showMs: 9_000,
+  showMs: 12_000,
 } as const;

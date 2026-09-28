@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import type { Message } from 'discord.js';
 import { TEXT } from '../src/constants/index.js';
 import { config, GROUPS } from '../src/commands/config.js';
+import { SPECS } from '../src/lib/settings-spec.js';
 import { messageContext } from '../src/discord/context.js';
 
 /** How a reply (or a button-flipped edit of one) reads, whichever shape it came in as. */
@@ -93,6 +94,12 @@ test('config: with no argument, list, or view, it opens on the first page', asyn
     const [reply] = await ask(...words);
     assert.equal(reply?.fields[0]?.name, 'General', `${JSON.stringify(words)} opens on the first group`);
   }
+});
+
+test('config: every group a setting belongs to is in the config pages, so a new game is never left out', () => {
+  const used = [...new Set(SPECS.map((spec) => spec.group))];
+  for (const group of used) assert.ok(GROUPS.includes(group), `${group} settings have no config page: add it to GROUPS`);
+  assert.ok(GROUPS.includes('Baccarat'));
 });
 
 test('config: every real settings group has its own page when flipped through from the start', async () => {
