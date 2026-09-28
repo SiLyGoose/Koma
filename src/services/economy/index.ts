@@ -21,3 +21,5 @@ export { rob } from './rob.js';
 export type { RobResult } from './rob.js';
 export { playPlinko } from './plinko.js';
 export type { PlinkoResult } from './plinko.js';
+export { playBaccarat } from './baccarat.js';
+export type { BaccaratResult } from './baccarat.js';

@@ -7,6 +7,7 @@ import { claimText } from './claim.js';
 import { gachaText } from './gacha.js';
 import { betText } from './bet.js';
 import { plinkoText } from './plinko.js';
+import { baccaratText } from './baccarat.js';
 import { blackjackText } from './blackjack.js';
 import { minesText } from './mines.js';
 import { pinecraftText } from './pinecraft.js';
@@ -50,6 +51,7 @@ export const TEXT = {
   gacha: gachaText,
   bet: betText,
   plinko: plinkoText,
+  baccarat: baccaratText,
   blackjack: blackjackText,
   mines: minesText,
   pinecraft: pinecraftText,

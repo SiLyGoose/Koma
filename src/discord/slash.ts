@@ -256,6 +256,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: () => [],
   },
 
+  baccarat: {
+    description: `Baccarat on the Koma site: bet ${CURRENCY_NAME} on Player, Banker, Tie, Kirin or Phoenix.`,
+    // The chips are placed on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
+  },
+
   pinecraft: {
     description: `Dig through your own mine in the browser. Ores pay ${CURRENCY_NAME}; digging takes energy.`,
     build: () => {},

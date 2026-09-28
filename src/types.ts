@@ -237,6 +237,9 @@ export type LedgerReason =
   | 'blackjack_double'
   | 'blackjack_payout'
   | 'blackjack_refund'
+  // Baccarat (web/baccarat-server.ts): every chip on the table, and what the winning ones paid back.
+  | 'baccarat_bet'
+  | 'baccarat_payout'
   // The mine (commands/mines.ts): the bet, and what a cash out paid.
   | 'mines_bet'
   | 'mines_payout'

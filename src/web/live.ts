@@ -13,7 +13,7 @@
  * watching.
  */
 
-export type LiveGame = 'mines' | 'pinecraft';
+export type LiveGame = 'mines' | 'pinecraft' | 'baccarat';
 export type Activity = LiveGame | 'hub';
 
 /** Something the bot can send a page: a WebSocket, or a fake one in tests. */

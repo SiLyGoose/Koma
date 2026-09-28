@@ -120,7 +120,7 @@ async function meFor(session: Session, deps: ApiDeps): Promise<Me> {
   return { user: { id: session.userId, name: session.name, avatar: avatarUrl(session.userId, session.avatar) }, servers, games: Object.keys(GAMES) as Game[] };
 }
 
-const LIVE_GAMES: readonly LiveGame[] = ['mines', 'pinecraft'];
+const LIVE_GAMES: readonly LiveGame[] = ['mines', 'pinecraft', 'baccarat'];
 /** What a game page (with its link's token) or a logged-in member can ask about their server. */
 const LIVE_PATHS = new Set(['/api/live', '/api/watch', '/api/pinecraft/leaderboard']);
 

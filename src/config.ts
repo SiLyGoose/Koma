@@ -91,6 +91,13 @@ export interface Settings {
     /** Seconds a player has for each decision before they stand. */
     turnSeconds: number;
   };
+  baccarat: {
+    /** The smallest and biggest round, counting every chip on the table. */
+    minBet: number;
+    maxBet: number;
+    /** What each winning bet pays, to 1 (Player always pays 1 to 1): see lib/game/baccarat.ts. */
+    payout: { banker: number; tie: number; kirin: number; phoenix: number };
+  };
   mines: {
     /** The smallest and biggest bet. */
     minBet: number;
@@ -246,6 +253,9 @@ export const DEFAULTS: Readonly<Settings> = {
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
   blackjack: { minBet: 10, maxBet: 1000, naturalPayout: 1.5, joinSeconds: 15, turnSeconds: 30 },
+  // Casino baccarat: Banker less a 5% commission, Tie 8 to 1, Kirin (Panda 8) 25 to 1, Phoenix (Dragon 7) 40 to 1.
+  // The house keeps about 1.2% of a Player or Banker bet, 14% of a Tie, and 10% and 8% of Kirin and Phoenix.
+  baccarat: { minBet: 1, maxBet: 10_000, payout: { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 } },
   // Like Stake's Mines. The house edge is 2.5% with 1 mine and slides down to Stake's 1% with 24
   // (so a run pays back 97.5% to 99% of the bet on average), and a round stops at 100x.
   mines: {

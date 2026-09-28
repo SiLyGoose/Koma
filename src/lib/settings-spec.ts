@@ -12,6 +12,7 @@ import {
   PINECRAFT_PAYING,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
+  MAX_BACCARAT_PAYOUT,
   MAX_PREFIX_LENGTH,
   MAX_SETTING_POINTS,
   MAX_STONKS_HOURS,
@@ -39,7 +40,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -172,6 +173,24 @@ export const SPECS: readonly SettingSpec[] = [
   },
   int('blackjack.joinSeconds', 'Blackjack', 'Seconds a blackjack party stays open for joining.', 5, MAX_BLACKJACK_SECONDS),
   int('blackjack.turnSeconds', 'Blackjack', 'Seconds a blackjack player has to act before they stand.', 5, MAX_BLACKJACK_SECONDS),
+
+  int('baccarat.minBet', 'Baccarat', 'Smallest bet in baccarat, counting every chip on the table.', 1, MAX_POINTS),
+  int('baccarat.maxBet', 'Baccarat', 'Biggest bet in baccarat, counting every chip on the table.', 1, MAX_POINTS),
+  ...(
+    [
+      ['banker', 'A winning Banker bet pays this to 1 (0.95 is even money less a 5% commission).'],
+      ['tie', 'A winning Tie bet pays this to 1.'],
+      ['kirin', 'The Kirin side bet (the Player wins with three cards worth 8) pays this to 1.'],
+      ['phoenix', 'The Phoenix side bet (the Banker wins with three cards worth 7) pays this to 1.'],
+    ] as const
+  ).map(([spot, description]): SettingSpec => ({
+    key: `baccarat.payout.${spot}`,
+    group: 'Baccarat',
+    description,
+    type: 'number',
+    min: 0,
+    max: MAX_BACCARAT_PAYOUT,
+  })),
 
   int('mines.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
   int('mines.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
@@ -438,6 +457,9 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.blackjack.minBet > settings.blackjack.maxBet) {
     return 'blackjack.minBet cannot be higher than blackjack.maxBet';
+  }
+  if (settings.baccarat.minBet > settings.baccarat.maxBet) {
+    return 'baccarat.minBet cannot be higher than baccarat.maxBet';
   }
   if (settings.mines.minBet > settings.mines.maxBet) {
     return 'mines.minBet cannot be higher than mines.maxBet';

@@ -5,12 +5,13 @@ import { handleApi, type ApiDeps } from './api.js';
 import { GAMES } from './config.js';
 import { serveMine } from './mines-server.js';
 import { servePinecraft } from './pinecraft-server.js';
+import { serveBaccarat } from './baccarat-server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
- * (api.ts), and takes the games' web sockets: the mine's (mines-server.ts) and Pinecraft's
- * (pinecraft-server.ts). Only the site's own origin may connect.
+ * (api.ts), and takes the games' web sockets: the mine's (mines-server.ts), Pinecraft's
+ * (pinecraft-server.ts) and baccarat's (baccarat-server.ts). Only the site's own origin may connect.
  */
 
 export interface WebServerOptions {
@@ -22,6 +23,7 @@ export interface WebServerOptions {
 const SOCKETS: Record<string, (socket: WebSocket) => void> = {
   [GAMES.mines.socket]: serveMine,
   [GAMES.pinecraft.socket]: (socket) => servePinecraft(socket),
+  [GAMES.baccarat.socket]: serveBaccarat,
 };
 
 /** Starts the server. Returns a function that stops it. */
