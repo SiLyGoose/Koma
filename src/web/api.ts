@@ -4,6 +4,7 @@ import { SLOTS, type Slot } from '../types.js';
 import { GAMES, gameLink, watchLink, type Game, type WebConfig } from './config.js';
 import { pinecraftLeaderboard, type PinecraftLeaderboard, type PinecraftStat } from '../services/pinecraft.js';
 import { LOADOUT_NUMBERS } from '../lib/game/items/loadouts.js';
+import { databankView } from './databank.js';
 import { gearStore, type GearStore } from './gear.js';
 import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
@@ -25,12 +26,13 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/gear/unequip {guild, slot}   empties a slot: GearView
  *   POST /api/gear/unequip-all {guild}   empties every slot: GearView
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
+ *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). The front page's /api/live counts as
  * being on the site (live.ts).
  *
- * Everything but the first takes the session as "Authorization: Bearer <session>", and only answers
+ * Everything but the first and the databank takes the session as "Authorization: Bearer <session>", and only answers
  * the site's own origin. Errors are { error } with a code the site knows.
  */
 
@@ -246,6 +248,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     // Everything else is for the site only.
     if (req.headers.origin !== config.origin) return (fail(res, 'not_found'), true);
+
+    // The same for everyone: no login needed.
+    if (url.pathname === '/api/databank' && req.method === 'GET') {
+      send(res, 200, databankView());
+      return true;
+    }
 
     // A game page asking with its link's token (to play, or to watch): no login needed.
     const gameToken = /^Game (.+)$/.exec(req.headers.authorization ?? '')?.[1];
