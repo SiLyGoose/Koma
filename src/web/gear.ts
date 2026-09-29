@@ -5,19 +5,20 @@ import { ITEMS_BY_ID } from '../data/items.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../lib/game/items/equipment.js';
 import { loadoutCopyIds, loadoutsOf, type LoadoutView } from '../lib/game/items/loadouts.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../lib/game/items/refine.js';
-import { equippedCopyIds } from '../lib/game/items/sell.js';
+import { equippedCopyIds, saleCount, sellPrice } from '../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../services/items/equipment.js';
 import { forgeMasterwork } from '../services/items/forge.js';
 import { refineItem } from '../services/items/refine.js';
+import { sellCopies } from '../services/items/sell.js';
 import { switchLoadout } from '../services/items/loadouts.js';
 import type { EquipmentDoc, ItemCopyDoc, ItemDef, Slot, Stars } from '../types.js';
 import { gearStats, type StatSection } from './stats.js';
 import { SLOTS } from '../types.js';
 
 /*
- * The site's gear page (GET /api/gear, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /refine and /forge):
+ * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /refine, /forge and /sell):
  * every copy a member owns, what each one does at its level, which copy sits in each slot, and their
- * loadouts. The effect lines
+ * loadouts; and, to look at, the same for anyone else in the server with gear. The effect lines
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
  * draws those itself.
  */
@@ -43,6 +44,8 @@ export interface GearCopy {
   refine: GearRefine;
   /** Forging it into a masterwork (services/items/forge.ts), for the page's confirmation: null when its item has no bonus. */
   forge: GearForge | null;
+  /** What selling it pays in points (services/items/sell.ts): null when it's worn or saved in a loadout, so never sold. */
+  sell: number | null;
 }
 
 /** Refining a copy: what the page asks the member to confirm. */
@@ -109,6 +112,10 @@ export interface GearLoadout {
 /** What the gear routes use (the database's, unless a test says otherwise). */
 export interface GearStore {
   view: (guildId: string, userId: string) => Promise<GearView>;
+  /** Someone else's gear, to look at: without their points or komaGems (so no refine or forge is held back for the price). */
+  peek: (guildId: string, userId: string) => Promise<GearView>;
+  /** Who in the server owns any gear, and how many copies, most first (at most `limit`). */
+  owners: (guildId: string, limit: number) => Promise<{ userId: string; copies: number }[]>;
   /** False when the member doesn't own that copy. */
   equip: (guildId: string, userId: string, copyId: string) => Promise<boolean>;
   unequip: (guildId: string, userId: string, slot: Slot) => Promise<void>;
@@ -123,6 +130,17 @@ export interface GearStore {
   refine: (guildId: string, userId: string, copyId: string, materialId: string | null) => Promise<'ok' | RefineBlock | 'bad_material' | 'not_found' | 'busy'>;
   /** Forges that copy into a masterwork: 'ok', or why not ('not_found' when they don't own it or its item has no bonus). */
   forge: (guildId: string, userId: string, copyId: string) => Promise<'ok' | ForgeBlock | 'not_found' | 'busy'>;
+  /**
+   * Sells those copies (the ones still theirs and not worn or in a loadout): how many were sold and for how many
+   * points, or 'nothing_to_sell' when none of them could be.
+   */
+  sell: (guildId: string, userId: string, copyIds: readonly string[]) => Promise<GearSale | 'nothing_to_sell'>;
+}
+
+/** What a sale from the gear page sold (POST /api/gear/sell answers the GearView with it). */
+export interface GearSale {
+  count: number;
+  earned: number;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
@@ -204,6 +222,7 @@ export function gearView(
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,
+      sell: kept.has(copy._id) ? null : sellPrice(item.stars),
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
     view.refine = { ...refine, after: to === null ? null : describeEffects(item, share, to, masterwork) };
@@ -252,6 +271,22 @@ export const gearStore: GearStore = {
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
     return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0);
   },
+  peek: async (guildId, userId) => {
+    const { items, members } = collections();
+    const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member));
+  },
+  owners: async (guildId, limit) => {
+    const rows = await collections()
+      .items.aggregate<{ _id: string; copies: number }>([
+        { $match: { guildId } },
+        { $group: { _id: '$userId', copies: { $sum: 1 } } },
+        { $sort: { copies: -1, _id: 1 } },
+        { $limit: limit },
+      ])
+      .toArray();
+    return rows.map((row) => ({ userId: row._id, copies: row.copies }));
+  },
   equip: async (guildId, userId, copyId) => (await equipCopy(guildId, userId, copyId)).ok,
   unequip: async (guildId, userId, slot) => {
     await unequipSlot(guildId, userId, slot);
@@ -282,5 +317,10 @@ export const gearStore: GearStore = {
     if (result.ok) return 'ok';
     if (result.reason === 'already') return 'forged';
     return result.reason === 'not_owned' || result.reason === 'no_bonus' ? 'not_found' : result.reason;
+  },
+  sell: async (guildId, userId, copyIds) => {
+    const result = await sellCopies(guildId, userId, copyIds);
+    if (!result.ok) return result.reason;
+    return { count: saleCount(result.lines), earned: result.earned };
   },
 };

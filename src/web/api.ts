@@ -22,12 +22,15 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
  *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
  *   GET  /api/gear?guild=…    the member's gear in that server: GearView (gear.ts)
+ *   GET  /api/gear?guild=…&user=…   someone else's gear in that server, to look at: GearView without their points or komaGems
+ *   GET  /api/gear/members?guild=…   who in that server has gear, the member first: GearMembers
  *   POST /api/gear/equip {guild, copy}   puts on one of their copies: GearView
  *   POST /api/gear/unequip {guild, slot}   empties a slot: GearView
  *   POST /api/gear/unequip-all {guild}   empties every slot: GearView
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
  *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
  *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
+ *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn or in a loadout) for points: GearView & { sold: GearSale }
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
@@ -63,6 +66,14 @@ export interface Leaderboard {
   you: { rank: number; value: number } | null;
 }
 
+/** Who in a server has gear to look at (GET /api/gear/members): the one asking first, then whoever owns the most. */
+export interface GearMembers {
+  members: { userId: string; name: string; avatar: string; copies: number; you: boolean }[];
+}
+
+/** How many members GET /api/gear/members lists at most. */
+const GEAR_MEMBERS = 50;
+
 /** Who's on the site in a server (GET /api/live). */
 export interface Live {
   /** The one asking. */
@@ -87,7 +98,7 @@ export interface Me {
   games: Game[];
 }
 
-type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | RefineBlock | ForgeBlock;
+type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | RefineBlock | ForgeBlock;
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
   no_login: 404,
@@ -103,9 +114,14 @@ const STATUS: Record<ErrorCode, number> = {
   too_poor: 409,
   forged: 409,
   too_low: 409,
+  nothing_to_sell: 409,
 };
 
-const MAX_BODY_BYTES = 4096;
+/** Big enough for a sale of SELL_MAX copy ids. */
+const MAX_BODY_BYTES = 32_768;
+
+/** The most copies one POST /api/gear/sell sells. */
+const SELL_MAX = 1000;
 
 function send(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -204,7 +220,25 @@ async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
   if (!session.guildIds.includes(guildId) || !deps.guild(guildId) || (await deps.memberName(guildId, session.userId)) === null) return fail(res, 'not_member');
   const { userId } = session;
 
-  if (url.pathname === '/api/gear' && req.method === 'GET') return send(res, 200, await store.view(guildId, userId));
+  if (url.pathname === '/api/gear' && req.method === 'GET') {
+    const other = url.searchParams.get('user');
+    if (other === null || other === userId) return send(res, 200, await store.view(guildId, userId));
+    // Someone else's, to look at: only while they're in the server.
+    if (!/^\d{1,32}$/.test(other) || (await deps.memberName(guildId, other)) === null) return fail(res, 'not_found');
+    return send(res, 200, await store.peek(guildId, other));
+  }
+  if (url.pathname === '/api/gear/members' && req.method === 'GET') {
+    const owners = await store.owners(guildId, GEAR_MEMBERS);
+    const mine = owners.find((o) => o.userId === userId)?.copies ?? 0;
+    const rows = await Promise.all(
+      [{ userId, copies: mine }, ...owners.filter((o) => o.userId !== userId)].map(async ({ userId: id, copies }) => {
+        const name = id === userId ? session.name : await deps.memberName(guildId, id);
+        return name === null ? null : { userId: id, name, avatar: deps.avatar?.(guildId, id) ?? avatarUrl(id, id === userId ? session.avatar : null), copies, you: id === userId };
+      }),
+    );
+    const members: GearMembers = { members: rows.filter((row) => row !== null) };
+    return send(res, 200, members);
+  }
   if (url.pathname === '/api/gear/equip' && req.method === 'POST') {
     const copy = body?.copy;
     if (typeof copy !== 'string' || copy.length > 64) return fail(res, 'bad_request');
@@ -242,6 +276,14 @@ async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
     const result = await store.forge(guildId, userId, copy);
     if (result !== 'ok') return fail(res, result);
     return send(res, 200, await store.view(guildId, userId));
+  }
+  if (url.pathname === '/api/gear/sell' && req.method === 'POST') {
+    const copies = body?.copies;
+    if (!Array.isArray(copies) || copies.length === 0 || copies.length > SELL_MAX) return fail(res, 'bad_request');
+    if (!copies.every((copy): copy is string => typeof copy === 'string' && copy.length <= 64)) return fail(res, 'bad_request');
+    const sold = await store.sell(guildId, userId, [...new Set(copies)]);
+    if (sold === 'nothing_to_sell') return fail(res, sold);
+    return send(res, 200, { ...(await store.view(guildId, userId)), sold });
   }
   fail(res, 'not_found');
 }

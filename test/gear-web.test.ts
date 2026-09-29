@@ -8,6 +8,8 @@ import { DEFAULTS } from '../src/config.js';
 import { REFINE } from '../src/constants/index.js';
 import { loadoutsOf } from '../src/lib/game/items/loadouts.js';
 import { gearView, type GearStore } from '../src/web/gear.js';
+import { ITEMS_BY_ID } from '../src/data/items.js';
+import { sellPrice } from '../src/lib/game/items/sell.js';
 import { signSession } from '../src/web/login.js';
 import type { EquipmentDoc, Slot } from '../src/types.js';
 
@@ -86,6 +88,12 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
   const worn: Record<string, EquipmentDoc> = {};
   const store: GearStore = {
     view: async (guildId, userId) => gearView([{ _id: 'x1', itemId: 'rusty-dagger', level: 1 }], worn[`${guildId}/${userId}`], userId),
+    peek: async (_guildId, userId) => gearView([{ _id: 'y1', itemId: 'iron-longsword', level: 2 }], { weapon: 'y1' }, userId),
+    owners: async () => [
+      { userId: '22', copies: 7 },
+      { userId: 'u1', copies: 1 },
+      { userId: '33', copies: 3 }, // left the server
+    ],
     equip: async (guildId, userId, copy) => {
       if (copy !== 'x1') return false;
       worn[`${guildId}/${userId}`] = { weapon: copy };
@@ -101,12 +109,13 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     refine: async (_guildId, _userId, copy, material) =>
       copy === 'x1' ? (material === 'bad' ? 'bad_material' : 'ok') : copy === 'poor' ? 'too_poor' : 'not_found',
     forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
+    sell: async (_guildId, _userId, copies) => (copies.includes('x1') ? { count: copies.length, earned: 40 * copies.length } : 'nothing_to_sell'),
   };
   const deps: ApiDeps = {
     config: SITE,
     clientId: () => '999',
     guild: (id) => (id === 'g1' || id === 'g2' ? { name: id, icon: null } : null),
-    memberName: async (guildId) => (guildId === 'g1' ? 'ZEIU' : null),
+    memberName: async (guildId, userId) => (guildId !== 'g1' ? null : userId === 'u1' ? 'ZEIU' : userId === '22' ? 'Mira' : null),
     balance: async () => 0,
     gear: store,
   };
@@ -123,6 +132,21 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await fetch(`${base}/api/gear?guild=g2`, { headers })).status, 403); // left that server
     assert.equal((await fetch(`${base}/api/gear?guild=g3`, { headers })).status, 403);
     assert.equal((await fetch(`${base}/api/gear?guild=g1`, { headers: { Origin: SITE.origin } })).status, 401);
+
+    // Anyone else in the server with gear, to look at: the one asking first, and not whoever left.
+    const members = (await (await fetch(`${base}/api/gear/members?guild=g1`, { headers })).json()) as { members: { userId: string; name: string; copies: number; you: boolean }[] };
+    assert.deepEqual(members.members.map((m) => [m.userId, m.name, m.copies, m.you]), [
+      ['u1', 'ZEIU', 1, true],
+      ['22', 'Mira', 7, false],
+    ]);
+    assert.equal((await fetch(`${base}/api/gear/members?guild=g2`, { headers })).status, 403);
+    const theirs = await fetch(`${base}/api/gear?guild=g1&user=22`, { headers });
+    assert.equal(theirs.status, 200);
+    const peeked = (await theirs.json()) as { equipped: { weapon: string | null }; balance: number | null; gems: number | null };
+    assert.deepEqual([peeked.equipped.weapon, peeked.balance, peeked.gems], ['y1', null, null]);
+    assert.equal((await fetch(`${base}/api/gear?guild=g1&user=33`, { headers })).status, 404); // left the server
+    assert.equal((await fetch(`${base}/api/gear?guild=g1&user=nope`, { headers })).status, 404);
+    assert.equal(((await (await fetch(`${base}/api/gear?guild=g1&user=u1`, { headers })).json()) as { copies: { id: string }[] }).copies[0]!.id, 'x1'); // their own
 
     const equip = await fetch(`${base}/api/gear/equip`, { method: 'POST', headers, body: '{"guild":"g1","copy":"x1"}' });
     assert.equal(((await equip.json()) as { equipped: { weapon: string | null } }).equipped.weapon, 'x1');
@@ -161,6 +185,16 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal(((await (await post('/api/gear/forge', '{"guild":"g1","copy":"done"}')).json()) as { error: string }).error, 'forged');
     assert.equal((await post('/api/gear/forge', '{"guild":"g1","copy":"nope"}')).status, 404);
     assert.equal((await post('/api/gear/forge', '{"guild":"g1"}')).status, 400);
+
+    const sale = await post('/api/gear/sell', '{"guild":"g1","copies":["x1","x2","x2"]}');
+    assert.equal(sale.status, 200);
+    assert.deepEqual(((await sale.json()) as { sold: unknown }).sold, { count: 2, earned: 80 }); // the same copy twice counts once
+    const none = await post('/api/gear/sell', '{"guild":"g1","copies":["nope"]}');
+    assert.equal(none.status, 409);
+    assert.equal(((await none.json()) as { error: string }).error, 'nothing_to_sell');
+    assert.equal((await post('/api/gear/sell', '{"guild":"g1","copies":[]}')).status, 400);
+    assert.equal((await post('/api/gear/sell', '{"guild":"g1","copies":"x1"}')).status, 400);
+    assert.equal((await post('/api/gear/sell', '{"guild":"g1","copies":[7]}')).status, 400);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
@@ -194,6 +228,20 @@ test('gear page: each copy says whether it can be refined, and what the next lev
   const top = view.copies.find((c) => c.id === 'top')!.refine;
   assert.deepEqual([top.cost, top.spare, top.after], [null, null, null]);
   assert.equal(view.copies.find((c) => c.id === 'lone')!.refine.spare, null);
+});
+
+test('gear page: each copy says what it sells for, unless it is worn or saved in a loadout', () => {
+  const copies = [
+    { _id: 'worn', itemId: 'rusty-dagger', level: 1 },
+    { _id: 'saved', itemId: 'rusty-dagger', level: 1 },
+    { _id: 'spare', itemId: 'rusty-dagger', level: 1 },
+  ];
+  const loadouts = [
+    { number: 1, name: 'Loadout 1', active: true, equipment: { weapon: 'worn' } },
+    { number: 2, name: 'Loadout 2', active: false, equipment: { weapon: 'saved' } },
+  ];
+  const sell = Object.fromEntries(gearView(copies, { weapon: 'worn' }, 'x', loadouts).copies.map((c) => [c.id, c.sell]));
+  assert.deepEqual(sell, { worn: null, saved: null, spare: sellPrice(ITEMS_BY_ID.get('rusty-dagger')!.stars) });
 });
 
 test('gear page: each copy of a bonus item says whether it can be forged into a masterwork, and for how many komaGems', () => {
