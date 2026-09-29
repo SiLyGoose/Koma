@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { HOUR_MS, MAX_VAULT_CATCH_UP_MS } from '../constants/index.js';
 import { collections } from '../db.js';
-import type { LedgerDoc } from '../types.js';
+import type { LedgerDoc, LedgerReason } from '../types.js';
 import { ensureMember } from './economy/index.js';
 
 /*
@@ -125,53 +125,56 @@ export async function growVaults(now: Date = new Date()): Promise<void> {
   }
 }
 
-/** How many donors the vault command lists by name. */
-export const TOP_VAULT_DONORS = 5;
-
-export interface VaultBreakdown {
-  /** What's in the vault right now (donations can take it past events.vault.maxPool). */
-  pool: number;
-  /** What the next vault game would pay out of it: `pool`, at most events.vault.maxPool (see getVaultPool). */
-  payout: number;
-  /**
-   * What has been put in since the vault was last claimed, through losses and fines, donations,
-   * and the hourly growth, plus what was left over from that claim.
-   */
-  losses: number;
-  donated: number;
-  grown: number;
-  carriedOver: number;
-  /** When the vault was last claimed, or null if it never has been. */
-  claimedAt: Date | null;
-  /** The biggest donors, most given first (at most TOP_VAULT_DONORS). */
-  donors: { userId: string; amount: number }[];
-  /** How many members have donated since the last claim. */
-  donorCount: number;
+/** What's in the server's vault right now, and what the next vault game could pay out of it. */
+export async function getVaultTotals(guildId: string): Promise<{ pool: number; payout: number }> {
+  const doc = await collections().guilds.findOne({ _id: guildId });
+  const pool = doc?.vaultPool ?? 0;
+  return { pool, payout: cappedPool(pool) };
 }
 
-/** What's in the server's vault, and what has gone into it from where since it was last claimed (see GuildDoc.vaultLosses). */
-export async function getVaultBreakdown(guildId: string): Promise<VaultBreakdown> {
-  const { guilds, ledger } = collections();
-  const doc = await guilds.findOne({ _id: guildId });
-  const claimedAt = doc?.vaultClaimedAt ?? null;
-  const rows = await ledger
-    .aggregate<{ _id: string; amount: number }>([
-      { $match: { guildId, reason: 'vault_donation', ...(claimedAt ? { createdAt: { $gte: claimedAt } } : {}) } },
+/** A member and a points total, for the leaderboard's donor and loss boards. */
+export interface MemberTotal {
+  userId: string;
+  amount: number;
+}
+
+/**
+ * The ledger reasons that count toward a member's losses: every casino bet and what it paid back
+ * (so a win offsets a loss), and the fines and penalties that feed the vault.
+ */
+export const LOSS_REASONS: readonly LedgerReason[] = [
+  'plinko_bet', 'plinko_payout',
+  'blackjack_bet', 'blackjack_double', 'blackjack_payout', 'blackjack_refund',
+  'baccarat_bet', 'baccarat_payout',
+  'roulette_bet', 'roulette_payout',
+  'mines_bet', 'mines_payout',
+  'd20_penalty', 'rob_fine_paid', 'heist_fine', 'vault_fine',
+  'code_guess', 'code_refund',
+  'raid_boost', 'raid_stolen', 'raid_refund',
+];
+
+/** Sums each member's ledger `delta` over `reasons` (negated), keeping those above 0, most first. */
+async function topByLedger(guildId: string, reasons: readonly LedgerReason[], limit: number): Promise<MemberTotal[]> {
+  const rows = await collections()
+    .ledger.aggregate<{ _id: string; amount: number }>([
+      { $match: { guildId, reason: { $in: [...reasons] } } },
       { $group: { _id: '$userId', amount: { $sum: { $multiply: ['$delta', -1] } } } },
+      { $match: { amount: { $gt: 0 } } },
       { $sort: { amount: -1, _id: 1 } },
+      { $limit: limit },
     ])
     .toArray();
-  return {
-    pool: doc?.vaultPool ?? 0,
-    payout: cappedPool(doc?.vaultPool ?? 0),
-    losses: doc?.vaultLosses ?? 0,
-    grown: doc?.vaultGrown ?? 0,
-    carriedOver: doc?.vaultCarriedOver ?? 0,
-    claimedAt,
-    donated: rows.reduce((sum, row) => sum + row.amount, 0),
-    donors: rows.slice(0, TOP_VAULT_DONORS).map((row) => ({ userId: row._id, amount: row.amount })),
-    donorCount: rows.length,
-  };
+  return rows.map((row) => ({ userId: row._id, amount: row.amount }));
+}
+
+/** The members who have given the most to the vault, ever. */
+export function topVaultDonors(guildId: string, limit: number): Promise<MemberTotal[]> {
+  return topByLedger(guildId, ['vault_donation'], limit);
+}
+
+/** The members who have lost the most, ever: casino games net of what they won back, plus fines and penalties (LOSS_REASONS). */
+export function topLosers(guildId: string, limit: number): Promise<MemberTotal[]> {
+  return topByLedger(guildId, LOSS_REASONS, limit);
 }
 
 /** `pool`, never more than events.vault.maxPool: the most of it a vault game pays out. */

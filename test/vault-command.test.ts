@@ -40,22 +40,27 @@ test('donate command: says what was given and what the vault holds now', () => {
   assert.ok(line.includes(CURRENCY_EMOJI));
   assert.doesNotMatch(line, /at most/);
   assert.match(TEXT.vault.donateDone('<@1>', '500', '10,500', '5,000'), /at most \*\*.*5,000/);
-  assert.match(TEXT.vault.commandInfo('10,500', '5,000', 'x1', '5,000'), /at most \*\*.*5,000/);
+  assert.doesNotMatch(TEXT.vault.commandInfo('10,500', '5,000', 'x1'), /at most/);
   assert.match(TEXT.vault.donateUsage('k!'), /k!donate all/);
 });
 
-test('vault command: lists where the points came from, and the donors', () => {
-  const sources = TEXT.vault.sources('1,000', '250', '40');
-  assert.match(sources, /Losses: \*\*1,000\*\*/);
-  assert.match(sources, /Donations: \*\*250\*\*/);
-  assert.match(sources, /Hourly growth: \*\*40\*\*/);
-  assert.equal(sources.split('\n').length, 3);
-  const sinceClaim = TEXT.vault.sources('1,000', '250', '40', { at: '<t:1:R>', left: '75' });
-  assert.match(sinceClaim, /^Last claimed <t:1:R>, leaving \*\*75\*\*/);
-  assert.equal(sinceClaim.split('\n').length, 4);
-  assert.match(TEXT.vault.sourcesField(true), /since the last claim/);
-  assert.match(TEXT.vault.donorsField(true), /since the last claim/);
-  assert.match(TEXT.vault.donorLine(1, '<@1>', '250'), /^1\. <@1>: \*\*250\*\*/);
-  assert.match(TEXT.vault.moreDonors(3), /3 more/);
-  assert.match(TEXT.vault.noDonors('/'), /\/donate/);
+test('vault command: the donor and source breakdown moved to the leaderboard', () => {
+  for (const key of ['sources', 'sourcesField', 'donorsField', 'donorLine', 'moreDonors', 'noDonors']) assert.equal(key in TEXT.vault, false);
+  assert.match(TEXT.leaderboard.noDonors('/'), /\/donate/);
+});
+
+test('leaderboard: buttons for balances, top donors and losses', async () => {
+  const { LEADERBOARD_BUTTONS } = await import('../src/constants/index.js');
+  const ids = [LEADERBOARD_BUTTONS.balanceId, LEADERBOARD_BUTTONS.donorsId, LEADERBOARD_BUTTONS.lossesId];
+  assert.equal(new Set(ids).size, 3);
+  assert.equal(TEXT.leaderboard.donorsButton, 'Top donors');
+  assert.equal(TEXT.leaderboard.lossesButton, 'Losses');
+});
+
+test('leaderboard: losses count every casino bet and payout, and the vault fines', async () => {
+  const { LOSS_REASONS } = await import('../src/services/vault.js');
+  for (const reason of ['plinko_bet', 'plinko_payout', 'blackjack_refund', 'mines_payout', 'd20_penalty', 'heist_fine'] as const) {
+    assert.ok(LOSS_REASONS.includes(reason), reason);
+  }
+  assert.ok(!LOSS_REASONS.includes('vault_donation'));
 });

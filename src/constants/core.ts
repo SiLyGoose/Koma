@@ -54,6 +54,9 @@ export const MAX_TIMER_MINUTES = 10_080;
 /** Most rows the leaderboard setting can ask for. */
 export const MAX_LEADERBOARD_SIZE = 25;
 
+/** The leaderboard's buttons (balances, vault donors, losses): their ids, and how long they keep working after the last press. */
+export const LEADERBOARD_BUTTONS = { balanceId: 'lb_balance', donorsId: 'lb_donors', lossesId: 'lb_losses', idleMs: 120_000 };
+
 /** Longest command prefix the settings accept. */
 export const MAX_PREFIX_LENGTH = 10;
 
