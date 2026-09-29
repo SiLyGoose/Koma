@@ -4,6 +4,8 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { handleApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
+import { DEFAULTS } from '../src/config.js';
+import { REFINE } from '../src/constants/index.js';
 import { loadoutsOf } from '../src/lib/game/items/loadouts.js';
 import { gearView, type GearStore } from '../src/web/gear.js';
 import { signSession } from '../src/web/login.js';
@@ -51,6 +53,7 @@ test('gear page: copies come best first, with what each does, and only fitting c
       { number: 3, name: 'Loadout 3', active: false, equipped: none },
     ],
     balance: null,
+    gems: null,
   });
 });
 
@@ -96,6 +99,7 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     },
     switchLoadout: async (_guildId, _userId, number) => number !== 3, // 3 is always busy here
     refine: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'poor' ? 'too_poor' : 'not_found'),
+    forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -143,6 +147,14 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal(((await poor.json()) as { error: string }).error, 'too_poor');
     assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"nope"}')).status, 404);
     assert.equal((await post('/api/gear/refine', '{"guild":"g1"}')).status, 400);
+
+    assert.equal((await post('/api/gear/forge', '{"guild":"g1","copy":"x1"}')).status, 200);
+    const low = await post('/api/gear/forge', '{"guild":"g1","copy":"low"}');
+    assert.equal(low.status, 409);
+    assert.equal(((await low.json()) as { error: string }).error, 'too_low');
+    assert.equal(((await (await post('/api/gear/forge', '{"guild":"g1","copy":"done"}')).json()) as { error: string }).error, 'forged');
+    assert.equal((await post('/api/gear/forge', '{"guild":"g1","copy":"nope"}')).status, 404);
+    assert.equal((await post('/api/gear/forge', '{"guild":"g1"}')).status, 400);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
@@ -175,4 +187,28 @@ test('gear page: each copy says whether it can be refined, and what the next lev
   const top = view.copies.find((c) => c.id === 'top')!.refine;
   assert.deepEqual([top.cost, top.spare, top.after], [null, null, null]);
   assert.equal(view.copies.find((c) => c.id === 'lone')!.refine.spare, null);
+});
+
+test('gear page: each copy of a bonus item says whether it can be forged into a masterwork, and for how many komaGems', () => {
+  const copies = [
+    { _id: 'r5', itemId: 'ruby-pickaxe', level: 5 },
+    { _id: 'r3', itemId: 'ruby-pickaxe', level: 3 },
+    { _id: 'mw', itemId: 'ruby-pickaxe', level: 5, masterwork: true },
+    { _id: 'plain', itemId: 'rusty-dagger', level: 5 },
+  ];
+  const forge = (gems: number | null) =>
+    Object.fromEntries(gearView(copies, null, 'x', undefined, null, gems).copies.map((c) => [c.id, c.forge === null ? 'none' : c.forge.blocked]));
+
+  assert.deepEqual(forge(1_000_000), { r5: null, r3: 'too_low', mw: 'forged', plain: 'none' });
+  assert.equal(forge(0).r5, 'too_poor');
+  assert.equal(forge(null).r5, null); // gems not known: not held back
+
+  const view = gearView(copies, null, 'x', undefined, null, 40);
+  assert.equal(view.gems, 40);
+  const r5 = view.copies.find((c) => c.id === 'r5')!;
+  assert.deepEqual([r5.forge?.cost, r5.forge?.level], [DEFAULTS.refine.masterworkGems, REFINE.maxLevel]);
+  assert.ok(r5.forge?.after && !r5.forge.after.some((line) => line.startsWith('🔒')), 'once forged the bonus is on');
+  assert.ok(r5.effects.some((line) => line.startsWith('🔒')), 'not forged yet: the bonus is locked');
+  assert.equal(view.copies.find((c) => c.id === 'mw')!.forge?.after, null);
+  assert.equal(view.copies.find((c) => c.id === 'plain')!.forge, null);
 });

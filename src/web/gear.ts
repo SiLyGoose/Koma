@@ -1,3 +1,4 @@
+import { CONFIG } from '../config.js';
 import { collections } from '../db.js';
 import { REFINE } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
@@ -6,14 +7,15 @@ import { loadoutCopyIds, loadoutsOf, type LoadoutView } from '../lib/game/items/
 import { refineCost, refineLevel, refinePlan } from '../lib/game/items/refine.js';
 import { equippedCopyIds } from '../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../services/items/equipment.js';
+import { forgeMasterwork } from '../services/items/forge.js';
 import { refineItem } from '../services/items/refine.js';
 import { switchLoadout } from '../services/items/loadouts.js';
-import type { EquipmentDoc, ItemCopyDoc, Slot, Stars } from '../types.js';
+import type { EquipmentDoc, ItemCopyDoc, ItemDef, Slot, Stars } from '../types.js';
 import { gearStats, type StatSection } from './stats.js';
 import { SLOTS } from '../types.js';
 
 /*
- * The site's gear page (GET /api/gear, POST /api/gear/equip, /unequip, /unequip-all, /loadout and /refine):
+ * The site's gear page (GET /api/gear, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /refine and /forge):
  * every copy a member owns, what each one does at its level, which copy sits in each slot, and their
  * loadouts. The effect lines
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
@@ -39,6 +41,8 @@ export interface GearCopy {
   borrowed: number | null;
   /** Refining it (services/items/refine.ts), for the page's confirmation. */
   refine: GearRefine;
+  /** Forging it into a masterwork (services/items/forge.ts), for the page's confirmation: null when its item has no bonus. */
+  forge: GearForge | null;
 }
 
 /** Refining a copy: what the page asks the member to confirm. */
@@ -60,6 +64,21 @@ export interface GearRefine {
  */
 export type RefineBlock = 'maxed' | 'no_duplicate' | 'other_copy' | 'too_poor';
 
+/** Forging a copy into a masterwork: what the page asks the member to confirm. */
+export interface GearForge {
+  /** Why it can't be done now (null when it can). */
+  blocked: ForgeBlock | null;
+  /** What it costs in komaGems. */
+  cost: number;
+  /** The level it has to be refined to first. */
+  level: number;
+  /** What it would do once forged, as `effects` (null when it's forged already). */
+  after: string[] | null;
+}
+
+/** Why a copy can't be forged: it's a masterwork already, it isn't refined far enough, or they can't pay for it. */
+export type ForgeBlock = 'forged' | 'too_low' | 'too_poor';
+
 /** GET /api/gear: a member's gear. */
 export interface GearView {
   /** The copy id in each slot, or null when it's empty. */
@@ -74,6 +93,8 @@ export interface GearView {
   stats: StatSection[];
   /** Their points in the server (null when not known), for what a refine leaves them. */
   balance: number | null;
+  /** Their komaGems in the server (null when not known), for what a forge leaves them. */
+  gems: number | null;
 }
 
 /** One of a member's loadouts, as the gear page shows it. */
@@ -96,6 +117,8 @@ export interface GearStore {
   switchLoadout: (guildId: string, userId: string, number: number) => Promise<boolean>;
   /** Refines that copy one level: 'ok', or why not ('not_found' when they don't own it, 'busy' when their copies changed meanwhile). */
   refine: (guildId: string, userId: string, copyId: string) => Promise<'ok' | RefineBlock | 'not_found' | 'busy'>;
+  /** Forges that copy into a masterwork: 'ok', or why not ('not_found' when they don't own it or its item has no bonus). */
+  forge: (guildId: string, userId: string, copyId: string) => Promise<'ok' | ForgeBlock | 'not_found' | 'busy'>;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
@@ -129,10 +152,19 @@ function refineState(
   return { blocked: null, cost, spare, to };
 }
 
+/** Whether a copy of `item` at `level` can be forged, with their komaGems (null: not known, never too poor); null when `item` has no bonus. */
+function forgeState(item: ItemDef, level: number, masterwork: boolean, gems: number | null): Omit<GearForge, 'after'> | null {
+  if (!item.bonus) return null;
+  const cost = CONFIG.refine.masterworkGems;
+  const needed = item.bonus.level;
+  const blocked: ForgeBlock | null = masterwork ? 'forged' : level < needed ? 'too_low' : gems !== null && gems < cost ? 'too_poor' : null;
+  return { blocked, cost, level: needed };
+}
+
 /**
  * The gear page's view of `copies` (all a member owns), with `equipment` what they wear,
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
- * (null when not known: no refine is then held back for the price).
+ * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge).
  */
 export function gearView(
   copies: readonly CopyInfo[],
@@ -140,6 +172,7 @@ export function gearView(
   userId: string,
   loadouts: readonly LoadoutView[] = loadoutsOf({ equipment: equipment ?? undefined }),
   balance: number | null = null,
+  gems: number | null = null,
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
   const kept = new Set(wornIds);
@@ -167,9 +200,12 @@ export function gearView(
       effects: describeEffects(item, share, level, masterwork),
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
+      forge: null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, wornIds, kept, balance);
     view.refine = { ...refine, after: to === null ? null : describeEffects(item, share, to, masterwork) };
+    const forge = forgeState(item, level, masterwork, gems);
+    view.forge = forge && { ...forge, after: masterwork ? null : describeEffects(item, share, Math.max(level, forge.level), true) };
     list.push(view);
     byId.set(view.id, { view, piece: { item, level, bonus: masterwork } });
   }
@@ -203,6 +239,7 @@ export function gearView(
       equipped: loadout.active ? equipped : fitting(loadout.equipment),
     })),
     balance,
+    gems,
   };
 }
 
@@ -210,7 +247,7 @@ export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0);
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0);
   },
   equip: async (guildId, userId, copyId) => (await equipCopy(guildId, userId, copyId)).ok,
   unequip: async (guildId, userId, slot) => {
@@ -232,5 +269,14 @@ export const gearStore: GearStore = {
     const result = await refineItem(guildId, userId, item);
     if (result.ok) return 'ok';
     return result.reason === 'not_owned' ? 'not_found' : result.reason;
+  },
+  forge: async (guildId, userId, copyId) => {
+    const copy = await collections().items.findOne({ _id: copyId, guildId, userId });
+    const item = copy && ITEMS_BY_ID.get(copy.itemId);
+    if (!copy || !item) return 'not_found';
+    const result = await forgeMasterwork(guildId, userId, item, copyId);
+    if (result.ok) return 'ok';
+    if (result.reason === 'already') return 'forged';
+    return result.reason === 'not_owned' || result.reason === 'no_bonus' ? 'not_found' : result.reason;
   },
 };

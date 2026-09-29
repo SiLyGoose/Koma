@@ -22,17 +22,20 @@ export type ForgeResult =
   | { ok: false; reason: 'too_poor'; price: number; gems: number };
 
 /**
- * Forges the member's copy of `item` into a masterwork, turning on its bonus: the one they're wearing, else one saved in
- * another of their loadouts, else their best one (like refine picks).
+ * Forges the member's copy of `item` into a masterwork, turning on its bonus: copy `copyId` when given (the site's gear
+ * page), else the one they're wearing, else one saved in another of their loadouts, else their best one (like refine picks).
  */
-export async function forgeMasterwork(guildId: string, userId: string, item: ItemDef): Promise<ForgeResult> {
+export async function forgeMasterwork(guildId: string, userId: string, item: ItemDef, copyId?: string): Promise<ForgeResult> {
   if (!item.bonus) return { ok: false, reason: 'no_bonus' };
   const needed = item.bonus.level;
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
   const worn = equippedCopyIds(member?.equipment);
   const kept = loadoutCopyIds(member);
-  const target = copies.find((copy) => worn.has(copy._id)) ?? copies.find((copy) => kept.has(copy._id)) ?? bestCopy(copies);
+  const target =
+    copyId !== undefined
+      ? copies.find((copy) => copy._id === copyId)
+      : copies.find((copy) => worn.has(copy._id)) ?? copies.find((copy) => kept.has(copy._id)) ?? bestCopy(copies);
   if (!target) return { ok: false, reason: 'not_owned' };
   if (target.masterwork) return { ok: false, reason: 'already' };
   const level = refineLevel(target.level);
