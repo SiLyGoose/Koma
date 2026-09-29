@@ -5,6 +5,7 @@ import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
 import { recordLedger } from '../economy/shared.js';
+import { gearChanged } from './gear-events.js';
 
 /*
  * Refining (commands/refine.ts, rules in constants/items/refine.ts): one duplicate copy of an item and
@@ -65,6 +66,7 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef)
     return { ok: false, reason: 'busy' };
   }
   await recordLedger([{ guildId, userId, delta: -cost, reason: 'refine', itemId: item.id }]);
+  gearChanged(guildId, userId);
   return {
     ok: true,
     item,

@@ -6,6 +6,7 @@ import { refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import type { ItemDef } from '../../types.js';
 import { ensureMember, recordLedger } from '../economy/shared.js';
+import { gearChanged } from './gear-events.js';
 
 /*
  * Forging (commands/forge.ts): a 4-star item's R5 bonus (ItemDef.bonus) only works on a copy that
@@ -55,5 +56,6 @@ export async function forgeMasterwork(guildId: string, userId: string, item: Ite
     return { ok: false, reason: 'busy' };
   }
   if (price > 0) await recordLedger([{ guildId, userId, delta: 0, gemDelta: -price, reason: 'forge', itemId: item.id }]);
+  gearChanged(guildId, userId);
   return { ok: true, item, paid: price, gemsLeft: charged.gems ?? 0 };
 }

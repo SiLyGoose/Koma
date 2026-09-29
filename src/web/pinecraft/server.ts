@@ -3,6 +3,7 @@ import type { WebSocket } from 'ws';
 import { CONFIG } from '../../config.js';
 import { MINE_WEB, PINECRAFT_BREAK_MS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../../constants/index.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
+import { onGearChange } from '../../services/items/gear-events.js';
 import { breakMs, energyNow, gearBreakMs, indexOf, mapRows, move, newWorld, NO_GEAR, pinecraftGear, pinecraftWeek, SPAWN, stepFrom, viewRows, withGear, type PinecraftGear, type PinecraftRules } from '../../lib/game/pinecraft.js';
 import type { EffectTotals } from '../../perks/index.js';
 import { getEquipment } from '../../services/items/equipment.js';
@@ -114,10 +115,30 @@ export class PinecraftSession {
     }
   }
 
-  /** A page is playing this world: it is sent the world as it is, and gets every message about it from now on. */
-  attach(peer: Peer): void {
+  /**
+   * A page is playing this world: it gets every message about it from now on, starting with the
+   * world as it is, with the member's gear looked up fresh (they may have changed it since this world
+   * was loaded). Resolves once that has been sent.
+   */
+  attach(peer: Peer): Promise<void> {
     this.peer = peer;
-    peer.send({ t: 'state', seq: 0, state: this.view() });
+    this.queue = this.queue.then(async () => {
+      await this.refreshGear(true);
+      if (peer === this.peer) peer.send({ t: 'state', seq: 0, state: this.view() });
+    });
+    return this.queue;
+  }
+
+  /**
+   * The member's gear changed (gear-events.ts): it's looked up again, and the page is sent the world
+   * with it, as an answer to none of its moves (seq -1), so the miner stays where the page has them.
+   */
+  gearChanged(): Promise<void> {
+    this.queue = this.queue.then(async () => {
+      await this.refreshGear(true);
+      this.peer?.send({ t: 'state', seq: -1, state: this.view() });
+    });
+    return this.queue;
   }
 
   /** The page starts breaking the block `dir` of the miner. */
@@ -281,6 +302,13 @@ const sessions = new Map<string, Promise<PinecraftSession>>();
 /** The world a member is playing right now, if it's loaded. */
 export const findPinecraftSession = (guildId: string, userId: string): Promise<PinecraftSession> | undefined => sessions.get(playerKey({ guildId, userId }));
 
+// A miner playing when their gear changes (on the site, or in Discord) gets it at once.
+onGearChange((guildId, userId) => {
+  void findPinecraftSession(guildId, userId)
+    ?.then((session) => session.gearChanged())
+    .catch((err) => console.error('Could not give a Pinecraft miner their new gear:', err));
+});
+
 /** A few words on what a miner is doing, for the online list, from a message sent to their page. */
 function describe(message: ServerMessage): string | null {
   if (message.t !== 'state') return null;
@@ -339,8 +367,9 @@ export function servePinecraft(socket: WebSocket, deps: PinecraftDeps = realDeps
           session = loaded;
           const peer = hello.join();
           const before = session.peer;
-          session.attach(peer);
+          const attached = session.attach(peer);
           if (before && before !== peer) refuse(before, 'replaced');
+          await attached;
         },
 
         async message(player, peer, message) {

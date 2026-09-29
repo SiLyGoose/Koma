@@ -3,6 +3,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { bestCopy } from '../../lib/game/items/copies.js';
 import { SLOTS, type GearIds, type ItemDef, type Slot } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
+import { gearChanged } from './gear-events.js';
 import { resolveGear } from './gear.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 
@@ -51,6 +52,7 @@ export async function equipItem(guildId: string, userId: string, item: ItemDef):
     { returnDocument: 'before' },
   );
 
+  gearChanged(guildId, userId);
   const previousCopyId = before?.equipment?.[item.slot] ?? null;
   const previous = previousCopyId ? await items.findOne({ guildId, userId, _id: previousCopyId }) : null;
   return {
@@ -75,6 +77,7 @@ export async function equipCopy(guildId: string, userId: string, copyId: string)
   if (!copy || !item) return { ok: false, reason: 'not_owned' };
   await ensureMember(guildId, userId);
   await members.updateOne({ guildId, userId }, { $set: { [`equipment.${item.slot}`]: copy._id } });
+  gearChanged(guildId, userId);
   return { ok: true, slot: item.slot };
 }
 
@@ -90,6 +93,7 @@ export async function unequipSlot(
     { $set: { [`equipment.${slot}`]: null } },
     { returnDocument: 'before' },
   );
+  gearChanged(guildId, userId);
   const copyId = before?.equipment?.[slot] ?? null;
   const copy = copyId ? await items.findOne({ guildId, userId, _id: copyId }) : null;
   return { removedId: copy?.itemId ?? null };
@@ -99,4 +103,5 @@ export async function unequipSlot(
 export async function unequipAll(guildId: string, userId: string): Promise<void> {
   const { members } = collections();
   await members.updateOne({ guildId, userId }, { $set: Object.fromEntries(SLOTS.map((slot) => [`equipment.${slot}`, null])) });
+  gearChanged(guildId, userId);
 }

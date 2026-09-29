@@ -15,7 +15,7 @@ import type { Direction } from '../../lib/game/pinecraft.js';
  *                 move     one step; `seq` counts up from 1 with every move. Into a block, it finishes
  *                          breaking it: the bot holds the move until the block's break time has
  *                          passed since its `mine` (or since now, without one)
- *   bot -> page   state    the world around the miner, after the page's move `seq` (0: not after one)
+ *   bot -> page   state    the world around the miner, after the page's move `seq` (0: not after one; -1: the member's gear changed)
  *                 map      the map asked for
  *                 error    and the bot closes the connection
  *

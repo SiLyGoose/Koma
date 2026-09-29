@@ -31,6 +31,7 @@ import { handleApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { signSession, verifySession } from '../src/web/login.js';
 import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft/protocol.js';
+import { gearChanged } from '../src/services/items/gear-events.js';
 import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/pinecraft/server.js';
 import { verifyToken } from '../src/web/token.js';
 
@@ -391,7 +392,7 @@ test('pinecraft web: the page is told what the gear does, and a pickaxe breaks b
   const { deps, saved } = fakeDeps(4, { pickaxeSpeed: 0.5, pickaxeEnergyPenalty: 1, dynamiteBlast: 10 });
   const session = await sessionFor({ guildId: 'g4', userId: 'u4', name: 'ZEIU' }, deps);
   const peer = fakePeer();
-  session.attach(peer);
+  await session.attach(peer);
   const hello = peer.got[0];
   assert.ok(hello?.t === 'state');
   assert.equal(hello.state.breakMs.dirt, Math.round(PINECRAFT_BREAK_MS.dirt / 1.5));
@@ -413,7 +414,7 @@ test('pinecraft web: the miner is drawn with the pickaxe they have equipped, and
     const { deps } = fakeDeps(4, {}, weapon);
     const session = await sessionFor({ guildId: 'g5', userId: `u5-${weapon}`, name: 'ZEIU' }, deps);
     const peer = fakePeer();
-    session.attach(peer);
+    await session.attach(peer);
     const hello = peer.got[0];
     await leave(session, peer);
     return hello?.t === 'state' ? hello.state.pickaxe : null;
@@ -423,6 +424,37 @@ test('pinecraft web: the miner is drawn with the pickaxe they have equipped, and
   assert.equal(await pickaxeOf('ruby-pickaxe'), 'ruby');
   assert.equal(await pickaxeOf('dynamite-stick'), 'wood');
   assert.equal(await pickaxeOf(null), 'wood');
+});
+
+test('pinecraft web: a gear change reaches the open page at once, and a page joining a loaded world gets the gear as it is now', async () => {
+  let weapon: string | null = null;
+  const { deps } = fakeDeps(4);
+  deps.gear = async () => ({ effects: {}, weapon });
+  const player = { guildId: 'g6', userId: 'u6', name: 'ZEIU' };
+  const session = await sessionFor(player, deps);
+  const peer = fakePeer();
+  await session.attach(peer);
+  assert.ok(peer.got[0]?.t === 'state' && peer.got[0].state.pickaxe === 'wood');
+
+  // Switched to a loadout with a pickaxe (on the site, say): the page is sent it, not as an answer to a move.
+  weapon = 'ruby-pickaxe';
+  gearChanged('g6', 'u6');
+  await settle();
+  assert.equal(peer.got.length, 2);
+  const pushed = peer.got[1];
+  assert.ok(pushed?.t === 'state');
+  assert.equal(pushed.seq, -1);
+  assert.equal(pushed.state.pickaxe, 'ruby');
+  gearChanged('g6', 'someone-else'); // nobody else's page hears of it
+  await settle();
+  assert.equal(peer.got.length, 2);
+
+  // Another page takes over the world still loaded: it is sent the gear looked up just now.
+  weapon = 'golden-pickaxe';
+  const next = fakePeer();
+  await session.attach(next);
+  assert.ok(next.got[0]?.t === 'state' && next.got[0].seq === 0 && next.got[0].state.pickaxe === 'gold');
+  await leave(session, next);
 });
 
 // ---------------------------------------------------------------------------
@@ -479,6 +511,9 @@ function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> =
 /** How long block (x, y) of the world with `seed` takes to break, before anything is dug. */
 const breakTime = (seed: number, x: number, y: number): number => breakMs(newWorld(seed, RULES, 0), x, y) as number;
 
+/** Lets everything already started (all instant here) finish. */
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 20));
+
 function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean } {
   const peer = { got: [] as ServerMessage[], closed: false, send: (m: ServerMessage) => void peer.got.push(m), close: () => void (peer.closed = true) };
   return peer;
@@ -488,7 +523,7 @@ test('pinecraft web: a block is only broken once its break time has passed since
   const { deps, saved, clock } = fakeDeps(4);
   const session = await sessionFor({ guildId: 'g2', userId: 'u2', name: 'ZEIU' }, deps);
   const peer = fakePeer();
-  session.attach(peer);
+  await session.attach(peer);
   const grace = PINECRAFT_WEB.breakGraceMs;
   // To the edge of the room (a walk), then the dirt below it.
   await session.handle(peer, { t: 'move', dir: 'down', seq: 1 });
@@ -516,7 +551,7 @@ test('pinecraft web: the page gets the map when it asks, and at most once a seco
   const { deps, clock } = fakeDeps(6);
   const session = await sessionFor({ guildId: 'g3', userId: 'u3', name: 'ZEIU' }, deps);
   const peer = fakePeer();
-  session.attach(peer);
+  await session.attach(peer);
   const hello = peer.got[0];
   assert.ok(hello?.t === 'state');
   assert.deepEqual(hello.state.spawn, SPAWN);
@@ -540,7 +575,7 @@ test('pinecraft web: in a new week the world being played starts over, energy ke
   const { deps, saved, clock } = fakeDeps(4);
   const session = await sessionFor({ guildId: 'g5', userId: 'u5', name: 'ZEIU' }, deps);
   const peer = fakePeer();
-  session.attach(peer);
+  await session.attach(peer);
   // Dig two blocks down, then Saturday comes.
   await session.handle(peer, { t: 'move', dir: 'down', seq: 1 });
   await session.handle(peer, { t: 'move', dir: 'down', seq: 2 });
@@ -569,7 +604,7 @@ test('pinecraft web: a dig is saved before its ore is paid, and a new page takes
   const session = await sessionFor(player, deps);
   assert.equal(await sessionFor(player, deps), session);
   const first = fakePeer();
-  session.attach(first);
+  await session.attach(first);
   const hello = first.got[0];
   assert.ok(hello?.t === 'state');
   assert.equal(hello.seq, 0);
@@ -591,7 +626,7 @@ test('pinecraft web: a dig is saved before its ore is paid, and a new page takes
 
   // Another page takes over: the first is no longer listened to.
   const second = fakePeer();
-  session.attach(second);
+  await session.attach(second);
   await session.handle(first, { t: 'move', dir: 'down', seq: 3 });
   assert.equal(first.got.length, 3);
   await leave(session, first); // the old page closing changes nothing

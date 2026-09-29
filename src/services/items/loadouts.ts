@@ -2,6 +2,7 @@ import { collections } from '../../db.js';
 import { activeLoadoutOf, checkLoadoutName, loadoutName, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
 import type { GearIds } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
+import { gearChanged } from './gear-events.js';
 import { resolveGear } from './gear.js';
 
 /*
@@ -62,6 +63,7 @@ export async function switchLoadout(guildId: string, userId: string, to: number)
       { returnDocument: 'after' },
     );
     if (updated) {
+      gearChanged(guildId, userId);
       return { ok: true, from, to, name: loadoutName(updated, to), alreadyActive: false, gear: await resolveGear(guildId, userId, updated.equipment) };
     }
   }
