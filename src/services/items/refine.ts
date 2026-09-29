@@ -1,6 +1,6 @@
 import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
-import { refineCost, refinePlan } from '../../lib/game/items/refine.js';
+import { refineCopyPlan, refineCost, refinePlan } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
@@ -30,16 +30,24 @@ export type RefineResult =
       nextCost: number | null;
     }
   | { ok: false; reason: 'not_owned' | 'no_duplicate' | 'maxed'; level: number }
+  /** The material picked (on the site) isn't a copy that can be used up. Nothing was used up. */
+  | { ok: false; reason: 'bad_material'; level: number }
   /** They can't pay for it. `price` is what it costs, `balance` what they have. Nothing was used up. */
   | { ok: false; reason: 'too_poor'; level: number; price: number; balance: number }
   /** The copies changed while refining (another refine, sale or gift at the same moment). Nothing was used up. */
   | { ok: false; reason: 'busy' };
 
-/** Refines the member's worn (or saved, or best) copy of `item` by one level, using up their lowest-level copy that is in no loadout, and the price. */
-export async function refineItem(guildId: string, userId: string, item: ItemDef): Promise<RefineResult> {
+/**
+ * Refines the member's worn (or saved, or best) copy of `item` by one level, using up their
+ * lowest-level copy that is in no loadout, and the price. With `chosen` (the site's forge) it refines
+ * that copy instead, using up the material picked (or, with none, the lowest-level one it could use).
+ */
+export async function refineItem(guildId: string, userId: string, item: ItemDef, chosen?: { copy: string; material: string | null }): Promise<RefineResult> {
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
-  const plan = refinePlan(copies, equippedCopyIds(member?.equipment), loadoutCopyIds(member));
+  const worn = equippedCopyIds(member?.equipment);
+  const kept = loadoutCopyIds(member);
+  const plan = chosen ? refineCopyPlan(copies, chosen.copy, chosen.material, new Set([...worn, ...kept])) : refinePlan(copies, worn, kept);
   if (!plan.ok) return { ok: false, reason: plan.reason, level: plan.level };
 
   const cost = refineCost(item.stars, plan.to);

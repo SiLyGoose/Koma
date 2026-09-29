@@ -4,7 +4,7 @@ import { REFINE } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../lib/game/items/equipment.js';
 import { loadoutCopyIds, loadoutsOf, type LoadoutView } from '../lib/game/items/loadouts.js';
-import { refineCost, refineLevel, refinePlan } from '../lib/game/items/refine.js';
+import { refineCopyPlan, refineCost, refineLevel } from '../lib/game/items/refine.js';
 import { equippedCopyIds } from '../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../services/items/equipment.js';
 import { forgeMasterwork } from '../services/items/forge.js';
@@ -49,20 +49,20 @@ export interface GearCopy {
 export interface GearRefine {
   /** Why it can't be done now (null when it can). */
   blocked: RefineBlock | null;
-  /** What the next level costs in points (null at the top level, or when a refine would raise another copy). */
+  /** What the next level costs in points (null at the top level). */
   cost: number | null;
-  /** The level of the spare copy it would use up (null when there's none to use). */
+  /** The level of the spare copy it would use up when none is picked (null when there's none to use). */
   spare: number | null;
   /** What it would do at the next level, as `effects` (null when it can't go up). */
   after: string[] | null;
 }
 
 /**
- * Why a copy can't be refined: it's at the top level, there's no spare copy of it to use up, a refine
- * of its item would raise another copy (the one worn, saved in a loadout, or their best), or they
- * can't pay for it.
+ * Why a copy can't be refined: it's at the top level, there's no spare copy of it to use up (another
+ * copy of its item that isn't worn, saved in a loadout or a masterwork), or they can't pay for it.
+ * Every copy is refined as itself on the site, whatever level its item's other copies are at.
  */
-export type RefineBlock = 'maxed' | 'no_duplicate' | 'other_copy' | 'too_poor';
+export type RefineBlock = 'maxed' | 'no_duplicate' | 'too_poor';
 
 /** Forging a copy into a masterwork: what the page asks the member to confirm. */
 export interface GearForge {
@@ -115,8 +115,12 @@ export interface GearStore {
   unequipAll: (guildId: string, userId: string) => Promise<void>;
   /** False when their loadouts kept changing while switching (nothing changed). */
   switchLoadout: (guildId: string, userId: string, number: number) => Promise<boolean>;
-  /** Refines that copy one level: 'ok', or why not ('not_found' when they don't own it, 'busy' when their copies changed meanwhile). */
-  refine: (guildId: string, userId: string, copyId: string) => Promise<'ok' | RefineBlock | 'not_found' | 'busy'>;
+  /**
+   * Refines that copy one level, using up `materialId` (null: the lowest-level spare it could use): 'ok',
+   * or why not ('not_found' when they don't own it, 'bad_material' when that material can't be used up,
+   * 'busy' when their copies changed meanwhile).
+   */
+  refine: (guildId: string, userId: string, copyId: string, materialId: string | null) => Promise<'ok' | RefineBlock | 'bad_material' | 'not_found' | 'busy'>;
   /** Forges that copy into a masterwork: 'ok', or why not ('not_found' when they don't own it or its item has no bonus). */
   forge: (guildId: string, userId: string, copyId: string) => Promise<'ok' | ForgeBlock | 'not_found' | 'busy'>;
 }
@@ -124,25 +128,24 @@ export interface GearStore {
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
 
 /**
- * Whether refining `copyId` can be done, with the member's copies of its item (`sameItem`), the copies
- * they wear (`worn`) and keep in any loadout (`kept`), and their points (null: not known, never too
- * poor), and the level it would go up to (null when it can't).
+ * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
+ * copies they wear or keep in any loadout (`kept`, never used up), and their points (null: not known,
+ * never too poor), and the level it would go up to (null when it can't).
  */
 function refineState(
   copyId: string,
   sameItem: readonly CopyInfo[],
   stars: Stars,
-  worn: ReadonlySet<string>,
   kept: ReadonlySet<string>,
   balance: number | null,
 ): Omit<GearRefine, 'after'> & { to: number | null } {
-  const plan = refinePlan(
+  const plan = refineCopyPlan(
     sameItem.map((copy) => ({ ...copy, obtainedAt: copy.obtainedAt ?? new Date(0) })),
-    worn,
+    copyId,
+    null,
     kept,
   );
-  if (!plan.ok && plan.reason === 'not_owned') return { blocked: 'no_duplicate', cost: null, spare: null, to: null };
-  if (plan.target._id !== copyId) return { blocked: 'other_copy', cost: null, spare: null, to: null };
+  if (!plan.ok && (plan.reason === 'not_owned' || plan.reason === 'bad_material')) return { blocked: 'no_duplicate', cost: null, spare: null, to: null };
   const level = plan.ok ? plan.from : plan.level;
   const to = level < REFINE.maxLevel ? level + 1 : null;
   const cost = to === null ? null : refineCost(stars, to);
@@ -202,7 +205,7 @@ export function gearView(
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,
     };
-    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, wornIds, kept, balance);
+    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
     view.refine = { ...refine, after: to === null ? null : describeEffects(item, share, to, masterwork) };
     const forge = forgeState(item, level, masterwork, gems);
     view.forge = forge && { ...forge, after: masterwork ? null : describeEffects(item, share, Math.max(level, forge.level), true) };
@@ -257,16 +260,17 @@ export const gearStore: GearStore = {
     await unequipAll(guildId, userId);
   },
   switchLoadout: async (guildId, userId, number) => (await switchLoadout(guildId, userId, number)).ok,
-  refine: async (guildId, userId, copyId) => {
+  refine: async (guildId, userId, copyId, materialId) => {
     const { items, members } = collections();
     const copy = await items.findOne({ _id: copyId, guildId, userId });
     const item = copy && ITEMS_BY_ID.get(copy.itemId);
     if (!copy || !item) return 'not_found';
-    // A refine raises the copy the rules pick (refinePlan): only go ahead when that's this one.
+    // This copy is the one raised, whatever level its item's other copies are at.
     const [sameItem, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
-    const state = refineState(copyId, sameItem, item.stars, equippedCopyIds(member?.equipment), loadoutCopyIds(member), member?.points ?? 0);
+    const kept = new Set([...equippedCopyIds(member?.equipment), ...loadoutCopyIds(member)]);
+    const state = refineState(copyId, sameItem, item.stars, kept, member?.points ?? 0);
     if (state.blocked) return state.blocked;
-    const result = await refineItem(guildId, userId, item);
+    const result = await refineItem(guildId, userId, item, { copy: copyId, material: materialId });
     if (result.ok) return 'ok';
     return result.reason === 'not_owned' ? 'not_found' : result.reason;
   },

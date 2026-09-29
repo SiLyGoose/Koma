@@ -41,3 +41,36 @@ export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: Reado
   if (!fodder) return { ok: false, reason: 'no_duplicate', level: from, target };
   return { ok: true, target, fodder, from, to: from + 1 };
 }
+
+/** A refine of one chosen copy: as RefinePlan, or the material asked for can't be used up. */
+export type RefineCopyPlan<T> = RefinePlan<T> | { ok: false; reason: 'bad_material'; level: number; target: T };
+
+/**
+ * The copies a refine of `target` can use up: the member's other copies of its item that aren't worn,
+ * saved in a loadout (`kept`, the worn ones included) or a masterwork.
+ */
+export function refineMaterials<T extends CopyInfo>(copies: readonly T[], target: T, kept: ReadonlySet<string>): T[] {
+  return copies.filter((copy) => copy._id !== target._id && !kept.has(copy._id) && !copy.masterwork);
+}
+
+/**
+ * A refine of the copy the member picked (the site's forge, where every copy is its own, whatever
+ * level the others are at): it raises `targetId`, using up `materialId` (or, with none given, their
+ * lowest-level copy it could use, as refinePlan picks). `kept` is the copies worn or in any loadout.
+ */
+export function refineCopyPlan<T extends CopyInfo>(
+  copies: readonly T[],
+  targetId: string,
+  materialId: string | null,
+  kept: ReadonlySet<string>,
+): RefineCopyPlan<T> {
+  const target = copies.find((copy) => copy._id === targetId);
+  if (!target) return { ok: false, reason: 'not_owned', level: 0 };
+  const from = refineLevel(target.level);
+  if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from, target };
+  const materials = refineMaterials(copies, target, kept);
+  if (materials.length === 0) return { ok: false, reason: 'no_duplicate', level: from, target };
+  const fodder = materialId === null ? worstCopy(materials) : materials.find((copy) => copy._id === materialId);
+  if (!fodder) return { ok: false, reason: 'bad_material', level: from, target };
+  return { ok: true, target, fodder, from, to: from + 1 };
+}

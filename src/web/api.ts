@@ -26,7 +26,7 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/gear/unequip {guild, slot}   empties a slot: GearView
  *   POST /api/gear/unequip-all {guild}   empties every slot: GearView
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
- *   POST /api/gear/refine {guild, copy}   refines one of their copies a level: GearView
+ *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
  *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
@@ -87,7 +87,7 @@ export interface Me {
   games: Game[];
 }
 
-type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | RefineBlock | ForgeBlock;
+type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | RefineBlock | ForgeBlock;
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
   no_login: 404,
@@ -99,7 +99,7 @@ const STATUS: Record<ErrorCode, number> = {
   busy: 409,
   maxed: 409,
   no_duplicate: 409,
-  other_copy: 409,
+  bad_material: 409,
   too_poor: 409,
   forged: 409,
   too_low: 409,
@@ -229,8 +229,10 @@ async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
   }
   if (url.pathname === '/api/gear/refine' && req.method === 'POST') {
     const copy = body?.copy;
+    const material = body?.material ?? null;
     if (typeof copy !== 'string' || copy.length > 64) return fail(res, 'bad_request');
-    const result = await store.refine(guildId, userId, copy);
+    if (material !== null && (typeof material !== 'string' || material.length > 64)) return fail(res, 'bad_request');
+    const result = await store.refine(guildId, userId, copy, material);
     if (result !== 'ok') return fail(res, result);
     return send(res, 200, await store.view(guildId, userId));
   }

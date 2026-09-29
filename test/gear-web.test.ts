@@ -98,7 +98,8 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
       worn[`${guildId}/${userId}`] = {};
     },
     switchLoadout: async (_guildId, _userId, number) => number !== 3, // 3 is always busy here
-    refine: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'poor' ? 'too_poor' : 'not_found'),
+    refine: async (_guildId, _userId, copy, material) =>
+      copy === 'x1' ? (material === 'bad' ? 'bad_material' : 'ok') : copy === 'poor' ? 'too_poor' : 'not_found',
     forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
   };
   const deps: ApiDeps = {
@@ -142,6 +143,11 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":"2"}')).status, 400);
 
     assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"x1"}')).status, 200);
+    assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"x1","material":"x2"}')).status, 200);
+    const bad = await post('/api/gear/refine', '{"guild":"g1","copy":"x1","material":"bad"}');
+    assert.equal(bad.status, 409);
+    assert.equal(((await bad.json()) as { error: string }).error, 'bad_material');
+    assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"x1","material":7}')).status, 400);
     const poor = await post('/api/gear/refine', '{"guild":"g1","copy":"poor"}');
     assert.equal(poor.status, 409);
     assert.equal(((await poor.json()) as { error: string }).error, 'too_poor');
@@ -172,8 +178,9 @@ test('gear page: each copy says whether it can be refined, and what the next lev
   const refine = (balance: number | null) =>
     Object.fromEntries(gearView(copies, { weapon: 'worn' }, 'x', undefined, balance).copies.map((c) => [c.id, c.refine.blocked]));
 
-  // The worn dagger is the one a refine raises (using up the spare), so only it can be.
-  assert.deepEqual(refine(1_000_000), { worn: null, spare: 'other_copy', lone: 'no_duplicate', top: 'maxed', 'top-spare': 'other_copy' });
+  // Every copy is refined as itself: the worn dagger can use up the spare, but the spare has nothing to
+  // use up (the worn one never is); the spare longsword can use up the R5 one, which is in no loadout.
+  assert.deepEqual(refine(1_000_000), { worn: null, spare: 'no_duplicate', lone: 'no_duplicate', top: 'maxed', 'top-spare': null });
   assert.equal(refine(0).worn, 'too_poor');
   assert.equal(refine(null).worn, null); // points not known: not held back
 

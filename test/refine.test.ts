@@ -4,7 +4,7 @@ import { DEFAULTS } from '../src/config.js';
 import { REFINE, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { describeEffects, equippedGear, gearEffects, totalEffects } from '../src/lib/game/items/equipment.js';
-import { refineCost, refineLevel, refinePlan, refineShare } from '../src/lib/game/items/refine.js';
+import { refineCopyPlan, refineCost, refineLevel, refinePlan, refineShare } from '../src/lib/game/items/refine.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 import type { ItemDef } from '../src/types.js';
 
@@ -87,6 +87,35 @@ test('refine plan: raises the worn copy (or the best), uses up the lowest other 
   assert.deepEqual(refinePlan([], new Set()), { ok: false, reason: 'not_owned', level: 0 });
   const max = copy('max', 5, 1);
   assert.deepEqual(refinePlan([max, spareLow], new Set()), { ok: false, reason: 'maxed', level: 5, target: max });
+});
+
+test('refine of a chosen copy: raises that copy whatever the others are at, using up the material picked', () => {
+  const copy = (_id: string, level: number, obtained: number, masterwork = false) => ({ _id, level, obtainedAt: at(obtained), masterwork });
+  const worn = copy('worn', 3, 1);
+  const low = copy('low', 1, 5);
+  const high = copy('high', 2, 2);
+  const mw = copy('mw', 5, 3, true);
+  const copies = [worn, low, high, mw];
+  const kept = new Set(['worn']);
+
+  // The R1 spare is raised, not the worn R3, using up the R2 picked.
+  const picked = refineCopyPlan(copies, 'low', 'high', kept);
+  assert.ok(picked.ok);
+  assert.deepEqual([picked.target._id, picked.fodder._id, picked.from, picked.to], ['low', 'high', 1, 2]);
+
+  // No material picked: the lowest-level one it could use.
+  const auto = refineCopyPlan(copies, 'high', null, kept);
+  assert.ok(auto.ok);
+  assert.equal(auto.fodder._id, 'low');
+
+  // Never a worn or kept copy, a masterwork, or the copy itself.
+  for (const material of ['worn', 'mw', 'high', 'nope']) {
+    assert.deepEqual(refineCopyPlan(copies, 'high', material, kept), { ok: false, reason: 'bad_material', level: 2, target: high }, material);
+  }
+  assert.deepEqual(refineCopyPlan([worn, mw], 'worn', null, kept), { ok: false, reason: 'no_duplicate', level: 3, target: worn });
+  assert.deepEqual(refineCopyPlan(copies, 'gone', null, kept), { ok: false, reason: 'not_owned', level: 0 });
+  const max = copy('max', 5, 1);
+  assert.deepEqual(refineCopyPlan([max, low], 'max', 'low', kept), { ok: false, reason: 'maxed', level: 5, target: max });
 });
 
 test('refine cost: points by star tier and level, the lower tiers a share of the 4-star prices', () => {
