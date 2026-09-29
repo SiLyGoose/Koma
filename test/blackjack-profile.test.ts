@@ -93,10 +93,10 @@ test('image paint: shows the picture over its square, is see-through where the p
 });
 
 test('names: simplified to what the font can spell, with a fallback', () => {
-  assert.equal(cleanName('Simon', 'PLAYER 1'), 'SIMON');
+  assert.equal(cleanName('ZEIU', 'PLAYER 1'), 'ZEIU');
   assert.equal(cleanName('José Ñandú', 'PLAYER 1'), 'JOSE NANDU');
   assert.equal(cleanName('  a    b  ', 'PLAYER 1'), 'A B');
-  assert.equal(cleanName('Ｓｉｍｏｎ', 'PLAYER 1'), 'SIMON', 'wide letters');
+  assert.equal(cleanName('Ｓｉｍｏｎ', 'PLAYER 1'), 'ZEIU', 'wide letters');
   assert.equal(cleanName('sly_goose-9!', 'PLAYER 1'), 'SLY_GOOSE-9!');
   assert.equal(cleanName('😀🎲', 'PLAYER 2'), 'PLAYER 2', 'only emoji');
   assert.equal(cleanName('東京', 'PLAYER 3'), 'PLAYER 3', 'another alphabet');
@@ -107,7 +107,7 @@ test('names: simplified to what the font can spell, with a fallback', () => {
 
 test('names: cut with two dots to fit, keeping at least one letter', () => {
   const wide = (text: string): number => [...text].length; // only used for comparing lengths below
-  assert.equal(fitName('SIMON', 200), 'SIMON');
+  assert.equal(fitName('ZEIU', 200), 'ZEIU');
   const cut = fitName('BARTHOLOMEW THE THIRD', 50);
   assert.ok(cut.endsWith('..') && cut.length < 21 && wide(cut) > 3, cut);
   assert.equal(fitName('BARTHOLOMEW', 1)[0], 'B');
@@ -200,18 +200,18 @@ const card = (rank: number, suit: Card['suit']): Card => ({ rank, suit });
 
 test('table picture: a player is drawn with their picture where the number used to be, and the name changes the picture', () => {
   const blue = flat(16, 16, [40, 90, 220, 255]);
-  const withPicture = renderTable({ seats: [{ name: 'Simon', avatar: blue, cards: [], bet: 10 }], dealer: [] });
+  const withPicture = renderTable({ seats: [{ name: 'ZEIU', avatar: blue, cards: [], bet: 10 }], dealer: [] });
   // One seat sits in the middle of the table; the picture is a circle 34 pixels across, centred at y 190.
   assert.ok(close(pixelAt(withPicture, TABLE_WIDTH / 2, 190), [40, 90, 220], 6), 'the picture is at the seat');
   assert.ok(!close(pixelAt(withPicture, TABLE_WIDTH / 2 + 40, 190), [40, 90, 220], 40), 'and only there');
 
-  const without = renderTable({ seats: [{ name: 'Simon', cards: [], bet: 10 }], dealer: [] });
+  const without = renderTable({ seats: [{ name: 'ZEIU', cards: [], bet: 10 }], dealer: [] });
   assert.ok(!close(pixelAt(without, TABLE_WIDTH / 2, 205), [40, 90, 220], 30), 'no picture: a coloured circle with a letter instead');
   assert.notDeepEqual(Buffer.from(withPicture), Buffer.from(without));
 
   const other = renderTable({ seats: [{ name: 'Anna', avatar: blue, cards: [], bet: 10 }], dealer: [] });
   assert.notDeepEqual(Buffer.from(withPicture), Buffer.from(other), 'the name is drawn');
-  const same = renderTable({ seats: [{ name: 'Simon', avatar: blue, cards: [], bet: 10 }], dealer: [] });
+  const same = renderTable({ seats: [{ name: 'ZEIU', avatar: blue, cards: [], bet: 10 }], dealer: [] });
   assert.deepEqual(Buffer.from(withPicture), Buffer.from(same));
 
   // Emoji-only names still draw (as "PLAYER 1"), and an open seat does too.

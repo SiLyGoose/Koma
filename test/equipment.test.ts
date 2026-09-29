@@ -355,8 +355,8 @@ test('jew frog: 4-star defaults are a 25% cut and a 25% rob tax, both normal set
 // ---------------------------------------------------------------------------
 // Exclusive items (usableBy)
 
-const ALVIN = '111111111111111111';
-const HELEN = '222222222222222222';
+const INU = '111111111111111111';
+const HXLON = '222222222222222222';
 const STRANGER = '333333333333333333';
 const exclusiveBlade: ItemDef = {
   id: 'test-exclusive-blade',
@@ -365,13 +365,13 @@ const exclusiveBlade: ItemDef = {
   slot: 'weapon',
   description: '',
   effects: ['robChance', 'robAmount'],
-  usableBy: [ALVIN, HELEN],
+  usableBy: [INU, HXLON],
 };
 const openBlade: ItemDef = { ...exclusiveBlade, id: 'test-open-blade', name: 'Open Blade', usableBy: undefined };
 
 test('exclusive items: only the listed members and the admin can use one, and no list means everyone', () => {
-  assert.equal(canUseItem(exclusiveBlade, ALVIN), true);
-  assert.equal(canUseItem(exclusiveBlade, HELEN), true);
+  assert.equal(canUseItem(exclusiveBlade, INU), true);
+  assert.equal(canUseItem(exclusiveBlade, HXLON), true);
   assert.equal(canUseItem(exclusiveBlade, STRANGER), false);
   assert.equal(canUseItem(exclusiveBlade, ADMIN_USER_ID), true, 'the admin can test everything');
   assert.equal(canUseItem(openBlade, STRANGER), true);
@@ -380,7 +380,7 @@ test('exclusive items: only the listed members and the admin can use one, and no
 test("exclusive items: someone else's works at equipment.borrowed.effectiveness, everything else in full", () => {
   assert.equal(CONFIG.equipment.borrowed.effectiveness, 0.5);
   assert.equal(itemEffectiveness(exclusiveBlade, STRANGER), 0.5);
-  assert.equal(itemEffectiveness(exclusiveBlade, ALVIN), 1);
+  assert.equal(itemEffectiveness(exclusiveBlade, INU), 1);
   assert.equal(itemEffectiveness(exclusiveBlade, ADMIN_USER_ID), 1);
   assert.equal(itemEffectiveness(openBlade, STRANGER), 1);
   // The gear card shows what the wearer really gets.
@@ -394,8 +394,8 @@ test('exclusive items: an equipped one adds all its effects for members it is fo
   ITEMS_BY_ID.set(exclusiveBlade.id, exclusiveBlade);
   try {
     const equipment = { weapon: exclusiveBlade.id };
-    assert.equal(gearEffects(equipment, ALVIN).robChance, CONFIG.equipment.robChance[4]);
-    assert.equal(gearEffects(equipment, ALVIN).robAmount, CONFIG.equipment.robAmount[4]);
+    assert.equal(gearEffects(equipment, INU).robChance, CONFIG.equipment.robChance[4]);
+    assert.equal(gearEffects(equipment, INU).robAmount, CONFIG.equipment.robAmount[4]);
     assert.equal(gearEffects(equipment, STRANGER).robChance, CONFIG.equipment.robChance[4] * 0.5);
     assert.equal(gearEffects(equipment, STRANGER).robAmount, CONFIG.equipment.robAmount[4] * 0.5);
     assert.equal(gearEffects(equipment, ADMIN_USER_ID).robChance, CONFIG.equipment.robChance[4]);
@@ -418,10 +418,10 @@ test('exclusive items: the catalog check refuses an empty list or something that
       catalog.pop();
     }
   };
-  check([ALVIN]);
+  check([INU]);
   check(undefined);
   assert.throws(() => check([]), /empty usableBy/);
-  assert.throws(() => check(['alvin']), /not a Discord user id/);
-  assert.throws(() => check([ALVIN, '12345']), /not a Discord user id/);
+  assert.throws(() => check(['INU']), /not a Discord user id/);
+  assert.throws(() => check([INU, '12345']), /not a Discord user id/);
   validateItems();
 });

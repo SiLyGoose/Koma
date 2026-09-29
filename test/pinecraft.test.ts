@@ -389,7 +389,7 @@ test('pinecraft gear: energy comes back faster with the canary', () => {
 
 test('pinecraft web: the page is told what the gear does, and a pickaxe breaks blocks sooner', async () => {
   const { deps, saved } = fakeDeps(4, { pickaxeSpeed: 0.5, pickaxeEnergyPenalty: 1, dynamiteBlast: 10 });
-  const session = await sessionFor({ guildId: 'g4', userId: 'u4', name: 'Simon' }, deps);
+  const session = await sessionFor({ guildId: 'g4', userId: 'u4', name: 'ZEIU' }, deps);
   const peer = fakePeer();
   session.attach(peer);
   const hello = peer.got[0];
@@ -411,7 +411,7 @@ test('pinecraft web: the page is told what the gear does, and a pickaxe breaks b
 test('pinecraft web: the miner is drawn with the pickaxe they have equipped, and a wooden one otherwise', async () => {
   const pickaxeOf = async (weapon: string | null) => {
     const { deps } = fakeDeps(4, {}, weapon);
-    const session = await sessionFor({ guildId: 'g5', userId: `u5-${weapon}`, name: 'Simon' }, deps);
+    const session = await sessionFor({ guildId: 'g5', userId: `u5-${weapon}`, name: 'ZEIU' }, deps);
     const peer = fakePeer();
     session.attach(peer);
     const hello = peer.got[0];
@@ -486,7 +486,7 @@ function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean } {
 
 test('pinecraft web: a block is only broken once its break time has passed since the page started on it', async () => {
   const { deps, saved, clock } = fakeDeps(4);
-  const session = await sessionFor({ guildId: 'g2', userId: 'u2', name: 'Simon' }, deps);
+  const session = await sessionFor({ guildId: 'g2', userId: 'u2', name: 'ZEIU' }, deps);
   const peer = fakePeer();
   session.attach(peer);
   const grace = PINECRAFT_WEB.breakGraceMs;
@@ -514,7 +514,7 @@ test('pinecraft web: a block is only broken once its break time has passed since
 
 test('pinecraft web: the page gets the map when it asks, and at most once a second', async () => {
   const { deps, clock } = fakeDeps(6);
-  const session = await sessionFor({ guildId: 'g3', userId: 'u3', name: 'Simon' }, deps);
+  const session = await sessionFor({ guildId: 'g3', userId: 'u3', name: 'ZEIU' }, deps);
   const peer = fakePeer();
   session.attach(peer);
   const hello = peer.got[0];
@@ -538,7 +538,7 @@ test('pinecraft: the weeks are the same as the raid weeks, starting Saturday at 
 
 test('pinecraft web: in a new week the world being played starts over, energy kept', async () => {
   const { deps, saved, clock } = fakeDeps(4);
-  const session = await sessionFor({ guildId: 'g5', userId: 'u5', name: 'Simon' }, deps);
+  const session = await sessionFor({ guildId: 'g5', userId: 'u5', name: 'ZEIU' }, deps);
   const peer = fakePeer();
   session.attach(peer);
   // Dig two blocks down, then Saturday comes.
@@ -565,7 +565,7 @@ test('pinecraft web: in a new week the world being played starts over, energy ke
 
 test('pinecraft web: a dig is saved before its ore is paid, and a new page takes over the same world', async () => {
   const { deps, saved } = fakeDeps(4);
-  const player = { guildId: 'g1', userId: 'u1', name: 'Simon' };
+  const player = { guildId: 'g1', userId: 'u1', name: 'ZEIU' };
   const session = await sessionFor(player, deps);
   assert.equal(await sessionFor(player, deps), session);
   const first = fakePeer();
@@ -614,7 +614,7 @@ const SITE: WebConfig = {
 };
 
 test('login: a session says who logged in, and a changed or foreign one says nobody', () => {
-  const session = { userId: '123', name: 'Simon', avatar: null, guildIds: ['g1'] };
+  const session = { userId: '123', name: 'ZEIU', avatar: null, guildIds: ['g1'] };
   const token = signSession(session, 'shh', 1000);
   assert.deepEqual(verifySession(token, 'shh', 2000), session);
   assert.equal(verifySession(token, 'other', 2000), null);
@@ -638,11 +638,11 @@ test('login: the site logs in with Discord, sees its servers, and gets a link to
     config: SITE,
     clientId: () => '999',
     guild: (id) => (id === 'g1' ? { name: 'Koma Club', icon: null } : null),
-    memberName: async (guildId, userId) => (guildId === 'g1' && userId === '123' ? 'Simon in Koma' : null),
+    memberName: async (guildId, userId) => (guildId === 'g1' && userId === '123' ? 'ZEIU in Koma' : null),
     balance: async () => 1234,
     login: async (code) => {
       if (code !== 'good') throw new Error('bad code');
-      return { userId: '123', name: 'Simon', avatar: 'abc', guildIds: ['g1', 'g2'] };
+      return { userId: '123', name: 'ZEIU', avatar: 'abc', guildIds: ['g1', 'g2'] };
     },
   };
   const site = { Origin: SITE.origin, 'Content-Type': 'application/json' };
@@ -674,7 +674,7 @@ test('login: the site logs in with Discord, sees its servers, and gets a link to
     const { url } = (await play.json()) as { url: string };
     assert.ok(url.startsWith('https://koma-ui.vercel.app/games/pinecraft/#t='));
     const token = decodeURIComponent(new URLSearchParams(new URL(url).hash.slice(1)).get('t') ?? '');
-    assert.deepEqual(verifyToken(token), { guildId: 'g1', userId: '123', name: 'Simon in Koma' });
+    assert.deepEqual(verifyToken(token), { guildId: 'g1', userId: '123', name: 'ZEIU in Koma' });
     assert.equal((await fetch(`${base}/api/play`, { method: 'POST', headers: auth, body: '{"guild":"g2","game":"mines"}' })).status, 403);
     assert.equal((await fetch(`${base}/api/play`, { method: 'POST', headers: auth, body: '{"guild":"g1","game":"poker"}' })).status, 400);
   });

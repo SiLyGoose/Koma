@@ -9,6 +9,12 @@ export const robText = {
   victimBroke: (victim: string) => `${victim} has no ${CURRENCY_EMOJI} to steal.`,
   victimBusy: (victim: string) => `Someone else is robbing ${victim} right now. Try again in a moment.`,
   footer: (chance: string) => `Success chance: ${chance}`,
+  /** MP5: the footer when a rob had more than one roll. `chance` is each roll's, `overall` at least one hit. */
+  footerRolls: (chance: string, rolls: number, overall: string) => `Success chance: ${chance} x${rolls} (${overall} overall)`,
+  /** MP5: which roll of the burst hit. */
+  rollHit: (used: number, of: number) => `🔫 Hit on shot ${used} of ${of}.`,
+  /** MP5: every roll of the burst missed. */
+  rollsMissed: (of: number) => `🔫 All ${of} shots missed.`,
   success: (robber: string, victim: string, stolen: string) =>
     `${robber} robbed ${victim} and got away with ${boldMoney(stolen)}`,
   /** Added to a successful rob when the robber's gear made the take bigger. `amount` is how many points more. */

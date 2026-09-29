@@ -14,6 +14,7 @@ import { maxHpDamage } from './raid/max-hp-damage.js';
 import { blastLoss, dynamiteBlast, energyRegen, freeDig, luckyOre, oreValueCut, pickaxeEnergyPenalty, pickaxeSpeed } from './pinecraft/index.js';
 import { pullDiscount } from './economy/pull-discount.js';
 import { robStreak, robStreakCap, robVulnerable } from './items/thoccy.js';
+import { burstFire, burstRecoil } from './items/mp5.js';
 import { rallyBoost } from './raid/rally-boost.js';
 import { robAmountCut } from './rob/rob-amount-cut.js';
 import { robAmount } from './rob/rob-amount.js';
@@ -80,6 +81,9 @@ export const EFFECTS = {
   robStreak,
   robStreakCap,
   robVulnerable,
+  // MP5.
+  burstFire,
+  burstRecoil,
   // Pinecraft.
   pickaxeSpeed,
   pickaxeEnergyPenalty,

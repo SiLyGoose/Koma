@@ -150,10 +150,10 @@ test('baccarat table: chips show to everyone as they go down, within the limit a
   resetLive();
   resetTables();
   const { deps } = fakeTable([4, 3, 4, 3], { u2: 50 });
-  const a = await join(deps, 'u1', 'Simon');
-  const b = await join(deps, 'u2', 'Alvin');
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
   await a.connection.receive(bets(1, { banker: 100, kirin: 10 }));
-  assert.deepEqual(b.page.last().seats.find((s) => s.userId === 'u1')?.bets, { banker: 100, kirin: 10 }, 'Alvin sees the chips');
+  assert.deepEqual(b.page.last().seats.find((s) => s.userId === 'u1')?.bets, { banker: 100, kirin: 10 }, 'INU sees the chips');
   assert.equal(online('g1').find((p) => p.userId === 'u1')?.status, `Table 1 · 2/${BACCARAT_TABLE.seats} · 110 down`);
 
   await b.connection.receive(bets(1, { player: 60 }));
@@ -172,21 +172,21 @@ test('baccarat table: when the betting time is up, one round is dealt and everyo
   resetTables();
   // Player 8 against Banker 6: a natural.
   const { deps, tick, played, balances } = fakeTable([4, 3, 4, 3], { u1: 1000, u2: 1000, u3: 1000 });
-  const a = await join(deps, 'u1', 'Simon');
-  const b = await join(deps, 'u2', 'Alvin');
-  const t = await join(deps, 'u3', 'Trina');
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  const t = await join(deps, 'u3', 'LUNAEA');
   await a.connection.receive(bets(1, { player: 100 }));
   await b.connection.receive(bets(1, { banker: 200, tie: 10 }));
-  // Trina has no chips down: she sits the round out.
+  // LUNAEA has no chips down: she sits the round out.
   await tick(BACCARAT_TABLE.bettingMs);
   const state = t.page.last();
   assert.equal(state.phase, 'dealing');
   assert.equal(state.msLeft, BACCARAT_TABLE.showMs);
   assert.deepEqual([state.round?.no, state.round?.winner, state.round?.playerTotal, state.round?.bankerTotal], [1, 'player', 8, 6]);
-  const [simon, alvin, trina] = state.seats;
-  assert.deepEqual([simon?.result?.net, simon?.balance, simon?.lastBets], [100, 1100, { player: 100 }]);
-  assert.deepEqual([alvin?.result?.net, alvin?.balance], [-210, 790]);
-  assert.equal(trina?.result, null);
+  const [ZEIU, INU, LUNAEA] = state.seats;
+  assert.deepEqual([ZEIU?.result?.net, ZEIU?.balance, ZEIU?.lastBets], [100, 1100, { player: 100 }]);
+  assert.deepEqual([INU?.result?.net, INU?.balance], [-210, 790]);
+  assert.equal(LUNAEA?.result, null);
   assert.deepEqual(played, [['u1', 100], ['u2', 210]]);
   assert.deepEqual(balances, { u1: 1100, u2: 790, u3: 1000 });
   assert.match(online('g1').find((p) => p.userId === 'u2')?.status ?? '', /Player wins · −210/);
@@ -210,15 +210,15 @@ test('baccarat table: chips a player can no longer cover are refused at the deal
   resetLive();
   resetTables();
   const { deps, tick, balances } = fakeTable([4, 3, 4, 3], { u1: 1000, u2: 1000 });
-  const a = await join(deps, 'u1', 'Simon');
-  const b = await join(deps, 'u2', 'Alvin');
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
   await a.connection.receive(bets(1, { player: 800 }));
   await b.connection.receive(bets(1, { player: 100 }));
   balances.u1 = 300; // spent in Discord meanwhile
   await tick(BACCARAT_TABLE.bettingMs);
-  const [simon, alvin] = b.page.last().seats;
-  assert.deepEqual([simon?.refused, simon?.result, simon?.balance], [true, null, 300]);
-  assert.deepEqual([alvin?.refused, alvin?.result?.net], [false, 100]);
+  const [ZEIU, INU] = b.page.last().seats;
+  assert.deepEqual([ZEIU?.refused, ZEIU?.result, ZEIU?.balance], [true, null, 300]);
+  assert.deepEqual([INU?.refused, INU?.result?.net], [false, 100]);
   a.connection.closed();
   b.connection.closed();
 });
@@ -227,8 +227,8 @@ test('baccarat table: a new page takes over the seat, and a bad message or token
   resetLive();
   resetTables();
   const { deps } = fakeTable([4, 3, 4, 3]);
-  const first = await join(deps, 'u1', 'Simon');
-  const second = await join(deps, 'u1', 'Simon');
+  const first = await join(deps, 'u1', 'ZEIU');
+  const second = await join(deps, 'u1', 'ZEIU');
   assert.deepEqual(first.page.got.at(-1), { t: 'error', code: 'replaced' });
   assert.equal(first.page.closed, true);
   assert.deepEqual(second.page.last().seats.map((s) => s.userId), ['u1'], 'still one seat');
@@ -252,7 +252,7 @@ test('baccarat table: alone at a table, voting to deal deals at once (with chips
   resetLive();
   resetTables();
   const { deps, played } = fakeTable([4, 3, 4, 3]);
-  const a = await join(deps, 'u1', 'Simon');
+  const a = await join(deps, 'u1', 'ZEIU');
   // No chips on the table: nothing to deal, the vote just stands.
   await a.connection.receive(vote());
   assert.deepEqual([a.page.last().phase, a.page.last().seats[0]?.ready], ['betting', true]);
@@ -269,16 +269,16 @@ test('baccarat table: with others, the round is dealt once everyone has voted, a
   resetLive();
   resetTables();
   const { deps, tick, played } = fakeTable([4, 3, 4, 3]);
-  const a = await join(deps, 'u1', 'Simon');
-  const b = await join(deps, 'u2', 'Alvin');
-  const c3 = await join(deps, 'u3', 'Trina');
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  const c3 = await join(deps, 'u3', 'LUNAEA');
   await a.connection.receive(bets(1, { player: 100 }));
   await a.connection.receive(vote());
   await b.connection.receive(vote());
   assert.deepEqual(c3.page.last().seats.map((s) => s.ready), [true, true, false], 'everyone sees who voted');
   await b.connection.receive(vote(false));
   await c3.connection.receive(vote());
-  assert.equal(a.page.last().phase, 'betting', 'Alvin took his vote back');
+  assert.equal(a.page.last().phase, 'betting', 'INU took his vote back');
   await b.connection.receive(vote());
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(a.page.last().phase, 'dealing');
@@ -294,8 +294,8 @@ test('baccarat table: the last one who hasn’t voted leaving deals the round', 
   resetLive();
   resetTables();
   const { deps, played } = fakeTable([4, 3, 4, 3]);
-  const a = await join(deps, 'u1', 'Simon');
-  const b = await join(deps, 'u2', 'Alvin');
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
   await a.connection.receive(bets(1, { banker: 50 }));
   await a.connection.receive(vote());
   b.connection.closed();

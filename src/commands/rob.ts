@@ -10,6 +10,17 @@ import type { Command } from '../discord/types.js';
 function caughtText(
   robber: string,
   victim: string,
+  result: { fine: number; owed: number; waived: number; raised: number; vulnerable: number | null; rolls: { of: number } | null },
+): string {
+  // MP5: every shot missed.
+  const missed = result.rolls !== null ? `${TEXT.rob.rollsMissed(result.rolls.of)}
+` : '';
+  return missed + caughtBody(robber, victim, result);
+}
+
+function caughtBody(
+  robber: string,
+  victim: string,
   result: { fine: number; owed: number; waived: number; raised: number; vulnerable: number | null },
 ): string {
   // Thoccy Keyboard: a failed rob leaves its wearer vulnerable.
@@ -38,9 +49,12 @@ function successNotes(
     slip: { returned: number; penalty: number } | null;
     streak: { count: number; rate: number; bonus: number } | null;
     vulnerableBonus: number;
+    rolls: { used: number; of: number } | null;
   },
 ): string {
   const lines: string[] = [];
+  // MP5: which shot hit.
+  if (result.rolls !== null) lines.push(TEXT.rob.rollHit(result.rolls.used, result.rolls.of));
   // Thoccy Keyboard: the streak and a vulnerable victim, which add to the take first.
   if (result.streak !== null && result.streak.bonus > 0) {
     lines.push(TEXT.rob.streak(result.streak.count, ROB_STREAK_WINDOW_MS / 3_600_000, formatPercent(result.streak.rate), fmt(result.streak.bonus)));
@@ -109,7 +123,11 @@ export const rob: Command = {
       return;
     }
 
-    const embed = createEmbed().setFooter({ text: TEXT.rob.footer(formatPercent(result.chance)) });
+    const footer =
+      result.rolls !== null
+        ? TEXT.rob.footerRolls(formatPercent(result.chance), result.rolls.of, formatPercent(result.overallChance))
+        : TEXT.rob.footer(formatPercent(result.chance));
+    const embed = createEmbed().setFooter({ text: footer });
 
     if (result.success) {
       embed

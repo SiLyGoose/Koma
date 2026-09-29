@@ -5,11 +5,13 @@ import { collections } from '../../db.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
 import { chance, randInt } from '../../lib/random.js';
 import {
+  anyRollHits,
   applyWheel,
   claimTaxRate,
   emptyTotals,
   robCooldownScale,
   robFine,
+  robRolls,
   robStolenAmount,
   robSuccessChance,
   robTaxAmount,
@@ -42,7 +44,10 @@ export type RobResult =
   | {
       ok: true;
       success: true;
+      /** The chance of each roll. */
       chance: number;
+      /** The chance at least one roll hit (the same as `chance` with one roll). */
+      overallChance: number;
       stolen: number;
       robberBalance: number;
       victimBalance: number;
@@ -72,11 +77,16 @@ export type RobResult =
       streak: { count: number; rate: number; bonus: number } | null;
       /** Thoccy Keyboard: the points taken because the victim was vulnerable (0 when they weren't). */
       vulnerableBonus: number;
+      /** MP5: which roll hit (`used`) out of how many the robber had (`of`); null with only one roll. */
+      rolls: { used: number; of: number } | null;
     }
   | {
       ok: true;
       success: false;
+      /** The chance of each roll. */
       chance: number;
+      /** The chance at least one roll hit (the same as `chance` with one roll). */
+      overallChance: number;
       /** What the robber paid (capped at what they had). */
       fine: number;
       /** The fine after the robber's gear, before checking what they could afford. */
@@ -89,6 +99,8 @@ export type RobResult =
       victimBalance: number;
       /** Thoccy Keyboard: the robber is vulnerable now, and the next successful rob against them takes this share more (null when not). */
       vulnerable: number | null;
+      /** MP5: how many rolls all missed; null with only one roll. */
+      rolls: { used: number; of: number } | null;
     };
 
 export async function rob(guildId: string, robberId: string, victimId: string): Promise<RobResult> {
@@ -146,6 +158,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
   // The victim's armor protects them even while they're offline.
   const victimGear = gearEffects(await resolveGear(guildId, victimId, victim?.equipment), victimId);
   const successChance = robSuccessChance(cfg.successChance, cfg, robberGear, victimGear);
+  // MP5: a rob can roll its chance more than once, and succeeds on the first hit.
+  const rollCount = robRolls(robberGear);
+  const overallChance = anyRollHits(successChance, rollCount);
 
   // Set once this rob has started the victim's protection timer, so it can be undone on failure.
   let releaseVictimSlot: (() => Promise<unknown>) | null = null;
@@ -187,7 +202,15 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       return { ok: false, reason: 'victim_too_poor', minBalance: cfg.minVictimBalance };
     }
 
-    if (chance(successChance)) {
+    let rollsUsed = 0;
+    let hit = false;
+    while (!hit && rollsUsed < rollCount) {
+      rollsUsed++;
+      hit = chance(successChance);
+    }
+    const rolls = rollCount > 1 ? { used: rollsUsed, of: rollCount } : null;
+
+    if (hit) {
       // Start the victim's protection timer first, so two simultaneous robbers can't both get through.
       // Recorded for its own sake (not used to block anything any more): if the steal below
       // doesn't end up happening, releaseVictimSlot puts the old value back.
@@ -248,6 +271,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               ok: true,
               success: true,
               chance: successChance,
+              overallChance,
               stolen: transfer.moved,
               robberBalance: back.fromBalance,
               victimBalance: back.toBalance,
@@ -263,6 +287,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               // Undone, so neither counts: no streak, and the victim stays vulnerable.
               streak: null,
               vulnerableBonus: 0,
+              rolls,
             };
           }
         } catch (err) {
@@ -396,6 +421,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         ok: true,
         success: true,
         chance: successChance,
+        overallChance,
         stolen: transfer.moved,
         robberBalance,
         victimBalance: transfer.fromBalance,
@@ -409,6 +435,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         slip: null,
         streak: streakCount > 0 ? { count: streakCount, rate, bonus: streakBonus } : null,
         vulnerableBonus,
+        rolls,
       };
     }
 
@@ -434,6 +461,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         ok: true,
         success: false,
         chance: successChance,
+        overallChance,
         fine: 0,
         owed,
         waived,
@@ -441,6 +469,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         robberBalance: robber?.points ?? 0,
         victimBalance: victim?.points ?? 0,
         vulnerable,
+        rolls,
       };
     }
     await recordLedger([
@@ -453,6 +482,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       ok: true,
       success: false,
       chance: successChance,
+      overallChance,
       fine: transfer.moved,
       owed,
       waived,
@@ -461,6 +491,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       robberBalance: transfer.fromBalance,
       victimBalance: transfer.toBalance,
       vulnerable,
+      rolls,
     };
   } catch (err) {
     if (releaseVictimSlot) await releaseVictimSlot();

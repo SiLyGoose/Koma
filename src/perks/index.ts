@@ -31,6 +31,7 @@ export * from './d20/index.js';
 export * from './pinecraft/index.js';
 export * from './economy/pull-discount.js';
 export * from './items/thoccy.js';
+export * from './items/mp5.js';
 export * from './rob/rob-tax.js';
 export * from './items/bubble-beam.js';
 export * from './items/sloth-cooldown.js';

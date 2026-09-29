@@ -13,12 +13,12 @@ import { claimMiner, releaseMiner } from '../src/services/casino/mines.js';
 // ---------------------------------------------------------------------------
 // Links
 
-const SIMON: Player = { guildId: 'g1', userId: 'u1', name: 'Simon' };
+const ZEIU: Player = { guildId: 'g1', userId: 'u1', name: 'ZEIU' };
 
 test('mines web: a token lets its player in until it runs out, and a changed or foreign one lets nobody in', () => {
   const key = randomBytes(32);
-  const token = signToken(SIMON, 1000, 5000, key);
-  assert.deepEqual(verifyToken(token, 5500, key), SIMON);
+  const token = signToken(ZEIU, 1000, 5000, key);
+  assert.deepEqual(verifyToken(token, 5500, key), ZEIU);
   assert.equal(verifyToken(token, 6001, key), null);
   assert.equal(verifyToken(`${token.slice(0, -2)}xx`, 5500, key), null);
   assert.equal(verifyToken(token, 5500, randomBytes(32)), null);
@@ -29,10 +29,10 @@ test('mines web: a token lets its player in until it runs out, and a changed or 
   const other = Buffer.from(Buffer.from(body, 'base64url').toString('utf8').replace('u1', 'u2')).toString('base64url');
   assert.equal(verifyToken(`${other}.${signature}`, 5500, key), null);
   // Any name survives the round trip, dots and all.
-  const odd = { ...SIMON, name: 'a.b "c" ⛏️' };
+  const odd = { ...ZEIU, name: 'a.b "c" ⛏️' };
   assert.deepEqual(verifyToken(signToken(odd, 1000, 0, key), 10, key), odd);
-  assert.equal(playerKey(SIMON), 'g1:u1');
-  assert.ok(signToken(SIMON, 1000).length < 300);
+  assert.equal(playerKey(ZEIU), 'g1:u1');
+  assert.ok(signToken(ZEIU, 1000).length < 300);
 });
 
 test('mines web: a member plays one run at a time, in Discord and on the web alike', () => {
@@ -144,7 +144,7 @@ function fakeDeps(): SessionDeps & { settled: [string, number | null][]; saved: 
 
 test('mines web: the page is only told what has been turned over, until the round is over', async () => {
   const deps = fakeDeps();
-  const session = new MineSession({ runId: 'r1', player: SIMON, bet: 100, balance: 900, run: runWith([13, 20, 21]), rules: RULES }, deps);
+  const session = new MineSession({ runId: 'r1', player: ZEIU, bet: 100, balance: 900, run: runWith([13, 20, 21]), rules: RULES }, deps);
   const peer = fakePeer();
   session.attach(peer);
 
@@ -152,7 +152,7 @@ test('mines web: the page is only told what has been turned over, until the roun
   assert.equal(first?.t, 'state');
   if (first?.t !== 'state') return;
   assert.equal(first.seq, 0);
-  assert.equal(first.state.player, 'Simon');
+  assert.equal(first.state.player, 'ZEIU');
   assert.equal(first.state.balance, 900);
   assert.equal(first.state.mines, 3);
   assert.ok(first.state.tiles.every((t) => t === null));
@@ -186,7 +186,7 @@ test('mines web: the page is only told what has been turned over, until the roun
   assert.equal(boom.state.balance, 1000); // after the payout (0 here)
   assert.deepEqual(deps.settled, [['r1', 0]]);
   assert.deepEqual(await session.ended, { status: 'boom', settled: { ok: true, bet: 100, payout: 0, balance: 1000 } });
-  assert.equal(findSession(SIMON), undefined);
+  assert.equal(findSession(ZEIU), undefined);
 
   // Nothing more happens once it is over.
   await session.handle(peer, { t: 'pick', index: 0, seq: 4 });
@@ -195,7 +195,7 @@ test('mines web: the page is only told what has been turned over, until the roun
 
 test('mines web: cashing out pays the multiplier (not before the first gem), and only the page attached last is listened to', async () => {
   const deps = fakeDeps();
-  const player = { ...SIMON, userId: 'u2' };
+  const player = { ...ZEIU, userId: 'u2' };
   const session = new MineSession({ runId: 'r2', player, bet: 100, balance: 900, run: runWith([0, 1, 2]), rules: RULES }, deps);
   assert.equal(findSession(player), session);
   const first = fakePeer();
@@ -223,7 +223,7 @@ test('mines web: cashing out pays the multiplier (not before the first gem), and
 
 test('mines web: the last gem cashes the round out by itself', async () => {
   const deps = fakeDeps();
-  const session = new MineSession({ runId: 'r4', player: { ...SIMON, userId: 'u4' }, bet: 100, balance: 900, run: runWith(Array.from({ length: 24 }, (_, i) => i + 1)), rules: RULES }, deps);
+  const session = new MineSession({ runId: 'r4', player: { ...ZEIU, userId: 'u4' }, bet: 100, balance: 900, run: runWith(Array.from({ length: 24 }, (_, i) => i + 1)), rules: RULES }, deps);
   const peer = fakePeer();
   session.attach(peer);
   await session.handle(peer, { t: 'pick', index: 0, seq: 1 });
@@ -239,7 +239,7 @@ test('mines web: a round that failed partway is cashed out at what it reached', 
   deps.save = async () => {
     throw new Error('database down');
   };
-  const session = new MineSession({ runId: 'r3', player: { ...SIMON, userId: 'u3' }, bet: 100, balance: 900, run: runWith([0]), rules: RULES }, deps);
+  const session = new MineSession({ runId: 'r3', player: { ...ZEIU, userId: 'u3' }, bet: 100, balance: 900, run: runWith([0]), rules: RULES }, deps);
   const peer = fakePeer();
   session.attach(peer);
   const errors = console.error;
