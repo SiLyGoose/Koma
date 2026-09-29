@@ -34,11 +34,7 @@ export const balance: Command = {
       .addFields(
       {
         name: TEXT.balance.claimField,
-        value: info.bonusClaim
-          ? TEXT.balance.claimBonusReady(ctx.prefix)
-          : info.canClaim
-            ? TEXT.balance.claimReady(ctx.prefix)
-            : TEXT.balance.claimWait(info.nextClaimUnix),
+        value: info.canClaim ? TEXT.balance.claimReady(ctx.prefix) : TEXT.balance.claimWait(info.nextClaimUnix),
       },
       {
         name: TEXT.balance.robField,

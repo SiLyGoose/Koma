@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { D20 } from '../../constants/index.js';
-import { d20Multiplier } from '../../perks/index.js';
+import { d20Scale } from '../../perks/index.js';
 import { drawText } from './render/pixel-font.js';
 import { LINE, textOn } from './render/palette.js';
 import { encodePng } from './render/png.js';
@@ -54,9 +54,9 @@ const FACES: { points: [Point, Point, Point]; light: number }[] = [
   { points: [T[2] as Point, V[4] as Point, V[5] as Point], light: 1 },
 ];
 
-/** The color of the die showing `roll`: the wheel's colors for the same multiplier (red for a 1, gold for a 20). */
+/** The color of the die showing `roll`: the wheel's colors for roll / D20.divisor (red for a 1, gold for a 20). */
 export function d20Color(roll: number): Rgb {
-  return sliceColor(d20Multiplier(roll));
+  return sliceColor(d20Scale(roll));
 }
 
 const shade = (color: Rgb, light: number): Rgb => [

@@ -29,7 +29,7 @@ export const claim: Command = {
     // What happened, in the order it happened: the claim, the wheel, then the D20.
     const lines: string[] = [
       failed && d20
-        ? TEXT.d20.fail(user, d20.roll)
+        ? TEXT.d20.fail(user, d20.roll, d20.bonus ?? 1, result.d20Penalty > 0 ? fmt(result.d20Penalty) : '')
         : result.bonus > 0
           ? TEXT.claim.claimedWithGear(user, fmt(result.amount), fmt(result.bonus))
           : TEXT.claim.claimed(user, fmt(result.amount)),
@@ -39,10 +39,9 @@ export const claim: Command = {
     if (d20 && !failed) {
       const multiplier = formatMultiplier(d20.multiplier);
       const change = d20Bonus === 0 ? '' : signed(d20Bonus);
-      lines.push(d20.kind === 'success' ? TEXT.d20.critical(d20.roll, multiplier, change) : TEXT.d20.landed(d20.roll, multiplier, change));
+      lines.push(d20.bonus !== null ? TEXT.d20.critical(d20.roll, d20.bonus, multiplier, change) : TEXT.d20.landed(d20.roll, multiplier, change));
     }
     if (stonks) lines.push(TEXT.stonks.landed(formatMultiplier(stonks), stonksBonus === 0 ? '' : signed(stonksBonus)));
-    if (result.bonusLeft) lines.push(TEXT.d20.claimAgain);
     if (result.taxed) {
       lines.push(TEXT.claim.taxed(mention(result.taxed.toUserId), fmt(result.taxed.amount), fmt(result.amount - result.taxed.amount)));
     }
@@ -52,13 +51,8 @@ export const claim: Command = {
       .setDescription(lines.join('\n'))
       .addFields(
         { name: TEXT.claim.balanceField, value: money(result.balance), inline: true },
-        {
-          name: TEXT.claim.nextField,
-          value: result.bonusLeft ? TEXT.d20.nextBonus(result.nextClaimUnix) : TEXT.claim.next(result.nextClaimUnix),
-          inline: true,
-        },
+        { name: TEXT.claim.nextField, value: TEXT.claim.next(result.nextClaimUnix), inline: true },
       );
-    if (result.extra) embed.setFooter({ text: TEXT.d20.bonusFooter });
 
     // The die takes the animation if it rolled (a member with both a wheel and a die, which only
     // the admin can be, still sees the wheel's line in the text); otherwise the wheel does.

@@ -5,7 +5,7 @@ import { dayKey, raidWeek } from '../lib/events/raid-week.js';
 import { skipPrice, skipsUsedOn } from '../lib/game/skips.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
 import type { LedgerReason, MemberDoc, RaidDoc, SkipId } from '../types.js';
-import { claimReadyHour, hasBonusClaim } from './economy/claim.js';
+import { claimReadyHour } from './economy/claim.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 import { extraRaidId, raidId } from './raid.js';
 
@@ -73,7 +73,7 @@ export const claimSkip = memberSkip({
   waitingUntil: (member, now) => {
     const hour = currentHour(now);
     const readyHour = claimReadyHour(member);
-    return hasBonusClaim(member, hour) || readyHour <= hour ? null : nextHourUnix(readyHour - 1);
+    return readyHour <= hour ? null : nextHourUnix(readyHour - 1);
   },
   // The claim is ready once lastClaimHour is at least one hour back with a gap of 1. Moving it back
   // only as far as last hour means STONKS! sees a one-hour wait, not the time before the last claim.

@@ -6,7 +6,7 @@ import { playAnimation, stepsFor } from './play.js';
 import type { CommandContext, ReplyOptions } from '../discord/types.js';
 
 /**
- * Sends the result of a claim that rolled the D20, as a short animation: a "rolling" message with
+ * Sends the result of a claim or rob that rolled the D20, as a short animation: a "rolling" message with
  * a tumbling die, its picture swapped every D20_ANIMATION.frameMs (slowing down, showing other
  * numbers) until the die lands on the real roll and the message becomes `embed`, the real result
  * (see `playAnimation` for how failures and slow edits are handled).

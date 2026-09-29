@@ -76,7 +76,7 @@ export function validateConstants(): void {
     problems.push('D20_ANIMATION needs 0 < minSeconds <= maxSeconds');
   }
   if (!Number.isInteger(D20.sides) || D20.sides < 3) problems.push('D20.sides must be a whole number of at least 3');
-  if (!(D20.critMultiplier >= 1)) problems.push('D20.critMultiplier must be at least 1');
+  if (!Number.isInteger(D20.bonusSides) || D20.bonusSides < 1) problems.push('D20.bonusSides must be a whole number of at least 1');
   if (!(D20.divisor > 0)) problems.push('D20.divisor must be above 0');
   if (!Number.isInteger(PLINKO_ROWS) || PLINKO_ROWS < 2 || PLINKO_ROWS > 10 || PLINKO_ROWS % 2 !== 0) {
     problems.push('PLINKO_ROWS must be an even number from 2 to 10');

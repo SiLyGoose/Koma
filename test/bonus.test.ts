@@ -21,8 +21,8 @@ test('D20 lines: the points the die added come after the multiplier, and are lef
   assert.equal(TEXT.d20.landed(13, '1.3x'), 'The D20 landed on **13**: **1.3x**.');
   assert.equal(TEXT.d20.landed(13, '1.3x', '+120'), `The D20 landed on **13**: **1.3x** (**+120** ${CURRENCY_EMOJI}).`);
   assert.equal(TEXT.d20.landed(4, '0.4x', '-240'), `The D20 landed on **4**: **0.4x** (**-240** ${CURRENCY_EMOJI}).`);
-  assert.equal(TEXT.d20.critical(20, '2x'), 'Critical success! The D20 landed on **20** and paid **2x**.');
-  assert.equal(TEXT.d20.critical(20, '2x', '+400'), `Critical success! The D20 landed on **20** and paid **2x** (**+400** ${CURRENCY_EMOJI}).`);
+  assert.equal(TEXT.d20.critical(20, 2, '2x'), 'Critical success! The D20 landed on **20**, and the d3 rolled **2**: **2x**.');
+  assert.equal(TEXT.d20.critical(20, 2, '2x', '+400'), `Critical success! The D20 landed on **20**, and the d3 rolled **2**: **2x** (**+400** ${CURRENCY_EMOJI}).`);
 });
 
 test('rob lines: what the robber gear, the victim armor and a raised fine did', () => {

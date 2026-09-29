@@ -9,7 +9,10 @@ import {
   applyD20,
   d20Chance,
   d20Kind,
-  d20Multiplier,
+  d20Penalty,
+  d20RobChance,
+  d20RobTake,
+  d20Scale,
   EFFECTS,
   emptyTotals,
   rollD20,
@@ -22,7 +25,7 @@ import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { readPng } from './helpers/png.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 
-const dice = (trigger: number, face: number): D20Dice => ({ trigger, face });
+const dice = (trigger: number, face: number, bonus = 0): D20Dice => ({ trigger, face, bonus });
 
 const pose = (shown: number, over: Partial<{ turn: number; lift: number; squash: number }> = {}) => ({ shown, turn: 0, lift: 0, squash: 1, ...over });
 
@@ -50,29 +53,63 @@ test('d20: it rolls with the chance given and not at all at 0', () => {
   assert.equal(rollD20(5, dice(0.999, 0.5))?.roll, 11, 'a chance above 100% is held to 100%');
 });
 
-test('d20: 1 is a critical fail, 20 a critical success, and the rest pay the roll divided by 10', () => {
+test('d20: 1 is a critical fail, 20 a critical success, and the rest scale by the roll divided by 10', () => {
   assert.equal(d20Kind(1), 'fail');
   assert.equal(d20Kind(20), 'success');
   for (let roll = 2; roll <= 19; roll++) assert.equal(d20Kind(roll), 'normal');
-  assert.equal(d20Multiplier(1), 0);
-  assert.equal(d20Multiplier(2), 0.2);
-  assert.equal(d20Multiplier(10), 1);
-  assert.equal(d20Multiplier(19), 1.9);
-  assert.equal(d20Multiplier(20), 2);
-  const roll = rollD20(1, dice(0, 6.5 / 20));
-  assert.deepEqual(roll, { roll: 7, kind: 'normal', multiplier: 0.7 });
+  assert.equal(d20Scale(1), 0);
+  assert.equal(d20Scale(2), 0.2);
+  assert.equal(d20Scale(10), 1);
+  assert.equal(d20Scale(19), 1.9);
+  assert.deepEqual(rollD20(1, dice(0, 6.5 / 20)), { roll: 7, kind: 'normal', bonus: null, multiplier: 0.7 });
+  assert.deepEqual(rollD20(1, dice(0, 0, 0.9)), { roll: 1, kind: 'fail', bonus: 3, multiplier: 0 });
 });
 
+test('d20: a 20 rolls a d3, 1 to 3 each equally likely, and multiplies by it', () => {
+  const twenty = (bonus: number) => rollD20(1, dice(0, 0.99, bonus));
+  assert.deepEqual(twenty(0), { roll: 20, kind: 'success', bonus: 1, multiplier: 1 });
+  assert.equal(twenty(0.34)?.bonus, 2);
+  assert.deepEqual(twenty(0.9), { roll: 20, kind: 'success', bonus: 3, multiplier: 3 });
+  assert.equal(twenty(1)?.bonus, 3, 'a bonus die at exactly 1 must not give a 4');
+  assert.equal(rollD20(1, dice(0, 0.5, 0.9))?.bonus, null, 'only a 1 or a 20 rolls it');
+  assert.equal(rollD20(1, dice(0, 0, 0.5))?.bonus, 2, 'a 1 rolls it too');
+});
+
+const at = (n: number, bonus = 0) => rollD20(1, dice(0, (n - 0.5) / 20, bonus)) as NonNullable<ReturnType<typeof rollD20>>;
+
 test('d20: the claim after the roll', () => {
-  const at = (n: number) => rollD20(1, dice(0, (n - 0.5) / 20)) as NonNullable<ReturnType<typeof rollD20>>;
   assert.equal(applyD20(1000, at(1)), 0, 'a critical fail pays nothing');
-  assert.equal(applyD20(1000, at(20)), 2000);
+  assert.equal(applyD20(1000, at(20, 0)), 1000, 'a 20 with a d3 of 1');
+  assert.equal(applyD20(1000, at(20, 0.5)), 2000);
+  assert.equal(applyD20(1000, at(20, 0.9)), 3000);
   assert.equal(applyD20(1000, at(10)), 1000);
   assert.equal(applyD20(1000, at(7)), 700);
   assert.equal(applyD20(1000, at(19)), 1900);
   assert.equal(applyD20(15, at(2)), 3, '3 rounds from 3.0');
   assert.equal(applyD20(3, at(2)), 1, 'a low roll on a small claim never rounds to nothing');
   assert.equal(applyD20(0, at(15)), 1, 'but the amount is at least 1 for any roll but a fail');
+});
+
+test('d20: a critical fail costs the base (the claim, or the rob fine) times its d3; nothing on any other roll', () => {
+  assert.equal(d20Penalty(400, at(1, 0)), 400);
+  assert.equal(d20Penalty(400, at(1, 0.5)), 800);
+  assert.equal(d20Penalty(400, at(1, 0.9)), 1200);
+  assert.equal(d20Penalty(0, at(1, 0.9)), 0);
+  assert.equal(d20Penalty(400, at(2)), 0);
+  assert.equal(d20Penalty(400, at(20, 0.9)), 0);
+  assert.equal(d20Penalty(400, null), 0);
+});
+
+test('d20: the rob chance and take after the roll', () => {
+  assert.equal(d20RobChance(0.5, at(1)), 0, 'a 1 always fails');
+  assert.equal(d20RobChance(0.05, at(20)), 1, 'a 20 always succeeds');
+  assert.equal(d20RobChance(0.5, at(10)), 0.5, 'a 10 is the normal chance');
+  assert.equal(d20RobChance(0.5, at(5)), 0.25);
+  assert.equal(d20RobChance(0.5, at(15)), 0.75);
+  assert.equal(d20RobChance(0.8, at(19)), 1, 'held to 100%');
+  assert.equal(d20RobTake(500, null), 500);
+  assert.equal(d20RobTake(500, at(7)), 500, 'only a 20 changes the take');
+  assert.equal(d20RobTake(500, at(20, 0.9)), 1500);
 });
 
 test('d20: the die colors match the wheel: red for a 1, gold for a 20', () => {
@@ -99,8 +136,8 @@ test('d20 item: wearing it lists what the die does, with the chance', () => {
   assert.deepEqual(item.effects, ['d20']);
   const lines = describeEffects(item);
   assert.equal(lines.length, 1);
-  assert.match(lines[0] as string, /100% of your claims roll a D20/);
-  assert.match(EFFECTS.d20.text('40%'), /40% of your claims roll a D20/);
+  assert.match(lines[0] as string, /100% of your claims and robs roll a D20/);
+  assert.match(EFFECTS.d20.text('40%'), /40% of your claims and robs roll a D20/);
 });
 
 test('d20 constants: the startup check refuses settings that would break the die', () => {
@@ -115,8 +152,8 @@ test('d20 constants: the startup check refuses settings that would break the die
     Object.assign(D20_ANIMATION, animation);
     D20.sides = 2;
     assert.throws(() => validateConstants(), /D20.sides/);
-    Object.assign(D20, rules, { critMultiplier: 0.5 });
-    assert.throws(() => validateConstants(), /D20.critMultiplier/);
+    Object.assign(D20, rules, { bonusSides: 0 });
+    assert.throws(() => validateConstants(), /D20.bonusSides/);
     Object.assign(D20, rules, { divisor: 0 });
     assert.throws(() => validateConstants(), /D20.divisor/);
   } finally {
@@ -127,9 +164,13 @@ test('d20 constants: the startup check refuses settings that would break the die
 });
 
 test('d20 text: the messages say the roll and what it paid', () => {
-  assert.match(TEXT.d20.fail('<@1>', 1), /1/);
+  assert.match(TEXT.d20.fail('<@1>', 1, 2, '1,200'), /\*\*1\*\*.*d3 rolled \*\*2\*\*.*1,200.*vault/);
+  assert.match(TEXT.d20.fail('<@1>', 1, 2, ''), /nothing to pay/);
   assert.match(TEXT.d20.landed(7, '0.7x'), /7.*0\.7x/);
-  assert.match(TEXT.d20.critical(20, '2x'), /20.*2x/);
+  assert.match(TEXT.d20.critical(20, 3, '3x'), /20.*d3 rolled \*\*3\*\*.*3x/);
+  assert.match(TEXT.d20.robFail(1, 3, '3x', '+400'), /1.*Critical fail.*d3 rolled \*\*3\*\*.*3x.*fine.*\+400/);
+  assert.doesNotMatch(TEXT.d20.robFail(1, 1, '1x'), /\(/);
+  assert.match(TEXT.d20.robLanded(7, '0.7x', '35%'), /7.*0\.7x.*35%/);
 });
 
 // ---------------------------------------------------------------------------

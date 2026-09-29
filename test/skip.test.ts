@@ -9,7 +9,7 @@ import { hasSlash } from '../src/discord/slash.js';
 import { dayKey } from '../src/lib/events/raid-week.js';
 import { skipPrice, skipsUsedOn } from '../src/lib/game/skips.js';
 import { SPECS } from '../src/lib/settings-spec.js';
-import { claimReadyHour, hasBonusClaim } from '../src/services/economy/claim.js';
+import { claimReadyHour } from '../src/services/economy/claim.js';
 import { extraRaidId, raidId } from '../src/services/raid.js';
 import { claimSkip, findSkip, SKIPS } from '../src/services/skips.js';
 import type { MemberDoc } from '../src/types.js';
@@ -43,7 +43,6 @@ test('claim skip: only when waiting, and clearing it makes the claim ready now',
   const claim = claimSkip;
   assert.equal(claim.waitingUntil(member({ lastClaimHour: -1 }), NOW), null, 'never claimed');
   assert.equal(claim.waitingUntil(member({ lastClaimHour: HOUR - 1 }), NOW), null, 'claimed last hour');
-  assert.equal(claim.waitingUntil(member({ lastClaimHour: HOUR, bonusClaimHour: HOUR }), NOW), null, 'has a bonus claim left');
 
   for (const waiting of [member({ lastClaimHour: HOUR }), member({ lastClaimHour: HOUR - 1, claimGapHours: 2 }), member({ lastClaimHour: HOUR, claimGapHours: 2 })]) {
     const until = claim.waitingUntil(waiting, NOW);
@@ -51,7 +50,7 @@ test('claim skip: only when waiting, and clearing it makes the claim ready now',
     const { filter, set } = claim.clear(waiting, NOW);
     assert.equal(filter.lastClaimHour, waiting.lastClaimHour);
     const after = { ...waiting, ...set };
-    assert.ok(claimReadyHour(after) <= HOUR && !hasBonusClaim(after, HOUR));
+    assert.ok(claimReadyHour(after) <= HOUR);
     assert.equal(claim.waitingUntil(after, NOW), null);
     assert.ok(after.lastClaimHour >= HOUR - 1, "STONKS! sees a one-hour wait, not the time before the last claim");
   }

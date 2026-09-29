@@ -4,7 +4,7 @@ import { collections } from '../../db.js';
 import { groupCopies, type InventoryEntry } from '../../lib/game/items/copies.js';
 import { currentHour, nextHourUnix } from '../../lib/time.js';
 import type { MemberDoc } from '../../types.js';
-import { claimReadyHour, hasBonusClaim } from './claim.js';
+import { claimReadyHour } from './claim.js';
 
 /*
  * Reads: balances, inventories and the leaderboard.
@@ -17,8 +17,6 @@ export interface BalanceInfo {
   /** komaGems. */
   gems: number;
   canClaim: boolean;
-  /** True when the claim that can be made now is the extra one earned by a critical success on the D20 this hour. */
-  bonusClaim: boolean;
   nextClaimUnix: number;
   /** When this member can rob again (unix seconds), or null if they can rob now. */
   robReadyAtUnix: number | null;
@@ -49,8 +47,7 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
     points: member?.points ?? 0,
     tokens: member?.tokens ?? 0,
     gems: member?.gems ?? 0,
-    canClaim: !member || claimReadyHour(member) <= hour || hasBonusClaim(member, hour),
-    bonusClaim: member !== null && hasBonusClaim(member, hour),
+    canClaim: !member || claimReadyHour(member) <= hour,
     // The end of the hour before the one they can claim in (the end of this hour, normally).
     nextClaimUnix: nextHourUnix(Math.max(hour, member ? claimReadyHour(member) - 1 : hour)),
     robReadyAtUnix: timerEndsAtUnix(member?.lastRobAt, CONFIG.rob.cooldownMinutes * MINUTE_MS * (member?.robCooldownScale ?? 1), now),

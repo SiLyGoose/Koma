@@ -31,7 +31,7 @@ export type StatId =
   | 'pullCost'
   /** Chance (0 to 1) a claim or successful rob spins the wheel. */
   | 'wheelChance'
-  /** Chance (0 to 1) a claim rolls the D20. */
+  /** Chance (0 to 1) a claim or rob rolls the D20. */
   | 'd20Chance'
   /** Share (0 to 1) of the victim's next claim a successful robber takes. */
   | 'claimTaxRate'
@@ -133,7 +133,7 @@ export const robFine = (base: number, robber: EffectTotals): number => modify('r
 /** The chance (0 to 1) that a claim or successful rob by this gear spins the wheel. */
 export const wheelChance = (gear: EffectTotals): number => modify('wheelChance', 0, gear);
 
-/** The chance (0 to 1) that a claim by this gear rolls the D20. */
+/** The chance (0 to 1) that a claim or rob by this gear rolls the D20. */
 export const d20Chance = (gear: EffectTotals): number => modify('d20Chance', 0, gear);
 
 /** The share (0 to 1) of the victim's next claim that a successful robber's gear taxes. */

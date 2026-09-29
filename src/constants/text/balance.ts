@@ -9,8 +9,6 @@ export const balanceText = {
   gems: (gems: number) => boldGems(gems),
   claimField: 'Hourly claim',
   claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
-  /** A critical success on the D20 left one more claim this hour. */
-  claimBonusReady: (p: string) => `Bonus claim ready. Use \`${p}claim\` before the hour ends!`,
   claimWait: (unix: number) => `Claimed. Next one <t:${unix}:R>`,
   robField: 'Rob cooldown',
   robReady: (p: string) => `Ready. Use \`${p}rob @user\`!`,

@@ -176,12 +176,6 @@ export interface MemberDoc {
    */
   guaranteed?: boolean;
   /**
-   * The clock hour (see lastClaimHour) in which this member has one more claim to make, earned by a
-   * critical success on the D20. It only counts while it equals the current hour, and the claim that
-   * uses it clears it. Missing or null means none.
-   */
-  bonusClaimHour?: number | null;
-  /**
    * What this member is wearing: the gear of their active loadout. Missing on members who have
    * never equipped anything.
    */
@@ -285,6 +279,8 @@ export type LedgerReason =
   // A successful rob that slipped (Piplup): the take plus a penalty goes back to the victim.
   | 'rob_slip_paid'
   | 'rob_slip_received'
+  // A critical fail on the D20 (1): what the claim would have paid, times a d3, paid into the vault.
+  | 'd20_penalty'
   // The old vault breaker's reasons: no longer written, kept so older ledger entries still type-check.
   | 'vault_loot'
   | 'vault_fine'

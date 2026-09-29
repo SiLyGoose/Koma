@@ -12,6 +12,7 @@ import {
   claimTaxAmount,
   claimTaxRate,
   d20Chance,
+  d20Penalty,
   rollD20,
   rollD20Dice,
   rollWheelDice,
@@ -25,7 +26,8 @@ import {
 } from '../../perks/index.js';
 import type { MemberDoc } from '../../types.js';
 import { resolveGear } from '../items/gear.js';
-import { type LedgerInput, recordLedger, ensureMember } from './shared.js';
+import { addVaultLoss } from '../vault.js';
+import { type LedgerInput, clampedDebit, recordLedger, ensureMember } from './shared.js';
 
 /*
  * The hourly claim, with every claim perk (claim bonus, wheel, D20, STONKS!, claim tax).
@@ -44,11 +46,13 @@ export type ClaimResult =
       wheelBonus: number;
       /**
        * Set when the D20 (d20 gear) rolled for this claim. A fail makes `amount` 0 (and the hour is
-       * used up), a success doubled it and left one more claim this hour (`bonusLeft`).
+       * used up), a success multiplied it by the bonus die.
        */
       d20: D20Roll | null;
       /** How many points the D20 added (negative if it took some away, all of them on a fail); 0 when it didn't roll. */
       d20Bonus: number;
+      /** On a critical fail, what the member paid the vault: the claim's worth times the bonus die, capped at what they had. 0 otherwise. */
+      d20Penalty: number;
       /**
        * The multiplier STONKS! (stonks gear) applied, from how many hours passed since the last
        * claim: null when the member has none equipped or it changed nothing (1x, right after a
@@ -58,10 +62,6 @@ export type ClaimResult =
       stonks: number | null;
       /** How many points STONKS! added; 0 when it didn't apply. */
       stonksBonus: number;
-      /** This claim was the extra one earned by a critical success earlier in the hour. */
-      extra: boolean;
-      /** One more claim can be made this hour (this claim was a critical success). */
-      bonusLeft: boolean;
       /** Set when a member who robbed them took part of this claim (see the claimTax effect). */
       taxed: { amount: number; toUserId: string } | null;
       balance: number;
@@ -75,11 +75,6 @@ export type ClaimResult =
  */
 export function claimReadyHour(member: Pick<MemberDoc, 'lastClaimHour' | 'claimGapHours'>): number {
   return member.lastClaimHour + Math.max(1, member.claimGapHours ?? 1);
-}
-
-/** True when the member earned one more claim for this hour (a critical success on the D20) and hasn't used it. */
-export function hasBonusClaim(member: Pick<MemberDoc, 'lastClaimHour' | 'bonusClaimHour'>, hour: number): boolean {
-  return member.lastClaimHour === hour && member.bonusClaimHour === hour;
 }
 
 /**
@@ -102,16 +97,14 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
   // if the tax is still what we read; if someone set one in between, read again.
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
-    // A member who rolled a critical success can claim once more in the same hour.
-    const extra = member !== null && hasBonusClaim(member, hour);
-    // Otherwise they have to wait out the last claim: an hour, or longer if it was made in gear
-    // that slows them down (the wait is fixed when the claim is made, so taking the gear off
-    // doesn't skip it).
+    // The member has to wait out the last claim: an hour, or longer if it was made in gear that
+    // slows them down (the wait is fixed when the claim is made, so taking the gear off doesn't
+    // skip it).
     const readyHour = member ? claimReadyHour(member) : hour;
-    if (!extra && readyHour > hour) return { ok: false, nextClaimUnix: nextHourUnix(readyHour - 1) };
+    if (readyHour > hour) return { ok: false, nextClaimUnix: nextHourUnix(readyHour - 1) };
 
     // Equipped gear can add a bonus on top of the roll, the wheel can then multiply it, and the
-    // D20 comes last: it can wipe the claim out, double it or scale it by the number rolled.
+    // D20 comes last: it can wipe the claim out, multiply it by its bonus die or scale it by the number rolled.
     const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
     const gap = claimGapHours(gear);
     const withGear = claimAmount(rolled, gear);
@@ -120,7 +113,6 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     const d20 = rollD20(d20Chance(gear), d20Dice);
     const afterD20 = d20 ? applyD20(afterWheel, d20) : afterWheel;
     const failed = d20?.kind === 'fail';
-    const bonusLeft = d20?.kind === 'success';
     // STONKS!: the longer since the member's last claim, the bigger the multiplier (capped; see
     // stonksMultiplier). Only one unique treasure can be worn at a time, so this never actually
     // runs alongside the wheel or the D20 for a real member, but it is harmless either way (a
@@ -135,13 +127,12 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     const tax = !failed && taxRate !== null && taxBy !== null ? claimTaxAmount(amount, taxRate) : 0;
     const kept = amount - tax;
 
-    // Only matches if this member has not claimed during the current hour (or is using the extra
-    // claim they earned this hour).
+    // Only matches if this member has not claimed during the current hour.
     const updated = await members.findOneAndUpdate(
       {
         guildId,
         userId,
-        ...(extra ? { lastClaimHour: hour, bonusClaimHour: hour } : { lastClaimHour: { $lte: hour - Math.max(1, member?.claimGapHours ?? 1) } }),
+        lastClaimHour: { $lte: hour - Math.max(1, member?.claimGapHours ?? 1) },
         claimTaxRate: taxRate,
         claimTaxBy: taxBy,
       },
@@ -151,8 +142,6 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
           lastClaimHour: hour,
           // How long until the next normal claim (2 = every second hour, with sloth gear).
           claimGapHours: gap,
-          // A critical success earns one more claim this hour; any other claim uses up the one it made.
-          bonusClaimHour: bonusLeft ? hour : null,
           ...(failed ? {} : { claimTaxRate: null, claimTaxBy: null }),
         },
       },
@@ -160,7 +149,7 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     );
     if (!updated) {
       const current = await members.findOne({ guildId, userId });
-      if (current && (claimReadyHour(current) <= hour || hasBonusClaim(current, hour))) continue; // only the tax changed: try again
+      if (current && claimReadyHour(current) <= hour) continue; // only the tax changed: try again
       return { ok: false, nextClaimUnix: nextHourUnix(current ? Math.max(hour, claimReadyHour(current) - 1) : hour) };
     }
 
@@ -184,6 +173,23 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
         { guildId, userId: taxBy, delta: paid, reason: 'claim_tax_received', otherUserId: userId },
       );
     }
+    // A critical fail also costs the member what the claim would have paid, times the bonus die,
+    // paid into the vault. Taken after the claim is recorded, capped at what they have.
+    let penaltyPaid = 0;
+    const penalty = d20Penalty(afterWheel, d20);
+    if (penalty > 0) {
+      try {
+        const before = await members.findOneAndUpdate({ guildId, userId }, clampedDebit(penalty), { returnDocument: 'before' });
+        penaltyPaid = before ? Math.min(penalty, before.points) : 0;
+      } catch (err) {
+        // The claim already happened; if the penalty can't be taken, it simply isn't.
+        console.error('Could not take a D20 critical fail penalty:', err);
+      }
+      if (penaltyPaid > 0) {
+        entries.push({ guildId, userId, delta: -penaltyPaid, reason: 'd20_penalty' });
+        await addVaultLoss(guildId, penaltyPaid);
+      }
+    }
     await recordLedger(entries);
 
     return {
@@ -194,12 +200,11 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
       wheelBonus: afterWheel - withGear,
       d20,
       d20Bonus: afterD20 - afterWheel,
+      d20Penalty: penaltyPaid,
       stonks: stonksMult > 1 ? stonksMult : null,
       stonksBonus: amount - afterD20,
-      extra,
-      bonusLeft,
       taxed: paid > 0 && taxBy !== null ? { amount: paid, toUserId: taxBy } : null,
-      balance: updated.points + (tax > 0 && paid === 0 ? tax : 0),
+      balance: updated.points + (tax > 0 && paid === 0 ? tax : 0) - penaltyPaid,
       nextClaimUnix: nextHourUnix(hour + gap - 1),
     };
   }

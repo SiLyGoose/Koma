@@ -8,6 +8,10 @@ import {
   anyRollHits,
   applyWheel,
   claimTaxRate,
+  d20Chance,
+  d20Penalty,
+  d20RobChance,
+  d20RobTake,
   emptyTotals,
   robCooldownScale,
   robFine,
@@ -16,6 +20,8 @@ import {
   robSuccessChance,
   robTaxAmount,
   robTaxRate,
+  rollD20,
+  rollD20Dice,
   rollWheelDice,
   slipChance,
   slipPenaltyAmount,
@@ -23,6 +29,7 @@ import {
   spinWheel,
   wheelChance,
   wheelSlices,
+  type D20Roll,
   type WheelSpin,
 } from '../../perks/index.js';
 import { resolveGear } from '../items/gear.js';
@@ -44,7 +51,7 @@ export type RobResult =
   | {
       ok: true;
       success: true;
-      /** The chance of each roll. */
+      /** The chance of each roll, after the D20 (0 on a 1, 1 on a 20). */
       chance: number;
       /** The chance at least one roll hit (the same as `chance` with one roll). */
       overallChance: number;
@@ -77,13 +84,17 @@ export type RobResult =
       streak: { count: number; rate: number; bonus: number } | null;
       /** Thoccy Keyboard: the points taken because the victim was vulnerable (0 when they weren't). */
       vulnerableBonus: number;
-      /** MP5: which roll hit (`used`) out of how many the robber had (`of`); null with only one roll. */
+      /** MP5: which roll hit (`used`) out of how many the robber had (`of`); null with only one roll, or when the D20 decided the rob. */
       rolls: { used: number; of: number } | null;
+      /** Set when the robber's D20 rolled first: it scaled `chance`, or (on a 20) made the rob certain and multiplied the take. */
+      d20: D20Roll | null;
+      /** How many points the D20's bonus die added to what was taken (the victim pays it); 0 unless it rolled a 20. */
+      d20Bonus: number;
     }
   | {
       ok: true;
       success: false;
-      /** The chance of each roll. */
+      /** The chance of each roll, after the D20 (0 on a 1, 1 on a 20). */
       chance: number;
       /** The chance at least one roll hit (the same as `chance` with one roll). */
       overallChance: number;
@@ -95,12 +106,16 @@ export type RobResult =
       waived: number;
       /** How much more than the base fine the robber paid because of their gear (a glass cannon). 0 when gear made it smaller or did nothing, or when they couldn't afford more than the base fine. */
       raised: number;
+      /** How much more than `owed` the robber paid because the D20's critical fail multiplied the fine by its bonus die. 0 otherwise. */
+      d20Extra: number;
       robberBalance: number;
       victimBalance: number;
       /** Thoccy Keyboard: the robber is vulnerable now, and the next successful rob against them takes this share more (null when not). */
       vulnerable: number | null;
-      /** MP5: how many rolls all missed; null with only one roll. */
+      /** MP5: how many rolls all missed; null with only one roll, or when the D20 decided the rob. */
       rolls: { used: number; of: number } | null;
+      /** Set when the robber's D20 rolled first: it scaled `chance`, or (on a 1) made the rob fail. */
+      d20: D20Roll | null;
     };
 
 export async function rob(guildId: string, robberId: string, victimId: string): Promise<RobResult> {
@@ -157,9 +172,15 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
   // The victim's armor protects them even while they're offline.
   const victimGear = gearEffects(await resolveGear(guildId, victimId, victim?.equipment), victimId);
-  const successChance = robSuccessChance(cfg.successChance, cfg, robberGear, victimGear);
-  // MP5: a rob can roll its chance more than once, and succeeds on the first hit.
-  const rollCount = robRolls(robberGear);
+  // D20: rolled before anything else. A 1 is always caught, a 20 always gets through (and its bonus
+  // die multiplies the take below), and anything between scales the chance by the roll.
+  const d20 = rollD20(d20Chance(robberGear), rollD20Dice());
+  const gearChance = robSuccessChance(cfg.successChance, cfg, robberGear, victimGear);
+  const successChance = d20 ? d20RobChance(gearChance, d20) : gearChance;
+  // MP5: a rob can roll its chance more than once, and succeeds on the first hit. A critical roll of
+  // the D20 has already decided it, so the shots don't count then.
+  const decided = d20 !== null && d20.kind !== 'normal';
+  const rollCount = decided ? 1 : robRolls(robberGear);
   const overallChance = anyRollHits(successChance, rollCount);
 
   // Set once this rob has started the victim's protection timer, so it can be undone on failure.
@@ -236,7 +257,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       const vulnerableRate = Math.max(0, victim?.vulnerableRate ?? 0);
       const streakExtra = Math.round(taken * rate);
       const vulnerableExtra = Math.round(taken * vulnerableRate);
-      const stolen = taken + streakExtra + vulnerableExtra;
+      const baseStolen = taken + streakExtra + vulnerableExtra;
+      // D20: a 20's bonus die multiplies everything taken, and the victim pays it.
+      const stolen = d20RobTake(baseStolen, d20);
       // What each effect did, so the reply can show it: the robber's gear, then the victim's armor,
       // then the wheel. Each step is the difference between two whole numbers, so they add up.
       const beforeArmor = robStolenAmount(rolled, robberGear, emptyTotals());
@@ -253,6 +276,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         { guildId, userId: victimId, delta: -transfer.moved, reason: 'rob_lost', otherUserId: robberId },
       ];
       let robberBalance = transfer.toBalance;
+      // What the D20 added, out of what was really moved (the victim may not have had it all).
+      const coreMoved = Math.min(transfer.moved, baseStolen);
+      const d20Bonus = transfer.moved - coreMoved;
 
       // Piplup on either side: the robber may slip and hand everything back, plus a penalty. A
       // slipped rob is undone, so nothing below happens (no tax is paid out of it, no marks are left).
@@ -288,6 +314,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               streak: null,
               vulnerableBonus: 0,
               rolls,
+              d20,
+              d20Bonus,
             };
           }
         } catch (err) {
@@ -401,7 +429,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
       // Thoccy Keyboard: the robber's streak goes on, and a successful rob ends their own vulnerability;
       // the victim's vulnerability is used up by this rob.
-      const extraMoved = Math.max(0, transfer.moved - taken);
+      const extraMoved = Math.max(0, coreMoved - taken);
       const streakBonus = Math.min(streakExtra, extraMoved);
       const vulnerableBonus = Math.min(vulnerableExtra, extraMoved - streakBonus);
       try {
@@ -436,6 +464,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         streak: streakCount > 0 ? { count: streakCount, rate, bonus: streakBonus } : null,
         vulnerableBonus,
         rolls,
+        d20,
+        d20Bonus,
       };
     }
 
@@ -454,7 +484,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     const owed = robFine(cfg.failFine, robberGear);
     // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
     const waived = Math.max(0, cfg.failFine - owed);
-    const transfer = owed > 0 ? await transferClamped(guildId, robberId, victimId, owed, 1) : null;
+    // D20: a critical fail multiplies the fine (after gear) by its bonus die.
+    const wanted = d20?.kind === 'fail' ? d20Penalty(owed, d20) : owed;
+    const transfer = wanted > 0 ? await transferClamped(guildId, robberId, victimId, wanted, 1) : null;
     if (!transfer) {
       const robber = await members.findOne({ guildId, userId: robberId });
       return {
@@ -466,10 +498,12 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         owed,
         waived,
         raised: 0,
+        d20Extra: 0,
         robberBalance: robber?.points ?? 0,
         victimBalance: victim?.points ?? 0,
         vulnerable,
         rolls,
+        d20,
       };
     }
     await recordLedger([
@@ -487,11 +521,14 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       owed,
       waived,
       // Only what was really paid above the base fine counts, so a fine cut short by what the robber had adds nothing.
-      raised: Math.max(0, transfer.moved - cfg.failFine),
+      raised: Math.max(0, Math.min(transfer.moved, owed) - cfg.failFine),
+      // Likewise, only what was really paid above the fine after gear.
+      d20Extra: Math.max(0, transfer.moved - owed),
       robberBalance: transfer.fromBalance,
       victimBalance: transfer.toBalance,
       vulnerable,
       rolls,
+      d20,
     };
   } catch (err) {
     if (releaseVictimSlot) await releaseVictimSlot();

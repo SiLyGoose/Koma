@@ -2,7 +2,9 @@ import { CURRENCY_NAME, FAILURE_TITLES, ROB_STREAK_WINDOW_MS, SUCCESS_TITLES, TE
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, mention, signed } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
+import type { D20Roll } from '../perks/index.js';
 import { rob as robService } from '../services/economy/index.js';
+import { replyWithDice } from '../animations/dice-reply.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
@@ -32,6 +34,25 @@ function caughtBody(
       ? TEXT.rob.caughtFinedWithGear(robber, victim, fmt(result.fine), fmt(result.waived))
       : TEXT.rob.caughtFined(robber, victim, fmt(result.fine));
   return (result.raised > 0 ? `${text}\n${TEXT.rob.fineRaised(fmt(result.raised))}` : text) + after;
+}
+
+/**
+ * The D20's line, first since it was rolled first: what it did to the chance, to the fine on a 1, or
+ * to the take on a 20. Empty when it didn't roll.
+ */
+function d20Line(result: { d20: D20Roll | null; chance: number; d20Bonus?: number; d20Extra?: number }): string {
+  const { d20 } = result;
+  if (!d20) return '';
+  const multiplier = formatMultiplier(d20.multiplier);
+  const bonus = result.d20Bonus ?? 0;
+  const extra = result.d20Extra ?? 0;
+  const line =
+    d20.kind === 'fail'
+      ? TEXT.d20.robFail(d20.roll, d20.bonus ?? 1, formatMultiplier(d20.bonus ?? 1), extra === 0 ? '' : signed(extra))
+      : d20.bonus !== null
+        ? TEXT.d20.critical(d20.roll, d20.bonus, multiplier, bonus === 0 ? '' : signed(bonus))
+        : TEXT.d20.robLanded(d20.roll, multiplier, formatPercent(result.chance));
+  return `${line}\n`;
 }
 
 /** Extra lines under a successful rob: a tax paid out of it, and taxes now waiting on the victim. */
@@ -131,8 +152,9 @@ export const rob: Command = {
 
     if (result.success) {
       embed
-        .setTitle(pickRandom(SUCCESS_TITLES))
+        .setTitle(result.d20?.kind === 'success' ? TEXT.d20.successTitle : pickRandom(SUCCESS_TITLES))
         .setDescription(
+          d20Line(result) +
           (result.victimBalance === 0 ? TEXT.rob.successEverything : TEXT.rob.success)(
             ctx.user.toString(),
             target.toString(),
@@ -141,15 +163,18 @@ export const rob: Command = {
         );
     } else {
       embed
-        .setTitle(pickRandom(FAILURE_TITLES))
-        .setDescription(caughtText(ctx.user.toString(), target.toString(), result));
+        .setTitle(result.d20?.kind === 'fail' ? TEXT.d20.failTitle : pickRandom(FAILURE_TITLES))
+        .setDescription(d20Line(result) + caughtText(ctx.user.toString(), target.toString(), result));
     }
 
     // Ping only the victim so they know it happened.
     const allowedMentions = { users: [target.id] };
 
-    // A successful rob that spun the wheel plays the wheel animation before showing the result.
-    if (result.success && result.wheel) {
+    // A rob that rolled the D20 plays the die's animation (a wheel spun as well still has its line in
+    // the text); otherwise a successful rob that spun the wheel plays the wheel's.
+    if (result.d20) {
+      await replyWithDice(ctx, embed, result.d20, { allowedMentions });
+    } else if (result.success && result.wheel) {
       await replyWithWheel(ctx, embed, result.wheel, { allowedMentions });
     } else {
       await ctx.reply({ embeds: [embed], allowedMentions });
