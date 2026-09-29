@@ -41,6 +41,41 @@ async function recordLedger(entries: LedgerInput[]): Promise<void> {
   }
 }
 
+/** events.vault.maxPool, or null when the vault has no cap. */
+function vaultCap(): number | null {
+  const cap = CONFIG.events.vault.maxPool;
+  return cap > 0 ? cap : null;
+}
+
+/**
+ * An update pipeline that adds `amount` to the vault pool, and the same to the breakdown field
+ * `counter` if given, never taking the pool past events.vault.maxPool: a pool already over it is
+ * cut down to it first, and only what fits is added (to the counter too, so the breakdown still
+ * adds up).
+ */
+function addToPool(amount: number, counter?: 'vaultLosses' | 'vaultGrown') {
+  const cap = vaultCap();
+  const pool = { $ifNull: ['$vaultPool', 0] };
+  const added = cap === null ? amount : { $max: [0, { $min: [amount, { $subtract: [cap, '$vaultPool'] }] }] };
+  return [
+    { $set: { vaultPool: cap === null ? pool : { $min: [pool, cap] } } },
+    { $set: { vaultAdded: added } },
+    {
+      $set: {
+        vaultPool: { $add: ['$vaultPool', '$vaultAdded'] },
+        ...(counter ? { [counter]: { $add: [{ $ifNull: [`$${counter}`, 0] }, '$vaultAdded'] } } : {}),
+      },
+    },
+    { $unset: 'vaultAdded' },
+  ];
+}
+
+/** Cuts every vault that is over events.vault.maxPool down to it (see growVaults). */
+async function capVaults(): Promise<void> {
+  const cap = vaultCap();
+  if (cap !== null) await collections().guilds.updateMany({ vaultPool: { $gt: cap } }, { $set: { vaultPool: cap } });
+}
+
 /**
  * Records points lost to gambling, or a caught robber's fine, so a future vault game can pay
  * them out. Best effort: a failure here never undoes the game action that lost the points, it
@@ -52,7 +87,7 @@ export async function addVaultLoss(guildId: string, lost: number): Promise<void>
   const amount = Math.floor(lost * VAULT_LOSS_SHARE);
   if (amount <= 0) return;
   try {
-    await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: amount, vaultLosses: amount } }, { upsert: true });
+    await collections().guilds.updateOne({ _id: guildId }, addToPool(amount, 'vaultLosses'), { upsert: true });
   } catch (err) {
     console.error(`Could not add ${amount} to the vault pool in ${guildId}:`, err);
   }
@@ -74,10 +109,17 @@ export function vaultGrowth(elapsedMs: number, perHour: number): { amount: numbe
  * Adds the vault's hourly growth to every server with events on, for the time since it was last
  * added. A server seen for the first time just starts counting from `now`. Each server is one
  * conditional update on the time it was last grown, so two copies of the bot never both add it.
+ * Runs every scheduler tick, so it also cuts any vault over events.vault.maxPool down to it (a
+ * lowered cap takes hold within a tick).
  */
 export async function growVaults(now: Date = new Date()): Promise<void> {
   const perHour = CONFIG.events.vault.hourlyGrowth;
   const { guilds } = collections();
+  try {
+    await capVaults();
+  } catch (err) {
+    console.error('Could not cap the vaults:', err);
+  }
   for (const doc of await guilds.find({ channelId: { $ne: null } }).toArray()) {
     try {
       const last = doc.vaultGrownAt ?? null;
@@ -91,7 +133,7 @@ export async function growVaults(now: Date = new Date()): Promise<void> {
       if (amount <= 0) continue;
       await guilds.updateOne(
         { _id: doc._id, vaultGrownAt: last },
-        { $inc: { vaultPool: amount, vaultGrown: amount }, $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } },
+        [...addToPool(amount, 'vaultGrown'), { $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } }],
       );
     } catch (err) {
       console.error(`Could not grow the vault in ${doc._id}:`, err);
@@ -134,7 +176,7 @@ export async function getVaultBreakdown(guildId: string): Promise<VaultBreakdown
     ])
     .toArray();
   return {
-    pool: doc?.vaultPool ?? 0,
+    pool: cappedPool(doc?.vaultPool ?? 0),
     losses: doc?.vaultLosses ?? 0,
     grown: doc?.vaultGrown ?? 0,
     carriedOver: doc?.vaultCarriedOver ?? 0,
@@ -145,10 +187,16 @@ export async function getVaultBreakdown(guildId: string): Promise<VaultBreakdown
   };
 }
 
+/** `pool`, never more than events.vault.maxPool (a cap lowered since the last capVaults). */
+function cappedPool(pool: number): number {
+  const cap = vaultCap();
+  return cap === null ? pool : Math.min(pool, cap);
+}
+
 /** The server's vault pool right now (0 if nothing has been lost yet). */
 export async function getVaultPool(guildId: string): Promise<number> {
   const doc = await collections().guilds.findOne({ _id: guildId });
-  return doc?.vaultPool ?? 0;
+  return cappedPool(doc?.vaultPool ?? 0);
 }
 
 /**
@@ -246,24 +294,41 @@ export async function chargeIntoVault(guildId: string, userId: string, amount: n
   return true;
 }
 
-export type Donation = { ok: true; donated: number; balance: number; pool: number } | { ok: false; reason: 'too_poor'; balance: number };
+export type Donation =
+  | { ok: true; donated: number; balance: number; pool: number; full: boolean }
+  | { ok: false; reason: 'too_poor'; balance: number }
+  | { ok: false; reason: 'vault_full'; pool: number };
 
 /**
  * A member gives `amount` of their points to the vault (or everything they have, for 'all'), in one
- * conditional update: nothing is taken unless they have that much. Recorded in the ledger and
- * added to the vault pool. `pool` is the vault right after, for showing.
+ * conditional update: nothing is taken unless they have that much. Only what fits under
+ * events.vault.maxPool is taken, and nothing at all if the vault is already full. Recorded in the
+ * ledger and added to the vault pool. `pool` is the vault right after, for showing; `full` is
+ * whether the cap cut the donation short.
  */
 export async function donateToVault(guildId: string, userId: string, amount: number | 'all'): Promise<Donation> {
   await ensureMember(guildId, userId);
   const { members } = collections();
+  const cap = vaultCap();
+  const room = cap === null ? Infinity : Math.max(0, cap - (await getVaultPool(guildId)));
+  if (room <= 0) return { ok: false, reason: 'vault_full', pool: cap ?? 0 };
   let donated: number;
   let balance: number;
+  let full = false;
   if (amount === 'all') {
-    const before = await members.findOneAndUpdate({ guildId, userId, points: { $gt: 0 } }, { $set: { points: 0 } }, { returnDocument: 'before' });
+    const take = cap === null ? '$points' : { $min: ['$points', room] };
+    const before = await members.findOneAndUpdate(
+      { guildId, userId, points: { $gt: 0 } },
+      [{ $set: { points: { $subtract: ['$points', take] } } }],
+      { returnDocument: 'before' },
+    );
     if (!before) return { ok: false, reason: 'too_poor', balance: 0 };
-    donated = before.points;
-    balance = 0;
+    donated = Math.min(before.points, room);
+    balance = before.points - donated;
+    full = donated < before.points;
   } else {
+    full = amount > room;
+    amount = Math.min(amount, room);
     const after = await members.findOneAndUpdate({ guildId, userId, points: { $gte: amount } }, { $inc: { points: -amount } }, { returnDocument: 'after' });
     if (!after) {
       const doc = await members.findOne({ guildId, userId });
@@ -274,11 +339,11 @@ export async function donateToVault(guildId: string, userId: string, amount: num
   }
   await recordLedger([{ guildId, userId, delta: -donated, reason: 'vault_donation' }]);
   try {
-    await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: donated } }, { upsert: true });
+    await collections().guilds.updateOne({ _id: guildId }, addToPool(donated), { upsert: true });
   } catch (err) {
     console.error(`Could not add a donation of ${donated} to the vault pool in ${guildId}:`, err);
   }
-  return { ok: true, donated, balance, pool: await getVaultPool(guildId) };
+  return { ok: true, donated, balance, pool: await getVaultPool(guildId), full };
 }
 
 /** Undoes chargeIntoVault: gives `amount` back and takes it back out of the vault pool. */

@@ -146,6 +146,8 @@ export interface Settings {
       multiplier: number;
       /** Points added to the vault every hour on their own, in every server with events on. 0 turns it off. */
       hourlyGrowth: number;
+      /** The most the vault can hold; anything that would go over it is dropped (and a donation only takes what fits). 0 means no cap. */
+      maxPool: number;
     };
     heist: {
       /** How long the crew has to join, in seconds. */
@@ -269,7 +271,7 @@ export const DEFAULTS: Readonly<Settings> = {
   rob: {
     cooldownMinutes: 60,
     victimProtectionMinutes: 60,
-    successChance: 0.4,
+    successChance: 0.5,
     minStolen: 100,
     maxStolen: 500,
     minVictimBalance: 1,
@@ -315,7 +317,7 @@ export const DEFAULTS: Readonly<Settings> = {
     minMinutes: 120,
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
-    vault: { multiplier: 1, hourlyGrowth: 100 },
+    vault: { multiplier: 1, hourlyGrowth: 100, maxPool: 0 },
     heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { seconds: 300, guessCost: 10 },

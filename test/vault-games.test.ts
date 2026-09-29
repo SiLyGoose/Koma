@@ -162,9 +162,15 @@ test('vault game settings: held to their limits', () => {
   const join = findSpec('events.splitSteal.joinSeconds');
   assert.ok(join);
   assert.equal(parseInput(join, String(MAX_EVENT_SECONDS + 1)).ok, false);
+  const maxPool = findSpec('events.vault.maxPool');
+  assert.ok(maxPool);
+  assert.equal(parseInput(maxPool, '0').ok, true, '0 means no cap');
+  assert.equal(parseInput(maxPool, '-1').ok, false);
   const multiplier = findSpec('events.vault.multiplier');
   assert.ok(multiplier);
   assert.equal(parseInput(multiplier, String(MAX_VAULT_MULTIPLIER + 1)).ok, false);
+  assert.equal(parseInput(multiplier, '0x').ok, true, 'the vault can put up as little as zero');
+  assert.equal(parseInput(multiplier, '-1').ok, false);
 });
 
 test('vault game constants pass the startup check, and every button id is different', () => {

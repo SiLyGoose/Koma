@@ -38,9 +38,11 @@ export const vaultText = {
   /** `balance` is what they have. */
   donateTooPoor: (balance: string) => `You don't have that many to give. You have ${boldMoney(balance)}`,
   donateNothing: `You don't have any ${CURRENCY_NAME} to give.`,
+  /** `pool` is the cap (events.vault.maxPool) the vault is already at. */
+  donateFull: (pool: string) => `The vault is full at ${boldMoney(pool)}. It can't take any more until a vault game pays out.`,
   donateTitle: 'Vault donation',
-  /** `user` is a mention; `pool` is the vault right after. */
-  donateDone: (user: string, amount: string, pool: string) =>
-    `${user} put ${boldMoney(amount)} into the vault. It now holds ${boldMoney(pool)}`,
+  /** `user` is a mention; `pool` is the vault right after; `full` is whether the cap cut the donation short. */
+  donateDone: (user: string, amount: string, pool: string, full: boolean) =>
+    `${user} put ${boldMoney(amount)} into the vault. It now holds ${boldMoney(pool)}` + (full ? ', and is full.' : ''),
   donateBalanceField: 'Your balance',
 };
