@@ -162,6 +162,10 @@ test('vault game settings: held to their limits', () => {
   const join = findSpec('events.splitSteal.joinSeconds');
   assert.ok(join);
   assert.equal(parseInput(join, String(MAX_EVENT_SECONDS + 1)).ok, false);
+  const lossShare = findSpec('events.vault.lossShare');
+  assert.ok(lossShare);
+  assert.equal(parseInput(lossShare, '40%').ok, true);
+  assert.equal(parseInput(lossShare, '101%').ok, false);
   const maxPool = findSpec('events.vault.maxPool');
   assert.ok(maxPool);
   assert.equal(parseInput(maxPool, '0').ok, true, '0 means no cap');

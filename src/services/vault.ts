@@ -17,9 +17,6 @@ import { ensureMember } from './economy/index.js';
 
 type LedgerInput = Omit<LedgerDoc, 'createdAt'>;
 
-/** The share of each loss (see addVaultLoss) that goes into the vault. */
-const VAULT_LOSS_SHARE = 0.4;
-
 /**
  * How much of the pool a payout used up. A game snapshots the pool (`basePool`) and puts up
  * `prize` (basePool times the multiplier); paying out `paid` of that prize costs the pool the same
@@ -83,8 +80,8 @@ async function capVaults(): Promise<void> {
  */
 export async function addVaultLoss(guildId: string, lost: number): Promise<void> {
   if (!Number.isFinite(lost) || lost <= 0) return;
-  // Only part of what's lost goes into the vault; the rest leaves circulation for good.
-  const amount = Math.floor(lost * VAULT_LOSS_SHARE);
+  // Only part of what's lost (events.vault.lossShare) goes into the vault; the rest leaves circulation for good.
+  const amount = Math.floor(lost * CONFIG.events.vault.lossShare);
   if (amount <= 0) return;
   try {
     await collections().guilds.updateOne({ _id: guildId }, addToPool(amount, 'vaultLosses'), { upsert: true });
