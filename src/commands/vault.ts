@@ -17,14 +17,14 @@ export const vault: Command = {
   description: `See how many ${CURRENCY_NAME} are in the vault, and what the next vault game would put up.`,
 
   async execute(ctx) {
-    const { pool, losses, donated, grown, carriedOver, claimedAt, donors, donorCount } = await getVaultBreakdown(ctx.guildId);
+    const { pool, payout, losses, donated, grown, carriedOver, claimedAt, donors, donorCount } = await getVaultBreakdown(ctx.guildId);
     const claim = claimedAt ? { at: `<t:${Math.floor(claimedAt.getTime() / 1000)}:R>`, left: fmt(carriedOver) } : undefined;
     const { multiplier } = CONFIG.events.vault;
     const donorLines = donors.map((donor, i) => TEXT.vault.donorLine(i + 1, mention(donor.userId), fmt(donor.amount)));
     if (donorCount > donors.length) donorLines.push(TEXT.vault.moreDonors(donorCount - donors.length));
     const embed = createEmbed()
       .setTitle(TEXT.vault.commandTitle)
-      .setDescription(TEXT.vault.commandInfo(fmt(pool), fmt(Math.round(pool * multiplier)), formatMultiplier(multiplier)))
+      .setDescription(TEXT.vault.commandInfo(fmt(pool), fmt(Math.round(payout * multiplier)), formatMultiplier(multiplier), payout < pool ? fmt(payout) : undefined))
       .addFields(
         { name: TEXT.vault.sourcesField(claim !== undefined), value: TEXT.vault.sources(fmt(losses), fmt(donated), fmt(grown), claim) },
         { name: TEXT.vault.donorsField(claim !== undefined), value: donorLines.length > 0 ? donorLines.join('\n') : TEXT.vault.noDonors(commandPrefix(ctx, 'donate')) },

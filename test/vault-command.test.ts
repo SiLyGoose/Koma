@@ -34,13 +34,13 @@ test('donate command: registered for everyone, with a slash version', async () =
 });
 
 test('donate command: says what was given and what the vault holds now', () => {
-  const line = TEXT.vault.donateDone('<@1>', '500', '10,500', false);
+  const line = TEXT.vault.donateDone('<@1>', '500', '10,500');
   assert.match(line, /500/);
   assert.match(line, /10,500/);
   assert.ok(line.includes(CURRENCY_EMOJI));
-  assert.doesNotMatch(line, /full/);
-  assert.match(TEXT.vault.donateDone('<@1>', '500', '10,500', true), /is full/);
-  assert.match(TEXT.vault.donateFull('10,500'), /full at \*\*.*10,500/);
+  assert.doesNotMatch(line, /at most/);
+  assert.match(TEXT.vault.donateDone('<@1>', '500', '10,500', '5,000'), /at most \*\*.*5,000/);
+  assert.match(TEXT.vault.commandInfo('10,500', '5,000', 'x1', '5,000'), /at most \*\*.*5,000/);
   assert.match(TEXT.vault.donateUsage('k!'), /k!donate all/);
 });
 

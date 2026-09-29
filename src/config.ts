@@ -146,7 +146,7 @@ export interface Settings {
       multiplier: number;
       /** Points added to the vault every hour on their own, in every server with events on. 0 turns it off. */
       hourlyGrowth: number;
-      /** The most the vault can hold; anything that would go over it is dropped (and a donation only takes what fits). 0 means no cap. */
+      /** The most a vault game pays out of the vault, and the most losses and hourly growth fill it to (past that they're dropped). Donations can take it past this; the rest waits for later games. 0 means no cap. */
       maxPool: number;
       /** The share of each loss (and heist fine, and Codedle guess) that goes into the vault; the rest leaves circulation for good. */
       lossShare: number;

@@ -262,7 +262,7 @@ export const SPECS: readonly SettingSpec[] = [
     max: 1,
     percent: true,
   },
-  int('events.vault.maxPool', 'Events', `The most ${CURRENCY_EMOJI} the vault can hold. Anything past it is dropped, and a vault already over it is cut down to it (0 means no cap).`, 0, MAX_POINTS),
+  int('events.vault.maxPool', 'Events', `The most ${CURRENCY_EMOJI} a vault game pays out of the vault. Losses and hourly growth stop filling it here; donations can go past it, and the rest waits for later games (0 means no cap).`, 0, MAX_POINTS),
   int('events.heist.joinSeconds', 'Events', 'Seconds a Greedy Heist stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.heist.rounds', 'Events', 'Most rounds a Greedy Heist lasts. The prize is handed out a slice per round.', 1, MAX_HEIST_ROUNDS),
   int('events.heist.roundSeconds', 'Events', 'Seconds each Greedy Heist round lasts (time to decide whether to escape).', 2, 60),

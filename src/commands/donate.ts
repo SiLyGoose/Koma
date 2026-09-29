@@ -21,10 +21,6 @@ export const donate: Command = {
     }
 
     const result = await donateToVault(ctx.guildId, ctx.user.id, parsed.bet);
-    if (!result.ok && result.reason === 'vault_full') {
-      await ctx.reply(TEXT.vault.donateFull(fmt(result.pool)));
-      return;
-    }
     if (!result.ok) {
       await ctx.reply(result.balance > 0 ? TEXT.vault.donateTooPoor(fmt(result.balance)) : TEXT.vault.donateNothing);
       return;
@@ -32,7 +28,7 @@ export const donate: Command = {
 
     const embed = createEmbed()
       .setTitle(TEXT.vault.donateTitle)
-      .setDescription(TEXT.vault.donateDone(ctx.user.toString(), fmt(result.donated), fmt(result.pool), result.full))
+      .setDescription(TEXT.vault.donateDone(ctx.user.toString(), fmt(result.donated), fmt(result.pool), result.payout < result.pool ? fmt(result.payout) : undefined))
       .addFields({ name: TEXT.vault.donateBalanceField, value: money(result.balance), inline: true });
     await ctx.reply({ embeds: [embed] });
   },

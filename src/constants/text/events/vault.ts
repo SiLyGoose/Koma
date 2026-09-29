@@ -8,9 +8,14 @@ import { boldMoney } from '../currency.js';
 export const vaultText = {
   /** The `vault` command: how much is in the vault right now. */
   commandTitle: 'Vault',
-  /** `pool` is what's in the vault (losses, fines and its hourly growth), `prize` is that times the multiplier: what the next vault game would put up. */
-  commandInfo: (pool: string, prize: string, multiplier: string) =>
-    `${boldMoney(pool)} in the vault. The next vault game would put up ${boldMoney(prize)} (${multiplier}).`,
+  /**
+   * `pool` is what's in the vault (losses, fines, donations and its hourly growth), `prize` is what
+   * the next vault game would put up (what it can pay out of the pool, times the multiplier).
+   * `cap`, only given when the pool is over events.vault.maxPool, is the most one game pays out of it.
+   */
+  commandInfo: (pool: string, prize: string, multiplier: string, cap?: string) =>
+    `${boldMoney(pool)} in the vault. The next vault game would put up ${boldMoney(prize)} (${multiplier}).` +
+    (cap ? ` A vault game pays out at most ${boldMoney(cap)} of it; the rest waits for the next one.` : ''),
 
   /**
    * Where the vault's points came from since a vault game last paid out of it (claimed it), on the
@@ -38,11 +43,10 @@ export const vaultText = {
   /** `balance` is what they have. */
   donateTooPoor: (balance: string) => `You don't have that many to give. You have ${boldMoney(balance)}`,
   donateNothing: `You don't have any ${CURRENCY_NAME} to give.`,
-  /** `pool` is the cap (events.vault.maxPool) the vault is already at. */
-  donateFull: (pool: string) => `The vault is full at ${boldMoney(pool)}. It can't take any more until a vault game pays out.`,
   donateTitle: 'Vault donation',
-  /** `user` is a mention; `pool` is the vault right after; `full` is whether the cap cut the donation short. */
-  donateDone: (user: string, amount: string, pool: string, full: boolean) =>
-    `${user} put ${boldMoney(amount)} into the vault. It now holds ${boldMoney(pool)}` + (full ? ', and is full.' : ''),
+  /** `user` is a mention; `pool` is the vault right after; `cap`, only given when that's over events.vault.maxPool, is the most one vault game pays out of it. */
+  donateDone: (user: string, amount: string, pool: string, cap?: string) =>
+    `${user} put ${boldMoney(amount)} into the vault. It now holds ${boldMoney(pool)}` +
+    (cap ? `. A vault game pays out at most ${boldMoney(cap)} of it; the rest waits for the next one.` : ''),
   donateBalanceField: 'Your balance',
 };
