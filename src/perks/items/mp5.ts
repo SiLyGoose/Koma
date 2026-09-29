@@ -33,11 +33,11 @@ export const burstFire = definePerk({
 });
 
 export const burstRecoil = definePerk({
-  description: "Burst fire (MP5), recoil: taken off the wearer's chance on every rob roll (percentage points), at R5. A third more at R1, coming down as it is refined.",
-  defaults: { 1: 0.2, 2: 0.175, 3: 0.15, 4: 0.15 },
+  description: "Burst fire (MP5), recoil: taken off the wearer's chance on every rob roll (percentage points), at R5. Twice that at R1, coming down as it is refined.",
+  defaults: { 1: 0.2, 2: 0.175, 3: 0.15, 4: 0.1 },
   min: 0,
   max: 1,
-  atR1: 4 / 3,
+  atR1: 2,
   text: (value) => `Recoil: -${value} rob success chance on every try`,
   modifies: { robChance: { add: (s) => -s } },
 });
