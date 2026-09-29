@@ -17,6 +17,9 @@ import { ensureMember } from './economy/index.js';
 
 type LedgerInput = Omit<LedgerDoc, 'createdAt'>;
 
+/** The share of each loss (see addVaultLoss) that goes into the vault. */
+const VAULT_LOSS_SHARE = 0.4;
+
 /**
  * How much of the pool a payout used up. A game snapshots the pool (`basePool`) and puts up
  * `prize` (basePool times the multiplier); paying out `paid` of that prize costs the pool the same
@@ -43,8 +46,11 @@ async function recordLedger(entries: LedgerInput[]): Promise<void> {
  * them out. Best effort: a failure here never undoes the game action that lost the points, it
  * just means this particular loss doesn't inflate the next vault game (logged, not thrown).
  */
-export async function addVaultLoss(guildId: string, amount: number): Promise<void> {
-  if (!Number.isFinite(amount) || amount <= 0) return;
+export async function addVaultLoss(guildId: string, lost: number): Promise<void> {
+  if (!Number.isFinite(lost) || lost <= 0) return;
+  // Only part of what's lost goes into the vault; the rest leaves circulation for good.
+  const amount = Math.floor(lost * VAULT_LOSS_SHARE);
+  if (amount <= 0) return;
   try {
     await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: amount, vaultLosses: amount } }, { upsert: true });
   } catch (err) {
