@@ -21,7 +21,9 @@ type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>
 
 export type RefinePlan<T> =
   | { ok: true; target: T; fodder: T; from: number; to: number }
-  | { ok: false; reason: 'not_owned' | 'no_duplicate' | 'maxed'; level: number };
+  | { ok: false; reason: 'not_owned'; level: number }
+  /** `target` is the copy a refine would have raised. */
+  | { ok: false; reason: 'no_duplicate' | 'maxed'; level: number; target: T };
 
 /**
  * Which of a member's copies of one item a refine raises, and which it uses up. It raises the copy
@@ -33,9 +35,9 @@ export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: Reado
   const target = copies.find((copy) => worn.has(copy._id)) ?? copies.find((copy) => kept.has(copy._id)) ?? bestCopy(copies);
   if (!target) return { ok: false, reason: 'not_owned', level: 0 };
   const from = refineLevel(target.level);
-  if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from };
+  if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from, target };
   // A copy whose refine bonus was bought with komaGems is never used up.
   const fodder = worstCopy(copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.masterwork));
-  if (!fodder) return { ok: false, reason: 'no_duplicate', level: from };
+  if (!fodder) return { ok: false, reason: 'no_duplicate', level: from, target };
   return { ok: true, target, fodder, from, to: from + 1 };
 }

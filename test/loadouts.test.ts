@@ -109,7 +109,7 @@ test('refine plan: raises a copy saved in a loadout over a better loose one, and
   assert.ok(worn.ok);
   assert.equal(worn.target._id, 'best');
   assert.equal(worn.fodder._id, 'spare');
-  assert.deepEqual(refinePlan([saved, best], new Set(['best']), new Set(['best', 'saved'])), { ok: false, reason: 'no_duplicate', level: 4 });
+  assert.deepEqual(refinePlan([saved, best], new Set(['best']), new Set(['best', 'saved'])), { ok: false, reason: 'no_duplicate', level: 4, target: best });
 });
 
 test('loadout text: the switch message names the loadout, and explains an empty one', () => {

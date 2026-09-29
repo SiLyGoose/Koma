@@ -50,6 +50,7 @@ test('gear page: copies come best first, with what each does, and only fitting c
       { number: 2, name: 'Loadout 2', active: false, equipped: none },
       { number: 3, name: 'Loadout 3', active: false, equipped: none },
     ],
+    balance: null,
   });
 });
 
@@ -94,6 +95,7 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
       worn[`${guildId}/${userId}`] = {};
     },
     switchLoadout: async (_guildId, _userId, number) => number !== 3, // 3 is always busy here
+    refine: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'poor' ? 'too_poor' : 'not_found'),
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -134,8 +136,43 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":3}')).status, 409);
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":9}')).status, 400);
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":"2"}')).status, 400);
+
+    assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"x1"}')).status, 200);
+    const poor = await post('/api/gear/refine', '{"guild":"g1","copy":"poor"}');
+    assert.equal(poor.status, 409);
+    assert.equal(((await poor.json()) as { error: string }).error, 'too_poor');
+    assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"nope"}')).status, 404);
+    assert.equal((await post('/api/gear/refine', '{"guild":"g1"}')).status, 400);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test('gear page: each copy says whether it can be refined, and what the next level costs', () => {
+  const copies = [
+    { _id: 'worn', itemId: 'rusty-dagger', level: 2 },
+    { _id: 'spare', itemId: 'rusty-dagger', level: 1 },
+    { _id: 'lone', itemId: 'wooden-shield', level: 1 },
+    { _id: 'top', itemId: 'iron-longsword', level: 5 },
+    { _id: 'top-spare', itemId: 'iron-longsword', level: 1 },
+  ];
+  const refine = (balance: number | null) =>
+    Object.fromEntries(gearView(copies, { weapon: 'worn' }, 'x', undefined, balance).copies.map((c) => [c.id, c.refine.blocked]));
+
+  // The worn dagger is the one a refine raises (using up the spare), so only it can be.
+  assert.deepEqual(refine(1_000_000), { worn: null, spare: 'other_copy', lone: 'no_duplicate', top: 'maxed', 'top-spare': 'other_copy' });
+  assert.equal(refine(0).worn, 'too_poor');
+  assert.equal(refine(null).worn, null); // points not known: not held back
+
+  const view = gearView(copies, { weapon: 'worn' }, 'x', undefined, 500);
+  assert.equal(view.balance, 500);
+  const worn = view.copies.find((c) => c.id === 'worn')!.refine;
+  assert.ok((worn.cost ?? 0) > 0);
+  assert.equal(worn.spare, 1); // the spare R1 dagger is used up
+  assert.ok(worn.after !== null && worn.after.length > 0);
+  assert.notDeepEqual(worn.after, view.copies.find((c) => c.id === 'worn')!.effects); // stronger at R3
+  const top = view.copies.find((c) => c.id === 'top')!.refine;
+  assert.deepEqual([top.cost, top.spare, top.after], [null, null, null]);
+  assert.equal(view.copies.find((c) => c.id === 'lone')!.refine.spare, null);
 });

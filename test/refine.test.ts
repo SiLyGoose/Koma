@@ -83,9 +83,10 @@ test('refine plan: raises the worn copy (or the best), uses up the lowest other 
   assert.ok(legacy.ok);
   assert.deepEqual([legacy.from, legacy.to], [1, 2]);
 
-  assert.deepEqual(refinePlan([worn], new Set(['worn'])), { ok: false, reason: 'no_duplicate', level: 3 });
+  assert.deepEqual(refinePlan([worn], new Set(['worn'])), { ok: false, reason: 'no_duplicate', level: 3, target: worn });
   assert.deepEqual(refinePlan([], new Set()), { ok: false, reason: 'not_owned', level: 0 });
-  assert.deepEqual(refinePlan([copy('max', 5, 1), spareLow], new Set()), { ok: false, reason: 'maxed', level: 5 });
+  const max = copy('max', 5, 1);
+  assert.deepEqual(refinePlan([max, spareLow], new Set()), { ok: false, reason: 'maxed', level: 5, target: max });
 });
 
 test('refine cost: points by star tier and level, the lower tiers a share of the 4-star prices', () => {

@@ -5,7 +5,7 @@ import { GAMES, gameLink, watchLink, type Game, type WebConfig } from './config.
 import { pinecraftLeaderboard, type PinecraftLeaderboard, type PinecraftStat } from '../services/pinecraft.js';
 import { LOADOUT_NUMBERS } from '../lib/game/items/loadouts.js';
 import { databankView } from './databank.js';
-import { gearStore, type GearStore } from './gear.js';
+import { gearStore, type GearStore, type RefineBlock } from './gear.js';
 import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player } from './token.js';
@@ -26,6 +26,7 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/gear/unequip {guild, slot}   empties a slot: GearView
  *   POST /api/gear/unequip-all {guild}   empties every slot: GearView
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
+ *   POST /api/gear/refine {guild, copy}   refines one of their copies a level: GearView
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
@@ -85,8 +86,21 @@ export interface Me {
   games: Game[];
 }
 
-type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy';
-const STATUS: Record<ErrorCode, number> = { bad_request: 400, no_login: 404, not_logged_in: 401, not_member: 403, discord_failed: 502, not_found: 404, not_playing: 409, busy: 409 };
+type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | RefineBlock;
+const STATUS: Record<ErrorCode, number> = {
+  bad_request: 400,
+  no_login: 404,
+  not_logged_in: 401,
+  not_member: 403,
+  discord_failed: 502,
+  not_found: 404,
+  not_playing: 409,
+  busy: 409,
+  maxed: 409,
+  no_duplicate: 409,
+  other_copy: 409,
+  too_poor: 409,
+};
 
 const MAX_BODY_BYTES = 4096;
 
@@ -208,6 +222,13 @@ async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
     const number = body?.loadout;
     if (typeof number !== 'number' || !LOADOUT_NUMBERS.includes(number)) return fail(res, 'bad_request');
     if (!(await store.switchLoadout(guildId, userId, number))) return fail(res, 'busy');
+    return send(res, 200, await store.view(guildId, userId));
+  }
+  if (url.pathname === '/api/gear/refine' && req.method === 'POST') {
+    const copy = body?.copy;
+    if (typeof copy !== 'string' || copy.length > 64) return fail(res, 'bad_request');
+    const result = await store.refine(guildId, userId, copy);
+    if (result !== 'ok') return fail(res, result);
     return send(res, 200, await store.view(guildId, userId));
   }
   fail(res, 'not_found');

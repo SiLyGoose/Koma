@@ -40,7 +40,7 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef)
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
   const plan = refinePlan(copies, equippedCopyIds(member?.equipment), loadoutCopyIds(member));
-  if (!plan.ok) return plan;
+  if (!plan.ok) return { ok: false, reason: plan.reason, level: plan.level };
 
   const cost = refineCost(item.stars, plan.to);
   const charged = await members.findOneAndUpdate({ guildId, userId, points: { $gte: cost } }, { $inc: { points: -cost } }, { returnDocument: 'after' });
