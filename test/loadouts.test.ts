@@ -92,7 +92,7 @@ test('checkLoadoutName: refuses long names, markdown and mentions, names without
   assert.ok(checkLoadoutName(member, 3, "Tank's Rock & Roll!").ok);
 });
 
-test('refine plan: raises a copy saved in a loadout over a better loose one, and never uses one up', () => {
+test('refine plan: raises the best copy over one saved in a loadout, and never uses a saved one up', () => {
   const at = (n: number) => new Date(2026, 0, n);
   const copy = (_id: string, level: number, obtained: number) => ({ _id, level, obtainedAt: at(obtained) });
   const saved = copy('saved', 2, 1);
@@ -101,10 +101,10 @@ test('refine plan: raises a copy saved in a loadout over a better loose one, and
 
   const plan = refinePlan([best, saved, spare], new Set(), new Set(['saved']));
   assert.ok(plan.ok);
-  assert.equal(plan.target._id, 'saved');
+  assert.equal(plan.target._id, 'best');
   assert.equal(plan.fodder._id, 'spare');
 
-  // Worn beats saved, and a saved copy is never the one used up.
+  // A saved copy is never the one used up.
   const worn = refinePlan([saved, best, spare], new Set(['best']), new Set(['best', 'saved']));
   assert.ok(worn.ok);
   assert.equal(worn.target._id, 'best');

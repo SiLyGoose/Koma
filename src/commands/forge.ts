@@ -19,7 +19,7 @@ export const forge: Command = {
   usage: 'forge <item name>',
   slashUsage: 'forge <item>',
   details:
-    'Also `mw`. Forges the copy you are wearing (else one saved in a loadout, else your best one), which must be refined to R5 first. A masterwork copy is worn first, sold last, and never used up by a refine.',
+    'Also `mw`. Forges your highest-refined copy not yet a masterwork, which must be refined to R5 first. A masterwork copy is worn first, sold last, and never used up by a refine.',
 
   async execute(ctx) {
     const p = ctx.prefix;

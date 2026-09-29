@@ -69,4 +69,6 @@ test('forge command: registered for everyone as forge and mw, with a slash versi
   assert.ok(SPECS.some((spec) => spec.key === 'refine.masterworkGems'));
   assert.ok(GROUPS.includes('Refine'));
   assert.match(TEXT.forge.tooLow('k!', 'Ruby Pickaxe', 3, 5), /R3.*R5.*k!refine Ruby Pickaxe/);
+  assert.match(TEXT.refine.alsoMaxed('Ruby Pickaxe', 5, 1), /already have a fully refined \(\*\*R5\*\*\) \*\*Ruby Pickaxe\*\*.*another copy/);
+  assert.match(TEXT.refine.alsoMaxed('Ruby Pickaxe', 5, 2), /\*\*2\*\* fully refined/);
 });

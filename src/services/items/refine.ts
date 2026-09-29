@@ -1,6 +1,6 @@
 import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
-import { refineCopyPlan, refineCost, refinePlan } from '../../lib/game/items/refine.js';
+import { refineCopyPlan, refineCost, refineLevel, refinePlan } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
@@ -21,8 +21,10 @@ export type RefineResult =
       item: ItemDef;
       from: number;
       to: number;
-      /** Copies of the item left that could still be used for later refines. */
+      /** Copies of the item left that could still be used for later refines (fully refined ones don't count). */
       duplicatesLeft: number;
+      /** Their other copies of the item already fully refined: this refine raised an extra copy. */
+      maxedCopies: number;
       /** Points this refine cost, and what the member has left. */
       paid: number;
       balance: number;
@@ -75,12 +77,14 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   }
   await recordLedger([{ guildId, userId, delta: -cost, reason: 'refine', itemId: item.id }]);
   gearChanged(guildId, userId);
+  const maxedCopies = copies.filter((copy) => copy._id !== plan.target._id && refineLevel(copy.level) >= REFINE.maxLevel).length;
   return {
     ok: true,
     item,
     from: plan.from,
     to: plan.to,
-    duplicatesLeft: copies.length - 2,
+    duplicatesLeft: copies.length - 2 - maxedCopies,
+    maxedCopies,
     paid: cost,
     balance: charged.points,
     nextCost: plan.to < REFINE.maxLevel ? refineCost(item.stars, plan.to + 1) : null,

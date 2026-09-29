@@ -18,6 +18,9 @@ export const refineText = {
   /** `to` is the level it would reach, `price` what that costs, `balance` what they have. */
   tooPoor: (name: string, to: number, price: string, balance: string) =>
     `Refining your **${name}** to **R${to}** costs ${boldMoney(price)} (and a duplicate), and you have ${boldMoney(balance)}.`,
+  /** Under a refine that raised an extra copy: `count` other copies of the item are already at `max`. */
+  alsoMaxed: (name: string, max: number, count: number) =>
+    `You already have ${count === 1 ? 'a' : `**${count}**`} fully refined (**R${max}**) **${name}**, so this refine raised ${count === 1 ? 'another copy' : 'one more'}.`,
   balanceField: 'Balance',
   beforeField: (level: number) => `Before (R${level})`,
   afterField: (level: number) => `Now (R${level})`,

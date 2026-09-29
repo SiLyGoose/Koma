@@ -31,7 +31,12 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const effects = (level: number) => describeEffects(item, share, level, false).join('\n') || t.noEffects;
   return createEmbed()
     .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
-    .setDescription(t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid)))
+    .setDescription(
+      [
+        t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid)),
+        ...(result.maxedCopies > 0 ? [`ℹ️ ${t.alsoMaxed(item.name, REFINE.maxLevel, result.maxedCopies)}`] : []),
+      ].join('\n'),
+    )
     .addFields(
       { name: t.beforeField(result.from), value: effects(result.from), inline: true },
       { name: t.afterField(result.to), value: effects(result.to), inline: true },
@@ -115,6 +120,7 @@ export const refine: Command = {
   description: `Refine an item you own: use up a duplicate of it to raise it one level (up to R${REFINE.maxLevel}, its full strength).`,
   usage: 'refine <item name>',
   slashUsage: 'refine <item>',
+  details: `Raises your highest-refined copy that isn't R${REFINE.maxLevel} yet, using up your lowest spare (never one you wear, keep in a loadout, have fully refined or forged).`,
 
   async execute(ctx) {
     const p = ctx.prefix;

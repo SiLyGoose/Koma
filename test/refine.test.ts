@@ -60,7 +60,7 @@ test('gear counts at the worn copy\'s refinement; gear that does not say counts 
   assert.deepEqual(describeEffects(armor, 1, 3), ['Raid: Guard blocks 12.5% more of the hits you take']);
 });
 
-test('refine plan: raises the worn copy (or the best), uses up the lowest other copy, never a worn one', () => {
+test('refine plan: raises the highest-refined copy, uses up the lowest other copy, never a worn one', () => {
   const copy = (_id: string, level: number, obtained: number) => ({ _id, level, obtainedAt: at(obtained) });
   const worn = copy('worn', 3, 1);
   const spareLow = copy('low', 1, 5);
@@ -72,11 +72,19 @@ test('refine plan: raises the worn copy (or the best), uses up the lowest other 
   assert.equal(plan.fodder._id, 'low', 'the lowest-level spare is used up, so refining is not wasted');
   assert.deepEqual([plan.from, plan.to], [3, 4]);
 
-  // Nothing worn: the best copy is raised.
-  const unworn = refinePlan([spareLow, spareHigh], new Set());
-  assert.ok(unworn.ok);
-  assert.equal(unworn.target._id, 'high');
-  assert.equal(unworn.fodder._id, 'low');
+  // A higher loose copy is raised over a lower worn one, and the worn one is never used up.
+  const extra = copy('extra', 1, 6);
+  const higher = refinePlan([spareLow, spareHigh, extra], new Set(['low']));
+  assert.ok(higher.ok);
+  assert.equal(higher.target._id, 'high');
+  assert.equal(higher.fodder._id, 'extra');
+
+  // Once one copy is maxed, the next one up is raised, and a maxed copy is never used up.
+  const max = copy('max', 5, 1);
+  const next = refinePlan([max, spareHigh, spareLow], new Set());
+  assert.ok(next.ok);
+  assert.deepEqual([next.target._id, next.fodder._id], ['high', 'low']);
+  assert.deepEqual(refinePlan([max, spareHigh], new Set()), { ok: false, reason: 'no_duplicate', level: 2, target: spareHigh });
 
   // A legacy level-0 copy counts as 1.
   const legacy = refinePlan([copy('a', 0, 1), copy('b', 0, 2)], new Set());
@@ -85,8 +93,7 @@ test('refine plan: raises the worn copy (or the best), uses up the lowest other 
 
   assert.deepEqual(refinePlan([worn], new Set(['worn'])), { ok: false, reason: 'no_duplicate', level: 3, target: worn });
   assert.deepEqual(refinePlan([], new Set()), { ok: false, reason: 'not_owned', level: 0 });
-  const max = copy('max', 5, 1);
-  assert.deepEqual(refinePlan([max, spareLow], new Set()), { ok: false, reason: 'maxed', level: 5, target: max });
+  assert.deepEqual(refinePlan([max, copy('max2', 5, 2)], new Set()), { ok: false, reason: 'maxed', level: 5, target: max });
 });
 
 test('refine of a chosen copy: raises that copy whatever the others are at, using up the material picked', () => {

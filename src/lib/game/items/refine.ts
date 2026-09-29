@@ -26,18 +26,22 @@ export type RefinePlan<T> =
   | { ok: false; reason: 'no_duplicate' | 'maxed'; level: number; target: T };
 
 /**
- * Which of a member's copies of one item a refine raises, and which it uses up. It raises the copy
- * they are wearing, else one saved in another of their loadouts (`kept`), else their best one, and
- * uses up their lowest-level other copy (never a worn or kept one), so no refining is thrown away
- * when it can be helped. `kept` includes the worn copies; left out, it is just those.
+ * Which of a member's copies of one item a refine raises, and which it uses up (the Discord `refine`). It raises their
+ * highest-refined copy that isn't at the top level yet (so once one is maxed, the next one up is raised), and uses up
+ * their lowest-level other copy that isn't worn, saved in a loadout (`kept`), maxed or a masterwork, so no refining
+ * is thrown away when it can be helped. `kept` includes the worn copies; left out, it is just those.
  */
 export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: ReadonlySet<string>, kept: ReadonlySet<string> = worn): RefinePlan<T> {
-  const target = copies.find((copy) => worn.has(copy._id)) ?? copies.find((copy) => kept.has(copy._id)) ?? bestCopy(copies);
-  if (!target) return { ok: false, reason: 'not_owned', level: 0 };
+  const maxed = (copy: T) => refineLevel(copy.level) >= REFINE.maxLevel;
+  const top = bestCopy(copies);
+  if (!top) return { ok: false, reason: 'not_owned', level: 0 };
+  const target = bestCopy(copies.filter((copy) => !maxed(copy)));
+  if (!target) return { ok: false, reason: 'maxed', level: refineLevel(top.level), target: top };
   const from = refineLevel(target.level);
-  if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from, target };
-  // A copy whose refine bonus was bought with komaGems is never used up.
-  const fodder = worstCopy(copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.masterwork));
+  // A copy whose refine bonus was bought with komaGems, or that is fully refined, is never used up.
+  const fodder = worstCopy(
+    copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.masterwork && !maxed(copy)),
+  );
   if (!fodder) return { ok: false, reason: 'no_duplicate', level: from, target };
   return { ok: true, target, fodder, from, to: from + 1 };
 }

@@ -1,9 +1,7 @@
 import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
 import { bestCopy } from '../../lib/game/items/copies.js';
-import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
-import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import type { ItemDef } from '../../types.js';
 import { ensureMember, recordLedger } from '../economy/shared.js';
 import { gearChanged } from './gear-events.js';
@@ -23,19 +21,15 @@ export type ForgeResult =
 
 /**
  * Forges the member's copy of `item` into a masterwork, turning on its bonus: copy `copyId` when given (the site's gear
- * page), else the one they're wearing, else one saved in another of their loadouts, else their best one (like refine picks).
+ * page), else their highest-refined copy that isn't a masterwork yet.
  */
 export async function forgeMasterwork(guildId: string, userId: string, item: ItemDef, copyId?: string): Promise<ForgeResult> {
   if (!item.bonus) return { ok: false, reason: 'no_bonus' };
   const needed = item.bonus.level;
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
-  const worn = equippedCopyIds(member?.equipment);
-  const kept = loadoutCopyIds(member);
   const target =
-    copyId !== undefined
-      ? copies.find((copy) => copy._id === copyId)
-      : copies.find((copy) => worn.has(copy._id)) ?? copies.find((copy) => kept.has(copy._id)) ?? bestCopy(copies);
+    copyId !== undefined ? copies.find((copy) => copy._id === copyId) : (bestCopy(copies.filter((copy) => !copy.masterwork)) ?? copies[0]);
   if (!target) return { ok: false, reason: 'not_owned' };
   if (target.masterwork) return { ok: false, reason: 'already' };
   const level = refineLevel(target.level);
