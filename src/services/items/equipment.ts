@@ -1,6 +1,7 @@
 import { collections } from '../../db.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
 import { bestCopy } from '../../lib/game/items/copies.js';
-import type { GearIds, ItemDef, Slot } from '../../types.js';
+import { SLOTS, type GearIds, type ItemDef, type Slot } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
 import { resolveGear } from './gear.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
@@ -63,6 +64,20 @@ export async function equipItem(guildId: string, userId: string, item: ItemDef):
   };
 }
 
+/**
+ * Equips one specific copy (by its id) into its item's slot, for the site's gear page, which
+ * picks copies rather than items. Only a copy the member owns, of an item still in the catalog.
+ */
+export async function equipCopy(guildId: string, userId: string, copyId: string): Promise<{ ok: true; slot: Slot } | { ok: false; reason: 'not_owned' }> {
+  const { items, members } = collections();
+  const copy = await items.findOne({ guildId, userId, _id: copyId });
+  const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
+  if (!copy || !item) return { ok: false, reason: 'not_owned' };
+  await ensureMember(guildId, userId);
+  await members.updateOne({ guildId, userId }, { $set: { [`equipment.${item.slot}`]: copy._id } });
+  return { ok: true, slot: item.slot };
+}
+
 /** Empties a slot. `removedId` is the item that was in it, or null if it was already empty. */
 export async function unequipSlot(
   guildId: string,
@@ -78,4 +93,10 @@ export async function unequipSlot(
   const copyId = before?.equipment?.[slot] ?? null;
   const copy = copyId ? await items.findOne({ guildId, userId, _id: copyId }) : null;
   return { removedId: copy?.itemId ?? null };
+}
+
+/** Empties every slot. */
+export async function unequipAll(guildId: string, userId: string): Promise<void> {
+  const { members } = collections();
+  await members.updateOne({ guildId, userId }, { $set: Object.fromEntries(SLOTS.map((slot) => [`equipment.${slot}`, null])) });
 }

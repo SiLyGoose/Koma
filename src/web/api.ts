@@ -1,7 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MINE_WEB } from '../constants/index.js';
+import { SLOTS, type Slot } from '../types.js';
 import { GAMES, gameLink, watchLink, type Game, type WebConfig } from './config.js';
 import { pinecraftLeaderboard, type PinecraftLeaderboard, type PinecraftStat } from '../services/pinecraft.js';
+import { LOADOUT_NUMBERS } from '../lib/game/items/loadouts.js';
+import { gearStore, type GearStore } from './gear.js';
 import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player } from './token.js';
@@ -17,6 +20,11 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
  *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
+ *   GET  /api/gear?guild=…    the member's gear in that server: GearView (gear.ts)
+ *   POST /api/gear/equip {guild, copy}   puts on one of their copies: GearView
+ *   POST /api/gear/unequip {guild, slot}   empties a slot: GearView
+ *   POST /api/gear/unequip-all {guild}   empties every slot: GearView
+ *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). The front page's /api/live counts as
@@ -39,6 +47,8 @@ export interface ApiDeps {
   avatar?: (guildId: string, userId: string) => string | null;
   /** Pinecraft's leaderboards (the database's, unless a test says otherwise). */
   leaderboard?: typeof pinecraftLeaderboard;
+  /** Members' gear, for the gear page (the database's, unless a test says otherwise). */
+  gear?: GearStore;
   login?: typeof exchangeCode;
 }
 
@@ -73,8 +83,8 @@ export interface Me {
   games: Game[];
 }
 
-type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing';
-const STATUS: Record<ErrorCode, number> = { bad_request: 400, no_login: 404, not_logged_in: 401, not_member: 403, discord_failed: 502, not_found: 404, not_playing: 409 };
+type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy';
+const STATUS: Record<ErrorCode, number> = { bad_request: 400, no_login: 404, not_logged_in: 401, not_member: 403, discord_failed: 502, not_found: 404, not_playing: 409, busy: 409 };
 
 const MAX_BODY_BYTES = 4096;
 
@@ -166,6 +176,41 @@ async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
   fail(res, 'not_found');
 }
 
+/** The gear page's routes, for a logged-in member: the server comes in the query (GET) or the body (POST). */
+async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, deps: ApiDeps, session: Session): Promise<void> {
+  const store = deps.gear ?? gearStore;
+  const body = req.method === 'POST' ? await readJson(req) : null;
+  const guildId = req.method === 'POST' ? body?.guild : url.searchParams.get('guild');
+  if (typeof guildId !== 'string') return fail(res, 'bad_request');
+  if (!session.guildIds.includes(guildId) || !deps.guild(guildId) || (await deps.memberName(guildId, session.userId)) === null) return fail(res, 'not_member');
+  const { userId } = session;
+
+  if (url.pathname === '/api/gear' && req.method === 'GET') return send(res, 200, await store.view(guildId, userId));
+  if (url.pathname === '/api/gear/equip' && req.method === 'POST') {
+    const copy = body?.copy;
+    if (typeof copy !== 'string' || copy.length > 64) return fail(res, 'bad_request');
+    if (!(await store.equip(guildId, userId, copy))) return fail(res, 'not_found');
+    return send(res, 200, await store.view(guildId, userId));
+  }
+  if (url.pathname === '/api/gear/unequip' && req.method === 'POST') {
+    const slot = body?.slot;
+    if (typeof slot !== 'string' || !SLOTS.includes(slot as Slot)) return fail(res, 'bad_request');
+    await store.unequip(guildId, userId, slot as Slot);
+    return send(res, 200, await store.view(guildId, userId));
+  }
+  if (url.pathname === '/api/gear/unequip-all' && req.method === 'POST') {
+    await store.unequipAll(guildId, userId);
+    return send(res, 200, await store.view(guildId, userId));
+  }
+  if (url.pathname === '/api/gear/loadout' && req.method === 'POST') {
+    const number = body?.loadout;
+    if (typeof number !== 'number' || !LOADOUT_NUMBERS.includes(number)) return fail(res, 'bad_request');
+    if (!(await store.switchLoadout(guildId, userId, number))) return fail(res, 'busy');
+    return send(res, 200, await store.view(guildId, userId));
+  }
+  fail(res, 'not_found');
+}
+
 /** Answers a request under /api. Returns false for any other path. */
 export async function handleApi(req: IncomingMessage, res: ServerResponse, deps: ApiDeps): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://bot');
@@ -247,6 +292,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
       if (name === null) return (fail(res, 'not_member'), true);
       if (url.pathname === '/api/live') hubSeen(guildId, session.userId, name);
       await liveRoutes(req, res, url, deps, { guildId, userId: session.userId, name });
+      return true;
+    }
+
+    if (url.pathname.startsWith('/api/gear')) {
+      await gearRoutes(req, res, url, deps, session);
       return true;
     }
 
