@@ -1,3 +1,4 @@
+import { CONFIG } from '../config.js';
 import { CURRENCY_NAME, FAILURE_TITLES, ROB_STREAK_WINDOW_MS, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, mention, signed } from '../lib/format.js';
@@ -70,6 +71,7 @@ function successNotes(
     slip: { returned: number; penalty: number } | null;
     streak: { count: number; rate: number; bonus: number } | null;
     vulnerableBonus: number;
+    wealthTax: { amount: number; rate: number } | null;
     rolls: { used: number; of: number } | null;
   },
 ): string {
@@ -81,6 +83,9 @@ function successNotes(
     lines.push(TEXT.rob.streak(result.streak.count, ROB_STREAK_WINDOW_MS / 3_600_000, formatPercent(result.streak.rate), fmt(result.streak.bonus)));
   }
   if (result.vulnerableBonus > 0) lines.push(TEXT.rob.vulnerableTaken(victim, fmt(result.vulnerableBonus)));
+  if (result.wealthTax !== null) {
+    lines.push(TEXT.rob.wealthTaxed(victim, fmt(CONFIG.rob.wealthTaxThreshold), formatPercent(result.wealthTax.rate), fmt(result.wealthTax.amount)));
+  }
   // What each effect did to the amount, in the order it was applied.
   if (result.gearBonus > 0) lines.push(TEXT.rob.gearAdded(fmt(result.gearBonus)));
   if (result.gearBonus < 0) lines.push(TEXT.rob.gearCut(fmt(-result.gearBonus)));

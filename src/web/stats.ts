@@ -14,6 +14,7 @@ import {
   robStolenAmount,
   robSuccessChance,
   robTaxRate,
+  wealthTaxRate,
   wheelChance,
   type EffectTotals,
 } from '../perks/index.js';
@@ -74,6 +75,7 @@ export function gearStats(gear: EffectTotals): StatSection[] {
         row('Cooldown', gear, (g) => minutes(rob.cooldownMinutes * robCooldownScale(g))),
         row('Claim tax', gear, (g) => formatPercent(claimTaxRate(g))),
         row('Rob tax', gear, (g) => formatPercent(robTaxRate(g))),
+        row('Wealth tax', gear, (g) => formatPercent(wealthTaxRate(rob.wealthTaxRate, g))),
       ],
     },
     {

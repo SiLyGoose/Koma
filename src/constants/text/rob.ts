@@ -26,6 +26,9 @@ export const robText = {
     `⌨️ **Hot streak!** ${count} rob${count === 1 ? '' : 's'} in ${hours} hours: +${rate}, ${boldMoney(amount)} more.`,
   /** Thoccy Keyboard: the victim was vulnerable (they failed a rob), so this rob took more. */
   vulnerableTaken: (victim: string, amount: string) => `⌨️ ${victim} was vulnerable: you took ${boldMoney(amount)} more.`,
+  /** The wealth tax: the victim held more than `line`, so the rob also took `rate` of what they held over it. */
+  wealthTaxed: (victim: string, line: string, rate: string, amount: string) =>
+    `💰 **Wealth tax!** ${victim} held over ${boldMoney(line)}: you took ${rate} of the excess, ${boldMoney(amount)} more.`,
   /** Thoccy Keyboard: the robber failed and is vulnerable now. */
   nowVulnerable: (robber: string, rate: string) => `⌨️ Streak broken. ${robber} is vulnerable: the next successful rob against them takes +${rate}.`,
   /** Added when the victim's armor kept part of the take from the robber. */

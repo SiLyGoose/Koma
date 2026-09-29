@@ -328,6 +328,14 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['burstFire', 'burstRecoil'],
   },
   {
+    id: 'equalizer',
+    name: 'Equalizer',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Everyone pays their fair share.',
+    effects: ['wealthTax'],
+  },
+  {
     id: 'ruby-pickaxe',
     name: 'Ruby Pickaxe',
     stars: 4,

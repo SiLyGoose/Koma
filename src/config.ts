@@ -67,6 +67,10 @@ export interface Settings {
      */
     minChance: number;
     maxChance: number;
+    /** A successful rob of a member holding more than this also takes wealthTaxRate of what they hold over it. */
+    wealthTaxThreshold: number;
+    /** The share (0 to 1) of a rich victim's points over wealthTaxThreshold a successful rob also takes (gear can raise it). */
+    wealthTaxRate: number;
   };
   sell: {
     /** Points a member gets for selling one item of each star tier (sell command). */
@@ -280,6 +284,8 @@ export const DEFAULTS: Readonly<Settings> = {
     failFine: 100,
     minChance: 0.05,
     maxChance: 0.95,
+    wealthTaxThreshold: 5000,
+    wealthTaxRate: 0.01,
   },
   // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
   sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 } },

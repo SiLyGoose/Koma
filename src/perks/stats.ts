@@ -36,7 +36,9 @@ export type StatId =
   /** Share (0 to 1) of the victim's next claim a successful robber takes. */
   | 'claimTaxRate'
   /** Share (0 to 1) of the victim's next successful rob a successful robber takes. */
-  | 'robTaxRate';
+  | 'robTaxRate'
+  /** Share (0 to 1) of a rich victim's points over rob.wealthTaxThreshold a successful rob also takes, from rob.wealthTaxRate. */
+  | 'wealthTaxRate';
 
 /** How one perk changes one stat. `strength` is the perk's total strength (0.1 means 10%). */
 export interface StatModifier {
@@ -60,6 +62,7 @@ const FINISH: Record<StatId, (value: number) => number> = {
   d20Chance: (value) => clamp(value, 0, 1),
   claimTaxRate: (value) => clamp(value, 0, 1),
   robTaxRate: (value) => clamp(value, 0, 1),
+  wealthTaxRate: (value) => clamp(value, 0, 1),
 };
 
 /*
@@ -141,3 +144,6 @@ export const claimTaxRate = (robber: EffectTotals): number => modify('claimTaxRa
 
 /** The share (0 to 1) of the victim's next successful rob that a successful robber's gear taxes. */
 export const robTaxRate = (robber: EffectTotals): number => modify('robTaxRate', 0, robber);
+
+/** The share (0 to 1) of a rich victim's points over the wealth tax line a successful rob by this gear also takes, from the base (rob.wealthTaxRate). */
+export const wealthTaxRate = (base: number, robber: EffectTotals): number => modify('wealthTaxRate', base, robber);

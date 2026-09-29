@@ -22,7 +22,7 @@ function modifiers(): Map<StatId, EffectId[]> {
 // A base that is in range for every stat (chances and rates are 0 to 1, so 0.5 leaves room both ways).
 const BASE = 0.5;
 const AMOUNT_BASE = 1000;
-const baseFor = (stat: StatId): number => (['robChance', 'wheelChance', 'd20Chance', 'claimTaxRate', 'robTaxRate', 'cooldownScale'].includes(stat) ? BASE : AMOUNT_BASE);
+const baseFor = (stat: StatId): number => (['robChance', 'wheelChance', 'd20Chance', 'claimTaxRate', 'robTaxRate', 'wealthTaxRate', 'cooldownScale'].includes(stat) ? BASE : AMOUNT_BASE);
 
 test('stats: with nothing equipped, every stat is just its base', () => {
   for (const stat of modifiers().keys()) {

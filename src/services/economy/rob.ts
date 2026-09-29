@@ -27,6 +27,8 @@ import {
   slipPenaltyAmount,
   streakRate,
   spinWheel,
+  wealthTaxAmount,
+  wealthTaxRate,
   wheelChance,
   wheelSlices,
   type D20Roll,
@@ -84,6 +86,8 @@ export type RobResult =
       streak: { count: number; rate: number; bonus: number } | null;
       /** Thoccy Keyboard: the points taken because the victim was vulnerable (0 when they weren't). */
       vulnerableBonus: number;
+      /** The wealth tax: points taken because the victim held more than rob.wealthTaxThreshold, and its rate (0 and null when they didn't). */
+      wealthTax: { amount: number; rate: number } | null;
       /** MP5: which roll hit (`used`) out of how many the robber had (`of`); null with only one roll, or when the D20 decided the rob. */
       rolls: { used: number; of: number } | null;
       /** Set when the robber's D20 rolled first: it scaled `chance`, or (on a 20) made the rob certain and multiplied the take. */
@@ -258,8 +262,11 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       const streakExtra = Math.round(taken * rate);
       const vulnerableExtra = Math.round(taken * vulnerableRate);
       const baseStolen = taken + streakExtra + vulnerableExtra;
-      // D20: a 20's bonus die multiplies everything taken, and the victim pays it.
-      const stolen = d20RobTake(baseStolen, d20);
+      // Wealth tax: a victim holding more than the line also loses a share of what they hold over it.
+      const wealthRate = wealthTaxRate(cfg.wealthTaxRate, robberGear);
+      const taxWanted = wealthTaxAmount(victim?.points ?? 0, cfg.wealthTaxThreshold, wealthRate);
+      // D20: a 20's bonus die multiplies everything taken but the wealth tax, and the victim pays it.
+      const stolen = d20RobTake(baseStolen, d20) + taxWanted;
       // What each effect did, so the reply can show it: the robber's gear, then the victim's armor,
       // then the wheel. Each step is the difference between two whole numbers, so they add up.
       const beforeArmor = robStolenAmount(rolled, robberGear, emptyTotals());
@@ -276,9 +283,11 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         { guildId, userId: victimId, delta: -transfer.moved, reason: 'rob_lost', otherUserId: robberId },
       ];
       let robberBalance = transfer.toBalance;
-      // What the D20 added, out of what was really moved (the victim may not have had it all).
+      // What the wealth tax and the D20 added, out of what was really moved (the victim may not have had it all).
       const coreMoved = Math.min(transfer.moved, baseStolen);
-      const d20Bonus = transfer.moved - coreMoved;
+      const taxMoved = Math.min(transfer.moved - coreMoved, taxWanted);
+      const wealthTax = taxMoved > 0 ? { amount: taxMoved, rate: wealthRate } : null;
+      const d20Bonus = transfer.moved - coreMoved - taxMoved;
 
       // Piplup on either side: the robber may slip and hand everything back, plus a penalty. A
       // slipped rob is undone, so nothing below happens (no tax is paid out of it, no marks are left).
@@ -313,6 +322,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               // Undone, so neither counts: no streak, and the victim stays vulnerable.
               streak: null,
               vulnerableBonus: 0,
+              wealthTax,
               rolls,
               d20,
               d20Bonus,
@@ -463,6 +473,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         slip: null,
         streak: streakCount > 0 ? { count: streakCount, rate, bonus: streakBonus } : null,
         vulnerableBonus,
+        wealthTax,
         rolls,
         d20,
         d20Bonus,

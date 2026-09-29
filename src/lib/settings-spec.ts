@@ -125,6 +125,16 @@ export const SPECS: readonly SettingSpec[] = [
   int('rob.minVictimBalance', 'Rob', `Members with fewer ${CURRENCY_EMOJI} than this cannot be robbed (1 means anyone who has some).`, 1, MAX_POINTS),
   int('rob.failFine', 'Rob', `Fine a caught robber pays the victim. A member needs at least this many ${CURRENCY_EMOJI} to rob.`, 0, MAX_POINTS),
   int('rob.cooldownMinutes', 'Rob', 'Minutes a robber must wait between attempts.', 1, MAX_TIMER_MINUTES),
+  int('rob.wealthTaxThreshold', 'Rob', `A successful rob of a member holding more than this many ${CURRENCY_EMOJI} also takes the wealth tax of what they hold over it.`, 0, MAX_POINTS),
+  {
+    key: 'rob.wealthTaxRate',
+    group: 'Rob',
+    description: 'Wealth tax: the share of what a victim holds over rob.wealthTaxThreshold that a successful rob also takes (gear can raise it).',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
   int(
     'rob.victimProtectionMinutes',
     'Rob',

@@ -22,6 +22,7 @@ import { robChance } from './rob/rob-chance.js';
 import { robDefense } from './rob/rob-defense.js';
 import { robShield } from './rob/rob-shield.js';
 import { robTax } from './rob/rob-tax.js';
+import { wealthTax } from './rob/wealth-tax.js';
 import { slothCooldown } from './items/sloth-cooldown.js';
 import { slothDefense } from './items/sloth-defense.js';
 import { smart } from './items/smart.js';
@@ -52,6 +53,7 @@ export const EFFECTS = {
   robAmountCut,
   claimTax,
   robTax,
+  wealthTax,
   // Glass cannon.
   glassCannon,
   glassCannonPenalty,
