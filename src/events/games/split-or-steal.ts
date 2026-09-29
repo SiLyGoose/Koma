@@ -7,7 +7,7 @@ import type { CrateShare } from '../../lib/events/crate.js';
 import { choiceOf, resolveSplitSteal, type SplitStealChoice, type SplitStealOutcome } from '../../lib/events/split-steal.js';
 import { fmt, mention } from '../../lib/format.js';
 import { payShares } from '../../services/events.js';
-import { getVaultPool, takeFromVault, vaultCost } from '../../services/vault.js';
+import { claimVault, getVaultPool, vaultCost } from '../../services/vault.js';
 import { eventPing } from '../ping.js';
 import type { EventContext, GameEvent } from '../types.js';
 import { collectJoiners, limitedLines, LiveMessage, showResult } from './vault-game.js';
@@ -149,7 +149,7 @@ async function runSplitSteal(ctx: EventContext): Promise<void> {
     paid = payout.paid;
     failed = payout.failed.length;
     const taken = paid.reduce((sum, share) => sum + share.amount, 0);
-    await takeFromVault(guild.id, vaultCost(basePool, prize, taken));
+    await claimVault(guild.id, vaultCost(basePool, prize, taken));
   } catch (err) {
     console.error(`Could not settle Split or Steal in ${guild.id}:`, err);
     await showResult(message, channel, splitStealFailedEmbed(), 'Split or Steal');

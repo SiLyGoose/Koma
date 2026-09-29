@@ -7,7 +7,7 @@ import { addRoundLoot, alarmChance, roundPot, type HeistPlayer } from '../../lib
 import { fmt, formatPercent, mention } from '../../lib/format.js';
 import { chance } from '../../lib/random.js';
 import { payShares } from '../../services/events.js';
-import { fineIntoVault, getVaultPool, takeFromVault, vaultCost, type VaultFine } from '../../services/vault.js';
+import { claimVault, fineIntoVault, getVaultPool, vaultCost, type VaultFine } from '../../services/vault.js';
 import { eventPing } from '../ping.js';
 import type { EventContext, GameEvent } from '../types.js';
 import { collectJoiners, limitedLines, LiveMessage, showResult } from './vault-game.js';
@@ -190,7 +190,7 @@ async function runHeist(ctx: EventContext): Promise<void> {
     const payout = await payShares(guild.id, shares, 'heist_loot');
     taken = payout.paid.reduce((sum, share) => sum + share.amount, 0);
     failed = payout.failed.length;
-    await takeFromVault(guild.id, vaultCost(basePool, prize, taken));
+    await claimVault(guild.id, vaultCost(basePool, prize, taken));
     if (caughtIds.length > 0) fines = await fineIntoVault(guild.id, caughtIds, cfg.fine, 'heist_fine');
   } catch (err) {
     console.error(`Could not settle a Greedy Heist in ${guild.id}:`, err);

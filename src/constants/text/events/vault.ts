@@ -12,11 +12,20 @@ export const vaultText = {
   commandInfo: (pool: string, prize: string, multiplier: string) =>
     `${boldMoney(pool)} in the vault. The next vault game would put up ${boldMoney(prize)} (${multiplier}).`,
 
-  /** Where the vault's points came from, on the vault command. Every amount is already formatted. */
-  sourcesField: 'Put in so far',
-  sources: (losses: string, donated: string, grown: string) =>
-    [`Losses: ${boldMoney(losses)}`, `Donations: ${boldMoney(donated)}`, `Hourly growth: ${boldMoney(grown)}`].join('\n'),
-  donorsField: 'Top donors',
+  /**
+   * Where the vault's points came from since a vault game last paid out of it (claimed it), on the
+   * vault command. Every amount is already formatted. `claim`, only given once there has been a
+   * claim, is when (a Discord timestamp) and what it left behind in the vault.
+   */
+  sourcesField: (claimed: boolean) => (claimed ? 'Put in since the last claim' : 'Put in so far'),
+  sources: (losses: string, donated: string, grown: string, claim?: { at: string; left: string }) =>
+    [
+      ...(claim ? [`Last claimed ${claim.at}, leaving ${boldMoney(claim.left)}`] : []),
+      `Losses: ${boldMoney(losses)}`,
+      `Donations: ${boldMoney(donated)}`,
+      `Hourly growth: ${boldMoney(grown)}`,
+    ].join('\n'),
+  donorsField: (claimed: boolean) => (claimed ? 'Top donors since the last claim' : 'Top donors'),
   /** `rank` starts at 1; `user` is a mention. */
   donorLine: (rank: number, user: string, amount: string) => `${rank}. ${user}: ${boldMoney(amount)}`,
   /** `count` is how many donors weren't listed. */

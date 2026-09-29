@@ -16,7 +16,7 @@ import { createEmbed, type BotEmbed } from '../../lib/embed.js';
 import { parseGuess, rollCode, scoreGuess, type Mark } from '../../lib/events/code.js';
 import { fmt, mention } from '../../lib/format.js';
 import { payShares } from '../../services/events.js';
-import { chargeIntoVault, getVaultPool, refundFromVault, takeFromVault, vaultCost } from '../../services/vault.js';
+import { chargeIntoVault, claimVault, getVaultPool, refundFromVault, vaultCost } from '../../services/vault.js';
 import { eventPing } from '../ping.js';
 import type { EventContext, GameEvent } from '../types.js';
 import { LiveMessage, showResult } from './vault-game.js';
@@ -191,7 +191,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
     try {
       const payout = await payShares(guild.id, [{ userId: winner, amount: prize }], 'code_prize');
       const taken = payout.paid.reduce((sum, share) => sum + share.amount, 0);
-      await takeFromVault(guild.id, vaultCost(basePool, prize, taken));
+      await claimVault(guild.id, vaultCost(basePool, prize, taken));
       if (taken === 0) throw new Error('the prize could not be paid');
     } catch (err) {
       console.error(`Could not pay the Codedle prize in ${guild.id}:`, err);

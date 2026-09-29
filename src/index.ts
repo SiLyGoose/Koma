@@ -3,7 +3,7 @@ import { getBalance } from './services/economy/index.js';
 import { handleAutocomplete, handleMessage, handleSlash } from './discord/dispatch.js';
 import { commands } from './commands/index.js';
 import { slashCommandData } from './discord/slash.js';
-import { validateConfig } from './config.js';
+import { CONFIG, validateConfig } from './config.js';
 import { SETTINGS_REFRESH_MS, validateConstants } from './constants/index.js';
 import { validateItems } from './data/items.js';
 import { validateWheel } from './perks/index.js';
@@ -21,7 +21,7 @@ import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
 import { settleUnfinishedRaids } from './commands/raid.js';
-import { clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -104,6 +104,11 @@ async function main(): Promise<void> {
     refreshSettings().catch((err) => console.error('Failed to refresh settings:', err));
   }, SETTINGS_REFRESH_MS);
   settingsTimer.unref();
+
+  // Every start: dates the last vault claim for servers claimed before claims were saved (see
+  // backfillVaultClaims). After the settings, so it has the vault's hourly growth.
+  const vaultClaims = await backfillVaultClaims(CONFIG.events.vault.hourlyGrowth);
+  if (vaultClaims > 0) console.log(`Dated the last vault claim in ${vaultClaims} server(s) from the ledger.`);
 
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).

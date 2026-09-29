@@ -1,4 +1,5 @@
 import type { Filter } from 'mongodb';
+import { HOUR_MS } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { bestCopy } from '../lib/game/items/copies.js';
@@ -235,4 +236,47 @@ export async function renameMinesData(): Promise<{ settings: boolean; rounds: nu
     renamed += result.modifiedCount;
   }
   return { settings: moved.modifiedCount > 0, rounds, ledger: renamed };
+}
+
+/** Ledger reasons for a vault game paying out of the vault (a claim, see claimVault in services/vault.ts). */
+const VAULT_PAYOUT_REASONS = ['heist_loot', 'split_steal', 'code_prize'] as const;
+
+/**
+ * The vault command counts what went into the vault since it was last claimed, but claims only
+ * started being saved (vaultClaimedAt) later. For a server whose vault was claimed before that,
+ * this dates the last claim from the ledger's last vault game payout and estimates the totals
+ * since then, since the old ones were all-time and can't be split exactly: donations come from
+ * the ledger anyway, the hourly growth is the time since the claim at `perHour` (never more than
+ * was ever grown), and losses are the rest of what's in the vault, as if the claim had emptied it.
+ * The next real claim replaces all of this. Idempotent (only servers with no vaultClaimedAt),
+ * runs every start.
+ */
+export async function backfillVaultClaims(perHour: number, now: Date = new Date()): Promise<number> {
+  const { guilds, ledger } = collections();
+  const payouts = await ledger
+    .aggregate<{ _id: string; at: Date }>([
+      { $match: { reason: { $in: [...VAULT_PAYOUT_REASONS] } } },
+      { $group: { _id: '$guildId', at: { $max: '$createdAt' } } },
+    ])
+    .toArray();
+  let backfilled = 0;
+  for (const { _id: guildId, at } of payouts) {
+    const doc = await guilds.findOne({ _id: guildId });
+    if (!doc || doc.vaultClaimedAt) continue;
+    const [donations] = await ledger
+      .aggregate<{ amount: number }>([
+        { $match: { guildId, reason: 'vault_donation', createdAt: { $gte: at } } },
+        { $group: { _id: null, amount: { $sum: { $multiply: ['$delta', -1] } } } },
+      ])
+      .toArray();
+    const pool = doc.vaultPool ?? 0;
+    const grown = Math.min(doc.vaultGrown ?? 0, Math.max(0, Math.floor(((now.getTime() - at.getTime()) * Math.max(0, perHour)) / HOUR_MS)));
+    const losses = Math.max(0, pool - (donations?.amount ?? 0) - grown);
+    const result = await guilds.updateOne(
+      { _id: guildId, vaultClaimedAt: { $exists: false } },
+      { $set: { vaultClaimedAt: at, vaultCarriedOver: 0, vaultGrown: grown, vaultLosses: losses } },
+    );
+    backfilled += result.modifiedCount;
+  }
+  return backfilled;
 }

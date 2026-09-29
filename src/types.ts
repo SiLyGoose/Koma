@@ -439,14 +439,18 @@ export interface GuildDoc {
    */
   vaultGrownAt?: Date | null;
   /**
-   * Running totals of what has gone into the vault, by where it came from, for the vault command
-   * to show: losses and fines (everything through `addVaultLoss`), and the hourly growth. They only
-   * ever go up (a vault game paying out doesn't lower them), and count from when they were added,
-   * so older losses aren't in them. Donations are counted from the ledger instead ('vault_donation').
-   * Missing means 0.
+   * Running totals of what has gone into the vault since it was last claimed (a vault game paying
+   * out, see claimVault in services/vault.ts), by where it came from, for the vault command to show:
+   * losses and fines (everything through `addVaultLoss`), and the hourly growth. A claim sets them
+   * back to 0. Donations are counted from the ledger instead ('vault_donation', since
+   * vaultClaimedAt). Missing means 0.
    */
   vaultLosses?: number;
   vaultGrown?: number;
+  /** When a vault game last paid out of the vault. Missing means it never has. */
+  vaultClaimedAt?: Date;
+  /** What was left in the vault right after that payout, carried into the current one. Missing means 0. */
+  vaultCarriedOver?: number;
   /**
    * Left over from the removed vault breaker event, which saved its open attempt here. Nothing
    * writes it any more; services/migrate.ts clears it on start.

@@ -8,7 +8,8 @@ import type { Command } from '../discord/types.js';
 
 /**
  * How much is in this server's vault, and what the next vault game would put up; then where its
- * points have come from (losses and fines, donations, the hourly growth) and who donated the most.
+ * points have come from since a vault game last paid out of it (losses and fines, donations, the
+ * hourly growth) and who donated the most in that time.
  */
 export const vault: Command = {
   name: 'vault',
@@ -16,7 +17,8 @@ export const vault: Command = {
   description: `See how many ${CURRENCY_NAME} are in the vault, and what the next vault game would put up.`,
 
   async execute(ctx) {
-    const { pool, losses, donated, grown, donors, donorCount } = await getVaultBreakdown(ctx.guildId);
+    const { pool, losses, donated, grown, carriedOver, claimedAt, donors, donorCount } = await getVaultBreakdown(ctx.guildId);
+    const claim = claimedAt ? { at: `<t:${Math.floor(claimedAt.getTime() / 1000)}:R>`, left: fmt(carriedOver) } : undefined;
     const { multiplier } = CONFIG.events.vault;
     const donorLines = donors.map((donor, i) => TEXT.vault.donorLine(i + 1, mention(donor.userId), fmt(donor.amount)));
     if (donorCount > donors.length) donorLines.push(TEXT.vault.moreDonors(donorCount - donors.length));
@@ -24,8 +26,8 @@ export const vault: Command = {
       .setTitle(TEXT.vault.commandTitle)
       .setDescription(TEXT.vault.commandInfo(fmt(pool), fmt(Math.round(pool * multiplier)), formatMultiplier(multiplier)))
       .addFields(
-        { name: TEXT.vault.sourcesField, value: TEXT.vault.sources(fmt(losses), fmt(donated), fmt(grown)) },
-        { name: TEXT.vault.donorsField, value: donorLines.length > 0 ? donorLines.join('\n') : TEXT.vault.noDonors(commandPrefix(ctx, 'donate')) },
+        { name: TEXT.vault.sourcesField(claim !== undefined), value: TEXT.vault.sources(fmt(losses), fmt(donated), fmt(grown), claim) },
+        { name: TEXT.vault.donorsField(claim !== undefined), value: donorLines.length > 0 ? donorLines.join('\n') : TEXT.vault.noDonors(commandPrefix(ctx, 'donate')) },
       );
     await ctx.reply({ embeds: [embed] });
   },

@@ -99,33 +99,40 @@ export const TOP_VAULT_DONORS = 5;
 export interface VaultBreakdown {
   /** What's in the vault right now. */
   pool: number;
-  /** Everything ever put in through losses and fines, donations, and the hourly growth. */
+  /**
+   * What has been put in since the vault was last claimed, through losses and fines, donations,
+   * and the hourly growth, plus what was left over from that claim.
+   */
   losses: number;
   donated: number;
   grown: number;
+  carriedOver: number;
+  /** When the vault was last claimed, or null if it never has been. */
+  claimedAt: Date | null;
   /** The biggest donors, most given first (at most TOP_VAULT_DONORS). */
   donors: { userId: string; amount: number }[];
-  /** How many members have ever donated. */
+  /** How many members have donated since the last claim. */
   donorCount: number;
 }
 
-/** What's in the server's vault, and what has gone into it from where (see GuildDoc.vaultLosses). */
+/** What's in the server's vault, and what has gone into it from where since it was last claimed (see GuildDoc.vaultLosses). */
 export async function getVaultBreakdown(guildId: string): Promise<VaultBreakdown> {
   const { guilds, ledger } = collections();
-  const [doc, rows] = await Promise.all([
-    guilds.findOne({ _id: guildId }),
-    ledger
-      .aggregate<{ _id: string; amount: number }>([
-        { $match: { guildId, reason: 'vault_donation' } },
-        { $group: { _id: '$userId', amount: { $sum: { $multiply: ['$delta', -1] } } } },
-        { $sort: { amount: -1, _id: 1 } },
-      ])
-      .toArray(),
-  ]);
+  const doc = await guilds.findOne({ _id: guildId });
+  const claimedAt = doc?.vaultClaimedAt ?? null;
+  const rows = await ledger
+    .aggregate<{ _id: string; amount: number }>([
+      { $match: { guildId, reason: 'vault_donation', ...(claimedAt ? { createdAt: { $gte: claimedAt } } : {}) } },
+      { $group: { _id: '$userId', amount: { $sum: { $multiply: ['$delta', -1] } } } },
+      { $sort: { amount: -1, _id: 1 } },
+    ])
+    .toArray();
   return {
     pool: doc?.vaultPool ?? 0,
     losses: doc?.vaultLosses ?? 0,
     grown: doc?.vaultGrown ?? 0,
+    carriedOver: doc?.vaultCarriedOver ?? 0,
+    claimedAt,
     donated: rows.reduce((sum, row) => sum + row.amount, 0),
     donors: rows.slice(0, TOP_VAULT_DONORS).map((row) => ({ userId: row._id, amount: row.amount })),
     donorCount: rows.length,
@@ -139,8 +146,24 @@ export async function getVaultPool(guildId: string): Promise<number> {
 }
 
 /**
- * Takes `amount` out of the vault pool (never below 0), once a vault game has paid out (see
- * vaultCost). Losses added to the pool while the game ran are left alone, so they carry over to
+ * A vault game paid out `amount` of the pool (see vaultCost): takes it out (never below 0) and
+ * starts the vault command's breakdown over from now, with whatever is left counted as carried
+ * over. Nothing happens if nothing was paid, so a game nobody won doesn't reset the breakdown.
+ */
+export async function claimVault(guildId: string, amount: number, now: Date = new Date()): Promise<void> {
+  if (!Number.isSafeInteger(amount) || amount <= 0) return;
+  const left = { $subtract: [{ $ifNull: ['$vaultPool', 0] }, { $min: [{ $ifNull: ['$vaultPool', 0] }, amount] }] };
+  try {
+    await collections().guilds.updateOne({ _id: guildId }, [
+      { $set: { vaultPool: left, vaultCarriedOver: left, vaultLosses: 0, vaultGrown: 0, vaultClaimedAt: now } },
+    ]);
+  } catch (err) {
+    console.error(`Could not take ${amount} out of the vault pool in ${guildId}:`, err);
+  }
+}
+
+/**
+ * Takes `amount` out of the vault pool (never below 0) without it counting as a claim (a refund). Losses added to the pool while the game ran are left alone, so they carry over to
  * the next one instead of being erased by this one.
  */
 export async function takeFromVault(guildId: string, amount: number): Promise<void> {

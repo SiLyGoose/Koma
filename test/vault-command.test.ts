@@ -47,6 +47,11 @@ test('vault command: lists where the points came from, and the donors', () => {
   assert.match(sources, /Donations: \*\*250\*\*/);
   assert.match(sources, /Hourly growth: \*\*40\*\*/);
   assert.equal(sources.split('\n').length, 3);
+  const sinceClaim = TEXT.vault.sources('1,000', '250', '40', { at: '<t:1:R>', left: '75' });
+  assert.match(sinceClaim, /^Last claimed <t:1:R>, leaving \*\*75\*\*/);
+  assert.equal(sinceClaim.split('\n').length, 4);
+  assert.match(TEXT.vault.sourcesField(true), /since the last claim/);
+  assert.match(TEXT.vault.donorsField(true), /since the last claim/);
   assert.match(TEXT.vault.donorLine(1, '<@1>', '250'), /^1\. <@1>: \*\*250\*\*/);
   assert.match(TEXT.vault.moreDonors(3), /3 more/);
   assert.match(TEXT.vault.noDonors('/'), /\/donate/);
