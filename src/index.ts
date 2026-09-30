@@ -208,7 +208,15 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
     },
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
     avatar,
-    raid: { start: (guildId, userId) => startRaidFromWeb(client, guildId, userId), week: raidWeekInfo, avatar },
+    raid: {
+      start: (guildId, userId) => startRaidFromWeb(client, guildId, userId),
+      week: raidWeekInfo,
+      avatar,
+      name: async (guildId, userId) => {
+        const guild = client.guilds.cache.get(guildId);
+        return guild ? ((await guild.members.fetch(userId).catch(() => null))?.displayName ?? null) : null;
+      },
+    },
   };
 }
 

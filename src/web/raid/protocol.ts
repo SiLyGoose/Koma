@@ -74,8 +74,9 @@ export interface RaidFightView {
 export interface RaidOverView {
   end: RaidEnd;
   rounds: number;
-  bossHp: number;
-  bossMaxHp: number;
+  /** The boss's HP when it ended (null for this week's raid read back from the database, which doesn't keep it). */
+  bossHp: number | null;
+  bossMaxHp: number | null;
   /** Damage dealt, most first. */
   ranking: { userId: string; damage: number }[];
   /** What each raider did, in the order they joined: damage dealt, HP healed, and damage their guarding kept off the party. */
@@ -93,6 +94,8 @@ export interface RaidView {
   /** Profile pictures by user id, when the bot knows them. */
   avatars: Record<string, string>;
   boss: { id: RaidBossId; name: string; emoji: string };
+  /** What the boss does, in markdown: its phases, its moves, and the rewards for beating it. */
+  brief: { phases: string[]; moves: string[]; rewards: string };
   /** The boss's picture now: its path under the bot's /api (GET). */
   picture: string;
   mood: RaidMood;

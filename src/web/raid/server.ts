@@ -22,6 +22,8 @@ export interface RaidSiteDeps {
   week(guildId: string): Promise<RaidWeekInfo>;
   /** A member's profile picture in a server, when the bot knows it. */
   avatar?(guildId: string, userId: string): string | null;
+  /** A member's name in a server, or null when they aren't in it (any more). */
+  name?(guildId: string, userId: string): Promise<string | null>;
 }
 
 /** How long a change waits for others before the page is sent the raid, so a burst of picks goes out as one. */
@@ -54,6 +56,12 @@ export function openConnection(page: Peer<ServerMessage>, deps: RaidSiteDeps): C
     if (!week || phase !== weekPhase || phase === 'none' || phase === 'over') {
       weekPhase = phase;
       week = await deps.week(player.guildId);
+      // This week's raid read back from the database: its raiders' names, for the result.
+      if (week.result && deps.name) {
+        const { guildId } = player;
+        const names = await Promise.all(week.result.players.map(async (p) => [p.userId, (await deps.name?.(guildId, p.userId).catch(() => null)) ?? 'Someone'] as const));
+        week.names = Object.fromEntries(names);
+      }
     }
     const { guildId } = player;
     peer.send({ t: 'raid', view: raidView(player.userId, week, live, Date.now(), (userId) => deps.avatar?.(guildId, userId) ?? null) });

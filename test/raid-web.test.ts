@@ -10,7 +10,7 @@ import { openConnection, type RaidSiteDeps } from '../src/web/raid/server.js';
 import { raidView } from '../src/web/raid/view.js';
 import { signToken } from '../src/web/token.js';
 
-const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, ...over });
+const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, result: null, ...over });
 const wait = (ms = 150): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fakePage() {
@@ -75,6 +75,34 @@ test('idle: how the week stands, and whether the page can start the raid', () =>
   assert.deepEqual(won.idle, { week: 'won', canStart: false });
   assert.equal(won.mood, 'defeated');
   assert.deepEqual(raidView('u1', week({ status: 'fighting' }), null).idle, { week: 'busy', canStart: false });
+});
+
+test("a week whose raid was fought shows how it went, read back from the database, with the raiders' names", async () => {
+  clearLiveRaids();
+  resetLive();
+  const result: RaidWeekInfo['result'] = {
+    end: 'wiped',
+    rounds: 9,
+    lastHit: null,
+    players: [
+      { userId: 'u1', damage: 300, healed: 0, mitigated: 40 },
+      { userId: 'u2', damage: 0, healed: 120, mitigated: 0 },
+    ],
+    reward: null,
+  };
+  const c = await connect('u1', { week: async () => week({ status: 'wiped', result }), name: async (_g, userId) => `Named ${userId}` });
+  const v = c.last();
+  assert.equal(v.phase, 'over');
+  assert.equal(v.mood, 'gloating');
+  assert.equal(v.over?.end, 'wiped');
+  assert.equal(v.over?.rounds, 9);
+  assert.equal(v.over?.bossHp, null);
+  assert.deepEqual(v.over?.players, result.players);
+  assert.deepEqual(v.over?.ranking, [{ userId: 'u1', damage: 300 }]);
+  assert.deepEqual(v.names, { u1: 'Named u1', u2: 'Named u2' });
+  // What the boss does, for the page: its phases, moves and rewards.
+  assert.ok(v.brief.moves.length > 0 && v.brief.phases.length > 0 && v.brief.rewards.length > 0);
+  c.connection.closed();
 });
 
 test('the page is sent the raid on hello, and starting it goes through the bot', async () => {
