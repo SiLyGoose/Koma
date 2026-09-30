@@ -447,12 +447,13 @@ export const isFinished = (raid: RaidDoc): raid is RaidDoc & { status: 'won' | '
  * `raid stats`: a boss itself, with the live raid settings: its HP, its phases, and its moves.
  * `until` is when its week ends, when it is this week's boss.
  */
-export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
+/**
+ * What a boss does, in words (Discord markdown), for `raid stats` and the site's raid page: its phases
+ * (how much harder it hits, and its crowd control and healing, in each), its moves, and the rewards.
+ */
+export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string[]; moves: string[]; rewards: string } {
   const r = TEXT.raid;
-  const b = r.bosses[boss];
   const { moves, cc, enrage, support } = RAID_COMBAT;
-  const share = RAID_COMBAT.hpShare[boss];
-  const examples = [1, 3, 5, 8].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, cfg, share)))).join(' · ');
   const hasCc = movesOf(boss).some(isCcMove);
   const heals = movesOf(boss).some((move) => HEALING_MOVES.includes(move));
   const phases = enrage.multipliers.map((multiplier, level) =>
@@ -502,6 +503,15 @@ export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', unti
   };
   const special: BossMove[] = RAID_COMBAT.requiem.boss === boss ? ['requiem'] : [];
   const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : [])];
+  return { phases, moves: moveLines, rewards: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) };
+}
+
+export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
+  const r = TEXT.raid;
+  const b = r.bosses[boss];
+  const share = RAID_COMBAT.hpShare[boss];
+  const examples = [1, 3, 5, 8].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, cfg, share)))).join(' · ');
+  const { phases, moves: moveLines, rewards } = bossBrief(cfg, boss);
   return createEmbed()
     .setTitle(r.bossTitle(b))
     .setDescription(
@@ -512,7 +522,7 @@ export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', unti
       ].join('\n'),
     )
     .addFields(
-      { name: r.rewardsField, value: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) },
+      { name: r.rewardsField, value: rewards },
       { name: r.phasesField, value: phases.join('\n') },
       { name: r.movesField, value: moveLines.join('\n') },
     )
@@ -1223,12 +1233,36 @@ export interface RaidWeekInfo {
   status: RaidDoc['status'] | null;
   /** The server has a bot channel, so the site can start the raid there. */
   channel: boolean;
+  /** How this week's raid went, once it's been fought: what each raider did (in the order they joined). */
+  result: {
+    end: 'won' | 'wiped' | 'fled';
+    rounds: number;
+    lastHit: string | null;
+    players: { userId: string; damage: number; healed: number; mitigated: number }[];
+    reward: { points: number; tokens: number; gems: number } | null;
+  } | null;
+  /** The raiders' names, for the result (the site's socket fills them in). */
+  names?: Record<string, string>;
 }
 
 export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
   const week = raidWeek();
   const [doc, channelId] = await Promise.all([findRaid(raidId(guildId, week.key)), getChannelId(guildId)]);
-  return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null };
+  const fought = doc && isFinished(doc) ? doc : null;
+  // Raids saved before every stat was kept only have damage; the rest shows as nothing for them.
+  const result: RaidWeekInfo['result'] = fought
+    ? {
+        end: fought.status,
+        rounds: fought.rounds ?? 0,
+        lastHit: fought.lastHit ?? null,
+        players: fought.players.map((userId) => {
+          const stats = fought.stats?.[userId];
+          return { userId, damage: stats?.damage ?? fought.damage?.[userId] ?? 0, healed: stats?.healed ?? 0, mitigated: stats?.mitigated ?? 0 };
+        }),
+        reward: fought.status === 'won' ? { points: CONFIG.raid.reward, tokens: CONFIG.raid.tokenReward, gems: CONFIG.raid.gemReward } : null,
+      }
+    : null;
+  return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null, result };
 }
 
 /** How starting a raid from the site went: its lobby is up in the server's channel, or why not. */

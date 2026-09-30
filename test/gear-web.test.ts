@@ -11,6 +11,7 @@ import { gearView, type GearStore } from '../src/web/gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { sellPrice } from '../src/lib/game/items/sell.js';
 import { signSession } from '../src/web/login.js';
+import { signToken } from '../src/web/token.js';
 import type { EquipmentDoc, Slot } from '../src/types.js';
 
 const SITE: WebConfig = {
@@ -285,4 +286,39 @@ test('gear page: each copy of a bonus item says whether it can be forged into a 
   assert.ok(r5.effects.some((line) => line.startsWith('🔒')), 'not forged yet: the bonus is locked');
   assert.equal(view.copies.find((c) => c.id === 'mw')!.forge?.after, null);
   assert.equal(view.copies.find((c) => c.id === 'plain')!.forge, null);
+});
+
+test("gear page: a game's link can look at gear in its server (the raid's party), and change nothing", async () => {
+  const peeked: string[] = [];
+  const store = {
+    peek: async (_guildId: string, userId: string) => (peeked.push(userId), gearView([{ _id: 'y1', itemId: 'iron-longsword', level: 2 }], { weapon: 'y1' }, userId)),
+  } as unknown as GearStore;
+  const deps: ApiDeps = {
+    config: SITE,
+    clientId: () => '999',
+    guild: (id) => (id === 'g1' ? { name: id, icon: null } : null),
+    memberName: async (guildId, userId) => (guildId === 'g1' && (userId === '11' || userId === '22') ? `Name ${userId}` : null),
+    balance: async () => 0,
+    gear: store,
+  };
+  const token = signToken({ guildId: 'g1', userId: '11', name: 'Name 11' }, 60_000);
+  const headers = { Origin: SITE.origin, Authorization: `Game ${token}` };
+  const server: Server = createServer((req, res) => void handleApi(req, res, deps));
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    const mine = await fetch(`${base}/api/gear`, { headers });
+    assert.equal(mine.status, 200);
+    assert.equal(((await mine.json()) as { equipped: { weapon: string | null } }).equipped.weapon, 'y1');
+    assert.equal((await fetch(`${base}/api/gear?user=22`, { headers })).status, 200);
+    assert.deepEqual(peeked, ['11', '22']);
+    assert.equal((await fetch(`${base}/api/gear?user=33`, { headers })).status, 404); // not in the server
+    assert.equal((await fetch(`${base}/api/gear?user=22`, { headers: { Origin: SITE.origin, Authorization: 'Game nonsense' } })).status, 401);
+    // Only looking: nothing else about gear answers a game's link.
+    const post = await fetch(`${base}/api/gear/equip`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ guild: 'g1', copy: 'y1' }) });
+    assert.equal(post.status, 401);
+    assert.equal((await fetch(`${base}/api/gear/members?guild=g1`, { headers })).status, 401);
+  } finally {
+    server.close();
+  }
 });

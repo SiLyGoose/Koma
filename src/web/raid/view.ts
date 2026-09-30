@@ -1,6 +1,6 @@
 import { CONFIG } from '../../config.js';
 import { RAID_COMBAT, TEXT, type RaidBossId } from '../../constants/index.js';
-import { intentText, moodOf, type RaidWeekInfo } from '../../commands/raid.js';
+import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../commands/raid.js';
 import { actionProblem, bossHpFor, canAct, damageRanking, RAID_ACTIONS, type RaidAction } from '../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../lib/events/raid-live.js';
 import type { RaidMood, RaidView } from './protocol.js';
@@ -30,6 +30,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
     names: current ? Object.fromEntries(current.names) : {},
     avatars: current ? Object.fromEntries([...current.names.keys()].flatMap((id) => (avatar(id) ? [[id, avatar(id) as string]] : []))) : {},
     boss: { id: bossId, name: b.name, emoji: b.emoji },
+    brief: bossBrief(CONFIG.raid, bossId),
     resetsAt: week.resetsAt,
     idle: null,
     lobby: null,
@@ -90,6 +91,27 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         players: state ? state.players.map((p) => ({ userId: p.userId, damage: p.stats.damage, healed: p.stats.healed, mitigated: p.stats.mitigated ?? 0 })) : [],
         lastHit: state?.lastHit ?? null,
         reward: rewarded ? { points: cfg.reward, tokens: cfg.tokenReward, gems: cfg.gemReward } : null,
+      },
+    });
+  }
+
+  // No raid going on here, but this week's was fought: how it went (read back from the database).
+  if (week.result) {
+    const { end, rounds, lastHit, players, reward } = week.result;
+    const mood: RaidMood = end === 'won' ? 'defeated' : end === 'wiped' ? 'gloating' : 'fled';
+    return view(mood, {
+      phase: 'over',
+      names: week.names ?? {},
+      avatars: Object.fromEntries(players.flatMap((p) => (avatar(p.userId) ? [[p.userId, avatar(p.userId) as string]] : []))),
+      over: {
+        end,
+        rounds,
+        bossHp: null,
+        bossMaxHp: null,
+        ranking: [...players].sort((a, b) => b.damage - a.damage).filter((p) => p.damage > 0).map((p) => ({ userId: p.userId, damage: p.damage })),
+        players,
+        lastHit,
+        reward,
       },
     });
   }

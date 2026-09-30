@@ -37,7 +37,9 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
- * "Authorization: Game <token>" (the server is the link's). The front page's /api/live counts as
+ * "Authorization: Game <token>" (the server is the link's). So does GET /api/gear?user=…, to look only
+ * (the raid page shows the party's gear: anyone in the link's server, the one asking included, as
+ * someone else would see it). The front page's /api/live counts as
  * being on the site (live.ts).
  *
  * Everything but the first and the databank takes the session as "Authorization: Bearer <session>", and only answers
@@ -354,6 +356,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     // A game page asking with its link's token (to play, or to watch): no login needed.
     const gameToken = /^Game (.+)$/.exec(req.headers.authorization ?? '')?.[1];
+    if (gameToken && url.pathname === '/api/gear' && req.method === 'GET') {
+      const viewer = verifyToken(gameToken);
+      if (!viewer || !deps.guild(viewer.guildId)) return (fail(res, 'not_logged_in'), true);
+      const whose = url.searchParams.get('user') ?? viewer.userId;
+      if (whose !== viewer.userId && (!/^\d{1,32}$/.test(whose) || (await deps.memberName(viewer.guildId, whose)) === null)) return (fail(res, 'not_found'), true);
+      send(res, 200, await (deps.gear ?? gearStore).peek(viewer.guildId, whose));
+      return true;
+    }
     if (gameToken && LIVE_PATHS.has(url.pathname)) {
       const viewer = verifyToken(gameToken) ?? verifyWatchToken(gameToken)?.viewer ?? null;
       if (!viewer || !deps.guild(viewer.guildId)) return (fail(res, 'not_logged_in'), true);
