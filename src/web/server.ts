@@ -2,11 +2,13 @@ import { createServer } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { MINE_WEB } from '../constants/index.js';
 import { handleApi, type ApiDeps } from './api.js';
+import type { RaidSiteDeps } from './raid/server.js';
 import { GAMES } from './config.js';
 import { serveMine } from './mines/server.js';
 import { servePinecraft } from './pinecraft/server.js';
 import { serveBaccarat } from './baccarat/server.js';
 import { serveRoulette } from './roulette/server.js';
+import { serveRaid } from './raid/server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
@@ -32,6 +34,8 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     // The table games show each player's profile picture at the table.
     [GAMES.baccarat.socket]: (socket) => serveBaccarat(socket, api.avatar),
     [GAMES.roulette.socket]: (socket) => serveRoulette(socket, api.avatar),
+    // The raid, once the bot can start one and read the week (it has logged in to Discord).
+    ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
   };
   const http = createServer((req, res) => {
     void handleApi(req, res, api).then((handled) => {

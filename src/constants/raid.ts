@@ -55,6 +55,16 @@ export const RAID = {
   playerBarWidth: 6,
 } as const;
 
+/**
+ * The raid's page on the site (web/raid): its web socket's path, how long a new connection has to say
+ * who it is, and how many messages a second it may send before it's cut off.
+ */
+export const RAID_WEB = {
+  path: '/raid',
+  helloMs: 10_000,
+  messagesPerSecond: 20,
+} as const;
+
 /** The raid's custom emojis (full codes, checked at startup): the actions, crits, and the boss's crowd-control effects. */
 export const RAID_EMOJI = {
   attack: '<:raidattackdamage:1553098026837483721>',

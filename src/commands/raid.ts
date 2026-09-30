@@ -55,6 +55,10 @@ import {
 } from '../lib/events/raid.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
 import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
+import { openLiveRaid, type ActAnswer, type LiveRaid, type RaidLobbyLive } from '../lib/events/raid-live.js';
+import { siteGameLink, webConfig } from '../web/config.js';
+import { getChannelId } from '../services/channel.js';
+import { getPrefix } from '../services/settings.js';
 import { pickRandom } from '../lib/random.js';
 import { commandPrefix } from '../discord/slash.js';
 import { chargeForSkip, raidWeekDocs, refundSkip } from '../services/skips.js';
@@ -65,8 +69,10 @@ import { sleep } from '../lib/time.js';
 import type { RaidDoc } from '../types.js';
 import {
   abandonRaid,
+  findRaid,
   finishRaid,
   listUnfinishedRaids,
+  raidId,
   resetRaidWeek,
   rewardRaid,
   startRaidWeek,
@@ -642,7 +648,7 @@ class RaidScreen {
 // The lobby
 // ---------------------------------------------------------------------------
 
-function lobbyView(boss: RaidBossId, host: string, players: readonly string[], closesAt: number, cfg: RaidSettings, open: boolean) {
+function lobbyView(guildId: string, boss: RaidBossId, host: string, players: readonly string[], closesAt: number, cfg: RaidSettings, open: boolean) {
   const r = TEXT.raid;
   const b = r.bosses[boss];
   const { support } = RAID_COMBAT;
@@ -664,40 +670,84 @@ function lobbyView(boss: RaidBossId, host: string, players: readonly string[], c
     new ButtonBuilder().setCustomId(RAID.leaveId).setLabel(r.leaveButton).setStyle(ButtonStyle.Secondary).setDisabled(!open),
     new ButtonBuilder().setCustomId(RAID.startId).setLabel(r.startButton).setStyle(ButtonStyle.Primary).setDisabled(!open || players.length === 0),
   );
+  // With the site up: the raid's page there, to join and fight from.
+  const config = webConfig();
+  if (config && open) row.addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(siteGameLink(config, 'raid', guildId)).setLabel(r.webButton).setEmoji('🌐'));
   return { embeds: [embed], components: [row] };
 }
 
-/** Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order they joined. */
-async function runLobby(boss: RaidBossId, message: Message, host: string, cfg: RaidSettings, raidId: string, names: Map<string, string>): Promise<string[]> {
+/**
+ * Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order
+ * they joined. Discord's buttons and the site (through `live`) join, leave and start the same way.
+ */
+async function runLobby(
+  guildId: string,
+  boss: RaidBossId,
+  message: Message,
+  host: string,
+  cfg: RaidSettings,
+  raidId: string,
+  names: Map<string, string>,
+  live: LiveRaid,
+): Promise<string[]> {
   const players = [host];
   const closesAt = Date.now() + cfg.prepareSeconds * 1000;
-  const screen = new RaidScreen(boss, message, () => lobbyView(boss, host, players, closesAt, cfg, true), () => 'calm', 'calm');
+  let open = true;
+  const screen = new RaidScreen(boss, message, () => lobbyView(guildId, boss, host, players, closesAt, cfg, true), () => 'calm', 'calm');
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.prepareSeconds * 1000 });
+  const changed = (): void => {
+    screen.update();
+    live.changed();
+  };
+
+  const lobby: RaidLobbyLive = {
+    players,
+    closesAt,
+    join(userId, name) {
+      if (!open) return 'closed';
+      if (players.includes(userId)) return 'already_joined';
+      players.push(userId);
+      names.set(userId, name);
+      changed();
+      return 'joined';
+    },
+    leave(userId) {
+      if (!open) return 'closed';
+      const at = players.indexOf(userId);
+      if (at === -1) return 'not_joined';
+      players.splice(at, 1);
+      changed();
+      return 'left';
+    },
+    // The first on the list: the host, or whoever joined next if they left.
+    start(userId) {
+      if (!open) return 'closed';
+      if (players[0] !== userId) return 'only_host';
+      collector.stop('start');
+      return 'started';
+    },
+  };
+  live.openLobby(lobby);
 
   collector.on('collect', (press) => {
     const userId = press.user.id;
-    const at = players.indexOf(userId);
     if (press.customId === RAID.joinId) {
-      if (at !== -1) return void replyPrivately(press, TEXT.raid.alreadyJoined);
-      players.push(userId);
-      names.set(userId, displayNameOf(press));
-      screen.update();
-      return void replyPrivately(press, TEXT.raid.joined);
+      const answer = lobby.join(userId, displayNameOf(press));
+      return void replyPrivately(press, answer === 'joined' ? TEXT.raid.joined : answer === 'closed' ? TEXT.raid.lobbyClosed : TEXT.raid.alreadyJoined);
     }
     if (press.customId === RAID.leaveId) {
-      if (at === -1) return void replyPrivately(press, TEXT.raid.notJoined);
-      players.splice(at, 1);
-      screen.update();
-      return void replyPrivately(press, TEXT.raid.left);
+      const answer = lobby.leave(userId);
+      return void replyPrivately(press, answer === 'left' ? TEXT.raid.left : answer === 'closed' ? TEXT.raid.lobbyClosed : TEXT.raid.notJoined);
     }
     if (press.customId === RAID.startId) {
-      if (at !== 0) return void replyPrivately(press, TEXT.raid.onlyHost);
+      const answer = lobby.start(userId);
+      if (answer === 'only_host') return void replyPrivately(press, TEXT.raid.onlyHost);
       void press.deferUpdate().catch(() => {});
-      collector.stop('start');
     }
   });
 
   await new Promise<void>((resolve) => collector.once('end', () => resolve()));
+  open = false;
   await screen.stop();
   await updateRaid(raidId, { players }).catch((err) => console.error(`Could not save the players of raid ${raidId}:`, err));
   return [...players];
@@ -713,12 +763,6 @@ const ACTION_BY_ID: Record<string, RaidAction> = {
   [RAID.healId]: 'heal',
   [RAID.supportId]: 'support',
 };
-
-type Commit =
-  | { kind: 'ok' }
-  | { kind: 'late' }
-  | { kind: 'already'; action: RaidAction }
-  | { kind: 'problem'; text: string };
 
 interface Turn {
   round: number;
@@ -751,6 +795,7 @@ async function runFight(
   raidId: string,
   guildId: string,
   names: ReadonlyMap<string, string>,
+  live: LiveRaid,
   onMove: (message: Message) => void,
 ): Promise<{ tested: boolean }> {
   const log: string[] = [];
@@ -758,6 +803,11 @@ async function runFight(
 
   const view = () => ({ embeds: [fightEmbed(state, turn.choices, log, turn.open ? turn.endsAt : null, cfg)], components: [actionRow(!turn.open)] });
   const screen = new RaidScreen(state.boss, first, view, () => moodOf(state), 'calm');
+  /** Something changed: the raid message and the site's pages follow it. */
+  const changed = (): void => {
+    screen.update();
+    live.changed();
+  };
 
   const problemText = (problem: ReturnType<typeof actionProblem>, userId: string): string | null => {
     if (problem === 'not_playing') return TEXT.raid.notPlaying;
@@ -766,20 +816,22 @@ async function runFight(
     return null;
   };
 
-  /** Locks in a player's pick for the turn. */
-  const commit = (userId: string, action: RaidAction, forTurn: Turn, target?: string): Commit => {
+  /** Locks in a player's pick for the turn (from Discord or the site). */
+  const commit = (userId: string, action: RaidAction, forTurn: Turn, target?: string): ActAnswer => {
     if (forTurn !== turn || !forTurn.open) return { kind: 'late' };
-    const problem = problemText(actionProblem(state, userId, action), userId);
-    if (problem) return { kind: 'problem', text: problem };
+    const problem = actionProblem(state, userId, action);
+    if (problem) return { kind: 'problem', problem };
     const already = forTurn.choices.get(userId);
     if (already) return { kind: 'already', action: already.action };
-    forTurn.choices.set(userId, { action, boost: 0, ...(target === undefined ? {} : { target }) });
-    screen.update();
+    // A heal only goes to someone in the fight (the site could name anyone); anyone else lets the bot choose.
+    const healTarget = target !== undefined && findPlayer(state, target) ? target : undefined;
+    forTurn.choices.set(userId, { action, boost: 0, ...(healTarget === undefined ? {} : { target: healTarget }) });
+    changed();
     if (state.players.filter(canAct).every((p) => forTurn.choices.has(p.userId))) forTurn.allIn();
     return { kind: 'ok' };
   };
 
-  const commitText = (result: Commit, action: RaidAction, target?: string): string => {
+  const commitText = (result: ActAnswer, action: RaidAction, userId: string, target?: string): string => {
     switch (result.kind) {
       case 'ok':
         return TEXT.raid.chose(TEXT.raid.actions[action], target === undefined ? '' : mention(target));
@@ -788,7 +840,7 @@ async function runFight(
       case 'already':
         return TEXT.raid.alreadyChose(TEXT.raid.actions[result.action]);
       case 'problem':
-        return result.text;
+        return problemText(result.problem, userId) ?? TEXT.raid.turnOver;
     }
   };
 
@@ -818,7 +870,7 @@ async function runFight(
       const value = pick.values[0];
       target = value === undefined || value === RAID.healAutoValue ? undefined : value;
     }
-    await press.editReply({ content: commitText(commit(userId, 'heal', forTurn, target), 'heal', target), components: [] }).catch(() => {});
+    await press.editReply({ content: commitText(commit(userId, 'heal', forTurn, target), 'heal', userId, target), components: [] }).catch(() => {});
   };
 
   const handlePress = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
@@ -832,11 +884,12 @@ async function runFight(
     if (already) return replyPrivately(press, TEXT.raid.alreadyChose(TEXT.raid.actions[already.action]));
 
     if (action === 'heal') return askHealTarget(press, forTurn);
-    return replyPrivately(press, commitText(commit(userId, action, forTurn), action));
+    return replyPrivately(press, commitText(commit(userId, action, forTurn), action, userId));
   };
 
-  const live: LiveFight = { state, log, update: () => screen.update(), endTurn: () => {}, tested: false };
-  LIVE.set(guildId, live);
+  const tools: LiveFight = { state, log, update: changed, endTurn: () => {}, tested: false };
+  LIVE.set(guildId, tools);
+  live.openFight({ state, log, turn: () => turn, act: (userId, action, target) => commit(userId, action, turn, target) });
   try {
     await first.edit({ ...view(), files: [bossFile(state.boss, 'calm')], attachments: [] });
     for (;;) {
@@ -856,16 +909,18 @@ async function runFight(
       } else {
         await screen.now();
       }
+      live.changed();
       const collector = screen.current.createMessageComponentCollector({ componentType: ComponentType.Button, time: Math.max(1_000, endsAt - Date.now()) });
       current.allIn = () => collector.stop('all');
       // Nobody can act (everyone standing is stunned): the turn doesn't wait for picks that can't come.
       if (!state.players.some(canAct)) collector.stop('all');
-      live.endTurn = () => collector.stop('test');
+      tools.endTurn = () => collector.stop('test');
       collector.on('collect', (press) => {
         void handlePress(press, current).catch((err) => console.error('A raid button failed:', err));
       });
       await new Promise<void>((resolve) => collector.once('end', () => resolve()));
       current.open = false;
+      live.changed();
 
       // Resolve it: the players' actions, then the boss's move, then the next move is announced.
       const events = resolvePlayerTurn(state, choices);
@@ -880,6 +935,7 @@ async function runFight(
       }
       events.push(...endRound(state));
       log.push(...eventLines(events, state.boss));
+      live.changed();
       await screen.now();
       if (state.outcome !== 'ongoing') break;
       await sleep(RAID.resultMs);
@@ -888,7 +944,7 @@ async function runFight(
     LIVE.delete(guildId);
     await screen.stop();
   }
-  return { tested: live.tested };
+  return { tested: tools.tested };
 }
 
 type TestAction = 'hp' | 'calm' | 'enraged' | 'furious' | 'shield' | 'next' | 'kill' | 'wipe' | 'flee';
@@ -1043,14 +1099,28 @@ async function latestResultEmbed(ctx: CommandContext, week: RaidWeek, main: Raid
 /** `skip raid`: pays for the week's extra raid and starts it. */
 export const runExtraRaid = (ctx: CommandContext): Promise<void> => runRaid(ctx, null, true);
 
+/** Why the site couldn't start a raid: the server is busy (a raid or event going on), or this week's raid was already fought or started. */
+export type RaidRefusal = 'busy' | 'raided' | 'started';
+
+/**
+ * A raid started from the site (startRaidFromWeb): why it didn't start goes back to the page instead
+ * of into the channel, and `opened` says when the lobby is up.
+ */
+interface WebStart {
+  refused(reason: RaidRefusal): void;
+  opened(): void;
+}
+
 /**
  * Starts this week's raid, against `forced` (the admin's `raid force`) or else the boss the week
- * picked; or with `extra`, the week's extra raid bought with `skip raid` (see beginExtraRaid).
+ * picked; or with `extra`, the week's extra raid bought with `skip raid` (see beginExtraRaid). `web`
+ * is for one started from the site.
  */
-async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, extra = false): Promise<void> {
+async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, extra = false, web: WebStart | null = null): Promise<void> {
   const release = claimGuild(ctx.guildId);
   if (!release) {
-    await ctx.reply(TEXT.raid.busy);
+    if (web) web.refused('busy');
+    else await ctx.reply(TEXT.raid.busy);
     return;
   }
   const cfg: RaidSettings = { ...CONFIG.raid };
@@ -1058,6 +1128,7 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
   let boss: RaidBossId = forced ?? bossForWeek(ctx.guildId, week.key);
   let id: string | null = null;
   let message: Message | null = null;
+  let live: LiveRaid | null = null;
   let settled = false;
   try {
     if (extra) {
@@ -1072,7 +1143,8 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
       if (!started.ok) {
         // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
         const existing = started.existing;
-        if (forced) await ctx.reply(TEXT.raid.forceTaken(ctx.prefix));
+        if (web) web.refused(existing && isFinished(existing) ? 'raided' : 'started');
+        else if (forced) await ctx.reply(TEXT.raid.forceTaken(ctx.prefix));
         else if (existing && isFinished(existing)) await ctx.reply({ embeds: [await latestResultEmbed(ctx, week, existing)] });
         else await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
         settled = true;
@@ -1082,15 +1154,18 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     }
 
     const closesAt = Date.now() + cfg.prepareSeconds * 1000;
-    const sent = await ctx.reply({ ...lobbyView(boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')] });
+    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')] });
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 
     const names = new Map([[ctx.user.id, ctx.guild.members.cache.get(ctx.user.id)?.displayName ?? ctx.user.displayName]]);
-    const players = await runLobby(boss, message, ctx.user.id, cfg, id, names);
+    live = openLiveRaid(ctx.guildId, boss, ctx.user.id, names);
+    web?.opened();
+    const players = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live);
     if (players.length === 0) {
       await abandonRaid(id);
       settled = true;
+      live.end({ end: 'no_players', state: null, rewarded: false });
       const embed = createEmbed().setTitle(TEXT.raid.bosses[boss].asleep).setDescription(TEXT.raid.noPlayers);
       await message.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
       return;
@@ -1103,7 +1178,7 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     state.players.forEach((p, i) => {
       p.gear = gear[i] ?? p.gear;
     });
-    const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, (moved) => {
+    const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, live, (moved) => {
       message = moved;
     });
 
@@ -1117,6 +1192,7 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     let reward: RaidReward | null = null;
     const fought = participants(state);
     if (outcome === 'won' && fought.length > 0 && !tested) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward);
+    live.end({ end: outcome, state, rewarded: reward !== null });
     const result = resultEmbed(state, cfg, week.next, reward, intoVault);
     if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });
     await message.edit({ embeds: [result], components: [], files: [bossFile(boss, moodOf(state))], attachments: [] });
@@ -1132,9 +1208,77 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
         const embed = createEmbed().setTitle(TEXT.raid.interruptedTitle).setDescription(TEXT.raid.failed);
         await message.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
       }
+      live?.end({ end: 'called_off', state: live.fight?.state ?? null, rewarded: false });
     }
     release();
   }
+}
+
+/** This week's raid in a server, for the site's raid page when no raid is going on. */
+export interface RaidWeekInfo {
+  boss: RaidBossId;
+  /** When the week resets (ms). */
+  resetsAt: number;
+  /** How this week's raid stands (null: not started). */
+  status: RaidDoc['status'] | null;
+  /** The server has a bot channel, so the site can start the raid there. */
+  channel: boolean;
+}
+
+export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
+  const week = raidWeek();
+  const [doc, channelId] = await Promise.all([findRaid(raidId(guildId, week.key)), getChannelId(guildId)]);
+  return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null };
+}
+
+/** How starting a raid from the site went: its lobby is up in the server's channel, or why not. */
+export type WebRaidStart = { ok: true } | { ok: false; reason: RaidRefusal | 'no_channel' | 'failed' };
+
+/**
+ * Starts this week's raid for `userId` from the site: its lobby goes up in the server's channel (the
+ * one the bot is confined to, where events spawn), with them as the host, as if they had run `raid`
+ * there. Without such a channel it can only be started in Discord. Answers once the lobby is up (the
+ * raid then runs on by itself) or it's clear it won't be.
+ */
+export async function startRaidFromWeb(client: Client<true>, guildId: string, userId: string): Promise<WebRaidStart> {
+  const guild = client.guilds.cache.get(guildId);
+  const channelId = await getChannelId(guildId);
+  if (!guild || !channelId) return { ok: false, reason: 'no_channel' };
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  const user = await client.users.fetch(userId).catch(() => null);
+  if (!channel || !channel.isSendable() || channel.isDMBased()) return { ok: false, reason: 'no_channel' };
+  if (!user) return { ok: false, reason: 'failed' };
+
+  const ctx: CommandContext = {
+    source: 'message',
+    prefix: getPrefix(),
+    guildId,
+    guild,
+    user,
+    args: [],
+    async reply(options) {
+      const { ephemeral: _ephemeral, ...rest } = typeof options === 'string' ? { content: options } : options;
+      const sent = await channel.send(rest);
+      return {
+        fetchMessage: async () => sent,
+        edit: async (edit) => {
+          await sent.edit(edit);
+        },
+      };
+    },
+  };
+  return new Promise((resolve) => {
+    let answered = false;
+    const answer = (result: WebRaidStart): void => {
+      if (answered) return;
+      answered = true;
+      resolve(result);
+    };
+    runRaid(ctx, null, false, { refused: (reason) => answer({ ok: false, reason }), opened: () => answer({ ok: true }) })
+      .catch((err) => console.error(`The raid started from the site in ${guildId} failed:`, err))
+      // Ended without its lobby ever going up (the channel refused the message, say).
+      .finally(() => answer({ ok: false, reason: 'failed' }));
+  });
 }
 
 /**

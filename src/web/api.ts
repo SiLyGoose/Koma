@@ -5,6 +5,8 @@ import { GAMES, gameLink, watchLink, type Game, type WebConfig } from './config.
 import { pinecraftLeaderboard, type PinecraftLeaderboard, type PinecraftStat } from '../services/pinecraft.js';
 import { LOADOUT_NUMBERS } from '../lib/game/items/loadouts.js';
 import { databankView } from './databank.js';
+import { bossPicture } from './raid/picture.js';
+import type { RaidSiteDeps } from './raid/server.js';
 import { gearStore, type ForgeBlock, type GearStore, type RefineBlock } from './gear.js';
 import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
@@ -58,6 +60,8 @@ export interface ApiDeps {
   /** Members' gear, for the gear page (the database's, unless a test says otherwise). */
   gear?: GearStore;
   login?: typeof exchangeCode;
+  /** The raid's page (web/raid), once the bot is logged in to Discord. */
+  raid?: RaidSiteDeps;
 }
 
 /** A Pinecraft leaderboard (GET /api/pinecraft/leaderboard): the best miners by `stat`, and where the one asking stands. */
@@ -179,7 +183,8 @@ async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
       players: online(guildId).map((p) => ({
         ...p,
         avatar: deps.avatar?.(guildId, p.userId) ?? avatarUrl(p.userId, null),
-        watchable: p.activity !== 'hub' && p.userId !== viewer.userId,
+        // The raid has no watching: anyone in the server can open the raid itself.
+        watchable: p.activity !== 'hub' && p.activity !== 'raid' && p.userId !== viewer.userId,
       })),
     };
     return send(res, 200, live);
@@ -326,6 +331,15 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
       if (!/^[\w-]{8,128}$/.test(state)) return (fail(res, 'bad_request'), true);
       res.writeHead(302, { Location: authorizeUrl(clientId, redirectUri(config), state), 'Cache-Control': 'no-store' });
       res.end();
+      return true;
+    }
+
+    // The raid boss's pictures, for the raid page's <img> (which sends no Origin): the same for everyone.
+    if (url.pathname === '/api/raid/boss' && req.method === 'GET') {
+      const png = bossPicture(url.searchParams.get('boss'), url.searchParams.get('mood'));
+      if (!png) return (fail(res, 'not_found'), true);
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'Cache-Control': 'public, max-age=86400' });
+      res.end(png);
       return true;
     }
 

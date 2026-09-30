@@ -89,6 +89,8 @@ export interface RaidStats {
   damage: number;
   healed: number;
   guards: number;
+  /** Damage their guarding kept off the party: themselves, whoever they covered, and their share of the cut to everyone else. */
+  mitigated: number;
   supports: number;
   /** Turns they took an action in. */
   actions: number;
@@ -244,7 +246,7 @@ export interface RaidRng {
 
 export const defaultRaidRng: RaidRng = { int: randInt, chance, pick: pickRandom };
 
-export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, guards: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
+export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, guards: 0, mitigated: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
 
 export const isAlive = (player: RaidPlayer): boolean => player.hp > 0;
 
@@ -526,11 +528,24 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     events.push({ kind: 'hit', move: hitMove, userId: player.userId, damage: taken, guarded: state.guarding.includes(player.userId), coveredFor });
     if (player.hp === 0) events.push({ kind: 'knockedOut', userId: player.userId });
   };
-  const aoeCut = Math.min(RAID_COMBAT.guard.aoeCutMax, state.guarding.filter((id) => isAlive(findPlayer(state, id) as RaidPlayer)).length * RAID_COMBAT.guard.aoeCutPerGuard);
+  const standingGuards = state.guarding.map((id) => findPlayer(state, id) as RaidPlayer).filter(isAlive);
+  const aoeCut = Math.min(RAID_COMBAT.guard.aoeCutMax, standingGuards.length * RAID_COMBAT.guard.aoeCutPerGuard);
+  /** Damage a guard kept off the party (for the summary at the end). */
+  const mitigate = (guard: RaidPlayer, amount: number): void => {
+    guard.stats.mitigated += Math.max(0, Math.round(amount));
+  };
   /** A move that hits several players: guards take their share, everyone else gets the guards' cut. */
   const splash = (player: RaidPlayer, base: number, hitMove: HitMove): void => {
-    const share = state.guarding.includes(player.userId) ? guardTakenShare(player) : 1 - aoeCut;
-    damage(player, base * multiplier * share, hitMove, null);
+    const full = base * multiplier;
+    if (state.guarding.includes(player.userId)) {
+      const share = guardTakenShare(player);
+      mitigate(player, full * (1 - share));
+      damage(player, full * share, hitMove, null);
+      return;
+    }
+    // The guards' cut to everyone else is theirs to share.
+    for (const guard of standingGuards) mitigate(guard, (full * aoeCut) / standingGuards.length);
+    damage(player, full * (1 - aoeCut), hitMove, null);
   };
   /** The boss heals `amount` (never above its max HP). */
   const heal = (amount: number, hitMove: HitMove): void => {
@@ -552,8 +567,16 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       const target = standing(state.intent.targets[0]);
       if (!target) break;
       const cover = coverFor(target);
-      if (cover) damage(cover, baseDamage(move) * multiplier * guardTakenShare(cover), move, target.userId);
-      else damage(target, baseDamage(move) * multiplier * (state.guarding.includes(target.userId) ? guardTakenShare(target) : 1), move, null);
+      const full = baseDamage(move) * multiplier;
+      if (cover) {
+        mitigate(cover, full * (1 - guardTakenShare(cover)));
+        damage(cover, full * guardTakenShare(cover), move, target.userId);
+      } else if (state.guarding.includes(target.userId)) {
+        mitigate(target, full * (1 - guardTakenShare(target)));
+        damage(target, full * guardTakenShare(target), move, null);
+      } else {
+        damage(target, full, move, null);
+      }
       break;
     }
     case 'breath':
@@ -575,6 +598,7 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       if (!target) break;
       const guard = state.guarding.includes(target.userId) ? target : coverFor(target);
       if (guard) {
+        if (move === 'harvest') mitigate(guard, RAID_COMBAT.moves.harvest.damage * multiplier);
         events.push({ kind: move === 'hoard' ? 'hoardBlocked' : 'harvestBlocked', userId: guard.userId, targetId: target.userId });
       } else if (move === 'hoard') {
         theft = { userId: target.userId, wanted: rng.int(RAID_COMBAT.moves.hoard.min, RAID_COMBAT.moves.hoard.max) };
