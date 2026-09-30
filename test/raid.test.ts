@@ -287,6 +287,44 @@ test('guardBoost gear: the wearer takes less of every hit while guarding, and th
   assert.deepEqual(covered, { kind: 'hit', move: 'claw', userId: 'a', damage: Math.round(RAID_COMBAT.moves.claw.damage * 0.375), guarded: true, coveredFor: 'b' });
 });
 
+test('mitigated: a guard is credited with the damage their guarding kept off the party', () => {
+  const { claw, breath } = RAID_COMBAT.moves;
+  const { takenShare, aoeCutPerGuard } = RAID_COMBAT.guard;
+  const mitigated = (state: RaidState, userId: string): number => state.players.find((p) => p.userId === userId)?.stats.mitigated ?? 0;
+
+  // Guarding a Claw aimed at themselves: the share they didn't take.
+  const self = fight();
+  self.intent = { move: 'claw', targets: ['a'], multiplier: 1 };
+  self.guarding = ['a'];
+  bossTurn(self, low);
+  assert.equal(mitigated(self, 'a'), Math.round(claw.damage * (1 - takenShare)));
+
+  // Jumping in front of a Claw aimed at someone else: the same, and nothing for the one covered.
+  const cover = fight();
+  cover.intent = { move: 'claw', targets: ['b'], multiplier: 1 };
+  cover.guarding = ['a'];
+  bossTurn(cover, low);
+  assert.equal(mitigated(cover, 'a'), Math.round(claw.damage * (1 - takenShare)));
+  assert.equal(mitigated(cover, 'b'), 0);
+
+  // A Fire Breath with two guarding: each keeps their own share off, and splits the cut to the third.
+  const breathed = fight();
+  breathed.intent = { move: 'breath', targets: [], multiplier: 1 };
+  breathed.guarding = ['a', 'b'];
+  bossTurn(breathed, low);
+  const own = Math.round(breath.damage * (1 - takenShare));
+  const cutShare = Math.round((breath.damage * 2 * aoeCutPerGuard) / 2);
+  assert.equal(mitigated(breathed, 'a'), own + cutShare);
+  assert.equal(mitigated(breathed, 'b'), own + cutShare);
+  assert.equal(mitigated(breathed, 'c'), 0);
+
+  // Nobody guarding: nothing mitigated.
+  const open = fight();
+  open.intent = { move: 'breath', targets: [], multiplier: 1 };
+  bossTurn(open, low);
+  assert.deepEqual(open.players.map((p) => p.stats.mitigated), [0, 0, 0]);
+});
+
 test('healSplash gear: a heal also mends the most hurt other ally by a share of the heal, and never the one just healed', () => {
   const state = fight();
   (state.players[0] as { gear: { healSplash: number } }).gear.healSplash = 0.5;

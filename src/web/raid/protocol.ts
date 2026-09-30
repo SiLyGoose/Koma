@@ -78,6 +78,8 @@ export interface RaidOverView {
   bossMaxHp: number;
   /** Damage dealt, most first. */
   ranking: { userId: string; damage: number }[];
+  /** What each raider did, in the order they joined: damage dealt, HP healed, and damage their guarding kept off the party. */
+  players: { userId: string; damage: number; healed: number; mitigated: number }[];
   lastHit: string | null;
   /** The winners were paid this. */
   reward: { points: number; tokens: number; gems: number } | null;
