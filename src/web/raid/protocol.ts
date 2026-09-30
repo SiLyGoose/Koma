@@ -84,6 +84,10 @@ export interface RaidOverView {
   lastHit: string | null;
   /** The winners were paid this. */
   reward: { points: number; tokens: number; gems: number } | null;
+  /** The same, in markdown with the currencies' emojis ("**1,000** <:zeiucoin:…>, **10** <:zeiutoken:…> and **5** <:komagem:…>"). */
+  rewardText?: string | null;
+  /** Each raider's gear as they fought can be looked at (GET /api/raid/gear?user=…): raids from before it was kept can't. */
+  gear?: boolean;
 }
 
 export interface RaidView {

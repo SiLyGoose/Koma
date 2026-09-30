@@ -103,6 +103,21 @@ export interface GearView {
   gems: number | null;
 }
 
+/**
+ * A raider's gear as they fought (the raid's end screen shows it): only what they wore, in the loadout
+ * they wore it in, and none of their money.
+ */
+export function wornGear(view: GearView): GearView {
+  const worn = new Set(Object.values(view.equipped).filter((id): id is string => id !== null));
+  return {
+    ...view,
+    copies: view.copies.filter((copy) => worn.has(copy.id)),
+    loadouts: view.loadouts.filter((loadout) => loadout.active),
+    balance: null,
+    gems: null,
+  };
+}
+
 /** One of a member's loadouts, as the gear page shows it. */
 export interface GearLoadout {
   number: number;

@@ -67,6 +67,8 @@ export class LiveRaid {
   over: RaidOverLive | null = null;
   /** When it ended (ms), once it has. */
   endedAt: number | null = null;
+  /** Each raider's gear as the fight started (web/gear.ts's wornGear), for the site's end screen. */
+  gear = new Map<string, unknown>();
 
   constructor(
     readonly guildId: string,

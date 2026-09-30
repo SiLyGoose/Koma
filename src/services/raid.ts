@@ -65,6 +65,11 @@ export async function updateRaid(id: string, set: Partial<Pick<RaidDoc, 'status'
   await collections().raids.updateOne({ _id: id }, { $set: set });
 }
 
+/** Saves each raider's gear as the fight started (see RaidDoc.gear). */
+export async function saveRaidGear(id: string, gear: Record<string, unknown>): Promise<void> {
+  await collections().raids.updateOne({ _id: id }, { $set: { gear } });
+}
+
 /** The boss's Hoard: takes up to `wanted` points from the player's wallet (never their vault). Returns what it took. */
 export async function stealFromWallet(guildId: string, userId: string, id: string, wanted: number): Promise<number> {
   const { members, raids } = collections();
