@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { encodePng } from './render/png.js';
 import { mix, type Rgb } from './render/raster.js';
 import { blowUp, hash, inside, mapShades, paintParts, SpriteGrid, type Pt, type Shades } from './render/sprite.js';
@@ -772,13 +773,30 @@ export function renderDragon(mood: DragonMood): Buffer {
   return encodePng(DRAGON_SIZE.width, DRAGON_SIZE.height, blowUp(pixels, W, H, SCALE));
 }
 
+/**
+ * The moods with a drawn-by-hand picture (assets/raid/ember-wyrm/<mood>.png at the repo's root, from
+ * src/ and dist/ alike), used instead of the pixel-art one. The rest are still drawn here.
+ */
+const ART_MOODS: ReadonlySet<DragonMood> = new Set(['calm', 'enraged', 'furious']);
+
+/** The hand-drawn picture for `mood`, or null when it has none (or its file can't be read: the drawn one stands in). */
+function dragonArt(mood: DragonMood): Buffer | null {
+  if (!ART_MOODS.has(mood)) return null;
+  try {
+    return readFileSync(new URL(`../../../assets/raid/ember-wyrm/${mood}.png`, import.meta.url));
+  } catch (err) {
+    console.error(`Could not read the Ember Wyrm's ${mood} picture, drawing it instead:`, err);
+    return null;
+  }
+}
+
 const cache = new Map<DragonMood, Buffer>();
 
-/** Like renderDragon, but each mood is only drawn once. */
+/** The dragon's picture for `mood`: the hand-drawn one where there is one, else renderDragon's. Each is only made once. */
 export function dragonPicture(mood: DragonMood): Buffer {
   let png = cache.get(mood);
   if (!png) {
-    png = renderDragon(mood);
+    png = dragonArt(mood) ?? renderDragon(mood);
     cache.set(mood, png);
   }
   return png;
