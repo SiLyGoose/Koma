@@ -175,3 +175,20 @@ test('config: set/reset channel is turned away for a non-admin, the same as ever
     assert.equal(reply?.content, TEXT.config.adminOnly, words.join(' '));
   }
 });
+
+test('config: resetting the start of some settings\' names is admin only too, and says what changed', async () => {
+  const [reply] = await ask('reset', 'refine.cost');
+  assert.equal(reply?.content, TEXT.config.adminOnly);
+
+  const text = TEXT.config.resetMany('refine.cost.2', [
+    { key: 'refine.cost.2.2', oldValue: '150', newValue: '200' },
+    { key: 'refine.cost.2.3', oldValue: '300', newValue: '300' },
+  ]);
+  assert.match(text, /Reset 1 setting under `refine\.cost\.2` to the default \(1 already was\)/);
+  assert.match(text, /`refine\.cost\.2\.2`: \*\*150\*\* → \*\*200\*\*/);
+  assert.doesNotMatch(text, /refine\.cost\.2\.3/);
+  assert.match(TEXT.config.resetMany('raid', [{ key: 'raid.reward', oldValue: '1', newValue: '1' }]), /already at its default/);
+  // A long list stays one message.
+  const many = Array.from({ length: 200 }, (_, i) => ({ key: `equipment.x.${i}`, oldValue: '1', newValue: '2' }));
+  assert.ok(TEXT.config.resetMany('equipment', many).length < 2000);
+});

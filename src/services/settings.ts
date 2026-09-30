@@ -10,6 +10,7 @@ import {
   parseInput,
   setPath,
   SPECS,
+  specsUnder,
   validateValue,
   type SettingSpec,
 } from '../lib/settings-spec.js';
@@ -163,6 +164,29 @@ export async function resetSetting(actorId: string, key: string): Promise<Change
 }
 
 export type BulkResetResult = { ok: true; key: string; results: readonly { key: string; oldValue: string; newValue: string }[] } | SettingsFailure;
+
+/**
+ * Puts every setting under `prefix` back to its default in one go (`refine.cost`, `refine.cost.2`,
+ * `raid`: see specsUnder), so the admin doesn't have to reset them one at a time. They're changed
+ * together: the rules are checked once, on all of them at their defaults (one at a time, a rule tying
+ * two of them together could fail half way), and saved in one write. Only the admin may do this.
+ */
+export async function resetSettingsUnder(actorId: string, prefix: string): Promise<BulkResetResult> {
+  if (!isAdmin(actorId)) return FORBIDDEN;
+  // The prefix, when it's set by the environment, stays as it is.
+  const specs = specsUnder(prefix).filter((spec) => !(spec.key === 'prefix' && isPrefixFromEnv()));
+  if (specs.length === 0) return unknownSetting(prefix);
+
+  const candidate = structuredClone(CONFIG);
+  for (const spec of specs) setPath(candidate, spec.key, getPath(DEFAULTS, spec.key));
+  const problem = checkConstraints(candidate);
+  if (problem) return { ok: false, reason: 'invalid', error: TEXT.config.breaksRule(problem) };
+
+  const results = specs.map((spec) => ({ key: spec.key, oldValue: formatValue(spec, getPath(CONFIG, spec.key)), newValue: formatValue(spec, getPath(DEFAULTS, spec.key)) }));
+  await collections().settings.updateOne({ _id: SETTINGS_ID }, { $set: Object.fromEntries(specs.map((spec) => [spec.key, getPath(DEFAULTS, spec.key)])) }, { upsert: true });
+  for (const spec of specs) setPath(CONFIG, spec.key, getPath(DEFAULTS, spec.key));
+  return { ok: true, key: prefix.trim().replace(/\.+$/, ''), results };
+}
 
 /**
  * Puts every star tier of one equipment effect back to its default in one go, so the admin does not

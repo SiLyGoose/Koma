@@ -1,3 +1,6 @@
+/** How many changed settings a bulk reset lists, to keep its reply to one Discord message. */
+const RESET_LINES = 25;
+
 export const configText = {
   title: 'Settings',
   /** A settings list long enough to need more than one page, like "Settings (2/3)". */
@@ -26,7 +29,7 @@ export const configText = {
   prefixFromEnvValue: (prefix: string) => `${prefix} (from .env)`,
   usageSet: (p: string) => `Usage: \`${p}config set <setting> <value>\`. See \`${p}config\` for the setting names.`,
   usageReset: (p: string) =>
-    `Usage: \`${p}config reset <setting>\`. See \`${p}config\` for the setting names, or \`${p}config reset equipment.<effect>\` to reset every star tier of an equipment effect at once.`,
+    `Usage: \`${p}config reset <setting>\`. See \`${p}config\` for the setting names. The start of some names resets all of them at once: \`${p}config reset refine.cost\` resets every refine cost, \`${p}config reset refine.cost.2\` only the 2-star ones.`,
   noSuchSetting: (p: string, key: string) => `There is no setting called \`${key}\`. See \`${p}config\` for the list.`,
   askValue: (p: string, key: string) => `What should \`${key}\` be set to? Usage: \`${p}config set ${key} <value>\`.`,
   changed: (key: string, from: string, to: string) => `Changed \`${key}\` from **${from}** to **${to}**.`,
@@ -34,6 +37,21 @@ export const configText = {
   /** `results` is one row per star tier, from resetEquipmentEffect. */
   resetEquipment: (effect: string, results: readonly { key: string; oldValue: string; newValue: string }[]) =>
     `Reset every star tier of \`${effect}\`:\n${results.map((r) => `Reset \`${r.key}\` from **${r.oldValue}** to **${r.newValue}**.`).join('\n')}`,
+  /**
+   * `results` is one row per setting under `prefix`, from resetSettingsUnder: the ones that changed
+   * (at most RESET_LINES of them, to fit a message), and how many were already at their default.
+   */
+  resetMany: (prefix: string, results: readonly { key: string; oldValue: string; newValue: string }[]) => {
+    const changed = results.filter((r) => r.oldValue !== r.newValue);
+    const lines = changed.slice(0, RESET_LINES).map((r) => `\`${r.key}\`: **${r.oldValue}** → **${r.newValue}**`);
+    if (changed.length > RESET_LINES) lines.push(`…and ${changed.length - RESET_LINES} more.`);
+    const same = results.length - changed.length;
+    const head =
+      changed.length === 0
+        ? `Every setting under \`${prefix}\` (${results.length}) was already at its default.`
+        : `Reset ${changed.length} setting${changed.length === 1 ? '' : 's'} under \`${prefix}\` to the default${same > 0 ? ` (${same} already ${same === 1 ? 'was' : 'were'})` : ''}:`;
+    return [head, ...lines].join('\n');
+  },
   /** Errors from the settings service itself (the admin check is enforced there too). */
   unknownSetting: (key: string) => `There is no setting called \`${key}\`.`,
   breaksRule: (problem: string) => `That would break a rule: ${problem}.`,

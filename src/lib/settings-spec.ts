@@ -372,6 +372,18 @@ export function findSpec(key: string): SettingSpec | undefined {
 }
 
 /**
+ * Every setting under `prefix` (`refine.cost`: every refine cost; `refine.cost.2`: the 2-star ones),
+ * in the list's order: the keys that start with it and a dot, whatever the case. Not the one setting
+ * called exactly that (findSpec has it), and none for a prefix that isn't a whole part of a key
+ * (`refine.co` matches nothing).
+ */
+export function specsUnder(prefix: string): SettingSpec[] {
+  const wanted = `${prefix.trim().replace(/\.+$/, '').toLowerCase()}.`;
+  if (wanted === '.') return [];
+  return SPECS.filter((spec) => spec.key.toLowerCase().startsWith(wanted));
+}
+
+/**
  * Matches "equipment.<effect>" with no star tier (e.g. from `config reset equipment.robChance`), the
  * form that means "every star tier of this effect", and returns the effect's canonical id. Returns
  * undefined for anything else, including a full `equipment.<effect>.<stars>` key.

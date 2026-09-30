@@ -5,6 +5,7 @@ import {
   checkConstraints,
   findEquipmentEffectId,
   findSpec,
+  specsUnder,
   formatValue,
   getPath,
   parseInput,
@@ -149,4 +150,21 @@ test('findEquipmentEffectId matches "equipment.<effect>" with no star tier, case
   assert.equal(findEquipmentEffectId('equipment.robChance.2'), undefined);
   assert.equal(findEquipmentEffectId('equipment.notARealEffect'), undefined);
   assert.equal(findEquipmentEffectId('claim.min'), undefined);
+});
+
+test('specsUnder: the start of some settings\' names picks all of them, and nothing else', () => {
+  const keys = (prefix: string) => specsUnder(prefix).map((spec) => spec.key);
+  // Every refine cost: 4 star tiers by 4 levels.
+  assert.equal(keys('refine.cost').length, 16);
+  assert.ok(keys('refine.cost').every((key) => key.startsWith('refine.cost.')));
+  // Only the 2-star ones.
+  assert.deepEqual(keys('refine.cost.2'), ['refine.cost.2.2', 'refine.cost.2.3', 'refine.cost.2.4', 'refine.cost.2.5']);
+  // A whole group, with a trailing dot or in any case.
+  assert.deepEqual(keys('refine'), [...keys('refine.cost'), 'refine.masterworkGems']);
+  assert.deepEqual(keys('REFINE.Cost.'), keys('refine.cost'));
+  // Only whole parts of a name: not the start of a word, not a setting itself, not nothing.
+  assert.deepEqual(keys('refine.co'), []);
+  assert.deepEqual(keys('refine.masterworkGems'), []);
+  assert.deepEqual(keys(''), []);
+  assert.deepEqual(keys('nothing'), []);
 });

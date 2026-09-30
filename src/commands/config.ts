@@ -5,8 +5,8 @@ import { EFFECT_IDS } from '../perks/index.js';
 import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
 import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg } from '../lib/parse.js';
-import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, type SettingSpec } from '../lib/settings-spec.js';
-import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting } from '../services/settings.js';
+import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
+import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
 import { getChannelId, setChannelId } from '../services/channel.js';
 import { paginate } from '../discord/paginate.js';
 import type { Command, CommandContext } from '../discord/types.js';
@@ -115,7 +115,7 @@ export const config: Command = {
   category: 'bot',
   aliases: ['settings'],
   description: 'See the bot settings. Only the bot admin can change them.',
-  usage: 'config [list | <group> | set <setting> <value> | reset <setting> | reset equipment.<effect>]',
+  usage: 'config [list | <group> | set <setting> <value> | reset <setting> | reset <start of settings>]',
   slashUsage: 'config list [group] | set | reset',
 
   async execute(ctx) {
@@ -211,6 +211,17 @@ export const config: Command = {
     // of the bot's global settings -- but it's set and reset the same way every other setting is.
     if (key.toLowerCase() === 'channel') {
       await handleChannelChange(ctx, action, args.slice(2).join(' '));
+      return;
+    }
+
+    // "config reset refine.cost" (not a setting, but the start of some): every setting under it, in one go.
+    if (action === 'reset' && !findSpec(key) && specsUnder(key).length > 0) {
+      const result = await resetSettingsUnder(ctx.user.id, key);
+      if (!result.ok) {
+        await ctx.reply(result.error);
+        return;
+      }
+      await ctx.reply(TEXT.config.resetMany(result.key, result.results));
       return;
     }
 
