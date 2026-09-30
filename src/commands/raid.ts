@@ -58,6 +58,7 @@ import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
 import { liveRaid, openLiveRaid, type ActAnswer, type LiveRaid, type RaidLobbyLive } from '../lib/events/raid-live.js';
 import { siteGameLink, webConfig } from '../web/config.js';
 import { gearStore, wornGear, type GearView } from '../web/gear.js';
+import { statsOf } from '../web/raid/view.js';
 import { getChannelId } from '../services/channel.js';
 import { getPrefix } from '../services/settings.js';
 import { pickRandom } from '../lib/random.js';
@@ -1242,7 +1243,7 @@ export interface RaidWeekInfo {
     end: 'won' | 'wiped' | 'fled';
     rounds: number;
     lastHit: string | null;
-    players: { userId: string; damage: number; healed: number; mitigated: number }[];
+    players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number }[];
     reward: { points: number; tokens: number; gems: number } | null;
     /** Their gear as they fought was kept (raids from before it was don't have it). */
     gear?: boolean;
@@ -1287,7 +1288,7 @@ export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
         lastHit: fought.lastHit ?? null,
         players: fought.players.map((userId) => {
           const stats = fought.stats?.[userId];
-          return { userId, damage: stats?.damage ?? fought.damage?.[userId] ?? 0, healed: stats?.healed ?? 0, mitigated: stats?.mitigated ?? 0 };
+          return { userId, ...statsOf(stats), damage: stats?.damage ?? fought.damage?.[userId] ?? 0 };
         }),
         reward: fought.status === 'won' ? { points: CONFIG.raid.reward, tokens: CONFIG.raid.tokenReward, gems: CONFIG.raid.gemReward } : null,
         gear: fought.gear !== undefined,

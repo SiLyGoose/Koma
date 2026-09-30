@@ -87,7 +87,14 @@ export const isCcMove = (move: BossMove): move is CcMove => move in CC_EFFECT;
 /** What a player did over the whole fight, for the summary at the end (display only). */
 export interface RaidStats {
   damage: number;
+  /** HP healed (and revived), all told: the next two added up. */
   healed: number;
+  /** Of it, what they healed themselves. Raids from before it was kept don't have it. */
+  healedSelf?: number;
+  /** Of it, what they healed the rest of the party. Raids from before it was kept don't have it. */
+  healedAllies?: number;
+  /** Damage the party dealt thanks to their rallies (the rally's share of each hit while it was the one powering attacks). Raids from before it was kept don't have it. */
+  supportDamage?: number;
   guards: number;
   /** Damage their guarding kept off the party: themselves, whoever they covered, and their share of the cut to everyone else. */
   mitigated: number;
@@ -175,6 +182,8 @@ export interface RaidState {
   rallied: number;
   /** What attacks are multiplied by while rallied: RAID_COMBAT.support.attackMultiplier, bigger when the rally came from a player with rallyBoost. */
   rallyMultiplier: number;
+  /** Whose rally that is (credited with the damage it adds: stats.supportDamage). */
+  rallyBy?: string | null;
   /** 0 calm, then 1 and 2 as the boss drops below each share in RAID_COMBAT.enrage.thresholds. */
   enrage: number;
   /** Who guarded this round (they are the ones the boss's move meets first). */
@@ -246,7 +255,14 @@ export interface RaidRng {
 
 export const defaultRaidRng: RaidRng = { int: randInt, chance, pick: pickRandom };
 
-export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, guards: 0, mitigated: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
+export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0, guards: 0, mitigated: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
+
+/** Credits `healer` with healing `amount` HP of `target`'s: to themselves or to an ally. */
+function creditHeal(healer: RaidPlayer, target: RaidPlayer, amount: number): void {
+  healer.stats.healed += amount;
+  if (target.userId === healer.userId) healer.stats.healedSelf = (healer.stats.healedSelf ?? 0) + amount;
+  else healer.stats.healedAllies = (healer.stats.healedAllies ?? 0) + amount;
+}
 
 export const isAlive = (player: RaidPlayer): boolean => player.hp > 0;
 
@@ -313,6 +329,7 @@ export function createRaid(
     shielded: false,
     rallied: 0,
     rallyMultiplier: RAID_COMBAT.support.attackMultiplier,
+    rallyBy: null,
     enrage: 0,
     guarding: [],
     lastHit: null,
@@ -375,7 +392,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     if (!other) return;
     const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(boosted(RAID_COMBAT.heal.amount, boost) * healer.gear.healSplash)));
     other.hp += amount;
-    healer.stats.healed += amount;
+    creditHeal(healer, other, amount);
     events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
   };
   for (const [userId, { boost, target }] of byAction('heal')) {
@@ -385,7 +402,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
       down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare, boost))));
-      healer.stats.healed += down.hp;
+      creditHeal(healer, down, down.hp);
       events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost });
       splashHeal(healer, boost, down.userId);
       continue;
@@ -401,7 +418,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     }
     const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount, boost)));
     hurt.hp += amount;
-    healer.stats.healed += amount;
+    creditHeal(healer, hurt, amount);
     events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost });
     splashHeal(healer, boost, hurt.userId);
   }
@@ -410,8 +427,9 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   // one with the most turns left); one with nothing to lift rallies the party instead, for the next
   // turns' attacks. Every support counts toward shattering the shield either way.
   const supports = byAction('support');
-  // The strongest rally made this turn (0 if none).
+  // The strongest rally made this turn (0 if none), and whose.
   let rally = 0;
+  let rallier: string | null = null;
   for (const [userId] of supports) {
     const supporter = findPlayer(state, userId) as RaidPlayer;
     supporter.stats.supports++;
@@ -423,6 +441,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       held.cc = null;
     } else {
       const multiplier = rallyMultiplierOf(supporter);
+      if (multiplier > rally) rallier = userId;
       rally = Math.max(rally, multiplier);
       events.push({ kind: 'rally', userId, turns: RAID_COMBAT.support.rallyTurns, multiplier });
     }
@@ -433,6 +452,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   }
   // A rally from an earlier turn powers this turn's attacks; one made this turn starts with the next.
   const rallyMultiplier = state.rallied > 0 ? state.rallyMultiplier : 1;
+  const rallyFrom = state.rallied > 0 && state.rallyBy ? findPlayer(state, state.rallyBy) : undefined;
 
   // Attacks, until the boss falls.
   for (const [userId, { boost }] of byAction('attack')) {
@@ -450,6 +470,13 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     const dealt = Math.min(damage, state.bossHp);
     state.bossHp -= dealt;
     (findPlayer(state, userId) as RaidPlayer).stats.damage += dealt;
+    // The rally's share of the hit goes to whoever rallied (as well: it's the attacker's damage too).
+    if (rallyFrom && rallyMultiplier > 1) {
+      // The rally multiplies the hit before maxHpDamage's extra is added: that part is (multiplier - 1) / multiplier of the rest.
+      const rallied = (Math.max(0, damage - extra) * (rallyMultiplier - 1)) / rallyMultiplier;
+      const share = Math.round((dealt * rallied) / damage);
+      rallyFrom.stats.supportDamage = (rallyFrom.stats.supportDamage ?? 0) + share;
+    }
     events.push({ kind: 'attack', userId, damage: dealt, crit, boost });
     if (state.bossHp <= 0) {
       state.lastHit = userId;
@@ -464,6 +491,8 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   state.shielded = false;
   if (state.rallied > 0) state.rallied--;
   if (rally > 0) {
+    // The stronger rally carries on, and so does who gets its credit.
+    if (!(state.rallied > 0 && state.rallyMultiplier > rally)) state.rallyBy = rallier;
     state.rallyMultiplier = state.rallied > 0 ? Math.max(state.rallyMultiplier, rally) : rally;
     state.rallied = RAID_COMBAT.support.rallyTurns;
   }
