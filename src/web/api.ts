@@ -183,7 +183,8 @@ async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
       players: online(guildId).map((p) => ({
         ...p,
         avatar: deps.avatar?.(guildId, p.userId) ?? avatarUrl(p.userId, null),
-        watchable: p.activity !== 'hub' && p.userId !== viewer.userId,
+        // The raid has no watching: anyone in the server can open the raid itself.
+        watchable: p.activity !== 'hub' && p.activity !== 'raid' && p.userId !== viewer.userId,
       })),
     };
     return send(res, 200, live);
