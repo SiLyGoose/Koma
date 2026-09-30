@@ -104,9 +104,11 @@ export interface RaidView {
   /**
    * `idle`: no raid going on. `week` is how this week's raid went ('open' when it hasn't been fought),
    * and `canStart` whether the page can start it (a server without a bot channel starts it in Discord).
+   * `last` says how the last lobby went when it never came to a fight, a little while after (nobody
+   * joined in time, or it was called off): the week was freed, so it can be started again.
    */
   phase: 'idle' | 'lobby' | 'fight' | 'over';
-  idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean } | null;
+  idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'called_off' } | null;
   lobby: { host: string; players: string[]; closesAt: number; bossHp: number } | null;
   fight: RaidFightView | null;
   over: RaidOverView | null;

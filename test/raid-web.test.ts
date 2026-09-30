@@ -217,6 +217,19 @@ test('a raid that ended is shown for a while, then the week again', () => {
   assert.equal(later.phase, 'idle');
 });
 
+test("a lobby that never came to a fight shows the week again (to start again), with how it went", () => {
+  clearLiveRaids();
+  const { live } = openTestLobby('u1');
+  live.end({ end: 'no_players', state: null, rewarded: false });
+  const v = raidView('u1', week(), live);
+  assert.equal(v.phase, 'idle');
+  assert.deepEqual(v.idle, { week: 'open', canStart: true, last: 'no_players' });
+  assert.equal(v.over, null);
+  assert.ok(v.brief.moves.length > 0);
+  // Long after, just the week.
+  assert.deepEqual(raidView('u1', week(), live, Date.now() + 31 * 60_000).idle, { week: 'open', canStart: true });
+});
+
 test('parsing what a page says', () => {
   assert.deepEqual(parseClientMessage('{"t":"act","action":"guard"}'), { t: 'act', action: 'guard' });
   assert.deepEqual(parseClientMessage('{"t":"act","action":"heal","target":"42"}'), { t: 'act', action: 'heal', target: '42' });

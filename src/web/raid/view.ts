@@ -22,7 +22,11 @@ export const picturePath = (boss: RaidBossId, mood: RaidMood): string => `/api/r
 /** `avatar` is a member's profile picture, when the bot knows it. */
 export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null, now: number = Date.now(), avatar: (userId: string) => string | null = () => null): RaidView {
   // The last raid, until a while after it ended (or the week reset).
-  const current = live && (live.phase !== 'over' || (live.endedAt !== null && now - live.endedAt < OVER_MS && now < week.resetsAt)) ? live : null;
+  const recent = live && (live.phase !== 'over' || (live.endedAt !== null && now - live.endedAt < OVER_MS && now < week.resetsAt)) ? live : null;
+  // One that never came to a fight (nobody joined, or it was called off) freed the week: the week is
+  // shown as it stands (to start again), with a word on how the lobby went.
+  const unfought = recent?.phase === 'over' && (recent.over?.end === 'no_players' || recent.over?.end === 'called_off') ? recent.over.end : null;
+  const current = unfought ? null : recent;
   const bossId = current?.boss ?? week.boss;
   const b = TEXT.raid.bosses[bossId];
   const base = {
@@ -121,5 +125,5 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const fought = status === 'won' || status === 'wiped' || status === 'fled';
   const idleWeek = fought ? status : status === null ? 'open' : 'busy';
   const mood: RaidMood = status === 'won' ? 'defeated' : status === 'wiped' ? 'gloating' : status === 'fled' ? 'fled' : 'calm';
-  return view(mood, { phase: 'idle', idle: { week: idleWeek, canStart: idleWeek === 'open' && week.channel } });
+  return view(mood, { phase: 'idle', idle: { week: idleWeek, canStart: idleWeek === 'open' && week.channel, ...(unfought ? { last: unfought } : {}) } });
 }
