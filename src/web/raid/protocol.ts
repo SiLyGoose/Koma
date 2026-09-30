@@ -82,9 +82,9 @@ export interface RaidOverView {
   /**
    * What each raider did, in the order they joined: damage dealt, HP healed, and damage their guarding
    * kept off the party; and for the end screen's More stats, what they healed themselves and the rest of
-   * the party, and the damage their rallies added (left out by a bot from before them).
+   * the party, the damage their rallies added, and the damage the boss did them (left out by a bot from before them).
    */
-  players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number }[];
+  players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number; damageTaken?: number }[];
   lastHit: string | null;
   /** The winners were paid this. */
   reward: { points: number; tokens: number; gems: number } | null;

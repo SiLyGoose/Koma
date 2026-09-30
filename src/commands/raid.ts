@@ -1243,7 +1243,7 @@ export interface RaidWeekInfo {
     end: 'won' | 'wiped' | 'fled';
     rounds: number;
     lastHit: string | null;
-    players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number }[];
+    players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number; damageTaken?: number }[];
     reward: { points: number; tokens: number; gems: number } | null;
     /** Their gear as they fought was kept (raids from before it was don't have it). */
     gear?: boolean;

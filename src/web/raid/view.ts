@@ -25,6 +25,7 @@ export const statsOf = (s: Partial<RaidStats> | undefined) => ({
   healedSelf: s?.healedSelf ?? 0,
   healedAllies: s?.healedAllies ?? 0,
   supportDamage: s?.supportDamage ?? 0,
+  damageTaken: s?.damageTaken ?? 0,
 });
 
 /** What the winners were paid, with the currencies' emojis. */

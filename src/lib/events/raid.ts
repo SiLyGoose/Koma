@@ -93,6 +93,8 @@ export interface RaidStats {
   healedSelf?: number;
   /** Of it, what they healed the rest of the party. Raids from before it was kept don't have it. */
   healedAllies?: number;
+  /** Damage the boss's hits did them (as each hit was announced). Raids from before it was kept don't have it. */
+  damageTaken?: number;
   /** Damage the party dealt thanks to their rallies (the rally's share of each hit while it was the one powering attacks). Raids from before it was kept don't have it. */
   supportDamage?: number;
   guards: number;
@@ -255,7 +257,7 @@ export interface RaidRng {
 
 export const defaultRaidRng: RaidRng = { int: randInt, chance, pick: pickRandom };
 
-export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0, guards: 0, mitigated: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
+export const emptyStats = (): RaidStats => ({ damage: 0, healed: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0, damageTaken: 0, guards: 0, mitigated: 0, supports: 0, actions: 0, spent: 0, stolen: 0 });
 
 /** Credits `healer` with healing `amount` HP of `target`'s: to themselves or to an ally. */
 function creditHeal(healer: RaidPlayer, target: RaidPlayer, amount: number): void {
@@ -554,6 +556,7 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     const taken = Math.max(1, Math.round(amount));
     dealt += Math.min(taken, player.hp);
     player.hp = Math.max(0, player.hp - taken);
+    player.stats.damageTaken = (player.stats.damageTaken ?? 0) + taken;
     events.push({ kind: 'hit', move: hitMove, userId: player.userId, damage: taken, guarded: state.guarding.includes(player.userId), coveredFor });
     if (player.hp === 0) events.push({ kind: 'knockedOut', userId: player.userId });
   };

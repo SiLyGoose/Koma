@@ -1550,3 +1550,15 @@ test('healing done: split into what the healer healed themselves and the rest of
   assert.equal(b.stats.healedSelf, 0);
   assert.ok(a.stats.healed > 0 && b.stats.healed > 0);
 });
+
+test('damage taken: every hit of the boss a raider takes, as it was announced', () => {
+  const state = fight(['a', 'b'], 10_000);
+  const before = state.players.map((p) => p.hp);
+  const events = [...resolvePlayerTurn(state, choose(['a', 'attack'], ['b', 'attack']), low), ...bossTurn(state, low).events];
+  for (const [i, p] of state.players.entries()) {
+    const hits = events.filter((e) => e.kind === 'hit' && e.userId === p.userId).reduce((sum, e) => sum + (e.kind === 'hit' ? e.damage : 0), 0);
+    assert.equal(p.stats.damageTaken, hits);
+    assert.equal(before[i]! - p.hp, Math.min(hits, before[i]!));
+  }
+  assert.ok(state.players.some((p) => (p.stats.damageTaken ?? 0) > 0));
+});

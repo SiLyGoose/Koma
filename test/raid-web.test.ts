@@ -210,7 +210,7 @@ test('a raid that ended is shown for a while, then the week again', () => {
   assert.equal(over.phase, 'over');
   assert.equal(over.over?.end, 'won');
   assert.deepEqual(over.over?.ranking, [{ userId: 'u1', damage: 500 }]);
-  assert.deepEqual(over.over?.players, [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0 }]);
+  assert.deepEqual(over.over?.players, [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0, damageTaken: 0 }]);
   assert.ok(over.over?.reward);
   assert.equal(over.mood, 'defeated');
   const later = raidView('u1', week({ status: 'won' }), live, Date.now() + 31 * 60_000);
