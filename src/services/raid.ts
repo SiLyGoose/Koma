@@ -26,6 +26,9 @@ export const raidId = (guildId: string, weekKey: string): string => `${guildId}:
 /** The week's extra raid, bought with `skip raid` once the week's raid has been fought. Its id can only exist once, too. */
 export const extraRaidId = (guildId: string, weekKey: string): string => `${raidId(guildId, weekKey)}:extra`;
 
+/** The raid `id` (see raidId), or null when there isn't one. */
+export const findRaid = (id: string): Promise<RaidDoc | null> => collections().raids.findOne({ _id: id });
+
 export type StartRaidResult = { ok: true; id: string } | { ok: false; existing: RaidDoc | null };
 
 /**

@@ -20,7 +20,7 @@ import { cashOutLiveRuns, startMineSweeper } from './services/casino/mines.js';
 import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
-import { settleUnfinishedRaids } from './commands/raid.js';
+import { raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
@@ -206,6 +206,7 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
     },
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
     avatar: (guildId, userId) => client.guilds.cache.get(guildId)?.members.cache.get(userId)?.displayAvatarURL({ size: 64 }) ?? client.users.cache.get(userId)?.displayAvatarURL({ size: 64 }) ?? null,
+    raid: { start: (guildId, userId) => startRaidFromWeb(client, guildId, userId), week: raidWeekInfo },
   };
 }
 
