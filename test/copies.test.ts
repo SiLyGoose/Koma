@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bestCopy, groupCopies, newCopyId } from '../src/lib/game/items/copies.js';
+import { bestCopy, groupCopies, newCopyId, stackCopies } from '../src/lib/game/items/copies.js';
 
 const at = (minutes: number) => new Date(Date.UTC(2026, 8, 20, 0, minutes));
 const copy = (_id: string, level: number, minutes: number, itemId = 'sword') => ({ _id, itemId, level, obtainedAt: at(minutes) });
@@ -42,4 +42,25 @@ test('bestCopy does not depend on the order it is given', () => {
   assert.equal(expected, 'c');
   assert.equal(bestCopy([...copies].reverse())?._id, expected);
   assert.equal(bestCopy([copies[2]!, copies[0]!, copies[3]!, copies[1]!])?._id, expected);
+});
+
+test('stackCopies: copies that differ in level, lock or being worn get lines of their own', () => {
+  const stacks = stackCopies(
+    [
+      copy('a', 1, 1),
+      copy('b', 0, 2), // level 0 counts as R1
+      { ...copy('c', 1, 3), locked: true },
+      copy('d', 3, 4),
+      copy('worn', 1, 5),
+      copy('e', 1, 6, 'shield'),
+    ],
+    new Set(['worn']),
+  );
+  assert.deepEqual(stacks, [
+    { itemId: 'sword', level: 1, locked: false, worn: true, count: 1 },
+    { itemId: 'sword', level: 3, locked: false, worn: false, count: 1 },
+    { itemId: 'sword', level: 1, locked: true, worn: false, count: 1 },
+    { itemId: 'sword', level: 1, locked: false, worn: false, count: 2 },
+    { itemId: 'shield', level: 1, locked: false, worn: false, count: 1 },
+  ]);
 });

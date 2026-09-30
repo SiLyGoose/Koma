@@ -8,6 +8,7 @@ import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './items/gacha.js';
 import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './items/refine.js';
+import { LOCK_BUTTONS } from './items/lock.js';
 import { LOADOUTS, LOADOUT_BUTTONS } from './items/loadouts.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './casino/plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
@@ -85,6 +86,7 @@ export function validateConstants(): void {
   if (!(PLINKO_BUTTONS.idleMs >= 5000)) problems.push('PLINKO_BUTTONS.idleMs must be at least 5000');
   if (!(DATABANK_BUTTONS.idleMs >= 5000)) problems.push('DATABANK_BUTTONS.idleMs must be at least 5000');
   if (!(REFINE_BUTTONS.idleMs >= 5000)) problems.push('REFINE_BUTTONS.idleMs must be at least 5000');
+  if (!(LOCK_BUTTONS.idleMs >= 5000)) problems.push('LOCK_BUTTONS.idleMs must be at least 5000');
   if (!(CONFIG_BUTTONS.idleMs >= 5000)) problems.push('CONFIG_BUTTONS.idleMs must be at least 5000');
   if (!(BLACKJACK.imageScale >= 1 && BLACKJACK.imageScale <= 3 && Number.isInteger(640 * BLACKJACK.imageScale) && Number.isInteger(400 * BLACKJACK.imageScale))) {
     problems.push('BLACKJACK.imageScale must be from 1 to 3 and give a whole number of pixels (640 x scale and 400 x scale), like 1, 1.5 or 2');

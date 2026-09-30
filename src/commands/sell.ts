@@ -47,15 +47,17 @@ function refusal(p: string, plan: Extract<SalePlan, { ok: false }>, target: Sell
   }
   if (target.kind === 'stars') {
     const stars = `${target.stars}-star`;
+    if (plan.reason === 'only_locked') return TEXT.sell.onlyLockedTier(p, stars);
     return plan.reason === 'not_owned' ? TEXT.sell.noneInTier(stars) : TEXT.sell.onlyEquippedTier(p, stars);
   }
+  if (plan.reason === 'only_locked') return TEXT.sell.onlyLocked(p, target.item.name);
   return plan.reason === 'not_owned' ? TEXT.sell.notOwned(target.item.name) : TEXT.sell.onlyEquipped(p, target.item.name);
 }
 
 export const sell: Command = {
   name: 'sell',
   category: 'items',
-  description: `Sell items you are not wearing for ${CURRENCY_NAME}: one copy, some copies, all copies of an item, or a whole star tier.`,
+  description: `Sell items you are not wearing (or locked) for ${CURRENCY_NAME}: one copy, some copies, all copies of an item, or a whole star tier.`,
   usage: 'sell <item> | sell <number> <item> | sell all <item> | sell stars <1-4>',
   slashUsage: 'sell one | some | all | stars',
 

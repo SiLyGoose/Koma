@@ -3,9 +3,7 @@ import { SLOT_EMOJI, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { fmt, joinLimited, starString } from '../lib/format.js';
-import { getInventory } from '../services/economy/index.js';
-import { getEquipment } from '../services/items/equipment.js';
-import { refineLevel } from '../lib/game/items/refine.js';
+import { getInventoryStacks } from '../services/economy/index.js';
 import { takeSlot } from '../lib/game/items/slot-filter.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
@@ -31,13 +29,9 @@ export const inventory: Command = {
       target = resolved;
     }
 
-    const [entries, equipment] = await Promise.all([
-      getInventory(ctx.guildId, target.id),
-      getEquipment(ctx.guildId, target.id),
-    ]);
-    const equippedIds = new Set([equipment.weapon, equipment.armor, equipment.treasure]);
+    const stacks = await getInventoryStacks(ctx.guildId, target.id);
 
-    if (entries.length === 0) {
+    if (stacks.length === 0) {
       await ctx.reply(target.id === ctx.user.id
           ? TEXT.inventory.emptySelf(ctx.prefix)
           : TEXT.inventory.emptyOther(target.displayName),
@@ -47,11 +41,9 @@ export const inventory: Command = {
 
     // With a category, everything below counts only that category's items.
     const catalog = slot === null ? ITEMS : ITEMS.filter((item) => item.slot === slot);
-    const shown = slot === null ? entries : entries.filter((entry) => ITEMS_BY_ID.get(entry.itemId)?.slot === slot);
-    const owned = new Map<string, number>(shown.map((entry): [string, number] => [entry.itemId, entry.count]));
-    const bestLevel = new Map<string, number>(shown.map((entry): [string, number] => [entry.itemId, refineLevel(entry.bestLevel)]));
-    const totalItems = shown.reduce((sum, entry) => sum + entry.count, 0);
-    const unique = shown.filter((entry) => ITEMS_BY_ID.has(entry.itemId)).length;
+    const shown = slot === null ? stacks : stacks.filter((stack) => ITEMS_BY_ID.get(stack.itemId)?.slot === slot);
+    const totalItems = shown.reduce((sum, stack) => sum + stack.count, 0);
+    const unique = new Set(shown.filter((stack) => ITEMS_BY_ID.has(stack.itemId)).map((stack) => stack.itemId)).size;
 
     const title = TEXT.inventory.title(target.displayName);
     const embed = createEmbed()
@@ -61,22 +53,23 @@ export const inventory: Command = {
     for (const stars of [...STARS].reverse()) {
       const tier = catalog.filter((item) => item.stars === stars);
       if (tier.length === 0) continue;
-      const lines = tier
-        .filter((item) => owned.has(item.id))
-        .map((item) => {
-          const line = equippedIds.has(item.id) ? TEXT.inventory.itemEquipped : TEXT.inventory.item;
-          return line(item.name, owned.get(item.id) as number, SLOT_EMOJI[item.slot], bestLevel.get(item.id) ?? 1);
-        });
+      // Copies that differ (level, locked, worn) each get a line of their own.
+      const ownedItems = tier.filter((item) => shown.some((stack) => stack.itemId === item.id));
+      const lines = ownedItems.flatMap((item) =>
+        shown
+          .filter((stack) => stack.itemId === item.id)
+          .map((stack) => (stack.worn ? TEXT.inventory.itemEquipped : TEXT.inventory.item)(item.name, stack.count, SLOT_EMOJI[item.slot], stack.level, stack.locked)),
+      );
       embed.addFields({
-        name: TEXT.inventory.tierField(starString(stars), lines.length, tier.length),
+        name: TEXT.inventory.tierField(starString(stars), ownedItems.length, tier.length),
         value: lines.length > 0 ? joinLimited(lines) : TEXT.inventory.tierEmpty,
       });
     }
 
     // Items removed from the catalog after being pulled still show up here (they have no category).
-    const unknown = shown
-      .filter((entry) => !ITEMS_BY_ID.has(entry.itemId))
-      .map((entry) => TEXT.inventory.otherItem(entry.itemId, entry.count));
+    const unknownCounts = new Map<string, number>();
+    for (const stack of shown) if (!ITEMS_BY_ID.has(stack.itemId)) unknownCounts.set(stack.itemId, (unknownCounts.get(stack.itemId) ?? 0) + stack.count);
+    const unknown = [...unknownCounts].map(([id, count]) => TEXT.inventory.otherItem(id, count));
     if (unknown.length > 0) {
       embed.addFields({ name: TEXT.inventory.otherField, value: joinLimited(unknown) });
     }

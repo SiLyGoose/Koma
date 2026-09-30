@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { ItemCopyDoc } from '../../../types.js';
+import { refineLevel } from './refine-share.js';
 
 /**
  * What a member owns is stored as one document per copy of an item (see ItemCopyDoc), so two
@@ -35,6 +36,37 @@ export function groupCopies(copies: readonly CopyInfo[]): InventoryEntry[] {
     }
   }
   return [...entries.values()];
+}
+
+/** One line of the inventory: copies of an item that are alike (level, locked, worn), so a line never speaks for copies that differ. */
+export interface InventoryStack {
+  itemId: string;
+  /** Their refinement level (1 to REFINE.maxLevel). */
+  level: number;
+  locked: boolean;
+  /** The copy worn right now (always a stack of its own). */
+  worn: boolean;
+  count: number;
+}
+
+/**
+ * Stacks copies into inventory lines, with `worn` the ids of the copies worn: each item's worn copy
+ * first, then highest level first, then locked before unlocked.
+ */
+export function stackCopies(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'>[], worn: ReadonlySet<string>): InventoryStack[] {
+  const stacks = new Map<string, InventoryStack>();
+  for (const copy of copies) {
+    const level = refineLevel(copy.level);
+    const locked = copy.locked === true;
+    const isWorn = worn.has(copy._id);
+    const key = isWorn ? `worn:${copy._id}` : `${copy.itemId}:${level}:${locked}`;
+    const stack = stacks.get(key);
+    if (stack) stack.count += 1;
+    else stacks.set(key, { itemId: copy.itemId, level, locked, worn: isWorn, count: 1 });
+  }
+  return [...stacks.values()].sort(
+    (a, b) => Number(b.worn) - Number(a.worn) || b.level - a.level || Number(b.locked) - Number(a.locked),
+  );
 }
 
 /**

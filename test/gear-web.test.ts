@@ -110,6 +110,7 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
       copy === 'x1' ? (material === 'bad' ? 'bad_material' : 'ok') : copy === 'poor' ? 'too_poor' : 'not_found',
     forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
     sell: async (_guildId, _userId, copies) => (copies.includes('x1') ? { count: copies.length, earned: 40 * copies.length } : 'nothing_to_sell'),
+    lock: async (_guildId, _userId, copy) => copy === 'x1',
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -195,6 +196,12 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await post('/api/gear/sell', '{"guild":"g1","copies":[]}')).status, 400);
     assert.equal((await post('/api/gear/sell', '{"guild":"g1","copies":"x1"}')).status, 400);
     assert.equal((await post('/api/gear/sell', '{"guild":"g1","copies":[7]}')).status, 400);
+
+    assert.equal((await post('/api/gear/lock', '{"guild":"g1","copy":"x1","locked":true}')).status, 200);
+    assert.equal((await post('/api/gear/lock', '{"guild":"g1","copy":"x1","locked":false}')).status, 200);
+    assert.equal((await post('/api/gear/lock', '{"guild":"g1","copy":"nope","locked":true}')).status, 404);
+    assert.equal((await post('/api/gear/lock', '{"guild":"g1","copy":"x1"}')).status, 400);
+    assert.equal((await post('/api/gear/lock', '{"guild":"g1","copy":"x1","locked":"yes"}')).status, 400);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
@@ -242,6 +249,18 @@ test('gear page: each copy says what it sells for, unless it is worn or saved in
   ];
   const sell = Object.fromEntries(gearView(copies, { weapon: 'worn' }, 'x', loadouts).copies.map((c) => [c.id, c.sell]));
   assert.deepEqual(sell, { worn: null, saved: null, spare: sellPrice(ITEMS_BY_ID.get('rusty-dagger')!.stars) });
+});
+
+test('gear page: a locked copy is shown locked, never sells, and is never a spare for a refine', () => {
+  const copies = [
+    { _id: 'worn', itemId: 'rusty-dagger', level: 2 },
+    { _id: 'locked', itemId: 'rusty-dagger', level: 1, locked: true },
+  ];
+  const view = gearView(copies, { weapon: 'worn' }, 'x', undefined, 1_000_000);
+  const byId = Object.fromEntries(view.copies.map((c) => [c.id, c]));
+  assert.deepEqual([byId.locked!.locked, byId.worn!.locked], [true, false]);
+  assert.equal(byId.locked!.sell, null);
+  assert.equal(byId.worn!.refine.blocked, 'no_duplicate');
 });
 
 test('gear page: each copy of a bonus item says whether it can be forged into a masterwork, and for how many komaGems', () => {

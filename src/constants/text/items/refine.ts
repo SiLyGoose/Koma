@@ -8,7 +8,7 @@ export const refineText = {
   noSuchItem: (p: string, query: string) => `You don't have an item called "${query}". \`${p}inventory\` shows what you own.`,
   /** `level` is the copy's refinement now (shown as R1 to R5). */
   noDuplicate: (name: string, level: number) =>
-    `Your **${name}** is at **R${level}**. Refining it uses up a duplicate, and you don't have a spare one. Pull another!`,
+    `Your **${name}** is at **R${level}**. Refining it uses up a duplicate, and you don't have a spare one (locked copies and ones in a loadout are never used up). Pull another!`,
   maxed: (name: string, max: number) => `Your **${name}** is already fully refined (**R${max}**).`,
   busy: 'Your items changed while refining. Nothing was used up; try again.',
   title: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,

@@ -92,6 +92,8 @@ export interface GearIds {
    * A slot left out here counts as one (the item at its full strength).
    */
   bonuses?: Partial<Record<Slot, boolean>>;
+  /** Whether the copy in each slot is locked (`lock`), filled in by resolveGear, for the gear card. Left out counts as not. */
+  locked?: Partial<Record<Slot, boolean>>;
 }
 
 /** One document per (server, user). */
@@ -220,6 +222,8 @@ export interface ItemCopyDoc {
   level: number;
   /** This copy has been forged into a masterwork with komaGems (`forge`), turning on its item's bonus. Missing means not. */
   masterwork?: boolean;
+  /** Locked by the member (`lock`, or the site): never sold and never used up by a refine. Missing means not. */
+  locked?: boolean;
   obtainedAt: Date;
 }
 

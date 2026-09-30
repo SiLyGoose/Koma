@@ -17,7 +17,7 @@ export function refineCost(stars: Stars, to: number): number {
   return CONFIG.refine.cost[stars]?.[to as RefineTarget] ?? 0;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork' | 'locked'>;
 
 export type RefinePlan<T> =
   | { ok: true; target: T; fodder: T; from: number; to: number }
@@ -28,7 +28,7 @@ export type RefinePlan<T> =
 /**
  * Which of a member's copies of one item a refine raises, and which it uses up (the Discord `refine`). It raises their
  * highest-refined copy that isn't at the top level yet (so once one is maxed, the next one up is raised), and uses up
- * their lowest-level other copy that isn't worn, saved in a loadout (`kept`), maxed or a masterwork, so no refining
+ * their lowest-level other copy that isn't worn, saved in a loadout (`kept`), maxed, a masterwork or locked, so no refining
  * is thrown away when it can be helped. `kept` includes the worn copies; left out, it is just those.
  */
 export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: ReadonlySet<string>, kept: ReadonlySet<string> = worn): RefinePlan<T> {
@@ -38,9 +38,9 @@ export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: Reado
   const target = bestCopy(copies.filter((copy) => !maxed(copy)));
   if (!target) return { ok: false, reason: 'maxed', level: refineLevel(top.level), target: top };
   const from = refineLevel(target.level);
-  // A copy whose refine bonus was bought with komaGems, or that is fully refined, is never used up.
+  // A copy whose refine bonus was bought with komaGems, that is fully refined, or that the member locked, is never used up.
   const fodder = worstCopy(
-    copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.masterwork && !maxed(copy)),
+    copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.masterwork && !copy.locked && !maxed(copy)),
   );
   if (!fodder) return { ok: false, reason: 'no_duplicate', level: from, target };
   return { ok: true, target, fodder, from, to: from + 1 };
@@ -51,10 +51,10 @@ export type RefineCopyPlan<T> = RefinePlan<T> | { ok: false; reason: 'bad_materi
 
 /**
  * The copies a refine of `target` can use up: the member's other copies of its item that aren't worn,
- * saved in a loadout (`kept`, the worn ones included) or a masterwork.
+ * saved in a loadout (`kept`, the worn ones included), a masterwork or locked.
  */
 export function refineMaterials<T extends CopyInfo>(copies: readonly T[], target: T, kept: ReadonlySet<string>): T[] {
-  return copies.filter((copy) => copy._id !== target._id && !kept.has(copy._id) && !copy.masterwork);
+  return copies.filter((copy) => copy._id !== target._id && !kept.has(copy._id) && !copy.masterwork && !copy.locked);
 }
 
 /**

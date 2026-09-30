@@ -30,7 +30,8 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
  *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
  *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
- *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn or in a loadout) for points: GearView & { sold: GearSale }
+ *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
+ *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
@@ -284,6 +285,13 @@ async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
     const sold = await store.sell(guildId, userId, [...new Set(copies)]);
     if (sold === 'nothing_to_sell') return fail(res, sold);
     return send(res, 200, { ...(await store.view(guildId, userId)), sold });
+  }
+  if (url.pathname === '/api/gear/lock' && req.method === 'POST') {
+    const copy = body?.copy;
+    const locked = body?.locked;
+    if (typeof copy !== 'string' || copy.length > 64 || typeof locked !== 'boolean') return fail(res, 'bad_request');
+    if (!(await store.lock(guildId, userId, copy, locked))) return fail(res, 'not_found');
+    return send(res, 200, await store.view(guildId, userId));
   }
   fail(res, 'not_found');
 }

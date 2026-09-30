@@ -74,9 +74,9 @@ export const gear: Command = {
 
     const embed = createEmbed().setTitle(TEXT.gear.title(target.displayName));
     for (const slot of SLOTS) {
-      const label = TEXT.gear.slotName(SLOT_LABELS[slot], SLOT_EMOJI[slot]);
       const id = equipment[slot];
       const item = id ? ITEMS_BY_ID.get(id) : undefined;
+      const label = TEXT.gear.slotName(SLOT_LABELS[slot], SLOT_EMOJI[slot], equipment.locked?.[slot] === true);
       if (!item || item.slot !== slot) {
         embed.addFields({
           name: label,

@@ -12,7 +12,7 @@ import { ensureMember } from '../economy/index.js';
  * big sale can be confirmed first: `planSale` works out exactly which copies would be sold and
  * what they are worth, and `sellCopies` sells those copies (and only those, and only if they are
  * still theirs and still not worn). The worn copy of an item is never sold, but other copies of
- * the same item can be.
+ * the same item can be. A copy the member locked (`lock`) is never sold either.
  */
 
 /** What to sell. */
@@ -29,7 +29,9 @@ export type SalePlan =
   | { ok: false; reason: 'not_owned' }
   /** They own some, but every copy is worn. */
   | { ok: false; reason: 'only_equipped' }
-  /** They asked for more copies than they can sell (`available` are not worn). */
+  /** They own some, but every copy is locked or worn (some locked). */
+  | { ok: false; reason: 'only_locked' }
+  /** They asked for more copies than they can sell (`available` are not worn or locked). */
   | { ok: false; reason: 'not_enough'; available: number };
 
 /** Works out what selling `target` would sell and earn, without changing anything. */
@@ -45,8 +47,8 @@ export async function planSale(guildId: string, userId: string, target: SellTarg
   });
   if (inScope.length === 0) return { ok: false, reason: 'not_owned' };
 
-  const sellable = inScope.filter((copy) => !worn.has(copy._id));
-  if (sellable.length === 0) return { ok: false, reason: 'only_equipped' };
+  const sellable = inScope.filter((copy) => !worn.has(copy._id) && !copy.locked);
+  if (sellable.length === 0) return { ok: false, reason: inScope.some((copy) => copy.locked) ? 'only_locked' : 'only_equipped' };
 
   if (target.kind === 'some' && sellable.length < target.amount) return { ok: false, reason: 'not_enough', available: sellable.length };
 
@@ -71,7 +73,7 @@ export type SaleResult =
 
 /**
  * Sells these copies. Each one is only sold if it is still owned by the member and is not worn
- * right now, so a sale can never take gear they put on after it was planned. Points are paid for
+ * or locked right now, so a sale can never take gear they put on after it was planned. Points are paid for
  * exactly the copies that were removed, so two sales of the same copies at once pay only once.
  */
 export async function sellCopies(guildId: string, userId: string, copyIds: readonly string[]): Promise<SaleResult> {
@@ -81,7 +83,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
   const member = await members.findOne({ guildId, userId });
   const worn = loadoutCopyIds(member);
   const candidates = (await items.find({ guildId, userId, _id: { $in: [...copyIds] } }).toArray()).filter(
-    (copy) => !worn.has(copy._id) && ITEMS_BY_ID.has(copy.itemId),
+    (copy) => !worn.has(copy._id) && !copy.locked && ITEMS_BY_ID.has(copy.itemId),
   );
 
   // Remove the copies one item at a time, so we know exactly how many of each were really removed.
@@ -91,8 +93,8 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
   const removedDocs: ItemCopyDoc[] = [];
   let allRemoved = true;
   for (const [, group] of byItem) {
-    const result = await items.deleteMany({ guildId, userId, _id: { $in: group.map((copy) => copy._id) } });
-    if (result.deletedCount < group.length) allRemoved = false; // another sale removed some of these at the same moment
+    const result = await items.deleteMany({ guildId, userId, _id: { $in: group.map((copy) => copy._id) }, locked: { $ne: true } });
+    if (result.deletedCount < group.length) allRemoved = false; // another sale removed (or a lock kept) some of these at the same moment
     // Every copy in a group is of the same item, so only how many we removed matters for the pay.
     removedDocs.push(...group.slice(0, result.deletedCount));
   }

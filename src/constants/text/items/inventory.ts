@@ -8,10 +8,11 @@ export const inventoryText = {
   categoryTitle: (title: string, category: string) => `${title} · ${category}`,
   summary: (total: string, unique: number, catalogSize: number) =>
     `${total} items · ${unique}/${catalogSize} unique collected`,
-  /** `slot` is the slot's emoji; `level` is the best refinement among the copies, shown once it is past 1. */
-  item: (name: string, count: number, slot: string, level: number) => `${slot} ${name} ×${count}${level > 1 ? ` · R${level}` : ''}`,
-  itemEquipped: (name: string, count: number, slot: string, level: number) =>
-    `${slot} ${name} ×${count}${level > 1 ? ` · R${level}` : ''} · equipped`,
+  /** One line of alike copies: `slot` is the slot's emoji, followed by a padlock when they're `locked`; `level` is their refinement, shown once it is past 1. */
+  item: (name: string, count: number, slot: string, level: number, locked = false) =>
+    `${slot}${locked ? ' 🔒' : ''} ${name} ×${count}${level > 1 ? ` · R${level}` : ''}`,
+  itemEquipped: (name: string, count: number, slot: string, level: number, locked = false) =>
+    `${slot}${locked ? ' 🔒' : ''} ${name} ×${count}${level > 1 ? ` · R${level}` : ''} · equipped`,
   /** `stars` is the star string; `have` of `total` items in that tier are owned. */
   tierField: (stars: string, have: number, total: number) => `${stars} (${have}/${total})`,
   tierEmpty: 'None yet',

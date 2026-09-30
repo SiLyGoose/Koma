@@ -17,7 +17,7 @@ export async function resolveGear(
   if (wanted.length === 0) return {};
 
   const copies = await collections().items.find({ guildId, userId, _id: { $in: wanted } }).toArray();
-  const gear: GearIds = { levels: {}, bonuses: {} };
+  const gear: GearIds = { levels: {}, bonuses: {}, locked: {} };
   for (const slot of SLOTS) {
     const copyId = equipment?.[slot];
     const copy = copies.find((candidate) => candidate._id === copyId);
@@ -25,6 +25,7 @@ export async function resolveGear(
     gear[slot as Slot] = copy.itemId;
     gear.levels![slot as Slot] = refineLevel(copy.level);
     gear.bonuses![slot as Slot] = copy.masterwork === true;
+    gear.locked![slot as Slot] = copy.locked === true;
   }
   return gear;
 }

@@ -8,6 +8,7 @@ import { refineCopyPlan, refineCost, refineLevel } from '../lib/game/items/refin
 import { equippedCopyIds, saleCount, sellPrice } from '../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../services/items/equipment.js';
 import { forgeMasterwork } from '../services/items/forge.js';
+import { setCopyLocked } from '../services/items/lock.js';
 import { refineItem } from '../services/items/refine.js';
 import { sellCopies } from '../services/items/sell.js';
 import { switchLoadout } from '../services/items/loadouts.js';
@@ -16,7 +17,7 @@ import { gearStats, type StatSection } from './stats.js';
 import { SLOTS } from '../types.js';
 
 /*
- * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /refine, /forge and /sell):
+ * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /refine, /forge, /sell and /lock):
  * every copy a member owns, what each one does at its level, which copy sits in each slot, and their
  * loadouts; and, to look at, the same for anyone else in the server with gear. The effect lines
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
@@ -44,7 +45,9 @@ export interface GearCopy {
   refine: GearRefine;
   /** Forging it into a masterwork (services/items/forge.ts), for the page's confirmation: null when its item has no bonus. */
   forge: GearForge | null;
-  /** What selling it pays in points (services/items/sell.ts): null when it's worn or saved in a loadout, so never sold. */
+  /** Locked by the member (services/items/lock.ts): never sold or used up by a refine. */
+  locked: boolean;
+  /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout or locked, so never sold. */
   sell: number | null;
 }
 
@@ -62,7 +65,7 @@ export interface GearRefine {
 
 /**
  * Why a copy can't be refined: it's at the top level, there's no spare copy of it to use up (another
- * copy of its item that isn't worn, saved in a loadout or a masterwork), or they can't pay for it.
+ * copy of its item that isn't worn, saved in a loadout, a masterwork or locked), or they can't pay for it.
  * Every copy is refined as itself on the site, whatever level its item's other copies are at.
  */
 export type RefineBlock = 'maxed' | 'no_duplicate' | 'too_poor';
@@ -135,6 +138,8 @@ export interface GearStore {
    * points, or 'nothing_to_sell' when none of them could be.
    */
   sell: (guildId: string, userId: string, copyIds: readonly string[]) => Promise<GearSale | 'nothing_to_sell'>;
+  /** Locks or unlocks that copy: false when they don't own it. */
+  lock: (guildId: string, userId: string, copyId: string, locked: boolean) => Promise<boolean>;
 }
 
 /** What a sale from the gear page sold (POST /api/gear/sell answers the GearView with it). */
@@ -143,7 +148,7 @@ export interface GearSale {
   earned: number;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
 
 /**
  * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
@@ -207,6 +212,7 @@ export function gearView(
     if (!item) continue;
     const level = refineLevel(copy.level);
     const masterwork = copy.masterwork === true;
+    const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
     const view: GearCopy = {
       id: copy._id,
@@ -222,7 +228,8 @@ export function gearView(
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,
-      sell: kept.has(copy._id) ? null : sellPrice(item.stars),
+      locked,
+      sell: kept.has(copy._id) || locked ? null : sellPrice(item.stars),
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
     view.refine = { ...refine, after: to === null ? null : describeEffects(item, share, to, masterwork) };
@@ -323,4 +330,5 @@ export const gearStore: GearStore = {
     if (!result.ok) return result.reason;
     return { count: saleCount(result.lines), earned: result.earned };
   },
+  lock: (guildId, userId, copyId, locked) => setCopyLocked(guildId, userId, copyId, locked),
 };

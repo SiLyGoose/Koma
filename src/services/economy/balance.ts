@@ -1,7 +1,8 @@
 import { CONFIG } from '../../config.js';
 import { MINUTE_MS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { groupCopies, type InventoryEntry } from '../../lib/game/items/copies.js';
+import { groupCopies, stackCopies, type InventoryEntry, type InventoryStack } from '../../lib/game/items/copies.js';
+import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { currentHour, nextHourUnix } from '../../lib/time.js';
 import type { MemberDoc } from '../../types.js';
 import { claimReadyHour } from './claim.js';
@@ -61,6 +62,13 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
 export async function getInventory(guildId: string, userId: string): Promise<InventoryEntry[]> {
   const copies = await collections().items.find({ guildId, userId }).toArray();
   return groupCopies(copies);
+}
+
+/** A member's copies as the inventory lists them (lib/game/items/copies.ts stackCopies): copies that differ are on lines of their own. */
+export async function getInventoryStacks(guildId: string, userId: string): Promise<InventoryStack[]> {
+  const { items, members } = collections();
+  const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
+  return stackCopies(copies, equippedCopyIds(member?.equipment));
 }
 
 export async function getLeaderboard(guildId: string, limit: number): Promise<MemberDoc[]> {

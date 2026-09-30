@@ -48,6 +48,7 @@ export * from './pinecraft.js';
 export * from './events.js';
 export * from './raid.js';
 export * from './items/refine.js';
+export * from './items/lock.js';
 export * from './items/loadouts.js';
 export { TEXT } from './text/index.js';
 export { validateConstants } from './validate.js';

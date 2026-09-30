@@ -21,7 +21,7 @@ export type RefineResult =
       item: ItemDef;
       from: number;
       to: number;
-      /** Copies of the item left that could still be used for later refines (fully refined ones don't count). */
+      /** Copies of the item left that could still be used for later refines (fully refined and locked ones don't count). */
       duplicatesLeft: number;
       /** Their other copies of the item already fully refined: this refine raised an extra copy. */
       maxedCopies: number;
@@ -41,7 +41,7 @@ export type RefineResult =
 
 /**
  * Refines the member's worn (or saved, or best) copy of `item` by one level, using up their
- * lowest-level copy that is in no loadout, and the price. With `chosen` (the site's forge) it refines
+ * lowest-level copy that is in no loadout and not locked, and the price. With `chosen` (the site's forge) it refines
  * that copy instead, using up the material picked (or, with none, the lowest-level one it could use).
  */
 export async function refineItem(guildId: string, userId: string, item: ItemDef, chosen?: { copy: string; material: string | null }): Promise<RefineResult> {
@@ -60,7 +60,7 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
     await members.updateOne({ guildId, userId }, { $inc: { points: cost } }).catch((err) => console.error(`Could not give back ${cost} after a failed refine:`, err));
   };
 
-  const used = await items.findOneAndDelete({ _id: plan.fodder._id, guildId, userId });
+  const used = await items.findOneAndDelete({ _id: plan.fodder._id, guildId, userId, locked: { $ne: true } });
   if (!used) {
     await refund();
     return { ok: false, reason: 'busy' };
@@ -78,12 +78,13 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   await recordLedger([{ guildId, userId, delta: -cost, reason: 'refine', itemId: item.id }]);
   gearChanged(guildId, userId);
   const maxedCopies = copies.filter((copy) => copy._id !== plan.target._id && refineLevel(copy.level) >= REFINE.maxLevel).length;
+  const lockedCopies = copies.filter((copy) => copy._id !== plan.target._id && copy.locked && refineLevel(copy.level) < REFINE.maxLevel).length;
   return {
     ok: true,
     item,
     from: plan.from,
     to: plan.to,
-    duplicatesLeft: copies.length - 2 - maxedCopies,
+    duplicatesLeft: copies.length - 2 - maxedCopies - lockedCopies,
     maxedCopies,
     paid: cost,
     balance: charged.points,

@@ -9,9 +9,9 @@ export const sellText = {
   /** Typed a number but no item. */
   askWhichAmount: (p: string) => `Which item? Use \`${p}sell <number> <item name>\`.`,
   badAmount: (p: string) => `The amount must be a whole number, 1 or more, like \`${p}sell 3 <item name>\`.`,
-  /** Asked for more copies than can be sold. `available` is how many aren't in a loadout. */
+  /** Asked for more copies than can be sold. `available` is how many aren't in a loadout or locked. */
   notEnough: (p: string, name: string, wanted: number, available: number) =>
-    `You asked to sell ${wanted} but you only have **${available}** ${available === 1 ? 'copy' : 'copies'} of **${name}** that aren't in a loadout. Use \`${p}sell all ${name}\` to sell ${available === 1 ? 'it' : 'them all'}.`,
+    `You asked to sell ${wanted} but you only have **${available}** ${available === 1 ? 'copy' : 'copies'} of **${name}** that aren't locked or in a loadout. Use \`${p}sell all ${name}\` to sell ${available === 1 ? 'it' : 'them all'}.`,
   ambiguous: (names: string[]) =>
     `That could be more than one of your items: ${names.map((name) => `**${name}**`).join(', ')}. Type more of the name.`,
   noSuchItem: (p: string, query: string) => `You don't have an item called "${query}". \`${p}inventory\` shows what you own.`,
@@ -19,9 +19,14 @@ export const sellText = {
   /** Every copy of the item is worn. */
   onlyEquipped: (p: string, name: string) =>
     `Your **${name}** is in one of your loadouts, so it can't be sold. Take it off with \`${p}unequip\` first (for a saved loadout, switch to it with \`${p}loadout\`).`,
+  /** Every copy of the item is locked (or worn, with at least one locked). */
+  onlyLocked: (p: string, name: string) =>
+    `Your **${name}** is locked (or in a loadout), so it can't be sold. Unlock it with \`${p}unlock ${name}\` first.`,
   noneInTier: (stars: string) => `You don't own any ${stars} items.`,
   onlyEquippedTier: (p: string, stars: string) =>
     `The only ${stars} items you have are in your loadouts, so none can be sold. Take them off with \`${p}unequip\` first (for a saved loadout, switch to it with \`${p}loadout\`).`,
+  onlyLockedTier: (p: string, stars: string) =>
+    `The only ${stars} items you have are locked or in your loadouts, so none can be sold. Unlock them with \`${p}unlock <item>\` first.`,
   /** Result of selling. `user` is a mention, `stars` the star string, `points` already formatted. */
   soldTitle: 'Sold',
   soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for ${boldMoney(points)}`,
@@ -32,11 +37,11 @@ export const sellText = {
   footerLeft: (count: number) => (count === 0 ? 'You have none left' : `You have ${count} left`),
   /** Shown when some of what was planned could no longer be sold (equipped or already sold in the meantime). */
   skipped: (count: number) => (count === 1 ? '1 item could not be sold any more and was kept.' : `${count} items could not be sold any more and were kept.`),
-  nothingLeft: 'None of those can be sold any more (they were equipped or saved to a loadout, or already sold).',
+  nothingLeft: 'None of those can be sold any more (they were equipped, saved to a loadout or locked, or already sold).',
   /** The confirmation prompt for selling many. */
   confirmTitle: 'Sell these?',
   confirmDescription: (total: string, count: number, lines: string) => `${lines}\n\nTotal: ${boldMoney(total)} for **${count}** items.`,
-  confirmFooter: (seconds: number) => `Equipped items are never sold. Confirm within ${seconds} seconds.`,
+  confirmFooter: (seconds: number) => `Equipped and locked items are never sold. Confirm within ${seconds} seconds.`,
   confirmButton: 'Sell',
   cancelButton: 'Cancel',
   cancelledTitle: 'Sale cancelled',

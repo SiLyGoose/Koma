@@ -38,6 +38,9 @@ test('refinement shows as R and the level', () => {
   assert.equal(TEXT.gear.item('Wyrmscale Plate', '★★★', 3), '**Wyrmscale Plate** ★★★ · R3');
   assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2 · R3`);
   assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 1), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2`, 'R1 is left out of the inventory');
+  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3, true), `${SLOT_EMOJI.armor} 🔒 Wyrmscale Plate ×2 · R3`, 'the padlock follows the slot emoji');
+  assert.equal(TEXT.gear.slotName('Armor', SLOT_EMOJI.armor, true), `Armor ${SLOT_EMOJI.armor} 🔒`, 'and on the gear card too');
+  assert.equal(TEXT.gear.slotName('Armor', SLOT_EMOJI.armor), `Armor ${SLOT_EMOJI.armor}`);
   assert.equal(TEXT.equip.effectsField(2), 'Effects (R2)');
   assert.match(TEXT.refine.done('<@a>', 2, 3, 1), /from \*\*R2\*\* to \*\*R3\*\*.*1 duplicate left/);
   assert.equal(TEXT.refine.maxed('Wyrmscale Plate', 5), 'Your **Wyrmscale Plate** is already fully refined (**R5**).');
@@ -123,6 +126,23 @@ test('refine of a chosen copy: raises that copy whatever the others are at, usin
   assert.deepEqual(refineCopyPlan(copies, 'gone', null, kept), { ok: false, reason: 'not_owned', level: 0 });
   const max = copy('max', 5, 1);
   assert.deepEqual(refineCopyPlan([max, low], 'max', 'low', kept), { ok: false, reason: 'maxed', level: 5, target: max });
+});
+
+test('refine: a locked copy is never used up, but can itself be raised', () => {
+  const copy = (_id: string, level: number, obtained: number, locked = false) => ({ _id, level, obtainedAt: at(obtained), locked });
+  const top = copy('top', 3, 1);
+  const locked = copy('locked', 1, 5, true);
+  const loose = copy('loose', 2, 2);
+
+  const plan = refinePlan([top, locked, loose], new Set());
+  assert.ok(plan.ok);
+  assert.equal(plan.fodder._id, 'loose', 'the lower locked copy is skipped');
+  assert.deepEqual(refinePlan([top, locked], new Set()), { ok: false, reason: 'no_duplicate', level: 3, target: top });
+
+  assert.deepEqual(refineCopyPlan([top, locked, loose], 'top', 'locked', new Set()), { ok: false, reason: 'bad_material', level: 3, target: top });
+  const raised = refineCopyPlan([top, locked, loose], 'locked', null, new Set());
+  assert.ok(raised.ok);
+  assert.deepEqual([raised.target._id, raised.fodder._id], ['locked', 'loose']);
 });
 
 test('refine cost: points by star tier and level, the lower tiers a share of the 4-star prices', () => {

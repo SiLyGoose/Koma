@@ -170,7 +170,7 @@ test('sell: the messages', () => {
   assert.match(TEXT.sell.badAmount('k!'), /whole number, 1 or more/);
   assert.equal(
     TEXT.sell.notEnough('k!', 'Kippah', 5, 2),
-    "You asked to sell 5 but you only have **2** copies of **Kippah** that aren't in a loadout. Use `k!sell all Kippah` to sell them all.",
+    "You asked to sell 5 but you only have **2** copies of **Kippah** that aren't locked or in a loadout. Use `k!sell all Kippah` to sell them all.",
   );
   assert.match(TEXT.sell.notEnough('k!', 'Kippah', 3, 1), /\*\*1\*\* copy of .*sell it\./);
 });
