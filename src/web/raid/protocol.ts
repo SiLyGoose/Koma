@@ -88,6 +88,8 @@ export interface RaidView {
   you: string;
   /** Display names by user id, for the markdown's mentions and the lists. */
   names: Record<string, string>;
+  /** Profile pictures by user id, when the bot knows them. */
+  avatars: Record<string, string>;
   boss: { id: RaidBossId; name: string; emoji: string };
   /** The boss's picture now: its path under the bot's /api (GET). */
   picture: string;

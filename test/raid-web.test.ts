@@ -204,3 +204,14 @@ test('the boss pictures the page shows', () => {
   assert.equal(bossPicture('wyrm', 'sleepy'), null);
   assert.equal(bossPicture('../etc', 'calm'), null);
 });
+
+test("the raid's players come with their profile pictures, when the bot knows them", async () => {
+  clearLiveRaids();
+  resetLive();
+  const lobby = openTestLobby('u1');
+  lobby.live.lobby?.join('u2', 'Name u2');
+  const c = await connect('u1', { avatar: (_g, userId) => (userId === 'u1' ? 'https://cdn.example/u1.png' : null) });
+  assert.deepEqual(c.last().avatars, { u1: 'https://cdn.example/u1.png' });
+  assert.deepEqual(raidView('u1', week(), null).avatars, {});
+  c.connection.closed();
+});

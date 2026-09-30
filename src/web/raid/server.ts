@@ -20,6 +20,8 @@ export interface RaidSiteDeps {
   start(guildId: string, userId: string): Promise<WebRaidStart>;
   /** How this week's raid stands in `guildId` (commands/raid.ts's raidWeekInfo). */
   week(guildId: string): Promise<RaidWeekInfo>;
+  /** A member's profile picture in a server, when the bot knows it. */
+  avatar?(guildId: string, userId: string): string | null;
 }
 
 /** How long a change waits for others before the page is sent the raid, so a burst of picks goes out as one. */
@@ -53,7 +55,8 @@ export function openConnection(page: Peer<ServerMessage>, deps: RaidSiteDeps): C
       weekPhase = phase;
       week = await deps.week(player.guildId);
     }
-    peer.send({ t: 'raid', view: raidView(player.userId, week, live) });
+    const { guildId } = player;
+    peer.send({ t: 'raid', view: raidView(player.userId, week, live, Date.now(), (userId) => deps.avatar?.(guildId, userId) ?? null) });
   };
 
   const schedule = (): void => {

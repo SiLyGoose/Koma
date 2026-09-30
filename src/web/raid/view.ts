@@ -19,7 +19,8 @@ const OVER_MS = 30 * 60_000;
 /** The boss's picture, under the bot's /api (api.ts serves it). */
 export const picturePath = (boss: RaidBossId, mood: RaidMood): string => `/api/raid/boss?${new URLSearchParams({ boss, mood })}`;
 
-export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null, now: number = Date.now()): RaidView {
+/** `avatar` is a member's profile picture, when the bot knows it. */
+export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null, now: number = Date.now(), avatar: (userId: string) => string | null = () => null): RaidView {
   // The last raid, until a while after it ended (or the week reset).
   const current = live && (live.phase !== 'over' || (live.endedAt !== null && now - live.endedAt < OVER_MS && now < week.resetsAt)) ? live : null;
   const bossId = current?.boss ?? week.boss;
@@ -27,6 +28,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const base = {
     you,
     names: current ? Object.fromEntries(current.names) : {},
+    avatars: current ? Object.fromEntries([...current.names.keys()].flatMap((id) => (avatar(id) ? [[id, avatar(id) as string]] : []))) : {},
     boss: { id: bossId, name: b.name, emoji: b.emoji },
     resetsAt: week.resetsAt,
     idle: null,
