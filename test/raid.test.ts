@@ -23,6 +23,7 @@ import {
   participants,
   pickIntent,
   recordTheft,
+  findPlayer,
   resolvePlayerTurn,
   type RaidChoice,
   type RaidEvent,
@@ -1518,4 +1519,46 @@ test('the party list shows what each raider picked this turn, and who is still c
   assert.ok(party[2]?.startsWith(`${RAID_EMOJI.heal} <@c>`), party[2]);
   assert.ok(party[3]?.startsWith('✨ <@d>'), party[3]);
   assert.ok(party[4]?.startsWith('⏳ <@e>'), party[4]);
+});
+
+test("support damage: whoever rallied is credited with the rally's share of every rallied hit", () => {
+  const { min } = RAID_COMBAT.attack;
+  const { attackMultiplier, rallyTurns } = RAID_COMBAT.support;
+  const state = fight(['a', 'b'], 10_000);
+  resolvePlayerTurn(state, choose(['a', 'support'], ['b', 'attack']), low);
+  const a = findPlayer(state, 'a')!;
+  const b = findPlayer(state, 'b')!;
+  assert.equal(a.stats.supportDamage, 0); // the rally starts next turn
+  for (let turn = 1; turn <= rallyTurns; turn++) resolvePlayerTurn(state, choose(['b', 'attack']), low);
+  const hit = Math.round(min * attackMultiplier);
+  assert.equal(a.stats.supportDamage, rallyTurns * Math.round((hit * (attackMultiplier - 1)) / attackMultiplier));
+  // The attacker keeps all of their own damage.
+  assert.equal(b.stats.damage, min + rallyTurns * hit);
+  assert.equal(b.stats.supportDamage, 0);
+});
+
+test('healing done: split into what the healer healed themselves and the rest of the party', () => {
+  const state = fight(['a', 'b'], 10_000);
+  const a = findPlayer(state, 'a')!;
+  const b = findPlayer(state, 'b')!;
+  a.hp = 40;
+  b.hp = 50;
+  resolvePlayerTurn(state, new Map([['a', { action: 'heal', boost: 0, target: 'a' }], ['b', { action: 'heal', boost: 0, target: 'a' }]]), low);
+  assert.equal(a.stats.healedSelf, a.stats.healed);
+  assert.equal(a.stats.healedAllies, 0);
+  assert.equal(b.stats.healedAllies, b.stats.healed);
+  assert.equal(b.stats.healedSelf, 0);
+  assert.ok(a.stats.healed > 0 && b.stats.healed > 0);
+});
+
+test('damage taken: every hit of the boss a raider takes, as it was announced', () => {
+  const state = fight(['a', 'b'], 10_000);
+  const before = state.players.map((p) => p.hp);
+  const events = [...resolvePlayerTurn(state, choose(['a', 'attack'], ['b', 'attack']), low), ...bossTurn(state, low).events];
+  for (const [i, p] of state.players.entries()) {
+    const hits = events.filter((e) => e.kind === 'hit' && e.userId === p.userId).reduce((sum, e) => sum + (e.kind === 'hit' ? e.damage : 0), 0);
+    assert.equal(p.stats.damageTaken, hits);
+    assert.equal(before[i]! - p.hp, Math.min(hits, before[i]!));
+  }
+  assert.ok(state.players.some((p) => (p.stats.damageTaken ?? 0) > 0));
 });

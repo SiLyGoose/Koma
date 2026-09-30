@@ -340,6 +340,8 @@ Grows with every raider (at least ${min}).`,
   bossRounds: (b: RaidBossText, rounds: number) => `⏳ It ${b.fleesHow} (and the raid is lost) if it is still standing after **${rounds}** rounds.`,
   rewardsField: 'Rewards',
   /** What each raider who takes part gets when the boss is slain (nothing if it wins or gets away). */
+  /** What each raider got for a win, with the currencies' emojis ("**1,000** <:zeiucoin:…>, **10** … and **5** …"). */
+  rewardList: (reward: string, tokens: number, gems: number) => rewards(reward, tokens, gems),
   bossRewards: (reward: string, tokens: number, gems: number) =>
     `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems)}.`,
   phasesField: 'Phases',

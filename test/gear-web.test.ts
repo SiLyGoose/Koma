@@ -7,7 +7,7 @@ import type { WebConfig } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { REFINE } from '../src/constants/index.js';
 import { loadoutsOf } from '../src/lib/game/items/loadouts.js';
-import { gearView, type GearStore } from '../src/web/gear.js';
+import { gearView, wornGear, type GearStore } from '../src/web/gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { sellPrice } from '../src/lib/game/items/sell.js';
 import { signSession } from '../src/web/login.js';
@@ -318,6 +318,51 @@ test("gear page: a game's link can look at gear in its server (the raid's party)
     const post = await fetch(`${base}/api/gear/equip`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ guild: 'g1', copy: 'y1' }) });
     assert.equal(post.status, 401);
     assert.equal((await fetch(`${base}/api/gear/members?guild=g1`, { headers })).status, 401);
+  } finally {
+    server.close();
+  }
+});
+
+test('a raider\'s gear as they fought: only what they wore, in the loadout they wore it in, and no money', () => {
+  const view = gearView(
+    [
+      { _id: 'a', itemId: 'rusty-dagger', level: 1 },
+      { _id: 'b', itemId: 'wooden-shield', level: 2 },
+      { _id: 'c', itemId: 'iron-longsword', level: 3 },
+    ],
+    { weapon: 'a', armor: 'b' },
+    'x',
+    undefined,
+    500,
+    7,
+  );
+  const worn = wornGear(view);
+  assert.deepEqual(worn.copies.map((c) => c.id).sort(), ['a', 'b']);
+  assert.deepEqual(worn.loadouts.map((l) => l.active), [true]);
+  assert.equal(worn.balance, null);
+  assert.equal(worn.gems, null);
+  assert.deepEqual(worn.totals, view.totals);
+});
+
+test("the raid's end screen can look at a raider's gear as they fought, with the raid's link only", async () => {
+  const deps: ApiDeps = {
+    config: SITE,
+    clientId: () => '999',
+    guild: (id) => (id === 'g1' ? { name: id, icon: null } : null),
+    memberName: async () => 'x',
+    balance: async () => 0,
+    raid: { start: async () => ({ ok: true }), week: async () => { throw new Error('unused'); }, gear: async (_g, userId) => (userId === '22' ? { kept: userId } : null) },
+  };
+  const headers = { Origin: SITE.origin, Authorization: `Game ${signToken({ guildId: 'g1', userId: '11', name: 'A' }, 60_000)}` };
+  const server: Server = createServer((req, res) => void handleApi(req, res, deps));
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  try {
+    const kept = await fetch(`${base}/api/raid/gear?user=22`, { headers });
+    assert.equal(kept.status, 200);
+    assert.deepEqual(await kept.json(), { kept: '22' });
+    assert.equal((await fetch(`${base}/api/raid/gear?user=33`, { headers })).status, 404);
+    assert.equal((await fetch(`${base}/api/raid/gear?user=22`, { headers: { Origin: SITE.origin } })).status, 401);
   } finally {
     server.close();
   }

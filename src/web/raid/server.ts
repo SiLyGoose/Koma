@@ -24,6 +24,8 @@ export interface RaidSiteDeps {
   avatar?(guildId: string, userId: string): string | null;
   /** A member's name in a server, or null when they aren't in it (any more). */
   name?(guildId: string, userId: string): Promise<string | null>;
+  /** A raider's gear as they fought the raid the site is showing, or null when it wasn't kept (commands/raid.ts's raidGearSnapshot). */
+  gear?(guildId: string, userId: string): Promise<unknown>;
 }
 
 /** How long a change waits for others before the page is sent the raid, so a burst of picks goes out as one. */

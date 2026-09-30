@@ -210,7 +210,7 @@ test('a raid that ended is shown for a while, then the week again', () => {
   assert.equal(over.phase, 'over');
   assert.equal(over.over?.end, 'won');
   assert.deepEqual(over.over?.ranking, [{ userId: 'u1', damage: 500 }]);
-  assert.deepEqual(over.over?.players, [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0 }]);
+  assert.deepEqual(over.over?.players, [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0, damageTaken: 0 }]);
   assert.ok(over.over?.reward);
   assert.equal(over.mood, 'defeated');
   const later = raidView('u1', week({ status: 'won' }), live, Date.now() + 31 * 60_000);
@@ -256,4 +256,25 @@ test("the raid's players come with their profile pictures, when the bot knows th
   assert.deepEqual(c.last().avatars, { u1: 'https://cdn.example/u1.png' });
   assert.deepEqual(raidView('u1', week(), null).avatars, {});
   c.connection.closed();
+});
+
+test("the end screen: the rewards with the currencies' emojis, and whether the raiders' gear was kept", () => {
+  clearLiveRaids();
+  const { live } = openTestLobby('u1');
+  const state = createRaid('wyrm', ['u1'], 500, 100, 10);
+  state.bossHp = 0;
+  state.outcome = 'won';
+  live.gear.set('u1', { equipped: {} });
+  live.end({ end: 'won', state, rewarded: true });
+  const over = raidView('u1', week({ status: 'won' }), live).over!;
+  assert.match(over.rewardText ?? '', /<:zeiucoin:\d+>/);
+  assert.equal(over.gear, true);
+
+  // Read back from the database: kept or not, as it says.
+  clearLiveRaids();
+  const result = { end: 'won' as const, rounds: 3, lastHit: 'u1', players: [{ userId: 'u1', damage: 9, healed: 0, mitigated: 0 }], reward: { points: 1000, tokens: 10, gems: 5 } };
+  const kept = raidView('u1', week({ status: 'won', result: { ...result, gear: true } }), null).over!;
+  assert.equal(kept.gear, true);
+  assert.match(kept.rewardText ?? '', /\*\*1,000\*\*/);
+  assert.equal(raidView('u1', week({ status: 'won', result }), null).over?.gear, false);
 });

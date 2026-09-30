@@ -1,7 +1,8 @@
 import { CONFIG } from '../../config.js';
+import { fmt } from '../../lib/format.js';
 import { RAID_COMBAT, TEXT, type RaidBossId } from '../../constants/index.js';
 import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../commands/raid.js';
-import { actionProblem, bossHpFor, canAct, damageRanking, RAID_ACTIONS, type RaidAction } from '../../lib/events/raid.js';
+import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, RAID_ACTIONS, type RaidAction } from '../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../lib/events/raid-live.js';
 import type { RaidMood, RaidView } from './protocol.js';
 
@@ -15,6 +16,20 @@ const LOG_LINES = 30;
 
 /** How long a page keeps showing how the last raid ended, before going back to how the week stands. */
 const OVER_MS = 30 * 60_000;
+
+/** What a raider did, for the end screen (the stats raids from before didn't keep count as 0). */
+export const statsOf = (s: Partial<RaidStats> | undefined) => ({
+  damage: s?.damage ?? 0,
+  healed: s?.healed ?? 0,
+  mitigated: s?.mitigated ?? 0,
+  healedSelf: s?.healedSelf ?? 0,
+  healedAllies: s?.healedAllies ?? 0,
+  supportDamage: s?.supportDamage ?? 0,
+  damageTaken: s?.damageTaken ?? 0,
+});
+
+/** What the winners were paid, with the currencies' emojis. */
+const rewardText = (points: number, tokens: number, gems: number): string => TEXT.raid.rewardList(fmt(points), tokens, gems);
 
 /** The boss's picture, under the bot's /api (api.ts serves it). */
 export const picturePath = (boss: RaidBossId, mood: RaidMood): string => `/api/raid/boss?${new URLSearchParams({ boss, mood })}`;
@@ -92,16 +107,18 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         bossHp: state?.bossHp ?? 0,
         bossMaxHp: state?.bossMaxHp ?? 0,
         ranking: state ? damageRanking(state).map((p) => ({ userId: p.userId, damage: p.stats.damage })) : [],
-        players: state ? state.players.map((p) => ({ userId: p.userId, damage: p.stats.damage, healed: p.stats.healed, mitigated: p.stats.mitigated ?? 0 })) : [],
+        players: state ? state.players.map((p) => ({ userId: p.userId, ...statsOf(p.stats) })) : [],
         lastHit: state?.lastHit ?? null,
         reward: rewarded ? { points: cfg.reward, tokens: cfg.tokenReward, gems: cfg.gemReward } : null,
+        rewardText: rewarded ? rewardText(cfg.reward, cfg.tokenReward, cfg.gemReward) : null,
+        gear: current.gear.size > 0,
       },
     });
   }
 
   // No raid going on here, but this week's was fought: how it went (read back from the database).
   if (week.result) {
-    const { end, rounds, lastHit, players, reward } = week.result;
+    const { end, rounds, lastHit, players, reward, gear } = week.result;
     const mood: RaidMood = end === 'won' ? 'defeated' : end === 'wiped' ? 'gloating' : 'fled';
     return view(mood, {
       phase: 'over',
@@ -116,6 +133,8 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         players,
         lastHit,
         reward,
+        rewardText: reward ? rewardText(reward.points, reward.tokens, reward.gems) : null,
+        gear: gear === true,
       },
     });
   }

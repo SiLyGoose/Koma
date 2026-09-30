@@ -501,6 +501,8 @@ export interface RaidDoc {
   stats?: Record<string, RaidStats>;
   lastHit?: string | null;
   rounds?: number;
+  /** Each raider's gear as the fight started, by user id (web/gear.ts's wornGear), for the site's end screen. Raids from before it was saved don't have it. */
+  gear?: Record<string, unknown>;
   createdAt: Date;
   endedAt?: Date | null;
 }

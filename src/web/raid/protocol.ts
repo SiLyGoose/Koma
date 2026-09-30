@@ -79,11 +79,19 @@ export interface RaidOverView {
   bossMaxHp: number | null;
   /** Damage dealt, most first. */
   ranking: { userId: string; damage: number }[];
-  /** What each raider did, in the order they joined: damage dealt, HP healed, and damage their guarding kept off the party. */
-  players: { userId: string; damage: number; healed: number; mitigated: number }[];
+  /**
+   * What each raider did, in the order they joined: damage dealt, HP healed, and damage their guarding
+   * kept off the party; and for the end screen's More stats, what they healed themselves and the rest of
+   * the party, the damage their rallies added, and the damage the boss did them (left out by a bot from before them).
+   */
+  players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number; damageTaken?: number }[];
   lastHit: string | null;
   /** The winners were paid this. */
   reward: { points: number; tokens: number; gems: number } | null;
+  /** The same, in markdown with the currencies' emojis ("**1,000** <:zeiucoin:…>, **10** <:zeiutoken:…> and **5** <:komagem:…>"). */
+  rewardText?: string | null;
+  /** Each raider's gear as they fought can be looked at (GET /api/raid/gear?user=…): raids from before it was kept can't. */
+  gear?: boolean;
 }
 
 export interface RaidView {

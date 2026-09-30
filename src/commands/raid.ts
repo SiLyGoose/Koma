@@ -55,8 +55,10 @@ import {
 } from '../lib/events/raid.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
 import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
-import { openLiveRaid, type ActAnswer, type LiveRaid, type RaidLobbyLive } from '../lib/events/raid-live.js';
+import { liveRaid, openLiveRaid, type ActAnswer, type LiveRaid, type RaidLobbyLive } from '../lib/events/raid-live.js';
 import { siteGameLink, webConfig } from '../web/config.js';
+import { gearStore, wornGear, type GearView } from '../web/gear.js';
+import { statsOf } from '../web/raid/view.js';
 import { getChannelId } from '../services/channel.js';
 import { getPrefix } from '../services/settings.js';
 import { pickRandom } from '../lib/random.js';
@@ -76,6 +78,7 @@ import {
   resetRaidWeek,
   rewardRaid,
   startRaidWeek,
+  saveRaidGear,
   stealFromWallet,
   updateRaid,
   type RaidReward,
@@ -1188,6 +1191,8 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     state.players.forEach((p, i) => {
       p.gear = gear[i] ?? p.gear;
     });
+    // What each raider wore, for the site's end screen: kept on the live raid and the raid's document.
+    await snapshotGear(ctx.guildId, id, players, live);
     const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, live, (moved) => {
       message = moved;
     });
@@ -1238,11 +1243,37 @@ export interface RaidWeekInfo {
     end: 'won' | 'wiped' | 'fled';
     rounds: number;
     lastHit: string | null;
-    players: { userId: string; damage: number; healed: number; mitigated: number }[];
+    players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number; damageTaken?: number }[];
     reward: { points: number; tokens: number; gems: number } | null;
+    /** Their gear as they fought was kept (raids from before it was don't have it). */
+    gear?: boolean;
   } | null;
   /** The raiders' names, for the result (the site's socket fills them in). */
   names?: Record<string, string>;
+}
+
+/** Keeps what each raider wears as the fight starts (see RaidDoc.gear). Never holds the fight up: a failure only loses the snapshot. */
+async function snapshotGear(guildId: string, id: string, players: readonly string[], live: LiveRaid | null): Promise<void> {
+  try {
+    const views = await Promise.all(players.map(async (userId) => [userId, wornGear(await gearStore.peek(guildId, userId))] as const));
+    for (const [userId, view] of views) live?.gear.set(userId, view);
+    await saveRaidGear(id, Object.fromEntries(views));
+  } catch (err) {
+    console.error(`Could not save the gear of raid ${id}:`, err);
+  }
+}
+
+/**
+ * A raider's gear as they fought this week's raid in `guildId` (the site's end screen): from the raid
+ * the site is showing (the live one, while it's still up), else this week's from the database. Null
+ * when it wasn't kept (a raid from before, or they weren't in it).
+ */
+export async function raidGearSnapshot(guildId: string, userId: string): Promise<GearView | null> {
+  const live = liveRaid(guildId);
+  const kept = live?.gear.get(userId);
+  if (kept) return kept as GearView;
+  const doc = await findRaid(raidId(guildId, raidWeek().key));
+  return (doc?.gear?.[userId] as GearView | undefined) ?? null;
 }
 
 export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
@@ -1257,9 +1288,10 @@ export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
         lastHit: fought.lastHit ?? null,
         players: fought.players.map((userId) => {
           const stats = fought.stats?.[userId];
-          return { userId, damage: stats?.damage ?? fought.damage?.[userId] ?? 0, healed: stats?.healed ?? 0, mitigated: stats?.mitigated ?? 0 };
+          return { userId, ...statsOf(stats), damage: stats?.damage ?? fought.damage?.[userId] ?? 0 };
         }),
         reward: fought.status === 'won' ? { points: CONFIG.raid.reward, tokens: CONFIG.raid.tokenReward, gems: CONFIG.raid.gemReward } : null,
+        gear: fought.gear !== undefined,
       }
     : null;
   return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null, result };
