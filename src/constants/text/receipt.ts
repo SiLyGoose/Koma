@@ -12,10 +12,10 @@ export const receiptText = {
   /** The member's weapon and armor made the amount bigger (or, on a caught rob, the fine). */
   gearAdded: (amount: string) => `🗡️ Gear added ${boldMoney(amount)}`,
   /** The member's weapon and armor made the amount smaller (a cut, like a robAmountCut). */
-  gearCut: (amount: string) => `🗡️ Gear reduced by ${boldMoney(amount)}`,
+  gearCut: (amount: string) => `🗡️ Gear reduced ${boldMoney(amount)}`,
   /** The member's unique treasure made the amount bigger. `name` is the item's. */
   treasureAdded: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} added ${boldMoney(amount)}`,
-  treasureCut: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} reduced by ${boldMoney(amount)}`,
+  treasureCut: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} reduced ${boldMoney(amount)}`,
   wheelAdded: (multiplier: string, amount: string) => `🎡 Wheel (${multiplier}) added ${boldMoney(amount)}`,
   wheelCut: (multiplier: string, amount: string) => `🎡 Wheel (${multiplier}) took ${boldMoney(amount)}`,
   /** The wheel landed on 1x. */

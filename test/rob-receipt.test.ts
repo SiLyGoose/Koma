@@ -48,7 +48,7 @@ test('rob receipt: every effect in the order it was applied, what the victim los
   assert.deepEqual(lines.slice(2, 7), [
     `💸 Stole ${money('120')}`,
     `🗡️ Gear added ${money('30')}`,
-    `🛡️ @I's armor reduced by ${money('20')}`,
+    `🛡️ @I's armor reduced ${money('20')}`,
     `⌨️ Hot streak (3 robs in 6 hours, +10%) added ${money('13')}`,
     `💰 Wealth tax (5% of what @I held over ${money(fmt(CONFIG.rob.wealthTaxThreshold))}) added ${money('200')}`,
   ]);
@@ -87,6 +87,7 @@ test('caught receipt: the base fine, every effect on it, then what the robber pa
   const text = caughtReceipt('@Z', '@I', {
     fine: owed * 2,
     owed,
+    fineTreasure: null,
     vulnerable: 0.15,
     d20: { roll: 1, kind: 'fail', bonus: 2, multiplier: 0 },
   });
@@ -105,7 +106,7 @@ test('caught receipt: the base fine, every effect on it, then what the robber pa
 
 test("caught receipt: gear that cancels the fine, and a robber who couldn't pay it all", () => {
   const saved = caughtReceipt('@Z', '@I', { ...caught, fine: 0, owed: 0 });
-  assert.ok(saved.includes(`🗡️ Gear reduced by ${money(fmt(base))}`));
+  assert.ok(saved.includes(`🗡️ Gear reduced ${money(fmt(base))}`));
   assert.ok(saved.endsWith('Your gear got you out of the fine.'));
   const short = caughtReceipt('@Z', '@I', { ...caught, fine: base - 10, owed: base * 2 });
   assert.ok(short.includes(`@Z was short ${money(fmt(base + 10))}`));
@@ -115,7 +116,7 @@ test("caught receipt: gear that cancels the fine, and a robber who couldn't pay 
 test("rob receipts: the robber's unique treasure gets its own line, after the weapon and armor", () => {
   const text = robReceipt('@Z', '@I', { ...plain, stolen: 90, gearBonus: 30, treasure: { name: 'Coughing Baby', amount: -60 } });
   const lines = text.split('\n');
-  assert.deepEqual(lines.slice(2, 5), [`💸 Stole ${money('120')}`, `🗡️ Gear added ${money('30')}`, `${SLOT_EMOJI.treasure} Coughing Baby reduced by ${money('60')}`]);
+  assert.deepEqual(lines.slice(2, 5), [`💸 Stole ${money('120')}`, `🗡️ Gear added ${money('30')}`, `${SLOT_EMOJI.treasure} Coughing Baby reduced ${money('60')}`]);
   assert.ok(!text.includes('short'));
 
   const fine = caughtReceipt('@Z', '@I', { ...caught, fine: base * 3, owed: base * 3, fineTreasure: { name: 'C4', amount: base * 2 } });

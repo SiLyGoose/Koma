@@ -17,6 +17,6 @@ test("D20 line: a rob's critical success names the roll, the d3 and the multipli
 
 test('rob lines: the robber gear and the victim armor on the receipt', () => {
   assert.equal(TEXT.receipt.gearAdded('40'), `🗡️ Gear added **40** ${CURRENCY_EMOJI}`);
-  assert.equal(TEXT.receipt.gearCut('50'), `🗡️ Gear reduced by **50** ${CURRENCY_EMOJI}`);
-  assert.equal(TEXT.rob.receiptArmor('<@2>', '48'), `🛡️ <@2>'s armor reduced by **48** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.receipt.gearCut('50'), `🗡️ Gear reduced **50** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.rob.receiptArmor('<@2>', '48'), `🛡️ <@2>'s armor reduced **48** ${CURRENCY_EMOJI}`);
 });

@@ -31,7 +31,7 @@ export const robText = {
   receiptHeadline: (robber: string, victim: string) => `**${robber} robbed ${victim}!**`,
   /** What was rolled before anyone's gear. */
   receiptStole: (amount: string) => `💸 Stole ${boldMoney(amount)}`,
-  receiptArmor: (victim: string, amount: string) => `🛡️ ${victim}'s armor reduced by ${boldMoney(amount)}`,
+  receiptArmor: (victim: string, amount: string) => `🛡️ ${victim}'s armor reduced ${boldMoney(amount)}`,
   /** Thoccy Keyboard: `count` robs in the last `hours` hours, this one included, for `rate` more. */
   receiptStreak: (count: number, hours: number, rate: string, amount: string) =>
     `⌨️ Hot streak (${count} rob${count === 1 ? '' : 's'} in ${hours} hours, +${rate}) added ${boldMoney(amount)}`,
