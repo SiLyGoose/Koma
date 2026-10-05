@@ -164,12 +164,11 @@ test('d20 constants: the startup check refuses settings that would break the die
 });
 
 test('d20 text: the messages say the roll and what it paid', () => {
-  assert.match(TEXT.d20.fail('<@1>', 1, 2, '1,200'), /\*\*1\*\*.*d3 rolled \*\*2\*\*.*1,200.*vault/);
-  assert.match(TEXT.d20.fail('<@1>', 1, 2, ''), /nothing to pay/);
-  assert.match(TEXT.d20.landed(7, '0.7x'), /7.*0\.7x/);
+  assert.match(TEXT.claim.receiptPenalty(2, '2x', '1,200'), /d3 rolled 2.*2x.*vault.*1,200/);
+  assert.match(TEXT.claim.receiptPenaltyNothing(2), /nothing to pay/);
+  assert.match(TEXT.claim.receiptD20Added(7, '0.7x', '40'), /7.*0\.7x/);
   assert.match(TEXT.d20.critical(20, 3, '3x'), /20.*d3 rolled \*\*3\*\*.*3x/);
-  assert.match(TEXT.d20.robFail(1, 3, '3x', '+400'), /1.*Critical fail.*d3 rolled \*\*3\*\*.*3x.*fine.*\+400/);
-  assert.doesNotMatch(TEXT.d20.robFail(1, 1, '1x'), /\(/);
+  assert.match(TEXT.d20.robFail(1, 3, '3x'), /1.*Critical fail.*d3 rolled \*\*3\*\*.*3x.*fine/);
   assert.match(TEXT.d20.robLanded(7, '0.7x', '35%'), /7.*0\.7x.*35%/);
 });
 

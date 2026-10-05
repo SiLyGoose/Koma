@@ -1,5 +1,6 @@
 import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
 import { randInt } from '../../lib/random.js';
 import { currentHour, HOUR_MS, nextHourUnix } from '../../lib/time.js';
@@ -39,8 +40,12 @@ export type ClaimResult =
       ok: true;
       /** What the claim was worth, after the gear bonus and the wheel, before any tax. */
       amount: number;
-      /** How much the member's gear added to the roll (not counting the wheel). */
+      /** What was rolled between claim.min and claim.max, before any gear. */
+      rolled: number;
+      /** How much the member's weapon and armor added to the roll (not counting the wheel). */
       bonus: number;
+      /** Set when the member's unique treasure changed the roll: its name, and the points it added (negative when it cut it). Applied after `bonus`. */
+      treasure: { name: string; amount: number } | null;
       /** Set when the wheel (wheelSpin gear) spun for this claim and multiplied `amount`. */
       wheel: WheelSpin | null;
       /** How many points the wheel added (negative if it took some away); 0 when it didn't spin. */
@@ -129,9 +134,13 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
 
     // Equipped gear can add a bonus on top of the roll, the wheel can then multiply it, and the
     // D20 comes last: it can wipe the claim out, multiply it by its bonus die or scale it by the number rolled.
-    const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
+    const gearIds = await resolveGear(guildId, userId, member?.equipment);
+    const gear = gearEffects(gearIds, userId);
     const gap = claimGapHours(gear);
     const withGear = claimAmount(rolled, gear);
+    // The weapon and armor on their own, so the reply can show what the unique treasure did apart from them.
+    const withoutTreasure = claimAmount(rolled, gearEffects({ ...gearIds, treasure: null }, userId));
+    const treasureName = gearIds.treasure ? (ITEMS_BY_ID.get(gearIds.treasure)?.name ?? null) : null;
     const wheel = spinWheel(wheelChance(gear), wheelDice, wheelSlices(CONFIG.wheel.maxMultiplier));
     const afterWheel = wheel ? applyWheel(withGear, wheel.multiplier) : withGear;
     const d20 = rollD20(d20Chance(gear), d20Dice);
@@ -219,7 +228,9 @@ export async function claimHourly(guildId: string, userId: string, d20Dice: D20D
     return {
       ok: true,
       amount,
-      bonus: withGear - rolled,
+      rolled,
+      bonus: withoutTreasure - rolled,
+      treasure: treasureName !== null && withGear !== withoutTreasure ? { name: treasureName, amount: withGear - withoutTreasure } : null,
       wheel,
       wheelBonus: afterWheel - withGear,
       d20,

@@ -5,7 +5,7 @@ import { MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants/inde
 import { applyStonks, EFFECTS, emptyTotals, stonksCurvePoints, stonksMultiplier } from '../src/perks/index.js';
 import { stonksStatus } from '../src/services/economy/claim.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { formatMultiplier, signed } from '../src/lib/format.js';
+import { formatMultiplier } from '../src/lib/format.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { findSpec, parseInput } from '../src/lib/settings-spec.js';
 
@@ -184,12 +184,9 @@ test('stonks item: its gear-card line names the effect "Stackosaurus" and spells
 // ---------------------------------------------------------------------------
 // The claim message
 
-test('stonks text: the claim line names the multiplier, and the point change only when there was one', () => {
+test('stonks text: the claim receipt line names the multiplier and what it added', () => {
   assert.equal(formatMultiplier(6.3), '6.3x');
-  assert.equal(signed(230), '+230');
-  assert.match(TEXT.stonks.landed('6.3x', '+230'), /6\.3x/);
-  assert.match(TEXT.stonks.landed('6.3x', '+230'), /\+230/);
-  assert.doesNotMatch(TEXT.stonks.landed('1x', ''), /\(/, 'no parenthetical when there was no change');
+  assert.match(TEXT.claim.receiptStonks('6.3x', '230'), /STONKS! \(6\.3x\) added \*\*230\*\*/);
 });
 
 test("stonks status: the balance shows what a claim now would get, and when it tops out", () => {

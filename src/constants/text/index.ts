@@ -2,7 +2,6 @@ import { commonText } from './common.js';
 import { balanceText } from './balance.js';
 import { wheelText } from './wheel.js';
 import { d20Text } from './d20.js';
-import { stonksText } from './stonks.js';
 import { claimText } from './claim.js';
 import { skipText } from './skip.js';
 import { gachaText } from './items/gacha.js';
@@ -26,6 +25,7 @@ import { refineText } from './items/refine.js';
 import { forgeText } from './items/forge.js';
 import { lockText } from './items/lock.js';
 import { robText } from './rob.js';
+import { receiptText } from './receipt.js';
 import { eventsText } from './events/events.js';
 import { crateText } from './events/crate.js';
 import { vaultText } from './events/vault.js';
@@ -52,7 +52,6 @@ export const TEXT = {
   balance: balanceText,
   wheel: wheelText,
   d20: d20Text,
-  stonks: stonksText,
   claim: claimText,
   gacha: gachaText,
   bet: betText,
@@ -75,6 +74,7 @@ export const TEXT = {
   forge: forgeText,
   lock: lockText,
   rob: robText,
+  receipt: receiptText,
   events: eventsText,
   crate: crateText,
   vault: vaultText,

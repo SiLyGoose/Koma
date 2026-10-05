@@ -1,5 +1,4 @@
 import { CURRENCY_EMOJI } from '../core.js';
-import { SLOT_EMOJI } from '../formatting.js';
 import { boldMoney } from './currency.js';
 
 export const robText = {
@@ -27,17 +26,11 @@ export const robText = {
    * A successful rob with effects on it reads as a receipt (commands/rob.ts robReceipt): the headline,
    * one line per effect in the order it was applied, what the victim lost, what changed the robber's
    * take after that, and what they kept. Each line is a sentence with its amount in it; a line ending
-   * in an emoji or a parenthesis gets no period.
+   * in an emoji or a parenthesis gets no period. The lines it shares with a claim's are in receipt.ts.
    */
   receiptHeadline: (robber: string, victim: string) => `**${robber} robbed ${victim}!**`,
   /** What was rolled before anyone's gear. */
   receiptStole: (amount: string) => `💸 Stole ${boldMoney(amount)}`,
-  receiptGearAdded: (amount: string) => `🗡️ Gear added ${boldMoney(amount)}`,
-  /** The robber's gear made the take smaller (a cut, like the Coughing Baby's). */
-  receiptGearCut: (amount: string) => `🗡️ Gear reduced by ${boldMoney(amount)}`,
-  /** The robber's unique treasure made the take (or, on a caught rob, the fine) bigger. `name` is the item's. */
-  receiptTreasureAdded: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} added ${boldMoney(amount)}`,
-  receiptTreasureCut: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} reduced by ${boldMoney(amount)}`,
   receiptArmor: (victim: string, amount: string) => `🛡️ ${victim}'s armor reduced by ${boldMoney(amount)}`,
   /** Thoccy Keyboard: `count` robs in the last `hours` hours, this one included, for `rate` more. */
   receiptStreak: (count: number, hours: number, rate: string, amount: string) =>
@@ -53,10 +46,6 @@ export const robText = {
   receiptShort: (victim: string, amount: string) => `${victim} was short ${boldMoney(amount)}`,
   receiptLost: (victim: string, amount: string) => `${victim} lost ${boldMoney(amount)}`,
   receiptLostEverything: (victim: string, amount: string) => `${victim} lost ${boldMoney(amount)}, everything they had...`,
-  receiptWheelAdded: (multiplier: string, amount: string) => `🎡 Wheel (${multiplier}) added ${boldMoney(amount)}`,
-  receiptWheelCut: (multiplier: string, amount: string) => `🎡 Wheel (${multiplier}) took ${boldMoney(amount)}`,
-  /** The wheel landed on 1x. */
-  receiptWheelNothing: (multiplier: string) => `🎡 Wheel (${multiplier}) changed nothing.`,
   /** A Jew Frog wearer who robbed the robber earlier took their share of this rob. `taker` is a mention. */
   receiptRobTaxPaid: (taker: string, amount: string) => `🐸 Rob tax: ${taker} took ${boldMoney(amount)}`,
   /** The last line when nothing changed the take after the victim paid. */

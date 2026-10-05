@@ -3,6 +3,7 @@ import { CURRENCY_NAME, FAILURE_TITLES, ROB_STREAK_WINDOW_MS, SUCCESS_TITLES, TE
 import { createEmbed } from '../lib/embed.js';
 import { fmt, formatMultiplier, formatPercent, mention } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
+import { addUp, gearLines, type ReceiptLine, type TreasureStep, wheelLine } from '../lib/receipt.js';
 import { d20Penalty, type D20Roll } from '../perks/index.js';
 import { rob as robService } from '../services/economy/index.js';
 import { replyWithDice } from '../animations/dice-reply.js';
@@ -37,7 +38,7 @@ export interface RobReceiptResult {
   victimBalance: number;
   rolled: number;
   gearBonus: number;
-  treasure: { name: string; amount: number } | null;
+  treasure: TreasureStep | null;
   shielded: number;
   streak: { count: number; rate: number; bonus: number } | null;
   vulnerableBonus: number;
@@ -52,20 +53,7 @@ export interface RobReceiptResult {
   robTax: number | null;
 }
 
-const RULE = '━━━━━━━━━━';
-
-/** A receipt line: its text, and what it added to the amount (negative when it took some off). */
-type ReceiptLine = [text: string, amount: number];
-
-/** The receipt lines for the robber's weapon and armor (`gear`), then their unique treasure, on the take or the fine. */
-function gearLines(gear: number, treasure: { name: string; amount: number } | null): ReceiptLine[] {
-  const lines: ReceiptLine[] = [];
-  if (gear > 0) lines.push([TEXT.rob.receiptGearAdded(fmt(gear)), gear]);
-  if (gear < 0) lines.push([TEXT.rob.receiptGearCut(fmt(-gear)), gear]);
-  if (treasure !== null && treasure.amount > 0) lines.push([TEXT.rob.receiptTreasureAdded(treasure.name, fmt(treasure.amount)), treasure.amount]);
-  if (treasure !== null && treasure.amount < 0) lines.push([TEXT.rob.receiptTreasureCut(treasure.name, fmt(-treasure.amount)), treasure.amount]);
-  return lines;
-}
+const RULE = TEXT.receipt.rule;
 
 /**
  * A successful rob's text, `robber` and `victim` being mentions. With nothing but the roll to it, one
@@ -110,18 +98,12 @@ export function robReceipt(robber: string, victim: string, result: RobReceiptRes
     taken.push([TEXT.rob.receiptWealthTax(victim, line, formatPercent(wealthTax.rate), fmt(wealthTax.amount)), wealthTax.amount]);
   }
   // A victim who couldn't pay it all (the steps add up to more than moved).
-  const short = result.stolen - taken.reduce((sum, [, amount]) => sum + amount, result.rolled);
+  const short = result.stolen - addUp(taken, result.rolled);
   if (short < 0) taken.push([TEXT.rob.receiptShort(victim, fmt(-short)), short]);
 
   // What changed the robber's take after that.
   const after: ReceiptLine[] = [];
-  if (result.wheel !== null) {
-    const multiplier = formatMultiplier(result.wheel.multiplier);
-    const bonus = result.wheelBonus;
-    const text =
-      bonus > 0 ? TEXT.rob.receiptWheelAdded(multiplier, fmt(bonus)) : bonus < 0 ? TEXT.rob.receiptWheelCut(multiplier, fmt(-bonus)) : TEXT.rob.receiptWheelNothing(multiplier);
-    after.push([text, bonus]);
-  }
+  if (result.wheel !== null) after.push(wheelLine(result.wheel.multiplier, result.wheelBonus));
   if (result.robTaxPaid !== null) {
     const { amount, toUserId } = result.robTaxPaid;
     after.push([TEXT.rob.receiptRobTaxPaid(mention(toUserId), fmt(amount)), -amount]);
@@ -140,7 +122,7 @@ export function robReceipt(robber: string, victim: string, result: RobReceiptRes
     lines.push(result.victimBalance === 0 ? TEXT.rob.receiptLostEverything(victim, lost) : TEXT.rob.receiptLost(victim, lost));
     for (const [text] of after) lines.push(text);
     lines.push(RULE);
-    const kept = result.stolen + after.reduce((sum, [, amount]) => sum + amount, 0);
+    const kept = addUp(after, result.stolen);
     lines.push(TEXT.rob.receiptKept(fmt(kept)));
   }
   return withMarks(lines.join('\n'));
@@ -150,7 +132,7 @@ export function robReceipt(robber: string, victim: string, result: RobReceiptRes
 export interface RobCaughtResult {
   fine: number;
   owed: number;
-  fineTreasure: { name: string; amount: number } | null;
+  fineTreasure: TreasureStep | null;
   vulnerable: number | null;
   d20: D20Roll | null;
 }
@@ -174,7 +156,7 @@ export function caughtReceipt(robber: string, victim: string, result: RobCaughtR
     if (added > 0) steps.push([TEXT.rob.receiptD20Fail(formatMultiplier(d20.bonus), fmt(added)), added]);
   }
   // A robber who couldn't pay it all.
-  const short = result.fine - steps.reduce((sum, [, amount]) => sum + amount, base);
+  const short = result.fine - addUp(steps, base);
   if (short < 0) steps.push([TEXT.rob.receiptShort(robber, fmt(-short)), short]);
 
   if (steps.length === 0) {
