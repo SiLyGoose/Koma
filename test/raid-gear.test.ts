@@ -41,23 +41,28 @@ function fight(gear: Partial<RaidGear>, players = ['a', 'b']): RaidState {
 const attackDamage = (events: ReturnType<typeof resolvePlayerTurn>): number =>
   (events.find((e) => e.kind === 'attack') as { damage: number } | undefined)?.damage ?? 0;
 
-test('raid stat items: a 1-star, a 2-star and a 3-star item for each new raid perk', () => {
+test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each new raid perk', () => {
   for (const [id, stars, slot, effect] of [
     ['boiled-leather-vest', 1, 'armor', 'raidHp'],
     ['chainmail-hauberk', 2, 'armor', 'raidHp'],
     ['troll-hide-cuirass', 3, 'armor', 'raidHp'],
+    ['colossus-plate', 4, 'armor', 'raidHp'],
     ['chipped-hand-axe', 1, 'weapon', 'raidAttack'],
     ['steel-warhammer', 2, 'weapon', 'raidAttack'],
     ['dragonslayer-greatsword', 3, 'weapon', 'raidAttack'],
+    ['worldbreaker-maul', 4, 'weapon', 'raidAttack'],
     ['throwing-knives', 1, 'weapon', 'raidCritChance'],
     ['hunters-longbow', 2, 'weapon', 'raidCritChance'],
     ['eagle-eye-crossbow', 3, 'weapon', 'raidCritChance'],
+    ['moonpiercer-bow', 4, 'weapon', 'raidCritChance'],
     ['barbed-spear', 1, 'weapon', 'raidCritDamage'],
     ['executioners-axe', 2, 'weapon', 'raidCritDamage'],
     ['heartseeker-rapier', 3, 'weapon', 'raidCritDamage'],
+    ['godslayer-fang', 4, 'weapon', 'raidCritDamage'],
     ['acolytes-robe', 1, 'armor', 'raidSupport'],
     ['clerics-vestments', 2, 'armor', 'raidSupport'],
     ['saints-mantle', 3, 'armor', 'raidSupport'],
+    ['seraphs-raiment', 4, 'armor', 'raidSupport'],
   ] as const) {
     const item = ITEMS_BY_ID.get(id);
     assert.ok(item, id);

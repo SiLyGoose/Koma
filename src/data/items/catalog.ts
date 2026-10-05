@@ -12,7 +12,7 @@ import type { ItemDef } from '../../types.js';
  * lists the same effect. Weapons lean toward offense and armor toward defense, plus a perk.
  * Unique treasures (slot 'treasure') are a third slot every member has, on top of their weapon
  * and armor: it stacks with those two, but only one unique treasure can be equipped at a
- * time (every current 4-star item is a unique treasure and competes for that one slot).
+ * time (the 4-star unique treasures all compete for that one slot).
  *
  * An item can be made exclusive with `usableBy: [MEMBERS.<name>, ...]` (add the member to
  * data/members.ts first). Anyone can pull, own and equip it, but only the listed members (and
@@ -479,5 +479,45 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Fire in the hole!',
     effects: ['dynamiteBlast', 'blastLoss'],
+  },
+  {
+    id: 'colossus-plate',
+    name: 'Colossus Plate',
+    stars: 4,
+    slot: 'armor',
+    description: 'Forged for a giant who never fell. On anyone smaller it is a fortress with legs.',
+    effects: ['raidHp'],
+  },
+  {
+    id: 'worldbreaker-maul',
+    name: 'Worldbreaker Maul',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Someone once swung it at a mountain. The mountain lost.',
+    effects: ['raidAttack'],
+  },
+  {
+    id: 'moonpiercer-bow',
+    name: 'Moonpiercer Bow',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Its arrows find the gap between two heartbeats.',
+    effects: ['raidCritChance'],
+  },
+  {
+    id: 'godslayer-fang',
+    name: 'Godslayer Fang',
+    stars: 4,
+    slot: 'weapon',
+    description: 'A tooth from something older than dragons. It still remembers how to kill them.',
+    effects: ['raidCritDamage'],
+  },
+  {
+    id: 'seraphs-raiment',
+    name: "Seraph's Raiment",
+    stars: 4,
+    slot: 'armor',
+    description: 'Feathers of light stitched into silk. Wounds close and lines hold wherever it walks.',
+    effects: ['raidSupport'],
   },
 ];
