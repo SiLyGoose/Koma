@@ -15,41 +15,65 @@ export const robText = {
   rollHit: (used: number, of: number) => `🔫 Hit on shot ${used} of ${of}.`,
   /** MP5: every roll of the burst missed. */
   rollsMissed: (of: number) => `🔫 All ${of} shots missed.`,
+  /** A successful rob with nothing but the roll to it. */
   success: (robber: string, victim: string, stolen: string) =>
     `${robber} robbed ${victim} and got away with ${boldMoney(stolen)}`,
-  /** Added to a successful rob when the robber's gear made the take bigger. `amount` is how many points more. */
-  gearAdded: (amount: string) => `Your gear added ${boldMoney(amount)} to it.`,
-  /** Added when the robber's gear made the take smaller (a cut, like the Coughing Baby's). */
-  gearCut: (amount: string) => `Your gear took ${boldMoney(amount)} off it.`,
-  /** Thoccy Keyboard: the robber's streak added to the take. `count` robs in the last `hours` hours, this one included. */
-  streak: (count: number, hours: number, rate: string, amount: string) =>
-    `⌨️ **Hot streak!** ${count} rob${count === 1 ? '' : 's'} in ${hours} hours: +${rate}, ${boldMoney(amount)} more.`,
-  /** Thoccy Keyboard: the victim was vulnerable (they failed a rob), so this rob took more. */
-  vulnerableTaken: (victim: string, amount: string) => `⌨️ ${victim} was vulnerable: you took ${boldMoney(amount)} more.`,
-  /** The wealth tax: the victim held more than `line`, so the rob also took `rate` of what they held over it. */
-  wealthTaxed: (victim: string, line: string, rate: string, amount: string) =>
-    `💰 **Wealth tax!** ${victim} held over ${boldMoney(line)}: you took ${rate} of the excess, ${boldMoney(amount)} more.`,
-  /** Thoccy Keyboard: the robber failed and is vulnerable now. */
-  nowVulnerable: (robber: string, rate: string) => `⌨️ Streak broken. ${robber} is vulnerable: the next successful rob against them takes +${rate}.`,
-  /** Added when the victim's armor kept part of the take from the robber. */
-  shielded: (victim: string, amount: string) => `${victim}'s armor blocked ${boldMoney(amount)} of it.`,
-  /** Added to a caught rob when the robber's gear made the fine bigger (a glass cannon). */
-  fineRaised: (amount: string) => `Your gear added ${boldMoney(amount)} to the fine.`,
-  /** Added to a successful rob when the wearer's gear taxes the victim's next claim. */
-  claimTaxed: (victim: string, rate: string) => `${victim}'s next claim will be taxed ${rate}.`,
-  /** Added to a successful rob when the wearer's gear taxes the victim's next successful rob. */
-  robTaxed: (victim: string, rate: string) => `${victim}'s next rob will be taxed ${rate}.`,
-  /** Added when part of this rob went to a Jew Frog wearer who robbed the robber earlier. `taker` is a mention. */
-  robTaxPaid: (taker: string, tax: string, kept: string) => `${taker} took ${boldMoney(tax)} of it. You kept ${boldMoney(kept)}`,
-  /**
-   * Added last when the rob slipped (Piplup): `returned` went back to the victim, plus `penalty`
-   * ('' when there was none). Placeholder wording.
-   */
-  slipped: (victim: string, returned: string, penalty: string) =>
-    `<:piplupsmirk:1553135037120250046> ...but slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
   /** Used instead of `success` when the victim was left with nothing. */
   successEverything: (robber: string, victim: string, stolen: string) =>
     `${robber} robbed ${victim} and got away with ${boldMoney(stolen)} That was everything they had...`,
+
+  /*
+   * A successful rob with effects on it reads as a receipt (commands/rob.ts robReceipt): the headline,
+   * one line per effect in the order it was applied, what the victim lost, what changed the robber's
+   * take after that, and what they kept. Each line is a sentence with its amount in it; a line ending
+   * in an emoji or a parenthesis gets no period.
+   */
+  receiptHeadline: (robber: string, victim: string) => `**${robber} robbed ${victim}!**`,
+  /** What was rolled before anyone's gear. */
+  receiptStole: (amount: string) => `💸 Stole ${boldMoney(amount)}`,
+  receiptGearAdded: (amount: string) => `🗡️ Gear added ${boldMoney(amount)}`,
+  /** The robber's gear made the take smaller (a cut, like the Coughing Baby's). */
+  receiptGearCut: (amount: string) => `🗡️ Gear reduced by ${boldMoney(amount)}`,
+  receiptArmor: (victim: string, amount: string) => `🛡️ ${victim}'s armor reduced by ${boldMoney(amount)}`,
+  /** Thoccy Keyboard: `count` robs in the last `hours` hours, this one included, for `rate` more. */
+  receiptStreak: (count: number, hours: number, rate: string, amount: string) =>
+    `⌨️ Hot streak (${count} rob${count === 1 ? '' : 's'} in ${hours} hours, +${rate}) added ${boldMoney(amount)}`,
+  /** Thoccy Keyboard: the victim had failed a rob, so this one took more. */
+  receiptVulnerable: (victim: string, amount: string) => `⌨️ ${victim} was vulnerable, adding ${boldMoney(amount)}`,
+  /** The D20 rolled a 20: everything so far but the wealth tax, times `multiplier`. */
+  receiptD20: (multiplier: string, amount: string) => `🎲 D20 critical (${multiplier}) added ${boldMoney(amount)}`,
+  /** The victim held more than `line`, so the rob also took `rate` of what they held over it. */
+  receiptWealthTax: (victim: string, line: string, rate: string, amount: string) =>
+    `💰 Wealth tax (${rate} of what ${victim} held over ${boldMoney(line)}) added ${boldMoney(amount)}`,
+  /** The victim couldn't lose all of it (a rob always leaves them rob.minVictimBalance). */
+  receiptShort: (victim: string, amount: string) => `${victim} was short ${boldMoney(amount)}`,
+  receiptLost: (victim: string, amount: string) => `${victim} lost ${boldMoney(amount)}`,
+  receiptLostEverything: (victim: string, amount: string) => `${victim} lost ${boldMoney(amount)}, everything they had...`,
+  receiptWheelAdded: (multiplier: string, amount: string) => `🎡 Wheel (${multiplier}) added ${boldMoney(amount)}`,
+  receiptWheelCut: (multiplier: string, amount: string) => `🎡 Wheel (${multiplier}) took ${boldMoney(amount)}`,
+  /** The wheel landed on 1x. */
+  receiptWheelNothing: (multiplier: string) => `🎡 Wheel (${multiplier}) changed nothing.`,
+  /** A Jew Frog wearer who robbed the robber earlier took their share of this rob. `taker` is a mention. */
+  receiptRobTaxPaid: (taker: string, amount: string) => `🐸 Rob tax: ${taker} took ${boldMoney(amount)}`,
+  /** The last line when nothing changed the take after the victim paid. */
+  receiptGotAway: (amount: string) => `You got away with ${boldMoney(amount)}`,
+  receiptKept: (amount: string) => `You kept ${boldMoney(amount)}`,
+  /** After a slip (Piplup): the penalty the robber paid, or nothing when there was none. */
+  receiptSlipLost: (amount: string) => `You lost ${boldMoney(amount)}`,
+  receiptSlipNothing: 'You kept nothing.',
+  /** Marks left on the victim for later. */
+  claimTaxed: (victim: string, rate: string) => `📌 ${victim}'s next claim will be taxed ${rate}.`,
+  robTaxed: (victim: string, rate: string) => `📌 ${victim}'s next rob will be taxed ${rate}.`,
+  /** Thoccy Keyboard: the robber failed and is vulnerable now. */
+  nowVulnerable: (robber: string, rate: string) => `⌨️ Streak broken. ${robber} is vulnerable: the next successful rob against them takes +${rate}.`,
+  /** Added to a caught rob when the robber's gear made the fine bigger (a glass cannon). */
+  fineRaised: (amount: string) => `Your gear added ${boldMoney(amount)} to the fine.`,
+  /**
+   * The rob slipped (Piplup): `returned` went back to the victim, plus `penalty` ('' when there was
+   * none). Placeholder wording.
+   */
+  slipped: (victim: string, returned: string, penalty: string) =>
+    `<:piplupsmirk:1553135037120250046> ...but slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
   caughtFined: (robber: string, victim: string, fine: string) =>
     `${robber} tried to rob ${victim} but got caught, and paid them a fine of ${boldMoney(fine)}`,
   caughtFinedWithGear: (robber: string, victim: string, fine: string, waived: string) =>

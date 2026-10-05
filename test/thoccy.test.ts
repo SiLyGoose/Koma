@@ -39,8 +39,8 @@ test('thoccy: the gear card and the rob messages read right', () => {
     'Hackermans: the streak adds up to +50%',
     "Hackermans: fail a rob and you're vulnerable: the next rob against you takes +15%",
   ]);
-  assert.match(TEXT.rob.streak(3, 6, '30%', '120'), /3 robs in 6 hours: \+30%.*120/);
-  assert.match(TEXT.rob.streak(1, 6, '10%', '40'), /1 rob in 6 hours/);
-  assert.match(TEXT.rob.vulnerableTaken('@INU', '75'), /@INU was vulnerable.*75/);
+  assert.match(TEXT.rob.receiptStreak(3, 6, '30%', '120'), /Hot streak \(3 robs in 6 hours, \+30%\) added \*\*120\*\*/);
+  assert.match(TEXT.rob.receiptStreak(1, 6, '10%', '40'), /1 rob in 6 hours/);
+  assert.match(TEXT.rob.receiptVulnerable('@INU', '75'), /@INU was vulnerable, adding \*\*75\*\*/);
   assert.match(TEXT.rob.nowVulnerable('@thoccy', '15%'), /@thoccy is vulnerable.*\+15%/);
 });

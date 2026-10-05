@@ -71,6 +71,8 @@ export type RobResult =
        * the victim only ever loses `stolen`.
        */
       wheel: WheelSpin | null;
+      /** What was rolled between rob.minStolen and rob.maxStolen, before anyone's gear. */
+      rolled: number;
       /** How many points the robber's gear added to what was taken (negative when it cut it, like a robAmountCut). */
       gearBonus: number;
       /** How many points the victim's armor kept from the robber. */
@@ -315,8 +317,9 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               robTaxPaid: null,
               // The rob was undone before the wheel paid out, so it didn't spin.
               wheel: null,
+              rolled,
               gearBonus: beforeArmor - rolled,
-              shielded: Math.max(0, beforeArmor - stolen),
+              shielded: Math.max(0, beforeArmor - taken),
               wheelBonus: 0,
               slip: { returned: Math.min(back.moved, transfer.moved), penalty: Math.max(0, back.moved - transfer.moved) },
               // Undone, so neither counts: no streak, and the victim stays vulnerable.
@@ -467,6 +470,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         robTax,
         robTaxPaid,
         wheel,
+        rolled,
         gearBonus: beforeArmor - rolled,
         shielded: Math.max(0, beforeArmor - taken),
         wheelBonus,

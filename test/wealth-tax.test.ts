@@ -30,5 +30,5 @@ test('wealth tax: the Equalizer is a 4-star weapon adding +0.5% at R1 up to +3% 
   const rateAt = (level: number) => round(wealthTaxRate(0.01, totalEffects([{ item: EQUALIZER, level }])));
   assert.deepEqual([1, 2, 3, 4, 5].map(rateAt), [0.015, 0.02, 0.025, 0.03, 0.04]);
   assert.match(describeEffects(EQUALIZER, 1, 5)[0]!, /\+3% wealth tax/);
-  assert.match(TEXT.rob.wealthTaxed('@v', '5,000', '1%', '150'), /Wealth tax!.*@v.*5,000.*1%.*150/);
+  assert.match(TEXT.rob.receiptWealthTax('@v', '5,000', '1%', '150'), /Wealth tax \(1% of what @v held over \*\*5,000\*\*.*\) added \*\*150\*\*/);
 });

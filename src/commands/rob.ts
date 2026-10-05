@@ -39,71 +39,130 @@ function caughtBody(
 
 /**
  * The D20's line, first since it was rolled first: what it did to the chance, to the fine on a 1, or
- * to the take on a 20. Empty when it didn't roll.
+ * to the take on a 20 (what that added is on the receipt). Empty when it didn't roll.
  */
-function d20Line(result: { d20: D20Roll | null; chance: number; d20Bonus?: number; d20Extra?: number }): string {
+function d20Line(result: { d20: D20Roll | null; chance: number; d20Extra?: number }): string {
   const { d20 } = result;
   if (!d20) return '';
   const multiplier = formatMultiplier(d20.multiplier);
-  const bonus = result.d20Bonus ?? 0;
   const extra = result.d20Extra ?? 0;
   const line =
     d20.kind === 'fail'
       ? TEXT.d20.robFail(d20.roll, d20.bonus ?? 1, formatMultiplier(d20.bonus ?? 1), extra === 0 ? '' : signed(extra))
       : d20.bonus !== null
-        ? TEXT.d20.critical(d20.roll, d20.bonus, multiplier, bonus === 0 ? '' : signed(bonus))
+        ? TEXT.d20.critical(d20.roll, d20.bonus, multiplier)
         : TEXT.d20.robLanded(d20.roll, multiplier, formatPercent(result.chance));
   return `${line}\n`;
 }
 
-/** Extra lines under a successful rob: a tax paid out of it, and taxes now waiting on the victim. */
-function successNotes(
-  victim: string,
-  result: {
-    stolen: number;
-    claimTax: number | null;
-    robTax: number | null;
-    robTaxPaid: { amount: number; toUserId: string } | null;
-    wheel: { multiplier: number } | null;
-    gearBonus: number;
-    shielded: number;
-    wheelBonus: number;
-    slip: { returned: number; penalty: number } | null;
-    streak: { count: number; rate: number; bonus: number } | null;
-    vulnerableBonus: number;
-    wealthTax: { amount: number; rate: number } | null;
-    rolls: { used: number; of: number } | null;
-  },
-): string {
-  const lines: string[] = [];
-  // MP5: which shot hit.
-  if (result.rolls !== null) lines.push(TEXT.rob.rollHit(result.rolls.used, result.rolls.of));
-  // Thoccy Keyboard: the streak and a vulnerable victim, which add to the take first.
-  if (result.streak !== null && result.streak.bonus > 0) {
-    lines.push(TEXT.rob.streak(result.streak.count, ROB_STREAK_WINDOW_MS / 3_600_000, formatPercent(result.streak.rate), fmt(result.streak.bonus)));
+/** MP5's line on a successful rob, above the receipt: which shot hit. Empty with one shot. */
+const rollsLine = (result: { rolls: { used: number; of: number } | null }): string =>
+  result.rolls !== null ? `${TEXT.rob.rollHit(result.rolls.used, result.rolls.of)}\n` : '';
+
+/** What robReceipt needs of a successful rob (services/economy/rob.ts). */
+export interface RobReceiptResult {
+  stolen: number;
+  victimBalance: number;
+  rolled: number;
+  gearBonus: number;
+  shielded: number;
+  streak: { count: number; rate: number; bonus: number } | null;
+  vulnerableBonus: number;
+  d20: D20Roll | null;
+  d20Bonus: number;
+  wealthTax: { amount: number; rate: number } | null;
+  wheel: { multiplier: number } | null;
+  wheelBonus: number;
+  robTaxPaid: { amount: number; toUserId: string } | null;
+  slip: { returned: number; penalty: number } | null;
+  claimTax: number | null;
+  robTax: number | null;
+}
+
+const RULE = '━━━━━━━━━━';
+
+/** A receipt line: its text, and what it added to the amount (negative when it took some off). */
+type ReceiptLine = [text: string, amount: number];
+
+/**
+ * A successful rob's text, `robber` and `victim` being mentions. With nothing but the roll to it, one
+ * sentence. Otherwise a receipt: every effect on what was taken, in the order it was applied, what the
+ * victim lost, then what changed the robber's take after that (the wheel, a rob tax) and what they
+ * kept. A slip (Piplup) undoes it all, so it only says what was taken, what went back, and what the
+ * robber is left with. Marks left on the victim for later go last.
+ */
+export function robReceipt(robber: string, victim: string, result: RobReceiptResult): string {
+  const lost = fmt(result.stolen);
+  const marks: string[] = [];
+  if (result.claimTax !== null) marks.push(TEXT.rob.claimTaxed(victim, formatPercent(result.claimTax)));
+  if (result.robTax !== null) marks.push(TEXT.rob.robTaxed(victim, formatPercent(result.robTax)));
+  const withMarks = (text: string): string => (marks.length > 0 ? `${text}\n\n${marks.join('\n')}` : text);
+
+  if (result.slip !== null) {
+    const { returned, penalty } = result.slip;
+    return withMarks(
+      [
+        TEXT.rob.receiptHeadline(robber, victim),
+        '',
+        TEXT.rob.receiptLost(victim, lost),
+        TEXT.rob.slipped(victim, fmt(returned), penalty > 0 ? fmt(penalty) : ''),
+        RULE,
+        penalty > 0 ? TEXT.rob.receiptSlipLost(fmt(penalty)) : TEXT.rob.receiptSlipNothing,
+      ].join('\n'),
+    );
   }
-  if (result.vulnerableBonus > 0) lines.push(TEXT.rob.vulnerableTaken(victim, fmt(result.vulnerableBonus)));
-  if (result.wealthTax !== null) {
-    lines.push(TEXT.rob.wealthTaxed(victim, fmt(CONFIG.rob.wealthTaxThreshold), formatPercent(result.wealthTax.rate), fmt(result.wealthTax.amount)));
+
+  // What the victim paid, step by step.
+  const taken: ReceiptLine[] = [];
+  if (result.gearBonus > 0) taken.push([TEXT.rob.receiptGearAdded(fmt(result.gearBonus)), result.gearBonus]);
+  if (result.gearBonus < 0) taken.push([TEXT.rob.receiptGearCut(fmt(-result.gearBonus)), result.gearBonus]);
+  if (result.shielded > 0) taken.push([TEXT.rob.receiptArmor(victim, fmt(result.shielded)), -result.shielded]);
+  const { streak } = result;
+  if (streak !== null && streak.bonus > 0) {
+    taken.push([TEXT.rob.receiptStreak(streak.count, ROB_STREAK_WINDOW_MS / 3_600_000, formatPercent(streak.rate), fmt(streak.bonus)), streak.bonus]);
   }
-  // What each effect did to the amount, in the order it was applied.
-  if (result.gearBonus > 0) lines.push(TEXT.rob.gearAdded(fmt(result.gearBonus)));
-  if (result.gearBonus < 0) lines.push(TEXT.rob.gearCut(fmt(-result.gearBonus)));
-  if (result.shielded > 0) lines.push(TEXT.rob.shielded(victim, fmt(result.shielded)));
+  if (result.vulnerableBonus > 0) taken.push([TEXT.rob.receiptVulnerable(victim, fmt(result.vulnerableBonus)), result.vulnerableBonus]);
+  if (result.d20Bonus > 0 && result.d20) taken.push([TEXT.rob.receiptD20(formatMultiplier(result.d20.multiplier), fmt(result.d20Bonus)), result.d20Bonus]);
+  const { wealthTax } = result;
+  if (wealthTax !== null) {
+    const line = fmt(CONFIG.rob.wealthTaxThreshold);
+    taken.push([TEXT.rob.receiptWealthTax(victim, line, formatPercent(wealthTax.rate), fmt(wealthTax.amount)), wealthTax.amount]);
+  }
+  // A victim who couldn't pay it all (the steps add up to more than moved).
+  const short = result.stolen - taken.reduce((sum, [, amount]) => sum + amount, result.rolled);
+  if (short < 0) taken.push([TEXT.rob.receiptShort(victim, fmt(-short)), short]);
+
+  // What changed the robber's take after that.
+  const after: ReceiptLine[] = [];
   if (result.wheel !== null) {
-    lines.push(TEXT.wheel.landed(formatMultiplier(result.wheel.multiplier), result.wheelBonus === 0 ? '' : signed(result.wheelBonus)));
+    const multiplier = formatMultiplier(result.wheel.multiplier);
+    const bonus = result.wheelBonus;
+    const text =
+      bonus > 0 ? TEXT.rob.receiptWheelAdded(multiplier, fmt(bonus)) : bonus < 0 ? TEXT.rob.receiptWheelCut(multiplier, fmt(-bonus)) : TEXT.rob.receiptWheelNothing(multiplier);
+    after.push([text, bonus]);
   }
   if (result.robTaxPaid !== null) {
     const { amount, toUserId } = result.robTaxPaid;
-    lines.push(TEXT.rob.robTaxPaid(mention(toUserId), fmt(amount), fmt(result.stolen + result.wheelBonus - amount)));
+    after.push([TEXT.rob.receiptRobTaxPaid(mention(toUserId), fmt(amount)), -amount]);
   }
-  if (result.claimTax !== null) lines.push(TEXT.rob.claimTaxed(victim, formatPercent(result.claimTax)));
-  if (result.robTax !== null) lines.push(TEXT.rob.robTaxed(victim, formatPercent(result.robTax)));
-  if (result.slip !== null) {
-    const { returned, penalty } = result.slip;
-    lines.push(TEXT.rob.slipped(victim, fmt(returned), penalty > 0 ? fmt(penalty) : ''));
+
+  if (taken.length === 0 && after.length === 0) {
+    return withMarks((result.victimBalance === 0 ? TEXT.rob.successEverything : TEXT.rob.success)(robber, victim, lost));
   }
-  return lines.map((line) => `\n${line}`).join('');
+  const lines = [TEXT.rob.receiptHeadline(robber, victim), '', TEXT.rob.receiptStole(fmt(result.rolled))];
+  for (const [text] of taken) lines.push(text);
+  lines.push(RULE);
+  if (after.length === 0) {
+    lines.push(TEXT.rob.receiptGotAway(lost));
+    if (result.victimBalance === 0) lines.push(TEXT.rob.receiptLostEverything(victim, lost));
+  } else {
+    lines.push(result.victimBalance === 0 ? TEXT.rob.receiptLostEverything(victim, lost) : TEXT.rob.receiptLost(victim, lost));
+    for (const [text] of after) lines.push(text);
+    lines.push(RULE);
+    const kept = result.stolen + after.reduce((sum, [, amount]) => sum + amount, 0);
+    lines.push(TEXT.rob.receiptKept(fmt(kept)));
+  }
+  return withMarks(lines.join('\n'));
 }
 
 export const rob: Command = {
@@ -158,14 +217,7 @@ export const rob: Command = {
     if (result.success) {
       embed
         .setTitle(result.d20?.kind === 'success' ? TEXT.d20.successTitle : pickRandom(SUCCESS_TITLES))
-        .setDescription(
-          d20Line(result) +
-          (result.victimBalance === 0 ? TEXT.rob.successEverything : TEXT.rob.success)(
-            ctx.user.toString(),
-            target.toString(),
-            fmt(result.stolen),
-          ) + successNotes(target.toString(), result),
-        );
+        .setDescription(d20Line(result) + rollsLine(result) + robReceipt(ctx.user.toString(), target.toString(), result));
     } else {
       embed
         .setTitle(result.d20?.kind === 'fail' ? TEXT.d20.failTitle : pickRandom(FAILURE_TITLES))

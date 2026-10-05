@@ -96,8 +96,8 @@ test('message templates fill in their values', () => {
   );
   assert.equal(TEXT.rob.victimBusy('Bob'), 'Someone else is robbing Bob right now. Try again in a moment.');
   assert.equal(TEXT.wheel.landed('1.5x'), 'The wheel landed on **1.5x**.');
-  assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "<@2>'s next rob will be taxed 25%.");
-  assert.equal(TEXT.rob.robTaxPaid('<@1>', '50', '150'), `<@1> took **50** ${CURRENCY_EMOJI} of it. You kept **150** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.rob.robTaxed('<@2>', '25%'), "📌 <@2>'s next rob will be taxed 25%.");
+  assert.equal(TEXT.rob.receiptRobTaxPaid('<@1>', '50'), `🐸 Rob tax: <@1> took **50** ${CURRENCY_EMOJI}`);
 });
 
 test('the currency emoji is one full custom emoji code, and money() puts it after an amount', () => {
