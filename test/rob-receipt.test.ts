@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { CURRENCY_EMOJI } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { fmt } from '../src/lib/format.js';
-import { robReceipt, type RobReceiptResult } from '../src/commands/rob.js';
+import { caughtReceipt, robReceipt, type RobCaughtResult, type RobReceiptResult } from '../src/commands/rob.js';
 
 const plain: RobReceiptResult = {
   stolen: 120,
@@ -72,4 +72,41 @@ test('rob receipt: a slip says what went back and what the robber is left with',
   assert.match(slipped, /slipped!.*150.*went back to @I, plus .*15/);
   assert.ok(slipped.endsWith(`You lost ${money('15')}`));
   assert.ok(robReceipt('@Z', '@I', { ...plain, slip: { returned: 120, penalty: 0 } }).endsWith('You kept nothing.'));
+});
+
+const base = CONFIG.rob.failFine;
+const caught: RobCaughtResult = { fine: base, owed: base, vulnerable: null, d20: null };
+
+test('caught receipt: a caught rob with nothing but the base fine is one sentence', () => {
+  assert.equal(caughtReceipt('@Z', '@I', caught), `@Z tried to rob @I but got caught, and paid them a fine of ${money(fmt(base))}`);
+});
+
+test('caught receipt: the base fine, every effect on it, then what the robber paid', () => {
+  const owed = base * 3;
+  const text = caughtReceipt('@Z', '@I', {
+    fine: owed * 2,
+    owed,
+    vulnerable: 0.15,
+    d20: { roll: 1, kind: 'fail', bonus: 2, multiplier: 0 },
+  });
+  assert.deepEqual(text.split('\n'), [
+    '**@Z got caught robbing @I!**',
+    '',
+    `🚨 Fine of ${money(fmt(base))}`,
+    `🗡️ Gear added ${money(fmt(owed - base))}`,
+    `🎲 D20 critical fail (2x) added ${money(fmt(owed))}`,
+    '━━━━━━━━━━',
+    `You paid @I ${money(fmt(owed * 2))}`,
+    '',
+    TEXT.rob.nowVulnerable('@Z', '15%'),
+  ]);
+});
+
+test("caught receipt: gear that cancels the fine, and a robber who couldn't pay it all", () => {
+  const saved = caughtReceipt('@Z', '@I', { ...caught, fine: 0, owed: 0 });
+  assert.ok(saved.includes(`🗡️ Gear reduced by ${money(fmt(base))}`));
+  assert.ok(saved.endsWith('Your gear got you out of the fine.'));
+  const short = caughtReceipt('@Z', '@I', { ...caught, fine: base - 10, owed: base * 2 });
+  assert.ok(short.includes(`@Z was short ${money(fmt(base + 10))}`));
+  assert.ok(short.endsWith(`You paid @I ${money(fmt(base - 10))}`));
 });

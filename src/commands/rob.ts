@@ -1,63 +1,35 @@
 import { CONFIG } from '../config.js';
 import { CURRENCY_NAME, FAILURE_TITLES, ROB_STREAK_WINDOW_MS, SUCCESS_TITLES, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatMultiplier, formatPercent, mention, signed } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent, mention } from '../lib/format.js';
 import { pickRandom } from '../lib/random.js';
-import type { D20Roll } from '../perks/index.js';
+import { d20Penalty, type D20Roll } from '../perks/index.js';
 import { rob as robService } from '../services/economy/index.js';
 import { replyWithDice } from '../animations/dice-reply.js';
 import { replyWithWheel } from '../animations/wheel-reply.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
 
-function caughtText(
-  robber: string,
-  victim: string,
-  result: { fine: number; owed: number; waived: number; raised: number; vulnerable: number | null; rolls: { of: number } | null },
-): string {
-  // MP5: every shot missed.
-  const missed = result.rolls !== null ? `${TEXT.rob.rollsMissed(result.rolls.of)}
-` : '';
-  return missed + caughtBody(robber, victim, result);
-}
-
-function caughtBody(
-  robber: string,
-  victim: string,
-  result: { fine: number; owed: number; waived: number; raised: number; vulnerable: number | null },
-): string {
-  // Thoccy Keyboard: a failed rob leaves its wearer vulnerable.
-  const after = result.vulnerable !== null ? `\n${TEXT.rob.nowVulnerable(robber, formatPercent(result.vulnerable))}` : '';
-  if (result.owed === 0 && result.waived > 0) return TEXT.rob.caughtGearSaved(robber, victim) + after;
-  if (result.fine === 0) return TEXT.rob.caughtNothingToFine(robber, victim) + after;
-  const text =
-    result.waived > 0
-      ? TEXT.rob.caughtFinedWithGear(robber, victim, fmt(result.fine), fmt(result.waived))
-      : TEXT.rob.caughtFined(robber, victim, fmt(result.fine));
-  return (result.raised > 0 ? `${text}\n${TEXT.rob.fineRaised(fmt(result.raised))}` : text) + after;
-}
-
 /**
  * The D20's line, first since it was rolled first: what it did to the chance, to the fine on a 1, or
- * to the take on a 20 (what that added is on the receipt). Empty when it didn't roll.
+ * to the take on a 20 (what that added to either is on the receipt). Empty when it didn't roll.
  */
-function d20Line(result: { d20: D20Roll | null; chance: number; d20Extra?: number }): string {
+function d20Line(result: { d20: D20Roll | null; chance: number }): string {
   const { d20 } = result;
   if (!d20) return '';
   const multiplier = formatMultiplier(d20.multiplier);
-  const extra = result.d20Extra ?? 0;
   const line =
     d20.kind === 'fail'
-      ? TEXT.d20.robFail(d20.roll, d20.bonus ?? 1, formatMultiplier(d20.bonus ?? 1), extra === 0 ? '' : signed(extra))
+      ? TEXT.d20.robFail(d20.roll, d20.bonus ?? 1, formatMultiplier(d20.bonus ?? 1))
       : d20.bonus !== null
         ? TEXT.d20.critical(d20.roll, d20.bonus, multiplier)
         : TEXT.d20.robLanded(d20.roll, multiplier, formatPercent(result.chance));
   return `${line}\n`;
 }
 
-/** MP5's line on a successful rob, above the receipt: which shot hit. Empty with one shot. */
-const rollsLine = (result: { rolls: { used: number; of: number } | null }): string =>
-  result.rolls !== null ? `${TEXT.rob.rollHit(result.rolls.used, result.rolls.of)}\n` : '';
+/** MP5's line above the receipt: which shot hit, or that every shot missed. Empty with one shot. */
+const rollsLine = (result: { success: boolean; rolls: { used: number; of: number } | null }): string =>
+  result.rolls === null ? '' : `${result.success ? TEXT.rob.rollHit(result.rolls.used, result.rolls.of) : TEXT.rob.rollsMissed(result.rolls.of)}\n`;
 
 /** What robReceipt needs of a successful rob (services/economy/rob.ts). */
 export interface RobReceiptResult {
@@ -165,6 +137,48 @@ export function robReceipt(robber: string, victim: string, result: RobReceiptRes
   return withMarks(lines.join('\n'));
 }
 
+/** What caughtReceipt needs of a caught rob (services/economy/rob.ts). */
+export interface RobCaughtResult {
+  fine: number;
+  owed: number;
+  vulnerable: number | null;
+  d20: D20Roll | null;
+}
+
+/**
+ * A caught rob's text, `robber` and `victim` being mentions. With nothing but the base fine to it, one
+ * sentence. Otherwise a receipt like robReceipt's: the base fine, every effect on it in the order it
+ * was applied, and what the robber paid. Marks left on the robber for later go last.
+ */
+export function caughtReceipt(robber: string, victim: string, result: RobCaughtResult): string {
+  // Thoccy Keyboard: a failed rob leaves its wearer vulnerable.
+  const withMarks = (text: string): string =>
+    result.vulnerable !== null ? `${text}\n\n${TEXT.rob.nowVulnerable(robber, formatPercent(result.vulnerable))}` : text;
+
+  const base = CONFIG.rob.failFine;
+  const steps: ReceiptLine[] = [];
+  const gear = result.owed - base;
+  if (gear > 0) steps.push([TEXT.rob.receiptGearAdded(fmt(gear)), gear]);
+  if (gear < 0) steps.push([TEXT.rob.receiptGearCut(fmt(-gear)), gear]);
+  const { d20 } = result;
+  if (d20?.kind === 'fail' && d20.bonus !== null) {
+    const added = d20Penalty(result.owed, d20) - result.owed;
+    if (added > 0) steps.push([TEXT.rob.receiptD20Fail(formatMultiplier(d20.bonus), fmt(added)), added]);
+  }
+  // A robber who couldn't pay it all.
+  const short = result.fine - steps.reduce((sum, [, amount]) => sum + amount, base);
+  if (short < 0) steps.push([TEXT.rob.receiptShort(robber, fmt(-short)), short]);
+
+  if (steps.length === 0) {
+    return withMarks(result.fine === 0 ? TEXT.rob.caughtNothingToFine(robber, victim) : TEXT.rob.caughtFined(robber, victim, fmt(result.fine)));
+  }
+  const lines = [TEXT.rob.receiptCaughtHeadline(robber, victim), '', TEXT.rob.receiptFine(fmt(base))];
+  for (const [text] of steps) lines.push(text);
+  lines.push(RULE);
+  lines.push(result.fine === 0 ? TEXT.rob.receiptGearSaved : TEXT.rob.receiptPaid(victim, fmt(result.fine)));
+  return withMarks(lines.join('\n'));
+}
+
 export const rob: Command = {
   name: 'rob',
   category: 'economy',
@@ -221,7 +235,7 @@ export const rob: Command = {
     } else {
       embed
         .setTitle(result.d20?.kind === 'fail' ? TEXT.d20.failTitle : pickRandom(FAILURE_TITLES))
-        .setDescription(d20Line(result) + caughtText(ctx.user.toString(), target.toString(), result));
+        .setDescription(d20Line(result) + rollsLine(result) + caughtReceipt(ctx.user.toString(), target.toString(), result));
     }
 
     // Ping only the victim so they know it happened.

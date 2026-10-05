@@ -64,23 +64,28 @@ export const robText = {
   /** Marks left on the victim for later. */
   claimTaxed: (victim: string, rate: string) => `📌 ${victim}'s next claim will be taxed ${rate}.`,
   robTaxed: (victim: string, rate: string) => `📌 ${victim}'s next rob will be taxed ${rate}.`,
+  /*
+   * A caught rob with effects on its fine reads as a receipt too (commands/rob.ts caughtReceipt): the
+   * headline, the base fine, one line per effect on it, and what the robber paid.
+   */
+  receiptCaughtHeadline: (robber: string, victim: string) => `**${robber} got caught robbing ${victim}!**`,
+  receiptFine: (amount: string) => `🚨 Fine of ${boldMoney(amount)}`,
+  /** The D20 rolled a 1: the fine after gear, times what the d3 rolled (`multiplier`). */
+  receiptD20Fail: (multiplier: string, amount: string) => `🎲 D20 critical fail (${multiplier}) added ${boldMoney(amount)}`,
+  receiptPaid: (victim: string, amount: string) => `You paid ${victim} ${boldMoney(amount)}`,
+  /** Gear cancelled the whole fine. */
+  receiptGearSaved: 'Your gear got you out of the fine.',
   /** Thoccy Keyboard: the robber failed and is vulnerable now. */
   nowVulnerable: (robber: string, rate: string) => `⌨️ Streak broken. ${robber} is vulnerable: the next successful rob against them takes +${rate}.`,
-  /** Added to a caught rob when the robber's gear made the fine bigger (a glass cannon). */
-  fineRaised: (amount: string) => `Your gear added ${boldMoney(amount)} to the fine.`,
   /**
    * The rob slipped (Piplup): `returned` went back to the victim, plus `penalty` ('' when there was
    * none). Placeholder wording.
    */
   slipped: (victim: string, returned: string, penalty: string) =>
     `<:piplupsmirk:1553135037120250046> ...but slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
+  /** A caught rob with nothing but the base fine to it. */
   caughtFined: (robber: string, victim: string, fine: string) =>
     `${robber} tried to rob ${victim} but got caught, and paid them a fine of ${boldMoney(fine)}`,
-  caughtFinedWithGear: (robber: string, victim: string, fine: string, waived: string) =>
-    `${robber} tried to rob ${victim} but got caught, and paid them a fine of ${boldMoney(fine)} (their gear cancelled ${waived} ${CURRENCY_EMOJI}).`,
-  /** Gear cancelled the whole fine. */
-  caughtGearSaved: (robber: string, victim: string) =>
-    `${robber} tried to rob ${victim} but got caught, though their gear got them out of the fine.`,
   /** The fine is set to 0, so there was nothing to pay. */
   caughtNothingToFine: (robber: string, victim: string) =>
     `${robber} tried to rob ${victim} but got caught. There was no fine to pay.`,

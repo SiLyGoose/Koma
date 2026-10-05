@@ -25,9 +25,8 @@ test('D20 lines: the points the die added come after the multiplier, and are lef
   assert.equal(TEXT.d20.critical(20, 2, '2x', '+400'), `Critical success! The D20 landed on **20**, and the d3 rolled **2**: **2x** (**+400** ${CURRENCY_EMOJI}).`);
 });
 
-test('rob lines: the robber gear and the victim armor on the receipt, and a raised fine', () => {
+test('rob lines: the robber gear and the victim armor on the receipt', () => {
   assert.equal(TEXT.rob.receiptGearAdded('40'), `🗡️ Gear added **40** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.rob.receiptGearCut('50'), `🗡️ Gear reduced by **50** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.rob.receiptArmor('<@2>', '48'), `🛡️ <@2>'s armor reduced by **48** ${CURRENCY_EMOJI}`);
-  assert.equal(TEXT.rob.fineRaised('250'), `Your gear added **250** ${CURRENCY_EMOJI} to the fine.`);
 });
