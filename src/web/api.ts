@@ -37,9 +37,9 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
- * "Authorization: Game <token>" (the server is the link's). So does GET /api/gear?user=…, to look only
- * (the raid page shows the party's gear: anyone in the link's server, the one asking included, as
- * someone else would see it). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
+ * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
+ * the party's gear: anyone in the link's server) and the routes that change what the link's member
+ * wears (GAME_GEAR_PATHS: the raid's party screen lets them change it before the fight). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
  * page shows (its end screen), when it was kept. The front page's /api/live counts as
  * being on the site (live.ts).
  *
@@ -78,6 +78,12 @@ export interface Leaderboard {
 export interface GearMembers {
   members: { userId: string; name: string; avatar: string; copies: number; you: boolean }[];
 }
+
+/**
+ * The gear routes a game's link answers too, for its own member in its own server: looking, and changing
+ * what they wear (the raid's party screen). Selling, refining, forging and locking stay on the site's gear page.
+ */
+const GAME_GEAR_PATHS = new Set(['/api/gear', '/api/gear/equip', '/api/gear/unequip', '/api/gear/unequip-all', '/api/gear/loadout']);
 
 /** How many members GET /api/gear/members lists at most. */
 const GEAR_MEMBERS = 50;
@@ -220,11 +226,14 @@ async function liveRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
   fail(res, 'not_found');
 }
 
-/** The gear page's routes, for a logged-in member: the server comes in the query (GET) or the body (POST). */
-async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, deps: ApiDeps, session: Session): Promise<void> {
+/**
+ * The gear page's routes, for a logged-in member: the server comes in the query (GET) or the body (POST),
+ * unless `linkGuild` (a game's link, whose server is its own) says it.
+ */
+async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, deps: ApiDeps, session: Session, linkGuild?: string): Promise<void> {
   const store = deps.gear ?? gearStore;
   const body = req.method === 'POST' ? await readJson(req) : null;
-  const guildId = req.method === 'POST' ? body?.guild : url.searchParams.get('guild');
+  const guildId = linkGuild ?? (req.method === 'POST' ? body?.guild : url.searchParams.get('guild'));
   if (typeof guildId !== 'string') return fail(res, 'bad_request');
   if (!session.guildIds.includes(guildId) || !deps.guild(guildId) || (await deps.memberName(guildId, session.userId)) === null) return fail(res, 'not_member');
   const { userId } = session;
@@ -357,12 +366,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     // A game page asking with its link's token (to play, or to watch): no login needed.
     const gameToken = /^Game (.+)$/.exec(req.headers.authorization ?? '')?.[1];
-    if (gameToken && url.pathname === '/api/gear' && req.method === 'GET') {
+    if (gameToken && GAME_GEAR_PATHS.has(url.pathname)) {
       const viewer = verifyToken(gameToken);
       if (!viewer || !deps.guild(viewer.guildId)) return (fail(res, 'not_logged_in'), true);
-      const whose = url.searchParams.get('user') ?? viewer.userId;
-      if (whose !== viewer.userId && (!/^\d{1,32}$/.test(whose) || (await deps.memberName(viewer.guildId, whose)) === null)) return (fail(res, 'not_found'), true);
-      send(res, 200, await (deps.gear ?? gearStore).peek(viewer.guildId, whose));
+      const session: Session = { userId: viewer.userId, name: viewer.name, avatar: null, guildIds: [viewer.guildId] };
+      await gearRoutes(req, res, url, deps, session, viewer.guildId);
       return true;
     }
     if (gameToken && url.pathname === '/api/raid/gear' && req.method === 'GET') {

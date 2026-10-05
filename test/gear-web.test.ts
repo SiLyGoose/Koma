@@ -288,21 +288,27 @@ test('gear page: each copy of a bonus item says whether it can be forged into a 
   assert.equal(view.copies.find((c) => c.id === 'plain')!.forge, null);
 });
 
-test("gear page: a game's link can look at gear in its server (the raid's party), and change nothing", async () => {
-  const peeked: string[] = [];
+test("gear page: a game's link can look at gear in its server (the raid's party), and change only what its own member wears", async () => {
+  const asked: string[] = [];
+  const view = (userId: string): ReturnType<typeof gearView> => gearView([{ _id: 'y1', itemId: 'iron-longsword', level: 2 }], { weapon: 'y1' }, userId);
   const store = {
-    peek: async (_guildId: string, userId: string) => (peeked.push(userId), gearView([{ _id: 'y1', itemId: 'iron-longsword', level: 2 }], { weapon: 'y1' }, userId)),
+    view: async (guildId: string, userId: string) => (asked.push(`view ${guildId} ${userId}`), view(userId)),
+    peek: async (guildId: string, userId: string) => (asked.push(`peek ${guildId} ${userId}`), view(userId)),
+    equip: async (guildId: string, userId: string, copy: string) => (asked.push(`equip ${guildId} ${userId} ${copy}`), true),
+    switchLoadout: async (guildId: string, userId: string, number: number) => (asked.push(`loadout ${guildId} ${userId} ${number}`), true),
   } as unknown as GearStore;
   const deps: ApiDeps = {
     config: SITE,
     clientId: () => '999',
-    guild: (id) => (id === 'g1' ? { name: id, icon: null } : null),
+    guild: (id) => (id === 'g1' || id === 'g2' ? { name: id, icon: null } : null),
     memberName: async (guildId, userId) => (guildId === 'g1' && (userId === '11' || userId === '22') ? `Name ${userId}` : null),
     balance: async () => 0,
     gear: store,
   };
   const token = signToken({ guildId: 'g1', userId: '11', name: 'Name 11' }, 60_000);
   const headers = { Origin: SITE.origin, Authorization: `Game ${token}` };
+  const post = (path: string, body: unknown): Promise<Response> =>
+    fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const server: Server = createServer((req, res) => void handleApi(req, res, deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -311,12 +317,14 @@ test("gear page: a game's link can look at gear in its server (the raid's party)
     assert.equal(mine.status, 200);
     assert.equal(((await mine.json()) as { equipped: { weapon: string | null } }).equipped.weapon, 'y1');
     assert.equal((await fetch(`${base}/api/gear?user=22`, { headers })).status, 200);
-    assert.deepEqual(peeked, ['11', '22']);
     assert.equal((await fetch(`${base}/api/gear?user=33`, { headers })).status, 404); // not in the server
     assert.equal((await fetch(`${base}/api/gear?user=22`, { headers: { Origin: SITE.origin, Authorization: 'Game nonsense' } })).status, 401);
-    // Only looking: nothing else about gear answers a game's link.
-    const post = await fetch(`${base}/api/gear/equip`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ guild: 'g1', copy: 'y1' }) });
-    assert.equal(post.status, 401);
+    // Their own gear changes, always in the link's server (whatever server the body names).
+    assert.equal((await post('/api/gear/equip', { guild: 'g2', copy: 'y1' })).status, 200);
+    assert.equal((await post('/api/gear/loadout', { loadout: 2 })).status, 200);
+    assert.deepEqual(asked, ['view g1 11', 'peek g1 22', 'equip g1 11 y1', 'view g1 11', 'loadout g1 11 2', 'view g1 11']);
+    // Selling, refining, forging, locking and the roster stay the site's.
+    for (const path of ['/api/gear/sell', '/api/gear/refine', '/api/gear/forge', '/api/gear/lock']) assert.equal((await post(path, { copy: 'y1', copies: ['y1'] })).status, 401);
     assert.equal((await fetch(`${base}/api/gear/members?guild=g1`, { headers })).status, 401);
   } finally {
     server.close();
