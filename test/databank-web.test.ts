@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
+import { CONFIG } from '../src/config.js';
 import { REFINE } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
@@ -36,6 +37,13 @@ test('databank page: every item, highest tier first, with its effects at each le
   assert.equal(shown(plain.id).borrowed, null);
   assert.deepEqual(shown(withBonus.id).masterwork, describeEffects(withBonus, 1, REFINE.maxLevel, true));
   assert.ok(shown(exclusive.id).borrowed !== null && shown(exclusive.id).borrowed! < 1);
+});
+
+test('databank page: says where each item comes from, and the raid drop chance', () => {
+  const { raidDropChance, items } = databankView();
+  assert.equal(raidDropChance, CONFIG.raid.dropChance);
+  for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : 'gacha', item.id);
+  assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
 });
 
 test('databank page: answers the site without a login, and nothing else', async () => {

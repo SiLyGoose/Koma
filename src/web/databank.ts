@@ -6,7 +6,8 @@ import type { ItemDef, Slot, Stars } from '../types.js';
 
 /*
  * The site's databank page (GET /api/databank): every item in the catalog and what it does at each
- * refinement level, like the `databank` command. It's the same for everyone, so it needs no login.
+ * refinement level and where it comes from, like the `databank` command. It's the same for everyone,
+ * so it needs no login.
  * Effect lines are the gear card's, as Discord shows them (the page draws the emoji and *italics*).
  */
 
@@ -22,11 +23,17 @@ export interface DatabankItem {
   masterwork: string[] | null;
   /** Made for certain members: the share of its effects anyone else gets (null when anyone can use it). */
   borrowed: number | null;
+  /** Where it comes from: pulled from the gacha, or only dropped by raid bosses (ItemDef.raidDrop). */
+  source: ItemSource;
 }
+
+export type ItemSource = 'gacha' | 'raid';
 
 /** GET /api/databank. */
 export interface Databank {
   maxLevel: number;
+  /** The chance (0 to 1) each raider who beats a raid boss finds a raid drop (raid.dropChance; 0 when drops are off). */
+  raidDropChance: number;
   /** Highest tier first, then in catalog order. */
   items: DatabankItem[];
 }
@@ -43,9 +50,10 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       effects: levels.map((level) => describeEffects(item, 1, level, false)),
       masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
+      source: item.raidDrop ? 'raid' : 'gacha',
     }),
   );
   // A stable sort: within a tier, the catalog's own order.
   list.sort((a, b) => b.stars - a.stars);
-  return { maxLevel: REFINE.maxLevel, items: list };
+  return { maxLevel: REFINE.maxLevel, raidDropChance: CONFIG.raid.dropChance, items: list };
 }
