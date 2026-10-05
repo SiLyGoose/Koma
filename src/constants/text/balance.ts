@@ -10,6 +10,9 @@ export const balanceText = {
   claimField: 'Hourly claim',
   claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
   claimWait: (unix: number) => `Claimed. Next one <t:${unix}:R>`,
+  /** STONKS!: what a claim now would be multiplied by, and when it tops out (`cap`, like "7.5x"). */
+  stonksClimbing: (multiplier: string, cap: string, unix: number) => `STONKS! **${multiplier}**, climbing to **${cap}** <t:${unix}:R>`,
+  stonksMaxed: (multiplier: string) => `STONKS! **${multiplier}** (maxed)`,
   robField: 'Rob cooldown',
   robReady: (p: string) => `Ready. Use \`${p}rob @user\`!`,
   robWait: (unix: number) => `Recovering. Ready <t:${unix}:R>`,

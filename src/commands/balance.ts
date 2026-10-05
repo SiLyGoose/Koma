@@ -1,7 +1,7 @@
 import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
-import { fmt, formatPercent, mention } from '../lib/format.js';
-import { getBalance } from '../services/economy/index.js';
+import { fmt, formatMultiplier, formatPercent, mention } from '../lib/format.js';
+import { getBalance, getStonks } from '../services/economy/index.js';
 import { commandPrefix } from '../discord/slash.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
 import type { Command } from '../discord/types.js';
@@ -26,7 +26,17 @@ export const balance: Command = {
       target = resolved;
     }
 
-    const info = await getBalance(ctx.guildId, target.id);
+    const [info, stonks] = await Promise.all([getBalance(ctx.guildId, target.id), getStonks(ctx.guildId, target.id)]);
+    const claim = info.canClaim ? TEXT.balance.claimReady(ctx.prefix) : TEXT.balance.claimWait(info.nextClaimUnix);
+    // STONKS!: the multiplier a claim now would get, under the claim's state.
+    const stonksLine =
+      stonks === null
+        ? ''
+        : `\n${
+            stonks.maxAtUnix === null
+              ? TEXT.balance.stonksMaxed(formatMultiplier(stonks.multiplier))
+              : TEXT.balance.stonksClimbing(formatMultiplier(stonks.multiplier), formatMultiplier(stonks.cap), stonks.maxAtUnix)
+          }`;
 
     const embed = createEmbed()
       .setTitle(TEXT.balance.title(target.displayName))
@@ -34,7 +44,7 @@ export const balance: Command = {
       .addFields(
       {
         name: TEXT.balance.claimField,
-        value: info.canClaim ? TEXT.balance.claimReady(ctx.prefix) : TEXT.balance.claimWait(info.nextClaimUnix),
+        value: claim + stonksLine,
       },
       {
         name: TEXT.balance.robField,

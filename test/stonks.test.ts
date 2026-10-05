@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
 import { MAX_STONKS_HOURS, TEXT, validateConstants } from '../src/constants/index.js';
 import { applyStonks, EFFECTS, emptyTotals, stonksCurvePoints, stonksMultiplier } from '../src/perks/index.js';
+import { stonksStatus } from '../src/services/economy/claim.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { formatMultiplier, signed } from '../src/lib/format.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
@@ -189,4 +190,16 @@ test('stonks text: the claim line names the multiplier, and the point change onl
   assert.match(TEXT.stonks.landed('6.3x', '+230'), /6\.3x/);
   assert.match(TEXT.stonks.landed('6.3x', '+230'), /\+230/);
   assert.doesNotMatch(TEXT.stonks.landed('1x', ''), /\(/, 'no parenthetical when there was no change');
+});
+
+test("stonks status: the balance shows what a claim now would get, and when it tops out", () => {
+  const gear = { ...emptyTotals(), stackosaurus: 6.5 };
+  const hourMs = 3_600_000;
+  assert.equal(stonksStatus(100, emptyTotals(), 110, 5), null, 'not wearing STONKS!');
+  // Just claimed: 1x, maxing out 1 (the claim gap) + 5 hours after the last claim.
+  assert.deepEqual(stonksStatus(100, gear, 101, 5), { multiplier: 1, cap: 7.5, maxAtUnix: (106 * hourMs) / 1000 });
+  const halfway = stonksStatus(100, gear, 103, 5)!;
+  assert.equal(halfway.multiplier, stonksMultiplier(3, gear, 5));
+  assert.ok(halfway.multiplier > 1 && halfway.multiplier < 7.5);
+  assert.deepEqual(stonksStatus(100, gear, 106, 5), { multiplier: 7.5, cap: 7.5, maxAtUnix: null });
 });

@@ -10,7 +10,7 @@
  */
 
 export { ensureMember } from './shared.js';
-export { getBalance, getInventory, getInventoryStacks, getLeaderboard } from './balance.js';
+export { getBalance, getInventory, getInventoryStacks, getLeaderboard, getStonks } from './balance.js';
 export type { BalanceInfo } from './balance.js';
 export { claimHourly } from './claim.js';
 export type { ClaimResult } from './claim.js';

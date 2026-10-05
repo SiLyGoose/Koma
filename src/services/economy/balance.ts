@@ -5,7 +5,9 @@ import { groupCopies, stackCopies, type InventoryEntry, type InventoryStack } fr
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { currentHour, nextHourUnix } from '../../lib/time.js';
 import type { MemberDoc } from '../../types.js';
-import { claimReadyHour } from './claim.js';
+import { gearEffects } from '../../lib/game/items/equipment.js';
+import { resolveGear } from '../items/gear.js';
+import { claimReadyHour, stonksStatus, type StonksStatus } from './claim.js';
 
 /*
  * Reads: balances, inventories and the leaderboard.
@@ -56,6 +58,14 @@ export async function getBalance(guildId: string, userId: string): Promise<Balan
       member?.claimTaxRate && member.claimTaxBy ? { rate: member.claimTaxRate, byUserId: member.claimTaxBy } : null,
     robTax: member?.robTaxRate && member.robTaxBy ? { rate: member.robTaxRate, byUserId: member.robTaxBy } : null,
   };
+}
+
+/** Where a member's STONKS! claim multiplier stands, or null when they aren't wearing it. */
+export async function getStonks(guildId: string, userId: string): Promise<StonksStatus | null> {
+  const member = await collections().members.findOne({ guildId, userId });
+  if (!member?.equipment) return null;
+  const gear = gearEffects(await resolveGear(guildId, userId, member.equipment), userId);
+  return stonksStatus(member.lastClaimHour, gear, currentHour());
 }
 
 /** What a member owns, one entry per kind of item, with how many copies they have. */

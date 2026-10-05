@@ -2,7 +2,7 @@ import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
 import { randInt } from '../../lib/random.js';
-import { currentHour, nextHourUnix } from '../../lib/time.js';
+import { currentHour, HOUR_MS, nextHourUnix } from '../../lib/time.js';
 import {
   applyD20,
   applyStonks,
@@ -22,6 +22,7 @@ import {
   wheelSlices,
   type D20Dice,
   type D20Roll,
+  type EffectTotals,
   type WheelSpin,
 } from '../../perks/index.js';
 import type { MemberDoc } from '../../types.js';
@@ -68,6 +69,29 @@ export type ClaimResult =
       nextClaimUnix: number;
     }
   | { ok: false; nextClaimUnix: number };
+
+/** Where a STONKS! wearer's claim multiplier stands (the balance shows it). */
+export interface StonksStatus {
+  /** What a claim made now would be multiplied by. */
+  multiplier: number;
+  /** The most it climbs to. */
+  cap: number;
+  /** When it reaches the cap (unix seconds), or null once it has. */
+  maxAtUnix: number | null;
+}
+
+/**
+ * The STONKS! multiplier a claim in `hour` would get with `gear`, worked out as claimHourly does, and
+ * when it tops out; null when the gear has no STONKS! to climb.
+ */
+export function stonksStatus(lastClaimHour: number, gear: EffectTotals, hour: number, capHours = CONFIG.stonks.capHours): StonksStatus | null {
+  const cap = stonksMultiplier(Number.POSITIVE_INFINITY, gear, capHours);
+  if (!(cap > 1)) return null;
+  const multiplier = stonksMultiplier(hour - lastClaimHour, gear, capHours);
+  // Claims go by whole clock hours: the cap is reached at the start of the first hour far enough out.
+  const maxHour = Math.ceil(lastClaimHour + claimGapHours(gear) + capHours);
+  return { multiplier, cap, maxAtUnix: multiplier < cap ? (maxHour * HOUR_MS) / 1000 : null };
+}
 
 /**
  * The first clock hour in which the member can make a normal claim: the hour after their last
