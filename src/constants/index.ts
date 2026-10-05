@@ -9,7 +9,7 @@
  *   - casino/        the betting games' numbers: baccarat, blackjack, mines, plinko, roulette, and
  *                    what the shared-table games have in common (table.ts)
  *   - items/         gacha, gear loadouts and refining
- *   - rob.ts, wheel.ts, d20.ts, stonks.ts, pinecraft.ts, events.ts, raid.ts
+ *   - rob.ts, wheel.ts, d20.ts, stonks.ts, pinecraft.ts, events.ts, raid.ts, newsletter.ts
  *                    each other feature's numbers
  *   - text/          every message the bot sends, one file per command or feature (TEXT), with the
  *                    casino games', the items' and the events' in folders of their own
@@ -38,6 +38,7 @@ export * from './rob.js';
 export * from './wheel.js';
 export * from './d20.js';
 export * from './stonks.js';
+export * from './newsletter.js';
 export * from './casino/plinko.js';
 export * from './casino/blackjack.js';
 export * from './casino/mines.js';

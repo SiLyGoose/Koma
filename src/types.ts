@@ -417,6 +417,16 @@ export interface GuildDoc {
   channelId?: string | null;
   /** When the next event is due. Missing or null means one has not been scheduled yet. */
   nextEventAt?: Date | null;
+  /**
+   * The channel the newsletter (src/newsletter) goes to: the weekly digest and patch notes. Missing
+   * or null means the server gets no newsletter.
+   */
+  newsletterChannelId?: string | null;
+  /**
+   * The raid week (lib/events/raid-week.ts key) whose digest was last sent here, or the week the
+   * channel was chosen in (so the first digest waits for the next reset). Missing or null: not yet.
+   */
+  newsletterWeek?: string | null;
   /** When the last event started. */
   lastEventAt?: Date | null;
   /**

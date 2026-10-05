@@ -15,7 +15,7 @@ export const SLASH_DEFER_AFTER_MS = 2500;
  * leaves them out. Their entries in `SLASH` (discord/slash.ts) can stay, so taking a name off
  * this list brings the slash command back at the next start. Names are command names, in lower case.
  */
-export const SLASH_EXCLUDED: readonly string[] = ['rob'];
+export const SLASH_EXCLUDED: readonly string[] = ['rob', 'newsletter'];
 
 /** Most choices Discord shows in an autocomplete list. */
 export const AUTOCOMPLETE_MAX_CHOICES = 25;

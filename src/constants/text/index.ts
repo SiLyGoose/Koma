@@ -35,6 +35,7 @@ import { codedleText } from './events/codedle.js';
 import { giveText } from './give.js';
 import { configText } from './config.js';
 import { raidText } from './raid.js';
+import { newsletterText } from './newsletter.js';
 
 /*
  * Every message the bot sends, one file per command or feature: the casino games' in casino/, the
@@ -84,4 +85,5 @@ export const TEXT = {
   give: giveText,
   config: configText,
   raid: raidText,
+  newsletter: newsletterText,
 };

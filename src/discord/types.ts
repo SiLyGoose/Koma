@@ -40,6 +40,11 @@ export interface CommandContext {
    * (see discord/slash.ts), so the command reads them the same way in both cases.
    */
   args: string[];
+  /**
+   * A message command's text after its name, as typed (line breaks kept), for commands that take
+   * free text. Left out for slash commands: their options are only in `args`.
+   */
+  text?: string;
   /** Sends a reply. The first reply answers the command; later ones are extra messages. */
   reply(options: string | ReplyOptions): Promise<SentReply>;
 }

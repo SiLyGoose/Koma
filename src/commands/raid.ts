@@ -333,7 +333,7 @@ export function moodOf(state: RaidState): DragonMood {
 }
 
 /** The boss's picture in a mood, as a file to attach. */
-const bossFile = (boss: RaidBossId, mood: DragonMood) => ({ attachment: boss === 'reaper' ? reaperPicture(mood) : dragonPicture(mood), name: RAID.imageName });
+export const bossFile = (boss: RaidBossId, mood: DragonMood) => ({ attachment: boss === 'reaper' ? reaperPicture(mood) : dragonPicture(mood), name: RAID.imageName });
 
 function actionRow(disabled: boolean): ActionRowBuilder<ButtonBuilder> {
   const button = (id: string, label: string, emoji: string, style: ButtonStyle) =>

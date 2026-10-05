@@ -3,11 +3,13 @@ import { CONFIG_BUTTONS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../perks/index.js';
 import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
-import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
+import { checkEventChannel, NEWSLETTER_NEEDED, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg } from '../lib/parse.js';
 import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
 import { getChannelId, setChannelId } from '../services/channel.js';
+import { getNewsletterChannelId, setNewsletterChannelId } from '../services/newsletter.js';
+import { raidWeek } from '../lib/events/raid-week.js';
 import { paginate } from '../discord/paginate.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
@@ -16,29 +18,49 @@ import type { Command, CommandContext } from '../discord/types.js';
 // in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
 export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Mines', 'Pinecraft', 'Events', 'Raid', 'Refine', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
 
+/**
+ * The per-server channel settings: `channel` (the one channel commands and events are confined to,
+ * services/channel.ts) and `newsletter` (where the newsletter goes, services/newsletter.ts). They
+ * aren't SettingSpec entries (each server has its own, in its `guilds` document, not the one global
+ * settings document), but they're listed, set and reset like every other setting.
+ */
+export const PER_SERVER_CHANNELS = ['channel', 'newsletter'] as const;
+type ChannelKey = (typeof PER_SERVER_CHANNELS)[number];
+
+const isChannelKey = (key: string): key is ChannelKey => (PER_SERVER_CHANNELS as readonly string[]).includes(key);
+
+/** Where each per-server channel setting is read and written. Only the bot admin can write them (checked in the services). */
+const CHANNEL_STORE: Record<ChannelKey, { get(guildId: string): Promise<string | null>; set(actorId: string, guildId: string, channelId: string | null): Promise<{ ok: boolean }> }> = {
+  channel: { get: getChannelId, set: setChannelId },
+  // A newsletter channel chosen now gets its first weekly digest at the next reset.
+  newsletter: { get: getNewsletterChannelId, set: (actorId, guildId, channelId) => setNewsletterChannelId(actorId, guildId, channelId, raidWeek()) },
+};
+
 /** Why a channel can't be used, in words. */
-function channelProblemText(problem: ChannelProblem, channelId: string): string {
+function channelProblemText(problem: ChannelProblem, channelId: string, key: ChannelKey): string {
   if (problem === 'missing') return TEXT.config.channelMissing;
-  return problem === 'not_text' ? TEXT.config.channelNotText : TEXT.config.channelNoPermission(`<#${channelId}>`);
+  if (problem === 'not_text') return TEXT.config.channelNotText;
+  return key === 'newsletter' ? TEXT.config.newsletterNoPermission(`<#${channelId}>`) : TEXT.config.channelNoPermission(`<#${channelId}>`);
 }
 
 /**
- * Handles `config set channel <value>` / `config reset channel`: validates and stores the
- * per-server dedicated channel (services/channel.ts), then replies with the same "changed"/
- * "reset" wording every other setting uses, so it reads like just another config change even
- * though it's stored separately (one value per server, not the single global settings document).
+ * Handles `config set <channel setting> <value>` / `config reset <channel setting>` (`channel` or
+ * `newsletter`, see PER_SERVER_CHANNELS): validates and stores the channel, then replies with the
+ * same "changed"/"reset" wording every other setting uses, so it reads like just another config
+ * change even though it's stored separately (one value per server, not the single global settings document).
  */
-async function handleChannelChange(ctx: CommandContext, action: 'set' | 'reset', rawValue: string): Promise<void> {
-  const before = await getChannelId(ctx.guildId);
+async function handleChannelChange(ctx: CommandContext, key: ChannelKey, action: 'set' | 'reset', rawValue: string): Promise<void> {
+  const store = CHANNEL_STORE[key];
+  const before = await store.get(ctx.guildId);
   const beforeDisplay = before === null ? TEXT.config.channelNone : `<#${before}>`;
 
   const apply = async (newId: string | null, newDisplay: string): Promise<void> => {
-    const result = await setChannelId(ctx.user.id, ctx.guildId, newId);
+    const result = await store.set(ctx.user.id, ctx.guildId, newId);
     if (!result.ok) {
       await ctx.reply(TEXT.config.adminOnly);
       return;
     }
-    await ctx.reply((action === 'reset' ? TEXT.config.reset : TEXT.config.changed)('channel', beforeDisplay, newDisplay));
+    await ctx.reply((action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(key, beforeDisplay, newDisplay));
   };
 
   if (action === 'reset') {
@@ -47,7 +69,7 @@ async function handleChannelChange(ctx: CommandContext, action: 'set' | 'reset',
   }
 
   if (!rawValue) {
-    await ctx.reply(TEXT.config.askValue(ctx.prefix, 'channel'));
+    await ctx.reply(TEXT.config.askValue(ctx.prefix, key));
     return;
   }
   if (['off', 'none', 'disable'].includes(rawValue.toLowerCase())) {
@@ -57,12 +79,12 @@ async function handleChannelChange(ctx: CommandContext, action: 'set' | 'reset',
 
   const channelId = parseChannelArg(rawValue);
   if (channelId === null) {
-    await ctx.reply(TEXT.config.invalidValue('channel', TEXT.config.channelInvalid));
+    await ctx.reply(TEXT.config.invalidValue(key, TEXT.config.channelInvalid));
     return;
   }
-  const checked = await checkEventChannel(ctx.guild, channelId);
+  const checked = await checkEventChannel(ctx.guild, channelId, key === 'newsletter' ? NEWSLETTER_NEEDED : undefined);
   if (!checked.ok) {
-    await ctx.reply(channelProblemText(checked.problem, channelId));
+    await ctx.reply(channelProblemText(checked.problem, channelId, key));
     return;
   }
   await apply(channelId, `<#${channelId}>`);
@@ -85,11 +107,11 @@ function describeValue(spec: SettingSpec): string {
 
 /**
  * The lines for one group of the list. Equipment shows one line per effect with all three tiers.
- * General also shows the per-server `channel` setting (`channelId`), which isn't a real
- * SettingSpec entry -- it lives in the `guilds` collection, one value per server, not the single
- * global settings document every other setting here comes from (see services/channel.ts).
+ * General also shows the per-server channel settings (`channel` and `newsletter`), which aren't real
+ * SettingSpec entries -- they live in the `guilds` collection, one value per server, not the single
+ * global settings document every other setting here comes from (see PER_SERVER_CHANNELS).
  */
-function groupLines(group: SettingSpec['group'], channelId: string | null): string[] {
+function groupLines(group: SettingSpec['group'], channels: Record<ChannelKey, string | null>): string[] {
   if (group === 'Equipment') {
     // The Equipment settings that aren't per-effect (like equipment.borrowed.effectiveness), then one line per effect.
     const perEffect = new Set(EFFECT_IDS.flatMap((id) => STARS.map((stars) => `equipment.${id}.${stars}`)));
@@ -105,7 +127,10 @@ function groupLines(group: SettingSpec['group'], channelId: string | null): stri
   }
   const lines = SPECS.filter((spec) => spec.group === group).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
   if (group === 'General') {
-    lines.push(TEXT.config.setting('channel', channelId === null ? TEXT.config.channelNone : `<#${channelId}>`));
+    for (const key of PER_SERVER_CHANNELS) {
+      const id = channels[key];
+      lines.push(TEXT.config.setting(key, id === null ? TEXT.config.channelNone : `<#${id}>`));
+    }
   }
   return lines;
 }
@@ -128,16 +153,17 @@ export const config: Command = {
     // plus "channel" as a shortcut straight to General (where that setting lives); anything else
     // that isn't list/view/set/reset falls through to the unknown-action reply.
     const jumpGroup =
-      action === undefined ? undefined : (GROUPS.find((group) => group.toLowerCase() === action) ?? (action === 'channel' ? 'General' : undefined));
+      action === undefined ? undefined : (GROUPS.find((group) => group.toLowerCase() === action) ?? (isChannelKey(action) ? 'General' : undefined));
 
     if (action === undefined || action === 'list' || action === 'view' || jumpGroup !== undefined) {
       // Everything else in this list comes straight from the in-memory CONFIG, so a database
       // hiccup here shouldn't take the whole listing down over one extra per-server field --
-      // it just shows the channel as unset until the next successful read.
-      const channelId = await getChannelId(ctx.guildId).catch(() => null);
+      // it just shows the channels as unset until the next successful read.
+      const [channel, newsletter] = await Promise.all(PER_SERVER_CHANNELS.map((key) => CHANNEL_STORE[key].get(ctx.guildId).catch(() => null)));
+      const channels = { channel: channel ?? null, newsletter: newsletter ?? null };
       const groups: ConfigGroup[] = GROUPS.map((group) => ({
         name: group === 'Equipment' ? TEXT.config.equipmentGroup(STARS.map((stars) => `${stars}-star`).join(' / ')) : group,
-        lines: groupLines(group, channelId),
+        lines: groupLines(group, channels),
       }));
       const pages = buildConfigPages(groups);
       const footerText = isAdmin(ctx.user.id) ? TEXT.config.footerAdmin(p) : TEXT.config.footerOthers;
@@ -207,10 +233,11 @@ export const config: Command = {
       }
     }
 
-    // `channel` isn't a real SettingSpec entry -- it's per-server (services/channel.ts), not one
-    // of the bot's global settings -- but it's set and reset the same way every other setting is.
-    if (key.toLowerCase() === 'channel') {
-      await handleChannelChange(ctx, action, args.slice(2).join(' '));
+    // `channel` and `newsletter` aren't real SettingSpec entries -- they're per-server (see
+    // PER_SERVER_CHANNELS), not the bot's global settings -- but they're set and reset the same way.
+    const channelKey = key.toLowerCase();
+    if (isChannelKey(channelKey)) {
+      await handleChannelChange(ctx, channelKey, action, args.slice(2).join(' '));
       return;
     }
 

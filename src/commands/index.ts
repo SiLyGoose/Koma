@@ -14,6 +14,7 @@ import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
 import { loadout } from './loadout.js';
 import { mines } from './mines.js';
+import { newsletter } from './newsletter.js';
 import { pinecraft } from './pinecraft.js';
 import { plinko } from './plinko.js';
 import { baccarat } from './baccarat.js';
@@ -58,6 +59,7 @@ export const commands: Command[] = [
   donate,
   config,
   events,
+  newsletter,
   give,
   createHelpCommand(() => commands),
 ];

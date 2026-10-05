@@ -13,7 +13,7 @@ import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { mention, starString } from '../lib/format.js';
-import { GROUPS } from '../commands/config.js';
+import { GROUPS, PER_SERVER_CHANNELS } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy/index.js';
 import { getPrefix } from '../services/settings.js';
@@ -162,9 +162,9 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     autocomplete: async (i) =>
       nameChoices(
         i.options.getFocused(),
-        // 'channel' isn't a real SettingSpec entry (see commands/config.ts's handleChannelChange),
-        // but it's set/reset the same way, so it belongs in the same suggestion list.
-        [...SPECS.map((spec) => spec.key), 'channel'],
+        // 'channel' and 'newsletter' aren't real SettingSpec entries (see commands/config.ts's
+        // handleChannelChange), but they're set/reset the same way, so they belong in the same list.
+        [...SPECS.map((spec) => spec.key), ...PER_SERVER_CHANNELS],
       ),
   },
 
@@ -222,6 +222,29 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
         return chosen === null ? ['start'] : ['start', chosen];
       }
       return ['status'];
+    },
+  },
+
+  // Prefix only (SLASH_EXCLUDED): patch notes keep their line breaks, which an option can't hold.
+  // Kept so taking it off that list gives a working /newsletter for the parts that don't need them.
+  newsletter: {
+    description: 'Patch notes and the weekly newsletter (bot admin only).',
+    build: (b) =>
+      void b
+        .addSubcommand((s) => s.setName('preview').setDescription("What this server's weekly newsletter looks like so far"))
+        .addSubcommand((s) =>
+          s
+            .setName('note')
+            .setDescription('An announcement on top of the next weekly newsletter ("clear" removes it)')
+            .addStringOption((o) => o.setName('text').setDescription('The announcement, or "clear" (shows it, if left out)').setMaxLength(1000)),
+        ),
+    toArgs: (i) => {
+      const action = i.options.getSubcommand();
+      if (action === 'note') {
+        const text = i.options.getString('text');
+        return text === null ? ['note'] : ['note', ...text.split(/\s+/)];
+      }
+      return ['preview'];
     },
   },
 

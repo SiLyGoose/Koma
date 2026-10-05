@@ -14,6 +14,14 @@ export function parseCommand(content: string, prefix: string): ParsedCommand | n
   return { name: name.toLowerCase(), args };
 }
 
+/**
+ * Everything after the command's name in a message, as typed (line breaks kept), or '' when nothing
+ * follows it. For commands that take free text, like patch notes, which the words in `args` would flatten.
+ */
+export function textAfterCommand(content: string, prefix: string): string {
+  return content.slice(prefix.length).trimStart().replace(/^\S+/, '').trim();
+}
+
 const USER_ARG = /^(?:<@!?(\d{17,20})>|(\d{17,20}))$/;
 
 export function parseUserArg(arg: string | undefined): string | null {

@@ -11,6 +11,7 @@ import { closeDb, connectDb } from './db.js';
 import { validateEvents } from './events/registry.js';
 import { resumeOpenEvents } from './events/runner.js';
 import { startEventScheduler } from './events/scheduler.js';
+import { startNewsletterScheduler } from './newsletter/send.js';
 import { requireEnv } from './env.js';
 import { prepareShootingStars } from './animations/gacha-reply.js';
 import { STARS } from './types.js';
@@ -118,6 +119,7 @@ async function main(): Promise<void> {
   });
 
   let stopEvents: () => void = () => {};
+  let stopNewsletter: () => void = () => {};
   let stopBetSweeper: () => void = () => {};
   let stopMineSweeper: () => void = () => {};
   let stopWebServer: () => Promise<void> = async () => {};
@@ -132,6 +134,11 @@ async function main(): Promise<void> {
 
     // A raid that was being played when the bot last stopped is called off, and its points given back.
     await settleUnfinishedRaids(readyClient).catch((err) => console.error('Could not settle unfinished raids:', err));
+
+    // The weekly newsletter, in the servers that chose a newsletter channel: it goes out when the raid
+    // week resets, or as soon as the bot is back if it was down then. After the raids are settled, so
+    // a digest sent straight away doesn't report one as still going.
+    stopNewsletter = startNewsletterScheduler(readyClient);
 
     // Points that were on a blackjack table when the bot last stopped are given back.
     stopBetSweeper = startBetSweeper();
@@ -173,6 +180,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`Received ${signal}, shutting down.`);
     stopEvents();
+    stopNewsletter();
     stopBetSweeper();
     stopMineSweeper();
     await stopWebServer();

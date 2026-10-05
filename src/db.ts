@@ -59,6 +59,8 @@ export async function connectDb(): Promise<Collections> {
     // A member's copies, and their copies of one item.
     collections.items.createIndex({ guildId: 1, userId: 1, itemId: 1 }),
     collections.ledger.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
+    // The weekly newsletter's look at one kind of entry (robs) over one week in a server.
+    collections.ledger.createIndex({ guildId: 1, reason: 1, createdAt: 1 }),
     // Which items a member has ever pulled or sold (the gacha's "New!"). Only entries with an item.
     collections.ledger.createIndex(
       { guildId: 1, userId: 1, itemId: 1 },

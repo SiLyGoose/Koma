@@ -8,6 +8,7 @@ import {
   type MessageEditOptions,
 } from 'discord.js';
 import { SLASH_DEFER_AFTER_MS } from '../constants/index.js';
+import { textAfterCommand } from '../lib/parse.js';
 import { reply } from './reply.js';
 import type { CommandContext, EditOptions, ReplyOptions, SentReply } from './types.js';
 
@@ -31,6 +32,8 @@ export function messageContext(message: Message<true>, args: string[], prefix: s
     guild: message.guild,
     user: message.author,
     args,
+    // A test's stand-in message may have no content.
+    text: textAfterCommand(message.content ?? '', prefix),
     async reply(options) {
       const { ephemeral: _ephemeral, ...rest } = toOptions(options);
       const sent = await reply(message, rest);
