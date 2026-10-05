@@ -7,6 +7,7 @@ import {
   critChanceOf,
   critMultiplierOf,
   emptyGear,
+  guardCutOf,
   guardTakenShare,
   healMultiplierOf,
   playerMaxHp,
@@ -52,6 +53,7 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
   if (gear.healSplash > 0) lines.push(t.statsHealSplash(formatPercent(gear.healSplash), Math.max(1, Math.round(heal.amount * healMultiplierOf(geared) * gear.healSplash)), mark));
   lines.push(
     t.statsGuard(formatPercent(guardTakenShare(geared)), gear.guardBoost > 0 || gear.raidSupport > 0 ? formatPercent(guardTakenShare(base)) : null, mark),
+    t.statsGuardCut(formatPercent(guardCutOf(geared)), gear.guardBoost > 0 || gear.raidSupport > 0 ? formatPercent(guardCutOf(base)) : null, mark),
     t.statsRally(formatMultiplier(rallyMultiplierOf(geared)), support.rallyTurns, gear.rallyBoost > 0 ? formatMultiplier(rallyMultiplierOf(base)) : null, mark),
   );
   if (gear.healCut > 0) lines.push(t.statsHealCut(formatPercent(gear.healCut), mark));

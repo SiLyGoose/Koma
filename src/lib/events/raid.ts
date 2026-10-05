@@ -324,6 +324,21 @@ const boosted = (amount: number, boost: number): number => amount * (1 + boost /
 export const guardTakenShare = (player: { gear: RaidGear }): number =>
   Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost + player.gear.raidSupport));
 
+/**
+ * The cut a guarding player gives everyone else against moves that hit several players:
+ * RAID_COMBAT.guard.aoeCut, bigger with guardBoost and raidSupport, at most aoeCutMax. Guards don't
+ * stack: only the strongest standing guard's cut counts (strongestGuard).
+ */
+export const guardCutOf = (player: { gear: RaidGear }): number =>
+  Math.min(RAID_COMBAT.guard.aoeCutMax, Math.max(0, RAID_COMBAT.guard.aoeCut * (1 + player.gear.guardBoost + player.gear.raidSupport)));
+
+/** The guard whose cut the party gets: the strongest (the first to guard on a tie), or undefined with none. */
+export function strongestGuard<T extends { gear: RaidGear }>(guards: readonly T[]): T | undefined {
+  let best: T | undefined;
+  for (const guard of guards) if (best === undefined || guardCutOf(guard) > guardCutOf(best)) best = guard;
+  return best;
+}
+
 /** The HP a player fights with: `base` (the raid.playerHp setting), more with raidHp. */
 export const playerMaxHp = (base: number, player: { gear: RaidGear }): number => Math.max(1, Math.round(base * (1 + player.gear.raidHp)));
 
@@ -616,7 +631,9 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     if (player.hp === 0) events.push({ kind: 'knockedOut', userId: player.userId });
   };
   const standingGuards = state.guarding.map((id) => findPlayer(state, id) as RaidPlayer).filter(isAlive);
-  const aoeCut = Math.min(RAID_COMBAT.guard.aoeCutMax, standingGuards.length * RAID_COMBAT.guard.aoeCutPerGuard);
+  // Guards don't stack: the party gets the strongest standing guard's cut, and only theirs.
+  const cutter = strongestGuard(standingGuards);
+  const aoeCut = cutter ? guardCutOf(cutter) : 0;
   /** Damage a guard kept off the party (for the summary at the end). */
   const mitigate = (guard: RaidPlayer, amount: number): void => {
     guard.stats.mitigated += Math.max(0, Math.round(amount));
@@ -630,8 +647,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       damage(player, full * share, hitMove, null);
       return;
     }
-    // The guards' cut to everyone else is theirs to share.
-    for (const guard of standingGuards) mitigate(guard, (full * aoeCut) / standingGuards.length);
+    // The cut to everyone else is the strongest guard's, so it's theirs alone.
+    if (cutter) mitigate(cutter, full * aoeCut);
     damage(player, full * (1 - aoeCut), hitMove, null);
   };
   /** The boss heals `amount` (never above its max HP). */

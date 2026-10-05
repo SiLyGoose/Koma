@@ -69,7 +69,7 @@ test('raid stat items: a 1-star, a 2-star and a 3-star item for each new raid pe
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonslayer-greatsword') as ItemDef), ['Raid: attacks deal 25% more damage']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('eagle-eye-crossbow') as ItemDef), ['Raid: +12% crit chance']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('heartseeker-rapier') as ItemDef), ['Raid: +60% crit damage']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('saints-mantle') as ItemDef), ['Raid: heals heal 25% more, and Guard blocks 25% more of the hits you take']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('saints-mantle') as ItemDef), ['Raid: heals heal 25% more, and your Guard blocks 25% more, for you and the party']);
   // Each tier is stronger than the one below.
   for (const effect of ['raidHp', 'raidAttack', 'raidCritChance', 'raidCritDamage', 'raidSupport'] as const) {
     const tiers = DEFAULTS.equipment[effect];
@@ -132,5 +132,6 @@ test('gear stats: the new raid perks show on the card, with what they would be w
   assert.ok(text.includes(`**Crit chance**: 22%, for ${Math.round(min * 1.25 * 2.6)} damage 🎒`), text);
   assert.ok(text.includes(`**Heal**: ${Math.round(RAID_COMBAT.heal.amount * 1.25)} HP, or brings back a knocked-out ally with ${Math.round(130 * RAID_COMBAT.heal.reviveShare * 1.25)} HP 🎒`), text);
   assert.match(text, /you take 37\.5% of a hit \(normally 50%\) 🎒/);
+  assert.match(text, /the party takes 37\.5% less from attacks that hit several raiders \(normally 30%\) 🎒/);
   assert.doesNotMatch(text, /No raid gear/);
 });

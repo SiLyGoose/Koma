@@ -33,6 +33,9 @@ export const gearText = {
   statsHealSplash: (share: string, amount: number, gear: string) => `↳ and mends a second ally for ${share} of it (${amount} HP) ${gear}`,
   statsGuard: (taken: string, normal: string | null, gear: string) =>
     `${E.guard} **Guard**: you take ${taken} of a hit${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
+  /** The cut the wearer's Guard gives the rest of the party (only the strongest guard's counts). */
+  statsGuardCut: (cut: string, normal: string | null, gear: string) =>
+    `↳ and the party takes ${cut} less from attacks that hit several raiders${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsRally: (multiplier: string, turns: number, normal: string | null, gear: string) =>
     `✨ **Rally**: attacks do ${multiplier} damage for ${turns} turns${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsHealCut: (share: string, gear: string) => `🩸 **Heal cut**: bosses heal ${share} less while you're standing ${gear}`,

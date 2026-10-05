@@ -85,14 +85,16 @@ export const RAID_EMOJI = {
  * - `heal`: a heal restores `amount` HP to the ally the healer picked, or revives them with
  *   `reviveShare` of their HP if they are knocked out. With no pick (or one that no longer needs
  *   it), a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
- * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost perk), jumps in front of single-target moves aimed at
- *   someone else (the guard with the most HP does), and cuts the damage everyone else takes from
- *   moves that hit several players by `aoeCutPerGuard` each, up to `aoeCutMax`.
+ * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost and raidSupport perks), jumps in front of
+ *   single-target moves aimed at someone else (the guard with the most HP does), and cuts the damage
+ *   everyone else takes from moves that hit several players by `aoeCut` (bigger with those same perks, up
+ *   to `aoeCutMax`). That cut doesn't stack: with several guards up, only the strongest one's counts.
  * - `support`: each support lifts one player's stun, disarm or taunt (stuns first); with nobody
  *   under one it rallies the party
  *   instead, multiplying everyone's attacks by `attackMultiplier` (its bonus bigger with the
- *   rallyBoost perk) for the next `rallyTurns` turns (a
- *   second rally resets the count, it doesn't stack). `shieldBreak` supports in the same turn shatter
+ *   rallyBoost perk) for the next `rallyTurns` turns. Rallies don't stack: with several in a turn only
+ *   the strongest counts, and a new one only takes over a running one if it is at least as strong (it
+ *   resets the count either way). `shieldBreak` supports in the same turn shatter
  *   the boss's shield (the Scale Shield or the Spectral Veil), whatever else they did.
  *
  * Bosses:
@@ -133,7 +135,7 @@ export const RAID_COMBAT = {
   hpShare: { wyrm: 0.774, reaper: 0.435 },
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
-  guard: { takenShare: 0.5, aoeCutPerGuard: 0.15, aoeCutMax: 0.6 },
+  guard: { takenShare: 0.5, aoeCut: 0.3, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },
   enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5], lifesteal: [1, 1.25, 1.5] },
   moves: {

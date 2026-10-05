@@ -18,6 +18,8 @@ import {
   createRaid,
   damageRanking,
   emptyGear,
+  guardCutOf,
+  strongestGuard,
   endRound,
   enrageLevel,
   movesOf,
@@ -191,14 +193,38 @@ test('guard: a guard takes a claw aimed at someone else, at half damage', () => 
   assert.equal(state.players[1]?.hp, 100);
 });
 
-test('guard: fire breath hits everyone, softened for the others by each guard', () => {
+test('guard: fire breath hits everyone, softened for the others by the guard', () => {
   const state = fight();
   state.intent = { move: 'breath', targets: [], multiplier: 1 };
   resolvePlayerTurn(state, choose(['a', 'guard']), low);
   bossTurn(state, low);
   const base = RAID_COMBAT.moves.breath.damage;
   assert.equal(state.players[0]?.hp, 100 - Math.round(base * RAID_COMBAT.guard.takenShare));
-  assert.equal(state.players[1]?.hp, 100 - Math.round(base * (1 - RAID_COMBAT.guard.aoeCutPerGuard)));
+  assert.equal(state.players[1]?.hp, 100 - Math.round(base * (1 - RAID_COMBAT.guard.aoeCut)));
+});
+
+test("guard: guards don't stack, the party gets the strongest guard's cut and only that", () => {
+  const breath = RAID_COMBAT.moves.breath.damage;
+  const { aoeCut } = RAID_COMBAT.guard;
+  const hitOn = (state: RaidState, userId: string) =>
+    (bossTurn(state, low).events.find((e) => e.kind === 'hit' && e.userId === userId) as { damage: number } | undefined)?.damage;
+
+  // Two plain guards cut no more than one.
+  const two = fight(['a', 'b', 'c']);
+  two.intent = { move: 'breath', targets: [], multiplier: 1 };
+  two.guarding = ['a', 'b'];
+  assert.equal(hitOn(two, 'c'), Math.round(breath * (1 - aoeCut)));
+
+  // A geared guard's bigger cut wins, whoever guarded first.
+  const geared = fight(['a', 'b', 'c']);
+  (geared.players[1] as { gear: { guardBoost: number } }).gear.guardBoost = 0.5;
+  geared.intent = { move: 'breath', targets: [], multiplier: 1 };
+  geared.guarding = ['a', 'b'];
+  assert.equal(hitOn(geared, 'c'), Math.round(breath * (1 - aoeCut * 1.5)));
+
+  // Never past the cap.
+  assert.equal(guardCutOf({ gear: { ...emptyGear(), guardBoost: 5 } }), RAID_COMBAT.guard.aoeCutMax);
+  assert.equal(strongestGuard([]), undefined);
 });
 
 test('hoard: steals from the target, unless a guard is in the way', () => {
@@ -268,7 +294,7 @@ test('heal: goes to the ally the healer picked, and falls back to the usual pick
   assert.equal(self.players[0]?.hp, 50 + RAID_COMBAT.heal.amount);
 });
 
-test('guardBoost gear: the wearer takes less of every hit while guarding, and the cut for the rest of the party is unchanged', () => {
+test("guardBoost gear: the wearer takes less of every hit while guarding, and the party's cut is bigger too", () => {
   const state = fight();
   (state.players[0] as { gear: { guardBoost: number } }).gear.guardBoost = 0.25;
   const breath = RAID_COMBAT.moves.breath.damage;
@@ -278,7 +304,8 @@ test('guardBoost gear: the wearer takes less of every hit while guarding, and th
   const hit = (userId: string) => events.find((e) => e.kind === 'hit' && e.userId === userId) as { damage: number } | undefined;
   assert.equal(hit('a')?.damage, Math.round(breath * 0.375));
   assert.equal(hit('b')?.damage, Math.round(breath * RAID_COMBAT.guard.takenShare));
-  assert.equal(hit('c')?.damage, Math.round(breath * (1 - 2 * RAID_COMBAT.guard.aoeCutPerGuard)));
+  // a's cut (the bigger one) is the one c gets.
+  assert.equal(hit('c')?.damage, Math.round(breath * (1 - RAID_COMBAT.guard.aoeCut * 1.25)));
 
   // Jumping in front of a Claw for someone else, the wearer still takes the smaller share.
   const claw = fight();
@@ -291,7 +318,7 @@ test('guardBoost gear: the wearer takes less of every hit while guarding, and th
 
 test('mitigated: a guard is credited with the damage their guarding kept off the party', () => {
   const { claw, breath } = RAID_COMBAT.moves;
-  const { takenShare, aoeCutPerGuard } = RAID_COMBAT.guard;
+  const { takenShare, aoeCut } = RAID_COMBAT.guard;
   const mitigated = (state: RaidState, userId: string): number => state.players.find((p) => p.userId === userId)?.stats.mitigated ?? 0;
 
   // Guarding a Claw aimed at themselves: the share they didn't take.
@@ -309,15 +336,15 @@ test('mitigated: a guard is credited with the damage their guarding kept off the
   assert.equal(mitigated(cover, 'a'), Math.round(claw.damage * (1 - takenShare)));
   assert.equal(mitigated(cover, 'b'), 0);
 
-  // A Fire Breath with two guarding: each keeps their own share off, and splits the cut to the third.
+  // A Fire Breath with two guarding: each keeps their own share off, and the cut to the third is the
+  // strongest guard's (the first to guard, on a tie), so it's theirs alone.
   const breathed = fight();
   breathed.intent = { move: 'breath', targets: [], multiplier: 1 };
   breathed.guarding = ['a', 'b'];
   bossTurn(breathed, low);
   const own = Math.round(breath.damage * (1 - takenShare));
-  const cutShare = Math.round((breath.damage * 2 * aoeCutPerGuard) / 2);
-  assert.equal(mitigated(breathed, 'a'), own + cutShare);
-  assert.equal(mitigated(breathed, 'b'), own + cutShare);
+  assert.equal(mitigated(breathed, 'a'), own + Math.round(breath.damage * aoeCut));
+  assert.equal(mitigated(breathed, 'b'), own);
   assert.equal(mitigated(breathed, 'c'), 0);
 
   // Nobody guarding: nothing mitigated.
@@ -409,7 +436,7 @@ test('raid gear items: a 1-star, a 2-star and a 3-star item for each raid perk, 
   assert.equal(DEFAULTS.equipment.guardBoost[3], 0.25);
   assert.equal(DEFAULTS.equipment.rallyBoost[3], 0.25);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('war-banner') as ItemDef), ['Raid: your rallies give a 25% bigger attack bonus']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: Guard blocks 25% more of the hits you take']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: your Guard blocks 25% more, for you and the party']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 20% of the heal']);
 });
 
@@ -1387,7 +1414,7 @@ test('grim reckoning: the reaper gathers for two turns, then hits several raider
   const hits = events.filter((e) => e.kind === 'hit');
   assert.deepEqual(hits.map((e) => (e as { userId: string }).userId), aimed);
   assert.equal((hits[0] as { damage: number }).damage, Math.round(damage * RAID_COMBAT.guard.takenShare));
-  assert.equal((hits[1] as { damage: number }).damage, Math.round(damage * (1 - RAID_COMBAT.guard.aoeCutPerGuard)));
+  assert.equal((hits[1] as { damage: number }).damage, Math.round(damage * (1 - RAID_COMBAT.guard.aoeCut)));
   assert.equal(state.gathered, 0);
   assert.match(eventLines(events, 'reaper').join('\n'), /⚰️ Grim Reckoning struck/);
 

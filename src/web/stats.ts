@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { RAID_COMBAT } from '../constants/index.js';
-import { attackMultiplierOf, critChanceOf, critMultiplierOf, guardTakenShare, healMultiplierOf, playerMaxHp, rallyMultiplierOf, raidGearFrom } from '../lib/events/raid.js';
+import { attackMultiplierOf, critChanceOf, critMultiplierOf, guardCutOf, guardTakenShare, healMultiplierOf, playerMaxHp, rallyMultiplierOf, raidGearFrom } from '../lib/events/raid.js';
 import { formatMultiplier, formatPercent } from '../lib/format.js';
 import {
   claimAmount,
@@ -97,6 +97,8 @@ export function gearStats(gear: EffectTotals): StatSection[] {
         row('Heal', gear, (g) => `${Math.round(heal.amount * healMultiplierOf(fight(g)))} HP`),
         row('Heal splash', gear, (g) => formatPercent(raidGearFrom(g).healSplash)),
         row('Guard: hit taken', gear, (g) => formatPercent(guardTakenShare(fight(g)))),
+        // What the rest of the party takes less of, from moves that hit several raiders (the strongest guard's counts).
+        row('Guard: party cut', gear, (g) => formatPercent(guardCutOf(fight(g)))),
         row('Rally', gear, (g) => `${formatMultiplier(rallyMultiplierOf(fight(g)))} for ${support.rallyTurns} turns`),
         row('Boss heal cut', gear, (g) => formatPercent(raidGearFrom(g).healCut)),
       ],
