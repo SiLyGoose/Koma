@@ -1,5 +1,5 @@
 /*
- * Discord limits and timings: slash commands, autocomplete, embeds, buttons and avatars.
+ * Discord limits and timings: slash commands, autocomplete, embeds, buttons, avatars and the bio.
  */
 
 /**
@@ -63,3 +63,15 @@ export const HELP_BUTTONS = { idleMs: 120_000 };
  * picture doesn't arrive in time the table shows a coloured circle with the first letter instead.
  */
 export const AVATAR = { size: 64, timeoutMs: 3000, maxBytes: 300_000, cacheMax: 200 } as const;
+
+/**
+ * The bot's bio (its About Me: the application's description in the Developer Portal). At each
+ * start the bot keeps one line of it pointing at the games' site (WEB_URL): the line starting with
+ * `siteLabel` gets the site's address, or is added at the end if there isn't one. The rest of the
+ * bio is left as written in the portal. Changing `siteLabel` leaves the old line behind (delete it
+ * in the portal). Discord allows at most `maxLength` characters.
+ */
+export const BIO = {
+  siteLabel: 'Check out Komaverse:',
+  maxLength: 400,
+} as const;

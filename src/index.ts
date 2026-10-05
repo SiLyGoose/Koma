@@ -20,6 +20,7 @@ import { cashOutLiveRuns, startMineSweeper } from './services/casino/mines.js';
 import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
+import { syncBio } from './discord/bio.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
@@ -137,6 +138,9 @@ async function main(): Promise<void> {
     // Runs in the mine that were being played when the bot last stopped are cashed out.
     stopMineSweeper = startMineSweeper();
     if (web) stopWebServer = startWebServer({ port: web.port, api: siteDeps(readyClient, web) });
+    // The bio links to the site. Not from a local test bot: it shares the application (and so the
+    // bio) with the real bot, and its site is usually localhost.
+    if (web && slashOn) void syncBio(readyClient, web.siteUrl);
 
     // The gacha's shooting stars take a moment to draw, so draw them now rather than on the first pulls.
     prepareShootingStars(STARS);

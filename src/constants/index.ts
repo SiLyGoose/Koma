@@ -5,7 +5,7 @@
  * Where things are:
  *   - core.ts        access, timing, the currency emoji, general limits
  *   - formatting.ts  stars, number locale, percent decimals, gear slot labels
- *   - discord.ts     slash commands, autocomplete, embed and button limits, avatars
+ *   - discord.ts     slash commands, autocomplete, embed and button limits, avatars, the bio
  *   - casino/        the betting games' numbers: baccarat, blackjack, mines, plinko, roulette, and
  *                    what the shared-table games have in common (table.ts)
  *   - items/         gacha, gear loadouts and refining
