@@ -7,11 +7,7 @@ export const statusText = {
   justWoke: 'Brand new bed, just woke up.',
   /** Taken in turn, a new one every STATUS.rotateMs. */
   lines: [
-    (uptime: string) => `Alive for ${uptime}. No crashes. Yet.`,
-    (uptime: string) => `Awake for ${uptime}. Send coffee.`,
     (uptime: string) => `${uptime} without touching grass`,
-    (uptime: string) => `Uptime: ${uptime}. Personal best?`,
-    (uptime: string) => `Haven't blinked in ${uptime}`,
-    (uptime: string) => `Running on vibes for ${uptime}`,
+    (uptime: string) => `Auramaxxing for ${uptime}`,
   ],
 };
