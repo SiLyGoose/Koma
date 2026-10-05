@@ -75,3 +75,10 @@ export const BIO = {
   siteLabel: 'Check out Komaverse:',
   maxLength: 400,
 } as const;
+
+/**
+ * The bot's status (src/discord/status.ts): how long it has been up, in one of TEXT.status's lines.
+ * The uptime is refreshed every `refreshMs` (well under Discord's limit of 5 presence updates per 20
+ * seconds), and the line changes every `rotateMs`.
+ */
+export const STATUS = { refreshMs: 60_000, rotateMs: 15 * 60_000 } as const;

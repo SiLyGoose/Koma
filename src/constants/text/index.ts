@@ -36,6 +36,7 @@ import { giveText } from './give.js';
 import { configText } from './config.js';
 import { raidText } from './raid.js';
 import { newsletterText } from './newsletter.js';
+import { statusText } from './status.js';
 
 /*
  * Every message the bot sends, one file per command or feature: the casino games' in casino/, the
@@ -86,4 +87,5 @@ export const TEXT = {
   config: configText,
   raid: raidText,
   newsletter: newsletterText,
+  status: statusText,
 };

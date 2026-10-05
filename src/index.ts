@@ -22,6 +22,7 @@ import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
 import { syncBio } from './discord/bio.js';
+import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
@@ -123,9 +124,12 @@ async function main(): Promise<void> {
   let stopBetSweeper: () => void = () => {};
   let stopMineSweeper: () => void = () => {};
   let stopWebServer: () => Promise<void> = async () => {};
+  let stopStatus: () => void = () => {};
 
   client.once(Events.ClientReady, async (readyClient) => {
     console.log(`Logged in as ${readyClient.user.tag}. Commands start with "${getPrefix()}"${slashOn ? ' or "/"' : ''}.`);
+    // How long the bot has been up, in a joke line under its name.
+    stopStatus = startStatus(readyClient);
 
     // Random events in the servers that chose an events channel (see the event command). An event
     // that was still open when the bot last stopped (a restart, a deploy) is picked up again first.
@@ -181,6 +185,7 @@ async function main(): Promise<void> {
     console.log(`Received ${signal}, shutting down.`);
     stopEvents();
     stopNewsletter();
+    stopStatus();
     stopBetSweeper();
     stopMineSweeper();
     await stopWebServer();
