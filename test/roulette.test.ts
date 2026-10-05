@@ -174,6 +174,9 @@ test('roulette table: up to 8 play together, the wheel is spun once for all, and
   const players = [];
   for (let i = 1; i <= ROULETTE_TABLE.seats + 1; i++) players.push(await join(`u${i}`));
   assert.deepEqual(tablesIn('g1').map((t) => t.players), [8, 1]);
+  // The ninth leaves, so only table 1 spins (a table spins even with no chips down).
+  players.pop()!.connection.closed();
+  assert.deepEqual(tablesIn('g1').map((t) => t.players), [8]);
   const [a, b] = players as [Awaited<ReturnType<typeof join>>, Awaited<ReturnType<typeof join>>];
   assert.deepEqual([a.page.last().maxSeats, a.page.last().chips, a.page.last().msLeft], [8, [...TABLE_CHIPS], ROULETTE_TABLE.bettingMs]);
 

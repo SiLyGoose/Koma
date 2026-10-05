@@ -43,12 +43,14 @@ test('baccarat scoreboard: each hand is a short code of who won, the winning tot
   assert.equal(handCode(dealRound(shoe(5, 6, 2, 6))), 'P7b');
 });
 
-test('baccarat scoreboard: the table keeps its last hands, oldest first, up to BACCARAT_TABLE.history', () => {
+test('baccarat scoreboard: the table keeps its hands, oldest first, and a full scoreboard starts over (a new shoe)', () => {
   const round = dealRound(shoe(5, 2, 3, 4));
   let view = { ...baccaratGame.view(round, null), no: 1 };
   assert.deepEqual(view.history, ['P8n']);
-  for (let no = 2; no <= BACCARAT_TABLE.history + 5; no++) view = { ...baccaratGame.view(round, view), no };
+  for (let no = 2; no <= BACCARAT_TABLE.history; no++) view = { ...baccaratGame.view(round, view), no };
   assert.equal(view.history.length, BACCARAT_TABLE.history);
+  view = { ...baccaratGame.view(round, view), no: BACCARAT_TABLE.history + 1 };
+  assert.deepEqual(view.history, ['P8n']);
 });
 
 function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean; last: () => TableState } {
@@ -200,9 +202,11 @@ test('baccarat table: when the betting time is up, one round is dealt and everyo
   assert.deepEqual(next.seats.map((s) => [s.bets, s.result]), [[{}, null], [{}, null], [{}, null]]);
   assert.equal(next.round?.no, 1, 'the last round stays on the table');
 
-  // Nobody bets: the time runs out and the betting just starts over.
+  // Nobody bets: the round is still dealt (nobody is settled), and goes on the scoreboard.
   await tick(BACCARAT_TABLE.bettingMs);
-  assert.deepEqual([a.page.last().phase, a.page.last().msLeft, played.length], ['betting', BACCARAT_TABLE.bettingMs, 2]);
+  const idle = a.page.last();
+  assert.deepEqual([idle.phase, idle.round?.no, idle.round?.history.length, played.length], ['dealing', 2, 2, 2]);
+  assert.deepEqual(idle.seats.map((s) => s.result), [null, null, null]);
   for (const p of [a, b, t]) p.connection.closed();
 });
 
@@ -248,21 +252,47 @@ test('baccarat table: a new page takes over the seat, and a bad message or token
 
 const vote = (ready = true): string => JSON.stringify({ t: 'deal', ready });
 
-test('baccarat table: alone at a table, voting to deal deals at once (with chips down)', async () => {
+test('baccarat table: alone at a table, voting to deal deals at once (with or without chips down)', async () => {
   resetLive();
   resetTables();
-  const { deps, played } = fakeTable([4, 3, 4, 3]);
+  const { deps, tick, played } = fakeTable([4, 3, 4, 3]);
   const a = await join(deps, 'u1', 'ZEIU');
-  // No chips on the table: nothing to deal, the vote just stands.
+  // No chips on the table: dealt anyway, nobody settled.
   await a.connection.receive(vote());
-  assert.deepEqual([a.page.last().phase, a.page.last().seats[0]?.ready], ['betting', true]);
-  await a.connection.receive(vote(false));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual([a.page.last().phase, a.page.last().round?.no, played.length], ['dealing', 1, 0]);
+  await tick(BACCARAT_TABLE.showMs);
   await a.connection.receive(bets(1, { player: 100 }));
   await a.connection.receive(vote());
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(a.page.last().phase, 'dealing');
   assert.deepEqual(played, [['u1', 100]]);
   a.connection.closed();
+});
+
+test('baccarat table: a table everyone left keeps its scoreboard for whoever opens it next', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'ZEIU');
+  await tick(BACCARAT_TABLE.bettingMs);
+  await tick(BACCARAT_TABLE.showMs);
+  await tick(BACCARAT_TABLE.bettingMs);
+  assert.deepEqual(a.page.last().round?.history, ['P8pbn', 'P8pbn']);
+  a.connection.closed();
+  assert.equal(tablesIn('g1').length, 0, 'the empty table is closed');
+
+  const b = await join(deps, 'u2', 'INU');
+  const reopened = b.page.last();
+  assert.deepEqual([reopened.table, reopened.phase, reopened.round?.no, reopened.round?.history], [1, 'betting', 2, ['P8pbn', 'P8pbn']]);
+  await tick(BACCARAT_TABLE.bettingMs);
+  assert.deepEqual([b.page.last().round?.no, b.page.last().round?.history.length], [3, 3]);
+  b.connection.closed();
+
+  // Another server's table 1 has its own.
+  const c = await join(deps, 'u3', 'LUNAEA', 'g2');
+  assert.equal(c.page.last().round, null);
+  c.connection.closed();
 });
 
 test('baccarat table: with others, the round is dealt once everyone has voted, and a vote can be taken back', async () => {

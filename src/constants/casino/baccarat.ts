@@ -28,13 +28,14 @@ export const BACCARAT_WEB = {
  * The shared tables (web/baccarat/table.ts). Members opening baccarat are seated at the first table
  * in their server with a free seat.
  * - `seats`: how many players a table holds.
- * - `bettingMs`: how long each round's betting lasts; when it's up the round is dealt for everyone
- *   with chips down (a round with no chips on the table isn't dealt, the betting just starts over).
+ * - `bettingMs`: how long each round's betting lasts; when it's up the round is dealt, settling
+ *   everyone with chips down (it's dealt even with no chips on the table).
  * - `showMs`: how long after a deal before the next round's betting starts. The page deals the cards
  *   out one by one (3.4s for the first four, a 1.6s pause, and up to two third cards: about 6.3s
  *   at most), then shows how everyone did for the rest of it.
- * - `history`: how many of the table's last hands it keeps for its scoreboard (the roads the page
- *   draws: bead plate, big road and the three derived roads). 72 fills a 6 by 12 bead plate.
+ * - `history`: how many hands the table's scoreboard holds (the roads the page draws: bead plate,
+ *   big road and the three derived roads). 72 fills a 6 by 12 bead plate; the hand after that starts
+ *   a clean scoreboard, as a casino's does with each new shoe.
  */
 export const BACCARAT_TABLE = {
   seats: 8,

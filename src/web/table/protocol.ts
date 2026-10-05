@@ -16,7 +16,7 @@ import type { BetOutcome, SpotBets } from '../../lib/game/casino/table-bets.js';
  *                 bets     the player's chips on the table now (all of them; {} takes them all back),
  *                          while the round is taking bets; `seq` counts up from 1 with each
  *                 deal     the player's vote to deal now (`ready` false takes it back): the round is
- *                          dealt as soon as everyone at the table has voted, if anyone has chips down
+ *                          dealt as soon as everyone at the table has voted
  *   bot -> page   table    the table as it is now: whenever anything about it changes
  *                 refused  chips that couldn't go down, and why (the table that follows says what's down)
  *                 error    and the bot closes the connection

@@ -11,19 +11,20 @@ import { playerKey, type Player } from '../token.js';
  * The shared tables of a game played together (baccarat, roulette). A member opening the game is
  * seated (PartyTables.seat) at the first table in their server with a free seat (the one they sat at
  * last, if it has room), and a new table is opened when every one is full. A table with nobody at
- * it is closed.
+ * it is closed, but its last round (with the scoreboard the game keeps on it) is kept: the next table
+ * opened with its number in the server carries on from it, like a casino's table nobody sat at for a
+ * while. (Kept until the bot restarts.)
  *
  * A table goes round and round: `bettingMs` of betting, in which each player puts down and picks up
  * chips (everyone at the table sees them), then one round is dealt for everyone. Each player with
  * chips down is settled on their own (TableDeps.play, with the table's round): their chips are only
  * taken then, so leaving before the deal costs nothing, and chips they can no longer cover are
  * refused. The round is shown for `showMs`, and the next betting starts with an empty table (Rebet
- * puts a player's last chips back). When the time is up and nobody has chips down, the betting just
- * starts over.
+ * puts a player's last chips back). The round is dealt even when nobody has chips down, so the
+ * scoreboard moves on while players watch.
  *
  * The round can also be dealt early: each player can vote to deal now, and once everyone at the
- * table has (alone, that's straight away), it is dealt if anyone has chips down. The votes start
- * over with each round.
+ * table has (alone, that's straight away), it is dealt. The votes start over with each round.
  *
  * What differs between games is in its PartyGame: its spots (`S`), its round (`R`, and `V` as the
  * page is shown it), and anything else it puts on the table (`X`).
@@ -43,7 +44,7 @@ export interface PartyGame<S extends string, R, V, X> {
   limits: () => { minBet: number; maxBet: number };
   /** Reads chips from the page: null when they aren't valid ones. */
   parseBets: (data: unknown) => SpotBets<S> | null;
-  /** The round as the page is shown it. `previous` is the round shown before it (null for the table's first). */
+  /** The round as the page is shown it. `previous` is the round shown before it (null for the table's first ever). */
   view: (round: R, previous: RoundOf<V> | null) => V;
   /** What the game adds to the table it sends (like what each spot pays). */
   extras: () => X;
@@ -77,6 +78,12 @@ export const realBaseDeps: Omit<TableDeps<string, unknown>, 'play' | 'deal'> = {
   },
 };
 
+/** Where a table left off: its last round and how many it had dealt. */
+export interface TableHistory<V> {
+  round: RoundOf<V> | null;
+  rounds: number;
+}
+
 interface Seat<S extends string> {
   player: Player;
   avatar: string;
@@ -106,8 +113,16 @@ export class PartyTable<S extends string, R, V, X> {
     readonly number: number,
     private readonly deps: TableDeps<S, R>,
     private readonly onEmpty: (table: PartyTable<S, R, V, X>) => void,
+    history: TableHistory<V> = { round: null, rounds: 0 },
   ) {
+    this.round = history.round;
+    this.rounds = history.rounds;
     this.startBetting(false);
+  }
+
+  /** Where the table is up to, for the next table opened with its number. */
+  get history(): TableHistory<V> {
+    return { round: this.round, rounds: this.rounds };
   }
 
   get players(): number {
@@ -168,8 +183,8 @@ export class PartyTable<S extends string, R, V, X> {
   }
 
   /**
-   * A player's vote to deal now (`ready` false takes it back). When everyone at the table has voted
-   * and someone has chips down, the round is dealt at once. False when the round isn't taking bets.
+   * A player's vote to deal now (`ready` false takes it back). When everyone at the table has voted,
+   * the round is dealt at once. False when the round isn't taking bets.
    */
   setReady(userId: string, ready: boolean): boolean {
     const seat = this.seats.find((s) => s.player.userId === userId);
@@ -180,9 +195,9 @@ export class PartyTable<S extends string, R, V, X> {
     return true;
   }
 
-  /** Everyone at the table voted to deal, and there are chips to deal for. */
+  /** Everyone at the table voted to deal. */
   private allReady(): boolean {
-    return this.phase === 'betting' && this.seats.length > 0 && this.seats.every((s) => s.ready) && this.seats.some((s) => sumBets(s.bets) > 0);
+    return this.phase === 'betting' && this.seats.length > 0 && this.seats.every((s) => s.ready);
   }
 
   /** A player's chips on the table now. Null when they went down; why not otherwise. */
@@ -219,12 +234,11 @@ export class PartyTable<S extends string, R, V, X> {
     if (announce) this.broadcast();
   }
 
-  /** The betting is over: deals the round for everyone with chips down, or starts the betting over if nobody has. */
+  /** The betting is over: deals the round, settling everyone with chips down. */
   async dealNow(): Promise<void> {
     if (this.closed || this.phase !== 'betting') return;
     this.cancel?.();
     const betting = this.seats.filter((s) => sumBets(s.bets) > 0);
-    if (betting.length === 0) return this.startBetting();
 
     this.phase = 'dealing';
     const round = this.deps.deal();
@@ -301,6 +315,8 @@ export class PartyTable<S extends string, R, V, X> {
 /** A game's open tables, by server. */
 export class PartyTables<S extends string, R, V, X> {
   private readonly tables = new Map<string, PartyTable<S, R, V, X>[]>();
+  /** Where each table closed left off, by server and then table number. */
+  private readonly histories = new Map<string, Map<number, TableHistory<V>>>();
   /** The table each player sat at last (by playerKey), to go back to while it has room. */
   private readonly lastTable = new Map<string, PartyTable<S, R, V, X>>();
 
@@ -331,11 +347,22 @@ export class PartyTables<S extends string, R, V, X> {
       // The lowest table number not in use.
       let number = 1;
       while (open.some((t) => t.number === number)) number++;
-      table = new PartyTable(this.game, player.guildId, number, deps, (empty) => {
-        const list = this.tables.get(player.guildId)?.filter((t) => t !== empty) ?? [];
-        if (list.length > 0) this.tables.set(player.guildId, list);
-        else this.tables.delete(player.guildId);
-      });
+      const { guildId } = player;
+      const histories = this.histories.get(guildId) ?? new Map<number, TableHistory<V>>();
+      this.histories.set(guildId, histories);
+      table = new PartyTable(
+        this.game,
+        guildId,
+        number,
+        deps,
+        (empty) => {
+          histories.set(empty.number, empty.history);
+          const list = this.tables.get(guildId)?.filter((t) => t !== empty) ?? [];
+          if (list.length > 0) this.tables.set(guildId, list);
+          else this.tables.delete(guildId);
+        },
+        histories.get(number),
+      );
       this.tables.set(player.guildId, [...open, table].sort((a, b) => a.number - b.number));
     }
     this.lastTable.set(key, table);
@@ -346,6 +373,7 @@ export class PartyTables<S extends string, R, V, X> {
   /** For tests: forgets every table. */
   reset(): void {
     this.tables.clear();
+    this.histories.clear();
     this.lastTable.clear();
   }
 }

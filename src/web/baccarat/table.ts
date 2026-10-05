@@ -23,6 +23,9 @@ export function handCode(round: BaccaratRound): string {
   return `${WINNER_CODE[round.winner]}${total}${pair(round.player) ? 'p' : ''}${pair(round.banker) ? 'b' : ''}${round.natural ? 'n' : ''}`;
 }
 
+/** The scoreboard a new hand goes on: a full one is cleared, like a casino's with each new shoe. */
+const board = (history: readonly string[]): readonly string[] => (history.length >= BACCARAT_TABLE.history ? [] : history);
+
 export const baccaratGame: PartyGame<BaccaratBet, BaccaratRound, BaccaratRoundView, BaccaratExtras> = {
   live: 'baccarat',
   table: BACCARAT_TABLE,
@@ -38,7 +41,7 @@ export const baccaratGame: PartyGame<BaccaratBet, BaccaratRound, BaccaratRoundVi
     bankerTotal: round.bankerTotal,
     winner: round.winner,
     natural: round.natural,
-    history: [...(previous?.history ?? []), handCode(round)].slice(-BACCARAT_TABLE.history),
+    history: [...board(previous?.history ?? []), handCode(round)],
   }),
   extras: () => ({ payouts: { player: 1, ...CONFIG.baccarat.payout } }),
   outcome: (round) => (round.winner === 'tie' ? 'Tie' : `${round.winner === 'player' ? 'Player' : 'Banker'} wins`),

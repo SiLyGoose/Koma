@@ -22,11 +22,11 @@ export const ROULETTE_WEB = {
  * The shared tables (web/roulette/table.ts, like baccarat's). Members opening roulette are seated at
  * the first table in their server with a free seat.
  * - `seats`: how many players a table holds.
- * - `bettingMs`: how long each round's betting lasts; when it's up the wheel is spun for everyone
- *   with chips down (a round with no chips on the table isn't spun, the betting just starts over).
+ * - `bettingMs`: how long each round's betting lasts; when it's up the wheel is spun, settling
+ *   everyone with chips down (it's spun even with no chips on the table).
  * - `showMs`: how long after a spin before the next round's betting starts. The page spins the wheel
  *   for about 7s, then shows how everyone did for the rest of it.
- * - `recent`: how many of the last numbers the table shows.
+ * - `recent`: how many of the last numbers the table shows (the oldest drop off as new ones come).
  */
 export const ROULETTE_TABLE = {
   seats: 8,
