@@ -319,6 +319,15 @@ export const SPECS: readonly SettingSpec[] = [
   int('raid.reward', 'Raid', `${CURRENCY_EMOJI} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.tokenReward', 'Raid', `${TOKEN_NAME} (one free gacha pull each) each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.gemReward', 'Raid', `${GEM_NAME} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
+  {
+    key: 'raid.dropChance',
+    group: 'Raid',
+    description: 'Chance each raid player who took part finds a 4-star raid item (only bosses drop them) when the boss is beaten.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
 
   int(
     'stonks.capHours',

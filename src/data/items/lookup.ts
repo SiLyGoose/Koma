@@ -10,6 +10,14 @@ export function itemsByStars(stars: Stars): ItemDef[] {
   return ITEMS.filter((item) => item.stars === stars);
 }
 
+/** The items of a star tier the gacha can pull: all of them but the raid drops. */
+export function gachaItems(stars: Stars): ItemDef[] {
+  return itemsByStars(stars).filter((item) => !item.raidDrop);
+}
+
+/** The items that only drop from raid bosses (ItemDef.raidDrop). */
+export const RAID_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.raidDrop);
+
 export type ItemLookup = { kind: 'found'; item: ItemDef } | { kind: 'ambiguous'; matches: ItemDef[] } | { kind: 'none' };
 
 /**

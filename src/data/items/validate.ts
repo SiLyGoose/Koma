@@ -3,7 +3,7 @@ import { normalize } from '../../lib/text.js';
 import { EFFECTS } from '../../perks/index.js';
 import { SLOTS, STARS } from '../../types.js';
 import { ITEMS } from './catalog.js';
-import { itemsByStars } from './lookup.js';
+import { gachaItems } from './lookup.js';
 
 /** Throws at startup if the catalog would break the gacha or the equipment system. */
 export function validateItems(): void {
@@ -43,8 +43,8 @@ export function validateItems(): void {
     }
   }
   for (const stars of STARS) {
-    if (itemsByStars(stars).length === 0) {
-      throw new Error(`The ${stars}-star tier has no items, so it could never be rolled.`);
+    if (gachaItems(stars).length === 0) {
+      throw new Error(`The ${stars}-star tier has no items the gacha can pull (raid drops don't count), so it could never be rolled.`);
     }
   }
 }

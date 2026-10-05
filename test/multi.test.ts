@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CURRENCY_EMOJI, MULTI_PULLS, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/items/gacha.js';
-import { itemsByStars } from '../src/data/items.js';
+import { gachaItems, itemsByStars } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
 
 const item = (stars: Stars): ItemDef => ({ id: `t${stars}`, name: `Test ${stars}`, stars, slot: 'weapon', description: '', effects: [] });
@@ -100,10 +100,12 @@ test('guarantee: carried through a multi pull, and only lower tiers leave it alo
 test('guarantee: a guaranteed treasure pull always gives the member their own treasure', () => {
   // Pull 90 is hard pity with the default settings, so it is always a treasure.
   for (let i = 0; i < 200; i++) assert.equal(rollItem(90, HXLON, true).id, 'frog');
-  // Without the guarantee every treasure can come up.
+  // Without the guarantee every 4-star the gacha gives can come up, and never a raid drop.
   const ids = new Set<string>();
   for (let i = 0; i < 2000; i++) ids.add(rollItem(90, HXLON, false).id);
-  assert.equal(ids.size, itemsByStars(4).length);
+  assert.equal(ids.size, gachaItems(4).length);
+  assert.ok(itemsByStars(4).some((item) => item.raidDrop), 'there are raid drops in the 4-star tier to leave out');
+  for (const item of itemsByStars(4).filter((i) => i.raidDrop)) assert.ok(!ids.has(item.id), `${item.id} was pulled`);
 });
 
 test('gacha: every pull shows how far along the pity counter is', async () => {

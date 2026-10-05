@@ -1,10 +1,11 @@
 import type { RaidBossId } from '../constants/index.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
+import { rollRaidDrops, type RaidDrop } from '../lib/game/items/raid-drops.js';
 import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
-import { giveGems, giveTokens } from './economy/index.js';
+import { addCopy, giveGems, giveTokens } from './economy/index.js';
 import { isDuplicateKey, recordLedger } from './economy/shared.js';
 import { payShares } from './events.js';
 import { addVaultLoss } from './vault.js';
@@ -111,12 +112,24 @@ export async function finishRaid(
 }
 
 export interface RaidReward {
-  /** Who could not be paid their points, komaTokens or komaGems (logged). Everyone else got all of it. */
+  /** Who could not be paid their points, komaTokens, komaGems or item (logged). Everyone else got all of it. */
   failed: string[];
+  /** The raid items found (see rollRaidDrops), only the ones really given. */
+  drops: RaidDrop[];
 }
 
-/** Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems. */
-export async function rewardRaid(guildId: string, userIds: readonly string[], reward: number, tokens: number, gems: number): Promise<RaidReward> {
+/**
+ * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives
+ * each of them a `dropChance` chance at a raid-only item.
+ */
+export async function rewardRaid(
+  guildId: string,
+  userIds: readonly string[],
+  reward: number,
+  tokens: number,
+  gems: number,
+  dropChance = 0,
+): Promise<RaidReward> {
   const shares: CrateShare[] = userIds.map((userId) => ({ userId, amount: reward }));
   const payout = await payShares(guildId, shares, 'raid_reward');
   const failed = new Set(payout.failed);
@@ -140,7 +153,17 @@ export async function rewardRaid(guildId: string, userIds: readonly string[], re
       }
     }
   }
-  return { failed: [...failed] };
+  const drops: RaidDrop[] = [];
+  for (const drop of rollRaidDrops(userIds, dropChance)) {
+    try {
+      await addCopy(guildId, drop.userId, drop.item.id);
+      drops.push(drop);
+    } catch (err) {
+      console.error(`Could not give ${drop.userId} their raid drop ${drop.item.id} in ${guildId}:`, err);
+      failed.add(drop.userId);
+    }
+  }
+  return { failed: [...failed], drops };
 }
 
 /**

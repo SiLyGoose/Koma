@@ -314,6 +314,12 @@ Grows with every raider (at least ${min}).`,
   noPointsLost: 'None.',
   places: ['🥇', '🥈', '🥉'],
   payFailed: (count: number) => `${plural(count, 'reward', 'rewards')} could not be paid. Ask the admin.`,
+  /** Under the rewards in the lobby and `raid stats`: each raider's chance (like "10%") at a raid-only item. */
+  dropChance: (chance: string) => `Each raider also has a **${chance}** chance to find a 4★ raid item, which can't be pulled from the gacha.`,
+  /** The raid items found after a win (raid drops). `stars` is like "★★★★". */
+  lootField: '🎁 Loot',
+  lootLine: (user: string, stars: string, item: string) => `${user} found ${stars} **${item}**!`,
+  noLoot: 'No raid items dropped this time.',
 
   // `raid` once this week's raid has been fought: how it went
   weekTitle: (b: RaidBossText, outcome: 'won' | 'wiped' | 'fled') =>

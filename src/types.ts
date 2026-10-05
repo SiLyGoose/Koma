@@ -36,6 +36,11 @@ export interface ItemDef {
    * Missing means everyone can use it. When present it must list at least one id.
    */
   usableBy?: readonly string[];
+  /**
+   * Only drops from raid bosses: never pulled from the gacha, and each raider who beats a raid boss
+   * has a raid.dropChance chance of one (lib/game/items/raid-drops.ts). Missing means it's pulled as usual.
+   */
+  raidDrop?: true;
   /** Optional: a bonus an R5 copy gets once forged into a masterwork with komaGems (see ItemBonus). */
   bonus?: ItemBonus;
 }

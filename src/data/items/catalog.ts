@@ -17,6 +17,8 @@ import type { ItemDef } from '../../types.js';
  * An item can be made exclusive with `usableBy: [MEMBERS.<name>, ...]` (add the member to
  * data/members.ts first). Anyone can pull, own and equip it, but only the listed members (and
  * the admin, for testing) get its effects. Leave `usableBy` out and everyone can use it.
+ *
+ * An item marked `raidDrop: true` can't be pulled from the gacha: it only drops from raid bosses.
  */
 export const ITEMS: readonly ItemDef[] = [
   // 1 star
@@ -480,6 +482,8 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'Fire in the hole!',
     effects: ['dynamiteBlast', 'blastLoss'],
   },
+
+  // 4-star raid gear: never pulled, only dropped by raid bosses (raidDrop).
   {
     id: 'colossus-plate',
     name: 'Colossus Plate',
@@ -487,6 +491,7 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'armor',
     description: 'Forged for a giant who never fell. On anyone smaller it is a fortress with legs.',
     effects: ['raidHp'],
+    raidDrop: true,
   },
   {
     id: 'worldbreaker-maul',
@@ -495,6 +500,7 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Someone once swung it at a mountain. The mountain lost.',
     effects: ['raidAttack'],
+    raidDrop: true,
   },
   {
     id: 'moonpiercer-bow',
@@ -503,6 +509,7 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Its arrows find the gap between two heartbeats.',
     effects: ['raidCritChance'],
+    raidDrop: true,
   },
   {
     id: 'godslayer-fang',
@@ -511,6 +518,7 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'A tooth from something older than dragons. It still remembers how to kill them.',
     effects: ['raidCritDamage'],
+    raidDrop: true,
   },
   {
     id: 'seraphs-raiment',
@@ -519,5 +527,6 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'armor',
     description: 'Feathers of light stitched into silk. Wounds close and lines hold wherever it walks.',
     effects: ['raidSupport'],
+    raidDrop: true,
   },
 ];

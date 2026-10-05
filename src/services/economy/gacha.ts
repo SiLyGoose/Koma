@@ -35,7 +35,7 @@ export type PullResult =
   | { ok: false; balance: number; cost: number; tokens: number };
 
 /** Gives the member a new copy of an item. `count` is how many copies of it they now have. */
-async function addCopy(guildId: string, userId: string, itemId: string): Promise<{ copy: ItemCopyDoc; count: number }> {
+export async function addCopy(guildId: string, userId: string, itemId: string): Promise<{ copy: ItemCopyDoc; count: number }> {
   const { items } = collections();
   for (let attempt = 0; ; attempt++) {
     const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 1, obtainedAt: new Date() };

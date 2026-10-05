@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG, STARS } from '../../../config.js';
 import { PITY_STARS } from '../../../constants/index.js';
-import { itemsByStars } from '../../../data/items.js';
+import { gachaItems } from '../../../data/items.js';
 import type { ItemDef, Stars } from '../../../types.js';
 import { chance } from '../../random.js';
 
@@ -71,18 +71,18 @@ export function rollStarsAtPull(
  * their own treasure here, not for everyone's (unlike canUseItem).
  */
 export function ownTreasures(userId: string): ItemDef[] {
-  return itemsByStars(PITY_STARS).filter((item) => item.usableBy?.includes(userId) ?? false);
+  return gachaItems(PITY_STARS).filter((item) => item.usableBy?.includes(userId) ?? false);
 }
 
 /**
- * Rolls a tier, then picks uniformly among the items in that tier. `pullNumber` is which pull
+ * Rolls a tier, then picks uniformly among the items in that tier the gacha can pull (not raid drops). `pullNumber` is which pull
  * this is since the member's last pity-tier item (1 if pity doesn't matter). When `guaranteed`
  * is set and the roll lands on the pity tier, the pick is made only among `userId`'s own
  * treasures (see ownTreasures) instead of the whole tier.
  */
 export function rollItem(pullNumber = 1, userId?: string, guaranteed = false): ItemDef {
   const stars = rollStarsAtPull(pullNumber);
-  let pool = itemsByStars(stars);
+  let pool = gachaItems(stars);
   if (stars === PITY_STARS && guaranteed && userId) {
     const own = ownTreasures(userId);
     if (own.length > 0) pool = own;
