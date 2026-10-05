@@ -37,6 +37,7 @@ export interface RobReceiptResult {
   victimBalance: number;
   rolled: number;
   gearBonus: number;
+  treasure: { name: string; amount: number } | null;
   shielded: number;
   streak: { count: number; rate: number; bonus: number } | null;
   vulnerableBonus: number;
@@ -55,6 +56,16 @@ const RULE = '━━━━━━━━━━';
 
 /** A receipt line: its text, and what it added to the amount (negative when it took some off). */
 type ReceiptLine = [text: string, amount: number];
+
+/** The receipt lines for the robber's weapon and armor (`gear`), then their unique treasure, on the take or the fine. */
+function gearLines(gear: number, treasure: { name: string; amount: number } | null): ReceiptLine[] {
+  const lines: ReceiptLine[] = [];
+  if (gear > 0) lines.push([TEXT.rob.receiptGearAdded(fmt(gear)), gear]);
+  if (gear < 0) lines.push([TEXT.rob.receiptGearCut(fmt(-gear)), gear]);
+  if (treasure !== null && treasure.amount > 0) lines.push([TEXT.rob.receiptTreasureAdded(treasure.name, fmt(treasure.amount)), treasure.amount]);
+  if (treasure !== null && treasure.amount < 0) lines.push([TEXT.rob.receiptTreasureCut(treasure.name, fmt(-treasure.amount)), treasure.amount]);
+  return lines;
+}
 
 /**
  * A successful rob's text, `robber` and `victim` being mentions. With nothing but the roll to it, one
@@ -85,9 +96,7 @@ export function robReceipt(robber: string, victim: string, result: RobReceiptRes
   }
 
   // What the victim paid, step by step.
-  const taken: ReceiptLine[] = [];
-  if (result.gearBonus > 0) taken.push([TEXT.rob.receiptGearAdded(fmt(result.gearBonus)), result.gearBonus]);
-  if (result.gearBonus < 0) taken.push([TEXT.rob.receiptGearCut(fmt(-result.gearBonus)), result.gearBonus]);
+  const taken: ReceiptLine[] = gearLines(result.gearBonus, result.treasure);
   if (result.shielded > 0) taken.push([TEXT.rob.receiptArmor(victim, fmt(result.shielded)), -result.shielded]);
   const { streak } = result;
   if (streak !== null && streak.bonus > 0) {
@@ -141,6 +150,7 @@ export function robReceipt(robber: string, victim: string, result: RobReceiptRes
 export interface RobCaughtResult {
   fine: number;
   owed: number;
+  fineTreasure: { name: string; amount: number } | null;
   vulnerable: number | null;
   d20: D20Roll | null;
 }
@@ -156,10 +166,8 @@ export function caughtReceipt(robber: string, victim: string, result: RobCaughtR
     result.vulnerable !== null ? `${text}\n\n${TEXT.rob.nowVulnerable(robber, formatPercent(result.vulnerable))}` : text;
 
   const base = CONFIG.rob.failFine;
-  const steps: ReceiptLine[] = [];
-  const gear = result.owed - base;
-  if (gear > 0) steps.push([TEXT.rob.receiptGearAdded(fmt(gear)), gear]);
-  if (gear < 0) steps.push([TEXT.rob.receiptGearCut(fmt(-gear)), gear]);
+  const treasure = result.fineTreasure?.amount ?? 0;
+  const steps: ReceiptLine[] = gearLines(result.owed - treasure - base, result.fineTreasure);
   const { d20 } = result;
   if (d20?.kind === 'fail' && d20.bonus !== null) {
     const added = d20Penalty(result.owed, d20) - result.owed;

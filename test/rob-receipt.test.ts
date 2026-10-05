@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, SLOT_EMOJI, TEXT } from '../src/constants/index.js';
 import { fmt } from '../src/lib/format.js';
 import { caughtReceipt, robReceipt, type RobCaughtResult, type RobReceiptResult } from '../src/commands/rob.js';
 
@@ -10,6 +10,7 @@ const plain: RobReceiptResult = {
   victimBalance: 5000,
   rolled: 120,
   gearBonus: 0,
+  treasure: null,
   shielded: 0,
   streak: null,
   vulnerableBonus: 0,
@@ -75,7 +76,7 @@ test('rob receipt: a slip says what went back and what the robber is left with',
 });
 
 const base = CONFIG.rob.failFine;
-const caught: RobCaughtResult = { fine: base, owed: base, vulnerable: null, d20: null };
+const caught: RobCaughtResult = { fine: base, owed: base, fineTreasure: null, vulnerable: null, d20: null };
 
 test('caught receipt: a caught rob with nothing but the base fine is one sentence', () => {
   assert.equal(caughtReceipt('@Z', '@I', caught), `@Z tried to rob @I but got caught, and paid them a fine of ${money(fmt(base))}`);
@@ -109,4 +110,16 @@ test("caught receipt: gear that cancels the fine, and a robber who couldn't pay 
   const short = caughtReceipt('@Z', '@I', { ...caught, fine: base - 10, owed: base * 2 });
   assert.ok(short.includes(`@Z was short ${money(fmt(base + 10))}`));
   assert.ok(short.endsWith(`You paid @I ${money(fmt(base - 10))}`));
+});
+
+test("rob receipts: the robber's unique treasure gets its own line, after the weapon and armor", () => {
+  const text = robReceipt('@Z', '@I', { ...plain, stolen: 90, gearBonus: 30, treasure: { name: 'Coughing Baby', amount: -60 } });
+  const lines = text.split('\n');
+  assert.deepEqual(lines.slice(2, 5), [`💸 Stole ${money('120')}`, `🗡️ Gear added ${money('30')}`, `${SLOT_EMOJI.treasure} Coughing Baby reduced by ${money('60')}`]);
+  assert.ok(!text.includes('short'));
+
+  const fine = caughtReceipt('@Z', '@I', { ...caught, fine: base * 3, owed: base * 3, fineTreasure: { name: 'C4', amount: base * 2 } });
+  assert.ok(!fine.includes('Gear'));
+  assert.ok(fine.includes(`${SLOT_EMOJI.treasure} C4 added ${money(fmt(base * 2))}`));
+  assert.ok(fine.endsWith(`You paid @I ${money(fmt(base * 3))}`));
 });

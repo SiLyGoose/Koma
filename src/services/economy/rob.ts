@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../../config.js';
 import { MINUTE_MS, ROB_LOCK, ROB_STREAK_WINDOW_MS } from '../../constants/index.js';
 import { collections } from '../../db.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
 import { chance, randInt } from '../../lib/random.js';
 import {
@@ -73,8 +74,10 @@ export type RobResult =
       wheel: WheelSpin | null;
       /** What was rolled between rob.minStolen and rob.maxStolen, before anyone's gear. */
       rolled: number;
-      /** How many points the robber's gear added to what was taken (negative when it cut it, like a robAmountCut). */
+      /** How many points the robber's weapon and armor added to what was taken (negative when they cut it, like a robAmountCut). */
       gearBonus: number;
+      /** Set when the robber's unique treasure changed what was taken: its name, and the points it added (negative when it cut it, like the Coughing Baby). Applied after `gearBonus`. */
+      treasure: { name: string; amount: number } | null;
       /** How many points the victim's armor kept from the robber. */
       shielded: number;
       /** How many points the wheel added to the robber's take (negative if it took some away); 0 when it didn't spin. The victim doesn't pay it. */
@@ -110,6 +113,8 @@ export type RobResult =
       owed: number;
       /** How much of the fine the robber's gear cancelled. */
       waived: number;
+      /** Set when the robber's unique treasure changed the fine: its name, and the points it added (negative when it cut it). Part of `owed`, applied after the weapon and armor. */
+      fineTreasure: { name: string; amount: number } | null;
       /** How much more than the base fine the robber paid because of their gear (a glass cannon). 0 when gear made it smaller or did nothing, or when they couldn't afford more than the base fine. */
       raised: number;
       /** How much more than `owed` the robber paid because the D20's critical fail multiplied the fine by its bonus die. 0 otherwise. */
@@ -149,7 +154,14 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
   // applies now is the one the last rob started, and the one this rob starts comes from the
   // robber's gear right now.
   const robberDoc = await members.findOne({ guildId, userId: robberId });
-  const robberGear = gearEffects(await resolveGear(guildId, robberId, robberDoc?.equipment), robberId);
+  const robberGearIds = await resolveGear(guildId, robberId, robberDoc?.equipment);
+  const robberGear = gearEffects(robberGearIds, robberId);
+  // The robber's weapon and armor on their own, so the reply can show what the unique treasure did apart from them.
+  const robberGearNoTreasure = gearEffects({ ...robberGearIds, treasure: null }, robberId);
+  const treasureName = robberGearIds.treasure ? (ITEMS_BY_ID.get(robberGearIds.treasure)?.name ?? null) : null;
+  /** The treasure's part of an amount worked out with all the robber's gear, or null when it did nothing. */
+  const treasurePart = (withAll: number, withoutTreasure: number): { name: string; amount: number } | null =>
+    treasureName !== null && withAll !== withoutTreasure ? { name: treasureName, amount: withAll - withoutTreasure } : null;
   const cooldownMs = cfg.cooldownMinutes * MINUTE_MS * (robberDoc?.robCooldownScale ?? 1);
   const before = await members.findOneAndUpdate(
     {
@@ -272,6 +284,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       // What each effect did, so the reply can show it: the robber's gear, then the victim's armor,
       // then the wheel. Each step is the difference between two whole numbers, so they add up.
       const beforeArmor = robStolenAmount(rolled, robberGear, emptyTotals());
+      const beforeTreasure = robStolenAmount(rolled, robberGearNoTreasure, emptyTotals());
+      const treasure = treasurePart(beforeArmor, beforeTreasure);
       const wheel = spinWheel(wheelChance(robberGear), rollWheelDice(), wheelSlices(CONFIG.wheel.maxMultiplier));
       const transfer = await transferClamped(guildId, victimId, robberId, stolen, cfg.minVictimBalance);
       if (!transfer) {
@@ -318,7 +332,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
               // The rob was undone before the wheel paid out, so it didn't spin.
               wheel: null,
               rolled,
-              gearBonus: beforeArmor - rolled,
+              gearBonus: beforeTreasure - rolled,
+              treasure,
               shielded: Math.max(0, beforeArmor - taken),
               wheelBonus: 0,
               slip: { returned: Math.min(back.moved, transfer.moved), penalty: Math.max(0, back.moved - transfer.moved) },
@@ -471,7 +486,8 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         robTaxPaid,
         wheel,
         rolled,
-        gearBonus: beforeArmor - rolled,
+        gearBonus: beforeTreasure - rolled,
+        treasure,
         shielded: Math.max(0, beforeArmor - taken),
         wheelBonus,
         slip: null,
@@ -499,6 +515,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
     const owed = robFine(cfg.failFine, robberGear);
     // Only counts what gear cancelled; a fine raised by gear (glassCannon) is not "waived".
     const waived = Math.max(0, cfg.failFine - owed);
+    const fineTreasure = treasurePart(owed, robFine(cfg.failFine, robberGearNoTreasure));
     // D20: a critical fail multiplies the fine (after gear) by its bonus die.
     const wanted = d20?.kind === 'fail' ? d20Penalty(owed, d20) : owed;
     const transfer = wanted > 0 ? await transferClamped(guildId, robberId, victimId, wanted, 1) : null;
@@ -512,6 +529,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
         fine: 0,
         owed,
         waived,
+        fineTreasure,
         raised: 0,
         d20Extra: 0,
         robberBalance: robber?.points ?? 0,
@@ -535,6 +553,7 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
       fine: transfer.moved,
       owed,
       waived,
+      fineTreasure,
       // Only what was really paid above the base fine counts, so a fine cut short by what the robber had adds nothing.
       raised: Math.max(0, Math.min(transfer.moved, owed) - cfg.failFine),
       // Likewise, only what was really paid above the fine after gear.

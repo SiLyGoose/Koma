@@ -1,4 +1,5 @@
 import { CURRENCY_EMOJI } from '../core.js';
+import { SLOT_EMOJI } from '../formatting.js';
 import { boldMoney } from './currency.js';
 
 export const robText = {
@@ -34,6 +35,9 @@ export const robText = {
   receiptGearAdded: (amount: string) => `🗡️ Gear added ${boldMoney(amount)}`,
   /** The robber's gear made the take smaller (a cut, like the Coughing Baby's). */
   receiptGearCut: (amount: string) => `🗡️ Gear reduced by ${boldMoney(amount)}`,
+  /** The robber's unique treasure made the take (or, on a caught rob, the fine) bigger. `name` is the item's. */
+  receiptTreasureAdded: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} added ${boldMoney(amount)}`,
+  receiptTreasureCut: (name: string, amount: string) => `${SLOT_EMOJI.treasure} ${name} reduced by ${boldMoney(amount)}`,
   receiptArmor: (victim: string, amount: string) => `🛡️ ${victim}'s armor reduced by ${boldMoney(amount)}`,
   /** Thoccy Keyboard: `count` robs in the last `hours` hours, this one included, for `rate` more. */
   receiptStreak: (count: number, hours: number, rate: string, amount: string) =>
