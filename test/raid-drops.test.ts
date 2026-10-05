@@ -7,7 +7,7 @@ import { ITEMS, ITEMS_BY_ID, RAID_DROPS, gachaItems, itemsByStars } from '../src
 import { createRaid, type RaidRng } from '../src/lib/events/raid.js';
 import { itemBlock, itemDetail } from '../src/lib/game/items/databank.js';
 import { ownTreasures } from '../src/lib/game/items/gacha.js';
-import { rollRaidDrops, type DropRng } from '../src/lib/game/items/raid-drops.js';
+import { raidDropChance, raidDropsOn, rollRaidDrops, type DropRng } from '../src/lib/game/items/raid-drops.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 import type { ItemDef } from '../src/types.js';
 
@@ -31,35 +31,53 @@ test('raid drops: the 4-star raid gear is raid-only, and the gacha leaves it out
   assert.ok(ownTreasures('anyone').every((item) => !item.raidDrop));
 });
 
-test('raid drops: each raider rolls the drop chance once, and a hit picks one of the raid drops', () => {
+test('raid drops: the party rolls once, and on a hit every raider finds one of the raid drops', () => {
   const asked: number[] = [];
-  const hits = new Set(['b', 'c']);
   let next = 0;
   const pool = RAID_DROPS.slice(0, 3);
   const users = ['a', 'b', 'c', 'd'];
-  let i = 0;
-  const rng: DropRng = {
-    chance: (p) => (asked.push(p), hits.has(users[i++] as string)),
-    index: (max) => next++ % max,
-  };
-  const drops = rollRaidDrops(users, 0.1, rng, pool);
-  assert.deepEqual(asked, [0.1, 0.1, 0.1, 0.1]);
-  assert.deepEqual(drops, [
-    { userId: 'b', item: pool[0] },
-    { userId: 'c', item: pool[1] },
+  const hit: DropRng = { chance: (p) => (asked.push(p), true), index: (max) => next++ % max };
+  assert.deepEqual(rollRaidDrops(users, 0.6, hit, pool), [
+    { userId: 'a', item: pool[0] },
+    { userId: 'b', item: pool[1] },
+    { userId: 'c', item: pool[2] },
+    { userId: 'd', item: pool[0] },
   ]);
+  assert.deepEqual(asked, [0.6], 'one roll for the whole party');
+
+  const miss: DropRng = { chance: (p) => (asked.push(p), false), index: () => assert.fail('nothing to pick on a miss') };
+  assert.deepEqual(rollRaidDrops(users, 0.6, miss, pool), [], 'a miss drops nothing for anyone');
+  assert.deepEqual(asked, [0.6, 0.6]);
 
   const always: DropRng = { chance: () => true, index: () => 0 };
   assert.deepEqual(rollRaidDrops(users, 0, always, pool), [], 'a 0% chance drops nothing, without rolling');
   assert.deepEqual(rollRaidDrops(users, 1, always, []), [], 'no raid drops in the catalog, nothing to find');
+  assert.deepEqual(rollRaidDrops([], 1, always, pool), [], 'nobody to give them to');
 });
 
-test('raid drops: the chance is a setting, 10% by default, shown in the lobby rewards and `raid stats`', () => {
-  assert.equal(DEFAULTS.raid.dropChance, 0.1);
+test("raid drops: the party's chance is 20% plus 10% for each raider, up to 100%", () => {
+  const cfg = DEFAULTS.raid;
+  const close = (actual: number, expected: number, what: string): void => assert.ok(Math.abs(actual - expected) < 1e-9, `${what}: ${actual}`);
+  close(raidDropChance(1, cfg), 0.3, 'solo');
+  close(raidDropChance(4, cfg), 0.6, 'four raiders');
+  close(raidDropChance(7, cfg), 0.9, 'seven raiders');
+  assert.equal(raidDropChance(8, cfg), 1);
+  assert.equal(raidDropChance(20, cfg), 1, 'capped at 100%');
+  close(raidDropChance(0, cfg), 0.2, 'the base chance');
+  assert.equal(raidDropChance(5, { dropChance: 0, dropChancePerRaider: 0 }), 0);
+  assert.ok(raidDropsOn(cfg));
+  assert.ok(raidDropsOn({ dropChance: 0, dropChancePerRaider: 0.1 }), 'on with only the per-raider chance');
+  assert.ok(!raidDropsOn({ dropChance: 0, dropChancePerRaider: 0 }));
+});
+
+test('raid drops: the chances are settings, 20% and +10% per raider by default, shown in the lobby rewards and `raid stats`', () => {
+  assert.equal(DEFAULTS.raid.dropChance, 0.2);
+  assert.equal(DEFAULTS.raid.dropChancePerRaider, 0.1);
   assert.ok(findSpec('raid.dropChance'), 'it can be changed with the config command');
+  assert.ok(findSpec('raid.dropChancePerRaider'), 'it can be changed with the config command');
   const rewards = (cfg: typeof DEFAULTS.raid): string => bossInfoEmbed(cfg).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
-  assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('10%')), rewards(DEFAULTS.raid));
-  assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0 }).includes('4★'), 'left out when drops are off');
+  assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('20%', '10%')), rewards(DEFAULTS.raid));
+  assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }).includes('4★'), 'left out when drops are off');
 });
 
 test('raid drops: the result screen after a win lists what each raider found', () => {
@@ -72,7 +90,7 @@ test('raid drops: the result screen after a win lists what each raider found', (
 
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, next, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found ★★★★ **Godslayer Fang**!');
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, next, { failed: [], drops: [] })), TEXT.raid.noLoot);
-  assert.equal(loot(resultEmbed(state, { ...DEFAULTS.raid, dropChance: 0 }, next, { failed: [], drops: [] })), undefined, 'no loot field when drops are off');
+  assert.equal(loot(resultEmbed(state, { ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }, next, { failed: [], drops: [] })), undefined, 'no loot field when drops are off');
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, next, null)), undefined, 'no loot field when nobody was rewarded (a test raid)');
 });
 

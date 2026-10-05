@@ -43,7 +43,7 @@ export const databankText = {
   /** Last line of an item the gacha never gives (ItemDef.raidDrop). */
   raidDrop: '🎁 Only drops from raid bosses',
   detailRaidDropField: 'Where to get it',
-  detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives every raider a chance to find one.",
+  detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives the party a chance (higher with more raiders) that every raider finds one.",
   footer: (p: string) =>
     `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, and ${p}databank <weapon | armor | treasure> one category. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
   /** The details of one item (`databank <item>`). `stars` is the star string. */

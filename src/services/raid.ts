@@ -119,8 +119,8 @@ export interface RaidReward {
 }
 
 /**
- * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives
- * each of them a `dropChance` chance at a raid-only item.
+ * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives the
+ * party a `dropChance` chance (raidDropChance: one roll for all of them) that each finds a raid-only item.
  */
 export async function rewardRaid(
   guildId: string,

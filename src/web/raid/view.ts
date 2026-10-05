@@ -4,6 +4,7 @@ import { RAID_COMBAT, TEXT, type RaidBossId } from '../../constants/index.js';
 import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../commands/raid.js';
 import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, RAID_ACTIONS, type RaidAction } from '../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../lib/events/raid-live.js';
+import { raidDropsOn } from '../../lib/game/items/raid-drops.js';
 import type { RaidMood, RaidView } from './protocol.js';
 
 /*
@@ -50,6 +51,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
     avatars: current ? Object.fromEntries([...current.names.keys()].flatMap((id) => (avatar(id) ? [[id, avatar(id) as string]] : []))) : {},
     boss: { id: bossId, name: b.name, emoji: b.emoji },
     brief: bossBrief(CONFIG.raid, bossId),
+    drops: raidDropsOn(CONFIG.raid) ? { chance: CONFIG.raid.dropChance, perRaider: CONFIG.raid.dropChancePerRaider } : null,
     resetsAt: week.resetsAt,
     idle: null,
     lobby: null,

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { CONFIG } from '../src/config.js';
 import type { RaidWeekInfo, WebRaidStart } from '../src/commands/raid.js';
 import { createRaid, type RaidAction, type RaidChoice } from '../src/lib/events/raid.js';
 import { clearLiveRaids, openLiveRaid, type ActAnswer, type LobbyAnswer } from '../src/lib/events/raid-live.js';
@@ -102,6 +103,8 @@ test("a week whose raid was fought shows how it went, read back from the databas
   assert.deepEqual(v.names, { u1: 'Named u1', u2: 'Named u2' });
   // What the boss does, for the page: its phases, moves and rewards.
   assert.ok(v.brief.moves.length > 0 && v.brief.phases.length > 0 && v.brief.rewards.length > 0);
+  // And the raid drops' chances, for the party's buff effects.
+  assert.deepEqual(v.drops, { chance: CONFIG.raid.dropChance, perRaider: CONFIG.raid.dropChancePerRaider });
   c.connection.closed();
 });
 

@@ -322,7 +322,17 @@ export const SPECS: readonly SettingSpec[] = [
   {
     key: 'raid.dropChance',
     group: 'Raid',
-    description: 'Chance each raid player who took part finds a 4-star raid item (only bosses drop them) when the boss is beaten.',
+    description:
+      'Chance a beaten raid boss drops 4-star raid items (only bosses drop them), before raid.dropChancePerRaider. One roll for the whole party: on a hit, everyone who took part finds one.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'raid.dropChancePerRaider',
+    group: 'Raid',
+    description: 'How much each raid player who took part adds to raid.dropChance (the total is capped at 100%).',
     type: 'number',
     min: 0,
     max: 1,

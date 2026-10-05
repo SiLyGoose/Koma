@@ -211,8 +211,13 @@ export interface Settings {
     tokenReward: number;
     /** komaGems each player who took part gets when the boss is beaten. */
     gemReward: number;
-    /** The chance (0 to 1) each player who took part finds a raid-only item (ItemDef.raidDrop) when the boss is beaten. */
+    /**
+     * The chance (0 to 1) a beaten boss drops raid-only items (ItemDef.raidDrop) for the party, before
+     * dropChancePerRaider: one roll for the whole raid, and on a hit everyone who took part finds one.
+     */
     dropChance: number;
+    /** How much each player who took part adds to dropChance (0 to 1; the total is capped at 100%). */
+    dropChancePerRaider: number;
   };
   /**
    * STONKS!'s claim multiplier curve (perks/items/stackosaurus.ts stonksMultiplier). The multiplier's cap
@@ -336,7 +341,7 @@ export const DEFAULTS: Readonly<Settings> = {
   // 5,712). Each boss has its share of that (RAID_COMBAT.hpShare in constants/raid.ts), tuned so a
   // party of 5 wins about 60% of the time. Up to 15 rounds of 60 seconds after a 5-minute lobby.
   // Beating it pays everyone who took part 1,000, a multi pull's worth of komaTokens (10) and 5 komaGems,
-  // and gives each of them a 10% chance at one of the 4-star raid drops.
+  // and the party a 20% chance (+10% for each raider) that everyone finds one of the 4-star raid drops.
   raid: {
     hpPerPlayer: 600,
     hpGrowth: 0.06,
@@ -348,7 +353,8 @@ export const DEFAULTS: Readonly<Settings> = {
     reward: 1_000,
     tokenReward: 10,
     gemReward: 5,
-    dropChance: 0.1,
+    dropChance: 0.2,
+    dropChancePerRaider: 0.1,
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve

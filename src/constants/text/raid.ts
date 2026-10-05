@@ -314,8 +314,12 @@ Grows with every raider (at least ${min}).`,
   noPointsLost: 'None.',
   places: ['🥇', '🥈', '🥉'],
   payFailed: (count: number) => `${plural(count, 'reward', 'rewards')} could not be paid. Ask the admin.`,
-  /** Under the rewards in the lobby and `raid stats`: each raider's chance (like "10%") at a raid-only item. */
-  dropChance: (chance: string) => `Each raider also has a **${chance}** chance to find a 4★ raid item, which can't be pulled from the gacha.`,
+  /**
+   * Under the rewards in the lobby and `raid stats`: the party's chance (like "20%") that everyone finds a
+   * raid-only item, and what each raider adds (like "10%"). `now` is the chance with the lobby's party so far.
+   */
+  dropChance: (chance: string, perRaider: string, now?: string) =>
+    `The party also has a **${chance}** chance (+${perRaider} for each raider${now ? `, **${now}** with this party` : ''}) that everyone finds a 4★ raid item, which can't be pulled from the gacha.`,
   /** The raid items found after a win (raid drops). `stars` is like "★★★★". */
   lootField: '🎁 Loot',
   lootLine: (user: string, stars: string, item: string) => `${user} found ${stars} **${item}**!`,

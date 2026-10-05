@@ -67,6 +67,7 @@ import { commandPrefix } from '../discord/slash.js';
 import { chargeForSkip, raidWeekDocs, refundSkip } from '../services/skips.js';
 import { gearEffects } from '../lib/game/items/equipment.js';
 import { getEquipment } from '../services/items/equipment.js';
+import { raidDropChance, raidDropsOn } from '../lib/game/items/raid-drops.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited, mention, starString } from '../lib/format.js';
 import { sleep } from '../lib/time.js';
 import type { RaidDoc } from '../types.js';
@@ -380,8 +381,14 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     .setImage(`attachment://${RAID.imageName}`);
 }
 
-/** The line under the rewards about the raid drops (starting on a new line), or nothing when they're off. */
-const dropLine = (cfg: RaidSettings): string => (cfg.dropChance > 0 ? `\n${TEXT.raid.dropChance(formatPercent(cfg.dropChance))}` : '');
+/**
+ * The line under the rewards about the raid drops (starting on a new line), or nothing when they're off.
+ * With `raiders` (the lobby's party so far), it says the chance they have now too.
+ */
+const dropLine = (cfg: RaidSettings, raiders?: number): string =>
+  raidDropsOn(cfg)
+    ? `\n${TEXT.raid.dropChance(formatPercent(cfg.dropChance), formatPercent(cfg.dropChancePerRaider), raiders === undefined ? undefined : formatPercent(raidDropChance(raiders, cfg)))}`
+    : '';
 
 /** The screen once the fight is over: how it ended, and who did what (none of it changes the rewards). */
 export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date, reward: RaidReward | null, intoVault = 0): BotEmbed {
@@ -398,7 +405,7 @@ export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date,
       .setDescription(`${how}\n${r.bossLeft(fmt(state.bossHp), fmt(state.bossMaxHp))}\n${r.nextRaid(unixOfDate(nextRaid))}`);
   }
 
-  if (reward && cfg.dropChance > 0) {
+  if (reward && raidDropsOn(cfg)) {
     const loot = reward.drops.map((drop) => r.lootLine(mention(drop.userId), starString(drop.item.stars), drop.item.name));
     embed.addFields({ name: r.lootField, value: loot.length === 0 ? r.noLoot : joinLimited(loot) });
   }
@@ -679,7 +686,7 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
   const hasCc = movesOf(boss).some(isCcMove);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(b))
-    .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg))
+    .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length))
     .addFields(
       { name: r.howToField, value: r.howTo(b, cfg.turnSeconds, support.shieldBreak, formatMultiplier(support.attackMultiplier), support.rallyTurns, steals, hasCc) },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
@@ -1212,7 +1219,9 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
 
     let reward: RaidReward | null = null;
     const fought = participants(state);
-    if (outcome === 'won' && fought.length > 0 && !tested) reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward, cfg.dropChance);
+    if (outcome === 'won' && fought.length > 0 && !tested) {
+      reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward, raidDropChance(fought.length, cfg));
+    }
     live.end({ end: outcome, state, rewarded: reward !== null });
     const result = resultEmbed(state, cfg, week.next, reward, intoVault);
     if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });

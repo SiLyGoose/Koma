@@ -32,8 +32,12 @@ export type ItemSource = 'gacha' | 'raid';
 /** GET /api/databank. */
 export interface Databank {
   maxLevel: number;
-  /** The chance (0 to 1) each raider who beats a raid boss finds a raid drop (raid.dropChance; 0 when drops are off). */
+  /**
+   * The chance (0 to 1) a party that beats a raid boss gets raid drops, each of them finding one
+   * (raid.dropChance), before what each raider adds to it (raid.dropChancePerRaider). Both 0 when drops are off.
+   */
   raidDropChance: number;
+  raidDropChancePerRaider: number;
   /** Highest tier first, then in catalog order. */
   items: DatabankItem[];
 }
@@ -55,5 +59,5 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   );
   // A stable sort: within a tier, the catalog's own order.
   list.sort((a, b) => b.stars - a.stars);
-  return { maxLevel: REFINE.maxLevel, raidDropChance: CONFIG.raid.dropChance, items: list };
+  return { maxLevel: REFINE.maxLevel, raidDropChance: CONFIG.raid.dropChance, raidDropChancePerRaider: CONFIG.raid.dropChancePerRaider, items: list };
 }

@@ -40,8 +40,9 @@ test('databank page: every item, highest tier first, with its effects at each le
 });
 
 test('databank page: says where each item comes from, and the raid drop chance', () => {
-  const { raidDropChance, items } = databankView();
+  const { raidDropChance, raidDropChancePerRaider, items } = databankView();
   assert.equal(raidDropChance, CONFIG.raid.dropChance);
+  assert.equal(raidDropChancePerRaider, CONFIG.raid.dropChancePerRaider);
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : 'gacha', item.id);
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
 });

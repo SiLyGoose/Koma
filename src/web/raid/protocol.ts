@@ -104,6 +104,11 @@ export interface RaidView {
   boss: { id: RaidBossId; name: string; emoji: string };
   /** What the boss does, in markdown: its phases, its moves, and the rewards for beating it. */
   brief: { phases: string[]; moves: string[]; rewards: string };
+  /**
+   * The raid drops (0 to 1): the party's chance of them when it wins, and how much each raider adds
+   * (capped at 1). Null when they're off.
+   */
+  drops: { chance: number; perRaider: number } | null;
   /** The boss's picture now: its path under the bot's /api (GET). */
   picture: string;
   mood: RaidMood;
