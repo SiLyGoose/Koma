@@ -1,6 +1,6 @@
 import { CONFIG } from '../config.js';
 import { RAID_COMBAT } from '../constants/index.js';
-import { guardTakenShare, rallyMultiplierOf, raidGearFrom } from '../lib/events/raid.js';
+import { attackMultiplierOf, critChanceOf, critMultiplierOf, guardTakenShare, healMultiplierOf, playerMaxHp, rallyMultiplierOf, raidGearFrom } from '../lib/events/raid.js';
 import { formatMultiplier, formatPercent } from '../lib/format.js';
 import {
   claimAmount,
@@ -88,13 +88,13 @@ export function gearStats(gear: EffectTotals): StatSection[] {
     {
       title: 'Raid',
       rows: [
-        { label: 'HP', value: String(raid.playerHp), base: null },
-        { label: 'Attack', value: range(attack.min, attack.max), base: null },
+        row('HP', gear, (g) => String(playerMaxHp(raid.playerHp, fight(g)))),
+        row('Attack', gear, (g) => range(Math.round(attack.min * attackMultiplierOf(fight(g))), Math.round(attack.max * attackMultiplierOf(fight(g))))),
         row('Max HP damage', gear, (g) => formatPercent(raidGearFrom(g).maxHpDamage)),
-        { label: 'Critical Chance', value: formatPercent(attack.critChance), base: null },
+        row('Critical Chance', gear, (g) => formatPercent(critChanceOf(fight(g)))),
         // A crit's damage as a share of a normal hit's: 2x is 200%.
-        { label: 'Critical Damage', value: formatPercent(attack.critMultiplier), base: null },
-        { label: 'Heal', value: `${heal.amount} HP`, base: null },
+        row('Critical Damage', gear, (g) => formatPercent(critMultiplierOf(fight(g)))),
+        row('Heal', gear, (g) => `${Math.round(heal.amount * healMultiplierOf(fight(g)))} HP`),
         row('Heal splash', gear, (g) => formatPercent(raidGearFrom(g).healSplash)),
         row('Guard: hit taken', gear, (g) => formatPercent(guardTakenShare(fight(g)))),
         row('Rally', gear, (g) => `${formatMultiplier(rallyMultiplierOf(fight(g)))} for ${support.rallyTurns} turns`),

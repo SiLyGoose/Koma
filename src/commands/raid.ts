@@ -30,6 +30,7 @@ import {
   createRaid,
   damageRanking,
   emptyGear,
+  equipPlayers,
   raidGearFrom,
   type RaidGear,
   emptyStats,
@@ -1187,10 +1188,8 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     await updateRaid(id, { status: 'fighting' });
     const state = createRaid(boss, players, bossHpFor(players.length, cfg, RAID_COMBAT.hpShare[boss]), cfg.playerHp, cfg.maxRounds);
     // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
-    const gear = await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId)));
-    state.players.forEach((p, i) => {
-      p.gear = gear[i] ?? p.gear;
-    });
+    // Their HP too: raidHp gear has them start (at full) with more.
+    equipPlayers(state, await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId))), cfg.playerHp);
     // What each raider wore, for the site's end screen: kept on the live raid and the raid's document.
     await snapshotGear(ctx.guildId, id, players, live);
     const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, live, (moved) => {

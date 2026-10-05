@@ -20,12 +20,16 @@ export const gearText = {
   // `gear stats`: what a member fights a raid with. `gear` is the mark on a line their gear changed.
   // (Embed titles can't show custom emojis, so the title keeps a plain one.)
   statsTitle: (name: string) => `⚔️ ${name}'s raid stats`,
-  statsHp: (hp: number) => `❤️ **HP**: ${hp}`,
+  /** `normal` is what it would be without gear (null when gear doesn't change it). */
+  statsHp: (hp: number, normal: number | null, gear: string) => `❤️ **HP**: ${hp}${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   /** `damage` and `crit` are already formatted (a number, or a range like "60–100"). */
-  statsAttack: (damage: string) => `${E.attack} **Attack**: ${damage} damage`,
+  statsAttack: (damage: string, normal: string | null, gear: string) =>
+    `${E.attack} **Attack**: ${damage} damage${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsMaxHpDamage: (share: string, gear: string) => `↳ plus ${share} of the boss's max HP per hit ${gear}`,
-  statsCrit: (critChance: string, crit: string) => `${E.crit} **Crit chance**: ${critChance}, for ${crit} damage`,
-  statsHeal: (amount: number, revive: number) => `${E.heal} **Heal**: ${amount} HP, or brings back a knocked-out ally with ${revive} HP`,
+  /** `changed` is the gear mark when gear changes the chance or the damage, '' when it doesn't. */
+  statsCrit: (critChance: string, crit: string, changed: string) => `${E.crit} **Crit chance**: ${critChance}, for ${crit} damage${changed ? ` ${changed}` : ''}`,
+  statsHeal: (amount: number, revive: number, changed: string) =>
+    `${E.heal} **Heal**: ${amount} HP, or brings back a knocked-out ally with ${revive} HP${changed ? ` ${changed}` : ''}`,
   statsHealSplash: (share: string, amount: number, gear: string) => `↳ and mends a second ally for ${share} of it (${amount} HP) ${gear}`,
   statsGuard: (taken: string, normal: string | null, gear: string) =>
     `${E.guard} **Guard**: you take ${taken} of a hit${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,

@@ -2,7 +2,18 @@ import { RAID_COMBAT, REFINE, SLOT_EMOJI, SLOT_LABELS, TEXT } from '../constants
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { emptyGear, guardTakenShare, rallyMultiplierOf, raidGearFrom, type RaidGear } from '../lib/events/raid.js';
+import {
+  attackMultiplierOf,
+  critChanceOf,
+  critMultiplierOf,
+  emptyGear,
+  guardTakenShare,
+  healMultiplierOf,
+  playerMaxHp,
+  rallyMultiplierOf,
+  raidGearFrom,
+  type RaidGear,
+} from '../lib/events/raid.js';
 import { canUseItem, describeEffects, describeTotals, equippedGear, itemEffectiveness, showsMasterwork, totalEffects } from '../lib/game/items/equipment.js';
 import { formatMultiplier, formatPercent, mentionList, starString } from '../lib/format.js';
 import { getEquipment } from '../services/items/equipment.js';
@@ -19,23 +30,32 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
   const { attack, heal, support } = RAID_COMBAT;
   const range = (min: number, max: number): string => (min === max ? `${min}` : `${min}–${max}`);
   const base = { gear: emptyGear() };
-  const guard = guardTakenShare({ gear });
-  const rally = rallyMultiplierOf({ gear });
+  const geared = { gear };
+  const mark = t.statsGearMark;
+  /** Attack damage (a crit's, with `crit`) for `who`: the setting's range, times their attack (and crit) multiplier. */
+  const damage = (who: { gear: RaidGear }, crit: boolean): string => {
+    const times = attackMultiplierOf(who) * (crit ? critMultiplierOf(who) : 1);
+    return range(Math.round(attack.min * times), Math.round(attack.max * times));
+  };
+  const hp = playerMaxHp(playerHp, geared);
+  const healAmount = Math.round(heal.amount * healMultiplierOf(geared));
+  const revive = Math.max(1, Math.round(hp * heal.reviveShare * healMultiplierOf(geared)));
+  const critChanged = gear.raidCritChance > 0 || gear.raidCritDamage > 0 || gear.raidAttack > 0;
 
   const lines = [
-    t.statsHp(playerHp),
-    t.statsAttack(range(attack.min, attack.max)),
-    ...(gear.maxHpDamage > 0 ? [t.statsMaxHpDamage(formatPercent(gear.maxHpDamage), t.statsGearMark)] : []),
-    t.statsCrit(formatPercent(attack.critChance), range(attack.min * attack.critMultiplier, attack.max * attack.critMultiplier)),
-    t.statsHeal(heal.amount, Math.max(1, Math.round(playerHp * heal.reviveShare))),
+    t.statsHp(hp, gear.raidHp > 0 ? playerHp : null, mark),
+    t.statsAttack(damage(geared, false), gear.raidAttack > 0 ? damage(base, false) : null, mark),
+    ...(gear.maxHpDamage > 0 ? [t.statsMaxHpDamage(formatPercent(gear.maxHpDamage), mark)] : []),
+    t.statsCrit(formatPercent(critChanceOf(geared)), damage(geared, true), critChanged ? mark : ''),
+    t.statsHeal(healAmount, revive, gear.raidSupport > 0 || gear.raidHp > 0 ? mark : ''),
   ];
-  if (gear.healSplash > 0) lines.push(t.statsHealSplash(formatPercent(gear.healSplash), Math.max(1, Math.round(heal.amount * gear.healSplash)), t.statsGearMark));
+  if (gear.healSplash > 0) lines.push(t.statsHealSplash(formatPercent(gear.healSplash), Math.max(1, Math.round(heal.amount * healMultiplierOf(geared) * gear.healSplash)), mark));
   lines.push(
-    t.statsGuard(formatPercent(guard), gear.guardBoost > 0 ? formatPercent(guardTakenShare(base)) : null, t.statsGearMark),
-    t.statsRally(formatMultiplier(rally), support.rallyTurns, gear.rallyBoost > 0 ? formatMultiplier(rallyMultiplierOf(base)) : null, t.statsGearMark),
+    t.statsGuard(formatPercent(guardTakenShare(geared)), gear.guardBoost > 0 || gear.raidSupport > 0 ? formatPercent(guardTakenShare(base)) : null, mark),
+    t.statsRally(formatMultiplier(rallyMultiplierOf(geared)), support.rallyTurns, gear.rallyBoost > 0 ? formatMultiplier(rallyMultiplierOf(base)) : null, mark),
   );
-  if (gear.healCut > 0) lines.push(t.statsHealCut(formatPercent(gear.healCut), t.statsGearMark));
-  const hasGear = gear.healSplash > 0 || gear.guardBoost > 0 || gear.rallyBoost > 0 || gear.maxHpDamage > 0 || gear.healCut > 0;
+  if (gear.healCut > 0) lines.push(t.statsHealCut(formatPercent(gear.healCut), mark));
+  const hasGear = Object.values(gear).some((value) => value > 0);
   if (!hasGear) lines.push('', t.statsNoGear(prefix));
 
   const embed = createEmbed().setTitle(t.statsTitle(name)).setDescription(lines.join('\n'));

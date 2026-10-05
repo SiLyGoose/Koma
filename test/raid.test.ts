@@ -17,6 +17,7 @@ import {
   bossTurn,
   createRaid,
   damageRanking,
+  emptyGear,
   endRound,
   enrageLevel,
   movesOf,
@@ -946,7 +947,7 @@ test('moodOf: each phase and each ending has its own picture', () => {
 
 test('gear stats: the raid numbers a member fights with, and the ones their gear changed', async () => {
   const { raidStatsEmbed } = await import('../src/commands/gear.js');
-  const none = raidStatsEmbed('Ana', { healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0, healCut: 0 }, 100, 'k!').toJSON();
+  const none = raidStatsEmbed('Ana', emptyGear(), 100, 'k!').toJSON();
   assert.equal(none.title, "⚔️ Ana's raid stats");
   const plain = none.description ?? '';
   assert.match(plain, /❤️ \*\*HP\*\*: 100/);
@@ -957,7 +958,7 @@ test('gear stats: the raid numbers a member fights with, and the ones their gear
   assert.doesNotMatch(plain, /🎒|second ally|Heal cut/);
   assert.equal(none.footer, undefined);
 
-  const geared = raidStatsEmbed('Ana', { healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25, maxHpDamage: 0.005, healCut: 0.25 }, 100, 'k!').toJSON();
+  const geared = raidStatsEmbed('Ana', { ...emptyGear(), healSplash: 0.2, guardBoost: 0.25, rallyBoost: 0.25, maxHpDamage: 0.005, healCut: 0.25 }, 100, 'k!').toJSON();
   const text = geared.description ?? '';
   assert.match(text, /second ally for 20% of it \(6 HP\) 🎒/);
   assert.match(text, /plus 0\.5% of the boss's max HP per hit 🎒/);

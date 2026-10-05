@@ -16,6 +16,11 @@ import { pullDiscount } from './economy/pull-discount.js';
 import { robStreak, robStreakCap, robVulnerable } from './items/thoccy.js';
 import { burstFire, burstRecoil } from './items/mp5.js';
 import { rallyBoost } from './raid/rally-boost.js';
+import { raidAttack } from './raid/raid-attack.js';
+import { raidCritChance } from './raid/raid-crit-chance.js';
+import { raidCritDamage } from './raid/raid-crit-damage.js';
+import { raidHp } from './raid/raid-hp.js';
+import { raidSupport } from './raid/raid-support.js';
 import { robAmountCut } from './rob/rob-amount-cut.js';
 import { robAmount } from './rob/rob-amount.js';
 import { robChance } from './rob/rob-chance.js';
@@ -79,6 +84,11 @@ export const EFFECTS = {
   rallyBoost,
   maxHpDamage,
   healCut,
+  raidHp,
+  raidAttack,
+  raidCritChance,
+  raidCritDamage,
+  raidSupport,
   // Thoccy Keyboard.
   robStreak,
   robStreakCap,

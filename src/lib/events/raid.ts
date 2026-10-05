@@ -111,7 +111,8 @@ export interface RaidStats {
 
 /**
  * The raid perks from a player's equipped gear (perks/raid/heal-splash.ts, guard-boost.ts,
- * rally-boost.ts, max-hp-damage.ts, heal-cut.ts), as fractions. All 0 with no raid gear on.
+ * rally-boost.ts, max-hp-damage.ts, heal-cut.ts, raid-hp.ts, raid-attack.ts, raid-crit-chance.ts,
+ * raid-crit-damage.ts, raid-support.ts), as fractions. All 0 with no raid gear on.
  */
 export interface RaidGear {
   /** Share of each heal's value that also goes to a second hurt ally. */
@@ -124,17 +125,43 @@ export interface RaidGear {
   maxHpDamage: number;
   /** Share less the boss heals while they are standing (the strongest in the party counts). */
   healCut: number;
+  /** How much more HP they fight with (0.3 turns 100 HP into 130). */
+  raidHp: number;
+  /** How much harder their attacks hit, before rallies and crits. */
+  raidAttack: number;
+  /** Added to their chance of a critical hit (0.12 turns 10% into 22%). */
+  raidCritChance: number;
+  /** Added to what their critical hits multiply damage by (0.6 turns 2x into 2.6x). */
+  raidCritDamage: number;
+  /** How much more their heals heal, and (added to guardBoost) how much more of a hit their Guard blocks. */
+  raidSupport: number;
 }
 
-export const emptyGear = (): RaidGear => ({ healSplash: 0, guardBoost: 0, rallyBoost: 0, maxHpDamage: 0, healCut: 0 });
+export const emptyGear = (): RaidGear => ({
+  healSplash: 0,
+  guardBoost: 0,
+  rallyBoost: 0,
+  maxHpDamage: 0,
+  healCut: 0,
+  raidHp: 0,
+  raidAttack: 0,
+  raidCritChance: 0,
+  raidCritDamage: 0,
+  raidSupport: 0,
+});
 
 /** The raid perks out of a member's gear totals (lib/game/items/equipment.ts gearEffects). */
-export const raidGearFrom = ({ healSplash, guardBoost, rallyBoost, maxHpDamage, healCut }: RaidGear): RaidGear => ({
-  healSplash,
-  guardBoost,
-  rallyBoost,
-  maxHpDamage,
-  healCut,
+export const raidGearFrom = (totals: RaidGear): RaidGear => ({
+  healSplash: totals.healSplash,
+  guardBoost: totals.guardBoost,
+  rallyBoost: totals.rallyBoost,
+  maxHpDamage: totals.maxHpDamage,
+  healCut: totals.healCut,
+  raidHp: totals.raidHp,
+  raidAttack: totals.raidAttack,
+  raidCritChance: totals.raidCritChance,
+  raidCritDamage: totals.raidCritDamage,
+  raidSupport: totals.raidSupport,
 });
 
 export interface RaidPlayer {
@@ -293,9 +320,36 @@ export const HEALING_MOVES: readonly BossMove[] = ['reap', 'drain', 'harvest', '
 /** A percent boost as a multiplier: 25 -> 1.25. */
 const boosted = (amount: number, boost: number): number => amount * (1 + boost / 100);
 
-/** The share of a hit a guarding player takes: RAID_COMBAT.guard.takenShare, less with guardBoost (never below 0). */
+/** The share of a hit a guarding player takes: RAID_COMBAT.guard.takenShare, less with guardBoost and raidSupport (never below 0). */
 export const guardTakenShare = (player: { gear: RaidGear }): number =>
-  Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost));
+  Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost + player.gear.raidSupport));
+
+/** The HP a player fights with: `base` (the raid.playerHp setting), more with raidHp. */
+export const playerMaxHp = (base: number, player: { gear: RaidGear }): number => Math.max(1, Math.round(base * (1 + player.gear.raidHp)));
+
+/** What a player's attacks are multiplied by before rallies and crits (raidAttack). */
+export const attackMultiplierOf = (player: { gear: RaidGear }): number => 1 + player.gear.raidAttack;
+
+/** A player's chance of a critical hit: RAID_COMBAT.attack.critChance, plus raidCritChance (at most 1). */
+export const critChanceOf = (player: { gear: RaidGear }): number => Math.min(1, Math.max(0, RAID_COMBAT.attack.critChance + player.gear.raidCritChance));
+
+/** What a player's critical hits multiply damage by: RAID_COMBAT.attack.critMultiplier, plus raidCritDamage. */
+export const critMultiplierOf = (player: { gear: RaidGear }): number => RAID_COMBAT.attack.critMultiplier + player.gear.raidCritDamage;
+
+/** What a player's heals (and revives) are multiplied by (raidSupport). */
+export const healMultiplierOf = (player: { gear: RaidGear }): number => 1 + player.gear.raidSupport;
+
+/**
+ * Puts each player's gear on, as the fight starts (`gear` in the order of the players): their perks,
+ * and the HP they fight with (`baseHp`, the raid.playerHp setting, with raidHp), at full.
+ */
+export function equipPlayers(state: RaidState, gear: readonly (RaidGear | undefined)[], baseHp: number): void {
+  state.players.forEach((p, i) => {
+    p.gear = gear[i] ?? p.gear;
+    p.maxHp = playerMaxHp(baseHp, p);
+    p.hp = p.maxHp;
+  });
+}
 
 /** What a rally from this player multiplies attacks by: RAID_COMBAT.support.attackMultiplier, with its bonus made bigger by rallyBoost. */
 export const rallyMultiplierOf = (player: { gear: RaidGear }): number => 1 + (RAID_COMBAT.support.attackMultiplier - 1) * (1 + player.gear.rallyBoost);
@@ -392,7 +446,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       .filter((p) => p.userId !== healedId && p.hp < p.maxHp)
       .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (!other) return;
-    const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(boosted(RAID_COMBAT.heal.amount, boost) * healer.gear.healSplash)));
+    const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healer.gear.healSplash)));
     other.hp += amount;
     creditHeal(healer, other, amount);
     events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
@@ -403,7 +457,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     const wanted = picked && picked.hp < picked.maxHp ? picked : undefined;
     const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
-      down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare, boost))));
+      down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost))));
       creditHeal(healer, down, down.hp);
       events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost });
       splashHeal(healer, boost, down.userId);
@@ -418,7 +472,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       events.push({ kind: 'healWasted', userId });
       continue;
     }
-    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount, boost)));
+    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost)));
     hurt.hp += amount;
     creditHeal(healer, hurt, amount);
     events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost });
@@ -463,12 +517,13 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       events.push({ kind: 'bounced', userId });
       continue;
     }
-    const { min, max, critChance, critMultiplier } = RAID_COMBAT.attack;
-    const crit = rng.chance(critChance);
-    // maxHpDamage gear adds a share of the boss's max HP after everything else, so it stays that share.
+    const { min, max } = RAID_COMBAT.attack;
     const attacker = findPlayer(state, userId) as RaidPlayer;
+    const crit = rng.chance(critChanceOf(attacker));
+    // maxHpDamage gear adds a share of the boss's max HP after everything else, so it stays that share.
     const extra = state.bossMaxHp * attacker.gear.maxHpDamage;
-    const damage = Math.max(1, Math.round(boosted(rng.int(min, max), boost) * rallyMultiplier * (crit ? critMultiplier : 1) + extra));
+    const hit = boosted(rng.int(min, max), boost) * attackMultiplierOf(attacker);
+    const damage = Math.max(1, Math.round(hit * rallyMultiplier * (crit ? critMultiplierOf(attacker) : 1) + extra));
     const dealt = Math.min(damage, state.bossHp);
     state.bossHp -= dealt;
     (findPlayer(state, userId) as RaidPlayer).stats.damage += dealt;
