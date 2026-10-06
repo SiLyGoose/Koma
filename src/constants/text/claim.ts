@@ -3,11 +3,8 @@ import { boldMoney } from './currency.js';
 export const claimText = {
   already: (unix: number) => `You already claimed this hour. Come back <t:${unix}:R>`,
   title: 'Hourly claim',
-  /** A claim with nothing but the roll to it. */
-  claimed: (user: string, amount: string) => `${user} claimed ${boldMoney(amount)}`,
-
   /*
-   * A claim with effects on it reads as a receipt (commands/claim.ts claimReceipt), like a rob's: the
+   * A claim always reads as a receipt (commands/claim.ts claimReceipt), like a rob's: the
    * headline, one line per effect in the order it was applied, what was claimed, what changed it after
    * that (a claim tax, a D20 penalty) and what the member kept. The lines it shares with a rob's are in
    * receipt.ts.
@@ -16,7 +13,7 @@ export const claimText = {
   /** Instead of the headline when the D20 rolled a critical fail. */
   receiptFailHeadline: (user: string) => `**${user}'s claim fell through!**`,
   /** What was rolled before any gear. */
-  receiptRolled: (amount: string) => `💸 Rolled ${boldMoney(amount)}`,
+  receiptRolled: (amount: string) => `💸 Claimed ${boldMoney(amount)}`,
   /** The D20 rolled 2 or up: `multiplier` like "1.3x", or the bonus die's like "3x" on a critical success. */
   receiptD20Added: (roll: number, multiplier: string, amount: string) => `🎲 D20 rolled ${roll} (${multiplier}) added ${boldMoney(amount)}`,
   receiptD20Cut: (roll: number, multiplier: string, amount: string) => `🎲 D20 rolled ${roll} (${multiplier}) took ${boldMoney(amount)}`,

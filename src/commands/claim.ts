@@ -40,8 +40,8 @@ function d20Step(d20: D20Roll, bonus: number): ReceiptLine {
 }
 
 /**
- * A claim's text, `user` being a mention. With nothing but the roll to it, one sentence. Otherwise a
- * receipt like a rob's: every effect on the claim, in the order it was applied (gear, the wheel, the
+ * A claim's text, `user` being a mention: a receipt like a rob's, even with nothing but the roll to
+ * it. Every effect on the claim, in the order it was applied (gear, the wheel, the
  * D20, STONKS!), what was claimed, then what changed it after that (a claim tax, or on a critical
  * fail what the d3 made the member pay the vault) and what they kept or lost.
  */
@@ -55,8 +55,6 @@ export function claimReceipt(user: string, result: ClaimReceiptResult): string {
   if (result.stonks !== null && result.stonksBonus > 0) {
     steps.push([TEXT.claim.receiptStonks(formatMultiplier(result.stonks), fmt(result.stonksBonus)), result.stonksBonus]);
   }
-  if (steps.length === 0 && taxed === null) return TEXT.claim.claimed(user, fmt(result.amount));
-
   const failed = d20?.kind === 'fail';
   const lines = [failed ? TEXT.claim.receiptFailHeadline(user) : TEXT.claim.receiptHeadline(user), '', TEXT.claim.receiptRolled(fmt(result.rolled))];
   for (const [text] of steps) lines.push(text);

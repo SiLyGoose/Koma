@@ -66,7 +66,7 @@ test('formatting helpers use the constants', () => {
 test('message templates fill in their values', () => {
   assert.equal(TEXT.common.memberNotFound('k!', 'rob @user'), 'Could not find member in server. Mention via `k!rob @user`.');
   assert.ok(TEXT.rob.success('<@1>', '<@2>', '250').includes(`**250** ${CURRENCY_EMOJI}`));
-  assert.ok(TEXT.rob.caughtFined('<@1>', '<@2>', '100').includes(`fine of **100** ${CURRENCY_EMOJI}`));
+  assert.ok(TEXT.rob.receiptFine('100').includes(`Fine of **100** ${CURRENCY_EMOJI}`));
   assert.equal(TEXT.equip.ambiguous(['A', 'B']), 'That could be more than one of your items: **A**, **B**. Type more of the name.');
   assert.equal(TEXT.unequip.tookOff(['A', 'B']), 'You took off **A** and **B**.');
   assert.equal(TEXT.config.reset('claim.min', '200', '100'), 'Reset `claim.min` from **200** to **100**.');
@@ -105,7 +105,7 @@ test('the currency emoji is one full custom emoji code, and money() puts it afte
   assert.equal(money(1500), `1,500 ${CURRENCY_EMOJI}`);
   assert.equal(money(0), `0 ${CURRENCY_EMOJI}`);
   // The word "points" is gone from what players read: amounts in the messages carry the emoji instead.
-  assert.ok(!TEXT.claim.claimed('<@1>', '250').includes('points'));
+  assert.ok(!TEXT.claim.receiptClaimed('250').includes('points'));
   assert.ok(!TEXT.leaderboard.empty('k!').includes('points'));
   assert.equal(TEXT.balance.points('1,000'), `**1,000** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.leaderboard.row(1, '5', '900'), `**1.** <@5> — 900 ${CURRENCY_EMOJI}`);

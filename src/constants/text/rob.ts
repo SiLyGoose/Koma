@@ -58,8 +58,8 @@ export const robText = {
   claimTaxed: (victim: string, rate: string) => `📌 ${victim}'s next claim will be taxed ${rate}.`,
   robTaxed: (victim: string, rate: string) => `📌 ${victim}'s next rob will be taxed ${rate}.`,
   /*
-   * A caught rob with effects on its fine reads as a receipt too (commands/rob.ts caughtReceipt): the
-   * headline, the base fine, one line per effect on it, and what the robber paid.
+   * A caught rob always reads as a receipt (commands/rob.ts caughtReceipt): the headline, the base
+   * fine, one line per effect on it, and what the robber paid.
    */
   receiptCaughtHeadline: (robber: string, victim: string) => `**${robber} got caught robbing ${victim}!**`,
   receiptFine: (amount: string) => `🚨 Fine of ${boldMoney(amount)}`,
@@ -68,6 +68,8 @@ export const robText = {
   receiptPaid: (victim: string, amount: string) => `You paid ${victim} ${boldMoney(amount)}`,
   /** Gear cancelled the whole fine. */
   receiptGearSaved: 'Your gear got you out of the fine.',
+  /** The base fine is set to 0, so there was nothing to pay. */
+  receiptNoFine: 'There was no fine to pay.',
   /** Thoccy Keyboard: the robber failed and is vulnerable now. */
   nowVulnerable: (robber: string, rate: string) => `⌨️ Streak broken. ${robber} is vulnerable: the next successful rob against them takes +${rate}.`,
   /**
@@ -76,12 +78,6 @@ export const robText = {
    */
   slipped: (victim: string, returned: string, penalty: string) =>
     `<:piplupsmirk:1553135037120250046> ...but slipped! ${boldMoney(returned)} went back to ${victim}${penalty === '' ? '.' : `, plus ${boldMoney(penalty)} for the trouble.`}`,
-  /** A caught rob with nothing but the base fine to it. */
-  caughtFined: (robber: string, victim: string, fine: string) =>
-    `${robber} tried to rob ${victim} but got caught, and paid them a fine of ${boldMoney(fine)}`,
-  /** The fine is set to 0, so there was nothing to pay. */
-  caughtNothingToFine: (robber: string, victim: string) =>
-    `${robber} tried to rob ${victim} but got caught. There was no fine to pay.`,
   /** The robber has fewer points than the base fine. */
   robberTooPoor: (p: string, fine: string, balance: string) =>
     `You need at least ${boldMoney(fine)} to rob, in case you get caught. You have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,

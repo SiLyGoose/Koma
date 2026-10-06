@@ -19,8 +19,8 @@ const plain: ClaimReceiptResult = {
 };
 const money = (n: string): string => `**${n}** ${CURRENCY_EMOJI}`;
 
-test('claim receipt: a claim with nothing but the roll is one sentence', () => {
-  assert.equal(claimReceipt('@Z', plain), `@Z claimed ${money('120')}`);
+test('claim receipt: a claim with nothing but the roll is still a receipt', () => {
+  assert.deepEqual(claimReceipt('@Z', plain).split('\n'), ['**@Z claimed!**', '', `💸 Claimed ${money('120')}`, '━━━━━━━━━━', `You claimed ${money('120')}`]);
 });
 
 test('claim receipt: every effect in the order it was applied, what was claimed, then a claim tax and what was kept', () => {
@@ -38,7 +38,7 @@ test('claim receipt: every effect in the order it was applied, what was claimed,
   assert.deepEqual(text.split('\n'), [
     '**@Z claimed!**',
     '',
-    `💸 Rolled ${money('120')}`,
+    `💸 Claimed ${money('120')}`,
     `🗡️ Gear added ${money('30')}`,
     `${SLOT_EMOJI.treasure} Chaewon Photocard added ${money('50')}`,
     `🎡 Wheel (1.5x) added ${money('100')}`,

@@ -78,8 +78,15 @@ test('rob receipt: a slip says what went back and what the robber is left with',
 const base = CONFIG.rob.failFine;
 const caught: RobCaughtResult = { fine: base, owed: base, fineTreasure: null, vulnerable: null, d20: null };
 
-test('caught receipt: a caught rob with nothing but the base fine is one sentence', () => {
-  assert.equal(caughtReceipt('@Z', '@I', caught), `@Z tried to rob @I but got caught, and paid them a fine of ${money(fmt(base))}`);
+test('caught receipt: a caught rob with nothing but the base fine is still a receipt', () => {
+  assert.deepEqual(caughtReceipt('@Z', '@I', caught).split('\n'), [
+    '**@Z got caught robbing @I!**',
+    '',
+    `🚨 Fine of ${money(fmt(base))}`,
+    '━━━━━━━━━━',
+    `You paid @I ${money(fmt(base))}`,
+  ]);
+  assert.ok(caughtReceipt('@Z', '@I', { ...caught, fine: 0, owed: 0 }).endsWith(TEXT.rob.receiptGearSaved), 'gear that cancelled it says so');
 });
 
 test('caught receipt: the base fine, every effect on it, then what the robber paid', () => {

@@ -138,9 +138,9 @@ export interface RobCaughtResult {
 }
 
 /**
- * A caught rob's text, `robber` and `victim` being mentions. With nothing but the base fine to it, one
- * sentence. Otherwise a receipt like robReceipt's: the base fine, every effect on it in the order it
- * was applied, and what the robber paid. Marks left on the robber for later go last.
+ * A caught rob's text, `robber` and `victim` being mentions: a receipt like robReceipt's, even with
+ * nothing but the base fine to it. The base fine, every effect on it in the order it was applied, and
+ * what the robber paid. Marks left on the robber for later go last.
  */
 export function caughtReceipt(robber: string, victim: string, result: RobCaughtResult): string {
   // Thoccy Keyboard: a failed rob leaves its wearer vulnerable.
@@ -159,13 +159,12 @@ export function caughtReceipt(robber: string, victim: string, result: RobCaughtR
   const short = result.fine - addUp(steps, base);
   if (short < 0) steps.push([TEXT.rob.receiptShort(robber, fmt(-short)), short]);
 
-  if (steps.length === 0) {
-    return withMarks(result.fine === 0 ? TEXT.rob.caughtNothingToFine(robber, victim) : TEXT.rob.caughtFined(robber, victim, fmt(result.fine)));
-  }
   const lines = [TEXT.rob.receiptCaughtHeadline(robber, victim), '', TEXT.rob.receiptFine(fmt(base))];
   for (const [text] of steps) lines.push(text);
   lines.push(RULE);
-  lines.push(result.fine === 0 ? TEXT.rob.receiptGearSaved : TEXT.rob.receiptPaid(victim, fmt(result.fine)));
+  // Nothing to pay: gear cancelled the fine, or there was none to begin with.
+  if (result.fine === 0) lines.push(steps.length > 0 ? TEXT.rob.receiptGearSaved : TEXT.rob.receiptNoFine);
+  else lines.push(TEXT.rob.receiptPaid(victim, fmt(result.fine)));
   return withMarks(lines.join('\n'));
 }
 
