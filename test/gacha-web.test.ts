@@ -4,8 +4,8 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
-import type { BannerPull, BannerResult, BannerView, GachaStore } from '../src/web/gacha.js';
-import { signSession } from '../src/web/login.js';
+import type { BannerPull, BannerResult, BannerView, GachaStore } from '../src/web/models/gacha.js';
+import { signSession } from '../src/web/auth/login.js';
 
 const SITE: WebConfig = {
   siteUrl: 'https://koma-ui.vercel.app',

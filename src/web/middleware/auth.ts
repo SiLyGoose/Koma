@@ -1,10 +1,10 @@
 import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import type { ApiDeps } from '../api.js';
-import { ApiError } from '../errors.js';
-import { verifySession, type Session } from '../login.js';
-import { verifyToken, verifyWatchToken, type Player } from '../token.js';
-import { parse } from '../validate.js';
+import { ApiError } from '../lib/errors.js';
+import { verifySession, type Session } from '../auth/login.js';
+import { verifyToken, verifyWatchToken, type Player } from '../auth/token.js';
+import { parse } from '../lib/validate.js';
 
 /* Who is asking, and about which server. What they find is kept in res.locals for the controllers. */
 

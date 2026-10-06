@@ -1,7 +1,7 @@
 import type { ApiDeps } from '../api.js';
-import { ApiError } from '../errors.js';
-import { gearStore, type GearSale, type GearView } from '../gear.js';
-import { avatarUrl, type Session } from '../login.js';
+import { ApiError } from '../lib/errors.js';
+import { gearStore, type GearSale, type GearView } from '../models/gear.js';
+import { avatarUrl, type Session } from '../auth/login.js';
 import type { Slot } from '../../types.js';
 
 /* The gear page: members' gear in a server (gear.ts's store), and who else's there is to look at. */

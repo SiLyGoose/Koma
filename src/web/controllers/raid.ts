@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { ApiError } from '../errors.js';
+import { ApiError } from '../lib/errors.js';
 import type { RaidService } from '../services/raid.js';
 
 /* The raid page's pictures, and raiders' gear as they fought. */

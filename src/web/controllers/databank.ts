@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { databankView } from '../databank.js';
+import { databankView } from '../models/databank.js';
 
 /* Every item and what it does at each level: the same for everyone. */
 

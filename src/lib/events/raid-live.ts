@@ -3,7 +3,7 @@ import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js'
 
 /*
  * The raid going on in each server right now, for everything that follows it besides its Discord
- * message: the site's raid page (web/raid) shows it and plays in it. The lobby and the fight
+ * message: the site's raid page (web/games/raid) shows it and plays in it. The lobby and the fight
  * (commands/raid.ts) put their own join, leave, start and act here, and Discord's buttons call the
  * very same ones, so a player on the site and one in Discord are in one lobby and one fight.
  *
@@ -67,7 +67,7 @@ export class LiveRaid {
   over: RaidOverLive | null = null;
   /** When it ended (ms), once it has. */
   endedAt: number | null = null;
-  /** Each raider's gear as the fight started (web/gear.ts's wornGear), for the site's end screen. */
+  /** Each raider's gear as the fight started (web/models/gear.ts's wornGear), for the site's end screen. */
   gear = new Map<string, unknown>();
 
   constructor(

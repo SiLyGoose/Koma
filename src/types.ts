@@ -266,10 +266,10 @@ export type LedgerReason =
   | 'blackjack_double'
   | 'blackjack_payout'
   | 'blackjack_refund'
-  // Baccarat (web/baccarat/server.ts): every chip on the table, and what the winning ones paid back.
+  // Baccarat (web/games/baccarat/server.ts): every chip on the table, and what the winning ones paid back.
   | 'baccarat_bet'
   | 'baccarat_payout'
-  // Roulette (web/roulette/server.ts): the same.
+  // Roulette (web/games/roulette/server.ts): the same.
   | 'roulette_bet'
   | 'roulette_payout'
   // The mine (commands/mines.ts): the bet, and what a cash out paid.
@@ -517,7 +517,7 @@ export interface RaidDoc {
   stats?: Record<string, RaidStats>;
   lastHit?: string | null;
   rounds?: number;
-  /** Each raider's gear as the fight started, by user id (web/gear.ts's wornGear), for the site's end screen. Raids from before it was saved don't have it. */
+  /** Each raider's gear as the fight started, by user id (web/models/gear.ts's wornGear), for the site's end screen. Raids from before it was saved don't have it. */
   gear?: Record<string, unknown>;
   createdAt: Date;
   endedAt?: Date | null;

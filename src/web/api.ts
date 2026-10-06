@@ -1,13 +1,13 @@
 import express, { Router, type Express } from 'express';
 import type { pinecraftLeaderboard } from '../services/pinecraft.js';
 import type { WebConfig } from './config.js';
-import type { GachaStore } from './gacha.js';
-import type { GearStore } from './gear.js';
-import type { exchangeCode } from './login.js';
+import type { GachaStore } from './models/gacha.js';
+import type { GearStore } from './models/gear.js';
+import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
 import { errors, notFound } from './middleware/errors.js';
 import { cors, siteOnly } from './middleware/site.js';
-import type { RaidSiteDeps } from './raid/server.js';
+import type { RaidSiteDeps } from './games/raid/server.js';
 import { databankRoutes } from './routes/databank.js';
 import { gachaRoutes } from './routes/gacha.js';
 import { gearRoutes } from './routes/gear.js';
@@ -21,7 +21,7 @@ export type { Leaderboard, Live } from './services/live.js';
 export type { Me } from './services/login.js';
 
 /*
- * What the site asks the bot over https, for members who log in on it with Discord (login.ts)
+ * What the site asks the bot over https, for members who log in on it with Discord (auth/login.ts)
  * rather than opening a game from a link in Discord:
  *
  *   GET  /api/login?state=…   sends the browser to Discord to log in (Discord sends it back to the site)
@@ -31,7 +31,7 @@ export type { Me } from './services/login.js';
  *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
  *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
- *   GET  /api/gear?guild=…    the member's gear in that server: GearView (gear.ts)
+ *   GET  /api/gear?guild=…    the member's gear in that server: GearView (models/gear.ts)
  *   GET  /api/gear?guild=…&user=…   someone else's gear in that server, to look at: GearView without their points or komaGems
  *   GET  /api/gear/members?guild=…   who in that server has gear, the member first: GearMembers
  *   POST /api/gear/equip {guild, copy}   puts on one of their copies: GearView
@@ -42,8 +42,8 @@ export type { Me } from './services/login.js';
  *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
  *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
  *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
- *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
- *   GET  /api/gacha?guild=…   the banner page: what a pull costs the member, their komaTokens and pity: BannerView (gacha.ts)
+ *   GET  /api/databank        every item and what it does at each level: Databank (models/databank.ts)
+ *   GET  /api/gacha?guild=…   the banner page: what a pull costs the member, their komaTokens and pity: BannerView (models/gacha.ts)
  *   POST /api/gacha/pull {guild, multi}   one pull, or a multi pull (`multi` true): BannerResult
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
@@ -51,17 +51,17 @@ export type { Me } from './services/login.js';
  * the party's gear: anyone in the link's server) and the routes that change what the link's member
  * wears (routes/gear.ts: the raid's party screen lets them change it before the fight). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
  * page shows (its end screen), when it was kept. The front page's /api/live counts as
- * being on the site (live.ts).
+ * being on the site (games/live.ts).
  *
  * Everything but the first and the databank takes the session as "Authorization: Bearer <session>", and only answers
- * the site's own origin. Errors are { error } with a code the site knows (errors.ts).
+ * the site's own origin. Errors are { error } with a code the site knows (lib/errors.ts).
  *
  * Each request goes through four layers, each using only the one below it:
  *   routes/        which paths there are, and the middleware and controller each goes through
  *   middleware/    who is asking (auth.ts), the site's origin (site.ts), and answering errors (errors.ts)
- *   controllers/   reads what a request says (validate.ts), asks a service, and answers
- *   services/      what the site can do, with no requests in sight: the stores (gear.ts, gacha.ts), Discord, live.ts…
- * Errors are thrown anywhere as an ApiError (errors.ts).
+ *   controllers/   reads what a request says (lib/validate.ts), asks a service, and answers
+ *   services/      what the site can do, with no requests in sight: the stores (models/gear.ts, models/gacha.ts), Discord, live.ts…
+ * Errors are thrown anywhere as an ApiError (lib/errors.ts).
  */
 
 export interface ApiDeps {
@@ -82,7 +82,7 @@ export interface ApiDeps {
   /** The gacha, for the banner page (the database's, unless a test says otherwise). */
   gacha?: GachaStore;
   login?: typeof exchangeCode;
-  /** The raid's page (web/raid), once the bot is logged in to Discord. */
+  /** The raid's page (web/games/raid), once the bot is logged in to Discord. */
   raid?: RaidSiteDeps;
 }
 

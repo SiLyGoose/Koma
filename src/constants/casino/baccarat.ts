@@ -1,7 +1,7 @@
 import { TABLE_CHIPS, TABLE_WEB } from './table.js';
 
 /*
- * Baccarat, played on the games' site (see lib/game/casino/baccarat.ts for the rules, web/baccarat/server.ts
+ * Baccarat, played on the games' site (see lib/game/casino/baccarat.ts for the rules, web/games/baccarat/server.ts
  * for the page's side). What the bets pay are settings (`baccarat.*`); the shape of the game is here.
  */
 
@@ -25,7 +25,7 @@ export const BACCARAT_WEB = {
 } as const;
 
 /**
- * The shared tables (web/baccarat/table.ts). Members opening baccarat are seated at the first table
+ * The shared tables (web/games/baccarat/table.ts). Members opening baccarat are seated at the first table
  * in their server with a free seat.
  * - `seats`: how many players a table holds.
  * - `bettingMs`: how long each round's betting lasts; when it's up the round is dealt, settling

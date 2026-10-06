@@ -4,12 +4,12 @@ import { CONFIG } from '../src/config.js';
 import type { RaidWeekInfo, WebRaidStart } from '../src/commands/raid.js';
 import { createRaid, type RaidAction, type RaidChoice } from '../src/lib/events/raid.js';
 import { clearLiveRaids, openLiveRaid, type ActAnswer, type LobbyAnswer } from '../src/lib/events/raid-live.js';
-import { resetLive } from '../src/web/live.js';
-import { bossPicture } from '../src/web/raid/picture.js';
-import { parseClientMessage, type RaidView, type ServerMessage } from '../src/web/raid/protocol.js';
-import { openConnection, type RaidSiteDeps } from '../src/web/raid/server.js';
-import { raidView } from '../src/web/raid/view.js';
-import { signToken } from '../src/web/token.js';
+import { resetLive } from '../src/web/games/live.js';
+import { bossPicture } from '../src/web/games/raid/picture.js';
+import { parseClientMessage, type RaidView, type ServerMessage } from '../src/web/games/raid/protocol.js';
+import { openConnection, type RaidSiteDeps } from '../src/web/games/raid/server.js';
+import { raidView } from '../src/web/games/raid/view.js';
+import { signToken } from '../src/web/auth/token.js';
 
 const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, result: null, ...over });
 const wait = (ms = 150): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

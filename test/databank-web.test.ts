@@ -8,7 +8,7 @@ import { ITEMS } from '../src/data/items.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { createApi } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
-import { databankView } from '../src/web/databank.js';
+import { databankView } from '../src/web/models/databank.js';
 
 const SITE: WebConfig = {
   siteUrl: 'https://koma-ui.vercel.app',

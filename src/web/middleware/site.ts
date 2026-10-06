@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { ApiError } from '../errors.js';
+import { ApiError } from '../lib/errors.js';
 
 /** CORS for the site's own origin (and its preflights), and nothing cached. */
 export const cors =

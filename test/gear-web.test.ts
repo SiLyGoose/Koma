@@ -7,11 +7,11 @@ import type { WebConfig } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { REFINE } from '../src/constants/index.js';
 import { loadoutsOf } from '../src/lib/game/items/loadouts.js';
-import { gearView, wornGear, type GearStore } from '../src/web/gear.js';
+import { gearView, wornGear, type GearStore } from '../src/web/models/gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { sellPrice } from '../src/lib/game/items/sell.js';
-import { signSession } from '../src/web/login.js';
-import { signToken } from '../src/web/token.js';
+import { signSession } from '../src/web/auth/login.js';
+import { signToken } from '../src/web/auth/token.js';
 import type { EquipmentDoc, Slot } from '../src/types.js';
 
 const SITE: WebConfig = {

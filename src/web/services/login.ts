@@ -1,9 +1,9 @@
 import { MINE_WEB } from '../../constants/index.js';
 import type { ApiDeps } from '../api.js';
 import { GAMES, gameLink, type Game } from '../config.js';
-import { ApiError } from '../errors.js';
-import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, type Session } from '../login.js';
-import { signToken } from '../token.js';
+import { ApiError } from '../lib/errors.js';
+import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, type Session } from '../auth/login.js';
+import { signToken } from '../auth/token.js';
 
 /* Logging in on the site with Discord (login.ts), who is logged in, and links to play. */
 

@@ -7,11 +7,11 @@ import { colorOf, isRouletteSpot, oddsFor, parseBets, ROULETTE_SPOTS, settleBets
 import { lostChips } from '../src/lib/game/casino/table-bets.js';
 import { checkConstraints, findSpec } from '../src/lib/settings-spec.js';
 import { GAMES } from '../src/web/config.js';
-import { online, resetLive } from '../src/web/live.js';
-import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/roulette/protocol.js';
-import { openConnection, type Peer } from '../src/web/roulette/server.js';
-import { resetTables, tablesIn, type TableDeps } from '../src/web/roulette/table.js';
-import { signToken } from '../src/web/token.js';
+import { online, resetLive } from '../src/web/games/live.js';
+import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/games/roulette/protocol.js';
+import { openConnection, type Peer } from '../src/web/games/roulette/server.js';
+import { resetTables, tablesIn, type TableDeps } from '../src/web/games/roulette/table.js';
+import { signToken } from '../src/web/auth/token.js';
 
 // ---------------------------------------------------------------------------
 // The rules
@@ -114,7 +114,7 @@ test('roulette: its settings, config page, command and site entry exist', () => 
 });
 
 // ---------------------------------------------------------------------------
-// The table: the same machinery as baccarat's (web/table/table.ts, tested fully in baccarat-table.test.ts),
+// The table: the same machinery as baccarat's (web/games/table/table.ts, tested fully in baccarat-table.test.ts),
 // here with roulette's round.
 
 function fakePeer(): Peer & { got: ServerMessage[]; last: () => TableState } {

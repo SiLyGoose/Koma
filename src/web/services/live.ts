@@ -2,10 +2,10 @@ import { MINE_WEB } from '../../constants/index.js';
 import { pinecraftLeaderboard, type PinecraftStat } from '../../services/pinecraft.js';
 import type { ApiDeps } from '../api.js';
 import { watchLink } from '../config.js';
-import { ApiError } from '../errors.js';
-import { hubSeen, isPlaying, online, type LiveGame } from '../live.js';
-import { avatarUrl } from '../login.js';
-import { signWatchToken, type Player } from '../token.js';
+import { ApiError } from '../lib/errors.js';
+import { hubSeen, isPlaying, online, type LiveGame } from '../games/live.js';
+import { avatarUrl } from '../auth/login.js';
+import { signWatchToken, type Player } from '../auth/token.js';
 
 /* Who's on the site in a server (live.ts), watching them, and the Pinecraft leaderboard. */
 

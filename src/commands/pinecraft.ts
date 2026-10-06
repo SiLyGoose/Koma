@@ -13,7 +13,7 @@ import { siteGameLink, webConfig } from '../web/config.js';
 /*
  * `k!pinecraft`: the member's energy, what their mine has paid and when it next starts over, and a
  * button to the games' site (the same link for everyone; the site logs them in with Discord). It is
- * played there (web/pinecraft/server.ts). There is no bet: every block dug takes energy, and ores
+ * played there (web/games/pinecraft/server.ts). There is no bet: every block dug takes energy, and ores
  * pay as they are dug.
  */
 

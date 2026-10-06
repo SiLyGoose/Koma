@@ -7,7 +7,7 @@ import type { Command } from '../discord/types.js';
 import { siteGameLink, webConfig } from '../web/config.js';
 
 /*
- * `k!baccarat`: baccarat is played on the games' site (web/baccarat/server.ts, and the Koma-UI repo),
+ * `k!baccarat`: baccarat is played on the games' site (web/games/baccarat/server.ts, and the Koma-UI repo),
  * so this only says what it is and links there. The link is the same for everyone: the site logs
  * them in with Discord and opens baccarat in this server.
  */

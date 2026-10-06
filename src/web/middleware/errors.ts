@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
-import { ApiError } from '../errors.js';
+import { ApiError } from '../lib/errors.js';
 
 /** The end of the API's routes: nothing is there. */
 export const notFound: RequestHandler = () => {

@@ -56,7 +56,7 @@ export const RAID = {
 } as const;
 
 /**
- * The raid's page on the site (web/raid): its web socket's path, how long a new connection has to say
+ * The raid's page on the site (web/games/raid): its web socket's path, how long a new connection has to say
  * who it is, and how many messages a second it may send before it's cut off.
  */
 export const RAID_WEB = {

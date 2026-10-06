@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import { GAMES, type Game } from '../config.js';
 import type { LoginService } from '../services/login.js';
-import { parse } from '../validate.js';
+import { parse } from '../lib/validate.js';
 
 /* Logging in, who is logged in, and links to play. */
 

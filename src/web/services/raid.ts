@@ -1,8 +1,8 @@
 import type { ApiDeps } from '../api.js';
-import { ApiError } from '../errors.js';
-import { bossPicture } from '../raid/picture.js';
+import { ApiError } from '../lib/errors.js';
+import { bossPicture } from '../games/raid/picture.js';
 
-/* The raid page's pictures, and raiders' gear as they fought (web/raid). */
+/* The raid page's pictures, and raiders' gear as they fought (web/games/raid). */
 
 export type RaidService = ReturnType<typeof raidService>;
 

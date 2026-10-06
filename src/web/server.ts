@@ -2,19 +2,19 @@ import { createServer } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { MINE_WEB } from '../constants/index.js';
 import { createApi, type ApiDeps } from './api.js';
-import type { RaidSiteDeps } from './raid/server.js';
+import type { RaidSiteDeps } from './games/raid/server.js';
 import { GAMES } from './config.js';
-import { serveMine } from './mines/server.js';
-import { servePinecraft } from './pinecraft/server.js';
-import { serveBaccarat } from './baccarat/server.js';
-import { serveRoulette } from './roulette/server.js';
-import { serveRaid } from './raid/server.js';
+import { serveMine } from './games/mines/server.js';
+import { servePinecraft } from './games/pinecraft/server.js';
+import { serveBaccarat } from './games/baccarat/server.js';
+import { serveRoulette } from './games/roulette/server.js';
+import { serveRaid } from './games/raid/server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
- * (api.ts, an Express app), and takes the games' web sockets, each game's in its own folder here (mines/,
- * pinecraft/, baccarat/, roulette/; the table games share table/, and every game connection.ts).
+ * (api.ts, an Express app), and takes the games' web sockets, each game's in its own folder under games/ (mines/,
+ * pinecraft/, baccarat/, roulette/, raid/; the table games share table/, and every game connection.ts).
  * Only the site's own origin may connect.
  */
 

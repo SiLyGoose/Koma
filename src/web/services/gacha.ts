@@ -1,6 +1,6 @@
 import type { ApiDeps } from '../api.js';
-import { ApiError } from '../errors.js';
-import { gachaStore, type BannerResult, type BannerView } from '../gacha.js';
+import { ApiError } from '../lib/errors.js';
+import { gachaStore, type BannerResult, type BannerView } from '../models/gacha.js';
 
 /* The banner page: what a pull costs a member, and pulling (gacha.ts's store). */
 

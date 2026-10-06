@@ -29,11 +29,11 @@ import {
 } from '../src/lib/game/pinecraft.js';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
-import { signSession, verifySession } from '../src/web/login.js';
-import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft/protocol.js';
+import { signSession, verifySession } from '../src/web/auth/login.js';
+import { parseClientMessage, type ServerMessage } from '../src/web/games/pinecraft/protocol.js';
 import { gearChanged } from '../src/services/items/gear-events.js';
-import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/pinecraft/server.js';
-import { verifyToken } from '../src/web/token.js';
+import { leave, sessionFor, type Peer, type PinecraftDeps } from '../src/web/games/pinecraft/server.js';
+import { verifyToken } from '../src/web/auth/token.js';
 
 const RULES: PinecraftRules = { maxEnergy: 10, energyMinutes: 3, value: { dirt: 0, stone: 0, coal: 2, iron: 4, gold: 8, diamond: 15, emerald: 25, amethyst: 40, ruby: 40 } };
 const { size: SIZE } = PINECRAFT_WORLD;

@@ -1,7 +1,7 @@
 import { TABLE_WEB } from './table.js';
 
 /*
- * Roulette, played on the games' site (see lib/game/casino/roulette.ts for the rules, web/roulette/table.ts
+ * Roulette, played on the games' site (see lib/game/casino/roulette.ts for the rules, web/games/roulette/table.ts
  * for the page's side). The bet range is a setting (`roulette.*`); the shape of the game is here.
  */
 
@@ -19,7 +19,7 @@ export const ROULETTE_WEB = {
 } as const;
 
 /**
- * The shared tables (web/roulette/table.ts, like baccarat's). Members opening roulette are seated at
+ * The shared tables (web/games/roulette/table.ts, like baccarat's). Members opening roulette are seated at
  * the first table in their server with a free seat.
  * - `seats`: how many players a table holds.
  * - `bettingMs`: how long each round's betting lasts; when it's up the wheel is spun, settling

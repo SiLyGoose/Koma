@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import { BACCARAT_TABLE } from '../src/constants/index.js';
 import { dealRound, parseBets, settleBets, totalBet, type BaccaratPayouts } from '../src/lib/game/casino/baccarat.js';
 import type { Card } from '../src/lib/game/casino/blackjack.js';
-import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/baccarat/protocol.js';
-import { openConnection, type Peer } from '../src/web/baccarat/server.js';
-import { baccaratGame, handCode, resetTables, tablesIn, type TableDeps } from '../src/web/baccarat/table.js';
-import { online, resetLive } from '../src/web/live.js';
-import { signToken } from '../src/web/token.js';
+import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/games/baccarat/protocol.js';
+import { openConnection, type Peer } from '../src/web/games/baccarat/server.js';
+import { baccaratGame, handCode, resetTables, tablesIn, type TableDeps } from '../src/web/games/baccarat/table.js';
+import { online, resetLive } from '../src/web/games/live.js';
+import { signToken } from '../src/web/auth/token.js';
 
 const PAYOUTS: BaccaratPayouts = { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 };
 /** A card worth `points` (0 is a king). */

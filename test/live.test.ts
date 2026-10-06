@@ -4,8 +4,8 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { createApi, type ApiDeps, type Leaderboard, type Live } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
-import { addWatcher, HUB_TTL_MS, hubSeen, isPlaying, online, playerJoined, playerLeft, removeWatcher, resetLive, toWatchers, type LivePeer } from '../src/web/live.js';
-import { signToken, signWatchToken, verifyToken, verifyWatchToken } from '../src/web/token.js';
+import { addWatcher, HUB_TTL_MS, hubSeen, isPlaying, online, playerJoined, playerLeft, removeWatcher, resetLive, toWatchers, type LivePeer } from '../src/web/games/live.js';
+import { signToken, signWatchToken, verifyToken, verifyWatchToken } from '../src/web/auth/token.js';
 
 function page(): LivePeer & { got: unknown[]; closed: boolean } {
   const p = { got: [] as unknown[], closed: false, send: (m: unknown) => void p.got.push(m), close: () => void (p.closed = true) };

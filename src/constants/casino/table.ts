@@ -1,5 +1,5 @@
 /*
- * What every game played at shared tables (baccarat, roulette: web/table/table.ts) has in common.
+ * What every game played at shared tables (baccarat, roulette: web/games/table/table.ts) has in common.
  */
 
 /** The chips the pages offer, smallest first. Any whole number can be bet; these are what the pages stack. */

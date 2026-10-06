@@ -5,9 +5,9 @@ import { DEFAULTS } from '../src/config.js';
 import { MINE_TILES } from '../src/constants/index.js';
 import { multiplierFor, type MineRun } from '../src/lib/game/casino/mines.js';
 import { gameLink, readWebConfig } from '../src/web/config.js';
-import { parseClientMessage, type ServerMessage } from '../src/web/mines/protocol.js';
-import { findSession, MineSession, type Peer, type SessionDeps } from '../src/web/mines/session.js';
-import { playerKey, signToken, verifyToken, type Player } from '../src/web/token.js';
+import { parseClientMessage, type ServerMessage } from '../src/web/games/mines/protocol.js';
+import { findSession, MineSession, type Peer, type SessionDeps } from '../src/web/games/mines/session.js';
+import { playerKey, signToken, verifyToken, type Player } from '../src/web/auth/token.js';
 import { claimMiner, releaseMiner } from '../src/services/casino/mines.js';
 
 // ---------------------------------------------------------------------------

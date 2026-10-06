@@ -1,8 +1,8 @@
 import type { RequestHandler, Response } from 'express';
 import { z } from 'zod';
 import { WATCHABLE, type LiveService } from '../services/live.js';
-import type { Player } from '../token.js';
-import { parse } from '../validate.js';
+import type { Player } from '../auth/token.js';
+import { parse } from '../lib/validate.js';
 
 /* Who's online, watching, and the leaderboard. Each runs after middleware/auth.ts's liveMember. */
 

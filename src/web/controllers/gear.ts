@@ -2,9 +2,9 @@ import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import { LOADOUT_NUMBERS } from '../../lib/game/items/loadouts.js';
 import { SLOTS } from '../../types.js';
-import { ApiError } from '../errors.js';
+import { ApiError } from '../lib/errors.js';
 import type { GearService } from '../services/gear.js';
-import { CopyId, parse, UserId } from '../validate.js';
+import { CopyId, parse, UserId } from '../lib/validate.js';
 
 /* The gear page's requests. Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
