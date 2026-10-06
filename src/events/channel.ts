@@ -3,9 +3,6 @@ import { PermissionFlagsBits, type Guild, type SendableChannels } from 'discord.
 /** What the bot needs in a channel it is going to post in (events, or `k!config set channel`'s own checks). */
 const NEEDED = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
 
-/** The newsletter's channel needs a little more: the weekly digest attaches the new raid boss's picture. */
-export const NEWSLETTER_NEEDED = [...NEEDED, PermissionFlagsBits.AttachFiles];
-
 export type ChannelProblem = 'missing' | 'not_text' | 'no_permission';
 
 export type ChannelCheck = { ok: true; channel: SendableChannels } | { ok: false; problem: ChannelProblem };

@@ -4,7 +4,7 @@ import { handleAutocomplete, handleMessage, handleSlash } from './discord/dispat
 import { commands } from './commands/index.js';
 import { slashCommandData } from './discord/slash.js';
 import { CONFIG, validateConfig } from './config.js';
-import { SETTINGS_REFRESH_MS, validateConstants } from './constants/index.js';
+import { NEWSLETTER, SETTINGS_REFRESH_MS, validateConstants } from './constants/index.js';
 import { validateItems } from './data/items.js';
 import { validateWheel } from './perks/index.js';
 import { closeDb, connectDb } from './db.js';
@@ -140,9 +140,8 @@ async function main(): Promise<void> {
     await settleUnfinishedRaids(readyClient).catch((err) => console.error('Could not settle unfinished raids:', err));
 
     // The weekly newsletter, in the servers that chose a newsletter channel: it goes out when the raid
-    // week resets, or as soon as the bot is back if it was down then. After the raids are settled, so
-    // a digest sent straight away doesn't report one as still going.
-    stopNewsletter = startNewsletterScheduler(readyClient);
+    // week resets, or as soon as the bot is back if it was down then (unless NEWSLETTER.weeklyDigest is off).
+    if (NEWSLETTER.weeklyDigest) stopNewsletter = startNewsletterScheduler(readyClient);
 
     // Points that were on a blackjack table when the bot last stopped are given back.
     stopBetSweeper = startBetSweeper();

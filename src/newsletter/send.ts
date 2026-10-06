@@ -1,9 +1,9 @@
 import type { Client, Guild } from 'discord.js';
 import { NEWSLETTER } from '../constants/index.js';
-import { checkEventChannel, NEWSLETTER_NEEDED } from '../events/channel.js';
+import { checkEventChannel } from '../events/channel.js';
 import type { BotEmbed } from '../lib/embed.js';
 import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
-import { claimNewsletterWeek, getNewsletterNote, listNewsletterGuilds, weekFacts, type NewsletterGuild } from '../services/newsletter.js';
+import { claimNewsletterWeek, listNewsletterGuilds, weekFacts, type NewsletterGuild } from '../services/newsletter.js';
 import { weeklyDigest, type Digest } from './digest.js';
 
 /*
@@ -31,23 +31,20 @@ const weekBefore = (week: RaidWeek): RaidWeek => raidWeek(new Date(week.start.ge
 /** `guildId`'s weekly digest of the week before `week`, sent as `week` starts. */
 export async function digestFor(guildId: string, week: RaidWeek): Promise<Digest> {
   const covered = weekBefore(week);
-  const [facts, note] = await Promise.all([weekFacts(guildId, covered), getNewsletterNote(week.key)]);
-  return weeklyDigest(guildId, facts, covered, week, note);
+  return weeklyDigest(guildId, await weekFacts(guildId, covered), covered, week);
 }
 
 /** What the digest going out at the end of the week `now` is in looks like so far (`newsletter preview`). */
 export async function previewDigest(guildId: string, now: Date = new Date()): Promise<Digest> {
   const covered = raidWeek(now);
-  const upcoming = raidWeek(covered.next);
-  const [facts, note] = await Promise.all([weekFacts(guildId, covered), getNewsletterNote(upcoming.key)]);
-  return weeklyDigest(guildId, facts, covered, upcoming, note, true);
+  return weeklyDigest(guildId, await weekFacts(guildId, covered), covered, raidWeek(covered.next), true);
 }
 
 /** Posts `message` in the server's newsletter channel. False when the bot can't (it left, or the channel is gone or shut to it). */
 async function post(client: Client, server: Pick<NewsletterGuild, 'guildId' | 'channelId'>, message: Digest | { embeds: BotEmbed[] }): Promise<boolean> {
   const guild = await findGuild(client, server.guildId);
   if (!guild) return false;
-  const checked = await checkEventChannel(guild, server.channelId, NEWSLETTER_NEEDED);
+  const checked = await checkEventChannel(guild, server.channelId);
   if (!checked.ok) {
     console.error(`The newsletter could not go to ${server.channelId} in ${server.guildId}: ${checked.problem}`);
     return false;

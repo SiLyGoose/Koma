@@ -2,14 +2,12 @@ import { isAdmin } from '../config.js';
 import { collections } from '../db.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RobEntry } from '../lib/newsletter.js';
-import type { LedgerReason, RaidDoc } from '../types.js';
-import { extraRaidId, raidId } from './raid.js';
+import type { LedgerReason } from '../types.js';
 
 /*
  * The database side of the newsletter (src/newsletter). Each server chooses its own newsletter
  * channel (kept in its `guilds` document, next to the events channel), and remembers which raid
  * week's digest it last got, so each week's goes out once even with two copies of the bot running.
- * The admin's note for the next weekly digest is one for every server, in `meta`.
  */
 
 /** The channel `guildId`'s newsletter goes to, or null when it gets none. */
@@ -58,10 +56,8 @@ export async function claimNewsletterWeek(guildId: string, from: string | null, 
   return result.modifiedCount === 1;
 }
 
-/** What the weekly digest is made from: the week's raid (and extra raid), and its robs. */
+/** What the weekly digest is made from: the week's robs. */
 export interface WeekFacts {
-  raid: RaidDoc | null;
-  extraRaid: RaidDoc | null;
   robs: RobEntry[];
 }
 
@@ -69,32 +65,11 @@ const ROB_REASONS: LedgerReason[] = ['rob_won', 'rob_slip_paid', 'rob_fine_paid'
 
 /** What happened in `guildId` in `week`. */
 export async function weekFacts(guildId: string, week: RaidWeek): Promise<WeekFacts> {
-  const { raids, ledger } = collections();
-  const [raid, extraRaid, robs] = await Promise.all([
-    raids.findOne({ _id: raidId(guildId, week.key) }),
-    raids.findOne({ _id: extraRaidId(guildId, week.key) }),
-    ledger
-      .find(
-        { guildId, reason: { $in: ROB_REASONS }, createdAt: { $gte: week.start, $lt: week.next } },
-        { projection: { _id: 0, userId: 1, otherUserId: 1, delta: 1, reason: 1, createdAt: 1 } },
-      )
-      .toArray(),
-  ]);
-  return { raid, extraRaid, robs };
-}
-
-// ---------------------------------------------------------------------------
-// The admin's note on the next weekly digest: one for every server.
-
-const NOTE_ID = 'newsletter';
-
-/** The note for the digest that goes out when `weekKey` starts, or null when there is none. */
-export async function getNewsletterNote(weekKey: string): Promise<string | null> {
-  const doc = await collections().meta.findOne({ _id: NOTE_ID });
-  return doc && doc.noteWeek === weekKey && typeof doc.note === 'string' ? doc.note : null;
-}
-
-/** Sets (or, with null, clears) the note for the digest that goes out when `weekKey` starts. */
-export async function setNewsletterNote(weekKey: string, note: string | null): Promise<void> {
-  await collections().meta.updateOne({ _id: NOTE_ID }, { $set: { note, noteWeek: weekKey } }, { upsert: true });
+  const robs = await collections()
+    .ledger.find(
+      { guildId, reason: { $in: ROB_REASONS }, createdAt: { $gte: week.start, $lt: week.next } },
+      { projection: { _id: 0, userId: 1, otherUserId: 1, delta: 1, reason: 1, createdAt: 1 } },
+    )
+    .toArray();
+  return { robs };
 }

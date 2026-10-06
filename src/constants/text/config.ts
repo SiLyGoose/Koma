@@ -67,7 +67,4 @@ export const configText = {
   channelMissing: "I can't find that channel in this server.",
   channelNotText: 'That is not a text channel I can send messages in. Pick a normal text channel.',
   channelNoPermission: (channel: string) => `I need to see ${channel}, send messages there and embed links. Give me those permissions there first.`,
-  /** The `newsletter` setting's channel also needs files attached (the weekly newsletter shows the new raid boss's picture). */
-  newsletterNoPermission: (channel: string) =>
-    `I need to see ${channel}, send messages there, embed links and attach files. Give me those permissions there first.`,
 };

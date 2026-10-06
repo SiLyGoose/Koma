@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ADMIN_USER_ID } from '../src/config.js';
-import { CURRENCY_EMOJI, NEWSLETTER, SLASH_EXCLUDED, TEXT } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NEWSLETTER, SLASH_EXCLUDED, TEXT } from '../src/constants/index.js';
 import { commands } from '../src/commands/index.js';
 import { PER_SERVER_CHANNELS } from '../src/commands/config.js';
 import { newsletter } from '../src/commands/newsletter.js';
 import type { CommandContext } from '../src/discord/types.js';
 import { raidWeek } from '../src/lib/events/raid-week.js';
-import { summarizeRaid, summarizeRobs, type RobEntry } from '../src/lib/newsletter.js';
+import { summarizeRobs, type RobEntry } from '../src/lib/newsletter.js';
 import { textAfterCommand } from '../src/lib/parse.js';
-import { raidLines, robLines, weekDate } from '../src/newsletter/digest.js';
-import type { RaidDoc } from '../src/types.js';
+import { robLines, weekDate, weeklyDigest } from '../src/newsletter/digest.js';
+import { bossForWeek } from '../src/lib/events/raid-boss.js';
+import { parsePatchNotes, sectionHeading } from '../src/lib/patch-notes.js';
+import { patchNotesEmbed } from '../src/newsletter/patch-notes.js';
 
 const at = (minute: number): Date => new Date(Date.UTC(2026, 9, 5, 12, minute));
 const won = (robber: string, victim: string, amount: number, minute: number): RobEntry => ({ userId: robber, otherUserId: victim, delta: amount, reason: 'rob_won', createdAt: at(minute) });
@@ -66,52 +68,22 @@ test('newsletter robs: a rob that slipped (written with its rob_won, at the same
 });
 
 // ---------------------------------------------------------------------------
-// The raid
+// The digest
 
-const raid = (over: Partial<RaidDoc>): RaidDoc => ({
-  _id: 'g:2026-10-03',
-  guildId: 'g',
-  weekKey: '2026-10-03',
-  boss: 'reaper',
-  startedBy: 'A',
-  status: 'won',
-  channelId: null,
-  messageId: null,
-  players: ['A', 'B', 'C'],
-  spent: {},
-  stolen: {},
-  createdAt: at(0),
-  rounds: 9,
-  lastHit: 'B',
-  ...over,
-});
-const stats = (damage: number, healed: number, mitigated: number) =>
-  ({ damage, healed, mitigated, guards: 0, supports: 0, actions: 0, spent: 0, stolen: 0 }) as never;
-
-test('newsletter raid: who did the most, and who landed the final blow', () => {
-  const summary = summarizeRaid(raid({ stats: { A: stats(500, 0, 30), B: stats(800, 120, 0), C: stats(800, 40, 90) } }));
-  assert.deepEqual(summary?.topDamage, { userId: 'B', amount: 800 }, 'a tie goes to whoever joined first');
-  assert.deepEqual(summary?.topHealer, { userId: 'B', amount: 120 });
-  assert.deepEqual(summary?.topGuard, { userId: 'C', amount: 90 });
-
-  const lines = raidLines({ raid: raid({ stats: { A: stats(500, 0, 0), B: stats(800, 0, 0), C: stats(0, 0, 0) } }), extraRaid: null }, 'wyrm');
-  assert.deepEqual(lines, ['The party of 3 beat **💀 Soul Reaper** in 9 rounds!', '🗡️ Most damage: <@B> (**800**)', '⭐ Final blow: <@B>']);
+test('newsletter digest: only the week\'s boss and the robs, with no picture', () => {
+  const covered = raidWeek(new Date('2026-10-02T12:00:00Z'));
+  const upcoming = raidWeek(covered.next);
+  const boss = bossForWeek('g', upcoming.key);
+  const digest = weeklyDigest('g', { robs: [won('A', 'B', 300, 1)] }, covered, upcoming);
+  assert.deepEqual(Object.keys(digest), ['embeds']);
+  assert.equal(digest.embeds.length, 1);
+  const embed = digest.embeds[0]!.toJSON();
+  assert.ok(embed.description?.includes(TEXT.newsletter.newBoss(`${TEXT.raid.bosses[boss].emoji} ${TEXT.raid.bosses[boss].name}`, false)));
+  assert.deepEqual(embed.fields?.map((f) => f.name), [TEXT.newsletter.robsField(false)]);
 });
 
-test('newsletter raid: a raid from before every stat was kept falls back to its damage', () => {
-  assert.deepEqual(summarizeRaid(raid({ damage: { A: 10, C: 40 } }))?.topDamage, { userId: 'C', amount: 40 });
-});
-
-test('newsletter raid: a wipe, a boss that left, an extra raid, one still going, and none at all', () => {
-  assert.match(raidLines({ raid: raid({ status: 'wiped' }), extraRaid: null }, 'wyrm')[0]!, /Soul Reaper\*\* wiped out the party of 3 in round 9/);
-  assert.match(raidLines({ raid: raid({ status: 'fled', boss: 'wyrm' }), extraRaid: null }, 'wyrm')[0]!, /Ember Wyrm\*\* flew off before/);
-  const withExtra = raidLines({ raid: raid({}), extraRaid: raid({ status: 'wiped', players: ['A'], rounds: 4 }) }, 'wyrm');
-  assert.equal(withExtra[1], 'Extra raid: **💀 Soul Reaper** wiped out the party of 1 in round 4.');
-  assert.deepEqual(raidLines({ raid: raid({ status: 'fighting' }), extraRaid: null }, 'wyrm'), ['The raid against **💀 Soul Reaper** is still going.']);
-  assert.equal(summarizeRaid(raid({ status: 'preparing' })), null);
-  assert.deepEqual(raidLines({ raid: null, extraRaid: null }, 'wyrm'), ['Nobody took on **🐉 Ember Wyrm**.']);
-  // No final blow when the boss wasn't beaten.
-  assert.ok(!raidLines({ raid: raid({ status: 'wiped' }), extraRaid: null }, 'wyrm').some((line) => line.includes('Final blow')));
+test('newsletter digest: off for now, so the scheduler is never started', () => {
+  assert.equal(NEWSLETTER.weeklyDigest, false);
 });
 
 test('newsletter: the week is named by the day it started, in the raid time zone', () => {
@@ -150,14 +122,17 @@ test('newsletter command: registered, admin only, prefix only', () => {
 });
 
 test('newsletter command: only the bot admin can use it; the admin gets the usage for anything else', async () => {
-  for (const args of [[], ['patch', 'hi'], ['note', 'hi'], ['preview']]) {
+  for (const args of [[], ['patch', 'hi'], ['preview']]) {
     const { ctx, replies } = fakeContext('42', args);
     await newsletter.execute(ctx);
     assert.deepEqual(replies, [TEXT.newsletter.adminOnly], args.join(' '));
   }
-  const { ctx, replies } = fakeContext(ADMIN_USER_ID, ['send']);
-  await newsletter.execute(ctx);
-  assert.deepEqual(replies, [TEXT.newsletter.usage('k!')]);
+  // `note` is gone: patch notes are how news goes out now.
+  for (const args of [['send'], ['note', 'hi']]) {
+    const { ctx, replies } = fakeContext(ADMIN_USER_ID, args);
+    await newsletter.execute(ctx);
+    assert.deepEqual(replies, [TEXT.newsletter.usage('k!')], args.join(' '));
+  }
 });
 
 test('newsletter command: patch notes need some text, and not too much (checked before anything is looked up)', async () => {
@@ -169,6 +144,54 @@ test('newsletter command: patch notes need some text, and not too much (checked 
   ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', long], `patch ${long}`));
   await newsletter.execute(ctx);
   assert.deepEqual(replies, [TEXT.newsletter.patchTooLong(NEWSLETTER.maxPatchLength)]);
+});
+
+test('newsletter command: patch notes with only headings, or a section too long for its field, are refused', async () => {
+  let { ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', 'Added', 'Fixed'], 'patch\nAdded\nFixed:');
+  await newsletter.execute(ctx);
+  assert.deepEqual(replies, [TEXT.newsletter.patchEmpty('k!')]);
+
+  const lines = Array.from({ length: 40 }, (_, i) => `- change number ${i} with a few more words on it`).join('\n');
+  ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch'], `patch\nFixed\n${lines}`));
+  await newsletter.execute(ctx);
+  assert.deepEqual(replies, [TEXT.newsletter.patchSectionTooLong(TEXT.newsletter.patchSections.fixed, FIELD_MAX_LENGTH)]);
+});
+
+// ---------------------------------------------------------------------------
+// Patch notes
+
+test('patch notes: a heading is a section name alone, however it is dressed up', () => {
+  for (const line of ['Added', 'added:', '## New', '**Changed**', '  Updates: ', 'FIXED', 'Removed']) assert.notEqual(sectionHeading(line), null, line);
+  for (const line of ['- Added the databank', 'Fixed a bug', 'New!', '']) assert.equal(sectionHeading(line), null, line);
+  assert.equal(sectionHeading('new'), 'added');
+  assert.equal(sectionHeading('updated'), 'changed');
+});
+
+test('patch notes: the intro, then each section in a fixed order, bullets tidied and blank lines dropped', () => {
+  const notes = parsePatchNotes(
+    ['Big week!', '', 'Thanks for playing.', 'Fixed', '- The wheel spun twice', 'Added:', '- Raid bosses in the databank', '', '* Multi pull guarantee', 'Fixed', '• Pity shows on singles'].join('\n'),
+  );
+  assert.equal(notes.intro, 'Big week!\n\nThanks for playing.');
+  assert.deepEqual(notes.sections, [
+    { section: 'added', lines: ['• Raid bosses in the databank', '• Multi pull guarantee'] },
+    { section: 'fixed', lines: ['• The wheel spun twice', '• Pity shows on singles'] },
+  ]);
+
+  // Plain text with no headings is all intro, as patch notes always were.
+  assert.deepEqual(parsePatchNotes('- Robs read better\n- STONKS! on k!bal'), { intro: '- Robs read better\n- STONKS! on k!bal', sections: [] });
+  // A heading with nothing under it is left out.
+  assert.deepEqual(parsePatchNotes('Removed\nAdded\n- x').sections, [{ section: 'added', lines: ['• x'] }]);
+});
+
+test('patch notes: the post has the intro on top and a field per section', () => {
+  const embed = patchNotesEmbed(parsePatchNotes('Hi!\nChanged\n- a\n- b\nAdded\n- c')).toJSON();
+  assert.equal(embed.title, TEXT.newsletter.patchTitle);
+  assert.equal(embed.description, 'Hi!');
+  assert.deepEqual(embed.fields, [
+    { name: TEXT.newsletter.patchSections.added, value: '• c' },
+    { name: TEXT.newsletter.patchSections.changed, value: '• a\n• b' },
+  ]);
+  assert.equal(patchNotesEmbed(parsePatchNotes('Fixed\n- x')).toJSON().description, undefined);
 });
 
 test('textAfterCommand: everything after the command name, line breaks kept', () => {

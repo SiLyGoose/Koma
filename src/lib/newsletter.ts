@@ -1,8 +1,6 @@
-import type { RaidDoc } from '../types.js';
-
 /*
- * What the weekly newsletter (src/newsletter) says about a week, worked out from what the bot kept:
- * the week's robs (ledger entries) and its raid (the raid document). Nothing here reads the database.
+ * What the weekly newsletter (src/newsletter) says about a week's robs, worked out from their ledger
+ * entries. Nothing here reads the database.
  */
 
 /** A ledger entry, as much of it as the rob summary needs. */
@@ -90,51 +88,5 @@ export function summarizeRobs(entries: readonly RobEntry[]): RobSummary {
     biggest,
     topRobber: leader(robbers),
     mostRobbed: leader(victims),
-  };
-}
-
-/** The raider at the top of one of the raid's stats, and how much (null when nobody did any). */
-export interface RaidLeader {
-  userId: string;
-  amount: number;
-}
-
-export interface RaidSummary {
-  status: RaidDoc['status'];
-  boss: NonNullable<RaidDoc['boss']>;
-  raiders: number;
-  rounds: number;
-  topDamage: RaidLeader | null;
-  topHealer: RaidLeader | null;
-  topGuard: RaidLeader | null;
-  lastHit: string | null;
-}
-
-/** The raider with the most of `pick` (the first in the party on a tie), or null when nobody has any. */
-function raidLeader(raid: RaidDoc, pick: (userId: string) => number): RaidLeader | null {
-  let best: RaidLeader | null = null;
-  for (const userId of raid.players) {
-    const amount = pick(userId);
-    if (amount > 0 && (best === null || amount > best.amount)) best = { userId, amount };
-  }
-  return best;
-}
-
-/**
- * How a raid went, for the newsletter. Null while it is still being played (or never got past its
- * lobby). Raids from before every stat was kept fall back to their damage alone.
- */
-export function summarizeRaid(raid: RaidDoc | null): RaidSummary | null {
-  if (!raid || raid.status === 'preparing' || raid.status === 'fighting') return null;
-  const stat = (userId: string) => raid.stats?.[userId];
-  return {
-    status: raid.status,
-    boss: raid.boss ?? 'wyrm',
-    raiders: raid.players.length,
-    rounds: raid.rounds ?? 0,
-    topDamage: raidLeader(raid, (id) => stat(id)?.damage ?? raid.damage?.[id] ?? 0),
-    topHealer: raidLeader(raid, (id) => stat(id)?.healed ?? 0),
-    topGuard: raidLeader(raid, (id) => stat(id)?.mitigated ?? 0),
-    lastHit: raid.lastHit ?? null,
   };
 }

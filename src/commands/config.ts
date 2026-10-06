@@ -3,7 +3,7 @@ import { CONFIG_BUTTONS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { EFFECT_IDS } from '../perks/index.js';
 import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
-import { checkEventChannel, NEWSLETTER_NEEDED, type ChannelProblem } from '../events/channel.js';
+import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg } from '../lib/parse.js';
 import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
@@ -37,10 +37,10 @@ const CHANNEL_STORE: Record<ChannelKey, { get(guildId: string): Promise<string |
 };
 
 /** Why a channel can't be used, in words. */
-function channelProblemText(problem: ChannelProblem, channelId: string, key: ChannelKey): string {
+function channelProblemText(problem: ChannelProblem, channelId: string): string {
   if (problem === 'missing') return TEXT.config.channelMissing;
   if (problem === 'not_text') return TEXT.config.channelNotText;
-  return key === 'newsletter' ? TEXT.config.newsletterNoPermission(`<#${channelId}>`) : TEXT.config.channelNoPermission(`<#${channelId}>`);
+  return TEXT.config.channelNoPermission(`<#${channelId}>`);
 }
 
 /**
@@ -82,9 +82,9 @@ async function handleChannelChange(ctx: CommandContext, key: ChannelKey, action:
     await ctx.reply(TEXT.config.invalidValue(key, TEXT.config.channelInvalid));
     return;
   }
-  const checked = await checkEventChannel(ctx.guild, channelId, key === 'newsletter' ? NEWSLETTER_NEEDED : undefined);
+  const checked = await checkEventChannel(ctx.guild, channelId);
   if (!checked.ok) {
-    await ctx.reply(channelProblemText(checked.problem, channelId, key));
+    await ctx.reply(channelProblemText(checked.problem, channelId));
     return;
   }
   await apply(channelId, `<#${channelId}>`);

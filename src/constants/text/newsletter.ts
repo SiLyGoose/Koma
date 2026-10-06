@@ -6,27 +6,11 @@ export const newsletterText = {
 
   /** `date` is the day the new week started, like "October 3". */
   weeklyTitle: (date: string) => `📰 Koma Weekly · ${date}`,
-  weeklyIntro: 'A new raid week has begun. Here is how last week went.',
+  weeklyIntro: 'A new raid week has begun.',
   /** In a preview: the digest covers the week so far, and goes out when it ends. */
   previewIntro: (unix: number) => `Preview: this week so far. The real one goes out <t:${unix}:R>.`,
-  noteField: '📣 Announcement',
-
-  /** A preview's covers the week so far. */
-  raidField: (preview: boolean) => (preview ? "⚔️ This week's raid so far" : "⚔️ Last week's raid"),
-  /** `boss` is like "🐉 Ember Wyrm". */
-  raidWon: (boss: string, raiders: number, rounds: number) =>
-    `The party of ${raiders} beat **${boss}** in ${rounds} round${rounds === 1 ? '' : 's'}!`,
-  raidWiped: (boss: string, raiders: number, rounds: number) => `**${boss}** wiped out the party of ${raiders} in round ${rounds}.`,
-  raidFled: (boss: string, raiders: number, how: string) => `**${boss}** ${how} before the party of ${raiders} could finish it.`,
-  raidNotFought: (boss: string) => `Nobody took on **${boss}**.`,
-  /** A raid still being played as the digest was made (it started just before the reset, or a preview). */
-  raidOngoing: (boss: string) => `The raid against **${boss}** is still going.`,
-  /** The week's extra raid (bought with `skip raid`), one line under the main one. */
-  extraRaid: (result: string) => `Extra raid: ${result}`,
-  raidTopDamage: (who: string, amount: string) => `🗡️ Most damage: ${who} (**${amount}**)`,
-  raidTopHealer: (who: string, amount: string) => `💚 Most healing: ${who} (**${amount}**)`,
-  raidTopGuard: (who: string, amount: string) => `🛡️ Most damage blocked: ${who} (**${amount}**)`,
-  raidLastHit: (who: string) => `⭐ Final blow: ${who}`,
+  /** The same, while the weekly digest is turned off (NEWSLETTER.weeklyDigest). */
+  previewIntroOff: "Preview: this week so far. The weekly newsletter is turned off, so this won't be sent.",
 
   robsField: (preview: boolean) => (preview ? '💰 This week in robs so far' : '💰 Last week in robs'),
   robsNone: 'Nobody robbed anyone.',
@@ -39,13 +23,17 @@ export const newsletterText = {
   robsMostRobbed: (who: string, amount: string, count: number) =>
     `🎯 Most robbed: ${who}, lost ${boldMoney(amount)} in ${count} rob${count === 1 ? '' : 's'}`,
 
-  /** Above the new boss's card. `boss` is like "🐉 Ember Wyrm". A preview's is next week's. */
+  /** `boss` is like "🐉 Ember Wyrm". A preview's is next week's. */
   newBoss: (boss: string, preview: boolean) => `${preview ? "Next week's" : "This week's"} raid boss is **${boss}**. Good luck!`,
 
   // ---------------------------------------------------------------------------
   // Patch notes, sent by the bot admin.
 
   patchTitle: '🛠️ Patch notes',
+  /** Each section's field name (lib/patch-notes.ts). */
+  patchSections: { added: '✨ Added', changed: '🔧 Changed', fixed: '🐛 Fixed', removed: '🗑️ Removed' },
+  /** A section too long for its embed field. `section` is its field name. */
+  patchSectionTooLong: (section: string, max: number) => `The ${section} section can be at most ${max} characters. Move some of it into another section or the intro.`,
   patchConfirm: (servers: number) => `Send to ${servers} server${servers === 1 ? '' : 's'}`,
   patchCancel: 'Cancel',
   notYours: 'Only the bot admin can answer this.',
@@ -56,17 +44,19 @@ export const newsletterText = {
   patchCancelled: 'Patch notes cancelled. Nothing was sent.',
   patchTimedOut: 'No answer, so the patch notes were not sent.',
   patchNoServers: (p: string) => `No server has a newsletter channel yet. Choose one with \`${p}config set newsletter #channel\`.`,
-  patchEmpty: (p: string) => `Write the notes after the command, like \`${p}newsletter patch\` and then the notes (new lines are kept).`,
+  patchEmpty: (p: string) =>
+    [
+      `Write the notes after the command, one change per line. A line with just **Added**, **Changed**, **Fixed** or **Removed** starts that section, and anything above the first one is the intro:`,
+      '```',
+      `${p}newsletter patch`,
+      'A few new things this week!',
+      'Added',
+      '- Raid bosses in the databank',
+      'Changed',
+      '- Multi pulls always give a 3★ or better',
+      '```',
+    ].join('\n'),
   patchTooLong: (max: number) => `Patch notes can be at most ${max} characters.`,
-
-  // ---------------------------------------------------------------------------
-  // The admin's note on the next weekly digest.
-
-  noteSet: (unix: number) => `Added. It goes out with every server's weekly newsletter <t:${unix}:R>.`,
-  noteCleared: 'The note for the next weekly newsletter is cleared.',
-  noteNone: (p: string) => `There is no note for the next weekly newsletter. Add one with \`${p}newsletter note <text>\`.`,
-  noteShow: (note: string, unix: number) => `This goes out with the weekly newsletter <t:${unix}:R>:\n>>> ${note}`,
-  noteTooLong: (max: number) => `The note can be at most ${max} characters.`,
 
   // ---------------------------------------------------------------------------
   // The command itself.
@@ -76,7 +66,6 @@ export const newsletterText = {
   usage: (p: string) =>
     [
       `\`${p}newsletter preview\`: what this server's weekly newsletter looks like so far`,
-      `\`${p}newsletter note <text>\`: an announcement on top of the next weekly newsletter (\`${p}newsletter note clear\` removes it, \`${p}newsletter note\` shows it)`,
-      `\`${p}newsletter patch <notes>\`: send patch notes to every server's newsletter channel (you see a preview first)`,
+      `\`${p}newsletter patch <notes>\`: send patch notes to every server's newsletter channel, in Added, Changed, Fixed and Removed sections (you see a preview first)`,
     ].join('\n'),
 };
