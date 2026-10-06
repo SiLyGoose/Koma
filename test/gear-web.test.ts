@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
-import { handleApi, type ApiDeps } from '../src/web/api.js';
+import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { REFINE } from '../src/constants/index.js';
@@ -124,7 +124,7 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
   const session = signSession({ userId: 'u1', name: 'ZEIU', avatar: null, guildIds: ['g1', 'g2'] }, 'shh');
   const headers = { Origin: SITE.origin, 'Content-Type': 'application/json', Authorization: `Bearer ${session}` };
 
-  const server: Server = createServer((req, res) => void handleApi(req, res, deps));
+  const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   try {
@@ -309,7 +309,7 @@ test("gear page: a game's link can look at gear in its server (the raid's party)
   const headers = { Origin: SITE.origin, Authorization: `Game ${token}` };
   const post = (path: string, body: unknown): Promise<Response> =>
     fetch(`${base}${path}`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const server: Server = createServer((req, res) => void handleApi(req, res, deps));
+  const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   try {
@@ -362,7 +362,7 @@ test("the raid's end screen can look at a raider's gear as they fought, with the
     raid: { start: async () => ({ ok: true }), week: async () => { throw new Error('unused'); }, gear: async (_g, userId) => (userId === '22' ? { kept: userId } : null) },
   };
   const headers = { Origin: SITE.origin, Authorization: `Game ${signToken({ guildId: 'g1', userId: '11', name: 'A' }, 60_000)}` };
-  const server: Server = createServer((req, res) => void handleApi(req, res, deps));
+  const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   try {

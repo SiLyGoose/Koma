@@ -14,10 +14,13 @@
   "dependencies": {
     "discord.js": "^14.16.0",
     "dotenv": "^16.4.0",
+    "express": "^5",
     "mongodb": "^6.0.0",
-    "ws": "^8"
+    "ws": "^8",
+    "zod": "^4"
   },
   "devDependencies": {
+    "@types/express": "^5",
     "@types/node": "^22.0.0",
     "@types/ws": "^8",
     "tsx": "^4.0.0",

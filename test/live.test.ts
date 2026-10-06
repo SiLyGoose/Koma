@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
-import { handleApi, type ApiDeps, type Leaderboard, type Live } from '../src/web/api.js';
+import { createApi, type ApiDeps, type Leaderboard, type Live } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { addWatcher, HUB_TTL_MS, hubSeen, isPlaying, online, playerJoined, playerLeft, removeWatcher, resetLive, toWatchers, type LivePeer } from '../src/web/live.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken } from '../src/web/token.js';
@@ -101,7 +101,7 @@ async function withApi(run: (base: string) => Promise<void>, extra: Partial<ApiD
     balance: async () => 0,
     avatar: (_, userId) => (userId === 'u1' ? 'https://cdn/ZEIU.png' : null),
   };
-  const server: Server = createServer((req, res) => void handleApi(req, res, deps).then((handled) => (handled ? undefined : res.writeHead(404).end())));
+  const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     await run(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);

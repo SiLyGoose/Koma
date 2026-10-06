@@ -6,7 +6,7 @@ import { CONFIG } from '../src/config.js';
 import { REFINE } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
-import { handleApi } from '../src/web/api.js';
+import { createApi } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { databankView } from '../src/web/databank.js';
 
@@ -48,8 +48,8 @@ test('databank page: says where each item comes from, and the raid drop chance',
 });
 
 test('databank page: answers the site without a login, and nothing else', async () => {
-  const server: Server = createServer((req, res) =>
-    void handleApi(req, res, { config: SITE, clientId: () => '999', guild: () => null, memberName: async () => null, balance: async () => 0 }),
+  const server: Server = createServer(
+    createApi({ config: SITE, clientId: () => '999', guild: () => null, memberName: async () => null, balance: async () => 0 }),
   );
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;

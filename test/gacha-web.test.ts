@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
-import { handleApi, type ApiDeps } from '../src/web/api.js';
+import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import type { BannerPull, BannerResult, BannerView, GachaStore } from '../src/web/gacha.js';
 import { signSession } from '../src/web/login.js';
@@ -51,7 +51,7 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
   const headers = { Origin: SITE.origin, 'Content-Type': 'application/json', Authorization: `Bearer ${session}` };
   const post = (body: unknown, auth = headers): RequestInit => ({ method: 'POST', headers: auth, body: JSON.stringify(body) });
 
-  const server: Server = createServer((req, res) => void handleApi(req, res, deps));
+  const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   try {

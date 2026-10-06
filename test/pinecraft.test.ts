@@ -27,7 +27,7 @@ import {
   type PinecraftRules,
   type PinecraftWorld,
 } from '../src/lib/game/pinecraft.js';
-import { handleApi, type ApiDeps } from '../src/web/api.js';
+import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { signSession, verifySession } from '../src/web/login.js';
 import { parseClientMessage, type ServerMessage } from '../src/web/pinecraft/protocol.js';
@@ -658,7 +658,7 @@ test('login: a session says who logged in, and a changed or foreign one says nob
 });
 
 async function withApi(deps: ApiDeps, run: (base: string) => Promise<void>): Promise<void> {
-  const server: Server = createServer((req, res) => void handleApi(req, res, deps).then((handled) => (handled ? undefined : res.writeHead(404).end())));
+  const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   try {
     await run(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);

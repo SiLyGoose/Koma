@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { MINE_WEB } from '../constants/index.js';
-import { handleApi, type ApiDeps } from './api.js';
+import { createApi, type ApiDeps } from './api.js';
 import type { RaidSiteDeps } from './raid/server.js';
 import { GAMES } from './config.js';
 import { serveMine } from './mines/server.js';
@@ -13,7 +13,7 @@ import { serveRaid } from './raid/server.js';
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
- * (api.ts), and takes the games' web sockets, each game's in its own folder here (mines/,
+ * (api.ts, an Express app), and takes the games' web sockets, each game's in its own folder here (mines/,
  * pinecraft/, baccarat/, roulette/; the table games share table/, and every game connection.ts).
  * Only the site's own origin may connect.
  */
@@ -37,13 +37,7 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     // The raid, once the bot can start one and read the week (it has logged in to Discord).
     ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
   };
-  const http = createServer((req, res) => {
-    void handleApi(req, res, api).then((handled) => {
-      if (handled) return;
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Not found');
-    });
-  });
+  const http = createServer(createApi(api));
   const wss = new WebSocketServer({ noServer: true, maxPayload: MINE_WEB.maxMessageBytes });
   // Connections that stopped answering (a phone gone to sleep) are dropped.
   const alive = new WeakSet<WebSocket>();
