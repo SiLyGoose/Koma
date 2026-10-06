@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CURRENCY_EMOJI, MULTI_PULLS, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, MULTI_MIN_STARS, MULTI_PULLS, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/items/gacha.js';
 import { gachaItems, itemsByStars } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
@@ -49,6 +49,38 @@ test('multi: a single pull is the same as a multi of one', () => {
   assert.equal(single.counter, 0);
   const noReset = rollPulls(10, 1, true, () => item(1));
   assert.equal(noReset.counter, 11);
+});
+
+test('multi: the last pull is lifted to the minimum tier only when nothing before it reached it', () => {
+  const floors: Stars[] = [];
+  const roll = (stars: Stars) => (_n: number, _g: boolean, floor: Stars) => {
+    floors.push(floor);
+    return item(Math.max(stars, floor) as Stars);
+  };
+  // All 1-stars: only the last pull is rolled from 3 up.
+  const low = rollPulls(0, 10, true, roll(1), {}, 3);
+  assert.deepEqual(floors, [1, 1, 1, 1, 1, 1, 1, 1, 1, 3]);
+  assert.deepEqual(low.items.map((i) => i.stars), [1, 1, 1, 1, 1, 1, 1, 1, 1, 3]);
+
+  // A 3-star or better earlier on leaves the last pull alone.
+  floors.length = 0;
+  rollPulls(0, 10, true, (n, g, floor) => roll(n === 4 ? 3 : 1)(n, g, floor), {}, 3);
+  assert.deepEqual(floors, Array(10).fill(1));
+  floors.length = 0;
+  rollPulls(0, 10, true, (n, g, floor) => roll(n === 2 ? 4 : 1)(n, g, floor), {}, 3);
+  assert.deepEqual(floors, Array(10).fill(1));
+
+  // Without a minimum (a single pull) nothing is lifted.
+  floors.length = 0;
+  rollPulls(0, 1, true, roll(1));
+  assert.deepEqual(floors, [1]);
+});
+
+test('multi: every real multi pull has at least one item of the minimum tier or better', () => {
+  for (let i = 0; i < 500; i++) {
+    const { items } = rollPulls(0, MULTI_PULLS, true, undefined, {}, MULTI_MIN_STARS);
+    assert.ok(items.some((pulled) => pulled.stars >= MULTI_MIN_STARS), `no ${MULTI_MIN_STARS}-star or better in ${items.map((p) => p.stars).join(',')}`);
+  }
 });
 
 test('multi: the messages', () => {

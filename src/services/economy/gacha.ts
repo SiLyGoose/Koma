@@ -1,5 +1,5 @@
 import { CONFIG } from '../../config.js';
-import { MULTI_PULLS } from '../../constants/index.js';
+import { MULTI_MIN_STARS, MULTI_PULLS } from '../../constants/index.js';
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { newCopyId } from '../../lib/game/items/copies.js';
@@ -11,7 +11,7 @@ import { resolveGear } from '../items/gear.js';
 import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
 /*
- * Gacha pulls: paying, pity, the unique-treasure guarantee, and handing out item copies.
+ * Gacha pulls: paying, pity, the unique-treasure guarantee, a multi pull's minimum tier, and handing out item copies.
  */
 
 export type PullResult =
@@ -131,10 +131,15 @@ async function pullMany(guildId: string, userId: string, times: number): Promise
   const counted = pityOn ? (debited.pity ?? times) : 0; // the counter after paying, counting all of these pulls
   // The guarantee: after someone else's treasure, the member's next treasure is their own.
   const wasGuaranteed = debited.guaranteed ?? false;
-  const { items: rolled, counter, guaranteed } = rollPulls(counted - times, times, pityOn, undefined, {
-    userId,
-    guaranteed: wasGuaranteed,
-  });
+  // A multi pull promises at least one MULTI_MIN_STARS item; a single pull promises nothing.
+  const { items: rolled, counter, guaranteed } = rollPulls(
+    counted - times,
+    times,
+    pityOn,
+    undefined,
+    { userId, guaranteed: wasGuaranteed },
+    times > 1 ? MULTI_MIN_STARS : 1,
+  );
   // The payment counted every pull; take back what the resets undo. Subtracting (instead of
   // setting the counter) keeps any pull that was counted at the same moment.
   const pityReset = pityOn ? counter - counted : 0;

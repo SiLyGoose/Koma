@@ -109,6 +109,20 @@ test('pity: before softStart the rolls follow the weights, and the boost only ta
   assert.ok(Math.abs(at80[3] / draws - (rest * 10) / 90) < 0.01);
 });
 
+test('multi minimum: tiers below it are left out, and the top tier keeps its own chance', () => {
+  const draws = 100_000;
+  const weights = { 1: 50, 2: 30, 3: 10, 4: 10 } as Record<1 | 2 | 3 | 4, number>;
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (let i = 0; i < draws; i++) counts[rollStarsAtPull(5, weights, PITY, 3)]++;
+  assert.equal(counts[1] + counts[2], 0);
+  assert.ok(Math.abs(counts[4] / draws - 0.1) < 0.01, `top tier with a minimum: ${counts[4] / draws}`);
+
+  // When nothing from the minimum up can be pulled, it does nothing.
+  const none = { 1: 0, 2: 0 };
+  for (let i = 0; i < 1000; i++) none[rollStarsAtPull(5, { 1: 50, 2: 50, 3: 0, 4: 0 }, PITY, 3) as 1 | 2]++;
+  assert.ok(none[1] > 0 && none[2] > 0);
+});
+
 test('pity: nobody goes past the hard pity, and it averages about 60 pulls', () => {
   const runs = 5000;
   let total = 0;

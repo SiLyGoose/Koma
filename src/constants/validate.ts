@@ -5,7 +5,7 @@ import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH, EVENT_PING_ROLE_IDS } from './events.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
-import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './items/gacha.js';
+import { MULTI_PULLS, MULTI_MIN_STARS, MAX_PITY, GACHA_ANIMATION, PITY_STARS, STAR_COLORS } from './items/gacha.js';
 import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './items/refine.js';
 import { LOCK_BUTTONS } from './items/lock.js';
@@ -51,6 +51,9 @@ export function validateConstants(): void {
   if (MAX_PREFIX_LENGTH < 1) problems.push('MAX_PREFIX_LENGTH must be at least 1');
   if (CHANCE_STEPS < 100) problems.push('CHANCE_STEPS must be at least 100');
   if (MULTI_PULLS < 2 || MULTI_PULLS > 30) problems.push('MULTI_PULLS must be from 2 to 30');
+  if (!(Number.isInteger(MULTI_MIN_STARS) && MULTI_MIN_STARS >= 1 && MULTI_MIN_STARS <= PITY_STARS)) {
+    problems.push('MULTI_MIN_STARS must be a star tier from 1 to PITY_STARS');
+  }
   if (!(Number.isInteger(GACHA_ANIMATION.frames) && GACHA_ANIMATION.frames >= 2 && GACHA_ANIMATION.frames <= 120)) {
     problems.push('GACHA_ANIMATION.frames must be a whole number from 2 to 120');
   }

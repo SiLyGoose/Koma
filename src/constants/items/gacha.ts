@@ -7,6 +7,13 @@ import type { Stars } from '../../types.js';
 /** How many pulls one multi pull (`gacha multi`) makes. It costs that many single pulls, and the results are shown in one embed, so keep it from 2 to 30. */
 export const MULTI_PULLS = 10;
 
+/**
+ * Every multi pull gives at least one item of this many stars or more: when none of the other
+ * pulls has, the last one is rolled from this tier up. Its chance of the pity tier stays what it
+ * would have been, so the guarantee only lifts what would have been a lower tier. 1 turns it off.
+ */
+export const MULTI_MIN_STARS: Stars = 3;
+
 /** Highest pull count the pity settings accept. */
 export const MAX_PITY = 1000;
 

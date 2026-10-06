@@ -51,16 +51,24 @@ export function topChance(
  * Rolls a tier for the Nth pull since the member's last pity-tier item. The pity tier is rolled
  * first at its (possibly raised) chance; if it misses, the other tiers share the rest in
  * proportion to their weights. Before softStart this is the same as a plain weighted roll.
+ *
+ * `minStars` leaves out the tiers below it when the pity tier misses (a multi pull's guarantee,
+ * MULTI_MIN_STARS), so the pity tier's chance is the same either way. It does nothing when no tier
+ * from `minStars` up can be pulled at all.
  */
 export function rollStarsAtPull(
   pullNumber: number,
   weights: Weights = CONFIG.gacha.starWeights,
   pity: PitySettings = CONFIG.gacha.pity,
+  minStars: Stars = 1,
 ): Stars {
   const top = topChance(pullNumber, weights, pity);
   if (top >= 1 || chance(top)) return PITY_STARS;
 
   const others = { ...weights, [PITY_STARS]: 0 };
+  if (STARS.some((stars) => stars >= minStars && weights[stars] > 0)) {
+    for (const stars of STARS) if (stars < minStars) others[stars] = 0;
+  }
   if (STARS.every((stars) => others[stars] <= 0)) return PITY_STARS;
   return rollStars(others);
 }
@@ -78,10 +86,11 @@ export function ownTreasures(userId: string): ItemDef[] {
  * Rolls a tier, then picks uniformly among the items in that tier the gacha can pull (not raid drops). `pullNumber` is which pull
  * this is since the member's last pity-tier item (1 if pity doesn't matter). When `guaranteed`
  * is set and the roll lands on the pity tier, the pick is made only among `userId`'s own
- * treasures (see ownTreasures) instead of the whole tier.
+ * treasures (see ownTreasures) instead of the whole tier. `minStars` is the lowest tier it can
+ * land on (see rollStarsAtPull).
  */
-export function rollItem(pullNumber = 1, userId?: string, guaranteed = false): ItemDef {
-  const stars = rollStarsAtPull(pullNumber);
+export function rollItem(pullNumber = 1, userId?: string, guaranteed = false, minStars: Stars = 1): ItemDef {
+  const stars = rollStarsAtPull(pullNumber, undefined, undefined, minStars);
   let pool = gachaItems(stars);
   if (stars === PITY_STARS && guaranteed && userId) {
     const own = ownTreasures(userId);
@@ -110,23 +119,28 @@ export function nextGuarantee(userId: string, item: ItemDef): boolean {
  *
  * `owner` carries the member's guarantee (see nextGuarantee): each pity-tier item updates it
  * for the pulls after it, and the result says where it ends up. The guarantee works whether or
- * not pity is on. `roll` is only replaced in tests.
+ * not pity is on. `minStars` promises at least one item of that tier or better: when none of the
+ * other pulls has given one, the last pull is rolled from that tier up. `roll` is only replaced in tests.
  */
 export function rollPulls(
   counter: number,
   times: number,
   pityOn: boolean,
-  roll?: (pullNumber: number, guaranteed: boolean) => ItemDef,
+  roll?: (pullNumber: number, guaranteed: boolean, minStars: Stars) => ItemDef,
   owner: { userId?: string; guaranteed?: boolean } = {},
+  minStars: Stars = 1,
 ): { items: ItemDef[]; counter: number; guaranteed: boolean } {
   const { userId } = owner;
   let guaranteed = owner.guaranteed ?? false;
-  const doRoll = roll ?? ((pullNumber: number, g: boolean) => rollItem(pullNumber, userId, g));
+  const doRoll = roll ?? ((pullNumber: number, g: boolean, floor: Stars) => rollItem(pullNumber, userId, g, floor));
   const items: ItemDef[] = [];
+  let best = 0;
   for (let i = 0; i < times; i++) {
     counter = pityOn ? counter + 1 : 1;
-    const item = doRoll(counter, guaranteed);
+    const floor = i === times - 1 && best < minStars ? minStars : 1;
+    const item = doRoll(counter, guaranteed, floor);
     items.push(item);
+    best = Math.max(best, item.stars);
     if (item.stars === PITY_STARS) {
       if (pityOn) counter = 0;
       if (userId) guaranteed = nextGuarantee(userId, item);
