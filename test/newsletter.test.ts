@@ -11,7 +11,7 @@ import { summarizeRobs, type RobEntry } from '../src/lib/newsletter.js';
 import { textAfterCommand } from '../src/lib/parse.js';
 import { robLines, weekDate, weeklyDigest } from '../src/newsletter/digest.js';
 import { bossForWeek } from '../src/lib/events/raid-boss.js';
-import { parsePatchNotes, sectionHeading } from '../src/lib/patch-notes.js';
+import { parsePatchNotes, parseVersion, sectionHeading } from '../src/lib/patch-notes.js';
 import { patchNotesEmbed } from '../src/newsletter/patch-notes.js';
 
 const at = (minute: number): Date => new Date(Date.UTC(2026, 9, 5, 12, minute));
@@ -135,30 +135,48 @@ test('newsletter command: only the bot admin can use it; the admin gets the usag
   }
 });
 
-test('newsletter command: patch notes need some text, and not too much (checked before anything is looked up)', async () => {
-  let { ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch'], 'patch');
+test('newsletter command: patch notes need a version and some text, and not too much (checked before anything is looked up)', async () => {
+  for (const [args, text] of [
+    [['patch'], 'patch'],
+    [['patch', '1.0'], 'patch 1.0'],
+  ] as const) {
+    const { ctx, replies } = fakeContext(ADMIN_USER_ID, [...args], text);
+    await newsletter.execute(ctx);
+    assert.deepEqual(replies, [TEXT.newsletter.patchEmpty('k!')], text);
+  }
+
+  // Notes written without a version: the first word isn't one.
+  let { ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', 'Added', '-', 'x'], 'patch\nAdded\n- x');
   await newsletter.execute(ctx);
-  assert.deepEqual(replies, [TEXT.newsletter.patchEmpty('k!')]);
+  assert.deepEqual(replies, [TEXT.newsletter.patchBadVersion('k!', 'Added')]);
 
   const long = 'x'.repeat(NEWSLETTER.maxPatchLength + 1);
-  ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', long], `patch ${long}`));
+  ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', '1.0', long], `patch 1.0 ${long}`));
   await newsletter.execute(ctx);
   assert.deepEqual(replies, [TEXT.newsletter.patchTooLong(NEWSLETTER.maxPatchLength)]);
 });
 
 test('newsletter command: patch notes with only headings, or a section too long for its field, are refused', async () => {
-  let { ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', 'Added', 'Fixed'], 'patch\nAdded\nFixed:');
+  let { ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', '1.0', 'Added', 'Fixed'], 'patch 1.0\nAdded\nFixed:');
   await newsletter.execute(ctx);
   assert.deepEqual(replies, [TEXT.newsletter.patchEmpty('k!')]);
 
   const lines = Array.from({ length: 40 }, (_, i) => `- change number ${i} with a few more words on it`).join('\n');
-  ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch'], `patch\nFixed\n${lines}`));
+  ({ ctx, replies } = fakeContext(ADMIN_USER_ID, ['patch', '1.0'], `patch 1.0\nFixed\n${lines}`));
   await newsletter.execute(ctx);
   assert.deepEqual(replies, [TEXT.newsletter.patchSectionTooLong(TEXT.newsletter.patchSections.fixed, FIELD_MAX_LENGTH)]);
 });
 
 // ---------------------------------------------------------------------------
 // Patch notes
+
+test('patch notes: the version is a number like 1.0, with or without a "v", and anything else is not one', () => {
+  assert.equal(parseVersion('1.0'), '1.0');
+  assert.equal(parseVersion('v2.3.1'), '2.3.1');
+  assert.equal(parseVersion('V1.4-beta'), '1.4-beta');
+  assert.equal(parseVersion('3'), '3');
+  for (const word of ['Added', 'v', '1.', '1..2', 'one', '', undefined]) assert.equal(parseVersion(word), null, String(word));
+});
 
 test('patch notes: a heading is a section name alone, however it is dressed up', () => {
   for (const line of ['Added', 'added:', '## New', '**Changed**', '  Updates: ', 'FIXED', 'Removed']) assert.notEqual(sectionHeading(line), null, line);
@@ -184,14 +202,14 @@ test('patch notes: the intro, then each section in a fixed order, bullets tidied
 });
 
 test('patch notes: the post has the intro on top and a field per section', () => {
-  const embed = patchNotesEmbed(parsePatchNotes('Hi!\nChanged\n- a\n- b\nAdded\n- c')).toJSON();
-  assert.equal(embed.title, TEXT.newsletter.patchTitle);
+  const embed = patchNotesEmbed('1.0', parsePatchNotes('Hi!\nChanged\n- a\n- b\nAdded\n- c')).toJSON();
+  assert.equal(embed.title, '🛠️ Patch notes v1.0');
   assert.equal(embed.description, 'Hi!');
   assert.deepEqual(embed.fields, [
     { name: TEXT.newsletter.patchSections.added, value: '• c' },
     { name: TEXT.newsletter.patchSections.changed, value: '• a\n• b' },
   ]);
-  assert.equal(patchNotesEmbed(parsePatchNotes('Fixed\n- x')).toJSON().description, undefined);
+  assert.equal(patchNotesEmbed('1.0', parsePatchNotes('Fixed\n- x')).toJSON().description, undefined);
 });
 
 test('textAfterCommand: everything after the command name, line breaks kept', () => {

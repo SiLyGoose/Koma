@@ -29,7 +29,8 @@ export const newsletterText = {
   // ---------------------------------------------------------------------------
   // Patch notes, sent by the bot admin.
 
-  patchTitle: '🛠️ Patch notes',
+  /** `version` is like "1.0" (the "v" is added here). */
+  patchTitle: (version: string) => `🛠️ Patch notes v${version}`,
   /** Each section's field name (lib/patch-notes.ts). */
   patchSections: { added: '✨ Added', changed: '🔧 Changed', fixed: '🐛 Fixed', removed: '🗑️ Removed' },
   /** A section too long for its embed field. `section` is its field name. */
@@ -46,9 +47,9 @@ export const newsletterText = {
   patchNoServers: (p: string) => `No server has a newsletter channel yet. Choose one with \`${p}config set newsletter #channel\`.`,
   patchEmpty: (p: string) =>
     [
-      `Write the notes after the command, one change per line. A line with just **Added**, **Changed**, **Fixed** or **Removed** starts that section, and anything above the first one is the intro:`,
+      `Write the version and then the notes after the command, one change per line. A line with just **Added**, **Changed**, **Fixed** or **Removed** starts that section, and anything above the first one is the intro:`,
       '```',
-      `${p}newsletter patch`,
+      `${p}newsletter patch 1.0`,
       'A few new things this week!',
       'Added',
       '- Raid bosses in the databank',
@@ -56,6 +57,9 @@ export const newsletterText = {
       '- Multi pulls always give a 3★ or better',
       '```',
     ].join('\n'),
+  /** The word after `patch` isn't a version. */
+  patchBadVersion: (p: string, word: string) =>
+    `"${word}" isn't a version number. Start with one, like \`${p}newsletter patch 1.0\` and then the notes.`,
   patchTooLong: (max: number) => `Patch notes can be at most ${max} characters.`,
 
   // ---------------------------------------------------------------------------
@@ -66,6 +70,6 @@ export const newsletterText = {
   usage: (p: string) =>
     [
       `\`${p}newsletter preview\`: what this server's weekly newsletter looks like so far`,
-      `\`${p}newsletter patch <notes>\`: send patch notes to every server's newsletter channel, in Added, Changed, Fixed and Removed sections (you see a preview first)`,
+      `\`${p}newsletter patch <version> <notes>\`: send patch notes for that version (like \`1.0\`) to every server's newsletter channel, in Added, Changed, Fixed and Removed sections (you see a preview first)`,
     ].join('\n'),
 };

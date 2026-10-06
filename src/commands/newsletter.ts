@@ -3,7 +3,7 @@ import { FIELD_MAX_LENGTH, NEWSLETTER, TEXT } from '../constants/index.js';
 import { askToConfirm } from '../discord/confirm.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { createEmbed } from '../lib/embed.js';
-import { parsePatchNotes } from '../lib/patch-notes.js';
+import { parsePatchNotes, parseVersion } from '../lib/patch-notes.js';
 import { patchNotesEmbed } from '../newsletter/patch-notes.js';
 import { broadcastPatchNotes, previewDigest } from '../newsletter/send.js';
 import { listNewsletterGuilds } from '../services/newsletter.js';
@@ -28,9 +28,16 @@ async function preview(ctx: CommandContext): Promise<void> {
 
 async function patch(ctx: CommandContext): Promise<void> {
   const t = TEXT.newsletter;
-  const notes = textAfter(ctx, 1);
-  if (notes === '') {
+  // `newsletter patch <version> <notes>`: the version is the first word after `patch`.
+  const word = ctx.args[1];
+  const notes = textAfter(ctx, 2);
+  if (word === undefined || notes === '') {
     await ctx.reply(t.patchEmpty(ctx.prefix));
+    return;
+  }
+  const version = parseVersion(word);
+  if (version === null) {
+    await ctx.reply(t.patchBadVersion(ctx.prefix, word));
     return;
   }
   if (notes.length > NEWSLETTER.maxPatchLength) {
@@ -55,7 +62,7 @@ async function patch(ctx: CommandContext): Promise<void> {
     return;
   }
 
-  const notesEmbed = () => patchNotesEmbed(parsed);
+  const notesEmbed = () => patchNotesEmbed(version, parsed);
   const answer = await askToConfirm(
     ctx,
     notesEmbed().setFooter({ text: t.patchPreviewFooter }),
@@ -76,7 +83,7 @@ export const newsletter: Command = {
   category: 'bot',
   aliases: ['news'],
   description: 'Patch notes and the weekly newsletter (bot admin only).',
-  usage: 'newsletter preview | patch <notes>',
+  usage: 'newsletter preview | patch <version> <notes>',
   adminOnly: true,
 
   async execute(ctx) {

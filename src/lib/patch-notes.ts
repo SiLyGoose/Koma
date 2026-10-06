@@ -1,8 +1,8 @@
 /*
- * Patch notes (`newsletter patch`), read from what the bot admin writes. Anything before the first
- * section heading is the intro. A line that is only a section's name ("Added", "changed:",
- * "## Fixed", "**New**") starts that section, and the lines under it are its changes. Nothing here
- * talks to Discord.
+ * Patch notes (`newsletter patch <version> <notes>`), read from what the bot admin writes: the
+ * version, then the notes. Anything before the first section heading is the intro. A line that is
+ * only a section's name ("Added", "changed:", "## Fixed", "**New**") starts that section, and the
+ * lines under it are its changes. Nothing here talks to Discord.
  */
 
 /** The sections patch notes can have, in the order they are shown. */
@@ -31,6 +31,15 @@ export interface PatchNotes {
   intro: string;
   /** The sections with something in them, in PATCH_SECTIONS order. A section written twice is one. */
   sections: { section: PatchSection; lines: string[] }[];
+}
+
+/**
+ * The version the notes are for, as the admin typed it ("1.0", "v2.3.1", "1.4-beta"), without a
+ * leading "v". Null when the word isn't a version (say, the notes were written without one).
+ */
+export function parseVersion(word: string | undefined): string | null {
+  const match = /^v?(\d+(?:\.\d+){0,3}(?:-[a-z0-9]+)?)$/i.exec(word?.trim() ?? '');
+  return match ? (match[1] as string) : null;
 }
 
 /** The section a line starts, or null when it is an ordinary line. */
