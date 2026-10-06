@@ -7,6 +7,7 @@ import { LOADOUT_NUMBERS } from '../lib/game/items/loadouts.js';
 import { databankView } from './databank.js';
 import { bossPicture } from './raid/picture.js';
 import type { RaidSiteDeps } from './raid/server.js';
+import { gachaStore, type GachaStore } from './gacha.js';
 import { gearStore, type ForgeBlock, type GearStore, type RefineBlock } from './gear.js';
 import { hubSeen, isPlaying, online, type LiveGame } from './live.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, verifySession, type Session } from './login.js';
@@ -35,6 +36,8 @@ import { signToken, signWatchToken, verifyToken, verifyWatchToken, type Player }
  *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
  *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
  *   GET  /api/databank        every item and what it does at each level: Databank (databank.ts)
+ *   GET  /api/gacha?guild=…   the banner page: what a pull costs the member, their komaTokens and pity: BannerView (gacha.ts)
+ *   POST /api/gacha/pull {guild, multi}   one pull, or a multi pull (`multi` true): BannerResult
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
@@ -62,6 +65,8 @@ export interface ApiDeps {
   leaderboard?: typeof pinecraftLeaderboard;
   /** Members' gear, for the gear page (the database's, unless a test says otherwise). */
   gear?: GearStore;
+  /** The gacha, for the banner page (the database's, unless a test says otherwise). */
+  gacha?: GachaStore;
   login?: typeof exchangeCode;
   /** The raid's page (web/raid), once the bot is logged in to Discord. */
   raid?: RaidSiteDeps;
@@ -313,6 +318,26 @@ async function gearRoutes(req: IncomingMessage, res: ServerResponse, url: URL, d
   fail(res, 'not_found');
 }
 
+/** The banner page's routes, for a logged-in member: the server comes in the query (GET) or the body (POST). */
+async function gachaRoutes(req: IncomingMessage, res: ServerResponse, url: URL, deps: ApiDeps, session: Session): Promise<void> {
+  const store = deps.gacha ?? gachaStore;
+  const body = req.method === 'POST' ? await readJson(req) : null;
+  const guildId = req.method === 'POST' ? body?.guild : url.searchParams.get('guild');
+  if (typeof guildId !== 'string') return fail(res, 'bad_request');
+  if (!session.guildIds.includes(guildId) || !deps.guild(guildId) || (await deps.memberName(guildId, session.userId)) === null) return fail(res, 'not_member');
+  const { userId } = session;
+
+  if (url.pathname === '/api/gacha' && req.method === 'GET') return send(res, 200, await store.view(guildId, userId));
+  if (url.pathname === '/api/gacha/pull' && req.method === 'POST') {
+    const multi = body?.multi ?? false;
+    if (typeof multi !== 'boolean') return fail(res, 'bad_request');
+    const result = await store.pull(guildId, userId, multi);
+    if (result === 'too_poor') return fail(res, result);
+    return send(res, 200, result);
+  }
+  fail(res, 'not_found');
+}
+
 /** Answers a request under /api. Returns false for any other path. */
 export async function handleApi(req: IncomingMessage, res: ServerResponse, deps: ApiDeps): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://bot');
@@ -430,6 +455,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, deps:
 
     if (url.pathname.startsWith('/api/gear')) {
       await gearRoutes(req, res, url, deps, session);
+      return true;
+    }
+
+    if (url.pathname === '/api/gacha' || url.pathname === '/api/gacha/pull') {
+      await gachaRoutes(req, res, url, deps, session);
       return true;
     }
 
