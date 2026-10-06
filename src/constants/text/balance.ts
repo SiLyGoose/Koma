@@ -22,6 +22,6 @@ export const balanceText = {
   witheredSelf: (rate: string, taker: string) => `Withered: ${taker} takes ${rate} of your next claim.`,
   witheredOther: (rate: string, taker: string) => `Withered: ${taker} takes ${rate} of their next claim.`,
   /** Marked by a Frog wearer: part of their next successful rob goes to `taker` (a mention). */
-  robTaxSelf: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of your next rob.`,
-  robTaxOther: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of their next rob.`,
+  robTaxSelf: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of your next rob (unless you rob them).`,
+  robTaxOther: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of their next rob (unless they rob ${taker}).`,
 };

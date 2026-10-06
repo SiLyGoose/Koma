@@ -378,11 +378,12 @@ export async function rob(guildId: string, robberId: string, victimId: string): 
 
       // If a Jew Frog wearer marked the robber earlier, part of this rob is theirs. The mark is
       // cleared in one conditional update, so it is taken at most once, and put back if the payout
-      // could not be made.
+      // could not be made. Robbing the wearer back is exempt: the mark is left untouched and waits
+      // for the robber's next successful rob of anyone else.
       let robTaxPaid: { amount: number; toUserId: string } | null = null;
       const owedRate = before.robTaxRate ?? null;
       const owedTo = before.robTaxBy ?? null;
-      if (owedRate !== null && owedTo !== null) {
+      if (owedRate !== null && owedTo !== null && owedTo !== victimId) {
         try {
           const taken = await members.findOneAndUpdate(
             { guildId, userId: robberId, robTaxRate: owedRate, robTaxBy: owedTo },
