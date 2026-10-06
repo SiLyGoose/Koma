@@ -1,6 +1,7 @@
 import { CONFIG } from '../../config.js';
 import { MULTI_PULLS } from '../../constants/index.js';
 import { collections } from '../../db.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
 import { newCopyId } from '../../lib/game/items/copies.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
 import { rollPulls, topChance } from '../../lib/game/items/gacha.js';
@@ -34,11 +35,12 @@ export type PullResult =
     }
   | { ok: false; balance: number; cost: number; tokens: number };
 
-/** Gives the member a new copy of an item. `count` is how many copies of it they now have. */
+/** Gives the member a new copy of an item (locked when it's 4★). `count` is how many copies of it they now have. */
 export async function addCopy(guildId: string, userId: string, itemId: string): Promise<{ copy: ItemCopyDoc; count: number }> {
   const { items } = collections();
+  const locked = ITEMS_BY_ID.get(itemId)?.stars === 4;
   for (let attempt = 0; ; attempt++) {
-    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 1, obtainedAt: new Date() };
+    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 1, obtainedAt: new Date(), ...(locked && { locked }) };
     try {
       await items.insertOne(copy);
       return { copy, count: await items.countDocuments({ guildId, userId, itemId }) };

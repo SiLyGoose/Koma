@@ -41,7 +41,7 @@ export type RefineResult =
 
 /**
  * Refines the member's worn (or saved, or best) copy of `item` by one level, using up their
- * lowest-level copy that is in no loadout and not locked, and the price. With `chosen` (the site's forge) it refines
+ * lowest-level copy that is in no loadout and not locked, and the price. The refined copy is locked. With `chosen` (the site's forge) it refines
  * that copy instead, using up the material picked (or, with none, the lowest-level one it could use).
  */
 export async function refineItem(guildId: string, userId: string, item: ItemDef, chosen?: { copy: string; material: string | null }): Promise<RefineResult> {
@@ -67,7 +67,7 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   }
   const raised = await items.findOneAndUpdate(
     { _id: plan.target._id, guildId, userId, level: plan.target.level },
-    { $set: { level: plan.to } },
+    { $set: { level: plan.to, locked: true } },
     { returnDocument: 'after' },
   );
   if (!raised) {

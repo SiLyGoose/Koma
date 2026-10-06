@@ -36,6 +36,7 @@ export async function giveItems(actorId: string, guildId: string, itemId: string
     itemId: item.id,
     level: 1,
     obtainedAt: new Date(start + i),
+    ...(item.stars === 4 && { locked: true }),
   }));
   await items.insertMany(copies);
 
