@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { REFINE, REFINE_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js';
-import { ITEMS_BY_ID, findItem } from '../data/items.js';
+import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { describeEffects, itemEffectiveness } from '../lib/game/items/equipment.js';
 import { fmt, money, starString } from '../lib/format.js';
@@ -9,6 +9,7 @@ import { refineItem, type RefineResult } from '../services/items/refine.js';
 import type { ItemDef } from '../types.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
+import { resolveItem } from '../discord/item-pick.js';
 
 type Refined = Extract<RefineResult, { ok: true }>;
 
@@ -134,18 +135,11 @@ export const refine: Command = {
     const owned = (await getInventory(ctx.guildId, ctx.user.id))
       .map((entry) => ITEMS_BY_ID.get(entry.itemId))
       .filter((item): item is ItemDef => item !== undefined);
-    const lookup = findItem(query, owned);
-    if (lookup.kind === 'ambiguous') {
-      await ctx.reply(t.ambiguous(lookup.matches.map((item) => item.name)));
-      return;
-    }
-    if (lookup.kind === 'none') {
-      const anywhere = findItem(query);
-      await ctx.reply(anywhere.kind === 'found' ? t.notOwned(p, anywhere.item.name) : t.noSuchItem(p, query));
-      return;
-    }
-
-    const { item } = lookup;
+    const pick = await resolveItem(ctx, query, { ambiguous: t.ambiguous, noSuchItem: t.noSuchItem(p, query) }, { items: owned, notOwned: (name) => t.notOwned(p, name) });
+    if (!pick) return;
+    // After a "Did you mean...?", the refine goes on that question's message.
+    ctx = pick.ctx;
+    const { item } = pick;
     const result = await refineItem(ctx.guildId, ctx.user.id, item);
     if (!result.ok) {
       await ctx.reply(refusalText(p, item, result));

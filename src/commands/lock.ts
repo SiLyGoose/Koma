@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { LOCK_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js';
-import { ITEMS_BY_ID, findItem } from '../data/items.js';
+import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { starString } from '../lib/format.js';
 import type { InventoryStack } from '../lib/game/items/copies.js';
@@ -9,6 +9,7 @@ import { itemStacks, setOneLocked } from '../services/items/lock.js';
 import type { ItemDef } from '../types.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
+import { resolveItem } from '../discord/item-pick.js';
 
 type Verb = 'lock' | 'unlock';
 
@@ -122,18 +123,16 @@ function lockCommand(verb: Verb): Command {
       const owned = (await getInventory(ctx.guildId, ctx.user.id))
         .map((entry) => ITEMS_BY_ID.get(entry.itemId))
         .filter((item): item is ItemDef => item !== undefined);
-      const lookup = findItem(query, owned);
-      if (lookup.kind === 'ambiguous') {
-        await ctx.reply(TEXT.refine.ambiguous(lookup.matches.map((item) => item.name)));
-        return;
-      }
-      if (lookup.kind === 'none') {
-        const anywhere = findItem(query);
-        await ctx.reply(anywhere.kind === 'found' ? TEXT.refine.notOwned(p, anywhere.item.name) : TEXT.refine.noSuchItem(p, query));
-        return;
-      }
-
-      const { item } = lookup;
+      const found = await resolveItem(
+        ctx,
+        query,
+        { ambiguous: TEXT.refine.ambiguous, noSuchItem: TEXT.refine.noSuchItem(p, query) },
+        { items: owned, notOwned: (name) => TEXT.refine.notOwned(p, name) },
+      );
+      if (!found) return;
+      // After a "Did you mean...?", the answer goes on that question's message.
+      ctx = found.ctx;
+      const { item } = found;
       const stacks = await choices(ctx, item, verb);
       const [only] = stacks;
       if (!only) {

@@ -505,3 +505,42 @@ test('databank category: `weapon` (alone, or with a star tier) lists only that c
   const [sameOtherWay] = await ask('treasure', '4');
   assert.deepEqual(sameOtherWay?.fields, fourTreasure?.fields, 'the order of the words does not matter');
 });
+
+test('databank: a misspelled item asks "Did you mean...?", and a Yes shows that item on the same message', async () => {
+  const f = fakeMessage('1');
+  const run = databank.execute(messageContext(f.message as Message<true>, ['stwrfall'], 'k!'));
+  await settle();
+  const question = f.replies[0] as any;
+  assert.equal(f.replies.length, 1);
+  assert.equal(question.embeds[0].data.title, TEXT.suggest.title);
+  assert.match(question.embeds[0].data.description, /\*\*Starfall Blade\*\*/);
+  const row = question.components[0].toJSON().components.map((c: any) => [c.custom_id, c.label]);
+  assert.deepEqual(row, [
+    ['item_suggest:0', TEXT.suggest.yesButton],
+    ['item_suggest_no', TEXT.suggest.noButton],
+  ]);
+
+  f.click('stranger', 'item_suggest:0');
+  await settle();
+  assert.equal(f.events.find((e) => e.kind === 'reply')?.data.content, TEXT.suggest.notYours);
+
+  f.click('1', 'item_suggest:0');
+  await run;
+  const shown = f.events.find((e) => e.kind === 'edit')?.data;
+  assert.equal(f.replies.length, 1, 'no new message: the question turns into the answer');
+  assert.equal(shown.content, null);
+  assert.match(shown.embeds[0].data.title, /Starfall Blade/);
+  assert.ok(shown.components.length > 0, "the item's own buttons replace Yes/No");
+});
+
+test('databank: a No to "Did you mean...?" says there is no such item, and nothing close is not asked about', async () => {
+  const f = fakeMessage('1');
+  const run = databank.execute(messageContext(f.message as Message<true>, ['stwrfall'], 'k!'));
+  await settle();
+  f.click('1', 'item_suggest_no');
+  await run;
+  assert.deepEqual(f.events.find((e) => e.kind === 'edit')?.data, { content: TEXT.databank.noSuchItem('k!', 'stwrfall'), embeds: [], components: [] });
+
+  const [far] = await ask('zzzzzzzz');
+  assert.equal(far?.content, TEXT.databank.noSuchItem('k!', 'zzzzzzzz'));
+});

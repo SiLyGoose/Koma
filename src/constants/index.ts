@@ -8,7 +8,7 @@
  *   - discord.ts     slash commands, autocomplete, embed and button limits, avatars, the bio, the status
  *   - casino/        the betting games' numbers: baccarat, blackjack, mines, plinko, roulette, and
  *                    what the shared-table games have in common (table.ts)
- *   - items/         gacha, gear loadouts and refining
+ *   - items/         gacha, gear loadouts, refining, and guessing misspelled item names
  *   - rob.ts, wheel.ts, d20.ts, stonks.ts, pinecraft.ts, events.ts, raid.ts, newsletter.ts
  *                    each other feature's numbers
  *   - text/          every message the bot sends, one file per command or feature (TEXT), with the
@@ -51,5 +51,6 @@ export * from './raid.js';
 export * from './items/refine.js';
 export * from './items/lock.js';
 export * from './items/loadouts.js';
+export * from './items/suggest.js';
 export { TEXT } from './text/index.js';
 export { validateConstants } from './validate.js';

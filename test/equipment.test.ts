@@ -17,7 +17,8 @@ import {
   type EffectId,
   type EffectTotals,
 } from '../src/perks/index.js';
-import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, validateItems } from '../src/data/items.js';
+import { ITEMS, ITEMS_BY_ID, findItem, itemsByStars, suggestItems, validateItems } from '../src/data/items.js';
+import { editDistance } from '../src/lib/text.js';
 import { ADMIN_USER_ID, CURRENCY_EMOJI } from '../src/constants/index.js';
 import { canUseItem, describeEffects, describeTotals, equippedItems, gearEffects, itemEffectiveness, totalEffects } from '../src/lib/game/items/equipment.js';
 import { formatPercent } from '../src/lib/format.js';
@@ -114,6 +115,32 @@ test('findItem only searches the pool it is given', () => {
   const pool = [ITEMS_BY_ID.get('rusty-dagger')!];
   assert.equal(findItem('dagger', pool).kind, 'found');
   assert.equal(findItem('longsword', pool).kind, 'none');
+});
+
+test('editDistance counts added, dropped, changed and swapped letters', () => {
+  assert.equal(editDistance('starfall', 'starfall'), 0);
+  assert.equal(editDistance('stwrfall', 'starfall'), 1);
+  assert.equal(editDistance('piplpu', 'piplup'), 1, 'a swap is one typo');
+  assert.equal(editDistance('kitten', 'sitting'), 3);
+  assert.equal(editDistance('', 'abc'), 3);
+  assert.equal(editDistance('abc', ''), 3);
+});
+
+test('suggestItems guesses misspelled names, whole or in part, and nothing far off', () => {
+  const ids = (query: string, pool?: readonly ItemDef[]) => suggestItems(query, pool).map((item) => item.id);
+  assert.deepEqual(ids('stwrfall'), ['starfall-blade'], 'one word of the name');
+  assert.deepEqual(ids('stwrfall blade'), ['starfall-blade'], 'the whole name');
+  assert.deepEqual(ids('starfallblade'), ['starfall-blade'], 'a missing space is no typo');
+  assert.deepEqual(ids('dragon scale'), ['dragonscale-aegis'], 'nor is an extra one');
+  assert.deepEqual(ids('piplpu'), ['piplup']);
+  assert.equal(findItem('pickaxx').kind, 'none');
+  const pickaxes = suggestItems('pickaxx');
+  assert.ok(pickaxes.length > 1 && pickaxes.every((item) => item.name.endsWith('Pickaxe')), 'ties are all offered');
+
+  assert.deepEqual(ids('zzzzzzzz'), []);
+  assert.deepEqual(ids('qz'), [], 'too short to guess from');
+  assert.deepEqual(ids('   '), []);
+  assert.deepEqual(ids('stwrfall', [ITEMS_BY_ID.get('rusty-dagger')!]), [], 'only the pool it is given');
 });
 
 test('equippedItems ignores empty, unknown and wrong-slot ids', () => {

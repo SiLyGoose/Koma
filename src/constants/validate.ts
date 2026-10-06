@@ -9,6 +9,7 @@ import { MULTI_PULLS, MAX_PITY, GACHA_ANIMATION, STAR_COLORS } from './items/gac
 import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './items/refine.js';
 import { LOCK_BUTTONS } from './items/lock.js';
+import { ITEM_SUGGEST } from './items/suggest.js';
 import { LOADOUTS, LOADOUT_BUTTONS } from './items/loadouts.js';
 import { PLINKO_ROWS, MAX_PLINKO_MULTIPLIER, PLINKO_ANIMATION, PLINKO_BUTTONS } from './casino/plinko.js';
 import { BUBBLE_BEAM_ROBBER_SHARE, ROB_LOCK, SUCCESS_TITLES, FAILURE_TITLES } from './rob.js';
@@ -87,6 +88,13 @@ export function validateConstants(): void {
   if (!(DATABANK_BUTTONS.idleMs >= 5000)) problems.push('DATABANK_BUTTONS.idleMs must be at least 5000');
   if (!(REFINE_BUTTONS.idleMs >= 5000)) problems.push('REFINE_BUTTONS.idleMs must be at least 5000');
   if (!(LOCK_BUTTONS.idleMs >= 5000)) problems.push('LOCK_BUTTONS.idleMs must be at least 5000');
+  if (!(ITEM_SUGGEST.timeoutMs >= 5000)) problems.push('ITEM_SUGGEST.timeoutMs must be at least 5000');
+  if (!(Number.isInteger(ITEM_SUGGEST.maxChoices) && ITEM_SUGGEST.maxChoices >= 1 && ITEM_SUGGEST.maxChoices <= 4)) {
+    problems.push('ITEM_SUGGEST.maxChoices must be a whole number from 1 to 4 (one row of buttons, with "None of these")');
+  }
+  if (!ITEM_SUGGEST.typos.every(([letters, typos], i, all) => letters >= 1 && typos >= 0 && typos < letters && (i === 0 || letters < (all[i - 1]?.[0] ?? 0)))) {
+    problems.push('ITEM_SUGGEST.typos must be [letters, typos] pairs, longest first, each allowing fewer typos than letters');
+  }
   if (!(CONFIG_BUTTONS.idleMs >= 5000)) problems.push('CONFIG_BUTTONS.idleMs must be at least 5000');
   if (!(BLACKJACK.imageScale >= 1 && BLACKJACK.imageScale <= 3 && Number.isInteger(640 * BLACKJACK.imageScale) && Number.isInteger(400 * BLACKJACK.imageScale))) {
     problems.push('BLACKJACK.imageScale must be from 1 to 3 and give a whole number of pixels (640 x scale and 400 x scale), like 1, 1.5 or 2');

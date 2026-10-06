@@ -1,5 +1,5 @@
 import { TEXT } from '../constants/index.js';
-import { ITEMS_BY_ID, findItem } from '../data/items.js';
+import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem, describeEffects, itemEffectiveness, showsMasterwork } from '../lib/game/items/equipment.js';
 import { formatPercent, mentionList, starString } from '../lib/format.js';
@@ -7,6 +7,7 @@ import { getInventory } from '../services/economy/index.js';
 import { equipItem } from '../services/items/equipment.js';
 import type { ItemDef } from '../types.js';
 import type { Command } from '../discord/types.js';
+import { resolveItem } from '../discord/item-pick.js';
 
 export const equip: Command = {
   name: 'equip',
@@ -29,22 +30,16 @@ export const equip: Command = {
       .map((entry) => ITEMS_BY_ID.get(entry.itemId))
       .filter((item): item is ItemDef => item !== undefined);
 
-    const lookup = findItem(query, ownedItems);
-    if (lookup.kind === 'ambiguous') {
-      await ctx.reply(TEXT.equip.ambiguous(lookup.matches.map((item) => item.name)));
-      return;
-    }
-    if (lookup.kind === 'none') {
-      // Tell apart "you don't have it" from "there is no such item".
-      const anywhere = findItem(query);
-      await ctx.reply(anywhere.kind === 'found'
-          ? TEXT.equip.notOwned(p, anywhere.item.name)
-          : TEXT.equip.noSuchItem(p, query),
-      );
-      return;
-    }
-
-    const { item } = lookup;
+    const pick = await resolveItem(
+      ctx,
+      query,
+      { ambiguous: TEXT.equip.ambiguous, noSuchItem: TEXT.equip.noSuchItem(p, query) },
+      { items: ownedItems, notOwned: (name) => TEXT.equip.notOwned(p, name) },
+    );
+    if (!pick) return;
+    // After a "Did you mean...?", the answer goes on that question's message.
+    ctx = pick.ctx;
+    const { item } = pick;
     const result = await equipItem(ctx.guildId, ctx.user.id, item);
     if (!result.ok) {
       await ctx.reply(TEXT.equip.notOwned(p, item.name));

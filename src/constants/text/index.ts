@@ -24,6 +24,7 @@ import { loadoutText } from './items/loadout.js';
 import { refineText } from './items/refine.js';
 import { forgeText } from './items/forge.js';
 import { lockText } from './items/lock.js';
+import { suggestText } from './items/suggest.js';
 import { robText } from './rob.js';
 import { receiptText } from './receipt.js';
 import { eventsText } from './events/events.js';
@@ -74,6 +75,7 @@ export const TEXT = {
   refine: refineText,
   forge: forgeText,
   lock: lockText,
+  suggest: suggestText,
   rob: robText,
   receipt: receiptText,
   events: eventsText,

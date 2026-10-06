@@ -1,5 +1,5 @@
 import { DATABANK_BUTTONS, REFINE, SLOT_LABELS, TEXT } from '../constants/index.js';
-import { ITEMS, findItem } from '../data/items.js';
+import { ITEMS } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
 import { buildDatabank, itemDetail, parseStarQuery } from '../lib/game/items/databank.js';
@@ -8,6 +8,7 @@ import { starString } from '../lib/format.js';
 import { paginate, TOGGLE_ID, type PaginateToggle } from '../discord/paginate.js';
 import type { ItemDef } from '../types.js';
 import type { Command } from '../discord/types.js';
+import { resolveItem } from '../discord/item-pick.js';
 
 export const databank: Command = {
   name: 'databank',
@@ -50,23 +51,17 @@ export const databank: Command = {
 
     // With a name or id: the full details of that one item.
     if (query !== '' && wanted === undefined) {
-      const lookup = findItem(query);
-      if (lookup.kind === 'none') {
-        await ctx.reply(TEXT.databank.noSuchItem(p, query));
-        return;
-      }
-      if (lookup.kind === 'ambiguous') {
-        await ctx.reply(TEXT.databank.ambiguous(lookup.matches.map((item) => item.name)));
-        return;
-      }
-      const { item } = lookup;
+      const pick = await resolveItem(ctx, query, { ambiguous: TEXT.databank.ambiguous, noSuchItem: TEXT.databank.noSuchItem(p, query) });
+      if (!pick) return;
+      const { item } = pick;
       const renderDetail = (_index: number, flags: readonly boolean[]) => {
         const detail = itemDetail(item, levelOf(flags), masterworkOf(flags));
         const embed = createEmbed().setTitle(detail.title).addFields(detail.fields).setFooter({ text: TEXT.databank.detailFooter(p) });
         if (detail.description !== '') embed.setDescription(detail.description);
         return { embeds: [embed] };
       };
-      await paginate(ctx, 1, renderDetail, ctx.user.id, labels, DATABANK_BUTTONS.idleMs, 0, togglesFor([item]));
+      // After a "Did you mean...?", the item shows on that question's message.
+      await paginate(pick.ctx, 1, renderDetail, ctx.user.id, labels, DATABANK_BUTTONS.idleMs, 0, togglesFor([item]));
       return;
     }
 

@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { boldGems } from '../constants/text/currency.js';
-import { ITEMS_BY_ID, findItem } from '../data/items.js';
+import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { bonusText, itemEffectiveness } from '../lib/game/items/equipment.js';
 import { starString } from '../lib/format.js';
@@ -9,6 +9,7 @@ import { getInventory } from '../services/economy/index.js';
 import { forgeMasterwork } from '../services/items/forge.js';
 import type { ItemDef } from '../types.js';
 import type { Command } from '../discord/types.js';
+import { resolveItem } from '../discord/item-pick.js';
 
 /** Spend komaGems to forge an R5 copy of a 4-star item into a masterwork, awakening its bonus (services/items/forge.ts). */
 export const forge: Command = {
@@ -33,18 +34,16 @@ export const forge: Command = {
     const owned = (await getInventory(ctx.guildId, ctx.user.id))
       .map((entry) => ITEMS_BY_ID.get(entry.itemId))
       .filter((item): item is ItemDef => item !== undefined);
-    const lookup = findItem(query, owned);
-    if (lookup.kind === 'ambiguous') {
-      await ctx.reply(TEXT.refine.ambiguous(lookup.matches.map((item) => item.name)));
-      return;
-    }
-    if (lookup.kind === 'none') {
-      const anywhere = findItem(query);
-      await ctx.reply(anywhere.kind === 'found' ? TEXT.refine.notOwned(p, anywhere.item.name) : TEXT.refine.noSuchItem(p, query));
-      return;
-    }
-
-    const { item } = lookup;
+    const pick = await resolveItem(
+      ctx,
+      query,
+      { ambiguous: TEXT.refine.ambiguous, noSuchItem: TEXT.refine.noSuchItem(p, query) },
+      { items: owned, notOwned: (name) => TEXT.refine.notOwned(p, name) },
+    );
+    if (!pick) return;
+    // After a "Did you mean...?", the forge goes on that question's message.
+    ctx = pick.ctx;
+    const { item } = pick;
     const result = await forgeMasterwork(ctx.guildId, ctx.user.id, item);
     if (!result.ok) {
       if (result.reason === 'no_bonus') await ctx.reply(t.noBonus(item.name));
