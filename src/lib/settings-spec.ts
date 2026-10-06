@@ -351,7 +351,7 @@ export const SPECS: readonly SettingSpec[] = [
     key: 'wheel.maxMultiplier',
     group: 'Wheel',
     description:
-      "The biggest multiplier on the Wheelchair's prize wheel. Its winning slices stretch to reach it; the losing ones (down to 0.1x) stay the same. 1x takes the wins off the wheel.",
+      "The biggest multiplier on the Wheelchair's prize wheel (it starts at 1x). Its slices stretch to reach it. 1x makes every slice 1x, so the wheel does nothing.",
     type: 'number',
     min: 1,
     max: MAX_WHEEL_MULTIPLIER,

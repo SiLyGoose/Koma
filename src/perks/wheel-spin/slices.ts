@@ -9,13 +9,14 @@ import { MAX_WHEEL_MULTIPLIER, MAX_WHEEL_SLICES } from '../../constants/index.js
  *
  * Add up the slices and divide by how many there are to get the average: 1.0x means the wheel
  * neither helps nor hurts in the long run and only adds swing, below 1.0x it costs the wearer
- * points on average, and above 1.0x it pays. As written these average 1.0x; stretched to the
- * default 5x they average about 1.47x. Keep 2 to 16 slices; a slice smaller than 1 shrinks
- * the points, bigger than 1 grows them.
+ * points on average, and above 1.0x it pays. Every slice here is 1x to 5x, so a spin never loses
+ * points; they average 2.25x, which is what pays for the Wheelchair's longer cooldowns (it wears
+ * Sid the Sloth's slothCooldown too). Keep 2 to 16 slices; a slice smaller than 1 shrinks the
+ * points, bigger than 1 grows them.
  *
  * How often the wheel spins at all is the wheelSpin effect's setting (equipment.wheelSpin.<stars>).
  */
-export const WHEEL_SLICES: readonly number[] = [1, 0.1, 1.5, 0.4, 2.5, 0.75, 1.25, 0.5] as const;
+export const WHEEL_SLICES: readonly number[] = [1, 2, 1.25, 2.5, 5, 1.5, 1.75, 3] as const;
 
 /**
  * The wheel as it is spun: the slices above, with every slice over 1x stretched away from 1x so the

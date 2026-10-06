@@ -377,7 +377,8 @@ export const ITEMS: readonly ItemDef[] = [
     usableBy: [MEMBERS.PINNFY],
     slot: 'treasure',
     description: 'A wheelchair. It is a wheelchair.',
-    effects: ['wheelSpin'],
+    // The wheel only ever pays (1x to 5x), and Sid the Sloth's longer cooldowns are the price.
+    effects: ['wheelSpin', 'slothCooldown'],
   },
   {
     id: 'coughing-baby',

@@ -335,23 +335,30 @@ test('animation: if the message can not be edited, the result is sent as a new m
   });
 });
 
-test('wheelSlices: winning slices stretch so the biggest is the max; losing slices and 1x stay put', () => {
+test('wheelSlices: every slice is 1x to 5x by default, stretched so the biggest is the max, and 1x stays put', () => {
   assert.equal(CONFIG.wheel.maxMultiplier, 5);
-  assert.deepEqual(wheelSlices(5), [1, 0.1, 2.33, 0.4, 5, 0.75, 1.67, 0.5]);
-  // At the shape's own top (2.5x) it is the wheel as written.
-  assert.deepEqual(wheelSlices(2.5), [...WHEEL_SLICES]);
-  assert.deepEqual(wheelSlices(10), [1, 0.1, 4, 0.4, 10, 0.75, 2.5, 0.5]);
-  // 1x (or below) takes the wins off: every winning slice becomes 1x.
-  assert.deepEqual(wheelSlices(1), [1, 0.1, 1, 0.4, 1, 0.75, 1, 0.5]);
+  // At the shape's own top (5x) it is the wheel as written.
+  assert.deepEqual(wheelSlices(5), [...WHEEL_SLICES]);
+  assert.deepEqual(wheelSlices(9), [1, 3, 1.5, 4, 9, 2, 2.5, 5]);
+  // 1x (or below) takes the wins off: every slice becomes 1x.
+  assert.deepEqual(wheelSlices(1), Array(WHEEL_SLICES.length).fill(1));
   assert.deepEqual(wheelSlices(0.5), wheelSlices(1));
-  // Always 0.1x at the bottom, and a wheel that still passes the startup check.
+  // Never below 1x, and a wheel that still passes the startup check.
   for (const max of [1, 2.5, 5, 50, 100]) {
-    assert.equal(Math.min(...wheelSlices(max)), 0.1);
+    assert.equal(Math.min(...wheelSlices(max)), 1);
     assert.equal(Math.max(...wheelSlices(max)), Math.max(1, max));
     validateWheel(wheelSlices(max));
   }
   const average = wheelSlices(5).reduce((a, b) => a + b, 0) / WHEEL_SLICES.length;
-  assert.ok(Math.abs(average - 1.47) < 0.01, `average ${average}`);
+  assert.equal(average, 2.25);
+});
+
+test('Wheelchair: it pays the same longer cooldowns as Sid the Sloth', async () => {
+  const { ITEMS_BY_ID } = await import('../src/data/items.js');
+  const wheelchair = ITEMS_BY_ID.get('wheelchair');
+  const sid = ITEMS_BY_ID.get('sid-the-sloth');
+  assert.deepEqual(wheelchair?.effects, ['wheelSpin', 'slothCooldown']);
+  assert.ok(sid?.effects.includes('slothCooldown'));
 });
 
 test('wheel spin: lands on the wheel it was given, and carries it for the picture', () => {

@@ -249,8 +249,8 @@ export interface Settings {
     capHours: number;
   };
   /**
-   * The Wheelchair's prize wheel (perks/wheel-spin/slices.ts). Its winning slices are stretched so
-   * the biggest one is `maxMultiplier`; the losing slices (down to 0.1x) stay as they are.
+   * The Wheelchair's prize wheel (perks/wheel-spin/slices.ts). Its slices are stretched so the
+   * biggest one is `maxMultiplier`; 1x stays 1x, so the wheel never goes below it.
    */
   wheel: {
     /** The biggest multiplier on the wheel. */
@@ -374,7 +374,7 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
-  // The wheel goes from 0.1x up to 5x, which averages about 1.47x a spin.
+  // The wheel goes from 1x up to 5x, which averages 2.25x a spin.
   wheel: { maxMultiplier: 5 },
   // Someone else's unique treasure works at half strength.
   equipment: { ...defaultEquipmentSettings(), borrowed: { effectiveness: 0.5 } },
