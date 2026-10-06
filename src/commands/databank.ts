@@ -1,4 +1,5 @@
-import { DATABANK_BUTTONS, REFINE, SLOT_LABELS, TEXT } from '../constants/index.js';
+import { DATABANK_BUTTONS, RAID_BOSS_IDS, REFINE, SLOT_LABELS, TEXT, type RaidBossId } from '../constants/index.js';
+import { CONFIG } from '../config.js';
 import { ITEMS } from '../data/items.js';
 import { STARS } from '../types.js';
 import { createEmbed } from '../lib/embed.js';
@@ -7,20 +8,58 @@ import { takeSlot } from '../lib/game/items/slot-filter.js';
 import { starString } from '../lib/format.js';
 import { paginate, TOGGLE_ID, type PaginateToggle } from '../discord/paginate.js';
 import type { ItemDef } from '../types.js';
-import type { Command } from '../discord/types.js';
+import type { Command, CommandContext } from '../discord/types.js';
 import { resolveItem } from '../discord/item-pick.js';
+import { bossByName, bossFile, bossInfoEmbed } from './raid.js';
+import { bossForWeek } from '../lib/events/raid-boss.js';
+import { raidWeek } from '../lib/events/raid-week.js';
+
+/** The first word that turns the databank to the raid bosses (`databank bosses`). */
+const BOSS_WORDS = ['boss', 'bosses'];
+
+const labels = () => ({ previous: TEXT.databank.previousButton, next: TEXT.databank.nextButton, notYours: TEXT.databank.notYours });
+
+/**
+ * `databank bosses [name]`: every raid boss, one page each with its picture, as `raid stats` shows
+ * it. Opens on the boss named, if one is; this week's boss in this server says so.
+ */
+async function bossBook(ctx: CommandContext, name: string): Promise<void> {
+  let start = 0;
+  if (name !== '') {
+    const boss = bossByName(name);
+    if (!boss) {
+      await ctx.reply(TEXT.databank.noSuchBoss(ctx.prefix, name, TEXT.raid.andList(RAID_BOSS_IDS.map((id) => `**${TEXT.raid.bosses[id].name}**`))));
+      return;
+    }
+    start = RAID_BOSS_IDS.indexOf(boss);
+  }
+  const week = raidWeek();
+  const current = bossForWeek(ctx.guildId, week.key);
+  const render = (index: number) => {
+    const boss = RAID_BOSS_IDS[index] as RaidBossId;
+    const embed = bossInfoEmbed(CONFIG.raid, boss, boss === current ? week.next : undefined);
+    if (RAID_BOSS_IDS.length > 1) embed.setTitle(TEXT.databank.titlePage(TEXT.raid.bossTitle(TEXT.raid.bosses[boss]), index + 1, RAID_BOSS_IDS.length));
+    return { embeds: [embed], files: [bossFile(boss, 'calm')] };
+  };
+  await paginate(ctx, RAID_BOSS_IDS.length, render, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, start);
+}
 
 export const databank: Command = {
   name: 'databank',
   category: 'items',
   aliases: ['items', 'db'],
-  description: 'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both.',
-  usage: 'databank [item | stars] [category]',
-  slashUsage: 'databank [item] [stars] [category]',
+  description:
+    'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both. `databank bosses` shows the raid bosses instead.',
+  usage: 'databank [item | stars] [category]  or  databank bosses [boss]',
+  slashUsage: 'databank [item] [stars] [category] [boss]',
 
   async execute(ctx) {
     const { args } = ctx;
     const p = ctx.prefix;
+    if (args[0] !== undefined && BOSS_WORDS.includes(args[0].toLowerCase())) {
+      await bossBook(ctx, args.slice(1).join(' ').trim());
+      return;
+    }
     // Every view starts at the listed (fully refined) strengths without masterwork bonuses. One button
     // flips to a new copy's (R1) strengths and back; another, where an item shown has a masterwork
     // bonus, turns the bonuses on (only at R5, where they exist).
@@ -32,7 +71,6 @@ export const databank: Command = {
         ? [{ id: DATABANK_BUTTONS.masterworkId, label: (flags: readonly boolean[]) => TEXT.databank.masterworkButton(!flags[1]), disabled: (flags: readonly boolean[]) => flags[0] ?? false }]
         : []),
     ];
-    const labels = { previous: TEXT.databank.previousButton, next: TEXT.databank.nextButton, notYours: TEXT.databank.notYours };
 
     // A category (`weapon`, `armor`, `treasure`) only counts alone or next to a star tier; with
     // other words, they are all an item's name.
@@ -61,7 +99,7 @@ export const databank: Command = {
         return { embeds: [embed] };
       };
       // After a "Did you mean...?", the item shows on that question's message.
-      await paginate(pick.ctx, 1, renderDetail, ctx.user.id, labels, DATABANK_BUTTONS.idleMs, 0, togglesFor([item]));
+      await paginate(pick.ctx, 1, renderDetail, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, 0, togglesFor([item]));
       return;
     }
 
@@ -101,6 +139,6 @@ export const databank: Command = {
       if (index === pages.length - 1) embed.setFooter({ text: TEXT.databank.footer(p) });
       return { embeds: [embed] };
     };
-    await paginate(ctx, pages.length, render, ctx.user.id, labels, DATABANK_BUTTONS.idleMs, 0, togglesFor(items));
+    await paginate(ctx, pages.length, render, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, 0, togglesFor(items));
   },
 };

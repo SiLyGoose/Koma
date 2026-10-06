@@ -1,7 +1,4 @@
-import type { AttachmentPayload } from 'discord.js';
-import { CONFIG } from '../config.js';
 import { RAID_TIME_ZONE, TEXT } from '../constants/index.js';
-import { bossFile, bossInfoEmbed } from '../commands/raid.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
@@ -12,14 +9,13 @@ import type { RaidBossId } from '../constants/index.js';
 
 /*
  * The weekly digest (src/newsletter): how the week that just ended went in a server (its raid and
- * its robs), the admin's note if there is one, and the boss of the week that just started, with
- * its card as `raid stats` shows it.
+ * its robs), the admin's note if there is one, and which boss the week that just started has (its
+ * card is in `raid stats` and `databank bosses`).
  */
 
-/** A message ready to send: the digest, then the new boss's card (whose picture is the attached file). */
+/** A message ready to send. */
 export interface Digest {
   embeds: BotEmbed[];
-  files: AttachmentPayload[];
 }
 
 const bossName = (boss: RaidBossId): string => {
@@ -84,5 +80,5 @@ export function weeklyDigest(guildId: string, facts: WeekFacts, covered: RaidWee
     { name: t.raidField(preview), value: raidLines(facts, bossForWeek(guildId, covered.key)).join('\n') },
     { name: t.robsField(preview), value: robLines(facts).join('\n') },
   );
-  return { embeds: [digest, bossInfoEmbed(CONFIG.raid, boss, upcoming.next)], files: [bossFile(boss, 'calm')] };
+  return { embeds: [digest] };
 }

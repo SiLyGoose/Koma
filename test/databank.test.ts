@@ -544,3 +544,39 @@ test('databank: a No to "Did you mean...?" says there is no such item, and nothi
   const [far] = await ask('zzzzzzzz');
   assert.equal(far?.content, TEXT.databank.noSuchItem('k!', 'zzzzzzzz'));
 });
+
+// ---------------------------------------------------------------------------
+// The raid bosses (`databank bosses`)
+
+test('databank bosses: one page per boss with its picture, flipped through with Next, each picture replacing the last', async () => {
+  const { RAID_BOSS_IDS } = await import('../src/constants/index.js');
+  for (const word of ['bosses', 'Boss']) {
+    const f = fakeMessage();
+    await databank.execute(messageContext(f.message as Message<true>, [word], 'k!'));
+    assert.equal(f.replies.length, 1);
+    const first = f.replies[0];
+    const name = TEXT.raid.bosses[RAID_BOSS_IDS[0]].name;
+    assert.match(pageView(first).title ?? '', new RegExp(`${name} \\(1/${RAID_BOSS_IDS.length}\\)`));
+    assert.equal(first.files?.length, 1);
+    assert.ok(pageView(first).fields.some((field) => field.name === TEXT.raid.movesField));
+
+    f.click('1', 'databank_next');
+    await settle();
+    const flipped = f.events.find((e) => e.kind === 'editReply')?.data;
+    assert.match(pageView(flipped).title ?? '', new RegExp(TEXT.raid.bosses[RAID_BOSS_IDS[1]].name));
+    assert.deepEqual(flipped.attachments, []);
+    assert.equal(flipped.files?.length, 1);
+    f.collector.stop('idle');
+  }
+});
+
+test('databank bosses: a name opens on that boss, and one that is no boss says which there are', async () => {
+  const { RAID_BOSS_IDS } = await import('../src/constants/index.js');
+  const last = RAID_BOSS_IDS[RAID_BOSS_IDS.length - 1];
+  const [opened] = await ask('bosses', ...TEXT.raid.bosses[last].name.split(' '));
+  assert.match(opened?.title ?? '', new RegExp(`${TEXT.raid.bosses[last].name} \\(${RAID_BOSS_IDS.length}/`));
+
+  const [none] = await ask('boss', 'goblin');
+  assert.match(none?.content ?? '', /There is no raid boss called "goblin"/);
+  for (const id of RAID_BOSS_IDS) assert.ok(none?.content?.includes(TEXT.raid.bosses[id].name));
+});

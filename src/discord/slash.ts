@@ -8,7 +8,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, SLASH_EXCLUDED, SLOT_LABELS, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, RAID_BOSS_IDS, SLASH_EXCLUDED, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
@@ -169,7 +169,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   databank: {
-    description: 'See every item and what it does, or just one item, star tier or category.',
+    description: 'See every item and what it does, or one item, star tier or category, or the raid bosses.',
     build: (b) =>
       void b
         .addStringOption((o) =>
@@ -181,11 +181,19 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
             .setDescription('Only the items of one star tier')
             .addChoices(...STARS.map((stars) => ({ name: `${stars}-star (${starString(stars)})`, value: stars }))),
         )
-        .addStringOption(categoryOption),
-    // An item, if given, wins over the star tier and category.
+        .addStringOption(categoryOption)
+        .addStringOption((o) =>
+          o
+            .setName('boss')
+            .setDescription('The raid bosses instead of items, opened on this one')
+            .addChoices({ name: 'All bosses', value: 'all' }, ...RAID_BOSS_IDS.map((id) => ({ name: TEXT.raid.bosses[id].name, value: id }))),
+        ),
+    // An item, if given, wins over a boss, and a boss over the star tier and category.
     toArgs: (i) => {
       const item = i.options.getString('item');
       if (item) return [item];
+      const boss = i.options.getString('boss');
+      if (boss) return ['bosses', ...(boss === 'all' ? [] : [boss])];
       const stars = i.options.getInteger('stars');
       return [...(stars === null ? [] : [String(stars)]), ...categoryArgs(i)];
     },

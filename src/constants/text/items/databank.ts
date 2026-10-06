@@ -45,7 +45,7 @@ export const databankText = {
   detailRaidDropField: 'Where to get it',
   detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives the party a chance (higher with more raiders) that every raider finds one.",
   footer: (p: string) =>
-    `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, and ${p}databank <weapon | armor | treasure> one category. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+    `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, ${p}databank <weapon | armor | treasure> one category, and ${p}databank bosses the raid bosses. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
   /** The details of one item (`databank <item>`). `stars` is the star string. */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',
@@ -56,6 +56,9 @@ export const databankText = {
   detailExclusive: (owners: string, share: string) =>
     `Made for ${owners}. Anyone can pull and equip it, but it only works at ${share} for everyone else.`,
   detailFooter: (p: string) => `${p}databank lists every item. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+  /** `databank bosses <name>` with a name that isn't a boss. `bosses` is every boss's name, listed. */
+  noSuchBoss: (p: string, query: string, bosses: string) =>
+    `There is no raid boss called "${query}". The bosses are ${bosses}, and \`${p}databank bosses\` shows them all.`,
   noSuchItem: (p: string, query: string) => `There is no item called "${query}". \`${p}databank\` lists every item.`,
   ambiguous: (names: string[]) =>
     `That could be more than one item: ${names.map((name) => `**${name}**`).join(', ')}. Type more of the name.`,

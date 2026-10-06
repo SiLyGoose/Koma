@@ -89,7 +89,8 @@ export async function paginate(
       if (flipped >= 0) flags = flags.map((flag, i) => (i === flipped ? !flag : flag));
       else index = interaction.customId === NEXT_ID ? Math.min(index + 1, pageCount - 1) : Math.max(index - 1, 0);
       const { ephemeral: _, ...page } = render(index, flags);
-      await interaction.editReply({ ...page, components: [buttons(index)] }).catch(() => {});
+      // A page with files replaces the last page's instead of adding to them.
+      await interaction.editReply({ ...page, ...(page.files ? { attachments: [] } : {}), components: [buttons(index)] }).catch(() => {});
     })();
   });
 

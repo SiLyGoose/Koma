@@ -200,6 +200,10 @@ test('slash options: databank with and without an item', () => {
   // A star tier becomes the number a member would type, which the databank reads as a tier; an item wins if both are given.
   assert.deepEqual(args('databank', { ints: { stars: 3 } }), ['3']);
   assert.deepEqual(args('databank', { strings: { item: 'wheelchair' }, ints: { stars: 3 } }), ['wheelchair']);
+  // The boss option turns it to the raid bosses (all of them, or opened on one); an item still wins.
+  assert.deepEqual(args('databank', { strings: { boss: 'all' } }), ['bosses']);
+  assert.deepEqual(args('databank', { strings: { boss: 'reaper' }, ints: { stars: 3 } }), ['bosses', 'reaper']);
+  assert.deepEqual(args('databank', { strings: { item: 'wheelchair', boss: 'reaper' } }), ['wheelchair']);
   assert.deepEqual(args('equip', { strings: { item: 'Some Item' } }), ['Some Item']);
 });
 
