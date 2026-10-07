@@ -48,7 +48,7 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
     t.statsAttack(damage(geared, false), gear.raidAttack > 0 ? damage(base, false) : null, mark),
     ...(gear.maxHpDamage > 0 ? [t.statsMaxHpDamage(formatPercent(gear.maxHpDamage), mark)] : []),
     t.statsCrit(formatPercent(critChanceOf(geared)), damage(geared, true), critChanged ? mark : ''),
-    t.statsHeal(healAmount, revive, gear.raidSupport > 0 || gear.raidHp > 0 ? mark : ''),
+    t.statsHeal(healAmount, revive, gear.raidSupport > 0 || gear.healBonus > 0 || gear.raidHp > 0 ? mark : ''),
   ];
   if (gear.healSplash > 0) lines.push(t.statsHealSplash(formatPercent(gear.healSplash), Math.max(1, Math.round(heal.amount * healMultiplierOf(geared) * gear.healSplash)), mark));
   lines.push(

@@ -8,7 +8,7 @@
  * The raid bosses. Each week every server gets one of them (lib/events/raid-boss.ts), never the
  * same one two weeks running. Adding a boss here reshuffles which one each future week gets.
  */
-export const RAID_BOSS_IDS = ['wyrm', 'reaper'] as const;
+export const RAID_BOSS_IDS = ['wyrm', 'reaper', 'plague'] as const;
 export type RaidBossId = (typeof RAID_BOSS_IDS)[number];
 
 /**
@@ -116,6 +116,11 @@ export const RAID_EMOJI = {
  * - `gather` then `reckoning` (the reaper's Grim Reckoning): it spends `reckoning.chargeTurns` turns
  *   gathering, announced each turn, then hits min to max raiders at once. It can't be interrupted, so
  *   the party has those turns to guard and heal up.
+ * - The Plague Matriarch: `spit` (one raider), `miasma` (everyone), `rot` (min to max raiders),
+ *   `flies` (its shield), and `brew` then `pestilence`. Each of its hits leaves `blight` stacks of
+ *   Blight on whoever takes it (see `blight` below); `brew` spends a turn brewing, announced, and
+ *   `pestilence` the turn after doubles every standing raider's stacks (up to `blight.maxStacks`). It
+ *   never brews right after a Pestilence. It has no crowd control and doesn't heal.
  * - Crowd control (`stun`, `disarm`, `taunt`, all under `cc`): stunned players can't act at all,
  *   disarmed ones can't attack, and taunted ones can only attack, for `cc.rounds` turns. At each
  *   enrage level the boss can use one only every `cc.cooldown[level]` rounds, and it hits
@@ -130,9 +135,11 @@ export const RAID_COMBAT = {
    * is tuned so that 5 raiders who play sensibly, without gear, beat it within the 15 rounds about
    * 60% of the time (in simulated fights). The reaper is tuned to about 80% for 5 raiders without
    * gear or boosts who guard and heal but never rally (simulated with its Dark Empowerment and
-   * Grim Reckoning); a party that also keeps a rally going wins about 95%.
+   * Grim Reckoning); a party that also keeps a rally going wins about 95%. The matriarch wears the
+   * party down rather than hitting hard, and her Blight takes Heals and Supports away from attacking,
+   * so she has less HP than the dragon. Her share is a first guess, not yet tuned by simulated fights.
    */
-  hpShare: { wyrm: 0.774, reaper: 0.435 },
+  hpShare: { wyrm: 0.774, reaper: 0.435, plague: 0.55 },
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
   guard: { takenShare: 0.5, aoeCut: 0.3, aoeCutMax: 0.6 },
@@ -148,7 +155,19 @@ export const RAID_COMBAT = {
     scythe: { damage: 42, minTargets: 2, maxTargets: 3 },
     harvest: { damage: 30, maxHpShare: 0.03 },
     reckoning: { damage: 70, minTargets: 2, maxTargets: 4, chargeTurns: 2 },
+    spit: { damage: 28, blight: 2 },
+    miasma: { damage: 10, blight: 1 },
+    rot: { damage: 22, blight: 1, minTargets: 2, maxTargets: 3 },
   },
+  /**
+   * The Plague Matriarch's Blight, stacks a raider carries until they are cleansed or knocked out.
+   * At the end of every round (after the boss's move) each stack deals `tick` damage to its raider,
+   * and each one cuts the healing they receive by `healCut`, at most `maxHealCut` in all. A heal
+   * clears `healCleanse` stack from whoever it lands on (heal splash too); a Support clears every
+   * stack from the most blighted raider once they have `supportCleanseAt` or more, and only rallies
+   * when nobody does. A raider never carries more than `maxStacks`.
+   */
+  blight: { tick: 3, healCut: 0.1, maxHealCut: 0.5, healCleanse: 1, supportCleanseAt: 3, maxStacks: 8 },
   empower: { multiplier: 1.5 },
   /**
    * The Soul Reaper's special attack, Soul Requiem: from enrage level `phase` on (furious), as soon as
@@ -167,6 +186,12 @@ export const RAID_COMBAT = {
       { reap: 28, drain: 18, scythe: 20, harvest: 13, veil: 7, empower: 7, gather: 7 },
       { reap: 26, drain: 22, scythe: 20, harvest: 13, veil: 7, empower: 7, gather: 7 },
       { reap: 24, drain: 26, scythe: 19, harvest: 13, veil: 6, empower: 7, gather: 7 },
+    ],
+    // Pestilence only once she is enraged.
+    plague: [
+      { spit: 32, miasma: 26, rot: 30, flies: 12 },
+      { spit: 28, miasma: 26, rot: 26, flies: 10, brew: 10 },
+      { spit: 26, miasma: 28, rot: 24, flies: 8, brew: 14 },
     ],
   },
 } as const;

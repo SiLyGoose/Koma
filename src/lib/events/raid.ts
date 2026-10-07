@@ -20,8 +20,8 @@ export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', 'support'];
 
 /** The moves that damage raiders directly. */
-export type HitMove = 'claw' | 'breath' | 'sweep' | 'reap' | 'drain' | 'scythe' | 'harvest' | 'reckoning';
-export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'empower' | 'gather' | 'charge' | 'requiem' | CcMove;
+export type HitMove = 'claw' | 'breath' | 'sweep' | 'reap' | 'drain' | 'scythe' | 'harvest' | 'reckoning' | 'spit' | 'miasma' | 'rot';
+export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'empower' | 'gather' | 'charge' | 'requiem' | 'flies' | 'brew' | 'pestilence' | CcMove;
 export const BOSS_MOVES: readonly BossMove[] = [
   'claw',
   'breath',
@@ -38,6 +38,12 @@ export const BOSS_MOVES: readonly BossMove[] = [
   'reckoning',
   'charge',
   'requiem',
+  'spit',
+  'miasma',
+  'rot',
+  'flies',
+  'brew',
+  'pestilence',
   'stun',
   'disarm',
   'taunt',
@@ -47,9 +53,10 @@ export const BOSS_MOVES: readonly BossMove[] = [
  * How each move works: `single` hits one raider (a guard can jump in front), `all` hits everyone,
  * `some` hits a few, `steal` goes for one raider and is stopped outright by a guard, `shield` makes
  * attacks bounce off for the next turn, `cc` puts raiders under crowd control, `empower` makes the
- * boss's next attack hit harder, and `charge` does nothing but warn that a special attack is coming.
+ * boss's next attack hit harder, `charge` does nothing but warn that a special attack is coming, and
+ * `pestilence` doubles every raider's Blight.
  */
-export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'cc' | 'empower' | 'charge';
+export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'cc' | 'empower' | 'charge' | 'pestilence';
 export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   claw: 'single',
   reap: 'single',
@@ -66,6 +73,12 @@ export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   gather: 'charge',
   charge: 'charge',
   requiem: 'all',
+  spit: 'single',
+  miasma: 'all',
+  rot: 'some',
+  flies: 'shield',
+  brew: 'charge',
+  pestilence: 'pestilence',
   stun: 'cc',
   disarm: 'cc',
   taunt: 'cc',
@@ -112,7 +125,7 @@ export interface RaidStats {
 /**
  * The raid perks from a player's equipped gear (perks/raid/heal-splash.ts, guard-boost.ts,
  * rally-boost.ts, max-hp-damage.ts, heal-cut.ts, raid-hp.ts, raid-attack.ts, raid-crit-chance.ts,
- * raid-crit-damage.ts, raid-support.ts), as fractions. All 0 with no raid gear on.
+ * raid-crit-damage.ts, raid-support.ts, heal-bonus.ts), as fractions. All 0 with no raid gear on.
  */
 export interface RaidGear {
   /** Share of each heal's value that also goes to a second hurt ally. */
@@ -135,6 +148,8 @@ export interface RaidGear {
   raidCritDamage: number;
   /** How much more their heals (and revives) heal. */
   raidSupport: number;
+  /** How much more their heals (and revives) heal, on top of raidSupport (a smaller perk, for an item that does something else too). */
+  healBonus: number;
 }
 
 export const emptyGear = (): RaidGear => ({
@@ -148,6 +163,7 @@ export const emptyGear = (): RaidGear => ({
   raidCritChance: 0,
   raidCritDamage: 0,
   raidSupport: 0,
+  healBonus: 0,
 });
 
 /** The raid perks out of a member's gear totals (lib/game/items/equipment.ts gearEffects). */
@@ -162,6 +178,7 @@ export const raidGearFrom = (totals: RaidGear): RaidGear => ({
   raidCritChance: totals.raidCritChance,
   raidCritDamage: totals.raidCritDamage,
   raidSupport: totals.raidSupport,
+  healBonus: totals.healBonus,
 });
 
 export interface RaidPlayer {
@@ -170,6 +187,8 @@ export interface RaidPlayer {
   maxHp: number;
   /** The crowd control they are under and the turns it has left, or null. One at a time: the boss only aims it at players without one. */
   cc: { effect: CrowdControl; turns: number } | null;
+  /** Their stacks of the Plague Matriarch's Blight (RAID_COMBAT.blight): 0 with none. Cleared when they are knocked out. */
+  blight: number;
   /** How many times the boss has aimed a move at them, so it can spread its moves out evenly. */
   targeted: number;
   stats: RaidStats;
@@ -244,12 +263,15 @@ export interface RaidChoice {
 
 export type RaidEvent =
   | { kind: 'guard'; userId: string }
-  | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number }
-  | { kind: 'healSplash'; userId: string; targetId: string; amount: number }
+  /** `cleared` is how many Blight stacks the heal cleared off its target (left out for none). */
+  | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number; cleared?: number }
+  | { kind: 'healSplash'; userId: string; targetId: string; amount: number; cleared?: number }
   | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number }
   | { kind: 'healWasted'; userId: string }
   | { kind: 'rally'; userId: string; turns: number; multiplier: number }
   | { kind: 'cleansed'; userId: string; targetId: string; effect: CrowdControl }
+  /** A Support cleared every one of `targetId`'s `stacks` Blight stacks. */
+  | { kind: 'purged'; userId: string; targetId: string; stacks: number }
   | { kind: 'shieldBroken' }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
   | { kind: 'bounced'; userId: string }
@@ -267,6 +289,11 @@ export type RaidEvent =
   | { kind: 'empowered' }
   /** The boss spent a turn gathering for its Grim Reckoning, with `left` more to go (0: it lands next turn). */
   | { kind: 'gathering'; left: number }
+  /** The matriarch is brewing her Pestilence (it lands next turn), and when it lands. */
+  | { kind: 'brewing' }
+  | { kind: 'pestilence' }
+  /** Blight dealt its damage at the end of the round, to each raider carrying it. */
+  | { kind: 'festered'; hits: { userId: string; damage: number }[] }
   | { kind: 'cc'; effect: CrowdControl; userId: string }
   | { kind: 'hoardBlocked'; userId: string; targetId: string }
   | { kind: 'harvestBlocked'; userId: string; targetId: string }
@@ -351,8 +378,34 @@ export const critChanceOf = (player: { gear: RaidGear }): number => Math.min(1, 
 /** What a player's critical hits multiply damage by: RAID_COMBAT.attack.critMultiplier, plus raidCritDamage. */
 export const critMultiplierOf = (player: { gear: RaidGear }): number => RAID_COMBAT.attack.critMultiplier + player.gear.raidCritDamage;
 
-/** What a player's heals (and revives) are multiplied by (raidSupport). */
-export const healMultiplierOf = (player: { gear: RaidGear }): number => 1 + player.gear.raidSupport;
+/** What a player's heals (and revives) are multiplied by (raidSupport and healBonus). */
+export const healMultiplierOf = (player: { gear: RaidGear }): number => 1 + player.gear.raidSupport + player.gear.healBonus;
+
+/** The share of a heal a player gets: less for every stack of Blight on them (RAID_COMBAT.blight), never below 1 - maxHealCut. */
+export const healReceivedOf = (player: { blight: number }): number =>
+  1 - Math.min(RAID_COMBAT.blight.maxHealCut, Math.max(0, player.blight) * RAID_COMBAT.blight.healCut);
+
+/** Takes up to `count` of a player's Blight stacks off. Returns how many it took. */
+function clearBlight(player: RaidPlayer, count: number): number {
+  const cleared = Math.min(player.blight, Math.max(0, count));
+  player.blight -= cleared;
+  return cleared;
+}
+
+/** Adds Blight stacks to a player still standing, up to RAID_COMBAT.blight.maxStacks. */
+function addBlight(player: RaidPlayer, stacks: number): void {
+  if (stacks > 0 && isAlive(player)) player.blight = Math.min(RAID_COMBAT.blight.maxStacks, player.blight + stacks);
+}
+
+/** The Blight stacks a hit leaves on whoever takes it (the matriarch's moves; 0 for the rest). */
+export const blightOf = (move: HitMove): number => (move === 'spit' || move === 'miasma' || move === 'rot' ? RAID_COMBAT.moves[move].blight : 0);
+
+/** Whether a boss leaves Blight (the Plague Matriarch): some move of its leaves stacks. */
+export const hasBlight = (boss: RaidBossId): boolean =>
+  movesOf(boss).some((move) => (move === 'spit' || move === 'miasma' || move === 'rot') && blightOf(move) > 0);
+
+/** A player a heal can still help: hurt, or carrying Blight it would clear. */
+const needsHeal = (p: RaidPlayer): boolean => p.hp < p.maxHp || (p.blight > 0 && RAID_COMBAT.blight.healCleanse > 0);
 
 /**
  * Puts each player's gear on, as the fight starts (`gear` in the order of the players): their perks,
@@ -395,7 +448,7 @@ export function createRaid(
     bossMaxHp: bossHp,
     round: 1,
     maxRounds,
-    players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cc: null, targeted: 0, stats: emptyStats(), gear: emptyGear() })),
+    players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cc: null, blight: 0, targeted: 0, stats: emptyStats(), gear: emptyGear() })),
     intent: { move: movesOf(boss)[0] ?? 'claw', targets: [], multiplier: 1 },
     shielded: false,
     rallied: 0,
@@ -452,24 +505,28 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     events.push({ kind: 'guard', userId });
   }
 
-  // Heals: the ally the healer picked, if they are knocked out or hurt. Otherwise (no pick, or the
-  // pick no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
-  // A healer with healSplash also mends the most hurt other ally, by that share of the heal's value.
+  // Heals: the ally the healer picked, if they are knocked out, hurt or blighted. Otherwise (no pick, or
+  // the pick no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least
+  // HP left is healed, then (nobody hurt) the most blighted. Blight on whoever is healed makes the heal
+  // smaller, and the heal clears some of it. A healer with healSplash also mends the most hurt other
+  // ally (or blighted one), by that share of the heal's value, clearing their Blight the same way.
   const splashHeal = (healer: RaidPlayer, boost: number, healedId: string): void => {
     if (healer.gear.healSplash <= 0) return;
     const other = livingPlayers(state)
-      .filter((p) => p.userId !== healedId && p.hp < p.maxHp)
-      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      .filter((p) => p.userId !== healedId && needsHeal(p))
+      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || b.blight - a.blight)[0];
     if (!other) return;
-    const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healer.gear.healSplash)));
+    const full = boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healer.gear.healSplash;
+    const amount = other.hp < other.maxHp ? Math.min(other.maxHp - other.hp, Math.max(1, Math.round(full * healReceivedOf(other)))) : 0;
     other.hp += amount;
+    const cleared = clearBlight(other, RAID_COMBAT.blight.healCleanse);
     creditHeal(healer, other, amount);
-    events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
+    events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount, ...(cleared > 0 ? { cleared } : {}) });
   };
   for (const [userId, { boost, target }] of byAction('heal')) {
     const healer = findPlayer(state, userId) as RaidPlayer;
     const picked = target === undefined ? undefined : findPlayer(state, target);
-    const wanted = picked && picked.hp < picked.maxHp ? picked : undefined;
+    const wanted = picked && needsHeal(picked) ? picked : undefined;
     const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
       down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost))));
@@ -482,21 +539,27 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       wanted ??
       livingPlayers(state)
         .filter((p) => p.hp < p.maxHp)
-        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] ??
+      livingPlayers(state)
+        .filter(needsHeal)
+        .sort((a, b) => b.blight - a.blight)[0];
     if (!hurt) {
       events.push({ kind: 'healWasted', userId });
       continue;
     }
-    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost)));
+    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healReceivedOf(hurt)));
     hurt.hp += amount;
+    const cleared = clearBlight(hurt, RAID_COMBAT.blight.healCleanse);
     creditHeal(healer, hurt, amount);
-    events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost });
+    events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost, ...(cleared > 0 ? { cleared } : {}) });
     splashHeal(healer, boost, hurt.userId);
   }
 
   // Supports: each one lifts a stun, disarm or taunt if anyone is under one (stuns first, then the
-  // one with the most turns left); one with nothing to lift rallies the party instead, for the next
-  // turns' attacks. Every support counts toward shattering the shield either way.
+  // one with the most turns left); with none, it clears all the Blight off the most blighted raider
+  // once they carry RAID_COMBAT.blight.supportCleanseAt stacks or more; one with nothing to lift or
+  // clear rallies the party instead, for the next turns' attacks. Every support counts toward
+  // shattering the shield either way.
   const supports = byAction('support');
   // The strongest rally made this turn (0 if none), and whose.
   let rally = 0;
@@ -507,9 +570,15 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     const held = state.players
       .filter((p) => isAlive(p) && p.cc !== null)
       .sort((a, b) => Number(b.cc?.effect === 'stunned') - Number(a.cc?.effect === 'stunned') || (b.cc?.turns ?? 0) - (a.cc?.turns ?? 0))[0];
+    const infected = livingPlayers(state)
+      .filter((p) => p.blight >= RAID_COMBAT.blight.supportCleanseAt)
+      .sort((a, b) => b.blight - a.blight)[0];
     if (held?.cc) {
       events.push({ kind: 'cleansed', userId, targetId: held.userId, effect: held.cc.effect });
       held.cc = null;
+    } else if (infected) {
+      events.push({ kind: 'purged', userId, targetId: infected.userId, stacks: infected.blight });
+      infected.blight = 0;
     } else {
       const multiplier = rallyMultiplierOf(supporter);
       if (multiplier > rally) rallier = userId;
@@ -628,7 +697,12 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     player.hp = Math.max(0, player.hp - taken);
     player.stats.damageTaken = (player.stats.damageTaken ?? 0) + taken;
     events.push({ kind: 'hit', move: hitMove, userId: player.userId, damage: taken, guarded: state.guarding.includes(player.userId), coveredFor });
-    if (player.hp === 0) events.push({ kind: 'knockedOut', userId: player.userId });
+    // The matriarch's hits leave Blight on whoever takes them; a knocked-out raider loses theirs.
+    addBlight(player, blightOf(hitMove));
+    if (player.hp === 0) {
+      player.blight = 0;
+      events.push({ kind: 'knockedOut', userId: player.userId });
+    }
   };
   const standingGuards = state.guarding.map((id) => findPlayer(state, id) as RaidPlayer).filter(isAlive);
   // Guards don't stack: the party gets the strongest standing guard's cut, and only theirs.
@@ -667,7 +741,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
 
   switch (move) {
     case 'claw':
-    case 'reap': {
+    case 'reap':
+    case 'spit': {
       const target = standing(state.intent.targets[0]);
       if (!target) break;
       const cover = coverFor(target);
@@ -685,11 +760,13 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     }
     case 'breath':
     case 'drain':
+    case 'miasma':
       for (const player of livingPlayers(state)) splash(player, baseDamage(move), move);
       break;
     case 'sweep':
     case 'scythe':
-    case 'reckoning': {
+    case 'reckoning':
+    case 'rot': {
       const aimed = state.intent.targets.map((id) => findPlayer(state, id)).filter((p): p is RaidPlayer => p !== undefined && isAlive(p));
       const hit = aimed.length > 0 ? aimed : [standing(undefined)].filter((p): p is RaidPlayer => p !== undefined);
       for (const player of hit) splash(player, baseDamage(move), move);
@@ -714,11 +791,20 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     }
     case 'shield':
     case 'veil':
+    case 'flies':
       state.shielded = true;
       events.push({ kind: 'shieldUp' });
       break;
     case 'charge':
       events.push({ kind: 'charging' });
+      break;
+    case 'brew':
+      events.push({ kind: 'brewing' });
+      break;
+    case 'pestilence':
+      // Every standing raider's Blight doubles (up to the most a raider can carry).
+      events.push({ kind: 'pestilence' });
+      for (const player of livingPlayers(state)) addBlight(player, player.blight);
       break;
     case 'empower':
       events.push({ kind: 'empowered' });
@@ -758,6 +844,24 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   // Lifesteal: the reaper's Reap and Soul Drain heal it off the HP they took (what guards blocked it doesn't get).
   if (move === 'reap' || move === 'drain') heal(dealt * RAID_COMBAT.moves[move].lifesteal, move);
   state.lastMove = move;
+
+  // Blight festers at the end of the round: every stack deals its damage to the raider carrying it.
+  const festered: { userId: string; damage: number }[] = [];
+  const fell: string[] = [];
+  for (const player of livingPlayers(state)) {
+    if (player.blight <= 0) continue;
+    const taken = Math.min(player.hp, Math.round(player.blight * RAID_COMBAT.blight.tick));
+    if (taken <= 0) continue;
+    player.hp -= taken;
+    player.stats.damageTaken = (player.stats.damageTaken ?? 0) + taken;
+    festered.push({ userId: player.userId, damage: taken });
+    if (player.hp === 0) {
+      player.blight = 0;
+      fell.push(player.userId);
+    }
+  }
+  if (festered.length > 0) events.push({ kind: 'festered', hits: festered });
+  for (const userId of fell) events.push({ kind: 'knockedOut', userId });
 
   if (livingPlayers(state).length === 0) {
     state.outcome = 'wiped';
@@ -829,6 +933,8 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
     if (state.gathered < chargeTurns) return { move: 'gather', targets: [], multiplier: bossMultiplier(state) };
     return { move: 'reckoning', targets: fairTargets(living, rng.int(minTargets, maxTargets), rng), multiplier: bossMultiplier(state) };
   }
+  // Pestilence: it lands the turn after the matriarch brewed it.
+  if (state.lastMove === 'brew') return { move: 'pestilence', targets: [], multiplier: bossMultiplier(state) };
   // The Soul Requiem: unleashed the turn after it was charged, and charged as soon as it is ready.
   if (requiemReady(state) || state.lastMove === 'charge') {
     const move = state.lastMove === 'charge' ? 'requiem' : 'charge';
@@ -843,6 +949,7 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
     (move) =>
       weight(move) > 0 &&
       !(MOVE_KIND[move] === 'shield' && state.lastMove === move) &&
+      !(move === 'brew' && state.lastMove === 'pestilence') &&
       (ccAllowed || !isCcMove(move)) &&
       (!state.empowered || isAttack(move)),
   );
@@ -867,7 +974,7 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
   if (living.length === 0) return intent([]);
   const kind = MOVE_KIND[move];
   if (kind === 'single' || kind === 'steal') return intent(fairTargets(living, 1, rng));
-  if (move === 'sweep' || move === 'scythe') {
+  if (move === 'sweep' || move === 'scythe' || move === 'rot') {
     const { minTargets, maxTargets } = RAID_COMBAT.moves[move];
     return intent(fairTargets(living, rng.int(minTargets, maxTargets), rng));
   }

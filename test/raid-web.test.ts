@@ -246,6 +246,7 @@ test('the boss pictures the page shows', () => {
   const png = bossPicture('wyrm', 'furious');
   assert.ok(png && png.subarray(1, 4).toString() === 'PNG');
   assert.ok(bossPicture('reaper', 'calm'));
+  for (const mood of ['calm', 'enraged', 'furious', 'shielded', 'defeated', 'gloating', 'fled']) assert.ok(bossPicture('plague', mood)?.subarray(1, 4).toString() === 'PNG', mood);
   assert.equal(bossPicture('wyrm', 'sleepy'), null);
   assert.equal(bossPicture('../etc', 'calm'), null);
 });

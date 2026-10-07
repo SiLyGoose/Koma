@@ -539,7 +539,8 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['guardBoost'],
     raidDrop: true,
   },
-  // Boss-killers: each one answers a boss's gimmick (the Ember Wyrm's huge HP, the Soul Reaper's lifesteal).
+  // Boss-killers: each one answers a boss's gimmick (the Ember Wyrm's huge HP, the Soul Reaper's lifesteal,
+  // the Plague Matriarch's Blight).
   {
     id: 'leviathan-harpoon',
     name: 'Leviathan Harpoon',
@@ -556,6 +557,16 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: "A reaper's own blade, blessed against its maker. What it cuts, the reaper can't feed on.",
     effects: ['healCut'],
+    raidDrop: true,
+  },
+  {
+    id: 'plague-doctors-coat',
+    name: "Plague Doctor's Coat",
+    stars: 4,
+    slot: 'armor',
+    description: 'Waxed leather and a beak stuffed with herbs. Every patient it sees, it sees two.',
+    // Its heals reach a second ally (and clear their Blight too), and land a little harder.
+    effects: ['healSplash', 'healBonus'],
     raidDrop: true,
   },
 ];

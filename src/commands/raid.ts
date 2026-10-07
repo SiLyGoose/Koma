@@ -13,8 +13,8 @@ import {
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
 import { RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
-import { dragonPicture, type DragonMood } from '../animations/images/dragon-image.js';
-import { reaperPicture } from '../animations/images/reaper-image.js';
+import { type DragonMood } from '../animations/images/dragon-image.js';
+import { raidBossPicture } from '../animations/images/raid-boss-image.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { claimGuild } from '../events/busy.js';
@@ -37,6 +37,7 @@ import {
   endRound,
   enrageLevel,
   findPlayer,
+  hasBlight,
   isAlive,
   HEALING_MOVES,
   isCcMove,
@@ -167,6 +168,18 @@ function moveIntentText(state: RaidState, intent: BossIntent): string {
       return i.charge(hit(moves.drain.damage), RAID_COMBAT.requiem.casts);
     case 'requiem':
       return i.requiem(hit(moves.drain.damage), RAID_COMBAT.requiem.casts, formatMultiplier(moves.drain.lifesteal * lifesteal));
+    case 'spit':
+      return i.spit(target, hit(moves.spit.damage));
+    case 'miasma':
+      return i.miasma(hit(moves.miasma.damage));
+    case 'rot':
+      return i.rot(targets, hit(moves.rot.damage));
+    case 'flies':
+      return i.flies(support.shieldBreak);
+    case 'brew':
+      return i.brew();
+    case 'pestilence':
+      return i.pestilence();
     case 'stun':
     case 'disarm':
     case 'taunt':
@@ -183,17 +196,19 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
     case 'guard':
       return log.guard(mention(event.userId));
     case 'heal':
-      return log.heal(mention(event.userId), mention(event.targetId), event.amount, boost(event.boost));
+      return log.heal(mention(event.userId), mention(event.targetId), event.amount, boost(event.boost), event.cleared ?? 0);
     case 'revive':
       return log.revive(mention(event.userId), mention(event.targetId), event.hp, boost(event.boost));
     case 'healSplash':
-      return log.healSplash(mention(event.userId), mention(event.targetId), event.amount);
+      return log.healSplash(mention(event.userId), mention(event.targetId), event.amount, event.cleared ?? 0);
     case 'healWasted':
       return log.healWasted(mention(event.userId));
     case 'rally':
       return log.rally(mention(event.userId), formatMultiplier(event.multiplier), event.turns);
     case 'cleansed':
       return log.cleansed(mention(event.userId), mention(event.targetId), event.effect);
+    case 'purged':
+      return log.purged(mention(event.userId), mention(event.targetId), event.stacks);
     case 'shieldBroken':
       return b.shieldBroken;
     case 'attack':
@@ -205,8 +220,8 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
     case 'enrage':
       return log.enrage(b, event.level);
     case 'hit':
-      // Only a one-target hit (Claw, Reap) can be taken by a guard for someone else.
-      if (event.coveredFor) return log.covered(event.move === 'reap' ? 'reap' : 'claw', mention(event.userId), mention(event.coveredFor), event.damage);
+      // Only a one-target hit (Claw, Reap, Plague Spit) can be taken by a guard for someone else.
+      if (event.coveredFor) return log.covered(event.move === 'reap' || event.move === 'spit' ? event.move : 'claw', mention(event.userId), mention(event.coveredFor), event.damage);
       return log[event.move](mention(event.userId), event.damage);
     case 'knockedOut':
       return log.knockedOut(mention(event.userId));
@@ -222,6 +237,12 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
       return log.empowered(b);
     case 'gathering':
       return log.gathering(b, event.left);
+    case 'brewing':
+      return log.brewing(b);
+    case 'pestilence':
+      return log.pestilence(b);
+    case 'festered':
+      return log.festered(event.hits.map((h) => log.festerPart(mention(h.userId), h.damage)));
     case 'cc':
       return log.cc(event.effect, mention(event.userId));
     case 'hoardBlocked':
@@ -238,7 +259,7 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
 }
 
 /** The moves that hit several raiders at once, whose hits can share a line of the log. */
-type ManyMove = 'breath' | 'sweep' | 'drain' | 'scythe' | 'reckoning';
+type ManyMove = 'breath' | 'sweep' | 'drain' | 'scythe' | 'reckoning' | 'miasma' | 'rot';
 const isManyMove = (move: BossMove): move is ManyMove => MOVE_KIND[move] === 'all' || MOVE_KIND[move] === 'some';
 
 /**
@@ -335,7 +356,7 @@ export function moodOf(state: RaidState): DragonMood {
 }
 
 /** The boss's picture in a mood, as a file to attach. */
-export const bossFile = (boss: RaidBossId, mood: DragonMood) => ({ attachment: boss === 'reaper' ? reaperPicture(mood) : dragonPicture(mood), name: RAID.imageName });
+export const bossFile = (boss: RaidBossId, mood: DragonMood) => ({ attachment: raidBossPicture(boss, mood), name: RAID.imageName });
 
 function actionRow(disabled: boolean): ActionRowBuilder<ButtonBuilder> {
   const button = (id: string, label: string, emoji: string, style: ButtonStyle) =>
@@ -367,8 +388,8 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
   const party = state.players.map((p) => {
     const chosen = choices.get(p.userId);
     const status = !isAlive(p) ? r.statusDown : !canAct(p) ? r.statusStunned : chosen ? r.statusChosen[chosen.action] : r.statusWaiting;
-    const cc = isAlive(p) && p.cc ? r.ccTag(p.cc.effect, p.cc.turns) : '';
-    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, cc);
+    const tags = isAlive(p) ? [p.cc ? r.ccTag(p.cc.effect, p.cc.turns) : '', p.blight > 0 ? r.blightTag(p.blight) : ''].filter(Boolean).join(' ') : '';
+    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, tags);
   });
   return createEmbed()
     .setTitle(r.fightTitle(b, state.round, state.maxRounds))
@@ -513,6 +534,20 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string
       case 'charge':
       case 'requiem':
         return r.moves.requiem(r.phaseNames[RAID_COMBAT.requiem.phase] ?? `Phase ${RAID_COMBAT.requiem.phase + 1}`, RAID_COMBAT.requiem.casts, RAID_COMBAT.requiem.cooldown);
+      case 'spit':
+        return r.moves.spit(moves.spit.damage, moves.spit.blight);
+      case 'miasma':
+        return r.moves.miasma(moves.miasma.damage, moves.miasma.blight);
+      case 'rot':
+        return r.moves.rot(moves.rot.damage, moves.rot.blight, moves.rot.minTargets, moves.rot.maxTargets);
+      case 'flies':
+        return r.moves.flies(support.shieldBreak);
+      case 'brew':
+      case 'pestilence': {
+        // The first phase it brews in.
+        const level = Math.max(0, RAID_COMBAT.weights[boss].findIndex((weights) => ((weights as Partial<Record<BossMove, number>>).brew ?? 0) > 0));
+        return r.moves.pestilence(r.phaseNames[level] ?? `Phase ${level + 1}`, RAID_COMBAT.blight.maxStacks);
+      }
       case 'stun':
       case 'disarm':
       case 'taunt':
@@ -520,7 +555,11 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string
     }
   };
   const special: BossMove[] = RAID_COMBAT.requiem.boss === boss ? ['requiem'] : [];
-  const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : [])];
+  const { blight } = RAID_COMBAT;
+  const blightNote = hasBlight(boss)
+    ? ['', r.movesBlightNote(blight.tick, formatPercent(blight.healCut), formatPercent(blight.maxHealCut), blight.healCleanse, blight.supportCleanseAt, blight.maxStacks)]
+    : [];
+  const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : []), ...blightNote];
   return { phases, moves: moveLines, rewards: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg) };
 }
 
@@ -556,20 +595,20 @@ export interface HealOption {
 
 /**
  * The heal picker for `userId`: "whoever needs it most" first, then every ally who needs healing,
- * knocked-out ones first and then the most hurt. Allies at full HP are left out. `names` has the
+ * knocked-out ones first and then the most hurt (then the most blighted). Allies at full HP with no Blight are left out. `names` has the
  * display names seen in the lobby (a missing one shows as the user id).
  */
 export function healOptions(state: RaidState, userId: string, names: ReadonlyMap<string, string>): HealOption[] {
   const r = TEXT.raid;
   const share = (p: RaidState['players'][number]): number => p.hp / p.maxHp;
   const allies = state.players
-    .filter((p) => p.hp < p.maxHp)
+    .filter((p) => p.hp < p.maxHp || p.blight > 0)
     .sort((a, b) => share(a) - share(b))
     .slice(0, RAID.selectMax - 1)
     .map((p) => ({
       label: r.healOption(names.get(p.userId) ?? p.userId, p.userId === userId).slice(0, 100),
       value: p.userId,
-      description: isAlive(p) ? r.healOptionHurt(p.hp, p.maxHp) : r.healOptionDown,
+      description: isAlive(p) ? r.healOptionHurt(p.hp, p.maxHp, p.blight) : r.healOptionDown,
     }));
   return [{ label: r.healAuto, value: RAID.healAutoValue, description: r.healAutoDescription }, ...allies];
 }
@@ -688,7 +727,19 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
     .setTitle(r.lobbyTitle(b))
     .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length))
     .addFields(
-      { name: r.howToField, value: r.howTo(b, cfg.turnSeconds, support.shieldBreak, formatMultiplier(support.attackMultiplier), support.rallyTurns, steals, hasCc) },
+      {
+        name: r.howToField,
+        value: r.howTo(
+          b,
+          cfg.turnSeconds,
+          support.shieldBreak,
+          formatMultiplier(support.attackMultiplier),
+          support.rallyTurns,
+          steals,
+          hasCc,
+          hasBlight(boss) ? { supportAt: RAID_COMBAT.blight.supportCleanseAt, healClears: RAID_COMBAT.blight.healCleanse } : null,
+        ),
+      },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
       { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(Math.max(1, players.length), cfg, share)), fmt(Math.round(cfg.minBossHp * share))), inline: true },
     )

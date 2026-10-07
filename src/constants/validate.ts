@@ -193,7 +193,7 @@ export function validateConstants(): void {
   }
   if ([...cc.cooldown, ...cc.targets].some((n) => !(Number.isInteger(n) && n >= 1))) problems.push('RAID_COMBAT.cc cooldowns and target counts must be whole numbers of at least 1');
   if (!(RAID_COMBAT.moves.hoard.min >= 0 && RAID_COMBAT.moves.hoard.min <= RAID_COMBAT.moves.hoard.max)) problems.push('RAID_COMBAT.moves.hoard needs 0 <= min <= max');
-  for (const move of ['sweep', 'scythe', 'reckoning'] as const) {
+  for (const move of ['sweep', 'scythe', 'reckoning', 'rot'] as const) {
     const { minTargets, maxTargets } = RAID_COMBAT.moves[move];
     if (!(minTargets >= 1 && minTargets <= maxTargets)) problems.push(`RAID_COMBAT.moves.${move} needs 1 <= minTargets <= maxTargets`);
   }
@@ -201,6 +201,15 @@ export function validateConstants(): void {
     if (!(RAID_COMBAT.moves[move].lifesteal >= 0)) problems.push(`RAID_COMBAT.moves.${move}.lifesteal must be 0 or more`);
   }
   if (!(Number.isInteger(RAID_COMBAT.moves.reckoning.chargeTurns) && RAID_COMBAT.moves.reckoning.chargeTurns >= 1)) problems.push('RAID_COMBAT.moves.reckoning.chargeTurns must be a whole number of at least 1');
+  for (const move of ['spit', 'miasma', 'rot'] as const) {
+    if (!(Number.isInteger(RAID_COMBAT.moves[move].blight) && RAID_COMBAT.moves[move].blight >= 0)) problems.push(`RAID_COMBAT.moves.${move}.blight must be a whole number of 0 or more`);
+  }
+  const { blight } = RAID_COMBAT;
+  if (!(Number.isInteger(blight.maxStacks) && blight.maxStacks >= 1)) problems.push('RAID_COMBAT.blight.maxStacks must be a whole number of at least 1');
+  if (!(Number.isInteger(blight.healCleanse) && blight.healCleanse >= 0)) problems.push('RAID_COMBAT.blight.healCleanse must be a whole number of 0 or more');
+  if (!(Number.isInteger(blight.supportCleanseAt) && blight.supportCleanseAt >= 1)) problems.push('RAID_COMBAT.blight.supportCleanseAt must be a whole number of at least 1');
+  if (!(blight.tick >= 0)) problems.push('RAID_COMBAT.blight.tick must be 0 or more');
+  if (!(blight.healCut >= 0 && blight.maxHealCut >= 0 && blight.maxHealCut <= 1)) problems.push('RAID_COMBAT.blight needs healCut of 0 or more and maxHealCut from 0 to 1');
   if (!(RAID_COMBAT.empower.multiplier >= 1)) problems.push('RAID_COMBAT.empower.multiplier must be at least 1');
   if (!(RAID_COMBAT.moves.harvest.maxHpShare >= 0 && RAID_COMBAT.moves.harvest.maxHpShare <= 1)) problems.push('RAID_COMBAT.moves.harvest.maxHpShare must be from 0 to 1');
   const enrage = RAID_COMBAT.enrage;

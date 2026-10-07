@@ -42,6 +42,8 @@ export interface RaidPlayerView {
   maxHp: number;
   /** Their crowd control, while it lasts. */
   cc: { effect: 'stunned' | 'disarmed' | 'taunted'; turns: number } | null;
+  /** Their stacks of the Plague Matriarch's Blight (0 with none, and against the other bosses). */
+  blight: number;
   /** What they picked this turn (everyone sees everyone's, as in Discord). */
   picked: RaidAction | null;
   /** They can pick this turn (standing and not stunned). */

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
 import { renderReaper } from '../src/animations/images/reaper-image.js';
-import { eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
+import { bossByName, eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
 import { GEM_EMOJI, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import * as TEXT_CURRENCY from '../src/constants/text/currency.js';
@@ -18,7 +18,9 @@ import {
   createRaid,
   damageRanking,
   emptyGear,
+  equipPlayers,
   guardCutOf,
+  healReceivedOf,
   strongestGuard,
   endRound,
   enrageLevel,
@@ -28,6 +30,7 @@ import {
   recordTheft,
   findPlayer,
   resolvePlayerTurn,
+  type BossMove,
   type RaidChoice,
   type RaidEvent,
   type RaidRng,
@@ -1589,4 +1592,172 @@ test('damage taken: every hit of the boss a raider takes, as it was announced', 
     assert.equal(before[i]! - p.hp, Math.min(hits, before[i]!));
   }
   assert.ok(state.players.some((p) => (p.stats.damageTaken ?? 0) > 0));
+});
+
+// ---------------------------------------------------------------------------
+// The Plague Matriarch and her Blight
+// ---------------------------------------------------------------------------
+
+function plagueFight(players: string[] = ['a', 'b', 'c'], bossHp = 1000): RaidState {
+  return createRaid('plague', players, bossHp, 100, 15, low);
+}
+
+/** Has the boss make `move` (aimed at `targets`) at the end of this round. */
+function announce(state: RaidState, move: BossMove, targets: string[] = []): void {
+  state.intent = { move, targets, multiplier: 1 };
+}
+
+const player = (state: RaidState, userId: string) => findPlayer(state, userId) as RaidState['players'][number];
+
+test('the matriarch only uses her own moves, and Pestilence always follows a brew', () => {
+  assert.deepEqual(movesOf('plague'), ['spit', 'miasma', 'rot', 'flies', 'brew']);
+  for (const enrage of [0, 1, 2]) {
+    for (let roll = 1; roll <= 100; roll++) {
+      const state = plagueFight();
+      state.enrage = enrage;
+      const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
+      const move = pickIntent(state, fixed).move;
+      assert.ok(['spit', 'miasma', 'rot', 'flies', 'brew'].includes(move), `${enrage} ${roll}`);
+      // Calm, she doesn't brew yet.
+      if (enrage === 0) assert.notEqual(move, 'brew');
+    }
+  }
+  const state = plagueFight();
+  state.lastMove = 'brew';
+  assert.equal(pickIntent(state, low).move, 'pestilence');
+  // Never brews again straight after a Pestilence.
+  state.lastMove = 'pestilence';
+  state.enrage = 2;
+  for (let roll = 1; roll <= 100; roll++) assert.notEqual(pickIntent(state, { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) }).move, 'brew');
+});
+
+test('Blight: her hits leave stacks, and every stack festers at the end of the round', () => {
+  const { blight, moves } = RAID_COMBAT;
+  const state = plagueFight();
+  announce(state, 'spit', ['a']);
+  resolvePlayerTurn(state, choose(), low);
+  const { events } = bossTurn(state, low);
+  assert.equal(player(state, 'a').blight, moves.spit.blight);
+  assert.equal(player(state, 'a').hp, 100 - moves.spit.damage - moves.spit.blight * blight.tick);
+  assert.deepEqual(events.at(-1), { kind: 'festered', hits: [{ userId: 'a', damage: moves.spit.blight * blight.tick }] });
+
+  // Miasma: everyone takes a stack.
+  announce(state, 'miasma');
+  bossTurn(state, low);
+  assert.deepEqual(state.players.map((p) => p.blight), [moves.spit.blight + moves.miasma.blight, moves.miasma.blight, moves.miasma.blight]);
+  // Never more than the most a raider can carry.
+  player(state, 'b').blight = blight.maxStacks;
+  announce(state, 'miasma');
+  bossTurn(state, low);
+  assert.equal(player(state, 'b').blight, blight.maxStacks);
+});
+
+test('Blight: a guard who takes the Plague Spit for someone takes its stacks too', () => {
+  const state = plagueFight();
+  announce(state, 'spit', ['a']);
+  resolvePlayerTurn(state, choose(['b', 'guard']), low);
+  const { events } = bossTurn(state, low);
+  assert.equal(player(state, 'a').blight, 0);
+  assert.equal(player(state, 'b').blight, RAID_COMBAT.moves.spit.blight);
+  assert.match(eventLines(events, 'plague').join('\n'), /<@b> took the Plague Spit for <@a>/);
+});
+
+test('Blight: a raider it knocks out loses every stack, and a revive starts clean', () => {
+  const state = plagueFight();
+  const a = player(state, 'a');
+  a.hp = 5;
+  a.blight = 4;
+  announce(state, 'flies');
+  const { events } = bossTurn(state, low);
+  assert.equal(a.hp, 0);
+  assert.equal(a.blight, 0);
+  assert.deepEqual(events.slice(-2), [
+    { kind: 'festered', hits: [{ userId: 'a', damage: 5 }] },
+    { kind: 'knockedOut', userId: 'a' },
+  ]);
+});
+
+test('Blight: heals land smaller on a blighted raider and clear a stack; a raider at full HP with Blight can still be healed', () => {
+  const { blight, heal } = RAID_COMBAT;
+  const state = plagueFight();
+  const b = player(state, 'b');
+  b.hp = 20;
+  b.blight = 3;
+  const healed = resolvePlayerTurn(state, new Map([['a', { action: 'heal', boost: 0, target: 'b' }]]), low);
+  assert.deepEqual(healed, [{ kind: 'heal', userId: 'a', targetId: 'b', amount: Math.round(heal.amount * (1 - 3 * blight.healCut)), boost: 0, cleared: 1 }]);
+  assert.equal(b.blight, 2);
+  // Never cut below the cap.
+  assert.equal(healReceivedOf({ blight: 100 }), 1 - blight.maxHealCut);
+
+  // Nobody hurt: the heal goes to the most blighted raider, clearing a stack.
+  const clean = plagueFight();
+  player(clean, 'c').blight = 2;
+  const events = resolvePlayerTurn(clean, choose(['a', 'heal']), low);
+  assert.deepEqual(events, [{ kind: 'heal', userId: 'a', targetId: 'c', amount: 0, boost: 0, cleared: 1 }]);
+  assert.equal(eventText(events[0] as RaidEvent, 'plague'), '<:raidheal:1553098428685353030> <@a> cleared 1 stack of 🦠 Blight off <@c>.');
+});
+
+test('Blight: a Support purges every stack off the most blighted raider once they carry enough, and rallies otherwise', () => {
+  const { supportCleanseAt } = RAID_COMBAT.blight;
+  const state = plagueFight();
+  player(state, 'b').blight = supportCleanseAt - 1;
+  assert.equal(resolvePlayerTurn(state, choose(['a', 'support']), low)[0]?.kind, 'rally');
+
+  const sick = plagueFight();
+  player(sick, 'b').blight = supportCleanseAt;
+  player(sick, 'c').blight = supportCleanseAt + 2;
+  const events = resolvePlayerTurn(sick, choose(['a', 'support']), low);
+  assert.deepEqual(events, [{ kind: 'purged', userId: 'a', targetId: 'c', stacks: supportCleanseAt + 2 }]);
+  assert.equal(player(sick, 'c').blight, 0);
+  assert.equal(player(sick, 'b').blight, supportCleanseAt);
+  assert.equal(eventText(events[0] as RaidEvent, 'plague'), `✨ <@a> purged <@c>'s 🦠 Blight (${supportCleanseAt + 2} stacks).`);
+});
+
+test('Pestilence doubles every standing raider\'s Blight, up to the most they can carry', () => {
+  const { maxStacks } = RAID_COMBAT.blight;
+  const state = plagueFight();
+  player(state, 'a').blight = 2;
+  player(state, 'b').blight = maxStacks - 1;
+  announce(state, 'pestilence');
+  const { events } = bossTurn(state, low);
+  assert.equal(events[0]?.kind, 'pestilence');
+  assert.deepEqual(state.players.map((p) => p.blight), [4, maxStacks, 0]);
+  assert.equal(eventText({ kind: 'brewing' }, 'plague'), '⚗️ The matriarch stirs a bubbling brew. **Pestilence** is coming next turn!');
+});
+
+test("the Plague Doctor's Coat: its heals reach a second ally for half, clear their Blight too, and heal a little more", () => {
+  const coat = ITEMS_BY_ID.get('plague-doctors-coat') as ItemDef;
+  assert.equal(coat.raidDrop, true);
+  assert.equal(coat.slot, 'armor');
+  assert.deepEqual(coat.effects, ['healSplash', 'healBonus']);
+  assert.deepEqual(describeEffects(coat), ['Raid: heals also mend a second ally for 50% of the heal', 'Raid: your heals and revives heal 10% more']);
+
+  const state = plagueFight(['a', 'b', 'c']);
+  equipPlayers(state, [{ ...emptyGear(), healSplash: 0.5, healBonus: 0.1 }], 100);
+  player(state, 'b').hp = 10;
+  player(state, 'c').hp = 50;
+  player(state, 'c').blight = 1;
+  const events = resolvePlayerTurn(state, new Map([['a', { action: 'heal', boost: 0, target: 'b' }]]), low);
+  const amount = Math.round(RAID_COMBAT.heal.amount * 1.1);
+  assert.deepEqual(events, [
+    { kind: 'heal', userId: 'a', targetId: 'b', amount, boost: 0 },
+    { kind: 'healSplash', userId: 'a', targetId: 'c', amount: Math.round(RAID_COMBAT.heal.amount * 1.1 * 0.5 * (1 - RAID_COMBAT.blight.healCut)), cleared: 1 },
+  ]);
+  assert.equal(player(state, 'c').blight, 0);
+});
+
+test('the matriarch on Discord: her moves read out, the party list shows Blight, and her stats explain it', () => {
+  const state = plagueFight();
+  for (const move of [...movesOf('plague'), 'pestilence' as const]) assert.ok(intentText(state, { move, targets: ['a', 'b'], multiplier: 1 }).length > 0, move);
+  assert.equal(intentText(state, { move: 'spit', targets: ['a'], multiplier: 1 }), `🤢 **Plague Spit** at <@a> (${RAID_COMBAT.moves.spit.damage} damage, +2 🦠 Blight)`);
+  player(state, 'b').blight = 3;
+  const embed = fightEmbed(state, new Map(), [], Date.now() + 60_000, DEFAULTS.raid).toJSON();
+  assert.match(embed.fields?.[0]?.value ?? '', /<@b> .* 🦠 3/);
+  const info = bossInfoEmbed(DEFAULTS.raid, 'plague').toJSON();
+  const moves = info.fields?.find((f) => f.name === 'Moves')?.value ?? '';
+  assert.match(moves, /Plague Spit/);
+  assert.match(moves, /Pestilence\*\* \(from 😠 Enraged on\)/);
+  assert.match(moves, /🦠 \*\*Blight\*\*: each stack deals \*\*3\*\* damage/);
+  assert.equal(bossByName('matriarch'), 'plague');
+  assert.equal(bossByName('plague'), 'plague');
 });

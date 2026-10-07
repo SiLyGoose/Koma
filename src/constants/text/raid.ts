@@ -1,4 +1,4 @@
-import { RAID_EMOJI as E, type RaidBossId } from '../raid.js';
+import { RAID_COMBAT, RAID_EMOJI as E, type RaidBossId } from '../raid.js';
 import { boldGems, boldMoney, boldTokens } from './currency.js';
 
 /*
@@ -16,6 +16,9 @@ const CC: Record<CrowdControl, { name: string; does: string }> = {
   taunted: { name: 'taunted', does: 'can only attack' },
 };
 const ccMove: Record<CrowdControl, string> = { stunned: 'Stun', disarmed: 'Disarm', taunted: 'Taunt' };
+
+/** The Blight a hit from the matriarch leaves, like "+2 🦠". */
+const blightAdds = (move: 'spit' | 'miasma' | 'rot'): string => `+${RAID_COMBAT.moves[move].blight} 🦠`;
 
 /** What each raider gets for a win: the points, then komaTokens and komaGems (each left out at 0). */
 const rewards = (reward: string, tokens: number, gems: number): string =>
@@ -56,6 +59,8 @@ const HIT_MANY = {
   drain: (who: string, rest: string) => `👻 Soul Drain drained ${who}${rest}.`,
   scythe: (who: string, rest: string) => `🌙 Scythe Sweep cut ${who}${rest}.`,
   reckoning: (who: string, rest: string) => `⚰️ Grim Reckoning struck ${who}${rest}.`,
+  miasma: (who: string, rest: string) => `☁️ Miasma choked ${who}${rest} (${blightAdds('miasma')} each).`,
+  rot: (who: string, rest: string) => `🍄 Creeping Rot took hold of ${who}${rest} (${blightAdds('rot')} each).`,
 };
 type ManyMove = keyof typeof HIT_MANY;
 
@@ -95,6 +100,23 @@ export const raidText = {
       fledHow: 'faded back into the fog',
       fleesHow: 'fades back into the fog',
     },
+    plague: {
+      name: 'Plague Matriarch',
+      emoji: '🦠',
+      it: 'the matriarch',
+      It: 'The matriarch',
+      found: (host: string) => `${host} followed the stench down into the matriarch's sewer.`,
+      shield: 'Fly Swarm',
+      shieldEmoji: '🪰',
+      bounce: 'got lost in',
+      shieldUp: '🪰 A Fly Swarm thickens round the matriarch.',
+      shieldBroken: '💥 The Fly Swarm scatters!',
+      asleep: 'The matriarch found nobody to infect',
+      fledEmoji: '🦠',
+      fledLog: '🦠 The matriarch sinks back into the sewer, leaving her sickness behind.',
+      fledHow: 'sank back into the sewer',
+      fleesHow: 'sinks back into the sewer',
+    },
   } satisfies Record<RaidBossId, RaidBossText>,
 
   usage: (p: string) => `Use \`${p}raid\` to start this week's raid (or see how it went, once it has been fought), or \`${p}raid stats\` to see this week's boss, its stats and its moves.`,
@@ -110,16 +132,32 @@ export const raidText = {
     `No one can join once it starts.\n\n` +
     `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
   howToField: 'How to fight',
-  /** `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to lift. */
-  howTo: (b: RaidBossText, turnSeconds: number, shieldBreak: number, rallyMultiplier: string, rallyTurns: number, steals: boolean, cc: boolean) =>
+  /**
+   * `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to
+   * lift, `blight` when it leaves Blight (the most stacks before a Support clears it, and what a heal clears).
+   */
+  howTo: (
+    b: RaidBossText,
+    turnSeconds: number,
+    shieldBreak: number,
+    rallyMultiplier: string,
+    rallyTurns: number,
+    steals: boolean,
+    cc: boolean,
+    blight: { supportAt: number; healClears: number } | null = null,
+  ) =>
     [
       `Each round you have **${turnSeconds}s** to pick one action. ${b.It} then makes the move it announced.`,
       `${E.attack} **Attack**: damage ${b.it}.`,
       `${E.guard} **Guard**: take half damage, jump in front of attacks aimed at others, and soften attacks that hit everyone.`,
-      `${E.heal} **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most).`,
+      blight
+        ? `${E.heal} **Heal**: pick an ally to heal (it also clears ${plural(blight.healClears, 'stack', 'stacks')} of their 🦠 Blight), or bring back one who was knocked out (or let the bot pick whoever needs it most).`
+        : `${E.heal} **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most).`,
       cc
         ? `✨ **Support**: frees an ally who is ${E.stunned} stunned, ${E.disarmed} disarmed or ${E.taunted} taunted. If nobody is, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`
-        : `✨ **Support**: rallies the party: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`,
+        : blight
+          ? `✨ **Support**: clears all the 🦠 Blight off the most infected ally once they carry ${blight.supportAt} or more stacks. If nobody does, rallies the party instead: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`
+          : `✨ **Support**: rallies the party: attacks do **${rallyMultiplier}** damage for the next ${plural(rallyTurns, 'turn', 'turns')}. ${shieldBreak} Supports in one turn break its ${b.shield}.`,
       ...(steals ? [`💰 Anything ${b.it} steals goes into the vault.`] : []),
     ].join('\n'),
   playersField: (count: number) => `Raiders (${count})`,
@@ -158,6 +196,8 @@ Grows with every raider (at least ${min}).`,
     `${status} ${user} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
   /** A player's crowd control on the party list, with the turns it has left. */
   ccTag: (effect: CrowdControl, turns: number) => `${E[effect]} ${CC[effect].name} (${turns})`,
+  /** A player's Blight stacks on the party list. */
+  blightTag: (stacks: number) => `🦠 ${stacks}`,
   /** The party list's status column for a stunned player (they can't pick anything). */
   statusStunned: E.stunned,
   /** The party list's status column once a player has picked: the icon of what they picked. */
@@ -198,6 +238,13 @@ Grows with every raider (at least ${min}).`,
       `🌑 **Soul Requiem** is charging: next turn it casts Soul Drain ${casts} times, hitting everyone for ${damage} damage each cast. Guard and heal up!`,
     requiem: (damage: number, casts: number, lifesteal: string) =>
       `🌑 **Soul Requiem**: Soul Drain ${casts} times on everyone (${damage} damage each cast; it heals ${lifesteal} what it drains)`,
+    spit: (target: string, damage: number) => `🤢 **Plague Spit** at ${target} (${damage} damage, ${blightAdds('spit')} Blight)`,
+    miasma: (damage: number) => `☁️ **Miasma**, hitting everyone (${damage} damage and ${blightAdds('miasma')} Blight each)`,
+    rot: (targets: string, damage: number) => `🍄 **Creeping Rot** at ${targets} (${damage} damage and ${blightAdds('rot')} Blight each)`,
+    flies: (supports: number) =>
+      `🪰 **Fly Swarm**: flies swarm round her at the end of this turn. **Next turn**, attacks get lost in the swarm unless ${supports} raiders Support`,
+    brew: () => `⚗️ **Pestilence** is brewing: next turn every raider's 🦠 Blight doubles. Cleanse it now!`,
+    pestilence: () => `☣️ **Pestilence**: every raider's 🦠 Blight doubles`,
     /** `targets` is one or more mentions. */
     cc: (effect: CrowdControl, targets: string, rounds: number) =>
       `${E[effect]} **${ccMove[effect]}** on ${targets}: ${CC[effect].does} for ${plural(rounds, 'turn', 'turns')}. A Support can free them.`,
@@ -223,9 +270,17 @@ Grows with every raider (at least ${min}).`,
     ccMany: (effect: CrowdControl, users: readonly string[]) => `${E[effect]} ${andList(users)} are ${CC[effect].name}: ${CC[effect].does}.`,
 
     guard: (user: string) => `${E.guard} ${user} stands guard.`,
-    heal: (user: string, target: string, amount: number, boost: string) => `${E.heal} ${user} healed ${target} for **${amount}**${boost}.`,
+    /** `cleared` is how many Blight stacks it cleared off them (0 for none). */
+    heal: (user: string, target: string, amount: number, boost: string, cleared = 0) =>
+      amount === 0 && cleared > 0
+        ? `${E.heal} ${user} cleared ${plural(cleared, 'stack', 'stacks')} of 🦠 Blight off ${target}${boost}.`
+        : `${E.heal} ${user} healed ${target} for **${amount}**${boost}${cleared > 0 ? ` and cleared ${plural(cleared, 'stack', 'stacks')} of 🦠 Blight` : ''}.`,
     revive: (user: string, target: string, hp: number, boost: string) => `${E.heal} ${user} brought ${target} back with **${hp}** HP${boost}!`,
-    healSplash: (user: string, target: string, amount: number) => `${E.heal} ${user}'s heal spilled over onto ${target} for **${amount}**.`,
+    healSplash: (user: string, target: string, amount: number, cleared = 0) =>
+      amount === 0 && cleared > 0
+        ? `${E.heal} ${user}'s heal spilled over onto ${target}, clearing ${plural(cleared, 'stack', 'stacks')} of 🦠 Blight.`
+        : `${E.heal} ${user}'s heal spilled over onto ${target} for **${amount}**${cleared > 0 ? ` and cleared ${plural(cleared, 'stack', 'stacks')} of 🦠 Blight` : ''}.`,
+    purged: (user: string, target: string, stacks: number) => `✨ ${user} purged ${target}'s 🦠 Blight (${plural(stacks, 'stack', 'stacks')}).`,
     healWasted: (user: string) => `${E.heal} ${user} tried to heal, but nobody was hurt.`,
     rally: (user: string, multiplier: string, turns: number) => `✨ ${user} rallies the party: attacks do ${multiplier} damage for the next ${plural(turns, 'turn', 'turns')}.`,
     cleansed: (user: string, target: string, effect: CrowdControl) => `✨ ${user} freed ${target}: no longer ${E[effect]} ${CC[effect].name}.`,
@@ -241,9 +296,21 @@ Grows with every raider (at least ${min}).`,
     drain: (target: string, damage: number) => `👻 Soul Drain drained ${target} for **${damage}**.`,
     scythe: (target: string, damage: number) => `🌙 Scythe Sweep cut ${target} for **${damage}**.`,
     harvest: (target: string, damage: number) => `🕯️ Harvest tore **${damage}** HP out of ${target}'s soul.`,
+    spit: (target: string, damage: number) => `🤢 Plague Spit hit ${target} for **${damage}** (${blightAdds('spit')}).`,
+    miasma: (target: string, damage: number) => `☁️ Miasma choked ${target} for **${damage}** (${blightAdds('miasma')}).`,
+    rot: (target: string, damage: number) => `🍄 Creeping Rot took hold of ${target} for **${damage}** (${blightAdds('rot')}).`,
     /** A guard who jumped in front of a one-target hit. */
-    covered: (move: 'claw' | 'reap', guard: string, target: string, damage: number) =>
-      move === 'claw' ? `🐉 ${guard} took the Claw for ${target}: **${damage}**.` : `🩸 ${guard} took the Reap for ${target}: **${damage}**.`,
+    covered: (move: 'claw' | 'reap' | 'spit', guard: string, target: string, damage: number) =>
+      move === 'claw'
+        ? `🐉 ${guard} took the Claw for ${target}: **${damage}**.`
+        : move === 'reap'
+          ? `🩸 ${guard} took the Reap for ${target}: **${damage}**.`
+          : `🤢 ${guard} took the Plague Spit for ${target}: **${damage}** (${blightAdds('spit')}).`,
+    brewing: (b: RaidBossText) => `⚗️ ${b.It} stirs a bubbling brew. **Pestilence** is coming next turn!`,
+    pestilence: (b: RaidBossText) => `☣️ ${b.It} unleashes **Pestilence**! Every raider's 🦠 Blight doubles.`,
+    /** Each part is festerPart. */
+    festered: (parts: readonly string[]) => `🦠 Blight festers: ${andList(parts)}.`,
+    festerPart: (user: string, damage: number) => `${user} **${damage}**`,
     charging: (b: RaidBossText) => `🌑 ${b.It} gathers the souls around it. **Soul Requiem** is coming next turn!`,
     requiem: (b: RaidBossText) => `🌑 ${b.It} unleashes **Soul Requiem**!`,
     empowered: (b: RaidBossText) => `💢 ${b.It} powers up. Its next attack will hit harder!`,
@@ -286,7 +353,8 @@ Grows with every raider (at least ${min}).`,
   healAutoDescription: 'Brings back a knocked-out ally first, then heals the most hurt.',
   /** One ally in the heal picker. `name` is their display name. */
   healOption: (name: string, you: boolean) => `${name}${you ? ' (you)' : ''}`,
-  healOptionHurt: (hp: number, maxHp: number) => `❤️ ${hp}/${maxHp} HP`,
+  /** `blight` is their Blight stacks (0 for none). */
+  healOptionHurt: (hp: number, maxHp: number, blight = 0) => `❤️ ${hp}/${maxHp} HP${blight > 0 ? ` · 🦠 ${blight} Blight` : ''}`,
   healOptionDown: '💀 Knocked out: bring them back',
   actions: { attack: 'Attack', guard: 'Guard', heal: 'Heal', support: 'Support' },
 
@@ -382,6 +450,13 @@ Grows with every raider (at least ${min}).`,
     empower: (multiplier: string) => `💢 **Dark Empowerment**: spends a turn powering up, and its next move is an attack doing **${multiplier}** damage.`,
     reckoning: (turns: number, damage: number, min: number, max: number) =>
       `⚰️ **Grim Reckoning**: gathers for ${plural(turns, 'turn', 'turns')}, then hits ${min === max ? min : `${min} to ${max}`} raiders for ${damage} damage each. Guards reduce damage taken.`,
+    spit: (damage: number, stacks: number) => `🤢 **Plague Spit**: ${damage} damage and +${stacks} 🦠 Blight to one raider. Other raiders can guard to take it instead.`,
+    miasma: (damage: number, stacks: number) => `☁️ **Miasma**: ${damage} damage and +${stacks} 🦠 Blight to everyone. Guards reduce the damage.`,
+    rot: (damage: number, stacks: number, min: number, max: number) =>
+      `🍄 **Creeping Rot**: ${damage} damage and +${stacks} 🦠 Blight to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce the damage.`,
+    flies: (supports: number) => `🪰 **Fly Swarm**: attacks get lost in it for a turn unless ${supports} raiders Support.`,
+    /** `phase` is the first phase it brews in. */
+    pestilence: (phase: string, max: number) => `☣️ **Pestilence** (from ${phase} on): brews for a turn, then doubles every raider's 🦠 Blight (up to ${max} stacks).`,
     /** Its special attack. `phase` is the phase's name. */
     requiem: (phase: string, casts: number, cooldown: number) =>
       `🌑 **Soul Requiem** (${phase} only): charges for a turn, then casts Soul Drain ${casts} times in a row. ${cooldown} round cooldown.`,
@@ -390,6 +465,10 @@ Grows with every raider (at least ${min}).`,
   },
   /** Under the moves: crowd control shares one cooldown, which the phases set. */
   movesCcNote: 'Stun, Disarm and Taunt are crowd control: they share one cooldown, set by the phase.',
+  /** Under the moves of a boss that leaves Blight: how it works. `cut` and `maxCut` are like "10%". */
+  movesBlightNote: (tick: number, cut: string, maxCut: string, healClears: number, supportAt: number, max: number) =>
+    `🦠 **Blight**: each stack deals **${tick}** damage at the end of every round and cuts the healing its raider gets by **${cut}** (at most ${maxCut}). ` +
+    `A Heal clears ${plural(healClears, 'stack', 'stacks')}; a Support clears every stack off a raider carrying ${supportAt} or more. Getting knocked out clears it all. Up to ${max} stacks.`,
   bossFooter: 'Aimed moves go after whoever the boss has aimed at least so far, so everyone gets hit about equally.',
 
   // A raid the bot didn't finish
