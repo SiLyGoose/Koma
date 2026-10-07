@@ -45,6 +45,7 @@ export * from './casino/mines.js';
 export * from './casino/table.js';
 export * from './casino/baccarat.js';
 export * from './casino/roulette.js';
+export * from './casino/poker.js';
 export * from './pinecraft.js';
 export * from './events.js';
 export * from './raid.js';

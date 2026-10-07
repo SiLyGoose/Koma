@@ -18,6 +18,7 @@ import { STARS } from './types.js';
 import { resolvePrefixSource, slashCommandsEnabled } from './lib/prefix-source.js';
 import { refundLiveBets, startBetSweeper } from './services/casino/blackjack.js';
 import { cashOutLiveRuns, startMineSweeper } from './services/casino/mines.js';
+import { cashOutLiveSeats, startPokerSweeper } from './services/casino/poker.js';
 import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
@@ -130,6 +131,7 @@ async function main(): Promise<void> {
   let stopNewsletter: () => void = () => {};
   let stopBetSweeper: () => void = () => {};
   let stopMineSweeper: () => void = () => {};
+  let stopPokerSweeper: () => void = () => {};
   let stopWebServer: () => Promise<void> = async () => {};
   let stopStatus: () => void = () => {};
 
@@ -154,6 +156,8 @@ async function main(): Promise<void> {
     stopBetSweeper = startBetSweeper();
     // Runs in the mine that were being played when the bot last stopped are cashed out.
     stopMineSweeper = startMineSweeper();
+    // Chips left at poker tables when the bot last stopped go back to their players.
+    stopPokerSweeper = startPokerSweeper();
     if (web) stopWebServer = startWebServer({ port: web.port, api: siteDeps(readyClient, web) });
     // The bio links to the site. Not from a local test bot: it shares the application (and so the
     // bio) with the real bot, and its site is usually localhost.
@@ -194,11 +198,14 @@ async function main(): Promise<void> {
     stopStatus();
     stopBetSweeper();
     stopMineSweeper();
+    stopPokerSweeper();
     await stopWebServer();
     // Tables are being closed with the bot: give their bets back now instead of waiting for the sweeper.
     await refundLiveBets();
     // And runs in the mine are cashed out at the multiplier they reached.
     await cashOutLiveRuns();
+    // And everyone at a poker table gets their chips back (as of the last hand finished).
+    await cashOutLiveSeats();
     await client.destroy();
     await closeDb();
     process.exit(0);

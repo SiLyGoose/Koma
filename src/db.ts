@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, PinecraftWorldDoc, RaidDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -23,6 +23,7 @@ export interface Collections {
   pinecraftWorlds: Collection<PinecraftWorldDoc>;
   /** One per server per raid week (see services/raid.ts). */
   raids: Collection<RaidDoc>;
+  pokerSeats: Collection<PokerSeatDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -49,6 +50,7 @@ export async function connectDb(): Promise<Collections> {
     oldMineRuns: db.collection<MineRunDoc>('mine_runs'),
     pinecraftWorlds: db.collection<PinecraftWorldDoc>('pinecraft_worlds'),
     raids: db.collection<RaidDoc>('raids'),
+    pokerSeats: db.collection<PokerSeatDoc>('poker_seats'),
   };
 
   await Promise.all([
@@ -76,6 +78,8 @@ export async function connectDb(): Promise<Collections> {
     collections.pinecraftWorlds.createIndex({ guildId: 1, dugTotal: -1 }),
     // Raids left unfinished when the bot stopped are looked up by status on start.
     collections.raids.createIndex({ status: 1 }),
+    collections.pokerSeats.createIndex({ leaseUntil: 1 }),
+    collections.pokerSeats.createIndex({ tableKey: 1 }),
   ]);
 
   client = mongo;

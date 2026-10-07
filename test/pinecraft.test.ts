@@ -699,7 +699,7 @@ test('login: the site logs in with Discord, sees its servers, and gets a link to
     assert.equal(login.headers.get('access-control-allow-origin'), SITE.origin);
     const { session, me } = (await login.json()) as { session: string; me: { servers: { id: string; balance: number }[]; games: string[] } };
     assert.deepEqual(me.servers, [{ id: 'g1', name: 'Koma Club', icon: null, balance: 1234 }]); // g2 doesn't have the bot
-    assert.deepEqual(me.games, ['mines', 'pinecraft', 'baccarat', 'roulette', 'raid']);
+    assert.deepEqual(me.games, ['mines', 'pinecraft', 'baccarat', 'roulette', 'poker', 'raid']);
 
     const auth = { ...site, Authorization: `Bearer ${session}` };
     assert.equal((await fetch(`${base}/api/me`, { headers: site })).status, 401);
@@ -711,7 +711,7 @@ test('login: the site logs in with Discord, sees its servers, and gets a link to
     const token = decodeURIComponent(new URLSearchParams(new URL(url).hash.slice(1)).get('t') ?? '');
     assert.deepEqual(verifyToken(token), { guildId: 'g1', userId: '123', name: 'ZEIU in Koma' });
     assert.equal((await fetch(`${base}/api/play`, { method: 'POST', headers: auth, body: '{"guild":"g2","game":"mines"}' })).status, 403);
-    assert.equal((await fetch(`${base}/api/play`, { method: 'POST', headers: auth, body: '{"guild":"g1","game":"poker"}' })).status, 400);
+    assert.equal((await fetch(`${base}/api/play`, { method: 'POST', headers: auth, body: '{"guild":"g1","game":"chess"}' })).status, 400);
   });
 });
 

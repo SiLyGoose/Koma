@@ -8,6 +8,7 @@ import { gachaText } from './items/gacha.js';
 import { betText } from './casino/bet.js';
 import { plinkoText } from './casino/plinko.js';
 import { baccaratText } from './casino/baccarat.js';
+import { pokerText } from './casino/poker.js';
 import { rouletteText } from './casino/roulette.js';
 import { blackjackText } from './casino/blackjack.js';
 import { minesText } from './casino/mines.js';
@@ -59,6 +60,7 @@ export const TEXT = {
   bet: betText,
   plinko: plinkoText,
   baccarat: baccaratText,
+  poker: pokerText,
   roulette: rouletteText,
   blackjack: blackjackText,
   mines: minesText,

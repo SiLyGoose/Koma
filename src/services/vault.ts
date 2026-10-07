@@ -147,6 +147,7 @@ export const LOSS_REASONS: readonly LedgerReason[] = [
   'blackjack_bet', 'blackjack_double', 'blackjack_payout', 'blackjack_refund',
   'baccarat_bet', 'baccarat_payout',
   'roulette_bet', 'roulette_payout',
+  'poker_buyin', 'poker_cashout',
   'mines_bet', 'mines_payout',
   'd20_penalty', 'rob_fine_paid', 'heist_fine', 'vault_fine',
   'code_guess', 'code_refund',

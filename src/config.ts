@@ -110,6 +110,20 @@ export interface Settings {
     minBet: number;
     maxBet: number;
   };
+  /** Texas hold'em at the poker tables (web/games/poker/table.ts). */
+  poker: {
+    /** The blinds every table plays. */
+    smallBlind: number;
+    bigBlind: number;
+    /** The least and most a player can sit down with (and take to the table). */
+    minBuyIn: number;
+    maxBuyIn: number;
+    /** The house's cut of each hand that sees a flop (0 to 1), at most `rakeCap` a hand. It goes into the vault. */
+    rake: number;
+    rakeCap: number;
+    /** Seconds a player has for each move before they check (when it's free) or fold. */
+    turnSeconds: number;
+  };
   mines: {
     /** The smallest and biggest bet. */
     minBet: number;
@@ -305,6 +319,8 @@ export const DEFAULTS: Readonly<Settings> = {
   baccarat: { minBet: 1, maxBet: 10_000, payout: { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 } },
   // American roulette (0 and 00): every bet pays 36 / its pockets - 1 to 1, so the house keeps 5.26%.
   roulette: { minBet: 1, maxBet: 10_000 },
+  // 10/20 blinds, sitting down with 20 to 100 big blinds, and a 5% rake (at most 5 big blinds) for the vault.
+  poker: { smallBlind: 10, bigBlind: 20, minBuyIn: 400, maxBuyIn: 2_000, rake: 0.05, rakeCap: 100, turnSeconds: 30 },
   // Like Stake's Mines. The house edge is 2.5% with 1 mine and slides down to Stake's 1% with 24
   // (so a run pays back 97.5% to 99% of the bet on average), and a round stops at 100x.
   mines: {

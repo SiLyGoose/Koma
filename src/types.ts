@@ -272,6 +272,10 @@ export type LedgerReason =
   // Roulette (web/games/roulette/server.ts): the same.
   | 'roulette_bet'
   | 'roulette_payout'
+  // Poker (web/games/poker/table.ts): the chips taken to a table when sitting down, and what was
+  // left when standing up (the chips won and lost to the other players are the difference).
+  | 'poker_buyin'
+  | 'poker_cashout'
   // The mine (commands/mines.ts): the bet, and what a cash out paid.
   | 'mines_bet'
   | 'mines_payout'
@@ -341,6 +345,26 @@ export interface BlackjackBetDoc {
   gameId: string;
   /** Points on the table: the bet, and again after a double. */
   bet: number;
+  leaseUntil: Date;
+  createdAt: Date;
+}
+
+/**
+ * A player's chips at a poker table (web/games/poker/table.ts). The buy-in was taken from their
+ * balance when they sat down, so this document is what says "these chips are at the table":
+ * whoever deletes it pays them out (standing up, or the sweeper when the table died), so they are
+ * paid exactly once. `chips` is saved after every hand (never in the middle of one, so a hand cut
+ * short by a restart simply never happened), and `leaseUntil` pushed forward while the table plays.
+ */
+export interface PokerSeatDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  /** The table it is at (its key in this process: see PokerTable). */
+  tableKey: string;
+  chips: number;
+  /** What they sat down with, all told (top-ups included): the ledger's buy-in. */
+  boughtIn: number;
   leaseUntil: Date;
   createdAt: Date;
 }

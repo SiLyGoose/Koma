@@ -13,6 +13,8 @@ import {
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
   MAX_BACCARAT_PAYOUT,
+  MAX_POKER_STAKE,
+  MAX_POKER_TURN_SECONDS,
   MAX_PREFIX_LENGTH,
   MAX_SETTING_POINTS,
   MAX_STONKS_HOURS,
@@ -40,7 +42,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Refine' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Refine' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -212,6 +214,22 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('roulette.minBet', 'Roulette', 'Smallest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
   int('roulette.maxBet', 'Roulette', 'Biggest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
+
+  int('poker.smallBlind', 'Poker', "The small blind at every poker table.", 1, MAX_POKER_STAKE),
+  int('poker.bigBlind', 'Poker', 'The big blind at every poker table (also the least a bet or raise can be).', 1, MAX_POKER_STAKE),
+  int('poker.minBuyIn', 'Poker', 'The fewest chips a player can sit down at a poker table with.', 1, MAX_POKER_STAKE),
+  int('poker.maxBuyIn', 'Poker', 'The most chips a player can sit down at a poker table with.', 1, MAX_POKER_STAKE),
+  {
+    key: 'poker.rake',
+    group: 'Poker',
+    description: "The house's cut of each poker hand that sees a flop. It goes into the vault.",
+    type: 'number',
+    min: 0,
+    max: 0.25,
+    percent: true,
+  },
+  int('poker.rakeCap', 'Poker', 'The most rake taken from one poker hand.', 0, MAX_POKER_STAKE),
+  int('poker.turnSeconds', 'Poker', 'Seconds a poker player has for each move before they check (when free) or fold.', 5, MAX_POKER_TURN_SECONDS),
 
   int('mines.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
   int('mines.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
@@ -526,6 +544,15 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.roulette.minBet > settings.roulette.maxBet) {
     return 'roulette.minBet cannot be higher than roulette.maxBet';
+  }
+  if (settings.poker.smallBlind > settings.poker.bigBlind) {
+    return 'poker.smallBlind cannot be higher than poker.bigBlind';
+  }
+  if (settings.poker.minBuyIn > settings.poker.maxBuyIn) {
+    return 'poker.minBuyIn cannot be higher than poker.maxBuyIn';
+  }
+  if (settings.poker.minBuyIn < settings.poker.bigBlind) {
+    return 'poker.minBuyIn must be at least poker.bigBlind';
   }
   if (settings.mines.minBet > settings.mines.maxBet) {
     return 'mines.minBet cannot be higher than mines.maxBet';
