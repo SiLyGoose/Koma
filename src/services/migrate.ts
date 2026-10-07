@@ -3,7 +3,8 @@ import { HOUR_MS } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { bestCopy } from '../lib/game/items/copies.js';
-import type { ItemCopyDoc, LedgerDoc } from '../types.js';
+import { reslotGear } from '../lib/game/items/reslot.js';
+import type { EquipmentDoc, ItemCopyDoc, LedgerDoc } from '../types.js';
 import { SLOTS } from '../types.js';
 
 /*
@@ -176,6 +177,50 @@ export async function syncTreasureSlot(): Promise<TreasureSlotSyncResult> {
   }
 
   return { renamed, moved, cleared, dropped };
+}
+
+/*
+ * Keeps weapons and armor in the right equipment field when an item's catalog slot changes between
+ * the two after members already wear it (the healing gear moved from armor to weapon). Like
+ * syncTreasureSlot it is cheap, idempotent and runs every start, and it runs after it. For the
+ * gear worn now and the gear in every saved loadout, a copy in the wrong field moves into the one
+ * its item belongs in when that is free (or swaps with a copy going the other way); otherwise it
+ * comes off, since it gave its wearer nothing where it was (see reslotGear).
+ */
+export async function syncGearSlots(): Promise<{ moved: number; cleared: number }> {
+  const { items, members } = collections();
+  let moved = 0;
+  let cleared = 0;
+  const wearing = await members
+    .find({ $or: [{ 'equipment.weapon': { $type: 'string' } }, { 'equipment.armor': { $type: 'string' } }, { loadouts: { $exists: true } }] })
+    .toArray();
+  for (const member of wearing) {
+    const { guildId, userId } = member;
+    const saved = Object.entries(member.loadouts ?? {}).filter(([, loadout]) => loadout?.equipment);
+    const sets: [string, EquipmentDoc | null | undefined][] = [
+      ['equipment', member.equipment],
+      ...saved.map(([key, loadout]): [string, EquipmentDoc | null | undefined] => [`loadouts.${key}.equipment`, loadout.equipment]),
+    ];
+    const copyIds = sets.flatMap(([, eq]) => [eq?.weapon, eq?.armor]).filter((id): id is string => typeof id === 'string' && id !== '');
+    if (copyIds.length === 0) continue;
+    const copies = await items.find({ guildId, userId, _id: { $in: copyIds } }).toArray();
+    const slotOf = (copyId: string) => {
+      const copy = copies.find((c) => c._id === copyId);
+      return copy ? ITEMS_BY_ID.get(copy.itemId)?.slot : undefined;
+    };
+
+    const update: Record<string, string | null> = {};
+    for (const [path, eq] of sets) {
+      const fixed = reslotGear(eq, slotOf);
+      if (!fixed) continue;
+      update[`${path}.weapon`] = fixed.weapon;
+      update[`${path}.armor`] = fixed.armor;
+      moved += fixed.moved;
+      cleared += fixed.cleared;
+    }
+    if (Object.keys(update).length > 0) await members.updateOne({ guildId, userId }, { $set: update });
+  }
+  return { moved, cleared };
 }
 
 /*

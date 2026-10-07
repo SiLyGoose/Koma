@@ -24,7 +24,7 @@ import { startWebServer } from './web/server.js';
 import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -78,6 +78,13 @@ async function main(): Promise<void> {
         (treasureSync.dropped > 0 ? ` (${treasureSync.dropped} had to drop a second one that no longer fit)` : '') +
         (treasureSync.cleared > 0 ? `, cleared ${treasureSync.cleared} stale item(s) that already had a different treasure equipped.` : '.'),
     );
+  }
+
+  // Every start: keeps weapons and armor in the right field, after an item moves between the two
+  // (see syncGearSlots). After the treasure sync, which has already taken treasure items out.
+  const gearSync = await syncGearSlots();
+  if (gearSync.moved > 0 || gearSync.cleared > 0) {
+    console.log(`Gear slot sync: moved ${gearSync.moved} worn item(s) into their new slot, took off ${gearSync.cleared} that no longer fit.`);
   }
 
   // Every start: renames the old eventChannelId field to channelId (see services/channel.ts) in
