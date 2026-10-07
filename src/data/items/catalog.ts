@@ -525,7 +525,7 @@ export const ITEMS: readonly ItemDef[] = [
     id: 'seraphs-raiment',
     name: "Seraph's Raiment",
     stars: 4,
-    slot: 'armor',
+    slot: 'weapon',
     description: 'Feathers of light stitched into silk. Wounds close wherever it walks.',
     effects: ['raidSupport'],
     raidDrop: true,
