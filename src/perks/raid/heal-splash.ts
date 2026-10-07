@@ -7,7 +7,7 @@ import { definePerk } from '../define.js';
  */
 export const healSplash = definePerk({
   description: "Raid: when the wearer heals, the next most hurt ally is also healed by this share of the heal's value.",
-  // The 4-star (the Plague Doctor's Coat, a raid drop) is a big step up: half the heal for a second ally.
+  // The 4-star (the Plague Doctor's Cane, a raid drop) is a big step up: half the heal for a second ally.
   defaults: { 1: 0.1, 2: 0.15, 3: 0.2, 4: 0.5 },
   min: 0,
   max: 1,

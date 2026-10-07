@@ -1725,12 +1725,12 @@ test('Pestilence doubles every standing raider\'s Blight, up to the most they ca
   assert.equal(eventText({ kind: 'brewing' }, 'plague'), '⚗️ The matriarch stirs a bubbling brew. **Pestilence** is coming next turn!');
 });
 
-test("the Plague Doctor's Coat: its heals reach a second ally for half, clear their Blight too, and heal a little more", () => {
-  const coat = ITEMS_BY_ID.get('plague-doctors-coat') as ItemDef;
-  assert.equal(coat.raidDrop, true);
-  assert.equal(coat.slot, 'armor');
-  assert.deepEqual(coat.effects, ['healSplash', 'healBonus']);
-  assert.deepEqual(describeEffects(coat), ['Raid: heals also mend a second ally for 50% of the heal', 'Raid: your heals and revives heal 10% more']);
+test("the Plague Doctor's Cane: its heals reach a second ally for half, clear their Blight too, and heal a little more", () => {
+  const cane = ITEMS_BY_ID.get('plague-doctors-cane') as ItemDef;
+  assert.equal(cane.raidDrop, true);
+  assert.equal(cane.slot, 'weapon');
+  assert.deepEqual(cane.effects, ['healSplash', 'healBonus']);
+  assert.deepEqual(describeEffects(cane), ['Raid: heals also mend a second ally for 50% of the heal', 'Raid: your heals and revives heal 10% more']);
 
   const state = plagueFight(['a', 'b', 'c']);
   equipPlayers(state, [{ ...emptyGear(), healSplash: 0.5, healBonus: 0.1 }], 100);

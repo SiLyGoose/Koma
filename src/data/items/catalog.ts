@@ -10,6 +10,9 @@ import type { ItemDef } from '../../types.js';
  * equipped. Effect strength depends on the star tier and lives in the settings
  * (equipment.<effect>.<stars>), so a 3-star item is always stronger than a 1-star one that
  * lists the same effect. Weapons lean toward offense and armor toward defense, plus a perk.
+ * Raid gear that heals (raidSupport, healSplash, healBonus) is always a weapon. Moving an item
+ * between weapon and armor is fine once members own it: syncGearSlots (services/migrate.ts) moves
+ * worn copies into their new slot on the next start.
  * Unique treasures (slot 'treasure') are a third slot every member has, on top of their weapon
  * and armor: it stacks with those two, but only one unique treasure can be equipped at a
  * time (the 4-star unique treasures all compete for that one slot).
@@ -106,7 +109,7 @@ export const ITEMS: readonly ItemDef[] = [
     id: 'acolytes-robe',
     name: "Acolyte's Robe",
     stars: 1,
-    slot: 'armor',
+    slot: 'weapon',
     description: 'Plain wool, blessed by someone who meant it. Heals land a little softer.',
     effects: ['raidSupport'],
   },
@@ -204,7 +207,7 @@ export const ITEMS: readonly ItemDef[] = [
     id: 'clerics-vestments',
     name: "Cleric's Vestments",
     stars: 2,
-    slot: 'armor',
+    slot: 'weapon',
     description: 'Embroidered with prayers for mending wounds.',
     effects: ['raidSupport'],
   },
@@ -311,7 +314,7 @@ export const ITEMS: readonly ItemDef[] = [
     id: 'saints-mantle',
     name: "Saint's Mantle",
     stars: 3,
-    slot: 'armor',
+    slot: 'weapon',
     description: 'Woven from light, or so the shopkeeper swore. Heals run deeper.',
     effects: ['raidSupport'],
   },
@@ -560,11 +563,11 @@ export const ITEMS: readonly ItemDef[] = [
     raidDrop: true,
   },
   {
-    id: 'plague-doctors-coat',
-    name: "Plague Doctor's Coat",
+    id: 'plague-doctors-cane',
+    name: "Plague Doctor's Cane",
     stars: 4,
-    slot: 'armor',
-    description: 'Waxed leather and a beak stuffed with herbs. Every patient it sees, it sees two.',
+    slot: 'weapon',
+    description: 'For tending the sick without touching them. Every patient it sees, it sees two.',
     // Its heals reach a second ally (and clear their Blight too), and land a little harder.
     effects: ['healSplash', 'healBonus'],
     raidDrop: true,
