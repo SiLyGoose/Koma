@@ -15,7 +15,7 @@ import type { ItemDef } from '../src/types.js';
  * Raid drops: the 4-star raid gear can't be pulled from the gacha, only found by beating a raid boss.
  */
 
-const RAID_GEAR = ['colossus-plate', 'worldbreaker-maul', 'moonpiercer-bow', 'godslayer-fang', 'seraphs-raiment', 'leviathan-harpoon', 'hallowed-scythe'];
+const RAID_GEAR = ['colossus-plate', 'worldbreaker-maul', 'moonpiercer-bow', 'godslayer-fang', 'seraphs-raiment', 'unbroken-bulwark', 'leviathan-harpoon', 'hallowed-scythe'];
 
 test('raid drops: the 4-star raid gear is raid-only, and the gacha leaves it out of every tier', () => {
   assert.deepEqual(RAID_DROPS.map((item) => item.id).sort(), [...RAID_GEAR].sort());

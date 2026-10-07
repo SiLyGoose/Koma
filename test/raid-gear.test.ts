@@ -10,6 +10,7 @@ import {
   critMultiplierOf,
   emptyGear,
   equipPlayers,
+  guardCutOf,
   guardTakenShare,
   resolvePlayerTurn,
   type RaidChoice,
@@ -63,6 +64,10 @@ test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each n
     ['clerics-vestments', 2, 'armor', 'raidSupport'],
     ['saints-mantle', 3, 'armor', 'raidSupport'],
     ['seraphs-raiment', 4, 'armor', 'raidSupport'],
+    ['padded-gambeson', 1, 'armor', 'guardBoost'],
+    ['studded-brigandine', 2, 'armor', 'guardBoost'],
+    ['wyrmscale-plate', 3, 'armor', 'guardBoost'],
+    ['unbroken-bulwark', 4, 'armor', 'guardBoost'],
     ['wyrmpiercer', 3, 'weapon', 'maxHpDamage'],
     ['leviathan-harpoon', 4, 'weapon', 'maxHpDamage'],
     ['soulrender', 3, 'weapon', 'healCut'],
@@ -78,7 +83,7 @@ test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each n
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonslayer-greatsword') as ItemDef), ['Raid: attacks deal 25% more damage']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('eagle-eye-crossbow') as ItemDef), ['Raid: +12% crit chance']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('heartseeker-rapier') as ItemDef), ['Raid: +60% crit damage']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('saints-mantle') as ItemDef), ['Raid: heals heal 25% more, and your Guard blocks 25% more, for you and the party']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('saints-mantle') as ItemDef), ['Raid: your heals and revives heal 25% more']);
   // Each tier is stronger than the one below.
   for (const effect of ['raidHp', 'raidAttack', 'raidCritChance', 'raidCritDamage', 'raidSupport'] as const) {
     const tiers = DEFAULTS.equipment[effect];
@@ -116,7 +121,7 @@ test('raidCritChance and raidCritDamage: add to the base crit chance and crit mu
   assert.equal(damage, Math.round(RAID_COMBAT.attack.min * (RAID_COMBAT.attack.critMultiplier + 0.6)));
 });
 
-test('raidSupport: heals and revives heal more, and Guard blocks more (adding to guardBoost)', () => {
+test('raidSupport: heals and revives heal more, and Guard is left to guardBoost', () => {
   const state = fight({ raidSupport: 0.25 });
   (state.players[1] as { hp: number }).hp = 10;
   const healed = resolvePlayerTurn(state, choose(['a', 'heal', 'b']), low);
@@ -128,12 +133,13 @@ test('raidSupport: heals and revives heal more, and Guard blocks more (adding to
   assert.equal((events[0] as { hp: number }).hp, Math.round(100 * RAID_COMBAT.heal.reviveShare * 1.25));
 
   const takenShare = RAID_COMBAT.guard.takenShare;
-  assert.equal(guardTakenShare({ gear: { ...emptyGear(), raidSupport: 0.25 } }), 1 - (1 - takenShare) * 1.25);
-  assert.equal(guardTakenShare({ gear: { ...emptyGear(), raidSupport: 0.25, guardBoost: 0.25 } }), 1 - (1 - takenShare) * 1.5);
+  assert.equal(guardTakenShare({ gear: { ...emptyGear(), raidSupport: 0.25 } }), takenShare);
+  assert.equal(guardCutOf({ gear: { ...emptyGear(), raidSupport: 0.25 } }), RAID_COMBAT.guard.aoeCut);
+  assert.equal(guardTakenShare({ gear: { ...emptyGear(), raidSupport: 0.25, guardBoost: 0.25 } }), 1 - (1 - takenShare) * 1.25);
 });
 
 test('gear stats: the new raid perks show on the card, with what they would be without gear', () => {
-  const geared = raidStatsEmbed('Ana', { ...emptyGear(), raidHp: 0.3, raidAttack: 0.25, raidCritChance: 0.12, raidCritDamage: 0.6, raidSupport: 0.25 }, 100, 'k!').toJSON();
+  const geared = raidStatsEmbed('Ana', { ...emptyGear(), raidHp: 0.3, raidAttack: 0.25, raidCritChance: 0.12, raidCritDamage: 0.6, raidSupport: 0.25, guardBoost: 0.25 }, 100, 'k!').toJSON();
   const text = geared.description ?? '';
   const min = RAID_COMBAT.attack.min;
   assert.match(text, /\*\*HP\*\*: 130 \(normally 100\) 🎒/);

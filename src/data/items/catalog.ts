@@ -107,7 +107,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: "Acolyte's Robe",
     stars: 1,
     slot: 'armor',
-    description: 'Plain wool, blessed by someone who meant it. Heals land softer and guards hold firmer.',
+    description: 'Plain wool, blessed by someone who meant it. Heals land a little softer.',
     effects: ['raidSupport'],
   },
 
@@ -205,7 +205,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: "Cleric's Vestments",
     stars: 2,
     slot: 'armor',
-    description: 'Embroidered with prayers for mending wounds and for holding the line.',
+    description: 'Embroidered with prayers for mending wounds.',
     effects: ['raidSupport'],
   },
 
@@ -312,7 +312,7 @@ export const ITEMS: readonly ItemDef[] = [
     name: "Saint's Mantle",
     stars: 3,
     slot: 'armor',
-    description: 'Woven from light, or so the shopkeeper swore. Heals run deeper and guards hold like stone.',
+    description: 'Woven from light, or so the shopkeeper swore. Heals run deeper.',
     effects: ['raidSupport'],
   },
 
@@ -526,8 +526,17 @@ export const ITEMS: readonly ItemDef[] = [
     name: "Seraph's Raiment",
     stars: 4,
     slot: 'armor',
-    description: 'Feathers of light stitched into silk. Wounds close and lines hold wherever it walks.',
+    description: 'Feathers of light stitched into silk. Wounds close wherever it walks.',
     effects: ['raidSupport'],
+    raidDrop: true,
+  },
+  {
+    id: 'unbroken-bulwark',
+    name: 'Unbroken Bulwark',
+    stars: 4,
+    slot: 'armor',
+    description: 'A tower shield that has never once given ground. Everyone behind it walks away.',
+    effects: ['guardBoost'],
     raidDrop: true,
   },
   // Boss-killers: each one answers a boss's gimmick (the Ember Wyrm's huge HP, the Soul Reaper's lifesteal).

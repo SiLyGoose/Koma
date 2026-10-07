@@ -7,7 +7,7 @@ import { definePerk } from '../define.js';
  */
 export const guardBoost = definePerk({
   description: "Raid: how much more the wearer's Guard blocks, for them and for the party (25% turns taking 50% of a hit into 37.5%, and the party's 30% cut into 37.5%).",
-  defaults: { 1: 0.1, 2: 0.15, 3: 0.25, 4: 0.35 },
+  defaults: { 1: 0.1, 2: 0.15, 3: 0.2, 4: 0.3 },
   min: 0,
   max: 1,
   text: (value) => `Raid: your Guard blocks ${value} more, for you and the party`,

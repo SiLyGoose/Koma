@@ -133,7 +133,7 @@ export interface RaidGear {
   raidCritChance: number;
   /** Added to what their critical hits multiply damage by (0.6 turns 2x into 2.6x). */
   raidCritDamage: number;
-  /** How much more their heals heal, and (added to guardBoost) how much more of a hit their Guard blocks. */
+  /** How much more their heals (and revives) heal. */
   raidSupport: number;
 }
 
@@ -320,17 +320,17 @@ export const HEALING_MOVES: readonly BossMove[] = ['reap', 'drain', 'harvest', '
 /** A percent boost as a multiplier: 25 -> 1.25. */
 const boosted = (amount: number, boost: number): number => amount * (1 + boost / 100);
 
-/** The share of a hit a guarding player takes: RAID_COMBAT.guard.takenShare, less with guardBoost and raidSupport (never below 0). */
+/** The share of a hit a guarding player takes: RAID_COMBAT.guard.takenShare, less with guardBoost (never below 0). */
 export const guardTakenShare = (player: { gear: RaidGear }): number =>
-  Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost + player.gear.raidSupport));
+  Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost));
 
 /**
  * The cut a guarding player gives everyone else against moves that hit several players:
- * RAID_COMBAT.guard.aoeCut, bigger with guardBoost and raidSupport, at most aoeCutMax. Guards don't
+ * RAID_COMBAT.guard.aoeCut, bigger with guardBoost, at most aoeCutMax. Guards don't
  * stack: only the strongest standing guard's cut counts (strongestGuard).
  */
 export const guardCutOf = (player: { gear: RaidGear }): number =>
-  Math.min(RAID_COMBAT.guard.aoeCutMax, Math.max(0, RAID_COMBAT.guard.aoeCut * (1 + player.gear.guardBoost + player.gear.raidSupport)));
+  Math.min(RAID_COMBAT.guard.aoeCutMax, Math.max(0, RAID_COMBAT.guard.aoeCut * (1 + player.gear.guardBoost)));
 
 /** The guard whose cut the party gets: the strongest (the first to guard on a tie), or undefined with none. */
 export function strongestGuard<T extends { gear: RaidGear }>(guards: readonly T[]): T | undefined {

@@ -85,9 +85,9 @@ export const RAID_EMOJI = {
  * - `heal`: a heal restores `amount` HP to the ally the healer picked, or revives them with
  *   `reviveShare` of their HP if they are knocked out. With no pick (or one that no longer needs
  *   it), a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
- * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost and raidSupport perks), jumps in front of
+ * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost perk), jumps in front of
  *   single-target moves aimed at someone else (the guard with the most HP does), and cuts the damage
- *   everyone else takes from moves that hit several players by `aoeCut` (bigger with those same perks, up
+ *   everyone else takes from moves that hit several players by `aoeCut` (bigger with that same perk, up
  *   to `aoeCutMax`). That cut doesn't stack: with several guards up, only the strongest one's counts.
  * - `support`: each support lifts one player's stun, disarm or taunt (stuns first); with nobody
  *   under one it rallies the party
