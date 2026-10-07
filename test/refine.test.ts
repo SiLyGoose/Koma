@@ -50,7 +50,7 @@ test('refinement shows as R and the level', () => {
 });
 
 test('gear counts at the worn copy\'s refinement; gear that does not say counts as fully refined', () => {
-  const armor = item('wyrmscale-plate'); // 3-star guardBoost, 25% at refinement 10
+  const armor = item('wyrmscale-plate'); // 3-star guardBoost, 20% fully refined
   const full = DEFAULTS.equipment.guardBoost[3];
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 5 } }, 'u').guardBoost - full) < 1e-12);
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 3 } }, 'u').guardBoost - full / 2) < 1e-12);
@@ -59,8 +59,8 @@ test('gear counts at the worn copy\'s refinement; gear that does not say counts 
   assert.deepEqual(equippedGear({ armor: armor.id, levels: { armor: 3 } }), [{ item: armor, level: 3, bonus: true }]);
   // Bare items (the catalog describing itself) are fully refined too.
   assert.equal(totalEffects([armor]).guardBoost, full);
-  assert.deepEqual(describeEffects(armor), ['Raid: Guard blocks 25% more of the hits you take']);
-  assert.deepEqual(describeEffects(armor, 1, 3), ['Raid: Guard blocks 12.5% more of the hits you take']);
+  assert.deepEqual(describeEffects(armor), ['Raid: your Guard blocks 20% more, for you and the party']);
+  assert.deepEqual(describeEffects(armor, 1, 3), ['Raid: your Guard blocks 10% more, for you and the party']);
 });
 
 test('refine plan: raises the highest-refined copy, uses up the lowest other copy, never a worn one', () => {

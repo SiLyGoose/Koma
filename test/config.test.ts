@@ -163,7 +163,7 @@ test('config: the General page shows the per-server channel setting (services/ch
   // that and shows the channel as unset instead of crashing the whole listing over one field.
   const [reply] = await ask();
   assert.equal(reply?.fields[0]?.name, 'General');
-  assert.match(reply?.fields[0]?.value ?? '', /`channel`: \*\*None\*\*$/);
+  assert.match(reply?.fields[0]?.value ?? '', /^`channel`: \*\*None\*\*$/m);
 });
 
 test('config: set/reset channel is turned away for a non-admin, the same as every other setting, before touching the database', async () => {

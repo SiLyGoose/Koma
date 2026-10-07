@@ -475,10 +475,10 @@ test('databank tier: the whole list, and one item by name, still work', async ()
 
 test('databank at a refinement level: effects at that level, a button to flip, and the same pages either way', () => {
   const plate = ITEMS.find((item) => item.id === 'wyrmscale-plate') as ItemDef;
-  assert.match(itemBlock(plate), /25% more/, 'fully refined by default');
-  assert.match(itemBlock(plate, 1), /4\.17% more/, 'a new copy (R1) is a sixth of it');
+  assert.match(itemBlock(plate), /20% more/, 'fully refined by default');
+  assert.match(itemBlock(plate, 1), /3\.33% more/, 'a new copy (R1) is a sixth of it');
   const detail = itemDetail(plate, 1);
-  assert.ok(detail.fields.some((f) => f.name === 'Effects (at R1)' && /4\.17% more/.test(f.value)));
+  assert.ok(detail.fields.some((f) => f.name === 'Effects (at R1)' && /3\.33% more/.test(f.value)));
 
   // The button says what pressing it shows.
   assert.equal(TEXT.databank.showLevel(1), 'Show R1');

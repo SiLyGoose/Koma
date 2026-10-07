@@ -81,7 +81,7 @@ test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each n
   }
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('troll-hide-cuirass') as ItemDef), ['Raid: +30% HP']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonslayer-greatsword') as ItemDef), ['Raid: attacks deal 25% more damage']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('eagle-eye-crossbow') as ItemDef), ['Raid: +12% crit chance']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('eagle-eye-crossbow') as ItemDef), ['Raid: +15% crit chance']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('heartseeker-rapier') as ItemDef), ['Raid: +60% crit damage']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('saints-mantle') as ItemDef), ['Raid: your heals and revives heal 25% more']);
   // Each tier is stronger than the one below.

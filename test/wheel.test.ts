@@ -377,5 +377,5 @@ test('wheel.maxMultiplier: a Wheel setting, shown as a multiplier, from 1x to MA
   assert.ok(GROUPS.includes('Wheel'));
   // The gear card names the live range.
   const chair: ItemDef = { id: 'test-chair', name: 'Test Chair', stars: 4, slot: 'armor', description: '', effects: ['wheelSpin'] };
-  assert.match(describeEffects(chair)[0] as string, /by 0\.1x to 5x/);
+  assert.match(describeEffects(chair)[0] as string, /by 1x to 5x/);
 });

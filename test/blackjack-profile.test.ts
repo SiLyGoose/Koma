@@ -96,7 +96,7 @@ test('names: simplified to what the font can spell, with a fallback', () => {
   assert.equal(cleanName('ZEIU', 'PLAYER 1'), 'ZEIU');
   assert.equal(cleanName('José Ñandú', 'PLAYER 1'), 'JOSE NANDU');
   assert.equal(cleanName('  a    b  ', 'PLAYER 1'), 'A B');
-  assert.equal(cleanName('Ｓｉｍｏｎ', 'PLAYER 1'), 'ZEIU', 'wide letters');
+  assert.equal(cleanName('Ｓｉｍｏｎ', 'PLAYER 1'), 'SIMON', 'wide letters');
   assert.equal(cleanName('sly_goose-9!', 'PLAYER 1'), 'SLY_GOOSE-9!');
   assert.equal(cleanName('😀🎲', 'PLAYER 2'), 'PLAYER 2', 'only emoji');
   assert.equal(cleanName('東京', 'PLAYER 3'), 'PLAYER 3', 'another alphabet');

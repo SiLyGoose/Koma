@@ -436,10 +436,10 @@ test('raid gear items: a 1-star, a 2-star and a 3-star item for each raid perk, 
     assert.deepEqual(item.effects, [effect], id);
   }
   assert.equal(DEFAULTS.equipment.healSplash[3], 0.2);
-  assert.equal(DEFAULTS.equipment.guardBoost[3], 0.25);
+  assert.equal(DEFAULTS.equipment.guardBoost[3], 0.2);
   assert.equal(DEFAULTS.equipment.rallyBoost[3], 0.25);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('war-banner') as ItemDef), ['Raid: your rallies give a 25% bigger attack bonus']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: your Guard blocks 25% more, for you and the party']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: your Guard blocks 20% more, for you and the party']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 20% of the heal']);
 });
 
