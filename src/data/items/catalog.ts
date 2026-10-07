@@ -530,4 +530,23 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['raidSupport'],
     raidDrop: true,
   },
+  // Boss-killers: each one answers a boss's gimmick (the Ember Wyrm's huge HP, the Soul Reaper's lifesteal).
+  {
+    id: 'leviathan-harpoon',
+    name: 'Leviathan Harpoon',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Made for things too big to kill in one blow. Every throw tears away a piece of it.',
+    effects: ['maxHpDamage'],
+    raidDrop: true,
+  },
+  {
+    id: 'hallowed-scythe',
+    name: 'Hallowed Scythe',
+    stars: 4,
+    slot: 'weapon',
+    description: "A reaper's own blade, blessed against its maker. What it cuts, the reaper can't feed on.",
+    effects: ['healCut'],
+    raidDrop: true,
+  },
 ];

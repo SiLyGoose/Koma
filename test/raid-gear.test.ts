@@ -63,6 +63,10 @@ test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each n
     ['clerics-vestments', 2, 'armor', 'raidSupport'],
     ['saints-mantle', 3, 'armor', 'raidSupport'],
     ['seraphs-raiment', 4, 'armor', 'raidSupport'],
+    ['wyrmpiercer', 3, 'weapon', 'maxHpDamage'],
+    ['leviathan-harpoon', 4, 'weapon', 'maxHpDamage'],
+    ['soulrender', 3, 'weapon', 'healCut'],
+    ['hallowed-scythe', 4, 'weapon', 'healCut'],
   ] as const) {
     const item = ITEMS_BY_ID.get(id);
     assert.ok(item, id);
