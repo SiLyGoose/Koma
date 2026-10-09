@@ -21,6 +21,7 @@ import { raidCritChance } from './raid/raid-crit-chance.js';
 import { raidCritDamage } from './raid/raid-crit-damage.js';
 import { raidHp } from './raid/raid-hp.js';
 import { healBonus } from './raid/heal-bonus.js';
+import { blightPurge } from './raid/blight-purge.js';
 import { raidSupport } from './raid/raid-support.js';
 import { robAmountCut } from './rob/rob-amount-cut.js';
 import { robAmount } from './rob/rob-amount.js';
@@ -91,6 +92,7 @@ export const EFFECTS = {
   raidCritDamage,
   raidSupport,
   healBonus,
+  blightPurge,
   // Thoccy Keyboard.
   robStreak,
   robStreakCap,

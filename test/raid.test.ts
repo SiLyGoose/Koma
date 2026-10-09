@@ -38,10 +38,11 @@ import {
 } from '../src/lib/events/raid.js';
 import { bossForWeek } from '../src/lib/events/raid-boss.js';
 import { raidWeek } from '../src/lib/events/raid-week.js';
-import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
+import { checkConstraints, findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { raidTakings } from '../src/services/raid.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects } from '../src/lib/game/items/equipment.js';
+import { describeEffects, perkShare } from '../src/lib/game/items/equipment.js';
+import { blightPurgeExtra } from '../src/perks/index.js';
 import type { ItemDef, RaidDoc } from '../src/types.js';
 import { readPng } from './helpers/png.js';
 
@@ -791,9 +792,9 @@ test('raid stats: the dragon itself, its HP, its phases with their crowd-control
   const embed = bossInfoEmbed(cfg).toJSON();
   assert.equal(embed.title, `🐉 ${TEXT.raid.bosses.wyrm.name}`);
   const description = embed.description ?? '';
-  const share = RAID_COMBAT.hpShare.wyrm;
-  assert.ok(description.includes(`${Math.round(cfg.hpPerPlayer * share)} per raider`), description);
-  assert.ok(description.includes(`5 raiders: ${bossHpFor(5, cfg, share).toLocaleString('en-US')}`), description);
+  assert.ok(description.includes(`${cfg.hpPerRaider.wyrm.toLocaleString('en-US')} for every raider past the first ${cfg.hpOverhead.wyrm}`), description);
+  assert.ok(description.includes(`as if it had ${cfg.minRaiders}`), description);
+  assert.ok(description.includes(`5 raiders: ${bossHpFor(5, 'wyrm', cfg).toLocaleString('en-US')}`), description);
   assert.ok(description.includes(`**${cfg.maxRounds}** rounds`), description);
 
   const rewards = embed.fields?.find((f) => f.name === 'Rewards')?.value ?? '';
@@ -835,9 +836,20 @@ test('the dragon draws in every mood, at its size, and each mood looks different
 
 test('raid settings: the defaults are valid and every one can be changed', () => {
   assert.deepEqual(validateSettings(DEFAULTS), []);
-  for (const key of ['hpPerPlayer', 'hpGrowth', 'minBossHp', 'playerHp', 'maxRounds', 'turnSeconds', 'prepareSeconds', 'reward']) {
+  for (const key of ['minRaiders', 'playerHp', 'maxRounds', 'turnSeconds', 'prepareSeconds', 'reward']) {
     assert.ok(findSpec(`raid.${key}`), key);
   }
+  // Every boss has its own HP per raider and overhead.
+  for (const boss of RAID_BOSS_IDS) {
+    assert.ok(findSpec(`raid.hpPerRaider.${boss}`), boss);
+    assert.ok(findSpec(`raid.hpOverhead.${boss}`), boss);
+  }
+  // The old shared HP settings are gone.
+  for (const key of ['hpPerPlayer', 'hpGrowth', 'minBossHp']) assert.equal(findSpec(`raid.${key}`), undefined, key);
+  // The minimum party has to be bigger than every boss's overhead, or a small party's boss would have no HP.
+  const tooSmall = structuredClone(DEFAULTS);
+  tooSmall.raid.minRaiders = 2;
+  assert.match(checkConstraints(tooSmall) ?? '', /raid\.minRaiders must be more than raid\.hpOverhead\./);
   // Raids no longer have boosts: no settings for them.
   assert.equal(findSpec('raid.boostCost'), undefined);
   assert.equal(findSpec('raid.maxBoost'), undefined);
@@ -855,18 +867,20 @@ test('raidTakings: everything spent on boosts and stolen goes to the vault, and 
   assert.equal(raidTakings({ spent: { a: 0, b: -250 }, stolen: { c: 100 } }), 100);
 });
 
-test('bossHpFor: grows a little faster than the party, and never drops below the minimum', () => {
-  const hp = { hpPerPlayer: 600, hpGrowth: 0.06, minBossHp: 3000 };
-  assert.equal(bossHpFor(1, hp), 3000);
-  assert.equal(bossHpFor(2, hp), 3000); // 1,272 scaled, held up by the minimum
-  assert.equal(bossHpFor(5, hp), Math.round(600 * 5 * 1.24));
-  assert.equal(bossHpFor(7, hp), 5712);
-  // More raiders always means more HP per raider once past the minimum.
-  for (let n = 6; n <= 20; n++) assert.ok(bossHpFor(n, hp) / n > bossHpFor(n - 1, hp) / (n - 1));
-  // No growth is plain per-raider HP.
-  assert.equal(bossHpFor(4, { ...hp, hpGrowth: 0, minBossHp: 1 }), 2400);
-  // The defaults are the ones described in config.ts.
-  assert.equal(bossHpFor(7, DEFAULTS.raid), 5712);
+test("bossHpFor: each boss's HP per raider past its overhead, a small party counted as the minimum", () => {
+  const hp = { hpPerRaider: { wyrm: 1000, reaper: 800, plague: 600 }, hpOverhead: { wyrm: 2.5, reaper: 3, plague: 2 }, minRaiders: 4 };
+  assert.equal(bossHpFor(5, 'wyrm', hp), 2500);
+  assert.equal(bossHpFor(8, 'wyrm', hp), 5500);
+  assert.equal(bossHpFor(8, 'reaper', hp), 4000);
+  assert.equal(bossHpFor(8, 'plague', hp), 3600);
+  // Every raider past the overhead adds the same HP.
+  for (let n = 5; n <= 20; n++) assert.equal(bossHpFor(n, 'wyrm', hp) - bossHpFor(n - 1, 'wyrm', hp), 1000);
+  // Fewer than minRaiders (nobody at all, in the lobby) fight it as if there were minRaiders.
+  for (const n of [0, 1, 3, 4]) assert.equal(bossHpFor(n, 'wyrm', hp), 1500);
+  // Never 0, whatever the settings.
+  assert.equal(bossHpFor(1, 'wyrm', { ...hp, minRaiders: 1, hpOverhead: { ...hp.hpOverhead, wyrm: 1 } }), 1);
+  // The defaults (config.ts): 5 raiders against the Wyrm.
+  assert.equal(bossHpFor(5, 'wyrm', DEFAULTS.raid), Math.round(DEFAULTS.raid.hpPerRaider.wyrm * (5 - DEFAULTS.raid.hpOverhead.wyrm)));
 });
 
 test('komaTokens: the raid pays 10 by default, and pulls show what tokens and points paid, with the emoji alone', async () => {
@@ -1206,12 +1220,10 @@ test('raid stats for the reaper: its own moves only, and whose week it is', () =
   for (const name of ['Reap', 'Soul Drain', 'Scythe Sweep', 'Harvest', 'Spectral Veil']) assert.ok(moves.includes(`**${name}**`), name);
   for (const name of ['Claw', 'Fire Breath', 'Hoard', 'Scale Shield', 'Stun', 'Disarm', 'Taunt']) assert.ok(!moves.includes(`**${name}**`), name);
   assert.ok(moves.includes(`heals **${RAID_COMBAT.moves.harvest.maxHpShare * 100}%** of its max HP`), moves);
-  // It has less HP than the dragon: the HP lines are its share of the settings.
-  const share = RAID_COMBAT.hpShare.reaper;
-  assert.ok(share < RAID_COMBAT.hpShare.wyrm);
-  assert.ok(embed.description?.includes(`${Math.round(DEFAULTS.raid.hpPerPlayer * share)} per raider`), embed.description);
-  assert.ok(embed.description?.includes(`5 raiders: ${bossHpFor(5, DEFAULTS.raid, share).toLocaleString('en-US')}`), embed.description);
-  assert.equal(bossHpFor(5, DEFAULTS.raid, share), Math.round(bossHpFor(5, DEFAULTS.raid) * share));
+  // Its HP lines are its own settings, and it has less HP than the dragon.
+  assert.ok(bossHpFor(5, 'reaper', DEFAULTS.raid) < bossHpFor(5, 'wyrm', DEFAULTS.raid));
+  assert.ok(embed.description?.includes(`${DEFAULTS.raid.hpPerRaider.reaper.toLocaleString('en-US')} for every raider`), embed.description);
+  assert.ok(embed.description?.includes(`5 raiders: ${bossHpFor(5, 'reaper', DEFAULTS.raid).toLocaleString('en-US')}`), embed.description);
   // No crowd control, so no word of it: not in the moves, the phases, or what Support does.
   assert.doesNotMatch(moves, /crowd control/i);
   const phases = embed.fields?.find((f) => f.name === 'Phases')?.value ?? '';
@@ -1272,6 +1284,8 @@ test('the reaper heals more in each phase, at the strength it announced the move
 
   // Announced while furious: the damage and the heal are both locked in at the furious strength.
   const state = reaperFight(['a', 'b', 'c'], 4000);
+  // Tough raiders, so a furious Reap's whole damage lands (it can knock out a 100 HP raider).
+  for (const p of state.players) p.hp = p.maxHp = 1000;
   state.enrage = 2;
   state.round = 3;
   state.lastRequiem = 3; // Soul Requiem on cooldown
@@ -1447,7 +1461,7 @@ test('the reaper finishes a Grim Reckoning or an empowered attack before startin
 test('raid stats: the reaper lists Dark Empowerment and Grim Reckoning', () => {
   const moves = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '';
   assert.ok(moves.includes('💢 **Dark Empowerment**: spends a turn powering up, and its next move is an attack doing **1.5x** damage.'), moves);
-  assert.ok(moves.includes('⚰️ **Grim Reckoning**: gathers for 2 turns, then hits 2 to 4 raiders for 70 damage each.'), moves);
+  assert.ok(moves.includes(`⚰️ **Grim Reckoning**: gathers for 2 turns, then hits 2 to 4 raiders for ${RAID_COMBAT.moves.reckoning.damage} damage each.`), moves);
 });
 
 test('raid stats: the reaper lists its Soul Requiem', () => {
@@ -1609,26 +1623,47 @@ function announce(state: RaidState, move: BossMove, targets: string[] = []): voi
 
 const player = (state: RaidState, userId: string) => findPlayer(state, userId) as RaidState['players'][number];
 
-test('the matriarch only uses her own moves, and Pestilence always follows a brew', () => {
+test('the matriarch only uses her own moves, brews only at 75% HP or less, and Pestilence always follows a brew', () => {
   assert.deepEqual(movesOf('plague'), ['spit', 'miasma', 'rot', 'flies', 'brew']);
   for (const enrage of [0, 1, 2]) {
-    for (let roll = 1; roll <= 100; roll++) {
+    for (let roll = 1; roll <= 200; roll++) {
       const state = plagueFight();
       state.enrage = enrage;
       const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
       const move = pickIntent(state, fixed).move;
       assert.ok(['spit', 'miasma', 'rot', 'flies', 'brew'].includes(move), `${enrage} ${roll}`);
-      // Calm, she doesn't brew yet.
-      if (enrage === 0) assert.notEqual(move, 'brew');
+      // At full HP she doesn't brew yet.
+      assert.notEqual(move, 'brew');
     }
   }
+  // Down to RAID_COMBAT.pestilence.from of her HP, she can brew even before she enrages.
+  const hurt = plagueFight();
+  hurt.bossHp = hurt.bossMaxHp * RAID_COMBAT.pestilence.from;
+  const brews = Array.from({ length: 200 }, (_, i) => pickIntent(hurt, { ...low, int: (min, max) => Math.min(max, Math.max(min, i + 1)) }).move);
+  assert.ok(brews.includes('brew'));
+  hurt.bossHp += 1;
+  for (let roll = 1; roll <= 200; roll++) assert.notEqual(pickIntent(hurt, { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) }).move, 'brew');
+
   const state = plagueFight();
   state.lastMove = 'brew';
   assert.equal(pickIntent(state, low).move, 'pestilence');
   // Never brews again straight after a Pestilence.
   state.lastMove = 'pestilence';
   state.enrage = 2;
+  state.bossHp = state.bossMaxHp * 0.2;
   for (let roll = 1; roll <= 100; roll++) assert.notEqual(pickIntent(state, { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) }).move, 'brew');
+});
+
+test('Creeping Rot hits one raider for every 3 standing, rounded up', () => {
+  const rot = (count: number): number => {
+    const state = plagueFight(Array.from({ length: count }, (_, i) => `p${i}`));
+    for (let roll = 1; roll <= 100; roll++) {
+      const intent = pickIntent(state, { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) });
+      if (intent.move === 'rot') return intent.targets.length;
+    }
+    throw new Error('never picked Rot');
+  };
+  assert.deepEqual([1, 2, 3, 4, 5, 8, 9].map(rot), [1, 1, 1, 2, 2, 3, 3]);
 });
 
 test('Blight: her hits leave stacks, and every stack festers at the end of the round', () => {
@@ -1646,6 +1681,7 @@ test('Blight: her hits leave stacks, and every stack festers at the end of the r
   bossTurn(state, low);
   assert.deepEqual(state.players.map((p) => p.blight), [moves.spit.blight + moves.miasma.blight, moves.miasma.blight, moves.miasma.blight]);
   // Never more than the most a raider can carry.
+  player(state, 'b').hp = player(state, 'b').maxHp = 1000;
   player(state, 'b').blight = blight.maxStacks;
   announce(state, 'miasma');
   bossTurn(state, low);
@@ -1677,28 +1713,27 @@ test('Blight: a raider it knocks out loses every stack, and a revive starts clea
   ]);
 });
 
-test('Blight: heals land smaller on a blighted raider and clear a stack; a raider at full HP with Blight can still be healed', () => {
+test("Blight: heals land smaller on a blighted raider and don't clear it", () => {
   const { blight, heal } = RAID_COMBAT;
   const state = plagueFight();
   const b = player(state, 'b');
   b.hp = 20;
   b.blight = 3;
   const healed = resolvePlayerTurn(state, new Map([['a', { action: 'heal', boost: 0, target: 'b' }]]), low);
-  assert.deepEqual(healed, [{ kind: 'heal', userId: 'a', targetId: 'b', amount: Math.round(heal.amount * (1 - 3 * blight.healCut)), boost: 0, cleared: 1 }]);
-  assert.equal(b.blight, 2);
+  assert.deepEqual(healed, [{ kind: 'heal', userId: 'a', targetId: 'b', amount: Math.round(heal.amount * (1 - 3 * blight.healCut)), boost: 0 }]);
+  assert.equal(b.blight, 3);
   // Never cut below the cap.
   assert.equal(healReceivedOf({ blight: 100 }), 1 - blight.maxHealCut);
 
-  // Nobody hurt: the heal goes to the most blighted raider, clearing a stack.
+  // Nobody hurt: Blight alone doesn't give a heal anything to do.
   const clean = plagueFight();
   player(clean, 'c').blight = 2;
-  const events = resolvePlayerTurn(clean, choose(['a', 'heal']), low);
-  assert.deepEqual(events, [{ kind: 'heal', userId: 'a', targetId: 'c', amount: 0, boost: 0, cleared: 1 }]);
-  assert.equal(eventText(events[0] as RaidEvent, 'plague'), '<:raidheal:1553098428685353030> <@a> cleared 1 stack of 🦠 Blight off <@c>.');
+  assert.deepEqual(resolvePlayerTurn(clean, choose(['a', 'heal']), low), [{ kind: 'healWasted', userId: 'a' }]);
+  assert.equal(player(clean, 'c').blight, 2);
 });
 
-test('Blight: a Support purges every stack off the most blighted raider once they carry enough, and rallies otherwise', () => {
-  const { supportCleanseAt } = RAID_COMBAT.blight;
+test('Blight: once a raider carries enough, one Support a turn clears a stack off the most blighted, and the rest rally', () => {
+  const { supportCleanse, supportCleanseAt } = RAID_COMBAT.blight;
   const state = plagueFight();
   player(state, 'b').blight = supportCleanseAt - 1;
   assert.equal(resolvePlayerTurn(state, choose(['a', 'support']), low)[0]?.kind, 'rally');
@@ -1706,11 +1741,15 @@ test('Blight: a Support purges every stack off the most blighted raider once the
   const sick = plagueFight();
   player(sick, 'b').blight = supportCleanseAt;
   player(sick, 'c').blight = supportCleanseAt + 2;
-  const events = resolvePlayerTurn(sick, choose(['a', 'support']), low);
-  assert.deepEqual(events, [{ kind: 'purged', userId: 'a', targetId: 'c', stacks: supportCleanseAt + 2 }]);
-  assert.equal(player(sick, 'c').blight, 0);
+  const events = resolvePlayerTurn(sick, choose(['a', 'support'], ['b', 'support']), low);
+  // Supports don't stack: only one clears, and only supportCleanse stacks; the other rallies.
+  assert.deepEqual(events.slice(0, 2), [
+    { kind: 'purged', userId: 'a', targetId: 'c', stacks: supportCleanse },
+    { kind: 'rally', userId: 'b', turns: RAID_COMBAT.support.rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier },
+  ]);
+  assert.equal(player(sick, 'c').blight, supportCleanseAt + 2 - supportCleanse);
   assert.equal(player(sick, 'b').blight, supportCleanseAt);
-  assert.equal(eventText(events[0] as RaidEvent, 'plague'), `✨ <@a> purged <@c>'s 🦠 Blight (${supportCleanseAt + 2} stacks).`);
+  assert.equal(eventText(events[0] as RaidEvent, 'plague'), `✨ <@a> cleared 1 stack of 🦠 Blight off <@c>.`);
 });
 
 test('Pestilence doubles every standing raider\'s Blight, up to the most they can carry', () => {
@@ -1725,25 +1764,44 @@ test('Pestilence doubles every standing raider\'s Blight, up to the most they ca
   assert.equal(eventText({ kind: 'brewing' }, 'plague'), '⚗️ The matriarch stirs a bubbling brew. **Pestilence** is coming next turn!');
 });
 
-test("the Plague Doctor's Cane: its heals reach a second ally for half, clear their Blight too, and heal a little more", () => {
+test("the Plague Doctor's Cane: its Support clears Blight off a second ally too, more stacks as it is refined, and its heals land a little harder", () => {
   const cane = ITEMS_BY_ID.get('plague-doctors-cane') as ItemDef;
   assert.equal(cane.raidDrop, true);
   assert.equal(cane.slot, 'weapon');
-  assert.deepEqual(cane.effects, ['healSplash', 'healBonus']);
-  assert.deepEqual(describeEffects(cane), ['Raid: heals also mend a second ally for 50% of the heal', 'Raid: your heals and revives heal 10% more']);
+  assert.deepEqual(cane.effects, ['blightPurge', 'healBonus']);
+  assert.deepEqual(describeEffects(cane), ['Raid: your Support clears 🦠 Blight from a second ally too, and 2 more stacks off each', 'Raid: your heals and revives heal 10% more']);
+  // R1 clears no extra stacks (just the second ally), R2 to R4 one more, R5 two more.
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map((level) => blightPurgeExtra(DEFAULTS.equipment.blightPurge[4] * perkShare('blightPurge', level))),
+    [0, 1, 1, 1, 2],
+  );
 
-  const state = plagueFight(['a', 'b', 'c']);
-  equipPlayers(state, [{ ...emptyGear(), healSplash: 0.5, healBonus: 0.1 }], 100);
-  player(state, 'b').hp = 10;
-  player(state, 'c').hp = 50;
-  player(state, 'c').blight = 1;
-  const events = resolvePlayerTurn(state, new Map([['a', { action: 'heal', boost: 0, target: 'b' }]]), low);
-  const amount = Math.round(RAID_COMBAT.heal.amount * 1.1);
-  assert.deepEqual(events, [
-    { kind: 'heal', userId: 'a', targetId: 'b', amount, boost: 0 },
-    { kind: 'healSplash', userId: 'a', targetId: 'c', amount: Math.round(RAID_COMBAT.heal.amount * 1.1 * 0.5 * (1 - RAID_COMBAT.blight.healCut)), cleared: 1 },
+  const purge = (strength: number) => {
+    const state = plagueFight(['a', 'b', 'c', 'd']);
+    equipPlayers(state, [emptyGear(), { ...emptyGear(), blightPurge: strength }], 100);
+    player(state, 'c').blight = 6;
+    player(state, 'd').blight = 4;
+    // The Cane's wearer does the clearing even when they act second; the other Support rallies.
+    const events = resolvePlayerTurn(state, choose(['a', 'support'], ['b', 'support']), low);
+    return { events, left: [player(state, 'c').blight, player(state, 'd').blight] };
+  };
+  const r1 = purge(DEFAULTS.equipment.blightPurge[4] * perkShare('blightPurge', 1));
+  assert.deepEqual(r1.events.slice(0, 3), [
+    { kind: 'purged', userId: 'b', targetId: 'c', stacks: 1 },
+    { kind: 'purged', userId: 'b', targetId: 'd', stacks: 1 },
+    { kind: 'rally', userId: 'a', turns: RAID_COMBAT.support.rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier },
   ]);
-  assert.equal(player(state, 'c').blight, 0);
+  assert.deepEqual(r1.left, [5, 3]);
+  assert.deepEqual(purge(DEFAULTS.equipment.blightPurge[4]).left, [3, 1]);
+
+  // Heals don't clear Blight, with the Cane or without.
+  const state = plagueFight(['a', 'b']);
+  equipPlayers(state, [{ ...emptyGear(), blightPurge: 2, healBonus: 0.1 }], 100);
+  player(state, 'b').hp = 10;
+  player(state, 'b').blight = 1;
+  const events = resolvePlayerTurn(state, new Map([['a', { action: 'heal', boost: 0, target: 'b' }]]), low);
+  assert.deepEqual(events, [{ kind: 'heal', userId: 'a', targetId: 'b', amount: Math.round(RAID_COMBAT.heal.amount * 1.1 * (1 - RAID_COMBAT.blight.healCut)), boost: 0 }]);
+  assert.equal(player(state, 'b').blight, 1);
 });
 
 test('the matriarch on Discord: her moves read out, the party list shows Blight, and her stats explain it', () => {
@@ -1756,8 +1814,10 @@ test('the matriarch on Discord: her moves read out, the party list shows Blight,
   const info = bossInfoEmbed(DEFAULTS.raid, 'plague').toJSON();
   const moves = info.fields?.find((f) => f.name === 'Moves')?.value ?? '';
   assert.match(moves, /Plague Spit/);
-  assert.match(moves, /Pestilence\*\* \(from 😠 Enraged on\)/);
-  assert.match(moves, /🦠 \*\*Blight\*\*: each stack deals \*\*3\*\* damage/);
+  assert.match(moves, /Pestilence\*\* \(at 75% HP or less\)/);
+  assert.ok(moves.includes(`Creeping Rot**: ${RAID_COMBAT.moves.rot.damage} damage and +1 🦠 Blight to 1 in every 3 raiders (rounded up)`), moves);
+  assert.ok(moves.includes(`🦠 **Blight**: each stack deals **${RAID_COMBAT.blight.tick}** damage`), moves);
+  assert.match(moves, /Heals don't clear it/);
   assert.equal(bossByName('matriarch'), 'plague');
   assert.equal(bossByName('plague'), 'plague');
 });

@@ -196,11 +196,11 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
     case 'guard':
       return log.guard(mention(event.userId));
     case 'heal':
-      return log.heal(mention(event.userId), mention(event.targetId), event.amount, boost(event.boost), event.cleared ?? 0);
+      return log.heal(mention(event.userId), mention(event.targetId), event.amount, boost(event.boost));
     case 'revive':
       return log.revive(mention(event.userId), mention(event.targetId), event.hp, boost(event.boost));
     case 'healSplash':
-      return log.healSplash(mention(event.userId), mention(event.targetId), event.amount, event.cleared ?? 0);
+      return log.healSplash(mention(event.userId), mention(event.targetId), event.amount);
     case 'healWasted':
       return log.healWasted(mention(event.userId));
     case 'rally':
@@ -539,15 +539,12 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string
       case 'miasma':
         return r.moves.miasma(moves.miasma.damage, moves.miasma.blight);
       case 'rot':
-        return r.moves.rot(moves.rot.damage, moves.rot.blight, moves.rot.minTargets, moves.rot.maxTargets);
+        return r.moves.rot(moves.rot.damage, moves.rot.blight, moves.rot.raidersPerTarget);
       case 'flies':
         return r.moves.flies(support.shieldBreak);
       case 'brew':
-      case 'pestilence': {
-        // The first phase it brews in.
-        const level = Math.max(0, RAID_COMBAT.weights[boss].findIndex((weights) => ((weights as Partial<Record<BossMove, number>>).brew ?? 0) > 0));
-        return r.moves.pestilence(r.phaseNames[level] ?? `Phase ${level + 1}`, RAID_COMBAT.blight.maxStacks);
-      }
+      case 'pestilence':
+        return r.moves.pestilence(formatPercent(RAID_COMBAT.pestilence.from), RAID_COMBAT.blight.maxStacks);
       case 'stun':
       case 'disarm':
       case 'taunt':
@@ -557,7 +554,7 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string
   const special: BossMove[] = RAID_COMBAT.requiem.boss === boss ? ['requiem'] : [];
   const { blight } = RAID_COMBAT;
   const blightNote = hasBlight(boss)
-    ? ['', r.movesBlightNote(blight.tick, formatPercent(blight.healCut), formatPercent(blight.maxHealCut), blight.healCleanse, blight.supportCleanseAt, blight.maxStacks)]
+    ? ['', r.movesBlightNote(blight.tick, formatPercent(blight.healCut), formatPercent(blight.maxHealCut), blight.supportCleanse, blight.supportCleanseAt, blight.maxStacks)]
     : [];
   const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : []), ...blightNote];
   return { phases, moves: moveLines, rewards: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg) };
@@ -566,15 +563,14 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string
 export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
   const r = TEXT.raid;
   const b = r.bosses[boss];
-  const share = RAID_COMBAT.hpShare[boss];
-  const examples = [1, 3, 5, 8].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, cfg, share)))).join(' · ');
+  const examples = [3, 5, 8, 10].map((n) => r.bossHpExample(n, fmt(bossHpFor(n, boss, cfg)))).join(' · ');
   const { phases, moves: moveLines, rewards } = bossBrief(cfg, boss);
   return createEmbed()
     .setTitle(r.bossTitle(b))
     .setDescription(
       [
         ...(until ? [r.bossWeek(unixOfDate(until))] : []),
-        r.bossInfoHp(fmt(Math.round(cfg.hpPerPlayer * share)), formatPercent(cfg.hpGrowth), fmt(Math.round(cfg.minBossHp * share)), examples),
+        r.bossInfoHp(fmt(cfg.hpPerRaider[boss]), fmt(cfg.hpOverhead[boss]), cfg.minRaiders, examples),
         r.bossRounds(b, cfg.maxRounds),
       ].join('\n'),
     )
@@ -721,7 +717,6 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
   const { support } = RAID_COMBAT;
   const lines = players.map((userId, i) => `${mention(userId)}${i === 0 ? r.hostTag : ''}`);
   const steals = movesOf(boss).includes('hoard');
-  const share = RAID_COMBAT.hpShare[boss];
   const hasCc = movesOf(boss).some(isCcMove);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(b))
@@ -737,11 +732,11 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
           support.rallyTurns,
           steals,
           hasCc,
-          hasBlight(boss) ? { supportAt: RAID_COMBAT.blight.supportCleanseAt, healClears: RAID_COMBAT.blight.healCleanse } : null,
+          hasBlight(boss) ? { supportAt: RAID_COMBAT.blight.supportCleanseAt, clears: RAID_COMBAT.blight.supportCleanse } : null,
         ),
       },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
-      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(Math.max(1, players.length), cfg, share)), fmt(Math.round(cfg.minBossHp * share))), inline: true },
+      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(players.length, boss, cfg)), fmt(bossHpFor(0, boss, cfg))), inline: true },
     )
     .setImage(`attachment://${RAID.imageName}`);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -1251,7 +1246,7 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     }
 
     await updateRaid(id, { status: 'fighting' });
-    const state = createRaid(boss, players, bossHpFor(players.length, cfg, RAID_COMBAT.hpShare[boss]), cfg.playerHp, cfg.maxRounds);
+    const state = createRaid(boss, players, bossHpFor(players.length, boss, cfg), cfg.playerHp, cfg.maxRounds);
     // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
     // Their HP too: raidHp gear has them start (at full) with more.
     equipPlayers(state, await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId))), cfg.playerHp);

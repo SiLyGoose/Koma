@@ -1,6 +1,6 @@
 import { CONFIG } from '../../../config.js';
 import { fmt } from '../../../lib/format.js';
-import { RAID_COMBAT, TEXT, type RaidBossId } from '../../../constants/index.js';
+import { TEXT, type RaidBossId } from '../../../constants/index.js';
 import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../../commands/raid.js';
 import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, RAID_ACTIONS, type RaidAction } from '../../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../../lib/events/raid-live.js';
@@ -62,7 +62,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
 
   if (current?.phase === 'lobby' && current.lobby) {
     const { players, closesAt } = current.lobby;
-    const bossHp = bossHpFor(Math.max(1, players.length), CONFIG.raid, RAID_COMBAT.hpShare[bossId]);
+    const bossHp = bossHpFor(players.length, bossId, CONFIG.raid);
     return view('calm', { phase: 'lobby', lobby: { host: players[0] ?? current.host, players: [...players], closesAt, bossHp } });
   }
 

@@ -17,6 +17,7 @@ import {
 } from '../lib/events/raid.js';
 import { canUseItem, describeEffects, describeTotals, equippedGear, itemEffectiveness, showsMasterwork, totalEffects } from '../lib/game/items/equipment.js';
 import { formatMultiplier, formatPercent, mentionList, starString } from '../lib/format.js';
+import { blightPurgeExtra } from '../perks/index.js';
 import { getEquipment } from '../services/items/equipment.js';
 import { SLOTS } from '../types.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
@@ -57,6 +58,7 @@ export function raidStatsEmbed(name: string, gear: RaidGear, playerHp: number, p
     t.statsRally(formatMultiplier(rallyMultiplierOf(geared)), support.rallyTurns, gear.rallyBoost > 0 ? formatMultiplier(rallyMultiplierOf(base)) : null, mark),
   );
   if (gear.healCut > 0) lines.push(t.statsHealCut(formatPercent(gear.healCut), mark));
+  if (gear.blightPurge > 0) lines.push(t.statsBlightPurge(blightPurgeExtra(gear.blightPurge), mark));
   const hasGear = Object.values(gear).some((value) => value > 0);
   if (!hasGear) lines.push('', t.statsNoGear(prefix));
 

@@ -38,4 +38,5 @@ export * from './items/bubble-beam.js';
 export * from './items/sloth-cooldown.js';
 export * from './items/stackosaurus.js';
 export * from './wheel-spin/index.js';
+export * from './raid/blight-purge.js';
 export type { PerkDef } from './define.js';

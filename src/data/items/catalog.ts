@@ -568,8 +568,8 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'For tending the sick without touching them. Every patient it sees, it sees two.',
-    // Its heals reach a second ally (and clear their Blight too), and land a little harder.
-    effects: ['healSplash', 'healBonus'],
+    // Its Supports clear Blight off a second ally too (and more stacks once refined), and its heals land a little harder.
+    effects: ['blightPurge', 'healBonus'],
     raidDrop: true,
   },
 ];

@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftPaying } from './constants/index.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftPaying, type RaidBossId } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -204,13 +204,14 @@ export interface Settings {
    */
   raid: {
     /**
-     * The boss's HP scales with the party (see bossHpFor in lib/events/raid.ts): `hpPerPlayer` for
-     * each raider, times 1 + `hpGrowth` for every raider past the first (so a big party's boss grows a
-     * little faster than the party does), and never below `minBossHp`, so a raid needs a few people.
+     * Each boss's HP (see bossHpFor in lib/events/raid.ts): `hpPerRaider` for every raider past its
+     * `hpOverhead`, the raiders a party ties up guarding, healing, cleansing and rallying whatever its
+     * size (so only the rest add damage, and only they add HP). A party smaller than `minRaiders`
+     * fights it as if it were that big, so a raid needs a few people.
      */
-    hpPerPlayer: number;
-    hpGrowth: number;
-    minBossHp: number;
+    hpPerRaider: Record<RaidBossId, number>;
+    hpOverhead: Record<RaidBossId, number>;
+    minRaiders: number;
     /** Every player's HP. */
     playerHp: number;
     /** Rounds before the boss flies off (the raid is lost). */
@@ -357,15 +358,15 @@ export const DEFAULTS: Readonly<Settings> = {
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { seconds: 300, guessCost: 10 },
   },
-  // The raid HP: 600 per raider, +6% for each raider past the first, and at least 3,000 (7 raiders:
-  // 5,712). Each boss has its share of that (RAID_COMBAT.hpShare in constants/raid.ts), tuned so a
-  // party of 5 wins about 60% of the time. Up to 15 rounds of 60 seconds after a 5-minute lobby.
+  // The raid HP, tuned in simulated fights so a party where everyone wears a 3-star raid weapon and
+  // armor at R3 wins about 60% of the time at any size from 5 to 10 (a party without gear, far less).
+  // Up to 15 rounds of 60 seconds after a 5-minute lobby.
   // Beating it pays everyone who took part 1,000, a multi pull's worth of komaTokens (10) and 5 komaGems,
   // and the party a 20% chance (+10% for each raider) that everyone finds one of the 4-star raid drops.
   raid: {
-    hpPerPlayer: 600,
-    hpGrowth: 0.06,
-    minBossHp: 3_000,
+    hpPerRaider: { wyrm: 1_600, reaper: 1_225, plague: 925 },
+    hpOverhead: { wyrm: 2.75, reaper: 2.75, plague: 2.85 },
+    minRaiders: 4,
     playerHp: 100,
     maxRounds: 15,
     turnSeconds: 60,

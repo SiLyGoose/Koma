@@ -23,8 +23,11 @@ import {
   MAX_VAULT_MULTIPLIER,
   MAX_EVENT_SECONDS,
   MAX_HEIST_ROUNDS,
+  MAX_RAID_OVERHEAD,
   MAX_RAID_ROUNDS,
   MAX_RAID_SECONDS,
+  RAID_BOSS_IDS,
+  TEXT,
   NUMBER_LOCALE,
   PERCENT_DECIMALS,
   PITY_STARS,
@@ -321,17 +324,20 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.codedle.seconds', 'Events', 'Seconds everyone has to crack the code in Codedle.', 30, MAX_EVENT_SECONDS),
   int('events.codedle.guessCost', 'Events', `What each Codedle guess costs, added to the vault (0 makes guessing free).`, 0, MAX_POINTS),
 
-  int('raid.hpPerPlayer', 'Raid', "The raid boss's HP for each raider in the fight.", 1, MAX_POINTS),
-  {
-    key: 'raid.hpGrowth',
-    group: 'Raid',
-    description: "Extra raid boss HP for every raider past the first, as a share of the per-raider HP (so big parties don't have it easier).",
-    type: 'number',
-    min: 0,
-    max: 1,
-    percent: true,
-  },
-  int('raid.minBossHp', 'Raid', 'The least HP the raid boss has, however few raiders there are (so a raid needs a few people).', 1, MAX_POINTS),
+  ...RAID_BOSS_IDS.map((boss) =>
+    int(`raid.hpPerRaider.${boss}`, 'Raid', `The ${TEXT.raid.bosses[boss].name}'s HP for every raider past raid.hpOverhead.${boss}.`, 1, MAX_POINTS),
+  ),
+  ...RAID_BOSS_IDS.map(
+    (boss): SettingSpec => ({
+      key: `raid.hpOverhead.${boss}`,
+      group: 'Raid',
+      description: `How many raiders the ${TEXT.raid.bosses[boss].name} keeps busy guarding, healing and supporting (they add no HP; every raider past them adds raid.hpPerRaider.${boss}).`,
+      type: 'number',
+      min: 0,
+      max: MAX_RAID_OVERHEAD,
+    }),
+  ),
+  int('raid.minRaiders', 'Raid', 'A raid with fewer raiders than this fights a boss with as much HP as if it had this many (so a raid needs a few people).', 1, 50),
   int('raid.playerHp', 'Raid', "Every raid player's HP.", 1, MAX_POINTS),
   int('raid.maxRounds', 'Raid', 'Rounds before the raid boss flies off and the raid is lost.', 1, MAX_RAID_ROUNDS),
   int('raid.turnSeconds', 'Raid', 'Seconds raid players have to pick their action each round.', 10, MAX_RAID_SECONDS),
@@ -555,6 +561,9 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.poker.minBuyIn < settings.poker.bigBlind) {
     return 'poker.minBuyIn must be at least poker.bigBlind';
+  }
+  for (const boss of RAID_BOSS_IDS) {
+    if (settings.raid.minRaiders <= settings.raid.hpOverhead[boss]) return `raid.minRaiders must be more than raid.hpOverhead.${boss}`;
   }
   if (settings.mines.minBet > settings.mines.maxBet) {
     return 'mines.minBet cannot be higher than mines.maxBet';

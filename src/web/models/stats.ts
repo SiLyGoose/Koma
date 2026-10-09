@@ -3,6 +3,7 @@ import { RAID_COMBAT } from '../../constants/index.js';
 import { attackMultiplierOf, critChanceOf, critMultiplierOf, guardCutOf, guardTakenShare, healMultiplierOf, playerMaxHp, rallyMultiplierOf, raidGearFrom } from '../../lib/events/raid.js';
 import { formatMultiplier, formatPercent } from '../../lib/format.js';
 import {
+  blightPurgeExtra,
   claimAmount,
   claimGapHours,
   claimTaxRate,
@@ -42,6 +43,12 @@ const hours = (n: number): string => `${n} hour${n === 1 ? '' : 's'}`;
 const minutes = (n: number): string => `${Math.round(n)} min`;
 
 /** `show` worked out with `gear`, and without any. */
+/** A Support's Blight clearing with `blightPurge` gear, like "2 stacks off 2 allies". */
+function blightPurgeRow(blightPurge: number): string {
+  const stacks = RAID_COMBAT.blight.supportCleanse + blightPurgeExtra(blightPurge);
+  return `${stacks} ${stacks === 1 ? 'stack' : 'stacks'} off ${blightPurge > 0 ? '2 allies' : '1 ally'}`;
+}
+
 function row(label: string, gear: EffectTotals, show: (gear: EffectTotals) => string): StatRow {
   const value = show(gear);
   const base = show(emptyTotals());
@@ -101,6 +108,8 @@ export function gearStats(gear: EffectTotals): StatSection[] {
         row('Guard: party cut', gear, (g) => formatPercent(guardCutOf(fight(g)))),
         row('Rally', gear, (g) => `${formatMultiplier(rallyMultiplierOf(fight(g)))} for ${support.rallyTurns} turns`),
         row('Boss heal cut', gear, (g) => formatPercent(raidGearFrom(g).healCut)),
+        // The Plague Matriarch's Blight a Support clears: stacks off each ally, and how many allies (2 with blightPurge).
+        row('Blight purge', gear, (g) => blightPurgeRow(raidGearFrom(g).blightPurge)),
       ],
     },
   ];

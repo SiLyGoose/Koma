@@ -1,5 +1,6 @@
 import { RAID_COMBAT, type RaidBossId } from '../../constants/index.js';
 import { chance, pickRandom, randInt } from '../random.js';
+import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
 
 /*
  * The raid boss's rules, with no Discord or database in them (commands/raid.ts runs the fight on
@@ -125,7 +126,8 @@ export interface RaidStats {
 /**
  * The raid perks from a player's equipped gear (perks/raid/heal-splash.ts, guard-boost.ts,
  * rally-boost.ts, max-hp-damage.ts, heal-cut.ts, raid-hp.ts, raid-attack.ts, raid-crit-chance.ts,
- * raid-crit-damage.ts, raid-support.ts, heal-bonus.ts), as fractions. All 0 with no raid gear on.
+ * raid-crit-damage.ts, raid-support.ts, heal-bonus.ts, blight-purge.ts), as fractions (blightPurge is a
+ * count of stacks). All 0 with no raid gear on.
  */
 export interface RaidGear {
   /** Share of each heal's value that also goes to a second hurt ally. */
@@ -150,6 +152,8 @@ export interface RaidGear {
   raidSupport: number;
   /** How much more their heals (and revives) heal, on top of raidSupport (a smaller perk, for an item that does something else too). */
   healBonus: number;
+  /** Their Supports clear Blight off a second ally too, and this many more stacks (rounded, blightPurgeExtra) off each. */
+  blightPurge: number;
 }
 
 export const emptyGear = (): RaidGear => ({
@@ -164,6 +168,7 @@ export const emptyGear = (): RaidGear => ({
   raidCritDamage: 0,
   raidSupport: 0,
   healBonus: 0,
+  blightPurge: 0,
 });
 
 /** The raid perks out of a member's gear totals (lib/game/items/equipment.ts gearEffects). */
@@ -179,6 +184,7 @@ export const raidGearFrom = (totals: RaidGear): RaidGear => ({
   raidCritDamage: totals.raidCritDamage,
   raidSupport: totals.raidSupport,
   healBonus: totals.healBonus,
+  blightPurge: totals.blightPurge,
 });
 
 export interface RaidPlayer {
@@ -263,14 +269,13 @@ export interface RaidChoice {
 
 export type RaidEvent =
   | { kind: 'guard'; userId: string }
-  /** `cleared` is how many Blight stacks the heal cleared off its target (left out for none). */
-  | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number; cleared?: number }
-  | { kind: 'healSplash'; userId: string; targetId: string; amount: number; cleared?: number }
+  | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number }
+  | { kind: 'healSplash'; userId: string; targetId: string; amount: number }
   | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number }
   | { kind: 'healWasted'; userId: string }
   | { kind: 'rally'; userId: string; turns: number; multiplier: number }
   | { kind: 'cleansed'; userId: string; targetId: string; effect: CrowdControl }
-  /** A Support cleared every one of `targetId`'s `stacks` Blight stacks. */
+  /** A Support cleared `stacks` of `targetId`'s Blight stacks. */
   | { kind: 'purged'; userId: string; targetId: string; stacks: number }
   | { kind: 'shieldBroken' }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
@@ -404,9 +409,6 @@ export const blightOf = (move: HitMove): number => (move === 'spit' || move === 
 export const hasBlight = (boss: RaidBossId): boolean =>
   movesOf(boss).some((move) => (move === 'spit' || move === 'miasma' || move === 'rot') && blightOf(move) > 0);
 
-/** A player a heal can still help: hurt, or carrying Blight it would clear. */
-const needsHeal = (p: RaidPlayer): boolean => p.hp < p.maxHp || (p.blight > 0 && RAID_COMBAT.blight.healCleanse > 0);
-
 /**
  * Puts each player's gear on, as the fight starts (`gear` in the order of the players): their perks,
  * and the HP they fight with (`baseHp`, the raid.playerHp setting, with raidHp), at full.
@@ -422,15 +424,22 @@ export function equipPlayers(state: RaidState, gear: readonly (RaidGear | undefi
 /** What a rally from this player multiplies attacks by: RAID_COMBAT.support.attackMultiplier, with its bonus made bigger by rallyBoost. */
 export const rallyMultiplierOf = (player: { gear: RaidGear }): number => 1 + (RAID_COMBAT.support.attackMultiplier - 1) * (1 + player.gear.rallyBoost);
 
+/** The raid HP settings (the `raid.*` ones bossHpFor reads). */
+export interface BossHpSettings {
+  hpPerRaider: Readonly<Record<RaidBossId, number>>;
+  hpOverhead: Readonly<Record<RaidBossId, number>>;
+  minRaiders: number;
+}
+
 /**
- * The boss's HP for a party of `players`: `hpPerPlayer` each, times 1 + `hpGrowth` for every player
- * past the first, and never below `minBossHp`. The growth is there because the boss's own hits don't
- * get stronger with more players, so without it a big party would have an easier time than a small one.
- * `share` scales all of it, for a boss with less HP than the settings give (RAID_COMBAT.hpShare).
+ * `boss`'s HP for a party of `players` (counted as at least `minRaiders`): `hpPerRaider` for every
+ * raider past its `hpOverhead`. A party ties up about that many raiders guarding, healing, cleansing
+ * and rallying whatever its size, so only the rest add damage; giving the boss HP for them alone keeps
+ * a big party's chances the same as a small one's. At least 1.
  */
-export function bossHpFor(players: number, hp: { hpPerPlayer: number; hpGrowth: number; minBossHp: number }, share = 1): number {
-  const scaled = Math.round(hp.hpPerPlayer * players * (1 + hp.hpGrowth * Math.max(0, players - 1)));
-  return Math.round(Math.max(hp.minBossHp, scaled) * share);
+export function bossHpFor(players: number, boss: RaidBossId, hp: BossHpSettings): number {
+  const counted = Math.max(players, hp.minRaiders) - hp.hpOverhead[boss];
+  return Math.max(1, Math.round(hp.hpPerRaider[boss] * counted));
 }
 
 /** A new fight against `boss` with `bossHp`, with these players (in the order they joined). */
@@ -505,28 +514,26 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     events.push({ kind: 'guard', userId });
   }
 
-  // Heals: the ally the healer picked, if they are knocked out, hurt or blighted. Otherwise (no pick, or
-  // the pick no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least
-  // HP left is healed, then (nobody hurt) the most blighted. Blight on whoever is healed makes the heal
-  // smaller, and the heal clears some of it. A healer with healSplash also mends the most hurt other
-  // ally (or blighted one), by that share of the heal's value, clearing their Blight the same way.
+  // Heals: the ally the healer picked, if they are knocked out or hurt. Otherwise (no pick, or the pick
+  // no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least HP left
+  // is healed. Blight on whoever is healed makes the heal smaller (heals don't clear it). A healer with
+  // healSplash also mends the most hurt other ally, by that share of the heal's value.
   const splashHeal = (healer: RaidPlayer, boost: number, healedId: string): void => {
     if (healer.gear.healSplash <= 0) return;
     const other = livingPlayers(state)
-      .filter((p) => p.userId !== healedId && needsHeal(p))
-      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp || b.blight - a.blight)[0];
+      .filter((p) => p.userId !== healedId && p.hp < p.maxHp)
+      .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (!other) return;
     const full = boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healer.gear.healSplash;
-    const amount = other.hp < other.maxHp ? Math.min(other.maxHp - other.hp, Math.max(1, Math.round(full * healReceivedOf(other)))) : 0;
+    const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(full * healReceivedOf(other))));
     other.hp += amount;
-    const cleared = clearBlight(other, RAID_COMBAT.blight.healCleanse);
     creditHeal(healer, other, amount);
-    events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount, ...(cleared > 0 ? { cleared } : {}) });
+    events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
   };
   for (const [userId, { boost, target }] of byAction('heal')) {
     const healer = findPlayer(state, userId) as RaidPlayer;
     const picked = target === undefined ? undefined : findPlayer(state, target);
-    const wanted = picked && needsHeal(picked) ? picked : undefined;
+    const wanted = picked && picked.hp < picked.maxHp ? picked : undefined;
     const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
       down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost))));
@@ -539,52 +546,57 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       wanted ??
       livingPlayers(state)
         .filter((p) => p.hp < p.maxHp)
-        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] ??
-      livingPlayers(state)
-        .filter(needsHeal)
-        .sort((a, b) => b.blight - a.blight)[0];
+        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (!hurt) {
       events.push({ kind: 'healWasted', userId });
       continue;
     }
     const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healReceivedOf(hurt)));
     hurt.hp += amount;
-    const cleared = clearBlight(hurt, RAID_COMBAT.blight.healCleanse);
     creditHeal(healer, hurt, amount);
-    events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost, ...(cleared > 0 ? { cleared } : {}) });
+    events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost });
     splashHeal(healer, boost, hurt.userId);
   }
 
   // Supports: each one lifts a stun, disarm or taunt if anyone is under one (stuns first, then the
-  // one with the most turns left); with none, it clears all the Blight off the most blighted raider
-  // once they carry RAID_COMBAT.blight.supportCleanseAt stacks or more; one with nothing to lift or
-  // clear rallies the party instead, for the next turns' attacks. Every support counts toward
-  // shattering the shield either way.
+  // one with the most turns left). With none to lift, once a raider carries
+  // RAID_COMBAT.blight.supportCleanseAt Blight stacks or more, one Support clears some off the most
+  // blighted (the one with the strongest blightPurge, which also clears a second ally's); supports
+  // don't stack, so the rest, like any with nothing to lift or clear, rally the party for the next
+  // turns' attacks. Every support counts toward shattering the shield either way.
   const supports = byAction('support');
-  // The strongest rally made this turn (0 if none), and whose.
-  let rally = 0;
-  let rallier: string | null = null;
+  const free: RaidPlayer[] = [];
   for (const [userId] of supports) {
     const supporter = findPlayer(state, userId) as RaidPlayer;
     supporter.stats.supports++;
     const held = state.players
       .filter((p) => isAlive(p) && p.cc !== null)
       .sort((a, b) => Number(b.cc?.effect === 'stunned') - Number(a.cc?.effect === 'stunned') || (b.cc?.turns ?? 0) - (a.cc?.turns ?? 0))[0];
-    const infected = livingPlayers(state)
-      .filter((p) => p.blight >= RAID_COMBAT.blight.supportCleanseAt)
-      .sort((a, b) => b.blight - a.blight)[0];
     if (held?.cc) {
       events.push({ kind: 'cleansed', userId, targetId: held.userId, effect: held.cc.effect });
       held.cc = null;
-    } else if (infected) {
-      events.push({ kind: 'purged', userId, targetId: infected.userId, stacks: infected.blight });
-      infected.blight = 0;
-    } else {
-      const multiplier = rallyMultiplierOf(supporter);
-      if (multiplier > rally) rallier = userId;
-      rally = Math.max(rally, multiplier);
-      events.push({ kind: 'rally', userId, turns: RAID_COMBAT.support.rallyTurns, multiplier });
+    } else free.push(supporter);
+  }
+  const blighted = livingPlayers(state)
+    .filter((p) => p.blight > 0)
+    .sort((a, b) => b.blight - a.blight);
+  const purger =
+    (blighted[0]?.blight ?? 0) >= RAID_COMBAT.blight.supportCleanseAt ? [...free].sort((a, b) => b.gear.blightPurge - a.gear.blightPurge)[0] : undefined;
+  if (purger) {
+    const stacks = RAID_COMBAT.blight.supportCleanse + blightPurgeExtra(purger.gear.blightPurge);
+    for (const target of blighted.slice(0, purger.gear.blightPurge > 0 ? 2 : 1)) {
+      events.push({ kind: 'purged', userId: purger.userId, targetId: target.userId, stacks: clearBlight(target, stacks) });
     }
+  }
+  // The strongest rally made this turn (0 if none), and whose.
+  let rally = 0;
+  let rallier: string | null = null;
+  for (const supporter of free) {
+    if (supporter === purger) continue;
+    const multiplier = rallyMultiplierOf(supporter);
+    if (multiplier > rally) rallier = supporter.userId;
+    rally = Math.max(rally, multiplier);
+    events.push({ kind: 'rally', userId: supporter.userId, turns: RAID_COMBAT.support.rallyTurns, multiplier });
   }
   if (state.shielded && supports.length >= RAID_COMBAT.support.shieldBreak) {
     state.shielded = false;
@@ -949,7 +961,7 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
     (move) =>
       weight(move) > 0 &&
       !(MOVE_KIND[move] === 'shield' && state.lastMove === move) &&
-      !(move === 'brew' && state.lastMove === 'pestilence') &&
+      !(move === 'brew' && (state.lastMove === 'pestilence' || state.bossHp > state.bossMaxHp * RAID_COMBAT.pestilence.from)) &&
       (ccAllowed || !isCcMove(move)) &&
       (!state.empowered || isAttack(move)),
   );
@@ -974,7 +986,8 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
   if (living.length === 0) return intent([]);
   const kind = MOVE_KIND[move];
   if (kind === 'single' || kind === 'steal') return intent(fairTargets(living, 1, rng));
-  if (move === 'sweep' || move === 'scythe' || move === 'rot') {
+  if (move === 'rot') return intent(fairTargets(living, Math.ceil(living.length / RAID_COMBAT.moves.rot.raidersPerTarget), rng));
+  if (move === 'sweep' || move === 'scythe') {
     const { minTargets, maxTargets } = RAID_COMBAT.moves[move];
     return intent(fairTargets(living, rng.int(minTargets, maxTargets), rng));
   }

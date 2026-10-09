@@ -23,6 +23,9 @@ export const MAX_RAID_SECONDS = 1_800;
 /** Most rounds a raid can last (the `raid.maxRounds` setting). */
 export const MAX_RAID_ROUNDS = 50;
 
+/** Most raiders a boss can count as overhead (the `raid.hpOverhead.<boss>` settings). */
+export const MAX_RAID_OVERHEAD = 10;
+
 /**
  * The raid's buttons and screen.
  * - `refreshMs`: the shortest time between edits of the live message (Discord limits message edits).
@@ -90,9 +93,9 @@ export const RAID_EMOJI = {
  *   everyone else takes from moves that hit several players by `aoeCut` (bigger with that same perk, up
  *   to `aoeCutMax`). That cut doesn't stack: with several guards up, only the strongest one's counts.
  * - `support`: each support lifts one player's stun, disarm or taunt (stuns first); with nobody
- *   under one it rallies the party
- *   instead, multiplying everyone's attacks by `attackMultiplier` (its bonus bigger with the
- *   rallyBoost perk) for the next `rallyTurns` turns. Rallies don't stack: with several in a turn only
+ *   under one, one of the turn's supports clears Blight (see `blight` below) if anyone carries
+ *   enough, and the rest rally the party instead, multiplying everyone's attacks by
+ *   `attackMultiplier` (its bonus bigger with the rallyBoost perk) for the next `rallyTurns` turns. Rallies don't stack: with several in a turn only
  *   the strongest counts, and a new one only takes over a running one if it is at least as strong (it
  *   resets the count either way). `shieldBreak` supports in the same turn shatter
  *   the boss's shield (the Scale Shield or the Spectral Veil), whatever else they did.
@@ -116,11 +119,12 @@ export const RAID_EMOJI = {
  * - `gather` then `reckoning` (the reaper's Grim Reckoning): it spends `reckoning.chargeTurns` turns
  *   gathering, announced each turn, then hits min to max raiders at once. It can't be interrupted, so
  *   the party has those turns to guard and heal up.
- * - The Plague Matriarch: `spit` (one raider), `miasma` (everyone), `rot` (min to max raiders),
- *   `flies` (its shield), and `brew` then `pestilence`. Each of its hits leaves `blight` stacks of
- *   Blight on whoever takes it (see `blight` below); `brew` spends a turn brewing, announced, and
- *   `pestilence` the turn after doubles every standing raider's stacks (up to `blight.maxStacks`). It
- *   never brews right after a Pestilence. It has no crowd control and doesn't heal.
+ * - The Plague Matriarch: `spit` (one raider), `miasma` (everyone), `rot` (one raider for every
+ *   `raidersPerTarget` standing, rounded up), `flies` (its shield), and `brew` then `pestilence`.
+ *   Each of its hits leaves `blight` stacks of Blight on whoever takes it (see `blight` below); `brew`
+ *   spends a turn brewing, announced, and `pestilence` the turn after doubles every standing raider's
+ *   stacks (up to `blight.maxStacks`). It only brews at `pestilence.from` of its HP or less, and never
+ *   right after a Pestilence. It has no crowd control and doesn't heal.
  * - Crowd control (`stun`, `disarm`, `taunt`, all under `cc`): stunned players can't act at all,
  *   disarmed ones can't attack, and taunted ones can only attack, for `cc.rounds` turns. At each
  *   enrage level the boss can use one only every `cc.cooldown[level]` rounds, and it hits
@@ -129,45 +133,37 @@ export const RAID_EMOJI = {
  *   about equally (ties are random).
  */
 export const RAID_COMBAT = {
-  /**
-   * Each boss's HP as a share of the raid HP settings (`raid.hpPerPlayer`, `raid.minBossHp`). The
-   * reaper is frailer than the dragon, and makes up for it by hitting harder and healing. The dragon
-   * is tuned so that 5 raiders who play sensibly, without gear, beat it within the 15 rounds about
-   * 60% of the time (in simulated fights). The reaper is tuned to about 80% for 5 raiders without
-   * gear or boosts who guard and heal but never rally (simulated with its Dark Empowerment and
-   * Grim Reckoning); a party that also keeps a rally going wins about 95%. The matriarch wears the
-   * party down rather than hitting hard, and her Blight takes Heals and Supports away from attacking,
-   * so she has less HP than the dragon. Her share is a first guess, not yet tuned by simulated fights.
-   */
-  hpShare: { wyrm: 0.774, reaper: 0.435, plague: 0.55 },
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
   guard: { takenShare: 0.5, aoeCut: 0.3, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },
   enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5], lifesteal: [1, 1.25, 1.5] },
   moves: {
-    claw: { damage: 45 },
-    breath: { damage: 24 },
-    sweep: { damage: 32, minTargets: 2, maxTargets: 3 },
+    claw: { damage: 56 },
+    breath: { damage: 30 },
+    sweep: { damage: 40, minTargets: 2, maxTargets: 3 },
     hoard: { min: 200, max: 600 },
-    reap: { damage: 55, lifesteal: 1.5 },
-    drain: { damage: 22, lifesteal: 1 },
-    scythe: { damage: 42, minTargets: 2, maxTargets: 3 },
-    harvest: { damage: 30, maxHpShare: 0.03 },
-    reckoning: { damage: 70, minTargets: 2, maxTargets: 4, chargeTurns: 2 },
-    spit: { damage: 28, blight: 2 },
-    miasma: { damage: 10, blight: 1 },
-    rot: { damage: 22, blight: 1, minTargets: 2, maxTargets: 3 },
+    reap: { damage: 69, lifesteal: 1.5 },
+    drain: { damage: 28, lifesteal: 1 },
+    scythe: { damage: 53, minTargets: 2, maxTargets: 3 },
+    harvest: { damage: 38, maxHpShare: 0.03 },
+    reckoning: { damage: 88, minTargets: 2, maxTargets: 4, chargeTurns: 2 },
+    spit: { damage: 35, blight: 2 },
+    miasma: { damage: 13, blight: 1 },
+    rot: { damage: 28, blight: 1, raidersPerTarget: 3 },
   },
   /**
    * The Plague Matriarch's Blight, stacks a raider carries until they are cleansed or knocked out.
    * At the end of every round (after the boss's move) each stack deals `tick` damage to its raider,
-   * and each one cuts the healing they receive by `healCut`, at most `maxHealCut` in all. A heal
-   * clears `healCleanse` stack from whoever it lands on (heal splash too); a Support clears every
-   * stack from the most blighted raider once they have `supportCleanseAt` or more, and only rallies
-   * when nobody does. A raider never carries more than `maxStacks`.
+   * and each one cuts the healing they receive by `healCut`, at most `maxHealCut` in all. Heals don't
+   * clear it. Once a raider carries `supportCleanseAt` or more, one Support a turn clears
+   * `supportCleanse` stacks off the most blighted (more, and off a second ally, with the blightPurge
+   * perk); supports don't stack, so the turn's other Supports rally. A raider never carries more than
+   * `maxStacks`.
    */
-  blight: { tick: 3, healCut: 0.1, maxHealCut: 0.5, healCleanse: 1, supportCleanseAt: 3, maxStacks: 8 },
+  blight: { tick: 5, healCut: 0.1, maxHealCut: 0.5, supportCleanse: 1, supportCleanseAt: 3, maxStacks: 8 },
+  /** The matriarch's Pestilence: she only brews it once she is down to this share of her HP. */
+  pestilence: { from: 0.75 },
   empower: { multiplier: 1.5 },
   /**
    * The Soul Reaper's special attack, Soul Requiem: from enrage level `phase` on (furious), as soon as
@@ -187,9 +183,9 @@ export const RAID_COMBAT = {
       { reap: 26, drain: 22, scythe: 20, harvest: 13, veil: 7, empower: 7, gather: 7 },
       { reap: 24, drain: 26, scythe: 19, harvest: 13, veil: 6, empower: 7, gather: 7 },
     ],
-    // Pestilence only once she is enraged.
+    // She only brews Pestilence below RAID_COMBAT.pestilence.from of her HP.
     plague: [
-      { spit: 32, miasma: 26, rot: 30, flies: 12 },
+      { spit: 32, miasma: 26, rot: 30, flies: 12, brew: 10 },
       { spit: 28, miasma: 26, rot: 26, flies: 10, brew: 10 },
       { spit: 26, miasma: 28, rot: 24, flies: 8, brew: 14 },
     ],

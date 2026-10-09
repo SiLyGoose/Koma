@@ -39,6 +39,9 @@ export const gearText = {
   statsRally: (multiplier: string, turns: number, normal: string | null, gear: string) =>
     `✨ **Rally**: attacks do ${multiplier} damage for ${turns} turns${normal === null ? '' : ` (normally ${normal}) ${gear}`}`,
   statsHealCut: (share: string, gear: string) => `🩸 **Heal cut**: bosses heal ${share} less while you're standing ${gear}`,
+  /** `extra` is how many more Blight stacks the Support clears off each ally (0 for none). */
+  statsBlightPurge: (extra: number, gear: string) =>
+    `🦠 **Blight purge**: your Support clears Blight from a second ally too${extra > 0 ? `, and ${extra} more ${extra === 1 ? 'stack' : 'stacks'} off each` : ''} ${gear}`,
   statsGearMark: '🎒',
   statsNoGear: (p: string) => `No raid gear equipped, so these are the base numbers. Raid gear can be pulled with \`${p}gacha\`.`,
   statsFooter: '🎒 = changed by gear. Gear counts as it is when a raid starts; rallies raise Attack further.',
