@@ -152,7 +152,7 @@ export interface RaidGear {
   raidSupport: number;
   /** How much more their heals (and revives) heal, on top of raidSupport (a smaller perk, for an item that does something else too). */
   healBonus: number;
-  /** Their Supports clear Blight off a second ally too, and this many more stacks (rounded, blightPurgeExtra) off each. */
+  /** Their Supports clear Blight off a second ally too, and this many more stacks (rounded down, blightPurgeExtra) off each. */
   blightPurge: number;
 }
 

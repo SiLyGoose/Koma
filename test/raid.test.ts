@@ -1769,11 +1769,11 @@ test("the Plague Doctor's Cane: its Support clears Blight off a second ally too,
   assert.equal(cane.raidDrop, true);
   assert.equal(cane.slot, 'weapon');
   assert.deepEqual(cane.effects, ['blightPurge', 'healBonus']);
-  assert.deepEqual(describeEffects(cane), ['Raid: your Support clears 🦠 Blight from a second ally too, and 2 more stacks off each', 'Raid: your heals and revives heal 10% more']);
-  // R1 clears no extra stacks (just the second ally), R2 to R4 one more, R5 two more.
+  assert.deepEqual(describeEffects(cane), ['Raid: your Support clears 🦠 Blight from a second ally too, and 3 more stacks off each', 'Raid: your heals and revives heal 10% more']);
+  // R1 clears no extra stacks (just the second ally), R2 and R3 one more, R4 two, R5 three (4 off each in all).
   assert.deepEqual(
     [1, 2, 3, 4, 5].map((level) => blightPurgeExtra(DEFAULTS.equipment.blightPurge[4] * perkShare('blightPurge', level))),
-    [0, 1, 1, 1, 2],
+    [0, 1, 1, 2, 3],
   );
 
   const purge = (strength: number) => {
@@ -1792,7 +1792,7 @@ test("the Plague Doctor's Cane: its Support clears Blight off a second ally too,
     { kind: 'rally', userId: 'a', turns: RAID_COMBAT.support.rallyTurns, multiplier: RAID_COMBAT.support.attackMultiplier },
   ]);
   assert.deepEqual(r1.left, [5, 3]);
-  assert.deepEqual(purge(DEFAULTS.equipment.blightPurge[4]).left, [3, 1]);
+  assert.deepEqual(purge(DEFAULTS.equipment.blightPurge[4]).left, [2, 0]);
 
   // Heals don't clear Blight, with the Cane or without.
   const state = plagueFight(['a', 'b']);
