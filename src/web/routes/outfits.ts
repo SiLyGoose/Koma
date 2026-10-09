@@ -4,7 +4,7 @@ import { outfitController } from '../controllers/outfits.js';
 import { member, signedIn } from '../middleware/auth.js';
 import { outfitService } from '../services/outfits.js';
 
-/* /api/outfits: the shop's Outfits tab, for a logged-in member in a server they're in. */
+/* /api/outfits: the shop's Outfits tab and the dressing room, for a logged-in member in a server they're in. */
 export function outfitRoutes(deps: ApiDeps): Router {
   const outfits = outfitController(outfitService(deps));
 

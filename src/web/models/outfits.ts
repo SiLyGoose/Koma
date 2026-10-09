@@ -4,12 +4,12 @@ import { collections } from '../../db.js';
 import { buyOutfit, ownedOutfits, wearOutfit, wornOutfit } from '../../services/outfits.js';
 
 /*
- * The shop's Outfits tab (GET /api/outfits, POST /api/outfits/buy and /wear): every outfit
- * (data/outfits.ts), what each costs, which the member has and which they wear, and buying and
- * putting one on (services/outfits.ts).
+ * The site's outfits (GET /api/outfits, POST /api/outfits/buy and /wear): every outfit
+ * (data/outfits.ts), what each costs, which the member has and which they wear; buying one (the shop's
+ * Outfits tab) and putting one on (the dressing room) (services/outfits.ts).
  */
 
-/** One outfit, as the shop shows it. */
+/** One outfit, as the site shows it. */
 export interface OutfitView {
   /** The site draws it by this id (its src/shared/characters.ts). */
   id: string;
@@ -30,9 +30,9 @@ export interface OutfitsView {
 /** What the outfit routes use (the database's, unless a test says otherwise). */
 export interface OutfitStore {
   view: (guildId: string, userId: string) => Promise<OutfitsView>;
-  /** Buys an outfit and puts it on: the shop after, or why not (nothing was spent). */
+  /** Buys an outfit (it isn't put on): the outfits after, or why not (nothing was spent). */
   buy: (guildId: string, userId: string, id: string) => Promise<OutfitsView | 'not_found' | 'owned' | 'too_poor'>;
-  /** Puts on one of their outfits: the shop after, or why not. */
+  /** Puts on one of their outfits: the outfits after, or why not. */
   wear: (guildId: string, userId: string, id: string) => Promise<OutfitsView | 'not_found' | 'not_owned'>;
 }
 

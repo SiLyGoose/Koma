@@ -8,8 +8,8 @@ import { gearChanged } from './items/gear-events.js';
 /*
  * Outfits (data/outfits.ts): the character a member is drawn as on the site. Everyone has the default
  * one; the others are bought in the site's shop, once each, for outfit.price points (burned), and
- * worn from then on whenever they like. Buying one puts it on. Buying is one conditional update that
- * only matches while they have the points and don't own it yet, so two buys at once can't both pay.
+ * put on in its dressing room whenever they like (buying one doesn't). Buying is one conditional update
+ * that only matches while they have the points and don't own it yet, so two buys at once can't both pay.
  * Changing outfits counts as a gear change (items/gear-events.ts), so an open Pinecraft page redraws
  * the miner in it.
  */
@@ -35,7 +35,7 @@ export async function outfitOf(guildId: string, userId: string): Promise<string>
 
 export type BuyOutfitResult = { ok: true; paid: number; balance: number } | { ok: false; reason: 'not_found' | 'owned' | 'too_poor' };
 
-/** Buys outfit `id` for the member, and puts it on. */
+/** Buys outfit `id` for the member (it isn't put on). */
 export async function buyOutfit(guildId: string, userId: string, id: string): Promise<BuyOutfitResult> {
   if (!OUTFITS_BY_ID.has(id)) return { ok: false, reason: 'not_found' };
   if (id === DEFAULT_OUTFIT) return { ok: false, reason: 'owned' };
@@ -44,7 +44,7 @@ export async function buyOutfit(guildId: string, userId: string, id: string): Pr
   await ensureMember(guildId, userId);
   const bought = await members.findOneAndUpdate(
     { guildId, userId, outfits: { $ne: id }, points: { $gte: price } },
-    { $inc: { points: -price }, $addToSet: { outfits: id }, $set: { outfit: id } },
+    { $inc: { points: -price }, $addToSet: { outfits: id } },
     { returnDocument: 'after' },
   );
   if (!bought) {
@@ -52,7 +52,6 @@ export async function buyOutfit(guildId: string, userId: string, id: string): Pr
     return { ok: false, reason: member?.outfits?.includes(id) ? 'owned' : 'too_poor' };
   }
   if (price > 0) await recordLedger([{ guildId, userId, delta: -price, reason: 'outfit', itemId: id }]);
-  gearChanged(guildId, userId);
   return { ok: true, paid: price, balance: bought.points };
 }
 

@@ -392,7 +392,7 @@ export const DEFAULTS: Readonly<Settings> = {
     },
     masterworkGems: 25,
   },
-  outfit: { price: 3_000 },
+  outfit: { price: 5_000 },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.

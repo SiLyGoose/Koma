@@ -47,9 +47,9 @@ export type { Me } from './services/login.js';
  *   GET  /api/databank        every item and what it does at each level: Databank (models/databank.ts)
  *   GET  /api/gacha?guild=…   the banner page: what a pull costs the member, their komaTokens and pity: BannerView (models/gacha.ts)
  *   POST /api/gacha/pull {guild, multi}   one pull, or a multi pull (`multi` true): BannerResult
- *   GET  /api/outfits?guild=…   the shop's outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)
- *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points and puts it on: OutfitsView
- *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits: OutfitsView
+ *   GET  /api/outfits?guild=…   the outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)
+ *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points (the shop; it isn't put on): OutfitsView
+ *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
@@ -86,7 +86,7 @@ export interface ApiDeps {
   gear?: GearStore;
   /** The gacha, for the banner page (the database's, unless a test says otherwise). */
   gacha?: GachaStore;
-  /** Outfits, for the shop (the database's, unless a test says otherwise). */
+  /** Outfits, for the shop and the dressing room (the database's, unless a test says otherwise). */
   outfits?: OutfitStore;
   login?: typeof exchangeCode;
   /** The raid's page (web/games/raid), once the bot is logged in to Discord. */

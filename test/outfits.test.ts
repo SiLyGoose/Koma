@@ -51,7 +51,7 @@ test('outfits: their price is a setting in its own group, 3,000 points to start'
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
 });
 
-test('outfits web: a logged-in member sees the outfits, buys one and puts one on, in their own servers only', async () => {
+test('outfits web: a logged-in member sees the outfits, buys one (not putting it on) and puts one on, in their own servers only', async () => {
   const view = (worn: string, owned: string[], balance: number): OutfitsView => ({
     outfits: OUTFITS.map(({ id, name }) => ({ id, name, price: id === 'tsuri' ? 0 : 3000, owned: id === 'tsuri' || owned.includes(id) })),
     worn,
@@ -66,7 +66,7 @@ test('outfits web: a logged-in member sees the outfits, buys one and puts one on
       if (!OUTFITS_BY_ID.has(id)) return 'not_found';
       if (id === 'tsuri' || state.owned.includes(id)) return 'owned';
       if (state.balance < 3000) return 'too_poor';
-      state = { worn: id, owned: [...state.owned, id], balance: state.balance - 3000 };
+      state = { ...state, owned: [...state.owned, id], balance: state.balance - 3000 };
       return view(state.worn, state.owned, state.balance);
     },
     wear: async (guildId, userId, id) => {
@@ -106,10 +106,12 @@ test('outfits web: a logged-in member sees the outfits, buys one and puts one on
     assert.equal(early.status, 409);
     assert.deepEqual(await early.json(), { error: 'not_owned' });
 
-    // Bought, and worn at once.
+    // Bought, and still in the default until it's put on.
     const bought = await send(post('/api/outfits/buy', { guild: 'g1', outfit: 'speve' }));
     assert.equal(bought.status, 200);
-    assert.deepEqual(await bought.json(), view('speve', ['speve'], 1000));
+    assert.deepEqual(await bought.json(), view('tsuri', ['speve'], 1000));
+    const worn = await send(post('/api/outfits/wear', { guild: 'g1', outfit: 'speve' }));
+    assert.deepEqual(await worn.json(), view('speve', ['speve'], 1000));
 
     // Not twice, nor the default; nor one they can't pay for; nor one there isn't.
     assert.deepEqual(await (await send(post('/api/outfits/buy', { guild: 'g1', outfit: 'speve' }))).json(), { error: 'owned' });
@@ -126,7 +128,7 @@ test('outfits web: a logged-in member sees the outfits, buys one and puts one on
     assert.equal((await send(post('/api/outfits/buy', { guild: 'g1' }))).status, 400);
     assert.equal((await send(post('/api/outfits/wear', { guild: 'g1', outfit: 3 }))).status, 400);
     assert.equal((await send(post('/api/outfits/buy', { guild: 'g2', outfit: 'yae-pixo' }))).status, 403);
-    assert.deepEqual(calls, ['wear g1 u1 speve', 'buy g1 u1 speve', 'buy g1 u1 speve', 'buy g1 u1 tsuri', 'buy g1 u1 yae-pixo', 'buy g1 u1 nobody', 'wear g1 u1 tsuri']);
+    assert.deepEqual(calls, ['wear g1 u1 speve', 'buy g1 u1 speve', 'wear g1 u1 speve', 'buy g1 u1 speve', 'buy g1 u1 tsuri', 'buy g1 u1 yae-pixo', 'buy g1 u1 nobody', 'wear g1 u1 tsuri']);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

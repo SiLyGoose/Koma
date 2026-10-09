@@ -2,14 +2,14 @@ import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
 import { outfitStore, type OutfitsView } from '../models/outfits.js';
 
-/* The shop's Outfits tab: the outfits and which are the member's, buying one and putting one on (outfits.ts's store). */
+/* The site's outfits: which are the member's, buying one (the shop) and putting one on (the dressing room) (outfits.ts's store). */
 
 export type OutfitService = ReturnType<typeof outfitService>;
 
 export function outfitService(deps: ApiDeps) {
   const store = deps.outfits ?? outfitStore;
 
-  /** The shop as it stands after a change, or the change's error. */
+  /** The outfits as they stand after a change, or the change's error. */
   const answer = (result: OutfitsView | 'not_found' | 'owned' | 'too_poor' | 'not_owned'): OutfitsView => {
     if (typeof result === 'string') throw new ApiError(result);
     return result;

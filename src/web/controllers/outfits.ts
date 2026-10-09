@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { OutfitService } from '../services/outfits.js';
 import { parse } from '../lib/validate.js';
 
-/* The shop's Outfits tab's requests. Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
+/* The outfits' requests (the shop's and the dressing room's). Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
 const Outfit = z.object({ outfit: z.string() });
 

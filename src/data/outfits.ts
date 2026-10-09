@@ -2,7 +2,7 @@
  * The outfits a member can wear: the character they're drawn as on the site (the gear page, Pinecraft).
  * The site has their pictures, by these ids (Koma-UI's src/shared/characters.ts). Everyone has
  * DEFAULT_OUTFIT; the others are bought in the site's shop (services/outfits.ts), for outfit.price
- * points each.
+ * points each, and put on in its dressing room.
  */
 
 export interface OutfitDef {
