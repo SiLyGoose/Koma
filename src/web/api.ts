@@ -3,6 +3,7 @@ import type { pinecraftLeaderboard } from '../services/pinecraft.js';
 import type { WebConfig } from './config.js';
 import type { GachaStore } from './models/gacha.js';
 import type { GearStore } from './models/gear.js';
+import type { OutfitStore } from './models/outfits.js';
 import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
 import { errors, notFound } from './middleware/errors.js';
@@ -13,6 +14,7 @@ import { gachaRoutes } from './routes/gacha.js';
 import { gearRoutes } from './routes/gear.js';
 import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
+import { outfitRoutes } from './routes/outfits.js';
 import { publicRoutes } from './routes/public.js';
 import { raidRoutes } from './routes/raid.js';
 
@@ -45,6 +47,9 @@ export type { Me } from './services/login.js';
  *   GET  /api/databank        every item and what it does at each level: Databank (models/databank.ts)
  *   GET  /api/gacha?guild=…   the banner page: what a pull costs the member, their komaTokens and pity: BannerView (models/gacha.ts)
  *   POST /api/gacha/pull {guild, multi}   one pull, or a multi pull (`multi` true): BannerResult
+ *   GET  /api/outfits?guild=…   the shop's outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)
+ *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points and puts it on: OutfitsView
+ *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits: OutfitsView
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
@@ -60,7 +65,7 @@ export type { Me } from './services/login.js';
  *   routes/        which paths there are, and the middleware and controller each goes through
  *   middleware/    who is asking (auth.ts), the site's origin (site.ts), and answering errors (errors.ts)
  *   controllers/   reads what a request says (lib/validate.ts), asks a service, and answers
- *   services/      what the site can do, with no requests in sight: the stores (models/gear.ts, models/gacha.ts), Discord, live.ts…
+ *   services/      what the site can do, with no requests in sight: the stores (models/gear.ts, models/gacha.ts, models/outfits.ts), Discord, live.ts…
  * Errors are thrown anywhere as an ApiError (lib/errors.ts).
  */
 
@@ -81,6 +86,8 @@ export interface ApiDeps {
   gear?: GearStore;
   /** The gacha, for the banner page (the database's, unless a test says otherwise). */
   gacha?: GachaStore;
+  /** Outfits, for the shop (the database's, unless a test says otherwise). */
+  outfits?: OutfitStore;
   login?: typeof exchangeCode;
   /** The raid's page (web/games/raid), once the bot is logged in to Discord. */
   raid?: RaidSiteDeps;
@@ -102,6 +109,7 @@ export function createApi(deps: ApiDeps): Express {
     .use(liveRoutes(deps))
     .use('/gear', gearRoutes(deps))
     .use('/gacha', gachaRoutes(deps))
+    .use('/outfits', outfitRoutes(deps))
     .use('/raid', raidRoutes(deps))
     // Nothing else is there (once they've logged in).
     .use(signedIn(deps), notFound);

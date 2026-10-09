@@ -253,6 +253,10 @@ export interface Settings {
    * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
    * skip of the day costs. Each one after it that day costs double the one before.
    */
+  /** Outfits (data/outfits.ts, services/outfits.ts): what buying one in the site's shop costs, in points (burned). */
+  outfit: {
+    price: number;
+  };
   skip: {
     claim: number;
     /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
@@ -388,6 +392,7 @@ export const DEFAULTS: Readonly<Settings> = {
     },
     masterworkGems: 25,
   },
+  outfit: { price: 3_000 },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.

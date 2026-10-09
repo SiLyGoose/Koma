@@ -16,7 +16,7 @@ import type { Command, CommandContext } from '../discord/types.js';
 // 'Stonks' was added as a settings-spec group (stonks.capHours) without ever being added here,
 // so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
 // in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
-export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Events', 'Raid', 'Refine', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Events', 'Raid', 'Refine', 'Outfit', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
 
 /**
  * The per-server channel settings: `channel` (the one channel commands and events are confined to,

@@ -2,6 +2,7 @@ import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
+import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { loadoutCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
@@ -11,6 +12,7 @@ import { forgeMasterwork } from '../../services/items/forge.js';
 import { setCopyLocked } from '../../services/items/lock.js';
 import { refineItem } from '../../services/items/refine.js';
 import { sellCopies } from '../../services/items/sell.js';
+import { wornOutfit } from '../../services/outfits.js';
 import { switchLoadout } from '../../services/items/loadouts.js';
 import type { EquipmentDoc, ItemCopyDoc, ItemDef, Slot, Stars } from '../../types.js';
 import { gearStats, type StatSection } from './stats.js';
@@ -101,6 +103,8 @@ export interface GearView {
   balance: number | null;
   /** Their komaGems in the server (null when not known), for what a forge leaves them. */
   gems: number | null;
+  /** The outfit they wear (data/outfits.ts): the character the page draws them as. */
+  outfit: string;
 }
 
 /**
@@ -205,7 +209,8 @@ function forgeState(item: ItemDef, level: number, masterwork: boolean, gems: num
 /**
  * The gear page's view of `copies` (all a member owns), with `equipment` what they wear,
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
- * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge).
+ * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge),
+ * and `outfit` the outfit they wear.
  */
 export function gearView(
   copies: readonly CopyInfo[],
@@ -214,6 +219,7 @@ export function gearView(
   loadouts: readonly LoadoutView[] = loadoutsOf({ equipment: equipment ?? undefined }),
   balance: number | null = null,
   gems: number | null = null,
+  outfit: string = DEFAULT_OUTFIT,
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
   const kept = new Set(wornIds);
@@ -284,6 +290,7 @@ export function gearView(
     })),
     balance,
     gems,
+    outfit,
   };
 }
 
@@ -291,12 +298,12 @@ export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0);
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member));
   },
   peek: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member));
   },
   owners: async (guildId, limit) => {
     const rows = await collections()

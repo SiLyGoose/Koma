@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import { CONFIG } from '../../../config.js';
+import { DEFAULT_OUTFIT } from '../../../data/outfits.js';
 import { MINE_WEB, PINECRAFT_BREAK_MS, PINECRAFT_WEB, PINECRAFT_WORLD } from '../../../constants/index.js';
 import { gearEffects } from '../../../lib/game/items/equipment.js';
 import { onGearChange } from '../../../services/items/gear-events.js';
@@ -8,6 +9,7 @@ import { breakMs, energyNow, gearBreakMs, indexOf, mapRows, move, newWorld, NO_G
 import type { EffectTotals } from '../../../perks/index.js';
 import { getEquipment } from '../../../services/items/equipment.js';
 import { getBalance } from '../../../services/economy/index.js';
+import { outfitOf } from '../../../services/outfits.js';
 import { loadWorld, newWeek, payOre, saveDig, saveWhere, type LoadedWorld } from '../../../services/pinecraft.js';
 import { parseClientMessage, type ClientMessage, type ErrorCode, type PinecraftPickaxe, type ServerMessage, type WorldEvent, type WorldState } from './protocol.js';
 import { openGameConnection, refuse as refuseConnection, serveSocket, type Peer as ConnectionPeer } from '../connection.js';
@@ -39,8 +41,8 @@ export interface PinecraftDeps {
   payOre: typeof payOre;
   balance: (guildId: string, userId: string) => Promise<number>;
   rules: () => PinecraftRules;
-  /** The perks of the member's equipped gear, and the id of their weapon (null for none). */
-  gear: (guildId: string, userId: string) => Promise<{ effects: Partial<EffectTotals>; weapon: string | null }>;
+  /** The perks of the member's equipped gear, the id of their weapon (null for none), and the outfit they wear. */
+  gear: (guildId: string, userId: string) => Promise<{ effects: Partial<EffectTotals>; weapon: string | null; outfit: string }>;
   now: () => number;
   sleep: (ms: number) => Promise<void>;
   /** Random numbers from 0 up to 1 (a lucky ore). */
@@ -56,8 +58,8 @@ const realDeps: PinecraftDeps = {
   balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
   rules: () => CONFIG.pinecraft,
   gear: async (guildId, userId) => {
-    const equipment = await getEquipment(guildId, userId);
-    return { effects: gearEffects(equipment, userId), weapon: equipment.weapon ?? null };
+    const [equipment, outfit] = await Promise.all([getEquipment(guildId, userId), outfitOf(guildId, userId)]);
+    return { effects: gearEffects(equipment, userId), weapon: equipment.weapon ?? null, outfit };
   },
   now: Date.now,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -89,6 +91,7 @@ export class PinecraftSession {
   private mapSentAt = -Infinity;
   private gear: PinecraftGear = NO_GEAR;
   private pickaxe: PinecraftPickaxe = 'wood';
+  private outfit = DEFAULT_OUTFIT;
   private gearAt = -Infinity;
 
   constructor(
@@ -107,9 +110,10 @@ export class PinecraftSession {
     if (!force && now - this.gearAt < GEAR_EVERY_MS) return;
     this.gearAt = now;
     try {
-      const { effects, weapon } = await this.deps.gear(this.player.guildId, this.player.userId);
+      const { effects, weapon, outfit } = await this.deps.gear(this.player.guildId, this.player.userId);
       this.gear = pinecraftGear(effects);
       this.pickaxe = (weapon !== null && PICKAXE_OF[weapon]) || 'wood';
+      this.outfit = outfit;
     } catch (err) {
       console.error('Could not look up the gear of a Pinecraft miner:', err);
     }
@@ -292,6 +296,7 @@ export class PinecraftSession {
       oreEnergy: gear.oreEnergy,
       blast: gear.blastEvery > 0 ? { every: gear.blastEvery, left: Math.max(1, gear.blastEvery - world.sinceBlast) } : null,
       pickaxe: this.pickaxe,
+      outfit: this.outfit,
     };
   }
 }

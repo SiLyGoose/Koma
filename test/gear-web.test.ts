@@ -57,6 +57,7 @@ test('gear page: copies come best first, with what each does, and only fitting c
     ],
     balance: null,
     gems: null,
+    outfit: 'tsuri',
   });
 });
 

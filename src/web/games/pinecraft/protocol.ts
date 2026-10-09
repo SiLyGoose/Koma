@@ -69,6 +69,8 @@ export interface WorldState {
   blast: { every: number; left: number } | null;
   /** The pickaxe the miner swings: their equipped one, or the plain wooden one. */
   pickaxe: PinecraftPickaxe;
+  /** The outfit the miner wears (data/outfits.ts): the character the page draws them as. */
+  outfit: string;
 }
 
 /** The pickaxes the miner can be drawn with (public/pinecraft/pickaxes/<name>.png on the page). */

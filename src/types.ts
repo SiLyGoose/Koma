@@ -195,6 +195,10 @@ export interface MemberDoc {
   loadouts?: Record<string, LoadoutDoc>;
   /** Which loadout is active (1 to LOADOUTS.count); its gear is `equipment`. Missing means 1. */
   activeLoadout?: number | null;
+  /** The outfits this member bought (data/outfits.ts ids; never the default, which everyone has). Missing means none. */
+  outfits?: string[];
+  /** The outfit they wear: one of theirs. Missing or null means the default (services/outfits.ts). */
+  outfit?: string | null;
   createdAt: Date;
 }
 
@@ -326,6 +330,8 @@ export type LedgerReason =
   | 'raid_refund'
   // A duplicate copy used up to refine another (0 points; itemId is the item).
   | 'refine'
+  // Points paid for an outfit in the site's shop (services/outfits.ts; itemId is the outfit).
+  | 'outfit'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 

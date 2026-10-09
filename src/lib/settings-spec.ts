@@ -42,7 +42,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Refine' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -92,6 +92,8 @@ export const SPECS: readonly SettingSpec[] = [
     [2, 3, 4, 5].map((level) => int(`refine.cost.${stars}.${level}`, 'Refine', `${CURRENCY_EMOJI} to refine a ${stars}-star item to R${level} (on top of the duplicate it uses up).`, 0, MAX_POINTS)),
   ),
   int('refine.masterworkGems', 'Refine', 'komaGems to forge one R5 copy of a 4-star item into a masterwork, turning on its bonus.', 0, MAX_POINTS),
+
+  int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
   int('skip.raid', 'Skip', `Price of the week's extra raid (once per server per week, after the raid has been fought), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),

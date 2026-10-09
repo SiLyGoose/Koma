@@ -426,10 +426,29 @@ test('pinecraft web: the miner is drawn with the pickaxe they have equipped, and
   assert.equal(await pickaxeOf(null), 'wood');
 });
 
+test('pinecraft web: the miner is drawn in the outfit they wear, and a change of outfit reaches the open page at once', async () => {
+  let outfit = 'tsuri';
+  const { deps } = fakeDeps(4);
+  deps.gear = async () => ({ effects: {}, weapon: null, outfit });
+  const session = await sessionFor({ guildId: 'g7', userId: 'u7', name: 'ZEIU' }, deps);
+  const peer = fakePeer();
+  await session.attach(peer);
+  assert.ok(peer.got[0]?.t === 'state' && peer.got[0].state.outfit === 'tsuri');
+
+  // Bought and put on in the shop.
+  outfit = 'speve';
+  gearChanged('g7', 'u7');
+  await settle();
+  const pushed = peer.got.at(-1);
+  assert.ok(pushed?.t === 'state' && pushed.seq === -1);
+  assert.equal(pushed.state.outfit, 'speve');
+  await leave(session, peer);
+});
+
 test('pinecraft web: a gear change reaches the open page at once, and a page joining a loaded world gets the gear as it is now', async () => {
   let weapon: string | null = null;
   const { deps } = fakeDeps(4);
-  deps.gear = async () => ({ effects: {}, weapon });
+  deps.gear = async () => ({ effects: {}, weapon, outfit: 'tsuri' });
   const player = { guildId: 'g6', userId: 'u6', name: 'ZEIU' };
   const session = await sessionFor(player, deps);
   const peer = fakePeer();
@@ -495,7 +514,7 @@ function fakeDeps(seed: number, gear: Partial<ReturnType<typeof totalEffects>> =
       saved.paid.push(points);
       return (balance += points);
     },
-    gear: async () => ({ effects: gear, weapon }),
+    gear: async () => ({ effects: gear, weapon, outfit: 'tsuri' }),
     balance: async () => balance,
     rules: () => RULES,
     now: () => clock.now,
