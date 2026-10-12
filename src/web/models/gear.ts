@@ -4,7 +4,7 @@ import { REFINE } from '../../constants/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
-import { loadoutCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
+import { loadoutCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, saleCount, sellPrice } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
@@ -13,13 +13,13 @@ import { setCopyLocked } from '../../services/items/lock.js';
 import { refineItem } from '../../services/items/refine.js';
 import { sellCopies } from '../../services/items/sell.js';
 import { wornOutfit } from '../../services/outfits.js';
-import { switchLoadout } from '../../services/items/loadouts.js';
+import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
 import type { EquipmentDoc, ItemCopyDoc, ItemDef, Slot, Stars } from '../../types.js';
 import { gearStats, type StatSection } from './stats.js';
 import { SLOTS } from '../../types.js';
 
 /*
- * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /refine, /forge, /sell and /lock):
+ * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /loadout/rename, /refine, /forge, /sell and /lock):
  * every copy a member owns, what each one does at its level, which copy sits in each slot, and their
  * loadouts; and, to look at, the same for anyone else in the server with gear. The effect lines
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
@@ -131,6 +131,12 @@ export interface GearLoadout {
   equipped: Record<Slot, string | null>;
 }
 
+/**
+ * Why a loadout can't take a name (lib/game/items/loadouts.ts's checkLoadoutName): it's too long, has
+ * characters a name can't, has no letter, is a word the loadout command uses, or is another of their loadouts'.
+ */
+export type LoadoutNameBlock = `name_${Extract<NameCheck, { ok: false }>['reason']}`;
+
 /** What the gear routes use (the database's, unless a test says otherwise). */
 export interface GearStore {
   view: (guildId: string, userId: string) => Promise<GearView>;
@@ -144,6 +150,8 @@ export interface GearStore {
   unequipAll: (guildId: string, userId: string) => Promise<void>;
   /** False when their loadouts kept changing while switching (nothing changed). */
   switchLoadout: (guildId: string, userId: string, number: number) => Promise<boolean>;
+  /** Names loadout `number` (an empty name: its default one again): 'ok', or why it can't have that name. */
+  renameLoadout: (guildId: string, userId: string, number: number, name: string) => Promise<'ok' | LoadoutNameBlock>;
   /**
    * Refines that copy one level, using up `materialId` (null: the lowest-level spare it could use): 'ok',
    * or why not ('not_found' when they don't own it, 'bad_material' when that material can't be used up,
@@ -324,6 +332,10 @@ export const gearStore: GearStore = {
     await unequipAll(guildId, userId);
   },
   switchLoadout: async (guildId, userId, number) => (await switchLoadout(guildId, userId, number)).ok,
+  renameLoadout: async (guildId, userId, number, name) => {
+    const result = await renameLoadout(guildId, userId, number, name);
+    return result.ok ? 'ok' : `name_${result.reason}`;
+  },
   refine: async (guildId, userId, copyId, materialId) => {
     const { items, members } = collections();
     const copy = await items.findOne({ _id: copyId, guildId, userId });

@@ -11,9 +11,13 @@ import { CopyId, parse, UserId } from '../lib/validate.js';
 /** The most copies one sale sells. */
 const SELL_MAX = 1000;
 
+/** The longest a loadout's new name is read at all (the name's own rules, and its real length, are checkLoadoutName's). */
+const NAME_MAX = 200;
+
 const Copy = z.object({ copy: CopyId });
 const Unequip = z.object({ slot: z.enum(SLOTS) });
 const Loadout = z.object({ loadout: z.number().refine((n) => LOADOUT_NUMBERS.includes(n)) });
+const Rename = Loadout.extend({ name: z.string().max(NAME_MAX) });
 const Refine = z.object({ copy: CopyId, material: CopyId.nullish() });
 const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX) });
 const Lock = z.object({ copy: CopyId, locked: z.boolean() });
@@ -51,6 +55,11 @@ export function gearController(gear: GearService) {
     async loadout(req, res) {
       const { loadout } = parse(Loadout, req.body);
       res.json(await gear.switchLoadout(res.locals.guildId, res.locals.session.userId, loadout));
+    },
+
+    async renameLoadout(req, res) {
+      const { loadout, name } = parse(Rename, req.body);
+      res.json(await gear.renameLoadout(res.locals.guildId, res.locals.session.userId, loadout, name));
     },
 
     async refine(req, res) {

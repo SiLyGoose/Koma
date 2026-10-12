@@ -108,6 +108,7 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
       worn[`${guildId}/${userId}`] = {};
     },
     switchLoadout: async (_guildId, _userId, number) => number !== 3, // 3 is always busy here
+    renameLoadout: async (_guildId, _userId, number, name) => (name === 'Tank' && number !== 1 ? 'name_taken' : name === '123' ? 'name_no_letters' : 'ok'),
     refine: async (_guildId, _userId, copy, material) =>
       copy === 'x1' ? (material === 'bad' ? 'bad_material' : 'ok') : copy === 'poor' ? 'too_poor' : 'not_found',
     forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
@@ -168,6 +169,17 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":3}')).status, 409);
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":9}')).status, 400);
     assert.equal((await post('/api/gear/loadout', '{"guild":"g1","loadout":"2"}')).status, 400);
+
+    assert.equal((await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":1,"name":"Tank"}')).status, 200);
+    assert.equal((await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":1,"name":""}')).status, 200); // back to its default name
+    const taken = await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":2,"name":"Tank"}');
+    assert.equal(taken.status, 409);
+    assert.equal(((await taken.json()) as { error: string }).error, 'name_taken');
+    assert.equal(((await (await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":2,"name":"123"}')).json()) as { error: string }).error, 'name_no_letters');
+    assert.equal((await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":9,"name":"Tank"}')).status, 400);
+    assert.equal((await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":1}')).status, 400);
+    assert.equal((await post('/api/gear/loadout/rename', '{"guild":"g1","loadout":1,"name":7}')).status, 400);
+    assert.equal((await post('/api/gear/loadout/rename', `{"guild":"g1","loadout":1,"name":"${'a'.repeat(201)}"}`)).status, 400);
 
     assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"x1"}')).status, 200);
     assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"x1","material":"x2"}')).status, 200);
@@ -324,8 +336,9 @@ test("gear page: a game's link can look at gear in its server (the raid's party)
     assert.equal((await post('/api/gear/equip', { guild: 'g2', copy: 'y1' })).status, 200);
     assert.equal((await post('/api/gear/loadout', { loadout: 2 })).status, 200);
     assert.deepEqual(asked, ['view g1 11', 'peek g1 22', 'equip g1 11 y1', 'view g1 11', 'loadout g1 11 2', 'view g1 11']);
-    // Selling, refining, forging, locking and the roster stay the site's.
-    for (const path of ['/api/gear/sell', '/api/gear/refine', '/api/gear/forge', '/api/gear/lock']) assert.equal((await post(path, { copy: 'y1', copies: ['y1'] })).status, 401);
+    // Selling, refining, forging, locking, naming loadouts and the roster stay the site's.
+    for (const path of ['/api/gear/sell', '/api/gear/refine', '/api/gear/forge', '/api/gear/lock', '/api/gear/loadout/rename'])
+      assert.equal((await post(path, { copy: 'y1', copies: ['y1'], loadout: 1, name: 'Tank' })).status, 401);
     assert.equal((await fetch(`${base}/api/gear/members?guild=g1`, { headers })).status, 401);
   } finally {
     server.close();

@@ -1,8 +1,8 @@
-import type { ForgeBlock, RefineBlock } from '../models/gear.js';
+import type { ForgeBlock, LoadoutNameBlock, RefineBlock } from '../models/gear.js';
 
 /* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
 
-export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | RefineBlock | ForgeBlock;
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | RefineBlock | ForgeBlock | LoadoutNameBlock;
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
@@ -23,6 +23,11 @@ const STATUS: Record<ErrorCode, number> = {
   owned: 409,
   not_owned: 409,
   no_refreshes: 409,
+  name_too_long: 409,
+  name_bad_characters: 409,
+  name_no_letters: 409,
+  name_reserved: 409,
+  name_taken: 409,
 };
 
 /** Thrown by a service, controller or middleware when the site's request can't be done. */

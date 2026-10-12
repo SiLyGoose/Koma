@@ -62,6 +62,13 @@ export function gearService(deps: ApiDeps) {
       return store.view(guildId, userId);
     },
 
+    /** Names one of their loadouts (an empty name: its default one again). */
+    async renameLoadout(guildId: string, userId: string, loadout: number, name: string): Promise<GearView> {
+      const result = await store.renameLoadout(guildId, userId, loadout, name);
+      if (result !== 'ok') throw new ApiError(result);
+      return store.view(guildId, userId);
+    },
+
     /** Refines a copy a level, using up `material` (null: the lowest-level spare it can). */
     async refine(guildId: string, userId: string, copy: string, material: string | null): Promise<GearView> {
       const result = await store.refine(guildId, userId, copy, material);

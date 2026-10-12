@@ -7,7 +7,7 @@ import { gearService } from '../services/gear.js';
 /*
  * /api/gear: for a logged-in member, in a server they're in. A game's link answers some of them too, for
  * its own member in its own server: looking, and changing what they wear (the raid's party screen).
- * Selling, refining, forging, locking and the roster stay on the site's gear page.
+ * Selling, refining, forging, locking, naming loadouts and the roster stay on the site's gear page.
  */
 export function gearRoutes(deps: ApiDeps): Router {
   const gear = gearController(gearService(deps));
@@ -21,6 +21,7 @@ export function gearRoutes(deps: ApiDeps): Router {
     .post('/unequip', ...siteOrLink, gear.unequip)
     .post('/unequip-all', ...siteOrLink, gear.unequipAll)
     .post('/loadout', ...siteOrLink, gear.loadout)
+    .post('/loadout/rename', ...site, gear.renameLoadout)
     .post('/refine', ...site, gear.refine)
     .post('/forge', ...site, gear.forge)
     .post('/sell', ...site, gear.sell)
