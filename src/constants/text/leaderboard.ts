@@ -11,7 +11,7 @@ export const leaderboardText = {
   lossesButton: 'Losses',
   donorsTitle: 'Leaderboard: top vault donors',
   lossesTitle: 'Leaderboard: biggest losses',
-  lossesFooter: 'Casino games net of winnings, plus fines and penalties. All time.',
+  lossesFooter: 'Every losing casino round, fine and penalty, with no winnings taken off. All time.',
   noDonors: (p: string) => `No one has donated to the vault yet. Use \`${p}donate <amount>\` to be the first.`,
   noLosses: 'No one has lost anything yet.',
 };

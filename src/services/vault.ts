@@ -13,6 +13,8 @@ import { ensureMember } from './economy/index.js';
  * events.vault.multiplier (the pool counting at most events.vault.maxPool, see getVaultPool), and call back in here to take out what they paid (vaultCost,
  * takeFromVault) and to add their fines (fineIntoVault). On top of that the vault grows by
  * events.vault.hourlyGrowth an hour on its own (growVaults), in every server with events on.
+ * The cap is only on what a vault game pays out: losses, growth and donations all keep filling the
+ * pool past it, and whatever is over it waits for later games.
  */
 
 type LedgerInput = Omit<LedgerDoc, 'createdAt'>;
@@ -45,29 +47,6 @@ function vaultCap(): number | null {
 }
 
 /**
- * An update pipeline that adds `amount` of losses or hourly growth to the vault pool, and the same
- * to the breakdown field `counter`, never taking the pool past events.vault.maxPool: only what
- * fits is added (to the counter too, so the breakdown still adds up), and nothing once the pool is
- * at or over it. Donations skip this and can take the pool past the cap (see donateToVault); a
- * pool over it is left alone, since a vault game only ever pays out up to the cap.
- */
-function addToPool(amount: number, counter: 'vaultLosses' | 'vaultGrown') {
-  const cap = vaultCap();
-  const pool = { $ifNull: ['$vaultPool', 0] };
-  const added = cap === null ? amount : { $max: [0, { $min: [amount, { $subtract: [cap, pool] }] }] };
-  return [
-    { $set: { vaultAdded: added } },
-    {
-      $set: {
-        vaultPool: { $add: [pool, '$vaultAdded'] },
-        [counter]: { $add: [{ $ifNull: [`$${counter}`, 0] }, '$vaultAdded'] },
-      },
-    },
-    { $unset: 'vaultAdded' },
-  ];
-}
-
-/**
  * Records points lost to gambling, or a caught robber's fine, so a future vault game can pay
  * them out. Best effort: a failure here never undoes the game action that lost the points, it
  * just means this particular loss doesn't inflate the next vault game (logged, not thrown).
@@ -78,7 +57,7 @@ export async function addVaultLoss(guildId: string, lost: number): Promise<void>
   const amount = Math.floor(lost * CONFIG.events.vault.lossShare);
   if (amount <= 0) return;
   try {
-    await collections().guilds.updateOne({ _id: guildId }, addToPool(amount, 'vaultLosses'), { upsert: true });
+    await collections().guilds.updateOne({ _id: guildId }, { $inc: { vaultPool: amount, vaultLosses: amount } }, { upsert: true });
   } catch (err) {
     console.error(`Could not add ${amount} to the vault pool in ${guildId}:`, err);
   }
@@ -117,7 +96,7 @@ export async function growVaults(now: Date = new Date()): Promise<void> {
       if (amount <= 0) continue;
       await guilds.updateOne(
         { _id: doc._id, vaultGrownAt: last },
-        [...addToPool(amount, 'vaultGrown'), { $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } }],
+        { $inc: { vaultPool: amount, vaultGrown: amount }, $set: { vaultGrownAt: new Date(last.getTime() + usedMs) } },
       );
     } catch (err) {
       console.error(`Could not grow the vault in ${doc._id}:`, err);
@@ -139,26 +118,32 @@ export interface MemberTotal {
 }
 
 /**
- * The ledger reasons that count toward a member's losses: every casino bet and what it paid back
- * (so a win offsets a loss), and the fines and penalties that feed the vault.
+ * The casino games' ledger reasons, by game. A round starts with the game's `bet` entry; the
+ * `rest` (a double, what it paid back, a refund) belong to the round before them.
  */
-export const LOSS_REASONS: readonly LedgerReason[] = [
-  'plinko_bet', 'plinko_payout',
-  'blackjack_bet', 'blackjack_double', 'blackjack_payout', 'blackjack_refund',
-  'baccarat_bet', 'baccarat_payout',
-  'roulette_bet', 'roulette_payout',
-  'poker_buyin', 'poker_cashout',
-  'mines_bet', 'mines_payout',
+const CASINO_REASONS: readonly { bet: LedgerReason; rest: readonly LedgerReason[] }[] = [
+  { bet: 'plinko_bet', rest: ['plinko_payout'] },
+  { bet: 'blackjack_bet', rest: ['blackjack_double', 'blackjack_payout', 'blackjack_refund'] },
+  { bet: 'baccarat_bet', rest: ['baccarat_payout'] },
+  { bet: 'roulette_bet', rest: ['roulette_payout'] },
+  { bet: 'mines_bet', rest: ['mines_payout'] },
+];
+
+/** The fines, penalties and charges that count as lost in full, less whatever of them was refunded. */
+const FINE_REASONS: readonly LedgerReason[] = [
   'd20_penalty', 'rob_fine_paid', 'heist_fine', 'vault_fine',
   'code_guess', 'code_refund',
   'raid_boost', 'raid_stolen', 'raid_refund',
 ];
 
-/** Sums each member's ledger `delta` over `reasons` (negated), keeping those above 0, most first. */
-async function topByLedger(guildId: string, reasons: readonly LedgerReason[], limit: number): Promise<MemberTotal[]> {
+/** The ledger reasons that count toward a member's losses: the casino games' rounds, and the fines and penalties. */
+export const LOSS_REASONS: readonly LedgerReason[] = [...CASINO_REASONS.flatMap((game) => [game.bet, ...game.rest]), ...FINE_REASONS];
+
+/** The members who have given the most to the vault, ever. */
+export async function topVaultDonors(guildId: string, limit: number): Promise<MemberTotal[]> {
   const rows = await collections()
     .ledger.aggregate<{ _id: string; amount: number }>([
-      { $match: { guildId, reason: { $in: [...reasons] } } },
+      { $match: { guildId, reason: 'vault_donation' } },
       { $group: { _id: '$userId', amount: { $sum: { $multiply: ['$delta', -1] } } } },
       { $match: { amount: { $gt: 0 } } },
       { $sort: { amount: -1, _id: 1 } },
@@ -168,14 +153,40 @@ async function topByLedger(guildId: string, reasons: readonly LedgerReason[], li
   return rows.map((row) => ({ userId: row._id, amount: row.amount }));
 }
 
-/** The members who have given the most to the vault, ever. */
-export function topVaultDonors(guildId: string, limit: number): Promise<MemberTotal[]> {
-  return topByLedger(guildId, ['vault_donation'], limit);
-}
-
-/** The members who have lost the most, ever: casino games net of what they won back, plus fines and penalties (LOSS_REASONS). */
-export function topLosers(guildId: string, limit: number): Promise<MemberTotal[]> {
-  return topByLedger(guildId, LOSS_REASONS, limit);
+/**
+ * The members who have lost the most, ever (LOSS_REASONS): what every losing casino round cost
+ * them, plus fines and penalties. Winnings never count against it: a round that paid back more
+ * than its bet is a loss of 0, not a negative one.
+ *
+ * The ledger doesn't say which round an entry belongs to, so a member's entries for one game are
+ * read in order and a round runs from one bet to the next. That holds as long as they play one
+ * round of a game at a time. A round still being played has only its bet so far, so it counts as
+ * lost until it pays.
+ */
+export async function topLosers(guildId: string, limit: number): Promise<MemberTotal[]> {
+  const games = CASINO_REASONS.map((game, index) => ({ case: { $in: ['$reason', [game.bet, ...game.rest]] }, then: index }));
+  const rows = await collections()
+    .ledger.aggregate<{ _id: string; amount: number }>([
+      { $match: { guildId, reason: { $in: [...LOSS_REASONS] } } },
+      // Fines have no game: they all land in one group per member, so a refund comes off what was charged.
+      { $set: { game: { $switch: { branches: games, default: null } } } },
+      {
+        $setWindowFields: {
+          partitionBy: { userId: '$userId', game: '$game' },
+          sortBy: { createdAt: 1, _id: 1 },
+          output: {
+            round: { $sum: { $cond: [{ $in: ['$reason', CASINO_REASONS.map((game) => game.bet)] }, 1, 0] }, window: { documents: ['unbounded', 'current'] } },
+          },
+        },
+      },
+      { $group: { _id: { userId: '$userId', game: '$game', round: '$round' }, delta: { $sum: '$delta' } } },
+      { $group: { _id: '$_id.userId', amount: { $sum: { $max: [0, { $multiply: ['$delta', -1] }] } } } },
+      { $match: { amount: { $gt: 0 } } },
+      { $sort: { amount: -1, _id: 1 } },
+      { $limit: limit },
+    ])
+    .toArray();
+  return rows.map((row) => ({ userId: row._id, amount: row.amount }));
 }
 
 /** `pool`, never more than events.vault.maxPool: the most of it a vault game pays out. */
@@ -296,8 +307,8 @@ export type Donation =
 /**
  * A member gives `amount` of their points to the vault (or everything they have, for 'all'), in one
  * conditional update: nothing is taken unless they have that much. Recorded in the ledger and
- * added to the vault pool in full, even past events.vault.maxPool (a vault game still only pays
- * out up to the cap; the rest waits for the next one). `pool` is the vault right after and
+ * added to the vault pool in full, like everything else that goes in (a vault game only pays out
+ * up to events.vault.maxPool; the rest waits for the next one). `pool` is the vault right after and
  * `payout` what the next vault game could pay out of it, for showing.
  */
 export async function donateToVault(guildId: string, userId: string, amount: number | 'all'): Promise<Donation> {
