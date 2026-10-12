@@ -251,7 +251,7 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
     avatar,
     raid: {
-      start: (guildId, userId) => startRaidFromWeb(client, guildId, userId),
+      start: (guildId, userId, level) => startRaidFromWeb(client, guildId, userId, level),
       week: raidWeekInfo,
       gear: raidGearSnapshot,
       avatar,

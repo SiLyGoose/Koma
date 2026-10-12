@@ -52,12 +52,14 @@ export const BOSS_MOVES: readonly BossMove[] = [
 
 /**
  * How each move works: `single` hits one raider (a guard can jump in front), `all` hits everyone,
- * `some` hits a few, `steal` goes for one raider and is stopped outright by a guard, `shield` makes
- * attacks bounce off for the next turn, `cc` puts raiders under crowd control, `empower` makes the
- * boss's next attack hit harder, `charge` does nothing but warn that a special attack is coming, and
- * `pestilence` doubles every raider's Blight.
+ * `some` hits a few, `steal` goes for one raider and is stopped outright by a guard, `shield` is
+ * channeled for the turn it is announced (enough Supports that turn interrupt it) and makes attacks
+ * bounce off for the turn after, `deflect` is a shield that is up the moment it is announced and takes
+ * a set number of attacks, `cc` puts raiders under crowd control, `empower` makes the boss's next
+ * attack hit harder, `charge` does nothing but warn that a special attack is coming, and `pestilence`
+ * doubles every raider's Blight.
  */
-export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'cc' | 'empower' | 'charge' | 'pestilence';
+export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'deflect' | 'cc' | 'empower' | 'charge' | 'pestilence';
 export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   claw: 'single',
   reap: 'single',
@@ -68,7 +70,7 @@ export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   reckoning: 'some',
   hoard: 'steal',
   harvest: 'steal',
-  shield: 'shield',
+  shield: 'deflect',
   veil: 'shield',
   empower: 'empower',
   gather: 'charge',
@@ -90,6 +92,12 @@ export const movesOf = (boss: RaidBossId): BossMove[] => BOSS_MOVES.filter((move
 
 /** How often a boss picks `move` from one of its sets of weights (0 for a move it doesn't have). */
 const weightOf = (weights: object, move: BossMove): number => (weights as Partial<Record<BossMove, number>>)[move] ?? 0;
+
+/** The boss's shields, channeled or not. */
+const isShield = (move: BossMove): boolean => MOVE_KIND[move] === 'shield' || MOVE_KIND[move] === 'deflect';
+
+/** How many attacks a boss's shield deflects before it shatters (the wyrm's), or 0 for a boss that channels its shield instead. */
+export const shieldDeflects = (boss: RaidBossId): number => (movesOf(boss).some((move) => MOVE_KIND[move] === 'deflect') ? RAID_COMBAT.shield.deflects : 0);
 
 /** The boss's crowd-control moves, and the effect each one leaves on its targets. */
 export type CcMove = 'stun' | 'disarm' | 'taunt';
@@ -216,6 +224,8 @@ export interface BossIntent {
   lifesteal?: number;
   /** The boss empowered itself the turn before, so `multiplier` has RAID_COMBAT.empower.multiplier in it. */
   empowered?: boolean;
+  /** Enough raiders Supported while the boss was channeling this move (a shield): it comes to nothing. */
+  interrupted?: boolean;
 }
 
 export type RaidOutcome = 'ongoing' | 'won' | 'wiped' | 'fled';
@@ -234,8 +244,10 @@ export interface RaidState {
   maxRounds: number;
   players: RaidPlayer[];
   intent: BossIntent;
-  /** The boss's shield (the Scale Shield, the Spectral Veil) is up for this round's attacks. */
+  /** The boss's shield (the Scale Shield, the Spectral Veil, the Fly Swarm) is up for this round's attacks. */
   shielded: boolean;
+  /** Attacks the Scale Shield still deflects before it shatters. 0 for a channeled shield, which lasts its one round whatever hits it. */
+  deflects: number;
   /** Turns left that everyone's attacks are multiplied by `rallyMultiplier` (from a rally). */
   rallied: number;
   /** What attacks are multiplied by while rallied: RAID_COMBAT.support.attackMultiplier, bigger when the rally came from a player with rallyBoost. */
@@ -281,6 +293,7 @@ export type RaidEvent =
   | { kind: 'cleansed'; userId: string; targetId: string; effect: CrowdControl }
   /** A Support cleared `stacks` of `targetId`'s Blight stacks. */
   | { kind: 'purged'; userId: string; targetId: string; stacks: number }
+  /** The boss's shield is done for: interrupted while it was channeled, or the Scale Shield deflected its last attack. */
   | { kind: 'shieldBroken' }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
   | { kind: 'bounced'; userId: string }
@@ -493,6 +506,7 @@ export function createRaid(
     players: userIds.map((userId) => ({ userId, hp: playerHp, maxHp: playerHp, cc: null, blight: 0, targeted: 0, stats: emptyStats(), gear: emptyGear() })),
     intent: { move: movesOf(boss)[0] ?? 'claw', targets: [], multiplier: 1 },
     shielded: false,
+    deflects: 0,
     rallied: 0,
     rallyMultiplier: RAID_COMBAT.support.attackMultiplier,
     rallyBy: null,
@@ -506,7 +520,7 @@ export function createRaid(
     gathered: 0,
     outcome: 'ongoing',
   };
-  state.intent = pickIntent(state, rng);
+  announce(state, rng);
   return state;
 }
 
@@ -596,7 +610,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   // RAID_COMBAT.blight.supportCleanseAt Blight stacks or more, one Support clears some off the most
   // blighted (the one with the strongest blightPurge, which also clears a second ally's); supports
   // don't stack, so the rest, like any with nothing to lift or clear, rally the party for the next
-  // turns' attacks. Every support counts toward shattering the shield either way.
+  // turns' attacks. Every support counts toward interrupting a shield the boss is channeling either way.
   const supports = byAction('support');
   const free: RaidPlayer[] = [];
   for (const [userId] of supports) {
@@ -631,8 +645,9 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     rally = Math.max(rally, multiplier);
     events.push({ kind: 'rally', userId: supporter.userId, turns: RAID_COMBAT.support.rallyTurns, multiplier });
   }
-  if (state.shielded && supports.length >= RAID_COMBAT.support.shieldBreak) {
-    state.shielded = false;
+  // The shield the boss is channeling this turn never comes up. One that is already up can't be broken this way.
+  if (MOVE_KIND[state.intent.move] === 'shield' && supports.length >= RAID_COMBAT.support.shieldBreak) {
+    state.intent.interrupted = true;
     events.push({ kind: 'shieldBroken' });
   }
   // A rally from an earlier turn powers this turn's attacks; one made this turn starts with the next.
@@ -644,6 +659,11 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     if (state.bossHp <= 0) break;
     if (state.shielded) {
       events.push({ kind: 'bounced', userId });
+      // The Scale Shield shatters on the last attack it deflects: the turn's later attacks land.
+      if (state.deflects > 0 && --state.deflects === 0) {
+        state.shielded = false;
+        events.push({ kind: 'shieldBroken' });
+      }
       continue;
     }
     const { min, max } = RAID_COMBAT.attack;
@@ -671,10 +691,10 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     }
   }
 
-  // The shield only lasts the one round; crowd control and a rally wear off by a turn. Rallies don't stack:
-  // a new one sets the turns left back to the full count, at the stronger of its bonus and the one
-  // still running.
-  state.shielded = false;
+  // A channeled shield only lasts the one round (the Scale Shield stays up until it has deflected its
+  // attacks); crowd control and a rally wear off by a turn. Rallies don't stack: a new one sets the
+  // turns left back to the full count, at the stronger of its bonus and the one still running.
+  if (state.deflects <= 0) state.shielded = false;
   if (state.rallied > 0) state.rallied--;
   if (rally > 0) {
     // The stronger rally carries on, and so does who gets its credit.
@@ -835,8 +855,12 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       break;
     }
     case 'shield':
+      // The Scale Shield went up when it was announced (announce): raising it was the wyrm's move.
+      break;
     case 'veil':
     case 'flies':
+      // Channeled all turn, unless enough raiders Supported to interrupt it.
+      if (state.intent.interrupted) break;
       state.shielded = true;
       events.push({ kind: 'shieldUp' });
       break;
@@ -931,8 +955,19 @@ export function endRound(state: RaidState, rng: RaidRng = defaultRaidRng): RaidE
     return [{ kind: 'fled' }];
   }
   state.round++;
+  return announce(state, rng);
+}
+
+/**
+ * Picks the boss's move for the round and announces it. A shield that isn't channeled (the Scale
+ * Shield) is up at once, for this round's attacks already: the boss makes no other move this round.
+ */
+function announce(state: RaidState, rng: RaidRng): RaidEvent[] {
   state.intent = pickIntent(state, rng);
-  return [];
+  if (MOVE_KIND[state.intent.move] !== 'deflect') return [];
+  state.shielded = true;
+  state.deflects = RAID_COMBAT.shield.deflects;
+  return [{ kind: 'shieldUp' }];
 }
 
 /** Whether the boss has a Soul Requiem it can start charging for the round being planned (its phase reached, and off cooldown). */
@@ -993,7 +1028,8 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
   const options = BOSS_MOVES.filter(
     (move) =>
       weight(move) > 0 &&
-      !(MOVE_KIND[move] === 'shield' && state.lastMove === move) &&
+      // Never its shield twice in a row, nor while one is still up (the Scale Shield, until it has deflected its attacks).
+      !(isShield(move) && (state.lastMove === move || state.deflects > 0)) &&
       !(move === 'brew' && (state.lastMove === 'pestilence' || state.bossHp > state.bossMaxHp * RAID_COMBAT.pestilence.from)) &&
       (ccAllowed || !isCcMove(move)) &&
       (!state.empowered || isAttack(move)),

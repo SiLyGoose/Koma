@@ -16,8 +16,8 @@ import { raidView } from './view.js';
 
 /** What the raid's socket needs from the bot (index.ts gives it the real ones). */
 export interface RaidSiteDeps {
-  /** Starts this week's raid in `guildId` for `userId` (commands/raid.ts's startRaidFromWeb). */
-  start(guildId: string, userId: string): Promise<WebRaidStart>;
+  /** Starts this week's raid in `guildId` for `userId`, at the difficulty `level` they picked (commands/raid.ts's startRaidFromWeb). */
+  start(guildId: string, userId: string, level: number): Promise<WebRaidStart>;
   /** How this week's raid stands in `guildId` (commands/raid.ts's raidWeekInfo). */
   week(guildId: string): Promise<RaidWeekInfo>;
   /** A member's profile picture in a server, when the bot knows it. */
@@ -97,7 +97,7 @@ export function openConnection(page: Peer<ServerMessage>, deps: RaidSiteDeps): C
         switch (message.t) {
           case 'start': {
             if (going) return answer('start', 'started');
-            const started = await deps.start(who.guildId, who.userId);
+            const started = await deps.start(who.guildId, who.userId, message.level ?? 1);
             week = null;
             answer('start', started.ok ? 'ok' : started.reason);
             return schedule();

@@ -558,24 +558,53 @@ test('the boss spreads its aimed moves evenly: always at someone aimed at least 
   assert.equal(fairTargets(state.players, 9, low).length, 4);
 });
 
-test('scale shield: attacks bounce for a turn unless enough players support', () => {
-  const bounced = fight();
-  bounced.intent = { move: 'shield', targets: [], multiplier: 1 };
-  resolvePlayerTurn(bounced, choose(), low);
-  bossTurn(bounced, low);
-  assert.equal(bounced.shielded, true);
-  assert.equal(moodOf(bounced), 'shielded');
-  const events = resolvePlayerTurn(bounced, choose(['a', 'attack']), low);
-  assert.deepEqual(events, [{ kind: 'bounced', userId: 'a' }]);
-  assert.equal(bounced.bossHp, 1000);
-  assert.equal(bounced.shielded, false);
+test('scale shield: up the moment it is announced, it deflects a set number of attacks and Supports do nothing to it', () => {
+  const { deflects } = RAID_COMBAT.shield;
+  const weights = RAID_COMBAT.weights.wyrm[0];
+  // A roll just past the moves ahead of it lands on the shield.
+  const shieldRoll: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, weights.claw + weights.breath + weights.sweep + weights.hoard + 1)) };
+  const party = Array.from({ length: deflects + 2 }, (_, i) => `p${i}`);
+  const state = createRaid('wyrm', party, 10_000, 100, 15, low);
+  assert.deepEqual(endRound(state, shieldRoll), [{ kind: 'shieldUp' }]);
+  assert.equal(state.intent.move, 'shield');
+  assert.equal(state.shielded, true);
+  assert.equal(state.deflects, deflects);
+  assert.equal(moodOf(state), 'shielded');
+  assert.match(intentText(state), new RegExp(`deflects ${deflects} attacks`));
+  assert.ok(fightEmbed(state, new Map(), [], Date.now() + 60_000, DEFAULTS.raid).toJSON().description?.includes(`**Scale Shield up**: the next ${deflects} attacks do nothing`));
 
-  const supporters = Array.from({ length: RAID_COMBAT.support.shieldBreak }, (_, i): [string, 'support'] => [`s${i}`, 'support']);
-  const party = createRaid('wyrm', ['a', ...supporters.map(([id]) => id)], 1000, 100, 15, low);
-  party.shielded = true;
-  const out = resolvePlayerTurn(party, choose(...supporters, ['a', 'attack']), low);
-  assert.ok(out.some((e) => e.kind === 'shieldBroken'));
-  assert.ok(party.bossHp < 1000);
+  // Supports don't break it, and it stays up past the turn while it has attacks left to deflect.
+  const supporters = party.slice(0, RAID_COMBAT.support.shieldBreak).map((id): [string, 'support'] => [id, 'support']);
+  const first = resolvePlayerTurn(state, choose(...supporters, ['p2', 'attack']), low);
+  assert.ok(!first.some((e) => e.kind === 'shieldBroken'));
+  assert.deepEqual(first.at(-1), { kind: 'bounced', userId: 'p2' });
+  assert.equal(state.bossHp, 10_000);
+  assert.equal(state.shielded, true);
+  assert.equal(state.deflects, deflects - 1);
+  // Raising it was the wyrm's move for the turn, and it doesn't raise another while one is up.
+  assert.deepEqual(bossTurn(state, low).events, []);
+  state.lastMove = 'claw';
+  for (let roll = 1; roll <= 100; roll++) {
+    const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
+    assert.notEqual(pickIntent(state, fixed).move, 'shield');
+  }
+
+  // The last attack it deflects shatters it, and the rest of that turn's attacks land.
+  endRound(state, low);
+  const out = resolvePlayerTurn(state, choose(...party.map((id): [string, 'attack'] => [id, 'attack'])), low);
+  assert.equal(out.filter((e) => e.kind === 'bounced').length, deflects - 1);
+  assert.deepEqual(out[deflects - 1], { kind: 'shieldBroken' });
+  assert.equal(out.filter((e) => e.kind === 'attack').length, 3);
+  assert.ok(state.bossHp < 10_000);
+  assert.equal(state.shielded, false);
+  assert.equal(state.deflects, 0);
+  assert.equal(eventText({ kind: 'shieldBroken' }, 'wyrm'), '💥 The Scale Shield shatters!');
+
+  // The lobby says how each boss's shield is dealt with.
+  const wyrm = TEXT.raid.howTo(TEXT.raid.bosses.wyrm, 60, 2, '1.5x', 2, true, true, null, deflects);
+  assert.match(wyrm, new RegExp(`Its Scale Shield goes up without warning and deflects the next ${deflects} attacks\\.`));
+  assert.doesNotMatch(wyrm, /interrupt/);
+  assert.match(TEXT.raid.howTo(TEXT.raid.bosses.reaper, 60, 2, '1.5x', 2, false, false), /2 Supports in the turn it channels its Spectral Veil interrupt it\./);
 });
 
 test('enrage: the boss gets angrier below each threshold, and never shields twice in a row', () => {
@@ -1154,12 +1183,50 @@ test('harvest: tears HP out of one raider and heals a share of the max HP, unles
   assert.equal(guarded.players[2]?.hp, 100);
 });
 
-test('spectral veil: works like the Scale Shield, and is never raised twice in a row', () => {
-  const state = reaperFight();
+test('spectral veil: channeled for a turn, up for the next, and never raised twice in a row', () => {
+  const supporters = Array.from({ length: RAID_COMBAT.support.shieldBreak }, (_, i): [string, 'support'] => [`s${i}`, 'support']);
+  const party = ['a', ...supporters.map(([id]) => id)];
+  const state = reaperFight(party);
   state.intent = { move: 'veil', targets: [], multiplier: 1 };
+  // While it channels, attacks land, and too few Supports don't interrupt it.
+  const channeling = resolvePlayerTurn(state, choose(['a', 'attack'], ...supporters.slice(1)), low);
+  assert.ok(channeling.some((e) => e.kind === 'attack'));
+  assert.ok(!channeling.some((e) => e.kind === 'shieldBroken'));
   assert.deepEqual(bossTurn(state, low).events, [{ kind: 'shieldUp' }]);
   assert.equal(moodOf(state), 'shielded');
-  assert.deepEqual(resolvePlayerTurn(state, choose(['a', 'attack']), low), [{ kind: 'bounced', userId: 'a' }]);
+  // Once it is up it is too late: every attack bounces for the turn, however many raiders Support.
+  endRound(state, low);
+  const hp = state.bossHp;
+  const late = resolvePlayerTurn(state, choose(...supporters, ['a', 'attack']), low);
+  assert.ok(!late.some((e) => e.kind === 'shieldBroken'));
+  assert.deepEqual(late.at(-1), { kind: 'bounced', userId: 'a' });
+  assert.equal(state.bossHp, hp);
+  assert.equal(state.shielded, false);
+
+  // Enough Supports in the turn it is channeled interrupt it: it never comes up (the matriarch's Fly Swarm too).
+  for (const [boss, move] of [
+    [reaperFight(party), 'veil'],
+    [plagueFight(party), 'flies'],
+  ] as const) {
+    boss.intent = { move, targets: [], multiplier: 1 };
+    const out = resolvePlayerTurn(boss, choose(...supporters, ['a', 'attack']), low);
+    assert.ok(out.some((e) => e.kind === 'shieldBroken'), move);
+    assert.ok(out.some((e) => e.kind === 'attack'), move);
+    assert.deepEqual(bossTurn(boss, low).events, [], move);
+    assert.equal(boss.shielded, false, move);
+    endRound(boss, low);
+    assert.deepEqual(resolvePlayerTurn(boss, choose(['a', 'attack']), low).map((e) => e.kind), ['attack'], move);
+  }
+  assert.match(eventText({ kind: 'shieldBroken' }, 'reaper'), /the Spectral Veil never forms/);
+  assert.match(intentText(state, { move: 'veil', targets: [], multiplier: 1 }), /2 raiders must Support \*\*this turn\*\* to interrupt it/);
+
+  // Its other channels are a matter of bracing: Supports don't interrupt the Soul Requiem.
+  const charging = reaperFight(party);
+  charging.intent = { move: 'charge', targets: [], multiplier: 1 };
+  assert.ok(!resolvePlayerTurn(charging, choose(...supporters), low).some((e) => e.kind === 'shieldBroken'));
+  assert.deepEqual(bossTurn(charging, low).events, [{ kind: 'charging' }]);
+  assert.match(intentText(charging), /Support can't interrupt it/);
+
   state.lastMove = 'veil';
   for (let roll = 1; roll <= 100; roll++) {
     const fixed: RaidRng = { ...low, int: (min, max) => Math.min(max, Math.max(min, roll)) };
@@ -1466,7 +1533,7 @@ test('raid stats: the reaper lists Dark Empowerment and Grim Reckoning', () => {
 
 test('raid stats: the reaper lists its Soul Requiem', () => {
   const moves = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '';
-  assert.ok(moves.includes('🌑 **Soul Requiem** (😡 Furious only): charges for a turn, then casts Soul Drain 2 times in a row. 6 round cooldown.'), moves);
+  assert.ok(moves.includes("🌑 **Soul Requiem** (😡 Furious only): charges for a turn, then casts Soul Drain 2 times in a row. Support can't interrupt it. 6 round cooldown."), moves);
   assert.doesNotMatch(bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '', /Requiem/);
 });
 

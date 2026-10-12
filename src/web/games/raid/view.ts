@@ -7,7 +7,7 @@ import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, diffic
 import type { ActProblem, LiveRaid } from '../../../lib/events/raid-live.js';
 import { raidDropCounts, raidDropsOn } from '../../../lib/game/items/raid-drops.js';
 import { STARS, type ItemDef } from '../../../types.js';
-import type { RaidLobbyView, RaidLootItem, RaidMood, RaidView } from './protocol.js';
+import type { RaidLevel, RaidLootItem, RaidMood, RaidView } from './protocol.js';
 
 /*
  * The raid as one player's page sees it (protocol.ts's RaidView): the raid going on in their server
@@ -34,8 +34,8 @@ export const statsOf = (s: Partial<RaidStats> | undefined) => ({
 /** What the winners were paid, with the currencies' emojis. */
 const rewardText = (points: number, tokens: number, gems: number): string => TEXT.raid.rewardList(fmt(points), tokens, gems);
 
-/** What each difficulty level does to the boss and drops for a win, for the lobby's picker. */
-const difficultyLevels = (): RaidLobbyView['levels'] =>
+/** What each difficulty level does to the boss and drops for a win, for the page's pickers (before the lobby, and in it). */
+const difficultyLevels = (): RaidLevel[] =>
   Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => {
     const { level, hp, damage } = difficultyOf(i + 1, CONFIG.raid);
     const counts = raidDropCounts(level);
@@ -109,6 +109,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         bossMaxHp: state.bossMaxHp,
         enrage: state.enrage,
         shielded: state.shielded,
+        deflects: state.deflects,
         rallied: state.rallied,
         rallyMultiplier: state.rallyMultiplier,
         intent: intentText(state),
@@ -180,5 +181,8 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const fought = status === 'won' || status === 'wiped' || status === 'fled';
   const idleWeek = fought ? status : status === null ? 'open' : 'busy';
   const mood: RaidMood = status === 'won' ? 'defeated' : status === 'wiped' ? 'gloating' : status === 'fled' ? 'fled' : 'calm';
-  return view(mood, { phase: 'idle', idle: { week: idleWeek, canStart: idleWeek === 'open' && week.channel, ...(unfought ? { last: unfought } : {}) } });
+  const canStart = idleWeek === 'open' && week.channel;
+  // Whoever starts it picks its difficulty first.
+  const pick = canStart ? { pick: { maxDifficulty: week.maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels() } } : {};
+  return view(mood, { phase: 'idle', idle: { week: idleWeek, canStart, ...(unfought ? { last: unfought } : {}), ...pick } });
 }

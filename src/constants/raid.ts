@@ -111,8 +111,8 @@ export const RAID_EMOJI = {
  *   enough, and the rest rally the party instead, multiplying everyone's attacks by
  *   `attackMultiplier` (its bonus bigger with the rallyBoost perk) for the next `rallyTurns` turns. Rallies don't stack: with several in a turn only
  *   the strongest counts, and a new one only takes over a running one if it is at least as strong (it
- *   resets the count either way). `shieldBreak` supports in the same turn shatter
- *   the boss's shield (the Scale Shield or the Spectral Veil), whatever else they did.
+ *   resets the count either way). `shieldBreak` supports in the turn a boss channels its shield (the
+ *   Spectral Veil or the Fly Swarm) interrupt it, whatever else they did.
  *
  * Bosses:
  * - Its damage is multiplied by `enrage.multipliers[level]`; level 1 starts below the first share
@@ -120,6 +120,13 @@ export const RAID_EMOJI = {
  * - Each move's base numbers are below; `weights[boss][level]` is how often that boss picks each of
  *   its moves at each enrage level (a boss only uses the moves it has weights for). It never raises
  *   its shield twice in a row.
+ * - Shields: the reaper's `veil` and the matriarch's `flies` are channeled. The boss spends the turn
+ *   it announced one in channeling it, and it is up for the turn after, when every attack does
+ *   nothing; `support.shieldBreak` Supports in the channeling turn interrupt it, and once it is up
+ *   nothing breaks it. The wyrm's `shield` isn't channeled: it is up the moment it is announced (the
+ *   wyrm makes no other move that turn), deflects the next `shield.deflects` attacks, however many
+ *   turns those take, and then shatters. Supports do nothing to it, and the wyrm doesn't raise
+ *   another while one is up.
  * - The Ember Wyrm: `claw` (one raider), `breath` (everyone), `sweep` (min to max raiders), `hoard`
  *   (steals min to max points from one player's wallet, never more than they have), `shield`.
  * - The Soul Reaper: `reap` (one raider), `drain` (everyone), `scythe` (min to max raiders),
@@ -131,8 +138,8 @@ export const RAID_EMOJI = {
  * - `empower` (the reaper's Dark Empowerment): it spends its turn powering up, and its next move is
  *   always an attack, doing `empower.multiplier` times the damage (on top of its enrage).
  * - `gather` then `reckoning` (the reaper's Grim Reckoning): it spends `reckoning.chargeTurns` turns
- *   gathering, announced each turn, then hits min to max raiders at once. It can't be interrupted, so
- *   the party has those turns to guard and heal up.
+ *   gathering, announced each turn, then hits min to max raiders at once. It can't be interrupted
+ *   (Supports only interrupt a shield), so the party has those turns to guard and heal up.
  * - The Plague Matriarch: `spit` (one raider), `miasma` (everyone), `rot` (one raider for every
  *   `raidersPerTarget` standing, rounded up), `flies` (its shield), and `brew` then `pestilence`.
  *   Each of its hits leaves `blight` stacks of Blight on whoever takes it (see `blight` below); `brew`
@@ -151,6 +158,7 @@ export const RAID_COMBAT = {
   heal: { amount: 30, reviveShare: 0.3 },
   guard: { takenShare: 0.5, aoeCut: 0.3, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },
+  shield: { deflects: 6 },
   enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5], lifesteal: [1, 1.25, 1.5] },
   moves: {
     claw: { damage: 56 },
@@ -181,8 +189,9 @@ export const RAID_COMBAT = {
   empower: { multiplier: 1.5 },
   /**
    * The Soul Reaper's special attack, Soul Requiem: from enrage level `phase` on (furious), as soon as
-   * it is ready it spends a turn charging (announced, so the party can brace), then casts Soul Drain
-   * `casts` times in a row. It is ready again `cooldown` rounds after it was unleashed.
+   * it is ready it spends a turn charging (announced, so the party can brace: Supports don't interrupt
+   * it), then casts Soul Drain `casts` times in a row. It is ready again `cooldown` rounds after it was
+   * unleashed.
    */
   requiem: { boss: 'reaper', phase: 2, cooldown: 6, casts: 2 },
   cc: { rounds: 2, cooldown: [5, 4, 3], targets: [1, 2, 3] },

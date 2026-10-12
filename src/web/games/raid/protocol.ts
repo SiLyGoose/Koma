@@ -12,7 +12,8 @@ import type { ActProblem, LobbyAnswer, RaidEnd } from '../../../lib/events/raid-
  *
  *   page -> bot   hello    first message: the token from the link
  *                 start    starts this week's raid: its lobby goes up in the server's channel, with
- *                          them as the host
+ *                          them as the host, at the difficulty `level` they picked before it (left out: 1;
+ *                          past what the server has unlocked: the hardest it has)
  *                 join     joins the lobby; `leave` leaves it
  *                 begin    the host starts the fight now, without waiting for the lobby to close
  *                 difficulty  the host picks the raid's difficulty `level` (up to the lobby's `maxDifficulty`)
@@ -28,7 +29,7 @@ import type { ActProblem, LobbyAnswer, RaidEnd } from '../../../lib/events/raid-
 
 export type ClientMessage =
   | { t: 'hello'; token: string }
-  | { t: 'start' }
+  | { t: 'start'; level?: number }
   | { t: 'join' }
   | { t: 'leave' }
   | { t: 'begin' }
@@ -60,6 +61,8 @@ export interface RaidFightView {
   /** 0 calm, 1 enraged, 2 furious. */
   enrage: number;
   shielded: boolean;
+  /** Attacks the shield still deflects before it shatters (the wyrm's); 0 for a shield that is up for the turn. */
+  deflects: number;
   /** Rounds of Support's attack boost left, and how big it is. */
   rallied: number;
   rallyMultiplier: number;
@@ -84,6 +87,23 @@ export interface RaidLootItem {
   isNew?: boolean;
 }
 
+/** One difficulty level: what it multiplies the boss's HP and damage by, and what a win at it drops for each raider (best tier first). */
+export interface RaidLevel {
+  level: number;
+  hp: number;
+  damage: number;
+  drops: { stars: number; count: number }[];
+}
+
+/** The difficulties whoever starts the week's raid can pick from, before its lobby is up. */
+export interface RaidPickView {
+  /** The hardest level the server can pick (one past the hardest it has beaten), and the hardest there is. */
+  maxDifficulty: number;
+  topDifficulty: number;
+  /** Every level, from 1 to `topDifficulty`. */
+  levels: RaidLevel[];
+}
+
 /** The lobby's difficulty: the host picks a level, up to the hardest the server has unlocked. */
 export interface RaidLobbyView {
   host: string;
@@ -95,8 +115,8 @@ export interface RaidLobbyView {
   /** The hardest level the server can pick (one past the hardest it has beaten), and the hardest there is. */
   maxDifficulty: number;
   topDifficulty: number;
-  /** What each level multiplies the boss's HP and damage by, and what a win at it drops for each raider (best tier first), from level 1 to `topDifficulty`. */
-  levels: { level: number; hp: number; damage: number; drops: { stars: number; count: number }[] }[];
+  /** Every level, from 1 to `topDifficulty`. */
+  levels: RaidLevel[];
 }
 
 export interface RaidOverView {
@@ -151,12 +171,13 @@ export interface RaidView {
   resetsAt: number;
   /**
    * `idle`: no raid going on. `week` is how this week's raid went ('open' when it hasn't been fought),
-   * and `canStart` whether the page can start it (a server without a bot channel starts it in Discord).
+   * and `canStart` whether the page can start it (a server without a bot channel starts it in Discord);
+   * `pick`, with it, is the difficulties to start it at.
    * `last` says how the last lobby went when it never came to a fight, a little while after (nobody
    * joined in time, or it was called off): the week was freed, so it can be started again.
    */
   phase: 'idle' | 'lobby' | 'fight' | 'over';
-  idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'called_off' } | null;
+  idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'called_off'; pick?: RaidPickView } | null;
   lobby: RaidLobbyView | null;
   fight: RaidFightView | null;
   over: RaidOverView | null;
@@ -197,6 +218,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'hello':
       return typeof m.token === 'string' ? { t: 'hello', token: m.token } : null;
     case 'start':
+      if (m.level === undefined) return { t: 'start' };
+      return typeof m.level === 'number' && Number.isInteger(m.level) && m.level >= 1 && m.level <= 100 ? { t: 'start', level: m.level } : null;
     case 'join':
     case 'leave':
     case 'begin':

@@ -187,6 +187,8 @@ export function validateConstants(): void {
   if (!(Number.isInteger(LOADOUTS.count) && LOADOUTS.count >= 1 && LOADOUTS.count <= 9)) problems.push('LOADOUTS.count must be a whole number from 1 to 9');
   if (!(Number.isInteger(LOADOUTS.maxNameLength) && LOADOUTS.maxNameLength >= 1 && LOADOUTS.maxNameLength <= 100)) problems.push('LOADOUTS.maxNameLength must be a whole number from 1 to 100');
   if (!(LOADOUT_BUTTONS.idleMs >= 5000)) problems.push('LOADOUT_BUTTONS.idleMs must be at least 5000');
+  if (!(Number.isInteger(RAID_COMBAT.support.shieldBreak) && RAID_COMBAT.support.shieldBreak >= 1)) problems.push('RAID_COMBAT.support.shieldBreak must be a whole number of at least 1');
+  if (!(Number.isInteger(RAID_COMBAT.shield.deflects) && RAID_COMBAT.shield.deflects >= 1)) problems.push('RAID_COMBAT.shield.deflects must be a whole number of at least 1');
   const { cc } = RAID_COMBAT;
   if (!(Number.isInteger(cc.rounds) && cc.rounds >= 1)) problems.push('RAID_COMBAT.cc.rounds must be a whole number of at least 1');
   if (cc.cooldown.length !== RAID_COMBAT.enrage.multipliers.length || cc.targets.length !== RAID_COMBAT.enrage.multipliers.length) {

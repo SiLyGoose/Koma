@@ -28,6 +28,7 @@ import {
   bossTurn,
   canAct,
   CC_EFFECT,
+  clampDifficulty,
   createRaid,
   damageRanking,
   difficultyOf,
@@ -49,6 +50,7 @@ import {
   participants,
   recordTheft,
   resolvePlayerTurn,
+  shieldDeflects,
   type BossIntent,
   type BossMove,
   type RaidAction,
@@ -147,7 +149,7 @@ function moveIntentText(state: RaidState, intent: BossIntent): string {
     case 'hoard':
       return i.hoard(target);
     case 'shield':
-      return i.shield(support.shieldBreak);
+      return i.shield(RAID_COMBAT.shield.deflects);
     case 'reap':
       return i.reap(target, hit(moves.reap.damage), formatMultiplier(moves.reap.lifesteal * lifesteal));
     case 'drain':
@@ -381,7 +383,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
   const tags = [
     state.difficulty > 1 ? r.difficultyTag(state.difficulty) : '',
     state.enrage > 0 ? r.enraged(state.enrage) : '',
-    state.shielded ? r.shielded(b) : '',
+    state.shielded ? r.shielded(b, state.deflects) : '',
     state.rallied > 0 ? r.rallied(formatMultiplier(state.rallyMultiplier), state.rallied) : '',
   ].filter(Boolean);
   const description = [
@@ -586,7 +588,7 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId, difficulty = 1): 
       case 'hoard':
         return r.moves.hoard(fmt(moves.hoard.min), fmt(moves.hoard.max));
       case 'shield':
-        return r.moves.shield(support.shieldBreak);
+        return r.moves.shield(RAID_COMBAT.shield.deflects);
       case 'reap':
         return r.moves.reap(moves.reap.damage, moves.reap.lifesteal);
       case 'drain':
@@ -824,6 +826,7 @@ function lobbyView(
           steals,
           hasCc,
           hasBlight(boss) ? { supportAt: RAID_COMBAT.blight.supportCleanseAt, clears: RAID_COMBAT.blight.supportCleanse } : null,
+          shieldDeflects(boss),
         ),
       },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
@@ -864,7 +867,7 @@ function lobbyView(
 
 /**
  * Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order
- * they joined, and the difficulty the host picked (level 1 unless they changed it, at most
+ * they joined, and the difficulty the host picked (`startLevel` unless they changed it, at most
  * `maxDifficulty`). Discord's buttons and the site (through `live`) join, leave, pick and start the same way.
  */
 async function runLobby(
@@ -877,9 +880,10 @@ async function runLobby(
   names: Map<string, string>,
   live: LiveRaid,
   maxDifficulty: number,
+  startLevel = 1,
 ): Promise<{ players: string[]; difficulty: number }> {
   const players = [host];
-  const picked: LobbyDifficulty = { level: 1, max: maxDifficulty };
+  const picked: LobbyDifficulty = { level: startLevel, max: maxDifficulty };
   const closesAt = Date.now() + cfg.prepareSeconds * 1000;
   let open = true;
   const screen = new RaidScreen(boss, message, () => lobbyView(guildId, boss, host, players, closesAt, cfg, true, picked), () => 'calm', 'calm');
@@ -932,6 +936,7 @@ async function runLobby(
       return 'difficulty_set';
     },
   };
+  live.difficulty = picked.level;
   live.openLobby(lobby);
 
   collector.on('collect', (press) => {
@@ -1196,6 +1201,8 @@ export function applyRaidTest(fight: LiveFight, action: TestAction, userId: stri
     }
     case 'shield':
       state.shielded = !state.shielded;
+      // The wyrm's is up until it has deflected its attacks; the others' for this turn.
+      state.deflects = state.shielded ? shieldDeflects(state.boss) : 0;
       reply = state.shielded ? t.shieldOn(b) : t.shieldOff(b);
       break;
     case 'next':
@@ -1315,10 +1322,11 @@ export const runExtraRaid = (ctx: CommandContext): Promise<void> => runRaid(ctx,
 export type RaidRefusal = 'busy' | 'raided' | 'started';
 
 /**
- * A raid started from the site (startRaidFromWeb): why it didn't start goes back to the page instead
- * of into the channel, and `opened` says when the lobby is up.
+ * A raid started from the site (startRaidFromWeb), at the difficulty `level` its host picked there: why
+ * it didn't start goes back to the page instead of into the channel, and `opened` says when the lobby is up.
  */
 interface WebStart {
+  level: number;
   refused(reason: RaidRefusal): void;
   opened(): void;
 }
@@ -1367,15 +1375,17 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
 
     const closesAt = Date.now() + cfg.prepareSeconds * 1000;
     const maxDifficulty = await maxRaidDifficulty(ctx.guildId);
+    // The lobby opens at level 1, or at what the site's host picked before starting it (no further than the server has unlocked).
+    const startLevel = clampDifficulty(web?.level ?? 1, maxDifficulty);
     // The preparation starts here: whoever took the raid role is pinged, once, by this first message.
-    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true, { level: 1, max: maxDifficulty }), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
+    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true, { level: startLevel, max: maxDifficulty }), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 
     const names = new Map([[ctx.user.id, ctx.guild.members.cache.get(ctx.user.id)?.displayName ?? ctx.user.displayName]]);
     live = openLiveRaid(ctx.guildId, boss, ctx.user.id, names);
     web?.opened();
-    const { players, difficulty: level } = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live, maxDifficulty);
+    const { players, difficulty: level } = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live, maxDifficulty, startLevel);
     if (players.length === 0) {
       await abandonRaid(id);
       settled = true;
@@ -1448,6 +1458,8 @@ export interface RaidWeekInfo {
   status: RaidDoc['status'] | null;
   /** The server has a bot channel, so the site can start the raid there. */
   channel: boolean;
+  /** The hardest difficulty the server can pick (services/raid.ts's maxRaidDifficulty). */
+  maxDifficulty: number;
   /** How this week's raid went, once it's been fought: what each raider did (in the order they joined). */
   result: {
     end: 'won' | 'wiped' | 'fled';
@@ -1493,7 +1505,7 @@ export async function raidGearSnapshot(guildId: string, userId: string): Promise
 
 export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
   const week = raidWeek();
-  const [doc, channelId] = await Promise.all([findRaid(raidId(guildId, week.key)), getChannelId(guildId)]);
+  const [doc, channelId, maxDifficulty] = await Promise.all([findRaid(raidId(guildId, week.key)), getChannelId(guildId), maxRaidDifficulty(guildId)]);
   const fought = doc && isFinished(doc) ? doc : null;
   // Raids saved before every stat was kept only have damage; the rest shows as nothing for them.
   const result: RaidWeekInfo['result'] = fought
@@ -1511,7 +1523,7 @@ export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
         ...(fought.drops && fought.lootKey ? { drops: fought.drops, lootKey: fought.lootKey } : {}),
       }
     : null;
-  return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null, result };
+  return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null, maxDifficulty, result };
 }
 
 /** How starting a raid from the site went: its lobby is up in the server's channel, or why not. */
@@ -1520,10 +1532,11 @@ export type WebRaidStart = { ok: true } | { ok: false; reason: RaidRefusal | 'no
 /**
  * Starts this week's raid for `userId` from the site: its lobby goes up in the server's channel (the
  * one the bot is confined to, where events spawn), with them as the host, as if they had run `raid`
- * there. Without such a channel it can only be started in Discord. Answers once the lobby is up (the
+ * there, at the difficulty `level` they picked on the site (no further than the server has unlocked).
+ * Without such a channel it can only be started in Discord. Answers once the lobby is up (the
  * raid then runs on by itself) or it's clear it won't be.
  */
-export async function startRaidFromWeb(client: Client<true>, guildId: string, userId: string): Promise<WebRaidStart> {
+export async function startRaidFromWeb(client: Client<true>, guildId: string, userId: string, level = 1): Promise<WebRaidStart> {
   const guild = client.guilds.cache.get(guildId);
   const channelId = await getChannelId(guildId);
   if (!guild || !channelId) return { ok: false, reason: 'no_channel' };
@@ -1557,7 +1570,7 @@ export async function startRaidFromWeb(client: Client<true>, guildId: string, us
       answered = true;
       resolve(result);
     };
-    runRaid(ctx, null, false, { refused: (reason) => answer({ ok: false, reason }), opened: () => answer({ ok: true }) })
+    runRaid(ctx, null, false, { level, refused: (reason) => answer({ ok: false, reason }), opened: () => answer({ ok: true }) })
       .catch((err) => console.error(`The raid started from the site in ${guildId} failed:`, err))
       // Ended without its lobby ever going up (the channel refused the message, say).
       .finally(() => answer({ ok: false, reason: 'failed' }));

@@ -13,7 +13,7 @@ import { openConnection, type RaidSiteDeps } from '../src/web/games/raid/server.
 import { raidView } from '../src/web/games/raid/view.js';
 import { signToken } from '../src/web/auth/token.js';
 
-const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, result: null, ...over });
+const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, maxDifficulty: 1, result: null, ...over });
 const wait = (ms = 150): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fakePage() {
@@ -82,7 +82,8 @@ test('idle: how the week stands, and whether the page can start the raid', () =>
   clearLiveRaids();
   const open = raidView('u1', week(), null);
   assert.equal(open.phase, 'idle');
-  assert.deepEqual(open.idle, { week: 'open', canStart: true });
+  assert.equal(open.idle?.week, 'open');
+  assert.equal(open.idle?.canStart, true);
   assert.equal(open.boss.name, 'Ember Wyrm');
   assert.equal(open.picture, '/api/raid/boss?boss=wyrm&mood=calm');
 
@@ -241,11 +242,14 @@ test("a lobby that never came to a fight shows the week again (to start again), 
   live.end({ end: 'no_players', state: null, rewarded: false });
   const v = raidView('u1', week(), live);
   assert.equal(v.phase, 'idle');
-  assert.deepEqual(v.idle, { week: 'open', canStart: true, last: 'no_players' });
+  assert.equal(v.idle?.canStart, true);
+  assert.equal(v.idle?.last, 'no_players');
   assert.equal(v.over, null);
   assert.ok(v.brief.moves.length > 0);
   // Long after, just the week.
-  assert.deepEqual(raidView('u1', week(), live, Date.now() + 31 * 60_000).idle, { week: 'open', canStart: true });
+  const after = raidView('u1', week(), live, Date.now() + 31 * 60_000).idle;
+  assert.equal(after?.canStart, true);
+  assert.equal(after?.last, undefined);
 });
 
 test('parsing what a page says', () => {
@@ -330,6 +334,32 @@ test("the lobby's difficulty: the host picks it, as far as the server has unlock
   assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty' })), null);
   host.connection.closed();
   other.connection.closed();
+});
+
+test('before the lobby: whoever starts the raid from the page picks its difficulty, as far as the server has unlocked', async () => {
+  clearLiveRaids();
+  resetLive();
+  // What there is to pick from comes with the week, while the page can start it.
+  const pick = raidView('u1', week({ maxDifficulty: 3 }), null).idle?.pick;
+  assert.equal(pick?.maxDifficulty, 3);
+  assert.equal(pick?.topDifficulty, 10);
+  assert.equal(pick?.levels.length, 10);
+  assert.deepEqual(pick?.levels[0], { level: 1, hp: 1, damage: 1, drops: [{ stars: 4, count: 1 }] });
+  assert.equal(raidView('u1', week({ channel: false, maxDifficulty: 3 }), null).idle?.pick, undefined, 'a server the page cannot start it in');
+  assert.equal(raidView('u1', week({ status: 'won', maxDifficulty: 3 }), null).idle?.pick, undefined, 'a week already fought');
+
+  // The level picked goes with the start (1 when the page sends none).
+  const starts: number[] = [];
+  const c = await connect('u1', { start: async (_g, _u, level): Promise<WebRaidStart> => (starts.push(level), { ok: true }), week: async () => week({ maxDifficulty: 3 }) });
+  assert.equal(c.last().idle?.pick?.maxDifficulty, 3);
+  await c.say({ t: 'start', level: 3 });
+  await c.say({ t: 'start' });
+  assert.deepEqual(starts, [3, 1]);
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'start', level: 2 })), { t: 'start', level: 2 });
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'start' })), { t: 'start' });
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'start', level: 0 })), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'start', level: 'hard' })), null);
+  c.connection.closed();
 });
 
 test('the end screen: each raider is sent their own raid items, best first, from the live raid and from the database', () => {
