@@ -55,6 +55,12 @@ export const MAX_TIMER_MINUTES = 10_080;
 export const MAX_LEADERBOARD_SIZE = 25;
 
 /** The leaderboard's buttons (balances, vault donors, losses): their ids, and how long they keep working after the last press. */
+/**
+ * The leaderboard's losses and winnings only count from here: when the vault's cap came in
+ * (events.vault.maxPool). What was lost and won before it, while the vault had no limit, is left out.
+ */
+export const LEADERBOARD_TOTALS_SINCE = new Date('2026-09-29T04:15:37Z');
+
 export const LEADERBOARD_BUTTONS = { balanceId: 'lb_balance', donorsId: 'lb_donors', lossesId: 'lb_losses', winningsId: 'lb_winnings', idleMs: 120_000 };
 
 /** Longest command prefix the settings accept. */
