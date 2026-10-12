@@ -2,13 +2,14 @@ import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
 import { gearStore, type GearSale, type GearView } from '../models/gear.js';
 import { avatarUrl, type Session } from '../auth/login.js';
+import type { RaidClassId } from '../../constants/index.js';
 import type { Slot } from '../../types.js';
 
 /* The gear page: members' gear in a server (gear.ts's store), and who else's there is to look at. */
 
 /** Who in a server has gear to look at (GET /api/gear/members): the one asking first, then whoever owns the most. */
 export interface GearMembers {
-  members: { userId: string; name: string; avatar: string; copies: number; you: boolean }[];
+  members: { userId: string; name: string; avatar: string; copies: number; you: boolean; class: RaidClassId | null }[];
 }
 
 /** How many members the roster lists at most. */
@@ -33,10 +34,17 @@ export function gearService(deps: ApiDeps) {
       const { userId } = session;
       const owners = await store.owners(guildId, GEAR_MEMBERS);
       const mine = owners.find((o) => o.userId === userId)?.copies ?? 0;
+      const listed = [{ userId, copies: mine }, ...owners.filter((o) => o.userId !== userId)];
+      const classes = await store.classes(
+        guildId,
+        listed.map((o) => o.userId),
+      );
       const rows = await Promise.all(
-        [{ userId, copies: mine }, ...owners.filter((o) => o.userId !== userId)].map(async ({ userId: id, copies }) => {
+        listed.map(async ({ userId: id, copies }, i) => {
           const name = id === userId ? session.name : await deps.memberName(guildId, id);
-          return name === null ? null : { userId: id, name, avatar: deps.avatar?.(guildId, id) ?? avatarUrl(id, id === userId ? session.avatar : null), copies, you: id === userId };
+          return name === null
+            ? null
+            : { userId: id, name, avatar: deps.avatar?.(guildId, id) ?? avatarUrl(id, id === userId ? session.avatar : null), copies, you: id === userId, class: classes[i] ?? null };
         }),
       );
       return { members: rows.filter((row) => row !== null) };
@@ -87,6 +95,12 @@ export function gearService(deps: ApiDeps) {
       const sold = await store.sell(guildId, userId, [...new Set(copies)]);
       if (sold === 'nothing_to_sell') throw new ApiError(sold);
       return { ...(await store.view(guildId, userId)), sold };
+    },
+
+    /** Picks their raid class (null: none). It counts from their next raid's fight. */
+    async setClass(guildId: string, userId: string, id: RaidClassId | null): Promise<GearView> {
+      await store.setClass(guildId, userId, id);
+      return store.view(guildId, userId);
     },
 
     async lock(guildId: string, userId: string, copy: string, locked: boolean): Promise<GearView> {

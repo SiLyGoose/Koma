@@ -16,18 +16,21 @@ import type { ItemDef } from '../src/types.js';
  * many a win drops goes by the raid's difficulty.
  */
 
-/** The 3-star raid gear the harder difficulties drop: one for each of the 4-star ones. */
+/** The 3-star raid gear the harder difficulties drop: one for each of the 4-star ones (but the class items, which are 4-star only). */
 const RAID_GEAR_3 = ['giants-hauberk', 'quarrybreaker-hammer', 'starfinder-longbow', 'wyvern-tooth', 'cherubs-sash', 'stalwart-pavise', 'whalers-lance', 'consecrated-sickle', 'apothecarys-rod'];
 
-const RAID_GEAR = ['colossus-plate', 'worldbreaker-maul', 'moonpiercer-bow', 'godslayer-fang', 'seraphs-raiment', 'unbroken-bulwark', 'leviathan-harpoon', 'hallowed-scythe', 'plague-doctors-cane'];
+/** The class items: 4-star raid items that only work for one class each. */
+const CLASS_GEAR = ['oathkeepers-aegis', 'warlords-greataxe', 'dawnsong-censer', 'stormcoil-spanner', 'hexweavers-staff', 'nightfall-shroud', 'windrunners-mantle'];
+
+const RAID_GEAR = ['colossus-plate', 'worldbreaker-maul', 'moonpiercer-bow', 'godslayer-fang', 'seraphs-raiment', 'unbroken-bulwark', ...CLASS_GEAR, 'leviathan-harpoon', 'hallowed-scythe', 'plague-doctors-cane'];
 
 test('raid drops: the raid gear is raid-only, and the gacha leaves it out of every tier', () => {
   assert.deepEqual(RAID_DROPS.map((item) => item.id).sort(), [...RAID_GEAR, ...RAID_GEAR_3].sort());
   for (const id of RAID_GEAR) assert.equal(ITEMS_BY_ID.get(id)?.stars, 4, id);
   for (const id of RAID_GEAR_3) assert.equal(ITEMS_BY_ID.get(id)?.stars, 3, id);
-  // Each 3-star one has the same perks as one of the 4-star ones.
+  // Each 3-star one has the same perks as one of the 4-star ones (the class items have no 3-star one).
   const perks = (ids: string[]): string[] => ids.map((id) => [...(ITEMS_BY_ID.get(id)?.effects ?? [])].sort().join('+')).sort();
-  assert.deepEqual(perks(RAID_GEAR_3), perks(RAID_GEAR));
+  assert.deepEqual(perks(RAID_GEAR_3), perks(RAID_GEAR.filter((id) => !CLASS_GEAR.includes(id))));
   for (const stars of STARS) {
     assert.ok(gachaItems(stars).length > 0, `${stars}-star tier can still be pulled`);
     assert.ok(gachaItems(stars).every((item) => !item.raidDrop));
@@ -71,6 +74,7 @@ test('raid difficulty: level 1 is the boss as it was, and every level past it ad
     hpOverhead: { wyrm: 2, reaper: 2, plague: 2 },
     difficultyHp: 0.25,
     difficultyDamage: 0.1,
+    topDamage: 0,
     gearHp: { wyrm: 0, reaper: 0, plague: 0 },
   };
   assert.deepEqual(difficultyOf(1, cfg), { level: 1, hp: 1, damage: 1, gear: false, wall: 0 });
@@ -78,6 +82,11 @@ test('raid difficulty: level 1 is the boss as it was, and every level past it ad
   const top = difficultyOf(10, cfg);
   assert.ok(Math.abs(top.hp - 3.25) < 1e-9 && Math.abs(top.damage - 1.9) < 1e-9, JSON.stringify(top));
   assert.deepEqual(difficultyOf(99, cfg), top, 'never past the top level');
+  // From level 8 it hits harder still: a third of topDamage more at every level, all of it at level 10.
+  const harder = { ...cfg, topDamage: 0.6 };
+  assert.deepEqual([1, 5, 7, 8, 9, 10].map((level) => Math.round((difficultyOf(level, harder).damage - difficultyOf(level, cfg).damage) * 100) / 100), [0, 0, 0, 0.2, 0.4, 0.6]);
+  assert.equal(RAID_DIFFICULTY.topFrom, 8);
+  assert.ok(findSpec('raid.topDamage'), 'it can be changed with the config command');
   assert.equal(clampDifficulty(0), 1);
   assert.equal(clampDifficulty(3.9), 3);
   assert.equal(clampDifficulty(Number.NaN), 1);

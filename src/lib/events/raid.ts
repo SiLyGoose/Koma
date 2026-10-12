@@ -1,4 +1,4 @@
-import { RAID_COMBAT, RAID_DIFFICULTY, type RaidBossId } from '../../constants/index.js';
+import { RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, type RaidBossId, type RaidClassId, type RaidClassRules } from '../../constants/index.js';
 import { chance, pickRandom, randInt } from '../random.js';
 import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
 
@@ -52,8 +52,8 @@ export const BOSS_MOVES: readonly BossMove[] = [
 ];
 
 /**
- * How each move works: `single` hits one raider (a guard can jump in front), `all` hits everyone,
- * `some` hits a few, `steal` goes for one raider and is stopped outright by a guard, `shield` is
+ * How each move works: `single` hits one raider (a guarding knight jumps in front), `all` hits everyone,
+ * `some` hits a few, `steal` goes for one raider and is stopped outright by their guard or a knight's, `shield` is
  * channeled for the turn it is announced (enough Supports that turn interrupt it) and makes attacks
  * bounce off for the turn after, `deflect` is a shield that is up the moment it is announced and takes
  * a set number of attacks, `cc` puts raiders under crowd control, `empower` makes the boss's next
@@ -165,6 +165,22 @@ export interface RaidGear {
   healBonus: number;
   /** Their Supports clear Blight off a second ally too, and this many more stacks (rounded down, blightPurgeExtra) off each. */
   blightPurge: number;
+  /** A knight's: how much more their Guard cuts for the whole party (nothing for any other class). */
+  partyGuard: number;
+  /** A priest's: the share of their heals every other hurt ally gets too. */
+  partyHeal: number;
+  /** A mechanic's: how much higher everyone's crit chance is while their rally runs. */
+  rallyCrit: number;
+  /** A wizard's: how much more their hex weakens the boss's move. */
+  hexBoost: number;
+  /** An assassin's: added to what their class multiplies their attacks by. */
+  assassinStrike: number;
+  /** An assassin's: added to their crit chance. */
+  assassinCrit: number;
+  /** An archer's: how much more their attacks gain for every turn in a row they attack. */
+  archerRamp: number;
+  /** A warrior's: added to the share of an attack they strike back with when the boss hits them. */
+  warriorCounter: number;
 }
 
 export const emptyGear = (): RaidGear => ({
@@ -180,6 +196,14 @@ export const emptyGear = (): RaidGear => ({
   raidSupport: 0,
   healBonus: 0,
   blightPurge: 0,
+  partyGuard: 0,
+  partyHeal: 0,
+  rallyCrit: 0,
+  hexBoost: 0,
+  assassinStrike: 0,
+  assassinCrit: 0,
+  archerRamp: 0,
+  warriorCounter: 0,
 });
 
 /** The raid perks out of a member's gear totals (lib/game/items/equipment.ts gearEffects). */
@@ -196,6 +220,14 @@ export const raidGearFrom = (totals: RaidGear): RaidGear => ({
   raidSupport: totals.raidSupport,
   healBonus: totals.healBonus,
   blightPurge: totals.blightPurge,
+  partyGuard: totals.partyGuard,
+  partyHeal: totals.partyHeal,
+  rallyCrit: totals.rallyCrit,
+  hexBoost: totals.hexBoost,
+  assassinStrike: totals.assassinStrike,
+  assassinCrit: totals.assassinCrit,
+  archerRamp: totals.archerRamp,
+  warriorCounter: totals.warriorCounter,
 });
 
 export interface RaidPlayer {
@@ -211,7 +243,20 @@ export interface RaidPlayer {
   stats: RaidStats;
   /** Their raid perks, set when the fight starts (commands/raid.ts reads their gear). */
   gear: RaidGear;
+  /** Their class (constants/raid.ts's RAID_CLASSES), set when the fight starts. Missing or null: none. */
+  class?: RaidClassId | null;
+  /** Turns in a row they attacked before this one, since the boss last hit them (a class with a ramp). Missing means 0. */
+  streak?: number;
 }
+
+/** What the multipliers below read off a raider: their gear, and their class and attack streak when they have them. */
+type Fighter = { gear: RaidGear; class?: RaidClassId | null; streak?: number };
+
+/** The rules of a raider's class: the plain ones without one. */
+export const classOf = (player: { class?: RaidClassId | null }): RaidClassRules => (player.class ? RAID_CLASSES[player.class] : RAID_NO_CLASS);
+
+/** A class item's perk: its strength for a raider of that class, and nothing for anyone else. */
+const classPerk = (player: { class?: RaidClassId | null }, id: RaidClassId, strength: number): number => (player.class === id ? strength : 0);
 
 /**
  * The move the boss will make at the end of the round, who it is aimed at (empty for moves that
@@ -253,6 +298,12 @@ export interface RaidState {
   deflects: number;
   /** Its channel was interrupted this round: its next move is `stagger` (see announce). Missing means no. */
   staggered?: boolean;
+  /** How much weaker the move it announced this round hits (a hex: RaidClassRules.hex). Gone once it has made it. Missing means 0. */
+  hexed?: number;
+  /** Who is warded this round: the first hit the boss lands on each does nothing. Missing means nobody. */
+  warded?: string[];
+  /** How much higher everyone's crit chance is while the rally runs (a mechanic's item). Missing means no higher. */
+  rallyCrit?: number;
   /** Turns left that everyone's attacks are multiplied by `rallyMultiplier` (from a rally). */
   rallied: number;
   /** What attacks are multiplied by while rallied: RAID_COMBAT.support.attackMultiplier, bigger when the rally came from a player with rallyBoost. */
@@ -281,18 +332,21 @@ export interface RaidState {
 /**
  * A player's pick for the round. `boost` is the percent they paid to strengthen it (attack and heal
  * only). `target` is who a heal is for, if the healer picked someone; left out, it is chosen for them.
+ * `skill` is what a Support does instead of its usual work, for a class that can (RaidClassRules.ward):
+ * `ward` shields an ally (`target`, or whoever the boss aims at) from the first hit they take this round.
  */
 export interface RaidChoice {
   action: RaidAction;
   boost: number;
   target?: string;
+  skill?: 'ward';
 }
 
 export type RaidEvent =
   | { kind: 'guard'; userId: string }
-  | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number }
+  | { kind: 'heal'; userId: string; targetId: string; amount: number; boost: number; crit?: true }
   | { kind: 'healSplash'; userId: string; targetId: string; amount: number }
-  | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number }
+  | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number; crit?: true }
   | { kind: 'healWasted'; userId: string }
   | { kind: 'rally'; userId: string; turns: number; multiplier: number }
   | { kind: 'cleansed'; userId: string; targetId: string; effect: CrowdControl }
@@ -302,6 +356,13 @@ export type RaidEvent =
   | { kind: 'shieldBroken' }
   /** The boss spent its turn staggered (its channel was interrupted the turn before): it made no move. */
   | { kind: 'staggered' }
+  /** A raider's attack hexed the boss: the move it announced this round hits `share` weaker. */
+  | { kind: 'hexed'; userId: string; share: number }
+  /** A raider the boss hit struck back at it (a class that retaliates). */
+  | { kind: 'retaliate'; userId: string; damage: number }
+  /** A raider warded `targetId` for the round, and the hit (`move`) the ward then took for them. */
+  | { kind: 'ward'; userId: string; targetId: string }
+  | { kind: 'warded'; userId: string; move: HitMove }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
   | { kind: 'bounced'; userId: string }
   | { kind: 'defeated'; userId: string }
@@ -381,38 +442,75 @@ export const guardTakenShare = (player: { gear: RaidGear }): number =>
   Math.max(0, 1 - (1 - RAID_COMBAT.guard.takenShare) * (1 + player.gear.guardBoost));
 
 /**
- * The cut a guarding player gives everyone else against moves that hit several players:
- * RAID_COMBAT.guard.aoeCut, bigger with guardBoost, at most aoeCutMax. Guards don't
- * stack: only the strongest standing guard's cut counts (strongestGuard).
+ * The cut a guarding player gives everyone else against moves that hit several players: nothing,
+ * unless their class has a party cut (a knight). Then it is that, plus their partyGuard perk (the
+ * knight's item), bigger with guardBoost, at most RAID_COMBAT.guard.aoeCutMax. Guards don't stack:
+ * only the strongest standing guard's cut counts (strongestGuard).
  */
-export const guardCutOf = (player: { gear: RaidGear }): number =>
-  Math.min(RAID_COMBAT.guard.aoeCutMax, Math.max(0, RAID_COMBAT.guard.aoeCut * (1 + player.gear.guardBoost)));
+export const guardCutOf = (player: Fighter): number => {
+  const { partyCut } = classOf(player);
+  if (partyCut <= 0) return 0;
+  return Math.min(RAID_COMBAT.guard.aoeCutMax, Math.max(0, (partyCut + player.gear.partyGuard) * (1 + player.gear.guardBoost)));
+};
 
 /** The guard whose cut the party gets: the strongest (the first to guard on a tie), or undefined with none. */
-export function strongestGuard<T extends { gear: RaidGear }>(guards: readonly T[]): T | undefined {
+export function strongestGuard<T extends Fighter>(guards: readonly T[]): T | undefined {
   let best: T | undefined;
   for (const guard of guards) if (best === undefined || guardCutOf(guard) > guardCutOf(best)) best = guard;
   return best;
 }
 
 /** The HP a player fights with: `base` (the raid.playerHp setting), more with raidHp. */
-export const playerMaxHp = (base: number, player: { gear: RaidGear }): number => Math.max(1, Math.round(base * (1 + player.gear.raidHp)));
+export const playerMaxHp = (base: number, player: Fighter): number => Math.max(1, Math.round(base * (1 + player.gear.raidHp) * classOf(player).hp));
 
-/** What a player's attacks are multiplied by before rallies and crits (raidAttack). */
-export const attackMultiplierOf = (player: { gear: RaidGear }): number => 1 + player.gear.raidAttack;
+/** What a ramping class's attacks gain from the turns in a row they have attacked (1 for everyone else). */
+export const rampMultiplierOf = (player: Fighter): number => {
+  const rules = classOf(player);
+  // An archer's item: more for every turn, and five turns' worth more in all.
+  const more = classPerk(player, 'archer', player.gear.archerRamp);
+  return 1 + Math.min(rules.rampMax + more * 5, (rules.rampStep + more) * Math.max(0, player.streak ?? 0));
+};
 
-/** A player's chance of a critical hit: RAID_COMBAT.attack.critChance, plus raidCritChance (at most 1). */
-export const critChanceOf = (player: { gear: RaidGear }): number => Math.min(1, Math.max(0, RAID_COMBAT.attack.critChance + player.gear.raidCritChance));
+/** What a player's attacks are multiplied by before rallies and crits (raidAttack, their class with its item, and its ramp). */
+export const attackMultiplierOf = (player: Fighter): number =>
+  (1 + player.gear.raidAttack) * (classOf(player).attack + classPerk(player, 'assassin', player.gear.assassinStrike)) * rampMultiplierOf(player);
+
+/** How much weaker a raider's hex makes the boss's move: their class's, more with a wizard's item (0 for a class without one). */
+export const hexOf = (player: Fighter): number => {
+  const { hex } = classOf(player);
+  return hex > 0 ? Math.min(1, hex + classPerk(player, 'wizard', player.gear.hexBoost)) : 0;
+};
+
+/** How many Supports interrupt a channel in this fight: more from RAID_DIFFICULTY.topFrom on. */
+export const shieldBreakOf = (state: { difficulty: number }): number =>
+  RAID_COMBAT.support.shieldBreak + (state.difficulty >= RAID_DIFFICULTY.topFrom ? RAID_COMBAT.top.shieldBreak : 0);
+
+/** A player's chance of a critical hit: RAID_COMBAT.attack.critChance, plus their class's own, raidCritChance and an assassin's item's (at most 1). */
+export const critChanceOf = (player: Fighter): number =>
+  Math.min(1, Math.max(0, RAID_COMBAT.attack.critChance + classOf(player).crit + player.gear.raidCritChance + classPerk(player, 'assassin', player.gear.assassinCrit)));
+
+/** The share of one of their plain attacks a raider strikes back with when the boss hits them: their class's, more with a warrior's item (0 for a class that doesn't). */
+export const retaliateOf = (player: Fighter): number => {
+  const { retaliate } = classOf(player);
+  return retaliate > 0 ? retaliate + classPerk(player, 'warrior', player.gear.warriorCounter) : 0;
+};
+
+/** Their chance of a critical hit in this fight right now: higher while a rally with a mechanic's item behind it runs. */
+export const critChanceIn = (state: Pick<RaidState, 'rallied' | 'rallyCrit'>, player: Fighter): number =>
+  Math.min(1, critChanceOf(player) + (state.rallied > 0 ? (state.rallyCrit ?? 0) : 0));
 
 /** What a player's critical hits multiply damage by: RAID_COMBAT.attack.critMultiplier, plus raidCritDamage. */
 export const critMultiplierOf = (player: { gear: RaidGear }): number => RAID_COMBAT.attack.critMultiplier + player.gear.raidCritDamage;
 
 /** What a player's heals (and revives) are multiplied by (raidSupport and healBonus). */
-export const healMultiplierOf = (player: { gear: RaidGear }): number => 1 + player.gear.raidSupport + player.gear.healBonus;
+export const healMultiplierOf = (player: Fighter): number => (1 + player.gear.raidSupport + player.gear.healBonus) * classOf(player).heal;
 
-/** The share of a heal a player gets: less for every stack of Blight on them (RAID_COMBAT.blight), never below 1 - maxHealCut. */
-export const healReceivedOf = (player: { blight: number }): number =>
-  1 - Math.min(RAID_COMBAT.blight.maxHealCut, Math.max(0, player.blight) * RAID_COMBAT.blight.healCut);
+/**
+ * The share of a heal a player gets: less for every stack of Blight on them (RAID_COMBAT.blight), never
+ * below 1 - maxHealCut, times what their class makes of heals on them (RaidClassRules.healed).
+ */
+export const healReceivedOf = (player: { blight: number; class?: RaidClassId | null }): number =>
+  (1 - Math.min(RAID_COMBAT.blight.maxHealCut, Math.max(0, player.blight) * RAID_COMBAT.blight.healCut)) * classOf(player).healed;
 
 /** Takes up to `count` of a player's Blight stacks off. Returns how many it took. */
 function clearBlight(player: RaidPlayer, count: number): number {
@@ -435,11 +533,14 @@ export const hasBlight = (boss: RaidBossId): boolean =>
 
 /**
  * Puts each player's gear on, as the fight starts (`gear` in the order of the players): their perks,
- * and the HP they fight with (`baseHp`, the raid.playerHp setting, with raidHp), at full.
+ * and the HP they fight with (`baseHp`, the raid.playerHp setting, with raidHp), at full. `classes` (in
+ * the same order) are theirs, for the fight; left out, nobody has one.
  */
-export function equipPlayers(state: RaidState, gear: readonly (RaidGear | undefined)[], baseHp: number): void {
+export function equipPlayers(state: RaidState, gear: readonly (RaidGear | undefined)[], baseHp: number, classes: readonly (RaidClassId | null | undefined)[] = []): void {
   state.players.forEach((p, i) => {
     p.gear = gear[i] ?? p.gear;
+    p.class = classes[i] ?? null;
+    p.streak = 0;
     p.maxHp = playerMaxHp(baseHp, p);
     p.hp = p.maxHp;
   });
@@ -475,10 +576,18 @@ export const gearWallShare = (level: number): number => Math.min(1, Math.max(0, 
 export const clampDifficulty = (level: number, max: number = RAID_DIFFICULTY.max): number =>
   Math.min(Math.max(1, max), Math.max(1, Math.floor(Number.isFinite(level) ? level : 1)));
 
-/** The difficulty at `level`: each level past 1 adds `difficultyHp` of the boss's HP and `difficultyDamage` of its damage. */
-export function difficultyOf(level: number, cfg: { difficultyHp: number; difficultyDamage: number }): RaidDifficulty {
+/** The share (0 to 1) of `topDamage` the boss has at a level: none below topFrom, then equal steps to all of it at the top level. */
+export const topShare = (level: number): number =>
+  Math.min(1, Math.max(0, (level - (RAID_DIFFICULTY.topFrom - 1)) / Math.max(1, RAID_DIFFICULTY.max - (RAID_DIFFICULTY.topFrom - 1))));
+
+/**
+ * The difficulty at `level`: each level past 1 adds `difficultyHp` of the boss's HP and `difficultyDamage` of its
+ * damage, and the levels from topFrom their share of `topDamage` besides (none of it when left out).
+ */
+export function difficultyOf(level: number, cfg: { difficultyHp: number; difficultyDamage: number; topDamage?: number }): RaidDifficulty {
   const at = clampDifficulty(level);
-  return { level: at, hp: 1 + cfg.difficultyHp * (at - 1), damage: 1 + cfg.difficultyDamage * (at - 1), gear: needsGear(at), wall: gearWallShare(at) };
+  const damage = 1 + cfg.difficultyDamage * (at - 1) + (cfg.topDamage ?? 0) * topShare(at);
+  return { level: at, hp: 1 + cfg.difficultyHp * (at - 1), damage, gear: needsGear(at), wall: gearWallShare(at) };
 }
 
 /** The raid reward settings (the `raid.*` ones raidRewards reads). */
@@ -631,16 +740,33 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     creditHeal(healer, other, amount);
     events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
   };
+  // A priest's item: every other hurt ally is mended too, by its share of the heal's value.
+  const partyHeal = (healer: RaidPlayer, boost: number, healedId: string): void => {
+    const share = classPerk(healer, 'priest', healer.gear.partyHeal);
+    if (share <= 0) return;
+    const full = boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * share;
+    for (const other of livingPlayers(state)) {
+      if (other.userId === healedId || other.hp >= other.maxHp) continue;
+      const amount = Math.min(other.maxHp - other.hp, Math.max(1, Math.round(full * healReceivedOf(other))));
+      other.hp += amount;
+      creditHeal(healer, other, amount);
+      events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
+    }
+  };
   for (const [userId, { boost, target }] of byAction('heal')) {
     const healer = findPlayer(state, userId) as RaidPlayer;
+    // A class whose heals crit rolls once for the heal (or the revive), with their own crit chance and damage.
+    const crit = classOf(healer).healCrit && rng.chance(critChanceIn(state, healer));
+    const critTimes = crit ? critMultiplierOf(healer) : 1;
     const picked = target === undefined ? undefined : findPlayer(state, target);
     const wanted = picked && picked.hp < picked.maxHp ? picked : undefined;
     const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
-      down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost))));
+      down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost) * critTimes)));
       creditHeal(healer, down, down.hp);
-      events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost });
+      events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost, ...(crit ? { crit } : {}) });
       splashHeal(healer, boost, down.userId);
+      partyHeal(healer, boost, down.userId);
       continue;
     }
     const hurt =
@@ -652,11 +778,12 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       events.push({ kind: 'healWasted', userId });
       continue;
     }
-    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * healReceivedOf(hurt)));
+    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * critTimes * healReceivedOf(hurt)));
     hurt.hp += amount;
     creditHeal(healer, hurt, amount);
-    events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost });
+    events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost, ...(crit ? { crit } : {}) });
     splashHeal(healer, boost, hurt.userId);
+    partyHeal(healer, boost, hurt.userId);
   }
 
   // Supports: each one lifts a stun, disarm or taunt if anyone is under one (stuns first, then the
@@ -665,7 +792,25 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   // blighted (the one with the strongest blightPurge, which also clears a second ally's); supports
   // don't stack, so the rest, like any with nothing to lift or clear, rally the party for the next
   // turns' attacks. Every support counts toward interrupting a shield the boss is channeling either way.
-  const supports = byAction('support');
+  const supporting = byAction('support');
+  // A ward (a class that can, picking it): an ally is shielded from the first hit they take this round, in
+  // place of everything else a Support does. The ally they picked if still standing, else whoever the boss
+  // aims at first, else the most hurt.
+  const warding = supporting.filter(([userId, choice]) => choice.skill === 'ward' && classOf(findPlayer(state, userId) as RaidPlayer).ward);
+  state.warded = [];
+  for (const [userId, { target }] of warding) {
+    const warder = findPlayer(state, userId) as RaidPlayer;
+    warder.stats.supports++;
+    const open = livingPlayers(state).filter((p) => !state.warded?.includes(p.userId));
+    const ally =
+      open.find((p) => p.userId === target) ??
+      open.find((p) => state.intent.targets.includes(p.userId)) ??
+      [...open].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+    if (!ally) continue;
+    state.warded.push(ally.userId);
+    events.push({ kind: 'ward', userId, targetId: ally.userId });
+  }
+  const supports = supporting.filter((entry) => !warding.includes(entry));
   const free: RaidPlayer[] = [];
   for (const [userId] of supports) {
     const supporter = findPlayer(state, userId) as RaidPlayer;
@@ -674,8 +819,13 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       .filter((p) => isAlive(p) && p.cc !== null)
       .sort((a, b) => Number(b.cc?.effect === 'stunned') - Number(a.cc?.effect === 'stunned') || (b.cc?.turns ?? 0) - (a.cc?.turns ?? 0))[0];
     if (held?.cc) {
-      events.push({ kind: 'cleansed', userId, targetId: held.userId, effect: held.cc.effect });
-      held.cc = null;
+      // A class with a mass dispel frees everyone under crowd control, not just the one.
+      const freed = classOf(supporter).massDispel ? state.players.filter((p) => isAlive(p) && p.cc !== null) : [held];
+      for (const ally of freed) {
+        if (!ally.cc) continue;
+        events.push({ kind: 'cleansed', userId, targetId: ally.userId, effect: ally.cc.effect });
+        ally.cc = null;
+      }
     } else free.push(supporter);
   }
   const blighted = livingPlayers(state)
@@ -692,15 +842,24 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   // The strongest rally made this turn (0 if none), and whose.
   let rally = 0;
   let rallier: string | null = null;
+  // How long this turn's rally lasts: the longest any of its ralliers' classes makes it.
+  let rallyTurns: number = RAID_COMBAT.support.rallyTurns;
+  // The crit chance the party gains while it runs: the most any of its ralliers' items gives (a mechanic's).
+  let rallyCrit = 0;
   for (const supporter of free) {
     if (supporter === purger) continue;
+    rallyCrit = Math.max(rallyCrit, classPerk(supporter, 'mechanic', supporter.gear.rallyCrit));
     const multiplier = rallyMultiplierOf(supporter);
+    const turns = RAID_COMBAT.support.rallyTurns + classOf(supporter).rallyTurns;
     if (multiplier > rally) rallier = supporter.userId;
     rally = Math.max(rally, multiplier);
-    events.push({ kind: 'rally', userId: supporter.userId, turns: RAID_COMBAT.support.rallyTurns, multiplier });
+    rallyTurns = Math.max(rallyTurns, turns);
+    events.push({ kind: 'rally', userId: supporter.userId, turns, multiplier });
   }
   // The shield the boss is channeling this turn never comes up. One that is already up can't be broken this way.
-  if (MOVE_KIND[state.intent.move] === 'shield' && supports.length >= RAID_COMBAT.support.shieldBreak) {
+  // Each Support counts once towards it, or for more with a class that interrupts better.
+  const interrupting = supports.reduce((sum, [userId]) => sum + classOf(findPlayer(state, userId) as RaidPlayer).interrupts, 0);
+  if (MOVE_KIND[state.intent.move] === 'shield' && interrupting >= shieldBreakOf(state)) {
     state.intent.interrupted = true;
     events.push({ kind: 'shieldBroken' });
   }
@@ -722,7 +881,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     }
     const { min, max } = RAID_COMBAT.attack;
     const attacker = findPlayer(state, userId) as RaidPlayer;
-    const crit = rng.chance(critChanceOf(attacker));
+    const crit = rng.chance(critChanceIn(state, attacker));
     // maxHpDamage gear adds a share of the boss's max HP after everything else, so it stays that share.
     const extra = state.bossMaxHp * attacker.gear.maxHpDamage;
     const hit = boosted(rng.int(min, max), boost) * attackMultiplierOf(attacker);
@@ -739,6 +898,12 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       rallyFrom.stats.supportDamage = (rallyFrom.stats.supportDamage ?? 0) + share;
     }
     events.push({ kind: 'attack', userId, damage: dealt, crit, boost });
+    // A hexing class's attack that lands weakens the move the boss announced this round (the strongest hex counts).
+    const hex = hexOf(attacker);
+    if (hex > (state.hexed ?? 0)) {
+      state.hexed = hex;
+      events.push({ kind: 'hexed', userId, share: hex });
+    }
     if (state.bossHp <= 0) {
       state.lastHit = userId;
       state.outcome = 'won';
@@ -755,8 +920,12 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     // The stronger rally carries on, and so does who gets its credit.
     if (!(state.rallied > 0 && state.rallyMultiplier > rally)) state.rallyBy = rallier;
     state.rallyMultiplier = state.rallied > 0 ? Math.max(state.rallyMultiplier, rally) : rally;
-    state.rallied = RAID_COMBAT.support.rallyTurns;
+    state.rallyCrit = state.rallied > 0 ? Math.max(state.rallyCrit ?? 0, rallyCrit) : rallyCrit;
+    state.rallied = rallyTurns;
   }
+  // A ramping class's streak: one more for a turn they attacked, gone for one they didn't.
+  const attacked = new Set(byAction('attack').map(([userId]) => userId));
+  for (const player of state.players) player.streak = attacked.has(player.userId) ? (player.streak ?? 0) + 1 : 0;
   for (const player of state.players) {
     if (!player.cc) continue;
     player.cc.turns--;
@@ -791,7 +960,9 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   const events: RaidEvent[] = [];
   if (state.outcome !== 'ongoing') return { events, theft: null };
   const { move } = state.intent;
-  const { multiplier } = state.intent;
+  // A hex takes its share off the move, and is gone with it.
+  const multiplier = state.intent.multiplier * (1 - (state.hexed ?? 0));
+  state.hexed = 0;
   let theft: Theft | null = null;
 
   /** An aimed-at player who is still standing, or someone else standing if they're down. */
@@ -801,18 +972,28 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     const living = livingPlayers(state);
     return living.length > 0 ? rng.pick(living) : undefined;
   };
-  /** The guard who jumps in front of a single-target move aimed at `target`, if any. */
+  /** The guard who jumps in front of a single-target move aimed at `target`, if any: only a class that covers (a knight) does. */
   const coverFor = (target: RaidPlayer): RaidPlayer | undefined => {
     if (state.guarding.includes(target.userId)) return undefined;
     return state.guarding
       .map((userId) => findPlayer(state, userId) as RaidPlayer)
-      .filter(isAlive)
+      .filter((guard) => isAlive(guard) && classOf(guard).covers)
       .sort((a, b) => b.hp - a.hp)[0];
   };
   /** HP the move took from raiders, for lifesteal. */
   let dealt = 0;
+  /** Who struck back this round already: once each. */
+  const struckBack = new Set<string>();
   const damage = (player: RaidPlayer, amount: number, hitMove: HitMove, coveredFor: string | null): void => {
-    const taken = Math.max(1, Math.round(amount));
+    // A ward takes the first hit for them: no damage, no Blight, and a ramping class keeps its streak.
+    if (state.warded?.includes(player.userId)) {
+      state.warded = state.warded.filter((id) => id !== player.userId);
+      events.push({ kind: 'warded', userId: player.userId, move: hitMove });
+      return;
+    }
+    const taken = Math.max(1, Math.round(amount * classOf(player).taken));
+    // A hit ends a ramping class's streak.
+    player.streak = 0;
     dealt += Math.min(taken, player.hp);
     player.hp = Math.max(0, player.hp - taken);
     player.stats.damageTaken = (player.stats.damageTaken ?? 0) + taken;
@@ -822,6 +1003,20 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     if (player.hp === 0) {
       player.blight = 0;
       events.push({ kind: 'knockedOut', userId: player.userId });
+      return;
+    }
+    // A class that retaliates strikes back, once a round, if the hit left them standing (and the boss, and no shield is up).
+    const share = retaliateOf(player);
+    if (share <= 0 || struckBack.has(player.userId) || state.shielded || state.bossHp <= 0) return;
+    struckBack.add(player.userId);
+    const back = Math.min(state.bossHp, Math.max(1, Math.round(RAID_COMBAT.attack.min * attackMultiplierOf(player) * share)));
+    state.bossHp -= back;
+    player.stats.damage += back;
+    events.push({ kind: 'retaliate', userId: player.userId, damage: back });
+    if (state.bossHp <= 0) {
+      state.lastHit = player.userId;
+      state.outcome = 'won';
+      events.push({ kind: 'defeated', userId: player.userId });
     }
   };
   const standingGuards = state.guarding.map((id) => findPlayer(state, id) as RaidPlayer).filter(isAlive);
@@ -894,7 +1089,7 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
     }
     case 'hoard':
     case 'harvest': {
-      // Goes for one raider's wallet (Hoard) or life (Harvest). A guard stops it outright.
+      // Goes for one raider's wallet (Hoard) or life (Harvest). Their own guard stops it outright, and so does a knight's.
       const target = standing(state.intent.targets[0]);
       if (!target) break;
       const guard = state.guarding.includes(target.userId) ? target : coverFor(target);
@@ -981,7 +1176,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   const fell: string[] = [];
   for (const player of livingPlayers(state)) {
     if (player.blight <= 0) continue;
-    const taken = Math.min(player.hp, Math.round(player.blight * RAID_COMBAT.blight.tick));
+    // It festers harder at the harder levels, as the boss's own hits do (its difficulty's share, not its enrage's).
+    const taken = Math.min(player.hp, Math.round(player.blight * RAID_COMBAT.blight.tick * state.bossDamage));
     if (taken <= 0) continue;
     player.hp -= taken;
     player.stats.damageTaken = (player.stats.damageTaken ?? 0) + taken;
@@ -994,7 +1190,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   if (festered.length > 0) events.push({ kind: 'festered', hits: festered });
   for (const userId of fell) events.push({ kind: 'knockedOut', userId });
 
-  if (livingPlayers(state).length === 0) {
+  // A boss that fell to a blow struck back is beaten, whoever is left standing.
+  if (state.outcome === 'ongoing' && livingPlayers(state).length === 0) {
     state.outcome = 'wiped';
     events.push({ kind: 'wiped' });
   }
@@ -1011,6 +1208,7 @@ export function recordTheft(state: RaidState, userId: string, amount: number): R
 /** Moves on to the next round: the boss flies off after the last one, and otherwise announces its next move. */
 export function endRound(state: RaidState, rng: RaidRng = defaultRaidRng): RaidEvent[] {
   state.guarding = [];
+  state.warded = [];
   if (state.outcome !== 'ongoing') return [];
   if (state.round >= state.maxRounds) {
     state.outcome = 'fled';
@@ -1129,7 +1327,8 @@ export function pickIntent(state: RaidState, rng: RaidRng = defaultRaidRng): Bos
     return intent(fairTargets(living, rng.int(minTargets, maxTargets), rng));
   }
   if (isCcMove(move)) {
-    const count = RAID_COMBAT.cc.targets[state.enrage] ?? RAID_COMBAT.cc.targets[0];
+    // One more at the top levels (RAID_COMBAT.top).
+    const count = (RAID_COMBAT.cc.targets[state.enrage] ?? RAID_COMBAT.cc.targets[0]) + (state.difficulty >= RAID_DIFFICULTY.topFrom ? RAID_COMBAT.top.ccTargets : 0);
     return intent(fairTargets(free, count, rng));
   }
   return intent([]);

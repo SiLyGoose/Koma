@@ -252,6 +252,12 @@ export interface Settings {
     /** How much harder the boss hits for every difficulty level past 1 (0.01: 2% harder at level 3). */
     difficultyDamage: number;
     /**
+     * How much harder still the boss hits at the top difficulty: none of it below RAID_DIFFICULTY.topFrom,
+     * then more at every level from it, in equal steps (0.6: 20% harder at level 8, 60% at level 10). What
+     * makes the last levels ask for more than gear: a party's classes are what takes hits off it.
+     */
+    topDamage: number;
+    /**
      * HP each boss has on top for every raider (a party of fewer than `minRaiders` counted as that many)
      * from difficulty RAID_DIFFICULTY.gearFrom on, the levels built for parties in raid gear. It climbs to
      * that in equal steps from level 2 (gearWallShare), so the levels get harder evenly on the way there.
@@ -396,13 +402,20 @@ export const DEFAULTS: Readonly<Settings> = {
   // refreshed up to 5 times a week, for 5 komaGems, then 10, 15, 20 and 25.
   // That is difficulty 1; every level past it gives the boss 2% more of its HP and 1% more of its damage,
   // and more HP for every raider, whatever they wear (its HP never looks at gear): a quarter of gearHp
-  // more at each level up to 5, and all of it from there. So a party without gear wins less at every
-  // level on the way (about 90, 80, 60, 40 and 20% at levels 1 to 5, a little more in a big party)
-  // rather than hitting a wall, a party in the best 4-star gear at R3 (harpoons, a rallier) wins level 5
-  // about 6 to 10 times in 10, and one in the same gear at R5 wins level 10 about 9 times in 10 or more.
+  // more at each level up to 5, and all of it from there. From level 8 it hits harder still (topDamage:
+  // 45% more by level 10), its channels take a third Support to interrupt and its crowd control holds
+  // one more raider (RAID_COMBAT.top).
+  // The numbers are set for a party with well-chosen classes (a knight and a mechanic, a priest or a
+  // wizard, the rest assassins) that gets about one thing in five wrong: in simulated fights, every
+  // raider's pick is a random one 22% of the time and every raider is on a random class 22% of the time,
+  // the rest played the best of some ninety ways. Such a party of five without gear wins about 88, 77,
+  // 59, 45 and 30% of the time at levels 1 to 5 (more in a bigger party), and about 85% of the time at
+  // level 5 in 4-star gear at R3 (its class items among it). At level 10 in 4-star gear at R5 it wins
+  // about 8 times in 10 with five raiders and 9 to 10 with eight; the same gear without classes wins
+  // level 10 about 3 times in 10 with five and 7 with eight.
   raid: {
-    hpPerRaider: { wyrm: 1_000, reaper: 725, plague: 600 },
-    hpOverhead: { wyrm: 2.69, reaper: 2.14, plague: 1.49 },
+    hpPerRaider: { wyrm: 875, reaper: 650, plague: 555 },
+    hpOverhead: { wyrm: 2.9, reaper: 2.47, plague: 1.49 },
     minRaiders: 4,
     playerHp: 100,
     maxRounds: 15,
@@ -417,7 +430,8 @@ export const DEFAULTS: Readonly<Settings> = {
     dropChancePerRaider: 0.1,
     difficultyHp: 0.02,
     difficultyDamage: 0.01,
-    gearHp: { wyrm: 260, reaper: 250, plague: 230 },
+    topDamage: 0.45,
+    gearHp: { wyrm: 240, reaper: 265, plague: 280 },
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve

@@ -7,6 +7,14 @@ import { fineReduction } from './rob/fine-reduction.js';
 import { glassCannonPenalty } from './items/glass-cannon-penalty.js';
 import { glassCannon } from './items/glass-cannon.js';
 import { guardBoost } from './raid/guard-boost.js';
+import { partyGuard } from './raid/party-guard.js';
+import { partyHeal } from './raid/party-heal.js';
+import { rallyCrit } from './raid/rally-crit.js';
+import { hexBoost } from './raid/hex-boost.js';
+import { assassinStrike } from './raid/assassin-strike.js';
+import { assassinCrit } from './raid/assassin-crit.js';
+import { archerRamp } from './raid/archer-ramp.js';
+import { warriorCounter } from './raid/warrior-counter.js';
 import { healCut } from './raid/heal-cut.js';
 import { healSplash } from './raid/heal-splash.js';
 import { iconicByMistake } from './items/iconic-by-mistake.js';
@@ -93,6 +101,15 @@ export const EFFECTS = {
   raidSupport,
   healBonus,
   blightPurge,
+  // The raid classes' items: each only works for its class.
+  partyGuard,
+  partyHeal,
+  rallyCrit,
+  hexBoost,
+  assassinStrike,
+  assassinCrit,
+  archerRamp,
+  warriorCounter,
   // Thoccy Keyboard.
   robStreak,
   robStreakCap,

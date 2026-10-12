@@ -33,6 +33,8 @@ import {
   damageRanking,
   difficultyOf,
   raidRewards,
+  classOf,
+  shieldBreakOf,
   emptyGear,
   equipPlayers,
   raidGearFrom,
@@ -61,6 +63,7 @@ import {
   type RaidStats,
 } from '../lib/events/raid.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
+import { raidClassesOf } from '../services/raid-class.js';
 import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
 import { liveRaid, openLiveRaid, type ActAnswer, type LiveRaid, type RaidLobbyLive } from '../lib/events/raid-live.js';
 import { siteGameLink, webConfig } from '../web/config.js';
@@ -160,7 +163,7 @@ function moveIntentText(state: RaidState, intent: BossIntent): string {
     case 'harvest':
       return i.harvest(target, hit(moves.harvest.damage), fmt(Math.round(state.bossMaxHp * moves.harvest.maxHpShare * lifesteal)));
     case 'veil':
-      return i.veil(support.shieldBreak, formatMultiplier(RAID_COMBAT.stagger.damageTaken));
+      return i.veil(shieldBreakOf(state), formatMultiplier(RAID_COMBAT.stagger.damageTaken));
     case 'empower':
       return i.empower(formatMultiplier(RAID_COMBAT.empower.multiplier));
     case 'gather':
@@ -183,7 +186,7 @@ function moveIntentText(state: RaidState, intent: BossIntent): string {
     case 'rot':
       return i.rot(targets, hit(moves.rot.damage));
     case 'flies':
-      return i.flies(support.shieldBreak, formatMultiplier(RAID_COMBAT.stagger.damageTaken));
+      return i.flies(shieldBreakOf(state), formatMultiplier(RAID_COMBAT.stagger.damageTaken));
     case 'stagger':
       return i.stagger(TEXT.raid.bosses[state.boss], formatMultiplier(RAID_COMBAT.stagger.damageTaken));
     case 'brew':
@@ -230,7 +233,7 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
     case 'enrage':
       return log.enrage(b, event.level);
     case 'hit':
-      // Only a one-target hit (Claw, Reap, Plague Spit) can be taken by a guard for someone else.
+      // Only a one-target hit (Claw, Reap, Plague Spit) can be taken by a guard (a knight) for someone else.
       if (event.coveredFor) return log.covered(event.move === 'reap' || event.move === 'spit' ? event.move : 'claw', mention(event.userId), mention(event.coveredFor), event.damage);
       return log[event.move](mention(event.userId), event.damage);
     case 'knockedOut':
@@ -249,6 +252,14 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
       return log.gathering(b, event.left);
     case 'staggered':
       return log.staggered(b);
+    case 'hexed':
+      return log.hexed(mention(event.userId), b, formatPercent(event.share));
+    case 'retaliate':
+      return log.retaliate(mention(event.userId), event.damage);
+    case 'ward':
+      return log.ward(mention(event.userId), mention(event.targetId));
+    case 'warded':
+      return log.warded(mention(event.userId));
     case 'brewing':
       return log.brewing(b);
     case 'pestilence':
@@ -402,7 +413,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     const chosen = choices.get(p.userId);
     const status = !isAlive(p) ? r.statusDown : !canAct(p) ? r.statusStunned : chosen ? r.statusChosen[chosen.action] : r.statusWaiting;
     const tags = isAlive(p) ? [p.cc ? r.ccTag(p.cc.effect, p.cc.turns) : '', p.blight > 0 ? r.blightTag(p.blight) : ''].filter(Boolean).join(' ') : '';
-    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, tags);
+    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, tags, p.class ? r.classes[p.class].name : null);
   });
   return createEmbed()
     .setTitle(r.fightTitle(b, state.round, state.maxRounds))
@@ -675,6 +686,13 @@ export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', unti
         r.bossInfoHp(fmt(cfg.hpPerRaider[boss]), fmt(cfg.hpOverhead[boss]), cfg.minRaiders, examples),
         r.bossRounds(b, cfg.maxRounds),
         r.bossDifficulty(RAID_DIFFICULTY.max, formatPercent(cfg.difficultyHp), formatPercent(cfg.difficultyDamage)),
+        r.bossTop(
+          RAID_DIFFICULTY.topFrom,
+          RAID_DIFFICULTY.max,
+          cfg.topDamage > 0 ? formatPercent(cfg.topDamage) : null,
+          movesOf(boss).some((move) => MOVE_KIND[move] === 'shield') ? shieldBreakOf({ difficulty: RAID_DIFFICULTY.topFrom }) : null,
+          movesOf(boss).some(isCcMove),
+        ),
         ...(cfg.gearHp[boss] > 0 ? [r.bossGear(RAID_DIFFICULTY.gearFrom, fmt(cfg.gearHp[boss]))] : []),
       ].join('\n'),
     )
@@ -850,7 +868,7 @@ function lobbyView(
         value: r.howTo(
           b,
           cfg.turnSeconds,
-          support.shieldBreak,
+          shieldBreakOf({ difficulty: difficulty.level }),
           formatMultiplier(support.attackMultiplier),
           support.rallyTurns,
           steals,
@@ -1103,8 +1121,8 @@ async function runFight(
     return null;
   };
 
-  /** Locks in a player's pick for the turn (from Discord or the site). */
-  const commit = (userId: string, action: RaidAction, forTurn: Turn, target?: string): ActAnswer => {
+  /** Locks in a player's pick for the turn (from Discord or the site). `skill`: a ward in place of a Support's usual work, for a class that can. */
+  const commit = (userId: string, action: RaidAction, forTurn: Turn, target?: string, skill?: 'ward'): ActAnswer => {
     if (forTurn !== turn || !forTurn.open) return { kind: 'late' };
     const problem = actionProblem(state, userId, action);
     if (problem) return { kind: 'problem', problem };
@@ -1112,7 +1130,10 @@ async function runFight(
     if (already) return { kind: 'already', action: already.action };
     // A heal only goes to someone in the fight (the site could name anyone); anyone else lets the bot choose.
     const healTarget = target !== undefined && findPlayer(state, target) ? target : undefined;
-    forTurn.choices.set(userId, { action, boost: 0, ...(healTarget === undefined ? {} : { target: healTarget }) });
+    // A ward only from a class that can ward; from anyone else it is a plain Support.
+    const warder = findPlayer(state, userId);
+    const ward = action === 'support' && skill === 'ward' && !!warder && classOf(warder).ward;
+    forTurn.choices.set(userId, { action, boost: 0, ...(healTarget === undefined ? {} : { target: healTarget }), ...(ward ? { skill: 'ward' as const } : {}) });
     changed();
     if (state.players.filter(canAct).every((p) => forTurn.choices.has(p.userId))) forTurn.allIn();
     return { kind: 'ok' };
@@ -1160,6 +1181,43 @@ async function runFight(
     await press.editReply({ content: commitText(commit(userId, 'heal', forTurn, target), 'heal', userId, target), components: [] }).catch(() => {});
   };
 
+  /**
+   * Support, from a class that can ward: asks privately whether to support as usual or ward an ally (and
+   * whom: the bot picks whoever the boss aims at when they don't say), then locks it in.
+   */
+  const askSupportSkill = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
+    await press.deferReply({ flags: MessageFlags.Ephemeral });
+    const userId = press.user.id;
+    const r = TEXT.raid;
+    const allies = state.players
+      .filter(isAlive)
+      .slice(0, RAID.selectMax - 2)
+      .map((p) => ({ label: r.wardOption(names.get(p.userId) ?? p.userId, p.userId === userId).slice(0, 100), value: `${RAID.wardValue}:${p.userId}`, description: r.healOptionHurt(p.hp, p.maxHp, p.blight) }));
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId(RAID.supportSkillId)
+      .setPlaceholder(r.supportSkillPlaceholder)
+      .addOptions(
+        { label: r.supportAsUsual, value: RAID.supportValue, description: r.supportAsUsualDescription },
+        { label: r.wardAuto, value: RAID.wardValue, description: r.wardAutoDescription },
+        ...allies,
+      );
+    const prompt = await press.editReply({ content: r.supportSkillPrompt, components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] });
+    const pick = await prompt
+      .awaitMessageComponent({ componentType: ComponentType.StringSelect, time: Math.max(1_000, remainingOf(forTurn)), filter: (m) => m.user.id === userId })
+      .catch(() => null);
+    if (!pick) {
+      await press.editReply({ content: r.turnOver, components: [] }).catch(() => {});
+      return;
+    }
+    await pick.deferUpdate().catch(() => {});
+    const value = pick.values[0] ?? RAID.supportValue;
+    const ward = value.startsWith(RAID.wardValue);
+    const target = ward && value.includes(':') ? value.slice(value.indexOf(':') + 1) : undefined;
+    const result = commit(userId, 'support', forTurn, target, ward ? 'ward' : undefined);
+    const text = result.kind === 'ok' && ward ? r.choseWard(target === undefined ? '' : mention(target)) : commitText(result, 'support', userId);
+    await press.editReply({ content: text, components: [] }).catch(() => {});
+  };
+
   const handlePress = async (press: ButtonInteraction, forTurn: Turn): Promise<void> => {
     const action = ACTION_BY_ID[press.customId];
     if (!action) return replyPrivately(press, TEXT.raid.lobbyClosed);
@@ -1171,12 +1229,14 @@ async function runFight(
     if (already) return replyPrivately(press, TEXT.raid.alreadyChose(TEXT.raid.actions[already.action]));
 
     if (action === 'heal') return askHealTarget(press, forTurn);
+    const presser = findPlayer(state, userId);
+    if (action === 'support' && presser && classOf(presser).ward) return askSupportSkill(press, forTurn);
     return replyPrivately(press, commitText(commit(userId, action, forTurn), action, userId));
   };
 
   const tools: LiveFight = { state, log, update: changed, endTurn: () => {}, tested: false };
   LIVE.set(guildId, tools);
-  live.openFight({ state, log, turn: () => turn, act: (userId, action, target) => commit(userId, action, turn, target) });
+  live.openFight({ state, log, turn: () => turn, act: (userId, action, target, skill) => commit(userId, action, turn, target, skill) });
   try {
     await first.edit({ ...view(), files: [bossFile(state.boss, 'calm')], attachments: [] });
     for (;;) {
@@ -1475,7 +1535,12 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     const state = createRaid(boss, players, bossHpFor(players.length, boss, cfg, difficulty), cfg.playerHp, cfg.maxRounds, undefined, difficulty);
     // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
     // Their HP too: raidHp gear has them start (at full) with more.
-    equipPlayers(state, await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId))), cfg.playerHp);
+    // Their classes too (services/raid-class.ts): the one each has as the fight starts.
+    const classes = await raidClassesOf(ctx.guildId, players).catch((err) => {
+      console.error(`Could not read the raiders' classes in ${ctx.guildId}:`, err);
+      return [];
+    });
+    equipPlayers(state, await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId))), cfg.playerHp, classes);
     // What each raider wore, for the site's end screen: kept on the live raid and the raid's document.
     await snapshotGear(ctx.guildId, id, players, live);
     const { tested } = await runFight(message, state, cfg, id, ctx.guildId, names, live, (moved) => {

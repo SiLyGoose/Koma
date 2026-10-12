@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import { LOADOUT_NUMBERS } from '../../lib/game/items/loadouts.js';
+import { RAID_CLASS_IDS } from '../../constants/index.js';
 import { SLOTS } from '../../types.js';
 import { ApiError } from '../lib/errors.js';
 import type { GearService } from '../services/gear.js';
@@ -21,6 +22,7 @@ const Rename = Loadout.extend({ name: z.string().max(NAME_MAX) });
 const Refine = z.object({ copy: CopyId, material: CopyId.nullish() });
 const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX) });
 const Lock = z.object({ copy: CopyId, locked: z.boolean() });
+const Class = z.object({ class: z.enum(RAID_CLASS_IDS).nullable() });
 
 export function gearController(gear: GearService) {
   return {
@@ -75,6 +77,11 @@ export function gearController(gear: GearService) {
     async sell(req, res) {
       const { copies } = parse(Sell, req.body);
       res.json(await gear.sell(res.locals.guildId, res.locals.session.userId, copies));
+    },
+
+    async setClass(req, res) {
+      const { class: id } = parse(Class, req.body);
+      res.json(await gear.setClass(res.locals.guildId, res.locals.session.userId, id));
     },
 
     async lock(req, res) {

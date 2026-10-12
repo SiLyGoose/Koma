@@ -38,6 +38,12 @@ export const databankText = {
   previousButton: 'Previous',
   nextButton: 'Next',
   notYours: "This isn't your databank to flip through.",
+  /** A class item's line, and its field in the details: `name` is the class's, like "Knight". */
+  classItem: (name: string) => `🎖️ ${name} class item`,
+  detailClassField: 'Class',
+  detailClass: (name: string) => `**${name}**: what it does only works for a raider of that class.`,
+  /** `databank <class>`: that class's items. */
+  classDescription: (name: string, level: number) => `Every ${name} class item and what it does while equipped.\n${refineNote(level)}`,
   /** Last line of an item that only some members can use. `owners` is mentions. */
   exclusive: (owners: string) => `Exclusive to ${owners}`,
   /** Last line of an item the gacha never gives (ItemDef.raidDrop): one the raid shop doesn't sell, and one it does. */

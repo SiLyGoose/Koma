@@ -13,6 +13,9 @@ import { setCopyLocked } from '../../services/items/lock.js';
 import { refineItem } from '../../services/items/refine.js';
 import { sellCopies } from '../../services/items/sell.js';
 import { wornOutfit } from '../../services/outfits.js';
+import { raidClassesOf, raidClassOf, setRaidClass } from '../../services/raid-class.js';
+import { classTraits } from '../../lib/game/raid-classes.js';
+import { RAID_CLASS_IDS, TEXT, type RaidClassId } from '../../constants/index.js';
 import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
 import type { EquipmentDoc, ItemCopyDoc, ItemDef, Slot, Stars } from '../../types.js';
 import { gearStats, type StatSection } from './stats.js';
@@ -105,6 +108,10 @@ export interface GearView {
   gems: number | null;
   /** The outfit they wear (data/outfits.ts): the character the page draws them as. */
   outfit: string;
+  /** Their raid class (services/raid-class.ts), or null with none: the page's class ribbon shows and changes it. */
+  class: RaidClassId | null;
+  /** Every raid class, for the ribbon's picker: its name and what it does in a fight, a line of Discord markdown each. */
+  classes: { id: RaidClassId; name: string; traits: string[] }[];
 }
 
 /**
@@ -167,6 +174,10 @@ export interface GearStore {
   sell: (guildId: string, userId: string, copyIds: readonly string[]) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks that copy: false when they don't own it. */
   lock: (guildId: string, userId: string, copyId: string, locked: boolean) => Promise<boolean>;
+  /** Sets their raid class (null: none). */
+  setClass: (guildId: string, userId: string, id: RaidClassId | null) => Promise<void>;
+  /** Each of those members' raid classes, in their order (the roster's badges). */
+  classes: (guildId: string, userIds: readonly string[]) => Promise<(RaidClassId | null)[]>;
 }
 
 /** What a sale from the gear page sold (POST /api/gear/sell answers the GearView with it). */
@@ -218,7 +229,7 @@ function forgeState(item: ItemDef, level: number, masterwork: boolean, gems: num
  * The gear page's view of `copies` (all a member owns), with `equipment` what they wear,
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
  * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge),
- * and `outfit` the outfit they wear.
+ * `outfit` the outfit they wear and `raidClass` their raid class.
  */
 export function gearView(
   copies: readonly CopyInfo[],
@@ -228,6 +239,7 @@ export function gearView(
   balance: number | null = null,
   gems: number | null = null,
   outfit: string = DEFAULT_OUTFIT,
+  raidClass: RaidClassId | null = null,
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
   const kept = new Set(wornIds);
@@ -299,6 +311,8 @@ export function gearView(
     balance,
     gems,
     outfit,
+    class: raidClass,
+    classes: RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })),
   };
 }
 
@@ -306,12 +320,12 @@ export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member), raidClassOf(member));
   },
   peek: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member), raidClassOf(member));
   },
   owners: async (guildId, limit) => {
     const rows = await collections()
@@ -365,4 +379,6 @@ export const gearStore: GearStore = {
     return { count: saleCount(result.lines), earned: result.earned };
   },
   lock: (guildId, userId, copyId, locked) => setCopyLocked(guildId, userId, copyId, locked),
+  setClass: setRaidClass,
+  classes: raidClassesOf,
 };

@@ -18,7 +18,7 @@ import type { ActProblem, LobbyAnswer, RaidEnd } from '../../../lib/events/raid-
  *                 begin    the host starts the fight (nothing else does: the lobby has no countdown)
  *                 disband  the host disbands the raid before the fight: the week is freed, to start again
  *                 difficulty  the host picks the raid's difficulty `level` (up to the lobby's `maxDifficulty`)
- *                 act      their action this turn (`target`: who a heal is for, left out to let the
+ *                 act      their action this turn (`skill`: a ward in place of a Support, for a class that can; `target`: who a heal or ward is for, left out to let the
  *                          bot choose)
  *   bot -> page   raid     the raid as it is now: whenever anything about it changes
  *                 answer   how a start, join, leave, begin, disband, difficulty or act went (`code` is 'ok' when it went)
@@ -36,7 +36,7 @@ export type ClientMessage =
   | { t: 'begin' }
   | { t: 'disband' }
   | { t: 'difficulty'; level: number }
-  | { t: 'act'; action: RaidAction; target?: string };
+  | { t: 'act'; action: RaidAction; target?: string; skill?: 'ward' };
 
 /** The boss's pictures: calm and angrier as it loses HP, and how the fight ended. */
 export type RaidMood = 'calm' | 'enraged' | 'furious' | 'shielded' | 'defeated' | 'gloating' | 'fled';
@@ -53,6 +53,10 @@ export interface RaidPlayerView {
   picked: RaidAction | null;
   /** They can pick this turn (standing and not stunned). */
   canAct: boolean;
+  /** Their raid class for this fight (constants/raid.ts's RAID_CLASS_IDS), or null with none. */
+  class: string | null;
+  /** Their Support can ward an ally instead (the `skill` of an act): their class's. */
+  wards: boolean;
 }
 
 export interface RaidFightView {
@@ -242,7 +246,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'act': {
       if (typeof m.action !== 'string' || !ACTIONS.includes(m.action as RaidAction)) return null;
       if (m.target !== undefined && (typeof m.target !== 'string' || !/^\d{1,20}$/.test(m.target))) return null;
-      return m.target === undefined ? { t: 'act', action: m.action as RaidAction } : { t: 'act', action: m.action as RaidAction, target: m.target };
+      if (m.skill !== undefined && m.skill !== 'ward') return null;
+      return { t: 'act', action: m.action as RaidAction, ...(m.target === undefined ? {} : { target: m.target }), ...(m.skill === undefined ? {} : { skill: 'ward' as const }) };
     }
     default:
       return null;

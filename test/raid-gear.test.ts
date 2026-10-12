@@ -134,7 +134,7 @@ test('raidSupport: heals and revives heal more, and Guard is left to guardBoost'
 
   const takenShare = RAID_COMBAT.guard.takenShare;
   assert.equal(guardTakenShare({ gear: { ...emptyGear(), raidSupport: 0.25 } }), takenShare);
-  assert.equal(guardCutOf({ gear: { ...emptyGear(), raidSupport: 0.25 } }), RAID_COMBAT.guard.aoeCut);
+  assert.equal(guardCutOf({ gear: { ...emptyGear(), raidSupport: 0.25 }, class: 'knight' }), 0.1);
   assert.equal(guardTakenShare({ gear: { ...emptyGear(), raidSupport: 0.25, guardBoost: 0.25 } }), 1 - (1 - takenShare) * 1.25);
 });
 
@@ -147,6 +147,6 @@ test('gear stats: the new raid perks show on the card, with what they would be w
   assert.ok(text.includes(`**Crit chance**: 22%, for ${Math.round(min * 1.25 * 2.6)} damage 🎒`), text);
   assert.ok(text.includes(`**Heal**: ${Math.round(RAID_COMBAT.heal.amount * 1.25)} HP, or brings back a knocked-out ally with ${Math.round(130 * RAID_COMBAT.heal.reviveShare * 1.25)} HP 🎒`), text);
   assert.match(text, /you take 37\.5% of a hit \(normally 50%\) 🎒/);
-  assert.match(text, /the party takes 37\.5% less from attacks that hit several raiders \(normally 30%\) 🎒/);
+  assert.doesNotMatch(text, /the party takes/, 'only a class whose Guard cuts for the party has that line');
   assert.doesNotMatch(text, /No raid gear/);
 });

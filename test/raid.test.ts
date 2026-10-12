@@ -4,7 +4,7 @@ import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/im
 import { renderReaper } from '../src/animations/images/reaper-image.js';
 import { bossByName, eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
-import { GEM_EMOJI, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
+import { GEM_EMOJI, RAID, RAID_BOSS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import * as TEXT_CURRENCY from '../src/constants/text/currency.js';
 import {
   BOSS_MOVES,
@@ -94,6 +94,19 @@ const choose = (...picks: [string, RaidChoice['action'], number?][]): Map<string
 
 function fight(players: string[] = ['a', 'b', 'c'], bossHp = 1000): RaidState {
   return createRaid('wyrm', players, bossHp, 100, 15, low);
+}
+
+/** What the knights below cut for the party: a knight's own share, and their item's on top. */
+const PARTY_CUT = 0.3;
+
+/** Makes those raiders knights in their item: only a knight's Guard cuts hits on everyone else. */
+function knights(state: RaidState, ...ids: string[]): RaidState {
+  for (const p of state.players) {
+    if (!ids.includes(p.userId)) continue;
+    p.class = 'knight';
+    p.gear.partyGuard = PARTY_CUT - RAID_CLASSES.knight.partyCut;
+  }
+  return state;
 }
 
 test('createRaid: everyone at full HP, round 1, a move announced', () => {
@@ -188,51 +201,68 @@ test('the last hit beats the boss, and attacks after it do nothing', () => {
   assert.deepEqual(bossTurn(state, low), { events: [], theft: null });
 });
 
-test('guard: a guard takes a claw aimed at someone else, at half damage', () => {
-  const state = fight();
+test("guard: a knight's guard takes a claw aimed at someone else, at half damage; nobody else's does", () => {
+  const state = knights(fight(), 'a');
   state.intent = { move: 'claw', targets: ['b'], multiplier: 1 };
   resolvePlayerTurn(state, choose(['a', 'guard']), low);
   const { events } = bossTurn(state, low);
   const claw = Math.round(RAID_COMBAT.moves.claw.damage * RAID_COMBAT.guard.takenShare);
   assert.deepEqual(events, [{ kind: 'hit', move: 'claw', userId: 'a', damage: claw, guarded: true, coveredFor: 'b' }]);
   assert.equal(state.players[1]?.hp, 100);
+
+  // A guard without a class only guards themselves: the claw lands on who it was aimed at, in full.
+  const plain = fight();
+  plain.intent = { move: 'claw', targets: ['b'], multiplier: 1 };
+  resolvePlayerTurn(plain, choose(['a', 'guard']), low);
+  assert.deepEqual(bossTurn(plain, low).events, [{ kind: 'hit', move: 'claw', userId: 'b', damage: RAID_COMBAT.moves.claw.damage, guarded: false, coveredFor: null }]);
+  assert.equal(plain.players[0]?.hp, 100);
 });
 
-test('guard: fire breath hits everyone, softened for the others by the guard', () => {
+test("guard: fire breath hits everyone, softened for the guard alone unless they're a knight", () => {
+  const base = RAID_COMBAT.moves.breath.damage;
   const state = fight();
   state.intent = { move: 'breath', targets: [], multiplier: 1 };
   resolvePlayerTurn(state, choose(['a', 'guard']), low);
   bossTurn(state, low);
-  const base = RAID_COMBAT.moves.breath.damage;
   assert.equal(state.players[0]?.hp, 100 - Math.round(base * RAID_COMBAT.guard.takenShare));
-  assert.equal(state.players[1]?.hp, 100 - Math.round(base * (1 - RAID_COMBAT.guard.aoeCut)));
+  assert.equal(state.players[1]?.hp, 100 - base, 'a guard without a class cuts nothing for the others');
+
+  // A knight's Guard softens it for everyone else too.
+  const led = knights(fight(), 'a');
+  led.intent = { move: 'breath', targets: [], multiplier: 1 };
+  resolvePlayerTurn(led, choose(['a', 'guard']), low);
+  bossTurn(led, low);
+  assert.equal(led.players[0]?.hp, 100 - Math.round(base * RAID_COMBAT.guard.takenShare));
+  assert.equal(led.players[1]?.hp, 100 - Math.round(base * (1 - PARTY_CUT)));
 });
 
 test("guard: guards don't stack, the party gets the strongest guard's cut and only that", () => {
   const breath = RAID_COMBAT.moves.breath.damage;
-  const { aoeCut } = RAID_COMBAT.guard;
+  const aoeCut = PARTY_CUT;
   const hitOn = (state: RaidState, userId: string) =>
     (bossTurn(state, low).events.find((e) => e.kind === 'hit' && e.userId === userId) as { damage: number } | undefined)?.damage;
 
-  // Two plain guards cut no more than one.
-  const two = fight(['a', 'b', 'c']);
+  // Two knights guarding cut no more than one.
+  const two = knights(fight(['a', 'b', 'c']), 'a', 'b');
   two.intent = { move: 'breath', targets: [], multiplier: 1 };
   two.guarding = ['a', 'b'];
   assert.equal(hitOn(two, 'c'), Math.round(breath * (1 - aoeCut)));
 
   // A geared guard's bigger cut wins, whoever guarded first.
-  const geared = fight(['a', 'b', 'c']);
+  const geared = knights(fight(['a', 'b', 'c']), 'a', 'b');
   (geared.players[1] as { gear: { guardBoost: number } }).gear.guardBoost = 0.5;
   geared.intent = { move: 'breath', targets: [], multiplier: 1 };
   geared.guarding = ['a', 'b'];
   assert.equal(hitOn(geared, 'c'), Math.round(breath * (1 - aoeCut * 1.5)));
 
-  // Never past the cap.
-  assert.equal(guardCutOf({ gear: { ...emptyGear(), guardBoost: 5 } }), RAID_COMBAT.guard.aoeCutMax);
+  // Never past the cap, and never anything from a guard without a class that cuts for the party.
+  assert.equal(guardCutOf({ gear: { ...emptyGear(), guardBoost: 5 }, class: 'knight' }), RAID_COMBAT.guard.aoeCutMax);
+  assert.equal(guardCutOf({ gear: { ...emptyGear(), guardBoost: 5, partyGuard: 0.2 } }), 0);
+  assert.equal(guardCutOf({ gear: emptyGear(), class: 'knight' }), RAID_CLASSES.knight.partyCut);
   assert.equal(strongestGuard([]), undefined);
 });
 
-test('hoard: steals from the target, unless a guard is in the way', () => {
+test("hoard: steals from the target, unless their guard or a knight's is in the way", () => {
   const open = fight();
   open.intent = { move: 'hoard', targets: ['c'], multiplier: 1 };
   resolvePlayerTurn(open, choose(), low);
@@ -241,12 +271,22 @@ test('hoard: steals from the target, unless a guard is in the way', () => {
   assert.deepEqual(recordTheft(open, 'c', 123), { kind: 'stole', userId: 'c', amount: 123 });
   assert.equal(open.players[2]?.stats.stolen, 123);
 
-  const guarded = fight();
+  const guarded = knights(fight(), 'b');
   guarded.intent = { move: 'hoard', targets: ['c'], multiplier: 1 };
   resolvePlayerTurn(guarded, choose(['b', 'guard']), low);
   const blocked = bossTurn(guarded, low);
   assert.equal(blocked.theft, null);
   assert.deepEqual(blocked.events, [{ kind: 'hoardBlocked', userId: 'b', targetId: 'c' }]);
+
+  // The target's own guard stops it too; a guard without a class does nothing for someone else's wallet.
+  const own = fight();
+  own.intent = { move: 'hoard', targets: ['c'], multiplier: 1 };
+  resolvePlayerTurn(own, choose(['c', 'guard']), low);
+  assert.deepEqual(bossTurn(own, low), { events: [{ kind: 'hoardBlocked', userId: 'c', targetId: 'c' }], theft: null });
+  const other = fight();
+  other.intent = { move: 'hoard', targets: ['c'], multiplier: 1 };
+  resolvePlayerTurn(other, choose(['b', 'guard']), low);
+  assert.deepEqual(bossTurn(other, low).theft, { userId: 'c', wanted: RAID_COMBAT.moves.hoard.min });
 });
 
 test('heal: revives the knocked out first, otherwise heals the most hurt, never above max', () => {
@@ -299,8 +339,8 @@ test('heal: goes to the ally the healer picked, and falls back to the usual pick
   assert.equal(self.players[0]?.hp, 50 + RAID_COMBAT.heal.amount);
 });
 
-test("guardBoost gear: the wearer takes less of every hit while guarding, and the party's cut is bigger too", () => {
-  const state = fight();
+test("guardBoost gear: the wearer takes less of every hit while guarding, and a knight's cut for the party is bigger too", () => {
+  const state = knights(fight(), 'a', 'b');
   (state.players[0] as { gear: { guardBoost: number } }).gear.guardBoost = 0.25;
   const breath = RAID_COMBAT.moves.breath.damage;
   state.intent = { move: 'breath', targets: [], multiplier: 1 };
@@ -310,10 +350,10 @@ test("guardBoost gear: the wearer takes less of every hit while guarding, and th
   assert.equal(hit('a')?.damage, Math.round(breath * 0.375));
   assert.equal(hit('b')?.damage, Math.round(breath * RAID_COMBAT.guard.takenShare));
   // a's cut (the bigger one) is the one c gets.
-  assert.equal(hit('c')?.damage, Math.round(breath * (1 - RAID_COMBAT.guard.aoeCut * 1.25)));
+  assert.equal(hit('c')?.damage, Math.round(breath * (1 - PARTY_CUT * 1.25)));
 
   // Jumping in front of a Claw for someone else, the wearer still takes the smaller share.
-  const claw = fight();
+  const claw = knights(fight(), 'a');
   (claw.players[0] as { gear: { guardBoost: number } }).gear.guardBoost = 0.25;
   claw.intent = { move: 'claw', targets: ['b'], multiplier: 1 };
   claw.guarding = ['a'];
@@ -323,7 +363,8 @@ test("guardBoost gear: the wearer takes less of every hit while guarding, and th
 
 test('mitigated: a guard is credited with the damage their guarding kept off the party', () => {
   const { claw, breath } = RAID_COMBAT.moves;
-  const { takenShare, aoeCut } = RAID_COMBAT.guard;
+  const { takenShare } = RAID_COMBAT.guard;
+  const aoeCut = PARTY_CUT;
   const mitigated = (state: RaidState, userId: string): number => state.players.find((p) => p.userId === userId)?.stats.mitigated ?? 0;
 
   // Guarding a Claw aimed at themselves: the share they didn't take.
@@ -333,17 +374,17 @@ test('mitigated: a guard is credited with the damage their guarding kept off the
   bossTurn(self, low);
   assert.equal(mitigated(self, 'a'), Math.round(claw.damage * (1 - takenShare)));
 
-  // Jumping in front of a Claw aimed at someone else: the same, and nothing for the one covered.
-  const cover = fight();
+  // A knight jumping in front of a Claw aimed at someone else: the same, and nothing for the one covered.
+  const cover = knights(fight(), 'a');
   cover.intent = { move: 'claw', targets: ['b'], multiplier: 1 };
   cover.guarding = ['a'];
   bossTurn(cover, low);
   assert.equal(mitigated(cover, 'a'), Math.round(claw.damage * (1 - takenShare)));
   assert.equal(mitigated(cover, 'b'), 0);
 
-  // A Fire Breath with two guarding: each keeps their own share off, and the cut to the third is the
-  // strongest guard's (the first to guard, on a tie), so it's theirs alone.
-  const breathed = fight();
+  // A Fire Breath with two knights guarding: each keeps their own share off, and the cut to the third is
+  // the strongest guard's (the first to guard, on a tie), so it's theirs alone.
+  const breathed = knights(fight(), 'a', 'b');
   breathed.intent = { move: 'breath', targets: [], multiplier: 1 };
   breathed.guarding = ['a', 'b'];
   bossTurn(breathed, low);
@@ -441,7 +482,7 @@ test('raid gear items: a 1-star, a 2-star and a 3-star item for each raid perk, 
   assert.equal(DEFAULTS.equipment.guardBoost[3], 0.2);
   assert.equal(DEFAULTS.equipment.rallyBoost[3], 0.25);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('war-banner') as ItemDef), ['Raid: your rallies give a 25% bigger attack bonus']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: your Guard blocks 20% more, for you and the party']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: your Guard blocks 20% more']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 20% of the heal']);
 });
 
@@ -941,7 +982,7 @@ test('komaTokens: the raid pays 10 by default, and pulls show what tokens and po
 });
 
 test('the boss hits as hard as it announced, even if it enrages in between (the regression where guards looked broken)', () => {
-  const state = fight(['g', 'x', 'a'], 5000);
+  const state = knights(fight(['g', 'x', 'a'], 5000), 'g');
   state.bossHp = 1300; // just above the second threshold
   state.intent = { move: 'claw', targets: ['x'], multiplier: 1 };
   const events = resolvePlayerTurn(state, choose(['g', 'guard'], ['a', 'attack', 100]), high);
@@ -1120,7 +1161,7 @@ test('the reaper only uses its own moves, and the dragon only its own', () => {
   assert.equal(reaperFight().intent.move, 'reap'); // the lowest roll lands on its first move
 });
 
-test('reap: heals the reaper a share of the damage it deals, so a guard taking it for someone cuts the heal', () => {
+test('reap: heals the reaper a share of the damage it deals, so a knight taking it for someone cuts the heal', () => {
   const { damage, lifesteal } = RAID_COMBAT.moves.reap;
   const open = reaperFight();
   open.bossHp = 500;
@@ -1131,7 +1172,7 @@ test('reap: heals the reaper a share of the damage it deals, so a guard taking i
   ]);
   assert.equal(open.bossHp, 500 + Math.round(damage * lifesteal));
 
-  const guarded = reaperFight();
+  const guarded = knights(reaperFight(), 'a');
   guarded.bossHp = 500;
   guarded.intent = { move: 'reap', targets: ['b'], multiplier: 1 };
   resolvePlayerTurn(guarded, choose(['a', 'guard']), low);
@@ -1169,7 +1210,7 @@ test('soul drain: hits everyone and heals 2x the total, never above the max HP',
   assert.ok(!bossTurn(top, low).events.some((e) => e.kind === 'lifesteal'));
 });
 
-test('harvest: tears HP out of one raider and heals a share of the max HP, unless a guard is in the way', () => {
+test("harvest: tears HP out of one raider and heals a share of the max HP, unless their guard or a knight's is in the way", () => {
   const { damage, maxHpShare } = RAID_COMBAT.moves.harvest;
   const open = reaperFight(['a', 'b', 'c'], 4000);
   open.bossHp = 2000;
@@ -1179,13 +1220,21 @@ test('harvest: tears HP out of one raider and heals a share of the max HP, unles
     { kind: 'lifesteal', move: 'harvest', amount: 4000 * maxHpShare },
   ]);
 
-  const guarded = reaperFight(['a', 'b', 'c'], 4000);
+  const guarded = knights(reaperFight(['a', 'b', 'c'], 4000), 'b');
   guarded.bossHp = 2000;
   guarded.intent = { move: 'harvest', targets: ['c'], multiplier: 1 };
   resolvePlayerTurn(guarded, choose(['b', 'guard']), low);
   assert.deepEqual(bossTurn(guarded, low).events, [{ kind: 'harvestBlocked', userId: 'b', targetId: 'c' }]);
   assert.equal(guarded.bossHp, 2000);
   assert.equal(guarded.players[2]?.hp, 100);
+
+  // A guard without a class is not in the way of a Harvest on someone else.
+  const plain = reaperFight(['a', 'b', 'c'], 4000);
+  plain.bossHp = 2000;
+  plain.intent = { move: 'harvest', targets: ['c'], multiplier: 1 };
+  resolvePlayerTurn(plain, choose(['b', 'guard']), low);
+  assert.equal(bossTurn(plain, low).events[0]?.kind, 'hit');
+  assert.equal(plain.players[2]?.hp, 100 - damage);
 });
 
 test('spectral veil: channeled for a turn, up for the next, and never raised twice in a row', () => {
@@ -1514,12 +1563,13 @@ test('grim reckoning: the reaper gathers for two turns, then hits several raider
   assert.equal(new Set(state.intent.targets).size, state.intent.targets.length);
   const aimed = [...state.intent.targets];
   const guard = aimed[0] as string;
+  knights(state, guard);
   resolvePlayerTurn(state, choose([guard, 'guard']), low);
   const { events } = bossTurn(state, low);
   const hits = events.filter((e) => e.kind === 'hit');
   assert.deepEqual(hits.map((e) => (e as { userId: string }).userId), aimed);
   assert.equal((hits[0] as { damage: number }).damage, Math.round(damage * RAID_COMBAT.guard.takenShare));
-  assert.equal((hits[1] as { damage: number }).damage, Math.round(damage * (1 - RAID_COMBAT.guard.aoeCut)));
+  assert.equal((hits[1] as { damage: number }).damage, Math.round(damage * (1 - PARTY_CUT)));
   assert.equal(state.gathered, 0);
   assert.match(eventLines(events, 'reaper').join('\n'), /⚰️ Grim Reckoning struck/);
 
@@ -1776,8 +1826,8 @@ test('Blight: her hits leave stacks, and every stack festers at the end of the r
   assert.equal(player(state, 'b').blight, blight.maxStacks);
 });
 
-test('Blight: a guard who takes the Plague Spit for someone takes its stacks too', () => {
-  const state = plagueFight();
+test('Blight: a knight who takes the Plague Spit for someone takes its stacks too', () => {
+  const state = knights(plagueFight(), 'b');
   announce(state, 'spit', ['a']);
   resolvePlayerTurn(state, choose(['b', 'guard']), low);
   const { events } = bossTurn(state, low);

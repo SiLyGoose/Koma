@@ -1,4 +1,4 @@
-import { RAID_COMBAT, RAID_EMOJI as E, type RaidBossId } from '../raid.js';
+import { RAID_COMBAT, RAID_EMOJI as E, type RaidBossId, type RaidClassId } from '../raid.js';
 import { boldGems, boldMoney, boldTokens } from './currency.js';
 
 /*
@@ -66,6 +66,46 @@ const HIT_MANY = {
 type ManyMove = keyof typeof HIT_MANY;
 
 export const raidText = {
+  /** The raid classes' names (constants/raid.ts's RAID_CLASSES). */
+  classes: {
+    knight: { name: 'Knight' },
+    warrior: { name: 'Warrior' },
+    priest: { name: 'Priest' },
+    mechanic: { name: 'Mechanic' },
+    wizard: { name: 'Wizard' },
+    assassin: { name: 'Assassin' },
+    archer: { name: 'Archer' },
+  } satisfies Record<RaidClassId, { name: string }>,
+  /**
+   * What a class's rules do (constants/raid.ts's RaidClassRules), a line each, for the databanks: only the
+   * ones that aren't a raider without a class's are said (lib/game/raid-classes.ts). `times` is a
+   * multiplier, like "0.75x"; a share is like "10%".
+   */
+  classTraits: {
+    attack: (times: string) => `${E.attack} **Attack**: their attacks do **${times}** damage.`,
+    /** `step` is what every turn in a row adds, `max` the most it adds up to. */
+    ramp: (step: string, max: string) =>
+      `${E.attack} **Ramp**: their attacks do **${step}** more for every turn in a row they have attacked, up to **${max}** more. A turn they don't attack, or a hit from the boss, starts it over.`,
+    hex: (share: string) => `🔮 **Hex**: their attacks that land hex the boss, and the move it announced that turn hits **${share}** weaker. Hexes don't stack: the strongest counts.`,
+    crit: (share: string) => `${E.crit} **Keen eye**: **+${share}** crit chance, whatever they wear.`,
+    hp: (times: string) => `❤️ **HP**: they fight with **${times}** HP.`,
+    /** `share` is how much of one of their attacks, like "50%". */
+    retaliate: (share: string) =>
+      `${E.attack} **Retaliate**: every turn the boss hits them and leaves them standing, they strike back once for **${share}** of an attack (no crit or rally; a shield stops it).`,
+    healed: (times: string) => `${E.heal} **Hard to mend**: heals on them do **${times}** (a revive brings them back as it does anyone).`,
+    taken: (times: string) => `💢 **Damage taken**: the boss's hits on them do **${times}** damage.`,
+    /** `max` is the most the cut can be, with gear. */
+    partyCut: (cut: string, max: string) =>
+      `${E.guard} **Party guard**: while they guard, everyone else takes **${cut}** less from moves that hit several raiders (more with gear, up to ${max}). Guards don't stack: the strongest counts.`,
+    covers: () => `${E.guard} **Cover**: while they guard, they take a hit aimed at one other raider in their place, and stop a steal aimed at one.`,
+    heal: (times: string) => `${E.heal} **Heal**: their heals and revives do **${times}**.`,
+    healCrit: () => `${E.heal} **Critical heals**: their heals and revives can crit, with their own crit chance and crit damage.`,
+    /** `more` is how many turns longer, `turns` how long that makes it. */
+    rallyTurns: (more: number, turns: number) => `✨ **Long rally**: their rally lasts ${plural(more, 'turn', 'turns')} longer (${turns} in all).`,
+    interrupts: (count: number) => `✨ **Interrupt**: their Support counts as ${count} towards interrupting a channel.`,
+    ward: () => `🛡️ **Ward**: in place of a Support's usual work they can ward an ally, and the first hit the boss lands on that ally that turn does nothing.`,
+    massDispel: () => `✨ **Mass dispel**: their Support frees every ally under crowd control, not just one.`,
+  },
   bosses: {
     wyrm: {
       name: 'Wyvern',
@@ -157,7 +197,7 @@ export const raidText = {
       deflects > 0
         ? `${E.attack} **Attack**: damage ${b.it}. Its ${b.shield} goes up without warning and deflects the next ${plural(deflects, 'attack', 'attacks')}.`
         : `${E.attack} **Attack**: damage ${b.it}.`,
-      `${E.guard} **Guard**: take half damage, jump in front of attacks aimed at others, and soften attacks that hit everyone.`,
+      `${E.guard} **Guard**: take half damage.`,
       blight
         ? `${E.heal} **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most). Heals don't clear 🦠 Blight.`
         : `${E.heal} **Heal**: pick an ally to heal, or bring back one who was knocked out (or let the bot pick whoever needs it most).`,
@@ -239,8 +279,9 @@ Grows with every raider (at least ${min}).`,
   logField: 'Recent actions',
   logEmpty: 'Nothing yet.',
   /** `bar` is the player's HP bar, `cc` their crowd-control tag (ccTag) or empty. */
-  partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cc: string) =>
-    `${status} ${user} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
+  /** `cls` is their class's name, or null with none. */
+  partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cc: string, cls: string | null = null) =>
+    `${status} ${user}${cls === null ? '' : ` *${cls}*`} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
   /** A player's crowd control on the party list, with the turns it has left. */
   ccTag: (effect: CrowdControl, turns: number) => `${E[effect]} ${CC[effect].name} (${turns})`,
   /** A player's Blight stacks on the party list. */
@@ -262,7 +303,7 @@ Grows with every raider (at least ${min}).`,
     claw: (target: string, damage: number) => `🦴 **Claw** at ${target} (${damage} damage)`,
     breath: (damage: number) => `🔥 **Fire Breath**, hitting everyone (${damage} damage each)`,
     sweep: (targets: string, damage: number) => `🌀 **Tail Sweep** at ${targets} (${damage} damage each)`,
-    hoard: (target: string) => `💰 **Hoard**: it wants to steal from ${target}'s wallet. A guard can stop it.`,
+    hoard: (target: string) => `💰 **Hoard**: it wants to steal from ${target}'s wallet. Their guard stops it, or a knight's.`,
     /** `deflects` is how many attacks it takes before it shatters. */
     shield: (deflects: number) =>
       `🔷 **Scale Shield**: it raised its shield instead of making a move this turn. It deflects ${plural(deflects, 'attack', 'attacks')}, then shatters. Support can't break it`,
@@ -272,7 +313,7 @@ Grows with every raider (at least ${min}).`,
     drain: (damage: number, lifesteal: string) => `👻 **Soul Drain**, hitting everyone (${damage} damage each; it heals ${lifesteal} what it drains)`,
     scythe: (targets: string, damage: number) => `🌙 **Scythe Sweep** at ${targets} (${damage} damage each)`,
     /** `heal` is the HP it would heal. */
-    harvest: (target: string, damage: number, heal: string) => `🕯️ **Harvest**: it reaches for ${target}'s soul (${damage} damage, and it heals ${heal}). A guard can stop it.`,
+    harvest: (target: string, damage: number, heal: string) => `🕯️ **Harvest**: it reaches for ${target}'s soul (${damage} damage, and it heals ${heal}). Their guard stops it, or a knight's.`,
     /** `supports` is how many Supports interrupt it, `stagger` what attacks do to it the turn after they do, like "1.5x". */
     veil: (supports: number, stagger: string) =>
       `🌫️ **Spectral Veil**: it is channeling its veil. ${supports} raiders must Support **this turn** to interrupt it (it then loses its next turn and takes ${stagger} damage), or attacks pass right through it all next turn`,
@@ -296,7 +337,7 @@ Grows with every raider (at least ${min}).`,
       `🪰 **Fly Swarm**: she is calling her flies. ${supports} raiders must Support **this turn** to interrupt her (she then loses her next turn and takes ${stagger} damage), or attacks get lost in the swarm all next turn`,
     /** The turn after its channel was interrupted. `multiplier` is what attacks do to it, like "1.5x". */
     stagger: (b: RaidBossText, multiplier: string) =>
-      `😵 **Staggered**: ${b.It.toLowerCase()} is reeling from the broken channel. No move this turn, and every attack does **${multiplier}** damage. Strike now!`,
+      `😵 **Staggered**: ${b.it} is reeling from the broken channel. No move this turn, and every attack does **${multiplier}** damage. Strike now!`,
     brew: () => `⚗️ **Pestilence** is brewing: next turn every raider's 🦠 Blight doubles. Cleanse it now!`,
     pestilence: () => `☣️ **Pestilence**: every raider's 🦠 Blight doubles`,
     /** `targets` is one or more mentions. */
@@ -346,7 +387,7 @@ Grows with every raider (at least ${min}).`,
     spit: (target: string, damage: number) => `🤢 Plague Spit hit ${target} for **${damage}** (${blightAdds('spit')}).`,
     miasma: (target: string, damage: number) => `☁️ Miasma choked ${target} for **${damage}** (${blightAdds('miasma')}).`,
     rot: (target: string, damage: number) => `🍄 Creeping Rot took hold of ${target} for **${damage}** (${blightAdds('rot')}).`,
-    /** A guard who jumped in front of a one-target hit. */
+    /** A guard (a knight) who jumped in front of a one-target hit. */
     covered: (move: 'claw' | 'reap' | 'spit', guard: string, target: string, damage: number) =>
       move === 'claw'
         ? `🐉 ${guard} took the Claw for ${target}: **${damage}**.`
@@ -354,6 +395,11 @@ Grows with every raider (at least ${min}).`,
           ? `🩸 ${guard} took the Reap for ${target}: **${damage}**.`
           : `🤢 ${guard} took the Plague Spit for ${target}: **${damage}** (${blightAdds('spit')}).`,
     staggered: (b: RaidBossText) => `😵 ${b.It} is still reeling and makes no move.`,
+    ward: (user: string, target: string) => `🛡️ ${user} wards ${target}: the next hit on them this turn does nothing.`,
+    warded: (user: string) => `🛡️ The ward takes the hit for ${user}!`,
+    retaliate: (user: string, damage: number) => `${E.attack} ${user} strikes back for **${damage}**!`,
+    /** `share` is how much weaker its move hits, like "20%". */
+    hexed: (user: string, b: RaidBossText, share: string) => `🔮 ${user} hexes ${b.it}: its move this turn hits **${share}** weaker.`,
     brewing: (b: RaidBossText) => `⚗️ ${b.It} stirs a bubbling brew. **Pestilence** is coming next turn!`,
     pestilence: (b: RaidBossText) => `☣️ ${b.It} unleashes **Pestilence**! Every raider's 🦠 Blight doubles.`,
     /** Each part is festerPart. */
@@ -395,6 +441,15 @@ Grows with every raider (at least ${min}).`,
   turnOver: 'Too late: the turn is over.',
   /** `target` is who a heal is for (a mention), or empty when the bot picks. */
   chose: (action: string, target = '') => `You'll **${action}**${target ? ` ${target}` : ''} this turn.`,
+  // Support, for a class that can ward: the usual Support, or a ward on an ally.
+  supportSkillPrompt: 'Support as usual, or ward an ally? A ward makes the first hit the boss lands on them this turn do nothing, in place of everything else a Support does.',
+  supportSkillPlaceholder: 'Pick what your Support does',
+  supportAsUsual: 'Support as usual',
+  supportAsUsualDescription: 'Frees, cleanses or rallies, and counts towards interrupting a channel.',
+  wardAuto: 'Ward whoever the boss is aiming at',
+  wardAutoDescription: 'Or the most hurt ally, when it is aiming at nobody.',
+  wardOption: (name: string, you: boolean) => `Ward ${name}${you ? ' (you)' : ''}`,
+  choseWard: (target = '') => `You'll **ward** ${target || 'whoever the boss is aiming at'} this turn.`,
   healPrompt: 'Who do you want to heal? If they no longer need it when the turn ends, the heal goes to whoever needs it most.',
   healPlaceholder: 'Pick an ally',
   healAuto: 'Whoever needs it most',
@@ -478,6 +533,16 @@ Grows with every raider (at least ${min}).`,
   /** `hp` and `damage` are what each level past 1 adds, like "25%". */
   bossDifficulty: (max: number, hp: string, damage: string) =>
     `⚔️ **Difficulty**: these are its numbers at level 1. Each level past it, up to ${max}, gives it +${hp} HP and +${damage} damage and drops more raid items. The host picks the level in the lobby, up to one past the hardest this server has beaten.`,
+  /**
+   * The top levels, from `from`: `damage` is what it hits harder by at level `max` besides (null with none), `supports`
+   * how many Supports interrupt its channel there (null for a boss without one), `cc` whether its crowd control holds one more.
+   */
+  bossTop: (from: number, max: number, damage: string | null, supports: number | null, cc: boolean) =>
+    `🔥 **Levels ${from} to ${max}**: built for a party whose classes fit together. ${[
+      ...(damage === null ? [] : [`It hits harder still, up to +${damage} at level ${max}`]),
+      ...(supports === null ? [] : [`its channel takes ${supports} Supports to interrupt`]),
+      ...(cc ? ['its crowd control holds one more raider'] : []),
+    ].join(', ')}.`,
   /** `hp` is what it has on top for every raider from level `from` on (it climbs to that from level 2). */
   bossGear: (from: number, hp: string) =>
     `❤️ **HP by level**: every level past 1 also gives it more HP for every raider, in equal steps up to **${hp}** at level ${from} and every level past it.`,
@@ -512,29 +577,29 @@ Grows with every raider (at least ${min}).`,
   movesField: 'Moves',
   /** Its moves at their base damage (calm); each phase multiplies the damage. */
   moves: {
-    claw: (damage: number) => `🦴 **Claw**: ${damage} damage to one raider. Other raiders can guard to redirect attack to themselves.`,
+    claw: (damage: number) => `🦴 **Claw**: ${damage} damage to one raider. A guarding knight takes it instead.`,
     breath: (damage: number) => `🔥 **Fire Breath**: ${damage} damage to everyone. Guards reduce damage taken.`,
     sweep: (damage: number, min: number, max: number) => `🌀 **Tail Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
-    hoard: (min: string, max: string) => `💰 **Hoard**: steals ${boldMoney(min)} to ${boldMoney(max)} from one raider's wallet. A guard can stop it.`,
+    hoard: (min: string, max: string) => `💰 **Hoard**: steals ${boldMoney(min)} to ${boldMoney(max)} from one raider's wallet. Their guard stops it, or a knight's.`,
     shield: (deflects: number) => `🔷 **Scale Shield**: goes up without warning, in place of its move that turn, and deflects the next ${plural(deflects, 'attack', 'attacks')} before it shatters. Support can't break it.`,
     reap: (damage: number, lifesteal: number) =>
-      `🩸 **Reap**: ${damage} damage to one raider, and it heals **${lifesteal}x** the damage dealt. Other raiders can guard to take it instead, and guarding cuts what it heals.`,
+      `🩸 **Reap**: ${damage} damage to one raider, and it heals **${lifesteal}x** the damage dealt. A guarding knight takes it instead, and guarding cuts what it heals.`,
     drain: (damage: number, lifesteal: number) => `👻 **Soul Drain**: ${damage} damage to everyone, and it heals **${lifesteal}x** the damage dealt. Guards reduce both.`,
     scythe: (damage: number, min: number, max: number) => `🌙 **Scythe Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
-    harvest: (damage: number, share: string) => `🕯️ **Harvest**: Tears ${damage} HP out of one raider and heals **${share}** of its max HP. A guard can stop it.`,
+    harvest: (damage: number, share: string) => `🕯️ **Harvest**: Tears ${damage} HP out of one raider and heals **${share}** of its max HP. Their guard stops it, or a knight's.`,
     /** `stagger` is what attacks do to it the turn after an interrupt, like "1.5x". */
     veil: (supports: number, stagger: string) =>
-      `🌫️ **Spectral Veil**: channels for a turn, then attacks pass right through it for a turn. ${supports} Supports while it channels interrupt it: it skips its next turn and takes **${stagger}** damage. Once up, nothing breaks it.`,
+      `🌫️ **Spectral Veil**: channels for a turn, then attacks pass right through it for a turn. ${supports} Supports while it channels interrupt it: it then skips a turn and takes **${stagger}** damage.`,
     empower: (multiplier: string) => `💢 **Dark Empowerment**: spends a turn powering up, and its next move is an attack doing **${multiplier}** damage.`,
     reckoning: (turns: number, damage: number, min: number, max: number) =>
       `⚰️ **Grim Reckoning**: gathers for ${plural(turns, 'turn', 'turns')}, then hits ${min === max ? min : `${min} to ${max}`} raiders for ${damage} damage each. Guards reduce damage taken.`,
-    spit: (damage: number, stacks: number) => `🤢 **Plague Spit**: ${damage} damage and +${stacks} 🦠 Blight to one raider. Other raiders can guard to take it instead.`,
+    spit: (damage: number, stacks: number) => `🤢 **Plague Spit**: ${damage} damage and +${stacks} 🦠 Blight to one raider. A guarding knight takes it instead.`,
     miasma: (damage: number, stacks: number) => `☁️ **Miasma**: ${damage} damage and +${stacks} 🦠 Blight to everyone. Guards reduce the damage.`,
     /** `per` is how many raiders it hits one of (RAID_COMBAT.moves.rot.raidersPerTarget). */
     rot: (damage: number, stacks: number, per: number) =>
       `🍄 **Creeping Rot**: ${damage} damage and +${stacks} 🦠 Blight to ${per === 1 ? 'every raider' : `1 in every ${per} raiders (rounded up)`}. Guards reduce the damage.`,
     flies: (supports: number, stagger: string) =>
-      `🪰 **Fly Swarm**: channels for a turn, then attacks get lost in it for a turn. ${supports} Supports while it channels interrupt it: it skips its next turn and takes **${stagger}** damage. Once up, nothing breaks it.`,
+      `🪰 **Fly Swarm**: channels for a turn, then attacks get lost in it for a turn. ${supports} Supports while it channels interrupt it: it then skips a turn and takes **${stagger}** damage.`,
     /** `from` is the share of its HP it starts brewing at, like "75%". */
     pestilence: (from: string, max: number) => `☣️ **Pestilence** (at ${from} HP or less): brews for a turn, then doubles every raider's 🦠 Blight (up to ${max} stacks).`,
     /** Its special attack. `phase` is the phase's name. */

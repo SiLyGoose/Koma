@@ -129,7 +129,7 @@ export function openConnection(page: Peer<ServerMessage>, deps: RaidSiteDeps): C
           }
           case 'act': {
             if (!raid?.fight) return answer('act', 'no_raid');
-            const result = raid.fight.act(who.userId, message.action, message.target);
+            const result = raid.fight.act(who.userId, message.action, message.target, message.skill);
             return answer('act', result.kind === 'ok' ? 'ok' : result.kind === 'problem' ? result.problem : result.kind);
           }
         }

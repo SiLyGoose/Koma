@@ -59,8 +59,8 @@ test('gear counts at the worn copy\'s refinement; gear that does not say counts 
   assert.deepEqual(equippedGear({ armor: armor.id, levels: { armor: 3 } }), [{ item: armor, level: 3, bonus: true }]);
   // Bare items (the catalog describing itself) are fully refined too.
   assert.equal(totalEffects([armor]).guardBoost, full);
-  assert.deepEqual(describeEffects(armor), ['Raid: your Guard blocks 20% more, for you and the party']);
-  assert.deepEqual(describeEffects(armor, 1, 3), ['Raid: your Guard blocks 10% more, for you and the party']);
+  assert.deepEqual(describeEffects(armor), ['Raid: your Guard blocks 20% more']);
+  assert.deepEqual(describeEffects(armor, 1, 3), ['Raid: your Guard blocks 10% more']);
 });
 
 test('refine plan: raises the highest-refined copy, uses up the lowest other copy, never a worn one', () => {

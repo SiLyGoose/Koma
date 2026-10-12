@@ -1,7 +1,7 @@
 import type { ObjectId } from 'mongodb';
 import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
-import type { RaidBossId } from './constants/raid.js';
+import type { RaidBossId, RaidClassId } from './constants/raid.js';
 
 export type Stars = 1 | 2 | 3 | 4;
 
@@ -42,6 +42,11 @@ export interface ItemDef {
    * Missing means it's pulled as usual.
    */
   raidDrop?: true;
+  /**
+   * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
+   * databanks tag it and can list a class's items. Missing means it's for everyone.
+   */
+  class?: RaidClassId;
   /** Optional: a bonus an R5 copy gets once forged into a masterwork with komaGems (see ItemBonus). */
   bonus?: ItemBonus;
 }
@@ -132,6 +137,8 @@ export interface MemberDoc {
   claimGapHours?: number | null;
   /** Skips paid for today, per thing skipped (services/skips.ts). Missing means none. */
   skips?: Partial<Record<SkipId, SkipUse>>;
+  /** Their raid class, picked on the site's gear page (services/raid-class.ts). Missing or null means none. */
+  raidClass?: RaidClassId | null;
   /** How many times they refreshed their raid shop shelf in raid week `week` (RaidWeek.key). Missing, or another week's, means none. */
   raidShop?: { week: string; refreshes: number };
   /**

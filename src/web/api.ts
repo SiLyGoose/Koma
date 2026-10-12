@@ -53,6 +53,7 @@ export type { Me } from './services/login.js';
  *   POST /api/gacha/pull {guild, multi}   one pull, or a multi pull (`multi` true): BannerResult
  *   GET  /api/outfits?guild=…   the outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)
  *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points (the shop; it isn't put on): OutfitsView
+ *   POST /api/gear/class {guild, class}   picks their raid class (null: none), which counts from their next raid's fight: GearView
  *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView

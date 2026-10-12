@@ -51,8 +51,11 @@ export interface RaidFightLive {
   /** The action log, oldest first (Discord markdown, as the raid message shows it). */
   readonly log: readonly string[];
   turn(): RaidTurnLive;
-  /** Locks in `userId`'s action for this turn (`target`: who a heal is for, left out to let the bot choose). */
-  act(userId: string, action: RaidAction, target?: string): ActAnswer;
+  /**
+   * Locks in `userId`'s action for this turn (`target`: who a heal or a ward is for, left out to let the bot
+   * choose; `skill`: a ward in place of a Support's usual work, for a class that can).
+   */
+  act(userId: string, action: RaidAction, target?: string, skill?: 'ward'): ActAnswer;
 }
 
 /**

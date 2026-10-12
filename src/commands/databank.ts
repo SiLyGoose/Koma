@@ -1,4 +1,4 @@
-import { DATABANK_BUTTONS, RAID_BOSS_IDS, REFINE, SLOT_LABELS, TEXT, type RaidBossId } from '../constants/index.js';
+import { DATABANK_BUTTONS, RAID_BOSS_IDS, RAID_CLASS_IDS, REFINE, SLOT_LABELS, TEXT, type RaidBossId } from '../constants/index.js';
 import { CONFIG } from '../config.js';
 import { ITEMS } from '../data/items.js';
 import { STARS } from '../types.js';
@@ -49,7 +49,7 @@ export const databank: Command = {
   category: 'items',
   aliases: ['items', 'db'],
   description:
-    'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both. `databank bosses` shows the raid bosses instead.',
+    'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both, or a raid class (knight, priest…) for its class items. `databank bosses` shows the raid bosses instead.',
   usage: 'databank [item | stars] [category]  or  databank bosses [boss]',
   slashUsage: 'databank [item] [stars] [category] [boss]',
 
@@ -72,12 +72,15 @@ export const databank: Command = {
         : []),
     ];
 
+    // A raid class by itself (`knight`, `priest`…): that class's items.
+    const only = args.length === 1 ? (RAID_CLASS_IDS.find((id) => id === args[0]?.toLowerCase()) ?? null) : null;
+    const className = only === null ? '' : TEXT.raid.classes[only].name;
     // A category (`weapon`, `armor`, `treasure`) only counts alone or next to a star tier; with
     // other words, they are all an item's name.
-    const taken = takeSlot(args);
+    const taken = takeSlot(only === null ? args : []);
     const takenRest = taken.rest.join(' ').trim();
     const slot = taken.slot !== null && (takenRest === '' || parseStarQuery(takenRest) !== null) ? taken.slot : null;
-    const query = (slot === null ? args.join(' ') : takenRest).trim();
+    const query = only !== null ? '' : (slot === null ? args.join(' ') : takenRest).trim();
 
     // With a star tier (`3`, `3 star`, `★★★`): every item of that tier.
     const tier = parseStarQuery(query);
@@ -103,7 +106,7 @@ export const databank: Command = {
       return;
     }
 
-    const items = ITEMS.filter((item) => (wanted === undefined || item.stars === wanted) && (slot === null || item.slot === slot));
+    const items = ITEMS.filter((item) => (wanted === undefined || item.stars === wanted) && (slot === null || item.slot === slot) && (only === null || item.class === only));
     // Laid out the same at every level (see buildDatabank), so the page count never changes with it.
     const book = (level: number, masterwork = false) => buildDatabank(items, undefined, undefined, level, masterwork);
     const pages = book(REFINE.maxLevel);
@@ -111,15 +114,21 @@ export const databank: Command = {
     const masterworkPages = book(REFINE.maxLevel, true);
     if (pages.length === 0) {
       await ctx.reply(
-        slot === null ? TEXT.databank.noItemsInTier(starString(wanted ?? 1)) : TEXT.databank.noItemsInCategory(SLOT_LABELS[slot], wanted === undefined ? null : starString(wanted)),
+        only !== null
+          ? TEXT.databank.noItemsInCategory(`${className} class`, null)
+          : slot === null
+            ? TEXT.databank.noItemsInTier(starString(wanted ?? 1))
+            : TEXT.databank.noItemsInCategory(SLOT_LABELS[slot], wanted === undefined ? null : starString(wanted)),
       );
       return;
     }
     // The title and description of a single tier or category name it.
     const tierTitle = wanted === undefined ? TEXT.databank.title : TEXT.databank.tierTitle(starString(wanted));
-    const title = slot === null ? tierTitle : TEXT.databank.categoryTitle(tierTitle, SLOT_LABELS[slot]);
+    const title = only !== null ? TEXT.databank.categoryTitle(tierTitle, className) : slot === null ? tierTitle : TEXT.databank.categoryTitle(tierTitle, SLOT_LABELS[slot]);
     const description = (level: number) =>
-      slot !== null
+      only !== null
+        ? TEXT.databank.classDescription(className, level)
+        : slot !== null
         ? TEXT.databank.categoryDescription(SLOT_LABELS[slot], wanted === undefined ? null : starString(wanted), level)
         : wanted === undefined
           ? TEXT.databank.description(level)

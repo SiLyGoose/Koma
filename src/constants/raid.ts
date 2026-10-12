@@ -34,9 +34,12 @@ export const MAX_RAID_OVERHEAD = 10;
  * The boss also gains HP for every raider (bossHpFor), in equal steps from level 2 up to
  * `raid.gearHp.<boss>` at `gearFrom`, and the same at every level past it: so a party without raid gear
  * wins less and less often on the way up, and from `gearFrom` the boss is built for parties in gear.
+ * From `topFrom` it is built for a party whose classes fit together besides: it hits harder still
+ * (`raid.topDamage`, in equal steps to all of it at the top level), and its tricks ask for more
+ * (RAID_COMBAT.top).
  * A server can pick up to one level past the highest it has beaten (services/raid.ts).
  */
-export const RAID_DIFFICULTY = { max: 10, milestoneEvery: 5, milestoneStars: 4, stepStars: 3, gearFrom: 5 } as const;
+export const RAID_DIFFICULTY = { max: 10, milestoneEvery: 5, milestoneStars: 4, stepStars: 3, gearFrom: 5, topFrom: 8 } as const;
 
 /**
  * The tiers of raid items the site's raid shop sells for komaGems (lib/game/items/raid-shop.ts), best
@@ -48,6 +51,94 @@ export type RaidShopStars = (typeof RAID_SHOP_STARS)[number];
 export const MAX_RAID_SHOP_STOCK = 20;
 /** Most times a member can be let refresh their shelf in a week (the `raid.shop.refreshes` setting). */
 export const MAX_RAID_SHOP_REFRESHES = 50;
+
+/**
+ * The raid classes: what a raider is, picked on the site's gear page and kept for a fight from its
+ * start. Each makes one of the four actions its own and pays for it somewhere else; a raider without
+ * one (RAID_NO_CLASS) fights by the plain rules. What each number does (lib/events/raid.ts):
+ * - `attack`: what their attacks are multiplied by (before rallies and crits; not maxHpDamage's share).
+ * - `crit`: added to their crit chance, whatever they wear (the class's own passive).
+ * - `taken`: what the boss's hits on them are multiplied by. `hp`: what their HP is multiplied by.
+ * - `retaliate`: every round the boss lands a hit on them and leaves them standing, they strike back
+ *   once, for this share of one of their plain attacks (no crit, rally or boost; a shield stops it).
+ * - `healed`: what heals on them are multiplied by (not a revive).
+ * - `heal`: what their heals and revives are multiplied by. `healCrit`: their heals can crit, with
+ *   their own crit chance and crit damage.
+ * - `partyCut`: guarding, they cut what everyone else takes from moves that hit several raiders by
+ *   this much (0: their guard does nothing for the others, as nobody's does without a class that
+ *   has it). Bigger with the partyGuard perk (a class item) and with guardBoost, up to
+ *   RAID_COMBAT.guard.aoeCutMax. `covers`: guarding, they jump in front of a hit aimed at one other
+ *   raider (nobody's guard does without a class that has it).
+ * - `rallyTurns`: turns their rally lasts on top of RAID_COMBAT.support.rallyTurns. `interrupts`: how
+ *   many Supports theirs counts as towards interrupting a channel (support.shieldBreak).
+ * Each class has an item (a 4-star raid item whose perks only work for that class: perks/raid), which
+ * adds to one of these: the knight's to `partyCut` (partyGuard), the wizard's to `hex` (hexBoost), the
+ * assassin's to `attack` (assassinStrike) and to their crit chance (assassinCrit), the archer's to
+ * `rampStep` and five times that to `rampMax` (archerRamp); the priest's makes their heals mend
+ * everyone else too (partyHeal), the mechanic's gives the party more crit chance while their rally
+ * runs (rallyCrit), and the warrior's adds to `retaliate` (warriorCounter).
+ * - `ward`: instead of a Support's usual work they can ward an ally (RaidChoice.skill): the first hit
+ *   the boss lands on that ally this round does nothing at all.
+ * - `hex`: their attacks that land hex the boss: the move it announced this round hits that much
+ *   weaker (hexes don't stack: the strongest counts). `massDispel`: their Support frees every ally
+ *   under crowd control, not one.
+ * - `rampStep`, `rampMax`: their attacks do `rampStep` more for every turn in a row they attacked
+ *   before this one, up to `rampMax`; a turn they don't attack, or a hit from the boss, starts it over.
+ */
+export const RAID_CLASS_IDS = ['knight', 'warrior', 'priest', 'mechanic', 'wizard', 'assassin', 'archer'] as const;
+export type RaidClassId = (typeof RAID_CLASS_IDS)[number];
+
+export interface RaidClassRules {
+  attack: number;
+  crit: number;
+  taken: number;
+  hp: number;
+  retaliate: number;
+  healed: number;
+  heal: number;
+  healCrit: boolean;
+  partyCut: number;
+  covers: boolean;
+  rallyTurns: number;
+  interrupts: number;
+  ward: boolean;
+  hex: number;
+  massDispel: boolean;
+  rampStep: number;
+  rampMax: number;
+}
+
+/** A raider without a class: the plain rules. */
+export const RAID_NO_CLASS: RaidClassRules = {
+  attack: 1,
+  crit: 0,
+  taken: 1,
+  hp: 1,
+  retaliate: 0,
+  healed: 1,
+  heal: 1,
+  healCrit: false,
+  partyCut: 0,
+  covers: false,
+  rallyTurns: 0,
+  interrupts: 1,
+  ward: false,
+  hex: 0,
+  massDispel: false,
+  rampStep: 0,
+  rampMax: 0,
+};
+
+export const RAID_CLASSES: Readonly<Record<RaidClassId, RaidClassRules>> = {
+  knight: { ...RAID_NO_CLASS, attack: 0.75, partyCut: 0.1, covers: true },
+  // A brawler: more HP, and it hits back when it is hit, but it is harder to heal.
+  warrior: { ...RAID_NO_CLASS, hp: 1.25, retaliate: 0.5, healed: 0.75 },
+  priest: { ...RAID_NO_CLASS, attack: 0.75, heal: 1.25, healCrit: true },
+  mechanic: { ...RAID_NO_CLASS, attack: 0.75, rallyTurns: 1, interrupts: 2, ward: true },
+  wizard: { ...RAID_NO_CLASS, attack: 0.75, hex: 0.2, massDispel: true },
+  assassin: { ...RAID_NO_CLASS, attack: 1.25, crit: 0.2, taken: 1.25, hp: 0.75 },
+  archer: { ...RAID_NO_CLASS, crit: 0.2, rampStep: 0.1, rampMax: 0.5 },
+};
 
 /**
  * The raid's buttons and screen.
@@ -76,6 +167,10 @@ export const RAID = {
   healId: 'raid_heal',
   supportId: 'raid_support',
   healTargetId: 'raid_heal_target',
+  /** The private picker Support uses for a class that can ward: its id, and its values (a ward's may end in `:<who>`). */
+  supportSkillId: 'raid_support_skill',
+  supportValue: 'support',
+  wardValue: 'ward',
   /** The heal picker's "let the bot choose" option. */
   healAutoValue: 'auto',
   /** Most options a Discord select menu can hold (the heal picker's Auto plus allies). */
@@ -121,10 +216,12 @@ export const RAID_EMOJI = {
  * - `heal`: a heal restores `amount` HP to the ally the healer picked, or revives them with
  *   `reviveShare` of their HP if they are knocked out. With no pick (or one that no longer needs
  *   it), a knocked-out ally is revived first, then the hurt ally with the least HP left is healed.
- * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost perk), jumps in front of
- *   single-target moves aimed at someone else (the guard with the most HP does), and cuts the damage
- *   everyone else takes from moves that hit several players by `aoeCut` (bigger with that same perk, up
- *   to `aoeCutMax`). That cut doesn't stack: with several guards up, only the strongest one's counts.
+ * - `guard`: a guard takes `takenShare` of any hit (less with the guardBoost perk), and that is all a
+ *   plain guard does. Only a class that covers (RAID_CLASSES: the knight) jumps in front of
+ *   single-target moves aimed at someone else (the one with the most HP does), and only a class with a
+ *   party cut (the knight again) cuts what everyone else takes from moves that hit several players, by
+ *   at most `aoeCutMax`. That cut doesn't stack: with several such guards up, only the strongest one's
+ *   counts.
  * - `support`: each support lifts one player's stun, disarm or taunt (stuns first); with nobody
  *   under one, one of the turn's supports clears Blight (see `blight` below) if anyone carries
  *   enough, and the rest rally the party instead, multiplying everyone's attacks by
@@ -150,7 +247,7 @@ export const RAID_EMOJI = {
  * - The Wyvern (`wyrm`): `claw` (one raider), `breath` (everyone), `sweep` (min to max raiders), `hoard`
  *   (steals min to max points from one player's wallet, never more than they have), `shield`.
  * - The Soul Reaper: `reap` (one raider), `drain` (everyone), `scythe` (min to max raiders),
- *   `harvest` (one raider, blocked by a guard like Hoard), `veil` (its shield). `lifesteal` heals it
+ *   `harvest` (one raider, blocked like Hoard by their own guard or a knight's), `veil` (its shield). `lifesteal` heals it
  *   that many times the damage the move dealt (so guarding cuts it); `harvest` heals it `maxHpShare`
  *   of its max HP instead. All of its healing is multiplied by `enrage.lifesteal[level]`, so it heals
  *   more as it gets angrier (on top of hitting harder, which already makes Reap and Soul Drain heal
@@ -176,10 +273,12 @@ export const RAID_EMOJI = {
 export const RAID_COMBAT = {
   attack: { min: 60, max: 60, critChance: 0.1, critMultiplier: 2 },
   heal: { amount: 30, reviveShare: 0.3 },
-  guard: { takenShare: 0.5, aoeCut: 0.3, aoeCutMax: 0.6 },
+  guard: { takenShare: 0.5, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },
   shield: { deflects: 6 },
   stagger: { damageTaken: 1.5 },
+  // From RAID_DIFFICULTY.topFrom on: how many more Supports interrupt a channel, and how many more raiders its crowd control holds.
+  top: { shieldBreak: 1, ccTargets: 1 },
   enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5], lifesteal: [1, 1.25, 1.5] },
   moves: {
     claw: { damage: 56 },

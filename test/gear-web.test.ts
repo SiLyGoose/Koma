@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { REFINE } from '../src/constants/index.js';
+import { RAID_CLASS_IDS, REFINE, type RaidClassId } from '../src/constants/index.js';
 import { loadoutsOf } from '../src/lib/game/items/loadouts.js';
 import { gearView, wornGear, type GearStore } from '../src/web/models/gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
@@ -43,7 +43,11 @@ test('gear page: copies come best first, with what each does, and only fitting c
   assert.equal(view.copies.find((c) => c.id === 'b')!.borrowed, null);
   assert.ok(view.totals.length > 0);
   const none = { weapon: null, armor: null, treasure: null };
-  const { stats, ...empty } = gearView([], null, 'x');
+  const { stats, classes, ...empty } = gearView([], null, 'x');
+  // Every raid class, for the ribbon's picker, each with what it does.
+  assert.deepEqual(classes.map((cls) => cls.id), [...RAID_CLASS_IDS]);
+  assert.ok(classes.every((cls) => cls.name !== '' && cls.traits.length > 0));
+  assert.equal(gearView([], null, 'x', undefined, null, null, undefined, 'knight').class, 'knight');
   // With nothing on, every stat is its base.
   assert.ok(stats.every((section) => section.rows.every((r) => r.base === null)));
   assert.deepEqual(empty, {
@@ -58,6 +62,7 @@ test('gear page: copies come best first, with what each does, and only fitting c
     balance: null,
     gems: null,
     outfit: 'tsuri',
+    class: null,
   });
 });
 
@@ -88,6 +93,8 @@ test('gear page: every loadout lists the owned copies that fit its slots', () =>
 
 test('gear page: a logged-in member sees, equips and unequips their gear in their own servers only', async () => {
   const worn: Record<string, EquipmentDoc> = {};
+  const calls: string[] = [];
+  let picked: RaidClassId | null = null;
   const store: GearStore = {
     view: async (guildId, userId) => gearView([{ _id: 'x1', itemId: 'rusty-dagger', level: 1 }], worn[`${guildId}/${userId}`], userId),
     peek: async (_guildId, userId) => gearView([{ _id: 'y1', itemId: 'iron-longsword', level: 2 }], { weapon: 'y1' }, userId),
@@ -114,6 +121,11 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
     sell: async (_guildId, _userId, copies) => (copies.includes('x1') ? { count: copies.length, earned: 40 * copies.length } : 'nothing_to_sell'),
     lock: async (_guildId, _userId, copy) => copy === 'x1',
+    setClass: async (guildId, userId, id) => {
+      calls.push(`class ${guildId} ${userId} ${id}`);
+      picked = id;
+    },
+    classes: async (_guildId, userIds) => userIds.map((id) => (id === 'u1' ? picked : id === '22' ? 'priest' : null)),
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -138,11 +150,18 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await fetch(`${base}/api/gear?guild=g1`, { headers: { Origin: SITE.origin } })).status, 401);
 
     // Anyone else in the server with gear, to look at: the one asking first, and not whoever left.
-    const members = (await (await fetch(`${base}/api/gear/members?guild=g1`, { headers })).json()) as { members: { userId: string; name: string; copies: number; you: boolean }[] };
-    assert.deepEqual(members.members.map((m) => [m.userId, m.name, m.copies, m.you]), [
-      ['u1', 'ZEIU', 1, true],
-      ['22', 'Mira', 7, false],
+    const members = (await (await fetch(`${base}/api/gear/members?guild=g1`, { headers })).json()) as { members: { userId: string; name: string; copies: number; you: boolean; class: string | null }[] };
+    assert.deepEqual(members.members.map((m) => [m.userId, m.name, m.copies, m.you, m.class]), [
+      ['u1', 'ZEIU', 1, true, null],
+      ['22', 'Mira', 7, false, 'priest'],
     ]);
+    // Picking a raid class (or none), and not one that isn't a class.
+    const classOf = (body: unknown) => fetch(`${base}/api/gear/class`, { method: 'POST', headers, body: JSON.stringify(body) });
+    assert.equal((await classOf({ guild: 'g1', class: 'knight' })).status, 200);
+    assert.equal((await classOf({ guild: 'g1', class: null })).status, 200);
+    assert.equal((await classOf({ guild: 'g1', class: 'bard' })).status, 400);
+    assert.equal((await classOf({ guild: 'g2', class: 'knight' })).status, 403);
+    assert.deepEqual(calls.filter((call) => call.startsWith('class')), ['class g1 u1 knight', 'class g1 u1 null']);
     assert.equal((await fetch(`${base}/api/gear/members?guild=g2`, { headers })).status, 403);
     const theirs = await fetch(`${base}/api/gear?guild=g1&user=22`, { headers });
     assert.equal(theirs.status, 200);

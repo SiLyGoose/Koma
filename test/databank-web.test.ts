@@ -3,9 +3,11 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
-import { RAID_BOSS_IDS, RAID_DIFFICULTY, REFINE, TEXT } from '../src/constants/index.js';
+import { RAID_BOSS_IDS, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, REFINE, TEXT } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
+import { formatMultiplier, formatPercent } from '../src/lib/format.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
+import { classTraits } from '../src/lib/game/raid-classes.js';
 import { signSession } from '../src/web/auth/login.js';
 import { createApi } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
@@ -48,6 +50,27 @@ test('databank page: says where each item comes from, and the raid drop chance',
   // Every place it comes from: a raid item is sold in the raid shop too.
   for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : ['gacha'], item.id);
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
+  // A class item is tagged with its raid class, and the classes are listed for the page's filter.
+  for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);
+  assert.deepEqual(databankView().classes, RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })));
+  assert.deepEqual(items.filter((item) => item.class !== null).map((item) => item.class).sort(), [...RAID_CLASS_IDS].sort(), 'one item for each class');
+});
+
+test('databank page: what each raid class does, a line for each rule that is not a plain raider\'s', () => {
+  const traits = Object.fromEntries(databankView().classes.map((cls) => [cls.id, cls.traits]));
+  for (const id of RAID_CLASS_IDS) assert.ok(traits[id]!.length > 0, id);
+  // Today's numbers, in the lines.
+  const has = (id: string, ...words: string[]): void => assert.ok(words.every((word) => traits[id]!.some((line) => line.includes(word))), `${id}: ${traits[id]!.join(' | ')}`);
+  const { knight, priest, mechanic, wizard, assassin, archer } = RAID_CLASSES;
+  has('knight', '**Attack**', `**${formatMultiplier(knight.attack)}**`, '**Party guard**', `**${formatPercent(knight.partyCut)}**`, formatPercent(RAID_COMBAT.guard.aoeCutMax), '**Cover**');
+  has('priest', '**Heal**', `**${formatMultiplier(priest.heal)}**`, '**Critical heals**');
+  has('mechanic', '**Long rally**', `${RAID_COMBAT.support.rallyTurns + mechanic.rallyTurns} in all`, `counts as ${mechanic.interrupts}`, '**Ward**');
+  has('wizard', '**Hex**', `**${formatPercent(wizard.hex)}**`, '**Mass dispel**');
+  has('assassin', `**${formatMultiplier(assassin.attack)}**`, '**HP**', `**${formatMultiplier(assassin.hp)}**`, '**Damage taken**', `**${formatMultiplier(assassin.taken)}**`);
+  has('archer', '**Ramp**', `**${formatPercent(archer.rampStep)}**`, `**${formatPercent(archer.rampMax)}**`);
+  // Only what differs: an archer attacks as hard as anyone to start with, and nobody but a knight covers.
+  assert.ok(!traits.archer!.some((line) => line.includes('**Attack**')));
+  for (const id of RAID_CLASS_IDS) assert.equal(traits[id]!.some((line) => line.includes('**Cover**')), id === 'knight', id);
 });
 
 test('databank page: every raid boss, what it does, and what each difficulty level makes of it', () => {

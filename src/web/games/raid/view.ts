@@ -3,7 +3,7 @@ import { fmt } from '../../../lib/format.js';
 import { RAID_DIFFICULTY, TEXT, type RaidBossId } from '../../../constants/index.js';
 import { ITEMS_BY_ID } from '../../../data/items.js';
 import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../../commands/raid.js';
-import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, difficultyOf, RAID_ACTIONS, raidRewards, type RaidAction } from '../../../lib/events/raid.js';
+import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, classOf, difficultyOf, RAID_ACTIONS, raidRewards, type RaidAction } from '../../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../../lib/events/raid-live.js';
 import { raidDropCounts, raidDropsOn } from '../../../lib/game/items/raid-drops.js';
 import { STARS, type ItemDef } from '../../../types.js';
@@ -124,6 +124,8 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
           blight: p.hp > 0 ? p.blight : 0,
           picked: turn.choices.get(p.userId)?.action ?? null,
           canAct: canAct(p),
+          class: p.class ?? null,
+          wards: classOf(p).ward,
         })),
         log: log.slice(-LOG_LINES),
         problems,

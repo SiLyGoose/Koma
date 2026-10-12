@@ -1,9 +1,10 @@
 import { bossBrief, bossRewardsText } from '../../commands/raid.js';
 import { CONFIG } from '../../config.js';
-import { RAID_BOSS_IDS, REFINE, TEXT, type RaidBossId } from '../../constants/index.js';
+import { RAID_BOSS_IDS, RAID_CLASS_IDS, REFINE, TEXT, type RaidBossId, type RaidClassId } from '../../constants/index.js';
 import { ITEMS } from '../../data/items.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
+import { classTraits } from '../../lib/game/raid-classes.js';
 import type { ItemDef, Slot, Stars } from '../../types.js';
 import type { RaidLevel } from '../games/raid/protocol.js';
 import { difficultyLevels, picturePath } from '../games/raid/view.js';
@@ -33,6 +34,8 @@ export interface DatabankItem {
   source: ItemSource;
   /** Every place it comes from, `source` first: a raid item the raid shop sells (lib/game/items/raid-shop.ts) has that too. */
   sources: ItemSource[];
+  /** A class item: the raid class (Databank.classes) its effects only work for. Null for everyone's. */
+  class: RaidClassId | null;
 }
 
 export type ItemSource = 'gacha' | 'raid' | 'raidShop';
@@ -79,6 +82,11 @@ export interface Databank {
   raidDropChancePerRaider: number;
   /** Highest tier first, then in catalog order. */
   items: DatabankItem[];
+  /**
+   * The raid classes, in their order: what a class item's tag says, what the page's filter offers, and
+   * (the page's Classes) what each does in a fight, a line of Discord markdown each (lib/game/raid-classes.ts).
+   */
+  classes: { id: RaidClassId; name: string; traits: string[] }[];
   /** Every raid boss, in the order the weeks go through them, and what goes for them all. */
   bosses: DatabankBoss[];
   raid: DatabankRaid;
@@ -106,6 +114,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: item.raidDrop ? 'raid' : 'gacha',
       sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : ['gacha'],
+      class: item.class ?? null,
     }),
   );
   // A stable sort: within a tier, the catalog's own order.
@@ -115,6 +124,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
     raidDropChance: CONFIG.raid.dropChance,
     raidDropChancePerRaider: CONFIG.raid.dropChancePerRaider,
     items: list,
+    classes: RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })),
     bosses: RAID_BOSS_IDS.map(bossView),
     raid: { maxRounds: CONFIG.raid.maxRounds, levels: difficultyLevels() },
   };

@@ -21,6 +21,7 @@ export function gearRoutes(deps: ApiDeps): Router {
     .post('/unequip', ...siteOrLink, gear.unequip)
     .post('/unequip-all', ...siteOrLink, gear.unequipAll)
     .post('/loadout', ...siteOrLink, gear.loadout)
+    .post('/class', ...siteOrLink, gear.setClass)
     .post('/loadout/rename', ...site, gear.renameLoadout)
     .post('/refine', ...site, gear.refine)
     .post('/forge', ...site, gear.forge)

@@ -414,6 +414,15 @@ export const SPECS: readonly SettingSpec[] = [
     max: 5,
     percent: true,
   },
+  {
+    key: 'raid.topDamage',
+    group: 'Raid',
+    description: `How much harder still a raid boss hits at difficulty ${RAID_DIFFICULTY.max}, on top of raid.difficultyDamage. It climbs to that in equal steps from difficulty ${RAID_DIFFICULTY.topFrom} (60% makes level ${RAID_DIFFICULTY.topFrom} hit 20% harder).`,
+    type: 'number',
+    min: 0,
+    max: 5,
+    percent: true,
+  },
 
   int(
     'stonks.capHours',
