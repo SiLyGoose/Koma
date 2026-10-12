@@ -318,8 +318,12 @@ test("the lobby's difficulty: the host picks it, as far as the server has unlock
   assert.equal(first.lobby?.maxDifficulty, 3);
   assert.equal(first.lobby?.topDifficulty, 10);
   assert.equal(first.lobby?.levels.length, 10);
-  assert.deepEqual(first.lobby?.levels[0], { level: 1, hp: 1, damage: 1, drops: [{ stars: 4, count: 1 }] });
-  assert.deepEqual(first.lobby?.levels[4]?.drops, [{ stars: 4, count: 2 }, { stars: 3, count: 3 }]);
+  assert.deepEqual(first.lobby?.levels[0], { level: 1, hp: 1, damage: 1, gear: false, wall: 0, drops: [{ stars: 3, count: 1 }] });
+  assert.deepEqual(first.lobby?.levels.map((level) => level.wall), [0, 0.25, 0.5, 0.75, 1, 1, 1, 1, 1, 1]);
+  assert.deepEqual(first.lobby?.levels.map((level) => level.gear), [false, false, false, false, true, true, true, true, true, true]);
+  assert.equal(first.lobby?.gearHp, CONFIG.raid.gearHp.wyrm);
+  assert.deepEqual(first.lobby?.levels[4]?.drops, [{ stars: 4, count: 1 }, { stars: 3, count: 4 }]);
+  assert.deepEqual(first.lobby?.levels[5]?.drops, [{ stars: 3, count: 5 }], 'only the milestone levels drop 4-stars');
 
   await other.say({ t: 'difficulty', level: 2 });
   assert.deepEqual(other.answers().at(-1), { t: 'answer', to: 'difficulty', code: 'only_host' });
@@ -331,8 +335,10 @@ test("the lobby's difficulty: the host picks it, as far as the server has unlock
   const picked = other.last();
   assert.equal(picked.difficulty, 3);
   assert.equal(picked.lobby?.difficulty, 3);
-  assert.equal(picked.lobby?.bossHp, Math.round((first.lobby?.bossHp ?? 0) * (1 + 2 * CONFIG.raid.difficultyHp)));
-  assert.match(picked.brief.rewards, /1× 4★ and 2× 3★ raid items/);
+  // Level 3: its share of the HP, and half of the boss's gear HP for every raider (a lobby of 2 counts as the fewest).
+  const third = (first.lobby?.bossHp ?? 0) * (1 + 2 * CONFIG.raid.difficultyHp) + 0.5 * CONFIG.raid.gearHp.wyrm * CONFIG.raid.minRaiders;
+  assert.ok(Math.abs((picked.lobby?.bossHp ?? 0) - third) <= 1, String(picked.lobby?.bossHp));
+  assert.match(picked.brief.rewards, /everyone finds 3× 3★ raid items/);
 
   assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty', level: 2.5 })), null);
   assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty' })), null);
@@ -348,7 +354,9 @@ test('before the lobby: whoever starts the raid from the page picks its difficul
   assert.equal(pick?.maxDifficulty, 3);
   assert.equal(pick?.topDifficulty, 10);
   assert.equal(pick?.levels.length, 10);
-  assert.deepEqual(pick?.levels[0], { level: 1, hp: 1, damage: 1, drops: [{ stars: 4, count: 1 }] });
+  assert.deepEqual(pick?.levels[0], { level: 1, hp: 1, damage: 1, gear: false, wall: 0, drops: [{ stars: 3, count: 1 }] });
+  assert.equal(pick?.levels[4]?.gear, true);
+  assert.equal(pick?.gearHp, CONFIG.raid.gearHp.wyrm);
   assert.equal(raidView('u1', week({ channel: false, maxDifficulty: 3 }), null).idle?.pick, undefined, 'a server the page cannot start it in');
   assert.equal(raidView('u1', week({ status: 'won', maxDifficulty: 3 }), null).idle?.pick, undefined, 'a week already fought');
 

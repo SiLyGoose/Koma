@@ -3,7 +3,7 @@ import { fmt } from '../../../lib/format.js';
 import { RAID_DIFFICULTY, TEXT, type RaidBossId } from '../../../constants/index.js';
 import { ITEMS_BY_ID } from '../../../data/items.js';
 import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../../commands/raid.js';
-import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, difficultyOf, RAID_ACTIONS, type RaidAction } from '../../../lib/events/raid.js';
+import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, difficultyOf, RAID_ACTIONS, raidRewards, type RaidAction } from '../../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../../lib/events/raid-live.js';
 import { raidDropCounts, raidDropsOn } from '../../../lib/game/items/raid-drops.js';
 import { STARS, type ItemDef } from '../../../types.js';
@@ -37,10 +37,10 @@ const rewardText = (points: number, tokens: number, gems: number): string => TEX
 /** What each difficulty level does to the boss and drops for a win, for the page's pickers (before the lobby, and in it) and the databank. */
 export const difficultyLevels = (): RaidLevel[] =>
   Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => {
-    const { level, hp, damage } = difficultyOf(i + 1, CONFIG.raid);
+    const { level, hp, damage, gear, wall } = difficultyOf(i + 1, CONFIG.raid);
     const counts = raidDropCounts(level);
     const drops = raidDropsOn(CONFIG.raid) ? [...STARS].reverse().flatMap((stars) => ((counts[stars] ?? 0) > 0 ? [{ stars, count: counts[stars] ?? 0 }] : [])) : [];
-    return { level, hp, damage, drops };
+    return { level, hp, damage, gear, wall, drops };
   });
 
 /** The raid items one raider found, for their loot screen: best first. Null when they found none. */
@@ -88,12 +88,12 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   if (current?.phase === 'lobby' && current.lobby) {
     const { players, maxDifficulty } = current.lobby;
     const picked = current.lobby.difficulty;
-    const bossHp = bossHpFor(players.length, bossId, CONFIG.raid, difficultyOf(picked, CONFIG.raid).hp);
+    const bossHp = bossHpFor(players.length, bossId, CONFIG.raid, difficultyOf(picked, CONFIG.raid));
     return view('calm', {
       phase: 'lobby',
       difficulty: picked,
       brief: bossBrief(CONFIG.raid, bossId, picked),
-      lobby: { host: players[0] ?? current.host, players: [...players], bossHp, difficulty: picked, maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels() },
+      lobby: { host: players[0] ?? current.host, players: [...players], bossHp, difficulty: picked, maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels(), gearHp: CONFIG.raid.gearHp[bossId] },
     });
   }
 
@@ -133,7 +133,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
 
   if (current?.phase === 'over' && current.over) {
     const { end, state, rewarded, loot } = current.over;
-    const cfg = CONFIG.raid;
+    const paid = raidRewards(state?.difficulty ?? 1, CONFIG.raid);
     return view(state ? moodOf(state) : 'calm', {
       phase: 'over',
       over: {
@@ -144,8 +144,8 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         ranking: state ? damageRanking(state).map((p) => ({ userId: p.userId, damage: p.stats.damage })) : [],
         players: state ? state.players.map((p) => ({ userId: p.userId, ...statsOf(p.stats) })) : [],
         lastHit: state?.lastHit ?? null,
-        reward: rewarded ? { points: cfg.reward, tokens: cfg.tokenReward, gems: cfg.gemReward } : null,
-        rewardText: rewarded ? rewardText(cfg.reward, cfg.tokenReward, cfg.gemReward) : null,
+        reward: rewarded ? paid : null,
+        rewardText: rewarded ? rewardText(paid.points, paid.tokens, paid.gems) : null,
         gear: current.gear.size > 0,
         loot: lootOf(loot?.key, loot?.drops.filter((drop) => drop.userId === you) ?? []),
       },
@@ -184,6 +184,6 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const mood: RaidMood = status === 'won' ? 'defeated' : status === 'wiped' ? 'gloating' : status === 'fled' ? 'fled' : 'calm';
   const canStart = idleWeek === 'open' && week.channel;
   // Whoever starts it picks its difficulty first.
-  const pick = canStart ? { pick: { maxDifficulty: week.maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels() } } : {};
+  const pick = canStart ? { pick: { maxDifficulty: week.maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels(), gearHp: CONFIG.raid.gearHp[bossId] } } : {};
   return view(mood, { phase: 'idle', idle: { week: idleWeek, canStart, ...(unfought ? { last: unfought } : {}), ...pick } });
 }

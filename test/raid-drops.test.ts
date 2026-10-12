@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { bossInfoEmbed, lootKindsText, myLootEmbed, resultEmbed } from '../src/commands/raid.js';
 import { DEFAULTS, STARS } from '../src/config.js';
-import { TEXT } from '../src/constants/index.js';
+import { RAID_BOSS_IDS, RAID_DIFFICULTY, TEXT } from '../src/constants/index.js';
 import { ITEMS, ITEMS_BY_ID, RAID_DROPS, gachaItems, itemsByStars } from '../src/data/items.js';
-import { bossHpFor, bossMultiplier, clampDifficulty, createRaid, difficultyOf, type RaidRng } from '../src/lib/events/raid.js';
+import { bossHpFor, bossMultiplier, clampDifficulty, createRaid, difficultyOf, gearWallShare, needsGear, type RaidRng } from '../src/lib/events/raid.js';
 import { itemBlock, itemDetail } from '../src/lib/game/items/databank.js';
 import { ownTreasures } from '../src/lib/game/items/gacha.js';
 import { raidDropChance, raidDropCounts, raidDropsOn, rollRaidDrops, type DropRng } from '../src/lib/game/items/raid-drops.js';
@@ -41,7 +41,8 @@ test('raid drops: the raid gear is raid-only, and the gacha leaves it out of eve
 test('raid drops: the party rolls once, and on a hit every raider finds one of the raid drops', () => {
   const asked: number[] = [];
   let next = 0;
-  const pool = RAID_DROPS.filter((item) => item.stars === 4).slice(0, 3);
+  // Level 1's (the drop when no difficulty is given): one 3-star each.
+  const pool = RAID_DROPS.filter((item) => item.stars === 3).slice(0, 3);
   const users = ['a', 'b', 'c', 'd'];
   const hit: DropRng = { chance: (p) => (asked.push(p), true), index: (max) => next++ % max };
   assert.deepEqual(rollRaidDrops(users, 0.6, undefined, hit, pool), [
@@ -63,9 +64,17 @@ test('raid drops: the party rolls once, and on a hit every raider finds one of t
 });
 
 test('raid difficulty: level 1 is the boss as it was, and every level past it adds HP and damage', () => {
-  const cfg = DEFAULTS.raid;
-  assert.deepEqual(difficultyOf(1, cfg), { level: 1, hp: 1, damage: 1 });
-  assert.deepEqual(difficultyOf(5, cfg), { level: 5, hp: 2, damage: 1.4 });
+  // Its own round numbers, so the sums are exact.
+  const cfg = {
+    ...DEFAULTS.raid,
+    hpPerRaider: { wyrm: 1000, reaper: 1000, plague: 1000 },
+    hpOverhead: { wyrm: 2, reaper: 2, plague: 2 },
+    difficultyHp: 0.25,
+    difficultyDamage: 0.1,
+    gearHp: { wyrm: 0, reaper: 0, plague: 0 },
+  };
+  assert.deepEqual(difficultyOf(1, cfg), { level: 1, hp: 1, damage: 1, gear: false, wall: 0 });
+  assert.deepEqual(difficultyOf(5, cfg), { level: 5, hp: 2, damage: 1.4, gear: true, wall: 1 });
   const top = difficultyOf(10, cfg);
   assert.ok(Math.abs(top.hp - 3.25) < 1e-9 && Math.abs(top.damage - 1.9) < 1e-9, JSON.stringify(top));
   assert.deepEqual(difficultyOf(99, cfg), top, 'never past the top level');
@@ -74,8 +83,8 @@ test('raid difficulty: level 1 is the boss as it was, and every level past it ad
   assert.equal(clampDifficulty(Number.NaN), 1);
   assert.equal(clampDifficulty(7, 4), 4, 'never past what the server has unlocked');
 
-  assert.equal(bossHpFor(6, 'wyrm', cfg, 1), bossHpFor(6, 'wyrm', cfg));
-  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(5, cfg).hp), bossHpFor(6, 'wyrm', cfg) * 2);
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(1, cfg)), bossHpFor(6, 'wyrm', cfg));
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(5, cfg)), bossHpFor(6, 'wyrm', cfg) * 2);
 
   const easy = createRaid('wyrm', ['1', '2'], 1000, 100, 15);
   assert.equal(easy.difficulty, 1);
@@ -88,15 +97,17 @@ test('raid difficulty: level 1 is the boss as it was, and every level past it ad
   assert.ok(Math.abs(bossMultiplier(hard) - 1.5 * 1.4) < 1e-9, 'on top of its enrage');
 });
 
-test('raid drops: one more 4-star at levels 5 and 10, and one more 3-star at every level in between', () => {
+test('raid drops: 4-stars only at levels 5 and 10, and one more 3-star at every level in between', () => {
   const ladder = Array.from({ length: 10 }, (_, i) => raidDropCounts(i + 1));
-  assert.deepEqual(ladder.map((counts) => counts[4]), [1, 1, 1, 1, 2, 2, 2, 2, 2, 3]);
-  assert.deepEqual(ladder.map((counts) => counts[3]), [0, 1, 2, 3, 3, 4, 5, 6, 7, 7]);
+  assert.deepEqual(ladder.map((counts) => counts[4]), [0, 0, 0, 0, 1, 0, 0, 0, 0, 2]);
+  assert.deepEqual(ladder.map((counts) => counts[3]), [1, 2, 3, 4, 4, 5, 6, 7, 8, 8]);
   assert.deepEqual(raidDropCounts(0), raidDropCounts(1));
   assert.deepEqual(raidDropCounts(50), raidDropCounts(10));
-  assert.equal(lootKindsText(1), 'a 4★ raid item');
-  assert.equal(lootKindsText(2), '1× 4★ and 1× 3★ raid items');
-  assert.equal(lootKindsText(10), '3× 4★ and 7× 3★ raid items');
+  assert.equal(lootKindsText(1), 'a 3★ raid item');
+  assert.equal(lootKindsText(2), '2× 3★ raid items');
+  assert.equal(lootKindsText(5), '1× 4★ and 4× 3★ raid items');
+  assert.equal(lootKindsText(6), '5× 3★ raid items', 'no 4-star past the milestone');
+  assert.equal(lootKindsText(10), '2× 4★ and 8× 3★ raid items');
 
   // Each raider finds that many of each tier, their best first, each from its own tier's items.
   let next = 0;
@@ -104,12 +115,15 @@ test('raid drops: one more 4-star at levels 5 and 10, and one more 3-star at eve
   const drops = rollRaidDrops(['a', 'b'], 1, raidDropCounts(5), rng);
   assert.equal(drops.length, 10);
   for (const userId of ['a', 'b']) {
-    assert.deepEqual(drops.filter((drop) => drop.userId === userId).map((drop) => drop.item.stars), [4, 4, 3, 3, 3], userId);
+    assert.deepEqual(drops.filter((drop) => drop.userId === userId).map((drop) => drop.item.stars), [4, 3, 3, 3, 3], userId);
   }
   assert.ok(drops.every((drop) => drop.item.raidDrop));
+  // The levels in between drop no 4-star at all.
+  assert.deepEqual(rollRaidDrops(['a'], 1, raidDropCounts(6), rng).map((drop) => drop.item.stars), [3, 3, 3, 3, 3]);
   // A tier with nothing to drop is left out, the rest still drop.
   const fourOnly = RAID_DROPS.filter((item) => item.stars === 4);
-  assert.deepEqual(rollRaidDrops(['a'], 1, raidDropCounts(4), rng, fourOnly).map((drop) => drop.item.stars), [4]);
+  assert.deepEqual(rollRaidDrops(['a'], 1, raidDropCounts(5), rng, fourOnly).map((drop) => drop.item.stars), [4]);
+  assert.deepEqual(rollRaidDrops(['a'], 1, raidDropCounts(4), rng, fourOnly), []);
 });
 
 test('raid drops: a raider with several is listed on one line, and My loot shows a raider their own', () => {
@@ -159,7 +173,8 @@ test('raid drops: the chances are settings, 20% and +10% per raider by default, 
   assert.ok(findSpec('raid.dropChancePerRaider'), 'it can be changed with the config command');
   const rewards = (cfg: typeof DEFAULTS.raid): string => bossInfoEmbed(cfg).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
   assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('20%', '10%')), rewards(DEFAULTS.raid));
-  assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }).includes('4★'), 'left out when drops are off');
+  assert.match(rewards(DEFAULTS.raid), /everyone finds a 3★ raid item/);
+  assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }).includes('★'), 'left out when drops are off');
 });
 
 test('raid drops: the result screen after a win lists what each raider found', () => {
@@ -182,4 +197,50 @@ test('raid drops: the databank says where to get them', () => {
   assert.ok(itemDetail(item).fields.some((f) => f.name === TEXT.databank.detailRaidDropField));
   const pulled = ITEMS_BY_ID.get('troll-hide-cuirass') as ItemDef;
   assert.ok(!itemBlock(pulled).includes(TEXT.databank.raidDrop));
+});
+
+test('raid difficulty: the boss gains HP for every raider in equal steps up to level 5, where a party needs gear', () => {
+  assert.equal(RAID_DIFFICULTY.gearFrom, 5);
+  for (let level = 1; level <= RAID_DIFFICULTY.max; level++) {
+    assert.equal(needsGear(level), level >= 5, `level ${level}`);
+    assert.equal(difficultyOf(level, DEFAULTS.raid).gear, level >= 5, `level ${level}`);
+  }
+  // None at level 1, a quarter more at every level up to 5, and all of it from there: no sudden wall.
+  assert.deepEqual(
+    Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => gearWallShare(i + 1)),
+    [0, 0.25, 0.5, 0.75, 1, 1, 1, 1, 1, 1],
+  );
+  assert.equal(difficultyOf(3, DEFAULTS.raid).wall, 0.5);
+  // Its own numbers, so the sums are exact: 1,000 HP a raider past the first 2, +10% a level, and 300 a raider on top.
+  const cfg = { ...DEFAULTS.raid, hpPerRaider: { wyrm: 1000, reaper: 1000, plague: 1000 }, hpOverhead: { wyrm: 2, reaper: 2, plague: 2 }, minRaiders: 4, difficultyHp: 0.1, gearHp: { wyrm: 300, reaper: 0, plague: 150 } };
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(1, cfg)), 4000, 'level 1: none of it');
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(2, cfg)), 4400 + 6 * 75, 'a quarter of it at level 2');
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(4, cfg)), 5200 + 6 * 225, 'three quarters at level 4');
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(5, cfg)), 5600 + 6 * 300, 'for every raider, the overhead ones too');
+  assert.equal(bossHpFor(6, 'wyrm', cfg, difficultyOf(6, cfg)), 6000 + 6 * 300, 'the same on top at every level past it');
+  assert.equal(bossHpFor(2, 'wyrm', cfg, difficultyOf(5, cfg)), 2800 + 4 * 300, 'a small party is counted as the fewest raiders');
+  assert.equal(bossHpFor(6, 'plague', cfg, difficultyOf(5, cfg)), 5600 + 6 * 150, 'each boss its own');
+  assert.equal(bossHpFor(6, 'reaper', cfg, difficultyOf(5, cfg)), 5600, 'none: only as hard as its level makes it');
+
+  // The defaults: every boss has some, and the settings to change it.
+  for (const boss of RAID_BOSS_IDS) {
+    assert.ok(DEFAULTS.raid.gearHp[boss] > 0, boss);
+    assert.ok(findSpec(`raid.gearHp.${boss}`), boss);
+    assert.ok(bossHpFor(5, boss, DEFAULTS.raid, difficultyOf(5, DEFAULTS.raid)) > bossHpFor(5, boss, DEFAULTS.raid, difficultyOf(1, DEFAULTS.raid)) + 5 * DEFAULTS.raid.gearHp[boss]);
+  }
+
+  // What the raiders are told: in the lobby, in its picker, and with the boss.
+  const lobby = TEXT.raid.lobbyDifficulty(5, 5, 10, '1.12x', '1.08x', 'loot', '250', true);
+  assert.ok(lobby.includes('1.12x HP +250 a raider'), lobby);
+  assert.ok(lobby.includes('**Raid gear needed**: from this level the boss is built for parties in raid gear.'), lobby);
+  const fourth = TEXT.raid.lobbyDifficulty(4, 5, 10, '1.09x', '1.06x', 'loot', '188');
+  assert.ok(fourth.includes('1.09x HP +188 a raider'), fourth);
+  assert.doesNotMatch(fourth, /gear needed/i);
+  assert.doesNotMatch(TEXT.raid.lobbyDifficulty(1, 5, 10, '1x', '1x', 'loot'), /a raider/);
+  assert.equal(TEXT.raid.difficultyOptionDescription('1.06x', '1.03x', '4× 3★ raid items', false, '188'), '1.06x HP +188/raider · 1.03x damage · drops 4× 3★ raid items');
+  assert.equal(TEXT.raid.difficultyOptionDescription('1.12x', '1.08x', '1× 4★ and 4× 3★ raid items', true), 'Gear needed · 1.12x HP · 1.08x damage · drops 1× 4★ and 4× 3★ raid items');
+  assert.equal(TEXT.raid.difficultyOptionDescription('1.09x', '1.06x', '4× 3★ raid items'), '1.09x HP · 1.06x damage · drops 4× 3★ raid items');
+  const info = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().description ?? '';
+  assert.ok(info.includes(`in equal steps up to **${DEFAULTS.raid.gearHp.reaper}** at level 5 and every level past it`), info);
+  assert.doesNotMatch(bossInfoEmbed({ ...DEFAULTS.raid, gearHp: { wyrm: 0, reaper: 0, plague: 0 } }, 'reaper').toJSON().description ?? '', /Gear levels/);
 });

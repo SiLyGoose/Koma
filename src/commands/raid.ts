@@ -32,6 +32,7 @@ import {
   createRaid,
   damageRanking,
   difficultyOf,
+  raidRewards,
   emptyGear,
   equipPlayers,
   raidGearFrom,
@@ -410,7 +411,13 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     .setImage(`attachment://${RAID.imageName}`);
 }
 
-/** What a win at `difficulty` drops for each raider, in words ("a 4★ raid item", "2× 4★ and 3× 3★ raid items"). */
+/** The HP `boss` has on top for every raider at a difficulty (its share of raid.gearHp), like "150", or null with none. */
+const wallText = (cfg: RaidSettings, boss: RaidBossId, difficulty: { wall: number }): string | null => {
+  const extra = Math.round(cfg.gearHp[boss] * difficulty.wall);
+  return extra > 0 ? fmt(extra) : null;
+};
+
+/** What a win at `difficulty` drops for each raider, in words ("a 3★ raid item", "1× 4★ and 4× 3★ raid items"). */
 export function lootKindsText(difficulty: number): string {
   const counts = raidDropCounts(difficulty);
   return TEXT.raid.lootKinds([...STARS].reverse().map((stars) => ({ stars, count: counts[stars] ?? 0 })));
@@ -425,6 +432,20 @@ const dropLine = (cfg: RaidSettings, raiders?: number, difficulty = 1): string =
   raidDropsOn(cfg)
     ? `\n${TEXT.raid.dropChance(formatPercent(cfg.dropChance), formatPercent(cfg.dropChancePerRaider), raiders === undefined ? undefined : formatPercent(raidDropChance(raiders, cfg)), lootKindsText(difficulty))}`
     : '';
+
+/** What everyone who fought gets for beating the boss at `difficulty`, and how the harder levels pay more (without the raid drops' line). */
+export function bossRewardsText(cfg: RaidSettings, difficulty = 1): string {
+  const paid = raidRewards(difficulty, cfg);
+  const milestones = Array.from({ length: Math.floor(RAID_DIFFICULTY.max / RAID_DIFFICULTY.milestoneEvery) }, (_, i) => (i + 1) * RAID_DIFFICULTY.milestoneEvery);
+  return TEXT.raid.bossRewards(
+    fmt(paid.points),
+    paid.tokens,
+    paid.gems,
+    cfg.rewardPerLevel > 0 ? fmt(cfg.rewardPerLevel) : null,
+    cfg.gemRewardMilestone > 0 ? cfg.gemRewardMilestone : null,
+    milestones,
+  );
+}
 
 /** The same item several times over, as one entry with how many (in the order first found). */
 function countedItems(items: readonly ItemDef[]): { item: ItemDef; count: number }[] {
@@ -491,7 +512,8 @@ export function resultEmbed(
   const embed = createEmbed().setImage(`attachment://${RAID.imageName}`);
   const rounds = state.round;
   if (state.outcome === 'won') {
-    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward));
+    const paid = raidRewards(state.difficulty, cfg);
+    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(paid.points), paid.tokens, paid.gems));
   } else {
     const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(b, rounds);
     embed
@@ -630,7 +652,7 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId, difficulty = 1): 
     ? ['', r.movesBlightNote(blight.tick, formatPercent(blight.healCut), formatPercent(blight.maxHealCut), blight.supportCleanse, blight.supportCleanseAt, blight.maxStacks)]
     : [];
   const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : []), ...blightNote];
-  return { phases, moves: moveLines, rewards: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, undefined, difficulty) };
+  return { phases, moves: moveLines, rewards: bossRewardsText(cfg, difficulty) + dropLine(cfg, undefined, difficulty) };
 }
 
 export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
@@ -646,6 +668,7 @@ export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', unti
         r.bossInfoHp(fmt(cfg.hpPerRaider[boss]), fmt(cfg.hpOverhead[boss]), cfg.minRaiders, examples),
         r.bossRounds(b, cfg.maxRounds),
         r.bossDifficulty(RAID_DIFFICULTY.max, formatPercent(cfg.difficultyHp), formatPercent(cfg.difficultyDamage)),
+        ...(cfg.gearHp[boss] > 0 ? [r.bossGear(RAID_DIFFICULTY.gearFrom, fmt(cfg.gearHp[boss]))] : []),
       ].join('\n'),
     )
     .addFields(
@@ -810,9 +833,10 @@ function lobbyView(
   const lines = players.map((userId, i) => `${mention(userId)}${i === 0 ? r.hostTag : ''}`);
   const steals = movesOf(boss).includes('hoard');
   const hasCc = movesOf(boss).some(isCcMove);
+  const paid = raidRewards(difficulty.level, cfg);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(b))
-    .setDescription(r.lobby(b, mention(host), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length, difficulty.level))
+    .setDescription(r.lobby(b, mention(host), cfg.maxRounds, fmt(paid.points), paid.tokens, paid.gems) + dropLine(cfg, players.length, difficulty.level))
     .addFields(
       {
         name: r.howToField,
@@ -829,10 +853,19 @@ function lobbyView(
         ),
       },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
-      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(players.length, boss, cfg, difficulty.hp)), fmt(bossHpFor(0, boss, cfg, difficulty.hp))), inline: true },
+      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(players.length, boss, cfg, difficulty)), fmt(bossHpFor(0, boss, cfg, difficulty))), inline: true },
       {
         name: r.difficultyField,
-        value: r.lobbyDifficulty(difficulty.level, picked.max, RAID_DIFFICULTY.max, formatMultiplier(difficulty.hp), formatMultiplier(difficulty.damage), lootKindsText(difficulty.level)),
+        value: r.lobbyDifficulty(
+          difficulty.level,
+          picked.max,
+          RAID_DIFFICULTY.max,
+          formatMultiplier(difficulty.hp),
+          formatMultiplier(difficulty.damage),
+          lootKindsText(difficulty.level),
+          wallText(cfg, boss, difficulty),
+          difficulty.gear,
+        ),
       },
     )
     .setImage(`attachment://${RAID.imageName}`);
@@ -857,7 +890,7 @@ function lobbyView(
         return {
           label: r.difficultyOption(option.level),
           value: String(option.level),
-          description: r.difficultyOptionDescription(formatMultiplier(option.hp), formatMultiplier(option.damage), lootKindsText(option.level)),
+          description: r.difficultyOptionDescription(formatMultiplier(option.hp), formatMultiplier(option.damage), lootKindsText(option.level), option.gear, wallText(cfg, boss, option)),
           default: option.level === difficulty.level,
         };
       }),
@@ -1433,7 +1466,7 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     const difficulty = difficultyOf(level, cfg);
     live.difficulty = difficulty.level;
     await updateRaid(id, { status: 'fighting', difficulty: difficulty.level });
-    const state = createRaid(boss, players, bossHpFor(players.length, boss, cfg, difficulty.hp), cfg.playerHp, cfg.maxRounds, undefined, difficulty);
+    const state = createRaid(boss, players, bossHpFor(players.length, boss, cfg, difficulty), cfg.playerHp, cfg.maxRounds, undefined, difficulty);
     // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
     // Their HP too: raidHp gear has them start (at full) with more.
     equipPlayers(state, await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId))), cfg.playerHp);
@@ -1453,7 +1486,8 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     let reward: RaidReward | null = null;
     const fought = participants(state);
     if (outcome === 'won' && fought.length > 0 && !tested) {
-      reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward, raidDropChance(fought.length, cfg), raidDropCounts(difficulty.level));
+      const paid = raidRewards(difficulty.level, cfg);
+      reward = await rewardRaid(ctx.guildId, fought, paid.points, paid.tokens, paid.gems, raidDropChance(fought.length, cfg), raidDropCounts(difficulty.level));
       // Beating it unlocks the next difficulty for the server.
       await recordRaidWin(ctx.guildId, difficulty.level).catch((err) => console.error(`Could not record that ${ctx.guildId} beat raid difficulty ${difficulty.level}:`, err));
     }
@@ -1552,7 +1586,7 @@ export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
           const stats = fought.stats?.[userId];
           return { userId, ...statsOf(stats), damage: stats?.damage ?? fought.damage?.[userId] ?? 0 };
         }),
-        reward: fought.status === 'won' ? { points: CONFIG.raid.reward, tokens: CONFIG.raid.tokenReward, gems: CONFIG.raid.gemReward } : null,
+        reward: fought.status === 'won' ? raidRewards(fought.difficulty ?? 1, CONFIG.raid) : null,
         gear: fought.gear !== undefined,
         difficulty: fought.difficulty ?? 1,
         ...(fought.drops && fought.lootKey ? { drops: fought.drops, lootKey: fought.lootKey } : {}),

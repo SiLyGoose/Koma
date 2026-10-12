@@ -149,7 +149,7 @@ export interface RaidLoot extends RaidDrop {
 /**
  * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives the
  * party a `dropChance` chance (raidDropChance: one roll for all of them) that each finds raid-only items:
- * `counts` of each tier (raidDropCounts, by the raid's difficulty; one 4-star item when left out).
+ * `counts` of each tier (raidDropCounts, by the raid's difficulty; one 3-star item, level 1's, when left out).
  */
 export async function rewardRaid(
   guildId: string,

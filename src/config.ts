@@ -218,12 +218,16 @@ export interface Settings {
     maxRounds: number;
     /** Seconds players have to pick their action each round. */
     turnSeconds: number;
-    /** Points each player who took part gets when the boss is beaten. */
+    /** Points each player who took part gets when the boss is beaten, at difficulty 1 (lib/events/raid.ts's raidRewards). */
     reward: number;
+    /** Points more for every difficulty level past 1. */
+    rewardPerLevel: number;
     /** komaTokens (one free gacha pull each) each player who took part gets when the boss is beaten. */
     tokenReward: number;
-    /** komaGems each player who took part gets when the boss is beaten. */
+    /** komaGems each player who took part gets when the boss is beaten, below the first milestone level. */
     gemReward: number;
+    /** komaGems more from each milestone level on (RAID_DIFFICULTY.milestoneEvery: once from 5, twice at 10). */
+    gemRewardMilestone: number;
     /**
      * The chance (0 to 1) a beaten boss drops raid-only items (ItemDef.raidDrop) for the party, before
      * dropChancePerRaider: one roll for the whole raid, and on a hit everyone who took part finds one.
@@ -231,10 +235,16 @@ export interface Settings {
     dropChance: number;
     /** How much each player who took part adds to dropChance (0 to 1; the total is capped at 100%). */
     dropChancePerRaider: number;
-    /** How much of its HP the boss gains for every difficulty level past 1 (0.25: half as much again at level 3). */
+    /** How much of its HP the boss gains for every difficulty level past 1 (0.02: 4% more at level 3). */
     difficultyHp: number;
-    /** How much harder the boss hits for every difficulty level past 1 (0.1: 20% harder at level 3). */
+    /** How much harder the boss hits for every difficulty level past 1 (0.01: 2% harder at level 3). */
     difficultyDamage: number;
+    /**
+     * HP each boss has on top for every raider (a party of fewer than `minRaiders` counted as that many)
+     * from difficulty RAID_DIFFICULTY.gearFrom on, the levels built for parties in raid gear. It climbs to
+     * that in equal steps from level 2 (gearWallShare), so the levels get harder evenly on the way there.
+     */
+    gearHp: Record<RaidBossId, number>;
   };
   /**
    * STONKS!'s claim multiplier curve (perks/items/stackosaurus.ts stonksMultiplier). The multiplier's cap
@@ -360,26 +370,38 @@ export const DEFAULTS: Readonly<Settings> = {
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { seconds: 300, guessCost: 10 },
   },
-  // The raid HP, tuned in simulated fights so a party where everyone wears a 3-star raid weapon and
-  // armor at R3 wins about 60% of the time at any size from 5 to 10 (a party without gear, far less).
+  // The raid's numbers, set in simulated fights where the party picks the best of some ninety ways to
+  // play (real parties do worse). Each boss's HP lets a party without gear win level 1 about 9 times in
+  // 10, at any size from 4 to 10, and never less often for having more raiders: hpPerRaider and
+  // hpOverhead are fitted so the win rate holds or climbs with the party's size.
   // Up to 15 rounds of 60 seconds, once the host starts the fight from the lobby.
   // Beating it pays everyone who took part 1,000, a multi pull's worth of komaTokens (10) and 5 komaGems,
-  // and the party a 20% chance (+10% for each raider) that everyone finds one of the 4-star raid drops.
-  // That is difficulty 1; every level past it gives the boss 25% more of its HP and 10% more of its damage.
+  // and the party a 20% chance (+10% for each raider) that everyone finds one of the 3-star raid drops
+  // (more at the levels past 1, and 4-star ones only at levels 5 and 10). Every level past 1 pays 500
+  // more, and the komaGems go up by 5 at levels 5 and 10 (10 from level 5, 15 at level 10).
+  // That is difficulty 1; every level past it gives the boss 2% more of its HP and 1% more of its damage,
+  // and more HP for every raider, whatever they wear (its HP never looks at gear): a quarter of gearHp
+  // more at each level up to 5, and all of it from there. So a party without gear wins less at every
+  // level on the way (about 90, 80, 60, 40 and 20% at levels 1 to 5, a little more in a big party)
+  // rather than hitting a wall, a party in the best 4-star gear at R3 (harpoons, a rallier) wins level 5
+  // about 6 to 10 times in 10, and one in the same gear at R5 wins level 10 about 9 times in 10 or more.
   raid: {
-    hpPerRaider: { wyrm: 1_600, reaper: 1_225, plague: 925 },
-    hpOverhead: { wyrm: 2.75, reaper: 2.75, plague: 2.85 },
+    hpPerRaider: { wyrm: 1_000, reaper: 725, plague: 600 },
+    hpOverhead: { wyrm: 2.69, reaper: 2.14, plague: 1.49 },
     minRaiders: 4,
     playerHp: 100,
     maxRounds: 15,
     turnSeconds: 60,
     reward: 1_000,
+    rewardPerLevel: 500,
     tokenReward: 10,
     gemReward: 5,
+    gemRewardMilestone: 5,
     dropChance: 0.2,
     dropChancePerRaider: 0.1,
-    difficultyHp: 0.25,
-    difficultyDamage: 0.1,
+    difficultyHp: 0.02,
+    difficultyDamage: 0.01,
+    gearHp: { wyrm: 260, reaper: 250, plague: 230 },
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve

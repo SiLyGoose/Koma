@@ -443,15 +443,26 @@ export const rallyMultiplierOf = (player: { gear: RaidGear }): number => 1 + (RA
 
 /**
  * A raid's difficulty: its level (1 to RAID_DIFFICULTY.max), and what that multiplies the boss's HP and
- * damage by. Level 1 is the boss as its settings have it.
+ * damage by. Level 1 is the boss as its settings have it. `wall` is the share (0 to 1) of its `gearHp`
+ * the boss has on top for every raider (bossHpFor): none at level 1, climbing in equal steps to all of
+ * it at RAID_DIFFICULTY.gearFrom, and all of it past that. `gear` levels (gearFrom and up) are the ones
+ * built for parties in raid gear.
  */
 export interface RaidDifficulty {
   level: number;
   hp: number;
   damage: number;
+  gear: boolean;
+  wall: number;
 }
 
-export const BASE_DIFFICULTY: RaidDifficulty = { level: 1, hp: 1, damage: 1 };
+export const BASE_DIFFICULTY: RaidDifficulty = { level: 1, hp: 1, damage: 1, gear: false, wall: 0 };
+
+/** Whether a difficulty level is one built for parties in raid gear. */
+export const needsGear = (level: number): boolean => level >= RAID_DIFFICULTY.gearFrom;
+
+/** The share (0 to 1) of the boss's `gearHp` it has at a level: equal steps from none at level 1 to all of it at gearFrom. */
+export const gearWallShare = (level: number): number => Math.min(1, Math.max(0, (level - 1) / Math.max(1, RAID_DIFFICULTY.gearFrom - 1)));
 
 /** A difficulty level a raid can have: a whole number from 1 to `max` (anything else becomes the nearest). */
 export const clampDifficulty = (level: number, max: number = RAID_DIFFICULTY.max): number =>
@@ -460,7 +471,37 @@ export const clampDifficulty = (level: number, max: number = RAID_DIFFICULTY.max
 /** The difficulty at `level`: each level past 1 adds `difficultyHp` of the boss's HP and `difficultyDamage` of its damage. */
 export function difficultyOf(level: number, cfg: { difficultyHp: number; difficultyDamage: number }): RaidDifficulty {
   const at = clampDifficulty(level);
-  return { level: at, hp: 1 + cfg.difficultyHp * (at - 1), damage: 1 + cfg.difficultyDamage * (at - 1) };
+  return { level: at, hp: 1 + cfg.difficultyHp * (at - 1), damage: 1 + cfg.difficultyDamage * (at - 1), gear: needsGear(at), wall: gearWallShare(at) };
+}
+
+/** The raid reward settings (the `raid.*` ones raidRewards reads). */
+export interface RaidRewardSettings {
+  reward: number;
+  rewardPerLevel: number;
+  tokenReward: number;
+  gemReward: number;
+  gemRewardMilestone: number;
+}
+
+/** What everyone who took part gets for beating the boss. */
+export interface RaidRewards {
+  points: number;
+  tokens: number;
+  gems: number;
+}
+
+/**
+ * What beating the boss at difficulty `level` pays each raider: `rewardPerLevel` more points for every
+ * level past 1, and `gemRewardMilestone` more komaGems from each milestone level on (so they only go up
+ * at levels 5 and 10). The komaTokens are the same at every level.
+ */
+export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards {
+  const at = clampDifficulty(level);
+  return {
+    points: Math.max(0, cfg.reward + cfg.rewardPerLevel * (at - 1)),
+    tokens: cfg.tokenReward,
+    gems: Math.max(0, cfg.gemReward + cfg.gemRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)),
+  };
 }
 
 /** The raid HP settings (the `raid.*` ones bossHpFor reads). */
@@ -468,18 +509,21 @@ export interface BossHpSettings {
   hpPerRaider: Readonly<Record<RaidBossId, number>>;
   hpOverhead: Readonly<Record<RaidBossId, number>>;
   minRaiders: number;
+  gearHp: Readonly<Record<RaidBossId, number>>;
 }
 
 /**
  * `boss`'s HP for a party of `players` (counted as at least `minRaiders`): `hpPerRaider` for every
  * raider past its `hpOverhead`. A party ties up about that many raiders guarding, healing, cleansing
  * and rallying whatever its size, so only the rest add damage; giving the boss HP for them alone keeps
- * a big party's chances the same as a small one's. `multiplier` is its difficulty's (RaidDifficulty.hp).
- * At least 1.
+ * a big party's chances the same as a small one's. Its `difficulty` multiplies that (RaidDifficulty.hp),
+ * and adds its share (RaidDifficulty.wall) of `gearHp` for every raider, overhead or not: each of them
+ * has to deal that much more over the fight, which is what takes gear, at any party size. At least 1.
  */
-export function bossHpFor(players: number, boss: RaidBossId, hp: BossHpSettings, multiplier = 1): number {
-  const counted = Math.max(players, hp.minRaiders) - hp.hpOverhead[boss];
-  return Math.max(1, Math.round(hp.hpPerRaider[boss] * counted * multiplier));
+export function bossHpFor(players: number, boss: RaidBossId, hp: BossHpSettings, difficulty: Pick<RaidDifficulty, 'hp' | 'wall'> = BASE_DIFFICULTY): number {
+  const raiders = Math.max(players, hp.minRaiders);
+  const wall = hp.gearHp[boss] * difficulty.wall * raiders;
+  return Math.max(1, Math.round(hp.hpPerRaider[boss] * (raiders - hp.hpOverhead[boss]) * difficulty.hp + wall));
 }
 
 /**

@@ -54,13 +54,17 @@ test('databank page: every raid boss, what it does, and what each difficulty lev
   for (const boss of bosses) {
     assert.equal(boss.name, TEXT.raid.bosses[boss.id].name);
     assert.equal(boss.picture, `/api/raid/boss?boss=${boss.id}&mood=calm`);
-    assert.deepEqual(boss.hp, { perRaider: CONFIG.raid.hpPerRaider[boss.id], overhead: CONFIG.raid.hpOverhead[boss.id], minRaiders: CONFIG.raid.minRaiders });
+    assert.deepEqual(boss.hp, { perRaider: CONFIG.raid.hpPerRaider[boss.id], overhead: CONFIG.raid.hpOverhead[boss.id], minRaiders: CONFIG.raid.minRaiders, gear: CONFIG.raid.gearHp[boss.id] });
     assert.ok(boss.moves.length > 0 && boss.phases.length > 0 && boss.rewards.length > 0, boss.id);
-    assert.ok(!boss.rewards.includes('\n'), 'the rewards everyone gets, without the drops (they go by level)');
+    assert.ok(!boss.rewards.includes('raid item'), 'the rewards everyone gets, without the drops (they go by level)');
+    assert.ok(boss.rewards.includes('Harder levels pay more'), 'and how the harder levels pay more');
   }
   assert.equal(raid.maxRounds, CONFIG.raid.maxRounds);
   assert.equal(raid.levels.length, RAID_DIFFICULTY.max);
-  assert.deepEqual(raid.levels[0], { level: 1, hp: 1, damage: 1, drops: [{ stars: 4, count: 1 }] });
+  assert.deepEqual(raid.levels[0], { level: 1, hp: 1, damage: 1, gear: false, wall: 0, drops: [{ stars: 3, count: 1 }] });
+  assert.deepEqual(raid.levels.map((level) => level.wall), [0, 0.25, 0.5, 0.75, 1, 1, 1, 1, 1, 1]);
+  assert.deepEqual(raid.levels.filter((level) => level.drops.some((drop) => drop.stars === 4)).map((level) => level.level), [5, 10]);
+  assert.deepEqual(raid.levels.filter((level) => level.gear).map((level) => level.level), [5, 6, 7, 8, 9, 10]);
   assert.equal(raid.levels[2]?.hp, 1 + 2 * CONFIG.raid.difficultyHp);
 });
 

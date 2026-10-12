@@ -9,8 +9,8 @@ import { chance as rollChance } from '../../random.js';
  * Raid drops: the items that can't be pulled from the gacha (ItemDef.raidDrop). When a raid boss is
  * beaten, the party rolls once: raid.dropChance, plus raid.dropChancePerRaider for each raider who
  * took part (up to 100%). On a hit every one of them gets what the raid's difficulty drops
- * (raidDropCounts: one top-tier item at level 1, more the harder it was), each picked at random, every
- * raid drop of its tier as likely as the others. The database side is in services/raid.ts (rewardRaid).
+ * (raidDropCounts: one 3-star item at level 1, more the harder it was, and top-tier ones only at the
+ * milestone levels), each picked at random, every raid drop of its tier as likely as the others. The database side is in services/raid.ts (rewardRaid).
  */
 
 export interface RaidDrop {
@@ -42,15 +42,17 @@ export function raidDropChance(raiders: number, cfg: DropSettings): number {
 export const raidDropsOn = (cfg: DropSettings): boolean => cfg.dropChance > 0 || cfg.dropChancePerRaider > 0;
 
 /**
- * What a raid at `difficulty` drops for each raider (RAID_DIFFICULTY): one top-tier item, one more at
- * every milestone level (5 and 10), and one of the tier below for every level in between, which add
- * up. So level 1 is one 4-star; level 4, one 4-star and three 3-stars; level 5, two 4-stars and those
- * three 3-stars; level 10, three 4-stars and seven 3-stars.
+ * What a raid at `difficulty` drops for each raider (RAID_DIFFICULTY). Top-tier items only drop at the
+ * milestone levels themselves (5 and 10): one at the first, two at the second, none at the levels in
+ * between. Every level drops items of the tier below: one at level 1 and one more for each level past
+ * it, a milestone level adding its top-tier item instead. So level 1 is one 3-star; level 4, four;
+ * level 5, one 4-star and four 3-stars; level 6, five 3-stars; level 10, two 4-stars and eight 3-stars.
  */
 export function raidDropCounts(difficulty: number): DropCounts {
   const level = Math.min(RAID_DIFFICULTY.max, Math.max(1, Math.floor(difficulty)));
   const milestones = Math.floor(level / RAID_DIFFICULTY.milestoneEvery);
-  return { [RAID_DIFFICULTY.milestoneStars]: 1 + milestones, [RAID_DIFFICULTY.stepStars]: level - 1 - milestones };
+  const top = level % RAID_DIFFICULTY.milestoneEvery === 0 ? milestones : 0;
+  return { [RAID_DIFFICULTY.milestoneStars]: top, [RAID_DIFFICULTY.stepStars]: level - milestones };
 }
 
 /**

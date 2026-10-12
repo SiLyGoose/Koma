@@ -831,7 +831,7 @@ test('raid stats: the dragon itself, its HP, its phases with their crowd-control
   assert.ok(rewards.includes(`**${cfg.tokenReward}** <:zeiutoken:1552921364489572362>`), rewards);
   assert.ok(rewards.includes(`**${cfg.gemReward}** ${GEM_EMOJI}`), rewards);
   assert.equal(embed.fields?.[0]?.name, 'Rewards', 'the rewards come first');
-  const noGems = bossInfoEmbed({ ...cfg, gemReward: 0 }).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
+  const noGems = bossInfoEmbed({ ...cfg, gemReward: 0, gemRewardMilestone: 0 }).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
   assert.ok(!noGems.includes(GEM_EMOJI), 'a reward set to 0 is left out');
 
   const phases = embed.fields?.find((f) => f.name === 'Phases')?.value.split('\n') ?? [];
@@ -899,7 +899,7 @@ test('raidTakings: everything spent on boosts and stolen goes to the vault, and 
 });
 
 test("bossHpFor: each boss's HP per raider past its overhead, a small party counted as the minimum", () => {
-  const hp = { hpPerRaider: { wyrm: 1000, reaper: 800, plague: 600 }, hpOverhead: { wyrm: 2.5, reaper: 3, plague: 2 }, minRaiders: 4 };
+  const hp = { hpPerRaider: { wyrm: 1000, reaper: 800, plague: 600 }, hpOverhead: { wyrm: 2.5, reaper: 3, plague: 2 }, minRaiders: 4, gearHp: { wyrm: 100, reaper: 100, plague: 100 } };
   assert.equal(bossHpFor(5, 'wyrm', hp), 2500);
   assert.equal(bossHpFor(8, 'wyrm', hp), 5500);
   assert.equal(bossHpFor(8, 'reaper', hp), 4000);

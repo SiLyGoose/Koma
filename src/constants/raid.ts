@@ -29,11 +29,14 @@ export const MAX_RAID_OVERHEAD = 10;
 /**
  * The raid's difficulty levels, 1 (the boss as its settings have it) to `max`. Each level past 1 adds
  * `raid.difficultyHp` of the boss's HP and `raid.difficultyDamage` of its damage (lib/events/raid.ts's
- * difficultyOf), and one more raid item to what a win can drop (lib/game/items/raid-drops.ts): a
- * top-tier one at every `milestoneEvery`th level, a `stepStars`-star one at the levels in between.
+ * difficultyOf), and one more `stepStars`-star raid item to what a win can drop
+ * (lib/game/items/raid-drops.ts). Top-tier (`milestoneStars`) ones only drop at every `milestoneEvery`th level.
+ * The boss also gains HP for every raider (bossHpFor), in equal steps from level 2 up to
+ * `raid.gearHp.<boss>` at `gearFrom`, and the same at every level past it: so a party without raid gear
+ * wins less and less often on the way up, and from `gearFrom` the boss is built for parties in gear.
  * A server can pick up to one level past the highest it has beaten (services/raid.ts).
  */
-export const RAID_DIFFICULTY = { max: 10, milestoneEvery: 5, milestoneStars: 4, stepStars: 3 } as const;
+export const RAID_DIFFICULTY = { max: 10, milestoneEvery: 5, milestoneStars: 4, stepStars: 3, gearFrom: 5 } as const;
 
 /**
  * The raid's buttons and screen.

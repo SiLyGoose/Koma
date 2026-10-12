@@ -1,8 +1,7 @@
-import { bossBrief } from '../../commands/raid.js';
+import { bossBrief, bossRewardsText } from '../../commands/raid.js';
 import { CONFIG } from '../../config.js';
 import { RAID_BOSS_IDS, REFINE, TEXT, type RaidBossId } from '../../constants/index.js';
 import { ITEMS } from '../../data/items.js';
-import { fmt } from '../../lib/format.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import type { ItemDef, Slot, Stars } from '../../types.js';
 import type { RaidLevel } from '../games/raid/protocol.js';
@@ -44,12 +43,14 @@ export interface DatabankBoss {
   picture: string;
   /**
    * Its HP at difficulty 1 (lib/events/raid.ts's bossHpFor): `perRaider` for every raider past the first
-   * `overhead`, a party of fewer than `minRaiders` counted as that many.
+   * `overhead`, a party of fewer than `minRaiders` counted as that many. `gear` is what it has on top for
+   * every raider (the overhead ones too) at the levels that need gear (RaidLevel.gear), and RaidLevel.wall of it below them.
    */
-  hp: { perRaider: number; overhead: number; minRaiders: number };
+  hp: { perRaider: number; overhead: number; minRaiders: number; gear: number };
   /**
    * What it does, in Discord markdown: its phases, its moves, and what everyone who fought gets for beating
-   * it (whatever the difficulty; the raid items a win can drop besides are DatabankRaid.levels' and the drop chances').
+   * it at difficulty 1, with a second line on how the harder levels pay more (the raid items a win can drop
+   * besides are DatabankRaid.levels' and the drop chances').
    */
   phases: string[];
   moves: string[];
@@ -82,10 +83,10 @@ export interface Databank {
 
 function bossView(id: RaidBossId): DatabankBoss {
   const { name, emoji } = TEXT.raid.bosses[id];
-  const { hpPerRaider, hpOverhead, minRaiders, reward, tokenReward, gemReward } = CONFIG.raid;
+  const { hpPerRaider, hpOverhead, minRaiders, gearHp } = CONFIG.raid;
   const { phases, moves } = bossBrief(CONFIG.raid, id);
-  const rewards = TEXT.raid.bossRewards(fmt(reward), tokenReward, gemReward);
-  return { id, name, emoji, picture: picturePath(id, 'calm'), hp: { perRaider: hpPerRaider[id], overhead: hpOverhead[id], minRaiders }, phases, moves, rewards };
+  const rewards = bossRewardsText(CONFIG.raid);
+  return { id, name, emoji, picture: picturePath(id, 'calm'), hp: { perRaider: hpPerRaider[id], overhead: hpOverhead[id], minRaiders, gear: gearHp[id] }, phases, moves, rewards };
 }
 
 export function databankView(items: readonly ItemDef[] = ITEMS): Databank {

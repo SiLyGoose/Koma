@@ -89,11 +89,18 @@ export interface RaidLootItem {
   isNew?: boolean;
 }
 
-/** One difficulty level: what it multiplies the boss's HP and damage by, and what a win at it drops for each raider (best tier first). */
+/**
+ * One difficulty level: what it multiplies the boss's HP and damage by, and what a win at it drops for each
+ * raider (best tier first). The boss has more HP for every raider besides: `wall` (0 to 1) of its own amount
+ * (`gearHp` in the pick and lobby views, DatabankBoss.hp.gear in the databank), none at level 1 and all of it
+ * from the first `gear` level, the ones built for parties in raid gear.
+ */
 export interface RaidLevel {
   level: number;
   hp: number;
   damage: number;
+  gear: boolean;
+  wall: number;
   drops: { stars: number; count: number }[];
 }
 
@@ -104,6 +111,8 @@ export interface RaidPickView {
   topDifficulty: number;
   /** Every level, from 1 to `topDifficulty`. */
   levels: RaidLevel[];
+  /** The HP this boss has on top for every raider at the levels that need gear (RaidLevel.gear); RaidLevel.wall of it below them. */
+  gearHp: number;
 }
 
 /** The lobby's difficulty: the host picks a level, up to the hardest the server has unlocked. */
@@ -118,6 +127,8 @@ export interface RaidLobbyView {
   topDifficulty: number;
   /** Every level, from 1 to `topDifficulty`. */
   levels: RaidLevel[];
+  /** The HP this boss has on top for every raider at the levels that need gear (RaidLevel.gear), RaidLevel.wall of it below them; `bossHp` has it in. */
+  gearHp: number;
 }
 
 export interface RaidOverView {
