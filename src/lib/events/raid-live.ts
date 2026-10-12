@@ -1,4 +1,5 @@
 import type { RaidBossId } from '../../constants/index.js';
+import type { ItemDef } from '../../types.js';
 import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js';
 
 /*
@@ -12,7 +13,7 @@ import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js'
  */
 
 /** How a press in the lobby went. */
-export type LobbyAnswer = 'joined' | 'already_joined' | 'left' | 'not_joined' | 'started' | 'only_host' | 'closed';
+export type LobbyAnswer = 'joined' | 'already_joined' | 'left' | 'not_joined' | 'started' | 'difficulty_set' | 'locked' | 'only_host' | 'closed';
 
 /** Why a player can't act this turn (lib/events/raid.ts's actionProblem). */
 export type ActProblem = 'not_playing' | 'knocked_out' | CrowdControl;
@@ -28,6 +29,11 @@ export interface RaidLobbyLive {
   leave(userId: string): LobbyAnswer;
   /** The host starts the fight early. */
   start(userId: string): LobbyAnswer;
+  /** The difficulty picked so far, and the hardest this server can pick (one past the hardest it has beaten). */
+  readonly difficulty: number;
+  readonly maxDifficulty: number;
+  /** The host picks the difficulty ('locked' past `maxDifficulty`). */
+  setDifficulty(userId: string, level: number): LobbyAnswer;
 }
 
 export interface RaidTurnLive {
@@ -56,6 +62,8 @@ export interface RaidOverLive {
   state: RaidState | null;
   /** The winners were paid (a won fight the admin's test tools touched pays nothing). */
   rewarded: boolean;
+  /** The raid items the winners found, when any dropped: `key` names this win's (the site shows them once). */
+  loot?: { key: string; drops: readonly { userId: string; item: ItemDef; isNew?: boolean }[] };
 }
 
 export type RaidPhase = 'lobby' | 'fight' | 'over';
@@ -67,6 +75,8 @@ export class LiveRaid {
   over: RaidOverLive | null = null;
   /** When it ended (ms), once it has. */
   endedAt: number | null = null;
+  /** Its difficulty level: the lobby's pick, settled as the fight starts. */
+  difficulty = 1;
   /** Each raider's gear as the fight started (web/models/gear.ts's wornGear), for the site's end screen. */
   gear = new Map<string, unknown>();
 

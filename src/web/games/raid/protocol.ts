@@ -15,10 +15,11 @@ import type { ActProblem, LobbyAnswer, RaidEnd } from '../../../lib/events/raid-
  *                          them as the host
  *                 join     joins the lobby; `leave` leaves it
  *                 begin    the host starts the fight now, without waiting for the lobby to close
+ *                 difficulty  the host picks the raid's difficulty `level` (up to the lobby's `maxDifficulty`)
  *                 act      their action this turn (`target`: who a heal is for, left out to let the
  *                          bot choose)
  *   bot -> page   raid     the raid as it is now: whenever anything about it changes
- *                 answer   how a start, join, leave, begin or act went (`code` is 'ok' when it went)
+ *                 answer   how a start, join, leave, begin, difficulty or act went (`code` is 'ok' when it went)
  *                 error    and the bot closes the connection
  *
  * Text from the raid (the boss's next move, the log) is Discord markdown, as the raid message shows
@@ -31,6 +32,7 @@ export type ClientMessage =
   | { t: 'join' }
   | { t: 'leave' }
   | { t: 'begin' }
+  | { t: 'difficulty'; level: number }
   | { t: 'act'; action: RaidAction; target?: string };
 
 /** The boss's pictures: calm and angrier as it loses HP, and how the fight ended. */
@@ -73,6 +75,30 @@ export interface RaidFightView {
   problems: Record<RaidAction, ActProblem | null>;
 }
 
+/** A raid item the one looking found for winning the raid. `isNew`: their first copy (left out when that isn't known). */
+export interface RaidLootItem {
+  itemId: string;
+  name: string;
+  stars: number;
+  slot: 'weapon' | 'armor' | 'treasure';
+  isNew?: boolean;
+}
+
+/** The lobby's difficulty: the host picks a level, up to the hardest the server has unlocked. */
+export interface RaidLobbyView {
+  host: string;
+  players: string[];
+  closesAt: number;
+  /** The boss's HP with the party as it is now, at the difficulty picked. */
+  bossHp: number;
+  difficulty: number;
+  /** The hardest level the server can pick (one past the hardest it has beaten), and the hardest there is. */
+  maxDifficulty: number;
+  topDifficulty: number;
+  /** What each level multiplies the boss's HP and damage by, and what a win at it drops for each raider (best tier first), from level 1 to `topDifficulty`. */
+  levels: { level: number; hp: number; damage: number; drops: { stars: number; count: number }[] }[];
+}
+
 export interface RaidOverView {
   end: RaidEnd;
   rounds: number;
@@ -94,6 +120,11 @@ export interface RaidOverView {
   rewardText?: string | null;
   /** Each raider's gear as they fought can be looked at (GET /api/raid/gear?user=…): raids from before it was kept can't. */
   gear?: boolean;
+  /**
+   * The raid items the one looking found (best first), when they found any: the page shows them once,
+   * over the end screen, until they close it. `key` names this win's, so it isn't shown again.
+   */
+  loot?: { key: string; items: RaidLootItem[] } | null;
 }
 
 export interface RaidView {
@@ -111,6 +142,8 @@ export interface RaidView {
    * (capped at 1). Null when they're off.
    */
   drops: { chance: number; perRaider: number } | null;
+  /** The raid's difficulty level (1 with no raid going on and none fought this week). */
+  difficulty: number;
   /** The boss's picture now: its path under the bot's /api (GET). */
   picture: string;
   mood: RaidMood;
@@ -124,7 +157,7 @@ export interface RaidView {
    */
   phase: 'idle' | 'lobby' | 'fight' | 'over';
   idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'called_off' } | null;
-  lobby: { host: string; players: string[]; closesAt: number; bossHp: number } | null;
+  lobby: RaidLobbyView | null;
   fight: RaidFightView | null;
   over: RaidOverView | null;
 }
@@ -132,7 +165,7 @@ export interface RaidView {
 /** What went wrong with a start, join, leave, begin or act. */
 export type AnswerCode =
   | 'ok'
-  | Exclude<LobbyAnswer, 'joined' | 'left' | 'started'>
+  | Exclude<LobbyAnswer, 'joined' | 'left' | 'started' | 'difficulty_set'>
   | ActProblem
   | 'late'
   | 'already'
@@ -168,6 +201,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'leave':
     case 'begin':
       return { t: m.t };
+    case 'difficulty':
+      return typeof m.level === 'number' && Number.isInteger(m.level) && m.level >= 1 && m.level <= 100 ? { t: 'difficulty', level: m.level } : null;
     case 'act': {
       if (typeof m.action !== 'string' || !ACTIONS.includes(m.action as RaidAction)) return null;
       if (m.target !== undefined && (typeof m.target !== 'string' || !/^\d{1,20}$/.test(m.target))) return null;

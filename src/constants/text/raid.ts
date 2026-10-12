@@ -166,6 +166,30 @@ export const raidText = {
   /** The HP the boss will have with the party as it is now. */
   lobbyBossHp: (hp: string, min: string) => `**${hp}**
 Grows with every raider (at least ${min}).`,
+  // The lobby's difficulty (constants/raid.ts's RAID_DIFFICULTY): the host picks it, up to the hardest the server has unlocked
+  difficultyField: 'Difficulty',
+  /** `hp` and `damage` are what it multiplies the boss's by (like "1.5x"), `loot` what a win can drop (lootKinds). */
+  lobbyDifficulty: (level: number, unlocked: number, max: number, hp: string, damage: string, loot: string) =>
+    [
+      `**${level}** / ${max}${level > 1 ? ` · ❤️ ${hp} HP · 💥 ${damage} damage` : ''}`,
+      `🎁 Can drop ${loot} each.`,
+      unlocked < max ? `Beat level ${unlocked} to unlock level ${unlocked + 1}.` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  difficultyPlaceholder: (level: number) => `Difficulty ${level} (the host can change it)`,
+  difficultyOption: (level: number) => `Difficulty ${level}`,
+  difficultyOptionDescription: (hp: string, damage: string, loot: string) => `${hp} HP · ${damage} damage · drops ${loot}`.slice(0, 100),
+  onlyHostDifficulty: 'Only the host (the first raider on the list) can change the difficulty.',
+  difficultyLocked: (unlocked: number) => `This server has only unlocked difficulty ${unlocked} so far. Beat it to unlock the next.`,
+  /** On the fight screen, past level 1. */
+  difficultyTag: (level: number) => `⚔️ **Difficulty ${level}**`,
+  /** What a win drops for each raider, like "one 4★ raid item" or "2× 4★ and 3× 3★ raid items". */
+  lootKinds: (parts: readonly { stars: number; count: number }[]) => {
+    const total = parts.reduce((sum, part) => sum + part.count, 0);
+    if (total === 1) return `a ${parts.find((part) => part.count > 0)?.stars ?? 4}★ raid item`;
+    return `${andList(parts.filter((part) => part.count > 0).map((part) => `${part.count}× ${part.stars}★`))} raid items`;
+  },
   hostTag: ' (host)',
   joinButton: 'Join',
   leaveButton: 'Leave',
@@ -379,12 +403,23 @@ Grows with every raider (at least ${min}).`,
    * Under the rewards in the lobby and `raid stats`: the party's chance (like "20%") that everyone finds a
    * raid-only item, and what each raider adds (like "10%"). `now` is the chance with the lobby's party so far.
    */
-  dropChance: (chance: string, perRaider: string, now?: string) =>
-    `The party also has a **${chance}** chance (+${perRaider} for each raider${now ? `, **${now}** with this party` : ''}) that everyone finds a 4★ raid item, which can't be pulled from the gacha.`,
+  dropChance: (chance: string, perRaider: string, now?: string, loot = 'a 4★ raid item') =>
+    `The party also has a **${chance}** chance (+${perRaider} for each raider${now ? `, **${now}** with this party` : ''}) that everyone finds ${loot}, which can't be pulled from the gacha.`,
   /** The raid items found after a win (raid drops). `stars` is like "★★★★". */
   lootField: '🎁 Loot',
   lootLine: (user: string, stars: string, item: string) => `${user} found ${stars} **${item}**!`,
+  /** A raider who found several: `items` is their lootItem parts. */
+  lootLineMany: (user: string, items: readonly string[]) => `${user} found ${items.join(', ')}`,
+  /** One kind of item a raider found, and how many of it. */
+  lootItem: (stars: string, item: string, count = 1) => `${stars} **${item}**${count > 1 ? ` ×${count}` : ''}`,
   noLoot: 'No raid items dropped this time.',
+  /** Under a won raid: shows whoever presses it their own items, privately (they can dismiss it). */
+  lootButton: 'My loot',
+  lootMineTitle: '🎁 Your raid loot',
+  /** One line of that list: `slot` is the slot's emoji, `isNew` when it is their first copy. */
+  lootMineLine: (stars: string, slot: string, item: string, count: number, isNew: boolean) => `${stars} ${slot} **${item}**${count > 1 ? ` ×${count}` : ''}${isNew ? ' 🆕' : ''}`,
+  lootMineFooter: 'They are in your inventory. Only you can see this.',
+  lootMineNone: "You didn't find any items in this raid.",
 
   // `raid` once this week's raid has been fought: how it went
   weekTitle: (b: RaidBossText, outcome: 'won' | 'wiped' | 'fled') =>
@@ -409,6 +444,9 @@ Grows with every raider (at least ${min}).`,
   bossInfoHp: (perRaider: string, overhead: string, minRaiders: number, examples: string) =>
     `❤️ **HP**: ${perRaider} for every raider past the first ${overhead}, and a party of fewer than ${minRaiders} fights it as if it had ${minRaiders}.\n${examples}`,
   bossHpExample: (raiders: number, hp: string) => `${plural(raiders, 'raider', 'raiders')}: ${hp}`,
+  /** `hp` and `damage` are what each level past 1 adds, like "25%". */
+  bossDifficulty: (max: number, hp: string, damage: string) =>
+    `⚔️ **Difficulty**: these are its numbers at level 1. Each level past it, up to ${max}, gives it +${hp} HP and +${damage} damage and drops more raid items. The host picks the level in the lobby, up to one past the hardest this server has beaten.`,
   bossRounds: (b: RaidBossText, rounds: number) => `⏳ It ${b.fleesHow} (and the raid is lost) if it is still standing after **${rounds}** rounds.`,
   rewardsField: 'Rewards',
   /** What each raider who takes part gets when the boss is slain (nothing if it wins or gets away). */

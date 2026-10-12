@@ -1,4 +1,4 @@
-import { RAID_COMBAT, type RaidBossId } from '../../constants/index.js';
+import { RAID_COMBAT, RAID_DIFFICULTY, type RaidBossId } from '../../constants/index.js';
 import { chance, pickRandom, randInt } from '../random.js';
 import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
 
@@ -223,6 +223,10 @@ export type RaidOutcome = 'ongoing' | 'won' | 'wiped' | 'fled';
 export interface RaidState {
   /** Which boss is being fought. */
   boss: RaidBossId;
+  /** Its difficulty level, from 1 (see RaidDifficulty). */
+  difficulty: number;
+  /** What that difficulty multiplies the boss's damage by (on top of its enrage). Its HP is already in `bossMaxHp`. */
+  bossDamage: number;
   bossHp: number;
   bossMaxHp: number;
   /** The round being played, from 1. */
@@ -337,8 +341,8 @@ export function enrageLevel(hp: number, maxHp: number): number {
   return RAID_COMBAT.enrage.thresholds.filter((threshold) => share <= threshold).length;
 }
 
-/** What the boss's damage is multiplied by at its enrage level. */
-export const bossMultiplier = (state: RaidState): number => RAID_COMBAT.enrage.multipliers[state.enrage] ?? 1;
+/** What the boss's damage is multiplied by: its enrage level's share, times its difficulty's. */
+export const bossMultiplier = (state: RaidState): number => (RAID_COMBAT.enrage.multipliers[state.enrage] ?? 1) * state.bossDamage;
 
 /** What the boss's healing (the reaper's lifesteal) is multiplied by at its enrage level. */
 export const bossLifesteal = (state: RaidState): number => RAID_COMBAT.enrage.lifesteal[state.enrage] ?? 1;
@@ -424,6 +428,28 @@ export function equipPlayers(state: RaidState, gear: readonly (RaidGear | undefi
 /** What a rally from this player multiplies attacks by: RAID_COMBAT.support.attackMultiplier, with its bonus made bigger by rallyBoost. */
 export const rallyMultiplierOf = (player: { gear: RaidGear }): number => 1 + (RAID_COMBAT.support.attackMultiplier - 1) * (1 + player.gear.rallyBoost);
 
+/**
+ * A raid's difficulty: its level (1 to RAID_DIFFICULTY.max), and what that multiplies the boss's HP and
+ * damage by. Level 1 is the boss as its settings have it.
+ */
+export interface RaidDifficulty {
+  level: number;
+  hp: number;
+  damage: number;
+}
+
+export const BASE_DIFFICULTY: RaidDifficulty = { level: 1, hp: 1, damage: 1 };
+
+/** A difficulty level a raid can have: a whole number from 1 to `max` (anything else becomes the nearest). */
+export const clampDifficulty = (level: number, max: number = RAID_DIFFICULTY.max): number =>
+  Math.min(Math.max(1, max), Math.max(1, Math.floor(Number.isFinite(level) ? level : 1)));
+
+/** The difficulty at `level`: each level past 1 adds `difficultyHp` of the boss's HP and `difficultyDamage` of its damage. */
+export function difficultyOf(level: number, cfg: { difficultyHp: number; difficultyDamage: number }): RaidDifficulty {
+  const at = clampDifficulty(level);
+  return { level: at, hp: 1 + cfg.difficultyHp * (at - 1), damage: 1 + cfg.difficultyDamage * (at - 1) };
+}
+
 /** The raid HP settings (the `raid.*` ones bossHpFor reads). */
 export interface BossHpSettings {
   hpPerRaider: Readonly<Record<RaidBossId, number>>;
@@ -435,14 +461,18 @@ export interface BossHpSettings {
  * `boss`'s HP for a party of `players` (counted as at least `minRaiders`): `hpPerRaider` for every
  * raider past its `hpOverhead`. A party ties up about that many raiders guarding, healing, cleansing
  * and rallying whatever its size, so only the rest add damage; giving the boss HP for them alone keeps
- * a big party's chances the same as a small one's. At least 1.
+ * a big party's chances the same as a small one's. `multiplier` is its difficulty's (RaidDifficulty.hp).
+ * At least 1.
  */
-export function bossHpFor(players: number, boss: RaidBossId, hp: BossHpSettings): number {
+export function bossHpFor(players: number, boss: RaidBossId, hp: BossHpSettings, multiplier = 1): number {
   const counted = Math.max(players, hp.minRaiders) - hp.hpOverhead[boss];
-  return Math.max(1, Math.round(hp.hpPerRaider[boss] * counted));
+  return Math.max(1, Math.round(hp.hpPerRaider[boss] * counted * multiplier));
 }
 
-/** A new fight against `boss` with `bossHp`, with these players (in the order they joined). */
+/**
+ * A new fight against `boss` with `bossHp` (its difficulty's share already in it), with these players
+ * (in the order they joined). `difficulty` is how much harder it hits.
+ */
 export function createRaid(
   boss: RaidBossId,
   userIds: readonly string[],
@@ -450,9 +480,12 @@ export function createRaid(
   playerHp: number,
   maxRounds: number,
   rng: RaidRng = defaultRaidRng,
+  difficulty: Pick<RaidDifficulty, 'level' | 'damage'> = BASE_DIFFICULTY,
 ): RaidState {
   const state: RaidState = {
     boss,
+    difficulty: difficulty.level,
+    bossDamage: difficulty.damage,
     bossHp,
     bossMaxHp: bossHp,
     round: 1,

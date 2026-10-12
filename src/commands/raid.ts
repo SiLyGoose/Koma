@@ -12,7 +12,7 @@ import {
   type Message,
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
-import { RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
+import { RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_DIFFICULTY, RAID_EMOJI, SLOT_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
 import { type DragonMood } from '../animations/images/dragon-image.js';
 import { raidBossPicture } from '../animations/images/raid-boss-image.js';
 import { replyPrivately } from '../discord/reply.js';
@@ -30,6 +30,7 @@ import {
   CC_EFFECT,
   createRaid,
   damageRanking,
+  difficultyOf,
   emptyGear,
   equipPlayers,
   raidGearFrom,
@@ -69,19 +70,22 @@ import { commandPrefix } from '../discord/slash.js';
 import { chargeForSkip, raidWeekDocs, refundSkip } from '../services/skips.js';
 import { gearEffects } from '../lib/game/items/equipment.js';
 import { getEquipment } from '../services/items/equipment.js';
-import { raidDropChance, raidDropsOn } from '../lib/game/items/raid-drops.js';
+import { raidDropChance, raidDropCounts, raidDropsOn, type RaidDrop } from '../lib/game/items/raid-drops.js';
 import { fmt, formatMultiplier, formatPercent, joinLimited, mention, starString } from '../lib/format.js';
 import { sleep } from '../lib/time.js';
-import type { RaidDoc } from '../types.js';
+import { STARS, type ItemDef, type RaidDoc } from '../types.js';
 import {
   abandonRaid,
   findRaid,
   finishRaid,
   listUnfinishedRaids,
+  maxRaidDifficulty,
   raidId,
+  recordRaidWin,
   resetRaidWeek,
   rewardRaid,
   startRaidWeek,
+  saveRaidDrops,
   saveRaidGear,
   stealFromWallet,
   updateRaid,
@@ -375,6 +379,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
   const r = TEXT.raid;
   const b = r.bosses[state.boss];
   const tags = [
+    state.difficulty > 1 ? r.difficultyTag(state.difficulty) : '',
     state.enrage > 0 ? r.enraged(state.enrage) : '',
     state.shielded ? r.shielded(b) : '',
     state.rallied > 0 ? r.rallied(formatMultiplier(state.rallyMultiplier), state.rallied) : '',
@@ -403,17 +408,82 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     .setImage(`attachment://${RAID.imageName}`);
 }
 
+/** What a win at `difficulty` drops for each raider, in words ("a 4★ raid item", "2× 4★ and 3× 3★ raid items"). */
+export function lootKindsText(difficulty: number): string {
+  const counts = raidDropCounts(difficulty);
+  return TEXT.raid.lootKinds([...STARS].reverse().map((stars) => ({ stars, count: counts[stars] ?? 0 })));
+}
+
 /**
  * The line under the rewards about the raid drops (starting on a new line), or nothing when they're off.
- * With `raiders` (the lobby's party so far), it says the chance they have now too.
+ * With `raiders` (the lobby's party so far), it says the chance they have now too. `difficulty` decides
+ * what drops.
  */
-const dropLine = (cfg: RaidSettings, raiders?: number): string =>
+const dropLine = (cfg: RaidSettings, raiders?: number, difficulty = 1): string =>
   raidDropsOn(cfg)
-    ? `\n${TEXT.raid.dropChance(formatPercent(cfg.dropChance), formatPercent(cfg.dropChancePerRaider), raiders === undefined ? undefined : formatPercent(raidDropChance(raiders, cfg)))}`
+    ? `\n${TEXT.raid.dropChance(formatPercent(cfg.dropChance), formatPercent(cfg.dropChancePerRaider), raiders === undefined ? undefined : formatPercent(raidDropChance(raiders, cfg)), lootKindsText(difficulty))}`
     : '';
 
+/** The same item several times over, as one entry with how many (in the order first found). */
+function countedItems(items: readonly ItemDef[]): { item: ItemDef; count: number }[] {
+  const counted = new Map<string, { item: ItemDef; count: number }>();
+  for (const item of items) {
+    const entry = counted.get(item.id);
+    if (entry) entry.count++;
+    else counted.set(item.id, { item, count: 1 });
+  }
+  return [...counted.values()];
+}
+
+/** The loot field's lines: each raider who found something, with their items (in the order the raiders were given theirs). */
+export function lootLines(drops: readonly RaidDrop[]): string[] {
+  const r = TEXT.raid;
+  const byUser = new Map<string, ItemDef[]>();
+  for (const drop of drops) byUser.set(drop.userId, [...(byUser.get(drop.userId) ?? []), drop.item]);
+  return [...byUser].map(([userId, items]) => {
+    const only = items.length === 1 ? items[0] : undefined;
+    if (only) return r.lootLine(mention(userId), starString(only.stars), only.name);
+    return r.lootLineMany(mention(userId), countedItems(items).map(({ item, count }) => r.lootItem(starString(item.stars), item.name, count)));
+  });
+}
+
+/** What the My loot button shows a raider, privately: their own items from the win. Null when they found none. */
+export function myLootEmbed(userId: string, drops: readonly (RaidDrop & { isNew?: boolean })[]): BotEmbed | null {
+  const r = TEXT.raid;
+  const mine = drops.filter((drop) => drop.userId === userId);
+  if (mine.length === 0) return null;
+  const fresh = new Set(mine.filter((drop) => drop.isNew).map((drop) => drop.item.id));
+  const lines = countedItems(mine.map((drop) => drop.item)).map(({ item, count }) =>
+    r.lootMineLine(starString(item.stars), SLOT_EMOJI[item.slot], item.name, count, fresh.has(item.id)),
+  );
+  return createEmbed().setTitle(r.lootMineTitle).setDescription(joinLimited(lines)).setFooter({ text: r.lootMineFooter });
+}
+
+const lootRow = (): ActionRowBuilder<ButtonBuilder> =>
+  new ActionRowBuilder<ButtonBuilder>().addComponents(new ButtonBuilder().setCustomId(RAID.lootId).setLabel(TEXT.raid.lootButton).setEmoji('🎁').setStyle(ButtonStyle.Primary));
+
+/**
+ * Answers the My loot button under a won raid for a while (RAID.lootMs), then takes it away. Each
+ * press gets that raider's own items in a message only they see, which they can dismiss.
+ */
+function serveLootButton(message: Message, drops: readonly (RaidDrop & { isNew?: boolean })[]): void {
+  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: RAID.lootMs, filter: (press) => press.customId === RAID.lootId });
+  collector.on('collect', (press) => {
+    const embed = myLootEmbed(press.user.id, drops);
+    if (!embed) return void replyPrivately(press, TEXT.raid.lootMineNone);
+    void press.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => {});
+  });
+  collector.once('end', () => void message.edit({ components: [] }).catch(() => {}));
+}
+
 /** The screen once the fight is over: how it ended, and who did what (none of it changes the rewards). */
-export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date, reward: RaidReward | null, intoVault = 0): BotEmbed {
+export function resultEmbed(
+  state: RaidState,
+  cfg: RaidSettings,
+  nextRaid: Date,
+  reward: { failed: readonly string[]; drops: readonly RaidDrop[] } | null,
+  intoVault = 0,
+): BotEmbed {
   const r = TEXT.raid;
   const b = r.bosses[state.boss];
   const embed = createEmbed().setImage(`attachment://${RAID.imageName}`);
@@ -428,7 +498,7 @@ export function resultEmbed(state: RaidState, cfg: RaidSettings, nextRaid: Date,
   }
 
   if (reward && raidDropsOn(cfg)) {
-    const loot = reward.drops.map((drop) => r.lootLine(mention(drop.userId), starString(drop.item.stars), drop.item.name));
+    const loot = lootLines(reward.drops);
     embed.addFields({ name: r.lootField, value: loot.length === 0 ? r.noLoot : joinLimited(loot) });
   }
   addStatsFields(embed, state.players, state.lastHit, intoVault);
@@ -491,7 +561,7 @@ export const isFinished = (raid: RaidDoc): raid is RaidDoc & { status: 'won' | '
  * What a boss does, in words (Discord markdown), for `raid stats` and the site's raid page: its phases
  * (how much harder it hits, and its crowd control and healing, in each), its moves, and the rewards.
  */
-export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string[]; moves: string[]; rewards: string } {
+export function bossBrief(cfg: RaidSettings, boss: RaidBossId, difficulty = 1): { phases: string[]; moves: string[]; rewards: string } {
   const r = TEXT.raid;
   const { moves, cc, enrage, support } = RAID_COMBAT;
   const hasCc = movesOf(boss).some(isCcMove);
@@ -558,7 +628,7 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId): { phases: string
     ? ['', r.movesBlightNote(blight.tick, formatPercent(blight.healCut), formatPercent(blight.maxHealCut), blight.supportCleanse, blight.supportCleanseAt, blight.maxStacks)]
     : [];
   const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : []), ...blightNote];
-  return { phases, moves: moveLines, rewards: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg) };
+  return { phases, moves: moveLines, rewards: r.bossRewards(fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, undefined, difficulty) };
 }
 
 export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
@@ -573,6 +643,7 @@ export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', unti
         ...(until ? [r.bossWeek(unixOfDate(until))] : []),
         r.bossInfoHp(fmt(cfg.hpPerRaider[boss]), fmt(cfg.hpOverhead[boss]), cfg.minRaiders, examples),
         r.bossRounds(b, cfg.maxRounds),
+        r.bossDifficulty(RAID_DIFFICULTY.max, formatPercent(cfg.difficultyHp), formatPercent(cfg.difficultyDamage)),
       ].join('\n'),
     )
     .addFields(
@@ -622,6 +693,9 @@ const displayNameOf = (press: Interaction): string => (press.member instanceof G
  * state when an edit goes out. The boss's picture is only uploaded again when its mood changes.
  * `toBottom` moves the fight back to the bottom of the channel when chat has pushed it up.
  */
+/** A row of the raid message: buttons, or the lobby's difficulty picker. */
+type LobbyRow = ActionRowBuilder<ButtonBuilder> | ActionRowBuilder<StringSelectMenuBuilder>;
+
 class RaidScreen {
   private dirty = false;
   private inFlight: Promise<void> | null = null;
@@ -630,7 +704,7 @@ class RaidScreen {
   constructor(
     private readonly boss: RaidBossId,
     private message: Message,
-    private readonly view: () => { embeds: BotEmbed[]; components: ActionRowBuilder<ButtonBuilder>[] },
+    private readonly view: () => { embeds: BotEmbed[]; components: LobbyRow[] },
     private readonly mood: () => DragonMood,
     private shownMood: DragonMood,
   ) {
@@ -712,8 +786,24 @@ class RaidScreen {
 // The lobby
 // ---------------------------------------------------------------------------
 
-function lobbyView(guildId: string, boss: RaidBossId, host: string, players: readonly string[], closesAt: number, cfg: RaidSettings, open: boolean) {
+/** The lobby's difficulty: the level picked so far, and the hardest the server can pick. */
+interface LobbyDifficulty {
+  level: number;
+  max: number;
+}
+
+function lobbyView(
+  guildId: string,
+  boss: RaidBossId,
+  host: string,
+  players: readonly string[],
+  closesAt: number,
+  cfg: RaidSettings,
+  open: boolean,
+  picked: LobbyDifficulty = { level: 1, max: 1 },
+): { embeds: BotEmbed[]; components: LobbyRow[] } {
   const r = TEXT.raid;
+  const difficulty = difficultyOf(picked.level, cfg);
   const b = r.bosses[boss];
   const { support } = RAID_COMBAT;
   const lines = players.map((userId, i) => `${mention(userId)}${i === 0 ? r.hostTag : ''}`);
@@ -721,7 +811,7 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
   const hasCc = movesOf(boss).some(isCcMove);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(b))
-    .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length))
+    .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length, difficulty.level))
     .addFields(
       {
         name: r.howToField,
@@ -737,7 +827,11 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
         ),
       },
       { name: r.playersField(players.length), value: limitedLines(lines, RAID.listMax, TEXT.common.moreLines, r.nobody), inline: true },
-      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(players.length, boss, cfg)), fmt(bossHpFor(0, boss, cfg))), inline: true },
+      { name: r.bossHpField(b), value: r.lobbyBossHp(fmt(bossHpFor(players.length, boss, cfg, difficulty.hp)), fmt(bossHpFor(0, boss, cfg, difficulty.hp))), inline: true },
+      {
+        name: r.difficultyField,
+        value: r.lobbyDifficulty(difficulty.level, picked.max, RAID_DIFFICULTY.max, formatMultiplier(difficulty.hp), formatMultiplier(difficulty.damage), lootKindsText(difficulty.level)),
+      },
     )
     .setImage(`attachment://${RAID.imageName}`);
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -748,12 +842,30 @@ function lobbyView(guildId: string, boss: RaidBossId, host: string, players: rea
   // With the site up: the raid's page there, to join and fight from.
   const config = webConfig();
   if (config && open) row.addComponents(new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(siteGameLink(config, 'raid', guildId)).setLabel(r.webButton).setEmoji('🌐'));
-  return { embeds: [embed], components: [row] };
+  // The host's difficulty picker, once the server has more than one level to pick from.
+  if (picked.max <= 1) return { embeds: [embed], components: [row] };
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(RAID.difficultyId)
+    .setPlaceholder(r.difficultyPlaceholder(difficulty.level))
+    .setDisabled(!open)
+    .addOptions(
+      Array.from({ length: picked.max }, (_, i) => {
+        const option = difficultyOf(i + 1, cfg);
+        return {
+          label: r.difficultyOption(option.level),
+          value: String(option.level),
+          description: r.difficultyOptionDescription(formatMultiplier(option.hp), formatMultiplier(option.damage), lootKindsText(option.level)),
+          default: option.level === difficulty.level,
+        };
+      }),
+    );
+  return { embeds: [embed], components: [row, new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
 }
 
 /**
  * Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order
- * they joined. Discord's buttons and the site (through `live`) join, leave and start the same way.
+ * they joined, and the difficulty the host picked (level 1 unless they changed it, at most
+ * `maxDifficulty`). Discord's buttons and the site (through `live`) join, leave, pick and start the same way.
  */
 async function runLobby(
   guildId: string,
@@ -764,12 +876,15 @@ async function runLobby(
   raidId: string,
   names: Map<string, string>,
   live: LiveRaid,
-): Promise<string[]> {
+  maxDifficulty: number,
+): Promise<{ players: string[]; difficulty: number }> {
   const players = [host];
+  const picked: LobbyDifficulty = { level: 1, max: maxDifficulty };
   const closesAt = Date.now() + cfg.prepareSeconds * 1000;
   let open = true;
-  const screen = new RaidScreen(boss, message, () => lobbyView(guildId, boss, host, players, closesAt, cfg, true), () => 'calm', 'calm');
-  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.prepareSeconds * 1000 });
+  const screen = new RaidScreen(boss, message, () => lobbyView(guildId, boss, host, players, closesAt, cfg, true, picked), () => 'calm', 'calm');
+  // Buttons, and the host's difficulty picker.
+  const collector = message.createMessageComponentCollector({ time: cfg.prepareSeconds * 1000 });
   const changed = (): void => {
     screen.update();
     live.changed();
@@ -801,11 +916,33 @@ async function runLobby(
       collector.stop('start');
       return 'started';
     },
+    get difficulty() {
+      return picked.level;
+    },
+    maxDifficulty,
+    setDifficulty(userId, level) {
+      if (!open) return 'closed';
+      if (players[0] !== userId) return 'only_host';
+      if (!Number.isInteger(level) || level < 1 || level > maxDifficulty) return 'locked';
+      if (picked.level !== level) {
+        picked.level = level;
+        live.difficulty = level;
+        changed();
+      }
+      return 'difficulty_set';
+    },
   };
   live.openLobby(lobby);
 
   collector.on('collect', (press) => {
     const userId = press.user.id;
+    if (press.isStringSelectMenu()) {
+      if (press.customId !== RAID.difficultyId) return;
+      const answer = lobby.setDifficulty(userId, Number(press.values[0]));
+      if (answer === 'difficulty_set') return void press.deferUpdate().catch(() => {});
+      return void replyPrivately(press, answer === 'only_host' ? TEXT.raid.onlyHostDifficulty : answer === 'closed' ? TEXT.raid.lobbyClosed : TEXT.raid.difficultyLocked(maxDifficulty));
+    }
+    if (!press.isButton()) return;
     if (press.customId === RAID.joinId) {
       const answer = lobby.join(userId, displayNameOf(press));
       return void replyPrivately(press, answer === 'joined' ? TEXT.raid.joined : answer === 'closed' ? TEXT.raid.lobbyClosed : TEXT.raid.alreadyJoined);
@@ -825,7 +962,7 @@ async function runLobby(
   open = false;
   await screen.stop();
   await updateRaid(raidId, { players }).catch((err) => console.error(`Could not save the players of raid ${raidId}:`, err));
-  return [...players];
+  return { players: [...players], difficulty: picked.level };
 }
 
 // ---------------------------------------------------------------------------
@@ -1229,15 +1366,16 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     }
 
     const closesAt = Date.now() + cfg.prepareSeconds * 1000;
+    const maxDifficulty = await maxRaidDifficulty(ctx.guildId);
     // The preparation starts here: whoever took the raid role is pinged, once, by this first message.
-    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
+    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true, { level: 1, max: maxDifficulty }), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 
     const names = new Map([[ctx.user.id, ctx.guild.members.cache.get(ctx.user.id)?.displayName ?? ctx.user.displayName]]);
     live = openLiveRaid(ctx.guildId, boss, ctx.user.id, names);
     web?.opened();
-    const players = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live);
+    const { players, difficulty: level } = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live, maxDifficulty);
     if (players.length === 0) {
       await abandonRaid(id);
       settled = true;
@@ -1247,8 +1385,10 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
       return;
     }
 
-    await updateRaid(id, { status: 'fighting' });
-    const state = createRaid(boss, players, bossHpFor(players.length, boss, cfg), cfg.playerHp, cfg.maxRounds);
+    const difficulty = difficultyOf(level, cfg);
+    live.difficulty = difficulty.level;
+    await updateRaid(id, { status: 'fighting', difficulty: difficulty.level });
+    const state = createRaid(boss, players, bossHpFor(players.length, boss, cfg, difficulty.hp), cfg.playerHp, cfg.maxRounds, undefined, difficulty);
     // Gear counts as it is when the fight starts; changing it mid-fight does nothing until the next raid.
     // Their HP too: raidHp gear has them start (at full) with more.
     equipPlayers(state, await Promise.all(state.players.map((p) => raidGearOf(ctx.guildId, p.userId))), cfg.playerHp);
@@ -1262,18 +1402,25 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     const outcome = state.outcome === 'won' || state.outcome === 'wiped' ? state.outcome : 'fled';
     const damage = Object.fromEntries(state.players.map((p) => [p.userId, p.stats.damage]));
     const stats = Object.fromEntries(state.players.map((p) => [p.userId, p.stats]));
-    const intoVault = await finishRaid(id, outcome, { damage, stats, lastHit: state.lastHit, rounds: state.round });
+    const intoVault = await finishRaid(id, outcome, { damage, stats, lastHit: state.lastHit, rounds: state.round, ...(tested ? { tested: true as const } : {}) });
     settled = true;
 
     let reward: RaidReward | null = null;
     const fought = participants(state);
     if (outcome === 'won' && fought.length > 0 && !tested) {
-      reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward, raidDropChance(fought.length, cfg));
+      reward = await rewardRaid(ctx.guildId, fought, cfg.reward, cfg.tokenReward, cfg.gemReward, raidDropChance(fought.length, cfg), raidDropCounts(difficulty.level));
+      // Beating it unlocks the next difficulty for the server.
+      await recordRaidWin(ctx.guildId, difficulty.level).catch((err) => console.error(`Could not record that ${ctx.guildId} beat raid difficulty ${difficulty.level}:`, err));
     }
-    live.end({ end: outcome, state, rewarded: reward !== null });
+    // What dropped is kept with the raid, so the site can still show each raider theirs later.
+    const drops = reward?.drops ?? [];
+    const lootKey = `${id}:${Date.now()}`;
+    if (drops.length > 0) await saveRaidDrops(id, drops, lootKey).catch((err) => console.error(`Could not save the drops of raid ${id}:`, err));
+    live.end({ end: outcome, state, rewarded: reward !== null, ...(drops.length > 0 ? { loot: { key: lootKey, drops } } : {}) });
     const result = resultEmbed(state, cfg, week.next, reward, intoVault);
     if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });
-    await message.edit({ embeds: [result], components: [], files: [bossFile(boss, moodOf(state))], attachments: [] });
+    await message.edit({ embeds: [result], components: drops.length > 0 ? [lootRow()] : [], files: [bossFile(boss, moodOf(state))], attachments: [] });
+    if (drops.length > 0) serveLootButton(message, drops);
     console.log(`Raid ${id} ended (${outcome}) after ${state.round} rounds with ${players.length} players.`);
   } finally {
     // A raid that stopped part way (an error) is called off: points are given back and the week is freed.
@@ -1310,6 +1457,11 @@ export interface RaidWeekInfo {
     reward: { points: number; tokens: number; gems: number } | null;
     /** Their gear as they fought was kept (raids from before it was don't have it). */
     gear?: boolean;
+    /** Its difficulty level (left out: 1). */
+    difficulty?: number;
+    /** The raid items each raider found, as item ids by user id, and the key naming them (see RaidDoc.drops). */
+    drops?: Record<string, string[]>;
+    lootKey?: string;
   } | null;
   /** The raiders' names, for the result (the site's socket fills them in). */
   names?: Record<string, string>;
@@ -1355,6 +1507,8 @@ export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
         }),
         reward: fought.status === 'won' ? { points: CONFIG.raid.reward, tokens: CONFIG.raid.tokenReward, gems: CONFIG.raid.gemReward } : null,
         gear: fought.gear !== undefined,
+        difficulty: fought.difficulty ?? 1,
+        ...(fought.drops && fought.lootKey ? { drops: fought.drops, lootKey: fought.lootKey } : {}),
       }
     : null;
   return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null, result };

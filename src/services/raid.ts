@@ -1,7 +1,7 @@
-import type { RaidBossId } from '../constants/index.js';
+import { RAID_DIFFICULTY, type RaidBossId } from '../constants/index.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
-import { rollRaidDrops, type RaidDrop } from '../lib/game/items/raid-drops.js';
+import { rollRaidDrops, type DropCounts, type RaidDrop } from '../lib/game/items/raid-drops.js';
 import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
@@ -61,14 +61,37 @@ export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidB
   }
 }
 
-/** Saves where the raid's message is, who is in it, or that the fight has started. */
-export async function updateRaid(id: string, set: Partial<Pick<RaidDoc, 'status' | 'channelId' | 'messageId' | 'players'>>): Promise<void> {
+/** Saves where the raid's message is, who is in it, or that the fight has started (and at what difficulty). */
+export async function updateRaid(id: string, set: Partial<Pick<RaidDoc, 'status' | 'channelId' | 'messageId' | 'players' | 'difficulty'>>): Promise<void> {
   await collections().raids.updateOne({ _id: id }, { $set: set });
 }
 
 /** Saves each raider's gear as the fight started (see RaidDoc.gear). */
 export async function saveRaidGear(id: string, gear: Record<string, unknown>): Promise<void> {
   await collections().raids.updateOne({ _id: id }, { $set: { gear } });
+}
+
+/**
+ * The hardest difficulty a server can pick: one level past the hardest it has beaten (so level 1 until
+ * its first win), up to RAID_DIFFICULTY.max. A server that won raids before there were levels has beaten level 1.
+ */
+export async function maxRaidDifficulty(guildId: string): Promise<number> {
+  const { guilds, raids } = collections();
+  const doc = await guilds.findOne({ _id: guildId }, { projection: { raidDifficulty: 1 } });
+  const beaten = doc?.raidDifficulty ?? ((await raids.findOne({ guildId, status: 'won', tested: { $ne: true } }, { projection: { _id: 1 } })) ? 1 : 0);
+  return Math.min(RAID_DIFFICULTY.max, Math.max(0, beaten) + 1);
+}
+
+/** The server beat a raid at `difficulty`: remembered if it is the hardest yet, which unlocks the next level. */
+export async function recordRaidWin(guildId: string, difficulty: number): Promise<void> {
+  await collections().guilds.updateOne({ _id: guildId }, { $max: { raidDifficulty: difficulty } }, { upsert: true });
+}
+
+/** Saves the raid items a win gave, for the site's loot screen (see RaidDoc.drops). `key` names this win's. */
+export async function saveRaidDrops(id: string, drops: readonly RaidDrop[], key: string): Promise<void> {
+  const byUser: Record<string, string[]> = {};
+  for (const drop of drops) (byUser[drop.userId] ??= []).push(drop.item.id);
+  await collections().raids.updateOne({ _id: id }, { $set: { drops: byUser, lootKey: key } });
 }
 
 /** The boss's Hoard: takes up to `wanted` points from the player's wallet (never their vault). Returns what it took. */
@@ -98,7 +121,7 @@ export const raidTakings = (raid: Pick<RaidDoc, 'spent' | 'stolen'>): number =>
 export async function finishRaid(
   id: string,
   status: 'won' | 'wiped' | 'fled',
-  summary: { damage: Record<string, number>; stats: Record<string, RaidStats>; lastHit: string | null; rounds: number },
+  summary: { damage: Record<string, number>; stats: Record<string, RaidStats>; lastHit: string | null; rounds: number; tested?: true },
 ): Promise<number> {
   const raid = await collections().raids.findOneAndUpdate(
     { _id: id, status: { $in: ACTIVE } },
@@ -115,12 +138,18 @@ export interface RaidReward {
   /** Who could not be paid their points, komaTokens, komaGems or item (logged). Everyone else got all of it. */
   failed: string[];
   /** The raid items found (see rollRaidDrops), only the ones really given. */
-  drops: RaidDrop[];
+  drops: RaidLoot[];
+}
+
+/** A raid item a raider was given. `isNew` when it is the only copy of it they have. */
+export interface RaidLoot extends RaidDrop {
+  isNew: boolean;
 }
 
 /**
  * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives the
- * party a `dropChance` chance (raidDropChance: one roll for all of them) that each finds a raid-only item.
+ * party a `dropChance` chance (raidDropChance: one roll for all of them) that each finds raid-only items:
+ * `counts` of each tier (raidDropCounts, by the raid's difficulty; one 4-star item when left out).
  */
 export async function rewardRaid(
   guildId: string,
@@ -129,6 +158,7 @@ export async function rewardRaid(
   tokens: number,
   gems: number,
   dropChance = 0,
+  counts?: DropCounts,
 ): Promise<RaidReward> {
   const shares: CrateShare[] = userIds.map((userId) => ({ userId, amount: reward }));
   const payout = await payShares(guildId, shares, 'raid_reward');
@@ -153,11 +183,11 @@ export async function rewardRaid(
       }
     }
   }
-  const drops: RaidDrop[] = [];
-  for (const drop of rollRaidDrops(userIds, dropChance)) {
+  const drops: RaidLoot[] = [];
+  for (const drop of rollRaidDrops(userIds, dropChance, counts)) {
     try {
-      await addCopy(guildId, drop.userId, drop.item.id);
-      drops.push(drop);
+      const { count } = await addCopy(guildId, drop.userId, drop.item.id);
+      drops.push({ ...drop, isNew: count === 1 });
     } catch (err) {
       console.error(`Could not give ${drop.userId} their raid drop ${drop.item.id} in ${guildId}:`, err);
       failed.add(drop.userId);

@@ -1,11 +1,13 @@
 import { CONFIG } from '../../../config.js';
 import { fmt } from '../../../lib/format.js';
-import { TEXT, type RaidBossId } from '../../../constants/index.js';
+import { RAID_DIFFICULTY, TEXT, type RaidBossId } from '../../../constants/index.js';
+import { ITEMS_BY_ID } from '../../../data/items.js';
 import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../../commands/raid.js';
-import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, RAID_ACTIONS, type RaidAction } from '../../../lib/events/raid.js';
+import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, difficultyOf, RAID_ACTIONS, type RaidAction } from '../../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../../lib/events/raid-live.js';
-import { raidDropsOn } from '../../../lib/game/items/raid-drops.js';
-import type { RaidMood, RaidView } from './protocol.js';
+import { raidDropCounts, raidDropsOn } from '../../../lib/game/items/raid-drops.js';
+import { STARS, type ItemDef } from '../../../types.js';
+import type { RaidLobbyView, RaidLootItem, RaidMood, RaidView } from './protocol.js';
 
 /*
  * The raid as one player's page sees it (protocol.ts's RaidView): the raid going on in their server
@@ -32,6 +34,26 @@ export const statsOf = (s: Partial<RaidStats> | undefined) => ({
 /** What the winners were paid, with the currencies' emojis. */
 const rewardText = (points: number, tokens: number, gems: number): string => TEXT.raid.rewardList(fmt(points), tokens, gems);
 
+/** What each difficulty level does to the boss and drops for a win, for the lobby's picker. */
+const difficultyLevels = (): RaidLobbyView['levels'] =>
+  Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => {
+    const { level, hp, damage } = difficultyOf(i + 1, CONFIG.raid);
+    const counts = raidDropCounts(level);
+    const drops = raidDropsOn(CONFIG.raid) ? [...STARS].reverse().flatMap((stars) => ((counts[stars] ?? 0) > 0 ? [{ stars, count: counts[stars] ?? 0 }] : [])) : [];
+    return { level, hp, damage, drops };
+  });
+
+/** The raid items one raider found, for their loot screen: best first. Null when they found none. */
+function lootOf(key: string | undefined, items: readonly { item: ItemDef; isNew?: boolean }[]): { key: string; items: RaidLootItem[] } | null {
+  if (key === undefined || items.length === 0) return null;
+  return {
+    key,
+    items: [...items]
+      .sort((a, b) => b.item.stars - a.item.stars)
+      .map(({ item, isNew }) => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, ...(isNew === undefined ? {} : { isNew }) })),
+  };
+}
+
 /** The boss's picture, under the bot's /api (api.ts serves it). */
 export const picturePath = (boss: RaidBossId, mood: RaidMood): string => `/api/raid/boss?${new URLSearchParams({ boss, mood })}`;
 
@@ -45,13 +67,15 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const current = unfought ? null : recent;
   const bossId = current?.boss ?? week.boss;
   const b = TEXT.raid.bosses[bossId];
+  const difficulty = current?.difficulty ?? week.result?.difficulty ?? 1;
   const base = {
     you,
     names: current ? Object.fromEntries(current.names) : {},
     avatars: current ? Object.fromEntries([...current.names.keys()].flatMap((id) => (avatar(id) ? [[id, avatar(id) as string]] : []))) : {},
     boss: { id: bossId, name: b.name, emoji: b.emoji },
-    brief: bossBrief(CONFIG.raid, bossId),
+    brief: bossBrief(CONFIG.raid, bossId, difficulty),
     drops: raidDropsOn(CONFIG.raid) ? { chance: CONFIG.raid.dropChance, perRaider: CONFIG.raid.dropChancePerRaider } : null,
+    difficulty,
     resetsAt: week.resetsAt,
     idle: null,
     lobby: null,
@@ -61,9 +85,15 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const view = (mood: RaidMood, rest: Partial<RaidView> & Pick<RaidView, 'phase'>): RaidView => ({ ...base, mood, picture: picturePath(bossId, mood), ...rest });
 
   if (current?.phase === 'lobby' && current.lobby) {
-    const { players, closesAt } = current.lobby;
-    const bossHp = bossHpFor(players.length, bossId, CONFIG.raid);
-    return view('calm', { phase: 'lobby', lobby: { host: players[0] ?? current.host, players: [...players], closesAt, bossHp } });
+    const { players, closesAt, maxDifficulty } = current.lobby;
+    const picked = current.lobby.difficulty;
+    const bossHp = bossHpFor(players.length, bossId, CONFIG.raid, difficultyOf(picked, CONFIG.raid).hp);
+    return view('calm', {
+      phase: 'lobby',
+      difficulty: picked,
+      brief: bossBrief(CONFIG.raid, bossId, picked),
+      lobby: { host: players[0] ?? current.host, players: [...players], closesAt, bossHp, difficulty: picked, maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels() },
+    });
   }
 
   if (current?.phase === 'fight' && current.fight) {
@@ -100,7 +130,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   }
 
   if (current?.phase === 'over' && current.over) {
-    const { end, state, rewarded } = current.over;
+    const { end, state, rewarded, loot } = current.over;
     const cfg = CONFIG.raid;
     return view(state ? moodOf(state) : 'calm', {
       phase: 'over',
@@ -115,13 +145,15 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         reward: rewarded ? { points: cfg.reward, tokens: cfg.tokenReward, gems: cfg.gemReward } : null,
         rewardText: rewarded ? rewardText(cfg.reward, cfg.tokenReward, cfg.gemReward) : null,
         gear: current.gear.size > 0,
+        loot: lootOf(loot?.key, loot?.drops.filter((drop) => drop.userId === you) ?? []),
       },
     });
   }
 
   // No raid going on here, but this week's was fought: how it went (read back from the database).
   if (week.result) {
-    const { end, rounds, lastHit, players, reward, gear } = week.result;
+    const { end, rounds, lastHit, players, reward, gear, drops, lootKey } = week.result;
+    const mine = (drops?.[you] ?? []).flatMap((id) => (ITEMS_BY_ID.get(id) ? [{ item: ITEMS_BY_ID.get(id) as ItemDef }] : []));
     const mood: RaidMood = end === 'won' ? 'defeated' : end === 'wiped' ? 'gloating' : 'fled';
     return view(mood, {
       phase: 'over',
@@ -138,6 +170,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         reward,
         rewardText: reward ? rewardText(reward.points, reward.tokens, reward.gems) : null,
         gear: gear === true,
+        loot: lootOf(lootKey, mine),
       },
     });
   }

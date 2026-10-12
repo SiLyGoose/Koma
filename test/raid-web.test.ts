@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
+import { ITEMS_BY_ID } from '../src/data/items.js';
+import type { ItemDef } from '../src/types.js';
 import type { RaidWeekInfo, WebRaidStart } from '../src/commands/raid.js';
 import { createRaid, type RaidAction, type RaidChoice } from '../src/lib/events/raid.js';
 import { clearLiveRaids, openLiveRaid, type ActAnswer, type LobbyAnswer } from '../src/lib/events/raid-live.js';
@@ -32,14 +34,27 @@ async function connect(userId: string, deps: Partial<RaidSiteDeps> = {}) {
 }
 
 /** A lobby in the registry that works like the real one (commands/raid.ts). */
-function openTestLobby(host = 'u1') {
+function openTestLobby(host = 'u1', maxDifficulty = 1) {
   const names = new Map([[host, `Name ${host}`]]);
   const live = openLiveRaid('g1', 'wyrm', host, names);
   const players = [host];
   let started = false;
+  let difficulty = 1;
   live.openLobby({
     players,
     closesAt: Date.now() + 60_000,
+    get difficulty() {
+      return difficulty;
+    },
+    maxDifficulty,
+    setDifficulty(userId, level): LobbyAnswer {
+      if (players[0] !== userId) return 'only_host';
+      if (!Number.isInteger(level) || level < 1 || level > maxDifficulty) return 'locked';
+      difficulty = level;
+      live.difficulty = level;
+      live.changed();
+      return 'difficulty_set';
+    },
     join(userId, name): LobbyAnswer {
       if (players.includes(userId)) return 'already_joined';
       players.push(userId);
@@ -281,4 +296,77 @@ test("the end screen: the rewards with the currencies' emojis, and whether the r
   assert.equal(kept.gear, true);
   assert.match(kept.rewardText ?? '', /\*\*1,000\*\*/);
   assert.equal(raidView('u1', week({ status: 'won', result }), null).over?.gear, false);
+});
+
+test("the lobby's difficulty: the host picks it, as far as the server has unlocked, and the boss and drops follow", async () => {
+  clearLiveRaids();
+  resetLive();
+  openTestLobby('u1', 3);
+  const host = await connect('u1');
+  const other = await connect('u2');
+  const first = host.last();
+  assert.equal(first.difficulty, 1);
+  assert.equal(first.lobby?.difficulty, 1);
+  assert.equal(first.lobby?.maxDifficulty, 3);
+  assert.equal(first.lobby?.topDifficulty, 10);
+  assert.equal(first.lobby?.levels.length, 10);
+  assert.deepEqual(first.lobby?.levels[0], { level: 1, hp: 1, damage: 1, drops: [{ stars: 4, count: 1 }] });
+  assert.deepEqual(first.lobby?.levels[4]?.drops, [{ stars: 4, count: 2 }, { stars: 3, count: 3 }]);
+
+  await other.say({ t: 'difficulty', level: 2 });
+  assert.deepEqual(other.answers().at(-1), { t: 'answer', to: 'difficulty', code: 'only_host' });
+  await host.say({ t: 'difficulty', level: 4 });
+  assert.deepEqual(host.answers().at(-1), { t: 'answer', to: 'difficulty', code: 'locked' });
+  await host.say({ t: 'difficulty', level: 3 });
+  assert.deepEqual(host.answers().at(-1), { t: 'answer', to: 'difficulty', code: 'ok' });
+  await wait();
+  const picked = other.last();
+  assert.equal(picked.difficulty, 3);
+  assert.equal(picked.lobby?.difficulty, 3);
+  assert.equal(picked.lobby?.bossHp, Math.round((first.lobby?.bossHp ?? 0) * (1 + 2 * CONFIG.raid.difficultyHp)));
+  assert.match(picked.brief.rewards, /1× 4★ and 2× 3★ raid items/);
+
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty', level: 2.5 })), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty' })), null);
+  host.connection.closed();
+  other.connection.closed();
+});
+
+test('the end screen: each raider is sent their own raid items, best first, from the live raid and from the database', () => {
+  clearLiveRaids();
+  const { live } = openTestLobby('u1');
+  const state = createRaid('wyrm', ['u1', 'u2'], 500, 100, 10);
+  state.bossHp = 0;
+  state.outcome = 'won';
+  const tooth = ITEMS_BY_ID.get('wyvern-tooth') as ItemDef;
+  const fang = ITEMS_BY_ID.get('godslayer-fang') as ItemDef;
+  const drops = [
+    { userId: 'u1', item: tooth, isNew: false },
+    { userId: 'u1', item: fang, isNew: true },
+    { userId: 'u2', item: tooth, isNew: true },
+  ];
+  live.end({ end: 'won', state, rewarded: true, loot: { key: 'g1:week:1', drops } });
+  assert.deepEqual(raidView('u1', week({ status: 'won' }), live).over?.loot, {
+    key: 'g1:week:1',
+    items: [
+      { itemId: 'godslayer-fang', name: 'Godslayer Fang', stars: 4, slot: 'weapon', isNew: true },
+      { itemId: 'wyvern-tooth', name: 'Wyvern Tooth', stars: 3, slot: 'weapon', isNew: false },
+    ],
+  });
+  assert.equal(raidView('u2', week({ status: 'won' }), live).over?.loot?.items.length, 1);
+  assert.equal(raidView('u9', week({ status: 'won' }), live).over?.loot, null, 'someone who found nothing');
+
+  // Read back from the database (the bot restarted, or a while later): the same items, without what was new.
+  clearLiveRaids();
+  const result = { end: 'won' as const, rounds: 5, lastHit: 'u1', players: [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0 }], reward: null, difficulty: 5, drops: { u1: ['wyvern-tooth', 'godslayer-fang', 'gone-item'] }, lootKey: 'g1:week:1' };
+  const back = raidView('u1', week({ status: 'won', result }), null);
+  assert.equal(back.difficulty, 5);
+  assert.deepEqual(back.over?.loot, {
+    key: 'g1:week:1',
+    items: [
+      { itemId: 'godslayer-fang', name: 'Godslayer Fang', stars: 4, slot: 'weapon' },
+      { itemId: 'wyvern-tooth', name: 'Wyvern Tooth', stars: 3, slot: 'weapon' },
+    ],
+  });
+  assert.equal(raidView('u2', week({ status: 'won', result }), null).over?.loot, null);
 });

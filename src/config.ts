@@ -233,6 +233,10 @@ export interface Settings {
     dropChance: number;
     /** How much each player who took part adds to dropChance (0 to 1; the total is capped at 100%). */
     dropChancePerRaider: number;
+    /** How much of its HP the boss gains for every difficulty level past 1 (0.25: half as much again at level 3). */
+    difficultyHp: number;
+    /** How much harder the boss hits for every difficulty level past 1 (0.1: 20% harder at level 3). */
+    difficultyDamage: number;
   };
   /**
    * STONKS!'s claim multiplier curve (perks/items/stackosaurus.ts stonksMultiplier). The multiplier's cap
@@ -363,6 +367,7 @@ export const DEFAULTS: Readonly<Settings> = {
   // Up to 15 rounds of 60 seconds after a 5-minute lobby.
   // Beating it pays everyone who took part 1,000, a multi pull's worth of komaTokens (10) and 5 komaGems,
   // and the party a 20% chance (+10% for each raider) that everyone finds one of the 4-star raid drops.
+  // That is difficulty 1; every level past it gives the boss 25% more of its HP and 10% more of its damage.
   raid: {
     hpPerRaider: { wyrm: 1_600, reaper: 1_225, plague: 925 },
     hpOverhead: { wyrm: 2.75, reaper: 2.75, plague: 2.85 },
@@ -376,6 +381,8 @@ export const DEFAULTS: Readonly<Settings> = {
     gemReward: 5,
     dropChance: 0.2,
     dropChancePerRaider: 0.1,
+    difficultyHp: 0.25,
+    difficultyDamage: 0.1,
   },
   // STONKS!'s multiplier reaches its cap (equipment.stackosaurus.<stars>, a 4-star default of
   // 7.5x) 5 hours after the earliest a claim could be ready, on a smooth ease-in-out curve

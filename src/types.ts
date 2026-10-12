@@ -469,6 +469,11 @@ export interface GuildDoc {
    */
   roleMessageId?: string | null;
   /**
+   * The hardest raid difficulty the server has beaten (services/raid.ts): it can pick up to one level
+   * past it. Missing: none since difficulties came (a server that had beaten a raid before counts as 1).
+   */
+  raidDifficulty?: number;
+  /**
    * The roles this server pings: for events (`config set notifyRole`) and for raids (`config set
    * raidRole`), see services/roles.ts. Missing means the built-in one (NOTIFY_ROLES); null means none.
    */
@@ -560,6 +565,14 @@ export interface RaidDoc {
   rounds?: number;
   /** Each raider's gear as the fight started, by user id (web/models/gear.ts's wornGear), for the site's end screen. Raids from before it was saved don't have it. */
   gear?: Record<string, unknown>;
+  /** Its difficulty level, set as the fight starts. Raids from before there were levels don't have it: they were level 1. */
+  difficulty?: number;
+  /** Won with the admin's test tools (`raid test kill`): it paid nothing and unlocks nothing. */
+  tested?: true;
+  /** The raid items each raider found for winning it, as item ids by user id (missing when none dropped). */
+  drops?: Record<string, string[]>;
+  /** Names that win's items for the site (its loot screen shows once per key), set with `drops`. */
+  lootKey?: string;
   createdAt: Date;
   endedAt?: Date | null;
 }

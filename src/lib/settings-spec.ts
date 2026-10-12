@@ -349,7 +349,7 @@ export const SPECS: readonly SettingSpec[] = [
     key: 'raid.dropChance',
     group: 'Raid',
     description:
-      'Chance a beaten raid boss drops 4-star raid items (only bosses drop them), before raid.dropChancePerRaider. One roll for the whole party: on a hit, everyone who took part finds one.',
+      'Chance a beaten raid boss drops raid items (only bosses drop them), before raid.dropChancePerRaider. One roll for the whole party: on a hit, everyone who took part finds what its difficulty drops (one 4-star item at level 1).',
     type: 'number',
     min: 0,
     max: 1,
@@ -362,6 +362,24 @@ export const SPECS: readonly SettingSpec[] = [
     type: 'number',
     min: 0,
     max: 1,
+    percent: true,
+  },
+  {
+    key: 'raid.difficultyHp',
+    group: 'Raid',
+    description: "How much of its HP a raid boss gains for every difficulty level past 1 (25% makes level 3's boss half as big again).",
+    type: 'number',
+    min: 0,
+    max: 5,
+    percent: true,
+  },
+  {
+    key: 'raid.difficultyDamage',
+    group: 'Raid',
+    description: 'How much harder a raid boss hits for every difficulty level past 1 (10% makes level 3 hit 20% harder).',
+    type: 'number',
+    min: 0,
+    max: 5,
     percent: true,
   },
 
