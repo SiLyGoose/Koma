@@ -87,7 +87,7 @@ export const raidText = {
     ramp: (step: string, max: string) =>
       `${E.attack} **Ramp**: their attacks do **${step}** more for every turn in a row they have attacked, up to **${max}** more. A turn they don't attack, or a hit from the boss, starts it over.`,
     hex: (share: string) => `🔮 **Hex**: their attacks that land hex the boss, and the move it announced that turn hits **${share}** weaker. Hexes don't stack: the strongest counts.`,
-    crit: (share: string) => `${E.crit} **Keen eye**: **+${share}** crit chance, whatever they wear.`,
+    crit: (share: string) => `${E.crit} **Keen eye**: **+${share}** crit chance.`,
     hp: (times: string) => `❤️ **HP**: they fight with **${times}** HP.`,
     /** `share` is how much of one of their attacks, like "50%". */
     retaliate: (share: string) =>

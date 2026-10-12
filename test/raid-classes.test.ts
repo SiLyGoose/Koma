@@ -351,7 +351,7 @@ test('raid top levels: from level 8 a channel takes three Supports, crowd contro
   }
 });
 
-test('raid classes: assassins and archers crit 20% more often, whatever they wear', () => {
+test('raid classes: assassins and archers crit 20% more often', () => {
   const base = RAID_COMBAT.attack.critChance;
   for (const id of RAID_CLASS_IDS) near(critChanceOf({ gear: emptyGear(), class: id }), base + (id === 'assassin' || id === 'archer' ? 0.2 : 0), id);
   near(critChanceOf({ gear: emptyGear() }), base, 'no class');
