@@ -132,6 +132,8 @@ export interface MemberDoc {
   claimGapHours?: number | null;
   /** Skips paid for today, per thing skipped (services/skips.ts). Missing means none. */
   skips?: Partial<Record<SkipId, SkipUse>>;
+  /** How many times they refreshed their raid shop shelf in raid week `week` (RaidWeek.key). Missing, or another week's, means none. */
+  raidShop?: { week: string; refreshes: number };
   /**
    * When this member was last robbed successfully. They can't be robbed again until
    * rob.victimProtectionMinutes after this. Missing or null means never.
@@ -332,6 +334,10 @@ export type LedgerReason =
   | 'refine'
   // Points paid for an outfit in the site's shop (services/outfits.ts; itemId is the outfit).
   | 'outfit'
+  // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
+  | 'raid_shop'
+  // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).
+  | 'raid_shop_refresh'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 

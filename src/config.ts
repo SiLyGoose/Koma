@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftPaying, type RaidBossId } from './constants/index.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftPaying, type RaidBossId, type RaidShopStars } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -229,6 +229,18 @@ export interface Settings {
     /** komaGems more from each milestone level on (RAID_DIFFICULTY.milestoneEvery: once from 5, twice at 10). */
     gemRewardMilestone: number;
     /**
+     * The site's raid shop (lib/game/items/raid-shop.ts): raid items sold for komaGems, a few of each
+     * tier, changing with the raid's week. By tier: what one costs, and how many are on the shelf.
+     * A member can pay komaGems for a new shelf of their own, `refreshes` times a week: the first
+     * costs `refreshCost`, and each one after it that week `refreshCost` more than the one before.
+     */
+    shop: {
+      price: Record<RaidShopStars, number>;
+      stock: Record<RaidShopStars, number>;
+      refreshCost: number;
+      refreshes: number;
+    };
+    /**
      * The chance (0 to 1) a beaten boss drops raid-only items (ItemDef.raidDrop) for the party, before
      * dropChancePerRaider: one roll for the whole raid, and on a hit everyone who took part finds one.
      */
@@ -379,6 +391,9 @@ export const DEFAULTS: Readonly<Settings> = {
   // and the party a 20% chance (+10% for each raider) that everyone finds one of the 3-star raid drops
   // (more at the levels past 1, and 4-star ones only at levels 5 and 10). Every level past 1 pays 500
   // more, and the komaGems go up by 5 at levels 5 and 10 (10 from level 5, 15 at level 10).
+  // The komaGems buy raid items in the site's shop: four of the 4-star ones (10 each) and four of the
+  // 3-star ones (5 each) are on the shelf, different ones every week. A member can have theirs
+  // refreshed up to 5 times a week, for 5 komaGems, then 10, 15, 20 and 25.
   // That is difficulty 1; every level past it gives the boss 2% more of its HP and 1% more of its damage,
   // and more HP for every raider, whatever they wear (its HP never looks at gear): a quarter of gearHp
   // more at each level up to 5, and all of it from there. So a party without gear wins less at every
@@ -397,6 +412,7 @@ export const DEFAULTS: Readonly<Settings> = {
     tokenReward: 10,
     gemReward: 5,
     gemRewardMilestone: 5,
+    shop: { price: { 3: 5, 4: 10 }, stock: { 3: 4, 4: 4 }, refreshCost: 5, refreshes: 5 },
     dropChance: 0.2,
     dropChancePerRaider: 0.1,
     difficultyHp: 0.02,

@@ -3,7 +3,8 @@ import { ensureMember, recordLedger } from './shared.js';
 
 /*
  * komaGems: a third currency, won by beating the weekly raid, and spent forging R5 copies of 4-star
- * items into masterworks, turning on their bonuses (services/items/forge.ts). They are kept on the member (`gems`, missing means 0)
+ * items into masterworks, turning on their bonuses (services/items/forge.ts), and on raid items in the
+ * site's raid shop (services/raid-shop.ts). They are kept on the member (`gems`, missing means 0)
  * and shown on their balance.
  */
 

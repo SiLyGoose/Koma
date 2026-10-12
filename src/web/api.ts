@@ -4,6 +4,7 @@ import type { WebConfig } from './config.js';
 import type { GachaStore } from './models/gacha.js';
 import type { GearStore } from './models/gear.js';
 import type { OutfitStore } from './models/outfits.js';
+import type { RaidShopStore } from './models/raid-shop.js';
 import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
 import { errors, notFound } from './middleware/errors.js';
@@ -15,6 +16,7 @@ import { gearRoutes } from './routes/gear.js';
 import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
 import { outfitRoutes } from './routes/outfits.js';
+import { raidShopRoutes } from './routes/raid-shop.js';
 import { publicRoutes } from './routes/public.js';
 import { raidRoutes } from './routes/raid.js';
 
@@ -51,6 +53,9 @@ export type { Me } from './services/login.js';
  *   GET  /api/outfits?guild=…   the outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)
  *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points (the shop; it isn't put on): OutfitsView
  *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
+ *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
+ *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
+ *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
@@ -89,6 +94,8 @@ export interface ApiDeps {
   gacha?: GachaStore;
   /** Outfits, for the shop and the dressing room (the database's, unless a test says otherwise). */
   outfits?: OutfitStore;
+  /** The raid shop (the database's, unless a test says otherwise). */
+  raidShop?: RaidShopStore;
   login?: typeof exchangeCode;
   /** The raid's page (web/games/raid), once the bot is logged in to Discord. */
   raid?: RaidSiteDeps;
@@ -111,6 +118,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/gear', gearRoutes(deps))
     .use('/gacha', gachaRoutes(deps))
     .use('/outfits', outfitRoutes(deps))
+    .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))
     // Nothing else is there (once they've logged in).
     .use(signedIn(deps), notFound);

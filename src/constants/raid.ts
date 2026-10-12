@@ -39,6 +39,17 @@ export const MAX_RAID_OVERHEAD = 10;
 export const RAID_DIFFICULTY = { max: 10, milestoneEvery: 5, milestoneStars: 4, stepStars: 3, gearFrom: 5 } as const;
 
 /**
+ * The tiers of raid items the site's raid shop sells for komaGems (lib/game/items/raid-shop.ts), best
+ * first: each has its own price and its own number on the shelf (the `raid.shop.*` settings).
+ */
+export const RAID_SHOP_STARS = [4, 3] as const;
+export type RaidShopStars = (typeof RAID_SHOP_STARS)[number];
+/** Most items of one tier the raid shop can have on its shelf (the `raid.shop.stock.<stars>` settings). */
+export const MAX_RAID_SHOP_STOCK = 20;
+/** Most times a member can be let refresh their shelf in a week (the `raid.shop.refreshes` setting). */
+export const MAX_RAID_SHOP_REFRESHES = 50;
+
+/**
  * The raid's buttons and screen.
  * - `refreshMs`: the shortest time between edits of the live message (Discord limits message edits).
  * - `logSize`: how many recent actions the live message shows.
