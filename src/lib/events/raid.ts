@@ -22,7 +22,7 @@ export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', '
 
 /** The moves that damage raiders directly. */
 export type HitMove = 'claw' | 'breath' | 'sweep' | 'reap' | 'drain' | 'scythe' | 'harvest' | 'reckoning' | 'spit' | 'miasma' | 'rot';
-export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'empower' | 'gather' | 'charge' | 'requiem' | 'flies' | 'brew' | 'pestilence' | CcMove;
+export type BossMove = HitMove | 'hoard' | 'shield' | 'veil' | 'empower' | 'gather' | 'charge' | 'requiem' | 'flies' | 'brew' | 'pestilence' | 'stagger' | CcMove;
 export const BOSS_MOVES: readonly BossMove[] = [
   'claw',
   'breath',
@@ -45,6 +45,7 @@ export const BOSS_MOVES: readonly BossMove[] = [
   'flies',
   'brew',
   'pestilence',
+  'stagger',
   'stun',
   'disarm',
   'taunt',
@@ -56,10 +57,11 @@ export const BOSS_MOVES: readonly BossMove[] = [
  * channeled for the turn it is announced (enough Supports that turn interrupt it) and makes attacks
  * bounce off for the turn after, `deflect` is a shield that is up the moment it is announced and takes
  * a set number of attacks, `cc` puts raiders under crowd control, `empower` makes the boss's next
- * attack hit harder, `charge` does nothing but warn that a special attack is coming, and `pestilence`
- * doubles every raider's Blight.
+ * attack hit harder, `charge` does nothing but warn that a special attack is coming, `pestilence`
+ * doubles every raider's Blight, and `stagger` is the turn a boss loses after its channel was
+ * interrupted: no boss picks it (it has no weight), it makes no move, and attacks on it do more damage.
  */
-export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'deflect' | 'cc' | 'empower' | 'charge' | 'pestilence';
+export type MoveKind = 'single' | 'all' | 'some' | 'steal' | 'shield' | 'deflect' | 'cc' | 'empower' | 'charge' | 'pestilence' | 'stagger';
 export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   claw: 'single',
   reap: 'single',
@@ -82,6 +84,7 @@ export const MOVE_KIND: Readonly<Record<BossMove, MoveKind>> = {
   flies: 'shield',
   brew: 'charge',
   pestilence: 'pestilence',
+  stagger: 'stagger',
   stun: 'cc',
   disarm: 'cc',
   taunt: 'cc',
@@ -248,6 +251,8 @@ export interface RaidState {
   shielded: boolean;
   /** Attacks the Scale Shield still deflects before it shatters. 0 for a channeled shield, which lasts its one round whatever hits it. */
   deflects: number;
+  /** Its channel was interrupted this round: its next move is `stagger` (see announce). Missing means no. */
+  staggered?: boolean;
   /** Turns left that everyone's attacks are multiplied by `rallyMultiplier` (from a rally). */
   rallied: number;
   /** What attacks are multiplied by while rallied: RAID_COMBAT.support.attackMultiplier, bigger when the rally came from a player with rallyBoost. */
@@ -295,6 +300,8 @@ export type RaidEvent =
   | { kind: 'purged'; userId: string; targetId: string; stacks: number }
   /** The boss's shield is done for: interrupted while it was channeled, or the Scale Shield deflected its last attack. */
   | { kind: 'shieldBroken' }
+  /** The boss spent its turn staggered (its channel was interrupted the turn before): it made no move. */
+  | { kind: 'staggered' }
   | { kind: 'attack'; userId: string; damage: number; crit: boolean; boost: number }
   | { kind: 'bounced'; userId: string }
   | { kind: 'defeated'; userId: string }
@@ -503,6 +510,9 @@ export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards
     gems: Math.max(0, cfg.gemReward + cfg.gemRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)),
   };
 }
+
+/** What attacks on the boss are multiplied by this round: more while it is staggered (its channel was interrupted the round before). */
+export const staggerMultiplier = (state: Pick<RaidState, 'intent'>): number => (state.intent.move === 'stagger' ? RAID_COMBAT.stagger.damageTaken : 1);
 
 /** The raid HP settings (the `raid.*` ones bossHpFor reads). */
 export interface BossHpSettings {
@@ -716,14 +726,15 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     // maxHpDamage gear adds a share of the boss's max HP after everything else, so it stays that share.
     const extra = state.bossMaxHp * attacker.gear.maxHpDamage;
     const hit = boosted(rng.int(min, max), boost) * attackMultiplierOf(attacker);
-    const damage = Math.max(1, Math.round(hit * rallyMultiplier * (crit ? critMultiplierOf(attacker) : 1) + extra));
+    // A staggered boss takes more from everything that hits it.
+    const damage = Math.max(1, Math.round((hit * rallyMultiplier * (crit ? critMultiplierOf(attacker) : 1) + extra) * staggerMultiplier(state)));
     const dealt = Math.min(damage, state.bossHp);
     state.bossHp -= dealt;
     (findPlayer(state, userId) as RaidPlayer).stats.damage += dealt;
     // The rally's share of the hit goes to whoever rallied (as well: it's the attacker's damage too).
     if (rallyFrom && rallyMultiplier > 1) {
       // The rally multiplies the hit before maxHpDamage's extra is added: that part is (multiplier - 1) / multiplier of the rest.
-      const rallied = (Math.max(0, damage - extra) * (rallyMultiplier - 1)) / rallyMultiplier;
+      const rallied = (Math.max(0, damage - extra * staggerMultiplier(state)) * (rallyMultiplier - 1)) / rallyMultiplier;
       const share = Math.round((dealt * rallied) / damage);
       rallyFrom.stats.supportDamage = (rallyFrom.stats.supportDamage ?? 0) + share;
     }
@@ -903,10 +914,16 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
       break;
     case 'veil':
     case 'flies':
-      // Channeled all turn, unless enough raiders Supported to interrupt it.
-      if (state.intent.interrupted) break;
+      // Channeled all turn, unless enough raiders Supported to interrupt it: then it is staggered for its next turn.
+      if (state.intent.interrupted) {
+        state.staggered = true;
+        break;
+      }
       state.shielded = true;
       events.push({ kind: 'shieldUp' });
+      break;
+    case 'stagger':
+      events.push({ kind: 'staggered' });
       break;
     case 'charge':
       events.push({ kind: 'charging' });
@@ -956,7 +973,8 @@ export function bossTurn(state: RaidState, rng: RaidRng = defaultRaidRng): { eve
   if (move === 'reckoning') state.gathered = 0;
   // Lifesteal: the reaper's Reap and Soul Drain heal it off the HP they took (what guards blocked it doesn't get).
   if (move === 'reap' || move === 'drain') heal(dealt * RAID_COMBAT.moves[move].lifesteal, move);
-  state.lastMove = move;
+  // A staggered turn isn't a move: the channel it follows stays its last one, so it doesn't channel again right after.
+  if (move !== 'stagger') state.lastMove = move;
 
   // Blight festers at the end of the round: every stack deals its damage to the raider carrying it.
   const festered: { userId: string; damage: number }[] = [];
@@ -1005,8 +1023,14 @@ export function endRound(state: RaidState, rng: RaidRng = defaultRaidRng): RaidE
 /**
  * Picks the boss's move for the round and announces it. A shield that isn't channeled (the Scale
  * Shield) is up at once, for this round's attacks already: the boss makes no other move this round.
+ * A boss whose channel was interrupted the round before has no move to pick: it is staggered.
  */
 function announce(state: RaidState, rng: RaidRng): RaidEvent[] {
+  if (state.staggered) {
+    state.staggered = false;
+    state.intent = { move: 'stagger', targets: [], multiplier: bossMultiplier(state) };
+    return [];
+  }
   state.intent = pickIntent(state, rng);
   if (MOVE_KIND[state.intent.move] !== 'deflect') return [];
   state.shielded = true;

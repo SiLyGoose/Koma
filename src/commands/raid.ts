@@ -160,7 +160,7 @@ function moveIntentText(state: RaidState, intent: BossIntent): string {
     case 'harvest':
       return i.harvest(target, hit(moves.harvest.damage), fmt(Math.round(state.bossMaxHp * moves.harvest.maxHpShare * lifesteal)));
     case 'veil':
-      return i.veil(support.shieldBreak);
+      return i.veil(support.shieldBreak, formatMultiplier(RAID_COMBAT.stagger.damageTaken));
     case 'empower':
       return i.empower(formatMultiplier(RAID_COMBAT.empower.multiplier));
     case 'gather':
@@ -183,7 +183,9 @@ function moveIntentText(state: RaidState, intent: BossIntent): string {
     case 'rot':
       return i.rot(targets, hit(moves.rot.damage));
     case 'flies':
-      return i.flies(support.shieldBreak);
+      return i.flies(support.shieldBreak, formatMultiplier(RAID_COMBAT.stagger.damageTaken));
+    case 'stagger':
+      return i.stagger(TEXT.raid.bosses[state.boss], formatMultiplier(RAID_COMBAT.stagger.damageTaken));
     case 'brew':
       return i.brew();
     case 'pestilence':
@@ -245,6 +247,8 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
       return log.empowered(b);
     case 'gathering':
       return log.gathering(b, event.left);
+    case 'staggered':
+      return log.staggered(b);
     case 'brewing':
       return log.brewing(b);
     case 'pestilence':
@@ -620,7 +624,7 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId, difficulty = 1): 
       case 'harvest':
         return r.moves.harvest(moves.harvest.damage, formatPercent(moves.harvest.maxHpShare));
       case 'veil':
-        return r.moves.veil(support.shieldBreak);
+        return r.moves.veil(support.shieldBreak, formatMultiplier(RAID_COMBAT.stagger.damageTaken));
       case 'empower':
         return r.moves.empower(formatMultiplier(RAID_COMBAT.empower.multiplier));
       case 'gather':
@@ -636,10 +640,13 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId, difficulty = 1): 
       case 'rot':
         return r.moves.rot(moves.rot.damage, moves.rot.blight, moves.rot.raidersPerTarget);
       case 'flies':
-        return r.moves.flies(support.shieldBreak);
+        return r.moves.flies(support.shieldBreak, formatMultiplier(RAID_COMBAT.stagger.damageTaken));
       case 'brew':
       case 'pestilence':
         return r.moves.pestilence(formatPercent(RAID_COMBAT.pestilence.from), RAID_COMBAT.blight.maxStacks);
+      // Not a move of any boss's own (no boss has a weight for it): the channels' lines say what an interrupt does.
+      case 'stagger':
+        return '';
       case 'stun':
       case 'disarm':
       case 'taunt':

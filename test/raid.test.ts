@@ -25,6 +25,7 @@ import {
   endRound,
   enrageLevel,
   movesOf,
+  staggerMultiplier,
   participants,
   pickIntent,
   recordTheft,
@@ -604,7 +605,7 @@ test('scale shield: up the moment it is announced, it deflects a set number of a
   const wyrm = TEXT.raid.howTo(TEXT.raid.bosses.wyrm, 60, 2, '1.5x', 2, true, true, null, deflects);
   assert.match(wyrm, new RegExp(`Its Scale Shield goes up without warning and deflects the next ${deflects} attacks\\.`));
   assert.doesNotMatch(wyrm, /interrupt/);
-  assert.match(TEXT.raid.howTo(TEXT.raid.bosses.reaper, 60, 2, '1.5x', 2, false, false), /2 Supports in the turn it channels its Spectral Veil interrupt it\./);
+  assert.match(TEXT.raid.howTo(TEXT.raid.bosses.reaper, 60, 2, '1.5x', 2, false, false), /2 Supports in the turn it channels its Spectral Veil interrupt it, and it is staggered for the turn after\./);
 });
 
 test('enrage: the boss gets angrier below each threshold, and never shields twice in a row', () => {
@@ -1218,9 +1219,25 @@ test('spectral veil: channeled for a turn, up for the next, and never raised twi
     assert.ok(out.some((e) => e.kind === 'attack'), move);
     assert.deepEqual(bossTurn(boss, low).events, [], move);
     assert.equal(boss.shielded, false, move);
+    // The interrupt staggers it for the turn after: it has no move, and attacks do more to it (on top of the Supports' rally).
     endRound(boss, low);
-    assert.deepEqual(resolvePlayerTurn(boss, choose(['a', 'attack']), low).map((e) => e.kind), ['attack'], move);
+    assert.equal(boss.intent.move, 'stagger', move);
+    assert.equal(staggerMultiplier(boss), RAID_COMBAT.stagger.damageTaken, move);
+    assert.match(intentText(boss), /\*\*Staggered\*\*.*No move this turn, and every attack does \*\*1\.5x\*\* damage/, move);
+    const plain = out.find((e) => e.kind === 'attack') as Extract<RaidEvent, { kind: 'attack' }>;
+    const struck = resolvePlayerTurn(boss, choose(['a', 'attack']), low);
+    assert.deepEqual(struck.map((e) => e.kind), ['attack'], move);
+    assert.equal((struck[0] as Extract<RaidEvent, { kind: 'attack' }>).damage, Math.round(plain.damage * RAID_COMBAT.support.attackMultiplier * RAID_COMBAT.stagger.damageTaken), move);
+    assert.deepEqual(bossTurn(boss, low).events, [{ kind: 'staggered' }], move);
+    assert.equal(boss.lastMove, move, 'the channel stays its last move, so it never channels again right after');
+    // And only that one turn: its next move is one of its own, at the usual damage.
+    endRound(boss, low);
+    assert.notEqual(boss.intent.move, 'stagger', move);
+    assert.notEqual(boss.intent.move, move, move);
+    assert.equal(staggerMultiplier(boss), 1, move);
   }
+  assert.match(eventText({ kind: 'staggered' }, 'reaper'), /The reaper is still reeling and makes no move/);
+  assert.equal(movesOf('reaper').includes('stagger'), false, 'not a move a boss picks, so not among the ones its info lists');
   assert.match(eventText({ kind: 'shieldBroken' }, 'reaper'), /the Spectral Veil never forms/);
   assert.match(intentText(state, { move: 'veil', targets: [], multiplier: 1 }), /2 raiders must Support \*\*this turn\*\* to interrupt it/);
 

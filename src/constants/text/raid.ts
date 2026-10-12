@@ -151,7 +151,7 @@ export const raidText = {
     deflects = 0,
   ) => {
     // A shield it channels is interrupted by Supports; one it doesn't just has to be hit enough.
-    const interrupt = deflects > 0 ? '' : ` ${shieldBreak} Supports in the turn it channels its ${b.shield} interrupt it.`;
+    const interrupt = deflects > 0 ? '' : ` ${shieldBreak} Supports in the turn it channels its ${b.shield} interrupt it, and it is staggered for the turn after.`;
     return [
       `Each round you have **${turnSeconds}s** to pick one action. ${b.It} then makes the move it announced.`,
       deflects > 0
@@ -273,9 +273,9 @@ Grows with every raider (at least ${min}).`,
     scythe: (targets: string, damage: number) => `🌙 **Scythe Sweep** at ${targets} (${damage} damage each)`,
     /** `heal` is the HP it would heal. */
     harvest: (target: string, damage: number, heal: string) => `🕯️ **Harvest**: it reaches for ${target}'s soul (${damage} damage, and it heals ${heal}). A guard can stop it.`,
-    /** `supports` is how many Supports interrupt it. */
-    veil: (supports: number) =>
-      `🌫️ **Spectral Veil**: it is channeling its veil. ${supports} raiders must Support **this turn** to interrupt it, or attacks pass right through it all next turn`,
+    /** `supports` is how many Supports interrupt it, `stagger` what attacks do to it the turn after they do, like "1.5x". */
+    veil: (supports: number, stagger: string) =>
+      `🌫️ **Spectral Veil**: it is channeling its veil. ${supports} raiders must Support **this turn** to interrupt it (it then loses its next turn and takes ${stagger} damage), or attacks pass right through it all next turn`,
     /** `multiplier` is how much harder its next attack hits, like "1.5x". */
     empower: (multiplier: string) => `💢 **Dark Empowerment**: it spends this turn powering up, and its next attack does ${multiplier} damage`,
     /** `turns` is how many turns of gathering are left, this one included. */
@@ -292,8 +292,11 @@ Grows with every raider (at least ${min}).`,
     spit: (target: string, damage: number) => `🤢 **Plague Spit** at ${target} (${damage} damage, ${blightAdds('spit')} Blight)`,
     miasma: (damage: number) => `☁️ **Miasma**, hitting everyone (${damage} damage and ${blightAdds('miasma')} Blight each)`,
     rot: (targets: string, damage: number) => `🍄 **Creeping Rot** at ${targets} (${damage} damage and ${blightAdds('rot')} Blight each)`,
-    flies: (supports: number) =>
-      `🪰 **Fly Swarm**: she is calling her flies. ${supports} raiders must Support **this turn** to interrupt her, or attacks get lost in the swarm all next turn`,
+    flies: (supports: number, stagger: string) =>
+      `🪰 **Fly Swarm**: she is calling her flies. ${supports} raiders must Support **this turn** to interrupt her (she then loses her next turn and takes ${stagger} damage), or attacks get lost in the swarm all next turn`,
+    /** The turn after its channel was interrupted. `multiplier` is what attacks do to it, like "1.5x". */
+    stagger: (b: RaidBossText, multiplier: string) =>
+      `😵 **Staggered**: ${b.It.toLowerCase()} is reeling from the broken channel. No move this turn, and every attack does **${multiplier}** damage. Strike now!`,
     brew: () => `⚗️ **Pestilence** is brewing: next turn every raider's 🦠 Blight doubles. Cleanse it now!`,
     pestilence: () => `☣️ **Pestilence**: every raider's 🦠 Blight doubles`,
     /** `targets` is one or more mentions. */
@@ -350,6 +353,7 @@ Grows with every raider (at least ${min}).`,
         : move === 'reap'
           ? `🩸 ${guard} took the Reap for ${target}: **${damage}**.`
           : `🤢 ${guard} took the Plague Spit for ${target}: **${damage}** (${blightAdds('spit')}).`,
+    staggered: (b: RaidBossText) => `😵 ${b.It} is still reeling and makes no move.`,
     brewing: (b: RaidBossText) => `⚗️ ${b.It} stirs a bubbling brew. **Pestilence** is coming next turn!`,
     pestilence: (b: RaidBossText) => `☣️ ${b.It} unleashes **Pestilence**! Every raider's 🦠 Blight doubles.`,
     /** Each part is festerPart. */
@@ -518,8 +522,9 @@ Grows with every raider (at least ${min}).`,
     drain: (damage: number, lifesteal: number) => `👻 **Soul Drain**: ${damage} damage to everyone, and it heals **${lifesteal}x** the damage dealt. Guards reduce both.`,
     scythe: (damage: number, min: number, max: number) => `🌙 **Scythe Sweep**: ${damage} damage to ${min === max ? min : `${min} to ${max}`} raiders. Guards reduce damage taken.`,
     harvest: (damage: number, share: string) => `🕯️ **Harvest**: Tears ${damage} HP out of one raider and heals **${share}** of its max HP. A guard can stop it.`,
-    veil: (supports: number) =>
-      `🌫️ **Spectral Veil**: channels for a turn, then attacks pass right through it for a turn. ${supports} raiders Supporting while it channels interrupt it; once it is up, nothing breaks it.`,
+    /** `stagger` is what attacks do to it the turn after an interrupt, like "1.5x". */
+    veil: (supports: number, stagger: string) =>
+      `🌫️ **Spectral Veil**: channels for a turn, then attacks pass right through it for a turn. ${supports} Supports while it channels interrupt it: it skips its next turn and takes **${stagger}** damage. Once up, nothing breaks it.`,
     empower: (multiplier: string) => `💢 **Dark Empowerment**: spends a turn powering up, and its next move is an attack doing **${multiplier}** damage.`,
     reckoning: (turns: number, damage: number, min: number, max: number) =>
       `⚰️ **Grim Reckoning**: gathers for ${plural(turns, 'turn', 'turns')}, then hits ${min === max ? min : `${min} to ${max}`} raiders for ${damage} damage each. Guards reduce damage taken.`,
@@ -528,8 +533,8 @@ Grows with every raider (at least ${min}).`,
     /** `per` is how many raiders it hits one of (RAID_COMBAT.moves.rot.raidersPerTarget). */
     rot: (damage: number, stacks: number, per: number) =>
       `🍄 **Creeping Rot**: ${damage} damage and +${stacks} 🦠 Blight to ${per === 1 ? 'every raider' : `1 in every ${per} raiders (rounded up)`}. Guards reduce the damage.`,
-    flies: (supports: number) =>
-      `🪰 **Fly Swarm**: channels for a turn, then attacks get lost in it for a turn. ${supports} raiders Supporting while it channels interrupt it; once it is up, nothing breaks it.`,
+    flies: (supports: number, stagger: string) =>
+      `🪰 **Fly Swarm**: channels for a turn, then attacks get lost in it for a turn. ${supports} Supports while it channels interrupt it: it skips its next turn and takes **${stagger}** damage. Once up, nothing breaks it.`,
     /** `from` is the share of its HP it starts brewing at, like "75%". */
     pestilence: (from: string, max: number) => `☣️ **Pestilence** (at ${from} HP or less): brews for a turn, then doubles every raider's 🦠 Blight (up to ${max} stacks).`,
     /** Its special attack. `phase` is the phase's name. */

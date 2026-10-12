@@ -142,7 +142,8 @@ export const RAID_EMOJI = {
  * - Shields: the reaper's `veil` and the matriarch's `flies` are channeled. The boss spends the turn
  *   it announced one in channeling it, and it is up for the turn after, when every attack does
  *   nothing; `support.shieldBreak` Supports in the channeling turn interrupt it, and once it is up
- *   nothing breaks it. The wyrm's `shield` isn't channeled: it is up the moment it is announced (the
+ *   nothing breaks it. A boss whose channel was interrupted is staggered for the turn after: it makes
+ *   no move, and every attack on it does `stagger.damageTaken` times its damage. The wyrm's `shield` isn't channeled: it is up the moment it is announced (the
  *   wyrm makes no other move that turn), deflects the next `shield.deflects` attacks, however many
  *   turns those take, and then shatters. Supports do nothing to it, and the wyrm doesn't raise
  *   another while one is up.
@@ -178,6 +179,7 @@ export const RAID_COMBAT = {
   guard: { takenShare: 0.5, aoeCut: 0.3, aoeCutMax: 0.6 },
   support: { attackMultiplier: 1.5, rallyTurns: 2, shieldBreak: 2 },
   shield: { deflects: 6 },
+  stagger: { damageTaken: 1.5 },
   enrage: { thresholds: [0.5, 0.25], multipliers: [1, 1.25, 1.5], lifesteal: [1, 1.25, 1.5] },
   moves: {
     claw: { damage: 56 },
