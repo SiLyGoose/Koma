@@ -44,7 +44,8 @@ export type { Me } from './services/login.js';
  *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
  *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
  *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
- *   GET  /api/databank        every item and what it does at each level: Databank (models/databank.ts)
+ *   GET  /api/databank        every item and what it does at each level, and every raid boss: Databank (models/databank.ts)
+ *   GET  /api/raid/week?guild=…   the server's raid: this week's boss, and how far its difficulty is unlocked: RaidWeekView (services/raid.ts)
  *   GET  /api/gacha?guild=…   the banner page: what a pull costs the member, their komaTokens and pity: BannerView (models/gacha.ts)
  *   POST /api/gacha/pull {guild, multi}   one pull, or a multi pull (`multi` true): BannerResult
  *   GET  /api/outfits?guild=…   the outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)

@@ -34,8 +34,8 @@ export const statsOf = (s: Partial<RaidStats> | undefined) => ({
 /** What the winners were paid, with the currencies' emojis. */
 const rewardText = (points: number, tokens: number, gems: number): string => TEXT.raid.rewardList(fmt(points), tokens, gems);
 
-/** What each difficulty level does to the boss and drops for a win, for the page's pickers (before the lobby, and in it). */
-const difficultyLevels = (): RaidLevel[] =>
+/** What each difficulty level does to the boss and drops for a win, for the page's pickers (before the lobby, and in it) and the databank. */
+export const difficultyLevels = (): RaidLevel[] =>
   Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => {
     const { level, hp, damage } = difficultyOf(i + 1, CONFIG.raid);
     const counts = raidDropCounts(level);
