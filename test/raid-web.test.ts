@@ -88,7 +88,7 @@ test('idle: how the week stands, and whether the page can start the raid', () =>
   assert.equal(open.phase, 'idle');
   assert.equal(open.idle?.week, 'open');
   assert.equal(open.idle?.canStart, true);
-  assert.equal(open.boss.name, 'Ember Wyrm');
+  assert.equal(open.boss.name, 'Wyvern');
   assert.equal(open.picture, '/api/raid/boss?boss=wyrm&mood=calm');
 
   assert.deepEqual(raidView('u1', week({ channel: false }), null).idle, { week: 'open', canStart: false });

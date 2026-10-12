@@ -68,7 +68,7 @@ type ManyMove = keyof typeof HIT_MANY;
 export const raidText = {
   bosses: {
     wyrm: {
-      name: 'Ember Wyrm',
+      name: 'Wyvern',
       emoji: '🐉',
       it: 'the dragon',
       It: 'The dragon',

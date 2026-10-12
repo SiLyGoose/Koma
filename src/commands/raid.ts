@@ -1283,7 +1283,7 @@ async function raidGearOf(guildId: string, userId: string): Promise<RaidGear> {
 
 /**
  * The boss a name picks out, for `raid force`: its id (`wyrm`), its name (`soul reaper`) or any
- * word of it (`ember`, `soul`), or what the text calls it (`dragon`, `reaper`). Null if it's none of them.
+ * word of it (`wyvern`, `soul`), or what the text calls it (`dragon`, `reaper`). Null if it's none of them.
  */
 export function bossByName(text: string): RaidBossId | null {
   const wanted = text.trim().toLowerCase();

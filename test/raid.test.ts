@@ -1333,7 +1333,7 @@ test('a finished raid remembers its boss; older ones without one were the dragon
   assert.match(reaper.title ?? '', /Soul Reaper got away/);
   assert.match(reaper.description ?? '', /faded back into the fog/);
   const old = weekResultEmbed({ ...base, status: 'fled' }, next).toJSON();
-  assert.match(old.title ?? '', /Ember Wyrm got away/);
+  assert.match(old.title ?? '', /Wyvern got away/);
   assert.match(old.description ?? '', /flew off/);
 });
 
@@ -1602,10 +1602,10 @@ test('heal cut: the strongest cut among the raiders still standing comes off eve
 
 test('raid force: a boss can be named by its id, its name or any word of it, or what it is', async () => {
   const { bossByName } = await import('../src/commands/raid.js');
-  for (const name of ['wyrm', 'Ember Wyrm', 'ember', 'DRAGON', ' dragon ']) assert.equal(bossByName(name), 'wyrm', name);
+  for (const name of ['wyrm', 'Wyvern', 'wyvern', 'DRAGON', ' dragon ']) assert.equal(bossByName(name), 'wyrm', name);
   for (const name of ['reaper', 'Soul Reaper', 'soul']) assert.equal(bossByName(name), 'reaper', name);
-  for (const name of ['', 'lich', 'the']) assert.equal(bossByName(name), null, name);
-  assert.match(TEXT.raid.forceUsage('k!', ['Ember Wyrm', 'Soul Reaper']), /k!raid force <boss>.*\(Ember Wyrm and Soul Reaper\)/);
+  for (const name of ['', 'lich', 'the', 'ember']) assert.equal(bossByName(name), null, name);
+  assert.match(TEXT.raid.forceUsage('k!', ['Wyvern', 'Soul Reaper']), /k!raid force <boss>.*\(Wyvern and Soul Reaper\)/);
   assert.match(TEXT.raid.forceTaken('k!'), /k!raid reset/);
 });
 

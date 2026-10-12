@@ -626,7 +626,7 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['guardBoost'],
     raidDrop: true,
   },
-  // Boss-killers: each one answers a boss's gimmick (the Ember Wyrm's huge HP, the Soul Reaper's lifesteal,
+  // Boss-killers: each one answers a boss's gimmick (the Wyvern's huge HP, the Soul Reaper's lifesteal,
   // the Plague Matriarch's Blight).
   {
     id: 'leviathan-harpoon',

@@ -132,7 +132,7 @@ export const RAID_EMOJI = {
  *   wyrm makes no other move that turn), deflects the next `shield.deflects` attacks, however many
  *   turns those take, and then shatters. Supports do nothing to it, and the wyrm doesn't raise
  *   another while one is up.
- * - The Ember Wyrm: `claw` (one raider), `breath` (everyone), `sweep` (min to max raiders), `hoard`
+ * - The Wyvern (`wyrm`): `claw` (one raider), `breath` (everyone), `sweep` (min to max raiders), `hoard`
  *   (steals min to max points from one player's wallet, never more than they have), `shield`.
  * - The Soul Reaper: `reap` (one raider), `drain` (everyone), `scythe` (min to max raiders),
  *   `harvest` (one raider, blocked by a guard like Hoard), `veil` (its shield). `lifesteal` heals it

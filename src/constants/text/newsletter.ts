@@ -23,7 +23,7 @@ export const newsletterText = {
   robsMostRobbed: (who: string, amount: string, count: number) =>
     `🎯 Most robbed: ${who}, lost ${boldMoney(amount)} in ${count} rob${count === 1 ? '' : 's'}`,
 
-  /** `boss` is like "🐉 Ember Wyrm". A preview's is next week's. */
+  /** `boss` is like "🐉 Wyvern". A preview's is next week's. */
   newBoss: (boss: string, preview: boolean) => `${preview ? "Next week's" : "This week's"} raid boss is **${boss}**. Good luck!`,
 
   // ---------------------------------------------------------------------------

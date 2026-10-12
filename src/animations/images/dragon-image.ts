@@ -785,7 +785,7 @@ function dragonArt(mood: DragonMood): Buffer | null {
   try {
     return readFileSync(new URL(`../../../assets/raid/ember-wyrm/${mood}.png`, import.meta.url));
   } catch (err) {
-    console.error(`Could not read the Ember Wyrm's ${mood} picture, drawing it instead:`, err);
+    console.error(`Could not read the Wyvern's ${mood} picture, drawing it instead:`, err);
     return null;
   }
 }
