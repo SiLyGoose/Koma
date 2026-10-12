@@ -233,17 +233,17 @@ test('raid difficulty: the boss gains HP for every raider in equal steps up to l
   }
 
   // What the raiders are told: in the lobby, in its picker, and with the boss.
-  const lobby = TEXT.raid.lobbyDifficulty(5, 5, 10, '1.12x', '1.08x', 'loot', '250', true);
+  // The lobby and the picker say the HP a level adds for every raider, and nothing about needing gear.
+  const lobby = TEXT.raid.lobbyDifficulty(5, 5, 10, '1.12x', '1.08x', 'loot', '250');
   assert.ok(lobby.includes('1.12x HP +250 a raider'), lobby);
-  assert.ok(lobby.includes('**Raid gear needed**: from this level the boss is built for parties in raid gear.'), lobby);
+  assert.doesNotMatch(lobby, /gear/i);
   const fourth = TEXT.raid.lobbyDifficulty(4, 5, 10, '1.09x', '1.06x', 'loot', '188');
   assert.ok(fourth.includes('1.09x HP +188 a raider'), fourth);
-  assert.doesNotMatch(fourth, /gear needed/i);
   assert.doesNotMatch(TEXT.raid.lobbyDifficulty(1, 5, 10, '1x', '1x', 'loot'), /a raider/);
-  assert.equal(TEXT.raid.difficultyOptionDescription('1.06x', '1.03x', '4× 3★ raid items', false, '188'), '1.06x HP +188/raider · 1.03x damage · drops 4× 3★ raid items');
-  assert.equal(TEXT.raid.difficultyOptionDescription('1.12x', '1.08x', '1× 4★ and 4× 3★ raid items', true), 'Gear needed · 1.12x HP · 1.08x damage · drops 1× 4★ and 4× 3★ raid items');
+  assert.equal(TEXT.raid.difficultyOptionDescription('1.06x', '1.03x', '4× 3★ raid items', '188'), '1.06x HP +188/raider · 1.03x damage · drops 4× 3★ raid items');
   assert.equal(TEXT.raid.difficultyOptionDescription('1.09x', '1.06x', '4× 3★ raid items'), '1.09x HP · 1.06x damage · drops 4× 3★ raid items');
   const info = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().description ?? '';
   assert.ok(info.includes(`in equal steps up to **${DEFAULTS.raid.gearHp.reaper}** at level 5 and every level past it`), info);
-  assert.doesNotMatch(bossInfoEmbed({ ...DEFAULTS.raid, gearHp: { wyrm: 0, reaper: 0, plague: 0 } }, 'reaper').toJSON().description ?? '', /Gear levels/);
+  assert.doesNotMatch(info, /raid gear|gear levels/i);
+  assert.doesNotMatch(bossInfoEmbed({ ...DEFAULTS.raid, gearHp: { wyrm: 0, reaper: 0, plague: 0 } }, 'reaper').toJSON().description ?? '', /HP by level/);
 });

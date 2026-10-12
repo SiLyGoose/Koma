@@ -864,7 +864,6 @@ function lobbyView(
           formatMultiplier(difficulty.damage),
           lootKindsText(difficulty.level),
           wallText(cfg, boss, difficulty),
-          difficulty.gear,
         ),
       },
     )
@@ -890,7 +889,7 @@ function lobbyView(
         return {
           label: r.difficultyOption(option.level),
           value: String(option.level),
-          description: r.difficultyOptionDescription(formatMultiplier(option.hp), formatMultiplier(option.damage), lootKindsText(option.level), option.gear, wallText(cfg, boss, option)),
+          description: r.difficultyOptionDescription(formatMultiplier(option.hp), formatMultiplier(option.damage), lootKindsText(option.level), wallText(cfg, boss, option)),
           default: option.level === difficulty.level,
         };
       }),
