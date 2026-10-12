@@ -4,19 +4,20 @@ import { CONFIG } from '../config.js';
 import { CURRENCY_NAME, LEADERBOARD_BUTTONS, TEXT } from '../constants/index.js';
 import { fmt } from '../lib/format.js';
 import { getLeaderboard } from '../services/economy/index.js';
-import { topLosers, topVaultDonors } from '../services/vault.js';
+import { topLosers, topVaultDonors, topWinners } from '../services/vault.js';
 import { commandPrefix } from '../discord/slash.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
-type Board = 'balance' | 'donors' | 'losses';
+type Board = 'balance' | 'donors' | 'losses' | 'winnings';
 
 const BOARD_BY_ID: Record<string, Board> = {
   [LEADERBOARD_BUTTONS.balanceId]: 'balance',
   [LEADERBOARD_BUTTONS.donorsId]: 'donors',
   [LEADERBOARD_BUTTONS.lossesId]: 'losses',
+  [LEADERBOARD_BUTTONS.winningsId]: 'winnings',
 };
 
-/** One board: who has the most points, who gave the most to the vault, or who lost the most. */
+/** One board: who has the most points, who gave the most to the vault, who lost the most, or who won the most at the casino. */
 async function boardEmbed(ctx: CommandContext, board: Board): Promise<BotEmbed> {
   const t = TEXT.leaderboard;
   const size = CONFIG.leaderboardSize;
@@ -25,11 +26,16 @@ async function boardEmbed(ctx: CommandContext, board: Board): Promise<BotEmbed> 
     const lines = rows.map((row, index) => t.row(index + 1, row.userId, fmt(row.points)));
     return createEmbed().setTitle(t.title).setDescription(lines.length > 0 ? lines.join('\n') : t.empty(ctx.prefix));
   }
-  const rows = board === 'donors' ? await topVaultDonors(ctx.guildId, size) : await topLosers(ctx.guildId, size);
+  const top = { donors: topVaultDonors, losses: topLosers, winnings: topWinners }[board];
+  const rows = await top(ctx.guildId, size);
   const lines = rows.map((row, index) => t.row(index + 1, row.userId, fmt(row.amount)));
-  const embed = createEmbed().setTitle(board === 'donors' ? t.donorsTitle : t.lossesTitle);
-  if (board === 'donors') return embed.setDescription(lines.length > 0 ? lines.join('\n') : t.noDonors(commandPrefix(ctx, 'donate')));
-  return embed.setDescription(lines.length > 0 ? lines.join('\n') : t.noLosses).setFooter({ text: t.lossesFooter });
+  if (board === 'donors') {
+    return createEmbed().setTitle(t.donorsTitle).setDescription(lines.length > 0 ? lines.join('\n') : t.noDonors(commandPrefix(ctx, 'donate')));
+  }
+  if (board === 'winnings') {
+    return createEmbed().setTitle(t.winningsTitle).setDescription(lines.length > 0 ? lines.join('\n') : t.noWinnings).setFooter({ text: t.winningsFooter });
+  }
+  return createEmbed().setTitle(t.lossesTitle).setDescription(lines.length > 0 ? lines.join('\n') : t.noLosses).setFooter({ text: t.lossesFooter });
 }
 
 /** A button per board; the one showing is highlighted and can't be pressed. */
@@ -46,6 +52,7 @@ function buttonRows(showing: Board): ActionRowBuilder<ButtonBuilder>[] {
       button(LEADERBOARD_BUTTONS.balanceId, t.balanceButton),
       button(LEADERBOARD_BUTTONS.donorsId, t.donorsButton),
       button(LEADERBOARD_BUTTONS.lossesId, t.lossesButton),
+      button(LEADERBOARD_BUTTONS.winningsId, t.winningsButton),
     ),
   ];
 }
@@ -54,7 +61,7 @@ export const leaderboard: Command = {
   name: 'leaderboard',
   category: 'economy',
   aliases: ['lb', 'top'],
-  description: `See who has the most ${CURRENCY_NAME} in this server, and who has donated and lost the most.`,
+  description: `See who has the most ${CURRENCY_NAME} in this server, and who has donated, lost and won the most.`,
 
   async execute(ctx) {
     const sent = await ctx.reply({ embeds: [await boardEmbed(ctx, 'balance')], components: buttonRows('balance') });

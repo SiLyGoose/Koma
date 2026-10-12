@@ -49,12 +49,13 @@ test('vault command: the donor and source breakdown moved to the leaderboard', (
   assert.match(TEXT.leaderboard.noDonors('/'), /\/donate/);
 });
 
-test('leaderboard: buttons for balances, top donors and losses', async () => {
+test('leaderboard: buttons for balances, top donors, losses and winnings', async () => {
   const { LEADERBOARD_BUTTONS } = await import('../src/constants/index.js');
-  const ids = [LEADERBOARD_BUTTONS.balanceId, LEADERBOARD_BUTTONS.donorsId, LEADERBOARD_BUTTONS.lossesId];
-  assert.equal(new Set(ids).size, 3);
+  const ids = [LEADERBOARD_BUTTONS.balanceId, LEADERBOARD_BUTTONS.donorsId, LEADERBOARD_BUTTONS.lossesId, LEADERBOARD_BUTTONS.winningsId];
+  assert.equal(new Set(ids).size, 4);
   assert.equal(TEXT.leaderboard.donorsButton, 'Top donors');
   assert.equal(TEXT.leaderboard.lossesButton, 'Losses');
+  assert.equal(TEXT.leaderboard.winningsButton, 'Winnings');
 });
 
 test('leaderboard: losses count every casino bet and payout, and the vault fines', async () => {

@@ -127,6 +127,8 @@ const CASINO_REASONS: readonly { bet: LedgerReason; rest: readonly LedgerReason[
   { bet: 'baccarat_bet', rest: ['baccarat_payout'] },
   { bet: 'roulette_bet', rest: ['roulette_payout'] },
   { bet: 'mines_bet', rest: ['mines_payout'] },
+  // A sitting at a poker table is one round: the chips taken to it, and what was left on leaving.
+  { bet: 'poker_buyin', rest: ['poker_cashout'] },
 ];
 
 /** The fines, penalties and charges that count as lost in full, less whatever of them was refunded. */
@@ -154,20 +156,20 @@ export async function topVaultDonors(guildId: string, limit: number): Promise<Me
 }
 
 /**
- * The members who have lost the most, ever (LOSS_REASONS): what every losing casino round cost
- * them, plus fines and penalties. Winnings never count against it: a round that paid back more
- * than its bet is a loss of 0, not a negative one.
+ * Splits each member's ledger entries over `reasons` into casino rounds, and adds up either what
+ * the losing rounds cost them ('lost') or what the winning ones paid over their bets ('won'). The
+ * two never offset each other: a round counts as 0 on the side it isn't.
  *
  * The ledger doesn't say which round an entry belongs to, so a member's entries for one game are
  * read in order and a round runs from one bet to the next. That holds as long as they play one
  * round of a game at a time. A round still being played has only its bet so far, so it counts as
  * lost until it pays.
  */
-export async function topLosers(guildId: string, limit: number): Promise<MemberTotal[]> {
+async function topByRounds(guildId: string, reasons: readonly LedgerReason[], side: 'lost' | 'won', limit: number): Promise<MemberTotal[]> {
   const games = CASINO_REASONS.map((game, index) => ({ case: { $in: ['$reason', [game.bet, ...game.rest]] }, then: index }));
   const rows = await collections()
     .ledger.aggregate<{ _id: string; amount: number }>([
-      { $match: { guildId, reason: { $in: [...LOSS_REASONS] } } },
+      { $match: { guildId, reason: { $in: [...reasons] } } },
       // Fines have no game: they all land in one group per member, so a refund comes off what was charged.
       { $set: { game: { $switch: { branches: games, default: null } } } },
       {
@@ -180,13 +182,29 @@ export async function topLosers(guildId: string, limit: number): Promise<MemberT
         },
       },
       { $group: { _id: { userId: '$userId', game: '$game', round: '$round' }, delta: { $sum: '$delta' } } },
-      { $group: { _id: '$_id.userId', amount: { $sum: { $max: [0, { $multiply: ['$delta', -1] }] } } } },
+      { $group: { _id: '$_id.userId', amount: { $sum: { $max: [0, { $multiply: ['$delta', side === 'lost' ? -1 : 1] }] } } } },
       { $match: { amount: { $gt: 0 } } },
       { $sort: { amount: -1, _id: 1 } },
       { $limit: limit },
     ])
     .toArray();
   return rows.map((row) => ({ userId: row._id, amount: row.amount }));
+}
+
+/**
+ * The members who have lost the most, ever (LOSS_REASONS): what every losing casino round cost
+ * them, plus fines and penalties. Winnings never count against it.
+ */
+export function topLosers(guildId: string, limit: number): Promise<MemberTotal[]> {
+  return topByRounds(guildId, LOSS_REASONS, 'lost', limit);
+}
+
+/**
+ * The members who have won the most at the casino, ever: what every winning round paid over its
+ * bet. Losing rounds never count against it.
+ */
+export function topWinners(guildId: string, limit: number): Promise<MemberTotal[]> {
+  return topByRounds(guildId, CASINO_REASONS.flatMap((game) => [game.bet, ...game.rest]), 'won', limit);
 }
 
 /** `pool`, never more than events.vault.maxPool: the most of it a vault game pays out. */
