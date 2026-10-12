@@ -5,7 +5,7 @@ import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js'
 /*
  * The raid going on in each server right now, for everything that follows it besides its Discord
  * message: the site's raid page (web/games/raid) shows it and plays in it. The lobby and the fight
- * (commands/raid.ts) put their own join, leave, start and act here, and Discord's buttons call the
+ * (commands/raid.ts) put their own join, leave, start, disband and act here, and Discord's buttons call the
  * very same ones, so a player on the site and one in Discord are in one lobby and one fight.
  *
  * No Discord or database in here. A raid stays after it ends (phase 'over'), so a page can show how
@@ -13,7 +13,7 @@ import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js'
  */
 
 /** How a press in the lobby went. */
-export type LobbyAnswer = 'joined' | 'already_joined' | 'left' | 'not_joined' | 'started' | 'difficulty_set' | 'locked' | 'only_host' | 'closed';
+export type LobbyAnswer = 'joined' | 'already_joined' | 'left' | 'not_joined' | 'started' | 'disbanded' | 'difficulty_set' | 'locked' | 'only_host' | 'closed';
 
 /** Why a player can't act this turn (lib/events/raid.ts's actionProblem). */
 export type ActProblem = 'not_playing' | 'knocked_out' | CrowdControl;
@@ -24,11 +24,13 @@ export type ActAnswer = { kind: 'ok' } | { kind: 'late' } | { kind: 'already'; a
 export interface RaidLobbyLive {
   /** Who is in, in the order they joined (the host first). */
   readonly players: readonly string[];
-  readonly closesAt: number;
   join(userId: string, name: string): LobbyAnswer;
+  /** Leaves the lobby. The last raider leaving closes it (the raid ends as 'no_players'). */
   leave(userId: string): LobbyAnswer;
-  /** The host starts the fight early. */
+  /** The host starts the fight: nothing else does. */
   start(userId: string): LobbyAnswer;
+  /** The host (or the bot's admin) disbands the raid before the fight: the week is freed, to start again. */
+  disband(userId: string): LobbyAnswer;
   /** The difficulty picked so far, and the hardest this server can pick (one past the hardest it has beaten). */
   readonly difficulty: number;
   readonly maxDifficulty: number;
@@ -53,8 +55,11 @@ export interface RaidFightLive {
   act(userId: string, action: RaidAction, target?: string): ActAnswer;
 }
 
-/** How a raid ended: fought out, nobody joined, or called off part way (an error). */
-export type RaidEnd = 'won' | 'wiped' | 'fled' | 'no_players' | 'called_off';
+/**
+ * How a raid ended: fought out, its lobby emptied, disbanded before the fight (by its host, or by itself
+ * after sitting idle), or called off part way (an error).
+ */
+export type RaidEnd = 'won' | 'wiped' | 'fled' | 'no_players' | 'disbanded' | 'called_off';
 
 export interface RaidOverLive {
   end: RaidEnd;

@@ -15,12 +15,13 @@ import type { ActProblem, LobbyAnswer, RaidEnd } from '../../../lib/events/raid-
  *                          them as the host, at the difficulty `level` they picked before it (left out: 1;
  *                          past what the server has unlocked: the hardest it has)
  *                 join     joins the lobby; `leave` leaves it
- *                 begin    the host starts the fight now, without waiting for the lobby to close
+ *                 begin    the host starts the fight (nothing else does: the lobby has no countdown)
+ *                 disband  the host disbands the raid before the fight: the week is freed, to start again
  *                 difficulty  the host picks the raid's difficulty `level` (up to the lobby's `maxDifficulty`)
  *                 act      their action this turn (`target`: who a heal is for, left out to let the
  *                          bot choose)
  *   bot -> page   raid     the raid as it is now: whenever anything about it changes
- *                 answer   how a start, join, leave, begin, difficulty or act went (`code` is 'ok' when it went)
+ *                 answer   how a start, join, leave, begin, disband, difficulty or act went (`code` is 'ok' when it went)
  *                 error    and the bot closes the connection
  *
  * Text from the raid (the boss's next move, the log) is Discord markdown, as the raid message shows
@@ -33,6 +34,7 @@ export type ClientMessage =
   | { t: 'join' }
   | { t: 'leave' }
   | { t: 'begin' }
+  | { t: 'disband' }
   | { t: 'difficulty'; level: number }
   | { t: 'act'; action: RaidAction; target?: string };
 
@@ -108,7 +110,6 @@ export interface RaidPickView {
 export interface RaidLobbyView {
   host: string;
   players: string[];
-  closesAt: number;
   /** The boss's HP with the party as it is now, at the difficulty picked. */
   bossHp: number;
   difficulty: number;
@@ -173,20 +174,20 @@ export interface RaidView {
    * `idle`: no raid going on. `week` is how this week's raid went ('open' when it hasn't been fought),
    * and `canStart` whether the page can start it (a server without a bot channel starts it in Discord);
    * `pick`, with it, is the difficulties to start it at.
-   * `last` says how the last lobby went when it never came to a fight, a little while after (nobody
-   * joined in time, or it was called off): the week was freed, so it can be started again.
+   * `last` says how the last lobby went when it never came to a fight, a little while after (everyone
+   * left it, it was disbanded, or it was called off): the week was freed, so it can be started again.
    */
   phase: 'idle' | 'lobby' | 'fight' | 'over';
-  idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'called_off'; pick?: RaidPickView } | null;
+  idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'disbanded' | 'called_off'; pick?: RaidPickView } | null;
   lobby: RaidLobbyView | null;
   fight: RaidFightView | null;
   over: RaidOverView | null;
 }
 
-/** What went wrong with a start, join, leave, begin or act. */
+/** What went wrong with a start, join, leave, begin, disband, difficulty or act. */
 export type AnswerCode =
   | 'ok'
-  | Exclude<LobbyAnswer, 'joined' | 'left' | 'started' | 'difficulty_set'>
+  | Exclude<LobbyAnswer, 'joined' | 'left' | 'started' | 'disbanded' | 'difficulty_set'>
   | ActProblem
   | 'late'
   | 'already'
@@ -223,6 +224,7 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'join':
     case 'leave':
     case 'begin':
+    case 'disband':
       return { t: m.t };
     case 'difficulty':
       return typeof m.level === 'number' && Number.isInteger(m.level) && m.level >= 1 && m.level <= 100 ? { t: 'difficulty', level: m.level } : null;

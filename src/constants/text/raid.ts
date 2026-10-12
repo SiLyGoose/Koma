@@ -127,9 +127,9 @@ export const raidText = {
 
   // The lobby
   lobbyTitle: (b: RaidBossText) => `${b.emoji} A wild ${b.name} appears!`,
-  /** `host` found it, `unix` is when the fight starts, `rounds` how long the party has to win. */
-  lobby: (b: RaidBossText, host: string, unix: number, rounds: number, reward: string, tokens: number, gems: number) =>
-    `${b.found(host)} Press **Join** to fight. The battle starts <t:${unix}:R> (or when the host presses **Start now**). ` +
+  /** `host` found it, `rounds` is how long the party has to win. */
+  lobby: (b: RaidBossText, host: string, rounds: number, reward: string, tokens: number, gems: number) =>
+    `${b.found(host)} Press **Join** to fight. The battle starts when the host presses **Start raid** (the host can also **Disband** it). ` +
     `No one can join once it starts.\n\n` +
     `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
   howToField: 'How to fight',
@@ -202,15 +202,21 @@ Grows with every raider (at least ${min}).`,
   hostTag: ' (host)',
   joinButton: 'Join',
   leaveButton: 'Leave',
-  startButton: 'Start now',
+  startButton: 'Start raid',
+  disbandButton: 'Disband',
   webButton: 'Play on the web',
   joined: "You're in! Get ready.",
   alreadyJoined: "You're already in this raid.",
   left: 'You left the raid.',
   notJoined: "You haven't joined this raid.",
-  onlyHost: 'Only the host (the first raider on the list) can start early.',
+  onlyHost: 'Only the host (the first raider on the list) can start the raid.',
+  onlyHostDisband: 'Only the host (the first raider on the list) can disband the raid.',
   lobbyClosed: 'The fight has already started, so no one else can join.',
-  noPlayers: 'Nobody joined the raid. It has not been used up: it can be started again this week.',
+  /** The lobby closed without a fight: everyone left it, its host disbanded it, or it sat idle too long. */
+  noPlayers: 'Everyone left the raid, so its lobby closed. It has not been used up: it can be started again this week.',
+  disbandedTitle: 'The raid was disbanded',
+  disbanded: (user: string) => `${user} disbanded the raid before the fight. It has not been used up: it can be started again this week.`,
+  lobbyIdle: (minutes: number) => `Nothing happened in the raid's lobby for ${minutes} minutes, so it was disbanded. It has not been used up: it can be started again this week.`,
 
   // The fight
   fightTitle: (b: RaidBossText, round: number, maxRounds: number) => `${b.emoji} ${b.name} (round ${round} of ${maxRounds})`,
@@ -540,7 +546,7 @@ Grows with every raider (at least ${min}).`,
         `\`${p}raid test kill | wipe | flee\`: end the fight with that result`,
         `A fight the tools changed pays no rewards. \`${p}raid reset\` frees the week again afterwards.`,
       ].join('\n'),
-    noFight: 'There is no raid fight going on in this server right now. Start one (and press Start now to skip the lobby).',
+    noFight: 'There is no raid fight going on in this server right now. Start one (and press Start raid to get into the fight).',
     badHp: 'Give the HP as a number or a percentage, like `1200` or `40%`.',
     hp: (hp: string, max: string) => `Boss HP set to **${hp}** / ${max}.`,
     phase: (phase: string, hp: string) => `Boss set to **${phase}** (${hp} HP).`,

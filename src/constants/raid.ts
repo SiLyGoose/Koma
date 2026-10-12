@@ -17,7 +17,7 @@ export type RaidBossId = (typeof RAID_BOSS_IDS)[number];
  */
 export const RAID_TIME_ZONE = 'America/New_York';
 
-/** Longest the raid's lobby or a turn can be, in seconds (the `raid.prepareSeconds` and `raid.turnSeconds` settings). */
+/** Longest a raid's turn can be, in seconds (the `raid.turnSeconds` setting). */
 export const MAX_RAID_SECONDS = 1_800;
 
 /** Most rounds a raid can last (the `raid.maxRounds` setting). */
@@ -42,11 +42,16 @@ export const RAID_DIFFICULTY = { max: 10, milestoneEvery: 5, milestoneStars: 4, 
  * - `resultMs`: how long a round's result stays up before the next turn starts.
  * - `listMax`: how many players a list names before saying "...and N more".
  * - `healTargetId`, `healAutoValue`, `selectMax`: the private picker Heal uses to choose who to heal.
+ * - `lobbyIdleMs`: how long a lobby can sit with nothing happening in it (nobody joining, leaving or
+ *   changing the difficulty) before it disbands itself. The fight only starts when the host starts it, so
+ *   this is what frees the server (and the week's raid) from a lobby its host walked away from.
  */
 export const RAID = {
   joinId: 'raid_join',
   leaveId: 'raid_leave',
   startId: 'raid_start',
+  disbandId: 'raid_disband',
+  lobbyIdleMs: 60 * 60_000,
   /** The lobby's difficulty picker (the host's). */
   difficultyId: 'raid_difficulty',
   /** The button under a won raid that shows a raider their own items, privately, and how long it stays (ms). */

@@ -42,7 +42,11 @@ function openTestLobby(host = 'u1', maxDifficulty = 1) {
   let difficulty = 1;
   live.openLobby({
     players,
-    closesAt: Date.now() + 60_000,
+    disband(userId): LobbyAnswer {
+      if (players[0] !== userId) return 'only_host';
+      live.end({ end: 'disbanded', state: null, rewarded: false });
+      return 'disbanded';
+    },
     get difficulty() {
       return difficulty;
     },
@@ -399,4 +403,32 @@ test('the end screen: each raider is sent their own raid items, best first, from
     ],
   });
   assert.equal(raidView('u2', week({ status: 'won', result }), null).over?.loot, null);
+});
+
+test('the lobby has no countdown, and its host can disband it: the week is shown again, to start again', async () => {
+  clearLiveRaids();
+  resetLive();
+  openTestLobby('u1');
+  const host = await connect('u1');
+  const other = await connect('u2');
+  assert.equal(host.last().phase, 'lobby');
+  assert.ok(!('closesAt' in (host.last().lobby ?? {})), 'no time it starts by itself');
+
+  await other.say({ t: 'disband' });
+  assert.deepEqual(other.answers().at(-1), { t: 'answer', to: 'disband', code: 'only_host' });
+  assert.equal(host.last().phase, 'lobby');
+  await host.say({ t: 'disband' });
+  assert.deepEqual(host.answers().at(-1), { t: 'answer', to: 'disband', code: 'ok' });
+  await wait();
+  for (const page of [host, other]) {
+    assert.equal(page.last().phase, 'idle');
+    assert.equal(page.last().idle?.last, 'disbanded');
+    assert.equal(page.last().idle?.canStart, true);
+  }
+  // Nothing left to disband.
+  await host.say({ t: 'disband' });
+  assert.deepEqual(host.answers().at(-1), { t: 'answer', to: 'disband', code: 'no_raid' });
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'disband' })), { t: 'disband' });
+  host.connection.closed();
+  other.connection.closed();
 });

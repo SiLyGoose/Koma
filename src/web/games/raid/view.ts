@@ -61,9 +61,10 @@ export const picturePath = (boss: RaidBossId, mood: RaidMood): string => `/api/r
 export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null, now: number = Date.now(), avatar: (userId: string) => string | null = () => null): RaidView {
   // The last raid, until a while after it ended (or the week reset).
   const recent = live && (live.phase !== 'over' || (live.endedAt !== null && now - live.endedAt < OVER_MS && now < week.resetsAt)) ? live : null;
-  // One that never came to a fight (nobody joined, or it was called off) freed the week: the week is
-  // shown as it stands (to start again), with a word on how the lobby went.
-  const unfought = recent?.phase === 'over' && (recent.over?.end === 'no_players' || recent.over?.end === 'called_off') ? recent.over.end : null;
+  // One that never came to a fight (everyone left, it was disbanded, or it was called off) freed the
+  // week: the week is shown as it stands (to start again), with a word on how the lobby went.
+  const end = recent?.phase === 'over' ? recent.over?.end : undefined;
+  const unfought = end === 'no_players' || end === 'disbanded' || end === 'called_off' ? end : null;
   const current = unfought ? null : recent;
   const bossId = current?.boss ?? week.boss;
   const b = TEXT.raid.bosses[bossId];
@@ -85,14 +86,14 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
   const view = (mood: RaidMood, rest: Partial<RaidView> & Pick<RaidView, 'phase'>): RaidView => ({ ...base, mood, picture: picturePath(bossId, mood), ...rest });
 
   if (current?.phase === 'lobby' && current.lobby) {
-    const { players, closesAt, maxDifficulty } = current.lobby;
+    const { players, maxDifficulty } = current.lobby;
     const picked = current.lobby.difficulty;
     const bossHp = bossHpFor(players.length, bossId, CONFIG.raid, difficultyOf(picked, CONFIG.raid).hp);
     return view('calm', {
       phase: 'lobby',
       difficulty: picked,
       brief: bossBrief(CONFIG.raid, bossId, picked),
-      lobby: { host: players[0] ?? current.host, players: [...players], closesAt, bossHp, difficulty: picked, maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels() },
+      lobby: { host: players[0] ?? current.host, players: [...players], bossHp, difficulty: picked, maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels() },
     });
   }
 

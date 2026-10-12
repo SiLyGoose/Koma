@@ -341,7 +341,6 @@ export const SPECS: readonly SettingSpec[] = [
   int('raid.playerHp', 'Raid', "Every raid player's HP.", 1, MAX_POINTS),
   int('raid.maxRounds', 'Raid', 'Rounds before the raid boss flies off and the raid is lost.', 1, MAX_RAID_ROUNDS),
   int('raid.turnSeconds', 'Raid', 'Seconds raid players have to pick their action each round.', 10, MAX_RAID_SECONDS),
-  int('raid.prepareSeconds', 'Raid', 'Seconds the raid lobby stays open for joining before the fight starts.', 10, MAX_RAID_SECONDS),
   int('raid.reward', 'Raid', `${CURRENCY_EMOJI} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.tokenReward', 'Raid', `${TOKEN_NAME} (one free gacha pull each) each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
   int('raid.gemReward', 'Raid', `${GEM_NAME} each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),

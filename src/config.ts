@@ -218,8 +218,6 @@ export interface Settings {
     maxRounds: number;
     /** Seconds players have to pick their action each round. */
     turnSeconds: number;
-    /** Seconds the lobby stays open for joining before the fight starts. */
-    prepareSeconds: number;
     /** Points each player who took part gets when the boss is beaten. */
     reward: number;
     /** komaTokens (one free gacha pull each) each player who took part gets when the boss is beaten. */
@@ -364,7 +362,7 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   // The raid HP, tuned in simulated fights so a party where everyone wears a 3-star raid weapon and
   // armor at R3 wins about 60% of the time at any size from 5 to 10 (a party without gear, far less).
-  // Up to 15 rounds of 60 seconds after a 5-minute lobby.
+  // Up to 15 rounds of 60 seconds, once the host starts the fight from the lobby.
   // Beating it pays everyone who took part 1,000, a multi pull's worth of komaTokens (10) and 5 komaGems,
   // and the party a 20% chance (+10% for each raider) that everyone finds one of the 4-star raid drops.
   // That is difficulty 1; every level past it gives the boss 25% more of its HP and 10% more of its damage.
@@ -375,7 +373,6 @@ export const DEFAULTS: Readonly<Settings> = {
     playerHp: 100,
     maxRounds: 15,
     turnSeconds: 60,
-    prepareSeconds: 300,
     reward: 1_000,
     tokenReward: 10,
     gemReward: 5,

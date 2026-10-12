@@ -799,7 +799,6 @@ function lobbyView(
   boss: RaidBossId,
   host: string,
   players: readonly string[],
-  closesAt: number,
   cfg: RaidSettings,
   open: boolean,
   picked: LobbyDifficulty = { level: 1, max: 1 },
@@ -813,7 +812,7 @@ function lobbyView(
   const hasCc = movesOf(boss).some(isCcMove);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(b))
-    .setDescription(r.lobby(b, mention(host), unixOf(closesAt), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length, difficulty.level))
+    .setDescription(r.lobby(b, mention(host), cfg.maxRounds, fmt(cfg.reward), cfg.tokenReward, cfg.gemReward) + dropLine(cfg, players.length, difficulty.level))
     .addFields(
       {
         name: r.howToField,
@@ -841,6 +840,7 @@ function lobbyView(
     new ButtonBuilder().setCustomId(RAID.joinId).setLabel(r.joinButton).setStyle(ButtonStyle.Success).setDisabled(!open),
     new ButtonBuilder().setCustomId(RAID.leaveId).setLabel(r.leaveButton).setStyle(ButtonStyle.Secondary).setDisabled(!open),
     new ButtonBuilder().setCustomId(RAID.startId).setLabel(r.startButton).setStyle(ButtonStyle.Primary).setDisabled(!open || players.length === 0),
+    new ButtonBuilder().setCustomId(RAID.disbandId).setLabel(r.disbandButton).setStyle(ButtonStyle.Danger).setDisabled(!open),
   );
   // With the site up: the raid's page there, to join and fight from.
   const config = webConfig();
@@ -865,10 +865,16 @@ function lobbyView(
   return { embeds: [embed], components: [row, new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)] };
 }
 
+/** How a lobby closed: the host started the fight or disbanded it, everyone left, or it sat idle too long (RAID.lobbyIdleMs). */
+type LobbyEnd = 'start' | 'disbanded' | 'empty' | 'idle';
+
 /**
- * Runs the lobby until it closes (time up, or the host starts early). Returns who is in, in the order
- * they joined, and the difficulty the host picked (`startLevel` unless they changed it, at most
- * `maxDifficulty`). Discord's buttons and the site (through `live`) join, leave, pick and start the same way.
+ * Runs the lobby until it closes: there is no countdown, the fight starts when the host starts it. It
+ * also closes without a fight when the host (or the bot's admin) disbands it, when its last raider
+ * leaves, or when nothing has happened in it for RAID.lobbyIdleMs (or its message is gone). Returns how
+ * it closed (`by`: who disbanded it), who is in, in the order they joined, and the difficulty the host
+ * picked (`startLevel` unless they changed it, at most `maxDifficulty`). Discord's buttons and the site
+ * (through `live`) join, leave, pick, start and disband the same way.
  */
 async function runLobby(
   guildId: string,
@@ -881,22 +887,25 @@ async function runLobby(
   live: LiveRaid,
   maxDifficulty: number,
   startLevel = 1,
-): Promise<{ players: string[]; difficulty: number }> {
+): Promise<{ end: LobbyEnd; by: string | null; players: string[]; difficulty: number }> {
   const players = [host];
   const picked: LobbyDifficulty = { level: startLevel, max: maxDifficulty };
-  const closesAt = Date.now() + cfg.prepareSeconds * 1000;
   let open = true;
-  const screen = new RaidScreen(boss, message, () => lobbyView(guildId, boss, host, players, closesAt, cfg, true, picked), () => 'calm', 'calm');
-  // Buttons, and the host's difficulty picker.
-  const collector = message.createMessageComponentCollector({ time: cfg.prepareSeconds * 1000 });
+  let disbandedBy: string | null = null;
+  const screen = new RaidScreen(boss, message, () => lobbyView(guildId, boss, host, players, cfg, true, picked), () => 'calm', 'calm');
+  // Buttons, and the host's difficulty picker. No time limit: it stops when the lobby closes.
+  const collector = message.createMessageComponentCollector();
+  // Left alone too long, it disbands itself. Anything happening in it starts the wait again.
+  let idle = setTimeout(() => collector.stop('idle'), RAID.lobbyIdleMs);
   const changed = (): void => {
+    clearTimeout(idle);
+    idle = setTimeout(() => collector.stop('idle'), RAID.lobbyIdleMs);
     screen.update();
     live.changed();
   };
 
   const lobby: RaidLobbyLive = {
     players,
-    closesAt,
     join(userId, name) {
       if (!open) return 'closed';
       if (players.includes(userId)) return 'already_joined';
@@ -911,6 +920,8 @@ async function runLobby(
       if (at === -1) return 'not_joined';
       players.splice(at, 1);
       changed();
+      // Nobody left to fight (or to start it): the lobby closes.
+      if (players.length === 0) collector.stop('empty');
       return 'left';
     },
     // The first on the list: the host, or whoever joined next if they left.
@@ -919,6 +930,13 @@ async function runLobby(
       if (players[0] !== userId) return 'only_host';
       collector.stop('start');
       return 'started';
+    },
+    disband(userId) {
+      if (!open) return 'closed';
+      if (players[0] !== userId && !isAdmin(userId)) return 'only_host';
+      disbandedBy = userId;
+      collector.stop('disbanded');
+      return 'disbanded';
     },
     get difficulty() {
       return picked.level;
@@ -959,15 +977,28 @@ async function runLobby(
     if (press.customId === RAID.startId) {
       const answer = lobby.start(userId);
       if (answer === 'only_host') return void replyPrivately(press, TEXT.raid.onlyHost);
+      return void press.deferUpdate().catch(() => {});
+    }
+    if (press.customId === RAID.disbandId) {
+      const answer = lobby.disband(userId);
+      if (answer === 'only_host') return void replyPrivately(press, TEXT.raid.onlyHostDisband);
       void press.deferUpdate().catch(() => {});
     }
   });
 
-  await new Promise<void>((resolve) => collector.once('end', () => resolve()));
-  open = false;
+  // Whatever stops the collector closes the lobby, at once (nothing more gets in). Its message going
+  // (deleted, or its channel) leaves nothing to start the fight from: that counts as left idle.
+  const reason = await new Promise<string>((resolve) =>
+    collector.once('end', (_presses, why) => {
+      open = false;
+      resolve(why);
+    }),
+  );
+  clearTimeout(idle);
+  const end: LobbyEnd = reason === 'start' || reason === 'disbanded' || reason === 'empty' ? reason : 'idle';
   await screen.stop();
   await updateRaid(raidId, { players }).catch((err) => console.error(`Could not save the players of raid ${raidId}:`, err));
-  return { players: [...players], difficulty: picked.level };
+  return { end, by: disbandedBy, players: [...players], difficulty: picked.level };
 }
 
 // ---------------------------------------------------------------------------
@@ -1373,24 +1404,28 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
       id = started.id;
     }
 
-    const closesAt = Date.now() + cfg.prepareSeconds * 1000;
     const maxDifficulty = await maxRaidDifficulty(ctx.guildId);
     // The lobby opens at level 1, or at what the site's host picked before starting it (no further than the server has unlocked).
     const startLevel = clampDifficulty(web?.level ?? 1, maxDifficulty);
     // The preparation starts here: whoever took the raid role is pinged, once, by this first message.
-    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true, { level: startLevel, max: maxDifficulty }), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
+    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], cfg, true, { level: startLevel, max: maxDifficulty }), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 
     const names = new Map([[ctx.user.id, ctx.guild.members.cache.get(ctx.user.id)?.displayName ?? ctx.user.displayName]]);
     live = openLiveRaid(ctx.guildId, boss, ctx.user.id, names);
     web?.opened();
-    const { players, difficulty: level } = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live, maxDifficulty, startLevel);
-    if (players.length === 0) {
+    const { end: lobbyEnd, by, players, difficulty: level } = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live, maxDifficulty, startLevel);
+    // The lobby closed without a fight (disbanded, left idle, or everyone left): the week is freed, to start again.
+    if (lobbyEnd !== 'start' || players.length === 0) {
       await abandonRaid(id);
       settled = true;
-      live.end({ end: 'no_players', state: null, rewarded: false });
-      const embed = createEmbed().setTitle(TEXT.raid.bosses[boss].asleep).setDescription(TEXT.raid.noPlayers);
+      const disbanded = lobbyEnd === 'disbanded' || lobbyEnd === 'idle';
+      live.end({ end: disbanded ? 'disbanded' : 'no_players', state: null, rewarded: false });
+      const r = TEXT.raid;
+      const embed = createEmbed()
+        .setTitle(disbanded ? r.disbandedTitle : r.bosses[boss].asleep)
+        .setDescription(lobbyEnd === 'disbanded' && by ? r.disbanded(mention(by)) : lobbyEnd === 'idle' ? r.lobbyIdle(Math.round(RAID.lobbyIdleMs / 60_000)) : r.noPlayers);
       await message.edit({ embeds: [embed], components: [], files: [], attachments: [] }).catch(() => {});
       return;
     }

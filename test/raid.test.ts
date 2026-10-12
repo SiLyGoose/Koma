@@ -865,7 +865,7 @@ test('the dragon draws in every mood, at its size, and each mood looks different
 
 test('raid settings: the defaults are valid and every one can be changed', () => {
   assert.deepEqual(validateSettings(DEFAULTS), []);
-  for (const key of ['minRaiders', 'playerHp', 'maxRounds', 'turnSeconds', 'prepareSeconds', 'reward']) {
+  for (const key of ['minRaiders', 'playerHp', 'maxRounds', 'turnSeconds', 'reward']) {
     assert.ok(findSpec(`raid.${key}`), key);
   }
   // Every boss has its own HP per raider and overhead.
@@ -884,7 +884,9 @@ test('raid settings: the defaults are valid and every one can be changed', () =>
   assert.equal(findSpec('raid.maxBoost'), undefined);
   assert.ok(!('boostCost' in DEFAULTS.raid) && !('maxBoost' in DEFAULTS.raid));
   assert.equal(DEFAULTS.raid.reward, 1000);
-  assert.equal(DEFAULTS.raid.prepareSeconds, 300);
+  // The lobby has no countdown any more (the host starts the fight): no setting for one.
+  assert.equal(findSpec('raid.prepareSeconds'), undefined);
+  assert.ok(!('prepareSeconds' in DEFAULTS.raid));
   assert.equal(DEFAULTS.raid.turnSeconds, 60);
   assert.doesNotThrow(() => validateConstants());
 });
@@ -1059,8 +1061,10 @@ test('komaGems: a slain dragon gives every raider 5 by default, named next to th
 
   const won = TEXT.raid.won(4, '1,000', 10, 5);
   assert.ok(won.includes(`gets **1,000** <:zeiucoin:1551675032424546320>, **10** <:zeiutoken:1552921364489572362> and **5** ${GEM_EMOJI}.`), won);
-  const lobby = TEXT.raid.lobby(TEXT.raid.bosses.wyrm, '<@a>', 0, 15, '1,000', 10, 5);
+  const lobby = TEXT.raid.lobby(TEXT.raid.bosses.wyrm, '<@a>', 15, '1,000', 10, 5);
   assert.ok(lobby.includes(`**5** ${GEM_EMOJI}`), lobby);
+  // No countdown: the host starts it, or disbands it.
+  assert.ok(lobby.includes('**Start raid**') && lobby.includes('**Disband**') && !lobby.includes('<t:'), lobby);
   // A reward set to 0 is left out rather than shown as "0".
   assert.ok(TEXT.raid.won(4, '1,000', 10, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320> and **10** <:zeiutoken:1552921364489572362>.'));
   assert.ok(TEXT.raid.won(4, '1,000', 0, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320>.'));

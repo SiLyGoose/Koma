@@ -117,6 +117,11 @@ export function openConnection(page: Peer<ServerMessage>, deps: RaidSiteDeps): C
             const result = raid.lobby.start(who.userId);
             return answer('begin', result === 'started' ? 'ok' : result === 'only_host' || result === 'closed' ? result : 'failed');
           }
+          case 'disband': {
+            if (!raid?.lobby) return answer('disband', raid?.phase === 'fight' ? 'closed' : 'no_raid');
+            const result = raid.lobby.disband(who.userId);
+            return answer('disband', result === 'disbanded' ? 'ok' : result === 'only_host' || result === 'closed' ? result : 'failed');
+          }
           case 'difficulty': {
             if (!raid?.lobby) return answer('difficulty', raid?.phase === 'fight' ? 'closed' : 'no_raid');
             const result = raid.lobby.setDifficulty(who.userId, message.level);
