@@ -98,7 +98,7 @@ async function runSplitSteal(ctx: EventContext): Promise<void> {
   // Joining.
   const joinEndsMs = Date.now() + cfg.joinSeconds * 1000;
   const joinUnix = Math.floor(joinEndsMs / 1000);
-  const message = await channel.send({ embeds: [splitStealJoinEmbed(prize, cfg.minPlayers, joinUnix, 0)], components: [joinRow()], ...eventPing(guild) });
+  const message = await channel.send({ embeds: [splitStealJoinEmbed(prize, cfg.minPlayers, joinUnix, 0)], components: [joinRow()], ...(await eventPing(guild)) });
   console.log(`Split or Steal for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const players = await collectJoiners({
     message,

@@ -13,7 +13,7 @@ import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
 import { mention, starString } from '../lib/format.js';
-import { GROUPS, PER_SERVER_CHANNELS } from '../commands/config.js';
+import { GROUPS, PER_SERVER_CHANNELS, PER_SERVER_ROLES } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy/index.js';
 import { getPrefix } from '../services/settings.js';
@@ -162,9 +162,9 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     autocomplete: async (i) =>
       nameChoices(
         i.options.getFocused(),
-        // 'channel' and 'newsletter' aren't real SettingSpec entries (see commands/config.ts's
-        // handleChannelChange), but they're set/reset the same way, so they belong in the same list.
-        [...SPECS.map((spec) => spec.key), ...PER_SERVER_CHANNELS],
+        // The per-server channels and roles aren't real SettingSpec entries (see commands/config.ts's
+        // handleChannelChange and handleRoleChange), but they're set/reset the same way, so they belong in the same list.
+        [...SPECS.map((spec) => spec.key), ...PER_SERVER_CHANNELS, ...PER_SERVER_ROLES],
       ),
   },
 

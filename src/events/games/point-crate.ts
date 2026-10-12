@@ -203,7 +203,7 @@ async function runCrate(ctx: EventContext): Promise<void> {
     embeds: [crateEmbed(pile, Math.floor(endsAtMs / 1000), 0, picture !== null)],
     components: [grabRow()],
     ...(picture ? { files: [picture] } : {}),
-    ...eventPing(guild),
+    ...(await eventPing(guild)),
   });
   prepareEndPictures(tier);
   console.log(`A crate of ${pile} points landed in ${guild.id}, open for ${seconds} seconds.`);

@@ -18,6 +18,7 @@ import { raidBossPicture } from '../animations/images/raid-boss-image.js';
 import { replyPrivately } from '../discord/reply.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { claimGuild } from '../events/busy.js';
+import { raidPing } from '../events/ping.js';
 import { limitedLines } from '../events/games/vault-game.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import {
@@ -1228,7 +1229,8 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     }
 
     const closesAt = Date.now() + cfg.prepareSeconds * 1000;
-    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')] });
+    // The preparation starts here: whoever took the raid role is pinged, once, by this first message.
+    const sent = await ctx.reply({ ...lobbyView(ctx.guildId, boss, ctx.user.id, [ctx.user.id], closesAt, cfg, true), files: [bossFile(boss, 'calm')], ...(await raidPing(ctx.guild)) });
     message = await sent.fetchMessage();
     await updateRaid(id, { channelId: message.channelId, messageId: message.id, players: [ctx.user.id] });
 

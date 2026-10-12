@@ -468,6 +468,12 @@ export interface GuildDoc {
    * src/newsletter/roles.ts). Missing or null: none has been posted here.
    */
   roleMessageId?: string | null;
+  /**
+   * The roles this server pings: for events (`config set notifyRole`) and for raids (`config set
+   * raidRole`), see services/roles.ts. Missing means the built-in one (NOTIFY_ROLES); null means none.
+   */
+  notifyRoleId?: string | null;
+  raidRoleId?: string | null;
   /** When the last event started. */
   lastEventAt?: Date | null;
   /**

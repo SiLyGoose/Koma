@@ -123,7 +123,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
   let winner: string | null = null;
   const view = () => ({ embeds: [codeEmbed(prize, cfg.guessCost, endsAtUnix, guesses)], components: [guessRow()] });
 
-  const message = await channel.send({ ...view(), ...eventPing(guild) });
+  const message = await channel.send({ ...view(), ...(await eventPing(guild)) });
   console.log(`Codedle for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const live = new LiveMessage(message, CODE.refreshMs);
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.seconds * 1000 });

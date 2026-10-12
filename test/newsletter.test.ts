@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ADMIN_USER_ID } from '../src/config.js';
-import { CURRENCY_EMOJI, EVENT_PING_ROLE_IDS, FIELD_MAX_LENGTH, NEWSLETTER, NOTIFY_ROLES, SLASH_EXCLUDED, TEXT } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NEWSLETTER, NOTIFY_ROLES, SLASH_EXCLUDED, TEXT } from '../src/constants/index.js';
 import { commands } from '../src/commands/index.js';
 import { PER_SERVER_CHANNELS } from '../src/commands/config.js';
 import { newsletter } from '../src/commands/newsletter.js';
@@ -229,8 +229,6 @@ test('role message: an emoji gives its role, with or without the picture mark, a
   assert.equal(notifyRoleFor('⚔'), raid);
   assert.equal(notifyRoleFor('👍'), undefined);
   assert.equal(notifyRoleFor(null), undefined);
-  // The general role is the one events ping.
-  assert.ok(EVENT_PING_ROLE_IDS.includes(general.roleId));
 });
 
 test('role message: says how it works and lists each role offered next to its emoji', () => {

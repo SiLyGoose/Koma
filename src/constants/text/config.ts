@@ -66,5 +66,11 @@ export const configText = {
   channelInvalid: 'must be a channel mention or id, or "off"',
   channelMissing: "I can't find that channel in this server.",
   channelNotText: 'That is not a text channel I can send messages in. Pick a normal text channel.',
+  /**
+   * The `notifyRole` and `raidRole` settings: the roles this server pings for events and for raids
+   * (and hands out on its role message). Per-server like the channels, and set the same way.
+   */
+  roleInvalid: 'must be a role mention or id, or "off"',
+  roleMissing: "I can't find that role in this server.",
   channelNoPermission: (channel: string) => `I need to see ${channel}, send messages there and embed links. Give me those permissions there first.`,
 };

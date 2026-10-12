@@ -4,14 +4,16 @@
  */
 
 /**
- * The roles members give themselves by reacting to the role message (`newsletter roles`,
- * src/newsletter/roles.ts): the emoji to react with, and the role it gives. A server that doesn't
- * have one of these roles (the bot is in more than one) just isn't offered it.
+ * The notification roles: who is pinged when something starts (events/ping.ts), which members give
+ * themselves by reacting to the role message (`newsletter roles`, src/newsletter/roles.ts) with
+ * `emoji`. Each server chooses its own with `config set <setting>` (services/roles.ts); `roleId`
+ * is the one used until it does, which only means something in the server that has that role.
  */
 export const NOTIFY_ROLES = [
-  // Pinged when an event starts (EVENT_PING_ROLE_IDS).
-  { key: 'general', emoji: '🔔', roleId: '1553233108780847116' },
-  { key: 'raid', emoji: '⚔️', roleId: '1559020080753545307' },
+  // Pinged when an event starts (eventPing).
+  { key: 'general', setting: 'notifyRole', emoji: '🔔', roleId: '1553233108780847116' },
+  // Pinged when a raid's preparation starts (raidPing).
+  { key: 'raid', setting: 'raidRole', emoji: '⚔️', roleId: '1559020080753545307' },
 ] as const;
 
 export const NEWSLETTER = {

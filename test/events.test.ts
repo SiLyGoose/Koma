@@ -483,13 +483,25 @@ test('event command: the usage hint and the help usage name the actions that exi
   assert.doesNotMatch(eventCommand.slashUsage ?? '', /channel/);
 });
 
-test('event pings: the first message of an event pings the event role, only in a server that has it', async () => {
-  const { eventPing } = await import('../src/events/ping.js');
-  const { EVENT_PING_ROLE_IDS } = await import('../src/constants/index.js');
+test('pings: a first message pings the server\'s role, only when it has one set and still has it', async () => {
+  const { pingFor } = await import('../src/events/ping.js');
   const guildWith = (ids: string[]) => ({ roles: { cache: new Map(ids.map((id) => [id, {}])) } }) as never;
-  const [role] = EVENT_PING_ROLE_IDS;
-  assert.equal(role, '1553233108780847116');
-  assert.deepEqual(eventPing(guildWith([role as string, '999'])), { content: `<@&${role}>`, allowedMentions: { parse: [], roles: [role] } });
-  // Another server, without the role: no ping, and no dead mention either.
-  assert.deepEqual(eventPing(guildWith(['999'])), {});
+  const role = '1553233108780847116';
+  assert.deepEqual(pingFor(guildWith([role, '999']), role), { content: `<@&${role}>`, allowedMentions: { parse: [], roles: [role] } });
+  // The role isn't in this server (the built-in one, in another server): no ping, and no dead mention either.
+  assert.deepEqual(pingFor(guildWith(['999']), role), {});
+  // Turned off (`config set notifyRole off`).
+  assert.deepEqual(pingFor(guildWith([role]), null), {});
+});
+
+test('notification roles: each has its own setting, emoji and built-in role, listed with the other per-server settings', async () => {
+  const { NOTIFY_ROLES } = await import('../src/constants/index.js');
+  const { PER_SERVER_ROLES } = await import('../src/commands/config.js');
+  const { parseRoleArg } = await import('../src/lib/parse.js');
+  assert.deepEqual([...PER_SERVER_ROLES], ['notifyRole', 'raidRole']);
+  assert.deepEqual(NOTIFY_ROLES.map((role) => role.roleId), ['1553233108780847116', '1559020080753545307']);
+  assert.equal(new Set(NOTIFY_ROLES.map((role) => role.emoji)).size, NOTIFY_ROLES.length);
+  assert.equal(parseRoleArg('<@&123456789012345678>'), '123456789012345678');
+  assert.equal(parseRoleArg('123456789012345678'), '123456789012345678');
+  for (const bad of [undefined, '', '@everyone', '<#123456789012345678>', '<@123456789012345678>', '123']) assert.equal(parseRoleArg(bad), null, String(bad));
 });

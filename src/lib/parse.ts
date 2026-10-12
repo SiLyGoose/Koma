@@ -32,6 +32,15 @@ export function parseUserArg(arg: string | undefined): string | null {
 
 const CHANNEL_ARG = /^(?:<#(\d{17,20})>|(\d{17,20}))$/;
 
+const ROLE_ARG = /^(?:<@&(\d{17,20})>|(\d{17,20}))$/;
+
+/** The role id in a role mention like `<@&123456789012345678>`, or a bare id. Null if it is neither. */
+export function parseRoleArg(arg: string | undefined): string | null {
+  if (!arg) return null;
+  const match = ROLE_ARG.exec(arg);
+  return match ? (match[1] ?? match[2] ?? null) : null;
+}
+
 /** The channel id in a channel mention like `<#123456789012345678>`, or a bare id. Null if it is neither. */
 export function parseChannelArg(arg: string | undefined): string | null {
   if (!arg) return null;
