@@ -4,6 +4,7 @@ import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKE
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
 import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH, EVENT_PING_ROLE_IDS } from './events.js';
+import { NOTIFY_ROLES } from './newsletter.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MULTI_MIN_STARS, MAX_PITY, GACHA_ANIMATION, PITY_STARS, STAR_COLORS } from './items/gacha.js';
 import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
@@ -234,6 +235,8 @@ export function validateConstants(): void {
   }
 
   if (EVENT_PING_ROLE_IDS.some((id) => !/^\d{17,20}$/.test(id))) problems.push('EVENT_PING_ROLE_IDS must be role ids (the number, not <@&...>)');
+  if (NOTIFY_ROLES.some(({ roleId }) => !/^\d{17,20}$/.test(roleId))) problems.push('NOTIFY_ROLES must have role ids (the number, not <@&...>)');
+  if (new Set(NOTIFY_ROLES.map(({ emoji }) => emoji)).size !== NOTIFY_ROLES.length) problems.push('NOTIFY_ROLES must each have their own emoji');
   if (!(CODE_LENGTH >= 1 && CODE_LENGTH <= 10)) problems.push('CODE_LENGTH must be from 1 to 10 (the pop-up box and the board have to fit it)');
   if (!(CODE.modalMs >= 10_000 && CODE.modalMs <= 900_000)) problems.push('CODE.modalMs must be from 10000 to 900000 (Discord drops a pop-up after 15 minutes)');
 

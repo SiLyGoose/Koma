@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ADMIN_USER_ID } from '../src/config.js';
-import { CURRENCY_EMOJI, FIELD_MAX_LENGTH, NEWSLETTER, SLASH_EXCLUDED, TEXT } from '../src/constants/index.js';
+import { CURRENCY_EMOJI, EVENT_PING_ROLE_IDS, FIELD_MAX_LENGTH, NEWSLETTER, NOTIFY_ROLES, SLASH_EXCLUDED, TEXT } from '../src/constants/index.js';
 import { commands } from '../src/commands/index.js';
 import { PER_SERVER_CHANNELS } from '../src/commands/config.js';
 import { newsletter } from '../src/commands/newsletter.js';
@@ -13,6 +13,7 @@ import { robLines, weekDate, weeklyDigest } from '../src/newsletter/digest.js';
 import { bossForWeek } from '../src/lib/events/raid-boss.js';
 import { parsePatchNotes, parseVersion, sectionHeading } from '../src/lib/patch-notes.js';
 import { patchNotesEmbed } from '../src/newsletter/patch-notes.js';
+import { notifyRoleFor, roleMessageEmbed } from '../src/newsletter/roles.js';
 
 const at = (minute: number): Date => new Date(Date.UTC(2026, 9, 5, 12, minute));
 const won = (robber: string, victim: string, amount: number, minute: number): RobEntry => ({ userId: robber, otherUserId: victim, delta: amount, reason: 'rob_won', createdAt: at(minute) });
@@ -216,4 +217,27 @@ test('textAfterCommand: everything after the command name, line breaks kept', ()
   assert.equal(textAfterCommand('k!newsletter patch\n- Robs read better\n- STONKS! on k!bal', 'k!'), 'patch\n- Robs read better\n- STONKS! on k!bal');
   assert.equal(textAfterCommand('K!News   patch  hi ', 'k!'), 'patch  hi');
   assert.equal(textAfterCommand('k!newsletter', 'k!'), '');
+});
+
+// ---------------------------------------------------------------------------
+// The role message
+
+test('role message: an emoji gives its role, with or without the picture mark, and others give none', () => {
+  const [general, raid] = NOTIFY_ROLES;
+  assert.equal(notifyRoleFor('🔔'), general);
+  assert.equal(notifyRoleFor('⚔️'), raid);
+  assert.equal(notifyRoleFor('⚔'), raid);
+  assert.equal(notifyRoleFor('👍'), undefined);
+  assert.equal(notifyRoleFor(null), undefined);
+  // The general role is the one events ping.
+  assert.ok(EVENT_PING_ROLE_IDS.includes(general.roleId));
+});
+
+test('role message: says how it works and lists each role offered next to its emoji', () => {
+  const embed = roleMessageEmbed(NOTIFY_ROLES).toJSON();
+  assert.equal(embed.title, TEXT.newsletter.rolesTitle);
+  assert.ok(embed.description?.startsWith(TEXT.newsletter.rolesIntro));
+  for (const role of NOTIFY_ROLES) assert.ok(embed.description?.includes(`${role.emoji} <@&${role.roleId}>`));
+  const onlyRaid = roleMessageEmbed([NOTIFY_ROLES[1]]).toJSON();
+  assert.ok(!onlyRaid.description?.includes(NOTIFY_ROLES[0].roleId));
 });

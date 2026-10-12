@@ -463,6 +463,11 @@ export interface GuildDoc {
    * channel was chosen in (so the first digest waits for the next reset). Missing or null: not yet.
    */
   newsletterWeek?: string | null;
+  /**
+   * The message members react to for their notification roles (`newsletter roles`,
+   * src/newsletter/roles.ts). Missing or null: none has been posted here.
+   */
+  roleMessageId?: string | null;
   /** When the last event started. */
   lastEventAt?: Date | null;
   /**

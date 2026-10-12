@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { getBalance } from './services/economy/index.js';
 import { handleAutocomplete, handleMessage, handleSlash } from './discord/dispatch.js';
 import { commands } from './commands/index.js';
@@ -11,6 +11,7 @@ import { closeDb, connectDb } from './db.js';
 import { validateEvents } from './events/registry.js';
 import { resumeOpenEvents } from './events/runner.js';
 import { startEventScheduler } from './events/scheduler.js';
+import { handleRoleReaction } from './newsletter/roles.js';
 import { startNewsletterScheduler } from './newsletter/send.js';
 import { requireEnv } from './env.js';
 import { prepareShootingStars } from './animations/gacha-reply.js';
@@ -124,7 +125,10 @@ async function main(): Promise<void> {
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageReactions],
+    // The role message (newsletter/roles.ts) was usually posted before this start, so it isn't in
+    // the cache: without these, reactions to it would never be heard of.
+    partials: [Partials.Message, Partials.Reaction, Partials.User],
   });
 
   let stopEvents: () => void = () => {};
@@ -181,6 +185,14 @@ async function main(): Promise<void> {
 
   client.on(Events.MessageCreate, (message) => {
     void handleMessage(message, getPrefix());
+  });
+
+  // Reactions put on and taken off the role message give and take its roles.
+  client.on(Events.MessageReactionAdd, (reaction, user) => {
+    void handleRoleReaction(reaction, user, true);
+  });
+  client.on(Events.MessageReactionRemove, (reaction, user) => {
+    void handleRoleReaction(reaction, user, false);
   });
 
   // Slash commands and the suggestion lists of their options. Button presses are handled where the

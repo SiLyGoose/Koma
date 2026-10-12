@@ -29,6 +29,16 @@ export async function setNewsletterChannelId(actorId: string, guildId: string, c
   return { ok: true };
 }
 
+/** The message `guildId`'s members react to for their notification roles, or null when none was posted. */
+export async function getRoleMessageId(guildId: string): Promise<string | null> {
+  const doc = await collections().guilds.findOne({ _id: guildId }, { projection: { roleMessageId: 1 } });
+  return doc?.roleMessageId ?? null;
+}
+
+export async function setRoleMessageId(guildId: string, messageId: string): Promise<void> {
+  await collections().guilds.updateOne({ _id: guildId }, { $set: { roleMessageId: messageId } }, { upsert: true });
+}
+
 export interface NewsletterGuild {
   guildId: string;
   channelId: string;

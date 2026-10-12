@@ -5,13 +5,14 @@ import type { Command, CommandContext } from '../discord/types.js';
 import { createEmbed } from '../lib/embed.js';
 import { parsePatchNotes, parseVersion } from '../lib/patch-notes.js';
 import { patchNotesEmbed } from '../newsletter/patch-notes.js';
+import { postRoleMessage } from '../newsletter/roles.js';
 import { broadcastPatchNotes, previewDigest } from '../newsletter/send.js';
-import { listNewsletterGuilds } from '../services/newsletter.js';
+import { getNewsletterChannelId, listNewsletterGuilds } from '../services/newsletter.js';
 
 /*
  * The newsletter, for the bot admin (src/newsletter): see what this server's weekly digest looks
  * like so far, or send patch notes (what's been added, changed, fixed or removed) to every server's
- * newsletter channel. Prefix only (SLASH_EXCLUDED): patch notes keep their line breaks, which a
+ * newsletter channel, or post the message members react to for their notification roles. Prefix only (SLASH_EXCLUDED): patch notes keep their line breaks, which a
  * slash command's options can't hold.
  */
 
@@ -24,6 +25,24 @@ function textAfter(ctx: CommandContext, skip: number): string {
 async function preview(ctx: CommandContext): Promise<void> {
   const digest = await previewDigest(ctx.guildId);
   await ctx.reply({ ...digest, allowedMentions: { parse: [] } });
+}
+
+/** `newsletter roles`: posts the role message in this server's newsletter channel, unless it's already up. */
+async function roles(ctx: CommandContext): Promise<void> {
+  const t = TEXT.newsletter;
+  const channelId = await getNewsletterChannelId(ctx.guildId);
+  if (channelId === null) {
+    await ctx.reply(t.noChannel(ctx.prefix));
+    return;
+  }
+  const posted = await postRoleMessage(ctx.guild, channelId);
+  if (posted.ok) {
+    const tooHigh = posted.tooHigh.map((id) => `<@&${id}>`).join(' ');
+    await ctx.reply([t.rolesPosted(posted.url), ...(tooHigh ? [t.rolesTooHigh(tooHigh)] : [])].join('\n'));
+    return;
+  }
+  if (posted.reason === 'already') await ctx.reply(t.rolesAlready(posted.url));
+  else await ctx.reply({ no_roles: t.rolesNone, no_channel: t.rolesNoChannel, no_manage: t.rolesNoManage }[posted.reason]);
 }
 
 async function patch(ctx: CommandContext): Promise<void> {
@@ -83,7 +102,7 @@ export const newsletter: Command = {
   category: 'bot',
   aliases: ['news'],
   description: 'Patch notes and the weekly newsletter (bot admin only).',
-  usage: 'newsletter preview | patch <version> <notes>',
+  usage: 'newsletter preview | roles | patch <version> <notes>',
   adminOnly: true,
 
   async execute(ctx) {
@@ -93,6 +112,7 @@ export const newsletter: Command = {
     }
     const action = ctx.args[0]?.toLowerCase();
     if (action === 'preview') return preview(ctx);
+    if (action === 'roles') return roles(ctx);
     if (action === 'patch') return patch(ctx);
     await ctx.reply(TEXT.newsletter.usage(ctx.prefix));
   },

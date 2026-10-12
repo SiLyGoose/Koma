@@ -3,6 +3,17 @@
  * patch notes the bot admin sends with `newsletter patch`.
  */
 
+/**
+ * The roles members give themselves by reacting to the role message (`newsletter roles`,
+ * src/newsletter/roles.ts): the emoji to react with, and the role it gives. A server that doesn't
+ * have one of these roles (the bot is in more than one) just isn't offered it.
+ */
+export const NOTIFY_ROLES = [
+  // Pinged when an event starts (EVENT_PING_ROLE_IDS).
+  { key: 'general', emoji: '🔔', roleId: '1553233108780847116' },
+  { key: 'raid', emoji: '⚔️', roleId: '1559020080753545307' },
+] as const;
+
 export const NEWSLETTER = {
   /**
    * Whether the weekly digest goes out on its own. While it's off, `newsletter preview` still shows

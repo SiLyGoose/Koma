@@ -63,6 +63,23 @@ export const newsletterText = {
   patchTooLong: (max: number) => `Patch notes can be at most ${max} characters.`,
 
   // ---------------------------------------------------------------------------
+  // The role message: members react to it for their notification roles.
+
+  rolesTitle: '🔔 Notification roles',
+  rolesIntro: 'React below to get a role. Take your reaction off again to drop it.',
+  /** What each role (NOTIFY_ROLES' keys) is for. */
+  rolesAbout: { general: 'general notifications', raid: 'raids' },
+  rolesLine: (emoji: string, roleId: string, about: string) => `${emoji} <@&${roleId}>: ${about}`,
+  /** `link` is the message's. */
+  rolesPosted: (link: string) => `Posted the role message: ${link}`,
+  rolesAlready: (link: string) => `The role message is already up: ${link}\nDelete it first if you want a new one.`,
+  rolesNone: "This server has none of the notification roles, so there's nothing to hand out.",
+  rolesNoChannel: "I can't post in the newsletter channel. I need to see it, send messages and embeds, read its history and add reactions there.",
+  rolesNoManage: 'I need the Manage Roles permission to hand out roles.',
+  /** Roles the bot can't give: they're above its own. `roles` are mentions. */
+  rolesTooHigh: (roles: string) => `I can't give ${roles} yet: move my role above ${roles.includes(' ') ? 'them' : 'it'} in the server's role list.`,
+
+  // ---------------------------------------------------------------------------
   // The command itself.
 
   adminOnly: 'Only the bot admin can use the newsletter command.',
@@ -70,6 +87,7 @@ export const newsletterText = {
   usage: (p: string) =>
     [
       `\`${p}newsletter preview\`: what this server's weekly newsletter looks like so far`,
+      `\`${p}newsletter roles\`: post the message members react to for their notification roles, in this server's newsletter channel (once)`,
       `\`${p}newsletter patch <version> <notes>\`: send patch notes for that version (like \`1.0\`) to every server's newsletter channel, in Added, Changed, Fixed and Removed sections (you see a preview first)`,
     ].join('\n'),
 };
