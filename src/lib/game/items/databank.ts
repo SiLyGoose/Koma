@@ -2,6 +2,7 @@ import { CONFIG } from '../../../config.js';
 import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_EMOJI, STAR_SYMBOL, TEXT } from '../../../constants/index.js';
 import { STARS, type ItemDef, type Stars } from '../../../types.js';
 import { describeEffects, showsMasterwork } from './equipment.js';
+import { raidShopPrice, soldInRaidShop } from './raid-shop.js';
 import { formatPercent, mentionList, starString } from '../../format.js';
 
 /** One embed field of the databank. */
@@ -14,7 +15,7 @@ export interface DatabankField {
  * The text for one item: its name and slot, then one line per effect at today's strength at a
  * refinement level (fully refined unless given) and with or without its masterwork bonus (without
  * unless given: shown locked), then who it is exclusive to when only some members can use it, and
- * that it only drops from raid bosses when the gacha never gives it.
+ * where it comes from (raid bosses, and the raid shop when that sells it) when the gacha never gives it.
  */
 export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): string {
   const effects = describeEffects(item, 1, level, masterwork);
@@ -22,7 +23,7 @@ export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, master
     TEXT.databank.item(item.name, SLOT_EMOJI[item.slot], showsMasterwork(item, level, masterwork)),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
     ...(item.usableBy ? [TEXT.databank.exclusive(mentionList(item.usableBy))] : []),
-    ...(item.raidDrop ? [TEXT.databank.raidDrop] : []),
+    ...(item.raidDrop ? [soldInRaidShop(item, CONFIG.raid.shop) ? TEXT.databank.raidDropOrShop : TEXT.databank.raidDrop] : []),
   ].join('\n');
 }
 
@@ -155,7 +156,17 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, maste
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),
-      ...(item.raidDrop ? [{ name: TEXT.databank.detailRaidDropField, value: TEXT.databank.detailRaidDrop, inline: false }] : []),
+      ...(item.raidDrop
+        ? [
+            {
+              name: TEXT.databank.detailRaidDropField,
+              value: soldInRaidShop(item, CONFIG.raid.shop)
+                ? `${TEXT.databank.detailRaidDrop} ${TEXT.databank.detailRaidShop(TEXT.balance.gems(raidShopPrice(item, CONFIG.raid.shop)))}`
+                : TEXT.databank.detailRaidDrop,
+              inline: false,
+            },
+          ]
+        : []),
     ],
   };
 }

@@ -40,10 +40,13 @@ export const databankText = {
   notYours: "This isn't your databank to flip through.",
   /** Last line of an item that only some members can use. `owners` is mentions. */
   exclusive: (owners: string) => `Exclusive to ${owners}`,
-  /** Last line of an item the gacha never gives (ItemDef.raidDrop). */
+  /** Last line of an item the gacha never gives (ItemDef.raidDrop): one the raid shop doesn't sell, and one it does. */
   raidDrop: '🎁 Only drops from raid bosses',
+  raidDropOrShop: '🎁 Drops from raid bosses, or bought in the raid shop',
   detailRaidDropField: 'Where to get it',
   detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives the party a chance (higher with more raiders) that every raider finds one.",
+  /** Added to detailRaidDrop for an item the raid shop sells. `price` is a copy's, like "**10** <gem>". */
+  detailRaidShop: (price: string) => `The raid shop on the site also sells it for ${price}, on the weeks it's on the shelf.`,
   footer: (p: string) =>
     `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, ${p}databank <weapon | armor | treasure> one category, and ${p}databank bosses the raid bosses. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
   /** The details of one item (`databank <item>`). `stars` is the star string. */

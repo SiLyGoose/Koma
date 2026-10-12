@@ -3,6 +3,7 @@ import { CONFIG } from '../../config.js';
 import { RAID_BOSS_IDS, REFINE, TEXT, type RaidBossId } from '../../constants/index.js';
 import { ITEMS } from '../../data/items.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
+import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import type { ItemDef, Slot, Stars } from '../../types.js';
 import type { RaidLevel } from '../games/raid/protocol.js';
 import { difficultyLevels, picturePath } from '../games/raid/view.js';
@@ -28,11 +29,13 @@ export interface DatabankItem {
   masterwork: string[] | null;
   /** Made for certain members: the share of its effects anyone else gets (null when anyone can use it). */
   borrowed: number | null;
-  /** Where it comes from: pulled from the gacha, or only dropped by raid bosses (ItemDef.raidDrop). */
+  /** Where it first comes from: pulled from the gacha, or dropped by raid bosses (ItemDef.raidDrop). */
   source: ItemSource;
+  /** Every place it comes from, `source` first: a raid item the raid shop sells (lib/game/items/raid-shop.ts) has that too. */
+  sources: ItemSource[];
 }
 
-export type ItemSource = 'gacha' | 'raid';
+export type ItemSource = 'gacha' | 'raid' | 'raidShop';
 
 /** One raid boss: what `raid stats` says of it. */
 export interface DatabankBoss {
@@ -102,6 +105,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: item.raidDrop ? 'raid' : 'gacha',
+      sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : ['gacha'],
     }),
   );
   // A stable sort: within a tier, the catalog's own order.

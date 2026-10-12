@@ -193,8 +193,11 @@ test('raid drops: the result screen after a win lists what each raider found', (
 
 test('raid drops: the databank says where to get them', () => {
   const item = ITEMS_BY_ID.get('colossus-plate') as ItemDef;
-  assert.ok(itemBlock(item).endsWith(TEXT.databank.raidDrop));
-  assert.ok(itemDetail(item).fields.some((f) => f.name === TEXT.databank.detailRaidDropField));
+  // From raid bosses, and (a raid item the raid shop sells) from the shop, at its tier's price.
+  assert.ok(itemBlock(item).endsWith(TEXT.databank.raidDropOrShop));
+  const where = itemDetail(item).fields.find((f) => f.name === TEXT.databank.detailRaidDropField)?.value ?? '';
+  assert.ok(where.startsWith(TEXT.databank.detailRaidDrop), where);
+  assert.ok(where.includes(`sells it for **${DEFAULTS.raid.shop.price[4]}** `), where);
   const pulled = ITEMS_BY_ID.get('troll-hide-cuirass') as ItemDef;
   assert.ok(!itemBlock(pulled).includes(TEXT.databank.raidDrop));
 });

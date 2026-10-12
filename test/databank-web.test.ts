@@ -45,6 +45,8 @@ test('databank page: says where each item comes from, and the raid drop chance',
   assert.equal(raidDropChance, CONFIG.raid.dropChance);
   assert.equal(raidDropChancePerRaider, CONFIG.raid.dropChancePerRaider);
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : 'gacha', item.id);
+  // Every place it comes from: a raid item is sold in the raid shop too.
+  for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : ['gacha'], item.id);
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
 });
 

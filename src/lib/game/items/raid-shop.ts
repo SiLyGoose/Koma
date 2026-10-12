@@ -32,6 +32,16 @@ export interface ShelfRefresh {
   refreshes: number;
 }
 
+/** Whether the raid shop sells `item` at all: a raid item of a tier it has a shelf for (which weeks it's on a shelf is raidShopStock's). */
+export const soldInRaidShop = (item: ItemDef, shop: ShopSettings): boolean =>
+  item.raidDrop === true && RAID_SHOP_STARS.some((stars) => stars === item.stars && Math.floor(shop.stock[stars] ?? 0) > 0);
+
+/** What a copy of `item` costs in the raid shop, in komaGems (0 for one it doesn't sell). */
+export function raidShopPrice(item: ItemDef, shop: ShopSettings): number {
+  const stars = RAID_SHOP_STARS.find((tier) => tier === item.stars);
+  return stars !== undefined && soldInRaidShop(item, shop) ? Math.max(0, Math.floor(shop.price[stars] ?? 0)) : 0;
+}
+
 /** Where an item falls on a shelf (`shelf` names it): the same every time, and unrelated to any other item's. */
 const shelfOrder = (shelf: string, itemId: string): string => createHash('sha256').update(`${shelf}:${itemId}`).digest('hex');
 
