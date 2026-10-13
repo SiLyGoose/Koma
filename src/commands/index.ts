@@ -28,6 +28,7 @@ import { skip } from './skip.js';
 import type { Command } from '../discord/types.js';
 import { unequip } from './unequip.js';
 import { forge } from './forge.js';
+import { raidClass } from './class.js';
 import { lock, unlock } from './lock.js';
 import { vault } from './vault.js';
 
@@ -45,6 +46,7 @@ export const commands: Command[] = [
   unlock,
   sell,
   gear,
+  raidClass,
   databank,
   balance,
   rob,

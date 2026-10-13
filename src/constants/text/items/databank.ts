@@ -45,7 +45,7 @@ export const databankText = {
   /** `databank classes`: a class's page. Its items are listed fully refined. */
   classItemsField: 'Class items',
   classNoItems: 'It has no class items yet.',
-  classFooter: (p: string) => `Pick your class on the site's gear page, by the ribbon over your character. ${p}databank <item> shows one of these items in full.`,
+  classFooter: (p: string) => `Pick your class with ${p}class <name>, or on the site's gear page by the ribbon over your character. ${p}databank <item> shows one of these items in full.`,
   noSuchClass: (p: string, query: string, classes: string) => `There is no raid class called "${query}". The classes are ${classes}, and \`${p}databank classes\` shows them all.`,
   /** Last line of an item that only some members can use. `owners` is mentions. */
   exclusive: (owners: string) => `Exclusive to ${owners}`,

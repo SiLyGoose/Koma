@@ -8,7 +8,7 @@ import {
   type ChatInputCommandInteraction,
   type RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord.js';
-import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, RAID_BOSS_IDS, SLASH_EXCLUDED, SLOT_LABELS, TEXT } from '../constants/index.js';
+import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, RAID_BOSS_IDS, RAID_CLASS_IDS, SLASH_EXCLUDED, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
@@ -306,6 +306,20 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   leaderboard: { build: () => {}, toArgs: () => [] },
+
+  class: {
+    build: (b) =>
+      void b.addStringOption((o) =>
+        o
+          .setName('class')
+          .setDescription('The raid class to pick (leave out to see yours)')
+          .addChoices(...RAID_CLASS_IDS.map((id) => ({ name: TEXT.raid.classes[id].name, value: id })), { name: 'None', value: 'none' }),
+      ),
+    toArgs: (i) => {
+      const picked = i.options.getString('class');
+      return picked ? [picked] : [];
+    },
+  },
 
   raid: {
     description: "This week's raid: fight this week's boss together for a reward (resets Saturday midnight Eastern).",

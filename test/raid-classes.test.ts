@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { RAID_CLASS_EMOJI, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, type RaidBossId, type RaidClassId } from '../src/constants/index.js';
+import { RAID_CLASS_EMOJI, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, TEXT, type RaidBossId, type RaidClassId } from '../src/constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../src/data/items.js';
 import { itemBlock, itemDetail } from '../src/lib/game/items/databank.js';
 import type { ItemDef } from '../src/types.js';
@@ -461,4 +461,21 @@ test('raid classes: a warrior has more HP, strikes back once a round when hit, a
       ['none1', RAID_COMBAT.heal.amount],
     ],
   );
+});
+
+test('class command: a class by its id or name, none to clear it, and anything else is neither', async () => {
+  const { classPick, raidClass } = await import('../src/commands/class.js');
+  const { commands } = await import('../src/commands/index.js');
+  for (const id of RAID_CLASS_IDS) {
+    assert.equal(classPick(id), id);
+    assert.equal(classPick(` ${TEXT.raid.classes[id].name.toUpperCase()} `), id);
+  }
+  for (const word of ['none', 'Clear', 'reset', 'off']) assert.equal(classPick(word), 'none', word);
+  for (const word of ['', 'bard', 'knights', 'knight priest']) assert.equal(classPick(word), undefined, word);
+  assert.ok(commands.includes(raidClass));
+  assert.equal(raidClass.name, 'class');
+  // What it tells them: every class with its badge, and that a pick counts from the next raid.
+  const none = TEXT.raid.classCommand.none('k!', 'the classes');
+  assert.ok(none.includes('`k!class <name>`') && none.includes('`k!databank classes`'), none);
+  assert.match(TEXT.raid.classCommand.picked('Knight'), /now a \*\*Knight\*\*\. It counts from the next raid you fight\./);
 });

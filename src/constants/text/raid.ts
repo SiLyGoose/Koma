@@ -78,6 +78,15 @@ export const raidText = {
     assassin: { name: CLASS_NAMES.assassin, emoji: RAID_CLASS_EMOJI.assassin },
     archer: { name: CLASS_NAMES.archer, emoji: RAID_CLASS_EMOJI.archer },
   } satisfies Record<RaidClassId, { name: string; emoji: string }>,
+  /** The `class` command: seeing and picking a raid class. `classes` is every class, listed. */
+  classCommand: {
+    none: (p: string, classes: string) =>
+      `You have no raid class yet. Pick one with \`${p}class <name>\`: ${classes}. \`${p}databank classes\` shows what each does.`,
+    yours: (p: string) => `Your raid class. Change it with \`${p}class <name>\`, or clear it with \`${p}class none\`.`,
+    picked: (name: string) => `You are now a **${name}**. It counts from the next raid you fight.`,
+    cleared: (p: string) => `You have no raid class now. Pick one again with \`${p}class <name>\`.`,
+    noSuchClass: (p: string, query: string, classes: string) => `There is no raid class called "${query}". The classes are ${classes}. \`${p}class none\` clears yours.`,
+  },
   /** A class as Discord names it: its badge, then its name. */
   classLabel: (id: RaidClassId): string => `${RAID_CLASS_EMOJI[id]} ${CLASS_NAMES[id]}`,
   /**
