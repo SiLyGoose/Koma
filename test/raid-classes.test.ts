@@ -233,15 +233,18 @@ test('raid classes: each has a 4-star raid item whose perk only works for that c
   const items: [RaidClassId, string, string, (keyof ReturnType<typeof emptyGear>)[]][] = [
     ['knight', 'oathkeepers-aegis', 'armor', ['partyGuard']],
     ['warrior', 'warlords-greataxe', 'weapon', ['warriorCounter']],
-    ['priest', 'dawnsong-censer', 'weapon', ['partyHeal']],
+    ['priest', 'dawnsong-censer', 'weapon', ['circleOfDeath']],
+    ['priest', 'choirmasters-vestments', 'weapon', ['partyHeal']],
     ['mechanic', 'stormcoil-spanner', 'weapon', ['rallyCrit']],
     ['wizard', 'hexweavers-staff', 'weapon', ['hexBoost']],
-    ['assassin', 'nightfall-shroud', 'armor', ['assassinStrike', 'assassinCrit']],
-    ['archer', 'windrunners-mantle', 'armor', ['archerRamp']],
+    ['assassin', 'nightfall-shroud', 'weapon', ['assassinStrike', 'assassinCrit']],
+    ['archer', 'windrunners-mantle', 'weapon', ['archerRamp']],
   ];
+  // Every class has one; the priest has two, both weapons (so a priest wears one or the other).
+  assert.deepEqual([...new Set(items.map(([id]) => id))], [...RAID_CLASS_IDS]);
   assert.deepEqual(
-    items.map(([id]) => id),
-    [...RAID_CLASS_IDS],
+    items.filter(([id]) => id === 'priest').map(([, , slot]) => slot),
+    ['weapon', 'weapon'],
   );
   for (const [cls, id, slot, perks] of items) {
     const item = ITEMS_BY_ID.get(id);
@@ -271,7 +274,7 @@ test('raid classes: each has a 4-star raid item whose perk only works for that c
   near(hexOf(worn('hexBoost', 'knight')), 0, "a knight in the wizard's");
 });
 
-test("raid classes: the priest's item mends everyone else too, and the mechanic's gives the party crit chance while their rally runs", () => {
+test("raid classes: one of the priest's items mends everyone else too", () => {
   // A priest's heal on one ally also mends the other two by the item's share.
   for (const [healer, mended] of [
     ['priest', 2],
@@ -285,6 +288,57 @@ test("raid classes: the priest's item mends everyone else too, and the mechanic'
     assert.equal(splashes.length, mended, healer);
     for (const splash of splashes) assert.equal(splash.amount, Math.round(RAID_COMBAT.heal.amount * RAID_CLASSES.priest.heal * DEFAULTS.equipment.partyHeal[4]), healer);
   }
+  // Both are weapons, so nobody wears the two at once; the perks themselves would work together (the others mended, and what the heal's own target couldn't take hitting the boss).
+  const both = fight(['priest', 'none', 'none'], breath);
+  player(both, 'priest0').gear.partyHeal = DEFAULTS.equipment.partyHeal[4];
+  player(both, 'priest0').gear.circleOfDeath = DEFAULTS.equipment.circleOfDeath[4];
+  player(both, 'none1').hp = 95;
+  player(both, 'none2').hp = 10;
+  const kinds = resolvePlayerTurn(both, choose(['priest0', 'heal', 'none1']), plain).map((e) => e.kind);
+  assert.deepEqual(kinds, ['heal', 'healSplash', 'overheal']);
+});
+
+test("raid classes: the priest's Circle of Death turns excess healing into damage, and the mechanic's item gives the party crit chance while their rally runs", () => {
+  const share = DEFAULTS.equipment.circleOfDeath[4];
+  const heal = Math.round(RAID_COMBAT.heal.amount * RAID_CLASSES.priest.heal);
+  const overheals = (events: readonly RaidEvent[]) => events.filter((e) => e.kind === 'overheal') as Extract<RaidEvent, { kind: 'overheal' }>[];
+  const priestFight = (healer: 'priest' | 'none' = 'priest'): RaidState => {
+    const state = fight([healer, 'none', 'none'], breath);
+    player(state, `${healer}0`).gear.circleOfDeath = share;
+    return state;
+  };
+  // An ally 10 HP short of full: the heal mends the 10, and the rest of it hits the boss.
+  let state = priestFight();
+  player(state, 'none1').hp = player(state, 'none1').maxHp - 10;
+  let events = resolvePlayerTurn(state, choose(['priest0', 'heal', 'none1']), plain);
+  assert.equal((events.find((e) => e.kind === 'heal') as Extract<RaidEvent, { kind: 'heal' }>).amount, 10);
+  assert.deepEqual(overheals(events), [{ kind: 'overheal', userId: 'priest0', damage: Math.round((heal - 10) * share) }]);
+  assert.equal(state.bossHp, state.bossMaxHp - Math.round((heal - 10) * share));
+  assert.equal(player(state, 'priest0').stats.damage, Math.round((heal - 10) * share));
+  // A heal that is all needed leaves nothing over.
+  state = priestFight();
+  player(state, 'none1').hp = 10;
+  assert.deepEqual(overheals(resolvePlayerTurn(state, choose(['priest0', 'heal', 'none1']), plain)), []);
+  // Nobody hurt: the whole heal hits the boss, rather than being wasted.
+  state = priestFight();
+  events = resolvePlayerTurn(state, choose(['priest0', 'heal']), plain);
+  assert.deepEqual(overheals(events), [{ kind: 'overheal', userId: 'priest0', damage: Math.round(heal * share) }]);
+  assert.ok(!events.some((e) => e.kind === 'healWasted'));
+  // A shield that is up stops it (and isn't worn down by it): the heal is wasted, as without the item.
+  state = priestFight();
+  state.shielded = true;
+  state.deflects = 3;
+  events = resolvePlayerTurn(state, choose(['priest0', 'heal']), plain);
+  assert.deepEqual([overheals(events).length, events.some((e) => e.kind === 'healWasted'), state.deflects, state.bossHp], [0, true, 3, state.bossMaxHp]);
+  // It can land the last hit.
+  state = priestFight();
+  state.bossHp = 5;
+  events = resolvePlayerTurn(state, choose(['priest0', 'heal']), plain);
+  assert.deepEqual([overheals(events)[0]?.damage, state.bossHp, state.outcome, state.lastHit], [5, 0, 'won', 'priest0']);
+  // Only a priest's: anyone else in it wastes the heal.
+  state = priestFight('none');
+  events = resolvePlayerTurn(state, choose(['none0', 'heal']), plain);
+  assert.deepEqual([overheals(events).length, events.some((e) => e.kind === 'healWasted'), state.bossHp], [0, true, state.bossMaxHp]);
 
   // A mechanic's rally in their item: while it runs, everyone's crit chance is that much higher, and not after.
   const gain = DEFAULTS.equipment.rallyCrit[4];

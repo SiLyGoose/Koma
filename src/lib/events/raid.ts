@@ -169,6 +169,8 @@ export interface RaidGear {
   partyGuard: number;
   /** A priest's: the share of their heals every other hurt ally gets too. */
   partyHeal: number;
+  /** A priest's (Circle of Death): the share of their excess healing (what a heal couldn't mend) that hits the boss. */
+  circleOfDeath: number;
   /** A mechanic's: how much higher everyone's crit chance is while their rally runs. */
   rallyCrit: number;
   /** A wizard's: how much more their hex weakens the boss's move. */
@@ -198,6 +200,7 @@ export const emptyGear = (): RaidGear => ({
   blightPurge: 0,
   partyGuard: 0,
   partyHeal: 0,
+  circleOfDeath: 0,
   rallyCrit: 0,
   hexBoost: 0,
   assassinStrike: 0,
@@ -222,6 +225,7 @@ export const raidGearFrom = (totals: RaidGear): RaidGear => ({
   blightPurge: totals.blightPurge,
   partyGuard: totals.partyGuard,
   partyHeal: totals.partyHeal,
+  circleOfDeath: totals.circleOfDeath,
   rallyCrit: totals.rallyCrit,
   hexBoost: totals.hexBoost,
   assassinStrike: totals.assassinStrike,
@@ -348,6 +352,7 @@ export type RaidEvent =
   | { kind: 'healSplash'; userId: string; targetId: string; amount: number }
   | { kind: 'revive'; userId: string; targetId: string; hp: number; boost: number; crit?: true }
   | { kind: 'healWasted'; userId: string }
+  | { kind: 'overheal'; userId: string; damage: number }
   | { kind: 'rally'; userId: string; turns: number; multiplier: number }
   | { kind: 'cleansed'; userId: string; targetId: string; effect: CrowdControl }
   /** A Support cleared `stacks` of `targetId`'s Blight stacks. */
@@ -727,7 +732,8 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
   // Heals: the ally the healer picked, if they are knocked out or hurt. Otherwise (no pick, or the pick
   // no longer needs it) a knocked-out ally is revived first, then the hurt ally with the least HP left
   // is healed. Blight on whoever is healed makes the heal smaller (heals don't clear it). A healer with
-  // healSplash also mends the most hurt other ally, by that share of the heal's value.
+  // healSplash also mends the most hurt other ally, by that share of the heal's value. A priest's items:
+  // one mends everyone else too, the other sends what the heal couldn't mend at the boss.
   const splashHeal = (healer: RaidPlayer, boost: number, healedId: string): void => {
     if (healer.gear.healSplash <= 0) return;
     const other = livingPlayers(state)
@@ -741,7 +747,7 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
   };
   // A priest's item: every other hurt ally is mended too, by its share of the heal's value.
-  const partyHeal = (healer: RaidPlayer, boost: number, healedId: string): void => {
+  const partyHeal = (healer: RaidPlayer, boost: number, healedId: string | null): void => {
     const share = classPerk(healer, 'priest', healer.gear.partyHeal);
     if (share <= 0) return;
     const full = boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * share;
@@ -753,6 +759,23 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
       events.push({ kind: 'healSplash', userId: healer.userId, targetId: other.userId, amount });
     }
   };
+  // A priest's other item (Circle of Death): the `excess` of their heal (what it couldn't mend: its target
+  // was already full, or nobody was hurt) hits the boss, by the item's share. A shield that is up stops it, as it stops an
+  // attack (without being worn down by it), and a staggered boss takes more of it. Whether it landed.
+  const overheal = (healer: RaidPlayer, excess: number): boolean => {
+    const share = classPerk(healer, 'priest', healer.gear.circleOfDeath);
+    if (share <= 0 || excess <= 0 || state.bossHp <= 0 || state.shielded) return false;
+    const dealt = Math.min(state.bossHp, Math.max(1, Math.round(excess * share * staggerMultiplier(state))));
+    state.bossHp -= dealt;
+    healer.stats.damage += dealt;
+    events.push({ kind: 'overheal', userId: healer.userId, damage: dealt });
+    if (state.bossHp <= 0) {
+      state.lastHit = healer.userId;
+      state.outcome = 'won';
+      events.push({ kind: 'defeated', userId: healer.userId });
+    }
+    return true;
+  };
   for (const [userId, { boost, target }] of byAction('heal')) {
     const healer = findPlayer(state, userId) as RaidPlayer;
     // A class whose heals crit rolls once for the heal (or the revive), with their own crit chance and damage.
@@ -762,11 +785,13 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
     const wanted = picked && picked.hp < picked.maxHp ? picked : undefined;
     const down = wanted ? (isAlive(wanted) ? undefined : wanted) : state.players.find((p) => !isAlive(p));
     if (down) {
-      down.hp = Math.min(down.maxHp, Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost) * critTimes)));
+      const full = Math.max(1, Math.round(boosted(down.maxHp * RAID_COMBAT.heal.reviveShare * healMultiplierOf(healer), boost) * critTimes));
+      down.hp = Math.min(down.maxHp, full);
       creditHeal(healer, down, down.hp);
       events.push({ kind: 'revive', userId, targetId: down.userId, hp: down.hp, boost, ...(crit ? { crit } : {}) });
       splashHeal(healer, boost, down.userId);
       partyHeal(healer, boost, down.userId);
+      overheal(healer, full - down.hp);
       continue;
     }
     const hurt =
@@ -775,15 +800,18 @@ export function resolvePlayerTurn(state: RaidState, choices: ReadonlyMap<string,
         .filter((p) => p.hp < p.maxHp)
         .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
     if (!hurt) {
-      events.push({ kind: 'healWasted', userId });
+      // Nobody to mend: all of it is excess (and wasted, without a priest's item to send it at the boss).
+      if (!overheal(healer, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * critTimes))) events.push({ kind: 'healWasted', userId });
       continue;
     }
-    const amount = Math.min(hurt.maxHp - hurt.hp, Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * critTimes * healReceivedOf(hurt)));
+    const full = Math.round(boosted(RAID_COMBAT.heal.amount * healMultiplierOf(healer), boost) * critTimes * healReceivedOf(hurt));
+    const amount = Math.min(hurt.maxHp - hurt.hp, full);
     hurt.hp += amount;
     creditHeal(healer, hurt, amount);
     events.push({ kind: 'heal', userId, targetId: hurt.userId, amount, boost, ...(crit ? { crit } : {}) });
     splashHeal(healer, boost, hurt.userId);
     partyHeal(healer, boost, hurt.userId);
+    overheal(healer, full - amount);
   }
 
   // Supports: each one lifts a stun, disarm or taunt if anyone is under one (stuns first, then the

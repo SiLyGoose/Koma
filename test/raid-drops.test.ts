@@ -20,7 +20,7 @@ import type { ItemDef } from '../src/types.js';
 const RAID_GEAR_3 = ['giants-hauberk', 'quarrybreaker-hammer', 'starfinder-longbow', 'wyvern-tooth', 'cherubs-sash', 'stalwart-pavise', 'whalers-lance', 'consecrated-sickle', 'apothecarys-rod'];
 
 /** The class items: 4-star raid items that only work for one class each. */
-const CLASS_GEAR = ['oathkeepers-aegis', 'warlords-greataxe', 'dawnsong-censer', 'stormcoil-spanner', 'hexweavers-staff', 'nightfall-shroud', 'windrunners-mantle'];
+const CLASS_GEAR = ['oathkeepers-aegis', 'warlords-greataxe', 'dawnsong-censer', 'choirmasters-vestments', 'stormcoil-spanner', 'hexweavers-staff', 'nightfall-shroud', 'windrunners-mantle'];
 
 const RAID_GEAR = ['colossus-plate', 'worldbreaker-maul', 'moonpiercer-bow', 'godslayer-fang', 'seraphs-raiment', 'unbroken-bulwark', ...CLASS_GEAR, 'leviathan-harpoon', 'hallowed-scythe', 'plague-doctors-cane'];
 

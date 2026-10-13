@@ -74,9 +74,10 @@ export const MAX_RAID_SHOP_REFRESHES = 50;
  * Each class has an item (a 4-star raid item whose perks only work for that class: perks/raid), which
  * adds to one of these: the knight's to `partyCut` (partyGuard), the wizard's to `hex` (hexBoost), the
  * assassin's to `attack` (assassinStrike) and to their crit chance (assassinCrit), the archer's to
- * `rampStep` and five times that to `rampMax` (archerRamp); the priest's makes their heals mend
- * everyone else too (partyHeal), the mechanic's gives the party more crit chance while their rally
- * runs (rallyCrit), and the warrior's adds to `retaliate` (warriorCounter).
+ * `rampStep` and five times that to `rampMax` (archerRamp); the priest has two, one that makes their
+ * heals mend everyone else too (partyHeal) and one that turns their excess healing into damage to the
+ * boss (circleOfDeath); the mechanic's gives the party more crit chance while their rally runs
+ * (rallyCrit), and the warrior's adds to `retaliate` (warriorCounter).
  * - `ward`: instead of a Support's usual work they can ward an ally (RaidChoice.skill): the first hit
  *   the boss lands on that ally this round does nothing at all.
  * - `hex`: their attacks that land hex the boss: the move it announced this round hits that much

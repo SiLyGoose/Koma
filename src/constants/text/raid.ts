@@ -370,6 +370,8 @@ Grows with every raider (at least ${min}).`,
     healSplash: (user: string, target: string, amount: number) => `${E.heal} ${user}'s heal spilled over onto ${target} for **${amount}**.`,
     purged: (user: string, target: string, stacks: number) => `✨ ${user} cleared ${plural(stacks, 'stack', 'stacks')} of 🦠 Blight off ${target}.`,
     healWasted: (user: string) => `${E.heal} ${user} tried to heal, but nobody was hurt.`,
+    /** A priest's item: what their heal couldn't mend hit the boss instead. */
+    overheal: (user: string, b: RaidBossText, damage: number) => `${E.heal} ${user}'s healing overflows and sears ${b.it} for **${damage}**.`,
     rally: (user: string, multiplier: string, turns: number) => `✨ ${user} rallies the party: attacks do ${multiplier} damage for the next ${plural(turns, 'turn', 'turns')}.`,
     cleansed: (user: string, target: string, effect: CrowdControl) => `✨ ${user} freed ${target}: no longer ${E[effect]} ${CC[effect].name}.`,
     attack: (user: string, damage: string, crit: boolean, boost: string) => `${E.attack} ${user} hit for **${damage}**${crit ? ` (${E.crit} **critical!**)` : ''}${boost}.`,

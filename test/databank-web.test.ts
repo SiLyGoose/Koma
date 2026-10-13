@@ -53,7 +53,7 @@ test('databank page: says where each item comes from, and the raid drop chance',
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);
   assert.deepEqual(databankView().classes, RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })));
-  assert.deepEqual(items.filter((item) => item.class !== null).map((item) => item.class).sort(), [...RAID_CLASS_IDS].sort(), 'one item for each class');
+  assert.deepEqual([...new Set(items.filter((item) => item.class !== null).map((item) => item.class))].sort(), [...RAID_CLASS_IDS].sort(), 'at least one item for each class');
 });
 
 test('databank page: what each raid class does, a line for each rule that is not a plain raider\'s', () => {

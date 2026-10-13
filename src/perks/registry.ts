@@ -9,6 +9,7 @@ import { glassCannon } from './items/glass-cannon.js';
 import { guardBoost } from './raid/guard-boost.js';
 import { partyGuard } from './raid/party-guard.js';
 import { partyHeal } from './raid/party-heal.js';
+import { circleOfDeath } from './raid/circle-of-death.js';
 import { rallyCrit } from './raid/rally-crit.js';
 import { hexBoost } from './raid/hex-boost.js';
 import { assassinStrike } from './raid/assassin-strike.js';
@@ -104,6 +105,7 @@ export const EFFECTS = {
   // The raid classes' items: each only works for its class.
   partyGuard,
   partyHeal,
+  circleOfDeath,
   rallyCrit,
   hexBoost,
   assassinStrike,

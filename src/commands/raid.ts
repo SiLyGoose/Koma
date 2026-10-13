@@ -216,6 +216,8 @@ export function eventText(event: RaidEvent, boss: RaidBossId = 'wyrm'): string {
       return log.healSplash(mention(event.userId), mention(event.targetId), event.amount);
     case 'healWasted':
       return log.healWasted(mention(event.userId));
+    case 'overheal':
+      return log.overheal(mention(event.userId), b, event.damage);
     case 'rally':
       return log.rally(mention(event.userId), formatMultiplier(event.multiplier), event.turns);
     case 'cleansed':
