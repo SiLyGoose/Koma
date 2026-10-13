@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { MINESWEEPER_LEVELS, MINESWEEPER_ROOM } from '../src/constants/index.js';
+import { CHAT, MINESWEEPER_LEVELS, MINESWEEPER_ROOM } from '../src/constants/index.js';
 import { chordTile, minesNear, neighbours, newBoard, openTile, seenTiles, toggleFlag, type Board } from '../src/lib/game/minesweeper.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/minesweeper/protocol.js';
 import { MinesweeperRooms, type Peer } from '../src/web/games/minesweeper/room.js';
@@ -121,7 +121,7 @@ function setup() {
     random: second,
     now: () => now,
     avatar: (_guildId, userId) => `pic:${userId}`,
-    stats: async () => ({ bombs: 0, wins: 0 }),
+    stats: async () => ({ bombs: 0, wins: 0, trolls: 0 }),
     record: (_guildId, userIds, stat) => recorded.push(`${stat}:${userIds.join(',')}`),
   });
   return { rooms, recorded, tick: (ms: number) => (now += ms) };
@@ -143,8 +143,8 @@ test('minesweeper room: a server plays one board together, and each is told the 
   assert.equal(a.room().you, 'a');
   assert.equal(b.room().you, 'b');
   assert.deepEqual(a.room().players, [
-    { id: 'a', name: 'A', avatar: 'pic:a', colour: 0, bombs: 0, wins: 0 },
-    { id: 'b', name: 'B', avatar: 'pic:b', colour: 1, bombs: 0, wins: 0 },
+    { id: 'a', name: 'A', avatar: 'pic:a', colour: 0, bombs: 0, wins: 0, trolls: 0 },
+    { id: 'b', name: 'B', avatar: 'pic:b', colour: 1, bombs: 0, wins: 0, trolls: 0 },
   ]);
   assert.equal(elsewhere.room().players.length, 1);
   // A room starts on a beginner's board.
@@ -204,12 +204,13 @@ test('minesweeper room: the clock runs from the first tile opened until the boar
 });
 
 test('minesweeper room: a board lost to a chord says whose wrong flag sent it into the mine', () => {
-  const { rooms } = setup();
+  const { rooms, recorded } = setup();
   const a = page();
   const b = page();
   const room = rooms.join(player('a'), a.peer)?.room;
   rooms.join(player('b'), b.peer);
   assert.ok(room);
+  const record = (): string => a.room().players.map((p) => `${p.id} ${p.bombs}/${p.trolls}`).join(', ');
   // A flags a tile that will turn out safe. The mines go on tiles 1 to 10, and the rest opens round the flag.
   room.play('a', 'flag', 27);
   room.play('b', 'open', 80);
@@ -217,11 +218,15 @@ test('minesweeper room: a board lost to a chord says whose wrong flag sent it in
   assert.deepEqual(a.room().game.blamed, []);
   // The 2 at tile 18 touches mines at 9 and 10: with B's flag on 9 and A's on 27, its chord opens 10.
   room.play('b', 'flag', 9);
+  assert.deepEqual(a.room().game.flaggers, { 9: 'b', 27: 'a' });
   room.play('b', 'chord', 18);
   const game = a.room().game;
   assert.equal(game.status, 'lost');
   assert.equal(game.by, 'B');
   assert.deepEqual(game.blamed, ['A']);
+  // It's a troll for A, and no mine of B's.
+  assert.equal(record(), 'a 0/1, b 0/0');
+  assert.deepEqual(recorded, ['trolls:a']);
 
   // A mine opened with a plain click is nobody's fault but theirs, whatever flags are about.
   room.start('a', 'easy');
@@ -230,13 +235,24 @@ test('minesweeper room: a board lost to a chord says whose wrong flag sent it in
   room.play('b', 'open', 1);
   assert.equal(a.room().game.status, 'lost');
   assert.deepEqual(a.room().game.blamed, []);
+  assert.equal(record(), 'a 0/1, b 1/0');
+
+  // A chord sent into a mine by their own wrong flag is their mine, and nobody's troll.
+  room.start('a', 'easy');
+  room.play('b', 'flag', 27);
+  room.play('b', 'open', 80);
+  room.play('b', 'flag', 9);
+  room.play('b', 'chord', 18);
+  assert.deepEqual(a.room().game.blamed, ['B']);
+  assert.equal(record(), 'a 0/1, b 2/0');
+  assert.deepEqual(recorded, ['trolls:a', 'bombs:b', 'bombs:b']);
 });
 
 test('minesweeper room: a mine goes on the record of who opened it, a board cleared on everyone who opened a tile of it', () => {
   const { rooms, recorded } = setup();
   const [a, b, c] = [page(), page(), page()];
   // A comes with a record already.
-  const room = rooms.join(player('a'), a.peer, { bombs: 4, wins: 2 })?.room;
+  const room = rooms.join(player('a'), a.peer, { bombs: 4, wins: 2, trolls: 0 })?.room;
   rooms.join(player('b'), b.peer);
   rooms.join(player('c'), c.peer);
   assert.ok(room);
@@ -259,7 +275,7 @@ test('minesweeper room: a mine goes on the record of who opened it, a board clea
   assert.deepEqual(recorded, ['bombs:b', 'wins:a,b']);
 
   // A new tab keeps what the room has counted, not what the database said when it was read.
-  rooms.join(player('b'), page().peer, { bombs: 0, wins: 0 });
+  rooms.join(player('b'), page().peer, { bombs: 0, wins: 0, trolls: 0 });
   assert.equal(record(), 'a 4/3, b 1/1, c 0/0');
 
   // Someone who opened a tile and left still has the win put on record.
@@ -328,4 +344,50 @@ test('minesweeper room: a new tab takes over, a full room lets nobody else in, a
   const back = page();
   assert.notEqual(solo.join(player('s'), back.peer)?.room, first);
   assert.equal(back.room().game.level, 'easy');
+});
+
+// ---------------------------------------------------------------------------
+// The chat (web/games/chat.ts), as the room has it
+
+test('chat: a line is tidied, and one that says nothing or too much is not read', () => {
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'chat', text: '  top  left\nis safe ' })), { t: 'chat', text: 'top left is safe' });
+  assert.equal(parseClientMessage('{"t":"chat","text":"   "}'), null);
+  assert.equal(parseClientMessage('{"t":"chat","text":7}'), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: 'x'.repeat(CHAT.maxLength + 1) })), null);
+  assert.ok(parseClientMessage(JSON.stringify({ t: 'chat', text: 'x'.repeat(CHAT.maxLength) })));
+});
+
+test('chat: what one says everyone in the room is told, and whoever joins is told the last of it', () => {
+  const { rooms, tick } = setup();
+  const a = page();
+  const b = page();
+  const room = rooms.join(player('a'), a.peer)?.room;
+  rooms.join(player('b'), b.peer);
+  assert.ok(room);
+  const said = (p: ReturnType<typeof page>): string[] => p.sent.flatMap((m) => (m.t === 'chat' ? [`${m.line.name}: ${m.line.text}`] : []));
+  // Joining, the room's lines so far: none yet.
+  assert.deepEqual(a.sent.find((m) => m.t === 'chats'), { t: 'chats', lines: [] });
+
+  room.say('a', 'corner is safe');
+  // Too soon after their last: dropped.
+  room.say('a', 'again');
+  tick(CHAT.gapMs);
+  room.say('b', 'ok');
+  // Someone not in the room says nothing.
+  room.say('z', 'hello?');
+  assert.deepEqual(said(a), ['A: corner is safe', 'B: ok']);
+  assert.deepEqual(said(b), said(a));
+
+  // The room keeps only its last lines, for whoever joins.
+  for (let i = 0; i < CHAT.keep; i++) {
+    tick(CHAT.gapMs);
+    room.say('a', `line ${i}`);
+  }
+  const late = page();
+  rooms.join(player('c'), late.peer);
+  const history = late.sent.find((m) => m.t === 'chats');
+  assert.ok(history && history.t === 'chats');
+  assert.equal(history.lines.length, CHAT.keep);
+  assert.equal(history.lines[0]?.text, 'line 0');
+  assert.equal(history.lines.at(-1)?.no, CHAT.keep + 2);
 });

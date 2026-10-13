@@ -4,6 +4,7 @@ import { randInt } from '../../../lib/random.js';
 import { addMinesweeperStat, loadMinesweeperStats, type MinesweeperStats } from '../../../services/minesweeper.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
+import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
 import type { GameView, RoomState, ServerMessage } from './protocol.js';
 
@@ -19,7 +20,9 @@ import type { GameView, RoomState, ServerMessage } from './protocol.js';
  * it is forgotten, its board with it.
  *
  * Each member's record is kept in the database (services/minesweeper.ts) and shown beside them: the
- * mines they have opened, and the boards they helped clear (a win for everyone who opened a tile of it).
+ * mines they have opened, the boards they helped clear (a win for everyone who opened a tile of it),
+ * and their trolls (the times a wrong flag of theirs sent someone else's chord into a mine: that mine
+ * isn't counted against who chorded).
  */
 
 /** Where the room sends a player's messages: their page, or a fake in tests. */
@@ -32,7 +35,7 @@ export interface RoomDeps {
   avatar: (guildId: string, userId: string) => string | null;
   /** A member's record so far. */
   stats: (guildId: string, userId: string) => Promise<MinesweeperStats>;
-  /** One more mine opened, or board cleared, for each of `userIds`. Not waited for. */
+  /** One more mine opened, board cleared, or troll, for each of `userIds`. Not waited for. */
   record: (guildId: string, userIds: string[], stat: keyof MinesweeperStats) => void;
 }
 
@@ -63,7 +66,7 @@ interface Game {
   endedAt: number | null;
   by: string | null;
   /** Who put down each flag on the board, by tile. */
-  flaggers: Map<number, string>;
+  flaggers: Map<number, Player>;
   blamed: string[];
   /** Everyone who opened a tile of it: a board cleared is a win for each of them. */
   openers: Set<string>;
@@ -73,6 +76,8 @@ export class MinesweeperRoom {
   private readonly members = new Map<string, Member>();
   private gameNo = 0;
   private game: Game = this.newGame(MINESWEEPER_START);
+  /** What the players in the room say to each other. */
+  private readonly chat = new Chat();
 
   constructor(
     readonly guildId: string,
@@ -100,7 +105,15 @@ export class MinesweeperRoom {
       stats: before?.stats ?? { ...stats },
     });
     this.tell();
+    peer.send(this.chat.history());
     return before && before.peer !== peer ? before.peer : null;
+  }
+
+  /** `userId` says `text` to the room. */
+  say(userId: string, text: string): void {
+    const member = this.members.get(userId);
+    const line = member && this.chat.say(member.player, text, this.deps.now());
+    if (line) for (const each of this.members.values()) each.peer.send({ t: 'chat', line });
   }
 
   /** `peer` went away (nothing happens if another page has taken over since). */
@@ -138,7 +151,7 @@ export class MinesweeperRoom {
     const changed = move === 'open' ? openTile(board, index, this.deps.random) : move === 'flag' ? toggleFlag(board, index) : chordTile(board, index);
     if (!changed) return;
     if (move === 'flag') {
-      if (board.flag[index]) game.flaggers.set(index, member.player.name);
+      if (board.flag[index]) game.flaggers.set(index, member.player);
       else game.flaggers.delete(index);
     } else {
       const now = this.deps.now();
@@ -147,22 +160,31 @@ export class MinesweeperRoom {
       if (board.status !== 'playing') {
         game.endedAt = now;
         game.by = member.player.name;
-        // The mine is theirs; a board cleared is everyone's who opened a tile of it.
-        const stat = board.status === 'lost' ? 'bombs' : 'wins';
-        const whose = board.status === 'lost' ? [userId] : [...game.openers];
-        for (const id of whose) {
-          const there = this.members.get(id);
-          if (there) there.stats[stat]++;
-        }
-        this.deps.record(this.guildId, whose, stat);
       }
-      // A chord into a mine: the flags round its number that were on no mine are what sent it there.
-      if (board.status === 'lost' && move === 'chord') {
-        const wrong = neighbours(board, index).filter((n) => board.flag[n] && !board.mine[n]);
-        game.blamed = [...new Set(wrong.map((n) => game.flaggers.get(n)).filter((name) => name !== undefined))];
+      if (board.status === 'won') {
+        // A board cleared is everyone's who opened a tile of it.
+        this.count('wins', [...game.openers]);
+      } else if (board.status === 'lost') {
+        // A chord into a mine: the flags round its number that were on no mine are what sent it there.
+        const wrong = move === 'chord' ? neighbours(board, index).filter((n) => board.flag[n] && !board.mine[n]) : [];
+        const liars = new Map(wrong.flatMap((n) => game.flaggers.get(n) ?? []).map((player) => [player.userId, player.name]));
+        game.blamed = [...liars.values()];
+        // Sent there by someone else's flag, it's a troll for each of them; otherwise the mine is theirs.
+        const trolls = [...liars.keys()].filter((id) => id !== userId);
+        if (trolls.length > 0) this.count('trolls', trolls);
+        else this.count('bombs', [userId]);
       }
     }
     this.tell();
+  }
+
+  /** One more of `stat` for each of `userIds`: on what the room shows of them, and on record. */
+  private count(stat: keyof MinesweeperStats, userIds: string[]): void {
+    for (const id of userIds) {
+      const there = this.members.get(id);
+      if (there) there.stats[stat]++;
+    }
+    this.deps.record(this.guildId, userIds, stat);
   }
 
   /** Where `userId`'s mouse is over the board (null: off it), told to everyone else. */
@@ -184,6 +206,7 @@ export class MinesweeperRoom {
       mines: board.mines,
       tiles: seenTiles(board),
       flags: flagCount(board),
+      flaggers: Object.fromEntries([...game.flaggers].filter(([tile]) => board.flag[tile]).map(([tile, player]) => [tile, player.userId])),
       status: game.startedAt === null ? 'ready' : board.status,
       elapsedMs: game.startedAt === null ? 0 : (game.endedAt ?? this.deps.now()) - game.startedAt,
       by: game.by,
@@ -209,7 +232,7 @@ export class MinesweeperRooms {
   constructor(readonly realDeps: RoomDeps = realRoomDeps) {}
 
   /** Puts `player`'s page in their server's room, with their record so far. Null when it has as many players as it can. */
-  join(player: Player, peer: Peer, stats: MinesweeperStats = { bombs: 0, wins: 0 }, deps: RoomDeps = this.realDeps): { room: MinesweeperRoom; replaced: Peer | null } | null {
+  join(player: Player, peer: Peer, stats: MinesweeperStats = { bombs: 0, wins: 0, trolls: 0 }, deps: RoomDeps = this.realDeps): { room: MinesweeperRoom; replaced: Peer | null } | null {
     let room = this.rooms.get(player.guildId);
     if (!room) {
       room = new MinesweeperRoom(player.guildId, deps, (empty) => {

@@ -602,7 +602,8 @@ export interface SettingsDoc {
 
 /**
  * A member's minesweeper record in a server (web/games/minesweeper/room.ts): the mines they have
- * opened, and the boards they helped clear. `_id` is "guildId:userId".
+ * opened, the boards they helped clear, and the times a wrong flag of theirs sent someone else's
+ * chord into a mine. `_id` is "guildId:userId".
  */
 export interface MinesweeperStatsDoc {
   _id: string;
@@ -610,4 +611,5 @@ export interface MinesweeperStatsDoc {
   userId: string;
   bombs?: number;
   wins?: number;
+  trolls?: number;
 }

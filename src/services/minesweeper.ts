@@ -5,18 +5,22 @@ import { collections } from '../db.js';
  * one document per member per server, made the first time there is something to count.
  */
 
-/** A member's record in a server: the mines they have opened, and the boards they helped clear. */
+/**
+ * A member's record in a server: the mines they have opened, the boards they helped clear, and the
+ * times a wrong flag of theirs sent someone else's chord into a mine (which isn't a mine of theirs).
+ */
 export interface MinesweeperStats {
   bombs: number;
   wins: number;
+  trolls: number;
 }
 
 const statsId = (guildId: string, userId: string): string => `${guildId}:${userId}`;
 
-/** A member's record so far (nothing yet: both 0). */
+/** A member's record so far (nothing yet: all 0). */
 export async function loadMinesweeperStats(guildId: string, userId: string): Promise<MinesweeperStats> {
   const doc = await collections().minesweeperStats.findOne({ _id: statsId(guildId, userId) });
-  return { bombs: doc?.bombs ?? 0, wins: doc?.wins ?? 0 };
+  return { bombs: doc?.bombs ?? 0, wins: doc?.wins ?? 0, trolls: doc?.trolls ?? 0 };
 }
 
 /** One more of `stat` for each of `userIds` in a server. */

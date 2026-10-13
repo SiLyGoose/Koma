@@ -38,7 +38,7 @@ export function openMinesweeperConnection(page: Peer, rooms: MinesweeperRooms = 
         // Their record so far (none, if it can't be read: the game goes on without it).
         const stats = await deps.stats(player.guildId, player.userId).catch((err) => {
           console.error('Could not read a minesweeper record:', err);
-          return { bombs: 0, wins: 0 };
+          return { bombs: 0, wins: 0, trolls: 0 };
         });
         if (hello.gone) return;
         const joined = rooms.join(player, peer, stats, deps);
@@ -52,6 +52,7 @@ export function openMinesweeperConnection(page: Peer, rooms: MinesweeperRooms = 
         const { userId } = player;
         if (message.t === 'new') room.start(userId, message.level);
         else if (message.t === 'cursor') room.cursor(userId, message.at);
+        else if (message.t === 'chat') room.say(userId, message.text);
         else room.play(userId, message.t, message.index);
       },
 
