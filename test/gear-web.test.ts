@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { RAID_CLASS_IDS, REFINE, type RaidClassId } from '../src/constants/index.js';
+import { RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, REFINE, type RaidClassId } from '../src/constants/index.js';
 import { loadoutsOf } from '../src/lib/game/items/loadouts.js';
 import { gearView, wornGear, type GearStore } from '../src/web/models/gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
@@ -72,6 +72,46 @@ test('gear page: the Common tab shows what gear changed, beside the base', () =>
   const changed = stats.flatMap((s) => s.rows).filter((r) => r.base !== null);
   assert.ok(changed.length > 0);
   for (const r of changed) assert.notEqual(r.value, r.base);
+});
+
+test("gear page: the Common tab's raid numbers are their class's, with rows for what only that class does", () => {
+  const raid = (cls: RaidClassId | null, copies: { _id: string; itemId: string; level: number }[] = [], worn: EquipmentDoc = {}) =>
+    Object.fromEntries(
+      gearView(copies, worn, 'x', undefined, null, null, undefined, cls)
+        .stats.find((s) => s.title === 'Raid')!
+        .rows.map((r) => [r.label, r]),
+    );
+  const hp = DEFAULTS.raid.playerHp;
+  const { attack, heal, support, guard } = RAID_COMBAT;
+  const none = raid(null);
+  assert.equal(none.HP!.value, String(hp));
+  assert.equal(none.Attack!.value, String(attack.min));
+  for (const label of ['Attack ramp', 'Hex', 'Strike back', 'Damage taken', 'Healing received', 'Heals can crit', 'Party heal', 'Excess healing', 'Interrupt']) assert.equal(none[label], undefined, label);
+  // With nothing on, nothing is marked as changed by gear, whatever the class.
+  for (const cls of RAID_CLASS_IDS) for (const r of Object.values(raid(cls))) assert.equal(r.base, null, `${cls}: ${r.label}`);
+
+  const assassin = raid('assassin');
+  assert.equal(assassin.HP!.value, String(Math.round(hp * RAID_CLASSES.assassin.hp)));
+  assert.equal(assassin.Attack!.value, String(Math.round(attack.min * RAID_CLASSES.assassin.attack)));
+  assert.equal(assassin['Critical Chance']!.value, `${Math.round((attack.critChance + RAID_CLASSES.assassin.crit) * 100)}%`);
+  assert.equal(assassin['Damage taken']!.value, `${RAID_CLASSES.assassin.taken}x`);
+  assert.equal(raid('knight')['Guard: party cut']!.value, `${RAID_CLASSES.knight.partyCut * 100}%`);
+  assert.equal(none['Guard: party cut']!.value, '0%');
+  assert.ok(guard.takenShare > 0);
+  assert.equal(raid('priest').Heal!.value, `${Math.round(heal.amount * RAID_CLASSES.priest.heal)} HP`);
+  assert.equal(raid('priest')['Heals can crit']!.value, 'Yes');
+  assert.ok(raid('mechanic').Rally!.value.endsWith(`for ${support.rallyTurns + RAID_CLASSES.mechanic.rallyTurns} turns`));
+  assert.equal(raid('mechanic').Interrupt!.value, `counts as ${RAID_CLASSES.mechanic.interrupts} Supports`);
+  assert.equal(raid('wizard').Hex!.value, `boss's move ${RAID_CLASSES.wizard.hex * 100}% weaker`);
+  assert.equal(raid('warrior')['Strike back']!.value, `${Math.round(attack.min * RAID_CLASSES.warrior.attack * RAID_CLASSES.warrior.retaliate)} damage when hit`);
+  assert.equal(raid('warrior')['Healing received']!.value, `${RAID_CLASSES.warrior.healed}x`);
+  assert.equal(raid('archer')['Attack ramp']!.value, `+${RAID_CLASSES.archer.rampStep * 100}% a turn, up to +${RAID_CLASSES.archer.rampMax * 100}%`);
+
+  // A class item counts for its class (beside what that class has without it), and for nobody else.
+  const staff = [{ _id: 's', itemId: 'hexweavers-staff', level: REFINE.maxLevel }];
+  const hexed = raid('wizard', staff, { weapon: 's' }).Hex!;
+  assert.deepEqual([hexed.value, hexed.base], [`boss's move ${Math.round((RAID_CLASSES.wizard.hex + DEFAULTS.equipment.hexBoost[4]) * 100)}% weaker`, `boss's move ${RAID_CLASSES.wizard.hex * 100}% weaker`]);
+  assert.equal(raid('knight', staff, { weapon: 's' }).Hex, undefined);
 });
 
 test('gear page: every loadout lists the owned copies that fit its slots', () => {

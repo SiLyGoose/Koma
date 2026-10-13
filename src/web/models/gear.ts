@@ -301,7 +301,7 @@ export function gearView(
     equipped,
     copies: list,
     totals: describeTotals(totals),
-    stats: gearStats(totals),
+    stats: gearStats(totals, raidClass),
     loadouts: loadouts.map((loadout) => ({
       number: loadout.number,
       name: loadout.name,

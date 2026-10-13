@@ -1,6 +1,20 @@
 import { CONFIG } from '../../config.js';
-import { RAID_COMBAT } from '../../constants/index.js';
-import { attackMultiplierOf, critChanceOf, critMultiplierOf, guardCutOf, guardTakenShare, healMultiplierOf, playerMaxHp, rallyMultiplierOf, raidGearFrom } from '../../lib/events/raid.js';
+import { RAID_COMBAT, type RaidClassId } from '../../constants/index.js';
+import {
+  attackMultiplierOf,
+  classOf,
+  critChanceOf,
+  critMultiplierOf,
+  guardCutOf,
+  guardTakenShare,
+  healMultiplierOf,
+  hexOf,
+  playerMaxHp,
+  rallyMultiplierOf,
+  raidGearFrom,
+  rampMultiplierOf,
+  retaliateOf,
+} from '../../lib/events/raid.js';
 import { formatMultiplier, formatPercent } from '../../lib/format.js';
 import {
   blightPurgeExtra,
@@ -23,7 +37,9 @@ import {
 /*
  * The gear page's Common tab: every number a member's gear can change, worked out with what they
  * wear, beside what it is with nothing on. The same formulas as the claims, robs, pulls and raids
- * themselves (perks/stats.ts, lib/events/raid.ts), so the page never works anything out.
+ * themselves (perks/stats.ts, lib/events/raid.ts), so the page never works anything out. The raid's
+ * are for their raid class: its rules go into both numbers (what gear changes is still told apart),
+ * and what only that class does has rows of its own.
  */
 
 /** One number: what it is with their gear, and what it would be without (null when gear doesn't change it). */
@@ -55,12 +71,33 @@ function row(label: string, gear: EffectTotals, show: (gear: EffectTotals) => st
   return { label, value, base: value === base ? null : base };
 }
 
-/** The Common tab's sections, raid last, for a member whose equipped gear adds up to `gear`. */
-export function gearStats(gear: EffectTotals): StatSection[] {
+/** The Common tab's sections, raid last, for a member whose equipped gear adds up to `gear` and whose raid class is `raidClass` (null: none). */
+export function gearStats(gear: EffectTotals, raidClass: RaidClassId | null = null): StatSection[] {
   const none = emptyTotals();
   const { claim, gacha, rob, raid } = CONFIG;
   const { attack, heal, support } = RAID_COMBAT;
-  const fight = (g: EffectTotals) => ({ gear: raidGearFrom(g) });
+  const fight = (g: EffectTotals, streak = 0) => ({ gear: raidGearFrom(g), class: raidClass, streak });
+  const rules = classOf({ class: raidClass });
+  // What only some classes do: a row each, for the classes that do it.
+  const classRows: StatRow[] = [
+    // What every turn in a row adds to their attacks, and the most it adds up to (a long streak's).
+    ...(rules.rampStep > 0
+      ? [row('Attack ramp', gear, (g) => `+${formatPercent(rampMultiplierOf(fight(g, 1)) - 1)} a turn, up to +${formatPercent(rampMultiplierOf(fight(g, 1000)) - 1)}`)]
+      : []),
+    ...(rules.hex > 0 ? [row('Hex', gear, (g) => `boss's move ${formatPercent(hexOf(fight(g)))} weaker`)] : []),
+    ...(rules.retaliate > 0 ? [row('Strike back', gear, (g) => `${Math.max(1, Math.round(attack.min * attackMultiplierOf(fight(g)) * retaliateOf(fight(g))))} damage when hit`)] : []),
+    ...(rules.taken !== 1 ? [row('Damage taken', gear, () => formatMultiplier(rules.taken))] : []),
+    ...(rules.healed !== 1 ? [row('Healing received', gear, () => formatMultiplier(rules.healed))] : []),
+    ...(rules.healCrit ? [row('Heals can crit', gear, () => 'Yes')] : []),
+    // A priest's items: their heals mending everyone else too, and what a heal couldn't mend hitting the boss.
+    ...(raidClass === 'priest'
+      ? [
+          row('Party heal', gear, (g) => `${formatPercent(raidGearFrom(g).partyHeal)} of a heal`),
+          row('Excess healing', gear, (g) => `${formatPercent(raidGearFrom(g).circleOfDeath)} hits the boss`),
+        ]
+      : []),
+    ...(rules.interrupts !== 1 ? [row('Interrupt', gear, () => `counts as ${rules.interrupts} Supports`)] : []),
+  ];
 
   return [
     {
@@ -106,10 +143,11 @@ export function gearStats(gear: EffectTotals): StatSection[] {
         row('Guard: hit taken', gear, (g) => formatPercent(guardTakenShare(fight(g)))),
         // What the rest of the party takes less of, from moves that hit several raiders (the strongest guard's counts).
         row('Guard: party cut', gear, (g) => formatPercent(guardCutOf(fight(g)))),
-        row('Rally', gear, (g) => `${formatMultiplier(rallyMultiplierOf(fight(g)))} for ${support.rallyTurns} turns`),
+        row('Rally', gear, (g) => `${formatMultiplier(rallyMultiplierOf(fight(g)))} for ${support.rallyTurns + rules.rallyTurns} turns`),
         row('Boss heal cut', gear, (g) => formatPercent(raidGearFrom(g).healCut)),
         // The Plague Matriarch's Blight a Support clears: stacks off each ally, and how many allies (2 with blightPurge).
         row('Blight purge', gear, (g) => blightPurgeRow(raidGearFrom(g).blightPurge)),
+        ...classRows,
       ],
     },
   ];
