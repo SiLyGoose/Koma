@@ -36,6 +36,8 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
     pity: { count: 3, softStart: 60, hardPity: 80 },
     guaranteed: false,
     own: { itemId: 'c4', name: 'C4', stars: 4, slot: 'treasure' },
+    choices: [{ itemId: 'c4', name: 'C4', stars: 4, slot: 'treasure' }],
+    pick: null,
     rates: { 1: 0.6, 2: 0.3, 3: 0.09, 4: 0.01 },
     extraChance: 0,
   };
@@ -50,6 +52,7 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
       pulls.push({ guildId, userId, multi, banner });
       return { pulls: Array.from({ length: multi ? 10 : 1 }, () => item), extras: [], cost: multi ? 810 : 0, tokensUsed: 1, view: { ...view, banner } };
     },
+    pick: async (_guildId, _userId, banner, itemId) => (itemId === null || itemId === 'c4' ? { ...view, banner, pick: itemId } : 'not_found'),
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -99,6 +102,15 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
     assert.equal(closed.status, 409);
     assert.deepEqual(await closed.json(), { error: 'closed' });
     assert.equal((await fetch(`${base}/api/gacha/pull`, post({ guild: 'g1', banner: 'nope' }))).status, 400);
+
+    // Picking the item the guarantee gives: one it can give, none again, and not one it can't.
+    const picked = await fetch(`${base}/api/gacha/pick`, post({ guild: 'g1', item: 'c4' }));
+    assert.deepEqual(await picked.json(), { ...view, pick: 'c4' });
+    const unpicked = await fetch(`${base}/api/gacha/pick`, post({ guild: 'g1', banner: 'limited', item: null }));
+    assert.deepEqual(await unpicked.json(), { ...view, banner: 'limited' });
+    assert.equal((await fetch(`${base}/api/gacha/pick`, post({ guild: 'g1', item: 'frog' }))).status, 404);
+    assert.equal((await fetch(`${base}/api/gacha/pick`, post({ guild: 'g1', item: 4 }))).status, 400);
+    assert.equal((await fetch(`${base}/api/gacha/pick`, post({ guild: 'g2', item: 'c4' }))).status, 403);
 
     assert.deepEqual(pulls, [
       { guildId: 'g1', userId: 'u1', multi: false, banner: 'standard' },

@@ -10,6 +10,8 @@ import { BANNERS, type BannerId } from '../../types.js';
 const Banner = z.enum(BANNERS as [BannerId, ...BannerId[]]).nullish();
 const View = z.object({ banner: Banner });
 const Pull = z.object({ multi: z.boolean().nullish(), banner: Banner });
+/** The item the guarantee is to give: any of them when it isn't said. */
+const Pick = z.object({ banner: Banner, item: z.string().nullish() });
 
 export function gachaController(gacha: GachaService) {
   return {
@@ -21,6 +23,11 @@ export function gachaController(gacha: GachaService) {
     async pull(req, res) {
       const { multi, banner } = parse(Pull, req.body);
       res.json(await gacha.pull(res.locals.guildId, res.locals.session.userId, multi ?? false, banner ?? 'standard'));
+    },
+
+    async pick(req, res) {
+      const { banner, item } = parse(Pick, req.body);
+      res.json(await gacha.pick(res.locals.guildId, res.locals.session.userId, banner ?? 'standard', item ?? null));
     },
   } satisfies Record<string, RequestHandler>;
 }

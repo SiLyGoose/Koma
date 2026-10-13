@@ -83,6 +83,15 @@ export function ownTreasures(userId: string): ItemDef[] {
 }
 
 /**
+ * The items a banner's guarantee can give a member: their own treasures on the standard banner, the
+ * featured items on the limited one. They can pick which of them it gives (MemberDoc.guaranteedPick
+ * and .limitedPick).
+ */
+export function guaranteeChoices(userId: string, banner: BannerId): ItemDef[] {
+  return banner === 'limited' ? featuredItems() : ownTreasures(userId);
+}
+
+/**
  * Rolls a tier, then picks uniformly among the items in that tier the gacha can pull (not raid drops
  * or limited items). `pullNumber` is which pull this is since the member's last pity-tier item on
  * this banner (1 if pity doesn't matter). `minStars` is the lowest tier it can land on (see
@@ -91,7 +100,8 @@ export function ownTreasures(userId: string): ItemDef[] {
  * When the roll lands on the pity tier, the banner decides the pick. On the standard one, a
  * `guaranteed` pick is made only among `userId`'s own treasures (see ownTreasures) instead of the
  * whole tier. On the limited one it is one of the featured items (featuredItems) `featuredChance` of
- * the time, and always when `guaranteed`; otherwise one of the standard banner's.
+ * the time, and always when `guaranteed`; otherwise one of the standard banner's. A `guaranteed` pick
+ * is the item they picked (`pick`, an item id) when the guarantee can give it.
  */
 export function rollItem(
   pullNumber = 1,
@@ -100,15 +110,20 @@ export function rollItem(
   minStars: Stars = 1,
   banner: BannerId = 'standard',
   featuredChance: number = CONFIG.gacha.limited.featuredChance,
+  pick?: string,
 ): ItemDef {
   const stars = rollStarsAtPull(pullNumber, undefined, undefined, minStars);
   let pool = gachaItems(stars);
+  const picked = (choices: ItemDef[]): ItemDef[] => {
+    const one = guaranteed ? choices.find((item) => item.id === pick) : undefined;
+    return one ? [one] : choices;
+  };
   if (stars === PITY_STARS && banner === 'limited') {
     const featured = featuredItems();
-    if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = featured;
+    if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = picked(featured);
   } else if (stars === PITY_STARS && guaranteed && userId) {
     const own = ownTreasures(userId);
-    if (own.length > 0) pool = own;
+    if (own.length > 0) pool = picked(own);
   }
   return pickRandom(pool);
 }
@@ -141,7 +156,8 @@ export function nextGuarantee(userId: string | undefined, item: ItemDef, banner:
  *
  * `owner` carries the member's guarantee on `owner.banner` (see nextGuarantee; the standard banner
  * when left out): each pity-tier item updates it for the pulls after it, and the result says where it
- * ends up. The guarantee works whether or not pity is on. `minStars` promises at least one item of
+ * ends up, and `owner.pick` is the item they picked for it to give (see rollItem). The guarantee works
+ * whether or not pity is on. `minStars` promises at least one item of
  * that tier or better: when none of the other pulls has given one, the last pull is rolled from that
  * tier up. `roll` is only replaced in tests.
  *
@@ -155,12 +171,12 @@ export function rollPulls(
   times: number,
   pityOn: boolean,
   roll?: (pullNumber: number, guaranteed: boolean, minStars: Stars) => ItemDef,
-  owner: { userId?: string; guaranteed?: boolean; banner?: BannerId; extraChance?: number } = {},
+  owner: { userId?: string; guaranteed?: boolean; banner?: BannerId; extraChance?: number; pick?: string } = {},
   minStars: Stars = 1,
 ): { items: ItemDef[]; extras: ItemDef[]; counter: number; guaranteed: boolean } {
-  const { userId, banner = 'standard', extraChance = 0 } = owner;
+  const { userId, banner = 'standard', extraChance = 0, pick } = owner;
   let guaranteed = owner.guaranteed ?? false;
-  const doRoll = roll ?? ((pullNumber: number, g: boolean, floor: Stars) => rollItem(pullNumber, userId, g, floor, banner));
+  const doRoll = roll ?? ((pullNumber: number, g: boolean, floor: Stars) => rollItem(pullNumber, userId, g, floor, banner, undefined, pick));
   const items: ItemDef[] = [];
   const extras: ItemDef[] = [];
   let best = 0;

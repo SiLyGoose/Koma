@@ -5,7 +5,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { newCopyId } from '../../lib/game/items/copies.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
-import { rollPulls, topChance } from '../../lib/game/items/gacha.js';
+import { guaranteeChoices, rollPulls, topChance } from '../../lib/game/items/gacha.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
 import type { BannerId, ItemCopyDoc, ItemDef, MemberDoc } from '../../types.js';
 import { resolveGear } from '../items/gear.js';
@@ -13,7 +13,8 @@ import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
 /*
  * Gacha pulls on either banner: paying, pity, the guarantee (the member's own treasure on the standard
- * banner, a featured item on the limited one), a multi pull's minimum tier, and handing out item copies.
+ * banner, a featured item on the limited one: the one they picked, if they did), a multi pull's
+ * minimum tier, and handing out item copies.
  */
 
 /** Why a pull wasn't made: not enough to pay for it, or the limited banner isn't open. Nothing was spent. */
@@ -24,6 +25,23 @@ const pityCount = (member: MemberDoc | null, banner: BannerId): number => (banne
 const isGuaranteed = (member: MemberDoc | null, banner: BannerId): boolean => (banner === 'limited' ? member?.limitedGuaranteed : member?.guaranteed) ?? false;
 const pityInc = (banner: BannerId, by: number) => (banner === 'limited' ? { limitedPity: by } : { pity: by });
 const guaranteeSet = (banner: BannerId, guaranteed: boolean) => (banner === 'limited' ? { limitedGuaranteed: guaranteed } : { guaranteed });
+/** The item they picked for a banner's guarantee to give, when it still can (see guaranteeChoices): null for any of them. */
+export const guaranteePick = (member: MemberDoc | null, userId: string, banner: BannerId): string | null => {
+  const pick = banner === 'limited' ? member?.limitedPick : member?.guaranteedPick;
+  return pick !== undefined && guaranteeChoices(userId, banner).some((item) => item.id === pick) ? pick : null;
+};
+
+/**
+ * Picks the item a banner's guarantee gives the member (`itemId` null: any of them again). False when
+ * the guarantee can't give that item (it isn't one of guaranteeChoices), and nothing is changed.
+ */
+export async function setGuaranteePick(guildId: string, userId: string, banner: BannerId, itemId: string | null): Promise<boolean> {
+  if (itemId !== null && !guaranteeChoices(userId, banner).some((item) => item.id === itemId)) return false;
+  await ensureMember(guildId, userId);
+  const field = banner === 'limited' ? 'limitedPick' : 'guaranteedPick';
+  await collections().members.updateOne({ guildId, userId }, itemId === null ? { $unset: { [field]: '' } } : { $set: { [field]: itemId } });
+  return true;
+}
 
 /** Where a member's pity and guarantee stand on a banner, for showing them without pulling. */
 export async function getPity(guildId: string, userId: string, banner: BannerId): Promise<{ count: number; guaranteed: boolean }> {
@@ -163,7 +181,7 @@ async function pullMany(guildId: string, userId: string, times: number, banner: 
     times,
     pityOn,
     undefined,
-    { userId, guaranteed: wasGuaranteed, banner, extraChance: extraPullChance(gear) },
+    { userId, guaranteed: wasGuaranteed, banner, extraChance: extraPullChance(gear), pick: guaranteePick(debited, userId, banner) ?? undefined },
     times > 1 ? MULTI_MIN_STARS : 1,
   );
   // The payment counted every pull; take back what the resets undo. Subtracting (instead of

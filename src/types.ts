@@ -214,6 +214,13 @@ export interface MemberDoc {
   limitedPity?: number;
   limitedGuaranteed?: boolean;
   /**
+   * The item they picked for each banner's guarantee to give (the site's banner page): one of their own
+   * treasures on the standard banner, a featured item on the limited one. Missing, or an item the
+   * guarantee can't give any more (a limited banner since replaced), means any of them.
+   */
+  guaranteedPick?: string;
+  limitedPick?: string;
+  /**
    * What this member is wearing: the gear of their active loadout. Missing on members who have
    * never equipped anything.
    */

@@ -63,6 +63,13 @@ test('limited banner: the guarantee is set by a 4-star that is not featured and 
   assert.equal(nextGuarantee(HXLON, greed, 'limited'), false);
   // A guaranteed 4-star there is always featured, whatever the chance.
   for (let i = 0; i < 500; i++) assert.ok(rollItem(90, HXLON, true, 1, 'limited', 0).limited);
+  // It is the featured item they picked, when they picked one it can give; a pick changes nothing without the guarantee.
+  const second = featuredItems()[1] as ItemDef;
+  for (let i = 0; i < 200; i++) assert.equal(rollItem(90, HXLON, true, 1, 'limited', 0, second.id), second);
+  for (let i = 0; i < 200; i++) assert.ok(rollItem(90, HXLON, true, 1, 'limited', 0, 'c4').limited);
+  const unpicked = new Set<string>();
+  for (let i = 0; i < 500; i++) unpicked.add(rollItem(90, HXLON, false, 1, 'limited', 1, second.id).id);
+  assert.equal(unpicked.size, featuredItems().length);
   // And the standard banner's guarantee is left as it was.
   assert.equal(nextGuarantee(HXLON, byId('c4')), true);
   assert.equal(nextGuarantee(HXLON, greed), true);

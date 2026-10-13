@@ -19,5 +19,12 @@ export function gachaService(deps: ApiDeps) {
       if (result === 'too_poor' || result === 'closed') throw new ApiError(result);
       return result;
     },
+
+    /** Picks the item a banner's guarantee gives them (null: any of them). */
+    async pick(guildId: string, userId: string, banner: BannerId, itemId: string | null): Promise<BannerView> {
+      const result = await store.pick(guildId, userId, banner, itemId);
+      if (result === 'not_found') throw new ApiError(result);
+      return result;
+    },
   };
 }

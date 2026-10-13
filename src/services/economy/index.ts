@@ -14,7 +14,7 @@ export { getBalance, getInventory, getInventoryStacks, getLeaderboard, getStonks
 export type { BalanceInfo } from './balance.js';
 export { claimHourly } from './claim.js';
 export type { ClaimResult } from './claim.js';
-export { addCopy, getPity, giveTokens, pullGacha, pullMulti } from './gacha.js';
+export { addCopy, getPity, giveTokens, guaranteePick, pullGacha, pullMulti, setGuaranteePick } from './gacha.js';
 export { giveGems } from './gems.js';
 export type { PullResult, PulledItem, MultiPullResult, PullRefusal } from './gacha.js';
 export { rob } from './rob.js';

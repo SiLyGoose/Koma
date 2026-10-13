@@ -4,17 +4,18 @@ import { collections } from '../../db.js';
 import { featuredItems, LIMITED_BANNER } from '../../data/items.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { canUseItem, gearEffects, itemEffectiveness } from '../../lib/game/items/equipment.js';
-import { ownTreasures, topChance } from '../../lib/game/items/gacha.js';
+import { guaranteeChoices, ownTreasures, topChance } from '../../lib/game/items/gacha.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
-import { pullGacha, pullMulti, type PulledItem } from '../../services/economy/index.js';
+import { guaranteePick, pullGacha, pullMulti, setGuaranteePick, type PulledItem } from '../../services/economy/index.js';
 import { resolveGear } from '../../services/items/gear.js';
 import type { BannerId, ItemDef, Slot, Stars } from '../../types.js';
 
 /*
- * The site's banner page (GET /api/gacha, POST /api/gacha/pull): pulling from the gacha, as `gacha`
- * and `gacha multi` do in Discord (the same payment, pity and guarantee: services/economy/gacha.ts),
- * and what the page shows beside the buttons (the price, their komaTokens, their pity, the odds).
- * Both take which banner (`banner`: the standard one when left out).
+ * The site's banner page (GET /api/gacha, POST /api/gacha/pull, POST /api/gacha/pick): pulling from
+ * the gacha, as `gacha` and `gacha multi` do in Discord (the same payment, pity and guarantee:
+ * services/economy/gacha.ts), what the page shows beside the buttons (the price, their komaTokens,
+ * their pity, the odds), and picking the item the guarantee gives. Each takes which banner (`banner`:
+ * the standard one when left out).
  */
 
 /** An item a banner shows off. */
@@ -68,6 +69,12 @@ export interface BannerView {
    * they have more): null when none is theirs, so there's no guarantee, and on the limited banner.
    */
   own: { itemId: string; name: string; stars: Stars; slot: Slot } | null;
+  /**
+   * The items this banner's guarantee can give them (their own treasures, or the limited banner's
+   * featured items), and the one they picked for it to give (an item id): null for any of them.
+   */
+  choices: { itemId: string; name: string; stars: Stars; slot: Slot }[];
+  pick: string | null;
   /** Each tier's chance (0 to 1) on a pull before pity raises the top one. */
   rates: Record<Stars, number>;
   /** The chance (0 to 1) each of their pulls gives a second item for nothing (Pot of Greed): 0 without it. */
@@ -106,6 +113,8 @@ export interface GachaStore {
   view: (guildId: string, userId: string, banner: BannerId) => Promise<BannerView>;
   /** One pull, or a multi pull: what came out, or why not (nothing was spent): 'too_poor', or 'closed' for a limited banner that isn't open. */
   pull: (guildId: string, userId: string, multi: boolean, banner: BannerId) => Promise<BannerResult | 'too_poor' | 'closed'>;
+  /** Picks the item a banner's guarantee gives them (null: any of them): the banner after, or 'not_found' when the guarantee can't give that item. */
+  pick: (guildId: string, userId: string, banner: BannerId, itemId: string | null) => Promise<BannerView | 'not_found'>;
 }
 
 const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description });
@@ -150,6 +159,7 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
   const pityOn = hardPity > 0 && topChance(1) > 0;
   const limited = banner === 'limited';
   const [own] = limited ? [] : ownTreasures(userId);
+  const brief = (item: ItemDef) => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot });
   const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
   return {
     banner,
@@ -162,7 +172,9 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
     topStars: PITY_STARS,
     pity: pityOn ? { count: (limited ? member?.limitedPity : member?.pity) ?? 0, softStart, hardPity } : null,
     guaranteed: (limited ? member?.limitedGuaranteed : member?.guaranteed) ?? false,
-    own: own ? { itemId: own.id, name: own.name, stars: own.stars, slot: own.slot } : null,
+    own: own ? brief(own) : null,
+    choices: guaranteeChoices(userId, banner).map(brief),
+    pick: guaranteePick(member, userId, banner),
     rates: rates(),
     extraChance: extraPullChance(gear),
   };
@@ -182,4 +194,5 @@ export const gachaStore: GachaStore = {
       view: await bannerView(guildId, userId, banner),
     };
   },
+  pick: async (guildId, userId, banner, itemId) => ((await setGuaranteePick(guildId, userId, banner, itemId)) ? bannerView(guildId, userId, banner) : 'not_found'),
 };
