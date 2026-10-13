@@ -47,6 +47,12 @@ function zonedMidnight(year: number, month: number, day: number, timeZone: strin
   return guess - zoneOffset(guess - zoneOffset(guess, timeZone), timeZone);
 }
 
+/** The instant the clock in `timeZone` reads this date and time (an hour daylight saving skips counts as the one after it). */
+export function zonedTime(year: number, month: number, day: number, hour = 0, minute = 0, timeZone: string = RAID_TIME_ZONE): number {
+  const guess = Date.UTC(year, month - 1, day, hour, minute);
+  return guess - zoneOffset(guess - zoneOffset(guess, timeZone), timeZone);
+}
+
 /** The calendar date in `timeZone` at `now`, as YYYY-MM-DD: the day that daily limits (like skip prices) count within. */
 export function dayKey(now: Date = new Date(), timeZone: string = RAID_TIME_ZONE): string {
   const { year, month, day } = zonedParts(now.getTime(), timeZone);

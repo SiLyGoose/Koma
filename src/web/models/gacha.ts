@@ -1,21 +1,50 @@
 import { CONFIG, STARS } from '../../config.js';
 import { MULTI_PULLS, PITY_STARS } from '../../constants/index.js';
 import { collections } from '../../db.js';
+import { featuredItems, LIMITED_BANNER } from '../../data/items.js';
+import { limitedWindow } from '../../lib/game/items/banner.js';
 import { canUseItem, gearEffects, itemEffectiveness } from '../../lib/game/items/equipment.js';
 import { ownTreasures, topChance } from '../../lib/game/items/gacha.js';
-import { pullCost } from '../../perks/index.js';
+import { extraPullChance, pullCost } from '../../perks/index.js';
 import { pullGacha, pullMulti, type PulledItem } from '../../services/economy/index.js';
 import { resolveGear } from '../../services/items/gear.js';
-import type { Slot, Stars } from '../../types.js';
+import type { BannerId, ItemDef, Slot, Stars } from '../../types.js';
 
 /*
  * The site's banner page (GET /api/gacha, POST /api/gacha/pull): pulling from the gacha, as `gacha`
  * and `gacha multi` do in Discord (the same payment, pity and guarantee: services/economy/gacha.ts),
  * and what the page shows beside the buttons (the price, their komaTokens, their pity, the odds).
+ * Both take which banner (`banner`: the standard one when left out).
  */
 
-/** GET /api/gacha: what a pull costs the member, and where their pity stands. */
+/** An item a banner shows off. */
+export interface BannerItem {
+  itemId: string;
+  name: string;
+  stars: Stars;
+  slot: Slot;
+  description: string;
+}
+
+/** The limited banner (data/items/banner.ts), on either banner's view so the page knows whether to offer it. */
+export interface LimitedBanner {
+  name: string;
+  /** Whether it takes pulls now. */
+  open: boolean;
+  /** When it opens and closes (ms since the epoch): null where none is set (no start: there is no limited banner). */
+  startsAt: number | null;
+  endsAt: number | null;
+  /** Its featured items. */
+  featured: BannerItem[];
+  /** The chance (0 to 1) a top-tier item from it is a featured one, when that isn't guaranteed. */
+  featuredChance: number;
+}
+
+/** GET /api/gacha: what a pull costs the member, and where their pity stands on a banner. */
 export interface BannerView {
+  /** The banner this is the view of: `pity` and `guaranteed` are that banner's. */
+  banner: BannerId;
+  limited: LimitedBanner;
   /** One pull in points, after their gear (a pull paid with a komaToken costs none). */
   cost: number;
   /** One pull in points without gear. */
@@ -29,12 +58,20 @@ export interface BannerView {
   topStars: Stars;
   /** Pulls since their last top-tier item, and the pull that guarantees one: null when pity isn't in effect. */
   pity: { count: number; softStart: number; hardPity: number } | null;
-  /** Their next top-tier item is one of their own treasures (their last was someone else's). */
+  /**
+   * Their next top-tier item is one of their own treasures (their last was someone else's). On the
+   * limited banner: it is a featured item (their last one there wasn't).
+   */
   guaranteed: boolean;
-  /** The unique treasure made for them, which the guarantee gives (their first, if they have more): null when none is theirs, so there's no guarantee. */
+  /**
+   * The unique treasure made for them, which the standard banner's guarantee gives (their first, if
+   * they have more): null when none is theirs, so there's no guarantee, and on the limited banner.
+   */
   own: { itemId: string; name: string; stars: Stars; slot: Slot } | null;
   /** Each tier's chance (0 to 1) on a pull before pity raises the top one. */
   rates: Record<Stars, number>;
+  /** The chance (0 to 1) each of their pulls gives a second item for nothing (Pot of Greed): 0 without it. */
+  extraChance: number;
 }
 
 /** One item pulled, in the order they came. */
@@ -55,6 +92,8 @@ export interface BannerPull {
 /** POST /api/gacha/pull: what came out, what it was paid with, and the banner as it stands after. */
 export interface BannerResult {
   pulls: BannerPull[];
+  /** The items the pulls gave on top for nothing (Pot of Greed), in order. */
+  extras: BannerPull[];
   /** Points spent, after gear. */
   cost: number;
   /** komaTokens spent. */
@@ -64,9 +103,24 @@ export interface BannerResult {
 
 /** What the gacha routes use (the database's, unless a test says otherwise). */
 export interface GachaStore {
-  view: (guildId: string, userId: string) => Promise<BannerView>;
-  /** One pull, or a multi pull: what came out, or 'too_poor' (nothing was spent). */
-  pull: (guildId: string, userId: string, multi: boolean) => Promise<BannerResult | 'too_poor'>;
+  view: (guildId: string, userId: string, banner: BannerId) => Promise<BannerView>;
+  /** One pull, or a multi pull: what came out, or why not (nothing was spent): 'too_poor', or 'closed' for a limited banner that isn't open. */
+  pull: (guildId: string, userId: string, multi: boolean, banner: BannerId) => Promise<BannerResult | 'too_poor' | 'closed'>;
+}
+
+const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description });
+
+/** The limited banner as it stands now. */
+export function limitedBanner(now: number = Date.now()): LimitedBanner {
+  const { open, start, end } = limitedWindow(CONFIG.gacha.limited, now);
+  return {
+    name: LIMITED_BANNER.name,
+    open,
+    startsAt: start,
+    endsAt: end,
+    featured: featuredItems().map(bannerItem),
+    featuredChance: CONFIG.gacha.limited.featuredChance,
+  };
 }
 
 /** Each tier's share of the pull weights. */
@@ -89,36 +143,43 @@ const pulled = (userId: string, { item, isNew, count }: PulledItem): BannerPull 
   borrowed: canUseItem(item, userId) ? null : itemEffectiveness(item, userId),
 });
 
-async function bannerView(guildId: string, userId: string): Promise<BannerView> {
+async function bannerView(guildId: string, userId: string, banner: BannerId): Promise<BannerView> {
   const member = await collections().members.findOne({ guildId, userId });
   const { softStart, hardPity } = CONFIG.gacha.pity;
   // As pullMany counts it: only while pity is on and the top tier can be pulled at all.
   const pityOn = hardPity > 0 && topChance(1) > 0;
-  const [own] = ownTreasures(userId);
+  const limited = banner === 'limited';
+  const [own] = limited ? [] : ownTreasures(userId);
+  const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
   return {
-    cost: pullCost(CONFIG.gacha.cost, gearEffects(await resolveGear(guildId, userId, member?.equipment), userId)),
+    banner,
+    limited: limitedBanner(),
+    cost: pullCost(CONFIG.gacha.cost, gear),
     baseCost: CONFIG.gacha.cost,
     multi: MULTI_PULLS,
     balance: member?.points ?? 0,
     tokens: member?.tokens ?? 0,
     topStars: PITY_STARS,
-    pity: pityOn ? { count: member?.pity ?? 0, softStart, hardPity } : null,
-    guaranteed: member?.guaranteed ?? false,
+    pity: pityOn ? { count: (limited ? member?.limitedPity : member?.pity) ?? 0, softStart, hardPity } : null,
+    guaranteed: (limited ? member?.limitedGuaranteed : member?.guaranteed) ?? false,
     own: own ? { itemId: own.id, name: own.name, stars: own.stars, slot: own.slot } : null,
     rates: rates(),
+    extraChance: extraPullChance(gear),
   };
 }
 
 export const gachaStore: GachaStore = {
   view: bannerView,
-  pull: async (guildId, userId, multi) => {
-    if (multi) {
-      const result = await pullMulti(guildId, userId);
-      if (!result.ok) return 'too_poor';
-      return { pulls: result.pulls.map((pull) => pulled(userId, pull)), cost: result.cost, tokensUsed: result.tokensUsed, view: await bannerView(guildId, userId) };
-    }
-    const result = await pullGacha(guildId, userId);
-    if (!result.ok) return 'too_poor';
-    return { pulls: [pulled(userId, result)], cost: result.cost, tokensUsed: result.tokensUsed, view: await bannerView(guildId, userId) };
+  pull: async (guildId, userId, multi, banner) => {
+    const result = multi ? await pullMulti(guildId, userId, banner) : await pullGacha(guildId, userId, banner);
+    if (!result.ok) return result.reason;
+    const [pulls, extras] = 'pulls' in result ? [result.pulls, result.extras] : [[result], result.extra ? [result.extra] : []];
+    return {
+      pulls: pulls.map((pull) => pulled(userId, pull)),
+      extras: extras.map((pull) => pulled(userId, pull)),
+      cost: result.cost,
+      tokensUsed: result.tokensUsed,
+      view: await bannerView(guildId, userId, banner),
+    };
   },
 };

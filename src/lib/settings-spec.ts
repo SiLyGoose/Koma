@@ -44,6 +44,7 @@ import {
 import { EFFECT_IDS, EFFECTS, type EffectId, type PerkDef } from '../perks/index.js';
 import { STARS } from '../types.js';
 import type { Settings } from '../config.js';
+import { BANNER_TIME_PATTERN, bannerTime } from './game/items/banner.js';
 
 /*
  * Describes every setting: its name, what it means, and what values are allowed.
@@ -128,6 +129,29 @@ export const SPECS: readonly SettingSpec[] = [
     0,
     MAX_PITY,
   ),
+  ...(
+    [
+      ['start', 'When the limited banner opens. With it off, the banner is closed.'],
+      ['end', 'When the limited banner closes. With it off, the banner stays open once it has started.'],
+    ] as const
+  ).map(([edge, description]): SettingSpec => ({
+    key: `gacha.limited.${edge}`,
+    group: 'Gacha',
+    description: `${description} A date, or a date and time, on the Eastern clock.`,
+    type: 'string',
+    pattern: BANNER_TIME_PATTERN,
+    expects: 'a date like 2026-10-31, a date and time like 2026-10-31 18:00, or off',
+    normalize: (raw) => raw.toLowerCase().replace(/\s+/g, ' ').replace(/(\d)t(\d)/, '$1 $2'),
+  })),
+  {
+    key: 'gacha.limited.featuredChance',
+    group: 'Gacha',
+    description: `Chance a ${PITY_STARS}-star from the limited banner is one of its featured items. After one that isn't, the next one always is.`,
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
 
   int('sell.price.1', 'Sell', `${CURRENCY_EMOJI} for selling one 1-star item.`, 0, MAX_POINTS),
   int('sell.price.2', 'Sell', `${CURRENCY_EMOJI} for selling one 2-star item.`, 0, MAX_POINTS),
@@ -665,6 +689,13 @@ export function checkConstraints(settings: Settings): string | null {
   const { softStart, hardPity } = settings.gacha.pity;
   if (hardPity > 0 && softStart > hardPity) {
     return 'gacha.pity.softStart cannot be higher than gacha.pity.hardPity';
+  }
+  const limited = { start: bannerTime(settings.gacha.limited.start), end: bannerTime(settings.gacha.limited.end) };
+  for (const edge of ['start', 'end'] as const) {
+    if (Number.isNaN(limited[edge])) return `gacha.limited.${edge} is not a real date`;
+  }
+  if (limited.start !== null && limited.end !== null && limited.start >= limited.end) {
+    return 'gacha.limited.start must be before gacha.limited.end';
   }
   const weights = settings.gacha.starWeights;
   if (STARS.reduce((sum, stars) => sum + weights[stars], 0) <= 0) {

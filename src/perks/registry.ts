@@ -22,6 +22,8 @@ import { iconicByMistake } from './items/iconic-by-mistake.js';
 import { maxHpDamage } from './raid/max-hp-damage.js';
 import { blastLoss, dynamiteBlast, energyRegen, freeDig, luckyOre, oreValueCut, pickaxeEnergyPenalty, pickaxeSpeed } from './pinecraft/index.js';
 import { pullDiscount } from './economy/pull-discount.js';
+import { greedCost, potOfGreed } from './economy/pot-of-greed.js';
+import { jobPay } from './economy/job-pay.js';
 import { robStreak, robStreakCap, robVulnerable } from './items/thoccy.js';
 import { burstFire, burstRecoil } from './items/mp5.js';
 import { rallyBoost } from './raid/rally-boost.js';
@@ -89,6 +91,10 @@ export const EFFECTS = {
   // Economy.
   claimBonus,
   pullDiscount,
+  jobPay,
+  // Pot of Greed.
+  potOfGreed,
+  greedCost,
   // Raid battles.
   healSplash,
   guardBoost,

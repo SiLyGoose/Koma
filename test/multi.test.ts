@@ -84,7 +84,10 @@ test('multi: every real multi pull has at least one item of the minimum tier or 
 });
 
 test('multi: the messages', () => {
-  assert.equal(TEXT.gacha.usage('k!'), `Use \`k!gacha\` for one pull, or \`k!gacha multi\` for ${MULTI_PULLS} pulls at once.`);
+  assert.equal(
+    TEXT.gacha.usage('k!'),
+    `Use \`k!gacha\` for one pull, or \`k!gacha multi\` for ${MULTI_PULLS} pulls at once. Add \`limited\` to pull from the limited banner; \`k!gacha banner\` shows what is on it.`,
+  );
   assert.equal(
     TEXT.gacha.multiCantAfford('k!', 10, '2,800', '100'),
     `A multi pull (10 pulls) costs **2,800** ${CURRENCY_EMOJI} and you have **100** ${CURRENCY_EMOJI} Use \`k!claim\` to earn more.`,

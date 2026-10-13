@@ -46,9 +46,11 @@ test('databank page: says where each item comes from, and the raid drop chance',
   const { raidDropChance, raidDropChancePerRaider, items } = databankView();
   assert.equal(raidDropChance, CONFIG.raid.dropChance);
   assert.equal(raidDropChancePerRaider, CONFIG.raid.dropChancePerRaider);
-  for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : 'gacha', item.id);
-  // Every place it comes from: a raid item is sold in the raid shop too.
-  for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : ['gacha'], item.id);
+  const pulled = (item: (typeof ITEMS)[number]) => (item.limited ? 'limited' : 'gacha');
+  for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : pulled(item), item.id);
+  // Every place it comes from: a raid item is sold in the raid shop too, and a limited item only comes from its banner.
+  for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : [pulled(item)], item.id);
+  assert.ok(items.some((item) => item.source === 'limited'));
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);

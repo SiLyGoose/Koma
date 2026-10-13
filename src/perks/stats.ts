@@ -29,6 +29,8 @@ export type StatId =
   | 'robFine'
   /** Cost of one gacha pull, from the base cost. */
   | 'pullCost'
+  /** Points a job pays, from what it pays without gear. */
+  | 'jobPay'
   /** Chance (0 to 1) a claim or successful rob spins the wheel. */
   | 'wheelChance'
   /** Chance (0 to 1) a claim or rob rolls the D20. */
@@ -58,6 +60,7 @@ const FINISH: Record<StatId, (value: number) => number> = {
   robStolen: (value) => Math.max(1, Math.round(value)),
   robFine: Math.round,
   pullCost: (value) => Math.max(1, Math.round(value)),
+  jobPay: Math.round,
   wheelChance: (value) => clamp(value, 0, 1),
   d20Chance: (value) => clamp(value, 0, 1),
   claimTaxRate: (value) => clamp(value, 0, 1),
@@ -100,6 +103,9 @@ export const claimAmount = (rolled: number, gear: EffectTotals): number => modif
 
 /** Cost of a gacha pull, after gear. Never below 1. */
 export const pullCost = (base: number, gear: EffectTotals): number => modify('pullCost', base, gear);
+
+/** Points a job pays, after gear. */
+export const jobEarnings = (base: number, gear: Partial<EffectTotals>): number => modify('jobPay', base, gear);
 
 /** How many times longer the wearer's rob cooldown is (1 with nothing that slows them down). */
 export const robCooldownScale = (gear: Partial<EffectTotals>): number => modify('cooldownScale', 1, gear);

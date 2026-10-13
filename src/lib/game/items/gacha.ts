@@ -1,9 +1,9 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG, STARS } from '../../../config.js';
 import { PITY_STARS } from '../../../constants/index.js';
-import { gachaItems } from '../../../data/items.js';
-import type { ItemDef, Stars } from '../../../types.js';
-import { chance } from '../../random.js';
+import { featuredItems, gachaItems } from '../../../data/items.js';
+import type { BannerId, ItemDef, Stars } from '../../../types.js';
+import { chance, pickRandom } from '../../random.js';
 
 type Weights = Record<Stars, number>;
 export type PitySettings = { softStart: number; hardPity: number };
@@ -83,28 +83,50 @@ export function ownTreasures(userId: string): ItemDef[] {
 }
 
 /**
- * Rolls a tier, then picks uniformly among the items in that tier the gacha can pull (not raid drops). `pullNumber` is which pull
- * this is since the member's last pity-tier item (1 if pity doesn't matter). When `guaranteed`
- * is set and the roll lands on the pity tier, the pick is made only among `userId`'s own
- * treasures (see ownTreasures) instead of the whole tier. `minStars` is the lowest tier it can
- * land on (see rollStarsAtPull).
+ * Rolls a tier, then picks uniformly among the items in that tier the gacha can pull (not raid drops
+ * or limited items). `pullNumber` is which pull this is since the member's last pity-tier item on
+ * this banner (1 if pity doesn't matter). `minStars` is the lowest tier it can land on (see
+ * rollStarsAtPull).
+ *
+ * When the roll lands on the pity tier, the banner decides the pick. On the standard one, a
+ * `guaranteed` pick is made only among `userId`'s own treasures (see ownTreasures) instead of the
+ * whole tier. On the limited one it is one of the featured items (featuredItems) `featuredChance` of
+ * the time, and always when `guaranteed`; otherwise one of the standard banner's.
  */
-export function rollItem(pullNumber = 1, userId?: string, guaranteed = false, minStars: Stars = 1): ItemDef {
+export function rollItem(
+  pullNumber = 1,
+  userId?: string,
+  guaranteed = false,
+  minStars: Stars = 1,
+  banner: BannerId = 'standard',
+  featuredChance: number = CONFIG.gacha.limited.featuredChance,
+): ItemDef {
   const stars = rollStarsAtPull(pullNumber, undefined, undefined, minStars);
   let pool = gachaItems(stars);
-  if (stars === PITY_STARS && guaranteed && userId) {
+  if (stars === PITY_STARS && banner === 'limited') {
+    const featured = featuredItems();
+    if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = featured;
+  } else if (stars === PITY_STARS && guaranteed && userId) {
     const own = ownTreasures(userId);
     if (own.length > 0) pool = own;
   }
-  return pool[randomInt(0, pool.length)] as ItemDef;
+  return pickRandom(pool);
 }
 
 /**
- * Where a member's guarantee stands after they pull a pity-tier item. Getting one of their own
- * treasures clears it; getting someone else's sets it, so their next pity-tier item is one of
- * their own. A member with no treasure of their own never has a guarantee.
+ * Where a member's guarantee stands on a banner after they pull a pity-tier item from it.
+ *
+ * On the standard banner, getting one of their own treasures clears it; getting someone else's sets
+ * it, so their next pity-tier item is one of their own. A member with no treasure of their own never
+ * has a guarantee there. On the limited banner, a featured item clears it and any other sets it, so
+ * their next pity-tier item there is a featured one.
  */
-export function nextGuarantee(userId: string, item: ItemDef): boolean {
+export function nextGuarantee(userId: string | undefined, item: ItemDef, banner: BannerId = 'standard'): boolean {
+  if (banner === 'limited') {
+    const featured = featuredItems();
+    return featured.length > 0 && !featured.some((one) => one.id === item.id);
+  }
+  if (userId === undefined) return false;
   const own = ownTreasures(userId);
   if (own.length === 0) return false;
   return !own.some((mine) => mine.id === item.id);
@@ -117,23 +139,30 @@ export function nextGuarantee(userId: string, item: ItemDef): boolean {
  * where the counter ends up. With pity off (`pityOn` false) every pull is just number 1 and the
  * counter means nothing.
  *
- * `owner` carries the member's guarantee (see nextGuarantee): each pity-tier item updates it
- * for the pulls after it, and the result says where it ends up. The guarantee works whether or
- * not pity is on. `minStars` promises at least one item of that tier or better: when none of the
- * other pulls has given one, the last pull is rolled from that tier up. `roll` is only replaced in tests.
+ * `owner` carries the member's guarantee on `owner.banner` (see nextGuarantee; the standard banner
+ * when left out): each pity-tier item updates it for the pulls after it, and the result says where it
+ * ends up. The guarantee works whether or not pity is on. `minStars` promises at least one item of
+ * that tier or better: when none of the other pulls has given one, the last pull is rolled from that
+ * tier up. `roll` is only replaced in tests.
+ *
+ * `owner.extraChance` is the chance (0 to 1) each pull gives a second item (Pot of Greed), returned
+ * apart in `extras`, in order. An extra item is a plain roll: at the chance of a first pull, never
+ * counted toward pity and never starting the count over, and not part of `minStars`. A pity-tier one
+ * still follows and updates the guarantee.
  */
 export function rollPulls(
   counter: number,
   times: number,
   pityOn: boolean,
   roll?: (pullNumber: number, guaranteed: boolean, minStars: Stars) => ItemDef,
-  owner: { userId?: string; guaranteed?: boolean } = {},
+  owner: { userId?: string; guaranteed?: boolean; banner?: BannerId; extraChance?: number } = {},
   minStars: Stars = 1,
-): { items: ItemDef[]; counter: number; guaranteed: boolean } {
-  const { userId } = owner;
+): { items: ItemDef[]; extras: ItemDef[]; counter: number; guaranteed: boolean } {
+  const { userId, banner = 'standard', extraChance = 0 } = owner;
   let guaranteed = owner.guaranteed ?? false;
-  const doRoll = roll ?? ((pullNumber: number, g: boolean, floor: Stars) => rollItem(pullNumber, userId, g, floor));
+  const doRoll = roll ?? ((pullNumber: number, g: boolean, floor: Stars) => rollItem(pullNumber, userId, g, floor, banner));
   const items: ItemDef[] = [];
+  const extras: ItemDef[] = [];
   let best = 0;
   for (let i = 0; i < times; i++) {
     counter = pityOn ? counter + 1 : 1;
@@ -143,8 +172,13 @@ export function rollPulls(
     best = Math.max(best, item.stars);
     if (item.stars === PITY_STARS) {
       if (pityOn) counter = 0;
-      if (userId) guaranteed = nextGuarantee(userId, item);
+      guaranteed = nextGuarantee(userId, item, banner);
+    }
+    if (extraChance > 0 && chance(extraChance)) {
+      const extra = doRoll(1, guaranteed, 1);
+      extras.push(extra);
+      if (extra.stars === PITY_STARS) guaranteed = nextGuarantee(userId, extra, banner);
     }
   }
-  return { items, counter, guaranteed };
+  return { items, extras, counter, guaranteed };
 }

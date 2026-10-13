@@ -192,6 +192,9 @@ test('slash options: gacha multi', () => {
   assert.deepEqual(args('gacha', {}), []);
   assert.deepEqual(args('gacha', { bools: { multi: false } }), []);
   assert.deepEqual(args('gacha', { bools: { multi: true } }), ['multi']);
+  assert.deepEqual(args('gacha', { bools: { limited: true } }), ['limited']);
+  assert.deepEqual(args('gacha', { bools: { limited: true, multi: true } }), ['limited', 'multi']);
+  assert.deepEqual(args('gacha', { bools: { banner: true, multi: true } }), ['banner']);
 });
 
 test('slash options: databank with and without an item', () => {

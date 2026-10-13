@@ -18,6 +18,15 @@ const SITE: WebConfig = {
 
 test('banner page: a logged-in member sees the banner and pulls in their own servers only', async () => {
   const view: BannerView = {
+    banner: 'standard',
+    limited: {
+      name: 'Help Wanted',
+      open: true,
+      startsAt: 1,
+      endsAt: null,
+      featured: [{ itemId: 'pot-of-greed', name: 'Pot of Greed', stars: 4, slot: 'weapon', description: '' }],
+      featuredChance: 0.75,
+    },
     cost: 90,
     baseCost: 100,
     multi: 10,
@@ -28,15 +37,18 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
     guaranteed: false,
     own: { itemId: 'c4', name: 'C4', stars: 4, slot: 'treasure' },
     rates: { 1: 0.6, 2: 0.3, 3: 0.09, 4: 0.01 },
+    extraChance: 0,
   };
   const item: BannerPull = { itemId: 'rusty-dagger', name: 'Rusty Dagger', stars: 1, slot: 'weapon', description: '', isNew: true, count: 1, borrowed: null };
-  const pulls: { guildId: string; userId: string; multi: boolean }[] = [];
+  const pulls: { guildId: string; userId: string; multi: boolean; banner: string }[] = [];
+  let limitedOpen = true;
   const store: GachaStore = {
-    view: async () => view,
-    pull: async (guildId, userId, multi): Promise<BannerResult | 'too_poor'> => {
+    view: async (_guildId, _userId, banner) => ({ ...view, banner }),
+    pull: async (guildId, userId, multi, banner): Promise<BannerResult | 'too_poor' | 'closed'> => {
+      if (banner === 'limited' && !limitedOpen) return 'closed';
       if (guildId === 'g1' && multi && userId === 'u1' && pulls.some((p) => p.multi)) return 'too_poor'; // the second multi pull is too much
-      pulls.push({ guildId, userId, multi });
-      return { pulls: Array.from({ length: multi ? 10 : 1 }, () => item), cost: multi ? 810 : 0, tokensUsed: 1, view };
+      pulls.push({ guildId, userId, multi, banner });
+      return { pulls: Array.from({ length: multi ? 10 : 1 }, () => item), extras: [], cost: multi ? 810 : 0, tokensUsed: 1, view: { ...view, banner } };
     },
   };
   const deps: ApiDeps = {
@@ -75,9 +87,23 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
     assert.equal((await fetch(`${base}/api/gacha/pull`, post({ guild: 'g1', multi: 'yes' }))).status, 400);
     assert.equal((await fetch(`${base}/api/gacha/pull`, post({ guild: 'g2' }))).status, 403);
     assert.equal((await fetch(`${base}/api/gacha/pull`, { method: 'GET', headers })).status, 400); // no server asked about
+
+    // The limited banner: asked for by name, on the view and on a pull, and closed when it isn't open.
+    const limitedView = await fetch(`${base}/api/gacha?guild=g1&banner=limited`, { headers });
+    assert.deepEqual(await limitedView.json(), { ...view, banner: 'limited' });
+    assert.equal((await fetch(`${base}/api/gacha?guild=g1&banner=nope`, { headers })).status, 400);
+    const limitedPull = await fetch(`${base}/api/gacha/pull`, post({ guild: 'g1', banner: 'limited' }));
+    assert.equal(((await limitedPull.json()) as BannerResult).view.banner, 'limited');
+    limitedOpen = false;
+    const closed = await fetch(`${base}/api/gacha/pull`, post({ guild: 'g1', banner: 'limited' }));
+    assert.equal(closed.status, 409);
+    assert.deepEqual(await closed.json(), { error: 'closed' });
+    assert.equal((await fetch(`${base}/api/gacha/pull`, post({ guild: 'g1', banner: 'nope' }))).status, 400);
+
     assert.deepEqual(pulls, [
-      { guildId: 'g1', userId: 'u1', multi: false },
-      { guildId: 'g1', userId: 'u1', multi: true },
+      { guildId: 'g1', userId: 'u1', multi: false, banner: 'standard' },
+      { guildId: 'g1', userId: 'u1', multi: true, banner: 'standard' },
+      { guildId: 'g1', userId: 'u1', multi: false, banner: 'limited' },
     ]);
   } finally {
     server.close();

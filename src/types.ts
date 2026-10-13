@@ -19,6 +19,15 @@ export type Slot = 'weapon' | 'armor' | 'treasure';
 
 export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'treasure'];
 
+/**
+ * Which banner a gacha pull is made on: the standard one, or the limited one (open between the
+ * settings' gacha.limited.start and .end), whose top-tier items are mostly its featured ones
+ * (data/items/banner.ts). Each keeps its own pity and its own guarantee.
+ */
+export type BannerId = 'standard' | 'limited';
+
+export const BANNERS: readonly BannerId[] = ['standard', 'limited'];
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -42,6 +51,11 @@ export interface ItemDef {
    * Missing means it's pulled as usual.
    */
   raidDrop?: true;
+  /**
+   * A limited item: never pulled from the standard banner, only from the limited banner while it is
+   * featured there (data/items/banner.ts) and the banner is open. Missing means it's pulled as usual.
+   */
+  limited?: true;
   /**
    * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
    * databanks tag it and can list a class's items. Missing means it's for everyone.
@@ -193,6 +207,13 @@ export interface MemberDoc {
    */
   guaranteed?: boolean;
   /**
+   * The same two for the limited banner, which counts its own pity (kept from one limited banner to
+   * the next): pulls there since their last pity-tier item, and whether their next one is guaranteed
+   * to be a featured item (their last one there wasn't). Missing means 0 and false.
+   */
+  limitedPity?: number;
+  limitedGuaranteed?: boolean;
+  /**
    * What this member is wearing: the gear of their active loadout. Missing on members who have
    * never equipped anything.
    */
@@ -328,6 +349,8 @@ export type LedgerReason =
   | 'vault_donation'
   // A gacha pull paid for with a komaToken instead of points (0 points, tokenDelta -1).
   | 'gacha_token'
+  // An extra item a pull gave for nothing (Pot of Greed): 0 points; itemId is the item.
+  | 'gacha_bonus'
   // The weekly raid (commands/raid.ts): a boost paid for, points the boss stole, the points and the
   // komaTokens (0 points, tokenDelta) for beating it, and points given back when a raid never
   // finished (the bot stopped during it).

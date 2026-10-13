@@ -16,7 +16,7 @@ export interface DatabankField {
  * refinement level (fully refined unless given) and with or without its masterwork bonus (without
  * unless given: shown locked), then who it is exclusive to when only some members can use it, and
  * the class it is for when it is a class item, and where it comes from (raid bosses, and the raid shop
- * when that sells it) when the gacha never gives it.
+ * when that sells it, or the limited banner) when the standard banner never gives it.
  */
 export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): string {
   const effects = describeEffects(item, 1, level, masterwork);
@@ -26,6 +26,7 @@ export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, master
     ...(item.usableBy ? [TEXT.databank.exclusive(mentionList(item.usableBy))] : []),
     ...(item.class ? [TEXT.databank.classItem(TEXT.raid.classLabel(item.class))] : []),
     ...(item.raidDrop ? [soldInRaidShop(item, CONFIG.raid.shop) ? TEXT.databank.raidDropOrShop : TEXT.databank.raidDrop] : []),
+    ...(item.limited ? [TEXT.databank.limited] : []),
   ].join('\n');
 }
 
@@ -170,6 +171,7 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, maste
             },
           ]
         : []),
+      ...(item.limited ? [{ name: TEXT.databank.detailRaidDropField, value: TEXT.databank.detailLimited, inline: false }] : []),
     ],
   };
 }

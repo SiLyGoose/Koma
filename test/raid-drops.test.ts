@@ -34,9 +34,10 @@ test('raid drops: the raid gear is raid-only, and the gacha leaves it out of eve
   for (const stars of STARS) {
     assert.ok(gachaItems(stars).length > 0, `${stars}-star tier can still be pulled`);
     assert.ok(gachaItems(stars).every((item) => !item.raidDrop));
-    assert.equal(gachaItems(stars).length + RAID_DROPS.filter((item) => item.stars === stars).length, itemsByStars(stars).length);
+    const limited = itemsByStars(stars).filter((item) => item.limited).length;
+    assert.equal(gachaItems(stars).length + RAID_DROPS.filter((item) => item.stars === stars).length + limited, itemsByStars(stars).length);
   }
-  // Every other item is still pulled as before.
+  // Every other item is still pulled as before (the limited ones from their own banner).
   assert.equal(ITEMS.filter((item) => !item.raidDrop).length, ITEMS.length - RAID_GEAR.length - RAID_GEAR_3.length);
   assert.ok(ownTreasures('anyone').every((item) => !item.raidDrop));
 });

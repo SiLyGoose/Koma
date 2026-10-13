@@ -1,9 +1,10 @@
-import { REFINE } from '../../constants/index.js';
+import { PITY_STARS, REFINE } from '../../constants/index.js';
 import { normalize } from '../../lib/text.js';
 import { EFFECTS } from '../../perks/index.js';
 import { SLOTS, STARS } from '../../types.js';
+import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
-import { gachaItems } from './lookup.js';
+import { gachaItems, ITEMS_BY_ID } from './lookup.js';
 
 /** Throws at startup if the catalog would break the gacha or the equipment system. */
 export function validateItems(): void {
@@ -27,6 +28,7 @@ export function validateItems(): void {
     for (const effect of item.effects) {
       if (!(effect in EFFECTS)) throw new Error(`${item.id} has an unknown effect: ${effect}`);
     }
+    if (item.limited && item.raidDrop) throw new Error(`${item.id} is both a limited item and a raid drop`);
     if (item.bonus) {
       const { level, text, adds = [], removes = [] } = item.bonus;
       if (item.stars !== 4) throw new Error(`${item.id} has a refine bonus, but only 4-star items can have one`);
@@ -42,9 +44,16 @@ export function validateItems(): void {
       }
     }
   }
+  if (new Set(LIMITED_BANNER.featured).size !== LIMITED_BANNER.featured.length) throw new Error('The limited banner features an item twice');
+  for (const id of LIMITED_BANNER.featured) {
+    const item = ITEMS_BY_ID.get(id);
+    if (!item) throw new Error(`The limited banner features an unknown item: ${id}`);
+    if (!item.limited) throw new Error(`The limited banner features ${id}, which isn't marked limited, so the standard banner gives it too`);
+    if (item.stars !== PITY_STARS) throw new Error(`The limited banner features ${id}, which isn't a ${PITY_STARS}-star item`);
+  }
   for (const stars of STARS) {
     if (gachaItems(stars).length === 0) {
-      throw new Error(`The ${stars}-star tier has no items the gacha can pull (raid drops don't count), so it could never be rolled.`);
+      throw new Error(`The ${stars}-star tier has no items the gacha can pull (raid drops and limited items don't count), so it could never be rolled.`);
     }
   }
 }

@@ -257,8 +257,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   gacha: {
-    build: (b) => void b.addBooleanOption((o) => o.setName('multi').setDescription('Pull several at once, for the price of that many pulls')),
-    toArgs: (i) => (i.options.getBoolean('multi') ? ['multi'] : []),
+    build: (b) =>
+      void b
+        .addBooleanOption((o) => o.setName('multi').setDescription('Pull several at once, for the price of that many pulls'))
+        .addBooleanOption((o) => o.setName('limited').setDescription('Pull from the limited banner instead of the standard one'))
+        .addBooleanOption((o) => o.setName('banner').setDescription('Show the limited banner instead of pulling')),
+    toArgs: (i) =>
+      i.options.getBoolean('banner') ? ['banner'] : [...(i.options.getBoolean('limited') ? ['limited'] : []), ...(i.options.getBoolean('multi') ? ['multi'] : [])],
   },
 
   gear: {

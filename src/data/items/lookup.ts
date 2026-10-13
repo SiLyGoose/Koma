@@ -1,6 +1,7 @@
 import { ITEM_SUGGEST } from '../../constants/index.js';
 import { editDistance, normalize } from '../../lib/text.js';
 import type { ItemDef, Stars } from '../../types.js';
+import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 
 export const ITEMS_BY_ID: ReadonlyMap<string, ItemDef> = new Map(
@@ -11,9 +12,14 @@ export function itemsByStars(stars: Stars): ItemDef[] {
   return ITEMS.filter((item) => item.stars === stars);
 }
 
-/** The items of a star tier the gacha can pull: all of them but the raid drops. */
+/** The items of a star tier the standard banner can pull: all of them but the raid drops and the limited items. */
 export function gachaItems(stars: Stars): ItemDef[] {
-  return itemsByStars(stars).filter((item) => !item.raidDrop);
+  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.limited);
+}
+
+/** The limited banner's featured items (LIMITED_BANNER.featured), in its order. */
+export function featuredItems(): ItemDef[] {
+  return LIMITED_BANNER.featured.flatMap((id) => ITEMS_BY_ID.get(id) ?? []);
 }
 
 /** The items that only drop from raid bosses (ItemDef.raidDrop). */

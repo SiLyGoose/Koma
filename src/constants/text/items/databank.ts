@@ -52,6 +52,9 @@ export const databankText = {
   /** Last line of an item the gacha never gives (ItemDef.raidDrop): one the raid shop doesn't sell, and one it does. */
   raidDrop: '🎁 Only drops from raid bosses',
   raidDropOrShop: '🎁 Drops from raid bosses, or bought in the raid shop',
+  /** Last line of a limited item (ItemDef.limited). */
+  limited: '⏳ Only from the limited banner',
+  detailLimited: "Can't be pulled from the standard banner: only from the limited banner, while it is featured there.",
   detailRaidDropField: 'Where to get it',
   detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives the party a chance (higher with more raiders) that every raider finds one.",
   /** Added to detailRaidDrop for an item the raid shop sells. `price` is a copy's, like "**10** <gem>". */

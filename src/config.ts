@@ -40,6 +40,17 @@ export interface Settings {
       softStart: number;
       hardPity: number;
     };
+    /**
+     * The limited banner (data/items/banner.ts): when it opens and closes, as "YYYY-MM-DD" or
+     * "YYYY-MM-DD HH:MM" Eastern, or "off" (lib/game/items/banner.ts). With `start` off it is closed;
+     * with `end` off it stays open. `featuredChance` is the chance (0 to 1) a top-tier item from it is
+     * one of its featured items, when that isn't guaranteed.
+     */
+    limited: {
+      start: string;
+      end: string;
+      featuredChance: number;
+    };
   };
   rob: {
     /** Minutes a robber must wait between attempts. */
@@ -338,6 +349,8 @@ export const DEFAULTS: Readonly<Settings> = {
     // 4-star is 0.6% (6 in 1000). Pity only works while the 4-star weight is above 0.
     starWeights: { 1: 694, 2: 250, 3: 50, 4: 6 },
     pity: { softStart: 70, hardPity: 90 },
+    // Closed until an admin sets its dates. 3 in 4 of its 4-star items are featured ones.
+    limited: { start: 'off', end: 'off', featuredChance: 0.75 },
   },
   rob: {
     cooldownMinutes: 60,

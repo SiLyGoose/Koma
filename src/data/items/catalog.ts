@@ -22,6 +22,9 @@ import type { ItemDef } from '../../types.js';
  * the admin, for testing) get its effects. Leave `usableBy` out and everyone can use it.
  *
  * An item marked `raidDrop: true` can't be pulled from the gacha: it only drops from raid bosses.
+ *
+ * An item marked `limited: true` is never on the standard banner: it is only pulled from the limited
+ * banner, while it is one of the banner's featured items (items/banner.ts).
  */
 export const ITEMS: readonly ItemDef[] = [
   // 1 star
@@ -485,6 +488,26 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Fire in the hole!',
     effects: ['dynamiteBlast', 'blastLoss'],
+  },
+
+  // Limited 4-star items: only pulled from the limited banner (items/banner.ts), while they are featured on it.
+  {
+    id: 'pot-of-greed',
+    name: 'Pot of Greed',
+    stars: 4,
+    slot: 'weapon',
+    description: 'It lets you draw two. Nobody ever reads what it costs.',
+    effects: ['potOfGreed', 'greedCost'],
+    limited: true,
+  },
+  {
+    id: 'employee-of-the-month',
+    name: 'Employee of the Month',
+    stars: 4,
+    slot: 'armor',
+    description: 'A framed photo of you, smiling. Nobody asked you first.',
+    effects: ['jobPay'],
+    limited: true,
   },
 
   // 3-star raid gear: never pulled, only dropped by raid bosses (raidDrop) on the harder difficulties.

@@ -30,6 +30,7 @@ export * from './rob/claim-tax.js';
 export * from './d20/index.js';
 export * from './pinecraft/index.js';
 export * from './economy/pull-discount.js';
+export * from './economy/pot-of-greed.js';
 export * from './items/thoccy.js';
 export * from './items/mp5.js';
 export * from './rob/rob-tax.js';
