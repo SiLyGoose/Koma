@@ -580,3 +580,42 @@ test('databank bosses: a name opens on that boss, and one that is no boss says w
   assert.match(none?.content ?? '', /There is no raid boss called "goblin"/);
   for (const id of RAID_BOSS_IDS) assert.ok(none?.content?.includes(TEXT.raid.bosses[id].name));
 });
+
+// ---------------------------------------------------------------------------
+// The raid classes (`databank classes`)
+
+test('databank classes: one page per class, with what it does and its class items, flipped through with Next', async () => {
+  const { RAID_CLASS_IDS } = await import('../src/constants/index.js');
+  const { ITEMS } = await import('../src/data/items.js');
+  for (const word of ['classes', 'Class']) {
+    const f = fakeMessage();
+    await databank.execute(messageContext(f.message as Message<true>, [word], 'k!'));
+    assert.equal(f.replies.length, 1);
+    const first = pageView(f.replies[0]);
+    const id = RAID_CLASS_IDS[0];
+    assert.match(first.title ?? '', new RegExp(`${TEXT.raid.classes[id].name} \\(1/${RAID_CLASS_IDS.length}\\)`));
+    assert.ok((first.description ?? '').includes('**Party guard**'), first.description);
+    const items = first.fields.find((field) => field.name === TEXT.databank.classItemsField)?.value ?? '';
+    for (const item of ITEMS.filter((it) => it.class === id)) assert.ok(items.includes(item.name), item.name);
+
+    f.click('1', 'databank_next');
+    await settle();
+    assert.match(pageView(f.events.find((e) => e.kind === 'editReply')?.data).title ?? '', new RegExp(TEXT.raid.classes[RAID_CLASS_IDS[1]].name));
+    f.collector.stop('idle');
+  }
+});
+
+test('databank classes: a name opens on that class (by itself too), and one that is no class says which there are', async () => {
+  const { RAID_CLASS_IDS } = await import('../src/constants/index.js');
+  const at = RAID_CLASS_IDS.indexOf('priest') + 1;
+  for (const args of [['classes', 'priest'], ['class', 'Priest'], ['priest']]) {
+    const [opened] = await ask(...args);
+    assert.match(opened?.title ?? '', new RegExp(`Priest \\(${at}/${RAID_CLASS_IDS.length}\\)`), args.join(' '));
+    // Both of the priest's items, each with what it does.
+    const items = opened?.fields.find((field) => field.name === TEXT.databank.classItemsField)?.value ?? '';
+    assert.ok(items.includes('Dawnsong Censer') && items.includes("Choirmaster's Vestments") && items.includes('Circle of Death'), items);
+  }
+  const [none] = await ask('classes', 'bard');
+  assert.match(none?.content ?? '', /There is no raid class called "bard"/);
+  for (const id of RAID_CLASS_IDS) assert.ok(none?.content?.includes(TEXT.raid.classes[id].name));
+});

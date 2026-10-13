@@ -208,6 +208,17 @@ export const RAID_EMOJI = {
   taunted: '<:raidstatetaunted:1553099804022939749>',
 } as const;
 
+/** The raid classes' custom emojis (full codes, checked at startup): a class's badge, wherever Discord names it. */
+export const RAID_CLASS_EMOJI: Readonly<Record<RaidClassId, string>> = {
+  knight: '<:class_knight:1559330160782745660>',
+  warrior: '<:class_warrior:1559330269213761659>',
+  priest: '<:class_priest:1559330233046278246>',
+  mechanic: '<:class_mechanic:1559330200402010163>',
+  wizard: '<:class_wizard:1559330302306951188>',
+  assassin: '<:class_assassin:1559330130290147448>',
+  archer: '<:class_archer:1559330090729345155>',
+};
+
 /**
  * How a fight plays out. Damage and healing are HP. Every "share" is 0 to 1.
  *

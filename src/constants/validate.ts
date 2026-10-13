@@ -7,7 +7,7 @@ import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLI
 import { NOTIFY_ROLES } from './newsletter.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MULTI_MIN_STARS, MAX_PITY, GACHA_ANIMATION, PITY_STARS, STAR_COLORS } from './items/gacha.js';
-import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_EMOJI } from './raid.js';
+import { MAX_RAID_ROUNDS, MAX_RAID_SECONDS, RAID, RAID_BOSS_IDS, RAID_CLASS_EMOJI, RAID_COMBAT, RAID_EMOJI } from './raid.js';
 import { REFINE, REFINE_BUTTONS } from './items/refine.js';
 import { LOCK_BUTTONS } from './items/lock.js';
 import { ITEM_SUGGEST } from './items/suggest.js';
@@ -177,6 +177,9 @@ export function validateConstants(): void {
   if (!(RAID_COMBAT.attack.min >= 1 && RAID_COMBAT.attack.min <= RAID_COMBAT.attack.max)) problems.push('RAID_COMBAT.attack needs 1 <= min <= max');
   for (const [slot, emoji] of Object.entries(SLOT_EMOJI)) {
     if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`SLOT_EMOJI.${slot} must be a full custom emoji code, like <:name:123456789012345678>`);
+  }
+  for (const [name, emoji] of Object.entries(RAID_CLASS_EMOJI)) {
+    if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`RAID_CLASS_EMOJI.${name} must be a full custom emoji code, like <:name:123456789012345678>`);
   }
   for (const [name, emoji] of Object.entries(RAID_EMOJI)) {
     if (!/^<a?:\w{2,32}:\d{17,20}>$/.test(emoji)) problems.push(`RAID_EMOJI.${name} must be a full custom emoji code, like <:name:123456789012345678>`);

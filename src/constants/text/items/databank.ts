@@ -38,12 +38,15 @@ export const databankText = {
   previousButton: 'Previous',
   nextButton: 'Next',
   notYours: "This isn't your databank to flip through.",
-  /** A class item's line, and its field in the details: `name` is the class's, like "Knight". */
-  classItem: (name: string) => `🎖️ ${name} class item`,
+  /** A class item's line, and its field in the details: `label` is the class's badge and name, like "<emoji> Knight". */
+  classItem: (label: string) => `${label} class item`,
   detailClassField: 'Class',
-  detailClass: (name: string) => `**${name}**: what it does only works for a raider of that class.`,
-  /** `databank <class>`: that class's items. */
-  classDescription: (name: string, level: number) => `Every ${name} class item and what it does while equipped.\n${refineNote(level)}`,
+  detailClass: (label: string) => `**${label}**: what it does only works for a raider of that class.`,
+  /** `databank classes`: a class's page. Its items are listed fully refined. */
+  classItemsField: 'Class items',
+  classNoItems: 'It has no class items yet.',
+  classFooter: (p: string) => `Pick your class on the site's gear page, by the ribbon over your character. ${p}databank <item> shows one of these items in full.`,
+  noSuchClass: (p: string, query: string, classes: string) => `There is no raid class called "${query}". The classes are ${classes}, and \`${p}databank classes\` shows them all.`,
   /** Last line of an item that only some members can use. `owners` is mentions. */
   exclusive: (owners: string) => `Exclusive to ${owners}`,
   /** Last line of an item the gacha never gives (ItemDef.raidDrop): one the raid shop doesn't sell, and one it does. */
@@ -54,7 +57,7 @@ export const databankText = {
   /** Added to detailRaidDrop for an item the raid shop sells. `price` is a copy's, like "**10** <gem>". */
   detailRaidShop: (price: string) => `The raid shop on the site also sells it for ${price}, on the weeks it's on the shelf.`,
   footer: (p: string) =>
-    `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, ${p}databank <weapon | armor | treasure> one category, and ${p}databank bosses the raid bosses. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+    `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, ${p}databank <weapon | armor | treasure> one category, ${p}databank bosses the raid bosses and ${p}databank classes the raid classes. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
   /** The details of one item (`databank <item>`). `stars` is the star string. */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',

@@ -1,4 +1,4 @@
-import { RAID_COMBAT, RAID_EMOJI as E, type RaidBossId, type RaidClassId } from '../raid.js';
+import { RAID_CLASS_EMOJI, RAID_COMBAT, RAID_EMOJI as E, type RaidBossId, type RaidClassId } from '../raid.js';
 import { boldGems, boldMoney, boldTokens } from './currency.js';
 
 /*
@@ -65,17 +65,21 @@ const HIT_MANY = {
 };
 type ManyMove = keyof typeof HIT_MANY;
 
+const CLASS_NAMES: Record<RaidClassId, string> = { knight: 'Knight', warrior: 'Warrior', priest: 'Priest', mechanic: 'Mechanic', wizard: 'Wizard', assassin: 'Assassin', archer: 'Archer' };
+
 export const raidText = {
-  /** The raid classes' names (constants/raid.ts's RAID_CLASSES). */
+  /** The raid classes' names (constants/raid.ts's RAID_CLASSES), and each one's badge (its RAID_CLASS_EMOJI). */
   classes: {
-    knight: { name: 'Knight' },
-    warrior: { name: 'Warrior' },
-    priest: { name: 'Priest' },
-    mechanic: { name: 'Mechanic' },
-    wizard: { name: 'Wizard' },
-    assassin: { name: 'Assassin' },
-    archer: { name: 'Archer' },
-  } satisfies Record<RaidClassId, { name: string }>,
+    knight: { name: CLASS_NAMES.knight, emoji: RAID_CLASS_EMOJI.knight },
+    warrior: { name: CLASS_NAMES.warrior, emoji: RAID_CLASS_EMOJI.warrior },
+    priest: { name: CLASS_NAMES.priest, emoji: RAID_CLASS_EMOJI.priest },
+    mechanic: { name: CLASS_NAMES.mechanic, emoji: RAID_CLASS_EMOJI.mechanic },
+    wizard: { name: CLASS_NAMES.wizard, emoji: RAID_CLASS_EMOJI.wizard },
+    assassin: { name: CLASS_NAMES.assassin, emoji: RAID_CLASS_EMOJI.assassin },
+    archer: { name: CLASS_NAMES.archer, emoji: RAID_CLASS_EMOJI.archer },
+  } satisfies Record<RaidClassId, { name: string; emoji: string }>,
+  /** A class as Discord names it: its badge, then its name. */
+  classLabel: (id: RaidClassId): string => `${RAID_CLASS_EMOJI[id]} ${CLASS_NAMES[id]}`,
   /**
    * What a class's rules do (constants/raid.ts's RaidClassRules), a line each, for the databanks: only the
    * ones that aren't a raider without a class's are said (lib/game/raid-classes.ts). `times` is a
@@ -279,9 +283,9 @@ Grows with every raider (at least ${min}).`,
   logField: 'Recent actions',
   logEmpty: 'Nothing yet.',
   /** `bar` is the player's HP bar, `cc` their crowd-control tag (ccTag) or empty. */
-  /** `cls` is their class's name, or null with none. */
+  /** `cls` is their class's badge (its emoji), or null with none. */
   partyLine: (status: string, user: string, bar: string, hp: number, maxHp: number, cc: string, cls: string | null = null) =>
-    `${status} ${user}${cls === null ? '' : ` *${cls}*`} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
+    `${status} ${cls === null ? '' : `${cls} `}${user} ${bar} ❤️ ${hp}/${maxHp}${cc ? ` ${cc}` : ''}`,
   /** A player's crowd control on the party list, with the turns it has left. */
   ccTag: (effect: CrowdControl, turns: number) => `${E[effect]} ${CC[effect].name} (${turns})`,
   /** A player's Blight stacks on the party list. */

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, type RaidBossId, type RaidClassId } from '../src/constants/index.js';
+import { RAID_CLASS_EMOJI, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, type RaidBossId, type RaidClassId } from '../src/constants/index.js';
 import { ITEMS, ITEMS_BY_ID } from '../src/data/items.js';
 import { itemBlock, itemDetail } from '../src/lib/game/items/databank.js';
 import type { ItemDef } from '../src/types.js';
@@ -253,8 +253,8 @@ test('raid classes: each has a 4-star raid item whose perk only works for that c
   // They are the only items tagged with a class, and the Discord databank says whose each is.
   assert.deepEqual(ITEMS.filter((item) => item.class).map((item) => item.id).sort(), items.map(([, id]) => id).sort());
   const aegis = ITEMS_BY_ID.get('oathkeepers-aegis') as ItemDef;
-  assert.ok(itemBlock(aegis).includes('🎖️ Knight class item'), itemBlock(aegis));
-  assert.deepEqual(itemDetail(aegis).fields.find((f) => f.name === 'Class')?.value, '**Knight**: what it does only works for a raider of that class.');
+  assert.ok(itemBlock(aegis).includes(`${RAID_CLASS_EMOJI.knight} Knight class item`), itemBlock(aegis));
+  assert.deepEqual(itemDetail(aegis).fields.find((f) => f.name === 'Class')?.value, `**${RAID_CLASS_EMOJI.knight} Knight**: what it does only works for a raider of that class.`);
   assert.ok(!itemBlock(ITEMS_BY_ID.get('unbroken-bulwark') as ItemDef).includes('class item'));
   const worn = (perk: keyof ReturnType<typeof emptyGear>, cls: RaidClassId | null, streak = 0) => ({ gear: { ...emptyGear(), [perk]: DEFAULTS.equipment[perk][4] }, class: cls, streak });
 

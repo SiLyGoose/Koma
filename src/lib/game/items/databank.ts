@@ -24,7 +24,7 @@ export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, master
     TEXT.databank.item(item.name, SLOT_EMOJI[item.slot], showsMasterwork(item, level, masterwork)),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
     ...(item.usableBy ? [TEXT.databank.exclusive(mentionList(item.usableBy))] : []),
-    ...(item.class ? [TEXT.databank.classItem(TEXT.raid.classes[item.class].name)] : []),
+    ...(item.class ? [TEXT.databank.classItem(TEXT.raid.classLabel(item.class))] : []),
     ...(item.raidDrop ? [soldInRaidShop(item, CONFIG.raid.shop) ? TEXT.databank.raidDropOrShop : TEXT.databank.raidDrop] : []),
   ].join('\n');
 }
@@ -158,7 +158,7 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, maste
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),
-      ...(item.class ? [{ name: TEXT.databank.detailClassField, value: TEXT.databank.detailClass(TEXT.raid.classes[item.class].name), inline: false }] : []),
+      ...(item.class ? [{ name: TEXT.databank.detailClassField, value: TEXT.databank.detailClass(TEXT.raid.classLabel(item.class)), inline: false }] : []),
       ...(item.raidDrop
         ? [
             {

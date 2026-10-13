@@ -415,7 +415,7 @@ export function fightEmbed(state: RaidState, choices: ReadonlyMap<string, RaidCh
     const chosen = choices.get(p.userId);
     const status = !isAlive(p) ? r.statusDown : !canAct(p) ? r.statusStunned : chosen ? r.statusChosen[chosen.action] : r.statusWaiting;
     const tags = isAlive(p) ? [p.cc ? r.ccTag(p.cc.effect, p.cc.turns) : '', p.blight > 0 ? r.blightTag(p.blight) : ''].filter(Boolean).join(' ') : '';
-    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, tags, p.class ? r.classes[p.class].name : null);
+    return r.partyLine(status, mention(p.userId), playerHpBar(p.hp, p.maxHp), p.hp, p.maxHp, tags, p.class ? r.classes[p.class].emoji : null);
   });
   return createEmbed()
     .setTitle(r.fightTitle(b, state.round, state.maxRounds))
