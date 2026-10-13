@@ -1,6 +1,7 @@
 import { sumBets, type SpotBets } from '../../../lib/game/casino/table-bets.js';
 import { getBalance } from '../../../services/economy/index.js';
 import type { TableResult } from '../../../services/casino/table.js';
+import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
 import type { LiveGame } from '../live.js';
 import { avatarUrl } from '../../auth/login.js';
@@ -106,6 +107,8 @@ export class PartyTable<S extends string, R, V, X> {
   private rounds = 0;
   private cancel: (() => void) | null = null;
   private closed = false;
+  /** What the players at the table say to each other. */
+  private readonly chat = new Chat();
 
   constructor(
     readonly game: PartyGame<S, R, V, X>,
@@ -148,6 +151,7 @@ export class PartyTable<S extends string, R, V, X> {
       existing.peer = peer;
       existing.player = player;
       this.send(existing);
+      peer.send(this.chat.history());
       return before === peer ? null : before;
     }
     const seat: Seat<S> = {
@@ -168,7 +172,15 @@ export class PartyTable<S extends string, R, V, X> {
       console.error(`Could not look up a ${this.game.live} player’s balance:`, err);
     }
     this.broadcast();
+    peer.send(this.chat.history());
     return null;
+  }
+
+  /** `userId` says `text` to the table. */
+  say(userId: string, text: string): void {
+    const seat = this.seats.find((s) => s.player.userId === userId);
+    const line = seat && this.chat.say(seat.player, text, this.deps.now());
+    if (line) for (const each of this.seats) each.peer?.send({ t: 'chat', line });
   }
 
   /** The page `peer` went away: its player leaves the table (their chips weren't taken yet). */

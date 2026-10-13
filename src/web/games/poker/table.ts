@@ -19,6 +19,7 @@ import { buyIn, cashOut, houseTake, renewSeats, saveChips, type BuyInResult } fr
 import { getBalance } from '../../../services/economy/index.js';
 import { avatarUrl } from '../../auth/login.js';
 import { playerKey, type Player } from '../../auth/token.js';
+import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
 import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage } from './protocol.js';
 
@@ -132,6 +133,8 @@ export class PokerTable {
   private botCount = 0;
   /** The changes waiting their turn: everything that changes the table runs one after another. */
   private queue: Promise<void> = Promise.resolve();
+  /** What the pages at the table (seated or not) say to each other. */
+  private readonly chat = new Chat();
   readonly key: string;
 
   constructor(
@@ -202,8 +205,16 @@ export class PokerTable {
       }
       this.maybeDeal();
       this.broadcast();
+      peer.send(this.chat.history());
       return before?.peer && before.peer !== peer ? before.peer : null;
     });
+  }
+
+  /** `userId` says `text` to the table. */
+  say(userId: string, text: string): void {
+    const viewer = this.viewers.get(userId);
+    const line = viewer && this.chat.say(viewer.player, text, this.deps.now());
+    if (line) for (const each of this.viewers.values()) each.peer?.send({ t: 'chat', line });
   }
 
   /** The page `peer` went away. A seated player keeps their seat for a while (see the top of this file). */

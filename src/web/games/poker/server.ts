@@ -49,6 +49,7 @@ export function openPokerConnection(page: Peer, tables: PokerTables = pokerTable
       async message(player, peer, message) {
         if (!table) return refuse(peer, 'bad_message');
         const { userId } = player;
+        if (message.t === 'chat') return table.say(userId, message.text);
         const refusal =
           message.t === 'sit'
             ? await table.sit(userId, message.chips, message.seat)

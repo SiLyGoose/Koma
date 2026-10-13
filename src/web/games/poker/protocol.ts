@@ -1,5 +1,6 @@
 import type { Card } from '../../../lib/game/casino/blackjack.js';
 import type { PlayerMove, Street } from '../../../lib/game/casino/poker/hand.js';
+import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../chat.js';
 
 /*
  * What poker's web page (the Koma-UI repo) and the bot say to each other over the WebSocket. Every
@@ -19,6 +20,7 @@ import type { PlayerMove, Street } from '../../../lib/game/casino/poker/hand.js'
  *                          told this street; 'allIn' bets everything they have
  *                 bot      adds a bot in the first free seat (`add` true), or takes the bot in `seat`
  *                          away (after the hand it's in)
+ *                 chat     says something to the table (web/games/chat.ts, with what the bot sends back)
  *   bot -> page   poker    the table as it is now: whenever anything about it changes
  *                 refused  something they asked couldn't be done, and why
  *                 error    and the bot closes the connection
@@ -32,7 +34,8 @@ export type ClientMessage =
   | { t: 'stand' }
   | { t: 'act'; move: PokerMove; amount?: number }
   | { t: 'bot'; add: true }
-  | { t: 'bot'; add: false; seat: number };
+  | { t: 'bot'; add: false; seat: number }
+  | ChatClientMessage;
 
 /** A player at the table (a member, or a bot). */
 export interface SeatView {
@@ -150,7 +153,7 @@ export type Refusal =
   /** Something went wrong on the bot's side. */
   | { reason: 'failed' };
 
-export type ServerMessage = { t: 'poker'; state: PokerState } | ({ t: 'refused' } & Refusal) | { t: 'error'; code: ErrorCode };
+export type ServerMessage = { t: 'poker'; state: PokerState } | ({ t: 'refused' } & Refusal) | { t: 'error'; code: ErrorCode } | ChatServerMessage;
 
 const MOVES: readonly PokerMove[] = ['fold', 'check', 'call', 'raise', 'allIn'];
 const count = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0;
@@ -173,5 +176,6 @@ export function parseClientMessage(text: string): ClientMessage | null {
   }
   if (m.t === 'bot' && m.add === true) return { t: 'bot', add: true };
   if (m.t === 'bot' && m.add === false && count(m.seat)) return { t: 'bot', add: false, seat: m.seat };
+  if (m.t === 'chat') return parseChat(m);
   return null;
 }

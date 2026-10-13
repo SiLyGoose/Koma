@@ -1,4 +1,5 @@
 import type { BetOutcome, SpotBets } from '../../../lib/game/casino/table-bets.js';
+import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../chat.js';
 
 /*
  * What a shared-table game's web page (baccarat, roulette: the Koma-UI repo) and the bot say to each
@@ -17,6 +18,7 @@ import type { BetOutcome, SpotBets } from '../../../lib/game/casino/table-bets.j
  *                          while the round is taking bets; `seq` counts up from 1 with each
  *                 deal     the player's vote to deal now (`ready` false takes it back): the round is
  *                          dealt as soon as everyone at the table has voted
+ *                 chat     says something to the table (web/games/chat.ts, with what the bot sends back)
  *   bot -> page   table    the table as it is now: whenever anything about it changes
  *                 refused  chips that couldn't go down, and why (the table that follows says what's down)
  *                 error    and the bot closes the connection
@@ -31,7 +33,8 @@ export type ClientMessage<S extends string = string> =
   | { t: 'hello'; token: string }
   | { t: 'watch'; token: string }
   | { t: 'bets'; bets: SpotBets<S>; seq: number }
-  | { t: 'deal'; ready: boolean };
+  | { t: 'deal'; ready: boolean }
+  | ChatClientMessage;
 
 /** One bet of a player's in a round, and how it came out. */
 export interface SettledView<S extends string = string> {
@@ -116,7 +119,8 @@ export type ServerMessage<S extends string = string, R = unknown, X = unknown> =
   | { t: 'error'; code: ErrorCode }
   | { t: 'watching'; player: string }
   | { t: 'watchers'; count: number }
-  | { t: 'away' };
+  | { t: 'away' }
+  | ChatServerMessage;
 
 /** Reads a message from the page, its chips by `parseBets`. Null when it isn't a valid one. */
 export function parseTableMessage<S extends string>(text: string, parseBets: (data: unknown) => SpotBets<S> | null): ClientMessage<S> | null {
@@ -134,5 +138,6 @@ export function parseTableMessage<S extends string>(text: string, parseBets: (da
     return bets ? { t: 'bets', bets, seq: m.seq } : null;
   }
   if (m.t === 'deal' && typeof m.ready === 'boolean') return { t: 'deal', ready: m.ready };
+  if (m.t === 'chat') return parseChat(m);
   return null;
 }

@@ -48,6 +48,7 @@ export * from './casino/roulette.js';
 export * from './casino/poker.js';
 export * from './pinecraft.js';
 export * from './minesweeper.js';
+export * from './chat.js';
 export * from './events.js';
 export * from './raid.js';
 export * from './items/refine.js';

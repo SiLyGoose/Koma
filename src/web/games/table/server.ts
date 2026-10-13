@@ -58,6 +58,10 @@ export function openTableConnection<S extends string, R, V, X>(tables: PartyTabl
           table.setReady(player.userId, message.ready);
           return;
         }
+        if (message.t === 'chat') {
+          table.say(player.userId, message.text);
+          return;
+        }
         // Chips.
         const refusal = table.setBets(player.userId, message.bets);
         if (refusal) {
