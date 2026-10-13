@@ -1,12 +1,13 @@
 import { MINESWEEPER_LEVELS, MINESWEEPER_ROOM, MINESWEEPER_START, type MinesweeperLevel } from '../../../constants/index.js';
-import { chordTile, flagCount, neighbours, newBoard, openTile, seenTiles, toggleFlag, type Board, type BoardRng } from '../../../lib/game/minesweeper.js';
+import { CONFIG } from '../../../config.js';
+import { chordTile, flagCount, neighbours, newBoard, openTile, seenTiles, sharePool, speedMultiplier, toggleFlag, type Board, type BoardRng, type MinesweeperRewards } from '../../../lib/game/minesweeper.js';
 import { randInt } from '../../../lib/random.js';
-import { addMinesweeperStat, loadMinesweeperStats, type MinesweeperStats } from '../../../services/minesweeper.js';
+import { addMinesweeperStat, loadMinesweeperStats, payMinesweeper, type MinesweeperStats } from '../../../services/minesweeper.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
-import type { GameView, RoomState, ServerMessage } from './protocol.js';
+import type { GameView, PaidView, RoomState, ServerMessage } from './protocol.js';
 
 /*
  * The minesweeper rooms: one a server. Everyone opening minesweeper in a server joins its room and
@@ -23,6 +24,11 @@ import type { GameView, RoomState, ServerMessage } from './protocol.js';
  * mines they have opened, the boards they helped clear (a win for everyone who opened a tile of it),
  * and their trolls (the times a wrong flag of theirs sent someone else's chord into a mine: that mine
  * isn't counted against who chorded).
+ *
+ * A board cleared pays (the `minesweeper.*` settings): its level's pool of points, times up to
+ * `speedBonus` for clearing it under its par time, shared between everyone who opened a tile of it by
+ * how many tiles each opened (the ones a click of theirs showed, whether one or a whole patch). A
+ * board lost pays nobody.
  */
 
 /** Where the room sends a player's messages: their page, or a fake in tests. */
@@ -37,6 +43,10 @@ export interface RoomDeps {
   stats: (guildId: string, userId: string) => Promise<MinesweeperStats>;
   /** One more mine opened, board cleared, or troll, for each of `userIds`. Not waited for. */
   record: (guildId: string, userIds: string[], stat: keyof MinesweeperStats) => void;
+  /** What a board cleared pays, as the settings have it now. */
+  rewards: () => MinesweeperRewards;
+  /** Pays each member their share (`points`, by member) of a board cleared. Not waited for. */
+  pay: (guildId: string, points: ReadonlyMap<string, number>) => void;
 }
 
 export const realRoomDeps: RoomDeps = {
@@ -46,6 +56,10 @@ export const realRoomDeps: RoomDeps = {
   stats: loadMinesweeperStats,
   record: (guildId, userIds, stat) => {
     addMinesweeperStat(guildId, userIds, stat).catch((err) => console.error(`Could not save a minesweeper ${stat} record:`, err));
+  },
+  rewards: () => CONFIG.minesweeper,
+  pay: (guildId, points) => {
+    payMinesweeper(guildId, points).catch((err) => console.error('Could not pay for a minesweeper board:', err));
   },
 };
 
@@ -68,8 +82,10 @@ interface Game {
   /** Who put down each flag on the board, by tile. */
   flaggers: Map<number, Player>;
   blamed: string[];
-  /** Everyone who opened a tile of it: a board cleared is a win for each of them. */
-  openers: Set<string>;
+  /** Everyone who opened a tile of it, and how many their clicks opened: a board cleared is a win for each of them, and pays them by those. */
+  openers: Map<string, { name: string; tiles: number }>;
+  /** What it paid, once cleared. */
+  paid: PaidView | null;
 }
 
 export class MinesweeperRoom {
@@ -132,7 +148,7 @@ export class MinesweeperRoom {
   }
 
   private newGame(level: MinesweeperLevel): Game {
-    return { no: ++this.gameNo, level, board: newBoard(MINESWEEPER_LEVELS[level]), startedAt: null, endedAt: null, by: null, flaggers: new Map(), blamed: [], openers: new Set() };
+    return { no: ++this.gameNo, level, board: newBoard(MINESWEEPER_LEVELS[level]), startedAt: null, endedAt: null, by: null, flaggers: new Map(), blamed: [], openers: new Map(), paid: null };
   }
 
   /** A new board at `level`, in place of the one there. */
@@ -148,6 +164,7 @@ export class MinesweeperRoom {
     const { game } = this;
     if (!member) return;
     const { board } = game;
+    const openedBefore = board.opened;
     const changed = move === 'open' ? openTile(board, index, this.deps.random) : move === 'flag' ? toggleFlag(board, index) : chordTile(board, index);
     if (!changed) return;
     if (move === 'flag') {
@@ -156,14 +173,15 @@ export class MinesweeperRoom {
     } else {
       const now = this.deps.now();
       game.startedAt ??= now;
-      game.openers.add(userId);
+      game.openers.set(userId, { name: member.player.name, tiles: (game.openers.get(userId)?.tiles ?? 0) + board.opened - openedBefore });
       if (board.status !== 'playing') {
         game.endedAt = now;
         game.by = member.player.name;
       }
       if (board.status === 'won') {
         // A board cleared is everyone's who opened a tile of it.
-        this.count('wins', [...game.openers]);
+        this.count('wins', [...game.openers.keys()]);
+        game.paid = this.pay(game, now - game.startedAt);
       } else if (board.status === 'lost') {
         // A chord into a mine: the flags round its number that were on no mine are what sent it there.
         const wrong = move === 'chord' ? neighbours(board, index).filter((n) => board.flag[n] && !board.mine[n]) : [];
@@ -176,6 +194,17 @@ export class MinesweeperRoom {
       }
     }
     this.tell();
+  }
+
+  /** Pays for `game`, cleared in `elapsedMs`: its level's pool, more for speed, shared by the tiles each player opened. Returns what was paid. */
+  private pay(game: Game, elapsedMs: number): PaidView {
+    const rewards = this.deps.rewards();
+    const bonus = speedMultiplier(elapsedMs, rewards.parSeconds[game.level], rewards.speedBonus);
+    const total = Math.round(rewards.pool[game.level] * bonus);
+    const points = sharePool(total, new Map([...game.openers].map(([id, opener]) => [id, opener.tiles])));
+    this.deps.pay(this.guildId, points);
+    const shares = [...game.openers].map(([id, opener]) => ({ id, name: opener.name, tiles: opener.tiles, points: points.get(id) ?? 0 }));
+    return { bonus, total, shares: shares.sort((a, b) => b.points - a.points) };
   }
 
   /** One more of `stat` for each of `userIds`: on what the room shows of them, and on record. */
@@ -211,6 +240,7 @@ export class MinesweeperRoom {
       elapsedMs: game.startedAt === null ? 0 : (game.endedAt ?? this.deps.now()) - game.startedAt,
       by: game.by,
       blamed: game.blamed,
+      paid: game.paid,
     };
   }
 
@@ -219,6 +249,7 @@ export class MinesweeperRoom {
     const state: Omit<RoomState, 'you'> = {
       players: [...this.members.values()].map((m) => ({ id: m.player.userId, name: m.player.name, avatar: m.avatar, colour: m.colour, ...m.stats })),
       levels: MINESWEEPER_LEVELS,
+      rewards: this.deps.rewards(),
       game: this.gameView(),
     };
     for (const [id, member] of this.members) member.peer.send({ t: 'room', state: { you: id, ...state } });

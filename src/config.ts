@@ -1,4 +1,4 @@
-import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type PinecraftPaying, type RaidBossId, type RaidShopStars } from './constants/index.js';
+import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type MinesweeperLevel, type PinecraftPaying, type RaidBossId, type RaidShopStars } from './constants/index.js';
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
@@ -144,6 +144,15 @@ export interface Settings {
     energyMinutes: number;
     /** Points each block pays when dug: dirt and stone, and the ores. */
     value: Record<PinecraftPaying, number>;
+  };
+  /** Minesweeper (web/games/minesweeper/room.ts): what a board cleared pays, between everyone who opened its tiles. */
+  minesweeper: {
+    /** Points a board of each level pays, shared by the tiles each player opened. */
+    pool: Record<MinesweeperLevel, number>;
+    /** Each level's par time: a board cleared sooner pays more, up to `speedBonus` times the pool at half of it. */
+    parSeconds: Record<MinesweeperLevel, number>;
+    /** What the pool is multiplied by for a board cleared in half its par time or less (1x: speed pays nothing). */
+    speedBonus: number;
   };
   events: {
     /**
@@ -371,6 +380,13 @@ export const DEFAULTS: Readonly<Settings> = {
     maxEnergy: 100,
     energyMinutes: 3,
     value: { dirt: 1, stone: 5, coal: 10, iron: 30, gold: 70, diamond: 150, emerald: 300, amethyst: 500, ruby: 500 },
+  },
+  // A board pays by how hard it is, well past its size: an Expert board 30 times a Beginner's. Under
+  // par it pays more, up to half as much again at half of par (a quick Expert board: 2,250).
+  minesweeper: {
+    pool: { easy: 50, medium: 400, hard: 1_500 },
+    parSeconds: { easy: 40, medium: 180, hard: 480 },
+    speedBonus: 1.5,
   },
   // An event every 2 to 6 hours. A crate holds 200 to 600 points (an average claim is 300) and is open for a minute.
   // The vault games put up 10x what's been lost to gambling since the last payout, and the vault

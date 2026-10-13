@@ -1,4 +1,5 @@
 import { MINESWEEPER_LEVELS, type MinesweeperLevel } from '../../../constants/index.js';
+import type { MinesweeperRewards } from '../../../lib/game/minesweeper.js';
 import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../chat.js';
 
 /*
@@ -8,7 +9,9 @@ import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../ch
  *
  * A server has one room (web/games/minesweeper/room.ts): everyone opening minesweeper there plays the
  * same board. The bot holds it, and a page is only ever told what has been opened, so nothing in the
- * page (or its dev tools) gives away where the mines are until the board is lost.
+ * page (or its dev tools) gives away where the mines are until the board is lost. A board cleared
+ * pays its level's pool of points (`rewards`), more for being quick, shared between everyone who
+ * opened its tiles by how many each opened (`paid`).
  *
  *   page -> bot   hello    first message: the token from the link
  *                 new      a new board at `level`, in place of the one there
@@ -76,6 +79,18 @@ export interface GameView {
    * chord into one). Empty otherwise.
    */
   blamed: string[];
+  /** On a board cleared: what it paid, and to whom. Null otherwise. */
+  paid: PaidView | null;
+}
+
+/** What a board cleared paid. */
+export interface PaidView {
+  /** What its level's pool was multiplied by for how fast it was cleared (1: no faster than par). */
+  bonus: number;
+  /** The points paid, all told: the pool times `bonus`. */
+  total: number;
+  /** Everyone who opened a tile of it (still in the room or not), whoever was paid most first: the tiles they opened and the points that paid them. */
+  shares: { id: string; name: string; tiles: number; points: number }[];
 }
 
 export interface RoomState {
@@ -83,6 +98,8 @@ export interface RoomState {
   you: string;
   players: PlayerView[];
   levels: Record<MinesweeperLevel, { cols: number; rows: number; mines: number }>;
+  /** What a board cleared pays: each level's pool and par time (seconds), and the most the pool is multiplied by for speed (at half of par). */
+  rewards: MinesweeperRewards;
   /** The board being played, or the last one (a room starts on a beginner's). */
   game: GameView;
 }

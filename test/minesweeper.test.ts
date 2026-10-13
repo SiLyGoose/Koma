@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CHAT, MINESWEEPER_LEVELS, MINESWEEPER_ROOM } from '../src/constants/index.js';
-import { chordTile, minesNear, neighbours, newBoard, openTile, seenTiles, toggleFlag, type Board } from '../src/lib/game/minesweeper.js';
+import { DEFAULTS } from '../src/config.js';
+import { findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
+import { chordTile, minesNear, neighbours, newBoard, openTile, seenTiles, sharePool, speedMultiplier, toggleFlag, type Board, type MinesweeperRewards } from '../src/lib/game/minesweeper.js';
 import { tenorGif } from '../src/web/games/chat.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/minesweeper/protocol.js';
 import { MinesweeperRooms, type Peer } from '../src/web/games/minesweeper/room.js';
@@ -114,18 +116,25 @@ function page() {
   };
 }
 
+/** What the boards pay in these tests: a Beginner board 100, and twice that in 20 seconds or less (par is 40). */
+const REWARDS: MinesweeperRewards = { pool: { easy: 100, medium: 400, hard: 1_500 }, parSeconds: { easy: 40, medium: 180, hard: 480 }, speedBonus: 2 };
+
 function setup() {
   let now = 1_000;
   /** What was put on record, like "bombs:b" or "wins:a,b". */
   const recorded: string[] = [];
+  /** What was paid for each board cleared, like "a:60 b:40". */
+  const paid: string[] = [];
   const rooms = new MinesweeperRooms({
     random: second,
     now: () => now,
     avatar: (_guildId, userId) => `pic:${userId}`,
     stats: async () => ({ bombs: 0, wins: 0, trolls: 0 }),
     record: (_guildId, userIds, stat) => recorded.push(`${stat}:${userIds.join(',')}`),
+    rewards: () => REWARDS,
+    pay: (_guildId, points) => paid.push([...points].map(([id, share]) => `${id}:${share}`).join(' ')),
   });
-  return { rooms, recorded, tick: (ms: number) => (now += ms) };
+  return { rooms, recorded, paid, tick: (ms: number) => (now += ms) };
 }
 
 /** Who's in the room and in which colour, like "a:0 b:1". */
@@ -345,6 +354,80 @@ test('minesweeper room: a new tab takes over, a full room lets nobody else in, a
   const back = page();
   assert.notEqual(solo.join(player('s'), back.peer)?.room, first);
   assert.equal(back.room().game.level, 'easy');
+});
+
+// ---------------------------------------------------------------------------
+// What a board cleared pays
+
+test('minesweeper reward: speed multiplies the pool, from par down to half of it', () => {
+  assert.equal(speedMultiplier(40_000, 40, 1.5), 1);
+  assert.equal(speedMultiplier(300_000, 40, 1.5), 1);
+  assert.equal(speedMultiplier(30_000, 40, 1.5), 1.25);
+  assert.equal(speedMultiplier(20_000, 40, 1.5), 1.5);
+  assert.equal(speedMultiplier(1_000, 40, 1.5), 1.5);
+  // Speed paying nothing.
+  assert.equal(speedMultiplier(1_000, 40, 1), 1);
+});
+
+test('minesweeper reward: the pool is shared by tiles opened, in whole points that add up to it', () => {
+  const share = (total: number, tiles: Record<string, number>): Record<string, number> => Object.fromEntries(sharePool(total, new Map(Object.entries(tiles))));
+  assert.deepEqual(share(100, { a: 60, b: 40 }), { a: 60, b: 40 });
+  assert.deepEqual(share(400, { a: 71 }), { a: 400 });
+  // What rounding down leaves goes to whoever opened the most.
+  assert.deepEqual(share(100, { a: 1, b: 1, c: 1 }), { a: 34, b: 33, c: 33 });
+  assert.deepEqual(share(10, { a: 1, b: 70 }), { a: 0, b: 10 });
+  assert.deepEqual(share(100, {}), {});
+});
+
+test('minesweeper reward: a board cleared pays its players by the tiles each opened, more for being quick, and one lost pays nobody', () => {
+  const { rooms, paid, tick } = setup();
+  const a = page();
+  const b = page();
+  const idle = page();
+  const room = rooms.join(player('a'), a.peer)?.room;
+  rooms.join(player('b'), b.peer);
+  rooms.join(player('c'), idle.peer);
+  assert.ok(room);
+  assert.deepEqual(a.room().rewards, REWARDS);
+  assert.equal(a.room().game.paid, null);
+
+  // A board lost (the mines are on tiles 1 to 10) pays nobody.
+  room.play('a', 'open', 80);
+  room.play('b', 'open', 1);
+  assert.equal(a.room().game.status, 'lost');
+  assert.equal(a.room().game.paid, null);
+  assert.deepEqual(paid, []);
+
+  // The next is cleared in 30 seconds of a 40 second par, halfway to twice the pool: a opens all but
+  // the corner (70 tiles), b the corner, c nothing.
+  room.start('a', 'easy');
+  room.play('c', 'flag', 5);
+  room.play('a', 'open', 80);
+  tick(30_000);
+  room.play('b', 'open', 0);
+  const { game } = idle.room();
+  assert.equal(game.status, 'won');
+  assert.deepEqual(game.paid, {
+    bonus: 1.5,
+    total: 150,
+    shares: [
+      { id: 'a', name: 'A', tiles: 70, points: 148 },
+      { id: 'b', name: 'B', tiles: 1, points: 2 },
+    ],
+  });
+  assert.deepEqual(paid, ['a:148 b:2']);
+
+  // A new board has paid nothing yet.
+  room.start('a', 'easy');
+  assert.equal(a.room().game.paid, null);
+});
+
+test('minesweeper reward: its settings exist, are in their own group, and start at the tuned values', () => {
+  assert.deepEqual(DEFAULTS.minesweeper, { pool: { easy: 50, medium: 400, hard: 1_500 }, parSeconds: { easy: 40, medium: 180, hard: 480 }, speedBonus: 1.5 });
+  const keys = SPECS.filter((s) => s.key.startsWith('minesweeper.')).map((s) => s.key);
+  assert.deepEqual(keys, [...['easy', 'medium', 'hard'].map((l) => `minesweeper.pool.${l}`), ...['easy', 'medium', 'hard'].map((l) => `minesweeper.parSeconds.${l}`), 'minesweeper.speedBonus']);
+  for (const key of keys) assert.equal(findSpec(key)?.group, 'Minesweeper');
+  assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
 });
 
 // ---------------------------------------------------------------------------

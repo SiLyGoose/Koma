@@ -1,4 +1,5 @@
 import { collections } from '../db.js';
+import { ensureMember, recordLedger } from './economy/shared.js';
 
 /*
  * The members' minesweeper records (web/games/minesweeper/room.ts counts them as boards are played):
@@ -35,4 +36,13 @@ export async function addMinesweeperStat(guildId: string, userIds: readonly stri
       },
     })),
   );
+}
+
+/** Pays each member their share (`points`, by member) of a board cleared in a server. */
+export async function payMinesweeper(guildId: string, points: ReadonlyMap<string, number>): Promise<void> {
+  const shares = [...points].filter(([, share]) => share > 0);
+  if (shares.length === 0) return;
+  await Promise.all(shares.map(([userId]) => ensureMember(guildId, userId)));
+  await collections().members.bulkWrite(shares.map(([userId, share]) => ({ updateOne: { filter: { guildId, userId }, update: { $inc: { points: share } } } })));
+  await recordLedger(shares.map(([userId, share]) => ({ guildId, userId, delta: share, reason: 'minesweeper_win' as const })));
 }

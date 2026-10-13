@@ -7,8 +7,12 @@ import {
   MAX_CRATE_SECONDS,
   MAX_LEADERBOARD_SIZE,
   MAX_MINE_MULTIPLIER,
+  MAX_MINESWEEPER_PAR_SECONDS,
+  MAX_MINESWEEPER_SPEED_BONUS,
   MAX_PINECRAFT_ENERGY,
   MAX_PINECRAFT_VALUE,
+  MINESWEEPER_LEVEL_IDS,
+  MINESWEEPER_LEVEL_NAMES,
   PINECRAFT_PAYING,
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
@@ -49,7 +53,7 @@ import type { Settings } from '../config.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Minesweeper' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -273,6 +277,28 @@ export const SPECS: readonly SettingSpec[] = [
   int('pinecraft.maxEnergy', 'Pinecraft', 'The most energy a member can have in Pinecraft. Digging a block takes one.', 1, MAX_PINECRAFT_ENERGY),
   int('pinecraft.energyMinutes', 'Pinecraft', 'Minutes for one Pinecraft energy to come back.', 1, MAX_TIMER_MINUTES),
   ...PINECRAFT_PAYING.map((block) => int(`pinecraft.value.${block}`, 'Pinecraft', `${CURRENCY_EMOJI} paid for each ${block} block dug in Pinecraft.`, 0, MAX_PINECRAFT_VALUE)),
+
+  ...MINESWEEPER_LEVEL_IDS.map((level) =>
+    int(`minesweeper.pool.${level}`, 'Minesweeper', `${CURRENCY_EMOJI} a cleared ${MINESWEEPER_LEVEL_NAMES[level]} board of minesweeper pays, shared between its players by the tiles each opened.`, 0, MAX_POINTS),
+  ),
+  ...MINESWEEPER_LEVEL_IDS.map((level) =>
+    int(
+      `minesweeper.parSeconds.${level}`,
+      'Minesweeper',
+      `Par time of a ${MINESWEEPER_LEVEL_NAMES[level]} board of minesweeper, in seconds: one cleared sooner pays more, the most at half of it.`,
+      1,
+      MAX_MINESWEEPER_PAR_SECONDS,
+    ),
+  ),
+  {
+    key: 'minesweeper.speedBonus',
+    group: 'Minesweeper',
+    description: 'What a minesweeper board cleared in half its par time or less pays, as a multiple of its pool (1x: speed pays nothing).',
+    type: 'number',
+    min: 1,
+    max: MAX_MINESWEEPER_SPEED_BONUS,
+    multiplier: true,
+  },
 
   int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
   int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),

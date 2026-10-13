@@ -294,6 +294,8 @@ export type LedgerReason =
   | 'mines_payout'
   // Pinecraft (commands/pinecraft.ts): an ore dug (points, no bet).
   | 'pinecraft_ore'
+  // Minesweeper (web/games/minesweeper/room.ts): a player's share of a board cleared (points, no bet).
+  | 'minesweeper_win'
   | 'event_crate'
   | 'rob_won'
   | 'rob_lost'

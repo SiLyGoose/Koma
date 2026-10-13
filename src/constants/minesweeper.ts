@@ -1,7 +1,9 @@
 /*
  * Minesweeper, played together on the games' site (lib/game/minesweeper.ts for the rules,
- * web/games/minesweeper/ for the rooms). No bet and no payout: a server's members clear one board
- * between them.
+ * web/games/minesweeper/ for the rooms). No bet: a server's members clear one board between them,
+ * and a board cleared pays its level's pool of points, shared between them by the tiles each opened
+ * and more the faster it was cleared. What the levels pay, their par times and the most that speed
+ * adds are settings (`minesweeper.*`).
  */
 
 /** The boards: how many tiles across and down, and how many of them are mines (the classic three). */
@@ -11,6 +13,13 @@ export const MINESWEEPER_LEVELS = {
   hard: { cols: 30, rows: 16, mines: 99 },
 } as const;
 export type MinesweeperLevel = keyof typeof MINESWEEPER_LEVELS;
+
+/** The levels, easiest first. */
+export const MINESWEEPER_LEVEL_IDS = Object.keys(MINESWEEPER_LEVELS) as MinesweeperLevel[];
+
+/** The most the settings may be set to: a level's par time (seconds), and what the pool is multiplied by for speed. */
+export const MAX_MINESWEEPER_PAR_SECONDS = 24 * 60 * 60;
+export const MAX_MINESWEEPER_SPEED_BONUS = 10;
 
 /** The board a room starts on. */
 export const MINESWEEPER_START: MinesweeperLevel = 'easy';
