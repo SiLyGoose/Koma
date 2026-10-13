@@ -1,8 +1,8 @@
-import { MINESWEEPER_LEVELS, MINESWEEPER_ROOM, MINESWEEPER_START, type MinesweeperLevel } from '../../../constants/index.js';
+import { MINESWEEPER_BEST, MINESWEEPER_LEVELS, MINESWEEPER_ROOM, MINESWEEPER_START, type MinesweeperLevel } from '../../../constants/index.js';
 import { CONFIG } from '../../../config.js';
 import { chordTile, flagCount, neighbours, newBoard, openTile, seenTiles, sharePool, speedMultiplier, toggleFlag, type Board, type BoardRng, type MinesweeperRewards } from '../../../lib/game/minesweeper.js';
 import { randInt } from '../../../lib/random.js';
-import { addMinesweeperStat, loadMinesweeperStats, payMinesweeper, type MinesweeperStats } from '../../../services/minesweeper.js';
+import { addMinesweeperStat, loadMinesweeperBest, loadMinesweeperStats, payMinesweeper, saveMinesweeperClear, type MinesweeperBest, type MinesweeperClear, type MinesweeperStats } from '../../../services/minesweeper.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { Chat } from '../chat.js';
@@ -29,6 +29,10 @@ import type { GameView, PaidView, RoomState, ServerMessage } from './protocol.js
  * `speedBonus` for clearing it under its par time, shared between everyone who opened a tile of it by
  * how many tiles each opened (the ones a click of theirs showed, whether one or a whole patch). A
  * board lost pays nobody.
+ *
+ * The server's fastest clears of each level are kept too (MINESWEEPER_BEST of them a level, in the
+ * database), with everyone who opened a tile of each: a room reads them when it's made, and tells its
+ * pages them when they join and whenever a board cleared makes its level's.
  */
 
 /** Where the room sends a player's messages: their page, or a fake in tests. */
@@ -47,6 +51,10 @@ export interface RoomDeps {
   rewards: () => MinesweeperRewards;
   /** Pays each member their share (`points`, by member) of a board cleared. Not waited for. */
   pay: (guildId: string, points: ReadonlyMap<string, number>) => void;
+  /** The server's fastest clears of each level so far. */
+  best: (guildId: string) => Promise<MinesweeperBest>;
+  /** Keeps a clear that made its level's fastest. Not waited for. */
+  saveClear: (guildId: string, level: MinesweeperLevel, clear: MinesweeperClear) => void;
 }
 
 export const realRoomDeps: RoomDeps = {
@@ -60,6 +68,10 @@ export const realRoomDeps: RoomDeps = {
   rewards: () => CONFIG.minesweeper,
   pay: (guildId, points) => {
     payMinesweeper(guildId, points).catch((err) => console.error('Could not pay for a minesweeper board:', err));
+  },
+  best: loadMinesweeperBest,
+  saveClear: (guildId, level, clear) => {
+    saveMinesweeperClear(guildId, level, clear).catch((err) => console.error('Could not save a minesweeper clear:', err));
   },
 };
 
@@ -86,7 +98,12 @@ interface Game {
   openers: Map<string, { name: string; tiles: number }>;
   /** What it paid, once cleared. */
   paid: PaidView | null;
+  /** Where it came among its level's fastest clears (from 1), once cleared, if it made them. */
+  rank: number | null;
 }
+
+/** Of two clears, the faster first; as fast, the earlier. */
+const byTime = (a: MinesweeperClear, b: MinesweeperClear): number => a.ms - b.ms || a.at - b.at;
 
 export class MinesweeperRoom {
   private readonly members = new Map<string, Member>();
@@ -94,12 +111,30 @@ export class MinesweeperRoom {
   private game: Game = this.newGame(MINESWEEPER_START);
   /** What the players in the room say to each other. */
   private readonly chat = new Chat();
+  /** The server's fastest clears of each level: the ones made here, until the ones on record are read. */
+  private best: MinesweeperBest = { easy: [], medium: [], hard: [] };
 
   constructor(
     readonly guildId: string,
     private readonly deps: RoomDeps,
     private readonly onEmpty: (room: MinesweeperRoom) => void,
-  ) {}
+  ) {
+    // Without them (they can't be read), the room goes on with the ones made in it.
+    deps.best(guildId).then(
+      (best) => this.readBest(best),
+      (err) => console.error('Could not read the minesweeper leaderboards:', err),
+    );
+  }
+
+  /** The fastest clears on record, read: with the ones made here meanwhile (each on record too by now, or not yet). */
+  private readBest(onRecord: MinesweeperBest): void {
+    for (const level of Object.keys(this.best) as MinesweeperLevel[]) {
+      const known = new Set(onRecord[level].map((clear) => `${clear.at}:${clear.ms}`));
+      const here = this.best[level].filter((clear) => !known.has(`${clear.at}:${clear.ms}`));
+      this.best[level] = [...onRecord[level], ...here].sort(byTime).slice(0, MINESWEEPER_BEST);
+    }
+    this.tellBest();
+  }
 
   get full(): boolean {
     return this.members.size >= MINESWEEPER_ROOM.players;
@@ -121,6 +156,7 @@ export class MinesweeperRoom {
       stats: before?.stats ?? { ...stats },
     });
     this.tell();
+    peer.send({ t: 'best', best: this.best });
     peer.send(this.chat.history());
     return before && before.peer !== peer ? before.peer : null;
   }
@@ -148,7 +184,7 @@ export class MinesweeperRoom {
   }
 
   private newGame(level: MinesweeperLevel): Game {
-    return { no: ++this.gameNo, level, board: newBoard(MINESWEEPER_LEVELS[level]), startedAt: null, endedAt: null, by: null, flaggers: new Map(), blamed: [], openers: new Map(), paid: null };
+    return { no: ++this.gameNo, level, board: newBoard(MINESWEEPER_LEVELS[level]), startedAt: null, endedAt: null, by: null, flaggers: new Map(), blamed: [], openers: new Map(), paid: null, rank: null };
   }
 
   /** A new board at `level`, in place of the one there. */
@@ -182,6 +218,7 @@ export class MinesweeperRoom {
         // A board cleared is everyone's who opened a tile of it.
         this.count('wins', [...game.openers.keys()]);
         game.paid = this.pay(game, now - game.startedAt);
+        game.rank = this.rank(game, now - game.startedAt, now);
       } else if (board.status === 'lost') {
         // A chord into a mine: the flags round its number that were on no mine are what sent it there.
         const wrong = move === 'chord' ? neighbours(board, index).filter((n) => board.flag[n] && !board.mine[n]) : [];
@@ -205,6 +242,27 @@ export class MinesweeperRoom {
     this.deps.pay(this.guildId, points);
     const shares = [...game.openers].map(([id, opener]) => ({ id, name: opener.name, tiles: opener.tiles, points: points.get(id) ?? 0 }));
     return { bonus, total, shares: shares.sort((a, b) => b.points - a.points) };
+  }
+
+  /**
+   * Puts `game`, cleared in `elapsedMs` at `now`, among its level's fastest clears, if it is one: kept
+   * on record, and told to everyone. Returns where it came (from 1), or null.
+   */
+  private rank(game: Game, elapsedMs: number, now: number): number | null {
+    const players = [...game.openers].map(([id, opener]) => ({ id, name: opener.name, tiles: opener.tiles })).sort((a, b) => b.tiles - a.tiles);
+    const clear: MinesweeperClear = { ms: elapsedMs, at: now, players };
+    const list = [...this.best[game.level], clear].sort(byTime).slice(0, MINESWEEPER_BEST);
+    const at = list.indexOf(clear);
+    if (at < 0) return null;
+    this.best[game.level] = list;
+    this.deps.saveClear(this.guildId, game.level, clear);
+    this.tellBest();
+    return at + 1;
+  }
+
+  /** Tells every page the server's fastest clears as they are now. */
+  private tellBest(): void {
+    for (const member of this.members.values()) member.peer.send({ t: 'best', best: this.best });
   }
 
   /** One more of `stat` for each of `userIds`: on what the room shows of them, and on record. */
@@ -241,6 +299,7 @@ export class MinesweeperRoom {
       by: game.by,
       blamed: game.blamed,
       paid: game.paid,
+      rank: game.rank,
     };
   }
 

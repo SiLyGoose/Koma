@@ -21,6 +21,9 @@ export const MINESWEEPER_LEVEL_IDS = Object.keys(MINESWEEPER_LEVELS) as Mineswee
 export const MAX_MINESWEEPER_PAR_SECONDS = 24 * 60 * 60;
 export const MAX_MINESWEEPER_SPEED_BONUS = 10;
 
+/** How many of a server's fastest clears each level's leaderboard keeps. */
+export const MINESWEEPER_BEST = 10;
+
 /** The board a room starts on. */
 export const MINESWEEPER_START: MinesweeperLevel = 'easy';
 

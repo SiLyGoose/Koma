@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CHAT, MINESWEEPER_LEVELS, MINESWEEPER_ROOM } from '../src/constants/index.js';
+import { CHAT, MINESWEEPER_BEST, MINESWEEPER_LEVELS, MINESWEEPER_ROOM } from '../src/constants/index.js';
 import { DEFAULTS } from '../src/config.js';
 import { findSpec, SPECS, validateSettings } from '../src/lib/settings-spec.js';
 import { chordTile, minesNear, neighbours, newBoard, openTile, seenTiles, sharePool, speedMultiplier, toggleFlag, type Board, type MinesweeperRewards } from '../src/lib/game/minesweeper.js';
 import { tenorGif } from '../src/web/games/chat.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/minesweeper/protocol.js';
 import { MinesweeperRooms, type Peer } from '../src/web/games/minesweeper/room.js';
+import type { MinesweeperBest } from '../src/services/minesweeper.js';
 import type { Player } from '../src/web/auth/token.js';
 
 /*
@@ -113,14 +114,22 @@ function page() {
       return last.state;
     },
     cursors: () => sent.filter((m) => m.t === 'cursor'),
+    /** The server's fastest clears as this page was last told. */
+    best(): MinesweeperBest {
+      const last = sent.filter((m) => m.t === 'best').at(-1);
+      assert.ok(last && last.t === 'best');
+      return last.best;
+    },
   };
 }
 
 /** What the boards pay in these tests: a Beginner board 100, and twice that in 20 seconds or less (par is 40). */
 const REWARDS: MinesweeperRewards = { pool: { easy: 100, medium: 400, hard: 1_500 }, parSeconds: { easy: 40, medium: 180, hard: 480 }, speedBonus: 2 };
 
-function setup() {
+function setup(onRecord: Partial<MinesweeperBest> = {}) {
   let now = 1_000;
+  /** The clears kept for the leaderboards, like "easy:30000:a,b". */
+  const saved: string[] = [];
   /** What was put on record, like "bombs:b" or "wins:a,b". */
   const recorded: string[] = [];
   /** What was paid for each board cleared, like "a:60 b:40". */
@@ -133,8 +142,10 @@ function setup() {
     record: (_guildId, userIds, stat) => recorded.push(`${stat}:${userIds.join(',')}`),
     rewards: () => REWARDS,
     pay: (_guildId, points) => paid.push([...points].map(([id, share]) => `${id}:${share}`).join(' ')),
+    best: async () => ({ easy: [], medium: [], hard: [], ...onRecord }),
+    saveClear: (_guildId, level, clear) => saved.push(`${level}:${clear.ms}:${clear.players.map((p) => p.id).join(',')}`),
   });
-  return { rooms, recorded, paid, tick: (ms: number) => (now += ms) };
+  return { rooms, recorded, paid, saved, tick: (ms: number) => (now += ms) };
 }
 
 /** Who's in the room and in which colour, like "a:0 b:1". */
@@ -420,6 +431,73 @@ test('minesweeper reward: a board cleared pays its players by the tiles each ope
   // A new board has paid nothing yet.
   room.start('a', 'easy');
   assert.equal(a.room().game.paid, null);
+});
+
+test("minesweeper leaderboard: a board cleared fast enough is among its level's fastest, with who cleared it, and is kept", async () => {
+  // On record already: one cleared in 20 seconds, and one in 60.
+  const { rooms, saved, tick } = setup({
+    easy: [
+      { ms: 20_000, at: 5, players: [{ id: 'z', name: 'Z', tiles: 71 }] },
+      { ms: 60_000, at: 6, players: [{ id: 'z', name: 'Z', tiles: 71 }] },
+    ],
+  });
+  const a = page();
+  const b = page();
+  const room = rooms.join(player('a'), a.peer)?.room;
+  rooms.join(player('b'), b.peer);
+  assert.ok(room);
+  // Told on joining, and again once the ones on record are read.
+  assert.deepEqual(a.best(), { easy: [], medium: [], hard: [] });
+  await Promise.resolve();
+  assert.deepEqual(b.best().easy.map((clear) => clear.ms), [20_000, 60_000]);
+  assert.equal(a.room().game.rank, null);
+
+  // A board lost isn't one.
+  room.play('a', 'open', 80);
+  room.play('b', 'open', 1);
+  assert.equal(a.room().game.rank, null);
+
+  // Cleared in 30 seconds (a all but the corner, b the corner): second.
+  room.start('a', 'easy');
+  room.play('a', 'open', 80);
+  tick(30_000);
+  room.play('b', 'open', 0);
+  assert.equal(b.room().game.rank, 2);
+  assert.deepEqual(a.best().easy[1], {
+    ms: 30_000,
+    at: 31_000,
+    players: [
+      { id: 'a', name: 'A', tiles: 70 },
+      { id: 'b', name: 'B', tiles: 1 },
+    ],
+  });
+  assert.deepEqual(a.best().easy.map((clear) => clear.ms), [20_000, 30_000, 60_000]);
+  assert.deepEqual(saved, ['easy:30000:a,b']);
+  // The other levels' are their own.
+  assert.deepEqual(a.best().medium, []);
+
+  // Whoever joins is told them.
+  const c = page();
+  rooms.join(player('c'), c.peer);
+  assert.equal(c.best().easy.length, 3);
+
+  // Only so many are kept: with ten faster, a slow clear isn't one, and isn't saved.
+  for (let i = 0; i < MINESWEEPER_BEST; i++) {
+    room.start('a', 'easy');
+    room.play('a', 'open', 80);
+    tick(1_000 + i);
+    room.play('a', 'open', 0);
+    assert.equal(a.room().game.rank, i + 1);
+  }
+  assert.equal(a.best().easy.length, MINESWEEPER_BEST);
+  room.start('a', 'easy');
+  room.play('a', 'open', 80);
+  tick(90_000);
+  room.play('a', 'open', 0);
+  assert.equal(a.room().game.status, 'won');
+  assert.equal(a.room().game.rank, null);
+  assert.equal(saved.length, 1 + MINESWEEPER_BEST);
+  assert.equal(a.best().easy.at(-1)?.ms, 1_000 + MINESWEEPER_BEST - 1);
 });
 
 test('minesweeper reward: its settings exist, are in their own group, and start at the tuned values', () => {

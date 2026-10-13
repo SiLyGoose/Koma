@@ -615,3 +615,15 @@ export interface MinesweeperStatsDoc {
   wins?: number;
   trolls?: number;
 }
+
+/**
+ * A minesweeper board cleared fast enough for its level's leaderboard in a server (see
+ * services/minesweeper.ts): how long it took, when, and everyone who opened a tile of it.
+ */
+export interface MinesweeperClearDoc {
+  guildId: string;
+  level: 'easy' | 'medium' | 'hard';
+  ms: number;
+  at: Date;
+  players: { id: string; name: string; tiles: number }[];
+}

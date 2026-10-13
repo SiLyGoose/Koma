@@ -1,9 +1,11 @@
+import { MINESWEEPER_BEST, MINESWEEPER_LEVEL_IDS, type MinesweeperLevel } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
 /*
  * The members' minesweeper records (web/games/minesweeper/room.ts counts them as boards are played):
- * one document per member per server, made the first time there is something to count.
+ * one document per member per server, made the first time there is something to count. And each
+ * server's leaderboards: the fastest clears of each level, one document a clear.
  */
 
 /**
@@ -36,6 +38,32 @@ export async function addMinesweeperStat(guildId: string, userIds: readonly stri
       },
     })),
   );
+}
+
+/** A board cleared: how long it took, when (ms since 1970), and everyone who opened a tile of it, whoever opened most first. */
+export interface MinesweeperClear {
+  ms: number;
+  at: number;
+  players: { id: string; name: string; tiles: number }[];
+}
+
+/** A server's fastest clears of each level, fastest first (of two as fast, the earlier). */
+export type MinesweeperBest = Record<MinesweeperLevel, MinesweeperClear[]>;
+
+/** A server's leaderboards: each level's MINESWEEPER_BEST fastest clears. */
+export async function loadMinesweeperBest(guildId: string): Promise<MinesweeperBest> {
+  const lists = await Promise.all(
+    MINESWEEPER_LEVEL_IDS.map(async (level) => {
+      const docs = await collections().minesweeperClears.find({ guildId, level }).sort({ ms: 1, at: 1 }).limit(MINESWEEPER_BEST).toArray();
+      return [level, docs.map((doc): MinesweeperClear => ({ ms: doc.ms, at: doc.at.getTime(), players: doc.players }))] as const;
+    }),
+  );
+  return Object.fromEntries(lists) as MinesweeperBest;
+}
+
+/** Keeps a clear of `level` that made its leaderboard in a server. */
+export async function saveMinesweeperClear(guildId: string, level: MinesweeperLevel, clear: MinesweeperClear): Promise<void> {
+  await collections().minesweeperClears.insertOne({ guildId, level, ms: clear.ms, at: new Date(clear.at), players: clear.players });
 }
 
 /** Pays each member their share (`points`, by member) of a board cleared in a server. */

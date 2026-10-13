@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -26,6 +26,8 @@ export interface Collections {
   pokerSeats: Collection<PokerSeatDoc>;
   /** One per member per server: their minesweeper record (see services/minesweeper.ts). */
   minesweeperStats: Collection<MinesweeperStatsDoc>;
+  /** A server's fastest minesweeper clears, by level (see services/minesweeper.ts). */
+  minesweeperClears: Collection<MinesweeperClearDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -54,6 +56,7 @@ export async function connectDb(): Promise<Collections> {
     raids: db.collection<RaidDoc>('raids'),
     pokerSeats: db.collection<PokerSeatDoc>('poker_seats'),
     minesweeperStats: db.collection<MinesweeperStatsDoc>('minesweeper_stats'),
+    minesweeperClears: db.collection<MinesweeperClearDoc>('minesweeper_clears'),
   };
 
   await Promise.all([
@@ -83,6 +86,8 @@ export async function connectDb(): Promise<Collections> {
     collections.raids.createIndex({ status: 1 }),
     collections.pokerSeats.createIndex({ leaseUntil: 1 }),
     collections.pokerSeats.createIndex({ tableKey: 1 }),
+    // Minesweeper's leaderboards: a server's fastest clears of a level.
+    collections.minesweeperClears.createIndex({ guildId: 1, level: 1, ms: 1 }),
   ]);
 
   client = mongo;

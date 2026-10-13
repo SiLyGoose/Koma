@@ -1,5 +1,6 @@
 import { MINESWEEPER_LEVELS, type MinesweeperLevel } from '../../../constants/index.js';
 import type { MinesweeperRewards } from '../../../lib/game/minesweeper.js';
+import type { MinesweeperBest } from '../../../services/minesweeper.js';
 import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../chat.js';
 
 /*
@@ -11,7 +12,8 @@ import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../ch
  * same board. The bot holds it, and a page is only ever told what has been opened, so nothing in the
  * page (or its dev tools) gives away where the mines are until the board is lost. A board cleared
  * pays its level's pool of points (`rewards`), more for being quick, shared between everyone who
- * opened its tiles by how many each opened (`paid`).
+ * opened its tiles by how many each opened (`paid`). The fastest clears of each level in the server
+ * are kept, with who cleared them (`best`).
  *
  *   page -> bot   hello    first message: the token from the link
  *                 new      a new board at `level`, in place of the one there
@@ -22,6 +24,7 @@ import { parseChat, type ChatClientMessage, type ChatServerMessage } from '../ch
  *                          (2.5 across is the middle of the third column), or null once it's off it
  *                 chat     says something to the room (web/games/chat.ts, with what the bot sends back)
  *   bot -> page   room     the room as it is now: whenever anything about it changes
+ *                 best     the server's fastest clears of each level: on joining, and whenever a clear makes them
  *                 cursor   where another player's mouse is (never this page's own), or null
  *                 error    and the bot closes the connection
  */
@@ -81,6 +84,8 @@ export interface GameView {
   blamed: string[];
   /** On a board cleared: what it paid, and to whom. Null otherwise. */
   paid: PaidView | null;
+  /** On a board cleared fast enough for its level's leaderboard: where it came on it, from 1. Null otherwise. */
+  rank: number | null;
 }
 
 /** What a board cleared paid. */
@@ -116,6 +121,7 @@ export type ErrorCode =
 
 export type ServerMessage =
   | { t: 'room'; state: RoomState }
+  | { t: 'best'; best: MinesweeperBest }
   | { t: 'cursor'; id: string; at: [x: number, y: number] | null }
   | { t: 'error'; code: ErrorCode }
   | ChatServerMessage;
