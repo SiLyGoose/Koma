@@ -16,6 +16,7 @@ import { loadout } from './loadout.js';
 import { mines } from './mines.js';
 import { newsletter } from './newsletter.js';
 import { pinecraft } from './pinecraft.js';
+import { minesweeper } from './minesweeper.js';
 import { plinko } from './plinko.js';
 import { baccarat } from './baccarat.js';
 import { roulette } from './roulette.js';
@@ -57,6 +58,7 @@ export const commands: Command[] = [
   blackjack,
   mines,
   pinecraft,
+  minesweeper,
   raid,
   leaderboard,
   vault,

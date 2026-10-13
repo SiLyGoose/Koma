@@ -13,6 +13,7 @@ import { rouletteText } from './casino/roulette.js';
 import { blackjackText } from './casino/blackjack.js';
 import { minesText } from './casino/mines.js';
 import { pinecraftText } from './pinecraft.js';
+import { minesweeperText } from './minesweeper.js';
 import { sellText } from './items/sell.js';
 import { inventoryText } from './items/inventory.js';
 import { databankText } from './items/databank.js';
@@ -65,6 +66,7 @@ export const TEXT = {
   blackjack: blackjackText,
   mines: minesText,
   pinecraft: pinecraftText,
+  minesweeper: minesweeperText,
   sell: sellText,
   inventory: inventoryText,
   databank: databankText,

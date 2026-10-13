@@ -10,12 +10,13 @@ import { serveBaccarat } from './games/baccarat/server.js';
 import { serveRoulette } from './games/roulette/server.js';
 import { servePoker } from './games/poker/server.js';
 import { serveRaid } from './games/raid/server.js';
+import { serveMinesweeper } from './games/minesweeper/server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
  * (api.ts, an Express app), and takes the games' web sockets, each game's in its own folder under games/ (mines/,
- * pinecraft/, baccarat/, roulette/, poker/, raid/; baccarat and roulette share table/, and every game connection.ts).
+ * pinecraft/, baccarat/, roulette/, poker/, raid/, minesweeper/; baccarat and roulette share table/, and every game connection.ts).
  * Only the site's own origin may connect.
  */
 
@@ -36,6 +37,7 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     [GAMES.baccarat.socket]: (socket) => serveBaccarat(socket, api.avatar),
     [GAMES.roulette.socket]: (socket) => serveRoulette(socket, api.avatar),
     [GAMES.poker.socket]: (socket) => servePoker(socket, api.avatar),
+    [GAMES.minesweeper.socket]: (socket) => serveMinesweeper(socket, api.avatar),
     // The raid, once the bot can start one and read the week (it has logged in to Discord).
     ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
   };

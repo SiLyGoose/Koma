@@ -599,3 +599,15 @@ export interface SettingsDoc {
   _id: string;
   [key: string]: unknown;
 }
+
+/**
+ * A member's minesweeper record in a server (web/games/minesweeper/room.ts): the mines they have
+ * opened, and the boards they helped clear. `_id` is "guildId:userId".
+ */
+export interface MinesweeperStatsDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  bombs?: number;
+  wins?: number;
+}

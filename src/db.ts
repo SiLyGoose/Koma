@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -24,6 +24,8 @@ export interface Collections {
   /** One per server per raid week (see services/raid.ts). */
   raids: Collection<RaidDoc>;
   pokerSeats: Collection<PokerSeatDoc>;
+  /** One per member per server: their minesweeper record (see services/minesweeper.ts). */
+  minesweeperStats: Collection<MinesweeperStatsDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -51,6 +53,7 @@ export async function connectDb(): Promise<Collections> {
     pinecraftWorlds: db.collection<PinecraftWorldDoc>('pinecraft_worlds'),
     raids: db.collection<RaidDoc>('raids'),
     pokerSeats: db.collection<PokerSeatDoc>('poker_seats'),
+    minesweeperStats: db.collection<MinesweeperStatsDoc>('minesweeper_stats'),
   };
 
   await Promise.all([
