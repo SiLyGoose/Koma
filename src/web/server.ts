@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { MINE_WEB } from '../constants/index.js';
+import { CHAT, MINE_WEB } from '../constants/index.js';
 import { createApi, type ApiDeps } from './api.js';
 import type { RaidSiteDeps } from './games/raid/server.js';
 import { GAMES } from './config.js';
@@ -42,7 +42,8 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
   };
   const http = createServer(createApi(api));
-  const wss = new WebSocketServer({ noServer: true, maxPayload: MINE_WEB.maxMessageBytes });
+  // Big enough for a line of chat with a pasted picture (games/chat.ts), the biggest thing a page says.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MINE_WEB.maxMessageBytes + CHAT.maxImageLength });
   // Connections that stopped answering (a phone gone to sleep) are dropped.
   const alive = new WeakSet<WebSocket>();
 

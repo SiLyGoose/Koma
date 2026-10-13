@@ -176,10 +176,10 @@ export class PartyTable<S extends string, R, V, X> {
     return null;
   }
 
-  /** `userId` says `text` to the table. */
-  say(userId: string, text: string): void {
+  /** `userId` says `text` to the table, with a picture (`image`) or not. */
+  say(userId: string, text: string, image?: string): void {
     const seat = this.seats.find((s) => s.player.userId === userId);
-    const line = seat && this.chat.say(seat.player, text, this.deps.now());
+    const line = seat && this.chat.say(seat.player, text, this.deps.now(), image);
     if (line) for (const each of this.seats) each.peer?.send({ t: 'chat', line });
   }
 

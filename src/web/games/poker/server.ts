@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws';
 import { POKER_WEB } from '../../../constants/index.js';
+import { chatImage } from '../chat.js';
 import { openGameConnection, refuse, serveSocket, type Connection } from '../connection.js';
 import { parseClientMessage, type ClientMessage, type ServerMessage } from './protocol.js';
 import { pokerTables, type Peer, type PokerDeps, type PokerTable, type PokerTables } from './table.js';
@@ -49,7 +50,7 @@ export function openPokerConnection(page: Peer, tables: PokerTables = pokerTable
       async message(player, peer, message) {
         if (!table) return refuse(peer, 'bad_message');
         const { userId } = player;
-        if (message.t === 'chat') return table.say(userId, message.text);
+        if (message.t === 'chat') return table.say(userId, message.text, await chatImage(message));
         const refusal =
           message.t === 'sit'
             ? await table.sit(userId, message.chips, message.seat)

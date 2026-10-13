@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CHAT, MINESWEEPER_LEVELS, MINESWEEPER_ROOM } from '../src/constants/index.js';
 import { chordTile, minesNear, neighbours, newBoard, openTile, seenTiles, toggleFlag, type Board } from '../src/lib/game/minesweeper.js';
+import { tenorGif } from '../src/web/games/chat.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/minesweeper/protocol.js';
 import { MinesweeperRooms, type Peer } from '../src/web/games/minesweeper/room.js';
 import type { Player } from '../src/web/auth/token.js';
@@ -355,6 +356,55 @@ test('chat: a line is tidied, and one that says nothing or too much is not read'
   assert.equal(parseClientMessage('{"t":"chat","text":7}'), null);
   assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: 'x'.repeat(CHAT.maxLength + 1) })), null);
   assert.ok(parseClientMessage(JSON.stringify({ t: 'chat', text: 'x'.repeat(CHAT.maxLength) })));
+});
+
+test('chat: a pasted picture is read with or without words, unless it is not one or is too big', () => {
+  const image = 'data:image/webp;base64,UklGRg==';
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'chat', text: '', image })), { t: 'chat', text: '', image });
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'chat', text: ' look ', image })), { t: 'chat', text: 'look', image });
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: 'look', image: 7 })), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: 'look', image: 'https://example.com/a.png' })), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: 'look', image: 'data:image/svg+xml;base64,PHN2Zz4=' })), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: 'look', image: 'data:image/png;base64,"><script>' })), null);
+  assert.equal(parseClientMessage(JSON.stringify({ t: 'chat', text: '', image: `data:image/png;base64,${'A'.repeat(CHAT.maxImageLength)}` })), null);
+});
+
+test('chat: the GIF a tenor.com page is about is read off it', () => {
+  const gif = 'https://media1.tenor.com/m/PKP-q7Udx4YAAAAC/tell-me-more-salem.gif';
+  assert.equal(tenorGif(`<head><meta class="dynamic" property="og:image" content="${gif}"></head>`), gif);
+  assert.equal(tenorGif('<meta property="og:image" content="https://example.com/x.gif">'), undefined);
+  assert.equal(tenorGif('<html></html>'), undefined);
+});
+
+test('chat: a room keeps only its last pasted pictures, and a line that was only an old one goes', () => {
+  const { rooms, tick } = setup();
+  const a = page();
+  const room = rooms.join(player('a'), a.peer)?.room;
+  assert.ok(room);
+  const image = 'data:image/png;base64,AAAA';
+  room.say('a', 'with words', image);
+  // Too soon after their last for a picture.
+  tick(CHAT.gapMs);
+  room.say('a', 'too soon', image);
+  tick(CHAT.imageGapMs);
+  room.say('a', '', image);
+  for (let i = 0; i < CHAT.keepImages; i++) {
+    tick(CHAT.imageGapMs);
+    room.say('a', `picture ${i}`, image);
+  }
+  // A GIF's address isn't a picture the room keeps itself.
+  tick(CHAT.gapMs);
+  room.say('a', 'a gif', 'https://media.tenor.com/x.gif');
+  assert.equal(a.sent.filter((m) => m.t === 'chat').length, CHAT.keepImages + 3);
+
+  const late = page();
+  rooms.join(player('b'), late.peer);
+  const history = late.sent.find((m) => m.t === 'chats');
+  assert.ok(history && history.t === 'chats');
+  assert.deepEqual(history.lines[0], { no: 1, id: 'a', name: 'A', text: 'with words', at: history.lines[0]?.at });
+  assert.equal(history.lines[1]?.text, 'picture 0');
+  assert.equal(history.lines.filter((l) => l.image === image).length, CHAT.keepImages);
+  assert.equal(history.lines.at(-1)?.image, 'https://media.tenor.com/x.gif');
 });
 
 test('chat: what one says everyone in the room is told, and whoever joins is told the last of it', () => {

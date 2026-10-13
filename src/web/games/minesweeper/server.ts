@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws';
 import { MINESWEEPER_LEVEL_NAMES, MINESWEEPER_WEB } from '../../../constants/index.js';
+import { chatImage } from '../chat.js';
 import { openGameConnection, refuse, serveSocket, type Connection } from '../connection.js';
 import { parseClientMessage, type ClientMessage, type ServerMessage } from './protocol.js';
 import { minesweeperRooms, type MinesweeperRoom, type MinesweeperRooms, type Peer, type RoomDeps } from './room.js';
@@ -52,7 +53,7 @@ export function openMinesweeperConnection(page: Peer, rooms: MinesweeperRooms = 
         const { userId } = player;
         if (message.t === 'new') room.start(userId, message.level);
         else if (message.t === 'cursor') room.cursor(userId, message.at);
-        else if (message.t === 'chat') room.say(userId, message.text);
+        else if (message.t === 'chat') room.say(userId, message.text, await chatImage(message));
         else room.play(userId, message.t, message.index);
       },
 

@@ -210,10 +210,10 @@ export class PokerTable {
     });
   }
 
-  /** `userId` says `text` to the table. */
-  say(userId: string, text: string): void {
+  /** `userId` says `text` to the table, with a picture (`image`) or not. */
+  say(userId: string, text: string, image?: string): void {
     const viewer = this.viewers.get(userId);
-    const line = viewer && this.chat.say(viewer.player, text, this.deps.now());
+    const line = viewer && this.chat.say(viewer.player, text, this.deps.now(), image);
     if (line) for (const each of this.viewers.values()) each.peer?.send({ t: 'chat', line });
   }
 

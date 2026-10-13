@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws';
 import { sumBets } from '../../../lib/game/casino/table-bets.js';
+import { chatImage } from '../chat.js';
 import { openGameConnection, refuse, serveSocket, type Connection } from '../connection.js';
 import type { PartyTable, PartyTables, Peer, TableDeps } from './table.js';
 import { parseTableMessage, type ServerMessage } from './protocol.js';
@@ -59,7 +60,7 @@ export function openTableConnection<S extends string, R, V, X>(tables: PartyTabl
           return;
         }
         if (message.t === 'chat') {
-          table.say(player.userId, message.text);
+          table.say(player.userId, message.text, await chatImage(message));
           return;
         }
         // Chips.

@@ -109,10 +109,10 @@ export class MinesweeperRoom {
     return before && before.peer !== peer ? before.peer : null;
   }
 
-  /** `userId` says `text` to the room. */
-  say(userId: string, text: string): void {
+  /** `userId` says `text` to the room, with a picture (`image`) or not. */
+  say(userId: string, text: string, image?: string): void {
     const member = this.members.get(userId);
-    const line = member && this.chat.say(member.player, text, this.deps.now());
+    const line = member && this.chat.say(member.player, text, this.deps.now(), image);
     if (line) for (const each of this.members.values()) each.peer.send({ t: 'chat', line });
   }
 
