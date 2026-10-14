@@ -242,6 +242,8 @@ export interface RaidGear {
   set: TmSetId | null;
   uw: number | null;
   skills: string[];
+  /** The ids of the copies it wears that count (as the raid counts them). */
+  copies: string[];
 }
 
 /** The additional skills a hero has of the copies it wears: each TechnoMagic piece's that works on its class (as its stats do). */
@@ -264,6 +266,7 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
     if (!doc) continue;
     const on: GearPiece[] = [];
     const skilled: { item: ItemDef; skill?: string }[] = [];
+    const counted: string[] = [];
     let uw: number | null = null;
     for (const slot of HERO_SLOTS) {
       const copy = owned.get(doc.equipment?.[slot] ?? '');
@@ -276,6 +279,7 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
       }
       on.push({ item, level: refineLevel(copy.level), bonus: copy.masterwork === true });
       skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
+      counted.push(copy._id);
     }
     const shares = heroBonus(on, hero.class, hero.id);
     out.set(hero.id, {
@@ -283,7 +287,35 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
       set: activeSet(heroSet(on, hero.class)),
       uw,
       skills: heroSkills(skilled, hero.class),
+      copies: counted,
     });
+  }
+  return out;
+}
+
+/** Whether a TechnoMagic copy's set effect, and its additional effect, are on: what the heroes and gear pages light up. */
+export interface TmEffectsOn {
+  set: boolean;
+  additional: boolean;
+}
+
+/**
+ * Which of the member's TechnoMagic copies' effects are on, by copy id (a copy not in it has neither on): a
+ * copy's additional effect is on while a hero of its class wears it, and its set effect while that hero also
+ * has its set's effect (TM_SET_PIECES of it worn). As the raid counts them (raidGear).
+ */
+export function activeTmEffects(copies: Parameters<typeof raidGear>[0], member: Parameters<typeof raidGear>[1]): Map<string, TmEffectsOn> {
+  const byId = new Map(copies.map((copy) => [copy._id, copy]));
+  const out = new Map<string, TmEffectsOn>();
+  for (const [heroId, gear] of raidGear(copies, member)) {
+    const hero = HEROES.find((one) => one.id === heroId);
+    for (const id of gear.copies) {
+      const copy = byId.get(id);
+      const item = copy && ITEMS_BY_ID.get(copy.itemId);
+      if (!hero || !copy || !item?.tmDrop) continue;
+      const works = worksOn(item, hero.class);
+      out.set(id, { set: works && item.slot !== 'treasure' && item.tmSet !== undefined && item.tmSet === gear.set, additional: works && copy.tmSkill !== undefined });
+    }
   }
   return out;
 }

@@ -334,6 +334,9 @@ test('technomagic: a run takes the additional skills of the TechnoMagic copies a
   assert.deepEqual(kirze?.skills, ['vigor', 'vigor']);
   assert.ok(kirze?.totals.some((line) => line.startsWith('✴️ Vigor ×2: ')));
   assert.equal(view.copies.find((one) => one.id === 'a')?.skill, 'vigor');
-  assert.match(view.copies.find((one) => one.id === 'a')?.effects.at(-1) ?? '', /^✴️ Vigor: /);
+  // Its additional effect apart from its effects, like "Vigor: Increases DMG…".
+  assert.match(view.copies.find((one) => one.id === 'a')?.additional ?? '', /^Vigor: /);
+  assert.ok(!view.copies.find((one) => one.id === 'a')?.effects.some((line) => line.includes('Vigor')));
   assert.equal(view.copies.find((one) => one.id === 'd')?.skill, null);
+  assert.equal(view.copies.find((one) => one.id === 'd')?.additional, null);
 });

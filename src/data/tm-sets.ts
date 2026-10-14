@@ -73,15 +73,19 @@ export const TM_SETS: readonly TmSet[] = [
 
 export const TM_SETS_BY_ID: ReadonlyMap<TmSetId, TmSet> = new Map(TM_SETS.map((set) => [set.id, set]));
 
+/** What a piece's item calls its set's effect, over it: "3-set effect:". */
+export const TM_SET_LABEL = `${TM_SET_PIECES}-set effect:`;
+
 /**
- * A piece's set, as its item says it: the set's effect for the piece's class, once a hero wears TM_SET_PIECES of
- * it (null: no set, or a treasure, which is apart from the set). Every set's pieces have it, from its own entry.
+ * A piece's set effect, as its item says it under TM_SET_LABEL: the set's effect for the piece's class, once a hero
+ * wears TM_SET_PIECES of it, like "+10% DMG, …" (null: no set, or a treasure, which is apart from the set). Every
+ * set's pieces have it, from its own entry.
  */
-export function tmSetLine(item: Pick<ItemDef, 'tmSet' | 'slot' | 'class'>): string | null {
+export function tmSetEffect(item: Pick<ItemDef, 'tmSet' | 'slot' | 'class'>): string | null {
   const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
   if (!set || item.slot === 'treasure') return null;
   const effect = item.class ? set.effects[item.class] : undefined;
-  return `${set.emoji} **${set.name} set** (${TM_SET_PIECES} pieces): ${effect ?? 'nothing for its class'}`;
+  return effect ?? 'nothing for its class';
 }
 
 /** The set a raid boss drops (null: it isn't a TechnoMagic Raid boss). */

@@ -5,10 +5,10 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
-import { heroOnly, heroWorn } from '../../lib/game/heroes.js';
+import { activeTmEffects, heroOnly, heroWorn, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
-import { tmSetLine } from '../../data/tm-sets.js';
+import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, saleCount, sellPrice } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
@@ -48,6 +48,15 @@ export interface GearCopy {
   masterwork: boolean;
   /** What it does for this member at this level. */
   effects: string[];
+  /**
+   * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
+   * and whether it is on (the hero wearing it has its set's effect); null otherwise.
+   */
+  setEffect: { pieces: number; text: string; active: boolean } | null;
+  /** TechnoMagic gear: the additional skill this copy came with, like "Vigor: Increases DMG…" (null: none). */
+  additional: string | null;
+  /** Whether its additional skill is on: a hero of its class wears it. */
+  additionalActive: boolean;
   /** Someone else's exclusive item: the share of its effects this member gets (null when it's theirs to use). */
   borrowed: number | null;
   /** Refining it (services/items/refine.ts), for the page's confirmation. */
@@ -241,8 +250,8 @@ function forgeState(item: ItemDef, level: number, masterwork: boolean, gems: num
  * The gear page's view of `copies` (all a member owns), with `equipment` what they wear,
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
  * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge),
- * `outfit` the outfit they wear, `raidClass` their raid class and `heroWorn` the copies their heroes wear
- * (each with the hero's name).
+ * `outfit` the outfit they wear, `raidClass` their raid class, `heroWorn` the copies their heroes wear
+ * (each with the hero's name) and `tmOn` which of their TechnoMagic copies' effects are on (activeTmEffects).
  */
 export function gearView(
   copies: readonly CopyInfo[],
@@ -254,6 +263,7 @@ export function gearView(
   outfit: string = DEFAULT_OUTFIT,
   raidClass: RaidClassId | null = null,
   heroWorn: ReadonlyMap<string, string> = new Map(),
+  tmOn: ReadonlyMap<string, TmEffectsOn> = new Map(),
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
   const kept = new Set([...wornIds, ...heroWorn.keys()]);
@@ -269,7 +279,7 @@ export function gearView(
     const masterwork = copy.masterwork === true;
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
-    const setLine = tmSetLine(item);
+    const setEffect = tmSetEffect(item);
     const view: GearCopy = {
       id: copy._id,
       itemId: item.id,
@@ -280,8 +290,10 @@ export function gearView(
       level,
       maxLevel: REFINE.maxLevel,
       masterwork: showsMasterwork(item, level, masterwork),
-      // (And a TechnoMagic piece's set, then its copy's additional skill, last.)
-      effects: [...describeEffects(item, share, level, masterwork), ...(setLine ? [setLine] : []), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
+      effects: describeEffects(item, share, level, masterwork),
+      setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
+      additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
+      additionalActive: tmOn.get(copy._id)?.additional ?? false,
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,
@@ -351,12 +363,12 @@ export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member), raidClassOf(member), heroNames(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
   },
   peek: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member), raidClassOf(member), heroNames(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
   },
   owners: async (guildId, limit) => {
     const rows = await collections()

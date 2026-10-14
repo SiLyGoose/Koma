@@ -6,9 +6,9 @@ import { GROUPS } from '../src/commands/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
-import { TM_SET_PIECES, TM_SETS_BY_ID, tmSetLine } from '../src/data/tm-sets.js';
+import { TM_SET_LABEL, TM_SET_PIECES, TM_SETS_BY_ID, tmSetEffect } from '../src/data/tm-sets.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
-import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, otherWeaponSlot, pieceBonus, raidValue, secondUnique, wieldedBy } from '../src/lib/game/heroes.js';
+import { activeSet, activeTmEffects, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, otherWeaponSlot, pieceBonus, raidValue, secondUnique, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
 import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -16,6 +16,7 @@ import { createApi, type ApiDeps } from '../src/web/api.js';
 import { signSession } from '../src/web/auth/login.js';
 import type { WebConfig } from '../src/web/config.js';
 import { heroesView, type HeroesView, type HeroStore } from '../src/web/models/heroes.js';
+import { gearView } from '../src/web/models/gear.js';
 import type { MemberDoc } from '../src/types.js';
 
 const SITE: WebConfig = {
@@ -181,9 +182,13 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - effectStrength('tmCritDamage', 4)) < 1e-9);
   assert.deepEqual(kirze?.set, { id: 'perseverance', pieces: 1, active: false });
   assert.ok(kirze?.totals.some((line) => line.includes('Perseverance set: 1/3')));
-  // A TechnoMagic piece says its set's effect for its class; another item doesn't.
-  assert.ok(view.copies.find((copy) => copy.id === 'fang')?.effects.some((line) => line.startsWith('⚔️ **Perseverance set** (3 pieces): +10% DMG')));
-  assert.ok(!view.copies.find((copy) => copy.id === 'maul')?.effects.some((line) => line.includes('set**')));
+  // A TechnoMagic piece says its set's effect for its class apart from its effects; another item has none.
+  const fang = view.copies.find((copy) => copy.id === 'fang');
+  assert.equal(fang?.setEffect?.pieces, 3);
+  assert.ok(fang?.setEffect?.text.startsWith('+10% DMG'));
+  assert.ok(!fang?.effects.some((line) => line.includes('+10% DMG')));
+  assert.equal(fang?.additional, null, 'no additional skill on this copy');
+  assert.equal(view.copies.find((copy) => copy.id === 'maul')?.setEffect, null);
   assert.ok(kirze?.totals.some((line) => line.endsWith('ATK')));
   assert.deepEqual(clause?.totals, []);
 });
@@ -292,15 +297,48 @@ test('heroes: three weapons and armors of one set, each for its class, give the 
 });
 
 test('heroes: every TechnoMagic weapon and armor says its set effect, for its own class (treasures apart)', () => {
+  assert.equal(TM_SET_LABEL, '3-set effect:');
   for (const piece of ITEMS.filter((i) => i.tmSet)) {
-    const line = tmSetLine(piece);
+    const effect = tmSetEffect(piece);
     if (piece.slot === 'treasure') {
-      assert.equal(line, null, piece.id);
+      assert.equal(effect, null, piece.id);
       continue;
     }
     const set = TM_SETS_BY_ID.get(piece.tmSet!);
     assert.ok(set && piece.class, piece.id);
-    assert.equal(line, `${set.emoji} **${set.name} set** (3 pieces): ${set.effects[piece.class] ?? 'nothing for its class'}`, piece.id);
+    assert.equal(effect, set.effects[piece.class] ?? 'nothing for its class', piece.id);
   }
-  assert.equal(tmSetLine(item('tri-head-cleaver')), '⚔️ **Perseverance set** (3 pieces): +10% DMG, and another +1.5% every 10 seconds (up to +25% after 100 seconds)');
+  assert.equal(tmSetEffect(item('tri-head-cleaver')), '+10% DMG, and another +1.5% every 10 seconds (up to +25% after 100 seconds)');
+  assert.equal(tmSetEffect(item('rusty-dagger')), null);
+});
+
+test('heroes: a TechnoMagic copy’s set effect is on while its hero has the set, its additional effect while a hero of its class wears it', () => {
+  // Kirze (a warrior) in three warrior pieces of Perseverance, a priest's armor, and the warrior's treasure; one copy left in the bag.
+  const copy = (id: string, itemId: string) => ({ _id: id, itemId, level: 1, tmSkill: 'vigor' });
+  const copies = [
+    copy('w1', 'tri-head-cleaver'),
+    copy('w2', 'tri-head-cleaver'),
+    copy('a1', 'venomscale-harness'),
+    copy('a2', 'antivenom-ward'),
+    copy('t', 'galgorias-heart'),
+    copy('bag', 'tri-head-cleaver'),
+  ];
+  const member = { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'w1', weapon2: 'w2', armor1: 'a1', armor2: 'a2', treasure: 't' } } }, points: 0 };
+  assert.ok(TM_SET_PIECES <= 3, 'three of its pieces make the set');
+  const on = activeTmEffects(copies, member);
+  for (const id of ['w1', 'w2', 'a1']) assert.deepEqual(on.get(id), { set: true, additional: true }, id);
+  assert.deepEqual(on.get('a2'), { set: false, additional: false }, 'the priest’s armor does nothing on a warrior');
+  assert.deepEqual(on.get('t'), { set: false, additional: true }, 'a treasure is apart from the set');
+  assert.equal(on.get('bag'), undefined, 'one no hero wears has neither');
+
+  // The heroes page and the gear page say so, for the page to light it up or grey it out.
+  const heroes = heroesView(copies, member);
+  const hero = (id: string) => heroes.copies.find((one) => one.id === id);
+  assert.equal(hero('w1')?.setEffect?.active, true);
+  assert.equal(hero('w1')?.additionalActive, true);
+  assert.equal(hero('bag')?.setEffect?.active, false);
+  assert.equal(hero('bag')?.additionalActive, false);
+  const gear = gearView(copies, null, 'u', undefined, null, null, undefined, null, heroWorn(member), on);
+  assert.equal(gear.copies.find((one) => one.id === 'a2')?.setEffect?.active, false);
+  assert.equal(gear.copies.find((one) => one.id === 't')?.additionalActive, true);
 });

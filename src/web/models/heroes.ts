@@ -3,9 +3,9 @@ import { REFINE } from '../../constants/index.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
-import { tmSetLine } from '../../data/tm-sets.js';
+import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { collections } from '../../db.js';
-import { activeSet, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus } from '../../lib/game/heroes.js';
+import { activeSet, activeTmEffects, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus } from '../../lib/game/heroes.js';
 import type { GearPiece } from '../../lib/game/items/equipment.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
@@ -31,8 +31,17 @@ export interface HeroCopy {
   maxLevel: number;
   masterwork: boolean;
   locked: boolean;
-  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class), and its additional skill's last. */
+  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class). */
   effects: string[];
+  /**
+   * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
+   * and whether it is on (the hero wearing it has its set's effect); null otherwise.
+   */
+  setEffect: { pieces: number; text: string; active: boolean } | null;
+  /** TechnoMagic gear: the additional skill this copy came with, like "Vigor: Increases DMG…" (null: none). */
+  additional: string | null;
+  /** Whether its additional skill is on: a hero of its class wears it. */
+  additionalActive: boolean;
   /** TechnoMagic gear: the additional skill this copy came with (the sim's id), or null. */
   skill: string | null;
   /** A class item: the one class of hero it works on (null: any). */
@@ -109,6 +118,7 @@ export function skillLines(skills: readonly string[]): string[] {
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 'heroes' | 'points'> | null): HeroesView {
   const worn = heroWorn(member);
+  const lit = activeTmEffects(copies, member);
   const list: HeroCopy[] = [];
   const pieces = new Map<string, { view: HeroCopy; piece: GearPiece }>();
   for (const copy of copies) {
@@ -116,7 +126,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
     if (!item || !heroWearable(item)) continue;
     const level = refineLevel(copy.level);
     const masterwork = copy.masterwork === true;
-    const setLine = tmSetLine(item);
+    const setEffect = tmSetEffect(item);
     const view: HeroCopy = {
       id: copy._id,
       itemId: item.id,
@@ -128,8 +138,10 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       maxLevel: REFINE.maxLevel,
       masterwork,
       locked: copy.locked === true,
-      // (And a TechnoMagic piece's set, then its copy's additional skill, last.)
-      effects: [...heroItemLines(item, level, masterwork), ...(setLine ? [setLine] : []), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
+      effects: heroItemLines(item, level, masterwork),
+      setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: lit.get(copy._id)?.set ?? false },
+      additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
+      additionalActive: lit.get(copy._id)?.additional ?? false,
       skill: item.tmDrop ? (copy.tmSkill ?? null) : null,
       class: item.class ?? null,
       heroOnly: heroOnly(item),
