@@ -4,7 +4,9 @@ import { REFINE } from '../../constants/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
-import { loadoutCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
+import { keptCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
+import { heroOnly, heroWorn } from '../../lib/game/heroes.js';
+import { HEROES_BY_ID } from '../../data/heroes.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, saleCount, sellPrice } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
@@ -17,7 +19,7 @@ import { raidClassesOf, raidClassOf, setRaidClass } from '../../services/raid-cl
 import { classTraits } from '../../lib/game/raid-classes.js';
 import { RAID_CLASS_IDS, TEXT, type RaidClassId } from '../../constants/index.js';
 import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
-import type { EquipmentDoc, ItemCopyDoc, ItemDef, Slot, Stars } from '../../types.js';
+import type { EquipmentDoc, ItemCopyDoc, ItemDef, MemberDoc, Slot, Stars } from '../../types.js';
 import { gearStats, type StatSection } from './stats.js';
 import { SLOTS } from '../../types.js';
 
@@ -52,8 +54,12 @@ export interface GearCopy {
   forge: GearForge | null;
   /** Locked by the member (services/items/lock.ts): never sold or used up by a refine. */
   locked: boolean;
-  /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout or locked, so never sold. */
+  /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
   sell: number | null;
+  /** TechnoMagic gear: only heroes wear it (the heroes page), never the member. */
+  heroOnly: boolean;
+  /** The name of the TechnoMagic hero wearing it (the heroes page), or null when none is. */
+  hero: string | null;
 }
 
 /** Refining a copy: what the page asks the member to confirm. */
@@ -229,7 +235,8 @@ function forgeState(item: ItemDef, level: number, masterwork: boolean, gems: num
  * The gear page's view of `copies` (all a member owns), with `equipment` what they wear,
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
  * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge),
- * `outfit` the outfit they wear and `raidClass` their raid class.
+ * `outfit` the outfit they wear, `raidClass` their raid class and `heroWorn` the copies their heroes wear
+ * (each with the hero's name).
  */
 export function gearView(
   copies: readonly CopyInfo[],
@@ -240,9 +247,10 @@ export function gearView(
   gems: number | null = null,
   outfit: string = DEFAULT_OUTFIT,
   raidClass: RaidClassId | null = null,
+  heroWorn: ReadonlyMap<string, string> = new Map(),
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
-  const kept = new Set(wornIds);
+  const kept = new Set([...wornIds, ...heroWorn.keys()]);
   for (const loadout of loadouts) for (const id of equippedCopyIds(loadout.equipment)) kept.add(id);
 
   const list: GearCopy[] = [];
@@ -271,6 +279,8 @@ export function gearView(
       forge: null,
       locked,
       sell: kept.has(copy._id) || locked ? null : sellPrice(item.stars),
+      heroOnly: heroOnly(item),
+      hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
     view.refine = { ...refine, after: to === null ? null : describeEffects(item, share, to, masterwork) };
@@ -316,16 +326,25 @@ export function gearView(
   };
 }
 
+/** The copies the member's heroes wear, each with the hero's name. */
+const heroNames = (member: Pick<MemberDoc, 'heroes'> | null): Map<string, string> =>
+  new Map(
+    [...heroWorn(member)].flatMap(([copyId, heroId]) => {
+      const hero = HEROES_BY_ID.get(heroId);
+      return hero ? [[copyId, hero.name] as const] : [];
+    }),
+  );
+
 export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member), raidClassOf(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member), raidClassOf(member), heroNames(member));
   },
   peek: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member), raidClassOf(member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member), raidClassOf(member), heroNames(member));
   },
   owners: async (guildId, limit) => {
     const rows = await collections()
@@ -357,7 +376,7 @@ export const gearStore: GearStore = {
     if (!copy || !item) return 'not_found';
     // This copy is the one raised, whatever level its item's other copies are at.
     const [sameItem, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
-    const kept = new Set([...equippedCopyIds(member?.equipment), ...loadoutCopyIds(member)]);
+    const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
     const state = refineState(copyId, sameItem, item.stars, kept, member?.points ?? 0);
     if (state.blocked) return state.blocked;
     const result = await refineItem(guildId, userId, item, { copy: copyId, material: materialId });

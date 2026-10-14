@@ -1,0 +1,207 @@
+import { REFINE } from '../../constants/index.js';
+import type { RaidClassId } from '../../constants/raid.js';
+import { HEROES } from '../../data/heroes.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
+import type { EffectId } from '../../perks/index.js';
+import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type Slot } from '../../types.js';
+import { formatPercent } from '../format.js';
+import { effectStrength, itemEffects, perkShare, type GearPiece } from './items/equipment.js';
+import { refineLevel } from './items/refine-share.js';
+
+/*
+ * The TechnoMagic Raid's heroes (data/heroes.ts), with no database: which gear they wear, where, and what
+ * it does for them in the raid. A hero wears the raid's gear (ItemDef.raidDrop) and the TechnoMagic Raid's
+ * (ItemDef.tmDrop): two weapons, two armors and a treasure (only TechnoMagic gear has treasures). A copy
+ * can be on the member and on one of their heroes at once, but on one hero only, in one slot.
+ *
+ * What gear does for a hero is its stats in the raid (the raid's own, Koma-UI's src/technomagic/): each perk
+ * of the TechnoMagic gear raises one (perks/technomagic/), and each of the raid gear's raises the one most
+ * like what it does in the raid (FROM_PERK), by as much or by a share of it. A class item only works on a
+ * hero of its class.
+ */
+
+/** Which kind of item goes in a hero's slot. */
+export const HERO_SLOT_KIND: Readonly<Record<HeroSlot, Slot>> = { weapon1: 'weapon', weapon2: 'weapon', armor1: 'armor', armor2: 'armor', treasure: 'treasure' };
+
+/** The hero's slots an item fits in, in order. */
+export const heroSlotsFor = (item: Pick<ItemDef, 'slot'>): HeroSlot[] => HERO_SLOTS.filter((slot) => HERO_SLOT_KIND[slot] === item.slot);
+
+/** Whether a hero can wear an item at all: the raid's gear, and the TechnoMagic Raid's. */
+export const heroWearable = (item: ItemDef): boolean => item.raidDrop === true || item.tmDrop === true;
+
+/** Whether only heroes wear an item (the member can't): the TechnoMagic gear. */
+export const heroOnly = (item: ItemDef): boolean => item.tmDrop === true;
+
+/** The member's heroes that still exist in `known` (data/heroes.ts's ids), by id. */
+export function ownedHeroes(member: Pick<MemberDoc, 'heroes'> | null | undefined, known: ReadonlySet<string>): Map<string, HeroDoc> {
+  return new Map(Object.entries(member?.heroes ?? {}).filter(([id]) => known.has(id)));
+}
+
+/** Every copy one of the member's heroes wears, with the hero wearing it. Selling and refining never use these up. */
+export function heroWorn(member: Pick<MemberDoc, 'heroes'> | null | undefined): Map<string, string> {
+  const worn = new Map<string, string>();
+  for (const [heroId, hero] of Object.entries(member?.heroes ?? {})) {
+    for (const slot of HERO_SLOTS) {
+      const copyId = hero?.equipment?.[slot];
+      if (typeof copyId === 'string' && copyId !== '' && !worn.has(copyId)) worn.set(copyId, heroId);
+    }
+  }
+  return worn;
+}
+
+/** The ids of every copy one of the member's heroes wears. */
+export const heroCopyIds = (member: Pick<MemberDoc, 'heroes'> | null | undefined): Set<string> => new Set(heroWorn(member).keys());
+
+/**
+ * Putting copy `copyId` in hero `heroId`'s `slot`: every other place among the member's heroes it is in
+ * now, where it comes off (a copy is on one hero, in one slot), as dotted paths of the member document.
+ */
+export function heroEquipMoves(heroes: MemberDoc['heroes'], heroId: string, slot: HeroSlot, copyId: string): { from: string[]; elsewhere: string[] } {
+  const from: string[] = [];
+  const elsewhere: string[] = [];
+  for (const [id, hero] of Object.entries(heroes ?? {})) {
+    for (const other of HERO_SLOTS) {
+      if (id === heroId && other === slot) continue;
+      const path = `heroes.${id}.equipment.${other}`;
+      if (hero?.equipment?.[other] === copyId) from.push(path);
+      else elsewhere.push(path);
+    }
+  }
+  return { from, elsewhere };
+}
+
+/** A hero's stats that gear raises. */
+export type HeroStat = 'atk' | 'hp' | 'crit' | 'critDamage' | 'speed' | 'pen' | 'defense' | 'block' | 'dodge' | 'resist' | 'heal' | 'control';
+
+/**
+ * Each stat, in the order they're listed: whether it is points in the raid (a chance or share, 1000
+ * points being 100%: a bonus of 0.1 is 100 points) rather than a share more of the hero's own, and its line.
+ */
+export const HERO_STATS: Readonly<Record<HeroStat, { points: boolean; label: string; text: (value: string) => string }>> = {
+  atk: { points: false, label: 'ATK', text: (v) => `+${v} ATK` },
+  hp: { points: false, label: 'HP', text: (v) => `+${v} HP` },
+  crit: { points: true, label: 'Crit chance', text: (v) => `+${v} crit chance` },
+  critDamage: { points: false, label: 'Crit damage', text: (v) => `+${v} crit damage` },
+  speed: { points: true, label: 'Attack speed', text: (v) => `+${v} attack speed` },
+  pen: { points: true, label: 'Penetration', text: (v) => `+${v} penetration` },
+  defense: { points: false, label: 'Defence', text: (v) => `+${v} physical and magical defence` },
+  block: { points: true, label: 'Block', text: (v) => `+${v} block` },
+  dodge: { points: true, label: 'Dodge', text: (v) => `+${v} dodge` },
+  resist: { points: true, label: 'CC resist', text: (v) => `+${v} CC resist` },
+  heal: { points: false, label: 'Heals and shields', text: (v) => `heals and shields give ${v} more` },
+  control: { points: false, label: 'Stun duration', text: (v) => `stuns on the boss last ${v} longer` },
+};
+
+export const HERO_STAT_IDS = Object.keys(HERO_STATS) as HeroStat[];
+
+/** What gear gives a hero: a share for each stat (0.1: 10% more, or 100 points). */
+export type HeroBonus = Record<HeroStat, number>;
+
+export const noBonus = (): HeroBonus => Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, 0])) as HeroBonus;
+
+/**
+ * The stat each perk a hero's gear can have raises, and how much of the perk's strength it gets. The
+ * TechnoMagic gear's in full; the raid gear's by what each does in the raid, scaled to land near the
+ * TechnoMagic gear of the same tier (the raid's healing and its rallies, guards and boss gimmicks have no
+ * like in this raid, so they raise what is nearest).
+ */
+const FROM_PERK: Partial<Record<EffectId, readonly [HeroStat, number]>> = {
+  tmAttack: ['atk', 1],
+  tmHp: ['hp', 1],
+  tmCrit: ['crit', 1],
+  tmCritDamage: ['critDamage', 1],
+  tmSpeed: ['speed', 1],
+  tmPen: ['pen', 1],
+  tmDefense: ['defense', 1],
+  tmBlock: ['block', 1],
+  tmDodge: ['dodge', 1],
+  tmResist: ['resist', 1],
+  tmHeal: ['heal', 1],
+  raidAttack: ['atk', 1],
+  raidHp: ['hp', 1],
+  raidCritChance: ['crit', 1],
+  raidCritDamage: ['critDamage', 1],
+  raidSupport: ['heal', 1],
+  healBonus: ['heal', 1],
+  healSplash: ['heal', 0.5],
+  rallyBoost: ['atk', 0.5],
+  guardBoost: ['block', 0.5],
+  // A share of the boss's max HP a hit (1% at 4 stars) is 150 points of penetration.
+  maxHpDamage: ['pen', 15],
+  healCut: ['pen', 0.3],
+  // Stacks of Blight cleared (1 to 3): 50 points each.
+  blightPurge: ['resist', 0.05],
+  partyGuard: ['defense', 1],
+  warriorCounter: ['block', 0.3],
+  circleOfDeath: ['heal', 0.25],
+  partyHeal: ['heal', 1],
+  rallyCrit: ['crit', 1],
+  hexBoost: ['control', 1],
+  assassinStrike: ['atk', 0.5],
+  assassinCrit: ['crit', 0.5],
+  archerRamp: ['speed', 3],
+};
+
+/** Whether a hero of `heroClass` gets an item's perks: anyone does, but a class item's only its class. */
+export const worksOn = (item: ItemDef, heroClass: RaidClassId): boolean => item.class === undefined || item.class === heroClass;
+
+/** What one piece gives a hero of `heroClass`, stat by stat (nothing from a class item of another class). */
+export function pieceBonus({ item, level, bonus = true }: GearPiece, heroClass: RaidClassId): HeroBonus {
+  const out = noBonus();
+  if (!worksOn(item, heroClass)) return out;
+  for (const effect of itemEffects(item, level, bonus)) {
+    const to = FROM_PERK[effect];
+    if (to) out[to[0]] += effectStrength(effect, item.stars) * perkShare(effect, level) * to[1];
+  }
+  return out;
+}
+
+/** What every piece a hero wears gives it, all told. */
+export function heroBonus(pieces: readonly GearPiece[], heroClass: RaidClassId): HeroBonus {
+  const out = noBonus();
+  for (const piece of pieces) {
+    const one = pieceBonus(piece, heroClass);
+    for (const stat of HERO_STAT_IDS) out[stat] += one[stat];
+  }
+  return out;
+}
+
+/** One line for each stat a bonus raises, in HERO_STATS' order, like "+25% ATK". */
+export const bonusLines = (bonus: HeroBonus): string[] =>
+  HERO_STAT_IDS.filter((stat) => bonus[stat] > 1e-9).map((stat) => HERO_STATS[stat].text(formatPercent(bonus[stat])));
+
+/**
+ * What a copy of `item` at `level` does on a hero, a line for each stat it raises: on any hero (left
+ * out), or on one of `heroClass`, which for a class item of another class is nothing.
+ */
+export function heroItemLines(item: ItemDef, level: number = REFINE.maxLevel, masterwork = true, heroClass?: RaidClassId): string[] {
+  return bonusLines(pieceBonus({ item, level, bonus: masterwork }, heroClass ?? item.class ?? 'knight'));
+}
+
+/** Whether a stat is points in the raid (see HERO_STATS); its bonus as the raid counts it: points, or a share. */
+export const raidValue = (stat: HeroStat, share: number): number => (HERO_STATS[stat].points ? Math.round(share * 1000) : share);
+
+/**
+ * What each of the member's heroes' gear gives it in the raid, as the raid counts it (raidValue: points for a
+ * chance or share, a share for the rest), by hero id: the gear a TechnoMagic Raid run is played with. Only
+ * copies they still own, in a slot of their kind, on that hero (as the heroes page shows them).
+ */
+export function raidBonuses(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, HeroBonus> {
+  const owned = new Map(copies.map((copy) => [copy._id, copy]));
+  const worn = heroWorn(member);
+  const out = new Map<string, HeroBonus>();
+  for (const hero of HEROES) {
+    const doc = member?.heroes?.[hero.id];
+    if (!doc) continue;
+    const on: GearPiece[] = [];
+    for (const slot of HERO_SLOTS) {
+      const copy = owned.get(doc.equipment?.[slot] ?? '');
+      const item = copy && ITEMS_BY_ID.get(copy.itemId);
+      if (!copy || !item || !heroWearable(item) || item.slot !== HERO_SLOT_KIND[slot] || worn.get(copy._id) !== hero.id) continue;
+      on.push({ item, level: refineLevel(copy.level), bonus: copy.masterwork === true });
+    }
+    const shares = heroBonus(on, hero.class);
+    out.set(hero.id, Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus);
+  }
+  return out;
+}

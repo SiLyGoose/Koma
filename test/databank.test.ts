@@ -596,7 +596,7 @@ test('databank classes: one page per class, with what it does and its class item
     assert.match(first.title ?? '', new RegExp(`${TEXT.raid.classes[id].name} \\(1/${RAID_CLASS_IDS.length}\\)`));
     assert.ok((first.description ?? '').includes('**Party guard**'), first.description);
     const items = first.fields.find((field) => field.name === TEXT.databank.classItemsField)?.value ?? '';
-    for (const item of ITEMS.filter((it) => it.class === id)) assert.ok(items.includes(item.name), item.name);
+    for (const item of ITEMS.filter((it) => it.class === id)) assert.equal(items.includes(item.name), !item.tmDrop, item.name);
 
     f.click('1', 'databank_next');
     await settle();

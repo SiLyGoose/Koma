@@ -54,6 +54,9 @@ export const databankText = {
   raidDropOrShop: '🎁 Drops from raid bosses, or bought in the raid shop',
   /** Last line of a limited item (ItemDef.limited). */
   limited: '⏳ Only from the limited banner',
+  /** Last line of TechnoMagic gear (ItemDef.tmDrop). */
+  technomagic: '🐲 Only drops from the TechnoMagic Raid, and only heroes wear it',
+  detailTechnomagic: "Can't be pulled from the gacha: only the TechnoMagic Raid drops it, and only its heroes wear it (put it on one on the site's Heroes page).",
   detailLimited: "Can't be pulled from the standard banner: only from the limited banner, while it is featured there.",
   detailRaidDropField: 'Where to get it',
   detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives the party a chance (higher with more raiders) that every raider finds one.",

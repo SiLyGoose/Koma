@@ -26,6 +26,7 @@ import { startWebServer } from './web/server.js';
 import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
+import { announceTechnoMagic } from './commands/technomagic.js';
 import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
@@ -254,6 +255,11 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
     },
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
     avatar,
+    technomagic: {
+      announce: (guildId, host) => {
+        announceTechnoMagic(client, guildId, host).catch((err) => console.error('Could not say a TechnoMagic Raid room was opened:', err));
+      },
+    },
     raid: {
       start: (guildId, userId, level) => startRaidFromWeb(client, guildId, userId, level),
       week: raidWeekInfo,

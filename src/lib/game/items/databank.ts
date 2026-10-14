@@ -27,6 +27,7 @@ export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, master
     ...(item.class ? [TEXT.databank.classItem(TEXT.raid.classLabel(item.class))] : []),
     ...(item.raidDrop ? [soldInRaidShop(item, CONFIG.raid.shop) ? TEXT.databank.raidDropOrShop : TEXT.databank.raidDrop] : []),
     ...(item.limited ? [TEXT.databank.limited] : []),
+    ...(item.tmDrop ? [TEXT.databank.technomagic] : []),
   ].join('\n');
 }
 
@@ -172,6 +173,7 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, maste
           ]
         : []),
       ...(item.limited ? [{ name: TEXT.databank.detailRaidDropField, value: TEXT.databank.detailLimited, inline: false }] : []),
+      ...(item.tmDrop ? [{ name: TEXT.databank.detailRaidDropField, value: TEXT.databank.detailTechnomagic, inline: false }] : []),
     ],
   };
 }

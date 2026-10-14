@@ -29,6 +29,11 @@ export function validateItems(): void {
       if (!(effect in EFFECTS)) throw new Error(`${item.id} has an unknown effect: ${effect}`);
     }
     if (item.limited && item.raidDrop) throw new Error(`${item.id} is both a limited item and a raid drop`);
+    if (item.tmDrop && (item.raidDrop || item.limited)) throw new Error(`${item.id} is TechnoMagic gear and a raid drop or limited item too: it can only come from one place`);
+    if (item.tmDrop && item.usableBy) throw new Error(`${item.id} is TechnoMagic gear made for a member, but only heroes wear it`);
+    if (item.tmDrop && item.stars < 3) throw new Error(`${item.id} is TechnoMagic gear under 3 stars: the TechnoMagic Raid only drops 3 and 4-star gear`);
+    if (item.tmDrop && !item.effects.every((effect) => effect.startsWith('tm'))) throw new Error(`${item.id} is TechnoMagic gear with a perk that isn't the TechnoMagic Raid's (perks/technomagic/)`);
+    if (item.tmDrop && !item.class) throw new Error(`${item.id} is TechnoMagic gear for no class: every piece the TechnoMagic Raid drops is a class item`);
     if (item.bonus) {
       const { level, text, adds = [], removes = [] } = item.bonus;
       if (item.stars !== 4) throw new Error(`${item.id} has a refine bonus, but only 4-star items can have one`);

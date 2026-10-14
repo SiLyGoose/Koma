@@ -1,6 +1,7 @@
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { bestCopy } from '../../lib/game/items/copies.js';
+import { heroOnly } from '../../lib/game/heroes.js';
 import { SLOTS, type GearIds, type ItemDef, type Slot } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
 import { gearChanged } from './gear-events.js';
@@ -35,11 +36,13 @@ export type EquipResult =
       /** Whether that copy is a masterwork. */
       masterwork: boolean;
     }
-  | { ok: false; reason: 'not_owned' };
+  /** 'hero_only': TechnoMagic gear, which only the TechnoMagic Raid's heroes wear (lib/game/heroes.ts). */
+  | { ok: false; reason: 'not_owned' | 'hero_only' };
 
 /** Equips the best copy of an item the member owns into its slot. */
 export async function equipItem(guildId: string, userId: string, item: ItemDef): Promise<EquipResult> {
   const { items, members } = collections();
+  if (heroOnly(item)) return { ok: false, reason: 'hero_only' };
 
   const owned = await items.find({ guildId, userId, itemId: item.id }).toArray();
   const copy = bestCopy(owned);
@@ -68,13 +71,15 @@ export async function equipItem(guildId: string, userId: string, item: ItemDef):
 
 /**
  * Equips one specific copy (by its id) into its item's slot, for the site's gear page, which
- * picks copies rather than items. Only a copy the member owns, of an item still in the catalog.
+ * picks copies rather than items. Only a copy the member owns, of an item still in the catalog that
+ * isn't only for heroes.
  */
-export async function equipCopy(guildId: string, userId: string, copyId: string): Promise<{ ok: true; slot: Slot } | { ok: false; reason: 'not_owned' }> {
+export async function equipCopy(guildId: string, userId: string, copyId: string): Promise<{ ok: true; slot: Slot } | { ok: false; reason: 'not_owned' | 'hero_only' }> {
   const { items, members } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
   if (!copy || !item) return { ok: false, reason: 'not_owned' };
+  if (heroOnly(item)) return { ok: false, reason: 'hero_only' };
   await ensureMember(guildId, userId);
   await members.updateOne({ guildId, userId }, { $set: { [`equipment.${item.slot}`]: copy._id } });
   gearChanged(guildId, userId);

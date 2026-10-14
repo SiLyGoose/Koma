@@ -54,10 +54,10 @@ async function bossBook(ctx: CommandContext, name: string): Promise<void> {
   await paginate(ctx, RAID_BOSS_IDS.length, render, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, start);
 }
 
-/** One raid class's page: what it does in a fight, and its class items with what each does fully refined. */
+/** One raid class's page: what it does in a fight, and its class items with what each does fully refined (the raiders', not the TechnoMagic gear only heroes wear). */
 export function classEmbed(id: RaidClassId) {
   const t = TEXT.databank;
-  const items = ITEMS.filter((item) => item.class === id);
+  const items = ITEMS.filter((item) => item.class === id && !item.tmDrop);
   return createEmbed()
     .setTitle(TEXT.raid.classLabel(id))
     .setDescription(classTraits(id).join('\n'))

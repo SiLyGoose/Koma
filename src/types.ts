@@ -267,6 +267,43 @@ export interface HeroDoc {
   equipment?: Partial<Record<HeroSlot, string | null>>;
 }
 
+/** A hero in a TechnoMagic Raid run: which, in which of its skins (the site's), and what its gear gave it as the run began. */
+export interface TmRunHero {
+  id: string;
+  skin: number;
+  gear: Record<string, number>;
+}
+
+/**
+ * One player's part in a TechnoMagic Raid run (services/technomagic.ts): a room's fight, begun by the bot with
+ * a seed and each player's heroes in the gear they wore then. The bot runs the fight itself (the site's sim),
+ * and keeps here how it went and what it gave.
+ */
+export interface TmRunDoc {
+  /** The run's id and the player's: `<run>:<userId>`. */
+  _id: string;
+  /** The run (one for everyone in the room). */
+  run: string;
+  guildId: string;
+  userId: string;
+  boss: string;
+  seed: number;
+  stage: number;
+  /** Their heroes in it. */
+  heroes: TmRunHero[];
+  /** The sim's version it was fought with. */
+  version: number;
+  startedAt: Date;
+  /** The day it was begun (YYYY-MM-DD, the raid's time zone), and whether a win gives gear (one of that day's runs that do). */
+  day: string;
+  rewardable: boolean;
+  /** When it was over, how (after so many steps), and the item ids found. */
+  claimedAt?: Date;
+  result?: 'won' | 'lost';
+  ticks?: number;
+  drops?: string[];
+}
+
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
 export interface LoadoutDoc {
   /** The name the member gave it. Missing or null means the default, "Loadout <number>". */

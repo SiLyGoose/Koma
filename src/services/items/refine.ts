@@ -2,7 +2,7 @@ import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
 import { refineCopyPlan, refineCost, refineLevel, refinePlan } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
-import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
+import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
 import { recordLedger } from '../economy/shared.js';
 import { gearChanged } from './gear-events.js';
@@ -48,7 +48,7 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
   const worn = equippedCopyIds(member?.equipment);
-  const kept = loadoutCopyIds(member);
+  const kept = keptCopyIds(member);
   const plan = chosen ? refineCopyPlan(copies, chosen.copy, chosen.material, new Set([...worn, ...kept])) : refinePlan(copies, worn, kept);
   if (!plan.ok) return { ok: false, reason: plan.reason, level: plan.level };
 

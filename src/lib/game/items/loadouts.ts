@@ -1,6 +1,7 @@
 import { LOADOUTS } from '../../../constants/index.js';
 import type { EquipmentDoc, MemberDoc } from '../../../types.js';
 import { normalize } from '../../text.js';
+import { heroCopyIds } from '../heroes.js';
 import { equippedCopyIds } from './sell.js';
 
 /*
@@ -55,6 +56,13 @@ export function loadoutsOf(member: LoadoutFields | null | undefined): LoadoutVie
 export function loadoutCopyIds(member: LoadoutFields | null | undefined): Set<string> {
   const ids = new Set<string>();
   for (const loadout of loadoutsOf(member)) for (const id of equippedCopyIds(loadout.equipment)) ids.add(id);
+  return ids;
+}
+
+/** Every copy selling and refining never use up: one in any of the member's loadouts, or worn by one of their heroes (../heroes.ts). */
+export function keptCopyIds(member: (LoadoutFields & Pick<MemberDoc, 'heroes'>) | null | undefined): Set<string> {
+  const ids = loadoutCopyIds(member);
+  for (const id of heroCopyIds(member)) ids.add(id);
   return ids;
 }
 

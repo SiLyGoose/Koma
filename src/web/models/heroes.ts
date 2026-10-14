@@ -1,0 +1,161 @@
+import { CONFIG } from '../../config.js';
+import { REFINE } from '../../constants/index.js';
+import type { RaidClassId } from '../../constants/raid.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
+import { HEROES } from '../../data/heroes.js';
+import { collections } from '../../db.js';
+import { bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroWearable, heroWorn, raidValue, type HeroBonus } from '../../lib/game/heroes.js';
+import type { GearPiece } from '../../lib/game/items/equipment.js';
+import { refineLevel } from '../../lib/game/items/refine.js';
+import { buyHero, equipHero, unequipHero } from '../../services/heroes.js';
+import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot, type Stars } from '../../types.js';
+
+/*
+ * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip):
+ * every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of theirs
+ * wears, with what it gives it in the raid and every copy a hero could wear (the heroes page). The rules
+ * are lib/game/heroes.ts's; buying and gearing them, services/heroes.ts.
+ */
+
+/** One copy a hero can wear (the raid's gear, or the TechnoMagic Raid's), as the heroes page shows it. */
+export interface HeroCopy {
+  id: string;
+  itemId: string;
+  name: string;
+  stars: Stars;
+  slot: Slot;
+  description: string;
+  level: number;
+  maxLevel: number;
+  masterwork: boolean;
+  locked: boolean;
+  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class). */
+  effects: string[];
+  /** A class item: the one class of hero it works on (null: any). */
+  class: RaidClassId | null;
+  /** The id of the member's hero wearing it, or null. */
+  hero: string | null;
+}
+
+/** One hero, as the shop and the heroes page show it. */
+export interface HeroView {
+  /** The site knows it by this id (its src/technomagic/ folder). */
+  id: string;
+  name: string;
+  class: RaidClassId;
+  /** What it costs in points. */
+  price: number;
+  owned: boolean;
+  /** The copy id in each of its slots (only copies the member still owns, in a slot they fit), or null. */
+  equipped: Record<HeroSlot, string | null>;
+  /**
+   * What its gear gives it in the raid, stat by stat, as the raid counts it: points for a chance or share
+   * (crit, attack speed, penetration, block, dodge, CC resist: 1000 is 100%), and a share more of its own
+   * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more).
+   */
+  bonus: HeroBonus;
+  /** The same as lines, like "+25% ATK". */
+  totals: string[];
+}
+
+/** GET /api/heroes. */
+export interface HeroesView {
+  heroes: HeroView[];
+  /** Every copy the member owns that a hero can wear, best first (stars, then level, then name). */
+  copies: HeroCopy[];
+  balance: number;
+}
+
+/** Why a change to a hero's gear wasn't made (nothing changed). */
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'busy';
+
+/** What the hero routes use (the database's, unless a test says otherwise). */
+export interface HeroStore {
+  view: (guildId: string, userId: string) => Promise<HeroesView>;
+  /** Who in a server has heroes, and how many: the most first, at most `limit` of them. */
+  owners: (guildId: string, limit: number) => Promise<{ userId: string; heroes: number }[]>;
+  /** Buys a hero: the heroes after, or why not (nothing was spent). */
+  buy: (guildId: string, userId: string, id: string) => Promise<HeroesView | 'not_found' | 'owned' | 'too_poor'>;
+  /** Puts one of their copies in one of their hero's slots (off any other hero it was on): the heroes after, or why not. */
+  equip: (guildId: string, userId: string, hero: string, slot: HeroSlot, copy: string) => Promise<HeroesView | HeroEquipError>;
+  /** Empties one of their hero's slots, or (`slot` null) all of them: the heroes after, or 'not_found' for a hero that isn't theirs. */
+  unequip: (guildId: string, userId: string, hero: string, slot: HeroSlot | null) => Promise<HeroesView | 'not_found'>;
+}
+
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'>;
+
+/** The heroes' view, from the member's copies and member document. */
+export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 'heroes' | 'points'> | null): HeroesView {
+  const worn = heroWorn(member);
+  const list: HeroCopy[] = [];
+  const pieces = new Map<string, { view: HeroCopy; piece: GearPiece }>();
+  for (const copy of copies) {
+    const item = ITEMS_BY_ID.get(copy.itemId);
+    if (!item || !heroWearable(item)) continue;
+    const level = refineLevel(copy.level);
+    const masterwork = copy.masterwork === true;
+    const view: HeroCopy = {
+      id: copy._id,
+      itemId: item.id,
+      name: item.name,
+      stars: item.stars,
+      slot: item.slot,
+      description: item.description,
+      level,
+      maxLevel: REFINE.maxLevel,
+      masterwork,
+      locked: copy.locked === true,
+      effects: heroItemLines(item, level, masterwork),
+      class: item.class ?? null,
+      hero: worn.get(copy._id) ?? null,
+    };
+    list.push(view);
+    pieces.set(copy._id, { view, piece: { item, level, bonus: masterwork } });
+  }
+  list.sort((a, b) => b.stars - a.stars || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+
+  const heroes = HEROES.map((hero): HeroView => {
+    const doc = member?.heroes?.[hero.id];
+    const equipped = {} as Record<HeroSlot, string | null>;
+    const on: GearPiece[] = [];
+    for (const slot of HERO_SLOTS) {
+      const found = pieces.get(doc?.equipment?.[slot] ?? '');
+      const fits = found !== undefined && found.view.slot === HERO_SLOT_KIND[slot] && found.view.hero === hero.id;
+      equipped[slot] = fits ? found.view.id : null;
+      if (fits) on.push(found.piece);
+    }
+    const shares = heroBonus(on, hero.class);
+    const bonus = Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus;
+    return { id: hero.id, name: hero.name, class: hero.class, price: CONFIG.hero.price, owned: doc !== undefined, equipped, bonus, totals: bonusLines(shares) };
+  });
+  return { heroes, copies: list, balance: member?.points ?? 0 };
+}
+
+async function load(guildId: string, userId: string): Promise<HeroesView> {
+  const { items, members } = collections();
+  const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
+  return heroesView(copies, member);
+}
+
+export const heroStore: HeroStore = {
+  view: load,
+  owners: async (guildId, limit) => {
+    const docs = await collections()
+      .members.find({ guildId, heroes: { $exists: true } }, { projection: { userId: 1, heroes: 1 } })
+      .toArray();
+    return docs
+      .map((doc) => ({ userId: doc.userId, heroes: Object.keys(doc.heroes ?? {}).filter((id) => HEROES.some((hero) => hero.id === id)).length }))
+      .filter((owner) => owner.heroes > 0)
+      .sort((a, b) => b.heroes - a.heroes || a.userId.localeCompare(b.userId))
+      .slice(0, limit);
+  },
+  buy: async (guildId, userId, id) => {
+    const result = await buyHero(guildId, userId, id);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  equip: async (guildId, userId, hero, slot, copy) => {
+    const result = await equipHero(guildId, userId, hero, slot, copy);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  unequip: async (guildId, userId, hero, slot) => ((await unequipHero(guildId, userId, hero, slot)) ? load(guildId, userId) : 'not_found'),
+};

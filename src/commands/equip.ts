@@ -42,7 +42,7 @@ export const equip: Command = {
     const { item } = pick;
     const result = await equipItem(ctx.guildId, ctx.user.id, item);
     if (!result.ok) {
-      await ctx.reply(TEXT.equip.notOwned(p, item.name));
+      await ctx.reply(result.reason === 'hero_only' ? TEXT.equip.heroOnly(item.name) : TEXT.equip.notOwned(p, item.name));
       return;
     }
     if (result.alreadyEquipped) {

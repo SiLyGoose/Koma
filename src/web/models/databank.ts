@@ -30,7 +30,10 @@ export interface DatabankItem {
   masterwork: string[] | null;
   /** Made for certain members: the share of its effects anyone else gets (null when anyone can use it). */
   borrowed: number | null;
-  /** Where it first comes from: pulled from the gacha, dropped by raid bosses (ItemDef.raidDrop), or pulled from the limited banner only (ItemDef.limited). */
+  /**
+   * Where it first comes from: pulled from the gacha, dropped by raid bosses (ItemDef.raidDrop), pulled from
+   * the limited banner only (ItemDef.limited), or dropped by the TechnoMagic Raid (ItemDef.tmDrop: only heroes wear it).
+   */
   source: ItemSource;
   /** Every place it comes from, `source` first: a raid item the raid shop sells (lib/game/items/raid-shop.ts) has that too. */
   sources: ItemSource[];
@@ -38,7 +41,7 @@ export interface DatabankItem {
   class: RaidClassId | null;
 }
 
-export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited';
+export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic';
 
 /** One raid boss: what `raid stats` says of it. */
 export interface DatabankBoss {
@@ -112,8 +115,10 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       effects: levels.map((level) => describeEffects(item, 1, level, false)),
       masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
-      source: item.raidDrop ? 'raid' : item.limited ? 'limited' : 'gacha',
-      sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [item.limited ? 'limited' : 'gacha'],
+      source: item.raidDrop ? 'raid' : item.tmDrop ? 'technomagic' : item.limited ? 'limited' : 'gacha',
+      sources: item.raidDrop
+        ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])]
+        : [item.tmDrop ? 'technomagic' : item.limited ? 'limited' : 'gacha'],
       class: item.class ?? null,
     }),
   );

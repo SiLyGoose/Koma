@@ -25,6 +25,9 @@ import type { ItemDef } from '../../types.js';
  *
  * An item marked `limited: true` is never on the standard banner: it is only pulled from the limited
  * banner, while it is one of the banner's featured items (items/banner.ts).
+ *
+ * An item marked `tmDrop: true` is TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid,
+ * and only its heroes wear it (its perks are theirs: perks/technomagic/).
  */
 export const ITEMS: readonly ItemDef[] = [
   // 1 star
@@ -554,5 +557,131 @@ export const ITEMS: readonly ItemDef[] = [
     // Its Supports clear Blight off a second ally too (and more stacks once refined), and its heals land a little harder.
     effects: ['blightPurge', 'healBonus'],
     raidDrop: true,
+  },
+
+  // TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid (tmDrop), and only worn by its heroes
+  // (the site's heroes page), whose stats its perks raise (perks/technomagic/). The raid's own gear above
+  // works on heroes too (lib/game/heroes.ts), and only this has treasures for a hero's treasure slot. Each piece
+  // is a class item for one of the heroes' classes: the warrior's (Kirze) to hit hard, the knight's (Clause) to
+  // stand, the priest's (Fallen Frey) for spells and healing.
+  {
+    id: 'chimera-fang',
+    name: 'Chimera Fang',
+    stars: 3,
+    slot: 'weapon',
+    description: 'Broken off the lion head mid-roar. It still wants to bite something.',
+    effects: ['tmAttack', 'tmCrit'],
+    class: 'warrior',
+    tmDrop: true,
+  },
+  {
+    id: 'venomglass-stiletto',
+    name: 'Venomglass Stiletto',
+    stars: 3,
+    slot: 'weapon',
+    description: 'Blown from glass with venom sealed inside. It finds the cracks in any armor.',
+    effects: ['tmCritDamage', 'tmPen'],
+    class: 'warrior',
+    tmDrop: true,
+  },
+  {
+    id: 'aether-conduit',
+    name: 'Aether Conduit',
+    stars: 3,
+    slot: 'weapon',
+    description: 'A copper rod humming with stored mana. Spells go off before they are finished being thought.',
+    effects: ['tmAttack', 'tmSpeed'],
+    class: 'priest',
+    tmDrop: true,
+  },
+  {
+    id: 'scaleweave-coat',
+    name: 'Scaleweave Coat',
+    stars: 3,
+    slot: 'armor',
+    description: 'Chimera scales sewn onto leather, each one turned to shed a blow.',
+    effects: ['tmHp', 'tmDefense'],
+    class: 'knight',
+    tmDrop: true,
+  },
+  {
+    id: 'mirror-buckler',
+    name: 'Mirror Buckler',
+    stars: 3,
+    slot: 'armor',
+    description: 'Polished until a spell cannot tell it from more sky.',
+    effects: ['tmBlock', 'tmResist'],
+    class: 'knight',
+    tmDrop: true,
+  },
+  {
+    id: 'cogwork-amulet',
+    name: 'Cogwork Amulet',
+    stars: 3,
+    slot: 'treasure',
+    description: 'Ticks a little faster when danger is near. Nobody has ever wound it.',
+    effects: ['tmSpeed', 'tmDodge'],
+    class: 'knight',
+    tmDrop: true,
+  },
+  {
+    id: 'tri-head-cleaver',
+    name: 'Tri-Head Cleaver',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Forged to take three heads in one swing. It has only ever needed one.',
+    effects: ['tmAttack', 'tmCritDamage'],
+    class: 'warrior',
+    tmDrop: true,
+  },
+  {
+    id: 'arcane-railgun',
+    name: 'Arcane Railgun',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Half rune, half rail. It fires a spell faster than it can be dodged.',
+    effects: ['tmPen', 'tmSpeed', 'tmCrit'],
+    class: 'priest',
+    tmDrop: true,
+  },
+  {
+    id: 'chimera-hide-plate',
+    name: 'Chimera Hide Plate',
+    stars: 4,
+    slot: 'armor',
+    description: 'Cut from all three of its hides, and as hard to bring down as the beast was.',
+    effects: ['tmHp', 'tmDefense', 'tmBlock'],
+    class: 'knight',
+    tmDrop: true,
+  },
+  {
+    id: 'antivenom-ward',
+    name: 'Antivenom Ward',
+    stars: 4,
+    slot: 'armor',
+    description: 'A plague mask with a charm in every seam. Poison slides off it like rain.',
+    effects: ['tmResist', 'tmDodge', 'tmHp'],
+    class: 'priest',
+    tmDrop: true,
+  },
+  {
+    id: 'galgorias-heart',
+    name: "Galgoria's Heart",
+    stars: 4,
+    slot: 'treasure',
+    description: 'Still beating, three times as fast as it should. Whoever carries it keeps up.',
+    effects: ['tmAttack', 'tmHp', 'tmCrit'],
+    class: 'warrior',
+    tmDrop: true,
+  },
+  {
+    id: 'technomagic-core',
+    name: 'TechnoMagic Core',
+    stars: 4,
+    slot: 'treasure',
+    description: 'The engine of a machine that ran on prayers. Wounds close wherever its light falls.',
+    effects: ['tmHeal', 'tmSpeed', 'tmDefense'],
+    class: 'priest',
+    tmDrop: true,
   },
 ];

@@ -395,6 +395,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: () => [],
   },
 
+  technomagic: {
+    description: "The TechnoMagic Raid on the Koma site: your heroes against Galgoria, together, as in King's Raid.",
+    // The room is on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
+  },
+
   rob: {
     description: `Steal ${CURRENCY_NAME} from another member. One rob per hour, and a member can be robbed once an hour.`,
     build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),

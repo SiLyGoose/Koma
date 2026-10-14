@@ -12,9 +12,9 @@ export function itemsByStars(stars: Stars): ItemDef[] {
   return ITEMS.filter((item) => item.stars === stars);
 }
 
-/** The items of a star tier the standard banner can pull: all of them but the raid drops and the limited items. */
+/** The items of a star tier the standard banner can pull: all of them but the raid drops, the TechnoMagic gear and the limited items. */
 export function gachaItems(stars: Stars): ItemDef[] {
-  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.limited);
+  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.tmDrop && !item.limited);
 }
 
 /** The limited banner's featured items (LIMITED_BANNER.featured), in its order. */
@@ -24,6 +24,9 @@ export function featuredItems(): ItemDef[] {
 
 /** The items that only drop from raid bosses (ItemDef.raidDrop). */
 export const RAID_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.raidDrop);
+
+/** The TechnoMagic gear, which only the TechnoMagic Raid drops (ItemDef.tmDrop). */
+export const TM_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.tmDrop);
 
 export type ItemLookup = { kind: 'found'; item: ItemDef } | { kind: 'ambiguous'; matches: ItemDef[] } | { kind: 'none' };
 
