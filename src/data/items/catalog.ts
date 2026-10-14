@@ -567,7 +567,7 @@ export const ITEMS: readonly ItemDef[] = [
   // works on heroes too (lib/game/heroes.ts), and only this has treasures for a hero's treasure slot. It is a
   // tier of its own, above 4 stars (it is counted as 4-star for what refining and selling it cost). Each piece
   // is a class item for one of the heroes' classes, and belongs to the set of the raid that drops it (tmSet,
-  // data/tm-sets.ts): Galgoria's is Perseverance. A hero in both weapons and both armors of one set has its effect.
+  // data/tm-sets.ts): Galgoria's is Perseverance. A hero in three of its weapons and armors of one set has its effect.
   // Each class has a weapon and an armor of it (a hero wears two of each); the treasures are apart from the set.
   {
     id: 'tri-head-cleaver',

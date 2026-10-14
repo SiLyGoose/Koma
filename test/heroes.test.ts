@@ -6,6 +6,7 @@ import { GROUPS } from '../src/commands/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
+import { TM_SET_PIECES, TM_SETS_BY_ID, tmSetLine } from '../src/data/tm-sets.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
 import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, otherWeaponSlot, pieceBonus, raidValue, secondUnique, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
@@ -179,7 +180,10 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.ok((kirze?.bonus.atk ?? 0) > effectStrength('tmAttack', 4));
   assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - effectStrength('tmCritDamage', 4)) < 1e-9);
   assert.deepEqual(kirze?.set, { id: 'perseverance', pieces: 1, active: false });
-  assert.ok(kirze?.totals.some((line) => line.includes('Perseverance set: 1/4')));
+  assert.ok(kirze?.totals.some((line) => line.includes('Perseverance set: 1/3')));
+  // A TechnoMagic piece says its set's effect for its class; another item doesn't.
+  assert.ok(view.copies.find((copy) => copy.id === 'fang')?.effects.some((line) => line.startsWith('⚔️ **Perseverance set** (3 pieces): +10% DMG')));
+  assert.ok(!view.copies.find((copy) => copy.id === 'maul')?.effects.some((line) => line.includes('set**')));
   assert.ok(kirze?.totals.some((line) => line.endsWith('ATK')));
   assert.deepEqual(clause?.totals, []);
 });
@@ -268,18 +272,35 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
   }
 });
 
-test('heroes: both weapons and both armors of one set, each for its class, give the set its effect (treasures apart)', () => {
+test('heroes: three weapons and armors of one set, each for its class, give the set its effect (treasures apart)', () => {
   const cleaver = { item: item('tri-head-cleaver'), level: 1 };
   const harness = { item: item('venomscale-harness'), level: 1 };
   const ward = { item: item('antivenom-ward'), level: 1 }; // the priest's
   const heart = { item: item('galgorias-heart'), level: 1 };
+  assert.equal(TM_SET_PIECES, 3);
   assert.deepEqual(heroSet([cleaver, cleaver, harness, harness, heart], 'warrior'), { set: 'perseverance', pieces: 4 });
   assert.equal(activeSet(heroSet([cleaver, cleaver, harness, harness], 'warrior')), 'perseverance');
-  assert.equal(activeSet(heroSet([cleaver, cleaver, harness, ward], 'warrior')), null);
+  assert.equal(activeSet(heroSet([cleaver, cleaver, harness, ward], 'warrior')), 'perseverance', 'three of them are enough');
+  assert.equal(activeSet(heroSet([cleaver, harness, ward, ward], 'warrior')), null, 'two are not');
   assert.equal(activeSet(heroSet([cleaver, cleaver, harness, harness], 'knight')), null, 'not for a knight');
   assert.equal(heroSet([heart], 'warrior'), null, 'a treasure is apart from the set');
   assert.ok(setLines(heroSet([cleaver, cleaver, harness, harness], 'warrior'), 'warrior')[0]?.includes('**Perseverance set**'));
+  assert.ok(setLines(heroSet([cleaver, harness], 'warrior'), 'warrior')[0]?.includes('2/3'));
   const copies = ['a', 'b', 'c', 'd'].map((id, i) => ({ _id: id, itemId: i < 2 ? 'tri-head-cleaver' : 'venomscale-harness', level: 1 }));
   const member = { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b', armor1: 'c', armor2: 'd' } } } };
   assert.equal(raidGear(copies, member).get('kirze')?.set, 'perseverance');
+});
+
+test('heroes: every TechnoMagic weapon and armor says its set effect, for its own class (treasures apart)', () => {
+  for (const piece of ITEMS.filter((i) => i.tmSet)) {
+    const line = tmSetLine(piece);
+    if (piece.slot === 'treasure') {
+      assert.equal(line, null, piece.id);
+      continue;
+    }
+    const set = TM_SETS_BY_ID.get(piece.tmSet!);
+    assert.ok(set && piece.class, piece.id);
+    assert.equal(line, `${set.emoji} **${set.name} set** (3 pieces): ${set.effects[piece.class] ?? 'nothing for its class'}`, piece.id);
+  }
+  assert.equal(tmSetLine(item('tri-head-cleaver')), '⚔️ **Perseverance set** (3 pieces): +10% DMG, and another +1.5% every 10 seconds (up to +25% after 100 seconds)');
 });

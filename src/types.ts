@@ -290,7 +290,7 @@ export interface TmRunHero {
   id: string;
   skin: number;
   gear: Record<string, number>;
-  /** The TechnoMagic set whose effect it had (all four pieces worn), or null. */
+  /** The TechnoMagic set whose effect it had (three of its pieces worn: data/tm-sets.ts TM_SET_PIECES), or null. */
   set?: TmSetId | null;
   /** Its own unique weapon's tier (its refinement, 1 to 5), or null: none worn. */
   uw?: number | null;

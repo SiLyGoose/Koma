@@ -255,7 +255,7 @@ test('technomagic room: the host can give up, and a room with nobody left is gon
   assert.equal(again.room().phase, 'prep');
 });
 
-test('technomagic: a hero in a set’s four pieces has its effect, the same every time the fight is run', () => {
+test('technomagic: a hero in a set’s pieces has its effect, the same every time the fight is run', () => {
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
   const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
   const withSet = (set: string | null): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set })) });

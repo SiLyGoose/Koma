@@ -8,6 +8,7 @@ import { keptCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../..
 import { heroOnly, heroWorn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
+import { tmSetLine } from '../../data/tm-sets.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, saleCount, sellPrice } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
@@ -268,6 +269,7 @@ export function gearView(
     const masterwork = copy.masterwork === true;
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
+    const setLine = tmSetLine(item);
     const view: GearCopy = {
       id: copy._id,
       itemId: item.id,
@@ -278,8 +280,8 @@ export function gearView(
       level,
       maxLevel: REFINE.maxLevel,
       masterwork: showsMasterwork(item, level, masterwork),
-      // (And a TechnoMagic copy's additional skill, last.)
-      effects: [...describeEffects(item, share, level, masterwork), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
+      // (And a TechnoMagic piece's set, then its copy's additional skill, last.)
+      effects: [...describeEffects(item, share, level, masterwork), ...(setLine ? [setLine] : []), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,

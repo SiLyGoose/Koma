@@ -5,7 +5,7 @@ import { ITEMS } from '../../data/items.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
-import { TM_SETS_BY_ID } from '../../data/tm-sets.js';
+import { TM_SETS_BY_ID, tmSetLine } from '../../data/tm-sets.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { uniqueTier } from '../../lib/game/heroes.js';
 import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
@@ -130,6 +130,13 @@ function setOf(item: ItemDef): DatabankItem['set'] {
   const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
   return set ? { name: set.name, boss: set.boss, effects: set.effects } : null;
 }
+
+/** A TechnoMagic piece's set effect, as a line of its effects (none for any other item). */
+function setLines(item: ItemDef): string[] {
+  const line = tmSetLine(item);
+  return line ? [line] : [];
+}
+
 export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
   const list = items.map(
@@ -139,9 +146,9 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       stars: item.stars,
       slot: item.slot,
       description: item.description,
-      // (A unique weapon's own effect in the raid, at each level, after its perks.)
-      effects: levels.map((level) => [...describeEffects(item, 1, level, false), ...uniqueLines(item, level)]),
-      masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
+      // (A unique weapon's own effect in the raid, at each level, after its perks; a TechnoMagic piece's set, the same at every level.)
+      effects: levels.map((level) => [...describeEffects(item, 1, level, false), ...uniqueLines(item, level), ...setLines(item)]),
+      masterwork: item.bonus ? [...describeEffects(item, 1, REFINE.maxLevel, true), ...setLines(item)] : null,
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: sourceOf(item),
       sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [sourceOf(item)],

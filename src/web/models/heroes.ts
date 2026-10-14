@@ -3,6 +3,7 @@ import { REFINE } from '../../constants/index.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
+import { tmSetLine } from '../../data/tm-sets.js';
 import { collections } from '../../db.js';
 import { activeSet, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus } from '../../lib/game/heroes.js';
 import type { GearPiece } from '../../lib/game/items/equipment.js';
@@ -61,7 +62,7 @@ export interface HeroView {
    * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more).
    */
   bonus: HeroBonus;
-  /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (all four). Null with none. */
+  /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (three of them). Null with none. */
   set: { id: TmSetId; pieces: number; active: boolean } | null;
   /** The additional skills of the TechnoMagic gear it wears that work on it (the sim's ids, one for each piece). */
   skills: string[];
@@ -115,6 +116,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
     if (!item || !heroWearable(item)) continue;
     const level = refineLevel(copy.level);
     const masterwork = copy.masterwork === true;
+    const setLine = tmSetLine(item);
     const view: HeroCopy = {
       id: copy._id,
       itemId: item.id,
@@ -126,7 +128,8 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       maxLevel: REFINE.maxLevel,
       masterwork,
       locked: copy.locked === true,
-      effects: [...heroItemLines(item, level, masterwork), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
+      // (And a TechnoMagic piece's set, then its copy's additional skill, last.)
+      effects: [...heroItemLines(item, level, masterwork), ...(setLine ? [setLine] : []), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
       skill: item.tmDrop ? (copy.tmSkill ?? null) : null,
       class: item.class ?? null,
       heroOnly: heroOnly(item),

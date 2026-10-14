@@ -1,15 +1,15 @@
 import type { RaidClassId } from '../constants/raid.js';
-import type { TmSetId } from '../types.js';
+import type { ItemDef, TmSetId } from '../types.js';
 
 /*
  * The TechnoMagic Raids' gear sets: one for each raid's boss, which drops only its own set's gear
- * (ItemDef.tmSet). A hero wearing four pieces of one set (both weapons and both armors, each working on its
- * class) has the set's effect, which depends on its class. The effects themselves are the raid's sim's
- * (Koma-UI's src/technomagic/sim/sets.ts): these lines say what they do, for the heroes page.
+ * (ItemDef.tmSet). A hero wearing three pieces of one set (of its two weapons and two armors, each working on
+ * its class) has the set's effect, which depends on its class. The effects themselves are the raid's sim's
+ * (Koma-UI's src/technomagic/sim/sets.ts): these lines say what they do, for the heroes page and each piece's own.
  */
 
-/** How many pieces of a set make it: both weapons and both armors. */
-export const TM_SET_PIECES = 4;
+/** How many pieces of a set make it: three of a hero's weapons and armors. */
+export const TM_SET_PIECES = 3;
 
 export interface TmSet {
   id: TmSetId;
@@ -72,6 +72,17 @@ export const TM_SETS: readonly TmSet[] = [
 ];
 
 export const TM_SETS_BY_ID: ReadonlyMap<TmSetId, TmSet> = new Map(TM_SETS.map((set) => [set.id, set]));
+
+/**
+ * A piece's set, as its item says it: the set's effect for the piece's class, once a hero wears TM_SET_PIECES of
+ * it (null: no set, or a treasure, which is apart from the set). Every set's pieces have it, from its own entry.
+ */
+export function tmSetLine(item: Pick<ItemDef, 'tmSet' | 'slot' | 'class'>): string | null {
+  const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
+  if (!set || item.slot === 'treasure') return null;
+  const effect = item.class ? set.effects[item.class] : undefined;
+  return `${set.emoji} **${set.name} set** (${TM_SET_PIECES} pieces): ${effect ?? 'nothing for its class'}`;
+}
 
 /** The set a raid boss drops (null: it isn't a TechnoMagic Raid boss). */
 export const tmSetOfBoss = (boss: string): TmSet | null => TM_SETS.find((set) => set.boss === boss) ?? null;

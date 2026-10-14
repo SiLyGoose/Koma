@@ -222,14 +222,14 @@ export function heroSet(pieces: readonly Pick<GearPiece, 'item'>[], heroClass: R
   return best;
 }
 
-/** The set whose effect a hero has: all four of its pieces worn (null: none). */
+/** The set whose effect a hero has: TM_SET_PIECES of its pieces worn (null: none). */
 export const activeSet = (found: { set: TmSetId; pieces: number } | null): TmSetId | null => (found && found.pieces >= TM_SET_PIECES ? found.set : null);
 
 /** A hero's set, as the heroes page says it: what it does for its class once whole, or how much of it there is. */
 export function setLines(found: { set: TmSetId; pieces: number } | null, heroClass: RaidClassId): string[] {
   const set = found && TM_SETS_BY_ID.get(found.set);
   if (!found || !set) return [];
-  if (found.pieces < TM_SET_PIECES) return [`${set.emoji} ${set.name} set: ${found.pieces}/${TM_SET_PIECES} (both weapons and both armors for its effect)`];
+  if (found.pieces < TM_SET_PIECES) return [`${set.emoji} ${set.name} set: ${found.pieces}/${TM_SET_PIECES} (${TM_SET_PIECES} of its weapons and armors for its effect)`];
   return [`${set.emoji} **${set.name} set**: ${set.effects[heroClass] ?? 'nothing for this class'}`];
 }
 

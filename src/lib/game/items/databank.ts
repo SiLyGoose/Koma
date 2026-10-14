@@ -1,9 +1,16 @@
 import { CONFIG } from '../../../config.js';
 import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_EMOJI, STAR_SYMBOL, TEXT } from '../../../constants/index.js';
+import { tmSetLine } from '../../../data/tm-sets.js';
 import { STARS, type ItemDef, type Stars } from '../../../types.js';
 import { describeEffects, showsMasterwork } from './equipment.js';
 import { raidShopPrice, soldInRaidShop } from './raid-shop.js';
 import { formatPercent, inTier, ITEM_TIERS, itemStars, mentionList, tierString } from '../../format.js';
+
+/** An item's effect lines, then a TechnoMagic piece's set effect (data/tm-sets.ts). */
+function withSet(item: ItemDef, effects: string[]): string[] {
+  const set = tmSetLine(item);
+  return set ? [...effects, set] : effects;
+}
 
 /** One embed field of the databank. */
 export interface DatabankField {
@@ -19,7 +26,7 @@ export interface DatabankField {
  * when that sells it, or the limited banner) when the standard banner never gives it.
  */
 export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): string {
-  const effects = describeEffects(item, 1, level, masterwork);
+  const effects = withSet(item, describeEffects(item, 1, level, masterwork));
   return [
     TEXT.databank.item(item.name, SLOT_EMOJI[item.slot], showsMasterwork(item, level, masterwork)),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
@@ -150,7 +157,7 @@ export interface ItemDetail {
  * is exclusive to.
  */
 export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): ItemDetail {
-  const effects = describeEffects(item, 1, level, masterwork);
+  const effects = withSet(item, describeEffects(item, 1, level, masterwork));
   return {
     title: TEXT.databank.detailTitle(itemStars(item), item.name),
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
