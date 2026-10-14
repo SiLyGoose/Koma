@@ -356,7 +356,7 @@ test('databank: Previous is disabled on the first page and Next on the last, and
 test('databank: the refinement button flips the strengths between R5 and R1, stays on the page, and says what it will show', async () => {
   const f = fakeMessage('1');
   await databank.execute(messageContext(f.message as Message<true>, ['3'], 'k!'));
-  const plate = ITEMS.find((item) => item.id === 'wyrmscale-plate') as ItemDef;
+  const plate = ITEMS.find((item) => item.id === 'dragonscale-aegis') as ItemDef;
   const first = pageView(f.replies[0]);
   assert.match(first.title ?? '', / · R5/);
   assert.ok(first.fields.some((fld) => fld.value.includes(describeEffects(plate)[0] as string)));
@@ -378,7 +378,7 @@ test('databank: the refinement button flips the strengths between R5 and R1, sta
 
   // One item in full has the button too.
   const g = fakeMessage('1');
-  await databank.execute(messageContext(g.message as Message<true>, ['wyrmscale', 'plate'], 'k!'));
+  await databank.execute(messageContext(g.message as Message<true>, ['stalwart', 'pavise'], 'k!'));
   assert.deepEqual((g.replies[0] as any).components[0].toJSON().components.map((c: any) => c.label), ['Show R1']);
   g.click('1', 'databank_toggle');
   await settle();
@@ -412,7 +412,7 @@ test('databank: the masterwork button turns the bonuses on at R5, is greyed out 
 
   // An item with no masterwork bonus has only the refinement button.
   const g = fakeMessage('1');
-  await databank.execute(messageContext(g.message as Message<true>, ['wyrmscale', 'plate'], 'k!'));
+  await databank.execute(messageContext(g.message as Message<true>, ['stalwart', 'pavise'], 'k!'));
   assert.deepEqual((g.replies[0] as any).components[0].toJSON().components.map((c: any) => c.custom_id), ['databank_toggle']);
   assert.equal(TEXT.databank.titleAt('Databank', 5, true), 'Databank · R5 · Masterwork');
 });
@@ -474,7 +474,7 @@ test('databank tier: the whole list, and one item by name, still work', async ()
 });
 
 test('databank at a refinement level: effects at that level, a button to flip, and the same pages either way', () => {
-  const plate = ITEMS.find((item) => item.id === 'wyrmscale-plate') as ItemDef;
+  const plate = ITEMS.find((item) => item.id === 'stalwart-pavise') as ItemDef;
   assert.match(itemBlock(plate), /20% more/, 'fully refined by default');
   assert.match(itemBlock(plate, 1), /3\.33% more/, 'a new copy (R1) is a sixth of it');
   const detail = itemDetail(plate, 1);

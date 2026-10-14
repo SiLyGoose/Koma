@@ -57,6 +57,11 @@ export interface ItemDef {
    */
   limited?: true;
   /**
+   * TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid, and only heroes wear it (a member
+   * can't: its perks are the heroes' stats, lib/game/heroes.ts). Missing means it's the members' own.
+   */
+  tmDrop?: true;
+  /**
    * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
    * databanks tag it and can list a class's items. Missing means it's for everyone.
    */
@@ -236,7 +241,30 @@ export interface MemberDoc {
   outfits?: string[];
   /** The outfit they wear: one of theirs. Missing or null means the default (services/outfits.ts). */
   outfit?: string | null;
+  /**
+   * The TechnoMagic Raid's heroes this member bought in the site's shop (data/heroes.ts ids), each with
+   * the gear it wears (services/heroes.ts). Missing means none.
+   */
+  heroes?: Record<string, HeroDoc>;
   createdAt: Date;
+}
+
+/**
+ * Where a hero wears gear: two weapons, two armors and a treasure. The raid's gear and the TechnoMagic
+ * Raid's go in them (lib/game/heroes.ts's heroWearable), each in a slot of its item's kind.
+ */
+export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure';
+
+export const HERO_SLOTS: readonly HeroSlot[] = ['weapon1', 'weapon2', 'armor1', 'armor2', 'treasure'];
+
+/** One of a member's heroes (MemberDoc.heroes). */
+export interface HeroDoc {
+  boughtAt: Date;
+  /**
+   * The copy (ItemCopyDoc._id) in each of its slots: missing or null is empty. A copy is on one hero
+   * at most (it can be on the member as well), and in one of its slots.
+   */
+  equipment?: Partial<Record<HeroSlot, string | null>>;
 }
 
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
@@ -373,6 +401,8 @@ export type LedgerReason =
   | 'refine'
   // Points paid for an outfit in the site's shop (services/outfits.ts; itemId is the outfit).
   | 'outfit'
+  // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).
+  | 'hero'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).

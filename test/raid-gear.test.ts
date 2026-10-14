@@ -42,35 +42,23 @@ function fight(gear: Partial<RaidGear>, players = ['a', 'b']): RaidState {
 const attackDamage = (events: ReturnType<typeof resolvePlayerTurn>): number =>
   (events.find((e) => e.kind === 'attack') as { damage: number } | undefined)?.damage ?? 0;
 
-test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each new raid perk', () => {
+test('raid stat items: a 3-star and a 4-star raid drop for each new raid perk', () => {
   for (const [id, stars, slot, effect] of [
-    ['boiled-leather-vest', 1, 'armor', 'raidHp'],
-    ['chainmail-hauberk', 2, 'armor', 'raidHp'],
-    ['troll-hide-cuirass', 3, 'armor', 'raidHp'],
+    ['giants-hauberk', 3, 'armor', 'raidHp'],
     ['colossus-plate', 4, 'armor', 'raidHp'],
-    ['chipped-hand-axe', 1, 'weapon', 'raidAttack'],
-    ['steel-warhammer', 2, 'weapon', 'raidAttack'],
-    ['dragonslayer-greatsword', 3, 'weapon', 'raidAttack'],
+    ['quarrybreaker-hammer', 3, 'weapon', 'raidAttack'],
     ['worldbreaker-maul', 4, 'weapon', 'raidAttack'],
-    ['throwing-knives', 1, 'weapon', 'raidCritChance'],
-    ['hunters-longbow', 2, 'weapon', 'raidCritChance'],
-    ['eagle-eye-crossbow', 3, 'weapon', 'raidCritChance'],
+    ['starfinder-longbow', 3, 'weapon', 'raidCritChance'],
     ['moonpiercer-bow', 4, 'weapon', 'raidCritChance'],
-    ['barbed-spear', 1, 'weapon', 'raidCritDamage'],
-    ['executioners-axe', 2, 'weapon', 'raidCritDamage'],
-    ['heartseeker-rapier', 3, 'weapon', 'raidCritDamage'],
+    ['wyvern-tooth', 3, 'weapon', 'raidCritDamage'],
     ['godslayer-fang', 4, 'weapon', 'raidCritDamage'],
-    ['acolytes-robe', 1, 'weapon', 'raidSupport'],
-    ['clerics-vestments', 2, 'weapon', 'raidSupport'],
-    ['saints-mantle', 3, 'weapon', 'raidSupport'],
+    ['cherubs-sash', 3, 'weapon', 'raidSupport'],
     ['seraphs-raiment', 4, 'weapon', 'raidSupport'],
-    ['padded-gambeson', 1, 'armor', 'guardBoost'],
-    ['studded-brigandine', 2, 'armor', 'guardBoost'],
-    ['wyrmscale-plate', 3, 'armor', 'guardBoost'],
+    ['stalwart-pavise', 3, 'armor', 'guardBoost'],
     ['unbroken-bulwark', 4, 'armor', 'guardBoost'],
-    ['wyrmpiercer', 3, 'weapon', 'maxHpDamage'],
+    ['whalers-lance', 3, 'weapon', 'maxHpDamage'],
     ['leviathan-harpoon', 4, 'weapon', 'maxHpDamage'],
-    ['soulrender', 3, 'weapon', 'healCut'],
+    ['consecrated-sickle', 3, 'weapon', 'healCut'],
     ['hallowed-scythe', 4, 'weapon', 'healCut'],
   ] as const) {
     const item = ITEMS_BY_ID.get(id);
@@ -78,12 +66,13 @@ test('raid stat items: a 1-star, a 2-star, a 3-star and a 4-star item for each n
     assert.equal(item.stars, stars, id);
     assert.equal(item.slot, slot, id);
     assert.deepEqual(item.effects, [effect], id);
+    assert.equal(item.raidDrop, true, id);
   }
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('troll-hide-cuirass') as ItemDef), ['Raid: +30% HP']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonslayer-greatsword') as ItemDef), ['Raid: attacks deal 25% more damage']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('eagle-eye-crossbow') as ItemDef), ['Raid: +15% crit chance']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('heartseeker-rapier') as ItemDef), ['Raid: +60% crit damage']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('saints-mantle') as ItemDef), ['Raid: your heals and revives heal 25% more']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('giants-hauberk') as ItemDef), ['Raid: +30% HP']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('quarrybreaker-hammer') as ItemDef), ['Raid: attacks deal 25% more damage']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('starfinder-longbow') as ItemDef), ['Raid: +15% crit chance']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyvern-tooth') as ItemDef), ['Raid: +60% crit damage']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('cherubs-sash') as ItemDef), ['Raid: your heals and revives heal 25% more']);
   // Each tier is stronger than the one below.
   for (const effect of ['raidHp', 'raidAttack', 'raidCritChance', 'raidCritDamage', 'raidSupport'] as const) {
     const tiers = DEFAULTS.equipment[effect];

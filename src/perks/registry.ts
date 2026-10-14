@@ -46,6 +46,7 @@ import { slothDefense } from './items/sloth-defense.js';
 import { smart } from './items/smart.js';
 import { stackosaurus } from './items/stackosaurus.js';
 import { wheelSpin } from './wheel-spin/index.js';
+import { tmAttack, tmBlock, tmCrit, tmCritDamage, tmDefense, tmDodge, tmHeal, tmHp, tmPen, tmResist, tmSpeed } from './technomagic/index.js';
 import type { Stars } from '../types.js';
 import { registerPerks } from './stats.js';
 
@@ -118,6 +119,18 @@ export const EFFECTS = {
   assassinCrit,
   archerRamp,
   warriorCounter,
+  // The TechnoMagic Raid's gear: its heroes' stats.
+  tmAttack,
+  tmHp,
+  tmCrit,
+  tmCritDamage,
+  tmSpeed,
+  tmPen,
+  tmDefense,
+  tmBlock,
+  tmDodge,
+  tmResist,
+  tmHeal,
   // Thoccy Keyboard.
   robStreak,
   robStreakCap,

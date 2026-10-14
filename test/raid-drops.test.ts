@@ -9,6 +9,8 @@ import { itemBlock, itemDetail } from '../src/lib/game/items/databank.js';
 import { ownTreasures } from '../src/lib/game/items/gacha.js';
 import { raidDropChance, raidDropCounts, raidDropsOn, rollRaidDrops, type DropRng } from '../src/lib/game/items/raid-drops.js';
 import { findSpec } from '../src/lib/settings-spec.js';
+import { EFFECTS } from '../src/perks/index.js';
+import { RETIRED_ITEMS } from '../src/services/migrate.js';
 import type { ItemDef } from '../src/types.js';
 
 /*
@@ -16,8 +18,11 @@ import type { ItemDef } from '../src/types.js';
  * many a win drops goes by the raid's difficulty.
  */
 
-/** The 3-star raid gear the harder difficulties drop: one for each of the 4-star ones (but the class items, which are 4-star only). */
-const RAID_GEAR_3 = ['giants-hauberk', 'quarrybreaker-hammer', 'starfinder-longbow', 'wyvern-tooth', 'cherubs-sash', 'stalwart-pavise', 'whalers-lance', 'consecrated-sickle', 'apothecarys-rod'];
+/** The 3-star raid gear that mirrors a 4-star one (all but the class items, which are 4-star only). */
+const MIRRORED_GEAR_3 = ['giants-hauberk', 'quarrybreaker-hammer', 'starfinder-longbow', 'wyvern-tooth', 'cherubs-sash', 'stalwart-pavise', 'whalers-lance', 'consecrated-sickle', 'apothecarys-rod'];
+
+/** The 3-star raid gear the harder difficulties drop: the mirrored ones, and the heal-splash and rally ones, which are 3-star only. */
+const RAID_GEAR_3 = [...MIRRORED_GEAR_3, 'dragonbone-staff', 'war-banner'];
 
 /** The class items: 4-star raid items that only work for one class each. */
 const CLASS_GEAR = ['oathkeepers-aegis', 'warlords-greataxe', 'dawnsong-censer', 'choirmasters-vestments', 'stormcoil-spanner', 'hexweavers-staff', 'nightfall-shroud', 'windrunners-mantle'];
@@ -28,9 +33,9 @@ test('raid drops: the raid gear is raid-only, and the gacha leaves it out of eve
   assert.deepEqual(RAID_DROPS.map((item) => item.id).sort(), [...RAID_GEAR, ...RAID_GEAR_3].sort());
   for (const id of RAID_GEAR) assert.equal(ITEMS_BY_ID.get(id)?.stars, 4, id);
   for (const id of RAID_GEAR_3) assert.equal(ITEMS_BY_ID.get(id)?.stars, 3, id);
-  // Each 3-star one has the same perks as one of the 4-star ones (the class items have no 3-star one).
+  // Each mirrored 3-star one has the same perks as one of the 4-star ones (the class items have no 3-star one).
   const perks = (ids: string[]): string[] => ids.map((id) => [...(ITEMS_BY_ID.get(id)?.effects ?? [])].sort().join('+')).sort();
-  assert.deepEqual(perks(RAID_GEAR_3), perks(RAID_GEAR.filter((id) => !CLASS_GEAR.includes(id))));
+  assert.deepEqual(perks(MIRRORED_GEAR_3), perks(RAID_GEAR.filter((id) => !CLASS_GEAR.includes(id))));
   for (const stars of STARS) {
     assert.ok(gachaItems(stars).length > 0, `${stars}-star tier can still be pulled`);
     assert.ok(gachaItems(stars).every((item) => !item.raidDrop));
@@ -40,6 +45,28 @@ test('raid drops: the raid gear is raid-only, and the gacha leaves it out of eve
   // Every other item is still pulled as before (the limited ones from their own banner).
   assert.equal(ITEMS.filter((item) => !item.raidDrop).length, ITEMS.length - RAID_GEAR.length - RAID_GEAR_3.length);
   assert.ok(ownTreasures('anyone').every((item) => !item.raidDrop));
+});
+
+test('raid drops: every item with a raid perk is a raid drop, and no two items of a tier do the same thing', () => {
+  const raidPerk = (effect: string): boolean => /^Raid/.test(EFFECTS[effect as keyof typeof EFFECTS].description);
+  for (const item of ITEMS) {
+    if (item.effects.some(raidPerk)) assert.equal(item.raidDrop, true, `${item.id} has a raid perk, so only raids should give it`);
+  }
+  const seen = new Map<string, string>();
+  for (const item of ITEMS) {
+    const key = `${item.stars}:${[...item.effects].sort().join('+')}`;
+    assert.ok(!seen.has(key), `${item.id} does the same as ${seen.get(key)}`);
+    seen.set(key, item.id);
+  }
+});
+
+test('retired items: gone from the catalog, each swapped for a raid drop that is still in it', () => {
+  for (const [from, to] of Object.entries(RETIRED_ITEMS)) {
+    assert.equal(ITEMS_BY_ID.get(from), undefined, from);
+    const kept = ITEMS_BY_ID.get(to);
+    assert.equal(kept?.raidDrop, true, to);
+    assert.equal(kept?.effects.length, 1, to);
+  }
 });
 
 test('raid drops: the party rolls once, and on a hit every raider finds one of the raid drops', () => {
@@ -208,7 +235,7 @@ test('raid drops: the databank says where to get them', () => {
   const where = itemDetail(item).fields.find((f) => f.name === TEXT.databank.detailRaidDropField)?.value ?? '';
   assert.ok(where.startsWith(TEXT.databank.detailRaidDrop), where);
   assert.ok(where.includes(`sells it for **${DEFAULTS.raid.shop.price[4]}** `), where);
-  const pulled = ITEMS_BY_ID.get('troll-hide-cuirass') as ItemDef;
+  const pulled = ITEMS_BY_ID.get('starfall-blade') as ItemDef;
   assert.ok(!itemBlock(pulled).includes(TEXT.databank.raidDrop));
 });
 

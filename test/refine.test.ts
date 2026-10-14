@@ -50,7 +50,7 @@ test('refinement shows as R and the level', () => {
 });
 
 test('gear counts at the worn copy\'s refinement; gear that does not say counts as fully refined', () => {
-  const armor = item('wyrmscale-plate'); // 3-star guardBoost, 20% fully refined
+  const armor = item('stalwart-pavise'); // 3-star guardBoost, 20% fully refined
   const full = DEFAULTS.equipment.guardBoost[3];
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 5 } }, 'u').guardBoost - full) < 1e-12);
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 3 } }, 'u').guardBoost - full / 2) < 1e-12);

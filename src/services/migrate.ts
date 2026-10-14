@@ -224,6 +224,55 @@ export async function syncGearSlots(): Promise<{ moved: number; cleared: number 
 }
 
 /*
+ * Items taken out of the catalog when raid gear became raid-only, each with the raid drop that has
+ * its perk and takes its place: the 3-star gacha items whose exact perk was already a 3-star raid
+ * drop, and the 1- and 2-star raid gear (raids only drop 3- and 4-star items). Their copies become
+ * copies of the raid drop, keeping their ids (so whatever wears them, now or in a saved loadout,
+ * still does), levels and locks. Every pair shares a slot, so nothing has to move.
+ */
+export const RETIRED_ITEMS: Readonly<Record<string, string>> = {
+  'wyrmscale-plate': 'stalwart-pavise',
+  'troll-hide-cuirass': 'giants-hauberk',
+  'dragonslayer-greatsword': 'quarrybreaker-hammer',
+  'eagle-eye-crossbow': 'starfinder-longbow',
+  'heartseeker-rapier': 'wyvern-tooth',
+  'saints-mantle': 'cherubs-sash',
+  wyrmpiercer: 'whalers-lance',
+  soulrender: 'consecrated-sickle',
+  'sapling-wand': 'dragonbone-staff',
+  'willow-wand': 'dragonbone-staff',
+  'padded-gambeson': 'stalwart-pavise',
+  'studded-brigandine': 'stalwart-pavise',
+  'tin-whistle': 'war-banner',
+  'battle-horn': 'war-banner',
+  'thorned-club': 'consecrated-sickle',
+  'serrated-hatchet': 'consecrated-sickle',
+  'boiled-leather-vest': 'giants-hauberk',
+  'chainmail-hauberk': 'giants-hauberk',
+  'chipped-hand-axe': 'quarrybreaker-hammer',
+  'steel-warhammer': 'quarrybreaker-hammer',
+  'throwing-knives': 'starfinder-longbow',
+  'hunters-longbow': 'starfinder-longbow',
+  'barbed-spear': 'wyvern-tooth',
+  'executioners-axe': 'wyvern-tooth',
+  'acolytes-robe': 'cherubs-sash',
+  'clerics-vestments': 'cherubs-sash',
+};
+
+/**
+ * Turns copies of RETIRED_ITEMS into copies of the items that replace them (see there). Idempotent
+ * and cheap once done (no copy has a retired id any more), so it runs every start.
+ */
+export async function retireItems(): Promise<number> {
+  const { items } = collections();
+  let swapped = 0;
+  for (const [from, to] of Object.entries(RETIRED_ITEMS)) {
+    swapped += (await items.updateMany({ itemId: from }, { $set: { itemId: to } })).modifiedCount;
+  }
+  return swapped;
+}
+
+/*
  * Field rename: a server's one dedicated channel used to be stored as `eventChannelId`, back
  * when it only chose where random events happened; it's now `channelId` (see services/channel.ts
  * and types.ts's GuildDoc), since commands are confined to it too. Cheap, fully idempotent (a

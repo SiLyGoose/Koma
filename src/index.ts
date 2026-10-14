@@ -26,7 +26,7 @@ import { startWebServer } from './web/server.js';
 import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -121,6 +121,10 @@ async function main(): Promise<void> {
   // backfillVaultClaims). After the settings, so it has the vault's hourly growth.
   const vaultClaims = await backfillVaultClaims(CONFIG.events.vault.hourlyGrowth);
   if (vaultClaims > 0) console.log(`Dated the last vault claim in ${vaultClaims} server(s) from the ledger.`);
+
+  // Every start: turns copies of items taken out of the catalog into the raid drops that replace them (see retireItems).
+  const retired = await retireItems();
+  if (retired > 0) console.log(`Retired items: turned ${retired} copy(ies) into the raid drop that replaces them.`);
 
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).

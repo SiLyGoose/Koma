@@ -442,7 +442,7 @@ test('maxHpDamage gear: each attack also deals a share of the dragon\'s max HP, 
   shielded.shielded = true;
   assert.deepEqual(resolvePlayerTurn(shielded, choose(['a', 'attack']), low), [{ kind: 'bounced', userId: 'a' }]);
   assert.equal(DEFAULTS.equipment.maxHpDamage[3], 0.005);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmpiercer') as ItemDef), ["Raid: attacks also deal 0.5% of the boss's max HP"]);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('whalers-lance') as ItemDef), ["Raid: attacks also deal 0.5% of the boss's max HP"]);
 });
 
 test('rallyBoost gear: a rally from the wearer gives a bigger attack bonus, and a weaker rally does not cut it short', () => {
@@ -459,30 +459,25 @@ test('rallyBoost gear: a rally from the wearer gives a bigger attack bonus, and 
   assert.equal(state.rallied, RAID_COMBAT.support.rallyTurns);
 });
 
-test('raid gear items: a 1-star, a 2-star and a 3-star item for each raid perk, and their gear cards say what they do', () => {
+test('raid gear items: a 3-star raid drop for each raid perk, and their gear cards say what they do', () => {
   for (const [id, stars, slot, effect] of [
-    ['sapling-wand', 1, 'weapon', 'healSplash'],
-    ['padded-gambeson', 1, 'armor', 'guardBoost'],
-    ['tin-whistle', 1, 'weapon', 'rallyBoost'],
-    ['willow-wand', 2, 'weapon', 'healSplash'],
     ['dragonbone-staff', 3, 'weapon', 'healSplash'],
-    ['studded-brigandine', 2, 'armor', 'guardBoost'],
-    ['wyrmscale-plate', 3, 'armor', 'guardBoost'],
-    ['battle-horn', 2, 'weapon', 'rallyBoost'],
+    ['stalwart-pavise', 3, 'armor', 'guardBoost'],
     ['war-banner', 3, 'weapon', 'rallyBoost'],
-    ['wyrmpiercer', 3, 'weapon', 'maxHpDamage'],
+    ['whalers-lance', 3, 'weapon', 'maxHpDamage'],
   ] as const) {
     const item = ITEMS_BY_ID.get(id);
     assert.ok(item, id);
     assert.equal(item.stars, stars, id);
     assert.equal(item.slot, slot, id);
     assert.deepEqual(item.effects, [effect], id);
+    assert.equal(item.raidDrop, true, id);
   }
   assert.equal(DEFAULTS.equipment.healSplash[3], 0.2);
   assert.equal(DEFAULTS.equipment.guardBoost[3], 0.2);
   assert.equal(DEFAULTS.equipment.rallyBoost[3], 0.25);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('war-banner') as ItemDef), ['Raid: your rallies give a 25% bigger attack bonus']);
-  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('wyrmscale-plate') as ItemDef), ['Raid: your Guard blocks 20% more']);
+  assert.deepEqual(describeEffects(ITEMS_BY_ID.get('stalwart-pavise') as ItemDef), ['Raid: your Guard blocks 20% more']);
   assert.deepEqual(describeEffects(ITEMS_BY_ID.get('dragonbone-staff') as ItemDef), ['Raid: heals also mend a second ally for 20% of the heal']);
 });
 
@@ -1608,12 +1603,11 @@ test('raid stats: the reaper lists its Soul Requiem', () => {
   assert.doesNotMatch(bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Moves')?.value ?? '', /Requiem/);
 });
 
-test('heal-cut weapons: a 1-, 2- and 3-star weapon, the 3-star one cutting boss heals by 25% at R5', async () => {
+test('heal-cut weapons: a 3- and 4-star raid drop, the 3-star one cutting boss heals by 25% at R5', async () => {
   const { itemBlock } = await import('../src/lib/game/items/databank.js');
   for (const [id, stars, cut] of [
-    ['thorned-club', 1, 0.1],
-    ['serrated-hatchet', 2, 0.15],
-    ['soulrender', 3, 0.25],
+    ['consecrated-sickle', 3, 0.25],
+    ['hallowed-scythe', 4, DEFAULTS.equipment.healCut[4]],
   ] as const) {
     const item = ITEMS_BY_ID.get(id);
     assert.ok(item, id);
@@ -1622,11 +1616,11 @@ test('heal-cut weapons: a 1-, 2- and 3-star weapon, the 3-star one cutting boss 
     assert.deepEqual(item.effects, ['healCut'], id);
     assert.equal(DEFAULTS.equipment.healCut[stars], cut, id);
   }
-  const soulrender = ITEMS_BY_ID.get('soulrender') as ItemDef;
-  assert.deepEqual(describeEffects(soulrender), ["Raid: the boss heals 25% less while you're standing"]);
+  const sickle = ITEMS_BY_ID.get('consecrated-sickle') as ItemDef;
+  assert.deepEqual(describeEffects(sickle), ["Raid: the boss heals 25% less while you're standing"]);
   // Below R5 it is weaker, like every perk.
-  assert.notDeepEqual(describeEffects(soulrender, 1, 1), describeEffects(soulrender));
-  assert.ok(itemBlock(soulrender).includes('Soulrender'));
+  assert.notDeepEqual(describeEffects(sickle, 1, 1), describeEffects(sickle));
+  assert.ok(itemBlock(sickle).includes('Consecrated Sickle'));
 });
 
 test('heal cut: the strongest cut among the raiders still standing comes off every heal the boss gets, and they do not stack', () => {
