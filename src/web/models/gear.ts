@@ -57,6 +57,8 @@ export interface GearCopy {
   additional: string | null;
   /** Whether its additional skill is on: a hero of its class wears it. */
   additionalActive: boolean;
+  /** Worn by a hero of a class it doesn't work on: none of it counts there, not even its stats (the page greys them out). */
+  wrongClass: boolean;
   /** Someone else's exclusive item: the share of its effects this member gets (null when it's theirs to use). */
   borrowed: number | null;
   /** Refining it (services/items/refine.ts), for the page's confirmation. */
@@ -294,6 +296,7 @@ export function gearView(
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: tmOn.get(copy._id)?.additional ?? false,
+      wrongClass: tmOn.get(copy._id)?.works === false,
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,

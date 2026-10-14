@@ -326,9 +326,9 @@ test('heroes: a TechnoMagic copy’s set effect is on while its hero has the set
   const member = { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'w1', weapon2: 'w2', armor1: 'a1', armor2: 'a2', treasure: 't' } } }, points: 0 };
   assert.ok(TM_SET_PIECES <= 3, 'three of its pieces make the set');
   const on = activeTmEffects(copies, member);
-  for (const id of ['w1', 'w2', 'a1']) assert.deepEqual(on.get(id), { set: true, additional: true }, id);
-  assert.deepEqual(on.get('a2'), { set: false, additional: false }, 'the priest’s armor does nothing on a warrior');
-  assert.deepEqual(on.get('t'), { set: false, additional: true }, 'a treasure is apart from the set');
+  for (const id of ['w1', 'w2', 'a1']) assert.deepEqual(on.get(id), { set: true, additional: true, works: true }, id);
+  assert.deepEqual(on.get('a2'), { set: false, additional: false, works: false }, 'the priest’s armor does nothing on a warrior');
+  assert.deepEqual(on.get('t'), { set: false, additional: true, works: true }, 'a treasure is apart from the set');
   assert.equal(on.get('bag'), undefined, 'one no hero wears has neither');
 
   // The heroes page and the gear page say so, for the page to light it up or grey it out.
@@ -341,4 +341,24 @@ test('heroes: a TechnoMagic copy’s set effect is on while its hero has the set
   const gear = gearView(copies, null, 'u', undefined, null, null, undefined, null, heroWorn(member), on);
   assert.equal(gear.copies.find((one) => one.id === 'a2')?.setEffect?.active, false);
   assert.equal(gear.copies.find((one) => one.id === 't')?.additionalActive, true);
+});
+
+test('heroes: TechnoMagic gear on a hero of another class gives it nothing: not its stats, its set or its additional skill', () => {
+  // Kirze (a warrior) in the priest's weapon and armor, three times over: no stats, no set, no skills.
+  const copies = [
+    { _id: 'w1', itemId: 'arcane-railgun', level: 5, tmSkill: 'might' },
+    { _id: 'w2', itemId: 'arcane-railgun', level: 5, tmSkill: 'might' },
+    { _id: 'a1', itemId: 'antivenom-ward', level: 5, tmSkill: 'berserk' },
+  ];
+  const member = { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'w1', weapon2: 'w2', armor1: 'a1' } } }, points: 0 };
+  const gear = raidGear(copies, member).get('kirze');
+  assert.ok(gear && Object.values(gear.bonus).every((n) => n === 0), 'no stats');
+  assert.equal(gear?.set, null);
+  assert.deepEqual(gear?.skills, []);
+  const kirze = heroesView(copies, member).heroes.find((hero) => hero.id === 'kirze');
+  assert.ok(kirze && Object.values(kirze.bonus).every((n) => n === 0));
+  assert.deepEqual(kirze?.totals, []);
+  // The gear page says so, for the page to grey all of it out.
+  const view = gearView(copies, null, 'u', undefined, null, null, undefined, null, heroWorn(member), activeTmEffects(copies, member));
+  for (const copy of view.copies) assert.deepEqual([copy.wrongClass, copy.setEffect?.active, copy.additionalActive], [true, false, false], copy.id);
 });

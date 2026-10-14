@@ -293,10 +293,15 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
   return out;
 }
 
-/** Whether a TechnoMagic copy's set effect, and its additional effect, are on: what the heroes and gear pages light up. */
+/**
+ * Whether a TechnoMagic copy's set effect, and its additional effect, are on: what the heroes and gear pages light
+ * up. And whether it works on the hero wearing it at all (`works`: a hero of its class; on another, none of it
+ * counts, not even its stats).
+ */
 export interface TmEffectsOn {
   set: boolean;
   additional: boolean;
+  works: boolean;
 }
 
 /**
@@ -314,7 +319,7 @@ export function activeTmEffects(copies: Parameters<typeof raidGear>[0], member: 
       const item = copy && ITEMS_BY_ID.get(copy.itemId);
       if (!hero || !copy || !item?.tmDrop) continue;
       const works = worksOn(item, hero.class);
-      out.set(id, { set: works && item.slot !== 'treasure' && item.tmSet !== undefined && item.tmSet === gear.set, additional: works && copy.tmSkill !== undefined });
+      out.set(id, { set: works && item.slot !== 'treasure' && item.tmSet !== undefined && item.tmSet === gear.set, additional: works && copy.tmSkill !== undefined, works });
     }
   }
   return out;
