@@ -72,7 +72,7 @@ export function heroEquipMoves(heroes: MemberDoc['heroes'], heroId: string, slot
 }
 
 /** A hero's stats that gear raises. */
-export type HeroStat = 'atk' | 'hp' | 'crit' | 'critDamage' | 'speed' | 'pen' | 'defense' | 'block' | 'dodge' | 'resist' | 'heal' | 'control';
+export type HeroStat = 'atk' | 'hp' | 'crit' | 'critDamage' | 'speed' | 'pen' | 'defense' | 'block' | 'dodge' | 'resist' | 'heal' | 'control' | 'manaAttack' | 'manaRegen';
 
 /**
  * Each stat, in the order they're listed: whether it is points in the raid (a chance or share, 1000
@@ -91,6 +91,8 @@ export const HERO_STATS: Readonly<Record<HeroStat, { points: boolean; label: str
   resist: { points: true, label: 'CC resist', text: (v) => `+${v} CC resist` },
   heal: { points: false, label: 'Heals and shields', text: (v) => `heals and shields give ${v} more` },
   control: { points: false, label: 'Stun duration', text: (v) => `stuns on the boss last ${v} longer` },
+  manaAttack: { points: false, label: 'Mana per attack', text: (v) => `+${v} mana per attack` },
+  manaRegen: { points: false, label: 'Mana recovery', text: (v) => `+${v} mana recovery per second` },
 };
 
 export const HERO_STAT_IDS = Object.keys(HERO_STATS) as HeroStat[];
@@ -118,6 +120,8 @@ const FROM_PERK: Partial<Record<EffectId, readonly [HeroStat, number]>> = {
   tmDodge: ['dodge', 1],
   tmResist: ['resist', 1],
   tmHeal: ['heal', 1],
+  tmManaAttack: ['manaAttack', 1],
+  tmManaRegen: ['manaRegen', 1],
   raidAttack: ['atk', 1],
   raidHp: ['hp', 1],
   raidCritChance: ['crit', 1],

@@ -821,7 +821,9 @@ function formation(lines) {
 }
 /** Running in: how long it takes (a hero can do nothing meanwhile). */
 var ENTER = 1.1;
-var MAX_MANA = 1200;
+var SECTION = 1e3;
+var MAX_MANA = 6 * SECTION;
+var MANA_PER_HP_LOST = 2500;
 /** A raid fought alone: the boss has this share of its health. */
 var SOLO_BOSS_HP = .6;
 var MOST_RAGE = 1e4;
@@ -1560,7 +1562,7 @@ var VENGEANCE = {
 };
 var TAINTED = {
 	taken: 1.15,
-	mana: 80,
+	mana: .4 * SECTION,
 	every: 1,
 	most: 2
 };
@@ -1696,7 +1698,7 @@ var FALLEN_FREY = {
 			},
 			tick(dt) {
 				self.mana = Math.min(MAX_MANA, self.mana + TAINTED.mana * dt);
-				if (self.mana >= 1200 && stacks < TAINTED.most) {
+				if (self.mana >= 6e3 && stacks < TAINTED.most) {
 					darkening += dt;
 					if (darkening >= TAINTED.every) {
 						darkening -= TAINTED.every;
@@ -2924,7 +2926,7 @@ var AUTHORITY = {
 	/** A damage dealer's penetration (points). */
 	pen: 500,
 	/** A support's mana at the start, and how long the ally with the highest ATK can't be knocked down. */
-	mana: 400,
+	mana: 2 * SECTION,
 	guardFor: 15,
 	/** A knight's CC resist (points). */
 	resist: 300
@@ -2993,6 +2995,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			healTimes: (1 + (gear.heal ?? 0)) * (set?.id === "perseverance" && set.role === "priest" ? 1 + PERSEVERANCE.heal : 1),
 			set,
 			controlTimes: 1 + (gear.control ?? 0),
+			manaPerAttack: 60 * (1 + (gear.manaAttack ?? 0)),
+			manaRegen: 100 * (1 + (gear.manaRegen ?? 0)),
 			motion,
 			attack: motion.attack,
 			part: { lands: {} },
@@ -3040,6 +3044,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 		return true;
 	}
+	/** The hero whose attack's blow is landing right now (null: none: a skill's, or something else's). */
+	let attacking = null;
 	/** How long the boss has been still; what each of its parts (heads) is doing, and will do after; whom it goes for, and whether it was busy last step. */
 	let idle = 0;
 	const going = /* @__PURE__ */ new Map();
@@ -3133,7 +3139,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			for (let i = foe.statuses.length - 1; i >= 0; i--) if ((foe.statuses[i].deals ?? 1) > 1) foe.statuses.splice(i, 1);
 		}
 		fighter.cooldowns[index] = ability.cooldown;
-		fighter.mana -= ability.cost * 200;
+		fighter.mana -= ability.cost * SECTION;
 		return true;
 	}
 	/** What comes of the moves every hero has, as each part lands (unless its own part says otherwise). */
@@ -3164,9 +3170,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					move,
 					part: index
 				});
+				attacking = move === fighter.attack ? fighter : null;
 				const own = fighter.part.lands[move];
 				if (own) own(index);
 				else common[move]?.(fighter, index);
+				attacking = null;
 			}
 			if (fighter.doing !== doing || result) return;
 		}
@@ -3266,7 +3274,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				amount: dealt,
 				type: blocked ? "blocked" : critical ? "crit" : "hit"
 			});
-			by.mana = Math.min(MAX_MANA, by.mana + 25);
+			if (attacking === by) by.mana = Math.min(MAX_MANA, by.mana + by.manaPerAttack);
 			if (counted) {
 				for (const fighter of fighters) fighter.part.struck?.();
 				foe.part.struck?.(by, dealt);
@@ -3332,7 +3340,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				const soak = Math.min(cover.shield, covered);
 				cover.shield -= soak;
 				if (covered > soak) {
-					cover.hp = Math.max(0, cover.hp - (covered - soak));
+					const lost = Math.min(cover.hp, covered - soak);
+					cover.hp -= lost;
+					cover.mana = Math.min(MAX_MANA, cover.mana + MANA_PER_HP_LOST * lost / cover.stats.hp);
 					events.push({
 						kind: "number",
 						on: cover.index,
@@ -3354,8 +3364,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				amount: soaked,
 				type: "shield"
 			});
+			const lost = Math.min(target.hp, Math.max(0, dealt - soaked));
 			if (dealt > soaked) {
-				target.hp = Math.max(0, target.hp - (dealt - soaked));
+				target.hp -= lost;
 				events.push({
 					kind: "number",
 					on: target.index,
@@ -3368,7 +3379,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				target.doing = null;
 				target.reserved = null;
 			}
-			target.mana = Math.min(MAX_MANA, target.mana + 25);
+			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * lost / target.stats.hp);
 			if (blocked) {
 				target.part.blocked?.();
 				if (target.set?.id === "perseverance" && target.set.role === "knight" && target.hp > 0) {
@@ -3448,7 +3459,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		},
 		ready(fighter, index) {
 			const ability = fighter.def.abilities[index];
-			return ability !== void 0 && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && fighter.cooldowns[index] <= 0 && fighter.mana >= ability.cost * 200;
+			return ability !== void 0 && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && fighter.cooldowns[index] <= 0 && fighter.mana >= ability.cost * 1e3;
 		},
 		input(input) {
 			pending.push(input);
@@ -3521,7 +3532,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			idle = bossBusy() ? 0 : idle + dt;
 			if (bossAuto && idle >= 1.1) bossUse((def.attacks[Math.floor(roll() * def.attacks.length)] ?? def.attacks[0])?.name ?? "");
 			for (const fighter of fighters) {
-				fighter.mana = Math.min(MAX_MANA, fighter.mana + 50 * dt * filling(fighter.statuses) * filling(party));
+				fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling(fighter.statuses) * filling(party));
 				fighter.cooldowns = fighter.cooldowns.map((left) => Math.max(0, left - dt));
 				wear(fighter.statuses, dt);
 				fighter.shieldLeft = Math.max(0, fighter.shieldLeft - dt);
@@ -3645,7 +3656,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 3;
+var SIM_VERSION = 4;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;

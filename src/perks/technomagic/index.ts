@@ -87,6 +87,22 @@ export const tmResist = definePerk({
   text: (value) => `TechnoMagic: +${value} CC resist`,
 });
 
+export const tmManaAttack = definePerk({
+  description: "TechnoMagic Raid: how much more mana the hero gains for each blow of its attack that lands.",
+  defaults: { 1: 0.05, 2: 0.1, 3: 0.15, 4: 0.25 },
+  min: 0,
+  max: 10,
+  text: (value) => `TechnoMagic: +${value} mana per attack`,
+});
+
+export const tmManaRegen = definePerk({
+  description: "TechnoMagic Raid: how much more mana the hero recovers each second.",
+  defaults: { 1: 0.05, 2: 0.1, 3: 0.15, 4: 0.25 },
+  min: 0,
+  max: 10,
+  text: (value) => `TechnoMagic: +${value} mana recovery per second`,
+});
+
 export const tmHeal = definePerk({
   description: "TechnoMagic Raid: how much more the hero's heals and shields give.",
   defaults: { 1: 0.05, 2: 0.08, 3: 0.15, 4: 0.25 },
