@@ -6,6 +6,7 @@ import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
 import { heroOnly, heroWorn } from '../../lib/game/heroes.js';
+import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, saleCount, sellPrice } from '../../lib/game/items/sell.js';
@@ -56,8 +57,10 @@ export interface GearCopy {
   locked: boolean;
   /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
   sell: number | null;
-  /** TechnoMagic gear: only heroes wear it (the heroes page), never the member. */
+  /** TechnoMagic gear or a unique weapon: only heroes wear it (the heroes page), never the member. */
   heroOnly: boolean;
+  /** A unique weapon: the id of the one hero that wields it (null: not one). */
+  uniqueWeapon: string | null;
   /** A class item (raid gear, and all TechnoMagic gear): the class it works for (null: any). */
   itemClass: RaidClassId | null;
   /** The name of the TechnoMagic hero wearing it (the heroes page), or null when none is. */
@@ -194,7 +197,7 @@ export interface GearSale {
   earned: number;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill'>>;
 
 /**
  * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
@@ -275,13 +278,15 @@ export function gearView(
       level,
       maxLevel: REFINE.maxLevel,
       masterwork: showsMasterwork(item, level, masterwork),
-      effects: describeEffects(item, share, level, masterwork),
+      // (And a TechnoMagic copy's additional skill, last.)
+      effects: [...describeEffects(item, share, level, masterwork), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,
       locked,
       sell: kept.has(copy._id) || locked ? null : sellPrice(item.stars),
       heroOnly: heroOnly(item),
+      uniqueWeapon: item.uniqueWeapon ?? null,
       itemClass: item.class ?? null,
       hero: heroWorn.get(copy._id) ?? null,
     };
@@ -292,8 +297,8 @@ export function gearView(
     list.push(view);
     byId.set(view.id, { view, piece: { item, level, bonus: masterwork } });
   }
-  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), then by stars.
-  const tier = (copy: GearCopy): number => (copy.heroOnly ? 5 : copy.stars);
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
+  const tier = (copy: GearCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);
   list.sort((a, b) => tier(b) - tier(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   /** The copy id in each slot of `gear`, counting only owned copies that fit there. */

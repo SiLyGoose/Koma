@@ -8,6 +8,7 @@ import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef
 import { formatPercent } from '../format.js';
 import { effectStrength, itemEffects, perkShare, type GearPiece } from './items/equipment.js';
 import { refineLevel } from './items/refine-share.js';
+import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 
 /*
  * The TechnoMagic Raid's heroes (data/heroes.ts), with no database: which gear they wear, where, and what
@@ -18,7 +19,8 @@ import { refineLevel } from './items/refine-share.js';
  * What gear does for a hero is its stats in the raid (the raid's own, Koma-UI's src/technomagic/): each perk
  * of the TechnoMagic gear raises one (perks/technomagic/), and each of the raid gear's raises the one most
  * like what it does in the raid (FROM_PERK), by as much or by a share of it. A class item only works on a
- * hero of its class.
+ * hero of its class. A hero's unique weapon (ItemDef.uniqueWeapon) only goes on its own hero, and besides
+ * its ATK has its own effect in the raid (the raid's sim, which says what it does: uniqueWeaponText).
  */
 
 /** Which kind of item goes in a hero's slot. */
@@ -27,11 +29,17 @@ export const HERO_SLOT_KIND: Readonly<Record<HeroSlot, Slot>> = { weapon1: 'weap
 /** The hero's slots an item fits in, in order. */
 export const heroSlotsFor = (item: Pick<ItemDef, 'slot'>): HeroSlot[] => HERO_SLOTS.filter((slot) => HERO_SLOT_KIND[slot] === item.slot);
 
-/** Whether a hero can wear an item at all: the raid's gear, and the TechnoMagic Raid's. */
-export const heroWearable = (item: ItemDef): boolean => item.raidDrop === true || item.tmDrop === true;
+/** Whether a hero can wear an item at all: the raid's gear, the TechnoMagic Raid's, and the unique weapons (each only on its own hero: wieldedBy). */
+export const heroWearable = (item: ItemDef): boolean => item.raidDrop === true || item.tmDrop === true || item.uniqueWeapon !== undefined;
 
-/** Whether only heroes wear an item (the member can't): the TechnoMagic gear. */
-export const heroOnly = (item: ItemDef): boolean => item.tmDrop === true;
+/** Whether only heroes wear an item (the member can't): the TechnoMagic gear and the unique weapons. */
+export const heroOnly = (item: ItemDef): boolean => item.tmDrop === true || item.uniqueWeapon !== undefined;
+
+/** Whether hero `heroId` may wear an item: any of them, but a unique weapon only its own. */
+export const wieldedBy = (item: ItemDef, heroId: string): boolean => item.uniqueWeapon === undefined || item.uniqueWeapon === heroId;
+
+/** A unique weapon's tier in the raid, by how far its copy is refined (R1 to R5: tiers 1 to 5, Koma-UI's sim/unique.ts). */
+export const uniqueTier = (level: number): number => refineLevel(level);
 
 /** The member's heroes that still exist in `known` (data/heroes.ts's ids), by id. */
 export function ownedHeroes(member: Pick<MemberDoc, 'heroes'> | null | undefined, known: ReadonlySet<string>): Map<string, HeroDoc> {
@@ -122,6 +130,7 @@ const FROM_PERK: Partial<Record<EffectId, readonly [HeroStat, number]>> = {
   tmHeal: ['heal', 1],
   tmManaAttack: ['manaAttack', 1],
   tmManaRegen: ['manaRegen', 1],
+  uwAttack: ['atk', 1],
   raidAttack: ['atk', 1],
   raidHp: ['hp', 1],
   raidCritChance: ['crit', 1],
@@ -150,10 +159,13 @@ const FROM_PERK: Partial<Record<EffectId, readonly [HeroStat, number]>> = {
 /** Whether a hero of `heroClass` gets an item's perks: anyone does, but a class item's only its class. */
 export const worksOn = (item: ItemDef, heroClass: RaidClassId): boolean => item.class === undefined || item.class === heroClass;
 
-/** What one piece gives a hero of `heroClass`, stat by stat (nothing from a class item of another class). */
-export function pieceBonus({ item, level, bonus = true }: GearPiece, heroClass: RaidClassId): HeroBonus {
+/**
+ * What one piece gives a hero of `heroClass`, stat by stat (nothing from a class item of another class); and,
+ * when `heroId` says which hero, nothing from another hero's unique weapon.
+ */
+export function pieceBonus({ item, level, bonus = true }: GearPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
   const out = noBonus();
-  if (!worksOn(item, heroClass)) return out;
+  if (!worksOn(item, heroClass) || (heroId !== undefined && !wieldedBy(item, heroId))) return out;
   for (const effect of itemEffects(item, level, bonus)) {
     const to = FROM_PERK[effect];
     if (to) out[to[0]] += effectStrength(effect, item.stars) * perkShare(effect, level) * to[1];
@@ -161,11 +173,11 @@ export function pieceBonus({ item, level, bonus = true }: GearPiece, heroClass: 
   return out;
 }
 
-/** What every piece a hero wears gives it, all told. */
-export function heroBonus(pieces: readonly GearPiece[], heroClass: RaidClassId): HeroBonus {
+/** What every piece a hero wears gives it, all told (by `heroId`: see pieceBonus). */
+export function heroBonus(pieces: readonly GearPiece[], heroClass: RaidClassId, heroId?: string): HeroBonus {
   const out = noBonus();
   for (const piece of pieces) {
-    const one = pieceBonus(piece, heroClass);
+    const one = pieceBonus(piece, heroClass, heroId);
     for (const stat of HERO_STAT_IDS) out[stat] += one[stat];
   }
   return out;
@@ -177,10 +189,14 @@ export const bonusLines = (bonus: HeroBonus): string[] =>
 
 /**
  * What a copy of `item` at `level` does on a hero, a line for each stat it raises: on any hero (left
- * out), or on one of `heroClass`, which for a class item of another class is nothing.
+ * out), or on one of `heroClass`, which for a class item of another class is nothing. A unique weapon's on
+ * its own hero, with its own effect at that level last.
  */
 export function heroItemLines(item: ItemDef, level: number = REFINE.maxLevel, masterwork = true, heroClass?: RaidClassId): string[] {
-  return bonusLines(pieceBonus({ item, level, bonus: masterwork }, heroClass ?? item.class ?? 'knight'));
+  const owner = item.uniqueWeapon === undefined ? undefined : HEROES.find((hero) => hero.id === item.uniqueWeapon);
+  const lines = bonusLines(pieceBonus({ item, level, bonus: masterwork }, heroClass ?? owner?.class ?? item.class ?? 'knight'));
+  const unique = owner ? uniqueWeaponText(owner.id, uniqueTier(level)) : null;
+  return unique ? [...lines, `${owner?.name} only, ★${uniqueTier(level)}: ${unique}`] : lines;
 }
 
 /** Whether a stat is points in the raid (see HERO_STATS); its bonus as the raid counts it: points, or a share. */
@@ -209,27 +225,56 @@ export function setLines(found: { set: TmSetId; pieces: number } | null, heroCla
 }
 
 /**
- * What each of the member's heroes' gear gives it in the raid, as the raid counts it (raidValue: points for a
- * chance or share, a share for the rest), and the TechnoMagic set whose effect it has, by hero id: the gear a
- * TechnoMagic Raid run is played with. Only copies they still own, in a slot of their kind, on that hero (as
- * the heroes page shows them).
+ * What a hero takes into a TechnoMagic Raid run: its gear's stats, its set (null: none), its own unique weapon's
+ * tier (null: none worn), and the additional skill of each piece of TechnoMagic gear it wears.
  */
-export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, { bonus: HeroBonus; set: TmSetId | null }> {
+export interface RaidGear {
+  bonus: HeroBonus;
+  set: TmSetId | null;
+  uw: number | null;
+  skills: string[];
+}
+
+/** The additional skills a hero has of the copies it wears: each TechnoMagic piece's that works on its class (as its stats do). */
+export const heroSkills = (pieces: readonly { item: ItemDef; skill?: string }[], heroClass: RaidClassId): string[] =>
+  pieces.filter(({ item, skill }) => item.tmDrop && skill && worksOn(item, heroClass)).map(({ skill }) => skill as string);
+
+/**
+ * What each of the member's heroes' gear gives it in the raid, as the raid counts it (raidValue: points for a
+ * chance or share, a share for the rest), the TechnoMagic set whose effect it has, its own unique weapon's
+ * tier, and its TechnoMagic gear's additional skills, by hero id: the gear a TechnoMagic Raid run is played
+ * with. Only copies they still own, in a slot of their kind, on that hero, and a unique weapon only on its own
+ * hero (as the heroes page shows them).
+ */
+export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'tmSkill'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
   const owned = new Map(copies.map((copy) => [copy._id, copy]));
   const worn = heroWorn(member);
-  const out = new Map<string, { bonus: HeroBonus; set: TmSetId | null }>();
+  const out = new Map<string, RaidGear>();
   for (const hero of HEROES) {
     const doc = member?.heroes?.[hero.id];
     if (!doc) continue;
     const on: GearPiece[] = [];
+    const skilled: { item: ItemDef; skill?: string }[] = [];
+    let uw: number | null = null;
     for (const slot of HERO_SLOTS) {
       const copy = owned.get(doc.equipment?.[slot] ?? '');
       const item = copy && ITEMS_BY_ID.get(copy.itemId);
-      if (!copy || !item || !heroWearable(item) || item.slot !== HERO_SLOT_KIND[slot] || worn.get(copy._id) !== hero.id) continue;
+      if (!copy || !item || !heroWearable(item) || !wieldedBy(item, hero.id) || item.slot !== HERO_SLOT_KIND[slot] || worn.get(copy._id) !== hero.id) continue;
+      // (A hero wields one unique weapon: a second copy, in its other weapon slot, does nothing.)
+      if (item.uniqueWeapon !== undefined) {
+        if (uw !== null) continue;
+        uw = uniqueTier(copy.level);
+      }
       on.push({ item, level: refineLevel(copy.level), bonus: copy.masterwork === true });
+      skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
     }
-    const shares = heroBonus(on, hero.class);
-    out.set(hero.id, { bonus: Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus, set: activeSet(heroSet(on, hero.class)) });
+    const shares = heroBonus(on, hero.class, hero.id);
+    out.set(hero.id, {
+      bonus: Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus,
+      set: activeSet(heroSet(on, hero.class)),
+      uw,
+      skills: heroSkills(skilled, hero.class),
+    });
   }
   return out;
 }

@@ -46,12 +46,17 @@ test('databank page: says where each item comes from, and the raid drop chance',
   const { raidDropChance, raidDropChancePerRaider, items } = databankView();
   assert.equal(raidDropChance, CONFIG.raid.dropChance);
   assert.equal(raidDropChancePerRaider, CONFIG.raid.dropChancePerRaider);
-  const pulled = (item: (typeof ITEMS)[number]) => (item.tmDrop ? 'technomagic' : item.limited ? 'limited' : 'gacha');
+  const pulled = (item: (typeof ITEMS)[number]) => (item.tmDrop ? 'technomagic' : item.uniqueWeapon !== undefined ? 'heroBanner' : item.limited ? 'limited' : 'gacha');
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : pulled(item), item.id);
   // Every place it comes from: a raid item is sold in the raid shop too, and a limited item only comes from its banner.
   for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : [pulled(item)], item.id);
   assert.ok(items.some((item) => item.source === 'limited'));
   assert.ok(items.some((item) => item.source === 'technomagic'));
+  // A unique weapon comes from the Hero Item banner, says whose it is, and says what it does in the raid at each level.
+  const exian = items.find((item) => item.id === 'the-guardian-exian')!;
+  assert.equal(exian.source, 'heroBanner');
+  assert.equal(exian.uniqueWeapon, 'clause');
+  assert.ok(exian.effects.every((lines, i) => lines.some((line) => line.startsWith(`Clause only, ★${i + 1}:`))));
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);

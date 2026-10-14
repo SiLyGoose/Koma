@@ -1,12 +1,12 @@
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
-import { HERO_SKINS, MOST_STAGE, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, type LiveRaid } from '../../../lib/game/technomagic.js';
+import { HERO_SKINS, MOST_STAGE, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, tmSkillLine, type LiveRaid } from '../../../lib/game/technomagic.js';
 import { beginRun, finishRun, ownedHeroes, rewardsLeft, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
-import type { AnswerCode, FightStart, OverView, PickView, RoomState, ServerMessage, TurnInput } from './protocol.js';
+import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
 /*
  * The TechnoMagic Raid's rooms: one a server. Whoever opens the raid joins its room (the first is its host,
@@ -35,7 +35,7 @@ export interface RoomDeps {
   rewardsLeft: (guildId: string, userId: string) => Promise<number>;
   begin: typeof beginRun;
   /** What a run over gave each player. */
-  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number) => Promise<Map<string, { itemId: string; name: string; stars: number }[]>>;
+  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number) => Promise<Map<string, DropView[]>>;
   /** Says in the server's channel that a room has been opened (by `host`). Not waited for. */
   announce: (guildId: string, host: string) => void;
   /** Calls `fn` every `ms` until the returned function is called. */
@@ -50,7 +50,7 @@ export const realRoomDeps: RoomDeps = {
   begin: beginRun,
   finish: async (guildId, run, stage, result, ticks) => {
     const found = await finishRun(guildId, run, stage, result, ticks);
-    return new Map([...found].map(([userId, items]) => [userId, items.map((item) => ({ itemId: item.id, name: item.name, stars: item.stars }))]));
+    return new Map([...found].map(([userId, items]) => [userId, items.map(({ item, skill }) => ({ itemId: item.id, name: item.name, stars: item.stars, skill: tmSkillLine(skill) }))]));
   },
   announce: () => {},
   every: (ms, fn) => {
@@ -269,10 +269,10 @@ export class TechnoMagicRoom {
       solo,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null };
+        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [] };
       }),
     };
-    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set }) => ({ id, skin, gear, set })) });
+    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills }) => ({ id, skin, gear, set, uw, skills })) });
     if (typeof raid === 'string') {
       console.error(`A TechnoMagic Raid run made no sense to the sim (${raid}).`);
       this.tell();
@@ -375,7 +375,7 @@ export class TechnoMagicRoom {
     fight.done = true;
     fight.stop();
     const result = fight.raid.result === 'won' ? 'won' : 'lost';
-    let drops = new Map<string, { itemId: string; name: string; stars: number }[]>();
+    let drops = new Map<string, DropView[]>();
     try {
       drops = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.raid.tick);
     } catch (err) {

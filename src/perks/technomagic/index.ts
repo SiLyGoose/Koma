@@ -15,6 +15,15 @@ export const tmAttack = definePerk({
   text: (value) => `TechnoMagic: +${value} ATK`,
 });
 
+/** A unique weapon's ATK (ItemDef.uniqueWeapon): a little over a TechnoMagic weapon's, its own effect besides (the raid's sim/unique.ts). */
+export const uwAttack = definePerk({
+  description: "Unique weapon: how much higher its hero's ATK is in the TechnoMagic Raid (only its own hero wields it).",
+  defaults: { 1: 0.3, 2: 0.3, 3: 0.3, 4: 0.3 },
+  min: 0,
+  max: 10,
+  text: (value) => `Unique weapon: +${value} ATK`,
+});
+
 export const tmHp = definePerk({
   description: "TechnoMagic Raid: how much more HP the hero has.",
   defaults: { 1: 0.05, 2: 0.08, 3: 0.15, 4: 0.25 },

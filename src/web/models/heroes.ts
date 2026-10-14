@@ -4,9 +4,10 @@ import type { RaidClassId } from '../../constants/raid.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { collections } from '../../db.js';
-import { activeSet, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroWearable, heroWorn, raidValue, setLines, type HeroBonus } from '../../lib/game/heroes.js';
+import { activeSet, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus } from '../../lib/game/heroes.js';
 import type { GearPiece } from '../../lib/game/items/equipment.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
+import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, unequipHero } from '../../services/heroes.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot, type Stars, type TmSetId } from '../../types.js';
 
@@ -29,12 +30,16 @@ export interface HeroCopy {
   maxLevel: number;
   masterwork: boolean;
   locked: boolean;
-  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class). */
+  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class), and its additional skill's last. */
   effects: string[];
+  /** TechnoMagic gear: the additional skill this copy came with (the sim's id), or null. */
+  skill: string | null;
   /** A class item: the one class of hero it works on (null: any). */
   class: RaidClassId | null;
-  /** TechnoMagic gear (which only heroes wear). */
+  /** TechnoMagic gear or a unique weapon (which only heroes wear). */
   heroOnly: boolean;
+  /** A unique weapon: the id of the one hero that wields it (null: not one). */
+  uniqueWeapon: string | null;
   /** The id of the member's hero wearing it, or null. */
   hero: string | null;
 }
@@ -58,7 +63,9 @@ export interface HeroView {
   bonus: HeroBonus;
   /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (all four). Null with none. */
   set: { id: TmSetId; pieces: number; active: boolean } | null;
-  /** The same as lines, like "+25% ATK" (and its set's, last). */
+  /** The additional skills of the TechnoMagic gear it wears that work on it (the sim's ids, one for each piece). */
+  skills: string[];
+  /** The same as lines, like "+25% ATK" (then its set's, and its additional skills', last). */
   totals: string[];
 }
 
@@ -71,7 +78,7 @@ export interface HeroesView {
 }
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'busy';
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy';
 
 /** What the hero routes use (the database's, unless a test says otherwise). */
 export interface HeroStore {
@@ -86,7 +93,17 @@ export interface HeroStore {
   unequip: (guildId: string, userId: string, hero: string, slot: HeroSlot | null) => Promise<HeroesView | 'not_found'>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked' | 'tmSkill'>;
+
+/** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
+export function skillLines(skills: readonly string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const id of skills) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return [...counts].flatMap(([id, count]) => {
+    const skill = TM_SKILLS_BY_ID.get(id);
+    return skill ? [`✴️ ${skill.name}${count > 1 ? ` ×${count}` : ''}: ${skill.about}`] : [];
+  });
+}
 
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 'heroes' | 'points'> | null): HeroesView {
@@ -109,31 +126,39 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       maxLevel: REFINE.maxLevel,
       masterwork,
       locked: copy.locked === true,
-      effects: heroItemLines(item, level, masterwork),
+      effects: [...heroItemLines(item, level, masterwork), ...(item.tmDrop && tmSkillLine(copy.tmSkill) ? [`✴️ ${tmSkillLine(copy.tmSkill)}`] : [])],
+      skill: item.tmDrop ? (copy.tmSkill ?? null) : null,
       class: item.class ?? null,
       heroOnly: heroOnly(item),
+      uniqueWeapon: item.uniqueWeapon ?? null,
       hero: worn.get(copy._id) ?? null,
     };
     list.push(view);
     pieces.set(copy._id, { view, piece: { item, level, bonus: masterwork } });
   }
-  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), then by stars.
-  const tier = (copy: HeroCopy): number => (copy.heroOnly ? 5 : copy.stars);
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
+  const tier = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);
   list.sort((a, b) => tier(b) - tier(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   const heroes = HEROES.map((hero): HeroView => {
     const doc = member?.heroes?.[hero.id];
     const equipped = {} as Record<HeroSlot, string | null>;
     const on: GearPiece[] = [];
+    const skilled: { item: GearPiece['item']; skill?: string }[] = [];
+    let unique = false;
     for (const slot of HERO_SLOTS) {
       const found = pieces.get(doc?.equipment?.[slot] ?? '');
-      const fits = found !== undefined && found.view.slot === HERO_SLOT_KIND[slot] && found.view.hero === hero.id;
+      const fits = found !== undefined && found.view.slot === HERO_SLOT_KIND[slot] && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id);
       equipped[slot] = fits ? found.view.id : null;
-      if (fits) on.push(found.piece);
+      // (As the raid counts it: one unique weapon, a second copy of it doing nothing.)
+      if (fits && !(found.view.uniqueWeapon !== null && unique)) on.push(found.piece);
+      if (fits && found.view.uniqueWeapon !== null) unique = true;
+      if (fits) skilled.push({ item: found.piece.item, ...(found.view.skill !== null && { skill: found.view.skill }) });
     }
-    const shares = heroBonus(on, hero.class);
+    const shares = heroBonus(on, hero.class, hero.id);
     const bonus = Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus;
     const set = heroSet(on, hero.class);
+    const skills = heroSkills(skilled, hero.class);
     return {
       id: hero.id,
       name: hero.name,
@@ -143,7 +168,8 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       equipped,
       bonus,
       set: set && { id: set.set, pieces: set.pieces, active: activeSet(set) !== null },
-      totals: [...bonusLines(shares), ...setLines(set, hero.class)],
+      skills,
+      totals: [...bonusLines(shares), ...setLines(set, hero.class), ...skillLines(skills)],
     };
   });
   return { heroes, copies: list, balance: member?.points ?? 0 };

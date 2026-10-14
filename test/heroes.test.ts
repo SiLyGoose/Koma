@@ -4,10 +4,10 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { GROUPS } from '../src/commands/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, validateItems } from '../src/data/items.js';
+import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
-import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, raidValue } from '../src/lib/game/heroes.js';
+import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, pieceBonus, raidValue, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
 import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -62,7 +62,39 @@ test('TechnoMagic gear: a tier of its own (counted as 4-star), never pulled, her
   }
   // The raid's gear goes on heroes too (and on members); the gacha's doesn't go on heroes.
   assert.ok(heroWearable(item('worldbreaker-maul')) && !heroOnly(item('worldbreaker-maul')));
-  assert.ok(ITEMS.filter((one) => !one.raidDrop && !one.tmDrop).every((one) => !heroWearable(one)));
+  assert.ok(ITEMS.filter((one) => !one.raidDrop && !one.tmDrop && one.uniqueWeapon === undefined).every((one) => !heroWearable(one)));
+});
+
+test('unique weapons: one for each hero, heroes only, only its own hero wields it, and the raid is told its tier', () => {
+  assert.deepEqual(UNIQUE_WEAPONS.map((one) => one.uniqueWeapon).sort(), HEROES.map((hero) => hero.id).sort());
+  const exian = item('the-guardian-exian');
+  assert.ok(heroWearable(exian) && heroOnly(exian));
+  assert.ok(wieldedBy(exian, 'clause') && !wieldedBy(exian, 'kirze'));
+  // On its own hero its ATK counts, on another nothing; its lines end with what it does in the raid.
+  assert.ok(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atk > 0);
+  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'kirze').atk, 0);
+  assert.match(heroItemLines(exian, 2).at(-1) ?? '', /^Clause only, ★2: /);
+  // The raid is told its refinement as its tier, and only on its own hero; a second copy does nothing more.
+  const copies = [
+    { _id: 'a', itemId: 'the-guardian-exian', level: 3 },
+    { _id: 'b', itemId: 'the-guardian-exian', level: 5 },
+    { _id: 'c', itemId: 'judgment-edge-elicipira', level: 4 },
+  ];
+  const member: Pick<MemberDoc, 'heroes'> = {
+    heroes: {
+      clause: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b' } },
+      kirze: { boughtAt: new Date(0), equipment: { weapon1: 'c' } },
+    },
+  };
+  const gear = raidGear(copies, member);
+  assert.equal(gear.get('clause')?.uw, 3);
+  assert.equal(gear.get('kirze')?.uw, 4);
+  const alone = raidGear([copies[0]!], { heroes: { clause: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
+  assert.equal(gear.get('clause')?.bonus.atk, alone.get('clause')?.bonus.atk);
+  // Another hero's: refused on the heroes page's model too (it isn't counted).
+  const elsewhere = raidGear(copies, { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
+  assert.equal(elsewhere.get('kirze')?.uw, null);
+  assert.equal(elsewhere.get('kirze')?.bonus.atk, 0);
 });
 
 test('heroes: two weapon slots, two armor slots and a treasure slot', () => {

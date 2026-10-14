@@ -189,15 +189,15 @@ var POINTS = 1e3;
 var share = (points) => Math.min(1, Math.max(0, points / POINTS));
 /** The attack a skill's numbers are written for. */
 var ATK = 1e3;
-/** A defence of this much halves what gets through (twice it: a third, and so on). */
+/** A defense of this much halves what gets through (twice it: a third, and so on). */
 var HALVING = 1e3;
 /** A blocked blow does this much of what it would have. */
 var BLOCKED = .5;
-/** The most of a defence penetration sees past, however much there is (in points). */
+/** The most of a defense penetration sees past, however much there is (in points). */
 var PEN_MOST = 500;
 /**
 * A blow of `amount` of a kind lands on `target`, from one with `pen` points of penetration: dodged (it
-* takes nothing), or what it takes once the target's defence against that kind (less what penetration
+* takes nothing), or what it takes once the target's defense against that kind (less what penetration
 * sees past) has worn it down, and whether it blocked it (then less again). `roll` is the fight's chances (../sim/random.ts).
 */
 function strike(amount, type, target, pen, roll) {
@@ -229,7 +229,7 @@ var HEADS = [
 	"L",
 	"R"
 ];
-/** An attack: its track, when in it its venom sprays and lands (`hit`), and what that takes of whoever it lands on, least to most, before their defence. */
+/** An attack: its track, when in it its venom sprays and lands (`hit`), and what that takes of whoever it lands on, least to most, before their defense. */
 var TRACKS = {
 	spit: {
 		keys: [
@@ -531,6 +531,18 @@ function critting(on) {
 	let more = 0;
 	for (const { crit } of on) more += crit ?? 0;
 	return more;
+}
+/** What these add to a bearer's penetration (points). */
+function piercing(on) {
+	let more = 0;
+	for (const { pen } of on) more += pen ?? 0;
+	return more;
+}
+/** How many times as much defense a bearer of these has. */
+function defending(on) {
+	let times = 1;
+	for (const { defends } of on) times *= defends ?? 1;
+	return times;
 }
 /** A bearer of these can do nothing; is out of the fight altogether. */
 var bound = (on) => on.some((status) => status.binds || status.away);
@@ -855,7 +867,7 @@ function rage(over) {
 	const power = 60 / (20 - over) - 2;
 	return power >= MOST_RAGE_POWER ? MOST_RAGE : exp2(power);
 }
-/** What a blow of a hero's attack takes of the boss, before the boss's defence; and how much harder a critical blow is (before its gear's crit damage). */
+/** What a blow of a hero's attack takes of the boss, before the boss's defense; and how much harder a critical blow is (before its gear's crit damage). */
 var BLOW = 1100;
 //#endregion
 //#region src/technomagic/heroes/kit.ts
@@ -883,12 +895,12 @@ var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
 * fight measures them (a skill's numbers are written for an ATK of 1000, ../combat/damage.ts); crit,
 * attack speed, penetration, CC resist, block and dodge are points (1000: 100%). A first guess at each,
 * by what the game says a class is for:
-* - knight: the most health and defence, and blocks the most;
+* - knight: the most health and defense, and blocks the most;
 * - warrior: as much of everything, standing and hitting, some block and some CC resist;
 * - assassin: bursts of damage, the most crits and the quickest, dodging what it can;
 * - archer: the hardest hitting, and the most penetration;
 * - mechanic: hits again and again from off, a little of everything;
-* - wizard: magic, hitting hard and seeing past defence, and standing magic better than blows;
+* - wizard: magic, hitting hard and seeing past defense, and standing magic better than blows;
 * - priest: heals and shields (by its attack), standing magic well, quick at what it does.
 */
 var CLASS_STATS = {
@@ -1483,7 +1495,7 @@ var BLESSING$1 = {
 /** Heaven's Vengeance: twenty blows, as the light comes down on the boss again and again while she hangs in the air. */
 var BLOWS = 20;
 var FIRST = .7;
-var EVERY = .12;
+var EVERY$1 = .12;
 var STRETCHED = {
 	lhX: .05,
 	lhY: .34,
@@ -1536,7 +1548,7 @@ var VENGEANCE$1 = {
 		})],
 		[3.85, {}]
 	],
-	lands: Array.from({ length: BLOWS }, (_, i) => FIRST + i * EVERY)
+	lands: Array.from({ length: BLOWS }, (_, i) => FIRST + i * EVERY$1)
 };
 //#endregion
 //#region src/technomagic/heroes/fallen-frey/index.ts
@@ -2873,8 +2885,8 @@ var ROLES = {
 		archer: "dps",
 		mechanic: "dps",
 		wizard: "dps",
-		priest: "priest",
-		knight: "knight"
+		priest: "support",
+		knight: "support"
 	},
 	hope: {
 		priest: "support",
@@ -2901,23 +2913,19 @@ function setOf(set, heroClass) {
 	} : null;
 }
 var PERSEVERANCE = {
-	/** A damage dealer's ATK: so much more at once, and `step` more every `every` seconds, `most` times. */
-	atk: .1,
+	/** A damage dealer's DMG: so much more at once, and `step` more every `every` seconds, `most` times. */
+	dmg: .1,
 	step: .015,
 	every: 10,
 	most: 10,
-	/** A priest's heals and shields; a knight's max HP. */
-	heal: .25,
-	hp: .25,
-	/** A knight's block: what its blow back takes (at ATK 1000), and the boss's blows the softer for so long. */
-	strike: 1500,
-	weak: .92,
-	weakFor: 5
+	/** What each support wearing it gives every ally. */
+	atk: .05,
+	defense: .1
 };
 var HOPE = {
 	/** What each support wearing it gives every ally. */
 	atk: .05,
-	defence: .1,
+	defense: .1,
 	/** A knight: what it takes, and the share of what the boss deals every other ally that it takes instead. */
 	taken: .9,
 	covers: .2
@@ -2938,7 +2946,488 @@ var GUARDED = {
 	icon: "⚡"
 };
 //#endregion
+//#region src/technomagic/sim/skills.ts
+/** Each skill's numbers (shares: 0.25 is 25%; points: 1000 is 100%; seconds). */
+var SKILL = {
+	vigor: {
+		dmg: .25,
+		above: .75
+	},
+	persistence: {
+		dmg: .03,
+		every: 15,
+		most: 12
+	},
+	"war-cry": { atk: .05 },
+	whetstone: { critDamage: .1 },
+	champion: {
+		dmg: .025,
+		lasts: 200
+	},
+	berserk: {
+		defense: -.25,
+		atk: .5
+	},
+	fortress: {
+		atk: -.2,
+		defense: .5
+	},
+	aegis: { shield: .25 },
+	mirage: {
+		dodge: 200,
+		heal: .03,
+		wait: 3
+	},
+	fundamentals: { dmg: .25 },
+	vitality: { hp: .25 },
+	overflow: {
+		cooldown: .03,
+		wait: 10
+	},
+	momentum: {
+		atk: .02,
+		most: 20
+	},
+	overdrive: {
+		speed: 1e3,
+		atk: .4
+	},
+	regeneration: {
+		heal: .01,
+		every: 1
+	},
+	steadfast: {
+		taken: .03,
+		most: 8
+	},
+	swiftness: { speed: 250 },
+	"focus-1": {
+		skill: 0,
+		cooldown: .1,
+		every: 10
+	},
+	"focus-2": {
+		skill: 1,
+		cooldown: .1,
+		every: 10
+	},
+	"focus-3": {
+		skill: 2,
+		cooldown: .1,
+		every: 10
+	},
+	"warm-up": { atk: .05 },
+	might: { atk: .25 },
+	"physical-ward": {
+		type: "physical",
+		taken: .2,
+		most: .3,
+		over: 10
+	},
+	"magical-ward": {
+		type: "magical",
+		taken: .2,
+		most: .3,
+		over: 10
+	},
+	bastion: { defense: .09 },
+	ruthless: { critDamage: .5 },
+	piercing: { pen: 250 },
+	precision: { crit: 250 },
+	guard: { block: 250 },
+	parry: {
+		mana: 200,
+		wait: 1
+	},
+	"lone-foe": { atk: .35 },
+	"lone-guard": { defense: .35 },
+	armor: { defense: .25 },
+	"mana-spring": {
+		mana: 500,
+		every: 5
+	},
+	surge: {
+		dmg: .15,
+		lasts: 10,
+		wait: 15
+	},
+	desperation: {
+		atk: .5,
+		below: .3,
+		lasts: 10,
+		wait: 10
+	},
+	mending: {
+		heal: .25,
+		lasts: 5,
+		wait: 10
+	},
+	"iron-wall": {
+		block: 150,
+		more: 200,
+		lasts: 10
+	},
+	tenacity: { control: .15 }
+};
+/** Every additional skill, in the tier list's order. */
+var SKILLS = [
+	{
+		id: "vigor",
+		name: "Vigor",
+		tier: "S",
+		about: "Increases DMG dealt by 25% while HP is above 75%."
+	},
+	{
+		id: "persistence",
+		name: "Persistence",
+		tier: "S",
+		about: "Increases DMG dealt by 3% every 15 seconds (up to 12 times)."
+	},
+	{
+		id: "war-cry",
+		name: "War Cry",
+		tier: "S",
+		about: "Increases ATK of all allies by 5%."
+	},
+	{
+		id: "whetstone",
+		name: "Whetstone",
+		tier: "S",
+		about: "Increases crit DMG of all allies by 10%."
+	},
+	{
+		id: "champion",
+		name: "Champion",
+		tier: "S",
+		about: "At the start of the battle, increases DMG of the ally with the highest ATK by 2.5% for 200 seconds."
+	},
+	{
+		id: "berserk",
+		name: "Berserk",
+		tier: "S",
+		about: "Reduces DEF by 25% and increases ATK by 50%."
+	},
+	{
+		id: "fortress",
+		name: "Fortress",
+		tier: "S",
+		about: "Reduces ATK by 20% and increases DEF by 50%."
+	},
+	{
+		id: "aegis",
+		name: "Aegis",
+		tier: "S",
+		about: "Increases the shields it gives by 25%."
+	},
+	{
+		id: "mirage",
+		name: "Mirage",
+		tier: "S",
+		about: "Increases dodge by 200. On dodging, recovers 3% of max HP (once every 3 seconds)."
+	},
+	{
+		id: "fundamentals",
+		name: "Fundamentals",
+		tier: "S",
+		about: "Increases DMG of normal attacks by 25%."
+	},
+	{
+		id: "vitality",
+		name: "Vitality",
+		tier: "S",
+		about: "Increases max HP by 25%."
+	},
+	{
+		id: "overflow",
+		name: "Overflow",
+		tier: "A",
+		about: "With mana at 100%, reduces every ally’s cooldowns by 3% (once every 10 seconds)."
+	},
+	{
+		id: "momentum",
+		name: "Momentum",
+		tier: "A",
+		about: "Each skill used increases ATK by 2% (up to 20 times)."
+	},
+	{
+		id: "overdrive",
+		name: "Overdrive",
+		tier: "A",
+		about: "Fixes attack speed at 1000 and increases ATK by 40%."
+	},
+	{
+		id: "regeneration",
+		name: "Regeneration",
+		tier: "A",
+		about: "Recovers 1% of max HP every second."
+	},
+	{
+		id: "steadfast",
+		name: "Steadfast",
+		tier: "A",
+		about: "Each skill used reduces DMG taken by 3% (up to 8 times)."
+	},
+	{
+		id: "swiftness",
+		name: "Swiftness",
+		tier: "A",
+		about: "Increases attack speed by 250."
+	},
+	{
+		id: "focus-2",
+		name: "Second Focus",
+		tier: "A",
+		about: "Reduces the second skill’s cooldown by 10% every 10 seconds."
+	},
+	{
+		id: "focus-3",
+		name: "Third Focus",
+		tier: "A",
+		about: "Reduces the third skill’s cooldown by 10% every 10 seconds."
+	},
+	{
+		id: "warm-up",
+		name: "Warm-Up",
+		tier: "B",
+		about: "At the start of the battle, increases ATK by 5%."
+	},
+	{
+		id: "might",
+		name: "Might",
+		tier: "B",
+		about: "Increases ATK by 25%."
+	},
+	{
+		id: "focus-1",
+		name: "First Focus",
+		tier: "B",
+		about: "Reduces the first skill’s cooldown by 10% every 10 seconds."
+	},
+	{
+		id: "physical-ward",
+		name: "Physical Ward",
+		tier: "B",
+		about: "Reduces physical DMG taken by 20%, rising to 30% over the first 10 seconds."
+	},
+	{
+		id: "magical-ward",
+		name: "Magical Ward",
+		tier: "B",
+		about: "Reduces magical DMG taken by 20%, rising to 30% over the first 10 seconds."
+	},
+	{
+		id: "bastion",
+		name: "Bastion",
+		tier: "B",
+		about: "Increases DEF of all allies by 9%."
+	},
+	{
+		id: "ruthless",
+		name: "Ruthless",
+		tier: "B",
+		about: "Increases crit DMG by 50%."
+	},
+	{
+		id: "piercing",
+		name: "Piercing",
+		tier: "B",
+		about: "Increases penetration by 250."
+	},
+	{
+		id: "precision",
+		name: "Precision",
+		tier: "B",
+		about: "Increases crit chance by 250."
+	},
+	{
+		id: "guard",
+		name: "Guard",
+		tier: "B",
+		about: "Increases block by 250."
+	},
+	{
+		id: "parry",
+		name: "Parry",
+		tier: "B",
+		about: "On blocking, recovers 200 mana (once every second)."
+	},
+	{
+		id: "lone-foe",
+		name: "Lone Foe",
+		tier: "C",
+		about: "With one enemy, increases ATK by 35%."
+	},
+	{
+		id: "lone-guard",
+		name: "Lone Guard",
+		tier: "C",
+		about: "With one enemy, increases DEF by 35%."
+	},
+	{
+		id: "armor",
+		name: "Armor",
+		tier: "C",
+		about: "Increases DEF by 25%."
+	},
+	{
+		id: "mana-spring",
+		name: "Mana Spring",
+		tier: "C",
+		about: "Recovers 500 mana every 5 seconds."
+	},
+	{
+		id: "surge",
+		name: "Surge",
+		tier: "F",
+		about: "With mana at 100%, increases DMG dealt by 15% for 10 seconds (once every 15 seconds)."
+	},
+	{
+		id: "desperation",
+		name: "Desperation",
+		tier: "F",
+		about: "With HP below 30%, increases ATK by 50% for 10 seconds (once every 10 seconds)."
+	},
+	{
+		id: "mending",
+		name: "Mending",
+		tier: "F",
+		about: "Using a skill increases the heals and shields it gives by 25% for 5 seconds (once every 10 seconds)."
+	},
+	{
+		id: "iron-wall",
+		name: "Iron Wall",
+		tier: "F",
+		about: "Increases block by 150, and by 200 more for the first 10 seconds."
+	},
+	{
+		id: "tenacity",
+		name: "Tenacity",
+		tier: "F",
+		about: "Reduces how long it is knocked down by 15%."
+	}
+];
+SKILLS.map((skill) => skill.id);
+var BY_ID = new Map(SKILLS.map((skill) => [skill.id, skill]));
+/** How many of each skill a hero has, from those of the pieces it wears (ones this fight doesn't know of are none). */
+function skillsOf(list) {
+	const counts = {};
+	for (const id of (list ?? []).slice(0, 5)) if (typeof id === "string" && BY_ID.has(id)) counts[id] = (counts[id] ?? 0) + 1;
+	return counts;
+}
+/** What some skills leave on a hero for a while (Champion, Surge, Desperation, Mending). */
+var CHAMPION_UP = {
+	name: "Champion",
+	about: "DMG dealt higher.",
+	icon: "👑"
+};
+var SURGE_UP = {
+	name: "Surge",
+	about: "DMG dealt higher.",
+	icon: "⚡"
+};
+var DESPERATION_UP = {
+	name: "Desperation",
+	about: "ATK higher.",
+	icon: "🔥"
+};
+var MENDING_UP = {
+	name: "Mending",
+	about: "Heals and shields stronger.",
+	icon: "💚"
+};
+//#endregion
+//#region src/technomagic/sim/unique.ts
+/** Each weapon's numbers at tiers 1 to 5 (index 0 is tier 1). */
+var EXIAN = {
+	name: "The Guardian, Exian",
+	every: 3,
+	lasts: 15,
+	boost: [
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	]
+};
+var ELICIPIRA = {
+	name: "Judgment Edge, Elicipira",
+	chance: .04,
+	boss: 2,
+	blow: [
+		6e3,
+		7200,
+		8600,
+		1e4,
+		12500
+	]
+};
+var ROSMERTA = {
+	name: "Angel’s Despair, Rosmerta",
+	lasts: 7,
+	heal: [
+		20,
+		24,
+		29,
+		35,
+		42
+	],
+	pen: [
+		240,
+		290,
+		350,
+		420,
+		500
+	]
+};
+/** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
+var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
+var pct = (share) => `${Math.round(share * 100)}%`;
+/** What each hero's weapon does at a tier, as its card and the heroes page say it. */
+var ABOUT = {
+	clause: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
+	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
+	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier) / 1e3)} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`
+};
+EXIAN.name, ELICIPIRA.name, ROSMERTA.name;
+/** Each weapon's picture: its item's (the bot's catalog id, public/gear/items/weapons/). */
+var PICTURES = {
+	clause: "/gear/items/weapons/the-guardian-exian.png",
+	kirze: "/gear/items/weapons/judgment-edge-elicipira.png",
+	"fallen-frey": "/gear/items/weapons/angels-despair-rosmerta.png"
+};
+/** The heroes that have a unique weapon, by id. */
+var UNIQUE_HEROES = Object.keys(ABOUT);
+/** What a hero's unique weapon does at a tier (null: it has none). */
+var uniqueAbout = (hero, tier) => ABOUT[hero]?.(tier) ?? null;
+/** A hero's unique weapon as it fights: its tier (null: none, or not its own, or one this fight doesn't know). */
+function uniqueOf(hero, tier) {
+	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
+	return Math.min(5, Math.max(1, Math.floor(tier)));
+}
+/** What Exian gives Clause for a while, and what Rosmerta gives Fallen Frey. */
+var EXIAN_UP = {
+	name: "The Guardian, Exian",
+	about: "ATK and defense higher.",
+	icon: "🛡️",
+	image: PICTURES.clause
+};
+var ROSMERTA_UP = {
+	name: "Angel’s Despair, Rosmerta",
+	about: "Sees past more of the boss’s defense.",
+	icon: "🖤",
+	image: PICTURES["fallen-frey"]
+};
+//#endregion
 //#region src/technomagic/sim/fight.ts
+/** The additional skills that come round again every so many seconds: each first comes once that long has gone. */
+var EVERY = [
+	"regeneration",
+	"mana-spring",
+	"focus-1",
+	"focus-2",
+	"focus-3"
+];
 /** What knocks a hero down: shown on its card, with how long it has left. */
 var KNOCKED = {
 	name: "Knocked down",
@@ -2977,12 +3466,32 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let mended = 0;
 	let mendShown = 0;
 	const party = [];
-	const fighters = heroes.map(({ def: hero, skin = 0, gear = {}, set: wearing = null }, index) => {
+	const fighters = heroes.map(({ def: hero, skin = 0, gear = {}, set: wearing = null, uw = null, skills: worn = null }, index) => {
 		const set = setOf(wearing, hero.class);
+		const tier = uniqueOf(hero.id, uw);
+		const skills = skillsOf(worn);
+		const n = (id) => skills[id] ?? 0;
 		const stats = geared(hero.stats, gear);
-		if (set?.id === "perseverance" && set.role === "knight") stats.hp *= 1 + PERSEVERANCE.hp;
 		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY.pen;
 		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY.resist;
+		stats.hp *= 1 + SKILL.vitality.hp * n("vitality");
+		stats.atk *= Math.max(0, 1 + SKILL.berserk.atk * n("berserk") + SKILL.fortress.atk * n("fortress") + SKILL.overdrive.atk * n("overdrive") + SKILL["warm-up"].atk * n("warm-up") + SKILL.might.atk * n("might") + SKILL["lone-foe"].atk * n("lone-foe"));
+		const sturdier = Math.max(0, 1 + SKILL.berserk.defense * n("berserk") + SKILL.fortress.defense * n("fortress") + SKILL["lone-guard"].defense * n("lone-guard") + SKILL.armor.defense * n("armor"));
+		stats.physical *= sturdier;
+		stats.magical *= sturdier;
+		stats.crit += SKILL.precision.crit * n("precision");
+		stats.pen += SKILL.piercing.pen * n("piercing");
+		stats.speed = n("overdrive") > 0 ? SKILL.overdrive.speed : stats.speed + SKILL.swiftness.speed * n("swiftness");
+		const block = SKILL.guard.block * n("guard") + SKILL["iron-wall"].block * n("iron-wall");
+		const dodge = SKILL.mirage.dodge * n("mirage");
+		stats.block = {
+			physical: stats.block.physical + block,
+			magical: stats.block.magical + block
+		};
+		stats.dodge = {
+			physical: stats.dodge.physical + dodge,
+			magical: stats.dodge.magical + dodge
+		};
 		const motion = motionOf(hero, skin);
 		const name = (hero.assets.skins[skin] ?? hero.assets.skins[0])?.name ?? hero.name;
 		return {
@@ -2991,9 +3500,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			name,
 			def: hero,
 			stats,
-			critTimes: 2 + (gear.critDamage ?? 0),
-			healTimes: (1 + (gear.heal ?? 0)) * (set?.id === "perseverance" && set.role === "priest" ? 1 + PERSEVERANCE.heal : 1),
+			critTimes: 2 + (gear.critDamage ?? 0) + SKILL.ruthless.critDamage * n("ruthless"),
+			healTimes: 1 + (gear.heal ?? 0),
 			set,
+			unique: tier === null ? null : {
+				tier,
+				casts: 0
+			},
+			skills,
+			stacks: {
+				momentum: 0,
+				steadfast: 0
+			},
+			waits: Object.fromEntries(EVERY.filter((id) => n(id) > 0).map((id) => [id, SKILL[id].every])),
 			controlTimes: 1 + (gear.control ?? 0),
 			manaPerAttack: 60 * (1 + (gear.manaAttack ?? 0)),
 			manaRegen: 100 * (1 + (gear.manaRegen ?? 0)),
@@ -3084,14 +3603,31 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (!aim || !field.includes(aim) || away(aim.statuses)) aim = anyone();
 		return aim;
 	};
-	/** Heroes on the field, standing and in the fight, with a set's `role` (each support of Hope's gives every ally more). */
+	/** Heroes on the field, standing and in the fight, with a set's `role` (each support of Hope's or Perseverance's gives every ally more). */
 	const wearing = (id, role) => field.filter((on) => on.hp > 0 && !away(on.statuses) && on.set?.id === id && on.set.role === role);
-	/** How many times as hard a hero hits for its sets (Perseverance's damage dealer, growing as the fight goes on; every Hope support's on the field). */
-	const atkTimes = (by) => {
-		return (1 + (by.set?.id === "perseverance" && by.set.role === "dps" ? PERSEVERANCE.atk + PERSEVERANCE.step * Math.min(PERSEVERANCE.most, Math.floor(elapsed / PERSEVERANCE.every)) : 0)) * (1 + HOPE.atk * wearing("hope", "support").length);
+	/** How many of an additional skill the heroes on the field, standing and in the fight, have between them (one that gives every ally something). */
+	const among = (id) => field.reduce((count, on) => count + (on.hp > 0 && !away(on.statuses) ? on.skills[id] ?? 0 : 0), 0);
+	/** How many of an additional skill a hero has. */
+	const has = (fighter, id) => fighter.skills[id] ?? 0;
+	const bears = (fighter, name) => fighter.statuses.some((status) => status.name === name);
+	/**
+	* How many times its ATK a hero's blows, heals and shields go by, for now: every Hope and Perseverance support
+	* on the field and every War Cry among them; and its own Momentum's stacks and Desperation.
+	*/
+	const atkTimes = (by) => (1 + HOPE.atk * wearing("hope", "support").length + PERSEVERANCE.atk * wearing("perseverance", "support").length + SKILL["war-cry"].atk * among("war-cry")) * (1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum")) * (bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1);
+	/**
+	* How many times as much DMG a hero's blows deal besides (not its heals): Perseverance's damage dealer, growing as
+	* the fight goes on; and its own Vigor while its health is high, Persistence growing, and Fundamentals on its attack.
+	*/
+	const dmgTimes = (by) => {
+		const set = by.set?.id === "perseverance" && by.set.role === "dps" ? PERSEVERANCE.dmg + PERSEVERANCE.step * Math.min(PERSEVERANCE.most, Math.floor(elapsed / PERSEVERANCE.every)) : 0;
+		const vigor = by.hp > by.stats.hp * SKILL.vigor.above ? SKILL.vigor.dmg * has(by, "vigor") : 0;
+		const persistence = SKILL.persistence.dmg * has(by, "persistence") * Math.min(SKILL.persistence.most, Math.floor(elapsed / SKILL.persistence.every));
+		const fundamentals = attacking === by ? SKILL.fundamentals.dmg * has(by, "fundamentals") : 0;
+		return (1 + set) * (1 + vigor + persistence + fundamentals);
 	};
-	/** How many times as much a heal or a shield gives for the hero whose it is (its attack and its gear; one that is no hero's: as much as it says). */
-	const byAttack = (by) => by ? by.stats.atk / ATK * atkTimes(by) * by.healTimes : 1;
+	/** How many times as much a heal or a shield gives for the hero whose it is (its attack, its gear and its Mending; one that is no hero's: as much as it says). */
+	const byAttack = (by) => by ? by.stats.atk / ATK * atkTimes(by) * by.healTimes * (bears(by, MENDING_UP.name) ? 1 + SKILL.mending.heal * has(by, "mending") : 1) : 1;
 	function end(how) {
 		if (result) return;
 		result = how;
@@ -3140,7 +3676,80 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		}
 		fighter.cooldowns[index] = ability.cooldown;
 		fighter.mana -= ability.cost * SECTION;
+		uniqueCast(fighter);
+		skillCast(fighter);
 		return true;
+	}
+	/** A hero has used a skill: its additional skills that count them (Momentum, Steadfast) or come of it (Mending). */
+	function skillCast(fighter) {
+		if (has(fighter, "momentum") > 0) fighter.stacks.momentum = Math.min(SKILL.momentum.most, fighter.stacks.momentum + 1);
+		if (has(fighter, "steadfast") > 0) fighter.stacks.steadfast = Math.min(SKILL.steadfast.most, fighter.stacks.steadfast + 1);
+		if (due(fighter, "mending", SKILL.mending.wait)) put(fighter.statuses, {
+			name: MENDING_UP.name,
+			left: SKILL.mending.lasts,
+			shown: MENDING_UP
+		});
+	}
+	/** Whether a hero's additional skill that waits between times comes now (it has it, and its wait is over): then it waits again, `again` seconds. */
+	function due(fighter, id, again) {
+		if (has(fighter, id) === 0 || (fighter.waits[id] ?? 0) > 0) return false;
+		fighter.waits[id] = again;
+		return true;
+	}
+	/** A step's time passes for a hero's additional skills: their waits run down, and what comes round again, or comes of how it stands, comes (only on the field, standing and in the fight). */
+	function skillTick(fighter, dt) {
+		const { waits } = fighter;
+		for (const id of Object.keys(waits)) waits[id] = waits[id] - dt;
+		if (!field.includes(fighter) || fighter.hp <= 0 || away(fighter.statuses)) return;
+		const n = (id) => has(fighter, id);
+		const full = fighter.mana >= MAX_MANA;
+		if (due(fighter, "regeneration", SKILL.regeneration.every)) sim.heal(fighter, SKILL.regeneration.heal * n("regeneration") * fighter.stats.hp);
+		if (due(fighter, "mana-spring", SKILL["mana-spring"].every)) fighter.mana = Math.min(MAX_MANA, fighter.mana + SKILL["mana-spring"].mana * n("mana-spring"));
+		for (const id of [
+			"focus-1",
+			"focus-2",
+			"focus-3"
+		]) {
+			const { skill, cooldown, every } = SKILL[id];
+			const ability = fighter.def.abilities[skill];
+			if (ability && due(fighter, id, every)) fighter.cooldowns[skill] = Math.max(0, fighter.cooldowns[skill] - ability.cooldown * cooldown * n(id));
+		}
+		if (full && due(fighter, "overflow", SKILL.overflow.wait)) for (const ally of field) ally.cooldowns = ally.cooldowns.map((left, i) => Math.max(0, left - (ally.def.abilities[i]?.cooldown ?? 0) * SKILL.overflow.cooldown * n("overflow")));
+		if (full && due(fighter, "surge", SKILL.surge.wait)) put(fighter.statuses, {
+			name: SURGE_UP.name,
+			left: SKILL.surge.lasts,
+			deals: 1 + SKILL.surge.dmg * n("surge"),
+			shown: SURGE_UP
+		});
+		if (fighter.hp < fighter.stats.hp * SKILL.desperation.below && due(fighter, "desperation", SKILL.desperation.wait)) put(fighter.statuses, {
+			name: DESPERATION_UP.name,
+			left: SKILL.desperation.lasts,
+			shown: DESPERATION_UP
+		});
+	}
+	/** A hero wielding its own unique weapon has used a skill (./unique.ts): Clause's every third, and Fallen Frey's every one. */
+	function uniqueCast(fighter) {
+		const unique = fighter.unique;
+		if (!unique) return;
+		unique.casts++;
+		if (fighter.id === "clause" && unique.casts % EXIAN.every === 0) {
+			const boost = 1 + atTier(EXIAN.boost, unique.tier);
+			put(fighter.statuses, {
+				name: EXIAN_UP.name,
+				left: EXIAN.lasts,
+				deals: boost,
+				defends: boost,
+				shown: EXIAN_UP
+			});
+		} else if (fighter.id === "fallen-frey") {
+			sim.heal(fighter, atTier(ROSMERTA.heal, unique.tier), fighter);
+			put(fighter.statuses, {
+				name: ROSMERTA_UP.name,
+				left: ROSMERTA.lasts,
+				pen: atTier(ROSMERTA.pen, unique.tier),
+				shown: ROSMERTA_UP
+			});
+		}
 	}
 	/** What comes of the moves every hero has, as each part lands (unless its own part says otherwise). */
 	const common = {
@@ -3254,7 +3863,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
 			const critical = roll() < share(points) + crit + critting(by.statuses);
-			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * attack * dealing(by.statuses) * (critical ? by.critTimes : 1), type, foe.def.stats, pen + pierce, roll);
+			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone");
+			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1), type, foe.def.stats, pen + pierce + piercing(by.statuses), roll);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -3279,6 +3889,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				for (const fighter of fighters) fighter.part.struck?.();
 				foe.part.struck?.(by, dealt);
 			}
+			if (counted && foe.hp > 0 && by.id === "kirze" && by.unique && roll() < ELICIPIRA.chance) {
+				const was = attacking;
+				attacking = null;
+				sim.hit(by, atTier(ELICIPIRA.blow, by.unique.tier) * ELICIPIRA.boss, false);
+				attacking = was;
+			}
 			if (foe.hp > 0) return;
 			sim.stun(1, { down: true });
 			foe.part.beaten?.();
@@ -3298,7 +3914,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		},
 		shield(fighter, amount, seconds = Infinity, by) {
 			if (fighter.hp <= 0) return;
-			const given = amount * byAttack(by) * (foe.part.shielding?.() ?? 1);
+			const given = amount * byAttack(by) * (by ? 1 + SKILL.aegis.shield * has(by, "aegis") : 1) * (foe.part.shielding?.() ?? 1);
 			fighter.shield += given;
 			fighter.shieldLeft = Math.max(fighter.shieldLeft, seconds);
 			if (by) by.healed += given;
@@ -3307,11 +3923,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		hurt(target, amount, blockable = true) {
 			if (target.hp <= 0 || away(target.statuses) || result) return 0;
 			const type = foe.def.stats.deals;
-			const guarded = 1 + HOPE.defence * wearing("hope", "support").length;
+			const guarded = (1 + HOPE.defense * wearing("hope", "support").length + PERSEVERANCE.defense * wearing("perseverance", "support").length + SKILL.bastion.defense * among("bastion")) * defending(target.statuses);
+			const walled = elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0;
 			const stands = {
 				...target.stats,
 				physical: target.stats.physical * guarded,
-				magical: target.stats.magical * guarded
+				magical: target.stats.magical * guarded,
+				block: {
+					physical: target.stats.block.physical + walled,
+					magical: target.stats.block.magical + walled
+				}
 			};
 			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210), type, blockable ? stands : {
 				...stands,
@@ -3325,6 +3946,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					amount: 0,
 					type: "dodged"
 				});
+				if (due(target, "mirage", SKILL.mirage.wait)) sim.heal(target, SKILL.mirage.heal * has(target, "mirage") * target.stats.hp);
 				return 0;
 			}
 			events.push({
@@ -3333,6 +3955,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				blocked
 			});
 			let dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1) * (target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1);
+			dealt *= 1 - Math.min(.9, SKILL.steadfast.taken * target.stacks.steadfast * has(target, "steadfast"));
+			const ward = type === "physical" ? SKILL["physical-ward"] : SKILL["magical-ward"];
+			const warded = has(target, type === "physical" ? "physical-ward" : "magical-ward");
+			if (warded > 0) dealt *= 1 - Math.min(.9, warded * (ward.taken + (ward.most - ward.taken) * Math.min(1, elapsed / ward.over)));
 			const cover = target.def.class === "knight" ? void 0 : wearing("hope", "knight").find((knight) => knight !== target);
 			if (cover) {
 				const covered = dealt * HOPE.covers;
@@ -3382,15 +4008,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * lost / target.stats.hp);
 			if (blocked) {
 				target.part.blocked?.();
-				if (target.set?.id === "perseverance" && target.set.role === "knight" && target.hp > 0) {
-					sim.hit(target, PERSEVERANCE.strike, false);
-					put(foe.statuses, {
-						name: "Perseverance",
-						left: PERSEVERANCE.weakFor,
-						deals: PERSEVERANCE.weak,
-						shown: "slow"
-					});
-				}
+				if (target.hp > 0 && due(target, "parry", SKILL.parry.wait)) target.mana = Math.min(MAX_MANA, target.mana + SKILL.parry.mana * has(target, "parry"));
 			}
 			return dealt;
 		},
@@ -3415,9 +4033,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		knock(fighter, seconds) {
 			if (fighter.hp <= 0 || away(fighter.statuses) || fighter.statuses.some((status) => status.guards)) return;
 			stagger(fighter);
+			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity"));
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share(fighter.stats.resist)),
+				left: seconds * (1 - share(fighter.stats.resist)) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});
@@ -3516,6 +4135,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				mix(fighter.shield);
 				mix(fighter.dealt);
 				mix(fighter.statuses.length);
+				mix(fighter.stacks.momentum + fighter.stacks.steadfast);
 				mix(fighter.doing ? fighter.doing.t : -1);
 				for (const left of fighter.cooldowns) mix(left);
 			}
@@ -3537,6 +4157,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				wear(fighter.statuses, dt);
 				fighter.shieldLeft = Math.max(0, fighter.shieldLeft - dt);
 				if (fighter.shieldLeft <= 0) fighter.shield = 0;
+				skillTick(fighter, dt);
 				fighter.part.tick?.(dt);
 				if (result) return;
 			}
@@ -3649,6 +4270,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			shown: GUARDED
 		});
 	}
+	const champions = fighters.reduce((count, fighter) => count + has(fighter, "champion"), 0);
+	if (champions > 0) {
+		const strongest = fighters.reduce((best, fighter) => !best || fighter.stats.atk > best.stats.atk ? fighter : best, null);
+		if (strongest) put(strongest.statuses, {
+			name: CHAMPION_UP.name,
+			left: SKILL.champion.lasts,
+			deals: 1 + SKILL.champion.dmg * champions,
+			shown: CHAMPION_UP
+		});
+	}
 	for (const fighter of fighters) fighter.part = fighter.def.join(sim, fighter);
 	for (const fighter of raid ? fighters : first.map((index) => fighters[index])) if (fighter && !field.includes(fighter)) stand(fighter);
 	if (field.length === 0 && fighters[0]) stand(fighters[0]);
@@ -3656,13 +4287,24 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 4;
+var SIM_VERSION = 6;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 var MOST_INPUTS = 2e4;
 var MOST_STAGE = 8;
+/** The heroes that have a unique weapon, by id; and what one's does at a tier (1 to 5), as the bot says it: null for a hero with none. */
+var UNIQUE_WEAPON_HEROES = UNIQUE_HEROES;
+var uniqueWeaponText = (hero, tier) => uniqueAbout(hero, tier);
+/** Every additional skill a piece of TechnoMagic gear may come with (one, rolled as it drops: each as likely); and the most a hero has. */
+var TM_SKILLS = SKILLS.map(({ id, name, tier, about }) => ({
+	id,
+	name,
+	tier,
+	about
+}));
+var MOST_TM_SKILLS = 5;
 /** The heroes and bosses there are, by id, and how many skins each hero has. */
 var HERO_SKINS = Object.fromEntries(HEROES.map((hero) => [hero.id, hero.assets.skins.length]));
 var BOSS_IDS = BOSSES.map((boss) => boss.id);
@@ -3718,11 +4360,14 @@ function startRaid(run) {
 		if (!def || !whole(hero.skin, def.assets.skins.length)) return "hero";
 		const gear = {};
 		for (const [stat, n] of Object.entries(hero.gear)) if (Number.isFinite(n)) gear[stat] = n;
+		const skills = Array.isArray(hero.skills) ? hero.skills.filter((id) => typeof id === "string") : [];
 		entries.push({
 			def,
 			skin: hero.skin,
 			gear,
-			set: typeof hero.set === "string" ? hero.set : null
+			set: typeof hero.set === "string" ? hero.set : null,
+			uw: typeof hero.uw === "number" ? hero.uw : null,
+			skills
 		});
 	}
 	const sim = makeSim({
@@ -3796,4 +4441,4 @@ function replay(run, rawInputs, pageSums = []) {
 	};
 }
 //#endregion
-export { BOSS_IDS, HERO_SKINS, MOST_INPUTS, MOST_STAGE, MOST_TICKS, SIM_VERSION, STEP_SECONDS, readInputs, replay, startRaid };
+export { BOSS_IDS, HERO_SKINS, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, uniqueWeaponText };

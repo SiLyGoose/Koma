@@ -13,6 +13,8 @@ export const gachaText = {
   author: (name: string) => `${name} pulled`,
   /** The same, for a pull from the limited banner. `banner` is its name. */
   authorLimited: (name: string, banner: string) => `${name} pulled from ${banner}`,
+  /** The same, for a pull from the Hero Item banner. */
+  authorHero: (name: string) => `${name} pulled from the Hero Item banner`,
   /** The message the shooting star plays in, before the result. */
   pullingTitle: 'A star is falling...',
   pulling: (user: string) => `${user} makes a wish...`,
@@ -29,6 +31,8 @@ export const gachaText = {
   pityField: (stars: string) => `Pity (${stars})`,
   /** The same field for a pull from the limited banner, which counts its own. */
   pityFieldLimited: (stars: string) => `Limited pity (${stars})`,
+  /** The same for the Hero Item banner, whose top tier is the heroes' unique weapons. */
+  pityFieldHero: (stars: string) => `Hero Item pity (${stars})`,
   pityProgress: (count: string, hardPity: string) => `${count} / ${hardPity}`,
   /** Field for the second item a pull gave for nothing (Pot of Greed); its value is the item's line. */
   extraField: 'Pot of Greed drew another',
@@ -36,9 +40,9 @@ export const gachaText = {
   multiExtraLine: (line: string) => `+ ${line}`,
   footerNew: 'New item!',
   footerOwned: (count: number) => `You now own ${count}`,
-  /** When the words after the command aren't "multi", "limited" or "banner". */
+  /** When the words after the command aren't "multi", "limited", "hero" or "banner". */
   usage: (p: string) =>
-    `Use \`${p}gacha\` for one pull, or \`${p}gacha multi\` for ${MULTI_PULLS} pulls at once. Add \`limited\` to pull from the limited banner; \`${p}gacha banner\` shows what is on it.`,
+    `Use \`${p}gacha\` for one pull, or \`${p}gacha multi\` for ${MULTI_PULLS} pulls at once. Add \`limited\` to pull from the limited banner (\`${p}gacha banner\` shows what is on it), or \`hero\` to pull from the Hero Item banner, for the heroes' unique weapons.`,
   /** A pull from the limited banner while it isn't open: none set, one on its way, and one that is over. */
   limitedNone: "There's no limited banner right now.",
   limitedOpens: (unix: number) => `The limited banner opens <t:${unix}:R>.`,

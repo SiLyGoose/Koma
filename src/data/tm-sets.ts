@@ -21,7 +21,8 @@ export interface TmSet {
   effects: Partial<Record<RaidClassId, string>>;
 }
 
-const PERSEVERANCE_DPS = '+10% ATK, and another +1.5% every 10 seconds (up to +25% after 100 seconds)';
+const PERSEVERANCE_DPS = '+10% DMG, and another +1.5% every 10 seconds (up to +25% after 100 seconds)';
+const PERSEVERANCE_SUPPORT = 'every ally +5% ATK and +10% defence (stacking with every other hero wearing it so)';
 const HOPE_SUPPORT = 'every ally +5% ATK and +10% defence (stacking with every other hero wearing it so)';
 const AUTHORITY_DPS = '+500 penetration from the start of the fight';
 const AUTHORITY_SUPPORT = '+2 mana sections at the start, and the ally with the highest ATK can’t be knocked down for 15 seconds';
@@ -38,8 +39,8 @@ export const TM_SETS: readonly TmSet[] = [
       archer: PERSEVERANCE_DPS,
       mechanic: PERSEVERANCE_DPS,
       wizard: PERSEVERANCE_DPS,
-      priest: '+25% healing, and shields 25% stronger',
-      knight: '+25% max HP; each block strikes back at the boss and leaves it hitting 8% softer for 5 seconds',
+      priest: PERSEVERANCE_SUPPORT,
+      knight: PERSEVERANCE_SUPPORT,
     },
   },
   {

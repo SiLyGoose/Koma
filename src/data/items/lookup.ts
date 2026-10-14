@@ -12,10 +12,13 @@ export function itemsByStars(stars: Stars): ItemDef[] {
   return ITEMS.filter((item) => item.stars === stars);
 }
 
-/** The items of a star tier the standard banner can pull: all of them but the raid drops, the TechnoMagic gear and the limited items. */
+/** The items of a star tier the standard banner can pull: all of them but the raid drops, the TechnoMagic gear, the limited items and the unique weapons. */
 export function gachaItems(stars: Stars): ItemDef[] {
-  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.tmDrop && !item.limited);
+  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.tmDrop && !item.limited && item.uniqueWeapon === undefined);
 }
+
+/** The heroes' unique weapons (ItemDef.uniqueWeapon): the Hero Item banner's pity tier, each as likely. */
+export const UNIQUE_WEAPONS: readonly ItemDef[] = ITEMS.filter((item) => item.uniqueWeapon !== undefined);
 
 /** The limited banner's featured items (LIMITED_BANNER.featured), in its order. */
 export function featuredItems(): ItemDef[] {

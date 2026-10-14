@@ -1,12 +1,12 @@
 import { CONFIG, STARS } from '../../config.js';
 import { MULTI_PULLS, PITY_STARS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { featuredItems, LIMITED_BANNER } from '../../data/items.js';
+import { featuredItems, LIMITED_BANNER, UNIQUE_WEAPONS } from '../../data/items.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { canUseItem, gearEffects, itemEffectiveness } from '../../lib/game/items/equipment.js';
 import { guaranteeChoices, ownTreasures, topChance } from '../../lib/game/items/gacha.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
-import { guaranteePick, pullGacha, pullMulti, setGuaranteePick, type PulledItem } from '../../services/economy/index.js';
+import { guaranteePick, isGuaranteed, pityCount, pullGacha, pullMulti, setGuaranteePick, type PulledItem } from '../../services/economy/index.js';
 import { resolveGear } from '../../services/items/gear.js';
 import type { BannerId, ItemDef, Slot, Stars } from '../../types.js';
 
@@ -25,6 +25,8 @@ export interface BannerItem {
   stars: Stars;
   slot: Slot;
   description: string;
+  /** A unique weapon: the id of the one hero that wields it (null: not one). */
+  uniqueWeapon: string | null;
 }
 
 /** The limited banner (data/items/banner.ts), on either banner's view so the page knows whether to offer it. */
@@ -41,11 +43,18 @@ export interface LimitedBanner {
   featuredChance: number;
 }
 
+/** The Hero Item banner (always open): its top-tier items are the heroes' unique weapons, each as likely, and it has no guarantee. */
+export interface HeroBanner {
+  /** Its unique weapons. */
+  featured: BannerItem[];
+}
+
 /** GET /api/gacha: what a pull costs the member, and where their pity stands on a banner. */
 export interface BannerView {
   /** The banner this is the view of: `pity` and `guaranteed` are that banner's. */
   banner: BannerId;
   limited: LimitedBanner;
+  hero: HeroBanner;
   /** One pull in points, after their gear (a pull paid with a komaToken costs none). */
   cost: number;
   /** One pull in points without gear. */
@@ -94,6 +103,8 @@ export interface BannerPull {
   count: number;
   /** Someone else's exclusive item: the share of its effects this member gets (null when it's theirs to use). */
   borrowed: number | null;
+  /** A unique weapon: the id of the one hero that wields it (null: not one). */
+  uniqueWeapon: string | null;
 }
 
 /** POST /api/gacha/pull: what came out, what it was paid with, and the banner as it stands after. */
@@ -117,7 +128,7 @@ export interface GachaStore {
   pick: (guildId: string, userId: string, banner: BannerId, itemId: string | null) => Promise<BannerView | 'not_found'>;
 }
 
-const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description });
+const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description, uniqueWeapon: item.uniqueWeapon ?? null });
 
 /** The limited banner as it stands now. */
 export function limitedBanner(now: number = Date.now()): LimitedBanner {
@@ -150,6 +161,7 @@ const pulled = (userId: string, { item, isNew, count }: PulledItem): BannerPull 
   isNew,
   count,
   borrowed: canUseItem(item, userId) ? null : itemEffectiveness(item, userId),
+  uniqueWeapon: item.uniqueWeapon ?? null,
 });
 
 async function bannerView(guildId: string, userId: string, banner: BannerId): Promise<BannerView> {
@@ -157,21 +169,22 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
   const { softStart, hardPity } = CONFIG.gacha.pity;
   // As pullMany counts it: only while pity is on and the top tier can be pulled at all.
   const pityOn = hardPity > 0 && topChance(1) > 0;
-  const limited = banner === 'limited';
-  const [own] = limited ? [] : ownTreasures(userId);
+  // Only the standard banner's guarantee gives their own treasure.
+  const [own] = banner === 'standard' ? ownTreasures(userId) : [];
   const brief = (item: ItemDef) => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot });
   const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
   return {
     banner,
     limited: limitedBanner(),
+    hero: { featured: UNIQUE_WEAPONS.map(bannerItem) },
     cost: pullCost(CONFIG.gacha.cost, gear),
     baseCost: CONFIG.gacha.cost,
     multi: MULTI_PULLS,
     balance: member?.points ?? 0,
     tokens: member?.tokens ?? 0,
     topStars: PITY_STARS,
-    pity: pityOn ? { count: (limited ? member?.limitedPity : member?.pity) ?? 0, softStart, hardPity } : null,
-    guaranteed: (limited ? member?.limitedGuaranteed : member?.guaranteed) ?? false,
+    pity: pityOn ? { count: pityCount(member, banner), softStart, hardPity } : null,
+    guaranteed: isGuaranteed(member, banner),
     own: own ? brief(own) : null,
     choices: guaranteeChoices(userId, banner).map(brief),
     pick: guaranteePick(member, userId, banner),

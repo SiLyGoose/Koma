@@ -1,18 +1,37 @@
 // Built from Koma-UI's src/technomagic/sim/ by scripts/build-sim.mjs: don't edit it here.
-export declare const SIM_VERSION = 4;
+export declare const SIM_VERSION = 6;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 export declare const MOST_INPUTS = 20000;
 export declare const MOST_STAGE: number;
-/** A hero in a raid: its id, the index of its skin, what its gear gives it (the bot's HeroBonus), and the TechnoMagic set whose effect it has (all four pieces worn), or none. */
+/**
+ * A hero in a raid: its id, the index of its skin, what its gear gives it (the bot's HeroBonus), the TechnoMagic
+ * set whose effect it has (all four pieces worn), or none, its own unique weapon's tier (its refinement, 1
+ * to 5), or none, and the additional skill of each piece of TechnoMagic gear it wears (TM_SKILLS' ids).
+ */
 export interface RunHero {
     id: string;
     skin: number;
     gear: Readonly<Record<string, number>>;
     set?: string | null;
+    uw?: number | null;
+    skills?: readonly string[] | null;
 }
+/** The heroes that have a unique weapon, by id; and what one's does at a tier (1 to 5), as the bot says it: null for a hero with none. */
+export declare const UNIQUE_WEAPON_HEROES: readonly string[];
+export declare const uniqueWeaponText: (hero: string, tier: number) => string | null;
+/** One of TechnoMagic gear's additional skills: its id, its name, its tier on the tier list (S down to F), and what it does. */
+export interface TmSkill {
+    id: string;
+    name: string;
+    tier: string;
+    about: string;
+}
+/** Every additional skill a piece of TechnoMagic gear may come with (one, rolled as it drops: each as likely); and the most a hero has. */
+export declare const TM_SKILLS: readonly TmSkill[];
+export declare const MOST_TM_SKILLS: number;
 /** A raid as the bot gave it to the pages: the boss, the seed, the stage, its heroes in order, and whether it is fought alone (the boss easier). */
 export interface Run {
     boss: string;

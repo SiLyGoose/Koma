@@ -46,7 +46,7 @@ import { slothDefense } from './items/sloth-defense.js';
 import { smart } from './items/smart.js';
 import { stackosaurus } from './items/stackosaurus.js';
 import { wheelSpin } from './wheel-spin/index.js';
-import { tmAttack, tmBlock, tmCrit, tmCritDamage, tmDefense, tmDodge, tmHeal, tmHp, tmManaAttack, tmManaRegen, tmPen, tmResist, tmSpeed } from './technomagic/index.js';
+import { tmAttack, tmBlock, tmCrit, tmCritDamage, tmDefense, tmDodge, tmHeal, tmHp, tmManaAttack, tmManaRegen, tmPen, tmResist, tmSpeed, uwAttack } from './technomagic/index.js';
 import type { Stars } from '../types.js';
 import { registerPerks } from './stats.js';
 
@@ -133,6 +133,8 @@ export const EFFECTS = {
   tmHeal,
   tmManaAttack,
   tmManaRegen,
+  // The heroes' unique weapons (their own effects are the raid's).
+  uwAttack,
   // Thoccy Keyboard.
   robStreak,
   robStreakCap,

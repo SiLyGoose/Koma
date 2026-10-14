@@ -27,7 +27,7 @@ import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, rollMissingTmSkills, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -126,6 +126,10 @@ async function main(): Promise<void> {
   // Every start: turns copies of items taken out of the catalog into the raid drops that replace them (see retireItems).
   const retired = await retireItems();
   if (retired > 0) console.log(`Retired items: turned ${retired} copy(ies) into the raid drop that replaces them.`);
+
+  // Every start: gives TechnoMagic copies without an additional skill one (see rollMissingTmSkills). After retiring items, which may make some.
+  const skilled = await rollMissingTmSkills();
+  if (skilled > 0) console.log(`TechnoMagic skills: rolled an additional skill for ${skilled} copy(ies) that had none.`);
 
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).

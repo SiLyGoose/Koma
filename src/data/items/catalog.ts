@@ -28,6 +28,9 @@ import type { ItemDef } from '../../types.js';
  *
  * An item marked `tmDrop: true` is TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid,
  * and only its heroes wear it (its perks are theirs: perks/technomagic/).
+ *
+ * An item with `uniqueWeapon: '<hero id>'` is that hero's unique weapon: only pulled from the Hero Item
+ * banner, and only that hero wields it.
  */
 export const ITEMS: readonly ItemDef[] = [
   // 1 star
@@ -653,5 +656,37 @@ export const ITEMS: readonly ItemDef[] = [
     class: 'warrior',
     tmDrop: true,
     tmSet: 'perseverance',
+  },
+
+  // The heroes' unique weapons (uniqueWeapon): King's Raid's own, one for each TechnoMagic Raid hero, only pulled
+  // from the Hero Item banner (as its 4-star tier) and only wielded by their own hero. Each raises its hero's
+  // ATK (uwAttack) and has its own effect in the raid, as far as it is refined (Koma-UI's sim/unique.ts: R1 to
+  // R5 are its tiers 1 to 5). Their own tier, between the TechnoMagic gear and the 4-star items.
+  {
+    id: 'the-guardian-exian',
+    name: 'The Guardian, Exian',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Made eons ago by the dragon Exian from its own scales, and bestowed only on the knight of the most honorable principles.',
+    effects: ['uwAttack'],
+    uniqueWeapon: 'clause',
+  },
+  {
+    id: 'judgment-edge-elicipira',
+    name: 'Judgment Edge, Elicipira',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Giant scissors of the crimson crystals that form Kirze herself, swung as one great sword or split in two.',
+    effects: ['uwAttack'],
+    uniqueWeapon: 'kirze',
+  },
+  {
+    id: 'angels-despair-rosmerta',
+    name: 'Angel’s Despair, Rosmerta',
+    stars: 4,
+    slot: 'weapon',
+    description: 'A holy relic of a high angel, once Frey’s own light, distorted into darkness when she lost her faith.',
+    effects: ['uwAttack'],
+    uniqueWeapon: 'fallen-frey',
   },
 ];

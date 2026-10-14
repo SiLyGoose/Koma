@@ -20,13 +20,14 @@ export type Slot = 'weapon' | 'armor' | 'treasure';
 export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'treasure'];
 
 /**
- * Which banner a gacha pull is made on: the standard one, or the limited one (open between the
- * settings' gacha.limited.start and .end), whose top-tier items are mostly its featured ones
- * (data/items/banner.ts). Each keeps its own pity and its own guarantee.
+ * Which banner a gacha pull is made on: the standard one, the limited one (open between the settings'
+ * gacha.limited.start and .end), whose top-tier items are mostly its featured ones (data/items/banner.ts),
+ * or the Hero Item one (always open), whose top-tier items are the heroes' unique weapons
+ * (ItemDef.uniqueWeapon). Each keeps its own pity; the standard and limited ones their own guarantee too.
  */
-export type BannerId = 'standard' | 'limited';
+export type BannerId = 'standard' | 'limited' | 'hero';
 
-export const BANNERS: readonly BannerId[] = ['standard', 'limited'];
+export const BANNERS: readonly BannerId[] = ['standard', 'limited', 'hero'];
 
 /** The TechnoMagic Raids' gear sets (data/tm-sets.ts), one for each raid's boss. */
 export type TmSetId = 'perseverance' | 'hope' | 'authority';
@@ -66,6 +67,13 @@ export interface ItemDef {
   tmDrop?: true;
   /** TechnoMagic gear: the set it belongs to, the one of the raid that drops it (data/tm-sets.ts). */
   tmSet?: TmSetId;
+  /**
+   * A unique weapon: the id of the TechnoMagic Raid hero it is made for (data/heroes.ts). Only pulled from the
+   * Hero Item banner, as its pity tier (4 stars); only that hero wears it (a member can't, nor another hero),
+   * and besides its perks it has its own effect in the raid, as far as it is refined (Koma-UI's
+   * src/technomagic/sim/unique.ts). Missing means it isn't one.
+   */
+  uniqueWeapon?: string;
   /**
    * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
    * databanks tag it and can list a class's items. Missing means it's for everyone.
@@ -224,6 +232,11 @@ export interface MemberDoc {
   limitedPity?: number;
   limitedGuaranteed?: boolean;
   /**
+   * Pulls on the Hero Item banner since their last pity-tier item there (a unique weapon). That banner has
+   * no guarantee: every one of its pity-tier items is a unique weapon, each as likely. Missing means 0.
+   */
+  heroPity?: number;
+  /**
    * The item they picked for each banner's guarantee to give (the site's banner page): one of their own
    * treasures on the standard banner, a featured item on the limited one. Missing, or an item the
    * guarantee can't give any more (a limited banner since replaced), means any of them.
@@ -279,6 +292,10 @@ export interface TmRunHero {
   gear: Record<string, number>;
   /** The TechnoMagic set whose effect it had (all four pieces worn), or null. */
   set?: TmSetId | null;
+  /** Its own unique weapon's tier (its refinement, 1 to 5), or null: none worn. */
+  uw?: number | null;
+  /** The additional skills of the TechnoMagic gear it wore (ItemCopyDoc.tmSkill), one for each piece. */
+  skills?: string[];
 }
 
 /**
@@ -343,6 +360,11 @@ export interface ItemCopyDoc {
   masterwork?: boolean;
   /** Locked by the member (`lock`, or the site): never sold and never used up by a refine. Missing means not. */
   locked?: boolean;
+  /**
+   * TechnoMagic gear: the additional skill this copy came with (the sim's TM_SKILLS id, lib/game/technomagic.ts),
+   * rolled as it dropped; a hero wearing it has it in the raid. Missing on any other copy.
+   */
+  tmSkill?: string;
   obtainedAt: Date;
 }
 

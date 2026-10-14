@@ -1,7 +1,8 @@
 import type { Filter } from 'mongodb';
 import { HOUR_MS } from '../constants/index.js';
 import { collections } from '../db.js';
-import { ITEMS_BY_ID } from '../data/items.js';
+import { ITEMS_BY_ID, TM_DROPS } from '../data/items.js';
+import { rollTmSkill } from '../lib/game/technomagic.js';
 import { bestCopy } from '../lib/game/items/copies.js';
 import { reslotGear } from '../lib/game/items/reslot.js';
 import type { EquipmentDoc, ItemCopyDoc, LedgerDoc } from '../types.js';
@@ -277,6 +278,22 @@ export async function retireItems(): Promise<number> {
     swapped += (await items.updateMany({ itemId: from }, { $set: { itemId: to } })).modifiedCount;
   }
   return swapped;
+}
+
+/**
+ * TechnoMagic gear comes with an additional skill (ItemCopyDoc.tmSkill), rolled as it drops. Copies from
+ * before that (or from anywhere else that made one without it) are given one now, at random as a drop's is.
+ * Idempotent and cheap once done (no TechnoMagic copy lacks one), so it runs every start.
+ */
+export async function rollMissingTmSkills(roll: () => string = rollTmSkill): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmSkill: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmSkill: { $exists: false } }, update: { $set: { tmSkill: roll() } } } })));
+  }
+  return missing.length;
 }
 
 /*

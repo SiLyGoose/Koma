@@ -6,6 +6,9 @@ import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
 import { TM_SETS_BY_ID } from '../../data/tm-sets.js';
+import { HEROES_BY_ID } from '../../data/heroes.js';
+import { uniqueTier } from '../../lib/game/heroes.js';
+import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import type { ItemDef, Slot, Stars } from '../../types.js';
 import type { RaidLevel } from '../games/raid/protocol.js';
 import { difficultyLevels, picturePath } from '../games/raid/view.js';
@@ -33,18 +36,22 @@ export interface DatabankItem {
   borrowed: number | null;
   /**
    * Where it first comes from: pulled from the gacha, dropped by raid bosses (ItemDef.raidDrop), pulled from
-   * the limited banner only (ItemDef.limited), or dropped by the TechnoMagic Raid (ItemDef.tmDrop: only heroes wear it).
+   * the limited banner only (ItemDef.limited), dropped by the TechnoMagic Raid (ItemDef.tmDrop: only heroes wear
+   * it), or pulled from the Hero Item banner (ItemDef.uniqueWeapon: only its own hero wields it).
    */
   source: ItemSource;
   /** Every place it comes from, `source` first: a raid item the raid shop sells (lib/game/items/raid-shop.ts) has that too. */
   sources: ItemSource[];
   /** A class item: the raid class (Databank.classes) its effects only work for. Null for everyone's. */
   class: RaidClassId | null;
+  /** A unique weapon: the id of the one hero that wields it. Null otherwise. */
+  uniqueWeapon: string | null;
   /** TechnoMagic gear: the set it belongs to (its name, and its effect for each class), and which raid's boss drops it. Null otherwise. */
   set: { name: string; boss: string; effects: Partial<Record<RaidClassId, string>> } | null;
 }
 
-export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic';
+/** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon). */
+export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic' | 'heroBanner';
 
 /** One raid boss: what `raid stats` says of it. */
 export interface DatabankBoss {
@@ -107,6 +114,17 @@ function bossView(id: RaidBossId): DatabankBoss {
 }
 
 
+/** Where an item comes from (a raid drop's shop aside). */
+const sourceOf = (item: ItemDef): ItemSource =>
+  item.raidDrop ? 'raid' : item.tmDrop ? 'technomagic' : item.uniqueWeapon !== undefined ? 'heroBanner' : item.limited ? 'limited' : 'gacha';
+
+/** A unique weapon's own effect at a refine level, as the heroes page says it (none for any other item). */
+function uniqueLines(item: ItemDef, level: number): string[] {
+  const owner = item.uniqueWeapon === undefined ? undefined : HEROES_BY_ID.get(item.uniqueWeapon);
+  const text = owner ? uniqueWeaponText(owner.id, uniqueTier(level)) : null;
+  return owner && text ? [`${owner.name} only, ★${uniqueTier(level)}: ${text}`] : [];
+}
+
 /** A TechnoMagic item's set, as the databank shows it (null: it isn't TechnoMagic gear). */
 function setOf(item: ItemDef): DatabankItem['set'] {
   const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
@@ -121,20 +139,21 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       stars: item.stars,
       slot: item.slot,
       description: item.description,
-      effects: levels.map((level) => describeEffects(item, 1, level, false)),
+      // (A unique weapon's own effect in the raid, at each level, after its perks.)
+      effects: levels.map((level) => [...describeEffects(item, 1, level, false), ...uniqueLines(item, level)]),
       masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
-      source: item.raidDrop ? 'raid' : item.tmDrop ? 'technomagic' : item.limited ? 'limited' : 'gacha',
-      sources: item.raidDrop
-        ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])]
-        : [item.tmDrop ? 'technomagic' : item.limited ? 'limited' : 'gacha'],
+      source: sourceOf(item),
+      sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [sourceOf(item)],
       class: item.class ?? null,
+      uniqueWeapon: item.uniqueWeapon ?? null,
       set: setOf(item),
     }),
   );
   // A stable sort: within a tier, the catalog's own order.
-  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), then by stars.
-  list.sort((a, b) => (b.source === 'technomagic' ? 5 : b.stars) - (a.source === 'technomagic' ? 5 : a.stars));
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
+  const tier = (item: DatabankItem): number => (item.source === 'technomagic' ? 5 : item.source === 'heroBanner' ? 4.5 : item.stars);
+  list.sort((a, b) => tier(b) - tier(a));
   return {
     maxLevel: REFINE.maxLevel,
     raidDropChance: CONFIG.raid.dropChance,

@@ -5,8 +5,8 @@ import { DEFAULTS } from '../src/config.js';
 import { TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
-import { raidBonuses } from '../src/lib/game/heroes.js';
-import { HERO_SKINS, MOST_STAGE, replay, rollTmDrop, SIM_VERSION, startRaid, TM_BOSS, type Run } from '../src/lib/game/technomagic.js';
+import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
+import { HERO_SKINS, MOST_STAGE, MOST_TM_SKILLS, replay, rollTmDrop, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import type { Player } from '../src/web/auth/token.js';
 import { heroesView } from '../src/web/models/heroes.js';
@@ -103,11 +103,11 @@ function harness(owned: Record<string, string[]> = {}) {
       ({
         id: 'run',
         seed: 77,
-        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), rewardable: userId !== 'broke' }])),
+        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), rewardable: userId !== 'broke' }])),
       }) as BegunRun,
     finish: async (_g, begun, _stage, result, steps) => {
       finished.push({ result, ticks: steps });
-      return new Map([...begun.players].map(([userId, player]) => [userId, result === 'won' && player.rewardable ? [{ itemId: 'galgorias-heart', name: "Galgoria's Heart", stars: 4 }] : []]));
+      return new Map([...begun.players].map(([userId, player]) => [userId, result === 'won' && player.rewardable ? [{ itemId: 'galgorias-heart', name: "Galgoria's Heart", stars: 4, skill: tmSkillLine('vigor') }] : []]));
     },
     announce: (_g, host) => announced.push(host),
     every: (_ms, fn) => {
@@ -192,6 +192,8 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   const fight = a.got.find((m) => m.t === 'fight');
   assert.ok(fight && fight.t === 'fight');
   assert.deepEqual(fight.fight.heroes.map((hero) => [hero.owner, hero.id]), [['a', 'kirze'], ['a', 'fallen-frey'], ['broke', 'clause']]);
+  // Each hero's gear's additional skills go into the fight with it.
+  assert.deepEqual(fight.fight.heroes.map((hero) => hero.skills), [['vigor'], [], []]);
   assert.equal(room.pick('a', 'clause', 0), 'closed');
 
   // Their own heroes only: a's Auto on for both of theirs; broke can't press a's.
@@ -221,13 +223,14 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(over.phase, 'over');
   assert.equal(over.over?.result, 'won');
   assert.equal(over.over?.drops.a?.[0]?.name, "Galgoria's Heart");
+  assert.match(over.over?.drops.a?.[0]?.skill ?? '', /^Vigor: /);
   assert.deepEqual(over.over?.drops.broke, []);
   assert.deepEqual(over.over?.rewarded, ['a']);
   assert.equal(h.finished.length, 1);
 
   // The fight the pages ran, from what they were told, ends the same.
   const told = a.got.filter((m) => m.t === 'turn').flatMap((m) => (m.t === 'turn' ? m.inputs : []));
-  const again = replay({ boss: TM_BOSS, seed: 77, stage: 1, heroes: fight.fight.heroes.map(({ id, skin, gear }) => ({ id, skin, gear })) }, told);
+  const again = replay({ boss: TM_BOSS, seed: 77, stage: 1, heroes: fight.fight.heroes.map(({ id, skin, gear, skills }) => ({ id, skin, gear, skills })) }, told);
   assert.equal(again.result, 'won');
   assert.equal(again.ticks, h.finished[0]?.ticks);
 
@@ -262,8 +265,75 @@ test('technomagic: a hero in a set’s four pieces has its effect, the same ever
     assert.deepEqual(replay(withSet(set), autos, once.sums), once, set);
     assert.notDeepEqual(once.sums, plain.sums, `${set} changes the fight`);
   }
-  // Perseverance on everyone: harder hits, a sturdier knight, stronger heals: the boss falls sooner.
+  // Perseverance on everyone: the damage dealer's DMG growing, every ally's ATK and defence from the supports: the boss falls sooner.
   assert.ok(replay(withSet('perseverance'), autos).ticks < plain.ticks);
   // A set the bot doesn't know of is none.
   assert.deepEqual(replay(withSet('nonsense'), autos).sums, plain.sums);
+});
+
+test('technomagic: Perseverance’s supports (Clause, Fallen Frey) and its damage dealer (Kirze) each make the boss fall sooner', () => {
+  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
+  const plain = replay(wearing([]), autos);
+  assert.ok(replay(wearing(['clause', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
+  assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, 'the damage dealer: +10% DMG, growing to +25%');
+});
+
+test('technomagic: TechnoMagic gear’s additional skills, one rolled for each copy as it drops, from one list whatever the set', () => {
+  const ids = TM_SKILLS.map((skill) => skill.id);
+  assert.equal(new Set(ids).size, ids.length, 'no skill twice');
+  assert.ok(ids.length >= 30);
+  for (const skill of TM_SKILLS) assert.ok(skill.name && skill.about && ['S', 'A', 'B', 'C', 'F'].includes(skill.tier), skill.id);
+  // Each as likely: the roll picks by index.
+  assert.deepEqual(ids.map((_, i) => rollTmSkill({ index: () => i })), ids);
+  assert.ok(ids.includes(rollTmSkill()));
+  assert.equal(tmSkillLine('vigor'), `Vigor: ${TM_SKILLS.find((skill) => skill.id === 'vigor')?.about}`);
+  assert.equal(tmSkillLine('nonsense'), null);
+  assert.equal(tmSkillLine(undefined), null);
+  assert.equal(MOST_TM_SKILLS, 5);
+});
+
+test('technomagic: a hero has its gear’s additional skills in the fight, the same every time it is run', () => {
+  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const skilled = (skills: string[]): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, skills })) });
+  const plain = replay(skilled([]), autos);
+  let changed = 0;
+  for (const { id } of TM_SKILLS) {
+    const once = replay(skilled([id]), autos);
+    assert.equal(once.result, 'won', id);
+    assert.deepEqual(replay(skilled([id]), autos, once.sums), once, id);
+    if (JSON.stringify(once.sums) !== JSON.stringify(plain.sums)) changed++;
+  }
+  // (Some need what this fight on Auto never has: a full mana bar, the other kind of damage, a hero near falling.)
+  assert.ok(changed >= TM_SKILLS.length - 6, `${changed} of ${TM_SKILLS.length} change the fight`);
+  // ATK up, DEF down: the boss falls sooner. Twice over: sooner again.
+  const berserk = replay(skilled(['berserk']), autos);
+  assert.ok(berserk.ticks < plain.ticks);
+  assert.ok(replay(skilled(['berserk', 'berserk']), autos).ticks < berserk.ticks);
+  // ATK down for DEF: later.
+  assert.ok(replay(skilled(['fortress']), autos).ticks > plain.ticks);
+  // A skill the bot doesn't know of is none; past the most a hero can wear, the rest are none.
+  assert.deepEqual(replay(skilled(['nonsense']), autos).sums, plain.sums);
+  assert.deepEqual(replay(skilled(['vigor', 'vigor', 'vigor', 'vigor', 'vigor', 'berserk']), autos).sums, replay(skilled(['vigor', 'vigor', 'vigor', 'vigor', 'vigor']), autos).sums);
+});
+
+test('technomagic: a run takes the additional skills of the TechnoMagic copies a hero wears that work on its class', () => {
+  const cleaver = TM_DROPS.find((item) => item.id === 'tri-head-cleaver')!; // the warrior's
+  const ward = TM_DROPS.find((item) => item.id === 'antivenom-ward')!; // the priest's
+  const heart = TM_DROPS.find((item) => item.id === 'galgorias-heart')!; // the warrior's treasure
+  const raid = ITEMS.find((item) => item.raidDrop && item.slot === 'armor' && !item.class)!;
+  const copy = (id: string, itemId: string, tmSkill?: string): ItemCopyDoc => ({ _id: id, guildId: 'g', userId: 'u', itemId, level: 1, obtainedAt: new Date(), ...(tmSkill && { tmSkill }) });
+  const copies = [copy('a', cleaver.id, 'vigor'), copy('b', ward.id, 'berserk'), copy('c', heart.id, 'vigor'), copy('d', raid.id, 'might')];
+  const member = { heroes: { kirze: { boughtAt: new Date(), equipment: { weapon1: 'a', armor1: 'b', treasure: 'c', armor2: 'd' } } }, points: 0 } as unknown as MemberDoc;
+  // The priest's armor does nothing on Kirze, and the raid's gear has no skill.
+  assert.deepEqual(raidGear(copies, member).get('kirze')?.skills, ['vigor', 'vigor']);
+  const view = heroesView(copies, member);
+  const kirze = view.heroes.find((hero) => hero.id === 'kirze');
+  assert.deepEqual(kirze?.skills, ['vigor', 'vigor']);
+  assert.ok(kirze?.totals.some((line) => line.startsWith('✴️ Vigor ×2: ')));
+  assert.equal(view.copies.find((one) => one.id === 'a')?.skill, 'vigor');
+  assert.match(view.copies.find((one) => one.id === 'a')?.effects.at(-1) ?? '', /^✴️ Vigor: /);
+  assert.equal(view.copies.find((one) => one.id === 'd')?.skill, null);
 });
