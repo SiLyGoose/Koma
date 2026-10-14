@@ -41,6 +41,15 @@ export const wieldedBy = (item: ItemDef, heroId: string): boolean => item.unique
 /** A unique weapon's tier in the raid, by how far its copy is refined (R1 to R5: tiers 1 to 5, Koma-UI's sim/unique.ts). */
 export const uniqueTier = (level: number): number => refineLevel(level);
 
+/** A hero's other weapon slot (null: `slot` isn't one of its weapons'). */
+export const otherWeaponSlot = (slot: HeroSlot): HeroSlot | null => (slot === 'weapon1' ? 'weapon2' : slot === 'weapon2' ? 'weapon1' : null);
+
+/**
+ * Whether putting `item` on a hero would give it a second unique weapon (a hero wields one): it is one, and
+ * `there`, the item in the hero's other weapon slot (undefined: empty, or this very copy), is one too.
+ */
+export const secondUnique = (item: ItemDef, there: ItemDef | undefined): boolean => item.uniqueWeapon !== undefined && there?.uniqueWeapon !== undefined;
+
 /** The member's heroes that still exist in `known` (data/heroes.ts's ids), by id. */
 export function ownedHeroes(member: Pick<MemberDoc, 'heroes'> | null | undefined, known: ReadonlySet<string>): Map<string, HeroDoc> {
   return new Map(Object.entries(member?.heroes ?? {}).filter(([id]) => known.has(id)));

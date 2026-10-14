@@ -7,7 +7,7 @@ import { DEFAULTS } from '../src/config.js';
 import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
-import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, pieceBonus, raidValue, wieldedBy } from '../src/lib/game/heroes.js';
+import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, otherWeaponSlot, pieceBonus, raidValue, secondUnique, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
 import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -70,6 +70,13 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   const exian = item('the-guardian-exian');
   assert.ok(heroWearable(exian) && heroOnly(exian));
   assert.ok(wieldedBy(exian, 'clause') && !wieldedBy(exian, 'kirze'));
+  // One to a hero: not a second in its other weapon slot (another weapon there, or none, is fine).
+  assert.equal(otherWeaponSlot('weapon1'), 'weapon2');
+  assert.equal(otherWeaponSlot('weapon2'), 'weapon1');
+  assert.equal(otherWeaponSlot('armor1'), null);
+  assert.ok(secondUnique(exian, exian));
+  assert.ok(!secondUnique(exian, item('worldbreaker-maul')) && !secondUnique(exian, undefined));
+  assert.ok(!secondUnique(item('worldbreaker-maul'), exian));
   // On its own hero its ATK counts, on another nothing; its lines end with what it does in the raid.
   assert.ok(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atk > 0);
   assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'kirze').atk, 0);

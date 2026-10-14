@@ -78,7 +78,7 @@ export interface HeroesView {
 }
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy';
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy';
 
 /** What the hero routes use (the database's, unless a test says otherwise). */
 export interface HeroStore {
