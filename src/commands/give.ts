@@ -1,7 +1,7 @@
 import { isAdmin } from '../config.js';
 import { MAX_GIVE_AMOUNT, TEXT } from '../constants/index.js';
 import { ITEMS } from '../data/items.js';
-import { fmt, starString } from '../lib/format.js';
+import { fmt, itemStars } from '../lib/format.js';
 import { parseGiveArgs } from '../lib/game/items/give.js';
 import { giveItems } from '../services/admin.js';
 import type { Command } from '../discord/types.js';
@@ -45,7 +45,7 @@ export const give: Command = {
       return;
     }
 
-    await ctx.reply(TEXT.give.done(starString(result.item.stars), result.item.name, result.item.id, fmt(result.given), fmt(result.total)),
+    await ctx.reply(TEXT.give.done(itemStars(result.item), result.item.name, result.item.id, fmt(result.given), fmt(result.total)),
     );
   },
 };

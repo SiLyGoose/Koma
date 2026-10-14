@@ -561,69 +561,11 @@ export const ITEMS: readonly ItemDef[] = [
 
   // TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid (tmDrop), and only worn by its heroes
   // (the site's heroes page), whose stats its perks raise (perks/technomagic/). The raid's own gear above
-  // works on heroes too (lib/game/heroes.ts), and only this has treasures for a hero's treasure slot. Each piece
-  // is a class item for one of the heroes' classes: the warrior's (Kirze) to hit hard, the knight's (Clause) to
-  // stand, the priest's (Fallen Frey) for spells and healing.
-  {
-    id: 'chimera-fang',
-    name: 'Chimera Fang',
-    stars: 3,
-    slot: 'weapon',
-    description: 'Broken off the lion head mid-roar. It still wants to bite something.',
-    effects: ['tmAttack', 'tmCrit'],
-    class: 'warrior',
-    tmDrop: true,
-  },
-  {
-    id: 'venomglass-stiletto',
-    name: 'Venomglass Stiletto',
-    stars: 3,
-    slot: 'weapon',
-    description: 'Blown from glass with venom sealed inside. It finds the cracks in any armor.',
-    effects: ['tmCritDamage', 'tmPen'],
-    class: 'warrior',
-    tmDrop: true,
-  },
-  {
-    id: 'aether-conduit',
-    name: 'Aether Conduit',
-    stars: 3,
-    slot: 'weapon',
-    description: 'A copper rod humming with stored mana. Spells go off before they are finished being thought.',
-    effects: ['tmAttack', 'tmSpeed'],
-    class: 'priest',
-    tmDrop: true,
-  },
-  {
-    id: 'scaleweave-coat',
-    name: 'Scaleweave Coat',
-    stars: 3,
-    slot: 'armor',
-    description: 'Chimera scales sewn onto leather, each one turned to shed a blow.',
-    effects: ['tmHp', 'tmDefense'],
-    class: 'knight',
-    tmDrop: true,
-  },
-  {
-    id: 'mirror-buckler',
-    name: 'Mirror Buckler',
-    stars: 3,
-    slot: 'armor',
-    description: 'Polished until a spell cannot tell it from more sky.',
-    effects: ['tmBlock', 'tmResist'],
-    class: 'knight',
-    tmDrop: true,
-  },
-  {
-    id: 'cogwork-amulet',
-    name: 'Cogwork Amulet',
-    stars: 3,
-    slot: 'treasure',
-    description: 'Ticks a little faster when danger is near. Nobody has ever wound it.',
-    effects: ['tmSpeed', 'tmDodge'],
-    class: 'knight',
-    tmDrop: true,
-  },
+  // works on heroes too (lib/game/heroes.ts), and only this has treasures for a hero's treasure slot. It is a
+  // tier of its own, above 4 stars (it is counted as 4-star for what refining and selling it cost). Each piece
+  // is a class item for one of the heroes' classes, and belongs to the set of the raid that drops it (tmSet,
+  // data/tm-sets.ts): Galgoria's is Perseverance. A hero in both weapons and both armors of one set has its effect.
+  // Each class has a weapon and an armor of it (a hero wears two of each); the treasures are apart from the set.
   {
     id: 'tri-head-cleaver',
     name: 'Tri-Head Cleaver',
@@ -633,6 +575,7 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['tmAttack', 'tmCritDamage'],
     class: 'warrior',
     tmDrop: true,
+    tmSet: 'perseverance',
   },
   {
     id: 'arcane-railgun',
@@ -643,6 +586,7 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['tmPen', 'tmSpeed', 'tmCrit'],
     class: 'priest',
     tmDrop: true,
+    tmSet: 'perseverance',
   },
   {
     id: 'chimera-hide-plate',
@@ -653,6 +597,7 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['tmHp', 'tmDefense', 'tmBlock'],
     class: 'knight',
     tmDrop: true,
+    tmSet: 'perseverance',
   },
   {
     id: 'antivenom-ward',
@@ -663,6 +608,7 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['tmResist', 'tmDodge', 'tmHp'],
     class: 'priest',
     tmDrop: true,
+    tmSet: 'perseverance',
   },
   {
     id: 'galgorias-heart',
@@ -673,6 +619,7 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['tmAttack', 'tmHp', 'tmCrit'],
     class: 'warrior',
     tmDrop: true,
+    tmSet: 'perseverance',
   },
   {
     id: 'technomagic-core',
@@ -683,5 +630,28 @@ export const ITEMS: readonly ItemDef[] = [
     effects: ['tmHeal', 'tmSpeed', 'tmDefense'],
     class: 'priest',
     tmDrop: true,
+    tmSet: 'perseverance',
+  },
+  {
+    id: 'swampwarden-blade',
+    name: 'Swampwarden Blade',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Carried by the knights who held the swamp road. Venom beads on it and runs off.',
+    effects: ['tmAttack', 'tmBlock', 'tmHp'],
+    class: 'knight',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
+  {
+    id: 'venomscale-harness',
+    name: 'Venomscale Harness',
+    stars: 4,
+    slot: 'armor',
+    description: 'Strapped together from scales the chimera shed. It fits whoever is still standing.',
+    effects: ['tmHp', 'tmDefense', 'tmCrit'],
+    class: 'warrior',
+    tmDrop: true,
+    tmSet: 'perseverance',
   },
 ];

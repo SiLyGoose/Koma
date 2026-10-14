@@ -109,24 +109,6 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
   int('hero.rewardsPerDay', 'Hero', 'TechnoMagic Raid runs a member can begin each day whose win gives TechnoMagic gear (one item). Runs past it can still be played, for nothing.', 0, 100),
-  {
-    key: 'hero.fourStarChance',
-    group: 'Hero',
-    description: 'Chance the TechnoMagic gear a TechnoMagic Raid win gives is a 4-star item, at stage 1 (before hero.fourStarPerStage).',
-    type: 'number',
-    min: 0,
-    max: 1,
-    percent: true,
-  },
-  {
-    key: 'hero.fourStarPerStage',
-    group: 'Hero',
-    description: 'How much each TechnoMagic Raid stage over 1 adds to hero.fourStarChance (the total is capped at 100%).',
-    type: 'number',
-    min: 0,
-    max: 1,
-    percent: true,
-  },
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
   int('skip.raid', 'Skip', `Price of the week's extra raid (once per server per week, after the raid has been fought), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),

@@ -2,8 +2,9 @@ import { REFINE } from '../../constants/index.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import { HEROES } from '../../data/heroes.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
+import { TM_SET_PIECES, TM_SETS_BY_ID } from '../../data/tm-sets.js';
 import type { EffectId } from '../../perks/index.js';
-import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type Slot } from '../../types.js';
+import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type Slot, type TmSetId } from '../../types.js';
 import { formatPercent } from '../format.js';
 import { effectStrength, itemEffects, perkShare, type GearPiece } from './items/equipment.js';
 import { refineLevel } from './items/refine-share.js';
@@ -181,15 +182,38 @@ export function heroItemLines(item: ItemDef, level: number = REFINE.maxLevel, ma
 /** Whether a stat is points in the raid (see HERO_STATS); its bonus as the raid counts it: points, or a share. */
 export const raidValue = (stat: HeroStat, share: number): number => (HERO_STATS[stat].points ? Math.round(share * 1000) : share);
 
+/** The TechnoMagic set a hero's weapons and armors are most of (each working on its class), and how many of them: null with none. */
+export function heroSet(pieces: readonly Pick<GearPiece, 'item'>[], heroClass: RaidClassId): { set: TmSetId; pieces: number } | null {
+  const counts = new Map<TmSetId, number>();
+  for (const { item } of pieces) {
+    if (item.tmSet && item.slot !== 'treasure' && worksOn(item, heroClass)) counts.set(item.tmSet, (counts.get(item.tmSet) ?? 0) + 1);
+  }
+  let best: { set: TmSetId; pieces: number } | null = null;
+  for (const [set, count] of counts) if (!best || count > best.pieces) best = { set, pieces: count };
+  return best;
+}
+
+/** The set whose effect a hero has: all four of its pieces worn (null: none). */
+export const activeSet = (found: { set: TmSetId; pieces: number } | null): TmSetId | null => (found && found.pieces >= TM_SET_PIECES ? found.set : null);
+
+/** A hero's set, as the heroes page says it: what it does for its class once whole, or how much of it there is. */
+export function setLines(found: { set: TmSetId; pieces: number } | null, heroClass: RaidClassId): string[] {
+  const set = found && TM_SETS_BY_ID.get(found.set);
+  if (!found || !set) return [];
+  if (found.pieces < TM_SET_PIECES) return [`${set.emoji} ${set.name} set: ${found.pieces}/${TM_SET_PIECES} (both weapons and both armors for its effect)`];
+  return [`${set.emoji} **${set.name} set**: ${set.effects[heroClass] ?? 'nothing for this class'}`];
+}
+
 /**
  * What each of the member's heroes' gear gives it in the raid, as the raid counts it (raidValue: points for a
- * chance or share, a share for the rest), by hero id: the gear a TechnoMagic Raid run is played with. Only
- * copies they still own, in a slot of their kind, on that hero (as the heroes page shows them).
+ * chance or share, a share for the rest), and the TechnoMagic set whose effect it has, by hero id: the gear a
+ * TechnoMagic Raid run is played with. Only copies they still own, in a slot of their kind, on that hero (as
+ * the heroes page shows them).
  */
-export function raidBonuses(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, HeroBonus> {
+export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, { bonus: HeroBonus; set: TmSetId | null }> {
   const owned = new Map(copies.map((copy) => [copy._id, copy]));
   const worn = heroWorn(member);
-  const out = new Map<string, HeroBonus>();
+  const out = new Map<string, { bonus: HeroBonus; set: TmSetId | null }>();
   for (const hero of HEROES) {
     const doc = member?.heroes?.[hero.id];
     if (!doc) continue;
@@ -201,7 +225,11 @@ export function raidBonuses(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' 
       on.push({ item, level: refineLevel(copy.level), bonus: copy.masterwork === true });
     }
     const shares = heroBonus(on, hero.class);
-    out.set(hero.id, Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus);
+    out.set(hero.id, { bonus: Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus, set: activeSet(heroSet(on, hero.class)) });
   }
   return out;
 }
+
+/** What each of the member's heroes' gear gives it in the raid, by hero id (raidGear's, without the sets). */
+export const raidBonuses = (copies: Parameters<typeof raidGear>[0], member: Parameters<typeof raidGear>[1]): Map<string, HeroBonus> =>
+  new Map([...raidGear(copies, member)].map(([id, { bonus }]) => [id, bonus]));

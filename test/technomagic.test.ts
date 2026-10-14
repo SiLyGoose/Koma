@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import { GAMES } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { TM_ROOM } from '../src/constants/index.js';
-import { ITEMS, TM_DROPS } from '../src/data/items.js';
+import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
 import { raidBonuses } from '../src/lib/game/heroes.js';
-import { fourStarChance, HERO_SKINS, MOST_STAGE, replay, rollTmDrop, SIM_VERSION, startRaid, TM_BOSS, type Run } from '../src/lib/game/technomagic.js';
+import { HERO_SKINS, MOST_STAGE, replay, rollTmDrop, SIM_VERSION, startRaid, TM_BOSS, type Run } from '../src/lib/game/technomagic.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import type { Player } from '../src/web/auth/token.js';
 import { heroesView } from '../src/web/models/heroes.js';
@@ -55,14 +55,15 @@ test('technomagic: alone the boss is easier; heroes that fall stay down; giving 
   assert.equal(replay(run(1, STRONG), [{ tick: 5, kind: 'toggle', fighter: 0 }]).result, 'invalid');
 });
 
-test('technomagic: a win gives one TechnoMagic item, 4-star the likelier the higher the stage; 10 runs a day give it', () => {
+test('technomagic: a win gives one piece of the boss own set, each as likely; 10 runs a day give it', () => {
   const cfg = DEFAULTS.hero;
   assert.equal(cfg.rewardsPerDay, 10);
-  assert.ok(fourStarChance(8, cfg) > fourStarChance(1, cfg));
-  assert.equal(rollTmDrop(1, cfg, { chance: () => true, index: () => 0 })?.stars, 4);
-  assert.equal(rollTmDrop(1, cfg, { chance: () => false, index: () => 0 })?.stars, 3);
-  assert.equal(rollTmDrop(1, cfg, undefined, []), null);
-  for (const key of ['hero.rewardsPerDay', 'hero.fourStarChance', 'hero.fourStarPerStage']) assert.equal(findSpec(key)?.group, 'Hero', key);
+  const pool = tmDropsOf('perseverance');
+  assert.deepEqual(pool.map((_, i) => rollTmDrop('galgoria', { index: () => i })), pool);
+  assert.ok(pool.every((item) => item.tmSet === 'perseverance'));
+  assert.equal(rollTmDrop('siegfried', { index: () => 0 }), null, 'Hope has no gear yet');
+  assert.equal(rollTmDrop('nobody'), null);
+  assert.equal(findSpec('hero.rewardsPerDay')?.group, 'Hero');
   assert.deepEqual(validateSettings(DEFAULTS), []);
 });
 
@@ -102,7 +103,7 @@ function harness(owned: Record<string, string[]> = {}) {
       ({
         id: 'run',
         seed: 77,
-        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), rewardable: userId !== 'broke' }])),
+        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), rewardable: userId !== 'broke' }])),
       }) as BegunRun,
     finish: async (_g, begun, _stage, result, steps) => {
       finished.push({ result, ticks: steps });
@@ -249,4 +250,20 @@ test('technomagic room: the host can give up, and a room with nobody left is gon
   h.rooms.join(h.player('c'), again, ALL, 10);
   assert.equal(again.room().players.length, 1, 'a new room');
   assert.equal(again.room().phase, 'prep');
+});
+
+test('technomagic: a hero in a set’s four pieces has its effect, the same every time the fight is run', () => {
+  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const withSet = (set: string | null): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set })) });
+  const plain = replay(withSet(null), autos);
+  for (const set of ['perseverance', 'hope', 'authority']) {
+    const once = replay(withSet(set), autos);
+    assert.deepEqual(replay(withSet(set), autos, once.sums), once, set);
+    assert.notDeepEqual(once.sums, plain.sums, `${set} changes the fight`);
+  }
+  // Perseverance on everyone: harder hits, a sturdier knight, stronger heals: the boss falls sooner.
+  assert.ok(replay(withSet('perseverance'), autos).ticks < plain.ticks);
+  // A set the bot doesn't know of is none.
+  assert.deepEqual(replay(withSet('nonsense'), autos).sums, plain.sums);
 });

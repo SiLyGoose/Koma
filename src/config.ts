@@ -311,14 +311,11 @@ export interface Settings {
   /**
    * The TechnoMagic Raid's heroes (data/heroes.ts, services/heroes.ts): what buying one in the site's shop
    * costs, in points (burned). And its runs (services/technomagic.ts): how many a member begins each day
-   * whose win gives TechnoMagic gear (one item), and that item's chance (0 to 1) of being a 4-star one, at
-   * stage 1 and more for each stage over it (capped at 100%).
+   * whose win gives TechnoMagic gear (one piece of the boss's set).
    */
   hero: {
     price: number;
     rewardsPerDay: number;
-    fourStarChance: number;
-    fourStarPerStage: number;
   };
   skip: {
     claim: number;
@@ -491,7 +488,7 @@ export const DEFAULTS: Readonly<Settings> = {
     masterworkGems: 25,
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, rewardsPerDay: 10, fourStarChance: 0.05, fourStarPerStage: 0.05 },
+  hero: { price: 25_000, rewardsPerDay: 10 },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.

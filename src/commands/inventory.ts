@@ -1,8 +1,7 @@
-import { STARS } from '../config.js';
 import { SLOT_EMOJI, SLOT_LABELS, TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
-import { fmt, joinLimited, starString } from '../lib/format.js';
+import { fmt, inTier, ITEM_TIERS, joinLimited, tierString } from '../lib/format.js';
 import { getInventoryStacks } from '../services/economy/index.js';
 import { takeSlot } from '../lib/game/items/slot-filter.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
@@ -50,8 +49,8 @@ export const inventory: Command = {
       .setTitle(slot === null ? title : TEXT.inventory.categoryTitle(title, SLOT_LABELS[slot]))
       .setDescription(TEXT.inventory.summary(fmt(totalItems), unique, catalog.length));
 
-    for (const stars of [...STARS].reverse()) {
-      const tier = catalog.filter((item) => item.stars === stars);
+    for (const each of ITEM_TIERS) {
+      const tier = catalog.filter((item) => inTier(item, each));
       if (tier.length === 0) continue;
       // Copies that differ (level, locked, worn) each get a line of their own.
       const ownedItems = tier.filter((item) => shown.some((stack) => stack.itemId === item.id));
@@ -61,7 +60,7 @@ export const inventory: Command = {
           .map((stack) => (stack.worn ? TEXT.inventory.itemEquipped : TEXT.inventory.item)(item.name, stack.count, SLOT_EMOJI[item.slot], stack.level, stack.locked)),
       );
       embed.addFields({
-        name: TEXT.inventory.tierField(starString(stars), ownedItems.length, tier.length),
+        name: TEXT.inventory.tierField(tierString(each), ownedItems.length, tier.length),
         value: lines.length > 0 ? joinLimited(lines) : TEXT.inventory.tierEmpty,
       });
     }

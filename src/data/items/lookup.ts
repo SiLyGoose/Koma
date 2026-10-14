@@ -1,6 +1,6 @@
 import { ITEM_SUGGEST } from '../../constants/index.js';
 import { editDistance, normalize } from '../../lib/text.js';
-import type { ItemDef, Stars } from '../../types.js';
+import type { ItemDef, Stars, TmSetId } from '../../types.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 
@@ -25,8 +25,11 @@ export function featuredItems(): ItemDef[] {
 /** The items that only drop from raid bosses (ItemDef.raidDrop). */
 export const RAID_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.raidDrop);
 
-/** The TechnoMagic gear, which only the TechnoMagic Raid drops (ItemDef.tmDrop). */
+/** The TechnoMagic gear, which only the TechnoMagic Raids drop (ItemDef.tmDrop). */
 export const TM_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.tmDrop);
+
+/** The TechnoMagic gear of one set: what its raid drops. */
+export const tmDropsOf = (set: TmSetId): ItemDef[] => TM_DROPS.filter((item) => item.tmSet === set);
 
 export type ItemLookup = { kind: 'found'; item: ItemDef } | { kind: 'ambiguous'; matches: ItemDef[] } | { kind: 'none' };
 

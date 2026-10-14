@@ -58,6 +58,8 @@ export interface GearCopy {
   sell: number | null;
   /** TechnoMagic gear: only heroes wear it (the heroes page), never the member. */
   heroOnly: boolean;
+  /** A class item (raid gear, and all TechnoMagic gear): the class it works for (null: any). */
+  itemClass: RaidClassId | null;
   /** The name of the TechnoMagic hero wearing it (the heroes page), or null when none is. */
   hero: string | null;
 }
@@ -280,6 +282,7 @@ export function gearView(
       locked,
       sell: kept.has(copy._id) || locked ? null : sellPrice(item.stars),
       heroOnly: heroOnly(item),
+      itemClass: item.class ?? null,
       hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
@@ -289,7 +292,9 @@ export function gearView(
     list.push(view);
     byId.set(view.id, { view, piece: { item, level, bonus: masterwork } });
   }
-  list.sort((a, b) => b.stars - a.stars || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), then by stars.
+  const tier = (copy: GearCopy): number => (copy.heroOnly ? 5 : copy.stars);
+  list.sort((a, b) => tier(b) - tier(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   /** The copy id in each slot of `gear`, counting only owned copies that fit there. */
   const fitting = (gear: EquipmentDoc | null | undefined): Record<Slot, string | null> => {

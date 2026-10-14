@@ -4,7 +4,7 @@ import { boldGems } from '../constants/text/currency.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { bonusText, itemEffectiveness } from '../lib/game/items/equipment.js';
-import { starString } from '../lib/format.js';
+import { itemStars } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { forgeMasterwork } from '../services/items/forge.js';
 import type { ItemDef } from '../types.js';
@@ -57,7 +57,7 @@ export const forge: Command = {
 
     const bonus = item.bonus!;
     const embed = createEmbed()
-      .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
+      .setTitle(t.title(itemStars(item), item.name, SLOT_EMOJI[item.slot]))
       .setDescription(t.done(ctx.user.toString(), result.paid, bonusText(item, itemEffectiveness(item, ctx.user.id), bonus.level)))
       .addFields({ name: t.gemsField, value: boldGems(result.gemsLeft), inline: true });
     await ctx.reply({ embeds: [embed] });

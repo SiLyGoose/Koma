@@ -267,9 +267,12 @@ export class TechnoMagicRoom {
       seed: run.seed,
       stage,
       solo,
-      heroes: lineup.map((pick) => ({ owner: pick.owner, id: pick.hero, skin: pick.skin, gear: run.players.get(pick.owner)?.gear.get(pick.hero) ?? {} })),
+      heroes: lineup.map((pick) => {
+        const player = run.players.get(pick.owner);
+        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null };
+      }),
     };
-    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear }) => ({ id, skin, gear })) });
+    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set }) => ({ id, skin, gear, set })) });
     if (typeof raid === 'string') {
       console.error(`A TechnoMagic Raid run made no sense to the sim (${raid}).`);
       this.tell();

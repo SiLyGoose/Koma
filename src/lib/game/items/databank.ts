@@ -3,7 +3,7 @@ import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_EMOJI, STAR_SYM
 import { STARS, type ItemDef, type Stars } from '../../../types.js';
 import { describeEffects, showsMasterwork } from './equipment.js';
 import { raidShopPrice, soldInRaidShop } from './raid-shop.js';
-import { formatPercent, mentionList, starString } from '../../format.js';
+import { formatPercent, inTier, ITEM_TIERS, itemStars, mentionList, tierString } from '../../format.js';
 
 /** One embed field of the databank. */
 export interface DatabankField {
@@ -57,11 +57,11 @@ export function buildDatabank(
   // Chapter by chapter: each tier's items chunked into fields of at most `itemsPerPage` items
   // (or fewer, if Discord's own field-length limit would be hit first).
   const chapters: { field: DatabankField; count: number }[][] = [];
-  for (const stars of [...STARS].reverse()) {
-    const tier = items.filter((item) => item.stars === stars);
+  for (const each of ITEM_TIERS) {
+    const tier = items.filter((item) => inTier(item, each));
     if (tier.length === 0) continue;
 
-    const symbol = starString(stars);
+    const symbol = tierString(each);
     const chunks: { field: DatabankField; count: number }[] = [];
     let value = '';
     let size = 0;
@@ -152,7 +152,7 @@ export interface ItemDetail {
 export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): ItemDetail {
   const effects = describeEffects(item, 1, level, masterwork);
   return {
-    title: TEXT.databank.detailTitle(starString(item.stars), item.name),
+    title: TEXT.databank.detailTitle(itemStars(item), item.name),
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
     fields: [
       { name: TEXT.databank.detailSlotField, value: SLOT_EMOJI[item.slot], inline: true },

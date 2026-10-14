@@ -4,11 +4,11 @@ import type { RaidClassId } from '../../constants/raid.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { collections } from '../../db.js';
-import { bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroWearable, heroWorn, raidValue, type HeroBonus } from '../../lib/game/heroes.js';
+import { activeSet, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroWearable, heroWorn, raidValue, setLines, type HeroBonus } from '../../lib/game/heroes.js';
 import type { GearPiece } from '../../lib/game/items/equipment.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { buyHero, equipHero, unequipHero } from '../../services/heroes.js';
-import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot, type Stars } from '../../types.js';
+import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot, type Stars, type TmSetId } from '../../types.js';
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip):
@@ -33,6 +33,8 @@ export interface HeroCopy {
   effects: string[];
   /** A class item: the one class of hero it works on (null: any). */
   class: RaidClassId | null;
+  /** TechnoMagic gear (which only heroes wear). */
+  heroOnly: boolean;
   /** The id of the member's hero wearing it, or null. */
   hero: string | null;
 }
@@ -54,7 +56,9 @@ export interface HeroView {
    * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more).
    */
   bonus: HeroBonus;
-  /** The same as lines, like "+25% ATK". */
+  /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (all four). Null with none. */
+  set: { id: TmSetId; pieces: number; active: boolean } | null;
+  /** The same as lines, like "+25% ATK" (and its set's, last). */
   totals: string[];
 }
 
@@ -107,12 +111,15 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       locked: copy.locked === true,
       effects: heroItemLines(item, level, masterwork),
       class: item.class ?? null,
+      heroOnly: heroOnly(item),
       hero: worn.get(copy._id) ?? null,
     };
     list.push(view);
     pieces.set(copy._id, { view, piece: { item, level, bonus: masterwork } });
   }
-  list.sort((a, b) => b.stars - a.stars || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), then by stars.
+  const tier = (copy: HeroCopy): number => (copy.heroOnly ? 5 : copy.stars);
+  list.sort((a, b) => tier(b) - tier(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   const heroes = HEROES.map((hero): HeroView => {
     const doc = member?.heroes?.[hero.id];
@@ -126,7 +133,18 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
     }
     const shares = heroBonus(on, hero.class);
     const bonus = Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus;
-    return { id: hero.id, name: hero.name, class: hero.class, price: CONFIG.hero.price, owned: doc !== undefined, equipped, bonus, totals: bonusLines(shares) };
+    const set = heroSet(on, hero.class);
+    return {
+      id: hero.id,
+      name: hero.name,
+      class: hero.class,
+      price: CONFIG.hero.price,
+      owned: doc !== undefined,
+      equipped,
+      bonus,
+      set: set && { id: set.set, pieces: set.pieces, active: activeSet(set) !== null },
+      totals: [...bonusLines(shares), ...setLines(set, hero.class)],
+    };
   });
   return { heroes, copies: list, balance: member?.points ?? 0 };
 }

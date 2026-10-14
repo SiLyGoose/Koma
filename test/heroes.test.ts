@@ -4,10 +4,10 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { GROUPS } from '../src/commands/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, validateItems } from '../src/data/items.js';
+import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
-import { heroBonus, heroCopyIds, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, raidValue } from '../src/lib/game/heroes.js';
+import { activeSet, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, raidValue } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
 import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -45,16 +45,21 @@ test('heroes: Kirze, Clause and Fallen Frey, each once, each of a raid class; th
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
 });
 
-test('TechnoMagic gear: 3 and 4 stars, never pulled, heroes only, with only the TechnoMagic perks, and a treasure of each tier', () => {
+test('TechnoMagic gear: a tier of its own (counted as 4-star), never pulled, heroes only, with only the TechnoMagic perks, each piece in a set', () => {
   assert.doesNotThrow(validateItems);
   assert.ok(TM_DROPS.length > 0);
   for (const gear of TM_DROPS) {
-    assert.ok(gear.stars >= 3, gear.id);
+    assert.equal(gear.stars, 4, gear.id);
+    assert.ok(gear.tmSet, gear.id);
     assert.ok(heroOnly(gear) && heroWearable(gear), gear.id);
     assert.ok(gear.effects.every((effect) => effect.startsWith('tm')), gear.id);
     assert.ok(!gachaItems(gear.stars).includes(gear), gear.id);
   }
-  for (const stars of [3, 4] as const) assert.ok(TM_DROPS.some((gear) => gear.stars === stars && gear.slot === 'treasure'), `${stars}-star treasure`);
+  assert.ok(TM_DROPS.some((gear) => gear.slot === 'treasure'), 'a treasure');
+  // Galgoria drops Perseverance only: a weapon and an armor of it for every hero's class, so any hero can wear all four pieces.
+  for (const hero of HEROES) {
+    for (const slot of ['weapon', 'armor'] as const) assert.ok(tmDropsOf('perseverance').some((gear) => gear.slot === slot && gear.class === hero.class), `${hero.class} ${slot}`);
+  }
   // The raid's gear goes on heroes too (and on members); the gacha's doesn't go on heroes.
   assert.ok(heroWearable(item('worldbreaker-maul')) && !heroOnly(item('worldbreaker-maul')));
   assert.ok(ITEMS.filter((one) => !one.raidDrop && !one.tmDrop).every((one) => !heroWearable(one)));
@@ -93,24 +98,24 @@ test('heroes: what they wear is kept from selling and refining, and a copy moves
 });
 
 test('heroes: gear raises their stats, the raid gear by what it does in the raid, and a class item only on its class', () => {
-  const fang = { item: item('chimera-fang'), level: 5 };
+  const fang = { item: item('tri-head-cleaver'), level: 5 };
   const maul = { item: item('worldbreaker-maul'), level: 5 };
   const axe = { item: item('warlords-greataxe'), level: 5 };
   const kirze = heroBonus([fang, maul, axe], 'warrior');
-  assert.ok(Math.abs(kirze.atk - (effectStrength('tmAttack', 3) + effectStrength('raidAttack', 4))) < 1e-9);
-  assert.ok(Math.abs(kirze.crit - effectStrength('tmCrit', 3)) < 1e-9);
+  assert.ok(Math.abs(kirze.atk - (effectStrength('tmAttack', 4) + effectStrength('raidAttack', 4))) < 1e-9);
+  assert.ok(Math.abs(kirze.critDamage - effectStrength('tmCritDamage', 4)) < 1e-9);
   assert.ok(kirze.block > 0); // the Warlord's Greataxe, on a warrior
   assert.equal(heroBonus([axe], 'knight').block, 0); // not on a knight
   assert.equal(raidValue('crit', 0.08), 80); // points in the raid
   assert.equal(raidValue('atk', 0.25), 0.25); // a share more
   // Less refined, less of it.
   assert.ok(heroBonus([{ ...fang, level: 1 }], 'warrior').atk < heroBonus([fang], 'warrior').atk);
-  assert.deepEqual(heroItemLines(item('chimera-fang')), [`+${Math.round(effectStrength('tmAttack', 3) * 100)}% ATK`, `+${Math.round(effectStrength('tmCrit', 3) * 100)}% crit chance`]);
+  assert.equal(heroItemLines(item('tri-head-cleaver'))[0], `+${Math.round(effectStrength('tmAttack', 4) * 100)}% ATK`);
 });
 
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
   const copies = [
-    { _id: 'fang', itemId: 'chimera-fang', level: 5 },
+    { _id: 'fang', itemId: 'tri-head-cleaver', level: 5 },
     { _id: 'maul', itemId: 'worldbreaker-maul', level: 2, locked: true },
     { _id: 'dagger', itemId: 'rusty-dagger', level: 1 }, // the gacha's: no hero wears it
     { _id: 'plate', itemId: 'colossus-plate', level: 1 },
@@ -123,7 +128,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   };
   const view = heroesView(copies, member);
   assert.equal(view.balance, 30_000);
-  assert.deepEqual(view.copies.map((copy) => copy.id), ['maul', 'plate', 'fang']); // by stars, then level
+  assert.deepEqual(view.copies.map((copy) => copy.id), ['fang', 'maul', 'plate']); // TechnoMagic gear first, then by stars, then level
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.hero, 'kirze');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.locked, true);
   const [kirze, clause] = view.heroes;
@@ -132,8 +137,10 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(kirze?.price, DEFAULTS.hero.price);
   // A copy they no longer own, or in a slot it doesn't fit, isn't worn.
   assert.deepEqual(kirze?.equipped, { weapon1: 'fang', weapon2: 'maul', armor1: null, armor2: null, treasure: null });
-  assert.ok((kirze?.bonus.atk ?? 0) > effectStrength('tmAttack', 3));
-  assert.equal(kirze?.bonus.crit, Math.round(effectStrength('tmCrit', 3) * 1000));
+  assert.ok((kirze?.bonus.atk ?? 0) > effectStrength('tmAttack', 4));
+  assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - effectStrength('tmCritDamage', 4)) < 1e-9);
+  assert.deepEqual(kirze?.set, { id: 'perseverance', pieces: 1, active: false });
+  assert.ok(kirze?.totals.some((line) => line.includes('Perseverance set: 1/4')));
   assert.ok(kirze?.totals.some((line) => line.endsWith('ATK')));
   assert.deepEqual(clause?.totals, []);
 });
@@ -220,4 +227,20 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
+});
+
+test('heroes: both weapons and both armors of one set, each for its class, give the set its effect (treasures apart)', () => {
+  const cleaver = { item: item('tri-head-cleaver'), level: 1 };
+  const harness = { item: item('venomscale-harness'), level: 1 };
+  const ward = { item: item('antivenom-ward'), level: 1 }; // the priest's
+  const heart = { item: item('galgorias-heart'), level: 1 };
+  assert.deepEqual(heroSet([cleaver, cleaver, harness, harness, heart], 'warrior'), { set: 'perseverance', pieces: 4 });
+  assert.equal(activeSet(heroSet([cleaver, cleaver, harness, harness], 'warrior')), 'perseverance');
+  assert.equal(activeSet(heroSet([cleaver, cleaver, harness, ward], 'warrior')), null);
+  assert.equal(activeSet(heroSet([cleaver, cleaver, harness, harness], 'knight')), null, 'not for a knight');
+  assert.equal(heroSet([heart], 'warrior'), null, 'a treasure is apart from the set');
+  assert.ok(setLines(heroSet([cleaver, cleaver, harness, harness], 'warrior'), 'warrior')[0]?.includes('**Perseverance set**'));
+  const copies = ['a', 'b', 'c', 'd'].map((id, i) => ({ _id: id, itemId: i < 2 ? 'tri-head-cleaver' : 'venomscale-harness', level: 1 }));
+  const member = { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b', armor1: 'c', armor2: 'd' } } } };
+  assert.equal(raidGear(copies, member).get('kirze')?.set, 'perseverance');
 });

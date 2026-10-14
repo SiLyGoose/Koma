@@ -1039,7 +1039,7 @@ var VOW_OF_KNIGHTS = {
 	}
 };
 /** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
-var GUARDED = {
+var GUARDED$1 = {
 	name: "Guardian Shield",
 	about: "Takes 25% less from the boss.",
 	icon: "✨",
@@ -1104,10 +1104,10 @@ var CLAUSE = {
 				},
 				guard() {
 					put(fight.party, {
-						name: GUARDED.name,
+						name: GUARDED$1.name,
 						left: GUARDIAN.lasts,
 						takes: GUARDIAN.taken,
-						shown: GUARDED
+						shown: GUARDED$1
 					});
 				}
 			},
@@ -2857,6 +2857,85 @@ function seeded(seed) {
 	};
 }
 //#endregion
+//#region src/technomagic/sim/sets.ts
+var TM_SETS = [
+	"perseverance",
+	"hope",
+	"authority"
+];
+/** What each class is, for each set (a class the set does nothing for is left out). */
+var ROLES = {
+	perseverance: {
+		warrior: "dps",
+		assassin: "dps",
+		archer: "dps",
+		mechanic: "dps",
+		wizard: "dps",
+		priest: "priest",
+		knight: "knight"
+	},
+	hope: {
+		priest: "support",
+		mechanic: "support",
+		knight: "knight"
+	},
+	authority: {
+		warrior: "dps",
+		assassin: "dps",
+		archer: "dps",
+		wizard: "dps",
+		priest: "support",
+		mechanic: "support",
+		knight: "knight"
+	}
+};
+/** A hero's set as it fights: which, and what its class is to it (null: no set, or one that does nothing for its class). */
+function setOf(set, heroClass) {
+	if (!set || !TM_SETS.includes(set)) return null;
+	const role = ROLES[set][heroClass];
+	return role ? {
+		id: set,
+		role
+	} : null;
+}
+var PERSEVERANCE = {
+	/** A damage dealer's ATK: so much more at once, and `step` more every `every` seconds, `most` times. */
+	atk: .1,
+	step: .015,
+	every: 10,
+	most: 10,
+	/** A priest's heals and shields; a knight's max HP. */
+	heal: .25,
+	hp: .25,
+	/** A knight's block: what its blow back takes (at ATK 1000), and the boss's blows the softer for so long. */
+	strike: 1500,
+	weak: .92,
+	weakFor: 5
+};
+var HOPE = {
+	/** What each support wearing it gives every ally. */
+	atk: .05,
+	defence: .1,
+	/** A knight: what it takes, and the share of what the boss deals every other ally that it takes instead. */
+	taken: .9,
+	covers: .2
+};
+var AUTHORITY = {
+	/** A damage dealer's penetration (points). */
+	pen: 500,
+	/** A support's mana at the start, and how long the ally with the highest ATK can't be knocked down. */
+	mana: 400,
+	guardFor: 15,
+	/** A knight's CC resist (points). */
+	resist: 300
+};
+/** What Authority's support puts on the ally with the highest ATK. */
+var GUARDED = {
+	name: "Authority",
+	about: "Can’t be knocked down.",
+	icon: "⚡"
+};
+//#endregion
 //#region src/technomagic/sim/fight.ts
 /** What knocks a hero down: shown on its card, with how long it has left. */
 var KNOCKED = {
@@ -2896,8 +2975,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let mended = 0;
 	let mendShown = 0;
 	const party = [];
-	const fighters = heroes.map(({ def: hero, skin = 0, gear = {} }, index) => {
+	const fighters = heroes.map(({ def: hero, skin = 0, gear = {}, set: wearing = null }, index) => {
+		const set = setOf(wearing, hero.class);
 		const stats = geared(hero.stats, gear);
+		if (set?.id === "perseverance" && set.role === "knight") stats.hp *= 1 + PERSEVERANCE.hp;
+		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY.pen;
+		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY.resist;
 		const motion = motionOf(hero, skin);
 		const name = (hero.assets.skins[skin] ?? hero.assets.skins[0])?.name ?? hero.name;
 		return {
@@ -2907,7 +2990,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			def: hero,
 			stats,
 			critTimes: 2 + (gear.critDamage ?? 0),
-			healTimes: 1 + (gear.heal ?? 0),
+			healTimes: (1 + (gear.heal ?? 0)) * (set?.id === "perseverance" && set.role === "priest" ? 1 + PERSEVERANCE.heal : 1),
+			set,
 			controlTimes: 1 + (gear.control ?? 0),
 			motion,
 			attack: motion.attack,
@@ -2916,7 +3000,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			shield: 0,
 			shieldLeft: 0,
 			statuses: [],
-			mana: MAX_MANA / 2,
+			mana: Math.min(MAX_MANA, MAX_MANA / 2 + (set?.id === "authority" && set.role === "support" ? AUTHORITY.mana : 0)),
 			auto: false,
 			cooldowns: hero.abilities.map(() => 0),
 			reserved: null,
@@ -2994,8 +3078,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (!aim || !field.includes(aim) || away(aim.statuses)) aim = anyone();
 		return aim;
 	};
+	/** Heroes on the field, standing and in the fight, with a set's `role` (each support of Hope's gives every ally more). */
+	const wearing = (id, role) => field.filter((on) => on.hp > 0 && !away(on.statuses) && on.set?.id === id && on.set.role === role);
+	/** How many times as hard a hero hits for its sets (Perseverance's damage dealer, growing as the fight goes on; every Hope support's on the field). */
+	const atkTimes = (by) => {
+		return (1 + (by.set?.id === "perseverance" && by.set.role === "dps" ? PERSEVERANCE.atk + PERSEVERANCE.step * Math.min(PERSEVERANCE.most, Math.floor(elapsed / PERSEVERANCE.every)) : 0)) * (1 + HOPE.atk * wearing("hope", "support").length);
+	};
 	/** How many times as much a heal or a shield gives for the hero whose it is (its attack and its gear; one that is no hero's: as much as it says). */
-	const byAttack = (by) => by ? by.stats.atk / ATK * by.healTimes : 1;
+	const byAttack = (by) => by ? by.stats.atk / ATK * atkTimes(by) * by.healTimes : 1;
 	function end(how) {
 		if (result) return;
 		result = how;
@@ -3039,6 +3129,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const ability = fighter.def.abilities[index];
 		if (!ability || fighter.doing || !sim.ready(fighter, index)) return false;
 		begin(fighter, ability.move, true);
+		if (fighter.set?.id === "authority" && fighter.set.role === "knight") {
+			for (let i = foe.statuses.length - 1; i >= 0; i--) if ((foe.statuses[i].deals ?? 1) > 1) foe.statuses.splice(i, 1);
+		}
 		fighter.cooldowns[index] = ability.cooldown;
 		fighter.mana -= ability.cost * 200;
 		return true;
@@ -3153,7 +3246,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
 			const critical = roll() < share(points) + crit + critting(by.statuses);
-			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * attack * dealing(by.statuses) * (critical ? by.critTimes : 1), type, foe.def.stats, pen + pierce, roll);
+			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * attack * dealing(by.statuses) * (critical ? by.critTimes : 1), type, foe.def.stats, pen + pierce, roll);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -3206,8 +3299,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		hurt(target, amount, blockable = true) {
 			if (target.hp <= 0 || away(target.statuses) || result) return 0;
 			const type = foe.def.stats.deals;
-			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210), type, blockable ? target.stats : {
+			const guarded = 1 + HOPE.defence * wearing("hope", "support").length;
+			const stands = {
 				...target.stats,
+				physical: target.stats.physical * guarded,
+				magical: target.stats.magical * guarded
+			};
+			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210), type, blockable ? stands : {
+				...stands,
 				block: NONE,
 				dodge: NONE
 			}, 0, roll);
@@ -3225,7 +3324,28 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				who: target.index,
 				blocked
 			});
-			const dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1);
+			let dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1) * (target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1);
+			const cover = target.def.class === "knight" ? void 0 : wearing("hope", "knight").find((knight) => knight !== target);
+			if (cover) {
+				const covered = dealt * HOPE.covers;
+				dealt -= covered;
+				const soak = Math.min(cover.shield, covered);
+				cover.shield -= soak;
+				if (covered > soak) {
+					cover.hp = Math.max(0, cover.hp - (covered - soak));
+					events.push({
+						kind: "number",
+						on: cover.index,
+						amount: covered - soak,
+						type: "hit"
+					});
+					if (cover.hp <= 0) {
+						cover.shield = 0;
+						cover.doing = null;
+						cover.reserved = null;
+					}
+				}
+			}
 			const soaked = Math.min(target.shield, dealt);
 			target.shield -= soaked;
 			if (soaked > 0) events.push({
@@ -3249,7 +3369,18 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				target.reserved = null;
 			}
 			target.mana = Math.min(MAX_MANA, target.mana + 25);
-			if (blocked) target.part.blocked?.();
+			if (blocked) {
+				target.part.blocked?.();
+				if (target.set?.id === "perseverance" && target.set.role === "knight" && target.hp > 0) {
+					sim.hit(target, PERSEVERANCE.strike, false);
+					put(foe.statuses, {
+						name: "Perseverance",
+						left: PERSEVERANCE.weakFor,
+						deals: PERSEVERANCE.weak,
+						shown: "slow"
+					});
+				}
+			}
 			return dealt;
 		},
 		revive(fighter, share, by) {
@@ -3271,7 +3402,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		knock(fighter, seconds) {
-			if (fighter.hp <= 0 || away(fighter.statuses)) return;
+			if (fighter.hp <= 0 || away(fighter.statuses) || fighter.statuses.some((status) => status.guards)) return;
 			stagger(fighter);
 			put(fighter.statuses, {
 				name: KNOCKED.name,
@@ -3498,6 +3629,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		}
 	}
 	foe.part = def.join?.(sim) ?? foe.part;
+	if (fighters.some((fighter) => fighter.set?.id === "authority" && fighter.set.role === "support")) {
+		const strongest = fighters.reduce((best, fighter) => !best || fighter.stats.atk > best.stats.atk ? fighter : best, null);
+		if (strongest) put(strongest.statuses, {
+			name: GUARDED.name,
+			left: AUTHORITY.guardFor,
+			guards: true,
+			shown: GUARDED
+		});
+	}
 	for (const fighter of fighters) fighter.part = fighter.def.join(sim, fighter);
 	for (const fighter of raid ? fighters : first.map((index) => fighters[index])) if (fighter && !field.includes(fighter)) stand(fighter);
 	if (field.length === 0 && fighters[0]) stand(fighters[0]);
@@ -3505,7 +3645,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 2;
+var SIM_VERSION = 3;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
@@ -3570,7 +3710,8 @@ function startRaid(run) {
 		entries.push({
 			def,
 			skin: hero.skin,
-			gear
+			gear,
+			set: typeof hero.set === "string" ? hero.set : null
 		});
 	}
 	const sim = makeSim({

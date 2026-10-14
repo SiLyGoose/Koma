@@ -16,7 +16,7 @@ import {
   type RaidGear,
 } from '../lib/events/raid.js';
 import { canUseItem, describeEffects, describeTotals, equippedGear, itemEffectiveness, showsMasterwork, totalEffects } from '../lib/game/items/equipment.js';
-import { formatMultiplier, formatPercent, mentionList, starString } from '../lib/format.js';
+import { formatMultiplier, formatPercent, itemStars, mentionList } from '../lib/format.js';
 import { blightPurgeExtra } from '../perks/index.js';
 import { getEquipment } from '../services/items/equipment.js';
 import { SLOTS } from '../types.js';
@@ -121,7 +121,7 @@ export const gear: Command = {
       if (item.usableBy && !canUseItem(item, target.id)) lines.unshift(TEXT.gear.exclusive(mentionList(item.usableBy), formatPercent(share)));
       embed.addFields({
         name: label,
-        value: [TEXT.gear.item(item.name, starString(item.stars), level, showsMasterwork(item, level, forged)), ...lines].join('\n'),
+        value: [TEXT.gear.item(item.name, itemStars(item), level, showsMasterwork(item, level, forged)), ...lines].join('\n'),
       });
     }
 

@@ -31,7 +31,9 @@ export function validateItems(): void {
     if (item.limited && item.raidDrop) throw new Error(`${item.id} is both a limited item and a raid drop`);
     if (item.tmDrop && (item.raidDrop || item.limited)) throw new Error(`${item.id} is TechnoMagic gear and a raid drop or limited item too: it can only come from one place`);
     if (item.tmDrop && item.usableBy) throw new Error(`${item.id} is TechnoMagic gear made for a member, but only heroes wear it`);
-    if (item.tmDrop && item.stars < 3) throw new Error(`${item.id} is TechnoMagic gear under 3 stars: the TechnoMagic Raid only drops 3 and 4-star gear`);
+    if (item.tmDrop && item.stars !== 4) throw new Error(`${item.id} is TechnoMagic gear that isn't counted as 4-star: it is a tier of its own above 4 stars, and costs what 4-star gear does to refine and sell`);
+    if (item.tmDrop && !item.tmSet) throw new Error(`${item.id} is TechnoMagic gear of no set: every piece belongs to the set of the raid that drops it`);
+    if (item.tmSet && !item.tmDrop) throw new Error(`${item.id} is in a TechnoMagic set, but isn't TechnoMagic gear`);
     if (item.tmDrop && !item.effects.every((effect) => effect.startsWith('tm'))) throw new Error(`${item.id} is TechnoMagic gear with a perk that isn't the TechnoMagic Raid's (perks/technomagic/)`);
     if (item.tmDrop && !item.class) throw new Error(`${item.id} is TechnoMagic gear for no class: every piece the TechnoMagic Raid drops is a class item`);
     if (item.bonus) {

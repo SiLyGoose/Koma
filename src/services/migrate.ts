@@ -257,6 +257,13 @@ export const RETIRED_ITEMS: Readonly<Record<string, string>> = {
   'executioners-axe': 'wyvern-tooth',
   'acolytes-robe': 'cherubs-sash',
   'clerics-vestments': 'cherubs-sash',
+  // TechnoMagic gear became a tier of its own, with no 3-star pieces: each became its slot's piece for its class.
+  'chimera-fang': 'tri-head-cleaver',
+  'venomglass-stiletto': 'tri-head-cleaver',
+  'aether-conduit': 'arcane-railgun',
+  'scaleweave-coat': 'chimera-hide-plate',
+  'mirror-buckler': 'chimera-hide-plate',
+  'cogwork-amulet': 'galgorias-heart',
 };
 
 /**

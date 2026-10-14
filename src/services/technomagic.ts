@@ -3,9 +3,9 @@ import { CONFIG } from '../config.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
 import { collections } from '../db.js';
 import { dayKey } from '../lib/events/raid-week.js';
-import { raidBonuses } from '../lib/game/heroes.js';
+import { raidGear } from '../lib/game/heroes.js';
 import { rollTmDrop, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
-import type { ItemDef, TmRunDoc } from '../types.js';
+import type { ItemDef, TmRunDoc, TmSetId } from '../types.js';
 import { addCopy } from './economy/index.js';
 
 /*
@@ -32,7 +32,7 @@ export async function rewardsLeft(guildId: string, userId: string, now: Date = n
 export interface BegunRun {
   id: string;
   seed: number;
-  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; rewardable: boolean }>;
+  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; sets: Map<string, TmSetId | null>; rewardable: boolean }>;
 }
 
 /**
@@ -50,10 +50,11 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       tmRuns.countDocuments({ guildId, userId, day, rewardable: true }),
     ]);
     const owned = new Set(Object.keys(member?.heroes ?? {}).filter((id) => HEROES_BY_ID.has(id)));
-    const bonuses = raidBonuses(copies, member);
-    const gear = new Map([...owned].map((id) => [id, { ...(bonuses.get(id) ?? {}) }]));
+    const loadouts = raidGear(copies, member);
+    const gear = new Map([...owned].map((id) => [id, { ...(loadouts.get(id)?.bonus ?? {}) }]));
+    const sets = new Map([...owned].map((id) => [id, loadouts.get(id)?.set ?? null]));
     const rewardable = begun < CONFIG.hero.rewardsPerDay;
-    run.players.set(userId, { owned, gear, rewardable });
+    run.players.set(userId, { owned, gear, sets, rewardable });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,
       run: run.id,
@@ -62,7 +63,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       boss: TM_BOSS,
       seed: run.seed,
       stage,
-      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {} })),
+      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null })),
       version: SIM_VERSION,
       startedAt: now,
       day,
@@ -79,7 +80,7 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
   for (const [userId, player] of run.players) {
     const drops: ItemDef[] = [];
     if (result === 'won' && player.rewardable) {
-      const item = rollTmDrop(stage, CONFIG.hero);
+      const item = rollTmDrop(TM_BOSS);
       if (item) {
         await addCopy(guildId, userId, item.id);
         drops.push(item);

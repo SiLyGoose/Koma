@@ -28,6 +28,9 @@ export type BannerId = 'standard' | 'limited';
 
 export const BANNERS: readonly BannerId[] = ['standard', 'limited'];
 
+/** The TechnoMagic Raids' gear sets (data/tm-sets.ts), one for each raid's boss. */
+export type TmSetId = 'perseverance' | 'hope' | 'authority';
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -61,6 +64,8 @@ export interface ItemDef {
    * can't: its perks are the heroes' stats, lib/game/heroes.ts). Missing means it's the members' own.
    */
   tmDrop?: true;
+  /** TechnoMagic gear: the set it belongs to, the one of the raid that drops it (data/tm-sets.ts). */
+  tmSet?: TmSetId;
   /**
    * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
    * databanks tag it and can list a class's items. Missing means it's for everyone.
@@ -272,6 +277,8 @@ export interface TmRunHero {
   id: string;
   skin: number;
   gear: Record<string, number>;
+  /** The TechnoMagic set whose effect it had (all four pieces worn), or null. */
+  set?: TmSetId | null;
 }
 
 /**

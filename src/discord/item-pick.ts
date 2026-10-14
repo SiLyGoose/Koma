@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'dis
 import { ITEM_SUGGEST, TEXT } from '../constants/index.js';
 import { ITEMS, findItem, suggestItems } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
-import { starString } from '../lib/format.js';
+import { itemStars } from '../lib/format.js';
 import type { ItemDef } from '../types.js';
 import { replyPrivately } from './reply.js';
 import type { CommandContext, SentReply } from './types.js';
@@ -81,8 +81,8 @@ export async function askDidYouMean(ctx: CommandContext, query: string, choices:
     .setTitle(t.title)
     .setDescription(
       choices.length === 1 && only
-        ? t.one(query, starString(only.stars), only.name)
-        : t.many(query, choices.map((item) => t.line(starString(item.stars), item.name)).join('\n')),
+        ? t.one(query, itemStars(only), only.name)
+        : t.many(query, choices.map((item) => t.line(itemStars(item), item.name)).join('\n')),
     )
     .setFooter({ text: t.footer(ITEM_SUGGEST.timeoutMs / 1000) });
   const sent = await ctx.reply({ embeds: [embed], components: [questionRow(choices)], ephemeral: false });

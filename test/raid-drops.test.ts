@@ -62,12 +62,12 @@ test('raid drops: every item with a raid perk is a raid drop, and no two items o
   }
 });
 
-test('retired items: gone from the catalog, each swapped for a raid drop that is still in it', () => {
+test('retired items: gone from the catalog, each swapped for a raid drop (or, for TechnoMagic gear, TechnoMagic gear) that is still in it', () => {
   for (const [from, to] of Object.entries(RETIRED_ITEMS)) {
     assert.equal(ITEMS_BY_ID.get(from), undefined, from);
     const kept = ITEMS_BY_ID.get(to);
-    assert.equal(kept?.raidDrop, true, to);
-    assert.equal(kept?.effects.length, 1, to);
+    assert.ok(kept?.raidDrop || kept?.tmDrop, to);
+    if (kept?.raidDrop) assert.equal(kept.effects.length, 1, to);
   }
 });
 

@@ -1,7 +1,7 @@
 import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { fmt, joinLimited, money, starString } from '../lib/format.js';
+import { fmt, itemStars, joinLimited, money } from '../lib/format.js';
 import { parseSellArgs } from '../lib/game/items/sell.js';
 import { getInventory } from '../services/economy/index.js';
 import { planSale, sellCopies, type SalePlan, type SaleResult, type SellTarget } from '../services/items/sell.js';
@@ -11,7 +11,7 @@ import { resolveItem } from '../discord/item-pick.js';
 import type { Command } from '../discord/types.js';
 
 const lineText = (line: { item: ItemDef; count: number; total: number }) =>
-  TEXT.sell.line(starString(line.item.stars), line.item.name, line.count, fmt(line.total));
+  TEXT.sell.line(itemStars(line.item), line.item.name, line.count, fmt(line.total));
 
 /** The embed shown after a sale. `remaining` is how many copies of a single item are left (only for selling one). */
 function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, remaining: number | null): BotEmbed {
@@ -21,7 +21,7 @@ function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, rema
     .setTitle(TEXT.sell.soldTitle)
     .setDescription(
       (single && first
-        ? TEXT.sell.soldOne(user, starString(first.item.stars), first.item.name, fmt(result.earned))
+        ? TEXT.sell.soldOne(user, itemStars(first.item), first.item.name, fmt(result.earned))
         : `${TEXT.sell.soldMany(user, result.lines.reduce((sum, line) => sum + line.count, 0), fmt(result.earned))}\n\n${joinLimited(result.lines.map(lineText), 3500)}`) +
         (result.skipped > 0 ? `\n${TEXT.sell.skipped(result.skipped)}` : ''),
     )

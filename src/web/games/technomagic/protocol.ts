@@ -96,14 +96,17 @@ export interface RoomState {
   over: OverView | null;
 }
 
-/** What a fight is run from: the boss, the seed, the stage, whether it is fought alone, and each hero in it (whose, which, its skin and what its gear gives it). */
+/**
+ * What a fight is run from: the boss, the seed, the stage, whether it is fought alone, and each hero in it
+ * (whose, which, its skin, what its gear gives it, and the TechnoMagic set whose effect it has, or null).
+ */
 export interface FightStart {
   no: number;
   boss: string;
   seed: number;
   stage: number;
   solo: boolean;
-  heroes: { owner: string; id: string; skin: number; gear: Record<string, number> }[];
+  heroes: { owner: string; id: string; skin: number; gear: Record<string, number>; set: string | null }[];
 }
 
 /** One press, at the step it counts before: a skill (`skill` of hero `fighter`), or a hero's Auto. */

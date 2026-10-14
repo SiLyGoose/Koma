@@ -2,7 +2,7 @@ import { TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem, describeEffects, itemEffectiveness, showsMasterwork } from '../lib/game/items/equipment.js';
-import { formatPercent, mentionList, starString } from '../lib/format.js';
+import { formatPercent, itemStars, mentionList } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { equipItem } from '../services/items/equipment.js';
 import type { ItemDef } from '../types.js';
@@ -53,7 +53,7 @@ export const equip: Command = {
     const share = itemEffectiveness(item, ctx.user.id);
     const replaced = result.previousId ? ITEMS_BY_ID.get(result.previousId) : undefined;
     const embed = createEmbed()
-      .setTitle(TEXT.equip.title(starString(item.stars), item.name))
+      .setTitle(TEXT.equip.title(itemStars(item), item.name))
       .setDescription(
         replaced
           ? TEXT.equip.doneReplacing(ctx.user.toString(), item.slot, replaced.name)

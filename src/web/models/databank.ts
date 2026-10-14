@@ -5,6 +5,7 @@ import { ITEMS } from '../../data/items.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
+import { TM_SETS_BY_ID } from '../../data/tm-sets.js';
 import type { ItemDef, Slot, Stars } from '../../types.js';
 import type { RaidLevel } from '../games/raid/protocol.js';
 import { difficultyLevels, picturePath } from '../games/raid/view.js';
@@ -39,6 +40,8 @@ export interface DatabankItem {
   sources: ItemSource[];
   /** A class item: the raid class (Databank.classes) its effects only work for. Null for everyone's. */
   class: RaidClassId | null;
+  /** TechnoMagic gear: the set it belongs to (its name, and its effect for each class), and which raid's boss drops it. Null otherwise. */
+  set: { name: string; boss: string; effects: Partial<Record<RaidClassId, string>> } | null;
 }
 
 export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic';
@@ -103,6 +106,12 @@ function bossView(id: RaidBossId): DatabankBoss {
   return { id, name, emoji, picture: picturePath(id, 'calm'), hp: { perRaider: hpPerRaider[id], overhead: hpOverhead[id], minRaiders, gear: gearHp[id] }, phases, moves, rewards };
 }
 
+
+/** A TechnoMagic item's set, as the databank shows it (null: it isn't TechnoMagic gear). */
+function setOf(item: ItemDef): DatabankItem['set'] {
+  const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
+  return set ? { name: set.name, boss: set.boss, effects: set.effects } : null;
+}
 export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
   const list = items.map(
@@ -120,10 +129,12 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
         ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])]
         : [item.tmDrop ? 'technomagic' : item.limited ? 'limited' : 'gacha'],
       class: item.class ?? null,
+      set: setOf(item),
     }),
   );
   // A stable sort: within a tier, the catalog's own order.
-  list.sort((a, b) => b.stars - a.stars);
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), then by stars.
+  list.sort((a, b) => (b.source === 'technomagic' ? 5 : b.stars) - (a.source === 'technomagic' ? 5 : a.stars));
   return {
     maxLevel: REFINE.maxLevel,
     raidDropChance: CONFIG.raid.dropChance,
