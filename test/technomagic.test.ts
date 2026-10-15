@@ -41,7 +41,8 @@ test('technomagic: a raid is the same every time it is run, and a strong party o
   const live = startRaid(run(42, STRONG));
   assert.ok(typeof live !== 'string');
   for (const fighter of [0, 1, 2]) assert.ok(live.input({ kind: 'auto', fighter }));
-  assert.equal(live.input({ kind: 'skill', fighter: 7, skill: 0 }), false);
+  // (No fighter past the last hero.)
+  assert.equal(live.input({ kind: 'skill', fighter: HEROES.length, skill: 0 }), false);
   while (!live.result) live.step();
   assert.equal(live.tick, once.ticks);
   assert.deepEqual([...live.sums], once.sums);
