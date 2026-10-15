@@ -23,6 +23,7 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  *                 auto      one of their heroes' Auto, on or off; `auto-all`: all of theirs
  *                 give-up   ends the fight, lost (the host)
  *                 back      from a fight over to getting ready again
+ *                 parted    its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's)
  *                 chat      says something to the room (./chat.ts)
  *   bot -> page   room      the room as it is now: whenever anything about it changes
  *                 fight     a fight has begun (or is going on, for a page that just joined): what to run it from
@@ -43,6 +44,7 @@ export type ClientMessage =
   | { t: 'auto-all' }
   | { t: 'give-up' }
   | { t: 'back' }
+  | { t: 'parted'; no: number; second: number }
   | ChatClientMessage;
 
 /** Someone in the room. */

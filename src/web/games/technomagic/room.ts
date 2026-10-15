@@ -88,6 +88,8 @@ interface Fight {
   /** What the players asked of it since it was last stepped on, and whether it is being stepped on now. */
   pending: Intent[];
   stepping: boolean;
+  /** The players whose pages said their run of it parted from the bot's. */
+  parted: Set<string>;
   stop: () => void;
   done: boolean;
 }
@@ -309,7 +311,7 @@ export class TechnoMagicRoom {
       this.tell();
       return 'failed';
     }
-    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, stop: () => {}, done: false };
+    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Set(), stop: () => {}, done: false };
     this.fight = fight;
     this.phase = 'fight';
     this.over = null;
@@ -364,6 +366,17 @@ export class TechnoMagicRoom {
     this.trim();
     this.tell();
     return null;
+  }
+
+  /**
+   * `userId`'s page says its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's: the
+   * same sim, seed and presses should never part, so it is something to look into). Noted once a page, for the fight going on.
+   */
+  parted(userId: string, no: number, second: number): void {
+    const { fight } = this;
+    if (!fight || fight.start.no !== no || fight.parted.has(userId)) return;
+    fight.parted.add(userId);
+    console.warn(`A page's TechnoMagic Raid fight parted from the bot's: server ${this.guildId}, run ${fight.run.id}, sim ${SIM_VERSION}, second ${second}, player ${userId}.`);
   }
 
   /** `userId` says `text` to the room, with a picture (`image`) or not. */

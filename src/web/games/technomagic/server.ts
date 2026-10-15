@@ -73,6 +73,8 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             return answer(room.giveUp(userId));
           case 'back':
             return answer(room.back(userId));
+          case 'parted':
+            return room.parted(userId, message.no, message.second);
           case 'chat':
             return room.say(userId, message.text, await chatImage(message));
         }

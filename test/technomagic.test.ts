@@ -93,6 +93,8 @@ test('technomagic: the page says only what the room takes', () => {
   assert.deepEqual(parseClientMessage('{"t":"press","fighter":2,"skill":1}'), { t: 'press', fighter: 2, skill: 1 });
   assert.equal(parseClientMessage('{"t":"press","fighter":-1,"skill":1}'), null);
   assert.equal(parseClientMessage('{"t":"toggle","fighter":0}'), null);
+  assert.deepEqual(parseClientMessage('{"t":"parted","no":3,"second":41}'), { t: 'parted', no: 3, second: 41 });
+  assert.equal(parseClientMessage('{"t":"parted","no":3,"second":-1}'), null);
   assert.equal(parseClientMessage('nope'), null);
 });
 
