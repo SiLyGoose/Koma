@@ -322,8 +322,8 @@ export interface TmRunDoc {
   stage: number;
   /** Their heroes in it. */
   heroes: TmRunHero[];
-  /** The sim's version it was fought with. */
-  version: number;
+  /** The sim's version it was fought with (a hash of it; a number, for a run from before). */
+  version: string | number;
   startedAt: Date;
   /** The day it was begun (YYYY-MM-DD, the raid's time zone), and whether a win gives gear (one of that day's runs that do). */
   day: string;

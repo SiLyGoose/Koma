@@ -91,7 +91,7 @@ export interface RoomState {
   you: string;
   phase: 'prep' | 'fight' | 'over';
   /** The bot's sim (a page running another is to reload). */
-  version: number;
+  version: string;
   boss: { id: string; name: string };
   stage: number;
   stages: number;

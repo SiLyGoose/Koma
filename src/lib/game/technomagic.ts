@@ -6,7 +6,6 @@ import { tmSetOfBoss } from '../../data/tm-sets.js';
 import type { ItemDef, TmPotential } from '../../types.js';
 import {
   BOSS_IDS,
-  HERO_SKINS,
   MOST_STAGE,
   MOST_TM_SKILLS,
   SIM_VERSION,
@@ -29,7 +28,7 @@ import {
  * (data/tm-potentials.ts), rolled as it drops. The database side is services/technomagic.ts.
  */
 
-export { BOSS_IDS, HERO_SKINS, MOST_STAGE, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_SKILLS, replay, startRaid, type LiveRaid, type Replay, type Run, type TmSkill };
+export { BOSS_IDS, MOST_STAGE, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_SKILLS, replay, startRaid, type LiveRaid, type Replay, type Run, type TmSkill };
 
 export const TM_SKILLS_BY_ID: ReadonlyMap<string, TmSkill> = new Map(TM_SKILLS.map((skill) => [skill.id, skill]));
 

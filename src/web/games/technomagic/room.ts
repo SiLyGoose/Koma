@@ -1,7 +1,7 @@
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import { potentialLines } from '../../../lib/game/heroes.js';
-import { HERO_SKINS, MOST_STAGE, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, tmSkillLine, type LiveRaid } from '../../../lib/game/technomagic.js';
+import { MOST_STAGE, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, tmSkillLine, type LiveRaid } from '../../../lib/game/technomagic.js';
 import { beginRun, finishRun, ownedHeroes, rewardsLeft, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
@@ -225,7 +225,7 @@ export class TechnoMagicRoom {
     if (mine.length >= this.limit(userId)) return 'limit';
     if (this.lineup.length >= this.slots()) return 'full';
     if (teamFull) return 'team_full';
-    this.lineup.push({ owner: userId, hero, skin: skin < (HERO_SKINS[hero] ?? 1) ? skin : 0, ...(into && { sub: true }) });
+    this.lineup.push({ owner: userId, hero, skin: skin < (HEROES_BY_ID.get(hero)?.skins ?? 1) ? skin : 0, ...(into && { sub: true }) });
     member.ready = false;
     this.tell();
     return null;

@@ -1,11 +1,13 @@
 import type { RaidClassId } from '../constants/raid.js';
 import type { ItemDef, TmSetId } from '../types.js';
+import { TM_SET_INFO } from '../../vendor/technomagic-sim.mjs';
 
 /*
  * The TechnoMagic Raids' gear sets: one for each raid's boss, which drops only its own set's gear
  * (ItemDef.tmSet). A hero wearing three pieces of one set (of its two weapons and two armors, each working on
- * its class) has the set's effect, which depends on its class. The effects themselves are the raid's sim's
- * (Koma-UI's src/technomagic/sim/sets.ts): these lines say what they do, for the heroes page and each piece's own.
+ * its class) has the set's effect, which depends on its class. Each set, and what it does, is the raid's (Koma-UI's
+ * src/technomagic/sim/sets.ts, here as vendor/technomagic-sim.mjs's TM_SET_INFO, said for the heroes page and each
+ * piece's own): which boss drops it is the bot's.
  */
 
 /** How many pieces of a set make it: three of a hero's weapons and armors. */
@@ -21,55 +23,15 @@ export interface TmSet {
   effects: Partial<Record<RaidClassId, string>>;
 }
 
-const PERSEVERANCE_DPS = '+10% DMG, and another +1.5% every 10 seconds (up to +25% after 100 seconds)';
-const PERSEVERANCE_SUPPORT = 'every ally +5% ATK and +10% defence (stacking with every other hero wearing it so)';
-const HOPE_SUPPORT = 'every ally +5% ATK and +10% defence (stacking with every other hero wearing it so)';
-const AUTHORITY_DPS = '+500 penetration from the start of the fight';
-const AUTHORITY_SUPPORT = '+2 mana sections at the start, and the ally with the highest ATK can’t be knocked down for 15 seconds';
+/** The raid boss that drops each set. */
+const DROPPED_BY: Readonly<Record<TmSetId, string>> = { perseverance: 'galgoria', hope: 'siegfried', authority: 'ascalon' };
 
-export const TM_SETS: readonly TmSet[] = [
-  {
-    id: 'perseverance',
-    name: 'Perseverance',
-    emoji: '⚔️',
-    boss: 'galgoria',
-    effects: {
-      warrior: PERSEVERANCE_DPS,
-      assassin: PERSEVERANCE_DPS,
-      archer: PERSEVERANCE_DPS,
-      mechanic: PERSEVERANCE_DPS,
-      wizard: PERSEVERANCE_DPS,
-      priest: PERSEVERANCE_SUPPORT,
-      knight: PERSEVERANCE_SUPPORT,
-    },
-  },
-  {
-    id: 'hope',
-    name: 'Hope',
-    emoji: '🛡️',
-    boss: 'siegfried',
-    effects: {
-      priest: HOPE_SUPPORT,
-      mechanic: HOPE_SUPPORT,
-      knight: 'takes 10% less, and takes 20% of what the boss deals every other ally on itself',
-    },
-  },
-  {
-    id: 'authority',
-    name: 'Authority',
-    emoji: '⚡',
-    boss: 'ascalon',
-    effects: {
-      warrior: AUTHORITY_DPS,
-      assassin: AUTHORITY_DPS,
-      archer: AUTHORITY_DPS,
-      wizard: AUTHORITY_DPS,
-      priest: AUTHORITY_SUPPORT,
-      mechanic: AUTHORITY_SUPPORT,
-      knight: '+30% CC resist; its skills strip what helps the boss',
-    },
-  },
-];
+const isSet = (id: string): id is TmSetId => Object.hasOwn(DROPPED_BY, id);
+
+export const TM_SETS: readonly TmSet[] = TM_SET_INFO.map(({ id, name, icon, effects }) => {
+  if (!isSet(id)) throw new Error(`The raid's set ${id} is dropped by no boss here`);
+  return { id, name, emoji: icon, boss: DROPPED_BY[id], effects };
+});
 
 export const TM_SETS_BY_ID: ReadonlyMap<TmSetId, TmSet> = new Map(TM_SETS.map((set) => [set.id, set]));
 

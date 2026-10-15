@@ -1,5 +1,6 @@
-// Built from Koma-UI's src/technomagic/sim/ by scripts/build-sim.mjs: don't edit it here.
-export declare const SIM_VERSION = 15;
+// Built from Koma-UI's src/technomagic/sim/ by its scripts/sync.mjs: don't edit it here.
+/** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
+export declare const SIM_VERSION: string;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;
@@ -56,9 +57,24 @@ export interface Replay {
     /** What each hero's blows took of the boss, by its place in the run. */
     dealt: number[];
 }
-/** The heroes and bosses there are, by id, and how many skins each hero has. */
-export declare const HERO_SKINS: Readonly<Record<string, number>>;
+/** A hero there is (the bot sells it, and the heroes page gears it): its id, its name, its class, and how many skins it has (its own first). */
+export interface TmHero {
+    id: string;
+    name: string;
+    class: string;
+    skins: number;
+}
+/** The heroes there are, in the order of their cards; and the bosses, by id. */
+export declare const TM_HEROES: readonly TmHero[];
 export declare const BOSS_IDS: readonly string[];
+/** A TechnoMagic set as the fight has it: its id, name and icon, and what it does for a hero of each class wearing three of its pieces (by class; one it does nothing for left out). */
+export interface TmSetInfo {
+    id: string;
+    name: string;
+    icon: string;
+    effects: Readonly<Record<string, string>>;
+}
+export declare const TM_SET_INFO: readonly TmSetInfo[];
 /** An input of the page's, as a raid takes it: a skill pressed, a hero's Auto, every hero's Auto, or leaving (with the step it came before). */
 export interface RunInput {
     tick: number;

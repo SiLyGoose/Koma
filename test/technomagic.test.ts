@@ -6,7 +6,7 @@ import { TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
-import { HERO_SKINS, MOST_STAGE, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
+import { MOST_STAGE, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
@@ -25,9 +25,10 @@ const run = (seed: number, gear: Record<string, number>, stage = 1, solo = false
 const STRONG = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
 const ALL = HEROES.map((hero) => hero.id);
 
-test('technomagic: the sim the bot has knows every hero of the bot, and the boss', () => {
-  for (const hero of HEROES) assert.ok((HERO_SKINS[hero.id] ?? 0) >= 1, hero.id);
-  assert.equal(typeof SIM_VERSION, 'number');
+test("technomagic: the bot's heroes are the sim's, each with a skin, and the boss", () => {
+  assert.ok(HEROES.length > 0);
+  for (const hero of HEROES) assert.ok(hero.skins >= 1, hero.id);
+  assert.match(SIM_VERSION, /^[0-9a-f]{12}$/);
   assert.equal(MOST_STAGE, 8);
   assert.equal(GAMES.technomagic.page, '/games/technomagic');
 });
