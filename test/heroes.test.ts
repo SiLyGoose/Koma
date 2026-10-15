@@ -174,7 +174,7 @@ test('heroes: gear raises their stats, the raid gear by what it does in the raid
   assert.ok(heroBonus([{ ...maul, level: 1 }], 'warrior').atk < heroBonus([maul], 'warrior').atk);
   assert.deepEqual(heroBonus([{ ...fang, level: 1 }], 'warrior'), heroBonus([fang], 'warrior'));
   assert.deepEqual(heroBonus([{ item: item('tri-head-cleaver'), level: 5 }], 'warrior'), heroBonus([], 'warrior'), 'no potentials, nothing');
-  assert.deepEqual(heroItemLines(item('tri-head-cleaver'), 5, true, undefined, potentials), ['+5% ATK', '+12% crit damage']);
+  assert.deepEqual(heroItemLines(item('tri-head-cleaver'), 5, true, undefined, potentials), ['+5% ATK', '+12% Crit DMG']);
 });
 
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
@@ -210,7 +210,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(fang?.setEffect?.pieces, 3);
   assert.ok(fang?.setEffect?.text.startsWith('+10% DMG'));
   assert.ok(!fang?.effects.some((line) => line.includes('+10% DMG')));
-  assert.deepEqual(fang?.effects, ['+5% ATK', '+12% crit damage'], 'its effects are its potentials');
+  assert.deepEqual(fang?.effects, ['+5% ATK', '+12% Crit DMG'], 'its effects are its potentials');
   assert.equal(fang?.additional, null, 'no additional skill on this copy');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.setEffect, null);
   assert.ok(kirze?.totals.some((line) => line.endsWith('ATK')));

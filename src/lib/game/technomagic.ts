@@ -52,12 +52,13 @@ export function rollTmDrop(boss: string, rng: TmRng = defaultRng): ItemDef | nul
 /** The additional skill a piece of TechnoMagic gear comes with: one of TM_SKILLS, each as likely (its id). */
 export const rollTmSkill = (rng: TmRng = defaultRng): string => (TM_SKILLS[rng.index(TM_SKILLS.length)] as TmSkill).id;
 
-/** Steps between the ends of a potential's range it can roll (0.1% apart with the defaults' ranges, or finer). */
-const POTENTIAL_STEPS = 1000;
+/** A potential's amount, to the nearest whole percent (as every copy's is). */
+export const wholePercent = (value: number): number => Math.round(value * 100) / 100;
 
 /**
  * The potentials a piece of TechnoMagic gear comes with: TM_POTENTIAL_LINES of them, each a different stat, each
- * as likely, and each by an amount between its range's ends (the settings' hero.potentials), any as likely.
+ * as likely, and each by a whole percent between its range's ends (the settings' hero.potentials, to the nearest
+ * whole percent), any as likely.
  */
 export function rollTmPotentials(rng: TmRng = defaultRng): TmPotential[] {
   const pool = [...TM_POTENTIAL_IDS];
@@ -65,10 +66,17 @@ export function rollTmPotentials(rng: TmRng = defaultRng): TmPotential[] {
   while (out.length < TM_POTENTIAL_LINES && pool.length > 0) {
     const [stat] = pool.splice(rng.index(pool.length), 1);
     if (stat === undefined) break;
-    const { min, max } = CONFIG.hero.potentials[stat];
-    out.push({ stat, value: Math.round((min + ((max - min) * rng.index(POTENTIAL_STEPS + 1)) / POTENTIAL_STEPS) * 10_000) / 10_000 });
+    const low = Math.round(CONFIG.hero.potentials[stat].min * 100);
+    const high = Math.max(low, Math.round(CONFIG.hero.potentials[stat].max * 100));
+    out.push({ stat, value: (low + rng.index(high - low + 1)) / 100 });
   }
   return out;
+}
+
+/** A copy's potentials to the nearest whole percent: null if they already are (as the copies from before that were not). */
+export function wholePotentials(potentials: readonly TmPotential[]): TmPotential[] | null {
+  const whole = potentials.map(({ stat, value }) => ({ stat, value: wholePercent(value) }));
+  return whole.some(({ value }, i) => value !== potentials[i]?.value) ? whole : null;
 }
 
 /** A copy's additional skill, as the site and the bot say it, like "Vigor: Increases DMG dealt by 25% while HP is above 75%." (null: none, or one the sim doesn't know). */

@@ -5,34 +5,36 @@ import type { TmPotentialId } from '../types.js';
  * TM_POTENTIAL_LINES of these at random, each a different one, each by an amount between its range's ends (the
  * settings' hero.potentials.<id>.min and .max; these are their defaults). A hero of the copy's class wearing it
  * has them in the raid: they are all the stats TechnoMagic gear has (it has no perks; lib/game/heroes.ts). Each raises the hero's stat of the
- * same name; an amount is a share, as a perk's strength is (0.05: 5% more, or 50 points of a chance).
+ * same name; an amount is a share, as a perk's strength is (0.05: 5% more, or 50 points of a chance), and a whole percent
+ * (lib/game/technomagic.ts rolls it so).
  */
 
 /** How many potentials a copy rolls. */
 export const TM_POTENTIAL_LINES = 4;
 
-/** Every potential, in the order they're listed (King's Raid's), with its name in the settings. */
+/** Every potential, in the order they're listed (King's Raid's), with its name: a copy's lines', the settings' and the databank's (the user's). */
 export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [
   { id: 'atk', name: 'ATK' },
   { id: 'speed', name: 'ATK Spd' },
   { id: 'hp', name: 'Max HP' },
   { id: 'defense', name: 'DEF' },
-  { id: 'defPhysical', name: 'P.DEF' },
-  { id: 'defMagical', name: 'M.DEF' },
+  { id: 'defPhysical', name: 'P. DEF' },
+  { id: 'defMagical', name: 'M. DEF' },
   { id: 'block', name: 'Block' },
-  { id: 'blockPhysical', name: 'P.Block' },
-  { id: 'blockMagical', name: 'M.Block' },
+  { id: 'blockPhysical', name: 'P. Block' },
+  { id: 'blockMagical', name: 'M. Block' },
   { id: 'accuracy', name: 'Accuracy' },
   { id: 'resist', name: 'CC Resist' },
-  { id: 'crit', name: 'Crit' },
+  { id: 'crit', name: 'Crit Chance' },
   { id: 'critDamage', name: 'Crit DMG' },
-  { id: 'manaAttack', name: 'Mana Recovery per attack' },
+  { id: 'manaAttack', name: 'Mana Recovery per Attack' },
   { id: 'lifesteal', name: 'Lifesteal' },
   { id: 'critResist', name: 'Crit Resist' },
   { id: 'pen', name: 'Penetration' },
 ];
 
 export const TM_POTENTIAL_IDS: readonly TmPotentialId[] = TM_POTENTIALS.map(({ id }) => id);
+export const TM_POTENTIAL_NAME: ReadonlyMap<string, string> = new Map(TM_POTENTIALS.map(({ id, name }) => [id, name]));
 
 /**
  * What each potential can roll, by default: the user's numbers. DEF and Block are against both kinds of damage, so

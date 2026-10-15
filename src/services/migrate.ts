@@ -2,7 +2,7 @@ import type { Filter } from 'mongodb';
 import { HOUR_MS } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID, TM_DROPS } from '../data/items.js';
-import { rollTmPotentials, rollTmSkill } from '../lib/game/technomagic.js';
+import { rollTmPotentials, rollTmSkill, wholePotentials } from '../lib/game/technomagic.js';
 import { bestCopy } from '../lib/game/items/copies.js';
 import { reslotGear } from '../lib/game/items/reslot.js';
 import type { EquipmentDoc, ItemCopyDoc, LedgerDoc, TmPotential } from '../types.js';
@@ -310,6 +310,24 @@ export async function rollMissingTmPotentials(roll: () => TmPotential[] = rollTm
     await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmPotentials: { $exists: false } }, update: { $set: { tmPotentials: roll() } } } })));
   }
   return missing.length;
+}
+
+/**
+ * TechnoMagic potentials are whole percents (rollTmPotentials rolls them so); the copies' from before, finer, are
+ * rounded to the nearest. Idempotent (a copy's already whole is left), so it runs every start.
+ */
+export async function roundTmPotentials(): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const copies = await items.find({ itemId: { $in: ids }, tmPotentials: { $exists: true } }, { projection: { _id: 1, tmPotentials: 1 } }).toArray();
+  const changed = copies.flatMap(({ _id, tmPotentials }) => {
+    const whole = wholePotentials(tmPotentials ?? []);
+    return whole ? [{ _id, whole }] : [];
+  });
+  for (let i = 0; i < changed.length; i += BATCH) {
+    await items.bulkWrite(changed.slice(i, i + BATCH).map(({ _id, whole }) => ({ updateOne: { filter: { _id }, update: { $set: { tmPotentials: whole } } } })));
+  }
+  return changed.length;
 }
 
 /*

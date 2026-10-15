@@ -7,7 +7,7 @@ import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
-import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
+import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
@@ -419,8 +419,12 @@ test('technomagic: each copy rolls 4 potentials, each a different stat, each wit
     assert.equal(new Set(rolled.map(({ stat }) => stat)).size, rolled.length, 'no stat twice');
     for (const { stat, value } of rolled) assert.ok(value >= TM_POTENTIAL_RANGES[stat].min - 1e-9 && value <= TM_POTENTIAL_RANGES[stat].max + 1e-9, `${stat} ${value}`);
   }
-  // The lowest roll is each range's bottom, the highest its top.
+  // Whole percents only: the lowest roll is each range's bottom, the highest its top.
+  for (let i = 0; i < 200; i++) for (const { value } of rollTmPotentials()) assert.equal(value, Math.round(value * 100) / 100, `${value}`);
   assert.deepEqual(rollTmPotentials({ index: () => 0 }).map(({ value }, i) => value === TM_POTENTIAL_RANGES[TM_POTENTIAL_IDS[i] as keyof typeof TM_POTENTIAL_RANGES].min), [true, true, true, true]);
+  // Copies from before, finer, rounded to the nearest whole percent; those already whole left alone.
+  assert.deepEqual(wholePotentials([{ stat: 'atk', value: 0.0749 }, { stat: 'speed', value: 0.115 }, { stat: 'hp', value: 0.05 }]), [{ stat: 'atk', value: 0.07 }, { stat: 'speed', value: 0.12 }, { stat: 'hp', value: 0.05 }]);
+  assert.equal(wholePotentials([{ stat: 'atk', value: 0.07 }, { stat: 'pen', value: 0.11 }]), null);
   const potentials = [
     { stat: 'lifesteal', value: 0.03 },
     { stat: 'critResist', value: 0.05 },
@@ -435,7 +439,9 @@ test('technomagic: each copy rolls 4 potentials, each a different stat, each wit
   assert.equal(on.atk, 0.05, 'TechnoMagic gear has no perks of its own');
   // Not on a hero of another class.
   assert.equal(pieceBonus({ item: piece, level: 1, potentials }, piece.class === 'priest' ? 'knight' : 'priest').lifesteal, 0);
-  assert.deepEqual(potentialLines(potentials), ['+3% lifesteal', '+5% crit resist', '+8% magical defence', '+5% ATK']);
+  // Named as the user has them (King's Raid's, mostly).
+  assert.deepEqual(potentialLines(potentials), ['+3% Lifesteal', '+5% Crit Resist', '+8% M. DEF', '+5% ATK']);
+  assert.deepEqual(potentialLines([{ stat: 'speed', value: 0.05 }, { stat: 'hp', value: 0.12 }, { stat: 'blockMagical', value: 0.2 }]), ['+5% ATK Spd', '+12% Max HP', '+20% M. Block']);
 });
 
 test('technomagic: TechnoMagic gear’s additional skills, one rolled for each copy as it drops, from one list whatever the set', () => {

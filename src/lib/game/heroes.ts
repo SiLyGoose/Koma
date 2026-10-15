@@ -2,6 +2,7 @@ import { REFINE } from '../../constants/index.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import { HEROES } from '../../data/heroes.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
+import { TM_POTENTIAL_NAME } from '../../data/tm-potentials.js';
 import { TM_SET_PIECES, TM_SETS_BY_ID } from '../../data/tm-sets.js';
 import type { EffectId } from '../../perks/index.js';
 import { uwAttack } from '../../data/uw-attack.js';
@@ -194,15 +195,21 @@ export function heroBonus(pieces: readonly HeroPiece[], heroClass: RaidClassId, 
   return out;
 }
 
-/** A stat's line, by how much (a share, or flat ATK as it is), like "+25% ATK" or "+96,209 ATK". */
-export const statLine = (stat: HeroStat, value: number): string => HERO_STATS[stat].text(HERO_STATS[stat].flat ? fmt(Math.round(value)) : formatPercent(value));
+/** How much of a stat, as its lines say it: a share (a percent), or flat ATK as it is. */
+const amount = (stat: HeroStat, value: number): string => (HERO_STATS[stat].flat ? fmt(Math.round(value)) : formatPercent(value));
+
+/** A stat's line on a piece of gear, by how much, like "+25% ATK" or "+96,209 ATK". */
+export const statLine = (stat: HeroStat, value: number): string => HERO_STATS[stat].text(amount(stat, value));
 
 /** One line for each stat a bonus raises, in HERO_STATS' order, like "+25% ATK". */
 export const bonusLines = (bonus: HeroBonus): string[] => HERO_STAT_IDS.filter((stat) => bonus[stat] > 1e-9).map((stat) => statLine(stat, bonus[stat]));
 
-/** A TechnoMagic copy's potentials, a line each, like "+5.2% ATK" (none for a copy that has none). */
+/** A TechnoMagic copy's potentials, a line each, like "+5% ATK Spd" (none for a copy that has none). */
 export const potentialLines = (potentials: readonly TmPotential[] | undefined): string[] =>
-  (potentials ?? []).filter(({ stat }) => stat in HERO_STATS).map(({ stat, value }) => statLine(stat, value));
+  (potentials ?? []).flatMap(({ stat, value }) => {
+    const name = TM_POTENTIAL_NAME.get(stat);
+    return name ? [`+${formatPercent(value)} ${name}`] : [];
+  });
 
 /**
  * What a copy of `item` at `level` does on a hero, a line for each stat it raises: on any hero (left
