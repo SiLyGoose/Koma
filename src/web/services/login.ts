@@ -4,15 +4,11 @@ import { GAMES, gameLink, type Game } from '../config.js';
 import { ApiError } from '../lib/errors.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, type Session } from '../auth/login.js';
 import { signToken } from '../auth/token.js';
+import type { LogIn, Me } from '../../protocol/site.js';
+
+export type { Me };
 
 /* Logging in on the site with Discord (login.ts), who is logged in, and links to play. */
-
-/** Who is logged in, and where they can play. */
-export interface Me {
-  user: { id: string; name: string; avatar: string };
-  servers: { id: string; name: string; icon: string | null; balance: number }[];
-  games: Game[];
-}
 
 export type LoginService = ReturnType<typeof loginService>;
 
@@ -42,7 +38,7 @@ export function loginService(deps: ApiDeps) {
     },
 
     /** Trades the code Discord gave the site for a session, in the bot's servers only. */
-    async logIn(code: string): Promise<{ session: string; me: Me }> {
+    async logIn(code: string): Promise<LogIn> {
       const secret = config.clientSecret;
       if (!secret) throw new ApiError('no_login');
       const clientId = deps.clientId();

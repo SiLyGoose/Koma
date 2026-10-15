@@ -4,7 +4,7 @@ import { REFINE } from '../../constants/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
-import { keptCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
+import { keptCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
 import { activeTmEffects, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
@@ -22,8 +22,11 @@ import { classTraits } from '../../lib/game/raid-classes.js';
 import { RAID_CLASS_IDS, TEXT, type RaidClassId } from '../../constants/index.js';
 import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
 import type { EquipmentDoc, ItemCopyDoc, ItemDef, MemberDoc, Slot, Stars } from '../../types.js';
-import { gearStats, type StatSection } from './stats.js';
+import { gearStats } from './stats.js';
 import { SLOTS } from '../../types.js';
+import type { ForgeBlock, GearCopy, GearForge, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock } from '../../protocol/gear.js';
+
+export type { ForgeBlock, GearCopy, GearForge, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock };
 
 /*
  * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /loadout/rename, /refine, /forge, /sell and /lock):
@@ -32,110 +35,6 @@ import { SLOTS } from '../../types.js';
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
  * draws those itself.
  */
-
-/** One copy a member owns, as the gear page shows it. */
-export interface GearCopy {
-  /** The copy's id (ItemCopyDoc._id): what the page equips. */
-  id: string;
-  itemId: string;
-  name: string;
-  stars: Stars;
-  slot: Slot;
-  description: string;
-  level: number;
-  maxLevel: number;
-  /** A masterwork with its bonus on (the gear card's ✨ Masterwork tag). */
-  masterwork: boolean;
-  /** What it does for this member at this level: a TechnoMagic copy's potentials (what it does on a hero, which refining doesn't change). */
-  effects: string[];
-  /**
-   * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
-   * and whether it is on (the hero wearing it has its set's effect); null otherwise.
-   */
-  setEffect: { pieces: number; text: string; active: boolean } | null;
-  /** TechnoMagic gear: the additional skill this copy came with, like "Vigor: Increases DMG…" (null: none). */
-  additional: string | null;
-  /** Whether its additional skill is on: a hero of its class wears it. */
-  additionalActive: boolean;
-  /** Worn by a hero of a class it doesn't work on: none of it counts there, not even its stats (the page greys them out). */
-  wrongClass: boolean;
-  /** Someone else's exclusive item: the share of its effects this member gets (null when it's theirs to use). */
-  borrowed: number | null;
-  /** Refining it (services/items/refine.ts), for the page's confirmation. */
-  refine: GearRefine;
-  /** Forging it into a masterwork (services/items/forge.ts), for the page's confirmation: null when its item has no bonus. */
-  forge: GearForge | null;
-  /** Locked by the member (services/items/lock.ts): never sold or used up by a refine. */
-  locked: boolean;
-  /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
-  sell: number | null;
-  /** TechnoMagic gear or a unique weapon: only heroes wear it (the heroes page), never the member. */
-  heroOnly: boolean;
-  /** A unique weapon: the id of the one hero that wields it (null: not one). */
-  uniqueWeapon: string | null;
-  /** A class item (raid gear, and all TechnoMagic gear): the class it works for (null: any). */
-  itemClass: RaidClassId | null;
-  /** The name of the TechnoMagic hero wearing it (the heroes page), or null when none is. */
-  hero: string | null;
-}
-
-/** Refining a copy: what the page asks the member to confirm. */
-export interface GearRefine {
-  /** Why it can't be done now (null when it can). */
-  blocked: RefineBlock | null;
-  /** What the next level costs in points (null at the top level). */
-  cost: number | null;
-  /** The level of the spare copy it would use up when none is picked (null when there's none to use). */
-  spare: number | null;
-  /** What it would do at the next level, as `effects` (null when it can't go up). */
-  after: string[] | null;
-}
-
-/**
- * Why a copy can't be refined: it's at the top level, there's no spare copy of it to use up (another
- * copy of its item that isn't worn, saved in a loadout, a masterwork or locked), or they can't pay for it.
- * Every copy is refined as itself on the site, whatever level its item's other copies are at.
- */
-export type RefineBlock = 'maxed' | 'no_duplicate' | 'too_poor';
-
-/** Forging a copy into a masterwork: what the page asks the member to confirm. */
-export interface GearForge {
-  /** Why it can't be done now (null when it can). */
-  blocked: ForgeBlock | null;
-  /** What it costs in komaGems. */
-  cost: number;
-  /** The level it has to be refined to first. */
-  level: number;
-  /** What it would do once forged, as `effects` (null when it's forged already). */
-  after: string[] | null;
-}
-
-/** Why a copy can't be forged: it's a masterwork already, it isn't refined far enough, or they can't pay for it. */
-export type ForgeBlock = 'forged' | 'too_low' | 'too_poor';
-
-/** GET /api/gear: a member's gear. */
-export interface GearView {
-  /** The copy id in each slot, or null when it's empty. */
-  equipped: Record<Slot, string | null>;
-  /** Everything they own, best first (stars, then level, then name). */
-  copies: GearCopy[];
-  /** What everything equipped adds up to. */
-  totals: string[];
-  /** Their loadouts, in order: the active one is what they're wearing. */
-  loadouts: GearLoadout[];
-  /** Every number their gear can change, with and without it (the page's Common tab), raid last. */
-  stats: StatSection[];
-  /** Their points in the server (null when not known), for what a refine leaves them. */
-  balance: number | null;
-  /** Their komaGems in the server (null when not known), for what a forge leaves them. */
-  gems: number | null;
-  /** The outfit they wear (data/outfits.ts): the character the page draws them as. */
-  outfit: string;
-  /** Their raid class (services/raid-class.ts), or null with none: the page's class ribbon shows and changes it. */
-  class: RaidClassId | null;
-  /** Every raid class, for the ribbon's picker: its name and what it does in a fight, a line of Discord markdown each. */
-  classes: { id: RaidClassId; name: string; traits: string[] }[];
-}
 
 /**
  * A raider's gear as they fought (the raid's end screen shows it): only what they wore, in the loadout
@@ -151,21 +50,6 @@ export function wornGear(view: GearView): GearView {
     gems: null,
   };
 }
-
-/** One of a member's loadouts, as the gear page shows it. */
-export interface GearLoadout {
-  number: number;
-  name: string;
-  active: boolean;
-  /** The copy id in each slot (only copies they still own, in the slot they fit), or null. */
-  equipped: Record<Slot, string | null>;
-}
-
-/**
- * Why a loadout can't take a name (lib/game/items/loadouts.ts's checkLoadoutName): it's too long, has
- * characters a name can't, has no letter, is a word the loadout command uses, or is another of their loadouts'.
- */
-export type LoadoutNameBlock = `name_${Extract<NameCheck, { ok: false }>['reason']}`;
 
 /** What the gear routes use (the database's, unless a test says otherwise). */
 export interface GearStore {
@@ -201,12 +85,6 @@ export interface GearStore {
   setClass: (guildId: string, userId: string, id: RaidClassId | null) => Promise<void>;
   /** Each of those members' raid classes, in their order (the roster's badges). */
   classes: (guildId: string, userIds: readonly string[]) => Promise<(RaidClassId | null)[]>;
-}
-
-/** What a sale from the gear page sold (POST /api/gear/sell answers the GearView with it). */
-export interface GearSale {
-  count: number;
-  earned: number;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;

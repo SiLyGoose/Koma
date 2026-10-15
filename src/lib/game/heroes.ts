@@ -5,11 +5,15 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { TM_SET_PIECES, TM_SETS_BY_ID } from '../../data/tm-sets.js';
 import type { EffectId } from '../../perks/index.js';
 import { uwAttack } from '../../data/uw-attack.js';
-import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type Slot, type TmPotential, type TmSetId } from '../../types.js';
+import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type TmPotential, type TmSetId } from '../../types.js';
 import { fmt, formatPercent } from '../format.js';
 import { effectStrength, itemEffects, perkShare, type GearPiece } from './items/equipment.js';
 import { refineLevel } from './items/refine-share.js';
 import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
+import { HERO_SLOT_KIND } from '../../protocol/heroes.js';
+import { HERO_STAT_IDS, type HeroBonus, type HeroStat } from '../../protocol/heroes.js';
+
+export { HERO_SLOT_KIND, HERO_STAT_IDS, type HeroBonus, type HeroStat };
 
 /*
  * The TechnoMagic Raid's heroes (data/heroes.ts), with no database: which gear they wear, where, and what
@@ -25,9 +29,6 @@ import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
  * for its hero's class and refinement (data/uw-attack.ts), and has its own effect in the raid (the raid's sim,
  * which says what it does: uniqueWeaponText).
  */
-
-/** Which kind of item goes in a hero's slot. */
-export const HERO_SLOT_KIND: Readonly<Record<HeroSlot, Slot>> = { weapon1: 'weapon', weapon2: 'weapon', armor1: 'armor', armor2: 'armor', treasure: 'treasure' };
 
 /** The hero's slots an item fits in, in order. */
 export const heroSlotsFor = (item: Pick<ItemDef, 'slot'>): HeroSlot[] => HERO_SLOTS.filter((slot) => HERO_SLOT_KIND[slot] === item.slot);
@@ -92,29 +93,6 @@ export function heroEquipMoves(heroes: MemberDoc['heroes'], heroId: string, slot
 }
 
 /** A hero's stats that gear raises (the raid's GearStat, Koma-UI's src/technomagic/sim/types.ts). */
-export type HeroStat =
-  | 'atkFlat'
-  | 'atk'
-  | 'hp'
-  | 'crit'
-  | 'critDamage'
-  | 'speed'
-  | 'pen'
-  | 'defense'
-  | 'defPhysical'
-  | 'defMagical'
-  | 'block'
-  | 'blockPhysical'
-  | 'blockMagical'
-  | 'dodge'
-  | 'resist'
-  | 'accuracy'
-  | 'lifesteal'
-  | 'critResist'
-  | 'heal'
-  | 'control'
-  | 'manaAttack'
-  | 'manaRegen';
 
 /**
  * Each stat, in the order they're listed: what it is in the raid (`points`: a chance or share, 1000 points
@@ -145,11 +123,6 @@ export const HERO_STATS: Readonly<Record<HeroStat, { points: boolean; flat?: boo
   manaAttack: { points: false, label: 'Mana per attack', text: (v) => `+${v} mana per attack` },
   manaRegen: { points: false, label: 'Mana recovery', text: (v) => `+${v} mana recovery per second` },
 };
-
-export const HERO_STAT_IDS = Object.keys(HERO_STATS) as HeroStat[];
-
-/** What gear gives a hero: a share for each stat (0.1: 10% more, or 100 points). */
-export type HeroBonus = Record<HeroStat, number>;
 
 export const noBonus = (): HeroBonus => Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, 0])) as HeroBonus;
 

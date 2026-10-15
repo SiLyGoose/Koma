@@ -1,4 +1,7 @@
 import type { RaidBossId, RaidClassId } from '../constants/raid.js';
+import { ESSENCE_NAME, ESSENCES, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier } from '../protocol/heroes.js';
+
+export { ESSENCE_NAME, ESSENCES, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier };
 
 /*
  * The TechnoMagic Raid's heroes' transcendence, as King's Raid has it, on the site's heroes page.
@@ -18,34 +21,11 @@ import type { RaidBossId, RaidClassId } from '../constants/raid.js';
  * Any perk of a tier it has reached can be picked with any other, while their TP all told is no more than it has.
  */
 
-/** How far a hero can be transcended. */
-export const TRANSCEND_MAX = 5;
-
-/** The TP a hero has at each level (Transcend 0 first). */
-export const TRANSCEND_TP: readonly number[] = [0, 20, 35, 50, 65, 80];
-
-/** The TP a hero has at its most. */
-export const TRANSCEND_POINTS = TRANSCEND_TP[TRANSCEND_MAX] as number;
-
 /** A hero's level as kept (missing: 0), within 0 and TRANSCEND_MAX. */
 export const transcendLevel = (level: number | undefined): number => Math.min(TRANSCEND_MAX, Math.max(0, Math.floor(level ?? 0)));
 
 /** The TP a hero has at `level`. */
 export const transcendPoints = (level: number | undefined): number => TRANSCEND_TP[transcendLevel(level)] as number;
-
-/** The hero essences: King's Raid's seven kinds (its fragments' types), each class using three of them. */
-export const ESSENCES = ['justice', 'force', 'wisdom', 'strategy', 'patience', 'harmony', 'fortune'] as const;
-export type EssenceId = (typeof ESSENCES)[number];
-
-export const ESSENCE_NAME: Readonly<Record<EssenceId, string>> = {
-  justice: 'Justice',
-  force: 'Force',
-  wisdom: 'Wisdom',
-  strategy: 'Strategy',
-  patience: 'Patience',
-  harmony: 'Harmony',
-  fortune: 'Fortune',
-};
 
 /** The three essences each class's heroes transcend with, as King's Raid has them. */
 export const CLASS_ESSENCES: Readonly<Record<RaidClassId, readonly [EssenceId, EssenceId, EssenceId]>> = {
@@ -85,26 +65,6 @@ export function transcendCost(heroClass: RaidClassId, level: number | undefined)
   if (at >= TRANSCEND_MAX || !cost) return null;
   return { essences: Object.fromEntries(CLASS_ESSENCES[heroClass].map((id) => [id, cost.essences])) as Record<EssenceId, number>, gems: cost.gems };
 }
-
-export type TranscendTier = 1 | 2 | 3 | 5;
-
-export interface TranscendPerk {
-  id: string;
-  /** Its tier: the level a hero picks it from. */
-  tier: TranscendTier;
-  /** What it costs in TP. */
-  cost: number;
-}
-
-const tier = (n: TranscendTier, cost: number, ids: readonly string[]): TranscendPerk[] => ids.map((id) => ({ id, tier: n, cost }));
-
-/** In the order the heroes page shows them. */
-export const TRANSCEND_PERKS: readonly TranscendPerk[] = [
-  ...tier(1, 10, ['atk-up', 'hp-up', 'def-up', 'crit-resist-up', 'monster-hunting']),
-  ...tier(2, 15, ['class-1', 'class-2', 'class-3', 'class-4', 'class-5']),
-  ...tier(3, 15, ['s1-light', 's1-dark', 's2-light', 's2-dark', 's3-light', 's3-dark', 's4-light', 's4-dark']),
-  ...tier(5, 15, ['t5-light', 't5-dark']),
-];
 
 export const TRANSCEND_PERKS_BY_ID: ReadonlyMap<string, TranscendPerk> = new Map(TRANSCEND_PERKS.map((perk) => [perk.id, perk]));
 

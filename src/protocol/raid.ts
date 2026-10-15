@@ -27,6 +27,10 @@
 export const RAID_BOSS_IDS = ['wyrm', 'reaper', 'plague'] as const;
 export type RaidBossId = (typeof RAID_BOSS_IDS)[number];
 
+/** The raid classes (what each does in a fight is the bot's constants/raid.ts RAID_CLASSES). */
+export const RAID_CLASS_IDS = ['knight', 'warrior', 'priest', 'mechanic', 'wizard', 'assassin', 'archer'] as const;
+export type RaidClassId = (typeof RAID_CLASS_IDS)[number];
+
 /** What a raider can do on their turn. */
 export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 

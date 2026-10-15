@@ -1,4 +1,4 @@
-import { RAID_BOSS_IDS, type RaidBossId } from '../protocol/raid.js';
+import { RAID_BOSS_IDS, RAID_CLASS_IDS, type RaidBossId, type RaidClassId } from '../protocol/raid.js';
 
 /*
  * The weekly raid boss (commands/raid.ts, lib/raid). The numbers you'd tune while the bot runs (boss
@@ -87,8 +87,7 @@ export const MAX_RAID_SHOP_REFRESHES = 50;
  * - `rampStep`, `rampMax`: their attacks do `rampStep` more for every turn in a row they attacked
  *   before this one, up to `rampMax`; a turn they don't attack, or a hit from the boss, starts it over.
  */
-export const RAID_CLASS_IDS = ['knight', 'warrior', 'priest', 'mechanic', 'wizard', 'assassin', 'archer'] as const;
-export type RaidClassId = (typeof RAID_CLASS_IDS)[number];
+export { RAID_CLASS_IDS, type RaidClassId };
 
 export interface RaidClassRules {
   attack: number;

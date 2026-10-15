@@ -1,18 +1,11 @@
 import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
 import { bossPicture } from '../games/raid/picture.js';
+import type { RaidWeekView } from '../../protocol/databank.js';
+
+export type { RaidWeekView };
 
 /* The raid page's pictures, raiders' gear as they fought (web/games/raid), and how a server's raid stands for the databank. */
-
-/** GET /api/raid/week: a server's raid, for the databank's boss pages. */
-export interface RaidWeekView {
-  /** This week's boss there. */
-  boss: string;
-  /** The hardest difficulty the server can pick (one past the hardest it has beaten). */
-  maxDifficulty: number;
-  /** When the week's raid resets (ms). */
-  resetsAt: number;
-}
 
 export type RaidService = ReturnType<typeof raidService>;
 

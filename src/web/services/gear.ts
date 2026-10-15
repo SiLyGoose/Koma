@@ -4,13 +4,11 @@ import { gearStore, type GearSale, type GearView } from '../models/gear.js';
 import { avatarUrl, type Session } from '../auth/login.js';
 import type { RaidClassId } from '../../constants/index.js';
 import type { Slot } from '../../types.js';
+import type { GearMembers, GearSold } from '../../protocol/gear.js';
+
+export type { GearMembers };
 
 /* The gear page: members' gear in a server (gear.ts's store), and who else's there is to look at. */
-
-/** Who in a server has gear to look at (GET /api/gear/members): the one asking first, then whoever owns the most. */
-export interface GearMembers {
-  members: { userId: string; name: string; avatar: string; copies: number; you: boolean; class: RaidClassId | null }[];
-}
 
 /** How many members the roster lists at most. */
 const GEAR_MEMBERS = 50;
@@ -91,7 +89,7 @@ export function gearService(deps: ApiDeps) {
     },
 
     /** Sells those copies (the same one twice counts once). */
-    async sell(guildId: string, userId: string, copies: string[]): Promise<GearView & { sold: GearSale }> {
+    async sell(guildId: string, userId: string, copies: string[]): Promise<GearSold> {
       const sold = await store.sell(guildId, userId, [...new Set(copies)]);
       if (sold === 'nothing_to_sell') throw new ApiError(sold);
       return { ...(await store.view(guildId, userId)), sold };

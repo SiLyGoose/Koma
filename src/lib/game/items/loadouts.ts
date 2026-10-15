@@ -3,6 +3,7 @@ import type { EquipmentDoc, MemberDoc } from '../../../types.js';
 import { normalize } from '../../text.js';
 import { heroCopyIds } from '../heroes.js';
 import { equippedCopyIds } from './sell.js';
+import type { LoadoutNameProblem } from '../../../protocol/gear.js';
 
 /*
  * Gear loadouts (constants/items/loadouts.ts): the rules, with no database. A member's active loadout is
@@ -93,7 +94,7 @@ export function findLoadout(loadouts: readonly Pick<LoadoutView, 'number' | 'nam
 export type NameCheck =
   /** `name` is null to go back to the default name. */
   | { ok: true; name: string | null }
-  | { ok: false; reason: 'too_long' | 'bad_characters' | 'no_letters' | 'reserved' }
+  | { ok: false; reason: Exclude<LoadoutNameProblem, 'taken'> }
   /** Another loadout already goes by this name (`number` is that one). */
   | { ok: false; reason: 'taken'; number: number };
 

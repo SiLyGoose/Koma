@@ -4,7 +4,9 @@ import { raidWeek } from '../../lib/events/raid-week.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { raidShopStock, refreshPrice, refreshesUsed } from '../../lib/game/items/raid-shop.js';
 import { buyRaidItem, refreshRaidShop } from '../../services/raid-shop.js';
-import type { Slot, Stars } from '../../types.js';
+import type { RaidShopItem, RaidShopView } from '../../protocol/raid-shop.js';
+
+export type { RaidShopItem, RaidShopView };
 
 /*
  * The site's raid shop (GET /api/raid-shop, POST /api/raid-shop/buy and /refresh): the raid items on
@@ -12,35 +14,6 @@ import type { Slot, Stars } from '../../types.js';
  * how many copies they have; buying one, and paying for a new shelf (services/raid-shop.ts). Effect
  * lines are the gear card's, as Discord shows them (the page draws the emoji and *italics*).
  */
-
-/** One raid item on the shelf, as the site shows it. */
-export interface RaidShopItem {
-  /** The site draws it by this id (its public/gear/items). */
-  id: string;
-  name: string;
-  stars: Stars;
-  slot: Slot;
-  description: string;
-  /** What a new copy does (R1). */
-  effects: string[];
-  /** What a copy costs in komaGems. */
-  price: number;
-  /** How many copies of it the member has. */
-  owned: number;
-}
-
-/** GET /api/raid-shop: this week's shelf, best tier first, and the member's komaGems. */
-export interface RaidShopView {
-  items: RaidShopItem[];
-  gems: number;
-  /** When the shelf changes (ms): the start of the next raid week. */
-  resetsAt: number;
-  /**
-   * Paying for a new shelf: how many refreshes a week a member gets (`max`, 0 when it's off), how many
-   * of this week's they have `left`, and what the next costs in komaGems (null with none left).
-   */
-  refresh: { max: number; left: number; price: number | null };
-}
 
 /** What the raid shop's routes use (the database's, unless a test says otherwise). */
 export interface RaidShopStore {

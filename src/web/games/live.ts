@@ -1,3 +1,5 @@
+import type { Game } from '../../protocol/site.js';
+
 /*
  * Who is on the games' site right now, and who is watching whom. Kept in memory: it only describes
  * this moment.
@@ -13,7 +15,7 @@
  * watching.
  */
 
-export type LiveGame = 'mines' | 'pinecraft' | 'baccarat' | 'roulette' | 'poker' | 'raid' | 'minesweeper' | 'technomagic';
+export type LiveGame = Game;
 export type Activity = LiveGame | 'hub';
 
 /** Something the bot can send a page: a WebSocket, or a fake one in tests. */

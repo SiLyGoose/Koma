@@ -3,6 +3,9 @@ import { PINECRAFT_WORLD } from '../constants/index.js';
 import { collections } from '../db.js';
 import { newWorld, pinecraftWeek, type PinecraftRules, type PinecraftWorld } from '../lib/game/pinecraft.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
+import type { PinecraftStat } from '../protocol/pinecraft.js';
+
+export type { PinecraftStat };
 
 /*
  * The database side of Pinecraft. A member's world is loaded when they start playing and kept in
@@ -92,9 +95,6 @@ export async function payOre(guildId: string, userId: string, points: number): P
   await recordLedger([{ guildId, userId, delta: points, reason: 'pinecraft_ore' }]);
   return paid.points;
 }
-
-/** What Pinecraft's leaderboards rank by: blocks dug all told, or points earned from ores. */
-export type PinecraftStat = 'dug' | 'earned';
 
 export interface LeaderboardEntry {
   userId: string;

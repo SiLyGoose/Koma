@@ -3,16 +3,14 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
+import type { HeroMembers } from '../../protocol/heroes.js';
+
+export type { HeroMembers };
 
 /*
  * The TechnoMagic Raid's heroes: which are the member's, buying one (the shop) and gearing them (the heroes
  * page, transcending them and their perks) (heroes.ts's store), and who else in the server has heroes to look at.
  */
-
-/** Who in a server has heroes to look at (GET /api/heroes/members): the one asking first, then whoever has the most. */
-export interface HeroMembers {
-  members: { userId: string; name: string; avatar: string; heroes: number; you: boolean }[];
-}
 
 /** How many members the list has at most. */
 const HERO_MEMBERS = 50;

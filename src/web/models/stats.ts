@@ -33,6 +33,9 @@ import {
   wheelChance,
   type EffectTotals,
 } from '../../perks/index.js';
+import type { StatRow, StatSection } from '../../protocol/gear.js';
+
+export type { StatRow, StatSection };
 
 /*
  * The gear page's Common tab: every number a member's gear can change, worked out with what they
@@ -41,18 +44,6 @@ import {
  * are for their raid class: its rules go into both numbers (what gear changes is still told apart),
  * and what only that class does has rows of its own.
  */
-
-/** One number: what it is with their gear, and what it would be without (null when gear doesn't change it). */
-export interface StatRow {
-  label: string;
-  value: string;
-  base: string | null;
-}
-
-export interface StatSection {
-  title: string;
-  rows: StatRow[];
-}
 
 const range = (min: number, max: number): string => (min === max ? min.toLocaleString('en-US') : `${min.toLocaleString('en-US')}–${max.toLocaleString('en-US')}`);
 const hours = (n: number): string => `${n} hour${n === 1 ? '' : 's'}`;

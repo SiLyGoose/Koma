@@ -3,35 +3,11 @@ import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
 import type { RaidBossId, RaidClassId } from './constants/raid.js';
 import type { EssenceId } from './data/transcend.js';
+import type { HeroSlot } from './protocol/heroes.js';
+import type { Slot, Stars, TmSetId } from './protocol/items.js';
 
-export type Stars = 1 | 2 | 3 | 4;
-
-/** Every star tier, lowest first. */
-export const STARS: readonly Stars[] = [1, 2, 3, 4];
-
-/**
- * Where an item can be equipped. A member can wear one weapon, one armor, and one unique
- * treasure: a third slot every member has (its key is 'treasure' -- the slot itself isn't
- * unique, the items that go in it are), which stacks with weapon and armor but only holds one
- * item at a time. An item that is a unique treasure competes with every other one a member owns
- * for that one slot (see data/items/catalog.ts for the current list).
- */
-export type Slot = 'weapon' | 'armor' | 'treasure';
-
-export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'treasure'];
-
-/**
- * Which banner a gacha pull is made on: the standard one, the limited one (open between the settings'
- * gacha.limited.start and .end), whose top-tier items are mostly its featured ones (data/items/banner.ts),
- * or the Hero Item one (always open), whose top-tier items are the heroes' unique weapons
- * (ItemDef.uniqueWeapon). Each keeps its own pity; the standard and limited ones their own guarantee too.
- */
-export type BannerId = 'standard' | 'limited' | 'hero';
-
-export const BANNERS: readonly BannerId[] = ['standard', 'limited', 'hero'];
-
-/** The TechnoMagic Raids' gear sets (data/tm-sets.ts), one for each raid's boss. */
-export type TmSetId = 'perseverance' | 'hope' | 'authority';
+export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
+export { HERO_SLOTS, type HeroSlot } from './protocol/heroes.js';
 
 export interface ItemDef {
   id: string;
@@ -269,14 +245,6 @@ export interface MemberDoc {
   heroes?: Record<string, HeroDoc>;
   createdAt: Date;
 }
-
-/**
- * Where a hero wears gear: two weapons, two armors and a treasure. The raid's gear and the TechnoMagic
- * Raid's go in them (lib/game/heroes.ts's heroWearable), each in a slot of its item's kind.
- */
-export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure';
-
-export const HERO_SLOTS: readonly HeroSlot[] = ['weapon1', 'weapon2', 'armor1', 'armor2', 'treasure'];
 
 /** One of a member's heroes (MemberDoc.heroes). */
 export interface HeroDoc {

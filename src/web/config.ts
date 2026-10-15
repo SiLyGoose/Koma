@@ -1,5 +1,6 @@
 import { BACCARAT_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB } from '../constants/index.js';
 import { optionalEnv } from '../env.js';
+import type { Game } from '../protocol/site.js';
 
 /*
  * The games' web site (the Koma-UI repo) and the bot's side of it, from .env:
@@ -75,8 +76,8 @@ export const GAMES = {
   raid: { page: '/games/raid', socket: RAID_WEB.path },
   minesweeper: { page: '/games/minesweeper', socket: MINESWEEPER_WEB.path },
   technomagic: { page: '/games/technomagic', socket: TM_WEB.path },
-} as const;
-export type Game = keyof typeof GAMES;
+} as const satisfies Record<Game, { page: string; socket: string }>;
+export type { Game };
 
 /**
  * The site's link to `game` in a server, for anyone: the front page logs them in with Discord (if

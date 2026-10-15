@@ -1,6 +1,5 @@
 import { CONFIG } from '../../config.js';
 import { REFINE } from '../../constants/index.js';
-import type { RaidClassId } from '../../constants/raid.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
@@ -10,7 +9,10 @@ import { activeSet, activeTmEffects, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, 
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
-import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot, type Stars, type TmSetId } from '../../types.js';
+import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc } from '../../types.js';
+import type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroTranscendError, HeroView } from '../../protocol/heroes.js';
+
+export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroTranscendError, HeroView };
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip):
@@ -19,91 +21,6 @@ import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot,
  * and the perks picked for it (the heroes page). The rules are lib/game/heroes.ts's (data/transcend.ts
  * transcendence's); buying, gearing and transcending them, services/heroes.ts.
  */
-
-/** One copy a hero can wear (the raid's gear, or the TechnoMagic Raid's), as the heroes page shows it. */
-export interface HeroCopy {
-  id: string;
-  itemId: string;
-  name: string;
-  stars: Stars;
-  slot: Slot;
-  description: string;
-  level: number;
-  maxLevel: number;
-  masterwork: boolean;
-  locked: boolean;
-  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class): a TechnoMagic copy's potentials. */
-  effects: string[];
-  /**
-   * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
-   * and whether it is on (the hero wearing it has its set's effect); null otherwise.
-   */
-  setEffect: { pieces: number; text: string; active: boolean } | null;
-  /** TechnoMagic gear: the additional skill this copy came with, like "Vigor: Increases DMG…" (null: none). */
-  additional: string | null;
-  /** Whether its additional skill is on: a hero of its class wears it. */
-  additionalActive: boolean;
-  /** TechnoMagic gear: the additional skill this copy came with (the sim's id), or null. */
-  skill: string | null;
-  /** A class item: the one class of hero it works on (null: any). */
-  class: RaidClassId | null;
-  /** TechnoMagic gear or a unique weapon (which only heroes wear). */
-  heroOnly: boolean;
-  /** A unique weapon: the id of the one hero that wields it (null: not one). */
-  uniqueWeapon: string | null;
-  /** The id of the member's hero wearing it, or null. */
-  hero: string | null;
-}
-
-/** One hero, as the shop and the heroes page show it. */
-export interface HeroView {
-  /** The site knows it by this id (its src/technomagic/ folder). */
-  id: string;
-  name: string;
-  class: RaidClassId;
-  /** What it costs in points. */
-  price: number;
-  owned: boolean;
-  /** The copy id in each of its slots (only copies the member still owns, in a slot they fit), or null. */
-  equipped: Record<HeroSlot, string | null>;
-  /**
-   * What its gear gives it in the raid, stat by stat, as the raid counts it: points for a chance or share
-   * (crit, attack speed, penetration, block, dodge, CC resist: 1000 is 100%), and a share more of its own
-   * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more), and a unique weapon's ATK
-   * as it is (atkFlat).
-   */
-  bonus: HeroBonus;
-  /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (three of them). Null with none. */
-  set: { id: TmSetId; pieces: number; active: boolean } | null;
-  /** The additional skills of the TechnoMagic gear it wears that work on it (the sim's ids, one for each piece). */
-  skills: string[];
-  /** The same as lines, like "+25% ATK" (then its set's, and its additional skills', last). */
-  totals: string[];
-  /** The transcendence perks picked for it (data/transcend.ts ids, in its order). */
-  perks: string[];
-  /** How far it is transcended (0 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
-  transcend: { level: number; points: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
-}
-
-/** GET /api/heroes. */
-export interface HeroesView {
-  heroes: HeroView[];
-  /** Every copy the member owns that a hero can wear, best first (stars, then level, then name). */
-  copies: HeroCopy[];
-  balance: number;
-  /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
-  gems: number;
-  essences: Record<EssenceId, number>;
-}
-
-/** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy';
-
-/** Why a hero's transcendence perks weren't picked (nothing changed). */
-export type HeroPerksError = 'not_found' | 'perk_locked' | 'too_many_points';
-
-/** Why a hero wasn't transcended (nothing was spent). */
-export type HeroTranscendError = 'not_found' | 'maxed' | 'too_poor' | 'busy';
 
 /** What the hero routes use (the database's, unless a test says otherwise). */
 export interface HeroStore {

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 /*
  * src/protocol/ is what the bot and the site's pages say to each other, and the site keeps a copy of it (Koma-UI's
- * `yarn sync`): so its files name nothing outside it, and hold nothing but shapes and plain lists.
+ * `yarn sync`): so its files name nothing outside it, and hold nothing but shapes and plain data (lists, records, numbers).
  */
 
 const DIR = new URL('../src/protocol/', import.meta.url);
@@ -20,9 +20,12 @@ test('protocol: its files name nothing but each other', () => {
   }
 });
 
-test('protocol: its files hold shapes and plain lists, nothing that runs', () => {
+test('protocol: its files hold shapes and plain data, nothing that runs', () => {
   for (const file of files) {
-    const text = readFileSync(new URL(file, DIR), 'utf8');
-    assert.doesNotMatch(text, /^export (?:async )?function\b|^export class\b|^(?:export )?const \w+ = (?!\[)/m, `${file} holds code`);
+    // (Its words aside: its comments and strings.)
+    const code = readFileSync(new URL(file, DIR), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+      .replace(/'[^'\n]*'|`[^`]*`/g, "''");
+    assert.doesNotMatch(code, /\bfunction\b|\bclass\s+\w|=>|\bnew\s+\w/, `${file} holds code`);
   }
 });

@@ -123,3 +123,6 @@ export type ServerMessage =
   | { t: 'watchers'; count: number }
   | { t: 'away' }
   | { t: 'breaking'; dir: Direction };
+
+/** What Pinecraft's leaderboards rank by: blocks dug all told, or points earned from ores. */
+export type PinecraftStat = 'dug' | 'earned';
