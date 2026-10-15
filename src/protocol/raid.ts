@@ -230,7 +230,15 @@ export type AnswerCode =
   | 'started'
   | 'failed';
 
+export type ErrorCode =
+  /** The link's token is wrong or too old (or the bot restarted since). */
+  | 'bad_token'
+  /** A message that isn't one of the above, or too many of them. */
+  | 'bad_message'
+  /** The page was opened somewhere else (another tab): only one plays at a time. */
+  | 'replaced';
+
 export type ServerMessage =
   | { t: 'raid'; view: RaidView }
   | { t: 'answer'; to: Exclude<ClientMessage['t'], 'hello'>; code: AnswerCode }
-  | { t: 'error'; code: 'bad_token' | 'bad_message' | 'replaced' };
+  | { t: 'error'; code: ErrorCode };
