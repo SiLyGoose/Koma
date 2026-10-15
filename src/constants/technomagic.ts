@@ -9,11 +9,13 @@
 /**
  * A room's lineup: `slots` heroes all told (`soloSlots` with one player in it, who then fights an easier
  * boss), the host bringing up to `hostHeroes` of them and everyone else up to `guestHeroes` (alone, as many
- * as the slots). As many `players` as can each bring a hero.
+ * as the slots: `mainTeam` of them in the Main Team, whose skills are theirs to use, and the rest in the Sub Team,
+ * on Auto for the whole fight). As many `players` as can each bring a hero.
  */
 export const TM_ROOM = {
   slots: 9,
   soloSlots: 8,
+  mainTeam: 4,
   hostHeroes: 4,
   guestHeroes: 2,
   players: 4,

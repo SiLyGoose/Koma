@@ -182,6 +182,52 @@ test('technomagic room: the host brings up to 4, everyone else 2, 9 in all; alon
   assert.deepEqual(b.room().lineup.map((p) => p.owner), ['b', 'b']);
 });
 
+test('technomagic room: alone, a Main Team of 4 and a Sub Team of 4 on Auto; with company, no teams', async () => {
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
+  const [main, sub] = [ALL.slice(0, TM_ROOM.mainTeam), ALL.slice(TM_ROOM.mainTeam, TM_ROOM.soloSlots)];
+  for (const hero of main) assert.equal(room.pick('a', hero, 0), null);
+  assert.equal(room.pick('a', ALL[TM_ROOM.soloSlots] as string, 0), 'team_full');
+  for (const hero of sub) assert.equal(room.pick('a', hero, 0, true), null);
+  assert.deepEqual(a.room().lineup.map((pick) => [pick.hero, pick.sub === true]), [...main.map((hero) => [hero, false]), ...sub.map((hero) => [hero, true])]);
+  // Moved over: only with room in the other team.
+  assert.equal(room.pick('a', main[0] as string, 0, true), 'team_full');
+  assert.equal(room.pick('a', main[0] as string, 0), 'picked');
+  assert.equal(room.unpick('a', sub[0] as string), null);
+  assert.equal(room.pick('a', main[0] as string, 0, true), null);
+  assert.equal(a.room().lineup.find((pick) => pick.hero === main[0])?.sub, true);
+  assert.equal(room.pick('a', main[0] as string, 0), null, 'and back');
+
+  // The Sub Team fights on Auto: not to be turned off, not even by Auto for all.
+  assert.equal(await room.begin('a'), null);
+  const fight = a.got.find((m) => m.t === 'fight');
+  assert.ok(fight && fight.t === 'fight');
+  const subs = fight.fight.heroes.flatMap((hero, i) => (hero.sub ? [i] : []));
+  assert.equal(subs.length, TM_ROOM.soloSlots - TM_ROOM.mainTeam - 1);
+  room.autoAll('a');
+  await h.pass(200);
+  const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
+  assert.deepEqual(pressed.map((input) => input.fighter), fight.fight.heroes.flatMap((hero, i) => (hero.sub ? [] : [i])), 'Auto for all: the Main Team only');
+  const raid = startRaid({ boss: TM_BOSS, seed: 1, stage: 1, solo: true, heroes: fight.fight.heroes.map(({ id, skin, gear, sub }) => ({ id, skin, gear, sub })) });
+  assert.ok(typeof raid !== 'string');
+  assert.deepEqual(raid.autos(), fight.fight.heroes.map((hero) => hero.sub === true));
+  raid.input({ kind: 'auto', fighter: subs[0] as number });
+  raid.input({ kind: 'all-auto' });
+  raid.step();
+  assert.deepEqual(raid.autos(), fight.fight.heroes.map(() => true), 'the Main Team on Auto, the Sub Team still on it');
+  assert.equal(room.giveUp('a'), null);
+  await h.pass(200);
+  assert.equal(room.back('a'), null);
+
+  // Company: no teams, the Sub Team taken out first (the host's limit is 4).
+  const b = h.peer();
+  h.rooms.join(h.player('b'), b, ALL, 10);
+  assert.deepEqual(b.room().lineup.map((pick) => [pick.hero, pick.sub]), main.map((hero) => [hero, undefined]));
+  assert.equal(room.pick('b', 'kirze', 0, true), null, 'asked for the Sub Team with company: just put in');
+  assert.equal(b.room().lineup.at(-1)?.sub, undefined);
+});
+
 test('technomagic room: a fight is run by the bot, each pressing only their own heroes, and a win gives each their drop', async () => {
   const h = harness();
   const a = h.peer();

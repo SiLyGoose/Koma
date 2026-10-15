@@ -54,7 +54,7 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
         };
         switch (message.t) {
           case 'pick':
-            return answer(room.pick(userId, message.hero, message.skin));
+            return answer(room.pick(userId, message.hero, message.skin, message.sub === true));
           case 'unpick':
             return answer(room.unpick(userId, message.hero));
           case 'ready':

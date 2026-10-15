@@ -24,7 +24,7 @@ var RASCAL$1 = {
 * Annette as Mixamo rigged her, read for her idle alone: she stands in it, and runs in and does the rest as
 * ../../heroes/annette/moves.ts has it. The same for both her skins (one skeleton).
 */
-var MOVED_BY = {
+var MOVED_BY$2 = {
 	kind: "rigged",
 	folder: "Annette_Mixamo",
 	idle: "Annette - Idle.fbx"
@@ -63,7 +63,7 @@ var ANNETTE_ASSETS = {
 				model: "Hero_Annette_Vari05_Weapon",
 				...RASCAL$1
 			},
-			movedBy: MOVED_BY
+			movedBy: MOVED_BY$2
 		}
 	}, {
 		name: "Annette_Halloween",
@@ -74,15 +74,32 @@ var ANNETTE_ASSETS = {
 				model: "Hero_Annette_Cos17Halloween_Weapon",
 				...RASCAL$1
 			},
-			movedBy: MOVED_BY
+			movedBy: MOVED_BY$2
 		}
 	}]
 };
 //#endregion
 //#region src/technomagic/assets/heroes/clause.ts
+var FOLDER$1 = "heroes/clause";
+/**
+* Clause as Mixamo rigged him, as downloaded: how he stands, runs and attacks. Morrah stands, runs and attacks so
+* too (./morrah.ts), borrowing it.
+*/
+var CLAUSE_RIG = {
+	kind: "rigged",
+	folder: "Clause_Mixamo",
+	of: FOLDER$1,
+	idle: "Clause - Sword And Shield Idle.fbx",
+	run: "Clause - Sword And Shield Run.fbx",
+	attack: [{
+		file: "Clause - Sword And Shield Slash.fbx",
+		lands: [.68],
+		until: .8
+	}]
+};
 var CLAUSE_ASSETS = {
 	name: "Clause",
-	folder: "heroes/clause",
+	folder: FOLDER$1,
 	skills: {
 		from: "https://kingsraid.shodyra.com/static/images/14/",
 		files: [
@@ -110,15 +127,7 @@ var CLAUSE_ASSETS = {
 			right: "Hero_Clause_Vari05_Sword",
 			blade: "y",
 			movedBy: {
-				kind: "rigged",
-				folder: "Clause_Mixamo",
-				idle: "Clause - Sword And Shield Idle.fbx",
-				run: "Clause - Sword And Shield Run.fbx",
-				attack: [{
-					file: "Clause - Sword And Shield Slash.fbx",
-					lands: [.68],
-					until: .8
-				}],
+				...CLAUSE_RIG,
 				skills: { guard: {
 					file: "Clause - Sword And Shield Casting.fbx",
 					lands: [1.75],
@@ -131,6 +140,26 @@ var CLAUSE_ASSETS = {
 //#endregion
 //#region src/technomagic/assets/heroes/ezekiel.ts
 var DRIVE$2 = "https://drive.google.com/uc?export=download&id=";
+/** The same for both his skins (one skeleton). */
+var MOVED_BY$1 = {
+	kind: "rigged",
+	folder: "Ezekiel_Mixamo",
+	idle: {
+		of: "heroes/kirze",
+		folder: "Kirze_Cos20GloryLeague",
+		file: "Kirze_Cos20GloryLeague - Ninja Idle.fbx"
+	},
+	attack: [{
+		file: "Ezekiel - Fist Fight A.fbx",
+		lands: [
+			.92,
+			1.52,
+			2.78,
+			3.62
+		],
+		until: 4.3
+	}]
+};
 var EZEKIEL_ASSETS = {
 	name: "Ezekiel",
 	folder: "heroes/ezekiel",
@@ -165,7 +194,8 @@ var EZEKIEL_ASSETS = {
 				"Hero_Ezekiel_Vari05_Mesh",
 				"Hero_Ezekiel_Vari05_Weapon",
 				"Hero_Ezekiel_Vari05_Arm"
-			]
+			],
+			movedBy: MOVED_BY$1
 		}
 	}, {
 		name: "Ezekiel_Halloween",
@@ -189,7 +219,8 @@ var EZEKIEL_ASSETS = {
 				"Hero_Ezekiel_Cos18Halloween_Mesh",
 				"Hero_Ezekiel_Cos18Halloween_Weapon",
 				"Hero_Ezekiel_Cos18Halloween_Arm"
-			]
+			],
+			movedBy: MOVED_BY$1
 		}
 	}]
 };
@@ -301,8 +332,6 @@ var GREMORY_ASSETS = {
 		}
 	}]
 };
-//#endregion
-//#region src/technomagic/assets/heroes/kirze.ts
 var KIRZE_ASSETS = {
 	name: "Kirze",
 	folder: "heroes/kirze",
@@ -439,16 +468,16 @@ var LORRAINE_ASSETS = {
 		name: "Lorraine",
 		portrait: {
 			file: "Lorraine.png",
-			from: `${DRIVE$1}1S8I9c9reJmo2t_sm5WgGXuWnE5AQJ09u`,
+			from: `${DRIVE$1}1mBAtFWXJu10lnOCXx7rzecxSsDuFvV51`,
 			crop: {
-				x: 418,
-				y: 200,
-				size: 160
+				x: 450,
+				y: 185,
+				size: 185
 			},
 			head: {
-				x: 447,
-				y: 240,
-				size: 90
+				x: 490,
+				y: 225,
+				size: 115
 			}
 		},
 		model: {
@@ -515,7 +544,8 @@ var MORRAH_ASSETS = {
 			parts: ["Hero_Morrah_Vari05_Body", "Hero_Morrah_Vari05_Hair"],
 			left: "Hero_Morrah_Vari05_Shield",
 			right: "Hero_Morrah_Vari05_Sword",
-			blade: "y"
+			blade: "y",
+			movedBy: CLAUSE_RIG
 		}
 	}, {
 		name: "Morrah_Halloween",
@@ -524,13 +554,30 @@ var MORRAH_ASSETS = {
 			parts: ["Hero_Morrah_Cos19Halloween_Body", "Hero_Morrah_Cos19Halloween_Hair"],
 			left: "Hero_Morrah_Cos19Halloween_Shield",
 			right: "Hero_Morrah_Cos19Halloween_Sword",
-			blade: "y"
+			blade: "y",
+			movedBy: CLAUSE_RIG
 		}
 	}]
 };
 //#endregion
 //#region src/technomagic/assets/heroes/seria.ts
 var DRIVE = "https://drive.google.com/uc?export=download&id=";
+/** The same for both her skins (one skeleton). */
+var MOVED_BY = {
+	kind: "rigged",
+	folder: "Seria_Mixamo",
+	run: "Seria - Sword And Shield Run.fbx",
+	bladeRunning: [
+		-.8,
+		-.25,
+		.55
+	],
+	attack: [{
+		file: "Seria - Sword And Shield Slash.fbx",
+		lands: [.86],
+		until: 1.1
+	}]
+};
 var SERIA_ASSETS = {
 	name: "Seria",
 	folder: "heroes/seria",
@@ -565,7 +612,8 @@ var SERIA_ASSETS = {
 			left: "Hero_Seria_Vari05_WeaponB",
 			right: "Hero_Seria_Vari05_WeaponA",
 			offHand: "held",
-			blade: "y"
+			blade: "y",
+			movedBy: MOVED_BY
 		}
 	}, {
 		name: "Seria_Christmas",
@@ -589,7 +637,8 @@ var SERIA_ASSETS = {
 			left: "Hero_Seria_Cos19Christmas_Weapon_B",
 			right: "Hero_Seria_Cos19Christmas_Weapon_A",
 			offHand: "held",
-			blade: "y"
+			blade: "y",
+			movedBy: MOVED_BY
 		}
 	}]
 };
@@ -609,6 +658,20 @@ var VALANCE_ASSETS = {
 	},
 	skins: [{
 		name: "Valance",
+		portrait: {
+			file: "Valance.png",
+			from: "https://static.wikia.nocookie.net/charactah-account/images/a/a5/Valance_Render_01.png/revision/latest?cb=20221002060111&format=original",
+			crop: {
+				x: 360,
+				y: 30,
+				size: 125
+			},
+			head: {
+				x: 385,
+				y: 80,
+				size: 72
+			}
+		},
 		model: {
 			kind: "parts",
 			parts: ["Hero_Valance_Vari04_Mesh"],
@@ -2700,6 +2763,7 @@ var EZEKIEL = {
 	id: "ezekiel",
 	name: "Ezekiel",
 	class: "assassin",
+	line: "front",
 	assets: EZEKIEL_ASSETS,
 	stats: {
 		...CLASS_STATS.assassin,
@@ -2734,6 +2798,7 @@ var EZEKIEL = {
 	passive: CURSED_BLOOD,
 	attack: "claw",
 	stands: STAND$6,
+	varies: true,
 	join(fight, self) {
 		/** His Cursed Blood; how long his Fury lasts yet; and whether he was on Auto before it (he is put back so after). */
 		let stacks = 0;
@@ -2773,11 +2838,14 @@ var EZEKIEL = {
 				shown: FURY
 			});
 		};
+		/** A blow of his attack (twice as hard in Fury). */
+		const claw = () => {
+			fight.hit(self, CLAW.blow * (fury > 0 ? CLAW.fury : 1));
+		};
 		return {
 			lands: {
-				claw() {
-					fight.hit(self, CLAW.blow * (fury > 0 ? CLAW.fury : 1));
-				},
+				claw,
+				attack: claw,
 				instinct(part) {
 					const times = furious.instinct ? INSTINCT.fury : 1;
 					if (part === 0) {
@@ -3303,6 +3371,7 @@ var FALLEN_FREY = {
 	passive: TAINTED_ANGEL,
 	attack: "smite",
 	stands: STAND$5,
+	varies: true,
 	join(fight, self) {
 		/** Her Darkened Power, and how long her mana has been full toward the next. */
 		let stacks = 0;
@@ -4740,6 +4809,7 @@ var LORRAINE = {
 	passive: BLADE_LEAF,
 	attack: "lash",
 	stands: STAND$2,
+	varies: true,
 	join(fight, self) {
 		/** How long until Tangled Vine's blow after (0: none coming); toward her Poison's next bite; and toward her unique weapon's next blow. */
 		let vine = 0;
@@ -5240,24 +5310,27 @@ var MORRAH = {
 		const fanning = () => 1 + FLAME.more * flames();
 		/** Her allies on the field, standing and in the fight (her too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
+		/** A cut of her attack. With Burning Power, harder for its Flame, and leaving one more; with her unique weapon, now and then it hits less hard and takes more. */
+		const cleave = () => {
+			if (burning > 0) {
+				fight.hit(self, CLEAVE.blow + CLEAVE.burning * fanning());
+				burn(1);
+			} else fight.hit(self, CLEAVE.blow);
+			if (tier === null || fight.roll() >= CARPRAIN.chance) return;
+			const weaker = atTier(CARPRAIN.weaker, tier);
+			const takes = weaker * (flames() >= FLAME.most ? CARPRAIN.full : 1);
+			put(fight.foe.statuses, {
+				name: CARPRAIN.name,
+				left: CARPRAIN.lasts,
+				deals: 1 - weaker,
+				takes: { magical: 1 + takes },
+				shown: "curse"
+			});
+		};
 		return {
 			lands: {
-				cleave() {
-					if (burning > 0) {
-						fight.hit(self, CLEAVE.blow + CLEAVE.burning * fanning());
-						burn(1);
-					} else fight.hit(self, CLEAVE.blow);
-					if (tier === null || fight.roll() >= CARPRAIN.chance) return;
-					const weaker = atTier(CARPRAIN.weaker, tier);
-					const takes = weaker * (flames() >= FLAME.most ? CARPRAIN.full : 1);
-					put(fight.foe.statuses, {
-						name: CARPRAIN.name,
-						left: CARPRAIN.lasts,
-						deals: 1 - weaker,
-						takes: { magical: 1 + takes },
-						shown: "curse"
-					});
-				},
+				cleave,
+				attack: cleave,
 				burning() {
 					fight.hit(self, BURNING.blow * fanning());
 					fight.stun(BURNING.down, {
@@ -7740,7 +7813,7 @@ var KNOCKED = {
 };
 /** Steps in a second (a checksum is kept at the end of each). */
 var SECOND = Math.round(1 / TICK);
-function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [] }) {
+function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
 	const random = seeded(seed);
 	const roll = () => random.next();
 	const events = [];
@@ -7764,12 +7837,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let clock = 0;
 	let stage = Math.min(8, Math.max(1, Math.floor(firstStage) || 1));
 	let bossAuto = raid;
+	let deathless = noDeaths && !raid;
 	let result = null;
 	/** The boss's health given back since it was last shown, and how long since then. */
 	let mended = 0;
 	let mendShown = 0;
 	const party = [];
-	const fighters = heroes.map(({ def: hero, skin = 0, gear = {}, set: wearing = null, uw = null, skills: worn = null }, index) => {
+	const fighters = heroes.map(({ def: hero, skin = 0, gear = {}, set: wearing = null, uw = null, skills: worn = null, sub = false }, index) => {
 		const set = setOf(wearing, hero.class);
 		const tier = uniqueOf(hero.id, uw);
 		const skills = skillsOf(worn);
@@ -7830,7 +7904,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			shieldLeft: 0,
 			statuses: [],
 			mana: Math.min(MAX_MANA, MAX_MANA / 2 + (set?.id === "authority" && set.role === "support" ? AUTHORITY.mana : 0)),
-			auto: false,
+			sub,
+			auto: sub,
 			cooldowns: hero.abilities.map(() => 0),
 			reserved: null,
 			rested: 0,
@@ -7934,6 +8009,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	};
 	/** How many times as much a heal or a shield gives for the hero whose it is (its attack, its gear and its Mending; one that is no hero's: as much as it says). */
 	const byAttack = (by) => by ? by.stats.atk / ATK * atkTimes(by) * by.healTimes * (bears(by, MENDING_UP.name) ? 1 + SKILL.mending.heal * has(by, "mending") : 1) : 1;
+	/** Deathless: a hero brought down is whole again. */
+	function spare(fighter) {
+		if (deathless && fighter.hp <= 0) fighter.hp = fighter.stats.hp;
+	}
 	function end(how) {
 		if (result) return;
 		result = how;
@@ -8149,6 +8228,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		get bossAuto() {
 			return bossAuto;
 		},
+		get deathless() {
+			return deathless;
+		},
 		get tick() {
 			return tick;
 		},
@@ -8182,8 +8264,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				return false;
 			}
 			events.push({ kind: "boss-hit" });
-			const dealt = Math.min(foe.hp, taken * taking(foe.statuses, type));
+			const dealt = deathless ? taken * taking(foe.statuses, type) : Math.min(foe.hp, taken * taking(foe.statuses, type));
 			foe.hp -= dealt;
+			if (deathless && foe.hp <= 0) foe.hp = foe.maxHp;
 			by.dealt += dealt;
 			events.push({
 				kind: "number",
@@ -8281,6 +8364,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				if (covered > soak) {
 					const lost = Math.min(cover.hp, covered - soak);
 					cover.hp -= lost;
+					spare(cover);
 					cover.mana = Math.min(MAX_MANA, cover.mana + MANA_PER_HP_LOST * lost / cover.stats.hp);
 					events.push({
 						kind: "number",
@@ -8306,6 +8390,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const lost = Math.min(target.hp, Math.max(0, dealt - soaked));
 			if (dealt > soaked) {
 				target.hp -= lost;
+				spare(target);
 				events.push({
 					kind: "number",
 					on: target.index,
@@ -8485,7 +8570,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			foe.stunned = Math.max(0, foe.stunned - dt);
 			wear(foe.statuses, dt);
 			wear(party, dt);
-			clock += dt;
+			if (!deathless) clock += dt;
 			foe.part.tick?.(dt);
 			mendShown += dt;
 			if (mendShown >= 1) {
@@ -8525,7 +8610,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				on.x += (x - on.x) * reform;
 				on.z += (z - on.z) * reform;
 			}
-			if (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= 230) end("lost");
+			if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= 230)) end("lost");
 			tick++;
 			if (tick % SECOND === 0) sums.push(sim.checksum());
 		}
@@ -8540,11 +8625,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				else if (sim.ready(fighter, input.skill)) fighter.reserved = input.skill;
 				return;
 			case "auto":
-				if (fighter) fighter.auto = !fighter.auto;
+				if (fighter && !fighter.sub) fighter.auto = !fighter.auto;
 				return;
 			case "all-auto": {
-				const on = !fighters.every((one) => one.auto);
-				for (const one of fighters) one.auto = on;
+				const main = fighters.filter((one) => !one.sub);
+				const on = !main.every((one) => one.auto);
+				for (const one of main) one.auto = on;
 				return;
 			}
 			case "leave":
@@ -8574,6 +8660,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				return;
 			case "boss-auto":
 				bossAuto = !bossAuto;
+				return;
+			case "deathless":
+				deathless = !deathless;
+				if (deathless) {
+					for (const fighter of fighters) if (fighter.hp <= 0) sim.revive(fighter, 1);
+					if (foe.hp <= 0) foe.hp = foe.maxHp;
+				}
 				return;
 			case "stage":
 				stage = Math.min(8, Math.max(1, Math.floor(input.stage) || 1));
@@ -8607,7 +8700,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 13;
+var SIM_VERSION = 14;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
@@ -8687,7 +8780,8 @@ function startRaid(run) {
 			gear,
 			set: typeof hero.set === "string" ? hero.set : null,
 			uw: typeof hero.uw === "number" ? hero.uw : null,
-			skills
+			skills,
+			sub: run.solo === true && hero.sub === true
 		});
 	}
 	const sim = makeSim({

@@ -13,8 +13,9 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * The TechnoMagic Raid's rooms: one a server. Whoever opens the raid joins its room (the first is its host,
  * 1P; when the host goes, whoever has been in it longest is). Getting ready, each picks heroes of their own
  * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
- * in all (alone, as many as TM_ROOM.soloSlots, against an easier boss); when someone comes or goes, what no
- * longer fits is taken out, the last picked first. Everyone but the host says they're ready, and the host
+ * in all (alone, as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
+ * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
+ * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
  * starts the fight at the stage they picked.
  *
  * The fight is the site's sim, run here by the bot's clock: every TM_FIGHT.turnMs it takes the steps that are
@@ -178,8 +179,19 @@ export class TechnoMagicRoom {
     return [...this.members.values()].some((member) => member.peer !== null);
   }
 
-  /** Takes out of the lineup what no longer fits (each player's last picks past their limit, then the last picked past the slots). */
+  /** How many heroes the Main Team takes alone, or the Sub Team (`sub`). */
+  private teamSlots(sub: boolean): number {
+    return sub ? TM_ROOM.soloSlots - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
+  }
+
+  /**
+   * Takes out of the lineup what no longer fits (each player's last picks past their limit, then the last picked past
+   * the slots). With more than one player there are no teams: the Sub Team goes first, and the rest are in no team.
+   */
   private trim(): void {
+    if (!this.solo()) {
+      this.lineup = [...this.lineup.filter((pick) => !pick.sub), ...this.lineup.filter((pick) => pick.sub)].map(({ sub: _sub, ...pick }) => pick);
+    }
     const counts = new Map<string, number>();
     this.lineup = this.lineup.filter((pick) => {
       const count = (counts.get(pick.owner) ?? 0) + 1;
@@ -189,16 +201,31 @@ export class TechnoMagicRoom {
     this.lineup = this.lineup.slice(0, this.slots());
   }
 
-  /** `userId` puts their hero `hero` (in skin `skin`) in the lineup: null, or why not. */
-  pick(userId: string, hero: string, skin: number): AnswerCode | null {
+  /**
+   * `userId` puts their hero `hero` (in skin `skin`) in the lineup: null, or why not. Alone, into the Sub Team (`sub`)
+   * or the Main Team; one of theirs in the other team already is moved over.
+   */
+  pick(userId: string, hero: string, skin: number, sub = false): AnswerCode | null {
     const member = this.members.get(userId);
     if (!member || this.phase !== 'prep' || this.starting) return 'closed';
     if (!HEROES_BY_ID.has(hero) || !member.owned.has(hero)) return 'not_owned';
+    const solo = this.solo();
+    const into = solo && sub;
+    const teamFull = solo && this.lineup.filter((pick) => (pick.sub === true) === into).length >= this.teamSlots(into);
     const mine = this.lineup.filter((pick) => pick.owner === userId);
-    if (mine.some((pick) => pick.hero === hero)) return 'picked';
+    const there = mine.find((pick) => pick.hero === hero);
+    if (there) {
+      if ((there.sub === true) === into) return 'picked';
+      if (teamFull) return 'team_full';
+      this.lineup = this.lineup.map((pick) => (pick === there ? { ...pick, sub: into } : pick));
+      member.ready = false;
+      this.tell();
+      return null;
+    }
     if (mine.length >= this.limit(userId)) return 'limit';
     if (this.lineup.length >= this.slots()) return 'full';
-    this.lineup.push({ owner: userId, hero, skin: skin < (HERO_SKINS[hero] ?? 1) ? skin : 0 });
+    if (teamFull) return 'team_full';
+    this.lineup.push({ owner: userId, hero, skin: skin < (HERO_SKINS[hero] ?? 1) ? skin : 0, ...(into && { sub: true }) });
     member.ready = false;
     this.tell();
     return null;
@@ -270,10 +297,10 @@ export class TechnoMagicRoom {
       solo,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [] };
+        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
       }),
     };
-    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills }) => ({ id, skin, gear, set, uw, skills })) });
+    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills, sub }) => ({ id, skin, gear, set, uw, skills, sub })) });
     if (typeof raid === 'string') {
       console.error(`A TechnoMagic Raid run made no sense to the sim (${raid}).`);
       this.tell();
@@ -305,11 +332,11 @@ export class TechnoMagicRoom {
     if (this.owns(userId, fighter)) this.fight?.pending.push({ kind: 'auto', fighter });
   }
 
-  /** `userId` turns every hero of theirs' Auto on (or, with all of them on already, off). */
+  /** `userId` turns every hero of theirs' Auto on (or, with all of them on already, off): not the Sub Team's, which stay on it. */
   autoAll(userId: string): void {
     const { fight } = this;
     if (!fight || fight.done) return;
-    const mine = fight.owners.flatMap((owner, fighter) => (owner === userId ? [fighter] : []));
+    const mine = fight.owners.flatMap((owner, fighter) => (owner === userId && !fight.start.heroes[fighter]?.sub ? [fighter] : []));
     const autos = fight.raid.autos();
     const on = !mine.every((fighter) => autos[fighter]);
     for (const fighter of mine) if (autos[fighter] !== on) fight.pending.push({ kind: 'auto', fighter });
@@ -426,7 +453,7 @@ export class TechnoMagicRoom {
       slots: this.slots(),
       solo: this.solo(),
       players,
-      lineup: this.fight ? this.fight.start.heroes.map(({ owner, id, skin }) => ({ owner, hero: id, skin })) : [...this.lineup],
+      lineup: this.fight ? this.fight.start.heroes.map(({ owner, id, skin, sub }) => ({ owner, hero: id, skin, ...(sub && { sub }) })) : [...this.lineup],
       over: this.over,
     };
     for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id, rewardsLeft: member.rewardsLeft } });
