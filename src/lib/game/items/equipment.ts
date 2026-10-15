@@ -1,9 +1,11 @@
 import { CONFIG } from '../../../config.js';
 import { ADMIN_USER_ID } from '../../../constants/index.js';
 import { EFFECT_IDS, EFFECTS, emptyTotals, type EffectId, type EffectTotals, type PerkDef } from '../../../perks/index.js';
+import { HEROES_BY_ID } from '../../../data/heroes.js';
 import { ITEMS_BY_ID } from '../../../data/items.js';
+import { uwAttack } from '../../../data/uw-attack.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../../types.js';
-import { formatPercent } from '../../format.js';
+import { fmt, formatPercent } from '../../format.js';
 import { refineShare } from './refine.js';
 import { REFINE, TEXT } from '../../../constants/index.js';
 
@@ -147,6 +149,9 @@ export function describeEffects(item: ItemDef, share = 1, level: number = REFINE
   const strength = (effect: string): number =>
     effects.includes(effect as EffectId) ? effectStrength(effect as EffectId, item.stars) * share * perkShare(effect as EffectId, level) : 0;
   const lines = effects.map((effect) => effectLine(effect, strength(effect), strength)).filter((line) => line !== '');
+  // A unique weapon: King's Raid's flat ATK for its hero's class, at this refinement (data/uw-attack.ts).
+  const owner = item.uniqueWeapon === undefined ? undefined : HEROES_BY_ID.get(item.uniqueWeapon);
+  if (owner) lines.unshift(`Unique weapon: +${fmt(uwAttack(owner.class, level))} ATK`);
   if (bonusState(item, level, masterwork) === 'dormant') lines.push(TEXT.gear.bonusDormant(bonusText(item, share, level), CONFIG.refine.masterworkGems));
   return lines;
 }

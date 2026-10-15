@@ -4,8 +4,9 @@ import { HEROES_BY_ID } from '../data/heroes.js';
 import { collections } from '../db.js';
 import { dayKey } from '../lib/events/raid-week.js';
 import { raidGear } from '../lib/game/heroes.js';
-import { rollTmDrop, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
-import type { ItemDef, TmRunDoc, TmSetId } from '../types.js';
+import { tmDropCount } from '../constants/technomagic.js';
+import { rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import type { ItemDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
 import { addCopy } from './economy/index.js';
 
 /*
@@ -13,8 +14,9 @@ import { addCopy } from './economy/index.js';
  * in, web/games/technomagic/). A run is begun for everyone in a room as its fight starts: each player's
  * heroes in the gear they wear then, and whether it is one of the player's first `hero.rewardsPerDay` runs
  * that day (settled as it begins). A run that is lost doesn't count toward those, so only the runs that are won
- * (or still going) use them up. The bot runs the fight itself; a win gives each player whose run it is one
- * TechnoMagic item, with an additional skill rolled for that copy (ItemCopyDoc.tmSkill).
+ * (or still going) use them up. The bot runs the fight itself; a win gives each player whose run it is
+ * TechnoMagic items (TM_DROP_COUNTS, by the stage), each copy with an additional skill and its potentials rolled for it
+ * (ItemCopyDoc.tmSkill, tmPotentials).
  */
 
 /** How many of the runs a member has begun on `day` that give gear have used one up: all but those lost. */
@@ -81,29 +83,31 @@ export async function beginRun(guildId: string, stage: number, players: readonly
   return run;
 }
 
-/** What a player found: a TechnoMagic item, and the additional skill its copy came with. */
+/** What a player found: a TechnoMagic item, and the additional skill and potentials its copy came with. */
 export interface TmFind {
   item: ItemDef;
   skill: string;
+  potentials: TmPotential[];
 }
 
 /**
- * A room's run is over (`result`, after `ticks` steps): a win gives each player whose run gives gear one
- * TechnoMagic item, its copy with an additional skill rolled for it. Returns what each found.
+ * A room's run is over (`result`, after `ticks` steps): a win at `stage` gives each player whose run gives gear
+ * that stage's TechnoMagic items (tmDropCount), each copy with an additional skill and its potentials rolled for
+ * it. Returns what each found.
  */
 export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, now: Date = new Date()): Promise<Map<string, TmFind[]>> {
   const found = new Map<string, TmFind[]>();
   for (const [userId, player] of run.players) {
     const drops: TmFind[] = [];
-    if (result === 'won' && player.rewardable) {
+    for (let n = result === 'won' && player.rewardable ? tmDropCount(stage) : 0; n > 0; n--) {
       const item = rollTmDrop(TM_BOSS);
-      if (item) {
-        const { copy } = await addCopy(guildId, userId, item.id);
-        // Its additional skill, rolled now (the same list whatever its set).
-        const skill = rollTmSkill();
-        await collections().items.updateOne({ _id: copy._id }, { $set: { tmSkill: skill } });
-        drops.push({ item, skill });
-      }
+      if (!item) break;
+      const { copy } = await addCopy(guildId, userId, item.id);
+      // Its additional skill (the same list whatever its set) and its potentials, rolled now.
+      const skill = rollTmSkill();
+      const potentials = rollTmPotentials();
+      await collections().items.updateOne({ _id: copy._id }, { $set: { tmSkill: skill, tmPotentials: potentials } });
+      drops.push({ item, skill, potentials });
     }
     found.set(userId, drops);
     await collections().tmRuns.updateOne({ _id: `${run.id}:${userId}` }, { $set: { claimedAt: now, result, ticks, drops: drops.map(({ item }) => item.id) } });

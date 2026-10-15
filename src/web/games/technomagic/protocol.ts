@@ -68,12 +68,13 @@ export interface PickView {
   skin: number;
 }
 
-/** An item found: which, and the additional skill its copy came with, as it is said (like "Vigor: Increases DMG…"; null: none). */
+/** An item found: which, and the additional skill and potentials its copy came with, as they are said (like "Vigor: Increases DMG…"; null: none; and "+5.2% ATK"). */
 export interface DropView {
   itemId: string;
   name: string;
   stars: number;
   skill: string | null;
+  potentials: string[];
 }
 
 /** What a fight that is over gave each player (by id): the items found, and whether it was one of their runs that give gear. */

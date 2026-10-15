@@ -5,7 +5,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView, type NameCheck } from '../../lib/game/items/loadouts.js';
-import { activeTmEffects, heroOnly, heroWorn, type TmEffectsOn } from '../../lib/game/heroes.js';
+import { activeTmEffects, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
@@ -46,7 +46,7 @@ export interface GearCopy {
   maxLevel: number;
   /** A masterwork with its bonus on (the gear card's ✨ Masterwork tag). */
   masterwork: boolean;
-  /** What it does for this member at this level. */
+  /** What it does for this member at this level: a TechnoMagic copy's potentials (what it does on a hero, which refining doesn't change). */
   effects: string[];
   /**
    * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
@@ -209,7 +209,7 @@ export interface GearSale {
   earned: number;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill'>>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
 
 /**
  * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
@@ -292,7 +292,7 @@ export function gearView(
       level,
       maxLevel: REFINE.maxLevel,
       masterwork: showsMasterwork(item, level, masterwork),
-      effects: describeEffects(item, share, level, masterwork),
+      effects: item.tmDrop ? potentialLines(copy.tmPotentials) : describeEffects(item, share, level, masterwork),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: tmOn.get(copy._id)?.additional ?? false,
@@ -308,7 +308,7 @@ export function gearView(
       hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
-    view.refine = { ...refine, after: to === null ? null : describeEffects(item, share, to, masterwork) };
+    view.refine = { ...refine, after: to === null ? null : item.tmDrop ? view.effects : describeEffects(item, share, to, masterwork) };
     const forge = forgeState(item, level, masterwork, gems);
     view.forge = forge && { ...forge, after: masterwork ? null : describeEffects(item, share, Math.max(level, forge.level), true) };
     list.push(view);

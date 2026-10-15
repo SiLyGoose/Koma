@@ -1,5 +1,6 @@
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
+import { potentialLines } from '../../../lib/game/heroes.js';
 import { HERO_SKINS, MOST_STAGE, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, tmSkillLine, type LiveRaid } from '../../../lib/game/technomagic.js';
 import { beginRun, finishRun, ownedHeroes, rewardsLeft, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
@@ -50,7 +51,7 @@ export const realRoomDeps: RoomDeps = {
   begin: beginRun,
   finish: async (guildId, run, stage, result, ticks) => {
     const found = await finishRun(guildId, run, stage, result, ticks);
-    return new Map([...found].map(([userId, items]) => [userId, items.map(({ item, skill }) => ({ itemId: item.id, name: item.name, stars: item.stars, skill: tmSkillLine(skill) }))]));
+    return new Map([...found].map(([userId, items]) => [userId, items.map(({ item, skill, potentials }) => ({ itemId: item.id, name: item.name, stars: item.stars, skill: tmSkillLine(skill), potentials: potentialLines(potentials) }))]));
   },
   announce: () => {},
   every: (ms, fn) => {

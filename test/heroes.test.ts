@@ -80,9 +80,14 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.ok(secondUnique(exian, exian));
   assert.ok(!secondUnique(exian, item('worldbreaker-maul')) && !secondUnique(exian, undefined));
   assert.ok(!secondUnique(item('worldbreaker-maul'), exian));
-  // On its own hero its ATK counts, on another nothing; its lines end with what it does in the raid.
-  assert.ok(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atk > 0);
-  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'kirze').atk, 0);
+  // On its own hero its flat ATK counts (King's Raid's for its class, its refinement its stars), on another nothing; its lines
+  // start with that ATK and end with what it does in the raid.
+  assert.equal(pieceBonus({ item: exian, level: 1 }, 'knight', 'clause').atkFlat, 42_332);
+  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atkFlat, 96_209);
+  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atk, 0);
+  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'kirze').atkFlat, 0);
+  assert.equal(raidValue('atkFlat', 96_209), 96_209);
+  assert.equal(heroItemLines(exian, 2)[0], '+50,029 ATK');
   assert.match(heroItemLines(exian, 2).at(-1) ?? '', /^Clause only, ★2: /);
   // The raid is told its refinement as its tier, and only on its own hero; a second copy does nothing more.
   const copies = [
@@ -140,24 +145,31 @@ test('heroes: what they wear is kept from selling and refining, and a copy moves
 });
 
 test('heroes: gear raises their stats, the raid gear by what it does in the raid, and a class item only on its class', () => {
-  const fang = { item: item('tri-head-cleaver'), level: 5 };
+  // TechnoMagic gear: its copy's potentials are all it gives, however far it is refined.
+  const potentials = [
+    { stat: 'atk', value: 0.05 },
+    { stat: 'critDamage', value: 0.12 },
+  ] as const;
+  const fang = { item: item('tri-head-cleaver'), level: 5, potentials };
   const maul = { item: item('worldbreaker-maul'), level: 5 };
   const axe = { item: item('warlords-greataxe'), level: 5 };
   const kirze = heroBonus([fang, maul, axe], 'warrior');
-  assert.ok(Math.abs(kirze.atk - (effectStrength('tmAttack', 4) + effectStrength('raidAttack', 4))) < 1e-9);
-  assert.ok(Math.abs(kirze.critDamage - effectStrength('tmCritDamage', 4)) < 1e-9);
+  assert.ok(Math.abs(kirze.atk - (0.05 + effectStrength('raidAttack', 4))) < 1e-9);
+  assert.ok(Math.abs(kirze.critDamage - 0.12) < 1e-9);
   assert.ok(kirze.block > 0); // the Warlord's Greataxe, on a warrior
   assert.equal(heroBonus([axe], 'knight').block, 0); // not on a knight
   assert.equal(raidValue('crit', 0.08), 80); // points in the raid
   assert.equal(raidValue('atk', 0.25), 0.25); // a share more
-  // Less refined, less of it.
-  assert.ok(heroBonus([{ ...fang, level: 1 }], 'warrior').atk < heroBonus([fang], 'warrior').atk);
-  assert.equal(heroItemLines(item('tri-head-cleaver'))[0], `+${Math.round(effectStrength('tmAttack', 4) * 100)}% ATK`);
+  // Less refined, less of the raid gear; the same of the TechnoMagic gear's potentials.
+  assert.ok(heroBonus([{ ...maul, level: 1 }], 'warrior').atk < heroBonus([maul], 'warrior').atk);
+  assert.deepEqual(heroBonus([{ ...fang, level: 1 }], 'warrior'), heroBonus([fang], 'warrior'));
+  assert.deepEqual(heroBonus([{ item: item('tri-head-cleaver'), level: 5 }], 'warrior'), heroBonus([], 'warrior'), 'no potentials, nothing');
+  assert.deepEqual(heroItemLines(item('tri-head-cleaver'), 5, true, undefined, potentials), ['+5% ATK', '+12% crit damage']);
 });
 
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
   const copies = [
-    { _id: 'fang', itemId: 'tri-head-cleaver', level: 5 },
+    { _id: 'fang', itemId: 'tri-head-cleaver', level: 5, tmPotentials: [{ stat: 'atk' as const, value: 0.05 }, { stat: 'critDamage' as const, value: 0.12 }] },
     { _id: 'maul', itemId: 'worldbreaker-maul', level: 2, locked: true },
     { _id: 'dagger', itemId: 'rusty-dagger', level: 1 }, // the gacha's: no hero wears it
     { _id: 'plate', itemId: 'colossus-plate', level: 1 },
@@ -179,8 +191,8 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(kirze?.price, DEFAULTS.hero.price);
   // A copy they no longer own, or in a slot it doesn't fit, isn't worn.
   assert.deepEqual(kirze?.equipped, { weapon1: 'fang', weapon2: 'maul', armor1: null, armor2: null, treasure: null });
-  assert.ok((kirze?.bonus.atk ?? 0) > effectStrength('tmAttack', 4));
-  assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - effectStrength('tmCritDamage', 4)) < 1e-9);
+  assert.ok((kirze?.bonus.atk ?? 0) > 0.05);
+  assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - 0.12) < 1e-9);
   assert.deepEqual(kirze?.set, { id: 'perseverance', pieces: 1, active: false });
   assert.ok(kirze?.totals.some((line) => line.includes('Perseverance set: 1/3')));
   // A TechnoMagic piece says its set's effect for its class apart from its effects; another item has none.
@@ -189,6 +201,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.ok(fang?.setEffect?.text.startsWith('+10% DMG'));
   assert.ok(!fang?.effects.some((line) => line.includes('+10% DMG')));
   assert.equal(fang?.additional, null, 'no additional skill on this copy');
+  assert.deepEqual(fang?.effects, ['+5% ATK', '+12% crit damage'], 'its effects are its potentials');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.setEffect, null);
   assert.ok(kirze?.totals.some((line) => line.endsWith('ATK')));
   assert.deepEqual(clause?.totals, []);

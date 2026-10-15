@@ -6,6 +6,7 @@ import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
 import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg, parseRoleArg } from '../lib/parse.js';
 import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
+import { TM_POTENTIAL_IDS } from '../data/tm-potentials.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
 import { getChannelId, setChannelId } from '../services/channel.js';
 import { getNewsletterChannelId, setNewsletterChannelId } from '../services/newsletter.js';
@@ -186,6 +187,13 @@ function groupLines(group: SettingSpec['group'], perServer: readonly { key: stri
       });
       return TEXT.config.equipmentSetting(id, STARS.join('|'), tiers.join(' / '));
     })];
+  }
+  if (group === 'Hero') {
+    // The hero settings, then one line per TechnoMagic potential with both ends of its range (as Equipment does its tiers).
+    const ranged = new Set(TM_POTENTIAL_IDS.flatMap((id) => [`hero.potentials.${id}.min`, `hero.potentials.${id}.max`]));
+    const general = SPECS.filter((spec) => spec.group === group && !ranged.has(spec.key)).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+    const ends = (id: string): string => (['min', 'max'] as const).map((end) => describeValue(findSpec(`hero.potentials.${id}.${end}`) as SettingSpec)).join(' / ');
+    return [...general, ...TM_POTENTIAL_IDS.map((id) => TEXT.config.setting(`hero.potentials.${id}.min|max`, ends(id)))];
   }
   const lines = SPECS.filter((spec) => spec.group === group).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
   if (group === 'General') lines.push(...perServer.map(({ key, value }) => TEXT.config.setting(key, value)));

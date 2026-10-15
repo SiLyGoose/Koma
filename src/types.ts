@@ -365,7 +365,39 @@ export interface ItemCopyDoc {
    * rolled as it dropped; a hero wearing it has it in the raid. Missing on any other copy.
    */
   tmSkill?: string;
+  /**
+   * TechnoMagic gear: the potentials this copy came with (TM_POTENTIAL_LINES of them, each a different stat:
+   * lib/game/technomagic.ts), rolled as it dropped; a hero of its class wearing it has them in the raid. Missing
+   * on any other copy.
+   */
+  tmPotentials?: TmPotential[];
   obtainedAt: Date;
+}
+
+/** A stat a TechnoMagic copy's potential raises (each one of a hero's stats in the raid: lib/game/heroes.ts HeroStat). */
+export type TmPotentialId =
+  | 'atk'
+  | 'speed'
+  | 'hp'
+  | 'defense'
+  | 'defPhysical'
+  | 'defMagical'
+  | 'block'
+  | 'blockPhysical'
+  | 'blockMagical'
+  | 'accuracy'
+  | 'resist'
+  | 'crit'
+  | 'critDamage'
+  | 'manaAttack'
+  | 'lifesteal'
+  | 'critResist'
+  | 'pen';
+
+/** One of a TechnoMagic copy's potentials: the stat it raises, and by how much (a share, as a perk's strength is: 0.05 is 5% more, or 50 points). */
+export interface TmPotential {
+  stat: TmPotentialId;
+  value: number;
 }
 
 /**

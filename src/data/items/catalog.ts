@@ -27,7 +27,8 @@ import type { ItemDef } from '../../types.js';
  * banner, while it is one of the banner's featured items (items/banner.ts).
  *
  * An item marked `tmDrop: true` is TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid,
- * and only its heroes wear it (its perks are theirs: perks/technomagic/).
+ * and only its heroes wear it. It has no perks: each copy's stats are the potentials it rolled as it dropped
+ * (ItemCopyDoc.tmPotentials, data/tm-potentials.ts).
  *
  * An item with `uniqueWeapon: '<hero id>'` is that hero's unique weapon: only pulled from the Hero Item
  * banner, and only that hero wields it.
@@ -563,7 +564,7 @@ export const ITEMS: readonly ItemDef[] = [
   },
 
   // TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid (tmDrop), and only worn by its heroes
-  // (the site's heroes page), whose stats its perks raise (perks/technomagic/). The raid's own gear above
+  // (the site's heroes page). It has no perks: each copy's stats are its potentials (data/tm-potentials.ts). The raid's own gear above
   // works on heroes too (lib/game/heroes.ts), and only this has treasures for a hero's treasure slot. It is a
   // tier of its own, above 4 stars (it is counted as 4-star for what refining and selling it cost). Each piece
   // is a class item for one of the heroes' classes, and belongs to the set of the raid that drops it (tmSet,
@@ -575,7 +576,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Forged to take three heads in one swing. It has only ever needed one.',
-    effects: ['tmAttack', 'tmCritDamage', 'tmManaAttack'],
+    effects: [],
     class: 'warrior',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -586,7 +587,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Half rune, half rail. It fires a spell faster than it can be dodged.',
-    effects: ['tmPen', 'tmSpeed', 'tmCrit'],
+    effects: [],
     class: 'priest',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -597,7 +598,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'armor',
     description: 'Cut from all three of its hides, and as hard to bring down as the beast was.',
-    effects: ['tmHp', 'tmDefense', 'tmBlock'],
+    effects: [],
     class: 'knight',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -608,7 +609,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'armor',
     description: 'A plague mask with a charm in every seam. Poison slides off it like rain.',
-    effects: ['tmResist', 'tmDodge', 'tmHp'],
+    effects: [],
     class: 'priest',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -619,7 +620,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'treasure',
     description: 'Still beating, three times as fast as it should. Whoever carries it keeps up.',
-    effects: ['tmAttack', 'tmHp', 'tmCrit'],
+    effects: [],
     class: 'warrior',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -630,7 +631,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'treasure',
     description: 'The engine of a machine that ran on prayers. Wounds close wherever its light falls.',
-    effects: ['tmHeal', 'tmSpeed', 'tmManaRegen'],
+    effects: [],
     class: 'priest',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -641,7 +642,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Carried by the knights who held the swamp road. Venom beads on it and runs off.',
-    effects: ['tmAttack', 'tmBlock', 'tmHp'],
+    effects: [],
     class: 'knight',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -652,7 +653,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'armor',
     description: 'Strapped together from scales the chimera shed. It fits whoever is still standing.',
-    effects: ['tmHp', 'tmDefense', 'tmCrit'],
+    effects: [],
     class: 'warrior',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -663,7 +664,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Pried from the chimera’s middle head. It still bites where it isn’t aimed.',
-    effects: ['tmCrit', 'tmCritDamage', 'tmSpeed'],
+    effects: [],
     class: 'assassin',
     tmDrop: true,
     tmSet: 'perseverance',
@@ -674,15 +675,37 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'armor',
     description: 'Woven from the mist off the poisoned marsh. The chimera never saw who wore it.',
-    effects: ['tmDodge', 'tmCrit', 'tmHp'],
+    effects: [],
     class: 'assassin',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
+  {
+    id: 'venom-coil-emitter',
+    name: 'Venom Coil Emitter',
+    stars: 4,
+    slot: 'weapon',
+    description: 'A technomagic coil wound with the chimera’s own venom glands. Every shot it fires is a little more toxic than the last.',
+    effects: [],
+    class: 'mechanic',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
+  {
+    id: 'marshguard-plating',
+    name: 'Marshguard Plating',
+    stars: 4,
+    slot: 'armor',
+    description: 'Riveted plates sealed against the swamp. Nothing seeps in, and the gears inside never stop turning.',
+    effects: [],
+    class: 'mechanic',
     tmDrop: true,
     tmSet: 'perseverance',
   },
 
   // The heroes' unique weapons (uniqueWeapon): King's Raid's own, one for each TechnoMagic Raid hero, only pulled
   // from the Hero Item banner (as its 4-star tier) and only wielded by their own hero. Each raises its hero's
-  // ATK (uwAttack) and has its own effect in the raid, as far as it is refined (Koma-UI's sim/unique.ts: R1 to
+  // ATK (King's Raid's flat ATK for its class, data/uw-attack.ts) and has its own effect in the raid, as far as it is refined (Koma-UI's sim/unique.ts: R1 to
   // R5 are its tiers 1 to 5). Their own tier, between the TechnoMagic gear and the 4-star items.
   {
     id: 'the-guardian-exian',
@@ -690,7 +713,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Made eons ago by the dragon Exian from its own scales, and bestowed only on the knight of the most honorable principles.',
-    effects: ['uwAttack'],
+    effects: [],
     uniqueWeapon: 'clause',
   },
   {
@@ -699,7 +722,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Giant scissors of the crimson crystals that form Kirze herself, swung as one great sword or split in two.',
-    effects: ['uwAttack'],
+    effects: [],
     uniqueWeapon: 'kirze',
   },
   {
@@ -708,7 +731,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'A holy relic of a high angel, once Frey’s own light, distorted into darkness when she lost her faith.',
-    effects: ['uwAttack'],
+    effects: [],
     uniqueWeapon: 'fallen-frey',
   },
   {
@@ -717,7 +740,7 @@ export const ITEMS: readonly ItemDef[] = [
     stars: 4,
     slot: 'weapon',
     description: 'Gremory’s cube, a gateway to her true form in Pandemonium that her servants come out of, and that she mostly uses as a bed frame.',
-    effects: ['uwAttack'],
+    effects: [],
     uniqueWeapon: 'gremory',
   },
 ];

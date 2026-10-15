@@ -2,7 +2,8 @@ import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type MinesweeperLevel, type Pin
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
-import type { Stars } from './types.js';
+import type { Stars, TmPotentialId } from './types.js';
+import { TM_POTENTIAL_RANGES } from './data/tm-potentials.js';
 
 export { STARS };
 
@@ -311,13 +312,15 @@ export interface Settings {
   /**
    * The TechnoMagic Raid's heroes (data/heroes.ts, services/heroes.ts): what buying one in the site's shop
    * costs, in points (burned). And its runs (services/technomagic.ts): how many a member begins each day
-   * whose win gives TechnoMagic gear (one piece of the boss's set).
+   * whose win gives TechnoMagic gear (pieces of the boss's set: TM_DROP_COUNTS, by the stage). And what each of
+   * TechnoMagic gear's potentials can roll as a copy drops (data/tm-potentials.ts): a share, as a perk's strength is.
    */
   hero: {
     price: number;
     rewardsPerDay: number;
   };
   skip: {
+    potentials: Record<TmPotentialId, { min: number; max: number }>;
     claim: number;
     /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
     raid: number;
@@ -488,7 +491,7 @@ export const DEFAULTS: Readonly<Settings> = {
     masterworkGems: 25,
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, rewardsPerDay: 10 },
+  hero: { price: 25_000, rewardsPerDay: 10, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
   skip: { claim: 300, raid: 50_000 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.

@@ -6,6 +6,8 @@ import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
 import { TM_SET_PIECES, TM_SETS_BY_ID, tmSetEffect } from '../../data/tm-sets.js';
+import { TM_POTENTIAL_LINES, TM_POTENTIALS } from '../../data/tm-potentials.js';
+import { formatPercent } from '../../lib/format.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { uniqueTier } from '../../lib/game/heroes.js';
 import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
@@ -129,6 +131,12 @@ function uniqueLines(item: ItemDef, level: number): string[] {
   return owner && text ? [`${owner.name} only, ★${uniqueTier(level)}: ${text}`] : [];
 }
 
+/** TechnoMagic gear's effects, as the databank shows them: how many potentials a copy rolls, then each it can roll with its range (the settings' hero.potentials). */
+const potentialPool = (): string[] => [
+  `${TM_POTENTIAL_LINES} of these at random as it drops, each a different one:`,
+  ...TM_POTENTIALS.map(({ id, name }) => `**${name}**: +${formatPercent(CONFIG.hero.potentials[id].min)} to +${formatPercent(CONFIG.hero.potentials[id].max)}`),
+];
+
 /** A TechnoMagic item's set, as the databank shows it (null: it isn't TechnoMagic gear). */
 function setOf(item: ItemDef): DatabankItem['set'] {
   const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
@@ -144,7 +152,8 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       slot: item.slot,
       description: item.description,
       // (A unique weapon's own effect in the raid, at each level, after its perks.)
-      effects: levels.map((level) => [...describeEffects(item, 1, level, false), ...uniqueLines(item, level)]),
+      // (TechnoMagic gear's: the potentials a copy can roll, whatever its level.)
+      effects: levels.map((level) => (item.tmDrop ? potentialPool() : [...describeEffects(item, 1, level, false), ...uniqueLines(item, level)])),
       masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: sourceOf(item),

@@ -6,7 +6,10 @@ import { TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
-import { HERO_SKINS, MOST_STAGE, MOST_TM_SKILLS, replay, rollTmDrop, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
+import { HERO_SKINS, MOST_STAGE, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
+import { tmDropCount } from '../src/constants/technomagic.js';
+import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
+import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import type { Player } from '../src/web/auth/token.js';
 import { heroesView } from '../src/web/models/heroes.js';
@@ -278,6 +281,39 @@ test('technomagic: Perseverance’s supports (Clause, Fallen Frey) and its damag
   const plain = replay(wearing([]), autos);
   assert.ok(replay(wearing(['clause', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
   assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, 'the damage dealer: +10% DMG, growing to +25%');
+});
+
+test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7 and 8', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(tmDropCount), [3, 3, 3, 4, 4, 4, 5, 5]);
+  assert.equal(tmDropCount(MOST_STAGE), 5);
+});
+
+test('technomagic: each copy rolls 4 potentials, each a different stat, each within its range; a hero of its class has them', () => {
+  assert.equal(TM_POTENTIAL_LINES, 4);
+  assert.equal(TM_POTENTIAL_IDS.length, 17);
+  for (let i = 0; i < 200; i++) {
+    const rolled = rollTmPotentials();
+    assert.equal(rolled.length, TM_POTENTIAL_LINES);
+    assert.equal(new Set(rolled.map(({ stat }) => stat)).size, rolled.length, 'no stat twice');
+    for (const { stat, value } of rolled) assert.ok(value >= TM_POTENTIAL_RANGES[stat].min - 1e-9 && value <= TM_POTENTIAL_RANGES[stat].max + 1e-9, `${stat} ${value}`);
+  }
+  // The lowest roll is each range's bottom, the highest its top.
+  assert.deepEqual(rollTmPotentials({ index: () => 0 }).map(({ value }, i) => value === TM_POTENTIAL_RANGES[TM_POTENTIAL_IDS[i] as keyof typeof TM_POTENTIAL_RANGES].min), [true, true, true, true]);
+  const potentials = [
+    { stat: 'lifesteal', value: 0.03 },
+    { stat: 'critResist', value: 0.05 },
+    { stat: 'defMagical', value: 0.08 },
+    { stat: 'atk', value: 0.05 },
+  ] as const;
+  const piece = (TM_DROPS.find((one) => one.class === 'warrior' && one.slot === 'weapon') ?? TM_DROPS[0]) as (typeof TM_DROPS)[number];
+  const on = pieceBonus({ item: piece, level: 1, potentials }, piece.class ?? 'warrior');
+  assert.equal(on.lifesteal, 0.03);
+  assert.equal(on.critResist, 0.05);
+  assert.equal(on.defMagical, 0.08);
+  assert.equal(on.atk, 0.05, 'TechnoMagic gear has no perks of its own');
+  // Not on a hero of another class.
+  assert.equal(pieceBonus({ item: piece, level: 1, potentials }, piece.class === 'priest' ? 'knight' : 'priest').lifesteal, 0);
+  assert.deepEqual(potentialLines(potentials), ['+3% lifesteal', '+5% crit resist', '+8% magical defence', '+5% ATK']);
 });
 
 test('technomagic: TechnoMagic gear’s additional skills, one rolled for each copy as it drops, from one list whatever the set', () => {

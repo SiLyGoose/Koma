@@ -29,6 +29,15 @@ export const TM_FIGHT = {
   announceMs: 10 * 60_000,
 } as const;
 
+/**
+ * How many TechnoMagic items a win gives each player whose run gives gear, by the stage it was fought at (1 to 8:
+ * the first number is stage 1's). Each is one of the boss's set's pieces, rolled apart.
+ */
+export const TM_DROP_COUNTS: readonly number[] = [3, 3, 3, 4, 4, 4, 5, 5];
+
+/** How many items a win at `stage` gives (past the last stage, as many as the last). */
+export const tmDropCount = (stage: number): number => TM_DROP_COUNTS[Math.min(TM_DROP_COUNTS.length, Math.max(1, Math.floor(stage))) - 1] as number;
+
 /** Playing it from its web page (the Koma-UI repo): `path` is where its web socket listens. */
 export const TM_WEB = {
   path: '/technomagic',

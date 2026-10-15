@@ -35,7 +35,7 @@ export function validateItems(): void {
     if (item.tmDrop && item.stars !== 4) throw new Error(`${item.id} is TechnoMagic gear that isn't counted as 4-star: it is a tier of its own above 4 stars, and costs what 4-star gear does to refine and sell`);
     if (item.tmDrop && !item.tmSet) throw new Error(`${item.id} is TechnoMagic gear of no set: every piece belongs to the set of the raid that drops it`);
     if (item.tmSet && !item.tmDrop) throw new Error(`${item.id} is in a TechnoMagic set, but isn't TechnoMagic gear`);
-    if (item.tmDrop && !item.effects.every((effect) => effect.startsWith('tm'))) throw new Error(`${item.id} is TechnoMagic gear with a perk that isn't the TechnoMagic Raid's (perks/technomagic/)`);
+    if (item.tmDrop && (item.effects.length > 0 || item.bonus)) throw new Error(`${item.id} is TechnoMagic gear with perks: its stats are each copy's potentials (data/tm-potentials.ts)`);
     if (item.tmDrop && !item.class) throw new Error(`${item.id} is TechnoMagic gear for no class: every piece the TechnoMagic Raid drops is a class item`);
     if (item.uniqueWeapon !== undefined) {
       if (!HEROES_BY_ID.has(item.uniqueWeapon)) throw new Error(`${item.id} is the unique weapon of an unknown hero: ${item.uniqueWeapon}`);

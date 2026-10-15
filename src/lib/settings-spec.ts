@@ -45,6 +45,7 @@ import { EFFECT_IDS, EFFECTS, type EffectId, type PerkDef } from '../perks/index
 import { STARS } from '../types.js';
 import type { Settings } from '../config.js';
 import { BANNER_TIME_PATTERN, bannerTime } from './game/items/banner.js';
+import { TM_POTENTIALS } from '../data/tm-potentials.js';
 
 /*
  * Describes every setting: its name, what it means, and what values are allowed.
@@ -108,7 +109,20 @@ export const SPECS: readonly SettingSpec[] = [
   int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 
   int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
-  int('hero.rewardsPerDay', 'Hero', 'TechnoMagic Raid runs a member can begin each day whose win gives TechnoMagic gear (one item). A lost run does not count toward it. Runs past it can still be played, for nothing.', 0, 100),
+  int('hero.rewardsPerDay', 'Hero', 'TechnoMagic Raid runs a member can begin each day whose win gives TechnoMagic gear (3 to 5 items, more at the higher stages). A lost run does not count toward it. Runs past it can still be played, for nothing.', 0, 100),
+  ...TM_POTENTIALS.flatMap(({ id, name }) =>
+    (['min', 'max'] as const).map(
+      (end): SettingSpec => ({
+        key: `hero.potentials.${id}.${end}`,
+        group: 'Hero',
+        description: `The ${end === 'min' ? 'least' : 'most'} a TechnoMagic copy's ${name} potential can roll as it drops (a chance's points are this share of 1000).`,
+        type: 'number',
+        min: 0,
+        max: 1,
+        percent: true,
+      }),
+    ),
+  ),
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
   int('skip.raid', 'Skip', `Price of the week's extra raid (once per server per week, after the raid has been fought), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
@@ -678,6 +692,9 @@ export function checkConstraints(settings: Settings): string | null {
     if (settings.raid.minRaiders <= settings.raid.hpOverhead[boss]) return `raid.minRaiders must be more than raid.hpOverhead.${boss}`;
   }
   if (settings.mines.minBet > settings.mines.maxBet) {
+  for (const { id } of TM_POTENTIALS) {
+    if (settings.hero.potentials[id].min > settings.hero.potentials[id].max) return `hero.potentials.${id}.min cannot be higher than hero.potentials.${id}.max`;
+  }
     return 'mines.minBet cannot be higher than mines.maxBet';
   }
   if (settings.events.minMinutes > settings.events.maxMinutes) {

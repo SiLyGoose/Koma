@@ -5,8 +5,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { collections } from '../../db.js';
-import { activeSet, activeTmEffects, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus } from '../../lib/game/heroes.js';
-import type { GearPiece } from '../../lib/game/items/equipment.js';
+import { activeSet, activeTmEffects, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, unequipHero } from '../../services/heroes.js';
@@ -31,7 +30,7 @@ export interface HeroCopy {
   maxLevel: number;
   masterwork: boolean;
   locked: boolean;
-  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class). */
+  /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class): a TechnoMagic copy's potentials. */
   effects: string[];
   /**
    * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
@@ -68,7 +67,8 @@ export interface HeroView {
   /**
    * What its gear gives it in the raid, stat by stat, as the raid counts it: points for a chance or share
    * (crit, attack speed, penetration, block, dodge, CC resist: 1000 is 100%), and a share more of its own
-   * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more).
+   * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more), and a unique weapon's ATK
+   * as it is (atkFlat).
    */
   bonus: HeroBonus;
   /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (three of them). Null with none. */
@@ -103,7 +103,7 @@ export interface HeroStore {
   unequip: (guildId: string, userId: string, hero: string, slot: HeroSlot | null) => Promise<HeroesView | 'not_found'>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked' | 'tmSkill'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked' | 'tmSkill' | 'tmPotentials'>;
 
 /** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
 export function skillLines(skills: readonly string[]): string[] {
@@ -120,7 +120,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
   const worn = heroWorn(member);
   const lit = activeTmEffects(copies, member);
   const list: HeroCopy[] = [];
-  const pieces = new Map<string, { view: HeroCopy; piece: GearPiece }>();
+  const pieces = new Map<string, { view: HeroCopy; piece: HeroPiece }>();
   for (const copy of copies) {
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item || !heroWearable(item)) continue;
@@ -138,7 +138,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       maxLevel: REFINE.maxLevel,
       masterwork,
       locked: copy.locked === true,
-      effects: heroItemLines(item, level, masterwork),
+      effects: heroItemLines(item, level, masterwork, undefined, copy.tmPotentials),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: lit.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: lit.get(copy._id)?.additional ?? false,
@@ -149,7 +149,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       hero: worn.get(copy._id) ?? null,
     };
     list.push(view);
-    pieces.set(copy._id, { view, piece: { item, level, bonus: masterwork } });
+    pieces.set(copy._id, { view, piece: { item, level, bonus: masterwork, ...(item.tmDrop && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
   }
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
   const tier = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);
@@ -158,8 +158,8 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
   const heroes = HEROES.map((hero): HeroView => {
     const doc = member?.heroes?.[hero.id];
     const equipped = {} as Record<HeroSlot, string | null>;
-    const on: GearPiece[] = [];
-    const skilled: { item: GearPiece['item']; skill?: string }[] = [];
+    const on: HeroPiece[] = [];
+    const skilled: { item: HeroPiece['item']; skill?: string }[] = [];
     let unique = false;
     for (const slot of HERO_SLOTS) {
       const found = pieces.get(doc?.equipment?.[slot] ?? '');

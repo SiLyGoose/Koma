@@ -27,7 +27,7 @@ import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, rollMissingTmSkills, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, rollMissingTmPotentials, rollMissingTmSkills, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -130,6 +130,9 @@ async function main(): Promise<void> {
   // Every start: gives TechnoMagic copies without an additional skill one (see rollMissingTmSkills). After retiring items, which may make some.
   const skilled = await rollMissingTmSkills();
   if (skilled > 0) console.log(`TechnoMagic skills: rolled an additional skill for ${skilled} copy(ies) that had none.`);
+  // Every start: gives TechnoMagic copies without potentials theirs (see rollMissingTmPotentials). After the settings are loaded, whose ranges they roll in.
+  const rolled = await rollMissingTmPotentials();
+  if (rolled > 0) console.log(`TechnoMagic potentials: rolled potentials for ${rolled} copy(ies) that had none.`);
 
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).

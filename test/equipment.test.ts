@@ -31,10 +31,11 @@ const limits = { minChance: 0.05, maxChance: 0.95 };
 const close = (actual: number, expected: number) =>
   assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} is not ${expected}`);
 
-test('catalog: every star tier has an item, and every item has effects', () => {
+test('catalog: every star tier has an item, and every item has effects (a unique weapon its ATK instead, TechnoMagic gear its copies\' potentials)', () => {
   validateItems();
   for (const stars of STARS) assert.ok(itemsByStars(stars).length > 0, `${stars}-star tier has no items`);
-  for (const item of ITEMS) assert.ok(item.effects.length > 0, `${item.id} has no effects`);
+  for (const item of ITEMS) assert.ok(item.effects.length > 0 || item.uniqueWeapon !== undefined || item.tmDrop, `${item.id} has no effects`);
+  for (const item of ITEMS) if (item.tmDrop) assert.deepEqual(item.effects, [], `${item.id} is TechnoMagic gear: its stats are its copies' potentials`);
 });
 
 test('catalog: every effect is used by at least one item (its own perks, or its masterwork bonus)', () => {

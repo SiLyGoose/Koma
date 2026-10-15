@@ -56,8 +56,10 @@ test('raid drops: every item with a raid perk is a raid drop, and no two items o
     if (item.effects.some(raidPerk)) assert.equal(item.raidDrop, true, `${item.id} has a raid perk, so only raids should give it`);
   }
   const seen = new Map<string, string>();
-  // (The unique weapons share their ATK perk: what sets each apart is its own effect in the raid, its hero's.)
+  // (The unique weapons share their ATK perk: what sets each apart is its own effect in the raid, its hero's. TechnoMagic
+  // gear has no perks: each copy's stats are its own potentials.)
   for (const item of ITEMS) {
+    if (item.tmDrop) continue;
     const key = `${item.stars}:${[...item.effects].sort().join('+')}${item.uniqueWeapon ? `:${item.uniqueWeapon}` : ''}`;
     assert.ok(!seen.has(key), `${item.id} does the same as ${seen.get(key)}`);
     seen.set(key, item.id);
