@@ -7,6 +7,78 @@ var GALGORIA_ASSETS = {
 	models: ["Raid_Gargoria_Mesh"]
 };
 //#endregion
+//#region src/technomagic/assets/heroes/annette.ts
+/**
+* Rascal, her golem, hovering beside her left shoulder and a little behind it: on the boss's side of her as the
+* field shows her, so her attack's beam (out of it: ../../heroes/annette/fx.ts) goes clear of her. The same for both her skins.
+*/
+var RASCAL$1 = {
+	at: [
+		.6,
+		1.15,
+		-.2
+	],
+	size: 1
+};
+/**
+* Annette as Mixamo rigged her, read for her idle alone: she stands in it, and runs in and does the rest as
+* ../../heroes/annette/moves.ts has it. The same for both her skins (one skeleton).
+*/
+var MOVED_BY = {
+	kind: "rigged",
+	folder: "Annette_Mixamo",
+	idle: "Annette - Idle.fbx"
+};
+var ANNETTE_ASSETS = {
+	name: "Annette",
+	folder: "heroes/annette",
+	skills: {
+		from: "https://kingsraid.shodyra.com/static/images/33/",
+		files: [
+			"s1.png",
+			"s2.png",
+			"s3.png",
+			"s4.png"
+		]
+	},
+	skins: [{
+		name: "Annette",
+		portrait: {
+			file: "Annette.png",
+			crop: {
+				x: 417,
+				y: 420,
+				size: 140
+			},
+			head: {
+				x: 428,
+				y: 458,
+				size: 110
+			}
+		},
+		model: {
+			kind: "parts",
+			parts: ["Hero_Annette_Vari05_Body", "Hero_Annette_Vari05_Hair"],
+			floating: {
+				model: "Hero_Annette_Vari05_Weapon",
+				...RASCAL$1
+			},
+			movedBy: MOVED_BY
+		}
+	}, {
+		name: "Annette_Halloween",
+		model: {
+			kind: "parts",
+			parts: ["Hero_Annette_Cos17Halloween_Body", "Hero_Annette_Cos17Halloween_Hair"],
+			floating: {
+				model: "Hero_Annette_Cos17Halloween_Weapon",
+				...RASCAL$1
+			},
+			movedBy: MOVED_BY
+		}
+	}]
+};
+//#endregion
 //#region src/technomagic/assets/heroes/clause.ts
 var CLAUSE_ASSETS = {
 	name: "Clause",
@@ -88,6 +160,7 @@ var FALLEN_FREY_ASSETS = {
 			movedBy: {
 				kind: "rigged",
 				folder: "Fallen_Frey_Mixamo",
+				idle: "Standing Torch Idle 01.fbx",
 				skills: { light: {
 					file: "Fallen Frey - Magic Heal.fbx",
 					lands: [.95, 1.45],
@@ -604,6 +677,12 @@ function piercing(on) {
 	for (const { pen } of on) more += pen ?? 0;
 	return more;
 }
+/** What these add to a bearer's CC resist (points). */
+function resisting(on) {
+	let more = 0;
+	for (const { resist } of on) more += resist ?? 0;
+	return more;
+}
 /** How many times as much defense a bearer of these has. */
 function defending(on) {
 	let times = 1;
@@ -938,6 +1017,149 @@ function rage(over) {
 /** What a blow of a hero's attack takes of the boss, before the boss's defense; and how much harder a critical blow is (before its gear's crit damage). */
 var BLOW = 1100;
 //#endregion
+//#region src/technomagic/sim/unique.ts
+/** Each weapon's numbers at tiers 1 to 5 (index 0 is tier 1). */
+var EXIAN = {
+	name: "The Guardian, Exian",
+	every: 3,
+	lasts: 15,
+	boost: [
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	]
+};
+var ELICIPIRA = {
+	name: "Judgment Edge, Elicipira",
+	chance: .04,
+	boss: 2,
+	blow: [
+		6e3,
+		7200,
+		8600,
+		1e4,
+		12500
+	]
+};
+var ROSMERTA = {
+	name: "Angel’s Despair, Rosmerta",
+	lasts: 7,
+	heal: [
+		20,
+		24,
+		29,
+		35,
+		42
+	],
+	pen: [
+		240,
+		290,
+		350,
+		420,
+		500
+	]
+};
+/** Its attack speed (points), its heal and mana on sleeping (shares of her max HP and max mana, the mana over `over` seconds), and the ATK each Mana Charge adds. */
+var PIGRITIA = {
+	name: "Gateway to Purgatory, Pigritia",
+	speed: [
+		240,
+		290,
+		350,
+		420,
+		500
+	],
+	heal: [
+		.24,
+		.29,
+		.35,
+		.42,
+		.5
+	],
+	mana: [
+		.24,
+		.29,
+		.35,
+		.42,
+		.5
+	],
+	over: 2,
+	charge: [
+		.048,
+		.058,
+		.07,
+		.084,
+		.1
+	]
+};
+/** How often it gives her a Charge and a share of her max mana (seconds), and what every ally deals more and takes less while she is Overcharged (`top` times that for the ally with the highest ATK). */
+var RASCAL = {
+	name: "Crystallized Technomagic, Rascal",
+	every: [
+		1.4,
+		1.3,
+		1.1,
+		.9,
+		.7
+	],
+	mana: .01,
+	dmg: .02,
+	taken: .02,
+	top: 2
+};
+/** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
+var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
+var pct = (share) => `${Math.round(share * 100)}%`;
+/** To a tenth of a percent (4.8%). */
+var fine = (share) => `${Math.round(share * 1e3) / 10}%`;
+/** What each hero's weapon does at a tier, as its card and the heroes page say it. */
+var ABOUT = {
+	clause: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
+	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
+	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier) / 1e3)} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`,
+	gremory: (tier) => `+${atTier(PIGRITIA.speed, tier)} attack speed. Each time she sleeps she is healed by ${pct(atTier(PIGRITIA.heal, tier))} of her max HP and recovers ${pct(atTier(PIGRITIA.mana, tier))} of her mana over ${PIGRITIA.over} seconds, and each Mana Charge gives her ${fine(atTier(PIGRITIA.charge, tier))} more ATK.`,
+	annette: (tier) => `Every ${atTier(RASCAL.every, tier)} seconds she gains a Charge (even while Overcharged) and ${pct(RASCAL.mana)} of her mana. While she is Overcharged, every ally deals ${pct(RASCAL.dmg)} more and takes ${pct(RASCAL.taken)} less (${pct(RASCAL.dmg * RASCAL.top)} for the ally with the highest ATK).`
+};
+EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name, RASCAL.name;
+/** Each weapon's picture: its item's (the bot's catalog id, public/gear/items/weapons/). */
+var PICTURES = {
+	clause: "/gear/items/weapons/the-guardian-exian.png",
+	kirze: "/gear/items/weapons/judgment-edge-elicipira.png",
+	"fallen-frey": "/gear/items/weapons/angels-despair-rosmerta.png",
+	gremory: "/gear/items/weapons/gateway-to-purgatory-pigritia.png",
+	annette: "/gear/items/weapons/crystallized-technomagic-rascal.png"
+};
+/** The heroes that have a unique weapon, by id. */
+var UNIQUE_HEROES = Object.keys(ABOUT);
+/** What a hero's unique weapon does at a tier (null: it has none). */
+var uniqueAbout = (hero, tier) => ABOUT[hero]?.(tier) ?? null;
+/** A hero's unique weapon as it fights: its tier (null: none, or not its own, or one this fight doesn't know). */
+function uniqueOf(hero, tier) {
+	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
+	return Math.min(5, Math.max(1, Math.floor(tier)));
+}
+/** What Exian gives Clause for a while, what Rosmerta gives Fallen Frey, and what Rascal gives every ally while Annette is Overcharged. */
+var EXIAN_UP = {
+	name: "The Guardian, Exian",
+	about: "ATK and defense higher.",
+	icon: "🛡️",
+	image: PICTURES.clause
+};
+var ROSMERTA_UP = {
+	name: "Angel’s Despair, Rosmerta",
+	about: "Sees past more of the boss’s defense.",
+	icon: "🖤",
+	image: PICTURES["fallen-frey"]
+};
+var RASCAL_UP = {
+	name: "Crystallized Technomagic, Rascal",
+	about: "Deals more to the boss and takes less from it while Annette is Overcharged.",
+	icon: "🤖",
+	image: PICTURES.annette
+};
+//#endregion
 //#region src/technomagic/heroes/kit.ts
 /** A hero with no passive. */
 var NO_PASSIVE = {
@@ -1085,126 +1307,6 @@ var CLASS_STATS = {
 		speed: 100,
 		pen: 0,
 		resist: 100
-	}
-};
-//#endregion
-//#region src/technomagic/heroes/clause/index.ts
-var CUT_GROUND = {
-	blow: 7e3,
-	stun: 5
-};
-var SHIELD_STRIKE = {
-	blow: 4e3,
-	lasts: 20,
-	slow: .67,
-	exposed: 1.3
-};
-var GUARDIAN = {
-	lasts: 20,
-	taken: .75
-};
-var VOW = {
-	weak: .8,
-	lasts: 8,
-	mana: 300
-};
-var art$3 = (index) => skillPicture(CLAUSE_ASSETS, index);
-var VOW_OF_KNIGHTS = {
-	attack: 1,
-	crit: 0,
-	control: 1,
-	shown: {
-		name: "Vow of Knights",
-		about: "Passive. When he blocks he strikes back: the boss hits 20% less hard for 8 seconds, and he gains 300 mana.",
-		icon: "🛡️",
-		image: art$3(3)
-	}
-};
-/** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
-var GUARDED$1 = {
-	name: "Guardian Shield",
-	about: "Takes 25% less from the boss.",
-	icon: "✨",
-	image: art$3(2)
-};
-var CLAUSE = {
-	id: "clause",
-	name: "Clause",
-	class: "knight",
-	assets: CLAUSE_ASSETS,
-	stats: {
-		...CLASS_STATS.knight,
-		deals: "physical"
-	},
-	abilities: [
-		{
-			name: "Cut Ground",
-			icon: "⚔️",
-			image: art$3(0),
-			move: "slam",
-			cooldown: 9,
-			cost: 2
-		},
-		{
-			name: "Shield Strike",
-			icon: "🛡️",
-			image: art$3(1),
-			move: "bash",
-			cooldown: 8,
-			cost: 1
-		},
-		{
-			name: "Guardian Shield",
-			icon: "✨",
-			image: art$3(2),
-			move: "guard",
-			cooldown: 12,
-			cost: 2
-		}
-	],
-	passive: VOW_OF_KNIGHTS,
-	attack: "swing",
-	join(fight, self) {
-		return {
-			lands: {
-				swing() {
-					fight.hit(self, BLOW);
-				},
-				slam() {
-					fight.hit(self, CUT_GROUND.blow);
-					fight.stun(CUT_GROUND.stun, { by: self });
-				},
-				bash() {
-					fight.hit(self, SHIELD_STRIKE.blow);
-					put(fight.foe.statuses, {
-						name: "Exposed",
-						left: SHIELD_STRIKE.lasts,
-						takes: SHIELD_STRIKE.exposed,
-						shown: "curse"
-					});
-					fight.slow(SHIELD_STRIKE.slow, SHIELD_STRIKE.lasts);
-				},
-				guard() {
-					put(fight.party, {
-						name: GUARDED$1.name,
-						left: GUARDIAN.lasts,
-						takes: GUARDIAN.taken,
-						shown: GUARDED$1
-					});
-				}
-			},
-			blocked() {
-				fight.cue(self, "vow");
-				fight.hit(self, BLOW);
-				put(fight.foe.statuses, {
-					name: "Weakened",
-					left: VOW.lasts,
-					deals: VOW.weak,
-					shown: "slow"
-				});
-				self.mana = Math.min(MAX_MANA, self.mana + VOW.mana);
-			}
-		};
 	}
 };
 //#endregion
@@ -1368,6 +1470,596 @@ var LOW = {
 	lfZ: .2,
 	rfX: -.05,
 	rfZ: -.14
+};
+//#endregion
+//#region src/technomagic/heroes/annette/moves.ts
+/** How she stands: upright and bright, her weight on both feet, her left hand on her hip, her right loose at her side. */
+var STAND$2 = {
+	...REST,
+	hipX: 0,
+	hipY: -.01,
+	hipTurn: -.08,
+	lean: 0,
+	tilt: .03,
+	nod: .02,
+	lfX: .05,
+	lfZ: .06,
+	rfX: -.04,
+	rfZ: -.03,
+	lhX: .22,
+	lhY: .02,
+	lhZ: -.02,
+	rhX: -.21,
+	rhY: -.1,
+	rhZ: .05,
+	bTurn: 0,
+	bUp: -1.3
+};
+/** A pose of hers, for a track: what is added to how she stands. */
+var as$2 = (pose) => at(pose, STAND$2);
+/** Her right arm thrust out at the boss, her hand pointing at it (Rascal fires where she points). */
+var POINT = {
+	rhX: -.12,
+	rhY: .36,
+	rhZ: .46,
+	bTurn: 0,
+	bUp: .05
+};
+var ZAP$1 = {
+	keys: [
+		[0, {}],
+		[.2, as$2({
+			twist: .25,
+			lean: -.04,
+			rhX: -.2,
+			rhY: .3,
+			rhZ: .05,
+			bUp: 1
+		})],
+		[.42, as$2({
+			...LOW,
+			twist: -.3,
+			lean: .12,
+			...POINT
+		})],
+		[.6, as$2({
+			...LOW,
+			hipY: -.11,
+			twist: -.32,
+			lean: .1,
+			...POINT,
+			rhY: .35
+		})],
+		[1, {}]
+	],
+	lands: [.45]
+};
+var AIMED = {
+	lhX: .06,
+	lhY: .32,
+	lhZ: .46,
+	rhX: -.1,
+	rhY: .34,
+	rhZ: .47,
+	bTurn: 0,
+	bUp: .05
+};
+var RAY$1 = {
+	keys: [
+		[0, {}],
+		[.3, as$2({
+			...COILED,
+			twist: .35,
+			lean: .05,
+			lhX: -.02,
+			lhY: .12,
+			lhZ: .08,
+			rhX: -.24,
+			rhY: .14,
+			rhZ: -.04,
+			bUp: .6
+		})],
+		[.7, as$2({
+			...LOW,
+			twist: -.2,
+			lean: .18,
+			nod: .05,
+			...AIMED
+		})],
+		[1.1, as$2({
+			...LOW,
+			hipY: -.12,
+			twist: -.22,
+			lean: .16,
+			nod: .06,
+			...AIMED,
+			lhY: .33,
+			rhY: .35
+		})],
+		[1.5, {}]
+	],
+	lands: [.75]
+};
+var TREATMENT$1 = {
+	keys: [
+		[0, {}],
+		[.25, as$2({
+			...COILED,
+			lean: .12,
+			nod: .12,
+			lhX: .06,
+			lhY: .32,
+			lhZ: .2,
+			rhX: -.06,
+			rhY: .32,
+			rhZ: .2,
+			bUp: 1.2
+		})],
+		[.55, as$2({
+			...TALL,
+			jump: .12,
+			lean: -.12,
+			nod: -.2,
+			lhX: .42,
+			lhY: .72,
+			lhZ: .08,
+			rhX: -.42,
+			rhY: .72,
+			rhZ: .08,
+			bTurn: -.6,
+			bUp: 1.2
+		})],
+		[.95, as$2({
+			...TALL,
+			jump: .14,
+			lean: -.14,
+			nod: -.22,
+			lhX: .43,
+			lhY: .74,
+			lhZ: .08,
+			rhX: -.43,
+			rhY: .74,
+			rhZ: .08,
+			bTurn: -.6,
+			bUp: 1.25
+		})],
+		[1.4, {}]
+	],
+	lands: [.6]
+};
+var ELIMINATION$1 = {
+	keys: [
+		[0, {}],
+		[.35, as$2({
+			...COILED,
+			twist: .35,
+			lean: -.06,
+			nod: -.1,
+			lhX: .2,
+			lhY: .12,
+			lhZ: .18,
+			rhX: -.18,
+			rhY: .78,
+			rhZ: -.06,
+			bUp: 1.5
+		})],
+		[.65, as$2({
+			...TALL,
+			jump: .35,
+			twist: .2,
+			lean: -.1,
+			nod: -.15,
+			lhX: .3,
+			lhY: .3,
+			lhZ: .1,
+			rhX: -.16,
+			rhY: .82,
+			rhZ: .08,
+			bUp: 1.4
+		})],
+		[.95, as$2({
+			...LOW,
+			twist: -.35,
+			lean: .2,
+			nod: .05,
+			lhX: .24,
+			lhY: .1,
+			lhZ: -.1,
+			...POINT
+		})],
+		[1.35, as$2({
+			...LOW,
+			hipY: -.12,
+			twist: -.36,
+			lean: .18,
+			nod: .06,
+			lhX: .24,
+			lhY: .1,
+			lhZ: -.1,
+			...POINT
+		})],
+		[1.8, {}]
+	],
+	lands: [1]
+};
+//#endregion
+//#region src/technomagic/heroes/annette/index.ts
+var ZAP = { blow: BLOW * 1.4 };
+var RAY = {
+	blow: 4e3,
+	extra: 3e3,
+	weaker: .15,
+	takes: .25,
+	lasts: 10
+};
+var TREATMENT = {
+	heal: 400,
+	lasts: 10,
+	resist: 250,
+	crit: .25,
+	dmg: .1
+};
+var ELIMINATION = {
+	blow: 7e3,
+	over: 1e4,
+	takes: .25,
+	lasts: 10,
+	stun: 5
+};
+var CHARGE$1 = {
+	every: .5,
+	perCrystal: 10,
+	full: 100,
+	lasts: 15,
+	atk: .3,
+	cooldown: .1
+};
+var art$4 = (index) => skillPicture(ANNETTE_ASSETS, index);
+var CHARGING = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Charge",
+		about: "Passive. A Charge every half second, and 10 for each crystal of mana she spends; at 100 she is Overcharged for 15 seconds (ATK higher, and each attack takes 10% off her skills’ cooldowns).",
+		icon: "⚡",
+		image: art$4(3)
+	}
+};
+/** Her Charge: shown beside her passive, with how many she has. */
+var CHARGED$1 = {
+	name: "Charge",
+	about: "At 100 she is Overcharged.",
+	icon: "⚡"
+};
+/** Overcharged: shown on her card, with how long it has left. */
+var OVERCHARGED = {
+	name: "Overcharge",
+	about: "30% higher ATK; each attack takes 10% off her skills’ cooldowns; her skills do more.",
+	icon: "🔋",
+	image: art$4(3)
+};
+/** What Emergency Treatment gives each ally: shown on its card, with how long it has left. */
+var TREATED = {
+	name: "Emergency Treatment",
+	about: "Healed over time, and knocked down for less long.",
+	icon: "🩹",
+	image: art$4(1)
+};
+var TREATED_OVER = {
+	name: "Emergency Treatment",
+	about: "Healed over time; more likely to land a critical blow, deals 10% more, and can’t be knocked down.",
+	icon: "🩹",
+	image: art$4(1)
+};
+/** What Blasting Ray and Process of Elimination leave on the boss. */
+var RAYED = "Blasting Ray";
+var ELIMINATED = "Process of Elimination";
+var ANNETTE = {
+	id: "annette",
+	name: "Annette",
+	class: "mechanic",
+	assets: ANNETTE_ASSETS,
+	stats: {
+		...CLASS_STATS.mechanic,
+		deals: "magical"
+	},
+	abilities: [
+		{
+			name: "Blasting Ray",
+			icon: "🔆",
+			image: art$4(0),
+			move: "ray",
+			cooldown: 11,
+			cost: 2
+		},
+		{
+			name: "Emergency Treatment",
+			icon: "🩹",
+			image: art$4(1),
+			move: "treatment",
+			cooldown: 13,
+			cost: 2
+		},
+		{
+			name: "Process of Elimination",
+			icon: "💣",
+			image: art$4(2),
+			move: "elimination",
+			cooldown: 25,
+			cost: 3
+		}
+	],
+	passive: CHARGING,
+	attack: "zap",
+	stands: STAND$2,
+	join(fight, self) {
+		/** Her Charge; how long she is Overcharged for yet; and toward her next Charge, and her unique weapon's. */
+		let charge = 0;
+		let over = 0;
+		let charging = 0;
+		let rascal = 0;
+		/** Each skill was used while she was Overcharged (as it began: it does more as it lands). */
+		const overcharged = {
+			ray: false,
+			treatment: false,
+			elimination: false
+		};
+		/** How long her Emergency Treatment heals for yet, and toward its next heal (once a second). */
+		let treating = 0;
+		let treated = 0;
+		const tier = self.unique?.tier ?? null;
+		/** She is on the field, standing and in the fight. */
+		const there = () => fight.field.includes(self) && self.hp > 0 && !away(self.statuses);
+		/** Her allies on the field, standing and in the fight (her too). */
+		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
+		/** Charge gained: at a hundred, Overcharged (once she isn't already). */
+		const gain = (count) => {
+			charge = Math.min(CHARGE$1.full, charge + count);
+			if (charge < CHARGE$1.full || over > 0) return;
+			charge = 0;
+			over = CHARGE$1.lasts;
+			put(self.statuses, {
+				name: OVERCHARGED.name,
+				left: over,
+				deals: 1 + CHARGE$1.atk,
+				shown: OVERCHARGED
+			});
+		};
+		return {
+			lands: {
+				zap() {
+					fight.hit(self, ZAP.blow);
+					if (over <= 0) return;
+					self.def.abilities.forEach((ability, i) => {
+						self.cooldowns[i] = Math.max(0, self.cooldowns[i] - ability.cooldown * CHARGE$1.cooldown);
+					});
+				},
+				ray() {
+					const more = overcharged.ray;
+					fight.hit(self, RAY.blow);
+					if (more) fight.hit(self, RAY.extra);
+					const times = more ? 2 : 1;
+					put(fight.foe.statuses, {
+						name: RAYED,
+						left: RAY.lasts,
+						deals: 1 - RAY.weaker * times,
+						takes: { magical: 1 + RAY.takes * times },
+						shown: "curse"
+					});
+				},
+				treatment() {
+					const more = overcharged.treatment;
+					const on = allies();
+					fight.cue(self, "treatment", on);
+					const harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
+					for (let i = fight.party.length - 1; i >= 0; i--) if (harmful(fight.party[i])) fight.party.splice(i, 1);
+					for (const ally of on) {
+						ally.statuses = ally.statuses.filter((status) => !harmful(status));
+						put(ally.statuses, more ? {
+							name: TREATED.name,
+							left: TREATMENT.lasts,
+							resist: TREATMENT.resist,
+							crit: TREATMENT.crit,
+							deals: 1 + TREATMENT.dmg,
+							guards: true,
+							shown: TREATED_OVER
+						} : {
+							name: TREATED.name,
+							left: TREATMENT.lasts,
+							resist: TREATMENT.resist,
+							shown: TREATED
+						});
+					}
+					treating = TREATMENT.lasts;
+					treated = 0;
+				},
+				elimination() {
+					const more = overcharged.elimination;
+					fight.hit(self, more ? ELIMINATION.over : ELIMINATION.blow);
+					if (!more) return;
+					put(fight.foe.statuses, {
+						name: ELIMINATED,
+						left: ELIMINATION.lasts,
+						takes: { magical: 1 + ELIMINATION.takes },
+						shown: "curse"
+					});
+					fight.stun(ELIMINATION.stun, { by: self });
+				}
+			},
+			used(_index, ability) {
+				if (ability.move === "ray" || ability.move === "treatment" || ability.move === "elimination") overcharged[ability.move] = over > 0;
+				gain(ability.cost * CHARGE$1.perCrystal);
+			},
+			tick(dt) {
+				if (treating > 0) {
+					treating -= dt;
+					treated += dt;
+					if (treated >= 1) {
+						treated -= 1;
+						for (const ally of allies()) fight.heal(ally, TREATMENT.heal / TREATMENT.lasts, self);
+					}
+				}
+				if (over > 0) over = Math.max(0, over - dt);
+				if (!there()) return;
+				if (over <= 0) {
+					charging += dt;
+					if (charging >= CHARGE$1.every) {
+						charging -= CHARGE$1.every;
+						gain(1);
+					}
+				} else charging = 0;
+				if (tier !== null) {
+					rascal += dt;
+					const every = atTier(RASCAL.every, tier);
+					if (rascal >= every) {
+						rascal -= every;
+						self.mana = Math.min(MAX_MANA, self.mana + MAX_MANA * RASCAL.mana);
+						gain(1);
+					}
+					if (over > 0) {
+						const on = allies();
+						const top = on.reduce((best, ally) => !best || ally.stats.atk > best.stats.atk ? ally : best, null);
+						for (const ally of on) {
+							const k = ally === top ? RASCAL.top : 1;
+							put(ally.statuses, {
+								name: RASCAL_UP.name,
+								left: over,
+								deals: 1 + RASCAL.dmg * k,
+								takes: 1 - RASCAL.taken * k,
+								shown: RASCAL_UP
+							});
+						}
+					}
+				}
+			},
+			lit: () => over > 0,
+			buffs: () => over > 0 ? [] : [{
+				...CHARGED$1,
+				count: Math.floor(charge)
+			}]
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/heroes/clause/index.ts
+var CUT_GROUND = {
+	blow: 7e3,
+	stun: 5
+};
+var SHIELD_STRIKE = {
+	blow: 4e3,
+	lasts: 20,
+	slow: .67,
+	exposed: 1.3
+};
+var GUARDIAN = {
+	lasts: 20,
+	taken: .75
+};
+var VOW = {
+	weak: .8,
+	lasts: 8,
+	mana: 300
+};
+var art$3 = (index) => skillPicture(CLAUSE_ASSETS, index);
+var VOW_OF_KNIGHTS = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Vow of Knights",
+		about: "Passive. When he blocks he strikes back: the boss hits 20% less hard for 8 seconds, and he gains 300 mana.",
+		icon: "🛡️",
+		image: art$3(3)
+	}
+};
+/** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
+var GUARDED$1 = {
+	name: "Guardian Shield",
+	about: "Takes 25% less from the boss.",
+	icon: "✨",
+	image: art$3(2)
+};
+var CLAUSE = {
+	id: "clause",
+	name: "Clause",
+	class: "knight",
+	assets: CLAUSE_ASSETS,
+	stats: {
+		...CLASS_STATS.knight,
+		deals: "physical"
+	},
+	abilities: [
+		{
+			name: "Cut Ground",
+			icon: "⚔️",
+			image: art$3(0),
+			move: "slam",
+			cooldown: 9,
+			cost: 2
+		},
+		{
+			name: "Shield Strike",
+			icon: "🛡️",
+			image: art$3(1),
+			move: "bash",
+			cooldown: 8,
+			cost: 1
+		},
+		{
+			name: "Guardian Shield",
+			icon: "✨",
+			image: art$3(2),
+			move: "guard",
+			cooldown: 12,
+			cost: 2
+		}
+	],
+	passive: VOW_OF_KNIGHTS,
+	attack: "swing",
+	join(fight, self) {
+		return {
+			lands: {
+				swing() {
+					fight.hit(self, BLOW);
+				},
+				slam() {
+					fight.hit(self, CUT_GROUND.blow);
+					fight.stun(CUT_GROUND.stun, { by: self });
+				},
+				bash() {
+					fight.hit(self, SHIELD_STRIKE.blow);
+					put(fight.foe.statuses, {
+						name: "Exposed",
+						left: SHIELD_STRIKE.lasts,
+						takes: SHIELD_STRIKE.exposed,
+						shown: "curse"
+					});
+					fight.slow(SHIELD_STRIKE.slow, SHIELD_STRIKE.lasts);
+				},
+				guard() {
+					put(fight.party, {
+						name: GUARDED$1.name,
+						left: GUARDIAN.lasts,
+						takes: GUARDIAN.taken,
+						shown: GUARDED$1
+					});
+				}
+			},
+			blocked() {
+				fight.cue(self, "vow");
+				fight.hit(self, BLOW);
+				put(fight.foe.statuses, {
+					name: "Weakened",
+					left: VOW.lasts,
+					deals: VOW.weak,
+					shown: "slow"
+				});
+				self.mana = Math.min(MAX_MANA, self.mana + VOW.mana);
+			}
+		};
+	}
 };
 //#endregion
 //#region src/technomagic/heroes/fallen-frey/moves.ts
@@ -1796,126 +2488,6 @@ var FALLEN_FREY = {
 			}] : []
 		};
 	}
-};
-//#endregion
-//#region src/technomagic/sim/unique.ts
-/** Each weapon's numbers at tiers 1 to 5 (index 0 is tier 1). */
-var EXIAN = {
-	name: "The Guardian, Exian",
-	every: 3,
-	lasts: 15,
-	boost: [
-		.12,
-		.14,
-		.17,
-		.21,
-		.25
-	]
-};
-var ELICIPIRA = {
-	name: "Judgment Edge, Elicipira",
-	chance: .04,
-	boss: 2,
-	blow: [
-		6e3,
-		7200,
-		8600,
-		1e4,
-		12500
-	]
-};
-var ROSMERTA = {
-	name: "Angel’s Despair, Rosmerta",
-	lasts: 7,
-	heal: [
-		20,
-		24,
-		29,
-		35,
-		42
-	],
-	pen: [
-		240,
-		290,
-		350,
-		420,
-		500
-	]
-};
-/** Its attack speed (points), its heal and mana on sleeping (shares of her max HP and max mana, the mana over `over` seconds), and the ATK each Mana Charge adds. */
-var PIGRITIA = {
-	name: "Gateway to Purgatory, Pigritia",
-	speed: [
-		240,
-		290,
-		350,
-		420,
-		500
-	],
-	heal: [
-		.24,
-		.29,
-		.35,
-		.42,
-		.5
-	],
-	mana: [
-		.24,
-		.29,
-		.35,
-		.42,
-		.5
-	],
-	over: 2,
-	charge: [
-		.048,
-		.058,
-		.07,
-		.084,
-		.1
-	]
-};
-/** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
-var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
-var pct = (share) => `${Math.round(share * 100)}%`;
-/** To a tenth of a percent (4.8%). */
-var fine = (share) => `${Math.round(share * 1e3) / 10}%`;
-/** What each hero's weapon does at a tier, as its card and the heroes page say it. */
-var ABOUT = {
-	clause: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
-	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
-	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier) / 1e3)} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`,
-	gremory: (tier) => `+${atTier(PIGRITIA.speed, tier)} attack speed. Each time she sleeps she is healed by ${pct(atTier(PIGRITIA.heal, tier))} of her max HP and recovers ${pct(atTier(PIGRITIA.mana, tier))} of her mana over ${PIGRITIA.over} seconds, and each Mana Charge gives her ${fine(atTier(PIGRITIA.charge, tier))} more ATK.`
-};
-EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name;
-/** Each weapon's picture: its item's (the bot's catalog id, public/gear/items/weapons/). */
-var PICTURES = {
-	clause: "/gear/items/weapons/the-guardian-exian.png",
-	kirze: "/gear/items/weapons/judgment-edge-elicipira.png",
-	"fallen-frey": "/gear/items/weapons/angels-despair-rosmerta.png",
-	gremory: "/gear/items/weapons/gateway-to-purgatory-pigritia.png"
-};
-/** The heroes that have a unique weapon, by id. */
-var UNIQUE_HEROES = Object.keys(ABOUT);
-/** What a hero's unique weapon does at a tier (null: it has none). */
-var uniqueAbout = (hero, tier) => ABOUT[hero]?.(tier) ?? null;
-/** A hero's unique weapon as it fights: its tier (null: none, or not its own, or one this fight doesn't know). */
-function uniqueOf(hero, tier) {
-	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
-	return Math.min(5, Math.max(1, Math.floor(tier)));
-}
-/** What Exian gives Clause for a while, and what Rosmerta gives Fallen Frey. */
-var EXIAN_UP = {
-	name: "The Guardian, Exian",
-	about: "ATK and defense higher.",
-	icon: "🛡️",
-	image: PICTURES.clause
-};
-var ROSMERTA_UP = {
-	name: "Angel’s Despair, Rosmerta",
-	about: "Sees past more of the boss’s defense.",
-	icon: "🖤",
-	image: PICTURES["fallen-frey"]
 };
 //#endregion
 //#region src/technomagic/heroes/gremory/moves.ts
@@ -2499,7 +3071,8 @@ var HEROES = [
 	},
 	CLAUSE,
 	FALLEN_FREY,
-	GREMORY
+	GREMORY,
+	ANNETTE
 ];
 //#endregion
 //#region src/technomagic/sim/gear.ts
@@ -3398,6 +3971,10 @@ var MOVES = {
 	puchi: PUCHI$1,
 	pippi: PIPPI$1,
 	sleep: SLEEP$1,
+	zap: ZAP$1,
+	ray: RAY$1,
+	treatment: TREATMENT$1,
+	elimination: ELIMINATION$1,
 	hit: HIT
 };
 //#endregion
@@ -4583,7 +5160,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity"));
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share(fighter.stats.resist)) * shorter,
+				left: seconds * (1 - share(fighter.stats.resist + resisting(fighter.statuses))) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});

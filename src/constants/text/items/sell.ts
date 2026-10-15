@@ -3,7 +3,7 @@ import { boldMoney } from '../currency.js';
 
 export const sellText = {
   usage: (p: string) =>
-    `Use \`${p}sell <item>\` to sell one copy, \`${p}sell <number> <item>\` to sell that many copies, \`${p}sell all <item>\` to sell every copy you aren't wearing, or \`${p}sell stars <1-4>\` to sell everything of a star tier that you aren't wearing.`,
+    `Use \`${p}sell <item>\` to sell one copy, \`${p}sell <number> <item>\` to sell that many copies, \`${p}sell all <item>\` to sell every copy you aren't wearing, or \`${p}sell stars <1-4>\` to sell everything of a star tier that you aren't wearing (TechnoMagic gear and unique weapons only sell by name).`,
   badStars: (p: string) => `Pick a star tier from 1 to 4, like \`${p}sell stars 1\`.`,
   askWhichAll: (p: string) => `Which item? Use \`${p}sell all <item name>\`.`,
   /** Typed a number but no item. */

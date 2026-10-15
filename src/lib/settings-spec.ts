@@ -174,6 +174,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('sell.price.2', 'Sell', `${CURRENCY_EMOJI} for selling one 2-star item.`, 0, MAX_POINTS),
   int('sell.price.3', 'Sell', `${CURRENCY_EMOJI} for selling one 3-star item.`, 0, MAX_POINTS),
   int('sell.price.4', 'Sell', `${CURRENCY_EMOJI} for selling one 4-star item.`, 0, MAX_POINTS),
+  int('sell.technomagic', 'Sell', `${CURRENCY_EMOJI} for selling one piece of TechnoMagic gear.`, 0, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
   int('rob.minStolen', 'Rob', `Lowest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),

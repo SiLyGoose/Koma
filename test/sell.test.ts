@@ -7,7 +7,7 @@ import { messageContext } from '../src/discord/context.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { equippedCopyIds, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/game/items/sell.js';
+import { equippedCopyIds, itemSellPrice, parseSellArgs, saleCount, saleLines, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/game/items/sell.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import { ITEMS } from '../src/data/items.js';
 import type { ItemDef, Stars } from '../src/types.js';
@@ -109,7 +109,7 @@ test('sell: the worn copies are every slot\'s id, including the unique treasure,
 
 test('sell: sale lines group by item, best tier first, priced by the live star price', () => {
   const catalog = [item('a', 1), item('b', 3), item('c', 1), item('d', 2)];
-  const price = (stars: Stars) => stars * 100;
+  const price = (one: ItemDef) => one.stars * 100;
   const lines = saleLines(['c', 'a', 'c', 'b', 'nope', 'a', 'c'], catalog, price);
   assert.deepEqual(
     lines.map((l) => [l.item.id, l.count, l.each, l.total]),
@@ -129,6 +129,28 @@ test('sell: prices come from the live settings', () => {
   } finally {
     CONFIG.sell.price[2] = before;
   }
+});
+
+test('sell: TechnoMagic gear sells at its own price (5,000 to start), not as a 4-star item', () => {
+  const tm: ItemDef = { ...item('tm', 4), tmDrop: true, tmSet: 'perseverance', class: 'mechanic' };
+  assert.equal(DEFAULTS.sell.technomagic, 5000);
+  const before = CONFIG.sell.technomagic;
+  try {
+    CONFIG.sell.technomagic = 4321;
+    assert.equal(itemSellPrice(tm), 4321);
+    assert.equal(itemSellPrice(item('x', 4)), CONFIG.sell.price[4]);
+    assert.deepEqual(
+      saleLines(['tm', 'x', 'tm'], [tm, item('x', 4)]).map((l) => [l.item.id, l.each, l.total]),
+      [['tm', 4321, 8642], ['x', CONFIG.sell.price[4], CONFIG.sell.price[4]]],
+    );
+  } finally {
+    CONFIG.sell.technomagic = before;
+  }
+  const spec = findSpec('sell.technomagic');
+  assert.equal(spec?.group, 'Sell');
+  const broken = structuredClone(DEFAULTS);
+  broken.sell.technomagic = -1;
+  assert.ok(validateSettings(broken).some((problem) => problem.startsWith('sell.technomagic')));
 });
 
 // ---------------------------------------------------------------------------

@@ -743,4 +743,13 @@ export const ITEMS: readonly ItemDef[] = [
     effects: [],
     uniqueWeapon: 'gremory',
   },
+  {
+    id: 'crystallized-technomagic-rascal',
+    name: 'Crystallized Technomagic, Rascal',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Annette’s technomagic golem, the first autonomous technomagic lifeform, with a will of its own and a great fondness for its inventor.',
+    effects: [],
+    uniqueWeapon: 'annette',
+  },
 ];

@@ -1,5 +1,6 @@
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
+import { heroOnly } from '../../lib/game/heroes.js';
 import { saleCount, saleLines, saleTotal, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../../types.js';
@@ -13,7 +14,9 @@ import { ensureMember } from '../economy/index.js';
  * big sale can be confirmed first: `planSale` works out exactly which copies would be sold and
  * what they are worth, and `sellCopies` sells those copies (and only those, and only if they are
  * still theirs and still not worn). The worn copy of an item is never sold, but other copies of
- * the same item can be. A copy the member locked (`lock`) is never sold either.
+ * the same item can be. A copy the member locked (`lock`) is never sold either. Selling a star tier
+ * leaves out TechnoMagic gear and unique weapons (counted as 4-star, but tiers of their own): those only
+ * sell by name.
  */
 
 /** What to sell. */
@@ -44,7 +47,7 @@ export async function planSale(guildId: string, userId: string, target: SellTarg
   const inScope = copies.filter((copy) => {
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item) return false;
-    return target.kind === 'stars' ? item.stars === target.stars : item.id === target.item.id;
+    return target.kind === 'stars' ? item.stars === target.stars && !heroOnly(item) : item.id === target.item.id;
   });
   if (inScope.length === 0) return { ok: false, reason: 'not_owned' };
 

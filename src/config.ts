@@ -87,6 +87,8 @@ export interface Settings {
   sell: {
     /** Points a member gets for selling one item of each star tier (sell command). */
     price: Record<Stars, number>;
+    /** Points for selling one piece of TechnoMagic gear (ItemDef.tmDrop): a tier of its own, priced apart from 4-star items. */
+    technomagic: number;
   };
   plinko: {
     /** The smallest and biggest bet. */
@@ -378,7 +380,7 @@ export const DEFAULTS: Readonly<Settings> = {
     wealthTaxRate: 0.01,
   },
   // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
-  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 } },
+  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 }, technomagic: 5000 },
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },

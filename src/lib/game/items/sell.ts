@@ -96,6 +96,11 @@ export function sellPrice(stars: Stars): number {
   return CONFIG.sell.price[stars];
 }
 
+/** What one copy of an item sells for: TechnoMagic gear at its own price, everything else at its star tier's. */
+export function itemSellPrice(item: ItemDef): number {
+  return item.tmDrop ? CONFIG.sell.technomagic : sellPrice(item.stars);
+}
+
 /** One line of a sale: how many of an item, and what they are worth together. */
 export interface SaleLine {
   item: ItemDef;
@@ -108,7 +113,7 @@ export interface SaleLine {
  * Groups item ids into sale lines: highest star tier first, and in catalog order within a tier.
  * Ids that aren't in the catalog are left out (their star tier, so their price, is unknown).
  */
-export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[] = ITEMS, price: (stars: Stars) => number = sellPrice): SaleLine[] {
+export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[] = ITEMS, price: (item: ItemDef) => number = itemSellPrice): SaleLine[] {
   const counts = new Map<string, number>();
   for (const id of itemIds) counts.set(id, (counts.get(id) ?? 0) + 1);
 
@@ -116,7 +121,7 @@ export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[
   for (const item of catalog) {
     const count = counts.get(item.id);
     if (!count) continue;
-    const each = price(item.stars);
+    const each = price(item);
     lines.push({ item, count, each, total: each * count });
   }
   return lines.sort((a, b) => b.item.stars - a.item.stars);

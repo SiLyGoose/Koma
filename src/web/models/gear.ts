@@ -10,7 +10,7 @@ import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
-import { equippedCopyIds, saleCount, sellPrice } from '../../lib/game/items/sell.js';
+import { equippedCopyIds, itemSellPrice, saleCount } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
 import { forgeMasterwork } from '../../services/items/forge.js';
 import { setCopyLocked } from '../../services/items/lock.js';
@@ -301,7 +301,7 @@ export function gearView(
       refine: { blocked: null, cost: null, spare: null, after: null },
       forge: null,
       locked,
-      sell: kept.has(copy._id) || locked ? null : sellPrice(item.stars),
+      sell: kept.has(copy._id) || locked ? null : itemSellPrice(item),
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
       itemClass: item.class ?? null,
