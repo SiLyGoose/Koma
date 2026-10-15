@@ -2175,6 +2175,39 @@ function perkedStats(stats, perks) {
 	for (const perk of perks) if (perk.atkFromDefense) stats.atk += perk.atkFromDefense * stats.physical;
 	return stats;
 }
+/** What a hero's own perks give every ally, itself among them: each perk's `first` (it is the first of its kind there), by what it raises. */
+function ownAuras(perks) {
+	const out = {};
+	for (const perk of perks) for (const [key, aura] of Object.entries(perk.allies ?? {})) out[key] = (out[key] ?? 0) + aura.first;
+	return out;
+}
+/** The stat each aura raises, as gear's bonus has it (Inner Peace's heal every second is none). */
+var AURA_STAT = {
+	atk: "atk",
+	crit: "crit",
+	critDamage: "critDamage",
+	speed: "speed",
+	accuracy: "accuracy",
+	resist: "resist",
+	hp: "hp"
+};
+/**
+* What a hero's perks give its own stats, as gear's bonus has them (ATK, max HP and crit DMG shares; chances and the
+* like in points, 10 to 1%): its own, and its share of what they give every ally; and Offensive Guard's ATK, so much
+* of its physical defense, apart. What the heroes page lists as its perks' effects.
+*/
+function perkStats(perks) {
+	const list = [...perks];
+	const bonus = withPerks({}, list);
+	for (const [key, more] of Object.entries(ownAuras(list))) {
+		const stat = AURA_STAT[key];
+		if (stat) bonus[stat] = (bonus[stat] ?? 0) + more;
+	}
+	return {
+		bonus,
+		atkFromDefense: list.reduce((sum, perk) => sum + (perk.atkFromDefense ?? 0), 0)
+	};
+}
 /** What every hero's Transcend 5 Light gives: ATK, DEF and HP so much more. */
 var T5_LIGHT = .15;
 /** A hero's Transcend 5 Light: ATK, DEF and HP +15%, and `more` of its own (as gear gives it), which `says` puts in words. */
@@ -6290,7 +6323,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "be7890f44904";
+var SIM_VERSION = "4dc2de8d965c";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
@@ -6308,6 +6341,15 @@ var TM_SKILLS = SKILLS.map(({ id, name, tier, about }) => ({
 	about
 }));
 var MOST_TM_SKILLS = 5;
+/**
+* What a hero's perks (the bot's ids) give its own stats, as gear's bonus has them (shares of ATK, max HP and crit DMG;
+* chances and the like in points, 10 to 1%), and Offensive Guard's ATK from its physical defense (a share of it): for
+* its Perk Effects on the heroes page. Null: no such hero.
+*/
+function tmPerkStats(hero, perks) {
+	const def = HEROES.find((one) => one.id === hero);
+	return def ? perkStats(perksOf(perks, def).values()) : null;
+}
 /** The heroes there are, in the order of their cards; and the bosses, by id. */
 var TM_HEROES = HEROES.map((hero) => ({
 	id: hero.id,
@@ -6466,4 +6508,4 @@ function replay(run, rawInputs, pageSums = []) {
 	};
 }
 //#endregion
-export { BOSS_IDS, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_HEROES, TM_SET_INFO, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, uniqueWeaponText };
+export { BOSS_IDS, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_HEROES, TM_SET_INFO, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, tmPerkStats, uniqueWeaponText };

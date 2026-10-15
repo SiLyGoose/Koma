@@ -79,6 +79,15 @@ export interface TmHeroSkill {
     tag: string | null;
     text: string;
 }
+/**
+ * What a hero's perks (the bot's ids) give its own stats, as gear's bonus has them (shares of ATK, max HP and crit DMG;
+ * chances and the like in points, 10 to 1%), and Offensive Guard's ATK from its physical defense (a share of it): for
+ * its Perk Effects on the heroes page. Null: no such hero.
+ */
+export declare function tmPerkStats(hero: string, perks: readonly string[]): {
+    bonus: Readonly<Record<string, number>>;
+    atkFromDefense: number;
+} | null;
 /** The heroes there are, in the order of their cards; and the bosses, by id. */
 export declare const TM_HEROES: readonly TmHero[];
 export declare const BOSS_IDS: readonly string[];

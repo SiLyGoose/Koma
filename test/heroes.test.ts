@@ -339,6 +339,24 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
   }
 });
 
+test("heroes: a hero's perk effects, what its picked perks give its stats, spelled out (its share too of what they give every ally)", () => {
+  const view = heroesView([], {
+    heroes: {
+      // A warrior's: ATK Up, Opportune Strike (crit chance 150 points: 15%), Offensive Guard, Transcend 5's Light.
+      kirze: { equipment: {}, transcend: 5, perks: ['atk-up', 'class-1', 'class-3', 't5-light'] },
+      // A knight's Battle Cry: every ally's max HP, its own too.
+      clause: { equipment: {}, transcend: 5, perks: ['class-3'] },
+      morrah: { equipment: {}, transcend: 5, perks: [] },
+    },
+    points: 0,
+  } as unknown as MemberDoc);
+  const effects = (id: string) => view.heroes.find((hero) => hero.id === id)?.perkEffects;
+  assert.deepEqual(effects('kirze'), ['+45% Attack', '+15% Health', '+15% Critical Chance', '+30% Critical Damage', '+10% Attack Speed', '+15% Physical and Magical Defense', '+Attack equal to 50% of Physical Defense']);
+  assert.deepEqual(effects('clause'), ['+15% Health']);
+  assert.deepEqual(effects('morrah'), []);
+  assert.deepEqual(effects('laias'), [], 'not recruited: no perks');
+});
+
 test('heroes: transcendence, T0 to T5, each level more TP and its tier of perks; picked once each in their order, kept ones past it left out', () => {
   assert.deepEqual(TRANSCEND_TP, [0, 20, 35, 50, 65, 80]);
   assert.equal(TRANSCEND_POINTS, 80);

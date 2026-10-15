@@ -109,6 +109,8 @@ export interface HeroView {
   totals: string[];
   /** The transcendence perks picked for it (data/transcend.ts ids, in its order). */
   perks: string[];
+  /** What those perks give its stats (its share too of what they give every ally), a line each, like "+30% Attack". */
+  perkEffects: string[];
   /** How far it is transcended (0 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
   transcend: { level: number; points: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
   /** Its three skills, then its passive. */

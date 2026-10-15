@@ -10,7 +10,7 @@ import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef
 import { fmt, formatPercent } from '../format.js';
 import { effectStrength, itemEffects, perkShare, type GearPiece } from './items/equipment.js';
 import { refineLevel } from './items/refine-share.js';
-import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
+import { tmPerkStats, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import { HERO_SLOT_KIND } from '../../protocol/heroes.js';
 import { HERO_STAT_IDS, type HeroBonus, type HeroStat } from '../../protocol/heroes.js';
 
@@ -207,6 +207,24 @@ export const bonusLines = (bonus: HeroBonus): string[] => HERO_STAT_IDS.filter((
 /** A hero's stats, all its gear gives it, a line for each stat it raises (its name spelled out), like "+25% Attack". */
 export const heroStatLines = (bonus: HeroBonus): string[] => HERO_STAT_IDS.filter((stat) => bonus[stat] > 1e-9).map((stat) => `+${amount(stat, bonus[stat])} ${HERO_STATS[stat].label}`);
 
+/** Points in the raid that are 100% (10 to 1%): a chance or share's bonus of 0.1 is 100 of them. */
+const POINTS = 1000;
+
+/**
+ * What a hero's perks (data/transcend.ts ids: those it has picked, as far as it is transcended) give its stats, a line
+ * each as its other stats' lines (spelled out), like "+30% Attack": the raid's perks (vendor/technomagic-sim.mjs), its
+ * own and its share of what they give every ally; and Offensive Guard's ATK from its physical defense last.
+ */
+export function perkLines(heroId: string, perks: readonly string[]): string[] {
+  const stats = tmPerkStats(heroId, perks);
+  if (!stats) return [];
+  const shares = noBonus();
+  for (const [stat, value] of Object.entries(stats.bonus)) {
+    if (stat in HERO_STATS) shares[stat as HeroStat] += HERO_STATS[stat as HeroStat].points ? value / POINTS : value;
+  }
+  return [...heroStatLines(shares), ...(stats.atkFromDefense > 0 ? [`+${HERO_STATS.atk.label} equal to ${formatPercent(stats.atkFromDefense)} of ${HERO_STATS.defPhysical.label}`] : [])];
+}
+
 /** A TechnoMagic copy's potentials, a line each, like "+5% ATK Spd" (none for a copy that has none). */
 export const potentialLines = (potentials: readonly TmPotential[] | undefined): string[] =>
   (potentials ?? []).flatMap(({ stat, value }) => {
@@ -228,7 +246,7 @@ export function heroItemLines(item: ItemDef, level: number = REFINE.maxLevel, ma
 }
 
 /** Whether a stat is points in the raid (see HERO_STATS); its bonus as the raid counts it: points, or a share (or flat ATK, as it is). */
-export const raidValue = (stat: HeroStat, share: number): number => (HERO_STATS[stat].points ? Math.round(share * 1000) : HERO_STATS[stat].flat ? Math.round(share) : share);
+export const raidValue = (stat: HeroStat, share: number): number => (HERO_STATS[stat].points ? Math.round(share * POINTS) : HERO_STATS[stat].flat ? Math.round(share) : share);
 
 /** The TechnoMagic set a hero's weapons and armors are most of (each working on its class), and how many of them: null with none. */
 export function heroSet(pieces: readonly Pick<GearPiece, 'item'>[], heroClass: RaidClassId): { set: TmSetId; pieces: number } | null {
