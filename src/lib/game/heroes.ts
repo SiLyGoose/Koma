@@ -178,10 +178,10 @@ export const uniqueClass = (item: ItemDef): RaidClassId | undefined => (item.uni
  * when `heroId` says which hero, nothing from another hero's unique weapon. A unique weapon's flat ATK is its
  * own hero's class's.
  */
-export function pieceBonus({ item, level, bonus = true, potentials = [] }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
+export function pieceBonus({ item, level, potentials = [] }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
   const out = noBonus();
   if (!worksOn(item, heroClass) || (heroId !== undefined && !wieldedBy(item, heroId))) return out;
-  for (const effect of itemEffects(item, level, bonus)) {
+  for (const effect of itemEffects(item, level)) {
     const to = FROM_PERK[effect];
     if (to) out[to[0]] += effectStrength(effect, item.stars) * perkShare(effect, level) * to[1];
   }
@@ -243,10 +243,10 @@ export const potentialLines = (potentials: readonly TmPotential[] | undefined): 
  * out), or on one of `heroClass`, which for a class item of another class is nothing. A unique weapon's on
  * its own hero, with its own effect at that level last. A TechnoMagic copy's are its `potentials`, a line each.
  */
-export function heroItemLines(item: ItemDef, level: number = REFINE.maxLevel, masterwork = true, heroClass?: RaidClassId, potentials?: readonly TmPotential[]): string[] {
+export function heroItemLines(item: ItemDef, level: number = REFINE.maxLevel, heroClass?: RaidClassId, potentials?: readonly TmPotential[]): string[] {
   if (item.tmDrop) return potentialLines(potentials);
   const owner = item.uniqueWeapon === undefined ? undefined : HEROES.find((hero) => hero.id === item.uniqueWeapon);
-  const lines = bonusLines(pieceBonus({ item, level, bonus: masterwork }, heroClass ?? owner?.class ?? item.class ?? 'knight'));
+  const lines = bonusLines(pieceBonus({ item, level }, heroClass ?? owner?.class ?? item.class ?? 'knight'));
   const unique = owner ? uniqueWeaponText(owner.id, uniqueTier(level)) : null;
   return unique ? [...lines, `${owner?.name} only, ★${uniqueTier(level)}: ${unique}`] : lines;
 }
@@ -299,7 +299,7 @@ export const heroSkills = (pieces: readonly { item: ItemDef; skill?: string }[],
  * with. Only copies they still own, in a slot of their kind, on that hero, and a unique weapon only on its own
  * hero (as the heroes page shows them).
  */
-export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'tmSkill' | 'tmPotentials'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
+export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
   const owned = new Map(copies.map((copy) => [copy._id, copy]));
   const worn = heroWorn(member);
   const out = new Map<string, RaidGear>();
@@ -319,7 +319,7 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
         if (uw !== null) continue;
         uw = uniqueTier(copy.level);
       }
-      on.push({ item, level: refineLevel(copy.level), bonus: copy.masterwork === true, ...(copy.tmPotentials && { potentials: copy.tmPotentials }) });
+      on.push({ item, level: refineLevel(copy.level), ...(copy.tmPotentials && { potentials: copy.tmPotentials }) });
       skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
       counted.push(copy._id);
     }

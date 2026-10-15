@@ -46,7 +46,6 @@ export type { Me } from './services/login.js';
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
  *   POST /api/gear/loadout/rename {guild, loadout, name}   names loadout number `loadout` (an empty name: its default one again): GearView
  *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
- *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
  *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
  *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
  *   GET  /api/databank        every item and what it does at each level, and every raid boss: Databank (models/databank.ts)

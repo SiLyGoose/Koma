@@ -82,12 +82,6 @@ export function gearService(deps: ApiDeps) {
       return store.view(guildId, userId);
     },
 
-    async forge(guildId: string, userId: string, copy: string): Promise<GearView> {
-      const result = await store.forge(guildId, userId, copy);
-      if (result !== 'ok') throw new ApiError(result);
-      return store.view(guildId, userId);
-    },
-
     /** Sells those copies (the same one twice counts once). */
     async sell(guildId: string, userId: string, copies: string[]): Promise<GearSold> {
       const sold = await store.sell(guildId, userId, [...new Set(copies)]);

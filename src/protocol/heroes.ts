@@ -58,7 +58,6 @@ export interface HeroCopy {
   description: string;
   level: number;
   maxLevel: number;
-  masterwork: boolean;
   locked: boolean;
   /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class): a TechnoMagic copy's potentials. */
   effects: string[];

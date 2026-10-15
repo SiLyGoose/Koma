@@ -12,8 +12,6 @@ export interface DatabankItem {
   description: string;
   /** What it does at each refinement level: `effects[0]` is R1, the last is REFINE.maxLevel. */
   effects: string[][];
-  /** What it does as a masterwork at REFINE.maxLevel (its bonus on), or null when it has no bonus. */
-  masterwork: string[] | null;
   /** Made for certain members: the share of its effects anyone else gets (null when anyone can use it). */
   borrowed: number | null;
   /**

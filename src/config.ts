@@ -307,8 +307,6 @@ export interface Settings {
      * then by the level it's raised to (2 to REFINE.maxLevel).
      */
     cost: Record<Stars, Record<RefineTarget, number>>;
-    /** komaGems to forge an R5 copy of a 4-star item into a masterwork, turning on its bonus (`forge`). */
-    masterworkGems: number;
   };
   /**
    * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
@@ -499,7 +497,6 @@ export const DEFAULTS: Readonly<Settings> = {
       3: { 2: 500, 3: 750, 4: 1_000, 5: 1_500 },
       4: { 2: 2_000, 3: 3_000, 4: 4_000, 5: 6_000 },
     },
-    masterworkGems: 25,
   },
   outfit: { price: 5_000 },
   hero: { price: 25_000, rewardsPerDay: 10, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },

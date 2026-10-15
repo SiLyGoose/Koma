@@ -101,7 +101,7 @@ test('technomagic: a run is fought with the gear the heroes page shows', () => {
   const treasure = TM_DROPS.find((item) => item.slot === 'treasure')!;
   const copies: ItemCopyDoc[] = [
     { _id: 'c1', guildId: 'g', userId: 'u', itemId: weapon.id, level: 3, obtainedAt: new Date() },
-    { _id: 'c2', guildId: 'g', userId: 'u', itemId: treasure.id, level: 1, obtainedAt: new Date(), masterwork: true },
+    { _id: 'c2', guildId: 'g', userId: 'u', itemId: treasure.id, level: 1, obtainedAt: new Date() },
   ];
   const member = { heroes: { kirze: { boughtAt: new Date(), equipment: { weapon1: 'c1', treasure: 'c2', armor1: 'gone' } } }, points: 0 } as unknown as MemberDoc;
   const gear = raidBonuses(copies, member);

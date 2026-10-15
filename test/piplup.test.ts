@@ -4,7 +4,7 @@ import { CONFIG } from '../src/config.js';
 import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { EFFECTS, emptyTotals, slipChance, slipPenaltyAmount } from '../src/perks/index.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
-import { describeEffects, showsMasterwork } from '../src/lib/game/items/equipment.js';
+import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 
 const gear = (over: Partial<ReturnType<typeof emptyTotals>>) => ({ ...emptyTotals(), ...over });
@@ -40,56 +40,18 @@ test('Bubble Beam effects: per-star settings, 4 stars a 20% chance and a 25% pen
   assert.match(EFFECTS.bubbleBeamPenalty.text('10%'), /10%/);
 });
 
-test('Piplup: wears both Bubble Beam effects and lists them with their strengths', () => {
+test('Piplup: wears both Bubble Beam effects and lists them with their strengths, and has no R5 bonus', () => {
   const piplup = ITEMS_BY_ID.get('piplup');
   assert.ok(piplup, 'the catalog has Piplup');
   assert.equal(piplup.slot, 'treasure');
   assert.deepEqual([...piplup.effects].sort(), ['bubbleBeam', 'bubbleBeamPenalty']);
-  const lines = describeEffects(piplup, 1, 5, false);
-  assert.equal(lines.length, 3, 'both perks, then the masterwork bonus it could have');
-  assert.ok(lines.some((line) => /20%/.test(line)) && lines.some((line) => /25%/.test(line)));
-  assert.match(lines[2]!, /^🔒 Masterwork/);
-});
-
-test('Piplup masterwork: its holder never slips when robbing, and a slip against them costs 50%', () => {
-  const piplup = ITEMS_BY_ID.get('piplup')!;
-  assert.deepEqual(piplup.bonus?.adds, ['bubbleBeamMasterPenalty', 'slipGuard']);
-  assert.deepEqual(piplup.bonus?.removes, ['bubbleBeamPenalty']);
-  assert.equal(CONFIG.equipment.bubbleBeamMasterPenalty[4], 0.5);
-  assert.equal(CONFIG.equipment.slipGuard[4], 1);
-
-  const masterwork = gear({ bubbleBeam: 0.2, slipGuard: 1, bubbleBeamMasterPenalty: 0.5 });
-  const plain = gear({ bubbleBeam: 0.2, bubbleBeamPenalty: 0.25 });
-  close(slipChance(masterwork, none), 0, 'robbing with it: never slips');
-  close(slipChance(masterwork, plain), 0, "not even against someone else's Piplup");
-  close(slipChance(gear({ slipGuard: 0.5 }), gear({ bubbleBeam: 0.2 })), 0.1, 'a weaker guard only halves it');
-  close(slipChance(none, masterwork), 0.2, 'robbing its holder still slips as before');
-  assert.equal(slipPenaltyAmount(200, none, masterwork), 100, '50% of what was taken');
-  assert.equal(slipPenaltyAmount(200, plain, masterwork), 100, 'the bigger rate wins');
-
-  // Forged, the card lists what it really does: the chance, now without slipping when you rob, and
-  // the 50% penalty in place of the 25%. No masterwork line: whoever shows it tags the name instead.
-  const lines = describeEffects(piplup, 1, 5, true);
-  const unforged = describeEffects(piplup, 1, 5, false);
-  assert.equal(lines.length, 2);
-  assert.match(unforged[0]!, /slips \(half that when you rob\), and/);
-  assert.equal(lines[0], unforged[0]!.replace(' (half that when you rob)', ''), 'the same chance, without the part about robbing');
-  assert.match(lines[1]!, /\+50% of what they took/);
-  // A weaker guard (a setting) shrinks that part instead of dropping it.
-  const guard = CONFIG.equipment.slipGuard[4];
-  CONFIG.equipment.slipGuard[4] = 0.5;
-  try {
-    assert.match(describeEffects(piplup, 1, 5, true)[0]!, /slips \(25% of that when you rob\), and/);
-  } finally {
-    CONFIG.equipment.slipGuard[4] = guard;
-  }
-  assert.ok(!lines.some((line) => /Masterwork|\+25%/.test(line)));
-  assert.ok(showsMasterwork(piplup, 5, true) && !showsMasterwork(piplup, 5, false) && !showsMasterwork(piplup, 4, true));
+  assert.equal(piplup.bonus, undefined);
+  const lines = describeEffects(piplup, 1, 5);
+  assert.equal(lines.length, 2, 'both perks, nothing more at R5');
+  assert.match(lines[0]!, /20% chance a successful rob against you slips \(half that when you rob\)/);
+  assert.match(lines[1]!, /\+25% of what they took/);
   // Worn by someone it isn't made for, at half strength: the numbers follow.
-  assert.match(describeEffects(piplup, 0.5, 5, true)[1]!, /\+25% of what they took/);
-  // Not forged yet: the 25% penalty, and the locked line saying what forging adds on top of it.
-  assert.match(unforged[1]!, /\+25% of what they took/);
-  assert.match(unforged.at(-1)!, /^🔒 Masterwork .*additional \+25% of what they took$/);
+  assert.match(describeEffects(piplup, 0.5, 5)[1]!, /\+12\.5% of what they took/);
 });
 
 test('slip reply: what went back, and the penalty only when there was one', () => {

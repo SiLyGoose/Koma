@@ -28,7 +28,7 @@ test('gear page: copies come best first, with what each does, and only fitting c
     { _id: 'a', itemId: 'rusty-dagger', level: 1 },
     { _id: 'b', itemId: 'iron-longsword', level: 3 },
     { _id: 'c', itemId: 'wooden-shield', level: 0 },
-    { _id: 'd', itemId: 'c4', level: 5, masterwork: true },
+    { _id: 'd', itemId: 'c4', level: 5 },
     { _id: 'e', itemId: 'not-an-item', level: 1 },
   ];
   const view = gearView(copies, { weapon: 'b', armor: 'a', treasure: 'gone' }, 'someone');
@@ -47,7 +47,7 @@ test('gear page: copies come best first, with what each does, and only fitting c
   // Every raid class, for the ribbon's picker, each with what it does.
   assert.deepEqual(classes.map((cls) => cls.id), [...RAID_CLASS_IDS]);
   assert.ok(classes.every((cls) => cls.name !== '' && cls.traits.length > 0));
-  assert.equal(gearView([], null, 'x', undefined, null, null, undefined, 'knight').class, 'knight');
+  assert.equal(gearView([], null, 'x', undefined, null, undefined, 'knight').class, 'knight');
   // With nothing on, every stat is its base.
   assert.ok(stats.every((section) => section.rows.every((r) => r.base === null)));
   assert.deepEqual(empty, {
@@ -60,7 +60,6 @@ test('gear page: copies come best first, with what each does, and only fitting c
       { number: 3, name: 'Loadout 3', active: false, equipped: none },
     ],
     balance: null,
-    gems: null,
     outfit: 'tsuri',
     class: null,
   });
@@ -77,7 +76,7 @@ test('gear page: the Common tab shows what gear changed, beside the base', () =>
 test("gear page: the Common tab's raid numbers are their class's, with rows for what only that class does", () => {
   const raid = (cls: RaidClassId | null, copies: { _id: string; itemId: string; level: number }[] = [], worn: EquipmentDoc = {}) =>
     Object.fromEntries(
-      gearView(copies, worn, 'x', undefined, null, null, undefined, cls)
+      gearView(copies, worn, 'x', undefined, null, undefined, cls)
         .stats.find((s) => s.title === 'Raid')!
         .rows.map((r) => [r.label, r]),
     );
@@ -158,7 +157,6 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     renameLoadout: async (_guildId, _userId, number, name) => (name === 'Tank' && number !== 1 ? 'name_taken' : name === '123' ? 'name_no_letters' : 'ok'),
     refine: async (_guildId, _userId, copy, material) =>
       copy === 'x1' ? (material === 'bad' ? 'bad_material' : 'ok') : copy === 'poor' ? 'too_poor' : 'not_found',
-    forge: async (_guildId, _userId, copy) => (copy === 'x1' ? 'ok' : copy === 'low' ? 'too_low' : copy === 'done' ? 'forged' : 'not_found'),
     sell: async (_guildId, _userId, copies) => (copies.includes('x1') ? { count: copies.length, earned: 40 * copies.length } : 'nothing_to_sell'),
     lock: async (_guildId, _userId, copy) => copy === 'x1',
     setClass: async (guildId, userId, id) => {
@@ -205,8 +203,8 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal((await fetch(`${base}/api/gear/members?guild=g2`, { headers })).status, 403);
     const theirs = await fetch(`${base}/api/gear?guild=g1&user=22`, { headers });
     assert.equal(theirs.status, 200);
-    const peeked = (await theirs.json()) as { equipped: { weapon: string | null }; balance: number | null; gems: number | null };
-    assert.deepEqual([peeked.equipped.weapon, peeked.balance, peeked.gems], ['y1', null, null]);
+    const peeked = (await theirs.json()) as { equipped: { weapon: string | null }; balance: number | null };
+    assert.deepEqual([peeked.equipped.weapon, peeked.balance], ['y1', null]);
     assert.equal((await fetch(`${base}/api/gear?guild=g1&user=33`, { headers })).status, 404); // left the server
     assert.equal((await fetch(`${base}/api/gear?guild=g1&user=nope`, { headers })).status, 404);
     assert.equal(((await (await fetch(`${base}/api/gear?guild=g1&user=u1`, { headers })).json()) as { copies: { id: string }[] }).copies[0]!.id, 'x1'); // their own
@@ -251,14 +249,6 @@ test('gear page: a logged-in member sees, equips and unequips their gear in thei
     assert.equal(((await poor.json()) as { error: string }).error, 'too_poor');
     assert.equal((await post('/api/gear/refine', '{"guild":"g1","copy":"nope"}')).status, 404);
     assert.equal((await post('/api/gear/refine', '{"guild":"g1"}')).status, 400);
-
-    assert.equal((await post('/api/gear/forge', '{"guild":"g1","copy":"x1"}')).status, 200);
-    const low = await post('/api/gear/forge', '{"guild":"g1","copy":"low"}');
-    assert.equal(low.status, 409);
-    assert.equal(((await low.json()) as { error: string }).error, 'too_low');
-    assert.equal(((await (await post('/api/gear/forge', '{"guild":"g1","copy":"done"}')).json()) as { error: string }).error, 'forged');
-    assert.equal((await post('/api/gear/forge', '{"guild":"g1","copy":"nope"}')).status, 404);
-    assert.equal((await post('/api/gear/forge', '{"guild":"g1"}')).status, 400);
 
     const sale = await post('/api/gear/sell', '{"guild":"g1","copies":["x1","x2","x2"]}');
     assert.equal(sale.status, 200);
@@ -336,28 +326,16 @@ test('gear page: a locked copy is shown locked, never sells, and is never a spar
   assert.equal(byId.worn!.refine.blocked, 'no_duplicate');
 });
 
-test('gear page: each copy of a bonus item says whether it can be forged into a masterwork, and for how many komaGems', () => {
+test('gear page: a bonus item shows its R5 bonus as an extra effect, from R5 on', () => {
   const copies = [
     { _id: 'r5', itemId: 'ruby-pickaxe', level: 5 },
-    { _id: 'r3', itemId: 'ruby-pickaxe', level: 3 },
-    { _id: 'mw', itemId: 'ruby-pickaxe', level: 5, masterwork: true },
-    { _id: 'plain', itemId: 'rusty-dagger', level: 5 },
+    { _id: 'r4', itemId: 'ruby-pickaxe', level: 4 },
   ];
-  const forge = (gems: number | null) =>
-    Object.fromEntries(gearView(copies, null, 'x', undefined, null, gems).copies.map((c) => [c.id, c.forge === null ? 'none' : c.forge.blocked]));
-
-  assert.deepEqual(forge(1_000_000), { r5: null, r3: 'too_low', mw: 'forged', plain: 'none' });
-  assert.equal(forge(0).r5, 'too_poor');
-  assert.equal(forge(null).r5, null); // gems not known: not held back
-
-  const view = gearView(copies, null, 'x', undefined, null, 40);
-  assert.equal(view.gems, 40);
-  const r5 = view.copies.find((c) => c.id === 'r5')!;
-  assert.deepEqual([r5.forge?.cost, r5.forge?.level], [DEFAULTS.refine.masterworkGems, REFINE.maxLevel]);
-  assert.ok(r5.forge?.after && !r5.forge.after.some((line) => line.startsWith('🔒')), 'once forged the bonus is on');
-  assert.ok(r5.effects.some((line) => line.startsWith('🔒')), 'not forged yet: the bonus is locked');
-  assert.equal(view.copies.find((c) => c.id === 'mw')!.forge?.after, null);
-  assert.equal(view.copies.find((c) => c.id === 'plain')!.forge, null);
+  const view = gearView(copies, null, 'x');
+  const byId = Object.fromEntries(view.copies.map((c) => [c.id, c]));
+  assert.equal(byId.r5!.effects.at(-1), 'Pinecraft: ores take no extra ⚡ to dig');
+  assert.ok(!byId.r4!.effects.some((line) => /no extra/.test(line)));
+  assert.equal(byId.r4!.refine.after?.at(-1), 'Pinecraft: ores take no extra ⚡ to dig', 'refining it to R5 says so');
 });
 
 test("gear page: a game's link can look at gear in its server (the raid's party), and change only what its own member wears", async () => {
@@ -395,8 +373,8 @@ test("gear page: a game's link can look at gear in its server (the raid's party)
     assert.equal((await post('/api/gear/equip', { guild: 'g2', copy: 'y1' })).status, 200);
     assert.equal((await post('/api/gear/loadout', { loadout: 2 })).status, 200);
     assert.deepEqual(asked, ['view g1 11', 'peek g1 22', 'equip g1 11 y1', 'view g1 11', 'loadout g1 11 2', 'view g1 11']);
-    // Selling, refining, forging, locking, naming loadouts and the roster stay the site's.
-    for (const path of ['/api/gear/sell', '/api/gear/refine', '/api/gear/forge', '/api/gear/lock', '/api/gear/loadout/rename'])
+    // Selling, refining, locking, naming loadouts and the roster stay the site's.
+    for (const path of ['/api/gear/sell', '/api/gear/refine', '/api/gear/lock', '/api/gear/loadout/rename'])
       assert.equal((await post(path, { copy: 'y1', copies: ['y1'], loadout: 1, name: 'Tank' })).status, 401);
     assert.equal((await fetch(`${base}/api/gear/members?guild=g1`, { headers })).status, 401);
   } finally {
@@ -415,13 +393,11 @@ test('a raider\'s gear as they fought: only what they wore, in the loadout they 
     'x',
     undefined,
     500,
-    7,
   );
   const worn = wornGear(view);
   assert.deepEqual(worn.copies.map((c) => c.id).sort(), ['a', 'b']);
   assert.deepEqual(worn.loadouts.map((l) => l.active), [true]);
   assert.equal(worn.balance, null);
-  assert.equal(worn.gems, null);
   assert.deepEqual(worn.totals, view.totals);
 });
 

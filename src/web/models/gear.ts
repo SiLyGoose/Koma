@@ -1,9 +1,8 @@
-import { CONFIG } from '../../config.js';
 import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
-import { canUseItem, describeEffects, describeTotals, itemEffectiveness, showsMasterwork, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
+import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
 import { activeTmEffects, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
@@ -12,7 +11,6 @@ import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice, saleCount } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
-import { forgeMasterwork } from '../../services/items/forge.js';
 import { setCopyLocked } from '../../services/items/lock.js';
 import { refineItem } from '../../services/items/refine.js';
 import { sellCopies } from '../../services/items/sell.js';
@@ -21,15 +19,15 @@ import { raidClassesOf, raidClassOf, setRaidClass } from '../../services/raid-cl
 import { classTraits } from '../../lib/game/raid-classes.js';
 import { RAID_CLASS_IDS, TEXT, type RaidClassId } from '../../constants/index.js';
 import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
-import type { EquipmentDoc, ItemCopyDoc, ItemDef, MemberDoc, Slot, Stars } from '../../types.js';
+import type { EquipmentDoc, ItemCopyDoc, MemberDoc, Slot, Stars } from '../../types.js';
 import { gearStats } from './stats.js';
 import { SLOTS } from '../../types.js';
-import type { ForgeBlock, GearCopy, GearForge, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock } from '../../protocol/gear.js';
+import type { GearCopy, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock } from '../../protocol/gear.js';
 
-export type { ForgeBlock, GearCopy, GearForge, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock };
+export type { GearCopy, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock };
 
 /*
- * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /loadout/rename, /refine, /forge, /sell and /lock):
+ * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /loadout/rename, /refine, /sell and /lock):
  * every copy a member owns, what each one does at its level, which copy sits in each slot, and their
  * loadouts; and, to look at, the same for anyone else in the server with gear. The effect lines
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
@@ -47,14 +45,13 @@ export function wornGear(view: GearView): GearView {
     copies: view.copies.filter((copy) => worn.has(copy.id)),
     loadouts: view.loadouts.filter((loadout) => loadout.active),
     balance: null,
-    gems: null,
   };
 }
 
 /** What the gear routes use (the database's, unless a test says otherwise). */
 export interface GearStore {
   view: (guildId: string, userId: string) => Promise<GearView>;
-  /** Someone else's gear, to look at: without their points or komaGems (so no refine or forge is held back for the price). */
+  /** Someone else's gear, to look at: without their points (so no refine is held back for the price). */
   peek: (guildId: string, userId: string) => Promise<GearView>;
   /** Who in the server owns any gear, and how many copies, most first (at most `limit`). */
   owners: (guildId: string, limit: number) => Promise<{ userId: string; copies: number }[]>;
@@ -72,8 +69,6 @@ export interface GearStore {
    * 'busy' when their copies changed meanwhile).
    */
   refine: (guildId: string, userId: string, copyId: string, materialId: string | null) => Promise<'ok' | RefineBlock | 'bad_material' | 'not_found' | 'busy'>;
-  /** Forges that copy into a masterwork: 'ok', or why not ('not_found' when they don't own it or its item has no bonus). */
-  forge: (guildId: string, userId: string, copyId: string) => Promise<'ok' | ForgeBlock | 'not_found' | 'busy'>;
   /**
    * Sells those copies (the ones still theirs and not worn or in a loadout): how many were sold and for how many
    * points, or 'nothing_to_sell' when none of them could be.
@@ -87,7 +82,7 @@ export interface GearStore {
   classes: (guildId: string, userIds: readonly string[]) => Promise<(RaidClassId | null)[]>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
 
 /**
  * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
@@ -117,19 +112,10 @@ function refineState(
   return { blocked: null, cost, spare, to };
 }
 
-/** Whether a copy of `item` at `level` can be forged, with their komaGems (null: not known, never too poor); null when `item` has no bonus. */
-function forgeState(item: ItemDef, level: number, masterwork: boolean, gems: number | null): Omit<GearForge, 'after'> | null {
-  if (!item.bonus) return null;
-  const cost = CONFIG.refine.masterworkGems;
-  const needed = item.bonus.level;
-  const blocked: ForgeBlock | null = masterwork ? 'forged' : level < needed ? 'too_low' : gems !== null && gems < cost ? 'too_poor' : null;
-  return { blocked, cost, level: needed };
-}
-
 /**
  * The gear page's view of `copies` (all a member owns), with `equipment` what they wear,
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
- * (null when not known: no refine is then held back for the price) and `gems` their komaGems (likewise for a forge),
+ * (null when not known: no refine is then held back for the price),
  * `outfit` the outfit they wear, `raidClass` their raid class, `heroWorn` the copies their heroes wear
  * (each with the hero's name) and `tmOn` which of their TechnoMagic copies' effects are on (activeTmEffects).
  */
@@ -139,7 +125,6 @@ export function gearView(
   userId: string,
   loadouts: readonly LoadoutView[] = loadoutsOf({ equipment: equipment ?? undefined }),
   balance: number | null = null,
-  gems: number | null = null,
   outfit: string = DEFAULT_OUTFIT,
   raidClass: RaidClassId | null = null,
   heroWorn: ReadonlyMap<string, string> = new Map(),
@@ -150,13 +135,12 @@ export function gearView(
   for (const loadout of loadouts) for (const id of equippedCopyIds(loadout.equipment)) kept.add(id);
 
   const list: GearCopy[] = [];
-  /** Each copy's view, with its item and whether it was forged (its bonus may not be on yet). */
+  /** Each copy's view, with its item and level. */
   const byId = new Map<string, { view: GearCopy; piece: GearPiece }>();
   for (const copy of copies) {
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item) continue;
     const level = refineLevel(copy.level);
-    const masterwork = copy.masterwork === true;
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
     const setEffect = tmSetEffect(item);
@@ -169,15 +153,13 @@ export function gearView(
       description: item.description,
       level,
       maxLevel: REFINE.maxLevel,
-      masterwork: showsMasterwork(item, level, masterwork),
-      effects: item.tmDrop ? potentialLines(copy.tmPotentials) : describeEffects(item, share, level, masterwork),
+      effects: item.tmDrop ? potentialLines(copy.tmPotentials) : describeEffects(item, share, level),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: tmOn.get(copy._id)?.additional ?? false,
       wrongClass: tmOn.get(copy._id)?.works === false,
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
-      forge: null,
       locked,
       sell: kept.has(copy._id) || locked ? null : itemSellPrice(item),
       heroOnly: heroOnly(item),
@@ -186,11 +168,9 @@ export function gearView(
       hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
-    view.refine = { ...refine, after: to === null ? null : item.tmDrop ? view.effects : describeEffects(item, share, to, masterwork) };
-    const forge = forgeState(item, level, masterwork, gems);
-    view.forge = forge && { ...forge, after: masterwork ? null : describeEffects(item, share, Math.max(level, forge.level), true) };
+    view.refine = { ...refine, after: to === null ? null : item.tmDrop ? view.effects : describeEffects(item, share, to) };
     list.push(view);
-    byId.set(view.id, { view, piece: { item, level, bonus: masterwork } });
+    byId.set(view.id, { view, piece: { item, level } });
   }
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
   const tier = (copy: GearCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);
@@ -224,7 +204,6 @@ export function gearView(
       equipped: loadout.active ? equipped : fitting(loadout.equipment),
     })),
     balance,
-    gems,
     outfit,
     class: raidClass,
     classes: RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })),
@@ -244,12 +223,12 @@ export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, member?.gems ?? 0, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
   },
   peek: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, null, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
+    return gearView(copies, member?.equipment, userId, loadoutsOf(member), null, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
   },
   owners: async (guildId, limit) => {
     const rows = await collections()
@@ -287,15 +266,6 @@ export const gearStore: GearStore = {
     const result = await refineItem(guildId, userId, item, { copy: copyId, material: materialId });
     if (result.ok) return 'ok';
     return result.reason === 'not_owned' ? 'not_found' : result.reason;
-  },
-  forge: async (guildId, userId, copyId) => {
-    const copy = await collections().items.findOne({ _id: copyId, guildId, userId });
-    const item = copy && ITEMS_BY_ID.get(copy.itemId);
-    if (!copy || !item) return 'not_found';
-    const result = await forgeMasterwork(guildId, userId, item, copyId);
-    if (result.ok) return 'ok';
-    if (result.reason === 'already') return 'forged';
-    return result.reason === 'not_owned' || result.reason === 'no_bonus' ? 'not_found' : result.reason;
   },
   sell: async (guildId, userId, copyIds) => {
     const result = await sellCopies(guildId, userId, copyIds);

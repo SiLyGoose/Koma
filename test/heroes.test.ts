@@ -174,7 +174,7 @@ test('heroes: gear raises their stats, the raid gear by what it does in the raid
   assert.ok(heroBonus([{ ...maul, level: 1 }], 'warrior').atk < heroBonus([maul], 'warrior').atk);
   assert.deepEqual(heroBonus([{ ...fang, level: 1 }], 'warrior'), heroBonus([fang], 'warrior'));
   assert.deepEqual(heroBonus([{ item: item('tri-head-cleaver'), level: 5 }], 'warrior'), heroBonus([], 'warrior'), 'no potentials, nothing');
-  assert.deepEqual(heroItemLines(item('tri-head-cleaver'), 5, true, undefined, potentials), ['+5% ATK', '+12% Crit DMG']);
+  assert.deepEqual(heroItemLines(item('tri-head-cleaver'), 5, undefined, potentials), ['+5% ATK', '+12% Crit DMG']);
 });
 
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
@@ -475,7 +475,7 @@ test('heroes: a TechnoMagic copy’s set effect is on while its hero has the set
   assert.equal(hero('w1')?.additionalActive, true);
   assert.equal(hero('bag')?.setEffect?.active, false);
   assert.equal(hero('bag')?.additionalActive, false);
-  const gear = gearView(copies, null, 'u', undefined, null, null, undefined, null, heroWorn(member), on);
+  const gear = gearView(copies, null, 'u', undefined, null, undefined, null, heroWorn(member), on);
   assert.equal(gear.copies.find((one) => one.id === 'a2')?.setEffect?.active, false);
   assert.equal(gear.copies.find((one) => one.id === 't')?.additionalActive, true);
 });
@@ -496,6 +496,6 @@ test('heroes: TechnoMagic gear on a hero of another class gives it nothing: not 
   assert.ok(kirze && Object.values(kirze.bonus).every((n) => n === 0));
   assert.deepEqual(kirze?.totals, []);
   // The gear page says so, for the page to grey all of it out.
-  const view = gearView(copies, null, 'u', undefined, null, null, undefined, null, heroWorn(member), activeTmEffects(copies, member));
+  const view = gearView(copies, null, 'u', undefined, null, undefined, null, heroWorn(member), activeTmEffects(copies, member));
   for (const copy of view.copies) assert.deepEqual([copy.wrongClass, copy.setEffect?.active, copy.additionalActive], [true, false, false], copy.id);
 });

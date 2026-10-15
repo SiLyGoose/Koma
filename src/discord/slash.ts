@@ -464,13 +464,6 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     autocomplete: ownedItem,
   },
 
-  forge: {
-    build: (b) =>
-      void b.addStringOption((o) => o.setName('item').setDescription('The R5 4-star item to forge into a masterwork').setRequired(true).setAutocomplete(true).setMaxLength(100)),
-    toArgs: (i) => [i.options.getString('item', true)],
-    autocomplete: ownedItem,
-  },
-
   lock: {
     build: (b) =>
       void b.addStringOption((o) => o.setName('item').setDescription('The item to lock a copy of').setRequired(true).setAutocomplete(true).setMaxLength(100)),

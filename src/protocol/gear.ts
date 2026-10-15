@@ -14,8 +14,6 @@ export interface GearCopy {
   description: string;
   level: number;
   maxLevel: number;
-  /** A masterwork with its bonus on (the gear card's ✨ Masterwork tag). */
-  masterwork: boolean;
   /** What it does for this member at this level: a TechnoMagic copy's potentials (what it does on a hero, which refining doesn't change). */
   effects: string[];
   /**
@@ -33,8 +31,6 @@ export interface GearCopy {
   borrowed: number | null;
   /** Refining it (services/items/refine.ts), for the page's confirmation. */
   refine: GearRefine;
-  /** Forging it into a masterwork (services/items/forge.ts), for the page's confirmation: null when its item has no bonus. */
-  forge: GearForge | null;
   /** Locked by the member (services/items/lock.ts): never sold or used up by a refine. */
   locked: boolean;
   /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
@@ -63,25 +59,10 @@ export interface GearRefine {
 
 /**
  * Why a copy can't be refined: it's at the top level, there's no spare copy of it to use up (another
- * copy of its item that isn't worn, saved in a loadout, a masterwork or locked), or they can't pay for it.
+ * copy of its item that isn't worn, saved in a loadout or locked), or they can't pay for it.
  * Every copy is refined as itself on the site, whatever level its item's other copies are at.
  */
 export type RefineBlock = 'maxed' | 'no_duplicate' | 'too_poor';
-
-/** Forging a copy into a masterwork: what the page asks the member to confirm. */
-export interface GearForge {
-  /** Why it can't be done now (null when it can). */
-  blocked: ForgeBlock | null;
-  /** What it costs in komaGems. */
-  cost: number;
-  /** The level it has to be refined to first. */
-  level: number;
-  /** What it would do once forged, as `effects` (null when it's forged already). */
-  after: string[] | null;
-}
-
-/** Why a copy can't be forged: it's a masterwork already, it isn't refined far enough, or they can't pay for it. */
-export type ForgeBlock = 'forged' | 'too_low' | 'too_poor';
 
 /** GET /api/gear: a member's gear. */
 export interface GearView {
@@ -97,8 +78,6 @@ export interface GearView {
   stats: StatSection[];
   /** Their points in the server (null when not known), for what a refine leaves them. */
   balance: number | null;
-  /** Their komaGems in the server (null when not known), for what a forge leaves them. */
-  gems: number | null;
   /** The outfit they wear (data/outfits.ts): the character the page draws them as. */
   outfit: string;
   /** Their raid class (services/raid-class.ts), or null with none: the page's class ribbon shows and changes it. */

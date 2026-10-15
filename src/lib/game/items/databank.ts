@@ -2,7 +2,7 @@ import { CONFIG } from '../../../config.js';
 import { DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH, REFINE, SLOT_EMOJI, STAR_SYMBOL, TEXT } from '../../../constants/index.js';
 import { TM_SET_LABEL, tmSetEffect } from '../../../data/tm-sets.js';
 import { STARS, type ItemDef, type Stars } from '../../../types.js';
-import { describeEffects, showsMasterwork } from './equipment.js';
+import { describeEffects } from './equipment.js';
 import { raidShopPrice, soldInRaidShop } from './raid-shop.js';
 import { formatPercent, inTier, ITEM_TIERS, itemStars, mentionList, tierString } from '../../format.js';
 
@@ -15,16 +15,15 @@ export interface DatabankField {
 
 /**
  * The text for one item: its name and slot, then one line per effect at today's strength at a
- * refinement level (fully refined unless given) and with or without its masterwork bonus (without
- * unless given: shown locked), then who it is exclusive to when only some members can use it, and
+ * refinement level (fully refined unless given), then who it is exclusive to when only some members can use it, and
  * the class it is for when it is a class item, and where it comes from (raid bosses, and the raid shop
  * when that sells it, or the limited banner) when the standard banner never gives it.
  */
-export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): string {
-  const effects = describeEffects(item, 1, level, masterwork);
+export function itemBlock(item: ItemDef, level: number = REFINE.maxLevel): string {
+  const effects = describeEffects(item, 1, level);
   const set = tmSetEffect(item);
   return [
-    TEXT.databank.item(item.name, SLOT_EMOJI[item.slot], showsMasterwork(item, level, masterwork)),
+    TEXT.databank.item(item.name, SLOT_EMOJI[item.slot]),
     ...(effects.length > 0 ? effects : [TEXT.databank.noEffects]),
     // (A TechnoMagic piece's set effect on one line here, the list being many items: the item's own page sets it apart.)
     ...(set ? [`${TM_SET_LABEL} ${set}`] : []),
@@ -51,14 +50,12 @@ export function buildDatabank(
   itemsPerPage = DATABANK_ITEMS_PER_PAGE,
   maxField = FIELD_MAX_LENGTH,
   level: number = REFINE.maxLevel,
-  masterwork = false,
 ): DatabankField[][] {
-  // Pages break by each item's longest text at any refinement level, with or without its
-  // masterwork, so the book is laid out the same whichever is shown: flipping them never moves an
-  // item to another page.
+  // Pages break by each item's longest text at any refinement level, so the book is laid out the
+  // same whichever is shown: flipping them never moves an item to another page.
   const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
   const widest = (item: ItemDef): number =>
-    Math.max(...levels.flatMap((l) => [false, true].map((mw) => itemBlock(item, l, mw).slice(0, maxField).length)));
+    Math.max(...levels.map((l) => itemBlock(item, l).slice(0, maxField).length));
   // Chapter by chapter: each tier's items chunked into fields of at most `itemsPerPage` items
   // (or fewer, if Discord's own field-length limit would be hit first).
   const chapters: { field: DatabankField; count: number }[][] = [];
@@ -79,7 +76,7 @@ export function buildDatabank(
       count = 0;
     };
     for (const item of tier) {
-      const block = itemBlock(item, level, masterwork).slice(0, maxField);
+      const block = itemBlock(item, level).slice(0, maxField);
       const width = widest(item);
       if (value !== '' && (count >= itemsPerPage || size + 2 + width > maxField)) flush();
       value = value === '' ? block : `${value}\n\n${block}`;
@@ -151,11 +148,10 @@ export interface ItemDetail {
 
 /**
  * Lays out one item in full: its name and stars, flavor text, slot, effects at today's strength at a
- * refinement level (fully refined unless given) and with or without its masterwork bonus, and who it
- * is exclusive to.
+ * refinement level (fully refined unless given), and who it is exclusive to.
  */
-export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, masterwork = false): ItemDetail {
-  const effects = describeEffects(item, 1, level, masterwork);
+export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel): ItemDetail {
+  const effects = describeEffects(item, 1, level);
   const set = tmSetEffect(item);
   // A TechnoMagic piece's set effect, after a blank line: what it is called, then on the next line what it does.
   const value = [effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, ...(set ? [`${TM_SET_LABEL}\n${set}`] : [])].join('\n\n');
@@ -164,7 +160,7 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel, maste
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
     fields: [
       { name: TEXT.databank.detailSlotField, value: SLOT_EMOJI[item.slot], inline: true },
-      { name: TEXT.databank.detailEffectsField(level, showsMasterwork(item, level, masterwork)), value, inline: false },
+      { name: TEXT.databank.detailEffectsField(level), value, inline: false },
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]
         : []),

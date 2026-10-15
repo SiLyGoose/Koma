@@ -160,11 +160,11 @@ test('specsUnder: the start of some settings\' names picks all of them, and noth
   // Only the 2-star ones.
   assert.deepEqual(keys('refine.cost.2'), ['refine.cost.2.2', 'refine.cost.2.3', 'refine.cost.2.4', 'refine.cost.2.5']);
   // A whole group, with a trailing dot or in any case.
-  assert.deepEqual(keys('refine'), [...keys('refine.cost'), 'refine.masterworkGems']);
+  assert.deepEqual(keys('refine'), keys('refine.cost'));
   assert.deepEqual(keys('REFINE.Cost.'), keys('refine.cost'));
   // Only whole parts of a name: not the start of a word, not a setting itself, not nothing.
   assert.deepEqual(keys('refine.co'), []);
-  assert.deepEqual(keys('refine.masterworkGems'), []);
+  assert.deepEqual(keys('refine.cost.2.2'), []);
   assert.deepEqual(keys(''), []);
   assert.deepEqual(keys('nothing'), []);
 });

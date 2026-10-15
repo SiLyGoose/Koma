@@ -43,15 +43,11 @@ export function validateItems(): void {
       if (item.tmDrop || item.raidDrop || item.limited || item.usableBy || item.class) throw new Error(`${item.id} is a unique weapon and something else too: it only comes from the Hero Item banner, and only its hero wields it`);
     }
     if (item.bonus) {
-      const { level, text, adds = [], removes = [] } = item.bonus;
+      const { level, text, removes } = item.bonus;
       if (item.stars !== 4) throw new Error(`${item.id} has a refine bonus, but only 4-star items can have one`);
       if (level !== REFINE.maxLevel) throw new Error(`${item.id}'s refine bonus must be at R${REFINE.maxLevel}`);
       if ((typeof text === 'string' ? text : text(() => 0, () => '0%')).trim() === '') throw new Error(`${item.id}'s refine bonus has no text`);
-      if (adds.length + removes.length === 0) throw new Error(`${item.id}'s refine bonus neither adds nor removes a perk`);
-      for (const effect of adds) {
-        if (!(effect in EFFECTS)) throw new Error(`${item.id}'s refine bonus adds an unknown effect: ${effect}`);
-        if (item.effects.includes(effect)) throw new Error(`${item.id}'s refine bonus adds ${effect}, which the item already has`);
-      }
+      if (removes.length === 0) throw new Error(`${item.id}'s refine bonus removes no perk`);
       for (const effect of removes) {
         if (!item.effects.includes(effect)) throw new Error(`${item.id}'s refine bonus removes ${effect}, which the item doesn't have`);
       }

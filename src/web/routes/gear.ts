@@ -24,7 +24,6 @@ export function gearRoutes(deps: ApiDeps): Router {
     .post('/class', ...siteOrLink, gear.setClass)
     .post('/loadout/rename', ...site, gear.renameLoadout)
     .post('/refine', ...site, gear.refine)
-    .post('/forge', ...site, gear.forge)
     .post('/sell', ...site, gear.sell)
     .post('/lock', ...site, gear.lock);
 }

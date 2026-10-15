@@ -186,13 +186,6 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'treasure',
     description: 'Pip-pip.',
     effects: ['bubbleBeam', 'bubbleBeamPenalty'],
-    bonus: {
-      level: 5,
-      text: (strength, percent) =>
-        `Your own robs never slip, and robbers who slip against you pay an additional +${percent(strength('bubbleBeamMasterPenalty') - strength('bubbleBeamPenalty'))} of what they took`,
-      adds: ['bubbleBeamMasterPenalty', 'slipGuard'],
-      removes: ['bubbleBeamPenalty'],
-    },
   },
   {
     id: 'd20',

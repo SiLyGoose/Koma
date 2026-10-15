@@ -25,7 +25,6 @@ import { equipText } from './items/equip.js';
 import { unequipText } from './items/unequip.js';
 import { loadoutText } from './items/loadout.js';
 import { refineText } from './items/refine.js';
-import { forgeText } from './items/forge.js';
 import { lockText } from './items/lock.js';
 import { suggestText } from './items/suggest.js';
 import { robText } from './rob.js';
@@ -79,7 +78,6 @@ export const TEXT = {
   unequip: unequipText,
   loadout: loadoutText,
   refine: refineText,
-  forge: forgeText,
   lock: lockText,
   suggest: suggestText,
   rob: robText,

@@ -33,8 +33,6 @@ export type EquipResult =
       alreadyEquipped: boolean;
       /** The refinement level of the copy put on. */
       level: number;
-      /** Whether that copy is a masterwork. */
-      masterwork: boolean;
     }
   /** 'hero_only': TechnoMagic gear, which only the TechnoMagic Raid's heroes wear (lib/game/heroes.ts). */
   | { ok: false; reason: 'not_owned' | 'hero_only' };
@@ -65,7 +63,6 @@ export async function equipItem(guildId: string, userId: string, item: ItemDef):
     previousId: previous?.itemId ?? null,
     alreadyEquipped: previousCopyId === copy._id,
     level: refineLevel(copy.level),
-    masterwork: copy.masterwork === true,
   };
 }
 

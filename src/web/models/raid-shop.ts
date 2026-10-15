@@ -41,7 +41,7 @@ async function raidShopView(guildId: string, userId: string, now: Date = new Dat
       stars: item.stars,
       slot: item.slot,
       description: item.description,
-      effects: describeEffects(item, 1, 1, false),
+      effects: describeEffects(item, 1, 1),
       price,
       owned: owned.get(item.id) ?? 0,
     })),

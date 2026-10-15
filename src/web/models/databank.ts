@@ -72,8 +72,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       description: item.description,
       // (A unique weapon's own effect in the raid, at each level, after its perks.)
       // (TechnoMagic gear's: the potentials a copy can roll, whatever its level.)
-      effects: levels.map((level) => (item.tmDrop ? potentialPool() : [...describeEffects(item, 1, level, false), ...uniqueLines(item, level)])),
-      masterwork: item.bonus ? describeEffects(item, 1, REFINE.maxLevel, true) : null,
+      effects: levels.map((level) => (item.tmDrop ? potentialPool() : [...describeEffects(item, 1, level), ...uniqueLines(item, level)])),
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: sourceOf(item),
       sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [sourceOf(item)],

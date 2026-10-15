@@ -39,7 +39,7 @@ export interface HeroStore {
   transcend: (guildId: string, userId: string, hero: string) => Promise<HeroesView | HeroTranscendError>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked' | 'tmSkill' | 'tmPotentials'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'>;
 
 /** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
 export function skillLines(skills: readonly string[]): string[] {
@@ -61,7 +61,6 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item || !heroWearable(item)) continue;
     const level = refineLevel(copy.level);
-    const masterwork = copy.masterwork === true;
     const setEffect = tmSetEffect(item);
     const view: HeroCopy = {
       id: copy._id,
@@ -72,9 +71,8 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       description: item.description,
       level,
       maxLevel: REFINE.maxLevel,
-      masterwork,
       locked: copy.locked === true,
-      effects: heroItemLines(item, level, masterwork, undefined, copy.tmPotentials),
+      effects: heroItemLines(item, level, undefined, copy.tmPotentials),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: lit.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: lit.get(copy._id)?.additional ?? false,
@@ -85,7 +83,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       hero: worn.get(copy._id) ?? null,
     };
     list.push(view);
-    pieces.set(copy._id, { view, piece: { item, level, bonus: masterwork, ...(item.tmDrop && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
+    pieces.set(copy._id, { view, piece: { item, level, ...(item.tmDrop && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
   }
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
   const tier = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);

@@ -24,7 +24,7 @@ const SITE: WebConfig = {
   clientSecret: 'shh',
 };
 
-test('databank page: every item, highest tier first, with its effects at each level and as a masterwork', () => {
+test('databank page: every item, highest tier first, with its effects at each level', () => {
   const { maxLevel, items } = databankView();
   assert.equal(maxLevel, REFINE.maxLevel);
   assert.equal(items.length, ITEMS.length);
@@ -36,11 +36,10 @@ test('databank page: every item, highest tier first, with its effects at each le
   const shown = (id: string) => items.find((item) => item.id === id)!;
 
   assert.equal(shown(plain.id).effects.length, REFINE.maxLevel);
-  assert.deepEqual(shown(plain.id).effects[0], describeEffects(plain, 1, 1, false));
-  assert.deepEqual(shown(plain.id).effects.at(-1), describeEffects(plain, 1, REFINE.maxLevel, false));
-  assert.equal(shown(plain.id).masterwork, null);
+  assert.deepEqual(shown(plain.id).effects[0], describeEffects(plain, 1, 1));
+  assert.deepEqual(shown(plain.id).effects.at(-1), describeEffects(plain, 1, REFINE.maxLevel));
   assert.equal(shown(plain.id).borrowed, null);
-  assert.deepEqual(shown(withBonus.id).masterwork, describeEffects(withBonus, 1, REFINE.maxLevel, true));
+  assert.deepEqual(shown(withBonus.id).effects.at(-1), describeEffects(withBonus, 1, REFINE.maxLevel), 'its R5 bonus included');
   assert.ok(shown(exclusive.id).borrowed !== null && shown(exclusive.id).borrowed! < 1);
 });
 

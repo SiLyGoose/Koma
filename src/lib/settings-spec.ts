@@ -104,7 +104,6 @@ export const SPECS: readonly SettingSpec[] = [
   ...STARS.flatMap((stars) =>
     [2, 3, 4, 5].map((level) => int(`refine.cost.${stars}.${level}`, 'Refine', `${CURRENCY_EMOJI} to refine a ${stars}-star item to R${level} (on top of the duplicate it uses up).`, 0, MAX_POINTS)),
   ),
-  int('refine.masterworkGems', 'Refine', 'komaGems to forge one R5 copy of a 4-star item into a masterwork, turning on its bonus.', 0, MAX_POINTS),
 
   int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 

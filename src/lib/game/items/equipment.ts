@@ -7,7 +7,7 @@ import { uwAttack } from '../../../data/uw-attack.js';
 import { SLOTS, type GearIds, type ItemDef, type Stars } from '../../../types.js';
 import { fmt, formatPercent } from '../../format.js';
 import { refineShare } from './refine.js';
-import { REFINE, TEXT } from '../../../constants/index.js';
+import { REFINE } from '../../../constants/index.js';
 
 /**
  * How much of a perk's full strength a copy at this refinement level gives: the usual refine share,
@@ -26,33 +26,22 @@ export function effectStrength(effect: EffectId, stars: Stars): number {
   return CONFIG.equipment[effect][stars];
 }
 
-/**
- * Where a copy of `item` stands with the item's bonus: the item has none, the copy isn't refined far
- * enough yet, it is but isn't a masterwork (bought with komaGems), or it is and the bonus is on.
- */
-export function bonusState(item: ItemDef, level: number, masterwork: boolean): 'none' | 'too_low' | 'dormant' | 'masterwork' {
-  if (!item.bonus) return 'none';
-  if (level < item.bonus.level) return 'too_low';
-  return masterwork ? 'masterwork' : 'dormant';
+/** Whether a copy of `item` at this refinement level has its refine bonus on (the item has one, and the copy is refined far enough). */
+export function bonusActive(item: ItemDef, level: number): boolean {
+  return item.bonus !== undefined && level >= item.bonus.level;
 }
 
-/** Whether a copy of `item` at this refinement level has its bonus on (refined far enough, and a masterwork). */
-export function bonusActive(item: ItemDef, level: number, masterwork: boolean): boolean {
-  return bonusState(item, level, masterwork) === 'masterwork';
+/** The perks an item gives at a refinement level: its own, less the ones its refine bonus turns off once that is on. */
+export function itemEffects(item: ItemDef, level: number): EffectId[] {
+  if (!item.bonus || !bonusActive(item, level)) return [...item.effects];
+  const removes = item.bonus.removes;
+  return item.effects.filter((effect) => !removes.includes(effect));
 }
 
-/** The perks an item gives at a refinement level: its own, changed by its refine bonus once that is on. */
-export function itemEffects(item: ItemDef, level: number, masterwork: boolean): EffectId[] {
-  if (!item.bonus || !bonusActive(item, level, masterwork)) return [...item.effects];
-  const removes = item.bonus.removes ?? [];
-  return [...item.effects.filter((effect) => !removes.includes(effect)), ...(item.bonus.adds ?? [])];
-}
-
-/** One equipped item, the refinement level of the copy worn, and whether that copy is a masterwork (left out: yes). */
+/** One equipped item and the refinement level of the copy worn. */
 export interface GearPiece {
   item: ItemDef;
   level: number;
-  bonus?: boolean;
 }
 
 /**
@@ -66,7 +55,7 @@ export function equippedGear(equipment: GearIds | null | undefined): GearPiece[]
     const id = equipment?.[slot];
     if (!id) continue;
     const item = ITEMS_BY_ID.get(id);
-    if (item && item.slot === slot) pieces.push({ item, level: equipment?.levels?.[slot] ?? REFINE.maxLevel, bonus: equipment?.bonuses?.[slot] ?? true });
+    if (item && item.slot === slot) pieces.push({ item, level: equipment?.levels?.[slot] ?? REFINE.maxLevel });
   }
   return pieces;
 }
@@ -101,9 +90,9 @@ export function itemEffectiveness(item: ItemDef, userId: string): number {
 export function totalEffects(gear: readonly (ItemDef | GearPiece)[], userId?: string): EffectTotals {
   const totals = emptyTotals();
   for (const piece of gear) {
-    const { item, level, bonus = true } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
+    const { item, level } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
     const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
-    for (const effect of itemEffects(item, level, bonus)) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
+    for (const effect of itemEffects(item, level)) totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
   }
   return totals;
 }
@@ -127,7 +116,7 @@ function effectLine(effect: EffectId, strength: number, strengthOf: (effect: str
 }
 
 /**
- * An item's masterwork bonus in words (ItemBonus.text), with any perk strengths it names worked out
+ * An item's refine bonus in words (ItemBonus.text), with any perk strengths it names worked out
  * for this copy: at `share` of full effect (see itemEffectiveness) and refinement `level`.
  */
 export function bonusText(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string {
@@ -138,27 +127,20 @@ export function bonusText(item: ItemDef, share = 1, level: number = REFINE.maxLe
 
 /**
  * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
- * (fully refined unless given). A `masterwork` copy lists the effects it really has, its bonus's
- * changes included (whoever shows it tags the item as a masterwork, see showsMasterwork). An R5 copy
- * that isn't one lists its own effects, then its bonus locked, with what forging it costs (hidden
- * below that level). `share` scales the strengths further, for an item worn at less than full effect
- * (see itemEffectiveness).
+ * (fully refined unless given). Once its refine bonus is on, the perks that turns off are left out
+ * and the bonus is the last line. `share` scales the strengths further, for an item worn at less
+ * than full effect (see itemEffectiveness).
  */
-export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel, masterwork = true): string[] {
-  const effects = itemEffects(item, level, masterwork);
+export function describeEffects(item: ItemDef, share = 1, level: number = REFINE.maxLevel): string[] {
+  const effects = itemEffects(item, level);
   const strength = (effect: string): number =>
     effects.includes(effect as EffectId) ? effectStrength(effect as EffectId, item.stars) * share * perkShare(effect as EffectId, level) : 0;
   const lines = effects.map((effect) => effectLine(effect, strength(effect), strength)).filter((line) => line !== '');
   // A unique weapon: King's Raid's flat ATK for its hero's class, at this refinement (data/uw-attack.ts).
   const owner = item.uniqueWeapon === undefined ? undefined : HEROES_BY_ID.get(item.uniqueWeapon);
   if (owner) lines.unshift(`Unique weapon: +${fmt(uwAttack(owner.class, level))} ATK`);
-  if (bonusState(item, level, masterwork) === 'dormant') lines.push(TEXT.gear.bonusDormant(bonusText(item, share, level), CONFIG.refine.masterworkGems));
+  if (bonusActive(item, level)) lines.push(bonusText(item, share, level));
   return lines;
-}
-
-/** Whether a copy shown at this level, forged or not, is a masterwork with its bonus on: then it gets the Masterwork tag by its name. */
-export function showsMasterwork(item: ItemDef, level: number, masterwork: boolean): boolean {
-  return bonusActive(item, level, masterwork);
 }
 
 /** One readable line per effect that is active in the totals, in the registry's order. */

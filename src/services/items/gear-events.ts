@@ -1,6 +1,6 @@
 /*
- * Word that a member's gear changed (equipped, taken off, a loadout switched, a worn copy refined or
- * forged), for whatever keeps their gear while they play: an open Pinecraft page picks the new gear
+ * Word that a member's gear changed (equipped, taken off, a loadout switched, a worn copy refined),
+ * for whatever keeps their gear while they play: an open Pinecraft page picks the new gear
  * up at once instead of on its next look-up (web/games/pinecraft/server.ts).
  */
 

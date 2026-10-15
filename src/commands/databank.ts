@@ -8,7 +8,6 @@ import { classTraits } from '../lib/game/raid-classes.js';
 import { takeSlot } from '../lib/game/items/slot-filter.js';
 import { starString } from '../lib/format.js';
 import { paginate, TOGGLE_ID, type PaginateToggle } from '../discord/paginate.js';
-import type { ItemDef } from '../types.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { resolveItem } from '../discord/item-pick.js';
 import { bossByName, bossFile, bossInfoEmbed } from './raid.js';
@@ -112,17 +111,10 @@ export const databank: Command = {
       await classBook(ctx, args[0] ?? '');
       return;
     }
-    // Every view starts at the listed (fully refined) strengths without masterwork bonuses. One button
-    // flips to a new copy's (R1) strengths and back; another, where an item shown has a masterwork
-    // bonus, turns the bonuses on (only at R5, where they exist).
+    // Every view starts at the listed (fully refined) strengths. A button flips to a new copy's (R1)
+    // strengths and back.
     const levelOf = (flags: readonly boolean[]): number => (flags[0] ? 1 : REFINE.maxLevel);
-    const masterworkOf = (flags: readonly boolean[]): boolean => (flags[1] ?? false) && !flags[0];
-    const togglesFor = (shown: readonly ItemDef[]): PaginateToggle[] => [
-      { id: TOGGLE_ID, label: (flags) => TEXT.databank.showLevel(flags[0] ? REFINE.maxLevel : 1) },
-      ...(shown.some((item) => item.bonus)
-        ? [{ id: DATABANK_BUTTONS.masterworkId, label: (flags: readonly boolean[]) => TEXT.databank.masterworkButton(!flags[1]), disabled: (flags: readonly boolean[]) => flags[0] ?? false }]
-        : []),
-    ];
+    const toggles: PaginateToggle[] = [{ id: TOGGLE_ID, label: (flags) => TEXT.databank.showLevel(flags[0] ? REFINE.maxLevel : 1) }];
 
     // A category (`weapon`, `armor`, `treasure`) only counts alone or next to a star tier; with
     // other words, they are all an item's name.
@@ -145,22 +137,21 @@ export const databank: Command = {
       if (!pick) return;
       const { item } = pick;
       const renderDetail = (_index: number, flags: readonly boolean[]) => {
-        const detail = itemDetail(item, levelOf(flags), masterworkOf(flags));
+        const detail = itemDetail(item, levelOf(flags));
         const embed = createEmbed().setTitle(detail.title).addFields(detail.fields).setFooter({ text: TEXT.databank.detailFooter(p) });
         if (detail.description !== '') embed.setDescription(detail.description);
         return { embeds: [embed] };
       };
       // After a "Did you mean...?", the item shows on that question's message.
-      await paginate(pick.ctx, 1, renderDetail, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, 0, togglesFor([item]));
+      await paginate(pick.ctx, 1, renderDetail, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, 0, toggles);
       return;
     }
 
     const items = ITEMS.filter((item) => (wanted === undefined || item.stars === wanted) && (slot === null || item.slot === slot));
     // Laid out the same at every level (see buildDatabank), so the page count never changes with it.
-    const book = (level: number, masterwork = false) => buildDatabank(items, undefined, undefined, level, masterwork);
+    const book = (level: number) => buildDatabank(items, undefined, undefined, level);
     const pages = book(REFINE.maxLevel);
     const lowPages = book(1);
-    const masterworkPages = book(REFINE.maxLevel, true);
     if (pages.length === 0) {
       await ctx.reply(
         slot === null ? TEXT.databank.noItemsInTier(starString(wanted ?? 1)) : TEXT.databank.noItemsInCategory(SLOT_LABELS[slot], wanted === undefined ? null : starString(wanted)),
@@ -181,9 +172,8 @@ export const databank: Command = {
     // flip between pages on the same message instead of dumping every page into the channel.
     const render = (index: number, flags: readonly boolean[]) => {
       const level = levelOf(flags);
-      const masterwork = masterworkOf(flags);
-      const shown = level === 1 ? lowPages : masterwork ? masterworkPages : pages;
-      const titled = TEXT.databank.titleAt(title, level, masterwork);
+      const shown = level === 1 ? lowPages : pages;
+      const titled = TEXT.databank.titleAt(title, level);
       const embed = createEmbed()
         .setTitle(pages.length > 1 ? TEXT.databank.titlePage(titled, index + 1, pages.length) : titled)
         .addFields(shown[index] ?? []);
@@ -191,6 +181,6 @@ export const databank: Command = {
       if (index === pages.length - 1) embed.setFooter({ text: TEXT.databank.footer(p) });
       return { embeds: [embed] };
     };
-    await paginate(ctx, pages.length, render, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, 0, togglesFor(items));
+    await paginate(ctx, pages.length, render, ctx.user.id, labels(), DATABANK_BUTTONS.idleMs, 0, toggles);
   },
 };

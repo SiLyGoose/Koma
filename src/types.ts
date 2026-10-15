@@ -56,31 +56,27 @@ export interface ItemDef {
    * databanks tag it and can list a class's items. Missing means it's for everyone.
    */
   class?: RaidClassId;
-  /** Optional: a bonus an R5 copy gets once forged into a masterwork with komaGems (see ItemBonus). */
+  /** Optional: a bonus a copy gets once refined to R5 (see ItemBonus). */
   bonus?: ItemBonus;
 }
 
 /**
- * A 4-star item's bonus, at REFINE.maxLevel: once a copy is at `level` AND has been made a
- * masterwork with komaGems (`forge`, ItemCopyDoc.masterwork), the item gains the perks in `adds` and loses the ones in
- * `removes` (say a drawback it outgrows). Until then it works as if the bonus weren't there; the
- * gear card shows it dormant once the level is reached.
+ * A 4-star item's bonus, at REFINE.maxLevel: once a copy is at `level`, the item loses the perks in
+ * `removes` (say a drawback it outgrows) and shows `text` as an extra effect. Below that it works as
+ * if the bonus weren't there.
  */
 export interface ItemBonus {
   /** The refinement level it needs (REFINE.maxLevel). */
   level: number;
   /**
-   * What it adds, for the gear card, like "Pinecraft: ores take no extra energy". The card keeps the
-   * item's own effect lines as they are and puts this under them, so it should say what changes on
-   * top of those (the perks in `adds` and `removes` don't get lines of their own). To show a number
-   * that follows the settings, make it a function: `strength(effect)` is a perk's strength on this
-   * copy (a fraction, 0.5 for 50%) and `percent(n)` formats one, like "25%".
+   * The extra effect, for the gear card, like "Pinecraft: ores take no extra energy": the last line,
+   * under the item's other effects (the perks in `removes` lose theirs). To show a number that
+   * follows the settings, make it a function: `strength(effect)` is a perk's strength on this copy
+   * (a fraction, 0.5 for 50%) and `percent(n)` formats one, like "25%".
    */
   text: string | ((strength: (effect: EffectId) => number, percent: (n: number) => string) => string);
-  /** Perks it adds, at the item's star tier like its other perks. They must not already be on the item. */
-  adds?: readonly EffectId[];
   /** Perks of the item's it turns off. */
-  removes?: readonly EffectId[];
+  removes: readonly EffectId[];
 }
 
 /**
@@ -107,11 +103,6 @@ export interface GearIds {
    * resolveGear. A slot left out here counts as fully refined (the item at its listed strength).
    */
   levels?: Partial<Record<Slot, number>>;
-  /**
-   * Whether the copy in each slot is a masterwork (bought with komaGems), filled in by resolveGear.
-   * A slot left out here counts as one (the item at its full strength).
-   */
-  bonuses?: Partial<Record<Slot, boolean>>;
   /** Whether the copy in each slot is locked (`lock`), filled in by resolveGear, for the gear card. Left out counts as not. */
   locked?: Partial<Record<Slot, boolean>>;
 }
@@ -333,8 +324,6 @@ export interface ItemCopyDoc {
    * which counts as 1 (lib/game/items/refine.ts refineLevel).
    */
   level: number;
-  /** This copy has been forged into a masterwork with komaGems (`forge`), turning on its item's bonus. Missing means not. */
-  masterwork?: boolean;
   /** Locked by the member (`lock`, or the site): never sold and never used up by a refine. Missing means not. */
   locked?: boolean;
   /**
@@ -479,7 +468,8 @@ export type LedgerReason =
   | 'raid_gems'
   // Hero essences for beating it (0 points; essenceDelta).
   | 'raid_essences'
-  // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item).
+  // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item). Masterworks
+  // are gone; only old entries have it.
   | 'forge'
   | 'raid_refund'
   // A duplicate copy used up to refine another (0 points; itemId is the item).

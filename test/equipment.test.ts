@@ -38,8 +38,8 @@ test('catalog: every star tier has an item, and every item has effects (a unique
   for (const item of ITEMS) if (item.tmDrop) assert.deepEqual(item.effects, [], `${item.id} is TechnoMagic gear: its stats are its copies' potentials`);
 });
 
-test('catalog: every effect is used by at least one item (its own perks, or its masterwork bonus)', () => {
-  const used = new Set(ITEMS.flatMap((item) => [...item.effects, ...(item.bonus?.adds ?? [])]));
+test('catalog: every effect is used by at least one item', () => {
+  const used = new Set(ITEMS.flatMap((item) => item.effects));
   for (const id of EFFECT_IDS) assert.ok(used.has(id), `${id} is not on any item`);
 });
 
