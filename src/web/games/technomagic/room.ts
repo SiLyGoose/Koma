@@ -1,12 +1,13 @@
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import { potentialLines } from '../../../lib/game/heroes.js';
-import { MOST_STAGE, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, tmSkillLine, type LiveRaid } from '../../../lib/game/technomagic.js';
+import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSS, tmSkillLine } from '../../../lib/game/technomagic.js';
 import { beginRun, finishRun, ownedHeroes, rewardsLeft, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
+import { workerFights, type FightEngine, type Fights, type Intent } from './fight.js';
 import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
 /*
@@ -18,10 +19,10 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
  * starts the fight at the stage they picked.
  *
- * The fight is the site's sim, run here by the bot's clock: every TM_FIGHT.turnMs it takes the steps that are
- * due, each with what was pressed before it, and tells every page what was pressed at which step and how far
- * the fight has got; each page runs the same fight from the same seed and never goes past that. Each player
- * presses only their own heroes. One who leaves during the fight has their heroes fight on, on Auto, and
+ * The fight is the site's sim, run by the bot's clock (in a worker thread: ./fight.ts): every TM_FIGHT.turnMs it
+ * takes the steps that are due, each with what was pressed before it, and tells every page what was pressed at which
+ * step and how far the fight has got; each page runs the same fight from the same seed and never goes past that. Each
+ * player presses only their own heroes. One who leaves during the fight has their heroes fight on, on Auto, and
  * can come back to it. The fight over, a win gives each player whose run gives gear one TechnoMagic item
  * (services/technomagic.ts), and anyone takes the room back to getting ready.
  */
@@ -29,7 +30,7 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
 /** Where the room sends a player's messages: their page, or a fake in tests. */
 export type Peer = ConnectionPeer<ServerMessage>;
 
-/** The database, the clock and Discord, so tests can stand in for them. */
+/** The database, the clock, Discord and where fights run, so tests can stand in for them. */
 export interface RoomDeps {
   now: () => number;
   avatar: (guildId: string, userId: string) => string | null;
@@ -42,6 +43,7 @@ export interface RoomDeps {
   announce: (guildId: string, host: string) => void;
   /** Calls `fn` every `ms` until the returned function is called. */
   every: (ms: number, fn: () => void) => () => void;
+  fights: Fights;
 }
 
 export const realRoomDeps: RoomDeps = {
@@ -59,6 +61,7 @@ export const realRoomDeps: RoomDeps = {
     const timer = setInterval(fn, ms);
     return () => clearInterval(timer);
   },
+  fights: workerFights,
 };
 
 interface Member {
@@ -71,22 +74,20 @@ interface Member {
   rewardsLeft: number;
 }
 
-/** A press, before the step it counts at. */
-type Press = Omit<TurnInput, 'tick'>;
-
 interface Fight {
   start: FightStart;
-  raid: LiveRaid;
+  engine: FightEngine;
   run: BegunRun;
   startedAt: number;
   /** Whose each hero is, by its place in the lineup. */
   owners: string[];
-  /** Every press taken so far, at its step; and how many of them, and of the checksums, the pages have been told. */
+  /** How far it has got: its steps, every press it has taken (at its step), and its checksum at the end of each second. */
+  tick: number;
   inputs: TurnInput[];
-  told: number;
-  summed: number;
-  /** Presses waiting for the next step. */
-  pending: Press[];
+  sums: number[];
+  /** What the players asked of it since it was last stepped on, and whether it is being stepped on now. */
+  pending: Intent[];
+  stepping: boolean;
   stop: () => void;
   done: boolean;
 }
@@ -161,10 +162,7 @@ export class TechnoMagicRoom {
     if (!member || member.peer !== peer) return;
     if (this.fight && !this.fight.done) {
       member.peer = null;
-      const autos = this.fight.raid.autos();
-      this.fight.owners.forEach((owner, fighter) => {
-        if (owner === userId && !autos[fighter]) this.fight?.pending.push({ kind: 'auto', fighter });
-      });
+      this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId), on: true });
       return this.tell();
     }
     this.members.delete(userId);
@@ -300,20 +298,25 @@ export class TechnoMagicRoom {
         return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
       }),
     };
-    const raid = startRaid({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills, sub }) => ({ id, skin, gear, set, uw, skills, sub })) });
-    if (typeof raid === 'string') {
-      console.error(`A TechnoMagic Raid run made no sense to the sim (${raid}).`);
+    let engine: FightEngine | string;
+    try {
+      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills, sub }) => ({ id, skin, gear, set, uw, skills, sub })) });
+    } catch (err) {
+      engine = err instanceof Error ? err.message : String(err);
+    }
+    if (typeof engine === 'string') {
+      console.error(`A TechnoMagic Raid fight could not start (${engine}).`);
       this.tell();
       return 'failed';
     }
-    const fight: Fight = { start, raid, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), inputs: [], told: 0, summed: 0, pending: [], stop: () => {}, done: false };
+    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, stop: () => {}, done: false };
     this.fight = fight;
     this.phase = 'fight';
     this.over = null;
     for (const member of this.members.values()) member.ready = false;
     this.tell();
     for (const member of this.members.values()) if (member.peer) this.showFight(member.peer);
-    fight.stop = this.deps.every(TM_FIGHT.turnMs, () => this.turn(fight));
+    fight.stop = this.deps.every(TM_FIGHT.turnMs, () => void this.turn(fight));
     return null;
   }
 
@@ -327,19 +330,20 @@ export class TechnoMagicRoom {
     if (this.owns(userId, fighter)) this.fight?.pending.push({ kind: 'skill', fighter, skill });
   }
 
-  /** `userId` turns their hero `fighter`'s Auto on or off. */
-  auto(userId: string, fighter: number): void {
-    if (this.owns(userId, fighter)) this.fight?.pending.push({ kind: 'auto', fighter });
+  /** The heroes of the fight that are `userId`'s, by their places in the lineup: not the Sub Team's, which are on Auto for good. */
+  private mine(userId: string): number[] {
+    const { fight } = this;
+    return fight ? fight.owners.flatMap((owner, fighter) => (owner === userId && !fight.start.heroes[fighter]?.sub ? [fighter] : [])) : [];
   }
 
-  /** `userId` turns every hero of theirs' Auto on (or, with all of them on already, off): not the Sub Team's, which stay on it. */
+  /** `userId` turns their hero `fighter`'s Auto on or off (not one of the Sub Team's). */
+  auto(userId: string, fighter: number): void {
+    if (this.owns(userId, fighter) && this.mine(userId).includes(fighter)) this.fight?.pending.push({ kind: 'auto', fighter });
+  }
+
+  /** `userId` turns every hero of theirs' Auto on (or, with all of them on already, off). */
   autoAll(userId: string): void {
-    const { fight } = this;
-    if (!fight || fight.done) return;
-    const mine = fight.owners.flatMap((owner, fighter) => (owner === userId && !fight.start.heroes[fighter]?.sub ? [fighter] : []));
-    const autos = fight.raid.autos();
-    const on = !mine.every((fighter) => autos[fighter]);
-    for (const fighter of mine) if (autos[fighter] !== on) fight.pending.push({ kind: 'auto', fighter });
+    if (this.fight && !this.fight.done) this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId) });
   }
 
   /** The host gives up the fight: lost. */
@@ -369,25 +373,35 @@ export class TechnoMagicRoom {
     if (line) this.send({ t: 'chat', line });
   }
 
-  /** The fight's clock: the steps due, each with what was pressed before it; then everyone is told. */
-  private turn(fight: Fight): void {
-    if (fight.done) return;
-    const { raid } = fight;
+  /**
+   * The fight's clock: the steps due, each with what was asked of it before it; then everyone is told. (A turn that
+   * comes while the last is still being stepped on waits for the next. A fight that fails is lost.)
+   */
+  private async turn(fight: Fight): Promise<void> {
+    if (fight.done || fight.stepping) return;
+    fight.stepping = true;
     const due = Math.floor((this.deps.now() - fight.startedAt) / (STEP_SECONDS * 1000));
-    while (raid.tick < due && !raid.result) {
-      for (const press of fight.pending.splice(0)) if (raid.input(press)) fight.inputs.push({ ...press, tick: raid.tick });
-      raid.step();
+    try {
+      const progress = await fight.engine.advance(due, fight.pending.splice(0));
+      if (fight.done) return;
+      const told = { inputs: fight.inputs.length, sums: fight.sums.length };
+      fight.tick = progress.tick;
+      fight.inputs.push(...progress.inputs);
+      fight.sums.push(...progress.sums);
+      this.send(this.turnOf(fight, told.inputs, told.sums));
+      if (progress.result) void this.finish(fight, progress.result);
+    } catch (err) {
+      console.error('A TechnoMagic Raid fight failed:', err);
+      if (!fight.done) void this.finish(fight, 'lost');
+    } finally {
+      fight.stepping = false;
     }
-    this.send(this.turnOf(fight, fight.told, fight.summed));
-    fight.told = fight.inputs.length;
-    fight.summed = raid.sums.length;
-    if (raid.result) void this.finish(fight);
   }
 
   /** What the pages are told of the fight: the presses from `from` on, and the checksums from `summed` on (each with its second, from 1). */
   private turnOf(fight: Fight, from: number, summed: number): ServerMessage {
-    const sums = fight.raid.sums.slice(summed).map((sum, i): [number, number] => [summed + i + 1, sum]);
-    return { t: 'turn', no: fight.start.no, upTo: fight.raid.tick, inputs: fight.inputs.slice(from), sums };
+    const sums = fight.sums.slice(summed).map((sum, i): [number, number] => [summed + i + 1, sum]);
+    return { t: 'turn', no: fight.start.no, upTo: fight.tick, inputs: fight.inputs.slice(from), sums };
   }
 
   /** A page joining (or back) during a fight: what to run it from, and everything so far. */
@@ -398,14 +412,14 @@ export class TechnoMagicRoom {
     peer.send(this.turnOf(fight, 0, 0));
   }
 
-  /** The fight is over: what it gave each player, and the room shows it. */
-  private async finish(fight: Fight): Promise<void> {
+  /** The fight is over (`result`): what it gave each player, and the room shows it. */
+  private async finish(fight: Fight, result: 'won' | 'lost'): Promise<void> {
     fight.done = true;
     fight.stop();
-    const result = fight.raid.result === 'won' ? 'won' : 'lost';
+    fight.engine.close();
     let drops = new Map<string, DropView[]>();
     try {
-      drops = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.raid.tick);
+      drops = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick);
     } catch (err) {
       console.error('Could not finish a TechnoMagic Raid run:', err);
     }

@@ -14,6 +14,7 @@ import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import type { Player } from '../src/web/auth/token.js';
 import { heroesView } from '../src/web/models/heroes.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/technomagic/protocol.js';
+import { localFights, workerFights, type Intent, type Progress } from '../src/web/games/technomagic/fight.js';
 import { TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
 import { RUN_LASTS_MS, rewardsUsedFilter, type BegunRun } from '../src/services/technomagic.js';
 import type { ItemCopyDoc, MemberDoc } from '../src/types.js';
@@ -121,6 +122,7 @@ function harness(owned: Record<string, string[]> = {}) {
       ticks.push(fn);
       return () => ticks.splice(ticks.indexOf(fn), 1);
     },
+    fights: localFights,
   };
   const rooms = new TechnoMagicRooms(deps);
   const peer = () => {
@@ -292,6 +294,24 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(a.room().lineup.length, 3);
 });
 
+test('technomagic room: one who presses Auto and leaves in the same turn has their heroes fight on, on Auto', async () => {
+  const h = harness();
+  const a = h.peer();
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
+  h.rooms.join(h.player('b'), b, ALL, 10);
+  room.pick('a', 'kirze', 0);
+  room.pick('b', 'clause', 0);
+  room.ready('b', true);
+  assert.equal(await room.begin('a'), null);
+  // Auto on, then gone before the next step: the Auto stays on (not turned over twice).
+  room.auto('b', 1);
+  room.leave('b', b);
+  await h.pass(100);
+  const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
+  assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 1]]);
+});
+
 test('technomagic room: the host can give up, and a room with nobody left is gone', async () => {
   const h = harness();
   const a = h.peer();
@@ -456,4 +476,27 @@ test("technomagic: a run uses up one of the day's rewards while won, or while it
   assert.ok(matches(run({ result: 'won', startedAt: new Date(now.getTime() - RUN_LASTS_MS - 1) }), filter), 'won long ago today');
   assert.ok(!matches(run({ rewardable: false, result: 'won' }), filter), 'gives no gear');
   assert.ok(!matches(run({ day: '2026-10-14', result: 'won' }), filter), 'another day');
+});
+
+test('technomagic: a fight in the worker thread goes as one run right here, step for step', async () => {
+  const fight = run(5, STRONG, 2);
+  const turns: { due: number; intents: Intent[] }[] = [
+    { due: 30, intents: [{ kind: 'autos', fighters: [0, 1, 2] }] },
+    { due: 300, intents: [{ kind: 'skill', fighter: 3, skill: 0 }, { kind: 'auto', fighter: 4 }] },
+    { due: 3000, intents: [{ kind: 'autos', fighters: [0, 1, 2, 3, 4, 5, 6, 7, 8], on: true }] },
+    { due: MOST_TICKS, intents: [] },
+  ];
+  const play = async (where: typeof localFights): Promise<Progress[]> => {
+    const engine = await where.start(fight);
+    assert.ok(typeof engine !== 'string', String(engine));
+    const out: Progress[] = [];
+    for (const { due, intents } of turns) out.push(await engine.advance(due, intents));
+    engine.close();
+    return out;
+  };
+  const here = await play(localFights);
+  assert.ok(here.at(-1)?.result, 'it ends');
+  assert.deepEqual(await play(workerFights), here);
+  // A run that makes no sense: why, from either.
+  assert.equal(await workerFights.start({ ...fight, boss: 'nobody' }), 'boss');
 });
