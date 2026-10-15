@@ -3,11 +3,9 @@
  * reading them from the page, adding them up, and what a round's bets gave back and lost.
  */
 
-/** Points on each spot (left out or 0: no bet there). */
-export type SpotBets<S extends string = string> = Partial<Record<S, number>>;
+import type { BetOutcome, SpotBets } from '../../../protocol/table.js';
 
-/** How a bet came out: won (pays its odds), push (the bet comes back) or lost. */
-export type BetOutcome = 'win' | 'push' | 'lose';
+export type { BetOutcome, SpotBets };
 
 /** One bet on the table, and how it came out. */
 export interface SettledBet<S extends string = string> {

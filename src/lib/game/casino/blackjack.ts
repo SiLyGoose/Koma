@@ -1,5 +1,8 @@
 import { randomUnit } from '../../random.js';
 import { parseBetArg } from './bet.js';
+import type { Card, Suit } from '../../../protocol/cards.js';
+
+export type { Card, Suit };
 
 /*
  * The rules of blackjack, with no database, no Discord and no pictures.
@@ -25,15 +28,7 @@ import { parseBetArg } from './bet.js';
  * There is no splitting, insurance or surrender.
  */
 
-export type Suit = 'spades' | 'hearts' | 'diamonds' | 'clubs';
-
 export const SUITS: readonly Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
-
-/** A card. `rank` is 1 for the ace, 2 to 10, then 11 (jack), 12 (queen) and 13 (king). */
-export interface Card {
-  rank: number;
-  suit: Suit;
-}
 
 export const RANKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] as const;
 

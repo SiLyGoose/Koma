@@ -1,41 +1,14 @@
 import { CHAT } from '../../constants/index.js';
+import type { ChatClientMessage, ChatLine, ChatServerMessage } from '../../protocol/chat.js';
+
+export type { ChatClientMessage, ChatLine, ChatServerMessage };
 
 /*
- * The chat beside a game played together (the shared tables, poker and minesweeper): what the players
- * at one table (or in one room) say to each other while they play. Each table keeps its own, in
- * memory: the last few lines, for whoever joins, and gone with the table. Nothing is kept in the
- * database.
- *
- *   page -> bot   chat     says `text` to everyone at the table, with a picture pasted in (`image`) or not
- *   bot -> page   chats    the last lines said, on joining
- *                 chat     a line just said (the page's own too)
- *
- * A line can have a picture (`image`): one pasted into the page, which comes (and is kept, and told
- * to everyone) as a `data:` address, the page having made it small enough; or the GIF of a tenor.com
- * link in the line's words, whose address the bot reads off that GIF's page (the link itself is only
- * to a page about it). A table keeps only its last few pasted pictures. Links straight to a picture
- * the pages show themselves, from the line's words.
- *
- * The pages keep a copy of these types (src/shared/ui/chat/chat.ts in the Koma-UI repo): change both
- * together. A page only ever shows a line's words as text, never as markup.
+ * The chat beside a game played together (what is said in it: ../../protocol/chat.ts). Each table keeps its own, in
+ * memory: the last few lines, for whoever joins, and gone with the table. Nothing is kept in the database. A line's
+ * GIF, for a tenor.com link in its words, is the one whose address the bot reads off that GIF's page (the link itself is
+ * only to a page about it). A table keeps only its last few pasted pictures.
  */
-
-/** Something said at a table. */
-export interface ChatLine {
-  /** Counts up with every line said at the table, so a page knows one it has shown. */
-  no: number;
-  /** Who said it: the member's id, and their name then. */
-  id: string;
-  name: string;
-  text: string;
-  /** Its picture: a pasted one (`data:image/…`), or a GIF's address (`https://…`). */
-  image?: string;
-  /** When (ms). */
-  at: number;
-}
-
-export type ChatClientMessage = { t: 'chat'; text: string; image?: string };
-export type ChatServerMessage = { t: 'chats'; lines: ChatLine[] } | { t: 'chat'; line: ChatLine };
 
 /** A pasted picture: one of the kinds a page draws as a picture and nothing else (never SVG, which can hold a script). */
 const PASTED = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;

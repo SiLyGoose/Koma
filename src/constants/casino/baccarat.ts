@@ -1,13 +1,13 @@
+import { BACCARAT_BETS, type BaccaratBet } from '../../protocol/baccarat.js';
 import { TABLE_CHIPS, TABLE_WEB } from './table.js';
+
+export { BACCARAT_BETS, type BaccaratBet };
 
 /*
  * Baccarat, played on the games' site (see lib/game/casino/baccarat.ts for the rules, web/games/baccarat/server.ts
  * for the page's side). What the bets pay are settings (`baccarat.*`); the shape of the game is here.
  */
 
-/** The spots a bet can go on: the three main bets, and the two side bets. */
-export const BACCARAT_BETS = ['player', 'banker', 'tie', 'kirin', 'phoenix'] as const;
-export type BaccaratBet = (typeof BACCARAT_BETS)[number];
 
 /** Every round is dealt from a freshly shuffled shoe of this many decks. */
 export const BACCARAT_DECKS = 8;

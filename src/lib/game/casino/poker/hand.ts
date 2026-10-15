@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import type { PlayerMove, Street } from '../../../../protocol/poker.js';
 import { RANKS, SUITS, type Card } from '../blackjack.js';
 import { bestHand, compareRanks, handName, type BestHand } from './rank.js';
 
@@ -22,17 +23,7 @@ import { bestHand, compareRanks, handName, type BestHand } from './rank.js';
  * first winner left of the button). The house's rake comes out of the pots of a hand that saw a flop.
  */
 
-export type Street = 'preflop' | 'flop' | 'turn' | 'river';
-
-/** What a player did last, for the table to show. */
-export type PlayerMove =
-  | { type: 'blind'; amount: number }
-  | { type: 'fold' }
-  | { type: 'check' }
-  | { type: 'call'; amount: number }
-  | { type: 'bet'; to: number }
-  | { type: 'raise'; to: number }
-  | { type: 'allIn'; to: number };
+export type { PlayerMove, Street };
 
 /** A move the player whose turn it is can make. `raise` is to `to` chips in front of them this street (a bet when nobody has bet yet). */
 export type PokerAction = { type: 'fold' } | { type: 'check' } | { type: 'call' } | { type: 'raise'; to: number };

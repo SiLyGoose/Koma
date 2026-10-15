@@ -1,6 +1,9 @@
 import { randomInt } from 'node:crypto';
 import { ROULETTE_OUTSIDE, ROULETTE_RED, type RouletteOutside } from '../../../constants/index.js';
+import type { RouletteColor, RoulettePocket, RouletteSpot } from '../../../protocol/roulette.js';
 import { parseSpotBets, returnAt, sumBets, type SettledBet, type SpotBets } from './table-bets.js';
+
+export type { RouletteColor, RoulettePocket, RouletteSpot };
 
 /*
  * The rules of roulette (American: 0 and 00), with no database and no pictures.
@@ -25,19 +28,12 @@ import { parseSpotBets, returnAt, sumBets, type SettledBet, type SpotBets } from
  * columns are down it: column 1 is 1, 4, 7, ... 34.
  */
 
-export type RouletteColor = 'red' | 'black' | 'green';
-
-/** A pocket on the wheel: 0 to 36, or 00. */
-export type RoulettePocket = number | '00';
-
 export interface RouletteRound {
   /** Where the ball landed. */
   number: RoulettePocket;
   color: RouletteColor;
 }
 
-/** A spot's name: an outside bet, or the numbers an inside bet covers (see above). */
-export type RouletteSpot = string;
 export type RouletteBets = SpotBets<RouletteSpot>;
 
 export const colorOf = (n: RoulettePocket): RouletteColor => (n === 0 || n === '00' ? 'green' : ROULETTE_RED.includes(n) ? 'red' : 'black');

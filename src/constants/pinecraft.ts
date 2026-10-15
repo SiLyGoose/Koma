@@ -1,3 +1,5 @@
+import { PINECRAFT_ORES, type PinecraftOre } from '../protocol/pinecraft.js';
+
 /*
  * Pinecraft: a world entirely underground that a member digs their way around for ores (see
  * lib/game/pinecraft.ts). No bet: every block dug costs energy, which comes back over time, and ores
@@ -5,9 +7,8 @@
  * (`pinecraft.*`); the shape of the world is here.
  */
 
-/** The ores, from the most common and least valuable to the rarest. What each pays is the `pinecraft.value.<ore>` setting. */
-export const PINECRAFT_ORES = ['coal', 'iron', 'gold', 'diamond', 'emerald', 'amethyst', 'ruby'] as const;
-export type PinecraftOre = (typeof PINECRAFT_ORES)[number];
+/** The ores, from the most common and least valuable to the rarest (../protocol/pinecraft.ts). What each pays is the `pinecraft.value.<ore>` setting. */
+export { PINECRAFT_ORES, type PinecraftOre };
 
 /** Every block that pays when dug: dirt and stone (a little), then the ores. What each pays is the `pinecraft.value.<block>` setting. */
 export const PINECRAFT_PAYING = ['dirt', 'stone', ...PINECRAFT_ORES] as const;

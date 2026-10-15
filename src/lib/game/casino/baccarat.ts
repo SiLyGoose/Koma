@@ -1,4 +1,5 @@
 import { BACCARAT_BETS, BACCARAT_DECKS, type BaccaratBet } from '../../../constants/index.js';
+import type { BaccaratWinner } from '../../../protocol/baccarat.js';
 import { newShoe, type Card } from './blackjack.js';
 import { lostChips, parseSpotBets, returnAt, sumBets, type BetOutcome, type SettledBet as TableSettledBet, type SpotBets } from './table-bets.js';
 
@@ -38,7 +39,7 @@ export interface BaccaratPayouts {
 /** Points on each spot (left out or 0: no bet there). */
 export type BaccaratBets = SpotBets<BaccaratBet>;
 
-export type BaccaratWinner = 'player' | 'banker' | 'tie';
+export type { BaccaratWinner };
 
 export interface BaccaratRound {
   player: Card[];

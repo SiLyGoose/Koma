@@ -1,6 +1,9 @@
 import { RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, type RaidBossId, type RaidClassId, type RaidClassRules } from '../../constants/index.js';
 import { chance, pickRandom, randInt } from '../random.js';
 import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
+import type { CrowdControl, RaidAction } from '../../protocol/raid.js';
+
+export type { CrowdControl, RaidAction };
 
 /*
  * The raid boss's rules, with no Discord or database in them (commands/raid.ts runs the fight on
@@ -17,7 +20,6 @@ import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
  * command turns into the lines of the action log.
  */
 
-export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', 'support'];
 
 /** The moves that damage raiders directly. */
@@ -104,8 +106,6 @@ export const shieldDeflects = (boss: RaidBossId): number => (movesOf(boss).some(
 
 /** The boss's crowd-control moves, and the effect each one leaves on its targets. */
 export type CcMove = 'stun' | 'disarm' | 'taunt';
-/** Stunned: can't act. Disarmed: can't attack. Taunted: can only attack. */
-export type CrowdControl = 'stunned' | 'disarmed' | 'taunted';
 export const CC_EFFECT: Readonly<Record<CcMove, CrowdControl>> = { stun: 'stunned', disarm: 'disarmed', taunt: 'taunted' };
 export const isCcMove = (move: BossMove): move is CcMove => move in CC_EFFECT;
 
