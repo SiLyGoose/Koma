@@ -27,7 +27,7 @@ import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -104,6 +104,12 @@ async function main(): Promise<void> {
     console.log(
       `Renamed the mine to Mines: settings ${minesRename.settings ? 'moved' : 'were already moved'}, ${minesRename.rounds} round(s) carried over, ${minesRename.ledger} ledger entries renamed.`,
     );
+  }
+
+  // Every start: moves what was stored under Clause's old id to Klaus's (see renameClauseToKlaus).
+  const klaus = await renameClauseToKlaus();
+  if (klaus.members > 0 || klaus.runs > 0 || klaus.ledger > 0) {
+    console.log(`Renamed Clause to Klaus: ${klaus.members} member(s)' hero, ${klaus.runs} raid run(s), ${klaus.ledger} ledger entries.`);
   }
 
   // Every start: clears any vault breaker left open by the old event (see clearOpenVaults).

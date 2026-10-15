@@ -736,7 +736,7 @@ export const ITEMS: readonly ItemDef[] = [
     slot: 'weapon',
     description: 'Made eons ago by the dragon Exian from its own scales, and bestowed only on the knight of the most honorable principles.',
     effects: [],
-    uniqueWeapon: 'clause',
+    uniqueWeapon: 'klaus',
   },
   {
     id: 'judgment-edge-elicipira',

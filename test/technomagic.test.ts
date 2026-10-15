@@ -43,9 +43,9 @@ test("technomagic: each hero's skills are the sim's, in King's Raid's words with
     const passive = hero.abilities[3];
     assert.ok(passive?.name && passive.text && passive.cost === null && passive.cooldown === null, `${hero.id}'s passive`);
   }
-  // The fight's numbers: Clause's Cut Ground stuns for 5 seconds; Gremory's skills say they're sealed, not a cooldown.
-  const clause = HEROES_BY_ID.get('clause');
-  assert.equal(clause?.abilities[0]?.text, 'Leaps into the air and deals P.DMG to enemies in range, stunning them for 5 sec.');
+  // The fight's numbers: Klaus's Cut Ground stuns for 5 seconds; Gremory's skills say they're sealed, not a cooldown.
+  const klaus = HEROES_BY_ID.get('klaus');
+  assert.equal(klaus?.abilities[0]?.text, 'Leaps into the air and deals P.DMG to enemies in range, stunning them for 5 sec.');
   assert.deepEqual(
     HEROES_BY_ID.get('gremory')?.abilities.map(({ cost, tag }) => [cost, tag]),
     [[3, 'Sealed after use'], [3, 'Sealed after use'], [4, 'Sealed after use'], [null, 'Once all are sealed']],
@@ -183,14 +183,14 @@ test('technomagic room: the host brings up to 4, everyone else 2, 9 in all; alon
 
   // A second player: the host's limit goes to 4 (theirs are 3, so they stay), the slots to 9.
   const b = h.peer();
-  h.rooms.join(h.player('b'), b, ['kirze', 'clause', 'fallen-frey'], 10);
+  h.rooms.join(h.player('b'), b, ['kirze', 'klaus', 'fallen-frey'], 10);
   assert.deepEqual(h.announced, ['A'], 'the room was opened once');
   const state = b.room();
   assert.equal(state.slots, TM_ROOM.slots);
   assert.equal(state.solo, false);
   assert.deepEqual(state.players.map((p) => [p.number, p.host, p.limit]), [[1, true, 4], [2, false, 2]]);
   assert.equal(room.pick('b', 'kirze', 0), null, 'two players may each bring their own Kirze');
-  assert.equal(room.pick('b', 'clause', 0), null);
+  assert.equal(room.pick('b', 'klaus', 0), null);
   assert.equal(room.pick('b', 'fallen-frey', 0), 'limit');
   assert.equal(b.room().lineup.length, 5);
 
@@ -262,17 +262,17 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   h.rooms.join(h.player('broke'), b, ALL, 0);
   room.pick('a', 'kirze', 0);
   room.pick('a', 'fallen-frey', 0);
-  room.pick('broke', 'clause', 0);
+  room.pick('broke', 'klaus', 0);
   assert.equal(await room.begin('a'), 'not_ready');
   room.ready('broke', true);
   assert.equal(await room.begin('a'), null);
   assert.equal(a.room().phase, 'fight');
   const fight = a.got.find((m) => m.t === 'fight');
   assert.ok(fight && fight.t === 'fight');
-  assert.deepEqual(fight.fight.heroes.map((hero) => [hero.owner, hero.id]), [['a', 'kirze'], ['a', 'fallen-frey'], ['broke', 'clause']]);
+  assert.deepEqual(fight.fight.heroes.map((hero) => [hero.owner, hero.id]), [['a', 'kirze'], ['a', 'fallen-frey'], ['broke', 'klaus']]);
   // Each hero's gear's additional skills go into the fight with it.
   assert.deepEqual(fight.fight.heroes.map((hero) => hero.skills), [['vigor'], [], []]);
-  assert.equal(room.pick('a', 'clause', 0), 'closed');
+  assert.equal(room.pick('a', 'klaus', 0), 'closed');
 
   // Their own heroes only: a's Auto on for both of theirs; broke can't press a's.
   room.autoAll('a');
@@ -324,7 +324,7 @@ test('technomagic room: one who presses Auto and leaves in the same turn has the
   const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
   h.rooms.join(h.player('b'), b, ALL, 10);
   room.pick('a', 'kirze', 0);
-  room.pick('b', 'clause', 0);
+  room.pick('b', 'klaus', 0);
   room.ready('b', true);
   assert.equal(await room.begin('a'), null);
   // Auto on, then gone before the next step: the Auto stays on (not turned over twice).
@@ -367,12 +367,12 @@ test('technomagic: a hero in a set’s pieces has its effect, the same every tim
   assert.deepEqual(replay(withSet('nonsense'), autos).sums, plain.sums);
 });
 
-test('technomagic: Perseverance’s supports (Clause, Fallen Frey) and its damage dealer (Kirze) each make the boss fall sooner', () => {
+test('technomagic: Perseverance’s supports (Klaus, Fallen Frey) and its damage dealer (Kirze) each make the boss fall sooner', () => {
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
   const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
   const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
   const plain = replay(wearing([]), autos);
-  assert.ok(replay(wearing(['clause', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
+  assert.ok(replay(wearing(['klaus', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
   assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, 'the damage dealer: +10% DMG, growing to +25%');
 });
 
@@ -393,13 +393,13 @@ test("technomagic perks: a hero's transcendence perks change its fight, the same
 });
 
 test("technomagic perks: each of a hero's own perks changes its fight, but for those with nothing to work on here", () => {
-  // What this raid hasn't: Arcane Crystal Energy (Kirze), a boss to draw in or casting time to cut (Clause), a boss's mana
+  // What this raid hasn't: Arcane Crystal Energy (Kirze), a boss to draw in or casting time to cut (Klaus), a boss's mana
   // to take (Fallen Frey), a boss's M.Block or knocking it away (Gremory's Puchi), anything on the boss to dispel (Seria,
   // Lorraine, Valance). What Galgoria shrugs off: a slow (it is steady), and less P.DMG or more P.DEF (it deals only magic).
   // What these fights don't come to: a shield on every ally with only 4 (Blessing of Doom shields 4), 100 Flame on the
   // boss (Morrah's Auto goes round her skills), Ezekiel's Dawning Despair in his Fury, and the boss knocking him down
   // while he strikes.
-  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'clause s1-dark', 'clause s3-dark', 'clause s4-light', 'clause t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
+  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
   const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
   const fight = (id: string, perks: string[], seed: number, others: number): Run => ({
     boss: TM_BOSS,

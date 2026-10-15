@@ -390,6 +390,21 @@ export async function renameMinesData(): Promise<{ settings: boolean; rounds: nu
   return { settings: moved.modifiedCount > 0, rounds, ledger: renamed };
 }
 
+/*
+ * The TechnoMagic Raid's hero Clause was renamed Klaus, his id with him (`clause` to `klaus`): members' hero (MemberDoc.heroes,
+ * with its gear, transcendence and perks), the runs he fought in (TmRunDoc.heroes, so one not yet claimed is still fought
+ * with him), and the ledger's purchases of him. A member who somehow has both keeps the Klaus they have. Idempotent, and
+ * cheap once done: runs every start.
+ */
+export async function renameClauseToKlaus(): Promise<{ members: number; runs: number; ledger: number }> {
+  const { members, tmRuns, ledger } = collections();
+  const moved = await members.updateMany({ 'heroes.clause': { $exists: true }, 'heroes.klaus': { $exists: false } }, { $rename: { 'heroes.clause': 'heroes.klaus' } });
+  await members.updateMany({ 'heroes.clause': { $exists: true } }, { $unset: { 'heroes.clause': '' } });
+  const runs = await tmRuns.updateMany({ 'heroes.id': 'clause' }, { $set: { 'heroes.$[hero].id': 'klaus' } }, { arrayFilters: [{ 'hero.id': 'clause' }] });
+  const bought = await ledger.updateMany({ reason: 'hero', itemId: 'clause' } as unknown as Filter<LedgerDoc>, { $set: { itemId: 'klaus' } });
+  return { members: moved.modifiedCount, runs: runs.modifiedCount, ledger: bought.modifiedCount };
+}
+
 /** Ledger reasons for a vault game paying out of the vault (a claim, see claimVault in services/vault.ts). */
 const VAULT_PAYOUT_REASONS = ['heist_loot', 'split_steal', 'code_prize'] as const;
 

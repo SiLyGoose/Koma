@@ -57,8 +57,8 @@ test('databank page: says where each item comes from, and the raid drop chance',
   // A unique weapon comes from the Hero Item banner, says whose it is, and says what it does in the raid at each level.
   const exian = items.find((item) => item.id === 'the-guardian-exian')!;
   assert.equal(exian.source, 'heroBanner');
-  assert.equal(exian.uniqueWeapon, 'clause');
-  assert.ok(exian.effects.every((lines, i) => lines.some((line) => line.startsWith(`Clause only, ★${i + 1}:`))));
+  assert.equal(exian.uniqueWeapon, 'klaus');
+  assert.ok(exian.effects.every((lines, i) => lines.some((line) => line.startsWith(`Klaus only, ★${i + 1}:`))));
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);

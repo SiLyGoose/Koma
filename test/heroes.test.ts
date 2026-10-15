@@ -33,12 +33,12 @@ const SITE: WebConfig = {
 
 const item = (id: string) => ITEMS_BY_ID.get(id)!;
 
-test('heroes: Kirze, Clause, Fallen Frey, Gremory, Annette, Morrah, Laias, Seria, Ezekiel, Lorraine and Valance, each once, each of a raid class; their price is a setting of its own', () => {
+test('heroes: Kirze, Klaus, Fallen Frey, Gremory, Annette, Morrah, Laias, Seria, Ezekiel, Lorraine and Valance, each once, each of a raid class; their price is a setting of its own', () => {
   assert.deepEqual(
     HEROES.map((hero) => [hero.id, hero.class]),
     [
       ['kirze', 'warrior'],
-      ['clause', 'knight'],
+      ['klaus', 'knight'],
       ['fallen-frey', 'priest'],
       ['gremory', 'assassin'],
       ['annette', 'mechanic'],
@@ -82,7 +82,7 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.deepEqual(UNIQUE_WEAPONS.map((one) => one.uniqueWeapon).sort(), HEROES.map((hero) => hero.id).sort());
   const exian = item('the-guardian-exian');
   assert.ok(heroWearable(exian) && heroOnly(exian));
-  assert.ok(wieldedBy(exian, 'clause') && !wieldedBy(exian, 'kirze'));
+  assert.ok(wieldedBy(exian, 'klaus') && !wieldedBy(exian, 'kirze'));
   // One to a hero: not a second in its other weapon slot (another weapon there, or none, is fine).
   assert.equal(otherWeaponSlot('weapon1'), 'weapon2');
   assert.equal(otherWeaponSlot('weapon2'), 'weapon1');
@@ -92,13 +92,13 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.ok(!secondUnique(item('worldbreaker-maul'), exian));
   // On its own hero its flat ATK counts (King's Raid's for its class, its refinement its stars), on another nothing; its lines
   // start with that ATK and end with what it does in the raid.
-  assert.equal(pieceBonus({ item: exian, level: 1 }, 'knight', 'clause').atkFlat, 42_332);
-  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atkFlat, 96_209);
-  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'clause').atk, 0);
+  assert.equal(pieceBonus({ item: exian, level: 1 }, 'knight', 'klaus').atkFlat, 42_332);
+  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'klaus').atkFlat, 96_209);
+  assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'klaus').atk, 0);
   assert.equal(pieceBonus({ item: exian, level: 5 }, 'knight', 'kirze').atkFlat, 0);
   assert.equal(raidValue('atkFlat', 96_209), 96_209);
   assert.equal(heroItemLines(exian, 2)[0], '+50,029 ATK');
-  assert.match(heroItemLines(exian, 2).at(-1) ?? '', /^Clause only, ★2: /);
+  assert.match(heroItemLines(exian, 2).at(-1) ?? '', /^Klaus only, ★2: /);
   // The raid is told its refinement as its tier, and only on its own hero; a second copy does nothing more.
   const copies = [
     { _id: 'a', itemId: 'the-guardian-exian', level: 3 },
@@ -107,15 +107,15 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   ];
   const member: Pick<MemberDoc, 'heroes'> = {
     heroes: {
-      clause: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b' } },
+      klaus: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b' } },
       kirze: { boughtAt: new Date(0), equipment: { weapon1: 'c' } },
     },
   };
   const gear = raidGear(copies, member);
-  assert.equal(gear.get('clause')?.uw, 3);
+  assert.equal(gear.get('klaus')?.uw, 3);
   assert.equal(gear.get('kirze')?.uw, 4);
-  const alone = raidGear([copies[0]!], { heroes: { clause: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
-  assert.equal(gear.get('clause')?.bonus.atk, alone.get('clause')?.bonus.atk);
+  const alone = raidGear([copies[0]!], { heroes: { klaus: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
+  assert.equal(gear.get('klaus')?.bonus.atk, alone.get('klaus')?.bonus.atk);
   // Another hero's: refused on the heroes page's model too (it isn't counted).
   const elsewhere = raidGear(copies, { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
   assert.equal(elsewhere.get('kirze')?.uw, null);
@@ -133,23 +133,23 @@ test('heroes: what they wear is kept from selling and refining, and a copy moves
     equipment: { weapon: 'w' },
     heroes: {
       kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b', armor1: null } },
-      clause: { boughtAt: new Date(0), equipment: { armor2: 'c' } },
+      klaus: { boughtAt: new Date(0), equipment: { armor2: 'c' } },
     },
   };
   assert.deepEqual([...heroWorn(member)], [
     ['a', 'kirze'],
     ['b', 'kirze'],
-    ['c', 'clause'],
+    ['c', 'klaus'],
   ]);
   assert.deepEqual([...heroCopyIds(member)].sort(), ['a', 'b', 'c']);
   assert.deepEqual([...keptCopyIds(member)].sort(), ['a', 'b', 'c', 'w']);
   assert.deepEqual(heroCopyIds(null), new Set());
 
-  // Copy a onto Clause: it comes off Kirze's first weapon slot, and must not be anywhere else meanwhile.
-  const moves = heroEquipMoves(member.heroes, 'clause', 'weapon1', 'a');
+  // Copy a onto Klaus: it comes off Kirze's first weapon slot, and must not be anywhere else meanwhile.
+  const moves = heroEquipMoves(member.heroes, 'klaus', 'weapon1', 'a');
   assert.deepEqual(moves.from, ['heroes.kirze.equipment.weapon1']);
-  assert.ok(moves.elsewhere.includes('heroes.kirze.equipment.weapon2') && moves.elsewhere.includes('heroes.clause.equipment.weapon2'));
-  assert.ok(!moves.elsewhere.includes('heroes.clause.equipment.weapon1'));
+  assert.ok(moves.elsewhere.includes('heroes.kirze.equipment.weapon2') && moves.elsewhere.includes('heroes.klaus.equipment.weapon2'));
+  assert.ok(!moves.elsewhere.includes('heroes.klaus.equipment.weapon1'));
   // From one of Kirze's weapon slots to the other.
   assert.deepEqual(heroEquipMoves(member.heroes, 'kirze', 'weapon2', 'a').from, ['heroes.kirze.equipment.weapon1']);
 });
@@ -195,9 +195,9 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.deepEqual(view.copies.map((copy) => copy.id), ['fang', 'maul', 'plate']); // TechnoMagic gear first, then by stars, then level
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.hero, 'kirze');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.locked, true);
-  const [kirze, clause] = view.heroes;
+  const [kirze, klaus] = view.heroes;
   assert.equal(kirze?.owned, true);
-  assert.equal(clause?.owned, false);
+  assert.equal(klaus?.owned, false);
   assert.equal(kirze?.price, DEFAULTS.hero.price);
   // A copy they no longer own, or in a slot it doesn't fit, isn't worn.
   assert.deepEqual(kirze?.equipped, { weapon1: 'fang', weapon2: 'maul', armor1: null, armor2: null, treasure: null });
@@ -214,7 +214,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(fang?.additional, null, 'no additional skill on this copy');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.setEffect, null);
   assert.ok(kirze?.totals.some((line) => line.endsWith(' Attack')), 'its stats spelled out');
-  assert.deepEqual(clause?.totals, []);
+  assert.deepEqual(klaus?.totals, []);
 });
 
 test('heroes web: a logged-in member sees the heroes, buys one and gears it, in their own servers only', async () => {
@@ -222,7 +222,7 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
   let owned: string[] = [];
   const calls: string[] = [];
   const store: HeroStore = {
-    view: async (guildId, userId) => ({ ...empty, heroes: (userId === '22' ? ['clause'] : owned).map((id) => ({ id }) as never), balance: 500 }),
+    view: async (guildId, userId) => ({ ...empty, heroes: (userId === '22' ? ['klaus'] : owned).map((id) => ({ id }) as never), balance: 500 }),
     // 22 has a hero; 33 more, but has left the server.
     owners: async () => [
       { userId: '33', heroes: 3 },
@@ -286,7 +286,7 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     );
     assert.equal((await fetch(`${base}/api/heroes/members?guild=g2`, { headers })).status, 403);
     const theirs = (await (await fetch(`${base}/api/heroes?guild=g1&user=22`, { headers })).json()) as HeroesView;
-    assert.deepEqual([theirs.heroes.map((hero) => hero.id), theirs.balance], [['clause'], 0]);
+    assert.deepEqual([theirs.heroes.map((hero) => hero.id), theirs.balance], [['klaus'], 0]);
     assert.equal((await fetch(`${base}/api/heroes?guild=g1&user=33`, { headers })).status, 404); // left the server
     assert.equal((await fetch(`${base}/api/heroes?guild=g1&user=nope`, { headers })).status, 404);
     assert.equal(((await (await fetch(`${base}/api/heroes?guild=g1&user=u1`, { headers })).json()) as HeroesView).balance, 500); // their own
@@ -304,11 +304,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await post('/api/heroes/equip', { guild: 'g1', hero: 'kirze', slot: 'weapon3', copy: 'c1' })).status, 400);
     assert.equal((await post('/api/heroes/unequip', { guild: 'g1', hero: 'kirze', slot: 'weapon1' })).status, 200);
     assert.equal((await post('/api/heroes/unequip', { guild: 'g1', hero: 'kirze' })).status, 200);
-    assert.equal((await post('/api/heroes/buy', { guild: 'g2', hero: 'clause' })).status, 403);
+    assert.equal((await post('/api/heroes/buy', { guild: 'g2', hero: 'klaus' })).status, 403);
 
     // Transcending a hero; and its perks: known ones, of the tiers it has reached, within its TP; none resets them.
     assert.equal((await post('/api/heroes/transcend', { guild: 'g1', hero: 'kirze' })).status, 200);
-    assert.deepEqual(await (await post('/api/heroes/transcend', { guild: 'g1', hero: 'clause' })).json(), { error: 'not_found' });
+    assert.deepEqual(await (await post('/api/heroes/transcend', { guild: 'g1', hero: 'klaus' })).json(), { error: 'not_found' });
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['atk-up', 'hp-up'] })).status, 200);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: [] })).status, 200);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['nope'] })).status, 400);
@@ -316,7 +316,7 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal(over.status, 409);
     assert.deepEqual(await over.json(), { error: 'too_many_points' });
     assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['t5-light'] })).json(), { error: 'perk_locked' });
-    assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'clause', perks: [] })).json(), { error: 'not_found' });
+    assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'klaus', perks: [] })).json(), { error: 'not_found' });
     assert.deepEqual(calls, [
       'equip kirze weapon1 c1',
       'buy g1 u1 kirze',
@@ -327,12 +327,12 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'unequip kirze weapon1',
       'unequip kirze null',
       'transcend kirze',
-      'transcend clause',
+      'transcend klaus',
       'perks kirze atk-up,hp-up',
       'perks kirze ',
       'perks kirze atk-up,hp-up,def-up',
       'perks kirze t5-light',
-      'perks clause ',
+      'perks klaus ',
     ]);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -345,14 +345,14 @@ test("heroes: a hero's perk effects, what its picked perks give its stats, spell
       // A warrior's: ATK Up, Opportune Strike (crit chance 150 points: 15%), Offensive Guard, Transcend 5's Light.
       kirze: { equipment: {}, transcend: 5, perks: ['atk-up', 'class-1', 'class-3', 't5-light'] },
       // A knight's Battle Cry: every ally's max HP, its own too.
-      clause: { equipment: {}, transcend: 5, perks: ['class-3'] },
+      klaus: { equipment: {}, transcend: 5, perks: ['class-3'] },
       morrah: { equipment: {}, transcend: 5, perks: [] },
     },
     points: 0,
   } as unknown as MemberDoc);
   const effects = (id: string) => view.heroes.find((hero) => hero.id === id)?.perkEffects;
   assert.deepEqual(effects('kirze'), ['+45% Attack', '+15% Health', '+15% Critical Chance', '+30% Critical Damage', '+10% Attack Speed', '+15% Physical and Magical Defense', '+Attack equal to 50% of Physical Defense']);
-  assert.deepEqual(effects('clause'), ['+15% Health']);
+  assert.deepEqual(effects('klaus'), ['+15% Health']);
   assert.deepEqual(effects('morrah'), []);
   assert.deepEqual(effects('laias'), [], 'not recruited: no perks');
 });
@@ -386,12 +386,12 @@ test('heroes: transcendence, T0 to T5, each level more TP and its tier of perks;
   assert.deepEqual(keptPerks(undefined, undefined), []);
   assert.deepEqual(keptPerks(['atk-up'], undefined), [], 'nothing kept at T0');
   // The heroes view has each hero's, its level, TP and what the next one costs, and their gems and essences.
-  const view = heroesView([], { points: 0, gems: 7, essences: { justice: 40 }, heroes: { kirze: { boughtAt: new Date(0), transcend: 5, perks: ['t5-light', 'hp-up'] }, clause: { boughtAt: new Date(0) } } });
+  const view = heroesView([], { points: 0, gems: 7, essences: { justice: 40 }, heroes: { kirze: { boughtAt: new Date(0), transcend: 5, perks: ['t5-light', 'hp-up'] }, klaus: { boughtAt: new Date(0) } } });
   const kirze = view.heroes.find((hero) => hero.id === 'kirze');
   assert.deepEqual(kirze?.perks, ['hp-up', 't5-light']);
   assert.deepEqual(kirze?.transcend, { level: 5, points: 80, next: null });
-  assert.deepEqual(view.heroes.find((hero) => hero.id === 'clause')?.transcend, { level: 0, points: 0, next: { essences: { justice: 20, strategy: 20, patience: 20 }, gems: 1 } });
-  assert.deepEqual(view.heroes.find((hero) => hero.id === 'clause')?.perks, []);
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'klaus')?.transcend, { level: 0, points: 0, next: { essences: { justice: 20, strategy: 20, patience: 20 }, gems: 1 } });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'klaus')?.perks, []);
   assert.equal(view.gems, 7);
   assert.deepEqual(view.essences, { justice: 40, force: 0, wisdom: 0, strategy: 0, patience: 0, harmony: 0, fortune: 0 });
 });
