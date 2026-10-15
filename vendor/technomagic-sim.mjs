@@ -1055,6 +1055,8 @@ var nth = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : [
 var seconds = (n) => `${n} second${n === 1 ? "" : "s"}`;
 /** Every so many seconds ("every second", "every 3 seconds"). */
 var every = (n) => n === 1 ? "every second" : `every ${n} seconds`;
+/** A share as King's Raid says it: "half", or a percent. */
+var part = (share) => share === .5 ? "half" : pct(share);
 /** A number as King's Raid writes it, its thousands set apart (12000: "12,000"). */
 var num = (n) => n.toLocaleString("en-US");
 /** To a tenth of a percent (0.048: "4.8%"). */
@@ -1860,6 +1862,11 @@ var CORBEAU_UP = {
 };
 //#endregion
 //#region src/technomagic/sim/perks.ts
+/** A perk whose words say its own numbers: `words` is given its data, so each is written once (there). */
+var said = (data, words) => ({
+	...data,
+	words: words(data)
+});
 /** What overlaps itself: every ally gains `first` from one hero with it, and `again` more from each other. */
 var aura = (first, again) => ({
 	first,
@@ -1867,60 +1874,51 @@ var aura = (first, again) => ({
 });
 /** Transcend 1: everyone's. */
 var COMMON_PERKS = {
-	"atk-up": {
+	"atk-up": said({
 		name: "ATK Up",
-		words: "ATK is increased by 30%",
 		bonus: { atk: .3 }
-	},
-	"hp-up": {
+	}, ({ bonus }) => `ATK is increased by ${pct(bonus.atk)}`),
+	"hp-up": said({
 		name: "HP Up",
-		words: "HP is increased by 30%",
 		bonus: { hp: .3 }
-	},
-	"def-up": {
+	}, ({ bonus }) => `HP is increased by ${pct(bonus.hp)}`),
+	"def-up": said({
 		name: "DEF Up",
-		words: "DEF is increased by 35%",
 		bonus: { defense: .35 }
-	},
-	"crit-resist-up": {
+	}, ({ bonus }) => `DEF is increased by ${pct(bonus.defense)}`),
+	"crit-resist-up": said({
 		name: "Crit Resist Up",
-		words: "Crit Resistance is increased by 250",
 		bonus: { critResist: 250 }
-	},
-	"monster-hunting": {
+	}, ({ bonus }) => `Crit Resistance is increased by ${bonus.critResist}`),
+	"monster-hunting": said({
 		name: "Monster Hunting",
-		words: "Increases DMG to Non-Hero enemies by 10% and takes 10% reduced DMG",
 		dmg: 1.1,
 		taken: .9
-	}
+	}, ({ dmg, taken }) => `Increases DMG to Non-Hero enemies by ${pct(dmg - 1)} and takes ${pct(1 - taken)} reduced DMG`)
 };
-var OPPORTUNE_STRIKE = {
+var OPPORTUNE_STRIKE = said({
 	name: "Opportune Strike",
-	words: "Crit Chance is increased by 150 and Crit DMG is increased by 30%.",
 	bonus: {
 		crit: 150,
 		critDamage: .3
 	}
-};
-var TACTICAL_FORESIGHT = {
+}, ({ bonus }) => `Crit Chance is increased by ${bonus.crit} and Crit DMG is increased by ${pct(bonus.critDamage)}.`);
+var TACTICAL_FORESIGHT = said({
 	name: "Tactical Foresight",
-	words: "Dodge rate is increased by 200 and takes 10% reduced DMG.",
 	bonus: { dodge: 200 },
 	taken: .9
-};
-var BLESSING_OF_MANA = {
+}, ({ bonus, taken }) => `Dodge rate is increased by ${bonus.dodge} and takes ${pct(1 - taken)} reduced DMG.`);
+var BLESSING_OF_MANA = said({
 	name: "Blessing of Mana",
-	words: "Mana recovery per second rises by 250%.",
 	bonus: { manaRegen: 2.5 }
-};
-var TARGET_WEAKNESS = {
+}, ({ bonus }) => `Mana recovery per second rises by ${pct(bonus.manaRegen)}.`);
+var TARGET_WEAKNESS = said({
 	name: "Target Weakness",
-	words: "ATK rises by 20% and DEF Penetration rises by 200.",
 	bonus: {
 		atk: .2,
 		pen: 200
 	}
-};
+}, ({ bonus }) => `ATK rises by ${pct(bonus.atk)} and DEF Penetration rises by ${bonus.pen}.`);
 /**
 * Transcend 2: each class's five, in the bot's order (class-1 to class-5). An archer's are in words only: there is no
 * archer yet, and they come with the first.
@@ -1928,113 +1926,100 @@ var TARGET_WEAKNESS = {
 var CLASS_PERKS = {
 	warrior: [
 		OPPORTUNE_STRIKE,
-		{
+		said({
 			name: "Warlike",
-			words: "Per each enemy, ATK is increased by 7% and CC Resistance is increased by 30. Can be stacked up to max 10 times.",
 			bonus: {
 				atk: .07,
 				resist: 30
 			}
-		},
-		{
+		}, ({ bonus }) => `Per each enemy, ATK is increased by ${pct(bonus.atk)} and CC Resistance is increased by ${bonus.resist}. Can be stacked up to max 10 times.`),
+		said({
 			name: "Offensive Guard",
-			words: "ATK rises equal to half of P.DEF and received P.DMG decreases by 15%.",
 			atkFromDefense: .5,
 			takenPhysical: .85
-		},
+		}, (p) => `ATK rises equal to ${part(p.atkFromDefense)} of P.DEF and received P.DMG decreases by ${pct(1 - p.takenPhysical)}.`),
 		TACTICAL_FORESIGHT,
-		{
+		said({
 			name: "Blood Wrath",
-			words: "Increases Lifesteal by 200 and ATK Spd by 200.",
 			bonus: {
 				lifesteal: 200,
 				speed: 200
 			}
-		}
+		}, ({ bonus }) => `Increases Lifesteal by ${bonus.lifesteal} and ATK Spd by ${bonus.speed}.`)
 	],
 	priest: [
-		{
+		said({
 			name: "Vengeful Curse",
-			words: "When hit by an enemy, attacker's DMG is reduced by 70% for 3 sec. This effect only activates once in 40 sec, and cannot be dispelled.",
 			curse: {
 				deals: .3,
 				lasts: 3,
 				every: 40
 			}
-		},
-		{
+		}, ({ curse }) => `When hit by an enemy, attacker's DMG is reduced by ${pct(1 - curse.deals)} for ${curse.lasts} sec. This effect only activates once in ${curse.every} sec, and cannot be dispelled.`),
+		said({
 			name: "Goddess Blessing",
-			words: "All allies' Crit Chance is increased by 150. When overlapped with the same perk, only gains 50.",
 			allies: { crit: aura(150, 50) }
-		},
-		{
+		}, ({ allies }) => `All allies' Crit Chance is increased by ${allies.crit.first}. When overlapped with the same perk, only gains ${allies.crit.again}.`),
+		said({
 			name: "Inner Peace",
-			words: "Per every sec, all allies' HP is healed by 1%, and CC resistance is increased by 75. When overlapped with the same perk, only 0.3% HP per sec is healed, and CC resistance is increased by 25.",
 			allies: {
 				mend: aura(.01, .003),
 				resist: aura(75, 25)
 			}
-		},
+		}, ({ allies: { mend, resist } }) => `Per every sec, all allies' HP is healed by ${fine(mend.first)}, and CC resistance is increased by ${resist.first}. When overlapped with the same perk, only ${fine(mend.again)} HP per sec is healed, and CC resistance is increased by ${resist.again}.`),
 		BLESSING_OF_MANA,
-		{
+		said({
 			name: "Swiftness",
-			words: "All allies' ATK Spd is increased by 150. When overlapped with the same perk, only gains 50.",
 			allies: { speed: aura(150, 50) }
-		}
+		}, ({ allies }) => `All allies' ATK Spd is increased by ${allies.speed.first}. When overlapped with the same perk, only gains ${allies.speed.again}.`)
 	],
 	wizard: [
-		{
+		said({
 			name: "Deception",
-			words: "When receiving DMG, becomes immune to the next 3 hits of DMG. This effect is activated every 40 sec.",
 			immunity: {
 				hits: 3,
 				every: 40
 			}
-		},
-		{
+		}, ({ immunity }) => `When receiving DMG, becomes immune to the next ${immunity.hits} hits of DMG. This effect is activated every ${immunity.every} sec.`),
+		said({
 			name: "Moral Rise",
-			words: "All allies' ATK is increased by 15%. When overlapped with the same perk, only 3% applies.",
 			allies: { atk: aura(.15, .03) }
-		},
+		}, ({ allies }) => `All allies' ATK is increased by ${pct(allies.atk.first)}. When overlapped with the same perk, only ${pct(allies.atk.again)} applies.`),
 		BLESSING_OF_MANA,
-		{
+		said({
 			name: "Circuit Burst",
-			words: "Receives 20% more DMG but gains 40% ATK. ACC is increased by 200.",
 			bonus: { atk: .4 },
 			taken: 1.2,
 			acc: 200
-		},
-		{
+		}, ({ bonus, taken, acc }) => `Receives ${pct(taken - 1)} more DMG but gains ${pct(bonus.atk)} ATK. ACC is increased by ${acc}.`),
+		said({
 			name: "Destruction",
-			words: "Increases Crit Chance by 200 and DEF Penetration by 200.",
 			bonus: {
 				crit: 200,
 				pen: 200
 			}
-		}
+		}, ({ bonus }) => `Increases Crit Chance by ${bonus.crit} and DEF Penetration by ${bonus.pen}.`)
 	],
 	assassin: [
 		TARGET_WEAKNESS,
-		{
+		said({
 			name: "Swift and Nimble",
-			words: "Per every sec, Dodge rate is increased by 100. This effect can be stacked up to max 5 times, and resets upon dodging an attack.",
 			nimble: {
 				dodge: 100,
 				most: 5
 			}
-		},
+		}, ({ nimble }) => `Per every sec, Dodge rate is increased by ${nimble.dodge}. This effect can be stacked up to max ${nimble.most} times, and resets upon dodging an attack.`),
 		TACTICAL_FORESIGHT,
 		OPPORTUNE_STRIKE,
-		{
+		said({
 			name: "Vital Detection",
-			words: "Upon Attack, causes the target to take 10% increased All DMG and have their ATK Spd reduced by 100 for 10 sec. This effect activates once every 3 sec.",
 			mark: {
 				name: "Vital Detection",
 				takes: 1.1,
 				lasts: 10,
 				every: 3
 			}
-		}
+		}, ({ mark }) => `Upon Attack, causes the target to take ${pct(mark.takes - 1)} increased All DMG and have their ATK Spd reduced by 100 for ${mark.lasts} sec. This effect activates once every ${mark.every} sec.`)
 	],
 	archer: [
 		{
@@ -2059,67 +2044,58 @@ var CLASS_PERKS = {
 		}
 	],
 	knight: [
-		{
+		said({
 			name: "Experienced Fighter",
-			words: "Attacked targets take 20% more DMG. Does not stack.",
 			mark: {
 				name: "Experienced Fighter",
 				takes: 1.2,
 				lasts: Infinity
 			}
-		},
-		{
+		}, ({ mark }) => `Attacked targets take ${pct(mark.takes - 1)} more DMG. Does not stack.`),
+		said({
 			name: "Excellent Strategy",
-			words: "All allies' CC ACC is increased by 150. When overlapped with the same perk, only 50 applies.",
 			allies: { accuracy: aura(150, 50) }
-		},
-		{
+		}, ({ allies }) => `All allies' CC ACC is increased by ${allies.accuracy.first}. When overlapped with the same perk, only ${allies.accuracy.again} applies.`),
+		said({
 			name: "Battle Cry",
-			words: "All allies' Max HP is increased by 15%. When overlapped with the same perk, only 5% of effect applies.",
 			allies: { hp: aura(.15, .05) }
-		},
-		{
+		}, ({ allies }) => `All allies' Max HP is increased by ${pct(allies.hp.first)}. When overlapped with the same perk, only ${pct(allies.hp.again)} of effect applies.`),
+		said({
 			name: "Shield of Protection",
-			words: "Block Rate is increased by 200 and CC resistance is increased by 300.",
 			bonus: {
 				block: 200,
 				resist: 300
 			}
-		},
-		{
+		}, ({ bonus }) => `Block Rate is increased by ${bonus.block} and CC resistance is increased by ${bonus.resist}.`),
+		said({
 			name: "Swift Move",
-			words: "Increases ATK Spd by 400 and ACC by 200.",
 			bonus: { speed: 400 },
 			acc: 200
-		}
+		}, ({ bonus, acc }) => `Increases ATK Spd by ${bonus.speed} and ACC by ${acc}.`)
 	],
 	mechanic: [
 		TARGET_WEAKNESS,
-		{
+		said({
 			name: "Ready Cannons",
-			words: "Mana recovery per second rises by 62.5% per every enemy.",
 			bonus: { manaRegen: .625 }
-		},
-		{
+		}, ({ bonus }) => `Mana recovery per second rises by ${fine(bonus.manaRegen)} per every enemy.`),
+		said({
 			name: "Pressure Point",
-			words: "Crit Chance is increased by 400.",
 			bonus: { crit: 400 }
-		},
-		{
+		}, ({ bonus }) => `Crit Chance is increased by ${bonus.crit}.`),
+		said({
 			name: "Special Bullet",
-			words: "Attacked target loses 15% of ATK and 150 of Crit Chance. Does not stack.",
 			mark: {
 				name: "Special Bullet",
 				deals: .85,
-				crit: -.15,
+				crit: -share(150),
 				lasts: Infinity
 			}
-		},
-		{
+		}, ({ mark }) => `Attacked target loses ${pct(1 - mark.deals)} of ATK and ${Math.round(-mark.crit * POINTS)} of Crit Chance. Does not stack.`),
+		said({
 			name: "Amplified Gunpowder",
-			words: "Increases Crit DMG of all allies by 30%. When overlapped with the same perk, only 10% of effect applies.",
 			allies: { critDamage: aura(.3, .1) }
-		}
+		}, ({ allies }) => `Increases Crit DMG of all allies by ${pct(allies.critDamage.first)}. When overlapped with the same perk, only ${pct(allies.critDamage.again)} of effect applies.`)
 	]
 };
 /** The perk `id` names for the hero `def` (null: none, or one this fight doesn't know). */
@@ -2199,13 +2175,15 @@ function perkedStats(stats, perks) {
 	for (const perk of perks) if (perk.atkFromDefense) stats.atk += perk.atkFromDefense * stats.physical;
 	return stats;
 }
-/** A hero's Transcend 5 Light: ATK, DEF and HP +15%, and `more` of its own (as gear gives it). */
-var t5Light = (words, more) => ({
-	words,
+/** What every hero's Transcend 5 Light gives: ATK, DEF and HP so much more. */
+var T5_LIGHT = .15;
+/** A hero's Transcend 5 Light: ATK, DEF and HP +15%, and `more` of its own (as gear gives it), which `says` puts in words. */
+var t5Light = (more, says) => ({
+	words: `ATK, DEF, HP +${pct(T5_LIGHT)} / ${says(more)}`,
 	bonus: {
-		atk: .15,
-		defense: .15,
-		hp: .15,
+		atk: T5_LIGHT,
+		defense: T5_LIGHT,
+		hp: T5_LIGHT,
 		...more
 	}
 });
@@ -3413,38 +3391,29 @@ var ANNETTE = {
 	],
 	passive: CHARGING,
 	perks: {
-		"s1-light": {
-			words: "Target takes 25% increased M.DMG for 10 sec.",
-			skill: {
-				index: 0,
-				mark: {
-					name: "Magic Weakness",
-					takes: { magical: 1.25 },
-					lasts: 10
-				}
+		"s1-light": said({ skill: {
+			index: 0,
+			mark: {
+				name: "Magic Weakness",
+				takes: { magical: 1.25 },
+				lasts: 10
 			}
-		},
-		"s1-dark": { words: "Charge amount is boosted by 40% upon use." },
-		"s2-light": {
-			words: "Cooldown is reduced by 3 sec.",
-			skill: {
-				index: 1,
-				cooldown: -3
-			}
-		},
-		"s2-dark": { words: "Charge amount is boosted by 40% upon use." },
-		"s3-light": {
-			words: "DMG is increased by 40%.",
-			skill: {
-				index: 2,
-				dmg: 1.4
-			}
-		},
-		"s3-dark": { words: "Target takes 25% increased M.DMG." },
-		"s4-light": { words: "ATK boost is increased by 40%." },
-		"s4-dark": { words: "Overcharge duration is increased by 3 sec." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +100", { speed: 100 }),
-		"t5-dark": { words: "When Overcharge activates, increases all allies' ATK Spd by 200, and increases the ATK of all allies by 5% of Annette's ATK." }
+		} }, ({ skill: { mark } }) => `Target takes ${pct(mark.takes.magical - 1)} increased M.DMG for ${mark.lasts} sec.`),
+		"s1-dark": { words: `Charge amount is boosted by ${pct(PERKS$10.charge - 1)} upon use.` },
+		"s2-light": said({ skill: {
+			index: 1,
+			cooldown: -3
+		} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
+		"s2-dark": { words: `Charge amount is boosted by ${pct(PERKS$10.charge - 1)} upon use.` },
+		"s3-light": said({ skill: {
+			index: 2,
+			dmg: 1.4
+		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s3-dark": { words: `Target takes ${pct(PERKS$10.eliminated)} increased M.DMG.` },
+		"s4-light": { words: `ATK boost is increased by ${pct(PERKS$10.overAtk - 1)}.` },
+		"s4-dark": { words: `Overcharge duration is increased by ${PERKS$10.overLonger} sec.` },
+		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
+		"t5-dark": { words: `When Overcharge activates, increases all allies' ATK Spd by ${PERKS$10.allies.speed}, and increases the ATK of all allies by ${pct(PERKS$10.allies.atk)} of Annette's ATK.` }
 	},
 	attack: "zap",
 	join(fight, self) {
@@ -3708,32 +3677,26 @@ var CLAUSE = {
 	],
 	passive: VOW_OF_KNIGHTS,
 	perks: {
-		"s1-light": {
-			words: "Cooldown is reduced by 2 sec.",
-			skill: {
-				index: 0,
-				cooldown: -2
-			}
-		},
+		"s1-light": said({ skill: {
+			index: 0,
+			cooldown: -2
+		} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
 		"s1-dark": { words: "In exchange for 1 additional Mana Cost, the skill has a 100% chance to draw the target in." },
-		"s2-light": {
-			words: "Target takes 25% increased P.DMG for 10 sec.",
-			skill: {
-				index: 1,
-				mark: {
-					name: "Physical Weakness",
-					takes: { physical: 1.25 },
-					lasts: 10
-				}
+		"s2-light": said({ skill: {
+			index: 1,
+			mark: {
+				name: "Physical Weakness",
+				takes: { physical: 1.25 },
+				lasts: 10
 			}
-		},
-		"s2-dark": { words: "Stuns the enemy for 1 sec." },
-		"s3-light": { words: "DEF boost is increased by 40%." },
-		"s3-dark": { words: "Receives 25% reduced P.DMG for the duration." },
+		} }, ({ skill: { mark } }) => `Target takes ${pct(mark.takes.physical - 1)} increased P.DMG for ${mark.lasts} sec.`),
+		"s2-dark": { words: `Stuns the enemy for ${PERKS$9.bashStun} sec.` },
+		"s3-light": { words: `DEF boost is increased by ${pct(PERKS$9.guardMore - 1)}.` },
+		"s3-dark": { words: `Receives ${pct(1 - PERKS$9.guardPhysical)} reduced P.DMG for the duration.` },
 		"s4-light": { words: "Casting time is greatly boosted." },
-		"s4-dark": { words: "Reduces an additional 10% of ATK." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / P.Block +200", { blockPhysical: 200 }),
-		"t5-dark": { words: "When an ally other than this hero is hit by an attack, increases all allies' P.DEF by 20% and P.Crit Resist by 20% (10 sec Cooldown)." }
+		"s4-dark": { words: `Reduces an additional ${pct(PERKS$9.weaker)} of ATK.` },
+		"t5-light": t5Light({ blockPhysical: 200 }, ({ blockPhysical }) => `P.Block +${blockPhysical}`),
+		"t5-dark": { words: `When an ally other than this hero is hit by an attack, increases all allies' P.DEF by ${pct(PERKS$9.ward.defends - 1)} and P.Crit Resist by ${pct(share(PERKS$9.ward.critResist))} (${PERKS$9.ward.every} sec Cooldown).` }
 	},
 	attack: "swing",
 	timing: {
@@ -3935,33 +3898,24 @@ var EZEKIEL = {
 	],
 	passive: CURSED_BLOOD,
 	perks: {
-		"s1-light": {
-			words: "DMG is increased by 40%.",
-			skill: {
-				index: 0,
-				dmg: 1.4
-			}
-		},
-		"s1-dark": { words: "After activation, ATK is increased by 40% for 5 sec." },
-		"s2-light": {
-			words: "Mana cost is reduced by 1.",
-			skill: {
-				index: 1,
-				cost: -1
-			}
-		},
+		"s1-light": said({ skill: {
+			index: 0,
+			dmg: 1.4
+		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s1-dark": { words: `After activation, ATK is increased by ${pct(PERKS$8.atk - 1)} for ${PERKS$8.atkFor} sec.` },
+		"s2-light": said({ skill: {
+			index: 1,
+			cost: -1
+		} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
 		"s2-dark": { words: "When activated during Fury state, ignores target DEF." },
 		"s3-light": { words: "Becomes immune to CC during activation." },
-		"s3-dark": {
-			words: "If there is 1 enemy, DMG is increased by 100%.",
-			skill: {
-				index: 2,
-				dmg: 2
-			}
-		},
-		"s4-light": { words: "When in Fury state, heal rate is increased by 50%." },
-		"s4-dark": { words: "Per every stacked 'Cursed Blood', takes 12% reduced DMG." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +100", { speed: 100 }),
+		"s3-dark": said({ skill: {
+			index: 2,
+			dmg: 2
+		} }, ({ skill }) => `If there is 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s4-light": { words: `When in Fury state, heal rate is increased by ${pct(PERKS$8.heals - 1)}.` },
+		"s4-dark": { words: `Per every stacked 'Cursed Blood', takes ${pct(PERKS$8.taken)} reduced DMG.` },
+		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
 		"t5-dark": { words: "When in Fury state, auto attack deals DMG that ignores DEF." }
 	},
 	attack: "claw",
@@ -4236,28 +4190,22 @@ var FALLEN_FREY = {
 	],
 	passive: TAINTED_ANGEL,
 	perks: {
-		"s1-light": { words: "Increases All DMG the hit enemies take by 20% for 10 sec." },
-		"s1-dark": {
-			words: "Increases Mana Cost by 1 and Heal Rate by 100%.",
-			skill: {
-				index: 0,
-				cost: 1
-			}
-		},
+		"s1-light": { words: `Increases All DMG the hit enemies take by ${pct(PERKS$7.light.takes - 1)} for ${PERKS$7.light.lasts} sec.` },
+		"s1-dark": said({ skill: {
+			index: 0,
+			cost: 1
+		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and Heal Rate by ${pct(PERKS$7.light.heals - 1)}.`),
 		"s2-light": { words: "Changes the target of shield to all allies." },
-		"s2-dark": { words: "Increases All Block Chance of shielded allies by 400." },
-		"s3-light": {
-			words: "Increases DMG by 40%.",
-			skill: {
-				index: 2,
-				dmg: 1.4
-			}
-		},
+		"s2-dark": { words: `Increases All Block Chance of shielded allies by ${PERKS$7.block}.` },
+		"s3-light": said({ skill: {
+			index: 2,
+			dmg: 1.4
+		} }, ({ skill }) => `Increases DMG by ${pct(skill.dmg - 1)}.`),
 		"s3-dark": { words: "Each hit reduces Mana by 200." },
-		"s4-light": { words: "At the beginning of the first battle, grants [Blessing of the Fallen Angel] to all allies excluding self, reducing All DMG the targets take by 10% and increasing All DEF by 20%. The [Blessing of the Fallen Angel] effect is irremovable." },
-		"s4-dark": { words: "At the beginning of the first battle, grants [Bond of the Fallen Angel] to 1 ally with the highest ATK excluding self, increasing the target's ATK Spd by 200 and ATK equal to 7% of Fallen Frey's ATK. The [Bond of the Fallen Angel] effect is irremovable." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / Crit Chance +100", { crit: 100 }),
-		"t5-dark": { words: "At the beginning of each battle, increases ATK Spd of the ally with the highest ATK excluding self by 150 and its DMG dealt to Non-Hero enemies by 15% for 30 sec. This effect is irremovable." }
+		"s4-light": { words: `At the beginning of the first battle, grants [Blessing of the Fallen Angel] to all allies excluding self, reducing All DMG the targets take by ${pct(1 - PERKS$7.blessing.takes)} and increasing All DEF by ${pct(PERKS$7.blessing.defends - 1)}. The [Blessing of the Fallen Angel] effect is irremovable.` },
+		"s4-dark": { words: `At the beginning of the first battle, grants [Bond of the Fallen Angel] to 1 ally with the highest ATK excluding self, increasing the target's ATK Spd by ${PERKS$7.bond.speed} and ATK equal to ${pct(PERKS$7.bond.atk)} of Fallen Frey's ATK. The [Bond of the Fallen Angel] effect is irremovable.` },
+		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
+		"t5-dark": { words: `At the beginning of each battle, increases ATK Spd of the ally with the highest ATK excluding self by ${PERKS$7.favour.speed} and its DMG dealt to Non-Hero enemies by ${pct(PERKS$7.favour.deals - 1)} for ${PERKS$7.favour.lasts} sec. This effect is irremovable.` }
 	},
 	attack: "smite",
 	timing: { skills: {
@@ -4526,31 +4474,22 @@ var GREMORY = {
 	passive: LAZY,
 	perks: {
 		"s1-light": { words: "When there is 1 enemy, additional M.DMG dealt to bosses ignores DEF." },
-		"s1-dark": { words: "[Pochi's Mark] additionally reduces M.DEF by 6%." },
+		"s1-dark": { words: `[Pochi's Mark] additionally reduces M.DEF by ${pct(PERKS$6.softer)}.` },
 		"s2-light": { words: "The M.Block Chance Reduction effect of [Puchi's Mark] will fix the M.Block Chance to 0 instead." },
 		"s2-dark": { words: "Knocks the target away instead of inflicting Stun." },
-		"s3-light": {
-			words: "Reduces Mana Cost by 1.",
-			skill: {
-				index: 2,
-				cost: -1
-			}
-		},
-		"s3-dark": {
-			words: "Increases Mana Cost by 1 and DMG by 100%.",
-			skill: {
-				index: 2,
-				cost: 1,
-				dmg: 2
-			}
-		},
-		"s4-light": { words: "Increases All DMG Reduction effect by 20% while in use." },
+		"s3-light": said({ skill: {
+			index: 2,
+			cost: -1
+		} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
+		"s3-dark": said({ skill: {
+			index: 2,
+			cost: 1,
+			dmg: 2
+		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and DMG by ${pct(skill.dmg - 1)}.`),
+		"s4-light": { words: `Increases All DMG Reduction effect by ${pct(PERKS$6.sleepier - 1)} while in use.` },
 		"s4-dark": { words: "At the beginning of each battle, [Eh, whatever. I'm gonna sleep.] becomes activated." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / Crit Chance +100", { crit: 100 }),
-		"t5-dark": {
-			words: "Increases DMG dealt to Non-Hero enemies by 50% when there is 1 enemy.",
-			dmg: 1.5
-		}
+		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
+		"t5-dark": said({ dmg: 1.5 }, ({ dmg }) => `Increases DMG dealt to Non-Hero enemies by ${pct(dmg - 1)} when there is 1 enemy.`)
 	},
 	attack: "nudge",
 	join(fight, self) {
@@ -4736,31 +4675,22 @@ var KIRZE = {
 	],
 	passive: EVIL_DEEDS,
 	perks: {
-		"s1-light": {
-			words: "Reduces Cooldown by 3% per each enemy hit.",
-			skill: {
-				index: 0,
-				cooldownShare: .97
-			}
-		},
-		"s1-dark": {
-			words: "If there is only 1 enemy, DMG is increased by 100%.",
-			skill: {
-				index: 0,
-				dmg: 2
-			}
-		},
-		"s2-light": { words: "The duration of stun from the shockwave increases by 0.5 sec against Non-Hero enemies." },
-		"s2-dark": { words: "While under [Arcane Crystal Awakening], self deals 20% increased DMG to Non-Hero enemies." },
-		"s3-light": { words: "Increases ATK Spd reduction by 300." },
+		"s1-light": said({ skill: {
+			index: 0,
+			cooldownShare: .97
+		} }, ({ skill }) => `Reduces Cooldown by ${pct(1 - skill.cooldownShare)} per each enemy hit.`),
+		"s1-dark": said({ skill: {
+			index: 0,
+			dmg: 2
+		} }, ({ skill }) => `If there is only 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s2-light": { words: `The duration of stun from the shockwave increases by ${PERKS$5.waveStun} sec against Non-Hero enemies.` },
+		"s2-dark": { words: `While under [Arcane Crystal Awakening], self deals ${pct(PERKS$5.awakeDmg - 1)} increased DMG to Non-Hero enemies.` },
+		"s3-light": { words: `Increases ATK Spd reduction by ${PERKS$5.slower}.` },
 		"s3-dark": { words: "If there is only 1 enemy, inflicts 2 stacks of [Arcane Crystal Energy]." },
-		"s4-light": { words: "At the beginning of each battle, self deals 25% increased DMG to Non-Hero enemies for 20 sec." },
-		"s4-dark": {
-			words: "Deals 15% increased DMG to Bosses.",
-			dmg: 1.15
-		},
-		"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +100", { speed: 100 }),
-		"t5-dark": { words: "Every normal and Skill attack increases ATK Spd by 5. This effect can be stacked up to max 100 times." }
+		"s4-light": { words: `At the beginning of each battle, self deals ${pct(PERKS$5.openingDmg - 1)} increased DMG to Non-Hero enemies for ${PERKS$5.opening} sec.` },
+		"s4-dark": said({ dmg: 1.15 }, ({ dmg }) => `Deals ${pct(dmg - 1)} increased DMG to Bosses.`),
+		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
+		"t5-dark": { words: `Every normal and Skill attack increases ATK Spd by ${PERKS$5.quicker}. This effect can be stacked up to max ${PERKS$5.most} times.` }
 	},
 	timing: { attack: [{
 		lands: [1.29],
@@ -4995,25 +4925,19 @@ var LAIAS = {
 	],
 	passive: BLESSING,
 	perks: {
-		"s1-light": { words: "Heal rate is increased by 40%." },
-		"s1-dark": { words: "Upon healing, M.Crit Resistance rises by 25%." },
+		"s1-light": { words: `Heal rate is increased by ${pct(PERKS$4.heals - 1)}.` },
+		"s1-dark": { words: `Upon healing, M.Crit Resistance rises by ${pct(share(PERKS$4.critResist))}.` },
 		"s2-light": { words: "Changes the target to the ally with the highest ATK." },
-		"s2-dark": {
-			words: "Mana cost is reduced by 1.",
-			skill: {
-				index: 1,
-				cost: -1
-			}
-		},
-		"s3-light": { words: "DMG effect occurs every 3 sec." },
-		"s3-dark": { words: "Heals all allies by 15% of their max HP." },
-		"s4-light": { words: "M.DEF increase rate increases by 20%, and M.Crit Resistance increases by 150." },
-		"s4-dark": {
-			words: "Increases self CC Resist by 400.",
-			bonus: { resist: 400 }
-		},
-		"t5-light": t5Light("ATK, DEF, HP +15% / M.Block +200", { blockMagical: 200 }),
-		"t5-dark": { words: "Recovers 350 Mana of all allies every 3 sec." }
+		"s2-dark": said({ skill: {
+			index: 1,
+			cost: -1
+		} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
+		"s3-light": { words: `DMG effect occurs every ${PERKS$4.whirl} sec.` },
+		"s3-dark": { words: `Heals all allies by ${pct(PERKS$4.festival)} of their max HP.` },
+		"s4-light": { words: `M.DEF increase rate increases by ${pct(PERKS$4.defense - 1)}, and M.Crit Resistance increases by ${PERKS$4.critResistMore}.` },
+		"s4-dark": said({ bonus: { resist: PERKS$4.resist } }, ({ bonus }) => `Increases self CC Resist by ${bonus.resist}.`),
+		"t5-light": t5Light({ blockMagical: 200 }, ({ blockMagical }) => `M.Block +${blockMagical}`),
+		"t5-dark": { words: `Recovers ${PERKS$4.mana.each} Mana of all allies every ${PERKS$4.mana.every} sec.` }
 	},
 	attack: "splash",
 	join(fight, self) {
@@ -5217,6 +5141,7 @@ var POISON = {
 };
 /** Her own perks' numbers: Thornbush Forest's shackle at full Poison, Tangled Vine's more DMG and its stun after, more Poison at most, Blade Leaf's shackle (its chance), and Transcend 5's Dark's Thornbush Forest (how often, its chance). */
 var PERKS$3 = {
+	hits: 1,
 	full: 5,
 	shackle: 3,
 	vine: 1.4,
@@ -5289,29 +5214,23 @@ var LORRAINE = {
 	],
 	passive: BLADE_LEAF,
 	perks: {
-		"s1-light": { words: "Hit count is increased by 1." },
-		"s1-dark": { words: "Enemies with 5 or more stacks of Poison are shackled for 3 sec upon hit." },
-		"s2-light": {
-			words: "DMG is increased by 40%.",
-			skill: {
-				index: 1,
-				dmg: 1.4
-			}
-		},
-		"s2-dark": { words: "Enemies hit by the final explosion effect are stunned for 2 sec." },
-		"s3-light": {
-			words: "Mana cost is increased by 1 orb but DMG is boosted by 100%.",
-			skill: {
-				index: 2,
-				cost: 1,
-				dmg: 2
-			}
-		},
+		"s1-light": { words: `Hit count is increased by ${PERKS$3.hits}.` },
+		"s1-dark": { words: `Enemies with ${PERKS$3.full} or more stacks of Poison are shackled for ${PERKS$3.shackle} sec upon hit.` },
+		"s2-light": said({ skill: {
+			index: 1,
+			dmg: PERKS$3.vine
+		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s2-dark": { words: `Enemies hit by the final explosion effect are stunned for ${PERKS$3.after} sec.` },
+		"s3-light": said({ skill: {
+			index: 2,
+			cost: 1,
+			dmg: 2
+		} }, ({ skill }) => `Mana cost is increased by ${skill.cost} orb but DMG is boosted by ${pct(skill.dmg - 1)}.`),
 		"s3-dark": { words: "Enemies with 5 or more stacks of Poison lose their positive effects." },
-		"s4-light": { words: "Poison stack maximum is changed to 6." },
-		"s4-dark": { words: "There is a 20% chance that hit enemies are shackled for 2 sec." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / Crit Chance +100", { crit: 100 }),
-		"t5-dark": { words: "Every 5 sec, targets all enemies and attacks with 'Thornbush Forest' with 30% chance on each enemy." }
+		"s4-light": { words: `Poison stack maximum is changed to ${PERKS$3.most}.` },
+		"s4-dark": { words: `There is a ${pct(PERKS$3.leaf.chance)} chance that hit enemies are shackled for ${PERKS$3.leaf.shackle} sec.` },
+		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
+		"t5-dark": { words: `Every ${PERKS$3.forest.every} sec, targets all enemies and attacks with 'Thornbush Forest' with ${pct(PERKS$3.forest.chance)} chance on each enemy.` }
 	},
 	attack: "lash",
 	join(fight, self) {
@@ -5358,7 +5277,7 @@ var LORRAINE = {
 				},
 				thornbush(part) {
 					thorn();
-					if (part === THORNS.hits - 1 && self.perks.has("s1-light")) thorn();
+					if (part === THORNS.hits - 1 && self.perks.has("s1-light")) for (let i = 0; i < PERKS$3.hits; i++) thorn();
 				},
 				vine() {
 					fight.hit(self, VINE.blow);
@@ -5570,28 +5489,22 @@ var MORRAH = {
 	],
 	passive: FIRE_SMASH,
 	perks: {
-		"s1-light": { words: "ATK Spd is increased by 200 for 15 sec." },
-		"s1-dark": {
-			words: "Reduces cooldown by 6% per each enemy hit.",
-			skill: {
-				index: 0,
-				cooldownShare: .94
-			}
-		},
-		"s2-light": { words: "M.Block rate is boosted by 20%." },
+		"s1-light": { words: `ATK Spd is increased by ${PERKS$2.quicker} for ${BURNING.lasts} sec.` },
+		"s1-dark": said({ skill: {
+			index: 0,
+			cooldownShare: .94
+		} }, ({ skill }) => `Reduces cooldown by ${pct(1 - skill.cooldownShare)} per each enemy hit.`),
+		"s2-light": { words: `M.Block rate is boosted by ${pct(PERKS$2.block - 1)}.` },
 		"s2-dark": { words: "While Hellfire is active, deals DMG based on own M.DEF to nearby enemies." },
-		"s3-light": {
-			words: "DMG is increased by 40%.",
-			skill: {
-				index: 2,
-				dmg: 1.4
-			}
-		},
-		"s3-dark": { words: "Heals HP equal to 40% of DMG dealt." },
-		"s4-light": { words: "Increases own M.DEF by 5% per each block. Max stack is 10." },
-		"s4-dark": { words: "Target with over 100 stacks of Flame takes 40% increased M.DMG." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / M.Block +200", { blockMagical: 200 }),
-		"t5-dark": { words: "Flame stack DMG is increased by 100%, and max stack number is changed to 120." }
+		"s3-light": said({ skill: {
+			index: 2,
+			dmg: 1.4
+		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s3-dark": { words: `Heals HP equal to ${pct(PERKS$2.drain)} of DMG dealt.` },
+		"s4-light": { words: `Increases own M.DEF by ${pct(PERKS$2.harder.defense)} per each block. Max stack is ${PERKS$2.harder.most}.` },
+		"s4-dark": { words: `Target with over ${FLAME.most} stacks of Flame takes ${pct(PERKS$2.full)} increased M.DMG.` },
+		"t5-light": t5Light({ blockMagical: 200 }, ({ blockMagical }) => `M.Block +${blockMagical}`),
+		"t5-dark": { words: `Flame stack DMG is increased by ${pct(PERKS$2.flame.each - 1)}, and max stack number is changed to ${PERKS$2.flame.most}.` }
 	},
 	attack: "cleave",
 	timing: { attack: [{
@@ -5773,6 +5686,7 @@ var PERKS$1 = {
 		heals: .5,
 		lasts: 5
 	},
+	blossomCost: 1,
 	mana: .2 * SECTION,
 	taken: .007,
 	opening: {
@@ -5879,45 +5793,33 @@ var SERIA = {
 	],
 	passive: COLD_BLOODED,
 	perks: {
-		"s1-light": {
-			words: "[Mysterious Sword - Falling Petals] - Mana cost is reduced by 1. [Mysterious Sword - Blossom] - Hit enemies' heal rate is reduced by 50% for 5 sec.",
-			skill: {
-				index: 0,
-				cost: -1
+		"s1-light": said({ skill: {
+			index: 0,
+			cost: -1
+		} }, ({ skill }) => `[Mysterious Sword - Falling Petals] - Mana cost is reduced by ${-skill.cost}. [Mysterious Sword - Blossom] - Hit enemies' heal rate is reduced by ${pct(1 - PERKS$1.unhealed.heals)} for ${PERKS$1.unhealed.lasts} sec.`),
+		"s1-dark": said({ skill: {
+			index: 0,
+			mark: {
+				name: "Magic Weakness",
+				takes: { magical: 1.25 },
+				lasts: 10
 			}
-		},
-		"s1-dark": {
-			words: "[Mysterious Sword - Falling Petals] - Target takes 25% increased M.DMG for 10 sec. [Mysterious Sword - Blossom] - Mana cost is increased by 1, and ignores enemy's DEF.",
-			skill: {
-				index: 0,
-				mark: {
-					name: "Magic Weakness",
-					takes: { magical: 1.25 },
-					lasts: 10
-				}
-			}
-		},
-		"s2-light": {
-			words: "Reduces Mana Cost by 1.",
-			skill: {
-				index: 1,
-				cost: -1
-			}
-		},
-		"s2-dark": { words: "Upon each DMG dealt, recovers 200 Mana." },
+		} }, ({ skill: { mark } }) => `[Mysterious Sword - Falling Petals] - Target takes ${pct(mark.takes.magical - 1)} increased M.DMG for ${mark.lasts} sec. [Mysterious Sword - Blossom] - Mana cost is increased by ${PERKS$1.blossomCost}, and ignores enemy's DEF.`),
+		"s2-light": said({ skill: {
+			index: 1,
+			cost: -1
+		} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
+		"s2-dark": { words: `Upon each DMG dealt, recovers ${PERKS$1.mana} Mana.` },
 		"s3-light": { words: "Dispels positive effects of all enemies in range." },
-		"s3-dark": {
-			words: "Increases Mana Cost by 1 and ignores DEF when attacking Non-Hero enemies.",
-			skill: {
-				index: 2,
-				cost: 1,
-				whole: true
-			}
-		},
-		"s4-light": { words: "Takes 0.7% reduced DMG per stack." },
-		"s4-dark": { words: "When the battle starts, increases DMG to Non-Hero enemies by 25% for 200 sec." },
-		"t5-light": t5Light("ATK, DEF, HP +15% / Crit DMG +20%", { critDamage: .2 }),
-		"t5-dark": { words: "All of caster's attacks will be critical hits, but the caster becomes unable to block while taking 25% increased damage." }
+		"s3-dark": said({ skill: {
+			index: 2,
+			cost: 1,
+			whole: true
+		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and ignores DEF when attacking Non-Hero enemies.`),
+		"s4-light": { words: `Takes ${fine(PERKS$1.taken)} reduced DMG per stack.` },
+		"s4-dark": { words: `When the battle starts, increases DMG to Non-Hero enemies by ${pct(PERKS$1.opening.deals - 1)} for ${PERKS$1.opening.lasts} sec.` },
+		"t5-light": t5Light({ critDamage: .2 }, ({ critDamage }) => `Crit DMG +${pct(critDamage)}`),
+		"t5-dark": { words: `All of caster's attacks will be critical hits, but the caster becomes unable to block while taking ${pct(PERKS$1.reckless - 1)} increased damage.` }
 	},
 	timing: { attack: [{
 		lands: [.86],
@@ -5937,7 +5839,7 @@ var SERIA = {
 		const tier = self.unique?.tier ?? null;
 		const blossomSkill = self.perks.has("s1-dark") ? {
 			...BLOSSOM_SKILL,
-			cost: BLOSSOM_SKILL.cost + 1
+			cost: BLOSSOM_SKILL.cost + PERKS$1.blossomCost
 		} : BLOSSOM_SKILL;
 		if (self.perks.has("s4-dark")) put(self.statuses, {
 			name: OPENING.name,
@@ -6209,22 +6111,19 @@ var HEROES = [
 		],
 		passive: AWAKENED,
 		perks: {
-			"s1-light": { words: "[Hologram] applies to 2 allies with the highest ATK." },
-			"s1-dark": { words: "[Hologram] additionally increases Crit DMG by 50%." },
-			"s2-light": { words: "[Violet Force Field] additionally reduces DMG taken by 25%." },
-			"s2-dark": { words: "[Violet Force Field] additionally increases ATK Spd by 300." },
+			"s1-light": { words: `[Hologram] applies to ${PERKS.holograms} allies with the highest ATK.` },
+			"s1-dark": { words: `[Hologram] additionally increases Crit DMG by ${pct(PERKS.critDamage)}.` },
+			"s2-light": { words: `[Violet Force Field] additionally reduces DMG taken by ${pct(1 - PERKS.fieldTaken)}.` },
+			"s2-dark": { words: `[Violet Force Field] additionally increases ATK Spd by ${PERKS.fieldSpeed}.` },
 			"s3-light": { words: "Dispels positive effects from the hit target." },
-			"s3-dark": {
-				words: "Reduces Mana Cost by 1.",
-				skill: {
-					index: 2,
-					cost: -1
-				}
-			},
-			"s4-light": { words: "Reduces DMG all allies take by 30% in Technomagic Kingdom." },
-			"s4-dark": { words: "Additionally increases all allies' DMG dealt to Bosses by 15% in Technomagic Kingdom." },
-			"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +10%", { speed: 100 }),
-			"t5-dark": { words: "Reduces all DMG all allies take by 2.5% and increases All DMG all enemies take by 2.5%. This effect can be stacked up to the number of Technomagic Gear equipped to self." }
+			"s3-dark": said({ skill: {
+				index: 2,
+				cost: -1
+			} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
+			"s4-light": { words: `Reduces DMG all allies take by ${pct(1 - PERKS.taken)} in Technomagic Kingdom.` },
+			"s4-dark": { words: `Additionally increases all allies' DMG dealt to Bosses by ${pct(PERKS.boss)} in Technomagic Kingdom.` },
+			"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${pct(share(speed))}`),
+			"t5-dark": { words: `Reduces all DMG all allies take by ${fine(PERKS.piece)} and increases All DMG all enemies take by ${fine(PERKS.piece)}. This effect can be stacked up to the number of Technomagic Gear equipped to self.` }
 		},
 		attack: "bolt",
 		join(fight, self) {
@@ -6391,7 +6290,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "86bf5df623a3";
+var SIM_VERSION = "be7890f44904";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
