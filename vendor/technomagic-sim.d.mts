@@ -65,6 +65,19 @@ export interface TmHero {
     name: string;
     class: string;
     skins: number;
+    /** Its three skills, then its passive: as the heroes page says them (King's Raid's words, with the fight's numbers). */
+    skills: TmHeroSkill[];
+}
+/**
+ * A hero's skill as the heroes page says it: its name; its mana cost and cooldown (seconds; a passive has neither);
+ * what its tag says besides its cost, where not its cooldown (or, a passive's, where not "Passive"); and its words.
+ */
+export interface TmHeroSkill {
+    name: string;
+    cost: number | null;
+    cooldown: number | null;
+    tag: string | null;
+    text: string;
 }
 /** The heroes there are, in the order of their cards; and the bosses, by id. */
 export declare const TM_HEROES: readonly TmHero[];

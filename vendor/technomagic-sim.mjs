@@ -651,7 +651,7 @@ var CLASS_STATS = {
 //#endregion
 //#region src/technomagic/sim/heroes/moves.ts
 /** `count` blows, the first `first` seconds in and each `every` after the last. */
-var every = (count, first, step) => Array.from({ length: count }, (_, i) => first + i * step);
+var every$1 = (count, first, step) => Array.from({ length: count }, (_, i) => first + i * step);
 /** Each move written in code: the ones every hero has (its attack, a plain cast, being hit), then each hero's own. */
 var CODED = {
 	attack: {
@@ -722,7 +722,7 @@ var CODED = {
 		until: 1.45
 	},
 	vengeance: {
-		lands: every(20, .7, .12),
+		lands: every$1(20, .7, .12),
 		until: 3.85
 	},
 	nudge: {
@@ -730,7 +730,7 @@ var CODED = {
 		until: 1.43
 	},
 	pochi: {
-		lands: every(5, .5, .2),
+		lands: every$1(5, .5, .2),
 		until: 1.95
 	},
 	puchi: {
@@ -738,7 +738,7 @@ var CODED = {
 		until: 1.4
 	},
 	pippi: {
-		lands: every(10, .6, .15),
+		lands: every$1(10, .6, .15),
 		until: 2.6
 	},
 	sleep: {
@@ -862,7 +862,7 @@ var CODED = {
 		until: 1.45
 	},
 	cannon: {
-		lands: every(10, .8, .15),
+		lands: every$1(10, .8, .15),
 		until: 2.6
 	}
 };
@@ -1032,6 +1032,21 @@ var skillArt = (hero) => (skill) => ({
 });
 /** A share as a whole percentage (0.25: "25%"). */
 var pct = (share) => `${Math.round(share * 100)}%`;
+/** How many times as much, as a card says it ("twice", "three times"), and as King's Raid does ("doubled", "tripled"); and a place in a count ("3rd"). */
+var times = (n) => n === 2 ? "twice" : n === 3 ? "three times" : `${n} times`;
+var fold = (n) => n === 2 ? "doubled" : n === 3 ? "tripled" : `${n} times as much`;
+var nth = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : [
+	"th",
+	"st",
+	"nd",
+	"rd"
+][n % 10] ?? "th"}`;
+/** So many seconds, as a card says it ("1 second", "3 seconds"). */
+var seconds = (n) => `${n} second${n === 1 ? "" : "s"}`;
+/** Every so many seconds ("every second", "every 3 seconds"). */
+var every = (n) => n === 1 ? "every second" : `every ${n} seconds`;
+/** A number as King's Raid writes it, its thousands set apart (12000: "12,000"). */
+var num = (n) => n.toLocaleString("en-US");
 /** To a tenth of a percent (0.048: "4.8%"). */
 var fine = (share) => `${Math.round(share * 1e3) / 10}%`;
 //#endregion
@@ -1274,235 +1289,235 @@ var SKILLS = [
 		id: "vigor",
 		name: "Vigor",
 		tier: "S",
-		about: "Increases DMG dealt by 25% while HP is above 75%."
+		about: `Increases DMG dealt by ${pct(SKILL.vigor.dmg)} while HP is above ${pct(SKILL.vigor.above)}.`
 	},
 	{
 		id: "persistence",
 		name: "Persistence",
 		tier: "S",
-		about: "Increases DMG dealt by 3% every 15 seconds (up to 12 times)."
+		about: `Increases DMG dealt by ${pct(SKILL.persistence.dmg)} ${every(SKILL.persistence.every)} (up to ${SKILL.persistence.most} times).`
 	},
 	{
 		id: "war-cry",
 		name: "War Cry",
 		tier: "S",
-		about: "Increases ATK of all allies by 5%."
+		about: `Increases ATK of all allies by ${pct(SKILL["war-cry"].atk)}.`
 	},
 	{
 		id: "whetstone",
 		name: "Whetstone",
 		tier: "S",
-		about: "Increases crit DMG of all allies by 10%."
+		about: `Increases crit DMG of all allies by ${pct(SKILL.whetstone.critDamage)}.`
 	},
 	{
 		id: "champion",
 		name: "Champion",
 		tier: "S",
-		about: "At the start of the battle, increases DMG of the ally with the highest ATK by 2.5% for 200 seconds."
+		about: `At the start of the battle, increases DMG of the ally with the highest ATK by ${fine(SKILL.champion.dmg)} for ${seconds(SKILL.champion.lasts)}.`
 	},
 	{
 		id: "berserk",
 		name: "Berserk",
 		tier: "S",
-		about: "Reduces DEF by 25% and increases ATK by 50%."
+		about: `Reduces DEF by ${pct(-SKILL.berserk.defense)} and increases ATK by ${pct(SKILL.berserk.atk)}.`
 	},
 	{
 		id: "fortress",
 		name: "Fortress",
 		tier: "S",
-		about: "Reduces ATK by 20% and increases DEF by 50%."
+		about: `Reduces ATK by ${pct(-SKILL.fortress.atk)} and increases DEF by ${pct(SKILL.fortress.defense)}.`
 	},
 	{
 		id: "aegis",
 		name: "Aegis",
 		tier: "S",
-		about: "Increases the shields it gives by 25%."
+		about: `Increases the shields it gives by ${pct(SKILL.aegis.shield)}.`
 	},
 	{
 		id: "mirage",
 		name: "Mirage",
 		tier: "S",
-		about: "Increases dodge by 20%. On dodging, recovers 3% of max HP (once every 3 seconds)."
+		about: `Increases dodge by ${pct(share(SKILL.mirage.dodge))}. On dodging, recovers ${pct(SKILL.mirage.heal)} of max HP (once ${every(SKILL.mirage.wait)}).`
 	},
 	{
 		id: "fundamentals",
 		name: "Fundamentals",
 		tier: "S",
-		about: "Increases DMG of normal attacks by 25%."
+		about: `Increases DMG of normal attacks by ${pct(SKILL.fundamentals.dmg)}.`
 	},
 	{
 		id: "vitality",
 		name: "Vitality",
 		tier: "S",
-		about: "Increases max HP by 25%."
+		about: `Increases max HP by ${pct(SKILL.vitality.hp)}.`
 	},
 	{
 		id: "overflow",
 		name: "Overflow",
 		tier: "A",
-		about: "With mana at 100%, reduces every ally’s cooldowns by 3% (once every 10 seconds)."
+		about: `With mana at 100%, reduces every ally’s cooldowns by ${pct(SKILL.overflow.cooldown)} (once ${every(SKILL.overflow.wait)}).`
 	},
 	{
 		id: "momentum",
 		name: "Momentum",
 		tier: "A",
-		about: "Each skill used increases ATK by 2% (up to 20 times)."
+		about: `Each skill used increases ATK by ${pct(SKILL.momentum.atk)} (up to ${SKILL.momentum.most} times).`
 	},
 	{
 		id: "overdrive",
 		name: "Overdrive",
 		tier: "A",
-		about: "Fixes attack speed at 100% and increases ATK by 40%."
+		about: `Fixes attack speed at ${pct(share(SKILL.overdrive.speed))} and increases ATK by ${pct(SKILL.overdrive.atk)}.`
 	},
 	{
 		id: "regeneration",
 		name: "Regeneration",
 		tier: "A",
-		about: "Recovers 1% of max HP every second."
+		about: `Recovers ${pct(SKILL.regeneration.heal)} of max HP ${every(SKILL.regeneration.every)}.`
 	},
 	{
 		id: "steadfast",
 		name: "Steadfast",
 		tier: "A",
-		about: "Each skill used reduces DMG taken by 3% (up to 8 times)."
+		about: `Each skill used reduces DMG taken by ${pct(SKILL.steadfast.taken)} (up to ${SKILL.steadfast.most} times).`
 	},
 	{
 		id: "swiftness",
 		name: "Swiftness",
 		tier: "A",
-		about: "Increases attack speed by 25%."
+		about: `Increases attack speed by ${pct(share(SKILL.swiftness.speed))}.`
 	},
 	{
 		id: "focus-2",
 		name: "Second Focus",
 		tier: "A",
-		about: "Reduces the second skill’s cooldown by 10% every 10 seconds."
+		about: `Reduces the second skill’s cooldown by ${pct(SKILL["focus-2"].cooldown)} ${every(SKILL["focus-2"].every)}.`
 	},
 	{
 		id: "focus-3",
 		name: "Third Focus",
 		tier: "A",
-		about: "Reduces the third skill’s cooldown by 10% every 10 seconds."
+		about: `Reduces the third skill’s cooldown by ${pct(SKILL["focus-3"].cooldown)} ${every(SKILL["focus-3"].every)}.`
 	},
 	{
 		id: "warm-up",
 		name: "Warm-Up",
 		tier: "B",
-		about: "At the start of the battle, increases ATK by 5%."
+		about: `At the start of the battle, increases ATK by ${pct(SKILL["warm-up"].atk)}.`
 	},
 	{
 		id: "might",
 		name: "Might",
 		tier: "B",
-		about: "Increases ATK by 25%."
+		about: `Increases ATK by ${pct(SKILL.might.atk)}.`
 	},
 	{
 		id: "focus-1",
 		name: "First Focus",
 		tier: "B",
-		about: "Reduces the first skill’s cooldown by 10% every 10 seconds."
+		about: `Reduces the first skill’s cooldown by ${pct(SKILL["focus-1"].cooldown)} ${every(SKILL["focus-1"].every)}.`
 	},
 	{
 		id: "physical-ward",
 		name: "Physical Ward",
 		tier: "B",
-		about: "Reduces physical DMG taken by 20%, rising to 30% over the first 10 seconds."
+		about: `Reduces physical DMG taken by ${pct(SKILL["physical-ward"].taken)}, rising to ${pct(SKILL["physical-ward"].most)} over the first ${seconds(SKILL["physical-ward"].over)}.`
 	},
 	{
 		id: "magical-ward",
 		name: "Magical Ward",
 		tier: "B",
-		about: "Reduces magical DMG taken by 20%, rising to 30% over the first 10 seconds."
+		about: `Reduces magical DMG taken by ${pct(SKILL["magical-ward"].taken)}, rising to ${pct(SKILL["magical-ward"].most)} over the first ${seconds(SKILL["magical-ward"].over)}.`
 	},
 	{
 		id: "bastion",
 		name: "Bastion",
 		tier: "B",
-		about: "Increases DEF of all allies by 9%."
+		about: `Increases DEF of all allies by ${pct(SKILL.bastion.defense)}.`
 	},
 	{
 		id: "ruthless",
 		name: "Ruthless",
 		tier: "B",
-		about: "Increases crit DMG by 50%."
+		about: `Increases crit DMG by ${pct(SKILL.ruthless.critDamage)}.`
 	},
 	{
 		id: "piercing",
 		name: "Piercing",
 		tier: "B",
-		about: "Increases penetration by 25%."
+		about: `Increases penetration by ${pct(share(SKILL.piercing.pen))}.`
 	},
 	{
 		id: "precision",
 		name: "Precision",
 		tier: "B",
-		about: "Increases crit chance by 25%."
+		about: `Increases crit chance by ${pct(share(SKILL.precision.crit))}.`
 	},
 	{
 		id: "guard",
 		name: "Guard",
 		tier: "B",
-		about: "Increases block by 25%."
+		about: `Increases block by ${pct(share(SKILL.guard.block))}.`
 	},
 	{
 		id: "parry",
 		name: "Parry",
 		tier: "B",
-		about: "On blocking, recovers 200 mana (once every second)."
+		about: `On blocking, recovers ${SKILL.parry.mana} mana (once ${every(SKILL.parry.wait)}).`
 	},
 	{
 		id: "lone-foe",
 		name: "Lone Foe",
 		tier: "C",
-		about: "With one enemy, increases ATK by 35%."
+		about: `With one enemy, increases ATK by ${pct(SKILL["lone-foe"].atk)}.`
 	},
 	{
 		id: "lone-guard",
 		name: "Lone Guard",
 		tier: "C",
-		about: "With one enemy, increases DEF by 35%."
+		about: `With one enemy, increases DEF by ${pct(SKILL["lone-guard"].defense)}.`
 	},
 	{
 		id: "armor",
 		name: "Armor",
 		tier: "C",
-		about: "Increases DEF by 25%."
+		about: `Increases DEF by ${pct(SKILL.armor.defense)}.`
 	},
 	{
 		id: "mana-spring",
 		name: "Mana Spring",
 		tier: "C",
-		about: "Recovers 500 mana every 5 seconds."
+		about: `Recovers ${SKILL["mana-spring"].mana} mana ${every(SKILL["mana-spring"].every)}.`
 	},
 	{
 		id: "surge",
 		name: "Surge",
 		tier: "F",
-		about: "With mana at 100%, increases DMG dealt by 15% for 10 seconds (once every 15 seconds)."
+		about: `With mana at 100%, increases DMG dealt by ${pct(SKILL.surge.dmg)} for ${seconds(SKILL.surge.lasts)} (once ${every(SKILL.surge.wait)}).`
 	},
 	{
 		id: "desperation",
 		name: "Desperation",
 		tier: "F",
-		about: "With HP below 30%, increases ATK by 50% for 10 seconds (once every 10 seconds)."
+		about: `With HP below ${pct(SKILL.desperation.below)}, increases ATK by ${pct(SKILL.desperation.atk)} for ${seconds(SKILL.desperation.lasts)} (once ${every(SKILL.desperation.wait)}).`
 	},
 	{
 		id: "mending",
 		name: "Mending",
 		tier: "F",
-		about: "Using a skill increases the heals and shields it gives by 25% for 5 seconds (once every 10 seconds)."
+		about: `Using a skill increases the heals and shields it gives by ${pct(SKILL.mending.heal)} for ${seconds(SKILL.mending.lasts)} (once ${every(SKILL.mending.wait)}).`
 	},
 	{
 		id: "iron-wall",
 		name: "Iron Wall",
 		tier: "F",
-		about: "Increases block by 15%, and by 20% more for the first 10 seconds."
+		about: `Increases block by ${pct(share(SKILL["iron-wall"].block))}, and by ${pct(share(SKILL["iron-wall"].more))} more for the first ${seconds(SKILL["iron-wall"].lasts)}.`
 	},
 	{
 		id: "tenacity",
 		name: "Tenacity",
 		tier: "F",
-		about: "Reduces how long it is knocked down by 15%."
+		about: `Reduces how long it is knocked down by ${pct(SKILL.tenacity.control)}.`
 	}
 ];
 SKILLS.map((skill) => skill.id);
@@ -1513,6 +1528,35 @@ function skillsOf(list) {
 	for (const id of (list ?? []).slice(0, 5)) if (typeof id === "string" && BY_ID.has(id)) counts[id] = (counts[id] ?? 0) + 1;
 	return counts;
 }
+/**
+* What a hero's additional skills (`skills`: how many of each) do to its own stats from the start of a fight, done to
+* `stats` (shares of ATK and defense added up, as gear's are; Overdrive fixes its attack speed): ./fight.ts fights with
+* them, and the heroes page shows them. What they do only now and then, or to every ally, ./fight.ts does as it goes.
+*/
+function skilledStats(stats, skills) {
+	const n = (id) => skills[id] ?? 0;
+	stats.hp *= 1 + SKILL.vitality.hp * n("vitality");
+	stats.atk *= Math.max(0, 1 + SKILL.berserk.atk * n("berserk") + SKILL.fortress.atk * n("fortress") + SKILL.overdrive.atk * n("overdrive") + SKILL["warm-up"].atk * n("warm-up") + SKILL.might.atk * n("might") + SKILL["lone-foe"].atk * n("lone-foe"));
+	const sturdier = Math.max(0, 1 + SKILL.berserk.defense * n("berserk") + SKILL.fortress.defense * n("fortress") + SKILL["lone-guard"].defense * n("lone-guard") + SKILL.armor.defense * n("armor"));
+	stats.physical *= sturdier;
+	stats.magical *= sturdier;
+	stats.crit += SKILL.precision.crit * n("precision");
+	stats.pen += SKILL.piercing.pen * n("piercing");
+	stats.speed = n("overdrive") > 0 ? SKILL.overdrive.speed : stats.speed + SKILL.swiftness.speed * n("swiftness");
+	const block = SKILL.guard.block * n("guard") + SKILL["iron-wall"].block * n("iron-wall");
+	const dodge = SKILL.mirage.dodge * n("mirage");
+	stats.block = {
+		physical: stats.block.physical + block,
+		magical: stats.block.magical + block
+	};
+	stats.dodge = {
+		physical: stats.dodge.physical + dodge,
+		magical: stats.dodge.magical + dodge
+	};
+	return stats;
+}
+/** How much harder a hero's critical blows are for its own additional skills (Ruthless). */
+var skilledCritDamage = (skills) => SKILL.ruthless.critDamage * (skills.ruthless ?? 0);
 /** What some skills leave on a hero for a while (Champion, Surge, Desperation, Mending). */
 var CHAMPION_UP = {
 	name: "Champion",
@@ -2231,24 +2275,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const stats = perkedStats(geared(hero.stats, gear), perks.values());
 		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY.pen;
 		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY.resist;
-		stats.hp *= 1 + SKILL.vitality.hp * n("vitality");
-		stats.atk *= Math.max(0, 1 + SKILL.berserk.atk * n("berserk") + SKILL.fortress.atk * n("fortress") + SKILL.overdrive.atk * n("overdrive") + SKILL["warm-up"].atk * n("warm-up") + SKILL.might.atk * n("might") + SKILL["lone-foe"].atk * n("lone-foe"));
-		const sturdier = Math.max(0, 1 + SKILL.berserk.defense * n("berserk") + SKILL.fortress.defense * n("fortress") + SKILL["lone-guard"].defense * n("lone-guard") + SKILL.armor.defense * n("armor"));
-		stats.physical *= sturdier;
-		stats.magical *= sturdier;
-		stats.crit += SKILL.precision.crit * n("precision");
-		stats.pen += SKILL.piercing.pen * n("piercing");
-		stats.speed = n("overdrive") > 0 ? SKILL.overdrive.speed : stats.speed + SKILL.swiftness.speed * n("swiftness");
-		const block = SKILL.guard.block * n("guard") + SKILL["iron-wall"].block * n("iron-wall");
-		const dodge = SKILL.mirage.dodge * n("mirage");
-		stats.block = {
-			physical: stats.block.physical + block,
-			magical: stats.block.magical + block
-		};
-		stats.dodge = {
-			physical: stats.dodge.physical + dodge,
-			magical: stats.dodge.magical + dodge
-		};
+		skilledStats(stats, skills);
 		const motion = motionOf(hero);
 		const name = hero.skins[skin] ?? hero.skins[0] ?? hero.name;
 		const defs = [...perks.values()];
@@ -2274,7 +2301,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			immune: 0,
 			nimble: 0,
 			stats,
-			critTimes: 2 + (gear.critDamage ?? 0) + SKILL.ruthless.critDamage * n("ruthless"),
+			critTimes: 2 + (gear.critDamage ?? 0) + skilledCritDamage(skills),
 			healTimes: 1 + (gear.heal ?? 0),
 			set,
 			unique: tier === null ? null : {
@@ -2943,8 +2970,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				down
 			});
 		},
-		slow(rate, seconds) {
+		slow(points, seconds) {
 			if (foe.part.steady) return;
+			const rate = 1 - share(points);
 			foe.slowRate = rate;
 			foe.slowed = seconds;
 			events.push({
@@ -3204,7 +3232,7 @@ var TREATMENT = {
 	heal: 4e4,
 	lasts: 10,
 	resist: 250,
-	crit: .25,
+	crit: 250,
 	dmg: .1
 };
 var ELIMINATION = {
@@ -3240,28 +3268,29 @@ var CHARGING = {
 	control: 1,
 	shown: {
 		name: "Charge",
-		about: "Passive. A [Charge] every half second, and 10 for each crystal of mana she spends; at 100 she is [Overcharged] for 15 seconds (ATK higher, and each attack takes 10% off her skills’ cooldowns).",
+		about: `Passive. A [Charge] every ${CHARGE$1.every} seconds, and ${CHARGE$1.perCrystal} for each crystal of mana she spends; at ${CHARGE$1.full} she is [Overcharged] for ${CHARGE$1.lasts} seconds (ATK higher, and each attack takes ${pct(CHARGE$1.cooldown)} off her skills’ cooldowns).`,
 		icon: "⚡",
 		art: art$10(3)
-	}
+	},
+	words: `Gains 1 stack of Charge every ${CHARGE$1.every} sec, and gains ${CHARGE$1.perCrystal} stacks of Charge per every orb of mana used. Upon the ${CHARGE$1.full}th Charge stacked, enters Overcharge state. When in Overcharge, ATK is increased by ${pct(CHARGE$1.atk)} for ${CHARGE$1.lasts} sec, and each auto attack reduces skill cooldown by ${pct(CHARGE$1.cooldown)}. All effects cannot be dispelled, and Charge will not stack during Overcharge state.`
 };
 /** Her Charge: shown beside her passive, with how many she has. */
 var CHARGED$1 = {
 	name: "Charge",
-	about: "At 100 she is [Overcharged].",
+	about: `At ${CHARGE$1.full} she is [Overcharged].`,
 	icon: "⚡"
 };
 /** Overcharged: shown on her card, with how long it has left. */
 var OVERCHARGED = {
 	name: "Overcharge",
-	about: "30% higher ATK; each attack takes 10% off her skills’ cooldowns; her skills do more.",
+	about: `${pct(CHARGE$1.atk)} higher ATK; each attack takes ${pct(CHARGE$1.cooldown)} off her skills’ cooldowns; her skills do more.`,
 	icon: "🔋",
 	art: art$10(3)
 };
 /** What Transcend 5's Dark gives every ally while she is Overcharged. */
 var ROUSED = {
 	name: "Overcharge (allies)",
-	about: "Quicker, and its ATK higher by 5% of Annette’s.",
+	about: `Quicker, and its ATK higher by ${pct(PERKS$10.allies.atk)} of Annette’s.`,
 	icon: "⚡",
 	art: art$10(3)
 };
@@ -3274,7 +3303,7 @@ var TREATED = {
 };
 var TREATED_OVER = {
 	name: "Emergency Treatment",
-	about: "Healed over time; more likely to land a critical blow, deals 10% more, and can’t be knocked down.",
+	about: `Healed over time; more likely to land a critical blow, deals ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 	icon: "🩹",
 	art: art$10(1)
 };
@@ -3293,7 +3322,8 @@ var ANNETTE = {
 	abilities: [
 		{
 			name: "Blasting Ray",
-			about: "Rascal fires a ray into the boss: for 10 seconds it hits 15% softer and takes 25% more magical damage. [Overcharged]: a second ray, and twice that.",
+			about: `Rascal fires a ray into the boss: for ${RAY.lasts} seconds it hits ${pct(RAY.weaker)} softer and takes ${pct(RAY.takes)} more magical damage. [Overcharged]: a second ray, and twice that.`,
+			words: `Attacks enemies in a straight line, dealing M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG.`,
 			icon: "🔆",
 			art: art$10(0),
 			move: "ray",
@@ -3302,7 +3332,8 @@ var ANNETTE = {
 		},
 		{
 			name: "Emergency Treatment",
-			about: "Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over 10 seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also 25% likelier to land a critical blow, deal 10% more, and can’t be knocked down.",
+			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
+			words: `Dispels negative effects of all allies and heals HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
 			icon: "🩹",
 			art: art$10(1),
 			move: "treatment",
@@ -3311,7 +3342,8 @@ var ANNETTE = {
 		},
 		{
 			name: "Process of Elimination",
-			about: "A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for 5 seconds, and leaves it taking 25% more magical damage for 10.",
+			about: `A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for ${ELIMINATION.stun} seconds, and leaves it taking ${pct(ELIMINATION.takes)} more magical damage for ${ELIMINATION.lasts}.`,
+			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing M.DMG. When in Overcharge state, deals M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion.`,
 			icon: "💣",
 			art: art$10(2),
 			move: "elimination",
@@ -3429,7 +3461,7 @@ var ANNETTE = {
 							name: TREATED.name,
 							left: TREATMENT.lasts,
 							resist: TREATMENT.resist,
-							crit: TREATMENT.crit,
+							crit: share(TREATMENT.crit),
 							deals: 1 + TREATMENT.dmg,
 							guards: true,
 							shown: TREATED_OVER
@@ -3520,7 +3552,7 @@ var CUT_GROUND = {
 var SHIELD_STRIKE = {
 	blow: 4e3,
 	lasts: 20,
-	slow: .67,
+	speed: 500,
 	exposed: 1.3
 };
 var GUARDIAN = {
@@ -3552,22 +3584,23 @@ var VOW_OF_KNIGHTS = {
 	control: 1,
 	shown: {
 		name: "Vow of Knights",
-		about: "Passive. When he blocks he strikes back: the boss hits 20% less hard for 8 seconds, and he gains 300 mana.",
+		about: `Passive. When he blocks he strikes back: the boss hits ${pct(1 - VOW.weak)} less hard for ${VOW.lasts} seconds, and he gains ${VOW.mana} mana.`,
 		icon: "🛡️",
 		art: art$9(3)
-	}
+	},
+	words: `Upon blocking, deals P.DMG to frontal enemies and decreases ATK of affected targets by ${pct(1 - VOW.weak)} for ${VOW.lasts} sec. Recovers ${VOW.mana} MP after hitting the target. When an ally excluding self takes DMG increases all allies' P.DEF by 20% and P.Crit Resistance by 200 for 5 sec. This effect only activates once every 10 sec.`
 };
 /** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
 var GUARDED = {
 	name: "Guardian Shield",
-	about: "Takes 25% less from the boss.",
+	about: `Takes ${pct(1 - GUARDIAN.taken)} less from the boss.`,
 	icon: "✨",
 	art: art$9(2)
 };
 /** What his Transcend 5's Dark gives every ally when another is hit. */
 var WARDED$1 = {
 	name: "Knight’s Guard",
-	about: "P.DEF +20% and P.Crit Resist +20%.",
+	about: `P.DEF +${pct(PERKS$9.ward.defends - 1)} and P.Crit Resist +${pct(share(PERKS$9.ward.critResist))}.`,
 	icon: "🛡️",
 	art: art$9(3)
 };
@@ -3583,7 +3616,8 @@ var CLAUSE = {
 	abilities: [
 		{
 			name: "Cut Ground",
-			about: "A leap and a blow down on the boss that stuns it for 5 seconds.",
+			about: `A leap and a blow down on the boss that stuns it for ${CUT_GROUND.stun} seconds.`,
+			words: `Leaps into the air and deals P.DMG to enemies in range, stunning them for ${CUT_GROUND.stun} sec.`,
 			icon: "⚔️",
 			art: art$9(0),
 			move: "slam",
@@ -3592,7 +3626,8 @@ var CLAUSE = {
 		},
 		{
 			name: "Shield Strike",
-			about: "A blow with his shield: for 20 seconds the boss attacks a third slower and takes 30% more.",
+			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
+			words: `Deals P.DMG proportional to P.DEF to enemies in range and knocks them back. Hit enemies' All DEF and ATK Spd is reduced by ${pct(SHIELD_STRIKE.exposed - 1)} and ${SHIELD_STRIKE.speed} for ${SHIELD_STRIKE.lasts} sec, respectively. Upon blocking an attack, skill cooldown is reduced by 0.5 sec.`,
 			icon: "🛡️",
 			art: art$9(1),
 			move: "bash",
@@ -3601,7 +3636,8 @@ var CLAUSE = {
 		},
 		{
 			name: "Guardian Shield",
-			about: "For 20 seconds every hero takes 25% less from the boss.",
+			about: `For ${GUARDIAN.lasts} seconds every hero takes ${pct(1 - GUARDIAN.taken)} less from the boss.`,
+			words: `All allies' P.DEF is increased for ${GUARDIAN.lasts} sec and P.Crit Resistance is increased by 300, and reduces P.DMG they take by ${pct(1 - GUARDIAN.taken)}..`,
 			icon: "✨",
 			art: art$9(2),
 			move: "guard",
@@ -3669,7 +3705,7 @@ var CLAUSE = {
 						takes: SHIELD_STRIKE.exposed,
 						shown: "curse"
 					});
-					fight.slow(SHIELD_STRIKE.slow, SHIELD_STRIKE.lasts);
+					fight.slow(SHIELD_STRIKE.speed, SHIELD_STRIKE.lasts);
 					if (self.perks.has("s2-dark")) fight.stun(PERKS$9.bashStun, { by: self });
 				},
 				guard() {
@@ -3761,21 +3797,22 @@ var CURSED_BLOOD = {
 	control: 1,
 	shown: {
 		name: "Cursed Blood",
-		about: "Passive. A stack of [Cursed Blood] for each skill he uses; at the 3rd, his skills are ready again, a burst knocks the boss down, and he is in [Fury] for 10 seconds: ATK higher, his attack twice as hard, every skill reinforced (each costs a share of his health), fighting by himself.",
+		about: `Passive. A stack of [Cursed Blood] for each skill he uses; at the ${nth(CURSED.most)}, his skills are ready again, a burst knocks the boss down, and he is in [Fury] for ${CURSED.lasts} seconds: ATK higher, his attack ${times(CLAW.fury)} as hard, every skill reinforced (each costs a share of his health), fighting by himself.`,
 		icon: "🩸",
 		art: art$8(3)
-	}
+	},
+	words: `Ezekiel gains 1 stack of 'Cursed Blood' at the end of skill. Upon the ${nth(CURSED.most)} stack, consumes Cursed Blood to reset all skill cooldown, dealing M.DMG to nearby enemies and knocking them down for ${CURSED.down} sec, while activating Fury for ${CURSED.lasts} sec, that cannot be dispelled. While in Fury state, goes into an auto-battle mode that cannot be controlled, and ATK is increased by ${pct(CURSED.atk)}, auto attack DMG is ${fold(CLAW.fury)}, and all Skill effect are reinforced. Cannot gain Cursed Blood during Fury state, except for when killing an enemy.`
 };
 /** His stacks of Cursed Blood: shown beside his passive, with how many he has. */
 var STACKED = {
 	name: "Cursed Blood",
-	about: "At 3, he is in [Fury].",
+	about: `At ${CURSED.most}, he is in [Fury].`,
 	icon: "🩸"
 };
 /** Fury: shown on his card, with how long it has left. */
 var FURY = {
 	name: "Fury",
-	about: "ATK 30% higher, his attack twice as hard, every skill reinforced (each costs a share of his health); he fights by himself.",
+	about: `ATK ${pct(CURSED.atk)} higher, his attack ${times(CLAW.fury)} as hard, every skill reinforced (each costs a share of his health); he fights by himself.`,
 	icon: "😈",
 	art: art$8(3)
 };
@@ -3789,7 +3826,7 @@ var QUICKENED$1 = {
 /** What Destructive Instinct's Dark gives him after it. */
 var INSTINCT_UP = {
 	name: "Destructive Instinct",
-	about: "ATK 40% higher.",
+	about: `ATK ${pct(PERKS$8.atk - 1)} higher.`,
 	icon: "🌀",
 	art: art$8(0)
 };
@@ -3806,7 +3843,8 @@ var EZEKIEL = {
 	abilities: [
 		{
 			name: "Destructive Instinct",
-			about: "A swipe of his demon arm, then a blow to the ground that knocks the boss down for 3 seconds. In [Fury]: both 50% harder, for 15% of the health he has.",
+			about: `A swipe of his demon arm, then a blow to the ground that knocks the boss down for ${INSTINCT.down} seconds. In [Fury]: both ${pct(INSTINCT.fury - 1)} harder, for ${pct(INSTINCT.cost)} of the health he has.`,
+			words: `Swipes nearby enemies in a circular range and deals M.DMG. Then strikes the ground, dealing M.DMG and knocking down enemies for ${INSTINCT.down} sec. [Fury] - Consumes ${pct(INSTINCT.cost)} of current HP to activate. Effect range increases and swipe attack draws in enemies.`,
 			icon: "🌀",
 			art: art$8(0),
 			move: "instinct",
@@ -3815,7 +3853,8 @@ var EZEKIEL = {
 		},
 		{
 			name: "Dawning Despair",
-			about: "A dash and a blow: the boss’s attacks 30% slower for 5 seconds. In [Fury]: it is also stunned for 3 seconds, and his attacks are 30% quicker for 10, for 10% of the health he has.",
+			about: `A dash and a blow: the boss’s attacks ${pct(share(DESPAIR.speed))} slower for ${DESPAIR.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR.stun} seconds, and his attacks are ${pct(share(DESPAIR.speed))} quicker for ${DESPAIR.lasts}, for ${pct(DESPAIR.cost)} of the health he has.`,
+			words: `Dashes to an enemy with the highest ATK and deals M.DMG to enemies in range, reducing their ATK Spd by ${DESPAIR.speed}. [Fury] - Consumes ${pct(DESPAIR.cost)} of current HP to activate. Effect range increases, Stuns target for ${DESPAIR.stun} sec, and increases own ATK Spd by ${DESPAIR.speed} for ${DESPAIR.lasts} sec.`,
 			icon: "💨",
 			art: art$8(1),
 			move: "despair",
@@ -3824,7 +3863,8 @@ var EZEKIEL = {
 		},
 		{
 			name: "Strike of Doom",
-			about: "A charged blow that stuns the boss for 3 seconds. In [Fury]: three times as hard, for 20% of the health he has.",
+			about: `A charged blow that stuns the boss for ${DOOM.stun} seconds. In [Fury]: ${times(DOOM.fury)} as hard, for ${pct(DOOM.cost)} of the health he has.`,
+			words: `Charges energy and attacks target enemy, dealing M.DMG and inflicting Stun for ${DOOM.stun} sec. Ignores target's DMG Reduction effects. [Fury] - Consumes ${pct(DOOM.cost)} of current HP to activate. Attacks enemies in range of target and DMG is ${fold(DOOM.fury)}.`,
 			icon: "💥",
 			art: art$8(2),
 			move: "doom",
@@ -3941,7 +3981,7 @@ var EZEKIEL = {
 				},
 				despair() {
 					fight.hit(self, DESPAIR.blow, true, 0, furious.despair && self.perks.has("s2-dark"));
-					fight.slow(1 - share(DESPAIR.speed), DESPAIR.slowed);
+					fight.slow(DESPAIR.speed, DESPAIR.slowed);
 					if (!furious.despair) return;
 					fight.stun(DESPAIR.stun, { by: self });
 					put(self.statuses, {
@@ -4003,6 +4043,7 @@ var BLESSING$1 = {
 	speed: 500
 };
 var VENGEANCE = {
+	hits: CODED.vengeance.lands.length,
 	blow: 1e3,
 	pierce: 500,
 	exposed: .1,
@@ -4049,10 +4090,11 @@ var TAINTED_ANGEL = {
 	taken: TAINTED.taken,
 	shown: {
 		name: "Tainted Angel",
-		about: "Passive. She takes 15% more from the boss, but her mana fills far faster; at full mana she gains [Darkened Power] every second (2 at most).",
+		about: `Passive. She takes ${pct(TAINTED.taken - 1)} more from the boss, but her mana fills far faster; at full mana she gains [Darkened Power] every second (${TAINTED.most} at most).`,
 		icon: "🌑",
 		art: art$7(3)
-	}
+	},
+	words: `As Fallen Frey has been corrupted by the darkness, she takes ${pct(TAINTED.taken - 1)} increased DMG, but she recovers ${TAINTED.mana} Mana every sec, and when her Mana is at 100%, she gains [Darkened Power] every sec. [Darkened Power] can be stacked up to max ${TAINTED.most} times and is irremovable.`
 };
 /** What her full mana gives her: shown beside her passive, with how many she has. */
 var DARKENED = {
@@ -4073,19 +4115,19 @@ var EXPOSED$1 = "Heaven’s Vengeance";
 var PURIFIED = "Light of Doom";
 var FALLEN_BLESSING = {
 	name: "Blessing of the Fallen Angel",
-	about: "Takes 10% less, and its DEF is 20% higher.",
+	about: `Takes ${pct(1 - PERKS$7.blessing.takes)} less, and its DEF is ${pct(PERKS$7.blessing.defends - 1)} higher.`,
 	icon: "🪽",
 	art: art$7(3)
 };
 var FALLEN_BOND = {
 	name: "Bond of the Fallen Angel",
-	about: "Quicker, and its ATK higher by 7% of Fallen Frey’s.",
+	about: `Quicker, and its ATK higher by ${pct(PERKS$7.bond.atk)} of Fallen Frey’s.`,
 	icon: "🔗",
 	art: art$7(3)
 };
 var FALLEN_FAVOUR = {
 	name: "Fallen Angel’s Favour",
-	about: "Quicker, and deals 15% more to the boss.",
+	about: `Quicker, and deals ${pct(PERKS$7.favour.deals - 1)} more to the boss.`,
 	icon: "🌒",
 	art: art$7(3)
 };
@@ -4102,6 +4144,7 @@ var FALLEN_FREY = {
 		{
 			name: "Light of Doom",
 			about: "Heals the ally with the lowest health and those near it, then the light bursts on the boss.",
+			words: "Heals HP of the ally with the lowest HP and nearby allies and increases Heal Rate by 20% for 10 sec. Afterward, explodes the area around the target and deals M.DMG to enemies in range, reducing their Heal Rate by 20% for 10 sec. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and dispels positive effects of all enemies within range.",
 			icon: "✴️",
 			art: art$7(0),
 			move: "light",
@@ -4110,7 +4153,8 @@ var FALLEN_FREY = {
 		},
 		{
 			name: "Blessing of Doom",
-			about: "A shield on the 4 allies with the lowest health for 10 seconds, their attacks 50% quicker meanwhile.",
+			about: `A shield on the ${BLESSING$1.allies} allies with the lowest health for ${BLESSING$1.lasts} seconds, their attacks ${pct(share(BLESSING$1.speed))} quicker meanwhile.`,
+			words: `Grants [Blessing of Doom] to ${BLESSING$1.allies} allies with the lowest HP, absorbing DMG for ${BLESSING$1.lasts} sec. The shield grants immunity to CC and increases ATK Spd by ${BLESSING$1.speed} for the duration. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack to dispel negative effects from self and additionally dispels negative effects from targets.`,
 			icon: "🔮",
 			art: art$7(1),
 			move: "blessing",
@@ -4119,7 +4163,8 @@ var FALLEN_FREY = {
 		},
 		{
 			name: "Heaven’s Vengeance",
-			about: "20 blows of light on the boss, through some of its defense, each leaving it 10% easier to hurt for 20 seconds (up to 5 times over). With [Darkened Power], every blow stuns it for half a second.",
+			about: `${VENGEANCE.hits} blows of light on the boss, through some of its defense, each leaving it ${pct(VENGEANCE.exposed)} easier to hurt for ${VENGEANCE.lasts} seconds (up to ${VENGEANCE.most} times over). With [Darkened Power], every blow stuns it for ${VENGEANCE.stun} seconds.`,
+			words: `Brings Heaven's Vengeance upon a random enemy and nearby enemies over ${VENGEANCE.hits} hits, dealing M.DMG each hit and increasing All DMG the target takes by ${pct(VENGEANCE.exposed)} for ${VENGEANCE.lasts} sec. ${VENGEANCE.pierce} additional DEF Penetration applies to this Skill. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and inflicts Stun on the hit enemies for ${VENGEANCE.stun} sec each hit. The DMG Boost effect can be stacked up to max ${VENGEANCE.most} times.`,
 			icon: "☄️",
 			art: art$7(2),
 			move: "vengeance",
@@ -4159,7 +4204,7 @@ var FALLEN_FREY = {
 			until: 2.35
 		},
 		vengeance: {
-			lands: Array.from({ length: 20 }, (_, i) => (.7 + i * .12) * SKILL_SPEED),
+			lands: Array.from({ length: VENGEANCE.hits }, (_, i) => (.7 + i * .12) * SKILL_SPEED),
 			until: 3.85 * SKILL_SPEED
 		}
 	} },
@@ -4320,7 +4365,7 @@ var art$6 = skillArt("gremory");
 /** What all three of her slots turn into once her skills are sealed (its picture is the game's for it, where a passive's would be). */
 var SLEEP_SKILL = {
 	name: "Eh, whatever. I’m gonna sleep.",
-	about: "She sleeps for 3 seconds, taking 40% less and not to be knocked down; then her skills are unsealed, and she gains a [Mana Charge] (5 at most): +10% ATK and +2% to all she deals for each.",
+	about: `She sleeps for 3 seconds, taking ${pct(1 - SLEEP.taken)} less and not to be knocked down; then her skills are unsealed, and she gains a [Mana Charge] (${CHARGE.most} at most): +${pct(CHARGE.atk)} ATK and +${pct(CHARGE.dmg)} to all she deals for each.`,
 	icon: "💤",
 	art: art$6(3),
 	move: "sleep",
@@ -4333,24 +4378,29 @@ var LAZY = {
 	control: 1,
 	shown: {
 		name: "Eh, whatever. I’m gonna sleep.",
-		about: "Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking 40% less and not to be knocked down), then wakes with her skills unsealed and a [Mana Charge].",
+		about: `Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking ${pct(1 - SLEEP.taken)} less and not to be knocked down), then wakes with her skills unsealed and a [Mana Charge].`,
 		icon: "💤",
 		art: art$6(3)
-	}
+	},
+	words: `Available once all Skills are sealed. Upon use, dispels CC effects from self. While in use, Gremory gains immunity to CC, takes ${pct(1 - SLEEP.taken)} reduced All DMG, and unlocks all of her sealed Skills. Every time she uses [Eh, whatever. I'm gonna sleep.], she gains a [Mana Charge] stack. Each [Mana Charge] stack increases Gremory's DMG dealt to enemies by ${pct(CHARGE.dmg)} and her ATK by ${pct(CHARGE.atk)}. [Mana Charge] can be stacked up to max ${CHARGE.most} times and is irremovable.`,
+	tag: "Once all are sealed"
 };
 /** Asleep: shown on her card, with how long it has left. */
 var SLEEPING = {
 	name: "Asleep",
-	about: "Takes 40% less from the boss, and can’t be knocked down.",
+	about: `Takes ${pct(1 - SLEEP.taken)} less from the boss, and can’t be knocked down.`,
 	icon: "💤",
 	art: art$6(3)
 };
 /** Her Mana Charge: shown on her card, with how many she has. */
 var CHARGED = {
 	name: "Mana Charge",
-	about: "Each: +10% ATK and +2% to all she deals; [Pochi, bite them!] hits harder for each.",
+	about: `Each: +${pct(CHARGE.atk)} ATK and +${pct(CHARGE.dmg)} to all she deals; [Pochi, bite them!] hits harder for each.`,
 	icon: "🔋"
 };
+/** How many times each of her skills strikes (its move's blows). */
+var BITES = CODED.pochi.lands.length;
+var WRAPS = CODED.pippi.lands.length;
 /** What her skills leave on the boss. */
 var POCHI_MARK = "Pochi’s Mark";
 var PIPPI_MARK = "Pippi’s Mark";
@@ -4378,7 +4428,9 @@ var GREMORY = {
 	abilities: [
 		{
 			name: "Pochi, bite them!",
-			about: "Five bites, each harder for her [Mana Charge], each leaving [Pochi’s Mark]: the boss hits 6% softer for each, for 15 seconds (up to 5). Sealed once used.",
+			about: `${BITES} bites, each harder for her [Mana Charge], each leaving [Pochi’s Mark]: the boss hits ${pct(POCHI.weaker)} softer for each, for ${POCHI.lasts} seconds (up to ${POCHI.most}). Sealed once used.`,
+			words: `Attacks an enemy ${BITES} times, dealing M.DMG and inflicting [Pochi's Mark] each hit. The M.DMG of each hit increases by ${pct(POCHI.more)} per every stack of [Mana Charge]. [Pochi's Mark] reduces target's ATK by ${pct(POCHI.weaker)} for ${POCHI.lasts} sec, and it can be stacked up to max ${POCHI.most} times. If the target is a Boss, each hit deals additional M.DMG. The additional M.DMG increases by ${pct(POCHI.bossMore)} per every stack of [Mana Charge]. This skill is sealed after use.`,
+			tag: "Sealed after use",
 			icon: "🐶",
 			art: art$6(0),
 			move: "pochi",
@@ -4387,7 +4439,9 @@ var GREMORY = {
 		},
 		{
 			name: "Puchi, knock them away!",
-			about: "A blow from behind that stuns the boss for 5 seconds. Sealed once used.",
+			about: `A blow from behind that stuns the boss for ${PUCHI.stun} seconds. Sealed once used.`,
+			words: `Attacks the farthest enemy from behind, dealing M.DMG. Afterward, inflicts Stun for ${PUCHI.stun} sec and [Puchi's Mark] on the target. This skill is sealed after use.`,
+			tag: "Sealed after use",
 			icon: "💥",
 			art: art$6(1),
 			move: "puchi",
@@ -4396,7 +4450,9 @@ var GREMORY = {
 		},
 		{
 			name: "Pippi, wrap them!",
-			about: "Ten blows, each leaving [Pippi’s Mark]: the boss takes 5% more magical damage for each, for 12 seconds (up to 10). With all 10 on it, each blow deals more, through its defense. Sealed once used.",
+			about: `${WRAPS} blows, each leaving [Pippi’s Mark]: the boss takes ${pct(PIPPI.takes)} more magical damage for each, for ${PIPPI.lasts} seconds (up to ${PIPPI.most}). With all ${PIPPI.most} on it, each blow deals more, through its defense. Sealed once used.`,
+			words: `Deals a total of M.DMG over ${WRAPS} times to the target and enemies within a large area around the target, inflicting [Pippi's Mark] on hit targets each hit. If this skill deals DMG to a target inflicted with ${PIPPI.most} stacks of [Pippi's Mark], each hit deals additional M.DMG that ignores DEF. [Pippi's Mark] increases M.DMG the target takes by ${pct(PIPPI.takes)} for ${PIPPI.lasts} sec, and it can be stacked up to max ${PIPPI.most} times. This skill is sealed after use.`,
+			tag: "Sealed after use",
 			icon: "🎀",
 			art: art$6(2),
 			move: "pippi",
@@ -4514,6 +4570,7 @@ var GREMORY = {
 //#endregion
 //#region src/technomagic/sim/heroes/kirze.ts
 var JUDGMENT = {
+	cuts: CODED.judgment.lands.length - 1,
 	cut: 1500,
 	blow: 6e3,
 	down: 3
@@ -4530,16 +4587,22 @@ var HAZE = {
 var FLOWER = {
 	line: 8e3,
 	burst: 12e3,
-	slow: .5,
+	speed: 200,
 	slowed: 5,
 	curse: 10,
 	end: 6e3,
 	each: 800
 };
-/** Her own perks' numbers: the shockwave's longer stun, Crimson Flower's stronger slow (an ATK Spd reduction of 300 more), her DMG while awakened, her opening's (how long, how much), and Transcend 5's Dark's attack speed for each blow (most). */
+/** Her passive's: her ATK higher, her crit chance (points), and the stuns on a boss longer. */
+var DEEDS = {
+	atk: .2,
+	crit: 200,
+	control: .3
+};
+/** Her own perks' numbers: the shockwave's longer stun, Crimson Flower's stronger slow (points), her DMG while awakened, her opening's (how long, how much), and Transcend 5's Dark's attack speed for each blow (most). */
 var PERKS$5 = {
 	waveStun: .5,
-	slower: .3,
+	slower: 300,
 	awakeDmg: 1.2,
 	opening: 20,
 	openingDmg: 1.25,
@@ -4547,25 +4610,23 @@ var PERKS$5 = {
 	most: 100
 };
 var art$5 = skillArt("kirze");
-/**
-* Her passive, the game's End to Evil Deeds!: the game says how much longer the stuns last and how much
-* likelier a critical blow is, and leaves how much harder she hits unsaid.
-*/
+/** Her passive, the game's End to Evil Deeds!: her ATK higher, more of her blows critical, and the stuns on a boss longer. */
 var EVIL_DEEDS = {
-	attack: 1.2,
-	crit: .2,
-	control: 1.3,
+	attack: 1 + DEEDS.atk,
+	crit: share(DEEDS.crit),
+	control: 1 + DEEDS.control,
 	shown: {
 		name: "End to Evil Deeds!",
-		about: "Passive. Her blows are harder and more often critical, and her stuns on a boss last 30% longer.",
+		about: `Passive. Her blows are ${pct(DEEDS.atk)} harder and ${pct(share(DEEDS.crit))} more often critical, and her stuns on a boss last ${pct(DEEDS.control)} longer.`,
 		icon: "⚜️",
 		art: art$5(3)
-	}
+	},
+	words: `Increases own ATK by ${pct(DEEDS.atk)} and Crit Chance by ${DEEDS.crit}, while increasing the duration of CCs that all allies inflict to Bosses by ${pct(DEEDS.control)}`
 };
 /** What Crystal Haze gives her for a while: shown beside her passive, with how long it has left. */
 var AWAKENING$1 = {
 	name: "Arcane Crystal Awakening",
-	about: "Quickened, and a shockwave goes out from her every 2 seconds.",
+	about: `Quickened, and a shockwave goes out from her every ${HAZE.every} seconds.`,
 	icon: "💠",
 	art: art$5(1)
 };
@@ -4581,7 +4642,8 @@ var KIRZE = {
 	abilities: [
 		{
 			name: "Slash, Blade of Judgment!",
-			about: "Seven cuts as she spins, then a blow that knocks the boss down for 3 seconds.",
+			about: `${JUDGMENT.cuts} cuts as she spins, then a blow that knocks the boss down for ${JUDGMENT.down} seconds.`,
+			words: `Deals M.DMG over ${JUDGMENT.cuts} attacks to nearby enemies in a circular range of self. Then, attacks frontal enemies in range, dealing M.DMG and knocking them down for ${JUDGMENT.down} sec.`,
 			icon: "🌀",
 			art: art$5(0),
 			move: "judgment",
@@ -4590,7 +4652,8 @@ var KIRZE = {
 		},
 		{
 			name: "Disperse, Crystal Haze!",
-			about: "A burst that stuns the boss for 2 seconds. Then for 15 seconds she is 50% quicker, and a shockwave goes out from her every 2 seconds that stuns it for 1.",
+			about: `A burst that stuns the boss for ${HAZE.stun} seconds. Then for ${HAZE.lasts} seconds she is ${pct(HAZE.quicker - 1)} quicker, and a shockwave goes out from her every ${HAZE.every} seconds that stuns it for ${HAZE.waveStun}.`,
+			words: `Unleashes the power of Arcane Crystals within to deal M.DMG to all enemies and stun them for ${HAZE.stun} sec. Upon casting, activates [Arcane Crystal Awakening] for ${HAZE.lasts} sec, which increases ATK Spd of all allies by 300 and releases a shockwave every ${HAZE.every} sec to enemies in range of self, dealing M.DMG and stunning them for ${HAZE.waveStun} sec.`,
 			icon: "💠",
 			art: art$5(1),
 			move: "haze",
@@ -4599,7 +4662,8 @@ var KIRZE = {
 		},
 		{
 			name: "Bloom, Crimson Flower!",
-			about: "Crystals in a line to the boss, then they burst: its attacks are 50% slower for 5 seconds, and it is cursed for 10. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.",
+			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
+			words: `Summons Arcane Crystals and deals M.DMG to frontal enemies in a straight line. Shortly afterward, causes an explosion that deals ${num(FLOWER.burst)} additional M.DMG and inflicts [Arcane Crystal Curse] upon enemies for ${FLOWER.slowed} sec, reducing their ATK Spd by ${FLOWER.speed}. Attacking enemies under [Arcane Crystal Curse] inflicts a stack of [Arcane Crystal Energy]. [Arcane Crystal Curse] explodes after ${FLOWER.curse} sec, dealing M.DMG equal to ${num(FLOWER.end)} + ${num(FLOWER.each)} per stack of Arcane Crystal Energy.`,
 			icon: "🌺",
 			art: art$5(2),
 			move: "flower",
@@ -4658,7 +4722,7 @@ var KIRZE = {
 		return {
 			lands: {
 				judgment(part) {
-					if (part < 7) return fight.hit(self, JUDGMENT.cut);
+					if (part < JUDGMENT.cuts) return fight.hit(self, JUDGMENT.cut);
 					fight.hit(self, JUDGMENT.blow);
 					fight.stun(JUDGMENT.down, {
 						down: true,
@@ -4678,7 +4742,7 @@ var KIRZE = {
 						left: FLOWER.curse,
 						blows: 0
 					};
-					fight.slow(FLOWER.slow - (self.perks.has("s3-light") ? PERKS$5.slower : 0), FLOWER.slowed);
+					fight.slow(FLOWER.speed + (self.perks.has("s3-light") ? PERKS$5.slower : 0), FLOWER.slowed);
 				}
 			},
 			struck() {
@@ -4784,10 +4848,11 @@ var BLESSING = {
 	control: 1,
 	shown: {
 		name: "Blessing of the Water Dragon",
-		about: "Passive. +500 CC Resist for her; every ally has 10% more M.DEF and 250 M.Crit Resistance, and each skill she uses has every ally take 25% less magical damage for 5 seconds.",
+		about: `Passive. +${WATER_DRAGON.resist} CC Resist for her; every ally has ${pct(WATER_DRAGON.defense - 1)} more M.DEF and ${WATER_DRAGON.critResist} M.Crit Resistance, and each skill she uses has every ally take ${pct(1 - WATER_DRAGON.taken)} less magical damage for ${WATER_DRAGON.lasts} seconds.`,
 		icon: "🐉",
 		art: art$4(3)
-	}
+	},
+	words: `Increases Laias' CC Resist by ${WATER_DRAGON.resist}, and increases all allies' M.DEF by ${pct(WATER_DRAGON.defense - 1)} and M.Crit Resistance by ${WATER_DRAGON.critResist}. Whenever Laias casts an active Skill, reduces M.DMG all allies take by ${pct(1 - WATER_DRAGON.taken)} for ${WATER_DRAGON.lasts} sec.`
 };
 /** What her passive gives every ally while she is on the field, and each skill she uses for a while. */
 var BLESSED = {
@@ -4798,7 +4863,7 @@ var BLESSED = {
 };
 var WARDED = {
 	name: "Water Dragon’s Ward",
-	about: "Takes 25% less magical damage.",
+	about: `Takes ${pct(1 - WATER_DRAGON.taken)} less magical damage.`,
 	icon: "💧",
 	art: art$4(3)
 };
@@ -4812,7 +4877,7 @@ var DROPLETS_UP = {
 /** What Bubble Shield gives its ally: for its whole while, and more while the shield holds. */
 var BUBBLED = {
 	name: "Bubble Shield",
-	about: "Takes 30% less from the boss and deals 15% more to it.",
+	about: `Takes ${pct(1 - BUBBLE.taken)} less from the boss and deals ${pct(BUBBLE.dmg)} more to it.`,
 	icon: "🫧",
 	art: art$4(1)
 };
@@ -4835,7 +4900,8 @@ var LAIAS = {
 	abilities: [
 		{
 			name: "Healing Droplets",
-			about: "Heals every ally, and for 10 seconds healing reaches them 25% more (half as much more again for one at half its health or less).",
+			about: `Heals every ally, and for ${DROPLETS.lasts} seconds healing reaches them ${pct(DROPLETS.heals)} more (${DROPLETS.lowTimes} times that for one at ${pct(DROPLETS.low)} of its health or less).`,
+			words: `Heals HP of all allies and increases Heal Rate by ${pct(DROPLETS.heals)} for ${DROPLETS.lasts} sec. If the target's HP is ${pct(DROPLETS.low)} or below, Heal Rate increases by ${DROPLETS.lowTimes} times.`,
 			icon: "💧",
 			art: art$4(0),
 			move: "droplets",
@@ -4844,7 +4910,8 @@ var LAIAS = {
 		},
 		{
 			name: "Bubble Shield",
-			about: "A shield on the ally with the lowest health: for 15 seconds it takes 30% less from the boss and deals 15% more. While the shield holds it can’t be knocked down, hits 20% harder and is healed every second.",
+			about: `A shield on the ally with the lowest health: for ${BUBBLE.lasts} seconds it takes ${pct(1 - BUBBLE.taken)} less from the boss and deals ${pct(BUBBLE.dmg)} more. While the shield holds it can’t be knocked down, hits ${pct(BUBBLE.atk)} harder and is healed every second.`,
+			words: `For ${BUBBLE.lasts} sec, casts a Shield that blocks DMG on the ally with the lowest HP. While the Shield is active, gains immunity to CC, increases ATK and heals HP every sec. For ${BUBBLE.lasts} sec, the ally takes ${pct(1 - BUBBLE.taken)} reduced DMG from Non-Hero targets and increases DMG dealt to Non-Hero enemies by ${pct(BUBBLE.dmg)}. The DMG Reduction effect from and the DMG Boost effect to Non-Hero enemies is irremovable.`,
 			icon: "🫧",
 			art: art$4(1),
 			move: "bubble",
@@ -4853,7 +4920,8 @@ var LAIAS = {
 		},
 		{
 			name: "Festival of the Flow",
-			about: "Knocks the boss down for 3 seconds, heals every ally 15% of its max HP and gives every other ally 2 mana. Then for 12 seconds a whirlpool every 4 seconds strikes the boss and knocks it down for 2.",
+			about: `Knocks the boss down for ${FESTIVAL.down} seconds, heals every ally ${pct(FESTIVAL.heal)} of its max HP and gives every other ally ${FESTIVAL.mana / SECTION} mana. Then for ${FESTIVAL.lasts} seconds a whirlpool every ${FESTIVAL.every} seconds strikes the boss and knocks it down for ${FESTIVAL.whirlDown}.`,
+			words: `Deals M.DMG to nearby enemies and knocks them down for ${FESTIVAL.down} sec. Upon casting, heals HP of all allies by ${pct(FESTIVAL.heal)} of their Max HP and recovers ${FESTIVAL.mana / SECTION} orbs of Mana of allies excluding self. Afterward, for ${FESTIVAL.lasts} sec, creates a whirlpool every ${FESTIVAL.every} sec that deals M.DMG to random enemies and knocks them down for ${FESTIVAL.whirlDown} sec.`,
 			icon: "🌊",
 			art: art$4(2),
 			move: "festival",
@@ -5054,7 +5122,10 @@ var LAIAS = {
 //#endregion
 //#region src/technomagic/sim/heroes/lorraine.ts
 var LASH = { blow: BLOW * 1.3 };
-var THORNS = { blow: 1500 };
+var THORNS = {
+	hits: CODED.thornbush.lands.length,
+	blow: 1500
+};
 var VINE = {
 	blow: 3e3,
 	poison: 2,
@@ -5103,10 +5174,11 @@ var BLADE_LEAF = {
 	control: 1,
 	shown: {
 		name: "Blade Leaf",
-		about: "Passive. Her attack has a 30% chance to send three leaves at the boss besides, each leaving a [Poison] on it (up to 5).",
+		about: `Passive. Her attack has a ${pct(LEAF.chance)} chance to send ${LEAF.times} leaves at the boss besides, each leaving a [Poison] on it (up to ${POISON.most}).`,
 		icon: "🍃",
 		art: art$3(3)
-	}
+	},
+	words: `When dealing a normal attack, attacks a random enemy ${LEAF.times} times with a ${pct(LEAF.chance)} chance of inflicting M.DMG and 1 stack of Poison for ${POISON.lasts} seconds. Poison inflicts a total of M.DMG over ${POISON.lasts} seconds, reduces Heal Rate, and can be stacked up to max ${POISON.most} times. If Lorraine dies, Poison effects on enemies will disappear.`
 };
 /** What her skills leave on the boss. */
 var POISONED = "Poison";
@@ -5122,7 +5194,8 @@ var LORRAINE = {
 	abilities: [
 		{
 			name: "Thornbush Forest",
-			about: "Three blows, each leaving a [Poison] on the boss (up to 5): each eats at it every second and leaves it healed 10% less.",
+			about: `${THORNS.hits} blows, each leaving a [Poison] on the boss (up to ${POISON.most}): each eats at it every second and leaves it healed ${pct(POISON.heals)} less.`,
+			words: `Attacks ${THORNS.hits} times at random, dealing M.DMG to enemies in range and inflicting 1 stack of Poison with each attack.`,
 			icon: "🌿",
 			art: art$3(0),
 			move: "thornbush",
@@ -5131,7 +5204,8 @@ var LORRAINE = {
 		},
 		{
 			name: "Tangled Vine",
-			about: "A blow that leaves 2 [Poison] and shackles the boss for 4 seconds (it can do nothing); 2 seconds after, a blow the harder for each [Poison] on it.",
+			about: `A blow that leaves ${VINE.poison} [Poison] and shackles the boss for ${VINE.shackle} seconds (it can do nothing); ${VINE.after} seconds after, a blow the harder for each [Poison] on it.`,
+			words: `Deals M.DMG to enemies in a straight line, stacking ${VINE.poison} Poison and shackling them for ${VINE.shackle} sec. After some time, deals a large amount of DMG based on the number of Poison stacks.`,
 			icon: "🪢",
 			art: art$3(1),
 			move: "vine",
@@ -5140,7 +5214,8 @@ var LORRAINE = {
 		},
 		{
 			name: "Wrath of the Forest",
-			about: "A blow that knocks the boss down for 3 seconds, 20% harder for each [Poison] on it.",
+			about: `A blow that knocks the boss down for ${WRATH.down} seconds, ${pct(WRATH.more)} harder for each [Poison] on it.`,
+			words: `Deals M.DMG to enemies in range and knocks them down for ${WRATH.down} sec. Enemies inflicted by Poison takes ${pct(WRATH.more)} more DMG per every stack.`,
 			icon: "🌳",
 			art: art$3(2),
 			move: "wrath",
@@ -5219,7 +5294,7 @@ var LORRAINE = {
 				},
 				thornbush(part) {
 					thorn();
-					if (part === 2 && self.perks.has("s1-light")) thorn();
+					if (part === THORNS.hits - 1 && self.perks.has("s1-light")) thorn();
 				},
 				vine() {
 					fight.hit(self, VINE.blow);
@@ -5271,7 +5346,7 @@ var LORRAINE = {
 						forest -= PERKS$3.forest.every;
 						if (fight.roll() < PERKS$3.forest.chance) {
 							fight.cue(self, "thornbush");
-							for (let i = 0; i < 3; i++) thorn();
+							for (let i = 0; i < THORNS.hits; i++) thorn();
 						}
 					}
 				}
@@ -5351,10 +5426,11 @@ var FIRE_SMASH = {
 	control: 1,
 	shown: {
 		name: "Fire Smash",
-		about: "Passive. When she blocks she strikes back, leaving 3 [Flame] on the boss.",
+		about: `Passive. When she blocks she strikes back, leaving ${SMASH.flames} [Flame] on the boss.`,
 		icon: "🔥",
 		art: art$2(3)
-	}
+	},
+	words: `Upon Block, deals M.DMG to enemies in range, and inflicts ${SMASH.flames} stack of Flame.`
 };
 /** What Burning Power gives her for a while: shown beside her passive, with how long it has left. */
 var BURNING_UP = {
@@ -5366,7 +5442,7 @@ var BURNING_UP = {
 /** What Hellfire gives every ally for a while: shown on each card, with how long it has left. */
 var HELLFIRE_UP = {
 	name: "Hellfire",
-	about: "30% more M.DEF, and +250 M.Block.",
+	about: `${pct(HELLFIRE.defense - 1)} more M.DEF, and +${HELLFIRE.block} M.Block.`,
 	icon: "🌋",
 	art: art$2(1)
 };
@@ -5382,7 +5458,7 @@ var QUICKENED = {
 };
 var HARDENED = {
 	name: "Fire Smash (M.DEF)",
-	about: "5% more M.DEF for each block (10 at most).",
+	about: `${pct(PERKS$2.harder.defense)} more M.DEF for each block (${PERKS$2.harder.most} at most).`,
 	icon: "🔥",
 	art: art$2(3)
 };
@@ -5398,7 +5474,8 @@ var MORRAH = {
 	abilities: [
 		{
 			name: "Burning Power",
-			about: "A blow that knocks the boss down for a second and leaves 3 [Flame] on it. Then for 15 seconds each blow of her attack deals more and leaves a [Flame]. Both are 2% harder for each [Flame] on the boss.",
+			about: `A blow that knocks the boss down for ${seconds(BURNING.down)} and leaves ${BURNING.flames} [Flame] on it. Then for ${BURNING.lasts} seconds each blow of her attack deals more and leaves a [Flame]. Both are ${pct(FLAME.more)} harder for each [Flame] on the boss.`,
+			words: `Deals M.DMG to enemies in range and knocks them down, inflicting ${BURNING.flames} stacks of Flame. Then for ${BURNING.lasts} sec, each auto attack deals M.DMG and inflicts 1 stack of Flame on enemy. Per each stacked Flame, DMG is increased by ${pct(FLAME.more)}. Each Flame stack deals separate M.DMG and reduces Heal rate by ${pct(FLAME.heals)}.`,
 			icon: "🔥",
 			art: art$2(0),
 			move: "burning",
@@ -5407,7 +5484,8 @@ var MORRAH = {
 		},
 		{
 			name: "Hellfire",
-			about: "For 20 seconds every ally has 30% more M.DEF and +250 M.Block, and a [Flame] is left on the boss every second.",
+			about: `For ${HELLFIRE.lasts} seconds every ally has ${pct(HELLFIRE.defense - 1)} more M.DEF and +${HELLFIRE.block} M.Block, and a [Flame] is left on the boss every ${seconds(HELLFIRE.every)}.`,
+			words: `For ${HELLFIRE.lasts} sec, all allies' M.DEF is increased by ${pct(HELLFIRE.defense - 1)} and M.Block Chance is increased by ${HELLFIRE.block}. Additionally, every ${HELLFIRE.every} sec, inflicts 1 stack of Flame on nearby enemies.`,
 			icon: "🌋",
 			art: art$2(1),
 			move: "hellfire",
@@ -5416,7 +5494,8 @@ var MORRAH = {
 		},
 		{
 			name: "Lava Eruption",
-			about: "A blow that knocks the boss down for 3 seconds, 2% harder for each [Flame] on it.",
+			about: `A blow that knocks the boss down for ${seconds(ERUPTION.down)}, ${pct(FLAME.more)} harder for each [Flame] on it.`,
+			words: `Deals M.DMG to enemies in range and inflict knock down. Per every stacked Flame, DMG is increased by ${pct(FLAME.more)}.`,
 			icon: "☄️",
 			art: art$2(2),
 			move: "eruption",
@@ -5602,10 +5681,11 @@ var PETALS = {
 var BLOSSOM = { blow: 2500 };
 var SCATTER = {
 	rush: 2e3,
+	cuts: CODED.scatter.lands.length - 1,
 	cut: 1200,
 	through: 800,
 	pierce: 1e3,
-	slow: .7,
+	speed: 300,
 	lasts: 3
 };
 var MOON = {
@@ -5614,7 +5694,8 @@ var MOON = {
 	ripe: 4e3,
 	every: 6,
 	light: 1,
-	unhealed: 10
+	unhealed: 10,
+	heals: 0
 };
 var WITCH = {
 	atk: 38567,
@@ -5639,7 +5720,7 @@ var art$1 = skillArt("seria");
 /** What Falling Petals' slot holds for a while after it is used (its picture is Falling Petals'). */
 var BLOSSOM_SKILL = {
 	name: "Mysterious Sword - Blossom",
-	about: "A cut down on the boss: once, within 5 seconds of [Falling Petals].",
+	about: `A cut down on the boss: once, within ${PETALS.window} seconds of [Falling Petals].`,
 	icon: "🌸",
 	art: art$1(0),
 	move: "blossom",
@@ -5652,22 +5733,23 @@ var COLD_BLOODED = {
 	control: 1,
 	shown: {
 		name: "Cold-Blooded Witch",
-		about: "Passive. Her ATK is higher, and each critical blow of her skills gives her 5% more crit damage (up to 30 times).",
+		about: `Passive. Her ATK is higher, and each critical blow of her skills gives her ${pct(WITCH.critDamage)} more crit damage (up to ${WITCH.most} times).`,
 		icon: "🩸",
 		art: art$1(3)
-	}
+	},
+	words: `ATK is increased by ${WITCH.atk}. Upon a critical skill hit, own Crit DMG is increased by ${pct(WITCH.critDamage)}. This effect can be stacked up to ${WITCH.most} times.`
 };
 /** Her Cold-Blooded Witch's stacks: shown on her card, with how many she has. */
 var WITCHED = {
 	name: "Cold-Blooded Witch",
-	about: "5% more crit damage for each.",
+	about: `${pct(WITCH.critDamage)} more crit damage for each.`,
 	icon: "🩸",
 	art: art$1(3)
 };
 /** Moonlight: shown on her card for the second it lasts. */
 var MOONLIGHT = {
 	name: "Moonlight",
-	about: "[Red Moon Blade] used now cuts again, and leaves the boss healed not at all for 10 seconds.",
+	about: `[Red Moon Blade] used now cuts again, and leaves the boss healed ${pct(1 - MOON.heals)} less for ${MOON.unhealed} seconds.`,
 	icon: "🌕",
 	art: art$1(2)
 };
@@ -5677,13 +5759,13 @@ var WILTED = "Mysterious Sword - Blossom";
 /** What her perks give her: her opening's more DMG (Cold-Blooded Witch's Dark), and Transcend 5's Dark. */
 var OPENING = {
 	name: "Cold-Blooded Witch (opening)",
-	about: "Deals 25% more to the boss.",
+	about: `Deals ${pct(PERKS$1.opening.deals - 1)} more to the boss.`,
 	icon: "🩸",
 	art: art$1(3)
 };
 var RECKLESS = {
 	name: "Bloodthirst",
-	about: "Every blow of hers critical; but she can’t block, and takes 25% more.",
+	about: `Every blow of hers critical; but she can’t block, and takes ${pct(PERKS$1.reckless - 1)} more.`,
 	icon: "🩸",
 	art: art$1(3)
 };
@@ -5701,7 +5783,8 @@ var SERIA = {
 	abilities: [
 		{
 			name: "Mysterious Sword - Falling Petals",
-			about: "A cut across the boss. For 5 seconds after, this slot holds [Mysterious Sword - Blossom], once.",
+			about: `A cut across the boss. For ${PETALS.window} seconds after, this slot holds [Mysterious Sword - Blossom], once.`,
+			words: `Performs a horizontal slash to the front and deals M.DMG to the target and enemies in a narrow range. Can activate [Mysterious Sword - Blossom] (${BLOSSOM_SKILL.cost} Mana: a vertical slash to the front, dealing M.DMG to the target and enemies in a narrow range) once within ${PETALS.window} sec after use.`,
 			icon: "🌸",
 			art: art$1(0),
 			move: "petals",
@@ -5710,7 +5793,8 @@ var SERIA = {
 		},
 		{
 			name: "Blood Scattering Blade",
-			about: "A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks 30% slower for 3 seconds); then two more cuts, each with a blow more through its defense.",
+			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
+			words: `Rapidly charges forward to deal M.DMG and inflicts irremovable Original Sin of Blood on enemies for ${SCATTER.lasts} sec. Enemies under Original Sin of Blood have their ATK Spd reduced by ${SCATTER.speed}. Shortly afterward, attacks enemies under Original Sin of Blood ${SCATTER.cuts} times, and deals additional M.DMG, and if the target is not a hero, deals additional DEF Ignoring M.DMG.`,
 			icon: "🩸",
 			art: art$1(1),
 			move: "scatter",
@@ -5719,7 +5803,8 @@ var SERIA = {
 		},
 		{
 			name: "Red Moon Blade",
-			about: "A great cut, harder on a boss. Used in [Moonlight] (a second of it every 6 seconds): it cuts again, and the boss is healed not at all for 10 seconds.",
+			about: `A great cut, harder on a boss. Used in [Moonlight] (${seconds(MOON.light)} of it every ${MOON.every} seconds): it cuts again, and the boss is healed ${pct(1 - MOON.heals)} less for ${MOON.unhealed} seconds.`,
+			words: `Brandishes a moon-bloodying sword, dealing M.DMG to enemies in a wide range, and additional M.DMG on non-Hero enemies. When the moon is ripe, gains Moonlight for ${MOON.light} sec, and when cast at this state, deals M.DMG to enemies and reduces their Heal Rate by ${pct(1 - MOON.heals)}. If the target is not a hero, deals additional M.DMG.`,
 			icon: "🌙",
 			art: art$1(2),
 			move: "moon",
@@ -5859,7 +5944,7 @@ var SERIA = {
 							left: SCATTER.lasts,
 							shown: "curse"
 						});
-						fight.slow(SCATTER.slow, SCATTER.lasts);
+						fight.slow(SCATTER.speed, SCATTER.lasts);
 						return;
 					}
 					cut(SCATTER.cut);
@@ -5872,7 +5957,7 @@ var SERIA = {
 					put(fight.foe.statuses, {
 						name: UNHEALED,
 						left: MOON.unhealed,
-						heals: 0,
+						heals: MOON.heals,
 						shown: "curse"
 					});
 				}
@@ -5928,7 +6013,7 @@ var FIELD = {
 var CANNON = {
 	blow: 4e3,
 	stun: 3,
-	lasers: 9,
+	lasers: CODED.cannon.lands.length - 1,
 	laser: 700,
 	laserStun: 1.5,
 	lasts: 15,
@@ -5962,21 +6047,22 @@ var AWAKENED = {
 	control: 1,
 	shown: {
 		name: "Technomagic Awakening",
-		about: "Passive. Her defense 20% higher and her mana filling 30% faster; every ally’s ATK 10% higher, and (in the Technomagic Kingdom) every ally deals 15% more to the boss.",
+		about: `Passive. Her defense ${pct(AWAKENING.defense - 1)} higher and her mana filling ${pct(AWAKENING.mana - 1)} faster; every ally’s ATK ${pct(AWAKENING.atk)} higher, and (in the Technomagic Kingdom) every ally deals ${pct(AWAKENING.boss)} more to the boss.`,
 		icon: "⚙️",
 		art: art(3)
-	}
+	},
+	words: `Increases self’s All DEF, Mana Recovery/Attack, and ATK of all allies. In Technomagic Kingdom, increases all allies’ DMG dealt to Bosses by ${pct(AWAKENING.boss)}.`
 };
 /** What her passive gives every ally while she is on the field, and her alone. */
 var AWAKENING_UP = {
 	name: "Technomagic Awakening",
-	about: "ATK 10% higher, and 15% more to the boss.",
+	about: `ATK ${pct(AWAKENING.atk)} higher, and ${pct(AWAKENING.boss)} more to the boss.`,
 	icon: "⚙️",
 	art: art(3)
 };
 var AWAKENING_SELF = {
 	name: "Technomagic Awakening (Valance)",
-	about: "Defense 20% higher, and mana filling 30% faster.",
+	about: `Defense ${pct(AWAKENING.defense - 1)} higher, and mana filling ${pct(AWAKENING.mana - 1)} faster.`,
 	icon: "⚙️",
 	art: art(3)
 };
@@ -5990,7 +6076,7 @@ var HOLOGRAPHED = {
 /** The Violet Force Field: on every ally's card while it lasts. */
 var FIELDED = {
 	name: "Violet Force Field",
-	about: "Defense 15% higher, can’t be knocked down, healed and given mana every second.",
+	about: `Defense ${pct(FIELD.defense - 1)} higher, can’t be knocked down, healed and given mana every second.`,
 	icon: "🟣",
 	art: art(1)
 };
@@ -6026,7 +6112,8 @@ var HEROES = [
 		abilities: [
 			{
 				name: "Prototype – VA",
-				about: "Clears what the boss has left on the ally with the highest ATK, and gives it a [Hologram] for 15 seconds: 20% more ATK and crit chance, healed every second, its skills ready 20% sooner, and nothing the boss does holds it.",
+				about: `Clears what the boss has left on the ally with the highest ATK, and gives it a [Hologram] for ${HOLOGRAM.lasts} seconds: ${pct(HOLOGRAM.atk)} more ATK and ${pct(HOLOGRAM.crit)} more crit chance, healed every second, its skills ready ${pct(HOLOGRAM.cooldown)} sooner, and nothing the boss does holds it.`,
+				words: `Dispels negative effects from the ally with the highest ATK and grants [Hologram] for ${HOLOGRAM.lasts} sec. [Hologram] increases the target’s ATK, Crit Chance, heals HP every sec, and reduces its Cooldown of all active Skills by ${HOLOGRAM.cooldown} sec. While [Hologram] is active, the target gains immunity to negative effects.`,
 				icon: "💠",
 				art: art(0),
 				move: "prototype",
@@ -6035,7 +6122,8 @@ var HEROES = [
 			},
 			{
 				name: "Absolute Protection Field – LA",
-				about: "A field for 5 seconds that reaches every ally: 15% more defense, can’t be knocked down, and healed and given mana every second.",
+				about: `A field for ${FIELD.lasts} seconds that reaches every ally: ${pct(FIELD.defense - 1)} more defense, can’t be knocked down, and healed and given mana every second.`,
+				words: `Creates an [Violet Force Field] that lasts for ${FIELD.lasts} sec within a wide range of self. Allies within the range of [Violet Force Field] have their All DEF increased by ${pct(FIELD.defense - 1)}, gain immunity to CC, and have their HP healed and Mana recovered every sec.`,
 				icon: "🟣",
 				art: art(1),
 				move: "field",
@@ -6044,7 +6132,8 @@ var HEROES = [
 			},
 			{
 				name: "Ultimate Laser Cannon – NCE",
-				about: "A laser that stuns the boss for 3 seconds, then 9 more, each stunning it for 1.5; each leaves it [Manipulated] for 15 seconds (up to 7 times over): taking 7% more and healed 5% less.",
+				about: `A laser that stuns the boss for ${CANNON.stun} seconds, then ${CANNON.lasers} more, each stunning it for ${CANNON.laserStun}; each leaves it [Manipulated] for ${CANNON.lasts} seconds (up to ${CANNON.most} times over): taking ${pct(CANNON.takes)} more and healed ${pct(CANNON.heals)} less.`,
+				words: `Summons laser cannons behind self that fire laser beams, dealing P.DMG to the enemy. The hit target is inflicted with Stun for ${CANNON.stun} sec and becomes [Manipulated] for ${CANNON.lasts} sec. Afterward, the cannons additionally fire a total of ${CANNON.lasers} laser beams to random enemies. Each laser beam deals P.DMG, inflicts Stun on the hit target for ${CANNON.laserStun} sec, and inflicts [Manipulated] for ${CANNON.lasts} sec. Enemies who are [Manipulated] have their Heal Rate reduced by ${pct(CANNON.heals)} and take ${pct(CANNON.takes)} increased All DMG. [Manipulated] can be stacked up to max ${CANNON.most} times.`,
 				icon: "🔫",
 				art: art(2),
 				move: "cannon",
@@ -6236,7 +6325,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "5e999734aa7f";
+var SIM_VERSION = "51e7d2bc399f";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
@@ -6259,7 +6348,20 @@ var TM_HEROES = HEROES.map((hero) => ({
 	id: hero.id,
 	name: hero.name,
 	class: hero.class,
-	skins: hero.skins.length
+	skins: hero.skins.length,
+	skills: [...hero.abilities.map(({ name, cost, cooldown, tag, words, about }) => ({
+		name,
+		cost,
+		cooldown,
+		tag: tag ?? null,
+		text: words ?? about ?? ""
+	})), ...hero.passive ? [{
+		name: hero.passive.shown.name,
+		cost: null,
+		cooldown: null,
+		tag: hero.passive.tag ?? null,
+		text: hero.passive.words ?? hero.passive.shown.about ?? ""
+	}] : []]
 }));
 var BOSS_IDS = BOSSES.map((boss) => boss.id);
 var TM_SET_INFO = SET_INFO;

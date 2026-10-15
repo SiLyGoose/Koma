@@ -111,6 +111,22 @@ export interface HeroView {
   perks: string[];
   /** How far it is transcended (0 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
   transcend: { level: number; points: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
+  /** Its three skills, then its passive. */
+  abilities: HeroSkillView[];
+}
+
+/**
+ * One of a hero's skills, as the heroes page says it (the raid's: Koma-UI's src/technomagic/sim/heroes/, here as
+ * vendor/technomagic-sim.mjs's TM_HEROES): its name; its mana cost and cooldown (seconds; a passive has neither);
+ * what its tag says besides its cost, where not its cooldown (a passive's, where not "Passive"); and King's Raid's
+ * words for it, with the raid's numbers.
+ */
+export interface HeroSkillView {
+  name: string;
+  cost: number | null;
+  cooldown: number | null;
+  tag: string | null;
+  text: string;
 }
 
 /** GET /api/heroes. */

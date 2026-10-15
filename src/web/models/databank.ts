@@ -10,7 +10,7 @@ import { classTraits } from '../../lib/game/raid-classes.js';
 import { TM_SET_PIECES, TM_SETS_BY_ID, tmSetEffect } from '../../data/tm-sets.js';
 import { TM_POTENTIAL_LINES, TM_POTENTIALS } from '../../data/tm-potentials.js';
 import { formatPercent } from '../../lib/format.js';
-import { HEROES_BY_ID } from '../../data/heroes.js';
+import { HEROES, HEROES_BY_ID } from '../../data/heroes.js';
 import { uniqueTier } from '../../lib/game/heroes.js';
 import { uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import type { ItemDef } from '../../types.js';
@@ -92,6 +92,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
     raidDropChancePerRaider: CONFIG.raid.dropChancePerRaider,
     items: list,
     classes: RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })),
+    heroes: HEROES.map(({ id, abilities }) => ({ id, abilities: [...abilities] })),
     bosses: RAID_BOSS_IDS.map(bossView),
     raid: { maxRounds: CONFIG.raid.maxRounds, levels: difficultyLevels() },
   };

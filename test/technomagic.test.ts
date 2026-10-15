@@ -4,7 +4,7 @@ import { GAMES } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
-import { HEROES } from '../src/data/heroes.js';
+import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
 import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
@@ -14,6 +14,7 @@ import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import type { Player } from '../src/web/auth/token.js';
 import { heroesView } from '../src/web/models/heroes.js';
+import { databankView } from '../src/web/models/databank.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/technomagic/protocol.js';
 import { localFights, workerFights, type Intent, type Progress } from '../src/web/games/technomagic/fight.js';
 import { TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
@@ -33,6 +34,25 @@ test("technomagic: the bot's heroes are the sim's, each with a skin, and the bos
   assert.match(SIM_VERSION, /^[0-9a-f]{12}$/);
   assert.equal(MOST_STAGE, 8);
   assert.equal(GAMES.technomagic.page, '/games/technomagic');
+});
+
+test("technomagic: each hero's skills are the sim's, in King's Raid's words with the fight's numbers, sent to the site", () => {
+  for (const hero of HEROES) {
+    assert.equal(hero.abilities.length, 4, `${hero.id}: three skills, then its passive`);
+    for (const skill of hero.abilities.slice(0, 3)) assert.ok(skill.name && skill.text && skill.cost !== null && skill.cooldown !== null, `${hero.id} ${skill.name}`);
+    const passive = hero.abilities[3];
+    assert.ok(passive?.name && passive.text && passive.cost === null && passive.cooldown === null, `${hero.id}'s passive`);
+  }
+  // The fight's numbers: Clause's Cut Ground stuns for 5 seconds; Gremory's skills say they're sealed, not a cooldown.
+  const clause = HEROES_BY_ID.get('clause');
+  assert.equal(clause?.abilities[0]?.text, 'Leaps into the air and deals P.DMG to enemies in range, stunning them for 5 sec.');
+  assert.deepEqual(
+    HEROES_BY_ID.get('gremory')?.abilities.map(({ cost, tag }) => [cost, tag]),
+    [[3, 'Sealed after use'], [3, 'Sealed after use'], [4, 'Sealed after use'], [null, 'Once all are sealed']],
+  );
+  // The heroes page has them from the heroes view, the databank from its own.
+  assert.deepEqual(heroesView([], null).heroes.map(({ id, abilities }) => ({ id, abilities })), databankView().heroes);
+  assert.deepEqual(databankView().heroes.map(({ id }) => id), ALL);
 });
 
 test('technomagic: a raid is the same every time it is run, and a strong party on Auto wins it', () => {

@@ -1,4 +1,4 @@
-import type { EssenceId } from './heroes.js';
+import type { EssenceId, HeroSkillView } from './heroes.js';
 import type { Slot, Stars } from './items.js';
 import type { RaidBossId, RaidClassId, RaidLevel } from './raid.js';
 
@@ -98,6 +98,8 @@ export interface Databank {
   /** Every raid boss, in the order the weeks go through them, and what goes for them all. */
   bosses: DatabankBoss[];
   raid: DatabankRaid;
+  /** The TechnoMagic Raid's heroes, in the order the shop shows them: each one's three skills, then its passive. */
+  heroes: { id: string; abilities: HeroSkillView[] }[];
 }
 
 /** GET /api/raid/week: a server's raid, for the databank's boss pages. */

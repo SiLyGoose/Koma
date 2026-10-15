@@ -123,6 +123,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       totals: [...heroStatLines(shares), ...setLines(set, hero.class), ...skillLines(skills)],
       perks: keptPerks(doc?.perks, doc?.transcend),
       transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend), next: transcendCost(hero.class, doc?.transcend) },
+      abilities: [...hero.abilities],
     };
   });
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
