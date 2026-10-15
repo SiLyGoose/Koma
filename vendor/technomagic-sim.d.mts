@@ -1,5 +1,5 @@
 // Built from Koma-UI's src/technomagic/sim/ by scripts/build-sim.mjs: don't edit it here.
-export declare const SIM_VERSION = 10;
+export declare const SIM_VERSION = 11;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;

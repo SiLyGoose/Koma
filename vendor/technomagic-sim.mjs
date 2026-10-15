@@ -429,7 +429,7 @@ var TRACKS = {
 		],
 		spray: [.6, 1.2],
 		hit: .88,
-		hurts: [300, 450]
+		hurts: [3e4, 45e3]
 	},
 	roar: {
 		keys: [
@@ -465,7 +465,7 @@ var TRACKS = {
 			]
 		],
 		hit: .5,
-		hurts: [200, 300]
+		hurts: [2e4, 3e4]
 	},
 	slam: {
 		keys: [
@@ -1047,11 +1047,11 @@ var ROSMERTA = {
 	name: "Angel’s Despair, Rosmerta",
 	lasts: 7,
 	heal: [
-		20,
-		24,
-		29,
-		35,
-		42
+		2e3,
+		2400,
+		2900,
+		3500,
+		4200
 	],
 	pen: [
 		240,
@@ -1182,7 +1182,8 @@ var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
 /**
 * How each class stands, before what is a hero's own (the kind of damage it deals, and anything else it
 * has otherwise): a hero's stats are its class's, with its own over them. Health and attack are as the
-* fight measures them (ATK the size of King's Raid's: a skill's numbers are written for an ATK of 100,000, ../combat/damage.ts); crit,
+* fight measures them (both the size of King's Raid's: a skill's numbers are written for an ATK of 100,000, ../combat/damage.ts,
+* and what the boss's blows take and the heals and shields that are no share of health are sized to health this big); crit,
 * attack speed, penetration, CC resist, block and dodge are points (1000: 100%). A first guess at each,
 * by what the game says a class is for:
 * - knight: the most health and defense, and blocks the most;
@@ -1195,7 +1196,7 @@ var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
 */
 var CLASS_STATS = {
 	knight: {
-		hp: 1400,
+		hp: 14e4,
 		atk: 75e3,
 		physical: 1e3,
 		magical: 700,
@@ -1210,7 +1211,7 @@ var CLASS_STATS = {
 		resist: 250
 	},
 	warrior: {
-		hp: 1150,
+		hp: 115e3,
 		atk: 1e5,
 		physical: 600,
 		magical: 450,
@@ -1228,7 +1229,7 @@ var CLASS_STATS = {
 		resist: 150
 	},
 	assassin: {
-		hp: 900,
+		hp: 9e4,
 		atk: 115e3,
 		physical: 300,
 		magical: 250,
@@ -1243,7 +1244,7 @@ var CLASS_STATS = {
 		resist: 50
 	},
 	archer: {
-		hp: 850,
+		hp: 85e3,
 		atk: 125e3,
 		physical: 250,
 		magical: 250,
@@ -1258,7 +1259,7 @@ var CLASS_STATS = {
 		resist: 0
 	},
 	mechanic: {
-		hp: 900,
+		hp: 9e4,
 		atk: 105e3,
 		physical: 300,
 		magical: 350,
@@ -1273,7 +1274,7 @@ var CLASS_STATS = {
 		resist: 50
 	},
 	wizard: {
-		hp: 800,
+		hp: 8e4,
 		atk: 125e3,
 		physical: 200,
 		magical: 450,
@@ -1291,7 +1292,7 @@ var CLASS_STATS = {
 		resist: 0
 	},
 	priest: {
-		hp: 900,
+		hp: 9e4,
 		atk: 9e4,
 		physical: 300,
 		magical: 500,
@@ -1693,7 +1694,7 @@ var RAY = {
 	lasts: 10
 };
 var TREATMENT = {
-	heal: 400,
+	heal: 4e4,
 	lasts: 10,
 	resist: 250,
 	crit: .25,
@@ -2317,12 +2318,12 @@ var VENGEANCE$1 = {
 //#region src/technomagic/heroes/fallen-frey/index.ts
 var SMITE = { blow: BLOW * 1.5 };
 var LIGHT = {
-	heal: 250,
+	heal: 25e3,
 	near: 3.6,
 	blast: 5e3
 };
 var BLESSING = {
-	shield: 300,
+	shield: 3e4,
 	lasts: 10,
 	allies: 4,
 	speed: 500
@@ -5415,7 +5416,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 10;
+var SIM_VERSION = 11;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
