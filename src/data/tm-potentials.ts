@@ -23,11 +23,19 @@ export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [
   { id: 'block', name: 'Block' },
   { id: 'blockPhysical', name: 'P. Block' },
   { id: 'blockMagical', name: 'M. Block' },
+  { id: 'blockDef', name: 'Block DEF' },
+  { id: 'blockDefPhysical', name: 'P. Block DEF' },
+  { id: 'blockDefMagical', name: 'M. Block DEF' },
+  { id: 'dodge', name: 'Dodge' },
+  { id: 'tough', name: 'Tough' },
+  { id: 'toughPhysical', name: 'P. Tough' },
+  { id: 'toughMagical', name: 'M. Tough' },
   { id: 'accuracy', name: 'Accuracy' },
   { id: 'resist', name: 'CC Resist' },
   { id: 'crit', name: 'Crit Chance' },
   { id: 'critDamage', name: 'Crit DMG' },
   { id: 'manaAttack', name: 'Mana Recovery per Attack' },
+  { id: 'manaRegen', name: 'Mana Recovery per Second' },
   { id: 'lifesteal', name: 'Lifesteal' },
   { id: 'critResist', name: 'Crit Resist' },
   { id: 'pen', name: 'Penetration' },
@@ -39,7 +47,9 @@ export const TM_POTENTIAL_NAME: ReadonlyMap<string, string> = new Map(TM_POTENTI
 /**
  * What each potential can roll, by default: the user's numbers. DEF and Block are against both kinds of damage, so
  * half of what P.DEF/M.DEF and P.Block/M.Block are. CC Resist, Crit Resist and Mana Recovery per attack weren't
- * given: set beside what they answer (Accuracy, Crit, and ATK Spd).
+ * given: set beside what they answer (Accuracy, Crit, and ATK Spd). Nor were Dodge, Block DEF, Tough and Mana
+ * Recovery per Second: Dodge, Block DEF and Tough (both kinds) as Block, P./M. Block DEF and P./M. Tough as
+ * P./M. Block, and Mana Recovery per Second as per attack.
  */
 export const TM_POTENTIAL_RANGES: Readonly<Record<TmPotentialId, { min: number; max: number }>> = {
   atk: { min: 0.05, max: 0.12 },
@@ -51,11 +61,19 @@ export const TM_POTENTIAL_RANGES: Readonly<Record<TmPotentialId, { min: number; 
   block: { min: 0.05, max: 0.11 },
   blockPhysical: { min: 0.11, max: 0.22 },
   blockMagical: { min: 0.11, max: 0.22 },
+  blockDef: { min: 0.05, max: 0.11 },
+  blockDefPhysical: { min: 0.11, max: 0.22 },
+  blockDefMagical: { min: 0.11, max: 0.22 },
+  dodge: { min: 0.05, max: 0.11 },
+  tough: { min: 0.05, max: 0.11 },
+  toughPhysical: { min: 0.11, max: 0.22 },
+  toughMagical: { min: 0.11, max: 0.22 },
   accuracy: { min: 0.05, max: 0.11 },
   resist: { min: 0.05, max: 0.11 },
   crit: { min: 0.05, max: 0.12 },
   critDamage: { min: 0.1, max: 0.24 },
   manaAttack: { min: 0.05, max: 0.12 },
+  manaRegen: { min: 0.05, max: 0.12 },
   lifesteal: { min: 0.05, max: 0.11 },
   critResist: { min: 0.05, max: 0.12 },
   pen: { min: 0.05, max: 0.11 },

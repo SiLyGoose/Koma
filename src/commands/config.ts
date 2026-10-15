@@ -241,7 +241,7 @@ export const config: Command = {
 
       // A named group's page is found by its formatted display name: either the bare-named page
       // it got if it fit on one, or the first of its numbered sub-pages if it didn't (Equipment
-      // is the only group currently big enough to split).
+      // and Hero, with its potentials, are big enough to split).
       let startIndex = 0;
       if (jumpGroup !== undefined) {
         const jumpName = groups[GROUPS.indexOf(jumpGroup)]!.name;

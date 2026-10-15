@@ -9,28 +9,62 @@ var NONE = {
 var POINTS = 1e3;
 /** The share of a stat in points (0 to 1). */
 var share = (points) => Math.min(1, Math.max(0, points / POINTS));
-/** The attack a skill's numbers are written for: King's Raid's size of ATK, so a unique weapon's flat ATK (the game's own numbers) fits it. */
-var ATK = 1e5;
-/** A defense of this much halves what gets through (twice it: a third, and so on). */
-var HALVING = 1e3;
-/** A blocked blow does this much of what it would have. */
+/**
+* King's Raid's soft caps: a stat's points past its soft cap count half (past `hard`, a fifth), so none is easily
+* pushed to 100%. Each stat's (SOFT) is where the fight uses it.
+*/
+function soft(points, cap, hard = Infinity) {
+	if (points <= cap) return points;
+	if (points <= hard) return cap + (points - cap) * .5;
+	return cap + (hard - cap) * .5 + (points - hard) * .2;
+}
+/**
+* Each stat's soft cap (points): penetration, Tough and block DEF at 450; ACC, CC accuracy, CC resist and lifesteal at
+* 500; block and dodge at 500, with a hard cap at 1000; attack speed at 500 more than as quick as it comes (1000), with
+* a hard cap 1000 more.
+*/
+var SOFT = {
+	pen: 450,
+	tough: 450,
+	blockDef: 450,
+	acc: 500,
+	resist: 500,
+	lifesteal: 500,
+	chance: 500,
+	hard: 1e3
+};
+/**
+* The attack a heal's or a shield's numbers are written for (as much HP as it says, from a hero with this much ATK; so
+* many times as much for so many times its ATK): King's Raid's classes' average ATK, an assassin's. A blow's numbers
+* are thousandths of its hero's ATK, as the game's shares have them (1000: a blow as hard as its ATK).
+*/
+var ATK = 19592;
+/**
+* What a defense takes off a blow, as King's Raid has it (its community's formula, against a level 90 boss): DEF_MOST
+* of the blow at most, half of that at DEF_CURVE, never all of it. Defense is King's Raid's own size of DEF.
+*/
+var DEF_MOST = .9817;
+var DEF_CURVE = 19360.37;
+/** A blocked blow does this much of what it would have (less its target's block DEF against that kind). */
 var BLOCKED = .5;
-/** The most of a defense penetration sees past, however much there is (in points). */
-var PEN_MOST = 500;
 /**
 * A blow of `amount` of a kind lands on `target`, from one with `pen` points of penetration: dodged (it
 * takes nothing), or what it takes once the target's defense against that kind (less what penetration
-* sees past) has worn it down, and whether it blocked it (then less again). `roll` is the fight's chances (../sim/random.ts).
+* sees past) has worn it down, and whether it blocked it (then less again), and its Tough off what is left. `roll` is the
+* fight's chances (../sim/random.ts).
 */
 function strike(amount, type, target, pen, roll) {
-	if (roll() < share(target.dodge[type])) return {
+	if (roll() < share(soft(target.dodge[type], SOFT.chance, SOFT.hard))) return {
 		taken: 0,
 		blocked: false,
 		dodged: true
 	};
-	const blocked = roll() < share(target.block[type]);
+	const blocked = roll() < share(soft(target.block[type], SOFT.chance, SOFT.hard));
+	const defense = Math.max(0, target[type]) * (1 - share(soft(pen, SOFT.pen)));
+	const kept = blocked ? Math.max(0, BLOCKED - soft((target.blockDef?.[type] ?? 0) * POINTS, SOFT.blockDef) / POINTS) : 1;
+	const tough = 1 - share(soft(target.tough?.[type] ?? 0, SOFT.tough));
 	return {
-		taken: amount * (HALVING / (HALVING + Math.max(0, target[type]) * (1 - share(Math.min(PEN_MOST, pen))))) * (blocked ? BLOCKED : 1),
+		taken: amount * (1 - DEF_MOST * defense / (DEF_CURVE + defense)) * kept * tough,
 		blocked,
 		dodged: false
 	};
@@ -47,12 +81,12 @@ var MOVES = {
 	spit: {
 		length: 2,
 		hit: .88,
-		hurts: [3e4, 45e3]
+		hurts: [3e5, 45e4]
 	},
 	roar: {
 		length: 2.1,
 		hit: .5,
-		hurts: [2e4, 3e4]
+		hurts: [2e5, 3e5]
 	},
 	slam: {
 		length: 1.9,
@@ -240,6 +274,12 @@ function defending(on, type) {
 	let times = 1;
 	for (const { defends } of on) times *= typeof defends === "number" ? defends : defends?.[type] ?? 1;
 	return times;
+}
+/** What these add to a bearer's defense against a kind of damage. */
+function bolstering(on, type) {
+	let more = 0;
+	for (const { bolsters } of on) more += bolsters?.[type] ?? 0;
+	return more;
 }
 /** What these add to a bearer's chance to block a kind of damage (points). */
 function blocking(on, type) {
@@ -456,10 +496,10 @@ var BOSSES = [{
 	id: "galgoria",
 	name: "Galgoria",
 	stats: {
-		hp: 3e6,
+		hp: 58776e3,
 		deals: "magical",
-		physical: 600,
-		magical: 800,
+		physical: 12e3,
+		magical: 16e3,
 		block: NONE,
 		dodge: NONE,
 		crit: 100,
@@ -494,6 +534,14 @@ function geared(stats, gear = {}) {
 		dodge: {
 			physical: plus(stats.dodge.physical, gear.dodge),
 			magical: plus(stats.dodge.magical, gear.dodge)
+		},
+		blockDef: {
+			physical: (stats.blockDef?.physical ?? 0) + both(gear.blockDef, gear.blockDefPhysical) / POINTS,
+			magical: (stats.blockDef?.magical ?? 0) + both(gear.blockDef, gear.blockDefMagical) / POINTS
+		},
+		tough: {
+			physical: plus(stats.tough?.physical ?? 0, both(gear.tough, gear.toughPhysical)),
+			magical: plus(stats.tough?.magical ?? 0, both(gear.tough, gear.toughMagical))
 		}
 	};
 }
@@ -517,137 +565,151 @@ var CLASS_LINES = {
 };
 /** Where a hero stands: its own line, if it has one, or its class's. */
 var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
-/**
-* How each class stands, before what is a hero's own (the kind of damage it deals, and anything else it
-* has otherwise): a hero's stats are its class's, with its own over them. Health and attack are as the
-* fight measures them (both the size of King's Raid's: a skill's numbers are written for an ATK of 100,000, ../combat/damage.ts,
-* and what the boss's blows take and the heals and shields that are no share of health are sized to health this big); crit,
-* attack speed, penetration, CC resist, block and dodge are points (1000: 100%). A first guess at each,
-* by what the game says a class is for:
-* - knight: the most health and defense, and blocks the most;
-* - warrior: as much of everything, standing and hitting, some block and some CC resist;
-* - assassin: bursts of damage, the most crits and the quickest, dodging what it can;
-* - archer: the hardest hitting, and the most penetration;
-* - mechanic: hits again and again from off, a little of everything;
-* - wizard: magic, hitting hard and seeing past defense, and standing magic better than blows;
-* - priest: heals and shields (by its attack), standing magic well, quick at what it does.
-*/
-var CLASS_STATS = {
+var KINGS_RAID = {
 	knight: {
-		hp: 14e4,
-		atk: 75e3,
-		physical: 1e3,
-		magical: 700,
-		block: {
-			physical: 350,
-			magical: 250
+		hp: 1354584,
+		atk: 15712,
+		defense: {
+			physical: 6984,
+			magical: 5432
 		},
-		dodge: NONE,
 		crit: 50,
-		speed: 0,
-		pen: 0,
-		resist: 250
-	},
-	warrior: {
-		hp: 115e3,
-		atk: 1e5,
-		physical: 600,
-		magical: 450,
 		block: {
 			physical: 100,
-			magical: 50
-		},
-		dodge: {
-			physical: 50,
-			magical: 50
-		},
-		crit: 100,
-		speed: 100,
-		pen: 100,
-		resist: 150
-	},
-	assassin: {
-		hp: 9e4,
-		atk: 115e3,
-		physical: 300,
-		magical: 250,
-		block: NONE,
-		dodge: {
-			physical: 200,
-			magical: 150
-		},
-		crit: 350,
-		speed: 250,
-		pen: 150,
-		resist: 50
-	},
-	archer: {
-		hp: 85e3,
-		atk: 125e3,
-		physical: 250,
-		magical: 250,
-		block: NONE,
-		dodge: {
-			physical: 100,
-			magical: 50
-		},
-		crit: 200,
-		speed: 150,
-		pen: 300,
-		resist: 0
-	},
-	mechanic: {
-		hp: 9e4,
-		atk: 105e3,
-		physical: 300,
-		magical: 350,
-		block: NONE,
-		dodge: {
-			physical: 50,
-			magical: 50
-		},
-		crit: 150,
-		speed: 150,
-		pen: 150,
-		resist: 50
-	},
-	wizard: {
-		hp: 8e4,
-		atk: 125e3,
-		physical: 200,
-		magical: 450,
-		block: {
-			physical: 0,
-			magical: 50
-		},
-		dodge: {
-			physical: 0,
-			magical: 50
-		},
-		crit: 150,
-		speed: 50,
-		pen: 200,
-		resist: 0
-	},
-	priest: {
-		hp: 9e4,
-		atk: 9e4,
-		physical: 300,
-		magical: 500,
-		block: {
-			physical: 0,
 			magical: 100
 		},
+		tough: {
+			physical: 250,
+			magical: 250
+		},
+		speed: 1e3
+	},
+	warrior: {
+		hp: 1150488,
+		atk: 17848,
+		defense: {
+			physical: 5816,
+			magical: 6984
+		},
+		crit: 150,
+		pen: 150,
+		acc: 100,
+		dodge: {
+			physical: 100,
+			magical: 100
+		},
+		resist: 150,
+		speed: 1e3
+	},
+	assassin: {
+		hp: 1099264,
+		atk: 19592,
+		defense: {
+			physical: 6208,
+			magical: 5432
+		},
+		crit: 200,
+		critDamage: .3,
+		acc: 100,
+		dodge: {
+			physical: 200,
+			magical: 200
+		},
+		speed: 1e3
+	},
+	archer: {
+		hp: 846664,
+		atk: 22112,
+		defense: {
+			physical: 4264,
+			magical: 3488
+		},
+		crit: 150,
+		pen: 250,
+		acc: 100,
+		speed: 1e3
+	},
+	mechanic: {
+		hp: 918448,
+		atk: 20176,
+		defense: {
+			physical: 4264,
+			magical: 3488
+		},
+		crit: 150,
+		critDamage: .5,
+		pen: 100,
+		acc: 200,
+		speed: 1e3
+	},
+	wizard: {
+		hp: 782056,
+		atk: 23280,
+		defense: {
+			physical: 3104,
+			magical: 4656
+		},
+		crit: 100,
+		pen: 150,
+		acc: 100,
+		block: {
+			physical: 0,
+			magical: 250
+		},
 		dodge: {
 			physical: 0,
-			magical: 50
+			magical: 200
 		},
-		crit: 50,
-		speed: 100,
-		pen: 0,
-		resist: 100
+		speed: 1e3
+	},
+	priest: {
+		hp: 876928,
+		atk: 18424,
+		defense: {
+			physical: 3880,
+			magical: 4848
+		},
+		crit: 100,
+		acc: 100,
+		block: {
+			physical: 0,
+			magical: 500
+		},
+		tough: {
+			physical: 0,
+			magical: 150
+		},
+		blockDef: {
+			physical: 0,
+			magical: .23
+		},
+		speed: 1e3
 	}
 };
+var CLASSES = Object.keys(KINGS_RAID);
+/**
+* How each class stands, before what is a hero's own (the kind of damage it deals, and anything else it has
+* otherwise): a hero's stats are its class's (King's Raid's own: KINGS_RAID), with its own over them.
+*/
+var CLASS_STATS = Object.fromEntries(CLASSES.map((one) => {
+	const { hp, atk, defense, crit, critDamage, pen, acc, block, dodge, tough, resist, blockDef, speed } = KINGS_RAID[one];
+	return [one, {
+		hp,
+		atk,
+		physical: defense.physical,
+		magical: defense.magical,
+		crit,
+		critDamage: critDamage ?? 0,
+		speed,
+		pen: pen ?? 0,
+		acc: acc ?? 0,
+		block: block ?? NONE,
+		dodge: dodge ?? NONE,
+		resist: resist ?? 0,
+		tough: tough ?? NONE,
+		...blockDef && { blockDef }
+	}];
+}));
 //#endregion
 //#region src/technomagic/sim/heroes/moves.ts
 /** `count` blows, the first `first` seconds in and each `every` after the last. */
@@ -1215,7 +1277,7 @@ var SKILL = {
 		most: 20
 	},
 	overdrive: {
-		speed: 1e3,
+		speed: 2e3,
 		atk: .4
 	},
 	regeneration: {
@@ -1379,7 +1441,7 @@ var SKILLS = [
 		id: "overdrive",
 		name: "Overdrive",
 		tier: "A",
-		about: `Fixes attack speed at ${pct(share(SKILL.overdrive.speed))} and increases ATK by ${pct(SKILL.overdrive.atk)}.`
+		about: `Fixes attack speed at ${pct(SKILL.overdrive.speed / POINTS)} and increases ATK by ${pct(SKILL.overdrive.atk)}.`
 	},
 	{
 		id: "regeneration",
@@ -1621,11 +1683,11 @@ var ROSMERTA = {
 	name: "Angel’s Despair, Rosmerta",
 	lasts: 7,
 	heal: [
-		2e3,
-		2400,
-		2900,
-		3500,
-		4200
+		2,
+		2.4,
+		2.9,
+		3.5,
+		4.2
 	],
 	pen: [
 		240,
@@ -1725,7 +1787,7 @@ var ELSION = {
 	most: 5,
 	healed: 20
 };
-/** How much more healing reaches every ally, how often (seconds) the ally with the lowest health is healed, and by how much (as a heal at ATK). */
+/** How much more healing reaches every ally, how often (seconds) the ally with the lowest health is healed, and by how much (a share of her ATK). */
 var ELTOIRRE = {
 	name: "Flowing Circle, Eltoirre",
 	heals: [
@@ -1737,11 +1799,11 @@ var ELTOIRRE = {
 	],
 	every: 5,
 	mend: [
-		1200,
-		1400,
-		1700,
-		2100,
-		2500
+		1.2,
+		1.4,
+		1.7,
+		2.1,
+		2.5
 	]
 };
 /** How many seconds longer his Fury lasts, and what it adds to his crit damage (a share more) and CC resist (points) while it does. */
@@ -1801,13 +1863,13 @@ var CORBEAU = {
 var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
 /** What each hero's weapon does at a tier, as its card and the heroes page say it. */
 var ABOUT = {
-	clause: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
+	klaus: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
 	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
-	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier) / 1e3)} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`,
+	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier))} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`,
 	gremory: (tier) => `+${atTier(PIGRITIA.speed, tier)} attack speed. Each time she sleeps she is healed by ${pct(atTier(PIGRITIA.heal, tier))} of her max HP and recovers ${pct(atTier(PIGRITIA.mana, tier))} of her mana over ${PIGRITIA.over} seconds, and each Mana Charge gives her ${fine(atTier(PIGRITIA.charge, tier))} more ATK.`,
 	annette: (tier) => `Every ${atTier(RASCAL.every, tier)} seconds she gains a Charge (even while Overcharged) and ${pct(RASCAL.mana)} of her mana. While she is Overcharged, every ally deals ${pct(RASCAL.dmg)} more and takes ${pct(RASCAL.taken)} less (${pct(RASCAL.dmg * RASCAL.top)} for the ally with the highest ATK).`,
 	morrah: (tier) => `Each blow of her attack has a ${pct(CARPRAIN.chance)} chance to leave the boss hitting ${pct(atTier(CARPRAIN.weaker, tier))} less hard and taking ${pct(atTier(CARPRAIN.weaker, tier))} more magical damage for ${CARPRAIN.lasts} seconds (${pct(atTier(CARPRAIN.weaker, tier) * CARPRAIN.full)} more with 100 Flame on it).`,
-	laias: (tier) => `Healing reaches every ally ${pct(atTier(ELTOIRRE.heals, tier))} more, and every ${ELTOIRRE.every} seconds she heals the ally with the lowest HP by ${pct(atTier(ELTOIRRE.mend, tier) / 1e3)} of her ATK.`,
+	laias: (tier) => `Healing reaches every ally ${pct(atTier(ELTOIRRE.heals, tier))} more, and every ${ELTOIRRE.every} seconds she heals the ally with the lowest HP by ${pct(atTier(ELTOIRRE.mend, tier))} of her ATK.`,
 	seria: (tier) => `Each critical blow of her skills deals ${pct(atTier(ELSION.blow, tier) / 1e3)} of her ATK more, leaves the boss healed ${pct(atTier(ELSION.unhealed, tier))} less for ${ELSION.lasts} seconds, and heals her ${pct(atTier(ELSION.heals, tier))} more for ${ELSION.healed} seconds (up to ${ELSION.most} times).`,
 	ezekiel: (tier) => `His Fury lasts ${atTier(BARBATOS.longer, tier)} seconds longer, and while it does his crit damage is ${pct(atTier(BARBATOS.critDamage, tier))} higher and his CC resist +${atTier(BARBATOS.resist, tier)}.`,
 	lorraine: (tier) => `Every ${ROBURU.every} seconds, with her Poison on the boss, deals ${pct(atTier(ROBURU.blow, tier) / 1e3)} of her ATK to it, and it takes ${pct(atTier(ROBURU.takes, tier))} more magical damage for ${ROBURU.lasts} seconds.`,
@@ -1823,12 +1885,12 @@ function uniqueOf(hero, tier) {
 	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
 	return Math.min(5, Math.max(1, Math.floor(tier)));
 }
-/** What Exian gives Clause for a while, what Rosmerta gives Fallen Frey, what Rascal gives every ally while Annette is Overcharged, and what Eltoirre gives every ally while Laias is on the field. */
+/** What Exian gives Klaus for a while, what Rosmerta gives Fallen Frey, what Rascal gives every ally while Annette is Overcharged, and what Eltoirre gives every ally while Laias is on the field. */
 var EXIAN_UP = {
 	name: "The Guardian, Exian",
 	about: "ATK and defense higher.",
 	icon: "🛡️",
-	art: { uw: "clause" }
+	art: { uw: "klaus" }
 };
 var ROSMERTA_UP = {
 	name: "Angel’s Despair, Rosmerta",
@@ -2230,18 +2292,21 @@ var EVERY = [
 	"focus-2",
 	"focus-3"
 ];
-/** The boss's defenses as blows with `acc` points of ACC find them: so much less likely dodged or blocked. */
-var seenPast = (stats, acc) => ({
-	...stats,
-	dodge: {
-		physical: Math.max(0, stats.dodge.physical - acc),
-		magical: Math.max(0, stats.dodge.magical - acc)
-	},
-	block: {
-		physical: Math.max(0, stats.block.physical - acc),
-		magical: Math.max(0, stats.block.magical - acc)
-	}
-});
+/** The boss's defenses as blows with `acc` points of ACC find them (soft-capped): so much less likely dodged or blocked. */
+var seenPast = (stats, points) => {
+	const acc = soft(points, SOFT.acc);
+	return {
+		...stats,
+		dodge: {
+			physical: Math.max(0, stats.dodge.physical - acc),
+			magical: Math.max(0, stats.dodge.magical - acc)
+		},
+		block: {
+			physical: Math.max(0, stats.block.physical - acc),
+			magical: Math.max(0, stats.block.magical - acc)
+		}
+	};
+};
 /** What knocks a hero down: shown on its card, with how long it has left. */
 var KNOCKED = {
 	name: "Knocked down",
@@ -2319,12 +2384,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: product((perk) => perk.taken) * product((perk) => perk.takenPhysical),
 				magical: product((perk) => perk.taken)
 			},
-			acc: defs.reduce((sum, perk) => sum + (perk.acc ?? 0), 0),
+			acc: stats.acc + defs.reduce((sum, perk) => sum + (perk.acc ?? 0), 0),
 			perkWaits: {},
 			immune: 0,
 			nimble: 0,
 			stats,
-			critTimes: 2 + (gear.critDamage ?? 0) + skilledCritDamage(skills),
+			critTimes: 2 + stats.critDamage + (gear.critDamage ?? 0) + skilledCritDamage(skills),
 			healTimes: 1 + (gear.heal ?? 0),
 			set,
 			unique: tier === null ? null : {
@@ -2633,12 +2698,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const nimble = fighter.perkDefs.find((perk) => perk.nimble)?.nimble;
 		if (nimble) fighter.nimble = Math.min(nimble.most, fighter.nimble + 1);
 	}
-	/** A hero wielding its own unique weapon has used a skill (./unique.ts): Clause's every third, and Fallen Frey's every one. */
+	/** A hero wielding its own unique weapon has used a skill (./unique.ts): Klaus's every third, and Fallen Frey's every one. */
 	function uniqueCast(fighter) {
 		const unique = fighter.unique;
 		if (!unique) return;
 		unique.casts++;
-		if (fighter.id === "clause" && unique.casts % EXIAN.every === 0) {
+		if (fighter.id === "klaus" && unique.casts % EXIAN.every === 0) {
 			const boost = 1 + atTier(EXIAN.boost, unique.tier);
 			put(fighter.statuses, {
 				name: EXIAN_UP.name,
@@ -2648,7 +2713,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				shown: EXIAN_UP
 			});
 		} else if (fighter.id === "fallen-frey") {
-			sim.heal(fighter, atTier(ROSMERTA.heal, unique.tier), fighter);
+			sim.heal(fighter, atTier(ROSMERTA.heal, unique.tier) * ATK, fighter);
 			put(fighter.statuses, {
 				name: ROSMERTA_UP.name,
 				left: ROSMERTA.lasts,
@@ -2795,7 +2860,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: seen.physical * defending(foe.statuses, "physical"),
 				magical: seen.magical * defending(foe.statuses, "magical")
 			};
-			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1) * by.perkDmg * skilled * (by.part.deals?.() ?? 1), type, against, pen + pierce + piercing(by.statuses), roll);
+			const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1) * by.perkDmg * skilled * (by.part.deals?.() ?? 1), type, against, pen + pierce + piercing(by.statuses), roll);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -2826,7 +2891,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				shown: "curse"
 			});
 			if (by.lifesteal > 0 && by.hp > 0) {
-				const stolen = Math.min(dealt * share(by.lifesteal) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
+				const stolen = Math.min(dealt * share(soft(by.lifesteal, SOFT.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
 				if (stolen > 0) by.hp += stolen;
 			}
 			if (attacking === by) by.mana = Math.min(MAX_MANA, by.mana + by.manaPerAttack);
@@ -2884,8 +2949,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const walled = elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0;
 			const stands = {
 				...target.stats,
-				physical: target.stats.physical * guarded * defending(target.statuses, "physical") * defending(party, "physical"),
-				magical: target.stats.magical * guarded * defending(target.statuses, "magical") * defending(party, "magical"),
+				physical: (target.stats.physical + bolstering(target.statuses, "physical") + bolstering(party, "physical")) * guarded * defending(target.statuses, "physical") * defending(party, "physical"),
+				magical: (target.stats.magical + bolstering(target.statuses, "magical") + bolstering(party, "magical")) * guarded * defending(target.statuses, "magical") * defending(party, "magical"),
 				block: {
 					physical: target.stats.block.physical + walled + blocking(target.statuses, "physical"),
 					magical: target.stats.block.magical + walled + blocking(target.statuses, "magical")
@@ -3012,7 +3077,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity"));
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share(fighter.stats.resist + resisting(fighter.statuses) + auras.resist)) * shorter,
+				left: seconds * (1 - share(soft(fighter.stats.resist + resisting(fighter.statuses) + auras.resist, SOFT.resist))) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});
@@ -3025,7 +3090,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
-			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(foe.def.stats.resist - by.accuracy - auras.accuracy)) : 1);
+			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(soft(foe.def.stats.resist, SOFT.resist) - soft(by.accuracy + auras.accuracy, SOFT.acc))) : 1);
 			going.clear();
 			foe.stunned = Math.max(foe.stunned, lasts);
 			events.push({
@@ -3187,7 +3252,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (result) return;
 			const reform = Math.min(1, dt * 4);
 			for (const on of field) {
-				on.haste = (1 + share(on.stats.speed + auras.speed + (on.part.speed?.() ?? 0))) * (on.part.pace?.() ?? 1) * pacing(on.statuses);
+				on.haste = (POINTS + soft(Math.max(0, on.stats.speed + auras.speed + (on.part.speed?.() ?? 0) - POINTS), SOFT.chance, SOFT.hard)) / POINTS * (on.part.pace?.() ?? 1) * pacing(on.statuses);
 				advance(on, dt * on.haste);
 				if (result) return;
 				const [x, z] = spots.get(on);
@@ -3299,7 +3364,7 @@ var RAY = {
 	lasts: 10
 };
 var TREATMENT = {
-	heal: 4e4,
+	heal: 4e5,
 	lasts: 10,
 	resist: 250,
 	crit: 250,
@@ -3606,7 +3671,7 @@ var ANNETTE = {
 	}
 };
 //#endregion
-//#region src/technomagic/sim/heroes/clause.ts
+//#region src/technomagic/sim/heroes/klaus.ts
 var CUT_GROUND = {
 	blow: 7e3,
 	stun: 5
@@ -3639,7 +3704,7 @@ var PERKS$9 = {
 		critResist: 200
 	}
 };
-var art$9 = skillArt("clause");
+var art$9 = skillArt("klaus");
 var VOW_OF_KNIGHTS = {
 	attack: 1,
 	crit: 0,
@@ -3666,11 +3731,11 @@ var WARDED$1 = {
 	icon: "🛡️",
 	art: art$9(3)
 };
-var CLAUSE = {
-	id: "clause",
-	name: "Clause",
+var KLAUS = {
+	id: "klaus",
+	name: "Klaus",
 	class: "knight",
-	skins: ["Clause"],
+	skins: ["Klaus"],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "physical"
@@ -4080,12 +4145,12 @@ var EZEKIEL = {
 //#region src/technomagic/sim/heroes/fallen-frey.ts
 var SMITE = { blow: BLOW * 1.5 };
 var LIGHT = {
-	heal: 25e3,
+	heal: 25e4,
 	near: 3.6,
 	blast: 5e3
 };
 var BLESSING$1 = {
-	shield: 3e4,
+	shield: 3e5,
 	lasts: 10,
 	allies: 4,
 	speed: 500
@@ -4818,19 +4883,19 @@ var KIRZE = {
 //#region src/technomagic/sim/heroes/laias.ts
 var SPLASH = { blow: BLOW * 1.5 };
 var DROPLETS = {
-	heal: 15e3,
+	heal: 15e4,
 	lasts: 10,
 	heals: .25,
 	low: .5,
 	lowTimes: 1.5
 };
 var BUBBLE = {
-	shield: 45e3,
+	shield: 45e4,
 	lasts: 15,
 	taken: .7,
 	dmg: .15,
 	atk: .2,
-	heal: 1500
+	heal: 15e3
 };
 var FESTIVAL = {
 	blow: 2500,
@@ -5131,7 +5196,7 @@ var LAIAS = {
 						const ally = weakest();
 						if (ally) {
 							fight.cue(self, "eltoirre", [ally]);
-							fight.heal(ally, atTier(ELTOIRRE.mend, tier), self);
+							fight.heal(ally, atTier(ELTOIRRE.mend, tier) * ATK, self);
 						}
 					}
 				}
@@ -5394,7 +5459,7 @@ var BURNING = {
 };
 var HELLFIRE = {
 	lasts: 20,
-	defense: 1.3,
+	defense: 6953,
 	block: 250,
 	every: 1
 };
@@ -5423,7 +5488,7 @@ var FLAME = {
 var PERKS$2 = {
 	quicker: 200,
 	block: 1.2,
-	scorch: 1.5,
+	scorch: 1,
 	drain: .4,
 	harder: {
 		defense: .05,
@@ -5458,7 +5523,7 @@ var BURNING_UP = {
 /** What Hellfire gives every ally for a while: shown on each card, with how long it has left. */
 var HELLFIRE_UP = {
 	name: "Hellfire",
-	about: `${pct(HELLFIRE.defense - 1)} more M.DEF, and +${HELLFIRE.block} M.Block.`,
+	about: `+${HELLFIRE.defense} M.DEF, and +${HELLFIRE.block} M.Block.`,
 	icon: "🌋",
 	art: art$2(1)
 };
@@ -5501,8 +5566,8 @@ var MORRAH = {
 		{
 			name: "Hellfire",
 			auto: { keeps: HELLFIRE_UP.name },
-			about: `For ${HELLFIRE.lasts} seconds every ally has ${pct(HELLFIRE.defense - 1)} more M.DEF and +${HELLFIRE.block} M.Block, and a [Flame] is left on the boss every ${seconds(HELLFIRE.every)}.`,
-			words: `For ${HELLFIRE.lasts} sec, all allies' M.DEF is increased by ${pct(HELLFIRE.defense - 1)} and M.Block Chance is increased by ${HELLFIRE.block}. Additionally, every ${HELLFIRE.every} sec, inflicts 1 stack of Flame on nearby enemies.`,
+			about: `For ${HELLFIRE.lasts} seconds every ally has +${HELLFIRE.defense} M.DEF and +${HELLFIRE.block} M.Block, and a [Flame] is left on the boss every ${seconds(HELLFIRE.every)}.`,
+			words: `For ${HELLFIRE.lasts} sec, all allies' M.DEF is increased by ${HELLFIRE.defense} and M.Block Chance is increased by ${HELLFIRE.block}. Additionally, every ${HELLFIRE.every} sec, inflicts 1 stack of Flame on nearby enemies.`,
 			icon: "🌋",
 			art: art$2(1),
 			move: "hellfire",
@@ -5620,7 +5685,7 @@ var MORRAH = {
 					for (const ally of on) put(ally.statuses, {
 						name: HELLFIRE_UP.name,
 						left: HELLFIRE.lasts,
-						defends: { magical: HELLFIRE.defense },
+						bolsters: { magical: HELLFIRE.defense },
 						blocks: { magical: HELLFIRE.block * (self.perks.has("s2-light") ? PERKS$2.block : 1) },
 						shown: HELLFIRE_UP
 					});
@@ -5660,7 +5725,10 @@ var MORRAH = {
 					if (fanned >= HELLFIRE.every) {
 						fanned -= HELLFIRE.every;
 						burn(1);
-						if (self.perks.has("s2-dark") && self.hp > 0 && fight.field.includes(self)) fight.hit(self, PERKS$2.scorch * self.stats.magical, false);
+						if (self.perks.has("s2-dark") && self.hp > 0 && fight.field.includes(self)) {
+							const defense = (self.stats.magical + bolstering(self.statuses, "magical") + bolstering(fight.party, "magical")) * defending(self.statuses, "magical") * defending(fight.party, "magical");
+							fight.hit(self, POINTS * PERKS$2.scorch * defense / self.stats.atk, false);
+						}
 					}
 				}
 				const count = flames();
@@ -6002,13 +6070,13 @@ var HOLOGRAM = {
 	lasts: 15,
 	atk: .2,
 	crit: .2,
-	heal: 2e3,
+	heal: 2e4,
 	cooldown: .2
 };
 var FIELD = {
 	lasts: 5,
 	defense: 1.15,
-	heal: 4e3,
+	heal: 4e4,
 	mana: .3 * SECTION
 };
 var CANNON = {
@@ -6092,7 +6160,7 @@ var harmful = (status) => status.shown.harmful === true && !status.binds && !sta
 /** The heroes there are, in the order of their cards. */
 var HEROES = [
 	KIRZE,
-	CLAUSE,
+	KLAUS,
 	FALLEN_FREY,
 	GREMORY,
 	ANNETTE,
@@ -6323,7 +6391,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "4dc2de8d965c";
+var SIM_VERSION = "23a8aff0381c";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;

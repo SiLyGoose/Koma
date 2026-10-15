@@ -184,7 +184,7 @@ export const TRANSCEND_PERKS: readonly TranscendPerk[] = [
 ];
 
 /** What gear can raise in the raid, in the order its lines are listed (the bot's lib/game/heroes.ts HERO_STATS says what each is). */
-export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysical', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'dodge', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
+export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysical', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'blockDef', 'blockDefPhysical', 'blockDefMagical', 'dodge', 'tough', 'toughPhysical', 'toughMagical', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
 export type HeroStat = (typeof HERO_STAT_IDS)[number];
 
 /** What gear gives a hero: a share for each stat (0.1: 10% more, or 100 points). */

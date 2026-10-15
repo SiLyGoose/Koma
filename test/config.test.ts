@@ -105,12 +105,13 @@ test('config: every group a setting belongs to is in the config pages, so a new 
 test('config: every real settings group has its own page when flipped through from the start', async () => {
   const pages = await collectAllPages();
   const names = pages.map((p) => p.fields[0]?.name);
-  // Every plain (non-Equipment) group appears under its own bare name somewhere in the book.
+  // Every group appears under its own bare name somewhere in the book, or (one too long for a page: Equipment, Hero
+  // with its potentials) as its own numbered pages.
   for (const group of GROUPS) {
     if (group === 'Equipment') {
       assert.ok(names.some((n) => n?.startsWith('Equipment') && n.includes('— page')), 'Equipment got its own numbered page(s)');
     } else {
-      assert.ok(names.includes(group), `${group} has its own page`);
+      assert.ok(names.includes(group) || names.some((n) => n?.startsWith(`${group} — page 1/`)), `${group} has its own page`);
     }
   }
 });

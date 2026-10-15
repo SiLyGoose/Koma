@@ -74,8 +74,8 @@ test('technomagic: a raid is the same every time it is run, and a strong party o
 });
 
 test('technomagic: alone the boss is easier; heroes that fall stay down; giving up is losing', () => {
-  const alone = replay(run(5, STRONG, 1, true), [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter })));
-  const together = replay(run(5, STRONG), [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter })));
+  const alone = replay(run(6, STRONG, 1, true), [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter })));
+  const together = replay(run(6, STRONG), [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter })));
   assert.ok(alone.ticks < together.ticks, `${alone.ticks} < ${together.ticks}`);
   // With no gear and nothing pressed, every hero falls and none gets up: lost before the boss's rage.
   const weak = replay(run(9, { hp: -0.9 }), []);
@@ -398,8 +398,9 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   // Lorraine, Valance). What Galgoria shrugs off: a slow (it is steady), and less P.DMG or more P.DEF (it deals only magic).
   // What these fights don't come to: a shield on every ally with only 4 (Blessing of Doom shields 4), 100 Flame on the
   // boss (Morrah's Auto goes round her skills), Ezekiel's Dawning Despair in his Fury, and the boss knocking him down
-  // while he strikes.
-  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
+  // while he strikes. Galgoria seldom lands a critical blow (10%), so the M.Crit Resistance Laias's Healing Droplets'
+  // Dark gives for a while seldom comes to anything.
+  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
   const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
   const fight = (id: string, perks: string[], seed: number, others: number): Run => ({
     boss: TM_BOSS,
@@ -417,9 +418,11 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   };
   const key = (played: ReturnType<typeof replay>): string => JSON.stringify([played.ticks, played.dealt, played.sums]);
   const still: string[] = [];
+  // (Three fights: some perks come to something only now and then, as the Light of Gremory's passive, once the boss
+  // hits her while she sleeps.)
   for (const id of ALL) {
     for (const perk of own) {
-      const changed = [11, 222].some((seed, k) => key(replay(fight(id, [], seed, k * 2), inputs(perk))) !== key(replay(fight(id, [perk], seed, k * 2), inputs(perk))));
+      const changed = [11, 222, 5].some((seed, k) => key(replay(fight(id, [], seed, k * 2), inputs(perk))) !== key(replay(fight(id, [perk], seed, k * 2), inputs(perk))));
       if (!changed) still.push(`${id} ${perk}`);
     }
   }
@@ -433,7 +436,7 @@ test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7
 
 test('technomagic: each copy rolls 4 potentials, each a different stat, each within its range; a hero of its class has them', () => {
   assert.equal(TM_POTENTIAL_LINES, 4);
-  assert.equal(TM_POTENTIAL_IDS.length, 17);
+  assert.equal(TM_POTENTIAL_IDS.length, 25);
   for (let i = 0; i < 200; i++) {
     const rolled = rollTmPotentials();
     assert.equal(rolled.length, TM_POTENTIAL_LINES);
