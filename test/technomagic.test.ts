@@ -331,8 +331,9 @@ test('technomagic: TechnoMagic gear’s additional skills, one rolled for each c
 });
 
 test('technomagic: a hero has its gear’s additional skills in the fight, the same every time it is run', () => {
+  // (Geared to win with every skill, Galgoria's crits and all.)
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
-  const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const GEARED = { atk: 1.3, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
   const skilled = (skills: string[]): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, skills })) });
   const plain = replay(skilled([]), autos);
   let changed = 0;

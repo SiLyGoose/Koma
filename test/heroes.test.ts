@@ -200,8 +200,8 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(fang?.setEffect?.pieces, 3);
   assert.ok(fang?.setEffect?.text.startsWith('+10% DMG'));
   assert.ok(!fang?.effects.some((line) => line.includes('+10% DMG')));
-  assert.equal(fang?.additional, null, 'no additional skill on this copy');
   assert.deepEqual(fang?.effects, ['+5% ATK', '+12% crit damage'], 'its effects are its potentials');
+  assert.equal(fang?.additional, null, 'no additional skill on this copy');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.setEffect, null);
   assert.ok(kirze?.totals.some((line) => line.endsWith('ATK')));
   assert.deepEqual(clause?.totals, []);

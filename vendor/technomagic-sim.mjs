@@ -253,8 +253,8 @@ var NONE = {
 var POINTS = 1e3;
 /** The share of a stat in points (0 to 1). */
 var share = (points) => Math.min(1, Math.max(0, points / POINTS));
-/** The attack a skill's numbers are written for. */
-var ATK = 1e3;
+/** The attack a skill's numbers are written for: King's Raid's size of ATK, so a unique weapon's flat ATK (the game's own numbers) fits it. */
+var ATK = 1e5;
 /** A defense of this much halves what gets through (twice it: a third, and so on). */
 var HALVING = 1e3;
 /** A blocked blow does this much of what it would have. */
@@ -825,7 +825,9 @@ var BOSSES = [{
 		physical: 600,
 		magical: 800,
 		block: NONE,
-		dodge: NONE
+		dodge: NONE,
+		crit: 100,
+		resist: 150
 	},
 	stands: {
 		x: 7,
@@ -958,7 +960,7 @@ var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
 /**
 * How each class stands, before what is a hero's own (the kind of damage it deals, and anything else it
 * has otherwise): a hero's stats are its class's, with its own over them. Health and attack are as the
-* fight measures them (a skill's numbers are written for an ATK of 1000, ../combat/damage.ts); crit,
+* fight measures them (ATK the size of King's Raid's: a skill's numbers are written for an ATK of 100,000, ../combat/damage.ts); crit,
 * attack speed, penetration, CC resist, block and dodge are points (1000: 100%). A first guess at each,
 * by what the game says a class is for:
 * - knight: the most health and defense, and blocks the most;
@@ -972,7 +974,7 @@ var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
 var CLASS_STATS = {
 	knight: {
 		hp: 1400,
-		atk: 750,
+		atk: 75e3,
 		physical: 1e3,
 		magical: 700,
 		block: {
@@ -987,7 +989,7 @@ var CLASS_STATS = {
 	},
 	warrior: {
 		hp: 1150,
-		atk: 1e3,
+		atk: 1e5,
 		physical: 600,
 		magical: 450,
 		block: {
@@ -1005,7 +1007,7 @@ var CLASS_STATS = {
 	},
 	assassin: {
 		hp: 900,
-		atk: 1150,
+		atk: 115e3,
 		physical: 300,
 		magical: 250,
 		block: NONE,
@@ -1020,7 +1022,7 @@ var CLASS_STATS = {
 	},
 	archer: {
 		hp: 850,
-		atk: 1250,
+		atk: 125e3,
 		physical: 250,
 		magical: 250,
 		block: NONE,
@@ -1035,7 +1037,7 @@ var CLASS_STATS = {
 	},
 	mechanic: {
 		hp: 900,
-		atk: 1050,
+		atk: 105e3,
 		physical: 300,
 		magical: 350,
 		block: NONE,
@@ -1050,7 +1052,7 @@ var CLASS_STATS = {
 	},
 	wizard: {
 		hp: 800,
-		atk: 1250,
+		atk: 125e3,
 		physical: 200,
 		magical: 450,
 		block: {
@@ -1068,7 +1070,7 @@ var CLASS_STATS = {
 	},
 	priest: {
 		hp: 900,
-		atk: 900,
+		atk: 9e4,
 		physical: 300,
 		magical: 500,
 		block: {
@@ -2501,23 +2503,24 @@ var HEROES = [
 ];
 //#endregion
 //#region src/technomagic/sim/gear.ts
-/** A hero's stats with what its gear gives it (as ../../heroes/stats.ts shows them). */
+/** A hero's stats with what its gear gives it (as ../../heroes/stats.ts shows them). Flat ATK (a unique weapon's) is added before the shares of ATK. */
 function geared(stats, gear = {}) {
 	const more = (n, by) => n * (1 + (by ?? 0));
 	const plus = (n, by) => n + (by ?? 0);
+	const both = (by, one) => (by ?? 0) + (one ?? 0);
 	return {
 		...stats,
 		hp: more(stats.hp, gear.hp),
-		atk: more(stats.atk, gear.atk),
-		physical: more(stats.physical, gear.defense),
-		magical: more(stats.magical, gear.defense),
+		atk: more(plus(stats.atk, gear.atkFlat), gear.atk),
+		physical: more(stats.physical, both(gear.defense, gear.defPhysical)),
+		magical: more(stats.magical, both(gear.defense, gear.defMagical)),
 		crit: plus(stats.crit, gear.crit),
 		speed: plus(stats.speed, gear.speed),
 		pen: plus(stats.pen, gear.pen),
 		resist: plus(stats.resist, gear.resist),
 		block: {
-			physical: plus(stats.block.physical, gear.block),
-			magical: plus(stats.block.magical, gear.block)
+			physical: plus(stats.block.physical, both(gear.block, gear.blockPhysical)),
+			magical: plus(stats.block.magical, both(gear.block, gear.blockMagical))
 		},
 		dodge: {
 			physical: plus(stats.dodge.physical, gear.dodge),
@@ -4049,6 +4052,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			},
 			waits: Object.fromEntries(EVERY.filter((id) => n(id) > 0).map((id) => [id, SKILL[id].every])),
 			controlTimes: 1 + (gear.control ?? 0),
+			accuracy: gear.accuracy ?? 0,
+			lifesteal: gear.lifesteal ?? 0,
+			critResist: gear.critResist ?? 0,
 			manaPerAttack: 60 * (1 + (gear.manaAttack ?? 0)),
 			manaRegen: 100 * (1 + (gear.manaRegen ?? 0)),
 			motion,
@@ -4420,6 +4426,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				amount: dealt,
 				type: blocked ? "blocked" : critical ? "crit" : "hit"
 			});
+			if (by.lifesteal > 0 && by.hp > 0) {
+				const stolen = Math.min(dealt * share(by.lifesteal) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
+				if (stolen > 0) by.hp += stolen;
+			}
 			if (attacking === by) by.mana = Math.min(MAX_MANA, by.mana + by.manaPerAttack);
 			if (counted) {
 				for (const fighter of fighters) fighter.part.struck?.();
@@ -4470,7 +4480,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					magical: target.stats.block.magical + walled
 				}
 			};
-			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210), type, blockable ? stands : {
+			const critical = roll() < share(foe.def.stats.crit - target.critResist);
+			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
 				block: NONE,
 				dodge: NONE
@@ -4533,7 +4544,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					kind: "number",
 					on: target.index,
 					amount: dealt - soaked,
-					type: blocked ? "blocked" : "hit"
+					type: blocked ? "blocked" : critical ? "crit" : "hit"
 				});
 			}
 			if (target.hp <= 0) {
@@ -4585,7 +4596,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
-			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes : 1);
+			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(foe.def.stats.resist - by.accuracy)) : 1);
 			going.clear();
 			foe.stunned = Math.max(foe.stunned, lasts);
 			events.push({
@@ -4827,7 +4838,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 8;
+var SIM_VERSION = 10;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;

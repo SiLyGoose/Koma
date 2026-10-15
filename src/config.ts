@@ -318,9 +318,9 @@ export interface Settings {
   hero: {
     price: number;
     rewardsPerDay: number;
+    potentials: Record<TmPotentialId, { min: number; max: number }>;
   };
   skip: {
-    potentials: Record<TmPotentialId, { min: number; max: number }>;
     claim: number;
     /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
     raid: number;

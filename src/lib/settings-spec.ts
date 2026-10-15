@@ -691,10 +691,10 @@ export function checkConstraints(settings: Settings): string | null {
   for (const boss of RAID_BOSS_IDS) {
     if (settings.raid.minRaiders <= settings.raid.hpOverhead[boss]) return `raid.minRaiders must be more than raid.hpOverhead.${boss}`;
   }
-  if (settings.mines.minBet > settings.mines.maxBet) {
   for (const { id } of TM_POTENTIALS) {
     if (settings.hero.potentials[id].min > settings.hero.potentials[id].max) return `hero.potentials.${id}.min cannot be higher than hero.potentials.${id}.max`;
   }
+  if (settings.mines.minBet > settings.mines.maxBet) {
     return 'mines.minBet cannot be higher than mines.maxBet';
   }
   if (settings.events.minMinutes > settings.events.maxMinutes) {
