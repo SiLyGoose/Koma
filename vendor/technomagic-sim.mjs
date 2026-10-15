@@ -24,11 +24,12 @@ var RASCAL$1 = {
 * Annette as Mixamo rigged her, read for her idle alone: she stands in it, and runs in and does the rest as
 * ../../heroes/annette/moves.ts has it. The same for both her skins (one skeleton).
 */
-var MOVED_BY$2 = {
+var MOVED_BY$3 = {
 	kind: "rigged",
 	folder: "Annette_Mixamo",
 	idle: "Annette - Idle.fbx"
 };
+var DRIVE$3 = "https://drive.google.com/uc?export=download&id=";
 var ANNETTE_ASSETS = {
 	name: "Annette",
 	folder: "heroes/annette",
@@ -41,6 +42,7 @@ var ANNETTE_ASSETS = {
 			"s4.png"
 		]
 	},
+	unique: { Hero_Annette_Vari05_Weapon: "Hero_Annette_Unique01_Weapon" },
 	skins: [{
 		name: "Annette",
 		portrait: {
@@ -63,10 +65,24 @@ var ANNETTE_ASSETS = {
 				model: "Hero_Annette_Vari05_Weapon",
 				...RASCAL$1
 			},
-			movedBy: MOVED_BY$2
+			movedBy: MOVED_BY$3
 		}
 	}, {
 		name: "Annette_Halloween",
+		portrait: {
+			file: "Annette_Halloween.png",
+			from: `${DRIVE$3}1RuKDrkocmMXny4VDPyKN9rX_zQiTNyhE`,
+			crop: {
+				x: 220,
+				y: 40,
+				size: 320
+			},
+			head: {
+				x: 262,
+				y: 138,
+				size: 210
+			}
+		},
 		model: {
 			kind: "parts",
 			parts: ["Hero_Annette_Cos17Halloween_Body", "Hero_Annette_Cos17Halloween_Hair"],
@@ -74,32 +90,15 @@ var ANNETTE_ASSETS = {
 				model: "Hero_Annette_Cos17Halloween_Weapon",
 				...RASCAL$1
 			},
-			movedBy: MOVED_BY$2
+			movedBy: MOVED_BY$3
 		}
 	}]
 };
 //#endregion
 //#region src/technomagic/assets/heroes/clause.ts
-var FOLDER$1 = "heroes/clause";
-/**
-* Clause as Mixamo rigged him, as downloaded: how he stands, runs and attacks. Morrah stands, runs and attacks so
-* too (./morrah.ts), borrowing it.
-*/
-var CLAUSE_RIG = {
-	kind: "rigged",
-	folder: "Clause_Mixamo",
-	of: FOLDER$1,
-	idle: "Clause - Sword And Shield Idle.fbx",
-	run: "Clause - Sword And Shield Run.fbx",
-	attack: [{
-		file: "Clause - Sword And Shield Slash.fbx",
-		lands: [.68],
-		until: .8
-	}]
-};
 var CLAUSE_ASSETS = {
 	name: "Clause",
-	folder: FOLDER$1,
+	folder: "heroes/clause",
 	skills: {
 		from: "https://kingsraid.shodyra.com/static/images/14/",
 		files: [
@@ -108,6 +107,11 @@ var CLAUSE_ASSETS = {
 			"s3.png",
 			"s4.png"
 		]
+	},
+	props: { guardian: "Hero_Clause_Vari05_Shield" },
+	unique: {
+		Hero_Clause_Vari05_Shield: "Hero_Clause_Unique01_Shield",
+		Hero_Clause_Vari05_Sword: "Hero_Clause_Unique01_Sword"
 	},
 	skins: [{
 		name: "Clause",
@@ -127,7 +131,15 @@ var CLAUSE_ASSETS = {
 			right: "Hero_Clause_Vari05_Sword",
 			blade: "y",
 			movedBy: {
-				...CLAUSE_RIG,
+				kind: "rigged",
+				folder: "Clause_Mixamo",
+				idle: "Clause - Sword And Shield Idle.fbx",
+				run: "Clause - Sword And Shield Run.fbx",
+				attack: [{
+					file: "Clause - Sword And Shield Slash.fbx",
+					lands: [.68],
+					until: .8
+				}],
 				skills: { guard: {
 					file: "Clause - Sword And Shield Casting.fbx",
 					lands: [1.75],
@@ -135,29 +147,6 @@ var CLAUSE_ASSETS = {
 				} }
 			}
 		}
-	}]
-};
-//#endregion
-//#region src/technomagic/assets/heroes/ezekiel.ts
-var DRIVE$2 = "https://drive.google.com/uc?export=download&id=";
-/** The same for both his skins (one skeleton). */
-var MOVED_BY$1 = {
-	kind: "rigged",
-	folder: "Ezekiel_Mixamo",
-	idle: {
-		of: "heroes/kirze",
-		folder: "Kirze_Cos20GloryLeague",
-		file: "Kirze_Cos20GloryLeague - Ninja Idle.fbx"
-	},
-	attack: [{
-		file: "Ezekiel - Fist Fight A.fbx",
-		lands: [
-			.92,
-			1.52,
-			2.78,
-			3.62
-		],
-		until: 4.3
 	}]
 };
 var EZEKIEL_ASSETS = {
@@ -172,11 +161,12 @@ var EZEKIEL_ASSETS = {
 			"s4.png"
 		]
 	},
+	unique: { Hero_Ezekiel_Vari05_Weapon: "Hero_Ezekiel_Unique01_Weapon" },
 	skins: [{
 		name: "Ezekiel",
 		portrait: {
 			file: "Ezekiel.png",
-			from: `${DRIVE$2}1YnvFZjPQRrM40MH0gZrBU_lYrFu6t1pR`,
+			from: `https://drive.google.com/uc?export=download&id=1YnvFZjPQRrM40MH0gZrBU_lYrFu6t1pR`,
 			crop: {
 				x: 320,
 				y: 200,
@@ -195,37 +185,28 @@ var EZEKIEL_ASSETS = {
 				"Hero_Ezekiel_Vari05_Weapon",
 				"Hero_Ezekiel_Vari05_Arm"
 			],
-			movedBy: MOVED_BY$1
-		}
-	}, {
-		name: "Ezekiel_Halloween",
-		portrait: {
-			file: "Ezekiel_Halloween.png",
-			from: `${DRIVE$2}1b1DtYAIpUJij08QrDdNpi_tZIPRHyq79`,
-			crop: {
-				x: 510,
-				y: 50,
-				size: 180
-			},
-			head: {
-				x: 545,
-				y: 90,
-				size: 110
+			movedBy: {
+				kind: "rigged",
+				folder: "Ezekiel_Mixamo",
+				idle: "Ezekiel - Ninja Idle.fbx",
+				attack: [{
+					file: "Ezekiel - Fist Fight A.fbx",
+					lands: [
+						.92,
+						1.52,
+						2.78,
+						3.62
+					],
+					until: 4.3
+				}]
 			}
-		},
-		model: {
-			kind: "parts",
-			parts: [
-				"Hero_Ezekiel_Cos18Halloween_Mesh",
-				"Hero_Ezekiel_Cos18Halloween_Weapon",
-				"Hero_Ezekiel_Cos18Halloween_Arm"
-			],
-			movedBy: MOVED_BY$1
 		}
 	}]
 };
 //#endregion
 //#region src/technomagic/assets/heroes/fallen-frey.ts
+/** How many times as fast a skill's animation is played (../../sim/motion.ts's SKILL_SPEED: written here, as nothing of the fight's is read by this folder). */
+var SKILL_SPEED$1 = 1.2;
 var FALLEN_FREY_ASSETS = {
 	name: "Fallen Frey",
 	folder: "heroes/fallen-frey",
@@ -238,6 +219,8 @@ var FALLEN_FREY_ASSETS = {
 			"s4.png"
 		]
 	},
+	props: { self: "Hero_Frey_Fallen_Vari05FX_Mesh" },
+	unique: { Hero_Frey_Fallen_Vari05_Weapon: "Hero_Frey_Fallen_Unique01_Weapon" },
 	skins: [{
 		name: "Fallen Frey",
 		portrait: {
@@ -257,11 +240,20 @@ var FALLEN_FREY_ASSETS = {
 				kind: "rigged",
 				folder: "Fallen_Frey_Mixamo",
 				idle: "Standing Torch Idle 01.fbx",
-				skills: { light: {
-					file: "Fallen Frey - Magic Heal.fbx",
-					lands: [.95, 1.45],
-					until: 2.35
-				} }
+				skills: {
+					light: {
+						file: "Fallen Frey - Magic Heal.fbx",
+						lands: [.95, 1.45],
+						until: 2.35
+					},
+					vengeance: {
+						file: "FreyFallen.fbx",
+						folder: "FreyFallen",
+						span: [2.2, 4.4],
+						lands: Array.from({ length: 20 }, (_, i) => (.7 + i * .12) * SKILL_SPEED$1),
+						until: 3.85 * SKILL_SPEED$1
+					}
+				}
 			}
 		}
 	}]
@@ -293,6 +285,7 @@ var GREMORY_ASSETS = {
 			"s4.png"
 		]
 	},
+	unique: { Hero_Gremory_Vari05_Weapon: "Hero_Gremory_Unique01_Weapon" },
 	skins: [{
 		name: "Gremory",
 		portrait: {
@@ -322,6 +315,20 @@ var GREMORY_ASSETS = {
 		}
 	}, {
 		name: "Gremory_DailyLook",
+		portrait: {
+			file: "Gremory_DailyLook.png",
+			from: "https://static.wikia.nocookie.net/charactah-account/images/6/69/Gremory_%28King%27s_Raid%29_Render_02.png/revision/latest?cb=20220930050745&format=original",
+			crop: {
+				x: 225,
+				y: 0,
+				size: 175
+			},
+			head: {
+				x: 250,
+				y: 80,
+				size: 108
+			}
+		},
 		model: {
 			kind: "parts",
 			parts: ["Hero_Gremory_Cos21DailyLook_Body"],
@@ -344,6 +351,7 @@ var KIRZE_ASSETS = {
 			"s4.png"
 		]
 	},
+	unique: { Hero_Kirze_Vari05_Weapon: "Hero_Kirze_Unique01_Weapon" },
 	skins: [{
 		name: "Kirze",
 		portrait: {
@@ -419,6 +427,7 @@ var LAIAS_ASSETS = {
 			"s4.png"
 		]
 	},
+	unique: { Hero_Ell_Vari05_Weapon: "Hero_Ell_Unique01_Weapon" },
 	skins: [{
 		name: "Laias",
 		portrait: {
@@ -440,13 +449,6 @@ var LAIAS_ASSETS = {
 			parts: ["Hero_Ell_Vari05_Body", "Hero_Ell_Vari05_Hair"],
 			right: "Hero_Ell_Vari05_Weapon"
 		}
-	}, {
-		name: "Laias_Dessert",
-		model: {
-			kind: "parts",
-			parts: ["Hero_Ell_Cos20Dessert_Body", "Hero_Ell_Cos20Dessert_Hair"],
-			right: "Hero_Ell_Cos20Dessert_Weapon"
-		}
 	}]
 };
 //#endregion
@@ -464,6 +466,16 @@ var LORRAINE_ASSETS = {
 			"s4.png"
 		]
 	},
+	props: {
+		vine: "Mob_Nepenthes_Stem_Vari01_Mesh",
+		trap: "Mob_Nepenthes_FlyTrap_Vari01_Mesh",
+		flower1: "Mob_Nepenthes_Flower_Vari01_Mesh",
+		flower2: "Mob_Nepenthes_Flower_Vari02_Mesh",
+		flower3: "Mob_Nepenthes_Flower_Vari03_Mesh",
+		flower4: "Mob_Nepenthes_Flower_Vari04_Mesh",
+		thorn: "Monster_Muhroom_Thorn_Thorn"
+	},
+	unique: { Hero_Lorraine_Vari05_Weapon: "Hero_Lorraine_Unique01_Weapon" },
 	skins: [{
 		name: "Lorraine",
 		portrait: {
@@ -510,8 +522,6 @@ var LORRAINE_ASSETS = {
 		}
 	}]
 };
-//#endregion
-//#region src/technomagic/assets/heroes/morrah.ts
 var MORRAH_ASSETS = {
 	name: "Morrah",
 	folder: "heroes/morrah",
@@ -523,6 +533,10 @@ var MORRAH_ASSETS = {
 			"s3.png",
 			"s4.png"
 		]
+	},
+	unique: {
+		Hero_Morrah_Vari05_Shield: "Hero_Morrah_Unique01_Shield",
+		Hero_Morrah_Vari05_Sword: "Hero_Morrah_Unique01_Sword"
 	},
 	skins: [{
 		name: "Morrah",
@@ -545,33 +559,60 @@ var MORRAH_ASSETS = {
 			left: "Hero_Morrah_Vari05_Shield",
 			right: "Hero_Morrah_Vari05_Sword",
 			blade: "y",
-			movedBy: CLAUSE_RIG
-		}
-	}, {
-		name: "Morrah_Halloween",
-		model: {
-			kind: "parts",
-			parts: ["Hero_Morrah_Cos19Halloween_Body", "Hero_Morrah_Cos19Halloween_Hair"],
-			left: "Hero_Morrah_Cos19Halloween_Shield",
-			right: "Hero_Morrah_Cos19Halloween_Sword",
-			blade: "y",
-			movedBy: CLAUSE_RIG
+			movedBy: {
+				kind: "rigged",
+				folder: "Morrah_Mixamo",
+				idle: "Morrah - Sword And Shield Idle.fbx",
+				run: "Morrah - Sword And Shield Run.fbx",
+				attack: [{
+					file: "Morrah - Sword And Shield Slash.fbx",
+					lands: [.68],
+					until: .8
+				}]
+			}
 		}
 	}]
 };
 //#endregion
 //#region src/technomagic/assets/heroes/seria.ts
 var DRIVE = "https://drive.google.com/uc?export=download&id=";
+/**
+* How her hands hold her sword and sheath (her body's files mark both hands at her feet): her sword by the middle of
+* its grip, its blade out past her little finger, so it points away from her as she swings it (her slash's animation
+* holds a sword that way); her sheath in her left hand as Morrah holds her sword, mirrored and turned about, so it runs
+* back past her little finger and the hilt in it is forward, ready to be drawn.
+*/
+var GRIPS = {
+	R: {
+		at: [
+			.064,
+			-.149,
+			.002
+		],
+		turn: [
+			Math.PI,
+			.436,
+			0
+		]
+	},
+	L: {
+		at: [
+			.064,
+			.021,
+			.002
+		],
+		turn: [
+			Math.PI,
+			-.436,
+			0
+		]
+	}
+};
 /** The same for both her skins (one skeleton). */
 var MOVED_BY = {
 	kind: "rigged",
 	folder: "Seria_Mixamo",
 	run: "Seria - Sword And Shield Run.fbx",
-	bladeRunning: [
-		-.8,
-		-.25,
-		.55
-	],
 	attack: [{
 		file: "Seria - Sword And Shield Slash.fbx",
 		lands: [.86],
@@ -589,6 +630,10 @@ var SERIA_ASSETS = {
 			"s3.png",
 			"s4.png"
 		]
+	},
+	unique: {
+		Hero_Seria_Vari05_WeaponA: "Hero_Seria_Unique01_WeaponA",
+		Hero_Seria_Vari05_WeaponB: "Hero_Seria_Unique01_WeaponB"
 	},
 	skins: [{
 		name: "Seria",
@@ -613,6 +658,7 @@ var SERIA_ASSETS = {
 			right: "Hero_Seria_Vari05_WeaponA",
 			offHand: "held",
 			blade: "y",
+			grips: GRIPS,
 			movedBy: MOVED_BY
 		}
 	}, {
@@ -638,12 +684,11 @@ var SERIA_ASSETS = {
 			right: "Hero_Seria_Cos19Christmas_Weapon_A",
 			offHand: "held",
 			blade: "y",
+			grips: GRIPS,
 			movedBy: MOVED_BY
 		}
 	}]
 };
-//#endregion
-//#region src/technomagic/assets/heroes/valance.ts
 var VALANCE_ASSETS = {
 	name: "Valance",
 	folder: "heroes/valance",
@@ -675,7 +720,19 @@ var VALANCE_ASSETS = {
 		model: {
 			kind: "parts",
 			parts: ["Hero_Valance_Vari04_Mesh"],
-			right: "Hero_Valance_Vari04_Weapon"
+			right: "Hero_Valance_Vari04_Weapon",
+			grips: { R: {
+				at: [
+					.06,
+					0,
+					0
+				],
+				turn: [
+					0,
+					0,
+					0
+				]
+			} }
 		}
 	}]
 };
@@ -1667,7 +1724,7 @@ var ROSMERTA_UP = {
 };
 var RASCAL_UP = {
 	name: "Crystallized Technomagic, Rascal",
-	about: "Deals more to the boss and takes less from it while Annette is Overcharged.",
+	about: "Deals more to the boss and takes less from it while Annette is [Overcharged].",
 	icon: "🤖",
 	image: PICTURES.annette
 };
@@ -2252,7 +2309,7 @@ var CHARGING = {
 	control: 1,
 	shown: {
 		name: "Charge",
-		about: "Passive. A Charge every half second, and 10 for each crystal of mana she spends; at 100 she is Overcharged for 15 seconds (ATK higher, and each attack takes 10% off her skills’ cooldowns).",
+		about: "Passive. A [Charge] every half second, and 10 for each crystal of mana she spends; at 100 she is [Overcharged] for 15 seconds (ATK higher, and each attack takes 10% off her skills’ cooldowns).",
 		icon: "⚡",
 		image: art$10(3)
 	}
@@ -2260,7 +2317,7 @@ var CHARGING = {
 /** Her Charge: shown beside her passive, with how many she has. */
 var CHARGED$1 = {
 	name: "Charge",
-	about: "At 100 she is Overcharged.",
+	about: "At 100 she is [Overcharged].",
 	icon: "⚡"
 };
 /** Overcharged: shown on her card, with how long it has left. */
@@ -2298,6 +2355,7 @@ var ANNETTE = {
 	abilities: [
 		{
 			name: "Blasting Ray",
+			about: "Rascal fires a ray into the boss: for 10 seconds it hits 15% softer and takes 25% more magical damage. [Overcharged]: a second ray, and twice that.",
 			icon: "🔆",
 			image: art$10(0),
 			move: "ray",
@@ -2306,6 +2364,7 @@ var ANNETTE = {
 		},
 		{
 			name: "Emergency Treatment",
+			about: "Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over 10 seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also 25% likelier to land a critical blow, deal 10% more, and can’t be knocked down.",
 			icon: "🩹",
 			image: art$10(1),
 			move: "treatment",
@@ -2314,6 +2373,7 @@ var ANNETTE = {
 		},
 		{
 			name: "Process of Elimination",
+			about: "A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for 5 seconds, and leaves it taking 25% more magical damage for 10.",
 			icon: "💣",
 			image: art$10(2),
 			move: "elimination",
@@ -2734,7 +2794,7 @@ var CURSED_BLOOD = {
 	control: 1,
 	shown: {
 		name: "Cursed Blood",
-		about: "Passive. A stack of Cursed Blood for each skill he uses; at the 3rd, his skills are ready again, a burst knocks the boss down, and he is in Fury for 10 seconds: ATK higher, his attack twice as hard, every skill reinforced (each costs a share of his health), fighting by himself.",
+		about: "Passive. A stack of [Cursed Blood] for each skill he uses; at the 3rd, his skills are ready again, a burst knocks the boss down, and he is in [Fury] for 10 seconds: ATK higher, his attack twice as hard, every skill reinforced (each costs a share of his health), fighting by himself.",
 		icon: "🩸",
 		image: art$9(3)
 	}
@@ -2742,7 +2802,7 @@ var CURSED_BLOOD = {
 /** His stacks of Cursed Blood: shown beside his passive, with how many he has. */
 var STACKED = {
 	name: "Cursed Blood",
-	about: "At 3, he is in Fury.",
+	about: "At 3, he is in [Fury].",
 	icon: "🩸"
 };
 /** Fury: shown on his card, with how long it has left. */
@@ -2772,6 +2832,7 @@ var EZEKIEL = {
 	abilities: [
 		{
 			name: "Destructive Instinct",
+			about: "A swipe of his demon arm, then a blow to the ground that knocks the boss down for 3 seconds. In [Fury]: both 50% harder, for 15% of the health he has.",
 			icon: "🌀",
 			image: art$9(0),
 			move: "instinct",
@@ -2780,6 +2841,7 @@ var EZEKIEL = {
 		},
 		{
 			name: "Dawning Despair",
+			about: "A dash and a blow: the boss’s attacks 30% slower for 5 seconds. In [Fury]: it is also stunned for 3 seconds, and his attacks are 30% quicker for 10, for 10% of the health he has.",
 			icon: "💨",
 			image: art$9(1),
 			move: "despair",
@@ -2788,6 +2850,7 @@ var EZEKIEL = {
 		},
 		{
 			name: "Strike of Doom",
+			about: "A charged blow that stuns the boss for 3 seconds. In [Fury]: three times as hard, for 20% of the health he has.",
 			icon: "💥",
 			image: art$9(2),
 			move: "doom",
@@ -2957,6 +3020,7 @@ var CLAUSE = {
 	abilities: [
 		{
 			name: "Cut Ground",
+			about: "A leap and a blow down on the boss that stuns it for 5 seconds.",
 			icon: "⚔️",
 			image: art$8(0),
 			move: "slam",
@@ -2965,6 +3029,7 @@ var CLAUSE = {
 		},
 		{
 			name: "Shield Strike",
+			about: "A blow with his shield: for 20 seconds the boss attacks a third slower and takes 30% more.",
 			icon: "🛡️",
 			image: art$8(1),
 			move: "bash",
@@ -2973,6 +3038,7 @@ var CLAUSE = {
 		},
 		{
 			name: "Guardian Shield",
+			about: "For 20 seconds every hero takes 25% less from the boss.",
 			icon: "✨",
 			image: art$8(2),
 			move: "guard",
@@ -3313,7 +3379,7 @@ var TAINTED_ANGEL = {
 	taken: TAINTED.taken,
 	shown: {
 		name: "Tainted Angel",
-		about: "Passive. She takes 15% more from the boss, but her mana fills far faster; at full mana she gains Darkened Power every second (2 at most).",
+		about: "Passive. She takes 15% more from the boss, but her mana fills far faster; at full mana she gains [Darkened Power] every second (2 at most).",
 		icon: "🌑",
 		image: art$7(3)
 	}
@@ -3321,7 +3387,7 @@ var TAINTED_ANGEL = {
 /** What her full mana gives her: shown beside her passive, with how many she has. */
 var DARKENED = {
 	name: "Darkened Power",
-	about: "Her next skill spends one: Heaven’s Vengeance then stuns the boss with every blow.",
+	about: "Her next skill spends one: [Heaven’s Vengeance] then stuns the boss with every blow.",
 	icon: "🖤"
 };
 /** What Blessing of Doom gives each ally it shields: shown on its card, with how long it has left. */
@@ -3345,6 +3411,7 @@ var FALLEN_FREY = {
 	abilities: [
 		{
 			name: "Light of Doom",
+			about: "Heals the ally with the lowest health and those near it, then the light bursts on the boss.",
 			icon: "✴️",
 			image: art$7(0),
 			move: "light",
@@ -3353,6 +3420,7 @@ var FALLEN_FREY = {
 		},
 		{
 			name: "Blessing of Doom",
+			about: "A shield on the 4 allies with the lowest health for 10 seconds, their attacks 50% quicker meanwhile.",
 			icon: "🔮",
 			image: art$7(1),
 			move: "blessing",
@@ -3361,6 +3429,7 @@ var FALLEN_FREY = {
 		},
 		{
 			name: "Heaven’s Vengeance",
+			about: "20 blows of light on the boss, through some of its defense, each leaving it 10% easier to hurt for 20 seconds (up to 5 times over). With [Darkened Power], every blow stuns it for half a second.",
 			icon: "☄️",
 			image: art$7(2),
 			move: "vengeance",
@@ -3724,6 +3793,7 @@ var art$6 = (index) => skillPicture(GREMORY_ASSETS, index);
 /** What all three of her slots turn into once her skills are sealed (its picture is the game's for it, where a passive's would be). */
 var SLEEP_SKILL = {
 	name: "Eh, whatever. I’m gonna sleep.",
+	about: "She sleeps for 3 seconds, taking 40% less and not to be knocked down; then her skills are unsealed, and she gains a [Mana Charge] (5 at most): +10% ATK and +2% to all she deals for each.",
 	icon: "💤",
 	image: art$6(3),
 	move: "sleep",
@@ -3736,7 +3806,7 @@ var LAZY = {
 	control: 1,
 	shown: {
 		name: "Eh, whatever. I’m gonna sleep.",
-		about: "Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking 40% less and not to be knocked down), then wakes with her skills unsealed and a Mana Charge.",
+		about: "Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking 40% less and not to be knocked down), then wakes with her skills unsealed and a [Mana Charge].",
 		icon: "💤",
 		image: art$6(3)
 	}
@@ -3751,7 +3821,7 @@ var SLEEPING = {
 /** Her Mana Charge: shown on her card, with how many she has. */
 var CHARGED = {
 	name: "Mana Charge",
-	about: "Each: +10% ATK and +2% to all she deals; Pochi, bite them! hits harder for each.",
+	about: "Each: +10% ATK and +2% to all she deals; [Pochi, bite them!] hits harder for each.",
 	icon: "🔋"
 };
 /** What her skills leave on the boss. */
@@ -3781,6 +3851,7 @@ var GREMORY = {
 	abilities: [
 		{
 			name: "Pochi, bite them!",
+			about: "Five bites, each harder for her [Mana Charge], each leaving [Pochi’s Mark]: the boss hits 6% softer for each, for 15 seconds (up to 5). Sealed once used.",
 			icon: "🐶",
 			image: art$6(0),
 			move: "pochi",
@@ -3789,6 +3860,7 @@ var GREMORY = {
 		},
 		{
 			name: "Puchi, knock them away!",
+			about: "A blow from behind that stuns the boss for 5 seconds. Sealed once used.",
 			icon: "💥",
 			image: art$6(1),
 			move: "puchi",
@@ -3797,6 +3869,7 @@ var GREMORY = {
 		},
 		{
 			name: "Pippi, wrap them!",
+			about: "Ten blows, each leaving [Pippi’s Mark]: the boss takes 5% more magical damage for each, for 12 seconds (up to 10). With all 10 on it, each blow deals more, through its defense. Sealed once used.",
 			icon: "🎀",
 			image: art$6(2),
 			move: "pippi",
@@ -3937,6 +4010,7 @@ var KIRZE = {
 	abilities: [
 		{
 			name: "Slash, Blade of Judgment!",
+			about: "Seven cuts as she spins, then a blow that knocks the boss down for 3 seconds.",
 			icon: "🌀",
 			image: art$5(0),
 			move: "judgment",
@@ -3945,6 +4019,7 @@ var KIRZE = {
 		},
 		{
 			name: "Disperse, Crystal Haze!",
+			about: "A burst that stuns the boss for 2 seconds. Then for 15 seconds she is 50% quicker, and a shockwave goes out from her every 2 seconds that stuns it for 1.",
 			icon: "💠",
 			image: art$5(1),
 			move: "haze",
@@ -3953,6 +4028,7 @@ var KIRZE = {
 		},
 		{
 			name: "Bloom, Crimson Flower!",
+			about: "Crystals in a line to the boss, then they burst: its attacks are 50% slower for 5 seconds, and it is cursed for 10. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.",
 			icon: "🌺",
 			image: art$5(2),
 			move: "flower",
@@ -4327,6 +4403,7 @@ var LAIAS = {
 	abilities: [
 		{
 			name: "Healing Droplets",
+			about: "Heals every ally, and for 10 seconds healing reaches them 25% more (half as much more again for one at half its health or less).",
 			icon: "💧",
 			image: art$4(0),
 			move: "droplets",
@@ -4335,6 +4412,7 @@ var LAIAS = {
 		},
 		{
 			name: "Bubble Shield",
+			about: "A shield on the ally with the lowest health: for 15 seconds it takes 30% less from the boss and deals 15% more. While the shield holds it can’t be knocked down, hits 20% harder and is healed every second.",
 			icon: "🫧",
 			image: art$4(1),
 			move: "bubble",
@@ -4343,6 +4421,7 @@ var LAIAS = {
 		},
 		{
 			name: "Festival of the Flow",
+			about: "Knocks the boss down for 3 seconds, heals every ally 15% of its max HP and gives every other ally 2 mana. Then for 12 seconds a whirlpool every 4 seconds strikes the boss and knocks it down for 2.",
 			icon: "🌊",
 			image: art$4(2),
 			move: "festival",
@@ -4764,7 +4843,7 @@ var BLADE_LEAF = {
 	control: 1,
 	shown: {
 		name: "Blade Leaf",
-		about: "Passive. Her attack has a 30% chance to send three leaves at the boss besides, each leaving a Poison on it (up to 5).",
+		about: "Passive. Her attack has a 30% chance to send three leaves at the boss besides, each leaving a [Poison] on it (up to 5).",
 		icon: "🍃",
 		image: art$3(3)
 	}
@@ -4783,6 +4862,7 @@ var LORRAINE = {
 	abilities: [
 		{
 			name: "Thornbush Forest",
+			about: "Three blows, each leaving a [Poison] on the boss (up to 5): each eats at it every second and leaves it healed 10% less.",
 			icon: "🌿",
 			image: art$3(0),
 			move: "thornbush",
@@ -4791,6 +4871,7 @@ var LORRAINE = {
 		},
 		{
 			name: "Tangled Vine",
+			about: "A blow that leaves 2 [Poison] and shackles the boss for 4 seconds (it can do nothing); 2 seconds after, a blow the harder for each [Poison] on it.",
 			icon: "🪢",
 			image: art$3(1),
 			move: "vine",
@@ -4799,6 +4880,7 @@ var LORRAINE = {
 		},
 		{
 			name: "Wrath of the Forest",
+			about: "A blow that knocks the boss down for 3 seconds, 20% harder for each [Poison] on it.",
 			icon: "🌳",
 			image: art$3(2),
 			move: "wrath",
@@ -5227,7 +5309,7 @@ var FIRE_SMASH = {
 	control: 1,
 	shown: {
 		name: "Fire Smash",
-		about: "Passive. When she blocks she strikes back, leaving 3 Flame on the boss.",
+		about: "Passive. When she blocks she strikes back, leaving 3 [Flame] on the boss.",
 		icon: "🔥",
 		image: art$2(3)
 	}
@@ -5235,7 +5317,7 @@ var FIRE_SMASH = {
 /** What Burning Power gives her for a while: shown beside her passive, with how long it has left. */
 var BURNING_UP = {
 	name: "Burning Power",
-	about: "Each blow of her attack deals more and leaves a Flame on the boss.",
+	about: "Each blow of her attack deals more and leaves a [Flame] on the boss.",
 	icon: "🔥",
 	image: art$2(0)
 };
@@ -5260,6 +5342,7 @@ var MORRAH = {
 	abilities: [
 		{
 			name: "Burning Power",
+			about: "A blow that knocks the boss down for a second and leaves 3 [Flame] on it. Then for 15 seconds each blow of her attack deals more and leaves a [Flame]. Both are 2% harder for each [Flame] on the boss.",
 			icon: "🔥",
 			image: art$2(0),
 			move: "burning",
@@ -5268,6 +5351,7 @@ var MORRAH = {
 		},
 		{
 			name: "Hellfire",
+			about: "For 20 seconds every ally has 30% more M.DEF and +250 M.Block, and a [Flame] is left on the boss every second.",
 			icon: "🌋",
 			image: art$2(1),
 			move: "hellfire",
@@ -5276,6 +5360,7 @@ var MORRAH = {
 		},
 		{
 			name: "Lava Eruption",
+			about: "A blow that knocks the boss down for 3 seconds, 2% harder for each [Flame] on it.",
 			icon: "☄️",
 			image: art$2(2),
 			move: "eruption",
@@ -5428,6 +5513,7 @@ var art$1 = (index) => skillPicture(SERIA_ASSETS, index);
 /** What Falling Petals' slot holds for a while after it is used (its picture is Falling Petals'). */
 var BLOSSOM_SKILL = {
 	name: "Mysterious Sword - Blossom",
+	about: "A cut down on the boss: once, within 5 seconds of [Falling Petals].",
 	icon: "🌸",
 	image: art$1(0),
 	move: "blossom",
@@ -5455,7 +5541,7 @@ var WITCHED = {
 /** Moonlight: shown on her card for the second it lasts. */
 var MOONLIGHT = {
 	name: "Moonlight",
-	about: "Red Moon Blade used now cuts again, and leaves the boss healed not at all for 10 seconds.",
+	about: "[Red Moon Blade] used now cuts again, and leaves the boss healed not at all for 10 seconds.",
 	icon: "🌕",
 	image: art$1(2)
 };
@@ -5475,6 +5561,7 @@ var SERIA = {
 	abilities: [
 		{
 			name: "Mysterious Sword - Falling Petals",
+			about: "A cut across the boss. For 5 seconds after, this slot holds [Mysterious Sword - Blossom], once.",
 			icon: "🌸",
 			image: art$1(0),
 			move: "petals",
@@ -5483,6 +5570,7 @@ var SERIA = {
 		},
 		{
 			name: "Blood Scattering Blade",
+			about: "A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks 30% slower for 3 seconds); then two more cuts, each with a blow more through its defense.",
 			icon: "🩸",
 			image: art$1(1),
 			move: "scatter",
@@ -5491,6 +5579,7 @@ var SERIA = {
 		},
 		{
 			name: "Red Moon Blade",
+			about: "A great cut, harder on a boss. Used in [Moonlight] (a second of it every 6 seconds): it cuts again, and the boss is healed not at all for 10 seconds.",
 			icon: "🌙",
 			image: art$1(2),
 			move: "moon",
@@ -5607,7 +5696,10 @@ var SERIA = {
 };
 //#endregion
 //#region src/technomagic/heroes/valance/moves.ts
-/** How she stands: upright and poised, her feet together under her gown, her crossbow held low at her right side pointing ahead and down, her left hand at her waist. */
+/**
+* How she stands: upright and poised, her feet together under her gown, her crossbow held low at her right side
+* pointing down and a little ahead, along her forearm (so her wrist is straight), her left hand at her waist.
+*/
 var STAND = {
 	...REST,
 	hipX: 0,
@@ -5623,11 +5715,11 @@ var STAND = {
 	lhX: .16,
 	lhY: .02,
 	lhZ: .1,
-	rhX: -.22,
-	rhY: -.06,
-	rhZ: .12,
+	rhX: -.21,
+	rhY: 0,
+	rhZ: .2,
 	bTurn: 0,
-	bUp: -.6
+	bUp: -.95
 };
 /** A pose of hers, for a track: what is added to how she stands. */
 var as = (pose) => at(pose, STAND);
@@ -5886,6 +5978,7 @@ var HEROES = [
 		abilities: [
 			{
 				name: "Prototype – VA",
+				about: "Clears what the boss has left on the ally with the highest ATK, and gives it a [Hologram] for 15 seconds: 20% more ATK and crit chance, healed every second, its skills ready 20% sooner, and nothing the boss does holds it.",
 				icon: "💠",
 				image: art(0),
 				move: "prototype",
@@ -5894,6 +5987,7 @@ var HEROES = [
 			},
 			{
 				name: "Absolute Protection Field – LA",
+				about: "A field for 5 seconds that reaches every ally: 15% more defense, can’t be knocked down, and healed and given mana every second.",
 				icon: "🟣",
 				image: art(1),
 				move: "field",
@@ -5902,6 +5996,7 @@ var HEROES = [
 			},
 			{
 				name: "Ultimate Laser Cannon – NCE",
+				about: "A laser that stuns the boss for 3 seconds, then 9 more, each stunning it for 1.5; each leaves it [Manipulated] for 15 seconds (up to 7 times over): taking 7% more and healed 5% less.",
 				icon: "🔫",
 				image: art(2),
 				move: "cannon",
@@ -7582,7 +7677,7 @@ var SKILLS = [
 		id: "mirage",
 		name: "Mirage",
 		tier: "S",
-		about: "Increases dodge by 200. On dodging, recovers 3% of max HP (once every 3 seconds)."
+		about: "Increases dodge by 20%. On dodging, recovers 3% of max HP (once every 3 seconds)."
 	},
 	{
 		id: "fundamentals",
@@ -7612,7 +7707,7 @@ var SKILLS = [
 		id: "overdrive",
 		name: "Overdrive",
 		tier: "A",
-		about: "Fixes attack speed at 1000 and increases ATK by 40%."
+		about: "Fixes attack speed at 100% and increases ATK by 40%."
 	},
 	{
 		id: "regeneration",
@@ -7630,7 +7725,7 @@ var SKILLS = [
 		id: "swiftness",
 		name: "Swiftness",
 		tier: "A",
-		about: "Increases attack speed by 250."
+		about: "Increases attack speed by 25%."
 	},
 	{
 		id: "focus-2",
@@ -7690,19 +7785,19 @@ var SKILLS = [
 		id: "piercing",
 		name: "Piercing",
 		tier: "B",
-		about: "Increases penetration by 250."
+		about: "Increases penetration by 25%."
 	},
 	{
 		id: "precision",
 		name: "Precision",
 		tier: "B",
-		about: "Increases crit chance by 250."
+		about: "Increases crit chance by 25%."
 	},
 	{
 		id: "guard",
 		name: "Guard",
 		tier: "B",
-		about: "Increases block by 250."
+		about: "Increases block by 25%."
 	},
 	{
 		id: "parry",
@@ -7756,7 +7851,7 @@ var SKILLS = [
 		id: "iron-wall",
 		name: "Iron Wall",
 		tier: "F",
-		about: "Increases block by 150, and by 200 more for the first 10 seconds."
+		about: "Increases block by 15%, and by 20% more for the first 10 seconds."
 	},
 	{
 		id: "tenacity",
@@ -8700,7 +8795,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 14;
+var SIM_VERSION = 15;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
