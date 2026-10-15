@@ -201,7 +201,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.ok((kirze?.bonus.atk ?? 0) > 0.05);
   assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - 0.12) < 1e-9);
   assert.deepEqual(kirze?.set, { id: 'perseverance', pieces: 1, active: false });
-  assert.ok(kirze?.totals.some((line) => line.includes('Perseverance set: 1/3')));
+  assert.ok(!kirze?.totals.some((line) => line.includes('Perseverance set')), 'part of a set is not among its effects');
   // A TechnoMagic piece says its set's effect for its class apart from its effects; another item has none.
   const fang = view.copies.find((copy) => copy.id === 'fang');
   assert.equal(fang?.setEffect?.pieces, 3);
@@ -311,7 +311,7 @@ test('heroes: three weapons and armors of one set, each for its class, give the 
   assert.equal(activeSet(heroSet([cleaver, cleaver, harness, harness], 'knight')), null, 'not for a knight');
   assert.equal(heroSet([heart], 'warrior'), null, 'a treasure is apart from the set');
   assert.ok(setLines(heroSet([cleaver, cleaver, harness, harness], 'warrior'), 'warrior')[0]?.includes('**Perseverance set**'));
-  assert.ok(setLines(heroSet([cleaver, harness], 'warrior'), 'warrior')[0]?.includes('2/3'));
+  assert.deepEqual(setLines(heroSet([cleaver, harness], 'warrior'), 'warrior'), [], 'part of a set is not an effect');
   const copies = ['a', 'b', 'c', 'd'].map((id, i) => ({ _id: id, itemId: i < 2 ? 'tri-head-cleaver' : 'venomscale-harness', level: 1 }));
   const member = { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a', weapon2: 'b', armor1: 'c', armor2: 'd' } } } };
   assert.equal(raidGear(copies, member).get('kirze')?.set, 'perseverance');
