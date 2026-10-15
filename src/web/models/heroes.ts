@@ -5,7 +5,7 @@ import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
-import { activeSet, activeTmEffects, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { activeSet, activeTmEffects, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
@@ -120,7 +120,7 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       bonus,
       set: set && { id: set.set, pieces: set.pieces, active: activeSet(set) !== null },
       skills,
-      totals: [...bonusLines(shares), ...setLines(set, hero.class), ...skillLines(skills)],
+      totals: [...heroStatLines(shares), ...setLines(set, hero.class), ...skillLines(skills)],
       perks: keptPerks(doc?.perks, doc?.transcend),
       transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend), next: transcendCost(hero.class, doc?.transcend) },
     };

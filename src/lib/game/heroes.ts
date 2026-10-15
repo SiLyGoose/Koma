@@ -98,31 +98,31 @@ export function heroEquipMoves(heroes: MemberDoc['heroes'], heroId: string, slot
 /**
  * Each stat, in the order they're listed: what it is in the raid (`points`: a chance or share, 1000 points
  * being 100%, so a bonus of 0.1 is 100 points; `flat`: ATK added as it is, a unique weapon's; otherwise a share
- * more of the hero's own), and its line.
+ * more of the hero's own), its name among a hero's stats (spelled out: the user's), and its line on a piece of gear.
  */
 export const HERO_STATS: Readonly<Record<HeroStat, { points: boolean; flat?: boolean; label: string; text: (value: string) => string }>> = {
-  atkFlat: { points: false, flat: true, label: 'ATK', text: (v) => `+${v} ATK` },
-  atk: { points: false, label: 'ATK', text: (v) => `+${v} ATK` },
-  hp: { points: false, label: 'HP', text: (v) => `+${v} HP` },
-  crit: { points: true, label: 'Crit chance', text: (v) => `+${v} crit chance` },
-  critDamage: { points: false, label: 'Crit damage', text: (v) => `+${v} crit damage` },
-  speed: { points: true, label: 'Attack speed', text: (v) => `+${v} attack speed` },
+  atkFlat: { points: false, flat: true, label: 'Attack', text: (v) => `+${v} ATK` },
+  atk: { points: false, label: 'Attack', text: (v) => `+${v} ATK` },
+  hp: { points: false, label: 'Health', text: (v) => `+${v} HP` },
+  crit: { points: true, label: 'Critical Chance', text: (v) => `+${v} crit chance` },
+  critDamage: { points: false, label: 'Critical Damage', text: (v) => `+${v} crit damage` },
+  speed: { points: true, label: 'Attack Speed', text: (v) => `+${v} attack speed` },
   pen: { points: true, label: 'Penetration', text: (v) => `+${v} penetration` },
-  defense: { points: false, label: 'Defence', text: (v) => `+${v} physical and magical defence` },
-  defPhysical: { points: false, label: 'Physical defence', text: (v) => `+${v} physical defence` },
-  defMagical: { points: false, label: 'Magical defence', text: (v) => `+${v} magical defence` },
-  block: { points: true, label: 'Block', text: (v) => `+${v} block` },
-  blockPhysical: { points: true, label: 'Physical block', text: (v) => `+${v} physical block` },
-  blockMagical: { points: true, label: 'Magical block', text: (v) => `+${v} magical block` },
+  defense: { points: false, label: 'Physical and Magical Defense', text: (v) => `+${v} physical and magical defence` },
+  defPhysical: { points: false, label: 'Physical Defense', text: (v) => `+${v} physical defence` },
+  defMagical: { points: false, label: 'Magical Defense', text: (v) => `+${v} magical defence` },
+  block: { points: true, label: 'Physical and Magical Block', text: (v) => `+${v} block` },
+  blockPhysical: { points: true, label: 'Physical Block', text: (v) => `+${v} physical block` },
+  blockMagical: { points: true, label: 'Magical Block', text: (v) => `+${v} magical block` },
   dodge: { points: true, label: 'Dodge', text: (v) => `+${v} dodge` },
-  resist: { points: true, label: 'CC resist', text: (v) => `+${v} CC resist` },
+  resist: { points: true, label: 'Crowd Control Resistance', text: (v) => `+${v} CC resist` },
   accuracy: { points: true, label: 'Accuracy', text: (v) => `+${v} accuracy` },
   lifesteal: { points: true, label: 'Lifesteal', text: (v) => `+${v} lifesteal` },
-  critResist: { points: true, label: 'Crit resist', text: (v) => `+${v} crit resist` },
-  heal: { points: false, label: 'Heals and shields', text: (v) => `heals and shields give ${v} more` },
-  control: { points: false, label: 'Stun duration', text: (v) => `stuns on the boss last ${v} longer` },
-  manaAttack: { points: false, label: 'Mana per attack', text: (v) => `+${v} mana per attack` },
-  manaRegen: { points: false, label: 'Mana recovery', text: (v) => `+${v} mana recovery per second` },
+  critResist: { points: true, label: 'Critical Resistance', text: (v) => `+${v} crit resist` },
+  heal: { points: false, label: 'Heals and Shields', text: (v) => `heals and shields give ${v} more` },
+  control: { points: false, label: 'Stun Duration', text: (v) => `stuns on the boss last ${v} longer` },
+  manaAttack: { points: false, label: 'Mana per Attack', text: (v) => `+${v} mana per attack` },
+  manaRegen: { points: false, label: 'Mana Recovery per Second', text: (v) => `+${v} mana recovery per second` },
 };
 
 export const noBonus = (): HeroBonus => Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, 0])) as HeroBonus;
@@ -203,6 +203,9 @@ export const statLine = (stat: HeroStat, value: number): string => HERO_STATS[st
 
 /** One line for each stat a bonus raises, in HERO_STATS' order, like "+25% ATK". */
 export const bonusLines = (bonus: HeroBonus): string[] => HERO_STAT_IDS.filter((stat) => bonus[stat] > 1e-9).map((stat) => statLine(stat, bonus[stat]));
+
+/** A hero's stats, all its gear gives it, a line for each stat it raises (its name spelled out), like "+25% Attack". */
+export const heroStatLines = (bonus: HeroBonus): string[] => HERO_STAT_IDS.filter((stat) => bonus[stat] > 1e-9).map((stat) => `+${amount(stat, bonus[stat])} ${HERO_STATS[stat].label}`);
 
 /** A TechnoMagic copy's potentials, a line each, like "+5% ATK Spd" (none for a copy that has none). */
 export const potentialLines = (potentials: readonly TmPotential[] | undefined): string[] =>
