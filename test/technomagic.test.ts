@@ -6,7 +6,7 @@ import { TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
-import { MOST_STAGE, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
+import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
@@ -15,7 +15,7 @@ import type { Player } from '../src/web/auth/token.js';
 import { heroesView } from '../src/web/models/heroes.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/technomagic/protocol.js';
 import { TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
-import type { BegunRun } from '../src/services/technomagic.js';
+import { RUN_LASTS_MS, rewardsUsedFilter, type BegunRun } from '../src/services/technomagic.js';
 import type { ItemCopyDoc, MemberDoc } from '../src/types.js';
 
 /** Every hero, in its first skin, with `gear`. */
@@ -426,4 +426,34 @@ test('technomagic: a run takes the additional skills of the TechnoMagic copies a
   assert.ok(!view.copies.find((one) => one.id === 'a')?.effects.some((line) => line.includes('Vigor')));
   assert.equal(view.copies.find((one) => one.id === 'd')?.skill, null);
   assert.equal(view.copies.find((one) => one.id === 'd')?.additional, null);
+});
+
+/** Whether `doc` is one `filter` finds (the little of MongoDB's filters rewardsUsedFilter uses: fields, $or, $exists, $gt). */
+function matches(doc: Record<string, unknown>, filter: Record<string, unknown>): boolean {
+  return Object.entries(filter).every(([key, want]) => {
+    if (key === '$or') return (want as Record<string, unknown>[]).some((one) => matches(doc, one));
+    const have = doc[key];
+    if (want !== null && typeof want === 'object' && !(want instanceof Date)) {
+      const ops = want as { $exists?: boolean; $gt?: Date };
+      if (ops.$exists !== undefined && (have !== undefined) !== ops.$exists) return false;
+      if (ops.$gt !== undefined && !(have instanceof Date && have > ops.$gt)) return false;
+      return true;
+    }
+    return have === want;
+  });
+}
+
+test("technomagic: a run uses up one of the day's rewards while won, or while its fight could still be going", () => {
+  assert.ok(RUN_LASTS_MS > MOST_TICKS * STEP_SECONDS * 1000, 'longer than any fight');
+  const now = new Date('2026-10-15T12:00:00Z');
+  const filter = rewardsUsedFilter('g', 'u', '2026-10-15', now);
+  const run = (over: Record<string, unknown>) => ({ guildId: 'g', userId: 'u', day: '2026-10-15', rewardable: true, startedAt: new Date(now.getTime() - 60_000), ...over });
+  assert.ok(matches(run({ result: 'won' }), filter), 'won');
+  assert.ok(!matches(run({ result: 'lost' }), filter), 'lost');
+  assert.ok(matches(run({}), filter), 'still going');
+  // The bot stopped during its fight: never finished, it stops counting once the fight would have been over.
+  assert.ok(!matches(run({ startedAt: new Date(now.getTime() - RUN_LASTS_MS - 1) }), filter), 'never finished');
+  assert.ok(matches(run({ result: 'won', startedAt: new Date(now.getTime() - RUN_LASTS_MS - 1) }), filter), 'won long ago today');
+  assert.ok(!matches(run({ rewardable: false, result: 'won' }), filter), 'gives no gear');
+  assert.ok(!matches(run({ day: '2026-10-14', result: 'won' }), filter), 'another day');
 });
