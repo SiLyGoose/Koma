@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
-import { transcendPicks } from '../data/transcend.js';
+import { transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { HERO_SLOT_KIND, heroEquipMoves, heroWearable, otherWeaponSlot, secondUnique, wieldedBy } from '../lib/game/heroes.js';
 import { HERO_SLOTS, type HeroSlot } from '../types.js';
@@ -13,6 +13,8 @@ import { ensureMember, recordLedger } from './economy/shared.js';
  * conditional update that only matches while they have the points and don't have the hero yet, so two
  * buys at once can't both pay. Putting a copy on a hero takes it off any other hero (or other slot) it
  * was on, in the same update, which only matches while the copy is still where it was read to be.
+ * Transcending one (data/transcend.ts) is one conditional update too: it only matches while the hero is
+ * still at the level read and they have the essences and komaGems it costs.
  */
 
 export type BuyHeroResult = { ok: true; paid: number; balance: number } | { ok: false; reason: 'not_found' | 'owned' | 'too_poor' };
@@ -80,18 +82,62 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
   return { ok: false, reason: 'busy' };
 }
 
-export type HeroTranscendResult = { ok: true } | { ok: false; reason: 'not_found' | 'too_many_points' };
+export type HeroPerksResult = { ok: true } | { ok: false; reason: 'not_found' | 'perk_locked' | 'too_many_points' };
 
 /**
  * Picks the member's hero's transcendence perks (data/transcend.ts), all of them at once (none: reset): 'not_found'
- * for a hero that isn't theirs, 'too_many_points' for perks costing more TP than a hero has (nothing changed).
+ * for a hero that isn't theirs, 'perk_locked' for one of a tier past its level, 'too_many_points' for perks costing
+ * more TP than it has (nothing changed).
  */
-export async function transcendHero(guildId: string, userId: string, heroId: string, perks: readonly string[]): Promise<HeroTranscendResult> {
+export async function pickHeroPerks(guildId: string, userId: string, heroId: string, perks: readonly string[]): Promise<HeroPerksResult> {
   if (!HEROES_BY_ID.has(heroId)) return { ok: false, reason: 'not_found' };
-  const picked = transcendPicks(perks);
-  if (!picked) return { ok: false, reason: 'too_many_points' };
-  const result = await collections().members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: { [`heroes.${heroId}.perks`]: picked } });
+  const { members } = collections();
+  const member = await members.findOne({ guildId, userId });
+  const hero = member?.heroes?.[heroId];
+  if (!hero) return { ok: false, reason: 'not_found' };
+  const picked = transcendPicks(perks, hero.transcend);
+  if (typeof picked === 'string') return { ok: false, reason: picked };
+  // (Only at the level read: one transcended meanwhile is fine, as it only has more TP.)
+  const result = await members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: { [`heroes.${heroId}.perks`]: picked } });
   return result.matchedCount > 0 ? { ok: true } : { ok: false, reason: 'not_found' };
+}
+
+export type HeroTranscendResult = { ok: true; level: number } | { ok: false; reason: 'not_found' | 'maxed' | 'too_poor' | 'busy' };
+
+/**
+ * Transcends the member's hero one level, paying its class's essences and komaGems (data/transcend.ts's transcendCost):
+ * 'not_found' for a hero that isn't theirs, 'maxed' at TRANSCEND_MAX, 'too_poor' without enough of either, 'busy' when
+ * it was transcended meanwhile (nothing was spent).
+ */
+export async function transcendHero(guildId: string, userId: string, heroId: string): Promise<HeroTranscendResult> {
+  const def = HEROES_BY_ID.get(heroId);
+  if (!def) return { ok: false, reason: 'not_found' };
+  const { members } = collections();
+  const member = await members.findOne({ guildId, userId });
+  const hero = member?.heroes?.[heroId];
+  if (!hero) return { ok: false, reason: 'not_found' };
+  const level = transcendLevel(hero.transcend);
+  const cost = transcendCost(def.class, level);
+  if (!cost) return { ok: false, reason: 'maxed' };
+  const essences = Object.entries(cost.essences);
+  if ((member.gems ?? 0) < cost.gems || essences.some(([id, amount]) => (member.essences?.[id as keyof typeof cost.essences] ?? 0) < amount)) return { ok: false, reason: 'too_poor' };
+  const paid = await members.updateOne(
+    {
+      guildId,
+      userId,
+      // Still at that level (missing is level 1), with enough of everything.
+      [`heroes.${heroId}.transcend`]: level === 1 ? { $in: [null, 1] } : level,
+      gems: { $gte: cost.gems },
+      ...Object.fromEntries(essences.map(([id, amount]) => [`essences.${id}`, { $gte: amount }])),
+    },
+    {
+      $set: { [`heroes.${heroId}.transcend`]: level + 1 },
+      $inc: { gems: -cost.gems, ...Object.fromEntries(essences.map(([id, amount]) => [`essences.${id}`, -amount])) },
+    },
+  );
+  if (paid.matchedCount === 0) return { ok: false, reason: 'busy' };
+  await recordLedger([{ guildId, userId, delta: 0, gemDelta: -cost.gems, essenceDelta: Object.fromEntries(essences.map(([id, amount]) => [id, -amount])), reason: 'transcend', itemId: heroId }]);
+  return { ok: true, level: level + 1 };
 }
 
 /** Empties one of the member's hero's slots, or (`slot` null) all of them. False when the hero isn't theirs. */

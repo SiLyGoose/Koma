@@ -6,7 +6,7 @@ import type { HeroSlot } from '../../types.js';
 
 /*
  * The TechnoMagic Raid's heroes: which are the member's, buying one (the shop) and gearing them (the heroes
- * page, and its transcendence perks) (heroes.ts's store), and who else in the server has heroes to look at.
+ * page, transcending them and their perks) (heroes.ts's store), and who else in the server has heroes to look at.
  */
 
 /** Who in a server has heroes to look at (GET /api/heroes/members): the one asking first, then whoever has the most. */
@@ -23,7 +23,7 @@ export function heroService(deps: ApiDeps) {
   const store = deps.heroes ?? heroStore;
 
   /** The heroes as they stand after a change, or the change's error. */
-  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy' | 'too_many_points'): HeroesView => {
+  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy' | 'perk_locked' | 'too_many_points' | 'maxed'): HeroesView => {
     if (typeof result === 'string') throw new ApiError(result);
     return result;
   };
@@ -31,10 +31,11 @@ export function heroService(deps: ApiDeps) {
   return {
     view: (guildId: string, userId: string): Promise<HeroesView> => store.view(guildId, userId),
 
-    /** Someone else's heroes, to look at: only while they're in the server, and not their points. */
+    /** Someone else's heroes, to look at: only while they're in the server, and not their points, komaGems or essences. */
     async peek(guildId: string, userId: string): Promise<HeroesView> {
       if ((await deps.memberName(guildId, userId)) === null) throw new ApiError('not_found');
-      return { ...(await store.view(guildId, userId)), balance: 0 };
+      const view = await store.view(guildId, userId);
+      return { ...view, balance: 0, gems: 0, essences: Object.fromEntries(Object.keys(view.essences ?? {}).map((id) => [id, 0])) as HeroesView['essences'] };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */
@@ -57,7 +58,8 @@ export function heroService(deps: ApiDeps) {
       answer(await store.equip(guildId, userId, hero, slot, copy)),
     unequip: async (guildId: string, userId: string, hero: string, slot: HeroSlot | null): Promise<HeroesView> =>
       answer(await store.unequip(guildId, userId, hero, slot)),
-    transcend: async (guildId: string, userId: string, hero: string, perks: readonly string[]): Promise<HeroesView> =>
-      answer(await store.transcend(guildId, userId, hero, perks)),
+    perks: async (guildId: string, userId: string, hero: string, perks: readonly string[]): Promise<HeroesView> =>
+      answer(await store.perks(guildId, userId, hero, perks)),
+    transcend: async (guildId: string, userId: string, hero: string): Promise<HeroesView> => answer(await store.transcend(guildId, userId, hero)),
   };
 }

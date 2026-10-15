@@ -252,6 +252,13 @@ export interface Settings {
     /** komaGems more from each milestone level on (RAID_DIFFICULTY.milestoneEvery: once from 5, twice at 10). */
     gemRewardMilestone: number;
     /**
+     * Hero essences (data/transcend.ts) each player who took part gets when the boss is beaten, of each of the three
+     * kinds its boss gives (RAID_BOSS_ESSENCES), below the first milestone level. They transcend the TechnoMagic Raid's heroes.
+     */
+    essenceReward: number;
+    /** Hero essences more of each kind from each milestone level on (as gemRewardMilestone). */
+    essenceRewardMilestone: number;
+    /**
      * The site's raid shop (lib/game/items/raid-shop.ts): raid items sold for komaGems, a few of each
      * tier, changing with the raid's week. By tier: what one costs, and how many are on the shelf.
      * A member can pay komaGems for a new shelf of their own, `refreshes` times a week: the first
@@ -468,6 +475,8 @@ export const DEFAULTS: Readonly<Settings> = {
     tokenReward: 10,
     gemReward: 5,
     gemRewardMilestone: 5,
+    essenceReward: 15,
+    essenceRewardMilestone: 5,
     shop: { price: { 3: 5, 4: 10 }, stock: { 3: 4, 4: 4 }, refreshCost: 5, refreshes: 5 },
     dropChance: 0.2,
     dropChancePerRaider: 0.1,

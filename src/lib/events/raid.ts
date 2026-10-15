@@ -602,6 +602,8 @@ export interface RaidRewardSettings {
   tokenReward: number;
   gemReward: number;
   gemRewardMilestone: number;
+  essenceReward: number;
+  essenceRewardMilestone: number;
 }
 
 /** What everyone who took part gets for beating the boss. */
@@ -609,12 +611,14 @@ export interface RaidRewards {
   points: number;
   tokens: number;
   gems: number;
+  /** Of each of the boss's hero essences (data/transcend.ts RAID_BOSS_ESSENCES). */
+  essences: number;
 }
 
 /**
  * What beating the boss at difficulty `level` pays each raider: `rewardPerLevel` more points for every
- * level past 1, and `gemRewardMilestone` more komaGems from each milestone level on (so they only go up
- * at levels 5 and 10). The komaTokens are the same at every level.
+ * level past 1, and `gemRewardMilestone` more komaGems (and `essenceRewardMilestone` more hero essences) from each
+ * milestone level on (so they only go up at levels 5 and 10). The komaTokens are the same at every level.
  */
 export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards {
   const at = clampDifficulty(level);
@@ -622,6 +626,7 @@ export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards
     points: Math.max(0, cfg.reward + cfg.rewardPerLevel * (at - 1)),
     tokens: cfg.tokenReward,
     gems: Math.max(0, cfg.gemReward + cfg.gemRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)),
+    essences: Math.max(0, cfg.essenceReward + cfg.essenceRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)),
   };
 }
 

@@ -4,20 +4,20 @@ import type { RaidClassId } from '../../constants/raid.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
-import { keptPerks } from '../../data/transcend.js';
+import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
 import { activeSet, activeTmEffects, bonusLines, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroWearable, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
-import { buyHero, equipHero, transcendHero, unequipHero } from '../../services/heroes.js';
+import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc, type Slot, type Stars, type TmSetId } from '../../types.js';
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip):
  * every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of theirs
- * wears, with what it gives it in the raid and every copy a hero could wear, and the transcendence perks picked
- * for each (the heroes page). The rules are lib/game/heroes.ts's (data/transcend.ts the perks'); buying, gearing
- * and transcending them, services/heroes.ts.
+ * wears, with what it gives it in the raid and every copy a hero could wear, and how far each is transcended
+ * and the perks picked for it (the heroes page). The rules are lib/game/heroes.ts's (data/transcend.ts
+ * transcendence's); buying, gearing and transcending them, services/heroes.ts.
  */
 
 /** One copy a hero can wear (the raid's gear, or the TechnoMagic Raid's), as the heroes page shows it. */
@@ -81,6 +81,8 @@ export interface HeroView {
   totals: string[];
   /** The transcendence perks picked for it (data/transcend.ts ids, in its order). */
   perks: string[];
+  /** How far it is transcended (1 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
+  transcend: { level: number; points: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
 }
 
 /** GET /api/heroes. */
@@ -89,13 +91,19 @@ export interface HeroesView {
   /** Every copy the member owns that a hero can wear, best first (stars, then level, then name). */
   copies: HeroCopy[];
   balance: number;
+  /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
+  gems: number;
+  essences: Record<EssenceId, number>;
 }
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
 export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy';
 
 /** Why a hero's transcendence perks weren't picked (nothing changed). */
-export type HeroTranscendError = 'not_found' | 'too_many_points';
+export type HeroPerksError = 'not_found' | 'perk_locked' | 'too_many_points';
+
+/** Why a hero wasn't transcended (nothing was spent). */
+export type HeroTranscendError = 'not_found' | 'maxed' | 'too_poor' | 'busy';
 
 /** What the hero routes use (the database's, unless a test says otherwise). */
 export interface HeroStore {
@@ -109,7 +117,9 @@ export interface HeroStore {
   /** Empties one of their hero's slots, or (`slot` null) all of them: the heroes after, or 'not_found' for a hero that isn't theirs. */
   unequip: (guildId: string, userId: string, hero: string, slot: HeroSlot | null) => Promise<HeroesView | 'not_found'>;
   /** Picks their hero's transcendence perks, all of them at once (none: reset): the heroes after, or why not. */
-  transcend: (guildId: string, userId: string, hero: string, perks: readonly string[]) => Promise<HeroesView | HeroTranscendError>;
+  perks: (guildId: string, userId: string, hero: string, perks: readonly string[]) => Promise<HeroesView | HeroPerksError>;
+  /** Transcends their hero one level: the heroes after, or why not. */
+  transcend: (guildId: string, userId: string, hero: string) => Promise<HeroesView | HeroTranscendError>;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'masterwork' | 'locked' | 'tmSkill' | 'tmPotentials'>;
@@ -125,7 +135,7 @@ export function skillLines(skills: readonly string[]): string[] {
 }
 
 /** The heroes' view, from the member's copies and member document. */
-export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 'heroes' | 'points'> | null): HeroesView {
+export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> | null): HeroesView {
   const worn = heroWorn(member);
   const lit = activeTmEffects(copies, member);
   const list: HeroCopy[] = [];
@@ -194,10 +204,12 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       set: set && { id: set.set, pieces: set.pieces, active: activeSet(set) !== null },
       skills,
       totals: [...bonusLines(shares), ...setLines(set, hero.class), ...skillLines(skills)],
-      perks: keptPerks(doc?.perks),
+      perks: keptPerks(doc?.perks, doc?.transcend),
+      transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend), next: transcendCost(hero.class, doc?.transcend) },
     };
   });
-  return { heroes, copies: list, balance: member?.points ?? 0 };
+  const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
+  return { heroes, copies: list, balance: member?.points ?? 0, gems: member?.gems ?? 0, essences };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {
@@ -227,8 +239,12 @@ export const heroStore: HeroStore = {
     return result.ok ? load(guildId, userId) : result.reason;
   },
   unequip: async (guildId, userId, hero, slot) => ((await unequipHero(guildId, userId, hero, slot)) ? load(guildId, userId) : 'not_found'),
-  transcend: async (guildId, userId, hero, perks) => {
-    const result = await transcendHero(guildId, userId, hero, perks);
+  perks: async (guildId, userId, hero, perks) => {
+    const result = await pickHeroPerks(guildId, userId, hero, perks);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  transcend: async (guildId, userId, hero) => {
+    const result = await transcendHero(guildId, userId, hero);
     return result.ok ? load(guildId, userId) : result.reason;
   },
 };

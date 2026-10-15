@@ -13,6 +13,8 @@ import {
 } from 'discord.js';
 import { CONFIG, isAdmin, type Settings } from '../config.js';
 import { RAID, RAID_BOSS_IDS, RAID_COMBAT, RAID_DIFFICULTY, RAID_EMOJI, SLOT_EMOJI, TEXT, type RaidBossId } from '../constants/index.js';
+import type { EssenceReward } from '../constants/text/raid.js';
+import { bossEssences, ESSENCE_NAME, RAID_BOSS_ESSENCES } from '../data/transcend.js';
 import { type DragonMood } from '../animations/images/dragon-image.js';
 import { raidBossPicture } from '../animations/images/raid-boss-image.js';
 import { replyPrivately } from '../discord/reply.js';
@@ -450,8 +452,12 @@ const dropLine = (cfg: RaidSettings, raiders?: number, difficulty = 1): string =
     ? `\n${TEXT.raid.dropChance(formatPercent(cfg.dropChance), formatPercent(cfg.dropChancePerRaider), raiders === undefined ? undefined : formatPercent(raidDropChance(raiders, cfg)), lootKindsText(difficulty))}`
     : '';
 
-/** What everyone who fought gets for beating the boss at `difficulty`, and how the harder levels pay more (without the raid drops' line). */
-export function bossRewardsText(cfg: RaidSettings, difficulty = 1): string {
+/** The hero essences beating `boss` gives each raider, for the words (null with none). */
+export const essenceReward = (boss: RaidBossId, amount: number): EssenceReward | null =>
+  amount > 0 ? { amount, names: RAID_BOSS_ESSENCES[boss].map((id) => ESSENCE_NAME[id]) } : null;
+
+/** What everyone who fought `boss` (left out: any of them) gets for beating it at `difficulty`, and how the harder levels pay more (without the raid drops' line). */
+export function bossRewardsText(cfg: RaidSettings, difficulty = 1, boss?: RaidBossId): string {
   const paid = raidRewards(difficulty, cfg);
   const milestones = Array.from({ length: Math.floor(RAID_DIFFICULTY.max / RAID_DIFFICULTY.milestoneEvery) }, (_, i) => (i + 1) * RAID_DIFFICULTY.milestoneEvery);
   return TEXT.raid.bossRewards(
@@ -461,6 +467,7 @@ export function bossRewardsText(cfg: RaidSettings, difficulty = 1): string {
     cfg.rewardPerLevel > 0 ? fmt(cfg.rewardPerLevel) : null,
     cfg.gemRewardMilestone > 0 ? cfg.gemRewardMilestone : null,
     milestones,
+    boss ? essenceReward(boss, paid.essences) : null,
   );
 }
 
@@ -530,7 +537,7 @@ export function resultEmbed(
   const rounds = state.round;
   if (state.outcome === 'won') {
     const paid = raidRewards(state.difficulty, cfg);
-    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(paid.points), paid.tokens, paid.gems));
+    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(paid.points), paid.tokens, paid.gems, essenceReward(state.boss, paid.essences)));
   } else {
     const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(b, rounds);
     embed
@@ -672,7 +679,7 @@ export function bossBrief(cfg: RaidSettings, boss: RaidBossId, difficulty = 1): 
     ? ['', r.movesBlightNote(blight.tick, formatPercent(blight.healCut), formatPercent(blight.maxHealCut), blight.supportCleanse, blight.supportCleanseAt, blight.maxStacks)]
     : [];
   const moveLines = [...[...movesOf(boss), ...special].map(moveLine), ...(hasCc ? ['', r.movesCcNote] : []), ...blightNote];
-  return { phases, moves: moveLines, rewards: bossRewardsText(cfg, difficulty) + dropLine(cfg, undefined, difficulty) };
+  return { phases, moves: moveLines, rewards: bossRewardsText(cfg, difficulty, boss) + dropLine(cfg, undefined, difficulty) };
 }
 
 export function bossInfoEmbed(cfg: RaidSettings, boss: RaidBossId = 'wyrm', until?: Date): BotEmbed {
@@ -863,7 +870,7 @@ function lobbyView(
   const paid = raidRewards(difficulty.level, cfg);
   const embed = createEmbed()
     .setTitle(r.lobbyTitle(b))
-    .setDescription(r.lobby(b, mention(host), cfg.maxRounds, fmt(paid.points), paid.tokens, paid.gems) + dropLine(cfg, players.length, difficulty.level))
+    .setDescription(r.lobby(b, mention(host), cfg.maxRounds, fmt(paid.points), paid.tokens, paid.gems, essenceReward(boss, paid.essences)) + dropLine(cfg, players.length, difficulty.level))
     .addFields(
       {
         name: r.howToField,
@@ -1560,7 +1567,16 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     const fought = participants(state);
     if (outcome === 'won' && fought.length > 0 && !tested) {
       const paid = raidRewards(difficulty.level, cfg);
-      reward = await rewardRaid(ctx.guildId, fought, paid.points, paid.tokens, paid.gems, raidDropChance(fought.length, cfg), raidDropCounts(difficulty.level));
+      reward = await rewardRaid(
+        ctx.guildId,
+        fought,
+        paid.points,
+        paid.tokens,
+        paid.gems,
+        raidDropChance(fought.length, cfg),
+        raidDropCounts(difficulty.level),
+        bossEssences(boss, paid.essences),
+      );
       // Beating it unlocks the next difficulty for the server.
       await recordRaidWin(ctx.guildId, difficulty.level).catch((err) => console.error(`Could not record that ${ctx.guildId} beat raid difficulty ${difficulty.level}:`, err));
     }
@@ -1608,7 +1624,7 @@ export interface RaidWeekInfo {
     rounds: number;
     lastHit: string | null;
     players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number; damageTaken?: number }[];
-    reward: { points: number; tokens: number; gems: number } | null;
+    reward: { points: number; tokens: number; gems: number; essences?: number } | null;
     /** Their gear as they fought was kept (raids from before it was don't have it). */
     gear?: boolean;
     /** Its difficulty level (left out: 1). */

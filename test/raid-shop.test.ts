@@ -40,7 +40,7 @@ test('raid rewards: every level past 1 pays 500 more, and the komaGems only go u
   // Out of range, it is the nearest level; with both steps at 0, every level pays what level 1 does.
   assert.deepEqual(raidRewards(0, cfg), ladder[0]);
   assert.deepEqual(raidRewards(99, cfg), ladder[9]);
-  assert.deepEqual(raidRewards(10, { ...cfg, rewardPerLevel: 0, gemRewardMilestone: 0 }), { points: 1000, tokens: 10, gems: 5 });
+  assert.deepEqual(raidRewards(10, { ...cfg, rewardPerLevel: 0, gemRewardMilestone: 0, essenceRewardMilestone: 0 }), { points: 1000, tokens: 10, gems: 5, essences: 15 });
 });
 
 test('raid rewards: both steps are settings, and the boss info says how the harder levels pay more', () => {

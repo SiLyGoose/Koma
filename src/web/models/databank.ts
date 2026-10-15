@@ -115,7 +115,7 @@ function bossView(id: RaidBossId): DatabankBoss {
   const { name, emoji } = TEXT.raid.bosses[id];
   const { hpPerRaider, hpOverhead, minRaiders, gearHp } = CONFIG.raid;
   const { phases, moves } = bossBrief(CONFIG.raid, id);
-  const rewards = bossRewardsText(CONFIG.raid);
+  const rewards = bossRewardsText(CONFIG.raid, 1, id);
   return { id, name, emoji, picture: picturePath(id, 'calm'), hp: { perRaider: hpPerRaider[id], overhead: hpOverhead[id], minRaiders, gear: gearHp[id] }, phases, moves, rewards };
 }
 

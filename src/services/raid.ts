@@ -5,7 +5,9 @@ import { rollRaidDrops, type DropCounts, type RaidDrop } from '../lib/game/items
 import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
+import type { EssenceId } from '../data/transcend.js';
 import { addCopy, giveGems, giveTokens } from './economy/index.js';
+import { giveEssences } from './economy/essences.js';
 import { isDuplicateKey, recordLedger } from './economy/shared.js';
 import { payShares } from './events.js';
 import { addVaultLoss } from './vault.js';
@@ -147,7 +149,8 @@ export interface RaidLoot extends RaidDrop {
 }
 
 /**
- * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives the
+ * Pays everyone who took part `reward` points, `tokens` komaTokens, `gems` komaGems and `essences` (hero essences: so
+ * many of each kind), and gives the
  * party a `dropChance` chance (raidDropChance: one roll for all of them) that each finds raid-only items:
  * `counts` of each tier (raidDropCounts, by the raid's difficulty; one 3-star item, level 1's, when left out).
  */
@@ -159,6 +162,7 @@ export async function rewardRaid(
   gems: number,
   dropChance = 0,
   counts?: DropCounts,
+  essences: Partial<Record<EssenceId, number>> = {},
 ): Promise<RaidReward> {
   const shares: CrateShare[] = userIds.map((userId) => ({ userId, amount: reward }));
   const payout = await payShares(guildId, shares, 'raid_reward');
@@ -179,6 +183,16 @@ export async function rewardRaid(
         await giveGems(guildId, userId, gems, 'raid_gems');
       } catch (err) {
         console.error(`Could not give ${userId} their ${gems} raid komaGems in ${guildId}:`, err);
+        failed.add(userId);
+      }
+    }
+  }
+  if (Object.values(essences).some((amount) => (amount ?? 0) > 0)) {
+    for (const userId of userIds) {
+      try {
+        await giveEssences(guildId, userId, essences, 'raid_essences');
+      } catch (err) {
+        console.error(`Could not give ${userId} their raid essences in ${guildId}:`, err);
         failed.add(userId);
       }
     }

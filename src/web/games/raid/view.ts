@@ -2,7 +2,7 @@ import { CONFIG } from '../../../config.js';
 import { fmt } from '../../../lib/format.js';
 import { RAID_DIFFICULTY, TEXT, type RaidBossId } from '../../../constants/index.js';
 import { ITEMS_BY_ID } from '../../../data/items.js';
-import { bossBrief, intentText, moodOf, type RaidWeekInfo } from '../../../commands/raid.js';
+import { bossBrief, essenceReward, intentText, moodOf, type RaidWeekInfo } from '../../../commands/raid.js';
 import { type RaidStats, actionProblem, bossHpFor, canAct, damageRanking, classOf, difficultyOf, RAID_ACTIONS, raidRewards, type RaidAction } from '../../../lib/events/raid.js';
 import type { ActProblem, LiveRaid } from '../../../lib/events/raid-live.js';
 import { raidDropCounts, raidDropsOn } from '../../../lib/game/items/raid-drops.js';
@@ -31,8 +31,9 @@ export const statsOf = (s: Partial<RaidStats> | undefined) => ({
   damageTaken: s?.damageTaken ?? 0,
 });
 
-/** What the winners were paid, with the currencies' emojis. */
-const rewardText = (points: number, tokens: number, gems: number): string => TEXT.raid.rewardList(fmt(points), tokens, gems);
+/** What the winners of a fight with `boss` were paid, with the currencies' emojis (and its hero essences). */
+const rewardText = (points: number, tokens: number, gems: number, essences: number, boss: RaidBossId | null): string =>
+  TEXT.raid.rewardList(fmt(points), tokens, gems, boss ? essenceReward(boss, essences) : null);
 
 /** What each difficulty level does to the boss and drops for a win, for the page's pickers (before the lobby, and in it) and the databank. */
 export const difficultyLevels = (): RaidLevel[] =>
@@ -147,7 +148,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         players: state ? state.players.map((p) => ({ userId: p.userId, ...statsOf(p.stats) })) : [],
         lastHit: state?.lastHit ?? null,
         reward: rewarded ? paid : null,
-        rewardText: rewarded ? rewardText(paid.points, paid.tokens, paid.gems) : null,
+        rewardText: rewarded ? rewardText(paid.points, paid.tokens, paid.gems, paid.essences, state?.boss ?? null) : null,
         gear: current.gear.size > 0,
         loot: lootOf(loot?.key, loot?.drops.filter((drop) => drop.userId === you) ?? []),
       },
@@ -172,7 +173,7 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         players,
         lastHit,
         reward,
-        rewardText: reward ? rewardText(reward.points, reward.tokens, reward.gems) : null,
+        rewardText: reward ? rewardText(reward.points, reward.tokens, reward.gems, reward.essences ?? 0, week.boss) : null,
         gear: gear === true,
         loot: lootOf(lootKey, mine),
       },

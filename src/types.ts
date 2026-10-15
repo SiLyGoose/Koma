@@ -2,6 +2,7 @@ import type { ObjectId } from 'mongodb';
 import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
 import type { RaidBossId, RaidClassId } from './constants/raid.js';
+import type { EssenceId } from './data/transcend.js';
 
 export type Stars = 1 | 2 | 3 | 4;
 
@@ -191,6 +192,8 @@ export interface MemberDoc {
   tokens?: number;
   /** komaGems, won by beating the weekly raid. Missing means 0. */
   gems?: number;
+  /** Hero essences (data/transcend.ts EssenceId), won by beating the weekly raid and spent transcending heroes. Missing means none. */
+  essences?: Partial<Record<EssenceId, number>>;
   /**
    * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
    * of that claim, and who it is paid to. Both are missing or null when there is none. They are
@@ -283,6 +286,8 @@ export interface HeroDoc {
    * at most (it can be on the member as well), and in one of its slots.
    */
   equipment?: Partial<Record<HeroSlot, string | null>>;
+  /** How far it is transcended (1 to TRANSCEND_MAX, data/transcend.ts), on the site's heroes page. Missing means 1. */
+  transcend?: number;
   /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page. Missing means none. */
   perks?: string[];
 }
@@ -494,6 +499,8 @@ export type LedgerReason =
   | 'raid_reward'
   | 'raid_tokens'
   | 'raid_gems'
+  // Hero essences for beating it (0 points; essenceDelta).
+  | 'raid_essences'
   // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item).
   | 'forge'
   | 'raid_refund'
@@ -507,6 +514,8 @@ export type LedgerReason =
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).
   | 'raid_shop_refresh'
+  // komaGems and hero essences spent transcending a hero (0 points, gemDelta, essenceDelta; itemId is the hero).
+  | 'transcend'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 
@@ -606,6 +615,8 @@ export interface LedgerDoc {
   tokenDelta?: number;
   /** Change in komaGems, when the entry moved any. */
   gemDelta?: number;
+  /** Hero essences given (+) or spent (-), by kind (data/transcend.ts EssenceId). */
+  essenceDelta?: Partial<Record<EssenceId, number>>;
   reason: LedgerReason;
   otherUserId?: string;
   itemId?: string;

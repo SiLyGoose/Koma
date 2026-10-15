@@ -20,9 +20,20 @@ const ccMove: Record<CrowdControl, string> = { stunned: 'Stun', disarmed: 'Disar
 /** The Blight a hit from the matriarch leaves, like "+2 🦠". */
 const blightAdds = (move: 'spit' | 'miasma' | 'rot'): string => `+${RAID_COMBAT.moves[move].blight} 🦠`;
 
-/** What each raider gets for a win: the points, then komaTokens and komaGems (each left out at 0). */
-const rewards = (reward: string, tokens: number, gems: number): string =>
-  andList([boldMoney(reward), ...(tokens > 0 ? [boldTokens(tokens)] : []), ...(gems > 0 ? [boldGems(gems)] : [])]);
+/** Hero essences a raid boss gives: so many of each of its kinds (their names), to transcend the TechnoMagic Raid's heroes. */
+export interface EssenceReward {
+  amount: number;
+  names: readonly string[];
+}
+
+/** What each raider gets for a win: the points, then komaTokens, komaGems and its boss's hero essences (each left out at 0, or with none). */
+const rewards = (reward: string, tokens: number, gems: number, essences: EssenceReward | null = null): string =>
+  andList([
+    boldMoney(reward),
+    ...(tokens > 0 ? [boldTokens(tokens)] : []),
+    ...(gems > 0 ? [boldGems(gems)] : []),
+    ...(essences && essences.amount > 0 ? [`**${essences.amount}** each of the ${andList(essences.names)} hero essences 💠`] : []),
+  ]);
 
 /** "A", "A and B", "A, B and C". */
 const andList = (items: readonly string[]): string =>
@@ -181,10 +192,10 @@ export const raidText = {
   // The lobby
   lobbyTitle: (b: RaidBossText) => `${b.emoji} A wild ${b.name} appears!`,
   /** `host` found it, `rounds` is how long the party has to win. */
-  lobby: (b: RaidBossText, host: string, rounds: number, reward: string, tokens: number, gems: number) =>
+  lobby: (b: RaidBossText, host: string, rounds: number, reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) =>
     `${b.found(host)} Press **Join** to fight. The battle starts when the host presses **Start raid** (the host can also **Disband** it). ` +
     `No one can join once it starts.\n\n` +
-    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
+    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems, essences)}.`,
   howToField: 'How to fight',
   /**
    * `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to
@@ -478,8 +489,8 @@ Grows with every raider (at least ${min}).`,
 
   // The end
   wonTitle: (b: RaidBossText) => `🏆 The ${b.name} has been slain!`,
-  won: (rounds: number, reward: string, tokens: number, gems: number) =>
-    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems)}.`,
+  won: (rounds: number, reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) =>
+    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems, essences)}.`,
   wipedTitle: (b: RaidBossText) => `☠️ The ${b.name} wins`,
   wiped: (rounds: number) => `Every raider was knocked out in round **${rounds}**. No rewards this week.`,
   fledTitle: (b: RaidBossText) => `${b.fledEmoji} The ${b.name} got away`,
@@ -565,13 +576,21 @@ Grows with every raider (at least ${min}).`,
   rewardsField: 'Rewards',
   /** What each raider who takes part gets when the boss is slain (nothing if it wins or gets away). */
   /** What each raider got for a win, with the currencies' emojis ("**1,000** <:zeiucoin:…>, **10** … and **5** …"). */
-  rewardList: (reward: string, tokens: number, gems: number) => rewards(reward, tokens, gems),
+  rewardList: (reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) => rewards(reward, tokens, gems, essences),
   /**
    * `perLevel` is the points every level past 1 adds (null with none), `gemStep` the komaGems each of
    * `gemLevels` (the milestone levels) adds (null with none).
    */
-  bossRewards: (reward: string, tokens: number, gems: number, perLevel: string | null = null, gemStep: number | null = null, gemLevels: readonly number[] = []) =>
-    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems)}.` +
+  bossRewards: (
+    reward: string,
+    tokens: number,
+    gems: number,
+    perLevel: string | null = null,
+    gemStep: number | null = null,
+    gemLevels: readonly number[] = [],
+    essences: EssenceReward | null = null,
+  ) =>
+    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems, essences)}.` +
     (perLevel === null && gemStep === null
       ? ''
       : `\n📈 **Harder levels pay more**: ${[

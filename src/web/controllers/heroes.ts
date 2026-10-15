@@ -14,7 +14,7 @@ const Equip = Hero.extend({ slot: Slot, copy: CopyId });
 /** One slot, or (left out) all of them. */
 const Unequip = Hero.extend({ slot: Slot.nullish() });
 /** Every perk picked (data/transcend.ts's). */
-const Transcend = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
+const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
 
 export function heroController(heroes: HeroService) {
   return {
@@ -47,9 +47,14 @@ export function heroController(heroes: HeroService) {
       res.json(await heroes.unequip(res.locals.guildId, res.locals.session.userId, hero, (slot ?? null) as (typeof HERO_SLOTS)[number] | null));
     },
 
+    async perks(req, res) {
+      const { hero, perks } = parse(Perks, req.body);
+      res.json(await heroes.perks(res.locals.guildId, res.locals.session.userId, hero, perks));
+    },
+
     async transcend(req, res) {
-      const { hero, perks } = parse(Transcend, req.body);
-      res.json(await heroes.transcend(res.locals.guildId, res.locals.session.userId, hero, perks));
+      const { hero } = parse(Hero, req.body);
+      res.json(await heroes.transcend(res.locals.guildId, res.locals.session.userId, hero));
     },
   } satisfies Record<string, RequestHandler>;
 }
