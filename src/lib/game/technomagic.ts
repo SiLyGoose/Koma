@@ -21,7 +21,7 @@ import {
 
 /*
  * The TechnoMagic Raid, with no database. Its fight is Koma-UI's sim (src/technomagic/sim/), which the bot
- * has as vendor/technomagic-sim.mjs (built there by `yarn build:sim`): a room's fight is run by the bot with
+ * has as vendor/technomagic-sim.mjs (built there by its `yarn sync`): a room's fight is run by the bot with
  * it (web/games/technomagic/), and every page runs the same one. A win gives TechnoMagic items (ItemDef.tmDrop) of
  * the boss's own set (data/tm-sets.ts), more at the higher stages (TM_DROP_COUNTS), and each copy comes with one of the
  * sim's additional skills (TM_SKILLS: the same list whatever the set) and TM_POTENTIAL_LINES potentials
