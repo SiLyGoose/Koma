@@ -3,6 +3,8 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
+import { bossEssences, RAID_BOSS_ESSENCES } from '../src/data/transcend.js';
+import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, REFINE, TEXT } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
 import { formatMultiplier, formatPercent } from '../src/lib/format.js';
@@ -88,9 +90,12 @@ test('databank page: every raid boss, what it does, and what each difficulty lev
     assert.equal(boss.name, TEXT.raid.bosses[boss.id].name);
     assert.equal(boss.picture, `/api/raid/boss?boss=${boss.id}&mood=calm`);
     assert.deepEqual(boss.hp, { perRaider: CONFIG.raid.hpPerRaider[boss.id], overhead: CONFIG.raid.hpOverhead[boss.id], minRaiders: CONFIG.raid.minRaiders, gear: CONFIG.raid.gearHp[boss.id] });
-    assert.ok(boss.moves.length > 0 && boss.phases.length > 0 && boss.rewards.length > 0, boss.id);
-    assert.ok(!boss.rewards.includes('raid item'), 'the rewards everyone gets, without the drops (they go by level)');
-    assert.ok(boss.rewards.includes('Harder levels pay more'), 'and how the harder levels pay more');
+    assert.ok(boss.moves.length > 0 && boss.phases.length > 0, boss.id);
+    // The rewards at each level, in the levels' order.
+    assert.equal(boss.rewards.length, RAID_DIFFICULTY.max, boss.id);
+    const { points, tokens, gems, essences } = raidRewards(3, CONFIG.raid);
+    assert.deepEqual(boss.rewards[2], { points, tokens, gems, essences: bossEssences(boss.id, essences) }, 'each level says what it pays');
+    assert.deepEqual(Object.keys(boss.rewards[0].essences), [...RAID_BOSS_ESSENCES[boss.id]], 'its three kinds of essence');
   }
   assert.equal(raid.maxRounds, CONFIG.raid.maxRounds);
   assert.equal(raid.levels.length, RAID_DIFFICULTY.max);

@@ -468,6 +468,7 @@ export function bossRewardsText(cfg: RaidSettings, difficulty = 1, boss?: RaidBo
     cfg.gemRewardMilestone > 0 ? cfg.gemRewardMilestone : null,
     milestones,
     boss ? essenceReward(boss, paid.essences) : null,
+    boss && cfg.essenceRewardPerLevel > 0 ? cfg.essenceRewardPerLevel : null,
   );
 }
 

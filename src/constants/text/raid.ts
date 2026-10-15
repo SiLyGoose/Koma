@@ -579,7 +579,8 @@ Grows with every raider (at least ${min}).`,
   rewardList: (reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) => rewards(reward, tokens, gems, essences),
   /**
    * `perLevel` is the points every level past 1 adds (null with none), `gemStep` the komaGems each of
-   * `gemLevels` (the milestone levels) adds (null with none).
+   * `gemLevels` (the milestone levels) adds (null with none), `essenceStep` the hero essences of each kind every
+   * level past 1 adds (null with none).
    */
   bossRewards: (
     reward: string,
@@ -589,12 +590,17 @@ Grows with every raider (at least ${min}).`,
     gemStep: number | null = null,
     gemLevels: readonly number[] = [],
     essences: EssenceReward | null = null,
+    essenceStep: number | null = null,
   ) =>
     `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems, essences)}.` +
-    (perLevel === null && gemStep === null
+    (perLevel === null && gemStep === null && essenceStep === null
       ? ''
       : `\n📈 **Harder levels pay more**: ${[
-          ...(perLevel === null ? [] : [`${boldMoney(perLevel)} more for every level past 1`]),
+          ...(perLevel === null && essenceStep === null
+            ? []
+            : [
+                `${andList([...(perLevel === null ? [] : [boldMoney(perLevel)]), ...(essenceStep === null ? [] : [`**${essenceStep}** of each hero essence 💠`])])} more for every level past 1`,
+              ]),
           ...(gemStep === null ? [] : [`${boldGems(gemStep)} more from ${gemLevels.map((level) => `level ${level}`).join(', and again from ')}`]),
         ].join(', and ')}.`),
   phasesField: 'Phases',

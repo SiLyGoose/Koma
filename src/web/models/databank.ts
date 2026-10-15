@@ -1,5 +1,7 @@
-import { bossBrief, bossRewardsText } from '../../commands/raid.js';
+import { bossBrief } from '../../commands/raid.js';
 import { CONFIG } from '../../config.js';
+import { bossEssences, type EssenceId } from '../../data/transcend.js';
+import { raidRewards } from '../../lib/events/raid.js';
 import { RAID_BOSS_IDS, RAID_CLASS_IDS, REFINE, TEXT, type RaidBossId, type RaidClassId } from '../../constants/index.js';
 import { ITEMS } from '../../data/items.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
@@ -72,14 +74,23 @@ export interface DatabankBoss {
    * every raider (the overhead ones too) at the levels that need gear (RaidLevel.gear), and RaidLevel.wall of it below them.
    */
   hp: { perRaider: number; overhead: number; minRaiders: number; gear: number };
-  /**
-   * What it does, in Discord markdown: its phases, its moves, and what everyone who fought gets for beating
-   * it at difficulty 1, with a second line on how the harder levels pay more (the raid items a win can drop
-   * besides are DatabankRaid.levels' and the drop chances').
-   */
+  /** What it does, in Discord markdown: its phases and its moves. */
   phases: string[];
   moves: string[];
-  rewards: string;
+  /**
+   * What everyone who fought gets for beating it at each of DatabankRaid.levels, in their order: points, komaTokens,
+   * komaGems, and so many of each of its three hero essences (data/transcend.ts RAID_BOSS_ESSENCES). The raid items a
+   * win can drop besides are DatabankRaid.levels' and the drop chances'.
+   */
+  rewards: DatabankRewards[];
+}
+
+/** What a win at one difficulty level pays each raider. */
+export interface DatabankRewards {
+  points: number;
+  tokens: number;
+  gems: number;
+  essences: Partial<Record<EssenceId, number>>;
 }
 
 /** What goes for every raid boss. */
@@ -115,7 +126,10 @@ function bossView(id: RaidBossId): DatabankBoss {
   const { name, emoji } = TEXT.raid.bosses[id];
   const { hpPerRaider, hpOverhead, minRaiders, gearHp } = CONFIG.raid;
   const { phases, moves } = bossBrief(CONFIG.raid, id);
-  const rewards = bossRewardsText(CONFIG.raid, 1, id);
+  const rewards = difficultyLevels().map(({ level }): DatabankRewards => {
+    const { points, tokens, gems, essences } = raidRewards(level, CONFIG.raid);
+    return { points, tokens, gems, essences: bossEssences(id, essences) };
+  });
   return { id, name, emoji, picture: picturePath(id, 'calm'), hp: { perRaider: hpPerRaider[id], overhead: hpOverhead[id], minRaiders, gear: gearHp[id] }, phases, moves, rewards };
 }
 

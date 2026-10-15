@@ -424,14 +424,8 @@ export const SPECS: readonly SettingSpec[] = [
     0,
     MAX_POINTS,
   ),
-  int('raid.essenceReward', 'Raid', `Hero essences of each of its boss's three kinds each raid player who took part gets when the boss is beaten, below difficulty ${RAID_DIFFICULTY.milestoneEvery} (they transcend the TechnoMagic Raid's heroes).`, 0, MAX_POINTS),
-  int(
-    'raid.essenceRewardMilestone',
-    'Raid',
-    `Hero essences more of each kind each raid player gets from difficulty ${RAID_DIFFICULTY.milestoneEvery} on, and as many again at ${RAID_DIFFICULTY.milestoneEvery * 2}.`,
-    0,
-    MAX_POINTS,
-  ),
+  int('raid.essenceReward', 'Raid', `Hero essences of each of its boss's three kinds each raid player who took part gets when the boss is beaten at difficulty 1 (they transcend the TechnoMagic Raid's heroes).`, 0, MAX_POINTS),
+  int('raid.essenceRewardPerLevel', 'Raid', `Hero essences more of each kind each raid player gets for every difficulty level past 1 (5 makes level 3 pay 10 more).`, 0, MAX_POINTS),
   ...RAID_SHOP_STARS.map((stars) => int(`raid.shop.price.${stars}`, 'Raid', `${GEM_NAME} a ${stars}-star raid item costs in the site's raid shop.`, 0, MAX_POINTS)),
   ...RAID_SHOP_STARS.map((stars) =>
     int(`raid.shop.stock.${stars}`, 'Raid', `How many ${stars}-star raid items the site's raid shop has on its shelf each week (0: none).`, 0, MAX_RAID_SHOP_STOCK),
