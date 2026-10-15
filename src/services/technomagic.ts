@@ -12,10 +12,15 @@ import { addCopy } from './economy/index.js';
  * TechnoMagic Raid runs in the database (the rules are lib/game/technomagic.ts's; the rooms they are fought
  * in, web/games/technomagic/). A run is begun for everyone in a room as its fight starts: each player's
  * heroes in the gear they wear then, and whether it is one of the player's first `hero.rewardsPerDay` runs
- * that day (settled as it begins, so leaving one that is going badly doesn't give another try). The bot runs
- * the fight itself; a win gives each player whose run it is one TechnoMagic item, with an additional skill
- * rolled for that copy (ItemCopyDoc.tmSkill).
+ * that day (settled as it begins). A run that is lost doesn't count toward those, so only the runs that are won
+ * (or still going) use them up. The bot runs the fight itself; a win gives each player whose run it is one
+ * TechnoMagic item, with an additional skill rolled for that copy (ItemCopyDoc.tmSkill).
  */
+
+/** How many of the runs a member has begun on `day` that give gear have used one up: all but those lost. */
+function rewardsUsed(guildId: string, userId: string, day: string): Promise<number> {
+  return collections().tmRuns.countDocuments({ guildId, userId, day, rewardable: true, result: { $ne: 'lost' } });
+}
 
 /** The ids of the heroes a member owns (that still exist). */
 export async function ownedHeroes(guildId: string, userId: string): Promise<string[]> {
@@ -25,8 +30,7 @@ export async function ownedHeroes(guildId: string, userId: string): Promise<stri
 
 /** How many more runs they can begin today that give gear for a win. */
 export async function rewardsLeft(guildId: string, userId: string, now: Date = new Date()): Promise<number> {
-  const begun = await collections().tmRuns.countDocuments({ guildId, userId, day: dayKey(now), rewardable: true });
-  return Math.max(0, CONFIG.hero.rewardsPerDay - begun);
+  return Math.max(0, CONFIG.hero.rewardsPerDay - (await rewardsUsed(guildId, userId, dayKey(now))));
 }
 
 /** A room's run, begun: its id and seed, and for each player the heroes they own, each one's gear, and whether a win gives them gear. */
@@ -38,7 +42,7 @@ export interface BegunRun {
 
 /**
  * Begins a room's run at `stage` for each of its players with their `heroes` (the lineup's): reads what each
- * owns and their gear, and keeps a run for each (whether it gives gear, by how many they have begun today).
+ * owns and their gear, and keeps a run for each (whether it gives gear, by how many have used one up today).
  */
 export async function beginRun(guildId: string, stage: number, players: readonly { userId: string; heroes: readonly { id: string; skin: number }[] }[], now: Date = new Date()): Promise<BegunRun> {
   const { items, members, tmRuns } = collections();
@@ -48,7 +52,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const [member, copies, begun] = await Promise.all([
       members.findOne({ guildId, userId }, { projection: { heroes: 1 } }),
       items.find({ guildId, userId }).toArray(),
-      tmRuns.countDocuments({ guildId, userId, day, rewardable: true }),
+      rewardsUsed(guildId, userId, day),
     ]);
     const owned = new Set(Object.keys(member?.heroes ?? {}).filter((id) => HEROES_BY_ID.has(id)));
     const loadouts = raidGear(copies, member);

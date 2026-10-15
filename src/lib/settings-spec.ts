@@ -108,7 +108,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 
   int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
-  int('hero.rewardsPerDay', 'Hero', 'TechnoMagic Raid runs a member can begin each day whose win gives TechnoMagic gear (one item). Runs past it can still be played, for nothing.', 0, 100),
+  int('hero.rewardsPerDay', 'Hero', 'TechnoMagic Raid runs a member can begin each day whose win gives TechnoMagic gear (one item). A lost run does not count toward it. Runs past it can still be played, for nothing.', 0, 100),
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
   int('skip.raid', 'Skip', `Price of the week's extra raid (once per server per week, after the raid has been fought), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
