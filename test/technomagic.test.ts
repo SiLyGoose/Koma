@@ -396,9 +396,10 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   // What this raid hasn't: Arcane Crystal Energy (Kirze), a boss to draw in or casting time to cut (Clause), a boss's mana
   // to take (Fallen Frey), a boss's M.Block or knocking it away (Gremory's Puchi), anything on the boss to dispel (Seria,
   // Lorraine, Valance). What Galgoria shrugs off: a slow (it is steady), and less P.DMG or more P.DEF (it deals only magic).
-  // What these fights don't come to: more M.Crit Resistance than Laias's passive gives (already past the boss's crit), a
-  // shield on every ally with only 4 (Blessing of Doom shields 4), and the boss knocking Ezekiel down while he strikes.
-  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'clause s1-dark', 'clause s3-dark', 'clause s4-light', 'clause t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
+  // What these fights don't come to: a shield on every ally with only 4 (Blessing of Doom shields 4), 100 Flame on the
+  // boss (Morrah's Auto goes round her skills), Ezekiel's Dawning Despair in his Fury, and the boss knocking him down
+  // while he strikes.
+  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'clause s1-dark', 'clause s3-dark', 'clause s4-light', 'clause t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
   const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
   const fight = (id: string, perks: string[], seed: number, others: number): Run => ({
     boss: TM_BOSS,

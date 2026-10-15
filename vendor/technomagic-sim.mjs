@@ -917,6 +917,16 @@ function formation(lines) {
 }
 /** Running in: how long it takes (a hero can do nothing meanwhile). */
 var ENTER = 1.1;
+/**
+* A hero's Auto (./fight.ts autoSkill): an ally below this share of its max HP is hurt (a heal is wanted); a status
+* with less than this many seconds left is as good as gone (a skill that puts it up again is wanted); and over how
+* many seconds the mana a hero gains is counted, to know how soon it will have a skill's.
+*/
+var AUTO = {
+	hurt: .7,
+	spare: 1,
+	income: 8
+};
 var SECTION = 1e3;
 var MAX_MANA = 6 * SECTION;
 var MANA_PER_HP_LOST = 2500;
@@ -2234,6 +2244,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const random = seeded(seed);
 	const roll = () => random.next();
 	const events = [];
+	/** The mana each hero has spent on skills this step (what it gained is counted past it, for its Auto). */
+	const spent = /* @__PURE__ */ new Map();
 	const log = [];
 	const sums = [];
 	let pending = [];
@@ -2335,6 +2347,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			auto: sub,
 			cooldowns: hero.abilities.map(() => 0),
 			reserved: null,
+			lastUsed: hero.abilities.map(() => -Infinity),
+			income: 100 * (1 + (gear.manaRegen ?? 0)),
 			rested: 0,
 			dealt: 0,
 			healed: 0,
@@ -2508,10 +2522,49 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			for (let i = foe.statuses.length - 1; i >= 0; i--) if ((foe.statuses[i].deals ?? 1) > 1) foe.statuses.splice(i, 1);
 		}
 		fighter.cooldowns[index] = ability.cooldown;
+		fighter.lastUsed[index] = elapsed;
 		fighter.mana -= ability.cost * SECTION;
+		spent.set(fighter, (spent.get(fighter) ?? 0) + ability.cost * SECTION);
 		fighter.part.used?.(index, ability);
 		uniqueCast(fighter);
 		skillCast(fighter);
+		return true;
+	}
+	/**
+	* Auto: the skill a hero uses now (null: none yet: it attacks meanwhile). Of the skills it wants (a heal once an ally
+	* is hurt or bears something it can clear, one that keeps a status up once that runs out, any other always), it goes
+	* for the one it has gone longest without whose cooldown is over (the dearer, where alike), or else the one whose
+	* cooldown ends soonest, and saves its mana for it; another it uses meanwhile only if that still has its mana once it
+	* can be used, by what the hero gains a second lately. One whose moment its hero says hasn't come is saved for, not
+	* used. At full mana, rather than waste what it gains, the one it has gone longest without that it can use.
+	*/
+	function autoSkill(on) {
+		if (!on.abilities.some((_, index) => sim.ready(on, index))) return null;
+		const wait = (index) => on.cooldowns[index];
+		const last = (index) => on.lastUsed[index] ?? -Infinity;
+		const slots = on.abilities.map((_, index) => ({
+			index,
+			ability: sim.slot(on, index)
+		})).filter((one) => one.ability !== null && wanted(one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || b.ability.cost - a.ability.cost || b.index - a.index);
+		const ripe = (index) => on.part.ripe?.(index) ?? true;
+		const usable = ({ index, ability }) => ripe(index) && sim.reservable(on, index) && on.mana >= ability.cost * 1e3;
+		const target = slots.find((slot) => wait(slot.index) <= 0) ?? slots.reduce((soonest, slot) => !soonest || wait(slot.index) < wait(soonest.index) ? slot : soonest, void 0);
+		if (!target) return null;
+		if (usable(target)) return target.index;
+		for (const slot of slots) {
+			if (slot === target || !usable(slot)) continue;
+			const lacks = target.ability.cost * SECTION - (on.mana - slot.ability.cost * SECTION);
+			if (lacks <= 0 || lacks <= on.income * wait(target.index)) return slot.index;
+		}
+		if (on.mana < 6e3) return null;
+		return slots.find(usable)?.index ?? null;
+	}
+	/** Auto: whether a skill is wanted now (a heal once an ally is hurt or bears something it can clear; one that keeps a status up once it runs out). */
+	function wanted(ability) {
+		const allies = field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
+		if (ability.auto?.heals && !allies.some((ally) => ally.hp < ally.stats.hp * AUTO.hurt || ally.statuses.some((status) => status.shown.harmful === true && !status.binds && !status.away))) return false;
+		const keeps = ability.auto?.keeps;
+		if (keeps && [party, ...allies.map((ally) => ally.statuses)].some((on) => on.some((status) => status.name === keeps && status.left > AUTO.spare))) return false;
 		return true;
 	}
 	/** A hero has used a skill: its additional skills that count them (Momentum, Steadfast) or come of it (Mending). */
@@ -3074,6 +3127,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const dt = TICK;
 			elapsed += dt;
 			aurasNow();
+			const before = fighters.map((fighter) => fighter.mana);
+			spent.clear();
 			idle = bossBusy() ? 0 : idle + dt;
 			if (bossAuto && idle >= 1.1) bossUse((def.attacks[Math.floor(roll() * def.attacks.length)] ?? def.attacks[0])?.name ?? "");
 			for (const fighter of fighters) {
@@ -3107,9 +3162,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			for (const on of field) {
 				on.rested = on.doing ? 0 : on.rested + dt;
-				if (on.auto && on.reserved === null) {
-					for (let index = on.abilities.length - 1; index >= 0 && on.reserved === null; index--) if (sim.ready(on, index)) on.reserved = index;
-				}
+				if (on.auto && on.reserved === null && !on.doing) on.reserved = autoSkill(on);
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
 				if (!on.doing && on.hp > 0 && !bound(on.statuses)) {
 					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
@@ -3131,6 +3184,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				on.z += (z - on.z) * reform;
 			}
 			if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= 230)) end("lost");
+			fighters.forEach((fighter, i) => {
+				const was = before[i];
+				if (was >= 6e3 || fighter.mana >= 6e3) return;
+				const gained = Math.max(0, fighter.mana - was + (spent.get(fighter) ?? 0));
+				fighter.income += (gained / dt - fighter.income) * (dt / AUTO.income);
+			});
 			tick++;
 			if (tick % SECOND === 0) sums.push(sim.checksum());
 		}
@@ -3332,6 +3391,7 @@ var ANNETTE = {
 		},
 		{
 			name: "Emergency Treatment",
+			auto: { heals: true },
 			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 			words: `Dispels negative effects of all allies and heals HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
 			icon: "🩹",
@@ -3636,6 +3696,7 @@ var CLAUSE = {
 		},
 		{
 			name: "Guardian Shield",
+			auto: { keeps: GUARDED.name },
 			about: `For ${GUARDIAN.lasts} seconds every hero takes ${pct(1 - GUARDIAN.taken)} less from the boss.`,
 			words: `All allies' P.DEF is increased for ${GUARDIAN.lasts} sec and P.Crit Resistance is increased by 300, and reduces P.DMG they take by ${pct(1 - GUARDIAN.taken)}..`,
 			icon: "✨",
@@ -4143,6 +4204,7 @@ var FALLEN_FREY = {
 	abilities: [
 		{
 			name: "Light of Doom",
+			auto: { heals: true },
 			about: "Heals the ally with the lowest health and those near it, then the light bursts on the boss.",
 			words: "Heals HP of the ally with the lowest HP and nearby allies and increases Heal Rate by 20% for 10 sec. Afterward, explodes the area around the target and deals M.DMG to enemies in range, reducing their Heal Rate by 20% for 10 sec. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and dispels positive effects of all enemies within range.",
 			icon: "✴️",
@@ -4319,6 +4381,7 @@ var FALLEN_FREY = {
 				} else darkening = 0;
 			},
 			lit: () => stacks > 0,
+			ripe: (index) => index !== 2 || stacks > 0,
 			buffs: () => stacks > 0 ? [{
 				...DARKENED,
 				count: stacks
@@ -4900,6 +4963,7 @@ var LAIAS = {
 	abilities: [
 		{
 			name: "Healing Droplets",
+			auto: { heals: true },
 			about: `Heals every ally, and for ${DROPLETS.lasts} seconds healing reaches them ${pct(DROPLETS.heals)} more (${DROPLETS.lowTimes} times that for one at ${pct(DROPLETS.low)} of its health or less).`,
 			words: `Heals HP of all allies and increases Heal Rate by ${pct(DROPLETS.heals)} for ${DROPLETS.lasts} sec. If the target's HP is ${pct(DROPLETS.low)} or below, Heal Rate increases by ${DROPLETS.lowTimes} times.`,
 			icon: "💧",
@@ -5484,6 +5548,7 @@ var MORRAH = {
 		},
 		{
 			name: "Hellfire",
+			auto: { keeps: HELLFIRE_UP.name },
 			about: `For ${HELLFIRE.lasts} seconds every ally has ${pct(HELLFIRE.defense - 1)} more M.DEF and +${HELLFIRE.block} M.Block, and a [Flame] is left on the boss every ${seconds(HELLFIRE.every)}.`,
 			words: `For ${HELLFIRE.lasts} sec, all allies' M.DEF is increased by ${pct(HELLFIRE.defense - 1)} and M.Block Chance is increased by ${HELLFIRE.block}. Additionally, every ${HELLFIRE.every} sec, inflicts 1 stack of Flame on nearby enemies.`,
 			icon: "🌋",
@@ -5987,6 +6052,7 @@ var SERIA = {
 				}
 			},
 			lit: () => moonlight > 0,
+			ripe: (index) => index !== 2 || moonlight > 0,
 			buffs: () => moonlight > 0 ? [{
 				...MOONLIGHT,
 				left: moonlight
@@ -6325,7 +6391,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "51e7d2bc399f";
+var SIM_VERSION = "86bf5df623a3";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
