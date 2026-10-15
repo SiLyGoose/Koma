@@ -19,7 +19,9 @@ import type { BegunRun } from '../src/services/technomagic.js';
 import type { ItemCopyDoc, MemberDoc } from '../src/types.js';
 
 /** Every hero, in its first skin, with `gear`. */
-const run = (seed: number, gear: Record<string, number>, stage = 1, solo = false): Run => ({ boss: TM_BOSS, seed, stage, solo, heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear })) });
+/** The heroes a raid's run fields: as many as a room's lineup holds (the first of them). */
+const LINEUP = HEROES.slice(0, TM_ROOM.slots);
+const run = (seed: number, gear: Record<string, number>, stage = 1, solo = false): Run => ({ boss: TM_BOSS, seed, stage, solo, heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear })) });
 const STRONG = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
 const ALL = HEROES.map((hero) => hero.id);
 
@@ -42,7 +44,7 @@ test('technomagic: a raid is the same every time it is run, and a strong party o
   assert.ok(typeof live !== 'string');
   for (const fighter of [0, 1, 2]) assert.ok(live.input({ kind: 'auto', fighter }));
   // (No fighter past the last hero.)
-  assert.equal(live.input({ kind: 'skill', fighter: HEROES.length, skill: 0 }), false);
+  assert.equal(live.input({ kind: 'skill', fighter: LINEUP.length, skill: 0 }), false);
   while (!live.result) live.step();
   assert.equal(live.tick, once.ticks);
   assert.deepEqual([...live.sums], once.sums);
@@ -262,7 +264,7 @@ test('technomagic room: the host can give up, and a room with nobody left is gon
 test('technomagic: a hero in a set’s pieces has its effect, the same every time the fight is run', () => {
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
   const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
-  const withSet = (set: string | null): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set })) });
+  const withSet = (set: string | null): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set })) });
   const plain = replay(withSet(null), autos);
   for (const set of ['perseverance', 'hope', 'authority']) {
     const once = replay(withSet(set), autos);
@@ -278,7 +280,7 @@ test('technomagic: a hero in a set’s pieces has its effect, the same every tim
 test('technomagic: Perseverance’s supports (Clause, Fallen Frey) and its damage dealer (Kirze) each make the boss fall sooner', () => {
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
   const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
-  const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
+  const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
   const plain = replay(wearing([]), autos);
   assert.ok(replay(wearing(['clause', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
   assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, 'the damage dealer: +10% DMG, growing to +25%');
@@ -335,7 +337,7 @@ test('technomagic: a hero has its gear’s additional skills in the fight, the s
   // (Geared to win with every skill, Galgoria's crits and all.)
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
   const GEARED = { atk: 1.3, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
-  const skilled = (skills: string[]): Run => ({ ...run(11, GEARED), heroes: HEROES.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, skills })) });
+  const skilled = (skills: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, skills })) });
   const plain = replay(skilled([]), autos);
   let changed = 0;
   for (const { id } of TM_SKILLS) {

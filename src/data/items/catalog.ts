@@ -702,6 +702,28 @@ export const ITEMS: readonly ItemDef[] = [
     tmDrop: true,
     tmSet: 'perseverance',
   },
+  {
+    id: 'miasma-focus',
+    name: 'Miasma Focus',
+    stars: 4,
+    slot: 'weapon',
+    description: 'A staff crowned with a crystal grown in the chimera’s poisoned marsh. Every spell cast through it leaves the air thick with venom.',
+    effects: [],
+    class: 'wizard',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
+  {
+    id: 'bogmist-robe',
+    name: 'Bogmist Robe',
+    stars: 4,
+    slot: 'armor',
+    description: 'Robes steeped in the swamp’s mist until no poison would cling to them. The hem never quite dries.',
+    effects: [],
+    class: 'wizard',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
 
   // The heroes' unique weapons (uniqueWeapon): King's Raid's own, one for each TechnoMagic Raid hero, only pulled
   // from the Hero Item banner (as its 4-star tier) and only wielded by their own hero. Each raises its hero's
@@ -787,5 +809,23 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'Ezekiel’s demonic right arm, the power of the demon father he never knew: strong enough to slash through dimensions and sever space itself.',
     effects: [],
     uniqueWeapon: 'ezekiel',
+  },
+  {
+    id: 'world-trees-will-roburu',
+    name: 'World Tree’s Will, Roburu',
+    stars: 4,
+    slot: 'weapon',
+    description: 'A branch the World Tree bestows once in a hundred years, fused with the Elves’ Stone of the Forest: wherever she goes, it keeps Lorraine bound to the World Tree.',
+    effects: [],
+    uniqueWeapon: 'lorraine',
+  },
+  {
+    id: 'wonder-of-magos-le-flamme-corbeau-rose',
+    name: 'Wonder of Magos Le’Flamme, Corbeau Rose',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Valance’s technomagic crossbow, a wonder of Magos Le’Flamme: it grows the stronger with every piece of TechnoMagic gear her allies wear.',
+    effects: [],
+    uniqueWeapon: 'valance',
   },
 ];

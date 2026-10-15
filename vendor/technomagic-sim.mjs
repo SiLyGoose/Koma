@@ -130,7 +130,7 @@ var CLAUSE_ASSETS = {
 };
 //#endregion
 //#region src/technomagic/assets/heroes/ezekiel.ts
-var DRIVE = "https://drive.google.com/uc?export=download&id=";
+var DRIVE$2 = "https://drive.google.com/uc?export=download&id=";
 var EZEKIEL_ASSETS = {
 	name: "Ezekiel",
 	folder: "heroes/ezekiel",
@@ -147,7 +147,7 @@ var EZEKIEL_ASSETS = {
 		name: "Ezekiel",
 		portrait: {
 			file: "Ezekiel.png",
-			from: `${DRIVE}1YnvFZjPQRrM40MH0gZrBU_lYrFu6t1pR`,
+			from: `${DRIVE$2}1YnvFZjPQRrM40MH0gZrBU_lYrFu6t1pR`,
 			crop: {
 				x: 320,
 				y: 200,
@@ -171,7 +171,7 @@ var EZEKIEL_ASSETS = {
 		name: "Ezekiel_Halloween",
 		portrait: {
 			file: "Ezekiel_Halloween.png",
-			from: `${DRIVE}1b1DtYAIpUJij08QrDdNpi_tZIPRHyq79`,
+			from: `${DRIVE$2}1b1DtYAIpUJij08QrDdNpi_tZIPRHyq79`,
 			crop: {
 				x: 510,
 				y: 50,
@@ -421,6 +421,67 @@ var LAIAS_ASSETS = {
 	}]
 };
 //#endregion
+//#region src/technomagic/assets/heroes/lorraine.ts
+var DRIVE$1 = "https://drive.google.com/uc?export=download&id=";
+var LORRAINE_ASSETS = {
+	name: "Lorraine",
+	folder: "heroes/lorraine",
+	skills: {
+		from: "https://kingsraid.shodyra.com/static/images/13/",
+		files: [
+			"s1.png",
+			"s2.png",
+			"s3.png",
+			"s4.png"
+		]
+	},
+	skins: [{
+		name: "Lorraine",
+		portrait: {
+			file: "Lorraine.png",
+			from: `${DRIVE$1}1S8I9c9reJmo2t_sm5WgGXuWnE5AQJ09u`,
+			crop: {
+				x: 418,
+				y: 200,
+				size: 160
+			},
+			head: {
+				x: 447,
+				y: 240,
+				size: 90
+			}
+		},
+		model: {
+			kind: "parts",
+			parts: ["Hero_Lorraine_Vari05_Body", "Hero_Lorraine_Hair_01"],
+			right: "Hero_Lorraine_Vari05_Weapon",
+			blade: "y"
+		}
+	}, {
+		name: "Lorraine_Christmas",
+		portrait: {
+			file: "Lorraine_Christmas.png",
+			from: `${DRIVE$1}1m5CYTgPvIgBnDivY3QCu6mi524mV3Uie`,
+			crop: {
+				x: 335,
+				y: 25,
+				size: 140
+			},
+			head: {
+				x: 360,
+				y: 82,
+				size: 75
+			}
+		},
+		model: {
+			kind: "parts",
+			parts: ["Hero_Lorraine_Cos18Christmas_Body", "Hero_Lorraine_Cos18Christmas_Hair"],
+			right: "Hero_Lorraine_Cos18Christmas_Weapon",
+			blade: "y"
+		}
+	}]
+};
+//#endregion
 //#region src/technomagic/assets/heroes/morrah.ts
 var MORRAH_ASSETS = {
 	name: "Morrah",
@@ -469,6 +530,7 @@ var MORRAH_ASSETS = {
 };
 //#endregion
 //#region src/technomagic/assets/heroes/seria.ts
+var DRIVE = "https://drive.google.com/uc?export=download&id=";
 var SERIA_ASSETS = {
 	name: "Seria",
 	folder: "heroes/seria",
@@ -483,6 +545,20 @@ var SERIA_ASSETS = {
 	},
 	skins: [{
 		name: "Seria",
+		portrait: {
+			file: "Seria.png",
+			from: `${DRIVE}1eTijd3ZY18qjl6KknmLWuOYgZQCwDCrN`,
+			crop: {
+				x: 605,
+				y: 70,
+				size: 200
+			},
+			head: {
+				x: 655,
+				y: 160,
+				size: 120
+			}
+		},
 		model: {
 			kind: "parts",
 			parts: ["Hero_Seria_Vari05_Body", "Hero_Seria_Hair_01"],
@@ -493,6 +569,20 @@ var SERIA_ASSETS = {
 		}
 	}, {
 		name: "Seria_Christmas",
+		portrait: {
+			file: "Seria_Christmas.png",
+			from: `${DRIVE}1zbsVdK__ytCQ-YxrIpRV_SNKRaDSqamX`,
+			crop: {
+				x: 345,
+				y: 10,
+				size: 200
+			},
+			head: {
+				x: 400,
+				y: 118,
+				size: 115
+			}
+		},
 		model: {
 			kind: "parts",
 			parts: ["Hero_Seria_Cos19Christmas_Body", "Hero_Seria_Cos19Christmas_Hair"],
@@ -500,6 +590,29 @@ var SERIA_ASSETS = {
 			right: "Hero_Seria_Cos19Christmas_Weapon_A",
 			offHand: "held",
 			blade: "y"
+		}
+	}]
+};
+//#endregion
+//#region src/technomagic/assets/heroes/valance.ts
+var VALANCE_ASSETS = {
+	name: "Valance",
+	folder: "heroes/valance",
+	skills: {
+		from: "https://kingsraid.shodyra.com/static/images/101/",
+		files: [
+			"s1.png",
+			"s2.png",
+			"s3.png",
+			"s4.png"
+		]
+	},
+	skins: [{
+		name: "Valance",
+		model: {
+			kind: "parts",
+			parts: ["Hero_Valance_Vari04_Mesh"],
+			right: "Hero_Valance_Vari04_Weapon"
 		}
 	}]
 };
@@ -944,7 +1057,7 @@ var IMPRISONED = {
 	icon: "🪤",
 	harmful: true
 };
-var POISONED = {
+var POISONED$1 = {
 	name: "Poisonous Swamp",
 	about: "Mana fills half as fast, and the boss hits 30% harder.",
 	icon: "🫧",
@@ -1027,13 +1140,13 @@ function galgoriaPart(fight) {
 				fight.cue(null, "swamp", heroes);
 				for (const fighter of heroes) fight.hurt(fighter, amount);
 				put(fight.party, {
-					name: POISONED.name,
+					name: POISONED$1.name,
 					left: SWAMP.lasts,
 					mana: SWAMP.mana,
-					shown: POISONED
+					shown: POISONED$1
 				});
 				put(foe.statuses, {
-					name: POISONED.name,
+					name: POISONED$1.name,
 					left: SWAMP.lasts,
 					deals: SWAMP.deals,
 					shown: "venom"
@@ -1405,6 +1518,34 @@ var BARBATOS = {
 		500
 	]
 };
+/** How often (seconds) it strikes a poisoned boss, how hard (at ATK), and how much more magical damage the boss takes after, for `lasts` seconds. */
+var ROBURU = {
+	name: "World Tree’s Will, Roburu",
+	every: 7,
+	blow: [
+		1200,
+		1400,
+		1700,
+		2100,
+		2500
+	],
+	takes: [
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	],
+	lasts: 10
+};
+/** What every ally gains by the TechnoMagic gear it wears (the same at every tier): 1 piece, more ATK; 2, more defense; 3, more max HP (here: taking that much less); 4, more DMG. */
+var CORBEAU = {
+	name: "Wonder of Magos Le’Flamme, Corbeau Rose",
+	atk: .06,
+	defense: .06,
+	hp: .06,
+	dmg: .04
+};
 /** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
 var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
 var pct = (share) => `${Math.round(share * 100)}%`;
@@ -1420,9 +1561,11 @@ var ABOUT = {
 	morrah: (tier) => `Each blow of her attack has a ${pct(CARPRAIN.chance)} chance to leave the boss hitting ${pct(atTier(CARPRAIN.weaker, tier))} less hard and taking ${pct(atTier(CARPRAIN.weaker, tier))} more magical damage for ${CARPRAIN.lasts} seconds (${pct(atTier(CARPRAIN.weaker, tier) * CARPRAIN.full)} more with 100 Flame on it).`,
 	laias: (tier) => `Healing reaches every ally ${pct(atTier(ELTOIRRE.heals, tier))} more, and every ${ELTOIRRE.every} seconds she heals the ally with the lowest HP by ${pct(atTier(ELTOIRRE.mend, tier) / 1e3)} of her ATK.`,
 	seria: (tier) => `Each critical blow of her skills deals ${pct(atTier(ELSION.blow, tier) / 1e3)} of her ATK more, leaves the boss healed ${pct(atTier(ELSION.unhealed, tier))} less for ${ELSION.lasts} seconds, and heals her ${pct(atTier(ELSION.heals, tier))} more for ${ELSION.healed} seconds (up to ${ELSION.most} times).`,
-	ezekiel: (tier) => `His Fury lasts ${atTier(BARBATOS.longer, tier)} seconds longer, and while it does his crit damage is ${pct(atTier(BARBATOS.critDamage, tier))} higher and his CC resist +${atTier(BARBATOS.resist, tier)}.`
+	ezekiel: (tier) => `His Fury lasts ${atTier(BARBATOS.longer, tier)} seconds longer, and while it does his crit damage is ${pct(atTier(BARBATOS.critDamage, tier))} higher and his CC resist +${atTier(BARBATOS.resist, tier)}.`,
+	lorraine: (tier) => `Every ${ROBURU.every} seconds, with her Poison on the boss, deals ${pct(atTier(ROBURU.blow, tier) / 1e3)} of her ATK to it, and it takes ${pct(atTier(ROBURU.takes, tier))} more magical damage for ${ROBURU.lasts} seconds.`,
+	valance: () => `Every ally gains by the TechnoMagic gear it wears: with 1 piece, +${pct(CORBEAU.atk)} ATK; 2, +${pct(CORBEAU.defense)} defense; 3, +${pct(CORBEAU.hp)} max HP (it takes that much less); 4, +${pct(CORBEAU.dmg)} DMG.`
 };
-EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name, RASCAL.name, CARPRAIN.name, ELTOIRRE.name, ELSION.name, BARBATOS.name;
+EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name, RASCAL.name, CARPRAIN.name, ELTOIRRE.name, ELSION.name, BARBATOS.name, ROBURU.name, CORBEAU.name;
 /** Each weapon's picture: its item's (the bot's catalog id, public/gear/items/weapons/). */
 var PICTURES = {
 	clause: "/gear/items/weapons/the-guardian-exian.png",
@@ -1433,7 +1576,9 @@ var PICTURES = {
 	morrah: "/gear/items/weapons/flame-of-victory-carprain.png",
 	laias: "/gear/items/weapons/flowing-circle-eltoirre.png",
 	seria: "/gear/items/weapons/executioner-of-domains-elsion.png",
-	ezekiel: "/gear/items/weapons/jailer-of-despair-barbatos.png"
+	ezekiel: "/gear/items/weapons/jailer-of-despair-barbatos.png",
+	lorraine: "/gear/items/weapons/world-trees-will-roburu.png",
+	valance: "/gear/items/weapons/wonder-of-magos-le-flamme-corbeau-rose.png"
 };
 /** The heroes that have a unique weapon, by id. */
 var UNIQUE_HEROES = Object.keys(ABOUT);
@@ -1474,6 +1619,12 @@ var ELSION_UP = {
 	about: "Healing reaches her the more.",
 	icon: "⚔️",
 	image: PICTURES.seria
+};
+var CORBEAU_UP = {
+	name: "Wonder of Magos Le’Flamme, Corbeau Rose",
+	about: "Gains by the TechnoMagic gear it wears while Valance is on the field.",
+	icon: "🌹",
+	image: PICTURES.valance
 };
 //#endregion
 //#region src/technomagic/heroes/kit.ts
@@ -1791,7 +1942,7 @@ var LOW = {
 //#endregion
 //#region src/technomagic/heroes/annette/moves.ts
 /** How she stands: upright and bright, her weight on both feet, her left hand on her hip, her right loose at her side. */
-var STAND$5 = {
+var STAND$7 = {
 	...REST,
 	hipX: 0,
 	hipY: -.01,
@@ -1813,7 +1964,7 @@ var STAND$5 = {
 	bUp: -1.3
 };
 /** A pose of hers, for a track: what is added to how she stands. */
-var as$5 = (pose) => at(pose, STAND$5);
+var as$7 = (pose) => at(pose, STAND$7);
 /** Her right arm thrust out at the boss, her hand pointing at it (Rascal fires where she points). */
 var POINT = {
 	rhX: -.12,
@@ -1825,7 +1976,7 @@ var POINT = {
 var ZAP$1 = {
 	keys: [
 		[0, {}],
-		[.2, as$5({
+		[.2, as$7({
 			twist: .25,
 			lean: -.04,
 			rhX: -.2,
@@ -1833,13 +1984,13 @@ var ZAP$1 = {
 			rhZ: .05,
 			bUp: 1
 		})],
-		[.42, as$5({
+		[.42, as$7({
 			...LOW,
 			twist: -.3,
 			lean: .12,
 			...POINT
 		})],
-		[.6, as$5({
+		[.6, as$7({
 			...LOW,
 			hipY: -.11,
 			twist: -.32,
@@ -1851,7 +2002,7 @@ var ZAP$1 = {
 	],
 	lands: [.45]
 };
-var AIMED$1 = {
+var AIMED$2 = {
 	lhX: .06,
 	lhY: .32,
 	lhZ: .46,
@@ -1864,7 +2015,7 @@ var AIMED$1 = {
 var RAY$1 = {
 	keys: [
 		[0, {}],
-		[.3, as$5({
+		[.3, as$7({
 			...COILED,
 			twist: .35,
 			lean: .05,
@@ -1876,20 +2027,20 @@ var RAY$1 = {
 			rhZ: -.04,
 			bUp: .6
 		})],
-		[.7, as$5({
+		[.7, as$7({
 			...LOW,
 			twist: -.2,
 			lean: .18,
 			nod: .05,
-			...AIMED$1
+			...AIMED$2
 		})],
-		[1.1, as$5({
+		[1.1, as$7({
 			...LOW,
 			hipY: -.12,
 			twist: -.22,
 			lean: .16,
 			nod: .06,
-			...AIMED$1,
+			...AIMED$2,
 			lhY: .33,
 			rhY: .35
 		})],
@@ -1900,7 +2051,7 @@ var RAY$1 = {
 var TREATMENT$1 = {
 	keys: [
 		[0, {}],
-		[.25, as$5({
+		[.25, as$7({
 			...COILED,
 			lean: .12,
 			nod: .12,
@@ -1912,7 +2063,7 @@ var TREATMENT$1 = {
 			rhZ: .2,
 			bUp: 1.2
 		})],
-		[.55, as$5({
+		[.55, as$7({
 			...TALL,
 			jump: .12,
 			lean: -.12,
@@ -1926,7 +2077,7 @@ var TREATMENT$1 = {
 			bTurn: -.6,
 			bUp: 1.2
 		})],
-		[.95, as$5({
+		[.95, as$7({
 			...TALL,
 			jump: .14,
 			lean: -.14,
@@ -1947,7 +2098,7 @@ var TREATMENT$1 = {
 var ELIMINATION$1 = {
 	keys: [
 		[0, {}],
-		[.35, as$5({
+		[.35, as$7({
 			...COILED,
 			twist: .35,
 			lean: -.06,
@@ -1960,7 +2111,7 @@ var ELIMINATION$1 = {
 			rhZ: -.06,
 			bUp: 1.5
 		})],
-		[.65, as$5({
+		[.65, as$7({
 			...TALL,
 			jump: .35,
 			twist: .2,
@@ -1974,7 +2125,7 @@ var ELIMINATION$1 = {
 			rhZ: .08,
 			bUp: 1.4
 		})],
-		[.95, as$5({
+		[.95, as$7({
 			...LOW,
 			twist: -.35,
 			lean: .2,
@@ -1984,7 +2135,7 @@ var ELIMINATION$1 = {
 			lhZ: -.1,
 			...POINT
 		})],
-		[1.35, as$5({
+		[1.35, as$7({
 			...LOW,
 			hipY: -.12,
 			twist: -.36,
@@ -2031,7 +2182,7 @@ var CHARGE$1 = {
 	atk: .3,
 	cooldown: .1
 };
-var art$8 = (index) => skillPicture(ANNETTE_ASSETS, index);
+var art$10 = (index) => skillPicture(ANNETTE_ASSETS, index);
 var CHARGING = {
 	attack: 1,
 	crit: 0,
@@ -2040,7 +2191,7 @@ var CHARGING = {
 		name: "Charge",
 		about: "Passive. A Charge every half second, and 10 for each crystal of mana she spends; at 100 she is Overcharged for 15 seconds (ATK higher, and each attack takes 10% off her skills’ cooldowns).",
 		icon: "⚡",
-		image: art$8(3)
+		image: art$10(3)
 	}
 };
 /** Her Charge: shown beside her passive, with how many she has. */
@@ -2054,20 +2205,20 @@ var OVERCHARGED = {
 	name: "Overcharge",
 	about: "30% higher ATK; each attack takes 10% off her skills’ cooldowns; her skills do more.",
 	icon: "🔋",
-	image: art$8(3)
+	image: art$10(3)
 };
 /** What Emergency Treatment gives each ally: shown on its card, with how long it has left. */
 var TREATED = {
 	name: "Emergency Treatment",
 	about: "Healed over time, and knocked down for less long.",
 	icon: "🩹",
-	image: art$8(1)
+	image: art$10(1)
 };
 var TREATED_OVER = {
 	name: "Emergency Treatment",
 	about: "Healed over time; more likely to land a critical blow, deals 10% more, and can’t be knocked down.",
 	icon: "🩹",
-	image: art$8(1)
+	image: art$10(1)
 };
 /** What Blasting Ray and Process of Elimination leave on the boss. */
 var RAYED = "Blasting Ray";
@@ -2085,7 +2236,7 @@ var ANNETTE = {
 		{
 			name: "Blasting Ray",
 			icon: "🔆",
-			image: art$8(0),
+			image: art$10(0),
 			move: "ray",
 			cooldown: 11,
 			cost: 2
@@ -2093,7 +2244,7 @@ var ANNETTE = {
 		{
 			name: "Emergency Treatment",
 			icon: "🩹",
-			image: art$8(1),
+			image: art$10(1),
 			move: "treatment",
 			cooldown: 13,
 			cost: 2
@@ -2101,7 +2252,7 @@ var ANNETTE = {
 		{
 			name: "Process of Elimination",
 			icon: "💣",
-			image: art$8(2),
+			image: art$10(2),
 			move: "elimination",
 			cooldown: 25,
 			cost: 3
@@ -2109,7 +2260,7 @@ var ANNETTE = {
 	],
 	passive: CHARGING,
 	attack: "zap",
-	stands: STAND$5,
+	stands: STAND$7,
 	join(fight, self) {
 		/** Her Charge; how long she is Overcharged for yet; and toward her next Charge, and her unique weapon's. */
 		let charge = 0;
@@ -2261,7 +2412,7 @@ var ANNETTE = {
 //#endregion
 //#region src/technomagic/heroes/ezekiel/moves.ts
 /** How he stands: low and loose, his weight back, his demon arm hanging heavy at his right side with its claws pointing down, his left hand at his hip. */
-var STAND$4 = {
+var STAND$6 = {
 	...REST,
 	hipX: -.03,
 	hipY: -.04,
@@ -2283,7 +2434,7 @@ var STAND$4 = {
 	bUp: -1.2
 };
 /** A pose of his, for a track: what is added to how he stands. */
-var as$4 = (pose) => at(pose, STAND$4);
+var as$6 = (pose) => at(pose, STAND$6);
 /** His demon arm drawn back and up behind him, its claws raised, to swipe. */
 var DRAWN = {
 	rhX: -.3,
@@ -2303,20 +2454,20 @@ var SWEPT = {
 var CLAW$1 = {
 	keys: [
 		[0, {}],
-		[.2, as$4({
+		[.2, as$6({
 			...COILED,
 			twist: -.4,
 			lean: .12,
 			...DRAWN
 		})],
-		[.38, as$4({
+		[.38, as$6({
 			...LUNGE,
 			ahead: 1.2,
 			twist: .45,
 			lean: .3,
 			...SWEPT
 		})],
-		[.55, as$4({
+		[.55, as$6({
 			...LUNGE,
 			ahead: 1.25,
 			hipY: -.28,
@@ -2332,20 +2483,20 @@ var CLAW$1 = {
 var INSTINCT$1 = {
 	keys: [
 		[0, {}],
-		[.25, as$4({
+		[.25, as$6({
 			...COILED,
 			twist: -.6,
 			lean: .15,
 			...DRAWN
 		})],
-		[.45, as$4({
+		[.45, as$6({
 			...LUNGE,
 			ahead: 1.5,
 			twist: .7,
 			lean: .32,
 			...SWEPT
 		})],
-		[.6, as$4({
+		[.6, as$6({
 			...LUNGE,
 			ahead: 1.6,
 			twist: .75,
@@ -2353,7 +2504,7 @@ var INSTINCT$1 = {
 			...SWEPT,
 			rhX: .26
 		})],
-		[.85, as$4({
+		[.85, as$6({
 			...TUCKED,
 			ahead: 1.8,
 			jump: 1.2,
@@ -2364,7 +2515,7 @@ var INSTINCT$1 = {
 			bTurn: 0,
 			bUp: 1.4
 		})],
-		[1.05, as$4({
+		[1.05, as$6({
 			...KNEELING,
 			ahead: 2,
 			lean: .5,
@@ -2374,7 +2525,7 @@ var INSTINCT$1 = {
 			bTurn: 0,
 			bUp: -1.3
 		})],
-		[1.4, as$4({
+		[1.4, as$6({
 			...KNEELING,
 			ahead: 2,
 			hipY: -.4,
@@ -2392,13 +2543,13 @@ var INSTINCT$1 = {
 var DESPAIR$1 = {
 	keys: [
 		[0, {}],
-		[.2, as$4({
+		[.2, as$6({
 			...COILED,
 			lean: .3,
 			twist: -.3,
 			...DRAWN
 		})],
-		[.42, as$4({
+		[.42, as$6({
 			...LUNGE,
 			ahead: 3.4,
 			lean: .5,
@@ -2409,14 +2560,14 @@ var DESPAIR$1 = {
 			bTurn: 0,
 			bUp: 0
 		})],
-		[.55, as$4({
+		[.55, as$6({
 			...LUNGE,
 			ahead: 3.6,
 			lean: .42,
 			twist: .6,
 			...SWEPT
 		})],
-		[.75, as$4({
+		[.75, as$6({
 			...LOW,
 			ahead: 3.5,
 			lean: .25,
@@ -2430,7 +2581,7 @@ var DESPAIR$1 = {
 var DOOM$1 = {
 	keys: [
 		[0, {}],
-		[.3, as$4({
+		[.3, as$6({
 			...TALL,
 			lean: -.15,
 			nod: -.15,
@@ -2441,7 +2592,7 @@ var DOOM$1 = {
 			bTurn: 0,
 			bUp: 1.5
 		})],
-		[.8, as$4({
+		[.8, as$6({
 			...TALL,
 			lean: -.17,
 			nod: -.17,
@@ -2452,7 +2603,7 @@ var DOOM$1 = {
 			bTurn: 0,
 			bUp: 1.52
 		})],
-		[1, as$4({
+		[1, as$6({
 			...LUNGE,
 			ahead: 1.6,
 			lean: .48,
@@ -2463,7 +2614,7 @@ var DOOM$1 = {
 			bTurn: 0,
 			bUp: -.9
 		})],
-		[1.3, as$4({
+		[1.3, as$6({
 			...LUNGE,
 			ahead: 1.6,
 			hipY: -.3,
@@ -2513,7 +2664,7 @@ var CURSED = {
 	lasts: 10,
 	atk: .3
 };
-var art$7 = (index) => skillPicture(EZEKIEL_ASSETS, index);
+var art$9 = (index) => skillPicture(EZEKIEL_ASSETS, index);
 var CURSED_BLOOD = {
 	attack: 1,
 	crit: 0,
@@ -2522,7 +2673,7 @@ var CURSED_BLOOD = {
 		name: "Cursed Blood",
 		about: "Passive. A stack of Cursed Blood for each skill he uses; at the 3rd, his skills are ready again, a burst knocks the boss down, and he is in Fury for 10 seconds: ATK higher, his attack twice as hard, every skill reinforced (each costs a share of his health), fighting by himself.",
 		icon: "🩸",
-		image: art$7(3)
+		image: art$9(3)
 	}
 };
 /** His stacks of Cursed Blood: shown beside his passive, with how many he has. */
@@ -2536,14 +2687,14 @@ var FURY = {
 	name: "Fury",
 	about: "ATK 30% higher, his attack twice as hard, every skill reinforced (each costs a share of his health); he fights by himself.",
 	icon: "😈",
-	image: art$7(3)
+	image: art$9(3)
 };
 /** What Dawning Despair in Fury gives him for a while. */
 var QUICKENED = {
 	name: "Dawning Despair",
 	about: "His attacks quickened.",
 	icon: "💨",
-	image: art$7(1)
+	image: art$9(1)
 };
 var EZEKIEL = {
 	id: "ezekiel",
@@ -2558,7 +2709,7 @@ var EZEKIEL = {
 		{
 			name: "Destructive Instinct",
 			icon: "🌀",
-			image: art$7(0),
+			image: art$9(0),
 			move: "instinct",
 			cooldown: 8,
 			cost: 2
@@ -2566,7 +2717,7 @@ var EZEKIEL = {
 		{
 			name: "Dawning Despair",
 			icon: "💨",
-			image: art$7(1),
+			image: art$9(1),
 			move: "despair",
 			cooldown: 10,
 			cost: 2
@@ -2574,7 +2725,7 @@ var EZEKIEL = {
 		{
 			name: "Strike of Doom",
 			icon: "💥",
-			image: art$7(2),
+			image: art$9(2),
 			move: "doom",
 			cooldown: 7,
 			cost: 2
@@ -2582,7 +2733,7 @@ var EZEKIEL = {
 	],
 	passive: CURSED_BLOOD,
 	attack: "claw",
-	stands: STAND$4,
+	stands: STAND$6,
 	join(fight, self) {
 		/** His Cursed Blood; how long his Fury lasts yet; and whether he was on Auto before it (he is put back so after). */
 		let stacks = 0;
@@ -2707,7 +2858,7 @@ var VOW = {
 	lasts: 8,
 	mana: 300
 };
-var art$6 = (index) => skillPicture(CLAUSE_ASSETS, index);
+var art$8 = (index) => skillPicture(CLAUSE_ASSETS, index);
 var VOW_OF_KNIGHTS = {
 	attack: 1,
 	crit: 0,
@@ -2716,7 +2867,7 @@ var VOW_OF_KNIGHTS = {
 		name: "Vow of Knights",
 		about: "Passive. When he blocks he strikes back: the boss hits 20% less hard for 8 seconds, and he gains 300 mana.",
 		icon: "🛡️",
-		image: art$6(3)
+		image: art$8(3)
 	}
 };
 /** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
@@ -2724,7 +2875,7 @@ var GUARDED$1 = {
 	name: "Guardian Shield",
 	about: "Takes 25% less from the boss.",
 	icon: "✨",
-	image: art$6(2)
+	image: art$8(2)
 };
 var CLAUSE = {
 	id: "clause",
@@ -2739,7 +2890,7 @@ var CLAUSE = {
 		{
 			name: "Cut Ground",
 			icon: "⚔️",
-			image: art$6(0),
+			image: art$8(0),
 			move: "slam",
 			cooldown: 9,
 			cost: 2
@@ -2747,7 +2898,7 @@ var CLAUSE = {
 		{
 			name: "Shield Strike",
 			icon: "🛡️",
-			image: art$6(1),
+			image: art$8(1),
 			move: "bash",
 			cooldown: 8,
 			cost: 1
@@ -2755,7 +2906,7 @@ var CLAUSE = {
 		{
 			name: "Guardian Shield",
 			icon: "✨",
-			image: art$6(2),
+			image: art$8(2),
 			move: "guard",
 			cooldown: 12,
 			cost: 2
@@ -2809,7 +2960,7 @@ var CLAUSE = {
 //#endregion
 //#region src/technomagic/heroes/fallen-frey/moves.ts
 /** How she stands: upright, her weight on both feet, her weapon held before her at her waist, her right hand loose at her side. */
-var STAND$3 = {
+var STAND$5 = {
 	...REST,
 	hipX: 0,
 	hipY: -.01,
@@ -2830,7 +2981,7 @@ var STAND$3 = {
 	bUp: -1.3
 };
 /** A pose of hers, for a track: what is added to how she stands. */
-var as$3 = (pose) => at(pose, STAND$3);
+var as$5 = (pose) => at(pose, STAND$5);
 /** Off the floor, her feet hanging, toes down. */
 var HOVER = {
 	hipX: 0,
@@ -2848,7 +2999,7 @@ var HOVER = {
 var SMITE$1 = {
 	keys: [
 		[0, {}],
-		[.22, as$3({
+		[.22, as$5({
 			twist: .35,
 			lean: -.06,
 			nod: -.05,
@@ -2859,7 +3010,7 @@ var SMITE$1 = {
 			rhY: .05,
 			rhZ: .1
 		})],
-		[.38, as$3({
+		[.38, as$5({
 			...LOW,
 			twist: -.4,
 			lean: .18,
@@ -2870,7 +3021,7 @@ var SMITE$1 = {
 			rhY: -.04,
 			rhZ: -.12
 		})],
-		[.6, as$3({
+		[.6, as$5({
 			...LOW,
 			hipY: -.11,
 			twist: -.42,
@@ -2889,7 +3040,7 @@ var SMITE$1 = {
 var LIGHT$1 = {
 	keys: [
 		[0, {}],
-		[.25, as$3({
+		[.25, as$5({
 			...COILED,
 			lean: .2,
 			nod: .15,
@@ -2900,7 +3051,7 @@ var LIGHT$1 = {
 			rhY: .08,
 			rhZ: .24
 		})],
-		[.55, as$3({
+		[.55, as$5({
 			...TALL,
 			lean: -.18,
 			nod: -.3,
@@ -2912,7 +3063,7 @@ var LIGHT$1 = {
 			rhZ: .06,
 			bUp: 1.4
 		})],
-		[.8, as$3({
+		[.8, as$5({
 			...TALL,
 			lean: -.2,
 			nod: -.32,
@@ -2924,7 +3075,7 @@ var LIGHT$1 = {
 			rhZ: .06,
 			bUp: 1.45
 		})],
-		[1.05, as$3({
+		[1.05, as$5({
 			...LOW,
 			twist: -.3,
 			lean: .25,
@@ -2936,7 +3087,7 @@ var LIGHT$1 = {
 			rhZ: .4,
 			bUp: 0
 		})],
-		[1.25, as$3({
+		[1.25, as$5({
 			...LOW,
 			hipY: -.11,
 			twist: -.32,
@@ -2956,7 +3107,7 @@ var LIGHT$1 = {
 var BLESSING$2 = {
 	keys: [
 		[0, {}],
-		[.3, as$3({
+		[.3, as$5({
 			...COILED,
 			lean: .25,
 			nod: .25,
@@ -2968,7 +3119,7 @@ var BLESSING$2 = {
 			rhZ: .2,
 			bUp: -.4
 		})],
-		[.6, as$3({
+		[.6, as$5({
 			...TALL,
 			jump: .15,
 			lean: -.15,
@@ -2982,7 +3133,7 @@ var BLESSING$2 = {
 			bTurn: -1.4,
 			bUp: .5
 		})],
-		[.95, as$3({
+		[.95, as$5({
 			...TALL,
 			jump: .18,
 			lean: -.17,
@@ -3002,8 +3153,8 @@ var BLESSING$2 = {
 };
 /** Heaven's Vengeance: twenty blows, as the light comes down on the boss again and again while she hangs in the air. */
 var BLOWS = 20;
-var FIRST = .7;
-var EVERY$1 = .12;
+var FIRST$1 = .7;
+var EVERY$2 = .12;
 var STRETCHED = {
 	lhX: .05,
 	lhY: .34,
@@ -3017,7 +3168,7 @@ var STRETCHED = {
 var VENGEANCE$1 = {
 	keys: [
 		[0, {}],
-		[.3, as$3({
+		[.3, as$5({
 			...COILED,
 			lean: .2,
 			lhX: .16,
@@ -3027,14 +3178,14 @@ var VENGEANCE$1 = {
 			rhY: .05,
 			rhZ: .1
 		})],
-		[.65, as$3({
+		[.65, as$5({
 			...HOVER,
 			...STRETCHED,
 			jump: .9,
 			lean: .04,
 			nod: -.05
 		})],
-		[1.8, as$3({
+		[1.8, as$5({
 			...HOVER,
 			...STRETCHED,
 			jump: 1.05,
@@ -3043,20 +3194,20 @@ var VENGEANCE$1 = {
 			lhY: .35,
 			rhY: .29
 		})],
-		[3.05, as$3({
+		[3.05, as$5({
 			...HOVER,
 			...STRETCHED,
 			jump: .95,
 			lean: .04,
 			nod: -.05
 		})],
-		[3.45, as$3({
+		[3.45, as$5({
 			...COILED,
 			lean: .15
 		})],
 		[3.85, {}]
 	],
-	lands: Array.from({ length: BLOWS }, (_, i) => FIRST + i * EVERY$1)
+	lands: Array.from({ length: BLOWS }, (_, i) => FIRST$1 + i * EVERY$2)
 };
 //#endregion
 //#region src/technomagic/heroes/fallen-frey/index.ts
@@ -3086,7 +3237,7 @@ var TAINTED = {
 	every: 1,
 	most: 2
 };
-var art$5 = (index) => skillPicture(FALLEN_FREY_ASSETS, index);
+var art$7 = (index) => skillPicture(FALLEN_FREY_ASSETS, index);
 var TAINTED_ANGEL = {
 	attack: 1,
 	crit: 0,
@@ -3096,7 +3247,7 @@ var TAINTED_ANGEL = {
 		name: "Tainted Angel",
 		about: "Passive. She takes 15% more from the boss, but her mana fills far faster; at full mana she gains Darkened Power every second (2 at most).",
 		icon: "🌑",
-		image: art$5(3)
+		image: art$7(3)
 	}
 };
 /** What her full mana gives her: shown beside her passive, with how many she has. */
@@ -3110,7 +3261,7 @@ var BLESSED$1 = {
 	name: "Blessing of Doom",
 	about: "A shield takes the boss’s blows first, and its attacks are quickened.",
 	icon: "🔮",
-	image: art$5(1)
+	image: art$7(1)
 };
 /** What Heaven's Vengeance leaves on the boss. */
 var EXPOSED = "Heaven’s Vengeance";
@@ -3127,7 +3278,7 @@ var FALLEN_FREY = {
 		{
 			name: "Light of Doom",
 			icon: "✴️",
-			image: art$5(0),
+			image: art$7(0),
 			move: "light",
 			cooldown: 9,
 			cost: 2
@@ -3135,7 +3286,7 @@ var FALLEN_FREY = {
 		{
 			name: "Blessing of Doom",
 			icon: "🔮",
-			image: art$5(1),
+			image: art$7(1),
 			move: "blessing",
 			cooldown: 17,
 			cost: 3
@@ -3143,7 +3294,7 @@ var FALLEN_FREY = {
 		{
 			name: "Heaven’s Vengeance",
 			icon: "☄️",
-			image: art$5(2),
+			image: art$7(2),
 			move: "vengeance",
 			cooldown: 22,
 			cost: 5
@@ -3151,7 +3302,7 @@ var FALLEN_FREY = {
 	],
 	passive: TAINTED_ANGEL,
 	attack: "smite",
-	stands: STAND$3,
+	stands: STAND$5,
 	join(fight, self) {
 		/** Her Darkened Power, and how long her mana has been full toward the next. */
 		let stacks = 0;
@@ -3244,7 +3395,7 @@ var SIDE = -Math.PI / 2;
 * elbow bent under her on the cube; her left hand hung on her left leg, which is bent, its knee out ahead of her and
 * its foot on the cube; her right leg along it, the back of its knee on its front edge, its shin hanging down off it.
 */
-var STAND$2 = {
+var STAND$4 = {
 	...REST,
 	flip: LIE,
 	roll: SIDE,
@@ -3293,7 +3444,7 @@ var BENDS = {
 	]
 };
 /** A pose of hers, for a track: what is added to how she lies. */
-var as$2 = (pose) => at(pose, STAND$2);
+var as$4 = (pose) => at(pose, STAND$4);
 /** Her attack: how far her cube tips up (15°) as it lands, how far apart its pieces are then, and how far ahead and up it has swept her (as the field measures it). */
 var UPPERCUT = {
 	rock: Math.PI / 12,
@@ -3325,7 +3476,7 @@ var NUDGE$1 = {
 			jump: .5,
 			rock: UPPERCUT.rock * .6,
 			spread: .22,
-			...as$2({
+			...as$4({
 				lhX: .2,
 				lhY: .2,
 				lhZ: .15
@@ -3333,11 +3484,11 @@ var NUDGE$1 = {
 		}],
 		[.54, {
 			...UPPERCUT,
-			...as$2(JAB)
+			...as$4(JAB)
 		}],
 		[.78, {
 			...UPPERCUT,
-			...as$2(JAB),
+			...as$4(JAB),
 			ahead: UPPERCUT.ahead + .12,
 			spread: UPPERCUT.spread + .03
 		}],
@@ -3360,21 +3511,21 @@ var BITE = {
 var POCHI$1 = {
 	keys: [
 		[0, {}],
-		[.25, as$2({
+		[.25, as$4({
 			nod: .2,
 			lhX: .2,
 			lhY: .2,
 			lhZ: .15
 		})],
-		[.45, as$2({
+		[.45, as$4({
 			nod: .25,
 			...OUT$1
 		})],
-		...Array.from({ length: BITES }, (_, i) => [BITE.first + .1 + i * BITE.every, as$2({
+		...Array.from({ length: BITES }, (_, i) => [BITE.first + .1 + i * BITE.every, as$4({
 			nod: .25,
 			...JAB
 		})]),
-		[BITE.first + BITES * BITE.every + .1, as$2({
+		[BITE.first + BITES * BITE.every + .1, as$4({
 			nod: .25,
 			...OUT$1
 		})],
@@ -3385,19 +3536,19 @@ var POCHI$1 = {
 var PUCHI$1 = {
 	keys: [
 		[0, {}],
-		[.4, as$2({
+		[.4, as$4({
 			nod: .1,
 			lhX: .54,
 			lhY: .46,
 			lhZ: 0
 		})],
-		[.75, as$2({
+		[.75, as$4({
 			nod: .3,
 			lhX: .19,
 			lhY: -.09,
 			lhZ: .15
 		})],
-		[.95, as$2({
+		[.95, as$4({
 			nod: .3,
 			lhX: .2,
 			lhY: -.08,
@@ -3428,21 +3579,21 @@ var WAVED = {
 var PIPPI$1 = {
 	keys: [
 		[0, {}],
-		[.3, as$2({
+		[.3, as$4({
 			nod: .1,
 			lhX: .2,
 			lhY: .2,
 			lhZ: .15
 		})],
-		[.55, as$2(RAISED)],
-		...Array.from({ length: WRAPS / 2 }, (_, i) => [WRAP.first + (i * 2 + 1) * WRAP.every, as$2(i % 2 === 0 ? WAVED : RAISED)]),
-		[WRAP.first + WRAPS * WRAP.every, as$2(RAISED)],
+		[.55, as$4(RAISED)],
+		...Array.from({ length: WRAPS / 2 }, (_, i) => [WRAP.first + (i * 2 + 1) * WRAP.every, as$4(i % 2 === 0 ? WAVED : RAISED)]),
+		[WRAP.first + WRAPS * WRAP.every, as$4(RAISED)],
 		[WRAP.first + WRAPS * WRAP.every + .5, {}]
 	],
 	lands: Array.from({ length: WRAPS }, (_, i) => WRAP.first + i * WRAP.every)
 };
 var DOZING = {
-	flip: STAND$2.flip - .12,
+	flip: STAND$4.flip - .12,
 	nod: -.1,
 	rhX: -.11,
 	rhY: .39,
@@ -3454,18 +3605,18 @@ var DOZING = {
 var SLEEP$1 = {
 	keys: [
 		[0, {}],
-		[.35, as$2({
+		[.35, as$4({
 			nod: -.15,
 			lhX: .18,
 			lhY: .85,
 			lhZ: 0
 		})],
-		[.8, as$2(DOZING)],
-		[2.9, as$2({
+		[.8, as$4(DOZING)],
+		[2.9, as$4({
 			...DOZING,
 			nod: -.15
 		})],
-		[3.3, as$2({ nod: .1 })],
+		[3.3, as$4({ nod: .1 })],
 		[3.55, {}]
 	],
 	lands: [.8]
@@ -3500,12 +3651,12 @@ var CHARGE = {
 	atk: .1,
 	dmg: .02
 };
-var art$4 = (index) => skillPicture(GREMORY_ASSETS, index);
+var art$6 = (index) => skillPicture(GREMORY_ASSETS, index);
 /** What all three of her slots turn into once her skills are sealed (its picture is the game's for it, where a passive's would be). */
 var SLEEP_SKILL = {
 	name: "Eh, whatever. I’m gonna sleep.",
 	icon: "💤",
-	image: art$4(3),
+	image: art$6(3),
 	move: "sleep",
 	cooldown: 0,
 	cost: 0
@@ -3518,7 +3669,7 @@ var LAZY = {
 		name: "Eh, whatever. I’m gonna sleep.",
 		about: "Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking 40% less and not to be knocked down), then wakes with her skills unsealed and a Mana Charge.",
 		icon: "💤",
-		image: art$4(3)
+		image: art$6(3)
 	}
 };
 /** Asleep: shown on her card, with how long it has left. */
@@ -3526,7 +3677,7 @@ var SLEEPING = {
 	name: "Asleep",
 	about: "Takes 40% less from the boss, and can’t be knocked down.",
 	icon: "💤",
-	image: art$4(3)
+	image: art$6(3)
 };
 /** Her Mana Charge: shown on her card, with how many she has. */
 var CHARGED = {
@@ -3562,7 +3713,7 @@ var GREMORY = {
 		{
 			name: "Pochi, bite them!",
 			icon: "🐶",
-			image: art$4(0),
+			image: art$6(0),
 			move: "pochi",
 			cooldown: 0,
 			cost: 3
@@ -3570,7 +3721,7 @@ var GREMORY = {
 		{
 			name: "Puchi, knock them away!",
 			icon: "💥",
-			image: art$4(1),
+			image: art$6(1),
 			move: "puchi",
 			cooldown: 0,
 			cost: 3
@@ -3578,7 +3729,7 @@ var GREMORY = {
 		{
 			name: "Pippi, wrap them!",
 			icon: "🎀",
-			image: art$4(2),
+			image: art$6(2),
 			move: "pippi",
 			cooldown: 0,
 			cost: 4
@@ -3586,7 +3737,7 @@ var GREMORY = {
 	],
 	passive: LAZY,
 	attack: "nudge",
-	stands: STAND$2,
+	stands: STAND$4,
 	bends: BENDS,
 	seated: true,
 	join(fight, self) {
@@ -3682,7 +3833,7 @@ var FLOWER$1 = {
 	end: 6e3,
 	each: 800
 };
-var art$3 = (index) => skillPicture(KIRZE_ASSETS, index);
+var art$5 = (index) => skillPicture(KIRZE_ASSETS, index);
 /**
 * Her passive, the game's End to Evil Deeds!: the game says how much longer the stuns last and how much
 * likelier a critical blow is, and leaves how much harder she hits unsaid.
@@ -3695,15 +3846,15 @@ var EVIL_DEEDS = {
 		name: "End to Evil Deeds!",
 		about: "Passive. Her blows are harder and more often critical, and her stuns on a boss last 30% longer.",
 		icon: "⚜️",
-		image: art$3(3)
+		image: art$5(3)
 	}
 };
 /** What Crystal Haze gives her for a while: shown beside her passive, with how long it has left. */
-var AWAKENING = {
+var AWAKENING$1 = {
 	name: "Arcane Crystal Awakening",
 	about: "Quickened, and a shockwave goes out from her every 2 seconds.",
 	icon: "💠",
-	image: art$3(1)
+	image: art$5(1)
 };
 var KIRZE = {
 	id: "kirze",
@@ -3718,7 +3869,7 @@ var KIRZE = {
 		{
 			name: "Slash, Blade of Judgment!",
 			icon: "🌀",
-			image: art$3(0),
+			image: art$5(0),
 			move: "judgment",
 			cooldown: 9,
 			cost: 2
@@ -3726,7 +3877,7 @@ var KIRZE = {
 		{
 			name: "Disperse, Crystal Haze!",
 			icon: "💠",
-			image: art$3(1),
+			image: art$5(1),
 			move: "haze",
 			cooldown: 17,
 			cost: 3
@@ -3734,7 +3885,7 @@ var KIRZE = {
 		{
 			name: "Bloom, Crimson Flower!",
 			icon: "🌺",
-			image: art$3(2),
+			image: art$5(2),
 			move: "flower",
 			cooldown: 20,
 			cost: 4
@@ -3800,7 +3951,7 @@ var KIRZE = {
 			pace: () => awake > 0 ? HAZE$1.quicker : 1,
 			lit: () => awake > 0,
 			buffs: () => awake > 0 ? [{
-				...AWAKENING,
+				...AWAKENING$1,
 				left: awake
 			}] : [],
 			marks: () => curse ? [{
@@ -3813,7 +3964,7 @@ var KIRZE = {
 //#endregion
 //#region src/technomagic/heroes/laias/moves.ts
 /** How she stands: upright and calm, her weight on both feet, her staff upright beside her in her right hand, her left hand loose at her side. */
-var STAND$1 = {
+var STAND$3 = {
 	...REST,
 	hipX: 0,
 	hipY: -.01,
@@ -3834,9 +3985,9 @@ var STAND$1 = {
 	bUp: 1.45
 };
 /** A pose of hers, for a track: what is added to how she stands. */
-var as$1 = (pose) => at(pose, STAND$1);
+var as$3 = (pose) => at(pose, STAND$3);
 /** Her staff held out ahead at the boss, its head tipped toward it. */
-var AIMED = {
+var AIMED$1 = {
 	rhX: -.12,
 	rhY: .3,
 	rhZ: .42,
@@ -3846,7 +3997,7 @@ var AIMED = {
 var SPLASH$1 = {
 	keys: [
 		[0, {}],
-		[.22, as$1({
+		[.22, as$3({
 			twist: .3,
 			lean: -.05,
 			rhX: -.26,
@@ -3854,16 +4005,16 @@ var SPLASH$1 = {
 			rhZ: -.08,
 			bUp: 1.2
 		})],
-		[.4, as$1({
+		[.4, as$3({
 			...LOW,
 			twist: -.32,
 			lean: .14,
 			lhX: .24,
 			lhY: -.04,
 			lhZ: -.08,
-			...AIMED
+			...AIMED$1
 		})],
-		[.6, as$1({
+		[.6, as$3({
 			...LOW,
 			hipY: -.11,
 			twist: -.34,
@@ -3871,7 +4022,7 @@ var SPLASH$1 = {
 			lhX: .24,
 			lhY: -.04,
 			lhZ: -.08,
-			...AIMED,
+			...AIMED$1,
 			rhY: .29
 		})],
 		[1, {}]
@@ -3881,7 +4032,7 @@ var SPLASH$1 = {
 var DROPLETS$1 = {
 	keys: [
 		[0, {}],
-		[.25, as$1({
+		[.25, as$3({
 			...COILED,
 			lean: .12,
 			nod: .15,
@@ -3892,7 +4043,7 @@ var DROPLETS$1 = {
 			rhY: .2,
 			rhZ: .18
 		})],
-		[.55, as$1({
+		[.55, as$3({
 			...TALL,
 			lean: -.12,
 			nod: -.22,
@@ -3904,7 +4055,7 @@ var DROPLETS$1 = {
 			rhZ: .08,
 			bUp: 1.5
 		})],
-		[.9, as$1({
+		[.9, as$3({
 			...TALL,
 			lean: -.14,
 			nod: -.24,
@@ -3923,7 +4074,7 @@ var DROPLETS$1 = {
 var BUBBLE$1 = {
 	keys: [
 		[0, {}],
-		[.3, as$1({
+		[.3, as$3({
 			...COILED,
 			lean: .1,
 			nod: .12,
@@ -3932,7 +4083,7 @@ var BUBBLE$1 = {
 			lhY: .18,
 			lhZ: .3
 		})],
-		[.6, as$1({
+		[.6, as$3({
 			...LOW,
 			lean: .16,
 			nod: .05,
@@ -3941,7 +4092,7 @@ var BUBBLE$1 = {
 			lhY: .32,
 			lhZ: .5
 		})],
-		[.9, as$1({
+		[.9, as$3({
 			...LOW,
 			hipY: -.11,
 			lean: .15,
@@ -3958,7 +4109,7 @@ var BUBBLE$1 = {
 var FESTIVAL$1 = {
 	keys: [
 		[0, {}],
-		[.3, as$1({
+		[.3, as$3({
 			...COILED,
 			lean: .15,
 			twist: .2,
@@ -3969,7 +4120,7 @@ var FESTIVAL$1 = {
 			rhY: .14,
 			rhZ: .1
 		})],
-		[.65, as$1({
+		[.65, as$3({
 			...TALL,
 			jump: .2,
 			lean: -.15,
@@ -3982,7 +4133,7 @@ var FESTIVAL$1 = {
 			rhZ: .1,
 			bUp: 1.55
 		})],
-		[.95, as$1({
+		[.95, as$3({
 			...LOW,
 			hipY: -.16,
 			lean: .25,
@@ -3996,7 +4147,7 @@ var FESTIVAL$1 = {
 			rhZ: .45,
 			bUp: -.9
 		})],
-		[1.35, as$1({
+		[1.35, as$3({
 			...LOW,
 			hipY: -.17,
 			lean: .24,
@@ -4049,7 +4200,7 @@ var WATER_DRAGON = {
 	taken: .75,
 	lasts: 5
 };
-var art$2 = (index) => skillPicture(LAIAS_ASSETS, index);
+var art$4 = (index) => skillPicture(LAIAS_ASSETS, index);
 var BLESSING = {
 	attack: 1,
 	crit: 0,
@@ -4058,7 +4209,7 @@ var BLESSING = {
 		name: "Blessing of the Water Dragon",
 		about: "Passive. +500 CC Resist for her; every ally has 10% more M.DEF and 250 M.Crit Resistance, and each skill she uses has every ally take 25% less magical damage for 5 seconds.",
 		icon: "🐉",
-		image: art$2(3)
+		image: art$4(3)
 	}
 };
 /** What her passive gives every ally while she is on the field, and each skill she uses for a while. */
@@ -4066,33 +4217,33 @@ var BLESSED = {
 	name: "Blessing of the Water Dragon",
 	about: "More M.DEF, and the boss’s magic is less likely to land a critical blow.",
 	icon: "🐉",
-	image: art$2(3)
+	image: art$4(3)
 };
 var WARDED = {
 	name: "Water Dragon’s Ward",
 	about: "Takes 25% less magical damage.",
 	icon: "💧",
-	image: art$2(3)
+	image: art$4(3)
 };
 /** What Healing Droplets gives each ally, shown on its card with how long it has left. */
 var DROPLETS_UP = {
 	name: "Healing Droplets",
 	about: "Healing reaches it the more.",
 	icon: "💧",
-	image: art$2(0)
+	image: art$4(0)
 };
 /** What Bubble Shield gives its ally: for its whole while, and more while the shield holds. */
 var BUBBLED = {
 	name: "Bubble Shield",
 	about: "Takes 30% less from the boss and deals 15% more to it.",
 	icon: "🫧",
-	image: art$2(1)
+	image: art$4(1)
 };
 var BUBBLE_HOLDS = {
 	name: "Bubble",
 	about: "While the shield holds: can’t be knocked down, hits harder, and is healed every second.",
 	icon: "🫧",
-	image: art$2(1)
+	image: art$4(1)
 };
 var LAIAS = {
 	id: "laias",
@@ -4108,7 +4259,7 @@ var LAIAS = {
 		{
 			name: "Healing Droplets",
 			icon: "💧",
-			image: art$2(0),
+			image: art$4(0),
 			move: "droplets",
 			cooldown: 8,
 			cost: 2
@@ -4116,7 +4267,7 @@ var LAIAS = {
 		{
 			name: "Bubble Shield",
 			icon: "🫧",
-			image: art$2(1),
+			image: art$4(1),
 			move: "bubble",
 			cooldown: 15,
 			cost: 3
@@ -4124,7 +4275,7 @@ var LAIAS = {
 		{
 			name: "Festival of the Flow",
 			icon: "🌊",
-			image: art$2(2),
+			image: art$4(2),
 			move: "festival",
 			cooldown: 20,
 			cost: 4
@@ -4132,7 +4283,7 @@ var LAIAS = {
 	],
 	passive: BLESSING,
 	attack: "splash",
-	stands: STAND$1,
+	stands: STAND$3,
 	join(fight, self) {
 		/** Whom her Bubble Shield is on, and for how long yet; and toward its next heal (once a second). */
 		let bubbled = null;
@@ -4287,9 +4438,405 @@ var LAIAS = {
 	}
 };
 //#endregion
+//#region src/technomagic/heroes/lorraine/moves.ts
+/** How she stands: upright, her weight on both feet, her staff held upright at her right side, her left hand loose. */
+var STAND$2 = {
+	...REST,
+	hipX: 0,
+	hipY: -.01,
+	hipTurn: -.06,
+	lean: 0,
+	tilt: .02,
+	lfX: .05,
+	lfZ: .05,
+	rfX: -.03,
+	rfZ: -.03,
+	lhX: .21,
+	lhY: -.12,
+	lhZ: .02,
+	rhX: -.2,
+	rhY: .06,
+	rhZ: .12,
+	bTurn: 0,
+	bUp: 1.45
+};
+/** A pose of hers, for a track: what is added to how she stands. */
+var as$2 = (pose) => at(pose, STAND$2);
+/** Her staff thrust out at the boss, its head toward it. */
+var AIM = {
+	rhX: -.12,
+	rhY: .32,
+	rhZ: .46,
+	bTurn: 0,
+	bUp: .2
+};
+var LASH$1 = {
+	keys: [
+		[0, {}],
+		[.22, as$2({
+			twist: .3,
+			lean: -.05,
+			rhX: -.22,
+			rhY: .36,
+			rhZ: -.04,
+			bUp: 1.9
+		})],
+		[.4, as$2({
+			...LOW,
+			twist: -.35,
+			lean: .16,
+			...AIM
+		})],
+		[.6, as$2({
+			...LOW,
+			hipY: -.11,
+			twist: -.37,
+			lean: .14,
+			...AIM,
+			rhY: .31
+		})],
+		[1, {}]
+	],
+	lands: [.42]
+};
+var THORNBUSH = {
+	keys: [
+		[0, {}],
+		[.25, as$2({
+			...COILED,
+			lean: -.05,
+			nod: -.15,
+			rhX: -.16,
+			rhY: .6,
+			rhZ: .1,
+			bUp: 1.6,
+			lhX: .22,
+			lhY: .2,
+			lhZ: .2
+		})],
+		[.45, as$2({
+			...LOW,
+			twist: -.3,
+			lean: .15,
+			...AIM,
+			rhZ: .45,
+			bUp: .3,
+			lhX: .24,
+			lhY: .1,
+			lhZ: .1
+		})],
+		[.7, as$2({
+			...LOW,
+			twist: -.2,
+			lean: .12,
+			...AIM,
+			rhY: .4,
+			rhZ: .42,
+			bUp: .5,
+			lhX: .24,
+			lhY: .1,
+			lhZ: .1
+		})],
+		[.95, as$2({
+			...LOW,
+			twist: -.35,
+			lean: .17,
+			...AIM,
+			rhY: .33,
+			bUp: .25,
+			lhX: .24,
+			lhY: .1,
+			lhZ: .1
+		})],
+		[1.4, {}]
+	],
+	lands: [
+		.46,
+		.71,
+		.96
+	]
+};
+var VINE$1 = {
+	keys: [
+		[0, {}],
+		[.3, as$2({
+			...COILED,
+			twist: .4,
+			lean: .1,
+			rhX: -.3,
+			rhY: .2,
+			rhZ: -.1,
+			bTurn: -.8,
+			bUp: .6
+		})],
+		[.55, as$2({
+			...LUNGE,
+			ahead: .6,
+			lean: .35,
+			twist: -.4,
+			rhX: -.06,
+			rhY: .06,
+			rhZ: .5,
+			bTurn: 0,
+			bUp: -.6,
+			lhX: .24,
+			lhY: .05,
+			lhZ: -.1
+		})],
+		[.9, as$2({
+			...LUNGE,
+			hipY: -.29,
+			ahead: .62,
+			lean: .32,
+			twist: -.42,
+			rhX: -.06,
+			rhY: .05,
+			rhZ: .48,
+			bTurn: 0,
+			bUp: -.58,
+			lhX: .24,
+			lhY: .05,
+			lhZ: -.1
+		})],
+		[1.3, {}]
+	],
+	lands: [.56]
+};
+var WRATH$1 = {
+	keys: [
+		[0, {}],
+		[.35, as$2({
+			...TALL,
+			lean: -.15,
+			nod: -.3,
+			rhX: -.14,
+			rhY: .78,
+			rhZ: .05,
+			bUp: 1.55,
+			lhX: .2,
+			lhY: .7,
+			lhZ: .08
+		})],
+		[.75, as$2({
+			...TALL,
+			lean: -.17,
+			nod: -.32,
+			rhX: -.14,
+			rhY: .8,
+			rhZ: .05,
+			bUp: 1.57,
+			lhX: .2,
+			lhY: .72,
+			lhZ: .08
+		})],
+		[.95, as$2({
+			...LOW,
+			hipY: -.2,
+			lean: .25,
+			nod: .1,
+			rhX: -.12,
+			rhY: .1,
+			rhZ: .3,
+			bUp: 1.45,
+			lhX: .2,
+			lhY: .1,
+			lhZ: .25
+		})],
+		[1.3, as$2({
+			...LOW,
+			hipY: -.21,
+			lean: .23,
+			nod: .08,
+			rhX: -.12,
+			rhY: .1,
+			rhZ: .3,
+			bUp: 1.45,
+			lhX: .2,
+			lhY: .1,
+			lhZ: .25
+		})],
+		[1.8, {}]
+	],
+	lands: [.96]
+};
+//#endregion
+//#region src/technomagic/heroes/lorraine/index.ts
+var LASH = { blow: BLOW * 1.3 };
+var THORNS = { blow: 1500 };
+var VINE = {
+	blow: 3e3,
+	poison: 2,
+	shackle: 4,
+	after: 2,
+	each: 1500
+};
+var WRATH = {
+	blow: 6e3,
+	down: 3,
+	more: .2
+};
+var LEAF = {
+	chance: .3,
+	times: 3,
+	blow: 600
+};
+/** The most Poison on the boss, how long it lasts once the last was left, how hard each eats at it every second, and what each takes off the boss's heals. */
+var POISON = {
+	most: 5,
+	lasts: 20,
+	each: 100,
+	every: 1,
+	heals: .1
+};
+var art$3 = (index) => skillPicture(LORRAINE_ASSETS, index);
+var BLADE_LEAF = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Blade Leaf",
+		about: "Passive. Her attack has a 30% chance to send three leaves at the boss besides, each leaving a Poison on it (up to 5).",
+		icon: "🍃",
+		image: art$3(3)
+	}
+};
+/** What her skills leave on the boss. */
+var POISONED = "Poison";
+var LORRAINE = {
+	id: "lorraine",
+	name: "Lorraine",
+	class: "wizard",
+	assets: LORRAINE_ASSETS,
+	stats: {
+		...CLASS_STATS.wizard,
+		deals: "magical"
+	},
+	abilities: [
+		{
+			name: "Thornbush Forest",
+			icon: "🌿",
+			image: art$3(0),
+			move: "thornbush",
+			cooldown: 7,
+			cost: 2
+		},
+		{
+			name: "Tangled Vine",
+			icon: "🪢",
+			image: art$3(1),
+			move: "vine",
+			cooldown: 10,
+			cost: 3
+		},
+		{
+			name: "Wrath of the Forest",
+			icon: "🌳",
+			image: art$3(2),
+			move: "wrath",
+			cooldown: 23,
+			cost: 3
+		}
+	],
+	passive: BLADE_LEAF,
+	attack: "lash",
+	stands: STAND$2,
+	join(fight, self) {
+		/** How long until Tangled Vine's blow after (0: none coming); toward her Poison's next bite; and toward her unique weapon's next blow. */
+		let vine = 0;
+		let bitten = 0;
+		let roburu = 0;
+		const tier = self.unique?.tier ?? null;
+		/** How many Poison are on the boss. */
+		const poisons = () => fight.foe.statuses.find((status) => status.name === POISONED)?.count ?? 0;
+		/** So many more Poison on the boss (up to the most), all of it begun again: what heals it heals it less for each. */
+		const poison = (count) => {
+			const stacks = Math.min(POISON.most, poisons() + count);
+			put(fight.foe.statuses, {
+				name: POISONED,
+				left: POISON.lasts,
+				count: stacks,
+				heals: Math.max(0, 1 - POISON.heals * stacks),
+				shown: "venom"
+			});
+		};
+		/** The Lorraines in the fight (there may be two: it is the same Poison), and whether any is standing. */
+		const lorraines = () => fight.fighters.filter((one) => one.id === self.id);
+		return {
+			lands: {
+				lash() {
+					if (fight.roll() >= LEAF.chance) {
+						fight.hit(self, LASH.blow);
+						return;
+					}
+					fight.cue(self, "leaf");
+					fight.hit(self, LASH.blow + LEAF.blow * LEAF.times);
+					poison(LEAF.times);
+				},
+				thornbush() {
+					fight.hit(self, THORNS.blow);
+					poison(1);
+				},
+				vine() {
+					fight.hit(self, VINE.blow);
+					poison(VINE.poison);
+					fight.stun(VINE.shackle, { by: self });
+					vine = VINE.after;
+				},
+				wrath() {
+					fight.hit(self, WRATH.blow * (1 + WRATH.more * poisons()));
+					fight.stun(WRATH.down, {
+						down: true,
+						by: self
+					});
+				}
+			},
+			tick(dt) {
+				if (vine > 0) {
+					vine -= dt;
+					if (vine <= 0) {
+						fight.cue(self, "vine");
+						fight.hit(self, VINE.each * poisons(), false);
+					}
+				}
+				const count = poisons();
+				if (count > 0 && lorraines().every((one) => one.hp <= 0)) {
+					fight.foe.statuses.splice(fight.foe.statuses.findIndex((status) => status.name === POISONED), 1);
+					return;
+				}
+				if (tier !== null && self.hp > 0) {
+					roburu += dt;
+					if (roburu >= ROBURU.every) {
+						roburu -= ROBURU.every;
+						if (count > 0) {
+							fight.cue(self, "roburu");
+							fight.hit(self, atTier(ROBURU.blow, tier), false);
+							put(fight.foe.statuses, {
+								name: ROBURU.name,
+								left: ROBURU.lasts,
+								takes: { magical: 1 + atTier(ROBURU.takes, tier) },
+								shown: "curse"
+							});
+						}
+					}
+				}
+				if (count <= 0 || lorraines()[0] !== self) {
+					bitten = 0;
+					return;
+				}
+				bitten += dt;
+				if (bitten >= POISON.every) {
+					bitten -= POISON.every;
+					fight.hit(self, POISON.each * count, false);
+				}
+			},
+			lit: () => poisons() >= POISON.most
+		};
+	}
+};
+//#endregion
 //#region src/technomagic/heroes/morrah/moves.ts
 /** How she stands: ready and unbothered, her shield before her, her sword out to her right with its point down a little ahead. */
-var STAND = {
+var STAND$1 = {
 	...REST,
 	hipX: 0,
 	hipY: -.03,
@@ -4310,11 +4857,11 @@ var STAND = {
 	bUp: -.5
 };
 /** A pose of hers, for a track: what is added to how she stands. */
-var as = (pose) => at(pose, STAND);
+var as$1 = (pose) => at(pose, STAND$1);
 var CLEAVE$1 = {
 	keys: [
 		[0, {}],
-		[.18, as({
+		[.18, as$1({
 			...LOW,
 			twist: -.55,
 			lean: .06,
@@ -4327,7 +4874,7 @@ var CLEAVE$1 = {
 			lhY: .3,
 			lhZ: .36
 		})],
-		[.3, as({
+		[.3, as$1({
 			...LOW,
 			hipZ: .08,
 			twist: .5,
@@ -4341,7 +4888,7 @@ var CLEAVE$1 = {
 			lhY: .26,
 			lhZ: .1
 		})],
-		[.44, as({
+		[.44, as$1({
 			...LOW,
 			hipZ: .06,
 			twist: .62,
@@ -4355,7 +4902,7 @@ var CLEAVE$1 = {
 			lhY: .26,
 			lhZ: .08
 		})],
-		[.6, as({
+		[.6, as$1({
 			...LOW,
 			hipZ: .08,
 			twist: -.5,
@@ -4369,7 +4916,7 @@ var CLEAVE$1 = {
 			lhY: .3,
 			lhZ: .36
 		})],
-		[.74, as({
+		[.74, as$1({
 			...LOW,
 			hipZ: .06,
 			twist: -.6,
@@ -4390,7 +4937,7 @@ var CLEAVE$1 = {
 var BURNING$1 = {
 	keys: [
 		[0, {}],
-		[.3, as({
+		[.3, as$1({
 			...COILED,
 			lean: -.05,
 			twist: .3,
@@ -4404,7 +4951,7 @@ var BURNING$1 = {
 			lhY: .26,
 			lhZ: .3
 		})],
-		[.55, as({
+		[.55, as$1({
 			...COILED,
 			hipY: -.22,
 			lean: -.08,
@@ -4419,7 +4966,7 @@ var BURNING$1 = {
 			lhY: .26,
 			lhZ: .3
 		})],
-		[.75, as({
+		[.75, as$1({
 			...LUNGE,
 			ahead: 1.2,
 			lean: .42,
@@ -4434,7 +4981,7 @@ var BURNING$1 = {
 			lhY: .16,
 			lhZ: .2
 		})],
-		[1, as({
+		[1, as$1({
 			...LUNGE,
 			hipY: -.29,
 			ahead: 1.25,
@@ -4457,7 +5004,7 @@ var BURNING$1 = {
 var HELLFIRE$1 = {
 	keys: [
 		[0, {}],
-		[.3, as({
+		[.3, as$1({
 			...COILED,
 			lean: .1,
 			twist: .2,
@@ -4470,7 +5017,7 @@ var HELLFIRE$1 = {
 			lhY: .3,
 			lhZ: .36
 		})],
-		[.55, as({
+		[.55, as$1({
 			...LOW,
 			hipY: -.22,
 			lean: .25,
@@ -4485,7 +5032,7 @@ var HELLFIRE$1 = {
 			lhY: .36,
 			lhZ: .42
 		})],
-		[1.1, as({
+		[1.1, as$1({
 			...LOW,
 			hipY: -.21,
 			lean: .22,
@@ -4507,7 +5054,7 @@ var HELLFIRE$1 = {
 var ERUPTION$1 = {
 	keys: [
 		[0, {}],
-		[.35, as({
+		[.35, as$1({
 			...COILED,
 			twist: .6,
 			lean: .05,
@@ -4520,7 +5067,7 @@ var ERUPTION$1 = {
 			lhY: .24,
 			lhZ: .32
 		})],
-		[.6, as({
+		[.6, as$1({
 			...TUCKED,
 			ahead: .8,
 			jump: .9,
@@ -4535,7 +5082,7 @@ var ERUPTION$1 = {
 			lhY: .34,
 			lhZ: .24
 		})],
-		[.82, as({
+		[.82, as$1({
 			...KNEELING,
 			ahead: 1.4,
 			lean: .5,
@@ -4549,7 +5096,7 @@ var ERUPTION$1 = {
 			lhY: .12,
 			lhZ: .3
 		})],
-		[1.2, as({
+		[1.2, as$1({
 			...KNEELING,
 			hipY: -.4,
 			ahead: 1.4,
@@ -4603,7 +5150,7 @@ var FLAME = {
 	more: .02,
 	heals: .01
 };
-var art$1 = (index) => skillPicture(MORRAH_ASSETS, index);
+var art$2 = (index) => skillPicture(MORRAH_ASSETS, index);
 var FIRE_SMASH = {
 	attack: 1,
 	crit: 0,
@@ -4612,7 +5159,7 @@ var FIRE_SMASH = {
 		name: "Fire Smash",
 		about: "Passive. When she blocks she strikes back, leaving 3 Flame on the boss.",
 		icon: "🔥",
-		image: art$1(3)
+		image: art$2(3)
 	}
 };
 /** What Burning Power gives her for a while: shown beside her passive, with how long it has left. */
@@ -4620,14 +5167,14 @@ var BURNING_UP = {
 	name: "Burning Power",
 	about: "Each blow of her attack deals more and leaves a Flame on the boss.",
 	icon: "🔥",
-	image: art$1(0)
+	image: art$2(0)
 };
 /** What Hellfire gives every ally for a while: shown on each card, with how long it has left. */
 var HELLFIRE_UP = {
 	name: "Hellfire",
 	about: "30% more M.DEF, and +250 M.Block.",
 	icon: "🌋",
-	image: art$1(1)
+	image: art$2(1)
 };
 /** What her skills, and her unique weapon, leave on the boss. */
 var FLAMED = "Flame";
@@ -4644,7 +5191,7 @@ var MORRAH = {
 		{
 			name: "Burning Power",
 			icon: "🔥",
-			image: art$1(0),
+			image: art$2(0),
 			move: "burning",
 			cooldown: 6,
 			cost: 2
@@ -4652,7 +5199,7 @@ var MORRAH = {
 		{
 			name: "Hellfire",
 			icon: "🌋",
-			image: art$1(1),
+			image: art$2(1),
 			move: "hellfire",
 			cooldown: 12,
 			cost: 3
@@ -4660,7 +5207,7 @@ var MORRAH = {
 		{
 			name: "Lava Eruption",
 			icon: "☄️",
-			image: art$1(2),
+			image: art$2(2),
 			move: "eruption",
 			cooldown: 20,
 			cost: 3
@@ -4668,7 +5215,7 @@ var MORRAH = {
 	],
 	passive: FIRE_SMASH,
 	attack: "cleave",
-	stands: STAND,
+	stands: STAND$1,
 	join(fight, self) {
 		/** How long Burning Power has her attack burning for yet; how long her Hellfire lasts yet, and toward its next Flame; and toward her Flame's next burn. */
 		let burning = 0;
@@ -4804,12 +5351,12 @@ var WITCH = {
 	critDamage: .05,
 	most: 30
 };
-var art = (index) => skillPicture(SERIA_ASSETS, index);
+var art$1 = (index) => skillPicture(SERIA_ASSETS, index);
 /** What Falling Petals' slot holds for a while after it is used (its picture is Falling Petals'). */
 var BLOSSOM_SKILL = {
 	name: "Mysterious Sword - Blossom",
 	icon: "🌸",
-	image: art(0),
+	image: art$1(0),
 	move: "blossom",
 	cooldown: 0,
 	cost: 1
@@ -4822,7 +5369,7 @@ var COLD_BLOODED = {
 		name: "Cold-Blooded Witch",
 		about: "Passive. Her ATK is higher, and each critical blow of her skills gives her 5% more crit damage (up to 30 times).",
 		icon: "🩸",
-		image: art(3)
+		image: art$1(3)
 	}
 };
 /** Her Cold-Blooded Witch's stacks: shown on her card, with how many she has. */
@@ -4830,18 +5377,416 @@ var WITCHED = {
 	name: "Cold-Blooded Witch",
 	about: "5% more crit damage for each.",
 	icon: "🩸",
-	image: art(3)
+	image: art$1(3)
 };
 /** Moonlight: shown on her card for the second it lasts. */
 var MOONLIGHT = {
 	name: "Moonlight",
 	about: "Red Moon Blade used now cuts again, and leaves the boss healed not at all for 10 seconds.",
 	icon: "🌕",
-	image: art(2)
+	image: art$1(2)
 };
 /** What her skills leave on the boss. */
 var SIN = "Original Sin of Blood";
 var UNHEALED = "Red Moon";
+var SERIA = {
+	id: "seria",
+	name: "Seria",
+	class: "warrior",
+	assets: SERIA_ASSETS,
+	stats: {
+		...CLASS_STATS.warrior,
+		atk: CLASS_STATS.warrior.atk + WITCH.atk,
+		deals: "magical"
+	},
+	abilities: [
+		{
+			name: "Mysterious Sword - Falling Petals",
+			icon: "🌸",
+			image: art$1(0),
+			move: "petals",
+			cooldown: 7,
+			cost: 1
+		},
+		{
+			name: "Blood Scattering Blade",
+			icon: "🩸",
+			image: art$1(1),
+			move: "scatter",
+			cooldown: 13,
+			cost: 2
+		},
+		{
+			name: "Red Moon Blade",
+			icon: "🌙",
+			image: art$1(2),
+			move: "moon",
+			cooldown: 20,
+			cost: 4
+		}
+	],
+	passive: COLD_BLOODED,
+	join(fight, self) {
+		/** How long Blossom can be used for yet, and Falling Petals' own cooldown meanwhile. */
+		let blossom = 0;
+		let petals = 0;
+		/** Toward the moon's ripening, and how long her Moonlight lasts yet; whether Red Moon Blade was used in it (as it began). */
+		let waxing = 0;
+		let moonlight = 0;
+		let ripe = false;
+		/** Her Cold-Blooded Witch's stacks, and her unique weapon's. */
+		let witch = 0;
+		let elsion = 0;
+		const tier = self.unique?.tier ?? null;
+		/** A blow of a skill of hers: a critical one makes her critical blows harder, and (with her unique weapon) deals more, and leaves the boss healed less and her healed more. */
+		const cut = (amount, pierce = 0) => {
+			if (!fight.hit(self, amount, true, pierce)) return;
+			witch = Math.min(WITCH.most, witch + 1);
+			put(self.statuses, {
+				name: WITCHED.name,
+				left: Infinity,
+				count: witch,
+				critDamage: WITCH.critDamage * witch,
+				shown: WITCHED
+			});
+			if (tier === null) return;
+			fight.hit(self, atTier(ELSION.blow, tier), false);
+			put(fight.foe.statuses, {
+				name: ELSION.name,
+				left: ELSION.lasts,
+				heals: 1 - atTier(ELSION.unhealed, tier),
+				shown: "curse"
+			});
+			elsion = Math.min(ELSION.most, elsion + 1);
+			put(self.statuses, {
+				name: ELSION_UP.name,
+				left: ELSION.healed,
+				count: elsion,
+				heals: 1 + atTier(ELSION.heals, tier) * elsion,
+				shown: ELSION_UP
+			});
+		};
+		return {
+			lands: {
+				petals() {
+					cut(PETALS$1.blow);
+				},
+				blossom() {
+					cut(BLOSSOM$1.blow);
+				},
+				scatter(part) {
+					if (part === 0) {
+						cut(SCATTER$1.rush);
+						put(fight.foe.statuses, {
+							name: SIN,
+							left: SCATTER$1.lasts,
+							shown: "curse"
+						});
+						fight.slow(SCATTER$1.slow, SCATTER$1.lasts);
+						return;
+					}
+					cut(SCATTER$1.cut);
+					cut(SCATTER$1.through, SCATTER$1.pierce);
+				},
+				moon() {
+					cut(MOON$1.blow + MOON$1.boss);
+					if (!ripe) return;
+					cut(MOON$1.ripe);
+					put(fight.foe.statuses, {
+						name: UNHEALED,
+						left: MOON$1.unhealed,
+						heals: 0,
+						shown: "curse"
+					});
+				}
+			},
+			slot: (index) => index === 0 && blossom > 0 ? BLOSSOM_SKILL : self.def.abilities[index] ?? null,
+			used(index, ability) {
+				if (index === 0 && ability === BLOSSOM_SKILL) {
+					blossom = 0;
+					self.cooldowns[0] = petals;
+				} else if (index === 0) {
+					blossom = PETALS$1.window;
+					petals = ability.cooldown;
+					self.cooldowns[0] = 0;
+				} else if (ability.move === "moon") ripe = moonlight > 0;
+			},
+			tick(dt) {
+				if (blossom > 0) {
+					blossom -= dt;
+					petals = Math.max(0, petals - dt);
+					self.cooldowns[0] = blossom > 0 ? 0 : petals;
+				}
+				if (moonlight > 0) moonlight = Math.max(0, moonlight - dt);
+				waxing += dt;
+				if (waxing >= MOON$1.every) {
+					waxing -= MOON$1.every;
+					moonlight = MOON$1.light;
+				}
+			},
+			lit: () => moonlight > 0,
+			buffs: () => moonlight > 0 ? [{
+				...MOONLIGHT,
+				left: moonlight
+			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/heroes/valance/moves.ts
+/** How she stands: upright and poised, her feet together under her gown, her crossbow held low at her right side pointing ahead and down, her left hand at her waist. */
+var STAND = {
+	...REST,
+	hipX: 0,
+	hipY: -.01,
+	hipTurn: -.08,
+	lean: -.02,
+	tilt: .02,
+	nod: -.02,
+	lfX: .04,
+	lfZ: .04,
+	rfX: -.03,
+	rfZ: -.02,
+	lhX: .16,
+	lhY: .02,
+	lhZ: .1,
+	rhX: -.22,
+	rhY: -.06,
+	rhZ: .12,
+	bTurn: 0,
+	bUp: -.6
+};
+/** A pose of hers, for a track: what is added to how she stands. */
+var as = (pose) => at(pose, STAND);
+/** Her crossbow raised level at the boss, her arm out straight. */
+var AIMED = {
+	rhX: -.12,
+	rhY: .3,
+	rhZ: .45,
+	bTurn: 0,
+	bUp: 0
+};
+var BOLT$1 = {
+	keys: [
+		[0, {}],
+		[.25, as({
+			...LOW,
+			twist: -.25,
+			lean: .06,
+			...AIMED
+		})],
+		[.42, as({
+			...LOW,
+			twist: -.27,
+			lean: -.04,
+			...AIMED,
+			rhZ: .38,
+			bUp: .15
+		})],
+		[.6, as({
+			...LOW,
+			twist: -.26,
+			lean: .04,
+			...AIMED
+		})],
+		[1, {}]
+	],
+	lands: [.42]
+};
+var PROTOTYPE = {
+	keys: [
+		[0, {}],
+		[.3, as({
+			...COILED,
+			lean: .05,
+			nod: .08,
+			lhX: .08,
+			lhY: .2,
+			lhZ: .22
+		})],
+		[.6, as({
+			...TALL,
+			lean: -.06,
+			nod: -.1,
+			lhX: .3,
+			lhY: .45,
+			lhZ: .3
+		})],
+		[.95, as({
+			...TALL,
+			lean: -.07,
+			nod: -.11,
+			lhX: .31,
+			lhY: .46,
+			lhZ: .3
+		})],
+		[1.3, {}]
+	],
+	lands: [.62]
+};
+var FIELD$1 = {
+	keys: [
+		[0, {}],
+		[.3, as({
+			...COILED,
+			lean: .1,
+			nod: .12,
+			lhX: .1,
+			lhY: .15,
+			lhZ: .2,
+			rhX: -.12,
+			rhY: .2,
+			rhZ: .2,
+			bUp: .6
+		})],
+		[.65, as({
+			...TALL,
+			jump: .1,
+			lean: -.12,
+			nod: -.2,
+			lhX: .45,
+			lhY: .55,
+			lhZ: .05,
+			rhX: -.14,
+			rhY: .85,
+			rhZ: .05,
+			bUp: 1.5
+		})],
+		[1.05, as({
+			...TALL,
+			jump: .12,
+			lean: -.14,
+			nod: -.22,
+			lhX: .46,
+			lhY: .57,
+			lhZ: .05,
+			rhX: -.14,
+			rhY: .87,
+			rhZ: .05,
+			bUp: 1.52
+		})],
+		[1.45, {}]
+	],
+	lands: [.68]
+};
+/** Ultimate Laser Cannon: the first laser, then nine more, one after the next. */
+var FIRST = .8;
+var EVERY$1 = .15;
+var CANNON$1 = {
+	keys: [
+		[0, {}],
+		[.35, as({
+			...COILED,
+			twist: .3,
+			lean: -.05,
+			nod: -.1,
+			lhX: .3,
+			lhY: .3,
+			lhZ: -.25,
+			rhX: -.2,
+			rhY: .5,
+			rhZ: -.05,
+			bUp: 1.2
+		})],
+		[.75, as({
+			...LOW,
+			twist: -.3,
+			lean: .12,
+			lhX: .28,
+			lhY: .25,
+			lhZ: -.2,
+			...AIMED
+		})],
+		[2.15, as({
+			...LOW,
+			hipY: -.12,
+			twist: -.32,
+			lean: .1,
+			lhX: .28,
+			lhY: .26,
+			lhZ: -.2,
+			...AIMED
+		})],
+		[2.6, {}]
+	],
+	lands: Array.from({ length: 10 }, (_, i) => FIRST + i * EVERY$1)
+};
+//#endregion
+//#region src/technomagic/heroes/valance/index.ts
+var BOLT = { blow: BLOW * 1.4 };
+var HOLOGRAM = {
+	lasts: 15,
+	atk: .2,
+	crit: .2,
+	heal: 2e3,
+	cooldown: .2
+};
+var FIELD = {
+	lasts: 5,
+	defense: 1.15,
+	heal: 4e3,
+	mana: .3 * SECTION
+};
+var CANNON = {
+	blow: 4e3,
+	stun: 3,
+	lasers: 9,
+	laser: 700,
+	laserStun: 1.5,
+	lasts: 15,
+	takes: .07,
+	heals: .05,
+	most: 7
+};
+var AWAKENING = {
+	defense: 1.2,
+	mana: 1.3,
+	atk: .1,
+	boss: .15
+};
+var art = (index) => skillPicture(VALANCE_ASSETS, index);
+var AWAKENED = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Technomagic Awakening",
+		about: "Passive. Her defense 20% higher and her mana filling 30% faster; every ally’s ATK 10% higher, and (in the Technomagic Kingdom) every ally deals 15% more to the boss.",
+		icon: "⚙️",
+		image: art(3)
+	}
+};
+/** What her passive gives every ally while she is on the field, and her alone. */
+var AWAKENING_UP = {
+	name: "Technomagic Awakening",
+	about: "ATK 10% higher, and 15% more to the boss.",
+	icon: "⚙️",
+	image: art(3)
+};
+var AWAKENING_SELF = {
+	name: "Technomagic Awakening (Valance)",
+	about: "Defense 20% higher, and mana filling 30% faster.",
+	icon: "⚙️",
+	image: art(3)
+};
+/** Hologram: on its ally's card, with how long it has left. */
+var HOLOGRAPHED = {
+	name: "Hologram",
+	about: "ATK and crit chance higher, healed every second, skills ready sooner; nothing the boss does holds it.",
+	icon: "💠",
+	image: art(0)
+};
+/** The Violet Force Field: on every ally's card while it lasts. */
+var FIELDED = {
+	name: "Violet Force Field",
+	about: "Defense 15% higher, can’t be knocked down, healed and given mana every second.",
+	icon: "🟣",
+	image: art(1)
+};
+/** What Ultimate Laser Cannon leaves on the boss. */
+var MANIPULATED = "Manipulated";
+/** Something the boss has left on a hero that can be cleared (not what holds it down, or shuts it away). */
+var harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
 //#endregion
 //#region src/technomagic/heroes/index.ts
 /** The heroes there are, in the order of their cards. */
@@ -4853,150 +5798,187 @@ var HEROES = [
 	ANNETTE,
 	MORRAH,
 	LAIAS,
+	SERIA,
+	EZEKIEL,
+	LORRAINE,
 	{
-		id: "seria",
-		name: "Seria",
-		class: "warrior",
-		assets: SERIA_ASSETS,
+		id: "valance",
+		name: "Valance",
+		class: "mechanic",
+		assets: VALANCE_ASSETS,
 		stats: {
-			...CLASS_STATS.warrior,
-			atk: CLASS_STATS.warrior.atk + WITCH.atk,
-			deals: "magical"
+			...CLASS_STATS.mechanic,
+			deals: "physical"
 		},
 		abilities: [
 			{
-				name: "Mysterious Sword - Falling Petals",
-				icon: "🌸",
+				name: "Prototype – VA",
+				icon: "💠",
 				image: art(0),
-				move: "petals",
-				cooldown: 7,
-				cost: 1
+				move: "prototype",
+				cooldown: 15,
+				cost: 3
 			},
 			{
-				name: "Blood Scattering Blade",
-				icon: "🩸",
+				name: "Absolute Protection Field – LA",
+				icon: "🟣",
 				image: art(1),
-				move: "scatter",
-				cooldown: 13,
-				cost: 2
+				move: "field",
+				cooldown: 20,
+				cost: 5
 			},
 			{
-				name: "Red Moon Blade",
-				icon: "🌙",
+				name: "Ultimate Laser Cannon – NCE",
+				icon: "🔫",
 				image: art(2),
-				move: "moon",
+				move: "cannon",
 				cooldown: 20,
 				cost: 4
 			}
 		],
-		passive: COLD_BLOODED,
+		passive: AWAKENED,
+		attack: "bolt",
+		stands: STAND,
 		join(fight, self) {
-			/** How long Blossom can be used for yet, and Falling Petals' own cooldown meanwhile. */
-			let blossom = 0;
-			let petals = 0;
-			/** Toward the moon's ripening, and how long her Moonlight lasts yet; whether Red Moon Blade was used in it (as it began). */
-			let waxing = 0;
-			let moonlight = 0;
-			let ripe = false;
-			/** Her Cold-Blooded Witch's stacks, and her unique weapon's. */
-			let witch = 0;
-			let elsion = 0;
-			const tier = self.unique?.tier ?? null;
-			/** A blow of a skill of hers: a critical one makes her critical blows harder, and (with her unique weapon) deals more, and leaves the boss healed less and her healed more. */
-			const cut = (amount, pierce = 0) => {
-				if (!fight.hit(self, amount, true, pierce)) return;
-				witch = Math.min(WITCH.most, witch + 1);
-				put(self.statuses, {
-					name: WITCHED.name,
-					left: Infinity,
-					count: witch,
-					critDamage: WITCH.critDamage * witch,
-					shown: WITCHED
-				});
-				if (tier === null) return;
-				fight.hit(self, atTier(ELSION.blow, tier), false);
+			/** Whom her Hologram is on, and for how long yet; and toward its next heal (once a second). */
+			let holo = null;
+			let holoLeft = 0;
+			let holoHeal = 0;
+			/** How long her field lasts yet, and toward its next heal and mana (once a second). */
+			let field = 0;
+			let fieldTick = 0;
+			/** She is on the field, standing and in the fight. */
+			const there = () => fight.field.includes(self) && self.hp > 0 && !away(self.statuses);
+			/** Her allies on the field, standing and in the fight (her too). */
+			const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
+			/** Takes a status of hers off every fighter (she has left the field). */
+			const lift = (name) => {
+				for (const one of fight.fighters) one.statuses = one.statuses.filter((status) => status.name !== name);
+			};
+			/** One more stack of Manipulated on the boss (up to seven), begun again. */
+			const manipulate = () => {
+				const stacks = Math.min(CANNON.most, (fight.foe.statuses.find((status) => status.name === MANIPULATED)?.count ?? 0) + 1);
 				put(fight.foe.statuses, {
-					name: ELSION.name,
-					left: ELSION.lasts,
-					heals: 1 - atTier(ELSION.unhealed, tier),
+					name: MANIPULATED,
+					left: CANNON.lasts,
+					count: stacks,
+					takes: 1 + CANNON.takes * stacks,
+					heals: Math.max(0, 1 - CANNON.heals * stacks),
 					shown: "curse"
 				});
-				elsion = Math.min(ELSION.most, elsion + 1);
-				put(self.statuses, {
-					name: ELSION_UP.name,
-					left: ELSION.healed,
-					count: elsion,
-					heals: 1 + atTier(ELSION.heals, tier) * elsion,
-					shown: ELSION_UP
-				});
 			};
+			/** How many pieces of TechnoMagic gear an ally wears: each comes with one additional skill (../../sim/skills.ts). */
+			const tmPieces = (ally) => Object.values(ally.skills).reduce((sum, n) => sum + (n ?? 0), 0);
 			return {
 				lands: {
-					petals() {
-						cut(PETALS$1.blow);
+					bolt() {
+						fight.hit(self, BOLT.blow);
 					},
-					blossom() {
-						cut(BLOSSOM$1.blow);
+					prototype() {
+						const top = allies().reduce((best, ally) => !best || ally.stats.atk > best.stats.atk ? ally : best, null);
+						if (!top) return;
+						fight.cue(self, "prototype", [top]);
+						if (holo && holo !== top) holo.statuses = holo.statuses.filter((status) => status.name !== HOLOGRAPHED.name);
+						top.statuses = top.statuses.filter((status) => !harmful(status));
+						put(top.statuses, {
+							name: HOLOGRAPHED.name,
+							left: HOLOGRAM.lasts,
+							deals: 1 + HOLOGRAM.atk,
+							crit: HOLOGRAM.crit,
+							guards: true,
+							shown: HOLOGRAPHED
+						});
+						holo = top;
+						holoLeft = HOLOGRAM.lasts;
+						holoHeal = 0;
 					},
-					scatter(part) {
-						if (part === 0) {
-							cut(SCATTER$1.rush);
-							put(fight.foe.statuses, {
-								name: SIN,
-								left: SCATTER$1.lasts,
-								shown: "curse"
-							});
-							fight.slow(SCATTER$1.slow, SCATTER$1.lasts);
-							return;
+					field() {
+						const on = allies();
+						fight.cue(self, "field", on);
+						for (const ally of on) put(ally.statuses, {
+							name: FIELDED.name,
+							left: FIELD.lasts,
+							defends: FIELD.defense,
+							guards: true,
+							shown: FIELDED
+						});
+						field = FIELD.lasts;
+						fieldTick = 0;
+					},
+					cannon(part) {
+						fight.hit(self, part === 0 ? CANNON.blow : CANNON.laser);
+						fight.stun(part === 0 ? CANNON.stun : CANNON.laserStun, { by: self });
+						manipulate();
+					}
+				},
+				tick(dt) {
+					if (holo) {
+						holoLeft -= dt;
+						if (holoLeft <= 0 || holo.hp <= 0) holo = null;
+						else {
+							const on = holo;
+							on.statuses = on.statuses.filter((status) => !harmful(status));
+							on.cooldowns = on.cooldowns.map((left) => Math.max(0, left - HOLOGRAM.cooldown * dt));
+							holoHeal += dt;
+							if (holoHeal >= 1) {
+								holoHeal -= 1;
+								fight.heal(on, HOLOGRAM.heal, self);
+							}
 						}
-						cut(SCATTER$1.cut);
-						cut(SCATTER$1.through, SCATTER$1.pierce);
-					},
-					moon() {
-						cut(MOON$1.blow + MOON$1.boss);
-						if (!ripe) return;
-						cut(MOON$1.ripe);
-						put(fight.foe.statuses, {
-							name: UNHEALED,
-							left: MOON$1.unhealed,
-							heals: 0,
-							shown: "curse"
+					}
+					if (field > 0) {
+						field -= dt;
+						fieldTick += dt;
+						if (fieldTick >= 1) {
+							fieldTick -= 1;
+							for (const ally of allies()) {
+								if (!ally.statuses.some((status) => status.name === FIELDED.name)) continue;
+								fight.heal(ally, FIELD.heal, self);
+								ally.mana = Math.min(MAX_MANA, ally.mana + FIELD.mana);
+							}
+						}
+					}
+					if (!there()) {
+						lift(AWAKENING_UP.name);
+						lift(AWAKENING_SELF.name);
+						lift(CORBEAU_UP.name);
+						return;
+					}
+					put(self.statuses, {
+						name: AWAKENING_SELF.name,
+						left: Infinity,
+						defends: AWAKENING.defense,
+						mana: AWAKENING.mana,
+						shown: AWAKENING_SELF
+					});
+					for (const ally of allies()) {
+						put(ally.statuses, {
+							name: AWAKENING_UP.name,
+							left: Infinity,
+							deals: (1 + AWAKENING.atk) * (1 + AWAKENING.boss),
+							shown: AWAKENING_UP
+						});
+						if (!self.unique) continue;
+						const pieces = Math.min(4, tmPieces(ally));
+						if (pieces === 0) {
+							ally.statuses = ally.statuses.filter((status) => status.name !== CORBEAU_UP.name);
+							continue;
+						}
+						put(ally.statuses, {
+							name: CORBEAU_UP.name,
+							left: Infinity,
+							count: pieces,
+							deals: (1 + CORBEAU.atk) * (pieces >= 4 ? 1 + CORBEAU.dmg : 1),
+							...pieces >= 2 ? { defends: 1 + CORBEAU.defense } : {},
+							...pieces >= 3 ? { takes: 1 / (1 + CORBEAU.hp) } : {},
+							shown: CORBEAU_UP
 						});
 					}
 				},
-				slot: (index) => index === 0 && blossom > 0 ? BLOSSOM_SKILL : self.def.abilities[index] ?? null,
-				used(index, ability) {
-					if (index === 0 && ability === BLOSSOM_SKILL) {
-						blossom = 0;
-						self.cooldowns[0] = petals;
-					} else if (index === 0) {
-						blossom = PETALS$1.window;
-						petals = ability.cooldown;
-						self.cooldowns[0] = 0;
-					} else if (ability.move === "moon") ripe = moonlight > 0;
-				},
-				tick(dt) {
-					if (blossom > 0) {
-						blossom -= dt;
-						petals = Math.max(0, petals - dt);
-						self.cooldowns[0] = blossom > 0 ? 0 : petals;
-					}
-					if (moonlight > 0) moonlight = Math.max(0, moonlight - dt);
-					waxing += dt;
-					if (waxing >= MOON$1.every) {
-						waxing -= MOON$1.every;
-						moonlight = MOON$1.light;
-					}
-				},
-				lit: () => moonlight > 0,
-				buffs: () => moonlight > 0 ? [{
-					...MOONLIGHT,
-					left: moonlight
-				}] : []
+				lit: () => field > 0
 			};
 		}
-	},
-	EZEKIEL
+	}
 ];
 //#endregion
 //#region src/technomagic/sim/gear.ts
@@ -6173,6 +7155,14 @@ var MOVES = {
 	instinct: INSTINCT$1,
 	despair: DESPAIR$1,
 	doom: DOOM$1,
+	lash: LASH$1,
+	thornbush: THORNBUSH,
+	vine: VINE$1,
+	wrath: WRATH$1,
+	bolt: BOLT$1,
+	prototype: PROTOTYPE,
+	field: FIELD$1,
+	cannon: CANNON$1,
 	hit: HIT
 };
 //#endregion
@@ -7617,7 +8607,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 12;
+var SIM_VERSION = 13;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
