@@ -21,6 +21,8 @@ export interface RunHero {
     uw?: number | null;
     skills?: readonly string[] | null;
     sub?: boolean;
+    /** Its transcendence perks (the bot's ids). */
+    perks?: readonly string[] | null;
 }
 /** The heroes that have a unique weapon, by id; and what one's does at a tier (1 to 5), as the bot says it: null for a hero with none. */
 export declare const UNIQUE_WEAPON_HEROES: readonly string[];

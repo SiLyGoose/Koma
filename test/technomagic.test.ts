@@ -113,7 +113,7 @@ function harness(owned: Record<string, string[]> = {}) {
       ({
         id: 'run',
         seed: 77,
-        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), rewardable: userId !== 'broke' }])),
+        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), perks: new Map(ALL.map((id) => [id, []])), rewardable: userId !== 'broke' }])),
       }) as BegunRun,
     finish: async (_g, begun, _stage, result, steps) => {
       finished.push({ result, ticks: steps });
@@ -353,6 +353,22 @@ test('technomagic: Perseverance’s supports (Clause, Fallen Frey) and its damag
   const plain = replay(wearing([]), autos);
   assert.ok(replay(wearing(['clause', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
   assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, 'the damage dealer: +10% DMG, growing to +25%');
+});
+
+test("technomagic perks: a hero's transcendence perks change its fight, the same every time; one the fight doesn't know is none", () => {
+  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const perked = (perks: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, perks })) });
+  const plain = replay(perked([]), autos);
+  // Transcend 1's on everyone (ATK Up, and Monster Hunting's DMG on the boss): it falls sooner, the same every time.
+  const common = replay(perked(['atk-up', 'monster-hunting']), autos);
+  assert.ok(common.ticks < plain.ticks, 'sooner');
+  assert.deepEqual(replay(perked(['atk-up', 'monster-hunting']), autos, common.sums), common);
+  // Every hero its class's five (Transcend 2): not as without them, and the same every time.
+  const classes = replay(perked(['class-1', 'class-2', 'class-3', 'class-4', 'class-5']), autos);
+  assert.notDeepEqual(classes.sums, plain.sums);
+  assert.deepEqual(replay(perked(['class-1', 'class-2', 'class-3', 'class-4', 'class-5']), autos, classes.sums), classes);
+  assert.deepEqual(replay(perked(['nonsense']), autos).sums, plain.sums);
 });
 
 test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7 and 8', () => {

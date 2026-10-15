@@ -271,6 +271,8 @@ export interface TmRunHero {
   uw?: number | null;
   /** The additional skills of the TechnoMagic gear it wore (ItemCopyDoc.tmSkill), one for each piece. */
   skills?: string[];
+  /** The transcendence perks it had (data/transcend.ts ids). */
+  perks?: string[];
 }
 
 /**

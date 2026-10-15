@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { CONFIG } from '../config.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
+import { keptPerks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { dayKey } from '../lib/events/raid-week.js';
 import { raidGear } from '../lib/game/heroes.js';
@@ -52,7 +53,7 @@ export async function rewardsLeft(guildId: string, userId: string, now: Date = n
 export interface BegunRun {
   id: string;
   seed: number;
-  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; sets: Map<string, TmSetId | null>; uws: Map<string, number | null>; skills: Map<string, string[]>; rewardable: boolean }>;
+  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; sets: Map<string, TmSetId | null>; uws: Map<string, number | null>; skills: Map<string, string[]>; perks: Map<string, string[]>; rewardable: boolean }>;
 }
 
 /**
@@ -75,8 +76,10 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const sets = new Map([...owned].map((id) => [id, loadouts.get(id)?.set ?? null]));
     const uws = new Map([...owned].map((id) => [id, loadouts.get(id)?.uw ?? null]));
     const skills = new Map([...owned].map((id) => [id, loadouts.get(id)?.skills ?? []]));
+    // Its transcendence perks: those picked, as far as it is transcended.
+    const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend)]));
     const rewardable = begun < CONFIG.hero.rewardsPerDay;
-    run.players.set(userId, { owned, gear, sets, uws, skills, rewardable });
+    run.players.set(userId, { owned, gear, sets, uws, skills, perks, rewardable });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,
       run: run.id,
@@ -85,7 +88,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       boss: TM_BOSS,
       seed: run.seed,
       stage,
-      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [] })),
+      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
       version: SIM_VERSION,
       startedAt: now,
       day,

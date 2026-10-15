@@ -297,12 +297,12 @@ export class TechnoMagicRoom {
       solo,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
+        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
       }),
     };
     let engine: FightEngine | string;
     try {
-      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills, sub }) => ({ id, skin, gear, set, uw, skills, sub })) });
+      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills, perks, sub }) => ({ id, skin, gear, set, uw, skills, perks, sub })) });
     } catch (err) {
       engine = err instanceof Error ? err.message : String(err);
     }

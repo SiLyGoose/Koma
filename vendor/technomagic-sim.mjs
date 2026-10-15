@@ -1805,6 +1805,335 @@ var CORBEAU_UP = {
 	art: { uw: "valance" }
 };
 //#endregion
+//#region src/technomagic/sim/perks.ts
+/** What overlaps itself: every ally gains `first` from one hero with it, and `again` more from each other. */
+var aura = (first, again) => ({
+	first,
+	again
+});
+/** Transcend 1: everyone's. */
+var COMMON_PERKS = {
+	"atk-up": {
+		name: "ATK Up",
+		words: "ATK is increased by 30%",
+		bonus: { atk: .3 }
+	},
+	"hp-up": {
+		name: "HP Up",
+		words: "HP is increased by 30%",
+		bonus: { hp: .3 }
+	},
+	"def-up": {
+		name: "DEF Up",
+		words: "DEF is increased by 35%",
+		bonus: { defense: .35 }
+	},
+	"crit-resist-up": {
+		name: "Crit Resist Up",
+		words: "Crit Resistance is increased by 250",
+		bonus: { critResist: 250 }
+	},
+	"monster-hunting": {
+		name: "Monster Hunting",
+		words: "Increases DMG to Non-Hero enemies by 10% and takes 10% reduced DMG",
+		dmg: 1.1,
+		taken: .9
+	}
+};
+var OPPORTUNE_STRIKE = {
+	name: "Opportune Strike",
+	words: "Crit Chance is increased by 150 and Crit DMG is increased by 30%.",
+	bonus: {
+		crit: 150,
+		critDamage: .3
+	}
+};
+var TACTICAL_FORESIGHT = {
+	name: "Tactical Foresight",
+	words: "Dodge rate is increased by 200 and takes 10% reduced DMG.",
+	bonus: { dodge: 200 },
+	taken: .9
+};
+var BLESSING_OF_MANA = {
+	name: "Blessing of Mana",
+	words: "Mana recovery per second rises by 250%.",
+	bonus: { manaRegen: 2.5 }
+};
+var TARGET_WEAKNESS = {
+	name: "Target Weakness",
+	words: "ATK rises by 20% and DEF Penetration rises by 200.",
+	bonus: {
+		atk: .2,
+		pen: 200
+	}
+};
+/**
+* Transcend 2: each class's five, in the bot's order (class-1 to class-5). An archer's are in words only: there is no
+* archer yet, and they come with the first.
+*/
+var CLASS_PERKS = {
+	warrior: [
+		OPPORTUNE_STRIKE,
+		{
+			name: "Warlike",
+			words: "Per each enemy, ATK is increased by 7% and CC Resistance is increased by 30. Can be stacked up to max 10 times.",
+			bonus: {
+				atk: .07,
+				resist: 30
+			}
+		},
+		{
+			name: "Offensive Guard",
+			words: "ATK rises equal to half of P.DEF and received P.DMG decreases by 15%.",
+			atkFromDefense: .5,
+			takenPhysical: .85
+		},
+		TACTICAL_FORESIGHT,
+		{
+			name: "Blood Wrath",
+			words: "Increases Lifesteal by 200 and ATK Spd by 200.",
+			bonus: {
+				lifesteal: 200,
+				speed: 200
+			}
+		}
+	],
+	priest: [
+		{
+			name: "Vengeful Curse",
+			words: "When hit by an enemy, attacker's DMG is reduced by 70% for 3 sec. This effect only activates once in 40 sec, and cannot be dispelled.",
+			curse: {
+				deals: .3,
+				lasts: 3,
+				every: 40
+			}
+		},
+		{
+			name: "Goddess Blessing",
+			words: "All allies' Crit Chance is increased by 150. When overlapped with the same perk, only gains 50.",
+			allies: { crit: aura(150, 50) }
+		},
+		{
+			name: "Inner Peace",
+			words: "Per every sec, all allies' HP is healed by 1%, and CC resistance is increased by 75. When overlapped with the same perk, only 0.3% HP per sec is healed, and CC resistance is increased by 25.",
+			allies: {
+				mend: aura(.01, .003),
+				resist: aura(75, 25)
+			}
+		},
+		BLESSING_OF_MANA,
+		{
+			name: "Swiftness",
+			words: "All allies' ATK Spd is increased by 150. When overlapped with the same perk, only gains 50.",
+			allies: { speed: aura(150, 50) }
+		}
+	],
+	wizard: [
+		{
+			name: "Deception",
+			words: "When receiving DMG, becomes immune to the next 3 hits of DMG. This effect is activated every 40 sec.",
+			immunity: {
+				hits: 3,
+				every: 40
+			}
+		},
+		{
+			name: "Moral Rise",
+			words: "All allies' ATK is increased by 15%. When overlapped with the same perk, only 3% applies.",
+			allies: { atk: aura(.15, .03) }
+		},
+		BLESSING_OF_MANA,
+		{
+			name: "Circuit Burst",
+			words: "Receives 20% more DMG but gains 40% ATK. ACC is increased by 200.",
+			bonus: { atk: .4 },
+			taken: 1.2,
+			acc: 200
+		},
+		{
+			name: "Destruction",
+			words: "Increases Crit Chance by 200 and DEF Penetration by 200.",
+			bonus: {
+				crit: 200,
+				pen: 200
+			}
+		}
+	],
+	assassin: [
+		TARGET_WEAKNESS,
+		{
+			name: "Swift and Nimble",
+			words: "Per every sec, Dodge rate is increased by 100. This effect can be stacked up to max 5 times, and resets upon dodging an attack.",
+			nimble: {
+				dodge: 100,
+				most: 5
+			}
+		},
+		TACTICAL_FORESIGHT,
+		OPPORTUNE_STRIKE,
+		{
+			name: "Vital Detection",
+			words: "Upon Attack, causes the target to take 10% increased All DMG and have their ATK Spd reduced by 100 for 10 sec. This effect activates once every 3 sec.",
+			mark: {
+				name: "Vital Detection",
+				takes: 1.1,
+				lasts: 10,
+				every: 3
+			}
+		}
+	],
+	archer: [
+		{
+			name: "Precision Shot",
+			words: "ATK rises by 20% and ACC rises by 400."
+		},
+		{
+			name: "Eagle Eye",
+			words: "All allies' Penetration is increased by 150, and ACC is increased by 75. When overlapped with the same perk, gains only 50 Penetration and 25 ACC."
+		},
+		{
+			name: "Mortal Wound",
+			words: "Successful Crit Attack reduces enemy recovery rate by 50% and deals Physical continuous DMG every second equal to 20% of ATK. Does not stack."
+		},
+		{
+			name: "Opportune Strike",
+			words: OPPORTUNE_STRIKE.words
+		},
+		{
+			name: "Concentration",
+			words: "Every 6 sec, increases own Crit DMG by 4%. This effect can be stacked up to a max of 20 times and cannot be dispelled."
+		}
+	],
+	knight: [
+		{
+			name: "Experienced Fighter",
+			words: "Attacked targets take 20% more DMG. Does not stack.",
+			mark: {
+				name: "Experienced Fighter",
+				takes: 1.2,
+				lasts: Infinity
+			}
+		},
+		{
+			name: "Excellent Strategy",
+			words: "All allies' CC ACC is increased by 150. When overlapped with the same perk, only 50 applies.",
+			allies: { accuracy: aura(150, 50) }
+		},
+		{
+			name: "Battle Cry",
+			words: "All allies' Max HP is increased by 15%. When overlapped with the same perk, only 5% of effect applies.",
+			allies: { hp: aura(.15, .05) }
+		},
+		{
+			name: "Shield of Protection",
+			words: "Block Rate is increased by 200 and CC resistance is increased by 300.",
+			bonus: {
+				block: 200,
+				resist: 300
+			}
+		},
+		{
+			name: "Swift Move",
+			words: "Increases ATK Spd by 400 and ACC by 200.",
+			bonus: { speed: 400 },
+			acc: 200
+		}
+	],
+	mechanic: [
+		TARGET_WEAKNESS,
+		{
+			name: "Ready Cannons",
+			words: "Mana recovery per second rises by 62.5% per every enemy.",
+			bonus: { manaRegen: .625 }
+		},
+		{
+			name: "Pressure Point",
+			words: "Crit Chance is increased by 400.",
+			bonus: { crit: 400 }
+		},
+		{
+			name: "Special Bullet",
+			words: "Attacked target loses 15% of ATK and 150 of Crit Chance. Does not stack.",
+			mark: {
+				name: "Special Bullet",
+				deals: .85,
+				crit: -.15,
+				lasts: Infinity
+			}
+		},
+		{
+			name: "Amplified Gunpowder",
+			words: "Increases Crit DMG of all allies by 30%. When overlapped with the same perk, only 10% of effect applies.",
+			allies: { critDamage: aura(.3, .1) }
+		}
+	]
+};
+/** The perk `id` names for the hero `def` (null: none, or one this fight doesn't know). */
+function perkOf(id, def) {
+	if (Object.hasOwn(COMMON_PERKS, id)) return COMMON_PERKS[id];
+	const own = /^class-([1-5])$/.exec(id);
+	if (own) return CLASS_PERKS[def.class][Number(own[1]) - 1] ?? null;
+	return def.perks?.[id] ?? null;
+}
+/** A hero's perks as the fight has them: the ones the bot says it has (each once), and what each does. */
+var perksOf = (ids, def) => new Map((ids ?? []).flatMap((id) => {
+	const perk = perkOf(id, def);
+	return perk ? [[id, perk]] : [];
+}));
+/** Every ally's from `wearers` heroes with an aura: the first's, and each other's `again`. */
+var auraOf = (one, wearers) => wearers > 0 ? one.first + one.again * (wearers - 1) : 0;
+/** How many times as much a hero's skill moves deal, by its perks' `skill.dmg` (by the move each skill is). */
+function moveDmg(def, perks) {
+	const out = {};
+	for (const perk of perks.values()) {
+		const ability = perk.skill?.dmg !== void 0 ? def.abilities[perk.skill.index] : void 0;
+		if (ability) out[ability.move] = (out[ability.move] ?? 1) * (perk.skill?.dmg ?? 1);
+	}
+	return out;
+}
+/** What every ally gains, by `key`, from heroes with these perks (each hero's list): each aura by how many wear it. */
+function auraTotal(heroes, key) {
+	const worn = /* @__PURE__ */ new Map();
+	for (const perks of heroes) for (const perk of perks) {
+		const aura = perk.allies?.[key];
+		if (!aura) continue;
+		const one = worn.get(perk.name) ?? {
+			aura,
+			wearers: 0
+		};
+		one.wearers++;
+		worn.set(perk.name, one);
+	}
+	let total = 0;
+	for (const { aura, wearers } of worn.values()) total += auraOf(aura, wearers);
+	return total;
+}
+/** A skill as a hero's perks for it change it (its cost and cooldown); with none, as it is. */
+function tweaked(ability, perks) {
+	if (perks.length === 0) return ability;
+	let { cost, cooldown } = ability;
+	for (const { skill } of perks) {
+		cost += skill?.cost ?? 0;
+		cooldown = (cooldown + (skill?.cooldown ?? 0)) * (skill?.cooldownShare ?? 1);
+	}
+	return {
+		...ability,
+		cost: Math.max(0, cost),
+		cooldown: Math.max(0, cooldown)
+	};
+}
+/** What a hero's gear gives it, with what its perks add to its stats (as gear does). */
+function withPerks(gear, perks) {
+	const out = { ...gear };
+	for (const perk of perks) for (const [stat, more] of Object.entries(perk.bonus ?? {})) out[stat] = (out[stat] ?? 0) + more;
+	return out;
+}
+/** A hero's stats (its gear's and its perks' in them) with what its perks make of them besides: Offensive Guard's ATK from its defense. */
+function perkedStats(stats, perks) {
+	for (const perk of perks) if (perk.atkFromDefense) stats.atk += perk.atkFromDefense * stats.physical;
+	return stats;
+}
+//#endregion
 //#region src/technomagic/sim/fight.ts
 /** The additional skills that come round again every so many seconds: each first comes once that long has gone. */
 var EVERY = [
@@ -1814,6 +2143,18 @@ var EVERY = [
 	"focus-2",
 	"focus-3"
 ];
+/** The boss's defenses as blows with `acc` points of ACC find them: so much less likely dodged or blocked. */
+var seenPast = (stats, acc) => ({
+	...stats,
+	dodge: {
+		physical: Math.max(0, stats.dodge.physical - acc),
+		magical: Math.max(0, stats.dodge.magical - acc)
+	},
+	block: {
+		physical: Math.max(0, stats.block.physical - acc),
+		magical: Math.max(0, stats.block.magical - acc)
+	}
+});
 /** What knocks a hero down: shown on its card, with how long it has left. */
 var KNOCKED = {
 	name: "Knocked down",
@@ -1853,12 +2194,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let mended = 0;
 	let mendShown = 0;
 	const party = [];
-	const fighters = heroes.map(({ def: hero, skin = 0, gear = {}, set: wearing = null, uw = null, skills: worn = null, sub = false }, index) => {
+	const perkSets = heroes.map(({ def: hero, perks }) => perksOf(perks, hero));
+	/** What every ally gains from the start, by perks like Battle Cry (each wearer's: the first in full, the rest each `again`). */
+	const startAura = (key) => auraTotal(perkSets.map((perks) => [...perks.values()]), key);
+	const battleCry = startAura("hp");
+	const fighters = heroes.map(({ def: hero, skin = 0, gear: worn = {}, set: wearing = null, uw = null, skills: tm = null, sub = false }, index) => {
 		const set = setOf(wearing, hero.class);
 		const tier = uniqueOf(hero.id, uw);
-		const skills = skillsOf(worn);
+		const skills = skillsOf(tm);
 		const n = (id) => skills[id] ?? 0;
-		const stats = geared(hero.stats, gear);
+		const perks = perkSets[index];
+		const gear = withPerks(worn, perks.values());
+		if (battleCry > 0) gear.hp = (gear.hp ?? 0) + battleCry;
+		const stats = perkedStats(geared(hero.stats, gear), perks.values());
 		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY.pen;
 		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY.resist;
 		stats.hp *= 1 + SKILL.vitality.hp * n("vitality");
@@ -1881,11 +2229,26 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		};
 		const motion = motionOf(hero);
 		const name = hero.skins[skin] ?? hero.skins[0] ?? hero.name;
+		const defs = [...perks.values()];
+		const product = (of) => defs.reduce((times, perk) => times * (of(perk) ?? 1), 1);
 		return {
 			index,
 			id: hero.id,
 			name,
 			def: hero,
+			perks: new Set(perks.keys()),
+			perkDefs: defs,
+			abilities: hero.abilities.map((ability, i) => tweaked(ability, defs.filter((perk) => perk.skill?.index === i))),
+			moveDmg: moveDmg(hero, perks),
+			perkDmg: product((perk) => perk.dmg),
+			perkTaken: {
+				physical: product((perk) => perk.taken) * product((perk) => perk.takenPhysical),
+				magical: product((perk) => perk.taken)
+			},
+			acc: defs.reduce((sum, perk) => sum + (perk.acc ?? 0), 0),
+			perkWaits: {},
+			immune: 0,
+			nimble: 0,
 			stats,
 			critTimes: 2 + (gear.critDamage ?? 0) + SKILL.ruthless.critDamage * n("ruthless"),
 			healTimes: 1 + (gear.heal ?? 0),
@@ -1957,8 +2320,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 		return true;
 	}
-	/** The hero whose attack's blow is landing right now (null: none: a skill's, or something else's). */
+	/** The hero whose attack's blow is landing right now (null: none: a skill's, or something else's); and whose move, and which. */
 	let attacking = null;
+	let landing = null;
 	/** How long the boss has been still; what each of its parts (heads) is doing, and will do after; whom it goes for, and whether it was busy last step. */
 	let idle = 0;
 	const going = /* @__PURE__ */ new Map();
@@ -2001,6 +2365,26 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const wearing = (id, role) => field.filter((on) => on.hp > 0 && !away(on.statuses) && on.set?.id === id && on.set.role === role);
 	/** How many of an additional skill the heroes on the field, standing and in the fight, have between them (one that gives every ally something). */
 	const among = (id) => field.reduce((count, on) => count + (on.hp > 0 && !away(on.statuses) ? on.skills[id] ?? 0 : 0), 0);
+	/** What every ally gains, as this step began, from the perks of the heroes on the field and standing (./perks.ts's auras). */
+	const auras = {
+		atk: 0,
+		crit: 0,
+		critDamage: 0,
+		speed: 0,
+		accuracy: 0,
+		resist: 0,
+		mend: 0
+	};
+	function aurasNow() {
+		const standing = field.filter((on) => on.hp > 0 && !away(on.statuses)).map((on) => on.perkDefs);
+		for (const key of Object.keys(auras)) auras[key] = auraTotal(standing, key);
+	}
+	/** Whether a hero's perk that waits between times (by its name) comes now: then it waits again, `again` seconds. */
+	function perkDue(fighter, name, again) {
+		if ((fighter.perkWaits[name] ?? 0) > 0) return false;
+		fighter.perkWaits[name] = again;
+		return true;
+	}
 	/** How many of an additional skill a hero has. */
 	const has = (fighter, id) => fighter.skills[id] ?? 0;
 	const bears = (fighter, name) => fighter.statuses.some((status) => status.name === name);
@@ -2008,7 +2392,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	* How many times its ATK a hero's blows, heals and shields go by, for now: every Hope and Perseverance support
 	* on the field and every War Cry among them; and its own Momentum's stacks and Desperation.
 	*/
-	const atkTimes = (by) => (1 + HOPE.atk * wearing("hope", "support").length + PERSEVERANCE.atk * wearing("perseverance", "support").length + SKILL["war-cry"].atk * among("war-cry")) * (1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum")) * (bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1);
+	const atkTimes = (by) => (1 + HOPE.atk * wearing("hope", "support").length + PERSEVERANCE.atk * wearing("perseverance", "support").length + SKILL["war-cry"].atk * among("war-cry") + auras.atk) * (1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum")) * (bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1);
 	/**
 	* How many times as much DMG a hero's blows deal besides (not its heals): Perseverance's damage dealer, growing as
 	* the fight goes on; and its own Vigor while its health is high, Persistence growing, and Fundamentals on its attack.
@@ -2110,10 +2494,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			"focus-3"
 		]) {
 			const { skill, cooldown, every } = SKILL[id];
-			const ability = fighter.def.abilities[skill];
+			const ability = fighter.abilities[skill];
 			if (ability && due(fighter, id, every)) fighter.cooldowns[skill] = Math.max(0, fighter.cooldowns[skill] - ability.cooldown * cooldown * n(id));
 		}
-		if (full && due(fighter, "overflow", SKILL.overflow.wait)) for (const ally of field) ally.cooldowns = ally.cooldowns.map((left, i) => Math.max(0, left - (ally.def.abilities[i]?.cooldown ?? 0) * SKILL.overflow.cooldown * n("overflow")));
+		if (full && due(fighter, "overflow", SKILL.overflow.wait)) for (const ally of field) ally.cooldowns = ally.cooldowns.map((left, i) => Math.max(0, left - (ally.abilities[i]?.cooldown ?? 0) * SKILL.overflow.cooldown * n("overflow")));
 		if (full && due(fighter, "surge", SKILL.surge.wait)) put(fighter.statuses, {
 			name: SURGE_UP.name,
 			left: SKILL.surge.lasts,
@@ -2125,6 +2509,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			left: SKILL.desperation.lasts,
 			shown: DESPERATION_UP
 		});
+	}
+	/** A step's time passes for a hero's perks: their waits run down; and, every second (on the field, standing), Inner Peace mends it and Swift and Nimble stacks. */
+	function perkTick(fighter, dt) {
+		for (const name of Object.keys(fighter.perkWaits)) fighter.perkWaits[name] = fighter.perkWaits[name] - dt;
+		if ((tick + 1) % SECOND !== 0 || !field.includes(fighter) || fighter.hp <= 0 || away(fighter.statuses)) return;
+		if (auras.mend > 0) sim.heal(fighter, auras.mend * fighter.stats.hp);
+		const nimble = fighter.perkDefs.find((perk) => perk.nimble)?.nimble;
+		if (nimble) fighter.nimble = Math.min(nimble.most, fighter.nimble + 1);
 	}
 	/** A hero wielding its own unique weapon has used a skill (./unique.ts): Clause's every third, and Fallen Frey's every one. */
 	function uniqueCast(fighter) {
@@ -2179,10 +2571,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					part: index
 				});
 				attacking = move === fighter.attack ? fighter : null;
+				landing = {
+					by: fighter,
+					move
+				};
 				const own = fighter.part.lands[move];
 				if (own) own(index);
 				else common[move]?.(fighter, index);
 				attacking = null;
+				landing = null;
 			}
 			if (fighter.doing !== doing || result) return;
 		}
@@ -2264,9 +2661,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (foe.hp <= 0 || result) return false;
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
-			const critical = roll() < share(points) + crit + critting(by.statuses);
-			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses);
-			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1), type, foe.def.stats, pen + pierce + piercing(by.statuses), roll);
+			const critical = roll() < share(points + auras.crit) + crit + critting(by.statuses);
+			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage;
+			const skilled = landing?.by === by ? by.moveDmg[landing.move] ?? 1 : 1;
+			const against = by.acc > 0 ? seenPast(foe.def.stats, by.acc) : foe.def.stats;
+			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1) * by.perkDmg * skilled, type, against, pen + pierce + piercing(by.statuses), roll);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -2277,6 +2676,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				return false;
 			}
 			events.push({ kind: "boss-hit" });
+			const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.name, perk.mark.every)));
 			const dealt = deathless ? taken * taking(foe.statuses, type) : Math.min(foe.hp, taken * taking(foe.statuses, type));
 			foe.hp -= dealt;
 			if (deathless && foe.hp <= 0) foe.hp = foe.maxHp;
@@ -2286,6 +2686,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				on: "boss",
 				amount: dealt,
 				type: blocked ? "blocked" : critical ? "crit" : "hit"
+			});
+			for (const { mark } of marking) if (mark) put(foe.statuses, {
+				name: mark.name,
+				left: mark.lasts,
+				...mark.takes && { takes: mark.takes },
+				...mark.deals && { deals: mark.deals },
+				...mark.crit && { crit: mark.crit },
+				shown: "curse"
 			});
 			if (by.lifesteal > 0 && by.hp > 0) {
 				const stolen = Math.min(dealt * share(by.lifesteal) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
@@ -2330,6 +2738,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		target: aimed,
 		hurt(target, amount, blockable = true) {
 			if (target.hp <= 0 || away(target.statuses) || result) return 0;
+			if (target.immune > 0) {
+				target.immune--;
+				events.push({
+					kind: "number",
+					on: target.index,
+					amount: 0,
+					type: "immune"
+				});
+				return 0;
+			}
 			const type = foe.def.stats.deals;
 			const guarded = 1 + HOPE.defense * wearing("hope", "support").length + PERSEVERANCE.defense * wearing("perseverance", "support").length + SKILL.bastion.defense * among("bastion");
 			const walled = elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0;
@@ -2342,13 +2760,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					magical: target.stats.block.magical + walled + blocking(target.statuses, "magical")
 				}
 			};
-			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type));
+			const nimble = target.nimble > 0 ? target.nimble * (target.perkDefs.find((perk) => perk.nimble)?.nimble?.dodge ?? 0) : 0;
+			if (nimble > 0) stands.dodge = {
+				physical: stands.dodge.physical + nimble,
+				magical: stands.dodge.magical + nimble
+			};
+			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type)) + critting(foe.statuses);
 			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
 				block: NONE,
 				dodge: NONE
 			}, 0, roll);
 			if (dodged) {
+				target.nimble = 0;
 				events.push({
 					kind: "number",
 					on: target.index,
@@ -2363,7 +2787,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				who: target.index,
 				blocked
 			});
-			let dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1) * (target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1);
+			let dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1) * (target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1) * target.perkTaken[type];
 			dealt *= 1 - Math.min(.9, SKILL.steadfast.taken * target.stacks.steadfast * has(target, "steadfast"));
 			const ward = type === "physical" ? SKILL["physical-ward"] : SKILL["magical-ward"];
 			const warded = has(target, type === "physical" ? "physical-ward" : "magical-ward");
@@ -2417,6 +2841,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				target.reserved = null;
 			}
 			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * lost / target.stats.hp);
+			for (const perk of target.perkDefs) {
+				if (perk.curse && perkDue(target, perk.name, perk.curse.every)) put(foe.statuses, {
+					name: perk.name,
+					left: perk.curse.lasts,
+					deals: perk.curse.deals,
+					shown: "curse"
+				});
+				if (perk.immunity && dealt > 0 && target.hp > 0 && perkDue(target, perk.name, perk.immunity.every)) target.immune = perk.immunity.hits;
+			}
 			if (blocked) {
 				target.part.blocked?.();
 				if (target.hp > 0 && due(target, "parry", SKILL.parry.wait)) target.mana = Math.min(MAX_MANA, target.mana + SKILL.parry.mana * has(target, "parry"));
@@ -2447,7 +2880,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity"));
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share(fighter.stats.resist + resisting(fighter.statuses))) * shorter,
+				left: seconds * (1 - share(fighter.stats.resist + resisting(fighter.statuses) + auras.resist)) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});
@@ -2460,7 +2893,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
-			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(foe.def.stats.resist - by.accuracy)) : 1);
+			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(foe.def.stats.resist - by.accuracy - auras.accuracy)) : 1);
 			going.clear();
 			foe.stunned = Math.max(foe.stunned, lasts);
 			events.push({
@@ -2494,8 +2927,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			return sim.slot(fighter, index) !== null && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && fighter.cooldowns[index] <= 0;
 		},
 		slot(fighter, index) {
-			if (index < 0 || index >= fighter.def.abilities.length) return null;
-			return fighter.part.slot ? fighter.part.slot(index) : fighter.def.abilities[index] ?? null;
+			if (index < 0 || index >= fighter.abilities.length) return null;
+			return fighter.part.slot ? fighter.part.slot(index) : fighter.abilities[index] ?? null;
 		},
 		input(input) {
 			pending.push(input);
@@ -2558,6 +2991,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				mix(fighter.stacks.momentum + fighter.stacks.steadfast);
 				mix(fighter.doing ? fighter.doing.t : -1);
 				mix(fighter.reserved ?? -1);
+				mix(fighter.immune + fighter.nimble);
 				for (const left of fighter.cooldowns) mix(left);
 			}
 			for (const n of random.state()) mix(n);
@@ -2570,6 +3004,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (result) return;
 			const dt = TICK;
 			elapsed += dt;
+			aurasNow();
 			idle = bossBusy() ? 0 : idle + dt;
 			if (bossAuto && idle >= 1.1) bossUse((def.attacks[Math.floor(roll() * def.attacks.length)] ?? def.attacks[0])?.name ?? "");
 			for (const fighter of fighters) {
@@ -2579,6 +3014,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				fighter.shieldLeft = Math.max(0, fighter.shieldLeft - dt);
 				if (fighter.shieldLeft <= 0) fighter.shield = 0;
 				skillTick(fighter, dt);
+				perkTick(fighter, dt);
 				fighter.part.tick?.(dt);
 				if (result) return;
 			}
@@ -2603,7 +3039,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			for (const on of field) {
 				on.rested = on.doing ? 0 : on.rested + dt;
 				if (on.auto && on.reserved === null) {
-					for (let index = on.def.abilities.length - 1; index >= 0 && on.reserved === null; index--) if (sim.ready(on, index)) on.reserved = index;
+					for (let index = on.abilities.length - 1; index >= 0 && on.reserved === null; index--) if (sim.ready(on, index)) on.reserved = index;
 				}
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
 				if (!on.doing && on.hp > 0 && !bound(on.statuses)) {
@@ -2618,7 +3054,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (result) return;
 			const reform = Math.min(1, dt * 4);
 			for (const on of field) {
-				on.haste = (1 + share(on.stats.speed)) * (on.part.pace?.() ?? 1) * pacing(on.statuses);
+				on.haste = (1 + share(on.stats.speed + auras.speed)) * (on.part.pace?.() ?? 1) * pacing(on.statuses);
 				advance(on, dt * on.haste);
 				if (result) return;
 				const [x, z] = spots.get(on);
@@ -2864,7 +3300,7 @@ var ANNETTE = {
 				zap() {
 					fight.hit(self, ZAP.blow);
 					if (over <= 0) return;
-					self.def.abilities.forEach((ability, i) => {
+					self.abilities.forEach((ability, i) => {
 						self.cooldowns[i] = Math.max(0, self.cooldowns[i] - ability.cooldown * CHARGE$1.cooldown);
 					});
 				},
@@ -3639,7 +4075,7 @@ var GREMORY = {
 	attack: "nudge",
 	join(fight, self) {
 		/** Which of her skills are sealed; her Mana Charge; and how long her unique weapon is filling her mana for yet. */
-		const sealed = self.def.abilities.map(() => false);
+		const sealed = self.abilities.map(() => false);
 		let charges = 0;
 		let filling = 0;
 		const tier = self.unique?.tier ?? null;
@@ -3665,7 +4101,7 @@ var GREMORY = {
 			},
 			slot(index) {
 				if (sealed.every(Boolean)) return SLEEP_SKILL;
-				return sealed[index] ? null : self.def.abilities[index] ?? null;
+				return sealed[index] ? null : self.abilities[index] ?? null;
 			},
 			used(index, ability) {
 				if (ability !== SLEEP_SKILL) {
@@ -4724,7 +5160,7 @@ var SERIA = {
 					});
 				}
 			},
-			slot: (index) => index === 0 && blossom > 0 ? BLOSSOM_SKILL : self.def.abilities[index] ?? null,
+			slot: (index) => index === 0 && blossom > 0 ? BLOSSOM_SKILL : self.abilities[index] ?? null,
 			used(index, ability) {
 				if (index === 0 && ability === BLOSSOM_SKILL) {
 					blossom = 0;
@@ -5030,7 +5466,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "6c6b7c8d2407";
+var SIM_VERSION = "a0cd98a41d86";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
@@ -5110,6 +5546,7 @@ function startRaid(run) {
 		const gear = {};
 		for (const [stat, n] of Object.entries(hero.gear)) if (Number.isFinite(n)) gear[stat] = n;
 		const skills = Array.isArray(hero.skills) ? hero.skills.filter((id) => typeof id === "string") : [];
+		const perks = Array.isArray(hero.perks) ? hero.perks.filter((id) => typeof id === "string") : [];
 		entries.push({
 			def,
 			skin: hero.skin,
@@ -5117,7 +5554,8 @@ function startRaid(run) {
 			set: typeof hero.set === "string" ? hero.set : null,
 			uw: typeof hero.uw === "number" ? hero.uw : null,
 			skills,
-			sub: run.solo === true && hero.sub === true
+			sub: run.solo === true && hero.sub === true,
+			perks
 		});
 	}
 	const sim = makeSim({
