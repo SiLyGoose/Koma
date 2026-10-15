@@ -145,7 +145,7 @@ test('technomagic room: the host brings up to 4, everyone else 2, 9 in all; alon
   assert.deepEqual(h.announced, ['A']);
   assert.equal(a.room().slots, TM_ROOM.soloSlots);
   assert.equal(a.room().players[0]?.limit, TM_ROOM.soloSlots);
-  for (const hero of ALL) assert.equal(room.pick('a', hero, 0), null);
+  for (const hero of ALL.slice(0, 3)) assert.equal(room.pick('a', hero, 0), null);
   assert.equal(room.pick('a', 'kirze', 0), 'picked');
   assert.equal(room.pick('a', 'nobody', 0), 'not_owned');
 

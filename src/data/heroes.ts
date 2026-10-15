@@ -19,6 +19,7 @@ export const HEROES: readonly HeroDef[] = [
   { id: 'kirze', name: 'Kirze', class: 'warrior' },
   { id: 'clause', name: 'Clause', class: 'knight' },
   { id: 'fallen-frey', name: 'Fallen Frey', class: 'priest' },
+  { id: 'gremory', name: 'Gremory', class: 'assassin' },
 ];
 
 export const HEROES_BY_ID: ReadonlyMap<string, HeroDef> = new Map(HEROES.map((hero) => [hero.id, hero]));

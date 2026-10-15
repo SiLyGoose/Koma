@@ -98,6 +98,72 @@ var FALLEN_FREY_ASSETS = {
 	}]
 };
 //#endregion
+//#region src/technomagic/assets/heroes/gremory.ts
+/**
+* Her cube, floating under her, big enough to lie on: she lies on her side along its top, her head at its back and
+* her right knee over its front edge (its top just under her as she lies: her moves, ../../heroes/gremory/moves.ts,
+* keep her there). The same for both her skins.
+*/
+var CUBE = {
+	at: [
+		0,
+		.52,
+		-.1
+	],
+	size: 1.1
+};
+var GREMORY_ASSETS = {
+	name: "Gremory",
+	folder: "heroes/gremory",
+	skills: {
+		from: "https://kingsraid.shodyra.com/static/images/94/",
+		files: [
+			"s1.png",
+			"s2.png",
+			"s3.png",
+			"s4.png"
+		]
+	},
+	skins: [{
+		name: "Gremory",
+		portrait: {
+			file: "Gremory.png",
+			crop: {
+				x: 315,
+				y: 132,
+				size: 80
+			},
+			head: {
+				x: 327,
+				y: 142,
+				size: 56
+			}
+		},
+		model: {
+			kind: "parts",
+			parts: ["Hero_Gremory_Vari05_Normal", "Hero_Gremory_Vari05_Hair"],
+			repaint: {
+				from: "Hero_Gremory_Vari05_Normal",
+				to: "Hero_Gremory_Vari05_Hood"
+			},
+			floating: {
+				model: "Hero_Gremory_Vari05_Weapon",
+				...CUBE
+			}
+		}
+	}, {
+		name: "Gremory_DailyLook",
+		model: {
+			kind: "parts",
+			parts: ["Hero_Gremory_Cos21DailyLook_Body"],
+			floating: {
+				model: "Hero_Gremory_Cos21DailyLook_Weapon",
+				...CUBE
+			}
+		}
+	}]
+};
+//#endregion
 //#region src/technomagic/assets/heroes/kirze.ts
 var KIRZE_ASSETS = {
 	name: "Kirze",
@@ -1040,7 +1106,7 @@ var VOW = {
 	lasts: 8,
 	mana: 300
 };
-var art$2 = (index) => skillPicture(CLAUSE_ASSETS, index);
+var art$3 = (index) => skillPicture(CLAUSE_ASSETS, index);
 var VOW_OF_KNIGHTS = {
 	attack: 1,
 	crit: 0,
@@ -1049,7 +1115,7 @@ var VOW_OF_KNIGHTS = {
 		name: "Vow of Knights",
 		about: "Passive. When he blocks he strikes back: the boss hits 20% less hard for 8 seconds, and he gains 300 mana.",
 		icon: "🛡️",
-		image: art$2(3)
+		image: art$3(3)
 	}
 };
 /** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
@@ -1057,7 +1123,7 @@ var GUARDED$1 = {
 	name: "Guardian Shield",
 	about: "Takes 25% less from the boss.",
 	icon: "✨",
-	image: art$2(2)
+	image: art$3(2)
 };
 var CLAUSE = {
 	id: "clause",
@@ -1072,7 +1138,7 @@ var CLAUSE = {
 		{
 			name: "Cut Ground",
 			icon: "⚔️",
-			image: art$2(0),
+			image: art$3(0),
 			move: "slam",
 			cooldown: 9,
 			cost: 2
@@ -1080,7 +1146,7 @@ var CLAUSE = {
 		{
 			name: "Shield Strike",
 			icon: "🛡️",
-			image: art$2(1),
+			image: art$3(1),
 			move: "bash",
 			cooldown: 8,
 			cost: 1
@@ -1088,7 +1154,7 @@ var CLAUSE = {
 		{
 			name: "Guardian Shield",
 			icon: "✨",
-			image: art$2(2),
+			image: art$3(2),
 			move: "guard",
 			cooldown: 12,
 			cost: 2
@@ -1153,6 +1219,7 @@ var REST = {
 	jump: 0,
 	flip: 0,
 	spin: 0,
+	roll: 0,
 	hipX: 0,
 	hipY: 0,
 	hipZ: 0,
@@ -1178,6 +1245,8 @@ var REST = {
 	rhZ: 0,
 	bTurn: 0,
 	bUp: 0,
+	rock: 0,
+	spread: 0,
 	hipX: -.045,
 	hipY: -.02,
 	hipTurn: -.12,
@@ -1301,7 +1370,7 @@ var LOW = {
 //#endregion
 //#region src/technomagic/heroes/fallen-frey/moves.ts
 /** How she stands: upright, her weight on both feet, her weapon held before her at her waist, her right hand loose at her side. */
-var STAND = {
+var STAND$1 = {
 	...REST,
 	hipX: 0,
 	hipY: -.01,
@@ -1322,7 +1391,7 @@ var STAND = {
 	bUp: -1.3
 };
 /** A pose of hers, for a track: what is added to how she stands. */
-var as = (pose) => at(pose, STAND);
+var as$1 = (pose) => at(pose, STAND$1);
 /** Off the floor, her feet hanging, toes down. */
 var HOVER = {
 	hipX: 0,
@@ -1340,7 +1409,7 @@ var HOVER = {
 var SMITE$1 = {
 	keys: [
 		[0, {}],
-		[.22, as({
+		[.22, as$1({
 			twist: .35,
 			lean: -.06,
 			nod: -.05,
@@ -1351,7 +1420,7 @@ var SMITE$1 = {
 			rhY: .05,
 			rhZ: .1
 		})],
-		[.38, as({
+		[.38, as$1({
 			...LOW,
 			twist: -.4,
 			lean: .18,
@@ -1362,7 +1431,7 @@ var SMITE$1 = {
 			rhY: -.04,
 			rhZ: -.12
 		})],
-		[.6, as({
+		[.6, as$1({
 			...LOW,
 			hipY: -.11,
 			twist: -.42,
@@ -1381,7 +1450,7 @@ var SMITE$1 = {
 var LIGHT$1 = {
 	keys: [
 		[0, {}],
-		[.25, as({
+		[.25, as$1({
 			...COILED,
 			lean: .2,
 			nod: .15,
@@ -1392,7 +1461,7 @@ var LIGHT$1 = {
 			rhY: .08,
 			rhZ: .24
 		})],
-		[.55, as({
+		[.55, as$1({
 			...TALL,
 			lean: -.18,
 			nod: -.3,
@@ -1404,7 +1473,7 @@ var LIGHT$1 = {
 			rhZ: .06,
 			bUp: 1.4
 		})],
-		[.8, as({
+		[.8, as$1({
 			...TALL,
 			lean: -.2,
 			nod: -.32,
@@ -1416,7 +1485,7 @@ var LIGHT$1 = {
 			rhZ: .06,
 			bUp: 1.45
 		})],
-		[1.05, as({
+		[1.05, as$1({
 			...LOW,
 			twist: -.3,
 			lean: .25,
@@ -1428,7 +1497,7 @@ var LIGHT$1 = {
 			rhZ: .4,
 			bUp: 0
 		})],
-		[1.25, as({
+		[1.25, as$1({
 			...LOW,
 			hipY: -.11,
 			twist: -.32,
@@ -1448,7 +1517,7 @@ var LIGHT$1 = {
 var BLESSING$1 = {
 	keys: [
 		[0, {}],
-		[.3, as({
+		[.3, as$1({
 			...COILED,
 			lean: .25,
 			nod: .25,
@@ -1460,7 +1529,7 @@ var BLESSING$1 = {
 			rhZ: .2,
 			bUp: -.4
 		})],
-		[.6, as({
+		[.6, as$1({
 			...TALL,
 			jump: .15,
 			lean: -.15,
@@ -1474,7 +1543,7 @@ var BLESSING$1 = {
 			bTurn: -1.4,
 			bUp: .5
 		})],
-		[.95, as({
+		[.95, as$1({
 			...TALL,
 			jump: .18,
 			lean: -.17,
@@ -1509,7 +1578,7 @@ var STRETCHED = {
 var VENGEANCE$1 = {
 	keys: [
 		[0, {}],
-		[.3, as({
+		[.3, as$1({
 			...COILED,
 			lean: .2,
 			lhX: .16,
@@ -1519,14 +1588,14 @@ var VENGEANCE$1 = {
 			rhY: .05,
 			rhZ: .1
 		})],
-		[.65, as({
+		[.65, as$1({
 			...HOVER,
 			...STRETCHED,
 			jump: .9,
 			lean: .04,
 			nod: -.05
 		})],
-		[1.8, as({
+		[1.8, as$1({
 			...HOVER,
 			...STRETCHED,
 			jump: 1.05,
@@ -1535,14 +1604,14 @@ var VENGEANCE$1 = {
 			lhY: .35,
 			rhY: .29
 		})],
-		[3.05, as({
+		[3.05, as$1({
 			...HOVER,
 			...STRETCHED,
 			jump: .95,
 			lean: .04,
 			nod: -.05
 		})],
-		[3.45, as({
+		[3.45, as$1({
 			...COILED,
 			lean: .15
 		})],
@@ -1578,7 +1647,7 @@ var TAINTED = {
 	every: 1,
 	most: 2
 };
-var art$1 = (index) => skillPicture(FALLEN_FREY_ASSETS, index);
+var art$2 = (index) => skillPicture(FALLEN_FREY_ASSETS, index);
 var TAINTED_ANGEL = {
 	attack: 1,
 	crit: 0,
@@ -1588,7 +1657,7 @@ var TAINTED_ANGEL = {
 		name: "Tainted Angel",
 		about: "Passive. She takes 15% more from the boss, but her mana fills far faster; at full mana she gains Darkened Power every second (2 at most).",
 		icon: "🌑",
-		image: art$1(3)
+		image: art$2(3)
 	}
 };
 /** What her full mana gives her: shown beside her passive, with how many she has. */
@@ -1602,7 +1671,7 @@ var BLESSED = {
 	name: "Blessing of Doom",
 	about: "A shield takes the boss’s blows first, and its attacks are quickened.",
 	icon: "🔮",
-	image: art$1(1)
+	image: art$2(1)
 };
 /** What Heaven's Vengeance leaves on the boss. */
 var EXPOSED = "Heaven’s Vengeance";
@@ -1619,7 +1688,7 @@ var FALLEN_FREY = {
 		{
 			name: "Light of Doom",
 			icon: "✴️",
-			image: art$1(0),
+			image: art$2(0),
 			move: "light",
 			cooldown: 9,
 			cost: 2
@@ -1627,7 +1696,7 @@ var FALLEN_FREY = {
 		{
 			name: "Blessing of Doom",
 			icon: "🔮",
-			image: art$1(1),
+			image: art$2(1),
 			move: "blessing",
 			cooldown: 17,
 			cost: 3
@@ -1635,7 +1704,7 @@ var FALLEN_FREY = {
 		{
 			name: "Heaven’s Vengeance",
 			icon: "☄️",
-			image: art$1(2),
+			image: art$2(2),
 			move: "vengeance",
 			cooldown: 22,
 			cost: 5
@@ -1643,7 +1712,7 @@ var FALLEN_FREY = {
 	],
 	passive: TAINTED_ANGEL,
 	attack: "smite",
-	stands: STAND,
+	stands: STAND$1,
 	join(fight, self) {
 		/** Her Darkened Power, and how long her mana has been full toward the next. */
 		let stacks = 0;
@@ -1723,6 +1792,549 @@ var FALLEN_FREY = {
 				...DARKENED,
 				count: stacks
 			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/unique.ts
+/** Each weapon's numbers at tiers 1 to 5 (index 0 is tier 1). */
+var EXIAN = {
+	name: "The Guardian, Exian",
+	every: 3,
+	lasts: 15,
+	boost: [
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	]
+};
+var ELICIPIRA = {
+	name: "Judgment Edge, Elicipira",
+	chance: .04,
+	boss: 2,
+	blow: [
+		6e3,
+		7200,
+		8600,
+		1e4,
+		12500
+	]
+};
+var ROSMERTA = {
+	name: "Angel’s Despair, Rosmerta",
+	lasts: 7,
+	heal: [
+		20,
+		24,
+		29,
+		35,
+		42
+	],
+	pen: [
+		240,
+		290,
+		350,
+		420,
+		500
+	]
+};
+/** Its attack speed (points), its heal and mana on sleeping (shares of her max HP and max mana, the mana over `over` seconds), and the ATK each Mana Charge adds. */
+var PIGRITIA = {
+	name: "Gateway to Purgatory, Pigritia",
+	speed: [
+		240,
+		290,
+		350,
+		420,
+		500
+	],
+	heal: [
+		.24,
+		.29,
+		.35,
+		.42,
+		.5
+	],
+	mana: [
+		.24,
+		.29,
+		.35,
+		.42,
+		.5
+	],
+	over: 2,
+	charge: [
+		.048,
+		.058,
+		.07,
+		.084,
+		.1
+	]
+};
+/** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
+var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
+var pct = (share) => `${Math.round(share * 100)}%`;
+/** To a tenth of a percent (4.8%). */
+var fine = (share) => `${Math.round(share * 1e3) / 10}%`;
+/** What each hero's weapon does at a tier, as its card and the heroes page say it. */
+var ABOUT = {
+	clause: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
+	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
+	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier) / 1e3)} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`,
+	gremory: (tier) => `+${atTier(PIGRITIA.speed, tier)} attack speed. Each time she sleeps she is healed by ${pct(atTier(PIGRITIA.heal, tier))} of her max HP and recovers ${pct(atTier(PIGRITIA.mana, tier))} of her mana over ${PIGRITIA.over} seconds, and each Mana Charge gives her ${fine(atTier(PIGRITIA.charge, tier))} more ATK.`
+};
+EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name;
+/** Each weapon's picture: its item's (the bot's catalog id, public/gear/items/weapons/). */
+var PICTURES = {
+	clause: "/gear/items/weapons/the-guardian-exian.png",
+	kirze: "/gear/items/weapons/judgment-edge-elicipira.png",
+	"fallen-frey": "/gear/items/weapons/angels-despair-rosmerta.png",
+	gremory: "/gear/items/weapons/gateway-to-purgatory-pigritia.png"
+};
+/** The heroes that have a unique weapon, by id. */
+var UNIQUE_HEROES = Object.keys(ABOUT);
+/** What a hero's unique weapon does at a tier (null: it has none). */
+var uniqueAbout = (hero, tier) => ABOUT[hero]?.(tier) ?? null;
+/** A hero's unique weapon as it fights: its tier (null: none, or not its own, or one this fight doesn't know). */
+function uniqueOf(hero, tier) {
+	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
+	return Math.min(5, Math.max(1, Math.floor(tier)));
+}
+/** What Exian gives Clause for a while, and what Rosmerta gives Fallen Frey. */
+var EXIAN_UP = {
+	name: "The Guardian, Exian",
+	about: "ATK and defense higher.",
+	icon: "🛡️",
+	image: PICTURES.clause
+};
+var ROSMERTA_UP = {
+	name: "Angel’s Despair, Rosmerta",
+	about: "Sees past more of the boss’s defense.",
+	icon: "🖤",
+	image: PICTURES["fallen-frey"]
+};
+//#endregion
+//#region src/technomagic/heroes/gremory/moves.ts
+/** How far back she is turned, lying, her head end a little up; and rolled onto her right side. */
+var LIE = -Math.PI / 2 + .3;
+var SIDE = -Math.PI / 2;
+/**
+* How she lies: on her right side along the top of the cube, her head at its back, propped on her right hand, its
+* elbow bent under her on the cube; her left hand hung on her left leg, which is bent, its knee out ahead of her and
+* its foot on the cube; her right leg along it, the back of its knee on its front edge, its shin hanging down off it.
+*/
+var STAND = {
+	...REST,
+	flip: LIE,
+	roll: SIDE,
+	hipX: .185,
+	hipY: .078,
+	hipZ: 0,
+	hipTurn: 0,
+	lean: 0,
+	twist: 0,
+	tilt: 0,
+	nod: 0,
+	look: 0,
+	lfX: .119,
+	lfY: .479,
+	lfZ: .084,
+	lfTip: 0,
+	rfX: .037,
+	rfY: .252,
+	rfZ: .024,
+	rfTip: .5,
+	lhX: .131,
+	lhY: -.085,
+	lhZ: .08,
+	rhX: .035,
+	rhY: .429,
+	rhZ: .07,
+	bTurn: 0,
+	bUp: 0
+};
+/** Lying so, her right elbow bends down under her, onto the cube; her left knee out ahead of her and down onto it; and her right knee over its edge, its shin hanging. */
+var BENDS = {
+	lKnee: [
+		-.14,
+		-.34,
+		.93
+	],
+	rKnee: [
+		.88,
+		-.47,
+		0
+	],
+	rElbow: [
+		-.92,
+		-.28,
+		.29
+	]
+};
+/** A pose of hers, for a track: what is added to how she lies. */
+var as = (pose) => at(pose, STAND);
+/** Her attack: how far her cube tips up (15°) as it lands, how far apart its pieces are then, and how far ahead and up it has swept her (as the field measures it). */
+var UPPERCUT = {
+	rock: Math.PI / 12,
+	spread: .35,
+	ahead: 2.4,
+	jump: .4
+};
+/** Her left hand out at the boss, her arm straight; and further, jabbing. */
+var OUT$1 = {
+	lhX: .29,
+	lhY: .02,
+	lhZ: .12
+};
+var JAB = {
+	lhX: .35,
+	lhY: -.04,
+	lhZ: .12
+};
+var NUDGE$1 = {
+	keys: [
+		[0, {}],
+		[.21, {
+			ahead: -.15,
+			rock: -.04,
+			spread: .06
+		}],
+		[.39, {
+			ahead: 1.3,
+			jump: .5,
+			rock: UPPERCUT.rock * .6,
+			spread: .22,
+			...as({
+				lhX: .2,
+				lhY: .2,
+				lhZ: .15
+			})
+		}],
+		[.54, {
+			...UPPERCUT,
+			...as(JAB)
+		}],
+		[.78, {
+			...UPPERCUT,
+			...as(JAB),
+			ahead: UPPERCUT.ahead + .12,
+			spread: UPPERCUT.spread + .03
+		}],
+		[1.17, {
+			ahead: .6,
+			jump: .12,
+			rock: .025,
+			spread: .05
+		}],
+		[1.43, {}]
+	],
+	lands: [.54]
+};
+/** Pochi, bite them!: five bites. */
+var BITES = 5;
+var BITE = {
+	first: .5,
+	every: .2
+};
+var POCHI$1 = {
+	keys: [
+		[0, {}],
+		[.25, as({
+			nod: .2,
+			lhX: .2,
+			lhY: .2,
+			lhZ: .15
+		})],
+		[.45, as({
+			nod: .25,
+			...OUT$1
+		})],
+		...Array.from({ length: BITES }, (_, i) => [BITE.first + .1 + i * BITE.every, as({
+			nod: .25,
+			...JAB
+		})]),
+		[BITE.first + BITES * BITE.every + .1, as({
+			nod: .25,
+			...OUT$1
+		})],
+		[BITE.first + BITES * BITE.every + .45, {}]
+	],
+	lands: Array.from({ length: BITES }, (_, i) => BITE.first + i * BITE.every)
+};
+var PUCHI$1 = {
+	keys: [
+		[0, {}],
+		[.4, as({
+			nod: .1,
+			lhX: .54,
+			lhY: .46,
+			lhZ: 0
+		})],
+		[.75, as({
+			nod: .3,
+			lhX: .19,
+			lhY: -.09,
+			lhZ: .15
+		})],
+		[.95, as({
+			nod: .3,
+			lhX: .2,
+			lhY: -.08,
+			lhZ: .15
+		})],
+		[1.4, {}]
+	],
+	lands: [.8]
+};
+/** Pippi, wrap them!: ten blows. */
+var WRAPS = 10;
+var WRAP = {
+	first: .6,
+	every: .15
+};
+var RAISED = {
+	nod: .15,
+	lhX: .54,
+	lhY: .27,
+	lhZ: -.12
+};
+var WAVED = {
+	nod: .15,
+	lhX: .5,
+	lhY: .34,
+	lhZ: .12
+};
+var PIPPI$1 = {
+	keys: [
+		[0, {}],
+		[.3, as({
+			nod: .1,
+			lhX: .2,
+			lhY: .2,
+			lhZ: .15
+		})],
+		[.55, as(RAISED)],
+		...Array.from({ length: WRAPS / 2 }, (_, i) => [WRAP.first + (i * 2 + 1) * WRAP.every, as(i % 2 === 0 ? WAVED : RAISED)]),
+		[WRAP.first + WRAPS * WRAP.every, as(RAISED)],
+		[WRAP.first + WRAPS * WRAP.every + .5, {}]
+	],
+	lands: Array.from({ length: WRAPS }, (_, i) => WRAP.first + i * WRAP.every)
+};
+var DOZING = {
+	flip: STAND.flip - .12,
+	nod: -.1,
+	rhX: -.11,
+	rhY: .39,
+	rhZ: .34,
+	lhX: .13,
+	lhY: -.12,
+	lhZ: .08
+};
+var SLEEP$1 = {
+	keys: [
+		[0, {}],
+		[.35, as({
+			nod: -.15,
+			lhX: .18,
+			lhY: .85,
+			lhZ: 0
+		})],
+		[.8, as(DOZING)],
+		[2.9, as({
+			...DOZING,
+			nod: -.15
+		})],
+		[3.3, as({ nod: .1 })],
+		[3.55, {}]
+	],
+	lands: [.8]
+};
+//#endregion
+//#region src/technomagic/heroes/gremory/index.ts
+var NUDGE = { blow: BLOW * 1.3 };
+var POCHI = {
+	bite: 1800,
+	boss: 1200,
+	more: .15,
+	bossMore: .3,
+	weaker: .06,
+	most: 5,
+	lasts: 15
+};
+var PUCHI = {
+	blow: 7e3,
+	stun: 5
+};
+var PIPPI = {
+	blow: 1500,
+	through: 1e3,
+	pierce: 500,
+	takes: .05,
+	most: 10,
+	lasts: 12
+};
+var SLEEP = { taken: .6 };
+var CHARGE = {
+	most: 5,
+	atk: .1,
+	dmg: .02
+};
+var art$1 = (index) => skillPicture(GREMORY_ASSETS, index);
+/** What all three of her slots turn into once her skills are sealed (its picture is the game's for it, where a passive's would be). */
+var SLEEP_SKILL = {
+	name: "Eh, whatever. I’m gonna sleep.",
+	icon: "💤",
+	image: art$1(3),
+	move: "sleep",
+	cooldown: 0,
+	cost: 0
+};
+var LAZY = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Eh, whatever. I’m gonna sleep.",
+		about: "Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking 40% less and not to be knocked down), then wakes with her skills unsealed and a Mana Charge.",
+		icon: "💤",
+		image: art$1(3)
+	}
+};
+/** Asleep: shown on her card, with how long it has left. */
+var SLEEPING = {
+	name: "Asleep",
+	about: "Takes 40% less from the boss, and can’t be knocked down.",
+	icon: "💤",
+	image: art$1(3)
+};
+/** Her Mana Charge: shown on her card, with how many she has. */
+var CHARGED = {
+	name: "Mana Charge",
+	about: "Each: +10% ATK and +2% to all she deals; Pochi, bite them! hits harder for each.",
+	icon: "🔋"
+};
+/** What her skills leave on the boss. */
+var POCHI_MARK = "Pochi’s Mark";
+var PIPPI_MARK = "Pippi’s Mark";
+/** One more of a mark on the boss (up to `most`), begun again: how many it now has. */
+function mark(on, name, most, lasts, made) {
+	const count = Math.min(most, (on.find((status) => status.name === name)?.count ?? 0) + 1);
+	put(on, {
+		name,
+		left: lasts,
+		count,
+		shown: "curse",
+		...made(count)
+	});
+	return count;
+}
+var GREMORY = {
+	id: "gremory",
+	name: "Gremory",
+	class: "assassin",
+	assets: GREMORY_ASSETS,
+	stats: {
+		...CLASS_STATS.assassin,
+		deals: "magical"
+	},
+	abilities: [
+		{
+			name: "Pochi, bite them!",
+			icon: "🐶",
+			image: art$1(0),
+			move: "pochi",
+			cooldown: 0,
+			cost: 3
+		},
+		{
+			name: "Puchi, knock them away!",
+			icon: "💥",
+			image: art$1(1),
+			move: "puchi",
+			cooldown: 0,
+			cost: 3
+		},
+		{
+			name: "Pippi, wrap them!",
+			icon: "🎀",
+			image: art$1(2),
+			move: "pippi",
+			cooldown: 0,
+			cost: 4
+		}
+	],
+	passive: LAZY,
+	attack: "nudge",
+	stands: STAND,
+	bends: BENDS,
+	seated: true,
+	join(fight, self) {
+		/** Which of her skills are sealed; her Mana Charge; and how long her unique weapon is filling her mana for yet. */
+		const sealed = self.def.abilities.map(() => false);
+		let charges = 0;
+		let filling = 0;
+		const tier = self.unique?.tier ?? null;
+		return {
+			lands: {
+				nudge() {
+					fight.hit(self, NUDGE.blow);
+				},
+				pochi() {
+					fight.hit(self, POCHI.bite * (1 + POCHI.more * charges) + POCHI.boss * (1 + POCHI.bossMore * charges));
+					mark(fight.foe.statuses, POCHI_MARK, POCHI.most, POCHI.lasts, (count) => ({ deals: 1 - POCHI.weaker * count }));
+				},
+				puchi() {
+					fight.hit(self, PUCHI.blow);
+					fight.stun(PUCHI.stun, { by: self });
+				},
+				pippi() {
+					const count = mark(fight.foe.statuses, PIPPI_MARK, PIPPI.most, PIPPI.lasts, (stacks) => ({ takes: { magical: 1 + PIPPI.takes * stacks } }));
+					fight.hit(self, PIPPI.blow);
+					if (count >= PIPPI.most) fight.hit(self, PIPPI.through, false, PIPPI.pierce);
+				},
+				sleep() {}
+			},
+			slot(index) {
+				if (sealed.every(Boolean)) return SLEEP_SKILL;
+				return sealed[index] ? null : self.def.abilities[index] ?? null;
+			},
+			used(index, ability) {
+				if (ability !== SLEEP_SKILL) {
+					sealed[index] = true;
+					return;
+				}
+				sealed.fill(false);
+				charges = Math.min(CHARGE.most, charges + 1);
+				put(self.statuses, {
+					name: SLEEPING.name,
+					left: 3,
+					takes: SLEEP.taken,
+					guards: true,
+					shown: SLEEPING
+				});
+				const atk = CHARGE.atk + (tier === null ? 0 : atTier(PIGRITIA.charge, tier));
+				put(self.statuses, {
+					name: CHARGED.name,
+					left: Infinity,
+					count: charges,
+					deals: (1 + atk * charges) * (1 + CHARGE.dmg * charges),
+					shown: CHARGED
+				});
+				if (tier !== null) {
+					fight.heal(self, atTier(PIGRITIA.heal, tier) * self.stats.hp);
+					filling = PIGRITIA.over;
+				}
+			},
+			tick(dt) {
+				if (filling <= 0 || tier === null) return;
+				const now = Math.min(dt, filling);
+				filling -= now;
+				self.mana = Math.min(MAX_MANA, self.mana + MAX_MANA * atTier(PIGRITIA.mana, tier) * now / PIGRITIA.over);
+			},
+			pace: () => tier === null ? 1 : 1 + share(atTier(PIGRITIA.speed, tier)),
+			lit: () => sealed.every(Boolean)
 		};
 	}
 };
@@ -1884,7 +2496,8 @@ var HEROES = [
 		}
 	},
 	CLAUSE,
-	FALLEN_FREY
+	FALLEN_FREY,
+	GREMORY
 ];
 //#endregion
 //#region src/technomagic/sim/gear.ts
@@ -2777,6 +3390,11 @@ var MOVES = {
 	light: LIGHT$1,
 	blessing: BLESSING$1,
 	vengeance: VENGEANCE$1,
+	nudge: NUDGE$1,
+	pochi: POCHI$1,
+	puchi: PUCHI$1,
+	pippi: PIPPI$1,
+	sleep: SLEEP$1,
 	hit: HIT
 };
 //#endregion
@@ -3336,89 +3954,6 @@ var MENDING_UP = {
 	icon: "💚"
 };
 //#endregion
-//#region src/technomagic/sim/unique.ts
-/** Each weapon's numbers at tiers 1 to 5 (index 0 is tier 1). */
-var EXIAN = {
-	name: "The Guardian, Exian",
-	every: 3,
-	lasts: 15,
-	boost: [
-		.12,
-		.14,
-		.17,
-		.21,
-		.25
-	]
-};
-var ELICIPIRA = {
-	name: "Judgment Edge, Elicipira",
-	chance: .04,
-	boss: 2,
-	blow: [
-		6e3,
-		7200,
-		8600,
-		1e4,
-		12500
-	]
-};
-var ROSMERTA = {
-	name: "Angel’s Despair, Rosmerta",
-	lasts: 7,
-	heal: [
-		20,
-		24,
-		29,
-		35,
-		42
-	],
-	pen: [
-		240,
-		290,
-		350,
-		420,
-		500
-	]
-};
-/** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
-var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
-var pct = (share) => `${Math.round(share * 100)}%`;
-/** What each hero's weapon does at a tier, as its card and the heroes page say it. */
-var ABOUT = {
-	clause: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
-	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
-	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier) / 1e3)} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`
-};
-EXIAN.name, ELICIPIRA.name, ROSMERTA.name;
-/** Each weapon's picture: its item's (the bot's catalog id, public/gear/items/weapons/). */
-var PICTURES = {
-	clause: "/gear/items/weapons/the-guardian-exian.png",
-	kirze: "/gear/items/weapons/judgment-edge-elicipira.png",
-	"fallen-frey": "/gear/items/weapons/angels-despair-rosmerta.png"
-};
-/** The heroes that have a unique weapon, by id. */
-var UNIQUE_HEROES = Object.keys(ABOUT);
-/** What a hero's unique weapon does at a tier (null: it has none). */
-var uniqueAbout = (hero, tier) => ABOUT[hero]?.(tier) ?? null;
-/** A hero's unique weapon as it fights: its tier (null: none, or not its own, or one this fight doesn't know). */
-function uniqueOf(hero, tier) {
-	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
-	return Math.min(5, Math.max(1, Math.floor(tier)));
-}
-/** What Exian gives Clause for a while, and what Rosmerta gives Fallen Frey. */
-var EXIAN_UP = {
-	name: "The Guardian, Exian",
-	about: "ATK and defense higher.",
-	icon: "🛡️",
-	image: PICTURES.clause
-};
-var ROSMERTA_UP = {
-	name: "Angel’s Despair, Rosmerta",
-	about: "Sees past more of the boss’s defense.",
-	icon: "🖤",
-	image: PICTURES["fallen-frey"]
-};
-//#endregion
 //#region src/technomagic/sim/fight.ts
 /** The additional skills that come round again every so many seconds: each first comes once that long has gone. */
 var EVERY = [
@@ -3668,7 +4203,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	}
 	/** A hero uses a skill (true if it did: it must be free). */
 	function use(fighter, index) {
-		const ability = fighter.def.abilities[index];
+		const ability = sim.slot(fighter, index);
 		if (!ability || fighter.doing || !sim.ready(fighter, index)) return false;
 		begin(fighter, ability.move, true);
 		if (fighter.set?.id === "authority" && fighter.set.role === "knight") {
@@ -3676,6 +4211,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		}
 		fighter.cooldowns[index] = ability.cooldown;
 		fighter.mana -= ability.cost * SECTION;
+		fighter.part.used?.(index, ability);
 		uniqueCast(fighter);
 		skillCast(fighter);
 		return true;
@@ -4077,8 +4613,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		ready(fighter, index) {
-			const ability = fighter.def.abilities[index];
-			return ability !== void 0 && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && fighter.cooldowns[index] <= 0 && fighter.mana >= ability.cost * 1e3;
+			const ability = sim.slot(fighter, index);
+			return ability !== null && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && fighter.cooldowns[index] <= 0 && fighter.mana >= ability.cost * 1e3;
+		},
+		slot(fighter, index) {
+			if (index < 0 || index >= fighter.def.abilities.length) return null;
+			return fighter.part.slot ? fighter.part.slot(index) : fighter.def.abilities[index] ?? null;
 		},
 		input(input) {
 			pending.push(input);
@@ -4287,7 +4827,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 }
 //#endregion
 //#region src/technomagic/sim/verify.ts
-var SIM_VERSION = 6;
+var SIM_VERSION = 8;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;

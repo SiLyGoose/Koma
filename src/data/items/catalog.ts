@@ -657,6 +657,28 @@ export const ITEMS: readonly ItemDef[] = [
     tmDrop: true,
     tmSet: 'perseverance',
   },
+  {
+    id: 'fang-of-the-three',
+    name: 'Fang of the Three',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Pried from the chimera’s middle head. It still bites where it isn’t aimed.',
+    effects: ['tmCrit', 'tmCritDamage', 'tmSpeed'],
+    class: 'assassin',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
+  {
+    id: 'swampshade-cloak',
+    name: 'Swampshade Cloak',
+    stars: 4,
+    slot: 'armor',
+    description: 'Woven from the mist off the poisoned marsh. The chimera never saw who wore it.',
+    effects: ['tmDodge', 'tmCrit', 'tmHp'],
+    class: 'assassin',
+    tmDrop: true,
+    tmSet: 'perseverance',
+  },
 
   // The heroes' unique weapons (uniqueWeapon): King's Raid's own, one for each TechnoMagic Raid hero, only pulled
   // from the Hero Item banner (as its 4-star tier) and only wielded by their own hero. Each raises its hero's
@@ -688,5 +710,14 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'A holy relic of a high angel, once Frey’s own light, distorted into darkness when she lost her faith.',
     effects: ['uwAttack'],
     uniqueWeapon: 'fallen-frey',
+  },
+  {
+    id: 'gateway-to-purgatory-pigritia',
+    name: 'Gateway to Purgatory, Pigritia',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Gremory’s cube, a gateway to her true form in Pandemonium that her servants come out of, and that she mostly uses as a bed frame.',
+    effects: ['uwAttack'],
+    uniqueWeapon: 'gremory',
   },
 ];

@@ -30,13 +30,14 @@ const SITE: WebConfig = {
 
 const item = (id: string) => ITEMS_BY_ID.get(id)!;
 
-test('heroes: Kirze, Clause and Fallen Frey, each once, each of a raid class; their price is a setting of its own', () => {
+test('heroes: Kirze, Clause, Fallen Frey and Gremory, each once, each of a raid class; their price is a setting of its own', () => {
   assert.deepEqual(
     HEROES.map((hero) => [hero.id, hero.class]),
     [
       ['kirze', 'warrior'],
       ['clause', 'knight'],
       ['fallen-frey', 'priest'],
+      ['gremory', 'assassin'],
     ],
   );
   assert.equal(HEROES_BY_ID.size, HEROES.length);

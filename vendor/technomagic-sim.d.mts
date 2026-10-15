@@ -1,5 +1,5 @@
 // Built from Koma-UI's src/technomagic/sim/ by scripts/build-sim.mjs: don't edit it here.
-export declare const SIM_VERSION = 6;
+export declare const SIM_VERSION = 8;
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;
@@ -8,7 +8,7 @@ export declare const MOST_INPUTS = 20000;
 export declare const MOST_STAGE: number;
 /**
  * A hero in a raid: its id, the index of its skin, what its gear gives it (the bot's HeroBonus), the TechnoMagic
- * set whose effect it has (all four pieces worn), or none, its own unique weapon's tier (its refinement, 1
+ * set whose effect it has (three pieces worn), or none, its own unique weapon's tier (its refinement, 1
  * to 5), or none, and the additional skill of each piece of TechnoMagic gear it wears (TM_SKILLS' ids).
  */
 export interface RunHero {
