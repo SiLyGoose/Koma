@@ -125,8 +125,8 @@ export async function transcendHero(guildId: string, userId: string, heroId: str
     {
       guildId,
       userId,
-      // Still at that level (missing is level 1), with enough of everything.
-      [`heroes.${heroId}.transcend`]: level === 1 ? { $in: [null, 1] } : level,
+      // Still at that level (missing is level 0), with enough of everything.
+      [`heroes.${heroId}.transcend`]: level === 0 ? { $in: [null, 0] } : level,
       gems: { $gte: cost.gems },
       ...Object.fromEntries(essences.map(([id, amount]) => [`essences.${id}`, { $gte: amount }])),
     },

@@ -81,7 +81,7 @@ export interface HeroView {
   totals: string[];
   /** The transcendence perks picked for it (data/transcend.ts ids, in its order). */
   perks: string[];
-  /** How far it is transcended (1 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
+  /** How far it is transcended (0 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
   transcend: { level: number; points: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
 }
 

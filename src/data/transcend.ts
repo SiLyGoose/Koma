@@ -3,7 +3,7 @@ import type { RaidBossId, RaidClassId } from '../constants/raid.js';
 /*
  * The TechnoMagic Raid's heroes' transcendence, as King's Raid has it, on the site's heroes page.
  *
- * A hero starts at Transcend 1 and goes up to TRANSCEND_MAX (its Stats tab), each level paying hero essences
+ * A hero starts at Transcend 0 (no TP, no perks) and goes up to TRANSCEND_MAX (its Stats tab), each level paying hero essences
  * (the three kinds its class uses: CLASS_ESSENCES; beating the weekly raid gives three kinds, its boss's: RAID_BOSS_ESSENCES)
  * and komaGems (TRANSCEND_COSTS).
  * Each level gives it more transcendence points (TP, TRANSCEND_TP) to pick perks with (its Transcend tab, Koma-UI's
@@ -21,17 +21,17 @@ import type { RaidBossId, RaidClassId } from '../constants/raid.js';
 /** How far a hero can be transcended. */
 export const TRANSCEND_MAX = 5;
 
-/** The TP a hero has at each level (Transcend 1 first). */
-export const TRANSCEND_TP: readonly number[] = [20, 35, 50, 65, 80];
+/** The TP a hero has at each level (Transcend 0 first). */
+export const TRANSCEND_TP: readonly number[] = [0, 20, 35, 50, 65, 80];
 
 /** The TP a hero has at its most. */
-export const TRANSCEND_POINTS = TRANSCEND_TP[TRANSCEND_MAX - 1] as number;
+export const TRANSCEND_POINTS = TRANSCEND_TP[TRANSCEND_MAX] as number;
 
-/** A hero's level as kept (missing: 1), within 1 and TRANSCEND_MAX. */
-export const transcendLevel = (level: number | undefined): number => Math.min(TRANSCEND_MAX, Math.max(1, Math.floor(level ?? 1)));
+/** A hero's level as kept (missing: 0), within 0 and TRANSCEND_MAX. */
+export const transcendLevel = (level: number | undefined): number => Math.min(TRANSCEND_MAX, Math.max(0, Math.floor(level ?? 0)));
 
 /** The TP a hero has at `level`. */
-export const transcendPoints = (level: number | undefined): number => TRANSCEND_TP[transcendLevel(level) - 1] as number;
+export const transcendPoints = (level: number | undefined): number => TRANSCEND_TP[transcendLevel(level)] as number;
 
 /** The hero essences: King's Raid's seven kinds (its fragments' types), each class using three of them. */
 export const ESSENCES = ['justice', 'force', 'wisdom', 'strategy', 'patience', 'harmony', 'fortune'] as const;
@@ -69,8 +69,9 @@ export const RAID_BOSS_ESSENCES: Readonly<Record<RaidBossId, readonly [EssenceId
 export const bossEssences = (boss: RaidBossId, amount: number): Partial<Record<EssenceId, number>> =>
   amount > 0 ? Object.fromEntries(RAID_BOSS_ESSENCES[boss].map((id) => [id, amount])) : {};
 
-/** What going up to each level costs (Transcend 2 first): so many of each of its class's essences, and komaGems. */
+/** What going up to each level costs (Transcend 1 first): so many of each of its class's essences, and komaGems. */
 export const TRANSCEND_COSTS: readonly { essences: number; gems: number }[] = [
+  { essences: 20, gems: 1 },
   { essences: 30, gems: 2 },
   { essences: 40, gems: 3 },
   { essences: 50, gems: 4 },
@@ -80,7 +81,7 @@ export const TRANSCEND_COSTS: readonly { essences: number; gems: number }[] = [
 /** What a hero of `heroClass` at `level` pays to go up one: each essence and how many, and the komaGems; null at TRANSCEND_MAX. */
 export function transcendCost(heroClass: RaidClassId, level: number | undefined): { essences: Record<EssenceId, number>; gems: number } | null {
   const at = transcendLevel(level);
-  const cost = TRANSCEND_COSTS[at - 1];
+  const cost = TRANSCEND_COSTS[at];
   if (at >= TRANSCEND_MAX || !cost) return null;
   return { essences: Object.fromEntries(CLASS_ESSENCES[heroClass].map((id) => [id, cost.essences])) as Record<EssenceId, number>, gems: cost.gems };
 }

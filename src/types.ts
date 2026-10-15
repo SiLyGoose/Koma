@@ -286,7 +286,7 @@ export interface HeroDoc {
    * at most (it can be on the member as well), and in one of its slots.
    */
   equipment?: Partial<Record<HeroSlot, string | null>>;
-  /** How far it is transcended (1 to TRANSCEND_MAX, data/transcend.ts), on the site's heroes page. Missing means 1. */
+  /** How far it is transcended (0 to TRANSCEND_MAX, data/transcend.ts), on the site's heroes page. Missing means 0. */
   transcend?: number;
   /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page. Missing means none. */
   perks?: string[];

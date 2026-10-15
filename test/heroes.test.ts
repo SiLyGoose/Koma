@@ -339,10 +339,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
   }
 });
 
-test('heroes: transcendence, T1 to T5, each level more TP and its tier of perks; picked once each in their order, kept ones past it left out', () => {
-  assert.deepEqual(TRANSCEND_TP, [20, 35, 50, 65, 80]);
+test('heroes: transcendence, T0 to T5, each level more TP and its tier of perks; picked once each in their order, kept ones past it left out', () => {
+  assert.deepEqual(TRANSCEND_TP, [0, 20, 35, 50, 65, 80]);
   assert.equal(TRANSCEND_POINTS, 80);
-  assert.equal(transcendPoints(undefined), 20, 'a hero starts at T1');
+  assert.equal(transcendPoints(undefined), 0, 'a hero starts at T0');
+  assert.equal(transcendPoints(1), 20);
   assert.equal(transcendPoints(9), 80);
   assert.equal(TRANSCEND_PERKS.length, 20);
   assert.equal(new Set(TRANSCEND_PERKS.map((perk) => perk.id)).size, 20);
@@ -351,8 +352,10 @@ test('heroes: transcendence, T1 to T5, each level more TP and its tier of perks;
   // At T5: every tier-1 perk (5 × 10) and two more (15 each) is all 80 TP.
   assert.deepEqual(transcendPicks(['t5-dark', ...t1, 's1-light', 'atk-up'], 5), [...t1, 's1-light', 't5-dark']);
   assert.equal(transcendPicks([...t1, 's1-light', 's1-dark', 't5-dark'], 5), 'too_many_points');
-  assert.deepEqual(transcendPicks([], 1), []);
-  // A tier opens with its level: T2's at T2, T3's at T3, T5's at T5 (T4 only gives TP).
+  assert.deepEqual(transcendPicks([], 0), []);
+  // A tier opens with its level: T1's at T1, T2's at T2, T3's at T3, T5's at T5 (T4 only gives TP).
+  assert.equal(transcendPicks(['atk-up'], 0), 'perk_locked');
+  assert.equal(transcendPicks(['atk-up'], undefined), 'perk_locked');
   assert.deepEqual(transcendPicks(['atk-up', 'hp-up'], 1), ['atk-up', 'hp-up']);
   assert.equal(transcendPicks(['class-1'], 1), 'perk_locked');
   assert.deepEqual(transcendPicks(['class-1'], 2), ['class-1']);
@@ -363,18 +366,20 @@ test('heroes: transcendence, T1 to T5, each level more TP and its tier of perks;
   assert.deepEqual(keptPerks(['t5-dark', 's1-light'], 3), ['s1-light'], 'a tier past its level is left out');
   assert.deepEqual(keptPerks([...t1, 's1-light', 's1-dark', 't5-dark'], 5), [...t1, 's1-light', 's1-dark']);
   assert.deepEqual(keptPerks(undefined, undefined), []);
+  assert.deepEqual(keptPerks(['atk-up'], undefined), [], 'nothing kept at T0');
   // The heroes view has each hero's, its level, TP and what the next one costs, and their gems and essences.
   const view = heroesView([], { points: 0, gems: 7, essences: { justice: 40 }, heroes: { kirze: { boughtAt: new Date(0), transcend: 5, perks: ['t5-light', 'hp-up'] }, clause: { boughtAt: new Date(0) } } });
   const kirze = view.heroes.find((hero) => hero.id === 'kirze');
   assert.deepEqual(kirze?.perks, ['hp-up', 't5-light']);
   assert.deepEqual(kirze?.transcend, { level: 5, points: 80, next: null });
-  assert.deepEqual(view.heroes.find((hero) => hero.id === 'clause')?.transcend, { level: 1, points: 20, next: { essences: { justice: 30, strategy: 30, patience: 30 }, gems: 2 } });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'clause')?.transcend, { level: 0, points: 0, next: { essences: { justice: 20, strategy: 20, patience: 20 }, gems: 1 } });
   assert.deepEqual(view.heroes.find((hero) => hero.id === 'clause')?.perks, []);
   assert.equal(view.gems, 7);
   assert.deepEqual(view.essences, { justice: 40, force: 0, wisdom: 0, strategy: 0, patience: 0, harmony: 0, fortune: 0 });
 });
 
-test('heroes: transcending costs its class’s three essences (30, 40, 50, then 60 of each) and komaGems (2 to 5); each raid boss gives three kinds', () => {
+test('heroes: transcending costs its class’s three essences (20, 30, 40, 50, then 60 of each) and komaGems (1 to 5); each raid boss gives three kinds', () => {
+  assert.deepEqual(transcendCost('wizard', undefined), { essences: { force: 20, wisdom: 20, harmony: 20 }, gems: 1 });
   assert.deepEqual(transcendCost('wizard', 1), { essences: { force: 30, wisdom: 30, harmony: 30 }, gems: 2 });
   assert.deepEqual(transcendCost('wizard', 4), { essences: { force: 60, wisdom: 60, harmony: 60 }, gems: 5 });
   assert.equal(transcendCost('wizard', 5), null);
