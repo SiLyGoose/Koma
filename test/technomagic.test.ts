@@ -5,6 +5,7 @@ import { DEFAULTS } from '../src/config.js';
 import { TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES } from '../src/data/heroes.js';
+import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
 import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, TM_SKILLS, tmSkillLine, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
@@ -369,6 +370,39 @@ test("technomagic perks: a hero's transcendence perks change its fight, the same
   assert.notDeepEqual(classes.sums, plain.sums);
   assert.deepEqual(replay(perked(['class-1', 'class-2', 'class-3', 'class-4', 'class-5']), autos, classes.sums), classes);
   assert.deepEqual(replay(perked(['nonsense']), autos).sums, plain.sums);
+});
+
+test("technomagic perks: each of a hero's own perks changes its fight, but for those with nothing to work on here", () => {
+  // What this raid hasn't: Arcane Crystal Energy (Kirze), a boss to draw in or casting time to cut (Clause), a boss's mana
+  // to take (Fallen Frey), a boss's M.Block or knocking it away (Gremory's Puchi), anything on the boss to dispel (Seria,
+  // Lorraine, Valance). What Galgoria shrugs off: a slow (it is steady), and less P.DMG or more P.DEF (it deals only magic).
+  // What these fights don't come to: more M.Crit Resistance than Laias's passive gives (already past the boss's crit), a
+  // shield on every ally with only 4 (Blessing of Doom shields 4), and the boss knocking Ezekiel down while he strikes.
+  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'clause s1-dark', 'clause s3-dark', 'clause s4-light', 'clause t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
+  const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
+  const fight = (id: string, perks: string[], seed: number, others: number): Run => ({
+    boss: TM_BOSS,
+    seed,
+    stage: 3,
+    // (The hero in two pieces of TechnoMagic gear: Valance's Transcend 5 Dark stacks once for each.)
+    heroes: [id, ...ALL.filter((other) => other !== id).slice(others, others + 3)].map((hero, i) => ({ id: hero, skin: 0, gear: {}, ...(i === 0 && { skills: ['vigor', 'war-cry'], perks }) })),
+  });
+  // Everyone on Auto; for a skill's perk, its hero off it and that skill pressed every 20 seconds (Auto spends mana on the
+  // dearest skill it can afford at once).
+  const inputs = (perk: string) => {
+    const skill = /^s([123])-/.exec(perk);
+    const presses = skill ? [{ tick: 0, kind: 'auto', fighter: 0 }, ...Array.from({ length: 11 }, (_, i) => ({ tick: 150 + i * 600, kind: 'skill', fighter: 0, skill: Number(skill[1]) - 1 }))] : [];
+    return [{ tick: 0, kind: 'all-auto' }, ...presses];
+  };
+  const key = (played: ReturnType<typeof replay>): string => JSON.stringify([played.ticks, played.dealt, played.sums]);
+  const still: string[] = [];
+  for (const id of ALL) {
+    for (const perk of own) {
+      const changed = [11, 222].some((seed, k) => key(replay(fight(id, [], seed, k * 2), inputs(perk))) !== key(replay(fight(id, [perk], seed, k * 2), inputs(perk))));
+      if (!changed) still.push(`${id} ${perk}`);
+    }
+  }
+  assert.deepEqual(still, NOTHING);
 });
 
 test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7 and 8', () => {

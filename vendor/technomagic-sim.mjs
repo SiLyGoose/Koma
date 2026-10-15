@@ -2082,12 +2082,23 @@ var perksOf = (ids, def) => new Map((ids ?? []).flatMap((id) => {
 }));
 /** Every ally's from `wearers` heroes with an aura: the first's, and each other's `again`. */
 var auraOf = (one, wearers) => wearers > 0 ? one.first + one.again * (wearers - 1) : 0;
-/** How many times as much a hero's skill moves deal, by its perks' `skill.dmg` (by the move each skill is). */
+/** What a hero's perks make of its skills' moves (by the move each skill is): how many times as hard their blows are, which go through all the boss's defense, and what each leaves on the boss as its first blow lands. */
 function moveDmg(def, perks) {
 	const out = {};
 	for (const perk of perks.values()) {
 		const ability = perk.skill?.dmg !== void 0 ? def.abilities[perk.skill.index] : void 0;
 		if (ability) out[ability.move] = (out[ability.move] ?? 1) * (perk.skill?.dmg ?? 1);
+	}
+	return out;
+}
+function moveWhole(def, perks) {
+	return new Set([...perks.values()].flatMap((perk) => perk.skill?.whole ? [def.abilities[perk.skill.index]?.move].filter((move) => move !== void 0) : []));
+}
+function moveMarks(def, perks) {
+	const out = {};
+	for (const perk of perks.values()) {
+		const move = perk.skill?.mark ? def.abilities[perk.skill.index]?.move : void 0;
+		if (move && perk.skill?.mark) (out[move] ??= []).push(perk.skill.mark);
 	}
 	return out;
 }
@@ -2097,12 +2108,13 @@ function auraTotal(heroes, key) {
 	for (const perks of heroes) for (const perk of perks) {
 		const aura = perk.allies?.[key];
 		if (!aura) continue;
-		const one = worn.get(perk.name) ?? {
+		const name = perk.name ?? perk.words;
+		const one = worn.get(name) ?? {
 			aura,
 			wearers: 0
 		};
 		one.wearers++;
-		worn.set(perk.name, one);
+		worn.set(name, one);
 	}
 	let total = 0;
 	for (const { aura, wearers } of worn.values()) total += auraOf(aura, wearers);
@@ -2133,6 +2145,16 @@ function perkedStats(stats, perks) {
 	for (const perk of perks) if (perk.atkFromDefense) stats.atk += perk.atkFromDefense * stats.physical;
 	return stats;
 }
+/** A hero's Transcend 5 Light: ATK, DEF and HP +15%, and `more` of its own (as gear gives it). */
+var t5Light = (words, more) => ({
+	words,
+	bonus: {
+		atk: .15,
+		defense: .15,
+		hp: .15,
+		...more
+	}
+});
 //#endregion
 //#region src/technomagic/sim/fight.ts
 /** The additional skills that come round again every so many seconds: each first comes once that long has gone. */
@@ -2240,6 +2262,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			perkDefs: defs,
 			abilities: hero.abilities.map((ability, i) => tweaked(ability, defs.filter((perk) => perk.skill?.index === i))),
 			moveDmg: moveDmg(hero, perks),
+			moveWhole: moveWhole(hero, perks),
+			moveMarks: moveMarks(hero, perks),
 			perkDmg: product((perk) => perk.dmg),
 			perkTaken: {
 				physical: product((perk) => perk.taken) * product((perk) => perk.takenPhysical),
@@ -2580,6 +2604,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				else common[move]?.(fighter, index);
 				attacking = null;
 				landing = null;
+				if (doing.blows === 1) for (const mark of fighter.moveMarks[move] ?? []) put(foe.statuses, {
+					name: mark.name,
+					left: mark.lasts,
+					takes: mark.takes,
+					shown: "curse"
+				});
 			}
 			if (fighter.doing !== doing || result) return;
 		}
@@ -2657,15 +2687,24 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		log,
 		sums,
 		roll,
-		hit(by, amount, counted = true, pierce = 0) {
+		hit(by, amount, counted = true, pierce = 0, whole = false) {
 			if (foe.hp <= 0 || result) return false;
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
 			const critical = roll() < share(points + auras.crit) + crit + critting(by.statuses);
 			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage;
 			const skilled = landing?.by === by ? by.moveDmg[landing.move] ?? 1 : 1;
-			const against = by.acc > 0 ? seenPast(foe.def.stats, by.acc) : foe.def.stats;
-			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1) * by.perkDmg * skilled, type, against, pen + pierce + piercing(by.statuses), roll);
+			const seen = by.acc > 0 ? seenPast(foe.def.stats, by.acc) : foe.def.stats;
+			const against = whole || landing?.by === by && by.moveWhole.has(landing.move) ? {
+				...seen,
+				physical: 0,
+				magical: 0
+			} : {
+				...seen,
+				physical: seen.physical * defending(foe.statuses, "physical"),
+				magical: seen.magical * defending(foe.statuses, "magical")
+			};
+			const { taken, blocked, dodged } = strike(amount * (atk / ATK) * atkTimes(by) * dmgTimes(by) * attack * dealing(by.statuses) * (critical ? critTimes : 1) * by.perkDmg * skilled * (by.part.deals?.() ?? 1), type, against, pen + pierce + piercing(by.statuses), roll);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -2676,7 +2715,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				return false;
 			}
 			events.push({ kind: "boss-hit" });
-			const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.name, perk.mark.every)));
+			const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.mark.name, perk.mark.every)));
 			const dealt = deathless ? taken * taking(foe.statuses, type) : Math.min(foe.hp, taken * taking(foe.statuses, type));
 			foe.hp -= dealt;
 			if (deathless && foe.hp <= 0) foe.hp = foe.maxHp;
@@ -2703,6 +2742,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (counted) {
 				for (const fighter of fighters) fighter.part.struck?.();
 				foe.part.struck?.(by, dealt);
+				by.part.blow?.(attacking !== by);
 			}
 			if (counted && foe.hp > 0 && by.id === "kirze" && by.unique && roll() < ELICIPIRA.chance) {
 				const was = attacking;
@@ -2753,8 +2793,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const walled = elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0;
 			const stands = {
 				...target.stats,
-				physical: target.stats.physical * guarded * defending(target.statuses, "physical"),
-				magical: target.stats.magical * guarded * defending(target.statuses, "magical"),
+				physical: target.stats.physical * guarded * defending(target.statuses, "physical") * defending(party, "physical"),
+				magical: target.stats.magical * guarded * defending(target.statuses, "magical") * defending(party, "magical"),
 				block: {
 					physical: target.stats.block.physical + walled + blocking(target.statuses, "physical"),
 					magical: target.stats.block.magical + walled + blocking(target.statuses, "magical")
@@ -2765,7 +2805,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: stands.dodge.physical + nimble,
 				magical: stands.dodge.magical + nimble
 			};
-			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type)) + critting(foe.statuses);
+			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type) - critResisting(party, type)) + critting(foe.statuses);
 			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
 				block: NONE,
@@ -2787,7 +2827,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				who: target.index,
 				blocked
 			});
-			let dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1) * (target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1) * target.perkTaken[type];
+			let dealt = taken * taking(party, type) * taking(target.statuses, type) * (target.def.passive?.taken ?? 1) * (target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1) * target.perkTaken[type] * (target.part.takes?.() ?? 1);
 			dealt *= 1 - Math.min(.9, SKILL.steadfast.taken * target.stacks.steadfast * has(target, "steadfast"));
 			const ward = type === "physical" ? SKILL["physical-ward"] : SKILL["magical-ward"];
 			const warded = has(target, type === "physical" ? "physical-ward" : "magical-ward");
@@ -2841,14 +2881,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				target.reserved = null;
 			}
 			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * lost / target.stats.hp);
+			if (dealt > 0) for (const fighter of fighters) fighter.part.hurt?.(target);
 			for (const perk of target.perkDefs) {
-				if (perk.curse && perkDue(target, perk.name, perk.curse.every)) put(foe.statuses, {
-					name: perk.name,
+				if (perk.curse && perkDue(target, perk.name ?? perk.words, perk.curse.every)) put(foe.statuses, {
+					name: perk.name ?? "Curse",
 					left: perk.curse.lasts,
 					deals: perk.curse.deals,
 					shown: "curse"
 				});
-				if (perk.immunity && dealt > 0 && target.hp > 0 && perkDue(target, perk.name, perk.immunity.every)) target.immune = perk.immunity.hits;
+				if (perk.immunity && dealt > 0 && target.hp > 0 && perkDue(target, perk.name ?? perk.words, perk.immunity.every)) target.immune = perk.immunity.hits;
 			}
 			if (blocked) {
 				target.part.blocked?.();
@@ -2875,7 +2916,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		knock(fighter, seconds) {
-			if (fighter.hp <= 0 || away(fighter.statuses) || fighter.statuses.some((status) => status.guards)) return;
+			if (fighter.hp <= 0 || away(fighter.statuses) || fighter.statuses.some((status) => status.guards) || fighter.part.guards?.()) return;
 			stagger(fighter);
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity"));
 			put(fighter.statuses, {
@@ -3054,7 +3095,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (result) return;
 			const reform = Math.min(1, dt * 4);
 			for (const on of field) {
-				on.haste = (1 + share(on.stats.speed + auras.speed)) * (on.part.pace?.() ?? 1) * pacing(on.statuses);
+				on.haste = (1 + share(on.stats.speed + auras.speed + (on.part.speed?.() ?? 0))) * (on.part.pace?.() ?? 1) * pacing(on.statuses);
 				advance(on, dt * on.haste);
 				if (result) return;
 				const [x, z] = spots.get(on);
@@ -3181,6 +3222,17 @@ var CHARGE$1 = {
 	atk: .3,
 	cooldown: .1
 };
+/** Her own perks' numbers: more Charge from a skill, Process of Elimination's mark, Overcharge's more ATK and longer, and Transcend 5's Dark's for every ally (attack speed in points, ATK a share of hers). */
+var PERKS$10 = {
+	charge: 1.4,
+	eliminated: .25,
+	overAtk: 1.4,
+	overLonger: 3,
+	allies: {
+		speed: 200,
+		atk: .05
+	}
+};
 var art$10 = skillArt("annette");
 var CHARGING = {
 	attack: 1,
@@ -3204,6 +3256,13 @@ var OVERCHARGED = {
 	name: "Overcharge",
 	about: "30% higher ATK; each attack takes 10% off her skills’ cooldowns; her skills do more.",
 	icon: "🔋",
+	art: art$10(3)
+};
+/** What Transcend 5's Dark gives every ally while she is Overcharged. */
+var ROUSED = {
+	name: "Overcharge (allies)",
+	about: "Quicker, and its ATK higher by 5% of Annette’s.",
+	icon: "⚡",
 	art: art$10(3)
 };
 /** What Emergency Treatment gives each ally: shown on its card, with how long it has left. */
@@ -3261,6 +3320,40 @@ var ANNETTE = {
 		}
 	],
 	passive: CHARGING,
+	perks: {
+		"s1-light": {
+			words: "Target takes 25% increased M.DMG for 10 sec.",
+			skill: {
+				index: 0,
+				mark: {
+					name: "Magic Weakness",
+					takes: { magical: 1.25 },
+					lasts: 10
+				}
+			}
+		},
+		"s1-dark": { words: "Charge amount is boosted by 40% upon use." },
+		"s2-light": {
+			words: "Cooldown is reduced by 3 sec.",
+			skill: {
+				index: 1,
+				cooldown: -3
+			}
+		},
+		"s2-dark": { words: "Charge amount is boosted by 40% upon use." },
+		"s3-light": {
+			words: "DMG is increased by 40%.",
+			skill: {
+				index: 2,
+				dmg: 1.4
+			}
+		},
+		"s3-dark": { words: "Target takes 25% increased M.DMG." },
+		"s4-light": { words: "ATK boost is increased by 40%." },
+		"s4-dark": { words: "Overcharge duration is increased by 3 sec." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +100", { speed: 100 }),
+		"t5-dark": { words: "When Overcharge activates, increases all allies' ATK Spd by 200, and increases the ATK of all allies by 5% of Annette's ATK." }
+	},
 	attack: "zap",
 	join(fight, self) {
 		/** Her Charge; how long she is Overcharged for yet; and toward her next Charge, and her unique weapon's. */
@@ -3287,12 +3380,19 @@ var ANNETTE = {
 			charge = Math.min(CHARGE$1.full, charge + count);
 			if (charge < CHARGE$1.full || over > 0) return;
 			charge = 0;
-			over = CHARGE$1.lasts;
+			over = CHARGE$1.lasts + (self.perks.has("s4-dark") ? PERKS$10.overLonger : 0);
 			put(self.statuses, {
 				name: OVERCHARGED.name,
 				left: over,
-				deals: 1 + CHARGE$1.atk,
+				deals: 1 + CHARGE$1.atk * (self.perks.has("s4-light") ? PERKS$10.overAtk : 1),
 				shown: OVERCHARGED
+			});
+			if (self.perks.has("t5-dark")) for (const ally of allies()) put(ally.statuses, {
+				name: ROUSED.name,
+				left: over,
+				pace: 1 + share(PERKS$10.allies.speed),
+				deals: 1 + PERKS$10.allies.atk * self.stats.atk / ally.stats.atk,
+				shown: ROUSED
 			});
 		};
 		return {
@@ -3346,19 +3446,20 @@ var ANNETTE = {
 				elimination() {
 					const more = overcharged.elimination;
 					fight.hit(self, more ? ELIMINATION.over : ELIMINATION.blow);
-					if (!more) return;
-					put(fight.foe.statuses, {
+					const takes = (more ? ELIMINATION.takes : 0) + (self.perks.has("s3-dark") ? PERKS$10.eliminated : 0);
+					if (takes > 0) put(fight.foe.statuses, {
 						name: ELIMINATED,
 						left: ELIMINATION.lasts,
-						takes: { magical: 1 + ELIMINATION.takes },
+						takes: { magical: 1 + takes },
 						shown: "curse"
 					});
-					fight.stun(ELIMINATION.stun, { by: self });
+					if (more) fight.stun(ELIMINATION.stun, { by: self });
 				}
 			},
-			used(_index, ability) {
+			used(index, ability) {
 				if (ability.move === "ray" || ability.move === "treatment" || ability.move === "elimination") overcharged[ability.move] = over > 0;
-				gain(ability.cost * CHARGE$1.perCrystal);
+				const more = index === 0 && self.perks.has("s1-dark") || index === 1 && self.perks.has("s2-dark") ? PERKS$10.charge : 1;
+				gain(ability.cost * CHARGE$1.perCrystal * more);
 			},
 			tick(dt) {
 				if (treating > 0) {
@@ -3431,6 +3532,19 @@ var VOW = {
 	lasts: 8,
 	mana: 300
 };
+/** His own perks' numbers: Shield Strike's stun, Guardian Shield's more (and its P.DMG taken), Vow of Knights' less ATK, and Transcend 5's Dark's guard for every ally (how long, and how long it waits). */
+var PERKS$9 = {
+	bashStun: 1,
+	guardMore: 1.4,
+	guardPhysical: .75,
+	weaker: .1,
+	ward: {
+		lasts: 10,
+		every: 10,
+		defends: 1.2,
+		critResist: 200
+	}
+};
 var art$9 = skillArt("clause");
 var VOW_OF_KNIGHTS = {
 	attack: 1,
@@ -3449,6 +3563,13 @@ var GUARDED = {
 	about: "Takes 25% less from the boss.",
 	icon: "✨",
 	art: art$9(2)
+};
+/** What his Transcend 5's Dark gives every ally when another is hit. */
+var WARDED$1 = {
+	name: "Knight’s Guard",
+	about: "P.DEF +20% and P.Crit Resist +20%.",
+	icon: "🛡️",
+	art: art$9(3)
 };
 var CLAUSE = {
 	id: "clause",
@@ -3489,6 +3610,34 @@ var CLAUSE = {
 		}
 	],
 	passive: VOW_OF_KNIGHTS,
+	perks: {
+		"s1-light": {
+			words: "Cooldown is reduced by 2 sec.",
+			skill: {
+				index: 0,
+				cooldown: -2
+			}
+		},
+		"s1-dark": { words: "In exchange for 1 additional Mana Cost, the skill has a 100% chance to draw the target in." },
+		"s2-light": {
+			words: "Target takes 25% increased P.DMG for 10 sec.",
+			skill: {
+				index: 1,
+				mark: {
+					name: "Physical Weakness",
+					takes: { physical: 1.25 },
+					lasts: 10
+				}
+			}
+		},
+		"s2-dark": { words: "Stuns the enemy for 1 sec." },
+		"s3-light": { words: "DEF boost is increased by 40%." },
+		"s3-dark": { words: "Receives 25% reduced P.DMG for the duration." },
+		"s4-light": { words: "Casting time is greatly boosted." },
+		"s4-dark": { words: "Reduces an additional 10% of ATK." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / P.Block +200", { blockPhysical: 200 }),
+		"t5-dark": { words: "When an ally other than this hero is hit by an attack, increases all allies' P.DEF by 20% and P.Crit Resist by 20% (10 sec Cooldown)." }
+	},
 	attack: "swing",
 	timing: {
 		attack: [{
@@ -3501,6 +3650,8 @@ var CLAUSE = {
 		} }
 	},
 	join(fight, self) {
+		/** Until his Transcend 5's Dark may guard every ally again. */
+		let warding = 0;
 		return {
 			lands: {
 				swing() {
@@ -3519,12 +3670,17 @@ var CLAUSE = {
 						shown: "curse"
 					});
 					fight.slow(SHIELD_STRIKE.slow, SHIELD_STRIKE.lasts);
+					if (self.perks.has("s2-dark")) fight.stun(PERKS$9.bashStun, { by: self });
 				},
 				guard() {
+					const taken = self.perks.has("s3-light") ? 1 - (1 - GUARDIAN.taken) * PERKS$9.guardMore : GUARDIAN.taken;
 					put(fight.party, {
 						name: GUARDED.name,
 						left: GUARDIAN.lasts,
-						takes: GUARDIAN.taken,
+						takes: self.perks.has("s3-dark") ? {
+							physical: taken * PERKS$9.guardPhysical,
+							magical: taken
+						} : taken,
 						shown: GUARDED
 					});
 				}
@@ -3535,10 +3691,24 @@ var CLAUSE = {
 				put(fight.foe.statuses, {
 					name: "Weakened",
 					left: VOW.lasts,
-					deals: VOW.weak,
+					deals: VOW.weak - (self.perks.has("s4-dark") ? PERKS$9.weaker : 0),
 					shown: "slow"
 				});
 				self.mana = Math.min(MAX_MANA, self.mana + VOW.mana);
+			},
+			tick(dt) {
+				warding = Math.max(0, warding - dt);
+			},
+			hurt(who) {
+				if (!self.perks.has("t5-dark") || who === self || warding > 0 || self.hp <= 0) return;
+				warding = PERKS$9.ward.every;
+				put(fight.party, {
+					name: WARDED$1.name,
+					left: PERKS$9.ward.lasts,
+					defends: { physical: PERKS$9.ward.defends },
+					critResist: { physical: PERKS$9.ward.critResist },
+					shown: WARDED$1
+				});
 			}
 		};
 	}
@@ -3577,6 +3747,13 @@ var CURSED = {
 	lasts: 10,
 	atk: .3
 };
+/** His own perks' numbers: Destructive Instinct's Dark's ATK after it (how long), Fury's more Heal Rate, and less taken for each stack of Cursed Blood. */
+var PERKS$8 = {
+	atk: 1.4,
+	atkFor: 5,
+	heals: 1.5,
+	taken: .12
+};
 var art$8 = skillArt("ezekiel");
 var CURSED_BLOOD = {
 	attack: 1,
@@ -3603,11 +3780,18 @@ var FURY = {
 	art: art$8(3)
 };
 /** What Dawning Despair in Fury gives him for a while. */
-var QUICKENED = {
+var QUICKENED$1 = {
 	name: "Dawning Despair",
 	about: "His attacks quickened.",
 	icon: "💨",
 	art: art$8(1)
+};
+/** What Destructive Instinct's Dark gives him after it. */
+var INSTINCT_UP = {
+	name: "Destructive Instinct",
+	about: "ATK 40% higher.",
+	icon: "🌀",
+	art: art$8(0)
 };
 var EZEKIEL = {
 	id: "ezekiel",
@@ -3649,6 +3833,36 @@ var EZEKIEL = {
 		}
 	],
 	passive: CURSED_BLOOD,
+	perks: {
+		"s1-light": {
+			words: "DMG is increased by 40%.",
+			skill: {
+				index: 0,
+				dmg: 1.4
+			}
+		},
+		"s1-dark": { words: "After activation, ATK is increased by 40% for 5 sec." },
+		"s2-light": {
+			words: "Mana cost is reduced by 1.",
+			skill: {
+				index: 1,
+				cost: -1
+			}
+		},
+		"s2-dark": { words: "When activated during Fury state, ignores target DEF." },
+		"s3-light": { words: "Becomes immune to CC during activation." },
+		"s3-dark": {
+			words: "If there is 1 enemy, DMG is increased by 100%.",
+			skill: {
+				index: 2,
+				dmg: 2
+			}
+		},
+		"s4-light": { words: "When in Fury state, heal rate is increased by 50%." },
+		"s4-dark": { words: "Per every stacked 'Cursed Blood', takes 12% reduced DMG." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +100", { speed: 100 }),
+		"t5-dark": { words: "When in Fury state, auto attack deals DMG that ignores DEF." }
+	},
 	attack: "claw",
 	timing: { attack: [{
 		lands: [
@@ -3691,6 +3905,7 @@ var EZEKIEL = {
 				name: FURY.name,
 				left: fury,
 				deals: 1 + CURSED.atk,
+				...self.perks.has("s4-light") && { heals: PERKS$8.heals },
 				...tier === null ? {} : {
 					critDamage: atTier(BARBATOS.critDamage, tier),
 					resist: atTier(BARBATOS.resist, tier)
@@ -3698,9 +3913,9 @@ var EZEKIEL = {
 				shown: FURY
 			});
 		};
-		/** A blow of his attack (twice as hard in Fury). */
+		/** A blow of his attack (twice as hard in Fury; and with Transcend 5's Dark, through the boss's defense). */
 		const claw = () => {
-			fight.hit(self, CLAW.blow * (fury > 0 ? CLAW.fury : 1));
+			fight.hit(self, CLAW.blow * (fury > 0 ? CLAW.fury : 1), true, 0, fury > 0 && self.perks.has("t5-dark"));
 		};
 		return {
 			lands: {
@@ -3717,17 +3932,23 @@ var EZEKIEL = {
 						down: true,
 						by: self
 					});
+					if (self.perks.has("s1-dark")) put(self.statuses, {
+						name: INSTINCT_UP.name,
+						left: PERKS$8.atkFor,
+						deals: PERKS$8.atk,
+						shown: INSTINCT_UP
+					});
 				},
 				despair() {
-					fight.hit(self, DESPAIR.blow);
+					fight.hit(self, DESPAIR.blow, true, 0, furious.despair && self.perks.has("s2-dark"));
 					fight.slow(1 - share(DESPAIR.speed), DESPAIR.slowed);
 					if (!furious.despair) return;
 					fight.stun(DESPAIR.stun, { by: self });
 					put(self.statuses, {
-						name: QUICKENED.name,
+						name: QUICKENED$1.name,
 						left: DESPAIR.lasts,
 						pace: 1 + share(DESPAIR.speed),
-						shown: QUICKENED
+						shown: QUICKENED$1
 					});
 				},
 				doom() {
@@ -3757,6 +3978,8 @@ var EZEKIEL = {
 					self.statuses = self.statuses.filter((status) => status.name !== FURY.name);
 				}
 			},
+			takes: () => self.perks.has("s4-dark") ? 1 - PERKS$8.taken * stacks : 1,
+			guards: () => self.doing?.move === "doom" && self.perks.has("s3-light"),
 			lit: () => fury > 0,
 			buffs: () => fury > 0 || stacks === 0 ? [] : [{
 				...STACKED,
@@ -3793,6 +4016,31 @@ var TAINTED = {
 	every: 1,
 	most: 2
 };
+/**
+* Her own perks' numbers: what Light of Doom leaves on the boss and its more healing, Blessing of Doom's block, the
+* Blessing of the Fallen Angel's and the Bond's (attack speed in points, ATK a share of hers), and Transcend 5's Dark's.
+*/
+var PERKS$7 = {
+	light: {
+		takes: 1.2,
+		lasts: 10,
+		heals: 2
+	},
+	block: 400,
+	blessing: {
+		takes: .9,
+		defends: 1.2
+	},
+	bond: {
+		speed: 200,
+		atk: .07
+	},
+	favour: {
+		speed: 150,
+		deals: 1.15,
+		lasts: 30
+	}
+};
 var art$7 = skillArt("fallen-frey");
 var TAINTED_ANGEL = {
 	attack: 1,
@@ -3820,7 +4068,27 @@ var BLESSED$1 = {
 	art: art$7(1)
 };
 /** What Heaven's Vengeance leaves on the boss. */
-var EXPOSED = "Heaven’s Vengeance";
+var EXPOSED$1 = "Heaven’s Vengeance";
+/** What her perks give her allies as the fight begins: Light of Doom's Light's mark on the boss, and the rest each ally's square. */
+var PURIFIED = "Light of Doom";
+var FALLEN_BLESSING = {
+	name: "Blessing of the Fallen Angel",
+	about: "Takes 10% less, and its DEF is 20% higher.",
+	icon: "🪽",
+	art: art$7(3)
+};
+var FALLEN_BOND = {
+	name: "Bond of the Fallen Angel",
+	about: "Quicker, and its ATK higher by 7% of Fallen Frey’s.",
+	icon: "🔗",
+	art: art$7(3)
+};
+var FALLEN_FAVOUR = {
+	name: "Fallen Angel’s Favour",
+	about: "Quicker, and deals 15% more to the boss.",
+	icon: "🌒",
+	art: art$7(3)
+};
 var FALLEN_FREY = {
 	id: "fallen-frey",
 	name: "Fallen Frey",
@@ -3860,6 +4128,30 @@ var FALLEN_FREY = {
 		}
 	],
 	passive: TAINTED_ANGEL,
+	perks: {
+		"s1-light": { words: "Increases All DMG the hit enemies take by 20% for 10 sec." },
+		"s1-dark": {
+			words: "Increases Mana Cost by 1 and Heal Rate by 100%.",
+			skill: {
+				index: 0,
+				cost: 1
+			}
+		},
+		"s2-light": { words: "Changes the target of shield to all allies." },
+		"s2-dark": { words: "Increases All Block Chance of shielded allies by 400." },
+		"s3-light": {
+			words: "Increases DMG by 40%.",
+			skill: {
+				index: 2,
+				dmg: 1.4
+			}
+		},
+		"s3-dark": { words: "Each hit reduces Mana by 200." },
+		"s4-light": { words: "At the beginning of the first battle, grants [Blessing of the Fallen Angel] to all allies excluding self, reducing All DMG the targets take by 10% and increasing All DEF by 20%. The [Blessing of the Fallen Angel] effect is irremovable." },
+		"s4-dark": { words: "At the beginning of the first battle, grants [Bond of the Fallen Angel] to 1 ally with the highest ATK excluding self, increasing the target's ATK Spd by 200 and ATK equal to 7% of Fallen Frey's ATK. The [Bond of the Fallen Angel] effect is irremovable." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / Crit Chance +100", { crit: 100 }),
+		"t5-dark": { words: "At the beginning of each battle, increases ATK Spd of the ally with the highest ATK excluding self by 150 and its DMG dealt to Non-Hero enemies by 15% for 30 sec. This effect is irremovable." }
+	},
 	attack: "smite",
 	timing: { skills: {
 		light: {
@@ -3886,6 +4178,31 @@ var FALLEN_FREY = {
 		};
 		/** The heroes on the field standing, the lowest health (for what it is out of) first. */
 		const weakest = () => fight.field.filter((ally) => ally.hp > 0).sort((a, b) => a.hp / a.stats.hp - b.hp / b.stats.hp);
+		const others = fight.fighters.filter((ally) => ally !== self);
+		const strongest = others.reduce((best, ally) => !best || ally.stats.atk > best.stats.atk ? ally : best, null);
+		if (self.perks.has("s4-light")) for (const ally of others) put(ally.statuses, {
+			name: FALLEN_BLESSING.name,
+			left: Infinity,
+			takes: PERKS$7.blessing.takes,
+			defends: PERKS$7.blessing.defends,
+			shown: FALLEN_BLESSING
+		});
+		if (strongest && self.perks.has("s4-dark")) {
+			strongest.stats.atk += PERKS$7.bond.atk * self.stats.atk;
+			put(strongest.statuses, {
+				name: FALLEN_BOND.name,
+				left: Infinity,
+				pace: 1 + share(PERKS$7.bond.speed),
+				shown: FALLEN_BOND
+			});
+		}
+		if (strongest && self.perks.has("t5-dark")) put(strongest.statuses, {
+			name: FALLEN_FAVOUR.name,
+			left: PERKS$7.favour.lasts,
+			pace: 1 + share(PERKS$7.favour.speed),
+			deals: PERKS$7.favour.deals,
+			shown: FALLEN_FAVOUR
+		});
 		return {
 			lands: {
 				smite() {
@@ -3903,14 +4220,24 @@ var FALLEN_FREY = {
 							return Math.sqrt(x * x + z * z) <= LIGHT.near;
 						});
 						fight.cue(self, "light", near);
-						for (const ally of near) fight.heal(ally, LIGHT.heal, self);
+						for (const ally of near) fight.heal(ally, LIGHT.heal * (self.perks.has("s1-dark") ? PERKS$7.light.heals : 1), self);
 						return;
 					}
 					fight.hit(self, LIGHT.blast);
+					if (self.perks.has("s1-light")) put(fight.foe.statuses, {
+						name: PURIFIED,
+						left: PERKS$7.light.lasts,
+						takes: PERKS$7.light.takes,
+						shown: "curse"
+					});
 				},
 				blessing() {
 					spend();
-					const allies = weakest().slice(0, BLESSING$1.allies);
+					const allies = self.perks.has("s2-light") ? weakest() : weakest().slice(0, BLESSING$1.allies);
+					const block = self.perks.has("s2-dark") ? { blocks: {
+						physical: PERKS$7.block,
+						magical: PERKS$7.block
+					} } : {};
 					fight.cue(self, "blessing", allies);
 					for (const ally of allies) {
 						fight.shield(ally, BLESSING$1.shield, BLESSING$1.lasts, self);
@@ -3918,6 +4245,7 @@ var FALLEN_FREY = {
 							name: BLESSED$1.name,
 							left: BLESSING$1.lasts,
 							pace: 1 + share(BLESSING$1.speed),
+							...block,
 							shown: BLESSED$1
 						});
 					}
@@ -3925,9 +4253,9 @@ var FALLEN_FREY = {
 				vengeance(part) {
 					if (part === 0) empowered = spend();
 					fight.hit(self, VENGEANCE.blow, true, VENGEANCE.pierce);
-					exposed = fight.foe.statuses.some((status) => status.name === EXPOSED) ? Math.min(VENGEANCE.most, exposed + 1) : 1;
+					exposed = fight.foe.statuses.some((status) => status.name === EXPOSED$1) ? Math.min(VENGEANCE.most, exposed + 1) : 1;
 					put(fight.foe.statuses, {
-						name: EXPOSED,
+						name: EXPOSED$1,
 						left: VENGEANCE.lasts,
 						takes: 1 + VENGEANCE.exposed * exposed,
 						shown: "curse"
@@ -3982,6 +4310,11 @@ var CHARGE = {
 	most: 5,
 	atk: .1,
 	dmg: .02
+};
+/** Her own perks' numbers: Pochi's Mark's less M.DEF for each, and her sleep's more less taken. */
+var PERKS$6 = {
+	softer: .06,
+	sleepier: 1.2
 };
 var art$6 = skillArt("gremory");
 /** What all three of her slots turn into once her skills are sealed (its picture is the game's for it, where a passive's would be). */
@@ -4072,10 +4405,38 @@ var GREMORY = {
 		}
 	],
 	passive: LAZY,
+	perks: {
+		"s1-light": { words: "When there is 1 enemy, additional M.DMG dealt to bosses ignores DEF." },
+		"s1-dark": { words: "[Pochi's Mark] additionally reduces M.DEF by 6%." },
+		"s2-light": { words: "The M.Block Chance Reduction effect of [Puchi's Mark] will fix the M.Block Chance to 0 instead." },
+		"s2-dark": { words: "Knocks the target away instead of inflicting Stun." },
+		"s3-light": {
+			words: "Reduces Mana Cost by 1.",
+			skill: {
+				index: 2,
+				cost: -1
+			}
+		},
+		"s3-dark": {
+			words: "Increases Mana Cost by 1 and DMG by 100%.",
+			skill: {
+				index: 2,
+				cost: 1,
+				dmg: 2
+			}
+		},
+		"s4-light": { words: "Increases All DMG Reduction effect by 20% while in use." },
+		"s4-dark": { words: "At the beginning of each battle, [Eh, whatever. I'm gonna sleep.] becomes activated." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / Crit Chance +100", { crit: 100 }),
+		"t5-dark": {
+			words: "Increases DMG dealt to Non-Hero enemies by 50% when there is 1 enemy.",
+			dmg: 1.5
+		}
+	},
 	attack: "nudge",
 	join(fight, self) {
 		/** Which of her skills are sealed; her Mana Charge; and how long her unique weapon is filling her mana for yet. */
-		const sealed = self.abilities.map(() => false);
+		const sealed = self.abilities.map(() => self.perks.has("s4-dark"));
 		let charges = 0;
 		let filling = 0;
 		const tier = self.unique?.tier ?? null;
@@ -4085,8 +4446,17 @@ var GREMORY = {
 					fight.hit(self, NUDGE.blow);
 				},
 				pochi() {
-					fight.hit(self, POCHI.bite * (1 + POCHI.more * charges) + POCHI.boss * (1 + POCHI.bossMore * charges));
-					mark(fight.foe.statuses, POCHI_MARK, POCHI.most, POCHI.lasts, (count) => ({ deals: 1 - POCHI.weaker * count }));
+					const bite = POCHI.bite * (1 + POCHI.more * charges);
+					const boss = POCHI.boss * (1 + POCHI.bossMore * charges);
+					if (self.perks.has("s1-light")) {
+						fight.hit(self, bite);
+						fight.hit(self, boss, false, 0, true);
+					} else fight.hit(self, bite + boss);
+					const softer = self.perks.has("s1-dark");
+					mark(fight.foe.statuses, POCHI_MARK, POCHI.most, POCHI.lasts, (count) => ({
+						deals: 1 - POCHI.weaker * count,
+						...softer && { defends: { magical: 1 - PERKS$6.softer * count } }
+					}));
 				},
 				puchi() {
 					fight.hit(self, PUCHI.blow);
@@ -4113,7 +4483,7 @@ var GREMORY = {
 				put(self.statuses, {
 					name: SLEEPING.name,
 					left: 3,
-					takes: SLEEP.taken,
+					takes: self.perks.has("s4-light") ? 1 - (1 - SLEEP.taken) * PERKS$6.sleepier : SLEEP.taken,
 					guards: true,
 					shown: SLEEPING
 				});
@@ -4165,6 +4535,16 @@ var FLOWER = {
 	curse: 10,
 	end: 6e3,
 	each: 800
+};
+/** Her own perks' numbers: the shockwave's longer stun, Crimson Flower's stronger slow (an ATK Spd reduction of 300 more), her DMG while awakened, her opening's (how long, how much), and Transcend 5's Dark's attack speed for each blow (most). */
+var PERKS$5 = {
+	waveStun: .5,
+	slower: .3,
+	awakeDmg: 1.2,
+	opening: 20,
+	openingDmg: 1.25,
+	quicker: 5,
+	most: 100
 };
 var art$5 = skillArt("kirze");
 /**
@@ -4228,6 +4608,33 @@ var KIRZE = {
 		}
 	],
 	passive: EVIL_DEEDS,
+	perks: {
+		"s1-light": {
+			words: "Reduces Cooldown by 3% per each enemy hit.",
+			skill: {
+				index: 0,
+				cooldownShare: .97
+			}
+		},
+		"s1-dark": {
+			words: "If there is only 1 enemy, DMG is increased by 100%.",
+			skill: {
+				index: 0,
+				dmg: 2
+			}
+		},
+		"s2-light": { words: "The duration of stun from the shockwave increases by 0.5 sec against Non-Hero enemies." },
+		"s2-dark": { words: "While under [Arcane Crystal Awakening], self deals 20% increased DMG to Non-Hero enemies." },
+		"s3-light": { words: "Increases ATK Spd reduction by 300." },
+		"s3-dark": { words: "If there is only 1 enemy, inflicts 2 stacks of [Arcane Crystal Energy]." },
+		"s4-light": { words: "At the beginning of each battle, self deals 25% increased DMG to Non-Hero enemies for 20 sec." },
+		"s4-dark": {
+			words: "Deals 15% increased DMG to Bosses.",
+			dmg: 1.15
+		},
+		"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +100", { speed: 100 }),
+		"t5-dark": { words: "Every normal and Skill attack increases ATK Spd by 5. This effect can be stacked up to max 100 times." }
+	},
 	timing: { attack: [{
 		lands: [1.29],
 		until: 1.6
@@ -4245,6 +4652,9 @@ var KIRZE = {
 		let wave = 0;
 		/** Her curse on the boss: how long it has left, and the blows counted against it. */
 		let curse = null;
+		/** Her perks: how long her opening's more DMG lasts yet (End to Evil Deeds!'s Light), and her blows counted for attack speed (Transcend 5's Dark). */
+		let opening = self.perks.has("s4-light") ? PERKS$5.opening : 0;
+		let quicker = 0;
 		return {
 			lands: {
 				judgment(part) {
@@ -4268,13 +4678,14 @@ var KIRZE = {
 						left: FLOWER.curse,
 						blows: 0
 					};
-					fight.slow(FLOWER.slow, FLOWER.slowed);
+					fight.slow(FLOWER.slow - (self.perks.has("s3-light") ? PERKS$5.slower : 0), FLOWER.slowed);
 				}
 			},
 			struck() {
 				if (curse) curse.blows++;
 			},
 			tick(dt) {
+				opening = Math.max(0, opening - dt);
 				if (awake > 0) {
 					awake = Math.max(0, awake - dt);
 					wave -= dt;
@@ -4282,7 +4693,7 @@ var KIRZE = {
 						wave += HAZE.every;
 						fight.cue(self, "wave");
 						fight.hit(self, HAZE.wave);
-						fight.stun(HAZE.waveStun, { by: self });
+						fight.stun(HAZE.waveStun + (self.perks.has("s2-light") ? PERKS$5.waveStun : 0), { by: self });
 					}
 				}
 				if (curse) {
@@ -4296,6 +4707,11 @@ var KIRZE = {
 				}
 			},
 			pace: () => awake > 0 ? HAZE.quicker : 1,
+			deals: () => (awake > 0 && self.perks.has("s2-dark") ? PERKS$5.awakeDmg : 1) * (opening > 0 ? PERKS$5.openingDmg : 1),
+			speed: () => quicker * PERKS$5.quicker,
+			blow() {
+				if (self.perks.has("t5-dark")) quicker = Math.min(PERKS$5.most, quicker + 1);
+			},
 			lit: () => awake > 0,
 			buffs: () => awake > 0 ? [{
 				...AWAKENING$1,
@@ -4342,6 +4758,24 @@ var WATER_DRAGON = {
 	critResist: 250,
 	taken: .75,
 	lasts: 5
+};
+/**
+* Her own perks' numbers: Healing Droplets' more healing and its M.Crit Resistance (points), the whirlpools' quicker
+* coming, Festival of the Flow's more heal, her passive's more M.DEF (a share more of it) and M.Crit Resistance, her more
+* CC Resist, and Transcend 5's Dark's mana for every ally (how often).
+*/
+var PERKS$4 = {
+	heals: 1.4,
+	critResist: 250,
+	whirl: 3,
+	festival: .15,
+	defense: 1.2,
+	critResistMore: 150,
+	resist: 400,
+	mana: {
+		each: .35 * SECTION,
+		every: 3
+	}
 };
 var art$4 = skillArt("laias");
 var BLESSING = {
@@ -4428,6 +4862,27 @@ var LAIAS = {
 		}
 	],
 	passive: BLESSING,
+	perks: {
+		"s1-light": { words: "Heal rate is increased by 40%." },
+		"s1-dark": { words: "Upon healing, M.Crit Resistance rises by 25%." },
+		"s2-light": { words: "Changes the target to the ally with the highest ATK." },
+		"s2-dark": {
+			words: "Mana cost is reduced by 1.",
+			skill: {
+				index: 1,
+				cost: -1
+			}
+		},
+		"s3-light": { words: "DMG effect occurs every 3 sec." },
+		"s3-dark": { words: "Heals all allies by 15% of their max HP." },
+		"s4-light": { words: "M.DEF increase rate increases by 20%, and M.Crit Resistance increases by 150." },
+		"s4-dark": {
+			words: "Increases self CC Resist by 400.",
+			bonus: { resist: 400 }
+		},
+		"t5-light": t5Light("ATK, DEF, HP +15% / M.Block +200", { blockMagical: 200 }),
+		"t5-dark": { words: "Recovers 350 Mana of all allies every 3 sec." }
+	},
 	attack: "splash",
 	join(fight, self) {
 		/** Whom her Bubble Shield is on, and for how long yet; and toward its next heal (once a second). */
@@ -4440,6 +4895,11 @@ var LAIAS = {
 		/** Toward her unique weapon's next heal. */
 		let mending = 0;
 		const tier = self.unique?.tier ?? null;
+		/** Her perks: how often the whirlpools come; her passive's M.DEF and M.Crit Resistance for every ally; and toward Transcend 5's Dark's next mana. */
+		const whirlEvery = self.perks.has("s3-light") ? PERKS$4.whirl : FESTIVAL.every;
+		const defense = self.perks.has("s4-light") ? 1 + (WATER_DRAGON.defense - 1) * PERKS$4.defense : WATER_DRAGON.defense;
+		const critResist = WATER_DRAGON.critResist + (self.perks.has("s4-light") ? PERKS$4.critResistMore : 0);
+		let filling = 0;
 		/** She is on the field, standing and in the fight. */
 		const there = () => fight.field.includes(self) && self.hp > 0 && !away(self.statuses);
 		/** Her allies on the field, standing and in the fight (her too). */
@@ -4460,17 +4920,19 @@ var LAIAS = {
 					fight.cue(self, "droplets", on);
 					for (const ally of on) {
 						const low = ally.hp <= ally.stats.hp * DROPLETS.low;
-						fight.heal(ally, DROPLETS.heal * (low ? DROPLETS.lowTimes : 1), self);
+						fight.heal(ally, DROPLETS.heal * (low ? DROPLETS.lowTimes : 1) * (self.perks.has("s1-light") ? PERKS$4.heals : 1), self);
+						const resisting = self.perks.has("s1-dark") ? { critResist: { magical: PERKS$4.critResist } } : {};
 						put(ally.statuses, {
 							name: DROPLETS_UP.name,
 							left: DROPLETS.lasts,
 							heals: 1 + DROPLETS.heals * (low ? DROPLETS.lowTimes : 1),
+							...resisting,
 							shown: DROPLETS_UP
 						});
 					}
 				},
 				bubble() {
-					const ally = weakest();
+					const ally = self.perks.has("s2-light") ? allies().reduce((best, one) => !best || one.stats.atk > best.stats.atk ? one : best, void 0) : weakest();
 					if (!ally) return;
 					fight.cue(self, "bubble", [ally]);
 					if (bubbled && bubbled !== ally) lift(BUBBLE_HOLDS.name, [bubbled]);
@@ -4495,7 +4957,7 @@ var LAIAS = {
 						by: self
 					});
 					for (const ally of on) {
-						fight.heal(ally, ally.stats.hp * FESTIVAL.heal);
+						fight.heal(ally, ally.stats.hp * (FESTIVAL.heal + (self.perks.has("s3-dark") ? PERKS$4.festival : 0)));
 						if (ally !== self) ally.mana = Math.min(MAX_MANA, ally.mana + FESTIVAL.mana);
 					}
 					flowing = FESTIVAL.lasts;
@@ -4542,8 +5004,8 @@ var LAIAS = {
 					put(ally.statuses, {
 						name: BLESSED.name,
 						left: Infinity,
-						defends: { magical: WATER_DRAGON.defense },
-						critResist: { magical: WATER_DRAGON.critResist },
+						defends: { magical: defense },
+						critResist: { magical: critResist },
 						shown: BLESSED
 					});
 					if (tier !== null) put(ally.statuses, {
@@ -4556,14 +5018,21 @@ var LAIAS = {
 				if (flowing > 0) {
 					flowing -= dt;
 					whirl += dt;
-					if (whirl >= FESTIVAL.every) {
-						whirl -= FESTIVAL.every;
+					if (whirl >= whirlEvery) {
+						whirl -= whirlEvery;
 						fight.cue(self, "whirlpool");
 						fight.hit(self, FESTIVAL.whirl);
 						fight.stun(FESTIVAL.whirlDown, {
 							down: true,
 							by: self
 						});
+					}
+				}
+				if (self.perks.has("t5-dark")) {
+					filling += dt;
+					if (filling >= PERKS$4.mana.every) {
+						filling -= PERKS$4.mana.every;
+						for (const ally of on) ally.mana = Math.min(MAX_MANA, ally.mana + PERKS$4.mana.each);
 					}
 				}
 				if (tier !== null) {
@@ -4610,6 +5079,22 @@ var POISON = {
 	each: 100,
 	every: 1,
 	heals: .1
+};
+/** Her own perks' numbers: Thornbush Forest's shackle at full Poison, Tangled Vine's more DMG and its stun after, more Poison at most, Blade Leaf's shackle (its chance), and Transcend 5's Dark's Thornbush Forest (how often, its chance). */
+var PERKS$3 = {
+	full: 5,
+	shackle: 3,
+	vine: 1.4,
+	after: 2,
+	most: 6,
+	leaf: {
+		chance: .2,
+		shackle: 2
+	},
+	forest: {
+		every: 5,
+		chance: .3
+	}
 };
 var art$3 = skillArt("lorraine");
 var BLADE_LEAF = {
@@ -4664,6 +5149,31 @@ var LORRAINE = {
 		}
 	],
 	passive: BLADE_LEAF,
+	perks: {
+		"s1-light": { words: "Hit count is increased by 1." },
+		"s1-dark": { words: "Enemies with 5 or more stacks of Poison are shackled for 3 sec upon hit." },
+		"s2-light": {
+			words: "DMG is increased by 40%.",
+			skill: {
+				index: 1,
+				dmg: 1.4
+			}
+		},
+		"s2-dark": { words: "Enemies hit by the final explosion effect are stunned for 2 sec." },
+		"s3-light": {
+			words: "Mana cost is increased by 1 orb but DMG is boosted by 100%.",
+			skill: {
+				index: 2,
+				cost: 1,
+				dmg: 2
+			}
+		},
+		"s3-dark": { words: "Enemies with 5 or more stacks of Poison lose their positive effects." },
+		"s4-light": { words: "Poison stack maximum is changed to 6." },
+		"s4-dark": { words: "There is a 20% chance that hit enemies are shackled for 2 sec." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / Crit Chance +100", { crit: 100 }),
+		"t5-dark": { words: "Every 5 sec, targets all enemies and attacks with 'Thornbush Forest' with 30% chance on each enemy." }
+	},
 	attack: "lash",
 	join(fight, self) {
 		/** How long until Tangled Vine's blow after (0: none coming); toward her Poison's next bite; and toward her unique weapon's next blow. */
@@ -4671,11 +5181,14 @@ var LORRAINE = {
 		let bitten = 0;
 		let roburu = 0;
 		const tier = self.unique?.tier ?? null;
+		/** Her perks: the most Poison there can be (Blade Leaf's Light); and toward Transcend 5's Dark's next Thornbush Forest. */
+		const most = self.perks.has("s4-light") ? PERKS$3.most : POISON.most;
+		let forest = 0;
 		/** How many Poison are on the boss. */
 		const poisons = () => fight.foe.statuses.find((status) => status.name === POISONED)?.count ?? 0;
 		/** So many more Poison on the boss (up to the most), all of it begun again: what heals it heals it less for each. */
 		const poison = (count) => {
-			const stacks = Math.min(POISON.most, poisons() + count);
+			const stacks = Math.min(most, poisons() + count);
 			put(fight.foe.statuses, {
 				name: POISONED,
 				left: POISON.lasts,
@@ -4686,6 +5199,12 @@ var LORRAINE = {
 		};
 		/** The Lorraines in the fight (there may be two: it is the same Poison), and whether any is standing. */
 		const lorraines = () => fight.fighters.filter((one) => one.id === self.id);
+		/** A blow of Thornbush Forest: a Poison (and with its Dark, at full Poison, the boss shackled). */
+		const thorn = () => {
+			fight.hit(self, THORNS.blow);
+			poison(1);
+			if (self.perks.has("s1-dark") && poisons() >= PERKS$3.full) fight.stun(PERKS$3.shackle, { by: self });
+		};
 		return {
 			lands: {
 				lash() {
@@ -4696,10 +5215,11 @@ var LORRAINE = {
 					fight.cue(self, "leaf");
 					fight.hit(self, LASH.blow + LEAF.blow * LEAF.times);
 					poison(LEAF.times);
+					if (self.perks.has("s4-dark") && fight.roll() < PERKS$3.leaf.chance) fight.stun(PERKS$3.leaf.shackle, { by: self });
 				},
-				thornbush() {
-					fight.hit(self, THORNS.blow);
-					poison(1);
+				thornbush(part) {
+					thorn();
+					if (part === 2 && self.perks.has("s1-light")) thorn();
 				},
 				vine() {
 					fight.hit(self, VINE.blow);
@@ -4720,7 +5240,8 @@ var LORRAINE = {
 					vine -= dt;
 					if (vine <= 0) {
 						fight.cue(self, "vine");
-						fight.hit(self, VINE.each * poisons(), false);
+						fight.hit(self, VINE.each * poisons() * (self.perks.has("s2-light") ? PERKS$3.vine : 1), false);
+						if (self.perks.has("s2-dark")) fight.stun(PERKS$3.after, { by: self });
 					}
 				}
 				const count = poisons();
@@ -4744,6 +5265,16 @@ var LORRAINE = {
 						}
 					}
 				}
+				if (self.perks.has("t5-dark") && self.hp > 0 && fight.field.includes(self)) {
+					forest += dt;
+					if (forest >= PERKS$3.forest.every) {
+						forest -= PERKS$3.forest.every;
+						if (fight.roll() < PERKS$3.forest.chance) {
+							fight.cue(self, "thornbush");
+							for (let i = 0; i < 3; i++) thorn();
+						}
+					}
+				}
 				if (count <= 0 || lorraines()[0] !== self) {
 					bitten = 0;
 					return;
@@ -4754,7 +5285,7 @@ var LORRAINE = {
 					fight.hit(self, POISON.each * count, false);
 				}
 			},
-			lit: () => poisons() >= POISON.most
+			lit: () => poisons() >= most
 		};
 	}
 };
@@ -4793,6 +5324,26 @@ var FLAME = {
 	more: .02,
 	heals: .01
 };
+/**
+* Her own perks' numbers: Burning Power's attack speed (points), Hellfire's more M.Block and its blow every second (a
+* share of her M.DEF), Lava Eruption's heal (a share of what it dealt), Fire Smash's M.DEF for each block (most), the boss
+* taking more at full Flame, and Transcend 5's Dark's Flame.
+*/
+var PERKS$2 = {
+	quicker: 200,
+	block: 1.2,
+	scorch: 1.5,
+	drain: .4,
+	harder: {
+		defense: .05,
+		most: 10
+	},
+	full: .4,
+	flame: {
+		each: 2,
+		most: 120
+	}
+};
 var art$2 = skillArt("morrah");
 var FIRE_SMASH = {
 	attack: 1,
@@ -4821,6 +5372,20 @@ var HELLFIRE_UP = {
 };
 /** What her skills, and her unique weapon, leave on the boss. */
 var FLAMED = "Flame";
+var SEARED = "Searing Flame";
+/** What her perks give her: Burning Power's Light's attack speed, and Fire Smash's Light's M.DEF. */
+var QUICKENED = {
+	name: "Burning Power (speed)",
+	about: "Quicker.",
+	icon: "🔥",
+	art: art$2(0)
+};
+var HARDENED = {
+	name: "Fire Smash (M.DEF)",
+	about: "5% more M.DEF for each block (10 at most).",
+	icon: "🔥",
+	art: art$2(3)
+};
 var MORRAH = {
 	id: "morrah",
 	name: "Morrah",
@@ -4860,6 +5425,30 @@ var MORRAH = {
 		}
 	],
 	passive: FIRE_SMASH,
+	perks: {
+		"s1-light": { words: "ATK Spd is increased by 200 for 15 sec." },
+		"s1-dark": {
+			words: "Reduces cooldown by 6% per each enemy hit.",
+			skill: {
+				index: 0,
+				cooldownShare: .94
+			}
+		},
+		"s2-light": { words: "M.Block rate is boosted by 20%." },
+		"s2-dark": { words: "While Hellfire is active, deals DMG based on own M.DEF to nearby enemies." },
+		"s3-light": {
+			words: "DMG is increased by 40%.",
+			skill: {
+				index: 2,
+				dmg: 1.4
+			}
+		},
+		"s3-dark": { words: "Heals HP equal to 40% of DMG dealt." },
+		"s4-light": { words: "Increases own M.DEF by 5% per each block. Max stack is 10." },
+		"s4-dark": { words: "Target with over 100 stacks of Flame takes 40% increased M.DMG." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / M.Block +200", { blockMagical: 200 }),
+		"t5-dark": { words: "Flame stack DMG is increased by 100%, and max stack number is changed to 120." }
+	},
 	attack: "cleave",
 	timing: { attack: [{
 		lands: [.68],
@@ -4872,16 +5461,26 @@ var MORRAH = {
 		let fanned = 0;
 		let burnt = 0;
 		const tier = self.unique?.tier ?? null;
+		/** Her perks: the most Flame there can be, and how hard each burns (Transcend 5's Dark); and her blocks counted for M.DEF (Fire Smash's Light). */
+		const most = self.perks.has("t5-dark") ? PERKS$2.flame.most : FLAME.most;
+		const each = FLAME.each * (self.perks.has("t5-dark") ? PERKS$2.flame.each : 1);
+		let blocks = 0;
 		/** How many Flame are on the boss. */
 		const flames = () => fight.foe.statuses.find((status) => status.name === FLAMED)?.count ?? 0;
 		/** So many more Flame on the boss (up to the most), all of it begun again: what heals it heals it less for each. */
 		const burn = (count) => {
-			const stacks = Math.min(FLAME.most, flames() + count);
+			const stacks = Math.min(most, flames() + count);
 			put(fight.foe.statuses, {
 				name: FLAMED,
 				left: FLAME.lasts,
 				count: stacks,
 				heals: Math.max(0, 1 - FLAME.heals * stacks),
+				shown: "burn"
+			});
+			if (self.perks.has("s4-dark") && stacks >= FLAME.most) put(fight.foe.statuses, {
+				name: SEARED,
+				left: FLAME.lasts,
+				takes: { magical: 1 + PERKS$2.full },
 				shown: "burn"
 			});
 		};
@@ -4897,7 +5496,7 @@ var MORRAH = {
 			} else fight.hit(self, CLEAVE.blow);
 			if (tier === null || fight.roll() >= CARPRAIN.chance) return;
 			const weaker = atTier(CARPRAIN.weaker, tier);
-			const takes = weaker * (flames() >= FLAME.most ? CARPRAIN.full : 1);
+			const takes = weaker * (flames() >= most ? CARPRAIN.full : 1);
 			put(fight.foe.statuses, {
 				name: CARPRAIN.name,
 				left: CARPRAIN.lasts,
@@ -4918,6 +5517,12 @@ var MORRAH = {
 					});
 					burn(BURNING.flames);
 					burning = BURNING.lasts;
+					if (self.perks.has("s1-light")) put(self.statuses, {
+						name: QUICKENED.name,
+						left: BURNING.lasts,
+						pace: 1 + share(PERKS$2.quicker),
+						shown: QUICKENED
+					});
 				},
 				hellfire() {
 					const on = allies();
@@ -4926,24 +5531,36 @@ var MORRAH = {
 						name: HELLFIRE_UP.name,
 						left: HELLFIRE.lasts,
 						defends: { magical: HELLFIRE.defense },
-						blocks: { magical: HELLFIRE.block },
+						blocks: { magical: HELLFIRE.block * (self.perks.has("s2-light") ? PERKS$2.block : 1) },
 						shown: HELLFIRE_UP
 					});
 					hellfire = HELLFIRE.lasts;
 					fanned = 0;
 				},
 				eruption() {
+					const before = fight.foe.hp;
 					fight.hit(self, ERUPTION.blow * fanning());
 					fight.stun(ERUPTION.down, {
 						down: true,
 						by: self
 					});
+					if (self.perks.has("s3-dark")) fight.heal(self, PERKS$2.drain * Math.max(0, before - fight.foe.hp));
 				}
 			},
 			blocked() {
 				fight.cue(self, "smash");
 				fight.hit(self, SMASH.blow);
 				burn(SMASH.flames);
+				if (self.perks.has("s4-light") && blocks < PERKS$2.harder.most) {
+					blocks++;
+					put(self.statuses, {
+						name: HARDENED.name,
+						left: Infinity,
+						count: blocks,
+						defends: { magical: 1 + PERKS$2.harder.defense * blocks },
+						shown: HARDENED
+					});
+				}
 			},
 			tick(dt) {
 				if (burning > 0) burning = Math.max(0, burning - dt);
@@ -4953,6 +5570,7 @@ var MORRAH = {
 					if (fanned >= HELLFIRE.every) {
 						fanned -= HELLFIRE.every;
 						burn(1);
+						if (self.perks.has("s2-dark") && self.hp > 0 && fight.field.includes(self)) fight.hit(self, PERKS$2.scorch * self.stats.magical, false);
 					}
 				}
 				const count = flames();
@@ -4964,7 +5582,7 @@ var MORRAH = {
 				if (burnt >= FLAME.every) {
 					burnt -= FLAME.every;
 					fight.cue(self, "flame");
-					fight.hit(self, FLAME.each * count, false);
+					fight.hit(self, each * count, false);
 				}
 			},
 			lit: () => burning > 0,
@@ -5002,6 +5620,20 @@ var WITCH = {
 	atk: 38567,
 	critDamage: .05,
 	most: 30
+};
+/** Her own perks' numbers: Blossom's less healing for the boss, Blood Scattering Blade's mana for each blow, her less taken for each stack of Cold-Blooded Witch, her opening's more DMG, and Transcend 5's Dark's more taken. */
+var PERKS$1 = {
+	unhealed: {
+		heals: .5,
+		lasts: 5
+	},
+	mana: .2 * SECTION,
+	taken: .007,
+	opening: {
+		deals: 1.25,
+		lasts: 200
+	},
+	reckless: 1.25
 };
 var art$1 = skillArt("seria");
 /** What Falling Petals' slot holds for a while after it is used (its picture is Falling Petals'). */
@@ -5041,6 +5673,20 @@ var MOONLIGHT = {
 };
 /** What her skills leave on the boss. */
 var SIN = "Original Sin of Blood";
+var WILTED = "Mysterious Sword - Blossom";
+/** What her perks give her: her opening's more DMG (Cold-Blooded Witch's Dark), and Transcend 5's Dark. */
+var OPENING = {
+	name: "Cold-Blooded Witch (opening)",
+	about: "Deals 25% more to the boss.",
+	icon: "🩸",
+	art: art$1(3)
+};
+var RECKLESS = {
+	name: "Bloodthirst",
+	about: "Every blow of hers critical; but she can’t block, and takes 25% more.",
+	icon: "🩸",
+	art: art$1(3)
+};
 var UNHEALED = "Red Moon";
 var SERIA = {
 	id: "seria",
@@ -5082,6 +5728,47 @@ var SERIA = {
 		}
 	],
 	passive: COLD_BLOODED,
+	perks: {
+		"s1-light": {
+			words: "[Mysterious Sword - Falling Petals] - Mana cost is reduced by 1. [Mysterious Sword - Blossom] - Hit enemies' heal rate is reduced by 50% for 5 sec.",
+			skill: {
+				index: 0,
+				cost: -1
+			}
+		},
+		"s1-dark": {
+			words: "[Mysterious Sword - Falling Petals] - Target takes 25% increased M.DMG for 10 sec. [Mysterious Sword - Blossom] - Mana cost is increased by 1, and ignores enemy's DEF.",
+			skill: {
+				index: 0,
+				mark: {
+					name: "Magic Weakness",
+					takes: { magical: 1.25 },
+					lasts: 10
+				}
+			}
+		},
+		"s2-light": {
+			words: "Reduces Mana Cost by 1.",
+			skill: {
+				index: 1,
+				cost: -1
+			}
+		},
+		"s2-dark": { words: "Upon each DMG dealt, recovers 200 Mana." },
+		"s3-light": { words: "Dispels positive effects of all enemies in range." },
+		"s3-dark": {
+			words: "Increases Mana Cost by 1 and ignores DEF when attacking Non-Hero enemies.",
+			skill: {
+				index: 2,
+				cost: 1,
+				whole: true
+			}
+		},
+		"s4-light": { words: "Takes 0.7% reduced DMG per stack." },
+		"s4-dark": { words: "When the battle starts, increases DMG to Non-Hero enemies by 25% for 200 sec." },
+		"t5-light": t5Light("ATK, DEF, HP +15% / Crit DMG +20%", { critDamage: .2 }),
+		"t5-dark": { words: "All of caster's attacks will be critical hits, but the caster becomes unable to block while taking 25% increased damage." }
+	},
 	timing: { attack: [{
 		lands: [.86],
 		until: 1.1
@@ -5098,15 +5785,37 @@ var SERIA = {
 		let witch = 0;
 		let elsion = 0;
 		const tier = self.unique?.tier ?? null;
+		const blossomSkill = self.perks.has("s1-dark") ? {
+			...BLOSSOM_SKILL,
+			cost: BLOSSOM_SKILL.cost + 1
+		} : BLOSSOM_SKILL;
+		if (self.perks.has("s4-dark")) put(self.statuses, {
+			name: OPENING.name,
+			left: PERKS$1.opening.lasts,
+			deals: PERKS$1.opening.deals,
+			shown: OPENING
+		});
+		if (self.perks.has("t5-dark")) put(self.statuses, {
+			name: RECKLESS.name,
+			left: Infinity,
+			crit: 1,
+			takes: PERKS$1.reckless,
+			blocks: {
+				physical: -Infinity,
+				magical: -Infinity
+			},
+			shown: RECKLESS
+		});
 		/** A blow of a skill of hers: a critical one makes her critical blows harder, and (with her unique weapon) deals more, and leaves the boss healed less and her healed more. */
-		const cut = (amount, pierce = 0) => {
-			if (!fight.hit(self, amount, true, pierce)) return;
+		const cut = (amount, pierce = 0, whole = false) => {
+			if (!fight.hit(self, amount, true, pierce, whole)) return;
 			witch = Math.min(WITCH.most, witch + 1);
 			put(self.statuses, {
 				name: WITCHED.name,
 				left: Infinity,
 				count: witch,
 				critDamage: WITCH.critDamage * witch,
+				...self.perks.has("s4-light") && { takes: 1 - PERKS$1.taken * witch },
 				shown: WITCHED
 			});
 			if (tier === null) return;
@@ -5132,9 +5841,17 @@ var SERIA = {
 					cut(PETALS.blow);
 				},
 				blossom() {
-					cut(BLOSSOM.blow);
+					cut(BLOSSOM.blow, 0, self.perks.has("s1-dark"));
+					if (self.perks.has("s1-light")) put(fight.foe.statuses, {
+						name: WILTED,
+						left: PERKS$1.unhealed.lasts,
+						heals: PERKS$1.unhealed.heals,
+						shown: "curse"
+					});
 				},
 				scatter(part) {
+					const blows = part === 0 ? 1 : 2;
+					if (self.perks.has("s2-dark")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$1.mana * blows);
 					if (part === 0) {
 						cut(SCATTER.rush);
 						put(fight.foe.statuses, {
@@ -5160,9 +5877,9 @@ var SERIA = {
 					});
 				}
 			},
-			slot: (index) => index === 0 && blossom > 0 ? BLOSSOM_SKILL : self.abilities[index] ?? null,
+			slot: (index) => index === 0 && blossom > 0 ? blossomSkill : self.abilities[index] ?? null,
 			used(index, ability) {
-				if (index === 0 && ability === BLOSSOM_SKILL) {
+				if (index === 0 && ability === blossomSkill) {
 					blossom = 0;
 					self.cooldowns[0] = petals;
 				} else if (index === 0) {
@@ -5225,6 +5942,19 @@ var AWAKENING = {
 	atk: .1,
 	boss: .15
 };
+/**
+* Her own perks' numbers: how many allies her Hologram is on, and its crit DMG; the field's less taken and attack speed
+* (points); her passive's less taken and more to the boss; and Transcend 5's Dark's for each piece of TechnoMagic gear.
+*/
+var PERKS = {
+	holograms: 2,
+	critDamage: .5,
+	fieldTaken: .75,
+	fieldSpeed: 300,
+	taken: .7,
+	boss: .15,
+	piece: .025
+};
 var art = skillArt("valance");
 var AWAKENED = {
 	attack: 1,
@@ -5266,6 +5996,8 @@ var FIELDED = {
 };
 /** What Ultimate Laser Cannon leaves on the boss. */
 var MANIPULATED = "Manipulated";
+/** What her Transcend 5's Dark leaves on the boss while she is on the field. */
+var EXPOSED = "Technomagic Awakening";
 /** Something the boss has left on a hero that can be cleared (not what holds it down, or shuts it away). */
 var harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
 //#endregion
@@ -5321,10 +6053,28 @@ var HEROES = [
 			}
 		],
 		passive: AWAKENED,
+		perks: {
+			"s1-light": { words: "[Hologram] applies to 2 allies with the highest ATK." },
+			"s1-dark": { words: "[Hologram] additionally increases Crit DMG by 50%." },
+			"s2-light": { words: "[Violet Force Field] additionally reduces DMG taken by 25%." },
+			"s2-dark": { words: "[Violet Force Field] additionally increases ATK Spd by 300." },
+			"s3-light": { words: "Dispels positive effects from the hit target." },
+			"s3-dark": {
+				words: "Reduces Mana Cost by 1.",
+				skill: {
+					index: 2,
+					cost: -1
+				}
+			},
+			"s4-light": { words: "Reduces DMG all allies take by 30% in Technomagic Kingdom." },
+			"s4-dark": { words: "Additionally increases all allies' DMG dealt to Bosses by 15% in Technomagic Kingdom." },
+			"t5-light": t5Light("ATK, DEF, HP +15% / ATK Spd +10%", { speed: 100 }),
+			"t5-dark": { words: "Reduces all DMG all allies take by 2.5% and increases All DMG all enemies take by 2.5%. This effect can be stacked up to the number of Technomagic Gear equipped to self." }
+		},
 		attack: "bolt",
 		join(fight, self) {
-			/** Whom her Hologram is on, and for how long yet; and toward its next heal (once a second). */
-			let holo = null;
+			/** Whom her Hologram is on (two, with its Light), and for how long yet; and toward its next heal (once a second). */
+			let holos = [];
 			let holoLeft = 0;
 			let holoHeal = 0;
 			/** How long her field lasts yet, and toward its next heal and mana (once a second). */
@@ -5352,36 +6102,49 @@ var HEROES = [
 			};
 			/** How many pieces of TechnoMagic gear an ally wears: each comes with one additional skill (../skills.ts). */
 			const tmPieces = (ally) => Object.values(ally.skills).reduce((sum, n) => sum + (n ?? 0), 0);
+			/** What her passive gives every ally, with her perks: less taken (its Light, and Transcend 5's Dark), and more to the boss (its Dark). */
+			const pieces = self.perks.has("t5-dark") ? tmPieces(self) : 0;
+			const taken = (self.perks.has("s4-light") ? PERKS.taken : 1) * (1 - PERKS.piece * pieces);
+			const boss = AWAKENING.boss + (self.perks.has("s4-dark") ? PERKS.boss : 0);
 			return {
 				lands: {
 					bolt() {
 						fight.hit(self, BOLT.blow);
 					},
 					prototype() {
-						const top = allies().reduce((best, ally) => !best || ally.stats.atk > best.stats.atk ? ally : best, null);
-						if (!top) return;
-						fight.cue(self, "prototype", [top]);
-						if (holo && holo !== top) holo.statuses = holo.statuses.filter((status) => status.name !== HOLOGRAPHED.name);
-						top.statuses = top.statuses.filter((status) => !harmful(status));
-						put(top.statuses, {
-							name: HOLOGRAPHED.name,
-							left: HOLOGRAM.lasts,
-							deals: 1 + HOLOGRAM.atk,
-							crit: HOLOGRAM.crit,
-							guards: true,
-							shown: HOLOGRAPHED
-						});
-						holo = top;
+						const top = allies().sort((a, b) => b.stats.atk - a.stats.atk).slice(0, self.perks.has("s1-light") ? PERKS.holograms : 1);
+						if (top.length === 0) return;
+						fight.cue(self, "prototype", top);
+						for (const was of holos) if (!top.includes(was)) was.statuses = was.statuses.filter((status) => status.name !== HOLOGRAPHED.name);
+						const harder = self.perks.has("s1-dark") ? { critDamage: PERKS.critDamage } : {};
+						for (const ally of top) {
+							ally.statuses = ally.statuses.filter((status) => !harmful(status));
+							put(ally.statuses, {
+								name: HOLOGRAPHED.name,
+								left: HOLOGRAM.lasts,
+								deals: 1 + HOLOGRAM.atk,
+								crit: HOLOGRAM.crit,
+								...harder,
+								guards: true,
+								shown: HOLOGRAPHED
+							});
+						}
+						holos = top;
 						holoLeft = HOLOGRAM.lasts;
 						holoHeal = 0;
 					},
 					field() {
 						const on = allies();
 						fight.cue(self, "field", on);
+						const more = {
+							...self.perks.has("s2-light") && { takes: PERKS.fieldTaken },
+							...self.perks.has("s2-dark") && { pace: 1 + share(PERKS.fieldSpeed) }
+						};
 						for (const ally of on) put(ally.statuses, {
 							name: FIELDED.name,
 							left: FIELD.lasts,
 							defends: FIELD.defense,
+							...more,
 							guards: true,
 							shown: FIELDED
 						});
@@ -5395,18 +6158,16 @@ var HEROES = [
 					}
 				},
 				tick(dt) {
-					if (holo) {
+					if (holos.length > 0) {
 						holoLeft -= dt;
-						if (holoLeft <= 0 || holo.hp <= 0) holo = null;
-						else {
-							const on = holo;
+						holos = holoLeft <= 0 ? [] : holos.filter((on) => on.hp > 0);
+						if (holos.length > 0) holoHeal += dt;
+						const healing = holoHeal >= 1;
+						if (healing) holoHeal -= 1;
+						for (const on of holos) {
 							on.statuses = on.statuses.filter((status) => !harmful(status));
 							on.cooldowns = on.cooldowns.map((left) => Math.max(0, left - HOLOGRAM.cooldown * dt));
-							holoHeal += dt;
-							if (holoHeal >= 1) {
-								holoHeal -= 1;
-								fight.heal(on, HOLOGRAM.heal, self);
-							}
+							if (healing) fight.heal(on, HOLOGRAM.heal, self);
 						}
 					}
 					if (field > 0) {
@@ -5425,8 +6186,16 @@ var HEROES = [
 						lift(AWAKENING_UP.name);
 						lift(AWAKENING_SELF.name);
 						lift(CORBEAU_UP.name);
+						fight.foe.statuses = fight.foe.statuses.filter((status) => status.name !== EXPOSED);
 						return;
 					}
+					if (pieces > 0) put(fight.foe.statuses, {
+						name: EXPOSED,
+						left: Infinity,
+						count: pieces,
+						takes: 1 + PERKS.piece * pieces,
+						shown: "curse"
+					});
 					put(self.statuses, {
 						name: AWAKENING_SELF.name,
 						left: Infinity,
@@ -5438,7 +6207,8 @@ var HEROES = [
 						put(ally.statuses, {
 							name: AWAKENING_UP.name,
 							left: Infinity,
-							deals: (1 + AWAKENING.atk) * (1 + AWAKENING.boss),
+							deals: (1 + AWAKENING.atk) * (1 + boss),
+							...taken < 1 && { takes: taken },
 							shown: AWAKENING_UP
 						});
 						if (!self.unique) continue;
@@ -5466,7 +6236,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "a0cd98a41d86";
+var SIM_VERSION = "5e999734aa7f";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
