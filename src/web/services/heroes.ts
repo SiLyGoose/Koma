@@ -6,7 +6,7 @@ import type { HeroSlot } from '../../types.js';
 
 /*
  * The TechnoMagic Raid's heroes: which are the member's, buying one (the shop) and gearing them (the heroes
- * page) (heroes.ts's store), and who else in the server has heroes to look at.
+ * page, and its transcendence perks) (heroes.ts's store), and who else in the server has heroes to look at.
  */
 
 /** Who in a server has heroes to look at (GET /api/heroes/members): the one asking first, then whoever has the most. */
@@ -23,7 +23,7 @@ export function heroService(deps: ApiDeps) {
   const store = deps.heroes ?? heroStore;
 
   /** The heroes as they stand after a change, or the change's error. */
-  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy'): HeroesView => {
+  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy' | 'too_many_points'): HeroesView => {
     if (typeof result === 'string') throw new ApiError(result);
     return result;
   };
@@ -57,5 +57,7 @@ export function heroService(deps: ApiDeps) {
       answer(await store.equip(guildId, userId, hero, slot, copy)),
     unequip: async (guildId: string, userId: string, hero: string, slot: HeroSlot | null): Promise<HeroesView> =>
       answer(await store.unequip(guildId, userId, hero, slot)),
+    transcend: async (guildId: string, userId: string, hero: string, perks: readonly string[]): Promise<HeroesView> =>
+      answer(await store.transcend(guildId, userId, hero, perks)),
   };
 }

@@ -7,6 +7,7 @@ import { DEFAULTS } from '../src/config.js';
 import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TM_SET_LABEL, TM_SET_PIECES, TM_SETS_BY_ID, tmSetEffect } from '../src/data/tm-sets.js';
+import { keptPerks, TRANSCEND_PERKS, TRANSCEND_POINTS, transcendCost, transcendPicks } from '../src/data/transcend.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
 import { activeSet, activeTmEffects, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, otherWeaponSlot, pieceBonus, raidValue, secondUnique, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
@@ -242,6 +243,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`unequip ${hero} ${slot}`);
       return owned.includes(hero) ? empty : 'not_found';
     },
+    transcend: async (guildId, userId, hero, perks) => {
+      calls.push(`transcend ${hero} ${perks.join(',')}`);
+      if (!owned.includes(hero)) return 'not_found';
+      return transcendPicks(perks) ? empty : 'too_many_points';
+    },
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -292,10 +298,51 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await post('/api/heroes/unequip', { guild: 'g1', hero: 'kirze', slot: 'weapon1' })).status, 200);
     assert.equal((await post('/api/heroes/unequip', { guild: 'g1', hero: 'kirze' })).status, 200);
     assert.equal((await post('/api/heroes/buy', { guild: 'g2', hero: 'clause' })).status, 403);
-    assert.deepEqual(calls, ['equip kirze weapon1 c1', 'buy g1 u1 kirze', 'buy g1 u1 kirze', 'buy g1 u1 nobody', 'equip kirze weapon1 c1', 'equip kirze treasure c1', 'unequip kirze weapon1', 'unequip kirze null']);
+
+    // Transcendence perks: known ones, within the TP; none resets them.
+    assert.equal((await post('/api/heroes/transcend', { guild: 'g1', hero: 'kirze', perks: ['atk-up', 's1-dark', 't5-light'] })).status, 200);
+    assert.equal((await post('/api/heroes/transcend', { guild: 'g1', hero: 'kirze', perks: [] })).status, 200);
+    assert.equal((await post('/api/heroes/transcend', { guild: 'g1', hero: 'kirze', perks: ['nope'] })).status, 400);
+    const over = await post('/api/heroes/transcend', { guild: 'g1', hero: 'kirze', perks: ['s1-light', 's1-dark', 's2-light', 's2-dark', 's3-light', 's3-dark'] });
+    assert.equal(over.status, 409);
+    assert.deepEqual(await over.json(), { error: 'too_many_points' });
+    assert.deepEqual(await (await post('/api/heroes/transcend', { guild: 'g1', hero: 'clause', perks: [] })).json(), { error: 'not_found' });
+    assert.deepEqual(calls, [
+      'equip kirze weapon1 c1',
+      'buy g1 u1 kirze',
+      'buy g1 u1 kirze',
+      'buy g1 u1 nobody',
+      'equip kirze weapon1 c1',
+      'equip kirze treasure c1',
+      'unequip kirze weapon1',
+      'unequip kirze null',
+      'transcend kirze atk-up,s1-dark,t5-light',
+      'transcend kirze ',
+      'transcend kirze s1-light,s1-dark,s2-light,s2-dark,s3-light,s3-dark',
+      'transcend clause ',
+    ]);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
+});
+
+test('heroes: transcendence perks, 80 TP of them, each picked once in their order; kept ones past the TP or unknown are left out', () => {
+  assert.equal(TRANSCEND_POINTS, 80);
+  assert.equal(TRANSCEND_PERKS.length, 20);
+  assert.equal(new Set(TRANSCEND_PERKS.map((perk) => perk.id)).size, 20);
+  // Every tier-1 perk (5 × 10) and two more (15 each) is 80: as many as a hero has.
+  const t1 = TRANSCEND_PERKS.filter((perk) => perk.tier === 1).map((perk) => perk.id);
+  assert.equal(transcendCost(t1), 50);
+  assert.deepEqual(transcendPicks(['t5-dark', ...t1, 's1-light', 'atk-up']), [...t1, 's1-light', 't5-dark']);
+  assert.equal(transcendPicks([...t1, 's1-light', 's1-dark', 't5-dark']), null);
+  assert.deepEqual(transcendPicks([]), []);
+  assert.deepEqual(keptPerks(['t5-dark', 'gone', 's1-light']), ['s1-light', 't5-dark']);
+  assert.deepEqual(keptPerks([...t1, 's1-light', 's1-dark', 't5-dark']), [...t1, 's1-light', 's1-dark']);
+  assert.deepEqual(keptPerks(undefined), []);
+  // The heroes view has each hero's.
+  const view = heroesView([], { points: 0, heroes: { kirze: { boughtAt: new Date(0), perks: ['t5-light', 'hp-up'] } } });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'kirze')?.perks, ['hp-up', 't5-light']);
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'clause')?.perks, []);
 });
 
 test('heroes: three weapons and armors of one set, each for its class, give the set its effect (treasures apart)', () => {

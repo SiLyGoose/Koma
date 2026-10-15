@@ -62,6 +62,7 @@ export type { Me } from './services/login.js';
  *   POST /api/heroes/buy {guild, hero}   buys a hero with points (the shop): HeroesView
  *   POST /api/heroes/equip {guild, hero, slot, copy}   puts one of their copies in one of their hero's slots, off any other hero it was on (the heroes page): HeroesView
  *   POST /api/heroes/unequip {guild, hero, slot?}   empties one of their hero's slots, or every one: HeroesView
+ *   POST /api/heroes/transcend {guild, hero, perks}   picks one of their hero's transcendence perks, all of them at once (none: reset): HeroesView
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
  *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView

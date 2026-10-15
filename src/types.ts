@@ -283,6 +283,8 @@ export interface HeroDoc {
    * at most (it can be on the member as well), and in one of its slots.
    */
   equipment?: Partial<Record<HeroSlot, string | null>>;
+  /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page. Missing means none. */
+  perks?: string[];
 }
 
 /** A hero in a TechnoMagic Raid run: which, in which of its skins (the site's), and what its gear gave it as the run began. */

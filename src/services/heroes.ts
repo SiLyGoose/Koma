@@ -1,6 +1,7 @@
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
+import { transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { HERO_SLOT_KIND, heroEquipMoves, heroWearable, otherWeaponSlot, secondUnique, wieldedBy } from '../lib/game/heroes.js';
 import { HERO_SLOTS, type HeroSlot } from '../types.js';
@@ -77,6 +78,20 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
     if (moved.matchedCount > 0) return { ok: true };
   }
   return { ok: false, reason: 'busy' };
+}
+
+export type HeroTranscendResult = { ok: true } | { ok: false; reason: 'not_found' | 'too_many_points' };
+
+/**
+ * Picks the member's hero's transcendence perks (data/transcend.ts), all of them at once (none: reset): 'not_found'
+ * for a hero that isn't theirs, 'too_many_points' for perks costing more TP than a hero has (nothing changed).
+ */
+export async function transcendHero(guildId: string, userId: string, heroId: string, perks: readonly string[]): Promise<HeroTranscendResult> {
+  if (!HEROES_BY_ID.has(heroId)) return { ok: false, reason: 'not_found' };
+  const picked = transcendPicks(perks);
+  if (!picked) return { ok: false, reason: 'too_many_points' };
+  const result = await collections().members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: { [`heroes.${heroId}.perks`]: picked } });
+  return result.matchedCount > 0 ? { ok: true } : { ok: false, reason: 'not_found' };
 }
 
 /** Empties one of the member's hero's slots, or (`slot` null) all of them. False when the hero isn't theirs. */

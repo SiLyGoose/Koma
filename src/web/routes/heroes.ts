@@ -14,5 +14,6 @@ export function heroRoutes(deps: ApiDeps): Router {
     .get('/members', heroes.members)
     .post('/buy', heroes.buy)
     .post('/equip', heroes.equip)
-    .post('/unequip', heroes.unequip);
+    .post('/unequip', heroes.unequip)
+    .post('/transcend', heroes.transcend);
 }
