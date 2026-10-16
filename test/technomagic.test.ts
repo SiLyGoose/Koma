@@ -394,13 +394,16 @@ test("technomagic perks: a hero's transcendence perks change its fight, the same
 
 test("technomagic perks: each of a hero's own perks changes its fight, but for those with nothing to work on here", () => {
   // What this raid hasn't: Arcane Crystal Energy (Kirze), a boss to draw in or casting time to cut (Klaus), a boss's mana
-  // to take (Fallen Frey), a boss's M.Block or knocking it away (Gremory's Puchi), anything on the boss to dispel (Seria,
-  // Lorraine, Valance). What Galgoria shrugs off: a slow (it is steady), and less P.DMG or more P.DEF (it deals only magic).
-  // What these fights don't come to: a shield on every ally with only 4 (Blessing of Doom shields 4), 100 Flame on the
-  // boss (Morrah's Auto goes round her skills), Ezekiel's Dawning Despair in his Fury, and the boss knocking him down
-  // while he strikes. Galgoria seldom lands a critical blow (10%), so the M.Crit Resistance Laias's Healing Droplets'
+  // to take (Fallen Frey, Lucikiel's Doomsday), a boss's M.Block or knocking it away (Gremory's Puchi), anything on the
+  // boss to dispel (Seria, Lorraine, Valance) or that dispels what is on it (Lucikiel's Death Storm), a boss's block
+  // (Selene's Moonlight Flash), further to reach (Selene's Moonlight Arrow), more enemies than one (Oddy's Time
+  // Fragments and Time Distortion) or another with a higher ATK (Naila's Fierce Winds). What Galgoria shrugs off: a slow
+  // (it is steady), and less P.DMG or more P.DEF (it deals only magic). What these fights don't come to: a shield on
+  // every ally with only 4 (Blessing of Doom shields 4), 100 Flame on the boss (Morrah's Auto goes round her skills),
+  // Ezekiel's Dawning Despair in his Fury, and the boss knocking him or Crow down while he strikes (Strike of Doom,
+  // Target will be Eliminated.). Galgoria seldom lands a critical blow (10%), so the M.Crit Resistance Laias's Healing Droplets'
   // Dark gives for a while seldom comes to anything.
-  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light'];
+  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light', 'lucikiel s1-light', 'lucikiel s3-dark', 'selene s3-dark', 'selene s4-dark', 'crow s1-dark', 'oddy s2-light', 'oddy s3-dark', 'naila s1-dark'];
   const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
   const fight = (id: string, perks: string[], seed: number, others: number): Run => ({
     boss: TM_BOSS,
