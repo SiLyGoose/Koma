@@ -9,6 +9,7 @@ export const refineText = {
   /** `level` is the copy's refinement now (shown as R1 to R5). */
   noDuplicate: (name: string, level: number) =>
     `Your **${name}** is at **R${level}**. Refining it uses up a duplicate, and you don't have a spare one (locked copies and ones in a loadout are never used up). Pull another!`,
+  notRefineable: (name: string) => `**${name}** is TechnoMagic gear: it is never refined. What it does on a hero is its potentials, which stay as they came.`,
   maxed: (name: string, max: number) => `Your **${name}** is already fully refined (**R${max}**).`,
   busy: 'Your items changed while refining. Nothing was used up; try again.',
   title: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,

@@ -17,6 +17,7 @@ type Refined = Extract<RefineResult, { ok: true }>;
 function refusalText(p: string, item: ItemDef, result: Exclude<RefineResult, { ok: true }>): string {
   const t = TEXT.refine;
   if (result.reason === 'busy') return t.busy;
+  if (result.reason === 'not_refineable') return t.notRefineable(item.name);
   if (result.reason === 'maxed') return t.maxed(item.name, REFINE.maxLevel);
   if (result.reason === 'too_poor') return t.tooPoor(item.name, result.level + 1, fmt(result.price), fmt(result.balance));
   if (result.reason === 'no_duplicate') return t.noDuplicate(item.name, result.level);

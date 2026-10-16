@@ -64,6 +64,7 @@ export interface HeroCopy {
   slot: Slot;
   description: string;
   level: number;
+  /** Its top refinement level: 1 for TechnoMagic gear, which is never refined (as GearCopy's). */
   maxLevel: number;
   /** Locked by the member (POST /api/heroes/lock, as the gear page's): never sold or used up by a refine. */
   locked: boolean;

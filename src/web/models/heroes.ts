@@ -8,7 +8,7 @@ import { collections } from '../../db.js';
 import { activeSet, activeTmEffects, countsOnce, SIDE_SLOTS, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, treasureTier, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
-import { refineLevel } from '../../lib/game/items/refine.js';
+import { maxLevelOf, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
@@ -73,7 +73,9 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
   for (const copy of copies) {
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item || !heroWearable(item)) continue;
-    const level = refineLevel(copy.level);
+    // (TechnoMagic gear is never refined: R1, whatever level a copy was refined to back when it could be.)
+    const maxLevel = maxLevelOf(item);
+    const level = Math.min(refineLevel(copy.level), maxLevel);
     const setEffect = tmSetEffect(item);
     const view: HeroCopy = {
       id: copy._id,
@@ -83,7 +85,7 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
       slot: item.slot,
       description: item.description,
       level,
-      maxLevel: REFINE.maxLevel,
+      maxLevel,
       locked: copy.locked === true,
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
       effects: heroItemLines(item, level, undefined, copy.tmPotentials),
@@ -98,7 +100,7 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
       hero: worn.get(copy._id) ?? null,
       refine: { blocked: null, cost: null, spare: null, after: null },
     };
-    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, member?.points ?? 0);
+    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, member?.points ?? 0);
     view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, undefined, copy.tmPotentials) };
     list.push(view);
     pieces.set(copy._id, { view, piece: { item, level, ...((item.tmDrop || item.uniqueTreasure) && copy.tmPotentials && { potentials: copy.tmPotentials }) } });

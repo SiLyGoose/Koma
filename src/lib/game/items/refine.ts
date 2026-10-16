@@ -1,6 +1,6 @@
 import { CONFIG, type RefineTarget } from '../../../config.js';
 import { REFINE } from '../../../constants/index.js';
-import type { ItemCopyDoc, Stars } from '../../../types.js';
+import type { ItemCopyDoc, ItemDef, Stars } from '../../../types.js';
 import { bestCopy } from './copies.js';
 import { worstCopy } from './sell.js';
 import { refineLevel } from './refine-share.js';
@@ -11,6 +11,12 @@ import { refineLevel } from './refine-share.js';
  */
 
 export { refineLevel, refineShare } from './refine-share.js';
+
+/** Whether `item`'s copies are ever refined: not TechnoMagic gear's, whose strength is each copy's potentials, which a level wouldn't change. */
+export const refineable = (item: Pick<ItemDef, 'tmDrop'>): boolean => !item.tmDrop;
+
+/** The top refinement level of `item`'s copies: just R1 for an item that is never refined (refineable). */
+export const maxLevelOf = (item: Pick<ItemDef, 'tmDrop'>): number => (refineable(item) ? REFINE.maxLevel : 1);
 
 /** What refining an item of `stars` up to level `to` costs in points, from the live settings (0 for a level with no price). */
 export function refineCost(stars: Stars, to: number): number {

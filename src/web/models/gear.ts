@@ -8,7 +8,7 @@ import { activeTmEffects, heroItemLines, heroOnly, heroWorn, potentialLines, typ
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
-import { refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
+import { maxLevelOf, refineable, refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice, saleCount } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
 import { setCopyLocked } from '../../services/items/lock.js';
@@ -19,7 +19,7 @@ import { raidClassesOf, raidClassOf, setRaidClass } from '../../services/raid-cl
 import { classTraits } from '../../lib/game/raid-classes.js';
 import { RAID_CLASS_IDS, TEXT, type RaidClassId } from '../../constants/index.js';
 import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
-import type { EquipmentDoc, ItemCopyDoc, MemberDoc, Slot, Stars } from '../../types.js';
+import type { EquipmentDoc, ItemCopyDoc, ItemDef, MemberDoc, Slot } from '../../types.js';
 import { gearStats } from './stats.js';
 import { SLOTS } from '../../types.js';
 import type { GearCopy, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock } from '../../protocol/gear.js';
@@ -85,17 +85,18 @@ export interface GearStore {
 export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
 
 /**
- * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
+ * Whether refining `copyId` itself (a copy of `item`) can be done, with the member's copies of its item (`sameItem`), the
  * copies they wear or keep in any loadout (`kept`, never used up), and their points (null: not known,
- * never too poor), and the level it would go up to (null when it can't).
+ * never too poor), and the level it would go up to (null when it can't). TechnoMagic gear, never refined, is at its top.
  */
 export function refineState(
   copyId: string,
   sameItem: readonly CopyInfo[],
-  stars: Stars,
+  item: Pick<ItemDef, 'stars' | 'tmDrop'>,
   kept: ReadonlySet<string>,
   balance: number | null,
 ): Omit<GearRefine, 'after'> & { to: number | null } {
+  if (!refineable(item)) return { blocked: 'maxed', cost: null, spare: null, to: null };
   const plan = refineCopyPlan(
     sameItem.map((copy) => ({ ...copy, obtainedAt: copy.obtainedAt ?? new Date(0) })),
     copyId,
@@ -105,7 +106,7 @@ export function refineState(
   if (!plan.ok && (plan.reason === 'not_owned' || plan.reason === 'bad_material')) return { blocked: 'no_duplicate', cost: null, spare: null, to: null };
   const level = plan.ok ? plan.from : plan.level;
   const to = level < REFINE.maxLevel ? level + 1 : null;
-  const cost = to === null ? null : refineCost(stars, to);
+  const cost = to === null ? null : refineCost(item.stars, to);
   if (!plan.ok) return { blocked: plan.reason, cost, spare: null, to: plan.reason === 'maxed' ? null : to };
   const spare = refineLevel(plan.fodder.level);
   if (balance !== null && cost !== null && balance < cost) return { blocked: 'too_poor', cost, spare, to };
@@ -140,7 +141,9 @@ export function gearView(
   for (const copy of copies) {
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item) continue;
-    const level = refineLevel(copy.level);
+    // (A TechnoMagic copy refined back when it could be is R1 all the same: its level never counted.)
+    const maxLevel = maxLevelOf(item);
+    const level = Math.min(refineLevel(copy.level), maxLevel);
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
     const setEffect = tmSetEffect(item);
@@ -152,7 +155,7 @@ export function gearView(
       slot: item.slot,
       description: item.description,
       level,
-      maxLevel: REFINE.maxLevel,
+      maxLevel,
       effects: item.tmDrop || item.uniqueTreasure ? heroItemLines(item, level, undefined, copy.tmPotentials) : describeEffects(item, share, level),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
@@ -168,8 +171,8 @@ export function gearView(
       itemClass: item.class ?? null,
       hero: heroWorn.get(copy._id) ?? null,
     };
-    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
-    view.refine = { ...refine, after: to === null ? null : item.tmDrop ? view.effects : item.uniqueTreasure ? heroItemLines(item, to, undefined, copy.tmPotentials) : describeEffects(item, share, to) };
+    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance);
+    view.refine = { ...refine, after: to === null ? null : item.uniqueTreasure ? heroItemLines(item, to, undefined, copy.tmPotentials) : describeEffects(item, share, to) };
     list.push(view);
     byId.set(view.id, { view, piece: { item, level } });
   }
@@ -262,11 +265,12 @@ export const gearStore: GearStore = {
     // This copy is the one raised, whatever level its item's other copies are at.
     const [sameItem, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
     const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
-    const state = refineState(copyId, sameItem, item.stars, kept, member?.points ?? 0);
+    const state = refineState(copyId, sameItem, item, kept, member?.points ?? 0);
     if (state.blocked) return state.blocked;
     const result = await refineItem(guildId, userId, item, { copy: copyId, material: materialId });
     if (result.ok) return 'ok';
-    return result.reason === 'not_owned' ? 'not_found' : result.reason;
+    // (TechnoMagic gear is at its one level, as refineState says.)
+    return result.reason === 'not_owned' ? 'not_found' : result.reason === 'not_refineable' ? 'maxed' : result.reason;
   },
   sell: async (guildId, userId, copyIds) => {
     const result = await sellCopies(guildId, userId, copyIds);

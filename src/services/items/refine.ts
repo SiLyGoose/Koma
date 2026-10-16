@@ -1,6 +1,6 @@
 import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
-import { refineCopyPlan, refineCost, refineLevel, refinePlan } from '../../lib/game/items/refine.js';
+import { refineable, refineCopyPlan, refineCost, refineLevel, refinePlan } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
@@ -32,6 +32,8 @@ export type RefineResult =
       nextCost: number | null;
     }
   | { ok: false; reason: 'not_owned' | 'no_duplicate' | 'maxed'; level: number }
+  /** TechnoMagic gear, which is never refined (refineable). Nothing was used up. */
+  | { ok: false; reason: 'not_refineable' }
   /** The material picked (on the site) isn't a copy that can be used up. Nothing was used up. */
   | { ok: false; reason: 'bad_material'; level: number }
   /** They can't pay for it. `price` is what it costs, `balance` what they have. Nothing was used up. */
@@ -42,9 +44,10 @@ export type RefineResult =
 /**
  * Refines the member's worn (or saved, or best) copy of `item` by one level, using up their
  * lowest-level copy that is in no loadout and not locked, and the price. The refined copy is locked. With `chosen` (the site's forge) it refines
- * that copy instead, using up the material picked (or, with none, the lowest-level one it could use).
+ * that copy instead, using up the material picked (or, with none, the lowest-level one it could use). TechnoMagic gear never is.
  */
 export async function refineItem(guildId: string, userId: string, item: ItemDef, chosen?: { copy: string; material: string | null }): Promise<RefineResult> {
+  if (!refineable(item)) return { ok: false, reason: 'not_refineable' };
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
   const worn = equippedCopyIds(member?.equipment);

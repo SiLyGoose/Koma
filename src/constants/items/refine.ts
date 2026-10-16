@@ -1,7 +1,8 @@
 /*
  * Refining gear (commands/refine.ts). Every copy of an item has a refinement level from 1 to
  * `maxLevel`: a new copy starts at 1, and each refine uses up one duplicate copy of the same item to
- * raise it by one.
+ * raise it by one. TechnoMagic gear is never refined: its strength is each copy's potentials, which
+ * a level wouldn't change (lib/game/items/refine.ts refineable).
  *
  * An item's perk strengths in the settings (equipment.<perk>.<stars>) are its strengths at
  * `maxLevel`. Lower levels get a share of them that climbs in equal steps, except that the steps

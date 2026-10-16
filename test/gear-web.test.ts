@@ -300,6 +300,18 @@ test('gear page: each copy says whether it can be refined, and what the next lev
   assert.equal(view.copies.find((c) => c.id === 'lone')!.refine.spare, null);
 });
 
+test('gear page: TechnoMagic gear is never refined, even with a spare: it has the one level, R1', () => {
+  const copies = [
+    { _id: 'old', itemId: 'tri-head-cleaver', level: 3 }, // refined back when it could be
+    { _id: 'spare', itemId: 'tri-head-cleaver', level: 1 },
+  ];
+  const view = gearView(copies, null, 'x', undefined, 1_000_000);
+  for (const copy of view.copies) {
+    assert.deepEqual([copy.level, copy.maxLevel], [1, 1], copy.id);
+    assert.deepEqual(copy.refine, { blocked: 'maxed', cost: null, spare: null, after: null }, copy.id);
+  }
+});
+
 test('gear page: each copy says what it sells for, unless it is worn or saved in a loadout', () => {
   const copies = [
     { _id: 'worn', itemId: 'rusty-dagger', level: 1 },

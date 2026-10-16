@@ -13,8 +13,9 @@ export interface GearCopy {
   slot: Slot;
   description: string;
   level: number;
+  /** Its top refinement level: 1 for TechnoMagic gear, which is never refined (no level is shown for it, and no refine offered). */
   maxLevel: number;
-  /** What it does for this member at this level: a TechnoMagic copy's potentials (what it does on a hero, which refining doesn't change). */
+  /** What it does for this member at this level: a TechnoMagic copy's potentials (what it does on a hero). */
   effects: string[];
   /**
    * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
@@ -60,7 +61,7 @@ export interface GearRefine {
 }
 
 /**
- * Why a copy can't be refined: it's at the top level, there's no spare copy of it to use up (another
+ * Why a copy can't be refined: it's at the top level (TechnoMagic gear always is), there's no spare copy of it to use up (another
  * copy of its item that isn't worn, saved in a loadout or locked), or they can't pay for it.
  * Every copy is refined as itself on the site, whatever level its item's other copies are at.
  */
