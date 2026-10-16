@@ -1005,4 +1005,22 @@ export const ITEMS: readonly ItemDef[] = [
     effects: [],
     uniqueWeapon: 'tanya',
   },
+  {
+    id: 'adversary-of-the-goddess-galicta',
+    name: 'Adversary of the Goddess, Galicta',
+    stars: 4,
+    slot: 'weapon',
+    description: 'The Technomagic Kingdom’s greatest weapon, made to defy the goddess. It chose Klaus, and burns his life force for its power.',
+    effects: [],
+    uniqueWeapon: 'rebel-klaus',
+  },
+  {
+    id: 'corrupted-holy-sword-aea',
+    name: 'Corrupted Holy Sword, Aea',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Kasel’s holy sword, turned by the darkness he gave himself to: it cuts away what would heal its target.',
+    effects: [],
+    uniqueWeapon: 'dark-lord-kasel',
+  },
 ];

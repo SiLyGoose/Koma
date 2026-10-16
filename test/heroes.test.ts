@@ -33,7 +33,7 @@ const SITE: WebConfig = {
 
 const item = (id: string) => ITEMS_BY_ID.get(id)!;
 
-test('heroes: Kirze, Klaus, Fallen Frey, Gremory, Annette, Morrah, Laias, Seria, Ezekiel, Lorraine, Valance, Lucikiel, Selene, Crow, Oddy, Phillop, Naila, Yanne, Neraxis, Erze, Loman, Gau and Tanya, each once, each of a raid class; their price is a setting of its own', () => {
+test('heroes: Kirze, Klaus, Fallen Frey, Gremory, Annette, Morrah, Laias, Seria, Ezekiel, Lorraine, Valance, Lucikiel, Selene, Crow, Oddy, Phillop, Naila, Yanne, Neraxis, Erze, Loman, Gau, Tanya, Rebel Klaus and Dark Lord Kasel, each once, each of a raid class; their price is a setting of its own', () => {
   assert.deepEqual(
     HEROES.map((hero) => [hero.id, hero.class]),
     [
@@ -60,6 +60,8 @@ test('heroes: Kirze, Klaus, Fallen Frey, Gremory, Annette, Morrah, Laias, Seria,
       ['loman', 'knight'],
       ['gau', 'warrior'],
       ['tanya', 'assassin'],
+      ['rebel-klaus', 'warrior'],
+      ['dark-lord-kasel', 'warrior'],
     ],
   );
   assert.equal(HEROES_BY_ID.size, HEROES.length);

@@ -432,18 +432,19 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   // What this raid hasn't: Arcane Crystal Energy (Kirze), a boss to draw in or casting time to cut (Klaus), a boss's mana
   // to take (Fallen Frey, Lucikiel's Doomsday), a boss's M.Block or knocking it away (Gremory's Puchi), anything on the
   // boss to dispel (Seria, Lorraine, Valance) or that dispels what is on it (Lucikiel's Death Storm), a boss's block
-  // (Selene's Moonlight Flash), further to reach (Selene's Moonlight Arrow), more enemies than one (Oddy's Time
+  // (Selene's Moonlight Flash, Dark Lord Kasel's Judgment Blade's mana kept from it), further to reach (Selene's Moonlight Arrow), more enemies than one (Oddy's Time
   // Fragments and Time Distortion) or another with a higher ATK (Naila's Fierce Winds), a Dragon (Yanne's Dragon
   // Slayer), a boss's block (Yanne's Transcend 5 Dark), its crit resistance to lower (Tanya's Target Sighted) or anything
   // of its to silence (Tanya's Silent Ambush), an enemy killed (Erze's Life Drinker). What Galgoria shrugs off: a slow
-  // (it is steady: Neraxis's Obsidian Roar, Loman's The Last Gatekeeper), and less P.DMG or more P.DEF (it deals only
-  // magic). What these fights don't come to: a shield on every ally with only 4 (Blessing of Doom shields 4), 100 Flame
+  // (it is steady: Neraxis's Obsidian Roar, Loman's The Last Gatekeeper), and less P.DMG or more P.DEF or P.Block (it
+  // deals only magic: Dark Lord Kasel's Advent of the Dark Lord); and a stun rather than a knock down lasts as long (his Doom). What these fights don't come to: a shield on every ally with only 4 (Blessing of Doom shields 4), 100 Flame
   // on the boss (Morrah's Auto goes round her skills), Ezekiel's Dawning Despair in his Fury, the boss knocking him,
-  // Crow or Loman down while he strikes (Strike of Doom, Target will be Eliminated., Knight's Creed), and a blow that
-  // would bring Erze down with her Soaking Blood ready (Life Drinker's Light: its smaller cut to her max HP after).
+  // Crow, Loman or Rebel Klaus down while he strikes (Strike of Doom, Target will be Eliminated., Knight's Creed, Perish.),
+  // anything harmful on Rebel Klaus as he uses Indomitable Will, and a blow that would bring Erze down with her Soaking
+  // Blood ready (Life Drinker's Light: its smaller cut to her max HP after).
   // Galgoria seldom lands a critical blow (10%), so the M.Crit Resistance Laias's Healing Droplets' Dark gives for a
   // while seldom comes to anything.
-  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light', 'lucikiel s1-light', 'lucikiel s3-dark', 'selene s3-dark', 'selene s4-dark', 'crow s1-dark', 'oddy s2-light', 'oddy s3-dark', 'naila s1-dark', 'yanne s4-light', 'yanne s4-dark', 'yanne t5-dark', 'neraxis s2-dark', 'erze s4-light', 'erze s4-dark', 'loman s3-dark', 'loman s4-dark', 'tanya s1-dark', 'tanya s4-dark'];
+  const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light', 'lucikiel s1-light', 'lucikiel s3-dark', 'selene s3-dark', 'selene s4-dark', 'crow s1-dark', 'oddy s2-light', 'oddy s3-dark', 'naila s1-dark', 'yanne s4-light', 'yanne s4-dark', 'yanne t5-dark', 'neraxis s2-dark', 'erze s4-light', 'erze s4-dark', 'loman s3-dark', 'loman s4-dark', 'tanya s1-dark', 'tanya s4-dark', 'rebel-klaus s2-dark', 'rebel-klaus s3-dark', 'dark-lord-kasel s1-dark', 'dark-lord-kasel s2-dark', 'dark-lord-kasel s3-light'];
   const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
   // (Health enough to last long enough for every perk to come round: Galgoria hits as hard as at stage 3.)
   const SURVIVES = { hp: 2 };
