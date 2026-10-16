@@ -129,8 +129,8 @@ export interface RoomState {
 /**
  * What a fight is run from: the boss, the seed, the stage, whether it is fought alone, and each hero in it
  * (whose, which, its skin, what its gear gives it, the TechnoMagic set whose effect it has, or null, and its own
- * unique weapon's tier, 1 to 5, or null, the additional skill of each piece of TechnoMagic gear it wears, its transcendence perks, and, alone,
- * whether it is in the Sub Team).
+ * unique weapon's tier, 1 to 5, or null, its main unique treasure (which of its four, 1 to 4, at which tier) or null, the
+ * additional skill of each piece of TechnoMagic gear it wears, its transcendence perks, and, alone, whether it is in the Sub Team).
  */
 export interface FightStart {
   no: number;
@@ -138,7 +138,7 @@ export interface FightStart {
   seed: number;
   stage: number;
   solo: boolean;
-  heroes: { owner: string; id: string; skin: number; gear: Record<string, number>; set: string | null; uw: number | null; skills: string[]; perks: string[]; sub?: boolean }[];
+  heroes: { owner: string; id: string; skin: number; gear: Record<string, number>; set: string | null; uw: number | null; ut: { skill: number; tier: number } | null; skills: string[]; perks: string[]; sub?: boolean }[];
 }
 
 /** One press, at the step it counts before: a skill (`skill` of hero `fighter`), or a hero's Auto. */

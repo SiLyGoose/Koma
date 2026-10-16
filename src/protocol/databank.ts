@@ -17,7 +17,7 @@ export interface DatabankItem {
   /**
    * Where it first comes from: pulled from the gacha, dropped by raid bosses (ItemDef.raidDrop), pulled from
    * the limited banner only (ItemDef.limited), dropped by the TechnoMagic Raid (ItemDef.tmDrop: only heroes wear
-   * it), or pulled from the Hero Item banner (ItemDef.uniqueWeapon: only its own hero wields it).
+   * it), or pulled from the Hero Item banner (ItemDef.uniqueWeapon, ItemDef.uniqueTreasure: only its own hero wears it).
    */
   source: ItemSource;
   /** Every place it comes from, `source` first: a raid item the raid shop sells (lib/game/items/raid-shop.ts) has that too. */
@@ -26,15 +26,25 @@ export interface DatabankItem {
   class: RaidClassId | null;
   /** A unique weapon: the id of the one hero that wields it. Null otherwise. */
   uniqueWeapon: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
+  uniqueTreasure: { hero: string; skill: number } | null;
   /**
    * TechnoMagic gear: the set it belongs to (its name, and its effect for each class), which raid's boss drops it,
    * how many pieces on a hero give its effect, and this piece's own (for its class; null for a treasure, apart from
    * the set). Null otherwise.
    */
   set: { name: string; boss: string; effects: Partial<Record<RaidClassId, string>>; pieces: number; effect: string | null } | null;
+  /**
+   * The lines every one of its levels starts with, kept once for every item that has them (Databank.pools): TechnoMagic
+   * gear's potentials, a unique treasure's options. `effects` has only what comes after them. Left out: none.
+   */
+  pool?: DatabankPool;
 }
 
-/** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon). */
+/** Lines many items share (Databank.pools): TechnoMagic gear's potentials ('tm'), a unique treasure's options ('ut'). */
+export type DatabankPool = 'tm' | 'ut';
+
+/** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon or treasure). */
 export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic' | 'heroBanner';
 
 /** One raid boss: what `raid stats` says of it. */
@@ -88,6 +98,8 @@ export interface Databank {
   raidDropChancePerRaider: number;
   /** Highest tier first, then in catalog order. */
   items: DatabankItem[];
+  /** The lines many items' levels start with (DatabankItem.pool), sent once rather than with each of them (over a hundred times). */
+  pools: Record<DatabankPool, string[]>;
   /**
    * The raid classes, in their order: what a class item's tag says, what the page's filter offers, and
    * (the page's Classes) what each does in a fight, a line of Discord markdown each (lib/game/raid-classes.ts).

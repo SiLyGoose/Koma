@@ -1,12 +1,31 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG, STARS } from '../../../config.js';
 import { PITY_STARS } from '../../../constants/index.js';
-import { featuredItems, gachaItems, UNIQUE_WEAPONS } from '../../../data/items.js';
+import { featuredItems, gachaItems, HERO_BANNER, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../../data/items.js';
 import type { BannerId, ItemDef, Stars } from '../../../types.js';
 import { chance, pickRandom } from '../../random.js';
 
 type Weights = Record<Stars, number>;
 export type PitySettings = { softStart: number; hardPity: number };
+
+/** A banner's weights for each star tier: the Hero Item banner's own, the rest the standard ones. */
+export const bannerWeights = (banner: BannerId): Weights => (banner === 'hero' ? CONFIG.gacha.heroStarWeights : CONFIG.gacha.starWeights);
+
+/**
+ * The level a new copy of `item` from the gacha comes refined to: a unique weapon's or unique treasure's as King's Raid's
+ * summons gave them (HERO_BANNER: now and then a unique weapon comes refined), any other's 1. `roll` is a number from 0
+ * up to 1 (only tests give it).
+ */
+export function pulledLevel(item: ItemDef, roll: number = randomInt(0, 1_000_000) / 1_000_000): number {
+  const weights = item.uniqueWeapon !== undefined ? HERO_BANNER.weaponLevels : item.uniqueTreasure !== undefined ? HERO_BANNER.treasureLevels : [1];
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let left = roll * total;
+  for (let i = 0; i < weights.length; i++) {
+    left -= weights[i] as number;
+    if (left < 0) return i + 1;
+  }
+  return 1;
+}
 
 /** Picks a star tier using the configured weights. */
 export function rollStars(weights: Weights = CONFIG.gacha.starWeights): Stars {
@@ -102,8 +121,9 @@ export function guaranteeChoices(userId: string, banner: BannerId): ItemDef[] {
  * `guaranteed` pick is made only among `userId`'s own treasures (see ownTreasures) instead of the
  * whole tier. On the limited one it is one of the featured items (featuredItems) `featuredChance` of
  * the time, and always when `guaranteed`; otherwise one of the standard banner's. A `guaranteed` pick
- * is the item they picked (`pick`, an item id) when the guarantee can give it. On the Hero Item one it is
- * always a unique weapon (UNIQUE_WEAPONS), each as likely, and nothing is guaranteed.
+ * is the item they picked (`pick`, an item id) when the guarantee can give it. On the Hero Item one (with its own
+ * weights: bannerWeights) it is a unique weapon (UNIQUE_WEAPONS) HERO_BANNER.weaponShare of the time and a unique
+ * treasure (UNIQUE_TREASURES) the rest, each of a kind as likely, and nothing is guaranteed.
  */
 export function rollItem(
   pullNumber = 1,
@@ -114,14 +134,17 @@ export function rollItem(
   featuredChance: number = CONFIG.gacha.limited.featuredChance,
   pick?: string,
 ): ItemDef {
-  const stars = rollStarsAtPull(pullNumber, undefined, undefined, minStars);
+  const stars = rollStarsAtPull(pullNumber, bannerWeights(banner), undefined, minStars);
   let pool = gachaItems(stars);
   const picked = (choices: ItemDef[]): ItemDef[] => {
     const one = guaranteed ? choices.find((item) => item.id === pick) : undefined;
     return one ? [one] : choices;
   };
   if (stars === PITY_STARS && banner === 'hero') {
-    if (UNIQUE_WEAPONS.length > 0) pool = [...UNIQUE_WEAPONS];
+    // (A kind with none: the other.)
+    const weapon = UNIQUE_TREASURES.length === 0 || (UNIQUE_WEAPONS.length > 0 && chance(HERO_BANNER.weaponShare));
+    const kind = weapon ? UNIQUE_WEAPONS : UNIQUE_TREASURES;
+    if (kind.length > 0) pool = [...kind];
   } else if (stars === PITY_STARS && banner === 'limited') {
     const featured = featuredItems();
     if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = picked(featured);

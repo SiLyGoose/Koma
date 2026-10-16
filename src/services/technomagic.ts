@@ -34,7 +34,7 @@ export async function clearedStage(guildId: string, userId: string): Promise<num
 export interface BegunRun {
   id: string;
   seed: number;
-  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; sets: Map<string, TmSetId | null>; uws: Map<string, number | null>; skills: Map<string, string[]>; perks: Map<string, string[]> }>;
+  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; sets: Map<string, TmSetId | null>; uws: Map<string, number | null>; uts: Map<string, { skill: number; tier: number } | null>; skills: Map<string, string[]>; perks: Map<string, string[]> }>;
 }
 
 /**
@@ -54,10 +54,11 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const gear = new Map([...owned].map((id) => [id, { ...(loadouts.get(id)?.bonus ?? {}) }]));
     const sets = new Map([...owned].map((id) => [id, loadouts.get(id)?.set ?? null]));
     const uws = new Map([...owned].map((id) => [id, loadouts.get(id)?.uw ?? null]));
+    const uts = new Map([...owned].map((id) => [id, loadouts.get(id)?.ut ?? null]));
     const skills = new Map([...owned].map((id) => [id, loadouts.get(id)?.skills ?? []]));
     // Its transcendence perks: those picked, as far as it is transcended.
     const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend)]));
-    run.players.set(userId, { owned, gear, sets, uws, skills, perks });
+    run.players.set(userId, { owned, gear, sets, uws, uts, skills, perks });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,
       run: run.id,
@@ -66,7 +67,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       boss: TM_BOSS,
       seed: run.seed,
       stage,
-      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
+      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
       version: SIM_VERSION,
       startedAt: now,
     };

@@ -52,6 +52,14 @@ export interface ItemDef {
    */
   uniqueWeapon?: string;
   /**
+   * A unique treasure: the TechnoMagic Raid hero it is made for (data/heroes.ts), and which of its four it is (`skill`:
+   * 1 to 4, UT1 to UT4, its skills' then its passive's). Only pulled from the Hero Item banner, beside the unique weapons;
+   * only that hero wears it, as its main treasure (its effect in the raid, as far as it is refined: Koma-UI's
+   * src/technomagic/sim/treasures.ts) or in a sub treasure slot beside it (only its options). It has no perks: each copy's
+   * stats are the options it rolled as it was pulled (ItemCopyDoc.tmPotentials). Missing means it isn't one.
+   */
+  uniqueTreasure?: { hero: string; skill: 1 | 2 | 3 | 4 };
+  /**
    * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
    * databanks tag it and can list a class's items. Missing means it's for everyone.
    */
@@ -260,6 +268,8 @@ export interface TmRunHero {
   set?: TmSetId | null;
   /** Its own unique weapon's tier (its refinement, 1 to 5), or null: none worn. */
   uw?: number | null;
+  /** Its main treasure, one of its own unique treasures: which (1 to 4), at which tier (its refinement, 1 to 5); or null. */
+  ut?: { skill: number; tier: number } | null;
   /** The additional skills of the TechnoMagic gear it wore (ItemCopyDoc.tmSkill), one for each piece. */
   skills?: string[];
   /** The transcendence perks it had (data/transcend.ts ids). */
@@ -330,8 +340,9 @@ export interface ItemCopyDoc {
   tmSkill?: string;
   /**
    * TechnoMagic gear: the potentials this copy came with (TM_POTENTIAL_LINES of them, each a different stat:
-   * lib/game/technomagic.ts), rolled as it dropped; a hero of its class wearing it has them in the raid. Missing
-   * on any other copy.
+   * lib/game/technomagic.ts), rolled as it dropped; a hero of its class wearing it has them in the raid. A unique
+   * treasure: its options (UT_OPTION_LINES of the same), rolled as it was pulled; its hero has them, in any of its
+   * treasure slots. Missing on any other copy.
    */
   tmPotentials?: TmPotential[];
   obtainedAt: Date;

@@ -11,6 +11,8 @@ export interface BannerItem {
   description: string;
   /** A unique weapon: the id of the one hero that wields it (null: not one). */
   uniqueWeapon: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
+  uniqueTreasure: { hero: string; skill: number } | null;
 }
 
 /** The limited banner (data/items/banner.ts), on either banner's view so the page knows whether to offer it. */
@@ -27,10 +29,23 @@ export interface LimitedBanner {
   featuredChance: number;
 }
 
-/** The Hero Item banner (always open): its top-tier items are the heroes' unique weapons, each as likely, and it has no guarantee. */
+/**
+ * The Hero Item banner (always open): its top-tier items are the heroes' unique weapons and unique treasures, as King's
+ * Raid's Treasure Summon has them (a unique weapon as likely as a unique treasure; each of a kind as likely), and it has
+ * no guarantee.
+ */
 export interface HeroBanner {
-  /** Its unique weapons. */
+  /** Its unique weapons, and its unique treasures. */
   featured: BannerItem[];
+  treasures: BannerItem[];
+  /** The chance (0 to 1) a top-tier item from it is a unique weapon (the rest: a unique treasure). */
+  weaponShare: number;
+  /**
+   * The chance (0 to 1) a unique weapon comes refined to each level (R1 first: King's Raid's 0★ to 3★ odds), and a unique
+   * treasure (always R1).
+   */
+  weaponLevels: number[];
+  treasureLevels: number[];
 }
 
 /** GET /api/gacha: what a pull costs the member, and where their pity stands on a banner. */
@@ -89,6 +104,10 @@ export interface BannerPull {
   borrowed: number | null;
   /** A unique weapon: the id of the one hero that wields it (null: not one). */
   uniqueWeapon: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
+  uniqueTreasure: { hero: string; skill: number } | null;
+  /** How far the copy came refined (1: R1, a new copy's). */
+  level: number;
 }
 
 /** POST /api/gacha/pull: what came out, what it was paid with, and the banner as it stands after. */

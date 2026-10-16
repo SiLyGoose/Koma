@@ -4,7 +4,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
-import { activeTmEffects, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
+import { activeTmEffects, heroItemLines, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
@@ -153,7 +153,7 @@ export function gearView(
       description: item.description,
       level,
       maxLevel: REFINE.maxLevel,
-      effects: item.tmDrop ? potentialLines(copy.tmPotentials) : describeEffects(item, share, level),
+      effects: item.tmDrop || item.uniqueTreasure ? heroItemLines(item, level, undefined, copy.tmPotentials) : describeEffects(item, share, level),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: tmOn.get(copy._id)?.additional ?? false,
@@ -164,16 +164,17 @@ export function gearView(
       sell: kept.has(copy._id) || locked ? null : itemSellPrice(item),
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
+      uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
       itemClass: item.class ?? null,
       hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, balance);
-    view.refine = { ...refine, after: to === null ? null : item.tmDrop ? view.effects : describeEffects(item, share, to) };
+    view.refine = { ...refine, after: to === null ? null : item.tmDrop ? view.effects : item.uniqueTreasure ? heroItemLines(item, to, undefined, copy.tmPotentials) : describeEffects(item, share, to) };
     list.push(view);
     byId.set(view.id, { view, piece: { item, level } });
   }
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
-  const tier = (copy: GearCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);
+  const tier = (copy: GearCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.uniqueTreasure !== null ? 4.4 : copy.heroOnly ? 5 : copy.stars);
   list.sort((a, b) => tier(b) - tier(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   /** The copy id in each slot of `gear`, counting only owned copies that fit there. */

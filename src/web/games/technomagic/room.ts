@@ -20,7 +20,8 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
- * starts the fight at the stage they picked.
+ * starts the fight at the stage they picked. One whose page goes away (a reload, a phone switching apps) keeps their place
+ * and picks for TM_ROOM.awayMs, to come back to; the room stays open for them meanwhile, even with nobody else in it.
  *
  * The fight is the site's sim, run by the bot's clock (in a worker thread: ./fight.ts): every TM_FIGHT.turnMs it
  * takes the steps that are due, each with what was pressed before it, and tells every page what was pressed at which
@@ -50,6 +51,8 @@ export interface RoomDeps {
   link: (guildId: string) => string | null;
   /** Calls `fn` every `ms` until the returned function is called. */
   every: (ms: number, fn: () => void) => () => void;
+  /** Calls `fn` once in `ms`, unless the returned function is called first. */
+  after: (ms: number, fn: () => void) => () => void;
   fights: Fights;
 }
 
@@ -93,13 +96,21 @@ export const realRoomDeps: RoomDeps = {
     const timer = setInterval(fn, ms);
     return () => clearInterval(timer);
   },
+  after: (ms, fn) => {
+    const timer = setTimeout(fn, ms);
+    timer.unref();
+    return () => clearTimeout(timer);
+  },
   fights: workerFights,
 };
 
 interface Member {
   player: Player;
-  /** Their page (null: gone during a fight, their heroes fighting on). */
+  /** Their page (null: gone, their place kept for a while; during a fight, their heroes fighting on). */
   peer: Peer | null;
+  /** When their page went (null while it's here), and what stops the wait for it to come back. */
+  awaySince: number | null;
+  awayEnds: (() => void) | null;
   avatar: string;
   owned: Set<string>;
   ready: boolean;
@@ -141,6 +152,8 @@ export class TechnoMagicRoom {
   private starting = false;
   private fights = 0;
   private readonly chat = new Chat();
+  /** Nobody's left (onEmpty has been told). */
+  private closed = false;
 
   constructor(
     readonly guildId: string,
@@ -195,9 +208,12 @@ export class TechnoMagicRoom {
    */
   join(player: Player, peer: Peer, owned: readonly string[], cleared = 0): Peer | null {
     const before = this.members.get(player.userId);
+    before?.awayEnds?.();
     this.members.set(player.userId, {
       player,
       peer,
+      awaySince: null,
+      awayEnds: null,
       avatar: this.deps.avatar(this.guildId, player.userId) ?? avatarUrl(player.userId, null),
       owned: new Set(owned),
       ready: before?.ready ?? false,
@@ -210,25 +226,63 @@ export class TechnoMagicRoom {
     return before?.peer && before.peer !== peer ? before.peer : null;
   }
 
-  /** `peer` went away (nothing happens if another page has taken over since). In a fight, their heroes fight on, on Auto. */
+  /**
+   * `peer` went away (nothing happens if another page has taken over since): their place and picks are kept for
+   * TM_ROOM.awayMs. In a fight, their heroes fight on, on Auto.
+   */
   leave(userId: string, peer: Peer): void {
     const member = this.members.get(userId);
     if (!member || member.peer !== peer) return;
-    if (this.fight && !this.fight.done) {
-      member.peer = null;
-      this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId), on: true });
-      return this.tell();
+    member.peer = null;
+    member.awaySince = this.deps.now();
+    this.waitFor(member);
+    if (this.fight && !this.fight.done) this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId), on: true });
+    this.tell();
+  }
+
+  /** Whether `member`'s page has been gone longer than they're waited for. */
+  private pastBack(member: Member): boolean {
+    return member.peer === null && this.deps.now() - (member.awaySince ?? -Infinity) >= TM_ROOM.awayMs;
+  }
+
+  /** Waits for an away member's page for what's left of TM_ROOM.awayMs (none left: at once). */
+  private waitFor(member: Member): void {
+    member.awayEnds?.();
+    const left = Math.max(0, (member.awaySince ?? this.deps.now()) + TM_ROOM.awayMs - this.deps.now());
+    member.awayEnds = this.deps.after(left, () => this.gone(member));
+  }
+
+  /**
+   * An away member didn't come back in time. Getting ready, they leave the room, their picks with them. A fight's
+   * players stay in it to its end (finish waits for them again), and a fight over keeps them in its results until
+   * the room goes back to getting ready (back). Either way, the room closes once nobody is left to come back.
+   */
+  private gone(member: Member): void {
+    const { userId } = member.player;
+    if (this.closed || this.members.get(userId) !== member || member.peer !== null) return;
+    member.awayEnds = null;
+    if (this.fight && !this.fight.done) return;
+    if (this.phase === 'prep' && !this.starting) {
+      this.members.delete(userId);
+      this.lineup = this.lineup.filter((pick) => pick.owner !== userId);
+      this.trim();
     }
-    this.members.delete(userId);
-    this.lineup = this.lineup.filter((pick) => pick.owner !== userId);
-    this.trim();
-    if (!this.present()) return this.onEmpty(this);
+    if (this.closeIfEmpty()) return;
     this.tell();
   }
 
   /** Whether anyone has the page open. */
   private present(): boolean {
     return [...this.members.values()].some((member) => member.peer !== null);
+  }
+
+  /** Closes the room (onEmpty) when nobody has the page open and nobody gone is still waited for. Whether it did. */
+  private closeIfEmpty(): boolean {
+    if (this.closed) return true;
+    if (this.present() || [...this.members.values()].some((member) => !this.pastBack(member))) return false;
+    this.closed = true;
+    this.onEmpty(this);
+    return true;
   }
 
   /** How many heroes the Main Team takes alone, or the Sub Team (`sub`). */
@@ -353,12 +407,12 @@ export class TechnoMagicRoom {
       solo,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
+        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
       }),
     };
     let engine: FightEngine | string;
     try {
-      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, skills, perks, sub }) => ({ id, skin, gear, set, uw, skills, perks, sub })) });
+      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, skills, perks, sub }) => ({ id, skin, gear, set, uw, ut, skills, perks, sub })) });
     } catch (err) {
       engine = err instanceof Error ? err.message : String(err);
     }
@@ -372,6 +426,8 @@ export class TechnoMagicRoom {
     this.phase = 'fight';
     this.over = null;
     for (const member of this.members.values()) member.ready = false;
+    // (One away as it starts: their heroes fight on Auto until they're back.)
+    for (const member of this.members.values()) if (!member.peer) fight.pending.push({ kind: 'autos', fighters: this.mine(member.player.userId), on: true });
     this.tell();
     for (const member of this.members.values()) if (member.peer) this.showFight(member.peer);
     fight.stop = this.deps.every(TM_FIGHT.turnMs, () => void this.turn(fight));
@@ -423,12 +479,12 @@ export class TechnoMagicRoom {
     return null;
   }
 
-  /** From a fight over, back to getting ready (anyone who has gone since is gone from the room). */
+  /** From a fight over, back to getting ready (anyone gone longer than TM_ROOM.awayMs is gone from the room; the rest are still waited for). */
   back(userId: string): AnswerCode | null {
     if (!this.members.has(userId) || this.phase !== 'over') return 'closed';
     this.phase = 'prep';
     this.over = null;
-    for (const [id, member] of this.members) if (!member.peer) this.members.delete(id);
+    for (const [id, member] of this.members) if (this.pastBack(member)) this.members.delete(id);
     this.lineup = this.lineup.filter((pick) => this.members.has(pick.owner));
     this.trim();
     this.tell();
@@ -530,7 +586,9 @@ export class TechnoMagicRoom {
       drops: Object.fromEntries([...got].map(([userId, { drops }]) => [userId, drops])),
       points: Object.fromEntries([...got].map(([userId, { points }]) => [userId, points])),
     };
-    if (!this.present()) return this.onEmpty(this);
+    // Those gone during it: still waited for, for what's left of their time.
+    for (const member of this.members.values()) if (!member.peer) this.waitFor(member);
+    if (this.closeIfEmpty()) return;
     this.tell();
   }
 

@@ -137,10 +137,12 @@ test('roulette table: up to 8 play together, the wheel is spun once for all, and
   const balances: Record<string, number> = {};
   const numbers = [17, '00' as const];
   // Every table's timers; `fire` runs the ones due now (each table's betting or showing time up).
-  let timers: { run: () => void; off: boolean }[] = [];
-  const fire = (): void => {
-    const due = timers.filter((t) => !t.off);
-    timers = [];
+  let timers: { ms: number; run: () => void; off: boolean }[] = [];
+  /** Runs the timers due now, `away` the waits for a player whose page went (their time up), else the rest. */
+  const fire = (away = false): void => {
+    const waiting = (t: { ms: number }): boolean => t.ms === ROULETTE_TABLE.awayMs;
+    const due = timers.filter((t) => !t.off && waiting(t) === away);
+    timers = timers.filter((t) => !t.off && waiting(t) !== away);
     for (const t of due) t.run();
   };
   const deps: TableDeps = {
@@ -151,8 +153,8 @@ test('roulette table: up to 8 play together, the wheel is spun once for all, and
       return { number, color: colorOf(number) };
     },
     now: () => 0,
-    schedule: (_ms, run) => {
-      const timer = { run, off: false };
+    schedule: (ms, run) => {
+      const timer = { ms, run, off: false };
       timers.push(timer);
       return () => void (timer.off = true);
     },
@@ -174,8 +176,10 @@ test('roulette table: up to 8 play together, the wheel is spun once for all, and
   const players = [];
   for (let i = 1; i <= ROULETTE_TABLE.seats + 1; i++) players.push(await join(`u${i}`));
   assert.deepEqual(tablesIn('g1').map((t) => t.players), [8, 1]);
-  // The ninth leaves, so only table 1 spins (a table spins even with no chips down).
+  // The ninth leaves: their seat is kept a while; not back by then, their table closes, so only table 1 spins (a table spins even with no chips down).
   players.pop()!.connection.closed();
+  assert.deepEqual(tablesIn('g1').map((t) => t.players), [8, 1]);
+  fire(true);
   assert.deepEqual(tablesIn('g1').map((t) => t.players), [8]);
   const [a, b] = players as [Awaited<ReturnType<typeof join>>, Awaited<ReturnType<typeof join>>];
   assert.deepEqual([a.page.last().maxSeats, a.page.last().chips, a.page.last().msLeft], [8, [...TABLE_CHIPS], ROULETTE_TABLE.bettingMs]);
@@ -197,5 +201,6 @@ test('roulette table: up to 8 play together, the wheel is spun once for all, and
   assert.deepEqual(b.page.last().round, { no: 2, number: '00', color: 'green', recent: ['00', 17] });
   assert.equal(b.page.last().seats[1]?.result?.net, 35);
   for (const p of players) p.connection.closed();
+  fire(true);
   assert.deepEqual(tablesIn('g1'), []);
 });

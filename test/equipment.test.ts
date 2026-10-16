@@ -34,7 +34,8 @@ const close = (actual: number, expected: number) =>
 test('catalog: every star tier has an item, and every item has effects (a unique weapon its ATK instead, TechnoMagic gear its copies\' potentials)', () => {
   validateItems();
   for (const stars of STARS) assert.ok(itemsByStars(stars).length > 0, `${stars}-star tier has no items`);
-  for (const item of ITEMS) assert.ok(item.effects.length > 0 || item.uniqueWeapon !== undefined || item.tmDrop, `${item.id} has no effects`);
+  for (const item of ITEMS) assert.ok(item.effects.length > 0 || item.uniqueWeapon !== undefined || item.uniqueTreasure !== undefined || item.tmDrop, `${item.id} has no effects`);
+  for (const item of ITEMS) if (item.uniqueTreasure) assert.deepEqual(item.effects, [], `${item.id} is a unique treasure: its stats are its copies' options`);
   for (const item of ITEMS) if (item.tmDrop) assert.deepEqual(item.effects, [], `${item.id} is TechnoMagic gear: its stats are its copies' potentials`);
 });
 
@@ -102,7 +103,9 @@ test('findItem: exact, punctuation-insensitive, partial and ambiguous names', ()
   assert.equal(found("merchant's coat"), 'merchants-coat');
   assert.equal(found('merchants coat'), 'merchants-coat');
   assert.equal(found('starfall-blade'), 'starfall-blade');
-  assert.equal(found('dagger'), 'rusty-dagger');
+  assert.equal(found('rusty dagger'), 'rusty-dagger');
+  // (A word two items share: Rusty Dagger, and Tanya's Dagger of Silence.)
+  assert.equal(findItem('dagger').kind, 'ambiguous');
 
   assert.equal(findItem('nothing like it').kind, 'none');
   assert.equal(findItem('   ').kind, 'none');
@@ -132,7 +135,7 @@ test('suggestItems guesses misspelled names, whole or in part, and nothing far o
   assert.deepEqual(ids('stwrfall'), ['starfall-blade'], 'one word of the name');
   assert.deepEqual(ids('stwrfall blade'), ['starfall-blade'], 'the whole name');
   assert.deepEqual(ids('starfallblade'), ['starfall-blade'], 'a missing space is no typo');
-  assert.deepEqual(ids('dragon scale'), ['dragonscale-aegis'], 'nor is an extra one');
+  assert.deepEqual(ids('dragon scale'), ['dragonscale-aegis', 'water-dragon-scale'], 'nor is an extra one (and Laias’s Water Dragon Scale has the words)');
   assert.deepEqual(ids('piplpu'), ['piplup']);
   assert.equal(findItem('pickaxx').kind, 'none');
   const pickaxes = suggestItems('pickaxx');

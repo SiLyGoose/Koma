@@ -1,10 +1,10 @@
 import { CONFIG, STARS } from '../../config.js';
 import { MULTI_PULLS, PITY_STARS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { featuredItems, LIMITED_BANNER, UNIQUE_WEAPONS } from '../../data/items.js';
+import { featuredItems, HERO_BANNER, LIMITED_BANNER, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { canUseItem, gearEffects, itemEffectiveness } from '../../lib/game/items/equipment.js';
-import { guaranteeChoices, ownTreasures, topChance } from '../../lib/game/items/gacha.js';
+import { bannerWeights, guaranteeChoices, ownTreasures, topChance } from '../../lib/game/items/gacha.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
 import { guaranteePick, isGuaranteed, pityCount, pullGacha, pullMulti, setGuaranteePick, type PulledItem } from '../../services/economy/index.js';
 import { resolveGear } from '../../services/items/gear.js';
@@ -30,7 +30,22 @@ export interface GachaStore {
   pick: (guildId: string, userId: string, banner: BannerId, itemId: string | null) => Promise<BannerView | 'not_found'>;
 }
 
-const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description, uniqueWeapon: item.uniqueWeapon ?? null });
+const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description, uniqueWeapon: item.uniqueWeapon ?? null, uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null, });
+
+/** Weights as each one's chance (0 to 1). */
+const shares = (weights: readonly number[]): number[] => {
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  return weights.map((weight) => (total > 0 ? weight / total : 0));
+};
+
+/** The Hero Item banner: its unique weapons and treasures, how its top tier splits between them, and how refined a new copy comes (HERO_BANNER). */
+export const heroBanner = (): HeroBanner => ({
+  featured: UNIQUE_WEAPONS.map(bannerItem),
+  treasures: UNIQUE_TREASURES.map(bannerItem),
+  weaponShare: UNIQUE_TREASURES.length === 0 ? 1 : UNIQUE_WEAPONS.length === 0 ? 0 : HERO_BANNER.weaponShare,
+  weaponLevels: shares(HERO_BANNER.weaponLevels),
+  treasureLevels: shares(HERO_BANNER.treasureLevels),
+});
 
 /** The limited banner as it stands now. */
 export function limitedBanner(now: number = Date.now()): LimitedBanner {
@@ -45,16 +60,16 @@ export function limitedBanner(now: number = Date.now()): LimitedBanner {
   };
 }
 
-/** Each tier's share of the pull weights. */
-function rates(): Record<Stars, number> {
-  const weights = CONFIG.gacha.starWeights;
+/** Each tier's share of a banner's pull weights. */
+function rates(banner: BannerId): Record<Stars, number> {
+  const weights = bannerWeights(banner);
   const total = STARS.reduce((sum, stars) => sum + weights[stars], 0);
   const out = {} as Record<Stars, number>;
   for (const stars of STARS) out[stars] = total > 0 ? weights[stars] / total : 0;
   return out;
 }
 
-const pulled = (userId: string, { item, isNew, count }: PulledItem): BannerPull => ({
+const pulled = (userId: string, { item, isNew, count, level }: PulledItem): BannerPull => ({
   itemId: item.id,
   name: item.name,
   stars: item.stars,
@@ -64,13 +79,15 @@ const pulled = (userId: string, { item, isNew, count }: PulledItem): BannerPull 
   count,
   borrowed: canUseItem(item, userId) ? null : itemEffectiveness(item, userId),
   uniqueWeapon: item.uniqueWeapon ?? null,
+  uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
+  level,
 });
 
 async function bannerView(guildId: string, userId: string, banner: BannerId): Promise<BannerView> {
   const member = await collections().members.findOne({ guildId, userId });
   const { softStart, hardPity } = CONFIG.gacha.pity;
   // As pullMany counts it: only while pity is on and the top tier can be pulled at all.
-  const pityOn = hardPity > 0 && topChance(1) > 0;
+  const pityOn = hardPity > 0 && topChance(1, bannerWeights(banner)) > 0;
   // Only the standard banner's guarantee gives their own treasure.
   const [own] = banner === 'standard' ? ownTreasures(userId) : [];
   const brief = (item: ItemDef) => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot });
@@ -78,7 +95,7 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
   return {
     banner,
     limited: limitedBanner(),
-    hero: { featured: UNIQUE_WEAPONS.map(bannerItem) },
+    hero: heroBanner(),
     cost: pullCost(CONFIG.gacha.cost, gear),
     baseCost: CONFIG.gacha.cost,
     multi: MULTI_PULLS,
@@ -90,7 +107,7 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
     own: own ? brief(own) : null,
     choices: guaranteeChoices(userId, banner).map(brief),
     pick: guaranteePick(member, userId, banner),
-    rates: rates(),
+    rates: rates(banner),
     extraChance: extraPullChance(gear),
   };
 }

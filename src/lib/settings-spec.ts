@@ -130,6 +130,10 @@ export const SPECS: readonly SettingSpec[] = [
   int('gacha.starWeights.2', 'Gacha', 'Relative chance of a 2-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.3', 'Gacha', 'Relative chance of a 3-star pull.', 0, MAX_POINTS),
   int('gacha.starWeights.4', 'Gacha', 'Relative chance of a 4-star pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.1', 'Gacha', 'Hero Item banner: relative chance of a 1-star pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.2', 'Gacha', 'Hero Item banner: relative chance of a 2-star pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.3', 'Gacha', 'Hero Item banner: relative chance of a 3-star pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.4', 'Gacha', 'Hero Item banner: relative chance of a unique weapon or treasure.', 0, MAX_POINTS),
   int(
     'gacha.pity.softStart',
     'Gacha',
@@ -721,6 +725,10 @@ export function checkConstraints(settings: Settings): string | null {
   const weights = settings.gacha.starWeights;
   if (STARS.reduce((sum, stars) => sum + weights[stars], 0) <= 0) {
     return 'at least one of gacha.starWeights.1 to .4 must be above 0';
+  }
+  const heroWeights = settings.gacha.heroStarWeights;
+  if (STARS.reduce((sum, stars) => sum + heroWeights[stars], 0) <= 0) {
+    return 'at least one of gacha.heroStarWeights.1 to .4 must be above 0';
   }
   return null;
 }

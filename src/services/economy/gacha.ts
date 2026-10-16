@@ -5,9 +5,10 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { newCopyId } from '../../lib/game/items/copies.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { gearEffects } from '../../lib/game/items/equipment.js';
-import { guaranteeChoices, rollPulls, topChance } from '../../lib/game/items/gacha.js';
+import { bannerWeights, guaranteeChoices, pulledLevel, rollPulls, topChance } from '../../lib/game/items/gacha.js';
+import { rollUtOptions } from '../../lib/game/technomagic.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
-import type { BannerId, ItemCopyDoc, ItemDef, MemberDoc } from '../../types.js';
+import type { BannerId, ItemCopyDoc, ItemDef, MemberDoc, TmPotential } from '../../types.js';
 import { resolveGear } from '../items/gear.js';
 import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
@@ -69,6 +70,8 @@ export type PullResult =
       item: ItemDef;
       isNew: boolean;
       count: number;
+      /** How far the new copy came refined (1: R1). */
+      level: number;
       /** The second item the pull gave for nothing (Pot of Greed), when it did. */
       extra: PulledItem | null;
       balance: number;
@@ -86,12 +89,15 @@ export type PullResult =
     }
   | PullRefusal;
 
-/** Gives the member a new copy of an item (locked when it's 4★). `count` is how many copies of it they now have. */
-export async function addCopy(guildId: string, userId: string, itemId: string): Promise<{ copy: ItemCopyDoc; count: number }> {
+/**
+ * Gives the member a new copy of an item (locked when it's 4★): at refinement `level` (1 unless said), with
+ * `tmPotentials` (a unique treasure's options) when given. `count` is how many copies of it they now have.
+ */
+export async function addCopy(guildId: string, userId: string, itemId: string, made: { level?: number; tmPotentials?: TmPotential[] } = {}): Promise<{ copy: ItemCopyDoc; count: number }> {
   const { items } = collections();
   const locked = ITEMS_BY_ID.get(itemId)?.stars === 4;
   for (let attempt = 0; ; attempt++) {
-    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: 1, obtainedAt: new Date(), ...(locked && { locked }) };
+    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: made.level ?? 1, obtainedAt: new Date(), ...(locked && { locked }), ...(made.tmPotentials && { tmPotentials: made.tmPotentials }) };
     try {
       await items.insertOne(copy);
       return { copy, count: await items.countDocuments({ guildId, userId, itemId }) };
@@ -110,6 +116,8 @@ export interface PulledItem {
   isNew: boolean;
   /** How many copies of the item they own after this pull. */
   count: number;
+  /** How far the new copy came refined (1: R1). */
+  level: number;
 }
 
 export type MultiPullResult =
@@ -152,7 +160,7 @@ async function pullMany(guildId: string, userId: string, times: number, banner: 
   // Pity only counts while it is in effect (turned on, and the top tier can actually be pulled),
   // so pulls made before an admin switches it on don't build up a guarantee.
   const { hardPity } = CONFIG.gacha.pity;
-  const pityOn = hardPity > 0 && topChance(1) > 0;
+  const pityOn = hardPity > 0 && topChance(1, bannerWeights(banner)) > 0;
 
   // Take the payment first (tokens, then points for the rest), only if the member can afford all of
   // it. The same update counts these pulls toward pity, and what it returns tells us which pulls
@@ -227,10 +235,12 @@ async function pullMany(guildId: string, userId: string, times: number, banner: 
         itemId: { $exists: true, $in: [...new Set([...rolled, ...rolledExtras].map((item) => item.id))] },
       }),
     );
+    // (A unique weapon now and then comes refined, and a unique treasure with its options: pulledLevel, rollUtOptions.)
     const give = async (item: ItemDef): Promise<PulledItem> => {
-      const owned = await addCopy(guildId, userId, item.id);
+      const level = pulledLevel(item);
+      const owned = await addCopy(guildId, userId, item.id, { level, ...(item.uniqueTreasure && { tmPotentials: rollUtOptions() }) });
       addedIds.push(owned.copy._id);
-      return { item, isNew: owned.count === 1 && !hadBefore.has(item.id), count: owned.count };
+      return { item, isNew: owned.count === 1 && !hadBefore.has(item.id), count: owned.count, level };
     };
     for (const item of rolled) pulls.push(await give(item));
     for (const item of rolledExtras) extras.push(await give(item));
@@ -284,6 +294,7 @@ export async function pullGacha(guildId: string, userId: string, banner: BannerI
     item: pull.item,
     isNew: pull.isNew,
     count: pull.count,
+    level: pull.level,
     extra: result.extras[0] ?? null,
     balance: result.balance,
     cost: result.cost,
