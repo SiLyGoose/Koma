@@ -7,7 +7,7 @@ import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
-import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, STEP_SECONDS, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
+import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
@@ -18,7 +18,7 @@ import { databankView } from '../src/web/models/databank.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/technomagic/protocol.js';
 import { localFights, workerFights, type Intent, type Progress } from '../src/web/games/technomagic/fight.js';
 import { TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
-import { RUN_LASTS_MS, rewardsUsedFilter, type BegunRun } from '../src/services/technomagic.js';
+import { type BegunRun } from '../src/services/technomagic.js';
 import type { ItemCopyDoc, MemberDoc } from '../src/types.js';
 
 /** Every hero, in its first skin, with `gear`. */
@@ -84,15 +84,17 @@ test('technomagic: alone the boss is easier; heroes that fall stay down; giving 
   assert.equal(replay(run(1, STRONG), [{ tick: 5, kind: 'toggle', fighter: 0 }]).result, 'invalid');
 });
 
-test('technomagic: a win gives one piece of the boss own set, each as likely; 10 runs a day give it', () => {
+test('technomagic: a win gives one piece of the boss own set, each as likely; no daily limit', () => {
   const cfg = DEFAULTS.hero;
-  assert.equal(cfg.rewardsPerDay, 10);
+  assert.ok(!('rewardsPerDay' in cfg));
+  assert.equal(cfg.winPoints, 100);
+  assert.equal(findSpec('hero.winPoints')?.group, 'Hero');
   const pool = tmDropsOf('perseverance');
   assert.deepEqual(pool.map((_, i) => rollTmDrop('galgoria', { index: () => i })), pool);
   assert.ok(pool.every((item) => item.tmSet === 'perseverance'));
   assert.equal(rollTmDrop('siegfried', { index: () => 0 }), null, 'Hope has no gear yet');
   assert.equal(rollTmDrop('nobody'), null);
-  assert.equal(findSpec('hero.rewardsPerDay')?.group, 'Hero');
+  assert.equal(findSpec('hero.rewardsPerDay'), undefined);
   assert.deepEqual(validateSettings(DEFAULTS), []);
 });
 
@@ -129,16 +131,22 @@ function harness(owned: Record<string, string[]> = {}) {
     now: () => clock,
     avatar: () => null,
     owned: async (_g, userId) => owned[userId] ?? ALL,
-    rewardsLeft: async () => 10,
+    cleared: async () => 0,
     begin: async (_g, _stage, players) =>
       ({
         id: 'run',
         seed: 77,
-        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), perks: new Map(ALL.map((id) => [id, []])), rewardable: userId !== 'broke' }])),
+        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), perks: new Map(ALL.map((id) => [id, []])) }])),
       }) as BegunRun,
     finish: async (_g, begun, _stage, result, steps) => {
       finished.push({ result, ticks: steps });
-      return new Map([...begun.players].map(([userId, player]) => [userId, result === 'won' && player.rewardable ? [{ itemId: 'galgorias-heart', name: "Galgoria's Heart", stars: 4, skill: tmSkillLine('vigor') }] : []]));
+      return new Map(
+        [...begun.players].map(([userId, player]) => {
+          const paid = result === 'won';
+          const heart = { itemId: 'galgorias-heart', name: "Galgoria's Heart", stars: 4, skill: tmSkillLine('vigor'), potentials: [], slot: 'treasure' as const, description: '', itemClass: null, setEffect: null };
+          return [userId, { drops: paid ? [heart] : [], points: paid ? 100 : 0 }];
+        }),
+      );
     },
     announce: (_g, host) => announced.push(host),
     every: (_ms, fn) => {
@@ -170,10 +178,10 @@ function harness(owned: Record<string, string[]> = {}) {
   return { rooms, peer, player, deps, announced, finished, pass };
 }
 
-test('technomagic room: the host brings up to 4, everyone else 2, 9 in all; alone, up to 8', async () => {
+test('technomagic room: the host brings up to 4, everyone else 3, 8 in all; alone, up to 7', async () => {
   const h = harness();
   const a = h.peer();
-  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
   assert.deepEqual(h.announced, ['A']);
   assert.equal(a.room().slots, TM_ROOM.soloSlots);
   assert.equal(a.room().players[0]?.limit, TM_ROOM.soloSlots);
@@ -181,18 +189,19 @@ test('technomagic room: the host brings up to 4, everyone else 2, 9 in all; alon
   assert.equal(room.pick('a', 'kirze', 0), 'picked');
   assert.equal(room.pick('a', 'nobody', 0), 'not_owned');
 
-  // A second player: the host's limit goes to 4 (theirs are 3, so they stay), the slots to 9.
+  // A second player: the host's limit goes to 4 (theirs are 3, so they stay), the slots to 8.
   const b = h.peer();
-  h.rooms.join(h.player('b'), b, ['kirze', 'klaus', 'fallen-frey'], 10);
+  h.rooms.join(h.player('b'), b, ['kirze', 'klaus', 'fallen-frey', 'gremory']);
   assert.deepEqual(h.announced, ['A'], 'the room was opened once');
   const state = b.room();
   assert.equal(state.slots, TM_ROOM.slots);
   assert.equal(state.solo, false);
-  assert.deepEqual(state.players.map((p) => [p.number, p.host, p.limit]), [[1, true, 4], [2, false, 2]]);
+  assert.deepEqual(state.players.map((p) => [p.number, p.host, p.limit]), [[1, true, 4], [2, false, 3]]);
   assert.equal(room.pick('b', 'kirze', 0), null, 'two players may each bring their own Kirze');
   assert.equal(room.pick('b', 'klaus', 0), null);
-  assert.equal(room.pick('b', 'fallen-frey', 0), 'limit');
-  assert.equal(b.room().lineup.length, 5);
+  assert.equal(room.pick('b', 'fallen-frey', 0), null);
+  assert.equal(room.pick('b', 'gremory', 0), 'limit');
+  assert.equal(b.room().lineup.length, 6);
 
   // Only the host starts, and only with everyone ready.
   assert.equal(await room.begin('b'), 'only_host');
@@ -200,18 +209,35 @@ test('technomagic room: the host brings up to 4, everyone else 2, 9 in all; alon
   assert.equal(room.ready('b', true), null);
   assert.equal(room.ready('a', true), 'only_host');
   assert.equal(room.setStage('b', 3), 'only_host');
-  assert.equal(room.setStage('a', 3), null);
+  assert.equal(room.setStage('a', 3), 'locked', 'the host has won no stage yet');
+  assert.equal(room.setStage('a', 1), null);
 
-  // The host goes: b is host, alone again, and keeps both of theirs.
+  // The host goes: b is host, alone again, and keeps all three of theirs.
   room.leave('a', a);
-  assert.deepEqual(b.room().players.map((p) => [p.id, p.host, p.limit]), [['b', true, 8]]);
-  assert.deepEqual(b.room().lineup.map((p) => p.owner), ['b', 'b']);
+  assert.deepEqual(b.room().players.map((p) => [p.id, p.host, p.limit]), [['b', true, 7]]);
+  assert.deepEqual(b.room().lineup.map((p) => p.owner), ['b', 'b', 'b']);
 });
 
-test('technomagic room: alone, a Main Team of 4 and a Sub Team of 4 on Auto; with company, no teams', async () => {
+test('technomagic room: the host picks only a stage they have opened, by winning the one before it', () => {
   const h = harness();
   const a = h.peer();
-  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 2)!;
+  assert.equal(a.room().unlocked, 3);
+  assert.equal(room.setStage('a', 4), 'locked');
+  assert.equal(room.setStage('a', 3), null);
+  assert.equal(a.room().stage, 3);
+
+  // A host who has won less takes over: the stage comes down to what they have opened.
+  const b = h.peer();
+  h.rooms.join(h.player('b'), b, ALL, 0);
+  room.leave('a', a);
+  assert.deepEqual([b.room().stage, b.room().unlocked], [1, 1]);
+});
+
+test('technomagic room: alone, a Main Team of 4 and a Sub Team of 3 on Auto; with company, no teams', async () => {
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
   const [main, sub] = [ALL.slice(0, TM_ROOM.mainTeam), ALL.slice(TM_ROOM.mainTeam, TM_ROOM.soloSlots)];
   for (const hero of main) assert.equal(room.pick('a', hero, 0), null);
   assert.equal(room.pick('a', ALL[TM_ROOM.soloSlots] as string, 0), 'team_full');
@@ -248,7 +274,7 @@ test('technomagic room: alone, a Main Team of 4 and a Sub Team of 4 on Auto; wit
 
   // Company: no teams, the Sub Team taken out first (the host's limit is 4).
   const b = h.peer();
-  h.rooms.join(h.player('b'), b, ALL, 10);
+  h.rooms.join(h.player('b'), b, ALL);
   assert.deepEqual(b.room().lineup.map((pick) => [pick.hero, pick.sub]), main.map((hero) => [hero, undefined]));
   assert.equal(room.pick('b', 'kirze', 0, true), null, 'asked for the Sub Team with company: just put in');
   assert.equal(b.room().lineup.at(-1)?.sub, undefined);
@@ -258,26 +284,26 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   const h = harness();
   const a = h.peer();
   const b = h.peer();
-  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
-  h.rooms.join(h.player('broke'), b, ALL, 0);
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('guest'), b, ALL);
   room.pick('a', 'kirze', 0);
   room.pick('a', 'fallen-frey', 0);
-  room.pick('broke', 'klaus', 0);
+  room.pick('guest', 'klaus', 0);
   assert.equal(await room.begin('a'), 'not_ready');
-  room.ready('broke', true);
+  room.ready('guest', true);
   assert.equal(await room.begin('a'), null);
   assert.equal(a.room().phase, 'fight');
   const fight = a.got.find((m) => m.t === 'fight');
   assert.ok(fight && fight.t === 'fight');
-  assert.deepEqual(fight.fight.heroes.map((hero) => [hero.owner, hero.id]), [['a', 'kirze'], ['a', 'fallen-frey'], ['broke', 'klaus']]);
+  assert.deepEqual(fight.fight.heroes.map((hero) => [hero.owner, hero.id]), [['a', 'kirze'], ['a', 'fallen-frey'], ['guest', 'klaus']]);
   // Each hero's gear's additional skills go into the fight with it.
   assert.deepEqual(fight.fight.heroes.map((hero) => hero.skills), [['vigor'], [], []]);
   assert.equal(room.pick('a', 'klaus', 0), 'closed');
 
-  // Their own heroes only: a's Auto on for both of theirs; broke can't press a's.
+  // Their own heroes only: a's Auto on for both of theirs; guest can't press a's.
   room.autoAll('a');
-  room.press('broke', 0, 0);
-  room.auto('broke', 2);
+  room.press('guest', 0, 0);
+  room.auto('guest', 2);
   await h.pass(300);
   const turns = a.got.filter((m) => m.t === 'turn');
   const pressed = turns.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
@@ -286,11 +312,11 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   const last = turns.at(-1);
   assert.ok(last && last.t === 'turn' && last.upTo === 9, 'three turns of 100 ms: 9 steps');
 
-  // broke leaves and comes back mid-fight: their hero fights on, and the page is given the fight so far.
-  room.leave('broke', b);
-  assert.equal(a.room().players.find((p) => p.id === 'broke')?.away, true);
+  // guest leaves and comes back mid-fight: their hero fights on, and the page is given the fight so far.
+  room.leave('guest', b);
+  assert.equal(a.room().players.find((p) => p.id === 'guest')?.away, true);
   const back = h.peer();
-  h.rooms.join(h.player('broke'), back, ALL, 0);
+  h.rooms.join(h.player('guest'), back, ALL);
   assert.equal(back.got.filter((m) => m.t === 'fight').length, 1);
   const sofar = back.got.find((m) => m.t === 'turn');
   assert.ok(sofar && sofar.t === 'turn' && sofar.inputs.length === 3);
@@ -302,8 +328,8 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(over.over?.result, 'won');
   assert.equal(over.over?.drops.a?.[0]?.name, "Galgoria's Heart");
   assert.match(over.over?.drops.a?.[0]?.skill ?? '', /^Vigor: /);
-  assert.deepEqual(over.over?.drops.broke, []);
-  assert.deepEqual(over.over?.rewarded, ['a']);
+  assert.equal(over.over?.drops.guest?.[0]?.name, "Galgoria's Heart", 'every win gives gear: no daily limit');
+  assert.deepEqual(over.over?.points, { a: 100, guest: 100 });
   assert.equal(h.finished.length, 1);
 
   // The fight the pages ran, from what they were told, ends the same.
@@ -312,17 +338,28 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(again.result, 'won');
   assert.equal(again.ticks, h.finished[0]?.ticks);
 
-  assert.equal(room.back('a'), null);
+  // Run again: the host's starts the next fight only with everyone else ready for it; anyone else's says they are.
+  assert.equal(await room.again('a'), 'not_ready');
   assert.equal(a.room().phase, 'prep');
   assert.equal(a.room().lineup.length, 3);
+  assert.equal(await room.again('guest'), null);
+  assert.equal(a.room().players.find((p) => p.id === 'guest')?.ready, true);
+  assert.equal(await room.again('a'), null);
+  assert.equal(a.room().phase, 'fight');
+  assert.equal(a.got.filter((m) => m.t === 'fight').length, 2);
+  assert.equal(room.giveUp('a'), null);
+  await h.pass(200);
+  assert.equal(a.room().phase, 'over');
+  assert.equal(room.back('a'), null);
+  assert.equal(a.room().phase, 'prep');
 });
 
 test('technomagic room: one who presses Auto and leaves in the same turn has their heroes fight on, on Auto', async () => {
   const h = harness();
   const a = h.peer();
   const b = h.peer();
-  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
-  h.rooms.join(h.player('b'), b, ALL, 10);
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('b'), b, ALL);
   room.pick('a', 'kirze', 0);
   room.pick('b', 'klaus', 0);
   room.ready('b', true);
@@ -338,7 +375,7 @@ test('technomagic room: one who presses Auto and leaves in the same turn has the
 test('technomagic room: the host can give up, and a room with nobody left is gone', async () => {
   const h = harness();
   const a = h.peer();
-  const { room } = h.rooms.join(h.player('a'), a, ALL, 10)!;
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
   room.pick('a', 'kirze', 0);
   assert.equal(await room.begin('a'), null);
   assert.equal(room.giveUp('a'), null);
@@ -346,7 +383,7 @@ test('technomagic room: the host can give up, and a room with nobody left is gon
   assert.equal(a.room().over?.result, 'lost');
   room.leave('a', a);
   const again = h.peer();
-  h.rooms.join(h.player('c'), again, ALL, 10);
+  h.rooms.join(h.player('c'), again, ALL);
   assert.equal(again.room().players.length, 1, 'a new room');
   assert.equal(again.room().phase, 'prep');
 });
@@ -369,7 +406,7 @@ test('technomagic: a hero in a set’s pieces has its effect, the same every tim
 
 test('technomagic: Perseverance’s supports (Klaus, Fallen Frey) and its damage dealer (Kirze) each make the boss fall sooner', () => {
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
-  const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const GEARED = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
   const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
   const plain = replay(wearing([]), autos);
   assert.ok(replay(wearing(['klaus', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
@@ -409,12 +446,14 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   // while seldom comes to anything.
   const NOTHING = ['kirze s3-light', 'kirze s3-dark', 'klaus s1-dark', 'klaus s3-dark', 'klaus s4-light', 'klaus t5-dark', 'fallen-frey s2-light', 'fallen-frey s3-dark', 'gremory s2-light', 'gremory s2-dark', 'morrah s4-dark', 'laias s1-dark', 'seria s3-light', 'ezekiel s2-dark', 'ezekiel s3-light', 'lorraine s3-dark', 'valance s3-light', 'lucikiel s1-light', 'lucikiel s3-dark', 'selene s3-dark', 'selene s4-dark', 'crow s1-dark', 'oddy s2-light', 'oddy s3-dark', 'naila s1-dark', 'yanne s4-light', 'yanne s4-dark', 'yanne t5-dark', 'neraxis s2-dark', 'erze s4-light', 'erze s4-dark', 'loman s3-dark', 'loman s4-dark', 'tanya s1-dark', 'tanya s4-dark'];
   const own = TRANSCEND_PERKS.filter((perk) => perk.tier >= 3).map((perk) => perk.id);
+  // (Health enough to last long enough for every perk to come round: Galgoria hits as hard as at stage 3.)
+  const SURVIVES = { hp: 2 };
   const fight = (id: string, perks: string[], seed: number, others: number): Run => ({
     boss: TM_BOSS,
     seed,
     stage: 3,
     // (The hero in two pieces of TechnoMagic gear: Valance's Transcend 5 Dark stacks once for each.)
-    heroes: [id, ...ALL.filter((other) => other !== id).slice(others, others + 3)].map((hero, i) => ({ id: hero, skin: 0, gear: {}, ...(i === 0 && { skills: ['vigor', 'war-cry'], perks }) })),
+    heroes: [id, ...ALL.filter((other) => other !== id).slice(others, others + 3)].map((hero, i) => ({ id: hero, skin: 0, gear: SURVIVES, ...(i === 0 && { skills: ['vigor', 'war-cry'], perks }) })),
   });
   // Everyone on Auto; for a skill's perk, its hero off it and that skill pressed every 20 seconds (Auto spends mana on the
   // dearest skill it can afford at once).
@@ -492,7 +531,7 @@ test('technomagic: TechnoMagic gear’s additional skills, one rolled for each c
 test('technomagic: a hero has its gear’s additional skills in the fight, the same every time it is run', () => {
   // (Geared to win with every skill, Galgoria's crits and all.)
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
-  const GEARED = { atk: 1.3, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
+  const GEARED = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
   const skilled = (skills: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, skills })) });
   const plain = replay(skilled([]), autos);
   let changed = 0;
@@ -535,36 +574,6 @@ test('technomagic: a run takes the additional skills of the TechnoMagic copies a
   assert.ok(!view.copies.find((one) => one.id === 'a')?.effects.some((line) => line.includes('Vigor')));
   assert.equal(view.copies.find((one) => one.id === 'd')?.skill, null);
   assert.equal(view.copies.find((one) => one.id === 'd')?.additional, null);
-});
-
-/** Whether `doc` is one `filter` finds (the little of MongoDB's filters rewardsUsedFilter uses: fields, $or, $exists, $gt). */
-function matches(doc: Record<string, unknown>, filter: Record<string, unknown>): boolean {
-  return Object.entries(filter).every(([key, want]) => {
-    if (key === '$or') return (want as Record<string, unknown>[]).some((one) => matches(doc, one));
-    const have = doc[key];
-    if (want !== null && typeof want === 'object' && !(want instanceof Date)) {
-      const ops = want as { $exists?: boolean; $gt?: Date };
-      if (ops.$exists !== undefined && (have !== undefined) !== ops.$exists) return false;
-      if (ops.$gt !== undefined && !(have instanceof Date && have > ops.$gt)) return false;
-      return true;
-    }
-    return have === want;
-  });
-}
-
-test("technomagic: a run uses up one of the day's rewards while won, or while its fight could still be going", () => {
-  assert.ok(RUN_LASTS_MS > MOST_TICKS * STEP_SECONDS * 1000, 'longer than any fight');
-  const now = new Date('2026-10-15T12:00:00Z');
-  const filter = rewardsUsedFilter('g', 'u', '2026-10-15', now);
-  const run = (over: Record<string, unknown>) => ({ guildId: 'g', userId: 'u', day: '2026-10-15', rewardable: true, startedAt: new Date(now.getTime() - 60_000), ...over });
-  assert.ok(matches(run({ result: 'won' }), filter), 'won');
-  assert.ok(!matches(run({ result: 'lost' }), filter), 'lost');
-  assert.ok(matches(run({}), filter), 'still going');
-  // The bot stopped during its fight: never finished, it stops counting once the fight would have been over.
-  assert.ok(!matches(run({ startedAt: new Date(now.getTime() - RUN_LASTS_MS - 1) }), filter), 'never finished');
-  assert.ok(matches(run({ result: 'won', startedAt: new Date(now.getTime() - RUN_LASTS_MS - 1) }), filter), 'won long ago today');
-  assert.ok(!matches(run({ rewardable: false, result: 'won' }), filter), 'gives no gear');
-  assert.ok(!matches(run({ day: '2026-10-14', result: 'won' }), filter), 'another day');
 });
 
 test('technomagic: a fight in the worker thread goes as one run right here, step for step', async () => {

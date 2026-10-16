@@ -286,9 +286,6 @@ export interface TmRunDoc {
   /** The sim's version it was fought with (a hash of it; a number, for a run from before). */
   version: string | number;
   startedAt: Date;
-  /** The day it was begun (YYYY-MM-DD, the raid's time zone), and whether a win gives gear (one of that day's runs that do). */
-  day: string;
-  rewardable: boolean;
   /** When it was over, how (after so many steps), and the item ids found. */
   claimedAt?: Date;
   result?: 'won' | 'lost';
@@ -478,6 +475,8 @@ export type LedgerReason =
   | 'outfit'
   // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).
   | 'hero'
+  // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).
+  | 'tm_win'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).

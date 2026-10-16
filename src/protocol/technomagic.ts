@@ -5,9 +5,9 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  * Every message is one JSON object with a `t` saying what it is. The site keeps a copy (its `yarn sync`).
  *
  * A server has one room (the bot's web/games/technomagic/room.ts). Getting ready (`prep`), everyone in it picks heroes of their own into its
- * lineup (the host up to 4, everyone else up to 2, 9 in all; alone, up to 8 against an easier boss: 4 in the Main
- * Team, whose skills are theirs to use, and 4 in the Sub Team, on Auto for the whole fight), says they're ready,
- * and the host starts the fight. The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
+ * lineup (the host up to 4, everyone else up to 3, 8 in all; alone, up to 7 against an easier boss: 4 in the Main
+ * Team, whose skills are theirs to use, and 3 in the Sub Team, on Auto for the whole fight), says they're ready,
+ * and the host starts the fight at a stage they have opened (won the one before it). The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
  * the bot runs it by its own clock with every player's presses, and every page runs the same one from the
  * same seed with the same presses (`fight`, then `turn` after `turn`), never going past the step the bot has
  * reached. So how it ends is the bot's word alone, and what a win gives is rolled by the bot (`over`).
@@ -23,6 +23,8 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  *                 auto      one of their heroes' Auto, on or off; `auto-all`: all of theirs
  *                 give-up   ends the fight, lost (the host)
  *                 back      from a fight over to getting ready again
+ *                 again     from a fight over, the same again: the host's starts the next fight (once everyone else is
+ *                           ready), anyone else's says they're ready for it
  *                 parted    its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's)
  *                 chat      says something to the room (./chat.ts)
  *   bot -> page   room      the room as it is now: whenever anything about it changes
@@ -44,6 +46,7 @@ export type ClientMessage =
   | { t: 'auto-all' }
   | { t: 'give-up' }
   | { t: 'back' }
+  | { t: 'again' }
   | { t: 'parted'; no: number; second: number }
   | ChatClientMessage;
 
@@ -72,20 +75,28 @@ export interface PickView {
   sub?: boolean;
 }
 
-/** An item found: which, and the additional skill and potentials its copy came with, as they are said (like "Vigor: Increases DMG…"; null: none; and "+5.2% ATK"). */
+/**
+ * An item found: which, and the additional skill and potentials its copy came with, as they are said (like "Vigor: Increases
+ * DMG…"; null: none; and "+5.2% ATK"). And for its details: its slot, its description, the class it works for (null: any) and
+ * its set's effect once a hero wears `pieces` of it (null: none).
+ */
 export interface DropView {
   itemId: string;
   name: string;
   stars: number;
   skill: string | null;
   potentials: string[];
+  slot: 'weapon' | 'armor' | 'treasure';
+  description: string;
+  itemClass: string | null;
+  setEffect: { pieces: number; text: string } | null;
 }
 
-/** What a fight that is over gave each player (by id): the items found, and whether it was one of their runs that give gear. */
+/** What a fight that is over gave each player (by id): the items found and the points paid. */
 export interface OverView {
   result: 'won' | 'lost';
   drops: Record<string, DropView[]>;
-  rewarded: string[];
+  points: Record<string, number>;
 }
 
 export interface RoomState {
@@ -97,14 +108,14 @@ export interface RoomState {
   boss: { id: string; name: string };
   stage: number;
   stages: number;
+  /** The highest stage the host may pick: the one after the highest they have won. */
+  unlocked: number;
   /** How many heroes the lineup takes now. */
   slots: number;
   /** One player alone: the boss is easier. */
   solo: boolean;
   players: PlayerView[];
   lineup: PickView[];
-  /** How many more runs this player can begin today that give gear for a win. */
-  rewardsLeft: number;
   /** The fight just over (null: none). */
   over: OverView | null;
 }
@@ -146,6 +157,8 @@ export type AnswerCode =
   /** Starting: someone isn't ready, or has no hero in. */
   | 'not_ready'
   | 'no_heroes'
+  /** A stage the host hasn't opened yet (they haven't won the one before it). */
+  | 'locked'
   /** It couldn't be done (the database didn't answer). */
   | 'failed';
 

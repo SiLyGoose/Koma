@@ -38,6 +38,7 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'auto-all':
     case 'give-up':
     case 'back':
+    case 'again':
       return { t: m.t };
     case 'parted':
       return index(m.no, 2 ** 31) && index(m.second, 2 ** 31) ? { t: 'parted', no: m.no, second: m.second } : null;

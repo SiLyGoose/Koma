@@ -32,15 +32,15 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
       async hello(hello) {
         const { player } = hello;
         const peer = hello.join();
-        const [owned, left] = await Promise.all([
+        const [owned, cleared] = await Promise.all([
           deps.owned(player.guildId, player.userId).catch((err) => {
             console.error('Could not read whose heroes are whose:', err);
             return [] as string[];
           }),
-          deps.rewardsLeft(player.guildId, player.userId).catch(() => 0),
+          deps.cleared(player.guildId, player.userId).catch(() => 0),
         ]);
         if (hello.gone) return;
-        const joined = rooms.join(player, peer, owned, left, deps);
+        const joined = rooms.join(player, peer, owned, cleared, deps);
         if (!joined) return refuse(peer, 'full');
         room = joined.room;
         if (joined.replaced) refuse(joined.replaced, 'replaced');
@@ -73,6 +73,8 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             return answer(room.giveUp(userId));
           case 'back':
             return answer(room.back(userId));
+          case 'again':
+            return answer(await room.again(userId));
           case 'parted':
             return room.parted(userId, message.no, message.second);
           case 'chat':

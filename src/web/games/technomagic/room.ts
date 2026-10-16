@@ -1,8 +1,9 @@
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
+import { TM_SET_PIECES, tmSetEffect } from '../../../data/tm-sets.js';
 import { potentialLines } from '../../../lib/game/heroes.js';
 import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSS, tmSkillLine } from '../../../lib/game/technomagic.js';
-import { beginRun, finishRun, ownedHeroes, rewardsLeft, type BegunRun } from '../../../services/technomagic.js';
+import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { Chat } from '../chat.js';
@@ -23,8 +24,8 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * takes the steps that are due, each with what was pressed before it, and tells every page what was pressed at which
  * step and how far the fight has got; each page runs the same fight from the same seed and never goes past that. Each
  * player presses only their own heroes. One who leaves during the fight has their heroes fight on, on Auto, and
- * can come back to it. The fight over, a win gives each player whose run gives gear one TechnoMagic item
- * (services/technomagic.ts), and anyone takes the room back to getting ready.
+ * can come back to it. The fight over, a win gives each player in it TechnoMagic items and points
+ * (services/technomagic.ts), and anyone takes the room back to getting ready, or runs it again (`again`).
  */
 
 /** Where the room sends a player's messages: their page, or a fake in tests. */
@@ -35,10 +36,11 @@ export interface RoomDeps {
   now: () => number;
   avatar: (guildId: string, userId: string) => string | null;
   owned: (guildId: string, userId: string) => Promise<string[]>;
-  rewardsLeft: (guildId: string, userId: string) => Promise<number>;
+  /** The highest stage they have won a run at (0: none). */
+  cleared: (guildId: string, userId: string) => Promise<number>;
   begin: typeof beginRun;
-  /** What a run over gave each player. */
-  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number) => Promise<Map<string, DropView[]>>;
+  /** What a run over gave each player: the items found and the points paid. */
+  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number) => Promise<Map<string, { drops: DropView[]; points: number }>>;
   /** Says in the server's channel that a room has been opened (by `host`). Not waited for. */
   announce: (guildId: string, host: string) => void;
   /** Calls `fn` every `ms` until the returned function is called. */
@@ -50,11 +52,32 @@ export const realRoomDeps: RoomDeps = {
   now: Date.now,
   avatar: () => null,
   owned: ownedHeroes,
-  rewardsLeft: (guildId, userId) => rewardsLeft(guildId, userId),
+  cleared: clearedStage,
   begin: beginRun,
   finish: async (guildId, run, stage, result, ticks) => {
     const found = await finishRun(guildId, run, stage, result, ticks);
-    return new Map([...found].map(([userId, items]) => [userId, items.map(({ item, skill, potentials }) => ({ itemId: item.id, name: item.name, stars: item.stars, skill: tmSkillLine(skill), potentials: potentialLines(potentials) }))]));
+    return new Map(
+      [...found].map(([userId, { finds, points }]) => [
+        userId,
+        {
+          drops: finds.map(({ item, skill, potentials }) => {
+            const setEffect = tmSetEffect(item);
+            return {
+              itemId: item.id,
+              name: item.name,
+              stars: item.stars,
+              skill: tmSkillLine(skill),
+              potentials: potentialLines(potentials),
+              slot: item.slot,
+              description: item.description,
+              itemClass: item.class ?? null,
+              setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect },
+            };
+          }),
+          points,
+        },
+      ]),
+    );
   },
   announce: () => {},
   every: (ms, fn) => {
@@ -71,7 +94,8 @@ interface Member {
   avatar: string;
   owned: Set<string>;
   ready: boolean;
-  rewardsLeft: number;
+  /** The highest stage they have won at (0: none): as host, they may pick up to the one after it. */
+  cleared: number;
 }
 
 interface Fight {
@@ -140,8 +164,17 @@ export class TechnoMagicRoom {
     return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
   }
 
-  /** A page for `player`, who owns `owned`, joins (or comes back). Returns the page it took over from (another tab), if any. */
-  join(player: Player, peer: Peer, owned: readonly string[], left: number): Peer | null {
+  /** The highest stage the host may pick: the one after the highest they have won (the first, for one who has won none). */
+  private unlocked(): number {
+    const host = this.members.get(this.host() ?? '');
+    return Math.min(MOST_STAGE, (host?.cleared ?? 0) + 1);
+  }
+
+  /**
+   * A page for `player`, who owns `owned` and has won up to stage `cleared`, joins
+   * (or comes back). Returns the page it took over from (another tab), if any.
+   */
+  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0): Peer | null {
     const before = this.members.get(player.userId);
     this.members.set(player.userId, {
       player,
@@ -149,7 +182,7 @@ export class TechnoMagicRoom {
       avatar: this.deps.avatar(this.guildId, player.userId) ?? avatarUrl(player.userId, null),
       owned: new Set(owned),
       ready: before?.ready ?? false,
-      rewardsLeft: left,
+      cleared: Math.max(cleared, before?.cleared ?? 0),
     });
     if (!before) this.trim();
     this.tell();
@@ -251,11 +284,13 @@ export class TechnoMagicRoom {
     return null;
   }
 
-  /** The host picks the raid's stage. */
+  /** The host picks the raid's stage: one they have opened (won the one before it). */
   setStage(userId: string, stage: number): AnswerCode | null {
     if (this.phase !== 'prep' || this.starting) return 'closed';
     if (userId !== this.host()) return 'only_host';
-    this.stage = Math.min(MOST_STAGE, Math.max(1, Math.floor(stage)));
+    const picked = Math.min(MOST_STAGE, Math.max(1, Math.floor(stage)));
+    if (picked > this.unlocked()) return 'locked';
+    this.stage = picked;
     this.tell();
     return null;
   }
@@ -264,6 +299,7 @@ export class TechnoMagicRoom {
   async begin(userId: string): Promise<AnswerCode | null> {
     if (this.phase !== 'prep' || this.starting) return 'closed';
     if (userId !== this.host()) return 'only_host';
+    if (this.stage > this.unlocked()) return 'locked';
     const members = [...this.members.values()];
     if (members.some((member) => member.player.userId !== userId && !member.ready)) return 'not_ready';
     if (this.lineup.length === 0 || members.some((member) => !this.lineup.some((pick) => pick.owner === member.player.userId))) return 'no_heroes';
@@ -369,6 +405,17 @@ export class TechnoMagicRoom {
   }
 
   /**
+   * From a fight over, the same again: back to getting ready, and then the host starts the next fight (everyone else
+   * has to be ready for it, as with Start Battle), and anyone else says they're ready for it.
+   */
+  async again(userId: string): Promise<AnswerCode | null> {
+    if (!this.members.has(userId)) return 'closed';
+    if (this.phase === 'over') this.back(userId);
+    if (this.phase !== 'prep') return 'closed';
+    return userId === this.host() ? this.begin(userId) : this.ready(userId, true);
+  }
+
+  /**
    * `userId`'s page says its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's: the
    * same sim, seed and presses should never part, so it is something to look into). Noted once a page, for the fight going on.
    */
@@ -430,25 +477,27 @@ export class TechnoMagicRoom {
     fight.done = true;
     fight.stop();
     fight.engine.close();
-    let drops = new Map<string, DropView[]>();
+    let got = new Map<string, { drops: DropView[]; points: number }>();
     try {
-      drops = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick);
+      got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick);
     } catch (err) {
       console.error('Could not finish a TechnoMagic Raid run:', err);
     }
     if (this.fight !== fight) return;
+    // A win opens the next stage for everyone in it.
+    if (result === 'won') {
+      for (const userId of fight.run.players.keys()) {
+        const member = this.members.get(userId);
+        if (member) member.cleared = Math.max(member.cleared, fight.start.stage);
+      }
+    }
     this.fight = null;
     this.phase = 'over';
     this.over = {
       result,
-      drops: Object.fromEntries(drops),
-      rewarded: [...fight.run.players].flatMap(([userId, player]) => (player.rewardable ? [userId] : [])),
+      drops: Object.fromEntries([...got].map(([userId, { drops }]) => [userId, drops])),
+      points: Object.fromEntries([...got].map(([userId, { points }]) => [userId, points])),
     };
-    await Promise.all(
-      [...this.members.values()].map(async (member) => {
-        member.rewardsLeft = await this.deps.rewardsLeft(this.guildId, member.player.userId).catch(() => member.rewardsLeft);
-      }),
-    );
     if (!this.present()) return this.onEmpty(this);
     this.tell();
   }
@@ -460,6 +509,8 @@ export class TechnoMagicRoom {
   /** Tells every page the room as it is now. */
   private tell(): void {
     const host = this.host();
+    // Getting ready, the stage is never past what the host (who may just have become it) has opened.
+    if (this.phase === 'prep' && !this.starting) this.stage = Math.min(this.stage, this.unlocked());
     const players = [...this.members.values()].map((member, i) => ({
       id: member.player.userId,
       name: member.player.name,
@@ -471,19 +522,20 @@ export class TechnoMagicRoom {
       limit: this.limit(member.player.userId),
       owned: [...member.owned],
     }));
-    const state: Omit<RoomState, 'you' | 'rewardsLeft'> = {
+    const state: Omit<RoomState, 'you'> = {
       phase: this.phase,
       version: SIM_VERSION,
       boss: { id: TM_BOSS, name: 'Galgoria' },
       stage: this.stage,
       stages: MOST_STAGE,
+      unlocked: this.unlocked(),
       slots: this.slots(),
       solo: this.solo(),
       players,
       lineup: this.fight ? this.fight.start.heroes.map(({ owner, id, skin, sub }) => ({ owner, hero: id, skin, ...(sub && { sub }) })) : [...this.lineup],
       over: this.over,
     };
-    for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id, rewardsLeft: member.rewardsLeft } });
+    for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id } });
   }
 }
 
@@ -495,8 +547,8 @@ export class TechnoMagicRooms {
 
   constructor(readonly realDeps: RoomDeps = realRoomDeps) {}
 
-  /** Puts `player`'s page in their server's room. Null when it has as many players as it can. */
-  join(player: Player, peer: Peer, owned: readonly string[], left: number, deps: RoomDeps = this.realDeps): { room: TechnoMagicRoom; replaced: Peer | null } | null {
+  /** Puts `player`'s page in their server's room (see TechnoMagicRoom.join). Null when it has as many players as it can. */
+  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0, deps: RoomDeps = this.realDeps): { room: TechnoMagicRoom; replaced: Peer | null } | null {
     let room = this.rooms.get(player.guildId);
     if (!room) {
       room = new TechnoMagicRoom(player.guildId, deps, (empty) => {
@@ -510,7 +562,7 @@ export class TechnoMagicRooms {
       }
     }
     if (room.full && !room.has(player.userId)) return null;
-    return { room, replaced: room.join(player, peer, owned, left) };
+    return { room, replaced: room.join(player, peer, owned, cleared) };
   }
 }
 

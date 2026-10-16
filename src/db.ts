@@ -93,8 +93,8 @@ export async function connectDb(): Promise<Collections> {
     collections.pokerSeats.createIndex({ tableKey: 1 }),
     // Minesweeper's leaderboards: a server's fastest clears of a level.
     collections.minesweeperClears.createIndex({ guildId: 1, level: 1, ms: 1 }),
-    // A member's TechnoMagic Raid runs on a day (how many of them give gear).
-    collections.tmRuns.createIndex({ guildId: 1, userId: 1, day: 1 }),
+    // A member's won TechnoMagic Raid runs, best stage first (the stages they have opened).
+    collections.tmRuns.createIndex({ guildId: 1, userId: 1, result: 1, stage: -1 }),
   ]);
 
   client = mongo;

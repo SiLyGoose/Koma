@@ -108,7 +108,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 
   int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
-  int('hero.rewardsPerDay', 'Hero', 'TechnoMagic Raid runs a member can begin each day whose win gives TechnoMagic gear (3 to 5 items, more at the higher stages). A lost run does not count toward it. Runs past it can still be played, for nothing.', 0, 100),
+  int('hero.winPoints', 'Hero', `${CURRENCY_EMOJI} each won TechnoMagic Raid run pays, on top of its gear (3 to 5 items, more at the higher stages). There is no daily limit.`, 0, MAX_POINTS),
   ...TM_POTENTIALS.flatMap(({ id, name }) =>
     (['min', 'max'] as const).map(
       (end): SettingSpec => ({

@@ -318,13 +318,13 @@ export interface Settings {
   };
   /**
    * The TechnoMagic Raid's heroes (data/heroes.ts, services/heroes.ts): what buying one in the site's shop
-   * costs, in points (burned). And its runs (services/technomagic.ts): how many a member begins each day
-   * whose win gives TechnoMagic gear (pieces of the boss's set: TM_DROP_COUNTS, by the stage). And what each of
+   * costs, in points (burned). And its runs (services/technomagic.ts): `winPoints` is the points each won run
+   * pays, on top of its TechnoMagic gear (pieces of the boss's set: TM_DROP_COUNTS, by the stage). And what each of
    * TechnoMagic gear's potentials can roll as a copy drops (data/tm-potentials.ts): a share, as a perk's strength is.
    */
   hero: {
     price: number;
-    rewardsPerDay: number;
+    winPoints: number;
     potentials: Record<TmPotentialId, { min: number; max: number }>;
   };
   skip: {
@@ -497,7 +497,7 @@ export const DEFAULTS: Readonly<Settings> = {
     },
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, rewardsPerDay: 10, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  hero: { price: 25_000, winPoints: 100, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
   skip: { claim: 300 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.

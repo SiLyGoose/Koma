@@ -13,11 +13,11 @@
  * on Auto for the whole fight). As many `players` as can each bring a hero.
  */
 export const TM_ROOM = {
-  slots: 9,
-  soloSlots: 8,
+  slots: 8,
+  soloSlots: 7,
   mainTeam: 4,
   hostHeroes: 4,
-  guestHeroes: 2,
+  guestHeroes: 3,
   players: 4,
 } as const;
 
