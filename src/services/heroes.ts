@@ -3,7 +3,7 @@ import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
 import { transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
-import { fitsSlot, heroEquipMoves, heroWearable, wieldedBy } from '../lib/game/heroes.js';
+import { fitsSlot, heroEquipMoves, heroWearable, SIDE_SLOTS, wieldedBy } from '../lib/game/heroes.js';
 import { HERO_SLOTS, type HeroSlot } from '../types.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
@@ -38,7 +38,7 @@ export async function buyHero(guildId: string, userId: string, id: string): Prom
   return { ok: true, paid: price, balance: bought.points };
 }
 
-export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'busy' };
+export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'busy' };
 
 /**
  * Puts the member's copy `copyId` in their hero `heroId`'s `slot` (one its item goes in: heroSlotsFor), taking it
@@ -46,7 +46,10 @@ export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 
  * copy of theirs a hero can wear; 'wrong_slot': a slot it doesn't go in (a unique weapon only goes in the first
  * weapon slot, a unique treasure only in its treasure slot or a sub treasure slot); 'wrong_hero': another hero's unique
  * weapon or treasure; 'duplicate': a unique treasure the hero already wears another copy of, in another slot (each of
- * its four once, as King's Raid's); 'busy': their heroes' gear kept changing meanwhile (nothing changed).
+ * its four once, as King's Raid's); 'no_main_treasure': a sub treasure slot, while the hero's main treasure isn't one of
+ * its unique treasures (only a unique treasure has sub treasures); 'busy': their heroes' gear kept changing meanwhile
+ * (nothing changed). A main treasure that isn't a unique treasure takes its sub treasures off, and so does a main one
+ * coming off a hero (moved elsewhere).
  */
 export async function equipHero(guildId: string, userId: string, heroId: string, slot: HeroSlot, copyId: string): Promise<HeroEquipResult> {
   const { items, members } = collections();
@@ -58,6 +61,13 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
     if (!HEROES_BY_ID.has(heroId) || !member?.heroes?.[heroId]) return { ok: false, reason: 'not_found' };
+    // (A sub treasure: only under a main one that is one of this hero's unique treasures.)
+    if (SIDE_SLOTS.includes(slot)) {
+      const mainId = member.heroes[heroId]?.equipment?.treasure;
+      const main = typeof mainId === 'string' && mainId !== '' && mainId !== copyId ? await items.findOne({ guildId, userId, _id: mainId }) : null;
+      const mainItem = main ? ITEMS_BY_ID.get(main.itemId) : undefined;
+      if (mainItem?.uniqueTreasure?.hero !== heroId) return { ok: false, reason: 'no_main_treasure' };
+    }
     // (A unique treasure: not another copy of it in another of this hero's slots.)
     if (item.uniqueTreasure) {
       const others = HERO_SLOTS.filter((one) => one !== slot)
@@ -74,11 +84,22 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
         ...Object.fromEntries(from.map((path) => [path, copyId])),
         ...Object.fromEntries(elsewhere.map((path) => [path, { $ne: copyId }])),
       },
-      { $set: { [`heroes.${heroId}.equipment.${slot}`]: copyId, ...Object.fromEntries(from.map((path) => [path, null])) } },
+      { $set: { [`heroes.${heroId}.equipment.${slot}`]: copyId, ...Object.fromEntries([...from, ...subsOff(heroId, slot, item.uniqueTreasure !== undefined, from)].map((path) => [path, null])) } },
     );
     if (moved.matchedCount > 0) return { ok: true };
   }
   return { ok: false, reason: 'busy' };
+}
+
+/**
+ * The sub treasure slots a change empties (as dotted paths of the member document): this hero's when a treasure that isn't
+ * a unique treasure goes in its treasure slot, and any hero's whose main treasure the copy comes off (`from`).
+ */
+function subsOff(heroId: string, slot: HeroSlot, unique: boolean, from: readonly string[]): string[] {
+  const heroes = new Set(from.filter((path) => path.endsWith('.equipment.treasure')).map((path) => path.split('.')[1] as string));
+  if (slot === 'treasure' && !unique) heroes.add(heroId);
+  // (Moved into one of its own sub treasure slots: that one stays.)
+  return [...heroes].flatMap((id) => SIDE_SLOTS.map((side) => `heroes.${id}.equipment.${side}`)).filter((path) => path !== `heroes.${heroId}.equipment.${slot}`);
 }
 
 export type HeroPerksResult = { ok: true } | { ok: false; reason: 'not_found' | 'perk_locked' | 'too_many_points' };
@@ -139,10 +160,10 @@ export async function transcendHero(guildId: string, userId: string, heroId: str
   return { ok: true, level: level + 1 };
 }
 
-/** Empties one of the member's hero's slots, or (`slot` null) all of them. False when the hero isn't theirs. */
+/** Empties one of the member's hero's slots, or (`slot` null) all of them; its treasure slot, its sub treasure slots too. False when the hero isn't theirs. */
 export async function unequipHero(guildId: string, userId: string, heroId: string, slot: HeroSlot | null): Promise<boolean> {
   if (!HEROES_BY_ID.has(heroId)) return false;
-  const slots = slot === null ? HERO_SLOTS : [slot];
+  const slots = slot === null ? HERO_SLOTS : slot === 'treasure' ? [slot, ...SIDE_SLOTS] : [slot];
   const result = await collections().members.updateOne(
     { guildId, userId, [`heroes.${heroId}`]: { $exists: true } },
     { $set: Object.fromEntries(slots.map((one) => [`heroes.${heroId}.equipment.${one}`, null])) },

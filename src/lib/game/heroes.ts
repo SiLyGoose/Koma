@@ -31,8 +31,9 @@ export { HERO_SLOT_KIND, HERO_STAT_IDS, SIDE_SLOTS, type HeroBonus, type HeroSta
  * for its hero's class and refinement (data/uw-attack.ts), and has its own effect in the raid (the raid's sim,
  * which says what it does: uniqueWeaponText). A hero's unique treasures (ItemDef.uniqueTreasure) only go on their own
  * hero too, as King's Raid's: one in its treasure slot (its main treasure), and up to three more in its sub treasure slots
- * (SIDE_SLOTS), each a different one. Wherever it is, a unique treasure gives its options (its copy's tmPotentials, as
- * TechnoMagic gear's potentials); only the main one has its effect in the raid (uniqueTreasureText).
+ * (SIDE_SLOTS), each a different one, only while its main treasure is one of them (only a unique treasure has sub
+ * treasures). Wherever it is, a unique treasure gives its options (its copy's tmPotentials, as TechnoMagic gear's
+ * potentials); only the main one has its HP and its effect in the raid (uniqueTreasureText).
  */
 
 /** The one slot a unique weapon goes in: a hero's first weapon slot (so a hero wields one at most). */
@@ -334,8 +335,8 @@ export const heroSkills = (pieces: readonly { item: ItemDef; skill?: string }[],
  * chance or share, a share for the rest), the TechnoMagic set whose effect it has, its own unique weapon's
  * tier, its main unique treasure, and its TechnoMagic gear's additional skills, by hero id: the gear a TechnoMagic Raid
  * run is played with. Only copies they still own, in a slot they fit (heroSlotsFor), on that hero, a unique weapon or
- * treasure only on its own hero, and each unique treasure once (a second copy of one counts for nothing: as the heroes
- * page shows them).
+ * treasure only on its own hero, each unique treasure once (a second copy of one counts for nothing), and sub treasures
+ * only under a main one that is a unique treasure (as the heroes page shows them).
  */
 export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
   const owned = new Map(copies.map((copy) => [copy._id, copy]));
@@ -355,6 +356,8 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
       const item = copy && ITEMS_BY_ID.get(copy.itemId);
       // (A unique weapon only counts in UNIQUE_SLOT: one put in a second weapon slot before that rule does nothing.)
       if (!copy || !item || !heroWearable(item) || !wieldedBy(item, hero.id) || !fitsSlot(item, slot) || worn.get(copy._id) !== hero.id) continue;
+      // (A sub treasure only under a main one that is a unique treasure: the treasure slot comes first.)
+      if (SIDE_SLOTS.includes(slot) && ut === null) continue;
       if (!countsOnce(item, treasures)) continue;
       if (item.uniqueWeapon !== undefined) uw = uniqueTier(copy.level);
       if (item.uniqueTreasure !== undefined && slot === 'treasure') ut = { skill: item.uniqueTreasure.skill, tier: treasureTier(copy.level) };

@@ -89,11 +89,14 @@ test('unique treasures: the raid is told the main one alone; the sub ones count 
   assert.equal(view.equipped.side3, null);
   assert.equal(view.treasure?.name, 'Firm Determination');
   assert.equal(view.treasure?.tier, 4);
-  // In a sub treasure slot only: no effect.
+  // Only a unique treasure has sub treasures: with none (or another treasure) as the main one, they count for nothing.
   const side = raidGear(copies, { heroes: { klaus: { boughtAt: new Date(0), equipment: { side1: 'main' } } } }).get('klaus')!;
   assert.equal(side.ut, null);
   assert.equal(side.bonus.hpFlat, 0);
-  assert.ok(Math.abs(side.bonus.atk - 0.1) < 1e-9);
+  assert.equal(side.bonus.atk, 0);
+  assert.deepEqual(side.copies, []);
+  const under = [...copies, { _id: 'pip', itemId: 'piplup', level: 1 }];
+  assert.equal(heroesView(under, { heroes: { klaus: { boughtAt: new Date(0), equipment: { treasure: 'pip', side1: 's1' } } } }).heroes.find((hero) => hero.id === 'klaus')?.equipped.side1, null);
   // Another hero's: nothing.
   assert.equal(raidGear(copies, { heroes: { kirze: { boughtAt: new Date(0), equipment: { treasure: 'main' } } } }).get('kirze')?.ut, null);
 });

@@ -8,7 +8,8 @@ import type { RaidClassId } from './raid.js';
  * Where a hero wears gear: two weapons, two armors and a treasure (its main treasure), and three sub treasure slots
  * beside it (side1 to side3), as King's Raid's. The raid's gear and the TechnoMagic Raid's go in them (lib/game/heroes.ts's
  * heroWearable), each in a slot of its item's kind; a sub treasure slot only takes the hero's own unique treasures, and
- * of one there only its options count (its effect is a main treasure's alone).
+ * only while its main treasure is one too (King's Raid's: only a unique treasure has sub treasures); of one there only
+ * its options count (its HP and effect are a main treasure's alone).
  */
 export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure' | 'side1' | 'side2' | 'side3';
 
@@ -163,7 +164,7 @@ export interface HeroesView {
 export type HeroesSold = HeroesView & { sold: GearSale };
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'busy';
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'busy';
 
 /** Why a copy wasn't refined (nothing was used up). */
 export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy';

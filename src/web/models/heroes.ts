@@ -5,7 +5,7 @@ import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
-import { activeSet, activeTmEffects, countsOnce, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, treasureTier, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { activeSet, activeTmEffects, countsOnce, SIDE_SLOTS, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, treasureTier, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
@@ -115,9 +115,12 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
     // (Each unique treasure once: a second copy of one isn't worn. Its main treasure's effect, when it is one.)
     const treasures = new Set<string>();
     let main: HeroView['treasure'] = null;
+    let underUt = false;
     for (const slot of HERO_SLOTS) {
       const found = pieces.get(doc?.equipment?.[slot] ?? '');
-      const fits = found !== undefined && fitsSlot(found.piece.item, slot) && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id) && countsOnce(found.piece.item, treasures);
+      // (A sub treasure only under a main one that is a unique treasure: the treasure slot comes first.)
+      const fits = found !== undefined && fitsSlot(found.piece.item, slot) && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id) && (underUt || !SIDE_SLOTS.includes(slot)) && countsOnce(found.piece.item, treasures);
+      if (fits && slot === 'treasure' && found.piece.item.uniqueTreasure) underUt = true;
       equipped[slot] = fits ? found.view.id : null;
       if (fits) on.push(slot === 'treasure' ? { ...found.piece, main: true } : found.piece);
       if (fits) skilled.push({ item: found.piece.item, ...(found.view.skill !== null && { skill: found.view.skill }) });
