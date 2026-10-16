@@ -504,7 +504,7 @@ export const DEFAULTS: Readonly<Settings> = {
     },
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, winPoints: 100, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  hero: { price: 25_000, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
   skip: { claim: 300 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.
