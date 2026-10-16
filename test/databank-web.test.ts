@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { createServer, type Server } from 'node:http';
+import { createServer, get, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
+import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { CONFIG } from '../src/config.js';
 import { bossEssences, RAID_BOSS_ESSENCES } from '../src/data/transcend.js';
 import { raidRewards } from '../src/lib/events/raid.js';
@@ -62,7 +63,10 @@ test('databank page: says where each item comes from, and the raid drop chance',
   const cape = items.find((item) => item.id === 'cape-of-justice')!;
   assert.equal(cape.source, 'heroBanner');
   assert.deepEqual(cape.uniqueTreasure, { hero: 'klaus', skill: 1 });
-  assert.ok(cape.effects.every((lines, i) => lines[0]?.startsWith('2 of these') && lines.some((line) => line.startsWith(`Klaus only, as main treasure, ★${i + 1}: [Cut Ground]`))));
+  assert.ok(cape.effects.every((lines, i) => lines.some((line) => line.startsWith(`Klaus only, as main treasure, ★${i + 1}: [Cut Ground]`))));
+  // (Its options, every unique treasure's the same, are sent once: the pool its levels start with.)
+  assert.equal(cape.pool, 'ut');
+  assert.ok(databankView().pools.ut[0]?.startsWith('2 of these'));
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);
@@ -132,6 +136,45 @@ test("databank page: a logged-in member is told how their server's raid stands, 
     assert.deepEqual(await res.json(), { boss: 'reaper', maxDifficulty: 4, resetsAt: 1_800_000_000_000 });
     assert.equal((await fetch(`${base}/api/raid/week?guild=g2`, { headers })).status, 403, 'a server they are not in');
     assert.equal((await fetch(`${base}/api/raid/week?guild=g1`, { headers: { Origin: SITE.origin } })).status, 401, 'not logged in');
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('the API: a big reply goes compressed to a browser that takes it (brotli, else gzip), a small one as it is', async () => {
+  const server: Server = createServer(
+    createApi({ config: SITE, clientId: () => '999', guild: () => null, memberName: async () => null, balance: async () => 0 }),
+  );
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  /** The reply's raw bytes (fetch would uncompress them), asking with `encoding` as its Accept-Encoding. */
+  const ask = (path: string, encoding?: string) =>
+    new Promise<{ status: number; headers: IncomingHttpHeaders; body: Buffer }>((resolve, reject) => {
+      get(`${base}${path}`, { headers: { Origin: SITE.origin, ...(encoding !== undefined && { 'Accept-Encoding': encoding }) } }, (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+      }).on('error', reject);
+    });
+  const itemsIn = (body: Buffer): number => (JSON.parse(body.toString('utf8')) as { items: unknown[] }).items.length;
+  try {
+    const br = await ask('/api/databank', 'gzip, deflate, br');
+    assert.deepEqual([br.status, br.headers['content-encoding'], br.headers['content-type']], [200, 'br', 'application/json; charset=utf-8']);
+    assert.match(String(br.headers.vary), /Accept-Encoding/);
+    assert.equal(itemsIn(brotliDecompressSync(br.body)), ITEMS.length);
+    const plain = await ask('/api/databank', 'identity');
+    assert.ok(br.body.length * 5 < plain.body.length, 'far smaller');
+
+    const gz = await ask('/api/databank', 'gzip;q=1, br;q=0');
+    assert.equal(gz.headers['content-encoding'], 'gzip');
+    assert.equal(itemsIn(gunzipSync(gz.body)), ITEMS.length);
+
+    assert.equal(plain.headers['content-encoding'], undefined);
+    assert.equal(itemsIn(plain.body), ITEMS.length);
+    // A small reply (not logged in) as it is.
+    const small = await ask('/api/me', 'br');
+    assert.deepEqual([small.status, small.headers['content-encoding'], JSON.parse(small.body.toString('utf8'))], [401, undefined, { error: 'not_logged_in' }]);
   } finally {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

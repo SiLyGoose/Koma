@@ -44,17 +44,18 @@ function bossView(id: RaidBossId): DatabankBoss {
 const sourceOf = (item: ItemDef): ItemSource =>
   item.raidDrop ? 'raid' : item.tmDrop ? 'technomagic' : heroBannerItem(item) ? 'heroBanner' : item.limited ? 'limited' : 'gacha';
 
-/** A unique treasure's effects, as the databank shows them: the options a copy rolls, then its own effect at a refine level (as its hero's main treasure). */
+/** Each potential a copy can roll, with its range (the settings' hero.potentials). */
+const potentialRanges = (): string[] => TM_POTENTIALS.map(({ id, name }) => `**${name}**: +${formatPercent(CONFIG.hero.potentials[id].min)} to +${formatPercent(CONFIG.hero.potentials[id].max)}`);
+
+/** The options a unique treasure's copy rolls, as the databank shows them: every unique treasure's the same (Databank.pools.ut). */
+const optionPool = (): string[] => [`${UT_OPTION_LINES} of these at random as it is pulled, each a different one:`, ...potentialRanges()];
+
+/** A unique treasure's own effect at a refine level, as its hero's main treasure (after its options: optionPool). */
 function treasureLines(item: ItemDef, level: number): string[] {
   const ut = item.uniqueTreasure;
   const owner = ut ? HEROES_BY_ID.get(ut.hero) : undefined;
   const effect = ut && owner ? uniqueTreasureText(owner.id, ut.skill, treasureTier(level)) : null;
-  return [
-    `${UT_OPTION_LINES} of these at random as it is pulled, each a different one:`,
-    ...TM_POTENTIALS.map(({ id, name }) => `**${name}**: +${formatPercent(CONFIG.hero.potentials[id].min)} to +${formatPercent(CONFIG.hero.potentials[id].max)}`),
-    `As main treasure: +${fmt(utHp(level))} HP`,
-    ...(owner && effect ? [`${owner.name} only, as main treasure, ★${treasureTier(level)}: ${effect.text}`] : []),
-  ];
+  return [`As main treasure: +${fmt(utHp(level))} HP`, ...(owner && effect ? [`${owner.name} only, as main treasure, ★${treasureTier(level)}: ${effect.text}`] : [])];
 }
 
 /** A unique weapon's own effect at a refine level, as the heroes page says it (none for any other item). */
@@ -64,11 +65,8 @@ function uniqueLines(item: ItemDef, level: number): string[] {
   return owner && text ? [`${owner.name} only, ★${uniqueTier(level)}: ${text}`] : [];
 }
 
-/** TechnoMagic gear's effects, as the databank shows them: how many potentials a copy rolls, then each it can roll with its range (the settings' hero.potentials). */
-const potentialPool = (): string[] => [
-  `${TM_POTENTIAL_LINES} of these at random as it drops, each a different one:`,
-  ...TM_POTENTIALS.map(({ id, name }) => `**${name}**: +${formatPercent(CONFIG.hero.potentials[id].min)} to +${formatPercent(CONFIG.hero.potentials[id].max)}`),
-];
+/** TechnoMagic gear's effects, as the databank shows them: how many potentials a copy rolls, then each it can roll with its range (Databank.pools.tm). */
+const potentialPool = (): string[] => [`${TM_POTENTIAL_LINES} of these at random as it drops, each a different one:`, ...potentialRanges()];
 
 /** A TechnoMagic item's set, as the databank shows it (null: it isn't TechnoMagic gear). */
 function setOf(item: ItemDef): DatabankItem['set'] {
@@ -85,9 +83,10 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       slot: item.slot,
       description: item.description,
       // (A unique weapon's own effect in the raid, at each level, after its perks.)
-      // (TechnoMagic gear's: the potentials a copy can roll, whatever its level.)
-      // (A unique treasure's: the options a copy can roll, and its own effect at each level.)
-      effects: levels.map((level) => (item.tmDrop ? potentialPool() : item.uniqueTreasure ? treasureLines(item, level) : [...describeEffects(item, 1, level), ...uniqueLines(item, level)])),
+      // (TechnoMagic gear's: the potentials a copy can roll, whatever its level: its pool, and nothing after it.)
+      // (A unique treasure's: the options a copy can roll (its pool), then its own effect at each level.)
+      effects: levels.map((level) => (item.tmDrop ? [] : item.uniqueTreasure ? treasureLines(item, level) : [...describeEffects(item, 1, level), ...uniqueLines(item, level)])),
+      ...(item.tmDrop ? { pool: 'tm' as const } : item.uniqueTreasure ? { pool: 'ut' as const } : {}),
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: sourceOf(item),
       sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [sourceOf(item)],
@@ -106,6 +105,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
     raidDropChance: CONFIG.raid.dropChance,
     raidDropChancePerRaider: CONFIG.raid.dropChancePerRaider,
     items: list,
+    pools: { tm: potentialPool(), ut: optionPool() },
     classes: RAID_CLASS_IDS.map((id) => ({ id, name: TEXT.raid.classes[id].name, traits: classTraits(id) })),
     heroes: HEROES.map(({ id, abilities }) => ({ id, abilities: [...abilities] })),
     bosses: RAID_BOSS_IDS.map(bossView),

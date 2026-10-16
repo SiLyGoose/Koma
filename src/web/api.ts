@@ -8,6 +8,7 @@ import type { OutfitStore } from './models/outfits.js';
 import type { RaidShopStore } from './models/raid-shop.js';
 import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
+import { compressJson } from './middleware/compress.js';
 import { errors, notFound } from './middleware/errors.js';
 import { cors, siteOnly } from './middleware/site.js';
 import type { RaidSiteDeps } from './games/raid/server.js';
@@ -126,7 +127,7 @@ const MAX_BODY_BYTES = 32_768;
 export function createApi(deps: ApiDeps): Express {
   const { origin } = deps.config;
   const api = Router()
-    .use(cors(origin))
+    .use(cors(origin), compressJson)
     .use(publicRoutes(deps))
     // Everything else is for the site only, with bodies in JSON (whatever they say they are).
     .use(siteOnly(origin), express.json({ limit: MAX_BODY_BYTES, type: () => true }))

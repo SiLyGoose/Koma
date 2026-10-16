@@ -34,7 +34,15 @@ export interface DatabankItem {
    * the set). Null otherwise.
    */
   set: { name: string; boss: string; effects: Partial<Record<RaidClassId, string>>; pieces: number; effect: string | null } | null;
+  /**
+   * The lines every one of its levels starts with, kept once for every item that has them (Databank.pools): TechnoMagic
+   * gear's potentials, a unique treasure's options. `effects` has only what comes after them. Left out: none.
+   */
+  pool?: DatabankPool;
 }
+
+/** Lines many items share (Databank.pools): TechnoMagic gear's potentials ('tm'), a unique treasure's options ('ut'). */
+export type DatabankPool = 'tm' | 'ut';
 
 /** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon or treasure). */
 export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic' | 'heroBanner';
@@ -90,6 +98,8 @@ export interface Databank {
   raidDropChancePerRaider: number;
   /** Highest tier first, then in catalog order. */
   items: DatabankItem[];
+  /** The lines many items' levels start with (DatabankItem.pool), sent once rather than with each of them (over a hundred times). */
+  pools: Record<DatabankPool, string[]>;
   /**
    * The raid classes, in their order: what a class item's tag says, what the page's filter offers, and
    * (the page's Classes) what each does in a fight, a line of Discord markdown each (lib/game/raid-classes.ts).
