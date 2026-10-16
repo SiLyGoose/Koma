@@ -17,6 +17,7 @@ import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import { signSession } from '../src/web/auth/login.js';
+import { signToken } from '../src/web/auth/token.js';
 import type { WebConfig } from '../src/web/config.js';
 import { heroesView, type HeroesView, type HeroStore } from '../src/web/models/heroes.js';
 import { gearView } from '../src/web/models/gear.js';
@@ -348,6 +349,22 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'perks kirze t5-light',
       'perks klaus ',
     ]);
+
+    // A game's link (the TechnoMagic Raid's Manage popup): its own member, always in its own server; everything but buying.
+    calls.length = 0;
+    const token = signToken({ guildId: 'g1', userId: 'u1', name: 'ZEIU' }, 60_000);
+    const link = { Origin: SITE.origin, 'Content-Type': 'application/json', Authorization: `Game ${token}` };
+    const linked = (path: string, body: unknown) => fetch(`${base}${path}`, { method: 'POST', headers: link, body: JSON.stringify(body) });
+    assert.equal((await fetch(`${base}/api/heroes`, { headers: link })).status, 200);
+    assert.equal((await fetch(`${base}/api/heroes/members`, { headers: link })).status, 200);
+    assert.equal((await fetch(`${base}/api/heroes?user=22`, { headers: link })).status, 200);
+    assert.equal((await linked('/api/heroes/equip', { guild: 'g2', hero: 'kirze', slot: 'weapon1', copy: 'c1' })).status, 200);
+    assert.equal((await linked('/api/heroes/unequip', { hero: 'kirze' })).status, 200);
+    assert.equal((await linked('/api/heroes/perks', { hero: 'kirze', perks: [] })).status, 200);
+    assert.equal((await linked('/api/heroes/transcend', { hero: 'kirze' })).status, 200);
+    assert.equal((await linked('/api/heroes/buy', { hero: 'klaus' })).status, 401, 'buying stays the site’s');
+    assert.equal((await fetch(`${base}/api/heroes`, { headers: { ...link, Authorization: 'Game nonsense' } })).status, 401);
+    assert.deepEqual(calls, ['equip kirze weapon1 c1', 'unequip kirze null', 'perks kirze ', 'transcend kirze']);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

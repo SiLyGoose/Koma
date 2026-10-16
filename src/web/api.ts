@@ -70,7 +70,8 @@ export type { Me } from './services/login.js';
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
  * the party's gear: anyone in the link's server) and the routes that change what the link's member
- * wears (routes/gear.ts: the raid's party screen lets them change it before the fight). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
+ * wears (routes/gear.ts: the raid's party screen lets them change it before the fight), and /api/heroes but buying
+ * (routes/heroes.ts: the TechnoMagic Raid's Manage popup). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
  * page shows (its end screen), when it was kept. The front page's /api/live counts as
  * being on the site (games/live.ts).
  *
