@@ -1347,6 +1347,13 @@ function formation(lines) {
 }
 /** Running in: how long it takes (a hero can do nothing meanwhile). */
 var ENTER = 1.1;
+/** The last of the run (of its time) in which they slow to a stop: before it, they run flat out. */
+var BRAKE = .3;
+/** A raid's run up to the boss, `k` of the way through it (0 to 1): how much of the way (MARCH_FROM) is still to go. */
+function marchLeft(k) {
+	const t = 1 - k;
+	return t < BRAKE ? t * t / (BRAKE * 1.7) : (2 * t - BRAKE) / 1.7;
+}
 /**
 * A hero's Auto (./fight.ts autoSkill): an ally below this share of its max HP is hurt (a heal is wanted); a status
 * with less than this many seconds left is as good as gone (a skill that puts it up again is wanted); and over how
@@ -3072,7 +3079,9 @@ var KNOCKED = {
 /** Steps in a second (a checksum is kept at the end of each). */
 var SECOND = Math.round(1 / TICK);
 /** The run up to the boss: how much of the way through it the heroes begin fanning out to where each stands. */
-var FAN = .55;
+var FAN = .6;
+/** How far short of where it stands (along the field) a hero begins turning toward it, to arrive there and wait for the rest. */
+var NEAR = 6;
 function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
 	const random = seeded(seed);
 	const roll = () => random.next();
@@ -3224,13 +3233,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	}
 	/**
 	* The run up to the boss, `k` of the way (0 to 1): two abreast, the frontline first (its tanks leading), each pair
-	* behind the one before, slowing as they near the boss and fanning out, toward the end, to where each stands.
+	* behind the one before, flat out until they slow to a stop near the boss (marchLeft), fanning out toward the end to
+	* where each stands. One that comes up to where it stands sooner (further back) turns toward it as it nears it, and
+	* stays there once it has (`arrived` is told of each there).
 	* (Only + - * /: ./rules.ts.)
 	*/
-	function lineUp(k) {
-		const u = 1 - k;
-		const back = 13 * u * u * (2 - u);
-		const s = Math.max(0, (k - FAN) / .44999999999999996);
+	function lineUp(k, arrived) {
+		const back = 24 * marchLeft(k);
+		const s = Math.max(0, (k - FAN) / .4);
 		const fan = s * s * (3 - 2 * s);
 		const order = [...field].sort((a, b) => nearer(a.def, b.def));
 		order.forEach((on, i) => {
@@ -3238,8 +3248,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const x = HERO_X - back - (i >> 1) * 3;
 			const z = side * 3 / 2;
 			const [toX, toZ] = spots.get(on);
-			on.x = x + (toX - x) * fan;
-			on.z = z + (toZ - z) * fan;
+			const near = Math.min(1, Math.max(0, 1 - (toX - x) / NEAR));
+			const there = Math.max(fan, near * near * (3 - 2 * near));
+			const from = Math.min(x, toX);
+			on.x = from + (toX - from) * there;
+			on.z = z + (toZ - z) * there;
+			if (there >= 1) arrived?.(on);
 		});
 	}
 	/** The hero whose attack's blow is landing right now (null: none: a skill's, or something else's); and whose move, and which. */
@@ -4165,7 +4179,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	for (const fighter of fighters) fighter.part = fighter.def.join(sim, fighter);
 	for (const fighter of raid ? fighters : first.map((index) => fighters[index])) if (fighter && !field.includes(fighter)) stand(fighter);
 	if (field.length === 0 && fighters[0]) stand(fighters[0]);
-	if (marching > 0) lineUp(0);
+	if (marching > 0) {
+		const runs = /* @__PURE__ */ new Map();
+		for (let t = 1; t <= marching; t++) lineUp(t / marching, (on) => {
+			if (!runs.has(on)) runs.set(on, t * TICK);
+		});
+		for (const event of events) if (event.kind === "enter") event.run = runs.get(fighters[event.who]) ?? 2;
+		lineUp(0);
+	}
 	return sim;
 }
 //#endregion
@@ -10696,7 +10717,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "391e103cef42";
+var SIM_VERSION = "72375e36397c";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
