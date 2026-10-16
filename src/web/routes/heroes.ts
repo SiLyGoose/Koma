@@ -21,5 +21,6 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/equip', ...siteOrLink, heroes.equip)
     .post('/unequip', ...siteOrLink, heroes.unequip)
     .post('/perks', ...siteOrLink, heroes.perks)
-    .post('/transcend', ...siteOrLink, heroes.transcend);
+    .post('/transcend', ...siteOrLink, heroes.transcend)
+    .post('/refine', ...siteOrLink, heroes.refine);
 }

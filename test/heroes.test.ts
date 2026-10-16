@@ -11,7 +11,7 @@ import { bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, perksCost, RAID_BOSS
 import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS } from '../src/constants/index.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
-import { activeSet, activeTmEffects, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, heroSlotsFor, heroWearable, heroWorn, otherWeaponSlot, pieceBonus, raidValue, secondUnique, wieldedBy } from '../src/lib/game/heroes.js';
+import { activeSet, activeTmEffects, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, fitsSlot, heroSlotsFor, heroWearable, heroWorn, pieceBonus, raidValue, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
 import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -98,13 +98,10 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   const exian = item('the-guardian-exian');
   assert.ok(heroWearable(exian) && heroOnly(exian));
   assert.ok(wieldedBy(exian, 'klaus') && !wieldedBy(exian, 'kirze'));
-  // One to a hero: not a second in its other weapon slot (another weapon there, or none, is fine).
-  assert.equal(otherWeaponSlot('weapon1'), 'weapon2');
-  assert.equal(otherWeaponSlot('weapon2'), 'weapon1');
-  assert.equal(otherWeaponSlot('armor1'), null);
-  assert.ok(secondUnique(exian, exian));
-  assert.ok(!secondUnique(exian, item('worldbreaker-maul')) && !secondUnique(exian, undefined));
-  assert.ok(!secondUnique(item('worldbreaker-maul'), exian));
+  // One to a hero: it only goes in the first weapon slot (any other weapon in either).
+  assert.deepEqual(heroSlotsFor(exian), ['weapon1']);
+  assert.ok(fitsSlot(exian, 'weapon1') && !fitsSlot(exian, 'weapon2') && !fitsSlot(exian, 'armor1'));
+  assert.ok(fitsSlot(item('worldbreaker-maul'), 'weapon2'));
   // On its own hero its flat ATK counts (King's Raid's for its class, its refinement its stars), on another nothing; its lines
   // start with that ATK and end with what it does in the raid.
   assert.equal(pieceBonus({ item: exian, level: 1 }, 'knight', 'klaus').atkFlat, 42_332);
@@ -114,7 +111,7 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.equal(raidValue('atkFlat', 96_209), 96_209);
   assert.equal(heroItemLines(exian, 2)[0], '+50,029 ATK');
   assert.match(heroItemLines(exian, 2).at(-1) ?? '', /^Klaus only, ★2: /);
-  // The raid is told its refinement as its tier, and only on its own hero; a second copy does nothing more.
+  // The raid is told its refinement as its tier, and only on its own hero in its first weapon slot; a copy in the second does nothing.
   const copies = [
     { _id: 'a', itemId: 'the-guardian-exian', level: 3 },
     { _id: 'b', itemId: 'the-guardian-exian', level: 5 },
@@ -131,6 +128,11 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.equal(gear.get('kirze')?.uw, 4);
   const alone = raidGear([copies[0]!], { heroes: { klaus: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
   assert.equal(gear.get('klaus')?.bonus.atk, alone.get('klaus')?.bonus.atk);
+  assert.deepEqual(gear.get('klaus')?.copies, ['a']);
+  const second = raidGear(copies, { heroes: { klaus: { boughtAt: new Date(0), equipment: { weapon2: 'b' } } } });
+  assert.equal(second.get('klaus')?.uw, null);
+  assert.equal(second.get('klaus')?.bonus.atkFlat, 0);
+  assert.equal(heroesView(copies, { heroes: { klaus: { boughtAt: new Date(0), equipment: { weapon2: 'b' } } } }).heroes.find((hero) => hero.id === 'klaus')?.equipped.weapon2, null);
   // Another hero's: refused on the heroes page's model too (it isn't counted).
   const elsewhere = raidGear(copies, { heroes: { kirze: { boughtAt: new Date(0), equipment: { weapon1: 'a' } } } });
   assert.equal(elsewhere.get('kirze')?.uw, null);
@@ -270,6 +272,10 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`transcend ${hero}`);
       return owned.includes(hero) ? empty : 'not_found';
     },
+    refine: async (guildId, userId, copy) => {
+      calls.push(`refine ${copy}`);
+      return copy === 'c1' ? empty : 'no_duplicate';
+    },
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -332,6 +338,9 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.deepEqual(await over.json(), { error: 'too_many_points' });
     assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['t5-light'] })).json(), { error: 'perk_locked' });
     assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'klaus', perks: [] })).json(), { error: 'not_found' });
+    // Refining a copy (a unique weapon, on the heroes page): with a spare of it, or why not.
+    assert.equal((await post('/api/heroes/refine', { guild: 'g1', copy: 'c1' })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/refine', { guild: 'g1', copy: 'c2' })).json(), { error: 'no_duplicate' });
     assert.deepEqual(calls, [
       'equip kirze weapon1 c1',
       'buy g1 u1 kirze',
@@ -348,6 +357,8 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'perks kirze atk-up,hp-up,def-up',
       'perks kirze t5-light',
       'perks klaus ',
+      'refine c1',
+      'refine c2',
     ]);
 
     // A game's link (the TechnoMagic Raid's Manage popup): its own member, always in its own server; everything but buying.

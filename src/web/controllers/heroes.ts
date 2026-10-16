@@ -11,6 +11,7 @@ import { CopyId, parse, UserId } from '../lib/validate.js';
 const Hero = z.object({ hero: z.string().max(64) });
 const Slot = z.enum(HERO_SLOTS as [string, ...string[]]);
 const Equip = Hero.extend({ slot: Slot, copy: CopyId });
+const Refine = z.object({ copy: CopyId });
 /** One slot, or (left out) all of them. */
 const Unequip = Hero.extend({ slot: Slot.nullish() });
 /** Every perk picked (data/transcend.ts's). */
@@ -55,6 +56,11 @@ export function heroController(heroes: HeroService) {
     async transcend(req, res) {
       const { hero } = parse(Hero, req.body);
       res.json(await heroes.transcend(res.locals.guildId, res.locals.session.userId, hero));
+    },
+
+    async refine(req, res) {
+      const { copy } = parse(Refine, req.body);
+      res.json(await heroes.refine(res.locals.guildId, res.locals.session.userId, copy));
     },
   } satisfies Record<string, RequestHandler>;
 }

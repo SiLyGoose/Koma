@@ -1,4 +1,5 @@
 import type { Slot, Stars, TmSetId } from './items.js';
+import type { GearRefine, RefineBlock } from './gear.js';
 import type { RaidClassId } from './raid.js';
 
 /* The TechnoMagic Raid's heroes on the site: what the bot's GET /api/heroes and the heroes page say of them. */
@@ -80,6 +81,8 @@ export interface HeroCopy {
   uniqueWeapon: string | null;
   /** The id of the member's hero wearing it, or null. */
   hero: string | null;
+  /** Refining it (POST /api/heroes/refine, as the gear page's forge does), with `after` what it does on a hero at the next level. */
+  refine: GearRefine;
 }
 
 /** One hero, as the shop and the heroes page show it. */
@@ -142,7 +145,10 @@ export interface HeroesView {
 }
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy';
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy';
+
+/** Why a copy wasn't refined (nothing was used up). */
+export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy';
 
 /** Why a hero's transcendence perks weren't picked (nothing changed). */
 export type HeroPerksError = 'not_found' | 'perk_locked' | 'too_many_points';

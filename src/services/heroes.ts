@@ -3,7 +3,7 @@ import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
 import { transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
-import { HERO_SLOT_KIND, heroEquipMoves, heroWearable, otherWeaponSlot, secondUnique, wieldedBy } from '../lib/game/heroes.js';
+import { fitsSlot, heroEquipMoves, heroWearable, wieldedBy } from '../lib/game/heroes.js';
 import { HERO_SLOTS, type HeroSlot } from '../types.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
@@ -38,32 +38,25 @@ export async function buyHero(guildId: string, userId: string, id: string): Prom
   return { ok: true, paid: price, balance: bought.points };
 }
 
-export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'one_unique' | 'busy' };
+export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy' };
 
 /**
- * Puts the member's copy `copyId` in their hero `heroId`'s `slot` (one its item's kind goes in), taking it
+ * Puts the member's copy `copyId` in their hero `heroId`'s `slot` (one its item goes in: heroSlotsFor), taking it
  * off wherever else among their heroes it is. 'not_found': no such hero of theirs; 'not_owned': not a
- * copy of theirs a hero can wear; 'wrong_hero': another hero's unique weapon; 'one_unique': a unique weapon
- * while its other weapon slot holds one (a hero wields one: replace that one instead); 'busy': their heroes'
- * gear kept changing meanwhile (nothing changed).
+ * copy of theirs a hero can wear; 'wrong_slot': a slot it doesn't go in (a unique weapon only goes in the first
+ * weapon slot); 'wrong_hero': another hero's unique weapon; 'busy': their heroes' gear kept changing meanwhile
+ * (nothing changed).
  */
 export async function equipHero(guildId: string, userId: string, heroId: string, slot: HeroSlot, copyId: string): Promise<HeroEquipResult> {
   const { items, members } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
   if (!copy || !item || !heroWearable(item)) return { ok: false, reason: 'not_owned' };
-  if (HERO_SLOT_KIND[slot] !== item.slot) return { ok: false, reason: 'wrong_slot' };
+  if (!fitsSlot(item, slot)) return { ok: false, reason: 'wrong_slot' };
   if (!wieldedBy(item, heroId)) return { ok: false, reason: 'wrong_hero' };
-  // A unique weapon: the hero's other weapon slot, which mustn't hold another.
-  const other = item.uniqueWeapon !== undefined ? otherWeaponSlot(slot) : null;
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
     if (!HEROES_BY_ID.has(heroId) || !member?.heroes?.[heroId]) return { ok: false, reason: 'not_found' };
-    const there = other ? (member.heroes[heroId]?.equipment?.[other] ?? null) : null;
-    if (there !== null && there !== copyId) {
-      const thereCopy = await items.findOne({ guildId, userId, _id: there });
-      if (secondUnique(item, thereCopy ? ITEMS_BY_ID.get(thereCopy.itemId) : undefined)) return { ok: false, reason: 'one_unique' };
-    }
     const { from, elsewhere } = heroEquipMoves(member.heroes, heroId, slot, copyId);
     const moved = await members.updateOne(
       {
@@ -72,8 +65,6 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
         [`heroes.${heroId}`]: { $exists: true },
         ...Object.fromEntries(from.map((path) => [path, copyId])),
         ...Object.fromEntries(elsewhere.map((path) => [path, { $ne: copyId }])),
-        // (And its other weapon slot still as read: nothing put there meanwhile. Null matches it empty.)
-        ...(other && there !== copyId ? { [`heroes.${heroId}.equipment.${other}`]: there } : {}),
       },
       { $set: { [`heroes.${heroId}.equipment.${slot}`]: copyId, ...Object.fromEntries(from.map((path) => [path, null])) } },
     );

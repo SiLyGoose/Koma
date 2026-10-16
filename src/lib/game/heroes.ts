@@ -26,13 +26,20 @@ export { HERO_SLOT_KIND, HERO_STAT_IDS, type HeroBonus, type HeroStat };
  * raid gear's perks raises the one most like what it does in the raid (FROM_PERK), by as much or by a share of
  * it. TechnoMagic gear has no perks: each of a copy's potentials (ItemCopyDoc.tmPotentials) raises the stat of
  * its name, and that is all it gives (with its set and additional skill). A class item only works on a hero of its
- * class. A hero's unique weapon (ItemDef.uniqueWeapon) only goes on its own hero: it adds King's Raid's flat ATK
+ * class. A hero's unique weapon (ItemDef.uniqueWeapon) only goes on its own hero, in its first weapon slot: it adds King's Raid's flat ATK
  * for its hero's class and refinement (data/uw-attack.ts), and has its own effect in the raid (the raid's sim,
  * which says what it does: uniqueWeaponText).
  */
 
-/** The hero's slots an item fits in, in order. */
-export const heroSlotsFor = (item: Pick<ItemDef, 'slot'>): HeroSlot[] => HERO_SLOTS.filter((slot) => HERO_SLOT_KIND[slot] === item.slot);
+/** The one slot a unique weapon goes in: a hero's first weapon slot (so a hero wields one at most). */
+export const UNIQUE_SLOT: HeroSlot = 'weapon1';
+
+/** The hero's slots an item fits in, in order: those of its kind, a unique weapon only UNIQUE_SLOT. */
+export const heroSlotsFor = (item: Pick<ItemDef, 'slot' | 'uniqueWeapon'>): HeroSlot[] =>
+  item.uniqueWeapon !== undefined ? [UNIQUE_SLOT] : HERO_SLOTS.filter((slot) => HERO_SLOT_KIND[slot] === item.slot);
+
+/** Whether an item goes in a hero's `slot` (heroSlotsFor). */
+export const fitsSlot = (item: Pick<ItemDef, 'slot' | 'uniqueWeapon'>, slot: HeroSlot): boolean => heroSlotsFor(item).includes(slot);
 
 /** Whether a hero can wear an item at all: the raid's gear, the TechnoMagic Raid's, and the unique weapons (each only on its own hero: wieldedBy). */
 export const heroWearable = (item: ItemDef): boolean => item.raidDrop === true || item.tmDrop === true || item.uniqueWeapon !== undefined;
@@ -45,15 +52,6 @@ export const wieldedBy = (item: ItemDef, heroId: string): boolean => item.unique
 
 /** A unique weapon's tier in the raid, by how far its copy is refined (R1 to R5: tiers 1 to 5, Koma-UI's sim/unique.ts). */
 export const uniqueTier = (level: number): number => refineLevel(level);
-
-/** A hero's other weapon slot (null: `slot` isn't one of its weapons'). */
-export const otherWeaponSlot = (slot: HeroSlot): HeroSlot | null => (slot === 'weapon1' ? 'weapon2' : slot === 'weapon2' ? 'weapon1' : null);
-
-/**
- * Whether putting `item` on a hero would give it a second unique weapon (a hero wields one): it is one, and
- * `there`, the item in the hero's other weapon slot (undefined: empty, or this very copy), is one too.
- */
-export const secondUnique = (item: ItemDef, there: ItemDef | undefined): boolean => item.uniqueWeapon !== undefined && there?.uniqueWeapon !== undefined;
 
 /** The member's heroes that still exist in `known` (data/heroes.ts's ids), by id. */
 export function ownedHeroes(member: Pick<MemberDoc, 'heroes'> | null | undefined, known: ReadonlySet<string>): Map<string, HeroDoc> {
@@ -296,7 +294,7 @@ export const heroSkills = (pieces: readonly { item: ItemDef; skill?: string }[],
  * What each of the member's heroes' gear gives it in the raid, as the raid counts it (raidValue: points for a
  * chance or share, a share for the rest), the TechnoMagic set whose effect it has, its own unique weapon's
  * tier, and its TechnoMagic gear's additional skills, by hero id: the gear a TechnoMagic Raid run is played
- * with. Only copies they still own, in a slot of their kind, on that hero, and a unique weapon only on its own
+ * with. Only copies they still own, in a slot they fit (heroSlotsFor), on that hero, and a unique weapon only on its own
  * hero (as the heroes page shows them).
  */
 export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
@@ -313,12 +311,9 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
     for (const slot of HERO_SLOTS) {
       const copy = owned.get(doc.equipment?.[slot] ?? '');
       const item = copy && ITEMS_BY_ID.get(copy.itemId);
-      if (!copy || !item || !heroWearable(item) || !wieldedBy(item, hero.id) || item.slot !== HERO_SLOT_KIND[slot] || worn.get(copy._id) !== hero.id) continue;
-      // (A hero wields one unique weapon: a second copy, in its other weapon slot, does nothing.)
-      if (item.uniqueWeapon !== undefined) {
-        if (uw !== null) continue;
-        uw = uniqueTier(copy.level);
-      }
+      // (A unique weapon only counts in UNIQUE_SLOT: one put in a second weapon slot before that rule does nothing.)
+      if (!copy || !item || !heroWearable(item) || !wieldedBy(item, hero.id) || !fitsSlot(item, slot) || worn.get(copy._id) !== hero.id) continue;
+      if (item.uniqueWeapon !== undefined) uw = uniqueTier(copy.level);
       on.push({ item, level: refineLevel(copy.level), ...(copy.tmPotentials && { potentials: copy.tmPotentials }) });
       skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
       counted.push(copy._id);

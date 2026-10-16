@@ -82,14 +82,14 @@ export interface GearStore {
   classes: (guildId: string, userIds: readonly string[]) => Promise<(RaidClassId | null)[]>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
+export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
 
 /**
  * Whether refining `copyId` itself can be done, with the member's copies of its item (`sameItem`), the
  * copies they wear or keep in any loadout (`kept`, never used up), and their points (null: not known,
  * never too poor), and the level it would go up to (null when it can't).
  */
-function refineState(
+export function refineState(
   copyId: string,
   sameItem: readonly CopyInfo[],
   stars: Stars,

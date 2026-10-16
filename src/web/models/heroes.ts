@@ -5,17 +5,20 @@ import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
-import { activeSet, activeTmEffects, HERO_SLOT_KIND, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { activeSet, activeTmEffects, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
+import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc } from '../../types.js';
-import type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroTranscendError, HeroView } from '../../protocol/heroes.js';
+import type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView } from '../../protocol/heroes.js';
+import { gearStore, refineState } from './gear.js';
 
-export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroTranscendError, HeroView };
+export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
 /*
- * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip):
+ * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine):
  * every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of theirs
  * wears, with what it gives it in the raid and every copy a hero could wear, and how far each is transcended
  * and the perks picked for it (the heroes page). The rules are lib/game/heroes.ts's (data/transcend.ts
@@ -37,9 +40,11 @@ export interface HeroStore {
   perks: (guildId: string, userId: string, hero: string, perks: readonly string[]) => Promise<HeroesView | HeroPerksError>;
   /** Transcends their hero one level: the heroes after, or why not. */
   transcend: (guildId: string, userId: string, hero: string) => Promise<HeroesView | HeroTranscendError>;
+  /** Refines one of their copies a level (the gear page's refine, a spare copy of it used up): the heroes after, or why not. */
+  refine: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroRefineError>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
 
 /** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
 export function skillLines(skills: readonly string[]): string[] {
@@ -52,8 +57,10 @@ export function skillLines(skills: readonly string[]): string[] {
 }
 
 /** The heroes' view, from the member's copies and member document. */
-export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> | null): HeroesView {
+export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<LoadoutFields>) | null): HeroesView {
   const worn = heroWorn(member);
+  // (Never used up by a refine: what the member, any loadout and their heroes wear.)
+  const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
   const lit = activeTmEffects(copies, member);
   const list: HeroCopy[] = [];
   const pieces = new Map<string, { view: HeroCopy; piece: HeroPiece }>();
@@ -81,7 +88,10 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
       hero: worn.get(copy._id) ?? null,
+      refine: { blocked: null, cost: null, spare: null, after: null },
     };
+    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, member?.points ?? 0);
+    view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, undefined, copy.tmPotentials) };
     list.push(view);
     pieces.set(copy._id, { view, piece: { item, level, ...(item.tmDrop && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
   }
@@ -94,14 +104,11 @@ export function heroesView(copies: readonly CopyInfo[], member: Pick<MemberDoc, 
     const equipped = {} as Record<HeroSlot, string | null>;
     const on: HeroPiece[] = [];
     const skilled: { item: HeroPiece['item']; skill?: string }[] = [];
-    let unique = false;
     for (const slot of HERO_SLOTS) {
       const found = pieces.get(doc?.equipment?.[slot] ?? '');
-      const fits = found !== undefined && found.view.slot === HERO_SLOT_KIND[slot] && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id);
+      const fits = found !== undefined && fitsSlot(found.piece.item, slot) && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id);
       equipped[slot] = fits ? found.view.id : null;
-      // (As the raid counts it: one unique weapon, a second copy of it doing nothing.)
-      if (fits && !(found.view.uniqueWeapon !== null && unique)) on.push(found.piece);
-      if (fits && found.view.uniqueWeapon !== null) unique = true;
+      if (fits) on.push(found.piece);
       if (fits) skilled.push({ item: found.piece.item, ...(found.view.skill !== null && { skill: found.view.skill }) });
     }
     const shares = heroBonus(on, hero.class, hero.id);
@@ -164,5 +171,9 @@ export const heroStore: HeroStore = {
   transcend: async (guildId, userId, hero) => {
     const result = await transcendHero(guildId, userId, hero);
     return result.ok ? load(guildId, userId) : result.reason;
+  },
+  refine: async (guildId, userId, copy) => {
+    const result = await gearStore.refine(guildId, userId, copy, null);
+    return result === 'ok' ? load(guildId, userId) : result;
   },
 };
