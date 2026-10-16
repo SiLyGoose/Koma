@@ -71,6 +71,8 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             return room.autoAll(userId);
           case 'give-up':
             return answer(room.giveUp(userId));
+          case 'quit':
+            return answer(room.quit(userId));
           case 'back':
             return answer(room.back(userId));
           case 'again':

@@ -25,8 +25,9 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * The fight is the site's sim, run by the bot's clock (in a worker thread: ./fight.ts): every TM_FIGHT.turnMs it
  * takes the steps that are due, each with what was pressed before it, and tells every page what was pressed at which
  * step and how far the fight has got; each page runs the same fight from the same seed and never goes past that. Each
- * player presses only their own heroes. One who leaves during the fight has their heroes fight on, on Auto, and
- * can come back to it. The fight over, a win gives each player in it TechnoMagic items and points
+ * player presses only their own heroes. One whose page goes during the fight has their heroes fight on, on Auto, and
+ * can come back to it. One who leaves it for good (Leave: `quit`) forfeits what it gives them, their heroes fighting
+ * on all the same; alone, in a room of their own, that loses the fight. The fight over, a win gives each player in it TechnoMagic items and points
  * (services/technomagic.ts), and anyone takes the room back to getting ready, or runs it again (`again`).
  */
 
@@ -41,8 +42,8 @@ export interface RoomDeps {
   /** The highest stage they have won a run at (0: none). */
   cleared: (guildId: string, userId: string) => Promise<number>;
   begin: typeof beginRun;
-  /** What a run over gave each player: the items found and the points paid. */
-  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number) => Promise<Map<string, { drops: DropView[]; points: number }>>;
+  /** What a run over gave each player (nothing to those who `forfeited` it): the items found and the points paid. */
+  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, { drops: DropView[]; points: number }>>;
   /** Says in the server's channel that a room has been opened (by `host`). Not waited for. */
   announce: (guildId: string, host: string) => void;
   /** The link others join the server's room by (null: there is no site). */
@@ -58,8 +59,8 @@ export const realRoomDeps: RoomDeps = {
   owned: ownedHeroes,
   cleared: clearedStage,
   begin: beginRun,
-  finish: async (guildId, run, stage, result, ticks) => {
-    const found = await finishRun(guildId, run, stage, result, ticks);
+  finish: async (guildId, run, stage, result, ticks, forfeited) => {
+    const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
     return new Map(
       [...found].map(([userId, { finds, points }]) => [
         userId,
@@ -122,6 +123,8 @@ interface Fight {
   stepping: boolean;
   /** The players whose pages said their run of it parted from the bot's. */
   parted: Set<string>;
+  /** The players who left it for good (`quit`): it gives them nothing. */
+  forfeited: Set<string>;
   stop: () => void;
   done: boolean;
 }
@@ -364,7 +367,7 @@ export class TechnoMagicRoom {
       this.tell();
       return 'failed';
     }
-    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Set(), stop: () => {}, done: false };
+    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Set(), forfeited: new Set(), stop: () => {}, done: false };
     this.fight = fight;
     this.phase = 'fight';
     this.over = null;
@@ -406,6 +409,17 @@ export class TechnoMagicRoom {
     if (!this.fight || this.fight.done) return 'closed';
     if (userId !== this.host()) return 'only_host';
     this.fight.pending.push({ kind: 'leave' });
+    return null;
+  }
+
+  /**
+   * `userId` leaves the fight for good (the page's Leave, its page going after): it gives them nothing, and their heroes
+   * fight on, on Auto. Alone, in a room of their own, the fight is lost.
+   */
+  quit(userId: string): AnswerCode | null {
+    if (!this.members.has(userId) || !this.fight || this.fight.done) return 'closed';
+    this.fight.forfeited.add(userId);
+    this.fight.pending.push(this.single ? { kind: 'leave' } : { kind: 'autos', fighters: this.mine(userId), on: true });
     return null;
   }
 
@@ -496,14 +510,15 @@ export class TechnoMagicRoom {
     fight.engine.close();
     let got = new Map<string, { drops: DropView[]; points: number }>();
     try {
-      got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick);
+      got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick, fight.forfeited);
     } catch (err) {
       console.error('Could not finish a TechnoMagic Raid run:', err);
     }
     if (this.fight !== fight) return;
-    // A win opens the next stage for everyone in it.
+    // A win opens the next stage for everyone in it to the end.
     if (result === 'won') {
       for (const userId of fight.run.players.keys()) {
+        if (fight.forfeited.has(userId)) continue;
         const member = this.members.get(userId);
         if (member) member.cleared = Math.max(member.cleared, fight.start.stage);
       }

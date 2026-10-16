@@ -91,12 +91,13 @@ export interface TmWin {
 /**
  * A room's run is over (`result`, after `ticks` steps): a win at `stage` gives each of its players
  * that stage's TechnoMagic items (tmDropCount), each copy with an additional skill and its potentials rolled for
- * it, and pays them `hero.winPoints` points. Returns what each got.
+ * it, and pays them `hero.winPoints` points; those who left it (`forfeited`) get nothing. Returns what each got.
  */
-export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, now: Date = new Date()): Promise<Map<string, TmWin>> {
+export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string> = new Set(), now: Date = new Date()): Promise<Map<string, TmWin>> {
   const found = new Map<string, TmWin>();
   for (const [userId, player] of run.players) {
-    const paid = result === 'won';
+    // One who left it (forfeited) is paid nothing, and it counts as lost for them (it opens no stage).
+    const paid = result === 'won' && !forfeited.has(userId);
     const drops: TmFind[] = [];
     for (let n = paid ? tmDropCount(stage) : 0; n > 0; n--) {
       const item = rollTmDrop(TM_BOSS);
@@ -115,7 +116,7 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
       await recordLedger([{ guildId, userId, delta: points, reason: 'tm_win' }]);
     }
     found.set(userId, { finds: drops, points });
-    await collections().tmRuns.updateOne({ _id: `${run.id}:${userId}` }, { $set: { claimedAt: now, result, ticks, drops: drops.map(({ item }) => item.id) } });
+    await collections().tmRuns.updateOne({ _id: `${run.id}:${userId}` }, { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: drops.map(({ item }) => item.id) } });
   }
   return found;
 }

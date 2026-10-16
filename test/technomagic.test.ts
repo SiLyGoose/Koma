@@ -141,11 +141,11 @@ function harness(owned: Record<string, string[]> = {}) {
         seed: 77,
         players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), perks: new Map(ALL.map((id) => [id, []])) }])),
       }) as BegunRun,
-    finish: async (_g, begun, _stage, result, steps) => {
+    finish: async (_g, begun, _stage, result, steps, forfeited) => {
       finished.push({ result, ticks: steps });
       return new Map(
         [...begun.players].map(([userId, player]) => {
-          const paid = result === 'won';
+          const paid = result === 'won' && !forfeited.has(userId);
           const heart = { itemId: 'galgorias-heart', name: "Galgoria's Heart", stars: 4, skill: tmSkillLine('vigor'), potentials: [], slot: 'treasure' as const, description: '', itemClass: null, setEffect: null };
           return [userId, { drops: paid ? [heart] : [], points: paid ? 100 : 0 }];
         }),
@@ -380,6 +380,43 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(a.room().phase, 'over');
   assert.equal(room.back('a'), null);
   assert.equal(a.room().phase, 'prep');
+});
+
+test('technomagic room: one who leaves the fight (quit) forfeits what it gives them, their heroes fighting on; alone, it is lost', async () => {
+  const h = harness();
+  const a = h.peer();
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('b'), b, ALL);
+  assert.equal(room.quit('b'), 'closed', 'only in a fight');
+  room.pick('a', 'kirze', 0);
+  room.pick('a', 'fallen-frey', 0);
+  room.pick('b', 'klaus', 0);
+  room.ready('b', true);
+  assert.equal(await room.begin('a'), null);
+  room.autoAll('a');
+  assert.equal(room.quit('b'), null);
+  room.leave('b', b);
+  await h.pass(100);
+  const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
+  assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 0], ['auto', 1], ['auto', 2]], 'their hero on Auto too');
+  // Coming back doesn't undo it.
+  h.rooms.join(h.player('b'), h.peer(), ALL);
+  for (let i = 0; i < 300 && a.room().phase === 'fight'; i++) await h.pass(1000);
+  const over = a.room().over;
+  assert.equal(over?.result, 'won', 'won with their hero still in it');
+  assert.deepEqual(over?.points, { a: 100, b: 0 });
+  assert.deepEqual(over?.drops.b, []);
+
+  // Alone, in a room of their own: leaving loses the fight.
+  const c = h.peer();
+  const own = h.rooms.join(h.player('c'), c, ALL, 0, h.deps, true)!;
+  own.room.pick('c', 'kirze', 0);
+  assert.equal(await own.room.begin('c'), null);
+  assert.equal(own.room.quit('c'), null);
+  await h.pass(200);
+  assert.equal(c.room().over?.result, 'lost');
+  assert.deepEqual(c.room().over?.points, { c: 0 });
 });
 
 test('technomagic room: one who presses Auto and leaves in the same turn has their heroes fight on, on Auto', async () => {

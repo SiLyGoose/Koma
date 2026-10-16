@@ -23,6 +23,8 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  *                 press     a skill of one of their heroes (its place in the lineup)
  *                 auto      one of their heroes' Auto, on or off; `auto-all`: all of theirs
  *                 give-up   ends the fight, lost (the host)
+ *                 quit      leaves the fight for good (the page's Leave): they forfeit what it gives them, and their
+ *                           heroes fight on with everyone else's, on Auto (single player: the fight is lost)
  *                 back      from a fight over to getting ready again
  *                 again     from a fight over, the same again: the host's starts the next fight (once everyone else is
  *                           ready), anyone else's says they're ready for it
@@ -46,6 +48,7 @@ export type ClientMessage =
   | { t: 'auto'; fighter: number }
   | { t: 'auto-all' }
   | { t: 'give-up' }
+  | { t: 'quit' }
   | { t: 'back' }
   | { t: 'again' }
   | { t: 'parted'; no: number; second: number }
