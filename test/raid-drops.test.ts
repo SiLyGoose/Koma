@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { bossInfoEmbed, lootKindsText, myLootEmbed, resultEmbed } from '../src/commands/raid.js';
 import { DEFAULTS, STARS } from '../src/config.js';
 import { RAID_BOSS_IDS, RAID_DIFFICULTY, TEXT } from '../src/constants/index.js';
-import { ITEMS, ITEMS_BY_ID, RAID_DROPS, TM_DROPS, UNIQUE_WEAPONS, gachaItems, itemsByStars } from '../src/data/items.js';
+import { ITEMS, ITEMS_BY_ID, RAID_DROPS, TM_DROPS, UNIQUE_TREASURES, UNIQUE_WEAPONS, gachaItems, itemsByStars } from '../src/data/items.js';
 import { bossHpFor, bossMultiplier, clampDifficulty, createRaid, difficultyOf, gearWallShare, needsGear, type RaidRng } from '../src/lib/events/raid.js';
 import { itemBlock, itemDetail } from '../src/lib/game/items/databank.js';
 import { ownTreasures } from '../src/lib/game/items/gacha.js';
@@ -41,7 +41,7 @@ test('raid drops: the raid gear is raid-only, and the gacha leaves it out of eve
     assert.ok(gachaItems(stars).every((item) => !item.raidDrop && !item.tmDrop));
     const limited = itemsByStars(stars).filter((item) => item.limited).length;
     const technomagic = TM_DROPS.filter((item) => item.stars === stars).length;
-    const unique = UNIQUE_WEAPONS.filter((item) => item.stars === stars).length;
+    const unique = [...UNIQUE_WEAPONS, ...UNIQUE_TREASURES].filter((item) => item.stars === stars).length;
     assert.equal(gachaItems(stars).length + RAID_DROPS.filter((item) => item.stars === stars).length + limited + technomagic + unique, itemsByStars(stars).length);
   }
   // Every other item is still pulled as before (the limited ones from their own banner; the TechnoMagic gear drops from its raid).
@@ -57,9 +57,9 @@ test('raid drops: every item with a raid perk is a raid drop, and no two items o
   }
   const seen = new Map<string, string>();
   // (The unique weapons share their ATK perk: what sets each apart is its own effect in the raid, its hero's. TechnoMagic
-  // gear has no perks: each copy's stats are its own potentials.)
+  // gear and the unique treasures have no perks: each copy's stats are its own potentials, or options.)
   for (const item of ITEMS) {
-    if (item.tmDrop) continue;
+    if (item.tmDrop || item.uniqueTreasure) continue;
     const key = `${item.stars}:${[...item.effects].sort().join('+')}${item.uniqueWeapon ? `:${item.uniqueWeapon}` : ''}`;
     assert.ok(!seen.has(key), `${item.id} does the same as ${seen.get(key)}`);
     seen.set(key, item.id);

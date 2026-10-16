@@ -12,13 +12,22 @@ export function itemsByStars(stars: Stars): ItemDef[] {
   return ITEMS.filter((item) => item.stars === stars);
 }
 
-/** The items of a star tier the standard banner can pull: all of them but the raid drops, the TechnoMagic gear, the limited items and the unique weapons. */
+/** The items of a star tier the standard banner can pull: all of them but the raid drops, the TechnoMagic gear, the limited items and the heroes' unique gear. */
 export function gachaItems(stars: Stars): ItemDef[] {
-  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.tmDrop && !item.limited && item.uniqueWeapon === undefined);
+  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.tmDrop && !item.limited && !heroBannerItem(item));
 }
 
-/** The heroes' unique weapons (ItemDef.uniqueWeapon): the Hero Item banner's pity tier, each as likely. */
+/** The heroes' unique weapons (ItemDef.uniqueWeapon): half the Hero Item banner's pity tier, each as likely. */
 export const UNIQUE_WEAPONS: readonly ItemDef[] = ITEMS.filter((item) => item.uniqueWeapon !== undefined);
+
+/** The heroes' unique treasures (ItemDef.uniqueTreasure): the other half of the Hero Item banner's pity tier, each as likely. */
+export const UNIQUE_TREASURES: readonly ItemDef[] = ITEMS.filter((item) => item.uniqueTreasure !== undefined);
+
+/** Whether an item is a hero's unique weapon or unique treasure: only the Hero Item banner gives it, and only its hero wears it. */
+export const heroBannerItem = (item: Pick<ItemDef, 'uniqueWeapon' | 'uniqueTreasure'>): boolean => item.uniqueWeapon !== undefined || item.uniqueTreasure !== undefined;
+
+/** The id of the hero a unique weapon or unique treasure is made for (undefined: neither). */
+export const uniqueOwner = (item: Pick<ItemDef, 'uniqueWeapon' | 'uniqueTreasure'>): string | undefined => item.uniqueWeapon ?? item.uniqueTreasure?.hero;
 
 /** The limited banner's featured items (LIMITED_BANNER.featured), in its order. */
 export function featuredItems(): ItemDef[] {

@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG } from '../../config.js';
 import { tmDropsOf } from '../../data/items.js';
-import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES } from '../../data/tm-potentials.js';
+import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
 import { tmSetOfBoss } from '../../data/tm-sets.js';
 import type { ItemDef, TmPotential } from '../../types.js';
 import {
@@ -60,10 +60,10 @@ export const wholePercent = (value: number): number => Math.round(value * 100) /
  * as likely, and each by a whole percent between its range's ends (the settings' hero.potentials, to the nearest
  * whole percent), any as likely.
  */
-export function rollTmPotentials(rng: TmRng = defaultRng): TmPotential[] {
+export function rollTmPotentials(rng: TmRng = defaultRng, lines: number = TM_POTENTIAL_LINES): TmPotential[] {
   const pool = [...TM_POTENTIAL_IDS];
   const out: TmPotential[] = [];
-  while (out.length < TM_POTENTIAL_LINES && pool.length > 0) {
+  while (out.length < lines && pool.length > 0) {
     const [stat] = pool.splice(rng.index(pool.length), 1);
     if (stat === undefined) break;
     const low = Math.round(CONFIG.hero.potentials[stat].min * 100);
@@ -72,6 +72,9 @@ export function rollTmPotentials(rng: TmRng = defaultRng): TmPotential[] {
   }
   return out;
 }
+
+/** The options a unique treasure's copy comes with as it is pulled: UT_OPTION_LINES of the potentials, rolled as TechnoMagic gear's are. */
+export const rollUtOptions = (rng: TmRng = defaultRng): TmPotential[] => rollTmPotentials(rng, UT_OPTION_LINES);
 
 /** A copy's potentials to the nearest whole percent: null if they already are (as the copies from before that were not). */
 export function wholePotentials(potentials: readonly TmPotential[]): TmPotential[] | null {

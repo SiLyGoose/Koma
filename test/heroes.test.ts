@@ -90,7 +90,7 @@ test('TechnoMagic gear: a tier of its own (counted as 4-star), never pulled, her
   }
   // The raid's gear goes on heroes too (and on members); the gacha's doesn't go on heroes.
   assert.ok(heroWearable(item('worldbreaker-maul')) && !heroOnly(item('worldbreaker-maul')));
-  assert.ok(ITEMS.filter((one) => !one.raidDrop && !one.tmDrop && one.uniqueWeapon === undefined).every((one) => !heroWearable(one)));
+  assert.ok(ITEMS.filter((one) => !one.raidDrop && !one.tmDrop && one.uniqueWeapon === undefined && one.uniqueTreasure === undefined).every((one) => !heroWearable(one)));
 });
 
 test('unique weapons: one for each hero, heroes only, only its own hero wields it, and the raid is told its tier', () => {
@@ -221,7 +221,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(klaus?.owned, false);
   assert.equal(kirze?.price, DEFAULTS.hero.price);
   // A copy they no longer own, or in a slot it doesn't fit, isn't worn.
-  assert.deepEqual(kirze?.equipped, { weapon1: 'fang', weapon2: 'maul', armor1: null, armor2: null, treasure: null });
+  assert.deepEqual(kirze?.equipped, { weapon1: 'fang', weapon2: 'maul', armor1: null, armor2: null, treasure: null, side1: null, side2: null, side3: null });
   assert.ok((kirze?.bonus.atk ?? 0) > 0.05);
   assert.ok(Math.abs((kirze?.bonus.critDamage ?? 0) - 0.12) < 1e-9);
   assert.deepEqual(kirze?.set, { id: 'perseverance', pieces: 1, active: false });

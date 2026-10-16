@@ -33,6 +33,11 @@ export interface Settings {
     /** Relative weights for each star tier. They do not need to add up to 100. */
     starWeights: Record<Stars, number>;
     /**
+     * The Hero Item banner's own weights for each star tier: its top tier is the heroes' unique weapons and unique
+     * treasures (data/items/banner.ts HERO_BANNER says how they split).
+     */
+    heroStarWeights: Record<Stars, number>;
+    /**
      * Pity for the top tier (PITY_STARS in constants/items/gacha.ts). The Nth pull since the last top-tier
      * item has its chance raised: from softStart the chance climbs a step per pull, and reaches
      * 100% at hardPity. hardPity 0 turns pity off.
@@ -365,6 +370,8 @@ export const DEFAULTS: Readonly<Settings> = {
     cost: 280,
     // 4-star is 0.6% (6 in 1000). Pity only works while the 4-star weight is above 0.
     starWeights: { 1: 694, 2: 250, 3: 50, 4: 6 },
+    // The Hero Item banner: King's Raid's Treasure Summon, a unique weapon 1% and a unique treasure 1% (20 in 1000).
+    heroStarWeights: { 1: 680, 2: 250, 3: 50, 4: 20 },
     pity: { softStart: 70, hardPity: 90 },
     // Closed until an admin sets its dates. 3 in 4 of its 4-star items are featured ones.
     limited: { start: 'off', end: 'off', featuredChance: 0.75 },

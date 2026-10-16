@@ -12,6 +12,13 @@ import type { TmPotentialId } from '../types.js';
 /** How many potentials a copy rolls. */
 export const TM_POTENTIAL_LINES = 4;
 
+/**
+ * How many options a unique treasure's copy rolls as it is pulled: King's Raid's treasures have two, from the same
+ * pool and ranges as TechnoMagic gear's potentials (each a different one). Its hero has them wherever it wears it, its
+ * main treasure slot or a sub treasure slot (there, all it gives: King's Raid's).
+ */
+export const UT_OPTION_LINES = 2;
+
 /** Every potential, in the order they're listed (King's Raid's), with its name: a copy's lines', the settings' and the databank's (the user's). */
 export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [
   { id: 'atk', name: 'ATK' },

@@ -5,7 +5,7 @@ import { SLOTS, STARS } from '../../types.js';
 import { HEROES_BY_ID } from '../heroes.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
-import { gachaItems, ITEMS_BY_ID, UNIQUE_WEAPONS } from './lookup.js';
+import { gachaItems, ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from './lookup.js';
 
 /** Throws at startup if the catalog would break the gacha or the equipment system. */
 export function validateItems(): void {
@@ -40,7 +40,15 @@ export function validateItems(): void {
     if (item.uniqueWeapon !== undefined) {
       if (!HEROES_BY_ID.has(item.uniqueWeapon)) throw new Error(`${item.id} is the unique weapon of an unknown hero: ${item.uniqueWeapon}`);
       if (item.slot !== 'weapon' || item.stars !== PITY_STARS) throw new Error(`${item.id} is a unique weapon that isn't a ${PITY_STARS}-star weapon: it is the Hero Item banner's pity tier`);
-      if (item.tmDrop || item.raidDrop || item.limited || item.usableBy || item.class) throw new Error(`${item.id} is a unique weapon and something else too: it only comes from the Hero Item banner, and only its hero wields it`);
+      if (item.tmDrop || item.raidDrop || item.limited || item.usableBy || item.class || item.uniqueTreasure) throw new Error(`${item.id} is a unique weapon and something else too: it only comes from the Hero Item banner, and only its hero wields it`);
+    }
+    if (item.uniqueTreasure !== undefined) {
+      const { hero, skill } = item.uniqueTreasure;
+      if (!HEROES_BY_ID.has(hero)) throw new Error(`${item.id} is the unique treasure of an unknown hero: ${hero}`);
+      if (![1, 2, 3, 4].includes(skill)) throw new Error(`${item.id} is a unique treasure of no skill of its hero's (UT1 to UT4): ${skill}`);
+      if (item.slot !== 'treasure' || item.stars !== PITY_STARS) throw new Error(`${item.id} is a unique treasure that isn't a ${PITY_STARS}-star treasure: it is the Hero Item banner's pity tier`);
+      if (item.tmDrop || item.raidDrop || item.limited || item.usableBy || item.class) throw new Error(`${item.id} is a unique treasure and something else too: it only comes from the Hero Item banner, and only its hero wears it`);
+      if (item.effects.length > 0 || item.bonus) throw new Error(`${item.id} is a unique treasure with perks: its stats are each copy's options (data/tm-potentials.ts)`);
     }
     if (item.bonus) {
       const { level, text, removes } = item.bonus;
@@ -61,6 +69,9 @@ export function validateItems(): void {
     if (item.stars !== PITY_STARS) throw new Error(`The limited banner features ${id}, which isn't a ${PITY_STARS}-star item`);
   }
   if (UNIQUE_WEAPONS.length === 0) throw new Error('No item is a unique weapon, so the Hero Item banner could never give its top tier');
+  // Each hero's four unique treasures, one of each (UT1 to UT4).
+  const treasures = new Set(UNIQUE_TREASURES.map(({ uniqueTreasure: ut }) => `${ut?.hero}:${ut?.skill}`));
+  if (treasures.size !== UNIQUE_TREASURES.length) throw new Error('A hero has two unique treasures for the same skill');
   for (const stars of STARS) {
     if (gachaItems(stars).length === 0) {
       throw new Error(`The ${stars}-star tier has no items the gacha can pull (raid drops and limited items don't count), so it could never be rolled.`);

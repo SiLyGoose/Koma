@@ -5,7 +5,8 @@ import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
-import { activeSet, activeTmEffects, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { activeSet, activeTmEffects, countsOnce, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, treasureTier, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice } from '../../lib/game/items/sell.js';
@@ -93,16 +94,17 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
       class: item.class ?? null,
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
+      uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
       hero: worn.get(copy._id) ?? null,
       refine: { blocked: null, cost: null, spare: null, after: null },
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item.stars, kept, member?.points ?? 0);
     view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, undefined, copy.tmPotentials) };
     list.push(view);
-    pieces.set(copy._id, { view, piece: { item, level, ...(item.tmDrop && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
+    pieces.set(copy._id, { view, piece: { item, level, ...((item.tmDrop || item.uniqueTreasure) && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
   }
-  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
-  const tier = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.heroOnly ? 5 : copy.stars);
+  // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons, then the unique treasures (between it and 4 stars), then by stars.
+  const tier = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.uniqueTreasure !== null ? 4.4 : copy.heroOnly ? 5 : copy.stars);
   list.sort((a, b) => tier(b) - tier(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 
   const heroes = HEROES.map((hero): HeroView => {
@@ -110,12 +112,18 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
     const equipped = {} as Record<HeroSlot, string | null>;
     const on: HeroPiece[] = [];
     const skilled: { item: HeroPiece['item']; skill?: string }[] = [];
+    // (Each unique treasure once: a second copy of one isn't worn. Its main treasure's effect, when it is one.)
+    const treasures = new Set<string>();
+    let main: HeroView['treasure'] = null;
     for (const slot of HERO_SLOTS) {
       const found = pieces.get(doc?.equipment?.[slot] ?? '');
-      const fits = found !== undefined && fitsSlot(found.piece.item, slot) && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id);
+      const fits = found !== undefined && fitsSlot(found.piece.item, slot) && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id) && countsOnce(found.piece.item, treasures);
       equipped[slot] = fits ? found.view.id : null;
-      if (fits) on.push(found.piece);
+      if (fits) on.push(slot === 'treasure' ? { ...found.piece, main: true } : found.piece);
       if (fits) skilled.push({ item: found.piece.item, ...(found.view.skill !== null && { skill: found.view.skill }) });
+      const ut = fits && slot === 'treasure' ? found.piece.item.uniqueTreasure : undefined;
+      const effect = ut && found ? uniqueTreasureText(hero.id, ut.skill, treasureTier(found.piece.level)) : null;
+      if (ut && found && effect) main = { name: effect.name, skill: ut.skill, tier: treasureTier(found.piece.level), text: effect.text };
     }
     const shares = heroBonus(on, hero.class, hero.id);
     const bonus = Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus;
@@ -134,6 +142,7 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
       skills,
       totals: [...heroStatLines(shares), ...setLines(set, hero.class), ...skillLines(skills)],
       perks,
+      treasure: main,
       perkEffects: perkLines(hero.id, perks),
       transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend), next: transcendCost(hero.class, doc?.transcend) },
       abilities: [...hero.abilities],

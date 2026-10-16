@@ -139,7 +139,7 @@ function harness(owned: Record<string, string[]> = {}) {
       ({
         id: 'run',
         seed: 77,
-        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), perks: new Map(ALL.map((id) => [id, []])) }])),
+        players: new Map(players.map(({ userId }) => [userId, { owned: new Set(owned[userId] ?? ALL), gear: new Map(ALL.map((id) => [id, STRONG])), sets: new Map(ALL.map((id) => [id, null])), uws: new Map(ALL.map((id) => [id, null])), uts: new Map(ALL.map((id) => [id, null])), skills: new Map(ALL.map((id) => [id, id === 'kirze' ? ['vigor'] : []])), perks: new Map(ALL.map((id) => [id, []])) }])),
       }) as BegunRun,
     finish: async (_g, begun, _stage, result, steps, forfeited) => {
       finished.push({ result, ticks: steps });

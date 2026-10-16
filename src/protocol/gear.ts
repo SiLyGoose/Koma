@@ -35,10 +35,12 @@ export interface GearCopy {
   locked: boolean;
   /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
   sell: number | null;
-  /** TechnoMagic gear or a unique weapon: only heroes wear it (the heroes page), never the member. */
+  /** TechnoMagic gear, a unique weapon or a unique treasure: only heroes wear it (the heroes page), never the member. */
   heroOnly: boolean;
   /** A unique weapon: the id of the one hero that wields it (null: not one). */
   uniqueWeapon: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
+  uniqueTreasure: { hero: string; skill: number } | null;
   /** A class item (raid gear, and all TechnoMagic gear): the class it works for (null: any). */
   itemClass: RaidClassId | null;
   /** The name of the TechnoMagic hero wearing it (the heroes page), or null when none is. */

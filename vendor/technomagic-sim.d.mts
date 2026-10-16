@@ -23,7 +23,20 @@ export interface RunHero {
     sub?: boolean;
     /** Its transcendence perks (the bot's ids). */
     perks?: readonly string[] | null;
+    /** Its main unique treasure: which of its four (1 to 4: UT1 to UT4), at which tier (its refinement, 1 to 5); or none. Its sub treasures' options are in `gear`. */
+    ut?: {
+        skill: number;
+        tier: number;
+    } | null;
 }
+/**
+ * What a hero's unique treasure (its `skill`th: 1 to 4, UT1 to UT4) does at a tier (1 to 5) as its main treasure, as the
+ * bot says it: its name, and King's Raid's words with the fight's numbers (null: no such hero or treasure).
+ */
+export declare const uniqueTreasureText: (hero: string, skill: number, tier: number) => {
+    name: string;
+    text: string;
+} | null;
 /** The heroes that have a unique weapon, by id; and what one's does at a tier (1 to 5), as the bot says it: null for a hero with none. */
 export declare const UNIQUE_WEAPON_HEROES: readonly string[];
 export declare const uniqueWeaponText: (hero: string, tier: number) => string | null;
@@ -67,6 +80,8 @@ export interface TmHero {
     skins: number;
     /** Its three skills, then its passive: as the heroes page says them (King's Raid's words, with the fight's numbers). */
     skills: TmHeroSkill[];
+    /** Its four unique treasures' names (UT1 to UT4: its skills', then its passive's). */
+    treasures: string[];
 }
 /**
  * A hero's skill as the heroes page says it: its name; its mana cost and cooldown (seconds; a passive has neither);

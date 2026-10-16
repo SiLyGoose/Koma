@@ -17,7 +17,7 @@ export interface DatabankItem {
   /**
    * Where it first comes from: pulled from the gacha, dropped by raid bosses (ItemDef.raidDrop), pulled from
    * the limited banner only (ItemDef.limited), dropped by the TechnoMagic Raid (ItemDef.tmDrop: only heroes wear
-   * it), or pulled from the Hero Item banner (ItemDef.uniqueWeapon: only its own hero wields it).
+   * it), or pulled from the Hero Item banner (ItemDef.uniqueWeapon, ItemDef.uniqueTreasure: only its own hero wears it).
    */
   source: ItemSource;
   /** Every place it comes from, `source` first: a raid item the raid shop sells (lib/game/items/raid-shop.ts) has that too. */
@@ -26,6 +26,8 @@ export interface DatabankItem {
   class: RaidClassId | null;
   /** A unique weapon: the id of the one hero that wields it. Null otherwise. */
   uniqueWeapon: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
+  uniqueTreasure: { hero: string; skill: number } | null;
   /**
    * TechnoMagic gear: the set it belongs to (its name, and its effect for each class), which raid's boss drops it,
    * how many pieces on a hero give its effect, and this piece's own (for its class; null for a treasure, apart from
@@ -34,7 +36,7 @@ export interface DatabankItem {
   set: { name: string; boss: string; effects: Partial<Record<RaidClassId, string>>; pieces: number; effect: string | null } | null;
 }
 
-/** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon). */
+/** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon or treasure). */
 export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic' | 'heroBanner';
 
 /** One raid boss: what `raid stats` says of it. */

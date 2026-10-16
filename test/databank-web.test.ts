@@ -47,7 +47,7 @@ test('databank page: says where each item comes from, and the raid drop chance',
   const { raidDropChance, raidDropChancePerRaider, items } = databankView();
   assert.equal(raidDropChance, CONFIG.raid.dropChance);
   assert.equal(raidDropChancePerRaider, CONFIG.raid.dropChancePerRaider);
-  const pulled = (item: (typeof ITEMS)[number]) => (item.tmDrop ? 'technomagic' : item.uniqueWeapon !== undefined ? 'heroBanner' : item.limited ? 'limited' : 'gacha');
+  const pulled = (item: (typeof ITEMS)[number]) => (item.tmDrop ? 'technomagic' : item.uniqueWeapon !== undefined || item.uniqueTreasure !== undefined ? 'heroBanner' : item.limited ? 'limited' : 'gacha');
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : pulled(item), item.id);
   // Every place it comes from: a raid item is sold in the raid shop too, and a limited item only comes from its banner.
   for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : [pulled(item)], item.id);
@@ -58,6 +58,11 @@ test('databank page: says where each item comes from, and the raid drop chance',
   assert.equal(exian.source, 'heroBanner');
   assert.equal(exian.uniqueWeapon, 'klaus');
   assert.ok(exian.effects.every((lines, i) => lines.some((line) => line.startsWith(`Klaus only, ★${i + 1}:`))));
+  // A unique treasure too: whose it is, which of its four, the options a copy rolls, and what it does as its main treasure at each level.
+  const cape = items.find((item) => item.id === 'cape-of-justice')!;
+  assert.equal(cape.source, 'heroBanner');
+  assert.deepEqual(cape.uniqueTreasure, { hero: 'klaus', skill: 1 });
+  assert.ok(cape.effects.every((lines, i) => lines[0]?.startsWith('2 of these') && lines.some((line) => line.startsWith(`Klaus only, as main treasure, ★${i + 1}: [Cut Ground]`))));
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);

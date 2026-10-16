@@ -21,7 +21,7 @@ export function heroService(deps: ApiDeps) {
   const store = deps.heroes ?? heroStore;
 
   /** The heroes as they stand after a change, or the change's error. */
-  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy' | 'perk_locked' | 'too_many_points' | 'maxed' | 'no_duplicate' | 'bad_material'): HeroesView => {
+  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'busy' | 'perk_locked' | 'too_many_points' | 'maxed' | 'no_duplicate' | 'bad_material'): HeroesView => {
     if (typeof result === 'string') throw new ApiError(result);
     return result;
   };

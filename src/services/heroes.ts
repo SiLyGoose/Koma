@@ -38,14 +38,15 @@ export async function buyHero(guildId: string, userId: string, id: string): Prom
   return { ok: true, paid: price, balance: bought.points };
 }
 
-export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy' };
+export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'busy' };
 
 /**
  * Puts the member's copy `copyId` in their hero `heroId`'s `slot` (one its item goes in: heroSlotsFor), taking it
  * off wherever else among their heroes it is. 'not_found': no such hero of theirs; 'not_owned': not a
  * copy of theirs a hero can wear; 'wrong_slot': a slot it doesn't go in (a unique weapon only goes in the first
- * weapon slot); 'wrong_hero': another hero's unique weapon; 'busy': their heroes' gear kept changing meanwhile
- * (nothing changed).
+ * weapon slot, a unique treasure only in its treasure slot or a sub treasure slot); 'wrong_hero': another hero's unique
+ * weapon or treasure; 'duplicate': a unique treasure the hero already wears another copy of, in another slot (each of
+ * its four once, as King's Raid's); 'busy': their heroes' gear kept changing meanwhile (nothing changed).
  */
 export async function equipHero(guildId: string, userId: string, heroId: string, slot: HeroSlot, copyId: string): Promise<HeroEquipResult> {
   const { items, members } = collections();
@@ -57,6 +58,13 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
     if (!HEROES_BY_ID.has(heroId) || !member?.heroes?.[heroId]) return { ok: false, reason: 'not_found' };
+    // (A unique treasure: not another copy of it in another of this hero's slots.)
+    if (item.uniqueTreasure) {
+      const others = HERO_SLOTS.filter((one) => one !== slot)
+        .map((one) => member.heroes?.[heroId]?.equipment?.[one])
+        .filter((id): id is string => typeof id === 'string' && id !== '' && id !== copyId);
+      if (others.length > 0 && (await items.countDocuments({ guildId, userId, _id: { $in: others }, itemId: item.id })) > 0) return { ok: false, reason: 'duplicate' };
+    }
     const { from, elsewhere } = heroEquipMoves(member.heroes, heroId, slot, copyId);
     const moved = await members.updateOne(
       {

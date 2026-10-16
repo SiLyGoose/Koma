@@ -20,7 +20,7 @@ export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'treasure'];
  * Which banner a gacha pull is made on: the standard one, the limited one (open between the settings'
  * gacha.limited.start and .end), whose top-tier items are mostly its featured ones (data/items/banner.ts),
  * or the Hero Item one (always open), whose top-tier items are the heroes' unique weapons
- * (ItemDef.uniqueWeapon). Each keeps its own pity; the standard and limited ones their own guarantee too.
+ * and unique treasures (ItemDef.uniqueWeapon, ItemDef.uniqueTreasure). Each keeps its own pity; the standard and limited ones their own guarantee too.
  */
 export type BannerId = 'standard' | 'limited' | 'hero';
 

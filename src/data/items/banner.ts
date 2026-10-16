@@ -12,3 +12,16 @@ export const LIMITED_BANNER: { readonly name: string; readonly featured: readonl
   name: 'Help Wanted',
   featured: ['pot-of-greed', 'employee-of-the-month'],
 };
+
+/**
+ * The Hero Item banner's top tier (its weight is the settings' gacha.heroStarWeights.4), as King's Raid's own summons had
+ * it: its Treasure Summon gave a unique weapon 1% of the time and a unique treasure 1% (PLUG notice, March 2019), so each
+ * is half of it (`weaponShare`), each item of a kind as likely. A unique weapon came refined now and then (the All-In-One
+ * Special Summon, September 2019: 0★ 9%, 1★ 0.15%, 2★ 0.07%, 3★ 0.036%): `weaponLevels` weighs its copy's level, R1 (0★)
+ * first. A unique treasure only came at 0★ (9%), so a new copy's R1 (`treasureLevels`).
+ */
+export const HERO_BANNER: { readonly weaponShare: number; readonly weaponLevels: readonly number[]; readonly treasureLevels: readonly number[] } = {
+  weaponShare: 0.5,
+  weaponLevels: [9, 0.15, 0.07, 0.036],
+  treasureLevels: [1],
+};

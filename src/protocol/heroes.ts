@@ -5,15 +5,20 @@ import type { RaidClassId } from './raid.js';
 /* The TechnoMagic Raid's heroes on the site: what the bot's GET /api/heroes and the heroes page say of them. */
 
 /**
- * Where a hero wears gear: two weapons, two armors and a treasure. The raid's gear and the TechnoMagic
- * Raid's go in them (lib/game/heroes.ts's heroWearable), each in a slot of its item's kind.
+ * Where a hero wears gear: two weapons, two armors and a treasure (its main treasure), and three sub treasure slots
+ * beside it (side1 to side3), as King's Raid's. The raid's gear and the TechnoMagic Raid's go in them (lib/game/heroes.ts's
+ * heroWearable), each in a slot of its item's kind; a sub treasure slot only takes the hero's own unique treasures, and
+ * of one there only its options count (its effect is a main treasure's alone).
  */
-export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure';
+export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure' | 'side1' | 'side2' | 'side3';
 
-export const HERO_SLOTS: readonly HeroSlot[] = ['weapon1', 'weapon2', 'armor1', 'armor2', 'treasure'];
+export const HERO_SLOTS: readonly HeroSlot[] = ['weapon1', 'weapon2', 'armor1', 'armor2', 'treasure', 'side1', 'side2', 'side3'];
+
+/** A hero's sub treasure slots: only its own unique treasures go in them. */
+export const SIDE_SLOTS: readonly HeroSlot[] = ['side1', 'side2', 'side3'];
 
 /** Which kind of item goes in a hero's slot. */
-export const HERO_SLOT_KIND: Readonly<Record<HeroSlot, Slot>> = { weapon1: 'weapon', weapon2: 'weapon', armor1: 'armor', armor2: 'armor', treasure: 'treasure' };
+export const HERO_SLOT_KIND: Readonly<Record<HeroSlot, Slot>> = { weapon1: 'weapon', weapon2: 'weapon', armor1: 'armor', armor2: 'armor', treasure: 'treasure', side1: 'treasure', side2: 'treasure', side3: 'treasure' };
 
 /** How far a hero can be transcended. */
 export const TRANSCEND_MAX = 5;
@@ -82,6 +87,8 @@ export interface HeroCopy {
   heroOnly: boolean;
   /** A unique weapon: the id of the one hero that wields it (null: not one). */
   uniqueWeapon: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
+  uniqueTreasure: { hero: string; skill: number } | null;
   /** The id of the member's hero wearing it, or null. */
   hero: string | null;
   /** Refining it (POST /api/heroes/refine, as the gear page's forge does), with `after` what it does on a hero at the next level. */
@@ -103,7 +110,7 @@ export interface HeroView {
    * What its gear gives it in the raid, stat by stat, as the raid counts it: points for a chance or share
    * (crit, attack speed, penetration, block, dodge, CC resist: 1000 is 100%), and a share more of its own
    * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more), and a unique weapon's ATK
-   * as it is (atkFlat).
+   * as it is (atkFlat), and a main unique treasure's HP as it is (hpFlat).
    */
   bonus: HeroBonus;
   /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (three of them). Null with none. */
@@ -114,6 +121,11 @@ export interface HeroView {
   totals: string[];
   /** The transcendence perks picked for it (data/transcend.ts ids, in its order). */
   perks: string[];
+  /**
+   * Its main treasure's effect, when that is one of its own unique treasures: its name, which of its four it is (1 to
+   * 4), its tier (its refinement, 1 to 5) and what it does then. Null: none (its sub treasures give only their options).
+   */
+  treasure: { name: string; skill: number; tier: number; text: string } | null;
   /** What those perks give its stats (its share too of what they give every ally), a line each, like "+30% Attack". */
   perkEffects: string[];
   /** How far it is transcended (0 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
@@ -151,7 +163,7 @@ export interface HeroesView {
 export type HeroesSold = HeroesView & { sold: GearSale };
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy';
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'busy';
 
 /** Why a copy wasn't refined (nothing was used up). */
 export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy';
@@ -195,7 +207,7 @@ export const TRANSCEND_PERKS: readonly TranscendPerk[] = [
 ];
 
 /** What gear can raise in the raid, in the order its lines are listed (the bot's lib/game/heroes.ts HERO_STATS says what each is). */
-export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysical', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'blockDef', 'blockDefPhysical', 'blockDefMagical', 'dodge', 'tough', 'toughPhysical', 'toughMagical', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
+export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hpFlat', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysical', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'blockDef', 'blockDefPhysical', 'blockDefMagical', 'dodge', 'tough', 'toughPhysical', 'toughMagical', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
 export type HeroStat = (typeof HERO_STAT_IDS)[number];
 
 /** What gear gives a hero: a share for each stat (0.1: 10% more, or 100 points). */
