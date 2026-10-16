@@ -1,5 +1,5 @@
 import type { Slot, Stars, TmSetId } from './items.js';
-import type { GearRefine, RefineBlock } from './gear.js';
+import type { GearRefine, GearSale, RefineBlock } from './gear.js';
 import type { RaidClassId } from './raid.js';
 
 /* The TechnoMagic Raid's heroes on the site: what the bot's GET /api/heroes and the heroes page say of them. */
@@ -59,7 +59,10 @@ export interface HeroCopy {
   description: string;
   level: number;
   maxLevel: number;
+  /** Locked by the member (POST /api/heroes/lock, as the gear page's): never sold or used up by a refine. */
   locked: boolean;
+  /** What selling it pays in points (POST /api/heroes/sell, as the gear page's): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
+  sell: number | null;
   /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class): a TechnoMagic copy's potentials. */
   effects: string[];
   /**
@@ -143,6 +146,9 @@ export interface HeroesView {
   gems: number;
   essences: Record<EssenceId, number>;
 }
+
+/** POST /api/heroes/sell's answer: the heroes after, and what the sale came to. */
+export type HeroesSold = HeroesView & { sold: GearSale };
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
 export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'busy';

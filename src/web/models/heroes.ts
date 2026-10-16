@@ -8,17 +8,18 @@ import { collections } from '../../db.js';
 import { activeSet, activeTmEffects, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { refineLevel } from '../../lib/game/items/refine.js';
-import { equippedCopyIds } from '../../lib/game/items/sell.js';
+import { equippedCopyIds, itemSellPrice } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type MemberDoc } from '../../types.js';
+import type { GearSale } from '../../protocol/gear.js';
 import type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView } from '../../protocol/heroes.js';
 import { gearStore, refineState } from './gear.js';
 
 export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
 /*
- * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine):
+ * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine, /sell, /lock):
  * every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of theirs
  * wears, with what it gives it in the raid and every copy a hero could wear, and how far each is transcended
  * and the perks picked for it (the heroes page). The rules are lib/game/heroes.ts's (data/transcend.ts
@@ -42,6 +43,10 @@ export interface HeroStore {
   transcend: (guildId: string, userId: string, hero: string) => Promise<HeroesView | HeroTranscendError>;
   /** Refines one of their copies a level (the gear page's refine, a spare copy of it used up): the heroes after, or why not. */
   refine: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroRefineError>;
+  /** Sells those of their copies that can be (the gear page's sale): what it came to, or 'nothing_to_sell'. */
+  sell: (guildId: string, userId: string, copies: readonly string[]) => Promise<GearSale | 'nothing_to_sell'>;
+  /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
+  lock: (guildId: string, userId: string, copy: string, locked: boolean) => Promise<boolean>;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
@@ -59,7 +64,7 @@ export function skillLines(skills: readonly string[]): string[] {
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<LoadoutFields>) | null): HeroesView {
   const worn = heroWorn(member);
-  // (Never used up by a refine: what the member, any loadout and their heroes wear.)
+  // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
   const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
   const lit = activeTmEffects(copies, member);
   const list: HeroCopy[] = [];
@@ -79,6 +84,7 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
       level,
       maxLevel: REFINE.maxLevel,
       locked: copy.locked === true,
+      sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
       effects: heroItemLines(item, level, undefined, copy.tmPotentials),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: lit.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
@@ -176,4 +182,6 @@ export const heroStore: HeroStore = {
     const result = await gearStore.refine(guildId, userId, copy, null);
     return result === 'ok' ? load(guildId, userId) : result;
   },
+  sell: (guildId, userId, copies) => gearStore.sell(guildId, userId, copies),
+  lock: (guildId, userId, copy, locked) => gearStore.lock(guildId, userId, copy, locked),
 };

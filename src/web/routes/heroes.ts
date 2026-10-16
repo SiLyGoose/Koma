@@ -6,8 +6,9 @@ import { heroService } from '../services/heroes.js';
 
 /*
  * /api/heroes: the shop's Heroes tab and the heroes page (theirs, and others' to look at), for a logged-in member in a
- * server they're in. A game's link answers all but buying too, for its own member in its own server: the TechnoMagic
- * Raid's Manage shows the heroes page in a popup, so they gear their heroes without leaving the room.
+ * server they're in. A game's link answers all but buying, selling and locking too (those stay on the site, as the gear page's
+ * do), for its own member in its own server: the TechnoMagic Raid's Manage shows the heroes page in a popup, so they gear their
+ * heroes without leaving the room.
  */
 export function heroRoutes(deps: ApiDeps): Router {
   const heroes = heroController(heroService(deps));
@@ -22,5 +23,7 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/unequip', ...siteOrLink, heroes.unequip)
     .post('/perks', ...siteOrLink, heroes.perks)
     .post('/transcend', ...siteOrLink, heroes.transcend)
-    .post('/refine', ...siteOrLink, heroes.refine);
+    .post('/refine', ...siteOrLink, heroes.refine)
+    .post('/sell', ...site, heroes.sell)
+    .post('/lock', ...site, heroes.lock);
 }

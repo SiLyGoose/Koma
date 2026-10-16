@@ -200,6 +200,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
     { _id: 'maul', itemId: 'worldbreaker-maul', level: 2, locked: true },
     { _id: 'dagger', itemId: 'rusty-dagger', level: 1 }, // the gacha's: no hero wears it
     { _id: 'plate', itemId: 'colossus-plate', level: 1 },
+    { _id: 'spare', itemId: 'colossus-plate', level: 1 },
   ];
   const member = {
     points: 30_000,
@@ -209,9 +210,12 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   };
   const view = heroesView(copies, member);
   assert.equal(view.balance, 30_000);
-  assert.deepEqual(view.copies.map((copy) => copy.id), ['fang', 'maul', 'plate']); // TechnoMagic gear first, then by stars, then level
+  assert.deepEqual(view.copies.map((copy) => copy.id), ['fang', 'maul', 'plate', 'spare']); // TechnoMagic gear first, then by stars, then level
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.hero, 'kirze');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.locked, true);
+  // What a hero has on (or is saved in a slot of it) and what's locked never sells; the rest says what it sells for.
+  assert.deepEqual(view.copies.map((copy) => copy.sell === null), [true, true, true, false]);
+  assert.ok((view.copies.find((copy) => copy.id === 'spare')?.sell ?? 0) > 0);
   const [kirze, klaus] = view.heroes;
   assert.equal(kirze?.owned, true);
   assert.equal(klaus?.owned, false);
@@ -275,6 +279,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     refine: async (guildId, userId, copy) => {
       calls.push(`refine ${copy}`);
       return copy === 'c1' ? empty : 'no_duplicate';
+    },
+    sell: async (guildId, userId, copies) => {
+      calls.push(`sell ${copies.join(',')}`);
+      return copies.includes('c1') ? { count: 1, earned: 250 } : 'nothing_to_sell';
+    },
+    lock: async (guildId, userId, copy, locked) => {
+      calls.push(`lock ${copy} ${locked}`);
+      return copy === 'c1';
     },
   };
   const deps: ApiDeps = {
@@ -341,6 +353,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     // Refining a copy (a unique weapon, on the heroes page): with a spare of it, or why not.
     assert.equal((await post('/api/heroes/refine', { guild: 'g1', copy: 'c1' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/refine', { guild: 'g1', copy: 'c2' })).json(), { error: 'no_duplicate' });
+    // Selling copies (the same one twice counts once), and locking one, as the gear page does: answered with the heroes.
+    const sold = await post('/api/heroes/sell', { guild: 'g1', copies: ['c1', 'c1', 'c2'] });
+    assert.equal(sold.status, 200);
+    assert.deepEqual(((await sold.json()) as { sold: unknown }).sold, { count: 1, earned: 250 });
+    assert.deepEqual(await (await post('/api/heroes/sell', { guild: 'g1', copies: ['c2'] })).json(), { error: 'nothing_to_sell' });
+    assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: [] })).status, 400);
+    assert.equal((await post('/api/heroes/lock', { guild: 'g1', copy: 'c1', locked: true })).status, 200);
+    assert.equal((await post('/api/heroes/lock', { guild: 'g1', copy: 'c2', locked: true })).status, 404);
     assert.deepEqual(calls, [
       'equip kirze weapon1 c1',
       'buy g1 u1 kirze',
@@ -359,6 +379,10 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'perks klaus ',
       'refine c1',
       'refine c2',
+      'sell c1,c2',
+      'sell c2',
+      'lock c1 true',
+      'lock c2 true',
     ]);
 
     // A game's link (the TechnoMagic Raid's Manage popup): its own member, always in its own server; everything but buying.
@@ -374,6 +398,8 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await linked('/api/heroes/perks', { hero: 'kirze', perks: [] })).status, 200);
     assert.equal((await linked('/api/heroes/transcend', { hero: 'kirze' })).status, 200);
     assert.equal((await linked('/api/heroes/buy', { hero: 'klaus' })).status, 401, 'buying stays the site’s');
+    assert.equal((await linked('/api/heroes/sell', { copies: ['c1'] })).status, 401, 'selling stays the site’s');
+    assert.equal((await linked('/api/heroes/lock', { copy: 'c1', locked: true })).status, 401, 'locking stays the site’s');
     assert.equal((await fetch(`${base}/api/heroes`, { headers: { ...link, Authorization: 'Game nonsense' } })).status, 401);
     assert.deepEqual(calls, ['equip kirze weapon1 c1', 'unequip kirze null', 'perks kirze ', 'transcend kirze']);
   } finally {

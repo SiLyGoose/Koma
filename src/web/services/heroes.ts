@@ -3,13 +3,13 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroMembers } from '../../protocol/heroes.js';
+import type { HeroesSold, HeroMembers } from '../../protocol/heroes.js';
 
-export type { HeroMembers };
+export type { HeroesSold, HeroMembers };
 
 /*
  * The TechnoMagic Raid's heroes: which are the member's, buying one (the shop) and gearing them (the heroes
- * page, transcending them, their perks and refining their gear) (heroes.ts's store), and who else in the server has heroes to look at.
+ * page, transcending them, their perks, and refining, selling and locking their gear) (heroes.ts's store), and who else in the server has heroes to look at.
  */
 
 /** How many members the list has at most. */
@@ -60,5 +60,17 @@ export function heroService(deps: ApiDeps) {
       answer(await store.perks(guildId, userId, hero, perks)),
     transcend: async (guildId: string, userId: string, hero: string): Promise<HeroesView> => answer(await store.transcend(guildId, userId, hero)),
     refine: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.refine(guildId, userId, copy)),
+
+    /** Sells those copies (the same one twice counts once). */
+    async sell(guildId: string, userId: string, copies: string[]): Promise<HeroesSold> {
+      const sold = await store.sell(guildId, userId, [...new Set(copies)]);
+      if (sold === 'nothing_to_sell') throw new ApiError(sold);
+      return { ...(await store.view(guildId, userId)), sold };
+    },
+
+    async lock(guildId: string, userId: string, copy: string, locked: boolean): Promise<HeroesView> {
+      if (!(await store.lock(guildId, userId, copy, locked))) throw new ApiError('not_found');
+      return store.view(guildId, userId);
+    },
   };
 }

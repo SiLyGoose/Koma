@@ -10,7 +10,7 @@ import { CopyId, parse, UserId } from '../lib/validate.js';
 /* The gear page's requests. Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
 /** The most copies one sale sells. */
-const SELL_MAX = 1000;
+export const SELL_MAX = 1000;
 
 /** The longest a loadout's new name is read at all (the name's own rules, and its real length, are checkLoadoutName's). */
 const NAME_MAX = 200;

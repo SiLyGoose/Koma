@@ -5,6 +5,7 @@ import { HERO_SLOTS } from '../../types.js';
 import { ApiError } from '../lib/errors.js';
 import type { HeroService } from '../services/heroes.js';
 import { CopyId, parse, UserId } from '../lib/validate.js';
+import { SELL_MAX } from './gear.js';
 
 /* The heroes' requests (the shop's and the heroes page's). Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
@@ -12,6 +13,8 @@ const Hero = z.object({ hero: z.string().max(64) });
 const Slot = z.enum(HERO_SLOTS as [string, ...string[]]);
 const Equip = Hero.extend({ slot: Slot, copy: CopyId });
 const Refine = z.object({ copy: CopyId });
+const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX) });
+const Lock = z.object({ copy: CopyId, locked: z.boolean() });
 /** One slot, or (left out) all of them. */
 const Unequip = Hero.extend({ slot: Slot.nullish() });
 /** Every perk picked (data/transcend.ts's). */
@@ -61,6 +64,16 @@ export function heroController(heroes: HeroService) {
     async refine(req, res) {
       const { copy } = parse(Refine, req.body);
       res.json(await heroes.refine(res.locals.guildId, res.locals.session.userId, copy));
+    },
+
+    async sell(req, res) {
+      const { copies } = parse(Sell, req.body);
+      res.json(await heroes.sell(res.locals.guildId, res.locals.session.userId, copies));
+    },
+
+    async lock(req, res) {
+      const { copy, locked } = parse(Lock, req.body);
+      res.json(await heroes.lock(res.locals.guildId, res.locals.session.userId, copy, locked));
     },
   } satisfies Record<string, RequestHandler>;
 }

@@ -63,7 +63,9 @@ export type { Me } from './services/login.js';
  *   POST /api/heroes/unequip {guild, hero, slot?}   empties one of their hero's slots, or every one: HeroesView
  *   POST /api/heroes/transcend {guild, hero}   transcends one of their heroes a level, for hero essences and komaGems: HeroesView
  *   POST /api/heroes/perks {guild, hero, perks}   picks one of their hero's transcendence perks, all of them at once (none: reset): HeroesView
- *   POST /api/heroes/refine {guild, copy}   refines one of their copies a level (the heroes page's unique weapons), using up a spare copy of it: HeroesView
+ *   POST /api/heroes/refine {guild, copy}   refines one of their copies a level (the heroes page), using up a spare copy of it: HeroesView
+ *   POST /api/heroes/sell {guild, copies}   sells those of their copies (not worn, in a loadout, on a hero or locked) for points (the heroes page): HeroesView & { sold: GearSale }
+ *   POST /api/heroes/lock {guild, copy, locked}   locks (or unlocks) one of their copies (the heroes page): HeroesView
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
  *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView
@@ -71,7 +73,7 @@ export type { Me } from './services/login.js';
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
  * the party's gear: anyone in the link's server) and the routes that change what the link's member
- * wears (routes/gear.ts: the raid's party screen lets them change it before the fight), and /api/heroes but buying
+ * wears (routes/gear.ts: the raid's party screen lets them change it before the fight), and /api/heroes but buying, selling and locking
  * (routes/heroes.ts: the TechnoMagic Raid's Manage popup). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
  * page shows (its end screen), when it was kept. The front page's /api/live counts as
  * being on the site (games/live.ts).
