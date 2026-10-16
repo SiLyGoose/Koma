@@ -4,13 +4,13 @@ import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import type { Command } from '../discord/types.js';
 import { getChannelId } from '../services/channel.js';
-import { siteGameLink, webConfig, type WebConfig } from '../web/config.js';
+import { technomagicRoomLink, webConfig, type WebConfig } from '../web/config.js';
 
 /*
  * `k!technomagic`: the TechnoMagic Raid is played on the games' site (web/games/technomagic/, and the
  * Koma-UI repo), so this says what it is, with Galgoria, and links there. The link is the same for
- * everyone: the site logs them in with Discord and puts them in this server's room. When someone opens the
- * room on the site, the same goes up in the server's channel (announceTechnoMagic), so others can join.
+ * everyone: the site logs them in with Discord and puts them in this server's room (multiplayer). When someone opens the
+ * room on the site (not one of their own, single player), the same goes up in the server's channel (announceTechnoMagic), so others can join.
  */
 
 const PICTURE = 'galgoria.png';
@@ -26,7 +26,7 @@ export function technomagicMessage(config: WebConfig, guildId: string, host?: st
     .setImage(`attachment://${PICTURE}`)
     .setFooter({ text: TEXT.technomagic.footer });
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(siteGameLink(config, 'technomagic', guildId)).setLabel(TEXT.technomagic.joinButton).setEmoji('🐲'),
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(technomagicRoomLink(config, guildId)).setLabel(TEXT.technomagic.joinButton).setEmoji('🐲'),
   );
   return { embeds: [embed], components: [row], files: [picture()] };
 }

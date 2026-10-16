@@ -33,8 +33,10 @@ export interface Connection {
 type Greeting = { t: 'hello'; token: string } | { t: 'watch'; token: string };
 
 /** A player's page said hello: `join` puts them on the online list and returns the peer the game sends through (to them and their watchers). */
-export interface Hello<M> {
+export interface Hello<M, H = Greeting> {
   player: Player;
+  /** What the page said hello with (a game may ask for more in it than the token). */
+  greeting: H;
   page: Peer<M>;
   join: () => Peer<M>;
   /** The page went away while the game was getting ready. */
@@ -44,7 +46,7 @@ export interface Hello<M> {
 /** One connection's game. */
 export interface GameHandlers<C extends { t: string }, M> {
   /** A player's page said hello: get the game ready for them, and `join` when it is. */
-  hello(hello: Hello<M>): Promise<void>;
+  hello(hello: Hello<M, Extract<C | Greeting, { t: 'hello' }>>): Promise<void>;
   /** Anything else a player's page says (after `join`). */
   message(player: Player, peer: Peer<M>, message: Exclude<C, Greeting>): Promise<void>;
   /** Something a watcher's page says (ignored when left out). */
@@ -108,6 +110,7 @@ export function openGameConnection<C extends { t: string }, M>(game: GameSocket<
       player = who;
       await handlers.hello({
         player: who,
+        greeting: message as Extract<C | Greeting, { t: 'hello' }>,
         page,
         join: () => {
           joined = true;

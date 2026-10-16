@@ -4,7 +4,8 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  * What the TechnoMagic Raid's web page (the Koma-UI repo) and the bot say to each other over the WebSocket.
  * Every message is one JSON object with a `t` saying what it is. The site keeps a copy (its `yarn sync`).
  *
- * A server has one room (the bot's web/games/technomagic/room.ts). Getting ready (`prep`), everyone in it picks heroes of their own into its
+ * A server has one room everyone can join (the bot's web/games/technomagic/room.ts), and each player can have one of
+ * their own (single player: nobody else gets in, and nothing is said in Discord). Getting ready (`prep`), everyone in it picks heroes of their own into its
  * lineup (the host up to 4, everyone else up to 3, 8 in all; alone, up to 7 against an easier boss: 4 in the Main
  * Team, whose skills are theirs to use, and 3 in the Sub Team, on Auto for the whole fight), says they're ready,
  * and the host starts the fight at a stage they have opened (won the one before it). The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
@@ -12,7 +13,7 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  * same seed with the same presses (`fight`, then `turn` after `turn`), never going past the step the bot has
  * reached. So how it ends is the bot's word alone, and what a win gives is rolled by the bot (`over`).
  *
- *   page -> bot   hello     first message: the token from the link
+ *   page -> bot   hello     first message: the token from the link (`single`: into a room of their own)
  *                 pick      puts a hero of theirs (in one of its skins) in the lineup (alone: in the Main Team or
  *                           the Sub Team; one in the other team already is moved over)
  *                 unpick    takes one of theirs out of it
@@ -35,7 +36,7 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  */
 
 export type ClientMessage =
-  | { t: 'hello'; token: string }
+  | { t: 'hello'; token: string; single?: boolean }
   | { t: 'pick'; hero: string; skin: number; sub?: boolean }
   | { t: 'unpick'; hero: string }
   | { t: 'ready'; on: boolean }
@@ -114,6 +115,8 @@ export interface RoomState {
   slots: number;
   /** One player alone: the boss is easier. */
   solo: boolean;
+  /** The link others join this room by (null: a room of one's own, single player). */
+  link: string | null;
   players: PlayerView[];
   lineup: PickView[];
   /** The fight just over (null: none). */

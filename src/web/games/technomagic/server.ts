@@ -7,7 +7,7 @@ import { technomagicRooms, type Peer, type RoomDeps, type TechnoMagicRoom, type 
 
 /*
  * The web socket the TechnoMagic Raid's page plays through (connection.ts does the greeting). Once the player
- * says hello they join their server's room (room.ts), with the heroes they own. One page per player: a new
+ * says hello they join their server's room (room.ts), or one of their own (single player), with the heroes they own. One page per player: a new
  * one takes over. It isn't watched: anyone in the server can join in instead.
  */
 
@@ -40,7 +40,7 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
           deps.cleared(player.guildId, player.userId).catch(() => 0),
         ]);
         if (hello.gone) return;
-        const joined = rooms.join(player, peer, owned, cleared, deps);
+        const joined = rooms.join(player, peer, owned, cleared, deps, 'single' in hello.greeting && hello.greeting.single === true);
         if (!joined) return refuse(peer, 'full');
         room = joined.room;
         if (joined.replaced) refuse(joined.replaced, 'replaced');

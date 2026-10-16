@@ -6,13 +6,15 @@ import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSS, tmSkillLine } from '../
 import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
+import { technomagicRoomLink, webConfig } from '../../config.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
 import { workerFights, type FightEngine, type Fights, type Intent } from './fight.js';
 import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
 /*
- * The TechnoMagic Raid's rooms: one a server. Whoever opens the raid joins its room (the first is its host,
+ * The TechnoMagic Raid's rooms: one a server, and one of each player's own (single player: nobody else gets in, and it
+ * isn't said in Discord). Whoever opens the raid with others joins the server's room (the first is its host,
  * 1P; when the host goes, whoever has been in it longest is). Getting ready, each picks heroes of their own
  * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
  * in all (alone, as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
@@ -43,6 +45,8 @@ export interface RoomDeps {
   finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number) => Promise<Map<string, { drops: DropView[]; points: number }>>;
   /** Says in the server's channel that a room has been opened (by `host`). Not waited for. */
   announce: (guildId: string, host: string) => void;
+  /** The link others join the server's room by (null: there is no site). */
+  link: (guildId: string) => string | null;
   /** Calls `fn` every `ms` until the returned function is called. */
   every: (ms: number, fn: () => void) => () => void;
   fights: Fights;
@@ -80,6 +84,10 @@ export const realRoomDeps: RoomDeps = {
     );
   },
   announce: () => {},
+  link: (guildId) => {
+    const config = webConfig();
+    return config ? technomagicRoomLink(config, guildId) : null;
+  },
   every: (ms, fn) => {
     const timer = setInterval(fn, ms);
     return () => clearInterval(timer);
@@ -135,6 +143,8 @@ export class TechnoMagicRoom {
     readonly guildId: string,
     private readonly deps: RoomDeps,
     private readonly onEmpty: (room: TechnoMagicRoom) => void,
+    /** A player's own room (single player), not the server's. */
+    readonly single = false,
   ) {}
 
   get full(): boolean {
@@ -143,6 +153,11 @@ export class TechnoMagicRoom {
 
   has(userId: string): boolean {
     return this.members.has(userId);
+  }
+
+  /** `userId`'s page in the room (null: not in it, or gone during a fight). */
+  peerOf(userId: string): Peer | null {
+    return this.members.get(userId)?.peer ?? null;
   }
 
   /** The host's id (null: nobody's in). */
@@ -532,6 +547,7 @@ export class TechnoMagicRoom {
       unlocked: this.unlocked(),
       slots: this.slots(),
       solo: this.solo(),
+      link: this.single ? null : this.deps.link(this.guildId),
       players,
       lineup: this.fight ? this.fight.start.heroes.map(({ owner, id, skin, sub }) => ({ owner, hero: id, skin, ...(sub && { sub }) })) : [...this.lineup],
       over: this.over,
@@ -540,30 +556,46 @@ export class TechnoMagicRoom {
   }
 }
 
-/** Every server's room. */
+/** Every server's room, and every player's own. */
 export class TechnoMagicRooms {
+  /** By the server's id, or (a player's own) the server's and the player's. */
   private readonly rooms = new Map<string, TechnoMagicRoom>();
   /** When each server's room was last said in its channel. */
   private readonly announced = new Map<string, number>();
 
   constructor(readonly realDeps: RoomDeps = realRoomDeps) {}
 
-  /** Puts `player`'s page in their server's room (see TechnoMagicRoom.join). Null when it has as many players as it can. */
-  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0, deps: RoomDeps = this.realDeps): { room: TechnoMagicRoom; replaced: Peer | null } | null {
-    let room = this.rooms.get(player.guildId);
+  private static key(player: Player, single: boolean): string {
+    return single ? `${player.guildId}:${player.userId}` : player.guildId;
+  }
+
+  /**
+   * Puts `player`'s page in their server's room, or (`single`) a room of their own (see TechnoMagicRoom.join). Null when
+   * the server's has as many players as it can. Only the server's is said in its channel. A page of theirs in the other
+   * room is taken over, as one in the same room is: one page a player.
+   */
+  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0, deps: RoomDeps = this.realDeps, single = false): { room: TechnoMagicRoom; replaced: Peer | null } | null {
+    const key = TechnoMagicRooms.key(player, single);
+    let room = this.rooms.get(key);
+    if (room?.full && !room.has(player.userId)) return null;
     if (!room) {
-      room = new TechnoMagicRoom(player.guildId, deps, (empty) => {
-        if (this.rooms.get(empty.guildId) === empty) this.rooms.delete(empty.guildId);
-      });
-      this.rooms.set(player.guildId, room);
+      room = new TechnoMagicRoom(
+        player.guildId,
+        deps,
+        (empty) => {
+          if (this.rooms.get(key) === empty) this.rooms.delete(key);
+        },
+        single,
+      );
+      this.rooms.set(key, room);
       const now = deps.now();
-      if (now - (this.announced.get(player.guildId) ?? -Infinity) >= TM_FIGHT.announceMs) {
+      if (!single && now - (this.announced.get(player.guildId) ?? -Infinity) >= TM_FIGHT.announceMs) {
         this.announced.set(player.guildId, now);
         deps.announce(player.guildId, player.name);
       }
     }
-    if (room.full && !room.has(player.userId)) return null;
-    return { room, replaced: room.join(player, peer, owned, cleared) };
+    const other = this.rooms.get(TechnoMagicRooms.key(player, !single))?.peerOf(player.userId) ?? null;
+    return { room, replaced: room.join(player, peer, owned, cleared) ?? other };
   }
 }
 

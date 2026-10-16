@@ -20,7 +20,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
   const m = data as Record<string, unknown>;
   switch (m.t) {
     case 'hello':
-      return typeof m.token === 'string' && m.token.length <= 512 ? { t: 'hello', token: m.token } : null;
+      if (typeof m.token !== 'string' || m.token.length > 512 || (m.single !== undefined && typeof m.single !== 'boolean')) return null;
+      return m.single ? { t: 'hello', token: m.token, single: true } : { t: 'hello', token: m.token };
     case 'pick':
       if (!id(m.hero) || !index(m.skin, 64) || (m.sub !== undefined && typeof m.sub !== 'boolean')) return null;
       return m.sub ? { t: 'pick', hero: m.hero, skin: m.skin, sub: true } : { t: 'pick', hero: m.hero, skin: m.skin };

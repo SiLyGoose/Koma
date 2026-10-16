@@ -119,6 +119,9 @@ test('technomagic: the page says only what the room takes', () => {
   assert.deepEqual(parseClientMessage('{"t":"parted","no":3,"second":41}'), { t: 'parted', no: 3, second: 41 });
   assert.equal(parseClientMessage('{"t":"parted","no":3,"second":-1}'), null);
   assert.equal(parseClientMessage('nope'), null);
+  assert.deepEqual(parseClientMessage('{"t":"hello","token":"x","single":true}'), { t: 'hello', token: 'x', single: true });
+  assert.deepEqual(parseClientMessage('{"t":"hello","token":"x","single":false}'), { t: 'hello', token: 'x' });
+  assert.equal(parseClientMessage('{"t":"hello","token":"x","single":1}'), null);
 });
 
 /** A room with a hand-turned clock and a pretend database. */
@@ -149,6 +152,7 @@ function harness(owned: Record<string, string[]> = {}) {
       );
     },
     announce: (_g, host) => announced.push(host),
+    link: (guildId) => `https://site/?play=technomagic&guild=${guildId}&mode=multi`,
     every: (_ms, fn) => {
       ticks.push(fn);
       return () => ticks.splice(ticks.indexOf(fn), 1);
@@ -177,6 +181,29 @@ function harness(owned: Record<string, string[]> = {}) {
   };
   return { rooms, peer, player, deps, announced, finished, pass };
 }
+
+test('technomagic room: single player is a room of their own, not said in Discord, with no link', () => {
+  const h = harness();
+  const a = h.peer();
+  const own = h.rooms.join(h.player('a'), a, ALL, 0, h.deps, true)!;
+  assert.deepEqual(h.announced, [], 'a room of their own is not said in the channel');
+  assert.equal(a.room().link, null);
+  assert.equal(own.room.single, true);
+
+  // Someone else opening the raid with others goes into the server's room, not theirs.
+  const b = h.peer();
+  const shared = h.rooms.join(h.player('b'), b, ALL)!;
+  assert.notEqual(shared.room, own.room);
+  assert.deepEqual(h.announced, ['B']);
+  assert.equal(b.room().link, 'https://site/?play=technomagic&guild=g1&mode=multi');
+  assert.deepEqual(b.room().players.map((p) => p.id), ['b']);
+
+  // One page a player: going in with others takes over the page in their own room.
+  const again = h.peer();
+  const back = h.rooms.join(h.player('a'), again, ALL)!;
+  assert.equal(back.room, shared.room);
+  assert.equal(back.replaced, a);
+});
 
 test('technomagic room: the host brings up to 4, everyone else 3, 8 in all; alone, up to 7', async () => {
   const h = harness();

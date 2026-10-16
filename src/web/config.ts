@@ -83,8 +83,11 @@ export type { Game };
  * The site's link to `game` in a server, for anyone: the front page logs them in with Discord (if
  * they aren't already) and opens it. What the bot's buttons in Discord link to.
  */
-export const siteGameLink = (config: WebConfig, game: Game, guildId: string): string =>
-  `${config.siteUrl}/?${new URLSearchParams({ play: game, guild: guildId })}`;
+export const siteGameLink = (config: WebConfig, game: Game, guildId: string, more: Record<string, string> = {}): string =>
+  `${config.siteUrl}/?${new URLSearchParams({ play: game, guild: guildId, ...more })}`;
+
+/** The site's link into a server's TechnoMagic Raid room, with others (multiplayer: not a room of their own). */
+export const technomagicRoomLink = (config: WebConfig, guildId: string): string => siteGameLink(config, 'technomagic', guildId, { mode: 'multi' });
 
 /** The link that opens `game` for the holder of `token`. The token rides in the part after #, which browsers never send to the site's host. */
 export const gameLink = (config: WebConfig, game: Game, token: string): string =>
