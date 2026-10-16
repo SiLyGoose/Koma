@@ -6,7 +6,7 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  *
  * A server has one room everyone can join (the bot's web/games/technomagic/room.ts), and each player can have one of
  * their own (single player: nobody else gets in, and nothing is said in Discord). Getting ready (`prep`), everyone in it picks heroes of their own into its
- * lineup (the host up to 4, everyone else up to 3, 8 in all; alone, up to 7 against an easier boss: 4 in the Main
+ * lineup (the host up to 4, everyone else up to 3, 8 in all, even while the host is alone in it; single player, up to 7 against an easier boss: 4 in the Main
  * Team, whose skills are theirs to use, and 3 in the Sub Team, on Auto for the whole fight), says they're ready,
  * and the host starts the fight at a stage they have opened (won the one before it). The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
  * the bot runs it by its own clock with every player's presses, and every page runs the same one from the
@@ -113,7 +113,7 @@ export interface RoomState {
   unlocked: number;
   /** How many heroes the lineup takes now. */
   slots: number;
-  /** One player alone: the boss is easier. */
+  /** Single player (a room of one's own): the boss is easier, and the lineup is in two teams. */
   solo: boolean;
   /** The link others join this room by (null: a room of one's own, single player). */
   link: string | null;

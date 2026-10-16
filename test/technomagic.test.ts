@@ -205,18 +205,19 @@ test('technomagic room: single player is a room of their own, not said in Discor
   assert.equal(back.replaced, a);
 });
 
-test('technomagic room: the host brings up to 4, everyone else 3, 8 in all; alone, up to 7', async () => {
+test('technomagic room: the host brings up to 4, everyone else 3, 8 in all, even alone in the server’s room', async () => {
   const h = harness();
   const a = h.peer();
   const { room } = h.rooms.join(h.player('a'), a, ALL)!;
   assert.deepEqual(h.announced, ['A']);
-  assert.equal(a.room().slots, TM_ROOM.soloSlots);
-  assert.equal(a.room().players[0]?.limit, TM_ROOM.soloSlots);
+  assert.equal(a.room().slots, TM_ROOM.slots);
+  assert.equal(a.room().solo, false, 'alone in the server’s room is still multiplayer');
+  assert.equal(a.room().players[0]?.limit, TM_ROOM.hostHeroes);
   for (const hero of ALL.slice(0, 3)) assert.equal(room.pick('a', hero, 0), null);
   assert.equal(room.pick('a', 'kirze', 0), 'picked');
   assert.equal(room.pick('a', 'nobody', 0), 'not_owned');
 
-  // A second player: the host's limit goes to 4 (theirs are 3, so they stay), the slots to 8.
+  // A second player: the host's limit stays 4, the slots 8.
   const b = h.peer();
   h.rooms.join(h.player('b'), b, ALL.slice(0, 7));
   assert.deepEqual(h.announced, ['A'], 'the room was opened once');
@@ -238,9 +239,9 @@ test('technomagic room: the host brings up to 4, everyone else 3, 8 in all; alon
   assert.equal(room.setStage('a', 3), 'locked', 'the host has won no stage yet');
   assert.equal(room.setStage('a', 1), null);
 
-  // The host goes: b is host, alone again, and keeps all three of theirs.
+  // The host goes: b is host, alone, and keeps all three of theirs.
   room.leave('a', a);
-  assert.deepEqual(b.room().players.map((p) => [p.id, p.host, p.limit]), [['b', true, 7]]);
+  assert.deepEqual(b.room().players.map((p) => [p.id, p.host, p.limit]), [['b', true, 4]]);
   assert.deepEqual(b.room().lineup.map((p) => p.owner), ['b', 'b', 'b']);
 });
 
@@ -260,10 +261,12 @@ test('technomagic room: the host picks only a stage they have opened, by winning
   assert.deepEqual([b.room().stage, b.room().unlocked], [1, 1]);
 });
 
-test('technomagic room: alone, a Main Team of 4 and a Sub Team of 3 on Auto; with company, no teams', async () => {
+test('technomagic room: single player, a Main Team of 4 and a Sub Team of 3 on Auto; in the server’s room, no teams', async () => {
   const h = harness();
   const a = h.peer();
-  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 0, h.deps, true)!;
+  assert.equal(a.room().solo, true);
+  assert.equal(a.room().slots, TM_ROOM.soloSlots);
   const [main, sub] = [ALL.slice(0, TM_ROOM.mainTeam), ALL.slice(TM_ROOM.mainTeam, TM_ROOM.soloSlots)];
   for (const hero of main) assert.equal(room.pick('a', hero, 0), null);
   assert.equal(room.pick('a', ALL[TM_ROOM.soloSlots] as string, 0), 'team_full');
@@ -298,11 +301,10 @@ test('technomagic room: alone, a Main Team of 4 and a Sub Team of 3 on Auto; wit
   await h.pass(200);
   assert.equal(room.back('a'), null);
 
-  // Company: no teams, the Sub Team taken out first (the host's limit is 4).
+  // The server's room, even alone: no teams.
   const b = h.peer();
-  h.rooms.join(h.player('b'), b, ALL);
-  assert.deepEqual(b.room().lineup.map((pick) => [pick.hero, pick.sub]), main.map((hero) => [hero, undefined]));
-  assert.equal(room.pick('b', ALL[TM_ROOM.soloSlots] as string, 0, true), null, 'asked for the Sub Team with company: just put in');
+  const shared = h.rooms.join(h.player('b'), b, ALL)!;
+  assert.equal(shared.room.pick('b', ALL[0] as string, 0, true), null, 'asked for the Sub Team in the server’s room: just put in');
   assert.equal(b.room().lineup.at(-1)?.sub, undefined);
 });
 

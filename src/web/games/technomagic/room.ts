@@ -17,7 +17,7 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * isn't said in Discord). Whoever opens the raid with others joins the server's room (the first is its host,
  * 1P; when the host goes, whoever has been in it longest is). Getting ready, each picks heroes of their own
  * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
- * in all (alone, as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
+ * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
  * starts the fight at the stage they picked.
@@ -165,8 +165,9 @@ export class TechnoMagicRoom {
     return this.members.keys().next().value ?? null;
   }
 
+  /** Single player (a room of one's own): the teams and the easier boss. The server's room never is, even with one in it. */
   private solo(): boolean {
-    return this.members.size <= 1;
+    return this.single;
   }
 
   private slots(): number {
