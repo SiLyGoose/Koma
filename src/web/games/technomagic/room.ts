@@ -235,8 +235,8 @@ export class TechnoMagicRoom {
   }
 
   /**
-   * `userId` puts their hero `hero` (in skin `skin`) in the lineup: null, or why not. Alone, into the Sub Team (`sub`)
-   * or the Main Team; one of theirs in the other team already is moved over.
+   * `userId` puts their hero `hero` (in skin `skin`) in the lineup: null, or why not (another player's in already: no
+   * hero is brought twice). Alone, into the Sub Team (`sub`) or the Main Team; one of theirs in the other team already is moved over.
    */
   pick(userId: string, hero: string, skin: number, sub = false): AnswerCode | null {
     const member = this.members.get(userId);
@@ -255,6 +255,7 @@ export class TechnoMagicRoom {
       this.tell();
       return null;
     }
+    if (this.lineup.some((pick) => pick.hero === hero)) return 'picked';
     if (mine.length >= this.limit(userId)) return 'limit';
     if (this.lineup.length >= this.slots()) return 'full';
     if (teamFull) return 'team_full';

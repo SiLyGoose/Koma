@@ -191,16 +191,15 @@ test('technomagic room: the host brings up to 4, everyone else 3, 8 in all; alon
 
   // A second player: the host's limit goes to 4 (theirs are 3, so they stay), the slots to 8.
   const b = h.peer();
-  h.rooms.join(h.player('b'), b, ['kirze', 'klaus', 'fallen-frey', 'gremory']);
+  h.rooms.join(h.player('b'), b, ALL.slice(0, 7));
   assert.deepEqual(h.announced, ['A'], 'the room was opened once');
   const state = b.room();
   assert.equal(state.slots, TM_ROOM.slots);
   assert.equal(state.solo, false);
   assert.deepEqual(state.players.map((p) => [p.number, p.host, p.limit]), [[1, true, 4], [2, false, 3]]);
-  assert.equal(room.pick('b', 'kirze', 0), null, 'two players may each bring their own Kirze');
-  assert.equal(room.pick('b', 'klaus', 0), null);
-  assert.equal(room.pick('b', 'fallen-frey', 0), null);
-  assert.equal(room.pick('b', 'gremory', 0), 'limit');
+  assert.equal(room.pick('b', 'kirze', 0), 'picked', 'no hero is brought twice, not even by two players');
+  for (const hero of ALL.slice(3, 6)) assert.equal(room.pick('b', hero, 0), null);
+  assert.equal(room.pick('b', ALL[6] as string, 0), 'limit');
   assert.equal(b.room().lineup.length, 6);
 
   // Only the host starts, and only with everyone ready.
@@ -276,7 +275,7 @@ test('technomagic room: alone, a Main Team of 4 and a Sub Team of 3 on Auto; wit
   const b = h.peer();
   h.rooms.join(h.player('b'), b, ALL);
   assert.deepEqual(b.room().lineup.map((pick) => [pick.hero, pick.sub]), main.map((hero) => [hero, undefined]));
-  assert.equal(room.pick('b', 'kirze', 0, true), null, 'asked for the Sub Team with company: just put in');
+  assert.equal(room.pick('b', ALL[TM_ROOM.soloSlots] as string, 0, true), null, 'asked for the Sub Team with company: just put in');
   assert.equal(b.room().lineup.at(-1)?.sub, undefined);
 });
 
