@@ -338,7 +338,7 @@ var POISONED$1 = {
 	icon: "🫧",
 	harmful: true
 };
-var WEAKENED = {
+var WEAKENED$1 = {
 	name: "Poisonous Explosion",
 	about: "Hits 25% softer, and is 15% less likely to land a critical blow.",
 	icon: "💥",
@@ -430,11 +430,11 @@ function galgoriaPart(fight) {
 			explosion(_part, amount) {
 				venom(amount, (target) => {
 					put(target.statuses, {
-						name: WEAKENED.name,
+						name: WEAKENED$1.name,
 						left: EXPLOSION.lasts,
 						deals: EXPLOSION.deals,
 						crit: EXPLOSION.crit,
-						shown: WEAKENED
+						shown: WEAKENED$1
 					});
 					fight.cue(null, "explosion", [target]);
 				});
@@ -1030,6 +1030,111 @@ var CODED = {
 	dive: {
 		lands: [1],
 		until: 1.7
+	},
+	shot: {
+		lands: [.45],
+		until: 1
+	},
+	focus: {
+		lands: [1.3],
+		until: 1.9
+	},
+	wipeout: {
+		lands: [.6],
+		until: 1.3
+	},
+	unleash: {
+		lands: [.6],
+		until: 1.4
+	},
+	maw: {
+		lands: [.42],
+		until: 1
+	},
+	lightning: {
+		lands: [.45, 1.45],
+		until: 1.9
+	},
+	roar: {
+		lands: [.6],
+		until: 1.5
+	},
+	breath: {
+		lands: every$1(6, .6, .15),
+		until: 1.9
+	},
+	drain: {
+		lands: [.42],
+		until: 1
+	},
+	sweet: {
+		lands: [.5],
+		until: 1.2
+	},
+	soak: {
+		lands: [.6],
+		until: 1.3
+	},
+	liberation: {
+		lands: [.7],
+		until: 1.4
+	},
+	thrust: {
+		lands: [.45],
+		until: 1.1
+	},
+	ground: {
+		lands: [.6],
+		until: 1.4
+	},
+	shroud: {
+		lands: [.6],
+		until: 1.4
+	},
+	creed: {
+		lands: [
+			.45,
+			.8,
+			1.3,
+			1.45
+		],
+		until: 2
+	},
+	chop: {
+		lands: [.45],
+		until: 1.1
+	},
+	smash: {
+		lands: [.4, .75],
+		until: 1.3
+	},
+	warcry: {
+		lands: [.6],
+		until: 1.5
+	},
+	vortex: {
+		lands: every$1(6, .4, .15),
+		until: 1.6
+	},
+	katar: {
+		lands: [.3, .55],
+		until: 1
+	},
+	sighted: {
+		lands: [.5],
+		until: 1.2
+	},
+	tornado: {
+		lands: [
+			.4,
+			.6,
+			.8
+		],
+		until: 1.3
+	},
+	whisper: {
+		lands: [...every$1(6, .4, .12), 1.3],
+		until: 1.9
 	}
 };
 //#endregion
@@ -1056,18 +1161,71 @@ var LINE_X = {
 /** The furthest back a hero stands: as far as a full field of one line, or of all three, reaches. A line further back moves up rather than go past it. */
 var HINDMOST = HERO_X - 8 * ROOM - 2 * GAP;
 /**
+* The frontline stands round the boss: on an arc this far from where the boss stands (Galgoria's middle:
+* ../bosses/galgoria/model.ts), through where the frontline begins, each this far from the next (wide enough
+* that the arc's ends come round toward the boss as the camera sees it). Its first ring holds this many, a
+* second (behind it, in its gaps) the rest.
+*/
+var AROUND = 7.5;
+var APART = 3 * ROOM;
+var RING = 5;
+/** The first ring's two ends (the furthest round, nearest the boss as the camera sees them) stand this much further back along the field. */
+var ENDS_BACK = ROOM;
+/**
+* The frontline's spots round the boss, in the order its heroes take them: the first straight in front of it,
+* then one either side in turn (behind first, then toward the camera), the last two drawn back (ENDS_BACK);
+* once the first ring is full, a second behind it in its gaps, two rooms from each of the first's either side of it.
+*/
+function aroundBoss(count) {
+	const middle = 7;
+	const sin = APART / 2 / AROUND;
+	const cos = Math.sqrt(1 - sin * sin);
+	const cos2 = cos * cos - sin * sin;
+	const sin2 = 2 * sin * cos;
+	const ring = [
+		[-.5, 0],
+		[middle - AROUND * cos2, AROUND * sin2],
+		[middle - AROUND * (cos2 * cos2 - sin2 * sin2) - ENDS_BACK, AROUND * 2 * sin2 * cos2]
+	];
+	const gap = ([ax, ay], [bx, by]) => {
+		const dx = bx - ax;
+		const dy = by - ay;
+		const apart = Math.sqrt(dx * dx + dy * dy);
+		const out = Math.sqrt(4 * ROOM * ROOM - apart * apart / 4) / apart;
+		return [(ax + bx) / 2 - dy * out, (ay + by) / 2 + dx * out];
+	};
+	const gaps = [gap(ring[0], ring[1]), gap(ring[1], ring[2])];
+	const spots = [];
+	for (let i = 0; i < count; i++) {
+		const first = i < RING;
+		const k = first ? i : i - RING;
+		const [x, y] = first ? ring[k + 1 >> 1] ?? ring[2] : gaps[k >> 1] ?? gaps[1];
+		const side = k % 2 === (first ? 1 : 0) ? -1 : 1;
+		spots.push([x, side * y]);
+	}
+	return spots;
+}
+/**
 * Where each hero on the field stands, [along the field, toward the camera], by its line (`lines`, one
-* for each hero, in its order): the frontline first, then the middle, then the backline, each where its
-* line begins or behind the one before it, whichever is further back (but never past the hindmost a full
-* field reaches). Each hero is a room behind the last, in two rows, the back row in the front row's gaps
-* and as far back as keeps it two rooms from the front row too (each three neighbours a triangle with
-* sides of two rooms); one line is a room further again from the next.
+* for each hero, in its order). The frontline round the boss, side by side (aroundBoss). Then the middle,
+* then the backline, each where its line begins or behind the one before it, whichever is further back
+* (but never past the hindmost a full field reaches). Each of those is a room behind the last, in two rows,
+* the back row in the front row's gaps and as far back as keeps it two rooms from the front row too (each
+* three neighbours a triangle with sides of two rooms); one line is a room further again from the next.
 */
 function formation(lines) {
 	const spots = [];
+	const front = aroundBoss(lines.filter((line) => line === "front").length);
 	let placed = 0;
 	let last = 0;
-	for (const line of LINES) {
+	lines.forEach((own, i) => {
+		if (own !== "front") return;
+		const spot = front[placed];
+		spots[i] = spot;
+		last = placed === 0 ? spot[0] : Math.min(last, spot[0]);
+		placed++;
+	});
+	for (const line of LINES.slice(1)) {
 		let first = true;
 		lines.forEach((own, i) => {
 			if (own !== line) return;
@@ -1332,7 +1490,7 @@ var SET_INFO = TM_SETS.map((id) => ({
 	effects: Object.fromEntries(Object.entries(ROLES[id]).map(([heroClass, role]) => [heroClass, ABOUT$1[id][role]]))
 }));
 /** What Authority's support puts on the ally with the highest ATK. */
-var GUARDED$1 = {
+var GUARDED$2 = {
 	name: "Authority",
 	about: "Can’t be knocked down.",
 	icon: "⚡"
@@ -2080,6 +2238,122 @@ var BARORO = {
 		.5
 	]
 };
+/** What a critical blow of hers deals more (at ATK) and the mana it gains her, no sooner than `every` seconds after the last (the same at every tier). */
+var SVELTA = {
+	name: "Dragonbane, Svelta",
+	blow: 500,
+	mana: 150,
+	every: .5
+};
+/** How many blows of his attack bring it on; its blow (at ATK) and stun; and the Storm of Neraxis for `lasts` seconds: every ally's defense higher by a share of his, and its ATK (a share). */
+var ACRAVITA = {
+	name: "Roaring Dragonmaw, Acravita",
+	blows: [
+		19,
+		18,
+		17,
+		16,
+		15
+	],
+	blow: 1e3,
+	stun: .5,
+	lasts: 10,
+	defense: [
+		.048,
+		.057,
+		.069,
+		.083,
+		.1
+	],
+	atk: [
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	]
+};
+/** What each stack adds to her ATK (a share) and attack speed (points), for `lasts` seconds, up to `most`. */
+var PERION = {
+	name: "Essence of Greed, Perion",
+	atk: .005,
+	speed: 5,
+	lasts: 30,
+	most: [
+		90,
+		110,
+		130,
+		160,
+		200
+	]
+};
+/** Every `skills` skills of his: a blow (at ATK), the boss taking more physical damage for `lasts` seconds, and his M.DEF higher (a share) for `guards`. */
+var GAIAMENES = {
+	name: "Wave of Protection, Gaiamenes",
+	skills: 3,
+	blow: [
+		2400,
+		2900,
+		3500,
+		4200,
+		5e3
+	],
+	weakness: [
+		.3,
+		.36,
+		.43,
+		.51,
+		.6
+	],
+	lasts: 20,
+	defense: [
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	],
+	guards: 10
+};
+/** His max HP higher (a share: here, taking that much less); and how likely a blow of his attack is to deal more (at ATK) and freeze the boss for `freeze` seconds. */
+var NUMINU = {
+	name: "Holy Bird, Numinu",
+	hp: [
+		.14,
+		.17,
+		.21,
+		.25,
+		.3
+	],
+	chance: .15,
+	blow: [
+		2400,
+		2900,
+		3500,
+		4200,
+		5e3
+	],
+	freeze: 2
+};
+/** In Stealth for `lasts` seconds from the start, untouched for the first so many; and her crit damage higher (a share) while she is in Stealth. */
+var CAETHASIS = {
+	name: "Demon of the Calm, Caethasis",
+	lasts: 10,
+	untouched: [
+		2.4,
+		2.9,
+		3.5,
+		4.2,
+		5
+	],
+	critDamage: [
+		.36,
+		.43,
+		.52,
+		.62,
+		.75
+	]
+};
 /** What every ally gains by the TechnoMagic gear it wears (the same at every tier): 1 piece, more ATK; 2, more defense; 3, more max HP (here: taking that much less); 4, more DMG. */
 var CORBEAU = {
 	name: "Wonder of Magos Le’Flamme, Corbeau Rose",
@@ -2108,9 +2382,15 @@ var ABOUT = {
 	crow: (tier) => `His attack shoots a bullet more, dealing ${pct(atTier(AKISTRA.bullet, tier) / 1e3)} of his ATK. A skill of his raises his ATK and crit damage by ${pct(atTier(AKISTRA.boost, tier))} for ${AKISTRA.lasts} seconds, once every ${AKISTRA.every} seconds.`,
 	oddy: (tier) => `Her [Time Distortion] takes ${atTier(TEMPODIANA.cooldown, tier)} seconds more off every ally’s cooldowns, and raises their ATK by ${pct(atTier(TEMPODIANA.atk, tier))} for ${TEMPODIANA.lasts} seconds.`,
 	phillop: (tier) => `Hurt by the boss, every other ally’s defense is ${pct(atTier(ATEIN.defense, tier))} higher for ${ATEIN.guards} seconds, and he gains a stack of [Dragon Rage] for ${ATEIN.lasts} seconds (up to ${ATEIN.most}), each +${fine(atTier(ATEIN.rage, tier))} ATK and defense.`,
-	naila: (tier) => `Each critical blow of hers leaves the boss losing ${pct(atTier(BARORO.blow, tier) / 1e3)} of her ATK over ${BARORO.lasts} seconds, and taking ${pct(atTier(BARORO.takes, tier))} more physical damage meanwhile.`
+	naila: (tier) => `Each critical blow of hers leaves the boss losing ${pct(atTier(BARORO.blow, tier) / 1e3)} of her ATK over ${BARORO.lasts} seconds, and taking ${pct(atTier(BARORO.takes, tier))} more physical damage meanwhile.`,
+	yanne: () => `Each critical blow of hers deals ${pct(SVELTA.blow / 1e3)} of her ATK more and gains her ${SVELTA.mana} mana, no sooner than ${SVELTA.every} seconds after the last.`,
+	neraxis: (tier) => `Every ${atTier(ACRAVITA.blows, tier)} blows of his attack, deals ${pct(ACRAVITA.blow / 1e3)} of his ATK to the boss and stuns it for ${ACRAVITA.stun} seconds, and becomes the [Storm of Neraxis] for ${ACRAVITA.lasts} seconds: every ally gains ${fine(atTier(ACRAVITA.defense, tier))} of his P.DEF and M.DEF, and +${pct(atTier(ACRAVITA.atk, tier))} ATK.`,
+	erze: (tier) => `Each blow of her skills gives her a stack for ${PERION.lasts} seconds (up to ${atTier(PERION.most, tier)}), each +${fine(PERION.atk)} ATK and +${PERION.speed} attack speed. They can’t be dispelled.`,
+	loman: (tier) => `Every ${GAIAMENES.skills} skills he uses, deals ${pct(atTier(GAIAMENES.blow, tier) / 1e3)} of his ATK to the boss, which takes ${pct(atTier(GAIAMENES.weakness, tier))} more physical damage for ${GAIAMENES.lasts} seconds; and his M.DEF is ${pct(atTier(GAIAMENES.defense, tier))} higher for ${GAIAMENES.guards} seconds.`,
+	gau: (tier) => `His max HP is ${pct(atTier(NUMINU.hp, tier))} higher (he takes that much less). Each blow of his attack has a ${pct(NUMINU.chance)} chance to deal ${pct(atTier(NUMINU.blow, tier) / 1e3)} of his ATK more and freeze the boss for ${NUMINU.freeze} seconds.`,
+	tanya: (tier) => `In [Stealth] for ${CAETHASIS.lasts} seconds as the fight begins, and the boss can’t touch her for the first ${atTier(CAETHASIS.untouched, tier)}. While she is in [Stealth], her crit damage is ${pct(atTier(CAETHASIS.critDamage, tier))} higher.`
 };
-EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name, RASCAL.name, CARPRAIN.name, ELTOIRRE.name, ELSION.name, BARBATOS.name, ROBURU.name, CORBEAU.name, GIGANTE.name, NOTOS.name, AKISTRA.name, TEMPODIANA.name, ATEIN.name, BARORO.name;
+EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name, RASCAL.name, CARPRAIN.name, ELTOIRRE.name, ELSION.name, BARBATOS.name, ROBURU.name, CORBEAU.name, GIGANTE.name, NOTOS.name, AKISTRA.name, TEMPODIANA.name, ATEIN.name, BARORO.name, SVELTA.name, ACRAVITA.name, PERION.name, GAIAMENES.name, NUMINU.name, CAETHASIS.name;
 /** The heroes that have a unique weapon, by id. */
 var UNIQUE_HEROES = Object.keys(ABOUT);
 /** What a hero's unique weapon does at a tier (null: it has none). */
@@ -2192,6 +2472,42 @@ var DRAGON_RAGE = {
 	about: "ATK and defense higher for each.",
 	icon: "🐉",
 	art: { uw: "phillop" }
+};
+var SVELTA_UP = {
+	name: "Dragonbane, Svelta",
+	about: "A critical blow deals more and gains her mana.",
+	icon: "🐲",
+	art: { uw: "yanne" }
+};
+var ACRAVITA_UP = {
+	name: "Storm of Neraxis",
+	about: "Defense higher by a share of Neraxis’s, and ATK higher.",
+	icon: "🌪️",
+	art: { uw: "neraxis" }
+};
+var PERION_UP = {
+	name: "Essence of Greed, Perion",
+	about: "ATK and attack speed higher for each.",
+	icon: "🩸",
+	art: { uw: "erze" }
+};
+var GAIAMENES_UP = {
+	name: "Blessing of Orvelia",
+	about: "M.DEF higher.",
+	icon: "🛡️",
+	art: { uw: "loman" }
+};
+var NUMINU_UP = {
+	name: "Holy Bird, Numinu",
+	about: "Max HP higher: he takes that much less.",
+	icon: "🕊️",
+	art: { uw: "gau" }
+};
+var CAETHASIS_UP = {
+	name: "Demon of the Calm, Caethasis",
+	about: "Crit damage higher while in Stealth.",
+	icon: "👁️",
+	art: { uw: "tanya" }
 };
 //#endregion
 //#region src/technomagic/sim/perks.ts
@@ -3198,7 +3514,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			if (attacking === by) by.mana = Math.min(MAX_MANA, by.mana + by.manaPerAttack);
 			if (counted) {
-				for (const fighter of fighters) fighter.part.struck?.();
+				for (const fighter of fighters) fighter.part.struck?.(by);
 				foe.part.struck?.(by, dealt);
 				by.part.blow?.(attacking !== by);
 			}
@@ -3236,8 +3552,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		target: aimed,
 		hurt(target, amount, blockable = true) {
 			if (target.hp <= 0 || away(target.statuses) || result) return 0;
-			if (target.immune > 0) {
-				target.immune--;
+			if (target.immune > 0 || target.part.untouched?.()) {
+				if (target.immune > 0) target.immune--;
 				events.push({
 					kind: "number",
 					on: target.index,
@@ -3258,10 +3574,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					magical: target.stats.block.magical + walled + blocking(target.statuses, "magical")
 				}
 			};
-			const nimble = target.nimble > 0 ? target.nimble * (target.perkDefs.find((perk) => perk.nimble)?.nimble?.dodge ?? 0) : 0;
-			if (nimble > 0) stands.dodge = {
-				physical: stands.dodge.physical + nimble,
-				magical: stands.dodge.magical + nimble
+			const nimbler = (target.nimble > 0 ? target.nimble * (target.perkDefs.find((perk) => perk.nimble)?.nimble?.dodge ?? 0) : 0) + (target.part.dodge?.() ?? 0);
+			if (nimbler > 0) stands.dodge = {
+				physical: stands.dodge.physical + nimbler,
+				magical: stands.dodge.magical + nimbler
 			};
 			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type) - critResisting(party, type)) + critting(foe.statuses);
 			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
@@ -3323,7 +3639,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				amount: soaked,
 				type: "shield"
 			});
-			const lost = Math.min(target.hp, Math.max(0, dealt - soaked));
+			const losing = Math.min(target.hp, Math.max(0, dealt - soaked));
+			const lost = losing >= target.hp && target.hp > 1 && target.part.spared?.() ? target.hp - 1 : losing;
 			if (dealt > soaked) {
 				target.hp -= lost;
 				spare(target);
@@ -3636,10 +3953,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	if (fighters.some((fighter) => fighter.set?.id === "authority" && fighter.set.role === "support")) {
 		const strongest = fighters.reduce((best, fighter) => !best || fighter.stats.atk > best.stats.atk ? fighter : best, null);
 		if (strongest) put(strongest.statuses, {
-			name: GUARDED$1.name,
+			name: GUARDED$2.name,
 			left: AUTHORITY$1.guardFor,
 			guards: true,
-			shown: GUARDED$1
+			shown: GUARDED$2
 		});
 	}
 	const champions = fighters.reduce((count, fighter) => count + has(fighter, "champion"), 0);
@@ -3690,7 +4007,7 @@ var CHARGE$1 = {
 	cooldown: .1
 };
 /** Her own perks' numbers: more Charge from a skill, Process of Elimination's mark, Overcharge's more ATK and longer, and Transcend 5's Dark's for every ally (attack speed in points, ATK a share of hers). */
-var PERKS$16 = {
+var PERKS$22 = {
 	charge: 1.4,
 	eliminated: .25,
 	overAtk: 1.4,
@@ -3700,7 +4017,7 @@ var PERKS$16 = {
 		atk: .05
 	}
 };
-var art$16 = skillArt("annette");
+var art$22 = skillArt("annette");
 var CHARGING = {
 	attack: 1,
 	crit: 0,
@@ -3709,7 +4026,7 @@ var CHARGING = {
 		name: "Charge",
 		about: `Passive. A [Charge] every ${CHARGE$1.every} seconds, and ${CHARGE$1.perCrystal} for each crystal of mana she spends; at ${CHARGE$1.full} she is [Overcharged] for ${CHARGE$1.lasts} seconds (ATK higher, and each attack takes ${pct(CHARGE$1.cooldown)} off her skills’ cooldowns).`,
 		icon: "⚡",
-		art: art$16(3)
+		art: art$22(3)
 	},
 	words: `Gains 1 stack of Charge every ${CHARGE$1.every} sec, and gains ${CHARGE$1.perCrystal} stacks of Charge per every orb of mana used. Upon the ${CHARGE$1.full}th Charge stacked, enters Overcharge state. When in Overcharge, ATK is increased by ${pct(CHARGE$1.atk)} for ${CHARGE$1.lasts} sec, and each auto attack reduces skill cooldown by ${pct(CHARGE$1.cooldown)}. All effects cannot be dispelled, and Charge will not stack during Overcharge state.`
 };
@@ -3724,27 +4041,27 @@ var OVERCHARGED = {
 	name: "Overcharge",
 	about: `${pct(CHARGE$1.atk)} higher ATK; each attack takes ${pct(CHARGE$1.cooldown)} off her skills’ cooldowns; her skills do more.`,
 	icon: "🔋",
-	art: art$16(3)
+	art: art$22(3)
 };
 /** What Transcend 5's Dark gives every ally while she is Overcharged. */
 var ROUSED = {
 	name: "Overcharge (allies)",
-	about: `Quicker, and its ATK higher by ${pct(PERKS$16.allies.atk)} of Annette’s.`,
+	about: `Quicker, and its ATK higher by ${pct(PERKS$22.allies.atk)} of Annette’s.`,
 	icon: "⚡",
-	art: art$16(3)
+	art: art$22(3)
 };
 /** What Emergency Treatment gives each ally: shown on its card, with how long it has left. */
 var TREATED = {
 	name: "Emergency Treatment",
 	about: "Healed over time, and knocked down for less long.",
 	icon: "🩹",
-	art: art$16(1)
+	art: art$22(1)
 };
 var TREATED_OVER = {
 	name: "Emergency Treatment",
 	about: `Healed over time; more likely to land a critical blow, deals ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 	icon: "🩹",
-	art: art$16(1)
+	art: art$22(1)
 };
 /** What Blasting Ray and Process of Elimination leave on the boss. */
 var RAYED = "Blasting Ray";
@@ -3764,7 +4081,7 @@ var ANNETTE = {
 			about: `Rascal fires a ray into the boss: for ${RAY.lasts} seconds it hits ${pct(RAY.weaker)} softer and takes ${pct(RAY.takes)} more magical damage. [Overcharged]: a second ray, and twice that.`,
 			words: `Attacks enemies in a straight line, dealing M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG.`,
 			icon: "🔆",
-			art: art$16(0),
+			art: art$22(0),
 			move: "ray",
 			cooldown: 11,
 			cost: 2
@@ -3775,7 +4092,7 @@ var ANNETTE = {
 			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 			words: `Dispels negative effects of all allies and heals HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
 			icon: "🩹",
-			art: art$16(1),
+			art: art$22(1),
 			move: "treatment",
 			cooldown: 13,
 			cost: 2
@@ -3785,7 +4102,7 @@ var ANNETTE = {
 			about: `A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for ${ELIMINATION.stun} seconds, and leaves it taking ${pct(ELIMINATION.takes)} more magical damage for ${ELIMINATION.lasts}.`,
 			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing M.DMG. When in Overcharge state, deals M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion.`,
 			icon: "💣",
-			art: art$16(2),
+			art: art$22(2),
 			move: "elimination",
 			cooldown: 25,
 			cost: 3
@@ -3801,21 +4118,21 @@ var ANNETTE = {
 				lasts: 10
 			}
 		} }, ({ skill: { mark } }) => `Target takes ${pct(mark.takes.magical - 1)} increased M.DMG for ${mark.lasts} sec.`),
-		"s1-dark": { words: `Charge amount is boosted by ${pct(PERKS$16.charge - 1)} upon use.` },
+		"s1-dark": { words: `Charge amount is boosted by ${pct(PERKS$22.charge - 1)} upon use.` },
 		"s2-light": said({ skill: {
 			index: 1,
 			cooldown: -3
 		} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
-		"s2-dark": { words: `Charge amount is boosted by ${pct(PERKS$16.charge - 1)} upon use.` },
+		"s2-dark": { words: `Charge amount is boosted by ${pct(PERKS$22.charge - 1)} upon use.` },
 		"s3-light": said({ skill: {
 			index: 2,
 			dmg: 1.4
 		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s3-dark": { words: `Target takes ${pct(PERKS$16.eliminated)} increased M.DMG.` },
-		"s4-light": { words: `ATK boost is increased by ${pct(PERKS$16.overAtk - 1)}.` },
-		"s4-dark": { words: `Overcharge duration is increased by ${PERKS$16.overLonger} sec.` },
+		"s3-dark": { words: `Target takes ${pct(PERKS$22.eliminated)} increased M.DMG.` },
+		"s4-light": { words: `ATK boost is increased by ${pct(PERKS$22.overAtk - 1)}.` },
+		"s4-dark": { words: `Overcharge duration is increased by ${PERKS$22.overLonger} sec.` },
 		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
-		"t5-dark": { words: `When Overcharge activates, increases all allies' ATK Spd by ${PERKS$16.allies.speed}, and increases the ATK of all allies by ${pct(PERKS$16.allies.atk)} of Annette's ATK.` }
+		"t5-dark": { words: `When Overcharge activates, increases all allies' ATK Spd by ${PERKS$22.allies.speed}, and increases the ATK of all allies by ${pct(PERKS$22.allies.atk)} of Annette's ATK.` }
 	},
 	attack: "zap",
 	join(fight, self) {
@@ -3843,18 +4160,18 @@ var ANNETTE = {
 			charge = Math.min(CHARGE$1.full, charge + count);
 			if (charge < CHARGE$1.full || over > 0) return;
 			charge = 0;
-			over = CHARGE$1.lasts + (self.perks.has("s4-dark") ? PERKS$16.overLonger : 0);
+			over = CHARGE$1.lasts + (self.perks.has("s4-dark") ? PERKS$22.overLonger : 0);
 			put(self.statuses, {
 				name: OVERCHARGED.name,
 				left: over,
-				deals: 1 + CHARGE$1.atk * (self.perks.has("s4-light") ? PERKS$16.overAtk : 1),
+				deals: 1 + CHARGE$1.atk * (self.perks.has("s4-light") ? PERKS$22.overAtk : 1),
 				shown: OVERCHARGED
 			});
 			if (self.perks.has("t5-dark")) for (const ally of allies()) put(ally.statuses, {
 				name: ROUSED.name,
 				left: over,
-				pace: 1 + share(PERKS$16.allies.speed),
-				deals: 1 + PERKS$16.allies.atk * self.stats.atk / ally.stats.atk,
+				pace: 1 + share(PERKS$22.allies.speed),
+				deals: 1 + PERKS$22.allies.atk * self.stats.atk / ally.stats.atk,
 				shown: ROUSED
 			});
 		};
@@ -3909,7 +4226,7 @@ var ANNETTE = {
 				elimination() {
 					const more = overcharged.elimination;
 					fight.hit(self, more ? ELIMINATION.over : ELIMINATION.blow);
-					const takes = (more ? ELIMINATION.takes : 0) + (self.perks.has("s3-dark") ? PERKS$16.eliminated : 0);
+					const takes = (more ? ELIMINATION.takes : 0) + (self.perks.has("s3-dark") ? PERKS$22.eliminated : 0);
 					if (takes > 0) put(fight.foe.statuses, {
 						name: ELIMINATED,
 						left: ELIMINATION.lasts,
@@ -3921,7 +4238,7 @@ var ANNETTE = {
 			},
 			used(index, ability) {
 				if (ability.move === "ray" || ability.move === "treatment" || ability.move === "elimination") overcharged[ability.move] = over > 0;
-				const more = index === 0 && self.perks.has("s1-dark") || index === 1 && self.perks.has("s2-dark") ? PERKS$16.charge : 1;
+				const more = index === 0 && self.perks.has("s1-dark") || index === 1 && self.perks.has("s2-dark") ? PERKS$22.charge : 1;
 				gain(ability.cost * CHARGE$1.perCrystal * more);
 			},
 			tick(dt) {
@@ -3996,7 +4313,7 @@ var VOW = {
 	mana: 300
 };
 /** His own perks' numbers: Shield Strike's stun, Guardian Shield's more (and its P.DMG taken), Vow of Knights' less ATK, and Transcend 5's Dark's guard for every ally (how long, and how long it waits). */
-var PERKS$15 = {
+var PERKS$21 = {
 	bashStun: 1,
 	guardMore: 1.4,
 	guardPhysical: .75,
@@ -4008,7 +4325,7 @@ var PERKS$15 = {
 		critResist: 200
 	}
 };
-var art$15 = skillArt("klaus");
+var art$21 = skillArt("klaus");
 var VOW_OF_KNIGHTS = {
 	attack: 1,
 	crit: 0,
@@ -4017,23 +4334,23 @@ var VOW_OF_KNIGHTS = {
 		name: "Vow of Knights",
 		about: `Passive. When he blocks he strikes back: the boss hits ${pct(1 - VOW.weak)} less hard for ${VOW.lasts} seconds, and he gains ${VOW.mana} mana.`,
 		icon: "🛡️",
-		art: art$15(3)
+		art: art$21(3)
 	},
 	words: `Upon blocking, deals P.DMG to frontal enemies and decreases ATK of affected targets by ${pct(1 - VOW.weak)} for ${VOW.lasts} sec. Recovers ${VOW.mana} MP after hitting the target. When an ally excluding self takes DMG increases all allies' P.DEF by 20% and P.Crit Resistance by 200 for 5 sec. This effect only activates once every 10 sec.`
 };
 /** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
-var GUARDED = {
+var GUARDED$1 = {
 	name: "Guardian Shield",
 	about: `Takes ${pct(1 - GUARDIAN.taken)} less from the boss.`,
 	icon: "✨",
-	art: art$15(2)
+	art: art$21(2)
 };
 /** What his Transcend 5's Dark gives every ally when another is hit. */
-var WARDED$1 = {
+var WARDED$2 = {
 	name: "Knight’s Guard",
-	about: `P.DEF +${pct(PERKS$15.ward.defends - 1)} and P.Crit Resist +${pct(share(PERKS$15.ward.critResist))}.`,
+	about: `P.DEF +${pct(PERKS$21.ward.defends - 1)} and P.Crit Resist +${pct(share(PERKS$21.ward.critResist))}.`,
 	icon: "🛡️",
-	art: art$15(3)
+	art: art$21(3)
 };
 var KLAUS = {
 	id: "klaus",
@@ -4050,7 +4367,7 @@ var KLAUS = {
 			about: `A leap and a blow down on the boss that stuns it for ${CUT_GROUND.stun} seconds.`,
 			words: `Leaps into the air and deals P.DMG to enemies in range, stunning them for ${CUT_GROUND.stun} sec.`,
 			icon: "⚔️",
-			art: art$15(0),
+			art: art$21(0),
 			move: "slam",
 			cooldown: 9,
 			cost: 2
@@ -4060,18 +4377,18 @@ var KLAUS = {
 			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
 			words: `Deals P.DMG proportional to P.DEF to enemies in range and knocks them back. Hit enemies' All DEF and ATK Spd is reduced by ${pct(SHIELD_STRIKE.exposed - 1)} and ${SHIELD_STRIKE.speed} for ${SHIELD_STRIKE.lasts} sec, respectively. Upon blocking an attack, skill cooldown is reduced by 0.5 sec.`,
 			icon: "🛡️",
-			art: art$15(1),
+			art: art$21(1),
 			move: "bash",
 			cooldown: 8,
 			cost: 1
 		},
 		{
 			name: "Guardian Shield",
-			auto: { keeps: GUARDED.name },
+			auto: { keeps: GUARDED$1.name },
 			about: `For ${GUARDIAN.lasts} seconds every hero takes ${pct(1 - GUARDIAN.taken)} less from the boss.`,
 			words: `All allies' P.DEF is increased for ${GUARDIAN.lasts} sec and P.Crit Resistance is increased by 300, and reduces P.DMG they take by ${pct(1 - GUARDIAN.taken)}..`,
 			icon: "✨",
-			art: art$15(2),
+			art: art$21(2),
 			move: "guard",
 			cooldown: 12,
 			cost: 2
@@ -4092,13 +4409,13 @@ var KLAUS = {
 				lasts: 10
 			}
 		} }, ({ skill: { mark } }) => `Target takes ${pct(mark.takes.physical - 1)} increased P.DMG for ${mark.lasts} sec.`),
-		"s2-dark": { words: `Stuns the enemy for ${PERKS$15.bashStun} sec.` },
-		"s3-light": { words: `DEF boost is increased by ${pct(PERKS$15.guardMore - 1)}.` },
-		"s3-dark": { words: `Receives ${pct(1 - PERKS$15.guardPhysical)} reduced P.DMG for the duration.` },
+		"s2-dark": { words: `Stuns the enemy for ${PERKS$21.bashStun} sec.` },
+		"s3-light": { words: `DEF boost is increased by ${pct(PERKS$21.guardMore - 1)}.` },
+		"s3-dark": { words: `Receives ${pct(1 - PERKS$21.guardPhysical)} reduced P.DMG for the duration.` },
 		"s4-light": { words: "Casting time is greatly boosted." },
-		"s4-dark": { words: `Reduces an additional ${pct(PERKS$15.weaker)} of ATK.` },
+		"s4-dark": { words: `Reduces an additional ${pct(PERKS$21.weaker)} of ATK.` },
 		"t5-light": t5Light({ blockPhysical: 200 }, ({ blockPhysical }) => `P.Block +${blockPhysical}`),
-		"t5-dark": { words: `When an ally other than this hero is hit by an attack, increases all allies' P.DEF by ${pct(PERKS$15.ward.defends - 1)} and P.Crit Resist by ${pct(share(PERKS$15.ward.critResist))} (${PERKS$15.ward.every} sec Cooldown).` }
+		"t5-dark": { words: `When an ally other than this hero is hit by an attack, increases all allies' P.DEF by ${pct(PERKS$21.ward.defends - 1)} and P.Crit Resist by ${pct(share(PERKS$21.ward.critResist))} (${PERKS$21.ward.every} sec Cooldown).` }
 	},
 	attack: "swing",
 	timing: {
@@ -4132,18 +4449,18 @@ var KLAUS = {
 						shown: "curse"
 					});
 					fight.slow(SHIELD_STRIKE.speed, SHIELD_STRIKE.lasts);
-					if (self.perks.has("s2-dark")) fight.stun(PERKS$15.bashStun, { by: self });
+					if (self.perks.has("s2-dark")) fight.stun(PERKS$21.bashStun, { by: self });
 				},
 				guard() {
-					const taken = self.perks.has("s3-light") ? 1 - (1 - GUARDIAN.taken) * PERKS$15.guardMore : GUARDIAN.taken;
+					const taken = self.perks.has("s3-light") ? 1 - (1 - GUARDIAN.taken) * PERKS$21.guardMore : GUARDIAN.taken;
 					put(fight.party, {
-						name: GUARDED.name,
+						name: GUARDED$1.name,
 						left: GUARDIAN.lasts,
 						takes: self.perks.has("s3-dark") ? {
-							physical: taken * PERKS$15.guardPhysical,
+							physical: taken * PERKS$21.guardPhysical,
 							magical: taken
 						} : taken,
-						shown: GUARDED
+						shown: GUARDED$1
 					});
 				}
 			},
@@ -4153,7 +4470,7 @@ var KLAUS = {
 				put(fight.foe.statuses, {
 					name: "Weakened",
 					left: VOW.lasts,
-					deals: VOW.weak - (self.perks.has("s4-dark") ? PERKS$15.weaker : 0),
+					deals: VOW.weak - (self.perks.has("s4-dark") ? PERKS$21.weaker : 0),
 					shown: "slow"
 				});
 				self.mana = Math.min(MAX_MANA, self.mana + VOW.mana);
@@ -4163,13 +4480,13 @@ var KLAUS = {
 			},
 			hurt(who) {
 				if (!self.perks.has("t5-dark") || who === self || warding > 0 || self.hp <= 0) return;
-				warding = PERKS$15.ward.every;
+				warding = PERKS$21.ward.every;
 				put(fight.party, {
-					name: WARDED$1.name,
-					left: PERKS$15.ward.lasts,
-					defends: { physical: PERKS$15.ward.defends },
-					critResist: { physical: PERKS$15.ward.critResist },
-					shown: WARDED$1
+					name: WARDED$2.name,
+					left: PERKS$21.ward.lasts,
+					defends: { physical: PERKS$21.ward.defends },
+					critResist: { physical: PERKS$21.ward.critResist },
+					shown: WARDED$2
 				});
 			}
 		};
@@ -4177,7 +4494,7 @@ var KLAUS = {
 };
 //#endregion
 //#region src/technomagic/sim/heroes/ezekiel.ts
-var CLAW = {
+var CLAW$1 = {
 	blow: BLOW * 1.2,
 	fury: 2
 };
@@ -4210,24 +4527,24 @@ var CURSED = {
 	atk: .3
 };
 /** His own perks' numbers: Destructive Instinct's Dark's ATK after it (how long), Fury's more Heal Rate, and less taken for each stack of Cursed Blood. */
-var PERKS$14 = {
+var PERKS$20 = {
 	atk: 1.4,
 	atkFor: 5,
 	heals: 1.5,
 	taken: .12
 };
-var art$14 = skillArt("ezekiel");
+var art$20 = skillArt("ezekiel");
 var CURSED_BLOOD = {
 	attack: 1,
 	crit: 0,
 	control: 1,
 	shown: {
 		name: "Cursed Blood",
-		about: `Passive. A stack of [Cursed Blood] for each skill he uses; at the ${nth(CURSED.most)}, his skills are ready again, a burst knocks the boss down, and he is in [Fury] for ${CURSED.lasts} seconds: ATK higher, his attack ${times(CLAW.fury)} as hard, every skill reinforced (each costs a share of his health), fighting by himself.`,
+		about: `Passive. A stack of [Cursed Blood] for each skill he uses; at the ${nth(CURSED.most)}, his skills are ready again, a burst knocks the boss down, and he is in [Fury] for ${CURSED.lasts} seconds: ATK higher, his attack ${times(CLAW$1.fury)} as hard, every skill reinforced (each costs a share of his health), fighting by himself.`,
 		icon: "🩸",
-		art: art$14(3)
+		art: art$20(3)
 	},
-	words: `Ezekiel gains 1 stack of 'Cursed Blood' at the end of skill. Upon the ${nth(CURSED.most)} stack, consumes Cursed Blood to reset all skill cooldown, dealing M.DMG to nearby enemies and knocking them down for ${CURSED.down} sec, while activating Fury for ${CURSED.lasts} sec, that cannot be dispelled. While in Fury state, goes into an auto-battle mode that cannot be controlled, and ATK is increased by ${pct(CURSED.atk)}, auto attack DMG is ${fold(CLAW.fury)}, and all Skill effect are reinforced. Cannot gain Cursed Blood during Fury state, except for when killing an enemy.`
+	words: `Ezekiel gains 1 stack of 'Cursed Blood' at the end of skill. Upon the ${nth(CURSED.most)} stack, consumes Cursed Blood to reset all skill cooldown, dealing M.DMG to nearby enemies and knocking them down for ${CURSED.down} sec, while activating Fury for ${CURSED.lasts} sec, that cannot be dispelled. While in Fury state, goes into an auto-battle mode that cannot be controlled, and ATK is increased by ${pct(CURSED.atk)}, auto attack DMG is ${fold(CLAW$1.fury)}, and all Skill effect are reinforced. Cannot gain Cursed Blood during Fury state, except for when killing an enemy.`
 };
 /** His stacks of Cursed Blood: shown beside his passive, with how many he has. */
 var STACKED = {
@@ -4238,23 +4555,23 @@ var STACKED = {
 /** Fury: shown on his card, with how long it has left. */
 var FURY = {
 	name: "Fury",
-	about: `ATK ${pct(CURSED.atk)} higher, his attack ${times(CLAW.fury)} as hard, every skill reinforced (each costs a share of his health); he fights by himself.`,
+	about: `ATK ${pct(CURSED.atk)} higher, his attack ${times(CLAW$1.fury)} as hard, every skill reinforced (each costs a share of his health); he fights by himself.`,
 	icon: "😈",
-	art: art$14(3)
+	art: art$20(3)
 };
 /** What Dawning Despair in Fury gives him for a while. */
 var QUICKENED$1 = {
 	name: "Dawning Despair",
 	about: "His attacks quickened.",
 	icon: "💨",
-	art: art$14(1)
+	art: art$20(1)
 };
 /** What Destructive Instinct's Dark gives him after it. */
 var INSTINCT_UP = {
 	name: "Destructive Instinct",
-	about: `ATK ${pct(PERKS$14.atk - 1)} higher.`,
+	about: `ATK ${pct(PERKS$20.atk - 1)} higher.`,
 	icon: "🌀",
-	art: art$14(0)
+	art: art$20(0)
 };
 var EZEKIEL = {
 	id: "ezekiel",
@@ -4272,7 +4589,7 @@ var EZEKIEL = {
 			about: `A swipe of his demon arm, then a blow to the ground that knocks the boss down for ${INSTINCT.down} seconds. In [Fury]: both ${pct(INSTINCT.fury - 1)} harder, for ${pct(INSTINCT.cost)} of the health he has.`,
 			words: `Swipes nearby enemies in a circular range and deals M.DMG. Then strikes the ground, dealing M.DMG and knocking down enemies for ${INSTINCT.down} sec. [Fury] - Consumes ${pct(INSTINCT.cost)} of current HP to activate. Effect range increases and swipe attack draws in enemies.`,
 			icon: "🌀",
-			art: art$14(0),
+			art: art$20(0),
 			move: "instinct",
 			cooldown: 8,
 			cost: 2
@@ -4282,7 +4599,7 @@ var EZEKIEL = {
 			about: `A dash and a blow: the boss’s attacks ${pct(share(DESPAIR.speed))} slower for ${DESPAIR.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR.stun} seconds, and his attacks are ${pct(share(DESPAIR.speed))} quicker for ${DESPAIR.lasts}, for ${pct(DESPAIR.cost)} of the health he has.`,
 			words: `Dashes to an enemy with the highest ATK and deals M.DMG to enemies in range, reducing their ATK Spd by ${DESPAIR.speed}. [Fury] - Consumes ${pct(DESPAIR.cost)} of current HP to activate. Effect range increases, Stuns target for ${DESPAIR.stun} sec, and increases own ATK Spd by ${DESPAIR.speed} for ${DESPAIR.lasts} sec.`,
 			icon: "💨",
-			art: art$14(1),
+			art: art$20(1),
 			move: "despair",
 			cooldown: 10,
 			cost: 2
@@ -4292,7 +4609,7 @@ var EZEKIEL = {
 			about: `A charged blow that stuns the boss for ${DOOM.stun} seconds. In [Fury]: ${times(DOOM.fury)} as hard, for ${pct(DOOM.cost)} of the health he has.`,
 			words: `Charges energy and attacks target enemy, dealing M.DMG and inflicting Stun for ${DOOM.stun} sec. Ignores target's DMG Reduction effects. [Fury] - Consumes ${pct(DOOM.cost)} of current HP to activate. Attacks enemies in range of target and DMG is ${fold(DOOM.fury)}.`,
 			icon: "💥",
-			art: art$14(2),
+			art: art$20(2),
 			move: "doom",
 			cooldown: 7,
 			cost: 2
@@ -4304,7 +4621,7 @@ var EZEKIEL = {
 			index: 0,
 			dmg: 1.4
 		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s1-dark": { words: `After activation, ATK is increased by ${pct(PERKS$14.atk - 1)} for ${PERKS$14.atkFor} sec.` },
+		"s1-dark": { words: `After activation, ATK is increased by ${pct(PERKS$20.atk - 1)} for ${PERKS$20.atkFor} sec.` },
 		"s2-light": said({ skill: {
 			index: 1,
 			cost: -1
@@ -4315,8 +4632,8 @@ var EZEKIEL = {
 			index: 2,
 			dmg: 2
 		} }, ({ skill }) => `If there is 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s4-light": { words: `When in Fury state, heal rate is increased by ${pct(PERKS$14.heals - 1)}.` },
-		"s4-dark": { words: `Per every stacked 'Cursed Blood', takes ${pct(PERKS$14.taken)} reduced DMG.` },
+		"s4-light": { words: `When in Fury state, heal rate is increased by ${pct(PERKS$20.heals - 1)}.` },
+		"s4-dark": { words: `Per every stacked 'Cursed Blood', takes ${pct(PERKS$20.taken)} reduced DMG.` },
 		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
 		"t5-dark": { words: "When in Fury state, auto attack deals DMG that ignores DEF." }
 	},
@@ -4362,7 +4679,7 @@ var EZEKIEL = {
 				name: FURY.name,
 				left: fury,
 				deals: 1 + CURSED.atk,
-				...self.perks.has("s4-light") && { heals: PERKS$14.heals },
+				...self.perks.has("s4-light") && { heals: PERKS$20.heals },
 				...tier === null ? {} : {
 					critDamage: atTier(BARBATOS.critDamage, tier),
 					resist: atTier(BARBATOS.resist, tier)
@@ -4372,7 +4689,7 @@ var EZEKIEL = {
 		};
 		/** A blow of his attack (twice as hard in Fury; and with Transcend 5's Dark, through the boss's defense). */
 		const claw = () => {
-			fight.hit(self, CLAW.blow * (fury > 0 ? CLAW.fury : 1), true, 0, fury > 0 && self.perks.has("t5-dark"));
+			fight.hit(self, CLAW$1.blow * (fury > 0 ? CLAW$1.fury : 1), true, 0, fury > 0 && self.perks.has("t5-dark"));
 		};
 		return {
 			lands: {
@@ -4391,8 +4708,8 @@ var EZEKIEL = {
 					});
 					if (self.perks.has("s1-dark")) put(self.statuses, {
 						name: INSTINCT_UP.name,
-						left: PERKS$14.atkFor,
-						deals: PERKS$14.atk,
+						left: PERKS$20.atkFor,
+						deals: PERKS$20.atk,
 						shown: INSTINCT_UP
 					});
 				},
@@ -4435,7 +4752,7 @@ var EZEKIEL = {
 					self.statuses = self.statuses.filter((status) => status.name !== FURY.name);
 				}
 			},
-			takes: () => self.perks.has("s4-dark") ? 1 - PERKS$14.taken * stacks : 1,
+			takes: () => self.perks.has("s4-dark") ? 1 - PERKS$20.taken * stacks : 1,
 			guards: () => self.doing?.move === "doom" && self.perks.has("s3-light"),
 			lit: () => fury > 0,
 			buffs: () => fury > 0 || stacks === 0 ? [] : [{
@@ -4478,7 +4795,7 @@ var TAINTED = {
 * Her own perks' numbers: what Light of Doom leaves on the boss and its more healing, Blessing of Doom's block, the
 * Blessing of the Fallen Angel's and the Bond's (attack speed in points, ATK a share of hers), and Transcend 5's Dark's.
 */
-var PERKS$13 = {
+var PERKS$19 = {
 	light: {
 		takes: 1.2,
 		lasts: 10,
@@ -4499,7 +4816,7 @@ var PERKS$13 = {
 		lasts: 30
 	}
 };
-var art$13 = skillArt("fallen-frey");
+var art$19 = skillArt("fallen-frey");
 var TAINTED_ANGEL = {
 	attack: 1,
 	crit: 0,
@@ -4509,7 +4826,7 @@ var TAINTED_ANGEL = {
 		name: "Tainted Angel",
 		about: `Passive. She takes ${pct(TAINTED.taken - 1)} more from the boss, but her mana fills far faster; at full mana she gains [Darkened Power] every second (${TAINTED.most} at most).`,
 		icon: "🌑",
-		art: art$13(3)
+		art: art$19(3)
 	},
 	words: `As Fallen Frey has been corrupted by the darkness, she takes ${pct(TAINTED.taken - 1)} increased DMG, but she recovers ${TAINTED.mana} Mana every sec, and when her Mana is at 100%, she gains [Darkened Power] every sec. [Darkened Power] can be stacked up to max ${TAINTED.most} times and is irremovable.`
 };
@@ -4524,29 +4841,29 @@ var BLESSED$1 = {
 	name: "Blessing of Doom",
 	about: "A shield takes the boss’s blows first, and its attacks are quickened.",
 	icon: "🔮",
-	art: art$13(1)
+	art: art$19(1)
 };
 /** What Heaven's Vengeance leaves on the boss. */
-var EXPOSED$2 = "Heaven’s Vengeance";
+var EXPOSED$3 = "Heaven’s Vengeance";
 /** What her perks give her allies as the fight begins: Light of Doom's Light's mark on the boss, and the rest each ally's square. */
 var PURIFIED = "Light of Doom";
 var FALLEN_BLESSING = {
 	name: "Blessing of the Fallen Angel",
-	about: `Takes ${pct(1 - PERKS$13.blessing.takes)} less, and its DEF is ${pct(PERKS$13.blessing.defends - 1)} higher.`,
+	about: `Takes ${pct(1 - PERKS$19.blessing.takes)} less, and its DEF is ${pct(PERKS$19.blessing.defends - 1)} higher.`,
 	icon: "🪽",
-	art: art$13(3)
+	art: art$19(3)
 };
 var FALLEN_BOND = {
 	name: "Bond of the Fallen Angel",
-	about: `Quicker, and its ATK higher by ${pct(PERKS$13.bond.atk)} of Fallen Frey’s.`,
+	about: `Quicker, and its ATK higher by ${pct(PERKS$19.bond.atk)} of Fallen Frey’s.`,
 	icon: "🔗",
-	art: art$13(3)
+	art: art$19(3)
 };
 var FALLEN_FAVOUR = {
 	name: "Fallen Angel’s Favour",
-	about: `Quicker, and deals ${pct(PERKS$13.favour.deals - 1)} more to the boss.`,
+	about: `Quicker, and deals ${pct(PERKS$19.favour.deals - 1)} more to the boss.`,
 	icon: "🌒",
-	art: art$13(3)
+	art: art$19(3)
 };
 var FALLEN_FREY = {
 	id: "fallen-frey",
@@ -4564,7 +4881,7 @@ var FALLEN_FREY = {
 			about: "Heals the ally with the lowest health and those near it, then the light bursts on the boss.",
 			words: "Heals HP of the ally with the lowest HP and nearby allies and increases Heal Rate by 20% for 10 sec. Afterward, explodes the area around the target and deals M.DMG to enemies in range, reducing their Heal Rate by 20% for 10 sec. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and dispels positive effects of all enemies within range.",
 			icon: "✴️",
-			art: art$13(0),
+			art: art$19(0),
 			move: "light",
 			cooldown: 9,
 			cost: 2
@@ -4574,7 +4891,7 @@ var FALLEN_FREY = {
 			about: `A shield on the ${BLESSING$1.allies} allies with the lowest health for ${BLESSING$1.lasts} seconds, their attacks ${pct(share(BLESSING$1.speed))} quicker meanwhile.`,
 			words: `Grants [Blessing of Doom] to ${BLESSING$1.allies} allies with the lowest HP, absorbing DMG for ${BLESSING$1.lasts} sec. The shield grants immunity to CC and increases ATK Spd by ${BLESSING$1.speed} for the duration. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack to dispel negative effects from self and additionally dispels negative effects from targets.`,
 			icon: "🔮",
-			art: art$13(1),
+			art: art$19(1),
 			move: "blessing",
 			cooldown: 17,
 			cost: 3
@@ -4584,7 +4901,7 @@ var FALLEN_FREY = {
 			about: `${VENGEANCE.hits} blows of light on the boss, through some of its defense, each leaving it ${pct(VENGEANCE.exposed)} easier to hurt for ${VENGEANCE.lasts} seconds (up to ${VENGEANCE.most} times over). With [Darkened Power], every blow stuns it for ${VENGEANCE.stun} seconds.`,
 			words: `Brings Heaven's Vengeance upon a random enemy and nearby enemies over ${VENGEANCE.hits} hits, dealing M.DMG each hit and increasing All DMG the target takes by ${pct(VENGEANCE.exposed)} for ${VENGEANCE.lasts} sec. ${VENGEANCE.pierce} additional DEF Penetration applies to this Skill. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and inflicts Stun on the hit enemies for ${VENGEANCE.stun} sec each hit. The DMG Boost effect can be stacked up to max ${VENGEANCE.most} times.`,
 			icon: "☄️",
-			art: art$13(2),
+			art: art$19(2),
 			move: "vengeance",
 			cooldown: 22,
 			cost: 5
@@ -4592,22 +4909,22 @@ var FALLEN_FREY = {
 	],
 	passive: TAINTED_ANGEL,
 	perks: {
-		"s1-light": { words: `Increases All DMG the hit enemies take by ${pct(PERKS$13.light.takes - 1)} for ${PERKS$13.light.lasts} sec.` },
+		"s1-light": { words: `Increases All DMG the hit enemies take by ${pct(PERKS$19.light.takes - 1)} for ${PERKS$19.light.lasts} sec.` },
 		"s1-dark": said({ skill: {
 			index: 0,
 			cost: 1
-		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and Heal Rate by ${pct(PERKS$13.light.heals - 1)}.`),
+		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and Heal Rate by ${pct(PERKS$19.light.heals - 1)}.`),
 		"s2-light": { words: "Changes the target of shield to all allies." },
-		"s2-dark": { words: `Increases All Block Chance of shielded allies by ${PERKS$13.block}.` },
+		"s2-dark": { words: `Increases All Block Chance of shielded allies by ${PERKS$19.block}.` },
 		"s3-light": said({ skill: {
 			index: 2,
 			dmg: 1.4
 		} }, ({ skill }) => `Increases DMG by ${pct(skill.dmg - 1)}.`),
 		"s3-dark": { words: "Each hit reduces Mana by 200." },
-		"s4-light": { words: `At the beginning of the first battle, grants [Blessing of the Fallen Angel] to all allies excluding self, reducing All DMG the targets take by ${pct(1 - PERKS$13.blessing.takes)} and increasing All DEF by ${pct(PERKS$13.blessing.defends - 1)}. The [Blessing of the Fallen Angel] effect is irremovable.` },
-		"s4-dark": { words: `At the beginning of the first battle, grants [Bond of the Fallen Angel] to 1 ally with the highest ATK excluding self, increasing the target's ATK Spd by ${PERKS$13.bond.speed} and ATK equal to ${pct(PERKS$13.bond.atk)} of Fallen Frey's ATK. The [Bond of the Fallen Angel] effect is irremovable.` },
+		"s4-light": { words: `At the beginning of the first battle, grants [Blessing of the Fallen Angel] to all allies excluding self, reducing All DMG the targets take by ${pct(1 - PERKS$19.blessing.takes)} and increasing All DEF by ${pct(PERKS$19.blessing.defends - 1)}. The [Blessing of the Fallen Angel] effect is irremovable.` },
+		"s4-dark": { words: `At the beginning of the first battle, grants [Bond of the Fallen Angel] to 1 ally with the highest ATK excluding self, increasing the target's ATK Spd by ${PERKS$19.bond.speed} and ATK equal to ${pct(PERKS$19.bond.atk)} of Fallen Frey's ATK. The [Bond of the Fallen Angel] effect is irremovable.` },
 		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
-		"t5-dark": { words: `At the beginning of each battle, increases ATK Spd of the ally with the highest ATK excluding self by ${PERKS$13.favour.speed} and its DMG dealt to Non-Hero enemies by ${pct(PERKS$13.favour.deals - 1)} for ${PERKS$13.favour.lasts} sec. This effect is irremovable.` }
+		"t5-dark": { words: `At the beginning of each battle, increases ATK Spd of the ally with the highest ATK excluding self by ${PERKS$19.favour.speed} and its DMG dealt to Non-Hero enemies by ${pct(PERKS$19.favour.deals - 1)} for ${PERKS$19.favour.lasts} sec. This effect is irremovable.` }
 	},
 	attack: "smite",
 	timing: { skills: {
@@ -4640,24 +4957,24 @@ var FALLEN_FREY = {
 		if (self.perks.has("s4-light")) for (const ally of others) put(ally.statuses, {
 			name: FALLEN_BLESSING.name,
 			left: Infinity,
-			takes: PERKS$13.blessing.takes,
-			defends: PERKS$13.blessing.defends,
+			takes: PERKS$19.blessing.takes,
+			defends: PERKS$19.blessing.defends,
 			shown: FALLEN_BLESSING
 		});
 		if (strongest && self.perks.has("s4-dark")) {
-			strongest.stats.atk += PERKS$13.bond.atk * self.stats.atk;
+			strongest.stats.atk += PERKS$19.bond.atk * self.stats.atk;
 			put(strongest.statuses, {
 				name: FALLEN_BOND.name,
 				left: Infinity,
-				pace: 1 + share(PERKS$13.bond.speed),
+				pace: 1 + share(PERKS$19.bond.speed),
 				shown: FALLEN_BOND
 			});
 		}
 		if (strongest && self.perks.has("t5-dark")) put(strongest.statuses, {
 			name: FALLEN_FAVOUR.name,
-			left: PERKS$13.favour.lasts,
-			pace: 1 + share(PERKS$13.favour.speed),
-			deals: PERKS$13.favour.deals,
+			left: PERKS$19.favour.lasts,
+			pace: 1 + share(PERKS$19.favour.speed),
+			deals: PERKS$19.favour.deals,
 			shown: FALLEN_FAVOUR
 		});
 		return {
@@ -4677,14 +4994,14 @@ var FALLEN_FREY = {
 							return Math.sqrt(x * x + z * z) <= LIGHT.near;
 						});
 						fight.cue(self, "light", near);
-						for (const ally of near) fight.heal(ally, LIGHT.heal * (self.perks.has("s1-dark") ? PERKS$13.light.heals : 1), self);
+						for (const ally of near) fight.heal(ally, LIGHT.heal * (self.perks.has("s1-dark") ? PERKS$19.light.heals : 1), self);
 						return;
 					}
 					fight.hit(self, LIGHT.blast);
 					if (self.perks.has("s1-light")) put(fight.foe.statuses, {
 						name: PURIFIED,
-						left: PERKS$13.light.lasts,
-						takes: PERKS$13.light.takes,
+						left: PERKS$19.light.lasts,
+						takes: PERKS$19.light.takes,
 						shown: "curse"
 					});
 				},
@@ -4692,8 +5009,8 @@ var FALLEN_FREY = {
 					spend();
 					const allies = self.perks.has("s2-light") ? weakest() : weakest().slice(0, BLESSING$1.allies);
 					const block = self.perks.has("s2-dark") ? { blocks: {
-						physical: PERKS$13.block,
-						magical: PERKS$13.block
+						physical: PERKS$19.block,
+						magical: PERKS$19.block
 					} } : {};
 					fight.cue(self, "blessing", allies);
 					for (const ally of allies) {
@@ -4710,9 +5027,9 @@ var FALLEN_FREY = {
 				vengeance(part) {
 					if (part === 0) empowered = spend();
 					fight.hit(self, VENGEANCE.blow, true, VENGEANCE.pierce);
-					exposed = fight.foe.statuses.some((status) => status.name === EXPOSED$2) ? Math.min(VENGEANCE.most, exposed + 1) : 1;
+					exposed = fight.foe.statuses.some((status) => status.name === EXPOSED$3) ? Math.min(VENGEANCE.most, exposed + 1) : 1;
 					put(fight.foe.statuses, {
-						name: EXPOSED$2,
+						name: EXPOSED$3,
 						left: VENGEANCE.lasts,
 						takes: 1 + VENGEANCE.exposed * exposed,
 						shown: "curse"
@@ -4770,17 +5087,17 @@ var CHARGE = {
 	dmg: .02
 };
 /** Her own perks' numbers: Pochi's Mark's less M.DEF for each, and her sleep's more less taken. */
-var PERKS$12 = {
+var PERKS$18 = {
 	softer: .06,
 	sleepier: 1.2
 };
-var art$12 = skillArt("gremory");
+var art$18 = skillArt("gremory");
 /** What all three of her slots turn into once her skills are sealed (its picture is the game's for it, where a passive's would be). */
 var SLEEP_SKILL = {
 	name: "Eh, whatever. I’m gonna sleep.",
 	about: `She sleeps for 3 seconds, taking ${pct(1 - SLEEP.taken)} less and not to be knocked down; then her skills are unsealed, and she gains a [Mana Charge] (${CHARGE.most} at most): +${pct(CHARGE.atk)} ATK and +${pct(CHARGE.dmg)} to all she deals for each.`,
 	icon: "💤",
-	art: art$12(3),
+	art: art$18(3),
 	move: "sleep",
 	cooldown: 0,
 	cost: 0
@@ -4793,7 +5110,7 @@ var LAZY = {
 		name: "Eh, whatever. I’m gonna sleep.",
 		about: `Each of her skills is sealed once used; once all three are, each turns into this. She sleeps a while (taking ${pct(1 - SLEEP.taken)} less and not to be knocked down), then wakes with her skills unsealed and a [Mana Charge].`,
 		icon: "💤",
-		art: art$12(3)
+		art: art$18(3)
 	},
 	words: `Available once all Skills are sealed. Upon use, dispels CC effects from self. While in use, Gremory gains immunity to CC, takes ${pct(1 - SLEEP.taken)} reduced All DMG, and unlocks all of her sealed Skills. Every time she uses [Eh, whatever. I'm gonna sleep.], she gains a [Mana Charge] stack. Each [Mana Charge] stack increases Gremory's DMG dealt to enemies by ${pct(CHARGE.dmg)} and her ATK by ${pct(CHARGE.atk)}. [Mana Charge] can be stacked up to max ${CHARGE.most} times and is irremovable.`,
 	tag: "Once all are sealed"
@@ -4803,7 +5120,7 @@ var SLEEPING = {
 	name: "Asleep",
 	about: `Takes ${pct(1 - SLEEP.taken)} less from the boss, and can’t be knocked down.`,
 	icon: "💤",
-	art: art$12(3)
+	art: art$18(3)
 };
 /** Her Mana Charge: shown on her card, with how many she has. */
 var CHARGED = {
@@ -4845,7 +5162,7 @@ var GREMORY = {
 			words: `Attacks an enemy ${BITES} times, dealing M.DMG and inflicting [Pochi's Mark] each hit. The M.DMG of each hit increases by ${pct(POCHI.more)} per every stack of [Mana Charge]. [Pochi's Mark] reduces target's ATK by ${pct(POCHI.weaker)} for ${POCHI.lasts} sec, and it can be stacked up to max ${POCHI.most} times. If the target is a Boss, each hit deals additional M.DMG. The additional M.DMG increases by ${pct(POCHI.bossMore)} per every stack of [Mana Charge]. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "🐶",
-			art: art$12(0),
+			art: art$18(0),
 			move: "pochi",
 			cooldown: 0,
 			cost: 3
@@ -4856,7 +5173,7 @@ var GREMORY = {
 			words: `Attacks the farthest enemy from behind, dealing M.DMG. Afterward, inflicts Stun for ${PUCHI.stun} sec and [Puchi's Mark] on the target. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "💥",
-			art: art$12(1),
+			art: art$18(1),
 			move: "puchi",
 			cooldown: 0,
 			cost: 3
@@ -4867,7 +5184,7 @@ var GREMORY = {
 			words: `Deals a total of M.DMG over ${WRAPS} times to the target and enemies within a large area around the target, inflicting [Pippi's Mark] on hit targets each hit. If this skill deals DMG to a target inflicted with ${PIPPI.most} stacks of [Pippi's Mark], each hit deals additional M.DMG that ignores DEF. [Pippi's Mark] increases M.DMG the target takes by ${pct(PIPPI.takes)} for ${PIPPI.lasts} sec, and it can be stacked up to max ${PIPPI.most} times. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "🎀",
-			art: art$12(2),
+			art: art$18(2),
 			move: "pippi",
 			cooldown: 0,
 			cost: 4
@@ -4876,7 +5193,7 @@ var GREMORY = {
 	passive: LAZY,
 	perks: {
 		"s1-light": { words: "When there is 1 enemy, additional M.DMG dealt to bosses ignores DEF." },
-		"s1-dark": { words: `[Pochi's Mark] additionally reduces M.DEF by ${pct(PERKS$12.softer)}.` },
+		"s1-dark": { words: `[Pochi's Mark] additionally reduces M.DEF by ${pct(PERKS$18.softer)}.` },
 		"s2-light": { words: "The M.Block Chance Reduction effect of [Puchi's Mark] will fix the M.Block Chance to 0 instead." },
 		"s2-dark": { words: "Knocks the target away instead of inflicting Stun." },
 		"s3-light": said({ skill: {
@@ -4888,7 +5205,7 @@ var GREMORY = {
 			cost: 1,
 			dmg: 2
 		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and DMG by ${pct(skill.dmg - 1)}.`),
-		"s4-light": { words: `Increases All DMG Reduction effect by ${pct(PERKS$12.sleepier - 1)} while in use.` },
+		"s4-light": { words: `Increases All DMG Reduction effect by ${pct(PERKS$18.sleepier - 1)} while in use.` },
 		"s4-dark": { words: "At the beginning of each battle, [Eh, whatever. I'm gonna sleep.] becomes activated." },
 		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
 		"t5-dark": said({ dmg: 1.5 }, ({ dmg }) => `Increases DMG dealt to Non-Hero enemies by ${pct(dmg - 1)} when there is 1 enemy.`)
@@ -4915,7 +5232,7 @@ var GREMORY = {
 					const softer = self.perks.has("s1-dark");
 					mark(fight.foe.statuses, POCHI_MARK, POCHI.most, POCHI.lasts, (count) => ({
 						deals: 1 - POCHI.weaker * count,
-						...softer && { defends: { magical: 1 - PERKS$12.softer * count } }
+						...softer && { defends: { magical: 1 - PERKS$18.softer * count } }
 					}));
 				},
 				puchi() {
@@ -4943,7 +5260,7 @@ var GREMORY = {
 				put(self.statuses, {
 					name: SLEEPING.name,
 					left: 3,
-					takes: self.perks.has("s4-light") ? 1 - (1 - SLEEP.taken) * PERKS$12.sleepier : SLEEP.taken,
+					takes: self.perks.has("s4-light") ? 1 - (1 - SLEEP.taken) * PERKS$18.sleepier : SLEEP.taken,
 					guards: true,
 					shown: SLEEPING
 				});
@@ -5004,7 +5321,7 @@ var DEEDS = {
 	control: .3
 };
 /** Her own perks' numbers: the shockwave's longer stun, Crimson Flower's stronger slow (points), her DMG while awakened, her opening's (how long, how much), and Transcend 5's Dark's attack speed for each blow (most). */
-var PERKS$11 = {
+var PERKS$17 = {
 	waveStun: .5,
 	slower: 300,
 	awakeDmg: 1.2,
@@ -5013,7 +5330,7 @@ var PERKS$11 = {
 	quicker: 5,
 	most: 100
 };
-var art$11 = skillArt("kirze");
+var art$17 = skillArt("kirze");
 /** Her passive, the game's End to Evil Deeds!: her ATK higher, more of her blows critical, and the stuns on a boss longer. */
 var EVIL_DEEDS = {
 	attack: 1 + DEEDS.atk,
@@ -5023,7 +5340,7 @@ var EVIL_DEEDS = {
 		name: "End to Evil Deeds!",
 		about: `Passive. Her blows are ${pct(DEEDS.atk)} harder and ${pct(share(DEEDS.crit))} more often critical, and her stuns on a boss last ${pct(DEEDS.control)} longer.`,
 		icon: "⚜️",
-		art: art$11(3)
+		art: art$17(3)
 	},
 	words: `Increases own ATK by ${pct(DEEDS.atk)} and Crit Chance by ${DEEDS.crit}, while increasing the duration of CCs that all allies inflict to Bosses by ${pct(DEEDS.control)}`
 };
@@ -5032,7 +5349,7 @@ var AWAKENING$1 = {
 	name: "Arcane Crystal Awakening",
 	about: `Quickened, and a shockwave goes out from her every ${HAZE.every} seconds.`,
 	icon: "💠",
-	art: art$11(1)
+	art: art$17(1)
 };
 var KIRZE = {
 	id: "kirze",
@@ -5049,7 +5366,7 @@ var KIRZE = {
 			about: `${JUDGMENT.cuts} cuts as she spins, then a blow that knocks the boss down for ${JUDGMENT.down} seconds.`,
 			words: `Deals M.DMG over ${JUDGMENT.cuts} attacks to nearby enemies in a circular range of self. Then, attacks frontal enemies in range, dealing M.DMG and knocking them down for ${JUDGMENT.down} sec.`,
 			icon: "🌀",
-			art: art$11(0),
+			art: art$17(0),
 			move: "judgment",
 			cooldown: 9,
 			cost: 2
@@ -5059,7 +5376,7 @@ var KIRZE = {
 			about: `A burst that stuns the boss for ${HAZE.stun} seconds. Then for ${HAZE.lasts} seconds she is ${pct(HAZE.quicker - 1)} quicker, and a shockwave goes out from her every ${HAZE.every} seconds that stuns it for ${HAZE.waveStun}.`,
 			words: `Unleashes the power of Arcane Crystals within to deal M.DMG to all enemies and stun them for ${HAZE.stun} sec. Upon casting, activates [Arcane Crystal Awakening] for ${HAZE.lasts} sec, which increases ATK Spd of all allies by 300 and releases a shockwave every ${HAZE.every} sec to enemies in range of self, dealing M.DMG and stunning them for ${HAZE.waveStun} sec.`,
 			icon: "💠",
-			art: art$11(1),
+			art: art$17(1),
 			move: "haze",
 			cooldown: 17,
 			cost: 3
@@ -5069,7 +5386,7 @@ var KIRZE = {
 			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
 			words: `Summons Arcane Crystals and deals M.DMG to frontal enemies in a straight line. Shortly afterward, causes an explosion that deals ${num(FLOWER.burst)} additional M.DMG and inflicts [Arcane Crystal Curse] upon enemies for ${FLOWER.slowed} sec, reducing their ATK Spd by ${FLOWER.speed}. Attacking enemies under [Arcane Crystal Curse] inflicts a stack of [Arcane Crystal Energy]. [Arcane Crystal Curse] explodes after ${FLOWER.curse} sec, dealing M.DMG equal to ${num(FLOWER.end)} + ${num(FLOWER.each)} per stack of Arcane Crystal Energy.`,
 			icon: "🌺",
-			art: art$11(2),
+			art: art$17(2),
 			move: "flower",
 			cooldown: 20,
 			cost: 4
@@ -5085,14 +5402,14 @@ var KIRZE = {
 			index: 0,
 			dmg: 2
 		} }, ({ skill }) => `If there is only 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s2-light": { words: `The duration of stun from the shockwave increases by ${PERKS$11.waveStun} sec against Non-Hero enemies.` },
-		"s2-dark": { words: `While under [Arcane Crystal Awakening], self deals ${pct(PERKS$11.awakeDmg - 1)} increased DMG to Non-Hero enemies.` },
-		"s3-light": { words: `Increases ATK Spd reduction by ${PERKS$11.slower}.` },
+		"s2-light": { words: `The duration of stun from the shockwave increases by ${PERKS$17.waveStun} sec against Non-Hero enemies.` },
+		"s2-dark": { words: `While under [Arcane Crystal Awakening], self deals ${pct(PERKS$17.awakeDmg - 1)} increased DMG to Non-Hero enemies.` },
+		"s3-light": { words: `Increases ATK Spd reduction by ${PERKS$17.slower}.` },
 		"s3-dark": { words: "If there is only 1 enemy, inflicts 2 stacks of [Arcane Crystal Energy]." },
-		"s4-light": { words: `At the beginning of each battle, self deals ${pct(PERKS$11.openingDmg - 1)} increased DMG to Non-Hero enemies for ${PERKS$11.opening} sec.` },
+		"s4-light": { words: `At the beginning of each battle, self deals ${pct(PERKS$17.openingDmg - 1)} increased DMG to Non-Hero enemies for ${PERKS$17.opening} sec.` },
 		"s4-dark": said({ dmg: 1.15 }, ({ dmg }) => `Deals ${pct(dmg - 1)} increased DMG to Bosses.`),
 		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
-		"t5-dark": { words: `Every normal and Skill attack increases ATK Spd by ${PERKS$11.quicker}. This effect can be stacked up to max ${PERKS$11.most} times.` }
+		"t5-dark": { words: `Every normal and Skill attack increases ATK Spd by ${PERKS$17.quicker}. This effect can be stacked up to max ${PERKS$17.most} times.` }
 	},
 	timing: { attack: [{
 		lands: [1.29],
@@ -5112,7 +5429,7 @@ var KIRZE = {
 		/** Her curse on the boss: how long it has left, and the blows counted against it. */
 		let curse = null;
 		/** Her perks: how long her opening's more DMG lasts yet (End to Evil Deeds!'s Light), and her blows counted for attack speed (Transcend 5's Dark). */
-		let opening = self.perks.has("s4-light") ? PERKS$11.opening : 0;
+		let opening = self.perks.has("s4-light") ? PERKS$17.opening : 0;
 		let quicker = 0;
 		return {
 			lands: {
@@ -5137,7 +5454,7 @@ var KIRZE = {
 						left: FLOWER.curse,
 						blows: 0
 					};
-					fight.slow(FLOWER.speed + (self.perks.has("s3-light") ? PERKS$11.slower : 0), FLOWER.slowed);
+					fight.slow(FLOWER.speed + (self.perks.has("s3-light") ? PERKS$17.slower : 0), FLOWER.slowed);
 				}
 			},
 			struck() {
@@ -5152,7 +5469,7 @@ var KIRZE = {
 						wave += HAZE.every;
 						fight.cue(self, "wave");
 						fight.hit(self, HAZE.wave);
-						fight.stun(HAZE.waveStun + (self.perks.has("s2-light") ? PERKS$11.waveStun : 0), { by: self });
+						fight.stun(HAZE.waveStun + (self.perks.has("s2-light") ? PERKS$17.waveStun : 0), { by: self });
 					}
 				}
 				if (curse) {
@@ -5166,10 +5483,10 @@ var KIRZE = {
 				}
 			},
 			pace: () => awake > 0 ? HAZE.quicker : 1,
-			deals: () => (awake > 0 && self.perks.has("s2-dark") ? PERKS$11.awakeDmg : 1) * (opening > 0 ? PERKS$11.openingDmg : 1),
-			speed: () => quicker * PERKS$11.quicker,
+			deals: () => (awake > 0 && self.perks.has("s2-dark") ? PERKS$17.awakeDmg : 1) * (opening > 0 ? PERKS$17.openingDmg : 1),
+			speed: () => quicker * PERKS$17.quicker,
 			blow() {
-				if (self.perks.has("t5-dark")) quicker = Math.min(PERKS$11.most, quicker + 1);
+				if (self.perks.has("t5-dark")) quicker = Math.min(PERKS$17.most, quicker + 1);
 			},
 			lit: () => awake > 0,
 			buffs: () => awake > 0 ? [{
@@ -5223,7 +5540,7 @@ var WATER_DRAGON = {
 * coming, Festival of the Flow's more heal, her passive's more M.DEF (a share more of it) and M.Crit Resistance, her more
 * CC Resist, and Transcend 5's Dark's mana for every ally (how often).
 */
-var PERKS$10 = {
+var PERKS$16 = {
 	heals: 1.4,
 	critResist: 250,
 	whirl: 3,
@@ -5236,7 +5553,7 @@ var PERKS$10 = {
 		every: 3
 	}
 };
-var art$10 = skillArt("laias");
+var art$16 = skillArt("laias");
 var BLESSING = {
 	attack: 1,
 	crit: 0,
@@ -5245,7 +5562,7 @@ var BLESSING = {
 		name: "Blessing of the Water Dragon",
 		about: `Passive. +${WATER_DRAGON.resist} CC Resist for her; every ally has ${pct(WATER_DRAGON.defense - 1)} more M.DEF and ${WATER_DRAGON.critResist} M.Crit Resistance, and each skill she uses has every ally take ${pct(1 - WATER_DRAGON.taken)} less magical damage for ${WATER_DRAGON.lasts} seconds.`,
 		icon: "🐉",
-		art: art$10(3)
+		art: art$16(3)
 	},
 	words: `Increases Laias' CC Resist by ${WATER_DRAGON.resist}, and increases all allies' M.DEF by ${pct(WATER_DRAGON.defense - 1)} and M.Crit Resistance by ${WATER_DRAGON.critResist}. Whenever Laias casts an active Skill, reduces M.DMG all allies take by ${pct(1 - WATER_DRAGON.taken)} for ${WATER_DRAGON.lasts} sec.`
 };
@@ -5254,33 +5571,33 @@ var BLESSED = {
 	name: "Blessing of the Water Dragon",
 	about: "More M.DEF, and the boss’s magic is less likely to land a critical blow.",
 	icon: "🐉",
-	art: art$10(3)
+	art: art$16(3)
 };
-var WARDED = {
+var WARDED$1 = {
 	name: "Water Dragon’s Ward",
 	about: `Takes ${pct(1 - WATER_DRAGON.taken)} less magical damage.`,
 	icon: "💧",
-	art: art$10(3)
+	art: art$16(3)
 };
 /** What Healing Droplets gives each ally, shown on its card with how long it has left. */
 var DROPLETS_UP = {
 	name: "Healing Droplets",
 	about: "Healing reaches it the more.",
 	icon: "💧",
-	art: art$10(0)
+	art: art$16(0)
 };
 /** What Bubble Shield gives its ally: for its whole while, and more while the shield holds. */
 var BUBBLED = {
 	name: "Bubble Shield",
 	about: `Takes ${pct(1 - BUBBLE.taken)} less from the boss and deals ${pct(BUBBLE.dmg)} more to it.`,
 	icon: "🫧",
-	art: art$10(1)
+	art: art$16(1)
 };
 var BUBBLE_HOLDS = {
 	name: "Bubble",
 	about: "While the shield holds: can’t be knocked down, hits harder, and is healed every second.",
 	icon: "🫧",
-	art: art$10(1)
+	art: art$16(1)
 };
 var LAIAS = {
 	id: "laias",
@@ -5299,7 +5616,7 @@ var LAIAS = {
 			about: `Heals every ally, and for ${DROPLETS.lasts} seconds healing reaches them ${pct(DROPLETS.heals)} more (${DROPLETS.lowTimes} times that for one at ${pct(DROPLETS.low)} of its health or less).`,
 			words: `Heals HP of all allies and increases Heal Rate by ${pct(DROPLETS.heals)} for ${DROPLETS.lasts} sec. If the target's HP is ${pct(DROPLETS.low)} or below, Heal Rate increases by ${DROPLETS.lowTimes} times.`,
 			icon: "💧",
-			art: art$10(0),
+			art: art$16(0),
 			move: "droplets",
 			cooldown: 8,
 			cost: 2
@@ -5309,7 +5626,7 @@ var LAIAS = {
 			about: `A shield on the ally with the lowest health: for ${BUBBLE.lasts} seconds it takes ${pct(1 - BUBBLE.taken)} less from the boss and deals ${pct(BUBBLE.dmg)} more. While the shield holds it can’t be knocked down, hits ${pct(BUBBLE.atk)} harder and is healed every second.`,
 			words: `For ${BUBBLE.lasts} sec, casts a Shield that blocks DMG on the ally with the lowest HP. While the Shield is active, gains immunity to CC, increases ATK and heals HP every sec. For ${BUBBLE.lasts} sec, the ally takes ${pct(1 - BUBBLE.taken)} reduced DMG from Non-Hero targets and increases DMG dealt to Non-Hero enemies by ${pct(BUBBLE.dmg)}. The DMG Reduction effect from and the DMG Boost effect to Non-Hero enemies is irremovable.`,
 			icon: "🫧",
-			art: art$10(1),
+			art: art$16(1),
 			move: "bubble",
 			cooldown: 15,
 			cost: 3
@@ -5319,7 +5636,7 @@ var LAIAS = {
 			about: `Knocks the boss down for ${FESTIVAL.down} seconds, heals every ally ${pct(FESTIVAL.heal)} of its max HP and gives every other ally ${FESTIVAL.mana / SECTION} mana. Then for ${FESTIVAL.lasts} seconds a whirlpool every ${FESTIVAL.every} seconds strikes the boss and knocks it down for ${FESTIVAL.whirlDown}.`,
 			words: `Deals M.DMG to nearby enemies and knocks them down for ${FESTIVAL.down} sec. Upon casting, heals HP of all allies by ${pct(FESTIVAL.heal)} of their Max HP and recovers ${FESTIVAL.mana / SECTION} orbs of Mana of allies excluding self. Afterward, for ${FESTIVAL.lasts} sec, creates a whirlpool every ${FESTIVAL.every} sec that deals M.DMG to random enemies and knocks them down for ${FESTIVAL.whirlDown} sec.`,
 			icon: "🌊",
-			art: art$10(2),
+			art: art$16(2),
 			move: "festival",
 			cooldown: 20,
 			cost: 4
@@ -5327,19 +5644,19 @@ var LAIAS = {
 	],
 	passive: BLESSING,
 	perks: {
-		"s1-light": { words: `Heal rate is increased by ${pct(PERKS$10.heals - 1)}.` },
-		"s1-dark": { words: `Upon healing, M.Crit Resistance rises by ${pct(share(PERKS$10.critResist))}.` },
+		"s1-light": { words: `Heal rate is increased by ${pct(PERKS$16.heals - 1)}.` },
+		"s1-dark": { words: `Upon healing, M.Crit Resistance rises by ${pct(share(PERKS$16.critResist))}.` },
 		"s2-light": { words: "Changes the target to the ally with the highest ATK." },
 		"s2-dark": said({ skill: {
 			index: 1,
 			cost: -1
 		} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
-		"s3-light": { words: `DMG effect occurs every ${PERKS$10.whirl} sec.` },
-		"s3-dark": { words: `Heals all allies by ${pct(PERKS$10.festival)} of their max HP.` },
-		"s4-light": { words: `M.DEF increase rate increases by ${pct(PERKS$10.defense - 1)}, and M.Crit Resistance increases by ${PERKS$10.critResistMore}.` },
-		"s4-dark": said({ bonus: { resist: PERKS$10.resist } }, ({ bonus }) => `Increases self CC Resist by ${bonus.resist}.`),
+		"s3-light": { words: `DMG effect occurs every ${PERKS$16.whirl} sec.` },
+		"s3-dark": { words: `Heals all allies by ${pct(PERKS$16.festival)} of their max HP.` },
+		"s4-light": { words: `M.DEF increase rate increases by ${pct(PERKS$16.defense - 1)}, and M.Crit Resistance increases by ${PERKS$16.critResistMore}.` },
+		"s4-dark": said({ bonus: { resist: PERKS$16.resist } }, ({ bonus }) => `Increases self CC Resist by ${bonus.resist}.`),
 		"t5-light": t5Light({ blockMagical: 200 }, ({ blockMagical }) => `M.Block +${blockMagical}`),
-		"t5-dark": { words: `Recovers ${PERKS$10.mana.each} Mana of all allies every ${PERKS$10.mana.every} sec.` }
+		"t5-dark": { words: `Recovers ${PERKS$16.mana.each} Mana of all allies every ${PERKS$16.mana.every} sec.` }
 	},
 	attack: "splash",
 	join(fight, self) {
@@ -5354,9 +5671,9 @@ var LAIAS = {
 		let mending = 0;
 		const tier = self.unique?.tier ?? null;
 		/** Her perks: how often the whirlpools come; her passive's M.DEF and M.Crit Resistance for every ally; and toward Transcend 5's Dark's next mana. */
-		const whirlEvery = self.perks.has("s3-light") ? PERKS$10.whirl : FESTIVAL.every;
-		const defense = self.perks.has("s4-light") ? 1 + (WATER_DRAGON.defense - 1) * PERKS$10.defense : WATER_DRAGON.defense;
-		const critResist = WATER_DRAGON.critResist + (self.perks.has("s4-light") ? PERKS$10.critResistMore : 0);
+		const whirlEvery = self.perks.has("s3-light") ? PERKS$16.whirl : FESTIVAL.every;
+		const defense = self.perks.has("s4-light") ? 1 + (WATER_DRAGON.defense - 1) * PERKS$16.defense : WATER_DRAGON.defense;
+		const critResist = WATER_DRAGON.critResist + (self.perks.has("s4-light") ? PERKS$16.critResistMore : 0);
 		let filling = 0;
 		/** She is on the field, standing and in the fight. */
 		const there = () => fight.field.includes(self) && self.hp > 0 && !away(self.statuses);
@@ -5378,8 +5695,8 @@ var LAIAS = {
 					fight.cue(self, "droplets", on);
 					for (const ally of on) {
 						const low = ally.hp <= ally.stats.hp * DROPLETS.low;
-						fight.heal(ally, DROPLETS.heal * (low ? DROPLETS.lowTimes : 1) * (self.perks.has("s1-light") ? PERKS$10.heals : 1), self);
-						const resisting = self.perks.has("s1-dark") ? { critResist: { magical: PERKS$10.critResist } } : {};
+						fight.heal(ally, DROPLETS.heal * (low ? DROPLETS.lowTimes : 1) * (self.perks.has("s1-light") ? PERKS$16.heals : 1), self);
+						const resisting = self.perks.has("s1-dark") ? { critResist: { magical: PERKS$16.critResist } } : {};
 						put(ally.statuses, {
 							name: DROPLETS_UP.name,
 							left: DROPLETS.lasts,
@@ -5415,7 +5732,7 @@ var LAIAS = {
 						by: self
 					});
 					for (const ally of on) {
-						fight.heal(ally, ally.stats.hp * (FESTIVAL.heal + (self.perks.has("s3-dark") ? PERKS$10.festival : 0)));
+						fight.heal(ally, ally.stats.hp * (FESTIVAL.heal + (self.perks.has("s3-dark") ? PERKS$16.festival : 0)));
 						if (ally !== self) ally.mana = Math.min(MAX_MANA, ally.mana + FESTIVAL.mana);
 					}
 					flowing = FESTIVAL.lasts;
@@ -5424,10 +5741,10 @@ var LAIAS = {
 			},
 			used() {
 				put(fight.party, {
-					name: WARDED.name,
+					name: WARDED$1.name,
 					left: WATER_DRAGON.lasts,
 					takes: { magical: WATER_DRAGON.taken },
-					shown: WARDED
+					shown: WARDED$1
 				});
 			},
 			tick(dt) {
@@ -5488,9 +5805,9 @@ var LAIAS = {
 				}
 				if (self.perks.has("t5-dark")) {
 					filling += dt;
-					if (filling >= PERKS$10.mana.every) {
-						filling -= PERKS$10.mana.every;
-						for (const ally of on) ally.mana = Math.min(MAX_MANA, ally.mana + PERKS$10.mana.each);
+					if (filling >= PERKS$16.mana.every) {
+						filling -= PERKS$16.mana.every;
+						for (const ally of on) ally.mana = Math.min(MAX_MANA, ally.mana + PERKS$16.mana.each);
 					}
 				}
 				if (tier !== null) {
@@ -5542,7 +5859,7 @@ var POISON = {
 	heals: .1
 };
 /** Her own perks' numbers: Thornbush Forest's shackle at full Poison, Tangled Vine's more DMG and its stun after, more Poison at most, Blade Leaf's shackle (its chance), and Transcend 5's Dark's Thornbush Forest (how often, its chance). */
-var PERKS$9 = {
+var PERKS$15 = {
 	hits: 1,
 	full: 5,
 	shackle: 3,
@@ -5558,7 +5875,7 @@ var PERKS$9 = {
 		chance: .3
 	}
 };
-var art$9 = skillArt("lorraine");
+var art$15 = skillArt("lorraine");
 var BLADE_LEAF = {
 	attack: 1,
 	crit: 0,
@@ -5567,7 +5884,7 @@ var BLADE_LEAF = {
 		name: "Blade Leaf",
 		about: `Passive. Her attack has a ${pct(LEAF.chance)} chance to send ${LEAF.times} leaves at the boss besides, each leaving a [Poison] on it (up to ${POISON.most}).`,
 		icon: "🍃",
-		art: art$9(3)
+		art: art$15(3)
 	},
 	words: `When dealing a normal attack, attacks a random enemy ${LEAF.times} times with a ${pct(LEAF.chance)} chance of inflicting M.DMG and 1 stack of Poison for ${POISON.lasts} seconds. Poison inflicts a total of M.DMG over ${POISON.lasts} seconds, reduces Heal Rate, and can be stacked up to max ${POISON.most} times. If Lorraine dies, Poison effects on enemies will disappear.`
 };
@@ -5588,7 +5905,7 @@ var LORRAINE = {
 			about: `${THORNS.hits} blows, each leaving a [Poison] on the boss (up to ${POISON.most}): each eats at it every second and leaves it healed ${pct(POISON.heals)} less.`,
 			words: `Attacks ${THORNS.hits} times at random, dealing M.DMG to enemies in range and inflicting 1 stack of Poison with each attack.`,
 			icon: "🌿",
-			art: art$9(0),
+			art: art$15(0),
 			move: "thornbush",
 			cooldown: 7,
 			cost: 2
@@ -5598,7 +5915,7 @@ var LORRAINE = {
 			about: `A blow that leaves ${VINE.poison} [Poison] and shackles the boss for ${VINE.shackle} seconds (it can do nothing); ${VINE.after} seconds after, a blow the harder for each [Poison] on it.`,
 			words: `Deals M.DMG to enemies in a straight line, stacking ${VINE.poison} Poison and shackling them for ${VINE.shackle} sec. After some time, deals a large amount of DMG based on the number of Poison stacks.`,
 			icon: "🪢",
-			art: art$9(1),
+			art: art$15(1),
 			move: "vine",
 			cooldown: 10,
 			cost: 3
@@ -5608,7 +5925,7 @@ var LORRAINE = {
 			about: `A blow that knocks the boss down for ${WRATH.down} seconds, ${pct(WRATH.more)} harder for each [Poison] on it.`,
 			words: `Deals M.DMG to enemies in range and knocks them down for ${WRATH.down} sec. Enemies inflicted by Poison takes ${pct(WRATH.more)} more DMG per every stack.`,
 			icon: "🌳",
-			art: art$9(2),
+			art: art$15(2),
 			move: "wrath",
 			cooldown: 23,
 			cost: 3
@@ -5616,23 +5933,23 @@ var LORRAINE = {
 	],
 	passive: BLADE_LEAF,
 	perks: {
-		"s1-light": { words: `Hit count is increased by ${PERKS$9.hits}.` },
-		"s1-dark": { words: `Enemies with ${PERKS$9.full} or more stacks of Poison are shackled for ${PERKS$9.shackle} sec upon hit.` },
+		"s1-light": { words: `Hit count is increased by ${PERKS$15.hits}.` },
+		"s1-dark": { words: `Enemies with ${PERKS$15.full} or more stacks of Poison are shackled for ${PERKS$15.shackle} sec upon hit.` },
 		"s2-light": said({ skill: {
 			index: 1,
-			dmg: PERKS$9.vine
+			dmg: PERKS$15.vine
 		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s2-dark": { words: `Enemies hit by the final explosion effect are stunned for ${PERKS$9.after} sec.` },
+		"s2-dark": { words: `Enemies hit by the final explosion effect are stunned for ${PERKS$15.after} sec.` },
 		"s3-light": said({ skill: {
 			index: 2,
 			cost: 1,
 			dmg: 2
 		} }, ({ skill }) => `Mana cost is increased by ${skill.cost} orb but DMG is boosted by ${pct(skill.dmg - 1)}.`),
 		"s3-dark": { words: "Enemies with 5 or more stacks of Poison lose their positive effects." },
-		"s4-light": { words: `Poison stack maximum is changed to ${PERKS$9.most}.` },
-		"s4-dark": { words: `There is a ${pct(PERKS$9.leaf.chance)} chance that hit enemies are shackled for ${PERKS$9.leaf.shackle} sec.` },
+		"s4-light": { words: `Poison stack maximum is changed to ${PERKS$15.most}.` },
+		"s4-dark": { words: `There is a ${pct(PERKS$15.leaf.chance)} chance that hit enemies are shackled for ${PERKS$15.leaf.shackle} sec.` },
 		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
-		"t5-dark": { words: `Every ${PERKS$9.forest.every} sec, targets all enemies and attacks with 'Thornbush Forest' with ${pct(PERKS$9.forest.chance)} chance on each enemy.` }
+		"t5-dark": { words: `Every ${PERKS$15.forest.every} sec, targets all enemies and attacks with 'Thornbush Forest' with ${pct(PERKS$15.forest.chance)} chance on each enemy.` }
 	},
 	attack: "lash",
 	join(fight, self) {
@@ -5642,7 +5959,7 @@ var LORRAINE = {
 		let roburu = 0;
 		const tier = self.unique?.tier ?? null;
 		/** Her perks: the most Poison there can be (Blade Leaf's Light); and toward Transcend 5's Dark's next Thornbush Forest. */
-		const most = self.perks.has("s4-light") ? PERKS$9.most : POISON.most;
+		const most = self.perks.has("s4-light") ? PERKS$15.most : POISON.most;
 		let forest = 0;
 		/** How many Poison are on the boss. */
 		const poisons = () => fight.foe.statuses.find((status) => status.name === POISONED)?.count ?? 0;
@@ -5663,7 +5980,7 @@ var LORRAINE = {
 		const thorn = () => {
 			fight.hit(self, THORNS.blow);
 			poison(1);
-			if (self.perks.has("s1-dark") && poisons() >= PERKS$9.full) fight.stun(PERKS$9.shackle, { by: self });
+			if (self.perks.has("s1-dark") && poisons() >= PERKS$15.full) fight.stun(PERKS$15.shackle, { by: self });
 		};
 		return {
 			lands: {
@@ -5675,11 +5992,11 @@ var LORRAINE = {
 					fight.cue(self, "leaf");
 					fight.hit(self, LASH.blow + LEAF.blow * LEAF.times);
 					poison(LEAF.times);
-					if (self.perks.has("s4-dark") && fight.roll() < PERKS$9.leaf.chance) fight.stun(PERKS$9.leaf.shackle, { by: self });
+					if (self.perks.has("s4-dark") && fight.roll() < PERKS$15.leaf.chance) fight.stun(PERKS$15.leaf.shackle, { by: self });
 				},
 				thornbush(part) {
 					thorn();
-					if (part === THORNS.hits - 1 && self.perks.has("s1-light")) for (let i = 0; i < PERKS$9.hits; i++) thorn();
+					if (part === THORNS.hits - 1 && self.perks.has("s1-light")) for (let i = 0; i < PERKS$15.hits; i++) thorn();
 				},
 				vine() {
 					fight.hit(self, VINE.blow);
@@ -5700,8 +6017,8 @@ var LORRAINE = {
 					vine -= dt;
 					if (vine <= 0) {
 						fight.cue(self, "vine");
-						fight.hit(self, VINE.each * poisons() * (self.perks.has("s2-light") ? PERKS$9.vine : 1), false);
-						if (self.perks.has("s2-dark")) fight.stun(PERKS$9.after, { by: self });
+						fight.hit(self, VINE.each * poisons() * (self.perks.has("s2-light") ? PERKS$15.vine : 1), false);
+						if (self.perks.has("s2-dark")) fight.stun(PERKS$15.after, { by: self });
 					}
 				}
 				const count = poisons();
@@ -5727,9 +6044,9 @@ var LORRAINE = {
 				}
 				if (self.perks.has("t5-dark") && self.hp > 0 && fight.field.includes(self)) {
 					forest += dt;
-					if (forest >= PERKS$9.forest.every) {
-						forest -= PERKS$9.forest.every;
-						if (fight.roll() < PERKS$9.forest.chance) {
+					if (forest >= PERKS$15.forest.every) {
+						forest -= PERKS$15.forest.every;
+						if (fight.roll() < PERKS$15.forest.chance) {
 							fight.cue(self, "thornbush");
 							for (let i = 0; i < THORNS.hits; i++) thorn();
 						}
@@ -5771,7 +6088,7 @@ var ERUPTION = {
 	blow: 3e3,
 	down: 3
 };
-var SMASH = {
+var SMASH$1 = {
 	blow: 1500,
 	flames: 3
 };
@@ -5789,7 +6106,7 @@ var FLAME = {
 * share of her M.DEF), Lava Eruption's heal (a share of what it dealt), Fire Smash's M.DEF for each block (most), the boss
 * taking more at full Flame, and Transcend 5's Dark's Flame.
 */
-var PERKS$8 = {
+var PERKS$14 = {
 	quicker: 200,
 	block: 1.2,
 	scorch: 1,
@@ -5804,32 +6121,32 @@ var PERKS$8 = {
 		most: 120
 	}
 };
-var art$8 = skillArt("morrah");
+var art$14 = skillArt("morrah");
 var FIRE_SMASH = {
 	attack: 1,
 	crit: 0,
 	control: 1,
 	shown: {
 		name: "Fire Smash",
-		about: `Passive. When she blocks she strikes back, leaving ${SMASH.flames} [Flame] on the boss.`,
+		about: `Passive. When she blocks she strikes back, leaving ${SMASH$1.flames} [Flame] on the boss.`,
 		icon: "🔥",
-		art: art$8(3)
+		art: art$14(3)
 	},
-	words: `Upon Block, deals M.DMG to enemies in range, and inflicts ${SMASH.flames} stack of Flame.`
+	words: `Upon Block, deals M.DMG to enemies in range, and inflicts ${SMASH$1.flames} stack of Flame.`
 };
 /** What Burning Power gives her for a while: shown beside her passive, with how long it has left. */
 var BURNING_UP = {
 	name: "Burning Power",
 	about: "Each blow of her attack deals more and leaves a [Flame] on the boss.",
 	icon: "🔥",
-	art: art$8(0)
+	art: art$14(0)
 };
 /** What Hellfire gives every ally for a while: shown on each card, with how long it has left. */
 var HELLFIRE_UP = {
 	name: "Hellfire",
 	about: `+${HELLFIRE.defense} M.DEF, and +${HELLFIRE.block} M.Block.`,
 	icon: "🌋",
-	art: art$8(1)
+	art: art$14(1)
 };
 /** What her skills, and her unique weapon, leave on the boss. */
 var FLAMED = "Flame";
@@ -5839,13 +6156,13 @@ var QUICKENED = {
 	name: "Burning Power (speed)",
 	about: "Quicker.",
 	icon: "🔥",
-	art: art$8(0)
+	art: art$14(0)
 };
 var HARDENED = {
 	name: "Fire Smash (M.DEF)",
-	about: `${pct(PERKS$8.harder.defense)} more M.DEF for each block (${PERKS$8.harder.most} at most).`,
+	about: `${pct(PERKS$14.harder.defense)} more M.DEF for each block (${PERKS$14.harder.most} at most).`,
 	icon: "🔥",
-	art: art$8(3)
+	art: art$14(3)
 };
 var MORRAH = {
 	id: "morrah",
@@ -5862,7 +6179,7 @@ var MORRAH = {
 			about: `A blow that knocks the boss down for ${seconds(BURNING.down)} and leaves ${BURNING.flames} [Flame] on it. Then for ${BURNING.lasts} seconds each blow of her attack deals more and leaves a [Flame]. Both are ${pct(FLAME.more)} harder for each [Flame] on the boss.`,
 			words: `Deals M.DMG to enemies in range and knocks them down, inflicting ${BURNING.flames} stacks of Flame. Then for ${BURNING.lasts} sec, each auto attack deals M.DMG and inflicts 1 stack of Flame on enemy. Per each stacked Flame, DMG is increased by ${pct(FLAME.more)}. Each Flame stack deals separate M.DMG and reduces Heal rate by ${pct(FLAME.heals)}.`,
 			icon: "🔥",
-			art: art$8(0),
+			art: art$14(0),
 			move: "burning",
 			cooldown: 6,
 			cost: 2
@@ -5873,7 +6190,7 @@ var MORRAH = {
 			about: `For ${HELLFIRE.lasts} seconds every ally has +${HELLFIRE.defense} M.DEF and +${HELLFIRE.block} M.Block, and a [Flame] is left on the boss every ${seconds(HELLFIRE.every)}.`,
 			words: `For ${HELLFIRE.lasts} sec, all allies' M.DEF is increased by ${HELLFIRE.defense} and M.Block Chance is increased by ${HELLFIRE.block}. Additionally, every ${HELLFIRE.every} sec, inflicts 1 stack of Flame on nearby enemies.`,
 			icon: "🌋",
-			art: art$8(1),
+			art: art$14(1),
 			move: "hellfire",
 			cooldown: 12,
 			cost: 3
@@ -5883,7 +6200,7 @@ var MORRAH = {
 			about: `A blow that knocks the boss down for ${seconds(ERUPTION.down)}, ${pct(FLAME.more)} harder for each [Flame] on it.`,
 			words: `Deals M.DMG to enemies in range and inflict knock down. Per every stacked Flame, DMG is increased by ${pct(FLAME.more)}.`,
 			icon: "☄️",
-			art: art$8(2),
+			art: art$14(2),
 			move: "eruption",
 			cooldown: 20,
 			cost: 3
@@ -5891,22 +6208,22 @@ var MORRAH = {
 	],
 	passive: FIRE_SMASH,
 	perks: {
-		"s1-light": { words: `ATK Spd is increased by ${PERKS$8.quicker} for ${BURNING.lasts} sec.` },
+		"s1-light": { words: `ATK Spd is increased by ${PERKS$14.quicker} for ${BURNING.lasts} sec.` },
 		"s1-dark": said({ skill: {
 			index: 0,
 			cooldownShare: .94
 		} }, ({ skill }) => `Reduces cooldown by ${pct(1 - skill.cooldownShare)} per each enemy hit.`),
-		"s2-light": { words: `M.Block rate is boosted by ${pct(PERKS$8.block - 1)}.` },
+		"s2-light": { words: `M.Block rate is boosted by ${pct(PERKS$14.block - 1)}.` },
 		"s2-dark": { words: "While Hellfire is active, deals DMG based on own M.DEF to nearby enemies." },
 		"s3-light": said({ skill: {
 			index: 2,
 			dmg: 1.4
 		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s3-dark": { words: `Heals HP equal to ${pct(PERKS$8.drain)} of DMG dealt.` },
-		"s4-light": { words: `Increases own M.DEF by ${pct(PERKS$8.harder.defense)} per each block. Max stack is ${PERKS$8.harder.most}.` },
-		"s4-dark": { words: `Target with over ${FLAME.most} stacks of Flame takes ${pct(PERKS$8.full)} increased M.DMG.` },
+		"s3-dark": { words: `Heals HP equal to ${pct(PERKS$14.drain)} of DMG dealt.` },
+		"s4-light": { words: `Increases own M.DEF by ${pct(PERKS$14.harder.defense)} per each block. Max stack is ${PERKS$14.harder.most}.` },
+		"s4-dark": { words: `Target with over ${FLAME.most} stacks of Flame takes ${pct(PERKS$14.full)} increased M.DMG.` },
 		"t5-light": t5Light({ blockMagical: 200 }, ({ blockMagical }) => `M.Block +${blockMagical}`),
-		"t5-dark": { words: `Flame stack DMG is increased by ${pct(PERKS$8.flame.each - 1)}, and max stack number is changed to ${PERKS$8.flame.most}.` }
+		"t5-dark": { words: `Flame stack DMG is increased by ${pct(PERKS$14.flame.each - 1)}, and max stack number is changed to ${PERKS$14.flame.most}.` }
 	},
 	attack: "cleave",
 	timing: { attack: [{
@@ -5921,8 +6238,8 @@ var MORRAH = {
 		let burnt = 0;
 		const tier = self.unique?.tier ?? null;
 		/** Her perks: the most Flame there can be, and how hard each burns (Transcend 5's Dark); and her blocks counted for M.DEF (Fire Smash's Light). */
-		const most = self.perks.has("t5-dark") ? PERKS$8.flame.most : FLAME.most;
-		const each = FLAME.each * (self.perks.has("t5-dark") ? PERKS$8.flame.each : 1);
+		const most = self.perks.has("t5-dark") ? PERKS$14.flame.most : FLAME.most;
+		const each = FLAME.each * (self.perks.has("t5-dark") ? PERKS$14.flame.each : 1);
 		let blocks = 0;
 		/** How many Flame are on the boss. */
 		const flames = () => fight.foe.statuses.find((status) => status.name === FLAMED)?.count ?? 0;
@@ -5939,7 +6256,7 @@ var MORRAH = {
 			if (self.perks.has("s4-dark") && stacks >= FLAME.most) put(fight.foe.statuses, {
 				name: SEARED,
 				left: FLAME.lasts,
-				takes: { magical: 1 + PERKS$8.full },
+				takes: { magical: 1 + PERKS$14.full },
 				shown: "burn"
 			});
 		};
@@ -5979,7 +6296,7 @@ var MORRAH = {
 					if (self.perks.has("s1-light")) put(self.statuses, {
 						name: QUICKENED.name,
 						left: BURNING.lasts,
-						pace: 1 + share(PERKS$8.quicker),
+						pace: 1 + share(PERKS$14.quicker),
 						shown: QUICKENED
 					});
 				},
@@ -5990,7 +6307,7 @@ var MORRAH = {
 						name: HELLFIRE_UP.name,
 						left: HELLFIRE.lasts,
 						bolsters: { magical: HELLFIRE.defense },
-						blocks: { magical: HELLFIRE.block * (self.perks.has("s2-light") ? PERKS$8.block : 1) },
+						blocks: { magical: HELLFIRE.block * (self.perks.has("s2-light") ? PERKS$14.block : 1) },
 						shown: HELLFIRE_UP
 					});
 					hellfire = HELLFIRE.lasts;
@@ -6003,20 +6320,20 @@ var MORRAH = {
 						down: true,
 						by: self
 					});
-					if (self.perks.has("s3-dark")) fight.heal(self, PERKS$8.drain * Math.max(0, before - fight.foe.hp));
+					if (self.perks.has("s3-dark")) fight.heal(self, PERKS$14.drain * Math.max(0, before - fight.foe.hp));
 				}
 			},
 			blocked() {
 				fight.cue(self, "smash");
-				fight.hit(self, SMASH.blow);
-				burn(SMASH.flames);
-				if (self.perks.has("s4-light") && blocks < PERKS$8.harder.most) {
+				fight.hit(self, SMASH$1.blow);
+				burn(SMASH$1.flames);
+				if (self.perks.has("s4-light") && blocks < PERKS$14.harder.most) {
 					blocks++;
 					put(self.statuses, {
 						name: HARDENED.name,
 						left: Infinity,
 						count: blocks,
-						defends: { magical: 1 + PERKS$8.harder.defense * blocks },
+						defends: { magical: 1 + PERKS$14.harder.defense * blocks },
 						shown: HARDENED
 					});
 				}
@@ -6031,7 +6348,7 @@ var MORRAH = {
 						burn(1);
 						if (self.perks.has("s2-dark") && self.hp > 0 && fight.field.includes(self)) {
 							const defense = (self.stats.magical + bolstering(self.statuses, "magical") + bolstering(fight.party, "magical")) * defending(self.statuses, "magical") * defending(fight.party, "magical");
-							fight.hit(self, POINTS * PERKS$8.scorch * defense / self.stats.atk, false);
+							fight.hit(self, POINTS * PERKS$14.scorch * defense / self.stats.atk, false);
 						}
 					}
 				}
@@ -6086,7 +6403,7 @@ var WITCH = {
 	most: 30
 };
 /** Her own perks' numbers: Blossom's less healing for the boss, Blood Scattering Blade's mana for each blow, her less taken for each stack of Cold-Blooded Witch, her opening's more DMG, and Transcend 5's Dark's more taken. */
-var PERKS$7 = {
+var PERKS$13 = {
 	unhealed: {
 		heals: .5,
 		lasts: 5
@@ -6100,13 +6417,13 @@ var PERKS$7 = {
 	},
 	reckless: 1.25
 };
-var art$7 = skillArt("seria");
+var art$13 = skillArt("seria");
 /** What Falling Petals' slot holds for a while after it is used (its picture is Falling Petals'). */
 var BLOSSOM_SKILL = {
 	name: "Mysterious Sword - Blossom",
 	about: `A cut down on the boss: once, within ${PETALS.window} seconds of [Falling Petals].`,
 	icon: "🌸",
-	art: art$7(0),
+	art: art$13(0),
 	move: "blossom",
 	cooldown: 0,
 	cost: 1
@@ -6119,7 +6436,7 @@ var COLD_BLOODED = {
 		name: "Cold-Blooded Witch",
 		about: `Passive. Her ATK is higher, and each critical blow of her skills gives her ${pct(WITCH.critDamage)} more crit damage (up to ${WITCH.most} times).`,
 		icon: "🩸",
-		art: art$7(3)
+		art: art$13(3)
 	},
 	words: `ATK is increased by ${WITCH.atk}. Upon a critical skill hit, own Crit DMG is increased by ${pct(WITCH.critDamage)}. This effect can be stacked up to ${WITCH.most} times.`
 };
@@ -6128,14 +6445,14 @@ var WITCHED = {
 	name: "Cold-Blooded Witch",
 	about: `${pct(WITCH.critDamage)} more crit damage for each.`,
 	icon: "🩸",
-	art: art$7(3)
+	art: art$13(3)
 };
 /** Moonlight: shown on her card for the second it lasts. */
 var MOONLIGHT = {
 	name: "Moonlight",
 	about: `[Red Moon Blade] used now cuts again, and leaves the boss healed ${pct(1 - MOON$1.heals)} less for ${MOON$1.unhealed} seconds.`,
 	icon: "🌕",
-	art: art$7(2)
+	art: art$13(2)
 };
 /** What her skills leave on the boss. */
 var SIN = "Original Sin of Blood";
@@ -6143,17 +6460,17 @@ var WILTED = "Mysterious Sword - Blossom";
 /** What her perks give her: her opening's more DMG (Cold-Blooded Witch's Dark), and Transcend 5's Dark. */
 var OPENING = {
 	name: "Cold-Blooded Witch (opening)",
-	about: `Deals ${pct(PERKS$7.opening.deals - 1)} more to the boss.`,
+	about: `Deals ${pct(PERKS$13.opening.deals - 1)} more to the boss.`,
 	icon: "🩸",
-	art: art$7(3)
+	art: art$13(3)
 };
 var RECKLESS = {
 	name: "Bloodthirst",
-	about: `Every blow of hers critical; but she can’t block, and takes ${pct(PERKS$7.reckless - 1)} more.`,
+	about: `Every blow of hers critical; but she can’t block, and takes ${pct(PERKS$13.reckless - 1)} more.`,
 	icon: "🩸",
-	art: art$7(3)
+	art: art$13(3)
 };
-var UNHEALED = "Red Moon";
+var UNHEALED$1 = "Red Moon";
 var SERIA = {
 	id: "seria",
 	name: "Seria",
@@ -6170,7 +6487,7 @@ var SERIA = {
 			about: `A cut across the boss. For ${PETALS.window} seconds after, this slot holds [Mysterious Sword - Blossom], once.`,
 			words: `Performs a horizontal slash to the front and deals M.DMG to the target and enemies in a narrow range. Can activate [Mysterious Sword - Blossom] (${BLOSSOM_SKILL.cost} Mana: a vertical slash to the front, dealing M.DMG to the target and enemies in a narrow range) once within ${PETALS.window} sec after use.`,
 			icon: "🌸",
-			art: art$7(0),
+			art: art$13(0),
 			move: "petals",
 			cooldown: 7,
 			cost: 1
@@ -6180,7 +6497,7 @@ var SERIA = {
 			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
 			words: `Rapidly charges forward to deal M.DMG and inflicts irremovable Original Sin of Blood on enemies for ${SCATTER.lasts} sec. Enemies under Original Sin of Blood have their ATK Spd reduced by ${SCATTER.speed}. Shortly afterward, attacks enemies under Original Sin of Blood ${SCATTER.cuts} times, and deals additional M.DMG, and if the target is not a hero, deals additional DEF Ignoring M.DMG.`,
 			icon: "🩸",
-			art: art$7(1),
+			art: art$13(1),
 			move: "scatter",
 			cooldown: 13,
 			cost: 2
@@ -6190,7 +6507,7 @@ var SERIA = {
 			about: `A great cut, harder on a boss. Used in [Moonlight] (${seconds(MOON$1.light)} of it every ${MOON$1.every} seconds): it cuts again, and the boss is healed ${pct(1 - MOON$1.heals)} less for ${MOON$1.unhealed} seconds.`,
 			words: `Brandishes a moon-bloodying sword, dealing M.DMG to enemies in a wide range, and additional M.DMG on non-Hero enemies. When the moon is ripe, gains Moonlight for ${MOON$1.light} sec, and when cast at this state, deals M.DMG to enemies and reduces their Heal Rate by ${pct(1 - MOON$1.heals)}. If the target is not a hero, deals additional M.DMG.`,
 			icon: "🌙",
-			art: art$7(2),
+			art: art$13(2),
 			move: "moon",
 			cooldown: 20,
 			cost: 4
@@ -6201,7 +6518,7 @@ var SERIA = {
 		"s1-light": said({ skill: {
 			index: 0,
 			cost: -1
-		} }, ({ skill }) => `[Mysterious Sword - Falling Petals] - Mana cost is reduced by ${-skill.cost}. [Mysterious Sword - Blossom] - Hit enemies' heal rate is reduced by ${pct(1 - PERKS$7.unhealed.heals)} for ${PERKS$7.unhealed.lasts} sec.`),
+		} }, ({ skill }) => `[Mysterious Sword - Falling Petals] - Mana cost is reduced by ${-skill.cost}. [Mysterious Sword - Blossom] - Hit enemies' heal rate is reduced by ${pct(1 - PERKS$13.unhealed.heals)} for ${PERKS$13.unhealed.lasts} sec.`),
 		"s1-dark": said({ skill: {
 			index: 0,
 			mark: {
@@ -6209,22 +6526,22 @@ var SERIA = {
 				takes: { magical: 1.25 },
 				lasts: 10
 			}
-		} }, ({ skill: { mark } }) => `[Mysterious Sword - Falling Petals] - Target takes ${pct(mark.takes.magical - 1)} increased M.DMG for ${mark.lasts} sec. [Mysterious Sword - Blossom] - Mana cost is increased by ${PERKS$7.blossomCost}, and ignores enemy's DEF.`),
+		} }, ({ skill: { mark } }) => `[Mysterious Sword - Falling Petals] - Target takes ${pct(mark.takes.magical - 1)} increased M.DMG for ${mark.lasts} sec. [Mysterious Sword - Blossom] - Mana cost is increased by ${PERKS$13.blossomCost}, and ignores enemy's DEF.`),
 		"s2-light": said({ skill: {
 			index: 1,
 			cost: -1
 		} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
-		"s2-dark": { words: `Upon each DMG dealt, recovers ${PERKS$7.mana} Mana.` },
+		"s2-dark": { words: `Upon each DMG dealt, recovers ${PERKS$13.mana} Mana.` },
 		"s3-light": { words: "Dispels positive effects of all enemies in range." },
 		"s3-dark": said({ skill: {
 			index: 2,
 			cost: 1,
 			whole: true
 		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and ignores DEF when attacking Non-Hero enemies.`),
-		"s4-light": { words: `Takes ${fine(PERKS$7.taken)} reduced DMG per stack.` },
-		"s4-dark": { words: `When the battle starts, increases DMG to Non-Hero enemies by ${pct(PERKS$7.opening.deals - 1)} for ${PERKS$7.opening.lasts} sec.` },
+		"s4-light": { words: `Takes ${fine(PERKS$13.taken)} reduced DMG per stack.` },
+		"s4-dark": { words: `When the battle starts, increases DMG to Non-Hero enemies by ${pct(PERKS$13.opening.deals - 1)} for ${PERKS$13.opening.lasts} sec.` },
 		"t5-light": t5Light({ critDamage: .2 }, ({ critDamage }) => `Crit DMG +${pct(critDamage)}`),
-		"t5-dark": { words: `All of caster's attacks will be critical hits, but the caster becomes unable to block while taking ${pct(PERKS$7.reckless - 1)} increased damage.` }
+		"t5-dark": { words: `All of caster's attacks will be critical hits, but the caster becomes unable to block while taking ${pct(PERKS$13.reckless - 1)} increased damage.` }
 	},
 	timing: { attack: [{
 		lands: [.86],
@@ -6244,19 +6561,19 @@ var SERIA = {
 		const tier = self.unique?.tier ?? null;
 		const blossomSkill = self.perks.has("s1-dark") ? {
 			...BLOSSOM_SKILL,
-			cost: BLOSSOM_SKILL.cost + PERKS$7.blossomCost
+			cost: BLOSSOM_SKILL.cost + PERKS$13.blossomCost
 		} : BLOSSOM_SKILL;
 		if (self.perks.has("s4-dark")) put(self.statuses, {
 			name: OPENING.name,
-			left: PERKS$7.opening.lasts,
-			deals: PERKS$7.opening.deals,
+			left: PERKS$13.opening.lasts,
+			deals: PERKS$13.opening.deals,
 			shown: OPENING
 		});
 		if (self.perks.has("t5-dark")) put(self.statuses, {
 			name: RECKLESS.name,
 			left: Infinity,
 			crit: 1,
-			takes: PERKS$7.reckless,
+			takes: PERKS$13.reckless,
 			blocks: {
 				physical: -Infinity,
 				magical: -Infinity
@@ -6272,7 +6589,7 @@ var SERIA = {
 				left: Infinity,
 				count: witch,
 				critDamage: WITCH.critDamage * witch,
-				...self.perks.has("s4-light") && { takes: 1 - PERKS$7.taken * witch },
+				...self.perks.has("s4-light") && { takes: 1 - PERKS$13.taken * witch },
 				shown: WITCHED
 			});
 			if (tier === null) return;
@@ -6301,14 +6618,14 @@ var SERIA = {
 					cut(BLOSSOM.blow, 0, self.perks.has("s1-dark"));
 					if (self.perks.has("s1-light")) put(fight.foe.statuses, {
 						name: WILTED,
-						left: PERKS$7.unhealed.lasts,
-						heals: PERKS$7.unhealed.heals,
+						left: PERKS$13.unhealed.lasts,
+						heals: PERKS$13.unhealed.heals,
 						shown: "curse"
 					});
 				},
 				scatter(part) {
 					const blows = part === 0 ? 1 : 2;
-					if (self.perks.has("s2-dark")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$7.mana * blows);
+					if (self.perks.has("s2-dark")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$13.mana * blows);
 					if (part === 0) {
 						cut(SCATTER.rush);
 						put(fight.foe.statuses, {
@@ -6327,7 +6644,7 @@ var SERIA = {
 					if (!ripe) return;
 					cut(MOON$1.ripe);
 					put(fight.foe.statuses, {
-						name: UNHEALED,
+						name: UNHEALED$1,
 						left: MOON$1.unhealed,
 						heals: MOON$1.heals,
 						shown: "curse"
@@ -6404,7 +6721,7 @@ var AWAKENING = {
 * Her own perks' numbers: how many allies her Hologram is on, and its crit DMG; the field's less taken and attack speed
 * (points); her passive's less taken and more to the boss; and Transcend 5's Dark's for each piece of TechnoMagic gear.
 */
-var PERKS$6 = {
+var PERKS$12 = {
 	holograms: 2,
 	critDamage: .5,
 	fieldTaken: .75,
@@ -6413,7 +6730,7 @@ var PERKS$6 = {
 	boss: .15,
 	piece: .025
 };
-var art$6 = skillArt("valance");
+var art$12 = skillArt("valance");
 var AWAKENED = {
 	attack: 1,
 	crit: 0,
@@ -6422,7 +6739,7 @@ var AWAKENED = {
 		name: "Technomagic Awakening",
 		about: `Passive. Her defense ${pct(AWAKENING.defense - 1)} higher and her mana filling ${pct(AWAKENING.mana - 1)} faster; every ally’s ATK ${pct(AWAKENING.atk)} higher, and (in the Technomagic Kingdom) every ally deals ${pct(AWAKENING.boss)} more to the boss.`,
 		icon: "⚙️",
-		art: art$6(3)
+		art: art$12(3)
 	},
 	words: `Increases self’s All DEF, Mana Recovery/Attack, and ATK of all allies. In Technomagic Kingdom, increases all allies’ DMG dealt to Bosses by ${pct(AWAKENING.boss)}.`
 };
@@ -6431,32 +6748,32 @@ var AWAKENING_UP = {
 	name: "Technomagic Awakening",
 	about: `ATK ${pct(AWAKENING.atk)} higher, and ${pct(AWAKENING.boss)} more to the boss.`,
 	icon: "⚙️",
-	art: art$6(3)
+	art: art$12(3)
 };
 var AWAKENING_SELF = {
 	name: "Technomagic Awakening (Valance)",
 	about: `Defense ${pct(AWAKENING.defense - 1)} higher, and mana filling ${pct(AWAKENING.mana - 1)} faster.`,
 	icon: "⚙️",
-	art: art$6(3)
+	art: art$12(3)
 };
 /** Hologram: on its ally's card, with how long it has left. */
 var HOLOGRAPHED = {
 	name: "Hologram",
 	about: "ATK and crit chance higher, healed every second, skills ready sooner; nothing the boss does holds it.",
 	icon: "💠",
-	art: art$6(0)
+	art: art$12(0)
 };
 /** The Violet Force Field: on every ally's card while it lasts. */
 var FIELDED = {
 	name: "Violet Force Field",
 	about: `Defense ${pct(FIELD.defense - 1)} higher, can’t be knocked down, healed and given mana every second.`,
 	icon: "🟣",
-	art: art$6(1)
+	art: art$12(1)
 };
 /** What Ultimate Laser Cannon leaves on the boss. */
 var MANIPULATED = "Manipulated";
 /** What her Transcend 5's Dark leaves on the boss while she is on the field. */
-var EXPOSED$1 = "Technomagic Awakening";
+var EXPOSED$2 = "Technomagic Awakening";
 /** Something the boss has left on a hero that can be cleared (not what holds it down, or shuts it away). */
 var harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
 var VALANCE = {
@@ -6474,7 +6791,7 @@ var VALANCE = {
 			about: `Clears what the boss has left on the ally with the highest ATK, and gives it a [Hologram] for ${HOLOGRAM.lasts} seconds: ${pct(HOLOGRAM.atk)} more ATK and ${pct(HOLOGRAM.crit)} more crit chance, healed every second, its skills ready ${pct(HOLOGRAM.cooldown)} sooner, and nothing the boss does holds it.`,
 			words: `Dispels negative effects from the ally with the highest ATK and grants [Hologram] for ${HOLOGRAM.lasts} sec. [Hologram] increases the target’s ATK, Crit Chance, heals HP every sec, and reduces its Cooldown of all active Skills by ${HOLOGRAM.cooldown} sec. While [Hologram] is active, the target gains immunity to negative effects.`,
 			icon: "💠",
-			art: art$6(0),
+			art: art$12(0),
 			move: "prototype",
 			cooldown: 15,
 			cost: 3
@@ -6484,7 +6801,7 @@ var VALANCE = {
 			about: `A field for ${FIELD.lasts} seconds that reaches every ally: ${pct(FIELD.defense - 1)} more defense, can’t be knocked down, and healed and given mana every second.`,
 			words: `Creates an [Violet Force Field] that lasts for ${FIELD.lasts} sec within a wide range of self. Allies within the range of [Violet Force Field] have their All DEF increased by ${pct(FIELD.defense - 1)}, gain immunity to CC, and have their HP healed and Mana recovered every sec.`,
 			icon: "🟣",
-			art: art$6(1),
+			art: art$12(1),
 			move: "field",
 			cooldown: 20,
 			cost: 5
@@ -6494,7 +6811,7 @@ var VALANCE = {
 			about: `A laser that stuns the boss for ${CANNON.stun} seconds, then ${CANNON.lasers} more, each stunning it for ${CANNON.laserStun}; each leaves it [Manipulated] for ${CANNON.lasts} seconds (up to ${CANNON.most} times over): taking ${pct(CANNON.takes)} more and healed ${pct(CANNON.heals)} less.`,
 			words: `Summons laser cannons behind self that fire laser beams, dealing P.DMG to the enemy. The hit target is inflicted with Stun for ${CANNON.stun} sec and becomes [Manipulated] for ${CANNON.lasts} sec. Afterward, the cannons additionally fire a total of ${CANNON.lasers} laser beams to random enemies. Each laser beam deals P.DMG, inflicts Stun on the hit target for ${CANNON.laserStun} sec, and inflicts [Manipulated] for ${CANNON.lasts} sec. Enemies who are [Manipulated] have their Heal Rate reduced by ${pct(CANNON.heals)} and take ${pct(CANNON.takes)} increased All DMG. [Manipulated] can be stacked up to max ${CANNON.most} times.`,
 			icon: "🔫",
-			art: art$6(2),
+			art: art$12(2),
 			move: "cannon",
 			cooldown: 20,
 			cost: 4
@@ -6502,19 +6819,19 @@ var VALANCE = {
 	],
 	passive: AWAKENED,
 	perks: {
-		"s1-light": { words: `[Hologram] applies to ${PERKS$6.holograms} allies with the highest ATK.` },
-		"s1-dark": { words: `[Hologram] additionally increases Crit DMG by ${pct(PERKS$6.critDamage)}.` },
-		"s2-light": { words: `[Violet Force Field] additionally reduces DMG taken by ${pct(1 - PERKS$6.fieldTaken)}.` },
-		"s2-dark": { words: `[Violet Force Field] additionally increases ATK Spd by ${PERKS$6.fieldSpeed}.` },
+		"s1-light": { words: `[Hologram] applies to ${PERKS$12.holograms} allies with the highest ATK.` },
+		"s1-dark": { words: `[Hologram] additionally increases Crit DMG by ${pct(PERKS$12.critDamage)}.` },
+		"s2-light": { words: `[Violet Force Field] additionally reduces DMG taken by ${pct(1 - PERKS$12.fieldTaken)}.` },
+		"s2-dark": { words: `[Violet Force Field] additionally increases ATK Spd by ${PERKS$12.fieldSpeed}.` },
 		"s3-light": { words: "Dispels positive effects from the hit target." },
 		"s3-dark": said({ skill: {
 			index: 2,
 			cost: -1
 		} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
-		"s4-light": { words: `Reduces DMG all allies take by ${pct(1 - PERKS$6.taken)} in Technomagic Kingdom.` },
-		"s4-dark": { words: `Additionally increases all allies' DMG dealt to Bosses by ${pct(PERKS$6.boss)} in Technomagic Kingdom.` },
+		"s4-light": { words: `Reduces DMG all allies take by ${pct(1 - PERKS$12.taken)} in Technomagic Kingdom.` },
+		"s4-dark": { words: `Additionally increases all allies' DMG dealt to Bosses by ${pct(PERKS$12.boss)} in Technomagic Kingdom.` },
 		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${pct(share(speed))}`),
-		"t5-dark": { words: `Reduces all DMG all allies take by ${fine(PERKS$6.piece)} and increases All DMG all enemies take by ${fine(PERKS$6.piece)}. This effect can be stacked up to the number of Technomagic Gear equipped to self.` }
+		"t5-dark": { words: `Reduces all DMG all allies take by ${fine(PERKS$12.piece)} and increases All DMG all enemies take by ${fine(PERKS$12.piece)}. This effect can be stacked up to the number of Technomagic Gear equipped to self.` }
 	},
 	attack: "bolt",
 	join(fight, self) {
@@ -6549,19 +6866,19 @@ var VALANCE = {
 		const tmPieces = (ally) => Object.values(ally.skills).reduce((sum, n) => sum + (n ?? 0), 0);
 		/** What her passive gives every ally, with her perks: less taken (its Light, and Transcend 5's Dark), and more to the boss (its Dark). */
 		const pieces = self.perks.has("t5-dark") ? tmPieces(self) : 0;
-		const taken = (self.perks.has("s4-light") ? PERKS$6.taken : 1) * (1 - PERKS$6.piece * pieces);
-		const boss = AWAKENING.boss + (self.perks.has("s4-dark") ? PERKS$6.boss : 0);
+		const taken = (self.perks.has("s4-light") ? PERKS$12.taken : 1) * (1 - PERKS$12.piece * pieces);
+		const boss = AWAKENING.boss + (self.perks.has("s4-dark") ? PERKS$12.boss : 0);
 		return {
 			lands: {
 				bolt() {
 					fight.hit(self, BOLT.blow);
 				},
 				prototype() {
-					const top = allies().sort((a, b) => b.stats.atk - a.stats.atk).slice(0, self.perks.has("s1-light") ? PERKS$6.holograms : 1);
+					const top = allies().sort((a, b) => b.stats.atk - a.stats.atk).slice(0, self.perks.has("s1-light") ? PERKS$12.holograms : 1);
 					if (top.length === 0) return;
 					fight.cue(self, "prototype", top);
 					for (const was of holos) if (!top.includes(was)) was.statuses = was.statuses.filter((status) => status.name !== HOLOGRAPHED.name);
-					const harder = self.perks.has("s1-dark") ? { critDamage: PERKS$6.critDamage } : {};
+					const harder = self.perks.has("s1-dark") ? { critDamage: PERKS$12.critDamage } : {};
 					for (const ally of top) {
 						ally.statuses = ally.statuses.filter((status) => !harmful(status));
 						put(ally.statuses, {
@@ -6582,8 +6899,8 @@ var VALANCE = {
 					const on = allies();
 					fight.cue(self, "field", on);
 					const more = {
-						...self.perks.has("s2-light") && { takes: PERKS$6.fieldTaken },
-						...self.perks.has("s2-dark") && { pace: 1 + share(PERKS$6.fieldSpeed) }
+						...self.perks.has("s2-light") && { takes: PERKS$12.fieldTaken },
+						...self.perks.has("s2-dark") && { pace: 1 + share(PERKS$12.fieldSpeed) }
 					};
 					for (const ally of on) put(ally.statuses, {
 						name: FIELDED.name,
@@ -6631,14 +6948,14 @@ var VALANCE = {
 					lift(AWAKENING_UP.name);
 					lift(AWAKENING_SELF.name);
 					lift(CORBEAU_UP.name);
-					fight.foe.statuses = fight.foe.statuses.filter((status) => status.name !== EXPOSED$1);
+					fight.foe.statuses = fight.foe.statuses.filter((status) => status.name !== EXPOSED$2);
 					return;
 				}
 				if (pieces > 0) put(fight.foe.statuses, {
-					name: EXPOSED$1,
+					name: EXPOSED$2,
 					left: Infinity,
 					count: pieces,
-					takes: 1 + PERKS$6.piece * pieces,
+					takes: 1 + PERKS$12.piece * pieces,
 					shown: "curse"
 				});
 				put(self.statuses, {
@@ -6681,7 +6998,7 @@ var VALANCE = {
 //#region src/technomagic/sim/heroes/lucikiel.ts
 var HAVOC = { blow: BLOW * 1.3 };
 /** Each of the four blows of his fist fight (his attack's animation): his attack about as hard over time as Havoc's. */
-var FIST$1 = { blow: BLOW * .76 };
+var FIST$3 = { blow: BLOW * .76 };
 var STORM = {
 	hits: CODED.storm.lands.length,
 	blow: 2e3
@@ -6720,7 +7037,7 @@ var ARMOR$1 = {
 	lasts: 6
 };
 /** His own perks' numbers: Shadow of Death's more M.DMG taken, Armor of the Demon God's Dark's less taken besides, and Transcend 5's Dark (more DMG every so often, up to so many times). */
-var PERKS$5 = {
+var PERKS$11 = {
 	shadow: 1.25,
 	taken: .15,
 	doom: {
@@ -6729,7 +7046,7 @@ var PERKS$5 = {
 		most: 10
 	}
 };
-var art$5 = skillArt("lucikiel");
+var art$11 = skillArt("lucikiel");
 var ARMOR_OF_THE_DEMON_GOD = {
 	attack: 1,
 	crit: 0,
@@ -6740,7 +7057,7 @@ var ARMOR_OF_THE_DEMON_GOD = {
 		name: "Armor of the Demon God",
 		about: `Passive. He takes ${pct(1 - ARMOR$1.taken)} less, and is knocked down ${pct(1 - ARMOR$1.held)} shorter. Each skill he uses gives him [Authority of the Demon God] for ${ARMOR$1.lasts} seconds: a shield, and he can’t be knocked down while it lasts.`,
 		icon: "🛡️",
-		art: art$5(3)
+		art: art$11(3)
 	},
 	words: `Reduces All DMG taken by ${pct(1 - ARMOR$1.taken)} and the duration of CC by ${pct(1 - ARMOR$1.held)}. Upon every Skill use, creates [Authority of the Demon God] that absorbs DMG for ${ARMOR$1.lasts} sec. Gains immunity to CC for the duration of [Authority of the Demon God].`
 };
@@ -6750,7 +7067,7 @@ var SURGE_SKILL = {
 	about: `A wider wave: a blow that stuns the boss for ${SURGE.stun} seconds, and a blow more. Used, this slot holds [Annihilation Wave] again.`,
 	words: `Attacks frontal enemies within a wide range 2 times. The first attack deals M.DMG and inflicts stun for ${SURGE.stun} sec. The second attack deals M.DMG and draws in hit targets in front of self. After use, the Skill changes to [Annihilation Wave].`,
 	icon: "🌊",
-	art: art$5(4),
+	art: art$11(4),
 	move: "surge",
 	cooldown: 13,
 	cost: 3
@@ -6760,14 +7077,14 @@ var AUTHORITY = {
 	name: "Authority of the Demon God",
 	about: "A shield; he can’t be knocked down.",
 	icon: "🛡️",
-	art: art$5(3)
+	art: art$11(3)
 };
 /** Transcend 5's Dark: shown on his card, with its stacks. */
 var RUIN = {
 	name: "Destruction",
-	about: `${pct(PERKS$5.doom.dmg)} more DMG for each.`,
+	about: `${pct(PERKS$11.doom.dmg)} more DMG for each.`,
 	icon: "💢",
-	art: art$5(3)
+	art: art$11(3)
 };
 /** What his skills leave on the boss. */
 var SHADOW_OF_DEATH = "Shadow of Death";
@@ -6788,7 +7105,7 @@ var LUCIKIEL = {
 			about: `${STORM.hits} blows that leave [Shadow of Death] on the boss for ${SHADOW.lasts} seconds: it eats at the boss every second and leaves it healed ${pct(1 - SHADOW.heals)} less.`,
 			words: `Attacks the target and nearby enemies ${STORM.hits} times, dealing a total of M.DMG and leaving a [Shadow of Death]. [Shadow of Death] deals M.DMG and reduces the target's Heal Rate by ${pct(1 - SHADOW.heals)} over ${SHADOW.lasts} sec.`,
 			icon: "🌪️",
-			art: art$5(0),
+			art: art$11(0),
 			move: "storm",
 			cooldown: 13,
 			cost: 2
@@ -6798,7 +7115,7 @@ var LUCIKIEL = {
 			about: `A blow that stuns the boss for ${WAVE.stun} seconds, and a blow more. Used, this slot holds [Annihilation Surge].`,
 			words: `Attacks frontal enemies within range 2 times. The first attack deals M.DMG and inflicts Stun for ${WAVE.stun} sec. The second attack deals M.DMG and draws in hit targets in front of self. After use, the Skill changes to [Annihilation Surge].`,
 			icon: "🌊",
-			art: art$5(1),
+			art: art$11(1),
 			move: "wave",
 			cooldown: 13,
 			cost: 3
@@ -6808,7 +7125,7 @@ var LUCIKIEL = {
 			about: `${DOOMSDAY.hits} blows, the last knocking the boss down for ${DOOMSDAY.down} seconds and leaving [Pain of Doom] on it for ${PAIN.lasts}: each blow of his on it meanwhile deals more.`,
 			words: `Attacks nearby enemies ${DOOMSDAY.hits} times, dealing M.DMG, and draws them in front of self. The last hit deals M.DMG, knocks down hit targets for ${DOOMSDAY.down} sec, and leaves [Pain of Doom] that lasts for ${PAIN.lasts} sec. Each time Lucikiel attacks targets inflicted with [Pain of Doom] with a normal or Skill attack, he deals additional M.DMG.`,
 			icon: "☄️",
-			art: art$5(2),
+			art: art$11(2),
 			move: "doomsday",
 			cooldown: 23,
 			cost: 4
@@ -6817,7 +7134,7 @@ var LUCIKIEL = {
 	passive: ARMOR_OF_THE_DEMON_GOD,
 	perks: {
 		"s1-light": { words: "[Shadow of Death] Becomes irremovable." },
-		"s1-dark": { words: `[Shadow of Death] additionally increases M.DMG taken by ${pct(PERKS$5.shadow - 1)}.` },
+		"s1-dark": { words: `[Shadow of Death] additionally increases M.DMG taken by ${pct(PERKS$11.shadow - 1)}.` },
 		"s2-light": said({ skill: {
 			index: 1,
 			cost: -1
@@ -6829,9 +7146,9 @@ var LUCIKIEL = {
 		} }, ({ skill }) => `Reduces Cooldown by ${-skill.cooldown} sec.`),
 		"s3-dark": { words: "Each hit reduces the hit target's Mana by 200." },
 		"s4-light": { words: "At the beginning of each battle, creates [Authority of the Demon God]." },
-		"s4-dark": { words: `Reduces All DMG taken by an additional ${pct(PERKS$5.taken)}.` },
+		"s4-dark": { words: `Reduces All DMG taken by an additional ${pct(PERKS$11.taken)}.` },
 		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
-		"t5-dark": { words: `Increases DMG dealt to enemies by ${pct(PERKS$5.doom.dmg)} every ${PERKS$5.doom.every} sec. This effect can be stacked up to max ${PERKS$5.doom.most} times and is irremovable.` }
+		"t5-dark": { words: `Increases DMG dealt to enemies by ${pct(PERKS$11.doom.dmg)} every ${PERKS$11.doom.every} sec. This effect can be stacked up to max ${PERKS$11.doom.most} times and is irremovable.` }
 	},
 	attack: "havoc",
 	timing: { attack: [{
@@ -6865,14 +7182,14 @@ var LUCIKIEL = {
 		if (self.perks.has("s4-light")) armor();
 		const bears = (name) => fight.foe.statuses.some((status) => status.name === name);
 		/** How many stacks of Transcend 5's Dark he has. */
-		const ruin = () => self.perks.has("t5-dark") ? Math.min(PERKS$5.doom.most, Math.floor(time / PERKS$5.doom.every)) : 0;
+		const ruin = () => self.perks.has("t5-dark") ? Math.min(PERKS$11.doom.most, Math.floor(time / PERKS$11.doom.every)) : 0;
 		return {
 			lands: {
 				havoc() {
 					fight.hit(self, HAVOC.blow);
 				},
 				attack() {
-					fight.hit(self, FIST$1.blow);
+					fight.hit(self, FIST$3.blow);
 				},
 				storm() {
 					fight.hit(self, STORM.blow);
@@ -6880,7 +7197,7 @@ var LUCIKIEL = {
 						name: SHADOW_OF_DEATH,
 						left: SHADOW.lasts,
 						heals: SHADOW.heals,
-						...self.perks.has("s1-dark") && { takes: { magical: PERKS$5.shadow } },
+						...self.perks.has("s1-dark") && { takes: { magical: PERKS$11.shadow } },
 						shown: "curse"
 					});
 				},
@@ -6937,9 +7254,9 @@ var LUCIKIEL = {
 					fight.hit(self, SHADOW.each, false);
 				}
 			},
-			takes: () => self.perks.has("s4-dark") ? (ARMOR$1.taken - PERKS$5.taken) / ARMOR$1.taken : 1,
+			takes: () => self.perks.has("s4-dark") ? (ARMOR$1.taken - PERKS$11.taken) / ARMOR$1.taken : 1,
 			guards: () => authority > 0,
-			deals: () => (1 + (tier === null ? 0 : atTier(GIGANTE.atk, tier) * incarnation)) * (1 + PERKS$5.doom.dmg * ruin()),
+			deals: () => (1 + (tier === null ? 0 : atTier(GIGANTE.atk, tier) * incarnation)) * (1 + PERKS$11.doom.dmg * ruin()),
 			speed: () => tier === null ? 0 : atTier(GIGANTE.speed, tier) * incarnation,
 			lit: () => surging,
 			buffs: () => [
@@ -6963,7 +7280,7 @@ var LUCIKIEL = {
 //#region src/technomagic/sim/heroes/selene.ts
 var ARROW = { blow: BLOW * 1.3 };
 /** Her arrow when she draws it as her attack's animation has it (quicker than as written in code): her attack about as hard over time. */
-var DRAWN = { blow: BLOW * 1.06 };
+var DRAWN$1 = { blow: BLOW * 1.06 };
 var RAIN = {
 	arrows: CODED.rain.lands.length,
 	blow: 500
@@ -6986,7 +7303,7 @@ var MOON = {
 	most: 3
 };
 /** Her own perks' numbers: Arrow Rain's stun (its chance), Rush's flinch, and Moonlight Arrow's most stacks. */
-var PERKS$4 = {
+var PERKS$10 = {
 	stun: {
 		chance: .2,
 		lasts: 2
@@ -6994,7 +7311,7 @@ var PERKS$4 = {
 	flinch: .5,
 	most: 5
 };
-var art$4 = skillArt("selene");
+var art$10 = skillArt("selene");
 var MOONLIGHT_ARROW = {
 	attack: 1,
 	crit: 0,
@@ -7003,7 +7320,7 @@ var MOONLIGHT_ARROW = {
 		name: "Moonlight Arrow",
 		about: `Passive. Each attack of hers gives her +${num(MOON.atk)} ATK and +${MOON.crit} crit chance for ${MOON.lasts} seconds (up to ${MOON.most} times).`,
 		icon: "🌙",
-		art: art$4(3)
+		art: art$10(3)
 	},
 	words: `Upon attacking, increases ATK by ${num(MOON.atk)} and Crit Chance by ${MOON.crit} for ${MOON.lasts} sec. This effect stacks up to ${MOON.most} times.`
 };
@@ -7012,7 +7329,7 @@ var MOONLIT = {
 	name: "Moonlight Arrow",
 	about: "ATK and crit chance higher for each.",
 	icon: "🌙",
-	art: art$4(3)
+	art: art$10(3)
 };
 var SELENE = {
 	id: "selene",
@@ -7029,7 +7346,7 @@ var SELENE = {
 			about: `${RAIN.arrows} arrows at the boss.`,
 			words: `Shoots ${RAIN.arrows} arrows to random enemies and deals a total of P.DMG.`,
 			icon: "🏹",
-			art: art$4(0),
+			art: art$10(0),
 			move: "rain",
 			cooldown: 8,
 			cost: 3
@@ -7039,7 +7356,7 @@ var SELENE = {
 			about: `${RUSH.arrows} arrows that launch at the boss.`,
 			words: `Upon attacking, summons ${RUSH.arrows} arrows that launch towards the enemy. Each arrow deals P.DMG.`,
 			icon: "💨",
-			art: art$4(1),
+			art: art$10(1),
 			move: "rush",
 			cooldown: 6,
 			cost: 1
@@ -7049,7 +7366,7 @@ var SELENE = {
 			about: `An arrow the harder the more of the boss’s health is left, knocking it down for ${FLASH.down} seconds, and a blow more through its defense.`,
 			words: "Fires an arrow in a straight line, dealing P.DMG to all enemies in range based on the target's remaining HP. Deals a maximum of P.DMG and knocks down the target. Against Bosses, deals additional P.DMG that ignores DEF.",
 			icon: "🌕",
-			art: art$4(2),
+			art: art$10(2),
 			move: "flash",
 			cooldown: 20,
 			cost: 4
@@ -7061,18 +7378,18 @@ var SELENE = {
 			index: 0,
 			dmg: 1.4
 		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s1-dark": { words: `There is a ${pct(PERKS$4.stun.chance)} chance to inflict Stun for ${PERKS$4.stun.lasts} sec.` },
+		"s1-dark": { words: `There is a ${pct(PERKS$10.stun.chance)} chance to inflict Stun for ${PERKS$10.stun.lasts} sec.` },
 		"s2-light": said({ skill: {
 			index: 1,
 			whole: true
 		} }, () => "Ignores DEF when there is only 1 enemy."),
-		"s2-dark": { words: `Makes the enemy flinch for ${PERKS$4.flinch} sec.` },
+		"s2-dark": { words: `Makes the enemy flinch for ${PERKS$10.flinch} sec.` },
 		"s3-light": said({ skill: {
 			index: 2,
 			cooldown: -3
 		} }, ({ skill }) => `Reduces cooldown by ${-skill.cooldown} sec.`),
 		"s3-dark": { words: "Ignores enemy Block." },
-		"s4-light": { words: `Max stack number is changed to ${PERKS$4.most}.` },
+		"s4-light": { words: `Max stack number is changed to ${PERKS$10.most}.` },
 		"s4-dark": { words: "Auto attack range is boosted by 20%." },
 		"t5-light": t5Light({ critDamage: .2 }, ({ critDamage }) => `Crit DMG +${pct(critDamage)}`),
 		"t5-dark": said({ bonus: {
@@ -7103,7 +7420,7 @@ var SELENE = {
 	},
 	join(fight, self) {
 		/** Moonlight Arrow's stacks (its Light: more of them), and how long they last yet; how long her unique weapon quickens her yet. */
-		const most = self.perks.has("s4-light") ? PERKS$4.most : MOON.most;
+		const most = self.perks.has("s4-light") ? PERKS$10.most : MOON.most;
 		let moon = 0;
 		let moonLeft = 0;
 		let notos = 0;
@@ -7136,14 +7453,14 @@ var SELENE = {
 		return {
 			lands: {
 				arrow: () => loose(ARROW.blow),
-				attack: () => loose(DRAWN.blow),
+				attack: () => loose(DRAWN$1.blow),
 				rain() {
 					shoot(RAIN.blow);
-					if (self.perks.has("s1-dark") && fight.roll() < PERKS$4.stun.chance) fight.stun(PERKS$4.stun.lasts, { by: self });
+					if (self.perks.has("s1-dark") && fight.roll() < PERKS$10.stun.chance) fight.stun(PERKS$10.stun.lasts, { by: self });
 				},
 				rush() {
 					shoot(RUSH.blow);
-					if (self.perks.has("s2-dark")) fight.stun(PERKS$4.flinch, { by: self });
+					if (self.perks.has("s2-dark")) fight.stun(PERKS$10.flinch, { by: self });
 				},
 				flash() {
 					shoot(FLASH.most * (fight.foe.hp / fight.foe.maxHp));
@@ -7206,11 +7523,11 @@ var HUNTING = {
 	mana: 300
 };
 /** His own perks' numbers: Target will be Eliminated.'s mana for each blow, and the freezing area's more chance. */
-var PERKS$3 = {
+var PERKS$9 = {
 	mana: 30,
 	chance: .3
 };
-var art$3 = skillArt("crow");
+var art$9 = skillArt("crow");
 var HUNTING_PREPARATION = {
 	attack: 1,
 	crit: 0,
@@ -7220,7 +7537,7 @@ var HUNTING_PREPARATION = {
 		name: "Hunting Preparation",
 		about: `Passive. Nothing quickens or slows him; his ATK is higher and his crit damage ${pct(HUNTING.critDamage)} higher; he recovers mana every second besides; his attack leaves a [Hunting Dog’s Fang Mark].`,
 		icon: "🐺",
-		art: art$3(3)
+		art: art$9(3)
 	},
 	words: `Crow is not affected by changes in ATK Spd. ATK increases by ${num(HUNTING.atk)} and Crit DMG by ${pct(HUNTING.critDamage)}. Recovers ${HUNTING.mana} Mana every second. It also leaves a 'Hunting Dog's Fang Mark' to target for ${FANG.lasts} sec when dealing a normal attack.`
 };
@@ -7229,7 +7546,7 @@ var FREEZING = {
 	name: "Freezing Area",
 	about: `Strikes the boss every ${STRUGGLE.every} seconds, now and then freezing it.`,
 	icon: "❄️",
-	art: art$3(1)
+	art: art$9(1)
 };
 /** What his skills leave on the boss. */
 var FANG_MARK = "Hunting Dog’s Fang Mark";
@@ -7250,7 +7567,7 @@ var CROW = {
 			about: `${ELIMINATE.shots} shots, then ${ELIMINATE.marks} [Hunting Dog’s Fang Marks] on the boss (up to ${FANG.most}, for ${FANG.lasts} seconds).`,
 			words: `Deals a total of P.DMG to enemies in front over ${ELIMINATE.shots} times and leaves ${ELIMINATE.marks} 'Hunting Dog's Fang Marks' for ${FANG.lasts} sec. Hunting Dog's Fang Mark stacks up to max ${FANG.most} times.`,
 			icon: "🔫",
-			art: art$3(0),
+			art: art$9(0),
 			move: "eliminate",
 			cooldown: 10,
 			cost: 2
@@ -7260,7 +7577,7 @@ var CROW = {
 			about: `${STRUGGLE.shots} shots, then a Frost Bullet that freezes the boss for ${STRUGGLE.freeze} seconds and leaves a freezing area under it for ${STRUGGLE.area}: every ${STRUGGLE.every} seconds it strikes, with a ${pct(STRUGGLE.chance)} chance to freeze the boss for ${STRUGGLE.chilled}.`,
 			words: `Attacks a random enemy ${STRUGGLE.shots} times and deals a total of P.DMG. Shoots a Frost Bullet that deals P.DMG to target and surrounding enemies, freezing them for ${STRUGGLE.freeze} sec. The special Frost Bullet creates a freezing area for ${STRUGGLE.area} seconds that deals P.DMG every ${STRUGGLE.every} sec, with a ${pct(STRUGGLE.chance)} chance to freeze for ${STRUGGLE.chilled} sec.`,
 			icon: "❄️",
-			art: art$3(1),
+			art: art$9(1),
 			move: "struggle",
 			cooldown: 15,
 			cost: 3
@@ -7270,7 +7587,7 @@ var CROW = {
 			about: `He focuses, then a laser, harder for each [Hunting Dog’s Fang Mark] on the boss (all of them spent), and ${pct(GODS.focus - 1)} harder for his focus.`,
 			words: `Takes position and focuses to shoot a laser, dealing P.DMG to frontal enemies within range, and consumes target's stack of Hunting Dog's Fang Mark to deal additional P.DMG per each stack. Depending on the focusing time, the effect's range increases, and DMG is increased up to max ${pct(GODS.focus - 1)}. Once the focus is completed, knocks back the enemy far away.`,
 			icon: "💥",
-			art: art$3(2),
+			art: art$9(2),
 			move: "gods",
 			cooldown: 20,
 			cost: 4
@@ -7278,13 +7595,13 @@ var CROW = {
 	],
 	passive: HUNTING_PREPARATION,
 	perks: {
-		"s1-light": { words: `Upon each DMG dealt, recovers ${PERKS$3.mana} Mana.` },
+		"s1-light": { words: `Upon each DMG dealt, recovers ${PERKS$9.mana} Mana.` },
 		"s1-dark": { words: "Gains immunity to CC while in use." },
 		"s2-light": said({ skill: {
 			index: 1,
 			cooldown: -3
 		} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
-		"s2-dark": { words: `Freezing chance of the Freezing Area increases by ${pct(PERKS$3.chance)}.` },
+		"s2-dark": { words: `Freezing chance of the Freezing Area increases by ${pct(PERKS$9.chance)}.` },
 		"s3-light": said({ skill: {
 			index: 2,
 			cooldown: 10,
@@ -7335,7 +7652,7 @@ var CROW = {
 				},
 				eliminate(part) {
 					fight.hit(self, ELIMINATE.blow);
-					if (self.perks.has("s1-light")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$3.mana);
+					if (self.perks.has("s1-light")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$9.mana);
 					if (part === ELIMINATE.shots - 1) mark(ELIMINATE.marks);
 				},
 				struggle(part) {
@@ -7375,7 +7692,7 @@ var CROW = {
 				if (chill >= STRUGGLE.every) {
 					chill -= STRUGGLE.every;
 					fight.hit(self, STRUGGLE.chill, false);
-					if (fight.roll() < STRUGGLE.chance + (self.perks.has("s2-dark") ? PERKS$3.chance : 0)) freeze(STRUGGLE.chilled);
+					if (fight.roll() < STRUGGLE.chance + (self.perks.has("s2-dark") ? PERKS$9.chance : 0)) freeze(STRUGGLE.chilled);
 				}
 			},
 			guards: () => self.doing?.move === "eliminate" && self.perks.has("s1-dark"),
@@ -7415,7 +7732,7 @@ var CLOCK = {
 	every: 1
 };
 /** Her own perks' numbers: Time Fragments' Dark (its cooldown less for each attack), Clock Magic's more attacks and chance, and Transcend 5's Dark (every so often, so many allies' cooldowns less). */
-var PERKS$2 = {
+var PERKS$8 = {
 	fragments: 1,
 	attacks: 3,
 	chance: .4,
@@ -7425,7 +7742,7 @@ var PERKS$2 = {
 		less: 1
 	}
 };
-var art$2 = skillArt("oddy");
+var art$8 = skillArt("oddy");
 var CLOCK_MAGIC = {
 	attack: 1,
 	crit: 0,
@@ -7434,7 +7751,7 @@ var CLOCK_MAGIC = {
 		name: "Clock Magic",
 		about: `Passive. Each skill she uses has her next ${CLOCK.attacks} attacks deal more, each with a ${pct(CLOCK.chance)} chance to petrify the boss for ${CLOCK.petrify} seconds.`,
 		icon: "🕰️",
-		art: art$2(3)
+		art: art$8(3)
 	},
 	words: `Upon using the skill, next ${CLOCK.attacks} attacks deal additional M.DMG with a ${pct(CLOCK.chance)} chance to petrify the target for ${CLOCK.petrify} sec. This effect activates every ${CLOCK.every} sec.`
 };
@@ -7443,14 +7760,14 @@ var TICKING = {
 	name: "Clock Magic",
 	about: "Her next attacks deal more, and may petrify the boss.",
 	icon: "🕰️",
-	art: art$2(3)
+	art: art$8(3)
 };
 /** What Time Distortion gives every ally. */
 var DISTORTED = {
 	name: "Time Distortion",
 	about: `+${DISTORTION.speed} attack speed.`,
 	icon: "⏳",
-	art: art$2(2)
+	art: art$8(2)
 };
 var ODDY = {
 	id: "oddy",
@@ -7467,7 +7784,7 @@ var ODDY = {
 			about: `A blow that petrifies the boss for ${FRACTURE.petrify} seconds.`,
 			words: `Deals M.DMG to enemies in a straight line, and inflicts Petrify for ${FRACTURE.petrify} sec.`,
 			icon: "⌛",
-			art: art$2(0),
+			art: art$8(0),
 			move: "fracture",
 			cooldown: 7,
 			cost: 2
@@ -7477,7 +7794,7 @@ var ODDY = {
 			about: `${FRAGMENTS.hits} blows. ${pct(FRAGMENTS.chance)} of the time, it is ready again at once and costs nothing the next time.`,
 			words: `Attacks random enemies ${FRAGMENTS.hits} times, dealing a total of M.DMG. With ${pct(FRAGMENTS.chance)} chance, 'Time Fragments' cooldown resets and consumes no mana for the next single activation.`,
 			icon: "🧩",
-			art: art$2(1),
+			art: art$8(1),
 			move: "fragments",
 			cooldown: 12,
 			cost: 3
@@ -7487,7 +7804,7 @@ var ODDY = {
 			about: `A blow; every ally +${DISTORTION.speed} attack speed for ${DISTORTION.lasts} seconds, and what is left of every ally’s cooldowns halved.`,
 			words: `Deals M.DMG to all enemies and increases all allies' ATK Spd by ${DISTORTION.speed} for ${DISTORTION.lasts} sec. All allies' skill cooldown is reduced by ${pct(DISTORTION.cooldowns)}. 'Time Distortion' is not affected by skill cooldown reduction.`,
 			icon: "⏳",
-			art: art$2(2),
+			art: art$8(2),
 			move: "distortion",
 			cooldown: 35,
 			cost: 4
@@ -7504,16 +7821,16 @@ var ODDY = {
 			cooldown: -1.5
 		} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
 		"s2-light": { words: "Target changes to 2 random enemies." },
-		"s2-dark": { words: `While in cooldown, auto-attacks will reduce the cooldown of 'Time Fragments' by ${PERKS$2.fragments} sec.` },
+		"s2-dark": { words: `While in cooldown, auto-attacks will reduce the cooldown of 'Time Fragments' by ${PERKS$8.fragments} sec.` },
 		"s3-light": said({ skill: {
 			index: 2,
 			cost: 2
 		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and fully recovers Mana for all allies.`),
 		"s3-dark": { words: "When there are 5 or more enemies, increases DMG by 100%. Hit Enemies take extra 50% DMG for 10 sec." },
-		"s4-light": { words: `Changes the instances of gaining extra DMG from using the skill to ${PERKS$2.attacks} times.` },
-		"s4-dark": { words: `Changes the chance to Petrify to ${pct(PERKS$2.chance)}.` },
+		"s4-light": { words: `Changes the instances of gaining extra DMG from using the skill to ${PERKS$8.attacks} times.` },
+		"s4-dark": { words: `Changes the chance to Petrify to ${pct(PERKS$8.chance)}.` },
 		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK.Spd +${speed}`),
-		"t5-dark": { words: `Every ${PERKS$2.ticking.every} sec, any skills on cooldown for ${PERKS$2.ticking.allies} random allies have their cooldowns reduced by ${PERKS$2.ticking.less} sec.` }
+		"t5-dark": { words: `Every ${PERKS$8.ticking.every} sec, any skills on cooldown for ${PERKS$8.ticking.allies} random allies have their cooldowns reduced by ${PERKS$8.ticking.less} sec.` }
 	},
 	attack: "chime",
 	join(fight, self) {
@@ -7527,15 +7844,15 @@ var ODDY = {
 			...self.abilities[1],
 			cost: 0
 		};
-		const attacks = self.perks.has("s4-light") ? PERKS$2.attacks : CLOCK.attacks;
-		const chance = self.perks.has("s4-dark") ? PERKS$2.chance : CLOCK.chance;
+		const attacks = self.perks.has("s4-light") ? PERKS$8.attacks : CLOCK.attacks;
+		const chance = self.perks.has("s4-dark") ? PERKS$8.chance : CLOCK.chance;
 		/** The heroes on the field and standing. */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0);
 		return {
 			lands: {
 				chime() {
 					fight.hit(self, CHIME.blow);
-					if (self.perks.has("s2-dark")) self.cooldowns[1] = Math.max(0, self.cooldowns[1] - PERKS$2.fragments);
+					if (self.perks.has("s2-dark")) self.cooldowns[1] = Math.max(0, self.cooldowns[1] - PERKS$8.fragments);
 					if (clock <= 0) return;
 					clock--;
 					fight.hit(self, CLOCK.blow, false);
@@ -7584,12 +7901,12 @@ var ODDY = {
 				clockWait = Math.max(0, clockWait - dt);
 				if (!self.perks.has("t5-dark") || self.hp <= 0 || !fight.field.includes(self)) return;
 				ticking += dt;
-				if (ticking < PERKS$2.ticking.every) return;
-				ticking -= PERKS$2.ticking.every;
+				if (ticking < PERKS$8.ticking.every) return;
+				ticking -= PERKS$8.ticking.every;
 				const pool = allies();
-				for (let i = 0; i < PERKS$2.ticking.allies && pool.length > 0; i++) {
+				for (let i = 0; i < PERKS$8.ticking.allies && pool.length > 0; i++) {
 					const ally = pool.splice(Math.floor(fight.roll() * pool.length), 1)[0];
-					if (ally) ally.cooldowns = ally.cooldowns.map((left) => Math.max(0, left - PERKS$2.ticking.less));
+					if (ally) ally.cooldowns = ally.cooldowns.map((left) => Math.max(0, left - PERKS$8.ticking.less));
 				}
 			},
 			lit: () => free,
@@ -7624,7 +7941,7 @@ var ARMOR = {
 	most: 5
 };
 /** His own perks' numbers: Headbutt's blow more and Earth Incarnate's every second (shares of his max HP), the stuns, Destroy Armor's (at full stacks, and its Dark), and Transcend 5's Dark. */
-var PERKS$1 = {
+var PERKS$7 = {
 	headbutt: .1,
 	stun: 3,
 	quake: {
@@ -7643,7 +7960,7 @@ var PERKS$1 = {
 		blow: .1
 	}
 };
-var art$1 = skillArt("phillop");
+var art$7 = skillArt("phillop");
 var DESTROY_ARMOR = {
 	attack: 1,
 	crit: 0,
@@ -7652,7 +7969,7 @@ var DESTROY_ARMOR = {
 		name: "Destroy Armor",
 		about: `Passive. Each attack of his takes ${num(ARMOR.defense)} off the boss’s P.DEF for ${ARMOR.lasts} seconds (up to ${ARMOR.most} times).`,
 		icon: "🪓",
-		art: art$1(3)
+		art: art$7(3)
 	},
 	words: `Upon attacking, weakens enemy P.DEF by ${num(ARMOR.defense)} for ${ARMOR.lasts} sec. Can be stacked up to ${ARMOR.most} times max.`
 };
@@ -7661,11 +7978,11 @@ var INCARNATION = {
 	name: "Earth Incarnate",
 	about: `+${num(INCARNATE.defense)} P.DEF and M.DEF; he can’t be knocked down.`,
 	icon: "⛰️",
-	art: art$1(2)
+	art: art$7(2)
 };
 /** What his attack leaves on the boss. */
 var BROKEN = "Destroy Armor";
-var EXPOSED = "Destroy Armor (exposed)";
+var EXPOSED$1 = "Destroy Armor (exposed)";
 var PHILLOP = {
 	id: "phillop",
 	name: "Phillop",
@@ -7681,7 +7998,7 @@ var PHILLOP = {
 			about: `A blow that knocks the boss down for ${COLLISION.down} seconds.`,
 			words: `Deals P.DMG and knocks down the enemy for ${COLLISION.down} sec.`,
 			icon: "💥",
-			art: art$1(0),
+			art: art$7(0),
 			move: "collision",
 			cooldown: 12,
 			cost: 3
@@ -7691,7 +8008,7 @@ var PHILLOP = {
 			about: `A dash and a blow: the boss’s attacks ${pct(HEADBUTT.speed / POINTS)} slower for ${HEADBUTT.slowed} seconds.`,
 			words: `Dashes toward the enemy and deals P.DMG, knocking them back. Hit enemy's Attack Spd is reduced by ${pct(HEADBUTT.speed / POINTS)} for ${HEADBUTT.slowed} sec.`,
 			icon: "🐏",
-			art: art$1(1),
+			art: art$7(1),
 			move: "headbutt",
 			cooldown: 8,
 			cost: 2
@@ -7701,7 +8018,7 @@ var PHILLOP = {
 			about: `For ${INCARNATE.lasts} seconds +${num(INCARNATE.defense)} P.DEF and M.DEF, and he can’t be knocked down; he is healed ${pct(INCARNATE.heal)} of his HP.`,
 			words: `Increases P.DEF and M.DEF by ${num(INCARNATE.defense)} for ${INCARNATE.lasts} sec and heals ${pct(INCARNATE.heal)} of HP. Gains CC immunity.`,
 			icon: "⛰️",
-			art: art$1(2),
+			art: art$7(2),
 			move: "incarnate",
 			cooldown: 22,
 			cost: 3,
@@ -7718,14 +8035,14 @@ var PHILLOP = {
 			index: 0,
 			cooldownShare: .9
 		} }, ({ skill }) => `Cooldown is reduced by ${pct(1 - skill.cooldownShare)} per each enemy hit.`),
-		"s2-light": { words: `Deals extra P.DMG equal to ${pct(PERKS$1.headbutt)} of max HP.` },
-		"s2-dark": { words: `Effect changes to a ${PERKS$1.stun} sec Stun to nearby enemies.` },
-		"s3-light": { words: `Deals ${pct(PERKS$1.quake.each)} of Max HP as DMG per sec to nearby enemies.` },
-		"s3-dark": { words: `Stuns nearby enemies for ${PERKS$1.stun} sec.` },
-		"s4-light": { words: `Enemies with ${ARMOR.most} stacks take ${pct(PERKS$1.broken)} extra P.DMG based off Max HP per attack.` },
-		"s4-dark": { words: `Upon attack, dispel all positive effects and target receives ${pct(PERKS$1.exposed.takes - 1)} increased P.DMG for ${PERKS$1.exposed.lasts} sec. Has a cooldown of ${PERKS$1.exposed.every} sec.` },
+		"s2-light": { words: `Deals extra P.DMG equal to ${pct(PERKS$7.headbutt)} of max HP.` },
+		"s2-dark": { words: `Effect changes to a ${PERKS$7.stun} sec Stun to nearby enemies.` },
+		"s3-light": { words: `Deals ${pct(PERKS$7.quake.each)} of Max HP as DMG per sec to nearby enemies.` },
+		"s3-dark": { words: `Stuns nearby enemies for ${PERKS$7.stun} sec.` },
+		"s4-light": { words: `Enemies with ${ARMOR.most} stacks take ${pct(PERKS$7.broken)} extra P.DMG based off Max HP per attack.` },
+		"s4-dark": { words: `Upon attack, dispel all positive effects and target receives ${pct(PERKS$7.exposed.takes - 1)} increased P.DMG for ${PERKS$7.exposed.lasts} sec. Has a cooldown of ${PERKS$7.exposed.every} sec.` },
 		"t5-light": t5Light({ blockPhysical: 200 }, ({ blockPhysical }) => `P. Block +${blockPhysical}`),
-		"t5-dark": { words: `When auto attacking, there is a ${pct(PERKS$1.bash.chance)} chance to Stun the target for ${PERKS$1.bash.stun} sec and deal extra DMG worth ${pct(PERKS$1.bash.blow)} of own HP.` }
+		"t5-dark": { words: `When auto attacking, there is a ${pct(PERKS$7.bash.chance)} chance to Stun the target for ${PERKS$7.bash.stun} sec and deal extra DMG worth ${pct(PERKS$7.bash.blow)} of own HP.` }
 	},
 	attack: "hew",
 	timing: {
@@ -7780,19 +8097,19 @@ var PHILLOP = {
 			broken = Math.min(ARMOR.most, broken + 1);
 			brokenLeft = ARMOR.lasts;
 			armored();
-			if (self.perks.has("s4-light") && broken >= ARMOR.most) fight.hit(self, ofHp(PERKS$1.broken), false);
+			if (self.perks.has("s4-light") && broken >= ARMOR.most) fight.hit(self, ofHp(PERKS$7.broken), false);
 			if (self.perks.has("s4-dark") && exposed <= 0) {
-				exposed = PERKS$1.exposed.every;
+				exposed = PERKS$7.exposed.every;
 				put(fight.foe.statuses, {
-					name: EXPOSED,
-					left: PERKS$1.exposed.lasts,
-					takes: { physical: PERKS$1.exposed.takes },
+					name: EXPOSED$1,
+					left: PERKS$7.exposed.lasts,
+					takes: { physical: PERKS$7.exposed.takes },
 					shown: "curse"
 				});
 			}
-			if (self.perks.has("t5-dark") && fight.roll() < PERKS$1.bash.chance) {
-				fight.stun(PERKS$1.bash.stun, { by: self });
-				fight.hit(self, ofHp(PERKS$1.bash.blow), false);
+			if (self.perks.has("t5-dark") && fight.roll() < PERKS$7.bash.chance) {
+				fight.stun(PERKS$7.bash.stun, { by: self });
+				fight.hit(self, ofHp(PERKS$7.bash.blow), false);
 			}
 		};
 		return {
@@ -7807,8 +8124,8 @@ var PHILLOP = {
 					});
 				},
 				headbutt() {
-					fight.hit(self, HEADBUTT.blow + (self.perks.has("s2-light") ? ofHp(PERKS$1.headbutt) : 0));
-					if (self.perks.has("s2-dark")) fight.stun(PERKS$1.stun, { by: self });
+					fight.hit(self, HEADBUTT.blow + (self.perks.has("s2-light") ? ofHp(PERKS$7.headbutt) : 0));
+					if (self.perks.has("s2-dark")) fight.stun(PERKS$7.stun, { by: self });
 					else fight.slow(HEADBUTT.speed, HEADBUTT.slowed);
 				},
 				incarnate() {
@@ -7824,7 +8141,7 @@ var PHILLOP = {
 						shown: INCARNATION
 					});
 					fight.heal(self, INCARNATE.heal * self.stats.hp);
-					if (self.perks.has("s3-dark")) fight.stun(PERKS$1.stun, { by: self });
+					if (self.perks.has("s3-dark")) fight.stun(PERKS$7.stun, { by: self });
 				}
 			},
 			hurt(who) {
@@ -7853,9 +8170,9 @@ var PHILLOP = {
 				incarnate -= dt;
 				if (!self.perks.has("s3-light") || self.hp <= 0) return;
 				quake += dt;
-				if (quake >= PERKS$1.quake.every) {
-					quake -= PERKS$1.quake.every;
-					fight.hit(self, ofHp(PERKS$1.quake.each), false);
+				if (quake >= PERKS$7.quake.every) {
+					quake -= PERKS$7.quake.every;
+					fight.hit(self, ofHp(PERKS$7.quake.each), false);
 				}
 			},
 			guards: () => incarnate > 0,
@@ -7867,7 +8184,7 @@ var PHILLOP = {
 //#region src/technomagic/sim/heroes/naila.ts
 var TALON = { blow: BLOW * 1.2 };
 /** Each of the four blows of her fist fight (her attack's animation): her attack about as hard over time as her talons'. */
-var FIST = { blow: BLOW * .78 };
+var FIST$2 = { blow: BLOW * .78 };
 var WINDS = {
 	blow: 2e3,
 	boss: 1e3,
@@ -7884,7 +8201,7 @@ var DIVE = {
 	downed: 1.5
 };
 /** Tornado Strike: every so many attacks, its chance, its blow, how much more physical damage the boss takes, and for how long, and how long it is knocked down. */
-var TORNADO = {
+var TORNADO$1 = {
 	every: 5,
 	chance: .4,
 	blow: 3e3,
@@ -7893,7 +8210,7 @@ var TORNADO = {
 	down: 3
 };
 /** Her own perks' numbers: Wind Reading's Dark, Dive Bomb's Dark's cooldown less, Tornado Strike's (its chance, and her ATK Spd after), and Transcend 5's Dark (for each dodge, up to so many). */
-var PERKS = {
+var PERKS$6 = {
 	reading: 1.3,
 	dive: .1,
 	chance: .6,
@@ -7905,47 +8222,1578 @@ var PERKS = {
 		most: 10
 	}
 };
-var art = skillArt("naila");
+var art$6 = skillArt("naila");
 var TORNADO_STRIKE = {
 	attack: 1,
 	crit: 0,
 	control: 1,
 	shown: {
 		name: "Tornado Strike",
-		about: `Passive. Her ${nth(TORNADO.every)} attack has a ${pct(TORNADO.chance)} chance to deal more, leave the boss taking ${pct(TORNADO.takes - 1)} more physical damage for ${TORNADO.lasts} seconds, and knock it down for ${TORNADO.down}.`,
+		about: `Passive. Her ${nth(TORNADO$1.every)} attack has a ${pct(TORNADO$1.chance)} chance to deal more, leave the boss taking ${pct(TORNADO$1.takes - 1)} more physical damage for ${TORNADO$1.lasts} seconds, and knock it down for ${TORNADO$1.down}.`,
 		icon: "🌪️",
-		art: art(3)
+		art: art$6(3)
 	},
-	words: `Every ${nth(TORNADO.every)} normal attack has a ${pct(TORNADO.chance)} chance to deal additional P.DMG to the target. The target takes ${pct(TORNADO.takes - 1)} increased P.DMG for ${TORNADO.lasts} sec and is knocked down for ${TORNADO.down} sec.`
+	words: `Every ${nth(TORNADO$1.every)} normal attack has a ${pct(TORNADO$1.chance)} chance to deal additional P.DMG to the target. The target takes ${pct(TORNADO$1.takes - 1)} increased P.DMG for ${TORNADO$1.lasts} sec and is knocked down for ${TORNADO$1.down} sec.`
 };
 /** What Wind Reading gives every ally, and its Dark gives her. */
 var READ = {
 	name: "Wind Reading",
 	about: `+${READING.dodge} P.Dodge and +${num(READING.atk)} ATK.`,
 	icon: "🍃",
-	art: art(1)
+	art: art$6(1)
 };
 var READ_DARK = {
 	name: "Wind Reading (Dark)",
-	about: `Deals ${pct(PERKS.reading - 1)} more to the boss.`,
+	about: `Deals ${pct(PERKS$6.reading - 1)} more to the boss.`,
 	icon: "🍃",
-	art: art(1)
+	art: art$6(1)
 };
 /** Tornado Strike's Dark, and Transcend 5's Dark's stacks. */
 var WHIRLED = {
 	name: "Tornado Strike",
-	about: `+${PERKS.speed} attack speed.`,
+	about: `+${PERKS$6.speed} attack speed.`,
 	icon: "🌪️",
-	art: art(3)
+	art: art$6(3)
 };
 var GUSTS = {
 	name: "Gale",
-	about: `+${pct(PERKS.dodge.atk)} ATK and +${PERKS.dodge.speed} attack speed for each.`,
+	about: `+${pct(PERKS$6.dodge.atk)} ATK and +${PERKS$6.dodge.speed} attack speed for each.`,
 	icon: "🪶",
-	art: art(3)
+	art: art$6(3)
 };
 /** What her blows leave on the boss. */
-var TORN = "Tornado Strike";
+var TORN$1 = "Tornado Strike";
+var NAILA = {
+	id: "naila",
+	name: "Naila",
+	class: "warrior",
+	skins: ["Naila"],
+	stats: {
+		...CLASS_STATS.warrior,
+		deals: "physical"
+	},
+	abilities: [
+		{
+			name: "Fierce Winds",
+			about: `Two dashes through the boss, each a blow that knocks it down for ${WINDS.down} seconds.`,
+			words: `Dashes toward the enemy 2 times, dealing P.DMG to enemies in range, knocking them down for ${WINDS.down} sec. If the target is not a Hero, deals additional P.DMG.`,
+			icon: "💨",
+			art: art$6(0),
+			move: "winds",
+			cooldown: 8,
+			cost: 3
+		},
+		{
+			name: "Wind Reading",
+			about: `Every ally +${READING.dodge} P.Dodge and +${num(READING.atk)} ATK for ${READING.lasts} seconds.`,
+			words: `All allies' P.Dodge Chance is increased by ${READING.dodge} for ${READING.lasts} sec, and ATK is increased by ${num(READING.atk)}.`,
+			icon: "🍃",
+			art: art$6(1),
+			move: "reading",
+			cooldown: 20,
+			cost: 1,
+			auto: { keeps: READ.name }
+		},
+		{
+			name: "Dive Bomb",
+			about: `She flies up and strikes the boss, ${pct(DIVE.downed - 1)} harder while she has it knocked down.`,
+			words: `Flies up and strikes P.DMG to enemies in range. Knocked down enemies take ${pct(DIVE.downed - 1)} increased DMG. If the target is not a Hero, deals additional P.DMG.`,
+			icon: "🦅",
+			art: art$6(2),
+			move: "dive",
+			cooldown: 12,
+			cost: 3
+		}
+	],
+	passive: TORNADO_STRIKE,
+	perks: {
+		"s1-light": said({ skill: {
+			index: 0,
+			dmg: 2
+		} }, ({ skill }) => `If there is 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s1-dark": { words: "Target changes to the enemy with the highest ATK." },
+		"s2-light": said({ skill: {
+			index: 1,
+			cost: -1
+		} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
+		"s2-dark": { words: `Increases Naila's DMG dealt on non-Hero enemies by ${pct(PERKS$6.reading - 1)} for the duration of skill.` },
+		"s3-light": said({ skill: {
+			index: 2,
+			dmg: 1.4
+		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s3-dark": { words: `Reduces cooldown by ${pct(PERKS$6.dive)} per each enemy that takes Critical DMG.` },
+		"s4-light": { words: `Activation chance changes to ${pct(PERKS$6.chance)}.` },
+		"s4-dark": { words: `Atk Spd is boosted by ${PERKS$6.speed} when effect takes place.` },
+		"t5-light": t5Light({}, () => "P.Dodge +100"),
+		"t5-dark": { words: `Upon dodging, all skill cooldowns are reduced by ${pct(PERKS$6.dodge.cooldowns)}. Also, ATK is boosted by ${pct(PERKS$6.dodge.atk)}, and Atk Spd is boosted by ${PERKS$6.dodge.speed}. The ATK and Atk Spd Boosts can stack up to ${PERKS$6.dodge.most} times.` }
+	},
+	attack: "talon",
+	timing: { attack: [{
+		lands: [
+			.92,
+			1.52,
+			2.78,
+			3.62
+		],
+		until: 4.3
+	}] },
+	join(fight, self) {
+		/** Her attacks toward Tornado Strike's next chance; how long she has the boss knocked down yet; Transcend 5's Dark's stacks; her unique weapon's blow on the boss, how long it lasts yet, and toward its next bite. */
+		let attacks = 0;
+		let downed = 0;
+		let gusts = 0;
+		let baroro = 0;
+		let bitten = 0;
+		const tier = self.unique?.tier ?? null;
+		/** A blow of hers: a critical one, with her unique weapon, leaves the boss losing health and taking more physical damage (begun again). */
+		const strike = (amount) => {
+			const critical = fight.hit(self, amount);
+			if (critical && tier !== null) {
+				baroro = BARORO.lasts;
+				put(fight.foe.statuses, {
+					name: BARORO.name,
+					left: BARORO.lasts,
+					takes: { physical: 1 + atTier(BARORO.takes, tier) },
+					shown: "curse"
+				});
+			}
+			return critical;
+		};
+		/** She knocks the boss down. */
+		const down = (seconds) => {
+			fight.stun(seconds, {
+				down: true,
+				by: self
+			});
+			downed = Math.max(downed, seconds);
+		};
+		/** A blow of her attack; every 5th, now and then, Tornado Strike. */
+		const attack = (amount) => {
+			strike(amount);
+			attacks++;
+			if (attacks < TORNADO$1.every) return;
+			attacks = 0;
+			if (fight.roll() >= (self.perks.has("s4-light") ? PERKS$6.chance : TORNADO$1.chance)) return;
+			fight.cue(self, "tornado");
+			strike(TORNADO$1.blow);
+			put(fight.foe.statuses, {
+				name: TORN$1,
+				left: TORNADO$1.lasts,
+				takes: { physical: TORNADO$1.takes },
+				shown: "curse"
+			});
+			down(TORNADO$1.down);
+			if (self.perks.has("s4-dark")) put(self.statuses, {
+				name: WHIRLED.name,
+				left: TORNADO$1.lasts,
+				pace: 1 + share(PERKS$6.speed),
+				shown: WHIRLED
+			});
+		};
+		return {
+			lands: {
+				talon: () => attack(TALON.blow),
+				attack: () => attack(FIST$2.blow),
+				winds() {
+					strike(WINDS.blow + WINDS.boss);
+					down(WINDS.down);
+				},
+				reading() {
+					const allies = fight.field.filter((ally) => ally.hp > 0);
+					for (const ally of allies) put(ally.statuses, {
+						name: READ.name,
+						left: READING.lasts,
+						deals: 1 + READING.atk / ally.stats.atk,
+						shown: READ
+					});
+					if (self.perks.has("s2-dark")) put(self.statuses, {
+						name: READ_DARK.name,
+						left: READING.lasts,
+						deals: PERKS$6.reading,
+						shown: READ_DARK
+					});
+					fight.cue(self, "reading", allies);
+				},
+				dive() {
+					if (strike((DIVE.blow + DIVE.boss) * (downed > 0 ? DIVE.downed : 1)) && self.perks.has("s3-dark")) self.cooldowns[2] = Math.max(0, self.cooldowns[2] - (self.abilities[2]?.cooldown ?? 0) * PERKS$6.dive);
+				}
+			},
+			dodged() {
+				if (!self.perks.has("t5-dark")) return;
+				self.cooldowns = self.cooldowns.map((left, i) => Math.max(0, left - (self.abilities[i]?.cooldown ?? 0) * PERKS$6.dodge.cooldowns));
+				gusts = Math.min(PERKS$6.dodge.most, gusts + 1);
+			},
+			tick(dt) {
+				downed = Math.max(0, downed - dt);
+				if (baroro <= 0 || tier === null) {
+					bitten = 0;
+					return;
+				}
+				baroro -= dt;
+				bitten += dt;
+				if (bitten >= 1) {
+					bitten -= 1;
+					fight.hit(self, atTier(BARORO.blow, tier) / BARORO.lasts, false);
+				}
+			},
+			deals: () => 1 + PERKS$6.dodge.atk * gusts,
+			speed: () => PERKS$6.dodge.speed * gusts,
+			lit: () => attacks === TORNADO$1.every - 1,
+			buffs: () => gusts > 0 ? [{
+				...GUSTS,
+				count: gusts
+			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/heroes/yanne.ts
+var SHOT = { blow: BLOW * 1.3 };
+/** Her arrow when she draws it as her attack's animation has it (quicker than as written in code): her attack about as hard over time. */
+var DRAWN = { blow: BLOW * 1.06 };
+/** Focus Shot!'s arrow, and how many times as hard it is focused (she always focuses as long as she can). */
+var FOCUS = {
+	blow: 2e3,
+	focused: 2
+};
+var WIPEOUT = { blow: 3500 };
+/** No Holding Back!: her ATK and penetration (points) more, for `lasts` seconds; the share of her mana each blow of her attack takes meanwhile. */
+var UNLEASHED = {
+	atk: 32032,
+	pen: 500,
+	lasts: 30,
+	mana: .03
+};
+/** Dragon Slayer: her ATK more, and her max HP a share more. */
+var SLAYER = {
+	atk: 9477,
+	hp: .3
+};
+/** Her own perks' numbers: Focus Shot!'s Dark, Wipeout!'s Dark, No Holding Back!'s Light and Dark. */
+var PERKS$5 = {
+	marked: {
+		takes: 1.25,
+		lasts: 10
+	},
+	stun: 2,
+	speed: 250,
+	taken: .75
+};
+var art$5 = skillArt("yanne");
+var DRAGON_SLAYER = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Dragon Slayer",
+		about: `Passive. +${num(SLAYER.atk)} ATK and +${pct(SLAYER.hp)} max HP. (More against a Dragon: Galgoria is none.)`,
+		icon: "🐉",
+		art: art$5(3)
+	},
+	words: `ATK is increased by ${num(SLAYER.atk)} , and Max HP is increased by ${pct(SLAYER.hp)}. Also, DMG dealt to Dragons is increased by 50%.`
+};
+/** No Holding Back!: shown on her card while it lasts. */
+var UNLEASH = {
+	name: "No Holding Back!",
+	about: `+${num(UNLEASHED.atk)} ATK and +${UNLEASHED.pen} penetration; each blow of her attack takes ${pct(UNLEASHED.mana)} of her mana.`,
+	icon: "🏹",
+	art: art$5(2)
+};
+/** What Focus Shot!'s Dark leaves on the boss. */
+var MARKED = "Focus Shot!";
+var YANNE = {
+	id: "yanne",
+	name: "Yanne",
+	class: "archer",
+	skins: ["Yanne"],
+	stats: {
+		...CLASS_STATS.archer,
+		atk: CLASS_STATS.archer.atk + SLAYER.atk,
+		hp: Math.round(CLASS_STATS.archer.hp * (1 + SLAYER.hp)),
+		deals: "physical"
+	},
+	abilities: [
+		{
+			name: "Focus Shot!",
+			about: `An arrow, focused on as long as she can (its DMG doubled).`,
+			words: "Taking up a stance, focuses for a while and deals P.DMG to enemies in a straight line. If the target is a dragon, inflicts Stun for 3 sec. The longer she focuses, DMG and Stun duration are increased by 100%.",
+			icon: "🎯",
+			art: art$5(0),
+			move: "focus",
+			cooldown: 9,
+			cost: 2
+		},
+		{
+			name: "Wipeout!",
+			about: "A great arrow at the boss.",
+			words: "Deals P.DMG to target enemy and other enemies in range. If the target is a Dragon, deals extra DMG that ignores DEF.",
+			icon: "💥",
+			art: art$5(1),
+			move: "wipeout",
+			cooldown: 10,
+			cost: 3
+		},
+		{
+			name: "No Holding Back!",
+			about: `What the boss has left on her is cleared; for ${UNLEASHED.lasts} seconds +${num(UNLEASHED.atk)} ATK and +${UNLEASHED.pen} penetration, and each blow of her attack takes ${pct(UNLEASHED.mana)} of her mana.`,
+			words: `Removes all negative effects on self. For ${UNLEASHED.lasts} sec, ATK is increased by ${num(UNLEASHED.atk)} and Penetration is increased by ${UNLEASHED.pen}. For the duration of skill, auto attacks are changed to consuming ${pct(UNLEASHED.mana)} mana to deal DMG to all enemies in a straight line and deals extra P.DMG to Dragons ignoring DEF.`,
+			icon: "🔥",
+			art: art$5(2),
+			move: "unleash",
+			cooldown: 25,
+			cost: 4,
+			auto: { keeps: UNLEASH.name }
+		}
+	],
+	passive: DRAGON_SLAYER,
+	perks: {
+		"s1-light": said({ skill: {
+			index: 0,
+			dmg: 1.4
+		} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
+		"s1-dark": said({ skill: {
+			index: 0,
+			mark: {
+				name: MARKED,
+				takes: { physical: PERKS$5.marked.takes },
+				lasts: PERKS$5.marked.lasts
+			}
+		} }, ({ skill }) => `Target takes ${pct(PERKS$5.marked.takes - 1)} additional P.DMG for ${skill.mark.lasts} sec.`),
+		"s2-light": said({ skill: {
+			index: 1,
+			dmg: 2
+		} }, ({ skill }) => `When there is 1 enemy, DMG is boosted by ${pct(skill.dmg - 1)}.`),
+		"s2-dark": { words: `Enemies hit are stunned for ${PERKS$5.stun} sec.` },
+		"s3-light": { words: `ATK Spd is boosted by ${PERKS$5.speed} for the duration.` },
+		"s3-dark": { words: `For the duration, all DMG taken is reduced by ${pct(1 - PERKS$5.taken)}.` },
+		"s4-light": { words: "Reduces DMG that all allies take from Dragons by 20%." },
+		"s4-dark": { words: "Changes own DMG Boost against Dragons to 80%." },
+		"t5-light": t5Light({ critDamage: .2 }, ({ critDamage }) => `Crit DMG +${pct(critDamage)}`),
+		"t5-dark": { words: "Auto-attacks ignore enemy Block effects." }
+	},
+	attack: "shot",
+	timing: {
+		attack: [{
+			lands: [.98],
+			until: 1.03
+		}],
+		skills: {
+			focus: {
+				lands: [1.45],
+				until: 1.6
+			},
+			wipeout: {
+				lands: [1.2],
+				until: 1.6
+			},
+			unleash: {
+				lands: [1],
+				until: 1.6
+			}
+		}
+	},
+	join(fight, self) {
+		/** How long No Holding Back! lasts yet; until her unique weapon's next. */
+		let unleashed = 0;
+		let svelta = 0;
+		const tier = self.unique?.tier ?? null;
+		/** A blow of hers: a critical one, with her unique weapon (no sooner than a moment after the last), a blow more and mana. */
+		const shoot = (amount) => {
+			const critical = fight.hit(self, amount);
+			if (critical && tier !== null && svelta <= 0) {
+				svelta = SVELTA.every;
+				fight.hit(self, SVELTA.blow, false);
+				self.mana = Math.min(MAX_MANA, self.mana + SVELTA.mana);
+			}
+			return critical;
+		};
+		/** Her attack: an arrow (with No Holding Back! on her, taking a share of her mana as it goes). */
+		const loose = (amount) => {
+			if (unleashed > 0) self.mana = Math.max(0, self.mana - UNLEASHED.mana * MAX_MANA);
+			shoot(amount);
+		};
+		return {
+			lands: {
+				shot: () => loose(SHOT.blow),
+				attack: () => loose(DRAWN.blow),
+				focus: () => shoot(FOCUS.blow * FOCUS.focused),
+				wipeout() {
+					shoot(WIPEOUT.blow);
+					if (self.perks.has("s2-dark")) fight.stun(PERKS$5.stun, { by: self });
+				},
+				unleash() {
+					const harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
+					self.statuses = self.statuses.filter((status) => !harmful(status));
+					unleashed = UNLEASHED.lasts;
+					put(self.statuses, {
+						name: UNLEASH.name,
+						left: UNLEASHED.lasts,
+						deals: 1 + UNLEASHED.atk / self.stats.atk,
+						pen: UNLEASHED.pen,
+						...self.perks.has("s3-light") && { pace: 1 + share(PERKS$5.speed) },
+						...self.perks.has("s3-dark") && { takes: PERKS$5.taken },
+						shown: UNLEASH
+					});
+				}
+			},
+			tick(dt) {
+				unleashed = Math.max(0, unleashed - dt);
+				svelta = Math.max(0, svelta - dt);
+			},
+			lit: () => unleashed > 0,
+			buffs: () => tier !== null && svelta > 0 ? [{
+				...SVELTA_UP,
+				left: svelta
+			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/heroes/neraxis.ts
+var MAW = { blow: BLOW * 1.2 };
+/** His fist as his attack's animation has it (four blows, quicker than as written in code): his attack about as hard over time. */
+var FIST$1 = { blow: BLOW * .76 };
+/** Black Lightning Claw: its first blow and its second, and the second's stun. */
+var CLAW = {
+	blow: 1500,
+	after: 1500,
+	stun: 3,
+	speed: 300,
+	slowed: 10
+};
+/** Obsidian Roar: every ally's ATK and defense more, for `lasts` seconds; its blow; and the boss's ATK as much less meanwhile. */
+var ROAR$1 = {
+	more: 13488,
+	lasts: 15,
+	blow: 2e3,
+	weaker: .3
+};
+/** Breath of Destruction: its blows (as many as its move has), each taking a share of the boss's M.DEF for `lasts` seconds, and stunning it. */
+var BREATH = {
+	blow: 1e3,
+	weaker: .2,
+	lasts: 1,
+	stun: 1
+};
+/** Black Dragon Hide: his P.DEF and M.DEF more, and what he takes. */
+var HIDE = {
+	defense: 18962,
+	taken: .85
+};
+/** His own perks' numbers: Black Lightning Claw's Light and Dark, Obsidian Roar's Light, Breath of Destruction's Dark, Black Dragon Hide's Light and Dark, and Transcend 5's Dark. */
+var PERKS$4 = {
+	stun: 2,
+	marked: {
+		takes: 1.25,
+		lasts: 10
+	},
+	roar: 2,
+	weaker: .3,
+	speed: 300,
+	low: {
+		below: .5,
+		more: 1.5
+	},
+	guard: {
+		taken: .9,
+		lasts: 30
+	}
+};
+var art$4 = skillArt("neraxis");
+var BLACK_DRAGON_HIDE = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	taken: HIDE.taken,
+	shown: {
+		name: "Black Dragon Hide",
+		about: `Passive. +${num(HIDE.defense)} P.DEF and M.DEF; he takes ${pct(1 - HIDE.taken)} less.`,
+		icon: "🐲",
+		art: art$4(3)
+	},
+	words: `Increases P.DEF and M.DEF by ${num(HIDE.defense)} and takes reduced P.DMG and M.DMG by ${pct(1 - HIDE.taken)}.`
+};
+/** Obsidian Roar on an ally; Transcend 5's Dark on the others. */
+var ROARED$1 = {
+	name: "Obsidian Roar",
+	about: "ATK, P.DEF and M.DEF higher.",
+	icon: "🐉",
+	art: art$4(1)
+};
+var GUARDED = {
+	name: "Neraxis’s Guard",
+	about: "Takes less from the boss.",
+	icon: "🐲",
+	art: art$4(3)
+};
+/** What his skills leave on the boss. */
+var CLAWED = "Black Lightning Claw";
+var WEAKENED = "Obsidian Roar";
+var BREATHED = "Breath of Destruction";
+var NERAXIS = {
+	id: "neraxis",
+	name: "Neraxis",
+	class: "knight",
+	skins: ["Neraxis"],
+	stats: {
+		...CLASS_STATS.knight,
+		physical: CLASS_STATS.knight.physical + HIDE.defense,
+		magical: CLASS_STATS.knight.magical + HIDE.defense,
+		deals: "magical"
+	},
+	abilities: [
+		{
+			name: "Black Lightning Claw",
+			about: `A blow, and a second after a blow more that stuns the boss for ${CLAW.stun} seconds.`,
+			words: `Draws enemies towards the target and deals M.DMG. Deals M.DMG around the target after 1 sec and stuns them for ${CLAW.stun} sec. Reduces ATK Spd of hit enemies by ${CLAW.speed} for ${CLAW.slowed} sec.`,
+			icon: "⚡",
+			art: art$4(0),
+			move: "lightning",
+			cooldown: 8,
+			cost: 2
+		},
+		{
+			name: "Obsidian Roar",
+			about: `Every ally +${num(ROAR$1.more)} ATK, P.DEF and M.DEF for ${ROAR$1.lasts} seconds; a blow, and the boss’s ATK ${pct(ROAR$1.weaker)} lower meanwhile.`,
+			words: `Increases ATK, P.DEF, and M.DEF of all allies by ${num(ROAR$1.more)} for ${ROAR$1.lasts} sec. Deals M.DMG to all enemies and reduces their ATK by ${pct(ROAR$1.weaker)} for ${ROAR$1.lasts} sec.`,
+			icon: "🐉",
+			art: art$4(1),
+			move: "roar",
+			cooldown: 15,
+			cost: 3,
+			auto: { keeps: ROARED$1.name }
+		},
+		{
+			name: "Breath of Destruction",
+			about: `Six blows, each taking ${pct(BREATH.weaker)} of the boss’s M.DEF for ${BREATH.lasts} second and stunning it for ${BREATH.stun} second.`,
+			words: `Deals a total of M.DMG to enemies within a large area around the target over 6 times and reduces their M.DEF by ${pct(BREATH.weaker)} for ${BREATH.lasts} sec. Each hit stuns the enemy for ${BREATH.stun} sec.`,
+			icon: "🌋",
+			art: art$4(2),
+			move: "breath",
+			cooldown: 20,
+			cost: 4
+		}
+	],
+	passive: BLACK_DRAGON_HIDE,
+	perks: {
+		"s1-light": { words: `Increases Stun duration by ${PERKS$4.stun} sec.` },
+		"s1-dark": said({ skill: {
+			index: 0,
+			mark: {
+				name: CLAWED,
+				takes: { magical: PERKS$4.marked.takes },
+				lasts: PERKS$4.marked.lasts
+			}
+		} }, ({ skill }) => `Increases the M.DMG that the hit enemy takes by ${pct(PERKS$4.marked.takes - 1)} for ${skill.mark.lasts} sec.`),
+		"s2-light": said({ skill: {
+			index: 1,
+			cost: 1
+		} }, ({ skill }) => `Increases Mana Cost by ${skill.cost} and ATK and DEF Boost by ${pct(PERKS$4.roar - 1)}.`),
+		"s2-dark": { words: "Reduces ATK Spd of the hit enemy by 300 for 15 sec." },
+		"s3-light": said({ skill: {
+			index: 2,
+			cost: -1
+		} }, ({ skill }) => `Reduce Mana Cost by ${-skill.cost}.`),
+		"s3-dark": { words: `Changes M.DEF Reduction to ${pct(PERKS$4.weaker)}.` },
+		"s4-light": { words: `ATK Spd is increased by ${PERKS$4.speed}` },
+		"s4-dark": { words: `When HP falls below ${pct(PERKS$4.low.below)}, skill effects are increased by ${pct(PERKS$4.low.more - 1)}.` },
+		"t5-light": t5Light({ resist: 100 }, ({ resist }) => `CC Resist +${resist}`),
+		"t5-dark": { words: `At the beginning of every battle, reduces DMG that non-Hero enemies deal to all allies except Neraxis by ${pct(1 - PERKS$4.guard.taken)} for ${PERKS$4.guard.lasts} sec.` }
+	},
+	attack: "maw",
+	timing: {
+		attack: [{
+			lands: [
+				.92,
+				1.52,
+				2.78,
+				3.62
+			],
+			until: 4.3
+		}],
+		skills: { roar: {
+			lands: [.5],
+			until: 2.2
+		} }
+	},
+	join(fight, self) {
+		/** His attack's blows toward his unique weapon's next; how long its Storm lasts yet; whether Transcend 5's Dark has guarded his allies yet. */
+		let blows = 0;
+		let storm = 0;
+		let guarded = false;
+		const tier = self.unique?.tier ?? null;
+		/** What his skills do, as Black Dragon Hide's Dark has it: half again as much under half his health. */
+		const more = () => self.perks.has("s4-dark") && self.hp < self.stats.hp * PERKS$4.low.below ? PERKS$4.low.more : 1;
+		/** A blow of one of his skills. */
+		const blow = (amount) => fight.hit(self, amount * more());
+		/** His attack: a blow; every so many, with his unique weapon, a blow more, a stun, and the Storm of Neraxis on every ally. */
+		const attack = (amount) => {
+			fight.hit(self, amount);
+			if (tier === null || ++blows < atTier(ACRAVITA.blows, tier)) return;
+			blows = 0;
+			fight.hit(self, ACRAVITA.blow, false);
+			fight.stun(ACRAVITA.stun, { by: self });
+			storm = ACRAVITA.lasts;
+			const share = atTier(ACRAVITA.defense, tier);
+			for (const ally of fight.field) {
+				if (ally.hp <= 0) continue;
+				put(ally.statuses, {
+					name: ACRAVITA_UP.name,
+					left: ACRAVITA.lasts,
+					deals: 1 + atTier(ACRAVITA.atk, tier),
+					bolsters: {
+						physical: self.stats.physical * share,
+						magical: self.stats.magical * share
+					},
+					shown: ACRAVITA_UP
+				});
+			}
+			fight.cue(self, "storm", fight.field);
+		};
+		return {
+			lands: {
+				maw: () => attack(MAW.blow),
+				attack: () => attack(FIST$1.blow),
+				lightning(part) {
+					blow(part === 0 ? CLAW.blow : CLAW.after);
+					if (part === 0) return;
+					fight.stun((CLAW.stun + (self.perks.has("s1-light") ? PERKS$4.stun : 0)) * more(), { by: self });
+					fight.slow(CLAW.speed, CLAW.slowed);
+				},
+				roar() {
+					const boost = ROAR$1.more * (self.perks.has("s2-light") ? PERKS$4.roar : 1) * more();
+					const on = fight.field.filter((ally) => ally.hp > 0);
+					for (const ally of on) put(ally.statuses, {
+						name: ROARED$1.name,
+						left: ROAR$1.lasts,
+						deals: 1 + boost / ally.stats.atk,
+						bolsters: {
+							physical: boost,
+							magical: boost
+						},
+						shown: ROARED$1
+					});
+					fight.cue(self, "roar", on);
+					blow(ROAR$1.blow);
+					put(fight.foe.statuses, {
+						name: WEAKENED,
+						left: ROAR$1.lasts,
+						deals: Math.max(0, 1 - ROAR$1.weaker * more()),
+						shown: "curse"
+					});
+					if (self.perks.has("s2-dark")) fight.slow(300, ROAR$1.lasts);
+				},
+				breath() {
+					const weaker = (self.perks.has("s3-dark") ? PERKS$4.weaker : BREATH.weaker) * more();
+					put(fight.foe.statuses, {
+						name: BREATHED,
+						left: BREATH.lasts,
+						defends: { magical: Math.max(0, 1 - weaker) },
+						shown: "curse"
+					});
+					blow(BREATH.blow);
+					fight.stun(BREATH.stun * more(), { by: self });
+				}
+			},
+			tick(dt) {
+				storm = Math.max(0, storm - dt);
+				if (guarded || !self.perks.has("t5-dark")) return;
+				guarded = true;
+				for (const ally of fight.fighters) if (ally !== self) put(ally.statuses, {
+					name: GUARDED.name,
+					left: PERKS$4.guard.lasts,
+					takes: PERKS$4.guard.taken,
+					shown: GUARDED
+				});
+			},
+			speed: () => self.perks.has("s4-light") ? PERKS$4.speed : 0,
+			lit: () => storm > 0,
+			buffs: () => storm > 0 ? [{
+				...ACRAVITA_UP,
+				left: storm
+			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/heroes/erze.ts
+var DRAIN = { blow: BLOW * 1.2 };
+/** Sweet Blood: its blow, the share of what it deals she steals, how much shorter its cooldown is for the hit; its stacks, and the blows more at the most. */
+var SWEET = {
+	blow: 2100,
+	steals: .1,
+	sooner: .5,
+	most: 5,
+	more: 2
+};
+/** Soaking Blood: how long nothing touches her, how long before its blow; the most stacks on the boss; its blow, a blow more for every `per` stacks, and the share of what it deals she steals. */
+var SOAK = {
+	lasts: 5,
+	after: 5,
+	most: 6,
+	blow: 3e3,
+	per: 3,
+	steals: .25
+};
+/** Blood Liberation: how long, a blow every `every` seconds and a blow more each time. */
+var LIBERATION = {
+	lasts: 10,
+	every: 1,
+	blow: 600
+};
+/** Life Drinker: her max HP lower by this share once it has spared her. */
+var DRINKER = { cut: .4 };
+/** Her own perks' numbers: Sweet Blood's Light and Dark, Soaking Blood's Light, Blood Liberation's Light, Life Drinker's Light, and Transcend 5's Dark. */
+var PERKS$3 = {
+	mana: 150,
+	sweeter: {
+		more: .1,
+		most: 30
+	},
+	stun: 3,
+	liberated: 75,
+	cut: .33,
+	last: .25
+};
+var art$3 = skillArt("erze");
+var LIFE_DRINKER = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Life Drinker",
+		about: `Passive. A blow that would bring her down casts [Soaking Blood] instead (if it is ready: all her mana spent), and her max HP is ${pct(DRINKER.cut)} lower after. (What it gives for each enemy killed: nothing here.)`,
+		icon: "🦇",
+		art: art$3(3)
+	},
+	words: `Increases ATK by 4212 and Max HP by 21076 upon killing an enemy. Stacks up to max 50. Upon taking fatal DMG, casts [Soaking Blood], and decreases Max HP by ${pct(DRINKER.cut)}. This effect is not applied when [Soaking Blood] is in cooldown. This skill consumes all Mana upon activation.`
+};
+/** Sweet Blood's stacks, Soaking Blood on her: shown on her card. */
+var SWEETENED = {
+	name: "Sweet Blood",
+	about: `At ${SWEET.most}, [Sweet Blood] strikes more.`,
+	icon: "🩸",
+	art: art$3(0)
+};
+var SOAKED = {
+	name: "Soaking Blood",
+	about: "Nothing touches her, and she can’t be knocked down.",
+	icon: "🛡️",
+	art: art$3(1)
+};
+var LIBERATED = {
+	name: "Blood Liberation",
+	about: "Blows every second.",
+	icon: "🌹",
+	art: art$3(2)
+};
+var ERZE = {
+	id: "erze",
+	name: "Erze",
+	class: "assassin",
+	skins: ["Erze"],
+	stats: {
+		...CLASS_STATS.assassin,
+		deals: "physical"
+	},
+	abilities: [
+		{
+			name: "Sweet Blood",
+			about: `A blow that steals ${pct(SWEET.steals)} of what it deals, its cooldown ${SWEET.sooner} seconds shorter; and a stack of it (at ${SWEET.most}, ${SWEET.more} blows more).`,
+			words: `Deals P.DMG to all enemies and steals HP equal to ${pct(SWEET.steals)} of DMG dealt. Reduces Cooldown of [Sweet Blood] by ${SWEET.sooner} sec on each hit, and gains 1 stack of [Sweet Blood]. [Sweet Blood] can be stacked up to ${SWEET.most} times, and using the skill with ${SWEET.most} stacks of [Sweet Blood] grants additional hits and removes [Sweet Blood] stacks.`,
+			icon: "🩸",
+			art: art$3(0),
+			move: "sweet",
+			cooldown: 5,
+			cost: 2
+		},
+		{
+			name: "Soaking Blood",
+			about: `For ${SOAK.lasts} seconds nothing touches her and she can’t be knocked down; after ${SOAK.after}, a blow on the boss that steals ${pct(SOAK.steals)} of what it deals (a blow more for every ${SOAK.per} stacks of it).`,
+			words: `Dispels all negative effects and gains immunity to all CCs, P.DMG, and M.DMG for ${SOAK.lasts} sec. Inflicts 1 stack of [Soaking Blood] on all enemies, and additional 1 stack upon attacking a target with [Soaking Blood]. [Soaking Blood] can be stacked up to ${SOAK.most} times. Deals P.DMG to enemies with [Soaking Blood] stacks after ${SOAK.after} sec, and steals HP equal to ${pct(SOAK.steals)} of the DMG dealt. For every ${SOAK.per} stack(s) of [Soaking Blood], hit count increases by 1 and removes [Soaking Blood] stacks upon attacking.`,
+			icon: "🛡️",
+			art: art$3(1),
+			move: "soak",
+			cooldown: 35,
+			cost: 2
+		},
+		{
+			name: "Blood Liberation",
+			about: `For ${LIBERATION.lasts} seconds, every second a blow and a blow more.`,
+			words: `Deals P.DMG to all enemies every ${LIBERATION.every} sec for ${LIBERATION.lasts} sec. Each hit of [Blood Liberation] causes an additional hit on 1 random enemy.`,
+			icon: "🌹",
+			art: art$3(2),
+			move: "liberation",
+			cooldown: 14,
+			cost: 3
+		}
+	],
+	passive: LIFE_DRINKER,
+	perks: {
+		"s1-light": { words: `Recovers ${PERKS$3.mana} Mana every hit.` },
+		"s1-dark": { words: `Each use increases DMG by ${pct(PERKS$3.sweeter.more)}. Stacks ${PERKS$3.sweeter.most} times max.` },
+		"s2-light": { words: `Stuns the target for ${PERKS$3.stun} sec upon hit.` },
+		"s2-dark": said({ skill: {
+			index: 1,
+			cost: -1
+		} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
+		"s3-light": { words: `Recovers ${PERKS$3.liberated} Mana every hit.` },
+		"s3-dark": said({ skill: {
+			index: 2,
+			cost: 1,
+			dmg: 2
+		} }, ({ skill }) => `Mana cost is increased by ${skill.cost} orb but DMG is boosted by ${pct(skill.dmg - 1)}.`),
+		"s4-light": { words: `Increases Max HP by 100% upon killing an enemy and changes the Max HP reduction after auto-casting [Soaking Blood] to ${pct(PERKS$3.cut)}.` },
+		"s4-dark": { words: "Increases ATK by 200% upon killing an enemy, but Max HP boost does not apply." },
+		"t5-light": t5Light({ crit: 100 }, ({ crit }) => `Crit Chance +${crit}`),
+		"t5-dark": { words: `Steals HP equal to ${pct(PERKS$3.last)} of DMG dealt by the final normal attack and gains 1 stack of [Sweet Blood].` }
+	},
+	attack: "drain",
+	join(fight, self) {
+		/** Sweet Blood's stacks, and its Dark's uses; how long nothing touches her yet, and until Soaking Blood's blow, its stacks on the boss; how long Blood Liberation lasts yet, and toward its next blow; her max HP's cut (0: none yet); her unique weapon's stacks, and how long they last yet. */
+		let sweet = 0;
+		let sweeter = 0;
+		let soaked = 0;
+		let soaking = 0;
+		let soakStacks = 0;
+		let liberated = 0;
+		let liberating = 0;
+		let cut = 0;
+		let greed = 0;
+		let greedLeft = 0;
+		const tier = self.unique?.tier ?? null;
+		/** A blow of hers that steals a share of what it deals (none: none), and (a skill's) a stack of her unique weapon's. */
+		const drink = (amount, steals, skill, counted = true) => {
+			const before = self.dealt;
+			const critical = fight.hit(self, amount, counted);
+			const dealt = self.dealt - before;
+			if (steals > 0 && dealt > 0) fight.heal(self, dealt * steals);
+			if (skill && dealt > 0 && tier !== null) {
+				greed = Math.min(atTier(PERION.most, tier), greed + 1);
+				greedLeft = PERION.lasts;
+				put(self.statuses, {
+					name: PERION_UP.name,
+					left: PERION.lasts,
+					count: greed,
+					deals: 1 + PERION.atk * greed,
+					pace: 1 + share(PERION.speed * greed),
+					shown: PERION_UP
+				});
+			}
+			return critical;
+		};
+		/** Soaking Blood: what the boss has left on her cleared, nothing touching her for a while, a stack of it on the boss and its blow to come. */
+		const soak = () => {
+			const harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
+			self.statuses = self.statuses.filter((status) => !harmful(status));
+			soaked = SOAK.lasts;
+			soaking = SOAK.after;
+			soakStacks = Math.min(SOAK.most, soakStacks + 1);
+			put(self.statuses, {
+				name: SOAKED.name,
+				left: SOAK.lasts,
+				guards: true,
+				shown: SOAKED
+			});
+		};
+		/** Her attack: a blow (a stack of Soaking Blood more, on a boss that has it). */
+		const attack = (amount) => {
+			const final = self.perks.has("t5-dark");
+			drink(amount, final ? PERKS$3.last : 0, false);
+			if (final) sweet = Math.min(SWEET.most, sweet + 1);
+			if (soakStacks > 0 && soaking > 0) soakStacks = Math.min(SOAK.most, soakStacks + 1);
+		};
+		return {
+			lands: {
+				drain: () => attack(DRAIN.blow),
+				sweet() {
+					const full = sweet >= SWEET.most;
+					const harder = 1 + PERKS$3.sweeter.more * sweeter;
+					if (self.perks.has("s1-dark")) sweeter = Math.min(PERKS$3.sweeter.most, sweeter + 1);
+					for (let i = 0; i < (full ? 1 + SWEET.more : 1); i++) {
+						drink(SWEET.blow * harder, SWEET.steals, true);
+						if (self.perks.has("s1-light")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$3.mana);
+						self.cooldowns[0] = Math.max(0, (self.cooldowns[0] ?? 0) - SWEET.sooner);
+					}
+					sweet = full ? 0 : sweet + 1;
+				},
+				soak,
+				liberation() {
+					liberated = LIBERATION.lasts;
+					liberating = 0;
+					put(self.statuses, {
+						name: LIBERATED.name,
+						left: LIBERATION.lasts,
+						shown: LIBERATED
+					});
+				}
+			},
+			tick(dt) {
+				soaked = Math.max(0, soaked - dt);
+				if (greedLeft > 0) {
+					greedLeft -= dt;
+					if (greedLeft <= 0) greed = 0;
+				}
+				if (cut > 0) self.hp = Math.min(self.hp, self.stats.hp * (1 - cut));
+				if (soaking > 0) {
+					soaking -= dt;
+					if (soaking <= 0 && soakStacks > 0 && self.hp > 0) {
+						const blows = 1 + Math.floor(soakStacks / SOAK.per);
+						soakStacks = 0;
+						for (let i = 0; i < blows; i++) drink(SOAK.blow * (self.moveDmg.soak ?? 1), SOAK.steals, true);
+						if (self.perks.has("s2-light")) fight.stun(PERKS$3.stun, { by: self });
+						fight.cue(self, "soaked");
+					}
+				}
+				if (liberated > 0 && self.hp > 0) {
+					liberated -= dt;
+					liberating += dt;
+					if (liberating >= LIBERATION.every) {
+						liberating -= LIBERATION.every;
+						for (let i = 0; i < 2; i++) {
+							drink(LIBERATION.blow * (self.moveDmg.liberation ?? 1), 0, true);
+							if (self.perks.has("s3-light")) self.mana = Math.min(MAX_MANA, self.mana + PERKS$3.liberated);
+						}
+						fight.cue(self, "liberated");
+					}
+				}
+			},
+			untouched: () => soaked > 0,
+			spared() {
+				const index = 1;
+				if ((self.cooldowns[index] ?? 0) > 0) return false;
+				self.cooldowns[index] = self.abilities[index].cooldown;
+				self.mana = 0;
+				cut = self.perks.has("s4-light") ? PERKS$3.cut : DRINKER.cut;
+				soak();
+				fight.cue(self, "drinker");
+				return true;
+			},
+			lit: () => sweet >= SWEET.most,
+			buffs: () => [...sweet > 0 ? [{
+				...SWEETENED,
+				count: sweet
+			}] : []],
+			marks: () => soakStacks > 0 && soaking > 0 ? [{
+				text: `Soaking Blood ×${soakStacks} ${Math.ceil(soaking)}s`,
+				tone: "curse"
+			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/heroes/loman.ts
+var THRUST = { blow: BLOW * 1.2 };
+/** Cut Ground: its blow, how long the boss is down, and how much more physical damage it takes for `lasts` seconds. */
+var CUT = {
+	blow: 2e3,
+	down: 4,
+	weakness: .25,
+	lasts: 10
+};
+/** Shrouding Creed: the shield on every ally for `lasts` seconds (none knocked down meanwhile), and what each takes for `taken` seconds. */
+var SHROUD = {
+	shield: 315448,
+	lasts: 5,
+	less: .8,
+	taken: 10
+};
+/** Knight's Creed: its first two blows and their stun; its last swing (two blows, all of it) and its stun; the Mark of Creed's blow, how long it lasts, and how often. */
+var CREED = {
+	blow: 1700,
+	stun: 1.5,
+	last: 4e3,
+	lastStun: 5,
+	mark: 300,
+	lasts: 15,
+	every: .5
+};
+/** The Last Gatekeeper: Endurance a second, and for a block (no sooner than `every` after the last); at `most`, its blow (through the boss's defense), and the boss's ATK lower for `lasts` seconds. */
+var GATEKEEPER = {
+	each: 1,
+	every: .2,
+	most: 20,
+	blow: 1200,
+	weaker: .2,
+	lasts: 10
+};
+/** His own perks' numbers: Cut Ground's Dark, Shrouding Creed's Dark, The Last Gatekeeper's Light, and Transcend 5's Dark. */
+var PERKS$2 = {
+	weakness: .25,
+	longer: 5,
+	each: 1,
+	ward: {
+		block: 200,
+		defense: .1,
+		lasts: 5,
+		every: 5
+	}
+};
+var art$2 = skillArt("loman");
+var LAST_GATEKEEPER = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "The Last Gatekeeper",
+		about: `Passive. A stack of [Endurance] every second (and for a block); at ${GATEKEEPER.most}, a blow through the boss’s defense, and its ATK ${pct(GATEKEEPER.weaker)} lower for ${GATEKEEPER.lasts} seconds.`,
+		icon: "🏰",
+		art: art$2(3)
+	},
+	words: `Stacks [Endurance] every second. [Endurance] cannot be dispelled, and when stacked ${GATEKEEPER.most} times, deals P.DMG, ignoring DEF on nearby enemies and reduces ATK of affected enemies by ${pct(GATEKEEPER.weaker)} for ${GATEKEEPER.lasts} second(s). A successful block grants 1 additional [Endurance] stack. This effect is activated only once every ${GATEKEEPER.every} second(s).`
+};
+/** Shrouding Creed's shield, and what every ally takes less for a while; Transcend 5's Dark; Endurance's stacks. */
+var SHROUDED = {
+	name: "Shrouding Creed",
+	about: "A shield: it can’t be knocked down while it lasts.",
+	icon: "🛡️",
+	art: art$2(1)
+};
+var CREED_LESS = {
+	name: "Shrouding Creed (less)",
+	about: `Takes ${pct(1 - SHROUD.less)} less.`,
+	icon: "🛡️",
+	art: art$2(1)
+};
+var WARDED = {
+	name: "Loman’s Ward",
+	about: "M.Block and M.DEF higher.",
+	icon: "🛡️",
+	art: art$2(3)
+};
+var ENDURANCE = {
+	name: "Endurance",
+	about: `At ${GATEKEEPER.most}, The Last Gatekeeper strikes.`,
+	icon: "🏰",
+	art: art$2(3)
+};
+/** What his skills leave on the boss. */
+var CUT_DOWN = "Cut Ground";
+var GATE = "The Last Gatekeeper";
+var ORVELIA = "Blessing of Orvelia";
+var LOMAN = {
+	id: "loman",
+	name: "Loman",
+	class: "knight",
+	skins: ["Loman"],
+	stats: {
+		...CLASS_STATS.knight,
+		deals: "physical"
+	},
+	abilities: [
+		{
+			name: "Cut Ground",
+			about: `A blow that knocks the boss down for ${CUT.down} seconds; it takes ${pct(CUT.weakness)} more physical damage for ${CUT.lasts} seconds.`,
+			words: `Deals P.DMG to frontal enemies within range and knocks them down for ${CUT.down} sec, increasing P.Weakness of the affected targets by ${pct(CUT.weakness)} for ${CUT.lasts} sec.`,
+			icon: "⚔️",
+			art: art$2(0),
+			move: "ground",
+			cooldown: 8,
+			cost: 2
+		},
+		{
+			name: "Shrouding Creed",
+			about: `What the boss has left on every ally is cleared; a shield of ${num(SHROUD.shield)} on each for ${SHROUD.lasts} seconds (none can be knocked down meanwhile), and each takes ${pct(1 - SHROUD.less)} less for ${SHROUD.taken} seconds.`,
+			words: `Removes negative effects from all allies. Casts a shield upon all allies that absorbs ${num(SHROUD.shield)} DMG for ${SHROUD.lasts} second(s) and reduces all DMG to allies by ${pct(1 - SHROUD.less)} for ${SHROUD.taken} second(s). The shield grants immunity to CC while it lasts.`,
+			icon: "🛡️",
+			art: art$2(1),
+			move: "shroud",
+			cooldown: 23,
+			cost: 3,
+			auto: { keeps: CREED_LESS.name }
+		},
+		{
+			name: "Knight's Creed",
+			about: `Two blows that stun the boss for ${CREED.stun} seconds, and a last swing that stuns it for ${CREED.lastStun} and leaves the [Mark of Creed] on it for ${CREED.lasts}: each other ally’s blow on it a blow of his more.`,
+			words: `Hits frontal enemies within range 3 times. First 2 hits deal P.DMG and stun enemies for ${CREED.stun} second(s) while the last hit attacks enemies in wider range 2 times, dealing P.DMG in total. The last hit stuns enemies for ${CREED.lastStun} seconds and leaves [Mark of Creed] on the enemies, damaging them for ${CREED.lasts} second(s). Targets with [Mark of Creed] take additional P.DMG from allies excluding caster. Additional DMG effect is activated only once every ${CREED.every} second(s).`,
+			icon: "✝️",
+			art: art$2(2),
+			move: "creed",
+			cooldown: 24,
+			cost: 3
+		}
+	],
+	passive: LAST_GATEKEEPER,
+	perks: {
+		"s1-light": said({ skill: {
+			index: 0,
+			cooldown: -3
+		} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
+		"s1-dark": { words: `Increases P.Weakness of the affected target by ${pct(PERKS$2.weakness)} for ${CUT.lasts} seconds.` },
+		"s2-light": said({ skill: {
+			index: 1,
+			cooldown: -5
+		} }, ({ skill }) => `Reduces Cooldown by ${-skill.cooldown} seconds.`),
+		"s2-dark": { words: `The shield lasts ${PERKS$2.longer} seconds longer.` },
+		"s3-light": said({ skill: {
+			index: 2,
+			dmg: 2
+		} }, ({ skill }) => `When there is 1 enemy, DMG is boosted by ${pct(skill.dmg - 1)}.`),
+		"s3-dark": { words: "While in use, gains immunity to CC." },
+		"s4-light": { words: "Increases the number of 'Endurance' stacked every second by 1." },
+		"s4-dark": { words: "Decreases ATK Spd of the affected enemy by 200 for 10 sec." },
+		"t5-light": t5Light({ blockMagical: 200 }, ({ blockMagical }) => `M. Block +${blockMagical}`),
+		"t5-dark": { words: `Upon successfully blocking M.DMG, all allies have their M.Block increased by ${PERKS$2.ward.block} and M.DEF by ${pct(PERKS$2.ward.defense)} of Loman's M.DEF for ${PERKS$2.ward.lasts} sec. This effect is activated only once every ${PERKS$2.ward.every} seconds.` }
+	},
+	attack: "thrust",
+	join(fight, self) {
+		/** Endurance's stacks, toward the next, and until a block may add one; how long the Mark of Creed lasts yet, and until it may strike again; Transcend 5's Dark's wait; his unique weapon's skills toward its next. */
+		let endurance = 0;
+		let enduring = 0;
+		let parried = 0;
+		let marked = 0;
+		let markWait = 0;
+		let warding = 0;
+		let pride = 0;
+		const tier = self.unique?.tier ?? null;
+		/** A stack of Endurance more: at the most, The Last Gatekeeper strikes (through the boss's defense), and the boss's ATK is lower (its Dark: slowed too). */
+		const endure = () => {
+			endurance++;
+			if (endurance < GATEKEEPER.most || self.hp <= 0) return;
+			endurance = 0;
+			fight.hit(self, GATEKEEPER.blow, true, 0, true);
+			put(fight.foe.statuses, {
+				name: GATE,
+				left: GATEKEEPER.lasts,
+				deals: 1 - GATEKEEPER.weaker,
+				shown: "curse"
+			});
+			if (self.perks.has("s4-dark")) fight.slow(200, GATEKEEPER.lasts);
+			fight.cue(self, "gatekeeper");
+		};
+		return {
+			lands: {
+				thrust: () => fight.hit(self, THRUST.blow),
+				ground() {
+					fight.hit(self, CUT.blow);
+					fight.stun(CUT.down, {
+						down: true,
+						by: self
+					});
+					put(fight.foe.statuses, {
+						name: CUT_DOWN,
+						left: CUT.lasts,
+						takes: { physical: 1 + CUT.weakness + (self.perks.has("s1-dark") ? PERKS$2.weakness : 0) },
+						shown: "curse"
+					});
+				},
+				shroud() {
+					const lasts = SHROUD.lasts + (self.perks.has("s2-dark") ? PERKS$2.longer : 0);
+					const harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
+					for (let i = fight.party.length - 1; i >= 0; i--) if (harmful(fight.party[i])) fight.party.splice(i, 1);
+					const on = fight.field.filter((ally) => ally.hp > 0);
+					for (const ally of on) {
+						ally.statuses = ally.statuses.filter((status) => !harmful(status));
+						fight.shield(ally, SHROUD.shield, lasts, self);
+						put(ally.statuses, {
+							name: SHROUDED.name,
+							left: lasts,
+							guards: true,
+							shown: SHROUDED
+						});
+					}
+					put(fight.party, {
+						name: CREED_LESS.name,
+						left: SHROUD.taken,
+						takes: SHROUD.less,
+						shown: CREED_LESS
+					});
+					fight.cue(self, "shroud", on);
+				},
+				creed(part) {
+					if (part < 2) {
+						fight.hit(self, CREED.blow);
+						fight.stun(CREED.stun, { by: self });
+						return;
+					}
+					fight.hit(self, CREED.last / 2);
+					if (part < 3) return;
+					fight.stun(CREED.lastStun, { by: self });
+					marked = CREED.lasts;
+					markWait = 0;
+				}
+			},
+			used() {
+				if (tier === null || ++pride < GAIAMENES.skills) return;
+				pride = 0;
+				fight.hit(self, atTier(GAIAMENES.blow, tier), false);
+				put(fight.foe.statuses, {
+					name: ORVELIA,
+					left: GAIAMENES.lasts,
+					takes: { physical: 1 + atTier(GAIAMENES.weakness, tier) },
+					shown: "curse"
+				});
+				put(self.statuses, {
+					name: GAIAMENES_UP.name,
+					left: GAIAMENES.guards,
+					defends: { magical: 1 + atTier(GAIAMENES.defense, tier) },
+					shown: GAIAMENES_UP
+				});
+			},
+			struck(by) {
+				if (marked <= 0 || by === self || markWait > 0 || self.hp <= 0) return;
+				markWait = CREED.every;
+				fight.hit(self, CREED.mark, false);
+			},
+			blocked() {
+				if (parried <= 0) {
+					parried = GATEKEEPER.every;
+					endure();
+				}
+				if (!self.perks.has("t5-dark") || warding > 0 || fight.foe.def.stats.deals !== "magical") return;
+				warding = PERKS$2.ward.every;
+				const defense = self.stats.magical * PERKS$2.ward.defense;
+				for (const ally of fight.field) if (ally.hp > 0) put(ally.statuses, {
+					name: WARDED.name,
+					left: PERKS$2.ward.lasts,
+					blocks: { magical: PERKS$2.ward.block },
+					bolsters: { magical: defense },
+					shown: WARDED
+				});
+			},
+			tick(dt) {
+				marked = Math.max(0, marked - dt);
+				markWait = Math.max(0, markWait - dt);
+				parried = Math.max(0, parried - dt);
+				warding = Math.max(0, warding - dt);
+				if (!fight.field.includes(self) || self.hp <= 0) return;
+				enduring += dt;
+				if (enduring < 1) return;
+				enduring -= 1;
+				for (let i = 0; i < GATEKEEPER.each + (self.perks.has("s4-light") ? PERKS$2.each : 0); i++) endure();
+			},
+			guards: () => self.perks.has("s3-dark") && self.doing?.move === "creed",
+			lit: () => marked > 0,
+			buffs: () => endurance > 0 ? [{
+				...ENDURANCE,
+				count: endurance
+			}] : [],
+			marks: () => marked > 0 ? [{
+				text: `Mark of Creed ${Math.ceil(marked)}s`,
+				tone: "curse"
+			}] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/heroes/gau.ts
+var CHOP = { blow: BLOW * 1.2 };
+/** Smash: its two blows, and how long the first knocks the boss down. */
+var SMASH = {
+	blow: 1600,
+	down: 3,
+	speed: 250,
+	slowed: 10
+};
+/** Battle Roar: every ally's ATK more, for `lasts` seconds. */
+var ROAR = {
+	atk: 3845,
+	lasts: 15
+};
+/** Vortex: its blows (as many as its move has; against one that isn't a Hero), and how long the last freezes the boss. */
+var VORTEX = {
+	blow: 1200,
+	freeze: 4
+};
+/** Enrage: his ATK more for each stack, and his DMG on the boss (a share), for `lasts` seconds, up to `most`. */
+var ENRAGE = {
+	atk: 901,
+	dmg: .03,
+	lasts: 5,
+	most: 10
+};
+/** His own perks' numbers: Smash's Dark, Battle Roar's Light and Dark, Enrage's Light and Dark, and Transcend 5's Dark. */
+var PERKS$1 = {
+	harder: {
+		more: .15,
+		most: 10
+	},
+	roar: 1.4,
+	speed: 200,
+	enrage: 1.4,
+	fury: {
+		taken: .05,
+		crit: 50,
+		lifesteal: 50
+	},
+	mend: {
+		heal: .1,
+		less: .006
+	}
+};
+var art$1 = skillArt("gau");
+var ENRAGED = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Enrage",
+		about: `Passive. Each blow of his attack: +${num(ENRAGE.atk)} ATK and +${pct(ENRAGE.dmg)} DMG on the boss for ${ENRAGE.lasts} seconds (up to ${ENRAGE.most} times).`,
+		icon: "😡",
+		art: art$1(3)
+	},
+	words: `Upon attacking, increases ATK by ${num(ENRAGE.atk)} for ${ENRAGE.lasts} sec, and DMG to Non-Hero enemies by ${pct(ENRAGE.dmg)}. This effect can be stacked up to max ${ENRAGE.most} times.`
+};
+/** Battle Roar on an ally; Enrage's stacks on him. */
+var ROARED = {
+	name: "Battle Roar",
+	about: "ATK higher.",
+	icon: "📯",
+	art: art$1(1)
+};
+var RAGING = {
+	name: "Enrage",
+	about: "ATK and DMG on the boss higher for each.",
+	icon: "😡",
+	art: art$1(3)
+};
+var GAU = {
+	id: "gau",
+	name: "Gau",
+	class: "warrior",
+	skins: ["Gau"],
+	stats: {
+		...CLASS_STATS.warrior,
+		deals: "physical"
+	},
+	abilities: [
+		{
+			name: "Smash",
+			about: `Two blows, the first knocking the boss down for ${SMASH.down} seconds.`,
+			words: `Deals P.DMG to enemies within range, and the first attack knocks them down for ${SMASH.down} sec and reduces their ATK Spd by ${SMASH.speed} for ${SMASH.slowed} sec.`,
+			icon: "🪓",
+			art: art$1(0),
+			move: "smash",
+			cooldown: 8,
+			cost: 2
+		},
+		{
+			name: "Battle Roar",
+			about: `What the boss has left on every ally is cleared, and each gains +${num(ROAR.atk)} ATK for ${ROAR.lasts} seconds.`,
+			words: `All allies' ATK is increased by ${num(ROAR.atk)} for ${ROAR.lasts} sec. Upon activation, dispels all negative effects from allies.`,
+			icon: "📯",
+			art: art$1(1),
+			move: "warcry",
+			cooldown: 12,
+			cost: 2,
+			auto: { keeps: ROARED.name }
+		},
+		{
+			name: "Vortex",
+			about: `A whirl of blows, the last freezing the boss for ${VORTEX.freeze} seconds; he can’t be knocked down meanwhile.`,
+			words: `Deals P.DMG to nearby enemies. If the target is not a Hero, deals P.DMG. The last attack freezes nearby enemies for ${VORTEX.freeze} sec. Gains immunity to CC for the duration of Skill.`,
+			icon: "🌀",
+			art: art$1(2),
+			move: "vortex",
+			cooldown: 20,
+			cost: 3
+		}
+	],
+	passive: ENRAGED,
+	perks: {
+		"s1-light": said({ skill: {
+			index: 0,
+			cost: -1
+		} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
+		"s1-dark": { words: `Each use increases DMG by ${pct(PERKS$1.harder.more)}. Stacks ${PERKS$1.harder.most} times max.` },
+		"s2-light": { words: `ATK boost is increased by ${pct(PERKS$1.roar - 1)}.` },
+		"s2-dark": { words: `ATK Spd boost of ${PERKS$1.speed} is added to the effect.` },
+		"s3-light": said({ skill: {
+			index: 2,
+			cooldown: -3
+		} }, ({ skill }) => `Cooldown reduced by ${-skill.cooldown} sec.`),
+		"s3-dark": { words: "Immune to all types of DMG while in use." },
+		"s4-light": { words: `ATK boost is increased by ${pct(PERKS$1.enrage - 1)}.` },
+		"s4-dark": { words: `Takes ${pct(PERKS$1.fury.taken)} more DMG per each stack, but gains a boost of ${PERKS$1.fury.crit} Crit Chance and Lifesteal per each stack as well.` },
+		"t5-light": t5Light({ blockPhysical: 200 }, ({ blockPhysical }) => `P. Block +${blockPhysical}`),
+		"t5-dark": { words: `Heals HP worth ${pct(PERKS$1.mend.heal)} of ATK every second, and every 1% of HP lost reduces received DMG by ${PERKS$1.mend.less * 100}%.` }
+	},
+	attack: "chop",
+	timing: {
+		attack: [{
+			lands: [.88],
+			until: 1.5
+		}],
+		skills: { warcry: {
+			lands: [.5],
+			until: 2.2
+		} }
+	},
+	join(fight, self) {
+		/** Enrage's stacks, and how long they last yet; Smash's Dark's uses; toward Transcend 5's Dark's next heal. */
+		let rage = 0;
+		let rageLeft = 0;
+		let smashed = 0;
+		let mending = 0;
+		const tier = self.unique?.tier ?? null;
+		/** Enrage's stacks on him: his ATK (its Light: more) and DMG on the boss; its Dark, his crit chance too. */
+		const enraged = () => {
+			const atk = ENRAGE.atk * (self.perks.has("s4-light") ? PERKS$1.enrage : 1) * rage;
+			const fury = self.perks.has("s4-dark");
+			put(self.statuses, {
+				name: RAGING.name,
+				left: ENRAGE.lasts,
+				count: rage,
+				deals: (1 + atk / self.stats.atk) * (1 + ENRAGE.dmg * rage),
+				...fury && { crit: share(PERKS$1.fury.crit * rage) },
+				shown: RAGING
+			});
+		};
+		/** A blow of his: with Enrage's Dark, he steals a share of what it deals for each stack. */
+		const strike = (amount, counted = true) => {
+			const before = self.dealt;
+			const critical = fight.hit(self, amount, counted);
+			if (self.perks.has("s4-dark") && rage > 0) fight.heal(self, (self.dealt - before) * share(PERKS$1.fury.lifesteal * rage));
+			return critical;
+		};
+		/** His attack: a blow, a stack of Enrage (all begun again); with his unique weapon, now and then a blow more and the boss frozen. */
+		const chop = (amount) => {
+			strike(amount);
+			rage = Math.min(ENRAGE.most, rage + 1);
+			rageLeft = ENRAGE.lasts;
+			enraged();
+			if (tier !== null && fight.roll() < NUMINU.chance) {
+				strike(atTier(NUMINU.blow, tier), false);
+				fight.stun(NUMINU.freeze, { by: self });
+			}
+		};
+		return {
+			lands: {
+				chop: () => chop(CHOP.blow),
+				attack: () => chop(CHOP.blow),
+				smash(part) {
+					strike(SMASH.blow * (1 + PERKS$1.harder.more * smashed));
+					if (part !== 0) return;
+					if (self.perks.has("s1-dark")) smashed = Math.min(PERKS$1.harder.most, smashed + 1);
+					fight.stun(SMASH.down, {
+						down: true,
+						by: self
+					});
+					fight.slow(SMASH.speed, SMASH.slowed);
+				},
+				warcry() {
+					const atk = ROAR.atk * (self.perks.has("s2-light") ? PERKS$1.roar : 1);
+					const harmful = (status) => status.shown.harmful === true && !status.binds && !status.away;
+					for (let i = fight.party.length - 1; i >= 0; i--) if (harmful(fight.party[i])) fight.party.splice(i, 1);
+					const on = fight.field.filter((ally) => ally.hp > 0);
+					for (const ally of on) {
+						ally.statuses = ally.statuses.filter((status) => !harmful(status));
+						put(ally.statuses, {
+							name: ROARED.name,
+							left: ROAR.lasts,
+							deals: 1 + atk / ally.stats.atk,
+							...self.perks.has("s2-dark") && { pace: 1 + share(PERKS$1.speed) },
+							shown: ROARED
+						});
+					}
+					fight.cue(self, "warcry", on);
+				},
+				vortex(part) {
+					strike(VORTEX.blow);
+					if (part === (self.motion.moves.vortex.parts[0]?.lands.length ?? 1) - 1) fight.stun(VORTEX.freeze, { by: self });
+				}
+			},
+			tick(dt) {
+				if (rageLeft > 0) {
+					rageLeft -= dt;
+					if (rageLeft <= 0) rage = 0;
+				}
+				if (!self.perks.has("t5-dark") || self.hp <= 0) return;
+				mending += dt;
+				if (mending < 1) return;
+				mending -= 1;
+				fight.heal(self, PERKS$1.mend.heal * self.stats.atk);
+			},
+			takes() {
+				const uw = tier !== null ? 1 / (1 + atTier(NUMINU.hp, tier)) : 1;
+				const lost = self.perks.has("t5-dark") ? Math.max(.1, 1 - PERKS$1.mend.less * 100 * (1 - self.hp / self.stats.hp)) : 1;
+				const fury = self.perks.has("s4-dark") ? 1 + PERKS$1.fury.taken * rage : 1;
+				return uw * lost * fury;
+			},
+			guards: () => self.doing?.move === "vortex",
+			untouched: () => self.perks.has("s3-dark") && self.doing?.move === "vortex",
+			lit: () => rage >= ENRAGE.most,
+			buffs: () => tier !== null ? [NUMINU_UP] : []
+		};
+	}
+};
+//#endregion
+//#region src/technomagic/sim/heroes/tanya.ts
+var KATAR = { blow: BLOW * .65 };
+/** Her katars as her attack's animation has it (four blows, quicker than as written in code): her attack about as hard over time. */
+var FIST = { blow: BLOW * .7 };
+/** Stealth: how long, her crit chance and dodge (points) more meanwhile. */
+var STEALTH = {
+	lasts: 10,
+	crit: 50,
+	dodge: 50
+};
+/** Target Sighted: how much more physical damage the boss takes for `lasts` seconds, its blow, how long the boss is down, and (in Stealth) stunned. */
+var SIGHTED = {
+	takes: 1.3,
+	lasts: 10,
+	blow: 2e3,
+	down: 2,
+	stun: 6
+};
+/** Blade Tornado: its blows (as many as its move has), each a stack of Bleed; in Stealth, the boss's healing as much as `heals` for `lasts` seconds. */
+var TORNADO = {
+	blow: 1350,
+	heals: .3,
+	lasts: 10
+};
+/** A stack of Bleed: what it takes of the boss every second (at her ATK), for `lasts` seconds. */
+var BLEED = {
+	each: 150,
+	lasts: 5
+};
+/** Whisper of Death: its six blows, and its last. */
+var WHISPER = {
+	blow: 1100,
+	last: 2500
+};
+/** Silent Ambush: a critical blow of a skill deals more (at ATK); on the boss, a blow more through its defense. */
+var AMBUSH = {
+	blow: 1e3,
+	boss: 700,
+	speed: 200,
+	slowed: 10
+};
+/** Her own perks' numbers: Target Sighted's Light, Blade Tornado's Dark, Silent Ambush's Light, and Transcend 5's Dark. */
+var PERKS = {
+	heals: .7,
+	mana: 200,
+	boss: 2,
+	stealth: {
+		chance: .15,
+		more: 1.5
+	}
+};
+var art = skillArt("tanya");
+var SILENT_AMBUSH = {
+	attack: 1,
+	crit: 0,
+	control: 1,
+	shown: {
+		name: "Silent Ambush",
+		about: `Passive. A critical blow of a skill of hers deals ${pct(AMBUSH.blow / 1e3)} of her ATK more, and ${pct(AMBUSH.boss / 1e3)} more through the boss’s defense.`,
+		icon: "🗡️",
+		art: art(3)
+	},
+	words: `Deals additional P.DMG to the enemy and silences them for 1 sec upon a Critical Hit with the skill. If the target is not a Hero, deals additional P.DMG that ignores DEF and reduces the target's ATK Spd by ${AMBUSH.speed} for ${AMBUSH.slowed} sec.`
+};
+/** Stealth on her; Bleed on the boss. */
+var STEALTHED = {
+	name: "Stealth",
+	about: `+${STEALTH.crit} crit chance and +${STEALTH.dodge} dodge.`,
+	icon: "🌫️",
+	art: art(0)
+};
+var BLED = "Bleed";
+/** What her skills leave on the boss. */
+var EXPOSED = "Target Sighted";
+var UNHEALED = "Target Sighted (healing)";
+var TORN = "Blade Tornado";
 //#endregion
 //#region src/technomagic/sim/heroes/index.ts
 /** The heroes there are, in the order of their cards. */
@@ -7966,71 +9814,78 @@ var HEROES = [
 	CROW,
 	ODDY,
 	PHILLOP,
+	NAILA,
+	YANNE,
+	NERAXIS,
+	ERZE,
+	LOMAN,
+	GAU,
 	{
-		id: "naila",
-		name: "Naila",
-		class: "warrior",
-		skins: ["Naila"],
+		id: "tanya",
+		name: "Tanya",
+		class: "assassin",
+		line: "front",
+		skins: ["Tanya"],
 		stats: {
-			...CLASS_STATS.warrior,
+			...CLASS_STATS.assassin,
 			deals: "physical"
 		},
 		abilities: [
 			{
-				name: "Fierce Winds",
-				about: `Two dashes through the boss, each a blow that knocks it down for ${WINDS.down} seconds.`,
-				words: `Dashes toward the enemy 2 times, dealing P.DMG to enemies in range, knocking them down for ${WINDS.down} sec. If the target is not a Hero, deals additional P.DMG.`,
-				icon: "💨",
+				name: "Target Sighted",
+				about: `The boss takes ${pct(SIGHTED.takes - 1)} more physical damage for ${SIGHTED.lasts} seconds; a blow that knocks it down (in Stealth: stunned for ${SIGHTED.stun} seconds; else, Stealth).`,
+				words: `Moves behind the enemy with the lowest P.DEF and increase their P.DMG taken by ${pct(SIGHTED.takes - 1)}, while knocking them down and inflicting P.DMG. If in a Stealth state, stun said enemy for ${SIGHTED.stun} sec. If not, gain Stealth for ${STEALTH.lasts} sec. While in a Stealth State, Crit Rate and Dodge Rate rises by ${STEALTH.crit}.`,
+				icon: "🎯",
 				art: art(0),
-				move: "winds",
+				move: "sighted",
 				cooldown: 8,
-				cost: 3
+				cost: 2
 			},
 			{
-				name: "Wind Reading",
-				about: `Every ally +${READING.dodge} P.Dodge and +${num(READING.atk)} ATK for ${READING.lasts} seconds.`,
-				words: `All allies' P.Dodge Chance is increased by ${READING.dodge} for ${READING.lasts} sec, and ATK is increased by ${num(READING.atk)}.`,
-				icon: "🍃",
+				name: "Blade Tornado",
+				about: `Three blows, each a stack of Bleed on the boss (in Stealth: it is healed ${pct(1 - TORNADO.heals)} less for ${TORNADO.lasts} seconds, her Stealth spent; else, Stealth).`,
+				words: `Attacks nearby enemies 3 times and deals a total of P.DMG, inflicting 1 stack of Bleed per each hit. If used in a Stealth state, target's heal rate is reduced by ${pct(1 - TORNADO.heals)}, and Stealth is dispelled. If not, turns into Stealth mode for ${STEALTH.lasts} sec. [Stealth] Crit Rate and Dodge Rate are increased by ${STEALTH.crit}.`,
+				icon: "🌪️",
 				art: art(1),
-				move: "reading",
-				cooldown: 20,
-				cost: 1,
-				auto: { keeps: READ.name }
+				move: "tornado",
+				cooldown: 14,
+				cost: 2
 			},
 			{
-				name: "Dive Bomb",
-				about: `She flies up and strikes the boss, ${pct(DIVE.downed - 1)} harder while she has it knocked down.`,
-				words: `Flies up and strikes P.DMG to enemies in range. Knocked down enemies take ${pct(DIVE.downed - 1)} increased DMG. If the target is not a Hero, deals additional P.DMG.`,
-				icon: "🦅",
+				name: "Whisper of Death",
+				about: "Six blows and a seventh (out of Stealth: Stealth).",
+				words: `Attacks random enemies 6 times and deals a total of P.DMG, then deals one additional attack of extra P.DMG. If used in Stealth state, dispels all enemies' buffs. If not, turns into Stealth mode for ${STEALTH.lasts} sec. [Stealth] Crit Rate and Dodge Rate are increased by ${STEALTH.crit}.`,
+				icon: "💀",
 				art: art(2),
-				move: "dive",
-				cooldown: 12,
+				move: "whisper",
+				cooldown: 18,
 				cost: 3
 			}
 		],
-		passive: TORNADO_STRIKE,
+		passive: SILENT_AMBUSH,
 		perks: {
-			"s1-light": said({ skill: {
-				index: 0,
-				dmg: 2
-			} }, ({ skill }) => `If there is 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
-			"s1-dark": { words: "Target changes to the enemy with the highest ATK." },
+			"s1-light": { words: `Reduces the target's Heal Rate by ${pct(1 - PERKS.heals)}.` },
+			"s1-dark": { words: "For 10 sec, target's P.Crit resistance is reduced by 250." },
 			"s2-light": said({ skill: {
 				index: 1,
-				cost: -1
-			} }, ({ skill }) => `Mana cost is reduced by ${-skill.cost}.`),
-			"s2-dark": { words: `Increases Naila's DMG dealt on non-Hero enemies by ${pct(PERKS.reading - 1)} for the duration of skill.` },
+				dmg: 2
+			} }, ({ skill }) => `If there is 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
+			"s2-dark": { words: `Recovers ${PERKS.mana} mana upon a Crit hit.` },
 			"s3-light": said({ skill: {
 				index: 2,
-				dmg: 1.4
-			} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-			"s3-dark": { words: `Reduces cooldown by ${pct(PERKS.dive)} per each enemy that takes Critical DMG.` },
-			"s4-light": { words: `Activation chance changes to ${pct(PERKS.chance)}.` },
-			"s4-dark": { words: `Atk Spd is boosted by ${PERKS.speed} when effect takes place.` },
-			"t5-light": t5Light({}, () => "P.Dodge +100"),
-			"t5-dark": { words: `Upon dodging, all skill cooldowns are reduced by ${pct(PERKS.dodge.cooldowns)}. Also, ATK is boosted by ${pct(PERKS.dodge.atk)}, and Atk Spd is boosted by ${PERKS.dodge.speed}. The ATK and Atk Spd Boosts can stack up to ${PERKS.dodge.most} times.` }
+				cost: 1,
+				dmg: 2
+			} }, ({ skill }) => `Mana cost is increased by ${skill.cost} orb but DMG is boosted by ${pct(skill.dmg - 1)}.`),
+			"s3-dark": said({ skill: {
+				index: 2,
+				cooldown: -5
+			} }, ({ skill }) => `Cooldown is reduced by ${-skill.cooldown} sec.`),
+			"s4-light": { words: `Increases additional DMG against non-Hero enemies by ${pct(PERKS.boss - 1)}.` },
+			"s4-dark": { words: "Increases Silence duration by 0.5 sec." },
+			"t5-light": t5Light({ critDamage: .2 }, ({ critDamage }) => `Crit DMG +${pct(critDamage)}`),
+			"t5-dark": { words: `Normal attacks have a ${pct(PERKS.stealth.chance)} chance to activate Stealth mode that lasts for ${STEALTH.lasts} sec. While in Stealth mode, normal attacks deal ${pct(PERKS.stealth.more - 1)} increased DMG.` }
 		},
-		attack: "talon",
+		attack: "katar",
 		timing: { attack: [{
 			lands: [
 				.92,
@@ -8041,110 +9896,121 @@ var HEROES = [
 			until: 4.3
 		}] },
 		join(fight, self) {
-			/** Her attacks toward Tornado Strike's next chance; how long she has the boss knocked down yet; Transcend 5's Dark's stacks; her unique weapon's blow on the boss, how long it lasts yet, and toward its next bite. */
-			let attacks = 0;
-			let downed = 0;
-			let gusts = 0;
-			let baroro = 0;
-			let bitten = 0;
+			/** How long her Stealth lasts yet; how long the boss can't touch her yet (her unique weapon); whether it has hidden her as the fight begins; Bleed's stacks on the boss (how long each lasts yet), and toward their next bite. */
+			let stealth = 0;
+			let untouched = 0;
+			let begun = false;
+			const bleeds = [];
+			let bleeding = 0;
 			const tier = self.unique?.tier ?? null;
-			/** A blow of hers: a critical one, with her unique weapon, leaves the boss losing health and taking more physical damage (begun again). */
-			const strike = (amount) => {
-				const critical = fight.hit(self, amount);
-				if (critical && tier !== null) {
-					baroro = BARORO.lasts;
-					put(fight.foe.statuses, {
-						name: BARORO.name,
-						left: BARORO.lasts,
-						takes: { physical: 1 + atTier(BARORO.takes, tier) },
-						shown: "curse"
-					});
-				}
-				return critical;
-			};
-			/** She knocks the boss down. */
-			const down = (seconds) => {
-				fight.stun(seconds, {
-					down: true,
-					by: self
+			/** In Stealth for a while: her crit chance higher (and with her unique weapon, her crit damage); her dodge (dodge, below). */
+			const hide = () => {
+				stealth = STEALTH.lasts;
+				put(self.statuses, {
+					name: STEALTHED.name,
+					left: STEALTH.lasts,
+					crit: share(STEALTH.crit),
+					...tier !== null && { critDamage: atTier(CAETHASIS.critDamage, tier) },
+					shown: STEALTHED
 				});
-				downed = Math.max(downed, seconds);
+				fight.cue(self, "stealth");
 			};
-			/** A blow of her attack; every 5th, now and then, Tornado Strike. */
+			/** Her Stealth spent. */
+			const unhide = () => {
+				stealth = 0;
+				self.statuses = self.statuses.filter((status) => status.name !== STEALTHED.name);
+			};
+			/** A blow of one of her skills: a critical one, Silent Ambush (a blow more, and one through the boss's defense: its Light, twice as hard); Blade Tornado's Dark, mana. */
+			const skill = (amount, tornado = false) => {
+				if (!fight.hit(self, amount)) return;
+				fight.hit(self, AMBUSH.blow, false);
+				fight.hit(self, AMBUSH.boss * (self.perks.has("s4-light") ? PERKS.boss : 1), false, 0, true);
+				fight.slow(AMBUSH.speed, AMBUSH.slowed);
+				if (tornado && self.perks.has("s2-dark")) self.mana = Math.min(MAX_MANA, self.mana + PERKS.mana);
+			};
+			/** Her attack: a blow (Transcend 5's Dark: harder in Stealth, and now and then Stealth). */
 			const attack = (amount) => {
-				strike(amount);
-				attacks++;
-				if (attacks < TORNADO.every) return;
-				attacks = 0;
-				if (fight.roll() >= (self.perks.has("s4-light") ? PERKS.chance : TORNADO.chance)) return;
-				fight.cue(self, "tornado");
-				strike(TORNADO.blow);
-				put(fight.foe.statuses, {
-					name: TORN,
-					left: TORNADO.lasts,
-					takes: { physical: TORNADO.takes },
-					shown: "curse"
-				});
-				down(TORNADO.down);
-				if (self.perks.has("s4-dark")) put(self.statuses, {
-					name: WHIRLED.name,
-					left: TORNADO.lasts,
-					pace: 1 + share(PERKS.speed),
-					shown: WHIRLED
-				});
+				const dark = self.perks.has("t5-dark");
+				fight.hit(self, amount * (dark && stealth > 0 ? PERKS.stealth.more : 1));
+				if (dark && stealth <= 0 && fight.roll() < PERKS.stealth.chance) hide();
 			};
 			return {
 				lands: {
-					talon: () => attack(TALON.blow),
+					katar: () => attack(KATAR.blow),
 					attack: () => attack(FIST.blow),
-					winds() {
-						strike(WINDS.blow + WINDS.boss);
-						down(WINDS.down);
-					},
-					reading() {
-						const allies = fight.field.filter((ally) => ally.hp > 0);
-						for (const ally of allies) put(ally.statuses, {
-							name: READ.name,
-							left: READING.lasts,
-							deals: 1 + READING.atk / ally.stats.atk,
-							shown: READ
+					sighted() {
+						const hidden = stealth > 0;
+						put(fight.foe.statuses, {
+							name: EXPOSED,
+							left: SIGHTED.lasts,
+							takes: { physical: SIGHTED.takes },
+							shown: "curse"
 						});
-						if (self.perks.has("s2-dark")) put(self.statuses, {
-							name: READ_DARK.name,
-							left: READING.lasts,
-							deals: PERKS.reading,
-							shown: READ_DARK
+						if (self.perks.has("s1-light")) put(fight.foe.statuses, {
+							name: UNHEALED,
+							left: SIGHTED.lasts,
+							heals: PERKS.heals,
+							shown: "curse"
 						});
-						fight.cue(self, "reading", allies);
+						skill(SIGHTED.blow);
+						fight.stun(SIGHTED.down, {
+							down: true,
+							by: self
+						});
+						if (hidden) fight.stun(SIGHTED.stun, { by: self });
+						else hide();
 					},
-					dive() {
-						if (strike((DIVE.blow + DIVE.boss) * (downed > 0 ? DIVE.downed : 1)) && self.perks.has("s3-dark")) self.cooldowns[2] = Math.max(0, self.cooldowns[2] - (self.abilities[2]?.cooldown ?? 0) * PERKS.dive);
+					tornado(part) {
+						skill(TORNADO.blow, true);
+						bleeds.push(BLEED.lasts);
+						if (part < (self.motion.moves.tornado.parts[0]?.lands.length ?? 1) - 1) return;
+						if (stealth > 0) {
+							put(fight.foe.statuses, {
+								name: TORN,
+								left: TORNADO.lasts,
+								heals: TORNADO.heals,
+								shown: "curse"
+							});
+							unhide();
+						} else hide();
+					},
+					whisper(part) {
+						const last = (self.motion.moves.whisper.parts[0]?.lands.length ?? 1) - 1;
+						skill(part === last ? WHISPER.last : WHISPER.blow);
+						if (part === last && stealth <= 0) hide();
 					}
-				},
-				dodged() {
-					if (!self.perks.has("t5-dark")) return;
-					self.cooldowns = self.cooldowns.map((left, i) => Math.max(0, left - (self.abilities[i]?.cooldown ?? 0) * PERKS.dodge.cooldowns));
-					gusts = Math.min(PERKS.dodge.most, gusts + 1);
 				},
 				tick(dt) {
-					downed = Math.max(0, downed - dt);
-					if (baroro <= 0 || tier === null) {
-						bitten = 0;
+					if (!begun && tier !== null) {
+						begun = true;
+						hide();
+						untouched = atTier(CAETHASIS.untouched, tier);
+					}
+					stealth = Math.max(0, stealth - dt);
+					untouched = Math.max(0, untouched - dt);
+					for (let i = bleeds.length - 1; i >= 0; i--) {
+						bleeds[i] = bleeds[i] - dt;
+						if (bleeds[i] <= 0) bleeds.splice(i, 1);
+					}
+					if (bleeds.length === 0) {
+						bleeding = 0;
 						return;
 					}
-					baroro -= dt;
-					bitten += dt;
-					if (bitten >= 1) {
-						bitten -= 1;
-						fight.hit(self, atTier(BARORO.blow, tier) / BARORO.lasts, false);
-					}
+					bleeding += dt;
+					if (bleeding < 1) return;
+					bleeding -= 1;
+					fight.hit(self, BLEED.each * bleeds.length, false);
 				},
-				deals: () => 1 + PERKS.dodge.atk * gusts,
-				speed: () => PERKS.dodge.speed * gusts,
-				lit: () => attacks === TORNADO.every - 1,
-				buffs: () => gusts > 0 ? [{
-					...GUSTS,
-					count: gusts
+				untouched: () => untouched > 0,
+				dodge: () => stealth > 0 ? STEALTH.dodge : 0,
+				lit: () => stealth > 0,
+				buffs: () => tier !== null && stealth > 0 ? [{
+					...CAETHASIS_UP,
+					left: stealth
+				}] : [],
+				marks: () => bleeds.length > 0 ? [{
+					text: `${BLED} ×${bleeds.length}`,
+					tone: "curse"
 				}] : []
 			};
 		}
@@ -8153,7 +10019,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "1e545ca105da";
+var SIM_VERSION = "b4959b008b66";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
