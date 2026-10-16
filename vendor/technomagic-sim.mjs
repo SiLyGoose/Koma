@@ -294,61 +294,89 @@ var away = (on) => on.some((status) => status.away);
 //#region src/technomagic/sim/bosses/galgoria/skills.ts
 var IMPRISONMENT = {
 	hits: 150,
-	lasts: 8
+	lasts: 8,
+	deals: 1.3
 };
 var DESTROYER = {
 	share: .3,
-	down: 1.5
+	down: 3,
+	cooldown: 10
 };
 var SWAMP = {
-	lasts: 12,
-	mana: .5,
-	deals: 1.3
+	lasts: 5,
+	every: 1,
+	mana: .6,
+	deals: 1.4,
+	cooldown: 17
 };
 var EXPLOSION = {
 	lasts: 10,
-	deals: .75,
-	crit: -.15
+	deals: .5,
+	crit: -.5,
+	cooldown: 18
 };
 var FATAL = {
-	heals: .1,
+	after: 3,
+	heals: .2,
 	most: 5,
-	deals: .05,
+	deals: .1,
 	mostOnIt: 10
 };
-/** What it gives itself back a second, of its health (little enough that heroes with no gear still wear it down). */
-var LIFE_FORCE = 5e-4;
-/** From this stage on, each stage over it: how much faster it heals, and how much less healing reaches the heroes and how much weaker their shields are (never under `least`). */
+/** What it gives itself back a second, of its health, and how much more its healing gives it: from stage `from` on, `later`. */
+var LIFE_FORCE = {
+	share: .00393,
+	healing: .7,
+	later: 1.2,
+	from: 4
+};
+/** From stage 4 on: how much healing reaches the heroes, and how strong their shields are. */
 var STAGES = {
 	from: 4,
-	mends: .25,
-	heals: .1,
-	shields: .1,
-	least: .3
+	heals: .6,
+	shields: .4
 };
+/** How many times as much it takes of each kind of damage. */
+var TAKEN = { physical: 1.2 };
 var IMPRISONED = {
 	name: "Swamp Imprisonment",
 	about: "Shut away in the swamp: it can do nothing, and the boss can’t reach it.",
 	icon: "🪤",
 	harmful: true
 };
+var UNBOUND = {
+	name: "Swamp Imprisonment (free)",
+	about: `An ally is shut away: ${Math.round((IMPRISONMENT.deals - 1) * 100)}% more damage dealt meanwhile.`,
+	icon: "🗡️"
+};
 var POISONED$1 = {
 	name: "Poisonous Swamp",
-	about: "Mana fills half as fast, and the boss hits 30% harder.",
+	about: `Hurt every second; mana fills ${Math.round((1 - SWAMP.mana) * 100)}% slower, and ATK is ${Math.round((SWAMP.deals - 1) * 100)}% higher.`,
 	icon: "🫧",
 	harmful: true
 };
 var WEAKENED$1 = {
 	name: "Poisonous Explosion",
-	about: "Hits 25% softer, and is 15% less likely to land a critical blow.",
+	about: `Hits ${Math.round((1 - EXPLOSION.deals) * 100)}% softer.`,
+	icon: "💥",
+	harmful: true
+};
+var DULLED = {
+	name: "Poisonous Explosion (crit)",
+	about: `${Math.round(-EXPLOSION.crit * 1e3)} less crit chance.`,
 	icon: "💥",
 	harmful: true
 };
 var FATAL_VENOM = {
 	name: "Fatal Venom",
-	about: "Less healing reaches it for each (the rest of the fight), and the boss hits harder.",
+	about: `${Math.round(FATAL.heals * 100)}% less healing reaches it for each (the rest of the fight), and the boss hits harder.`,
 	icon: "☠️",
 	harmful: true
+};
+/** Its skills that count toward Fatal Venom, and each one's cooldown. */
+var COOLDOWNS = {
+	destroyer: DESTROYER.cooldown,
+	swamp: SWAMP.cooldown,
+	explosion: EXPLOSION.cooldown
 };
 /** Stacks one more of a status that stays the rest of the fight, up to `most`: `made` makes it, `count` of them stacked. */
 function stack(on, name, most, made) {
@@ -367,13 +395,19 @@ function galgoriaPart(fight) {
 	const dealt = /* @__PURE__ */ new Map();
 	/** The heroes shut away: a ring where each comes back out. */
 	const shut = /* @__PURE__ */ new Set();
-	/** How far past stage 4 the fight is (0 before it). */
-	const past = () => Math.max(0, fight.stage - STAGES.from + 1);
+	/** Its skills' cooldowns, by name; its skills used toward Fatal Venom; and how long its swamp lasts yet, its blow each so often. */
+	const cooldowns = /* @__PURE__ */ new Map();
+	let used = 0;
+	let swamp = 0;
+	let swampHurts = 0;
+	let swampAmount = 0;
+	/** Whether the fight is at stage 4 or past it. */
+	const late = () => fight.stage >= STAGES.from;
 	/** The heroes the boss can reach. */
 	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
-	/** The hero that has dealt the most since the last is shut away in the swamp. */
+	/** The hero that has dealt the most since the last is shut away in the swamp; every other hero deals more meanwhile. */
 	function imprison() {
-		const [top] = reachable().sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
+		const [top, ...rest] = reachable().sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
 		dealt.clear();
 		if (!top) return;
 		fight.stagger(top);
@@ -383,6 +417,12 @@ function galgoriaPart(fight) {
 			left: IMPRISONMENT.lasts,
 			away: true,
 			shown: IMPRISONED
+		});
+		for (const other of rest) put(other.statuses, {
+			name: UNBOUND.name,
+			left: IMPRISONMENT.lasts,
+			deals: IMPRISONMENT.deals,
+			shown: UNBOUND
 		});
 		fight.cue(null, "imprison", [top]);
 		shut.add(top);
@@ -402,9 +442,7 @@ function galgoriaPart(fight) {
 				const heroes = reachable();
 				fight.cue(null, "destroyer", heroes);
 				for (const fighter of heroes) {
-					fighter.shield = 0;
-					fighter.shieldLeft = 0;
-					fight.hurt(fighter, fighter.stats.hp * DESTROYER.share, false);
+					fight.hurt(fighter, fighter.hp * DESTROYER.share, false);
 					fight.knock(fighter, DESTROYER.down);
 				}
 			},
@@ -413,44 +451,50 @@ function galgoriaPart(fight) {
 				const heroes = reachable();
 				if (heroes.length === 0) return;
 				fight.cue(null, "swamp", heroes);
-				for (const fighter of heroes) fight.hurt(fighter, amount);
-				put(fight.party, {
+				for (const fighter of heroes) put(fighter.statuses, {
 					name: POISONED$1.name,
 					left: SWAMP.lasts,
 					mana: SWAMP.mana,
+					deals: SWAMP.deals,
 					shown: POISONED$1
 				});
-				put(foe.statuses, {
-					name: POISONED$1.name,
-					left: SWAMP.lasts,
-					deals: SWAMP.deals,
-					shown: "venom"
-				});
+				swamp = SWAMP.lasts;
+				swampHurts = 0;
+				swampAmount = amount / (SWAMP.lasts / SWAMP.every);
 			},
-			explosion(_part, amount) {
-				venom(amount, (target) => {
-					put(target.statuses, {
+			explosion(part, amount) {
+				const heroes = reachable();
+				for (const fighter of heroes) {
+					fight.hurt(fighter, amount);
+					if (part === 0) put(fighter.statuses, {
 						name: WEAKENED$1.name,
 						left: EXPLOSION.lasts,
 						deals: EXPLOSION.deals,
-						crit: EXPLOSION.crit,
 						shown: WEAKENED$1
 					});
-					fight.cue(null, "explosion", [target]);
-				});
+					else put(fighter.statuses, {
+						name: DULLED.name,
+						left: EXPLOSION.lasts,
+						crit: EXPLOSION.crit,
+						shown: DULLED
+					});
+				}
+				fight.cue(null, "explosion", heroes);
 			},
 			fatal(_part, amount) {
-				venom(amount, (target) => {
-					stack(target.statuses, FATAL_VENOM.name, FATAL.most, (count) => ({
-						heals: 1 - FATAL.heals * count,
+				const heroes = reachable();
+				for (const fighter of heroes) {
+					fight.hurt(fighter, amount);
+					stack(fighter.statuses, FATAL_VENOM.name, FATAL.most, (count) => ({
+						heals: Math.max(0, 1 - FATAL.heals * count),
 						shown: FATAL_VENOM
 					}));
-					stack(foe.statuses, FATAL_VENOM.name, FATAL.mostOnIt, (count) => ({
-						deals: 1 + FATAL.deals * count,
-						shown: "venom"
-					}));
-					fight.cue(null, "fatal", [target]);
-				});
+				}
+				stack(foe.statuses, FATAL_VENOM.name, FATAL.mostOnIt, (count) => ({
+					deals: 1 + FATAL.deals * count,
+					shown: "venom"
+				}));
+				fight.cue(null, "fatal", heroes);
 			}
 		},
 		struck(by, amount) {
@@ -459,8 +503,18 @@ function galgoriaPart(fight) {
 			hits = 0;
 			imprison();
 		},
+		used(attack) {
+			const cooldown = COOLDOWNS[attack];
+			if (cooldown !== void 0) {
+				cooldowns.set(attack, cooldown);
+				used++;
+			} else if (attack === "fatal") used = 0;
+		},
+		next: () => used >= FATAL.after ? "fatal" : null,
+		ready: (attack) => attack !== "fatal" && (cooldowns.get(attack) ?? 0) <= 0,
 		beaten() {
 			hits = 0;
+			used = 0;
 			dealt.clear();
 			for (const on of [foe.statuses, ...fight.fighters.map((fighter) => fighter.statuses)]) {
 				const at = on.findIndex((status) => status.name === FATAL_VENOM.name);
@@ -468,42 +522,79 @@ function galgoriaPart(fight) {
 			}
 		},
 		tick(dt) {
-			fight.mend(foe.maxHp * LIFE_FORCE * (1 + STAGES.mends * past()) * dt);
+			for (const [attack, left] of cooldowns) cooldowns.set(attack, Math.max(0, left - dt));
+			fight.mend(foe.maxHp * LIFE_FORCE.share * (1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing)) * dt);
+			if (swamp > 0) {
+				swamp -= dt;
+				swampHurts += dt;
+				if (swampHurts >= SWAMP.every) {
+					swampHurts -= SWAMP.every;
+					for (const fighter of reachable()) if (fighter.statuses.some((status) => status.name === POISONED$1.name)) fight.hurt(fighter, swampAmount);
+				}
+			}
 			for (const fighter of shut) {
 				if (fighter.statuses.some((status) => status.name === IMPRISONED.name)) continue;
 				shut.delete(fighter);
 				fight.cue(null, "free", [fighter]);
 			}
 		},
-		healing: () => Math.max(STAGES.least, 1 - STAGES.heals * past()),
-		shielding: () => Math.max(STAGES.least, 1 - STAGES.shields * past()),
+		healing: () => late() ? STAGES.heals : 1,
+		shielding: () => late() ? STAGES.shields : 1,
+		taken: TAKEN,
+		unstolen: true,
 		steady: true,
 		marks() {
-			return [{
-				text: "Life Force",
-				tone: "venom"
-			}, {
-				text: `Imprisonment ${hits}/${IMPRISONMENT.hits}`,
-				tone: "venom"
-			}];
+			return [
+				{
+					text: "Life Force",
+					tone: "venom"
+				},
+				{
+					text: `Imprisonment ${hits}/${IMPRISONMENT.hits}`,
+					tone: "venom"
+				},
+				{
+					text: `Fatal Venom ${Math.min(used, FATAL.after)}/${FATAL.after}`,
+					tone: "venom"
+				}
+			];
 		}
 	};
 }
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/index.ts
 /**
-* Its health at each stage, alone (so many times its own), and with more than one player (ROOM_HP times that, for
-* the eighth hero and the auras every other hero's gear adds); and how hard its blows are, either way.
+* Its health and defense (P.DEF and M.DEF alike) at each stage, as King's Raid's Galgoria raid has them at its stages 1
+* to 5 (its table, from its players' guides on DC Inside's King's Raid gallery: 20 to 87.6 billion HP, 117,000 to 222,300
+* DEF); 6 to 8 go on from there (a first guess: the game's stage 6 is said to be past 300,000 DEF). That health is the
+* game's raid's, with more than one player, cut by GEARED; alone, it is ROOM_HP times less again. And how hard its blows
+* are, either way.
 */
-var SOLO_HP = [
-	1.4,
-	2.3,
-	4,
-	6.5,
-	9.5,
-	13,
-	17,
-	22.5
+var HP = [
+	2e10,
+	269e8,
+	378e8,
+	507e8,
+	876e8,
+	12e10,
+	165e9,
+	225e9
+].map((hp) => hp / GEARED);
+/**
+* So many times less health than the game's: a hero's ATK here is the game's (its unique weapon's and its potentials'), but
+* what more King's Raid's heroes deal to it (sets, more DMG to bosses, buffs) is not here. Tried with 8 heroes on Auto (R5
+* unique weapons, 30% more ATK, no set): stage 1 won every time in about a minute and a half.
+*/
+var GEARED = 80;
+var DEF = [
+	117e3,
+	128300,
+	142e3,
+	175300,
+	222300,
+	3e5,
+	38e4,
+	47e4
 ];
 var ROOM_HP = 1.7;
 var DEALS = [
@@ -516,9 +607,10 @@ var DEALS = [
 	3.5,
 	3.75
 ];
-var scales = (times) => SOLO_HP.map((hp, i) => ({
-	hp: hp * times,
-	deals: DEALS[i]
+var scales = (times) => HP.map((hp, i) => ({
+	hp: hp / HP[0] * times,
+	deals: DEALS[i],
+	defense: DEF[i] / DEF[0]
 }));
 //#endregion
 //#region src/technomagic/sim/bosses/index.ts
@@ -527,18 +619,18 @@ var BOSSES = [{
 	id: "galgoria",
 	name: "Galgoria",
 	stats: {
-		hp: 1e8,
+		hp: HP[0],
 		deals: "magical",
-		physical: 12e3,
-		magical: 16e3,
+		physical: DEF[0],
+		magical: DEF[0],
 		block: NONE,
 		dodge: NONE,
 		crit: 100,
 		resist: 150
 	},
 	stages: {
-		room: scales(ROOM_HP),
-		solo: scales(1)
+		room: scales(1),
+		solo: scales(1 / ROOM_HP)
 	},
 	attacks: ATTACKS,
 	plans: PLANS,
@@ -3295,6 +3387,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			kind: "boss-use",
 			attack
 		});
+		foe.part.used?.(attack);
+	}
+	/** The boss's stats as it stands the heroes' blows at this stage: its defenses so many times its own. */
+	function bossStands() {
+		const times = scaleAt(def, stage, solo).defense ?? 1;
+		return times === 1 ? def.stats : {
+			...def.stats,
+			physical: def.stats.physical * times,
+			magical: def.stats.magical * times
+		};
 	}
 	/** One of the heroes on the field the boss can go for (not one out of the fight), at random: one standing, if any is (null: there is none). */
 	const anyone = () => {
@@ -3669,7 +3771,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused;
 			const skilled = landing?.by === by ? by.moveDmg[landing.move] ?? 1 : 1;
 			const acc = by.acc + auras.acc;
-			const seen = acc > 0 ? seenPast(foe.def.stats, acc) : foe.def.stats;
+			const stood = bossStands();
+			const seen = acc > 0 ? seenPast(stood, acc) : stood;
 			const against = whole || landing?.by === by && by.moveWhole.has(landing.move) ? {
 				...seen,
 				physical: 0,
@@ -3691,7 +3794,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			events.push({ kind: "boss-hit" });
 			const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.mark.name, perk.mark.every)));
-			const dealt = deathless ? taken * taking(foe.statuses, type) : Math.min(foe.hp, taken * taking(foe.statuses, type));
+			const struck = taken * taking(foe.statuses, type) * (foe.part.taken?.[type] ?? 1);
+			const dealt = deathless ? struck : Math.min(foe.hp, struck);
 			foe.hp -= dealt;
 			if (deathless && foe.hp <= 0) foe.hp = foe.maxHp;
 			by.dealt += dealt;
@@ -3719,7 +3823,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					shown: "curse"
 				});
 			}
-			if (by.lifesteal > 0 && by.hp > 0) {
+			if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
 				const stolen = Math.min(dealt * share(soft(by.lifesteal, SOFT.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
 				if (stolen > 0) by.hp += stolen;
 			}
@@ -4044,7 +4148,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const before = fighters.map((fighter) => fighter.mana);
 			spent.clear();
 			idle = bossBusy() ? 0 : idle + dt;
-			if (bossAuto && idle >= 1.1) bossUse((def.attacks[Math.floor(roll() * def.attacks.length)] ?? def.attacks[0])?.name ?? "");
+			if (bossAuto && idle >= 1.1) {
+				const forced = foe.part.next?.() ?? null;
+				const may = def.attacks.filter((one) => foe.part.ready?.(one.name) ?? true);
+				bossUse(forced ?? (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name ?? "");
+			}
 			for (const fighter of fighters) {
 				fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling(fighter.statuses) * filling(party));
 				fighter.cooldowns = fighter.cooldowns.map((left) => Math.max(0, left - dt));
@@ -10731,7 +10839,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "6815d7c05f77";
+var SIM_VERSION = "3ed575eab72a";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
