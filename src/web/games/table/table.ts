@@ -27,6 +27,10 @@ import { playerKey, type Player } from '../../auth/token.js';
  * The round can also be dealt early: each player can vote to deal now, and once everyone at the
  * table has (alone, that's straight away), it is dealt. The votes start over with each round.
  *
+ * A player whose page goes away (a reload, a phone switching apps) keeps their seat for `awayMs`, to
+ * come back to it. Meanwhile their chips come off the table (leaving still costs nothing), and the vote
+ * to deal is everyone else's. Not back by then, they leave the table.
+ *
  * What differs between games is in its PartyGame: its spots (`S`), its round (`R`, and `V` as the
  * page is shown it), and anything else it puts on the table (`X`).
  */
@@ -35,8 +39,8 @@ import { playerKey, type Player } from '../../auth/token.js';
 export interface PartyGame<S extends string, R, V, X> {
   /** Its name on the site (for the online list and watching). */
   live: LiveGame;
-  /** How many players a table holds, how long the betting lasts and how long a round is shown. */
-  table: { readonly seats: number; readonly bettingMs: number; readonly showMs: number };
+  /** How many players a table holds, how long the betting lasts, how long a round is shown, and how long a seat is kept for a page gone away. */
+  table: { readonly seats: number; readonly bettingMs: number; readonly showMs: number; readonly awayMs: number };
   /** How long a new connection has to say who it is, and how many messages a second it may send. */
   web: { readonly helloMs: number; readonly messagesPerSecond: number };
   /** The chips the page offers, smallest first. */
@@ -95,8 +99,10 @@ interface Seat<S extends string> {
   lastBets: SpotBets<S> | null;
   /** Voted to deal this round now. */
   ready: boolean;
-  /** The page playing this seat (null for a moment while it is replaced). */
+  /** The page playing this seat (null while it's away, kept for them). */
   peer: Peer | null;
+  /** Ends the wait for an away player to come back (null while they're here). */
+  awayEnds: (() => void) | null;
 }
 
 export class PartyTable<S extends string, R, V, X> {
@@ -148,9 +154,14 @@ export class PartyTable<S extends string, R, V, X> {
     const existing = this.seats.find((s) => s.player.userId === player.userId);
     if (existing) {
       const before = existing.peer;
+      const back = before === null;
       existing.peer = peer;
       existing.player = player;
-      this.send(existing);
+      existing.awayEnds?.();
+      existing.awayEnds = null;
+      // Back from away: everyone sees them here again.
+      if (back) this.broadcast();
+      else this.send(existing);
       peer.send(this.chat.history());
       return before === peer ? null : before;
     }
@@ -164,6 +175,7 @@ export class PartyTable<S extends string, R, V, X> {
       lastBets: null,
       ready: false,
       peer,
+      awayEnds: null,
     };
     this.seats.push(seat);
     try {
@@ -183,13 +195,28 @@ export class PartyTable<S extends string, R, V, X> {
     if (line) for (const each of this.seats) each.peer?.send({ t: 'chat', line });
   }
 
-  /** The page `peer` went away: its player leaves the table (their chips weren't taken yet). */
+  /**
+   * The page `peer` went away: its player's seat is kept for `awayMs` (see the top of this file), their chips taken off
+   * (they weren't taken yet). Not back by then, they leave the table.
+   */
   leave(userId: string, peer: Peer): void {
-    const i = this.seats.findIndex((s) => s.player.userId === userId && s.peer === peer);
-    if (i < 0) return;
+    const seat = this.seats.find((s) => s.player.userId === userId && s.peer === peer);
+    if (!seat) return;
+    seat.peer = null;
+    seat.ready = false;
+    if (this.phase === 'betting') seat.bets = {};
+    seat.awayEnds = this.deps.schedule(this.game.table.awayMs, () => this.gone(seat));
+    // Everyone still here may have voted to deal.
+    if (this.allReady()) return void this.dealNow();
+    this.broadcast();
+  }
+
+  /** An away player didn't come back in time: they leave the table, which closes once nobody is at it. */
+  private gone(seat: Seat<S>): void {
+    const i = this.seats.indexOf(seat);
+    if (i < 0 || seat.peer !== null || this.closed) return;
     this.seats.splice(i, 1);
     if (this.seats.length === 0) return this.close();
-    // Everyone left may have voted to deal.
     if (this.allReady()) return void this.dealNow();
     this.broadcast();
   }
@@ -207,9 +234,10 @@ export class PartyTable<S extends string, R, V, X> {
     return true;
   }
 
-  /** Everyone at the table voted to deal. */
+  /** Everyone at the table voted to deal (those away aren't asked). */
   private allReady(): boolean {
-    return this.phase === 'betting' && this.seats.length > 0 && this.seats.every((s) => s.ready);
+    const here = this.seats.filter((s) => s.peer !== null);
+    return this.phase === 'betting' && here.length > 0 && here.every((s) => s.ready);
   }
 
   /** A player's chips on the table now. Null when they went down; why not otherwise. */
@@ -303,6 +331,7 @@ export class PartyTable<S extends string, R, V, X> {
         refused: s.refused,
         ready: s.ready,
         lastBets: s.lastBets,
+        ...(s.peer === null && { away: true }),
       })),
       phase: this.phase,
       msLeft: Math.max(0, this.endsAt - this.deps.now()),

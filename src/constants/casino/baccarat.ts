@@ -36,10 +36,12 @@ export const BACCARAT_WEB = {
  * - `history`: how many hands the table's scoreboard holds (the roads the page draws: bead plate,
  *   big road and the three derived roads). 72 fills a 6 by 12 bead plate; the hand after that starts
  *   a clean scoreboard, as a casino's does with each new shoe.
+ * - `awayMs`: how long a player whose page went away (a reload, a phone switching apps) keeps their seat.
  */
 export const BACCARAT_TABLE = {
   seats: 8,
   bettingMs: 60_000,
   showMs: 12_000,
   history: 72,
+  awayMs: 60_000,
 } as const;

@@ -10,7 +10,8 @@
  * A room's lineup: `slots` heroes all told (`soloSlots` with one player in it, who then fights an easier
  * boss), the host bringing up to `hostHeroes` of them and everyone else up to `guestHeroes` (alone, as many
  * as the slots: `mainTeam` of them in the Main Team, whose skills are theirs to use, and the rest in the Sub Team,
- * on Auto for the whole fight). As many `players` as can each bring a hero.
+ * on Auto for the whole fight). As many `players` as can each bring a hero. One whose page goes away (a reload,
+ * a phone switching apps) keeps their place and picks for `awayMs`, to come back to.
  */
 export const TM_ROOM = {
   slots: 8,
@@ -19,6 +20,7 @@ export const TM_ROOM = {
   hostHeroes: 4,
   guestHeroes: 3,
   players: 4,
+  awayMs: 60_000,
 } as const;
 
 /**

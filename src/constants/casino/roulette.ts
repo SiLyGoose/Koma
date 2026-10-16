@@ -27,10 +27,12 @@ export const ROULETTE_WEB = {
  * - `showMs`: how long after a spin before the next round's betting starts. The page spins the wheel
  *   for about 7s, then shows how everyone did for the rest of it.
  * - `recent`: how many of the last numbers the table shows (the oldest drop off as new ones come).
+ * - `awayMs`: how long a player whose page went away (a reload, a phone switching apps) keeps their seat.
  */
 export const ROULETTE_TABLE = {
   seats: 8,
   bettingMs: 45_000,
   showMs: 12_000,
   recent: 12,
+  awayMs: 60_000,
 } as const;

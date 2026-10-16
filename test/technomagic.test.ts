@@ -128,6 +128,7 @@ test('technomagic: the page says only what the room takes', () => {
 function harness(owned: Record<string, string[]> = {}) {
   let clock = 0;
   const ticks: (() => void)[] = [];
+  const timers: { at: number; fn: () => void; off: boolean }[] = [];
   const announced: string[] = [];
   const finished: { result: string; ticks: number }[] = [];
   const deps: RoomDeps = {
@@ -157,6 +158,11 @@ function harness(owned: Record<string, string[]> = {}) {
       ticks.push(fn);
       return () => ticks.splice(ticks.indexOf(fn), 1);
     },
+    after: (ms, fn) => {
+      const timer = { at: clock + ms, fn, off: false };
+      timers.push(timer);
+      return () => void (timer.off = true);
+    },
     fights: localFights,
   };
   const rooms = new TechnoMagicRooms(deps);
@@ -171,11 +177,15 @@ function harness(owned: Record<string, string[]> = {}) {
     return p;
   };
   const player = (userId: string): Player => ({ guildId: 'g1', userId, name: userId.toUpperCase() });
-  /** Moves the clock on by `ms`, the fight's turn firing every 100. */
+  /** Moves the clock on by `ms`, the fight's turn firing every 100 (and whatever else comes due). */
   const pass = async (ms: number) => {
     for (let at = 0; at < ms; at += 100) {
       clock += 100;
       for (const fn of [...ticks]) fn();
+      for (const timer of timers.filter((t) => !t.off && t.at <= clock)) {
+        timer.off = true;
+        timer.fn();
+      }
       await new Promise((resolve) => setImmediate(resolve));
     }
   };
@@ -239,13 +249,49 @@ test('technomagic room: the host brings up to 4, everyone else 3, 8 in all, even
   assert.equal(room.setStage('a', 3), 'locked', 'the host has won no stage yet');
   assert.equal(room.setStage('a', 1), null);
 
-  // The host goes: b is host, alone, and keeps all three of theirs.
+  // The host's page goes: their place is kept a while, still host; not back by then, b is host, alone, and keeps all three of theirs.
   room.leave('a', a);
+  assert.deepEqual(b.room().players.map((p) => [p.id, p.host, p.away]), [['a', true, true], ['b', false, false]]);
+  await h.pass(TM_ROOM.awayMs);
   assert.deepEqual(b.room().players.map((p) => [p.id, p.host, p.limit]), [['b', true, 4]]);
   assert.deepEqual(b.room().lineup.map((p) => p.owner), ['b', 'b', 'b']);
 });
 
-test('technomagic room: the host picks only a stage they have opened, by winning the one before it', () => {
+test('technomagic room: a page gone getting ready keeps its place and picks for a while, and the room stays open for it', async () => {
+  const h = harness();
+  const a = h.peer();
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('b'), b, ALL);
+  room.pick('b', 'klaus', 0);
+  room.ready('b', true);
+
+  // b reloads: back within the time, the same place, picks and ready.
+  room.leave('b', b);
+  assert.equal(a.room().players.find((p) => p.id === 'b')?.away, true);
+  await h.pass(TM_ROOM.awayMs - 1000);
+  const again = h.peer();
+  assert.equal(h.rooms.join(h.player('b'), again, ALL)?.room, room);
+  assert.deepEqual(again.room().players.map((p) => [p.id, p.away, p.ready]), [['a', false, true], ['b', false, true]]);
+  assert.deepEqual(again.room().lineup.map((p) => [p.owner, p.hero]), [['b', 'klaus']]);
+  // (Its wait was over once they were back: the time running out later changes nothing.)
+  await h.pass(2000);
+  assert.equal(a.room().players.length, 2);
+
+  // Everyone gone: the room is still there for them for a while, then it is gone.
+  room.leave('a', a);
+  room.leave('b', again);
+  await h.pass(1000);
+  const c = h.peer();
+  assert.equal(h.rooms.join(h.player('a'), c, ALL)?.room, room, 'back to the same room');
+  room.leave('a', c);
+  await h.pass(TM_ROOM.awayMs);
+  const d = h.peer();
+  h.rooms.join(h.player('d'), d, ALL);
+  assert.deepEqual(d.room().players.map((p) => p.id), ['d'], 'a new room');
+});
+
+test('technomagic room: the host picks only a stage they have opened, by winning the one before it', async () => {
   const h = harness();
   const a = h.peer();
   const { room } = h.rooms.join(h.player('a'), a, ALL, 2)!;
@@ -258,6 +304,7 @@ test('technomagic room: the host picks only a stage they have opened, by winning
   const b = h.peer();
   h.rooms.join(h.player('b'), b, ALL, 0);
   room.leave('a', a);
+  await h.pass(TM_ROOM.awayMs);
   assert.deepEqual([b.room().stage, b.room().unlocked], [1, 1]);
 });
 
@@ -447,6 +494,7 @@ test('technomagic room: the host can give up, and a room with nobody left is gon
   await h.pass(200);
   assert.equal(a.room().over?.result, 'lost');
   room.leave('a', a);
+  await h.pass(TM_ROOM.awayMs);
   const again = h.peer();
   h.rooms.join(h.player('c'), again, ALL);
   assert.equal(again.room().players.length, 1, 'a new room');

@@ -74,6 +74,8 @@ export interface SeatView<S extends string = string> {
   lastBets: SpotBets<S> | null;
   /** They voted to deal this round now (see the `deal` message). */
   ready: boolean;
+  /** Their page went away: their seat is kept a while for them to come back (left out while they're here). */
+  away?: true;
 }
 
 /** A round dealt: `no` counts up with each round the table deals, so the page knows a new one from one it has shown. */
