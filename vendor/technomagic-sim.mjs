@@ -610,6 +610,26 @@ var CLASS_LINES = {
 };
 /** Where a hero stands: its own line, if it has one, or its class's. */
 var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
+var LINE_RANK = {
+	front: 0,
+	middle: 1,
+	back: 2
+};
+var CLASS_RANK = {
+	knight: 0,
+	warrior: 1,
+	assassin: 2,
+	mechanic: 3,
+	wizard: 4,
+	archer: 5,
+	priest: 6
+};
+/**
+* Which of two heroes is shown nearer the boss (on the right), as the lineup and the cards along the bottom
+* show them: by line, the front first; in the same line, by class, the tank first. (Sorted by it, heroes
+* level on both keep their order.)
+*/
+var nearer = (a, b) => LINE_RANK[lineOf(a)] - LINE_RANK[lineOf(b)] || CLASS_RANK[a.class] - CLASS_RANK[b.class];
 var KINGS_RAID = {
 	knight: {
 		hp: 1354584,
@@ -3051,6 +3071,8 @@ var KNOCKED = {
 };
 /** Steps in a second (a checksum is kept at the end of each). */
 var SECOND = Math.round(1 / TICK);
+/** The run up to the boss: how much of the way through it the heroes begin fanning out to where each stands. */
+var FAN = .55;
 function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
 	const random = seeded(seed);
 	const roll = () => random.next();
@@ -3079,6 +3101,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let bossAuto = raid;
 	let deathless = noDeaths && !raid;
 	let result = null;
+	/** A raid's run up to the boss: the steps it takes (the first steps of the fight). */
+	const marching = raid ? Math.round(2 / TICK) : 0;
 	/** The boss's health given back since it was last shown, and how long since then. */
 	let mended = 0;
 	let mendShown = 0;
@@ -3156,7 +3180,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			statuses: [],
 			mana: Math.min(MAX_MANA, MAX_MANA / 2 + (set?.id === "authority" && set.role === "support" ? AUTHORITY$1.mana : 0)),
 			sub,
-			auto: sub,
+			auto: sub || raid,
 			cooldowns: hero.abilities.map(() => 0),
 			reserved: null,
 			lastUsed: hero.abilities.map(() => -Infinity),
@@ -3193,9 +3217,30 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		};
 		events.push({
 			kind: "enter",
-			who: fighter.index
+			who: fighter.index,
+			...tick < marching && { run: 2 }
 		});
 		return true;
+	}
+	/**
+	* The run up to the boss, `k` of the way (0 to 1): two abreast, the frontline first (its tanks leading), each pair
+	* behind the one before, slowing as they near the boss and fanning out, toward the end, to where each stands.
+	* (Only + - * /: ./rules.ts.)
+	*/
+	function lineUp(k) {
+		const u = 1 - k;
+		const back = 13 * u * u * (2 - u);
+		const s = Math.max(0, (k - FAN) / .44999999999999996);
+		const fan = s * s * (3 - 2 * s);
+		const order = [...field].sort((a, b) => nearer(a.def, b.def));
+		order.forEach((on, i) => {
+			const side = i === order.length - 1 && i % 2 === 0 ? 0 : i % 2 ? -1 : 1;
+			const x = HERO_X - back - (i >> 1) * 3;
+			const z = side * 3 / 2;
+			const [toX, toZ] = spots.get(on);
+			on.x = x + (toX - x) * fan;
+			on.z = z + (toZ - z) * fan;
+		});
 	}
 	/** The hero whose attack's blow is landing right now (null: none: a skill's, or something else's); and whose move, and which. */
 	let attacking = null;
@@ -3311,27 +3356,28 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			who: fighter.index
 		});
 	}
-	/** A hero begins a move (it must be free). */
+	/** A hero begins a move (it must be free): its attack, or the skill in one of its slots. */
 	function begin(fighter, move, skill) {
 		fighter.doing = {
 			move,
 			t: 0,
 			part: 0,
 			landed: 0,
-			blows: 0
+			blows: 0,
+			...skill !== null && { skill }
 		};
 		events.push({
 			kind: "start",
 			who: fighter.index,
 			move,
-			skill
+			skill: skill !== null
 		});
 	}
 	/** A hero uses a skill (true if it did: it must be free). */
 	function use(fighter, index) {
 		const ability = sim.slot(fighter, index);
 		if (!ability || fighter.doing || !sim.ready(fighter, index)) return false;
-		begin(fighter, ability.move, true);
+		begin(fighter, ability.move, index);
 		if (fighter.set?.id === "authority" && fighter.set.role === "knight") {
 			for (let i = foe.statuses.length - 1; i >= 0; i--) if ((foe.statuses[i].deals ?? 1) > 1) foe.statuses.splice(i, 1);
 		}
@@ -3361,7 +3407,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			ability: sim.slot(on, index)
 		})).filter((one) => one.ability !== null && wanted(one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || b.ability.cost - a.ability.cost || b.index - a.index);
 		const ripe = (index) => on.part.ripe?.(index) ?? true;
-		const usable = ({ index, ability }) => ripe(index) && sim.reservable(on, index) && on.mana >= ability.cost * 1e3;
+		const usable = ({ index }) => ripe(index) && sim.ready(on, index);
 		const target = slots.find((slot) => wait(slot.index) <= 0) ?? slots.reduce((soonest, slot) => !soonest || wait(slot.index) < wait(soonest.index) ? slot : soonest, void 0);
 		if (!target) return null;
 		if (usable(target)) return target.index;
@@ -3879,10 +3925,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		ready(fighter, index) {
-			return sim.reservable(fighter, index) && fighter.mana >= sim.slot(fighter, index).cost * 1e3;
+			return sim.reservable(fighter, index) && fighter.cooldowns[index] <= 0 && fighter.mana >= sim.slot(fighter, index).cost * 1e3;
 		},
 		reservable(fighter, index) {
-			return sim.slot(fighter, index) !== null && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && fighter.cooldowns[index] <= 0;
+			return sim.slot(fighter, index) !== null && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses);
 		},
 		slot(fighter, index) {
 			if (index < 0 || index >= fighter.abilities.length) return null;
@@ -3960,6 +4006,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			pending = [];
 			for (const input of now) apply(input);
 			if (result) return;
+			if (tick < marching) {
+				tick++;
+				lineUp(tick / marching);
+				if (tick === marching) for (const on of field) on.doing = null;
+				if (tick % SECOND === 0) sums.push(sim.checksum());
+				return;
+			}
 			const dt = TICK;
 			elapsed += dt;
 			aurasNow();
@@ -4002,7 +4055,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
 				if (!on.doing && on.hp > 0 && !bound(on.statuses)) {
 					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
-					else if (on.rested >= .45 && foe.hp > 0) begin(on, on.attack, false);
+					else if (on.rested >= .45 && foe.hp > 0) begin(on, on.attack, null);
 				}
 			}
 			const busy = bossBusy();
@@ -4112,6 +4165,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	for (const fighter of fighters) fighter.part = fighter.def.join(sim, fighter);
 	for (const fighter of raid ? fighters : first.map((index) => fighters[index])) if (fighter && !field.includes(fighter)) stand(fighter);
 	if (field.length === 0 && fighters[0]) stand(fighters[0]);
+	if (marching > 0) lineUp(0);
 	return sim;
 }
 //#endregion
@@ -10642,10 +10696,10 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "1e37e0fbcf08";
+var SIM_VERSION = "391e103cef42";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
-var MOST_TICKS = Math.ceil(230 / TICK) + 1;
+var MOST_TICKS = Math.ceil(232 / TICK) + 1;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 var MOST_INPUTS = 2e4;
 var MOST_STAGE = 8;
