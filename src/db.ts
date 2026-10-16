@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc, TmRunDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -28,6 +28,8 @@ export interface Collections {
   minesweeperStats: Collection<MinesweeperStatsDoc>;
   /** A server's fastest minesweeper clears, by level (see services/minesweeper.ts). */
   minesweeperClears: Collection<MinesweeperClearDoc>;
+  /** TechnoMagic Raid runs, begun and claimed (see services/technomagic.ts). */
+  tmRuns: Collection<TmRunDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -57,6 +59,7 @@ export async function connectDb(): Promise<Collections> {
     pokerSeats: db.collection<PokerSeatDoc>('poker_seats'),
     minesweeperStats: db.collection<MinesweeperStatsDoc>('minesweeper_stats'),
     minesweeperClears: db.collection<MinesweeperClearDoc>('minesweeper_clears'),
+    tmRuns: db.collection<TmRunDoc>('tm_runs'),
   };
 
   await Promise.all([
@@ -84,10 +87,14 @@ export async function connectDb(): Promise<Collections> {
     collections.pinecraftWorlds.createIndex({ guildId: 1, dugTotal: -1 }),
     // Raids left unfinished when the bot stopped are looked up by status on start.
     collections.raids.createIndex({ status: 1 }),
+    // A server's latest raid in a week (the site's raid page).
+    collections.raids.createIndex({ guildId: 1, weekKey: 1, createdAt: -1 }),
     collections.pokerSeats.createIndex({ leaseUntil: 1 }),
     collections.pokerSeats.createIndex({ tableKey: 1 }),
     // Minesweeper's leaderboards: a server's fastest clears of a level.
     collections.minesweeperClears.createIndex({ guildId: 1, level: 1, ms: 1 }),
+    // A member's won TechnoMagic Raid runs, best stage first (the stages they have opened).
+    collections.tmRuns.createIndex({ guildId: 1, userId: 1, result: 1, stage: -1 }),
   ]);
 
   client = mongo;

@@ -6,6 +6,7 @@ import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
 import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg, parseRoleArg } from '../lib/parse.js';
 import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
+import { TM_POTENTIAL_IDS } from '../data/tm-potentials.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
 import { getChannelId, setChannelId } from '../services/channel.js';
 import { getNewsletterChannelId, setNewsletterChannelId } from '../services/newsletter.js';
@@ -18,7 +19,7 @@ import type { Command, CommandContext } from '../discord/types.js';
 // 'Stonks' was added as a settings-spec group (stonks.capHours) without ever being added here,
 // so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
 // in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
-export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
 
 /**
  * The per-server channel settings: `channel` (the one channel commands and events are confined to,
@@ -187,6 +188,13 @@ function groupLines(group: SettingSpec['group'], perServer: readonly { key: stri
       return TEXT.config.equipmentSetting(id, STARS.join('|'), tiers.join(' / '));
     })];
   }
+  if (group === 'Hero') {
+    // The hero settings, then one line per TechnoMagic potential with both ends of its range (as Equipment does its tiers).
+    const ranged = new Set(TM_POTENTIAL_IDS.flatMap((id) => [`hero.potentials.${id}.min`, `hero.potentials.${id}.max`]));
+    const general = SPECS.filter((spec) => spec.group === group && !ranged.has(spec.key)).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+    const ends = (id: string): string => (['min', 'max'] as const).map((end) => describeValue(findSpec(`hero.potentials.${id}.${end}`) as SettingSpec)).join(' / ');
+    return [...general, ...TM_POTENTIAL_IDS.map((id) => TEXT.config.setting(`hero.potentials.${id}.min|max`, ends(id)))];
+  }
   const lines = SPECS.filter((spec) => spec.group === group).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
   if (group === 'General') lines.push(...perServer.map(({ key, value }) => TEXT.config.setting(key, value)));
   return lines;
@@ -233,7 +241,7 @@ export const config: Command = {
 
       // A named group's page is found by its formatted display name: either the bare-named page
       // it got if it fit on one, or the first of its numbered sub-pages if it didn't (Equipment
-      // is the only group currently big enough to split).
+      // and Hero, with its potentials, are big enough to split).
       let startIndex = 0;
       if (jumpGroup !== undefined) {
         const jumpName = groups[GROUPS.indexOf(jumpGroup)]!.name;

@@ -1,4 +1,4 @@
-import { bubbleBeam, bubbleBeamMasterPenalty, bubbleBeamPenalty, slipGuard } from './items/bubble-beam.js';
+import { bubbleBeam, bubbleBeamPenalty } from './items/bubble-beam.js';
 import { claimBonus } from './economy/claim-bonus.js';
 import { claimTax } from './rob/claim-tax.js';
 import { d20 } from './d20/index.js';
@@ -46,7 +46,6 @@ import { slothDefense } from './items/sloth-defense.js';
 import { smart } from './items/smart.js';
 import { stackosaurus } from './items/stackosaurus.js';
 import { wheelSpin } from './wheel-spin/index.js';
-import { tmAttack, tmBlock, tmCrit, tmCritDamage, tmDefense, tmDodge, tmHeal, tmHp, tmPen, tmResist, tmSpeed } from './technomagic/index.js';
 import type { Stars } from '../types.js';
 import { registerPerks } from './stats.js';
 
@@ -82,9 +81,6 @@ export const EFFECTS = {
   // Piplup.
   bubbleBeam,
   bubbleBeamPenalty,
-  // Piplup's masterwork bonus.
-  bubbleBeamMasterPenalty,
-  slipGuard,
   // Unique-treasure perks.
   wheelSpin,
   d20,
@@ -120,17 +116,7 @@ export const EFFECTS = {
   archerRamp,
   warriorCounter,
   // The TechnoMagic Raid's gear: its heroes' stats.
-  tmAttack,
-  tmHp,
-  tmCrit,
-  tmCritDamage,
-  tmSpeed,
-  tmPen,
-  tmDefense,
-  tmBlock,
-  tmDodge,
-  tmResist,
-  tmHeal,
+  // The heroes' unique weapons (their own effects are the raid's).
   // Thoccy Keyboard.
   robStreak,
   robStreakCap,

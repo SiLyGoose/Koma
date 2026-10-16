@@ -15,8 +15,8 @@ import {
   raidGearFrom,
   type RaidGear,
 } from '../lib/events/raid.js';
-import { canUseItem, describeEffects, describeTotals, equippedGear, itemEffectiveness, showsMasterwork, totalEffects } from '../lib/game/items/equipment.js';
-import { formatMultiplier, formatPercent, mentionList, starString } from '../lib/format.js';
+import { canUseItem, describeEffects, describeTotals, equippedGear, itemEffectiveness, totalEffects } from '../lib/game/items/equipment.js';
+import { formatMultiplier, formatPercent, itemStars, mentionList } from '../lib/format.js';
 import { blightPurgeExtra } from '../perks/index.js';
 import { getEquipment } from '../services/items/equipment.js';
 import { SLOTS } from '../types.js';
@@ -116,12 +116,11 @@ export const gear: Command = {
       // Someone else's exclusive item works at part strength: show the effects they really get, and say why.
       const share = itemEffectiveness(item, target.id);
       const level = equipment.levels?.[slot] ?? REFINE.maxLevel;
-      const forged = equipment.bonuses?.[slot] ?? true;
-      const lines = describeEffects(item, share, level, forged);
+      const lines = describeEffects(item, share, level);
       if (item.usableBy && !canUseItem(item, target.id)) lines.unshift(TEXT.gear.exclusive(mentionList(item.usableBy), formatPercent(share)));
       embed.addFields({
         name: label,
-        value: [TEXT.gear.item(item.name, starString(item.stars), level, showsMasterwork(item, level, forged)), ...lines].join('\n'),
+        value: [TEXT.gear.item(item.name, itemStars(item), level), ...lines].join('\n'),
       });
     }
 

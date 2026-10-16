@@ -2,30 +2,15 @@ import { CONFIG } from '../../config.js';
 import { DEFAULT_OUTFIT, OUTFITS } from '../../data/outfits.js';
 import { collections } from '../../db.js';
 import { buyOutfit, ownedOutfits, wearOutfit, wornOutfit } from '../../services/outfits.js';
+import type { OutfitsView, OutfitView } from '../../protocol/outfits.js';
+
+export type { OutfitsView, OutfitView };
 
 /*
  * The site's outfits (GET /api/outfits, POST /api/outfits/buy and /wear): every outfit
  * (data/outfits.ts), what each costs, which the member has and which they wear; buying one (the shop's
  * Outfits tab) and putting one on (the dressing room) (services/outfits.ts).
  */
-
-/** One outfit, as the site shows it. */
-export interface OutfitView {
-  /** The site draws it by this id (its src/shared/characters.ts). */
-  id: string;
-  name: string;
-  /** What it costs in points (0 for the default, which everyone has). */
-  price: number;
-  owned: boolean;
-}
-
-/** GET /api/outfits: the outfits, in the shop's order, and the member's points. */
-export interface OutfitsView {
-  outfits: OutfitView[];
-  /** The id of the one they wear. */
-  worn: string;
-  balance: number;
-}
 
 /** What the outfit routes use (the database's, unless a test says otherwise). */
 export interface OutfitStore {

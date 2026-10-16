@@ -2,7 +2,8 @@ import { ADMIN_USER_ID, PITY_STARS, PLINKO_ROWS, type MinesweeperLevel, type Pin
 import { defaultEquipmentSettings, type EquipmentSettings } from './perks/index.js';
 import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
-import type { Stars } from './types.js';
+import type { Stars, TmPotentialId } from './types.js';
+import { TM_POTENTIAL_RANGES } from './data/tm-potentials.js';
 
 export { STARS };
 
@@ -86,6 +87,8 @@ export interface Settings {
   sell: {
     /** Points a member gets for selling one item of each star tier (sell command). */
     price: Record<Stars, number>;
+    /** Points for selling one piece of TechnoMagic gear (ItemDef.tmDrop): a tier of its own, priced apart from 4-star items. */
+    technomagic: number;
   };
   plinko: {
     /** The smallest and biggest bet. */
@@ -249,6 +252,13 @@ export interface Settings {
     /** komaGems more from each milestone level on (RAID_DIFFICULTY.milestoneEvery: once from 5, twice at 10). */
     gemRewardMilestone: number;
     /**
+     * Hero essences (data/transcend.ts) each player who took part gets when the boss is beaten, of each of the three
+     * kinds its boss gives (RAID_BOSS_ESSENCES), at difficulty 1. They transcend the TechnoMagic Raid's heroes.
+     */
+    essenceReward: number;
+    /** Hero essences more of each kind for every difficulty level past 1 (as rewardPerLevel). */
+    essenceRewardPerLevel: number;
+    /**
      * The site's raid shop (lib/game/items/raid-shop.ts): raid items sold for komaGems, a few of each
      * tier, changing with the raid's week. By tier: what one costs, and how many are on the shelf.
      * A member can pay komaGems for a new shelf of their own, `refreshes` times a week: the first
@@ -297,8 +307,6 @@ export interface Settings {
      * then by the level it's raised to (2 to REFINE.maxLevel).
      */
     cost: Record<Stars, Record<RefineTarget, number>>;
-    /** komaGems to forge an R5 copy of a 4-star item into a masterwork, turning on its bonus (`forge`). */
-    masterworkGems: number;
   };
   /**
    * Paying to skip a cooldown (services/skips.ts): the base price of each, which is what the first
@@ -308,10 +316,19 @@ export interface Settings {
   outfit: {
     price: number;
   };
+  /**
+   * The TechnoMagic Raid's heroes (data/heroes.ts, services/heroes.ts): what buying one in the site's shop
+   * costs, in points (burned). And its runs (services/technomagic.ts): `winPoints` is the points each won run
+   * pays, on top of its TechnoMagic gear (pieces of the boss's set: TM_DROP_COUNTS, by the stage). And what each of
+   * TechnoMagic gear's potentials can roll as a copy drops (data/tm-potentials.ts): a share, as a perk's strength is.
+   */
+  hero: {
+    price: number;
+    winPoints: number;
+    potentials: Record<TmPotentialId, { min: number; max: number }>;
+  };
   skip: {
     claim: number;
-    /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
-    raid: number;
   };
   stonks: {
     /** Hours unclaimed at which the multiplier reaches its cap and stops climbing. */
@@ -366,7 +383,7 @@ export const DEFAULTS: Readonly<Settings> = {
     wealthTaxRate: 0.01,
   },
   // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
-  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 } },
+  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 }, technomagic: 5000 },
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },
@@ -454,6 +471,8 @@ export const DEFAULTS: Readonly<Settings> = {
     tokenReward: 10,
     gemReward: 5,
     gemRewardMilestone: 5,
+    essenceReward: 15,
+    essenceRewardPerLevel: 5,
     shop: { price: { 3: 5, 4: 10 }, stock: { 3: 4, 4: 4 }, refreshCost: 5, refreshes: 5 },
     dropChance: 0.2,
     dropChancePerRaider: 0.1,
@@ -476,10 +495,10 @@ export const DEFAULTS: Readonly<Settings> = {
       3: { 2: 500, 3: 750, 4: 1_000, 5: 1_500 },
       4: { 2: 2_000, 3: 3_000, 4: 4_000, 5: 6_000 },
     },
-    masterworkGems: 25,
   },
   outfit: { price: 5_000 },
-  skip: { claim: 300, raid: 50_000 },
+  hero: { price: 25_000, winPoints: 100, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  skip: { claim: 300 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.
   wheel: { maxMultiplier: 5 },

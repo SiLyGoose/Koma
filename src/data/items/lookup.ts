@@ -1,6 +1,6 @@
 import { ITEM_SUGGEST } from '../../constants/index.js';
 import { editDistance, normalize } from '../../lib/text.js';
-import type { ItemDef, Stars } from '../../types.js';
+import type { ItemDef, Stars, TmSetId } from '../../types.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 
@@ -12,10 +12,13 @@ export function itemsByStars(stars: Stars): ItemDef[] {
   return ITEMS.filter((item) => item.stars === stars);
 }
 
-/** The items of a star tier the standard banner can pull: all of them but the raid drops and the limited items. */
+/** The items of a star tier the standard banner can pull: all of them but the raid drops, the TechnoMagic gear, the limited items and the unique weapons. */
 export function gachaItems(stars: Stars): ItemDef[] {
-  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.limited);
+  return itemsByStars(stars).filter((item) => !item.raidDrop && !item.tmDrop && !item.limited && item.uniqueWeapon === undefined);
 }
+
+/** The heroes' unique weapons (ItemDef.uniqueWeapon): the Hero Item banner's pity tier, each as likely. */
+export const UNIQUE_WEAPONS: readonly ItemDef[] = ITEMS.filter((item) => item.uniqueWeapon !== undefined);
 
 /** The limited banner's featured items (LIMITED_BANNER.featured), in its order. */
 export function featuredItems(): ItemDef[] {
@@ -24,6 +27,12 @@ export function featuredItems(): ItemDef[] {
 
 /** The items that only drop from raid bosses (ItemDef.raidDrop). */
 export const RAID_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.raidDrop);
+
+/** The TechnoMagic gear, which only the TechnoMagic Raids drop (ItemDef.tmDrop). */
+export const TM_DROPS: readonly ItemDef[] = ITEMS.filter((item) => item.tmDrop);
+
+/** The TechnoMagic gear of one set: what its raid drops. */
+export const tmDropsOf = (set: TmSetId): ItemDef[] => TM_DROPS.filter((item) => item.tmSet === set);
 
 export type ItemLookup = { kind: 'found'; item: ItemDef } | { kind: 'ambiguous'; matches: ItemDef[] } | { kind: 'none' };
 

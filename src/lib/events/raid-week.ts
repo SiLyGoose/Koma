@@ -1,8 +1,8 @@
 import { RAID_TIME_ZONE } from '../../constants/index.js';
 
 /*
- * The raid's week: each server gets one raid per week, and the week starts every Saturday at
- * midnight in RAID_TIME_ZONE (so 00:00 Eastern, whether that is EST or EDT at the time).
+ * The raid's week: each week has its own raid boss (and raid shop), and the week starts every
+ * Saturday at midnight in RAID_TIME_ZONE (so 00:00 Eastern, whether that is EST or EDT at the time).
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;

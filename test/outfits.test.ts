@@ -44,8 +44,8 @@ test('outfits: a member has the default and what they bought, and wears the defa
   assert.equal(wornOutfit({ outfit: 'gone' }), 'tsuri');
 });
 
-test('outfits: their price is a setting in its own group, 3,000 points to start', () => {
-  assert.deepEqual(DEFAULTS.outfit, { price: 3_000 });
+test('outfits: their price is a setting in its own group, 5,000 points to start', () => {
+  assert.deepEqual(DEFAULTS.outfit, { price: 5_000 });
   assert.equal(findSpec('outfit.price')?.group, 'Outfit');
   assert.ok(GROUPS.includes('Outfit'));
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);

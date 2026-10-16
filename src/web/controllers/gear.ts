@@ -69,11 +69,6 @@ export function gearController(gear: GearService) {
       res.json(await gear.refine(res.locals.guildId, res.locals.session.userId, copy, material ?? null));
     },
 
-    async forge(req, res) {
-      const { copy } = parse(Copy, req.body);
-      res.json(await gear.forge(res.locals.guildId, res.locals.session.userId, copy));
-    },
-
     async sell(req, res) {
       const { copies } = parse(Sell, req.body);
       res.json(await gear.sell(res.locals.guildId, res.locals.session.userId, copies));

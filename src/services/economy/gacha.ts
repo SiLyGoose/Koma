@@ -12,22 +12,34 @@ import { resolveGear } from '../items/gear.js';
 import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
 /*
- * Gacha pulls on either banner: paying, pity, the guarantee (the member's own treasure on the standard
- * banner, a featured item on the limited one: the one they picked, if they did), a multi pull's
- * minimum tier, and handing out item copies.
+ * Gacha pulls on any banner: paying, pity, the guarantee (the member's own treasure on the standard
+ * banner, a featured item on the limited one: the one they picked, if they did; none on the Hero Item
+ * one), a multi pull's minimum tier, and handing out item copies.
  */
 
 /** Why a pull wasn't made: not enough to pay for it, or the limited banner isn't open. Nothing was spent. */
 export type PullRefusal = { ok: false; reason: 'too_poor' | 'closed'; balance: number; cost: number; tokens: number };
 
-/** The member fields a banner keeps its pity count and its guarantee in. */
-const pityCount = (member: MemberDoc | null, banner: BannerId): number => (banner === 'limited' ? member?.limitedPity : member?.pity) ?? 0;
-const isGuaranteed = (member: MemberDoc | null, banner: BannerId): boolean => (banner === 'limited' ? member?.limitedGuaranteed : member?.guaranteed) ?? false;
-const pityInc = (banner: BannerId, by: number) => (banner === 'limited' ? { limitedPity: by } : { pity: by });
-const guaranteeSet = (banner: BannerId, guaranteed: boolean) => (banner === 'limited' ? { limitedGuaranteed: guaranteed } : { guaranteed });
+/** The member fields each banner keeps its pity count, its guarantee and the item picked for it in (the Hero Item banner has no guarantee). */
+const PITY_FIELD = { standard: 'pity', limited: 'limitedPity', hero: 'heroPity' } as const satisfies Record<BannerId, keyof MemberDoc>;
+const GUARANTEE_FIELD = { standard: 'guaranteed', limited: 'limitedGuaranteed', hero: null } as const satisfies Record<BannerId, keyof MemberDoc | null>;
+const PICK_FIELD = { standard: 'guaranteedPick', limited: 'limitedPick', hero: null } as const satisfies Record<BannerId, keyof MemberDoc | null>;
+
+/** Where a banner's pity and guarantee stand for a member. */
+export const pityCount = (member: MemberDoc | null, banner: BannerId): number => member?.[PITY_FIELD[banner]] ?? 0;
+export const isGuaranteed = (member: MemberDoc | null, banner: BannerId): boolean => {
+  const field = GUARANTEE_FIELD[banner];
+  return field !== null && (member?.[field] ?? false);
+};
+const pityInc = (banner: BannerId, by: number) => ({ [PITY_FIELD[banner]]: by });
+const guaranteeSet = (banner: BannerId, guaranteed: boolean) => {
+  const field = GUARANTEE_FIELD[banner];
+  return field === null ? {} : { [field]: guaranteed };
+};
 /** The item they picked for a banner's guarantee to give, when it still can (see guaranteeChoices): null for any of them. */
 export const guaranteePick = (member: MemberDoc | null, userId: string, banner: BannerId): string | null => {
-  const pick = banner === 'limited' ? member?.limitedPick : member?.guaranteedPick;
+  const field = PICK_FIELD[banner];
+  const pick = field === null ? undefined : member?.[field];
   return pick !== undefined && guaranteeChoices(userId, banner).some((item) => item.id === pick) ? pick : null;
 };
 
@@ -37,8 +49,10 @@ export const guaranteePick = (member: MemberDoc | null, userId: string, banner: 
  */
 export async function setGuaranteePick(guildId: string, userId: string, banner: BannerId, itemId: string | null): Promise<boolean> {
   if (itemId !== null && !guaranteeChoices(userId, banner).some((item) => item.id === itemId)) return false;
+  // (A banner with no guarantee has nothing to pick: any of them is all there is.)
+  const field = PICK_FIELD[banner];
+  if (field === null) return true;
   await ensureMember(guildId, userId);
-  const field = banner === 'limited' ? 'limitedPick' : 'guaranteedPick';
   await collections().members.updateOne({ guildId, userId }, itemId === null ? { $unset: { [field]: '' } } : { $set: { [field]: itemId } });
   return true;
 }
@@ -171,7 +185,7 @@ async function pullMany(guildId: string, userId: string, times: number, banner: 
   if (!debited) return { ok: false, reason: 'too_poor', balance: member?.points ?? 0, cost: total, tokens: member?.tokens ?? 0 };
 
   // Roll every pull in order, counting pity as we go.
-  const counted = pityOn ? ((banner === 'limited' ? debited.limitedPity : debited.pity) ?? times) : 0; // the counter after paying, counting all of these pulls
+  const counted = pityOn ? (debited[PITY_FIELD[banner]] ?? times) : 0; // the counter after paying, counting all of these pulls
   // The guarantee: after someone else's treasure, the member's next treasure is their own (on the
   // limited banner: after an item that isn't featured, the next is).
   const wasGuaranteed = isGuaranteed(debited, banner);

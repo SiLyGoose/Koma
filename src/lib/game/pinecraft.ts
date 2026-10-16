@@ -1,6 +1,7 @@
 import { blastEvery, oreEnergyExtra, type EffectTotals } from '../../perks/index.js';
 import { raidWeek, type RaidWeek } from '../events/raid-week.js';
 import { PINECRAFT_BREAK_MS, PINECRAFT_ORE_WEIGHTS, PINECRAFT_ORES, PINECRAFT_WORLD, type PinecraftOre, type PinecraftPaying } from '../../constants/index.js';
+import type { Direction } from '../../protocol/pinecraft.js';
 
 /*
  * The rules of Pinecraft, with no database and no pictures. A member's world is entirely
@@ -24,7 +25,7 @@ import { PINECRAFT_BREAK_MS, PINECRAFT_ORE_WEIGHTS, PINECRAFT_ORES, PINECRAFT_WO
  * double, and how fast energy comes back.
  */
 
-export type Direction = 'up' | 'down' | 'left' | 'right';
+export type { Direction };
 export const DIRECTIONS: readonly Direction[] = ['left', 'up', 'down', 'right'];
 const STEP: Readonly<Record<Direction, readonly [number, number]>> = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] };
 

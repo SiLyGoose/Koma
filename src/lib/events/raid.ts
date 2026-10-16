@@ -1,6 +1,9 @@
 import { RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, RAID_NO_CLASS, type RaidBossId, type RaidClassId, type RaidClassRules } from '../../constants/index.js';
 import { chance, pickRandom, randInt } from '../random.js';
 import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
+import type { CrowdControl, RaidAction } from '../../protocol/raid.js';
+
+export type { CrowdControl, RaidAction };
 
 /*
  * The raid boss's rules, with no Discord or database in them (commands/raid.ts runs the fight on
@@ -17,7 +20,6 @@ import { blightPurgeExtra } from '../../perks/raid/blight-purge.js';
  * command turns into the lines of the action log.
  */
 
-export type RaidAction = 'attack' | 'guard' | 'heal' | 'support';
 export const RAID_ACTIONS: readonly RaidAction[] = ['attack', 'guard', 'heal', 'support'];
 
 /** The moves that damage raiders directly. */
@@ -104,8 +106,6 @@ export const shieldDeflects = (boss: RaidBossId): number => (movesOf(boss).some(
 
 /** The boss's crowd-control moves, and the effect each one leaves on its targets. */
 export type CcMove = 'stun' | 'disarm' | 'taunt';
-/** Stunned: can't act. Disarmed: can't attack. Taunted: can only attack. */
-export type CrowdControl = 'stunned' | 'disarmed' | 'taunted';
 export const CC_EFFECT: Readonly<Record<CcMove, CrowdControl>> = { stun: 'stunned', disarm: 'disarmed', taunt: 'taunted' };
 export const isCcMove = (move: BossMove): move is CcMove => move in CC_EFFECT;
 
@@ -602,6 +602,8 @@ export interface RaidRewardSettings {
   tokenReward: number;
   gemReward: number;
   gemRewardMilestone: number;
+  essenceReward: number;
+  essenceRewardPerLevel: number;
 }
 
 /** What everyone who took part gets for beating the boss. */
@@ -609,12 +611,14 @@ export interface RaidRewards {
   points: number;
   tokens: number;
   gems: number;
+  /** Of each of the boss's hero essences (data/transcend.ts RAID_BOSS_ESSENCES). */
+  essences: number;
 }
 
 /**
- * What beating the boss at difficulty `level` pays each raider: `rewardPerLevel` more points for every
- * level past 1, and `gemRewardMilestone` more komaGems from each milestone level on (so they only go up
- * at levels 5 and 10). The komaTokens are the same at every level.
+ * What beating the boss at difficulty `level` pays each raider: `rewardPerLevel` more points and
+ * `essenceRewardPerLevel` more hero essences for every level past 1, and `gemRewardMilestone` more komaGems from each
+ * milestone level on (so they only go up at levels 5 and 10). The komaTokens are the same at every level.
  */
 export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards {
   const at = clampDifficulty(level);
@@ -622,6 +626,7 @@ export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards
     points: Math.max(0, cfg.reward + cfg.rewardPerLevel * (at - 1)),
     tokens: cfg.tokenReward,
     gems: Math.max(0, cfg.gemReward + cfg.gemRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)),
+    essences: Math.max(0, cfg.essenceReward + cfg.essenceRewardPerLevel * (at - 1)),
   };
 }
 

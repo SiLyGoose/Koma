@@ -66,12 +66,11 @@ export function equippedCopyIds(equipment: EquipmentDoc | null | undefined): Set
   return ids;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'masterwork'>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt'>;
 
-/** Orders copies the way they are sold: the one to sell first comes first (see `worstCopy`). A masterwork copy goes after the others of its level. */
+/** Orders copies the way they are sold: the one to sell first comes first (see `worstCopy`). */
 function sellsBefore(a: CopyInfo, b: CopyInfo): number {
   if (a.level !== b.level) return a.level - b.level;
-  if ((a.masterwork === true) !== (b.masterwork === true)) return a.masterwork ? 1 : -1;
   if (a.obtainedAt.getTime() !== b.obtainedAt.getTime()) return b.obtainedAt.getTime() - a.obtainedAt.getTime();
   return a._id < b._id ? 1 : a._id > b._id ? -1 : 0;
 }
@@ -82,7 +81,7 @@ export function worstCopies<T extends CopyInfo>(copies: readonly T[], count: num
 }
 
 /**
- * The copy to sell when selling just one: the lowest level, then one that isn't a masterwork, then the one obtained most recently (the opposite of the copy that gets equipped), then
+ * The copy to sell when selling just one: the lowest level, then the one obtained most recently (the opposite of the copy that gets equipped), then
  * the highest id so the choice never varies.
  */
 export function worstCopy<T extends CopyInfo>(copies: readonly T[]): T | undefined {
@@ -94,6 +93,11 @@ export function worstCopy<T extends CopyInfo>(copies: readonly T[]): T | undefin
 /** What one item of a star tier sells for, from the live settings. */
 export function sellPrice(stars: Stars): number {
   return CONFIG.sell.price[stars];
+}
+
+/** What one copy of an item sells for: TechnoMagic gear at its own price, everything else at its star tier's. */
+export function itemSellPrice(item: ItemDef): number {
+  return item.tmDrop ? CONFIG.sell.technomagic : sellPrice(item.stars);
 }
 
 /** One line of a sale: how many of an item, and what they are worth together. */
@@ -108,7 +112,7 @@ export interface SaleLine {
  * Groups item ids into sale lines: highest star tier first, and in catalog order within a tier.
  * Ids that aren't in the catalog are left out (their star tier, so their price, is unknown).
  */
-export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[] = ITEMS, price: (stars: Stars) => number = sellPrice): SaleLine[] {
+export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[] = ITEMS, price: (item: ItemDef) => number = itemSellPrice): SaleLine[] {
   const counts = new Map<string, number>();
   for (const id of itemIds) counts.set(id, (counts.get(id) ?? 0) + 1);
 
@@ -116,7 +120,7 @@ export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[
   for (const item of catalog) {
     const count = counts.get(item.id);
     if (!count) continue;
-    const each = price(item.stars);
+    const each = price(item);
     lines.push({ item, count, each, total: each * count });
   }
   return lines.sort((a, b) => b.item.stars - a.item.stars);

@@ -10,7 +10,6 @@ import { dayKey } from '../src/lib/events/raid-week.js';
 import { skipPrice, skipsUsedOn } from '../src/lib/game/skips.js';
 import { SPECS } from '../src/lib/settings-spec.js';
 import { claimReadyHour } from '../src/services/economy/claim.js';
-import { extraRaidId, raidId } from '../src/services/raid.js';
 import { claimSkip, findSkip, SKIPS } from '../src/services/skips.js';
 import type { MemberDoc } from '../src/types.js';
 
@@ -66,20 +65,7 @@ test('skip command: registered for everyone, with a slash version, a setting and
     assert.ok(TEXT.skip.names[s.id] && TEXT.skip.waits[s.id]);
   }
   assert.equal(DEFAULTS.skip.claim, 300);
-  assert.equal(DEFAULTS.skip.raid, 50_000);
-  assert.deepEqual(SKIPS.map((s) => s.id), ['claim', 'raid']);
+  assert.deepEqual(SKIPS.map((s) => s.id), ['claim']);
   assert.ok(TEXT.skip.claimHint('k!', '300').includes('k!skip claim'));
   assert.ok(TEXT.skip.claimHint('k!', '300').includes(CURRENCY_EMOJI));
-});
-
-test("raid skip: the extra raid has its own id next to the week's, so it can only be bought once", () => {
-  assert.equal(raidId('g', '2026-09-26'), 'g:2026-09-26');
-  assert.equal(extraRaidId('g', '2026-09-26'), 'g:2026-09-26:extra');
-  assert.notEqual(extraRaidId('g', '2026-09-26'), extraRaidId('g', '2026-10-03'));
-  const hint = TEXT.skip.raidHint('k!', '50,000');
-  assert.match(hint, /k!skip raid/);
-  assert.match(hint, /50,000/);
-  assert.ok(!hint.includes('**'), 'a footer shows no markdown');
-  assert.match(TEXT.skip.raidNotYet('/'), /\/raid/);
-  assert.match(TEXT.skip.listLine('Raid', '50,000', null, true), /already used/);
 });

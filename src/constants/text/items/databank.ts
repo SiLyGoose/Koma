@@ -8,12 +8,10 @@ const refineNote = (level: number): string =>
 
 export const databankText = {
   title: 'Databank',
-  /** The title with the refinement level the strengths are shown at, like "Databank · R5", and "· Masterwork" when the bonuses are on. */
-  titleAt: (title: string, level: number, masterwork = false) => `${title} · R${level}${masterwork ? ' · Masterwork' : ''}`,
+  /** The title with the refinement level the strengths are shown at, like "Databank · R5". */
+  titleAt: (title: string, level: number) => `${title} · R${level}`,
   /** The button that switches the strengths shown to `level`. */
   showLevel: (level: number) => `Show R${level}`,
-  /** The button that turns the masterwork bonuses on (`show`) or off. */
-  masterworkButton: (show: boolean) => (show ? 'Show masterwork' : 'Hide masterwork'),
   /** Added to the title when the list needs more than one message, like "Databank (2/3)". */
   titlePage: (title: string, page: number, pages: number) => `${title} (${page}/${pages})`,
   description: (level: number) => `Every item and what it does while equipped.\n${refineNote(level)}`,
@@ -21,7 +19,7 @@ export const databankText = {
   tierField: (stars: string, count: number) => `${stars} (${count})`,
   /** A tier long enough to need more than one page of its own, e.g. "★★★★ (7) — page 2/2". */
   tierFieldPage: (stars: string, count: number, page: number, pages: number) => `${stars} (${count}) — page ${page}/${pages}`,
-  item: (name: string, slot: string, masterwork = false) => `${slot} **${name}**${masterwork ? ' · ✨ Masterwork' : ''}`,
+  item: (name: string, slot: string) => `${slot} **${name}**`,
   noEffects: 'No effects',
   /** The list of one star tier (`databank <1-4>`). `stars` is the star string. */
   tierTitle: (stars: string) => `Databank: ${stars}`,
@@ -54,6 +52,9 @@ export const databankText = {
   raidDropOrShop: '🎁 Drops from raid bosses, or bought in the raid shop',
   /** Last line of a limited item (ItemDef.limited). */
   limited: '⏳ Only from the limited banner',
+  /** Last line of TechnoMagic gear (ItemDef.tmDrop). */
+  technomagic: '🐲 Only drops from the TechnoMagic Raid, and only heroes wear it',
+  detailTechnomagic: "Can't be pulled from the gacha: only the TechnoMagic Raid drops it, and only its heroes wear it (put it on one on the site's Heroes page).",
   detailLimited: "Can't be pulled from the standard banner: only from the limited banner, while it is featured there.",
   detailRaidDropField: 'Where to get it',
   detailRaidDrop: "Can't be pulled from the gacha. Beating a raid boss gives the party a chance (higher with more raiders) that every raider finds one.",
@@ -64,7 +65,7 @@ export const databankText = {
   /** The details of one item (`databank <item>`). `stars` is the star string. */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',
-  detailEffectsField: (level: number, masterwork = false) => `Effects (at R${level}${masterwork ? ' · ✨ Masterwork' : ''})`,
+  detailEffectsField: (level: number) => `Effects (at R${level})`,
   detailExclusiveField: 'Exclusive',
   /** `owners` is mentions. */
   /** `share` is how much of its effects everyone else gets, like "50%". */

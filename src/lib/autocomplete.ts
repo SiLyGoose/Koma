@@ -1,7 +1,7 @@
 import { AUTOCOMPLETE_MAX_CHOICES } from '../constants/index.js';
 import { normalize } from './text.js';
 import type { ItemDef } from '../types.js';
-import { starString } from './format.js';
+import { itemStars } from './format.js';
 
 /** One entry of a slash command's autocomplete list. Discord allows at most 100 characters in each part. */
 export interface Choice {
@@ -41,7 +41,7 @@ export function itemChoices(query: string, items: readonly ItemDef[], max = AUTO
     .filter((entry): entry is typeof entry & { score: number } => entry.score !== null)
     .sort((a, b) => a.score - b.score || a.index - b.index)
     .slice(0, max)
-    .map(({ item }) => ({ name: cut(`${item.name} ${starString(item.stars)}`), value: cut(item.id) }));
+    .map(({ item }) => ({ name: cut(`${item.name} ${itemStars(item)}`), value: cut(item.id) }));
 }
 
 /** The same for a list of plain names, like setting keys. */

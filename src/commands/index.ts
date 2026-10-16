@@ -17,6 +17,7 @@ import { mines } from './mines.js';
 import { newsletter } from './newsletter.js';
 import { pinecraft } from './pinecraft.js';
 import { minesweeper } from './minesweeper.js';
+import { technomagic } from './technomagic.js';
 import { plinko } from './plinko.js';
 import { baccarat } from './baccarat.js';
 import { roulette } from './roulette.js';
@@ -28,7 +29,6 @@ import { sell } from './sell.js';
 import { skip } from './skip.js';
 import type { Command } from '../discord/types.js';
 import { unequip } from './unequip.js';
-import { forge } from './forge.js';
 import { raidClass } from './class.js';
 import { lock, unlock } from './lock.js';
 import { vault } from './vault.js';
@@ -42,7 +42,6 @@ export const commands: Command[] = [
   unequip,
   loadout,
   refine,
-  forge,
   lock,
   unlock,
   sell,
@@ -59,6 +58,7 @@ export const commands: Command[] = [
   mines,
   pinecraft,
   minesweeper,
+  technomagic,
   raid,
   leaderboard,
   vault,

@@ -25,8 +25,9 @@ export function balanceText(after: { balance: number; tokens: number; tokensUsed
   return TEXT.gacha.balanceWithTokens(money(after.balance), after.tokens);
 }
 
-/** The words that pick the limited banner. */
+/** The words that pick the limited banner, and the Hero Item one. */
 const LIMITED_WORDS: readonly string[] = ['limited', 'lim', 'event'];
+const HERO_WORDS: readonly string[] = ['hero', 'heroes', 'uw'];
 
 /** One pulled item's line, as a multi pull lists it (a top-tier one in bold). */
 const pullLine = ({ item, isNew }: PulledItem): string =>
@@ -45,13 +46,13 @@ export const gacha: Command = {
   name: 'gacha',
   category: 'items',
   aliases: ['pull'],
-  description: `Pull an item with ${TOKEN_NAME} or ${CURRENCY_NAME}. "multi" pulls ${MULTI_PULLS}, "limited" the limited banner.`,
-  usage: 'gacha [limited] [multi] | gacha banner',
-  slashUsage: 'gacha [limited] [multi] [banner]',
+  description: `Pull an item with ${TOKEN_NAME} or ${CURRENCY_NAME}. "multi" pulls ${MULTI_PULLS}; "limited" or "hero" picks a banner.`,
+  usage: 'gacha [limited | hero] [multi] | gacha banner',
+  slashUsage: 'gacha [limited] [hero] [multi] [banner]',
 
   async execute(ctx) {
-    // `gacha` is one pull; "multi" makes it a multi pull and "limited" picks the limited banner, in
-    // either order. `gacha banner` shows the limited banner. Anything else gets a hint.
+    // `gacha` is one pull; "multi" makes it a multi pull, and "limited" picks the limited banner or "hero"
+    // the Hero Item one (not both), in any order. `gacha banner` shows the limited banner. Anything else gets a hint.
     const words = ctx.args.map((arg) => arg.toLowerCase());
     if (words.length === 1 && words[0] === 'banner') {
       await showBanner(ctx);
@@ -59,11 +60,13 @@ export const gacha: Command = {
     }
     const multi = words.includes('multi');
     const limited = words.some((word) => LIMITED_WORDS.includes(word));
-    if (words.length !== Number(multi) + Number(limited) || words.some((word) => word !== 'multi' && !LIMITED_WORDS.includes(word))) {
+    const hero = words.some((word) => HERO_WORDS.includes(word));
+    const known = (word: string): boolean => word === 'multi' || LIMITED_WORDS.includes(word) || HERO_WORDS.includes(word);
+    if ((limited && hero) || words.length !== Number(multi) + Number(limited) + Number(hero) || !words.every(known)) {
       await ctx.reply(TEXT.gacha.usage(ctx.prefix));
       return;
     }
-    const banner: BannerId = limited ? 'limited' : 'standard';
+    const banner: BannerId = limited ? 'limited' : hero ? 'hero' : 'standard';
     if (multi) {
       await multiPull(ctx, banner);
       return;
@@ -98,13 +101,17 @@ export const gacha: Command = {
   },
 };
 
-/** Whose pull it is, over the result: from the limited banner, by its name. */
+/** Whose pull it is, over the result: from the limited banner, by its name; from the Hero Item one. */
 const authorText = (ctx: CommandContext, banner: BannerId): string =>
-  banner === 'limited' ? TEXT.gacha.authorLimited(ctx.user.displayName, LIMITED_BANNER.name) : TEXT.gacha.author(ctx.user.displayName);
+  banner === 'limited'
+    ? TEXT.gacha.authorLimited(ctx.user.displayName, LIMITED_BANNER.name)
+    : banner === 'hero'
+      ? TEXT.gacha.authorHero(ctx.user.displayName)
+      : TEXT.gacha.author(ctx.user.displayName);
 
 /** How close the member now is to a guaranteed top-tier item on the banner pulled from, next to what they spent and have left. */
 export function pityField(pity: { count: number; hardPity: number }, banner: BannerId = 'standard') {
-  const name = (banner === 'limited' ? TEXT.gacha.pityFieldLimited : TEXT.gacha.pityField)(starString(PITY_STARS));
+  const name = (banner === 'limited' ? TEXT.gacha.pityFieldLimited : banner === 'hero' ? TEXT.gacha.pityFieldHero : TEXT.gacha.pityField)(starString(PITY_STARS));
   return { name, value: TEXT.gacha.pityProgress(fmt(pity.count), fmt(pity.hardPity)), inline: true };
 }
 

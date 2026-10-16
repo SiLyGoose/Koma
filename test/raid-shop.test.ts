@@ -40,7 +40,7 @@ test('raid rewards: every level past 1 pays 500 more, and the komaGems only go u
   // Out of range, it is the nearest level; with both steps at 0, every level pays what level 1 does.
   assert.deepEqual(raidRewards(0, cfg), ladder[0]);
   assert.deepEqual(raidRewards(99, cfg), ladder[9]);
-  assert.deepEqual(raidRewards(10, { ...cfg, rewardPerLevel: 0, gemRewardMilestone: 0 }), { points: 1000, tokens: 10, gems: 5 });
+  assert.deepEqual(raidRewards(10, { ...cfg, rewardPerLevel: 0, gemRewardMilestone: 0, essenceRewardPerLevel: 0 }), { points: 1000, tokens: 10, gems: 5, essences: 15 });
 });
 
 test('raid rewards: both steps are settings, and the boss info says how the harder levels pay more', () => {
@@ -50,7 +50,12 @@ test('raid rewards: both steps are settings, and the boss info says how the hard
   assert.ok(text.includes('**500** <:zeiucoin:1551675032424546320> more for every level past 1'), text);
   assert.ok(text.includes(`**5** ${GEM_EMOJI} more from level 5, and again from level 10`), text);
   assert.ok(bossRewardsText(DEFAULTS.raid, 5).includes(`**10** ${GEM_EMOJI}`), 'at level 5 it says what level 5 pays');
+  const wyrm = bossRewardsText(DEFAULTS.raid, 1, 'wyrm');
+  assert.ok(wyrm.includes('**15** each of the Justice, Force and Strategy hero essences'), wyrm);
+  assert.ok(wyrm.includes('and **5** of each hero essence 💠 more for every level past 1'), wyrm);
+  assert.ok(bossRewardsText(DEFAULTS.raid, 3, 'wyrm').includes('**25** each of the'), 'at level 3 it says what level 3 pays');
   assert.ok(!bossRewardsText({ ...DEFAULTS.raid, rewardPerLevel: 0, gemRewardMilestone: 0 }).includes('Harder levels'), 'nothing to say with both at 0');
+  assert.ok(!bossRewardsText({ ...DEFAULTS.raid, rewardPerLevel: 0, gemRewardMilestone: 0, essenceRewardPerLevel: 0 }, 1, 'wyrm').includes('Harder levels'), 'nor with all three at 0');
   const info = bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
   assert.ok(info.includes('Harder levels pay more'), info);
 });

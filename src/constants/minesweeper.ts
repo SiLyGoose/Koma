@@ -1,3 +1,5 @@
+import { MINESWEEPER_LEVEL_IDS, type MinesweeperLevel } from '../protocol/minesweeper.js';
+
 /*
  * Minesweeper, played together on the games' site (lib/game/minesweeper.ts for the rules,
  * web/games/minesweeper/ for the rooms). No bet: a server's members clear one board between them,
@@ -6,16 +8,14 @@
  * adds are settings (`minesweeper.*`).
  */
 
+export { MINESWEEPER_LEVEL_IDS, type MinesweeperLevel };
+
 /** The boards: how many tiles across and down, and how many of them are mines (the classic three). */
 export const MINESWEEPER_LEVELS = {
   easy: { cols: 9, rows: 9, mines: 10 },
   medium: { cols: 16, rows: 16, mines: 40 },
   hard: { cols: 30, rows: 16, mines: 99 },
-} as const;
-export type MinesweeperLevel = keyof typeof MINESWEEPER_LEVELS;
-
-/** The levels, easiest first. */
-export const MINESWEEPER_LEVEL_IDS = Object.keys(MINESWEEPER_LEVELS) as MinesweeperLevel[];
+} as const satisfies Record<MinesweeperLevel, { cols: number; rows: number; mines: number }>;
 
 /** The most the settings may be set to: a level's par time (seconds), and what the pool is multiplied by for speed. */
 export const MAX_MINESWEEPER_PAR_SECONDS = 24 * 60 * 60;

@@ -3,6 +3,8 @@ export const equipText = {
   ambiguous: (names: string[]) =>
     `That could be more than one of your items: ${names.map((name) => `**${name}**`).join(', ')}. Type more of the name.`,
   notOwned: (p: string, name: string) => `You don't own **${name}** yet. Pull for it with \`${p}gacha\`.`,
+  /** TechnoMagic gear: only the TechnoMagic Raid's heroes wear it. */
+  heroOnly: (name: string) => `**${name}** is TechnoMagic gear: only heroes can wear it. Put it on one on the site's Heroes page.`,
   noSuchItem: (p: string, query: string) =>
     `You don't have an item called "${query}". \`${p}inventory\` shows what you own.`,
   alreadyEquipped: (name: string, slot: string) => `You already have **${name}** equipped as your ${slot}.`,
@@ -10,7 +12,7 @@ export const equipText = {
   done: (user: string, slot: string) => `${user} equipped it as their ${slot}.`,
   doneReplacing: (user: string, slot: string, replaced: string) =>
     `${user} equipped it as their ${slot}. (Replaced **${replaced}**.)`,
-  effectsField: (level: number, masterwork = false) => `Effects (R${level}${masterwork ? ' · ✨ Masterwork' : ''})`,
+  effectsField: (level: number) => `Effects (R${level})`,
   noEffects: 'None',
   /** Extra field when the item is exclusive to other members. `owners` is mentions. */
   exclusiveField: 'Exclusive',

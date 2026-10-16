@@ -1,7 +1,9 @@
 import { LOADOUTS } from '../../../constants/index.js';
 import type { EquipmentDoc, MemberDoc } from '../../../types.js';
 import { normalize } from '../../text.js';
+import { heroCopyIds } from '../heroes.js';
 import { equippedCopyIds } from './sell.js';
+import type { LoadoutNameProblem } from '../../../protocol/gear.js';
 
 /*
  * Gear loadouts (constants/items/loadouts.ts): the rules, with no database. A member's active loadout is
@@ -58,6 +60,13 @@ export function loadoutCopyIds(member: LoadoutFields | null | undefined): Set<st
   return ids;
 }
 
+/** Every copy selling and refining never use up: one in any of the member's loadouts, or worn by one of their heroes (../heroes.ts). */
+export function keptCopyIds(member: (LoadoutFields & Pick<MemberDoc, 'heroes'>) | null | undefined): Set<string> {
+  const ids = loadoutCopyIds(member);
+  for (const id of heroCopyIds(member)) ids.add(id);
+  return ids;
+}
+
 export type LoadoutLookup = { kind: 'found'; number: number } | { kind: 'ambiguous'; names: string[] } | { kind: 'none' };
 
 /**
@@ -85,7 +94,7 @@ export function findLoadout(loadouts: readonly Pick<LoadoutView, 'number' | 'nam
 export type NameCheck =
   /** `name` is null to go back to the default name. */
   | { ok: true; name: string | null }
-  | { ok: false; reason: 'too_long' | 'bad_characters' | 'no_letters' | 'reserved' }
+  | { ok: false; reason: Exclude<LoadoutNameProblem, 'taken'> }
   /** Another loadout already goes by this name (`number` is that one). */
   | { ok: false; reason: 'taken'; number: number };
 

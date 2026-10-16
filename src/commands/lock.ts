@@ -2,7 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'dis
 import { LOCK_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
-import { starString } from '../lib/format.js';
+import { itemStars } from '../lib/format.js';
 import type { InventoryStack } from '../lib/game/items/copies.js';
 import { getInventory } from '../services/economy/index.js';
 import { itemStacks, setOneLocked } from '../services/items/lock.js';
@@ -25,7 +25,7 @@ async function choices(ctx: CommandContext, item: ItemDef, verb: Verb): Promise<
 function pickerEmbed(item: ItemDef, verb: Verb, note: string | null): BotEmbed {
   const t = TEXT.lock;
   return createEmbed()
-    .setTitle(t.pickTitle(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
+    .setTitle(t.pickTitle(itemStars(item), item.name, SLOT_EMOJI[item.slot]))
     .setDescription([t.pick(item.name, verb), ...(note ? ['', note] : [])].join('\n'));
 }
 

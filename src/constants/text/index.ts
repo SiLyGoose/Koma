@@ -14,6 +14,7 @@ import { blackjackText } from './casino/blackjack.js';
 import { minesText } from './casino/mines.js';
 import { pinecraftText } from './pinecraft.js';
 import { minesweeperText } from './minesweeper.js';
+import { technomagicText } from './technomagic.js';
 import { sellText } from './items/sell.js';
 import { inventoryText } from './items/inventory.js';
 import { databankText } from './items/databank.js';
@@ -24,7 +25,6 @@ import { equipText } from './items/equip.js';
 import { unequipText } from './items/unequip.js';
 import { loadoutText } from './items/loadout.js';
 import { refineText } from './items/refine.js';
-import { forgeText } from './items/forge.js';
 import { lockText } from './items/lock.js';
 import { suggestText } from './items/suggest.js';
 import { robText } from './rob.js';
@@ -67,6 +67,7 @@ export const TEXT = {
   mines: minesText,
   pinecraft: pinecraftText,
   minesweeper: minesweeperText,
+  technomagic: technomagicText,
   sell: sellText,
   inventory: inventoryText,
   databank: databankText,
@@ -77,7 +78,6 @@ export const TEXT = {
   unequip: unequipText,
   loadout: loadoutText,
   refine: refineText,
-  forge: forgeText,
   lock: lockText,
   suggest: suggestText,
   rob: robText,

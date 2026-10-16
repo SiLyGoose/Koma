@@ -3,6 +3,8 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { CONFIG } from '../src/config.js';
+import { bossEssences, RAID_BOSS_ESSENCES } from '../src/data/transcend.js';
+import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, REFINE, TEXT } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
 import { formatMultiplier, formatPercent } from '../src/lib/format.js';
@@ -22,7 +24,7 @@ const SITE: WebConfig = {
   clientSecret: 'shh',
 };
 
-test('databank page: every item, highest tier first, with its effects at each level and as a masterwork', () => {
+test('databank page: every item, highest tier first, with its effects at each level', () => {
   const { maxLevel, items } = databankView();
   assert.equal(maxLevel, REFINE.maxLevel);
   assert.equal(items.length, ITEMS.length);
@@ -34,11 +36,10 @@ test('databank page: every item, highest tier first, with its effects at each le
   const shown = (id: string) => items.find((item) => item.id === id)!;
 
   assert.equal(shown(plain.id).effects.length, REFINE.maxLevel);
-  assert.deepEqual(shown(plain.id).effects[0], describeEffects(plain, 1, 1, false));
-  assert.deepEqual(shown(plain.id).effects.at(-1), describeEffects(plain, 1, REFINE.maxLevel, false));
-  assert.equal(shown(plain.id).masterwork, null);
+  assert.deepEqual(shown(plain.id).effects[0], describeEffects(plain, 1, 1));
+  assert.deepEqual(shown(plain.id).effects.at(-1), describeEffects(plain, 1, REFINE.maxLevel));
   assert.equal(shown(plain.id).borrowed, null);
-  assert.deepEqual(shown(withBonus.id).masterwork, describeEffects(withBonus, 1, REFINE.maxLevel, true));
+  assert.deepEqual(shown(withBonus.id).effects.at(-1), describeEffects(withBonus, 1, REFINE.maxLevel), 'its R5 bonus included');
   assert.ok(shown(exclusive.id).borrowed !== null && shown(exclusive.id).borrowed! < 1);
 });
 
@@ -46,11 +47,17 @@ test('databank page: says where each item comes from, and the raid drop chance',
   const { raidDropChance, raidDropChancePerRaider, items } = databankView();
   assert.equal(raidDropChance, CONFIG.raid.dropChance);
   assert.equal(raidDropChancePerRaider, CONFIG.raid.dropChancePerRaider);
-  const pulled = (item: (typeof ITEMS)[number]) => (item.limited ? 'limited' : 'gacha');
+  const pulled = (item: (typeof ITEMS)[number]) => (item.tmDrop ? 'technomagic' : item.uniqueWeapon !== undefined ? 'heroBanner' : item.limited ? 'limited' : 'gacha');
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : pulled(item), item.id);
   // Every place it comes from: a raid item is sold in the raid shop too, and a limited item only comes from its banner.
   for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : [pulled(item)], item.id);
   assert.ok(items.some((item) => item.source === 'limited'));
+  assert.ok(items.some((item) => item.source === 'technomagic'));
+  // A unique weapon comes from the Hero Item banner, says whose it is, and says what it does in the raid at each level.
+  const exian = items.find((item) => item.id === 'the-guardian-exian')!;
+  assert.equal(exian.source, 'heroBanner');
+  assert.equal(exian.uniqueWeapon, 'klaus');
+  assert.ok(exian.effects.every((lines, i) => lines.some((line) => line.startsWith(`Klaus only, ★${i + 1}:`))));
   assert.ok(items.some((item) => item.source === 'raid') && items.some((item) => item.source === 'gacha'));
   // A class item is tagged with its raid class, and the classes are listed for the page's filter.
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.class, item.class ?? null, item.id);
@@ -82,9 +89,12 @@ test('databank page: every raid boss, what it does, and what each difficulty lev
     assert.equal(boss.name, TEXT.raid.bosses[boss.id].name);
     assert.equal(boss.picture, `/api/raid/boss?boss=${boss.id}&mood=calm`);
     assert.deepEqual(boss.hp, { perRaider: CONFIG.raid.hpPerRaider[boss.id], overhead: CONFIG.raid.hpOverhead[boss.id], minRaiders: CONFIG.raid.minRaiders, gear: CONFIG.raid.gearHp[boss.id] });
-    assert.ok(boss.moves.length > 0 && boss.phases.length > 0 && boss.rewards.length > 0, boss.id);
-    assert.ok(!boss.rewards.includes('raid item'), 'the rewards everyone gets, without the drops (they go by level)');
-    assert.ok(boss.rewards.includes('Harder levels pay more'), 'and how the harder levels pay more');
+    assert.ok(boss.moves.length > 0 && boss.phases.length > 0, boss.id);
+    // The rewards at each level, in the levels' order.
+    assert.equal(boss.rewards.length, RAID_DIFFICULTY.max, boss.id);
+    const { points, tokens, gems, essences } = raidRewards(3, CONFIG.raid);
+    assert.deepEqual(boss.rewards[2], { points, tokens, gems, essences: bossEssences(boss.id, essences) }, 'each level says what it pays');
+    assert.deepEqual(Object.keys(boss.rewards[0].essences), [...RAID_BOSS_ESSENCES[boss.id]], 'its three kinds of essence');
   }
   assert.equal(raid.maxRounds, CONFIG.raid.maxRounds);
   assert.equal(raid.levels.length, RAID_DIFFICULTY.max);

@@ -2,31 +2,12 @@ import type { ObjectId } from 'mongodb';
 import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
 import type { RaidBossId, RaidClassId } from './constants/raid.js';
+import type { EssenceId } from './data/transcend.js';
+import type { HeroSlot } from './protocol/heroes.js';
+import type { Slot, Stars, TmSetId } from './protocol/items.js';
 
-export type Stars = 1 | 2 | 3 | 4;
-
-/** Every star tier, lowest first. */
-export const STARS: readonly Stars[] = [1, 2, 3, 4];
-
-/**
- * Where an item can be equipped. A member can wear one weapon, one armor, and one unique
- * treasure: a third slot every member has (its key is 'treasure' -- the slot itself isn't
- * unique, the items that go in it are), which stacks with weapon and armor but only holds one
- * item at a time. An item that is a unique treasure competes with every other one a member owns
- * for that one slot (see data/items/catalog.ts for the current list).
- */
-export type Slot = 'weapon' | 'armor' | 'treasure';
-
-export const SLOTS: readonly Slot[] = ['weapon', 'armor', 'treasure'];
-
-/**
- * Which banner a gacha pull is made on: the standard one, or the limited one (open between the
- * settings' gacha.limited.start and .end), whose top-tier items are mostly its featured ones
- * (data/items/banner.ts). Each keeps its own pity and its own guarantee.
- */
-export type BannerId = 'standard' | 'limited';
-
-export const BANNERS: readonly BannerId[] = ['standard', 'limited'];
+export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
+export { HERO_SLOTS, type HeroSlot } from './protocol/heroes.js';
 
 export interface ItemDef {
   id: string;
@@ -61,36 +42,41 @@ export interface ItemDef {
    * can't: its perks are the heroes' stats, lib/game/heroes.ts). Missing means it's the members' own.
    */
   tmDrop?: true;
+  /** TechnoMagic gear: the set it belongs to, the one of the raid that drops it (data/tm-sets.ts). */
+  tmSet?: TmSetId;
+  /**
+   * A unique weapon: the id of the TechnoMagic Raid hero it is made for (data/heroes.ts). Only pulled from the
+   * Hero Item banner, as its pity tier (4 stars); only that hero wears it (a member can't, nor another hero),
+   * and besides its perks it has its own effect in the raid, as far as it is refined (Koma-UI's
+   * src/technomagic/sim/unique.ts). Missing means it isn't one.
+   */
+  uniqueWeapon?: string;
   /**
    * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
    * databanks tag it and can list a class's items. Missing means it's for everyone.
    */
   class?: RaidClassId;
-  /** Optional: a bonus an R5 copy gets once forged into a masterwork with komaGems (see ItemBonus). */
+  /** Optional: a bonus a copy gets once refined to R5 (see ItemBonus). */
   bonus?: ItemBonus;
 }
 
 /**
- * A 4-star item's bonus, at REFINE.maxLevel: once a copy is at `level` AND has been made a
- * masterwork with komaGems (`forge`, ItemCopyDoc.masterwork), the item gains the perks in `adds` and loses the ones in
- * `removes` (say a drawback it outgrows). Until then it works as if the bonus weren't there; the
- * gear card shows it dormant once the level is reached.
+ * A 4-star item's bonus, at REFINE.maxLevel: once a copy is at `level`, the item loses the perks in
+ * `removes` (say a drawback it outgrows) and shows `text` as an extra effect. Below that it works as
+ * if the bonus weren't there.
  */
 export interface ItemBonus {
   /** The refinement level it needs (REFINE.maxLevel). */
   level: number;
   /**
-   * What it adds, for the gear card, like "Pinecraft: ores take no extra energy". The card keeps the
-   * item's own effect lines as they are and puts this under them, so it should say what changes on
-   * top of those (the perks in `adds` and `removes` don't get lines of their own). To show a number
-   * that follows the settings, make it a function: `strength(effect)` is a perk's strength on this
-   * copy (a fraction, 0.5 for 50%) and `percent(n)` formats one, like "25%".
+   * The extra effect, for the gear card, like "Pinecraft: ores take no extra energy": the last line,
+   * under the item's other effects (the perks in `removes` lose theirs). To show a number that
+   * follows the settings, make it a function: `strength(effect)` is a perk's strength on this copy
+   * (a fraction, 0.5 for 50%) and `percent(n)` formats one, like "25%".
    */
   text: string | ((strength: (effect: EffectId) => number, percent: (n: number) => string) => string);
-  /** Perks it adds, at the item's star tier like its other perks. They must not already be on the item. */
-  adds?: readonly EffectId[];
   /** Perks of the item's it turns off. */
-  removes?: readonly EffectId[];
+  removes: readonly EffectId[];
 }
 
 /**
@@ -117,18 +103,13 @@ export interface GearIds {
    * resolveGear. A slot left out here counts as fully refined (the item at its listed strength).
    */
   levels?: Partial<Record<Slot, number>>;
-  /**
-   * Whether the copy in each slot is a masterwork (bought with komaGems), filled in by resolveGear.
-   * A slot left out here counts as one (the item at its full strength).
-   */
-  bonuses?: Partial<Record<Slot, boolean>>;
   /** Whether the copy in each slot is locked (`lock`), filled in by resolveGear, for the gear card. Left out counts as not. */
   locked?: Partial<Record<Slot, boolean>>;
 }
 
 /** One document per (server, user). */
 /** Something whose cooldown can be paid to skip (services/skips.ts). */
-export type SkipId = 'claim' | 'raid';
+export type SkipId = 'claim';
 
 /** How many times a member skipped one thing on `day` (YYYY-MM-DD, Eastern), for its doubling price. */
 export interface SkipUse {
@@ -178,6 +159,8 @@ export interface MemberDoc {
   tokens?: number;
   /** komaGems, won by beating the weekly raid. Missing means 0. */
   gems?: number;
+  /** Hero essences (data/transcend.ts EssenceId), won by beating the weekly raid and spent transcending heroes. Missing means none. */
+  essences?: Partial<Record<EssenceId, number>>;
   /**
    * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
    * of that claim, and who it is paid to. Both are missing or null when there is none. They are
@@ -219,6 +202,11 @@ export interface MemberDoc {
   limitedPity?: number;
   limitedGuaranteed?: boolean;
   /**
+   * Pulls on the Hero Item banner since their last pity-tier item there (a unique weapon). That banner has
+   * no guarantee: every one of its pity-tier items is a unique weapon, each as likely. Missing means 0.
+   */
+  heroPity?: number;
+  /**
    * The item they picked for each banner's guarantee to give (the site's banner page): one of their own
    * treasures on the standard banner, a featured item on the limited one. Missing, or an item the
    * guarantee can't give any more (a limited banner since replaced), means any of them.
@@ -249,14 +237,6 @@ export interface MemberDoc {
   createdAt: Date;
 }
 
-/**
- * Where a hero wears gear: two weapons, two armors and a treasure. The raid's gear and the TechnoMagic
- * Raid's go in them (lib/game/heroes.ts's heroWearable), each in a slot of its item's kind.
- */
-export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure';
-
-export const HERO_SLOTS: readonly HeroSlot[] = ['weapon1', 'weapon2', 'armor1', 'armor2', 'treasure'];
-
 /** One of a member's heroes (MemberDoc.heroes). */
 export interface HeroDoc {
   boughtAt: Date;
@@ -265,6 +245,52 @@ export interface HeroDoc {
    * at most (it can be on the member as well), and in one of its slots.
    */
   equipment?: Partial<Record<HeroSlot, string | null>>;
+  /** How far it is transcended (0 to TRANSCEND_MAX, data/transcend.ts), on the site's heroes page. Missing means 0. */
+  transcend?: number;
+  /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page. Missing means none. */
+  perks?: string[];
+}
+
+/** A hero in a TechnoMagic Raid run: which, in which of its skins (the site's), and what its gear gave it as the run began. */
+export interface TmRunHero {
+  id: string;
+  skin: number;
+  gear: Record<string, number>;
+  /** The TechnoMagic set whose effect it had (three of its pieces worn: data/tm-sets.ts TM_SET_PIECES), or null. */
+  set?: TmSetId | null;
+  /** Its own unique weapon's tier (its refinement, 1 to 5), or null: none worn. */
+  uw?: number | null;
+  /** The additional skills of the TechnoMagic gear it wore (ItemCopyDoc.tmSkill), one for each piece. */
+  skills?: string[];
+  /** The transcendence perks it had (data/transcend.ts ids). */
+  perks?: string[];
+}
+
+/**
+ * One player's part in a TechnoMagic Raid run (services/technomagic.ts): a room's fight, begun by the bot with
+ * a seed and each player's heroes in the gear they wore then. The bot runs the fight itself (the site's sim),
+ * and keeps here how it went and what it gave.
+ */
+export interface TmRunDoc {
+  /** The run's id and the player's: `<run>:<userId>`. */
+  _id: string;
+  /** The run (one for everyone in the room). */
+  run: string;
+  guildId: string;
+  userId: string;
+  boss: string;
+  seed: number;
+  stage: number;
+  /** Their heroes in it. */
+  heroes: TmRunHero[];
+  /** The sim's version it was fought with (a hash of it; a number, for a run from before). */
+  version: string | number;
+  startedAt: Date;
+  /** When it was over, how (after so many steps), and the item ids found. */
+  claimedAt?: Date;
+  result?: 'won' | 'lost';
+  ticks?: number;
+  drops?: string[];
 }
 
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
@@ -295,11 +321,54 @@ export interface ItemCopyDoc {
    * which counts as 1 (lib/game/items/refine.ts refineLevel).
    */
   level: number;
-  /** This copy has been forged into a masterwork with komaGems (`forge`), turning on its item's bonus. Missing means not. */
-  masterwork?: boolean;
   /** Locked by the member (`lock`, or the site): never sold and never used up by a refine. Missing means not. */
   locked?: boolean;
+  /**
+   * TechnoMagic gear: the additional skill this copy came with (the sim's TM_SKILLS id, lib/game/technomagic.ts),
+   * rolled as it dropped; a hero wearing it has it in the raid. Missing on any other copy.
+   */
+  tmSkill?: string;
+  /**
+   * TechnoMagic gear: the potentials this copy came with (TM_POTENTIAL_LINES of them, each a different stat:
+   * lib/game/technomagic.ts), rolled as it dropped; a hero of its class wearing it has them in the raid. Missing
+   * on any other copy.
+   */
+  tmPotentials?: TmPotential[];
   obtainedAt: Date;
+}
+
+/** A stat a TechnoMagic copy's potential raises (each one of a hero's stats in the raid: lib/game/heroes.ts HeroStat). */
+export type TmPotentialId =
+  | 'atk'
+  | 'speed'
+  | 'hp'
+  | 'defense'
+  | 'defPhysical'
+  | 'defMagical'
+  | 'block'
+  | 'blockPhysical'
+  | 'blockMagical'
+  | 'blockDef'
+  | 'blockDefPhysical'
+  | 'blockDefMagical'
+  | 'dodge'
+  | 'tough'
+  | 'toughPhysical'
+  | 'toughMagical'
+  | 'accuracy'
+  | 'resist'
+  | 'crit'
+  | 'critDamage'
+  | 'manaAttack'
+  | 'manaRegen'
+  | 'lifesteal'
+  | 'critResist'
+  | 'pen';
+
+/** One of a TechnoMagic copy's potentials: the stat it raises, and by how much (a share, as a perk's strength is: 0.05 is 5% more, or 50 points). */
+export interface TmPotential {
+  stat: TmPotentialId;
+  value: number;
 }
 
 /**
@@ -377,8 +446,8 @@ export type LedgerReason =
   | 'code_prize'
   // Points paid to skip a cooldown (commands/skip.ts), one reason per thing skipped.
   | 'skip_claim'
+  // The week's extra raid and its refund, back when a week had one raid: no longer written, kept for older entries.
   | 'skip_raid'
-  // A skip taken back because what it paid for couldn't happen (the extra raid was already taken).
   | 'skip_refund'
   // Points a member gave to the vault of their own accord (commands/donate.ts).
   | 'vault_donation'
@@ -394,7 +463,10 @@ export type LedgerReason =
   | 'raid_reward'
   | 'raid_tokens'
   | 'raid_gems'
-  // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item).
+  // Hero essences for beating it (0 points; essenceDelta).
+  | 'raid_essences'
+  // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item). Masterworks
+  // are gone; only old entries have it.
   | 'forge'
   | 'raid_refund'
   // A duplicate copy used up to refine another (0 points; itemId is the item).
@@ -403,10 +475,14 @@ export type LedgerReason =
   | 'outfit'
   // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).
   | 'hero'
+  // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).
+  | 'tm_win'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).
   | 'raid_shop_refresh'
+  // komaGems and hero essences spent transcending a hero (0 points, gemDelta, essenceDelta; itemId is the hero).
+  | 'transcend'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 
@@ -506,6 +582,8 @@ export interface LedgerDoc {
   tokenDelta?: number;
   /** Change in komaGems, when the entry moved any. */
   gemDelta?: number;
+  /** Hero essences given (+) or spent (-), by kind (data/transcend.ts EssenceId). */
+  essenceDelta?: Partial<Record<EssenceId, number>>;
   reason: LedgerReason;
   otherUserId?: string;
   itemId?: string;
@@ -609,9 +687,9 @@ export interface OpenCrateDoc {
 }
 
 /**
- * One document per server per raid week (see lib/events/raid-week.ts): `_id` is
- * "<server id>:<week key>", so a second raid in the same week can't be started. While the raid is
- * being played (`preparing` or `fighting`) it also records every point that moved because of it, so
+ * One document per raid: `_id` is "<server id>:<week key>:<start time>" (services/raid.ts newRaidId;
+ * raids from when there was one a week are "<server id>:<week key>", and their extra raid's has
+ * ":extra" after it). While the raid is being played (`preparing` or `fighting`) it also records every point that moved because of it, so
  * a raid the bot never finished (it stopped part way) can give them back; see services/raid.ts.
  */
 export interface RaidDoc {
@@ -630,7 +708,7 @@ export interface RaidDoc {
   spent: Record<string, number>;
   /** Points the boss stole from each player, by user id. */
   stolen: Record<string, number>;
-  /** Set on the week's extra raid (see services/raid.ts extraRaidId): what `startedBy` paid to skip to it, given back if it never finishes. */
+  /** What `startedBy` paid for the week's extra raid, back when a week had one raid and `skip raid` bought another. */
   skipPaid?: number;
   /** Filled in when it ends: damage dealt by user id, and whose hit beat the boss. */
   damage?: Record<string, number>;

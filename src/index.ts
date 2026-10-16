@@ -26,7 +26,8 @@ import { startWebServer } from './web/server.js';
 import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameEventChannelField, renameMinesData, retireItems, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { announceTechnoMagic } from './commands/technomagic.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -105,6 +106,12 @@ async function main(): Promise<void> {
     );
   }
 
+  // Every start: moves what was stored under Clause's old id to Klaus's (see renameClauseToKlaus).
+  const klaus = await renameClauseToKlaus();
+  if (klaus.members > 0 || klaus.runs > 0 || klaus.ledger > 0) {
+    console.log(`Renamed Clause to Klaus: ${klaus.members} member(s)' hero, ${klaus.runs} raid run(s), ${klaus.ledger} ledger entries.`);
+  }
+
   // Every start: clears any vault breaker left open by the old event (see clearOpenVaults).
   const clearedVaults = await clearOpenVaults();
   if (clearedVaults > 0) console.log(`Cleared ${clearedVaults} vault breaker(s) left open by the removed event.`);
@@ -125,6 +132,16 @@ async function main(): Promise<void> {
   // Every start: turns copies of items taken out of the catalog into the raid drops that replace them (see retireItems).
   const retired = await retireItems();
   if (retired > 0) console.log(`Retired items: turned ${retired} copy(ies) into the raid drop that replaces them.`);
+
+  // Every start: gives TechnoMagic copies without an additional skill one (see rollMissingTmSkills). After retiring items, which may make some.
+  const skilled = await rollMissingTmSkills();
+  if (skilled > 0) console.log(`TechnoMagic skills: rolled an additional skill for ${skilled} copy(ies) that had none.`);
+  // Every start: gives TechnoMagic copies without potentials theirs (see rollMissingTmPotentials). After the settings are loaded, whose ranges they roll in.
+  const rolled = await rollMissingTmPotentials();
+  if (rolled > 0) console.log(`TechnoMagic potentials: rolled potentials for ${rolled} copy(ies) that had none.`);
+  // Every start: rounds TechnoMagic copies' potentials to whole percents (see roundTmPotentials).
+  const rounded = await roundTmPotentials();
+  if (rounded > 0) console.log(`TechnoMagic potentials: rounded ${rounded} copy(ies)' potentials to whole percents.`);
 
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).
@@ -254,15 +271,16 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
     },
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
     avatar,
+    technomagic: {
+      announce: (guildId, host) => {
+        announceTechnoMagic(client, guildId, host).catch((err) => console.error('Could not say a TechnoMagic Raid room was opened:', err));
+      },
+    },
     raid: {
       start: (guildId, userId, level) => startRaidFromWeb(client, guildId, userId, level),
       week: raidWeekInfo,
       gear: raidGearSnapshot,
       avatar,
-      name: async (guildId, userId) => {
-        const guild = client.guilds.cache.get(guildId);
-        return guild ? ((await guild.members.fetch(userId).catch(() => null))?.displayName ?? null) : null;
-      },
     },
   };
 }

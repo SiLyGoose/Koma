@@ -1,5 +1,8 @@
 import type { MinesweeperLevel } from '../../constants/index.js';
+import type { MinesweeperRewards } from '../../protocol/minesweeper.js';
 import { randInt } from '../random.js';
+
+export type { MinesweeperRewards };
 
 /*
  * The rules of minesweeper, with no web socket and no players. A board of cols by rows tiles hides
@@ -11,13 +14,6 @@ import { randInt } from '../random.js';
  *  - a chord, on an open tile with as many flags round it as its number, opens the rest round it;
  *  - opening a mine loses; opening every tile that isn't one wins.
  */
-
-/** What a board cleared pays (the `minesweeper.*` settings): each level's pool and par time, and the most that speed multiplies the pool by. */
-export interface MinesweeperRewards {
-  pool: Record<MinesweeperLevel, number>;
-  parSeconds: Record<MinesweeperLevel, number>;
-  speedBonus: number;
-}
 
 /**
  * What a board's pool is multiplied by for how fast it was cleared: 1 at its par time or slower,

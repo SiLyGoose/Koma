@@ -1,18 +1,22 @@
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
+import { heroOnly } from '../../lib/game/heroes.js';
 import { saleCount, saleLines, saleTotal, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
-import { loadoutCopyIds } from '../../lib/game/items/loadouts.js';
+import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
 
 /*
  * Selling items for points. A member can sell copies they aren't wearing: one copy of an item,
  * every unworn copy of an item, or every unworn item of a star tier. "Worn" here means in any of
- * their loadouts, the active one or a saved one (lib/game/items/loadouts.ts). Selling has two steps so a
+ * their loadouts, the active one or a saved one, or on one of their heroes (lib/game/items/loadouts.ts's
+ * keptCopyIds). Selling has two steps so a
  * big sale can be confirmed first: `planSale` works out exactly which copies would be sold and
  * what they are worth, and `sellCopies` sells those copies (and only those, and only if they are
  * still theirs and still not worn). The worn copy of an item is never sold, but other copies of
- * the same item can be. A copy the member locked (`lock`) is never sold either.
+ * the same item can be. A copy the member locked (`lock`) is never sold either. Selling a star tier
+ * leaves out TechnoMagic gear and unique weapons (counted as 4-star, but tiers of their own): those only
+ * sell by name.
  */
 
 /** What to sell. */
@@ -38,12 +42,12 @@ export type SalePlan =
 export async function planSale(guildId: string, userId: string, target: SellTarget): Promise<SalePlan> {
   const { items, members } = collections();
   const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-  const worn = loadoutCopyIds(member);
+  const worn = keptCopyIds(member);
 
   const inScope = copies.filter((copy) => {
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (!item) return false;
-    return target.kind === 'stars' ? item.stars === target.stars : item.id === target.item.id;
+    return target.kind === 'stars' ? item.stars === target.stars && !heroOnly(item) : item.id === target.item.id;
   });
   if (inScope.length === 0) return { ok: false, reason: 'not_owned' };
 
@@ -81,7 +85,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
   await ensureMember(guildId, userId);
 
   const member = await members.findOne({ guildId, userId });
-  const worn = loadoutCopyIds(member);
+  const worn = keptCopyIds(member);
   const candidates = (await items.find({ guildId, userId, _id: { $in: [...copyIds] } }).toArray()).filter(
     (copy) => !worn.has(copy._id) && !copy.locked && ITEMS_BY_ID.has(copy.itemId),
   );

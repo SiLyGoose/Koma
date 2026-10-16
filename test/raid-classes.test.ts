@@ -250,8 +250,9 @@ test('raid classes: each has a 4-star raid item whose perk only works for that c
     const item = ITEMS_BY_ID.get(id);
     assert.deepEqual([item?.stars, item?.slot, item?.effects, item?.raidDrop, item?.class], [4, slot, perks, true, cls], id);
   }
-  // They are the only items tagged with a class, and the Discord databank says whose each is.
-  assert.deepEqual(ITEMS.filter((item) => item.class).map((item) => item.id).sort(), items.map(([, id]) => id).sort());
+  // They are the only raid items tagged with a class (besides the TechnoMagic gear, every piece of which is one), and the Discord databank says whose each is.
+  assert.deepEqual(ITEMS.filter((item) => item.class && !item.tmDrop).map((item) => item.id).sort(), items.map(([, id]) => id).sort());
+  assert.ok(ITEMS.filter((item) => item.tmDrop).every((item) => item.class), 'every piece of TechnoMagic gear is a class item');
   const aegis = ITEMS_BY_ID.get('oathkeepers-aegis') as ItemDef;
   assert.ok(itemBlock(aegis).includes(`${RAID_CLASS_EMOJI.knight} Knight class item`), itemBlock(aegis));
   assert.deepEqual(itemDetail(aegis).fields.find((f) => f.name === 'Class')?.value, `**${RAID_CLASS_EMOJI.knight} Knight**: what it does only works for a raider of that class.`);

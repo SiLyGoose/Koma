@@ -1,10 +1,11 @@
 import type { Filter } from 'mongodb';
 import { HOUR_MS } from '../constants/index.js';
 import { collections } from '../db.js';
-import { ITEMS_BY_ID } from '../data/items.js';
+import { ITEMS_BY_ID, TM_DROPS } from '../data/items.js';
+import { rollTmPotentials, rollTmSkill, wholePotentials } from '../lib/game/technomagic.js';
 import { bestCopy } from '../lib/game/items/copies.js';
 import { reslotGear } from '../lib/game/items/reslot.js';
-import type { EquipmentDoc, ItemCopyDoc, LedgerDoc } from '../types.js';
+import type { EquipmentDoc, ItemCopyDoc, LedgerDoc, TmPotential } from '../types.js';
 import { SLOTS } from '../types.js';
 
 /*
@@ -257,6 +258,13 @@ export const RETIRED_ITEMS: Readonly<Record<string, string>> = {
   'executioners-axe': 'wyvern-tooth',
   'acolytes-robe': 'cherubs-sash',
   'clerics-vestments': 'cherubs-sash',
+  // TechnoMagic gear became a tier of its own, with no 3-star pieces: each became its slot's piece for its class.
+  'chimera-fang': 'tri-head-cleaver',
+  'venomglass-stiletto': 'tri-head-cleaver',
+  'aether-conduit': 'arcane-railgun',
+  'scaleweave-coat': 'chimera-hide-plate',
+  'mirror-buckler': 'chimera-hide-plate',
+  'cogwork-amulet': 'galgorias-heart',
 };
 
 /**
@@ -270,6 +278,56 @@ export async function retireItems(): Promise<number> {
     swapped += (await items.updateMany({ itemId: from }, { $set: { itemId: to } })).modifiedCount;
   }
   return swapped;
+}
+
+/**
+ * TechnoMagic gear comes with an additional skill (ItemCopyDoc.tmSkill), rolled as it drops. Copies from
+ * before that (or from anywhere else that made one without it) are given one now, at random as a drop's is.
+ * Idempotent and cheap once done (no TechnoMagic copy lacks one), so it runs every start.
+ */
+export async function rollMissingTmSkills(roll: () => string = rollTmSkill): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmSkill: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmSkill: { $exists: false } }, update: { $set: { tmSkill: roll() } } } })));
+  }
+  return missing.length;
+}
+
+/**
+ * TechnoMagic gear comes with potentials (ItemCopyDoc.tmPotentials), rolled as it drops. Copies from before
+ * them are given theirs now, at random as a drop's are. Idempotent and cheap once done (no TechnoMagic copy
+ * lacks them), so it runs every start.
+ */
+export async function rollMissingTmPotentials(roll: () => TmPotential[] = rollTmPotentials): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmPotentials: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmPotentials: { $exists: false } }, update: { $set: { tmPotentials: roll() } } } })));
+  }
+  return missing.length;
+}
+
+/**
+ * TechnoMagic potentials are whole percents (rollTmPotentials rolls them so); the copies' from before, finer, are
+ * rounded to the nearest. Idempotent (a copy's already whole is left), so it runs every start.
+ */
+export async function roundTmPotentials(): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const copies = await items.find({ itemId: { $in: ids }, tmPotentials: { $exists: true } }, { projection: { _id: 1, tmPotentials: 1 } }).toArray();
+  const changed = copies.flatMap(({ _id, tmPotentials }) => {
+    const whole = wholePotentials(tmPotentials ?? []);
+    return whole ? [{ _id, whole }] : [];
+  });
+  for (let i = 0; i < changed.length; i += BATCH) {
+    await items.bulkWrite(changed.slice(i, i + BATCH).map(({ _id, whole }) => ({ updateOne: { filter: { _id }, update: { $set: { tmPotentials: whole } } } })));
+  }
+  return changed.length;
 }
 
 /*
@@ -330,6 +388,21 @@ export async function renameMinesData(): Promise<{ settings: boolean; rounds: nu
     renamed += result.modifiedCount;
   }
   return { settings: moved.modifiedCount > 0, rounds, ledger: renamed };
+}
+
+/*
+ * The TechnoMagic Raid's hero Clause was renamed Klaus, his id with him (`clause` to `klaus`): members' hero (MemberDoc.heroes,
+ * with its gear, transcendence and perks), the runs he fought in (TmRunDoc.heroes, so one not yet claimed is still fought
+ * with him), and the ledger's purchases of him. A member who somehow has both keeps the Klaus they have. Idempotent, and
+ * cheap once done: runs every start.
+ */
+export async function renameClauseToKlaus(): Promise<{ members: number; runs: number; ledger: number }> {
+  const { members, tmRuns, ledger } = collections();
+  const moved = await members.updateMany({ 'heroes.clause': { $exists: true }, 'heroes.klaus': { $exists: false } }, { $rename: { 'heroes.clause': 'heroes.klaus' } });
+  await members.updateMany({ 'heroes.clause': { $exists: true } }, { $unset: { 'heroes.clause': '' } });
+  const runs = await tmRuns.updateMany({ 'heroes.id': 'clause' }, { $set: { 'heroes.$[hero].id': 'klaus' } }, { arrayFilters: [{ 'hero.id': 'clause' }] });
+  const bought = await ledger.updateMany({ reason: 'hero', itemId: 'clause' } as unknown as Filter<LedgerDoc>, { $set: { itemId: 'klaus' } });
+  return { members: moved.modifiedCount, runs: runs.modifiedCount, ledger: bought.modifiedCount };
 }
 
 /** Ledger reasons for a vault game paying out of the vault (a claim, see claimVault in services/vault.ts). */

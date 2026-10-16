@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DRAGON_SIZE, renderDragon, type DragonMood } from '../src/animations/images/dragon-image.js';
 import { renderReaper } from '../src/animations/images/reaper-image.js';
-import { bossByName, eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, weekResultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
+import { bossByName, eventLines, eventText, fightEmbed, healOptions, hpBar, intentText, moodOf, playerHpBar, resultEmbed, bossInfoEmbed, isFinished } from '../src/commands/raid.js';
 import { DEFAULTS } from '../src/config.js';
 import { GEM_EMOJI, RAID, RAID_BOSS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
 import * as TEXT_CURRENCY from '../src/constants/text/currency.js';
@@ -792,65 +792,28 @@ test('fight and result embeds fit Discord and name the players', () => {
 
   resolvePlayerTurn(state, choose([state.players[1]?.userId as string, 'attack']), low);
   state.outcome = 'fled';
-  const result = resultEmbed(state, cfg, new Date('2026-10-03T04:00:00Z'), null).toJSON();
+  const result = resultEmbed(state, cfg, null).toJSON();
   assert.match(result.title ?? '', /got away/);
   assert.ok(result.fields?.some((f) => f.value.includes(`<@${state.players[1]?.userId}>`)));
 });
 
-test('raid, once this week\'s raid has been fought: how it ended, who did what, and when the next one is', () => {
-  const next = new Date('2026-10-03T04:00:00Z');
+test('a raid counts as finished once it has been fought to the end, not in its lobby or fight', () => {
   const base: RaidDoc = {
-    _id: 'g:2026-09-26',
+    _id: 'g:2026-09-26:abc',
     guildId: 'g',
     weekKey: '2026-09-26',
     startedBy: 'a',
     status: 'won',
     channelId: null,
     messageId: null,
-    players: ['a', 'b', 'c'],
-    spent: { a: 500 },
+    players: ['a'],
+    spent: {},
     stolen: {},
-    damage: { a: 900, b: 100, c: 0 },
-    stats: {
-      a: { damage: 900, healed: 0, guards: 0, supports: 0, actions: 5, spent: 500, stolen: 0 },
-      b: { damage: 100, healed: 0, guards: 3, supports: 0, actions: 5, spent: 0, stolen: 0 },
-      c: { damage: 0, healed: 240, guards: 0, supports: 2, actions: 5, spent: 0, stolen: 0 },
-    },
-    lastHit: 'a',
-    rounds: 5,
     createdAt: new Date('2026-09-26T05:00:00Z'),
-    endedAt: new Date('2026-09-26T05:10:00Z'),
   };
-
-  // Only a raid fought to the end counts; one still in its lobby or fight doesn't.
   assert.ok(isFinished(base));
   for (const status of ['wiped', 'fled'] as const) assert.ok(isFinished({ ...base, status }));
   for (const status of ['preparing', 'fighting'] as const) assert.equal(isFinished({ ...base, status }), false);
-
-  const nextUnix = Math.floor(next.getTime() / 1000);
-  const embed = weekResultEmbed(base, next).toJSON();
-  assert.match(embed.title ?? '', /was slain/);
-  assert.match(embed.description ?? '', /5 rounds.*3 raiders/);
-  assert.ok(embed.description?.includes(`<t:${nextUnix}:R>`), 'says when the next raid can be started');
-  const field = (name: string) => embed.fields?.find((f) => f.name === name)?.value ?? '';
-  assert.match(field('Damage'), /^🥇 <@a>: \*\*900\*\* \(90%\)\n🥈 <@b>: \*\*100\*\*/);
-  assert.equal(field('Final blow'), '<@a>');
-  assert.ok(field('Team play').includes(`<@b>: ${RAID_EMOJI.heal} 0 healed · ${RAID_EMOJI.guard} 3 · ✨ 0`));
-  assert.ok(field('Team play').includes(`<@c>: ${RAID_EMOJI.heal} 240 healed · ${RAID_EMOJI.guard} 0 · ✨ 2`));
-  assert.match(field('Points lost'), /<@a>: 💸 500 on boosts/);
-
-  // A lost raid shows the same stats, and says how it was lost.
-  const wiped = weekResultEmbed({ ...base, status: 'wiped' }, next).toJSON();
-  assert.match(wiped.title ?? '', /won/);
-  assert.match(wiped.description ?? '', /knocked out in round \*\*5\*\*/);
-  assert.ok(wiped.fields?.some((f) => f.name === 'Team play'));
-  const fled = weekResultEmbed({ ...base, status: 'fled' }, next).toJSON();
-  assert.match(fled.title ?? '', /got away/);
-  assert.match(fled.description ?? '', /still standing after \*\*5 rounds\*\*/);
-
-  // A raid saved before every stat was kept still shows its damage.
-  const old = weekResultEmbed({ ...base, stats: undefined }, next).toJSON();
-  assert.match(old.fields?.find((f) => f.name === 'Damage')?.value ?? '', /<@a>: \*\*900\*\*/);
 });
 
 test('raid stats: the dragon itself, its HP, its phases with their crowd-control cooldowns, and every move', () => {
@@ -1337,7 +1300,7 @@ test('the reaper has its own lines: its moves, lifesteal, its veil and how it ge
   assert.match(embed.title ?? '', /^💀 Soul Reaper \(round 1 of 15\)/);
   assert.ok(embed.description?.includes('**Spectral Veil up**'));
   state.outcome = 'fled';
-  const result = resultEmbed(state, DEFAULTS.raid, new Date('2026-10-03T04:00:00Z'), null).toJSON();
+  const result = resultEmbed(state, DEFAULTS.raid, null).toJSON();
   assert.equal(result.title, '🌫️ The Soul Reaper got away');
   assert.match(result.description ?? '', /faded back into the fog/);
 });
@@ -1372,30 +1335,6 @@ test('raid stats for the reaper: its own moves only, and whose week it is', () =
   for (const field of embed.fields ?? []) assert.ok(field.value.length <= 1024, field.name);
   // The dragon's page doesn't say whose week it is unless told.
   assert.ok(!bossInfoEmbed(DEFAULTS.raid).toJSON().description?.includes("This week's raid boss"));
-});
-
-test('a finished raid remembers its boss; older ones without one were the dragon', () => {
-  const base: RaidDoc = {
-    _id: 'g:2026-09-26',
-    guildId: 'g',
-    weekKey: '2026-09-26',
-    startedBy: 'a',
-    status: 'fled',
-    channelId: null,
-    messageId: null,
-    players: ['a'],
-    spent: {},
-    stolen: {},
-    rounds: 15,
-    createdAt: new Date(),
-  };
-  const next = new Date('2026-10-03T04:00:00Z');
-  const reaper = weekResultEmbed({ ...base, boss: 'reaper', status: 'fled' }, next).toJSON();
-  assert.match(reaper.title ?? '', /Soul Reaper got away/);
-  assert.match(reaper.description ?? '', /faded back into the fog/);
-  const old = weekResultEmbed({ ...base, status: 'fled' }, next).toJSON();
-  assert.match(old.title ?? '', /Wyvern got away/);
-  assert.match(old.description ?? '', /flew off/);
 });
 
 test('the reaper draws in every mood, at the same size as the dragon, and each mood looks different', () => {
@@ -1667,7 +1606,6 @@ test('raid force: a boss can be named by its id, its name or any word of it, or 
   for (const name of ['reaper', 'Soul Reaper', 'soul']) assert.equal(bossByName(name), 'reaper', name);
   for (const name of ['', 'lich', 'the', 'ember']) assert.equal(bossByName(name), null, name);
   assert.match(TEXT.raid.forceUsage('k!', ['Wyvern', 'Soul Reaper']), /k!raid force <boss>.*\(Wyvern and Soul Reaper\)/);
-  assert.match(TEXT.raid.forceTaken('k!'), /k!raid reset/);
 });
 
 test('raids have no boosts: the lobby and the fight screen never offer one', () => {

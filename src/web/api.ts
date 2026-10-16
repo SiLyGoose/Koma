@@ -3,6 +3,7 @@ import type { pinecraftLeaderboard } from '../services/pinecraft.js';
 import type { WebConfig } from './config.js';
 import type { GachaStore } from './models/gacha.js';
 import type { GearStore } from './models/gear.js';
+import type { HeroStore } from './models/heroes.js';
 import type { OutfitStore } from './models/outfits.js';
 import type { RaidShopStore } from './models/raid-shop.js';
 import type { exchangeCode } from './auth/login.js';
@@ -13,6 +14,7 @@ import type { RaidSiteDeps } from './games/raid/server.js';
 import { databankRoutes } from './routes/databank.js';
 import { gachaRoutes } from './routes/gacha.js';
 import { gearRoutes } from './routes/gear.js';
+import { heroRoutes } from './routes/heroes.js';
 import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
 import { outfitRoutes } from './routes/outfits.js';
@@ -44,7 +46,6 @@ export type { Me } from './services/login.js';
  *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
  *   POST /api/gear/loadout/rename {guild, loadout, name}   names loadout number `loadout` (an empty name: its default one again): GearView
  *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
- *   POST /api/gear/forge {guild, copy}   forges one of their R5 copies into a masterwork with komaGems: GearView
  *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
  *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
  *   GET  /api/databank        every item and what it does at each level, and every raid boss: Databank (models/databank.ts)
@@ -56,6 +57,12 @@ export type { Me } from './services/login.js';
  *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points (the shop; it isn't put on): OutfitsView
  *   POST /api/gear/class {guild, class}   picks their raid class (null: none), which counts from their next raid's fight: GearView
  *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
+ *   GET  /api/heroes?guild=…   the TechnoMagic Raid's heroes: what each costs, which are the member's, the gear each wears and what it gives it, and every copy a hero could wear: HeroesView (models/heroes.ts)
+ *   POST /api/heroes/buy {guild, hero}   buys a hero with points (the shop): HeroesView
+ *   POST /api/heroes/equip {guild, hero, slot, copy}   puts one of their copies in one of their hero's slots, off any other hero it was on (the heroes page): HeroesView
+ *   POST /api/heroes/unequip {guild, hero, slot?}   empties one of their hero's slots, or every one: HeroesView
+ *   POST /api/heroes/transcend {guild, hero}   transcends one of their heroes a level, for hero essences and komaGems: HeroesView
+ *   POST /api/heroes/perks {guild, hero, perks}   picks one of their hero's transcendence perks, all of them at once (none: reset): HeroesView
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
  *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView
@@ -97,6 +104,10 @@ export interface ApiDeps {
   gacha?: GachaStore;
   /** Outfits, for the shop and the dressing room (the database's, unless a test says otherwise). */
   outfits?: OutfitStore;
+  /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
+  heroes?: HeroStore;
+  /** The TechnoMagic Raid's rooms: saying in the server's channel that one has been opened (once the bot has logged in to Discord). */
+  technomagic?: { announce: (guildId: string, host: string) => void };
   /** The raid shop (the database's, unless a test says otherwise). */
   raidShop?: RaidShopStore;
   login?: typeof exchangeCode;
@@ -121,6 +132,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/gear', gearRoutes(deps))
     .use('/gacha', gachaRoutes(deps))
     .use('/outfits', outfitRoutes(deps))
+    .use('/heroes', heroRoutes(deps))
     .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))
     // Nothing else is there (once they've logged in).

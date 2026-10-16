@@ -5,60 +5,51 @@ import { rollRaidDrops, type DropCounts, type RaidDrop } from '../lib/game/items
 import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
+import type { EssenceId } from '../data/transcend.js';
 import { addCopy, giveGems, giveTokens } from './economy/index.js';
-import { isDuplicateKey, recordLedger } from './economy/shared.js';
+import { giveEssences } from './economy/essences.js';
+import { recordLedger } from './economy/shared.js';
 import { payShares } from './events.js';
 import { addVaultLoss } from './vault.js';
 
 /*
- * The database side of the weekly raid (commands/raid.ts). The week's raid document is what makes
- * it one raid per server per week: it is inserted when the raid starts, and its id can only exist
- * once. While the raid is played, the document also keeps count of every point that moved because
- * of it (points the boss stole, and boosts bought back when raids had them), so a raid the bot never
- * finished can hand them back (see abandonRaid). When a raid ends, all of those points go into the
- * vault pool (see finishRaid). Once it's been fought, one extra raid a week can be bought with
- * `skip raid` (services/skips.ts); it has its own document (extraRaidId), so it can only happen once.
- * Points only move through single conditional updates, like everywhere else.
+ * The database side of the raid (commands/raid.ts). Each raid has its own document, inserted when it
+ * starts: a server can raid as often as it likes, one at a time (commands/raid.ts holds the server
+ * while one is going). While the raid is played, the document also keeps count of every point that
+ * moved because of it (points the boss stole, and boosts bought back when raids had them), so a raid
+ * the bot never finished can hand them back (see abandonRaid). When a raid ends, all of those points
+ * go into the vault pool (see finishRaid). Points only move through single conditional updates, like
+ * everywhere else.
  */
 
 const ACTIVE: RaidDoc['status'][] = ['preparing', 'fighting'];
 
-export const raidId = (guildId: string, weekKey: string): string => `${guildId}:${weekKey}`;
-/** The week's extra raid, bought with `skip raid` once the week's raid has been fought. Its id can only exist once, too. */
-export const extraRaidId = (guildId: string, weekKey: string): string => `${raidId(guildId, weekKey)}:extra`;
+/** A new raid's id: the server's, the raid week's and when it started (ms, in base 36). */
+export const newRaidId = (guildId: string, weekKey: string, now: Date = new Date()): string => `${guildId}:${weekKey}:${now.getTime().toString(36)}`;
 
-/** The raid `id` (see raidId), or null when there isn't one. */
-export const findRaid = (id: string): Promise<RaidDoc | null> => collections().raids.findOne({ _id: id });
+/** The server's latest raid in the raid week `weekKey` (going on or over), or null when it hasn't raided that week. */
+export const latestRaid = (guildId: string, weekKey: string): Promise<RaidDoc | null> =>
+  collections().raids.findOne({ guildId, weekKey }, { sort: { createdAt: -1 } });
 
-export type StartRaidResult = { ok: true; id: string } | { ok: false; existing: RaidDoc | null };
-
-/**
- * Claims this week's raid (against `boss`) for the server. Fails (with the raid already there) if one
- * was started this week. With `skipPaid` it is the week's extra raid instead, bought for that much.
- */
-export async function startRaidWeek(guildId: string, week: RaidWeek, boss: RaidBossId, startedBy: string, skipPaid: number | null = null): Promise<StartRaidResult> {
-  const id = skipPaid === null ? raidId(guildId, week.key) : extraRaidId(guildId, week.key);
-  try {
-    await collections().raids.insertOne({
-      _id: id,
-      guildId,
-      weekKey: week.key,
-      boss,
-      startedBy,
-      status: 'preparing',
-      channelId: null,
-      messageId: null,
-      players: [],
-      spent: {},
-      stolen: {},
-      ...(skipPaid === null ? {} : { skipPaid }),
-      createdAt: new Date(),
-    });
-    return { ok: true, id };
-  } catch (err) {
-    if (!isDuplicateKey(err)) throw err;
-    return { ok: false, existing: await collections().raids.findOne({ _id: id }) };
-  }
+/** Starts a raid (against `boss`) for the server, in its lobby. Returns its id. */
+export async function startRaid(guildId: string, week: RaidWeek, boss: RaidBossId, startedBy: string): Promise<string> {
+  const now = new Date();
+  const id = newRaidId(guildId, week.key, now);
+  await collections().raids.insertOne({
+    _id: id,
+    guildId,
+    weekKey: week.key,
+    boss,
+    startedBy,
+    status: 'preparing',
+    channelId: null,
+    messageId: null,
+    players: [],
+    spent: {},
+    stolen: {},
+    createdAt: now,
+  });
+  return id;
 }
 
 /** Saves where the raid's message is, who is in it, or that the fight has started (and at what difficulty). */
@@ -147,7 +138,8 @@ export interface RaidLoot extends RaidDrop {
 }
 
 /**
- * Pays everyone who took part `reward` points, `tokens` komaTokens and `gems` komaGems, and gives the
+ * Pays everyone who took part `reward` points, `tokens` komaTokens, `gems` komaGems and `essences` (hero essences: so
+ * many of each kind), and gives the
  * party a `dropChance` chance (raidDropChance: one roll for all of them) that each finds raid-only items:
  * `counts` of each tier (raidDropCounts, by the raid's difficulty; one 3-star item, level 1's, when left out).
  */
@@ -159,6 +151,7 @@ export async function rewardRaid(
   gems: number,
   dropChance = 0,
   counts?: DropCounts,
+  essences: Partial<Record<EssenceId, number>> = {},
 ): Promise<RaidReward> {
   const shares: CrateShare[] = userIds.map((userId) => ({ userId, amount: reward }));
   const payout = await payShares(guildId, shares, 'raid_reward');
@@ -183,6 +176,16 @@ export async function rewardRaid(
       }
     }
   }
+  if (Object.values(essences).some((amount) => (amount ?? 0) > 0)) {
+    for (const userId of userIds) {
+      try {
+        await giveEssences(guildId, userId, essences, 'raid_essences');
+      } catch (err) {
+        console.error(`Could not give ${userId} their raid essences in ${guildId}:`, err);
+        failed.add(userId);
+      }
+    }
+  }
   const drops: RaidLoot[] = [];
   for (const drop of rollRaidDrops(userIds, dropChance, counts)) {
     try {
@@ -198,7 +201,7 @@ export async function rewardRaid(
 
 /**
  * Calls off a raid that never finished: gives every player back what they spent on boosts and what
- * the boss stole, and removes the raid so the server can start this week's raid again. Only one
+ * the boss stole, and removes the raid. Only one
  * caller can take the raid, so it is never refunded twice. Returns it, or null if it had already
  * finished or been called off.
  */
@@ -209,8 +212,6 @@ export async function abandonRaid(id: string): Promise<RaidDoc | null> {
   for (const bucket of [raid.spent, raid.stolen]) {
     for (const [userId, amount] of Object.entries(bucket ?? {})) owed.set(userId, (owed.get(userId) ?? 0) + amount);
   }
-  // An extra raid that never finished gives back what was paid to skip to it, too.
-  if (raid.skipPaid) owed.set(raid.startedBy, (owed.get(raid.startedBy) ?? 0) + raid.skipPaid);
   const shares = [...owed].filter(([, amount]) => amount > 0).map(([userId, amount]) => ({ userId, amount }));
   const payout = await payShares(raid.guildId, shares, 'raid_refund');
   if (payout.failed.length > 0) console.error(`Could not refund raid ${id} to: ${payout.failed.join(', ')}`);
@@ -220,10 +221,4 @@ export async function abandonRaid(id: string): Promise<RaidDoc | null> {
 /** Raids that were still being played when the bot last stopped. */
 export async function listUnfinishedRaids(): Promise<RaidDoc[]> {
   return collections().raids.find({ status: { $in: ACTIVE } }).toArray();
-}
-
-/** Admin only: forgets this week's finished raid (and its extra raid) so the server can raid again. False if there was none (or it is still going). */
-export async function resetRaidWeek(guildId: string, weekKey: string): Promise<boolean> {
-  const result = await collections().raids.deleteMany({ _id: { $in: [raidId(guildId, weekKey), extraRaidId(guildId, weekKey)] }, status: { $nin: ACTIVE } });
-  return result.deletedCount > 0;
 }

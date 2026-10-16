@@ -261,9 +261,12 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
       void b
         .addBooleanOption((o) => o.setName('multi').setDescription('Pull several at once, for the price of that many pulls'))
         .addBooleanOption((o) => o.setName('limited').setDescription('Pull from the limited banner instead of the standard one'))
+        .addBooleanOption((o) => o.setName('hero').setDescription("Pull from the Hero Item banner (the heroes' unique weapons) instead of the standard one"))
         .addBooleanOption((o) => o.setName('banner').setDescription('Show the limited banner instead of pulling')),
     toArgs: (i) =>
-      i.options.getBoolean('banner') ? ['banner'] : [...(i.options.getBoolean('limited') ? ['limited'] : []), ...(i.options.getBoolean('multi') ? ['multi'] : [])],
+      i.options.getBoolean('banner')
+        ? ['banner']
+        : [...(i.options.getBoolean('limited') ? ['limited'] : []), ...(i.options.getBoolean('hero') ? ['hero'] : []), ...(i.options.getBoolean('multi') ? ['multi'] : [])],
   },
 
   gear: {
@@ -327,10 +330,10 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   raid: {
-    description: "This week's raid: fight this week's boss together for a reward (resets Saturday midnight Eastern).",
+    description: "Raid this week's boss together for a reward (the boss changes Saturday midnight Eastern).",
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('start').setDescription("Start this week's raid, or see how it went once it's been fought"))
+        .addSubcommand((s) => s.setName('start').setDescription("Start a raid against this week's boss"))
         .addSubcommand((s) => s.setName('stats').setDescription("See this week's boss: its HP, phases and moves")),
     toArgs: (i) => (i.options.getSubcommand() === 'stats' ? ['stats'] : []),
   },
@@ -395,6 +398,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: () => [],
   },
 
+  technomagic: {
+    description: "The TechnoMagic Raid on the Koma site: your heroes against Galgoria, together, as in King's Raid.",
+    // The room is on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
+  },
+
   rob: {
     description: `Steal ${CURRENCY_NAME} from another member. One rob per hour, and a member can be robbed once an hour.`,
     build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),
@@ -450,13 +460,6 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     description: 'Refine an item: use up a duplicate of it to raise it one level, up to its full strength.',
     build: (b) =>
       void b.addStringOption((o) => o.setName('item').setDescription('The item to refine (uses up one duplicate of it)').setRequired(true).setAutocomplete(true).setMaxLength(100)),
-    toArgs: (i) => [i.options.getString('item', true)],
-    autocomplete: ownedItem,
-  },
-
-  forge: {
-    build: (b) =>
-      void b.addStringOption((o) => o.setName('item').setDescription('The R5 4-star item to forge into a masterwork').setRequired(true).setAutocomplete(true).setMaxLength(100)),
     toArgs: (i) => [i.options.getString('item', true)],
     autocomplete: ownedItem,
   },

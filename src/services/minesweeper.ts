@@ -1,5 +1,6 @@
 import { MINESWEEPER_BEST, MINESWEEPER_LEVEL_IDS, type MinesweeperLevel } from '../constants/index.js';
 import { collections } from '../db.js';
+import type { MinesweeperBest, MinesweeperClear } from '../protocol/minesweeper.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
 /*
@@ -40,15 +41,7 @@ export async function addMinesweeperStat(guildId: string, userIds: readonly stri
   );
 }
 
-/** A board cleared: how long it took, when (ms since 1970), and everyone who opened a tile of it, whoever opened most first. */
-export interface MinesweeperClear {
-  ms: number;
-  at: number;
-  players: { id: string; name: string; tiles: number }[];
-}
-
-/** A server's fastest clears of each level, fastest first (of two as fast, the earlier). */
-export type MinesweeperBest = Record<MinesweeperLevel, MinesweeperClear[]>;
+export type { MinesweeperBest, MinesweeperClear };
 
 /** A server's leaderboards: each level's MINESWEEPER_BEST fastest clears. */
 export async function loadMinesweeperBest(guildId: string): Promise<MinesweeperBest> {

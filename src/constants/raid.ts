@@ -1,3 +1,5 @@
+import { RAID_BOSS_IDS, RAID_CLASS_IDS, type RaidBossId, type RaidClassId } from '../protocol/raid.js';
+
 /*
  * The weekly raid boss (commands/raid.ts, lib/raid). The numbers you'd tune while the bot runs (boss
  * HP, player HP, rounds, timers, the reward) are settings (`raid.*`, see config.ts);
@@ -8,8 +10,7 @@
  * The raid bosses. Each week every server gets one of them (lib/events/raid-boss.ts), never the
  * same one two weeks running. Adding a boss here reshuffles which one each future week gets.
  */
-export const RAID_BOSS_IDS = ['wyrm', 'reaper', 'plague'] as const;
-export type RaidBossId = (typeof RAID_BOSS_IDS)[number];
+export { RAID_BOSS_IDS, type RaidBossId };
 
 /**
  * When the weekly raid resets: every Saturday at midnight in this time zone (an IANA name, so
@@ -86,8 +87,7 @@ export const MAX_RAID_SHOP_REFRESHES = 50;
  * - `rampStep`, `rampMax`: their attacks do `rampStep` more for every turn in a row they attacked
  *   before this one, up to `rampMax`; a turn they don't attack, or a hit from the boss, starts it over.
  */
-export const RAID_CLASS_IDS = ['knight', 'warrior', 'priest', 'mechanic', 'wizard', 'assassin', 'archer'] as const;
-export type RaidClassId = (typeof RAID_CLASS_IDS)[number];
+export { RAID_CLASS_IDS, type RaidClassId };
 
 export interface RaidClassRules {
   attack: number;

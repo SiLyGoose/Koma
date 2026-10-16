@@ -1,6 +1,9 @@
 import type { RaidBossId } from '../../constants/index.js';
 import type { ItemDef } from '../../types.js';
-import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js';
+import type { ActProblem, LobbyAnswer, RaidEnd } from '../../protocol/raid.js';
+import type { RaidAction, RaidChoice, RaidState } from './raid.js';
+
+export type { ActProblem, LobbyAnswer, RaidEnd };
 
 /*
  * The raid going on in each server right now, for everything that follows it besides its Discord
@@ -11,12 +14,6 @@ import type { CrowdControl, RaidAction, RaidChoice, RaidState } from './raid.js'
  * No Discord or database in here. A raid stays after it ends (phase 'over'), so a page can show how
  * it went, until the next one in its server opens.
  */
-
-/** How a press in the lobby went. */
-export type LobbyAnswer = 'joined' | 'already_joined' | 'left' | 'not_joined' | 'started' | 'disbanded' | 'difficulty_set' | 'locked' | 'only_host' | 'closed';
-
-/** Why a player can't act this turn (lib/events/raid.ts's actionProblem). */
-export type ActProblem = 'not_playing' | 'knocked_out' | CrowdControl;
 
 /** How an action for the turn went: locked in, too late, already picked, or not allowed. */
 export type ActAnswer = { kind: 'ok' } | { kind: 'late' } | { kind: 'already'; action: RaidAction } | { kind: 'problem'; problem: ActProblem };
@@ -58,11 +55,6 @@ export interface RaidFightLive {
   act(userId: string, action: RaidAction, target?: string, skill?: 'ward'): ActAnswer;
 }
 
-/**
- * How a raid ended: fought out, its lobby emptied, disbanded before the fight (by its host, or by itself
- * after sitting idle), or called off part way (an error).
- */
-export type RaidEnd = 'won' | 'wiped' | 'fled' | 'no_players' | 'disbanded' | 'called_off';
 
 export interface RaidOverLive {
   end: RaidEnd;

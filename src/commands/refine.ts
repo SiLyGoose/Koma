@@ -3,7 +3,7 @@ import { REFINE, REFINE_BUTTONS, SLOT_EMOJI, TEXT } from '../constants/index.js'
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
 import { describeEffects, itemEffectiveness } from '../lib/game/items/equipment.js';
-import { fmt, money, starString } from '../lib/format.js';
+import { fmt, itemStars, money } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { refineItem, type RefineResult } from '../services/items/refine.js';
 import type { ItemDef } from '../types.js';
@@ -28,10 +28,9 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const t = TEXT.refine;
   const { item } = result;
   const share = itemEffectiveness(item, ctx.user.id);
-  // A copy being refined is below the bonus level, so it can't be a masterwork yet: at R5 its bonus shows dormant.
-  const effects = (level: number) => describeEffects(item, share, level, false).join('\n') || t.noEffects;
+  const effects = (level: number) => describeEffects(item, share, level).join('\n') || t.noEffects;
   return createEmbed()
-    .setTitle(t.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
+    .setTitle(t.title(itemStars(item), item.name, SLOT_EMOJI[item.slot]))
     .setDescription(
       [
         t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid)),
@@ -121,7 +120,7 @@ export const refine: Command = {
   description: `Refine an item you own: use up a duplicate of it to raise it one level (up to R${REFINE.maxLevel}, its full strength).`,
   usage: 'refine <item name>',
   slashUsage: 'refine <item>',
-  details: `Raises your highest-refined copy that isn't R${REFINE.maxLevel} yet, using up your lowest spare (never one you wear, keep in a loadout, have fully refined or forged).`,
+  details: `Raises your highest-refined copy that isn't R${REFINE.maxLevel} yet, using up your lowest spare (never one you wear, keep in a loadout, have fully refined or locked).`,
 
   async execute(ctx) {
     const p = ctx.prefix;

@@ -86,7 +86,7 @@ test('multi: every real multi pull has at least one item of the minimum tier or 
 test('multi: the messages', () => {
   assert.equal(
     TEXT.gacha.usage('k!'),
-    `Use \`k!gacha\` for one pull, or \`k!gacha multi\` for ${MULTI_PULLS} pulls at once. Add \`limited\` to pull from the limited banner; \`k!gacha banner\` shows what is on it.`,
+    `Use \`k!gacha\` for one pull, or \`k!gacha multi\` for ${MULTI_PULLS} pulls at once. Add \`limited\` to pull from the limited banner (\`k!gacha banner\` shows what is on it), or \`hero\` to pull from the Hero Item banner, for the heroes' unique weapons.`,
   );
   assert.equal(
     TEXT.gacha.multiCantAfford('k!', 10, '2,800', '100'),

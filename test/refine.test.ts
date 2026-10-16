@@ -56,7 +56,7 @@ test('gear counts at the worn copy\'s refinement; gear that does not say counts 
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 3 } }, 'u').guardBoost - full / 2) < 1e-12);
   assert.ok(Math.abs(gearEffects({ armor: armor.id, levels: { armor: 1 } }, 'u').guardBoost - full / 6) < 1e-12);
   assert.ok(Math.abs(gearEffects({ armor: armor.id }, 'u').guardBoost - full) < 1e-12, 'no level given: full strength');
-  assert.deepEqual(equippedGear({ armor: armor.id, levels: { armor: 3 } }), [{ item: armor, level: 3, bonus: true }]);
+  assert.deepEqual(equippedGear({ armor: armor.id, levels: { armor: 3 } }), [{ item: armor, level: 3 }]);
   // Bare items (the catalog describing itself) are fully refined too.
   assert.equal(totalEffects([armor]).guardBoost, full);
   assert.deepEqual(describeEffects(armor), ['Raid: your Guard blocks 20% more']);
@@ -100,12 +100,12 @@ test('refine plan: raises the highest-refined copy, uses up the lowest other cop
 });
 
 test('refine of a chosen copy: raises that copy whatever the others are at, using up the material picked', () => {
-  const copy = (_id: string, level: number, obtained: number, masterwork = false) => ({ _id, level, obtainedAt: at(obtained), masterwork });
+  const copy = (_id: string, level: number, obtained: number, locked = false) => ({ _id, level, obtainedAt: at(obtained), locked });
   const worn = copy('worn', 3, 1);
   const low = copy('low', 1, 5);
   const high = copy('high', 2, 2);
-  const mw = copy('mw', 5, 3, true);
-  const copies = [worn, low, high, mw];
+  const shut = copy('shut', 5, 3, true);
+  const copies = [worn, low, high, shut];
   const kept = new Set(['worn']);
 
   // The R1 spare is raised, not the worn R3, using up the R2 picked.
@@ -118,11 +118,11 @@ test('refine of a chosen copy: raises that copy whatever the others are at, usin
   assert.ok(auto.ok);
   assert.equal(auto.fodder._id, 'low');
 
-  // Never a worn or kept copy, a masterwork, or the copy itself.
-  for (const material of ['worn', 'mw', 'high', 'nope']) {
+  // Never a worn or kept copy, a locked one, or the copy itself.
+  for (const material of ['worn', 'shut', 'high', 'nope']) {
     assert.deepEqual(refineCopyPlan(copies, 'high', material, kept), { ok: false, reason: 'bad_material', level: 2, target: high }, material);
   }
-  assert.deepEqual(refineCopyPlan([worn, mw], 'worn', null, kept), { ok: false, reason: 'no_duplicate', level: 3, target: worn });
+  assert.deepEqual(refineCopyPlan([worn, shut], 'worn', null, kept), { ok: false, reason: 'no_duplicate', level: 3, target: worn });
   assert.deepEqual(refineCopyPlan(copies, 'gone', null, kept), { ok: false, reason: 'not_owned', level: 0 });
   const max = copy('max', 5, 1);
   assert.deepEqual(refineCopyPlan([max, low], 'max', 'low', kept), { ok: false, reason: 'maxed', level: 5, target: max });

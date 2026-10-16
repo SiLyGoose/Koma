@@ -246,7 +246,7 @@ test('pinecraft gear: the Diamond (3-star) and Ruby (4-star) pickaxes, for every
   assert.equal(gearOf('ruby-pickaxe', 5).luckyChance, 0.1);
 });
 
-test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its bonus once a masterwork', () => {
+test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, an extra effect on its card', () => {
   const ruby = ITEMS_BY_ID.get('ruby-pickaxe')!;
   assert.deepEqual([1, 2, 3, 4, 5].map((level) => gearOf('ruby-pickaxe', level).oreEnergy), [6, 5, 4, 3, 1]);
   // The rest of the pickaxe is untouched by the bonus.
@@ -256,13 +256,8 @@ test('pinecraft gear: the Ruby Pickaxe outgrows its energy penalty at R5, its bo
     'Pinecraft: ores take 3 ⚡ each to dig',
     'Pinecraft: 6.67% chance for double ore drops',
   ]);
-  // Forged, the energy penalty is gone from the card; not forged, it's there with the locked bonus.
-  assert.deepEqual(describeEffects(ruby, 1, 5, true).slice(1), ['Pinecraft: 10% chance for double ore drops']);
-  assert.deepEqual(describeEffects(ruby, 1, 5, false).slice(1), [
-    'Pinecraft: ores take 2 ⚡ each to dig',
-    'Pinecraft: 10% chance for double ore drops',
-    '🔒 Masterwork (`forge` for **25** <:komagem:1551635240210927736>): Pinecraft: ores take no extra ⚡ to dig',
-  ]);
+  // At R5 the energy penalty's line gives way to the bonus, last.
+  assert.deepEqual(describeEffects(ruby, 1, 5).slice(1), ['Pinecraft: 10% chance for double ore drops', 'Pinecraft: ores take no extra ⚡ to dig']);
   // The Diamond Pickaxe has no bonus: still 2 energy at R5.
   assert.equal(gearOf('diamond-pickaxe', 5).oreEnergy, 2);
 });
@@ -718,7 +713,7 @@ test('login: the site logs in with Discord, sees its servers, and gets a link to
     assert.equal(login.headers.get('access-control-allow-origin'), SITE.origin);
     const { session, me } = (await login.json()) as { session: string; me: { servers: { id: string; balance: number }[]; games: string[] } };
     assert.deepEqual(me.servers, [{ id: 'g1', name: 'Koma Club', icon: null, balance: 1234 }]); // g2 doesn't have the bot
-    assert.deepEqual(me.games, ['mines', 'pinecraft', 'baccarat', 'roulette', 'poker', 'raid', 'minesweeper']);
+    assert.deepEqual(me.games, ['mines', 'pinecraft', 'baccarat', 'roulette', 'poker', 'raid', 'minesweeper', 'technomagic']);
 
     const auth = { ...site, Authorization: `Bearer ${session}` };
     assert.equal((await fetch(`${base}/api/me`, { headers: site })).status, 401);

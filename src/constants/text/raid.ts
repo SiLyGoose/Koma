@@ -20,9 +20,20 @@ const ccMove: Record<CrowdControl, string> = { stunned: 'Stun', disarmed: 'Disar
 /** The Blight a hit from the matriarch leaves, like "+2 🦠". */
 const blightAdds = (move: 'spit' | 'miasma' | 'rot'): string => `+${RAID_COMBAT.moves[move].blight} 🦠`;
 
-/** What each raider gets for a win: the points, then komaTokens and komaGems (each left out at 0). */
-const rewards = (reward: string, tokens: number, gems: number): string =>
-  andList([boldMoney(reward), ...(tokens > 0 ? [boldTokens(tokens)] : []), ...(gems > 0 ? [boldGems(gems)] : [])]);
+/** Hero essences a raid boss gives: so many of each of its kinds (their names), to transcend the TechnoMagic Raid's heroes. */
+export interface EssenceReward {
+  amount: number;
+  names: readonly string[];
+}
+
+/** What each raider gets for a win: the points, then komaTokens, komaGems and its boss's hero essences (each left out at 0, or with none). */
+const rewards = (reward: string, tokens: number, gems: number, essences: EssenceReward | null = null): string =>
+  andList([
+    boldMoney(reward),
+    ...(tokens > 0 ? [boldTokens(tokens)] : []),
+    ...(gems > 0 ? [boldGems(gems)] : []),
+    ...(essences && essences.amount > 0 ? [`**${essences.amount}** each of the ${andList(essences.names)} hero essences 💠`] : []),
+  ]);
 
 /** "A", "A and B", "A, B and C". */
 const andList = (items: readonly string[]): string =>
@@ -173,18 +184,16 @@ export const raidText = {
     },
   } satisfies Record<RaidBossId, RaidBossText>,
 
-  usage: (p: string) => `Use \`${p}raid\` to start this week's raid (or see how it went, once it has been fought), or \`${p}raid stats\` to see this week's boss, its stats and its moves.`,
+  usage: (p: string) => `Use \`${p}raid\` to start a raid against this week's boss, or \`${p}raid stats\` to see the boss, its stats and its moves.`,
   busy: 'Something else is going on in this server right now. Try again when it is over.',
-  /** `unix` is when the next raid week starts. */
-  alreadyRaided: (unix: number) => `This week's raid has already been started. The next one can be started <t:${unix}:F> (<t:${unix}:R>).`,
 
   // The lobby
   lobbyTitle: (b: RaidBossText) => `${b.emoji} A wild ${b.name} appears!`,
   /** `host` found it, `rounds` is how long the party has to win. */
-  lobby: (b: RaidBossText, host: string, rounds: number, reward: string, tokens: number, gems: number) =>
+  lobby: (b: RaidBossText, host: string, rounds: number, reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) =>
     `${b.found(host)} Press **Join** to fight. The battle starts when the host presses **Start raid** (the host can also **Disband** it). ` +
     `No one can join once it starts.\n\n` +
-    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems)}.`,
+    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems, essences)}.`,
   howToField: 'How to fight',
   /**
    * `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to
@@ -270,10 +279,10 @@ Grows with every raider (at least ${min}).`,
   onlyHostDisband: 'Only the host (the first raider on the list) can disband the raid.',
   lobbyClosed: 'The fight has already started, so no one else can join.',
   /** The lobby closed without a fight: everyone left it, its host disbanded it, or it sat idle too long. */
-  noPlayers: 'Everyone left the raid, so its lobby closed. It has not been used up: it can be started again this week.',
+  noPlayers: 'Everyone left the raid, so its lobby closed. Start another whenever you like.',
   disbandedTitle: 'The raid was disbanded',
-  disbanded: (user: string) => `${user} disbanded the raid before the fight. It has not been used up: it can be started again this week.`,
-  lobbyIdle: (minutes: number) => `Nothing happened in the raid's lobby for ${minutes} minutes, so it was disbanded. It has not been used up: it can be started again this week.`,
+  disbanded: (user: string) => `${user} disbanded the raid before the fight. Start another whenever you like.`,
+  lobbyIdle: (minutes: number) => `Nothing happened in the raid's lobby for ${minutes} minutes, so it was disbanded. Start another whenever you like.`,
 
   // The fight
   fightTitle: (b: RaidBossText, round: number, maxRounds: number) => `${b.emoji} ${b.name} (round ${round} of ${maxRounds})`,
@@ -478,14 +487,13 @@ Grows with every raider (at least ${min}).`,
 
   // The end
   wonTitle: (b: RaidBossText) => `🏆 The ${b.name} has been slain!`,
-  won: (rounds: number, reward: string, tokens: number, gems: number) =>
-    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems)}.`,
+  won: (rounds: number, reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) =>
+    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems, essences)}.`,
   wipedTitle: (b: RaidBossText) => `☠️ The ${b.name} wins`,
-  wiped: (rounds: number) => `Every raider was knocked out in round **${rounds}**. No rewards this week.`,
+  wiped: (rounds: number) => `Every raider was knocked out in round **${rounds}**. No rewards this time.`,
   fledTitle: (b: RaidBossText) => `${b.fledEmoji} The ${b.name} got away`,
-  fled: (b: RaidBossText, rounds: number) => `${b.It} was still standing after **${plural(rounds, 'round', 'rounds')}** and ${b.fledHow}. No rewards this week.`,
+  fled: (b: RaidBossText, rounds: number) => `${b.It} was still standing after **${plural(rounds, 'round', 'rounds')}** and ${b.fledHow}. No rewards this time.`,
   bossLeft: (hp: string, max: string) => `It had **${hp}** / ${max} HP left.`,
-  nextRaid: (unix: number) => `The next raid can be started <t:${unix}:R>.`,
   rankingField: 'Damage',
   rankingLine: (place: string, user: string, damage: string, share: string) => `${place} ${user}: **${damage}** (${share})`,
   noDamage: 'Nobody landed a hit.',
@@ -522,20 +530,6 @@ Grows with every raider (at least ${min}).`,
   lootMineFooter: 'They are in your inventory. Only you can see this.',
   lootMineNone: "You didn't find any items in this raid.",
 
-  // `raid` once this week's raid has been fought: how it went
-  weekTitle: (b: RaidBossText, outcome: 'won' | 'wiped' | 'fled') =>
-    outcome === 'won' ? `📊 This week's raid: the ${b.name} was slain` : outcome === 'wiped' ? `📊 This week's raid: the ${b.name} won` : `📊 This week's raid: the ${b.name} got away`,
-  /** `ended` is when the fight ended (null if that wasn't saved), `next` when the next raid can be started. */
-  weekDescription: (b: RaidBossText, outcome: 'won' | 'wiped' | 'fled', rounds: number, players: number, ended: number | null, next: number) =>
-    [
-      outcome === 'won'
-        ? `Slain in **${plural(rounds, 'round', 'rounds')}** by ${plural(players, 'raider', 'raiders')}${ended === null ? '' : ` <t:${ended}:R>`}.`
-        : outcome === 'wiped'
-          ? `All ${plural(players, 'raider', 'raiders')} were knocked out in round **${rounds}**${ended === null ? '' : ` <t:${ended}:R>`}.`
-          : `It was still standing after **${plural(rounds, 'round', 'rounds')}** and ${b.fledHow}${ended === null ? '' : ` <t:${ended}:R>`}.`,
-      `The next raid can be started <t:${next}:R>.`,
-    ].join('\n'),
-
   // `raid stats`: this week's boss
   bossTitle: (b: RaidBossText) => `${b.emoji} ${b.name}`,
   /** Above the stats: it is this week's boss, and until when. */
@@ -565,17 +559,31 @@ Grows with every raider (at least ${min}).`,
   rewardsField: 'Rewards',
   /** What each raider who takes part gets when the boss is slain (nothing if it wins or gets away). */
   /** What each raider got for a win, with the currencies' emojis ("**1,000** <:zeiucoin:…>, **10** … and **5** …"). */
-  rewardList: (reward: string, tokens: number, gems: number) => rewards(reward, tokens, gems),
+  rewardList: (reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) => rewards(reward, tokens, gems, essences),
   /**
    * `perLevel` is the points every level past 1 adds (null with none), `gemStep` the komaGems each of
-   * `gemLevels` (the milestone levels) adds (null with none).
+   * `gemLevels` (the milestone levels) adds (null with none), `essenceStep` the hero essences of each kind every
+   * level past 1 adds (null with none).
    */
-  bossRewards: (reward: string, tokens: number, gems: number, perLevel: string | null = null, gemStep: number | null = null, gemLevels: readonly number[] = []) =>
-    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems)}.` +
-    (perLevel === null && gemStep === null
+  bossRewards: (
+    reward: string,
+    tokens: number,
+    gems: number,
+    perLevel: string | null = null,
+    gemStep: number | null = null,
+    gemLevels: readonly number[] = [],
+    essences: EssenceReward | null = null,
+    essenceStep: number | null = null,
+  ) =>
+    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems, essences)}.` +
+    (perLevel === null && gemStep === null && essenceStep === null
       ? ''
       : `\n📈 **Harder levels pay more**: ${[
-          ...(perLevel === null ? [] : [`${boldMoney(perLevel)} more for every level past 1`]),
+          ...(perLevel === null && essenceStep === null
+            ? []
+            : [
+                `${andList([...(perLevel === null ? [] : [boldMoney(perLevel)]), ...(essenceStep === null ? [] : [`**${essenceStep}** of each hero essence 💠`])])} more for every level past 1`,
+              ]),
           ...(gemStep === null ? [] : [`${boldGems(gemStep)} more from ${gemLevels.map((level) => `level ${level}`).join(', and again from ')}`]),
         ].join(', and ')}.`),
   phasesField: 'Phases',
@@ -633,8 +641,8 @@ Grows with every raider (at least ${min}).`,
 
   // A raid the bot didn't finish
   interruptedTitle: 'The raid was cut short',
-  interrupted: 'The bot stopped in the middle of this raid. Everything stolen by the boss has been given back, and the raid can be started again this week.',
-  failed: 'Something went wrong in the middle of this raid. Everything stolen by the boss has been given back, and the raid can be started again this week.',
+  interrupted: 'The bot stopped in the middle of this raid. Everything stolen by the boss has been given back, and another raid can be started.',
+  failed: 'Something went wrong in the middle of this raid. Everything stolen by the boss has been given back, and another raid can be started.',
 
   // Admin test tools (`raid test ...`), for seeing each phase and ending on Discord
   test: {
@@ -646,7 +654,7 @@ Grows with every raider (at least ${min}).`,
         `\`${p}raid test shield\`: raise or drop the boss's shield`,
         `\`${p}raid test next\`: end this turn now`,
         `\`${p}raid test kill | wipe | flee\`: end the fight with that result`,
-        `A fight the tools changed pays no rewards. \`${p}raid reset\` frees the week again afterwards.`,
+        `A fight the tools changed pays no rewards.`,
       ].join('\n'),
     noFight: 'There is no raid fight going on in this server right now. Start one (and press Start raid to get into the fight).',
     badHp: 'Give the HP as a number or a percentage, like `1200` or `40%`.',
@@ -660,15 +668,12 @@ Grows with every raider (at least ${min}).`,
     flee: 'The boss gets away: the escape screen is coming up.',
     /** The line the fight's action log shows for a test change. */
     logLine: (user: string, what: string) => `🛠️ ${user} (test): ${what}`,
-    noRewards: (p: string) => `Test raid: no rewards were paid. Use ${p}raid reset to run another this week.`,
+    noRewards: 'Test raid: no rewards were paid.',
   },
 
   // Admin
   /** `bosses` is every boss's name. */
   forceUsage: (p: string, bosses: readonly string[]) =>
-    `Use \`${p}raid force <boss>\` to start this week's raid against a boss of your choice (${andList(bosses)}), instead of the one the week picked.`,
-  forceTaken: (p: string) => `This week's raid has already been started. Use \`${p}raid reset\` first, then \`${p}raid force <boss>\` again.`,
-  resetDone: "This week's raid has been reset. It can be started again.",
-  resetNothing: 'There is no finished raid this week to reset (one still being played cannot be reset).',
+    `Use \`${p}raid force <boss>\` to start a raid against a boss of your choice (${andList(bosses)}), instead of the one the week picked.`,
   adminOnly: 'Only the bot admin can do that.',
 };
