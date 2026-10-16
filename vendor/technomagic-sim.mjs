@@ -564,6 +564,12 @@ function galgoriaPart(fight) {
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/index.ts
 /**
+* So many times less health than the game's: a hero's ATK here is the game's (its unique weapon's and its potentials'), but
+* what more King's Raid's heroes deal to it (sets, more DMG to bosses, buffs) is not here. Tried with 8 heroes on Auto (R5
+* unique weapons, 30% more ATK, no set): stage 1 won every time in about a minute and a half. (Before HP, which it cuts.)
+*/
+var GEARED = 80;
+/**
 * Its health and defense (P.DEF and M.DEF alike) at each stage, as King's Raid's Galgoria raid has them at its stages 1
 * to 5 (its table, from its players' guides on DC Inside's King's Raid gallery: 20 to 87.6 billion HP, 117,000 to 222,300
 * DEF); 6 to 8 go on from there (a first guess: the game's stage 6 is said to be past 300,000 DEF). That health is the
@@ -580,12 +586,6 @@ var HP = [
 	165e9,
 	225e9
 ].map((hp) => hp / GEARED);
-/**
-* So many times less health than the game's: a hero's ATK here is the game's (its unique weapon's and its potentials'), but
-* what more King's Raid's heroes deal to it (sets, more DMG to bosses, buffs) is not here. Tried with 8 heroes on Auto (R5
-* unique weapons, 30% more ATK, no set): stage 1 won every time in about a minute and a half.
-*/
-var GEARED = 80;
 var DEF = [
 	117e3,
 	128300,
@@ -10839,7 +10839,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "3ed575eab72a";
+var SIM_VERSION = "50046b97a768";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
