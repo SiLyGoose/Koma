@@ -577,18 +577,23 @@ function galgoriaPart(fight) {
 //#region src/technomagic/sim/bosses/galgoria/index.ts
 /**
 * So many times less health than the game's: a hero's ATK here is the game's (its unique weapon's and its potentials'), but
-* what more King's Raid's heroes deal to it (sets, more DMG to bosses, buffs) is not here. Tried with 8 heroes on Auto (R5
-* unique weapons, 30% more ATK, no set): stage 1 won every time in about a minute and a half. (Before HP, which it cuts.)
+* what more King's Raid's heroes deal to it (sets, more DMG to bosses, buffs) is not here. (Before HP, which it cuts.)
 */
 var GEARED = 80;
 /**
+* Its health at stage 1, before GEARED: more than the game's (20 billion), so that 8 heroes on Auto at Transcend 5 (ATK Up,
+* Monster Hunting, HP Up, two class perks, T5 Light) with R1 unique weapons and no other gear win about 4 times in 5
+* (tried over 60 fights). Its stages 2 and 3 go up from it evenly (each so many times the last) to stage 4.
+*/
+var FIRST_HP = 384e8;
+/**
 * Its health and defense (P.DEF and M.DEF alike) at each stage, as King's Raid's Galgoria raid has them at its stages 1
 * to 5 (its table, from its players' guides on DC Inside's King's Raid gallery: 20 to 87.6 billion HP, 117,000 to 222,300
-* DEF); 6 to 8 go on from there (a first guess: the game's stage 6 is said to be past 300,000 DEF). That health is the
-* game's raid's, with more than one player, cut by GEARED; alone, it is ROOM_HP times less again. And how hard its blows
-* are, either way.
+* DEF); 6 to 8 go on from there (a first guess: the game's stage 6 is said to be past 300,000 DEF). But for its health at
+* stages 1 to 3 (FIRST_HP). That health is the game's raid's, with more than one player, cut by GEARED; alone, it is
+* ROOM_HP times less again. And how hard its blows are, either way.
 */
-var HP = [
+var KR_HP = [
 	2e10,
 	269e8,
 	378e8,
@@ -597,7 +602,8 @@ var HP = [
 	12e10,
 	165e9,
 	225e9
-].map((hp) => hp / GEARED);
+];
+var HP = KR_HP.map((hp, i) => (i < 3 ? FIRST_HP * (KR_HP[3] / FIRST_HP) ** (i / 3) : hp) / GEARED);
 var DEF = [
 	117e3,
 	128300,
@@ -13005,7 +13011,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "687a95b034a6";
+var SIM_VERSION = "b515f80d1f88";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
