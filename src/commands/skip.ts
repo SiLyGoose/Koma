@@ -5,9 +5,8 @@ import { commandPrefix } from '../discord/slash.js';
 import { claimSkip, findSkip, getSkipQuotes, SKIPS, skipMemberCooldown, type MemberSkip } from '../services/skips.js';
 import type { SkipId } from '../types.js';
 import type { Command, CommandContext } from '../discord/types.js';
-import { runExtraRaid } from './raid.js';
 
-/** The skippable things, for messages: "`claim`, `raid`". */
+/** The skippable things, for messages: "`claim`". */
 const skipIds = (): string => SKIPS.map((skip) => `\`${skip.id}\``).join(', ');
 
 /** Skips a cooldown on the member's own document, and says how it went. */
@@ -33,8 +32,6 @@ async function runMemberSkip(ctx: CommandContext, chosen: MemberSkip, after: (p:
 /** What carrying out each skip does. */
 const RUN: Record<SkipId, (ctx: CommandContext) => Promise<void>> = {
   claim: (ctx) => runMemberSkip(ctx, claimSkip, TEXT.skip.claimReady),
-  // Pays and starts the extra raid's lobby right away (commands/raid.ts).
-  raid: runExtraRaid,
 };
 
 /**
@@ -44,11 +41,11 @@ const RUN: Record<SkipId, (ctx: CommandContext) => Promise<void>> = {
 export const skip: Command = {
   name: 'skip',
   category: 'economy',
-  description: `Pay ${CURRENCY_NAME} to skip a cooldown, like the wait for your next claim or next week's raid.`,
+  description: `Pay ${CURRENCY_NAME} to skip a cooldown, like the wait for your next claim.`,
   usage: 'skip [what]',
   slashUsage: 'skip [what]',
   details:
-    "A claim skip costs double the one before it that day (prices reset at midnight). A raid skip starts one extra raid for the whole server against another boss, once a week, after the week's raid has been fought. The points paid are gone for good.",
+    'A claim skip costs double the one before it that day (prices reset at midnight). The points paid are gone for good.',
 
   async execute(ctx) {
     const [what] = ctx.args;

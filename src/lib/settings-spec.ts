@@ -124,7 +124,6 @@ export const SPECS: readonly SettingSpec[] = [
   ),
 
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
-  int('skip.raid', 'Skip', `Price of the week's extra raid (once per server per week, after the raid has been fought), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 
   int('gacha.cost', 'Gacha', `Cost of one pull, in ${CURRENCY_EMOJI}`, 1, MAX_POINTS),
   int('gacha.starWeights.1', 'Gacha', 'Relative chance of a 1-star pull.', 0, MAX_POINTS),

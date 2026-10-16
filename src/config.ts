@@ -329,8 +329,6 @@ export interface Settings {
   };
   skip: {
     claim: number;
-    /** The extra raid, once per server per week once the week's raid has been fought: a flat price. */
-    raid: number;
   };
   stonks: {
     /** Hours unclaimed at which the multiplier reaches its cap and stops climbing. */
@@ -500,7 +498,7 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   outfit: { price: 5_000 },
   hero: { price: 25_000, rewardsPerDay: 10, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
-  skip: { claim: 300, raid: 50_000 },
+  skip: { claim: 300 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.
   wheel: { maxMultiplier: 5 },

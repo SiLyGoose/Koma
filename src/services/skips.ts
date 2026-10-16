@@ -1,26 +1,22 @@
 import type { Filter } from 'mongodb';
 import { CONFIG } from '../config.js';
 import { collections } from '../db.js';
-import { dayKey, raidWeek } from '../lib/events/raid-week.js';
+import { dayKey } from '../lib/events/raid-week.js';
 import { skipPrice, skipsUsedOn } from '../lib/game/skips.js';
 import { currentHour, nextHourUnix } from '../lib/time.js';
-import type { LedgerReason, MemberDoc, RaidDoc, SkipId } from '../types.js';
+import type { LedgerReason, MemberDoc, SkipId } from '../types.js';
 import { claimReadyHour } from './economy/claim.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
-import { extraRaidId, raidId } from './raid.js';
 
 /*
  * Paying points to skip a cooldown. Every skip is one entry in SKIPS, which says what it costs the
  * member right now and whether there is a wait to skip (its quote); the skip command then carries
  * it out. The points paid are burned: they go nowhere.
  *
- * Two kinds so far:
- * - A member's own cooldown (the claim): the wait is on their member document, so taking the price,
- *   ending the wait and counting the skip is one conditional update (skipMemberCooldown). The first
- *   skip each day costs the base price, and each one after it that day double the one before.
- *   Another one is a MemberSkip entry, a SkipId, a ledger reason and a skip.<id> setting.
- * - The server's weekly raid: a flat price, once per server per week, and paying starts the extra
- *   raid (commands/raid.ts runExtraRaid, with chargeForSkip / refundSkip below).
+ * One so far: a member's own cooldown (the claim). The wait is on their member document, so taking
+ * the price, ending the wait and counting the skip is one conditional update (skipMemberCooldown). The
+ * first skip each day costs the base price, and each one after it that day double the one before.
+ * Another one is a MemberSkip entry, a SkipId, a ledger reason and a skip.<id> setting.
  */
 
 export interface SkipQuote {
@@ -84,34 +80,8 @@ export const claimSkip = memberSkip({
   reason: 'skip_claim',
 });
 
-const isFinished = (raid: RaidDoc | null): boolean => raid !== null && (raid.status === 'won' || raid.status === 'wiped' || raid.status === 'fled');
-
-/** This week's raid and its extra raid (bought with a skip), either missing if there is none. */
-export async function raidWeekDocs(guildId: string, weekKey: string): Promise<{ main: RaidDoc | null; extra: RaidDoc | null }> {
-  const { raids } = collections();
-  const [main, extra] = await Promise.all([raids.findOne({ _id: raidId(guildId, weekKey) }), raids.findOne({ _id: extraRaidId(guildId, weekKey) })]);
-  return { main, extra };
-}
-
-/**
- * The weekly raid: once this week's raid has been fought, one extra raid (against another boss) can
- * be bought for a flat price, once per week.
- */
-export const raidSkip: CooldownSkip = {
-  id: 'raid',
-  quote: async (guildId, _userId, now) => {
-    const week = raidWeek(new Date(now));
-    const { main, extra } = await raidWeekDocs(guildId, week.key);
-    return {
-      price: CONFIG.skip.raid,
-      waitingUntil: isFinished(main) && !extra ? Math.floor(week.next.getTime() / 1000) : null,
-      usedUp: extra !== null,
-    };
-  },
-};
-
 /** Everything that can be skipped, in the order the skip command lists them. */
-export const SKIPS: readonly CooldownSkip[] = [claimSkip, raidSkip];
+export const SKIPS: readonly CooldownSkip[] = [claimSkip];
 
 export const findSkip = (id: string): CooldownSkip | undefined => SKIPS.find((skip) => skip.id === id.toLowerCase());
 
@@ -164,26 +134,4 @@ export async function skipMemberCooldown(guildId: string, userId: string, skip: 
   }
   // Something kept changing under us (another skip or claim at the same moment). Nothing was taken.
   return { ok: false, reason: 'busy' };
-}
-
-export type ChargeResult = { ok: true; balance: number } | { ok: false; balance: number };
-
-/**
- * For a skip whose wait isn't on the member's document: takes `price` in one conditional update
- * (only if they have it). The caller then ends the wait, and gives it back with refundSkip if it can't.
- */
-export async function chargeForSkip(guildId: string, userId: string, price: number, reason: LedgerReason): Promise<ChargeResult> {
-  await ensureMember(guildId, userId);
-  const { members } = collections();
-  const after = await members.findOneAndUpdate({ guildId, userId, points: { $gte: price } }, { $inc: { points: -price } }, { returnDocument: 'after' });
-  if (!after) return { ok: false, balance: (await members.findOne({ guildId, userId }))?.points ?? 0 };
-  if (price > 0) await recordLedger([{ guildId, userId, delta: -price, reason }]);
-  return { ok: true, balance: after.points };
-}
-
-/** Gives back a chargeForSkip whose skip couldn't go ahead. */
-export async function refundSkip(guildId: string, userId: string, price: number, reason: LedgerReason): Promise<void> {
-  if (price <= 0) return;
-  await collections().members.updateOne({ guildId, userId }, { $inc: { points: price } });
-  await recordLedger([{ guildId, userId, delta: price, reason }]);
 }

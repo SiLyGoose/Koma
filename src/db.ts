@@ -87,6 +87,8 @@ export async function connectDb(): Promise<Collections> {
     collections.pinecraftWorlds.createIndex({ guildId: 1, dugTotal: -1 }),
     // Raids left unfinished when the bot stopped are looked up by status on start.
     collections.raids.createIndex({ status: 1 }),
+    // A server's latest raid in a week (the site's raid page).
+    collections.raids.createIndex({ guildId: 1, weekKey: 1, createdAt: -1 }),
     collections.pokerSeats.createIndex({ leaseUntil: 1 }),
     collections.pokerSeats.createIndex({ tableKey: 1 }),
     // Minesweeper's leaderboards: a server's fastest clears of a level.

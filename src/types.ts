@@ -109,7 +109,7 @@ export interface GearIds {
 
 /** One document per (server, user). */
 /** Something whose cooldown can be paid to skip (services/skips.ts). */
-export type SkipId = 'claim' | 'raid';
+export type SkipId = 'claim';
 
 /** How many times a member skipped one thing on `day` (YYYY-MM-DD, Eastern), for its doubling price. */
 export interface SkipUse {
@@ -449,8 +449,8 @@ export type LedgerReason =
   | 'code_prize'
   // Points paid to skip a cooldown (commands/skip.ts), one reason per thing skipped.
   | 'skip_claim'
+  // The week's extra raid and its refund, back when a week had one raid: no longer written, kept for older entries.
   | 'skip_raid'
-  // A skip taken back because what it paid for couldn't happen (the extra raid was already taken).
   | 'skip_refund'
   // Points a member gave to the vault of their own accord (commands/donate.ts).
   | 'vault_donation'
@@ -688,9 +688,9 @@ export interface OpenCrateDoc {
 }
 
 /**
- * One document per server per raid week (see lib/events/raid-week.ts): `_id` is
- * "<server id>:<week key>", so a second raid in the same week can't be started. While the raid is
- * being played (`preparing` or `fighting`) it also records every point that moved because of it, so
+ * One document per raid: `_id` is "<server id>:<week key>:<start time>" (services/raid.ts newRaidId;
+ * raids from when there was one a week are "<server id>:<week key>", and their extra raid's has
+ * ":extra" after it). While the raid is being played (`preparing` or `fighting`) it also records every point that moved because of it, so
  * a raid the bot never finished (it stopped part way) can give them back; see services/raid.ts.
  */
 export interface RaidDoc {
@@ -709,7 +709,7 @@ export interface RaidDoc {
   spent: Record<string, number>;
   /** Points the boss stole from each player, by user id. */
   stolen: Record<string, number>;
-  /** Set on the week's extra raid (see services/raid.ts extraRaidId): what `startedBy` paid to skip to it, given back if it never finishes. */
+  /** What `startedBy` paid for the week's extra raid, back when a week had one raid and `skip raid` bought another. */
   skipPaid?: number;
   /** Filled in when it ends: damage dealt by user id, and whose hit beat the boss. */
   damage?: Record<string, number>;

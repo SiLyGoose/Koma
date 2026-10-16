@@ -3,8 +3,8 @@ import { boldMoney } from './currency.js';
 
 export const skipText = {
   /** What each skip is called, and what it skips. */
-  names: { claim: 'Claim', raid: 'Raid' } satisfies Record<SkipId, string>,
-  waits: { claim: 'the wait for your next hourly claim', raid: "the wait for next week's raid" } satisfies Record<SkipId, string>,
+  names: { claim: 'Claim' } satisfies Record<SkipId, string>,
+  waits: { claim: 'the wait for your next hourly claim' } satisfies Record<SkipId, string>,
 
   listTitle: 'Skip a cooldown',
   /** `ids` is the skippable things, like "`claim`". */
@@ -25,12 +25,6 @@ export const skipText = {
   claimReady: (p: string) => `Your claim is ready: use \`${p}claim\`.`,
   balanceField: 'Balance',
   nextPriceField: 'Next skip today',
-
-  /** `skip raid` */
-  raidNotYet: (p: string) => `This week's raid hasn't been fought yet, so there's nothing to skip. Start it with \`${p}raid\`.`,
-  raidUsedUp: (unix: number) => `This week's extra raid has already been bought. The next raid can be started <t:${unix}:R>.`,
-  /** Under the week's raid result while the extra raid can still be bought (a footer: no markdown). */
-  raidHint: (p: string, price: string) => `Can't wait? Anyone can start one extra raid this week against another boss with ${p}skip raid, for ${price}.`,
 
   /** Added to claim's "already claimed" reply. */
   claimHint: (p: string, price: string) => `Or skip the wait for ${boldMoney(price)} with \`${p}skip claim\`.`,

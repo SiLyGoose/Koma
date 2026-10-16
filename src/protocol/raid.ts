@@ -2,16 +2,16 @@
  * What the raid's page (the Koma-UI repo's src/raid) and the bot say to each other over the raid's
  * WebSocket. Every message is one JSON object with a `t` saying what it is. The site keeps a copy (its `yarn sync`).
  *
- * The raid is the server's weekly raid, the very one on its Discord message (commands/raid.ts): a
+ * The raid is the server's raid going on, the very one on its Discord message (commands/raid.ts): a
  * player on the page is in the same lobby and fight as the ones pressing buttons in Discord.
  *
  *   page -> bot   hello    first message: the token from the link
- *                 start    starts this week's raid: its lobby goes up in the server's channel, with
+ *                 start    starts a raid: its lobby goes up in the server's channel, with
  *                          them as the host, at the difficulty `level` they picked before it (left out: 1;
  *                          past what the server has unlocked: the hardest it has)
  *                 join     joins the lobby; `leave` leaves it
  *                 begin    the host starts the fight (nothing else does: the lobby has no countdown)
- *                 disband  the host disbands the raid before the fight: the week is freed, to start again
+ *                 disband  the host disbands the raid before the fight, to start again
  *                 difficulty  the host picks the raid's difficulty `level` (up to the lobby's `maxDifficulty`)
  *                 act      their action this turn (`skill`: a ward in place of a Support, for a class that can; `target`: who a heal or ward is for, left out to let the
  *                          bot choose)
@@ -204,14 +204,15 @@ export interface RaidView {
   /** The boss's picture now: its path under the bot's /api (GET). */
   picture: string;
   mood: RaidMood;
-  /** When the week's raid resets (ms). */
+  /** When the week's boss changes (ms). */
   resetsAt: number;
   /**
-   * `idle`: no raid going on. `week` is how this week's raid went ('open' when it hasn't been fought),
-   * and `canStart` whether the page can start it (a server without a bot channel starts it in Discord);
+   * `idle`: no raid going on. `week` is 'open' when a raid can be started and 'busy' while one is starting
+   * in Discord ('won', 'wiped' and 'fled' are from when a week had one raid, and no longer sent), and
+   * `canStart` whether the page can start it (a server without a bot channel starts it in Discord);
    * `pick`, with it, is the difficulties to start it at.
    * `last` says how the last lobby went when it never came to a fight, a little while after (everyone
-   * left it, it was disbanded, or it was called off): the week was freed, so it can be started again.
+   * left it, it was disbanded, or it was called off), so another can be started.
    */
   phase: 'idle' | 'lobby' | 'fight' | 'over';
   idle: { week: 'open' | 'won' | 'wiped' | 'fled' | 'busy'; canStart: boolean; last?: 'no_players' | 'disbanded' | 'called_off'; pick?: RaidPickView } | null;

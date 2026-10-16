@@ -66,16 +66,12 @@ import {
 } from '../lib/events/raid.js';
 import { bossForWeek } from '../lib/events/raid-boss.js';
 import { raidClassesOf } from '../services/raid-class.js';
-import { raidWeek, type RaidWeek } from '../lib/events/raid-week.js';
+import { raidWeek } from '../lib/events/raid-week.js';
 import { liveRaid, openLiveRaid, type ActAnswer, type LiveRaid, type RaidLobbyLive } from '../lib/events/raid-live.js';
 import { siteGameLink, webConfig } from '../web/config.js';
 import { gearStore, wornGear, type GearView } from '../web/models/gear.js';
-import { statsOf } from '../web/games/raid/view.js';
 import { getChannelId } from '../services/channel.js';
 import { getPrefix } from '../services/settings.js';
-import { pickRandom } from '../lib/random.js';
-import { commandPrefix } from '../discord/slash.js';
-import { chargeForSkip, raidWeekDocs, refundSkip } from '../services/skips.js';
 import { gearEffects } from '../lib/game/items/equipment.js';
 import { getEquipment } from '../services/items/equipment.js';
 import { raidDropChance, raidDropCounts, raidDropsOn, type RaidDrop } from '../lib/game/items/raid-drops.js';
@@ -84,15 +80,13 @@ import { sleep } from '../lib/time.js';
 import { STARS, type ItemDef, type RaidDoc } from '../types.js';
 import {
   abandonRaid,
-  findRaid,
   finishRaid,
   listUnfinishedRaids,
+  latestRaid,
   maxRaidDifficulty,
-  raidId,
   recordRaidWin,
-  resetRaidWeek,
   rewardRaid,
-  startRaidWeek,
+  startRaid,
   saveRaidDrops,
   saveRaidGear,
   stealFromWallet,
@@ -101,11 +95,11 @@ import {
 } from '../services/raid.js';
 
 /*
- * The weekly raid boss: `raid` opens a lobby, and when it closes the party fights this week's boss
- * in rounds on one live message (lib/events/raid.ts has the rules). One raid per server per week,
- * resetting every Saturday at midnight Eastern (lib/events/raid-week.ts), against the boss the
- * week picked (lib/events/raid-boss.ts). The server counts as busy for the whole raid, so no random
- * event starts in the middle of it.
+ * The raid boss: `raid` opens a lobby, and when it closes the party fights this week's boss in
+ * rounds on one live message (lib/events/raid.ts has the rules). A server can raid as often as it
+ * likes, one raid at a time, against the boss the week picked (lib/events/raid-boss.ts; the week
+ * turns every Saturday at midnight Eastern, lib/events/raid-week.ts). The server counts as busy for
+ * the whole raid, so no random event starts in the middle of it.
  */
 
 type RaidSettings = Settings['raid'];
@@ -528,7 +522,6 @@ function serveLootButton(message: Message, drops: readonly (RaidDrop & { isNew?:
 export function resultEmbed(
   state: RaidState,
   cfg: RaidSettings,
-  nextRaid: Date,
   reward: { failed: readonly string[]; drops: readonly RaidDrop[] } | null,
   intoVault = 0,
 ): BotEmbed {
@@ -543,7 +536,7 @@ export function resultEmbed(
     const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(b, rounds);
     embed
       .setTitle(state.outcome === 'wiped' ? r.wipedTitle(b) : r.fledTitle(b))
-      .setDescription(`${how}\n${r.bossLeft(fmt(state.bossHp), fmt(state.bossMaxHp))}\n${r.nextRaid(unixOfDate(nextRaid))}`);
+      .setDescription(`${how}\n${r.bossLeft(fmt(state.bossHp), fmt(state.bossMaxHp))}`);
   }
 
   if (reward && raidDropsOn(cfg)) {
@@ -576,26 +569,6 @@ function addStatsFields(embed: BotEmbed, players: readonly { userId: string; sta
   const vaultLine = intoVault > 0 ? `
 ${r.intoVault(fmt(intoVault))}` : '';
   embed.addFields({ name: r.pointsField, value: lost.length === 0 ? r.noPointsLost : `${joinLimited(lost, 950)}${vaultLine}` });
-}
-
-/**
- * What `raid` shows once this week's raid has been fought (won or lost): how it ended, who did
- * what, and when the next one can be started. Raids saved before every stat was kept only have
- * damage; the rest shows as nothing for them.
- */
-export function weekResultEmbed(raid: RaidDoc & { status: 'won' | 'wiped' | 'fled' }, nextRaid: Date): BotEmbed {
-  const r = TEXT.raid;
-  const b = r.bosses[raid.boss ?? 'wyrm'];
-  const players = raid.players.map((userId) => ({
-    userId,
-    stats: raid.stats?.[userId] ?? { ...emptyStats(), damage: raid.damage?.[userId] ?? 0, spent: raid.spent[userId] ?? 0, stolen: raid.stolen[userId] ?? 0 },
-  }));
-  const ended = raid.endedAt ? unixOfDate(raid.endedAt) : null;
-  const embed = createEmbed()
-    .setTitle(r.weekTitle(b, raid.status))
-    .setDescription(r.weekDescription(b, raid.status, raid.rounds ?? 0, players.length, ended, unixOfDate(nextRaid)));
-  addStatsFields(embed, players, raid.lastHit ?? null);
-  return embed;
 }
 
 /** Whether a raid has been fought to the end (not still in its lobby or fight). */
@@ -1404,62 +1377,8 @@ export function bossByName(text: string): RaidBossId | null {
   return null;
 }
 
-/**
- * `skip raid`'s side: once this week's raid has been fought, takes the price and claims the week's
- * extra raid, against a boss other than the one already fought. Replies and returns null when it
- * can't (not fought yet, the extra raid already used, can't pay); nothing is taken then.
- */
-async function beginExtraRaid(ctx: CommandContext, week: RaidWeek): Promise<{ id: string; boss: RaidBossId } | null> {
-  const { main, extra } = await raidWeekDocs(ctx.guildId, week.key);
-  if (!main || !isFinished(main)) {
-    await ctx.reply(TEXT.skip.raidNotYet(commandPrefix(ctx, 'raid')));
-    return null;
-  }
-  if (extra) {
-    await ctx.reply(TEXT.skip.raidUsedUp(unixOfDate(week.next)));
-    return null;
-  }
-  const price = CONFIG.skip.raid;
-  const charged = await chargeForSkip(ctx.guildId, ctx.user.id, price, 'skip_raid');
-  if (!charged.ok) {
-    await ctx.reply(TEXT.skip.tooPoor(fmt(price), fmt(charged.balance)));
-    return null;
-  }
-  const fought = main.boss ?? 'wyrm';
-  const others = RAID_BOSS_IDS.filter((boss) => boss !== fought);
-  const boss = others.length > 0 ? pickRandom(others) : fought;
-  let started;
-  try {
-    started = await startRaidWeek(ctx.guildId, week, boss, ctx.user.id, price);
-  } catch (err) {
-    await refundSkip(ctx.guildId, ctx.user.id, price, 'skip_refund');
-    throw err;
-  }
-  if (!started.ok) {
-    // Someone bought it a moment before.
-    await refundSkip(ctx.guildId, ctx.user.id, price, 'skip_refund');
-    await ctx.reply(TEXT.skip.raidUsedUp(unixOfDate(week.next)));
-    return null;
-  }
-  return { id: started.id, boss };
-}
-
-/**
- * What `raid` shows once this week's raid has been fought: the latest one (the extra raid, once it
- * has been fought too), and while the extra raid is still to be had, how to buy it.
- */
-async function latestResultEmbed(ctx: CommandContext, week: RaidWeek, main: RaidDoc & { status: 'won' | 'wiped' | 'fled' }): Promise<BotEmbed> {
-  const { extra } = await raidWeekDocs(ctx.guildId, week.key);
-  const embed = weekResultEmbed(extra && isFinished(extra) ? extra : main, week.next);
-  if (!extra) embed.setFooter({ text: TEXT.skip.raidHint(commandPrefix(ctx, 'skip'), fmt(CONFIG.skip.raid)) });
-  return embed;
-}
-
-/** `skip raid`: pays for the week's extra raid and starts it. */
-export const runExtraRaid = (ctx: CommandContext): Promise<void> => runRaid(ctx, null, true);
-
-/** Why the site couldn't start a raid: the server is busy (a raid or event going on), or this week's raid was already fought or started. */
-export type RaidRefusal = 'busy' | 'raided' | 'started';
+/** Why the site couldn't start a raid: the server is busy (a raid or event going on). */
+export type RaidRefusal = 'busy';
 
 /**
  * A raid started from the site (startRaidFromWeb), at the difficulty `level` its host picked there: why
@@ -1472,11 +1391,10 @@ interface WebStart {
 }
 
 /**
- * Starts this week's raid, against `forced` (the admin's `raid force`) or else the boss the week
- * picked; or with `extra`, the week's extra raid bought with `skip raid` (see beginExtraRaid). `web`
+ * Starts a raid, against `forced` (the admin's `raid force`) or else the boss the week picked. `web`
  * is for one started from the site.
  */
-async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, extra = false, web: WebStart | null = null): Promise<void> {
+async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, web: WebStart | null = null): Promise<void> {
   const release = claimGuild(ctx.guildId);
   if (!release) {
     if (web) web.refused('busy');
@@ -1485,33 +1403,13 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
   }
   const cfg: RaidSettings = { ...CONFIG.raid };
   const week = raidWeek();
-  let boss: RaidBossId = forced ?? bossForWeek(ctx.guildId, week.key);
+  const boss: RaidBossId = forced ?? bossForWeek(ctx.guildId, week.key);
   let id: string | null = null;
   let message: Message | null = null;
   let live: LiveRaid | null = null;
   let settled = false;
   try {
-    if (extra) {
-      const begun = await beginExtraRaid(ctx, week);
-      if (!begun) {
-        settled = true;
-        return;
-      }
-      ({ id, boss } = begun);
-    } else {
-      const started = await startRaidWeek(ctx.guildId, week, boss, ctx.user.id);
-      if (!started.ok) {
-        // Already fought this week: show how it went. (One still being set up or fought is busy above, or just "already started".)
-        const existing = started.existing;
-        if (web) web.refused(existing && isFinished(existing) ? 'raided' : 'started');
-        else if (forced) await ctx.reply(TEXT.raid.forceTaken(ctx.prefix));
-        else if (existing && isFinished(existing)) await ctx.reply({ embeds: [await latestResultEmbed(ctx, week, existing)] });
-        else await ctx.reply(TEXT.raid.alreadyRaided(unixOfDate(week.next)));
-        settled = true;
-        return;
-      }
-      id = started.id;
-    }
+    id = await startRaid(ctx.guildId, week, boss, ctx.user.id);
 
     const maxDifficulty = await maxRaidDifficulty(ctx.guildId);
     // The lobby opens at level 1, or at what the site's host picked before starting it (no further than the server has unlocked).
@@ -1525,7 +1423,7 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     live = openLiveRaid(ctx.guildId, boss, ctx.user.id, names);
     web?.opened();
     const { end: lobbyEnd, by, players, difficulty: level } = await runLobby(ctx.guildId, boss, message, ctx.user.id, cfg, id, names, live, maxDifficulty, startLevel);
-    // The lobby closed without a fight (disbanded, left idle, or everyone left): the week is freed, to start again.
+    // The lobby closed without a fight (disbanded, left idle, or everyone left).
     if (lobbyEnd !== 'start' || players.length === 0) {
       await abandonRaid(id);
       settled = true;
@@ -1586,13 +1484,13 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
     const lootKey = `${id}:${Date.now()}`;
     if (drops.length > 0) await saveRaidDrops(id, drops, lootKey).catch((err) => console.error(`Could not save the drops of raid ${id}:`, err));
     live.end({ end: outcome, state, rewarded: reward !== null, ...(drops.length > 0 ? { loot: { key: lootKey, drops } } : {}) });
-    const result = resultEmbed(state, cfg, week.next, reward, intoVault);
-    if (tested) result.setFooter({ text: TEXT.raid.test.noRewards(ctx.prefix) });
+    const result = resultEmbed(state, cfg, reward, intoVault);
+    if (tested) result.setFooter({ text: TEXT.raid.test.noRewards });
     await message.edit({ embeds: [result], components: drops.length > 0 ? [lootRow()] : [], files: [bossFile(boss, moodOf(state))], attachments: [] });
     if (drops.length > 0) serveLootButton(message, drops);
     console.log(`Raid ${id} ended (${outcome}) after ${state.round} rounds with ${players.length} players.`);
   } finally {
-    // A raid that stopped part way (an error) is called off: points are given back and the week is freed.
+    // A raid that stopped part way (an error) is called off: points are given back.
     if (id && !settled) {
       const called = await abandonRaid(id).catch((err) => {
         console.error(`Could not call off raid ${id}:`, err);
@@ -1608,34 +1506,18 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, ex
   }
 }
 
-/** This week's raid in a server, for the site's raid page when no raid is going on. */
+/** How raiding stands in a server this week, for the site's raid page when no raid is going on there. */
 export interface RaidWeekInfo {
+  /** The boss: the raid's going on, else this week's. */
   boss: RaidBossId;
   /** When the week resets (ms). */
   resetsAt: number;
-  /** How this week's raid stands (null: not started). */
+  /** The raid going on in the server (being set up or fought), or null when there is none, so one can be started. */
   status: RaidDoc['status'] | null;
   /** The server has a bot channel, so the site can start the raid there. */
   channel: boolean;
   /** The hardest difficulty the server can pick (services/raid.ts's maxRaidDifficulty). */
   maxDifficulty: number;
-  /** How this week's raid went, once it's been fought: what each raider did (in the order they joined). */
-  result: {
-    end: 'won' | 'wiped' | 'fled';
-    rounds: number;
-    lastHit: string | null;
-    players: { userId: string; damage: number; healed: number; mitigated: number; healedSelf?: number; healedAllies?: number; supportDamage?: number; damageTaken?: number }[];
-    reward: { points: number; tokens: number; gems: number; essences?: number } | null;
-    /** Their gear as they fought was kept (raids from before it was don't have it). */
-    gear?: boolean;
-    /** Its difficulty level (left out: 1). */
-    difficulty?: number;
-    /** The raid items each raider found, as item ids by user id, and the key naming them (see RaidDoc.drops). */
-    drops?: Record<string, string[]>;
-    lootKey?: string;
-  } | null;
-  /** The raiders' names, for the result (the site's socket fills them in). */
-  names?: Record<string, string>;
 }
 
 /** Keeps what each raider wears as the fight starts (see RaidDoc.gear). Never holds the fight up: a failure only loses the snapshot. */
@@ -1650,46 +1532,30 @@ async function snapshotGear(guildId: string, id: string, players: readonly strin
 }
 
 /**
- * A raider's gear as they fought this week's raid in `guildId` (the site's end screen): from the raid
- * the site is showing (the live one, while it's still up), else this week's from the database. Null
- * when it wasn't kept (a raid from before, or they weren't in it).
+ * A raider's gear as they fought the latest raid in `guildId` (the site's end screen): from the raid
+ * the site is showing (the live one, while it's still up), else this week's latest from the database.
+ * Null when it wasn't kept (a raid from before, or they weren't in it).
  */
 export async function raidGearSnapshot(guildId: string, userId: string): Promise<GearView | null> {
   const live = liveRaid(guildId);
   const kept = live?.gear.get(userId);
   if (kept) return kept as GearView;
-  const doc = await findRaid(raidId(guildId, raidWeek().key));
+  const doc = await latestRaid(guildId, raidWeek().key);
   return (doc?.gear?.[userId] as GearView | undefined) ?? null;
 }
 
 export async function raidWeekInfo(guildId: string): Promise<RaidWeekInfo> {
   const week = raidWeek();
-  const [doc, channelId, maxDifficulty] = await Promise.all([findRaid(raidId(guildId, week.key)), getChannelId(guildId), maxRaidDifficulty(guildId)]);
-  const fought = doc && isFinished(doc) ? doc : null;
-  // Raids saved before every stat was kept only have damage; the rest shows as nothing for them.
-  const result: RaidWeekInfo['result'] = fought
-    ? {
-        end: fought.status,
-        rounds: fought.rounds ?? 0,
-        lastHit: fought.lastHit ?? null,
-        players: fought.players.map((userId) => {
-          const stats = fought.stats?.[userId];
-          return { userId, ...statsOf(stats), damage: stats?.damage ?? fought.damage?.[userId] ?? 0 };
-        }),
-        reward: fought.status === 'won' ? raidRewards(fought.difficulty ?? 1, CONFIG.raid) : null,
-        gear: fought.gear !== undefined,
-        difficulty: fought.difficulty ?? 1,
-        ...(fought.drops && fought.lootKey ? { drops: fought.drops, lootKey: fought.lootKey } : {}),
-      }
-    : null;
-  return { boss: doc?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: doc?.status ?? null, channel: channelId !== null, maxDifficulty, result };
+  const [doc, channelId, maxDifficulty] = await Promise.all([latestRaid(guildId, week.key), getChannelId(guildId), maxRaidDifficulty(guildId)]);
+  const going = doc && !isFinished(doc) ? doc : null;
+  return { boss: going?.boss ?? bossForWeek(guildId, week.key), resetsAt: week.next.getTime(), status: going?.status ?? null, channel: channelId !== null, maxDifficulty };
 }
 
 /** How starting a raid from the site went: its lobby is up in the server's channel, or why not. */
 export type WebRaidStart = { ok: true } | { ok: false; reason: RaidRefusal | 'no_channel' | 'failed' };
 
 /**
- * Starts this week's raid for `userId` from the site: its lobby goes up in the server's channel (the
+ * Starts a raid for `userId` from the site: its lobby goes up in the server's channel (the
  * one the bot is confined to, where events spawn), with them as the host, as if they had run `raid`
  * there, at the difficulty `level` they picked on the site (no further than the server has unlocked).
  * Without such a channel it can only be started in Discord. Answers once the lobby is up (the
@@ -1729,7 +1595,7 @@ export async function startRaidFromWeb(client: Client<true>, guildId: string, us
       answered = true;
       resolve(result);
     };
-    runRaid(ctx, null, false, { level, refused: (reason) => answer({ ok: false, reason }), opened: () => answer({ ok: true }) })
+    runRaid(ctx, null, { level, refused: (reason) => answer({ ok: false, reason }), opened: () => answer({ ok: true }) })
       .catch((err) => console.error(`The raid started from the site in ${guildId} failed:`, err))
       // Ended without its lobby ever going up (the channel refused the message, say).
       .finally(() => answer({ ok: false, reason: 'failed' }));
@@ -1763,7 +1629,7 @@ export const raid: Command = {
   category: 'adventure',
   aliases: ['boss'],
   description:
-    "Start the weekly raid: everyone joins in to fight this week's boss together, turn by turn. Beat it for a reward. One raid per week (resets Saturday at midnight Eastern), and a different boss from last week's; once it's been fought, `raid` shows how it went. `raid stats` shows this week's boss, its stats and moves.",
+    "Start a raid: everyone joins in to fight this week's boss together, turn by turn. Beat it for a reward. Raid as often as you like, one at a time; the boss changes every week (Saturday at midnight Eastern), never the same as last week's. `raid stats` shows this week's boss, its stats and moves.",
   usage: 'raid [stats]',
   slashUsage: 'raid start  or  raid stats',
 
@@ -1786,15 +1652,6 @@ export const raid: Command = {
         return;
       }
       await runRaid(ctx, boss);
-      return;
-    }
-    if (action === 'reset') {
-      if (!isAdmin(ctx.user.id)) {
-        await ctx.reply(TEXT.raid.adminOnly);
-        return;
-      }
-      const done = await resetRaidWeek(ctx.guildId, raidWeek().key);
-      await ctx.reply(done ? TEXT.raid.resetDone : TEXT.raid.resetNothing);
       return;
     }
     if (action === 'test') {

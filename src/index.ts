@@ -281,10 +281,6 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
       week: raidWeekInfo,
       gear: raidGearSnapshot,
       avatar,
-      name: async (guildId, userId) => {
-        const guild = client.guilds.cache.get(guildId);
-        return guild ? ((await guild.members.fetch(userId).catch(() => null))?.displayName ?? null) : null;
-      },
     },
   };
 }

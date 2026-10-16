@@ -330,10 +330,10 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   raid: {
-    description: "This week's raid: fight this week's boss together for a reward (resets Saturday midnight Eastern).",
+    description: "Raid this week's boss together for a reward (the boss changes Saturday midnight Eastern).",
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('start').setDescription("Start this week's raid, or see how it went once it's been fought"))
+        .addSubcommand((s) => s.setName('start').setDescription("Start a raid against this week's boss"))
         .addSubcommand((s) => s.setName('stats').setDescription("See this week's boss: its HP, phases and moves")),
     toArgs: (i) => (i.options.getSubcommand() === 'stats' ? ['stats'] : []),
   },

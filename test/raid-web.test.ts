@@ -13,7 +13,7 @@ import { openConnection, type RaidSiteDeps } from '../src/web/games/raid/server.
 import { raidView } from '../src/web/games/raid/view.js';
 import { signToken } from '../src/web/auth/token.js';
 
-const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, maxDifficulty: 1, result: null, ...over });
+const week = (over: Partial<RaidWeekInfo> = {}): RaidWeekInfo => ({ boss: 'wyrm', resetsAt: Date.now() + 86_400_000, status: null, channel: true, maxDifficulty: 1, ...over });
 const wait = (ms = 150): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 function fakePage() {
@@ -82,7 +82,7 @@ function openTestLobby(host = 'u1', maxDifficulty = 1) {
   return { live, players, names, started: () => started };
 }
 
-test('idle: how the week stands, and whether the page can start the raid', () => {
+test("idle: this week's boss, and whether the page can start a raid", () => {
   clearLiveRaids();
   const open = raidView('u1', week(), null);
   assert.equal(open.phase, 'idle');
@@ -91,41 +91,14 @@ test('idle: how the week stands, and whether the page can start the raid', () =>
   assert.equal(open.boss.name, 'Wyvern');
   assert.equal(open.picture, '/api/raid/boss?boss=wyrm&mood=calm');
 
-  assert.deepEqual(raidView('u1', week({ channel: false }), null).idle, { week: 'open', canStart: false });
-  const won = raidView('u1', week({ status: 'won' }), null);
-  assert.deepEqual(won.idle, { week: 'won', canStart: false });
-  assert.equal(won.mood, 'defeated');
-  assert.deepEqual(raidView('u1', week({ status: 'fighting' }), null).idle, { week: 'busy', canStart: false });
-});
-
-test("a week whose raid was fought shows how it went, read back from the database, with the raiders' names", async () => {
-  clearLiveRaids();
-  resetLive();
-  const result: RaidWeekInfo['result'] = {
-    end: 'wiped',
-    rounds: 9,
-    lastHit: null,
-    players: [
-      { userId: 'u1', damage: 300, healed: 0, mitigated: 40 },
-      { userId: 'u2', damage: 0, healed: 120, mitigated: 0 },
-    ],
-    reward: null,
-  };
-  const c = await connect('u1', { week: async () => week({ status: 'wiped', result }), name: async (_g, userId) => `Named ${userId}` });
-  const v = c.last();
-  assert.equal(v.phase, 'over');
-  assert.equal(v.mood, 'gloating');
-  assert.equal(v.over?.end, 'wiped');
-  assert.equal(v.over?.rounds, 9);
-  assert.equal(v.over?.bossHp, null);
-  assert.deepEqual(v.over?.players, result.players);
-  assert.deepEqual(v.over?.ranking, [{ userId: 'u1', damage: 300 }]);
-  assert.deepEqual(v.names, { u1: 'Named u1', u2: 'Named u2' });
   // What the boss does, for the page: its phases, moves and rewards.
-  assert.ok(v.brief.moves.length > 0 && v.brief.phases.length > 0 && v.brief.rewards.length > 0);
+  assert.ok(open.brief.moves.length > 0 && open.brief.phases.length > 0 && open.brief.rewards.length > 0);
   // And the raid drops' chances, for the party's buff effects.
-  assert.deepEqual(v.drops, { chance: CONFIG.raid.dropChance, perRaider: CONFIG.raid.dropChancePerRaider });
-  c.connection.closed();
+  assert.deepEqual(open.drops, { chance: CONFIG.raid.dropChance, perRaider: CONFIG.raid.dropChancePerRaider });
+
+  assert.deepEqual(raidView('u1', week({ channel: false }), null).idle, { week: 'open', canStart: false });
+  // A raid starting in Discord that this bot's live raid doesn't have yet.
+  assert.deepEqual(raidView('u1', week({ status: 'fighting' }), null).idle, { week: 'busy', canStart: false });
 });
 
 test('the page is sent the raid on hello, and starting it goes through the bot', async () => {
@@ -229,14 +202,14 @@ test('a raid that ended is shown for a while, then the week again', () => {
   state.bossHp = 0;
   state.outcome = 'won';
   live.end({ end: 'won', state, rewarded: true });
-  const over = raidView('u1', week({ status: 'won' }), live);
+  const over = raidView('u1', week(), live);
   assert.equal(over.phase, 'over');
   assert.equal(over.over?.end, 'won');
   assert.deepEqual(over.over?.ranking, [{ userId: 'u1', damage: 500 }]);
   assert.deepEqual(over.over?.players, [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0, healedSelf: 0, healedAllies: 0, supportDamage: 0, damageTaken: 0 }]);
   assert.ok(over.over?.reward);
   assert.equal(over.mood, 'defeated');
-  const later = raidView('u1', week({ status: 'won' }), live, Date.now() + 31 * 60_000);
+  const later = raidView('u1', week(), live, Date.now() + 6 * 60_000);
   assert.equal(later.phase, 'idle');
 });
 
@@ -293,17 +266,9 @@ test("the end screen: the rewards with the currencies' emojis, and whether the r
   state.outcome = 'won';
   live.gear.set('u1', { equipped: {} });
   live.end({ end: 'won', state, rewarded: true });
-  const over = raidView('u1', week({ status: 'won' }), live).over!;
+  const over = raidView('u1', week(), live).over!;
   assert.match(over.rewardText ?? '', /<:zeiucoin:\d+>/);
   assert.equal(over.gear, true);
-
-  // Read back from the database: kept or not, as it says.
-  clearLiveRaids();
-  const result = { end: 'won' as const, rounds: 3, lastHit: 'u1', players: [{ userId: 'u1', damage: 9, healed: 0, mitigated: 0 }], reward: { points: 1000, tokens: 10, gems: 5 } };
-  const kept = raidView('u1', week({ status: 'won', result: { ...result, gear: true } }), null).over!;
-  assert.equal(kept.gear, true);
-  assert.match(kept.rewardText ?? '', /\*\*1,000\*\*/);
-  assert.equal(raidView('u1', week({ status: 'won', result }), null).over?.gear, false);
 });
 
 test("the lobby's difficulty: the host picks it, as far as the server has unlocked, and the boss and drops follow", async () => {
@@ -358,7 +323,7 @@ test('before the lobby: whoever starts the raid from the page picks its difficul
   assert.equal(pick?.levels[4]?.gear, true);
   assert.equal(pick?.gearHp, CONFIG.raid.gearHp.wyrm);
   assert.equal(raidView('u1', week({ channel: false, maxDifficulty: 3 }), null).idle?.pick, undefined, 'a server the page cannot start it in');
-  assert.equal(raidView('u1', week({ status: 'won', maxDifficulty: 3 }), null).idle?.pick, undefined, 'a week already fought');
+  assert.equal(raidView('u1', week({ status: 'fighting', maxDifficulty: 3 }), null).idle?.pick, undefined, 'a raid starting in Discord');
 
   // The level picked goes with the start (1 when the page sends none).
   const starts: number[] = [];
@@ -374,7 +339,7 @@ test('before the lobby: whoever starts the raid from the page picks its difficul
   c.connection.closed();
 });
 
-test('the end screen: each raider is sent their own raid items, best first, from the live raid and from the database', () => {
+test('the end screen: each raider is sent their own raid items, best first', () => {
   clearLiveRaids();
   const { live } = openTestLobby('u1');
   const state = createRaid('wyrm', ['u1', 'u2'], 500, 100, 10);
@@ -388,29 +353,15 @@ test('the end screen: each raider is sent their own raid items, best first, from
     { userId: 'u2', item: tooth, isNew: true },
   ];
   live.end({ end: 'won', state, rewarded: true, loot: { key: 'g1:week:1', drops } });
-  assert.deepEqual(raidView('u1', week({ status: 'won' }), live).over?.loot, {
+  assert.deepEqual(raidView('u1', week(), live).over?.loot, {
     key: 'g1:week:1',
     items: [
       { itemId: 'godslayer-fang', name: 'Godslayer Fang', stars: 4, slot: 'weapon', isNew: true },
       { itemId: 'wyvern-tooth', name: 'Wyvern Tooth', stars: 3, slot: 'weapon', isNew: false },
     ],
   });
-  assert.equal(raidView('u2', week({ status: 'won' }), live).over?.loot?.items.length, 1);
-  assert.equal(raidView('u9', week({ status: 'won' }), live).over?.loot, null, 'someone who found nothing');
-
-  // Read back from the database (the bot restarted, or a while later): the same items, without what was new.
-  clearLiveRaids();
-  const result = { end: 'won' as const, rounds: 5, lastHit: 'u1', players: [{ userId: 'u1', damage: 500, healed: 0, mitigated: 0 }], reward: null, difficulty: 5, drops: { u1: ['wyvern-tooth', 'godslayer-fang', 'gone-item'] }, lootKey: 'g1:week:1' };
-  const back = raidView('u1', week({ status: 'won', result }), null);
-  assert.equal(back.difficulty, 5);
-  assert.deepEqual(back.over?.loot, {
-    key: 'g1:week:1',
-    items: [
-      { itemId: 'godslayer-fang', name: 'Godslayer Fang', stars: 4, slot: 'weapon' },
-      { itemId: 'wyvern-tooth', name: 'Wyvern Tooth', stars: 3, slot: 'weapon' },
-    ],
-  });
-  assert.equal(raidView('u2', week({ status: 'won', result }), null).over?.loot, null);
+  assert.equal(raidView('u2', week(), live).over?.loot?.items.length, 1);
+  assert.equal(raidView('u9', week(), live).over?.loot, null, 'someone who found nothing');
 });
 
 test('the lobby has no countdown, and its host can disband it: the week is shown again, to start again', async () => {

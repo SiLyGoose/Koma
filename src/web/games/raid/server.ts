@@ -16,14 +16,12 @@ import { raidView } from './view.js';
 
 /** What the raid's socket needs from the bot (index.ts gives it the real ones). */
 export interface RaidSiteDeps {
-  /** Starts this week's raid in `guildId` for `userId`, at the difficulty `level` they picked (commands/raid.ts's startRaidFromWeb). */
+  /** Starts a raid in `guildId` for `userId`, at the difficulty `level` they picked (commands/raid.ts's startRaidFromWeb). */
   start(guildId: string, userId: string, level: number): Promise<WebRaidStart>;
-  /** How this week's raid stands in `guildId` (commands/raid.ts's raidWeekInfo). */
+  /** How raiding stands in `guildId` this week (commands/raid.ts's raidWeekInfo). */
   week(guildId: string): Promise<RaidWeekInfo>;
   /** A member's profile picture in a server, when the bot knows it. */
   avatar?(guildId: string, userId: string): string | null;
-  /** A member's name in a server, or null when they aren't in it (any more). */
-  name?(guildId: string, userId: string): Promise<string | null>;
   /** A raider's gear as they fought the raid the site is showing, or null when it wasn't kept (commands/raid.ts's raidGearSnapshot). */
   gear?(guildId: string, userId: string): Promise<unknown>;
 }
@@ -58,12 +56,6 @@ export function openConnection(page: Peer<ServerMessage>, deps: RaidSiteDeps): C
     if (!week || phase !== weekPhase || phase === 'none' || phase === 'over') {
       weekPhase = phase;
       week = await deps.week(player.guildId);
-      // This week's raid read back from the database: its raiders' names, for the result.
-      if (week.result && deps.name) {
-        const { guildId } = player;
-        const names = await Promise.all(week.result.players.map(async (p) => [p.userId, (await deps.name?.(guildId, p.userId).catch(() => null)) ?? 'Someone'] as const));
-        week.names = Object.fromEntries(names);
-      }
     }
     const { guildId } = player;
     peer.send({ t: 'raid', view: raidView(player.userId, week, live, Date.now(), (userId) => deps.avatar?.(guildId, userId) ?? null) });

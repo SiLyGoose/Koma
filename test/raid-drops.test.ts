@@ -180,7 +180,7 @@ test('raid drops: a raider with several is listed on one line, and My loot shows
     { userId: '1', item: tooth, isNew: false },
     { userId: '2', item: fang, isNew: false },
   ];
-  const embed = resultEmbed(state, DEFAULTS.raid, new Date('2026-10-03T04:00:00Z'), { failed: [], drops });
+  const embed = resultEmbed(state, DEFAULTS.raid, { failed: [], drops });
   assert.equal(
     embed.toJSON().fields?.find((f) => f.name === TEXT.raid.lootField)?.value,
     '<@1> found ★★★★ **Godslayer Fang**, ★★★ **Wyvern Tooth** ×2\n<@2> found ★★★★ **Godslayer Fang**!',
@@ -224,14 +224,13 @@ test('raid drops: the result screen after a win lists what each raider found', (
   const low: RaidRng = { int: (min) => min, chance: () => false, pick: (items) => items[0] as never };
   const state = createRaid('wyrm', ['1', '2'], 1000, 100, 15, low);
   state.outcome = 'won';
-  const next = new Date('2026-10-10T04:00:00Z');
   const item = ITEMS_BY_ID.get('godslayer-fang') as ItemDef;
   const loot = (embed: ReturnType<typeof resultEmbed>): string | undefined => embed.toJSON().fields?.find((f) => f.name === TEXT.raid.lootField)?.value;
 
-  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, next, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found ★★★★ **Godslayer Fang**!');
-  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, next, { failed: [], drops: [] })), TEXT.raid.noLoot);
-  assert.equal(loot(resultEmbed(state, { ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }, next, { failed: [], drops: [] })), undefined, 'no loot field when drops are off');
-  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, next, null)), undefined, 'no loot field when nobody was rewarded (a test raid)');
+  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found ★★★★ **Godslayer Fang**!');
+  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [] })), TEXT.raid.noLoot);
+  assert.equal(loot(resultEmbed(state, { ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }, { failed: [], drops: [] })), undefined, 'no loot field when drops are off');
+  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, null)), undefined, 'no loot field when nobody was rewarded (a test raid)');
 });
 
 test('raid drops: the databank says where to get them', () => {
