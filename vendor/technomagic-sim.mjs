@@ -490,13 +490,44 @@ function galgoriaPart(fight) {
 	};
 }
 //#endregion
+//#region src/technomagic/sim/bosses/galgoria/index.ts
+/**
+* Its health at each stage, alone (so many times its own), and with more than one player (ROOM_HP times that, for
+* the eighth hero and the auras every other hero's gear adds); and how hard its blows are, either way.
+*/
+var SOLO_HP = [
+	1.4,
+	2.3,
+	4,
+	6.5,
+	9.5,
+	13,
+	17,
+	22.5
+];
+var ROOM_HP = 1.7;
+var DEALS = [
+	2,
+	2.25,
+	2.5,
+	2.75,
+	3,
+	3.25,
+	3.5,
+	3.75
+];
+var scales = (times) => SOLO_HP.map((hp, i) => ({
+	hp: hp * times,
+	deals: DEALS[i]
+}));
+//#endregion
 //#region src/technomagic/sim/bosses/index.ts
 /** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
 var BOSSES = [{
 	id: "galgoria",
 	name: "Galgoria",
 	stats: {
-		hp: 58776e3,
+		hp: 1e8,
 		deals: "magical",
 		physical: 12e3,
 		magical: 16e3,
@@ -505,11 +536,25 @@ var BOSSES = [{
 		crit: 100,
 		resist: 150
 	},
+	stages: {
+		room: scales(ROOM_HP),
+		solo: scales(1)
+	},
 	attacks: ATTACKS,
 	plans: PLANS,
 	moves: MOVES,
 	join: galgoriaPart
 }];
+//#endregion
+//#region src/technomagic/sim/bosses/boss.ts
+/** A boss's scale at `stage` (1 to its last; past it, its last), alone or not. */
+function scaleAt(def, stage, solo) {
+	const row = solo ? def.stages.solo : def.stages.room;
+	return row[Math.min(row.length, Math.max(1, Math.floor(stage) || 1)) - 1] ?? {
+		hp: 1,
+		deals: 1
+	};
+}
 //#endregion
 //#region src/technomagic/sim/gear.ts
 /** A hero's stats with what its gear gives it (as ../../heroes/stats.ts shows them). Flat ATK (a unique weapon's) is added before the shares of ATK. */
@@ -1254,8 +1299,6 @@ var AUTO = {
 var SECTION = 1e3;
 var MAX_MANA = 6 * SECTION;
 var MANA_PER_HP_LOST = 2500;
-/** A raid fought alone: the boss has this share of its health. */
-var SOLO_BOSS_HP = .6;
 var MOST_RAGE = 1e4;
 /** ln 2, written out (so no computer works it out its own way). */
 var LN2 = .6931471805599453;
@@ -2920,7 +2963,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const log = [];
 	const sums = [];
 	let pending = [];
-	const maxHp = def.stats.hp * (solo ? SOLO_BOSS_HP : 1);
+	const maxHp = def.stats.hp * scaleAt(def, firstStage, solo).hp;
 	const foe = {
 		def,
 		part: { lands: {} },
@@ -3580,7 +3623,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				magical: stands.dodge.magical + nimbler
 			};
 			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type) - critResisting(party, type)) + critting(foe.statuses);
-			const { taken, blocked, dodged } = strike(amount * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
+			const { taken, blocked, dodged } = strike(amount * scaleAt(def, stage, solo).deals * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
 				block: NONE,
 				dodge: NONE
@@ -10019,7 +10062,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "b4959b008b66";
+var SIM_VERSION = "90aa8fde2fb0";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(230 / TICK) + 1;
