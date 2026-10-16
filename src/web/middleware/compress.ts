@@ -4,9 +4,10 @@ import { brotliCompress, constants, gzip } from 'node:zlib';
 
 /*
  * The API's JSON replies compressed, for a browser that takes it (every one does): brotli, else gzip. Nothing on the
- * way to the site compresses them (Fly passes them on as they are), and some are big: the databank's is most of a
- * megabyte as JSON, a twentieth of that compressed. Done off the main thread (zlib's own threads), so the games'
- * sockets aren't held up meanwhile.
+ * way to the site compresses them (Fly passes them on as they are), and some are big: a member's heroes, with every
+ * copy's effect lines, a tenth of that compressed. Done off the main thread (zlib's own threads), so the games'
+ * sockets aren't held up meanwhile. (The databank's reply, the same for everyone, is compressed once:
+ * ../controllers/databank.ts.)
  */
 
 /** Replies smaller than this go as they are: compressing them saves next to nothing. */
@@ -18,7 +19,7 @@ const brotli = promisify(brotliCompress);
 const gzipped = promisify(gzip);
 
 /** Which of brotli and gzip the request says it takes (null: neither). */
-function encodingFor(accepts: string): 'br' | 'gzip' | null {
+export function encodingFor(accepts: string): 'br' | 'gzip' | null {
   const offered = accepts.split(',').map((part) => {
     const [name = '', ...params] = part.trim().toLowerCase().split(';');
     const q = params.map((p) => /^\s*q=([\d.]+)\s*$/.exec(p)?.[1]).find((v) => v !== undefined);

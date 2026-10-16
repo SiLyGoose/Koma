@@ -166,6 +166,27 @@ test('the API: a big reply goes compressed to a browser that takes it (brotli, e
     const plain = await ask('/api/databank', 'identity');
     assert.ok(br.body.length * 5 < plain.body.length, 'far smaller');
 
+    // Kept by the browser and asked about again: unchanged, nothing to download.
+    assert.deepEqual([br.headers['cache-control'], typeof br.headers.etag], ['no-cache', 'string']);
+    const again = await new Promise<{ status: number; length: number }>((resolve, reject) => {
+      get(`${base}/api/databank`, { headers: { Origin: SITE.origin, 'Accept-Encoding': 'br', 'If-None-Match': br.headers.etag as string } }, (res) => {
+        let length = 0;
+        res.on('data', (chunk: Buffer) => (length += chunk.length));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, length }));
+      }).on('error', reject);
+    });
+    assert.deepEqual(again, { status: 304, length: 0 });
+    // A setting changed (re-read while the bot runs): made again, under another ETag.
+    const before = CONFIG.raid.dropChance;
+    CONFIG.raid.dropChance = before === 0.5 ? 0.25 : 0.5;
+    try {
+      const changed = await ask('/api/databank', 'br');
+      assert.notEqual(changed.headers.etag, br.headers.etag);
+      assert.equal((JSON.parse(brotliDecompressSync(changed.body).toString('utf8')) as { raidDropChance: number }).raidDropChance, CONFIG.raid.dropChance);
+    } finally {
+      CONFIG.raid.dropChance = before;
+    }
+
     const gz = await ask('/api/databank', 'gzip;q=1, br;q=0');
     assert.equal(gz.headers['content-encoding'], 'gzip');
     assert.equal(itemsIn(gunzipSync(gz.body)), ITEMS.length);
