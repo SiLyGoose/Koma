@@ -1,4 +1,5 @@
 import type { ChatClientMessage, ChatServerMessage } from './chat.js';
+import type { MainStat } from './items.js';
 
 /*
  * What the TechnoMagic Raid's web page (the Koma-UI repo) and the bot say to each other over the WebSocket.
@@ -81,8 +82,9 @@ export interface PickView {
 
 /**
  * An item found: which, and the additional skill and potentials its copy came with, as they are said (like "Vigor: Increases
- * DMG…"; null: none; and "+5.2% ATK"). And for its details: its slot, its description, the class it works for (null: any) and
- * its set's effect once a hero wears `pieces` of it (null: none).
+ * DMG…"; null: none; and "+5.2% ATK"), and its main stat (a weapon's HP, an armor's P.DEF or M.DEF; null: none). And for its
+ * details: its slot, its description, the class it works for (null: any) and its set's effect once a hero wears `pieces` of
+ * it (null: none).
  */
 export interface DropView {
   itemId: string;
@@ -90,6 +92,7 @@ export interface DropView {
   stars: number;
   skill: string | null;
   potentials: string[];
+  mainStat: MainStat | null;
   slot: 'weapon' | 'armor' | 'treasure';
   description: string;
   itemClass: string | null;

@@ -5,7 +5,7 @@ import { HEROES } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
-import { activeSet, activeTmEffects, countsOnce, SIDE_SLOTS, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, treasureTier, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
+import { activeSet, activeTmEffects, copyMainStat, countsOnce, SIDE_SLOTS, fitsSlot, HERO_STAT_IDS, heroBonus, heroItemLines, heroOnly, heroSet, heroSkills, heroStatLines, heroWearable, perkLines, heroWorn, raidValue, setLines, treasureTier, wieldedBy, type HeroBonus, type HeroPiece } from '../../lib/game/heroes.js';
 import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { maxLevelOf, refineLevel } from '../../lib/game/items/refine.js';
@@ -50,7 +50,7 @@ export interface HeroStore {
   lock: (guildId: string, userId: string, copy: string, locked: boolean) => Promise<boolean>;
 }
 
-type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'obtainedAt'>>;
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmArmorDef'>>;
 
 /** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
 export function skillLines(skills: readonly string[]): string[] {
@@ -89,6 +89,7 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
       locked: copy.locked === true,
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
       effects: heroItemLines(item, level, undefined, copy.tmPotentials),
+      mainStat: copyMainStat(item, copy),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: lit.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: lit.get(copy._id)?.additional ?? false,
@@ -103,7 +104,7 @@ export function heroesView(copies: readonly CopyInfo[], member: (Pick<MemberDoc,
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, member?.points ?? 0);
     view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, undefined, copy.tmPotentials) };
     list.push(view);
-    pieces.set(copy._id, { view, piece: { item, level, ...((item.tmDrop || item.uniqueTreasure) && copy.tmPotentials && { potentials: copy.tmPotentials }) } });
+    pieces.set(copy._id, { view, piece: { item, level, ...((item.tmDrop || item.uniqueTreasure) && copy.tmPotentials && { potentials: copy.tmPotentials }), ...(copy.tmArmorDef && { armorDef: copy.tmArmorDef }) } });
   }
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons, then the unique treasures (between it and 4 stars), then by stars.
   const tier = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 4.5 : copy.uniqueTreasure !== null ? 4.4 : copy.heroOnly ? 5 : copy.stars);

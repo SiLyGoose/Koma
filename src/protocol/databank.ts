@@ -1,5 +1,5 @@
 import type { EssenceId, HeroSkillView } from './heroes.js';
-import type { Slot, Stars } from './items.js';
+import type { MainStat, Slot, Stars } from './items.js';
 import type { RaidBossId, RaidClassId, RaidLevel } from './raid.js';
 
 /* The databank page on the site: what the bot's GET /api/databank (the same for everyone) and GET /api/raid/week (a server's) say. */
@@ -34,6 +34,11 @@ export interface DatabankItem {
    * the set). Null otherwise.
    */
   set: { name: string; boss: string; effects: Partial<Record<RaidClassId, string>>; pieces: number; effect: string | null } | null;
+  /**
+   * TechnoMagic gear: the main stat a copy of it has (a weapon's HP), or one of (an armor's: P.DEF, then M.DEF, whichever
+   * its copy rolled as it dropped). Left out: none (a treasure, anything else).
+   */
+  mainStats?: MainStat[];
   /**
    * The lines every one of its levels starts with, kept once for every item that has them (Databank.pools): TechnoMagic
    * gear's potentials, a unique treasure's options. `effects` has only what comes after them. Left out: none.

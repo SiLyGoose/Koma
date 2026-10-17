@@ -2,10 +2,10 @@ import type { Filter } from 'mongodb';
 import { HOUR_MS } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID, TM_DROPS } from '../data/items.js';
-import { rollTmPotentials, rollTmSkill, wholePotentials } from '../lib/game/technomagic.js';
+import { rollTmArmorDef, rollTmPotentials, rollTmSkill, wholePotentials } from '../lib/game/technomagic.js';
 import { bestCopy } from '../lib/game/items/copies.js';
 import { reslotGear } from '../lib/game/items/reslot.js';
-import type { EquipmentDoc, ItemCopyDoc, LedgerDoc, TmPotential } from '../types.js';
+import type { EquipmentDoc, ItemCopyDoc, LedgerDoc, TmArmorDef, TmPotential } from '../types.js';
 import { SLOTS } from '../types.js';
 
 /*
@@ -308,6 +308,22 @@ export async function rollMissingTmPotentials(roll: () => TmPotential[] = rollTm
   for (let i = 0; i < missing.length; i += BATCH) {
     const batch = missing.slice(i, i + BATCH);
     await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmPotentials: { $exists: false } }, update: { $set: { tmPotentials: roll() } } } })));
+  }
+  return missing.length;
+}
+
+/**
+ * TechnoMagic armor comes with its main stat's DEF (ItemCopyDoc.tmArmorDef: P.DEF or M.DEF), rolled as it drops.
+ * Copies from before that are given one now, at random as a drop's is. Idempotent and cheap once done (no
+ * TechnoMagic armor lacks one), so it runs every start.
+ */
+export async function rollMissingTmArmorDefs(roll: () => TmArmorDef = rollTmArmorDef): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.filter((item) => item.slot === 'armor').map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmArmorDef: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmArmorDef: { $exists: false } }, update: { $set: { tmArmorDef: roll() } } } })));
   }
   return missing.length;
 }

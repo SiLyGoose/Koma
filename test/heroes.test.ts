@@ -6,12 +6,13 @@ import { GROUPS } from '../src/commands/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { gachaItems, ITEMS, ITEMS_BY_ID, TM_DROPS, tmDropsOf, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
+import { TM_WEAPON_HP, tmMainStats } from '../src/data/tm-main.js';
 import { TM_SET_LABEL, TM_SET_PIECES, TM_SETS_BY_ID, tmSetEffect } from '../src/data/tm-sets.js';
 import { bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, perksCost, RAID_BOSS_ESSENCES, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, transcendCost, transcendPicks, transcendPoints } from '../src/data/transcend.js';
 import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS } from '../src/constants/index.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
-import { activeSet, activeTmEffects, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, fitsSlot, heroSlotsFor, heroWearable, heroWorn, pieceBonus, raidValue, wieldedBy } from '../src/lib/game/heroes.js';
+import { activeSet, activeTmEffects, copyMainStat, heroBonus, heroCopyIds, heroSet, raidGear, setLines, heroEquipMoves, heroItemLines, heroOnly, fitsSlot, heroSlotsFor, heroWearable, heroWorn, pieceBonus, raidValue, wieldedBy } from '../src/lib/game/heroes.js';
 import { effectStrength } from '../src/lib/game/items/equipment.js';
 import { keptCopyIds } from '../src/lib/game/items/loadouts.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -172,7 +173,7 @@ test('heroes: what they wear is kept from selling and refining, and a copy moves
 });
 
 test('heroes: gear raises their stats, the raid gear by what it does in the raid, and a class item only on its class', () => {
-  // TechnoMagic gear: its copy's potentials are all it gives, however far it is refined.
+  // TechnoMagic gear: its main stat and its copy's potentials are all it gives, however far it is refined.
   const potentials = [
     { stat: 'atk', value: 0.05 },
     { stat: 'critDamage', value: 0.12 },
@@ -190,8 +191,20 @@ test('heroes: gear raises their stats, the raid gear by what it does in the raid
   // Less refined, less of the raid gear; the same of the TechnoMagic gear's potentials.
   assert.ok(heroBonus([{ ...maul, level: 1 }], 'warrior').atk < heroBonus([maul], 'warrior').atk);
   assert.deepEqual(heroBonus([{ ...fang, level: 1 }], 'warrior'), heroBonus([fang], 'warrior'));
-  assert.deepEqual(heroBonus([{ item: item('tri-head-cleaver'), level: 5 }], 'warrior'), heroBonus([], 'warrior'), 'no potentials, nothing');
+  assert.deepEqual(heroBonus([{ item: item('tri-head-cleaver'), level: 5 }], 'warrior'), { ...heroBonus([], 'warrior'), hpFlat: TM_WEAPON_HP }, 'no potentials, its main stat only');
   assert.deepEqual(heroItemLines(item('tri-head-cleaver'), 5, undefined, potentials), ['+5% ATK', '+12% Crit DMG']);
+  // A weapon's main stat is King's Raid's HP; an armor's, its copy's DEF, as heavy as its class's armor; on another class, none.
+  assert.equal(kirze.hpFlat, TM_WEAPON_HP);
+  assert.equal(heroBonus([{ item: item('chimera-hide-plate'), level: 1, armorDef: 'magical' }], 'knight').defMagicalFlat, 51_160);
+  assert.equal(heroBonus([{ item: item('chimera-hide-plate'), level: 1, armorDef: 'magical' }], 'knight').defPhysicalFlat, 0);
+  assert.equal(heroBonus([{ item: item('bogmist-robe'), level: 1, armorDef: 'physical' }], 'wizard').defPhysicalFlat, 17_056);
+  assert.equal(heroBonus([{ item: item('bogmist-robe'), level: 1, armorDef: 'magical' }], 'wizard').defMagicalFlat, 34_104);
+  assert.equal(heroBonus([{ item: item('chimera-hide-plate'), level: 1, armorDef: 'magical' }], 'wizard').defMagicalFlat, 0);
+  assert.equal(heroBonus([{ item: item('chimera-hide-plate'), level: 1 }], 'knight').defMagicalFlat, 0, 'no DEF rolled, none');
+  assert.equal(raidValue('defPhysicalFlat', 51_160), 51_160); // as it is in the raid
+  assert.deepEqual(copyMainStat(item('bogmist-robe'), { tmArmorDef: 'magical' }), { name: 'M. DEF', value: 34_104 });
+  assert.equal(copyMainStat(item('galgorias-heart'), {}), null); // a treasure has none
+  assert.deepEqual(tmMainStats(item('bogmist-robe')).map(({ name }) => name), ['P. DEF', 'M. DEF']);
 });
 
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
@@ -213,6 +226,9 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.deepEqual(view.copies.map((copy) => copy.id), ['fang', 'maul', 'plate', 'spare']); // TechnoMagic gear first, then by stars, then level
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.hero, 'kirze');
   assert.equal(view.copies.find((copy) => copy.id === 'maul')?.locked, true);
+  // A TechnoMagic weapon's main stat is its HP; the raid's gear has none.
+  assert.deepEqual(view.copies.find((copy) => copy.id === 'fang')?.mainStat, { name: 'HP', value: TM_WEAPON_HP });
+  assert.equal(view.copies.find((copy) => copy.id === 'maul')?.mainStat, null);
   // What a hero has on (or is saved in a slot of it) and what's locked never sells; the rest says what it sells for.
   assert.deepEqual(view.copies.map((copy) => copy.sell === null), [true, true, true, false]);
   assert.ok((view.copies.find((copy) => copy.id === 'spare')?.sell ?? 0) > 0);

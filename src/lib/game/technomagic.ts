@@ -1,9 +1,10 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG } from '../../config.js';
 import { tmDropsOf } from '../../data/items.js';
+import { TM_ARMOR_DEFS } from '../../data/tm-main.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
 import { tmSetOfBoss } from '../../data/tm-sets.js';
-import type { ItemDef, TmPotential } from '../../types.js';
+import type { ItemDef, TmArmorDef, TmPotential } from '../../types.js';
 import {
   BOSS_IDS,
   MOST_STAGE,
@@ -26,7 +27,8 @@ import {
  * it (web/games/technomagic/), and every page runs the same one. A win gives TechnoMagic items (ItemDef.tmDrop) of
  * the boss's own set (data/tm-sets.ts), more at the higher stages (TM_DROP_COUNTS), and each copy comes with one of the
  * sim's additional skills (TM_SKILLS: the same list whatever the set) and TM_POTENTIAL_LINES potentials
- * (data/tm-potentials.ts), rolled as it drops. The database side is services/technomagic.ts.
+ * (data/tm-potentials.ts), rolled as it drops; an armor comes with its main stat's DEF too (data/tm-main.ts). The
+ * database side is services/technomagic.ts.
  */
 
 export { BOSS_IDS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_SKILLS, replay, startRaid, type LiveRaid, type Replay, type Run, type TmSkill };
@@ -51,6 +53,9 @@ export function rollTmDrop(boss: string, rng: TmRng = defaultRng): ItemDef | nul
 
 /** The additional skill a piece of TechnoMagic gear comes with: one of TM_SKILLS, each as likely (its id). */
 export const rollTmSkill = (rng: TmRng = defaultRng): string => (TM_SKILLS[rng.index(TM_SKILLS.length)] as TmSkill).id;
+
+/** The DEF a piece of TechnoMagic armor's main stat is (data/tm-main.ts): P.DEF or M.DEF, each as likely. */
+export const rollTmArmorDef = (rng: TmRng = defaultRng): TmArmorDef => TM_ARMOR_DEFS[rng.index(TM_ARMOR_DEFS.length)] as TmArmorDef;
 
 /** A potential's amount, to the nearest whole percent (as every copy's is). */
 export const wholePercent = (value: number): number => Math.round(value * 100) / 100;

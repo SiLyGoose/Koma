@@ -5,8 +5,8 @@ import { keptPerks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
 import { tmDropCount } from '../constants/technomagic.js';
-import { rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
-import type { ItemDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
+import { rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import type { ItemDef, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
 import { addCopy, ensureMember } from './economy/index.js';
 import { recordLedger } from './economy/shared.js';
 
@@ -15,7 +15,7 @@ import { recordLedger } from './economy/shared.js';
  * in, web/games/technomagic/). A run is begun for everyone in a room as its fight starts: each player's
  * heroes in the gear they wear then. The bot runs the fight itself; a win gives each player in it (however many
  * runs they have won that day: there is no daily limit) TechnoMagic items (TM_DROP_COUNTS, by the stage), each copy with an additional skill and its potentials rolled for it
- * (ItemCopyDoc.tmSkill, tmPotentials), and `hero.winPoints` points.
+ * (ItemCopyDoc.tmSkill, tmPotentials; an armor's main stat's DEF too, tmArmorDef), and `hero.winPoints` points.
  */
 
 /** The ids of the heroes a member owns (that still exist). */
@@ -76,11 +76,12 @@ export async function beginRun(guildId: string, stage: number, players: readonly
   return run;
 }
 
-/** What a player found: a TechnoMagic item, and the additional skill and potentials its copy came with. */
+/** What a player found: a TechnoMagic item, and the additional skill and potentials its copy came with (an armor's main stat's DEF too). */
 export interface TmFind {
   item: ItemDef;
   skill: string;
   potentials: TmPotential[];
+  armorDef?: TmArmorDef;
 }
 
 /** What a run over gave a player: the TechnoMagic items they found, and the points they were paid. */
@@ -104,11 +105,12 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
       const item = rollTmDrop(TM_BOSS);
       if (!item) break;
       const { copy } = await addCopy(guildId, userId, item.id);
-      // Its additional skill (the same list whatever its set) and its potentials, rolled now.
+      // Its additional skill (the same list whatever its set) and its potentials, rolled now; and an armor's main stat's DEF.
       const skill = rollTmSkill();
       const potentials = rollTmPotentials();
-      await collections().items.updateOne({ _id: copy._id }, { $set: { tmSkill: skill, tmPotentials: potentials } });
-      drops.push({ item, skill, potentials });
+      const armorDef = item.slot === 'armor' ? rollTmArmorDef() : undefined;
+      await collections().items.updateOne({ _id: copy._id }, { $set: { tmSkill: skill, tmPotentials: potentials, ...(armorDef && { tmArmorDef: armorDef }) } });
+      drops.push({ item, skill, potentials, ...(armorDef && { armorDef }) });
     }
     const points = paid ? Math.max(0, CONFIG.hero.winPoints) : 0;
     if (points > 0) {

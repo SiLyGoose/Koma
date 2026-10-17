@@ -1,4 +1,4 @@
-import type { Slot, Stars, TmSetId } from './items.js';
+import type { MainStat, Slot, Stars, TmSetId } from './items.js';
 import type { GearRefine, GearSale, RefineBlock } from './gear.js';
 import type { RaidClassId } from './raid.js';
 
@@ -72,6 +72,8 @@ export interface HeroCopy {
   sell: number | null;
   /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class): a TechnoMagic copy's potentials. */
   effects: string[];
+  /** TechnoMagic gear: its main stat (a weapon's HP, an armor's P.DEF or M.DEF), on a hero of its class; null: none (a treasure, anything else). */
+  mainStat: MainStat | null;
   /**
    * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
    * and whether it is on (the hero wearing it has its set's effect); null otherwise.
@@ -112,7 +114,8 @@ export interface HeroView {
    * What its gear gives it in the raid, stat by stat, as the raid counts it: points for a chance or share
    * (crit, attack speed, penetration, block, dodge, CC resist: 1000 is 100%), and a share more of its own
    * for the rest (ATK, HP, crit damage, defence, heals, stun duration: 0.25 is 25% more), and a unique weapon's ATK
-   * as it is (atkFlat), and a main unique treasure's HP as it is (hpFlat).
+   * as it is (atkFlat), a main unique treasure's and TechnoMagic weapons' HP as it is (hpFlat), and TechnoMagic
+   * armors' P.DEF and M.DEF as they are (defPhysicalFlat, defMagicalFlat).
    */
   bonus: HeroBonus;
   /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (three of them). Null with none. */
@@ -209,7 +212,7 @@ export const TRANSCEND_PERKS: readonly TranscendPerk[] = [
 ];
 
 /** What gear can raise in the raid, in the order its lines are listed (the bot's lib/game/heroes.ts HERO_STATS says what each is). */
-export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hpFlat', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysical', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'blockDef', 'blockDefPhysical', 'blockDefMagical', 'dodge', 'tough', 'toughPhysical', 'toughMagical', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
+export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hpFlat', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysicalFlat', 'defPhysical', 'defMagicalFlat', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'blockDef', 'blockDefPhysical', 'blockDefMagical', 'dodge', 'tough', 'toughPhysical', 'toughMagical', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
 export type HeroStat = (typeof HERO_STAT_IDS)[number];
 
 /** What gear gives a hero: a share for each stat (0.1: 10% more, or 100 points). */

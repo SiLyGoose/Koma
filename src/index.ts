@@ -27,7 +27,7 @@ import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmArmorDefs, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -142,6 +142,9 @@ async function main(): Promise<void> {
   // Every start: rounds TechnoMagic copies' potentials to whole percents (see roundTmPotentials).
   const rounded = await roundTmPotentials();
   if (rounded > 0) console.log(`TechnoMagic potentials: rounded ${rounded} copy(ies)' potentials to whole percents.`);
+  // Every start: gives TechnoMagic armor without its main stat's DEF one (see rollMissingTmArmorDefs).
+  const armored = await rollMissingTmArmorDefs();
+  if (armored > 0) console.log(`TechnoMagic armor: rolled P.DEF or M.DEF for ${armored} copy(ies) that had neither.`);
 
   // MessageContent is a privileged intent: it must also be switched on in the Developer Portal
   // (your application > Bot > Privileged Gateway Intents > Message Content Intent).

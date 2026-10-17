@@ -7,7 +7,7 @@ import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
-import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
+import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
@@ -609,6 +609,8 @@ test('technomagic: each copy rolls 4 potentials, each a different stat, each wit
   // Copies from before, finer, rounded to the nearest whole percent; those already whole left alone.
   assert.deepEqual(wholePotentials([{ stat: 'atk', value: 0.0749 }, { stat: 'speed', value: 0.115 }, { stat: 'hp', value: 0.05 }]), [{ stat: 'atk', value: 0.07 }, { stat: 'speed', value: 0.12 }, { stat: 'hp', value: 0.05 }]);
   assert.equal(wholePotentials([{ stat: 'atk', value: 0.07 }, { stat: 'pen', value: 0.11 }]), null);
+  // An armor's main stat: P.DEF or M.DEF, by the roll.
+  assert.deepEqual([rollTmArmorDef({ index: () => 0 }), rollTmArmorDef({ index: () => 1 })], ['physical', 'magical']);
   const potentials = [
     { stat: 'lifesteal', value: 0.03 },
     { stat: 'critResist', value: 0.05 },

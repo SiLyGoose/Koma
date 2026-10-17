@@ -1,7 +1,7 @@
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../../data/tm-sets.js';
-import { potentialLines } from '../../../lib/game/heroes.js';
+import { copyMainStat, potentialLines } from '../../../lib/game/heroes.js';
 import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSS, tmSkillLine } from '../../../lib/game/technomagic.js';
 import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
@@ -68,7 +68,7 @@ export const realRoomDeps: RoomDeps = {
       [...found].map(([userId, { finds, points }]) => [
         userId,
         {
-          drops: finds.map(({ item, skill, potentials }) => {
+          drops: finds.map(({ item, skill, potentials, armorDef }) => {
             const setEffect = tmSetEffect(item);
             return {
               itemId: item.id,
@@ -76,6 +76,7 @@ export const realRoomDeps: RoomDeps = {
               stars: item.stars,
               skill: tmSkillLine(skill),
               potentials: potentialLines(potentials),
+              mainStat: copyMainStat(item, { ...(armorDef && { tmArmorDef: armorDef }) }),
               slot: item.slot,
               description: item.description,
               itemClass: item.class ?? null,

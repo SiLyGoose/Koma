@@ -28,3 +28,12 @@ export const BANNERS: readonly BannerId[] = ['standard', 'limited', 'hero'];
 
 /** The TechnoMagic Raids' gear sets (data/tm-sets.ts), one for each raid's boss. */
 export type TmSetId = 'perseverance' | 'hope' | 'authority';
+
+/**
+ * A TechnoMagic piece's main stat, King's Raid's at 5★ (the bot's data/tm-main.ts): its name as King's Raid says it
+ * ("HP", "P. DEF", "M. DEF"), and how much it adds to its hero's stat as it is.
+ */
+export interface MainStat {
+  name: string;
+  value: number;
+}

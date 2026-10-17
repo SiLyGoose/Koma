@@ -4,7 +4,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
-import { activeTmEffects, heroItemLines, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
+import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
@@ -82,7 +82,7 @@ export interface GearStore {
   classes: (guildId: string, userIds: readonly string[]) => Promise<(RaidClassId | null)[]>;
 }
 
-export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials'>>;
+export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials' | 'tmArmorDef'>>;
 
 /**
  * Whether refining `copyId` itself (a copy of `item`) can be done, with the member's copies of its item (`sameItem`), the
@@ -157,6 +157,7 @@ export function gearView(
       level,
       maxLevel,
       effects: item.tmDrop || item.uniqueTreasure ? heroItemLines(item, level, undefined, copy.tmPotentials) : describeEffects(item, share, level),
+      mainStat: copyMainStat(item, copy),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
       additionalActive: tmOn.get(copy._id)?.additional ?? false,

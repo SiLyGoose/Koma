@@ -1,4 +1,4 @@
-import type { Slot, Stars } from './items.js';
+import type { MainStat, Slot, Stars } from './items.js';
 import type { RaidClassId } from './raid.js';
 
 /* The gear page on the site: what the bot's GET /api/gear (and its POSTs) say of a member's gear. */
@@ -17,6 +17,8 @@ export interface GearCopy {
   maxLevel: number;
   /** What it does for this member at this level: a TechnoMagic copy's potentials (what it does on a hero). */
   effects: string[];
+  /** TechnoMagic gear: its main stat (a weapon's HP, an armor's P.DEF or M.DEF), on a hero of its class; null: none (a treasure, anything else). */
+  mainStat: MainStat | null;
   /**
    * TechnoMagic gear (not a treasure): its set's effect for its class, once a hero wears `pieces` of it (data/tm-sets.ts),
    * and whether it is on (the hero wearing it has its set's effect); null otherwise.

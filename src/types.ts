@@ -345,8 +345,16 @@ export interface ItemCopyDoc {
    * treasure slots. Missing on any other copy.
    */
   tmPotentials?: TmPotential[];
+  /**
+   * TechnoMagic armor: the DEF its main stat is (data/tm-main.ts: P.DEF or M.DEF, King's Raid's Armor or Secondary Gear),
+   * rolled as it dropped. Missing on any other copy (a TechnoMagic weapon's main stat is always HP).
+   */
+  tmArmorDef?: TmArmorDef;
   obtainedAt: Date;
 }
+
+/** The DEF a TechnoMagic armor's main stat is: physical (P.DEF) or magical (M.DEF). */
+export type TmArmorDef = 'physical' | 'magical';
 
 /** A stat a TechnoMagic copy's potential raises (each one of a hero's stats in the raid: lib/game/heroes.ts HeroStat). */
 export type TmPotentialId =

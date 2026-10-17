@@ -7,6 +7,7 @@ import { heroBannerItem, ITEMS } from '../../data/items.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
+import { tmMainStats } from '../../data/tm-main.js';
 import { TM_SET_PIECES, TM_SETS_BY_ID, tmSetEffect } from '../../data/tm-sets.js';
 import { TM_POTENTIAL_LINES, TM_POTENTIALS, UT_OPTION_LINES } from '../../data/tm-potentials.js';
 import { fmt, formatPercent } from '../../lib/format.js';
@@ -94,6 +95,8 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       uniqueWeapon: item.uniqueWeapon ?? null,
       uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
       set: setOf(item),
+      // (TechnoMagic gear's main stat: a weapon's HP, an armor's P.DEF or M.DEF, whichever its copy rolls.)
+      ...(item.tmDrop && tmMainStats(item).length > 0 && { mainStats: tmMainStats(item).map(({ name, value }) => ({ name, value })) }),
     }),
   );
   // A stable sort: within a tier, the catalog's own order.

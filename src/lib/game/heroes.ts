@@ -2,18 +2,20 @@ import { REFINE } from '../../constants/index.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import { HEROES } from '../../data/heroes.js';
 import { ITEMS_BY_ID, uniqueOwner } from '../../data/items.js';
+import { tmMainStat } from '../../data/tm-main.js';
 import { TM_POTENTIAL_NAME } from '../../data/tm-potentials.js';
 import { TM_SET_PIECES, TM_SETS_BY_ID } from '../../data/tm-sets.js';
 import type { EffectId } from '../../perks/index.js';
 import { uwAttack } from '../../data/uw-attack.js';
 import { utHp } from '../../data/ut-hp.js';
-import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type TmPotential, type TmSetId } from '../../types.js';
+import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc, type TmArmorDef, type TmPotential, type TmSetId } from '../../types.js';
 import { fmt, formatPercent } from '../format.js';
 import { effectStrength, itemEffects, perkShare, type GearPiece } from './items/equipment.js';
 import { refineLevel } from './items/refine-share.js';
 import { tmPerkStats, uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import { HERO_SLOT_KIND, SIDE_SLOTS } from '../../protocol/heroes.js';
 import { HERO_STAT_IDS, type HeroBonus, type HeroStat } from '../../protocol/heroes.js';
+import type { MainStat } from '../../protocol/items.js';
 
 export { HERO_SLOT_KIND, HERO_STAT_IDS, SIDE_SLOTS, type HeroBonus, type HeroStat };
 
@@ -25,8 +27,9 @@ export { HERO_SLOT_KIND, HERO_STAT_IDS, SIDE_SLOTS, type HeroBonus, type HeroSta
  *
  * What gear does for a hero is its stats in the raid (the raid's own, Koma-UI's src/technomagic/): each of the
  * raid gear's perks raises the one most like what it does in the raid (FROM_PERK), by as much or by a share of
- * it. TechnoMagic gear has no perks: each of a copy's potentials (ItemCopyDoc.tmPotentials) raises the stat of
- * its name, and that is all it gives (with its set and additional skill). A class item only works on a hero of its
+ * it. TechnoMagic gear has no perks: its main stat (King's Raid's: a weapon's HP, an armor's P.DEF or M.DEF, its copy's
+ * ItemCopyDoc.tmArmorDef: data/tm-main.ts), added as it is, and each of a copy's potentials (ItemCopyDoc.tmPotentials),
+ * which raises the stat of its name, are all it gives (with its set and additional skill). A class item only works on a hero of its
  * class. A hero's unique weapon (ItemDef.uniqueWeapon) only goes on its own hero, in its first weapon slot: it adds King's Raid's flat ATK
  * for its hero's class and refinement (data/uw-attack.ts), and has its own effect in the raid (the raid's sim,
  * which says what it does: uniqueWeaponText). A hero's unique treasures (ItemDef.uniqueTreasure) only go on their own
@@ -113,8 +116,9 @@ export function heroEquipMoves(heroes: MemberDoc['heroes'], heroId: string, slot
 
 /**
  * Each stat, in the order they're listed: what it is in the raid (`points`: a chance or share, 1000 points
- * being 100%, so a bonus of 0.1 is 100 points; `flat`: ATK added as it is, a unique weapon's; otherwise a share
- * more of the hero's own), its name among a hero's stats (spelled out: the user's), and its line on a piece of gear.
+ * being 100%, so a bonus of 0.1 is 100 points; `flat`: added as it is, a unique weapon's ATK, a main unique treasure's
+ * HP, TechnoMagic gear's main stat; otherwise a share more of the hero's own), its name among a hero's stats (spelled
+ * out: the user's), and its line on a piece of gear.
  */
 export const HERO_STATS: Readonly<Record<HeroStat, { points: boolean; flat?: boolean; label: string; text: (value: string) => string }>> = {
   atkFlat: { points: false, flat: true, label: 'Attack', text: (v) => `+${v} ATK` },
@@ -126,7 +130,9 @@ export const HERO_STATS: Readonly<Record<HeroStat, { points: boolean; flat?: boo
   speed: { points: true, label: 'Attack Speed', text: (v) => `+${v} attack speed` },
   pen: { points: true, label: 'Penetration', text: (v) => `+${v} penetration` },
   defense: { points: false, label: 'Physical and Magical Defense', text: (v) => `+${v} physical and magical defence` },
+  defPhysicalFlat: { points: false, flat: true, label: 'Physical Defense', text: (v) => `+${v} P. DEF` },
   defPhysical: { points: false, label: 'Physical Defense', text: (v) => `+${v} physical defence` },
+  defMagicalFlat: { points: false, flat: true, label: 'Magical Defense', text: (v) => `+${v} M. DEF` },
   defMagical: { points: false, label: 'Magical Defense', text: (v) => `+${v} magical defence` },
   block: { points: true, label: 'Physical and Magical Block', text: (v) => `+${v} block` },
   blockPhysical: { points: true, label: 'Physical Block', text: (v) => `+${v} physical block` },
@@ -184,8 +190,17 @@ const FROM_PERK: Partial<Record<EffectId, readonly [HeroStat, number]>> = {
 /** Whether a hero of `heroClass` gets an item's perks: anyone does, but a class item's only its class. */
 export const worksOn = (item: ItemDef, heroClass: RaidClassId): boolean => item.class === undefined || item.class === heroClass;
 
-/** One piece a hero wears: and a TechnoMagic copy's potentials (ItemCopyDoc.tmPotentials), or a unique treasure's options; and (`main`) whether it is the hero's main treasure. */
-export type HeroPiece = GearPiece & { potentials?: readonly TmPotential[]; main?: boolean };
+/**
+ * One piece a hero wears: and a TechnoMagic copy's potentials (ItemCopyDoc.tmPotentials), or a unique treasure's options;
+ * a TechnoMagic armor's main stat's DEF (`armorDef`: ItemCopyDoc.tmArmorDef); and (`main`) whether it is the hero's main treasure.
+ */
+export type HeroPiece = GearPiece & { potentials?: readonly TmPotential[]; armorDef?: TmArmorDef; main?: boolean };
+
+/** A copy's main stat as the pages show it (data/tm-main.ts): TechnoMagic gear's, by its item and its copy's armor DEF (null: none). */
+export function copyMainStat(item: ItemDef, copy: Partial<Pick<ItemCopyDoc, 'tmArmorDef'>>): MainStat | null {
+  const main = tmMainStat(item, copy.tmArmorDef);
+  return main && { name: main.name, value: main.value };
+}
 
 /** The class of the hero a unique weapon is for (undefined: not one, or of a hero that's gone). */
 export const uniqueClass = (item: ItemDef): RaidClassId | undefined => (item.uniqueWeapon === undefined ? undefined : HEROES.find((hero) => hero.id === item.uniqueWeapon)?.class);
@@ -195,7 +210,7 @@ export const uniqueClass = (item: ItemDef): RaidClassId | undefined => (item.uni
  * when `heroId` says which hero, nothing from another hero's unique weapon. A unique weapon's flat ATK is its
  * own hero's class's.
  */
-export function pieceBonus({ item, level, potentials = [], main = false }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
+export function pieceBonus({ item, level, potentials = [], armorDef, main = false }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
   const out = noBonus();
   if (!worksOn(item, heroClass) || (heroId !== undefined && !wieldedBy(item, heroId))) return out;
   for (const effect of itemEffects(item, level)) {
@@ -208,6 +223,9 @@ export function pieceBonus({ item, level, potentials = [], main = false }: HeroP
   if (item.uniqueTreasure && main) out.hpFlat += utHp(level);
   // (TechnoMagic gear's potentials, and a unique treasure's options, wherever it is worn.)
   if (item.tmDrop || item.uniqueTreasure) for (const { stat, value } of potentials) if (stat in out) out[stat] += value;
+  // (TechnoMagic gear's main stat, King's Raid's at 5★: a weapon's HP, an armor's DEF.)
+  const mainStat = tmMainStat(item, armorDef);
+  if (mainStat) out[mainStat.stat] += mainStat.value;
   return out;
 }
 
@@ -338,7 +356,7 @@ export const heroSkills = (pieces: readonly { item: ItemDef; skill?: string }[],
  * treasure only on its own hero, each unique treasure once (a second copy of one counts for nothing), and sub treasures
  * only under a main one that is a unique treasure (as the heroes page shows them).
  */
-export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'>[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
+export function raidGear(copies: readonly (Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'tmArmorDef'>>)[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
   const owned = new Map(copies.map((copy) => [copy._id, copy]));
   const worn = heroWorn(member);
   const out = new Map<string, RaidGear>();
@@ -361,7 +379,7 @@ export function raidGear(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | '
       if (!countsOnce(item, treasures)) continue;
       if (item.uniqueWeapon !== undefined) uw = uniqueTier(copy.level);
       if (item.uniqueTreasure !== undefined && slot === 'treasure') ut = { skill: item.uniqueTreasure.skill, tier: treasureTier(copy.level) };
-      on.push({ item, level: refineLevel(copy.level), ...(copy.tmPotentials && { potentials: copy.tmPotentials }), ...(slot === 'treasure' && { main: true }) });
+      on.push({ item, level: refineLevel(copy.level), ...(copy.tmPotentials && { potentials: copy.tmPotentials }), ...(copy.tmArmorDef && { armorDef: copy.tmArmorDef }), ...(slot === 'treasure' && { main: true }) });
       skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
       counted.push(copy._id);
     }

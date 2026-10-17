@@ -667,7 +667,7 @@ function scaleAt(def, stage, solo) {
 }
 //#endregion
 //#region src/technomagic/sim/gear.ts
-/** A hero's stats with what its gear gives it (as ../../heroes/stats.ts shows them). Flat ATK (a unique weapon's) and flat HP (a main unique treasure's) are added before the shares of them. */
+/** A hero's stats with what its gear gives it (as ../../heroes/stats.ts shows them). Flat ATK (a unique weapon's), flat HP (a main unique treasure's, a TechnoMagic weapon's) and flat DEF (a TechnoMagic armor's) are added before the shares of them. */
 function geared(stats, gear = {}) {
 	const more = (n, by) => n * (1 + (by ?? 0));
 	const plus = (n, by) => n + (by ?? 0);
@@ -676,8 +676,8 @@ function geared(stats, gear = {}) {
 		...stats,
 		hp: more(plus(stats.hp, gear.hpFlat), gear.hp),
 		atk: more(plus(stats.atk, gear.atkFlat), gear.atk),
-		physical: more(stats.physical, both(gear.defense, gear.defPhysical)),
-		magical: more(stats.magical, both(gear.defense, gear.defMagical)),
+		physical: more(plus(stats.physical, gear.defPhysicalFlat), both(gear.defense, gear.defPhysical)),
+		magical: more(plus(stats.magical, gear.defMagicalFlat), both(gear.defense, gear.defMagical)),
 		crit: plus(stats.crit, gear.crit),
 		speed: plus(stats.speed, gear.speed),
 		pen: plus(stats.pen, gear.pen),
@@ -13011,7 +13011,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "b515f80d1f88";
+var SIM_VERSION = "b8b93ab4769a";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
