@@ -6,6 +6,7 @@ export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 export declare const MOST_INPUTS = 20000;
+/** The most stages any boss has (each boss's own: BossInfo.stages). */
 export declare const MOST_STAGE: number;
 /**
  * A hero in a raid: its id, the index of its skin, what its gear gives it (the bot's HeroBonus), the TechnoMagic
@@ -106,10 +107,11 @@ export declare function tmPerkStats(hero: string, perks: readonly string[]): {
 /** The heroes there are, in the order of their cards; and the bosses, by id. */
 export declare const TM_HEROES: readonly TmHero[];
 export declare const BOSS_IDS: readonly string[];
-/** A boss as the bot says it: its id and name. */
+/** A boss as the bot says it: its id, its name and how many stages it has. */
 export interface BossInfo {
     id: string;
     name: string;
+    stages: number;
 }
 /** The TechnoMagic Raid's bosses, and the Dragon Raid's dragons, in order. */
 export declare const TM_BOSS_INFO: readonly BossInfo[];

@@ -4,7 +4,7 @@ import { HEROES_BY_ID } from '../../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../../data/tm-sets.js';
 import { copyMainStat, potentialLines } from '../../../lib/game/heroes.js';
 import { DRAGONS } from '../../../lib/game/dragon.js';
-import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
+import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
 import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
@@ -246,7 +246,7 @@ export class TechnoMagicRoom {
   /** The highest stage the host may pick, and the one the room starts at: the one after the highest they have won (the first, for one who has won none). */
   private unlocked(): number {
     const host = this.members.get(this.host() ?? '');
-    return Math.min(MOST_STAGE, (host?.cleared ?? 0) + 1);
+    return Math.min(this.boss.stages, (host?.cleared ?? 0) + 1);
   }
 
   /**
@@ -409,7 +409,7 @@ export class TechnoMagicRoom {
   setStage(userId: string, stage: number): AnswerCode | null {
     if (this.phase !== 'prep' || this.starting) return 'closed';
     if (userId !== this.host()) return 'only_host';
-    const picked = Math.min(MOST_STAGE, Math.max(1, Math.floor(stage)));
+    const picked = Math.min(this.boss.stages, Math.max(1, Math.floor(stage)));
     if (picked > this.unlocked()) return 'locked';
     this.stage = picked;
     this.tell();
@@ -715,7 +715,7 @@ export class TechnoMagicRoom {
       bosses: [...this.raid.bosses],
       room: this.id,
       stage: this.stage,
-      stages: MOST_STAGE,
+      stages: this.boss.stages,
       unlocked: this.unlocked(),
       slots: this.slots(),
       solo: this.solo(),

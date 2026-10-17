@@ -119,10 +119,11 @@ export interface OverView {
 /** Which raid a room is: the TechnoMagic Raid, or the Dragon Raid. */
 export type RaidKind = 'technomagic' | 'dragon';
 
-/** A boss as the room says it. */
+/** A boss as the room says it, and how many stages it has. */
 export interface BossView {
   id: string;
   name: string;
+  stages: number;
 }
 
 export interface RoomState {

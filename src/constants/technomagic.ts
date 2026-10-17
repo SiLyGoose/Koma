@@ -60,10 +60,10 @@ export const DRAGON_WEB = {
 } as const;
 
 /**
- * The hero gear a Dragon Raid win gives each player whose run pays, by the stage it was fought at (1 to 8: the first is stage
+ * The hero gear a Dragon Raid win gives each player whose run pays, by the stage it was fought at (1 to 10: the first is stage
  * 1's): so many raid items (ItemDef.raidDrop, never TechnoMagic gear) of each star tier, each picked at random from its tier.
  */
-export const DRAGON_DROPS: readonly Readonly<Partial<Record<3 | 4, number>>>[] = [{ 3: 1 }, { 3: 1 }, { 3: 2 }, { 3: 2 }, { 4: 1, 3: 2 }, { 4: 1, 3: 2 }, { 4: 1, 3: 3 }, { 4: 2, 3: 3 }];
+export const DRAGON_DROPS: readonly Readonly<Partial<Record<3 | 4, number>>>[] = [{ 3: 1 }, { 3: 1 }, { 3: 2 }, { 3: 2 }, { 4: 1, 3: 2 }, { 4: 1, 3: 2 }, { 4: 1, 3: 3 }, { 4: 2, 3: 3 }, { 4: 2, 3: 4 }, { 4: 3, 3: 4 }];
 
 /** What a Dragon Raid win at `stage` drops (past the last stage, as much as the last). */
 export const dragonDrops = (stage: number): Readonly<Partial<Record<3 | 4, number>>> =>

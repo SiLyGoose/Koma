@@ -190,49 +190,56 @@ var GAUGE = {
 	lasts: 6,
 	takes: 1.3
 };
-/** Its health, defense and how hard its blows are at each stage (1 to 8), fought with more than one player; alone, ROOM_HP times less health. */
-var STAGE_HP = [
-	16e7,
-	22e7,
-	3e8,
-	41e7,
-	56e7,
-	76e7,
-	103e7,
-	14e8
+var KR_HP$1 = [
+	9262e3,
+	9262e3,
+	9262e3,
+	9262e3,
+	9262e3,
+	9872e3,
+	1239e4,
+	1312e4,
+	1593e4,
+	2113e4
 ];
-var STAGE_DEF = [
-	4e4,
-	5e4,
-	62e3,
-	77e3,
-	95e3,
-	118e3,
-	146e3,
-	18e4
+var KR_DEF = [
+	79200,
+	79200,
+	79200,
+	79200,
+	79200,
+	93600,
+	115200,
+	151200,
+	183600,
+	259200
 ];
-var STAGE_DEALS = [
-	1.4,
-	1.6,
-	1.85,
-	2.1,
-	2.4,
-	2.7,
-	3,
-	3.35
+var KR_ATK = [
+	809600,
+	809600,
+	809600,
+	809600,
+	809600,
+	1060800,
+	128e4,
+	2083200,
+	2529600,
+	3801600
 ];
+var HP$1 = 12.5;
+var DEALS$1 = 1.4;
 var ROOM_HP$1 = 1.7;
-/** A dragon's health and defense at stage 1 (`hp` and `def` times the table's), for its stats. */
-var firstOf = (hp, def) => ({
-	hp: STAGE_HP[0] * hp,
-	def: STAGE_DEF[0] * def
-});
+/** A dragon's health and defense at stage 1, for its stats. */
+var FIRST = {
+	hp: KR_HP$1[0] * HP$1,
+	def: KR_DEF[0]
+};
 /** A dragon's stages, fought with others and alone. */
 function dragonStages() {
-	const scales = (times) => STAGE_HP.map((hp, i) => ({
-		hp: hp / STAGE_HP[0] * times,
-		deals: STAGE_DEALS[i],
-		defense: STAGE_DEF[i] / STAGE_DEF[0]
+	const scales = (times) => KR_HP$1.map((hp, i) => ({
+		hp: hp / KR_HP$1[0] * times,
+		deals: DEALS$1 * (KR_ATK[i] / KR_ATK[0]),
+		defense: KR_DEF[i] / KR_DEF[0]
 	}));
 	return {
 		room: scales(1),
@@ -357,12 +364,7 @@ function withGauge(fight, own) {
 			downed = 0;
 			own.beaten?.();
 		},
-		marks() {
-			return [...downed > 0 ? [] : [{
-				text: `CC Gauge ${Math.ceil(gauge)}/${GAUGE.full}`,
-				tone: "stun"
-			}], ...own.marks?.() ?? []];
-		}
+		gauge: () => gauge / GAUGE.full
 	};
 }
 /** How long each of its moves takes, when its blow lands, and what that takes of whoever it lands on, least to most, before their defense. */
@@ -645,21 +647,19 @@ function armartaPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/armarta/index.ts
-var FIRST$3 = firstOf(1.2, 1.25);
 /**
-* Armarta, the ancient black dragon of stone, of Ashen Nox, the Black Sun (the Dragon Raid's Black Dragon, its strongest).
-* As in King's Raid, its Black Flame Breath leaves the Dark Flames, which eat at whoever it lands on; its gaze turns a hero
-* to stone; and it is harder to wear down than the others (more health and defense). Its blows are magical. What its
-* skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
+* Armarta, the ancient black dragon of stone, of Ashen Nox, the Black Sun (the Dragon Raid's Black Dragon). As in King's
+* Raid, its Black Flame Breath leaves the Dark Flames, which eat at whoever it lands on; and its gaze turns a hero to
+* stone. Its blows are magical. What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
 */
 var ARMARTA = {
 	id: "armarta",
 	name: "Armarta",
 	stats: {
-		hp: FIRST$3.hp,
+		hp: FIRST.hp,
 		deals: "magical",
-		physical: FIRST$3.def,
-		magical: FIRST$3.def,
+		physical: FIRST.def,
+		magical: FIRST.def,
 		...OPEN,
 		crit: 150,
 		resist: 200
@@ -1430,7 +1430,6 @@ function scalaxiaPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/scalaxia/index.ts
-var FIRST$2 = firstOf(1.1, .9);
 /**
 * Scalaxia, the ancient blue dragon of ice, of Turandana (the Dragon Raid's Frost Dragon). As in King's Raid, its blows
 * leave Frost, ten of which freeze a hero, and it flies up to freeze them all. Its blows are magical. What its skills do
@@ -1440,10 +1439,10 @@ var SCALAXIA = {
 	id: "scalaxia",
 	name: "Scalaxia",
 	stats: {
-		hp: FIRST$2.hp,
+		hp: FIRST.hp,
 		deals: "magical",
-		physical: FIRST$2.def,
-		magical: FIRST$2.def,
+		physical: FIRST.def,
+		magical: FIRST.def,
 		...OPEN,
 		crit: 100,
 		resist: 150
@@ -1578,7 +1577,6 @@ function temerairePart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/temeraire/index.ts
-var FIRST$1 = firstOf(1, 1);
 /**
 * Temeraire, the ancient red dragon of fire, of Dragia (the Dragon Raid's Fire Dragon). As in King's Raid, all its
 * attacks deal massive M.DMG, it blocks all P.DMG, and its Blessing of the Flame is worn away by heroes that hit often.
@@ -1588,10 +1586,10 @@ var TEMERAIRE = {
 	id: "temeraire",
 	name: "Temeraire",
 	stats: {
-		hp: FIRST$1.hp,
+		hp: FIRST.hp,
 		deals: "magical",
-		physical: FIRST$1.def,
-		magical: FIRST$1.def,
+		physical: FIRST.def,
+		magical: FIRST.def,
 		...OPEN,
 		block: {
 			physical: 1e3,
@@ -1742,7 +1740,6 @@ function zyrrkinothPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/zyrrkinoth/index.ts
-var FIRST = firstOf(.75, 1);
 /**
 * Zyrrkinoth, the ancient green venomous dragon, of Grimvine (the Dragon Raid's Poison Dragon). As in King's Raid, it has
 * very high Crit Resistance and DMG Reduction, but takes more damage each time it takes Crit DMG; nothing changes its ATK
@@ -1809,6 +1806,8 @@ var DRAGONS = [
 var BOSSES = [...TM_BOSSES, ...DRAGONS];
 //#endregion
 //#region src/technomagic/sim/bosses/boss.ts
+/** How many stages a boss has: the higher, the harder it is on the heroes (as its stages say). */
+var stagesOf = (def) => def.stages.room.length;
 /** A boss's scale at `stage` (1 to its last; past it, its last), alone or not. */
 function scaleAt(def, stage, solo) {
 	const row = solo ? def.stages.solo : def.stages.room;
@@ -4266,7 +4265,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let elapsed = 0;
 	/** Seconds of the raid's time gone, against this boss. */
 	let clock = 0;
-	let stage = Math.min(8, Math.max(1, Math.floor(firstStage) || 1));
+	let stage = Math.min(stagesOf(def), Math.max(1, Math.floor(firstStage) || 1));
 	let bossAuto = raid;
 	let deathless = noDeaths && !raid;
 	let result = null;
@@ -5233,6 +5232,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			for (const fighter of fighters) marks.push(...fighter.part.marks?.() ?? []);
 			return marks;
 		},
+		gauge: () => foe.part.gauge?.() ?? null,
 		checksum() {
 			const word = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(8));
 			let hash = 2166136261;
@@ -5402,7 +5402,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				}
 				return;
 			case "stage":
-				stage = Math.min(8, Math.max(1, Math.floor(input.stage) || 1));
+				stage = Math.min(stagesOf(def), Math.max(1, Math.floor(input.stage) || 1));
 				return;
 		}
 	}
@@ -14014,13 +14014,14 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "ae7ce2462840";
+var SIM_VERSION = "9964e76fcc7d";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 var MOST_INPUTS = 2e4;
-var MOST_STAGE = 8;
+/** The most stages any boss has (each boss's own: BossInfo.stages). */
+var MOST_STAGE = Math.max(...BOSSES.map(stagesOf));
 /**
 * What a hero's unique treasure (its `skill`th: 1 to 4, UT1 to UT4) does at a tier (1 to 5) as its main treasure, as the
 * bot says it: its name, and King's Raid's words with the fight's numbers (null: no such hero or treasure).
@@ -14069,13 +14070,15 @@ var TM_HEROES = HEROES.map((hero) => ({
 }));
 var BOSS_IDS = BOSSES.map((boss) => boss.id);
 /** The TechnoMagic Raid's bosses, and the Dragon Raid's dragons, in order. */
-var TM_BOSS_INFO = TM_BOSSES.map(({ id, name }) => ({
-	id,
-	name
+var TM_BOSS_INFO = TM_BOSSES.map((boss) => ({
+	id: boss.id,
+	name: boss.name,
+	stages: stagesOf(boss)
 }));
-var DRAGON_INFO = DRAGONS.map(({ id, name }) => ({
-	id,
-	name
+var DRAGON_INFO = DRAGONS.map((boss) => ({
+	id: boss.id,
+	name: boss.name,
+	stages: stagesOf(boss)
 }));
 var TM_SET_INFO = SET_INFO;
 var RAID_KINDS = /* @__PURE__ */ new Set([
@@ -14122,7 +14125,7 @@ function startRaid(run) {
 	if (!Number.isInteger(run.seed)) return "seed";
 	const boss = BOSSES.find((one) => one.id === run.boss);
 	if (!boss) return "boss";
-	if (!whole(run.stage - 1, 8)) return "stage";
+	if (!whole(run.stage - 1, stagesOf(boss))) return "stage";
 	if (run.heroes.length === 0 || run.heroes.length > 9) return "heroes";
 	const entries = [];
 	for (const hero of run.heroes) {

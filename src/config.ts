@@ -523,7 +523,7 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   outfit: { price: 5_000 },
   hero: { price: 25_000, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
-  // A Dragon Raid win: 750 at stage 1 up to 2,500 at stage 8, and 8 up to 36 of each of its dragon's two essences.
+  // A Dragon Raid win: 750 at stage 1 up to 3,000 at stage 10, and 8 up to 44 of each of its dragon's two essences.
   dragon: { winPoints: 750, pointsPerStage: 250, essences: 8, essencesPerStage: 4 },
   skip: { claim: 300 },
   stonks: { capHours: 5 },
