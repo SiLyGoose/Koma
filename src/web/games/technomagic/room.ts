@@ -1,21 +1,25 @@
+import { randomBytes } from 'node:crypto';
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../../data/tm-sets.js';
 import { copyMainStat, potentialLines } from '../../../lib/game/heroes.js';
-import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSS, tmSkillLine } from '../../../lib/game/technomagic.js';
-import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun } from '../../../services/technomagic.js';
+import { DRAGONS } from '../../../lib/game/dragon.js';
+import { MOST_STAGE, SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
+import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
-import { technomagicRoomLink, webConfig } from '../../config.js';
+import { dragonRoomLink, technomagicRoomLink, webConfig } from '../../config.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
 import { workerFights, type FightEngine, type Fights, type Intent } from './fight.js';
-import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, ServerMessage, TurnInput } from './protocol.js';
+import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, PickView, RaidKind, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
 /*
- * The TechnoMagic Raid's rooms: one a server, and one of each player's own (single player: nobody else gets in, and it
- * isn't said in Discord). Whoever opens the raid with others joins the server's room (the first is its host,
- * 1P; when the host goes, whoever has been in it longest is). Getting ready, each picks heroes of their own
+ * The TechnoMagic Raid's rooms: raids others can join, as many in a server as its players create (each with an id of its
+ * own, its link's and the front page's Find Raid's, and said in Discord as it is created), and one of each player's own
+ * (single player: nobody else gets in, and it isn't said in Discord). Whoever creates a raid is its host (1P; when the
+ * host goes, whoever has been in it longest is); a page that names no raid joins an open one against its boss, or creates
+ * one. Getting ready, each picks heroes of their own
  * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
  * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
@@ -30,7 +34,38 @@ import type { AnswerCode, DropView, FightStart, OverView, PickView, RoomState, S
  * can come back to it. One who leaves it for good (Leave: `quit`) forfeits what it gives them, their heroes fighting
  * on all the same; alone, in a room of their own, that loses the fight. The fight over, a win gives each player in it TechnoMagic items and points
  * (services/technomagic.ts), and anyone takes the room back to getting ready, or runs it again (`again`).
+ *
+ * The Dragon Raid's rooms are the same (dragonRooms), each against one of its dragons (a page names the dragon it wants),
+ * and its run is against that dragon (lib/game/dragon.ts). Each boss's stages are opened apart. Getting ready, the host can
+ * take the raid against another dragon, everyone in it with it (`setBoss`); and anyone can leave it for good (`part`), to
+ * create one of their own against another. Two raids are never put together.
  */
+
+/** A raid whose rooms these are: which, and its bosses (the first is fought unless a page names another). */
+export interface RaidSetup {
+  kind: RaidKind;
+  bosses: readonly BossView[];
+}
+
+export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOSSES };
+export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS };
+
+/** A drop as the page shows it: an item found, with what its copy came with. */
+function dropView({ item, skill, potentials, armorDef }: TmFind): DropView {
+  const setEffect = tmSetEffect(item);
+  return {
+    itemId: item.id,
+    name: item.name,
+    stars: item.stars,
+    skill: tmSkillLine(skill),
+    potentials: potentialLines(potentials),
+    mainStat: copyMainStat(item, { ...(armorDef && { tmArmorDef: armorDef }) }),
+    slot: item.slot,
+    description: item.description,
+    itemClass: item.class ?? null,
+    setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect },
+  };
+}
 
 /** Where the room sends a player's messages: their page, or a fake in tests. */
 export type Peer = ConnectionPeer<ServerMessage>;
@@ -40,15 +75,16 @@ export interface RoomDeps {
   now: () => number;
   avatar: (guildId: string, userId: string) => string | null;
   owned: (guildId: string, userId: string) => Promise<string[]>;
-  /** The highest stage they have won a run at (0: none). */
-  cleared: (guildId: string, userId: string) => Promise<number>;
-  begin: typeof beginRun;
-  /** What a run over gave each player (nothing to those who `forfeited` it): the items found and the points paid. */
-  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, { drops: DropView[]; points: number }>>;
-  /** Says in the server's channel that a room has been opened (by `host`). Not waited for. */
-  announce: (guildId: string, host: string) => void;
-  /** The link others join the server's room by (null: there is no site). */
-  link: (guildId: string) => string | null;
+  /** The highest stage they have won a run against `boss` at (0: none). */
+  cleared: (guildId: string, userId: string, boss: string) => Promise<number>;
+  /** Begins a run against `boss` (services/technomagic.ts beginRun). */
+  begin: (guildId: string, stage: number, players: Parameters<typeof beginRun>[2], boss: string) => Promise<BegunRun>;
+  /** What a run over gave each player (nothing to those who `forfeited` it): the items found, the points paid, and the hero essences. */
+  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, { drops: DropView[]; points: number; essences?: Record<string, number> }>>;
+  /** Says in the server's channel that `host` has created raid `room`, against `boss`. Not waited for. */
+  announce: (guildId: string, host: string, boss: string, room: string) => void;
+  /** The link others join raid `room` (against `boss`) by (null: there is no site). */
+  link: (guildId: string, boss: string, room: string) => string | null;
   /** Calls `fn` every `ms` until the returned function is called. */
   every: (ms: number, fn: () => void) => () => void;
   /** Calls `fn` once in `ms`, unless the returned function is called first. */
@@ -61,37 +97,15 @@ export const realRoomDeps: RoomDeps = {
   avatar: () => null,
   owned: ownedHeroes,
   cleared: clearedStage,
-  begin: beginRun,
+  begin: (guildId, stage, players, boss) => beginRun(guildId, stage, players, new Date(), boss),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map(
-      [...found].map(([userId, { finds, points }]) => [
-        userId,
-        {
-          drops: finds.map(({ item, skill, potentials, armorDef }) => {
-            const setEffect = tmSetEffect(item);
-            return {
-              itemId: item.id,
-              name: item.name,
-              stars: item.stars,
-              skill: tmSkillLine(skill),
-              potentials: potentialLines(potentials),
-              mainStat: copyMainStat(item, { ...(armorDef && { tmArmorDef: armorDef }) }),
-              slot: item.slot,
-              description: item.description,
-              itemClass: item.class ?? null,
-              setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect },
-            };
-          }),
-          points,
-        },
-      ]),
-    );
+    return new Map([...found].map(([userId, { finds, points, essences }]) => [userId, { drops: finds.map(dropView), points, ...(essences && { essences: essences as Record<string, number> }) }]));
   },
   announce: () => {},
-  link: (guildId) => {
+  link: (guildId, _boss, room) => {
     const config = webConfig();
-    return config ? technomagicRoomLink(config, guildId) : null;
+    return config ? technomagicRoomLink(config, guildId, room) : null;
   },
   every: (ms, fn) => {
     const timer = setInterval(fn, ms);
@@ -103,6 +117,15 @@ export const realRoomDeps: RoomDeps = {
     return () => clearTimeout(timer);
   },
   fights: workerFights,
+};
+
+/** The Dragon Raid's: the same, but for its rooms' links (each dragon's). */
+export const realDragonDeps: RoomDeps = {
+  ...realRoomDeps,
+  link: (guildId, boss, room) => {
+    const config = webConfig();
+    return config ? dragonRoomLink(config, guildId, boss, room) : null;
+  },
 };
 
 interface Member {
@@ -162,7 +185,28 @@ export class TechnoMagicRoom {
     private readonly onEmpty: (room: TechnoMagicRoom) => void,
     /** A player's own room (single player), not the server's. */
     readonly single = false,
+    /** The raid it is a room of, and the boss its fights are against (the host can change it: setBoss). */
+    readonly raid: RaidSetup = TECHNOMAGIC_RAID,
+    private against: BossView = raid.bosses[0] as BossView,
+    /** Its id, for its link and Find Raid (null: a player's own). */
+    readonly id: string | null = null,
   ) {}
+
+  get boss(): BossView {
+    return this.against;
+  }
+
+  /** Getting ready, with room for another: one a page that names no raid can be put in. */
+  get open(): boolean {
+    return !this.closed && !this.full && this.phase === 'prep' && !this.starting;
+  }
+
+  /** As Find Raid lists it (null: a player's own, or nobody's in it). */
+  view(): LobbyView | null {
+    const host = this.members.get(this.host() ?? '');
+    if (this.id === null || this.closed || !host) return null;
+    return { id: this.id, boss: this.boss, host: { name: host.player.name, avatar: host.avatar }, stage: this.stage, players: this.members.size, most: TM_ROOM.players, phase: this.phase };
+  }
 
   get full(): boolean {
     return this.members.size >= TM_ROOM.players;
@@ -370,6 +414,47 @@ export class TechnoMagicRoom {
     return null;
   }
 
+  /**
+   * The host takes the raid against `boss` (another of the raid's), getting ready: everyone in it goes with it, their picks
+   * kept but nobody ready, and the stage no higher than the host has opened against it. Each page goes to it once told.
+   */
+  async setBoss(userId: string, boss: string): Promise<AnswerCode | null> {
+    if (this.phase !== 'prep' || this.starting || this.id === null) return 'closed';
+    if (userId !== this.host()) return 'only_host';
+    const next = this.raid.bosses.find((one) => one.id === boss);
+    if (!next) return 'closed';
+    if (next.id === this.boss.id) return null;
+    // (Nothing about the room changes while how far each has got against it is read.)
+    this.starting = true;
+    let cleared: number[];
+    const members = [...this.members.values()];
+    try {
+      cleared = await Promise.all(members.map((member) => this.deps.cleared(this.guildId, member.player.userId, next.id).catch(() => 0)));
+    } finally {
+      this.starting = false;
+    }
+    if (this.closed) return 'closed';
+    members.forEach((member, i) => {
+      member.cleared = cleared[i] ?? 0;
+      member.ready = false;
+    });
+    this.against = next;
+    this.tell();
+    return null;
+  }
+
+  /** `userId` leaves the raid for good, getting ready: their place and picks go at once. */
+  part(userId: string): AnswerCode | null {
+    const member = this.members.get(userId);
+    if (!member || this.phase !== 'prep' || this.starting) return 'closed';
+    member.awayEnds?.();
+    this.members.delete(userId);
+    this.lineup = this.lineup.filter((pick) => pick.owner !== userId);
+    this.trim();
+    if (!this.closeIfEmpty()) this.tell();
+    return null;
+  }
+
   /** The host starts the fight: everyone else ready, and everyone with a hero in. */
   async begin(userId: string): Promise<AnswerCode | null> {
     if (this.phase !== 'prep' || this.starting) return 'closed';
@@ -386,7 +471,7 @@ export class TechnoMagicRoom {
     let run: BegunRun;
     try {
       const players = members.map((member) => ({ userId: member.player.userId, heroes: this.lineup.filter((pick) => pick.owner === member.player.userId).map(({ hero, skin }) => ({ id: hero, skin })) }));
-      run = await this.deps.begin(this.guildId, stage, players);
+      run = await this.deps.begin(this.guildId, stage, players, this.boss.id);
     } catch (err) {
       console.error('Could not begin a TechnoMagic Raid run:', err);
       this.starting = false;
@@ -402,7 +487,7 @@ export class TechnoMagicRoom {
     }
     const start: FightStart = {
       no: ++this.fights,
-      boss: TM_BOSS,
+      boss: this.boss.id,
       seed: run.seed,
       stage,
       solo,
@@ -565,7 +650,7 @@ export class TechnoMagicRoom {
     fight.done = true;
     fight.stop();
     fight.engine.close();
-    let got = new Map<string, { drops: DropView[]; points: number }>();
+    let got = new Map<string, { drops: DropView[]; points: number; essences?: Record<string, number> }>();
     try {
       got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick, fight.forfeited);
     } catch (err) {
@@ -586,6 +671,7 @@ export class TechnoMagicRoom {
       result,
       drops: Object.fromEntries([...got].map(([userId, { drops }]) => [userId, drops])),
       points: Object.fromEntries([...got].map(([userId, { points }]) => [userId, points])),
+      ...(this.raid.kind === 'dragon' && { essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])) }),
     };
     // Those gone during it: still waited for, for what's left of their time.
     for (const member of this.members.values()) if (!member.peer) this.waitFor(member);
@@ -616,13 +702,16 @@ export class TechnoMagicRoom {
     const state: Omit<RoomState, 'you'> = {
       phase: this.phase,
       version: SIM_VERSION,
-      boss: { id: TM_BOSS, name: 'Galgoria' },
+      raid: this.raid.kind,
+      boss: this.boss,
+      bosses: [...this.raid.bosses],
+      room: this.id,
       stage: this.stage,
       stages: MOST_STAGE,
       unlocked: this.unlocked(),
       slots: this.slots(),
       solo: this.solo(),
-      link: this.single ? null : this.deps.link(this.guildId),
+      link: this.id === null ? null : this.deps.link(this.guildId, this.boss.id, this.id),
       players,
       lineup: this.fight ? this.fight.start.heroes.map(({ owner, id, skin, sub }) => ({ owner, hero: id, skin, ...(sub && { sub }) })) : [...this.lineup],
       over: this.over,
@@ -631,47 +720,114 @@ export class TechnoMagicRoom {
   }
 }
 
-/** Every server's room, and every player's own. */
+/** Where a page asks to go: a raid by its id (`room`), a new one (`create`), or (neither) an open one against its boss. */
+export interface RoomWanted {
+  room?: string;
+  create?: boolean;
+}
+
+/** Every server's raids, and every player's own. */
 export class TechnoMagicRooms {
-  /** By the server's id, or (a player's own) the server's and the player's. */
+  /** By the server's id and the raid's, or (a player's own) the boss's, the server's and the player's. */
   private readonly rooms = new Map<string, TechnoMagicRoom>();
-  /** When each server's room was last said in its channel. */
+  /** When raids against each boss in each server (by the boss's id and the server's) were last said in its channel. */
   private readonly announced = new Map<string, number>();
 
-  constructor(readonly realDeps: RoomDeps = realRoomDeps) {}
+  constructor(
+    readonly realDeps: RoomDeps = realRoomDeps,
+    readonly raid: RaidSetup = TECHNOMAGIC_RAID,
+  ) {}
 
-  private static key(player: Player, single: boolean): string {
-    return single ? `${player.guildId}:${player.userId}` : player.guildId;
+  /** The raid's boss of an id (the first, for one it hasn't). */
+  bossOf(id: string | undefined): BossView {
+    return this.raid.bosses.find((boss) => boss.id === id) ?? (this.raid.bosses[0] as BossView);
+  }
+
+  private static ownKey = (player: Player, boss: string): string => `own:${boss}:${player.guildId}:${player.userId}`;
+  private static raidKey = (guildId: string, id: string): string => `raid:${guildId}:${id}`;
+
+  /** `guildId`'s raid `id` (undefined: there is none, or it is over). */
+  lobby(guildId: string, id: string): TechnoMagicRoom | undefined {
+    return this.rooms.get(TechnoMagicRooms.raidKey(guildId, id));
+  }
+
+  /** `guildId`'s raids (not anyone's own), oldest first. */
+  private raidsIn(guildId: string): TechnoMagicRoom[] {
+    return [...this.rooms.values()].filter((room) => room.guildId === guildId && room.id !== null);
+  }
+
+  /** Find Raid: `guildId`'s raids against `boss`, those that can be joined first (the fullest first), then the rest. */
+  lobbies(guildId: string, boss: string): LobbyView[] {
+    const joinable = (view: LobbyView): number => Number(view.phase === 'prep' && view.players < view.most);
+    const views = this.raidsIn(guildId).flatMap((room) => (room.boss.id === boss ? (room.view() ?? []) : []));
+    return views.sort((a, b) => joinable(b) - joinable(a) || b.players - a.players);
+  }
+
+  /** The boss a page asking for `wanted` (against `boss`) is to fight: the raid's, when it names one (null: that raid is gone). */
+  bossFor(player: Player, wanted: RoomWanted, boss?: string): BossView | null {
+    if (!wanted.room) return this.bossOf(boss);
+    return this.lobby(player.guildId, wanted.room)?.boss ?? null;
+  }
+
+  /** A new id for a raid in `guildId`. */
+  private newId(guildId: string): string {
+    for (;;) {
+      const id = randomBytes(4).toString('hex');
+      if (!this.lobby(guildId, id)) return id;
+    }
+  }
+
+  /** A new room at `key` (a raid, `id`, or a player's own: null) against `against`; a raid is said in the server's channel. */
+  private create(key: string, player: Player, deps: RoomDeps, against: BossView, id: string | null): TechnoMagicRoom {
+    const room = new TechnoMagicRoom(
+      player.guildId,
+      deps,
+      (empty) => {
+        if (this.rooms.get(key) === empty) this.rooms.delete(key);
+      },
+      id === null,
+      this.raid,
+      against,
+      id,
+    );
+    this.rooms.set(key, room);
+    const said = `${against.id}:${player.guildId}`;
+    const now = deps.now();
+    if (id !== null && now - (this.announced.get(said) ?? -Infinity) >= TM_FIGHT.announceMs) {
+      this.announced.set(said, now);
+      deps.announce(player.guildId, player.name, against.id, id);
+    }
+    return room;
   }
 
   /**
-   * Puts `player`'s page in their server's room, or (`single`) a room of their own (see TechnoMagicRoom.join). Null when
-   * the server's has as many players as it can. Only the server's is said in its channel. A page of theirs in the other
-   * room is taken over, as one in the same room is: one page a player.
+   * Puts `player`'s page in a room (see TechnoMagicRoom.join): `single`, a room of their own against `boss` (one of the
+   * raid's: its first, for none); else the raid `wanted` names, a new one (`create`), or one against `boss` (one they're in
+   * already, else an open one), or a new one when there is none. Null when the raid named is full, or gone. A page of
+   * theirs in another room is taken over, as one in the same room is: one page a player.
    */
-  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0, deps: RoomDeps = this.realDeps, single = false): { room: TechnoMagicRoom; replaced: Peer | null } | null {
-    const key = TechnoMagicRooms.key(player, single);
-    let room = this.rooms.get(key);
-    if (room?.full && !room.has(player.userId)) return null;
-    if (!room) {
-      room = new TechnoMagicRoom(
-        player.guildId,
-        deps,
-        (empty) => {
-          if (this.rooms.get(key) === empty) this.rooms.delete(key);
-        },
-        single,
-      );
-      this.rooms.set(key, room);
-      const now = deps.now();
-      if (!single && now - (this.announced.get(player.guildId) ?? -Infinity) >= TM_FIGHT.announceMs) {
-        this.announced.set(player.guildId, now);
-        deps.announce(player.guildId, player.name);
+  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0, deps: RoomDeps = this.realDeps, single = false, boss?: string, wanted: RoomWanted = {}): { room: TechnoMagicRoom; replaced: Peer | null } | null {
+    const against = this.bossOf(boss);
+    let room: TechnoMagicRoom | undefined;
+    if (single) {
+      const key = TechnoMagicRooms.ownKey(player, against.id);
+      room = this.rooms.get(key) ?? this.create(key, player, deps, against, null);
+    } else if (wanted.room) {
+      room = this.lobby(player.guildId, wanted.room);
+      if (!room || (room.full && !room.has(player.userId))) return null;
+    } else {
+      const raids = this.raidsIn(player.guildId).filter((one) => one.boss.id === against.id);
+      room = wanted.create ? undefined : (raids.find((one) => one.has(player.userId)) ?? raids.find((one) => one.open));
+      if (!room) {
+        const id = this.newId(player.guildId);
+        room = this.create(TechnoMagicRooms.raidKey(player.guildId, id), player, deps, against, id);
       }
     }
-    const other = this.rooms.get(TechnoMagicRooms.key(player, !single))?.peerOf(player.userId) ?? null;
+    // (Their page in any other room of this raid's: taken over too.)
+    const other = [...this.rooms.values()].find((one) => one !== room && one.peerOf(player.userId) !== null)?.peerOf(player.userId) ?? null;
     return { room, replaced: room.join(player, peer, owned, cleared) ?? other };
   }
 }
 
 export const technomagicRooms = new TechnoMagicRooms();
+export const dragonRooms = new TechnoMagicRooms(realDragonDeps, DRAGON_RAID);

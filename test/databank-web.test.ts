@@ -51,7 +51,7 @@ test('databank page: says where each item comes from, and the raid drop chance',
   const pulled = (item: (typeof ITEMS)[number]) => (item.tmDrop ? 'technomagic' : item.uniqueWeapon !== undefined || item.uniqueTreasure !== undefined ? 'heroBanner' : item.limited ? 'limited' : 'gacha');
   for (const item of ITEMS) assert.equal(items.find((shown) => shown.id === item.id)!.source, item.raidDrop ? 'raid' : pulled(item), item.id);
   // Every place it comes from: a raid item is sold in the raid shop too, and a limited item only comes from its banner.
-  for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'raidShop'] : [pulled(item)], item.id);
+  for (const item of ITEMS) assert.deepEqual(items.find((shown) => shown.id === item.id)!.sources, item.raidDrop ? ['raid', 'dragon', 'raidShop'] : [pulled(item)], item.id);
   assert.ok(items.some((item) => item.source === 'limited'));
   assert.ok(items.some((item) => item.source === 'technomagic'));
   // A unique weapon comes from the Hero Item banner, says whose it is, and says what it does in the raid at each level.
@@ -107,7 +107,8 @@ test('databank page: every raid boss, what it does, and what each difficulty lev
   }
   assert.equal(raid.maxRounds, CONFIG.raid.maxRounds);
   assert.equal(raid.levels.length, RAID_DIFFICULTY.max);
-  assert.deepEqual(raid.levels[0], { level: 1, hp: 1, damage: 1, gear: false, wall: 0, drops: [{ stars: 3, count: 1 }] });
+  // (The Weekly Boss drops raid.weeklyMultiplier times as many.)
+  assert.deepEqual(raid.levels[0], { level: 1, hp: 1, damage: 1, gear: false, wall: 0, drops: [{ stars: 3, count: CONFIG.raid.weeklyMultiplier }] });
   assert.deepEqual(raid.levels.map((level) => level.wall), [0, 0.25, 0.5, 0.75, 1, 1, 1, 1, 1, 1]);
   assert.deepEqual(raid.levels.filter((level) => level.drops.some((drop) => drop.stars === 4)).map((level) => level.level), [5, 10]);
   assert.deepEqual(raid.levels.filter((level) => level.gear).map((level) => level.level), [5, 6, 7, 8, 9, 10]);

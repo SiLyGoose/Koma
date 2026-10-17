@@ -20,8 +20,16 @@ export function parseClientMessage(text: string): ClientMessage | null {
   const m = data as Record<string, unknown>;
   switch (m.t) {
     case 'hello':
-      if (typeof m.token !== 'string' || m.token.length > 512 || (m.single !== undefined && typeof m.single !== 'boolean')) return null;
-      return m.single ? { t: 'hello', token: m.token, single: true } : { t: 'hello', token: m.token };
+      if (typeof m.token !== 'string' || m.token.length > 512 || (m.single !== undefined && typeof m.single !== 'boolean') || (m.boss !== undefined && !id(m.boss))) return null;
+      if ((m.room !== undefined && !id(m.room)) || (m.create !== undefined && typeof m.create !== 'boolean')) return null;
+      return {
+        t: 'hello',
+        token: m.token,
+        ...(m.single === true && { single: true }),
+        ...(typeof m.boss === 'string' && { boss: m.boss }),
+        ...(typeof m.room === 'string' && { room: m.room }),
+        ...(m.create === true && { create: true }),
+      };
     case 'pick':
       if (!id(m.hero) || !index(m.skin, 64) || (m.sub !== undefined && typeof m.sub !== 'boolean')) return null;
       return m.sub ? { t: 'pick', hero: m.hero, skin: m.skin, sub: true } : { t: 'pick', hero: m.hero, skin: m.skin };
@@ -35,7 +43,10 @@ export function parseClientMessage(text: string): ClientMessage | null {
       return index(m.fighter, 64) && index(m.skill, 16) ? { t: 'press', fighter: m.fighter, skill: m.skill } : null;
     case 'auto':
       return index(m.fighter, 64) ? { t: 'auto', fighter: m.fighter } : null;
+    case 'boss':
+      return id(m.boss) ? { t: 'boss', boss: m.boss } : null;
     case 'begin':
+    case 'part':
     case 'auto-all':
     case 'give-up':
     case 'quit':

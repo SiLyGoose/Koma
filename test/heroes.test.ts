@@ -489,10 +489,12 @@ test('heroes: transcending costs its class’s three essences (20, 30, 40, 50, t
   // Every kind comes from some boss, so every class can transcend.
   for (const boss of RAID_BOSS_IDS) assert.equal(new Set(RAID_BOSS_ESSENCES[boss]).size, 3, boss);
   assert.deepEqual(new Set(Object.values(RAID_BOSS_ESSENCES).flat()), new Set(ESSENCES));
-  // A win pays 15 of each of its boss's kinds, 5 more for every level past 1.
-  assert.equal(raidRewards(1, DEFAULTS.raid).essences, 15);
-  assert.equal(raidRewards(2, DEFAULTS.raid).essences, 20);
-  assert.equal(raidRewards(10, DEFAULTS.raid).essences, 60);
+  // A win pays 15 of each of its boss's kinds, 5 more for every level past 1: five times over (the Weekly Boss's first win of the week).
+  assert.equal(DEFAULTS.raid.weeklyMultiplier, 5);
+  assert.equal(raidRewards(1, DEFAULTS.raid).essences, 75);
+  assert.equal(raidRewards(2, DEFAULTS.raid).essences, 100);
+  assert.equal(raidRewards(10, DEFAULTS.raid).essences, 300);
+  assert.equal(raidRewards(1, { ...DEFAULTS.raid, weeklyMultiplier: 1 }).essences, 15);
   assert.deepEqual(bossEssences('wyrm', 15), { justice: 15, force: 15, strategy: 15 });
   assert.deepEqual(bossEssences('wyrm', 0), {});
   assert.ok(findSpec('raid.essenceReward') && findSpec('raid.essenceRewardPerLevel'));

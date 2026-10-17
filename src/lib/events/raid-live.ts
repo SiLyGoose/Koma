@@ -62,6 +62,8 @@ export interface RaidOverLive {
   state: RaidState | null;
   /** The winners were paid (a won fight the admin's test tools touched pays nothing). */
   rewarded: boolean;
+  /** Winners who had this week's Weekly Boss win paid already, and got nothing for this one. */
+  paidAlready?: readonly string[];
   /** The raid items the winners found, when any dropped: `key` names this win's (the site shows them once). */
   loot?: { key: string; drops: readonly { userId: string; item: ItemDef; isNew?: boolean }[] };
 }

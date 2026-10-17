@@ -70,6 +70,639 @@ function strike(amount, type, target, pen, roll) {
 	};
 }
 //#endregion
+//#region src/technomagic/sim/combat/status.ts
+/** Puts a status on: in place of one of the same name, begun again. */
+function put(on, status) {
+	const at = on.findIndex((each) => each.name === status.name);
+	if (at < 0) on.push(status);
+	else on[at] = status;
+}
+/** Time passes: each has that much less left, and the ones run out are gone. */
+function wear(on, dt) {
+	for (let i = on.length - 1; i >= 0; i--) {
+		const status = on[i];
+		status.left -= dt;
+		if (status.left <= 0) on.splice(i, 1);
+	}
+}
+/** How many times as much of a kind of damage a bearer of these takes. */
+function taking(on, type) {
+	let times = 1;
+	for (const { takes } of on) times *= typeof takes === "number" ? takes : takes?.[type] ?? 1;
+	return times;
+}
+/** How many times as hard a bearer of these hits. */
+function dealing(on) {
+	let times = 1;
+	for (const { deals } of on) times *= deals ?? 1;
+	return times;
+}
+/** How many times as fast a bearer of these is. */
+function pacing(on) {
+	let times = 1;
+	for (const { pace } of on) times *= pace ?? 1;
+	return times;
+}
+/** How many times as much healing reaches a bearer of these. */
+function healing(on) {
+	let times = 1;
+	for (const { heals } of on) times *= heals ?? 1;
+	return times;
+}
+/** How many times as fast a bearer of these gains mana. */
+function filling(on) {
+	let times = 1;
+	for (const { mana } of on) times *= mana ?? 1;
+	return times;
+}
+/** What these add to how likely a bearer's blows are to be critical. */
+function critting(on) {
+	let more = 0;
+	for (const { crit } of on) more += crit ?? 0;
+	return more;
+}
+/** What these add to how many times as hard a bearer's critical blows are. */
+function critDamaging(on) {
+	let more = 0;
+	for (const { critDamage } of on) more += critDamage ?? 0;
+	return more;
+}
+/** What these add to a bearer's penetration (points). */
+function piercing(on) {
+	let more = 0;
+	for (const { pen } of on) more += pen ?? 0;
+	return more;
+}
+/** What these add to a bearer's CC ACC (points). */
+function accurate(on) {
+	let more = 0;
+	for (const { accuracy } of on) more += accuracy ?? 0;
+	return more;
+}
+/** What these add to a bearer's CC resist (points). */
+function resisting(on) {
+	let more = 0;
+	for (const { resist } of on) more += resist ?? 0;
+	return more;
+}
+/** What these add to how likely the blows on a bearer are to be critical (points). */
+function critTaking(on, type) {
+	let more = 0;
+	for (const { critTaken } of on) more += typeof critTaken === "number" ? critTaken : critTaken?.[type] ?? 0;
+	return more;
+}
+/** What these take off how likely a kind of damage's blows on a bearer are to be critical (points). */
+function critResisting(on, type) {
+	let more = 0;
+	for (const { critResist } of on) more += typeof critResist === "number" ? critResist : critResist?.[type] ?? 0;
+	return more;
+}
+/** How many times as much defense against a kind of damage a bearer of these has. */
+function defending(on, type) {
+	let times = 1;
+	for (const { defends } of on) times *= typeof defends === "number" ? defends : defends?.[type] ?? 1;
+	return times;
+}
+/** What these add to a bearer's defense against a kind of damage. */
+function bolstering(on, type) {
+	let more = 0;
+	for (const { bolsters } of on) more += bolsters?.[type] ?? 0;
+	return more;
+}
+/** What these add to a bearer's chance to block a kind of damage (points). */
+function blocking(on, type) {
+	let more = 0;
+	for (const { blocks } of on) more += blocks?.[type] ?? 0;
+	return more;
+}
+/** A bearer of these can do nothing; is out of the fight altogether. */
+var bound = (on) => on.some((status) => status.binds || status.away);
+var away = (on) => on.some((status) => status.away);
+//#endregion
+//#region src/technomagic/sim/bosses/dragon/common.ts
+var GAUGE = {
+	/** How full it is. */
+	full: 100,
+	/** How much a second of a stun wears it down (knocked down: `down` times as much). */
+	perSecond: 12,
+	down: 1.5,
+	/** Knocked down: for so long, taking so many times as much. */
+	lasts: 6,
+	takes: 1.3
+};
+/** Its health, defense and how hard its blows are at each stage (1 to 8), fought with more than one player; alone, ROOM_HP times less health. */
+var STAGE_HP = [
+	16e7,
+	22e7,
+	3e8,
+	41e7,
+	56e7,
+	76e7,
+	103e7,
+	14e8
+];
+var STAGE_DEF = [
+	4e4,
+	5e4,
+	62e3,
+	77e3,
+	95e3,
+	118e3,
+	146e3,
+	18e4
+];
+var STAGE_DEALS = [
+	1.4,
+	1.6,
+	1.85,
+	2.1,
+	2.4,
+	2.7,
+	3,
+	3.35
+];
+var ROOM_HP$1 = 1.7;
+/** A dragon's health and defense at stage 1 (`hp` and `def` times the table's), for its stats. */
+var firstOf = (hp, def) => ({
+	hp: STAGE_HP[0] * hp,
+	def: STAGE_DEF[0] * def
+});
+/** A dragon's stages, fought with others and alone. */
+function dragonStages() {
+	const scales = (times) => STAGE_HP.map((hp, i) => ({
+		hp: hp / STAGE_HP[0] * times,
+		deals: STAGE_DEALS[i],
+		defense: STAGE_DEF[i] / STAGE_DEF[0]
+	}));
+	return {
+		room: scales(1),
+		solo: scales(1 / ROOM_HP$1)
+	};
+}
+/** Neither blocks nor dodges, of either kind. */
+var OPEN = {
+	block: NONE,
+	dodge: NONE
+};
+var DOWNED = {
+	name: "Knocked Down",
+	icon: "💫"
+};
+/** The heroes a dragon can reach: on the field, standing, and in the fight. */
+var reachable = (fight) => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
+/** A blow on whoever it is going for, then `then` on them. */
+function single(fight, amount, then) {
+	const target = fight.target();
+	if (!target || target.hp <= 0) return;
+	fight.hurt(target, amount);
+	then?.(target);
+}
+/** A blow on every hero it can reach, then `then` on each; and `cue` drawn for them. Returns them. */
+function all(fight, amount, then, cue) {
+	const heroes = reachable(fight);
+	for (const fighter of heroes) {
+		fight.hurt(fighter, amount);
+		if (fighter.hp > 0) then?.(fighter);
+	}
+	if (cue) fight.cue(null, cue, heroes);
+	return heroes;
+}
+/** How many of a status a hero bears (0: none). */
+var stacksOf = (fighter, name) => fighter.statuses.find((status) => status.name === name)?.count ?? 0;
+/** So many more of a status that stacks (up to `most`), begun again for `lasts` seconds: `made` makes it. Returns how many there are now. */
+function addStacks(fighter, name, by, most, lasts, made) {
+	const count = Math.min(most, stacksOf(fighter, name) + by);
+	put(fighter.statuses, {
+		...made(count),
+		name,
+		left: lasts,
+		count
+	});
+	return count;
+}
+/** Takes a status off a hero. */
+function lift(fighter, name) {
+	const at = fighter.statuses.findIndex((status) => status.name === name);
+	if (at >= 0) fighter.statuses.splice(at, 1);
+}
+/**
+* Something that eats at the heroes bearing a status, every second while they do: `each` says how much (by the hero:
+* its stacks, the blow it came of), and it is a blow of the dragon's that nothing blocks.
+*/
+function dot(fight, name, each) {
+	let since = 0;
+	return (dt) => {
+		since += dt;
+		if (since < 1) return;
+		since -= 1;
+		for (const fighter of reachable(fight)) {
+			if (!fighter.statuses.some((status) => status.name === name)) continue;
+			const amount = each(fighter);
+			if (amount > 0) fight.hurt(fighter, amount, false);
+		}
+	};
+}
+/** Its skills' cooldowns: each begun as it is used, and run down every step. */
+function cooldowns(of) {
+	const left = /* @__PURE__ */ new Map();
+	return {
+		used(attack) {
+			const cooldown = of[attack];
+			if (cooldown !== void 0) left.set(attack, cooldown);
+		},
+		ready: (attack) => (left.get(attack) ?? 0) <= 0,
+		tick(dt) {
+			for (const [attack, wait] of left) left.set(attack, Math.max(0, wait - dt));
+		}
+	};
+}
+/**
+* A dragon's part: its own (`own`), with its CC Gauge. A stun wears the gauge down rather than holding it; empty, it is
+* Knocked Down (and takes more), and full again once it is up.
+*/
+function withGauge(fight, own) {
+	const { foe } = fight;
+	let gauge = GAUGE.full;
+	/** How long it is down for yet (the gauge is full again once it is up). */
+	let downed = 0;
+	return {
+		...own,
+		controlled(seconds, down) {
+			if (downed > 0) return null;
+			gauge -= seconds * GAUGE.perSecond * (down ? GAUGE.down : 1);
+			if (gauge > 0) return null;
+			gauge = 0;
+			downed = GAUGE.lasts;
+			put(foe.statuses, {
+				name: DOWNED.name,
+				left: GAUGE.lasts,
+				takes: GAUGE.takes,
+				shown: "down"
+			});
+			fight.cue(null, "gauge");
+			return {
+				seconds: GAUGE.lasts,
+				down: true
+			};
+		},
+		tick(dt) {
+			if (downed > 0) {
+				downed = Math.max(0, downed - dt);
+				if (downed === 0) gauge = GAUGE.full;
+			}
+			own.tick?.(dt);
+		},
+		beaten() {
+			gauge = GAUGE.full;
+			downed = 0;
+			own.beaten?.();
+		},
+		marks() {
+			return [...downed > 0 ? [] : [{
+				text: `CC Gauge ${Math.ceil(gauge)}/${GAUGE.full}`,
+				tone: "stun"
+			}], ...own.marks?.() ?? []];
+		}
+	};
+}
+/** How long each of its moves takes, when its blow lands, and what that takes of whoever it lands on, least to most, before their defense. */
+var MOVES$1 = {
+	bite: {
+		length: 1.7,
+		hit: .8,
+		hurts: [28e4, 4e5]
+	},
+	claw: {
+		length: 1.6,
+		hit: .75,
+		hurts: [24e4, 34e4]
+	},
+	sweep: {
+		length: 2.1,
+		hit: 1,
+		hurts: [16e4, 23e4]
+	},
+	smash: {
+		length: 1.1,
+		hit: .55,
+		hurts: [11e4, 16e4]
+	},
+	inhale: {
+		length: 1.4,
+		hit: null
+	},
+	breath: {
+		length: .55,
+		hit: .25,
+		hurts: [12e4, 17e4]
+	},
+	roar: {
+		length: 2.1,
+		hit: .6,
+		hurts: [6e4, 9e4]
+	},
+	rise: {
+		length: 1.4,
+		hit: null
+	},
+	storm: {
+		length: 1,
+		hit: .45,
+		hurts: [2e5, 28e4]
+	},
+	land: {
+		length: 1.3,
+		hit: .85,
+		hurts: [3e5, 42e4]
+	},
+	gaze: {
+		length: 1.8,
+		hit: 1.1
+	}
+};
+/** Its moves in each of its attacks, by the attack's name: each after the last is done. */
+var PLANS$1 = {
+	bite: [[
+		"bite",
+		"D",
+		0
+	]],
+	claw: [[
+		"claw",
+		"D",
+		0
+	]],
+	sweep: [[
+		"sweep",
+		"D",
+		0
+	]],
+	smashes: [
+		[
+			"smash",
+			"D",
+			0
+		],
+		[
+			"smash",
+			"D",
+			0
+		],
+		[
+			"smash",
+			"D",
+			0
+		]
+	],
+	breath: [
+		[
+			"inhale",
+			"D",
+			0
+		],
+		[
+			"breath",
+			"D",
+			0
+		],
+		[
+			"breath",
+			"D",
+			0
+		],
+		[
+			"breath",
+			"D",
+			0
+		],
+		[
+			"breath",
+			"D",
+			0
+		]
+	],
+	roar: [[
+		"roar",
+		"D",
+		0
+	]],
+	storm: [
+		[
+			"rise",
+			"D",
+			0
+		],
+		[
+			"storm",
+			"D",
+			0
+		],
+		[
+			"storm",
+			"D",
+			0
+		],
+		[
+			"land",
+			"D",
+			0
+		]
+	],
+	eclipse: [[
+		"rise",
+		"D",
+		0
+	], [
+		"land",
+		"D",
+		0
+	]],
+	gaze: [[
+		"gaze",
+		"D",
+		0
+	]]
+};
+//#endregion
+//#region src/technomagic/sim/bosses/armarta/skills.ts
+var FLAMES = {
+	lasts: 10,
+	burn: .15,
+	heals: .5,
+	cooldown: 15
+};
+var GAZE = {
+	lasts: 4,
+	cooldown: 20
+};
+var ECLIPSE = {
+	after: 3,
+	burning: 1.6,
+	deals: .1,
+	most: 5
+};
+var DARK = {
+	name: "Dark Flames",
+	about: `Black fire eats at it every second, and ${Math.round((1 - FLAMES.heals) * 100)}% less healing reaches it.`,
+	icon: "🖤",
+	harmful: true
+};
+var STONE = {
+	name: "Petrified",
+	about: "Turned to stone by its gaze: it can do nothing.",
+	icon: "🗿",
+	harmful: true
+};
+var ASHEN = "Ashen Nox";
+function armartaPart(fight) {
+	const { foe } = fight;
+	const waits = cooldowns({
+		breath: FLAMES.cooldown,
+		gaze: GAZE.cooldown
+	});
+	/** Its skills used toward its eclipse; how hard each hero's Dark Flames are; and what each has dealt since its last gaze. */
+	let used = 0;
+	const flames = /* @__PURE__ */ new Map();
+	const dealt = /* @__PURE__ */ new Map();
+	const eating = dot(fight, DARK.name, (fighter) => flames.get(fighter) ?? 0);
+	const burning = (fighter) => fighter.statuses.some((status) => status.name === DARK.name);
+	return withGauge(fight, {
+		lands: {
+			breath(part, amount) {
+				if (part < 1) return;
+				all(fight, amount, (fighter) => {
+					flames.set(fighter, Math.max(burning(fighter) ? flames.get(fighter) ?? 0 : 0, amount * FLAMES.burn));
+					put(fighter.statuses, {
+						name: DARK.name,
+						left: FLAMES.lasts,
+						heals: FLAMES.heals,
+						shown: DARK
+					});
+				}, "black");
+			},
+			gaze() {
+				const [top] = reachable(fight).sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
+				dealt.clear();
+				if (!top) return;
+				fight.stagger(top);
+				top.reserved = null;
+				put(top.statuses, {
+					name: STONE.name,
+					left: GAZE.lasts,
+					binds: true,
+					shown: STONE
+				});
+				fight.cue(null, "gaze", [top]);
+			},
+			eclipse(part, amount) {
+				if (part !== 1) return;
+				const heroes = reachable(fight);
+				for (const fighter of heroes) fight.hurt(fighter, amount * (burning(fighter) ? ECLIPSE.burning : 1));
+				fight.cue(null, "eclipse", heroes);
+				const count = Math.min(ECLIPSE.most, (foe.statuses.find((status) => status.name === ASHEN)?.count ?? 0) + 1);
+				const status = {
+					name: ASHEN,
+					left: Infinity,
+					deals: 1 + ECLIPSE.deals * count,
+					count,
+					shown: "curse"
+				};
+				put(foe.statuses, status);
+			},
+			bite: (_part, amount) => single(fight, amount),
+			claw: (_part, amount) => single(fight, amount),
+			sweep: (_part, amount) => void all(fight, amount, void 0, "sweep")
+		},
+		struck(by, amount) {
+			dealt.set(by, (dealt.get(by) ?? 0) + amount);
+		},
+		used(attack) {
+			waits.used(attack);
+			if (attack === "breath" || attack === "gaze") used++;
+			else if (attack === "eclipse") used = 0;
+		},
+		next: () => used >= ECLIPSE.after ? "eclipse" : null,
+		ready: (attack) => attack !== "eclipse" && waits.ready(attack),
+		tick(dt) {
+			waits.tick(dt);
+			eating(dt);
+		},
+		beaten() {
+			used = 0;
+			dealt.clear();
+			const at = foe.statuses.findIndex((status) => status.name === ASHEN);
+			if (at >= 0) foe.statuses.splice(at, 1);
+			for (const fighter of fight.fighters) {
+				lift(fighter, DARK.name);
+				lift(fighter, STONE.name);
+			}
+		},
+		marks: () => [{
+			text: `Ashen Eclipse ${Math.min(used, ECLIPSE.after)}/${ECLIPSE.after}`,
+			tone: "curse"
+		}]
+	});
+}
+//#endregion
+//#region src/technomagic/sim/bosses/armarta/index.ts
+var FIRST$3 = firstOf(1.2, 1.25);
+/**
+* Armarta, the ancient black dragon of stone, of Ashen Nox, the Black Sun (the Dragon Raid's Black Dragon, its strongest).
+* As in King's Raid, its Black Flame Breath leaves the Dark Flames, which eat at whoever it lands on; its gaze turns a hero
+* to stone; and it is harder to wear down than the others (more health and defense). Its blows are magical. What its
+* skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
+*/
+var ARMARTA = {
+	id: "armarta",
+	name: "Armarta",
+	stats: {
+		hp: FIRST$3.hp,
+		deals: "magical",
+		physical: FIRST$3.def,
+		magical: FIRST$3.def,
+		...OPEN,
+		crit: 150,
+		resist: 200
+	},
+	stages: dragonStages(),
+	attacks: [
+		{
+			name: "bite",
+			label: "Bite"
+		},
+		{
+			name: "claw",
+			label: "Claw"
+		},
+		{
+			name: "sweep",
+			label: "Tail Sweep"
+		},
+		{
+			name: "breath",
+			label: "Black Flame Breath"
+		},
+		{
+			name: "gaze",
+			label: "Stone Gaze"
+		},
+		{
+			name: "eclipse",
+			label: "Ashen Eclipse"
+		}
+	],
+	plans: {
+		bite: PLANS$1.bite,
+		claw: PLANS$1.claw,
+		sweep: PLANS$1.sweep,
+		breath: PLANS$1.breath,
+		gaze: PLANS$1.gaze,
+		eclipse: PLANS$1.eclipse
+	},
+	moves: MOVES$1,
+	join: armartaPart
+};
+//#endregion
 //#region src/technomagic/sim/bosses/galgoria/attacks.ts
 var HEADS = [
 	"C",
@@ -194,115 +827,6 @@ var ATTACKS = [
 	}
 ];
 //#endregion
-//#region src/technomagic/sim/combat/status.ts
-/** Puts a status on: in place of one of the same name, begun again. */
-function put(on, status) {
-	const at = on.findIndex((each) => each.name === status.name);
-	if (at < 0) on.push(status);
-	else on[at] = status;
-}
-/** Time passes: each has that much less left, and the ones run out are gone. */
-function wear(on, dt) {
-	for (let i = on.length - 1; i >= 0; i--) {
-		const status = on[i];
-		status.left -= dt;
-		if (status.left <= 0) on.splice(i, 1);
-	}
-}
-/** How many times as much of a kind of damage a bearer of these takes. */
-function taking(on, type) {
-	let times = 1;
-	for (const { takes } of on) times *= typeof takes === "number" ? takes : takes?.[type] ?? 1;
-	return times;
-}
-/** How many times as hard a bearer of these hits. */
-function dealing(on) {
-	let times = 1;
-	for (const { deals } of on) times *= deals ?? 1;
-	return times;
-}
-/** How many times as fast a bearer of these is. */
-function pacing(on) {
-	let times = 1;
-	for (const { pace } of on) times *= pace ?? 1;
-	return times;
-}
-/** How many times as much healing reaches a bearer of these. */
-function healing(on) {
-	let times = 1;
-	for (const { heals } of on) times *= heals ?? 1;
-	return times;
-}
-/** How many times as fast a bearer of these gains mana. */
-function filling(on) {
-	let times = 1;
-	for (const { mana } of on) times *= mana ?? 1;
-	return times;
-}
-/** What these add to how likely a bearer's blows are to be critical. */
-function critting(on) {
-	let more = 0;
-	for (const { crit } of on) more += crit ?? 0;
-	return more;
-}
-/** What these add to how many times as hard a bearer's critical blows are. */
-function critDamaging(on) {
-	let more = 0;
-	for (const { critDamage } of on) more += critDamage ?? 0;
-	return more;
-}
-/** What these add to a bearer's penetration (points). */
-function piercing(on) {
-	let more = 0;
-	for (const { pen } of on) more += pen ?? 0;
-	return more;
-}
-/** What these add to a bearer's CC ACC (points). */
-function accurate(on) {
-	let more = 0;
-	for (const { accuracy } of on) more += accuracy ?? 0;
-	return more;
-}
-/** What these add to a bearer's CC resist (points). */
-function resisting(on) {
-	let more = 0;
-	for (const { resist } of on) more += resist ?? 0;
-	return more;
-}
-/** What these add to how likely the blows on a bearer are to be critical (points). */
-function critTaking(on, type) {
-	let more = 0;
-	for (const { critTaken } of on) more += typeof critTaken === "number" ? critTaken : critTaken?.[type] ?? 0;
-	return more;
-}
-/** What these take off how likely a kind of damage's blows on a bearer are to be critical (points). */
-function critResisting(on, type) {
-	let more = 0;
-	for (const { critResist } of on) more += typeof critResist === "number" ? critResist : critResist?.[type] ?? 0;
-	return more;
-}
-/** How many times as much defense against a kind of damage a bearer of these has. */
-function defending(on, type) {
-	let times = 1;
-	for (const { defends } of on) times *= typeof defends === "number" ? defends : defends?.[type] ?? 1;
-	return times;
-}
-/** What these add to a bearer's defense against a kind of damage. */
-function bolstering(on, type) {
-	let more = 0;
-	for (const { bolsters } of on) more += bolsters?.[type] ?? 0;
-	return more;
-}
-/** What these add to a bearer's chance to block a kind of damage (points). */
-function blocking(on, type) {
-	let more = 0;
-	for (const { blocks } of on) more += blocks?.[type] ?? 0;
-	return more;
-}
-/** A bearer of these can do nothing; is out of the fight altogether. */
-var bound = (on) => on.some((status) => status.binds || status.away);
-var away = (on) => on.some((status) => status.away);
-//#endregion
 //#region src/technomagic/sim/bosses/galgoria/skills.ts
 var IMPRISONMENT = {
 	hits: 150,
@@ -360,7 +884,7 @@ var UNBOUND = {
 	about: `An ally is shut away: ${Math.round((IMPRISONMENT.deals - 1) * 100)}% more damage dealt meanwhile.`,
 	icon: "🗡️"
 };
-var POISONED$1 = {
+var POISONED$2 = {
 	name: "Poisonous Swamp",
 	about: `Hurt every second; mana fills ${Math.round((1 - SWAMP.mana) * 100)}% slower, and ATK is ${Math.round((SWAMP.deals - 1) * 100)}% higher.`,
 	icon: "🫧",
@@ -464,11 +988,11 @@ function galgoriaPart(fight) {
 				if (heroes.length === 0) return;
 				fight.cue(null, "swamp", heroes);
 				for (const fighter of heroes) put(fighter.statuses, {
-					name: POISONED$1.name,
+					name: POISONED$2.name,
 					left: SWAMP.lasts,
 					mana: SWAMP.mana,
 					deals: SWAMP.deals,
-					shown: POISONED$1
+					shown: POISONED$2
 				});
 				swamp = SWAMP.lasts;
 				swampHurts = 0;
@@ -541,7 +1065,7 @@ function galgoriaPart(fight) {
 				swampHurts += dt;
 				if (swampHurts >= SWAMP.every) {
 					swampHurts -= SWAMP.every;
-					for (const fighter of reachable()) if (fighter.statuses.some((status) => status.name === POISONED$1.name)) fight.hurt(fighter, swampAmount);
+					for (const fighter of reachable()) if (fighter.statuses.some((status) => status.name === POISONED$2.name)) fight.hurt(fighter, swampAmount);
 				}
 			}
 			for (const fighter of shut) {
@@ -630,10 +1154,16 @@ var scales = (times) => HP.map((hp, i) => ({
 	deals: DEALS[i],
 	defense: DEF[i] / DEF[0]
 }));
-//#endregion
-//#region src/technomagic/sim/bosses/index.ts
-/** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
-var BOSSES = [{
+/**
+* Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
+* 20% more physical damage (./skills.ts). Its health and defenses are the game's (HP, DEF), and so huge: heroes
+* wear it down only with penetration, and with what cuts its healing (it gives itself back its health all the while:
+* ./skills.ts). How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
+* ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
+* Now and then a blow of its is a crit (crit resist tells), and its CC resist cuts a stun on it short (accuracy tells):
+* first guesses, as how hard its blows are (DEALS, and ./attacks.ts).
+*/
+var GALGORIA = {
 	id: "galgoria",
 	name: "Galgoria",
 	stats: {
@@ -654,7 +1184,629 @@ var BOSSES = [{
 	plans: PLANS,
 	moves: MOVES,
 	join: galgoriaPart
-}];
+};
+//#endregion
+//#region src/technomagic/sim/rules.ts
+/** The fight moves on in steps of this many seconds (thirty a second), whatever the page draws meanwhile. */
+var TICK = 1 / 30;
+/** Where a hero stands along the field, and how far it is turned from side-on toward the camera. */
+var HERO_X = -.5;
+var LINES = [
+	"front",
+	"middle",
+	"back"
+];
+/** The room each hero keeps round it on the floor: no other hero stands within twice this of it. */
+var ROOM = 1.5;
+/** The more room between one line and the next. */
+var GAP = ROOM;
+/** Where each line begins along the field, with no one in front of it. */
+var LINE_X = {
+	front: HERO_X,
+	middle: HERO_X - 5 * ROOM,
+	back: HERO_X - 10 * ROOM
+};
+/** The furthest back a hero stands: as far as a full field of one line, or of all three, reaches. A line further back moves up rather than go past it. */
+var HINDMOST = HERO_X - 8 * ROOM - 2 * GAP;
+/**
+* The frontline stands round the boss: on an arc this far from where the boss stands (Galgoria's middle:
+* ../bosses/galgoria/model.ts), through where the frontline begins, each this far from the next (wide enough
+* that the arc's ends come round toward the boss as the camera sees it). Its first ring holds this many, a
+* second (behind it, in its gaps) the rest.
+*/
+var AROUND = 7.5;
+var APART = 3 * ROOM;
+var RING = 5;
+/** The first ring's two ends (the furthest round, nearest the boss as the camera sees them) stand this much further back along the field. */
+var ENDS_BACK = ROOM;
+/**
+* The frontline's spots round the boss, in the order its heroes take them: the first straight in front of it,
+* then one either side in turn (behind first, then toward the camera), the last two drawn back (ENDS_BACK);
+* once the first ring is full, a second behind it in its gaps, two rooms from each of the first's either side of it.
+*/
+function aroundBoss(count) {
+	const middle = 7;
+	const sin = APART / 2 / AROUND;
+	const cos = Math.sqrt(1 - sin * sin);
+	const cos2 = cos * cos - sin * sin;
+	const sin2 = 2 * sin * cos;
+	const ring = [
+		[-.5, 0],
+		[middle - AROUND * cos2, AROUND * sin2],
+		[middle - AROUND * (cos2 * cos2 - sin2 * sin2) - ENDS_BACK, AROUND * 2 * sin2 * cos2]
+	];
+	const gap = ([ax, ay], [bx, by]) => {
+		const dx = bx - ax;
+		const dy = by - ay;
+		const apart = Math.sqrt(dx * dx + dy * dy);
+		const out = Math.sqrt(4 * ROOM * ROOM - apart * apart / 4) / apart;
+		return [(ax + bx) / 2 - dy * out, (ay + by) / 2 + dx * out];
+	};
+	const gaps = [gap(ring[0], ring[1]), gap(ring[1], ring[2])];
+	const spots = [];
+	for (let i = 0; i < count; i++) {
+		const first = i < RING;
+		const k = first ? i : i - RING;
+		const [x, y] = first ? ring[k + 1 >> 1] ?? ring[2] : gaps[k >> 1] ?? gaps[1];
+		const side = k % 2 === (first ? 1 : 0) ? -1 : 1;
+		spots.push([x, side * y]);
+	}
+	return spots;
+}
+/**
+* Where each hero on the field stands, [along the field, toward the camera], by its line (`lines`, one
+* for each hero, in its order). The frontline round the boss, side by side (aroundBoss). Then the middle,
+* then the backline, each where its line begins or behind the one before it, whichever is further back
+* (but never past the hindmost a full field reaches). Each of those is a room behind the last, in two rows,
+* the back row in the front row's gaps and as far back as keeps it two rooms from the front row too (each
+* three neighbours a triangle with sides of two rooms); one line is a room further again from the next.
+*/
+function formation(lines) {
+	const spots = [];
+	const front = aroundBoss(lines.filter((line) => line === "front").length);
+	let placed = 0;
+	let last = 0;
+	lines.forEach((own, i) => {
+		if (own !== "front") return;
+		const spot = front[placed];
+		spots[i] = spot;
+		last = placed === 0 ? spot[0] : Math.min(last, spot[0]);
+		placed++;
+	});
+	for (const line of LINES.slice(1)) {
+		let first = true;
+		lines.forEach((own, i) => {
+			if (own !== line) return;
+			const begins = placed === 0 ? LINE_X[line] : Math.min(last - ROOM - GAP, LINE_X[line]);
+			const x = first ? Math.max(HINDMOST + (lines.length - placed - 1) * ROOM, begins) : last - ROOM;
+			spots[i] = [x, placed % 2 ? -Math.sqrt(3) * ROOM : 0];
+			first = false;
+			last = x;
+			placed++;
+		});
+	}
+	return spots;
+}
+/** Running in: how long it takes (a hero can do nothing meanwhile). */
+var ENTER = 1.1;
+/** The last of the run (of its time) in which they slow to a stop: before it, they run flat out. */
+var BRAKE = .3;
+/** A raid's run up to the boss, `k` of the way through it (0 to 1): how much of the way (MARCH_FROM) is still to go. */
+function marchLeft(k) {
+	const t = 1 - k;
+	return t < BRAKE ? t * t / (BRAKE * 1.7) : (2 * t - BRAKE) / 1.7;
+}
+/**
+* A hero's Auto (./fight.ts autoSkill): an ally below this share of its max HP is hurt (a heal is wanted); a status
+* with less than this many seconds left is as good as gone (a skill that puts it up again is wanted); and over how
+* many seconds the mana a hero gains is counted, to know how soon it will have a skill's.
+*/
+var AUTO = {
+	hurt: .7,
+	spare: 1,
+	income: 8
+};
+var SECTION = 1e3;
+var MAX_MANA = 6 * SECTION;
+var MANA_PER_HP_LOST = 2500;
+var MOST_RAGE = 1e4;
+/** ln 2, written out (so no computer works it out its own way). */
+var LN2 = .6931471805599453;
+/**
+* 2 to the power of `x`, worked out with + * and / alone: its whole part by doubling (or halving), the rest
+* by the series for e^(x ln 2), to as many terms as a number holds. Every computer gets the same answer.
+*/
+function exp2(x) {
+	const whole = Math.floor(x);
+	const y = (x - whole) * LN2;
+	let term = 1;
+	let sum = 1;
+	for (let n = 1; n <= 18; n++) {
+		term = term * y / n;
+		sum += term;
+	}
+	let times = 1;
+	for (let k = 0; k < Math.abs(whole); k++) times *= whole < 0 ? .5 : 2;
+	return times * sum;
+}
+/** The power of two MOST_RAGE is (a little over 13): past it the boss is as enraged as it gets. */
+var MOST_RAGE_POWER = 13.287712379549449;
+/** How many times as hard the boss's blows are, `over` seconds after the raid's time is up (1 before it). */
+function rage(over) {
+	if (over < 0) return 1;
+	if (over >= 20) return MOST_RAGE;
+	const power = 60 / (20 - over) - 2;
+	return power >= MOST_RAGE_POWER ? MOST_RAGE : exp2(power);
+}
+/** What a blow of a hero's attack takes of the boss, before the boss's defense; and how much harder a critical blow is (before its gear's crit damage). */
+var BLOW = 1100;
+//#endregion
+//#region src/technomagic/sim/bosses/scalaxia/skills.ts
+var FROST = {
+	freezeAt: 10,
+	lasts: 10,
+	freeze: 3,
+	takes: 1.3
+};
+var SMASH$2 = {
+	frost: 2,
+	cooldown: 10
+};
+var BREATH$3 = {
+	frost: 2,
+	cooldown: 16
+};
+var STORM$1 = {
+	mana: 1500,
+	cooldown: 26
+};
+var FROSTED = {
+	name: "Frost",
+	about: `At ${FROST.freezeAt} of it, Frozen.`,
+	icon: "❄️",
+	harmful: true
+};
+var FROZEN = {
+	name: "Freeze",
+	about: `Frozen: it can do nothing, and takes ${Math.round((FROST.takes - 1) * 100)}% more damage.`,
+	icon: "🧊",
+	harmful: true
+};
+function scalaxiaPart(fight) {
+	const waits = cooldowns({
+		smashes: SMASH$2.cooldown,
+		breath: BREATH$3.cooldown,
+		storm: STORM$1.cooldown
+	});
+	/** A hero frozen: it can do nothing for a while, and takes more meanwhile (its Frost gone). */
+	function freeze(fighter) {
+		lift(fighter, FROSTED.name);
+		fight.stagger(fighter);
+		fighter.reserved = null;
+		put(fighter.statuses, {
+			name: FROZEN.name,
+			left: FROST.freeze,
+			binds: true,
+			takes: FROST.takes,
+			shown: FROZEN
+		});
+	}
+	/** So much more Frost on a hero (none while it is frozen): at FROST.freezeAt, frozen. */
+	function frost(fighter, by) {
+		if (fighter.statuses.some((status) => status.name === FROZEN.name)) return;
+		if (addStacks(fighter, FROSTED.name, by, FROST.freezeAt, FROST.lasts, () => ({ shown: FROSTED })) >= FROST.freezeAt) freeze(fighter);
+	}
+	return withGauge(fight, {
+		lands: {
+			smashes: (_part, amount) => void all(fight, amount, (fighter) => frost(fighter, SMASH$2.frost), "smash"),
+			breath(part, amount) {
+				if (part >= 1) all(fight, amount, (fighter) => frost(fighter, BREATH$3.frost), "frost");
+			},
+			storm(part, amount) {
+				if (part === 0) return;
+				if (part < 3) return void all(fight, amount, (fighter) => frost(fighter, 1), "storm");
+				all(fight, amount, (fighter) => {
+					freeze(fighter);
+					fighter.mana = Math.max(0, Math.min(MAX_MANA, fighter.mana - STORM$1.mana));
+				}, "glacial");
+			},
+			bite: (_part, amount) => single(fight, amount, (fighter) => frost(fighter, 1)),
+			claw: (_part, amount) => single(fight, amount, (fighter) => frost(fighter, 1)),
+			sweep: (_part, amount) => void all(fight, amount, (fighter) => frost(fighter, 1), "sweep")
+		},
+		used(attack) {
+			waits.used(attack);
+			if (attack === "storm") fight.cue(null, "pillars");
+		},
+		ready: waits.ready,
+		tick: waits.tick,
+		beaten() {
+			for (const fighter of fight.fighters) {
+				lift(fighter, FROSTED.name);
+				lift(fighter, FROZEN.name);
+			}
+		}
+	});
+}
+//#endregion
+//#region src/technomagic/sim/bosses/scalaxia/index.ts
+var FIRST$2 = firstOf(1.1, .9);
+/**
+* Scalaxia, the ancient blue dragon of ice, of Turandana (the Dragon Raid's Frost Dragon). As in King's Raid, its blows
+* leave Frost, ten of which freeze a hero, and it flies up to freeze them all. Its blows are magical. What its skills do
+* is ./skills.ts; its body is the page's (../../../bosses/dragon/), with the ice pillars its storm calls up.
+*/
+var SCALAXIA = {
+	id: "scalaxia",
+	name: "Scalaxia",
+	stats: {
+		hp: FIRST$2.hp,
+		deals: "magical",
+		physical: FIRST$2.def,
+		magical: FIRST$2.def,
+		...OPEN,
+		crit: 100,
+		resist: 150
+	},
+	stages: dragonStages(),
+	attacks: [
+		{
+			name: "bite",
+			label: "Bite"
+		},
+		{
+			name: "claw",
+			label: "Claw"
+		},
+		{
+			name: "sweep",
+			label: "Tail Sweep"
+		},
+		{
+			name: "smashes",
+			label: "Tail Smash"
+		},
+		{
+			name: "breath",
+			label: "Frost Breath"
+		},
+		{
+			name: "storm",
+			label: "Glacial Storm"
+		}
+	],
+	plans: {
+		bite: PLANS$1.bite,
+		claw: PLANS$1.claw,
+		sweep: PLANS$1.sweep,
+		smashes: PLANS$1.smashes,
+		breath: PLANS$1.breath,
+		storm: PLANS$1.storm
+	},
+	moves: MOVES$1,
+	join: scalaxiaPart
+};
+//#endregion
+//#region src/technomagic/sim/bosses/temeraire/skills.ts
+var BLESSING$2 = {
+	charges: 150,
+	deals: 1.5,
+	physical: .4,
+	cooldown: 30
+};
+var BREATH$2 = {
+	burn: .12,
+	lasts: 6,
+	cooldown: 16
+};
+var ERUPTION$1 = { cooldown: 12 };
+var FLAME$1 = "Blessing of the Flame";
+var BURN = {
+	name: "Burn",
+	about: `Fire eats at it every second: ${Math.round(BREATH$2.burn * 100)}% of the breath's blow.`,
+	icon: "🔥",
+	harmful: true
+};
+function temerairePart(fight) {
+	const { foe } = fight;
+	const waits = cooldowns({
+		breath: BREATH$2.cooldown,
+		blessing: BLESSING$2.cooldown,
+		eruption: ERUPTION$1.cooldown
+	});
+	/** What of its flame is left (0: none on it), and how hard each hero's burn is. */
+	let flame = 0;
+	const burns = /* @__PURE__ */ new Map();
+	const burning = dot(fight, BURN.name, (fighter) => burns.get(fighter) ?? 0);
+	/** Its flame, on it as a status: so much harder, and P.DMG softer on it, with what is left of it. */
+	function kindle(left) {
+		flame = left;
+		if (flame <= 0) {
+			const at = foe.statuses.findIndex((status) => status.name === FLAME$1);
+			if (at >= 0) foe.statuses.splice(at, 1);
+			return;
+		}
+		put(foe.statuses, {
+			name: FLAME$1,
+			left: Infinity,
+			deals: BLESSING$2.deals,
+			takes: { physical: BLESSING$2.physical },
+			count: flame,
+			shown: "burn"
+		});
+	}
+	return withGauge(fight, {
+		lands: {
+			blessing(_part, amount) {
+				all(fight, amount, void 0, "blessing");
+				kindle(BLESSING$2.charges);
+			},
+			breath(part, amount) {
+				if (part < 1) return;
+				all(fight, amount, (fighter) => {
+					burns.set(fighter, Math.max(fighter.statuses.some((status) => status.name === BURN.name) ? burns.get(fighter) ?? 0 : 0, amount * BREATH$2.burn));
+					put(fighter.statuses, {
+						name: BURN.name,
+						left: BREATH$2.lasts,
+						shown: BURN
+					});
+				}, "flame");
+			},
+			eruption(part, amount) {
+				if (part === 1) all(fight, amount, void 0, "eruption");
+			},
+			bite: (_part, amount) => single(fight, amount),
+			claw: (_part, amount) => single(fight, amount),
+			sweep: (_part, amount) => void all(fight, amount, void 0, "sweep")
+		},
+		struck() {
+			if (flame > 0) kindle(flame - 1);
+		},
+		used: waits.used,
+		next: () => flame <= 0 && waits.ready("blessing") ? "blessing" : null,
+		ready: (attack) => attack !== "blessing" && waits.ready(attack),
+		tick(dt) {
+			waits.tick(dt);
+			burning(dt);
+		},
+		beaten() {
+			kindle(0);
+			for (const fighter of fight.fighters) lift(fighter, BURN.name);
+		},
+		marks: () => []
+	});
+}
+//#endregion
+//#region src/technomagic/sim/bosses/temeraire/index.ts
+var FIRST$1 = firstOf(1, 1);
+/**
+* Temeraire, the ancient red dragon of fire, of Dragia (the Dragon Raid's Fire Dragon). As in King's Raid, all its
+* attacks deal massive M.DMG, it blocks all P.DMG, and its Blessing of the Flame is worn away by heroes that hit often.
+* What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
+*/
+var TEMERAIRE = {
+	id: "temeraire",
+	name: "Temeraire",
+	stats: {
+		hp: FIRST$1.hp,
+		deals: "magical",
+		physical: FIRST$1.def,
+		magical: FIRST$1.def,
+		...OPEN,
+		block: {
+			physical: 1e3,
+			magical: 0
+		},
+		crit: 100,
+		resist: 150
+	},
+	stages: dragonStages(),
+	attacks: [
+		{
+			name: "bite",
+			label: "Bite"
+		},
+		{
+			name: "claw",
+			label: "Claw"
+		},
+		{
+			name: "sweep",
+			label: "Tail Sweep"
+		},
+		{
+			name: "breath",
+			label: "Flame Breath"
+		},
+		{
+			name: "blessing",
+			label: "Blessing of the Flame"
+		},
+		{
+			name: "eruption",
+			label: "Eruption"
+		}
+	],
+	plans: {
+		bite: PLANS$1.bite,
+		claw: PLANS$1.claw,
+		sweep: PLANS$1.sweep,
+		breath: PLANS$1.breath,
+		blessing: PLANS$1.roar,
+		eruption: PLANS$1.eclipse
+	},
+	moves: MOVES$1,
+	join: temerairePart
+};
+//#endregion
+//#region src/technomagic/sim/bosses/zyrrkinoth/skills.ts
+var SCALES = {
+	critResist: 400,
+	taken: .7,
+	per: .03,
+	most: 30
+};
+var POISON$1 = {
+	petrifyAt: 30,
+	lasts: 12,
+	petrify: 5,
+	hurts: 4e3,
+	blow: 2
+};
+var LASH$1 = {
+	stacks: 5,
+	knock: .6,
+	cooldown: 11
+};
+var BREATH$1 = {
+	stacks: 3,
+	cooldown: 16
+};
+var POISONED$1 = {
+	name: "Poison",
+	about: `Eats at it every second, the more for every stack; at ${POISON$1.petrifyAt}, Petrified.`,
+	icon: "🧪",
+	harmful: true
+};
+var PETRIFIED = {
+	name: "Petrified",
+	about: "Turned to stone: it can do nothing.",
+	icon: "🗿",
+	harmful: true
+};
+function zyrrkinothPart(fight) {
+	const waits = cooldowns({
+		smashes: LASH$1.cooldown,
+		breath: BREATH$1.cooldown
+	});
+	/** The critical blows it has taken (up to SCALES.most): each has it take more. */
+	let cracks = 0;
+	const taken = {
+		physical: SCALES.taken,
+		magical: SCALES.taken
+	};
+	const eating = dot(fight, POISONED$1.name, (fighter) => stacksOf(fighter, POISONED$1.name) * POISON$1.hurts);
+	/** So much more Poison on a hero (none while it is stone): at POISON.petrifyAt, Petrified. */
+	function poison(fighter, by) {
+		if (fighter.statuses.some((status) => status.name === PETRIFIED.name)) return;
+		if (addStacks(fighter, POISONED$1.name, by, POISON$1.petrifyAt, POISON$1.lasts, () => ({ shown: POISONED$1 })) < POISON$1.petrifyAt) return;
+		lift(fighter, POISONED$1.name);
+		fight.stagger(fighter);
+		fighter.reserved = null;
+		put(fighter.statuses, {
+			name: PETRIFIED.name,
+			left: POISON$1.petrify,
+			binds: true,
+			shown: PETRIFIED
+		});
+		fight.cue(null, "petrify", [fighter]);
+	}
+	return withGauge(fight, {
+		lands: {
+			smashes: (_part, amount) => void all(fight, amount, (fighter) => {
+				poison(fighter, LASH$1.stacks);
+				if (fighter.hp > 0) fight.knock(fighter, LASH$1.knock);
+			}, "lash"),
+			breath(part, amount) {
+				if (part >= 1) all(fight, amount, (fighter) => poison(fighter, BREATH$1.stacks), "venom");
+			},
+			bite: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
+			claw: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
+			sweep: (_part, amount) => void all(fight, amount, (fighter) => poison(fighter, POISON$1.blow), "sweep")
+		},
+		struck(_by, _dealt, critical) {
+			if (!critical || cracks >= SCALES.most) return;
+			cracks++;
+			taken.physical = taken.magical = SCALES.taken * (1 + SCALES.per * cracks);
+		},
+		critResist: SCALES.critResist,
+		taken,
+		steady: true,
+		used: waits.used,
+		ready: waits.ready,
+		tick(dt) {
+			waits.tick(dt);
+			eating(dt);
+		},
+		beaten() {
+			for (const fighter of fight.fighters) {
+				lift(fighter, POISONED$1.name);
+				lift(fighter, PETRIFIED.name);
+			}
+		},
+		marks: () => [{
+			text: `Toxic Scales ${Math.round(taken.physical * 100)}%`,
+			tone: "venom"
+		}]
+	});
+}
+//#endregion
+//#region src/technomagic/sim/bosses/zyrrkinoth/index.ts
+var FIRST = firstOf(.75, 1);
+/**
+* Zyrrkinoth, the ancient green venomous dragon, of Grimvine (the Dragon Raid's Poison Dragon). As in King's Raid, it has
+* very high Crit Resistance and DMG Reduction, but takes more damage each time it takes Crit DMG; nothing changes its ATK
+* Spd; and its poison, stacked high enough, petrifies. Its blows are physical. What its skills do is ./skills.ts; its body
+* is the page's (../../../bosses/dragon/).
+*/
+var ZYRRKINOTH = {
+	id: "zyrrkinoth",
+	name: "Zyrrkinoth",
+	stats: {
+		hp: FIRST.hp,
+		deals: "physical",
+		physical: FIRST.def,
+		magical: FIRST.def,
+		...OPEN,
+		crit: 100,
+		resist: 150
+	},
+	stages: dragonStages(),
+	attacks: [
+		{
+			name: "bite",
+			label: "Bite"
+		},
+		{
+			name: "claw",
+			label: "Claw"
+		},
+		{
+			name: "sweep",
+			label: "Tail Sweep"
+		},
+		{
+			name: "smashes",
+			label: "Tail Lash"
+		},
+		{
+			name: "breath",
+			label: "Venomous Breath"
+		}
+	],
+	plans: {
+		bite: PLANS$1.bite,
+		claw: PLANS$1.claw,
+		sweep: PLANS$1.sweep,
+		smashes: PLANS$1.smashes,
+		breath: PLANS$1.breath
+	},
+	moves: MOVES$1,
+	join: zyrrkinothPart
+};
+//#endregion
+//#region src/technomagic/sim/bosses/index.ts
+/** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
+var TM_BOSSES = [GALGORIA];
+/** The Dragon Raid's dragons, as King's Raid has them: Fire, Frost, Poison and Black. */
+var DRAGONS = [
+	TEMERAIRE,
+	SCALAXIA,
+	ZYRRKINOTH,
+	ARMARTA
+];
+/** Every boss there is. */
+var BOSSES = [...TM_BOSSES, ...DRAGONS];
 //#endregion
 //#region src/technomagic/sim/bosses/boss.ts
 /** A boss's scale at `stage` (1 to its last; past it, its last), alone or not. */
@@ -1392,161 +2544,6 @@ var CODED = {
 		until: 1.6
 	}
 };
-//#endregion
-//#region src/technomagic/sim/rules.ts
-/** The fight moves on in steps of this many seconds (thirty a second), whatever the page draws meanwhile. */
-var TICK = 1 / 30;
-/** Where a hero stands along the field, and how far it is turned from side-on toward the camera. */
-var HERO_X = -.5;
-var LINES = [
-	"front",
-	"middle",
-	"back"
-];
-/** The room each hero keeps round it on the floor: no other hero stands within twice this of it. */
-var ROOM = 1.5;
-/** The more room between one line and the next. */
-var GAP = ROOM;
-/** Where each line begins along the field, with no one in front of it. */
-var LINE_X = {
-	front: HERO_X,
-	middle: HERO_X - 5 * ROOM,
-	back: HERO_X - 10 * ROOM
-};
-/** The furthest back a hero stands: as far as a full field of one line, or of all three, reaches. A line further back moves up rather than go past it. */
-var HINDMOST = HERO_X - 8 * ROOM - 2 * GAP;
-/**
-* The frontline stands round the boss: on an arc this far from where the boss stands (Galgoria's middle:
-* ../bosses/galgoria/model.ts), through where the frontline begins, each this far from the next (wide enough
-* that the arc's ends come round toward the boss as the camera sees it). Its first ring holds this many, a
-* second (behind it, in its gaps) the rest.
-*/
-var AROUND = 7.5;
-var APART = 3 * ROOM;
-var RING = 5;
-/** The first ring's two ends (the furthest round, nearest the boss as the camera sees them) stand this much further back along the field. */
-var ENDS_BACK = ROOM;
-/**
-* The frontline's spots round the boss, in the order its heroes take them: the first straight in front of it,
-* then one either side in turn (behind first, then toward the camera), the last two drawn back (ENDS_BACK);
-* once the first ring is full, a second behind it in its gaps, two rooms from each of the first's either side of it.
-*/
-function aroundBoss(count) {
-	const middle = 7;
-	const sin = APART / 2 / AROUND;
-	const cos = Math.sqrt(1 - sin * sin);
-	const cos2 = cos * cos - sin * sin;
-	const sin2 = 2 * sin * cos;
-	const ring = [
-		[-.5, 0],
-		[middle - AROUND * cos2, AROUND * sin2],
-		[middle - AROUND * (cos2 * cos2 - sin2 * sin2) - ENDS_BACK, AROUND * 2 * sin2 * cos2]
-	];
-	const gap = ([ax, ay], [bx, by]) => {
-		const dx = bx - ax;
-		const dy = by - ay;
-		const apart = Math.sqrt(dx * dx + dy * dy);
-		const out = Math.sqrt(4 * ROOM * ROOM - apart * apart / 4) / apart;
-		return [(ax + bx) / 2 - dy * out, (ay + by) / 2 + dx * out];
-	};
-	const gaps = [gap(ring[0], ring[1]), gap(ring[1], ring[2])];
-	const spots = [];
-	for (let i = 0; i < count; i++) {
-		const first = i < RING;
-		const k = first ? i : i - RING;
-		const [x, y] = first ? ring[k + 1 >> 1] ?? ring[2] : gaps[k >> 1] ?? gaps[1];
-		const side = k % 2 === (first ? 1 : 0) ? -1 : 1;
-		spots.push([x, side * y]);
-	}
-	return spots;
-}
-/**
-* Where each hero on the field stands, [along the field, toward the camera], by its line (`lines`, one
-* for each hero, in its order). The frontline round the boss, side by side (aroundBoss). Then the middle,
-* then the backline, each where its line begins or behind the one before it, whichever is further back
-* (but never past the hindmost a full field reaches). Each of those is a room behind the last, in two rows,
-* the back row in the front row's gaps and as far back as keeps it two rooms from the front row too (each
-* three neighbours a triangle with sides of two rooms); one line is a room further again from the next.
-*/
-function formation(lines) {
-	const spots = [];
-	const front = aroundBoss(lines.filter((line) => line === "front").length);
-	let placed = 0;
-	let last = 0;
-	lines.forEach((own, i) => {
-		if (own !== "front") return;
-		const spot = front[placed];
-		spots[i] = spot;
-		last = placed === 0 ? spot[0] : Math.min(last, spot[0]);
-		placed++;
-	});
-	for (const line of LINES.slice(1)) {
-		let first = true;
-		lines.forEach((own, i) => {
-			if (own !== line) return;
-			const begins = placed === 0 ? LINE_X[line] : Math.min(last - ROOM - GAP, LINE_X[line]);
-			const x = first ? Math.max(HINDMOST + (lines.length - placed - 1) * ROOM, begins) : last - ROOM;
-			spots[i] = [x, placed % 2 ? -Math.sqrt(3) * ROOM : 0];
-			first = false;
-			last = x;
-			placed++;
-		});
-	}
-	return spots;
-}
-/** Running in: how long it takes (a hero can do nothing meanwhile). */
-var ENTER = 1.1;
-/** The last of the run (of its time) in which they slow to a stop: before it, they run flat out. */
-var BRAKE = .3;
-/** A raid's run up to the boss, `k` of the way through it (0 to 1): how much of the way (MARCH_FROM) is still to go. */
-function marchLeft(k) {
-	const t = 1 - k;
-	return t < BRAKE ? t * t / (BRAKE * 1.7) : (2 * t - BRAKE) / 1.7;
-}
-/**
-* A hero's Auto (./fight.ts autoSkill): an ally below this share of its max HP is hurt (a heal is wanted); a status
-* with less than this many seconds left is as good as gone (a skill that puts it up again is wanted); and over how
-* many seconds the mana a hero gains is counted, to know how soon it will have a skill's.
-*/
-var AUTO = {
-	hurt: .7,
-	spare: 1,
-	income: 8
-};
-var SECTION = 1e3;
-var MAX_MANA = 6 * SECTION;
-var MANA_PER_HP_LOST = 2500;
-var MOST_RAGE = 1e4;
-/** ln 2, written out (so no computer works it out its own way). */
-var LN2 = .6931471805599453;
-/**
-* 2 to the power of `x`, worked out with + * and / alone: its whole part by doubling (or halving), the rest
-* by the series for e^(x ln 2), to as many terms as a number holds. Every computer gets the same answer.
-*/
-function exp2(x) {
-	const whole = Math.floor(x);
-	const y = (x - whole) * LN2;
-	let term = 1;
-	let sum = 1;
-	for (let n = 1; n <= 18; n++) {
-		term = term * y / n;
-		sum += term;
-	}
-	let times = 1;
-	for (let k = 0; k < Math.abs(whole); k++) times *= whole < 0 ? .5 : 2;
-	return times * sum;
-}
-/** The power of two MOST_RAGE is (a little over 13): past it the boss is as enraged as it gets. */
-var MOST_RAGE_POWER = 13.287712379549449;
-/** How many times as hard the boss's blows are, `over` seconds after the raid's time is up (1 before it). */
-function rage(over) {
-	if (over < 0) return 1;
-	if (over >= 20) return MOST_RAGE;
-	const power = 60 / (20 - over) - 2;
-	return power >= MOST_RAGE_POWER ? MOST_RAGE : exp2(power);
-}
-/** What a blow of a hero's attack takes of the boss, before the boss's defense; and how much harder a critical blow is (before its gear's crit damage). */
-var BLOW = 1100;
 //#endregion
 //#region src/technomagic/sim/motion.ts
 /** Its own attack, and a skill of its own: how many times as fast their animations are played. */
@@ -3874,7 +4871,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (foe.hp <= 0 || result) return false;
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
-			const critical = roll() < share(points + auras.crit + critTaking(foe.statuses, type)) + crit + critting(by.statuses);
+			const critical = roll() < share(points + auras.crit + critTaking(foe.statuses, type) - (foe.part.critResist ?? 0)) + crit + critting(by.statuses);
 			const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
 			const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
 			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused;
@@ -3956,7 +4953,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			if (counted) {
 				for (const fighter of fighters) fighter.part.struck?.(by);
-				foe.part.struck?.(by, dealt);
+				foe.part.struck?.(by, dealt, critical);
 				by.part.blow?.(attacking !== by);
 			}
 			if (counted && foe.hp > 0 && by.id === "kirze" && by.unique && roll() < ELICIPIRA.chance) {
@@ -4153,13 +5150,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
-			const lasts = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(soft(Math.max(0, foe.def.stats.resist + resisting(foe.statuses)), SOFT.resist) - soft(by.accuracy + auras.accuracy + accurate(by.statuses), SOFT.acc))) : 1);
+			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(soft(Math.max(0, foe.def.stats.resist + resisting(foe.statuses)), SOFT.resist) - soft(by.accuracy + auras.accuracy + accurate(by.statuses), SOFT.acc))) : 1);
+			const taken = foe.part.controlled && foe.hp > 0 ? foe.part.controlled(held, down) : {
+				seconds: held,
+				down
+			};
+			if (!taken || taken.seconds <= 0) return;
+			const lasts = taken.seconds;
 			going.clear();
 			foe.stunned = Math.max(foe.stunned, lasts);
 			events.push({
 				kind: "boss-daze",
 				seconds: lasts,
-				down
+				down: taken.down
 			});
 		},
 		slow(points, seconds) {
@@ -13011,7 +14014,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "b8b93ab4769a";
+var SIM_VERSION = "ae7ce2462840";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
@@ -13065,6 +14068,15 @@ var TM_HEROES = HEROES.map((hero) => ({
 	treasures: (hero.treasures ?? []).map((one) => one.name)
 }));
 var BOSS_IDS = BOSSES.map((boss) => boss.id);
+/** The TechnoMagic Raid's bosses, and the Dragon Raid's dragons, in order. */
+var TM_BOSS_INFO = TM_BOSSES.map(({ id, name }) => ({
+	id,
+	name
+}));
+var DRAGON_INFO = DRAGONS.map(({ id, name }) => ({
+	id,
+	name
+}));
 var TM_SET_INFO = SET_INFO;
 var RAID_KINDS = /* @__PURE__ */ new Set([
 	"skill",
@@ -13207,4 +14219,4 @@ function replay(run, rawInputs, pageSums = []) {
 	};
 }
 //#endregion
-export { BOSS_IDS, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_HEROES, TM_SET_INFO, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, tmPerkStats, uniqueTreasureText, uniqueWeaponText };
+export { BOSS_IDS, DRAGON_INFO, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_BOSS_INFO, TM_HEROES, TM_SET_INFO, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, tmPerkStats, uniqueTreasureText, uniqueWeaponText };

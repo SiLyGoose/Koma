@@ -86,6 +86,7 @@ import {
   maxRaidDifficulty,
   recordRaidWin,
   rewardRaid,
+  claimWeeklyWins,
   startRaid,
   saveRaidDrops,
   saveRaidGear,
@@ -430,9 +431,9 @@ const wallText = (cfg: RaidSettings, boss: RaidBossId, difficulty: { wall: numbe
   return extra > 0 ? fmt(extra) : null;
 };
 
-/** What a win at `difficulty` drops for each raider, in words ("a 3★ raid item", "1× 4★ and 4× 3★ raid items"). */
+/** What a win at `difficulty` drops for each raider, in words ("a 3★ raid item", "1× 4★ and 4× 3★ raid items"): the Weekly Boss's, raid.weeklyMultiplier times over. */
 export function lootKindsText(difficulty: number): string {
-  const counts = raidDropCounts(difficulty);
+  const counts = raidDropCounts(difficulty, CONFIG.raid.weeklyMultiplier);
   return TEXT.raid.lootKinds([...STARS].reverse().map((stars) => ({ stars, count: counts[stars] ?? 0 })));
 }
 
@@ -453,16 +454,18 @@ export const essenceReward = (boss: RaidBossId, amount: number): EssenceReward |
 /** What everyone who fought `boss` (left out: any of them) gets for beating it at `difficulty`, and how the harder levels pay more (without the raid drops' line). */
 export function bossRewardsText(cfg: RaidSettings, difficulty = 1, boss?: RaidBossId): string {
   const paid = raidRewards(difficulty, cfg);
+  // (The steps up are paid as many times over as the rest.)
+  const times = Math.max(1, Math.floor(cfg.weeklyMultiplier));
   const milestones = Array.from({ length: Math.floor(RAID_DIFFICULTY.max / RAID_DIFFICULTY.milestoneEvery) }, (_, i) => (i + 1) * RAID_DIFFICULTY.milestoneEvery);
   return TEXT.raid.bossRewards(
     fmt(paid.points),
     paid.tokens,
     paid.gems,
-    cfg.rewardPerLevel > 0 ? fmt(cfg.rewardPerLevel) : null,
-    cfg.gemRewardMilestone > 0 ? cfg.gemRewardMilestone : null,
+    cfg.rewardPerLevel > 0 ? fmt(cfg.rewardPerLevel * times) : null,
+    cfg.gemRewardMilestone > 0 ? cfg.gemRewardMilestone * times : null,
     milestones,
     boss ? essenceReward(boss, paid.essences) : null,
-    boss && cfg.essenceRewardPerLevel > 0 ? cfg.essenceRewardPerLevel : null,
+    boss && cfg.essenceRewardPerLevel > 0 ? cfg.essenceRewardPerLevel * times : null,
   );
 }
 
@@ -524,6 +527,7 @@ export function resultEmbed(
   cfg: RaidSettings,
   reward: { failed: readonly string[]; drops: readonly RaidDrop[] } | null,
   intoVault = 0,
+  alreadyPaid: readonly string[] = [],
 ): BotEmbed {
   const r = TEXT.raid;
   const b = r.bosses[state.boss];
@@ -531,7 +535,9 @@ export function resultEmbed(
   const rounds = state.round;
   if (state.outcome === 'won') {
     const paid = raidRewards(state.difficulty, cfg);
-    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(paid.points), paid.tokens, paid.gems, essenceReward(state.boss, paid.essences)));
+    const paidAlready = alreadyPaid.length > 0 ? `
+${r.alreadyPaid(alreadyPaid.map(mention))}` : '';
+    embed.setTitle(r.wonTitle(b)).setDescription(r.won(rounds, fmt(paid.points), paid.tokens, paid.gems, essenceReward(state.boss, paid.essences)) + paidAlready);
   } else {
     const how = state.outcome === 'wiped' ? r.wiped(rounds) : r.fled(b, rounds);
     embed
@@ -1463,17 +1469,22 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, we
     settled = true;
 
     let reward: RaidReward | null = null;
+    /** Who won but had this week's Weekly Boss win paid already: nothing more for them. */
+    let alreadyPaid: string[] = [];
     const fought = participants(state);
     if (outcome === 'won' && fought.length > 0 && !tested) {
       const paid = raidRewards(difficulty.level, cfg);
+      // It is the Weekly Boss: only each raider's first win of the week pays (raid.weeklyMultiplier times over).
+      const firsts = await claimWeeklyWins(ctx.guildId, fought, week.key);
+      alreadyPaid = fought.filter((userId) => !firsts.includes(userId));
       reward = await rewardRaid(
         ctx.guildId,
-        fought,
+        firsts,
         paid.points,
         paid.tokens,
         paid.gems,
         raidDropChance(fought.length, cfg),
-        raidDropCounts(difficulty.level),
+        raidDropCounts(difficulty.level, cfg.weeklyMultiplier),
         bossEssences(boss, paid.essences),
       );
       // Beating it unlocks the next difficulty for the server.
@@ -1483,8 +1494,8 @@ async function runRaid(ctx: CommandContext, forced: RaidBossId | null = null, we
     const drops = reward?.drops ?? [];
     const lootKey = `${id}:${Date.now()}`;
     if (drops.length > 0) await saveRaidDrops(id, drops, lootKey).catch((err) => console.error(`Could not save the drops of raid ${id}:`, err));
-    live.end({ end: outcome, state, rewarded: reward !== null, ...(drops.length > 0 ? { loot: { key: lootKey, drops } } : {}) });
-    const result = resultEmbed(state, cfg, reward, intoVault);
+    live.end({ end: outcome, state, rewarded: reward !== null, ...(alreadyPaid.length > 0 && { paidAlready: alreadyPaid }), ...(drops.length > 0 ? { loot: { key: lootKey, drops } } : {}) });
+    const result = resultEmbed(state, cfg, reward, intoVault, alreadyPaid);
     if (tested) result.setFooter({ text: TEXT.raid.test.noRewards });
     await message.edit({ embeds: [result], components: drops.length > 0 ? [lootRow()] : [], files: [bossFile(boss, moodOf(state))], attachments: [] });
     if (drops.length > 0) serveLootButton(message, drops);
@@ -1627,9 +1638,9 @@ export async function settleUnfinishedRaids(client: Client): Promise<void> {
 export const raid: Command = {
   name: 'raid',
   category: 'adventure',
-  aliases: ['boss'],
+  aliases: ['boss', 'weekly', 'weeklyboss', 'wb'],
   description:
-    "Start a raid: everyone joins in to fight this week's boss together, turn by turn. Beat it for a reward. Raid as often as you like, one at a time; the boss changes every week (Saturday at midnight Eastern), never the same as last week's. `raid stats` shows this week's boss, its stats and moves.",
+    "Fight the Weekly Boss: everyone joins in to fight this week's boss together, turn by turn. Only your first win of the week pays, and it pays big (later wins that week pay nothing). Fight it as often as you like, one at a time; the boss changes every week (Saturday at midnight Eastern), never the same as last week's. `raid stats` shows this week's boss, its stats and moves.",
   usage: 'raid [stats]',
   slashUsage: 'raid start  or  raid stats',
 

@@ -106,6 +106,14 @@ export declare function tmPerkStats(hero: string, perks: readonly string[]): {
 /** The heroes there are, in the order of their cards; and the bosses, by id. */
 export declare const TM_HEROES: readonly TmHero[];
 export declare const BOSS_IDS: readonly string[];
+/** A boss as the bot says it: its id and name. */
+export interface BossInfo {
+    id: string;
+    name: string;
+}
+/** The TechnoMagic Raid's bosses, and the Dragon Raid's dragons, in order. */
+export declare const TM_BOSS_INFO: readonly BossInfo[];
+export declare const DRAGON_INFO: readonly BossInfo[];
 /** A TechnoMagic set as the fight has it: its id, name and icon, and what it does for a hero of each class wearing three of its pieces (by class; one it does nothing for left out). */
 export interface TmSetInfo {
     id: string;

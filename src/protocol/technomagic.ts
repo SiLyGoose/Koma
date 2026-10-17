@@ -2,10 +2,13 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
 import type { MainStat } from './items.js';
 
 /*
- * What the TechnoMagic Raid's web page (the Koma-UI repo) and the bot say to each other over the WebSocket.
- * Every message is one JSON object with a `t` saying what it is. The site keeps a copy (its `yarn sync`).
+ * What the TechnoMagic Raid's web page (the Koma-UI repo) and the bot say to each other over the WebSocket. The Dragon Raid
+ * (King's Raid's dragons, the raid heroes farm for gear and essences) is played the same way, on its own page and socket,
+ * the page naming the dragon it wants (`hello`'s `boss`). Every message is one JSON object with a `t` saying what it is.
+ * The site keeps a copy (its `yarn sync`).
  *
- * A server has one room everyone can join (the bot's web/games/technomagic/room.ts), and each player can have one of
+ * A server has as many raids (rooms others can join: the bot's web/games/technomagic/room.ts) as its players create, each
+ * against a boss and with an id of its own (the front page's Find Raid lists them: LobbyView), and each player can have one of
  * their own (single player: nobody else gets in, and nothing is said in Discord). Getting ready (`prep`), everyone in it picks heroes of their own into its
  * lineup (the host up to 4, everyone else up to 3, 8 in all, even while the host is alone in it; single player, up to 7 against an easier boss: 4 in the Main
  * Team, whose skills are theirs to use, and 3 in the Sub Team, on Auto for the whole fight), says they're ready,
@@ -14,13 +17,17 @@ import type { MainStat } from './items.js';
  * same seed with the same presses (`fight`, then `turn` after `turn`), never going past the step the bot has
  * reached. So how it ends is the bot's word alone, and what a win gives is rolled by the bot (`over`).
  *
- *   page -> bot   hello     first message: the token from the link (`single`: into a room of their own)
+ *   page -> bot   hello     first message: the token from the link (`single`: into a room of their own; `room`: into
+ *                           that raid; `create`: into a new one; neither: an open raid against `boss`, or a new one)
  *                 pick      puts a hero of theirs (in one of its skins) in the lineup (alone: in the Main Team or
  *                           the Sub Team; one in the other team already is moved over)
  *                 unpick    takes one of theirs out of it
  *                 ready     says they're ready (or not), anyone but the host
  *                 stage     the raid's stage (the host)
  *                 begin     starts the fight (the host, with everyone ready)
+ *                 boss      takes the raid, everyone in it with it, against another of the raid's bosses (the host,
+ *                           getting ready): each page then goes to it (`room`'s boss is another than its own)
+ *                 part      leaves the raid for good, getting ready: their place and picks go at once
  *                 press     a skill of one of their heroes (its place in the lineup)
  *                 auto      one of their heroes' Auto, on or off; `auto-all`: all of theirs
  *                 give-up   ends the fight, lost (the host)
@@ -39,12 +46,14 @@ import type { MainStat } from './items.js';
  */
 
 export type ClientMessage =
-  | { t: 'hello'; token: string; single?: boolean }
+  | { t: 'hello'; token: string; single?: boolean; boss?: string; room?: string; create?: boolean }
   | { t: 'pick'; hero: string; skin: number; sub?: boolean }
   | { t: 'unpick'; hero: string }
   | { t: 'ready'; on: boolean }
   | { t: 'stage'; stage: number }
   | { t: 'begin' }
+  | { t: 'boss'; boss: string }
+  | { t: 'part' }
   | { t: 'press'; fighter: number; skill: number }
   | { t: 'auto'; fighter: number }
   | { t: 'auto-all' }
@@ -99,11 +108,21 @@ export interface DropView {
   setEffect: { pieces: number; text: string } | null;
 }
 
-/** What a fight that is over gave each player (by id): the items found and the points paid. */
+/** What a fight that is over gave each player (by id): the items found, the points paid, and (the Dragon Raid's) the hero essences, so many of each kind. */
 export interface OverView {
   result: 'won' | 'lost';
   drops: Record<string, DropView[]>;
   points: Record<string, number>;
+  essences?: Record<string, Record<string, number>>;
+}
+
+/** Which raid a room is: the TechnoMagic Raid, or the Dragon Raid. */
+export type RaidKind = 'technomagic' | 'dragon';
+
+/** A boss as the room says it. */
+export interface BossView {
+  id: string;
+  name: string;
 }
 
 export interface RoomState {
@@ -112,7 +131,12 @@ export interface RoomState {
   phase: 'prep' | 'fight' | 'over';
   /** The bot's sim (a page running another is to reload). */
   version: string;
-  boss: { id: string; name: string };
+  raid: RaidKind;
+  boss: BossView;
+  /** The raid's bosses, this room's among them (the host can take the raid against another: `boss`). */
+  bosses: BossView[];
+  /** The raid's id, which its link and the front page's Find Raid join it by (null: a room of one's own, single player). */
+  room: string | null;
   stage: number;
   stages: number;
   /** The highest stage the host may pick: the one after the highest they have won. */
@@ -171,7 +195,26 @@ export type AnswerCode =
   /** It couldn't be done (the database didn't answer). */
   | 'failed';
 
-export type ErrorCode = 'bad_token' | 'replaced' | 'bad_message' | 'full';
+/** Why the bot closed the connection (`gone`: the raid asked for is over, everyone gone from it). */
+export type ErrorCode = 'bad_token' | 'replaced' | 'bad_message' | 'full' | 'gone';
+
+/** A raid others can join, as the front page's Find Raid lists it (GET /api/raid-rooms). */
+export interface LobbyView {
+  id: string;
+  boss: BossView;
+  /** Its host (1P). */
+  host: { name: string; avatar: string };
+  stage: number;
+  players: number;
+  /** As many as it takes. */
+  most: number;
+  phase: RoomState['phase'];
+}
+
+/** GET /api/raid-rooms: a server's raids against a boss, those that can be joined first. */
+export interface Lobbies {
+  rooms: LobbyView[];
+}
 
 export type ServerMessage =
   | { t: 'room'; state: RoomState }

@@ -7,7 +7,8 @@ export { ESSENCE_NAME, ESSENCES, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINT
  * The TechnoMagic Raid's heroes' transcendence, as King's Raid has it, on the site's heroes page.
  *
  * A hero starts at Transcend 0 (no TP, no perks) and goes up to TRANSCEND_MAX (its Stats tab), each level paying hero essences
- * (the three kinds its class uses: CLASS_ESSENCES; beating the weekly raid gives three kinds, its boss's: RAID_BOSS_ESSENCES)
+ * (the three kinds its class uses: CLASS_ESSENCES; beating the Weekly Boss gives three kinds, its boss's: RAID_BOSS_ESSENCES;
+ * the Dragon Raid's dragons two each: DRAGON_ESSENCES)
  * and komaGems (TRANSCEND_COSTS).
  * Each level gives it more transcendence points (TP, TRANSCEND_TP) to pick perks with (its Transcend tab, Koma-UI's
  * src/heroes/transcend.ts has what each says and its picture), and opens their tier of them. Every hero has the same
@@ -43,6 +44,18 @@ export const RAID_BOSS_ESSENCES: Readonly<Record<RaidBossId, readonly [EssenceId
   wyrm: ['justice', 'force', 'strategy'],
   reaper: ['wisdom', 'patience', 'fortune'],
   plague: ['harmony', 'patience', 'strategy'],
+};
+
+/**
+ * The essences each Dragon Raid dragon gives (by its id), two kinds each, after its element: Temeraire's fire, Force and
+ * Justice; Scalaxia's ice, Wisdom and Patience; Zyrrkinoth's venom, Fortune and Strategy; Armarta's, Harmony and (null) one
+ * kind rolled for each win, any of the seven as likely. Every kind comes from one dragon or another.
+ */
+export const DRAGON_ESSENCES: Readonly<Record<string, readonly [EssenceId, EssenceId | null]>> = {
+  temeraire: ['force', 'justice'],
+  scalaxia: ['wisdom', 'patience'],
+  zyrrkinoth: ['fortune', 'strategy'],
+  armarta: ['harmony', null],
 };
 
 /** What beating `boss` gives each raider: `amount` of each of its essences (none at 0). */

@@ -169,7 +169,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   databank: {
-    description: 'See every item and what it does, or one item, star tier or category, or the raid bosses.',
+    description: 'See every item and what it does, or one item, star tier or category, or the Weekly Bosses.',
     build: (b) =>
       void b
         .addStringOption((o) =>
@@ -185,7 +185,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
         .addStringOption((o) =>
           o
             .setName('boss')
-            .setDescription('The raid bosses instead of items, opened on this one')
+            .setDescription('The Weekly Bosses instead of items, opened on this one')
             .addChoices({ name: 'All bosses', value: 'all' }, ...RAID_BOSS_IDS.map((id) => ({ name: TEXT.raid.bosses[id].name, value: id }))),
         ),
     // An item, if given, wins over a boss, and a boss over the star tier and category.
@@ -330,10 +330,10 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   raid: {
-    description: "Raid this week's boss together for a reward (the boss changes Saturday midnight Eastern).",
+    description: "Fight the Weekly Boss together: your first win each week pays big. New boss every Saturday.",
     build: (b) =>
       void b
-        .addSubcommand((s) => s.setName('start').setDescription("Start a raid against this week's boss"))
+        .addSubcommand((s) => s.setName('start').setDescription("Start a Weekly Boss fight against this week's boss"))
         .addSubcommand((s) => s.setName('stats').setDescription("See this week's boss: its HP, phases and moves")),
     toArgs: (i) => (i.options.getSubcommand() === 'stats' ? ['stats'] : []),
   },
@@ -401,6 +401,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   technomagic: {
     description: "The TechnoMagic Raid on the Koma site: your heroes against Galgoria, together, as in King's Raid.",
     // The room is on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
+  },
+
+  dragon: {
+    description: "The Dragon Raid on the Koma site: your heroes against the dragons, for hero gear and essences.",
+    // The rooms are on the site: this is just the links there.
     build: () => {},
     toArgs: () => [],
   },

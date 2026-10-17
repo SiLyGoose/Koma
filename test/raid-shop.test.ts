@@ -24,7 +24,10 @@ const SITE: WebConfig = {
 };
 
 test('raid rewards: every level past 1 pays 500 more, and the komaGems only go up at levels 5 and 10', () => {
-  const cfg = DEFAULTS.raid;
+  // (Once over: the Weekly Boss pays all of it raid.weeklyMultiplier times, 5 by default.)
+  const cfg = { ...DEFAULTS.raid, weeklyMultiplier: 1 };
+  assert.equal(DEFAULTS.raid.weeklyMultiplier, 5);
+  assert.deepEqual(raidRewards(1, DEFAULTS.raid), { points: 5_000, tokens: 50, gems: 25, essences: 75 });
   assert.equal(cfg.rewardPerLevel, 500);
   assert.equal(cfg.gemRewardMilestone, 5);
   const ladder = Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => raidRewards(i + 1, cfg));
@@ -44,16 +47,19 @@ test('raid rewards: every level past 1 pays 500 more, and the komaGems only go u
 });
 
 test('raid rewards: both steps are settings, and the boss info says how the harder levels pay more', () => {
-  for (const key of ['raid.rewardPerLevel', 'raid.gemRewardMilestone']) assert.equal(findSpec(key)?.group, 'Raid', key);
-  const text = bossRewardsText(DEFAULTS.raid);
+  for (const key of ['raid.rewardPerLevel', 'raid.gemRewardMilestone', 'raid.weeklyMultiplier']) assert.equal(findSpec(key)?.group, 'Raid', key);
+  // (Its steps up are paid raid.weeklyMultiplier times over too.)
+  assert.ok(bossRewardsText(DEFAULTS.raid).includes('**2,500** <:zeiucoin:1551675032424546320> more for every level past 1'));
+  const once = { ...DEFAULTS.raid, weeklyMultiplier: 1 };
+  const text = bossRewardsText(once);
   assert.ok(text.includes('**Harder levels pay more**'), text);
   assert.ok(text.includes('**500** <:zeiucoin:1551675032424546320> more for every level past 1'), text);
   assert.ok(text.includes(`**5** ${GEM_EMOJI} more from level 5, and again from level 10`), text);
-  assert.ok(bossRewardsText(DEFAULTS.raid, 5).includes(`**10** ${GEM_EMOJI}`), 'at level 5 it says what level 5 pays');
-  const wyrm = bossRewardsText(DEFAULTS.raid, 1, 'wyrm');
+  assert.ok(bossRewardsText(once, 5).includes(`**10** ${GEM_EMOJI}`), 'at level 5 it says what level 5 pays');
+  const wyrm = bossRewardsText(once, 1, 'wyrm');
   assert.ok(wyrm.includes('**15** each of the Justice, Force and Strategy hero essences'), wyrm);
   assert.ok(wyrm.includes('and **5** of each hero essence 💠 more for every level past 1'), wyrm);
-  assert.ok(bossRewardsText(DEFAULTS.raid, 3, 'wyrm').includes('**25** each of the'), 'at level 3 it says what level 3 pays');
+  assert.ok(bossRewardsText(once, 3, 'wyrm').includes('**25** each of the'), 'at level 3 it says what level 3 pays');
   assert.ok(!bossRewardsText({ ...DEFAULTS.raid, rewardPerLevel: 0, gemRewardMilestone: 0 }).includes('Harder levels'), 'nothing to say with both at 0');
   assert.ok(!bossRewardsText({ ...DEFAULTS.raid, rewardPerLevel: 0, gemRewardMilestone: 0, essenceRewardPerLevel: 0 }, 1, 'wyrm').includes('Harder levels'), 'nor with all three at 0');
   const info = bossInfoEmbed(DEFAULTS.raid).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';

@@ -604,6 +604,8 @@ export interface RaidRewardSettings {
   gemRewardMilestone: number;
   essenceReward: number;
   essenceRewardPerLevel: number;
+  /** How many times over all of it is paid (the Weekly Boss's: none said, once). */
+  weeklyMultiplier?: number;
 }
 
 /** What everyone who took part gets for beating the boss. */
@@ -618,15 +620,17 @@ export interface RaidRewards {
 /**
  * What beating the boss at difficulty `level` pays each raider: `rewardPerLevel` more points and
  * `essenceRewardPerLevel` more hero essences for every level past 1, and `gemRewardMilestone` more komaGems from each
- * milestone level on (so they only go up at levels 5 and 10). The komaTokens are the same at every level.
+ * milestone level on (so they only go up at levels 5 and 10). The komaTokens are the same at every level. All of it
+ * `weeklyMultiplier` times over (it is the Weekly Boss: paid once a week).
  */
 export function raidRewards(level: number, cfg: RaidRewardSettings): RaidRewards {
   const at = clampDifficulty(level);
+  const times = Math.max(1, Math.floor(cfg.weeklyMultiplier ?? 1));
   return {
-    points: Math.max(0, cfg.reward + cfg.rewardPerLevel * (at - 1)),
-    tokens: cfg.tokenReward,
-    gems: Math.max(0, cfg.gemReward + cfg.gemRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)),
-    essences: Math.max(0, cfg.essenceReward + cfg.essenceRewardPerLevel * (at - 1)),
+    points: Math.max(0, cfg.reward + cfg.rewardPerLevel * (at - 1)) * times,
+    tokens: cfg.tokenReward * times,
+    gems: Math.max(0, cfg.gemReward + cfg.gemRewardMilestone * Math.floor(at / RAID_DIFFICULTY.milestoneEvery)) * times,
+    essences: Math.max(0, cfg.essenceReward + cfg.essenceRewardPerLevel * (at - 1)) * times,
   };
 }
 

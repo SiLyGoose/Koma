@@ -27,6 +27,7 @@ import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
+import { announceDragon } from './commands/dragon.js';
 import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmArmorDefs, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
@@ -275,8 +276,13 @@ function siteDeps(client: Client<true>, config: WebConfig): ApiDeps {
     balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
     avatar,
     technomagic: {
-      announce: (guildId, host) => {
-        announceTechnoMagic(client, guildId, host).catch((err) => console.error('Could not say a TechnoMagic Raid room was opened:', err));
+      announce: (guildId, host, _boss, room) => {
+        announceTechnoMagic(client, guildId, host, room).catch((err) => console.error('Could not say a TechnoMagic Raid room was opened:', err));
+      },
+    },
+    dragon: {
+      announce: (guildId, host, boss, room) => {
+        announceDragon(client, guildId, host, boss, room).catch((err) => console.error('Could not say a Dragon Raid room was opened:', err));
       },
     },
     raid: {

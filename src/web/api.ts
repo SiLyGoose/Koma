@@ -24,6 +24,7 @@ import { outfitRoutes } from './routes/outfits.js';
 import { raidShopRoutes } from './routes/raid-shop.js';
 import { publicRoutes } from './routes/public.js';
 import { raidRoutes } from './routes/raid.js';
+import { raidRoomRoutes } from './routes/raid-rooms.js';
 
 export type { GearMembers } from './services/gear.js';
 export type { Leaderboard, Live } from './services/live.js';
@@ -37,6 +38,7 @@ export type { Me } from './services/login.js';
  *   POST /api/login {code}    trades the code Discord gave the site for a session: { session, me }
  *   GET  /api/me              who is logged in, and the servers they can play in: Me
  *   POST /api/play {guild, game}   a link to play `game` in that server: { url }
+ *   GET  /api/raid-rooms?guild=…&game=technomagic|dragon&boss=…   that server's raids against `boss`, for Find Raid: Lobbies
  *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
  *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
@@ -115,8 +117,10 @@ export interface ApiDeps {
   outfits?: OutfitStore;
   /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
   heroes?: HeroStore;
-  /** The TechnoMagic Raid's rooms: saying in the server's channel that one has been opened (once the bot has logged in to Discord). */
-  technomagic?: { announce: (guildId: string, host: string) => void };
+  /** The TechnoMagic Raid's rooms: saying in the server's channel that raid `room` has been created (once the bot has logged in to Discord). */
+  technomagic?: { announce: (guildId: string, host: string, boss: string, room: string) => void };
+  /** The Dragon Raid's rooms: saying in the server's channel that raid `room` (against `boss`, a dragon) has been created. */
+  dragon?: { announce: (guildId: string, host: string, boss: string, room: string) => void };
   /** The raid shop (the database's, unless a test says otherwise). */
   raidShop?: RaidShopStore;
   /** Changing the bot's settings, for the admin page (services/settings.ts's, unless a test says otherwise). */
@@ -146,6 +150,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/heroes', heroRoutes(deps))
     .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))
+    .use('/raid-rooms', raidRoomRoutes(deps))
     .use('/admin', adminRoutes(deps))
     // Nothing else is there (once they've logged in).
     .use(signedIn(deps), notFound);

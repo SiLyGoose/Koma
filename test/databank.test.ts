@@ -542,7 +542,7 @@ test('databank bosses: a name opens on that boss, and one that is no boss says w
   assert.match(opened?.title ?? '', new RegExp(`${TEXT.raid.bosses[last].name} \\(${RAID_BOSS_IDS.length}/`));
 
   const [none] = await ask('boss', 'goblin');
-  assert.match(none?.content ?? '', /There is no raid boss called "goblin"/);
+  assert.match(none?.content ?? '', /There is no Weekly Boss called "goblin"/);
   for (const id of RAID_BOSS_IDS) assert.ok(none?.content?.includes(TEXT.raid.bosses[id].name));
 });
 

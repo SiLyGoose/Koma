@@ -48,3 +48,23 @@ export const TM_WEB = {
   helloMs: 10_000,
   messagesPerSecond: 40,
 } as const;
+
+/**
+ * The Dragon Raid (King's Raid's dragons: Koma-UI's src/technomagic/sim/bosses/), played in rooms as the TechnoMagic Raid is
+ * (TM_ROOM, TM_FIGHT), one room a dragon in each server, on a page of its own: `path` is where its web socket listens.
+ */
+export const DRAGON_WEB = {
+  path: '/dragon',
+  helloMs: 10_000,
+  messagesPerSecond: 40,
+} as const;
+
+/**
+ * The hero gear a Dragon Raid win gives each player whose run pays, by the stage it was fought at (1 to 8: the first is stage
+ * 1's): so many raid items (ItemDef.raidDrop, never TechnoMagic gear) of each star tier, each picked at random from its tier.
+ */
+export const DRAGON_DROPS: readonly Readonly<Partial<Record<3 | 4, number>>>[] = [{ 3: 1 }, { 3: 1 }, { 3: 2 }, { 3: 2 }, { 4: 1, 3: 2 }, { 4: 1, 3: 2 }, { 4: 1, 3: 3 }, { 4: 2, 3: 3 }];
+
+/** What a Dragon Raid win at `stage` drops (past the last stage, as much as the last). */
+export const dragonDrops = (stage: number): Readonly<Partial<Record<3 | 4, number>>> =>
+  DRAGON_DROPS[Math.min(DRAGON_DROPS.length, Math.max(1, Math.floor(stage))) - 1] as Readonly<Partial<Record<3 | 4, number>>>;

@@ -38,7 +38,7 @@ const rewardText = (points: number, tokens: number, gems: number, essences: numb
 export const difficultyLevels = (): RaidLevel[] =>
   Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => {
     const { level, hp, damage, gear, wall } = difficultyOf(i + 1, CONFIG.raid);
-    const counts = raidDropCounts(level);
+    const counts = raidDropCounts(level, CONFIG.raid.weeklyMultiplier);
     const drops = raidDropsOn(CONFIG.raid) ? [...STARS].reverse().flatMap((stars) => ((counts[stars] ?? 0) > 0 ? [{ stars, count: counts[stars] ?? 0 }] : [])) : [];
     return { level, hp, damage, gear, wall, drops };
   });
@@ -147,7 +147,10 @@ export function raidView(you: string, week: RaidWeekInfo, live: LiveRaid | null,
         players: state ? state.players.map((p) => ({ userId: p.userId, ...statsOf(p.stats) })) : [],
         lastHit: state?.lastHit ?? null,
         reward: rewarded ? paid : null,
-        rewardText: rewarded ? rewardText(paid.points, paid.tokens, paid.gems, paid.essences, state?.boss ?? null) : null,
+        // (It is the Weekly Boss: only each winner's first win of the week pays.)
+        rewardText: rewarded
+          ? `${rewardText(paid.points, paid.tokens, paid.gems, paid.essences, state?.boss ?? null)} for their first win of the week${current.over.paidAlready?.includes(you) ? " (you had this week's already, so this one pays you nothing)" : ''}`
+          : null,
         gear: current.gear.size > 0,
         loot: lootOf(loot?.key, loot?.drops.filter((drop) => drop.userId === you) ?? []),
       },

@@ -167,8 +167,10 @@ export interface MemberDoc {
   tokens?: number;
   /** komaGems, won by beating the weekly raid. Missing means 0. */
   gems?: number;
-  /** Hero essences (data/transcend.ts EssenceId), won by beating the weekly raid and spent transcending heroes. Missing means none. */
+  /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
   essences?: Partial<Record<EssenceId, number>>;
+  /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
+  weeklyBossWeek?: string;
   /**
    * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
    * of that claim, and who it is paid to. Both are missing or null when there is none. They are
@@ -301,6 +303,8 @@ export interface TmRunDoc {
   result?: 'won' | 'lost';
   ticks?: number;
   drops?: string[];
+  /** A Dragon Raid win's hero essences, so many of each kind. */
+  essences?: Partial<Record<EssenceId, number>>;
 }
 
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
@@ -484,6 +488,7 @@ export type LedgerReason =
   | 'raid_gems'
   // Hero essences for beating it (0 points; essenceDelta).
   | 'raid_essences'
+  | 'dragon_essences'
   // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item). Masterworks
   // are gone; only old entries have it.
   | 'forge'
@@ -496,6 +501,8 @@ export type LedgerReason =
   | 'hero'
   // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).
   | 'tm_win'
+  // Points a won Dragon Raid run paid (services/technomagic.ts; dragon.winPoints).
+  | 'dragon_win'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).

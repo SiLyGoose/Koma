@@ -42,17 +42,19 @@ export function raidDropChance(raiders: number, cfg: DropSettings): number {
 export const raidDropsOn = (cfg: DropSettings): boolean => cfg.dropChance > 0 || cfg.dropChancePerRaider > 0;
 
 /**
- * What a raid at `difficulty` drops for each raider (RAID_DIFFICULTY). Top-tier items only drop at the
+ * What a raid at `difficulty` drops for each raider (RAID_DIFFICULTY), `times` times over (the Weekly Boss's
+ * raid.weeklyMultiplier). Top-tier items only drop at the
  * milestone levels themselves (5 and 10): one at the first, two at the second, none at the levels in
  * between. Every level drops items of the tier below: one at level 1 and one more for each level past
  * it, a milestone level adding its top-tier item instead. So level 1 is one 3-star; level 4, four;
  * level 5, one 4-star and four 3-stars; level 6, five 3-stars; level 10, two 4-stars and eight 3-stars.
  */
-export function raidDropCounts(difficulty: number): DropCounts {
+export function raidDropCounts(difficulty: number, times = 1): DropCounts {
   const level = Math.min(RAID_DIFFICULTY.max, Math.max(1, Math.floor(difficulty)));
   const milestones = Math.floor(level / RAID_DIFFICULTY.milestoneEvery);
   const top = level % RAID_DIFFICULTY.milestoneEvery === 0 ? milestones : 0;
-  return { [RAID_DIFFICULTY.milestoneStars]: top, [RAID_DIFFICULTY.stepStars]: level - milestones };
+  const by = Math.max(1, Math.floor(times));
+  return { [RAID_DIFFICULTY.milestoneStars]: top * by, [RAID_DIFFICULTY.stepStars]: (level - milestones) * by };
 }
 
 /**

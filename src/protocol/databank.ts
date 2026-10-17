@@ -50,7 +50,7 @@ export interface DatabankItem {
 export type DatabankPool = 'tm' | 'ut';
 
 /** Where an item comes from: the gacha, raid bosses (and their shop), the limited banner, the TechnoMagic Raid, or the Hero Item banner (a unique weapon or treasure). */
-export type ItemSource = 'gacha' | 'raid' | 'raidShop' | 'limited' | 'technomagic' | 'heroBanner';
+export type ItemSource = 'gacha' | 'raid' | 'dragon' | 'raidShop' | 'limited' | 'technomagic' | 'heroBanner';
 
 /** One raid boss: what `raid stats` says of it. */
 export interface DatabankBoss {

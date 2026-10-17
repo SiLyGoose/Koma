@@ -2,7 +2,7 @@ import { RAID_CLASS_EMOJI, RAID_COMBAT, RAID_EMOJI as E, type RaidBossId, type R
 import { boldGems, boldMoney, boldTokens } from './currency.js';
 
 /*
- * The weekly raid boss. `user`, `target` and the like are mentions; `unix` values are Unix seconds.
+ * The Weekly Boss (it was the raid: it is still fought with `raid`). `user`, `target` and the like are mentions; `unix` values are Unix seconds.
  * Lines that name the boss take its RaidBossText (`b`), from `bosses`.
  */
 
@@ -184,7 +184,7 @@ export const raidText = {
     },
   } satisfies Record<RaidBossId, RaidBossText>,
 
-  usage: (p: string) => `Use \`${p}raid\` to start a raid against this week's boss, or \`${p}raid stats\` to see the boss, its stats and its moves.`,
+  usage: (p: string) => `Use \`${p}raid\` to start a Weekly Boss fight against this week's boss, or \`${p}raid stats\` to see the boss, its stats and its moves.`,
   busy: 'Something else is going on in this server right now. Try again when it is over.',
 
   // The lobby
@@ -193,7 +193,7 @@ export const raidText = {
   lobby: (b: RaidBossText, host: string, rounds: number, reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) =>
     `${b.found(host)} Press **Join** to fight. The battle starts when the host presses **Start raid** (the host can also **Disband** it). ` +
     `No one can join once it starts.\n\n` +
-    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems, essences)}.`,
+    `Beat it within **${rounds}** rounds and everyone who takes part gets ${rewards(reward, tokens, gems, essences)} for their first win of the week.`,
   howToField: 'How to fight',
   /**
    * `steals` when this boss can steal points from wallets, `cc` when it has crowd control for Support to
@@ -488,7 +488,9 @@ Grows with every raider (at least ${min}).`,
   // The end
   wonTitle: (b: RaidBossText) => `🏆 The ${b.name} has been slain!`,
   won: (rounds: number, reward: string, tokens: number, gems: number, essences: EssenceReward | null = null) =>
-    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems, essences)}.`,
+    `The party won in **${plural(rounds, 'round', 'rounds')}**. Everyone who fought gets ${rewards(reward, tokens, gems, essences)} for their first win of the week.`,
+  /** Under a win: those who won it already this week, and get nothing more for it (`users` are mentions). */
+  alreadyPaid: (users: readonly string[]) => `${andList(users)} already had this week's Weekly Boss reward, so this win pays them nothing more.`,
   wipedTitle: (b: RaidBossText) => `☠️ The ${b.name} wins`,
   wiped: (rounds: number) => `Every raider was knocked out in round **${rounds}**. No rewards this time.`,
   fledTitle: (b: RaidBossText) => `${b.fledEmoji} The ${b.name} got away`,
@@ -533,7 +535,7 @@ Grows with every raider (at least ${min}).`,
   // `raid stats`: this week's boss
   bossTitle: (b: RaidBossText) => `${b.emoji} ${b.name}`,
   /** Above the stats: it is this week's boss, and until when. */
-  bossWeek: (unix: number) => `This week's raid boss, until <t:${unix}:F>.`,
+  bossWeek: (unix: number) => `This week's Weekly Boss, until <t:${unix}:F>. Only your first win of the week pays.`,
   /** `examples` is a few party sizes and the HP the boss has for them, already formatted. */
   /** `overhead` is how many raiders it counts as busy (they add no HP), like "2.5". */
   bossInfoHp: (perRaider: string, overhead: string, minRaiders: number, examples: string) =>
@@ -575,7 +577,7 @@ Grows with every raider (at least ${min}).`,
     essences: EssenceReward | null = null,
     essenceStep: number | null = null,
   ) =>
-    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems, essences)}.` +
+    `Upon slaying, everyone who fought gets ${rewards(reward, tokens, gems, essences)} (their first win of the week).` +
     (perLevel === null && gemStep === null && essenceStep === null
       ? ''
       : `\n📈 **Harder levels pay more**: ${[

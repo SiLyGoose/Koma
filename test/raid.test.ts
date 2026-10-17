@@ -827,9 +827,11 @@ test('raid stats: the dragon itself, its HP, its phases with their crowd-control
   assert.ok(description.includes(`**${cfg.maxRounds}** rounds`), description);
 
   const rewards = embed.fields?.find((f) => f.name === 'Rewards')?.value ?? '';
-  assert.ok(rewards.includes(`**${cfg.reward.toLocaleString('en-US')}** <:zeiucoin:1551675032424546320>`), rewards);
-  assert.ok(rewards.includes(`**${cfg.tokenReward}** <:zeiutoken:1552921364489572362>`), rewards);
-  assert.ok(rewards.includes(`**${cfg.gemReward}** ${GEM_EMOJI}`), rewards);
+  // (The Weekly Boss pays raid.weeklyMultiplier times over.)
+  const times = cfg.weeklyMultiplier;
+  assert.ok(rewards.includes(`**${(cfg.reward * times).toLocaleString('en-US')}** <:zeiucoin:1551675032424546320>`), rewards);
+  assert.ok(rewards.includes(`**${cfg.tokenReward * times}** <:zeiutoken:1552921364489572362>`), rewards);
+  assert.ok(rewards.includes(`**${cfg.gemReward * times}** ${GEM_EMOJI}`), rewards);
   assert.equal(embed.fields?.[0]?.name, 'Rewards', 'the rewards come first');
   const noGems = bossInfoEmbed({ ...cfg, gemReward: 0, gemRewardMilestone: 0 }).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
   assert.ok(!noGems.includes(GEM_EMOJI), 'a reward set to 0 is left out');
@@ -1060,14 +1062,14 @@ test('komaGems: a slain dragon gives every raider 5 by default, named next to th
   assert.equal(boldGems(-0), `**0** ${GEM_EMOJI}`);
 
   const won = TEXT.raid.won(4, '1,000', 10, 5);
-  assert.ok(won.includes(`gets **1,000** <:zeiucoin:1551675032424546320>, **10** <:zeiutoken:1552921364489572362> and **5** ${GEM_EMOJI}.`), won);
+  assert.ok(won.includes(`gets **1,000** <:zeiucoin:1551675032424546320>, **10** <:zeiutoken:1552921364489572362> and **5** ${GEM_EMOJI} for their first win of the week.`), won);
   const lobby = TEXT.raid.lobby(TEXT.raid.bosses.wyrm, '<@a>', 15, '1,000', 10, 5);
   assert.ok(lobby.includes(`**5** ${GEM_EMOJI}`), lobby);
   // No countdown: the host starts it, or disbands it.
   assert.ok(lobby.includes('**Start raid**') && lobby.includes('**Disband**') && !lobby.includes('<t:'), lobby);
   // A reward set to 0 is left out rather than shown as "0".
-  assert.ok(TEXT.raid.won(4, '1,000', 10, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320> and **10** <:zeiutoken:1552921364489572362>.'));
-  assert.ok(TEXT.raid.won(4, '1,000', 0, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320>.'));
+  assert.ok(TEXT.raid.won(4, '1,000', 10, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320> and **10** <:zeiutoken:1552921364489572362> for their first win of the week.'));
+  assert.ok(TEXT.raid.won(4, '1,000', 0, 0).endsWith('gets **1,000** <:zeiucoin:1551675032424546320> for their first win of the week.'));
   assert.equal(TEXT.balance.gems(3), `**3** ${GEM_EMOJI}`);
 });
 
@@ -1309,7 +1311,7 @@ test('raid stats for the reaper: its own moves only, and whose week it is', () =
   const until = new Date('2026-10-03T04:00:00Z');
   const embed = bossInfoEmbed(DEFAULTS.raid, 'reaper', until).toJSON();
   assert.equal(embed.title, '💀 Soul Reaper');
-  assert.ok(embed.description?.startsWith(`This week's raid boss, until <t:${until.getTime() / 1000}:F>.`));
+  assert.ok(embed.description?.startsWith(`This week's Weekly Boss, until <t:${until.getTime() / 1000}:F>. Only your first win of the week pays.`));
   assert.match(embed.description ?? '', /It fades back into the fog \(and the raid is lost\)/);
   const moves = embed.fields?.find((f) => f.name === 'Moves')?.value ?? '';
   for (const name of ['Reap', 'Soul Drain', 'Scythe Sweep', 'Harvest', 'Spectral Veil']) assert.ok(moves.includes(`**${name}**`), name);

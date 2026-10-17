@@ -90,7 +90,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       ...(item.tmDrop ? { pool: 'tm' as const } : item.uniqueTreasure ? { pool: 'ut' as const } : {}),
       borrowed: item.usableBy ? CONFIG.equipment.borrowed.effectiveness : null,
       source: sourceOf(item),
-      sources: item.raidDrop ? ['raid', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [sourceOf(item)],
+      sources: item.raidDrop ? ['raid', 'dragon', ...(soldInRaidShop(item, CONFIG.raid.shop) ? (['raidShop'] as const) : [])] : [sourceOf(item)],
       class: item.class ?? null,
       uniqueWeapon: item.uniqueWeapon ?? null,
       uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,

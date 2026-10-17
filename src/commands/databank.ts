@@ -91,7 +91,7 @@ export const databank: Command = {
   category: 'items',
   aliases: ['items', 'db'],
   description:
-    'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both. `databank bosses` shows the raid bosses instead, and `databank classes` the raid classes (or just the name of one, like `databank knight`).',
+    'See every item and what it does. Add an item name or id to see just that one, a star tier (1-4), a category (weapon, armor, treasure), or both. `databank bosses` shows the Weekly Bosses instead, and `databank classes` the raid classes (or just the name of one, like `databank knight`).',
   usage: 'databank [item | stars] [category]  or  databank bosses [boss]  or  databank classes [class]',
   slashUsage: 'databank [item] [stars] [category] [boss]',
 

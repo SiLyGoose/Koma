@@ -24,7 +24,7 @@ export const newsletterText = {
     `🎯 Most robbed: ${who}, lost ${boldMoney(amount)} in ${count} rob${count === 1 ? '' : 's'}`,
 
   /** `boss` is like "🐉 Wyvern". A preview's is next week's. */
-  newBoss: (boss: string, preview: boolean) => `${preview ? "Next week's" : "This week's"} raid boss is **${boss}**. Good luck!`,
+  newBoss: (boss: string, preview: boolean) => `${preview ? "Next week's" : "This week's"} Weekly Boss is **${boss}**. Good luck!`,
 
   // ---------------------------------------------------------------------------
   // Patch notes, sent by the bot admin.

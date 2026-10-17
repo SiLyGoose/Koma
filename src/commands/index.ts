@@ -18,6 +18,7 @@ import { newsletter } from './newsletter.js';
 import { pinecraft } from './pinecraft.js';
 import { minesweeper } from './minesweeper.js';
 import { technomagic } from './technomagic.js';
+import { dragon } from './dragon.js';
 import { plinko } from './plinko.js';
 import { baccarat } from './baccarat.js';
 import { roulette } from './roulette.js';
@@ -59,6 +60,7 @@ export const commands: Command[] = [
   pinecraft,
   minesweeper,
   technomagic,
+  dragon,
   raid,
   leaderboard,
   vault,

@@ -227,7 +227,7 @@ export interface Settings {
     };
   };
   /**
-   * The weekly raid boss (commands/raid.ts). Its combat math is RAID_COMBAT in constants/raid.ts;
+   * The Weekly Boss (commands/raid.ts). Its combat math is RAID_COMBAT in constants/raid.ts;
    * these are the numbers worth tuning while the bot runs.
    */
   raid: {
@@ -263,6 +263,11 @@ export interface Settings {
     essenceReward: number;
     /** Hero essences more of each kind for every difficulty level past 1 (as rewardPerLevel). */
     essenceRewardPerLevel: number;
+    /**
+     * How many times over the Weekly Boss pays: every reward above, and the raid items a win drops (raidDropCounts), are
+     * multiplied by it. Only a member's first win of each raid week is paid (services/raid.ts claimWeeklyWins).
+     */
+    weeklyMultiplier: number;
     /**
      * The site's raid shop (lib/game/items/raid-shop.ts): raid items sold for komaGems, a few of each
      * tier, changing with the raid's week. By tier: what one costs, and how many are on the shelf.
@@ -331,6 +336,18 @@ export interface Settings {
     price: number;
     winPoints: number;
     potentials: Record<TmPotentialId, { min: number; max: number }>;
+  };
+  /**
+   * The Dragon Raid's runs (services/dragon.ts): what a win pays each player in it, by its stage. `winPoints` points at stage 1
+   * and `pointsPerStage` more for every stage past it; `essences` hero essences of each of its dragon's kinds
+   * (data/transcend.ts DRAGON_ESSENCES) at stage 1, `essencesPerStage` more for every stage past it. Its hero gear is
+   * DRAGON_DROPS (constants/technomagic.ts). There is no daily limit.
+   */
+  dragon: {
+    winPoints: number;
+    pointsPerStage: number;
+    essences: number;
+    essencesPerStage: number;
   };
   skip: {
     claim: number;
@@ -480,6 +497,7 @@ export const DEFAULTS: Readonly<Settings> = {
     gemRewardMilestone: 5,
     essenceReward: 15,
     essenceRewardPerLevel: 5,
+    weeklyMultiplier: 5,
     shop: { price: { 3: 5, 4: 10 }, stock: { 3: 4, 4: 4 }, refreshCost: 5, refreshes: 5 },
     dropChance: 0.2,
     dropChancePerRaider: 0.1,
@@ -505,6 +523,8 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   outfit: { price: 5_000 },
   hero: { price: 25_000, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  // A Dragon Raid win: 750 at stage 1 up to 2,500 at stage 8, and 8 up to 36 of each of its dragon's two essences.
+  dragon: { winPoints: 750, pointsPerStage: 250, essences: 8, essencesPerStage: 4 },
   skip: { claim: 300 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.

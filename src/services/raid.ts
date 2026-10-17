@@ -6,7 +6,7 @@ import type { RaidStats } from '../lib/events/raid.js';
 import type { RaidWeek } from '../lib/events/raid-week.js';
 import type { RaidDoc } from '../types.js';
 import type { EssenceId } from '../data/transcend.js';
-import { addCopy, giveGems, giveTokens } from './economy/index.js';
+import { addCopy, ensureMember, giveGems, giveTokens } from './economy/index.js';
 import { giveEssences } from './economy/essences.js';
 import { recordLedger } from './economy/shared.js';
 import { payShares } from './events.js';
@@ -123,6 +123,25 @@ export async function finishRaid(
   const takings = raidTakings(raid);
   if (takings > 0) await addVaultLoss(raid.guildId, takings);
   return takings;
+}
+
+/**
+ * Of `userIds`, who won the Weekly Boss for the first time in the raid week `weekKey`: each is marked as paid for that
+ * week as they are found (one conditional update each, so a member is never paid twice in a week however many raids end
+ * at once). Only they are paid (rewardRaid); the rest have had this week's already.
+ */
+export async function claimWeeklyWins(guildId: string, userIds: readonly string[], weekKey: string): Promise<string[]> {
+  const claimed: string[] = [];
+  for (const userId of userIds) {
+    try {
+      await ensureMember(guildId, userId);
+      const { modifiedCount } = await collections().members.updateOne({ guildId, userId, weeklyBossWeek: { $ne: weekKey } }, { $set: { weeklyBossWeek: weekKey } });
+      if (modifiedCount === 1) claimed.push(userId);
+    } catch (err) {
+      console.error(`Could not mark ${userId}'s Weekly Boss win of ${weekKey} in ${guildId}:`, err);
+    }
+  }
+  return claimed;
 }
 
 export interface RaidReward {

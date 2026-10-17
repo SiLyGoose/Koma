@@ -1,14 +1,16 @@
 import type { WebSocket } from 'ws';
-import { TM_WEB } from '../../../constants/index.js';
+import { DRAGON_WEB, TM_WEB } from '../../../constants/index.js';
 import { chatImage } from '../chat.js';
 import { openGameConnection, refuse, serveSocket, type Connection } from '../connection.js';
 import { parseClientMessage, type AnswerCode, type ClientMessage, type ServerMessage } from './protocol.js';
-import { technomagicRooms, type Peer, type RoomDeps, type TechnoMagicRoom, type TechnoMagicRooms } from './room.js';
+import { dragonRooms, technomagicRooms, type Peer, type RoomDeps, type TechnoMagicRoom, type TechnoMagicRooms } from './room.js';
 
 /*
  * The web socket the TechnoMagic Raid's page plays through (connection.ts does the greeting). Once the player
- * says hello they join their server's room (room.ts), or one of their own (single player), with the heroes they own. One page per player: a new
- * one takes over. It isn't watched: anyone in the server can join in instead.
+ * says hello they join a raid of their server's (room.ts: the one their link names, a new one, or an open one), or a room
+ * of their own (single player), with the heroes they own. One page per player: a new one takes over. It isn't watched:
+ * anyone in the server can join in instead. The Dragon Raid's is the same, on a socket of its own (serveDragon), the page
+ * naming the dragon it wants.
  */
 
 export type { Peer } from './room.js';
@@ -16,32 +18,39 @@ export type { Peer } from './room.js';
 /** A few words on what a player is doing, for the online list, from a message sent to their page. */
 function describe(message: ServerMessage): string | null {
   if (message.t !== 'room') return null;
-  const { phase, players, stage } = message.state;
+  const { phase, players, stage, boss } = message.state;
   const what = phase === 'fight' ? 'Fighting' : phase === 'over' ? 'Done' : 'Getting ready';
-  return `Galgoria · Stage ${stage} · ${what} · ${players.length} in`;
+  return `${boss.name} · Stage ${stage} · ${what} · ${players.length} in`;
 }
 
-/** Plays the TechnoMagic Raid in `rooms` with the page `page`. */
+/** Plays the TechnoMagic Raid (or, its rooms the Dragon Raid's, the Dragon Raid) in `rooms` with the page `page`. */
 export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = technomagicRooms, deps: RoomDeps = rooms.realDeps): Connection {
   let room: TechnoMagicRoom | null = null;
+  const dragon = rooms.raid.kind === 'dragon';
 
   return openGameConnection<ClientMessage, ServerMessage>(
-    { live: 'technomagic', limits: TM_WEB, parse: parseClientMessage, describe: (m) => describe(m as ServerMessage) },
+    { live: dragon ? 'dragon' : 'technomagic', limits: dragon ? DRAGON_WEB : TM_WEB, parse: parseClientMessage, describe: (m) => describe(m as ServerMessage) },
     page,
     {
       async hello(hello) {
-        const { player } = hello;
+        const { player, greeting } = hello;
         const peer = hello.join();
+        const single = 'single' in greeting && greeting.single === true;
+        const wanted = single ? {} : { ...('room' in greeting && greeting.room && { room: greeting.room }), ...('create' in greeting && greeting.create === true && { create: true }) };
+        // The raid named is over (everyone gone from it).
+        const against = rooms.bossFor(player, wanted, 'boss' in greeting ? greeting.boss : undefined);
+        if (!against) return refuse(peer, 'gone');
+        const boss = against.id;
         const [owned, cleared] = await Promise.all([
           deps.owned(player.guildId, player.userId).catch((err) => {
             console.error('Could not read whose heroes are whose:', err);
             return [] as string[];
           }),
-          deps.cleared(player.guildId, player.userId).catch(() => 0),
+          deps.cleared(player.guildId, player.userId, boss).catch(() => 0),
         ]);
         if (hello.gone) return;
-        const joined = rooms.join(player, peer, owned, cleared, deps, 'single' in hello.greeting && hello.greeting.single === true);
-        if (!joined) return refuse(peer, 'full');
+        const joined = rooms.join(player, peer, owned, cleared, deps, single, boss, wanted);
+        if (!joined) return refuse(peer, wanted.room && !rooms.lobby(player.guildId, wanted.room) ? 'gone' : 'full');
         room = joined.room;
         if (joined.replaced) refuse(joined.replaced, 'replaced');
       },
@@ -63,6 +72,10 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             return answer(room.setStage(userId, message.stage));
           case 'begin':
             return answer(await room.begin(userId));
+          case 'boss':
+            return answer(await room.setBoss(userId, message.boss));
+          case 'part':
+            return answer(room.part(userId));
           case 'press':
             return room.press(userId, message.fighter, message.skill);
           case 'auto':
@@ -95,4 +108,10 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
 export function serveTechnoMagic(socket: WebSocket, deps: Partial<Pick<RoomDeps, 'avatar' | 'announce'>> = {}): void {
   const real = { ...technomagicRooms.realDeps, ...Object.fromEntries(Object.entries(deps).filter(([, fn]) => fn)) };
   serveSocket<ServerMessage>(socket, (page) => openTechnoMagicConnection(page, technomagicRooms, real));
+}
+
+/** Plays the Dragon Raid over a web socket just opened (as the TechnoMagic Raid, in the dragons' rooms). */
+export function serveDragon(socket: WebSocket, deps: Partial<Pick<RoomDeps, 'avatar' | 'announce'>> = {}): void {
+  const real = { ...dragonRooms.realDeps, ...Object.fromEntries(Object.entries(deps).filter(([, fn]) => fn)) };
+  serveSocket<ServerMessage>(socket, (page) => openTechnoMagicConnection(page, dragonRooms, real));
 }

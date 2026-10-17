@@ -117,6 +117,10 @@ export const SPECS: readonly SettingSpec[] = [
 
   int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
   int('hero.winPoints', 'Hero', `${CURRENCY_EMOJI} each won TechnoMagic Raid run pays, on top of its gear (3 to 5 items, more at the higher stages). There is no daily limit.`, 0, MAX_POINTS),
+  int('dragon.winPoints', 'Hero', `${CURRENCY_EMOJI} each won Dragon Raid run pays at stage 1, on top of its hero gear and essences. There is no daily limit.`, 0, MAX_POINTS),
+  int('dragon.pointsPerStage', 'Hero', `${CURRENCY_EMOJI} more a won Dragon Raid run pays for every stage past 1.`, 0, MAX_POINTS),
+  int('dragon.essences', 'Hero', "Hero essences of each of its dragon's two kinds a won Dragon Raid run pays at stage 1.", 0, MAX_POINTS),
+  int('dragon.essencesPerStage', 'Hero', 'Hero essences more of each kind a won Dragon Raid run pays for every stage past 1.', 0, MAX_POINTS),
   ...TM_POTENTIALS.flatMap(({ id, name }) =>
     (['min', 'max'] as const).map(
       (end): SettingSpec => ({
@@ -436,6 +440,7 @@ export const SPECS: readonly SettingSpec[] = [
   ),
   int('raid.essenceReward', 'Raid', `Hero essences of each of its boss's three kinds each raid player who took part gets when the boss is beaten at difficulty 1 (they transcend the TechnoMagic Raid's heroes).`, 0, MAX_POINTS),
   int('raid.essenceRewardPerLevel', 'Raid', `Hero essences more of each kind each raid player gets for every difficulty level past 1 (5 makes level 3 pay 10 more).`, 0, MAX_POINTS),
+  int('raid.weeklyMultiplier', 'Raid', "How many times over the Weekly Boss pays (its points, komaTokens, komaGems, essences and raid items): only each member's first win of the raid week is paid.", 1, 100),
   ...RAID_SHOP_STARS.map((stars) => int(`raid.shop.price.${stars}`, 'Raid', `${GEM_NAME} a ${stars}-star raid item costs in the site's raid shop.`, 0, MAX_POINTS)),
   ...RAID_SHOP_STARS.map((stars) =>
     int(`raid.shop.stock.${stars}`, 'Raid', `How many ${stars}-star raid items the site's raid shop has on its shelf each week (0: none).`, 0, MAX_RAID_SHOP_STOCK),

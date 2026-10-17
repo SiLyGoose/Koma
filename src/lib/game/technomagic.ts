@@ -12,12 +12,14 @@ import {
   MOST_TM_SKILLS,
   SIM_VERSION,
   STEP_SECONDS,
+  TM_BOSS_INFO,
   TM_SKILLS,
   replay,
   startRaid,
   type LiveRaid,
   type Replay,
   type Run,
+  type BossInfo,
   type TmSkill,
 } from '../../../vendor/technomagic-sim.mjs';
 
@@ -35,7 +37,8 @@ export { BOSS_IDS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SEC
 
 export const TM_SKILLS_BY_ID: ReadonlyMap<string, TmSkill> = new Map(TM_SKILLS.map((skill) => [skill.id, skill]));
 
-/** The boss a run is fought against (the only one so far). */
+/** The TechnoMagic Raid's bosses (the Dragon Raid's dragons are lib/game/dragon.ts's), and the one a run is fought against unless another is asked for. */
+export const TM_BOSSES: readonly BossInfo[] = TM_BOSS_INFO;
 export const TM_BOSS = 'galgoria';
 /** The random numbers a drop uses; only tests replace them. */
 export interface TmRng {

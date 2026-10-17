@@ -146,11 +146,14 @@ test('raid drops: 4-stars only at levels 5 and 10, and one more 3-star at every 
   assert.deepEqual(ladder.map((counts) => counts[3]), [1, 2, 3, 4, 4, 5, 6, 7, 8, 8]);
   assert.deepEqual(raidDropCounts(0), raidDropCounts(1));
   assert.deepEqual(raidDropCounts(50), raidDropCounts(10));
-  assert.equal(lootKindsText(1), 'a 3★ raid item');
-  assert.equal(lootKindsText(2), '2× 3★ raid items');
-  assert.equal(lootKindsText(5), '1× 4★ and 4× 3★ raid items');
-  assert.equal(lootKindsText(6), '5× 3★ raid items', 'no 4-star past the milestone');
-  assert.equal(lootKindsText(10), '2× 4★ and 8× 3★ raid items');
+  // The Weekly Boss drops them raid.weeklyMultiplier (5) times over.
+  assert.deepEqual(raidDropCounts(1, 5), { 4: 0, 3: 5 });
+  assert.deepEqual(raidDropCounts(5, 5), { 4: 5, 3: 20 });
+  assert.equal(lootKindsText(1), '5× 3★ raid items');
+  assert.equal(lootKindsText(2), '10× 3★ raid items');
+  assert.equal(lootKindsText(5), '5× 4★ and 20× 3★ raid items');
+  assert.equal(lootKindsText(6), '25× 3★ raid items', 'no 4-star past the milestone');
+  assert.equal(lootKindsText(10), '10× 4★ and 40× 3★ raid items');
 
   // Each raider finds that many of each tier, their best first, each from its own tier's items.
   let next = 0;
@@ -215,8 +218,8 @@ test('raid drops: the chances are settings, 20% and +10% per raider by default, 
   assert.ok(findSpec('raid.dropChance'), 'it can be changed with the config command');
   assert.ok(findSpec('raid.dropChancePerRaider'), 'it can be changed with the config command');
   const rewards = (cfg: typeof DEFAULTS.raid): string => bossInfoEmbed(cfg).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
-  assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('20%', '10%')), rewards(DEFAULTS.raid));
-  assert.match(rewards(DEFAULTS.raid), /everyone finds a 3★ raid item/);
+  assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('20%', '10%', undefined, '5× 3★ raid items')), rewards(DEFAULTS.raid));
+  assert.match(rewards(DEFAULTS.raid), /everyone finds 5× 3★ raid items/);
   assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }).includes('★'), 'left out when drops are off');
 });
 

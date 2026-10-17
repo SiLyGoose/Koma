@@ -1,4 +1,4 @@
-import { BACCARAT_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB } from '../constants/index.js';
+import { BACCARAT_WEB, DRAGON_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB } from '../constants/index.js';
 import { optionalEnv } from '../env.js';
 import type { Game } from '../protocol/site.js';
 
@@ -76,6 +76,7 @@ export const GAMES = {
   raid: { page: '/games/raid', socket: RAID_WEB.path },
   minesweeper: { page: '/games/minesweeper', socket: MINESWEEPER_WEB.path },
   technomagic: { page: '/games/technomagic', socket: TM_WEB.path },
+  dragon: { page: '/games/dragon', socket: DRAGON_WEB.path },
 } as const satisfies Record<Game, { page: string; socket: string }>;
 export type { Game };
 
@@ -86,8 +87,11 @@ export type { Game };
 export const siteGameLink = (config: WebConfig, game: Game, guildId: string, more: Record<string, string> = {}): string =>
   `${config.siteUrl}/?${new URLSearchParams({ play: game, guild: guildId, ...more })}`;
 
-/** The site's link into a server's TechnoMagic Raid room, with others (multiplayer: not a room of their own). */
-export const technomagicRoomLink = (config: WebConfig, guildId: string): string => siteGameLink(config, 'technomagic', guildId, { mode: 'multi' });
+/** The site's link into a server's TechnoMagic Raid with others: raid `room`, or (none) its Find Raid. */
+export const technomagicRoomLink = (config: WebConfig, guildId: string, room?: string): string => siteGameLink(config, 'technomagic', guildId, { mode: 'multi', ...(room && { room }) });
+
+/** The site's link into a server's Dragon Raid against `boss` (a dragon) with others: raid `room`, or (none) its Find Raid. */
+export const dragonRoomLink = (config: WebConfig, guildId: string, boss: string, room?: string): string => siteGameLink(config, 'dragon', guildId, { mode: 'multi', boss, ...(room && { room }) });
 
 /** The link that opens `game` for the holder of `token`. The token rides in the part after #, which browsers never send to the site's host. */
 export const gameLink = (config: WebConfig, game: Game, token: string): string =>
