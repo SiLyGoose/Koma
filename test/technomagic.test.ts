@@ -453,6 +453,8 @@ test('technomagic room: one who leaves the fight (quit) forfeits what it gives t
   assert.equal(await room.begin('a'), null);
   room.autoAll('a');
   assert.equal(room.quit('b'), null);
+  assert.deepEqual(a.room().players.map((player) => player.id), ['a'], 'out of the room at once');
+  room.autoAll('b');
   room.leave('b', b);
   await h.pass(100);
   const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));

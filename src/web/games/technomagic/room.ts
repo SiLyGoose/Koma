@@ -31,8 +31,8 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * takes the steps that are due, each with what was pressed before it, and tells every page what was pressed at which
  * step and how far the fight has got; each page runs the same fight from the same seed and never goes past that. Each
  * player presses only their own heroes. One whose page goes during the fight has their heroes fight on, on Auto, and
- * can come back to it. One who leaves it for good (Leave: `quit`) forfeits what it gives them, their heroes fighting
- * on all the same; alone, in a room of their own, that loses the fight. The fight over, a win gives each player in it TechnoMagic items and points
+ * can come back to it. One who leaves it for good (Leave: `quit`) forfeits what it gives them and is out of the room,
+ * their heroes fighting on all the same; alone, in a room of their own, that loses the fight. The fight over, a win gives each player in it TechnoMagic items and points
  * (services/technomagic.ts), and anyone takes the room back to getting ready, or runs it again (`again`).
  *
  * The Dragon Raid's rooms are the same (dragonRooms), each against one of its dragons (a page names the dragon it wants),
@@ -523,9 +523,9 @@ export class TechnoMagicRoom {
     return null;
   }
 
-  /** Whether hero `fighter` of the fight is `userId`'s. */
+  /** Whether hero `fighter` of the fight is `userId`'s (one who has left the room has none to use). */
   private owns(userId: string, fighter: number): boolean {
-    return this.fight !== null && !this.fight.done && this.fight.owners[fighter] === userId;
+    return this.fight !== null && !this.fight.done && this.members.has(userId) && this.fight.owners[fighter] === userId;
   }
 
   /** `userId` presses skill `skill` of their hero `fighter`. */
@@ -533,10 +533,10 @@ export class TechnoMagicRoom {
     if (this.owns(userId, fighter)) this.fight?.pending.push({ kind: 'skill', fighter, skill });
   }
 
-  /** The heroes of the fight that are `userId`'s, by their places in the lineup: not the Sub Team's, which are on Auto for good. */
+  /** The heroes of the fight that are `userId`'s, by their places in the lineup: not the Sub Team's, which are on Auto for good (one who has left the room: none). */
   private mine(userId: string): number[] {
     const { fight } = this;
-    return fight ? fight.owners.flatMap((owner, fighter) => (owner === userId && !fight.start.heroes[fighter]?.sub ? [fighter] : [])) : [];
+    return fight && this.members.has(userId) ? fight.owners.flatMap((owner, fighter) => (owner === userId && !fight.start.heroes[fighter]?.sub ? [fighter] : [])) : [];
   }
 
   /** `userId` turns their hero `fighter`'s Auto on or off (not one of the Sub Team's). */
@@ -558,13 +558,26 @@ export class TechnoMagicRoom {
   }
 
   /**
-   * `userId` leaves the fight for good (the page's Leave, its page going after): it gives them nothing, and their heroes
-   * fight on, on Auto. Alone, in a room of their own, the fight is lost.
+   * `userId` leaves the fight for good (the page's Leave): it gives them nothing, and their heroes fight on, on Auto,
+   * while they are out of the room at once, their place and picks with them. Alone, in a room of their own, the fight is
+   * lost (and they stay in it, to get ready again).
    */
   quit(userId: string): AnswerCode | null {
-    if (!this.members.has(userId) || !this.fight || this.fight.done) return 'closed';
+    const member = this.members.get(userId);
+    if (!member || !this.fight || this.fight.done) return 'closed';
     this.fight.forfeited.add(userId);
-    this.fight.pending.push(this.single ? { kind: 'leave' } : { kind: 'autos', fighters: this.mine(userId), on: true });
+    if (this.single) {
+      this.fight.pending.push({ kind: 'leave' });
+      return null;
+    }
+    this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId), on: true });
+    member.awayEnds?.();
+    this.members.delete(userId);
+    this.lineup = this.lineup.filter((pick) => pick.owner !== userId);
+    this.trim();
+    // (The last one in it: nobody's left to fight it, so it is lost, and the room closes as it ends.)
+    if (this.members.size === 0) this.fight.pending.push({ kind: 'leave' });
+    this.tell();
     return null;
   }
 

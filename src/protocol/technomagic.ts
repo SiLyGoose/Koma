@@ -32,7 +32,8 @@ import type { MainStat } from './items.js';
  *                 auto      one of their heroes' Auto, on or off; `auto-all`: all of theirs
  *                 give-up   ends the fight, lost (the host)
  *                 quit      leaves the fight for good (the page's Leave): they forfeit what it gives them, and their
- *                           heroes fight on with everyone else's, on Auto (single player: the fight is lost)
+ *                           heroes fight on with everyone else's, on Auto, while they are out of the room at
+ *                           once (single player: the fight is lost, and they stay in it)
  *                 back      from a fight over to getting ready again
  *                 again     from a fight over, the same again: the host's starts the next fight (once everyone else is
  *                           ready), anyone else's says they're ready for it
