@@ -72,6 +72,14 @@ export interface SettingSpec {
   normalize?: (raw: string) => string;
 }
 
+/**
+ * The groups, in the order the config command lists them and the site's admin page shows them.
+ * 'Stonks' was added as a settings-spec group (stonks.capHours) without ever being added here,
+ * so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
+ * in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
+ */
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+
 const MAX_POINTS = MAX_SETTING_POINTS;
 
 function int(key: string, group: SettingSpec['group'], description: string, min: number, max: number): SettingSpec {

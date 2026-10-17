@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import type { ApiDeps } from '../api.js';
+import { isAdmin } from '../../config.js';
 import { ApiError } from '../lib/errors.js';
 import { verifySession, type Session } from '../auth/login.js';
 import { verifyToken, verifyWatchToken, type Player } from '../auth/token.js';
@@ -85,3 +86,9 @@ export const liveMember =
     res.locals.guildId = guildId;
     next();
   };
+
+/** After signedIn (logged in, not with a game link): the bot admin only (the site's admin page), anyone else a not_admin. */
+export const admin: RequestHandler = (_req, res, next) => {
+  if (res.locals.link || !isAdmin(res.locals.session.userId)) throw new ApiError('not_admin');
+  next();
+};

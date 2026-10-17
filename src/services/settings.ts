@@ -154,6 +154,47 @@ export async function changeSetting(actorId: string, key: string, rawValue: stri
   return applyChange(spec, parsed.value);
 }
 
+export type ManyChangeResult =
+  | { ok: true; results: readonly { key: string; oldValue: string; newValue: string }[] }
+  | { ok: false; reason: 'forbidden' }
+  /** `problems` says what's wrong with each setting (`key`), or with them together (`key` null: a rule they break). */
+  | { ok: false; reason: 'invalid'; problems: readonly { key: string | null; error: string }[] };
+
+/**
+ * Sets several settings at once, from text as the config command takes it (`changes`: setting -> value): the site's
+ * admin page saves everything changed on it in one go. Each value is checked, then the rules once, on all of them
+ * changed (one at a time, raising claim.min past the old claim.max would fail even with claim.max raised too), and
+ * they're saved in one write; or, if anything is wrong, none of them, with every problem found. Only the admin may do this.
+ */
+export async function changeSettings(actorId: string, changes: Readonly<Record<string, string>>): Promise<ManyChangeResult> {
+  if (!isAdmin(actorId)) return { ok: false, reason: 'forbidden' };
+  const problems: { key: string | null; error: string }[] = [];
+  const parsed: { spec: SettingSpec; value: string | number }[] = [];
+  for (const [key, raw] of Object.entries(changes)) {
+    const spec = findSpec(key);
+    if (!spec) problems.push({ key, error: TEXT.config.unknownSetting(key) });
+    else if (spec.key === 'prefix' && isPrefixFromEnv()) problems.push({ key: spec.key, error: TEXT.config.prefixFromEnv });
+    else {
+      const result = parseInput(spec, raw);
+      if (result.ok) parsed.push({ spec, value: result.value });
+      else problems.push({ key: spec.key, error: TEXT.config.invalidValue(spec.key, result.error) });
+    }
+  }
+  if (problems.length > 0) return { ok: false, reason: 'invalid', problems };
+
+  const candidate = structuredClone(CONFIG);
+  for (const { spec, value } of parsed) setPath(candidate, spec.key, value);
+  const rule = checkConstraints(candidate);
+  if (rule) return { ok: false, reason: 'invalid', problems: [{ key: null, error: TEXT.config.breaksRule(rule) }] };
+
+  const results = parsed.map(({ spec, value }) => ({ key: spec.key, oldValue: formatValue(spec, getPath(CONFIG, spec.key)), newValue: formatValue(spec, value) }));
+  if (parsed.length > 0) {
+    await collections().settings.updateOne({ _id: SETTINGS_ID }, { $set: Object.fromEntries(parsed.map(({ spec, value }) => [spec.key, value])) }, { upsert: true });
+  }
+  for (const { spec, value } of parsed) setPath(CONFIG, spec.key, value);
+  return { ok: true, results };
+}
+
 /** Puts one setting back to its default. Only the admin may do this. */
 export async function resetSetting(actorId: string, key: string): Promise<ChangeResult> {
   if (!isAdmin(actorId)) return FORBIDDEN;

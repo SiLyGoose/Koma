@@ -1,3 +1,4 @@
+import { isAdmin } from '../../config.js';
 import { MINE_WEB } from '../../constants/index.js';
 import type { ApiDeps } from '../api.js';
 import { GAMES, gameLink, type Game } from '../config.js';
@@ -24,7 +25,7 @@ export function loginService(deps: ApiDeps) {
       if (!guild) continue;
       servers.push({ id, name: guild.name, icon: guildIconUrl(id, guild.icon), balance: await deps.balance(id, session.userId) });
     }
-    return { user: { id: session.userId, name: session.name, avatar: avatarUrl(session.userId, session.avatar) }, servers, games: Object.keys(GAMES) as Game[] };
+    return { user: { id: session.userId, name: session.name, avatar: avatarUrl(session.userId, session.avatar) }, servers, games: Object.keys(GAMES) as Game[], admin: isAdmin(session.userId) };
   }
 
   return {

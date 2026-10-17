@@ -12,6 +12,8 @@ import { compressJson } from './middleware/compress.js';
 import { errors, notFound } from './middleware/errors.js';
 import { cors, siteOnly } from './middleware/site.js';
 import type { RaidSiteDeps } from './games/raid/server.js';
+import type { SettingsStore } from './services/admin.js';
+import { adminRoutes } from './routes/admin.js';
 import { databankRoutes } from './routes/databank.js';
 import { gachaRoutes } from './routes/gacha.js';
 import { gearRoutes } from './routes/gear.js';
@@ -70,6 +72,8 @@ export type { Me } from './services/login.js';
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
  *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView
+ *   GET  /api/admin/settings   every one of the bot's settings, for the admin page (the bot admin only): SettingsView (protocol/admin.ts)
+ *   POST /api/admin/settings {changes}   changes some of them at once, as the config command would (all or none): SettingsSaved
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
@@ -115,6 +119,8 @@ export interface ApiDeps {
   technomagic?: { announce: (guildId: string, host: string) => void };
   /** The raid shop (the database's, unless a test says otherwise). */
   raidShop?: RaidShopStore;
+  /** Changing the bot's settings, for the admin page (services/settings.ts's, unless a test says otherwise). */
+  settings?: SettingsStore;
   login?: typeof exchangeCode;
   /** The raid's page (web/games/raid), once the bot is logged in to Discord. */
   raid?: RaidSiteDeps;
@@ -140,6 +146,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/heroes', heroRoutes(deps))
     .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))
+    .use('/admin', adminRoutes(deps))
     // Nothing else is there (once they've logged in).
     .use(signedIn(deps), notFound);
 

@@ -2,13 +2,15 @@ import type { LoadoutNameBlock, RefineBlock } from '../models/gear.js';
 
 /* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
 
-export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | RefineBlock | LoadoutNameBlock;
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | RefineBlock | LoadoutNameBlock;
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
   no_login: 404,
   not_logged_in: 401,
   not_member: 403,
+  not_admin: 403,
+  invalid_setting: 400,
   discord_failed: 502,
   not_found: 404,
   not_playing: 409,
@@ -37,7 +39,11 @@ const STATUS: Record<ErrorCode, number> = {
 
 /** Thrown by a service, controller or middleware when the site's request can't be done. */
 export class ApiError extends Error {
-  constructor(readonly code: ErrorCode) {
+  /** `detail`, if any, is answered beside the code (invalid_setting's `problems`). */
+  constructor(
+    readonly code: ErrorCode,
+    readonly detail?: Readonly<Record<string, unknown>>,
+  ) {
     super(code);
   }
 

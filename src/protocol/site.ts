@@ -11,6 +11,8 @@ export interface Me {
   user: { id: string; name: string; avatar: string };
   servers: { id: string; name: string; icon: string | null; balance: number }[];
   games: Game[];
+  /** Whether they're the bot admin, who can change the bot's settings on the site's admin page (./admin.ts). */
+  admin: boolean;
 }
 
 /** Who's on the site in a server (GET /api/live). */

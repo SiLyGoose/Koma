@@ -5,7 +5,7 @@ import { EFFECT_IDS } from '../perks/index.js';
 import { buildConfigPages, type ConfigGroup } from '../lib/config-page.js';
 import { checkEventChannel, type ChannelProblem } from '../events/channel.js';
 import { parseChannelArg, parseRoleArg } from '../lib/parse.js';
-import { findEquipmentEffectId, findSpec, formatValue, getPath, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
+import { findEquipmentEffectId, findSpec, formatValue, getPath, GROUPS, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
 import { TM_POTENTIAL_IDS } from '../data/tm-potentials.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
 import { getChannelId, setChannelId } from '../services/channel.js';
@@ -16,10 +16,8 @@ import { raidWeek } from '../lib/events/raid-week.js';
 import { paginate } from '../discord/paginate.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
-// 'Stonks' was added as a settings-spec group (stonks.capHours) without ever being added here,
-// so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
-// in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
-export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+/** The settings' groups, in the order `config list` shows them (lib/settings-spec.ts, which the site's admin page shares). */
+export { GROUPS };
 
 /**
  * The per-server channel settings: `channel` (the one channel commands and events are confined to,

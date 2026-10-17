@@ -8,7 +8,7 @@ export const notFound: RequestHandler = () => {
 
 /** Answers what a route threw: its error code, a body that isn't JSON (or is too big), or 500 for anything else. */
 export const errors: ErrorRequestHandler = (err: unknown, req, res, _next) => {
-  if (err instanceof ApiError) return void res.status(err.status).json({ error: err.code });
+  if (err instanceof ApiError) return void res.status(err.status).json({ ...err.detail, error: err.code });
   // express.json's: { type: 'entity.parse.failed', status: 400 }, 'entity.too.large' (413), …
   const status = (err as { status?: unknown } | null)?.status;
   if (typeof status === 'number' && status >= 400 && status < 500) return void res.status(400).json({ error: 'bad_request' });
