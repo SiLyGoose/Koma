@@ -212,11 +212,15 @@ test('dragon room: the host takes the raid against another dragon, everyone with
     assert.deepEqual(page.room().boss, { id: 'armarta', name: 'Armarta' });
     assert.deepEqual(page.room().players.map((p) => p.id), ['a', 'b'], 'everyone with it');
   }
-  assert.equal(a.room().unlocked, 4);
+  assert.deepEqual([a.room().stage, a.room().unlocked], [4, 4], 'the highest stage the host has opened against it');
   assert.equal(b.room().players[1]?.ready, false, 'nobody ready against the new dragon');
   assert.equal(a.room().lineup.length, 2, 'the picks kept');
   assert.deepEqual(h.rooms.lobbies('g1', 'armarta').map((one) => one.id), [a.room().room]);
   assert.deepEqual(h.rooms.lobbies('g1', 'temeraire'), []);
+  // Back to a dragon the host has won nothing against: stage 1 there.
+  assert.equal(await room.setBoss('a', 'temeraire'), null);
+  assert.deepEqual([a.room().stage, a.room().unlocked], [1, 1]);
+  assert.equal(await room.setBoss('a', 'armarta'), null);
 
   // b parts: gone at once, picks and all, not kept for a while as a page gone is.
   assert.equal(room.part('b'), null);

@@ -295,15 +295,25 @@ test('technomagic room: the host picks only a stage they have opened, by winning
   const h = harness();
   const a = h.peer();
   const { room } = h.rooms.join(h.player('a'), a, ALL, 2)!;
-  assert.equal(a.room().unlocked, 3);
+  assert.deepEqual([a.room().stage, a.room().unlocked], [3, 3], 'the room starts at the highest stage the host has opened');
   assert.equal(room.setStage('a', 4), 'locked');
-  assert.equal(room.setStage('a', 3), null);
-  assert.equal(a.room().stage, 3);
+  assert.equal(room.setStage('a', 1), null);
+  assert.equal(a.room().stage, 1);
+
+  // Someone who has won more joins: the stage stays the host's pick.
+  const c = h.peer();
+  h.rooms.join(h.player('c'), c, ALL, 5);
+  assert.equal(c.room().stage, 1);
+
+  // The host goes, and c takes over: the highest stage they have opened.
+  room.leave('a', a);
+  await h.pass(TM_ROOM.awayMs);
+  assert.deepEqual([c.room().stage, c.room().unlocked], [6, 6]);
 
   // A host who has won less takes over: the stage comes down to what they have opened.
   const b = h.peer();
   h.rooms.join(h.player('b'), b, ALL, 0);
-  room.leave('a', a);
+  room.leave('c', c);
   await h.pass(TM_ROOM.awayMs);
   assert.deepEqual([b.room().stage, b.room().unlocked], [1, 1]);
 });

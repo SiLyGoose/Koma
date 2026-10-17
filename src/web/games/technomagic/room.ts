@@ -169,6 +169,8 @@ export class TechnoMagicRoom {
   private readonly members = new Map<string, Member>();
   private lineup: PickView[] = [];
   private stage = 1;
+  /** The host the stage was last set for (a new one gets the highest they have opened). */
+  private stageHost: string | null = null;
   private phase: RoomState['phase'] = 'prep';
   private fight: Fight | null = null;
   private over: OverView | null = null;
@@ -241,7 +243,7 @@ export class TechnoMagicRoom {
     return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
   }
 
-  /** The highest stage the host may pick: the one after the highest they have won (the first, for one who has won none). */
+  /** The highest stage the host may pick, and the one the room starts at: the one after the highest they have won (the first, for one who has won none). */
   private unlocked(): number {
     const host = this.members.get(this.host() ?? '');
     return Math.min(MOST_STAGE, (host?.cleared ?? 0) + 1);
@@ -416,7 +418,7 @@ export class TechnoMagicRoom {
 
   /**
    * The host takes the raid against `boss` (another of the raid's), getting ready: everyone in it goes with it, their picks
-   * kept but nobody ready, and the stage no higher than the host has opened against it. Each page goes to it once told.
+   * kept but nobody ready, and the stage the highest the host has opened against it. Each page goes to it once told.
    */
   async setBoss(userId: string, boss: string): Promise<AnswerCode | null> {
     if (this.phase !== 'prep' || this.starting || this.id === null) return 'closed';
@@ -439,6 +441,7 @@ export class TechnoMagicRoom {
       member.ready = false;
     });
     this.against = next;
+    this.stage = this.unlocked();
     this.tell();
     return null;
   }
@@ -686,8 +689,13 @@ export class TechnoMagicRoom {
   /** Tells every page the room as it is now. */
   private tell(): void {
     const host = this.host();
-    // Getting ready, the stage is never past what the host (who may just have become it) has opened.
-    if (this.phase === 'prep' && !this.starting) this.stage = Math.min(this.stage, this.unlocked());
+    // Getting ready, a new host (the room's first, or one taking over) starts at the highest stage they have opened, and
+    // the stage is never past it.
+    if (this.phase === 'prep' && !this.starting) {
+      if (host !== this.stageHost) this.stage = this.unlocked();
+      this.stageHost = host;
+      this.stage = Math.min(this.stage, this.unlocked());
+    }
     const players = [...this.members.values()].map((member, i) => ({
       id: member.player.userId,
       name: member.player.name,
