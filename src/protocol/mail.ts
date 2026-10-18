@@ -1,11 +1,22 @@
 /* The mailbox on the site: what the bot's GET /api/mail (and its POSTs) say of a member's mail. */
 
-/** What a mail carries, as the page shows it: a line ("5,000 zeiucoins", "Unique Weapon Ticket"), its icon (King's Raid's, if any), and a selector's kind. */
+/**
+ * What a mail carries, as the page shows it: a line ("5,000 zeiucoins", "Unique Weapon Ticket"), its icon (King's Raid's, if
+ * any), a selector's kind, and (a selector claimed) the item it was picked as.
+ */
 export interface MailAttachmentView {
   text: string;
   icon: string | null;
   /** A selector: a unique weapon or a unique treasure, picked as it is claimed. */
   selector: 'uw' | 'ut' | null;
+  /** A selector claimed: what it was picked as (its item). Null otherwise (left out: a bot from before). */
+  picked?: MailPickItem | null;
+}
+
+/** An item a selector can be picked as: its id (its picture) and name. */
+export interface MailPickItem {
+  itemId: string;
+  name: string;
 }
 
 /** One mail. */
@@ -22,11 +33,12 @@ export interface MailView {
   claimed: boolean;
 }
 
-/** A hero a selector can give a unique weapon or treasure of: its id and name, and its four unique treasures' names (UT1 to UT4). */
+/** A hero a selector can give a unique weapon or treasure of: its id and name, its unique weapon, and its four unique treasures (UT1 to UT4). */
 export interface MailHero {
   id: string;
   name: string;
-  treasures: string[];
+  weapon: MailPickItem | null;
+  treasures: MailPickItem[];
 }
 
 /** GET /api/mail: their mail (the newest first), how many unread, and the heroes a selector can be picked for. */

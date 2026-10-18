@@ -12,7 +12,9 @@ import { mailStore } from '../models/mail.js';
  */
 
 const Read = z.object({ id: z.string().max(64).nullish() });
-const Claim = z.object({ id: z.string().max(64), hero: z.string().max(64).optional(), skill: z.number().int().min(1).max(4).optional() });
+const Pick = z.object({ hero: z.string().max(64), skill: z.number().int().min(1).max(4).optional() });
+/** A claim: the mail, and its selectors' picks (`picks`, one for each in order; or `hero` and `skill`, one for them all). */
+const Claim = z.object({ id: z.string().max(64), hero: z.string().max(64).optional(), skill: z.number().int().min(1).max(4).optional(), picks: z.array(Pick).max(20).optional() });
 
 export function mailRoutes(deps: ApiDeps): Router {
   const store = deps.mail ?? mailStore;
@@ -26,8 +28,9 @@ export function mailRoutes(deps: ApiDeps): Router {
       res.json(await store.read(res.locals.guildId, res.locals.session.userId, id ?? null));
     },
     async claim(req, res) {
-      const { id, hero, skill } = parse(Claim, req.body);
-      const result = await store.claim(res.locals.guildId, res.locals.session.userId, id, hero ? { hero, ...(skill && { skill }) } : undefined);
+      const { id, hero, skill, picks } = parse(Claim, req.body);
+      const one = hero ? { hero, ...(skill && { skill }) } : undefined;
+      const result = await store.claim(res.locals.guildId, res.locals.session.userId, id, picks?.map((pick) => ({ hero: pick.hero, ...(pick.skill && { skill: pick.skill }) })) ?? one);
       if (typeof result === 'string') throw new ApiError(result);
       res.json(result);
     },

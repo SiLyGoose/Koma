@@ -93,23 +93,31 @@ export function selectorItem(of: 'uw' | 'ut', pick: SelectorPick | undefined): I
 }
 
 /**
- * Claims a member's mail: everything it carries given (a selector, the `pick`ed unique weapon or treasure). What it gave, a line
- * each; or why not ('needs_pick': a selector with no pick, 'bad_pick': one that isn't a hero's).
+ * Claims a member's mail: everything it carries given (a selector, the unique weapon or treasure it was picked as: `picks`,
+ * one for each of its selectors in order, or one for them all). What it gave, a line each; or why not ('needs_pick': a
+ * selector with no pick, 'bad_pick': one that isn't a hero's). What each selector was picked as is kept (MailDoc.picked).
  */
-export async function claimMail(guildId: string, userId: string, id: string, pick?: SelectorPick, now: Date = new Date()): Promise<ClaimResult> {
+export async function claimMail(guildId: string, userId: string, id: string, picks?: SelectorPick | readonly SelectorPick[], now: Date = new Date()): Promise<ClaimResult> {
   const { mail, members } = collections();
   const doc = await mail.findOne({ _id: id, guildId, userId });
   if (!doc) return { ok: false, reason: 'not_found' };
   if (doc.claimedAt) return { ok: false, reason: 'claimed' };
-  const selectors = doc.attachments.filter((one): one is Extract<MailAttachment, { kind: 'selector' }> => one.kind === 'selector');
-  if (selectors.length > 0 && !pick) return { ok: false, reason: 'needs_pick' };
-  if (selectors.some((one) => !selectorItem(one.of, pick))) return { ok: false, reason: 'bad_pick' };
-  const claimed = await mail.updateOne({ _id: id, claimedAt: { $exists: false } }, { $set: { claimedAt: now, readAt: doc.readAt ?? now } });
+  // Each selector's pick: its own, in order (or the one for them all).
+  let nth = 0;
+  const pickOf = (): SelectorPick | undefined => (Array.isArray(picks) ? picks[nth++] : (picks as SelectorPick | undefined));
+  const items = doc.attachments.map((one) => (one.kind === 'selector' ? { of: one.of, pick: pickOf() } : null));
+  if (items.some((one) => one && !one.pick)) return { ok: false, reason: 'needs_pick' };
+  const picked = items.map((one) => (one ? (selectorItem(one.of, one.pick)?.id ?? null) : null));
+  if (items.some((one, i) => one && picked[i] === null)) return { ok: false, reason: 'bad_pick' };
+  const claimed = await mail.updateOne(
+    { _id: id, claimedAt: { $exists: false } },
+    { $set: { claimedAt: now, readAt: doc.readAt ?? now, ...(picked.some((one) => one !== null) && { picked }) } },
+  );
   if (claimed.modifiedCount === 0) return { ok: false, reason: 'claimed' };
   await ensureMember(guildId, userId);
   const given: string[] = [];
   const inc: Record<string, number> = {};
-  for (const attachment of doc.attachments) {
+  for (const [index, attachment] of doc.attachments.entries()) {
     switch (attachment.kind) {
       case 'points':
       case 'gems':
@@ -133,7 +141,7 @@ export async function claimMail(guildId: string, userId: string, id: string, pic
         break;
       }
       case 'selector': {
-        const item = selectorItem(attachment.of, pick);
+        const item = ITEMS_BY_ID.get(picked[index] ?? '');
         if (!item) break;
         await addCopy(guildId, userId, item.id, { ...(item.uniqueTreasure && { tmPotentials: rollUtOptions() }) });
         given.push(item.name);

@@ -107,6 +107,8 @@ export interface MailDoc {
   createdAt: Date;
   readAt?: Date;
   claimedAt?: Date;
+  /** Claimed: what each of its attachments was picked as (a selector's item id), by its index; null for any other. */
+  picked?: (string | null)[];
 }
 
 /**
