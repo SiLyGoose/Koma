@@ -96,12 +96,13 @@ export interface HeroRune {
 /** A rune the member has (not socketed), how many, and the parts it goes in. */
 export type HeroRuneStack = HeroRune & { count: number; parts: HeroPart[] };
 
-/** One of a copy's options: its stat, its line ("+14% ATK"), and its step of `steps` (an upgrade raises one a step). */
+/** One of a copy's options: its stat, its line ("ATK +14%"), its step of `steps` (an upgrade raises one a step), and what rerolling it costs. */
 export interface HeroOption {
   stat: string;
   line: string;
   step: number;
   steps: number;
+  price: number;
 }
 
 /** One copy a hero can wear (King's Raid's hero gear, a unique weapon or treasure, an artifact), as the heroes page shows it. */

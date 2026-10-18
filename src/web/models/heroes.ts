@@ -128,6 +128,7 @@ function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
     line: HERO_STAT_IDS_SET.has(option.stat) ? krLine(option.stat as HeroStat, krOptionValue(kr, option)) : option.stat,
     step: option.step,
     steps: poolOption(kr.pool, option.stat)?.steps ?? 0,
+    price: rerollPrice(option.rerolls ?? 0),
   }));
 }
 
