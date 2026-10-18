@@ -9,29 +9,116 @@ var NONE = {
 var POINTS = 1e3;
 /** The share of a stat in points (0 to 1). */
 var share$2 = (points) => Math.min(1, Math.max(0, points / POINTS));
-/**
-* King's Raid's soft caps: a stat's points past its soft cap count half (past `hard`, a fifth), so none is easily
-* pushed to 100%. Each stat's (SOFT) is where the fight uses it.
-*/
-function soft(points, cap, hard = Infinity) {
-	if (points <= cap) return points;
-	if (points <= hard) return cap + (points - cap) * .5;
-	return cap + (hard - cap) * .5 + (points - hard) * .2;
+/** As StatAttenuationData.Attenuate. */
+function curved(c, x) {
+	if (x === 0) return 0;
+	const { minK = 0, x3 = 0, a3 = 0, b3 = 0, x4 = 0, a4 = 0, b4 = 0 } = c;
+	const toward = (k, a, b) => k - k * 1e6 / (a * x * x + b * x + 1e6);
+	if (x > c.x1) return toward(c.maxK, c.a1, c.b1);
+	if (x > c.x2) return c.a2 * x / 1e3 + c.b2;
+	if (x < x3) return toward(minK, a3, b3);
+	if (x < x4) return minK * 1e6 / (a4 * x * x + b4 * x + 1e6);
+	return x;
 }
 /**
-* Each stat's soft cap (points): penetration, Tough and block DEF at 450; ACC, CC accuracy, CC resist and lifesteal at
-* 500; block and dodge at 500, with a hard cap at 1000; attack speed at 500 more than as quick as it comes (1000), with
-* a hard cap 1000 more.
+* King's Raid's curves (its playtest's), for the stats the fight has: crit chance; a chance against a blow (dodge and
+* block) or a crit (crit resist), and lifesteal; block DEF (more off a blocked blow, on top of the game's 500); ACC
+* (hit chance); penetration and Tough; CC resist; CC accuracy (the game's HitCcChance); and attack speed (all of it: 1000
+* as quick as it comes).
 */
-var SOFT = {
-	pen: 450,
-	tough: 450,
-	blockDef: 450,
-	acc: 500,
-	resist: 500,
-	lifesteal: 500,
-	chance: 500,
-	hard: 1e3
+var CURVE = {
+	crit: {
+		maxK: 2e3,
+		x1: 2e3,
+		a1: 1,
+		b1: 1500,
+		x2: 1500,
+		a2: 500,
+		b2: 750,
+		x3: -500
+	},
+	chance: {
+		maxK: 1e3,
+		x1: 1e3,
+		a1: 3,
+		b1: 0,
+		x2: 500,
+		a2: 500,
+		b2: 250,
+		x3: -500
+	},
+	blockDef: {
+		maxK: 450,
+		x1: 775,
+		a1: 3,
+		b1: 1500,
+		x2: 225,
+		a2: 204,
+		b2: 179,
+		minK: -920,
+		x3: -2,
+		a3: 3,
+		b3: -938,
+		x4: -1
+	},
+	acc: {
+		maxK: 2e3,
+		x1: 2e3,
+		a1: 1,
+		b1: 1500,
+		x2: 1500,
+		a2: 500,
+		b2: 750,
+		minK: -920,
+		x3: -2,
+		a3: 3,
+		b3: -938,
+		x4: -1
+	},
+	pen: {
+		maxK: 900,
+		x1: 1e3,
+		a1: 2,
+		b1: 1e3,
+		x2: 450,
+		a2: 409,
+		b2: 266,
+		x3: -500
+	},
+	resist: {
+		maxK: 1e3,
+		x1: 1e3,
+		a1: 1e6,
+		b1: 1e6,
+		x2: 500,
+		a2: 1e3,
+		b2: 0,
+		x3: -500
+	},
+	accuracy: {
+		maxK: 900,
+		x1: 900,
+		a1: 1e6,
+		b1: 1e6,
+		x2: 450,
+		a2: 1e3,
+		b2: 0,
+		x3: -500
+	},
+	speed: {
+		maxK: 2500,
+		x1: 2400,
+		a1: 1,
+		b1: -733,
+		x2: 1600,
+		a2: 500,
+		b2: 800,
+		minK: 250,
+		x3: -1e4,
+		x4: 500,
+		a4: 1,
+		b4: -1500
+	}
 };
 /**
 * The attack a heal's or a shield's numbers are written for (as much HP as it says, from a hero with this much ATK; so
@@ -67,21 +154,21 @@ function reachAt(level) {
 /** A blocked blow does this much of what it would have (less its target's block DEF against that kind). */
 var BLOCKED = .5;
 /**
-* A blow of `amount` of a kind lands on `target`, from one with `pen` points of penetration whose level has `reach`
-* (reachAt): dodged (it takes nothing), or what it takes once the target's defense against that kind (less what
-* penetration sees past) has worn it down, and whether it blocked it (then less again), and its Tough off what is left.
-* `roll` is the fight's chances (../sim/random.ts).
+* A blow of `amount` of a kind lands on `target`, from one with `pen` points of penetration and `acc` of ACC (its hit chance)
+* whose level has `reach` (reachAt): dodged (it takes nothing), or what it takes once the target's defense against that kind
+* (less what penetration sees past) has worn it down, and whether it blocked it (then less again), and its Tough off what is
+* left. `roll` is the fight's chances (../sim/random.ts).
 */
-function strike(amount, type, target, pen, reach, roll) {
-	if (roll() < share$2(soft(target.dodge[type], SOFT.chance, SOFT.hard))) return {
+function strike(amount, type, target, pen, reach, roll, acc = 0) {
+	if (roll() < share$2(curved(CURVE.chance, target.dodge[type]) - curved(CURVE.acc, acc))) return {
 		taken: 0,
 		blocked: false,
 		dodged: true
 	};
-	const blocked = roll() < share$2(soft(target.block[type], SOFT.chance, SOFT.hard));
-	const defense = Math.max(0, target[type]) * (1 - share$2(soft(pen, SOFT.pen)));
-	const kept = blocked ? Math.max(0, BLOCKED - soft((target.blockDef?.[type] ?? 0) * POINTS, SOFT.blockDef) / POINTS) : 1;
-	const tough = 1 - share$2(soft(target.tough?.[type] ?? 0, SOFT.tough));
+	const blocked = roll() < share$2(curved(CURVE.chance, target.block[type]));
+	const defense = Math.max(0, target[type]) * (1 - share$2(curved(CURVE.pen, pen)));
+	const kept = blocked ? Math.max(0, BLOCKED - curved(CURVE.blockDef, (target.blockDef?.[type] ?? 0) * POINTS) / POINTS) : 1;
+	const tough = 1 - share$2(curved(CURVE.pen, target.tough?.[type] ?? 0));
 	return {
 		taken: amount * (1 - DEF_MOST * Math.min(1, defense / reach)) * kept * tough,
 		blocked,
@@ -194,6 +281,12 @@ function bolstering(on, type) {
 	for (const { bolsters } of on) more += bolsters?.[type] ?? 0;
 	return more;
 }
+/** What these add to a bearer's chance to dodge a kind of damage (points). */
+function dodging(on, type) {
+	let more = 0;
+	for (const { dodges } of on) more += dodges?.[type] ?? 0;
+	return more;
+}
 /** What these add to a bearer's chance to block a kind of damage (points). */
 function blocking(on, type) {
 	let more = 0;
@@ -273,8 +366,8 @@ function withGauge(fight, own, size) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/playtest.ts
-var HEROES_DEAL = .68;
-var HEROES_HP = .74;
+var HEROES_DEAL = .71;
+var HEROES_HP = .78;
 //#endregion
 //#region src/technomagic/sim/bosses/dragon/common.ts
 var KR_HP$1 = [
@@ -330,7 +423,7 @@ var HIGH_DEF = 132660 / 92822;
 var KR_PARTY$1 = 9;
 var SOLO = 7;
 /** A dragon's health and defense at stage 1, for its stats: its lower defense, and its higher. */
-var FIRST = {
+var FIRST$1 = {
 	hp: KR_HP$1[0] * HEROES_DEAL * 8 / KR_PARTY$1,
 	def: KR_DEF$1[0],
 	high: KR_DEF$1[0] * HIGH_DEF
@@ -348,11 +441,20 @@ function dragonStages({ atk = 1 } = {}) {
 		solo: scales(SOLO / 8)
 	};
 }
-/** Neither blocks nor dodges, of either kind; and sees past 400 points of a hero's defense. */
+/**
+* As the playtest's hard dragons are: no block; 150 dodge against both kinds; 400 points of a hero's defense seen past, and
+* 250 of its dodge (hit chance); a crit chance of 250; and no CC resist (the gauge stands for it).
+*/
 var OPEN = {
 	block: NONE,
-	dodge: NONE,
-	pen: 400
+	dodge: {
+		physical: 150,
+		magical: 150
+	},
+	pen: 400,
+	acc: 250,
+	crit: 250,
+	resist: 0
 };
 /** The heroes a dragon can reach: on the field, standing, and in the fight. */
 var reachable = (fight) => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
@@ -408,13 +510,17 @@ function dot(fight, name, each) {
 		}
 	};
 }
-/** Its skills' cooldowns: each begun as it is used, and run down every step. */
+/**
+* Its skills' cooldowns (seconds), each begun as it is used and run down every step; and, as King's Raid's (InitialCoolTimeMs),
+* how long each waits as the fight begins: [cooldown, first], or just its cooldown (ready from the start).
+*/
 function cooldowns(of) {
-	const left = /* @__PURE__ */ new Map();
+	const length = (one) => typeof one === "number" ? one : one[0];
+	const left = new Map(Object.entries(of).flatMap(([attack, one]) => typeof one === "number" ? [] : [[attack, one[1]]]));
 	return {
 		used(attack) {
 			const cooldown = of[attack];
-			if (cooldown !== void 0) left.set(attack, cooldown);
+			if (cooldown !== void 0) left.set(attack, length(cooldown));
 		},
 		ready: (attack) => (left.get(attack) ?? 0) <= 0,
 		tick(dt) {
@@ -422,6 +528,19 @@ function cooldowns(of) {
 		}
 	};
 }
+/**
+* A blow that takes `share` of what health each of `heroes` has left, as King's Raid's playtest's dragons' do ($ByMEHp4), and
+* nothing blocks.
+*/
+function fraction(fight, heroes, share) {
+	for (const fighter of heroes) if (fighter && fighter.hp > 0) fight.hurt(fighter, fighter.hp * share, false);
+}
+/** A dragon's ultimate is open once it is down to this share of its health (the playtest's OnHpRatio 700). */
+var ULTIMATE = .7;
+/** Whether a dragon's ultimate is open. */
+var opened = (fight) => fight.foe.hp <= fight.foe.maxHp * ULTIMATE;
+/** How long a dragon rests after an attack: as long as makes its bite take its plain attack's time, `seconds` (the playtest's). */
+var restFor = (seconds) => seconds - 1.7;
 /** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: the Hard Dragon Raid's). */
 var withDragonGauge = (fight, own) => withGauge(fight, own, DRAGON_GAUGE);
 /** What a blow takes, as a share of a dragon's ATK at stage 1 (King's Raid's playtest's: its skill's damage share). */
@@ -594,19 +713,16 @@ var PLANS$1 = {
 var FLAMES = {
 	lasts: 10,
 	burn: .15,
-	heals: .5,
-	cooldown: 15
+	heals: .5
 };
-var GAZE = {
-	lasts: 4,
-	cooldown: 20
-};
+var GAZE = { lasts: 4 };
 var ECLIPSE = {
-	after: 3,
 	burning: 1.6,
 	deals: .1,
-	most: 5
+	most: 5,
+	health: .73
 };
+var TAIL$1 = 2 / 3;
 var DARK = {
 	name: "Dark Flames",
 	about: `Black fire eats at it every second, and ${Math.round((1 - FLAMES.heals) * 100)}% less healing reaches it.`,
@@ -623,11 +739,13 @@ var ASHEN = "Ashen Nox";
 function armartaPart(fight) {
 	const { foe } = fight;
 	const waits = cooldowns({
-		breath: FLAMES.cooldown,
-		gaze: GAZE.cooldown
+		claw: [6.5, 2],
+		sweep: [15, 10],
+		breath: [30, 20],
+		gaze: [25, 25],
+		eclipse: [60, 40]
 	});
-	/** Its skills used toward its eclipse; how hard each hero's Dark Flames are; and what each has dealt since its last gaze. */
-	let used = 0;
+	/** How hard each hero's Dark Flames are; and what each has dealt since its last gaze. */
 	const flames = /* @__PURE__ */ new Map();
 	const dealt = /* @__PURE__ */ new Map();
 	const eating = dot(fight, DARK.name, (fighter) => flames.get(fighter) ?? 0);
@@ -664,6 +782,7 @@ function armartaPart(fight) {
 				if (part !== 1) return;
 				const heroes = reachable(fight);
 				for (const fighter of heroes) fight.hurt(fighter, amount * (burning(fighter) ? ECLIPSE.burning : 1));
+				fraction(fight, heroes, ECLIPSE.health);
 				fight.cue(null, "eclipse", heroes);
 				const count = Math.min(ECLIPSE.most, (foe.statuses.find((status) => status.name === ASHEN)?.count ?? 0) + 1);
 				const status = {
@@ -677,24 +796,21 @@ function armartaPart(fight) {
 			},
 			bite: (_part, amount) => single(fight, amount),
 			claw: (_part, amount) => single(fight, amount),
-			sweep: (_part, amount) => void all(fight, amount, void 0, "sweep")
+			sweep(_part, amount) {
+				all(fight, amount, void 0, "sweep");
+				fraction(fight, [fight.target()], TAIL$1);
+			}
 		},
 		struck(by, amount) {
 			dealt.set(by, (dealt.get(by) ?? 0) + amount);
 		},
-		used(attack) {
-			waits.used(attack);
-			if (attack === "breath" || attack === "gaze") used++;
-			else if (attack === "eclipse") used = 0;
-		},
-		next: () => used >= ECLIPSE.after ? "eclipse" : null,
-		ready: (attack) => attack !== "eclipse" && waits.ready(attack),
+		used: waits.used,
+		ready: (attack) => waits.ready(attack) && (attack !== "eclipse" || opened(fight)),
 		tick(dt) {
 			waits.tick(dt);
 			eating(dt);
 		},
 		beaten() {
-			used = 0;
 			dealt.clear();
 			const at = foe.statuses.findIndex((status) => status.name === ASHEN);
 			if (at >= 0) foe.statuses.splice(at, 1);
@@ -703,10 +819,7 @@ function armartaPart(fight) {
 				lift(fighter, STONE.name);
 			}
 		},
-		marks: () => [{
-			text: `Ashen Eclipse ${Math.min(used, ECLIPSE.after)}/${ECLIPSE.after}`,
-			tone: "curse"
-		}]
+		marks: () => []
 	});
 }
 //#endregion
@@ -714,21 +827,22 @@ function armartaPart(fight) {
 /**
 * Armarta, the ancient black dragon of stone, of Ashen Nox, the Black Sun (the Dragon Raid's Black Dragon). As in King's
 * Raid, its Black Flame Breath leaves the Dark Flames, which eat at whoever it lands on; and its gaze turns a hero to
-* stone. Its blows are magical. What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
+* stone. Its blows are physical (as the playtest's). What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
 */
 var ARMARTA = {
 	id: "armarta",
 	name: "Armarta",
 	stats: {
-		hp: FIRST.hp,
-		deals: "magical",
-		physical: FIRST.def,
-		magical: FIRST.def,
-		...OPEN,
-		crit: 150,
-		resist: 200
+		hp: FIRST$1.hp,
+		deals: "physical",
+		physical: FIRST$1.def,
+		magical: FIRST$1.def,
+		...OPEN
 	},
 	stages: dragonStages(),
+	basic: ["bite"],
+	rest: restFor(2.4),
+	time: 180,
 	attacks: [
 		{
 			name: "bite",
@@ -993,11 +1107,16 @@ var FATAL_VENOM = {
 	icon: "☠️",
 	harmful: true
 };
-/** Its skills that count toward Fatal Venom, and each one's cooldown. */
+/** Its skills that count toward Fatal Venom, and each one's cooldown; and how long each waits as the fight begins (the playtest's). */
 var COOLDOWNS = {
 	destroyer: DESTROYER.cooldown,
 	swamp: SWAMP.cooldown,
 	explosion: EXPLOSION.cooldown
+};
+var FIRST = {
+	destroyer: 5,
+	swamp: 8,
+	explosion: 12
 };
 /** Stacks one more of a status that stays the rest of the fight, up to `most`: `made` makes it, `count` of them stacked. */
 function stack(on, name, most, made) {
@@ -1021,7 +1140,7 @@ function ownPart(fight) {
 	/** The heroes shut away: a ring where each comes back out. */
 	const shut = /* @__PURE__ */ new Set();
 	/** Its skills' cooldowns, by name; its skills used toward Fatal Venom; and how long its swamp lasts yet, its blow each so often. */
-	const cooldowns = /* @__PURE__ */ new Map();
+	const cooldowns = new Map(Object.entries(FIRST));
 	let used = 0;
 	let swamp = 0;
 	let swampHurts = 0;
@@ -1237,9 +1356,9 @@ var scales = (times) => HP.map((hp, i) => ({
 * best with penetration, and with what cuts its healing (it gives itself back its health all the while: ./skills.ts).
 * How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
 * ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
-* No stun holds it: stuns wear its CC Gauge down instead (../gauge.ts), the shorter for its CC resist (accuracy tells),
-* and empty, it is Down a while. Its blows see past 500 points of a hero's defense (the playtest's PiercePower). Now and
-* then a blow of its is a crit (crit resist tells): a first guess, as its CC resist is.
+* No stun holds it: stuns wear its CC Gauge down instead (../gauge.ts), and empty, it is Down a while; it has no CC resist,
+* as the playtest's. Its blows see past 500 points of a hero's defense (the playtest's PiercePower) and 300 of its dodge
+* (its Persistent Life Force's hit chance). Now and then a blow of its is a crit (crit resist tells): a first guess.
 */
 var GALGORIA = {
 	id: "galgoria",
@@ -1252,13 +1371,20 @@ var GALGORIA = {
 		block: NONE,
 		dodge: NONE,
 		crit: 100,
-		resist: 150,
-		pen: 500
+		resist: 0,
+		pen: 500,
+		acc: 300
 	},
 	stages: {
 		room: scales(1),
 		solo: scales(KR_PARTY / 8)
 	},
+	basic: [
+		"left",
+		"centre",
+		"right"
+	],
+	rest: 3.1 - MOVES.spit.length,
 	attacks: ATTACKS,
 	plans: PLANS,
 	moves: MOVES,
@@ -1437,15 +1563,12 @@ var FROST = {
 };
 var SMASH$2 = {
 	frost: 2,
-	cooldown: 10
+	health: 1 / 3
 };
-var BREATH$3 = {
-	frost: 2,
-	cooldown: 16
-};
+var BREATH$3 = { frost: 2 };
 var STORM$1 = {
 	mana: 1500,
-	cooldown: 26
+	health: .42
 };
 var FROSTED = {
 	name: "Frost",
@@ -1461,9 +1584,11 @@ var FROZEN = {
 };
 function scalaxiaPart(fight) {
 	const waits = cooldowns({
-		smashes: SMASH$2.cooldown,
-		breath: BREATH$3.cooldown,
-		storm: STORM$1.cooldown
+		claw: [5, 3],
+		sweep: [20, 18],
+		smashes: [13, 8],
+		breath: [25, 15],
+		storm: [45, 30]
 	});
 	/** A hero frozen: it can do nothing for a while, and takes more meanwhile (its Frost gone). */
 	function freeze(fighter) {
@@ -1486,13 +1611,16 @@ function scalaxiaPart(fight) {
 	return withDragonGauge(fight, {
 		taken: { magical: .4 },
 		lands: {
-			smashes: (_part, amount) => void all(fight, amount, (fighter) => frost(fighter, SMASH$2.frost), "smash"),
+			smashes(part, amount) {
+				all(fight, amount, (fighter) => frost(fighter, SMASH$2.frost), "smash");
+				if (part === 0) fraction(fight, [fight.target()], SMASH$2.health);
+			},
 			breath(part, amount) {
 				if (part >= 1) all(fight, amount, (fighter) => frost(fighter, BREATH$3.frost), "frost");
 			},
 			storm(part, amount) {
 				if (part === 0) return;
-				if (part < 3) return void all(fight, amount, (fighter) => frost(fighter, 1), "storm");
+				if (part < 3) return void fraction(fight, all(fight, amount, (fighter) => frost(fighter, 1), "storm"), STORM$1.health);
 				all(fight, amount, (fighter) => {
 					freeze(fighter);
 					fighter.mana = Math.max(0, Math.min(MAX_MANA, fighter.mana - STORM$1.mana));
@@ -1506,7 +1634,7 @@ function scalaxiaPart(fight) {
 			waits.used(attack);
 			if (attack === "storm") fight.cue(null, "pillars");
 		},
-		ready: waits.ready,
+		ready: (attack) => waits.ready(attack) && (attack !== "storm" || opened(fight)),
 		tick: waits.tick,
 		beaten() {
 			for (const fighter of fight.fighters) {
@@ -1521,18 +1649,18 @@ function scalaxiaPart(fight) {
 /**
 * Scalaxia, the ancient blue dragon of ice, of Turandana (the Dragon Raid's Frost Dragon). As in King's Raid, its blows
 * leave Frost, ten of which freeze a hero, and it flies up to freeze them all. Its blows are magical. It stands M.DMG as
-* the playtest has it: it blocks it whenever it can (1000 M.Block), a blocked blow cut the most a block cuts (its 1000
-* M.Block power, as the game's curve has it: 368 more), 200 M.Tough, and 60% less M.DMG taken (./skills.ts). What its skills do
+* the playtest has it: it blocks it whenever it can (1000 M.Block, 750 on the game's curve), a blocked blow cut the more
+* for its 1000 M.Block power (368 more on its curve), 200 M.Tough, and 60% less M.DMG taken (./skills.ts). What its skills do
 * is ./skills.ts; its body is the page's (../../../bosses/dragon/), with the ice pillars its storm calls up.
 */
 var SCALAXIA = {
 	id: "scalaxia",
 	name: "Scalaxia",
 	stats: {
-		hp: FIRST.hp,
+		hp: FIRST$1.hp,
 		deals: "magical",
-		physical: FIRST.def,
-		magical: FIRST.high,
+		physical: FIRST$1.def,
+		magical: FIRST$1.high,
 		...OPEN,
 		block: {
 			physical: 0,
@@ -1540,16 +1668,17 @@ var SCALAXIA = {
 		},
 		blockDef: {
 			physical: 0,
-			magical: .368
+			magical: 1
 		},
 		tough: {
 			physical: 0,
 			magical: 200
-		},
-		crit: 100,
-		resist: 150
+		}
 	},
 	stages: dragonStages(),
+	basic: ["bite"],
+	rest: restFor(2.3),
+	time: 180,
 	attacks: [
 		{
 			name: "bite",
@@ -1597,10 +1726,10 @@ var BLESSING$2 = {
 };
 var BREATH$2 = {
 	burn: .12,
-	lasts: 6,
-	cooldown: 16
+	lasts: 6
 };
-var ERUPTION$1 = { cooldown: 12 };
+var TAIL = 2 / 3;
+var RAGE = .73;
 var FLAME$1 = "Blessing of the Flame";
 var BURN = {
 	name: "Burn",
@@ -1611,9 +1740,11 @@ var BURN = {
 function temerairePart(fight) {
 	const { foe } = fight;
 	const waits = cooldowns({
-		breath: BREATH$2.cooldown,
+		claw: [5, 3],
+		sweep: [13, 8],
+		breath: [25, 15],
 		blessing: BLESSING$2.cooldown,
-		eruption: ERUPTION$1.cooldown
+		eruption: [45, 30]
 	});
 	/** What of its flame is left (0: none on it), and how hard each hero's burn is. */
 	let flame = 0;
@@ -1654,18 +1785,21 @@ function temerairePart(fight) {
 				}, "flame");
 			},
 			eruption(part, amount) {
-				if (part === 1) all(fight, amount, void 0, "eruption");
+				if (part === 1) fraction(fight, all(fight, amount, void 0, "eruption"), RAGE);
 			},
 			bite: (_part, amount) => single(fight, amount),
 			claw: (_part, amount) => single(fight, amount),
-			sweep: (_part, amount) => void all(fight, amount, void 0, "sweep")
+			sweep(_part, amount) {
+				all(fight, amount, void 0, "sweep");
+				fraction(fight, [fight.target()], TAIL);
+			}
 		},
 		struck() {
 			if (flame > 0) kindle(flame - 1);
 		},
 		used: waits.used,
 		next: () => flame <= 0 && waits.ready("blessing") ? "blessing" : null,
-		ready: (attack) => attack !== "blessing" && waits.ready(attack),
+		ready: (attack) => attack !== "blessing" && waits.ready(attack) && (attack !== "eruption" || opened(fight)),
 		tick(dt) {
 			waits.tick(dt);
 			burning(dt);
@@ -1688,19 +1822,20 @@ var TEMERAIRE = {
 	id: "temeraire",
 	name: "Temeraire",
 	stats: {
-		hp: FIRST.hp,
+		hp: FIRST$1.hp,
 		deals: "magical",
-		physical: FIRST.high,
-		magical: FIRST.def,
+		physical: FIRST$1.high,
+		magical: FIRST$1.def,
 		...OPEN,
 		tough: {
 			physical: 900,
 			magical: 0
-		},
-		crit: 100,
-		resist: 150
+		}
 	},
 	stages: dragonStages({ atk: FIRE_ATK }),
+	basic: ["bite"],
+	rest: restFor(2.4),
+	time: 180,
 	attacks: [
 		{
 			name: "bite",
@@ -1754,13 +1889,9 @@ var POISON$1 = {
 };
 var LASH = {
 	stacks: 5,
-	knock: .6,
-	cooldown: 11
+	knock: .6
 };
-var BREATH$1 = {
-	stacks: 3,
-	cooldown: 16
-};
+var BREATH$1 = { stacks: 3 };
 var POISONED$1 = {
 	name: "Poison",
 	about: `Eats at it every second, the more for every stack; at ${POISON$1.petrifyAt}, Petrified.`,
@@ -1775,8 +1906,10 @@ var PETRIFIED = {
 };
 function zyrrkinothPart(fight) {
 	const waits = cooldowns({
-		smashes: LASH.cooldown,
-		breath: BREATH$1.cooldown
+		claw: [5, 2.5],
+		smashes: [15, 8],
+		breath: [25, 12],
+		sweep: [20, 10]
 	});
 	/** The critical blows it has taken (up to SCALES.most): each has it take more. */
 	let cracks = 0;
@@ -1851,19 +1984,20 @@ var ZYRRKINOTH = {
 	id: "zyrrkinoth",
 	name: "Zyrrkinoth",
 	stats: {
-		hp: FIRST.hp,
+		hp: FIRST$1.hp,
 		deals: "physical",
-		physical: FIRST.def,
-		magical: FIRST.def,
+		physical: FIRST$1.def,
+		magical: FIRST$1.def,
 		...OPEN,
 		tough: {
 			physical: 900,
 			magical: 900
-		},
-		crit: 100,
-		resist: 150
+		}
 	},
 	stages: dragonStages(),
+	basic: ["bite"],
+	rest: restFor(2.3),
+	time: 180,
 	attacks: [
 		{
 			name: "bite",
@@ -1991,7 +2125,15 @@ var KR_HEROES = {
 				.25,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	crow: {
@@ -2017,7 +2159,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	"dark-lord-kasel": {
@@ -2055,7 +2205,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	erze: {
@@ -2093,7 +2251,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	ezekiel: {
@@ -2136,7 +2302,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	"fallen-frey": {
@@ -2162,7 +2336,15 @@ var KR_HEROES = {
 				.5,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	gau: {
@@ -2200,7 +2382,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	gremory: {
@@ -2234,7 +2424,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	kirze: {
@@ -2272,7 +2470,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 250,
+			atk: 0
 		}
 	},
 	klaus: {
@@ -2310,7 +2516,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	laias: {
@@ -2336,7 +2550,15 @@ var KR_HEROES = {
 				.25,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	loman: {
@@ -2379,7 +2601,15 @@ var KR_HEROES = {
 				.5,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	lorraine: {
@@ -2405,7 +2635,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	lucikiel: {
@@ -2443,7 +2681,15 @@ var KR_HEROES = {
 				0,
 				0,
 				.5
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	morrah: {
@@ -2486,7 +2732,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	naila: {
@@ -2537,7 +2791,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	neraxis: {
@@ -2575,7 +2837,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	oddy: {
@@ -2601,7 +2871,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				250,
+				250,
+				250,
+				250
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	phillop: {
@@ -2644,7 +2922,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	"rebel-klaus": {
@@ -2682,7 +2968,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	selene: {
@@ -2708,7 +3002,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	seria: {
@@ -2746,7 +3048,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	tanya: {
@@ -2794,7 +3104,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	},
 	valance: {
@@ -2820,7 +3138,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: .15
 		}
 	},
 	yanne: {
@@ -2850,7 +3176,15 @@ var KR_HEROES = {
 				0,
 				0,
 				0
-			]
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
 		}
 	}
 };
@@ -2924,11 +3258,11 @@ var CLASS_RANK = {
 var nearer = (a, b) => LINE_RANK[lineOf(a)] - LINE_RANK[lineOf(b)] || CLASS_RANK[a.class] - CLASS_RANK[b.class];
 var KINGS_RAID = {
 	knight: {
-		hp: 1354584,
-		atk: 15712,
+		hp: 1706672,
+		atk: 19792,
 		defense: {
-			physical: 6984,
-			magical: 5432
+			physical: 8792,
+			magical: 6840
 		},
 		crit: 50,
 		block: {
@@ -2942,11 +3276,11 @@ var KINGS_RAID = {
 		speed: 1e3
 	},
 	warrior: {
-		hp: 1150488,
-		atk: 17848,
+		hp: 1449520,
+		atk: 22488,
 		defense: {
-			physical: 5816,
-			magical: 6984
+			physical: 7328,
+			magical: 8792
 		},
 		crit: 150,
 		pen: 150,
@@ -2959,11 +3293,11 @@ var KINGS_RAID = {
 		speed: 1e3
 	},
 	assassin: {
-		hp: 1099264,
-		atk: 19592,
+		hp: 1384992,
+		atk: 24688,
 		defense: {
-			physical: 6208,
-			magical: 5432
+			physical: 7816,
+			magical: 6840
 		},
 		crit: 200,
 		critDamage: .3,
@@ -2975,11 +3309,11 @@ var KINGS_RAID = {
 		speed: 1e3
 	},
 	archer: {
-		hp: 846664,
-		atk: 22112,
+		hp: 1066728,
+		atk: 27864,
 		defense: {
-			physical: 4264,
-			magical: 3488
+			physical: 5376,
+			magical: 4392
 		},
 		crit: 150,
 		pen: 250,
@@ -2987,11 +3321,11 @@ var KINGS_RAID = {
 		speed: 1e3
 	},
 	mechanic: {
-		hp: 918448,
-		atk: 20176,
+		hp: 1157176,
+		atk: 25416,
 		defense: {
-			physical: 4264,
-			magical: 3488
+			physical: 5376,
+			magical: 4392
 		},
 		crit: 150,
 		critDamage: .5,
@@ -3000,11 +3334,11 @@ var KINGS_RAID = {
 		speed: 1e3
 	},
 	wizard: {
-		hp: 782056,
-		atk: 23280,
+		hp: 985328,
+		atk: 29328,
 		defense: {
-			physical: 3104,
-			magical: 4656
+			physical: 3904,
+			magical: 5864
 		},
 		crit: 100,
 		pen: 150,
@@ -3020,11 +3354,11 @@ var KINGS_RAID = {
 		speed: 1e3
 	},
 	priest: {
-		hp: 876928,
-		atk: 18424,
+		hp: 1104864,
+		atk: 23216,
 		defense: {
-			physical: 3880,
-			magical: 4848
+			physical: 4888,
+			magical: 6104
 		},
 		crit: 100,
 		acc: 100,
@@ -3044,6 +3378,16 @@ var KINGS_RAID = {
 	}
 };
 var CLASSES = Object.keys(KINGS_RAID);
+/** Each class's ATK as the King's Raid Index has it (level 80): what its numbers for a skill's DMG and heals are at. */
+var INDEX_ATK = {
+	knight: 15712,
+	warrior: 17848,
+	assassin: 19592,
+	archer: 22112,
+	mechanic: 20176,
+	wizard: 23280,
+	priest: 18424
+};
 /**
 * How each class stands, before what is a hero's own (the kind of damage it deals, and anything else it has
 * otherwise): a hero's stats are its class's (King's Raid's own: KINGS_RAID), with its own over them.
@@ -3069,11 +3413,11 @@ var CLASS_STATS = Object.fromEntries(CLASSES.map((one) => {
 }));
 /**
 * A blow as the King's Raid Index (kingsraid.netlify.app) has it: the DMG its words say a hero of `kind` deals, as
-* thousandths of ATK (as a blow's numbers are), so that at its class's ATK it deals just that.
+* thousandths of ATK (as a blow's numbers are), so that at its class's ATK as the Index has it (INDEX_ATK) it deals just that.
 */
-var indexed = (kind, dmg) => POINTS * dmg / KINGS_RAID[kind].atk;
+var indexed = (kind, dmg) => POINTS * dmg / INDEX_ATK[kind];
 /** A heal or a shield as the King's Raid Index has it: so that a hero of `kind`, at its class's ATK, gives just `amount` (a heal gives as much more as its healer's attack is over ATK). */
-var indexedHeal = (kind, amount) => amount * ATK / KINGS_RAID[kind].atk;
+var indexedHeal = (kind, amount) => amount * ATK / INDEX_ATK[kind];
 /**
 * What a blow of `blow` deals from a hero of `kind` at its class's ATK, as its words say it (the Index's own number, where it
 * has one), `books` times as much (bookDmg: as it is with its skill's books).
@@ -5231,21 +5575,6 @@ var EVERY = [
 	"focus-2",
 	"focus-3"
 ];
-/** The boss's defenses as blows with `acc` points of ACC find them (soft-capped): so much less likely dodged or blocked. */
-var seenPast = (stats, points) => {
-	const acc = soft(points, SOFT.acc);
-	return {
-		...stats,
-		dodge: {
-			physical: Math.max(0, stats.dodge.physical - acc),
-			magical: Math.max(0, stats.dodge.magical - acc)
-		},
-		block: {
-			physical: Math.max(0, stats.block.physical - acc),
-			magical: Math.max(0, stats.block.magical - acc)
-		}
-	};
-};
 /** What knocks a hero down: shown on its card, with how long it has left. */
 var KNOCKED = {
 	name: "Knocked down",
@@ -5281,8 +5610,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	};
 	let tick = 0;
 	let elapsed = 0;
-	/** Seconds of the raid's time gone, against this boss. */
+	/** Seconds of the raid's time gone, against this boss; and how long its raid lasts. */
 	let clock = 0;
+	const raidTime = def.time ?? 210;
 	let stage = Math.min(stagesOf(def), Math.max(1, Math.floor(firstStage) || 1));
 	let bossAuto = raid;
 	let deathless = noDeaths && !raid;
@@ -5312,12 +5642,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const perks = perkSets[index];
 		const gear = withPerks(worn, perks.values());
 		if (battleCry > 0) gear.hp = (gear.hp ?? 0) + battleCry;
-		gear.atk = (gear.atk ?? 0) + CLASS_BUFF.atk;
+		gear.atk = (gear.atk ?? 0) + CLASS_BUFF.atk + (KR_HEROES[hero.id]?.books.atk ?? 0);
 		gear.hp = (gear.hp ?? 0) + CLASS_BUFF.hp;
 		const stats = perkedStats(geared(hero.stats, gear), perks.values());
 		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY$1.pen;
 		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY$1.resist;
 		skilledStats(stats, skills);
+		stats.crit += KR_HEROES[hero.id]?.books.critStat ?? 0;
 		const motion = motionOf(hero);
 		const mana = KR_HEROES[hero.id]?.mana ?? {
 			regen: 75,
@@ -5908,7 +6239,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			return elapsed;
 		},
 		get left() {
-			return 210 - clock;
+			return raidTime - clock;
 		},
 		get result() {
 			return result;
@@ -5924,7 +6255,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (foe.hp <= 0 || result) return false;
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
-			const critical = roll() < share$2(points + auras.crit + critTaking(foe.statuses, type) - (foe.part.critResist ?? 0)) + crit + critting(by.statuses);
+			const critical = roll() < share$2(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses);
 			const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
 			const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
 			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused;
@@ -5935,22 +6266,26 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: blocking(foe.statuses, "physical"),
 				magical: blocking(foe.statuses, "magical")
 			};
-			const stood = lower.physical === 0 && lower.magical === 0 ? plain : {
+			const dodge = {
+				physical: Math.max(0, plain.dodge.physical + dodging(foe.statuses, "physical")),
+				magical: Math.max(0, plain.dodge.magical + dodging(foe.statuses, "magical"))
+			};
+			const stood = {
 				...plain,
+				dodge,
 				block: {
 					physical: Math.max(0, plain.block.physical + lower.physical),
 					magical: Math.max(0, plain.block.magical + lower.magical)
 				}
 			};
-			const seen = acc > 0 ? seenPast(stood, acc) : stood;
 			const against = whole || landing?.by === by && by.moveWhole.has(landing.move) ? {
-				...seen,
+				...stood,
 				physical: 0,
 				magical: 0
 			} : {
-				...seen,
-				physical: seen.physical * defending(foe.statuses, "physical"),
-				magical: seen.magical * defending(foe.statuses, "magical")
+				...stood,
+				physical: stood.physical * defending(foe.statuses, "physical"),
+				magical: stood.magical * defending(foe.statuses, "magical")
 			};
 			const power = 1 + bookShare(by, "dmg") + skilled - 1;
 			const more = amplified([
@@ -5961,7 +6296,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				by.part.deals?.() ?? 1,
 				...takes(foe.statuses, type)
 			]);
-			const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll);
+			const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll, acc);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -6003,7 +6338,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				});
 			}
 			if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
-				const stolen = Math.min(dealt * share$2(soft(by.lifesteal, SOFT.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
+				const stolen = Math.min(dealt * share$2(curved(CURVE.chance, by.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
 				if (stolen > 0) by.hp += stolen;
 			}
 			const skillIndex = critical && landing?.by === by && attacking !== by ? by.doing?.skill : void 0;
@@ -6082,17 +6417,21 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				}
 			};
 			const nimbler = (target.nimble > 0 ? target.nimble * (target.perkDefs.find((perk) => perk.nimble)?.nimble?.dodge ?? 0) : 0) + (target.part.dodge?.() ?? 0);
-			if (nimbler > 0) stands.dodge = {
-				physical: stands.dodge.physical + nimbler,
-				magical: stands.dodge.magical + nimbler
+			const nimblest = {
+				physical: nimbler + dodging(target.statuses, "physical") + dodging(party, "physical"),
+				magical: nimbler + dodging(target.statuses, "magical") + dodging(party, "magical")
 			};
-			const critical = roll() < share$2(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type) - critResisting(party, type)) + critting(foe.statuses);
+			if (nimblest.physical !== 0 || nimblest.magical !== 0) stands.dodge = {
+				physical: Math.max(0, stands.dodge.physical + nimblest.physical),
+				magical: Math.max(0, stands.dodge.magical + nimblest.magical)
+			};
+			const critical = roll() < share$2(curved(CURVE.crit, foe.def.stats.crit) - curved(CURVE.chance, target.critResist[type] + critResisting(target.statuses, type) + critResisting(party, type))) + critting(foe.statuses);
 			const scale = scaleAt(def, stage, solo);
-			const { taken, blocked, dodged } = strike(amount * scale.deals * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
+			const { taken, blocked, dodged } = strike(amount * scale.deals * dealing(foe.statuses) * rage(clock - raidTime) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
 				block: NONE,
 				dodge: NONE
-			}, foe.def.stats.pen ?? 0, reachAt(scale.level), roll);
+			}, foe.def.stats.pen ?? 0, reachAt(scale.level), roll, foe.def.stats.acc ?? 0);
 			if (dodged) {
 				target.nimble = 0;
 				events.push({
@@ -6214,7 +6553,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity")) * (fighter.def.passive?.held ?? 1) * (fighter.part.held?.() ?? 1);
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share$2(soft(fighter.stats.resist + resisting(fighter.statuses) + auras.resist, SOFT.resist))) * shorter,
+				left: seconds * (1 - share$2(curved(CURVE.resist, fighter.stats.resist + resisting(fighter.statuses) + auras.resist))) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});
@@ -6227,7 +6566,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
-			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(soft(Math.max(0, foe.def.stats.resist + resisting(foe.statuses)), SOFT.resist) - soft(by.accuracy + auras.accuracy + accurate(by.statuses), SOFT.acc))) : 1);
+			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses)))) : 1);
 			const taken = foe.part.controlled && foe.hp > 0 ? foe.part.controlled(held, down) : {
 				seconds: held,
 				down
@@ -6292,8 +6631,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				text: `Slowed ${Math.ceil(foe.slowed)}`,
 				tone: "slow"
 			});
-			if (foe.hp > 0 && clock > 210) {
-				const times = rage(clock - 210);
+			if (foe.hp > 0 && clock > raidTime) {
+				const times = rage(clock - raidTime);
 				marks.push({
 					text: `Enraged ×${times < 10 ? times.toFixed(1) : Math.round(times).toLocaleString("en-US")}`,
 					tone: "rage"
@@ -6357,10 +6696,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const before = fighters.map((fighter) => fighter.mana);
 			spent.clear();
 			idle = bossBusy() ? 0 : idle + dt;
-			if (bossAuto && idle >= 1.1) {
+			if (bossAuto && idle >= (def.rest ?? 1.1)) {
 				const forced = foe.part.next?.() ?? null;
 				const may = def.attacks.filter((one) => foe.part.ready?.(one.name) ?? true);
-				bossUse(forced ?? (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name ?? "");
+				const basic = def.basic;
+				const skill = basic ? may.find((one) => !basic.includes(one.name))?.name : void 0;
+				const plain = basic ? basic[Math.floor(roll() * basic.length)] : (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name;
+				bossUse(forced ?? skill ?? plain ?? "");
 			}
 			for (const fighter of fighters) {
 				fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling([...fighter.statuses, ...party]));
@@ -6407,15 +6749,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (result) return;
 			const reform = Math.min(1, dt * 4);
 			for (const on of field) {
-				const quicker = Math.max(0, on.stats.speed + auras.speed + (on.part.speed?.() ?? 0) - POINTS);
-				on.haste = on.def.passive?.steady ? 1 : (POINTS + soft(quicker, SOFT.chance, SOFT.hard)) / POINTS * pacing(on.statuses, on.part.pace?.() ?? 1);
+				const speed = (on.stats.speed + auras.speed + (on.part.speed?.() ?? 0)) * pacing(on.statuses, on.part.pace?.() ?? 1);
+				on.haste = on.def.passive?.steady ? 1 : Math.max(300, curved(CURVE.speed, speed)) / POINTS;
 				advance(on, dt * on.haste);
 				if (result) return;
 				const [x, z] = spots.get(on);
 				on.x += (x - on.x) * reform;
 				on.z += (z - on.z) * reform;
 			}
-			if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= 230)) end("lost");
+			if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= raidTime + 20)) end("lost");
 			fighters.forEach((fighter, i) => {
 				const was = before[i];
 				if (was >= 6e3 || fighter.mana >= 6e3) return;
@@ -6548,6 +6890,15 @@ var CHARGE$1 = {
 	atk: .3,
 	cooldown: .1
 };
+/** Her books' (King's Raid's playtest's): more Charge as each skill is used (unless she is Overcharged), and Overcharged, ATK Spd (points). */
+var BOOKS = {
+	charge: [
+		6,
+		6,
+		9
+	],
+	speed: 250
+};
 /** Her own perks' numbers: more Charge from a skill, Process of Elimination's mark, Overcharge's more ATK and longer, and Transcend 5's Dark's for every ally (attack speed in points, ATK a share of hers). */
 var PERKS$24 = {
 	charge: 1.4,
@@ -6618,7 +6969,7 @@ var CHARGING = {
 		icon: "⚡",
 		art: art$24(3)
 	},
-	words: `Gains 1 stack of Charge every ${CHARGE$1.every} sec, and gains ${CHARGE$1.perCrystal} stacks of Charge per every orb of mana used. Upon the ${CHARGE$1.full}th Charge stacked, enters Overcharge state. When in Overcharge, ATK is increased by ${pct(CHARGE$1.atk)} for ${CHARGE$1.lasts} sec, and each auto attack reduces skill cooldown by ${pct(CHARGE$1.cooldown)}. All effects cannot be dispelled, and Charge will not stack during Overcharge state.`
+	words: `Gains 1 stack of Charge every ${CHARGE$1.every} sec, and gains ${CHARGE$1.perCrystal} stacks of Charge per every orb of mana used. Upon the ${CHARGE$1.full}th Charge stacked, enters Overcharge state. When in Overcharge, ATK is increased by ${pct(CHARGE$1.atk)} for ${CHARGE$1.lasts} sec, and each auto attack reduces skill cooldown by ${pct(CHARGE$1.cooldown)}. All effects cannot be dispelled, and Charge will not stack during Overcharge state. When Overcharged, ATK Spd is increased by ${BOOKS.speed}.`
 };
 /** Her Charge: shown beside her passive, with how many she has. */
 var CHARGED$1 = {
@@ -6669,7 +7020,7 @@ var ANNETTE = {
 		{
 			name: "Blasting Ray",
 			about: `Rascal fires a ray into the boss: for ${RAY.lasts} seconds it hits ${pct(RAY.weaker)} softer and takes ${pct(RAY.takes)} more magical damage. [Overcharged]: a second ray, and twice that.`,
-			words: `Attacks enemies in a straight line, dealing ${dmg("mechanic", RAY.blow, bookDmg("annette", 0))} M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals ${dmg("mechanic", RAY.extra, bookDmg("annette", 0))} extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG.`,
+			words: `Attacks enemies in a straight line, dealing ${dmg("mechanic", RAY.blow, bookDmg("annette", 0))} M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals ${dmg("mechanic", RAY.extra, bookDmg("annette", 0))} extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "🔆",
 			art: art$24(0),
 			move: "ray",
@@ -6680,7 +7031,7 @@ var ANNETTE = {
 			name: "Emergency Treatment",
 			auto: { heals: true },
 			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share$2(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
-			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal, bookHeal("annette", 1))} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
+			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal, bookHeal("annette", 1))} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "🩹",
 			art: art$24(1),
 			move: "treatment",
@@ -6690,7 +7041,7 @@ var ANNETTE = {
 		{
 			name: "Process of Elimination",
 			about: `A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for ${ELIMINATION.stun} seconds, and leaves it taking ${pct(ELIMINATION.takes)} more magical damage for ${ELIMINATION.lasts}.`,
-			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing ${dmg("mechanic", ELIMINATION.blow, bookDmg("annette", 2))} M.DMG. When in Overcharge state, deals ${dmg("mechanic", ELIMINATION.over, bookDmg("annette", 2))} M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion.`,
+			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing ${dmg("mechanic", ELIMINATION.blow, bookDmg("annette", 2))} M.DMG. When in Overcharge state, deals ${dmg("mechanic", ELIMINATION.over, bookDmg("annette", 2))} M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "💣",
 			art: art$24(2),
 			move: "elimination",
@@ -6783,6 +7134,7 @@ var ANNETTE = {
 				name: OVERCHARGED.name,
 				left: over,
 				deals: 1 + CHARGE$1.atk * (self.perks.has("s4-light") ? PERKS$24.overAtk : 1),
+				pace: 1 + share$2(BOOKS.speed),
 				shown: OVERCHARGED
 			});
 			if (self.perks.has("t5-dark")) for (const ally of allies()) put(ally.statuses, {
@@ -6861,7 +7213,7 @@ var ANNETTE = {
 			used(index, ability) {
 				if (ability.move === "ray" || ability.move === "treatment" || ability.move === "elimination") overcharged[ability.move] = over > 0;
 				const more = index === 0 && self.perks.has("s1-dark") || index === 1 && self.perks.has("s2-dark") ? PERKS$24.charge : 1;
-				gain(ability.cost * CHARGE$1.perCrystal * more);
+				gain(ability.cost * CHARGE$1.perCrystal * more + (over > 0 ? 0 : BOOKS.charge[index] ?? 0));
 			},
 			tick(dt) {
 				if (treating > 0) {
@@ -7587,7 +7939,7 @@ var VENGEANCE = {
 };
 var TAINTED = {
 	taken: 1.15,
-	mana: .4 * SECTION,
+	mana: .6 * SECTION,
 	every: 1,
 	most: 2
 };
@@ -7975,7 +8327,7 @@ var SLEEP = { taken: .6 };
 var CHARGE = {
 	most: 5,
 	atk: .1,
-	dmg: .02
+	dmg: .05
 };
 /** Her own perks' numbers: Pochi's Mark's less M.DEF for each, and her sleep's more less taken. */
 var PERKS$20 = {
@@ -8570,7 +8922,8 @@ var BUBBLE = {
 	taken: .7,
 	dmg: .15,
 	atk: .2,
-	heal: indexedHeal("priest", 35192)
+	heal: indexedHeal("priest", 35192),
+	mana: 1.5
 };
 var FESTIVAL = {
 	blow: indexed("priest", 210084),
@@ -8720,7 +9073,7 @@ var LAIAS = {
 		{
 			name: "Bubble Shield",
 			about: `A shield on the ally with the lowest health: for ${BUBBLE.lasts} seconds it takes ${pct(1 - BUBBLE.taken)} less from the boss and deals ${pct(BUBBLE.dmg)} more. While the shield holds it can’t be knocked down, hits ${pct(BUBBLE.atk)} harder and is healed every second.`,
-			words: `For ${BUBBLE.lasts} sec, casts a Shield that blocks ${healed("priest", BUBBLE.shield, bookHeal("laias", 1))} DMG on the ally with the lowest HP. While the Shield is active, gains immunity to CC, increases ATK and heals ${healed("priest", BUBBLE.heal, bookHeal("laias", 1))} HP every sec. For ${BUBBLE.lasts} sec, the ally takes ${pct(1 - BUBBLE.taken)} reduced DMG from Non-Hero targets and increases DMG dealt to Non-Hero enemies by ${pct(BUBBLE.dmg)}. The DMG Reduction effect from and the DMG Boost effect to Non-Hero enemies is irremovable.`,
+			words: `For ${BUBBLE.lasts} sec, casts a Shield that blocks ${healed("priest", BUBBLE.shield, bookHeal("laias", 1))} DMG on the ally with the lowest HP. While the Shield is active, gains immunity to CC, increases ATK and heals ${healed("priest", BUBBLE.heal, bookHeal("laias", 1))} HP every sec. For ${BUBBLE.lasts} sec, the ally takes ${pct(1 - BUBBLE.taken)} reduced DMG from Non-Hero targets and increases DMG dealt to Non-Hero enemies by ${pct(BUBBLE.dmg)}. The DMG Reduction effect from and the DMG Boost effect to Non-Hero enemies is irremovable. The target's Mana recovery per second increases by ${pct(BUBBLE.mana - 1)}.`,
 			icon: "🫧",
 			art: art$18(1),
 			move: "bubble",
@@ -8844,6 +9197,7 @@ var LAIAS = {
 						left: BUBBLE.lasts,
 						takes: BUBBLE.taken,
 						deals: 1 + BUBBLE.dmg,
+						mana: BUBBLE.mana,
 						shown: BUBBLED
 					});
 					bubbled = ally;
@@ -10080,7 +10434,7 @@ var HOLOGRAM = {
 };
 var FIELD = {
 	lasts: 5,
-	defense: 1.15,
+	defense: 1.3,
 	heal: 27670,
 	mana: .3 * SECTION
 };
@@ -10833,7 +11187,8 @@ var MOON = {
 	atk: 5056,
 	crit: 100,
 	lasts: 10,
-	most: 3
+	most: 3,
+	critDamage: .1
 };
 /** Her own perks' numbers: Arrow Rain's stun (its chance), Rush's flinch, and Moonlight Arrow's most stacks. */
 var PERKS$12 = {
@@ -10904,7 +11259,7 @@ var MOONLIGHT_ARROW = {
 		icon: "🌙",
 		art: art$12(3)
 	},
-	words: `Upon attacking, increases ATK by ${num(MOON.atk)} and Crit Chance by ${MOON.crit} for ${MOON.lasts} sec. This effect stacks up to ${MOON.most} times.`
+	words: `Upon attacking, increases ATK by ${num(MOON.atk)} and Crit Chance by ${MOON.crit} for ${MOON.lasts} sec. This effect stacks up to ${MOON.most} times. Critical DMG increases additionally by ${pct(MOON.critDamage)} per stack.`
 };
 /** Moonlight Arrow's stacks: shown on her card. */
 var MOONLIT = {
@@ -11055,6 +11410,7 @@ var SELENE = {
 				count: moon,
 				deals: (1 + MOON.atk * moon / self.stats.atk) * circlet,
 				crit: share$2(MOON.crit * moon),
+				critDamage: MOON.critDamage * moon,
 				shown: MOONLIT
 			});
 		};
@@ -11699,7 +12055,8 @@ var INCARNATE = {
 var ARMOR = {
 	defense: 3159,
 	lasts: 15,
-	most: 5
+	most: 5,
+	dodge: 40
 };
 /** His own perks' numbers: Headbutt's blow more and Earth Incarnate's every second (shares of his max HP), the stuns, Destroy Armor's (at full stacks, and its Dark), and Transcend 5's Dark. */
 var PERKS$9 = {
@@ -11782,7 +12139,7 @@ var DESTROY_ARMOR = {
 		icon: "🪓",
 		art: art$9(3)
 	},
-	words: `Upon attacking, weakens enemy P.DEF by ${num(ARMOR.defense)} for ${ARMOR.lasts} sec. Can be stacked up to ${ARMOR.most} times max.`
+	words: `Upon attacking, weakens enemy P.DEF by ${num(ARMOR.defense)} for ${ARMOR.lasts} sec. Can be stacked up to ${ARMOR.most} times max. Per every stack, enemy P.Dodge chance is reduced by ${ARMOR.dodge / 10}%.`
 };
 /** Earth Incarnate: shown on his card while it lasts. */
 var INCARNATION = {
@@ -11918,6 +12275,7 @@ var PHILLOP = {
 				left: ARMOR.lasts,
 				count: broken,
 				defends: { physical: physical > 0 ? Math.max(0, 1 - ARMOR.defense * broken / physical) : 1 },
+				dodges: { physical: -ARMOR.dodge * broken },
 				...titan,
 				shown: "curse"
 			});
@@ -12367,7 +12725,7 @@ var NAILA = {
 /** Focus Shot!'s arrow, and how many times as hard it is focused (she always focuses as long as she can). */
 var FOCUS = {
 	blow: indexed("archer", 179237),
-	focused: 2
+	focused: 1.376
 };
 var WIPEOUT = { blow: indexed("archer", 279459) };
 /** No Holding Back!: her ATK and penetration (points) more, for `lasts` seconds; the share of her mana each blow of her attack takes meanwhile. */
@@ -12475,8 +12833,8 @@ var YANNE = {
 	abilities: [
 		{
 			name: "Focus Shot!",
-			about: `An arrow, focused on as long as she can (its DMG doubled).`,
-			words: `Taking up a stance, focuses for a while and deals ${dmg("archer", FOCUS.blow, bookDmg("yanne", 0))} P.DMG to enemies in a straight line. If the target is a dragon, inflicts Stun for 3 sec. The longer she focuses, DMG and Stun duration are increased by 100%.`,
+			about: `An arrow, focused on as long as she can (its DMG ${pct(FOCUS.focused - 1)} more).`,
+			words: `Taking up a stance, focuses for a while and deals ${dmg("archer", FOCUS.blow, bookDmg("yanne", 0))} P.DMG to enemies in a straight line. If the target is a dragon, inflicts Stun for 3 sec. The longer she focuses, DMG is increased by ${pct(FOCUS.focused - 1)} and Stun duration by 25%.`,
 			icon: "🎯",
 			art: art$7(0),
 			move: "focus",
@@ -13502,7 +13860,7 @@ var LOMAN = {
 		{
 			name: "Cut Ground",
 			about: `A blow that knocks the boss down for ${CUT.down} seconds; it takes ${pct(CUT.weakness)} more physical damage for ${CUT.lasts} seconds.`,
-			words: `Deals ${dmg("knight", CUT.blow, bookDmg("loman", 0))} P.DMG to frontal enemies within range and knocks them down for ${CUT.down} sec, increasing P.Weakness of the affected targets by ${pct(CUT.weakness)} for ${CUT.lasts} sec.`,
+			words: `Deals ${dmg("knight", CUT.blow, bookDmg("loman", 0))} P.DMG to frontal enemies within range and knocks them down for ${CUT.down} sec, increasing P.Weakness of the affected targets by ${pct(CUT.weakness)} for ${CUT.lasts} sec. Blocks all DMG while the skill is in use.`,
 			icon: "⚔️",
 			art: art$4(0),
 			move: "ground",
@@ -13618,6 +13976,7 @@ var LOMAN = {
 			fight.cue(self, "gatekeeper");
 		};
 		return {
+			untouched: () => self.doing?.move === "ground",
 			lands: {
 				thrust: () => fight.hit(self, fight.basic),
 				ground() {
@@ -13756,7 +14115,8 @@ var ENRAGE = {
 	atk: 901,
 	dmg: .03,
 	lasts: 5,
-	most: 10
+	most: 10,
+	resist: 10
 };
 /** His own perks' numbers: Smash's Dark, Battle Roar's Light and Dark, Enrage's Light and Dark, and Transcend 5's Dark. */
 var PERKS$3 = {
@@ -13833,7 +14193,7 @@ var ENRAGED = {
 		icon: "😡",
 		art: art$3(3)
 	},
-	words: `Upon attacking, increases ATK by ${num(ENRAGE.atk)} for ${ENRAGE.lasts} sec, and DMG to Non-Hero enemies by ${pct(ENRAGE.dmg)}. This effect can be stacked up to max ${ENRAGE.most} times.`
+	words: `Upon attacking, increases ATK by ${num(ENRAGE.atk)} for ${ENRAGE.lasts} sec, and DMG to Non-Hero enemies by ${pct(ENRAGE.dmg)}. This effect can be stacked up to max ${ENRAGE.most} times. Status Resistance increases by ${ENRAGE.resist} for each stack.`
 };
 /** Battle Roar on an ally; Enrage's stacks on him. */
 var ROARED = {
@@ -13967,6 +14327,7 @@ var GAU = {
 				left: ENRAGE.lasts,
 				count: rage,
 				deals: (1 + atk / self.stats.atk) * (1 + ENRAGE.dmg * rage),
+				resist: ENRAGE.resist * rage,
 				...fury && { crit: share$2(PERKS$3.fury.crit * rage) },
 				...bracelet > 0 && rage >= most && { pen: bracelet },
 				shown: RAGING
@@ -15060,7 +15421,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "f1f75b637144";
+var SIM_VERSION = "9c73e1e2a472";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
