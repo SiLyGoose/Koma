@@ -37,7 +37,7 @@ import {
 } from '../../lib/game/heroes.js';
 import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
-import { maxLevelOf, refineLevel } from '../../lib/game/items/refine.js';
+import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice } from '../../lib/game/items/sell.js';
 import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { UT_ENHANCE } from '../../data/tm-potentials.js';
@@ -171,7 +171,8 @@ export function heroesView(
     const part = item ? partOf(item) : null;
     if (!item || !heroWearable(item) || part === null) continue;
     const maxLevel = maxLevelOf(item);
-    const level = Math.min(refineLevel(copy.level), maxLevel);
+    // (Its stars, from 0★: King's Raid's.)
+    const level = Math.min(starsOf(item, copy.level), maxLevel);
     const kr = item.kr;
     const runes = Array.from({ length: socketsOf(item) }, (_, i) => copy.runes?.[i] ?? null);
     const hero = worn.get(copy._id);
@@ -248,8 +249,8 @@ export function heroesView(
       const effect = ut && found ? uniqueTreasureText(hero.id, ut.skill, treasureTier(found.piece.level)) : null;
       if (ut && found && effect) main = { name: effect.name, skill: ut.skill, tier: treasureTier(found.piece.level), text: effect.text };
       if (fits && found.piece.item.kr?.part === 'artifact') {
-        const tier = refineLevel(found.piece.level);
-        artifact = { name: found.piece.item.name, tier, text: ARTIFACT_TEXT.get(found.piece.item.id)?.[tier - 1] ?? '' };
+        const tier = starsOf(found.piece.item, found.piece.level);
+        artifact = { name: found.piece.item.name, tier, text: ARTIFACT_TEXT.get(found.piece.item.id)?.[tier] ?? '' };
       }
     }
     const shares = heroBonus(on, hero.class, hero.id);

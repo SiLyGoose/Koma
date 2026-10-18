@@ -1,6 +1,6 @@
 import { collections } from '../../db.js';
 import { REFINE } from '../../constants/index.js';
-import { refineable, refineCopyPlan, refineCost, refineLevel, refinePlan } from '../../lib/game/items/refine.js';
+import { leastStars, refineable, refineCopyPlan, refineCost, refineLevel, refinePlan } from '../../lib/game/items/refine.js';
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
@@ -52,7 +52,9 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   const [copies, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
   const worn = equippedCopyIds(member?.equipment);
   const kept = keptCopyIds(member);
-  const plan = chosen ? refineCopyPlan(copies, chosen.copy, chosen.material, new Set([...worn, ...kept])) : refinePlan(copies, worn, kept);
+  // (A hero's gear from 0★, the members' own from 1★.)
+  const least = leastStars(item);
+  const plan = chosen ? refineCopyPlan(copies, chosen.copy, chosen.material, new Set([...worn, ...kept]), least) : refinePlan(copies, worn, kept, least);
   if (!plan.ok) return { ok: false, reason: plan.reason, level: plan.level };
 
   const cost = refineCost(item.stars, plan.to);
@@ -80,8 +82,8 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   }
   await recordLedger([{ guildId, userId, delta: -cost, reason: 'refine', itemId: item.id }]);
   gearChanged(guildId, userId);
-  const maxedCopies = copies.filter((copy) => copy._id !== plan.target._id && refineLevel(copy.level) >= REFINE.maxLevel).length;
-  const lockedCopies = copies.filter((copy) => copy._id !== plan.target._id && copy.locked && refineLevel(copy.level) < REFINE.maxLevel).length;
+  const maxedCopies = copies.filter((copy) => copy._id !== plan.target._id && refineLevel(copy.level, least) >= REFINE.maxLevel).length;
+  const lockedCopies = copies.filter((copy) => copy._id !== plan.target._id && copy.locked && refineLevel(copy.level, least) < REFINE.maxLevel).length;
   return {
     ok: true,
     item,

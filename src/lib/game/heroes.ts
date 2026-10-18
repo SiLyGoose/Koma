@@ -69,11 +69,11 @@ export const wieldedBy = (item: ItemDef, heroId: string): boolean => {
   return owner === undefined || owner === heroId;
 };
 
-/** A unique treasure's tier in the raid, by how far its copy is refined (R1 to R5: tiers 1 to 5, Koma-UI's sim/treasures.ts). */
-export const treasureTier = (level: number): number => refineLevel(level);
+/** A unique treasure's tier in the raid: its copy's stars (0★ to 5★, Koma-UI's sim/treasures.ts). */
+export const treasureTier = (level: number): number => refineLevel(level, 0);
 
-/** A unique weapon's tier in the raid, by how far its copy is refined (R1 to R5: tiers 1 to 5, Koma-UI's sim/unique.ts). */
-export const uniqueTier = (level: number): number => refineLevel(level);
+/** A unique weapon's tier in the raid: its copy's stars (0★ to 5★, Koma-UI's sim/unique.ts). */
+export const uniqueTier = (level: number): number => refineLevel(level, 0);
 
 /** The member's heroes that still exist in `known` (data/heroes.ts's ids), by id. */
 export function ownedHeroes(member: Pick<MemberDoc, 'heroes'> | null | undefined, known: ReadonlySet<string>): Map<string, HeroDoc> {
@@ -176,7 +176,7 @@ const amount = (stat: HeroStat, value: number): string => (HERO_STATS[stat].flat
 
 /** A copy's main stat as the pages show it: King's Raid's gear's at its refinement (the old TechnoMagic gear's, by its copy's armor DEF); null: none. */
 export function copyMainStat(item: ItemDef, copy: Partial<Pick<ItemCopyDoc, 'tmArmorDef' | 'level'>>): MainStat | null {
-  if (item.kr?.main) return { name: KR_MAIN_NAME[item.kr.main[0]], value: krMainValue(item.kr, refineLevel(copy.level ?? 1)) };
+  if (item.kr?.main) return { name: KR_MAIN_NAME[item.kr.main[0]], value: krMainValue(item.kr, refineLevel(copy.level ?? 1, 0)) };
   const main = tmMainStat(item, copy.tmArmorDef);
   return main && { name: main.name, value: main.value };
 }
@@ -295,7 +295,8 @@ export function heroItemLines(
 ): string[] {
   const runeText = (runes ?? []).flatMap((id) => (id ? runeLines(id) : []));
   if (item.kr?.part === 'artifact') {
-    const text = ARTIFACT_TEXT.get(item.id)?.[refineLevel(level) - 1];
+    // (Its texts are by its stars, 0★ to 5★.)
+    const text = ARTIFACT_TEXT.get(item.id)?.[refineLevel(level, 0)];
     return text ? [text] : [];
   }
   if (item.kr) {
@@ -459,10 +460,10 @@ export function raidGear(copies: readonly RaidCopy[], member: Pick<MemberDoc, 'h
       if (!countsOnce(item, treasures)) continue;
       if (item.uniqueWeapon !== undefined) uw = uniqueTier(copy.level);
       if (item.uniqueTreasure !== undefined && slot === 'treasure') ut = { skill: item.uniqueTreasure.skill, tier: treasureTier(copy.level) };
-      if (item.kr?.part === 'artifact') artifact = { id: item.id, tier: refineLevel(copy.level) };
+      if (item.kr?.part === 'artifact') artifact = { id: item.id, tier: refineLevel(copy.level, 0) };
       on.push({
         item,
-        level: refineLevel(copy.level),
+        level: refineLevel(copy.level, 0),
         ...(item.uniqueTreasure && copy.tmPotentials && { potentials: copy.tmPotentials }),
         ...(copy.options && { options: copy.options }),
         ...(copy.runes && { runes: copy.runes }),

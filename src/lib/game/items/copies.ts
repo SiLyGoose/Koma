@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { ItemCopyDoc } from '../../../types.js';
-import { refineLevel } from './refine-share.js';
+import { ITEMS_BY_ID } from '../../../data/items.js';
+import { refineLevel, starsOf } from './refine-share.js';
 
 /**
  * What a member owns is stored as one document per copy of an item (see ItemCopyDoc), so two
@@ -56,7 +57,8 @@ export interface InventoryStack {
 export function stackCopies(copies: readonly Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'>[], worn: ReadonlySet<string>): InventoryStack[] {
   const stacks = new Map<string, InventoryStack>();
   for (const copy of copies) {
-    const level = refineLevel(copy.level);
+    const item = ITEMS_BY_ID.get(copy.itemId);
+    const level = item ? starsOf(item, copy.level) : refineLevel(copy.level);
     const locked = copy.locked === true;
     const isWorn = worn.has(copy._id);
     const key = isWorn ? `worn:${copy._id}` : `${copy.itemId}:${level}:${locked}`;

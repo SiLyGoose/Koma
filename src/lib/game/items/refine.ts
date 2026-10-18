@@ -10,7 +10,7 @@ import { refineLevel } from './refine-share.js';
  * means, how much of an item's strength a level gives, and which copies a refine uses.
  */
 
-export { refineLevel, refineShare } from './refine-share.js';
+export { leastStars, refineLevel, refineShare, starsOf } from './refine-share.js';
 
 /** Whether `item`'s copies are ever refined: not TechnoMagic gear's, whose strength is each copy's potentials, which a level wouldn't change. */
 export const refineable = (item: Pick<ItemDef, 'tmDrop'>): boolean => !item.tmDrop;
@@ -20,7 +20,8 @@ export const maxLevelOf = (item: Pick<ItemDef, 'tmDrop'>): number => (refineable
 
 /** What refining an item of `stars` up to level `to` costs in points, from the live settings (0 for a level with no price). */
 export function refineCost(stars: Stars, to: number): number {
-  return CONFIG.refine.cost[stars]?.[to as RefineTarget] ?? 0;
+  // (A hero's gear's first awakening, 0★ to 1★, is priced as the step after it: the settings start at ★2.)
+  return CONFIG.refine.cost[stars]?.[Math.max(2, to) as RefineTarget] ?? 0;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'level' | 'obtainedAt' | 'locked'>;
@@ -37,13 +38,13 @@ export type RefinePlan<T> =
  * their lowest-level other copy that isn't worn, saved in a loadout (`kept`), maxed or locked, so no refining
  * is thrown away when it can be helped. `kept` includes the worn copies; left out, it is just those.
  */
-export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: ReadonlySet<string>, kept: ReadonlySet<string> = worn): RefinePlan<T> {
-  const maxed = (copy: T) => refineLevel(copy.level) >= REFINE.maxLevel;
+export function refinePlan<T extends CopyInfo>(copies: readonly T[], worn: ReadonlySet<string>, kept: ReadonlySet<string> = worn, least = 1): RefinePlan<T> {
+  const maxed = (copy: T) => refineLevel(copy.level, least) >= REFINE.maxLevel;
   const top = bestCopy(copies);
   if (!top) return { ok: false, reason: 'not_owned', level: 0 };
   const target = bestCopy(copies.filter((copy) => !maxed(copy)));
-  if (!target) return { ok: false, reason: 'maxed', level: refineLevel(top.level), target: top };
-  const from = refineLevel(target.level);
+  if (!target) return { ok: false, reason: 'maxed', level: refineLevel(top.level, least), target: top };
+  const from = refineLevel(target.level, least);
   // A copy that is fully refined, or that the member locked, is never used up.
   const fodder = worstCopy(
     copies.filter((copy) => copy._id !== target._id && !worn.has(copy._id) && !kept.has(copy._id) && !copy.locked && !maxed(copy)),
@@ -73,10 +74,11 @@ export function refineCopyPlan<T extends CopyInfo>(
   targetId: string,
   materialId: string | null,
   kept: ReadonlySet<string>,
+  least = 1,
 ): RefineCopyPlan<T> {
   const target = copies.find((copy) => copy._id === targetId);
   if (!target) return { ok: false, reason: 'not_owned', level: 0 };
-  const from = refineLevel(target.level);
+  const from = refineLevel(target.level, least);
   if (from >= REFINE.maxLevel) return { ok: false, reason: 'maxed', level: from, target };
   const materials = refineMaterials(copies, target, kept);
   if (materials.length === 0) return { ok: false, reason: 'no_duplicate', level: from, target };

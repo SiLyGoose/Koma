@@ -4773,9 +4773,10 @@ function scaleAt(def, stage, solo) {
 }
 //#endregion
 //#region src/technomagic/sim/gear/kr-data.ts
-/** A piece's main stat's base, times its refinement's factor (R1 to R5: thousandths, at max level) for its kind of stat. */
+/** A piece's main stat's base, times its stars' factor (0★ to 5★, the index is the stars: thousandths, at max level) for its kind of stat. */
 var KR_REFINE$1 = {
 	"atk": [
+		4300,
 		4730,
 		5160,
 		5590,
@@ -4783,6 +4784,7 @@ var KR_REFINE$1 = {
 		6450
 	],
 	"hp": [
+		4300,
 		4730,
 		5160,
 		5590,
@@ -4790,6 +4792,7 @@ var KR_REFINE$1 = {
 		6450
 	],
 	"def": [
+		4300,
 		4730,
 		5375,
 		6235,
@@ -16120,6 +16123,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_1001",
 		"name": "Apocalypsion's Tear",
 		"skills": [
+			80010010,
 			80010011,
 			80010012,
 			80010013,
@@ -16127,6 +16131,7 @@ var KR_ARTIFACTS = [
 			80010015
 		],
 		"text": [
+			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 12% and 24% respectively. This effect does not stack with other similar effects cast by allies.",
 			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 14% and 28% respectively. This effect does not stack with other similar effects cast by allies.",
 			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 17% and 34% respectively. This effect does not stack with other similar effects cast by allies.",
 			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 21% and 42% respectively. This effect does not stack with other similar effects cast by allies.",
@@ -16140,6 +16145,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_14",
 		"name": "Mask of Harpy",
 		"skills": [
+			80000140,
 			80000141,
 			80000142,
 			80000143,
@@ -16147,6 +16153,7 @@ var KR_ARTIFACTS = [
 			80000145
 		],
 		"text": [
+			"ATK upon Harpies increase by 40 %, and DMG resistance against Harpies increases by 20 %",
 			"ATK upon Harpies increase by 48 %, and DMG resistance against Harpies increases by 24 %",
 			"ATK upon Harpies increase by 57 %, and DMG resistance against Harpies increases by 28 %",
 			"ATK upon Harpies increase by 69 %, and DMG resistance against Harpies increases by 34 %",
@@ -16160,6 +16167,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_24",
 		"name": "Earth Protection",
 		"skills": [
+			80000240,
 			80000241,
 			80000242,
 			80000243,
@@ -16167,6 +16175,7 @@ var KR_ARTIFACTS = [
 			80000245
 		],
 		"text": [
+			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 8 sec.",
 			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 10 sec.",
 			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 12 sec.",
 			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 14 sec.",
@@ -16180,6 +16189,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_34",
 		"name": "Mask of Draconic",
 		"skills": [
+			80000340,
 			80000341,
 			80000342,
 			80000343,
@@ -16187,6 +16197,7 @@ var KR_ARTIFACTS = [
 			80000345
 		],
 		"text": [
+			"ATK upon Draconics increase by 40 %, and DMG resistance against Draconics increase by 20 %.",
 			"ATK upon Draconics increase by 48 %, and DMG resistance against Draconics increase by 24 %.",
 			"ATK upon Draconics increase by 57 %, and DMG resistance against Draconics increase by 28 %.",
 			"ATK upon Draconics increase by 69 %, and DMG resistance against Draconics increase by 34 %.",
@@ -16200,6 +16211,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_44",
 		"name": "Infernal Whip",
 		"skills": [
+			80000440,
 			80000441,
 			80000442,
 			80000443,
@@ -16207,6 +16219,7 @@ var KR_ARTIFACTS = [
 			80000445
 		],
 		"text": [
+			"Every 8 seconds, deals Magic Damage equal to 20% of Attack to all enemies and increases all damage they take by 10% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.4%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
 			"Every 8 seconds, deals Magic Damage equal to 24% of Attack to all enemies and increases all damage they take by 12% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.5%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
 			"Every 8 seconds, deals Magic Damage equal to 29% of Attack to all enemies and increases all damage they take by 14% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.6%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
 			"Every 8 seconds, deals Magic Damage equal to 35% of Attack to all enemies and increases all damage they take by 17% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.7%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
@@ -16220,6 +16233,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_64",
 		"name": "Perfume of the Queen",
 		"skills": [
+			80000640,
 			80000641,
 			80000642,
 			80000643,
@@ -16227,6 +16241,7 @@ var KR_ARTIFACTS = [
 			80000645
 		],
 		"text": [
+			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 4 sec.",
 			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 4.8 sec.",
 			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 5.8 sec.",
 			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 7 sec.",
@@ -16240,6 +16255,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_1002",
 		"name": "Golem's Fuel",
 		"skills": [
+			80010020,
 			80010021,
 			80010022,
 			80010023,
@@ -16247,6 +16263,7 @@ var KR_ARTIFACTS = [
 			80010025
 		],
 		"text": [
+			"Increases DMG dealt to Non-Hero enemies by 10% and reduces DMG taken by 5%. If target is [Holy Golem], the effect is multiplied by 3.",
 			"Increases DMG dealt to Non-Hero enemies by 12% and reduces DMG taken by 6%. If target is [Holy Golem], the effect is multiplied by 3.",
 			"Increases DMG dealt to Non-Hero enemies by 14% and reduces DMG taken by 7%. If target is [Holy Golem], the effect is multiplied by 3.",
 			"Increases DMG dealt to Non-Hero enemies by 17% and reduces DMG taken by 8.5%. If target is [Holy Golem], the effect is multiplied by 3.",
@@ -16260,6 +16277,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_11",
 		"name": "Madame's Bronze Mirrors",
 		"skills": [
+			80000110,
 			80000111,
 			80000112,
 			80000113,
@@ -16267,6 +16285,7 @@ var KR_ARTIFACTS = [
 			80000115
 		],
 		"text": [
+			"Increases own M.Block Chance by 300 and M.DMG Reduction by 100.",
 			"Increases own M.Block Chance by 330 and M.DMG Reduction by 110.",
 			"Increases own M.Block Chance by 360 and M.DMG Reduction by 120.",
 			"Increases own M.Block Chance by 400 and M.DMG Reduction by 140.",
@@ -16280,6 +16299,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_21",
 		"name": "Judgment of Light Bracelet",
 		"skills": [
+			80000210,
 			80000211,
 			80000212,
 			80000213,
@@ -16287,6 +16307,7 @@ var KR_ARTIFACTS = [
 			80000215
 		],
 		"text": [
+			"ACC and CC ACC rise by 300.",
 			"ACC and CC ACC rise by 360.",
 			"ACC and CC ACC rise by 430.",
 			"ACC and CC ACC rise by 520.",
@@ -16300,6 +16321,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_31",
 		"name": "Solar Stone",
 		"skills": [
+			80000310,
 			80000311,
 			80000312,
 			80000313,
@@ -16307,6 +16329,7 @@ var KR_ARTIFACTS = [
 			80000315
 		],
 		"text": [
+			"Every sec, deals P.DMG equal to 20% of ATK to enemies within a circular area around self and reduces their Recovery by 30% for 5 sec.",
 			"Every sec, deals P.DMG equal to 24% of ATK to enemies within a circular area around self and reduces their Recovery by 36% for 5 sec.",
 			"Every sec, deals P.DMG equal to 29% of ATK to enemies within a circular area around self and reduces their Recovery by 43% for 5 sec.",
 			"Every sec, deals P.DMG equal to 35% of ATK to enemies within a circular area around self and reduces their Recovery by 52% for 5 sec.",
@@ -16320,6 +16343,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_41",
 		"name": "Spellbound Ring of the Deep",
 		"skills": [
+			80000410,
 			80000411,
 			80000412,
 			80000413,
@@ -16327,6 +16351,7 @@ var KR_ARTIFACTS = [
 			80000415
 		],
 		"text": [
+			"Upon the start of a battle for 8 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 20%.",
 			"Upon the start of a battle for 10 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 24%.",
 			"Upon the start of a battle for 12 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 29%.",
 			"Upon the start of a battle for 14 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 35%.",
@@ -16340,6 +16365,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_51",
 		"name": "Cross Pumpkin Head",
 		"skills": [
+			80000510,
 			80000511,
 			80000512,
 			80000513,
@@ -16347,6 +16373,7 @@ var KR_ARTIFACTS = [
 			80000515
 		],
 		"text": [
+			"Increases Max HP by 20% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
 			"Increases Max HP by 24% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
 			"Increases Max HP by 29% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
 			"Increases Max HP by 35% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
@@ -16360,6 +16387,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_61",
 		"name": "Happy Pumpkin Head",
 		"skills": [
+			80000610,
 			80000611,
 			80000612,
 			80000613,
@@ -16367,6 +16395,7 @@ var KR_ARTIFACTS = [
 			80000615
 		],
 		"text": [
+			"Every 7 seconds, Healing is increased by 2%, and you recover HP equal to 100% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
 			"Every 7 seconds, Healing is increased by 2.4%, and you recover HP equal to 120% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
 			"Every 7 seconds, Healing is increased by 2.8%, and you recover HP equal to 140% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
 			"Every 7 seconds, Healing is increased by 3.4%, and you recover HP equal to 170% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
@@ -16380,6 +16409,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_12",
 		"name": "Sealed Chain of Ancient God",
 		"skills": [
+			80000120,
 			80000121,
 			80000122,
 			80000123,
@@ -16387,6 +16417,7 @@ var KR_ARTIFACTS = [
 			80000125
 		],
 		"text": [
+			"Every 20 sec, cast Silence to a random enemy for 3 sec and remove positive effects.",
 			"Every 19 sec, cast Silence to a random enemy for 3.5 sec and remove positive effects.",
 			"Every 18 sec, cast Silence to a random enemy for 4 sec and remove positive effects.",
 			"Every 17 sec, cast Silence to a random enemy for 4.5 sec and remove positive effects.",
@@ -16400,6 +16431,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_22",
 		"name": "Mask of Lizardman",
 		"skills": [
+			80000220,
 			80000221,
 			80000222,
 			80000223,
@@ -16407,6 +16439,7 @@ var KR_ARTIFACTS = [
 			80000225
 		],
 		"text": [
+			"ATK upon Lizardmen increase by 40 %, and DMG resistance against Lizardmen increase by 20 %",
 			"ATK upon Lizardmen increase by 48 %, and DMG resistance against Lizardmen increase by 24 %",
 			"ATK upon Lizardmen increase by 57 %, and DMG resistance against Lizardmen increase by 28 %",
 			"ATK upon Lizardmen increase by 69 %, and DMG resistance against Lizardmen increase by 34 %",
@@ -16420,6 +16453,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_32",
 		"name": "Orbs of Contract",
 		"skills": [
+			80000320,
 			80000321,
 			80000322,
 			80000323,
@@ -16427,6 +16461,7 @@ var KR_ARTIFACTS = [
 			80000325
 		],
 		"text": [
+			"Every 7 seconds, increases your Magic Defense by an amount equal to 1% of your Attack. This effect stacks up to 6 times.",
 			"Every 7 seconds, increases your Magic Defense by an amount equal to 1.2% of your Attack. This effect stacks up to 6 times.",
 			"Every 7 seconds, increases your Magic Defense by an amount equal to 1.4% of your Attack. This effect stacks up to 6 times.",
 			"Every 7 seconds, increases your Magic Defense by an amount equal to 1.7% of your Attack. This effect stacks up to 6 times.",
@@ -16440,6 +16475,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_42",
 		"name": "Guardian Crystal of the Deep",
 		"skills": [
+			80000420,
 			80000421,
 			80000422,
 			80000423,
@@ -16447,6 +16483,7 @@ var KR_ARTIFACTS = [
 			80000425
 		],
 		"text": [
+			"When there is 1 enemy, all DEF is increased by 50%.",
 			"When there is 1 enemy, all DEF is increased by 60%.",
 			"When there is 1 enemy, all DEF is increased by 72%.",
 			"When there is 1 enemy, all DEF is increased by 86%.",
@@ -16460,6 +16497,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_52",
 		"name": "Angry Pumpkin Head",
 		"skills": [
+			80000520,
 			80000521,
 			80000522,
 			80000523,
@@ -16467,6 +16505,7 @@ var KR_ARTIFACTS = [
 			80000525
 		],
 		"text": [
+			"All DMG taken is reduced by 10% and deal 10% more DMG to enemies.",
 			"All DMG taken is reduced by 12% and deal 12% more DMG to enemies.",
 			"All DMG taken is reduced by 14% and deal 14% more DMG to enemies.",
 			"All DMG taken is reduced by 17% and deal 17% more DMG to enemies.",
@@ -16480,6 +16519,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_62",
 		"name": "Surprised Pumpkin Head",
 		"skills": [
+			80000620,
 			80000621,
 			80000622,
 			80000623,
@@ -16487,6 +16527,7 @@ var KR_ARTIFACTS = [
 			80000625
 		],
 		"text": [
+			"When inflicted by CC, immediately recovers Mana by 12% and increases ATK Spd by 200 for 5 sec. This effect activates once every 30 sec.",
 			"When inflicted by CC, immediately recovers Mana by 14% and increases ATK Spd by 240 for 5 sec. This effect activates once every 30 sec.",
 			"When inflicted by CC, immediately recovers Mana by 17% and increases ATK Spd by 290 for 5 sec. This effect activates once every 30 sec.",
 			"When inflicted by CC, immediately recovers Mana by 21% and increases ATK Spd by 350 for 5 sec. This effect activates once every 30 sec.",
@@ -16500,6 +16541,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_505",
 		"name": "Christmas Tree of Holy Night",
 		"skills": [
+			80005050,
 			80005051,
 			80005052,
 			80005053,
@@ -16507,6 +16549,7 @@ var KR_ARTIFACTS = [
 			80005055
 		],
 		"text": [
+			"Increases Crit DMG by 50%.",
 			"Increases Crit DMG by 60%.",
 			"Increases Crit DMG by 72%.",
 			"Increases Crit DMG by 87%.",
@@ -16520,6 +16563,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_504",
 		"name": "Warm Turkey Dish",
 		"skills": [
+			80005040,
 			80005041,
 			80005042,
 			80005043,
@@ -16527,6 +16571,7 @@ var KR_ARTIFACTS = [
 			80005045
 		],
 		"text": [
+			"Increases own Max HP by 10% and All Block Chance by 100.",
 			"Increases own Max HP by 12% and All Block Chance by 120.",
 			"Increases own Max HP by 14% and All Block Chance by 140.",
 			"Increases own Max HP by 17% and All Block Chance by 170.",
@@ -16540,6 +16585,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_507",
 		"name": "Academic Achievement Award",
 		"skills": [
+			80005070,
 			80005071,
 			80005072,
 			80005073,
@@ -16547,6 +16593,7 @@ var KR_ARTIFACTS = [
 			80005075
 		],
 		"text": [
+			"Increases ATK of all allies by 8%, and All DEF of self by 10%. This effect will not stack with other similar effects cast by allies.",
 			"Increases ATK of all allies by 10%, and All DEF of self by 12%. This effect will not stack with other similar effects cast by allies.",
 			"Increases ATK of all allies by 12%, and All DEF of self by 14%. This effect will not stack with other similar effects cast by allies.",
 			"Increases ATK of all allies by 14%, and All DEF of self by 17%. This effect will not stack with other similar effects cast by allies.",
@@ -16560,6 +16607,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_506",
 		"name": "New Year's Fanfare",
 		"skills": [
+			80005060,
 			80005061,
 			80005062,
 			80005063,
@@ -16567,6 +16615,7 @@ var KR_ARTIFACTS = [
 			80005065
 		],
 		"text": [
+			"Increases ATK of 4 allies by 5% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
 			"Increases ATK of 4 allies by 6% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
 			"Increases ATK of 4 allies by 7.2% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
 			"Increases ATK of 4 allies by 8.6% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
@@ -16580,6 +16629,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_501",
 		"name": "Abyssal Eye",
 		"skills": [
+			80005010,
 			80005011,
 			80005012,
 			80005013,
@@ -16587,6 +16637,7 @@ var KR_ARTIFACTS = [
 			80005015
 		],
 		"text": [
+			"When taking damage, deals Magic Damage equal to 50% of Attack to the attacker and reduces their Attack Speed by 400 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 2 seconds. This effect can only trigger once every 30 seconds.",
 			"When taking damage, deals Magic Damage equal to 60% of Attack to the attacker and reduces their Attack Speed by 480 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 2.4 seconds. This effect can only trigger once every 30 seconds.",
 			"When taking damage, deals Magic Damage equal to 72% of Attack to the attacker and reduces their Attack Speed by 580 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 2.9 seconds. This effect can only trigger once every 30 seconds.",
 			"When taking damage, deals Magic Damage equal to 86% of Attack to the attacker and reduces their Attack Speed by 700 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 3.5 seconds. This effect can only trigger once every 30 seconds.",
@@ -16600,6 +16651,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_503",
 		"name": "Abyssal Nail Ornament",
 		"skills": [
+			80005030,
 			80005031,
 			80005032,
 			80005033,
@@ -16607,6 +16659,7 @@ var KR_ARTIFACTS = [
 			80005035
 		],
 		"text": [
+			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 4% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
 			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 4.8% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
 			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 5.8% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
 			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 7% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
@@ -16620,6 +16673,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_502",
 		"name": "Abyssal Crown",
 		"skills": [
+			80005020,
 			80005021,
 			80005022,
 			80005023,
@@ -16627,6 +16681,7 @@ var KR_ARTIFACTS = [
 			80005025
 		],
 		"text": [
+			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 30%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
 			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 36%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
 			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 43%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
 			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 52%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
@@ -16640,6 +16695,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_509",
 		"name": "Ancient God King's Coin",
 		"skills": [
+			80005090,
 			80005091,
 			80005092,
 			80005093,
@@ -16647,6 +16703,7 @@ var KR_ARTIFACTS = [
 			80005095
 		],
 		"text": [
+			"Increases ATK and Crit DMG by 20%.",
 			"Increases ATK and Crit DMG by 24%.",
 			"Increases ATK and Crit DMG by 29%.",
 			"Increases ATK and Crit DMG by 35%.",
@@ -16660,6 +16717,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_508",
 		"name": "Heart Cotton Candy",
 		"skills": [
+			80005080,
 			80005081,
 			80005082,
 			80005083,
@@ -16667,6 +16725,7 @@ var KR_ARTIFACTS = [
 			80005085
 		],
 		"text": [
+			"When the battle starts, increases ATK of self and the ally with the highest ATK by 10% for 20 sec. This effect will not stack with other similar effects cast by allies.",
 			"When the battle starts, increases ATK of self and the ally with the highest ATK by 12% for 20 sec. This effect will not stack with other similar effects cast by allies.",
 			"When the battle starts, increases ATK of self and the ally with the highest ATK by 14% for 20 sec. This effect will not stack with other similar effects cast by allies.",
 			"When the battle starts, increases ATK of self and the ally with the highest ATK by 17% for 20 sec. This effect will not stack with other similar effects cast by allies.",
@@ -16680,6 +16739,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_901",
 		"name": "Honorary Medal",
 		"skills": [
+			80009100,
 			80009101,
 			80009102,
 			80009103,
@@ -16687,6 +16747,7 @@ var KR_ARTIFACTS = [
 			80009105
 		],
 		"text": [
+			"Increases ATK, HP, and All DEF of all allies by 7.5%. This effect does not stack with same effects from other allies.",
 			"Increases ATK, HP, and All DEF of all allies by 9%. This effect does not stack with same effects from other allies.",
 			"Increases ATK, HP, and All DEF of all allies by 10.5%. This effect does not stack with same effects from other allies.",
 			"Increases ATK, HP, and All DEF of all allies by 12%. This effect does not stack with same effects from other allies.",
@@ -16700,6 +16761,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_900",
 		"name": "Honorary Trophy",
 		"skills": [
+			80009e3,
 			80009001,
 			80009002,
 			80009003,
@@ -16707,6 +16769,7 @@ var KR_ARTIFACTS = [
 			80009005
 		],
 		"text": [
+			"Increases ATK by 25% and Crit Chance by 250.",
 			"Increases ATK by 30% and Crit Chance by 300.",
 			"Increases ATK by 35% and Crit Chance by 350.",
 			"Increases ATK by 40% and Crit Chance by 400.",
@@ -16720,6 +16783,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_902",
 		"name": "Hero's Plaque of Appreciation",
 		"skills": [
+			80009200,
 			80009201,
 			80009202,
 			80009203,
@@ -16727,6 +16791,7 @@ var KR_ARTIFACTS = [
 			80009205
 		],
 		"text": [
+			"Increases Max HP by 25%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 50%. This effect is irremovable and does not stack with same effects from other allies.",
 			"Increases Max HP by 30%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 60%. This effect is irremovable and does not stack with same effects from other allies.",
 			"Increases Max HP by 35%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 70%. This effect is irremovable and does not stack with same effects from other allies.",
 			"Increases Max HP by 40%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 80%. This effect is irremovable and does not stack with same effects from other allies.",
@@ -16740,6 +16805,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_1",
 		"name": "Burning Brazier of Elf",
 		"skills": [
+			80000010,
 			80000011,
 			80000012,
 			80000013,
@@ -16747,6 +16813,7 @@ var KR_ARTIFACTS = [
 			80000015
 		],
 		"text": [
+			"Upon attacking an enemy, there is a 10% chance to recover 1 MP.",
 			"Upon attacking an enemy, there is a 12% chance to recover 1 MP.",
 			"Upon attacking an enemy, there is a 14% chance to recover 1 MP.",
 			"Upon attacking an enemy, there is a 17% chance to recover 1 MP.",
@@ -16760,6 +16827,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_2",
 		"name": "Drinking Horn of Ancient Cow",
 		"skills": [
+			80000020,
 			80000021,
 			80000022,
 			80000023,
@@ -16767,6 +16835,7 @@ var KR_ARTIFACTS = [
 			80000025
 		],
 		"text": [
+			"Normal attacks have a 10% chance to increase ATK by 10% and ATK Spd by 100 for 10 sec.",
 			"Normal attacks have a 10% chance to increase ATK by 12% and ATK Spd by 120 for 10 sec.",
 			"Normal attacks have a 10% chance to increase ATK by 14% and ATK Spd by 140 for 10 sec.",
 			"Normal attacks have a 10% chance to increase ATK by 17% and ATK Spd by 170 for 10 sec.",
@@ -16780,6 +16849,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_3",
 		"name": "Dice of Magical Letters",
 		"skills": [
+			80000030,
 			80000031,
 			80000032,
 			80000033,
@@ -16787,6 +16857,7 @@ var KR_ARTIFACTS = [
 			80000035
 		],
 		"text": [
+			"Normal attacks have a 3% chance to deal 400% M.DMG.",
 			"Normal attacks have a 3% chance to deal 480% M.DMG.",
 			"Normal attacks have a 3% chance to deal 575% M.DMG.",
 			"Normal attacks have a 3% chance to deal 690% M.DMG.",
@@ -16800,6 +16871,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_4",
 		"name": "Golden Cat Statue",
 		"skills": [
+			80000040,
 			80000041,
 			80000042,
 			80000043,
@@ -16807,6 +16879,7 @@ var KR_ARTIFACTS = [
 			80000045
 		],
 		"text": [
+			"At the beginning of each battle, increases ATK Spd by 400 for 15 sec.",
 			"At the beginning of each battle, increases ATK Spd by 480 for 15 sec.",
 			"At the beginning of each battle, increases ATK Spd by 570 for 15 sec.",
 			"At the beginning of each battle, increases ATK Spd by 690 for 15 sec.",
@@ -16820,6 +16893,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_5",
 		"name": "Pocket Watch of Ancient Civilization",
 		"skills": [
+			80000050,
 			80000051,
 			80000052,
 			80000053,
@@ -16827,6 +16901,7 @@ var KR_ARTIFACTS = [
 			80000055
 		],
 		"text": [
+			"Reduces Cooldown of self's all Skills by 1 sec every 10 sec and increases ATK Spd by 80 for 5 sec.",
 			"Reduces Cooldown of self's all Skills by 1.2 sec every 10 sec and increases ATK Spd by 96 for 5 sec.",
 			"Reduces Cooldown of self's all Skills by 1.4 sec every 10 sec and increases ATK Spd by 115 for 5 sec.",
 			"Reduces Cooldown of self's all Skills by 1.7 sec every 10 sec and increases ATK Spd by 138 for 5 sec.",
@@ -16840,6 +16915,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_6",
 		"name": "Primer for the Heroes",
 		"skills": [
+			80000060,
 			80000061,
 			80000062,
 			80000063,
@@ -16847,6 +16923,7 @@ var KR_ARTIFACTS = [
 			80000065
 		],
 		"text": [
+			"When HP is 20% or below, increases ATK by 30%, and increases ATK Spd and All DMG Reduction by 300.",
 			"When HP is 20% or below, increases ATK by 36%, and increases ATK Spd and All DMG Reduction by 360.",
 			"When HP is 20% or below, increases ATK by 43%, and increases ATK Spd and All DMG Reduction by 430.",
 			"When HP is 20% or below, increases ATK by 51%, and increases ATK Spd and All DMG Reduction by 510.",
@@ -16860,6 +16937,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_7",
 		"name": "The Ancient Scope",
 		"skills": [
+			80000070,
 			80000071,
 			80000072,
 			80000073,
@@ -16867,6 +16945,7 @@ var KR_ARTIFACTS = [
 			80000075
 		],
 		"text": [
+			"When MP is at 100%, Crit Chance and ACC rise by 400 for 10 sec. Has a cooldown of 20 sec.",
 			"When MP is at 100%, Crit Chance and ACC rise by 480 for 10 sec. Has a cooldown of 20 sec.",
 			"When MP is at 100%, Crit Chance and ACC rise by 570 for 10 sec. Has a cooldown of 20 sec.",
 			"When MP is at 100%, Crit Chance and ACC rise by 690 for 10 sec. Has a cooldown of 20 sec.",
@@ -16880,6 +16959,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_8",
 		"name": "Roaring Tiger Statue",
 		"skills": [
+			80000080,
 			80000081,
 			80000082,
 			80000083,
@@ -16887,6 +16967,7 @@ var KR_ARTIFACTS = [
 			80000085
 		],
 		"text": [
+			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 14% and Attack Speed reduced by 140 for 10 seconds. This effect has a 30-second cooldown.",
 			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 16% and Attack Speed reduced by 160 for 10 seconds. This effect has a 30-second cooldown.",
 			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 20% and Attack Speed reduced by 200 for 10 seconds. This effect has a 30-second cooldown.",
 			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 24% and Attack Speed reduced by 240 for 10 seconds. This effect has a 30-second cooldown.",
@@ -16900,6 +16981,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_9",
 		"name": "Golden Apple of a Goddess",
 		"skills": [
+			80000090,
 			80000091,
 			80000092,
 			80000093,
@@ -16907,6 +16989,7 @@ var KR_ARTIFACTS = [
 			80000095
 		],
 		"text": [
+			"When the hero's HP falls below 25%, recover 30% of max HP and dispel all negative effects. Activates 1 time only.",
 			"When the hero's HP falls below 25%, recover 36% of max HP and dispel all negative effects. Activates 1 time only.",
 			"When the hero's HP falls below 25%, recover 43% of max HP and dispel all negative effects. Activates 1 time only.",
 			"When the hero's HP falls below 25%, recover 51% of max HP and dispel all negative effects. Activates 1 time only.",
@@ -16920,6 +17003,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_18",
 		"name": "Undead Mask",
 		"skills": [
+			80000180,
 			80000181,
 			80000182,
 			80000183,
@@ -16927,6 +17011,7 @@ var KR_ARTIFACTS = [
 			80000185
 		],
 		"text": [
+			"Increases DMG to Undead by 40 % and Resistance against Undead by 20%.",
 			"Increases DMG to Undead by 48 % and Resistance against Undead by 24%.",
 			"Increases DMG to Undead by 57 % and Resistance against Undead by 28%.",
 			"Increases DMG to Undead by 69 % and Resistance against Undead by 34%.",
@@ -16940,6 +17025,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_28",
 		"name": "Insignia of Iron Conviction",
 		"skills": [
+			80000280,
 			80000281,
 			80000282,
 			80000283,
@@ -16947,6 +17033,7 @@ var KR_ARTIFACTS = [
 			80000285
 		],
 		"text": [
+			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 480% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
 			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 580% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
 			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 690% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
 			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 830% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
@@ -16960,6 +17047,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_38",
 		"name": "Assassin's Veil",
 		"skills": [
+			80000380,
 			80000381,
 			80000382,
 			80000383,
@@ -16967,6 +17055,7 @@ var KR_ARTIFACTS = [
 			80000385
 		],
 		"text": [
+			"Increases P.Dodge by 100. Each successful dodge increases ATK by 1%, stacking up to max 20 times.",
 			"Increases P.Dodge by 120. Each successful dodge increases ATK by 1.2%, stacking up to max 20 times.",
 			"Increases P.Dodge by 140. Each successful dodge increases ATK by 1.4%, stacking up to max 20 times.",
 			"Increases P.Dodge by 170. Each successful dodge increases ATK by 1.7%, stacking up to max 20 times.",
@@ -16980,6 +17069,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_48",
 		"name": "Magical Flute",
 		"skills": [
+			80000480,
 			80000481,
 			80000482,
 			80000483,
@@ -16987,6 +17077,7 @@ var KR_ARTIFACTS = [
 			80000485
 		],
 		"text": [
+			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 100 for 4 sec.",
 			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 120 for 4 sec.",
 			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 140 for 4 sec.",
 			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 170 for 4 sec.",
@@ -17000,6 +17091,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_58",
 		"name": "Kiddy Chick",
 		"skills": [
+			80000580,
 			80000581,
 			80000582,
 			80000583,
@@ -17007,6 +17099,7 @@ var KR_ARTIFACTS = [
 			80000585
 		],
 		"text": [
+			"ATK Spd is increased by 80",
 			"ATK Spd is increased by 96",
 			"ATK Spd is increased by 115",
 			"ATK Spd is increased by 138",
@@ -17020,6 +17113,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_68",
 		"name": "Fragment of an Ancient Kingdom",
 		"skills": [
+			80000680,
 			80000681,
 			80000682,
 			80000683,
@@ -17027,6 +17121,7 @@ var KR_ARTIFACTS = [
 			80000685
 		],
 		"text": [
+			"Increases CC Resist by 200 and CC ACC by 200.",
 			"Increases CC Resist by 240 and CC ACC by 240.",
 			"Increases CC Resist by 290 and CC ACC by 290.",
 			"Increases CC Resist by 350 and CC ACC by 350.",
@@ -17040,6 +17135,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_515",
 		"name": "Forge Hammer MK-II",
 		"skills": [
+			80005150,
 			80005151,
 			80005152,
 			80005153,
@@ -17047,6 +17143,7 @@ var KR_ARTIFACTS = [
 			80005155
 		],
 		"text": [
+			"Normal attacks have a 5% chance to increase ATK Spd by 400 for 5 sec.",
 			"Normal attacks have a 5% chance to increase ATK Spd by 480 for 5 sec.",
 			"Normal attacks have a 5% chance to increase ATK Spd by 580 for 5 sec.",
 			"Normal attacks have a 5% chance to increase ATK Spd by 700 for 5 sec.",
@@ -17060,6 +17157,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_514",
 		"name": "Pumpkin-Stuck Evil Spirit",
 		"skills": [
+			80005140,
 			80005141,
 			80005142,
 			80005143,
@@ -17067,6 +17165,7 @@ var KR_ARTIFACTS = [
 			80005145
 		],
 		"text": [
+			"Increases own Max HP by 20%. When there is 1 enemy, increases ATK of all allies by 20%. This effect will not stack with other similar effects cast by allies.",
 			"Increases own Max HP by 24%. When there is 1 enemy, increases ATK of all allies by 24%. This effect will not stack with other similar effects cast by allies.",
 			"Increases own Max HP by 29%. When there is 1 enemy, increases ATK of all allies by 29%. This effect will not stack with other similar effects cast by allies.",
 			"Increases own Max HP by 35%. When there is 1 enemy, increases ATK of all allies by 35%. This effect will not stack with other similar effects cast by allies.",
@@ -17080,6 +17179,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_517",
 		"name": "Otherworldly Sword",
 		"skills": [
+			80005170,
 			80005171,
 			80005172,
 			80005173,
@@ -17087,6 +17187,7 @@ var KR_ARTIFACTS = [
 			80005175
 		],
 		"text": [
+			"Consumes 4% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 50 times and are automatically deactivated when HP falls below 25%.",
 			"Consumes 4.8% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 60 times and are automatically deactivated when HP falls below 25%.",
 			"Consumes 5.7% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 70 times and are automatically deactivated when HP falls below 25%.",
 			"Consumes 6.9% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 80 times and are automatically deactivated when HP falls below 25%.",
@@ -17100,6 +17201,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_516",
 		"name": "New-Type Thruster",
 		"skills": [
+			80005160,
 			80005161,
 			80005162,
 			80005163,
@@ -17107,6 +17209,7 @@ var KR_ARTIFACTS = [
 			80005165
 		],
 		"text": [
+			"When inflicted by CC, reduces all skill cooldowns by 5 sec and recovers 500 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
 			"When inflicted by CC, reduces all skill cooldowns by 6 sec and recovers 600 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
 			"When inflicted by CC, reduces all skill cooldowns by 7 sec and recovers 700 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
 			"When inflicted by CC, reduces all skill cooldowns by 8 sec and recovers 800 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
@@ -17120,6 +17223,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_511",
 		"name": "Master Chef’s Recipe Book",
 		"skills": [
+			80005110,
 			80005111,
 			80005112,
 			80005113,
@@ -17127,6 +17231,7 @@ var KR_ARTIFACTS = [
 			80005115
 		],
 		"text": [
+			"Increases self's All DEF by 10%, and Heal Rate by 10%.",
 			"Increases self's All DEF by 12%, and Heal Rate by 12%.",
 			"Increases self's All DEF by 14%, and Heal Rate by 14%.",
 			"Increases self's All DEF by 17%, and Heal Rate by 17%.",
@@ -17140,6 +17245,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_510",
 		"name": "Pendulum of Fantasy",
 		"skills": [
+			80005100,
 			80005101,
 			80005102,
 			80005103,
@@ -17147,6 +17253,7 @@ var KR_ARTIFACTS = [
 			80005105
 		],
 		"text": [
+			"At the beginning of each battle, permanently increases ATK by 10%. This effect stacks up to max 5 times, and is irremovable.",
 			"At the beginning of each battle, permanently increases ATK by 12%. This effect stacks up to max 5 times, and is irremovable.",
 			"At the beginning of each battle, permanently increases ATK by 14%. This effect stacks up to max 5 times, and is irremovable.",
 			"At the beginning of each battle, permanently increases ATK by 17%. This effect stacks up to max 5 times, and is irremovable.",
@@ -17160,6 +17267,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_513",
 		"name": "Juno's Special Dessert",
 		"skills": [
+			80005130,
 			80005131,
 			80005132,
 			80005133,
@@ -17167,6 +17275,7 @@ var KR_ARTIFACTS = [
 			80005135
 		],
 		"text": [
+			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 10% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
 			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 12% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
 			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 14% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
 			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 17% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
@@ -17180,6 +17289,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_512",
 		"name": "Juno's Special Vitality Stew",
 		"skills": [
+			80005120,
 			80005121,
 			80005122,
 			80005123,
@@ -17187,6 +17297,7 @@ var KR_ARTIFACTS = [
 			80005125
 		],
 		"text": [
+			"On Normal Attack, inflicts Physical DoT equal to 200% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
 			"On Normal Attack, inflicts Physical DoT equal to 240% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
 			"On Normal Attack, inflicts Physical DoT equal to 290% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
 			"On Normal Attack, inflicts Physical DoT equal to 350% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
@@ -17200,6 +17311,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_519",
 		"name": "Otherworldly Radiance",
 		"skills": [
+			80005190,
 			80005191,
 			80005192,
 			80005193,
@@ -17207,6 +17319,7 @@ var KR_ARTIFACTS = [
 			80005195
 		],
 		"text": [
+			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 20% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 800. DMG Reduction effect is irremovable.",
 			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 24% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1000. DMG Reduction effect is irremovable.",
 			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 29% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1200. DMG Reduction effect is irremovable.",
 			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 35% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1400. DMG Reduction effect is irremovable.",
@@ -17220,6 +17333,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_518",
 		"name": "Otherworldly Helm",
 		"skills": [
+			80005180,
 			80005181,
 			80005182,
 			80005183,
@@ -17227,6 +17341,7 @@ var KR_ARTIFACTS = [
 			80005185
 		],
 		"text": [
+			"Increases self's Max HP by 20%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 50% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
 			"Increases self's Max HP by 24%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 55% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
 			"Increases self's Max HP by 29%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 60% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
 			"Increases self's Max HP by 35%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 65% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
@@ -17240,6 +17355,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_15",
 		"name": "Mask of Orc",
 		"skills": [
+			80000150,
 			80000151,
 			80000152,
 			80000153,
@@ -17247,6 +17363,7 @@ var KR_ARTIFACTS = [
 			80000155
 		],
 		"text": [
+			"ATK upon Orcs increase by 40 %, and DMG resistance against Orcs increases by 20 %",
 			"ATK upon Orcs increase by 48 %, and DMG resistance against Orcs increases by 24 %",
 			"ATK upon Orcs increase by 57 %, and DMG resistance against Orcs increases by 28 %",
 			"ATK upon Orcs increase by 69 %, and DMG resistance against Orcs increases by 34 %",
@@ -17260,6 +17377,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_25",
 		"name": "Blessing of Earth",
 		"skills": [
+			80000250,
 			80000251,
 			80000252,
 			80000253,
@@ -17267,6 +17385,7 @@ var KR_ARTIFACTS = [
 			80000255
 		],
 		"text": [
+			"When there is 1 enemy, ATK is boosted by 40%.",
 			"When there is 1 enemy, ATK is boosted by 48%.",
 			"When there is 1 enemy, ATK is boosted by 58%.",
 			"When there is 1 enemy, ATK is boosted by 69%.",
@@ -17280,6 +17399,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_35",
 		"name": "Ring of Spirit Morph",
 		"skills": [
+			80000350,
 			80000351,
 			80000352,
 			80000353,
@@ -17287,6 +17407,7 @@ var KR_ARTIFACTS = [
 			80000355
 		],
 		"text": [
+			"At the beginning of every battle, HP does not fall below 10% for 4 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
 			"At the beginning of every battle, HP does not fall below 10% for 5 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
 			"At the beginning of every battle, HP does not fall below 10% for 6 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
 			"At the beginning of every battle, HP does not fall below 10% for 7 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
@@ -17300,6 +17421,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_45",
 		"name": "Infernal Bond",
 		"skills": [
+			80000450,
 			80000451,
 			80000452,
 			80000453,
@@ -17307,6 +17429,7 @@ var KR_ARTIFACTS = [
 			80000455
 		],
 		"text": [
+			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 2.5 sec.",
 			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 3 sec.",
 			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 3.5 sec.",
 			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 4 sec.",
@@ -17320,6 +17443,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_55",
 		"name": "Christmas Star Ornament",
 		"skills": [
+			80000550,
 			80000551,
 			80000552,
 			80000553,
@@ -17327,6 +17451,7 @@ var KR_ARTIFACTS = [
 			80000555
 		],
 		"text": [
+			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 260%. Also, Crit Resistance is increased by 100. This effect cannot be dispelled.",
 			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 310%. Also, Crit Resistance is increased by 120. This effect cannot be dispelled.",
 			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 370%. Also, Crit Resistance is increased by 140. This effect cannot be dispelled.",
 			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 450%. Also, Crit Resistance is increased by 170. This effect cannot be dispelled.",
@@ -17340,6 +17465,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_65",
 		"name": "Crystal Music Box",
 		"skills": [
+			80000650,
 			80000651,
 			80000652,
 			80000653,
@@ -17347,6 +17473,7 @@ var KR_ARTIFACTS = [
 			80000655
 		],
 		"text": [
+			"Increases DMG to Hero by 20 % and takes 10% increased DMG.",
 			"Increases DMG to Hero by 24 % and takes 12% increased DMG.",
 			"Increases DMG to Hero by 29 % and takes 14% increased DMG.",
 			"Increases DMG to Hero by 35 % and takes 17% increased DMG.",
@@ -17360,6 +17487,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_524",
 		"name": "Abyssal Breath",
 		"skills": [
+			80005240,
 			80005241,
 			80005242,
 			80005243,
@@ -17367,6 +17495,7 @@ var KR_ARTIFACTS = [
 			80005245
 		],
 		"text": [
+			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 5% and heals HP of all allies equal to 2.5% of Max HP every 10 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
 			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 6% and heals HP of all allies equal to 2.5% of Max HP every 9 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
 			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 7.2% and heals HP of all allies equal to 2.5% of Max HP every 8 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
 			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 8.6% and heals HP of all allies equal to 2.5% of Max HP every 7 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
@@ -17380,6 +17509,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_521",
 		"name": "Treasure Hunt Capsule",
 		"skills": [
+			80005210,
 			80005211,
 			80005212,
 			80005213,
@@ -17387,6 +17517,7 @@ var KR_ARTIFACTS = [
 			80005215
 		],
 		"text": [
+			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1 sec and increases DMG dealt to non-Hero enemies by 1%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
 			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1.2 sec and increases DMG dealt to non-Hero enemies by 1.2%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
 			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1.4 sec and increases DMG dealt to non-Hero enemies by 1.4%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
 			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1.7 sec and increases DMG dealt to non-Hero enemies by 1.7%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
@@ -17400,6 +17531,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_520",
 		"name": "Heart of the Abyss",
 		"skills": [
+			80005200,
 			80005201,
 			80005202,
 			80005203,
@@ -17407,6 +17539,7 @@ var KR_ARTIFACTS = [
 			80005205
 		],
 		"text": [
+			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 8% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
 			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 10% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
 			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 12% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
 			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 14% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
@@ -17420,6 +17553,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_523",
 		"name": "Belt Ornament of the Deep",
 		"skills": [
+			80005230,
 			80005231,
 			80005232,
 			80005233,
@@ -17427,6 +17561,7 @@ var KR_ARTIFACTS = [
 			80005235
 		],
 		"text": [
+			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 20% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
 			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 24% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
 			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 29% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
 			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 35% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
@@ -17440,6 +17575,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_522",
 		"name": "Earth Fortress",
 		"skills": [
+			80005220,
 			80005221,
 			80005222,
 			80005223,
@@ -17447,6 +17583,7 @@ var KR_ARTIFACTS = [
 			80005225
 		],
 		"text": [
+			"When there is 1 enemy, reduces the target's Heal Rate by 10% and increases own DMG dealt to Bosses by 10%. This effect does not stack with effects from other allies.",
 			"When there is 1 enemy, reduces the target's Heal Rate by 12% and increases own DMG dealt to Bosses by 12%. This effect does not stack with effects from other allies.",
 			"When there is 1 enemy, reduces the target's Heal Rate by 14% and increases own DMG dealt to Bosses by 14%. This effect does not stack with effects from other allies.",
 			"When there is 1 enemy, reduces the target's Heal Rate by 17% and increases own DMG dealt to Bosses by 17%. This effect does not stack with effects from other allies.",
@@ -17460,6 +17597,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_1003",
 		"name": "Solenis' Engraving",
 		"skills": [
+			80010030,
 			80010031,
 			80010032,
 			80010033,
@@ -17467,6 +17605,7 @@ var KR_ARTIFACTS = [
 			80010035
 		],
 		"text": [
+			"Increases All DEF by 2% and Max HP by 1% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
 			"Increases All DEF by 2.4% and Max HP by 1.2% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
 			"Increases All DEF by 2.8% and Max HP by 1.4% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
 			"Increases All DEF by 3.4% and Max HP by 1.7% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
@@ -17480,6 +17619,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_16",
 		"name": "Mask of Dark Elf",
 		"skills": [
+			80000160,
 			80000161,
 			80000162,
 			80000163,
@@ -17487,6 +17627,7 @@ var KR_ARTIFACTS = [
 			80000165
 		],
 		"text": [
+			"ATK upon Dark Elves increase by 40 %, and DMG resistance against Dark Elves increases by 20 %",
 			"ATK upon Dark Elves increase by 48 %, and DMG resistance against Dark Elves increases by 24 %",
 			"ATK upon Dark Elves increase by 57 %, and DMG resistance against Dark Elves increases by 28 %",
 			"ATK upon Dark Elves increase by 69 %, and DMG resistance against Dark Elves increases by 34 %",
@@ -17500,6 +17641,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_26",
 		"name": "Earth Core",
 		"skills": [
+			80000260,
 			80000261,
 			80000262,
 			80000263,
@@ -17507,6 +17649,7 @@ var KR_ARTIFACTS = [
 			80000265
 		],
 		"text": [
+			"ATK, HP and all DEF are increased by 10%.",
 			"ATK, HP and all DEF are increased by 12%.",
 			"ATK, HP and all DEF are increased by 14%.",
 			"ATK, HP and all DEF are increased by 17%.",
@@ -17520,6 +17663,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_36",
 		"name": "Feather of Sacrifice",
 		"skills": [
+			80000360,
 			80000361,
 			80000362,
 			80000363,
@@ -17527,6 +17671,7 @@ var KR_ARTIFACTS = [
 			80000365
 		],
 		"text": [
+			"For 120 sec after the battle starts, takes 10% extra DMG and increases all DMG taken by the enemy boss by 10%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
 			"For 120 sec after the battle starts, takes 12% extra DMG and increases all DMG taken by the enemy boss by 12%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
 			"For 120 sec after the battle starts, takes 14% extra DMG and increases all DMG taken by the enemy boss by 14%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
 			"For 120 sec after the battle starts, takes 17% extra DMG and increases all DMG taken by the enemy boss by 17%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
@@ -17540,6 +17685,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_46",
 		"name": "Infernal Gate",
 		"skills": [
+			80000460,
 			80000461,
 			80000462,
 			80000463,
@@ -17547,6 +17693,7 @@ var KR_ARTIFACTS = [
 			80000465
 		],
 		"text": [
+			"Increases All DEF by 10%, DMG dealt to enemies by 6%, and DMG dealt to Non-Hero enemies by 6%.",
 			"Increases All DEF by 12%, DMG dealt to enemies by 7.2%, and DMG dealt to Non-Hero enemies by 7.2%.",
 			"Increases All DEF by 14%, DMG dealt to enemies by 8.6%, and DMG dealt to Non-Hero enemies by 8.6%.",
 			"Increases All DEF by 17%, DMG dealt to enemies by 10.5%, and DMG dealt to Non-Hero enemies by 10.5%.",
@@ -17560,6 +17707,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_56",
 		"name": "New Year's Fireworks",
 		"skills": [
+			80000560,
 			80000561,
 			80000562,
 			80000563,
@@ -17567,6 +17715,7 @@ var KR_ARTIFACTS = [
 			80000565
 		],
 		"text": [
+			"ATK is increased by 5% for 60 sec at the start of each battle.",
 			"ATK is increased by 6% for 60 sec at the start of each battle.",
 			"ATK is increased by 7.2% for 60 sec at the start of each battle.",
 			"ATK is increased by 8.6% for 60 sec at the start of each battle.",
@@ -17580,6 +17729,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_66",
 		"name": "Amethyst Pendulum",
 		"skills": [
+			80000660,
 			80000661,
 			80000662,
 			80000663,
@@ -17587,6 +17737,7 @@ var KR_ARTIFACTS = [
 			80000665
 		],
 		"text": [
+			"Increases All Crit Resistance by 200 for 7 sec every 10 sec.",
 			"Increases All Crit Resistance by 240 for 7 sec every 10 sec.",
 			"Increases All Crit Resistance by 290 for 7 sec every 10 sec.",
 			"Increases All Crit Resistance by 350 for 7 sec every 10 sec.",
@@ -17600,6 +17751,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_13",
 		"name": "Mask of Goblin",
 		"skills": [
+			80000130,
 			80000131,
 			80000132,
 			80000133,
@@ -17607,6 +17759,7 @@ var KR_ARTIFACTS = [
 			80000135
 		],
 		"text": [
+			"ATK upon Goblins increase by 40 %, and DMG resistance against Goblins increases by 20 %",
 			"ATK upon Goblins increase by 48 %, and DMG resistance against Goblins increases by 24 %",
 			"ATK upon Goblins increase by 57 %, and DMG resistance against Goblins increases by 28 %",
 			"ATK upon Goblins increase by 69 %, and DMG resistance against Goblins increases by 34 %",
@@ -17620,6 +17773,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_23",
 		"name": "Earth Storm",
 		"skills": [
+			80000230,
 			80000231,
 			80000232,
 			80000233,
@@ -17627,6 +17781,7 @@ var KR_ARTIFACTS = [
 			80000235
 		],
 		"text": [
+			"When inflicted by CC, recovers 600 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 12% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
 			"When inflicted by CC, recovers 700 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 14% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
 			"When inflicted by CC, recovers 800 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 17% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
 			"When inflicted by CC, recovers 1000 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 21% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
@@ -17640,6 +17795,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_33",
 		"name": "Tome of Black Magic",
 		"skills": [
+			80000330,
 			80000331,
 			80000332,
 			80000333,
@@ -17647,6 +17803,7 @@ var KR_ARTIFACTS = [
 			80000335
 		],
 		"text": [
+			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 2% of the target’s current HP for 1 sec and reduces Mana by 200. This effect only applies in the Arena.",
 			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 2.4% of the target’s current HP for 1 sec and reduces Mana by 240. This effect only applies in the Arena.",
 			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 2.9% of the target’s current HP for 1 sec and reduces Mana by 290. This effect only applies in the Arena.",
 			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 3.5% of the target’s current HP for 1 sec and reduces Mana by 350. This effect only applies in the Arena.",
@@ -17660,6 +17817,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_43",
 		"name": "Infernal Greatsword",
 		"skills": [
+			80000430,
 			80000431,
 			80000432,
 			80000433,
@@ -17667,6 +17825,7 @@ var KR_ARTIFACTS = [
 			80000435
 		],
 		"text": [
+			"Own heal rate decreases by 30%, while Penetration increases by 300 and Crit DMG increases by 30%",
 			"Own heal rate decreases by 30%, while Penetration increases by 360 and Crit DMG increases by 36%",
 			"Own heal rate decreases by 30%, while Penetration increases by 430 and Crit DMG increases by 43%",
 			"Own heal rate decreases by 30%, while Penetration increases by 520 and Crit DMG increases by 52%",
@@ -17680,6 +17839,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_53",
 		"name": "Well-Done Turkey Roast",
 		"skills": [
+			80000530,
 			80000531,
 			80000532,
 			80000533,
@@ -17687,6 +17847,7 @@ var KR_ARTIFACTS = [
 			80000535
 		],
 		"text": [
+			"Every 15 sec, recovers HP equal to 1% of Max HP every sec for 3 sec.",
 			"Every 15 sec, recovers HP equal to 1.2% of Max HP every sec for 3 sec.",
 			"Every 15 sec, recovers HP equal to 1.4% of Max HP every sec for 3 sec.",
 			"Every 15 sec, recovers HP equal to 1.7% of Max HP every sec for 3 sec.",
@@ -17700,6 +17861,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_63",
 		"name": "Fantastic Hybrid Animals",
 		"skills": [
+			80000630,
 			80000631,
 			80000632,
 			80000633,
@@ -17707,6 +17869,7 @@ var KR_ARTIFACTS = [
 			80000635
 		],
 		"text": [
+			"When the battle starts, increases DMG to Non-Hero enemies by 12% and takes 12% reduced DMG for 200 sec.",
 			"When the battle starts, increases DMG to Non-Hero enemies by 14% and takes 14% reduced DMG for 200 sec.",
 			"When the battle starts, increases DMG to Non-Hero enemies by 17% and takes 17% reduced DMG for 200 sec.",
 			"When the battle starts, increases DMG to Non-Hero enemies by 21% and takes 21% reduced DMG for 200 sec.",
@@ -17720,6 +17883,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_19",
 		"name": "Soul Spring Water",
 		"skills": [
+			80000190,
 			80000191,
 			80000192,
 			80000193,
@@ -17727,6 +17891,7 @@ var KR_ARTIFACTS = [
 			80000195
 		],
 		"text": [
+			"At the beginning of each battle, heals 24% HP and recovers 12% Mana.",
 			"At the beginning of each battle, heals 28% HP and recovers 14% Mana.",
 			"At the beginning of each battle, heals 34% HP and recovers 17% Mana.",
 			"At the beginning of each battle, heals 42% HP and recovers 21% Mana.",
@@ -17740,6 +17905,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_29",
 		"name": "Sorcerous Black Dagger",
 		"skills": [
+			80000290,
 			80000291,
 			80000292,
 			80000293,
@@ -17747,6 +17913,7 @@ var KR_ARTIFACTS = [
 			80000295
 		],
 		"text": [
+			"Upon auto-attacking, there is a 10% chance to reduce the enemy's mana by 600. Has a cooldown of 6 sec.",
 			"Upon auto-attacking, there is a 12% chance to reduce the enemy's mana by 700. Has a cooldown of 6 sec.",
 			"Upon auto-attacking, there is a 14% chance to reduce the enemy's mana by 800. Has a cooldown of 6 sec.",
 			"Upon auto-attacking, there is a 16% chance to reduce the enemy's mana by 1000. Has a cooldown of 6 sec.",
@@ -17760,6 +17927,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_39",
 		"name": "Nail Ornament of the Deep",
 		"skills": [
+			80000390,
 			80000391,
 			80000392,
 			80000393,
@@ -17767,6 +17935,7 @@ var KR_ARTIFACTS = [
 			80000395
 		],
 		"text": [
+			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 20% for 200 sec. This effect is irremovable.",
 			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 24% for 200 sec. This effect is irremovable.",
 			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 29% for 200 sec. This effect is irremovable.",
 			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 35% for 200 sec. This effect is irremovable.",
@@ -17780,6 +17949,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_49",
 		"name": "Lion of Protection",
 		"skills": [
+			80000490,
 			80000491,
 			80000492,
 			80000493,
@@ -17787,6 +17957,7 @@ var KR_ARTIFACTS = [
 			80000495
 		],
 		"text": [
+			"Increases own P.DEF by 20%, and P.Block by 100.",
 			"Increases own P.DEF by 24%, and P.Block by 120.",
 			"Increases own P.DEF by 29%, and P.Block by 140.",
 			"Increases own P.DEF by 35%, and P.Block by 170.",
@@ -17800,6 +17971,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_59",
 		"name": "Cooling Delicacy in the Summer",
 		"skills": [
+			80000590,
 			80000591,
 			80000592,
 			80000593,
@@ -17807,6 +17979,7 @@ var KR_ARTIFACTS = [
 			80000595
 		],
 		"text": [
+			"When the battle begins, reduces DMG from non-Hero enemies by 20% for 30 second(s), and recovers 100 MP every 2 second(s).",
 			"When the battle begins, reduces DMG from non-Hero enemies by 24% for 30 second(s), and recovers 120 MP every 2 second(s).",
 			"When the battle begins, reduces DMG from non-Hero enemies by 28% for 30 second(s), and recovers 140 MP every 2 second(s).",
 			"When the battle begins, reduces DMG from non-Hero enemies by 34% for 30 second(s), and recovers 170 MP every 2 second(s).",
@@ -17820,6 +17993,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_1000",
 		"name": "Dragon's Doomstone",
 		"skills": [
+			8001e4,
 			80010001,
 			80010002,
 			80010003,
@@ -17827,6 +18001,7 @@ var KR_ARTIFACTS = [
 			80010005
 		],
 		"text": [
+			"Increases DMG dealt to Non-Hero enemies by 10% and takes 5% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
 			"Increases DMG dealt to Non-Hero enemies by 12% and takes 6% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
 			"Increases DMG dealt to Non-Hero enemies by 14% and takes 7% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
 			"Increases DMG dealt to Non-Hero enemies by 17% and takes 8.5% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
@@ -17840,6 +18015,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_17",
 		"name": "Mask of Evil King",
 		"skills": [
+			80000170,
 			80000171,
 			80000172,
 			80000173,
@@ -17847,6 +18023,7 @@ var KR_ARTIFACTS = [
 			80000175
 		],
 		"text": [
+			"Inflict 10% more DMG upon bosses.",
 			"Inflict 12% more DMG upon bosses.",
 			"Inflict 14% more DMG upon bosses.",
 			"Inflict 17% more DMG upon bosses.",
@@ -17860,6 +18037,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_27",
 		"name": "Frost Giant Mask",
 		"skills": [
+			80000270,
 			80000271,
 			80000272,
 			80000273,
@@ -17867,6 +18045,7 @@ var KR_ARTIFACTS = [
 			80000275
 		],
 		"text": [
+			"ATK upon Frost Giants increases by 40 %, and DMG resistance against Frost Giants increases by 20 %.",
 			"ATK upon Frost Giants increases by 48 %, and DMG resistance against Frost Giants increases by 24 %.",
 			"ATK upon Frost Giants increases by 57 %, and DMG resistance against Frost Giants increases by 28 %.",
 			"ATK upon Frost Giants increases by 69 %, and DMG resistance against Frost Giants increases by 34 %.",
@@ -17880,6 +18059,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_37",
 		"name": "Vase of Sacrifice",
 		"skills": [
+			80000370,
 			80000371,
 			80000372,
 			80000373,
@@ -17887,6 +18067,7 @@ var KR_ARTIFACTS = [
 			80000375
 		],
 		"text": [
+			"When you take damage 50 times, heals a random ally’s HP by 200% of your Attack and increases that ally’s Attack by 30% for 10 seconds.",
 			"When you take damage 50 times, heals a random ally’s HP by 240% of your Attack and increases that ally’s Attack by 36% for 10 seconds.",
 			"When you take damage 50 times, heals a random ally’s HP by 290% of your Attack and increases that ally’s Attack by 43% for 10 seconds.",
 			"When you take damage 50 times, heals a random ally’s HP by 350% of your Attack and increases that ally’s Attack by 51% for 10 seconds.",
@@ -17900,6 +18081,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_47",
 		"name": "Book of the Mad",
 		"skills": [
+			80000470,
 			80000471,
 			80000472,
 			80000473,
@@ -17907,6 +18089,7 @@ var KR_ARTIFACTS = [
 			80000475
 		],
 		"text": [
+			"Reduces own Mana by 100 every sec and increases DMG dealt to enemies by 14%.",
 			"Reduces own Mana by 120 every sec and increases DMG dealt to enemies by 17%.",
 			"Reduces own Mana by 140 every sec and increases DMG dealt to enemies by 21%.",
 			"Reduces own Mana by 170 every sec and increases DMG dealt to enemies by 25%.",
@@ -17920,6 +18103,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_57",
 		"name": "Fancy Traditional Pendant",
 		"skills": [
+			80000570,
 			80000571,
 			80000572,
 			80000573,
@@ -17927,6 +18111,7 @@ var KR_ARTIFACTS = [
 			80000575
 		],
 		"text": [
+			"Crit Chance is increased by 100 and Crit DMG is increased by 20%.",
 			"Crit Chance is increased by 120 and Crit DMG is increased by 24%.",
 			"Crit Chance is increased by 140 and Crit DMG is increased by 29%.",
 			"Crit Chance is increased by 170 and Crit DMG is increased by 35%.",
@@ -17940,6 +18125,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_67",
 		"name": "Goddess of Glory",
 		"skills": [
+			80000670,
 			80000671,
 			80000672,
 			80000673,
@@ -17947,6 +18133,7 @@ var KR_ARTIFACTS = [
 			80000675
 		],
 		"text": [
+			"Increases ATK Spd of 4 allies by 100 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
 			"Increases ATK Spd of 4 allies by 120 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
 			"Increases ATK Spd of 4 allies by 140 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
 			"Increases ATK Spd of 4 allies by 170 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
@@ -17960,6 +18147,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_10",
 		"name": "Golden Mask of Ancient King",
 		"skills": [
+			80000100,
 			80000101,
 			80000102,
 			80000103,
@@ -17967,6 +18155,7 @@ var KR_ARTIFACTS = [
 			80000105
 		],
 		"text": [
+			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 3 sec. Has a cooldown of 5 sec.",
 			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 3.5 sec. Has a cooldown of 5 sec.",
 			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 4 sec. Has a cooldown of 5 sec.",
 			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 5 sec. Has a cooldown of 5 sec.",
@@ -17980,6 +18169,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_20",
 		"name": "Talismans of Resistance",
 		"skills": [
+			80000200,
 			80000201,
 			80000202,
 			80000203,
@@ -17987,6 +18177,7 @@ var KR_ARTIFACTS = [
 			80000205
 		],
 		"text": [
+			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 1 sec. Has a Cooldown of 20 sec.",
 			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 1.5 sec. Has a Cooldown of 19 sec.",
 			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 2 sec. Has a Cooldown of 18 sec.",
 			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 2.5 sec. Has a Cooldown of 17 sec.",
@@ -18000,6 +18191,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_30",
 		"name": "Tarot Card of Loss",
 		"skills": [
+			80000300,
 			80000301,
 			80000302,
 			80000303,
@@ -18007,6 +18199,7 @@ var KR_ARTIFACTS = [
 			80000305
 		],
 		"text": [
+			"Reduces Crit Chance by 150 and increases ATK by 30%.",
 			"Reduces Crit Chance by 180 and increases ATK by 36%.",
 			"Reduces Crit Chance by 210 and increases ATK by 43%.",
 			"Reduces Crit Chance by 260 and increases ATK by 52%.",
@@ -18020,6 +18213,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_40",
 		"name": "Trident of the Deep",
 		"skills": [
+			80000400,
 			80000401,
 			80000402,
 			80000403,
@@ -18027,6 +18221,7 @@ var KR_ARTIFACTS = [
 			80000405
 		],
 		"text": [
+			"Dealing DMG to enemies 100 times increases ATK by 30% and Crit Chance by 200 for 15 sec. This effect cannot be dispelled.",
 			"Dealing DMG to enemies 100 times increases ATK by 36% and Crit Chance by 240 for 15 sec. This effect cannot be dispelled.",
 			"Dealing DMG to enemies 100 times increases ATK by 44% and Crit Chance by 290 for 15 sec. This effect cannot be dispelled.",
 			"Dealing DMG to enemies 100 times increases ATK by 53% and Crit Chance by 350 for 15 sec. This effect cannot be dispelled.",
@@ -18040,6 +18235,7 @@ var KR_ARTIFACTS = [
 		"code": "ARTIFACT_UNIQUE_60",
 		"name": "LuLu's Necklace",
 		"skills": [
+			80000600,
 			80000601,
 			80000602,
 			80000603,
@@ -18047,6 +18243,7 @@ var KR_ARTIFACTS = [
 			80000605
 		],
 		"text": [
+			"When the battle starts, increases DMG to Non-Hero enemies by 20% for 30 sec, and recovers Mana by 200 every 5 sec.",
 			"When the battle starts, increases DMG to Non-Hero enemies by 24% for 30 sec, and recovers Mana by 240 every 5 sec.",
 			"When the battle starts, increases DMG to Non-Hero enemies by 28% for 30 sec, and recovers Mana by 280 every 5 sec.",
 			"When the battle starts, increases DMG to Non-Hero enemies by 34% for 30 sec, and recovers Mana by 340 every 5 sec.",
@@ -18064,19 +18261,21 @@ var all = (n) => [
 	n,
 	n,
 	n,
+	n,
 	n
 ];
-/** King's Raid's thousandths, at each refinement, as shares (or points: 1000 is 1). */
+/** King's Raid's thousandths, at each of its stars, as shares (or points: 1000 is 1). */
 var k = (...t) => t.map((n) => n / 1e3);
 /** Every artifact the fight has a use for, by id (KR_ARTIFACTS'). */
 var ARTIFACTS = {
 	"artifact-1001": { allies: {
-		atk: k(140, 170, 210, 250, 300),
-		critDamage: k(280, 340, 420, 500, 600)
+		atk: k(120, 140, 170, 210, 250, 300),
+		critDamage: k(240, 280, 340, 420, 500, 600)
 	} },
 	"artifact-24": { start: {
 		on: "self",
 		lasts: [
+			8,
 			10,
 			12,
 			14,
@@ -18090,22 +18289,24 @@ var ARTIFACTS = {
 		every: 8,
 		lasts: 5,
 		hit: [
+			200,
 			240,
 			290,
 			350,
 			420,
 			500
 		],
-		weakness: k(120, 140, 170, 210, 250),
-		grows: k(5, 6, 7, 8, 10),
+		weakness: k(100, 120, 140, 170, 210, 250),
+		grows: k(4, 5, 6, 7, 8, 10),
 		most: 25
 	} },
 	"artifact-1002": {
-		foes: k(120, 140, 170, 210, 250),
-		taken: k(-60, -70, -85, -105, -125)
+		foes: k(100, 120, 140, 170, 210, 250),
+		taken: k(-50, -60, -70, -85, -105, -125)
 	},
 	"artifact-11": { own: {
 		blockMagical: [
+			300,
 			330,
 			360,
 			400,
@@ -18113,6 +18314,7 @@ var ARTIFACTS = {
 			500
 		],
 		toughMagical: [
+			100,
 			110,
 			120,
 			140,
@@ -18122,6 +18324,7 @@ var ARTIFACTS = {
 	} },
 	"artifact-21": { own: {
 		acc: [
+			300,
 			360,
 			430,
 			520,
@@ -18129,6 +18332,7 @@ var ARTIFACTS = {
 			750
 		],
 		accuracy: [
+			300,
 			360,
 			430,
 			520,
@@ -18137,8 +18341,9 @@ var ARTIFACTS = {
 		]
 	} },
 	"artifact-41": { bossAtk: {
-		atk: k(-240, -290, -350, -420, -500),
+		atk: k(-200, -240, -290, -350, -420, -500),
 		lasts: [
+			8,
 			10,
 			12,
 			14,
@@ -18148,30 +18353,32 @@ var ARTIFACTS = {
 	} },
 	"artifact-61": { timer: {
 		every: 7,
-		heal: k(1200, 1400, 1700, 2100, 2500),
-		recovery: k(24, 28, 34, 42, 50),
+		heal: k(1e3, 1200, 1400, 1700, 2100, 2500),
+		recovery: k(20, 24, 28, 34, 42, 50),
 		most: 15
 	} },
 	"artifact-32": { timer: {
 		every: 7,
-		mdef: k(12, 14, 17, 20, 25),
+		mdef: k(10, 12, 14, 17, 20, 25),
 		most: 6
 	} },
-	"artifact-42": { own: { defense: k(600, 720, 860, 1030, 1250) } },
+	"artifact-42": { own: { defense: k(500, 600, 720, 860, 1030, 1250) } },
 	"artifact-52": {
 		own: { tough: [
+			100,
 			120,
 			140,
 			170,
 			200,
 			250
 		] },
-		dmg: k(120, 140, 170, 200, 250)
+		dmg: k(100, 120, 140, 170, 200, 250)
 	},
 	"artifact-62": { onKnock: {
 		wait: all(30),
-		manaShare: k(140, 170, 210, 250, 300),
+		manaShare: k(120, 140, 170, 210, 250, 300),
 		speed: [
+			200,
 			240,
 			290,
 			350,
@@ -18180,10 +18387,11 @@ var ARTIFACTS = {
 		],
 		lasts: all(5)
 	} },
-	"artifact-505": { own: { critDamage: k(600, 720, 870, 1050, 1250) } },
+	"artifact-505": { own: { critDamage: k(500, 600, 720, 870, 1050, 1250) } },
 	"artifact-504": { own: {
-		hp: k(120, 140, 170, 210, 250),
+		hp: k(100, 120, 140, 170, 210, 250),
 		block: [
+			100,
 			120,
 			140,
 			170,
@@ -18192,35 +18400,36 @@ var ARTIFACTS = {
 		]
 	} },
 	"artifact-507": {
-		allies: { atk: k(100, 120, 140, 170, 200) },
-		own: { defense: k(120, 140, 170, 210, 250) }
+		allies: { atk: k(80, 100, 120, 140, 170, 200) },
+		own: { defense: k(100, 120, 140, 170, 210, 250) }
 	},
 	"artifact-506": { start: {
 		on: "allies",
 		lasts: all(20),
-		atk: k(60, 72, 86, 104, 125)
+		atk: k(50, 60, 72, 86, 104, 125)
 	} },
 	"artifact-502": { later: {
 		after: 30,
-		atk: k(360, 430, 520, 630, 750)
+		atk: k(300, 360, 430, 520, 630, 750)
 	} },
 	"artifact-509": { own: {
-		atk: k(240, 290, 350, 420, 500),
-		critDamage: k(240, 290, 350, 420, 500)
+		atk: k(200, 240, 290, 350, 420, 500),
+		critDamage: k(200, 240, 290, 350, 420, 500)
 	} },
 	"artifact-508": { start: {
 		on: "self-top",
 		lasts: all(20),
-		atk: k(120, 140, 170, 210, 250)
+		atk: k(100, 120, 140, 170, 210, 250)
 	} },
 	"artifact-901": { allies: {
-		atk: k(90, 105, 120, 135, 150),
-		hp: k(90, 105, 120, 135, 150),
-		defense: k(90, 105, 120, 135, 150)
+		atk: k(75, 90, 105, 120, 135, 150),
+		hp: k(75, 90, 105, 120, 135, 150),
+		defense: k(75, 90, 105, 120, 135, 150)
 	} },
 	"artifact-900": { own: {
-		atk: k(300, 350, 400, 450, 500),
+		atk: k(250, 300, 350, 400, 450, 500),
 		crit: [
+			250,
 			300,
 			350,
 			400,
@@ -18229,23 +18438,24 @@ var ARTIFACTS = {
 		]
 	} },
 	"artifact-902": {
-		own: { hp: k(300, 350, 400, 450, 500) },
+		own: { hp: k(250, 300, 350, 400, 450, 500) },
 		later: {
 			after: 30.5,
 			others: true,
-			critDamage: k(600, 700, 800, 900, 1e3)
+			critDamage: k(500, 600, 700, 800, 900, 1e3)
 		}
 	},
 	"artifact-1": { onBasic: {
-		chance: k(120, 140, 170, 200, 250),
+		chance: k(100, 120, 140, 170, 200, 250),
 		wait: 1,
 		mana: 1e3
 	} },
 	"artifact-2": { onBasic: {
 		chance: all(.1),
 		wait: 10,
-		atk: k(120, 140, 170, 200, 250),
+		atk: k(100, 120, 140, 170, 200, 250),
 		speed: [
+			100,
 			120,
 			140,
 			170,
@@ -18258,6 +18468,7 @@ var ARTIFACTS = {
 		chance: all(.03),
 		wait: 1,
 		hit: [
+			4e3,
 			4800,
 			5750,
 			6900,
@@ -18269,6 +18480,7 @@ var ARTIFACTS = {
 		on: "self",
 		lasts: all(15),
 		speed: [
+			400,
 			480,
 			570,
 			690,
@@ -18279,6 +18491,7 @@ var ARTIFACTS = {
 	"artifact-5": { timer: {
 		every: 10,
 		cooldown: [
+			1,
 			1.2,
 			1.4,
 			1.7,
@@ -18286,6 +18499,7 @@ var ARTIFACTS = {
 			2.5
 		],
 		speed: [
+			80,
 			96,
 			115,
 			138,
@@ -18296,8 +18510,9 @@ var ARTIFACTS = {
 	} },
 	"artifact-6": { low: {
 		below: .2,
-		atk: k(360, 430, 510, 620, 750),
+		atk: k(300, 360, 430, 510, 620, 750),
 		speed: [
+			300,
 			360,
 			430,
 			510,
@@ -18305,6 +18520,7 @@ var ARTIFACTS = {
 			750
 		],
 		tough: [
+			300,
 			360,
 			430,
 			510,
@@ -18315,6 +18531,7 @@ var ARTIFACTS = {
 	"artifact-7": { fullMana: {
 		wait: 20,
 		crit: [
+			400,
 			480,
 			570,
 			690,
@@ -18322,6 +18539,7 @@ var ARTIFACTS = {
 			1e3
 		],
 		acc: [
+			400,
 			480,
 			570,
 			690,
@@ -18332,10 +18550,11 @@ var ARTIFACTS = {
 	} },
 	"artifact-9": { rescue: {
 		below: .25,
-		heal: k(360, 430, 510, 620, 750)
+		heal: k(300, 360, 430, 510, 620, 750)
 	} },
 	"artifact-38": {
 		own: { dodgePhysical: [
+			100,
 			120,
 			140,
 			170,
@@ -18343,7 +18562,7 @@ var ARTIFACTS = {
 			250
 		] },
 		onDodge: {
-			atk: k(12, 14, 17, 21, 25),
+			atk: k(10, 12, 14, 17, 21, 25),
 			most: 20
 		}
 	},
@@ -18351,6 +18570,7 @@ var ARTIFACTS = {
 		every: 8,
 		lasts: 4,
 		speed: [
+			100,
 			120,
 			140,
 			170,
@@ -18360,6 +18580,7 @@ var ARTIFACTS = {
 		random: 2
 	} },
 	"artifact-58": { own: { speed: [
+		80,
 		96,
 		115,
 		138,
@@ -18368,6 +18589,7 @@ var ARTIFACTS = {
 	] } },
 	"artifact-68": { own: {
 		resist: [
+			200,
 			240,
 			290,
 			350,
@@ -18375,6 +18597,7 @@ var ARTIFACTS = {
 			500
 		],
 		accuracy: [
+			200,
 			240,
 			290,
 			350,
@@ -18386,6 +18609,7 @@ var ARTIFACTS = {
 		chance: all(.05),
 		wait: 0,
 		speed: [
+			400,
 			480,
 			580,
 			700,
@@ -18395,12 +18619,13 @@ var ARTIFACTS = {
 		lasts: 5
 	} },
 	"artifact-514": {
-		own: { hp: k(240, 290, 350, 420, 500) },
-		allies: { atk: k(240, 290, 350, 420, 500) }
+		own: { hp: k(200, 240, 290, 350, 420, 500) },
+		allies: { atk: k(200, 240, 290, 350, 420, 500) }
 	},
 	"artifact-516": { onKnock: {
 		wait: all(20),
 		cooldown: [
+			5,
 			6,
 			7,
 			8,
@@ -18408,6 +18633,7 @@ var ARTIFACTS = {
 			10
 		],
 		manaEach: [
+			500,
 			600,
 			700,
 			800,
@@ -18416,20 +18642,21 @@ var ARTIFACTS = {
 		]
 	} },
 	"artifact-511": { own: {
-		defense: k(120, 140, 170, 210, 250),
-		recovery: k(120, 140, 170, 210, 250)
+		defense: k(100, 120, 140, 170, 210, 250),
+		recovery: k(100, 120, 140, 170, 210, 250)
 	} },
-	"artifact-510": { own: { atk: k(120, 140, 170, 210, 250) } },
+	"artifact-510": { own: { atk: k(100, 120, 140, 170, 210, 250) } },
 	"artifact-513": { onHurt: {
 		chance: .2,
 		wait: all(0),
 		lasts: all(5),
-		weakness: k(120, 140, 170, 210, 250)
+		weakness: k(100, 120, 140, 170, 210, 250)
 	} },
-	"artifact-25": { own: { atk: k(480, 580, 690, 830, 1e3) } },
+	"artifact-25": { own: { atk: k(400, 480, 580, 690, 830, 1e3) } },
 	"artifact-35": { undying: {
 		floor: .1,
 		lasts: [
+			4,
 			5,
 			6,
 			7,
@@ -18440,8 +18667,9 @@ var ARTIFACTS = {
 	"artifact-55": { start: {
 		on: "self",
 		lasts: all(5),
-		mana: k(3100, 3700, 4500, 5400, 6500),
+		mana: k(2600, 3100, 3700, 4500, 5400, 6500),
 		critResist: [
+			100,
 			120,
 			140,
 			170,
@@ -18451,24 +18679,26 @@ var ARTIFACTS = {
 	} },
 	"artifact-521": {
 		opening: { cooldown: [
+			1,
 			1.2,
 			1.4,
 			1.7,
 			2.1,
 			2.5
 		] },
-		foes: k(12, 14, 17, 21, 25)
+		foes: k(10, 12, 14, 17, 21, 25)
 	},
 	"artifact-520": { start: {
 		on: "top",
 		lasts: all(100),
-		atk: k(100, 120, 140, 170, 200)
+		atk: k(80, 100, 120, 140, 170, 200)
 	} },
 	"artifact-523": {
 		start: {
 			on: "allies",
 			lasts: all(3),
 			tough: [
+				200,
 				240,
 				290,
 				350,
@@ -18480,6 +18710,7 @@ var ARTIFACTS = {
 			every: 30,
 			lasts: 3,
 			tough: [
+				200,
 				240,
 				290,
 				350,
@@ -18489,33 +18720,34 @@ var ARTIFACTS = {
 		}
 	},
 	"artifact-522": {
-		bossHeal: k(-120, -140, -170, -210, -250),
-		boss: k(120, 140, 170, 210, 250)
+		bossHeal: k(-100, -120, -140, -170, -210, -250),
+		boss: k(100, 120, 140, 170, 210, 250)
 	},
 	"artifact-26": { own: {
-		atk: k(120, 140, 170, 200, 250),
-		hp: k(120, 140, 170, 200, 250),
-		defense: k(120, 140, 170, 200, 250)
+		atk: k(100, 120, 140, 170, 200, 250),
+		hp: k(100, 120, 140, 170, 200, 250),
+		defense: k(100, 120, 140, 170, 200, 250)
 	} },
 	"artifact-36": { start: {
 		on: "self",
 		lasts: all(120),
-		boss: k(120, 140, 170, 210, 250)
+		boss: k(100, 120, 140, 170, 210, 250)
 	} },
 	"artifact-46": {
-		own: { defense: k(120, 140, 170, 210, 250) },
-		dmg: k(72, 86, 105, 125, 150),
-		foes: k(72, 86, 105, 125, 150)
+		own: { defense: k(100, 120, 140, 170, 210, 250) },
+		dmg: k(60, 72, 86, 105, 125, 150),
+		foes: k(60, 72, 86, 105, 125, 150)
 	},
 	"artifact-56": { start: {
 		on: "self",
 		lasts: all(60),
-		atk: k(60, 72, 86, 104, 125)
+		atk: k(50, 60, 72, 86, 104, 125)
 	} },
 	"artifact-66": { timer: {
 		every: 10,
 		lasts: 7,
 		critResist: [
+			200,
 			240,
 			290,
 			350,
@@ -18526,49 +18758,52 @@ var ARTIFACTS = {
 	"artifact-23": { onKnock: {
 		wait: all(20),
 		mana: [
+			600,
 			700,
 			800,
 			1e3,
 			1200,
 			1500
 		],
-		weakness: k(140, 170, 210, 250, 300)
+		weakness: k(120, 140, 170, 210, 250, 300)
 	} },
 	"artifact-43": { own: {
 		recovery: all(-.3),
 		pen: [
+			300,
 			360,
 			430,
 			520,
 			630,
 			750
 		],
-		critDamage: k(360, 430, 520, 630, 750)
+		critDamage: k(300, 360, 430, 520, 630, 750)
 	} },
 	"artifact-53": { timer: {
 		every: 15,
 		lasts: 3,
-		hot: k(12, 14, 17, 20, 25)
+		hot: k(10, 12, 14, 17, 20, 25)
 	} },
 	"artifact-63": { start: {
 		on: "self",
 		lasts: all(200),
-		foes: k(140, 170, 210, 250, 300),
-		taken: k(-140, -170, -210, -250, -300)
+		foes: k(120, 140, 170, 210, 250, 300),
+		taken: k(-120, -140, -170, -210, -250, -300)
 	} },
 	"artifact-19": { opening: {
-		heal: k(280, 340, 420, 500, 600),
-		mana: k(140, 170, 210, 250, 300)
+		heal: k(240, 280, 340, 420, 500, 600),
+		mana: k(120, 140, 170, 210, 250, 300)
 	} },
 	"artifact-39": { start: {
 		on: "self",
 		lasts: all(200),
 		noDef: true,
-		boss: k(240, 290, 350, 420, 500)
+		boss: k(200, 240, 290, 350, 420, 500)
 	} },
 	"artifact-49": { own: {
-		defPhysical: k(240, 290, 350, 420, 500),
+		defPhysical: k(200, 240, 290, 350, 420, 500),
 		blockPhysical: [
+			100,
 			120,
 			140,
 			170,
@@ -18579,8 +18814,9 @@ var ARTIFACTS = {
 	"artifact-59": { start: {
 		on: "self",
 		lasts: all(30),
-		taken: k(-240, -280, -340, -420, -500),
+		taken: k(-200, -240, -280, -340, -420, -500),
 		manaEach: [
+			100,
 			120,
 			140,
 			170,
@@ -18589,36 +18825,39 @@ var ARTIFACTS = {
 		]
 	} },
 	"artifact-1000": {
-		foes: k(120, 140, 170, 210, 250),
-		taken: k(-60, -70, -85, -105, -125),
-		dragon: k(215, 246, 291, 348, 400),
-		dragonTaken: k(-128, -150, -186, -235, -289)
+		foes: k(100, 120, 140, 170, 210, 250),
+		taken: k(-50, -60, -70, -85, -105, -125),
+		dragon: k(182, 215, 246, 291, 348, 400),
+		dragonTaken: k(-105, -128, -150, -186, -235, -289)
 	},
-	"artifact-17": { boss: k(120, 140, 170, 200, 250) },
+	"artifact-17": { boss: k(100, 120, 140, 170, 200, 250) },
 	"artifact-47": {
 		drain: [
+			-100,
 			-120,
 			-140,
 			-170,
 			-210,
 			-250
 		],
-		dmg: k(170, 210, 250, 300, 350)
+		dmg: k(140, 170, 210, 250, 300, 350)
 	},
 	"artifact-57": { own: {
 		crit: [
+			100,
 			120,
 			140,
 			170,
 			210,
 			250
 		],
-		critDamage: k(240, 290, 350, 420, 500)
+		critDamage: k(200, 240, 290, 350, 420, 500)
 	} },
 	"artifact-67": { start: {
 		on: "allies",
 		lasts: all(20),
 		speed: [
+			100,
 			120,
 			140,
 			170,
@@ -18629,6 +18868,7 @@ var ARTIFACTS = {
 	"artifact-10": { onHurt: {
 		chance: .05,
 		wait: [
+			8,
 			8.5,
 			9,
 			10,
@@ -18636,6 +18876,7 @@ var ARTIFACTS = {
 			12.5
 		],
 		lasts: [
+			3,
 			3.5,
 			4,
 			5,
@@ -18646,6 +18887,7 @@ var ARTIFACTS = {
 	} },
 	"artifact-20": { onKnock: {
 		wait: [
+			20,
 			19,
 			18,
 			17,
@@ -18653,6 +18895,7 @@ var ARTIFACTS = {
 			15
 		],
 		immune: [
+			1,
 			1.5,
 			2,
 			2.5,
@@ -18662,18 +18905,20 @@ var ARTIFACTS = {
 	} },
 	"artifact-30": { own: {
 		crit: [
+			-150,
 			-180,
 			-210,
 			-260,
 			-310,
 			-375
 		],
-		atk: k(360, 430, 520, 630, 750)
+		atk: k(300, 360, 430, 520, 630, 750)
 	} },
 	"artifact-40": { blows: {
 		count: 100,
-		atk: k(360, 440, 530, 630, 750),
+		atk: k(300, 360, 440, 530, 630, 750),
 		crit: [
+			200,
 			240,
 			290,
 			350,
@@ -18685,8 +18930,9 @@ var ARTIFACTS = {
 	"artifact-60": { start: {
 		on: "self",
 		lasts: all(30),
-		foes: k(240, 280, 340, 420, 500),
+		foes: k(200, 240, 280, 340, 420, 500),
 		manaEach: [
+			200,
 			240,
 			280,
 			340,
@@ -18699,6 +18945,7 @@ var ARTIFACTS = {
 		count: 3,
 		speed: all(500),
 		lasts: [
+			4,
 			4.8,
 			5.8,
 			7,
@@ -18707,19 +18954,19 @@ var ARTIFACTS = {
 		]
 	} }
 };
-/** Its name, and what it does at each refinement, in King's Raid's words. */
+/** Its name, and what it does at each of its stars (0★ to 5★), in King's Raid's words. */
 var DATA = new Map(KR_ARTIFACTS.map((one) => [one.id, one]));
-/** An artifact as a hero wears it: which, and its tier (R1 to R5); null: none, or one the fight has no use for. */
+/** An artifact as a hero wears it: which, and its tier (its stars, 0★ to 5★); null: none, or one the fight has no use for. */
 function artifactOf(worn) {
 	const def = worn && ARTIFACTS[worn.id];
 	return worn && def ? {
 		id: worn.id,
 		def,
-		tier: Math.min(5, Math.max(1, Math.floor(worn.tier) || 1))
+		tier: Math.min(5, Math.max(0, Math.floor(worn.tier) || 0))
 	} : null;
 }
 /** A number at its tier. */
-var at = (tiers, tier) => tiers?.[tier - 1] ?? 0;
+var at = (tiers, tier) => tiers?.[tier] ?? 0;
 /** What its own stats gain from the start (as its gear's). */
 function artifactStats(worn) {
 	if (!worn) return {};
@@ -18730,7 +18977,7 @@ var artifactBuff = (worn) => {
 	const data = DATA.get(worn.id);
 	return {
 		name: data?.name ?? "Artifact",
-		about: data?.text?.[worn.tier - 1] ?? "",
+		about: data?.text?.[worn.tier] ?? "",
 		icon: "🏺"
 	};
 };
@@ -22771,12 +23018,13 @@ var MENDING_UP = {
 };
 //#endregion
 //#region src/technomagic/sim/unique.ts
-/** Each weapon's numbers at tiers 1 to 5 (index 0 is tier 1). */
+/** Each weapon's numbers at its stars, 0★ to 5★ (the index is its stars: King's Raid's, kingsraid.shodyra.com's). */
 var EXIAN = {
 	name: "The Guardian, Exian",
 	every: 3,
 	lasts: 15,
 	boost: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -22789,6 +23037,7 @@ var ELICIPIRA = {
 	chance: .04,
 	boss: 2,
 	blow: [
+		5e3,
 		6e3,
 		7200,
 		8600,
@@ -22800,6 +23049,7 @@ var ROSMERTA = {
 	name: "Angel’s Despair, Rosmerta",
 	lasts: 7,
 	heal: [
+		1.667,
 		2,
 		2.4,
 		2.9,
@@ -22807,6 +23057,7 @@ var ROSMERTA = {
 		4.2
 	],
 	pen: [
+		200,
 		240,
 		290,
 		350,
@@ -22818,6 +23069,7 @@ var ROSMERTA = {
 var PIGRITIA = {
 	name: "Gateway to Purgatory, Pigritia",
 	speed: [
+		200,
 		240,
 		290,
 		350,
@@ -22825,6 +23077,7 @@ var PIGRITIA = {
 		500
 	],
 	heal: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -22832,6 +23085,7 @@ var PIGRITIA = {
 		.5
 	],
 	mana: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -22840,6 +23094,7 @@ var PIGRITIA = {
 	],
 	over: 2,
 	charge: [
+		.04,
 		.048,
 		.058,
 		.07,
@@ -22851,6 +23106,7 @@ var PIGRITIA = {
 var RASCAL = {
 	name: "Crystallized Technomagic, Rascal",
 	every: [
+		1.5,
 		1.4,
 		1.3,
 		1.1,
@@ -22868,6 +23124,7 @@ var CARPRAIN = {
 	chance: .2,
 	lasts: 10,
 	weaker: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -22880,6 +23137,7 @@ var CARPRAIN = {
 var ELSION = {
 	name: "Executioner of Domains, Elsion",
 	blow: [
+		500,
 		600,
 		720,
 		860,
@@ -22887,6 +23145,7 @@ var ELSION = {
 		1250
 	],
 	unhealed: [
+		.24,
 		.29,
 		.35,
 		.42,
@@ -22895,6 +23154,7 @@ var ELSION = {
 	],
 	lasts: 5,
 	heals: [
+		.04,
 		.05,
 		.06,
 		.07,
@@ -22908,6 +23168,7 @@ var ELSION = {
 var ELTOIRRE = {
 	name: "Flowing Circle, Eltoirre",
 	heals: [
+		.08,
 		.1,
 		.12,
 		.14,
@@ -22916,6 +23177,7 @@ var ELTOIRRE = {
 	],
 	every: 5,
 	mend: [
+		1,
 		1.2,
 		1.4,
 		1.7,
@@ -22927,6 +23189,7 @@ var ELTOIRRE = {
 var BARBATOS = {
 	name: "Jailer of Despair, Barbatos",
 	longer: [
+		2,
 		3,
 		4,
 		5,
@@ -22934,6 +23197,7 @@ var BARBATOS = {
 		7
 	],
 	critDamage: [
+		.8,
 		.9,
 		1,
 		1.1,
@@ -22941,6 +23205,7 @@ var BARBATOS = {
 		1.3
 	],
 	resist: [
+		200,
 		240,
 		290,
 		350,
@@ -22953,6 +23218,7 @@ var ROBURU = {
 	name: "World Tree’s Will, Roburu",
 	every: 7,
 	blow: [
+		1e3,
 		1200,
 		1400,
 		1700,
@@ -22960,6 +23226,7 @@ var ROBURU = {
 		2500
 	],
 	takes: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -22974,6 +23241,7 @@ var GIGANTE = {
 	blows: 10,
 	most: 10,
 	atk: [
+		.04,
 		.048,
 		.058,
 		.07,
@@ -22981,6 +23249,7 @@ var GIGANTE = {
 		.1
 	],
 	speed: [
+		20,
 		24,
 		29,
 		35,
@@ -22988,6 +23257,7 @@ var GIGANTE = {
 		50
 	],
 	blow: [
+		300,
 		360,
 		430,
 		520,
@@ -23000,6 +23270,7 @@ var NOTOS = {
 	name: "Green Winds, Notos",
 	lasts: 10,
 	speed: [
+		200,
 		240,
 		280,
 		340,
@@ -23007,6 +23278,7 @@ var NOTOS = {
 		500
 	],
 	arrow: [
+		1e3,
 		1200,
 		1400,
 		1700,
@@ -23018,6 +23290,7 @@ var NOTOS = {
 var AKISTRA = {
 	name: "Hellhound, Akistra",
 	bullet: [
+		500,
 		600,
 		700,
 		850,
@@ -23025,6 +23298,7 @@ var AKISTRA = {
 		1250
 	],
 	boost: [
+		.3,
 		.36,
 		.43,
 		.52,
@@ -23038,6 +23312,7 @@ var AKISTRA = {
 var TEMPODIANA = {
 	name: "Moonshade Countdown, Tempodiana",
 	cooldown: [
+		2,
 		3,
 		4,
 		5,
@@ -23045,6 +23320,7 @@ var TEMPODIANA = {
 		7
 	],
 	atk: [
+		.14,
 		.17,
 		.21,
 		.25,
@@ -23057,6 +23333,7 @@ var TEMPODIANA = {
 var ATEIN = {
 	name: "Dragon’s Ruins, Atein",
 	defense: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23065,6 +23342,7 @@ var ATEIN = {
 	],
 	guards: 3,
 	rage: [
+		.008,
 		.01,
 		.012,
 		.014,
@@ -23079,6 +23357,7 @@ var BARORO = {
 	name: "Cursed Claws, Baroro",
 	lasts: 10,
 	blow: [
+		1500,
 		1800,
 		2160,
 		2580,
@@ -23086,6 +23365,7 @@ var BARORO = {
 		5e3
 	],
 	takes: [
+		.2,
 		.24,
 		.28,
 		.34,
@@ -23104,6 +23384,7 @@ var SVELTA = {
 var ACRAVITA = {
 	name: "Roaring Dragonmaw, Acravita",
 	blows: [
+		20,
 		19,
 		18,
 		17,
@@ -23114,6 +23395,7 @@ var ACRAVITA = {
 	stun: .5,
 	lasts: 10,
 	defense: [
+		.04,
 		.048,
 		.057,
 		.069,
@@ -23121,6 +23403,7 @@ var ACRAVITA = {
 		.1
 	],
 	atk: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23135,6 +23418,7 @@ var PERION = {
 	speed: 5,
 	lasts: 30,
 	most: [
+		80,
 		90,
 		110,
 		130,
@@ -23147,6 +23431,7 @@ var GAIAMENES = {
 	name: "Wave of Protection, Gaiamenes",
 	skills: 3,
 	blow: [
+		2e3,
 		2400,
 		2900,
 		3500,
@@ -23154,6 +23439,7 @@ var GAIAMENES = {
 		5e3
 	],
 	weakness: [
+		.25,
 		.3,
 		.36,
 		.43,
@@ -23162,6 +23448,7 @@ var GAIAMENES = {
 	],
 	lasts: 20,
 	defense: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23174,6 +23461,7 @@ var GAIAMENES = {
 var NUMINU = {
 	name: "Holy Bird, Numinu",
 	hp: [
+		.12,
 		.14,
 		.17,
 		.21,
@@ -23182,6 +23470,7 @@ var NUMINU = {
 	],
 	chance: .15,
 	blow: [
+		2e3,
 		2400,
 		2900,
 		3500,
@@ -23195,6 +23484,7 @@ var CAETHASIS = {
 	name: "Demon of the Calm, Caethasis",
 	lasts: 10,
 	untouched: [
+		2,
 		2.4,
 		2.9,
 		3.5,
@@ -23202,6 +23492,7 @@ var CAETHASIS = {
 		5
 	],
 	critDamage: [
+		.3,
 		.36,
 		.43,
 		.52,
@@ -23213,6 +23504,7 @@ var CAETHASIS = {
 var GALICTA = {
 	name: "Adversary of the Goddess, Galicta",
 	pen: [
+		200,
 		240,
 		290,
 		350,
@@ -23221,6 +23513,7 @@ var GALICTA = {
 	],
 	hp: .2,
 	dmg: [
+		.02,
 		.024,
 		.029,
 		.035,
@@ -23234,6 +23527,7 @@ var GALICTA = {
 var AEA = {
 	name: "Corrupted Holy Sword, Aea",
 	heals: [
+		.01,
 		.012,
 		.014,
 		.017,
@@ -23244,6 +23538,7 @@ var AEA = {
 	most: 12,
 	chance: .35,
 	blow: [
+		1e3,
 		1200,
 		1400,
 		1700,
@@ -23257,6 +23552,7 @@ var LEGIOS = {
 	stacks: 50,
 	lasts: 15,
 	speed: [
+		300,
 		360,
 		430,
 		520,
@@ -23264,6 +23560,7 @@ var LEGIOS = {
 		750
 	],
 	critDamage: [
+		1,
 		1.2,
 		1.44,
 		1.73,
@@ -23271,6 +23568,7 @@ var LEGIOS = {
 		2.5
 	],
 	pen: [
+		300,
 		360,
 		430,
 		520,
@@ -23282,6 +23580,7 @@ var LEGIOS = {
 var EXCILIUS = {
 	name: "Tumultuous Dance, Excilius",
 	sooner: [
+		1,
 		1.2,
 		1.4,
 		1.7,
@@ -23297,6 +23596,7 @@ var MAXITHEA = {
 	name: "The Counterattack, Maxithea",
 	most: 4,
 	atk: [
+		.01,
 		.012,
 		.014,
 		.017,
@@ -23304,6 +23604,7 @@ var MAXITHEA = {
 		.025
 	],
 	critDamage: [
+		.02,
 		.024,
 		.028,
 		.034,
@@ -23315,6 +23616,7 @@ var MAXITHEA = {
 var MONOLITH = {
 	name: "Blood Lancer Monolith",
 	critDamage: [
+		.2,
 		.24,
 		.28,
 		.34,
@@ -23322,6 +23624,7 @@ var MONOLITH = {
 		.5
 	],
 	flame: [
+		.3,
 		.36,
 		.43,
 		.52,
@@ -23335,6 +23638,7 @@ var IGNISIUS = {
 	name: "Solar Halo, Ignisius",
 	every: 5,
 	takes: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -23350,6 +23654,7 @@ var MK1 = {
 	chance: .25,
 	most: 7,
 	atk: [
+		.03,
 		.036,
 		.043,
 		.051,
@@ -23357,6 +23662,7 @@ var MK1 = {
 		.075
 	],
 	speed: [
+		30,
 		36,
 		43,
 		51,
@@ -23364,6 +23670,7 @@ var MK1 = {
 		75
 	],
 	boss: [
+		.03,
 		.036,
 		.043,
 		.051,
@@ -23376,6 +23683,7 @@ var LEVIATHAN = {
 	name: "Ultimate Weapon, Leviathan",
 	chance: .5,
 	blow: [
+		1,
 		1.2,
 		1.4,
 		1.7,
@@ -23383,6 +23691,7 @@ var LEVIATHAN = {
 		2.5
 	],
 	takes: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -23395,6 +23704,7 @@ var LEVIATHAN = {
 var RIVENTINA = {
 	name: "Endless Acceleration, Riventina",
 	speed: [
+		200,
 		240,
 		290,
 		350,
@@ -23402,6 +23712,7 @@ var RIVENTINA = {
 		500
 	],
 	blow: [
+		2,
 		2.4,
 		2.9,
 		3.5,
@@ -23415,6 +23726,7 @@ var SHATTERER = {
 	name: "0-Form Perpetual Motion Cannon, Heaven Shatterer",
 	atk: .02,
 	most: [
+		15,
 		20,
 		25,
 		30,
@@ -23426,6 +23738,7 @@ var SHATTERER = {
 var ZARIES = {
 	name: "Glory of the God King, Zaries",
 	boost: [
+		.04,
 		.048,
 		.056,
 		.068,
@@ -23439,6 +23752,7 @@ var ZARIES = {
 var TERSIA = {
 	name: "Roar of Raging Heat, Tersia",
 	boost: [
+		.01,
 		.012,
 		.014,
 		.017,
@@ -23452,6 +23766,7 @@ var TERRAVION = {
 	name: "Conqueror of Darkness, Del Terravion",
 	every: 10,
 	takes: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23460,6 +23775,7 @@ var TERRAVION = {
 	],
 	lasts: 12,
 	dmg: [
+		.02,
 		.024,
 		.029,
 		.035,
@@ -23472,6 +23788,7 @@ var TERRAVION = {
 var CIELAMAHA = {
 	name: "Infinite Spring, Cielamaha",
 	mana: [
+		50,
 		60,
 		70,
 		85,
@@ -23480,6 +23797,7 @@ var CIELAMAHA = {
 	],
 	chance: .8,
 	blow: [
+		.2,
 		.24,
 		.28,
 		.34,
@@ -23492,6 +23810,7 @@ var BENEDICIA = {
 	name: "Blessing of Light, Benedicia",
 	lasts: 30,
 	taken: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23499,6 +23818,7 @@ var BENEDICIA = {
 		.25
 	],
 	speed: [
+		100,
 		120,
 		140,
 		170,
@@ -23506,6 +23826,7 @@ var BENEDICIA = {
 		250
 	],
 	boss: [
+		.08,
 		.1,
 		.12,
 		.14,
@@ -23518,6 +23839,7 @@ var NEW_ROAD = {
 	name: "Anthem of a New Road, Matimaruma",
 	skills: 3,
 	taken: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23530,6 +23852,7 @@ var NEW_ROAD = {
 var SCHWANHEITE = {
 	name: "Charming Melody, Schwanheite",
 	resist: [
+		300,
 		360,
 		430,
 		520,
@@ -23537,6 +23860,7 @@ var SCHWANHEITE = {
 		700
 	],
 	sooner: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23544,6 +23868,7 @@ var SCHWANHEITE = {
 		.25
 	],
 	mana: [
+		400,
 		480,
 		580,
 		700,
@@ -23555,6 +23880,7 @@ var SCHWANHEITE = {
 var NEMECIA = {
 	name: "Void Soul, Dunn Nemecia",
 	untouched: [
+		1,
 		1.2,
 		1.4,
 		1.7,
@@ -23563,6 +23889,7 @@ var NEMECIA = {
 	],
 	every: 10,
 	critDamage: [
+		.3,
 		.36,
 		.42,
 		.51,
@@ -23574,6 +23901,7 @@ var NEMECIA = {
 var NAAV = {
 	name: "Small Synthesized Darkness, Naav Gehen",
 	mana: [
+		400,
 		480,
 		580,
 		700,
@@ -23581,6 +23909,7 @@ var NAAV = {
 		1e3
 	],
 	taken: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23588,6 +23917,7 @@ var NAAV = {
 		.25
 	],
 	takes: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23600,6 +23930,7 @@ var NAAV = {
 var STOSMOS = {
 	name: "Chant of Tailwinds, Stosmos",
 	longer: [
+		1,
 		2,
 		3,
 		4,
@@ -23607,6 +23938,7 @@ var STOSMOS = {
 		6
 	],
 	atk: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -23622,8 +23954,14 @@ var CORBEAU = {
 	hp: .06,
 	dmg: .04
 };
-/** A tier's number from a weapon's list (1 to TIERS; out of range: the nearest). */
-var atTier = (list, tier) => list[Math.min(list.length, Math.max(1, Math.floor(tier))) - 1];
+/**
+* A tier's (its stars') number from a weapon's or treasure's list: a list of six is its 0★ to 5★; a list of five, its 1★ to
+* 5★ (0★ as 1★). Out of range: the nearest.
+*/
+var atTier = (list, tier) => {
+	const star = Math.min(5, Math.max(0, Math.floor(tier)));
+	return list[Math.max(0, Math.min(list.length - 1, list.length > 5 ? star : star - 1))];
+};
 /** What each hero's weapon does at a tier, as its card and the heroes page say it. */
 var ABOUT = {
 	klaus: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
@@ -23679,7 +24017,7 @@ var uniqueAbout = (hero, tier) => ABOUT[hero]?.(tier) ?? null;
 /** A hero's unique weapon as it fights: its tier (null: none, or not its own, or one this fight doesn't know). */
 function uniqueOf(hero, tier) {
 	if (typeof tier !== "number" || !Number.isFinite(tier) || !ABOUT[hero]) return null;
-	return Math.min(5, Math.max(1, Math.floor(tier)));
+	return Math.min(5, Math.max(0, Math.floor(tier)));
 }
 /** What Exian gives Klaus for a while, what Rosmerta gives Fallen Frey, what Rascal gives every ally while Annette is Overcharged, and what Eltoirre gives every ally while Laias is on the field. */
 var EXIAN_UP = {
@@ -24283,7 +24621,7 @@ var t5Light = (more, says) => ({
 });
 /**
 * A unique treasure whose effect is `effect`, given its tier's numbers: `k(row)` is a row's number at the tier (the
-* row's 1★ to 5★).
+* row's 0★ to 5★).
 */
 var treasure = (name, effect) => ({
 	name,
@@ -24296,15 +24634,17 @@ function treasureOf(def, ut) {
 	if (!def.treasures?.[index]) return null;
 	return {
 		index,
-		tier: Math.min(5, Math.max(1, Math.floor(ut.tier)))
+		tier: Math.min(5, Math.max(0, Math.floor(ut.tier)))
 	};
 }
-/** The tier of a hero's main treasure when it is its `index`th (0 to 3), else 0: what its part reads its own numbers by. */
-var treasureTier = (self, index) => self.treasure?.index === index ? self.treasure.tier : 0;
+/** The tier of a hero's main treasure (its stars, 0★ to 5★) when it is its `index`th (0 to 3), else -1: what its part reads its own numbers by. */
+var treasureTier = (self, index) => self.treasure?.index === index ? self.treasure.tier : -1;
+/** Whether a hero's main treasure is its `index`th (0 to 3), at any stars. */
+var wearsTreasure = (self, index) => self.treasure?.index === index;
 /** A hero's main treasure's number in `row` when it is its `index`th, else `none`. */
 var fromTreasure = (self, index, row, none = 0) => {
 	const tier = treasureTier(self, index);
-	return tier > 0 ? atTier(row, tier) : none;
+	return tier >= 0 ? atTier(row, tier) : none;
 };
 /** A hero's treasures' names, and what one does at a tier, as the bot says them (null: no such hero or treasure). */
 function treasureAbout(hero, skill, tier) {
@@ -26462,6 +26802,7 @@ var UT$43 = {
 	lens: {
 		crit: 250,
 		mana: [
+			400,
 			480,
 			580,
 			700,
@@ -26473,6 +26814,7 @@ var UT$43 = {
 	script: {
 		cost: -1,
 		heals: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -26482,6 +26824,7 @@ var UT$43 = {
 	},
 	code: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -26492,6 +26835,7 @@ var UT$43 = {
 	},
 	battery: {
 		charge: [
+			30,
 			36,
 			43,
 			52,
@@ -26694,9 +27038,9 @@ var ANNETTE = {
 			lands: {
 				zap() {
 					fight.hit(self, fight.basic);
-					if (treasureTier(self, 2) > 0) gain(UT$43.code.charge);
+					if (wearsTreasure(self, 2)) gain(UT$43.code.charge);
 					if (over <= 0) return;
-					const off = CHARGE$1.cooldown + (treasureTier(self, 3) > 0 ? UT$43.battery.cooldown : 0);
+					const off = CHARGE$1.cooldown + (wearsTreasure(self, 3) ? UT$43.battery.cooldown : 0);
 					self.abilities.forEach((ability, i) => {
 						self.cooldowns[i] = Math.max(0, self.cooldowns[i] - ability.cooldown * off);
 					});
@@ -26850,6 +27194,7 @@ var PERKS$42 = {
 var UT$42 = {
 	cape: {
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -26862,6 +27207,7 @@ var UT$42 = {
 	determination: {
 		critResist: 500,
 		crit: [
+			100,
 			120,
 			140,
 			170,
@@ -26871,6 +27217,7 @@ var UT$42 = {
 		lasts: 10
 	},
 	insignia: { more: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -26880,6 +27227,7 @@ var UT$42 = {
 	mittens: {
 		heal: .02,
 		defends: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -27073,7 +27421,7 @@ var KLAUS = {
 					shown: "slow"
 				});
 				self.mana = Math.min(MAX_MANA, self.mana + VOW.mana);
-				if (treasureTier(self, 3) > 0) {
+				if (wearsTreasure(self, 3)) {
 					fight.heal(self, UT$42.mittens.heal * self.stats.hp);
 					put(self.statuses, {
 						name: "Mittens",
@@ -27155,6 +27503,7 @@ var UT$41 = {
 	belt: {
 		heal: .15,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -27165,6 +27514,7 @@ var UT$41 = {
 	},
 	choker: {
 		speed: [
+			100,
 			120,
 			140,
 			170,
@@ -27175,6 +27525,7 @@ var UT$41 = {
 	},
 	binds: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -27186,6 +27537,7 @@ var UT$41 = {
 	sculpture: {
 		stacks: 2,
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -27344,7 +27696,7 @@ var EZEKIEL = {
 	}] },
 	join(fight, self) {
 		/** His Cursed Blood; how long his Fury lasts yet; and whether he was on Auto before it (he is put back so after). */
-		let stacks = treasureTier(self, 3) > 0 ? UT$41.sculpture.stacks : 0;
+		let stacks = wearsTreasure(self, 3) ? UT$41.sculpture.stacks : 0;
 		let fury = 0;
 		let wasAuto = false;
 		/** Each skill was used in Fury (as it began: it lands reinforced). */
@@ -27433,7 +27785,7 @@ var EZEKIEL = {
 					bleed(move === "instinct" ? INSTINCT.cost : move === "despair" ? DESPAIR.cost : DOOM$1.cost);
 					return;
 				}
-				stacks += 1 + (move === "doom" && treasureTier(self, 2) > 0 ? UT$41.binds.stacks : 0);
+				stacks += 1 + (move === "doom" && wearsTreasure(self, 2) ? UT$41.binds.stacks : 0);
 				if (stacks >= CURSED.most) rage();
 			},
 			tick(dt) {
@@ -27518,6 +27870,7 @@ var PERKS$40 = {
 */
 var UT$40 = {
 	faith: { more: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -27526,6 +27879,7 @@ var UT$40 = {
 	] },
 	egg: {
 		longer: [
+			3,
 			4,
 			5,
 			6,
@@ -27535,6 +27889,7 @@ var UT$40 = {
 		atk: .3
 	},
 	dream: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -27544,6 +27899,7 @@ var UT$40 = {
 	allure: {
 		mana: .5,
 		atk: [
+			.08,
 			.1,
 			.12,
 			.14,
@@ -27787,7 +28143,7 @@ var FALLEN_FREY = {
 					} } : {};
 					fight.cue(self, "blessing", allies);
 					const lasts = BLESSING$2.lasts + fromTreasure(self, 1, UT$40.egg.longer);
-					const egg = treasureTier(self, 1) > 0 ? { deals: 1 + UT$40.egg.atk } : {};
+					const egg = wearsTreasure(self, 1) ? { deals: 1 + UT$40.egg.atk } : {};
 					for (const ally of allies) {
 						fight.shield(ally, BLESSING$2.shield, lasts, self);
 						put(ally.statuses, {
@@ -27814,7 +28170,7 @@ var FALLEN_FREY = {
 				}
 			},
 			tick(dt) {
-				self.mana = Math.min(MAX_MANA, self.mana + TAINTED.mana * (treasureTier(self, 3) > 0 ? 1 + UT$40.allure.mana : 1) * dt);
+				self.mana = Math.min(MAX_MANA, self.mana + TAINTED.mana * (wearsTreasure(self, 3) ? 1 + UT$40.allure.mana : 1) * dt);
 				if (kasel) {
 					const there = self.hp > 0 && fight.field.includes(self);
 					const on = kasel.statuses.some((status) => status.name === ALLURED);
@@ -27885,6 +28241,7 @@ var PERKS$39 = {
 var UT$39 = {
 	pillow: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -27895,6 +28252,7 @@ var UT$39 = {
 	},
 	treats: {
 		accuracy: [
+			300,
 			360,
 			430,
 			520,
@@ -27906,6 +28264,7 @@ var UT$39 = {
 	cage: {
 		longer: 8,
 		takes: [
+			.01,
 			.014,
 			.018,
 			.022,
@@ -27916,6 +28275,7 @@ var UT$39 = {
 	fruit: {
 		sleepier: 1.2,
 		critDamage: [
+			.04,
 			.048,
 			.058,
 			.07,
@@ -28086,7 +28446,7 @@ var GREMORY = {
 						fight.hit(self, boss, false, 0, true);
 					} else fight.hit(self, bite + boss);
 					const softer = self.perks.has("s1-dark");
-					const pillow = treasureTier(self, 0) > 0;
+					const pillow = wearsTreasure(self, 0);
 					mark(fight.foe.statuses, POCHI_MARK, POCHI.most, POCHI.lasts, (count) => ({
 						deals: 1 - POCHI.weaker * count,
 						...softer && { defends: { magical: 1 - PERKS$39.softer * count } },
@@ -28098,7 +28458,7 @@ var GREMORY = {
 					fight.stun(PUCHI.stun, { by: self });
 				},
 				pippi() {
-					const caged = treasureTier(self, 2) > 0;
+					const caged = wearsTreasure(self, 2);
 					const takes = PIPPI.takes + fromTreasure(self, 2, UT$39.cage.takes);
 					const count = mark(fight.foe.statuses, PIPPI_MARK, PIPPI.most, PIPPI.lasts + (caged ? UT$39.cage.longer : 0), (stacks) => ({ takes: { magical: 1 + takes * stacks } }));
 					fight.hit(self, PIPPI.blow);
@@ -28117,7 +28477,7 @@ var GREMORY = {
 				}
 				sealed.fill(false);
 				charges = Math.min(CHARGE.most, charges + 1);
-				const fruit = treasureTier(self, 3) > 0;
+				const fruit = wearsTreasure(self, 3);
 				const sleepier = (self.perks.has("s4-light") ? PERKS$39.sleepier : 1) * (fruit ? UT$39.fruit.sleepier : 1);
 				put(self.statuses, {
 					name: SLEEPING.name,
@@ -28202,6 +28562,7 @@ var PERKS$38 = {
 var UT$38 = {
 	lotus: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -28212,6 +28573,7 @@ var UT$38 = {
 	},
 	hobby: {
 		speed: [
+			100,
 			120,
 			140,
 			170,
@@ -28223,6 +28585,7 @@ var UT$38 = {
 	escape: {
 		cooldown: .3,
 		chance: [
+			.4,
 			.48,
 			.58,
 			.7,
@@ -28234,6 +28597,7 @@ var UT$38 = {
 	peace: {
 		crit: 250,
 		control: [
+			.3,
 			.32,
 			.34,
 			.37,
@@ -28512,6 +28876,7 @@ var UT$37 = {
 	scale: {
 		heals: .5,
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -28521,6 +28886,7 @@ var UT$37 = {
 		lasts: 10
 	},
 	crystal: { cooldown: [
+		.12,
 		.14,
 		.17,
 		.21,
@@ -28528,6 +28894,7 @@ var UT$37 = {
 		.3
 	] },
 	papyrus: { mana: [
+		500,
 		600,
 		720,
 		860,
@@ -28537,6 +28904,7 @@ var UT$37 = {
 	tear: {
 		defense: .5,
 		mana: [
+			40,
 			48,
 			58,
 			70,
@@ -28693,7 +29061,7 @@ var LAIAS = {
 		const tier = self.unique?.tier ?? null;
 		/** Her perks: how often the whirlpools come; her passive's M.DEF and M.Crit Resistance for every ally; and toward Transcend 5's Dark's next mana. */
 		const whirlEvery = self.perks.has("s3-light") ? PERKS$37.whirl : FESTIVAL.every;
-		const defense = 1 + (WATER_DRAGON.defense - 1) * (self.perks.has("s4-light") ? PERKS$37.defense : 1) * (treasureTier(self, 3) > 0 ? 1 + UT$37.tear.defense : 1);
+		const defense = 1 + (WATER_DRAGON.defense - 1) * (self.perks.has("s4-light") ? PERKS$37.defense : 1) * (wearsTreasure(self, 3) ? 1 + UT$37.tear.defense : 1);
 		const tear = fromTreasure(self, 3, UT$37.tear.mana);
 		const critResist = WATER_DRAGON.critResist + (self.perks.has("s4-light") ? PERKS$37.critResistMore : 0);
 		let filling = 0;
@@ -28733,7 +29101,7 @@ var LAIAS = {
 					if (!ally) return;
 					fight.cue(self, "bubble", [ally]);
 					if (bubbled && bubbled !== ally) lift(BUBBLE_HOLDS.name, [bubbled]);
-					if (treasureTier(self, 1) > 0) ally.statuses = ally.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
+					if (wearsTreasure(self, 1)) ally.statuses = ally.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
 					fight.shield(ally, BUBBLE.shield, BUBBLE.lasts, self);
 					put(ally.statuses, {
 						name: BUBBLED.name,
@@ -28908,6 +29276,7 @@ var UT$36 = {
 	book: {
 		dmg: .5,
 		cooldown: [
+			1.2,
 			1.4,
 			1.7,
 			2.1,
@@ -28918,6 +29287,7 @@ var UT$36 = {
 	belladonna: {
 		cost: -1,
 		drain: [
+			200,
 			240,
 			290,
 			350,
@@ -28925,6 +29295,7 @@ var UT$36 = {
 			500
 		],
 		mana: [
+			100,
 			120,
 			140,
 			170,
@@ -28934,6 +29305,7 @@ var UT$36 = {
 	},
 	root: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -28944,6 +29316,7 @@ var UT$36 = {
 		poison: 5
 	},
 	terrarium: { takes: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -29114,7 +29487,7 @@ var LORRAINE = {
 					vine = VINE.after;
 				},
 				wrath() {
-					if (fight.hit(self, WRATH.blow * (1 + WRATH.more * poisons())) && treasureTier(self, 2) > 0 && poisons() >= UT$36.root.poison) self.abilities.forEach((ability, i) => {
+					if (fight.hit(self, WRATH.blow * (1 + WRATH.more * poisons())) && wearsTreasure(self, 2) && poisons() >= UT$36.root.poison) self.abilities.forEach((ability, i) => {
 						self.cooldowns[i] = Math.max(0, self.cooldowns[i] - ability.cooldown * UT$36.root.cooldown);
 					});
 					fight.stun(WRATH.down, {
@@ -29239,6 +29612,7 @@ var PERKS$35 = {
 */
 var UT$35 = {
 	eye: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -29247,6 +29621,7 @@ var UT$35 = {
 	] },
 	gloves: {
 		less: [
+			100,
 			120,
 			140,
 			170,
@@ -29257,6 +29632,7 @@ var UT$35 = {
 	},
 	stone: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -29269,6 +29645,7 @@ var UT$35 = {
 	jewel: {
 		flames: 3,
 		speed: [
+			140,
 			170,
 			210,
 			250,
@@ -29506,10 +29883,10 @@ var MORRAH = {
 			blocked() {
 				fight.cue(self, "smash");
 				fight.hit(self, SMASH$1.blow);
-				const jewel = treasureTier(self, 3) > 0;
+				const jewel = wearsTreasure(self, 3);
 				burn(SMASH$1.flames + (jewel ? UT$35.jewel.flames : 0));
 				if (jewel) fight.slow(fromTreasure(self, 3, UT$35.jewel.speed), UT$35.jewel.lasts);
-				if (hellfire > 0 && treasureTier(self, 1) > 0 && fight.foe.def.stats.deals === "magical") {
+				if (hellfire > 0 && wearsTreasure(self, 1) && fight.foe.def.stats.deals === "magical") {
 					const less = fromTreasure(self, 1, UT$35.gloves.less);
 					put(self.statuses, {
 						name: "Hatchling Leather Gloves",
@@ -29625,6 +30002,7 @@ var UT$34 = {
 	whetstone: {
 		dmg: .5,
 		mana: [
+			200,
 			240,
 			290,
 			350,
@@ -29632,6 +30010,7 @@ var UT$34 = {
 			500
 		],
 		seconds: [
+			.8,
 			1,
 			1.2,
 			1.4,
@@ -29642,6 +30021,7 @@ var UT$34 = {
 	abyss: {
 		dmg: .5,
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -29653,6 +30033,7 @@ var UT$34 = {
 	candle: {
 		dmg: .7,
 		times: [
+			5,
 			7,
 			9,
 			11,
@@ -29661,6 +30042,7 @@ var UT$34 = {
 		]
 	},
 	trigrams: { dmg: [
+		.006,
 		.007,
 		.008,
 		.01,
@@ -29884,7 +30266,7 @@ var SERIA = {
 			});
 			return true;
 		};
-		const whetstone = treasureTier(self, 0) > 0 ? 1 + UT$34.whetstone.dmg : 1;
+		const whetstone = wearsTreasure(self, 0) ? 1 + UT$34.whetstone.dmg : 1;
 		let candle = fromTreasure(self, 2, UT$34.candle.times);
 		const trigrams = fromTreasure(self, 3, UT$34.trigrams.dmg);
 		return {
@@ -30019,6 +30401,7 @@ var PERKS$33 = {
 var UT$33 = {
 	device: {
 		dmg: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -30028,6 +30411,7 @@ var UT$33 = {
 		cooldown: .5
 	},
 	tea: { block: [
+		200,
 		240,
 		280,
 		340,
@@ -30036,6 +30420,7 @@ var UT$33 = {
 	] },
 	sincerity: {
 		cooldown: [
+			2,
 			3,
 			4,
 			5,
@@ -30045,6 +30430,7 @@ var UT$33 = {
 		most: 10
 	},
 	failure: { heals: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -30192,7 +30578,7 @@ var VALANCE = {
 		};
 		/** One more stack of Manipulated on the boss (up to seven), begun again. */
 		const manipulate = () => {
-			const stacks = Math.min(treasureTier(self, 2) > 0 ? UT$33.sincerity.most : CANNON$2.most, (fight.foe.statuses.find((status) => status.name === MANIPULATED)?.count ?? 0) + 1);
+			const stacks = Math.min(wearsTreasure(self, 2) ? UT$33.sincerity.most : CANNON$2.most, (fight.foe.statuses.find((status) => status.name === MANIPULATED)?.count ?? 0) + 1);
 			put(fight.foe.statuses, {
 				name: MANIPULATED,
 				left: CANNON$2.lasts,
@@ -30274,7 +30660,7 @@ var VALANCE = {
 					if (healing) holoHeal -= 1;
 					for (const on of holos) {
 						on.statuses = on.statuses.filter((status) => !harmful(status));
-						on.cooldowns = on.cooldowns.map((left) => Math.max(0, left - HOLOGRAM.cooldown * (treasureTier(self, 0) > 0 ? 1 + UT$33.device.cooldown : 1) * dt));
+						on.cooldowns = on.cooldowns.map((left) => Math.max(0, left - HOLOGRAM.cooldown * (wearsTreasure(self, 0) ? 1 + UT$33.device.cooldown : 1) * dt));
 						if (healing) fight.heal(on, HOLOGRAM.heal, self);
 					}
 				}
@@ -30407,6 +30793,7 @@ var UT$32 = {
 	emblem: {
 		cooldown: -3,
 		takes: [
+			.12,
 			.14,
 			.17,
 			.21,
@@ -30416,6 +30803,7 @@ var UT$32 = {
 	},
 	strap: {
 		wave: [
+			300,
 			360,
 			430,
 			520,
@@ -30423,6 +30811,7 @@ var UT$32 = {
 			750
 		],
 		surge: [
+			300,
 			480,
 			580,
 			700,
@@ -30432,6 +30821,7 @@ var UT$32 = {
 		lasts: 2
 	},
 	horns: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -30439,6 +30829,7 @@ var UT$32 = {
 		.5
 	] },
 	earrings: { shield: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -30665,7 +31056,7 @@ var LUCIKIEL = {
 				armor();
 			},
 			blow() {
-				if (bears(PAIN_OF_DOOM)) fight.hit(self, PAIN.blow * (1 + fromTreasure(self, 2, UT$32.horns.dmg)), false, 0, treasureTier(self, 2) > 0);
+				if (bears(PAIN_OF_DOOM)) fight.hit(self, PAIN.blow * (1 + fromTreasure(self, 2, UT$32.horns.dmg)), false, 0, wearsTreasure(self, 2));
 				if (tier === null) return;
 				if (incarnation >= GIGANTE.most) fight.hit(self, atTier(GIGANTE.blow, tier), false, 0, true);
 				blows++;
@@ -30751,6 +31142,7 @@ var UT$31 = {
 	gloves: {
 		cost: -1,
 		cooldown: [
+			1,
 			1.2,
 			1.4,
 			1.7,
@@ -30760,6 +31152,7 @@ var UT$31 = {
 	},
 	seal: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -30771,6 +31164,7 @@ var UT$31 = {
 	},
 	silver: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -30783,6 +31177,7 @@ var UT$31 = {
 	circlet: {
 		speed: 100,
 		dmg: [
+			.02,
 			.024,
 			.029,
 			.035,
@@ -30964,7 +31359,7 @@ var SELENE = {
 			moonLeft = MOON.lasts;
 			moonlit();
 			if (notos > 0 && tier !== null) fight.hit(self, atTier(NOTOS.arrow, tier), false);
-			if (treasureTier(self, 1) > 0 && fight.roll() < UT$31.seal.chance) for (let i = 0; i < UT$31.seal.arrows; i++) shoot(RUSH.blow * (1 + fromTreasure(self, 1, UT$31.seal.dmg)));
+			if (wearsTreasure(self, 1) && fight.roll() < UT$31.seal.chance) for (let i = 0; i < UT$31.seal.arrows; i++) shoot(RUSH.blow * (1 + fromTreasure(self, 1, UT$31.seal.dmg)));
 		};
 		return {
 			lands: {
@@ -31051,6 +31446,7 @@ var UT$30 = {
 	bullet: {
 		cooldown: -3,
 		mana: [
+			20,
 			24,
 			29,
 			35,
@@ -31061,6 +31457,7 @@ var UT$30 = {
 	barrage: {
 		cost: -1,
 		chance: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -31070,6 +31467,7 @@ var UT$30 = {
 		freeze: 3
 	},
 	pendant: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -31077,6 +31475,7 @@ var UT$30 = {
 		.5
 	] },
 	box: { atk: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -31335,6 +31734,7 @@ var PERKS$29 = {
 */
 var UT$29 = {
 	orbment: { mana: [
+		400,
 		480,
 		580,
 		700,
@@ -31344,6 +31744,7 @@ var UT$29 = {
 	collection: {
 		chance: .25,
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -31352,6 +31753,7 @@ var UT$29 = {
 		]
 	},
 	threads: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -31361,6 +31763,7 @@ var UT$29 = {
 	clockwork: {
 		dmg: .5,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -31508,7 +31911,7 @@ var ODDY = {
 					if (self.perks.has("s2-dark")) self.cooldowns[1] = Math.max(0, self.cooldowns[1] - PERKS$29.fragments);
 					if (clock <= 0) return;
 					clock--;
-					const clockwork = treasureTier(self, 3) > 0;
+					const clockwork = wearsTreasure(self, 3);
 					fight.hit(self, CLOCK.blow * (clockwork ? 1 + UT$29.clockwork.dmg : 1), false);
 					if (clockwork) put(fight.foe.statuses, {
 						name: "Time Manipulating Clockwork",
@@ -31556,7 +31959,7 @@ var ODDY = {
 				if (index !== 1) return;
 				free = fight.roll() < FRAGMENTS.chance;
 				if (free) self.cooldowns[1] = 0;
-				else if (treasureTier(self, 1) > 0 && fight.roll() < UT$29.collection.chance) self.cooldowns[1] = 0;
+				else if (wearsTreasure(self, 1) && fight.roll() < UT$29.collection.chance) self.cooldowns[1] = 0;
 			},
 			tick(dt) {
 				clockWait = Math.max(0, clockWait - dt);
@@ -31630,6 +32033,7 @@ var UT$28 = {
 	decoration: {
 		resist: 250,
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -31641,6 +32045,7 @@ var UT$28 = {
 	helmet: {
 		cost: -1,
 		critResist: [
+			200,
 			240,
 			290,
 			350,
@@ -31653,6 +32058,7 @@ var UT$28 = {
 		speed: 250,
 		crit: 250,
 		defense: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -31663,6 +32069,7 @@ var UT$28 = {
 	titan: {
 		weaker: .2,
 		heals: [
+			.04,
 			.048,
 			.058,
 			.07,
@@ -31809,7 +32216,7 @@ var PHILLOP = {
 		/** What Destroy Armor's stacks leave of the boss's P.DEF. */
 		const armored = () => {
 			const physical = fight.foe.def.stats.physical;
-			const titan = treasureTier(self, 3) > 0 ? {
+			const titan = wearsTreasure(self, 3) ? {
 				deals: 1 - UT$28.titan.weaker,
 				heals: Math.max(0, 1 - fromTreasure(self, 3, UT$28.titan.heals) * broken)
 			} : {};
@@ -31876,7 +32283,7 @@ var PHILLOP = {
 				incarnate() {
 					incarnate = INCARNATE.lasts;
 					quake = 0;
-					const hammer = treasureTier(self, 2) > 0;
+					const hammer = wearsTreasure(self, 2);
 					const defense = INCARNATE.defense * (1 + fromTreasure(self, 2, UT$28.hammer.defense));
 					put(self.statuses, {
 						name: INCARNATION.name,
@@ -31979,6 +32386,7 @@ var UT$27 = {
 	gust: {
 		dmg: .5,
 		mana: [
+			200,
 			240,
 			290,
 			350,
@@ -31987,6 +32395,7 @@ var UT$27 = {
 		]
 	},
 	scarf: { heal: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -31996,6 +32405,7 @@ var UT$27 = {
 	pride: {
 		cost: -1,
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -32006,6 +32416,7 @@ var UT$27 = {
 	ribbon: {
 		chance: .1,
 		guildWar: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -32190,7 +32601,7 @@ var NAILA = {
 			attacks++;
 			if (attacks < TORNADO$1.every) return;
 			attacks = 0;
-			if (fight.roll() >= (self.perks.has("s4-light") ? PERKS$27.chance : TORNADO$1.chance) + (treasureTier(self, 3) > 0 ? UT$27.ribbon.chance : 0)) return;
+			if (fight.roll() >= (self.perks.has("s4-light") ? PERKS$27.chance : TORNADO$1.chance) + (wearsTreasure(self, 3) ? UT$27.ribbon.chance : 0)) return;
 			fight.cue(self, "tornado");
 			strike(TORNADO$1.blow);
 			put(fight.foe.statuses, {
@@ -32301,6 +32712,7 @@ var PERKS$26 = {
 var UT$26 = {
 	talisman: {
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -32311,6 +32723,7 @@ var UT$26 = {
 	},
 	arrow: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -32322,6 +32735,7 @@ var UT$26 = {
 	steak: {
 		cost: -1,
 		dmg: [
+			.12,
 			.14,
 			.17,
 			.21,
@@ -32332,6 +32746,7 @@ var UT$26 = {
 	heart: {
 		taken: .1,
 		dmg: [
+			.06,
 			.072,
 			.086,
 			.104,
@@ -32596,6 +33011,7 @@ var UT$25 = {
 	cartridge: {
 		mana: 100,
 		defense: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -32605,6 +33021,7 @@ var UT$25 = {
 		lasts: 10
 	},
 	memories: { defense: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -32614,6 +33031,7 @@ var UT$25 = {
 	vortex: {
 		stun: 1,
 		cooldown: [
+			3,
 			4,
 			5,
 			6,
@@ -32625,6 +33043,7 @@ var UT$25 = {
 		every: 10,
 		mana: SECTION,
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -32821,7 +33240,7 @@ var NERAXIS = {
 				attack: () => attack(fight.basic),
 				lightning(part) {
 					blow(part === 0 ? CLAW.blow : CLAW.after);
-					if (treasureTier(self, 0) > 0) self.mana = Math.min(MAX_MANA, self.mana + UT$25.cartridge.mana);
+					if (wearsTreasure(self, 0)) self.mana = Math.min(MAX_MANA, self.mana + UT$25.cartridge.mana);
 					if (part === 0) return;
 					fight.stun((CLAW.stun + (self.perks.has("s1-light") ? PERKS$25.stun : 0)) * more(), { by: self });
 					fight.slow(CLAW.speed, CLAW.slowed);
@@ -32859,7 +33278,7 @@ var NERAXIS = {
 						shown: "curse"
 					});
 					blow(BREATH.blow);
-					fight.stun((BREATH.stun + (treasureTier(self, 2) > 0 ? UT$25.vortex.stun : 0)) * more(), { by: self });
+					fight.stun((BREATH.stun + (wearsTreasure(self, 2) ? UT$25.vortex.stun : 0)) * more(), { by: self });
 				}
 			},
 			tick(dt) {
@@ -32952,6 +33371,7 @@ var UT$24 = {
 	fang: {
 		cost: -1,
 		takes: [
+			.01,
 			.012,
 			.014,
 			.017,
@@ -32964,6 +33384,7 @@ var UT$24 = {
 	wine: {
 		dmg: .5,
 		cooldown: [
+			5,
 			6,
 			7,
 			8,
@@ -32972,6 +33393,7 @@ var UT$24 = {
 		]
 	},
 	lipstick: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -32979,6 +33401,7 @@ var UT$24 = {
 		.5
 	] },
 	piano: { more: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -33228,7 +33651,7 @@ var ERZE = {
 				}
 			},
 			untouched: () => soaked > 0,
-			guards: () => liberated > 0 && treasureTier(self, 2) > 0,
+			guards: () => liberated > 0 && wearsTreasure(self, 2),
 			spared() {
 				const index = 1;
 				if ((self.cooldowns[index] ?? 0) > 0) return false;
@@ -33308,6 +33731,7 @@ var UT$23 = {
 	techniques: {
 		block: 500,
 		resist: [
+			100,
 			120,
 			140,
 			170,
@@ -33319,6 +33743,7 @@ var UT$23 = {
 	doll: {
 		cost: -1,
 		mana: [
+			400,
 			480,
 			580,
 			700,
@@ -33329,6 +33754,7 @@ var UT$23 = {
 	sea: {
 		cooldown: .3,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -33339,6 +33765,7 @@ var UT$23 = {
 	},
 	shield: {
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -33597,7 +34024,7 @@ var LOMAN = {
 				if (parried <= 0) {
 					parried = GATEKEEPER.every;
 					endure();
-					if (treasureTier(self, 3) > 0) for (let i = 0; i < UT$23.shield.endurance; i++) endure();
+					if (wearsTreasure(self, 3)) for (let i = 0; i < UT$23.shield.endurance; i++) endure();
 				}
 				if (!self.perks.has("t5-dark") || warding > 0 || fight.foe.def.stats.deals !== "magical") return;
 				warding = PERKS$23.ward.every;
@@ -33689,6 +34116,7 @@ var UT$22 = {
 	helmet: {
 		weaker: .2,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -33700,6 +34128,7 @@ var UT$22 = {
 	horn: {
 		cost: -1,
 		critDamage: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -33708,6 +34137,7 @@ var UT$22 = {
 		]
 	},
 	mug: { dmg: [
+		.08,
 		.1,
 		.12,
 		.14,
@@ -33717,6 +34147,7 @@ var UT$22 = {
 	bracelet: {
 		most: 30,
 		pen: [
+			100,
 			120,
 			140,
 			170,
@@ -33859,7 +34290,7 @@ var GAU = {
 		let smashed = 0;
 		let mending = 0;
 		const tier = self.unique?.tier ?? null;
-		const most = treasureTier(self, 3) > 0 ? UT$22.bracelet.most : ENRAGE.most;
+		const most = wearsTreasure(self, 3) ? UT$22.bracelet.most : ENRAGE.most;
 		const bracelet = fromTreasure(self, 3, UT$22.bracelet.pen);
 		/** Enrage's stacks on him: his ATK (its Light: more) and DMG on the boss; its Dark, his crit chance too. */
 		const enraged = () => {
@@ -34014,6 +34445,7 @@ var UT$21 = {
 	codex: {
 		dmg: .5,
 		mana: [
+			400,
 			480,
 			580,
 			700,
@@ -34023,6 +34455,7 @@ var UT$21 = {
 	},
 	mask: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -34033,6 +34466,7 @@ var UT$21 = {
 	},
 	dagger: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -34044,6 +34478,7 @@ var UT$21 = {
 	},
 	needle: {
 		mana: [
+			100,
 			120,
 			140,
 			170,
@@ -34266,7 +34701,7 @@ var TANYA = {
 				}
 			},
 			used(index) {
-				if (index !== 2 || treasureTier(self, 2) <= 0) return;
+				if (index !== 2 || !wearsTreasure(self, 2)) return;
 				if (stealth > 0) put(self.statuses, {
 					name: "Dagger of Silence",
 					left: UT$21.dagger.lasts,
@@ -34365,6 +34800,7 @@ var UT$20 = {
 	cloak: {
 		cost: -1,
 		boss: [
+			.4,
 			.48,
 			.58,
 			.7,
@@ -34375,6 +34811,7 @@ var UT$20 = {
 	hatred: {
 		longer: 5,
 		atk: [
+			.12,
 			.14,
 			.17,
 			.21,
@@ -34384,6 +34821,7 @@ var UT$20 = {
 	},
 	mittens: {
 		cooldown: [
+			2,
 			2.4,
 			2.9,
 			3.5,
@@ -34394,6 +34832,7 @@ var UT$20 = {
 	},
 	protection: {
 		resist: [
+			300,
 			360,
 			430,
 			520,
@@ -34528,7 +34967,7 @@ var REBEL_KLAUS = {
 		};
 		/** [Indomitable Will] on him (its Light: his crit damage higher meanwhile). */
 		const will = () => {
-			const hatred = treasureTier(self, 1) > 0;
+			const hatred = wearsTreasure(self, 1);
 			willed = WILL.lasts + (hatred ? UT$20.hatred.longer : 0);
 			put(self.statuses, {
 				name: WILLED.name,
@@ -34572,7 +35011,7 @@ var REBEL_KLAUS = {
 				perish(part) {
 					const last = part === (self.motion.moves.perish.parts[0]?.lands.length ?? 1) - 1;
 					strike(last ? PERISH.last : PERISH.blow);
-					if (treasureTier(self, 2) > 0) fight.stun(UT$20.mittens.stun, { by: self });
+					if (wearsTreasure(self, 2)) fight.stun(UT$20.mittens.stun, { by: self });
 					if (last) fight.stun(PERISH.down, {
 						down: true,
 						by: self
@@ -34668,6 +35107,7 @@ var PERKS$19 = {
 */
 var UT$19 = {
 	authority: { dmg: [
+		.2,
 		.24,
 		.29,
 		.34,
@@ -34676,6 +35116,7 @@ var UT$19 = {
 	] },
 	lifeforce: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -34686,6 +35127,7 @@ var UT$19 = {
 	},
 	portrait: {
 		dmg: [
+			.12,
 			.14,
 			.17,
 			.21,
@@ -34696,6 +35138,7 @@ var UT$19 = {
 	},
 	tear: {
 		most: [
+			60,
 			64,
 			69,
 			75,
@@ -34863,7 +35306,7 @@ var DARK_LORD_KASEL = {
 					const harder = lord > 0 && self.perks.has("s3-dark") ? PERKS$19.attack : 1;
 					strike(fight.basic * harder);
 					if (lord > 0) strike(ADVENT.blowMore * harder);
-					const tear = treasureTier(self, 3) > 0 && fight.roll() < UT$19.tear.chance ? 1 : 0;
+					const tear = wearsTreasure(self, 3) && fight.roll() < UT$19.tear.chance ? 1 : 0;
 					energy = Math.min(most, energy + FALLEN.each + (self.perks.has("s4-dark") ? PERKS$19.more : 0) + tear);
 					shown();
 					if (self.perks.has("t5-dark")) {
@@ -34908,7 +35351,7 @@ var DARK_LORD_KASEL = {
 				energy = 0;
 				shown();
 				lord = ADVENT.lasts;
-				const portrait = treasureTier(self, 2) > 0;
+				const portrait = wearsTreasure(self, 2);
 				put(self.statuses, {
 					name: LORD.name,
 					left: ADVENT.lasts,
@@ -34987,6 +35430,7 @@ var PERKS$18 = {
 */
 var UT$18 = {
 	sable: { chance: [
+		.08,
 		.1,
 		.12,
 		.14,
@@ -34996,6 +35440,7 @@ var UT$18 = {
 	necklace: {
 		speed: 250,
 		chance: [
+			.08,
 			.096,
 			.115,
 			.138,
@@ -35006,6 +35451,7 @@ var UT$18 = {
 	essence: {
 		cooldown: .3,
 		blow: [
+			.4,
 			.48,
 			.58,
 			.7,
@@ -35015,6 +35461,7 @@ var UT$18 = {
 	},
 	doll: {
 		chance: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -35158,7 +35605,7 @@ var THEO = {
 		const tier = self.unique?.tier ?? null;
 		const starts = attackStarts("theo");
 		const godAtk = THUNDER.atk * THUNDER.books * (self.perks.has("s2-dark") ? PERKS$18.thunder.atk : 1) / self.stats.atk;
-		if (treasureTier(self, 3) > 0) put(self.statuses, {
+		if (wearsTreasure(self, 3)) put(self.statuses, {
 			name: DOLL.name,
 			left: UT$18.doll.lasts,
 			speed: UT$18.doll.speed,
@@ -35213,7 +35660,7 @@ var THEO = {
 			used(index) {
 				if (index !== 1) return;
 				god = THUNDER.lasts;
-				const necklace = treasureTier(self, 1) > 0 ? { speed: UT$18.necklace.speed } : {};
+				const necklace = wearsTreasure(self, 1) ? { speed: UT$18.necklace.speed } : {};
 				put(self.statuses, {
 					name: GOD.name,
 					left: THUNDER.lasts,
@@ -35313,6 +35760,7 @@ var UT$17 = {
 	weight: {
 		dmg: .5,
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -35323,6 +35771,7 @@ var UT$17 = {
 	},
 	tea: {
 		atk: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -35333,6 +35782,7 @@ var UT$17 = {
 	},
 	stone: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -35344,6 +35794,7 @@ var UT$17 = {
 	turbulence: {
 		atk: .5,
 		defense: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -35490,13 +35941,13 @@ var PRISCILLA = {
 		/** Her allies on the field, standing and in the fight (her too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		/** Her Weapon Mastery's ATK: a share of her own, as the fight begins (its Light, and Beginning of Turbulence: more). */
-		const mastery = MASTERY.atk * MASTERY.books * (self.perks.has("s4-light") ? PERKS$17.atk : 1) * (treasureTier(self, 3) > 0 ? 1 + UT$17.turbulence.atk : 1) / self.stats.atk;
+		const mastery = MASTERY.atk * MASTERY.books * (self.perks.has("s4-light") ? PERKS$17.atk : 1) * (wearsTreasure(self, 3) ? 1 + UT$17.turbulence.atk : 1) / self.stats.atk;
 		put(self.statuses, {
 			name: MASTERED.shown.name,
 			left: Infinity,
 			atk: mastery,
-			...treasureTier(self, 3) > 0 && { defends: 1 + fromTreasure(self, 3, UT$17.turbulence.defense) },
-			shown: treasureTier(self, 3) > 0 ? STEADY : MASTERED.shown
+			...wearsTreasure(self, 3) && { defends: 1 + fromTreasure(self, 3, UT$17.turbulence.defense) },
+			shown: wearsTreasure(self, 3) ? STEADY : MASTERED.shown
 		});
 		const assaulted = () => self.statuses.some((status) => status.name === ASSAULT.name);
 		/** Her unique weapon: a skill's blow off its cooldown, and a stack of attack speed. */
@@ -35553,7 +36004,7 @@ var PRISCILLA = {
 						});
 					}
 					const top = on.filter((ally) => ally !== self)[0];
-					if (top && treasureTier(self, 1) > 0) top.cooldowns = top.cooldowns.map((left) => left * (1 - UT$17.tea.cooldown));
+					if (top && wearsTreasure(self, 1)) top.cooldowns = top.cooldowns.map((left) => left * (1 - UT$17.tea.cooldown));
 				},
 				turbulent() {
 					const critical = fight.hit(self, DANCE.blow);
@@ -35563,7 +36014,7 @@ var PRISCILLA = {
 						takes: { physical: DANCE.takes },
 						shown: "curse"
 					});
-					if (treasureTier(self, 2) > 0) fight.stun(UT$17.stone.stun, { by: self });
+					if (wearsTreasure(self, 2)) fight.stun(UT$17.stone.stun, { by: self });
 					excilius(2);
 					if (critical && self.perks.has("s3-light")) self.cooldowns[2] = (self.cooldowns[2] ?? 0) * (1 - PERKS$17.sooner);
 				}
@@ -35643,6 +36094,7 @@ var UT$16 = {
 	badge: {
 		dmg: .5,
 		sooner: [
+			.01,
 			.012,
 			.014,
 			.017,
@@ -35653,6 +36105,7 @@ var UT$16 = {
 	dandelion: {
 		cooldown: 4.5,
 		heals: [
+			.2,
 			.24,
 			.28,
 			.34,
@@ -35664,6 +36117,7 @@ var UT$16 = {
 	ruby: {
 		more: .5,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -35675,6 +36129,7 @@ var UT$16 = {
 	glory: {
 		atk: .5,
 		critDamage: [
+			.3,
 			.36,
 			.42,
 			.5,
@@ -35682,6 +36137,7 @@ var UT$16 = {
 			.75
 		],
 		dmg: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -35857,8 +36313,8 @@ var GLENWYS = {
 		/** Her allies on the field, standing and in the fight (her too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		/** Pride's ATK for every ally (Golden Glory: more); Time For Counterattack's (its Dark, Ballas Ruby: more). */
-		const pride = PRIDE.atk * PRIDE.books * (treasureTier(self, 3) > 0 ? 1 + UT$16.glory.atk : 1);
-		const counterMore = COUNTER.books * (self.perks.has("s3-dark") ? PERKS$16.counter : 1) * (treasureTier(self, 2) > 0 ? 1 + UT$16.ruby.more : 1);
+		const pride = PRIDE.atk * PRIDE.books * (wearsTreasure(self, 3) ? 1 + UT$16.glory.atk : 1);
+		const counterMore = COUNTER.books * (self.perks.has("s3-dark") ? PERKS$16.counter : 1) * (wearsTreasure(self, 2) ? 1 + UT$16.ruby.more : 1);
 		return {
 			lands: {
 				finisher() {
@@ -35939,7 +36395,7 @@ var GLENWYS = {
 						takes: 1 - taken,
 						shown: RALLY
 					});
-					if (treasureTier(self, 3) > 0) {
+					if (wearsTreasure(self, 3)) {
 						const top = allies().filter((ally) => ally !== self).sort((a, b) => b.stats.atk - a.stats.atk)[0];
 						for (const one of top ? [self, top] : [self]) put(one.statuses, {
 							name: GLORY.name,
@@ -36036,6 +36492,7 @@ var PERKS$15 = {
 */
 var UT$15 = {
 	sin: { mana: [
+		200,
 		240,
 		290,
 		350,
@@ -36044,6 +36501,7 @@ var UT$15 = {
 	] },
 	handkerchief: {
 		blow: [
+			.4,
 			.48,
 			.58,
 			.7,
@@ -36053,6 +36511,7 @@ var UT$15 = {
 		recovery: .3
 	},
 	pauldron: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -36062,6 +36521,7 @@ var UT$15 = {
 	sensor: {
 		longer: 1,
 		immune: [
+			20,
 			1.5,
 			2,
 			2.5,
@@ -36276,7 +36736,7 @@ var CHASE = {
 				if (rising > 0) return true;
 				if (risen) return false;
 				risen = true;
-				rising = HELL.rise + (treasureTier(self, 3) > 0 ? UT$15.sensor.longer : 0);
+				rising = HELL.rise + (wearsTreasure(self, 3) ? UT$15.sensor.longer : 0);
 				off();
 				rose = true;
 				if (self.perks.has("s4-dark")) fight.stun(PERKS$15.down, {
@@ -36333,7 +36793,7 @@ var CHASE = {
 							heals: 1 + dark,
 							takes: 1 - dark
 						},
-						...treasureTier(self, 1) > 0 && { heals: 1 + dark + UT$15.handkerchief.recovery },
+						...wearsTreasure(self, 1) && { heals: 1 + dark + UT$15.handkerchief.recovery },
 						shown: UNLEASHED
 					});
 					if (drain >= 1) {
@@ -36421,6 +36881,7 @@ var PERKS$14 = {
 */
 var UT$14 = {
 	dawn: { mana: [
+		200,
 		240,
 		290,
 		350,
@@ -36429,6 +36890,7 @@ var UT$14 = {
 	] },
 	bracelet: {
 		taken: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -36438,6 +36900,7 @@ var UT$14 = {
 		lasts: 10
 	},
 	trumpet: { more: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -36446,6 +36909,7 @@ var UT$14 = {
 	] },
 	will: {
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -36641,7 +37105,7 @@ var ASELICA = {
 				deals: 1 - CURSE.weaker,
 				shown: "curse"
 			});
-			if (treasureTier(self, 3) > 0) put(fight.foe.statuses, {
+			if (wearsTreasure(self, 3)) put(fight.foe.statuses, {
 				name: "Will of Light",
 				left: UT$14.will.lasts,
 				takes: { magical: 1 + fromTreasure(self, 3, UT$14.will.takes) },
@@ -36698,7 +37162,7 @@ var ASELICA = {
 							deals: 1 + BLESSING.boss,
 							shown: BLESSED$1
 						});
-						if (treasureTier(self, 1) > 0) put(ally.statuses, {
+						if (wearsTreasure(self, 1)) put(ally.statuses, {
 							name: WARDED.name,
 							left: UT$14.bracelet.lasts,
 							takes: { physical: 1 - fromTreasure(self, 1, UT$14.bracelet.taken) },
@@ -36823,6 +37287,7 @@ var UT$13 = {
 	cudgel: {
 		dmg: .5,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -36834,6 +37299,7 @@ var UT$13 = {
 	mask: {
 		cooldown: .3,
 		blind: [
+			1,
 			1.2,
 			1.4,
 			1.7,
@@ -36844,6 +37310,7 @@ var UT$13 = {
 	gunpowder: {
 		dmg: .5,
 		mana: [
+			200,
 			240,
 			290,
 			350,
@@ -36852,6 +37319,7 @@ var UT$13 = {
 		]
 	},
 	cannonball: { mana: [
+		400,
 		480,
 		580,
 		700,
@@ -36984,7 +37452,7 @@ var LAKRAK = {
 		let success = false;
 		let enhanced = false;
 		let bombs = [];
-		let first = treasureTier(self, 3) > 0;
+		let first = wearsTreasure(self, 3);
 		let gunpowder = 0;
 		/** A skill of his going (its [Experiment] comes as it ends). */
 		let skilling = false;
@@ -37134,6 +37602,7 @@ var PERKS$12 = {
 var UT$12 = {
 	coin: {
 		critTaken: [
+			200,
 			240,
 			290,
 			350,
@@ -37144,6 +37613,7 @@ var UT$12 = {
 	},
 	sextant: {
 		dmg: [
+			.04,
 			.048,
 			.058,
 			.07,
@@ -37156,6 +37626,7 @@ var UT$12 = {
 	cannonball: {
 		dmg: .5,
 		cooldown: [
+			.12,
 			.14,
 			.17,
 			.21,
@@ -37166,6 +37637,7 @@ var UT$12 = {
 	keg: {
 		dmg: .5,
 		speed: [
+			200,
 			240,
 			290,
 			350,
@@ -37315,7 +37787,7 @@ var MIRURU = {
 		let rollLeft = 0;
 		let uses = 0;
 		let darkness = 0;
-		const keg = treasureTier(self, 3) > 0;
+		const keg = wearsTreasure(self, 3);
 		/** A blow of hers (Transcend 5's Dark: a stack of [Darkness]; at 50, [Rampage]). */
 		const strike = (amount, counted = true) => {
 			const critical = fight.hit(self, amount, counted);
@@ -37403,7 +37875,7 @@ var MIRURU = {
 						shown: "curse"
 					});
 					if (self.perks.has("s2-dark")) self.cooldowns[1] = (self.cooldowns[1] ?? 0) * (1 - PERKS$12.sooner);
-					if (critical && treasureTier(self, 1) > 0) self.mana = Math.min(MAX_MANA, self.mana + UT$12.sextant.mana);
+					if (critical && wearsTreasure(self, 1)) self.mana = Math.min(MAX_MANA, self.mana + UT$12.sextant.mana);
 				},
 				pirates() {
 					const dark = self.perks.has("s3-dark");
@@ -37416,7 +37888,7 @@ var MIRURU = {
 				}
 			},
 			used(index) {
-				if (index !== 1 || treasureTier(self, 1) === 0) return;
+				if (index !== 1 || !wearsTreasure(self, 1)) return;
 				uses = Math.min(UT$12.sextant.most, uses + 1);
 				put(self.statuses, {
 					name: SEXTANT.name,
@@ -37491,6 +37963,7 @@ var PERKS$11 = {
 var UT$11 = {
 	endeavor: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -37501,6 +37974,7 @@ var UT$11 = {
 		lasts: 10
 	},
 	gemini: { mana: [
+		160,
 		190,
 		230,
 		270,
@@ -37510,6 +37984,7 @@ var UT$11 = {
 	powder: {
 		dmg: .5,
 		atk: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -37522,6 +37997,7 @@ var UT$11 = {
 		atk: .5,
 		every: 5,
 		stun: [
+			1,
 			1.2,
 			1.4,
 			1.7,
@@ -37661,7 +38137,7 @@ var MIRIANNE = {
 		let riventina = 0;
 		let miracle = 0;
 		/** Target Eliminated's ATK: a share of her own, as the fight begins (Birth of Miracle: more). */
-		const eliminated = ELIMINATED.atk * ELIMINATED.books * (treasureTier(self, 3) > 0 ? 1 + UT$11.miracle.atk : 1) / self.stats.atk;
+		const eliminated = ELIMINATED.atk * ELIMINATED.books * (wearsTreasure(self, 3) ? 1 + UT$11.miracle.atk : 1) / self.stats.atk;
 		if (tier !== null) put(self.statuses, {
 			name: RIVENTINA_UP.name,
 			left: Infinity,
@@ -37732,7 +38208,7 @@ var MIRIANNE = {
 					const critical = strike(ASSASSIN.blow);
 					strike(ASSASSIN.boss);
 					if (self.perks.has("s3-light")) fight.stun(PERKS$11.stun, { by: self });
-					if (critical && treasureTier(self, 2) > 0) put(self.statuses, {
+					if (critical && wearsTreasure(self, 2)) put(self.statuses, {
 						name: POWDER.name,
 						left: UT$11.powder.lasts,
 						atk: fromTreasure(self, 2, UT$11.powder.atk),
@@ -37751,7 +38227,7 @@ var MIRIANNE = {
 						...self.perks.has("s4-dark") && { takes: 1 - PERKS$11.taken },
 						shown: HUNTING
 					});
-					if (treasureTier(self, 3) > 0) {
+					if (wearsTreasure(self, 3)) {
 						miracle += dt;
 						if (miracle >= UT$11.miracle.every) {
 							miracle -= UT$11.miracle.every;
@@ -37828,6 +38304,7 @@ var PERKS$10 = {
 var UT$10 = {
 	lens: {
 		dmg: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -37840,6 +38317,7 @@ var UT$10 = {
 	recorder: {
 		dmg: .5,
 		slow: [
+			100,
 			120,
 			140,
 			170,
@@ -37848,6 +38326,7 @@ var UT$10 = {
 		],
 		lasts: 10,
 		sooner: [
+			.02,
 			.024,
 			.029,
 			.035,
@@ -37860,6 +38339,7 @@ var UT$10 = {
 		dmg: .5,
 		defense: .01,
 		most: [
+			20,
 			24,
 			29,
 			35,
@@ -37870,6 +38350,7 @@ var UT$10 = {
 	drawing: {
 		more: .5,
 		critDamage: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -38038,8 +38519,8 @@ var KARA = {
 			cost: one.cost + (self.perks.has("s1-light") ? 1 : 0) - (self.perks.has("s1-dark") ? 1 : 0)
 		} : one);
 		const most = self.perks.has("s2-dark") ? PERKS$10.most : FOCUSED.most;
-		const drawing = treasureTier(self, 3) > 0 ? 1 + UT$10.drawing.more : 1;
-		const powered = treasureTier(self, 2) > 0 ? 1 + UT$10.power.dmg : 1;
+		const drawing = wearsTreasure(self, 3) ? 1 + UT$10.drawing.more : 1;
+		const powered = wearsTreasure(self, 2) ? 1 + UT$10.power.dmg : 1;
 		/** Her mode's own, on her for good: its DEF, or its more to the boss and taken (and her perks' with each). */
 		const mode = () => {
 			self.statuses = self.statuses.filter((status) => status.name !== ANTI.name && status.name !== SIEGED.name);
@@ -38092,7 +38573,7 @@ var KARA = {
 					for (let i = 0; i < 2; i++) {
 						if (!strike(SIEGE.blow * powered * (self.perks.has("s3-light") ? 2 : 1))) continue;
 						if (self.perks.has("s3-dark")) self.cooldowns = self.cooldowns.map((left, j) => Math.max(0, left - (self.abilities[j]?.cooldown ?? 0) * PERKS$10.sooner));
-						if (treasureTier(self, 2) > 0 && lowered < fromTreasure(self, 2, UT$10.power.most)) {
+						if (wearsTreasure(self, 2) && lowered < fromTreasure(self, 2, UT$10.power.most)) {
 							lowered++;
 							put(fight.foe.statuses, {
 								name: "Ancient Power Source",
@@ -38137,7 +38618,7 @@ var KARA = {
 							count: focused,
 							shown: "curse"
 						});
-						if (critical && treasureTier(self, 1) > 0) {
+						if (critical && wearsTreasure(self, 1)) {
 							self.cooldowns[1] = (self.cooldowns[1] ?? 0) * (1 - fromTreasure(self, 1, UT$10.recorder.sooner));
 							self.mana = Math.min(MAX_MANA, self.mana + UT$10.recorder.mana);
 						}
@@ -38233,6 +38714,7 @@ var PERKS$9 = {
 var UT$9 = {
 	arrow: {
 		dmg: [
+			.02,
 			.024,
 			.029,
 			.035,
@@ -38243,6 +38725,7 @@ var UT$9 = {
 		chance: .3
 	},
 	mirage: { mana: [
+		80,
 		100,
 		120,
 		140,
@@ -38252,6 +38735,7 @@ var UT$9 = {
 	oasis: {
 		cooldown: .3,
 		chance: [
+			.08,
 			.096,
 			.115,
 			.138,
@@ -38262,6 +38746,7 @@ var UT$9 = {
 	cat: {
 		stun: 2,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -38430,7 +38915,7 @@ var ZAFIR = {
 					if (!starts.has(part) || fight.roll() >= (self.perks.has("s4-dark") ? PERKS$9.chance : CALLING.chance)) return;
 					const critical = fight.hit(self, CALLING.blow);
 					mark(fight.foe, 1);
-					if (critical && treasureTier(self, 3) > 0) {
+					if (critical && wearsTreasure(self, 3)) {
 						fight.stun(UT$9.cat.stun, { by: self });
 						put(fight.foe.statuses, {
 							name: "Black Cat, Hoabis",
@@ -38452,7 +38937,7 @@ var ZAFIR = {
 						critDamage: PERKS$9.critDamage,
 						shown: JUDGED
 					});
-					if (treasureTier(self, 0) > 0 && fight.roll() < UT$9.arrow.chance) mark(fight.foe, 1);
+					if (wearsTreasure(self, 0) && fight.roll() < UT$9.arrow.chance) mark(fight.foe, 1);
 				},
 				spirit() {
 					const few = allies().length <= PERKS$9.allies && self.perks.has("s2-light");
@@ -38468,7 +38953,7 @@ var ZAFIR = {
 				}
 			},
 			used(index) {
-				if (index === 0 && treasureTier(self, 0) > 0) {
+				if (index === 0 && wearsTreasure(self, 0)) {
 					arrows = Math.min(UT$9.arrow.most, arrows + 1);
 					put(self.statuses, {
 						name: ARROW.name,
@@ -38606,6 +39091,7 @@ var PERKS$8 = {
 */
 var UT$8 = {
 	painting: { dmg: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -38613,6 +39099,7 @@ var UT$8 = {
 		.5
 	] },
 	tank: { immune: [
+		4,
 		4.8,
 		5.8,
 		7,
@@ -38622,6 +39109,7 @@ var UT$8 = {
 	cottage: {
 		dmg: .5,
 		critDamage: [
+			.02,
 			.024,
 			.029,
 			.035,
@@ -38634,6 +39122,7 @@ var UT$8 = {
 	letter: {
 		critDamage: .5,
 		sooner: [
+			3,
 			3.6,
 			4.3,
 			5.2,
@@ -38896,7 +39385,7 @@ var PANSIRONE = {
 					strike(DARE.blow * (1 + DARE.more * dared));
 					dared++;
 					if (part === 0 && self.perks.has("s3-light")) fight.stun(PERKS$8.stun, { by: self });
-					if (treasureTier(self, 2) > 0) {
+					if (wearsTreasure(self, 2)) {
 						cottage = Math.min(UT$8.cottage.most, cottage + 1);
 						put(self.statuses, {
 							name: COTTAGE.name,
@@ -39029,6 +39518,7 @@ var PERKS$7 = {
 */
 var UT$7 = {
 	certificate: { heals: [
+		.1,
 		.12,
 		.14,
 		.17,
@@ -39036,6 +39526,7 @@ var UT$7 = {
 		.25
 	] },
 	card: { dmg: [
+		.2,
 		.24,
 		.28,
 		.35,
@@ -39045,6 +39536,7 @@ var UT$7 = {
 	bracelet: {
 		slow: 300,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -39057,6 +39549,7 @@ var UT$7 = {
 		reactions: 5,
 		storms: 1,
 		critDamage: [
+			.2,
 			.24,
 			.28,
 			.35,
@@ -39188,7 +39681,7 @@ var ISOLET = {
 		let unhealed = 0;
 		let terravion = 0;
 		let terraNext = 0;
-		const compass = treasureTier(self, 3) > 0;
+		const compass = wearsTreasure(self, 3);
 		const mostReactions = ESSENCE.reactions + (compass ? UT$7.compass.reactions : 0);
 		const mostStorms = ESSENCE.storms + (compass ? UT$7.compass.storms : 0);
 		/** Whether the enemy in question is in [Ignite]. */
@@ -39247,7 +39740,7 @@ var ISOLET = {
 					storm = ICARUS.lasts;
 					stormTick = 0;
 					blazing = 0;
-					if (treasureTier(self, 2) > 0) fight.slow(UT$7.bracelet.slow, ICARUS.lasts);
+					if (wearsTreasure(self, 2)) fight.slow(UT$7.bracelet.slow, ICARUS.lasts);
 				}
 			},
 			used() {
@@ -39282,7 +39775,7 @@ var ISOLET = {
 								heals: 1 - each * unhealed,
 								shown: "burn"
 							});
-							if (treasureTier(self, 2) > 0) put(fight.foe.statuses, {
+							if (wearsTreasure(self, 2)) put(fight.foe.statuses, {
 								name: "Bracelet of Wishes",
 								left: UT$7.bracelet.lasts,
 								takes: { physical: 1 + fromTreasure(self, 2, UT$7.bracelet.takes) },
@@ -39390,6 +39883,7 @@ var UT$6 = {
 	whisper: {
 		cooldown: 2.5,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -39398,6 +39892,7 @@ var UT$6 = {
 		]
 	},
 	heart: { critDamage: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -39408,6 +39903,7 @@ var UT$6 = {
 		chance: .07,
 		blow: 1e3,
 		critDamage: [
+			.02,
 			.024,
 			.029,
 			.035,
@@ -39420,6 +39916,7 @@ var UT$6 = {
 		every: 10,
 		critDamage: .8,
 		mana: [
+			.3,
 			.36,
 			.43,
 			.52,
@@ -39569,7 +40066,7 @@ var LILIA = {
 		/** A blow of hers: Bottomless Kettle, now and then a great drop more, and crit DMG. */
 		const strike = (amount) => {
 			const critical = fight.hit(self, amount);
-			if (treasureTier(self, 2) > 0 && fight.roll() < UT$6.kettle.chance) {
+			if (wearsTreasure(self, 2) && fight.roll() < UT$6.kettle.chance) {
 				fight.hit(self, UT$6.kettle.blow, false);
 				put(self.statuses, {
 					name: KETTLE.name,
@@ -39660,7 +40157,7 @@ var LILIA = {
 					count: Math.floor(self.mana / SECTION),
 					shown: SURGING
 				});
-				if (treasureTier(self, 3) > 0) {
+				if (wearsTreasure(self, 3)) {
 					key += dt;
 					if (key >= UT$6.key.every) {
 						key -= UT$6.key.every;
@@ -39680,7 +40177,7 @@ var LILIA = {
 						tempestTick -= TEMPEST.every;
 						strike(TEMPEST.blow * (1 + PERKS$6.tempest * tempests));
 						if (self.perks.has("s1-light")) fight.slow(PERKS$6.slow, PERKS$6.slowLasts);
-						if (treasureTier(self, 0) > 0) put(fight.foe.statuses, {
+						if (wearsTreasure(self, 0)) put(fight.foe.statuses, {
 							name: "Whisper of Sea",
 							left: TEMPEST.every * 2,
 							takes: { physical: 1 + fromTreasure(self, 0, UT$6.whisper.takes) },
@@ -39743,6 +40240,7 @@ var PERKS$5 = {
 */
 var UT$5 = {
 	book: { cooldown: [
+		.12,
 		.14,
 		.17,
 		.21,
@@ -39751,6 +40249,7 @@ var UT$5 = {
 	] },
 	dice: {},
 	star: { cooldown: [
+		.12,
 		.14,
 		.17,
 		.21,
@@ -39760,6 +40259,7 @@ var UT$5 = {
 	sword: {
 		defense: .5,
 		atk: [
+			.08,
 			.1,
 			.12,
 			.14,
@@ -39912,7 +40412,7 @@ var LUCIAS = {
 		let into = 0;
 		/** His allies on the field, standing and in the fight (him too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
-		const sword = treasureTier(self, 3) > 0;
+		const sword = wearsTreasure(self, 3);
 		/** A heal of Path's or Zone's: and Holy Sacrifice's (its Light: more; Sword of Sacrifice: more DEF, and ATK a while). */
 		const bless = (ally, amount) => {
 			fight.heal(ally, amount, self);
@@ -40089,6 +40589,7 @@ var UT$4 = {
 	document: {},
 	generator: {
 		critResist: [
+			100,
 			120,
 			140,
 			170,
@@ -40099,6 +40600,7 @@ var UT$4 = {
 	},
 	medley: {
 		sooner: [
+			1,
 			1.2,
 			1.4,
 			1.7,
@@ -40110,6 +40612,7 @@ var UT$4 = {
 	dragon: {
 		most: 6,
 		boss: [
+			.03,
 			.036,
 			.043,
 			.052,
@@ -40251,7 +40754,7 @@ var REHARTNA = {
 		let wave = 0;
 		let road = 0;
 		const cheered = /* @__PURE__ */ new Map();
-		const most = treasureTier(self, 3) > 0 ? UT$4.dragon.most : MARCH.most;
+		const most = wearsTreasure(self, 3) ? UT$4.dragon.most : MARCH.most;
 		/** Her allies on the field, standing and in the fight (her too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		/** `count` of her allies, at random. */
@@ -40301,7 +40804,7 @@ var REHARTNA = {
 							atk: atk / ally.stats.atk,
 							shown: ARMED
 						});
-						if (treasureTier(self, 2) > 0) put(ally.statuses, {
+						if (wearsTreasure(self, 2)) put(ally.statuses, {
 							name: "Medley Sheet",
 							left: UT$4.medley.immune,
 							guards: true,
@@ -40351,7 +40854,7 @@ var REHARTNA = {
 							count: marched,
 							heals: 1 + MARCH.heals * marched,
 							...self.perks.has("s4-dark") && { critDamage: PERKS$4.critDamage * marched },
-							...treasureTier(self, 3) > 0 && { deals: 1 + fromTreasure(self, 3, UT$4.dragon.boss) * marched },
+							...wearsTreasure(self, 3) && { deals: 1 + fromTreasure(self, 3, UT$4.dragon.boss) * marched },
 							shown: MARCHING
 						});
 					}
@@ -40381,10 +40884,10 @@ var REHARTNA = {
 										physical: CRYSTAL.defense,
 										magical: CRYSTAL.defense
 									},
-									...treasureTier(self, 1) > 0 && { critResist: fromTreasure(self, 1, UT$4.generator.critResist) },
+									...wearsTreasure(self, 1) && { critResist: fromTreasure(self, 1, UT$4.generator.critResist) },
 									shown: STEADIED
 								});
-								if (treasureTier(self, 1) > 0) ally.mana = Math.min(MAX_MANA, ally.mana + UT$4.generator.mana);
+								if (wearsTreasure(self, 1)) ally.mana = Math.min(MAX_MANA, ally.mana + UT$4.generator.mana);
 							}
 							fight.hit(self, CRYSTAL.blow);
 							fight.slow(CRYSTAL.slow, 1);
@@ -40461,6 +40964,7 @@ var UT$3 = {
 	flower: {
 		heals: .5,
 		resist: [
+			100,
 			120,
 			140,
 			170,
@@ -40471,6 +40975,7 @@ var UT$3 = {
 	windy: {
 		acc: 250,
 		mana: [
+			160,
 			190,
 			230,
 			270,
@@ -40479,6 +40984,7 @@ var UT$3 = {
 		]
 	},
 	crown: { critDamage: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -40488,6 +40994,7 @@ var UT$3 = {
 	mira: {
 		atk: .2,
 		speed: [
+			100,
 			120,
 			140,
 			170,
@@ -40655,7 +41162,7 @@ var SHEA = {
 								left: MELODY.lasts,
 								takes: 1 - (tranced ? MELODY.tranced : MELODY.taken),
 								...self.perks.has("s1-dark") && { deals: 1 + PERKS$3.boss },
-								...treasureTier(self, 0) > 0 && { resist: fromTreasure(self, 0, UT$3.flower.resist) },
+								...wearsTreasure(self, 0) && { resist: fromTreasure(self, 0, UT$3.flower.resist) },
 								shown: SHELTERED
 							});
 						}
@@ -40667,7 +41174,7 @@ var SHEA = {
 					const on = allies();
 					if (part === 0) {
 						fight.cue(self, "song", on);
-						if (treasureTier(self, 1) > 0) windy = SONG.lasts;
+						if (wearsTreasure(self, 1)) windy = SONG.lasts;
 						for (const ally of on) {
 							if (self.perks.has("s2-light")) ally.mana = Math.min(MAX_MANA, ally.mana + PERKS$3.mana);
 							put(ally.statuses, {
@@ -40675,7 +41182,7 @@ var SHEA = {
 								left: SONG.lasts,
 								...tranced ? { guards: true } : { resist: SONG.shorter * 1e3 },
 								...self.perks.has("s2-dark") && { speed: PERKS$3.speed },
-								...treasureTier(self, 1) > 0 && { acc: UT$3.windy.acc },
+								...wearsTreasure(self, 1) && { acc: UT$3.windy.acc },
 								shown: WINDY
 							});
 						}
@@ -40694,7 +41201,7 @@ var SHEA = {
 							name: PASSIONATE.name,
 							left: PASSION.lasts,
 							atk: atk / ally.stats.atk,
-							...treasureTier(self, 2) > 0 && { critDamage: fromTreasure(self, 2, UT$3.crown.critDamage) },
+							...wearsTreasure(self, 2) && { critDamage: fromTreasure(self, 2, UT$3.crown.critDamage) },
 							shown: PASSIONATE
 						});
 						if (self.perks.has("s3-dark")) put(fight.foe.statuses, {
@@ -40715,7 +41222,7 @@ var SHEA = {
 					put(self.statuses, {
 						name: TRANCED.name,
 						left: TRANCE.lasts,
-						...treasureTier(self, 3) > 0 && {
+						...wearsTreasure(self, 3) && {
 							atk: UT$3.mira.atk,
 							speed: fromTreasure(self, 3, UT$3.mira.speed)
 						},
@@ -40824,6 +41331,7 @@ var UT$2 = {
 	tarot: {
 		dmg: .5,
 		heals: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -40835,6 +41343,7 @@ var UT$2 = {
 	scent: {
 		heals: .5,
 		critDamage: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -40843,6 +41352,7 @@ var UT$2 = {
 		],
 		dmg: .5,
 		defense: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -40853,6 +41363,7 @@ var UT$2 = {
 	protection: {
 		most: 2,
 		takes: [
+			.01,
 			.012,
 			.014,
 			.017,
@@ -40863,6 +41374,7 @@ var UT$2 = {
 	tear: {
 		atk: .5,
 		heals: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -41022,7 +41534,7 @@ var LAVRIL = {
 		let devoted = 0;
 		/** Her allies on the field, standing and in the fight (her too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
-		const most = ALONE.most + (treasureTier(self, 2) > 0 ? UT$2.protection.most : 0);
+		const most = ALONE.most + (wearsTreasure(self, 2) ? UT$2.protection.most : 0);
 		/** A blow of G-go Away!'s (or its Ectoplasm's): every ally healed a share of it (its Dark: twice). */
 		const drain = (amount) => {
 			const alive = fight.foe.hp > 0;
@@ -41071,13 +41583,13 @@ var LAVRIL = {
 					scaring = BEAR.after;
 				},
 				scare() {
-					fight.hit(self, SCARE.blow * (treasureTier(self, 1) > 0 ? 1 + UT$2.scent.dmg : 1));
+					fight.hit(self, SCARE.blow * (wearsTreasure(self, 1) ? 1 + UT$2.scent.dmg : 1));
 					fight.slow(SCARE.slow, SCARE.lasts);
 					put(fight.foe.statuses, {
 						name: YOU_SCARE_ME.name,
 						left: SCARE.lasts,
 						takes: { magical: SCARE.takes },
-						...treasureTier(self, 1) > 0 && { defends: { magical: 1 - fromTreasure(self, 1, UT$2.scent.defense) } },
+						...wearsTreasure(self, 1) && { defends: { magical: 1 - fromTreasure(self, 1, UT$2.scent.defense) } },
 						shown: "curse"
 					});
 				},
@@ -41123,7 +41635,7 @@ var LAVRIL = {
 				} else self.cooldowns[1] = Math.max(self.cooldowns[1] ?? 0, bearCooldown);
 				if (!linked && fight.field.includes(self) && self.hp > 0) {
 					linked = allies().filter((ally) => ally !== self).sort((a, b) => b.stats.atk - a.stats.atk)[0] ?? self;
-					const atk = LINK.atk * LINK.books * (treasureTier(self, 3) > 0 ? 1 + UT$2.tear.atk : 1);
+					const atk = LINK.atk * LINK.books * (wearsTreasure(self, 3) ? 1 + UT$2.tear.atk : 1);
 					for (const one of linked === self ? [self] : [self, linked]) put(one.statuses, {
 						name: LINKED.name,
 						left: Infinity,
@@ -41131,7 +41643,7 @@ var LAVRIL = {
 						pen: LINK.pen,
 						deals: 1 + (self.perks.has("s4-light") ? PERKS$2.boss : LINK.boss),
 						...self.perks.has("s4-dark") && { takes: 1 - PERKS$2.taken },
-						...treasureTier(self, 3) > 0 && { heals: 1 + fromTreasure(self, 3, UT$2.tear.heals) },
+						...wearsTreasure(self, 3) && { heals: 1 + fromTreasure(self, 3, UT$2.tear.heals) },
 						...tier !== null && one !== self && { critDamage: atTier(NEMECIA.critDamage, tier) },
 						shown: LINKED
 					});
@@ -41252,6 +41764,7 @@ var UT$1 = {
 	stone: {
 		heals: .5,
 		taken: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -41260,6 +41773,7 @@ var UT$1 = {
 		],
 		dmg: .5,
 		unhealed: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -41270,6 +41784,7 @@ var UT$1 = {
 	},
 	bag: {
 		atk: [
+			.12,
 			.14,
 			.17,
 			.21,
@@ -41278,6 +41793,7 @@ var UT$1 = {
 		],
 		cooldown: 7,
 		slow: [
+			120,
 			140,
 			170,
 			210,
@@ -41287,6 +41803,7 @@ var UT$1 = {
 	},
 	pendulum: {
 		shield: [
+			.2,
 			.24,
 			.29,
 			.35,
@@ -41294,6 +41811,7 @@ var UT$1 = {
 			.5
 		],
 		block: [
+			200,
 			240,
 			290,
 			350,
@@ -41305,6 +41823,7 @@ var UT$1 = {
 	flask: {
 		lasts: 40,
 		takes: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -41498,7 +42017,7 @@ var EVAN = {
 		const darkSkills = DARK_SKILLS.map((one, i) => i === 1 ? {
 			...one,
 			cost: one.cost - (self.perks.has("s2-dark") ? 1 : 0),
-			cooldown: one.cooldown - (treasureTier(self, 1) > 0 ? UT$1.bag.cooldown : 0)
+			cooldown: one.cooldown - (wearsTreasure(self, 1) ? UT$1.bag.cooldown : 0)
 		} : one);
 		/** His allies on the field, standing and in the fight (him too). */
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
@@ -41540,7 +42059,7 @@ var EVAN = {
 							name: PURIFIED.name,
 							left: PURIFY.lasts,
 							heals: 1 + PURIFY.heals,
-							...treasureTier(self, 0) > 0 && { takes: { physical: 1 - fromTreasure(self, 0, UT$1.stone.taken) } },
+							...wearsTreasure(self, 0) && { takes: { physical: 1 - fromTreasure(self, 0, UT$1.stone.taken) } },
 							shown: PURIFIED
 						});
 					}
@@ -41556,12 +42075,12 @@ var EVAN = {
 					shielded = on;
 				},
 				uproar() {
-					fight.hit(self, UPROAR.blow * (treasureTier(self, 0) > 0 ? 1 + UT$1.stone.dmg : 1));
+					fight.hit(self, UPROAR.blow * (wearsTreasure(self, 0) ? 1 + UT$1.stone.dmg : 1));
 					put(fight.foe.statuses, {
 						name: "Uproar of Naav Gehen",
 						left: self.perks.has("s1-dark") ? PERKS$1.longer : UPROAR.lasts,
 						takes: { physical: UPROAR.takes },
-						...treasureTier(self, 0) > 0 && { heals: 1 - fromTreasure(self, 0, UT$1.stone.unhealed) },
+						...wearsTreasure(self, 0) && { heals: 1 - fromTreasure(self, 0, UT$1.stone.unhealed) },
 						shown: "curse"
 					});
 				},
@@ -41574,7 +42093,7 @@ var EVAN = {
 					const last = part >= 6;
 					fight.hit(self, last ? RAMPAGE.last : RAMPAGE.blow);
 					fight.stun(last ? RAMPAGE.lastStun : RAMPAGE.stun, { by: self });
-					if (last && treasureTier(self, 2) > 0) put(fight.foe.statuses, {
+					if (last && wearsTreasure(self, 2)) put(fight.foe.statuses, {
 						name: "Navigating Dowsing Pendulum",
 						left: UT$1.pendulum.lasts,
 						blocks: {
@@ -41603,7 +42122,7 @@ var EVAN = {
 						shown: "curse"
 					});
 				}
-				if (treasureTier(self, 3) > 0) put(fight.boss.statuses, {
+				if (wearsTreasure(self, 3)) put(fight.boss.statuses, {
 					name: "Naav’s First Flask",
 					left: UT$1.flask.marked,
 					takes: { physical: 1 + fromTreasure(self, 3, UT$1.flask.takes) },
@@ -41624,7 +42143,7 @@ var EVAN = {
 					for (const ally of on) fight.heal(ally, ALCHEMY.heal, self);
 					put(fight.party, {
 						name: ALCHEMIZED.name,
-						left: treasureTier(self, 3) > 0 ? UT$1.flask.lasts : ALCHEMY.lasts,
+						left: wearsTreasure(self, 3) ? UT$1.flask.lasts : ALCHEMY.lasts,
 						takes: { physical: 1 - (self.perks.has("s4-light") ? PERKS$1.taken : ALCHEMY.taken) },
 						shown: ALCHEMIZED
 					});
@@ -41651,7 +42170,7 @@ var EVAN = {
 								left: 1.2,
 								speed: CIRCLE.speed,
 								...self.perks.has("s2-light") && { resist: PERKS$1.resist },
-								...treasureTier(self, 1) > 0 && { atk: fromTreasure(self, 1, UT$1.bag.atk) },
+								...wearsTreasure(self, 1) && { atk: fromTreasure(self, 1, UT$1.bag.atk) },
 								shown: CIRCLED
 							});
 						}
@@ -41669,7 +42188,7 @@ var EVAN = {
 							deals: GLUTTONY.weaker,
 							shown: "curse"
 						});
-						if (treasureTier(self, 1) > 0) fight.slow(fromTreasure(self, 1, UT$1.bag.slow), 1.2);
+						if (wearsTreasure(self, 1)) fight.slow(fromTreasure(self, 1, UT$1.bag.slow), 1.2);
 					}
 				}
 				shielded = shielded.filter((ally) => ally.shield > 0 && ally.hp > 0);
@@ -41743,6 +42262,7 @@ var PERKS = {
 var UT = {
 	badge: {
 		dodge: [
+			100,
 			120,
 			140,
 			170,
@@ -41750,6 +42270,7 @@ var UT = {
 			250
 		],
 		weaker: [
+			.1,
 			.12,
 			.14,
 			.17,
@@ -41760,6 +42281,7 @@ var UT = {
 	memoir: {
 		cooldown: 6,
 		boss: [
+			.06,
 			.072,
 			.086,
 			.104,
@@ -41768,6 +42290,7 @@ var UT = {
 		]
 	},
 	whistle: { heals: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -41775,6 +42298,7 @@ var UT = {
 		.5
 	] },
 	homeland: { chance: [
+		.2,
 		.24,
 		.29,
 		.35,
@@ -42056,7 +42580,7 @@ var HEROES = [
 							left: lasting(HEADWIND.lasts),
 							takes: { physical: HEADWIND.takes },
 							...self.perks.has("s1-dark") && { defends: { physical: PERKS.defense } },
-							...treasureTier(self, 0) > 0 && { deals: 1 - fromTreasure(self, 0, UT.badge.weaker) },
+							...wearsTreasure(self, 0) && { deals: 1 - fromTreasure(self, 0, UT.badge.weaker) },
 							shown: "curse"
 						});
 					},
@@ -42069,7 +42593,7 @@ var HEROES = [
 								name: CHEERED.name,
 								left: lasting(WAKE.lasts),
 								critDamage: WAKE.critDamage,
-								...treasureTier(self, 1) > 0 && { deals: 1 + fromTreasure(self, 1, UT.memoir.boss) },
+								...wearsTreasure(self, 1) && { deals: 1 + fromTreasure(self, 1, UT.memoir.boss) },
 								shown: CHEERED
 							});
 							return;
@@ -42143,7 +42667,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "2d59a04f38c0";
+var SIM_VERSION = "19e12d36380a";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;

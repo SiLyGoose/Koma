@@ -8,7 +8,7 @@ import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, poten
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
-import { maxLevelOf, refineable, refineCopyPlan, refineCost, refineLevel } from '../../lib/game/items/refine.js';
+import { leastStars, maxLevelOf, refineable, refineCopyPlan, refineCost, refineLevel, starsOf } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice, saleCount } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
 import { setCopyLocked } from '../../services/items/lock.js';
@@ -102,13 +102,14 @@ export function refineState(
     copyId,
     null,
     kept,
+    leastStars(item),
   );
   if (!plan.ok && (plan.reason === 'not_owned' || plan.reason === 'bad_material')) return { blocked: 'no_duplicate', cost: null, spare: null, to: null };
   const level = plan.ok ? plan.from : plan.level;
   const to = level < REFINE.maxLevel ? level + 1 : null;
   const cost = to === null ? null : refineCost(item.stars, to);
   if (!plan.ok) return { blocked: plan.reason, cost, spare: null, to: plan.reason === 'maxed' ? null : to };
-  const spare = refineLevel(plan.fodder.level);
+  const spare = starsOf(item, plan.fodder.level);
   if (balance !== null && cost !== null && balance < cost) return { blocked: 'too_poor', cost, spare, to };
   return { blocked: null, cost, spare, to };
 }
@@ -143,7 +144,8 @@ export function gearView(
     if (!item) continue;
     // (A TechnoMagic copy refined back when it could be is R1 all the same: its level never counted.)
     const maxLevel = maxLevelOf(item);
-    const level = Math.min(refineLevel(copy.level), maxLevel);
+    // (Its stars: a hero's gear's from 0★.)
+    const level = Math.min(starsOf(item, copy.level), maxLevel);
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
     const setEffect = tmSetEffect(item);

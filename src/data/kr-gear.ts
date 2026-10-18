@@ -78,7 +78,7 @@ export const KR_ITEMS: readonly ItemDef[] = [
       name: artifact.name,
       stars: 4,
       slot: 'treasure',
-      description: 'An artifact: what it does as far as it is refined (King’s Raid’s).',
+      description: 'An artifact: what it does by its stars, raised by awakening it with a duplicate (King’s Raid’s).',
       effects: [],
       kr: { part: 'artifact', tier: 10, classes: [], options: 0, runes: 0, icon: artifact.icon },
     }),
@@ -143,7 +143,8 @@ export function krMainValue(kr: KrItem, level: number): number {
   if (!kr.main) return 0;
   const [stat, base] = kr.main;
   const factors = stat === 'atk' ? KR_REFINE.atk : stat === 'hp' ? KR_REFINE.hp : KR_REFINE.def;
-  const factor = factors[Math.min(factors.length, Math.max(1, Math.floor(level))) - 1] as number;
+  // (Its stars are the index: 0★ to 5★.)
+  const factor = factors[Math.min(factors.length - 1, Math.max(0, Math.floor(level)))] as number;
   return Math.floor((base * factor) / 1000);
 }
 

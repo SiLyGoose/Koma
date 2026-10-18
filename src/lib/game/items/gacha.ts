@@ -3,6 +3,7 @@ import { CONFIG, STARS } from '../../../config.js';
 import { PITY_STARS } from '../../../constants/index.js';
 import { featuredItems, gachaItems, HERO_BANNER, ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../../data/items.js';
 import { KR_DRAGON_SETS, KR_ITEMS } from '../../../data/kr-gear.js';
+import { heroOnly } from '../heroes.js';
 import type { BannerId, ItemDef, Stars } from '../../../types.js';
 import { chance, pickRandom } from '../../random.js';
 
@@ -19,13 +20,15 @@ export const bannerWeights = (banner: BannerId): Weights => (banner === 'hero' ?
  */
 export function pulledLevel(item: ItemDef, roll: number = randomInt(0, 1_000_000) / 1_000_000): number {
   const weights = item.uniqueWeapon !== undefined ? HERO_BANNER.weaponLevels : item.uniqueTreasure !== undefined ? HERO_BANNER.treasureLevels : [1];
+  // (A hero's gear's stars start at 0★, the weights' first; the members' own gear at 1★.)
+  const first = heroOnly(item) ? 0 : 1;
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   let left = roll * total;
   for (let i = 0; i < weights.length; i++) {
     left -= weights[i] as number;
-    if (left < 0) return i + 1;
+    if (left < 0) return first + i;
   }
-  return 1;
+  return first;
 }
 
 /** Picks a star tier using the configured weights. */
