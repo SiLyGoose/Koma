@@ -15,7 +15,7 @@ export const lockText = {
       ? `🔒 Locked your **${levelTag(level, hero)} ${name}**. It can't be sold or used up by ${hero ? 'an awakening' : 'a refine'}.`
       : `🔓 Unlocked your **${levelTag(level, hero)} ${name}**. It can be sold or used up by ${hero ? 'an awakening' : 'a refine'} again.`,
   /** The picker, when their copies differ: one button per kind of copy. */
-  pickTitle: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,
+  pickTitle: (name: string, slot: string) => `${name} ${slot}`,
   pick: (name: string, verb: Verb) => `Which **${name}** do you want to ${verb}? Each press ${verb}s one copy.`,
   /** A button: the copies' refinement, how many there are, and whether one is worn. Button labels can't show custom emoji. */
   button: (level: number, count: number, worn: boolean, hero = false) => `${levelTag(level, hero)}${count > 1 ? ` ×${count}` : ''}${worn ? ' · equipped' : ''}`,

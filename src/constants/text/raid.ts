@@ -518,17 +518,17 @@ Grows with every raider (at least ${min}).`,
     `The party also has a **${chance}** chance (+${perRaider} for each raider${now ? `, **${now}** with this party` : ''}) that everyone finds ${loot}, which can't be pulled from the gacha.`,
   /** The raid items found after a win (raid drops). `stars` is like "★★★★". */
   lootField: '🎁 Loot',
-  lootLine: (user: string, stars: string, item: string) => `${user} found ${stars} **${item}**!`,
+  lootLine: (user: string, item: string) => `${user} found **${item}**!`,
   /** A raider who found several: `items` is their lootItem parts. */
   lootLineMany: (user: string, items: readonly string[]) => `${user} found ${items.join(', ')}`,
   /** One kind of item a raider found, and how many of it. */
-  lootItem: (stars: string, item: string, count = 1) => `${stars} **${item}**${count > 1 ? ` ×${count}` : ''}`,
+  lootItem: (item: string, count = 1) => `**${item}**${count > 1 ? ` ×${count}` : ''}`,
   noLoot: 'No raid items dropped this time.',
   /** Under a won raid: shows whoever presses it their own items, privately (they can dismiss it). */
   lootButton: 'My loot',
   lootMineTitle: '🎁 Your raid loot',
   /** One line of that list: `slot` is the slot's emoji, `isNew` when it is their first copy. */
-  lootMineLine: (stars: string, slot: string, item: string, count: number, isNew: boolean) => `${stars} ${slot} **${item}**${count > 1 ? ` ×${count}` : ''}${isNew ? ' 🆕' : ''}`,
+  lootMineLine: (slot: string, item: string, count: number, isNew: boolean) => `${slot} **${item}**${count > 1 ? ` ×${count}` : ''}${isNew ? ' 🆕' : ''}`,
   lootMineFooter: 'They are in your inventory. Only you can see this.',
   lootMineNone: "You didn't find any items in this raid.",
 

@@ -11,7 +11,7 @@ import { resolveItem } from '../discord/item-pick.js';
 import type { Command } from '../discord/types.js';
 
 const lineText = (line: { item: ItemDef; count: number; total: number }) =>
-  TEXT.sell.line(itemStars(line.item), line.item.name, line.count, fmt(line.total));
+  TEXT.sell.line(line.item.name, line.count, fmt(line.total));
 
 /** The embed shown after a sale. `remaining` is how many copies of a single item are left (only for selling one). */
 function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, remaining: number | null): BotEmbed {
@@ -21,7 +21,7 @@ function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, rema
     .setTitle(TEXT.sell.soldTitle)
     .setDescription(
       (single && first
-        ? TEXT.sell.soldOne(user, itemStars(first.item), first.item.name, fmt(result.earned))
+        ? TEXT.sell.soldOne(user, first.item.name, fmt(result.earned))
         : `${TEXT.sell.soldMany(user, result.lines.reduce((sum, line) => sum + line.count, 0), fmt(result.earned))}\n\n${joinLimited(result.lines.map(lineText), 3500)}`) +
         (result.skipped > 0 ? `\n${TEXT.sell.skipped(result.skipped)}` : ''),
     )

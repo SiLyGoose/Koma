@@ -45,7 +45,7 @@ export const give: Command = {
       return;
     }
 
-    await ctx.reply(TEXT.give.done(itemStars(result.item), result.item.name, result.item.id, fmt(result.given), fmt(result.total)),
+    await ctx.reply(TEXT.give.done(result.item.name, result.item.id, fmt(result.given), fmt(result.total)),
     );
   },
 };

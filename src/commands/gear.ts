@@ -120,7 +120,7 @@ export const gear: Command = {
       if (item.usableBy && !canUseItem(item, target.id)) lines.unshift(TEXT.gear.exclusive(mentionList(item.usableBy), formatPercent(share)));
       embed.addFields({
         name: label,
-        value: [TEXT.gear.item(item.name, itemStars(item), level), ...lines].join('\n'),
+        value: [TEXT.gear.item(item.name, level), ...lines].join('\n'),
       });
     }
 

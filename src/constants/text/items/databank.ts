@@ -62,9 +62,11 @@ export const databankText = {
   detailRaidShop: (price: string) => `The raid shop on the site also sells it for ${price}, on the weeks it's on the shelf.`,
   footer: (p: string) =>
     `${p}databank <item> shows one item in full, ${p}databank <T1-T4> one tier, ${p}databank <weapon | armor | treasure> one category, ${p}databank bosses the Weekly Bosses and ${p}databank classes the raid classes. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
-  /** The details of one item (`databank <item>`). `stars` is its tier (tierLabel). */
-  detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
+  /** The details of one item (`databank <item>`): its name; its tier is in its slot's field (detailSlot). */
+  detailTitle: (name: string) => name,
   detailSlotField: 'Slot',
+  /** The slot field's value: the slot (its emoji and name), and the item's tier (tierLabel). */
+  detailSlot: (slot: string, tier: string) => `${slot} · ${tier}`,
   detailEffectsField: (level: number) => `Effects (at ★${level})`,
   detailExclusiveField: 'Exclusive',
   /** `owners` is mentions. */

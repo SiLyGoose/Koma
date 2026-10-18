@@ -186,7 +186,7 @@ test('raid drops: a raider with several is listed on one line, and My loot shows
   const embed = resultEmbed(state, DEFAULTS.raid, { failed: [], drops });
   assert.equal(
     embed.toJSON().fields?.find((f) => f.name === TEXT.raid.lootField)?.value,
-    '<@1> found T4 **Godslayer Fang**, T3 **Wyvern Tooth** ×2\n<@2> found T4 **Godslayer Fang**!',
+    '<@1> found **Godslayer Fang**, **Wyvern Tooth** ×2\n<@2> found **Godslayer Fang**!',
   );
   const mine = myLootEmbed('1', drops)?.toJSON();
   assert.equal(mine?.title, TEXT.raid.lootMineTitle);
@@ -230,7 +230,7 @@ test('raid drops: the result screen after a win lists what each raider found', (
   const item = ITEMS_BY_ID.get('godslayer-fang') as ItemDef;
   const loot = (embed: ReturnType<typeof resultEmbed>): string | undefined => embed.toJSON().fields?.find((f) => f.name === TEXT.raid.lootField)?.value;
 
-  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found T4 **Godslayer Fang**!');
+  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found **Godslayer Fang**!');
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [] })), TEXT.raid.noLoot);
   assert.equal(loot(resultEmbed(state, { ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }, { failed: [], drops: [] })), undefined, 'no loot field when drops are off');
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, null)), undefined, 'no loot field when nobody was rewarded (a test raid)');

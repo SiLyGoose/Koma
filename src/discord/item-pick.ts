@@ -81,8 +81,8 @@ export async function askDidYouMean(ctx: CommandContext, query: string, choices:
     .setTitle(t.title)
     .setDescription(
       choices.length === 1 && only
-        ? t.one(query, itemStars(only), only.name)
-        : t.many(query, choices.map((item) => t.line(itemStars(item), item.name)).join('\n')),
+        ? t.one(query, only.name)
+        : t.many(query, choices.map((item) => t.line(item.name)).join('\n')),
     )
     .setFooter({ text: t.footer(ITEM_SUGGEST.timeoutMs / 1000) });
   const sent = await ctx.reply({ embeds: [embed], components: [questionRow(choices)], ephemeral: false });

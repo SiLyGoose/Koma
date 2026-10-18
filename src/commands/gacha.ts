@@ -31,7 +31,7 @@ const HERO_WORDS: readonly string[] = ['hero', 'heroes', 'uw'];
 
 /** One pulled item's line, as a multi pull lists it (a top-tier one in bold). */
 const pullLine = ({ item, isNew }: PulledItem): string =>
-  (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(tierLabel(item.stars), SLOT_EMOJI[item.slot], item.name, isNew);
+  (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(SLOT_EMOJI[item.slot], item.name, isNew);
 
 /** Why the limited banner takes no pulls right now: it hasn't opened yet, it is over, or there is none. */
 function closedText(): string {
@@ -81,7 +81,7 @@ export const gacha: Command = {
 
     const { item } = result;
     const embed = createEmbed()
-      .setTitle(TEXT.gacha.title(tierLabel(item.stars), item.name, SLOT_EMOJI[item.slot]))
+      .setTitle(TEXT.gacha.title(item.name, SLOT_EMOJI[item.slot]))
       .setDescription(
         [
           ...(item.description.trim() === '' ? [] : [TEXT.gacha.description(item.description)]),
@@ -130,7 +130,7 @@ async function showBanner(ctx: CommandContext): Promise<void> {
   const { hardPity } = CONFIG.gacha.pity;
   const embed = createEmbed()
     .setTitle(TEXT.gacha.bannerTitle(LIMITED_BANNER.name))
-    .setDescription([...featured.map((item) => TEXT.gacha.bannerFeatured(tierLabel(item.stars), item.name, SLOT_EMOJI[item.slot])), '', TEXT.gacha.bannerOdds(stars, chance)].join('\n'))
+    .setDescription([...featured.map((item) => TEXT.gacha.bannerFeatured(item.name, SLOT_EMOJI[item.slot])), '', TEXT.gacha.bannerOdds(stars, chance)].join('\n'))
     .addFields({ name: TEXT.gacha.bannerWhenField, value: when, inline: false })
     .setFooter({ text: TEXT.gacha.bannerFooter(ctx.prefix) });
   // As pulls count it: only while pity is on and the top tier can be pulled at all.

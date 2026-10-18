@@ -25,7 +25,7 @@ test('give: the limit is a constant, and the messages fill in their values', () 
   assert.match(TEXT.give.usage('k!', '100'), /k!give <item id> \[amount\]/);
   assert.match(TEXT.give.badAmount('100'), /1 to 100/);
   assert.match(TEXT.give.unknownItem('zzz', '`c4`, `wheelchair`'), /"zzz".*`c4`/);
-  const done = TEXT.give.done('★★★★', 'C4', 'c4', '3', '5');
-  assert.match(done, /★★★★ \*\*C4\*\* \(`c4`\) ×3/);
+  const done = TEXT.give.done('C4', 'c4', '3', '5');
+  assert.match(done, /Gave you \*\*C4\*\* \(`c4`\) ×3/);
   assert.match(done, /own 5/);
 });

@@ -177,9 +177,9 @@ test('sell: there is one price setting per star tier, it starts as a whole numbe
 // Messages
 
 test('sell: the messages', () => {
-  assert.equal(TEXT.sell.soldOne('<@1>', 'T1', 'Rusty Dagger', '40'), `<@1> sold **Rusty Dagger** T1 for **40** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.sell.soldOne('<@1>', 'Rusty Dagger', '40'), `<@1> sold **Rusty Dagger** for **40** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.sell.soldMany('<@1>', 4, '400'), `<@1> sold **4** items for **400** ${CURRENCY_EMOJI}`);
-  assert.equal(TEXT.sell.line('T2', 'Kippah', 2, '200'), `T2  Kippah x2 · 200 ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.sell.line('Kippah', 2, '200'), `Kippah x2 · 200 ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.sell.footerLeft(0), 'You have none left');
   assert.equal(TEXT.sell.footerLeft(2), 'You have 2 left');
   assert.equal(TEXT.sell.skipped(1), '1 item could not be sold any more and was kept.');

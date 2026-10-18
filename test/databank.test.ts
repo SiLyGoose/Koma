@@ -129,10 +129,11 @@ test('databank: an exclusive item names who it is for, and an open one says noth
 test('databank item: the details show the name and stars, flavor text, slot, and every effect', () => {
   const item: ItemDef = { id: 'sword', name: 'Big Sword', stars: 3, slot: 'weapon', description: 'It is big.', effects: ['robChance', 'robAmount'] };
   const detail = itemDetail(item);
-  assert.equal(detail.title, 'T3  Big Sword');
+  assert.equal(detail.title, 'Big Sword');
+  assert.ok(detail.fields.some((f) => f.name === 'Slot' && f.value.endsWith(' · T3')), 'its tier with its slot');
   assert.equal(detail.description, '*It is big.*');
   const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
-  assert.equal(byName[TEXT.databank.detailSlotField], SLOT_EMOJI.weapon);
+  assert.equal(byName[TEXT.databank.detailSlotField], `${SLOT_EMOJI.weapon} · T3`);
   assert.equal(byName[TEXT.databank.detailEffectsField(REFINE.maxLevel)], describeEffects(item).join('\n'));
   assert.equal(describeEffects(item).length, 2);
   assert.equal(TEXT.databank.detailExclusiveField in byName, false, 'nothing about exclusivity for a normal item');
@@ -434,7 +435,7 @@ test('databank tier: the whole list, and one item by name, still work', async ()
 
   const item = ITEMS[0] as ItemDef;
   const one = await ask(item.id);
-  assert.equal(one[0]?.title, TEXT.databank.detailTitle(tierLabel(item.stars), item.name));
+  assert.equal(one[0]?.title, TEXT.databank.detailTitle(item.name));
   const byName = await ask(...item.name.split(' '));
   assert.equal(byName[0]?.title, one[0]?.title);
 });

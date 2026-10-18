@@ -18,7 +18,7 @@ export const refineText = {
   notRefineable: (name: string) => `**${name}** is TechnoMagic gear: it is never refined. What it does on a hero is its potentials, which stay as they came.`,
   maxed: (name: string, max: number, hero = false) => `Your **${name}** is already fully ${verbs(hero).ed} (**${levelTag(max, hero)}**).`,
   busy: 'Your items changed while refining. Nothing was used up; try again.',
-  title: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,
+  title: (name: string, slot: string) => `${name} ${slot}`,
   /** `left` is how many more copies of the item they have that later refines could use; `paid` the points it cost. */
   done: (user: string, from: number, to: number, left: number, paid: string, hero = false) =>
     `${user} ${verbs(hero).ed} it from **${levelTag(from, hero)}** to **${levelTag(to, hero)}**, using up a duplicate${paid === '0' ? '' : ` and ${boldMoney(paid)}`}. ${left === 0 ? 'No duplicates left.' : `${left} ${left === 1 ? 'duplicate' : 'duplicates'} left.`}`,

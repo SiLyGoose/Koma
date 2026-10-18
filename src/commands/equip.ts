@@ -53,7 +53,7 @@ export const equip: Command = {
     const share = itemEffectiveness(item, ctx.user.id);
     const replaced = result.previousId ? ITEMS_BY_ID.get(result.previousId) : undefined;
     const embed = createEmbed()
-      .setTitle(TEXT.equip.title(itemStars(item), item.name))
+      .setTitle(TEXT.equip.title(item.name))
       .setDescription(
         replaced
           ? TEXT.equip.doneReplacing(ctx.user.toString(), item.slot, replaced.name)

@@ -156,10 +156,11 @@ export function itemDetail(item: ItemDef, level: number = REFINE.maxLevel): Item
   // A TechnoMagic piece's set effect, after a blank line: what it is called, then on the next line what it does.
   const value = [effects.length > 0 ? effects.join('\n') : TEXT.databank.noEffects, ...(set ? [`${TM_SET_LABEL}\n${set}`] : [])].join('\n\n');
   return {
-    title: TEXT.databank.detailTitle(itemStars(item), item.name),
+    title: TEXT.databank.detailTitle(item.name),
     description: item.description.trim() === '' ? '' : TEXT.gacha.description(item.description),
     fields: [
-      { name: TEXT.databank.detailSlotField, value: SLOT_EMOJI[item.slot], inline: true },
+      // (Its tier with its slot: its category.)
+      { name: TEXT.databank.detailSlotField, value: TEXT.databank.detailSlot(SLOT_EMOJI[item.slot], itemStars(item)), inline: true },
       { name: TEXT.databank.detailEffectsField(level), value, inline: false },
       ...(item.usableBy
         ? [{ name: TEXT.databank.detailExclusiveField, value: TEXT.databank.detailExclusive(mentionList(item.usableBy), formatPercent(CONFIG.equipment.borrowed.effectiveness)), inline: false }]

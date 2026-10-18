@@ -26,7 +26,7 @@ async function choices(ctx: CommandContext, item: ItemDef, verb: Verb): Promise<
 function pickerEmbed(item: ItemDef, verb: Verb, note: string | null): BotEmbed {
   const t = TEXT.lock;
   return createEmbed()
-    .setTitle(t.pickTitle(itemStars(item), item.name, SLOT_EMOJI[item.slot]))
+    .setTitle(t.pickTitle(item.name, SLOT_EMOJI[item.slot]))
     .setDescription([t.pick(item.name, verb), ...(note ? ['', note] : [])].join('\n'));
 }
 

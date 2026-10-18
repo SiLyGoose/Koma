@@ -41,7 +41,7 @@ export function itemChoices(query: string, items: readonly ItemDef[], max = AUTO
     .filter((entry): entry is typeof entry & { score: number } => entry.score !== null)
     .sort((a, b) => a.score - b.score || a.index - b.index)
     .slice(0, max)
-    .map(({ item }) => ({ name: cut(`${item.name} ${itemStars(item)}`), value: cut(item.id) }));
+    .map(({ item }) => ({ name: cut(item.name), value: cut(item.id) }));
 }
 
 /** The same for a list of plain names, like setting keys. */

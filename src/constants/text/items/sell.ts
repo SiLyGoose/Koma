@@ -29,10 +29,10 @@ export const sellText = {
     `The only ${stars} items you have are locked or in your loadouts, so none can be sold. Unlock them with \`${p}unlock <item>\` first.`,
   /** Result of selling. `user` is a mention, `stars` the star string, `points` already formatted. */
   soldTitle: 'Sold',
-  soldOne: (user: string, stars: string, name: string, points: string) => `${user} sold **${name}** ${stars} for ${boldMoney(points)}`,
+  soldOne: (user: string, name: string, points: string) => `${user} sold **${name}** for ${boldMoney(points)}`,
   soldMany: (user: string, count: number, points: string) => `${user} sold **${count}** items for ${boldMoney(points)}`,
   /** One line of a sale: an item, how many, and what they were worth together. */
-  line: (stars: string, name: string, count: number, points: string) => `${stars}  ${name} x${count} · ${points} ${CURRENCY_EMOJI}`,
+  line: (name: string, count: number, points: string) => `${name} x${count} · ${points} ${CURRENCY_EMOJI}`,
   balanceField: 'Balance',
   footerLeft: (count: number) => (count === 0 ? 'You have none left' : `You have ${count} left`),
   /** Shown when some of what was planned could no longer be sold (equipped or already sold in the meantime). */

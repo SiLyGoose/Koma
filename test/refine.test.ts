@@ -35,7 +35,7 @@ test('refinement strength: equal steps up to exactly the listed value at ★5, w
 });
 
 test('refinement shows as R and the level', () => {
-  assert.equal(TEXT.gear.item('Wyrmscale Plate', 'T3', 3), '**Wyrmscale Plate** T3 · ★3');
+  assert.equal(TEXT.gear.item('Wyrmscale Plate', 3), '**Wyrmscale Plate** · ★3');
   assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2 · ★3`);
   assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 1), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2`, '★1 is left out of the inventory');
   assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3, true), `${SLOT_EMOJI.armor} 🔒 Wyrmscale Plate ×2 · ★3`, 'the padlock follows the slot emoji');

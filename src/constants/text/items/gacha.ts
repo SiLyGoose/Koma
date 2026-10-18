@@ -6,7 +6,7 @@ export const gachaText = {
   cantAfford: (p: string, cost: string, balance: string) =>
     `A pull costs ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
   /** `stars` is the star string, like "★★"; `slot` is the slot's emoji. */
-  title: (stars: string, name: string, slot: string) => `${stars}  ${name} ${slot}`,
+  title: (name: string, slot: string) => `${name} ${slot}`,
   description: (itemDescription: string) => `*${itemDescription}*`,
   /** Added under the description when the pulled item is exclusive to other members. `owners` is mentions. */
   exclusive: (owners: string, share: string) => `Made for ${owners}. It only works at ${share} for you.`,
@@ -50,7 +50,7 @@ export const gachaText = {
   /** `gacha banner`: the limited banner. `name` is its name. */
   bannerTitle: (name: string) => `Limited banner: ${name}`,
   /** One line per featured item. `stars` is the star string; `slot` is the slot's emoji. */
-  bannerFeatured: (stars: string, name: string, slot: string) => `**${stars}  ${name}** ${slot}`,
+  bannerFeatured: (name: string, slot: string) => `**${name}** ${slot}`,
   /** Under the featured items. `stars` is the star string, `chance` like "75%". */
   bannerOdds: (stars: string, chance: string) =>
     `A ${stars} from this banner is one of these ${chance} of the time. After one that isn't, your next one is. Everything below ${stars} is the standard banner's.`,
@@ -69,9 +69,9 @@ export const gachaText = {
     `Your ${boldTokens(tokens)} cover ${tokens} of the ${pulls} pulls. The rest cost ${boldMoney(cost)} and you have ${boldMoney(balance)} Use \`${p}claim\` to earn more.`,
   multiTitle: (pulls: number) => `Multi pull x${pulls}`,
   /** One line per pull. `stars` is the star string; `slot` is the slot's emoji; `isNew` when it is the first copy the member has ever owned. */
-  multiLine: (stars: string, slot: string, name: string, isNew: boolean) => `${stars}  ${name} ${slot}${isNew ? ' · New!' : ''}`,
+  multiLine: (slot: string, name: string, isNew: boolean) => `${name} ${slot}${isNew ? ' · New!' : ''}`,
   /** Same, for a top-tier pull, which is set apart in bold. */
-  multiLineTop: (stars: string, slot: string, name: string, isNew: boolean) => `**${stars}  ${name}** ${slot}${isNew ? ' · New!' : ''}`,
+  multiLineTop: (slot: string, name: string, isNew: boolean) => `**${name}** ${slot}${isNew ? ' · New!' : ''}`,
   /** Added under the list for each pulled item that is exclusive to other members. `owners` is mentions. */
   multiExclusive: (name: string, owners: string, share: string) => `${name} is made for ${owners}. It only works at ${share} for you.`,
   multiSummaryField: 'Summary',

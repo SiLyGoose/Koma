@@ -8,7 +8,7 @@ export const equipText = {
   noSuchItem: (p: string, query: string) =>
     `You don't have an item called "${query}". \`${p}inventory\` shows what you own.`,
   alreadyEquipped: (name: string, slot: string) => `You already have **${name}** equipped as your ${slot}.`,
-  title: (stars: string, name: string) => `${stars}  ${name}`,
+  title: (name: string) => name,
   done: (user: string, slot: string) => `${user} equipped it as their ${slot}.`,
   doneReplacing: (user: string, slot: string, replaced: string) =>
     `${user} equipped it as their ${slot}. (Replaced **${replaced}**.)`,

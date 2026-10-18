@@ -35,7 +35,7 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const effects = (level: number) => describeEffects(item, share, level).join('\n') || t.noEffects;
   const hero = heroOnly(item);
   return createEmbed()
-    .setTitle(t.title(itemStars(item), item.name, SLOT_EMOJI[item.slot]))
+    .setTitle(t.title(item.name, SLOT_EMOJI[item.slot]))
     .setDescription(
       [
         t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid), hero),

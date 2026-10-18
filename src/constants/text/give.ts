@@ -6,6 +6,6 @@ export const giveText = {
   /** `ids` is a comma-separated list of every item id in the catalog. */
   unknownItem: (id: string, ids: string) => `There is no item with the id "${id}". The ids are: ${ids}`,
   /** `stars` is the star string; `given` is how many copies were added, `total` how many they own now. */
-  done: (stars: string, name: string, id: string, given: string, total: string) =>
-    `Gave you ${stars} **${name}** (\`${id}\`) ×${given}. You now own ${total}.`,
+  done: (name: string, id: string, given: string, total: string) =>
+    `Gave you **${name}** (\`${id}\`) ×${given}. You now own ${total}.`,
 };
