@@ -13,7 +13,7 @@ import { TM_POTENTIAL_LINES, TM_POTENTIALS, UT_OPTION_LINES } from '../../data/t
 import { fmt, formatPercent } from '../../lib/format.js';
 import { utHp } from '../../data/ut-hp.js';
 import { HEROES, HEROES_BY_ID } from '../../data/heroes.js';
-import { treasureTier, uniqueTier } from '../../lib/game/heroes.js';
+import { partOf, treasureTier, uniqueTier } from '../../lib/game/heroes.js';
 import { uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import type { ItemDef } from '../../types.js';
 import { difficultyLevels, picturePath } from '../games/raid/view.js';
@@ -82,6 +82,7 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
       name: item.name,
       stars: item.stars,
       slot: item.slot,
+      part: partOf(item),
       description: item.description,
       // (A unique weapon's own effect in the raid, at each level, after its perks.)
       // (TechnoMagic gear's: the potentials a copy can roll, whatever its level: its pool, and nothing after it.)

@@ -1,4 +1,4 @@
-import type { EssenceId, HeroSkillView } from './heroes.js';
+import type { EssenceId, HeroPart, HeroSkillView } from './heroes.js';
 import type { MainStat, Slot, Stars } from './items.js';
 import type { RaidBossId, RaidClassId, RaidLevel } from './raid.js';
 
@@ -9,6 +9,8 @@ export interface DatabankItem {
   name: string;
   stars: Stars;
   slot: Slot;
+  /** Hero gear: the part of a hero's gear it is (an accessory's slot is 'treasure', its part 'accessory'). Null: not hero gear. */
+  part: HeroPart | null;
   description: string;
   /** What it does at each refinement level: `effects[0]` is R1, the last is REFINE.maxLevel. */
   effects: string[][];

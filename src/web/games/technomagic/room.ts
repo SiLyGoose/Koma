@@ -3,7 +3,7 @@ import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import type { RaidClassId } from '../../../constants/raid.js';
 import { KR_TM_SETS } from '../../../data/kr-gear.js';
-import { copyMainStat, heroItemLines, potentialLines, setBonusLines } from '../../../lib/game/heroes.js';
+import { copyMainStat, heroItemLines, partOf, potentialLines, setBonusLines } from '../../../lib/game/heroes.js';
 import { runeView } from '../../models/heroes.js';
 import { DRAGONS } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
@@ -61,10 +61,11 @@ function dropView({ item, skill, potentials, options }: TmFind): DropView {
     name: item.name,
     stars: item.stars,
     skill: tmSkillLine(skill),
-    potentials: item.kr ? heroItemLines(item, 1, undefined, undefined, options).slice(item.kr.main ? 1 : 0) : potentialLines(potentials),
+    potentials: item.kr ? heroItemLines(item, 1, undefined, options) : potentialLines(potentials),
     icon: item.kr?.icon ?? null,
     mainStat: copyMainStat(item, { level: 1 }),
     slot: item.slot,
+    part: partOf(item),
     description: item.description,
     itemClass: item.class ?? (item.kr && item.kr.classes.length === 1 ? (item.kr.classes[0] as string) : null),
     setEffect: bonus ? { pieces: bonus.pieces, text: bonus.text } : null,
