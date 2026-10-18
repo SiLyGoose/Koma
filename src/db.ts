@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc, TmRunDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MailDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc, TmRunDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -30,6 +30,8 @@ export interface Collections {
   minesweeperClears: Collection<MinesweeperClearDoc>;
   /** TechnoMagic Raid runs, begun and claimed (see services/technomagic.ts). */
   tmRuns: Collection<TmRunDoc>;
+  /** The members' mailboxes: one document a mail (see services/mail.ts). */
+  mail: Collection<MailDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -60,6 +62,7 @@ export async function connectDb(): Promise<Collections> {
     minesweeperStats: db.collection<MinesweeperStatsDoc>('minesweeper_stats'),
     minesweeperClears: db.collection<MinesweeperClearDoc>('minesweeper_clears'),
     tmRuns: db.collection<TmRunDoc>('tm_runs'),
+    mail: db.collection<MailDoc>('mail'),
   };
 
   await Promise.all([
@@ -95,6 +98,7 @@ export async function connectDb(): Promise<Collections> {
     collections.minesweeperClears.createIndex({ guildId: 1, level: 1, ms: 1 }),
     // A member's won TechnoMagic Raid runs, best stage first (the stages they have opened).
     collections.tmRuns.createIndex({ guildId: 1, userId: 1, result: 1, stage: -1 }),
+    collections.mail.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
   ]);
 
   client = mongo;

@@ -20,8 +20,33 @@ export const LIMITED_BANNER: { readonly name: string; readonly featured: readonl
  * Special Summon, September 2019: 0★ 9%, 1★ 0.15%, 2★ 0.07%, 3★ 0.036%): `weaponLevels` weighs its copy's level, R1 (0★)
  * first. A unique treasure only came at 0★ (9%), so a new copy's R1 (`treasureLevels`).
  */
-export const HERO_BANNER: { readonly weaponShare: number; readonly weaponLevels: readonly number[]; readonly treasureLevels: readonly number[] } = {
+export const HERO_BANNER: {
+  readonly weaponShare: number;
+  readonly weaponLevels: readonly number[];
+  readonly treasureLevels: readonly number[];
+  readonly artifactShare: number;
+  readonly highTier: number;
+  readonly lowTier: number;
+  readonly lowPieceShare: number;
+  readonly runeBoxes: readonly (readonly [string, number])[];
+} = {
   weaponShare: 0.5,
   weaponLevels: [9, 0.15, 0.07, 0.036],
   treasureLevels: [1],
+  artifactShare: 0.8,
+  highTier: 8,
+  lowTier: 7,
+  lowPieceShare: 0.5,
+  runeBoxes: [
+    ['rune-box-rare', 60],
+    ['rune-box-heroic', 30],
+    ['rune-box-legendary', 10],
+  ],
 };
+
+/*
+ * Below its top tier, the Hero Item banner gives King's Raid's All-In-One Special Summon's kinds of things (never the members'
+ * own gear, nor TechnoMagic gear): its 3★ tier an artifact `artifactShare` of the time, else a Unique Weapon or Unique Treasure
+ * Ticket (`weaponShare` a weapon's: a selector, to the mailbox); its 2★ tier a dragon set's piece of tier `highTier`; its 1★ a
+ * dragon set's piece of tier `lowTier` `lowPieceShare` of the time, else a Mysterious Rune (`runeBoxes`' by their weights).
+ */

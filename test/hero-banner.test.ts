@@ -32,7 +32,7 @@ test('hero banner: a banner of its own, whose unique weapons no other banner giv
   }
 });
 
-test('hero banner: every 4-star is a unique weapon or a unique treasure, half each, each of a kind about as likely, and the rest are standard items', () => {
+test('hero banner: every 4-star is a unique weapon or a unique treasure, half each, each of a kind about as likely; below it, King’s Raid’s kinds (no members’ gear)', () => {
   const draws = 20_000;
   const counts = new Map<string, number>();
   let weapons = 0;
@@ -46,10 +46,10 @@ test('hero banner: every 4-star is a unique weapon or a unique treasure, half ea
   assert.equal(counts.size, UNIQUE_WEAPONS.length + UNIQUE_TREASURES.length);
   for (const one of UNIQUE_WEAPONS) assert.ok(Math.abs((counts.get(one.id) ?? 0) / weapons - 1 / UNIQUE_WEAPONS.length) < 0.03, one.id);
   for (const one of UNIQUE_TREASURES) assert.ok(Math.abs((counts.get(one.id) ?? 0) / (draws - weapons) - 1 / UNIQUE_TREASURES.length) < 0.01, one.id);
-  // Below the top tier, the standard banner's items.
+  // Below the top tier, King's Raid's hero gear, artifacts, tickets and runes: never the standard banner's items.
   for (let i = 0; i < 2000; i++) {
     const got = rollItem(1, HXLON, false, 1, 'hero');
-    if (got.stars < PITY_STARS) assert.ok(gachaItems(got.stars).includes(got), got.id);
+    if (got.stars < PITY_STARS) assert.ok((got.kr !== undefined || got.grant !== undefined) && !gachaItems(got.stars).includes(got), got.id);
   }
 });
 

@@ -71,6 +71,7 @@ function rates(banner: BannerId): Record<Stars, number> {
 
 const pulled = (userId: string, { item, isNew, count, level }: PulledItem): BannerPull => ({
   itemId: item.id,
+  icon: item.kr?.icon ?? item.grant?.icon ?? null,
   name: item.name,
   stars: item.stars,
   slot: item.slot,

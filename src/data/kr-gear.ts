@@ -87,27 +87,6 @@ export const KR_ITEMS: readonly ItemDef[] = [
 
 export const KR_ITEMS_BY_ID: ReadonlyMap<string, ItemDef> = new Map(KR_ITEMS.map((item) => [item.id, item]));
 
-/** What an artifact does at each refinement (R1 to R5), in King's Raid's words: by its id. */
-export const ARTIFACT_TEXT: ReadonlyMap<string, readonly string[]> = new Map(TM_ARTIFACTS.map((artifact) => [artifact.id, artifact.text]));
-
-/** The pieces of King's Raid's hero gear of one set (its raid's drops), and of one dragon set's tier. */
-export const krPiecesOf = (set: string, tier?: number): ItemDef[] => KR_ITEMS.filter((item) => item.kr?.set === set && (tier === undefined || item.kr.tier === tier));
-
-/** Whether a piece works on a hero of `heroClass`: one its classes include (an artifact, anyone). */
-export const krWornBy = (kr: KrItem, heroClass: RaidClassId): boolean => kr.classes.length === 0 || kr.classes.includes(heroClass);
-
-/** A piece's main stat at refinement `level` (R1 to R5): its base times King's Raid's factor at max level, as King's Raid works it out. */
-export function krMainValue(kr: KrItem, level: number): number {
-  if (!kr.main) return 0;
-  const [stat, base] = kr.main;
-  const factors = stat === 'atk' ? KR_REFINE.atk : stat === 'hp' ? KR_REFINE.hp : KR_REFINE.def;
-  const factor = factors[Math.min(factors.length, Math.max(1, Math.floor(level))) - 1] as number;
-  return Math.floor((base * factor) / 1000);
-}
-
-/** A main stat's name, as King's Raid's. */
-export const KR_MAIN_NAME: Readonly<Record<KrMainStat, string>> = { atk: 'ATK', hp: 'HP', defPhysical: 'P. DEF', defMagical: 'M. DEF' };
-
 /** A pool's option of a stat (none: not in it). */
 export const poolOption = (pool: string | undefined, stat: string): KrOptionData | undefined => (pool ? KR_POOLS[pool]?.find((option) => option.stat === stat) : undefined);
 
@@ -131,6 +110,46 @@ export interface KrRng {
 }
 
 const defaultRng: KrRng = { index: (max) => randomInt(0, max) };
+
+/**
+ * The Hero Item banner's rewards that are no copies (ItemDef.grant): King's Raid's Unique Weapon and Unique Treasure Tickets (a
+ * selector, sent to the mailbox, its hero picked there), and its Mysterious Runes (a rune of a grade, rolled as it is given).
+ */
+export const KR_GRANTS: readonly ItemDef[] = [
+  { id: 'uw-selector', name: 'Unique Weapon Ticket', stars: 3, slot: 'weapon', description: 'A unique weapon of any hero’s: picked in the mailbox.', effects: [], grant: { selector: 'uw', icon: 'WEAPON_UNIQUE_SELECT_ITEM' } },
+  { id: 'ut-selector', name: 'Unique Treasure Ticket', stars: 3, slot: 'treasure', description: 'A unique treasure of any hero’s: picked in the mailbox.', effects: [], grant: { selector: 'ut', icon: 'TREASURE_UNIQUE_SELECT_ITEM' } },
+  { id: 'rune-box-rare', name: 'Mysterious Rune: Rare', stars: 1, slot: 'treasure', description: 'A Rare rune, any as likely.', effects: [], grant: { runeGrade: 3, icon: 'PACKAGE_RUNE_3' } },
+  { id: 'rune-box-heroic', name: 'Mysterious Rune: Heroic', stars: 1, slot: 'treasure', description: 'A Heroic rune, any as likely.', effects: [], grant: { runeGrade: 4, icon: 'PACKAGE_RUNE_4' } },
+  { id: 'rune-box-legendary', name: 'Mysterious Rune: Legendary', stars: 1, slot: 'treasure', description: 'A Legendary rune, any as likely.', effects: [], grant: { runeGrade: 6, icon: 'PACKAGE_RUNE_5' } },
+];
+
+/** A rune of a grade, any as likely (null: none of it). */
+export function rollRuneOfGrade(grade: number, rng: KrRng = defaultRng): string | null {
+  const pool = KR_RUNES.filter((rune) => rune.grade === grade && rune.ancient !== true);
+  return pool.length > 0 ? (pool[rng.index(pool.length)] as KrRuneData).id : null;
+}
+
+/** What an artifact does at each refinement (R1 to R5), in King's Raid's words: by its id. */
+export const ARTIFACT_TEXT: ReadonlyMap<string, readonly string[]> = new Map(TM_ARTIFACTS.map((artifact) => [artifact.id, artifact.text]));
+
+/** The pieces of King's Raid's hero gear of one set (its raid's drops), and of one dragon set's tier. */
+export const krPiecesOf = (set: string, tier?: number): ItemDef[] => KR_ITEMS.filter((item) => item.kr?.set === set && (tier === undefined || item.kr.tier === tier));
+
+/** Whether a piece works on a hero of `heroClass`: one its classes include (an artifact, anyone). */
+export const krWornBy = (kr: KrItem, heroClass: RaidClassId): boolean => kr.classes.length === 0 || kr.classes.includes(heroClass);
+
+/** A piece's main stat at refinement `level` (R1 to R5): its base times King's Raid's factor at max level, as King's Raid works it out. */
+export function krMainValue(kr: KrItem, level: number): number {
+  if (!kr.main) return 0;
+  const [stat, base] = kr.main;
+  const factors = stat === 'atk' ? KR_REFINE.atk : stat === 'hp' ? KR_REFINE.hp : KR_REFINE.def;
+  const factor = factors[Math.min(factors.length, Math.max(1, Math.floor(level))) - 1] as number;
+  return Math.floor((base * factor) / 1000);
+}
+
+/** A main stat's name, as King's Raid's. */
+export const KR_MAIN_NAME: Readonly<Record<KrMainStat, string>> = { atk: 'ATK', hp: 'HP', defPhysical: 'P. DEF', defMagical: 'M. DEF' };
+
 
 /** One of a pool's options, by their weights, but those of the stats in `taken` (none left: null). */
 function pickOption(pool: readonly KrOptionData[], taken: ReadonlySet<string>, rng: KrRng): KrOptionData | null {

@@ -92,6 +92,8 @@ export interface BannerView {
 /** One item pulled, in the order they came. */
 export interface BannerPull {
   itemId: string;
+  /** King's Raid's icon for it (Koma-UI's public/kr/items/<icon>.webp: the Hero Item banner's gear, artifacts, tickets and runes); null: its own picture. */
+  icon?: string | null;
   name: string;
   stars: Stars;
   slot: Slot;

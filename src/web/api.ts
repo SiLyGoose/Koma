@@ -18,6 +18,8 @@ import { databankRoutes } from './routes/databank.js';
 import { gachaRoutes } from './routes/gacha.js';
 import { gearRoutes } from './routes/gear.js';
 import { heroRoutes } from './routes/heroes.js';
+import { mailRoutes } from './routes/mail.js';
+import type { MailStore } from './models/mail.js';
 import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
 import { outfitRoutes } from './routes/outfits.js';
@@ -117,6 +119,8 @@ export interface ApiDeps {
   outfits?: OutfitStore;
   /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
   heroes?: HeroStore;
+  /** The mailbox (the database's, unless a test says otherwise). */
+  mail?: MailStore;
   /** The TechnoMagic Raid's rooms: saying in the server's channel that raid `room` has been created (once the bot has logged in to Discord). */
   technomagic?: { announce: (guildId: string, host: string, boss: string, room: string) => void };
   /** The Dragon Raid's rooms: saying in the server's channel that raid `room` (against `boss`, a dragon) has been created. */
@@ -148,6 +152,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/gacha', gachaRoutes(deps))
     .use('/outfits', outfitRoutes(deps))
     .use('/heroes', heroRoutes(deps))
+    .use('/mail', mailRoutes(deps))
     .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))
     .use('/raid-rooms', raidRoomRoutes(deps))

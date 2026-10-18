@@ -3,7 +3,7 @@ import { normalize } from '../../lib/text.js';
 import { EFFECTS } from '../../perks/index.js';
 import { SLOTS, STARS } from '../../types.js';
 import { HEROES_BY_ID } from '../heroes.js';
-import { KR_ITEMS } from '../kr-gear.js';
+import { KR_GRANTS, KR_ITEMS } from '../kr-gear.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 import { gachaItems, ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from './lookup.js';
@@ -63,7 +63,7 @@ export function validateItems(): void {
     }
   }
   // King's Raid's hero gear and artifacts (../kr-gear.ts): ids and names of their own, beside the catalog's.
-  for (const item of KR_ITEMS) {
+  for (const item of [...KR_ITEMS, ...KR_GRANTS]) {
     if (ids.has(item.id)) throw new Error(`Duplicate item id (King's Raid gear): ${item.id}`);
     ids.add(item.id);
     const name = normalize(item.name);

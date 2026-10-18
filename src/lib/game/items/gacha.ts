@@ -1,7 +1,8 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG, STARS } from '../../../config.js';
 import { PITY_STARS } from '../../../constants/index.js';
-import { featuredItems, gachaItems, HERO_BANNER, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../../data/items.js';
+import { featuredItems, gachaItems, HERO_BANNER, ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../../data/items.js';
+import { KR_DRAGON_SETS, KR_ITEMS } from '../../../data/kr-gear.js';
 import type { BannerId, ItemDef, Stars } from '../../../types.js';
 import { chance, pickRandom } from '../../random.js';
 
@@ -112,6 +113,27 @@ export function guaranteeChoices(userId: string, banner: BannerId): ItemDef[] {
 }
 
 /**
+ * What the Hero Item banner gives below its top tier (HERO_BANNER: King's Raid's All-In-One Special Summon's kinds): an
+ * artifact or a selector at 3★, a dragon set's piece of its high tier at 2★, of its low tier or a Mysterious Rune at 1★.
+ */
+export function heroBannerPool(stars: Stars): ItemDef[] {
+  const dragonPieces = (tier: number): ItemDef[] => KR_ITEMS.filter((item) => KR_DRAGON_SETS.includes(item.kr?.set ?? '') && item.kr?.tier === tier);
+  if (stars === 3) {
+    if (chance(HERO_BANNER.artifactShare)) return KR_ITEMS.filter((item) => item.kr?.part === 'artifact');
+    return [ITEMS_BY_ID.get(chance(HERO_BANNER.weaponShare) ? 'uw-selector' : 'ut-selector')].filter((one): one is ItemDef => one !== undefined);
+  }
+  if (stars === 2) return dragonPieces(HERO_BANNER.highTier);
+  if (chance(HERO_BANNER.lowPieceShare)) return dragonPieces(HERO_BANNER.lowTier);
+  const total = HERO_BANNER.runeBoxes.reduce((sum, [, weight]) => sum + weight, 0);
+  let at = randomInt(0, total);
+  for (const [id, weight] of HERO_BANNER.runeBoxes) {
+    at -= weight;
+    if (at < 0) return [ITEMS_BY_ID.get(id)].filter((one): one is ItemDef => one !== undefined);
+  }
+  return dragonPieces(HERO_BANNER.lowTier);
+}
+
+/**
  * Rolls a tier, then picks uniformly among the items in that tier the gacha can pull (not raid drops
  * or limited items). `pullNumber` is which pull this is since the member's last pity-tier item on
  * this banner (1 if pity doesn't matter). `minStars` is the lowest tier it can land on (see
@@ -145,6 +167,10 @@ export function rollItem(
     const weapon = UNIQUE_TREASURES.length === 0 || (UNIQUE_WEAPONS.length > 0 && chance(HERO_BANNER.weaponShare));
     const kind = weapon ? UNIQUE_WEAPONS : UNIQUE_TREASURES;
     if (kind.length > 0) pool = [...kind];
+  } else if (banner === 'hero') {
+    // (Below its top tier, King's Raid's kinds of things: heroBannerPool.)
+    const kinds = heroBannerPool(stars);
+    if (kinds.length > 0) pool = kinds;
   } else if (stars === PITY_STARS && banner === 'limited') {
     const featured = featuredItems();
     if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = picked(featured);

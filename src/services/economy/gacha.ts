@@ -1,3 +1,5 @@
+import { rollKrOptions } from '../../data/kr-gear.js';
+import { grantReward } from '../mail.js';
 import { CONFIG } from '../../config.js';
 import { MULTI_MIN_STARS, MULTI_PULLS } from '../../constants/index.js';
 import { collections } from '../../db.js';
@@ -8,7 +10,7 @@ import { gearEffects } from '../../lib/game/items/equipment.js';
 import { bannerWeights, guaranteeChoices, pulledLevel, rollPulls, topChance } from '../../lib/game/items/gacha.js';
 import { rollUtOptions } from '../../lib/game/technomagic.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
-import type { BannerId, ItemCopyDoc, ItemDef, MemberDoc, TmPotential } from '../../types.js';
+import type { BannerId, ItemCopyDoc, ItemDef, KrOption, MemberDoc, TmPotential } from '../../types.js';
 import { resolveGear } from '../items/gear.js';
 import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
@@ -93,11 +95,11 @@ export type PullResult =
  * Gives the member a new copy of an item (locked when it's 4★): at refinement `level` (1 unless said), with
  * `tmPotentials` (a unique treasure's options) when given. `count` is how many copies of it they now have.
  */
-export async function addCopy(guildId: string, userId: string, itemId: string, made: { level?: number; tmPotentials?: TmPotential[] } = {}): Promise<{ copy: ItemCopyDoc; count: number }> {
+export async function addCopy(guildId: string, userId: string, itemId: string, made: { level?: number; tmPotentials?: TmPotential[]; options?: KrOption[] } = {}): Promise<{ copy: ItemCopyDoc; count: number }> {
   const { items } = collections();
   const locked = ITEMS_BY_ID.get(itemId)?.stars === 4;
   for (let attempt = 0; ; attempt++) {
-    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: made.level ?? 1, obtainedAt: new Date(), ...(locked && { locked }), ...(made.tmPotentials && { tmPotentials: made.tmPotentials }) };
+    const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level: made.level ?? 1, obtainedAt: new Date(), ...(locked && { locked }), ...(made.tmPotentials && { tmPotentials: made.tmPotentials }), ...(made.options && made.options.length > 0 && { options: made.options }) };
     try {
       await items.insertOne(copy);
       return { copy, count: await items.countDocuments({ guildId, userId, itemId }) };
@@ -237,8 +239,14 @@ async function pullMany(guildId: string, userId: string, times: number, banner: 
     );
     // (A unique weapon now and then comes refined, and a unique treasure with its options: pulledLevel, rollUtOptions.)
     const give = async (item: ItemDef): Promise<PulledItem> => {
+      // (A reward, no copy: a selector to the mailbox, a rune to their runes: services/mail.ts grantReward.)
+      if (item.grant) {
+        await grantReward(guildId, userId, item);
+        return { item, isNew: !hadBefore.has(item.id), count: 1, level: 1 };
+      }
       const level = pulledLevel(item);
-      const owned = await addCopy(guildId, userId, item.id, { level, ...(item.uniqueTreasure && { tmPotentials: rollUtOptions() }) });
+      // (King's Raid's hero gear: its options rolled now.)
+      const owned = await addCopy(guildId, userId, item.id, { level, ...(item.uniqueTreasure && { tmPotentials: rollUtOptions() }), ...(item.kr && { options: rollKrOptions(item.kr) }) });
       addedIds.push(owned.copy._id);
       return { item, isNew: owned.count === 1 && !hadBefore.has(item.id), count: owned.count, level };
     };

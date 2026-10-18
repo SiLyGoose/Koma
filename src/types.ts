@@ -67,10 +67,46 @@ export interface ItemDef {
   /** Optional: a bonus a copy gets once refined to R5 (see ItemBonus). */
   bonus?: ItemBonus;
   /**
-   * King's Raid's hero gear, or an artifact (data/kr-gear.ts): never pulled, dropped by the TechnoMagic and Dragon Raids,
-   * and only heroes wear it, in the slot of its part. Missing means it isn't.
+   * King's Raid's hero gear, or an artifact (data/kr-gear.ts): never pulled from the standard banners, dropped by the
+   * TechnoMagic and Dragon Raids and pulled from the Hero Item banner, and only heroes wear it, in the slot of its part.
+   * Missing means it isn't.
    */
   kr?: KrItem;
+  /**
+   * A reward, never a copy (data/kr-gear.ts KR_GRANTS): a unique weapon or treasure selector, sent to the member's mailbox
+   * to be picked there; or a rune of a grade, rolled as it is given. Its icon is King's Raid's. Missing means it isn't one.
+   */
+  grant?: ItemGrant;
+}
+
+/** What a reward item gives: a selector (a unique weapon or a unique treasure of the member's choosing), or a rune of a grade. */
+export type ItemGrant = { selector: 'uw' | 'ut'; icon: string } | { runeGrade: number; icon: string };
+
+/**
+ * Something a mail carries (services/mail.ts), given as it is claimed: points, komaGems, komaTokens, copies of an item, runes,
+ * or a selector (a unique weapon of any hero, or a unique treasure of any hero's, picked as it is claimed).
+ */
+export type MailAttachment =
+  | { kind: 'points'; amount: number }
+  | { kind: 'gems'; amount: number }
+  | { kind: 'tokens'; amount: number }
+  | { kind: 'item'; itemId: string; count: number }
+  | { kind: 'rune'; runeId: string; count: number }
+  | { kind: 'selector'; of: 'uw' | 'ut' };
+
+/** A mail in a member's mailbox (services/mail.ts): its title and message, whom from, what it carries, and when it was read and claimed. */
+export interface MailDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  title: string;
+  message: string;
+  /** The bot itself (a pull's selector), or the bot admin (a reward sent with the mail command). */
+  from: 'system' | 'admin';
+  attachments: MailAttachment[];
+  createdAt: Date;
+  readAt?: Date;
+  claimedAt?: Date;
 }
 
 /**
@@ -556,6 +592,8 @@ export type LedgerReason =
   | 'tm_win'
   // Points a won Dragon Raid run paid (services/technomagic.ts; dragon.winPoints).
   | 'dragon_win'
+  // Points (komaGems, komaTokens) a mail gave as it was claimed (services/mail.ts).
+  | 'mail'
   // Points paid to reroll one of a hero gear copy's options or its unique option, and to upgrade one a step (services/kr-gear.ts; itemId is the item).
   | 'kr_reroll'
   | 'kr_upgrade'

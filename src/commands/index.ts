@@ -9,6 +9,7 @@ import { events } from './events.js';
 import { gacha } from './gacha.js';
 import { gear } from './gear.js';
 import { give } from './give.js';
+import { mail } from './mail.js';
 import { createHelpCommand } from './help.js';
 import { inventory } from './inventory.js';
 import { leaderboard } from './leaderboard.js';
@@ -68,6 +69,7 @@ export const commands: Command[] = [
   config,
   events,
   newsletter,
+  mail,
   give,
   createHelpCommand(() => commands),
 ];

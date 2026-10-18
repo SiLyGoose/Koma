@@ -1,0 +1,43 @@
+/* The mailbox on the site: what the bot's GET /api/mail (and its POSTs) say of a member's mail. */
+
+/** What a mail carries, as the page shows it: a line ("5,000 zeiucoins", "Unique Weapon Ticket"), its icon (King's Raid's, if any), and a selector's kind. */
+export interface MailAttachmentView {
+  text: string;
+  icon: string | null;
+  /** A selector: a unique weapon or a unique treasure, picked as it is claimed. */
+  selector: 'uw' | 'ut' | null;
+}
+
+/** One mail. */
+export interface MailView {
+  id: string;
+  title: string;
+  message: string;
+  /** The bot itself (a pull's ticket), or the bot admin. */
+  from: 'system' | 'admin';
+  attachments: MailAttachmentView[];
+  /** When it came (ISO). */
+  sent: string;
+  read: boolean;
+  claimed: boolean;
+}
+
+/** A hero a selector can give a unique weapon or treasure of: its id and name, and its four unique treasures' names (UT1 to UT4). */
+export interface MailHero {
+  id: string;
+  name: string;
+  treasures: string[];
+}
+
+/** GET /api/mail: their mail (the newest first), how many unread, and the heroes a selector can be picked for. */
+export interface MailboxView {
+  mail: MailView[];
+  unread: number;
+  heroes: MailHero[];
+}
+
+/** POST /api/mail/claim's answer: the mailbox after, and what it gave, a line each. */
+export type MailClaimed = MailboxView & { given: string[] };
+
+/** Why a mail wasn't claimed (nothing given). */
+export type MailClaimError = 'not_found' | 'claimed' | 'needs_pick' | 'bad_pick';
