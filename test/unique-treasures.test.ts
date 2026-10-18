@@ -60,10 +60,9 @@ test('unique treasures: a copy rolls two different options; wherever it is worn 
   const cape = item('cape-of-justice');
   assert.ok(Math.abs(pieceBonus({ item: cape, level: 1, potentials: OPTIONS }, 'knight', 'klaus').atk - 0.1) < 1e-9);
   assert.equal(pieceBonus({ item: cape, level: 1, potentials: OPTIONS }, 'knight', 'kirze').atk, 0);
-  const lines = heroItemLines(cape, 3, undefined, OPTIONS);
-  assert.equal(lines.length, 4);
-  assert.equal(lines[2], 'As main treasure: +1,450,230 HP');
-  assert.match(lines[3] ?? '', /^Klaus only, as main treasure, ★3: \[Cut Ground\] Increases DMG target receives by 17%/);
+  const lines = heroItemLines(cape, 3, OPTIONS);
+  assert.equal(lines.length, 3);
+  assert.match(lines[2] ?? '', /^Klaus only, as main treasure, ★3: \[Cut Ground\] Increases DMG target receives by 17%/);
   // Its HP (King's Raid's, the same for every hero) only as the main treasure.
   assert.equal(pieceBonus({ item: cape, level: 5, potentials: OPTIONS, main: true }, 'knight', 'klaus').hpFlat, 2_265_983);
   assert.equal(pieceBonus({ item: cape, level: 1, potentials: OPTIONS, main: true }, 'knight', 'klaus').hpFlat, 997_027);

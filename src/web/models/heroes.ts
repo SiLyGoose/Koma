@@ -203,7 +203,7 @@ export function heroesView(
       setBonuses: bonuses,
       locked: copy.locked === true,
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
-      effects: heroItemLines(item, level, undefined, copy.tmPotentials, copy.options, runes),
+      effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
       additional: kr?.unique ? tmSkillLine(copy.tmSkill) : null,
@@ -217,7 +217,7 @@ export function heroesView(
       refine: { blocked: null, cost: null, spare: null, after: null },
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, member?.points ?? 0);
-    view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, undefined, copy.tmPotentials, copy.options, runes) };
+    view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, copy.tmPotentials, copy.options, runes) };
     list.push(view);
     pieces.set(copy._id, {
       view,

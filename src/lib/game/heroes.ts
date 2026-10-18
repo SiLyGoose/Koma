@@ -289,14 +289,13 @@ export const runeLines = (id: string): string[] =>
   Object.entries(KR_RUNES_BY_ID.get(id)?.stats ?? {}).flatMap(([stat, value]) => (stat in HERO_STATS ? [krLine(stat as HeroStat, value as number)] : []));
 
 /**
- * What a copy of `item` at `level` does on a hero, a line each: King's Raid's gear's main stat and options (`options`) and its
- * runes' (`runes`), an artifact's effect at its tier; a unique treasure's options (`potentials`), its HP and effect as main
- * treasure; a unique weapon's ATK and its own effect. `heroClass` (for a unique weapon: its hero's) says what its ATK is.
+ * What a copy of `item` at `level` does on a hero, a line each: King's Raid's gear's options (`options`) and its runes'
+ * (`runes`), an artifact's effect at its tier; a unique treasure's options (`potentials`) and its effect as main treasure;
+ * a unique weapon's runes and its own effect. Never its main stat (copyMainStat: the pages show it above these).
  */
 export function heroItemLines(
   item: ItemDef,
   level: number = REFINE.maxLevel,
-  heroClass?: RaidClassId,
   potentials?: readonly TmPotential[],
   options?: readonly KrOption[],
   runes?: readonly (string | null)[],
@@ -307,20 +306,16 @@ export function heroItemLines(
     const text = ARTIFACT_TEXT.get(item.id)?.[refineLevel(level, 0)];
     return text ? [text] : [];
   }
-  if (item.kr) {
-    const main = copyMainStat(item, { level });
-    return [...(main ? [`${main.name} +${fmt(main.value)}`] : []), ...optionLines(item, options), ...runeText];
-  }
+  if (item.kr) return [...optionLines(item, options), ...runeText];
   if (item.uniqueTreasure) {
     const owner = HEROES.find((hero) => hero.id === item.uniqueTreasure?.hero);
     const effect = owner ? uniqueTreasureText(owner.id, item.uniqueTreasure.skill, treasureTier(level)) : null;
-    return [...potentialLines(potentials), `As main treasure: ${statLine('hpFlat', utHp(level))}`, ...(owner && effect ? [`${owner.name} only, as main treasure, ★${treasureTier(level)}: ${effect.text}`] : [])];
+    return [...potentialLines(potentials), ...(owner && effect ? [`${owner.name} only, as main treasure, ★${treasureTier(level)}: ${effect.text}`] : [])];
   }
   if (item.tmDrop) return potentialLines(potentials);
   const owner = item.uniqueWeapon === undefined ? undefined : HEROES.find((hero) => hero.id === item.uniqueWeapon);
-  const lines = owner ? [statLine('atkFlat', uwAttack(heroClass ?? owner.class, level))] : [];
   const unique = owner ? uniqueWeaponText(owner.id, uniqueTier(level)) : null;
-  return unique ? [...lines, ...runeText, `${owner?.name} only, ★${uniqueTier(level)}: ${unique}`] : [...lines, ...runeText];
+  return unique ? [...runeText, `${owner?.name} only, ★${uniqueTier(level)}: ${unique}`] : runeText;
 }
 
 /** Whether a stat is points in the raid (see HERO_STATS); its bonus as the raid counts it: points, or a share (or flat, as it is). */

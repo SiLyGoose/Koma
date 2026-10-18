@@ -158,7 +158,7 @@ export function gearView(
       description: item.description,
       level,
       maxLevel,
-      effects: item.tmDrop || item.uniqueTreasure ? heroItemLines(item, level, undefined, copy.tmPotentials) : describeEffects(item, share, level),
+      effects: item.tmDrop || item.uniqueTreasure ? heroItemLines(item, level, copy.tmPotentials) : describeEffects(item, share, level),
       mainStat: copyMainStat(item, copy),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
@@ -175,7 +175,7 @@ export function gearView(
       hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance);
-    view.refine = { ...refine, after: to === null ? null : item.uniqueTreasure ? heroItemLines(item, to, undefined, copy.tmPotentials) : describeEffects(item, share, to) };
+    view.refine = { ...refine, after: to === null ? null : item.uniqueTreasure ? heroItemLines(item, to, copy.tmPotentials) : describeEffects(item, share, to) };
     list.push(view);
     byId.set(view.id, { view, piece: { item, level } });
   }
