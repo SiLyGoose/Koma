@@ -279,12 +279,12 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   mail: {
-    description: 'Send mail with rewards to a member, or everyone in the server (bot admin only).',
+    description: 'Send mail with rewards to a member, or everyone with the notify role (bot admin only).',
     build: (b) =>
       void b
         .addStringOption((o) => o.setName('title').setDescription('The title').setRequired(true).setMaxLength(100))
         .addStringOption((o) => o.setName('message').setDescription('The message').setRequired(true).setMaxLength(2000))
-        .addUserOption((o) => o.setName('user').setDescription('Whom to (left out: everyone in the server)'))
+        .addUserOption((o) => o.setName('user').setDescription('Whom to (left out: everyone with the notify role)'))
         .addStringOption((o) => o.setName('rewards').setDescription('e.g. points:5000, gems:20, item:<id>x2, rune:<id>, uw, ut').setMaxLength(500)),
     toArgs: (i) => {
       const user = i.options.getUser('user');
