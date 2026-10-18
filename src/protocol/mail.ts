@@ -33,18 +33,28 @@ export interface MailView {
   claimed: boolean;
 }
 
+/** An item a ticket can be picked as, as its popup shows it: a new copy's (0★) main stat, and its unique effect (its hero's alone). */
+export interface MailTicketItem extends MailPickItem {
+  main: { name: string; value: number } | null;
+  effect: string | null;
+}
+
 /** A hero a selector can give a unique weapon or treasure of: its id and name, its unique weapon, and its four unique treasures (UT1 to UT4). */
 export interface MailHero {
   id: string;
   name: string;
-  weapon: MailPickItem | null;
-  treasures: MailPickItem[];
+  weapon: MailTicketItem | null;
+  treasures: MailTicketItem[];
 }
 
-/** GET /api/mail: their mail (the newest first), how many unread, and the heroes a selector can be picked for. */
+/** GET /api/mail: their mail (the newest first), and how many unread. */
 export interface MailboxView {
   mail: MailView[];
   unread: number;
+}
+
+/** GET /api/mail/tickets: the heroes a ticket can be picked for (asked for as a ticket's popup opens, not with the mail). */
+export interface MailTickets {
   heroes: MailHero[];
 }
 

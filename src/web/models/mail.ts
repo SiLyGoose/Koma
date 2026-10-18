@@ -1,9 +1,11 @@
 import { HEROES } from '../../data/heroes.js';
 import { ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.js';
+import { copyMainStat } from '../../lib/game/heroes.js';
+import { uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import { KR_RUNES_BY_ID } from '../../data/kr-gear.js';
 import { claimMail, listMail, readMail, type SelectorPick } from '../../services/mail.js';
 import type { MailAttachment, MailDoc } from '../../types.js';
-import type { MailAttachmentView, MailboxView, MailClaimError, MailHero, MailPickItem, MailView } from '../../protocol/mail.js';
+import type { MailAttachmentView, MailboxView, MailClaimError, MailHero, MailPickItem, MailTicketItem, MailView } from '../../protocol/mail.js';
 
 export type { MailboxView };
 
@@ -60,20 +62,30 @@ export const mailView = (doc: MailDoc): MailView => ({
   claimed: doc.claimedAt !== undefined,
 });
 
-/** The heroes a selector can be picked for: every hero, with its unique weapon and its four unique treasures (those it has). */
+/** An item as a ticket's popup shows it: a new copy's (0★, as a ticket gives it) main stat, and its unique effect at 0★. */
+function ticketItem(id: string | undefined): MailTicketItem | null {
+  const item = id ? ITEMS_BY_ID.get(id) : undefined;
+  if (!item) return null;
+  const ut = item.uniqueTreasure;
+  const effect = ut ? (uniqueTreasureText(ut.hero, ut.skill, 0)?.text ?? null) : item.uniqueWeapon ? uniqueWeaponText(item.uniqueWeapon, 0) : null;
+  const main = copyMainStat(item, { level: 0 });
+  return { itemId: item.id, name: item.name, main: main && { name: main.name, value: main.value }, effect };
+}
+
+/** The heroes a selector can be picked for (GET /api/mail/tickets): every hero, with its unique weapon and its four unique treasures (those it has). */
 export const MAIL_HEROES: readonly MailHero[] = HEROES.map((hero) => ({
   id: hero.id,
   name: hero.name,
-  weapon: pickItem(UNIQUE_WEAPONS.find((item) => item.uniqueWeapon === hero.id)?.id),
+  weapon: ticketItem(UNIQUE_WEAPONS.find((item) => item.uniqueWeapon === hero.id)?.id),
   treasures: [1, 2, 3, 4].flatMap((skill) => {
-    const item = pickItem(UNIQUE_TREASURES.find((one) => one.uniqueTreasure?.hero === hero.id && one.uniqueTreasure.skill === skill)?.id);
+    const item = ticketItem(UNIQUE_TREASURES.find((one) => one.uniqueTreasure?.hero === hero.id && one.uniqueTreasure.skill === skill)?.id);
     return item ? [item] : [];
   }),
 }));
 
 async function load(guildId: string, userId: string): Promise<MailboxView> {
   const { mail, unread } = await listMail(guildId, userId);
-  return { mail: mail.map(mailView), unread, heroes: [...MAIL_HEROES] };
+  return { mail: mail.map(mailView), unread };
 }
 
 export const mailStore: MailStore = {

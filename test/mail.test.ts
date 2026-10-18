@@ -42,6 +42,9 @@ test('mail: a selector is any hero’s unique weapon, or any of a hero’s four 
   assert.equal(selectorItem('ut', { hero: 'klaus' }), undefined, "a unique treasure's skill picked too");
   assert.equal(selectorItem('uw', { hero: 'nobody' }), undefined);
   assert.equal(MAIL_HEROES.every((hero) => hero.treasures.length === 4 && hero.weapon !== null), true, 'every hero has its unique weapon and four unique treasures to pick');
+  // Each as its ticket's popup shows it: a new copy's main stat (ATK, MAX HP) and its unique effect.
+  const items = MAIL_HEROES.flatMap((hero) => [hero.weapon, ...hero.treasures]);
+  assert.deepEqual(items.filter((item) => !item?.main || item.main.value <= 0 || !item.effect).map((item) => item?.itemId), []);
   assert.deepEqual(attachmentView({ kind: 'selector', of: 'uw' }), { text: 'Unique Weapon Ticket', icon: 'WEAPON_UNIQUE_SELECT_ITEM', selector: 'uw', picked: null });
   // Claimed: what it was picked as, beside it.
   const exian = selectorItem('uw', { hero: 'klaus' });

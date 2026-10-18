@@ -4,7 +4,7 @@ import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
 import { parse } from '../lib/validate.js';
 import { member, signedIn } from '../middleware/auth.js';
-import { mailStore } from '../models/mail.js';
+import { MAIL_HEROES, mailStore } from '../models/mail.js';
 
 /*
  * /api/mail: the mailbox, for a logged-in member in a server they're in (and a game's link, for its own member there): their
@@ -20,6 +20,9 @@ export function mailRoutes(deps: ApiDeps): Router {
   const store = deps.mail ?? mailStore;
   const siteOrLink = [signedIn(deps, 'play'), member(deps)];
   const handlers = {
+    tickets(_req, res) {
+      res.json({ heroes: MAIL_HEROES });
+    },
     async view(_req, res) {
       res.json(await store.view(res.locals.guildId, res.locals.session.userId));
     },
@@ -35,5 +38,5 @@ export function mailRoutes(deps: ApiDeps): Router {
       res.json(result);
     },
   } satisfies Record<string, RequestHandler>;
-  return Router().get('/', ...siteOrLink, handlers.view).post('/read', ...siteOrLink, handlers.read).post('/claim', ...siteOrLink, handlers.claim);
+  return Router().get('/', ...siteOrLink, handlers.view).get('/tickets', ...siteOrLink, handlers.tickets).post('/read', ...siteOrLink, handlers.read).post('/claim', ...siteOrLink, handlers.claim);
 }
