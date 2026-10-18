@@ -33,11 +33,11 @@ const pickItem = (id: string | null | undefined): MailPickItem | null => {
 export function attachmentView(attachment: MailAttachment, picked?: string | null): MailAttachmentView {
   switch (attachment.kind) {
     case 'points':
-      return { text: `${attachment.amount.toLocaleString()} zeiucoins`, icon: null, selector: null };
+      return { text: `${attachment.amount.toLocaleString()} zeiucoins`, icon: null, selector: null, currency: 'points' };
     case 'gems':
-      return { text: `${attachment.amount.toLocaleString()} komaGems`, icon: null, selector: null };
+      return { text: `${attachment.amount.toLocaleString()} komaGems`, icon: null, selector: null, currency: 'gems' };
     case 'tokens':
-      return { text: `${attachment.amount.toLocaleString()} komaTokens`, icon: null, selector: null };
+      return { text: `${attachment.amount.toLocaleString()} komaTokens`, icon: null, selector: null, currency: 'tokens' };
     case 'rune': {
       const rune = KR_RUNES_BY_ID.get(attachment.runeId);
       return { text: `${attachment.count}× ${rune?.name ?? attachment.runeId}`, icon: rune?.icon ?? null, selector: null };

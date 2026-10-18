@@ -50,6 +50,7 @@ test('mail: a selector is any hero’s unique weapon, or any of a hero’s four 
   const exian = selectorItem('uw', { hero: 'klaus' });
   assert.deepEqual(attachmentView({ kind: 'selector', of: 'uw' }, exian?.id).picked, { itemId: exian?.id, name: exian?.name });
   assert.equal(attachmentView({ kind: 'points', amount: 5000 }).text, '5,000 zeiucoins');
+  assert.equal(attachmentView({ kind: 'gems', amount: 10 }).currency, 'gems', 'a currency says which, for its emoji');
 });
 
 test("hero item banner: below its top tier, King's Raid's kinds: artifacts and tickets, dragon sets' pieces, and runes; never the members' own gear", () => {

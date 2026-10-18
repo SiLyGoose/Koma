@@ -11,6 +11,8 @@ export interface MailAttachmentView {
   selector: 'uw' | 'ut' | null;
   /** A selector claimed: what it was picked as (its item). Null otherwise (left out: a bot from before). */
   picked?: MailPickItem | null;
+  /** One of the bot's currencies (zeiucoins, komaGems, komaTokens): its emoji is its picture. Left out: none. */
+  currency?: 'points' | 'gems' | 'tokens';
 }
 
 /** An item a selector can be picked as: its id (its picture) and name. */
