@@ -11,22 +11,22 @@ import type { ItemDef } from '../src/types.js';
 const item = (id: string) => ITEMS_BY_ID.get(id) as ItemDef;
 const at = (ms: number) => new Date(ms);
 
-test('refinement levels: R1 to R5, and copies from before refining (level 0) count as R1', () => {
+test('refinement levels: ★1 to ★5, and copies from before refining (level 0) count as ★1', () => {
   validateConstants();
   assert.equal(REFINE.maxLevel, 5);
   assert.equal(refineLevel(0), 1);
   assert.equal(refineLevel(1), 1);
   assert.equal(refineLevel(3), 3);
   assert.equal(refineLevel(5), 5);
-  assert.equal(refineLevel(10), 5, 'never above the max (copies refined past it before it was lowered count as R5)');
+  assert.equal(refineLevel(10), 5, 'never above the max (copies refined past it before it was lowered count as ★5)');
 });
 
-test('refinement strength: equal steps up to exactly the listed value at R5, with a double step into R5', () => {
+test('refinement strength: equal steps up to exactly the listed value at ★5, with a double step into ★5', () => {
   const shares = Array.from({ length: 5 }, (_, i) => refineShare(i + 1));
-  // 6 steps in all: 1, 2, 3, 4, then +2 to 6 (R5).
+  // 6 steps in all: 1, 2, 3, 4, then +2 to 6 (★5).
   assert.deepEqual(shares.map((s) => Math.round(s * 6)), [1, 2, 3, 4, 6]);
-  assert.equal(refineShare(5), 1, 'R5 is exactly the value in the settings');
-  assert.equal(refineShare(3), 0.5, 'R3 is exactly half');
+  assert.equal(refineShare(5), 1, '★5 is exactly the value in the settings');
+  assert.equal(refineShare(3), 0.5, '★3 is exactly half');
   const steps = shares.map((s, i) => s - (shares[i - 1] ?? 0)).slice(1);
   for (const [i, step] of steps.entries()) {
     const level = i + 2;
@@ -35,15 +35,15 @@ test('refinement strength: equal steps up to exactly the listed value at R5, wit
 });
 
 test('refinement shows as R and the level', () => {
-  assert.equal(TEXT.gear.item('Wyrmscale Plate', '★★★', 3), '**Wyrmscale Plate** ★★★ · R3');
-  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2 · R3`);
-  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 1), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2`, 'R1 is left out of the inventory');
-  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3, true), `${SLOT_EMOJI.armor} 🔒 Wyrmscale Plate ×2 · R3`, 'the padlock follows the slot emoji');
+  assert.equal(TEXT.gear.item('Wyrmscale Plate', 'T3', 3), '**Wyrmscale Plate** T3 · ★3');
+  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2 · ★3`);
+  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 1), `${SLOT_EMOJI.armor} Wyrmscale Plate ×2`, '★1 is left out of the inventory');
+  assert.equal(TEXT.inventory.item('Wyrmscale Plate', 2, SLOT_EMOJI.armor, 3, true), `${SLOT_EMOJI.armor} 🔒 Wyrmscale Plate ×2 · ★3`, 'the padlock follows the slot emoji');
   assert.equal(TEXT.gear.slotName('Armor', SLOT_EMOJI.armor, true), `Armor ${SLOT_EMOJI.armor} 🔒`, 'and on the gear card too');
   assert.equal(TEXT.gear.slotName('Armor', SLOT_EMOJI.armor), `Armor ${SLOT_EMOJI.armor}`);
-  assert.equal(TEXT.equip.effectsField(2), 'Effects (R2)');
-  assert.match(TEXT.refine.done('<@a>', 2, 3, 1), /from \*\*R2\*\* to \*\*R3\*\*.*1 duplicate left/);
-  assert.equal(TEXT.refine.maxed('Wyrmscale Plate', 5), 'Your **Wyrmscale Plate** is already fully refined (**R5**).');
+  assert.equal(TEXT.equip.effectsField(2), 'Effects (★2)');
+  assert.match(TEXT.refine.done('<@a>', 2, 3, 1), /from \*\*★2\*\* to \*\*★3\*\*.*1 duplicate left/);
+  assert.equal(TEXT.refine.maxed('Wyrmscale Plate', 5), 'Your **Wyrmscale Plate** is already fully refined (**★5**).');
   for (const text of [TEXT.refine.noDuplicate('X', 2), TEXT.refine.footer(5), TEXT.databank.description(5), TEXT.databank.description(1), TEXT.databank.detailEffectsField(5)]) {
     assert.doesNotMatch(text, /refinement \d/, text);
   }
@@ -108,7 +108,7 @@ test('refine of a chosen copy: raises that copy whatever the others are at, usin
   const copies = [worn, low, high, shut];
   const kept = new Set(['worn']);
 
-  // The R1 spare is raised, not the worn R3, using up the R2 picked.
+  // The ★1 spare is raised, not the worn ★3, using up the ★2 picked.
   const picked = refineCopyPlan(copies, 'low', 'high', kept);
   assert.ok(picked.ok);
   assert.deepEqual([picked.target._id, picked.fodder._id, picked.from, picked.to], ['low', 'high', 1, 2]);
@@ -155,9 +155,9 @@ test('refine cost: points by star tier and level, the lower tiers a share of the
 });
 
 test('refine cost: the messages say what it cost, and what it would cost when they can\'t pay', () => {
-  assert.match(TEXT.refine.done('<@1>', 1, 2, 3, '2,000'), /R1.*R2.*duplicate and \*\*2,000\*\*/);
+  assert.match(TEXT.refine.done('<@1>', 1, 2, 3, '2,000'), /★1.*★2.*duplicate and \*\*2,000\*\*/);
   assert.doesNotMatch(TEXT.refine.done('<@1>', 1, 2, 3, '0'), / and /, 'a free refine says nothing about points');
-  assert.match(TEXT.refine.tooPoor('Piplup', 3, '3,000', '1,200'), /Piplup.*R3.*3,000.*1,200/);
-  assert.equal(TEXT.refine.againButton(3, '3,000'), 'Refine to R3 (3,000)');
-  assert.equal(TEXT.refine.againButton(3, '0'), 'Refine to R3');
+  assert.match(TEXT.refine.tooPoor('Piplup', 3, '3,000', '1,200'), /Piplup.*★3.*3,000.*1,200/);
+  assert.equal(TEXT.refine.againButton(3, '3,000'), 'Refine to ★3 (3,000)');
+  assert.equal(TEXT.refine.againButton(3, '0'), 'Refine to ★3');
 });

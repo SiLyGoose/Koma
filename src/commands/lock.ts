@@ -6,6 +6,7 @@ import { itemStars } from '../lib/format.js';
 import type { InventoryStack } from '../lib/game/items/copies.js';
 import { getInventory } from '../services/economy/index.js';
 import { itemStacks, setOneLocked } from '../services/items/lock.js';
+import { heroOnly } from '../lib/game/heroes.js';
 import type { ItemDef } from '../types.js';
 import type { Command, CommandContext } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
@@ -30,11 +31,11 @@ function pickerEmbed(item: ItemDef, verb: Verb, note: string | null): BotEmbed {
 }
 
 /** One button per kind of copy, `LOCK_BUTTONS.prefix` + its index in `stacks`. */
-function buttonRows(stacks: readonly InventoryStack[], verb: Verb): ActionRowBuilder<ButtonBuilder>[] {
+function buttonRows(stacks: readonly InventoryStack[], verb: Verb, hero = false): ActionRowBuilder<ButtonBuilder>[] {
   const buttons = stacks.slice(0, MAX_BUTTONS).map((stack, i) =>
     new ButtonBuilder()
       .setCustomId(`${LOCK_BUTTONS.prefix}${i}`)
-      .setLabel(TEXT.lock.button(stack.level, stack.count, stack.worn))
+      .setLabel(TEXT.lock.button(stack.level, stack.count, stack.worn, hero))
       .setEmoji(verb === 'lock' ? '🔒' : '🔓')
       .setStyle(ButtonStyle.Secondary),
   );
@@ -71,7 +72,7 @@ async function pick(ctx: CommandContext, item: ItemDef, verb: Verb, first: Inven
           const done = await setOneLocked(ctx.guildId, ctx.user.id, stack, verb === 'lock');
           if (!done) await followUpPrivately(interaction, TEXT.lock.gone);
           stacks = await choices(ctx, item, verb);
-          const note = done ? TEXT.lock.done(item.name, stack.level, verb) : null;
+          const note = done ? TEXT.lock.done(item.name, stack.level, verb, heroOnly(item)) : null;
           if (stacks.length === 0) {
             await interaction.editReply({ embeds: [pickerEmbed(item, verb, [note, TEXT.lock.allDone(verb)].filter(Boolean).join('\n'))], components: [] });
             collector.stop();
@@ -142,7 +143,7 @@ function lockCommand(verb: Verb): Command {
       // All alike: no choice to make.
       if (stacks.length === 1) {
         const done = await setOneLocked(ctx.guildId, ctx.user.id, only, locking);
-        await ctx.reply(done ? TEXT.lock.done(item.name, only.level, verb) : TEXT.lock.gone);
+        await ctx.reply(done ? TEXT.lock.done(item.name, only.level, verb, heroOnly(item)) : TEXT.lock.gone);
         return;
       }
       await pick(ctx, item, verb, stacks);

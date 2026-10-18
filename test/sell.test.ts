@@ -177,9 +177,9 @@ test('sell: there is one price setting per star tier, it starts as a whole numbe
 // Messages
 
 test('sell: the messages', () => {
-  assert.equal(TEXT.sell.soldOne('<@1>', '★', 'Rusty Dagger', '40'), `<@1> sold **Rusty Dagger** ★ for **40** ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.sell.soldOne('<@1>', 'T1', 'Rusty Dagger', '40'), `<@1> sold **Rusty Dagger** T1 for **40** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.sell.soldMany('<@1>', 4, '400'), `<@1> sold **4** items for **400** ${CURRENCY_EMOJI}`);
-  assert.equal(TEXT.sell.line('★★', 'Kippah', 2, '200'), `★★  Kippah x2 · 200 ${CURRENCY_EMOJI}`);
+  assert.equal(TEXT.sell.line('T2', 'Kippah', 2, '200'), `T2  Kippah x2 · 200 ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.sell.footerLeft(0), 'You have none left');
   assert.equal(TEXT.sell.footerLeft(2), 'You have 2 left');
   assert.equal(TEXT.sell.skipped(1), '1 item could not be sold any more and was kept.');
@@ -187,7 +187,7 @@ test('sell: the messages', () => {
   assert.equal(TEXT.sell.onlyEquipped('k!', 'Kippah'), "Your **Kippah** is in one of your loadouts, so it can't be sold. Take it off with `k!unequip` first (for a saved loadout, switch to it with `k!loadout`).");
   assert.equal(TEXT.sell.noneInTier('3-star'), "You don't own any 3-star items.");
   assert.equal(TEXT.sell.confirmDescription('200', 2, 'LINES'), `LINES\n\nTotal: **200** ${CURRENCY_EMOJI} for **2** items.`);
-  assert.match(TEXT.sell.usage('k!'), /k!sell <item>.*k!sell <number> <item>.*k!sell all <item>.*k!sell stars <1-4>/);
+  assert.match(TEXT.sell.usage('k!'), /k!sell <item>.*k!sell <number> <item>.*k!sell all <item>.*k!sell tier <1-4>/);
   assert.equal(TEXT.sell.askWhichAmount('k!'), 'Which item? Use `k!sell <number> <item name>`.');
   assert.match(TEXT.sell.badAmount('k!'), /whole number, 1 or more/);
   assert.equal(

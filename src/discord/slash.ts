@@ -12,7 +12,7 @@ import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, RAID_BOSS_IDS, RAID_CLASS_IDS
 import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
 import { GAME_EVENTS } from '../events/registry.js';
 import { itemChoices, nameChoices, type Choice } from '../lib/autocomplete.js';
-import { mention, starString } from '../lib/format.js';
+import { mention, tierLabel } from '../lib/format.js';
 import { GROUPS, PER_SERVER_CHANNELS, PER_SERVER_ROLES } from '../commands/config.js';
 import { SPECS } from '../lib/settings-spec.js';
 import { getInventory } from '../services/economy/index.js';
@@ -169,7 +169,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   databank: {
-    description: 'See every item and what it does, or one item, star tier or category, or the Weekly Bosses.',
+    description: 'See every item and what it does, or one item, tier or category, or the Weekly Bosses.',
     build: (b) =>
       void b
         .addStringOption((o) =>
@@ -178,8 +178,8 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
         .addIntegerOption((o) =>
           o
             .setName('stars')
-            .setDescription('Only the items of one star tier')
-            .addChoices(...STARS.map((stars) => ({ name: `${stars}-star (${starString(stars)})`, value: stars }))),
+            .setDescription('Only the items of one tier')
+            .addChoices(...STARS.map((stars) => ({ name: tierLabel(stars), value: stars }))),
         )
         .addStringOption(categoryOption)
         .addStringOption((o) =>
@@ -433,7 +433,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   sell: {
-    description: 'Sell items you are not wearing: one copy, some copies, all copies of an item, or a star tier.',
+    description: 'Sell items you are not wearing: one copy, some copies, all copies of an item, or a tier.',
     build: (b) =>
       void b
         .addSubcommand((s) =>
@@ -458,13 +458,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
         .addSubcommand((s) =>
           s
             .setName('stars')
-            .setDescription('Sell everything of one star tier that you are not wearing')
+            .setDescription('Sell everything of one tier that you are not wearing')
             .addIntegerOption((o) =>
               o
                 .setName('tier')
-                .setDescription('The star tier')
+                .setDescription('The tier')
                 .setRequired(true)
-                .addChoices(...STARS.map((stars) => ({ name: `${stars}-star (${starString(stars)})`, value: stars }))),
+                .addChoices(...STARS.map((stars) => ({ name: tierLabel(stars), value: stars }))),
             ),
         ),
     toArgs: (i) => {

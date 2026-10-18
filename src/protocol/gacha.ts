@@ -108,8 +108,10 @@ export interface BannerPull {
   uniqueWeapon: string | null;
   /** A unique treasure: the hero that wears it, and which of its four it is (1 to 4: UT1 to UT4, its skills' then its passive's). Null: not one. */
   uniqueTreasure: { hero: string; skill: number } | null;
-  /** How far the copy came refined (1: R1, a new copy's). */
+  /** How far the copy came refined (1: R1, a new copy's); a hero's gear (heroOnly), its stars. */
   level: number;
+  /** A hero's gear (King's Raid's pieces and artifacts, unique weapons and treasures): its level is its stars. Left out: a bot from before. */
+  heroOnly?: boolean;
 }
 
 /** POST /api/gacha/pull: what came out, what it was paid with, and the banner as it stands after. */

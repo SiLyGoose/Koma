@@ -1,17 +1,17 @@
 import { REFINE } from '../../items/refine.js';
 
-/** Under the list: which refinement the strengths shown are at. */
+/** Under the list: which stars the strengths shown are at. */
 const refineNote = (level: number): string =>
   level >= REFINE.maxLevel
-    ? `Strengths shown at **R${level}** (fully refined). A new copy starts at R1 and gets stronger with \`refine\`.`
-    : `Strengths shown at **R${level}**${level === 1 ? ' (a new copy)' : ''}. Items get stronger with \`refine\`, up to R${REFINE.maxLevel}.`;
+    ? `Strengths shown at **★${level}** (fully refined). A new copy starts at ★1 and gets stronger with \`refine\`.`
+    : `Strengths shown at **★${level}**${level === 1 ? ' (a new copy)' : ''}. Items get stronger with \`refine\`, up to ★${REFINE.maxLevel}.`;
 
 export const databankText = {
   title: 'Databank',
-  /** The title with the refinement level the strengths are shown at, like "Databank · R5". */
-  titleAt: (title: string, level: number) => `${title} · R${level}`,
+  /** The title with the stars the strengths are shown at, like "Databank · ★5". */
+  titleAt: (title: string, level: number) => `${title} · ★${level}`,
   /** The button that switches the strengths shown to `level`. */
-  showLevel: (level: number) => `Show R${level}`,
+  showLevel: (level: number) => `Show ★${level}`,
   /** Added to the title when the list needs more than one message, like "Databank (2/3)". */
   titlePage: (title: string, page: number, pages: number) => `${title} (${page}/${pages})`,
   description: (level: number) => `Every item and what it does while equipped.\n${refineNote(level)}`,
@@ -26,7 +26,7 @@ export const databankText = {
   tierDescription: (stars: string, level: number) => `Every ${stars} item and what it does while equipped.\n${refineNote(level)}`,
   /** Asked for a number that isn't a tier. `low` and `high` are the lowest and highest tier. */
   badTier: (p: string, low: number, high: number) =>
-    `Pick a star tier from ${low} to ${high}, like \`${p}databank ${high}\`. \`${p}databank\` lists every item.`,
+    `Pick a tier from T${low} to T${high}, like \`${p}databank t${high}\`. \`${p}databank\` lists every item.`,
   noItemsInTier: (stars: string) => `There are no ${stars} items.`,
   /** One category (`databank weapon`), maybe of one tier too. `category` is its name, like "Weapon"; `stars` the star string or null. */
   categoryTitle: (title: string, category: string) => `${title} · ${category}`,
@@ -61,11 +61,11 @@ export const databankText = {
   /** Added to detailRaidDrop for an item the raid shop sells. `price` is a copy's, like "**10** <gem>". */
   detailRaidShop: (price: string) => `The raid shop on the site also sells it for ${price}, on the weeks it's on the shelf.`,
   footer: (p: string) =>
-    `${p}databank <item> shows one item in full, ${p}databank <1-4> one star tier, ${p}databank <weapon | armor | treasure> one category, ${p}databank bosses the Weekly Bosses and ${p}databank classes the raid classes. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
-  /** The details of one item (`databank <item>`). `stars` is the star string. */
+    `${p}databank <item> shows one item in full, ${p}databank <T1-T4> one tier, ${p}databank <weapon | armor | treasure> one category, ${p}databank bosses the Weekly Bosses and ${p}databank classes the raid classes. Pull items with ${p}gacha and wear them with ${p}equip <item name>`,
+  /** The details of one item (`databank <item>`). `stars` is its tier (tierLabel). */
   detailTitle: (stars: string, name: string) => `${stars}  ${name}`,
   detailSlotField: 'Slot',
-  detailEffectsField: (level: number) => `Effects (at R${level})`,
+  detailEffectsField: (level: number) => `Effects (at ★${level})`,
   detailExclusiveField: 'Exclusive',
   /** `owners` is mentions. */
   /** `share` is how much of its effects everyone else gets, like "50%". */

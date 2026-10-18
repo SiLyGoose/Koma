@@ -303,7 +303,7 @@ test("the lobby's difficulty: the host picks it, as far as the server has unlock
   // Level 3: its share of the HP, and half of the boss's gear HP for every raider (a lobby of 2 counts as the fewest).
   const third = (first.lobby?.bossHp ?? 0) * (1 + 2 * CONFIG.raid.difficultyHp) + 0.5 * CONFIG.raid.gearHp.wyrm * CONFIG.raid.minRaiders;
   assert.ok(Math.abs((picked.lobby?.bossHp ?? 0) - third) <= 1, String(picked.lobby?.bossHp));
-  assert.match(picked.brief.rewards, /everyone finds 15× 3★ raid items/);
+  assert.match(picked.brief.rewards, /everyone finds 15× T3 raid items/);
 
   assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty', level: 2.5 })), null);
   assert.equal(parseClientMessage(JSON.stringify({ t: 'difficulty' })), null);

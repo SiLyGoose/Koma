@@ -6,23 +6,24 @@ export const fmt = (n: number): string => (Object.is(n, -0) ? 0 : n).toLocaleStr
 /** An amount of points with the currency emoji after it: 1500 -> "1,500 <:zeiucoin:...>". For embed fields that show only an amount. */
 export const money = (n: number): string => `${fmt(n)} ${CURRENCY_EMOJI}`;
 
-export const starString = (stars: number): string => STAR_SYMBOL.repeat(stars);
+/** The members' own gear's tier (its rarity, T1 to T4: what were its stars; a copy's stars are its level now, levelTag). */
+export const tierLabel = (stars: number): string => `T${stars}`;
 
-/** What TechnoMagic gear shows in place of stars: it is a tier of its own, above 4 stars. */
+/** What TechnoMagic gear shows in place of a tier: it is a tier of its own, above T4. */
 export const TM_TIER = '**TM**';
 
-/** An item's tier as it is shown: its stars, or TM for TechnoMagic gear. */
-export const itemStars = (item: { stars: number; tmDrop?: true }): string => (item.tmDrop ? TM_TIER : starString(item.stars));
+/** An item's tier as it is shown: T1 to T4, or TM for TechnoMagic gear. */
+export const itemStars = (item: { stars: number; tmDrop?: true }): string => (item.tmDrop ? TM_TIER : tierLabel(item.stars));
 
-/** The tiers items are listed in, best first: TechnoMagic gear, then 4 stars down to 1. */
+/** The tiers items are listed in, best first: TechnoMagic gear, then T4 down to T1. */
 export const ITEM_TIERS = ['tm', 4, 3, 2, 1] as const;
 export type ItemTier = (typeof ITEM_TIERS)[number];
 
-/** Whether an item is of a tier (TechnoMagic gear is of its own, not of its stars'). */
+/** Whether an item is of a tier (TechnoMagic gear is of its own). */
 export const inTier = (item: { stars: number; tmDrop?: true }, tier: ItemTier): boolean => (tier === 'tm' ? item.tmDrop === true : !item.tmDrop && item.stars === tier);
 
 /** A tier as it is shown. */
-export const tierString = (tier: ItemTier): string => (tier === 'tm' ? TM_TIER : starString(tier));
+export const tierString = (tier: ItemTier): string => (tier === 'tm' ? TM_TIER : tierLabel(tier));
 
 /** Joins lines with newlines, cutting off with "...and N more" so it fits an embed field. */
 export function joinLimited(lines: string[], maxLength = FIELD_MAX_LENGTH): string {

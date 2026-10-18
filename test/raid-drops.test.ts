@@ -149,11 +149,11 @@ test('raid drops: 4-stars only at levels 5 and 10, and one more 3-star at every 
   // The Weekly Boss drops them raid.weeklyMultiplier (5) times over.
   assert.deepEqual(raidDropCounts(1, 5), { 4: 0, 3: 5 });
   assert.deepEqual(raidDropCounts(5, 5), { 4: 5, 3: 20 });
-  assert.equal(lootKindsText(1), '5× 3★ raid items');
-  assert.equal(lootKindsText(2), '10× 3★ raid items');
-  assert.equal(lootKindsText(5), '5× 4★ and 20× 3★ raid items');
-  assert.equal(lootKindsText(6), '25× 3★ raid items', 'no 4-star past the milestone');
-  assert.equal(lootKindsText(10), '10× 4★ and 40× 3★ raid items');
+  assert.equal(lootKindsText(1), '5× T3 raid items');
+  assert.equal(lootKindsText(2), '10× T3 raid items');
+  assert.equal(lootKindsText(5), '5× T4 and 20× T3 raid items');
+  assert.equal(lootKindsText(6), '25× T3 raid items', 'no 4-star past the milestone');
+  assert.equal(lootKindsText(10), '10× T4 and 40× T3 raid items');
 
   // Each raider finds that many of each tier, their best first, each from its own tier's items.
   let next = 0;
@@ -186,7 +186,7 @@ test('raid drops: a raider with several is listed on one line, and My loot shows
   const embed = resultEmbed(state, DEFAULTS.raid, { failed: [], drops });
   assert.equal(
     embed.toJSON().fields?.find((f) => f.name === TEXT.raid.lootField)?.value,
-    '<@1> found ★★★★ **Godslayer Fang**, ★★★ **Wyvern Tooth** ×2\n<@2> found ★★★★ **Godslayer Fang**!',
+    '<@1> found T4 **Godslayer Fang**, T3 **Wyvern Tooth** ×2\n<@2> found T4 **Godslayer Fang**!',
   );
   const mine = myLootEmbed('1', drops)?.toJSON();
   assert.equal(mine?.title, TEXT.raid.lootMineTitle);
@@ -218,9 +218,9 @@ test('raid drops: the chances are settings, 20% and +10% per raider by default, 
   assert.ok(findSpec('raid.dropChance'), 'it can be changed with the config command');
   assert.ok(findSpec('raid.dropChancePerRaider'), 'it can be changed with the config command');
   const rewards = (cfg: typeof DEFAULTS.raid): string => bossInfoEmbed(cfg).toJSON().fields?.find((f) => f.name === 'Rewards')?.value ?? '';
-  assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('20%', '10%', undefined, '5× 3★ raid items')), rewards(DEFAULTS.raid));
-  assert.match(rewards(DEFAULTS.raid), /everyone finds 5× 3★ raid items/);
-  assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }).includes('★'), 'left out when drops are off');
+  assert.ok(rewards(DEFAULTS.raid).includes(TEXT.raid.dropChance('20%', '10%', undefined, '5× T3 raid items')), rewards(DEFAULTS.raid));
+  assert.match(rewards(DEFAULTS.raid), /everyone finds 5× T3 raid items/);
+  assert.ok(!rewards({ ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }).includes('T1'), 'left out when drops are off');
 });
 
 test('raid drops: the result screen after a win lists what each raider found', () => {
@@ -230,7 +230,7 @@ test('raid drops: the result screen after a win lists what each raider found', (
   const item = ITEMS_BY_ID.get('godslayer-fang') as ItemDef;
   const loot = (embed: ReturnType<typeof resultEmbed>): string | undefined => embed.toJSON().fields?.find((f) => f.name === TEXT.raid.lootField)?.value;
 
-  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found ★★★★ **Godslayer Fang**!');
+  assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [{ userId: '2', item }] })), '<@2> found T4 **Godslayer Fang**!');
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, { failed: [], drops: [] })), TEXT.raid.noLoot);
   assert.equal(loot(resultEmbed(state, { ...DEFAULTS.raid, dropChance: 0, dropChancePerRaider: 0 }, { failed: [], drops: [] })), undefined, 'no loot field when drops are off');
   assert.equal(loot(resultEmbed(state, DEFAULTS.raid, null)), undefined, 'no loot field when nobody was rewarded (a test raid)');
@@ -285,8 +285,8 @@ test('raid difficulty: the boss gains HP for every raider in equal steps up to l
   const fourth = TEXT.raid.lobbyDifficulty(4, 5, 10, '1.09x', '1.06x', 'loot', '188');
   assert.ok(fourth.includes('1.09x HP +188 a raider'), fourth);
   assert.doesNotMatch(TEXT.raid.lobbyDifficulty(1, 5, 10, '1x', '1x', 'loot'), /a raider/);
-  assert.equal(TEXT.raid.difficultyOptionDescription('1.06x', '1.03x', '4× 3★ raid items', '188'), '1.06x HP +188/raider · 1.03x damage · drops 4× 3★ raid items');
-  assert.equal(TEXT.raid.difficultyOptionDescription('1.09x', '1.06x', '4× 3★ raid items'), '1.09x HP · 1.06x damage · drops 4× 3★ raid items');
+  assert.equal(TEXT.raid.difficultyOptionDescription('1.06x', '1.03x', '4× T3 raid items', '188'), '1.06x HP +188/raider · 1.03x damage · drops 4× T3 raid items');
+  assert.equal(TEXT.raid.difficultyOptionDescription('1.09x', '1.06x', '4× T3 raid items'), '1.09x HP · 1.06x damage · drops 4× T3 raid items');
   const info = bossInfoEmbed(DEFAULTS.raid, 'reaper').toJSON().description ?? '';
   assert.ok(info.includes(`in equal steps up to **${DEFAULTS.raid.gearHp.reaper}** at level 5 and every level past it`), info);
   assert.doesNotMatch(info, /raid gear|gear levels/i);

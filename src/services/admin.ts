@@ -3,6 +3,7 @@ import { MAX_GIVE_AMOUNT } from '../constants/index.js';
 import { collections } from '../db.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { newCopyId } from '../lib/game/items/copies.js';
+import { leastStars } from '../lib/game/items/refine-share.js';
 import type { ItemCopyDoc, ItemDef } from '../types.js';
 
 /*
@@ -34,7 +35,8 @@ export async function giveItems(actorId: string, guildId: string, itemId: string
     guildId,
     userId: actorId,
     itemId: item.id,
-    level: 1,
+    // (Its first stars: a hero's gear 0★, the members' own 1★.)
+    level: leastStars(item),
     obtainedAt: new Date(start + i),
     ...(item.stars === 4 && { locked: true }),
   }));

@@ -1,7 +1,7 @@
 import { CURRENCY_NAME, MULTI_PULLS, PITY_STARS, SLOT_EMOJI, TEXT, TOKEN_NAME } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { canUseItem } from '../lib/game/items/equipment.js';
-import { fmt, formatPercent, mentionList, money, starString } from '../lib/format.js';
+import { fmt, formatPercent, mentionList, money, tierLabel } from '../lib/format.js';
 import { CONFIG, STARS } from '../config.js';
 import { featuredItems, LIMITED_BANNER } from '../data/items.js';
 import { limitedWindow } from '../lib/game/items/banner.js';
@@ -31,7 +31,7 @@ const HERO_WORDS: readonly string[] = ['hero', 'heroes', 'uw'];
 
 /** One pulled item's line, as a multi pull lists it (a top-tier one in bold). */
 const pullLine = ({ item, isNew }: PulledItem): string =>
-  (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(starString(item.stars), SLOT_EMOJI[item.slot], item.name, isNew);
+  (item.stars === PITY_STARS ? TEXT.gacha.multiLineTop : TEXT.gacha.multiLine)(tierLabel(item.stars), SLOT_EMOJI[item.slot], item.name, isNew);
 
 /** Why the limited banner takes no pulls right now: it hasn't opened yet, it is over, or there is none. */
 function closedText(): string {
@@ -81,7 +81,7 @@ export const gacha: Command = {
 
     const { item } = result;
     const embed = createEmbed()
-      .setTitle(TEXT.gacha.title(starString(item.stars), item.name, SLOT_EMOJI[item.slot]))
+      .setTitle(TEXT.gacha.title(tierLabel(item.stars), item.name, SLOT_EMOJI[item.slot]))
       .setDescription(
         [
           ...(item.description.trim() === '' ? [] : [TEXT.gacha.description(item.description)]),
@@ -111,7 +111,7 @@ const authorText = (ctx: CommandContext, banner: BannerId): string =>
 
 /** How close the member now is to a guaranteed top-tier item on the banner pulled from, next to what they spent and have left. */
 export function pityField(pity: { count: number; hardPity: number }, banner: BannerId = 'standard') {
-  const name = (banner === 'limited' ? TEXT.gacha.pityFieldLimited : banner === 'hero' ? TEXT.gacha.pityFieldHero : TEXT.gacha.pityField)(starString(PITY_STARS));
+  const name = (banner === 'limited' ? TEXT.gacha.pityFieldLimited : banner === 'hero' ? TEXT.gacha.pityFieldHero : TEXT.gacha.pityField)(tierLabel(PITY_STARS));
   return { name, value: TEXT.gacha.pityProgress(fmt(pity.count), fmt(pity.hardPity)), inline: true };
 }
 
@@ -123,14 +123,14 @@ async function showBanner(ctx: CommandContext): Promise<void> {
     await ctx.reply(closedText());
     return;
   }
-  const stars = starString(PITY_STARS);
+  const stars = tierLabel(PITY_STARS);
   const chance = formatPercent(CONFIG.gacha.limited.featuredChance);
   const when = !open && start !== null ? TEXT.gacha.bannerOpens(Math.ceil(start / 1000)) : end === null ? TEXT.gacha.bannerNoEnd : TEXT.gacha.bannerUntil(Math.ceil(end / 1000));
   const pity = await getPity(ctx.guildId, ctx.user.id, 'limited');
   const { hardPity } = CONFIG.gacha.pity;
   const embed = createEmbed()
     .setTitle(TEXT.gacha.bannerTitle(LIMITED_BANNER.name))
-    .setDescription([...featured.map((item) => TEXT.gacha.bannerFeatured(starString(item.stars), item.name, SLOT_EMOJI[item.slot])), '', TEXT.gacha.bannerOdds(stars, chance)].join('\n'))
+    .setDescription([...featured.map((item) => TEXT.gacha.bannerFeatured(tierLabel(item.stars), item.name, SLOT_EMOJI[item.slot])), '', TEXT.gacha.bannerOdds(stars, chance)].join('\n'))
     .addFields({ name: TEXT.gacha.bannerWhenField, value: when, inline: false })
     .setFooter({ text: TEXT.gacha.bannerFooter(ctx.prefix) });
   // As pulls count it: only while pity is on and the top tier can be pulled at all.
@@ -177,7 +177,7 @@ async function multiPull(ctx: CommandContext, banner: BannerId): Promise<void> {
     .reverse()
     .map((stars) => ({ stars, count: everything.filter((pull) => pull.item.stars === stars).length }))
     .filter((tier) => tier.count > 0)
-    .map((tier) => TEXT.gacha.multiTier(starString(tier.stars), tier.count))
+    .map((tier) => TEXT.gacha.multiTier(tierLabel(tier.stars), tier.count))
     .join(' · ');
 
   const newCount = everything.filter((pull) => pull.isNew).length;

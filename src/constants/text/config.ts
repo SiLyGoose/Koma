@@ -36,7 +36,7 @@ export const configText = {
   reset: (key: string, from: string, to: string) => `Reset \`${key}\` from **${from}** to **${to}**.`,
   /** `results` is one row per star tier, from resetEquipmentEffect. */
   resetEquipment: (effect: string, results: readonly { key: string; oldValue: string; newValue: string }[]) =>
-    `Reset every star tier of \`${effect}\`:\n${results.map((r) => `Reset \`${r.key}\` from **${r.oldValue}** to **${r.newValue}**.`).join('\n')}`,
+    `Reset every tier of \`${effect}\`:\n${results.map((r) => `Reset \`${r.key}\` from **${r.oldValue}** to **${r.newValue}**.`).join('\n')}`,
   /**
    * `results` is one row per setting under `prefix`, from resetSettingsUnder: the ones that changed
    * (at most RESET_LINES of them, to fit a message), and how many were already at their default.

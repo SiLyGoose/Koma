@@ -110,7 +110,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('claim.max', 'Claim', `Highest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
 
   ...STARS.flatMap((stars) =>
-    [2, 3, 4, 5].map((level) => int(`refine.cost.${stars}.${level}`, 'Refine', `${CURRENCY_EMOJI} to refine a ${stars}-star item to R${level} (on top of the duplicate it uses up).`, 0, MAX_POINTS)),
+    [2, 3, 4, 5].map((level) => int(`refine.cost.${stars}.${level}`, 'Refine', `${CURRENCY_EMOJI} to refine a T${stars} item to ★${level} (on top of the duplicate it uses up; a hero's gear's ★1 costs its ★2's).`, 0, MAX_POINTS)),
   ),
 
   int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
@@ -138,25 +138,25 @@ export const SPECS: readonly SettingSpec[] = [
   int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
 
   int('gacha.cost', 'Gacha', `Cost of one pull, in ${CURRENCY_EMOJI}`, 1, MAX_POINTS),
-  int('gacha.starWeights.1', 'Gacha', 'Relative chance of a 1-star pull.', 0, MAX_POINTS),
-  int('gacha.starWeights.2', 'Gacha', 'Relative chance of a 2-star pull.', 0, MAX_POINTS),
-  int('gacha.starWeights.3', 'Gacha', 'Relative chance of a 3-star pull.', 0, MAX_POINTS),
-  int('gacha.starWeights.4', 'Gacha', 'Relative chance of a 4-star pull.', 0, MAX_POINTS),
-  int('gacha.heroStarWeights.1', 'Gacha', 'Hero Item banner: relative chance of a 1-star pull.', 0, MAX_POINTS),
-  int('gacha.heroStarWeights.2', 'Gacha', 'Hero Item banner: relative chance of a 2-star pull.', 0, MAX_POINTS),
-  int('gacha.heroStarWeights.3', 'Gacha', 'Hero Item banner: relative chance of a 3-star pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.1', 'Gacha', 'Relative chance of a T1 pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.2', 'Gacha', 'Relative chance of a T2 pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.3', 'Gacha', 'Relative chance of a T3 pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.4', 'Gacha', 'Relative chance of a T4 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.1', 'Gacha', 'Hero Item banner: relative chance of a T1 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.2', 'Gacha', 'Hero Item banner: relative chance of a T2 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.3', 'Gacha', 'Hero Item banner: relative chance of a T3 pull.', 0, MAX_POINTS),
   int('gacha.heroStarWeights.4', 'Gacha', 'Hero Item banner: relative chance of a unique weapon or treasure.', 0, MAX_POINTS),
   int(
     'gacha.pity.softStart',
     'Gacha',
-    `Pull number (since the last ${PITY_STARS}-star) where the ${PITY_STARS}-star chance starts rising.`,
+    `Pull number (since the last T${PITY_STARS}) where the T${PITY_STARS} chance starts rising.`,
     1,
     MAX_PITY,
   ),
   int(
     'gacha.pity.hardPity',
     'Gacha',
-    `Pull number (since the last ${PITY_STARS}-star) that is guaranteed to give one (0 turns pity off).`,
+    `Pull number (since the last T${PITY_STARS}) that is guaranteed to give one (0 turns pity off).`,
     0,
     MAX_PITY,
   ),
@@ -177,17 +177,17 @@ export const SPECS: readonly SettingSpec[] = [
   {
     key: 'gacha.limited.featuredChance',
     group: 'Gacha',
-    description: `Chance a ${PITY_STARS}-star from the limited banner is one of its featured items. After one that isn't, the next one always is.`,
+    description: `Chance a T${PITY_STARS} from the limited banner is one of its featured items. After one that isn't, the next one always is.`,
     type: 'number',
     min: 0,
     max: 1,
     percent: true,
   },
 
-  int('sell.price.1', 'Sell', `${CURRENCY_EMOJI} for selling one 1-star item.`, 0, MAX_POINTS),
-  int('sell.price.2', 'Sell', `${CURRENCY_EMOJI} for selling one 2-star item.`, 0, MAX_POINTS),
-  int('sell.price.3', 'Sell', `${CURRENCY_EMOJI} for selling one 3-star item.`, 0, MAX_POINTS),
-  int('sell.price.4', 'Sell', `${CURRENCY_EMOJI} for selling one 4-star item.`, 0, MAX_POINTS),
+  int('sell.price.1', 'Sell', `${CURRENCY_EMOJI} for selling one T1 item.`, 0, MAX_POINTS),
+  int('sell.price.2', 'Sell', `${CURRENCY_EMOJI} for selling one T2 item.`, 0, MAX_POINTS),
+  int('sell.price.3', 'Sell', `${CURRENCY_EMOJI} for selling one T3 item.`, 0, MAX_POINTS),
+  int('sell.price.4', 'Sell', `${CURRENCY_EMOJI} for selling one T4 item.`, 0, MAX_POINTS),
   int('sell.technomagic', 'Sell', `${CURRENCY_EMOJI} for selling one piece of TechnoMagic gear.`, 0, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
@@ -441,9 +441,9 @@ export const SPECS: readonly SettingSpec[] = [
   int('raid.essenceReward', 'Raid', `Hero essences of each of its boss's three kinds each raid player who took part gets when the boss is beaten at difficulty 1 (they transcend the TechnoMagic Raid's heroes).`, 0, MAX_POINTS),
   int('raid.essenceRewardPerLevel', 'Raid', `Hero essences more of each kind each raid player gets for every difficulty level past 1 (5 makes level 3 pay 10 more).`, 0, MAX_POINTS),
   int('raid.weeklyMultiplier', 'Raid', "How many times over the Weekly Boss pays (its points, komaTokens, komaGems, essences and raid items): only each member's first win of the raid week is paid.", 1, 100),
-  ...RAID_SHOP_STARS.map((stars) => int(`raid.shop.price.${stars}`, 'Raid', `${GEM_NAME} a ${stars}-star raid item costs in the site's raid shop.`, 0, MAX_POINTS)),
+  ...RAID_SHOP_STARS.map((stars) => int(`raid.shop.price.${stars}`, 'Raid', `${GEM_NAME} a T${stars} raid item costs in the site's raid shop.`, 0, MAX_POINTS)),
   ...RAID_SHOP_STARS.map((stars) =>
-    int(`raid.shop.stock.${stars}`, 'Raid', `How many ${stars}-star raid items the site's raid shop has on its shelf each week (0: none).`, 0, MAX_RAID_SHOP_STOCK),
+    int(`raid.shop.stock.${stars}`, 'Raid', `How many T${stars} raid items the site's raid shop has on its shelf each week (0: none).`, 0, MAX_RAID_SHOP_STOCK),
   ),
   int(
     'raid.shop.refreshCost',
@@ -457,7 +457,7 @@ export const SPECS: readonly SettingSpec[] = [
     key: 'raid.dropChance',
     group: 'Raid',
     description:
-      'Chance a beaten raid boss drops raid items (only bosses drop them), before raid.dropChancePerRaider. One roll for the whole party: on a hit, everyone who took part finds what its difficulty drops (one 3-star item at level 1; 4-star ones only at levels 5 and 10).',
+      'Chance a beaten raid boss drops raid items (only bosses drop them), before raid.dropChancePerRaider. One roll for the whole party: on a hit, everyone who took part finds what its difficulty drops (one T3 item at level 1; T4 ones only at levels 5 and 10).',
     type: 'number',
     min: 0,
     max: 1,
@@ -539,13 +539,13 @@ export const SPECS: readonly SettingSpec[] = [
     percent: true,
   },
 
-  // One setting per effect per star tier, generated from the effect registry.
+  // One setting per effect per tier, generated from the effect registry.
   ...EFFECT_IDS.flatMap((id) =>
     STARS.map(
       (stars): SettingSpec => ({
         key: `equipment.${id}.${stars}`,
         group: 'Equipment',
-        description: `${EFFECTS[id].description} For ${stars}-star items.`,
+        description: `${EFFECTS[id].description} For T${stars} items.`,
         type: 'number',
         min: EFFECTS[id].min,
         max: EFFECTS[id].max,
@@ -561,7 +561,7 @@ export function findSpec(key: string): SettingSpec | undefined {
 }
 
 /**
- * Every setting under `prefix` (`refine.cost`: every refine cost; `refine.cost.2`: the 2-star ones),
+ * Every setting under `prefix` (`refine.cost`: every refine cost; `refine.cost.2`: the T2 ones),
  * in the list's order: the keys that start with it and a dot, whatever the case. Not the one setting
  * called exactly that (findSpec has it), and none for a prefix that isn't a whole part of a key
  * (`refine.co` matches nothing).
@@ -573,8 +573,8 @@ export function specsUnder(prefix: string): SettingSpec[] {
 }
 
 /**
- * Matches "equipment.<effect>" with no star tier (e.g. from `config reset equipment.robChance`), the
- * form that means "every star tier of this effect", and returns the effect's canonical id. Returns
+ * Matches "equipment.<effect>" with no tier (e.g. from `config reset equipment.robChance`), the
+ * form that means "every tier of this effect", and returns the effect's canonical id. Returns
  * undefined for anything else, including a full `equipment.<effect>.<stars>` key.
  */
 export function findEquipmentEffectId(key: string): EffectId | undefined {

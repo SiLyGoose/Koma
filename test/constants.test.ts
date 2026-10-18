@@ -14,7 +14,7 @@ import {
 } from '../src/constants/index.js';
 import { EFFECT_IDS, EFFECTS } from '../src/perks/index.js';
 import { isAdmin } from '../src/config.js';
-import { formatPercent, fmt, joinLimited, mentionList, money, starString } from '../src/lib/format.js';
+import { formatPercent, fmt, joinLimited, mentionList, money, tierLabel } from '../src/lib/format.js';
 import { pickRandom } from '../src/lib/random.js';
 import { HOUR_MS as HOUR_MS_FROM_TIME } from '../src/lib/time.js';
 import { SLOTS } from '../src/types.js';
@@ -58,7 +58,7 @@ test('the admin id is still recognised through config.ts', () => {
 
 test('formatting helpers use the constants', () => {
   assert.equal(fmt(1234567), '1,234,567');
-  assert.equal(starString(3), '★★★');
+  assert.equal(tierLabel(3), 'T3');
   assert.equal(formatPercent(0.12345), '12.35%');
   assert.match(joinLimited(['x'.repeat(600), 'y'.repeat(600)]), /\.\.\.and 1 more$/);
 });
@@ -75,7 +75,7 @@ test('message templates fill in their values', () => {
       { key: 'equipment.robChance.1', oldValue: '3%', newValue: '5%' },
       { key: 'equipment.robChance.2', oldValue: '8%', newValue: '10%' },
     ]),
-    'Reset every star tier of `equipment.robChance`:\n' +
+    'Reset every tier of `equipment.robChance`:\n' +
       'Reset `equipment.robChance.1` from **3%** to **5%**.\n' +
       'Reset `equipment.robChance.2` from **8%** to **10%**.',
   );

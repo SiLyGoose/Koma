@@ -5,6 +5,7 @@ import { fmt, inTier, ITEM_TIERS, joinLimited, tierString } from '../lib/format.
 import { getInventoryStacks } from '../services/economy/index.js';
 import { takeSlot } from '../lib/game/items/slot-filter.js';
 import { memberNotFound, resolveUserArg } from '../discord/resolve.js';
+import { heroOnly } from '../lib/game/heroes.js';
 import type { Command } from '../discord/types.js';
 
 export const inventory: Command = {
@@ -57,7 +58,7 @@ export const inventory: Command = {
       const lines = ownedItems.flatMap((item) =>
         shown
           .filter((stack) => stack.itemId === item.id)
-          .map((stack) => (stack.worn ? TEXT.inventory.itemEquipped : TEXT.inventory.item)(item.name, stack.count, SLOT_EMOJI[item.slot], stack.level, stack.locked)),
+          .map((stack) => (stack.worn ? TEXT.inventory.itemEquipped : TEXT.inventory.item)(item.name, stack.count, SLOT_EMOJI[item.slot], stack.level, stack.locked, heroOnly(item))),
       );
       embed.addFields({
         name: TEXT.inventory.tierField(tierString(each), ownedItems.length, tier.length),

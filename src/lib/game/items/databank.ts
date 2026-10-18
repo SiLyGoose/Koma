@@ -131,7 +131,7 @@ export function parseStarQuery(query: string): StarQuery | null {
   if (STAR_SYMBOL.length > 0 && symbols === '') {
     count = text.length / STAR_SYMBOL.length;
   } else {
-    const match = /^(?:stars?\s*)?(\d+)(?:\s*-?\s*(?:stars?|\*))?$/.exec(text);
+    const match = /^(?:stars?\s*|tier\s*|t)?(\d+)(?:\s*-?\s*(?:stars?|\*))?$/.exec(text);
     if (match) count = Number(match[1]);
   }
   if (count === null) return null;

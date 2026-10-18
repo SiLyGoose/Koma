@@ -262,8 +262,8 @@ Grows with every raider (at least ${min}).`,
   /** What a win drops for each raider, like "a 3★ raid item" or "1× 4★ and 4× 3★ raid items". */
   lootKinds: (parts: readonly { stars: number; count: number }[]) => {
     const total = parts.reduce((sum, part) => sum + part.count, 0);
-    if (total === 1) return `a ${parts.find((part) => part.count > 0)?.stars ?? 3}★ raid item`;
-    return `${andList(parts.filter((part) => part.count > 0).map((part) => `${part.count}× ${part.stars}★`))} raid items`;
+    if (total === 1) return `a T${parts.find((part) => part.count > 0)?.stars ?? 3} raid item`;
+    return `${andList(parts.filter((part) => part.count > 0).map((part) => `${part.count}× T${part.stars}`))} raid items`;
   },
   hostTag: ' (host)',
   joinButton: 'Join',
@@ -514,7 +514,7 @@ Grows with every raider (at least ${min}).`,
    * Under the rewards in the lobby and `raid stats`: the party's chance (like "20%") that everyone finds a
    * raid-only item, and what each raider adds (like "10%"). `now` is the chance with the lobby's party so far.
    */
-  dropChance: (chance: string, perRaider: string, now?: string, loot = 'a 3★ raid item') =>
+  dropChance: (chance: string, perRaider: string, now?: string, loot = 'a T3 raid item') =>
     `The party also has a **${chance}** chance (+${perRaider} for each raider${now ? `, **${now}** with this party` : ''}) that everyone finds ${loot}, which can't be pulled from the gacha.`,
   /** The raid items found after a win (raid drops). `stars` is like "★★★★". */
   lootField: '🎁 Loot',

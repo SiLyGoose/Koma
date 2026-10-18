@@ -9,6 +9,7 @@ import { messageContext } from '../src/discord/context.js';
 import { databank } from '../src/commands/databank.js';
 import { buildDatabank, itemBlock, itemDetail, parseStarQuery } from '../src/lib/game/items/databank.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
+import { tierLabel } from '../src/lib/format.js';
 import type { ItemDef } from '../src/types.js';
 
 const allText = (pages: ReturnType<typeof buildDatabank>) => pages.flat().map((f) => `${f.name}\n${f.value}`).join('\n');
@@ -37,10 +38,10 @@ test('databank: tiers run from the highest star count down, each headed with how
   const [page] = buildDatabank(items);
   assert.deepEqual(
     page?.map((f) => f.name),
-    ['★★★★ (1)', '★★★ (2)', '★★ (1)', '★ (1)'],
+    ['T4 (1)', 'T3 (2)', 'T2 (1)', 'T1 (1)'],
   );
   // A tier with no items is left out.
-  assert.deepEqual(buildDatabank([made('a', 1), made('b', 4)])[0]?.map((f) => f.name), ['★★★★ (1)', '★ (1)']);
+  assert.deepEqual(buildDatabank([made('a', 1), made('b', 4)])[0]?.map((f) => f.name), ['T4 (1)', 'T1 (1)']);
 });
 
 test('databank: an item with no effects says so, and there is nothing to show for an empty catalog', () => {
@@ -90,9 +91,9 @@ test('databank: a small itemsPerPage puts fewer items on each page, and a tier t
   const pages = buildDatabank(items, 1);
   assert.equal(pages.length, 3, 'one item per page');
   assert.deepEqual(pages.map((p) => p.map((f) => f.name)), [
-    ['★★★★ (3) — page 1/3'],
-    ['★★★★ (3) — page 2/3'],
-    ['★★★★ (3) — page 3/3'],
+    ['T4 (3) — page 1/3'],
+    ['T4 (3) — page 2/3'],
+    ['T4 (3) — page 3/3'],
   ]);
   const text = allText(pages);
   for (const item of items) assert.ok(text.includes(`**${item.name}**`));
@@ -128,7 +129,7 @@ test('databank: an exclusive item names who it is for, and an open one says noth
 test('databank item: the details show the name and stars, flavor text, slot, and every effect', () => {
   const item: ItemDef = { id: 'sword', name: 'Big Sword', stars: 3, slot: 'weapon', description: 'It is big.', effects: ['robChance', 'robAmount'] };
   const detail = itemDetail(item);
-  assert.equal(detail.title, '★★★  Big Sword');
+  assert.equal(detail.title, 'T3  Big Sword');
   assert.equal(detail.description, '*It is big.*');
   const byName = Object.fromEntries(detail.fields.map((f) => [f.name, f.value]));
   assert.equal(byName[TEXT.databank.detailSlotField], SLOT_EMOJI.weapon);
@@ -304,9 +305,9 @@ test('databank tier: shows every item of that tier across however many pages it 
     let view = pageView(f.replies[0]);
     const seen: string[] = [];
     for (let page = 0; page < expectedPages.length; page++) {
-      const titled = TEXT.databank.titleAt(TEXT.databank.tierTitle(starLabel), REFINE.maxLevel);
+      const titled = TEXT.databank.titleAt(TEXT.databank.tierTitle(tierLabel(stars)), REFINE.maxLevel);
       assert.equal(view.title, expectedPages.length > 1 ? TEXT.databank.titlePage(titled, page + 1, expectedPages.length) : titled, `page ${page + 1} title`);
-      if (page === 0) assert.equal(view.description, TEXT.databank.tierDescription(starLabel, REFINE.maxLevel));
+      if (page === 0) assert.equal(view.description, TEXT.databank.tierDescription(tierLabel(stars), REFINE.maxLevel));
       assert.deepEqual(view.fields.map((fld) => fld.name), expectedPages[page]?.map((fld) => fld.name), `page ${page + 1} fields`);
       seen.push(view.fields.map((fld) => fld.value).join('\n'));
 
@@ -338,7 +339,7 @@ test('databank: Previous is disabled on the first page and Next on the last, and
   assert.deepEqual(multiRow.components.map((c: any) => [c.custom_id, c.disabled ?? false, c.label]), [
     ['databank_prev', true, TEXT.databank.previousButton],
     ['databank_next', false, TEXT.databank.nextButton],
-    ['databank_toggle', false, 'Show R1'],
+    ['databank_toggle', false, 'Show ★1'],
   ]);
 
   const singlePageTiers = ([1, 2, 3, 4] as const).filter((stars) => buildDatabank(ITEMS.filter((item) => item.stars === stars)).length <= 1);
@@ -349,37 +350,37 @@ test('databank: Previous is disabled on the first page and Next on the last, and
   }
 });
 
-test('databank: the refinement button flips the strengths between R5 and R1, stays on the page, and says what it will show', async () => {
+test('databank: the refinement button flips the strengths between ★5 and ★1, stays on the page, and says what it will show', async () => {
   const f = fakeMessage('1');
   await databank.execute(messageContext(f.message as Message<true>, ['3'], 'k!'));
   const plate = ITEMS.find((item) => item.id === 'dragonscale-aegis') as ItemDef;
   const first = pageView(f.replies[0]);
-  assert.match(first.title ?? '', / · R5/);
+  assert.match(first.title ?? '', / · ★5/);
   assert.ok(first.fields.some((fld) => fld.value.includes(describeEffects(plate)[0] as string)));
 
   f.click('1', 'databank_toggle');
   await settle();
   const toR1 = f.events.filter((e) => e.kind === 'editReply').at(-1);
   const r1 = pageView({ embeds: [toR1?.data.embeds[0]] });
-  assert.match(r1.title ?? '', / · R1/);
-  assert.ok(r1.fields.some((fld) => fld.value.includes(describeEffects(plate, 1, 1)[0] as string)), 'the R1 strengths');
+  assert.match(r1.title ?? '', / · ★1/);
+  assert.ok(r1.fields.some((fld) => fld.value.includes(describeEffects(plate, 1, 1)[0] as string)), 'the ★1 strengths');
   assert.deepEqual(r1.fields.map((fld) => fld.name), first.fields.map((fld) => fld.name), 'same page');
   const labels = toR1?.data.components[0].toJSON().components.map((c: any) => c.label);
-  assert.ok(labels.includes('Show R5'), `the button now offers R5: ${labels}`);
+  assert.ok(labels.includes('Show ★5'), `the button now offers ★5: ${labels}`);
 
   f.click('1', 'databank_toggle');
   await settle();
   const back = pageView({ embeds: [f.events.filter((e) => e.kind === 'editReply').at(-1)?.data.embeds[0]] });
-  assert.match(back.title ?? '', / · R5/);
+  assert.match(back.title ?? '', / · ★5/);
 
   // One item in full has the button too.
   const g = fakeMessage('1');
   await databank.execute(messageContext(g.message as Message<true>, ['stalwart', 'pavise'], 'k!'));
-  assert.deepEqual((g.replies[0] as any).components[0].toJSON().components.map((c: any) => c.label), ['Show R1']);
+  assert.deepEqual((g.replies[0] as any).components[0].toJSON().components.map((c: any) => c.label), ['Show ★1']);
   g.click('1', 'databank_toggle');
   await settle();
   const detail = g.events.filter((e) => e.kind === 'editReply').at(-1)?.data.embeds[0].toJSON();
-  assert.ok(detail.fields.some((fld: any) => fld.name === 'Effects (at R1)'));
+  assert.ok(detail.fields.some((fld: any) => fld.name === 'Effects (at ★1)'));
 });
 
 test("databank: a press from someone else is told it isn't theirs and does not change the page", async () => {
@@ -420,7 +421,7 @@ test('databank tier: a number that is not a tier gets a hint, and nothing is lis
     assert.equal(replies.length, 1);
     assert.equal(replies[0]?.content, TEXT.databank.badTier('k!', 1, 4));
   }
-  assert.match(TEXT.databank.badTier('k!', 1, 4), /1 to 4/);
+  assert.match(TEXT.databank.badTier('k!', 1, 4), /T1 to T4/);
 });
 
 test('databank tier: the whole list, and one item by name, still work', async () => {
@@ -433,7 +434,7 @@ test('databank tier: the whole list, and one item by name, still work', async ()
 
   const item = ITEMS[0] as ItemDef;
   const one = await ask(item.id);
-  assert.equal(one[0]?.title, TEXT.databank.detailTitle('★'.repeat(item.stars), item.name));
+  assert.equal(one[0]?.title, TEXT.databank.detailTitle(tierLabel(item.stars), item.name));
   const byName = await ask(...item.name.split(' '));
   assert.equal(byName[0]?.title, one[0]?.title);
 });
@@ -441,16 +442,16 @@ test('databank tier: the whole list, and one item by name, still work', async ()
 test('databank at a refinement level: effects at that level, a button to flip, and the same pages either way', () => {
   const plate = ITEMS.find((item) => item.id === 'stalwart-pavise') as ItemDef;
   assert.match(itemBlock(plate), /20% more/, 'fully refined by default');
-  assert.match(itemBlock(plate, 1), /3\.33% more/, 'a new copy (R1) is a sixth of it');
+  assert.match(itemBlock(plate, 1), /3\.33% more/, 'a new copy (★1) is a sixth of it');
   const detail = itemDetail(plate, 1);
-  assert.ok(detail.fields.some((f) => f.name === 'Effects (at R1)' && /3\.33% more/.test(f.value)));
+  assert.ok(detail.fields.some((f) => f.name === 'Effects (at ★1)' && /3\.33% more/.test(f.value)));
 
   // The button says what pressing it shows.
-  assert.equal(TEXT.databank.showLevel(1), 'Show R1');
-  assert.equal(TEXT.databank.showLevel(REFINE.maxLevel), 'Show R5');
-  assert.equal(TEXT.databank.titleAt('Databank', 1), 'Databank · R1');
-  assert.match(TEXT.databank.description(1), /\*\*R1\*\* \(a new copy\)/);
-  assert.match(TEXT.databank.description(REFINE.maxLevel), /\*\*R5\*\* \(fully refined\)/);
+  assert.equal(TEXT.databank.showLevel(1), 'Show ★1');
+  assert.equal(TEXT.databank.showLevel(REFINE.maxLevel), 'Show ★5');
+  assert.equal(TEXT.databank.titleAt('Databank', 1), 'Databank · ★1');
+  assert.match(TEXT.databank.description(1), /\*\*★1\*\* \(a new copy\)/);
+  assert.match(TEXT.databank.description(REFINE.maxLevel), /\*\*★5\*\* \(fully refined\)/);
 
   // Flipping the level never moves an item to another page, even with tight pages.
   for (const [perPage, maxField] of [[DATABANK_ITEMS_PER_PAGE, FIELD_MAX_LENGTH], [3, FIELD_MAX_LENGTH], [50, 300]] as const) {
@@ -465,7 +466,7 @@ test('databank category: `weapon` (alone, or with a star tier) lists only that c
   assert.match(weapons?.title ?? '', /^Databank · Weapon/);
   for (const item of ITEMS.filter((i) => i.slot !== 'weapon')) assert.ok(!names(weapons!).includes(`**${item.name}**`), `${item.name} is left out`);
   const [fourTreasure] = await ask('4', 'treasure');
-  assert.match(fourTreasure?.title ?? '', /^Databank: ★★★★ · Treasure/);
+  assert.match(fourTreasure?.title ?? '', /^Databank: T4 · Treasure/);
   for (const item of ITEMS.filter((i) => i.stars === 4 && i.slot !== 'treasure')) assert.ok(!names(fourTreasure!).includes(`**${item.name}**`), `${item.name} is left out`);
   const [sameOtherWay] = await ask('treasure', '4');
   assert.deepEqual(sameOtherWay?.fields, fourTreasure?.fields, 'the order of the words does not matter');

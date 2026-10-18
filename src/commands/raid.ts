@@ -75,7 +75,7 @@ import { getPrefix } from '../services/settings.js';
 import { gearEffects } from '../lib/game/items/equipment.js';
 import { getEquipment } from '../services/items/equipment.js';
 import { raidDropChance, raidDropCounts, raidDropsOn, type RaidDrop } from '../lib/game/items/raid-drops.js';
-import { fmt, formatMultiplier, formatPercent, joinLimited, mention, starString } from '../lib/format.js';
+import { fmt, formatMultiplier, formatPercent, joinLimited, mention, tierLabel } from '../lib/format.js';
 import { sleep } from '../lib/time.js';
 import { STARS, type ItemDef, type RaidDoc } from '../types.js';
 import {
@@ -487,8 +487,8 @@ export function lootLines(drops: readonly RaidDrop[]): string[] {
   for (const drop of drops) byUser.set(drop.userId, [...(byUser.get(drop.userId) ?? []), drop.item]);
   return [...byUser].map(([userId, items]) => {
     const only = items.length === 1 ? items[0] : undefined;
-    if (only) return r.lootLine(mention(userId), starString(only.stars), only.name);
-    return r.lootLineMany(mention(userId), countedItems(items).map(({ item, count }) => r.lootItem(starString(item.stars), item.name, count)));
+    if (only) return r.lootLine(mention(userId), tierLabel(only.stars), only.name);
+    return r.lootLineMany(mention(userId), countedItems(items).map(({ item, count }) => r.lootItem(tierLabel(item.stars), item.name, count)));
   });
 }
 
@@ -499,7 +499,7 @@ export function myLootEmbed(userId: string, drops: readonly (RaidDrop & { isNew?
   if (mine.length === 0) return null;
   const fresh = new Set(mine.filter((drop) => drop.isNew).map((drop) => drop.item.id));
   const lines = countedItems(mine.map((drop) => drop.item)).map(({ item, count }) =>
-    r.lootMineLine(starString(item.stars), SLOT_EMOJI[item.slot], item.name, count, fresh.has(item.id)),
+    r.lootMineLine(tierLabel(item.stars), SLOT_EMOJI[item.slot], item.name, count, fresh.has(item.id)),
   );
   return createEmbed().setTitle(r.lootMineTitle).setDescription(joinLimited(lines)).setFooter({ text: r.lootMineFooter });
 }

@@ -4,7 +4,7 @@ export const loadoutText = {
   heading: (number: number, name: string, active: boolean) => `${number}. ${name}${active ? ' ✅ (equipped)' : ''}`,
   /** One slot of a loadout: its emoji and what is in it. */
   slot: (emoji: string, item: string | null) => `${emoji} ${item ?? '—'}`,
-  item: (name: string, level: number) => `**${name}** R${level}`,
+  item: (name: string, level: number) => `**${name}** ★${level}`,
   footer: (p: string) => `Switch with ${p}loadout <number or name> · Rename with ${p}loadout rename <number> <name>`,
 
   usage: (p: string) =>

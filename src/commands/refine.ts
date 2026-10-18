@@ -6,6 +6,7 @@ import { describeEffects, itemEffectiveness } from '../lib/game/items/equipment.
 import { fmt, itemStars, money } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { refineItem, type RefineResult } from '../services/items/refine.js';
+import { heroOnly } from '../lib/game/heroes.js';
 import type { ItemDef } from '../types.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
@@ -18,9 +19,11 @@ function refusalText(p: string, item: ItemDef, result: Exclude<RefineResult, { o
   const t = TEXT.refine;
   if (result.reason === 'busy') return t.busy;
   if (result.reason === 'not_refineable') return t.notRefineable(item.name);
-  if (result.reason === 'maxed') return t.maxed(item.name, REFINE.maxLevel);
-  if (result.reason === 'too_poor') return t.tooPoor(item.name, result.level + 1, fmt(result.price), fmt(result.balance));
-  if (result.reason === 'no_duplicate') return t.noDuplicate(item.name, result.level);
+  // (A hero's gear is awakened, King's Raid's: its stars.)
+  const hero = heroOnly(item);
+  if (result.reason === 'maxed') return t.maxed(item.name, REFINE.maxLevel, hero);
+  if (result.reason === 'too_poor') return t.tooPoor(item.name, result.level + 1, fmt(result.price), fmt(result.balance), hero);
+  if (result.reason === 'no_duplicate') return t.noDuplicate(item.name, result.level, hero);
   return t.notOwned(p, item.name);
 }
 
@@ -30,20 +33,21 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
   const { item } = result;
   const share = itemEffectiveness(item, ctx.user.id);
   const effects = (level: number) => describeEffects(item, share, level).join('\n') || t.noEffects;
+  const hero = heroOnly(item);
   return createEmbed()
     .setTitle(t.title(itemStars(item), item.name, SLOT_EMOJI[item.slot]))
     .setDescription(
       [
-        t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid)),
-        ...(result.maxedCopies > 0 ? [`ℹ️ ${t.alsoMaxed(item.name, REFINE.maxLevel, result.maxedCopies)}`] : []),
+        t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid), hero),
+        ...(result.maxedCopies > 0 ? [`ℹ️ ${t.alsoMaxed(item.name, REFINE.maxLevel, result.maxedCopies, hero)}`] : []),
       ].join('\n'),
     )
     .addFields(
-      { name: t.beforeField(result.from), value: effects(result.from), inline: true },
-      { name: t.afterField(result.to), value: effects(result.to), inline: true },
+      { name: t.beforeField(result.from, hero), value: effects(result.from), inline: true },
+      { name: t.afterField(result.to, hero), value: effects(result.to), inline: true },
       { name: t.balanceField, value: money(result.balance), inline: true },
     )
-    .setFooter({ text: t.footer(REFINE.maxLevel) });
+    .setFooter({ text: t.footer(REFINE.maxLevel, hero) });
 }
 
 /**
@@ -56,7 +60,7 @@ function buttonRows(result: Refined): ActionRowBuilder<ButtonBuilder>[] {
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(REFINE_BUTTONS.againId)
-        .setLabel(TEXT.refine.againButton(result.to + 1, fmt(result.nextCost)))
+        .setLabel(TEXT.refine.againButton(result.to + 1, fmt(result.nextCost), heroOnly(result.item)))
         .setStyle(ButtonStyle.Primary)
         .setDisabled(result.balance < result.nextCost),
     ),
@@ -117,11 +121,11 @@ async function watchButton(ctx: CommandContext, sent: SentReply, item: ItemDef):
 export const refine: Command = {
   name: 'refine',
   category: 'items',
-  aliases: ['rf', 'enhance'],
-  description: `Refine an item you own: use up a duplicate of it to raise it one level (up to R${REFINE.maxLevel}, its full strength).`,
+  aliases: ['rf', 'enhance', 'awaken'],
+  description: `Refine an item you own: use up a duplicate of it for a star more (up to ★${REFINE.maxLevel}, its full strength). A hero's gear is awakened, as in King's Raid: from ★0, a duplicate a star, up to ★${REFINE.maxLevel}.`,
   usage: 'refine <item name>',
   slashUsage: 'refine <item>',
-  details: `Raises your highest-refined copy that isn't R${REFINE.maxLevel} yet, using up your lowest spare (never one you wear, keep in a loadout, have fully refined or locked).`,
+  details: `Raises your highest copy that isn't ★${REFINE.maxLevel} yet, using up your lowest spare (never one you wear, keep in a loadout, have fully refined or locked).`,
 
   async execute(ctx) {
     const p = ctx.prefix;

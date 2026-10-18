@@ -38,7 +38,7 @@ export function parseSellArgs(args: readonly string[]): ParsedSell {
     const query = words.slice(1).join(' ');
     return query === '' ? { ok: false, error: 'missing_item' } : { ok: true, request: { kind: 'allOf', query } };
   }
-  if (first === 'stars' || first === 'star') {
+  if (first === 'tier' || first === 'stars' || first === 'star') {
     const wanted = words[1];
     if (words.length !== 2 || wanted === undefined || !/^\d+$/.test(wanted)) return { ok: false, error: 'bad_stars' };
     const stars = Number(wanted);
