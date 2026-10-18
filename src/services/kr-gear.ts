@@ -2,7 +2,8 @@ import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
-import { rollTmSkill } from '../lib/game/technomagic.js';
+import { enhanceUtOptions, rollTmSkill } from '../lib/game/technomagic.js';
+import { UT_ENHANCE } from '../data/tm-potentials.js';
 import type { HeroOptionError, HeroRuneError } from '../protocol/heroes.js';
 import type { ItemCopyDoc } from '../types.js';
 import { recordLedger } from './economy/shared.js';
@@ -118,11 +119,27 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   return { ok: true };
 }
 
-/** Upgrades one of a copy's options a step (one at random of those not at their top), for points by its tier. All at their top: 'maxed'. */
+/**
+ * Upgrades one of a copy's options a step (one at random of those not at their top), for points by its tier; a unique
+ * treasure's, enhanced (UT_ENHANCE: refining it doesn't). All at their top: 'maxed'.
+ */
 export async function upgradeOption(guildId: string, userId: string, copyId: string, rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
+  if (copy && item?.uniqueTreasure) {
+    const options = copy.tmPotentials ?? [];
+    const after = enhanceUtOptions(options, rng);
+    if (!after) return { ok: false, reason: options.length > 0 ? 'maxed' : 'no_option' };
+    if (!(await pay(guildId, userId, UT_ENHANCE.price))) return { ok: false, reason: 'too_poor' };
+    const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options }, { $set: { tmPotentials: after } });
+    if (done.modifiedCount === 0) {
+      await refund(guildId, userId, UT_ENHANCE.price);
+      return { ok: false, reason: 'busy' };
+    }
+    await recordLedger([{ guildId, userId, delta: -UT_ENHANCE.price, reason: 'kr_upgrade', itemId: item.id }]);
+    return { ok: true };
+  }
   const kr = item?.kr;
   if (!copy || !item || !kr) return { ok: false, reason: 'not_found' };
   if (!upgradable(kr)) return { ok: false, reason: 'no_option' };

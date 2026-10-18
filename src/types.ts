@@ -475,7 +475,16 @@ export type TmPotentialId =
   | 'manaRegen'
   | 'lifesteal'
   | 'critResist'
-  | 'pen';
+  | 'pen'
+  // King's Raid's treasure options the old potentials hadn't (the user's ranges): ACC (hit chance), P./M. Dodge and Crit
+  // Resist, Recovery, and mana from damage taken.
+  | 'acc'
+  | 'dodgePhysical'
+  | 'dodgeMagical'
+  | 'critResistPhysical'
+  | 'critResistMagical'
+  | 'recovery'
+  | 'manaDamage';
 
 /** One of a TechnoMagic copy's potentials: the stat it raises, and by how much (a share, as a perk's strength is: 0.05 is 5% more, or 50 points). */
 export interface TmPotential {

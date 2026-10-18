@@ -3,7 +3,7 @@ import { CONFIG } from '../../config.js';
 import { KR_DROPS, dragonPieces, dragonTier, runeCount, runeGradeWeights } from '../../constants/technomagic.js';
 import { KR_ITEMS_BY_ID, KR_RUNES, krPiecesOf } from '../../data/kr-gear.js';
 import { TM_ARMOR_DEFS } from '../../data/tm-main.js';
-import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
+import { potentialStep, TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
 import { tmSetOfBoss } from '../../data/tm-sets.js';
 import type { ItemDef, TmArmorDef, TmPotential } from '../../types.js';
 import {
@@ -120,15 +120,39 @@ export function rollTmPotentials(rng: TmRng = defaultRng, lines: number = TM_POT
   while (out.length < lines && pool.length > 0) {
     const [stat] = pool.splice(rng.index(pool.length), 1);
     if (stat === undefined) break;
-    const low = Math.round(CONFIG.hero.potentials[stat].min * 100);
-    const high = Math.max(low, Math.round(CONFIG.hero.potentials[stat].max * 100));
-    out.push({ stat, value: (low + rng.index(high - low + 1)) / 100 });
+    // (In whole percents, or half ones for a range whose ends aren't whole: potentialStep.)
+    const range = CONFIG.hero.potentials[stat];
+    const step = potentialStep(range);
+    const low = Math.round(range.min / step);
+    const high = Math.max(low, Math.round(range.max / step));
+    out.push({ stat, value: Math.round((low + rng.index(high - low + 1)) * step * 1000) / 1000 });
   }
   return out;
 }
 
 /** The options a unique treasure's copy comes with as it is pulled: UT_OPTION_LINES of the potentials, rolled as TechnoMagic gear's are. */
 export const rollUtOptions = (rng: TmRng = defaultRng): TmPotential[] => rollTmPotentials(rng, UT_OPTION_LINES);
+
+/** Whether a unique treasure's option is below its range's top (it can be enhanced). */
+export const enhanceable = ({ stat, value }: TmPotential): boolean => {
+  const range = CONFIG.hero.potentials[stat];
+  return range !== undefined && value < range.max - 1e-9;
+};
+
+/**
+ * A unique treasure's options with one of those below their range's top, at random, a step higher (potentialStep, never past
+ * the top): UT_ENHANCE. Null: all are at their top.
+ */
+export function enhanceUtOptions(options: readonly TmPotential[], rng: TmRng = defaultRng): TmPotential[] | null {
+  const open = options.map((option, i) => ({ option, i })).filter(({ option }) => enhanceable(option));
+  if (open.length === 0) return null;
+  const { i } = open[rng.index(open.length)] as { i: number };
+  return options.map((option, k) => {
+    if (k !== i) return option;
+    const range = CONFIG.hero.potentials[option.stat];
+    return { ...option, value: Math.min(range.max, Math.round((option.value + potentialStep(range)) * 1000) / 1000) };
+  });
+}
 
 /** A copy's potentials to the nearest whole percent: null if they already are (as the copies from before that were not). */
 export function wholePotentials(potentials: readonly TmPotential[]): TmPotential[] | null {

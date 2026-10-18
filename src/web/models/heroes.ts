@@ -39,7 +39,8 @@ import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { maxLevelOf, refineLevel } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSellPrice } from '../../lib/game/items/sell.js';
-import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
+import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
+import { UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
 import { rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
@@ -141,7 +142,8 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
   return {
     reroll: kr && pool && options.length > 0 ? Math.min(...options.map((option) => rerollPrice(option.rerolls ?? 0))) : null,
     rerollUnique: kr?.unique ? rerollPrice(copy.tmSkillRerolls ?? 0) : null,
-    upgrade: kr && upgradable(kr) && options.length > 0 && !maxed ? upgradePrice(kr) : null,
+    // (A unique treasure's options: enhanced, while one is below its range's top.)
+    upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).some(enhanceable) ? UT_ENHANCE.price : null) : kr && upgradable(kr) && options.length > 0 && !maxed ? upgradePrice(kr) : null,
   };
 }
 

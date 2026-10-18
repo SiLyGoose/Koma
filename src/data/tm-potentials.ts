@@ -13,11 +13,18 @@ import type { TmPotentialId } from '../types.js';
 export const TM_POTENTIAL_LINES = 4;
 
 /**
- * How many options a unique treasure's copy rolls as it is pulled: King's Raid's treasures have two, from the same
- * pool and ranges as TechnoMagic gear's potentials (each a different one). Its hero has them wherever it wears it, its
- * main treasure slot or a sub treasure slot (there, all it gives: King's Raid's).
+ * How many options a unique treasure's copy rolls as it is pulled: King's Raid's treasures have two, from the pool and ranges
+ * below (each a different one). Its hero has them wherever it wears it, its main treasure slot or a sub treasure slot (there,
+ * all it gives: King's Raid's). Refining it doesn't change them; enhancing does (UT_ENHANCE: one of them a step higher, up to
+ * its range's top, for points).
  */
 export const UT_OPTION_LINES = 2;
+
+/**
+ * Enhancing a unique treasure's options (POST /api/heroes/upgrade): one of those below their range's top, at random, a step
+ * higher (a whole percent, or half of one for a range whose ends aren't whole), for `price` points.
+ */
+export const UT_ENHANCE = { price: 1_152 } as const;
 
 /** Every potential, in the order they're listed (King's Raid's), with its name: a copy's lines', the settings' and the databank's (the user's). */
 export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [
@@ -37,7 +44,7 @@ export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [
   { id: 'tough', name: 'Tough' },
   { id: 'toughPhysical', name: 'P. Tough' },
   { id: 'toughMagical', name: 'M. Tough' },
-  { id: 'accuracy', name: 'Accuracy' },
+  { id: 'accuracy', name: 'CC ACC' },
   { id: 'resist', name: 'CC Resist' },
   { id: 'crit', name: 'Crit Chance' },
   { id: 'critDamage', name: 'Crit DMG' },
@@ -46,6 +53,13 @@ export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [
   { id: 'lifesteal', name: 'Lifesteal' },
   { id: 'critResist', name: 'Crit Resist' },
   { id: 'pen', name: 'Penetration' },
+  { id: 'acc', name: 'ACC' },
+  { id: 'dodgePhysical', name: 'P. Dodge' },
+  { id: 'dodgeMagical', name: 'M. Dodge' },
+  { id: 'critResistPhysical', name: 'P. Crit Resist' },
+  { id: 'critResistMagical', name: 'M. Crit Resist' },
+  { id: 'recovery', name: 'Recovery' },
+  { id: 'manaDamage', name: 'Mana Recovery from DMG Taken' },
 ];
 
 export const TM_POTENTIAL_IDS: readonly TmPotentialId[] = TM_POTENTIALS.map(({ id }) => id);
@@ -84,4 +98,18 @@ export const TM_POTENTIAL_RANGES: Readonly<Record<TmPotentialId, { min: number; 
   lifesteal: { min: 0.05, max: 0.11 },
   critResist: { min: 0.05, max: 0.12 },
   pen: { min: 0.05, max: 0.11 },
+  // King's Raid's treasure options the old potentials hadn't: the user's ranges.
+  acc: { min: 0.05, max: 0.11 },
+  dodgePhysical: { min: 0.11, max: 0.22 },
+  dodgeMagical: { min: 0.11, max: 0.22 },
+  critResistPhysical: { min: 0.11, max: 0.22 },
+  critResistMagical: { min: 0.11, max: 0.22 },
+  recovery: { min: 0.075, max: 0.15 },
+  manaDamage: { min: 0.11, max: 0.22 },
+};
+
+/** The step a potential of a range rolls and enhances by (a share): a whole percent, or half of one for a range whose ends aren't whole. */
+export const potentialStep = (range: { min: number; max: number }): number => {
+  const whole = (n: number): boolean => Math.abs(n * 100 - Math.round(n * 100)) < 1e-9;
+  return whole(range.min) && whole(range.max) ? 0.01 : 0.005;
 };

@@ -4,7 +4,8 @@ import { HEROES } from '../src/data/heroes.js';
 import { gachaItems, ITEMS_BY_ID, UNIQUE_TREASURES, validateItems } from '../src/data/items.js';
 import { UT_OPTION_LINES } from '../src/data/tm-potentials.js';
 import { fitsSlot, heroItemLines, heroOnly, heroSlotsFor, heroWearable, pieceBonus, raidGear, SIDE_SLOTS, wieldedBy } from '../src/lib/game/heroes.js';
-import { rollUtOptions } from '../src/lib/game/technomagic.js';
+import { enhanceable, enhanceUtOptions, rollUtOptions } from '../src/lib/game/technomagic.js';
+import { TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { heroesView } from '../src/web/models/heroes.js';
 import { replay, uniqueTreasureText } from '../vendor/technomagic-sim.mjs';
 import type { MemberDoc, TmPotential } from '../src/types.js';
@@ -110,4 +111,29 @@ test('unique treasures: the main one changes its hero’s fight, the same every 
   assert.notDeepEqual(lotus.sums, plain.sums);
   assert.deepEqual(run({ skill: 1, tier: 5 }).sums, lotus.sums);
   assert.deepEqual(run({ skill: 9, tier: 5 }).sums, plain.sums);
+});
+
+test("unique treasures: the stats King's Raid adds roll in their ranges (Recovery by half percents); enhancing raises one a step, never past its top", () => {
+  const added = { acc: [0.05, 0.11], dodgePhysical: [0.11, 0.22], dodgeMagical: [0.11, 0.22], critResistPhysical: [0.11, 0.22], critResistMagical: [0.11, 0.22], recovery: [0.075, 0.15], manaDamage: [0.11, 0.22] } as const;
+  for (const [stat, [min, max]] of Object.entries(added)) assert.deepEqual(TM_POTENTIAL_RANGES[stat as keyof typeof added], { min, max });
+  const seen = new Set<string>();
+  for (let i = 0; i < 3000; i++) {
+    for (const { stat, value } of rollUtOptions()) {
+      seen.add(stat);
+      const { min, max } = TM_POTENTIAL_RANGES[stat];
+      assert.ok(value >= min - 1e-9 && value <= max + 1e-9, `${stat} ${value}`);
+      const step = stat === 'recovery' ? 0.005 : 0.01;
+      assert.ok(Math.abs(value / step - Math.round(value / step)) < 1e-6, `${stat} ${value} off its steps`);
+    }
+  }
+  for (const stat of Object.keys(added)) assert.ok(seen.has(stat), `${stat} never rolled`);
+
+  // One option a step higher, the other as it was; at the top, only the other; both at the top, none.
+  const options: TmPotential[] = [{ stat: 'recovery', value: 0.145 }, { stat: 'acc', value: 0.11 }];
+  assert.deepEqual(enhanceUtOptions(options), [{ stat: 'recovery', value: 0.15 }, { stat: 'acc', value: 0.11 }]);
+  assert.equal(enhanceable({ stat: 'acc', value: 0.11 }), false);
+  assert.equal(enhanceUtOptions([{ stat: 'recovery', value: 0.15 }, { stat: 'acc', value: 0.11 }]), null);
+  const low: TmPotential[] = [{ stat: 'atk', value: 0.05 }, { stat: 'crit', value: 0.05 }];
+  const once = enhanceUtOptions(low)!;
+  assert.equal(Math.round((once[0]!.value + once[1]!.value) * 1000), 110);
 });
