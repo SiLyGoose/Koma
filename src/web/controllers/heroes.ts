@@ -15,6 +15,10 @@ const Equip = Hero.extend({ slot: Slot, copy: CopyId });
 const Refine = z.object({ copy: CopyId });
 const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX) });
 const Lock = z.object({ copy: CopyId, locked: z.boolean() });
+/** A rune into a copy's socket, or (null) the one in it out. */
+const Rune = z.object({ copy: CopyId, socket: z.number().int().min(0).max(8), rune: z.string().max(64).nullable() });
+/** One of a copy's options (from 0), or its unique option. */
+const Reroll = z.object({ copy: CopyId, option: z.union([z.number().int().min(0).max(8), z.literal('unique')]) });
 /** One slot, or (left out) all of them. */
 const Unequip = Hero.extend({ slot: Slot.nullish() });
 /** Every perk picked (data/transcend.ts's). */
@@ -64,6 +68,21 @@ export function heroController(heroes: HeroService) {
     async refine(req, res) {
       const { copy } = parse(Refine, req.body);
       res.json(await heroes.refine(res.locals.guildId, res.locals.session.userId, copy));
+    },
+
+    async rune(req, res) {
+      const { copy, socket, rune } = parse(Rune, req.body);
+      res.json(await heroes.rune(res.locals.guildId, res.locals.session.userId, copy, socket, rune));
+    },
+
+    async reroll(req, res) {
+      const { copy, option } = parse(Reroll, req.body);
+      res.json(await heroes.reroll(res.locals.guildId, res.locals.session.userId, copy, option));
+    },
+
+    async upgrade(req, res) {
+      const { copy } = parse(Refine, req.body);
+      res.json(await heroes.upgrade(res.locals.guildId, res.locals.session.userId, copy));
     },
 
     async sell(req, res) {

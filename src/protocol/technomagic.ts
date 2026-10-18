@@ -101,7 +101,10 @@ export interface DropView {
   name: string;
   stars: number;
   skill: string | null;
+  /** Its options, a line each (King's Raid's hero gear's: "ATK +14%"; an artifact's, what it does at R1). */
   potentials: string[];
+  /** Its icon (King's Raid's: Koma-UI's public/kr/items/<icon>.webp), or null for an item with its own picture. */
+  icon: string | null;
   mainStat: MainStat | null;
   slot: 'weapon' | 'armor' | 'treasure';
   description: string;
@@ -113,6 +116,8 @@ export interface DropView {
 export interface OverView {
   result: 'won' | 'lost';
   drops: Record<string, DropView[]>;
+  /** The runes each found (King's Raid's: their names and icons). */
+  runes?: Record<string, { id: string; name: string; icon: string; grade: number }[]>;
   points: Record<string, number>;
   essences?: Record<string, Record<string, number>>;
 }

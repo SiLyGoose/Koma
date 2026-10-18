@@ -5,10 +5,11 @@ import { keptPerks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
 import { tmDropCount } from '../constants/technomagic.js';
-import { dragonPay, isDragon, rollDragonEssences, rollDragonGear } from '../lib/game/dragon.js';
-import { rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
+import { rollArtifact, rollDragonPieces, rollRunes, rollTmDrop, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
-import type { ItemDef, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
+import type { ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
 import { addCopy, ensureMember } from './economy/index.js';
 import { giveEssences } from './economy/essences.js';
 import { recordLedger } from './economy/shared.js';
@@ -40,7 +41,19 @@ export interface BegunRun {
   id: string;
   boss: string;
   seed: number;
-  players: Map<string, { owned: Set<string>; gear: Map<string, Record<string, number>>; sets: Map<string, TmSetId | null>; uws: Map<string, number | null>; uts: Map<string, { skill: number; tier: number } | null>; skills: Map<string, string[]>; perks: Map<string, string[]> }>;
+  players: Map<
+    string,
+    {
+      owned: Set<string>;
+      gear: Map<string, Record<string, number>>;
+      sets: Map<string, TmSetId | null>;
+      uws: Map<string, number | null>;
+      uts: Map<string, { skill: number; tier: number } | null>;
+      artifacts: Map<string, { id: string; tier: number } | null>;
+      skills: Map<string, string[]>;
+      perks: Map<string, string[]>;
+    }
+  >;
 }
 
 /**
@@ -61,10 +74,11 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const sets = new Map([...owned].map((id) => [id, loadouts.get(id)?.set ?? null]));
     const uws = new Map([...owned].map((id) => [id, loadouts.get(id)?.uw ?? null]));
     const uts = new Map([...owned].map((id) => [id, loadouts.get(id)?.ut ?? null]));
+    const artifacts = new Map([...owned].map((id) => [id, loadouts.get(id)?.artifact ?? null]));
     const skills = new Map([...owned].map((id) => [id, loadouts.get(id)?.skills ?? []]));
     // Its transcendence perks: those picked, as far as it is transcended.
     const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend)]));
-    run.players.set(userId, { owned, gear, sets, uws, uts, skills, perks });
+    run.players.set(userId, { owned, gear, sets, uws, uts, artifacts, skills, perks });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,
       run: run.id,
@@ -73,7 +87,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       boss,
       seed: run.seed,
       stage,
-      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
+      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, artifact: artifacts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
       version: SIM_VERSION,
       startedAt: now,
     };
@@ -82,19 +96,42 @@ export async function beginRun(guildId: string, stage: number, players: readonly
   return run;
 }
 
-/** What a player found: a TechnoMagic item, and the additional skill and potentials its copy came with (an armor's main stat's DEF too); or (the Dragon Raid's) a raid item, with none. */
+/**
+ * What a player found: a piece (or an artifact), and the options and unique option (its additional skill) its copy came with;
+ * the old TechnoMagic gear's potentials and armor DEF, for what still reads them.
+ */
 export interface TmFind {
   item: ItemDef;
   skill: string | null;
   potentials: TmPotential[];
+  options?: KrOption[];
   armorDef?: TmArmorDef;
 }
 
-/** What a run over gave a player: the items they found, the points they were paid, and (the Dragon Raid's) the hero essences. */
+/** What a run over gave a player: the items they found, the runes (their ids), the points they were paid, and (the Dragon Raid's) the hero essences. */
 export interface TmWin {
   finds: TmFind[];
+  runes?: string[];
   points: number;
   essences?: Partial<Record<EssenceId, number>>;
+}
+
+/** A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it. */
+async function findPiece(guildId: string, userId: string, item: ItemDef): Promise<TmFind> {
+  const { copy } = await addCopy(guildId, userId, item.id);
+  const options = item.kr ? rollKrOptions(item.kr) : [];
+  const skill = item.kr?.unique ? rollTmSkill() : null;
+  if (options.length > 0 || skill) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }) } });
+  return { item, skill, potentials: [], ...(options.length > 0 && { options }) };
+}
+
+/** Runes found: added to the member's. */
+async function giveRunes(guildId: string, userId: string, runes: readonly string[]): Promise<void> {
+  if (runes.length === 0) return;
+  const inc: Record<string, number> = {};
+  for (const id of runes) inc[`runes.${id}`] = (inc[`runes.${id}`] ?? 0) + 1;
+  await ensureMember(guildId, userId);
+  await collections().members.updateOne({ guildId, userId }, { $inc: inc });
 }
 
 /**
@@ -111,7 +148,7 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
-      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.map(({ item }) => item.id), ...(won.essences && { essences: won.essences }) } },
+      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.map(({ item }) => item.id), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }) } },
     );
   }
   return found;
@@ -126,37 +163,34 @@ async function payPoints(guildId: string, userId: string, points: number, reason
 }
 
 /**
- * A TechnoMagic Raid win at `stage`: that stage's TechnoMagic items of the boss's set (tmDropCount), each copy with an
- * additional skill and its potentials rolled for it, and `hero.winPoints` points.
+ * A TechnoMagic Raid win at `stage`: that stage's pieces of the boss's set (tmDropCount), each copy with its options and its
+ * additional skill rolled for it; its runes; now and then an artifact; and `hero.winPoints` points.
  */
 async function payTmWin(guildId: string, userId: string, boss: string, stage: number): Promise<TmWin> {
   const finds: TmFind[] = [];
   for (let n = tmDropCount(stage); n > 0; n--) {
     const item = rollTmDrop(boss);
     if (!item) break;
-    const { copy } = await addCopy(guildId, userId, item.id);
-    // Its additional skill (the same list whatever its set) and its potentials, rolled now; and an armor's main stat's DEF.
-    const skill = rollTmSkill();
-    const potentials = rollTmPotentials();
-    const armorDef = item.slot === 'armor' ? rollTmArmorDef() : undefined;
-    await collections().items.updateOne({ _id: copy._id }, { $set: { tmSkill: skill, tmPotentials: potentials, ...(armorDef && { tmArmorDef: armorDef }) } });
-    finds.push({ item, skill, potentials, ...(armorDef && { armorDef }) });
+    finds.push(await findPiece(guildId, userId, item));
   }
+  const artifact = rollArtifact(stage);
+  if (artifact) finds.push(await findPiece(guildId, userId, artifact));
+  const runes = rollRunes(stage, false);
+  await giveRunes(guildId, userId, runes);
   const points = Math.max(0, CONFIG.hero.winPoints);
   await payPoints(guildId, userId, points, 'tm_win');
-  return { finds, points };
+  return { finds, runes, points };
 }
 
-/** A Dragon Raid win at `stage` against `dragon`: its hero gear (raid items: rollDragonGear), its points, and its dragon's essences (dragonPay). */
+/** A Dragon Raid win at `stage` against `dragon`: pieces of its set (rollDragonPieces), its runes, its points, and its dragon's essences (dragonPay). */
 async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number): Promise<TmWin> {
   const finds: TmFind[] = [];
-  for (const item of rollDragonGear(stage)) {
-    await addCopy(guildId, userId, item.id);
-    finds.push({ item, skill: null, potentials: [] });
-  }
+  for (const item of rollDragonPieces(dragon, stage)) finds.push(await findPiece(guildId, userId, item));
+  const runes = rollRunes(stage, true);
+  await giveRunes(guildId, userId, runes);
   const pay = dragonPay(stage);
   await payPoints(guildId, userId, pay.points, 'dragon_win');
   const essences = rollDragonEssences(dragon, pay.essences);
   await giveEssences(guildId, userId, essences, 'dragon_essences');
-  return { finds, points: pay.points, essences };
+  return { finds, runes, points: pay.points, essences };
 }

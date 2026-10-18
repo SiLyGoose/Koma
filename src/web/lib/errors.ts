@@ -2,7 +2,7 @@ import type { LoadoutNameBlock, RefineBlock } from '../models/gear.js';
 
 /* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
 
-export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | RefineBlock | LoadoutNameBlock;
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | RefineBlock | LoadoutNameBlock;
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
@@ -26,6 +26,11 @@ const STATUS: Record<ErrorCode, number> = {
   closed: 409,
   wrong_slot: 409,
   wrong_hero: 409,
+  wrong_class: 409,
+  no_socket: 409,
+  wrong_part: 409,
+  no_rune: 409,
+  no_option: 409,
   duplicate: 409,
   no_main_treasure: 409,
   too_many_points: 409,

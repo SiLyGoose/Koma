@@ -9,7 +9,9 @@ import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
 import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
-import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
+import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES, UT_OPTION_LINES } from '../src/data/tm-potentials.js';
+import { krOptionValue, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption } from '../src/data/kr-gear.js';
+import { ITEMS_BY_ID } from '../src/data/items.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import type { Player } from '../src/web/auth/token.js';
@@ -524,19 +526,18 @@ test('technomagic: a hero in a set’s pieces has its effect, the same every tim
     assert.deepEqual(replay(withSet(set), autos, once.sums), once, set);
     assert.notDeepEqual(once.sums, plain.sums, `${set} changes the fight`);
   }
-  // Perseverance on everyone: the damage dealer's DMG growing, every ally's ATK and defence from the supports: the boss falls sooner.
+  // Perseverance on everyone: each one's own (King's Raid's 4-piece skill for its class): the boss falls sooner.
   assert.ok(replay(withSet('perseverance'), autos).ticks < plain.ticks);
   // A set the bot doesn't know of is none.
   assert.deepEqual(replay(withSet('nonsense'), autos).sums, plain.sums);
 });
 
-test('technomagic: Perseverance’s supports (Klaus, Fallen Frey) and its damage dealer (Kirze) each make the boss fall sooner', () => {
+test("technomagic: Perseverance on a damage dealer (Kirze) makes the boss fall sooner (King's Raid's: its DMG and ATK, growing)", () => {
   const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
   const GEARED = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
   const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
   const plain = replay(wearing([]), autos);
-  assert.ok(replay(wearing(['klaus', 'fallen-frey']), autos).ticks < plain.ticks, 'the supports: every ally +5% ATK and +10% defence');
-  assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, 'the damage dealer: +10% DMG, growing to +25%');
+  assert.ok(replay(wearing(['kirze']), autos).ticks < plain.ticks, '+10% DMG and ATK, growing to +25%');
 });
 
 test("technomagic perks: a hero's transcendence perks change its fight, the same every time; one the fight doesn't know is none", () => {
@@ -607,40 +608,34 @@ test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7
   assert.equal(tmDropCount(MOST_STAGE), 5, 'past its last stage, as much as the last');
 });
 
-test('technomagic: each copy rolls 4 potentials, each a different stat, each within its range; a hero of its class has them', () => {
-  assert.equal(TM_POTENTIAL_LINES, 4);
-  assert.equal(TM_POTENTIAL_IDS.length, 25);
-  for (let i = 0; i < 200; i++) {
-    const rolled = rollTmPotentials();
-    assert.equal(rolled.length, TM_POTENTIAL_LINES);
-    assert.equal(new Set(rolled.map(({ stat }) => stat)).size, rolled.length, 'no stat twice');
+test("technomagic: each piece rolls King's Raid's options (each a different stat of its pool, at a step), rerolled and upgraded as King's Raid's; a unique treasure rolls its 2 options", () => {
+  // A unique treasure's options: still 2 of the potentials, each within its range.
+  assert.equal(UT_OPTION_LINES, 2);
+  for (let i = 0; i < 100; i++) {
+    const rolled = rollTmPotentials(undefined, UT_OPTION_LINES);
+    assert.equal(new Set(rolled.map(({ stat }) => stat)).size, 2);
     for (const { stat, value } of rolled) assert.ok(value >= TM_POTENTIAL_RANGES[stat].min - 1e-9 && value <= TM_POTENTIAL_RANGES[stat].max + 1e-9, `${stat} ${value}`);
   }
-  // Whole percents only: the lowest roll is each range's bottom, the highest its top.
-  for (let i = 0; i < 200; i++) for (const { value } of rollTmPotentials()) assert.equal(value, Math.round(value * 100) / 100, `${value}`);
-  assert.deepEqual(rollTmPotentials({ index: () => 0 }).map(({ value }, i) => value === TM_POTENTIAL_RANGES[TM_POTENTIAL_IDS[i] as keyof typeof TM_POTENTIAL_RANGES].min), [true, true, true, true]);
-  // Copies from before, finer, rounded to the nearest whole percent; those already whole left alone.
-  assert.deepEqual(wholePotentials([{ stat: 'atk', value: 0.0749 }, { stat: 'speed', value: 0.115 }, { stat: 'hp', value: 0.05 }]), [{ stat: 'atk', value: 0.07 }, { stat: 'speed', value: 0.12 }, { stat: 'hp', value: 0.05 }]);
-  assert.equal(wholePotentials([{ stat: 'atk', value: 0.07 }, { stat: 'pen', value: 0.11 }]), null);
-  // An armor's main stat: P.DEF or M.DEF, by the roll.
-  assert.deepEqual([rollTmArmorDef({ index: () => 0 }), rollTmArmorDef({ index: () => 1 })], ['physical', 'magical']);
-  const potentials = [
-    { stat: 'lifesteal', value: 0.03 },
-    { stat: 'critResist', value: 0.05 },
-    { stat: 'defMagical', value: 0.08 },
-    { stat: 'atk', value: 0.05 },
-  ] as const;
-  const piece = (TM_DROPS.find((one) => one.class === 'warrior' && one.slot === 'weapon') ?? TM_DROPS[0]) as (typeof TM_DROPS)[number];
-  const on = pieceBonus({ item: piece, level: 1, potentials }, piece.class ?? 'warrior');
-  assert.equal(on.lifesteal, 0.03);
-  assert.equal(on.critResist, 0.05);
-  assert.equal(on.defMagical, 0.08);
-  assert.equal(on.atk, 0.05, 'TechnoMagic gear has no perks of its own');
-  // Not on a hero of another class.
-  assert.equal(pieceBonus({ item: piece, level: 1, potentials }, piece.class === 'priest' ? 'knight' : 'priest').lifesteal, 0);
-  // Named as the user has them (King's Raid's, mostly).
-  assert.deepEqual(potentialLines(potentials), ['+3% Lifesteal', '+5% Crit Resist', '+8% M. DEF', '+5% ATK']);
-  assert.deepEqual(potentialLines([{ stat: 'speed', value: 0.05 }, { stat: 'hp', value: 0.12 }, { stat: 'blockMagical', value: 0.2 }]), ['+5% ATK Spd', '+12% Max HP', '+20% M. Block']);
+  // A Perseverance piece: 2 options from its pool, each a different stat; a dragon piece, 4.
+  const tm = ITEMS_BY_ID.get('perseverance-warrior-armor')!.kr!;
+  const dragon = ITEMS_BY_ID.get('opportune-fire-t8-heavy-armor')!.kr!;
+  for (let i = 0; i < 100; i++) {
+    const options = rollKrOptions(tm);
+    assert.equal(options.length, 2);
+    assert.notEqual(options[0]?.stat, options[1]?.stat);
+    for (const option of options) assert.ok(option.step >= 0 && option.step <= 2, option.stat);
+    assert.equal(new Set(rollKrOptions(dragon).map((option) => option.stat)).size, 4);
+  }
+  // Its value: so far between its least and most (Perseverance's ATK: 12%, 14%, 16%).
+  assert.deepEqual([0, 1, 2].map((step) => krOptionValue(tm, { stat: 'atk', step })), [0.12, 0.14, 0.16]);
+  // A reroll rolls one again, counted; an upgrade raises one not at its top a step (TechnoMagic gear's are never upgraded).
+  const rerolled = rerollKrOption(tm, [{ stat: 'atk', step: 0 }, { stat: 'hp', step: 0 }], 0, { index: () => 0 });
+  assert.equal(rerolled?.[0]?.rerolls, 1);
+  assert.equal(rerolled?.[1]?.stat, 'hp');
+  assert.deepEqual(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 3 }], { index: () => 0 }), [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 4 }]);
+  assert.equal(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }]), null);
+  assert.ok(!upgradable(tm) && upgradable(dragon));
+  assert.deepEqual([0, 1, 5, 9].map(rerollPrice), [500, 1_000, 8_000, 8_000]);
 });
 
 test('technomagic: TechnoMagic gear’s additional skills, one rolled for each copy as it drops, from one list whatever the set', () => {
@@ -684,14 +679,11 @@ test('technomagic: a hero has its gear’s additional skills in the fight, the s
 });
 
 test('technomagic: a run takes the additional skills of the TechnoMagic copies a hero wears that work on its class', () => {
-  const cleaver = TM_DROPS.find((item) => item.id === 'tri-head-cleaver')!; // the warrior's
-  const ward = TM_DROPS.find((item) => item.id === 'antivenom-ward')!; // the priest's
-  const heart = TM_DROPS.find((item) => item.id === 'galgorias-heart')!; // the warrior's treasure
-  const raid = ITEMS.find((item) => item.raidDrop && item.slot === 'armor' && !item.class)!;
   const copy = (id: string, itemId: string, tmSkill?: string): ItemCopyDoc => ({ _id: id, guildId: 'g', userId: 'u', itemId, level: 1, obtainedAt: new Date(), ...(tmSkill && { tmSkill }) });
-  const copies = [copy('a', cleaver.id, 'vigor'), copy('b', ward.id, 'berserk'), copy('c', heart.id, 'vigor'), copy('d', raid.id, 'might')];
-  const member = { heroes: { kirze: { boughtAt: new Date(), equipment: { weapon1: 'a', armor1: 'b', treasure: 'c', armor2: 'd' } } }, points: 0 } as unknown as MemberDoc;
-  // The priest's armor does nothing on Kirze, and the raid's gear has no skill.
+  // Kirze (a warrior): two warrior pieces with Vigor, the priest's Secondary Armor, and a dragon set's Orb (no unique option).
+  const copies = [copy('a', 'perseverance-warrior-armor', 'vigor'), copy('b', 'perseverance-priest-secondary', 'berserk'), copy('c', 'perseverance-warrior-ring', 'vigor'), copy('d', 'opportune-fire-t8-orb')];
+  const member = { heroes: { kirze: { boughtAt: new Date(), equipment: { armor: 'a', secondary: 'b', accessory: 'c', orb: 'd' } } }, points: 0 } as unknown as MemberDoc;
+  // The priest's piece does nothing on Kirze, and the dragon set's has no skill.
   assert.deepEqual(raidGear(copies, member).get('kirze')?.skills, ['vigor', 'vigor']);
   const view = heroesView(copies, member);
   const kirze = view.heroes.find((hero) => hero.id === 'kirze');

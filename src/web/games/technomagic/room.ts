@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
-import { TM_SET_PIECES, tmSetEffect } from '../../../data/tm-sets.js';
-import { copyMainStat, potentialLines } from '../../../lib/game/heroes.js';
+import type { RaidClassId } from '../../../constants/raid.js';
+import { KR_TM_SETS } from '../../../data/kr-gear.js';
+import { copyMainStat, heroItemLines, potentialLines, setBonusLines } from '../../../lib/game/heroes.js';
+import { runeView } from '../../models/heroes.js';
 import { DRAGONS } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
 import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
@@ -51,19 +53,21 @@ export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOS
 export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS };
 
 /** A drop as the page shows it: an item found, with what its copy came with. */
-function dropView({ item, skill, potentials, armorDef }: TmFind): DropView {
-  const setEffect = tmSetEffect(item);
+function dropView({ item, skill, potentials, options }: TmFind): DropView {
+  const tmSet = item.kr?.set && KR_TM_SETS.includes(item.kr.set) ? item.kr.set : undefined;
+  const bonus = item.kr?.set ? setBonusLines(item.kr.set, item.kr.classes.length === 1 ? (item.kr.classes[0] as RaidClassId) : null, 0)[tmSet ? 0 : 1] : undefined;
   return {
     itemId: item.id,
     name: item.name,
     stars: item.stars,
     skill: tmSkillLine(skill),
-    potentials: potentialLines(potentials),
-    mainStat: copyMainStat(item, { ...(armorDef && { tmArmorDef: armorDef }) }),
+    potentials: item.kr ? heroItemLines(item, 1, undefined, undefined, options).slice(item.kr.main ? 1 : 0) : potentialLines(potentials),
+    icon: item.kr?.icon ?? null,
+    mainStat: copyMainStat(item, { level: 1 }),
     slot: item.slot,
     description: item.description,
-    itemClass: item.class ?? null,
-    setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect },
+    itemClass: item.class ?? (item.kr && item.kr.classes.length === 1 ? (item.kr.classes[0] as string) : null),
+    setEffect: bonus ? { pieces: bonus.pieces, text: bonus.text } : null,
   };
 }
 
@@ -100,7 +104,7 @@ export const realRoomDeps: RoomDeps = {
   begin: (guildId, stage, players, boss) => beginRun(guildId, stage, players, new Date(), boss),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map([...found].map(([userId, { finds, points, essences }]) => [userId, { drops: finds.map(dropView), points, ...(essences && { essences: essences as Record<string, number> }) }]));
+    return new Map([...found].map(([userId, { finds, runes, points, essences }]) => [userId, { drops: finds.map(dropView), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }) }]));
   },
   announce: () => {},
   link: (guildId, _boss, room) => {
@@ -496,7 +500,7 @@ export class TechnoMagicRoom {
       solo,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
+        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, artifact: player?.artifacts?.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
       }),
     };
     let engine: FightEngine | string;

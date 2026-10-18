@@ -3,7 +3,7 @@ import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
 import type { RaidBossId, RaidClassId } from './constants/raid.js';
 import type { EssenceId } from './data/transcend.js';
-import type { HeroSlot } from './protocol/heroes.js';
+import type { HeroPart, HeroSlot } from './protocol/heroes.js';
 import type { Slot, Stars, TmSetId } from './protocol/items.js';
 
 export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
@@ -66,6 +66,46 @@ export interface ItemDef {
   class?: RaidClassId;
   /** Optional: a bonus a copy gets once refined to R5 (see ItemBonus). */
   bonus?: ItemBonus;
+  /**
+   * King's Raid's hero gear, or an artifact (data/kr-gear.ts): never pulled, dropped by the TechnoMagic and Dragon Raids,
+   * and only heroes wear it, in the slot of its part. Missing means it isn't.
+   */
+  kr?: KrItem;
+}
+
+/**
+ * A piece of King's Raid's hero gear (data/kr-gear.ts, from the CBT2 playtest's tables: vendor/technomagic-sim.mjs's
+ * KR_PIECES), or an artifact (its part 'artifact', and none of the rest but its icon): the part it is (its slot on a hero)
+ * and its kind (an accessory's, an armor's weight), its set and tier, the classes of hero it works on (all: none said), its
+ * main stat's base (refinement raises it: data/kr-gear.ts), the option pool it rolls `options` options from, whether it has a
+ * unique option (TechnoMagic gear's additional skill: ItemCopyDoc.tmSkill), its rune sockets, and its icon (King's Raid's).
+ */
+export interface KrItem {
+  part: HeroPart;
+  kind?: string;
+  set?: string;
+  tier: number;
+  classes: readonly RaidClassId[];
+  main?: readonly [KrMainStat, number];
+  pool?: string;
+  options: number;
+  unique?: boolean;
+  runes: number;
+  icon: string;
+}
+
+/** A King's Raid piece's main stat: flat ATK, HP, P.DEF or M.DEF. */
+export type KrMainStat = 'atk' | 'hp' | 'defPhysical' | 'defMagical';
+
+/**
+ * One of a King's Raid piece's options (ItemCopyDoc.options): the stat (its pool's option of it: data/kr-gear.ts), its step
+ * (0 to the option's steps: its value is so far between the option's least and most), and how many times it was rerolled
+ * (King's Raid's reroll price climbs with it).
+ */
+export interface KrOption {
+  stat: string;
+  step: number;
+  rerolls?: number;
 }
 
 /**
@@ -169,6 +209,8 @@ export interface MemberDoc {
   gems?: number;
   /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
   essences?: Partial<Record<EssenceId, number>>;
+  /** King's Raid's runes they have, not socketed (data/kr-gear.ts's ids), how many of each: dropped by the TechnoMagic and Dragon Raids. Missing means none. */
+  runes?: Record<string, number>;
   /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
   weeklyBossWeek?: string;
   /**
@@ -266,12 +308,14 @@ export interface TmRunHero {
   id: string;
   skin: number;
   gear: Record<string, number>;
-  /** The TechnoMagic set whose effect it had (three of its pieces worn: data/tm-sets.ts TM_SET_PIECES), or null. */
+  /** The TechnoMagic set whose effect it had (four of its pieces worn: data/tm-sets.ts TM_SET_PIECES), or null. */
   set?: TmSetId | null;
   /** Its own unique weapon's tier (its refinement, 1 to 5), or null: none worn. */
   uw?: number | null;
   /** Its main treasure, one of its own unique treasures: which (1 to 4), at which tier (its refinement, 1 to 5); or null. */
   ut?: { skill: number; tier: number } | null;
+  /** Its artifact: which (data/kr-gear.ts's id), at which tier (its refinement, 1 to 5); or null. */
+  artifact?: { id: string; tier: number } | null;
   /** The additional skills of the TechnoMagic gear it wore (ItemCopyDoc.tmSkill), one for each piece. */
   skills?: string[];
   /** The transcendence perks it had (data/transcend.ts ids). */
@@ -338,10 +382,19 @@ export interface ItemCopyDoc {
   /** Locked by the member (`lock`, or the site): never sold and never used up by a refine. Missing means not. */
   locked?: boolean;
   /**
-   * TechnoMagic gear: the additional skill this copy came with (the sim's TM_SKILLS id, lib/game/technomagic.ts),
-   * rolled as it dropped; a hero wearing it has it in the raid. Missing on any other copy.
+   * TechnoMagic gear (King's Raid's: its unique option): the additional skill this copy came with (the sim's TM_SKILLS id,
+   * lib/game/technomagic.ts), rolled as it dropped; a hero wearing it has it in the raid. Missing on any other copy.
    */
   tmSkill?: string;
+  /** How many times its additional skill was rerolled (the price climbs with it). Missing means never. */
+  tmSkillRerolls?: number;
+  /** King's Raid's hero gear (ItemDef.kr): the options this copy rolled as it dropped (data/kr-gear.ts). Missing on any other copy. */
+  options?: KrOption[];
+  /**
+   * The runes in its sockets (data/kr-gear.ts's ids; null: an empty one), as many as it has sockets: King's Raid's hero gear
+   * and a unique weapon. Missing means all empty.
+   */
+  runes?: (string | null)[];
   /**
    * TechnoMagic gear: the potentials this copy came with (TM_POTENTIAL_LINES of them, each a different stat:
    * lib/game/technomagic.ts), rolled as it dropped; a hero of its class wearing it has them in the raid. A unique
@@ -503,6 +556,9 @@ export type LedgerReason =
   | 'tm_win'
   // Points a won Dragon Raid run paid (services/technomagic.ts; dragon.winPoints).
   | 'dragon_win'
+  // Points paid to reroll one of a hero gear copy's options or its unique option, and to upgrade one a step (services/kr-gear.ts; itemId is the item).
+  | 'kr_reroll'
+  | 'kr_upgrade'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).

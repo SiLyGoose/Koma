@@ -3,7 +3,7 @@ import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
 import { transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
-import { fitsSlot, heroEquipMoves, heroWearable, SIDE_SLOTS, wieldedBy } from '../lib/game/heroes.js';
+import { fitsSlot, heroEquipMoves, heroWearable, SIDE_SLOTS, wieldedBy, worksOn } from '../lib/game/heroes.js';
 import { HERO_SLOTS, type HeroSlot } from '../types.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
@@ -38,7 +38,7 @@ export async function buyHero(guildId: string, userId: string, id: string): Prom
   return { ok: true, paid: price, balance: bought.points };
 }
 
-export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'busy' };
+export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'duplicate' | 'no_main_treasure' | 'busy' };
 
 /**
  * Puts the member's copy `copyId` in their hero `heroId`'s `slot` (one its item goes in: heroSlotsFor), taking it
@@ -58,6 +58,9 @@ export async function equipHero(guildId: string, userId: string, heroId: string,
   if (!copy || !item || !heroWearable(item)) return { ok: false, reason: 'not_owned' };
   if (!fitsSlot(item, slot)) return { ok: false, reason: 'wrong_slot' };
   if (!wieldedBy(item, heroId)) return { ok: false, reason: 'wrong_hero' };
+  // (King's Raid's hero gear: only on a hero of its classes.)
+  const heroClass = HEROES_BY_ID.get(heroId)?.class;
+  if (heroClass && !worksOn(item, heroClass)) return { ok: false, reason: 'wrong_class' };
   for (let attempt = 0; attempt < 3; attempt++) {
     const member = await members.findOne({ guildId, userId });
     if (!HEROES_BY_ID.has(heroId) || !member?.heroes?.[heroId]) return { ok: false, reason: 'not_found' };

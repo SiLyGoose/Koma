@@ -29,6 +29,11 @@ export interface RunHero {
         skill: number;
         tier: number;
     } | null;
+    /** Its artifact: which (KR_ARTIFACTS' id), at which tier (its refinement, 1 to 5); or none. */
+    artifact?: {
+        id: string;
+        tier: number;
+    } | null;
 }
 /**
  * What a hero's unique treasure (its `skill`th: 1 to 4, UT1 to UT4) does at a tier (1 to 5) as its main treasure, as the
@@ -124,6 +129,92 @@ export interface TmSetInfo {
     effects: Readonly<Record<string, string>>;
 }
 export declare const TM_SET_INFO: readonly TmSetInfo[];
+/** How many of a TechnoMagic set's pieces a hero wears for its effect. */
+export declare const TM_SET_PIECES: number;
+/**
+ * King's Raid's hero gear as the TechnoMagic Raid has it (./gear/kr-data.ts, from the CBT2 playtest's tables): the pieces,
+ * their option pools, the sets' bonuses, the unique options, the runes, and how refinement raises a main stat. The bot
+ * makes its items, drops and copies of them; the fight is given what they add up to (RunHero.gear, set, artifact).
+ */
+export type KrPart = 'weapon' | 'armor' | 'secondary' | 'accessory' | 'orb';
+export type KrMainStat = 'atk' | 'hp' | 'defPhysical' | 'defMagical';
+/** An option a piece may roll: its stat (a gear stat's id), the share it gives (from min to max, in `steps` steps), and how likely it is next to the others. */
+export interface KrOptionData {
+    stat: string;
+    min: number;
+    max: number;
+    steps: number;
+    weight: number;
+}
+/**
+ * A piece of hero gear: its id, KR code and name, its set and tier, its part (an accessory's kind, an armor's weight), who
+ * wears it (class ids), its main stat's base, its option pool and how many options it rolls, whether it has a unique option
+ * (the additional skills: TM_SKILLS), its rune sockets, and its icon (Koma-UI's public/kr/items/<icon>.webp).
+ */
+export interface KrPieceData {
+    id: string;
+    code: string;
+    name: string;
+    set: string;
+    tier: number;
+    part: KrPart;
+    kind?: string;
+    classes: readonly string[];
+    main: readonly [KrMainStat, number];
+    pool: string;
+    options: number;
+    unique?: boolean;
+    runes: number;
+    icon: string;
+}
+/** A set's bonuses: a dragon set's 2- and 4-piece stats (both at 4: shares, by gear stat), a TechnoMagic set's 4-piece skill for each class and King's Raid's words for it. */
+export interface KrSetData {
+    name: string;
+    two?: Readonly<Record<string, number>>;
+    four: Readonly<Record<string, number>> | Readonly<Record<string, {
+        skill: number;
+        text: string;
+    }>>;
+    detail?: number;
+}
+/** A rune: its id, KR code and name, grade (1 Common to 6 Legendary; Ancient and Velkazar 5), colour, the parts it goes in, its stats (shares, by gear stat) and icon. */
+export interface KrRuneData {
+    id: string;
+    code: string;
+    name: string;
+    grade: number;
+    color: string;
+    parts: readonly KrPart[];
+    stats: Readonly<Record<string, number>>;
+    icon: string;
+    ancient?: boolean;
+}
+export declare const KR_PIECES: readonly KrPieceData[];
+export declare const KR_POOLS: Readonly<Record<string, readonly KrOptionData[]>>;
+/** A main stat's base, times its refinement's factor (R1 to R5: thousandths, at max level) for its kind of stat. */
+export declare const KR_REFINE: {
+    readonly atk: readonly number[];
+    readonly hp: readonly number[];
+    readonly def: readonly number[];
+};
+export declare const KR_SETS: Readonly<Record<string, KrSetData>>;
+export declare const KR_RUNES: readonly KrRuneData[];
+/** The TechnoMagic gear's unique options (King's Raid's 47), by number: the additional skill each is (null: none), and King's Raid's words and numbers. */
+export declare const KR_UNIQUE: readonly {
+    n: number;
+    skill: string | null;
+    text: string;
+    params: readonly string[];
+}[];
+/** An artifact the fight has a use for (./artifacts.ts): its id, KR code and name, icon, and what it does at R1 to R5 in King's Raid's words. */
+export interface TmArtifactInfo {
+    id: string;
+    code: string;
+    name: string;
+    icon: string;
+    text: readonly string[];
+}
+export declare const TM_ARTIFACTS: readonly TmArtifactInfo[];
 /** An input of the page's, as a raid takes it: a skill pressed, a hero's Auto, every hero's Auto, or leaving (with the step it came before). */
 export interface RunInput {
     tick: number;

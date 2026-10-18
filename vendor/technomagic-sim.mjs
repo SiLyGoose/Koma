@@ -136,7 +136,7 @@ var DEF_MOST = .9;
 * The most defense that counts against an attacker of each level from 70 (King's Raid's DefenceLevelTable): straight from
 * one of these levels to the next, and on past the last as from the one before.
 */
-var REACH = [
+var REACH$1 = [
 	[70, 155459],
 	[80, 196561],
 	[90, 198457],
@@ -146,9 +146,9 @@ var REACH = [
 /** The most defense that counts against an attacker of `level`. */
 function reachAt(level) {
 	let i = 1;
-	while (i < REACH.length - 1 && level > REACH[i][0]) i++;
-	const [l0, m0] = REACH[i - 1];
-	const [l1, m1] = REACH[i];
+	while (i < REACH$1.length - 1 && level > REACH$1[i][0]) i++;
+	const [l0, m0] = REACH$1[i - 1];
+	const [l1, m1] = REACH$1[i];
 	return Math.max(1, m0 + (m1 - m0) * (level - l0) / (l1 - l0));
 }
 /** A blocked blow does this much of what it would have (less its target's block DEF against that kind). */
@@ -249,6 +249,12 @@ function piercing(on) {
 	for (const { pen } of on) more += pen ?? 0;
 	return more;
 }
+/** What these add to a bearer's ATK (a share), or to its ATK Spd, Tough, ACC or crit chance (points). */
+function adding(on, key) {
+	let more = 0;
+	for (const status of on) more += status[key] ?? 0;
+	return more;
+}
 /** What these add to a bearer's CC ACC (points). */
 function accurate(on) {
 	let more = 0;
@@ -296,6 +302,2680 @@ function blocking(on, type) {
 /** A bearer of these can do nothing; is out of the fight altogether. */
 var bound = (on) => on.some((status) => status.binds || status.away);
 var away = (on) => on.some((status) => status.away);
+//#endregion
+//#region src/technomagic/sim/bosses/dragon/minions.ts
+/** A hatchling: its bite, and every 8 seconds its four blows in front of it (the ice one's slowing whoever they land on). */
+var hatchling = (name, leaves) => ({
+	name,
+	deals: "magical",
+	size: .5,
+	attack: {
+		length: 1.8,
+		lands: [.7],
+		share: 1,
+		reach: 0
+	},
+	rest: .2,
+	skill: {
+		cooldown: 8,
+		first: 8,
+		length: 3.4,
+		lands: [
+			2,
+			2.3,
+			2.6,
+			2.9
+		],
+		share: .8,
+		reach: 1.5,
+		...leaves && { leaves }
+	}
+});
+var MINIONS = {
+	"hatchling-fire": hatchling("Fire Hatchling"),
+	"hatchling-ice": hatchling("Ice Hatchling", { slow: {
+		name: "Dragon Snow",
+		about: "Attack speed down.",
+		icon: "❄️",
+		harmful: true,
+		pace: .98,
+		lasts: 15
+	} }),
+	"hatchling-poison": hatchling("Poison Hatchling"),
+	"hatchling-black": hatchling("Black Hatchling"),
+	"ice-pillar": {
+		name: "Ice Pillar",
+		deals: "magical",
+		size: 1,
+		steady: true,
+		attack: {
+			length: 4,
+			lands: [4],
+			share: .1,
+			reach: 0,
+			random: true,
+			leaves: { freeze: 1.5 }
+		},
+		rest: 0,
+		fuse: {
+			after: 20,
+			share: 10
+		}
+	},
+	wyrm: {
+		name: "Poison Wyrm",
+		deals: "physical",
+		size: .6,
+		steady: true,
+		attack: {
+			length: 1.3,
+			lands: [.8],
+			share: .5,
+			reach: 0
+		},
+		rest: 0,
+		skill: {
+			cooldown: 3.5,
+			first: 1.3,
+			length: 3.5,
+			lands: [
+				.9,
+				1.3,
+				1.8,
+				2.2
+			],
+			share: .1,
+			reach: Infinity,
+			leaves: { weaken: {
+				name: "Wyrm Venom",
+				about: "Deals less damage for the rest of the fight.",
+				icon: "🐍",
+				harmful: true,
+				each: .01,
+				most: 100
+			} }
+		}
+	},
+	wyrmling: {
+		name: "Poison Wyrm",
+		deals: "physical",
+		size: .6,
+		steady: true,
+		attack: {
+			length: 1.3,
+			lands: [.8],
+			share: .5,
+			reach: 0
+		},
+		rest: 1,
+		skill: {
+			cooldown: 12,
+			first: 8,
+			length: 3.5,
+			lands: [
+				.9,
+				1.3,
+				1.8,
+				2.2,
+				2.6
+			],
+			share: .5,
+			reach: 2,
+			deals: "magical"
+		}
+	}
+};
+//#endregion
+//#region src/technomagic/sim/bosses/dragon/waves.ts
+var WAVES = {
+	temeraire: [
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 45957740,
+				atk: 683604,
+				def: [51224, 51224]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 55288287,
+				atk: 822324,
+				def: [61628, 61628]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 66513466,
+				atk: 989400,
+				def: [74174, 74174]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 96262605,
+				atk: 1431876,
+				def: [107345, 107345]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 192525758,
+				atk: 2863956,
+				def: [214751, 214751]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 223589414,
+				atk: 3325968,
+				def: [249415, 249415]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 236010792,
+				atk: 3510744,
+				def: [263272, 263272]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 393780494,
+				atk: 6254882,
+				def: [453960, 453960]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 545235165,
+				atk: 8660606,
+				def: [628560, 628560]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 725116665,
+				atk: 11517542,
+				def: [835848, 835848]
+			}
+		]]
+	],
+	scalaxia: [
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 16109122,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 16109122,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 53696940,
+				atk: 683604,
+				def: [41004, 41004]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 53696940,
+			atk: 683604,
+			def: [41004, 41004]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 53696940,
+			atk: 683604,
+			def: [41004, 41004]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 19379335,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 19379335,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 64598717,
+				atk: 822324,
+				def: [49327, 49327]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 64598717,
+			atk: 822324,
+			def: [49327, 49327]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 64598717,
+			atk: 822324,
+			def: [49327, 49327]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 23314085,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 23314085,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 77714016,
+				atk: 989400,
+				def: [59364, 59364]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 77714016,
+			atk: 989400,
+			def: [59364, 59364]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 77714016,
+			atk: 989400,
+			def: [59364, 59364]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 33741993,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 33741993,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 112473445,
+				atk: 1431876,
+				def: [85864, 85864]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 112473445,
+			atk: 1431876,
+			def: [85864, 85864]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 112473445,
+			atk: 1431876,
+			def: [85864, 85864]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 67483987,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 67483987,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 224946889,
+				atk: 2863956,
+				def: [171788, 171788]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 224946889,
+			atk: 2863956,
+			def: [171788, 171788]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 224946889,
+			atk: 2863956,
+			def: [171788, 171788]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 78372068,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 78372068,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 261240793,
+				atk: 3325968,
+				def: [199519, 199519]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 261240793,
+			atk: 3325968,
+			def: [199519, 199519]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 261240793,
+			atk: 3325968,
+			def: [199519, 199519]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 82725949,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 82725949,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 275753760,
+				atk: 3510744,
+				def: [210604, 210604]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 275753760,
+			atk: 3510744,
+			def: [210604, 210604]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 275753760,
+			atk: 3510744,
+			def: [210604, 210604]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 138027738,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 138027738,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 460092064,
+				atk: 6254882,
+				def: [363168, 363168]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 460092064,
+			atk: 6254882,
+			def: [363168, 363168]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 460092064,
+			atk: 6254882,
+			def: [363168, 363168]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 191115150,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 191115150,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 637049953,
+				atk: 8660606,
+				def: [502848, 502848]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 637049953,
+			atk: 8660606,
+			def: [502848, 502848]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 637049953,
+			atk: 8660606,
+			def: [502848, 502848]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 254167259,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 254167259,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 847224485,
+				atk: 11517542,
+				def: [668678, 668678]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 847224485,
+			atk: 11517542,
+			def: [668678, 668678]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 847224485,
+			atk: 11517542,
+			def: [668678, 668678]
+		}]]
+	],
+	zyrrkinoth: [
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 73532494,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 73532494,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 73532494,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 73532494,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 73532494,
+				atk: 683604,
+				def: [51224, 51224]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 55149508,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 55149508,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 55149508,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 55149508,
+				atk: 683604,
+				def: [51224, 51224]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 55149508,
+				atk: 683604,
+				def: [51224, 51224]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 88461368,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 88461368,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 88461368,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 88461368,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 88461368,
+				atk: 822324,
+				def: [61628, 61628]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 66346163,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 66346163,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 66346163,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 66346163,
+				atk: 822324,
+				def: [61628, 61628]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 66346163,
+				atk: 822324,
+				def: [61628, 61628]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 106421436,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 106421436,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 106421436,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 106421436,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 106421436,
+				atk: 989400,
+				def: [74174, 74174]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 79815940,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 79815940,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 79815940,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 79815940,
+				atk: 989400,
+				def: [74174, 74174]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 79815940,
+				atk: 989400,
+				def: [74174, 74174]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 154020935,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 154020935,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 154020935,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 154020935,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 154020935,
+				atk: 1431876,
+				def: [107345, 107345]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 115515564,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 115515564,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 115515564,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 115515564,
+				atk: 1431876,
+				def: [107345, 107345]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 115515564,
+				atk: 1431876,
+				def: [107345, 107345]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 308041871,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 308041871,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 308041871,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 308041871,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 308041871,
+				atk: 2863956,
+				def: [214751, 214751]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 231031129,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 231031129,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 231031129,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 231031129,
+				atk: 2863956,
+				def: [214751, 214751]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 231031129,
+				atk: 2863956,
+				def: [214751, 214751]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 357742598,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 357742598,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 357742598,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 357742598,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 357742598,
+				atk: 3325968,
+				def: [249415, 249415]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 268306949,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 268306949,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 268306949,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 268306949,
+				atk: 3325968,
+				def: [249415, 249415]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 268306949,
+				atk: 3325968,
+				def: [249415, 249415]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 377616777,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 377616777,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 377616777,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 377616777,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 377616777,
+				atk: 3510744,
+				def: [263272, 263272]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 283212582,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 283212582,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 283212582,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 283212582,
+				atk: 3510744,
+				def: [263272, 263272]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 283212582,
+				atk: 3510744,
+				def: [263272, 263272]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 630048466,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 630048466,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 630048466,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 630048466,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 630048466,
+				atk: 6254882,
+				def: [453960, 453960]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 472536755,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 472536755,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 472536755,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 472536755,
+				atk: 6254882,
+				def: [453960, 453960]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 472536755,
+				atk: 6254882,
+				def: [453960, 453960]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 872375814,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 872375814,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 872375814,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 872375814,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 872375814,
+				atk: 8660606,
+				def: [628560, 628560]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 654282423,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 654282423,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 654282423,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 654282423,
+				atk: 8660606,
+				def: [628560, 628560]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 654282423,
+				atk: 8660606,
+				def: [628560, 628560]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 1160186901,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 1160186901,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 1160186901,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 1160186901,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 1160186901,
+				atk: 11517542,
+				def: [835848, 835848]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 870140472,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 870140472,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 870140472,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 870140472,
+				atk: 11517542,
+				def: [835848, 835848]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 870140472,
+				atk: 11517542,
+				def: [835848, 835848]
+			}
+		]]
+	],
+	armarta: []
+};
 //#endregion
 //#region src/technomagic/sim/bosses/gauge.ts
 /** Galgoria's (chapter 10's), and the Hard Dragon Raid's (911 to 914's). */
@@ -466,7 +3146,7 @@ function single(fight, amount, then) {
 	then?.(target);
 }
 /** A blow on every hero it can reach, then `then` on each; and `cue` drawn for them. Returns them. */
-function all(fight, amount, then, cue) {
+function all$1(fight, amount, then, cue) {
 	const heroes = reachable(fight);
 	for (const fighter of heroes) {
 		fight.hurt(fighter, amount);
@@ -541,6 +3221,38 @@ var ULTIMATE = .7;
 var opened = (fight) => fight.foe.hp <= fight.foe.maxHp * ULTIMATE;
 /** How long a dragon rests after an attack: as long as makes its bite take its plain attack's time, `seconds` (the playtest's). */
 var restFor = (seconds) => seconds - 1.7;
+/**
+* A dragon's raid's waves (./waves.ts: the Hard Dragon Raid's): at 70% of its health it flies off (the playtest's OnHpRatio 700,
+* BeginResting), its minions come in two waves on the platforms on, and it comes back for the last, its landing taking half of
+* what health every hero has left and knocking them down 1.5 seconds (its OnBeginPlaying(0, 3): $ByMEHp4(500), Knockback).
+*/
+var dragonWaves = (id) => ({
+	at: (stage) => WAVES[id]?.[stage - 1] ?? [],
+	leaves: ULTIMATE,
+	lands: {
+		share: .5,
+		knock: 1.5
+	}
+});
+/**
+* A minion of a wave (./waves.ts) as the dragons are scaled: its health the game's as much less as the heroes here deal and
+* as much more as there are of them (alone, as much less again); its ATK (what its blows are shares of: ./minions.ts) as much
+* less as the heroes here have less health; its defenses the game's; and the rest as the hard dragons' (OPEN).
+*/
+function minionOf(minion, solo) {
+	const hp = minion.hp * HEROES_DEAL * 8 / KR_PARTY$1 * (solo ? SOLO / 8 : 1);
+	return {
+		hp,
+		atk: minion.atk * HEROES_HP,
+		stats: {
+			hp,
+			deals: MINIONS[minion.kind].deals,
+			magical: minion.def[0],
+			physical: minion.def[1],
+			...OPEN
+		}
+	};
+}
 /** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: the Hard Dragon Raid's). */
 var withDragonGauge = (fight, own) => withGauge(fight, own, DRAGON_GAUGE);
 /** What a blow takes, as a share of a dragon's ATK at stage 1 (King's Raid's playtest's: its skill's damage share). */
@@ -754,7 +3466,7 @@ function armartaPart(fight) {
 		lands: {
 			breath(part, amount) {
 				if (part < 1) return;
-				all(fight, amount, (fighter) => {
+				all$1(fight, amount, (fighter) => {
 					flames.set(fighter, Math.max(burning(fighter) ? flames.get(fighter) ?? 0 : 0, amount * FLAMES.burn));
 					put(fighter.statuses, {
 						name: DARK.name,
@@ -797,7 +3509,7 @@ function armartaPart(fight) {
 			bite: (_part, amount) => single(fight, amount),
 			claw: (_part, amount) => single(fight, amount),
 			sweep(_part, amount) {
-				all(fight, amount, void 0, "sweep");
+				all$1(fight, amount, void 0, "sweep");
 				fraction(fight, [fight.target()], TAIL$1);
 			}
 		},
@@ -1612,23 +4324,23 @@ function scalaxiaPart(fight) {
 		taken: { magical: .4 },
 		lands: {
 			smashes(part, amount) {
-				all(fight, amount, (fighter) => frost(fighter, SMASH$2.frost), "smash");
+				all$1(fight, amount, (fighter) => frost(fighter, SMASH$2.frost), "smash");
 				if (part === 0) fraction(fight, [fight.target()], SMASH$2.health);
 			},
 			breath(part, amount) {
-				if (part >= 1) all(fight, amount, (fighter) => frost(fighter, BREATH$3.frost), "frost");
+				if (part >= 1) all$1(fight, amount, (fighter) => frost(fighter, BREATH$3.frost), "frost");
 			},
 			storm(part, amount) {
 				if (part === 0) return;
-				if (part < 3) return void fraction(fight, all(fight, amount, (fighter) => frost(fighter, 1), "storm"), STORM$1.health);
-				all(fight, amount, (fighter) => {
+				if (part < 3) return void fraction(fight, all$1(fight, amount, (fighter) => frost(fighter, 1), "storm"), STORM$1.health);
+				all$1(fight, amount, (fighter) => {
 					freeze(fighter);
 					fighter.mana = Math.max(0, Math.min(MAX_MANA, fighter.mana - STORM$1.mana));
 				}, "glacial");
 			},
 			bite: (_part, amount) => single(fight, amount, (fighter) => frost(fighter, 1)),
 			claw: (_part, amount) => single(fight, amount, (fighter) => frost(fighter, 1)),
-			sweep: (_part, amount) => void all(fight, amount, (fighter) => frost(fighter, 1), "sweep")
+			sweep: (_part, amount) => void all$1(fight, amount, (fighter) => frost(fighter, 1), "sweep")
 		},
 		used(attack) {
 			waits.used(attack);
@@ -1679,6 +4391,7 @@ var SCALAXIA = {
 	basic: ["bite"],
 	rest: restFor(2.3),
 	time: 180,
+	waves: dragonWaves("scalaxia"),
 	attacks: [
 		{
 			name: "bite",
@@ -1770,12 +4483,12 @@ function temerairePart(fight) {
 	return withDragonGauge(fight, {
 		lands: {
 			blessing(_part, amount) {
-				all(fight, amount, void 0, "blessing");
+				all$1(fight, amount, void 0, "blessing");
 				kindle(BLESSING$2.charges);
 			},
 			breath(part, amount) {
 				if (part < 1) return;
-				all(fight, amount, (fighter) => {
+				all$1(fight, amount, (fighter) => {
 					burns.set(fighter, Math.max(fighter.statuses.some((status) => status.name === BURN.name) ? burns.get(fighter) ?? 0 : 0, amount * BREATH$2.burn));
 					put(fighter.statuses, {
 						name: BURN.name,
@@ -1785,12 +4498,12 @@ function temerairePart(fight) {
 				}, "flame");
 			},
 			eruption(part, amount) {
-				if (part === 1) fraction(fight, all(fight, amount, void 0, "eruption"), RAGE);
+				if (part === 1) fraction(fight, all$1(fight, amount, void 0, "eruption"), RAGE);
 			},
 			bite: (_part, amount) => single(fight, amount),
 			claw: (_part, amount) => single(fight, amount),
 			sweep(_part, amount) {
-				all(fight, amount, void 0, "sweep");
+				all$1(fight, amount, void 0, "sweep");
 				fraction(fight, [fight.target()], TAIL);
 			}
 		},
@@ -1836,6 +4549,7 @@ var TEMERAIRE = {
 	basic: ["bite"],
 	rest: restFor(2.4),
 	time: 180,
+	waves: dragonWaves("temeraire"),
 	attacks: [
 		{
 			name: "bite",
@@ -1935,16 +4649,16 @@ function zyrrkinothPart(fight) {
 	}
 	return withDragonGauge(fight, {
 		lands: {
-			smashes: (_part, amount) => void all(fight, amount, (fighter) => {
+			smashes: (_part, amount) => void all$1(fight, amount, (fighter) => {
 				poison(fighter, LASH.stacks);
 				if (fighter.hp > 0) fight.knock(fighter, LASH.knock);
 			}, "lash"),
 			breath(part, amount) {
-				if (part >= 1) all(fight, amount, (fighter) => poison(fighter, BREATH$1.stacks), "venom");
+				if (part >= 1) all$1(fight, amount, (fighter) => poison(fighter, BREATH$1.stacks), "venom");
 			},
 			bite: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
 			claw: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
-			sweep: (_part, amount) => void all(fight, amount, (fighter) => poison(fighter, POISON$1.blow), "sweep")
+			sweep: (_part, amount) => void all$1(fight, amount, (fighter) => poison(fighter, POISON$1.blow), "sweep")
 		},
 		struck(_by, _dealt, critical) {
 			if (!critical || cracks >= SCALES.most) return;
@@ -1998,6 +4712,7 @@ var ZYRRKINOTH = {
 	basic: ["bite"],
 	rest: restFor(2.3),
 	time: 180,
+	waves: dragonWaves("zyrrkinoth"),
 	attacks: [
 		{
 			name: "bite",
@@ -2057,6 +4772,14202 @@ function scaleAt(def, stage, solo) {
 	};
 }
 //#endregion
+//#region src/technomagic/sim/gear/kr-data.ts
+/** A piece's main stat's base, times its refinement's factor (R1 to R5: thousandths, at max level) for its kind of stat. */
+var KR_REFINE$1 = {
+	"atk": [
+		4730,
+		5160,
+		5590,
+		6020,
+		6450
+	],
+	"hp": [
+		4730,
+		5160,
+		5590,
+		6020,
+		6450
+	],
+	"def": [
+		4730,
+		5375,
+		6235,
+		7310,
+		8600
+	]
+};
+/** Each option pool (by the KR option groups it is), every option in it. */
+var KR_POOLS$1 = {
+	"18": [
+		{
+			"stat": "atk",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "hp",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "defPhysical",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "defMagical",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "crit",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "acc",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "pen",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "critDamage",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "dodgePhysical",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "speed",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "lifesteal",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "resist",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "critResistPhysical",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "critResistMagical",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "manaAttack",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "dodgeMagical",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "blockMagical",
+			"min": .24,
+			"max": .32,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "accuracy",
+			"min": .12,
+			"max": .16,
+			"steps": 2,
+			"weight": 1e3
+		},
+		{
+			"stat": "manaRegen",
+			"min": .36,
+			"max": .48,
+			"steps": 2,
+			"weight": 1e3
+		}
+	],
+	"6411": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6421": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6431": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6432": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7411": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7421": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7431": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7432": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8411": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8421": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8431": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8432": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8431+8432": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8421+8422": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6431+6432": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7411+7412": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7431+7432": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6441+6442": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7421+7422": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8411+8412": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"8441+8442": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6421+6422": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"6411+6412": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	],
+	"7441+7442": [
+		{
+			"stat": "atk",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "speed",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "crit",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "pen",
+			"min": .038,
+			"max": .075,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "critDamage",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "lifesteal",
+			"min": .023,
+			"max": .045,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "hp",
+			"min": .045,
+			"max": .09,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defPhysical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "defMagical",
+			"min": .06,
+			"max": .12,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockPhysical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		},
+		{
+			"stat": "blockMagical",
+			"min": .075,
+			"max": .15,
+			"steps": 10,
+			"weight": 18
+		}
+	]
+};
+var KR_PIECES$1 = [
+	{
+		"id": "authority-wizard-armor",
+		"code": "TECHNOMAGIC_WIZARD_9_1_3",
+		"name": "Wisdom of Authority Robe",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard"],
+		"main": ["defPhysical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WIZARD_9_1_3"
+	},
+	{
+		"id": "authority-archer-necklace",
+		"code": "TECHNOMAGIC_ARCHER_9_5_3",
+		"name": "Wrath of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["archer"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_5_3"
+	},
+	{
+		"id": "hope-assassin-orb",
+		"code": "TECHNOMAGIC_ASSASSIN_9_7_2",
+		"name": "Coldness of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["assassin"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_7_2"
+	},
+	{
+		"id": "authority-knight-bracelet",
+		"code": "TECHNOMAGIC_KNIGHT_9_6_3",
+		"name": "Protection of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["knight"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_6_3"
+	},
+	{
+		"id": "authority-mechanic-secondary",
+		"code": "TECHNOMAGIC_MECHANIC_9_2_3",
+		"name": "Passion of Authority Shoes",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["mechanic"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_MECHANIC_9_2_3"
+	},
+	{
+		"id": "authority-wizard-bracelet",
+		"code": "TECHNOMAGIC_WIZARD_9_6_3",
+		"name": "Wisdom of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["wizard"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_6_3"
+	},
+	{
+		"id": "hope-priest-bracelet",
+		"code": "TECHNOMAGIC_PRIEST_9_6_2",
+		"name": "Blessing of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["priest"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_6_2"
+	},
+	{
+		"id": "authority-mechanic-armor",
+		"code": "TECHNOMAGIC_MECHANIC_9_1_3",
+		"name": "Passion of Authority Clothes",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["mechanic"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_MECHANIC_9_1_3"
+	},
+	{
+		"id": "hope-assassin-armor",
+		"code": "TECHNOMAGIC_ASSASSIN_9_1_2",
+		"name": "Coldness of Hope Jacket",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["assassin"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_1_2"
+	},
+	{
+		"id": "perseverance-knight-ring",
+		"code": "TECHNOMAGIC_KNIGHT_9_3_1",
+		"name": "Protection of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["knight"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_3_1"
+	},
+	{
+		"id": "authority-wizard-necklace",
+		"code": "TECHNOMAGIC_WIZARD_9_5_3",
+		"name": "Wisdom of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["wizard"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_5_3"
+	},
+	{
+		"id": "authority-archer-armor",
+		"code": "TECHNOMAGIC_ARCHER_9_1_3",
+		"name": "Wrath of Authority Pauldron",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["archer"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ARCHER_9_1_3"
+	},
+	{
+		"id": "perseverance-priest-necklace",
+		"code": "TECHNOMAGIC_PRIEST_9_5_1",
+		"name": "Blessing of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["priest"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_5_1"
+	},
+	{
+		"id": "authority-assassin-earrings",
+		"code": "TECHNOMAGIC_ASSASSIN_9_4_3",
+		"name": "Coldness of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["assassin"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_4_3"
+	},
+	{
+		"id": "hope-assassin-secondary",
+		"code": "TECHNOMAGIC_ASSASSIN_9_2_2",
+		"name": "Coldness of Hope Gloves",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["assassin"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_2_2"
+	},
+	{
+		"id": "perseverance-knight-armor",
+		"code": "TECHNOMAGIC_KNIGHT_9_1_1",
+		"name": "Protection of Perseverance Heavy Armor",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight"],
+		"main": ["defPhysical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_KNIGHT_9_1_1"
+	},
+	{
+		"id": "hope-knight-earrings",
+		"code": "TECHNOMAGIC_KNIGHT_9_4_2",
+		"name": "Protection of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["knight"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_4_2"
+	},
+	{
+		"id": "perseverance-priest-orb",
+		"code": "TECHNOMAGIC_PRIEST_9_7_1",
+		"name": "Blessing of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["priest"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_7_1"
+	},
+	{
+		"id": "hope-priest-secondary",
+		"code": "TECHNOMAGIC_PRIEST_9_2_2",
+		"name": "Blessing of Hope Hood",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["priest"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_PRIEST_9_2_2"
+	},
+	{
+		"id": "authority-wizard-ring",
+		"code": "TECHNOMAGIC_WIZARD_9_3_3",
+		"name": "Wisdom of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["wizard"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_3_3"
+	},
+	{
+		"id": "perseverance-warrior-ring",
+		"code": "TECHNOMAGIC_WARRIOR_9_3_1",
+		"name": "Courage of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["warrior"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_3_1"
+	},
+	{
+		"id": "authority-warrior-ring",
+		"code": "TECHNOMAGIC_WARRIOR_9_3_3",
+		"name": "Courage of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["warrior"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_3_3"
+	},
+	{
+		"id": "hope-warrior-ring",
+		"code": "TECHNOMAGIC_WARRIOR_9_3_2",
+		"name": "Courage of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["warrior"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_3_2"
+	},
+	{
+		"id": "perseverance-knight-orb",
+		"code": "TECHNOMAGIC_KNIGHT_9_7_1",
+		"name": "Protection of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["knight"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_7_1"
+	},
+	{
+		"id": "perseverance-warrior-secondary",
+		"code": "TECHNOMAGIC_WARRIOR_9_2_1",
+		"name": "Courage of Perseverance Helmet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["warrior"],
+		"main": ["defMagical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WARRIOR_9_2_1"
+	},
+	{
+		"id": "hope-warrior-secondary",
+		"code": "TECHNOMAGIC_WARRIOR_9_2_2",
+		"name": "Courage of Hope Helmet",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["warrior"],
+		"main": ["defMagical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WARRIOR_9_2_2"
+	},
+	{
+		"id": "authority-warrior-secondary",
+		"code": "TECHNOMAGIC_WARRIOR_9_2_3",
+		"name": "Courage of Authority Helmet",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["warrior"],
+		"main": ["defMagical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WARRIOR_9_2_3"
+	},
+	{
+		"id": "perseverance-priest-armor",
+		"code": "TECHNOMAGIC_PRIEST_9_1_1",
+		"name": "Blessing of Perseverance Cape",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["priest"],
+		"main": ["defPhysical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_PRIEST_9_1_1"
+	},
+	{
+		"id": "authority-warrior-armor",
+		"code": "TECHNOMAGIC_WARRIOR_9_1_3",
+		"name": "Courage of Authority Armor",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["warrior"],
+		"main": ["defPhysical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WARRIOR_9_1_3"
+	},
+	{
+		"id": "hope-warrior-armor",
+		"code": "TECHNOMAGIC_WARRIOR_9_1_2",
+		"name": "Courage of Hope Armor",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["warrior"],
+		"main": ["defPhysical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WARRIOR_9_1_2"
+	},
+	{
+		"id": "perseverance-warrior-armor",
+		"code": "TECHNOMAGIC_WARRIOR_9_1_1",
+		"name": "Courage of Perseverance Armor",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["warrior"],
+		"main": ["defPhysical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WARRIOR_9_1_1"
+	},
+	{
+		"id": "authority-assassin-ring",
+		"code": "TECHNOMAGIC_ASSASSIN_9_3_3",
+		"name": "Coldness of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["assassin"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_3_3"
+	},
+	{
+		"id": "hope-knight-secondary",
+		"code": "TECHNOMAGIC_KNIGHT_9_2_2",
+		"name": "Protection of Hope Shield",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight"],
+		"main": ["defMagical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_KNIGHT_9_2_2"
+	},
+	{
+		"id": "perseverance-archer-bracelet",
+		"code": "TECHNOMAGIC_ARCHER_9_6_1",
+		"name": "Wrath of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["archer"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_6_1"
+	},
+	{
+		"id": "hope-knight-armor",
+		"code": "TECHNOMAGIC_KNIGHT_9_1_2",
+		"name": "Protection of Hope Heavy Armor",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight"],
+		"main": ["defPhysical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_KNIGHT_9_1_2"
+	},
+	{
+		"id": "hope-priest-orb",
+		"code": "TECHNOMAGIC_PRIEST_9_7_2",
+		"name": "Blessing of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["priest"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_7_2"
+	},
+	{
+		"id": "perseverance-warrior-orb",
+		"code": "TECHNOMAGIC_WARRIOR_9_7_1",
+		"name": "Courage of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["warrior"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_7_1"
+	},
+	{
+		"id": "authority-warrior-orb",
+		"code": "TECHNOMAGIC_WARRIOR_9_7_3",
+		"name": "Courage of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["warrior"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_7_3"
+	},
+	{
+		"id": "hope-warrior-orb",
+		"code": "TECHNOMAGIC_WARRIOR_9_7_2",
+		"name": "Courage of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["warrior"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_7_2"
+	},
+	{
+		"id": "hope-assassin-bracelet",
+		"code": "TECHNOMAGIC_ASSASSIN_9_6_2",
+		"name": "Coldness of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["assassin"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_6_2"
+	},
+	{
+		"id": "perseverance-knight-necklace",
+		"code": "TECHNOMAGIC_KNIGHT_9_5_1",
+		"name": "Protection of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["knight"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_5_1"
+	},
+	{
+		"id": "perseverance-warrior-bracelet",
+		"code": "TECHNOMAGIC_WARRIOR_9_6_1",
+		"name": "Courage of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["warrior"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_6_1"
+	},
+	{
+		"id": "hope-warrior-bracelet",
+		"code": "TECHNOMAGIC_WARRIOR_9_6_2",
+		"name": "Courage of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["warrior"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_6_2"
+	},
+	{
+		"id": "authority-warrior-bracelet",
+		"code": "TECHNOMAGIC_WARRIOR_9_6_3",
+		"name": "Courage of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["warrior"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_6_3"
+	},
+	{
+		"id": "perseverance-priest-ring",
+		"code": "TECHNOMAGIC_PRIEST_9_3_1",
+		"name": "Blessing of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["priest"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_3_1"
+	},
+	{
+		"id": "authority-warrior-necklace",
+		"code": "TECHNOMAGIC_WARRIOR_9_5_3",
+		"name": "Courage of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["warrior"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_5_3"
+	},
+	{
+		"id": "hope-warrior-necklace",
+		"code": "TECHNOMAGIC_WARRIOR_9_5_2",
+		"name": "Courage of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["warrior"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_5_2"
+	},
+	{
+		"id": "perseverance-warrior-necklace",
+		"code": "TECHNOMAGIC_WARRIOR_9_5_1",
+		"name": "Courage of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["warrior"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_5_1"
+	},
+	{
+		"id": "authority-wizard-orb",
+		"code": "TECHNOMAGIC_WIZARD_9_7_3",
+		"name": "Wisdom of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["wizard"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_7_3"
+	},
+	{
+		"id": "perseverance-archer-earrings",
+		"code": "TECHNOMAGIC_ARCHER_9_4_1",
+		"name": "Wrath of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["archer"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_4_1"
+	},
+	{
+		"id": "hope-warrior-earrings",
+		"code": "TECHNOMAGIC_WARRIOR_9_4_2",
+		"name": "Courage of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["warrior"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_4_2"
+	},
+	{
+		"id": "authority-warrior-earrings",
+		"code": "TECHNOMAGIC_WARRIOR_9_4_3",
+		"name": "Courage of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["warrior"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_4_3"
+	},
+	{
+		"id": "perseverance-warrior-earrings",
+		"code": "TECHNOMAGIC_WARRIOR_9_4_1",
+		"name": "Courage of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["warrior"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WARRIOR_9_4_1"
+	},
+	{
+		"id": "hope-wizard-armor",
+		"code": "TECHNOMAGIC_WIZARD_9_1_2",
+		"name": "Wisdom of Hope Robe",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard"],
+		"main": ["defPhysical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WIZARD_9_1_2"
+	},
+	{
+		"id": "perseverance-knight-secondary",
+		"code": "TECHNOMAGIC_KNIGHT_9_2_1",
+		"name": "Protection of Perseverance Shield",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight"],
+		"main": ["defMagical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_KNIGHT_9_2_1"
+	},
+	{
+		"id": "perseverance-mechanic-bracelet",
+		"code": "TECHNOMAGIC_MECHANIC_9_6_1",
+		"name": "Passion of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["mechanic"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_6_1"
+	},
+	{
+		"id": "perseverance-priest-earrings",
+		"code": "TECHNOMAGIC_PRIEST_9_4_1",
+		"name": "Blessing of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["priest"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_4_1"
+	},
+	{
+		"id": "authority-assassin-orb",
+		"code": "TECHNOMAGIC_ASSASSIN_9_7_3",
+		"name": "Coldness of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["assassin"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_7_3"
+	},
+	{
+		"id": "hope-knight-bracelet",
+		"code": "TECHNOMAGIC_KNIGHT_9_6_2",
+		"name": "Protection of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["knight"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_6_2"
+	},
+	{
+		"id": "perseverance-archer-secondary",
+		"code": "TECHNOMAGIC_ARCHER_9_2_1",
+		"name": "Wrath of Perseverance Cloak",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["archer"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ARCHER_9_2_1"
+	},
+	{
+		"id": "hope-knight-necklace",
+		"code": "TECHNOMAGIC_KNIGHT_9_5_2",
+		"name": "Protection of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["knight"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_5_2"
+	},
+	{
+		"id": "hope-priest-ring",
+		"code": "TECHNOMAGIC_PRIEST_9_3_2",
+		"name": "Blessing of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["priest"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_3_2"
+	},
+	{
+		"id": "perseverance-wizard-secondary",
+		"code": "TECHNOMAGIC_WIZARD_9_2_1",
+		"name": "Wisdom of Perseverance Hat",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WIZARD_9_2_1"
+	},
+	{
+		"id": "hope-archer-earrings",
+		"code": "TECHNOMAGIC_ARCHER_9_4_2",
+		"name": "Wrath of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["archer"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_4_2"
+	},
+	{
+		"id": "perseverance-mechanic-earrings",
+		"code": "TECHNOMAGIC_MECHANIC_9_4_1",
+		"name": "Passion of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["mechanic"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_4_1"
+	},
+	{
+		"id": "hope-knight-ring",
+		"code": "TECHNOMAGIC_KNIGHT_9_3_2",
+		"name": "Protection of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["knight"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_3_2"
+	},
+	{
+		"id": "hope-wizard-necklace",
+		"code": "TECHNOMAGIC_WIZARD_9_5_2",
+		"name": "Wisdom of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["wizard"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_5_2"
+	},
+	{
+		"id": "perseverance-knight-bracelet",
+		"code": "TECHNOMAGIC_KNIGHT_9_6_1",
+		"name": "Protection of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["knight"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_6_1"
+	},
+	{
+		"id": "hope-priest-necklace",
+		"code": "TECHNOMAGIC_PRIEST_9_5_2",
+		"name": "Blessing of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["priest"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_5_2"
+	},
+	{
+		"id": "perseverance-mechanic-secondary",
+		"code": "TECHNOMAGIC_MECHANIC_9_2_1",
+		"name": "Passion of Perseverance Shoes",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["mechanic"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_MECHANIC_9_2_1"
+	},
+	{
+		"id": "hope-assassin-earrings",
+		"code": "TECHNOMAGIC_ASSASSIN_9_4_2",
+		"name": "Coldness of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["assassin"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_4_2"
+	},
+	{
+		"id": "authority-mechanic-orb",
+		"code": "TECHNOMAGIC_MECHANIC_9_7_3",
+		"name": "Passion of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["mechanic"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_7_3"
+	},
+	{
+		"id": "hope-mechanic-earrings",
+		"code": "TECHNOMAGIC_MECHANIC_9_4_2",
+		"name": "Passion of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["mechanic"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_4_2"
+	},
+	{
+		"id": "perseverance-wizard-bracelet",
+		"code": "TECHNOMAGIC_WIZARD_9_6_1",
+		"name": "Wisdom of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["wizard"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_6_1"
+	},
+	{
+		"id": "perseverance-assassin-secondary",
+		"code": "TECHNOMAGIC_ASSASSIN_9_2_1",
+		"name": "Coldness of Perseverance Gloves",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["assassin"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_2_1"
+	},
+	{
+		"id": "authority-archer-orb",
+		"code": "TECHNOMAGIC_ARCHER_9_7_3",
+		"name": "Wrath of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["archer"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_7_3"
+	},
+	{
+		"id": "perseverance-knight-earrings",
+		"code": "TECHNOMAGIC_KNIGHT_9_4_1",
+		"name": "Protection of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["knight"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_4_1"
+	},
+	{
+		"id": "hope-assassin-necklace",
+		"code": "TECHNOMAGIC_ASSASSIN_9_5_2",
+		"name": "Coldness of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["assassin"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_5_2"
+	},
+	{
+		"id": "perseverance-wizard-earrings",
+		"code": "TECHNOMAGIC_WIZARD_9_4_1",
+		"name": "Wisdom of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["wizard"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_4_1"
+	},
+	{
+		"id": "perseverance-assassin-earrings",
+		"code": "TECHNOMAGIC_ASSASSIN_9_4_1",
+		"name": "Coldness of Perseverance Earrings",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["assassin"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_4_1"
+	},
+	{
+		"id": "hope-knight-orb",
+		"code": "TECHNOMAGIC_KNIGHT_9_7_2",
+		"name": "Protection of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["knight"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_7_2"
+	},
+	{
+		"id": "hope-priest-armor",
+		"code": "TECHNOMAGIC_PRIEST_9_1_2",
+		"name": "Blessing of Hope Cape",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["priest"],
+		"main": ["defPhysical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_PRIEST_9_1_2"
+	},
+	{
+		"id": "hope-priest-earrings",
+		"code": "TECHNOMAGIC_PRIEST_9_4_2",
+		"name": "Blessing of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["priest"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_4_2"
+	},
+	{
+		"id": "authority-mechanic-ring",
+		"code": "TECHNOMAGIC_MECHANIC_9_3_3",
+		"name": "Passion of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["mechanic"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_3_3"
+	},
+	{
+		"id": "hope-archer-bracelet",
+		"code": "TECHNOMAGIC_ARCHER_9_6_2",
+		"name": "Wrath of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["archer"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_6_2"
+	},
+	{
+		"id": "authority-knight-armor",
+		"code": "TECHNOMAGIC_KNIGHT_9_1_3",
+		"name": "Protection of Authority Heavy Armor",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight"],
+		"main": ["defPhysical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_KNIGHT_9_1_3"
+	},
+	{
+		"id": "authority-priest-orb",
+		"code": "TECHNOMAGIC_PRIEST_9_7_3",
+		"name": "Blessing of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["priest"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_7_3"
+	},
+	{
+		"id": "perseverance-assassin-bracelet",
+		"code": "TECHNOMAGIC_ASSASSIN_9_6_1",
+		"name": "Coldness of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["assassin"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_6_1"
+	},
+	{
+		"id": "hope-mechanic-necklace",
+		"code": "TECHNOMAGIC_MECHANIC_9_5_2",
+		"name": "Passion of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["mechanic"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_5_2"
+	},
+	{
+		"id": "perseverance-wizard-ring",
+		"code": "TECHNOMAGIC_WIZARD_9_3_1",
+		"name": "Wisdom of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["wizard"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_3_1"
+	},
+	{
+		"id": "authority-archer-ring",
+		"code": "TECHNOMAGIC_ARCHER_9_3_3",
+		"name": "Wrath of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["archer"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_3_3"
+	},
+	{
+		"id": "hope-wizard-earrings",
+		"code": "TECHNOMAGIC_WIZARD_9_4_2",
+		"name": "Wisdom of Hope Earrings",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["wizard"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_4_2"
+	},
+	{
+		"id": "hope-archer-necklace",
+		"code": "TECHNOMAGIC_ARCHER_9_5_2",
+		"name": "Wrath of Hope Necklace",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["archer"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_5_2"
+	},
+	{
+		"id": "perseverance-wizard-armor",
+		"code": "TECHNOMAGIC_WIZARD_9_1_1",
+		"name": "Wisdom of Perseverance Robe",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard"],
+		"main": ["defPhysical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WIZARD_9_1_1"
+	},
+	{
+		"id": "hope-archer-secondary",
+		"code": "TECHNOMAGIC_ARCHER_9_2_2",
+		"name": "Wrath of Hope Cloak",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["archer"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ARCHER_9_2_2"
+	},
+	{
+		"id": "authority-knight-necklace",
+		"code": "TECHNOMAGIC_KNIGHT_9_5_3",
+		"name": "Protection of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["knight"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_5_3"
+	},
+	{
+		"id": "authority-priest-ring",
+		"code": "TECHNOMAGIC_PRIEST_9_3_3",
+		"name": "Blessing of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["priest"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_3_3"
+	},
+	{
+		"id": "hope-wizard-secondary",
+		"code": "TECHNOMAGIC_WIZARD_9_2_2",
+		"name": "Wisdom of Hope Hat",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WIZARD_9_2_2"
+	},
+	{
+		"id": "perseverance-priest-bracelet",
+		"code": "TECHNOMAGIC_PRIEST_9_6_1",
+		"name": "Blessing of Perseverance Bracelet",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["priest"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_6_1"
+	},
+	{
+		"id": "hope-mechanic-armor",
+		"code": "TECHNOMAGIC_MECHANIC_9_1_2",
+		"name": "Passion of Hope Clothes",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["mechanic"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_MECHANIC_9_1_2"
+	},
+	{
+		"id": "authority-archer-earrings",
+		"code": "TECHNOMAGIC_ARCHER_9_4_3",
+		"name": "Wrath of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["archer"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_4_3"
+	},
+	{
+		"id": "authority-assassin-armor",
+		"code": "TECHNOMAGIC_ASSASSIN_9_1_3",
+		"name": "Coldness of Authority Jacket",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["assassin"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_1_3"
+	},
+	{
+		"id": "hope-archer-armor",
+		"code": "TECHNOMAGIC_ARCHER_9_1_2",
+		"name": "Wrath of Hope Pauldron",
+		"set": "hope",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["archer"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ARCHER_9_1_2"
+	},
+	{
+		"id": "authority-knight-ring",
+		"code": "TECHNOMAGIC_KNIGHT_9_3_3",
+		"name": "Protection of Authority Ring",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["knight"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_3_3"
+	},
+	{
+		"id": "hope-mechanic-orb",
+		"code": "TECHNOMAGIC_MECHANIC_9_7_2",
+		"name": "Passion of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["mechanic"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_7_2"
+	},
+	{
+		"id": "hope-wizard-bracelet",
+		"code": "TECHNOMAGIC_WIZARD_9_6_2",
+		"name": "Wisdom of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["wizard"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_6_2"
+	},
+	{
+		"id": "perseverance-priest-secondary",
+		"code": "TECHNOMAGIC_PRIEST_9_2_1",
+		"name": "Blessing of Perseverance Hood",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["priest"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_PRIEST_9_2_1"
+	},
+	{
+		"id": "hope-wizard-ring",
+		"code": "TECHNOMAGIC_WIZARD_9_3_2",
+		"name": "Wisdom of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["wizard"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_3_2"
+	},
+	{
+		"id": "hope-archer-orb",
+		"code": "TECHNOMAGIC_ARCHER_9_7_2",
+		"name": "Wrath of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["archer"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_7_2"
+	},
+	{
+		"id": "authority-assassin-necklace",
+		"code": "TECHNOMAGIC_ASSASSIN_9_5_3",
+		"name": "Coldness of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["assassin"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_5_3"
+	},
+	{
+		"id": "perseverance-mechanic-orb",
+		"code": "TECHNOMAGIC_MECHANIC_9_7_1",
+		"name": "Passion of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["mechanic"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_7_1"
+	},
+	{
+		"id": "authority-knight-orb",
+		"code": "TECHNOMAGIC_KNIGHT_9_7_3",
+		"name": "Protection of Authority Orb",
+		"set": "authority",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["knight"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_7_3"
+	},
+	{
+		"id": "hope-mechanic-ring",
+		"code": "TECHNOMAGIC_MECHANIC_9_3_2",
+		"name": "Passion of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["mechanic"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_3_2"
+	},
+	{
+		"id": "authority-assassin-secondary",
+		"code": "TECHNOMAGIC_ASSASSIN_9_2_3",
+		"name": "Coldness of Authority Gloves",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["assassin"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_2_3"
+	},
+	{
+		"id": "perseverance-archer-orb",
+		"code": "TECHNOMAGIC_ARCHER_9_7_1",
+		"name": "Wrath of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["archer"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_7_1"
+	},
+	{
+		"id": "perseverance-mechanic-necklace",
+		"code": "TECHNOMAGIC_MECHANIC_9_5_1",
+		"name": "Passion of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["mechanic"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_5_1"
+	},
+	{
+		"id": "hope-wizard-orb",
+		"code": "TECHNOMAGIC_WIZARD_9_7_2",
+		"name": "Wisdom of Hope Orb",
+		"set": "hope",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["wizard"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_7_2"
+	},
+	{
+		"id": "hope-archer-ring",
+		"code": "TECHNOMAGIC_ARCHER_9_3_2",
+		"name": "Wrath of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["archer"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_3_2"
+	},
+	{
+		"id": "authority-wizard-earrings",
+		"code": "TECHNOMAGIC_WIZARD_9_4_3",
+		"name": "Wisdom of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["wizard"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_4_3"
+	},
+	{
+		"id": "perseverance-archer-necklace",
+		"code": "TECHNOMAGIC_ARCHER_9_5_1",
+		"name": "Wrath of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["archer"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_5_1"
+	},
+	{
+		"id": "hope-mechanic-bracelet",
+		"code": "TECHNOMAGIC_MECHANIC_9_6_2",
+		"name": "Passion of Hope Bracelet",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["mechanic"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_6_2"
+	},
+	{
+		"id": "perseverance-mechanic-ring",
+		"code": "TECHNOMAGIC_MECHANIC_9_3_1",
+		"name": "Passion of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["mechanic"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_3_1"
+	},
+	{
+		"id": "authority-assassin-bracelet",
+		"code": "TECHNOMAGIC_ASSASSIN_9_6_3",
+		"name": "Coldness of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["assassin"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_6_3"
+	},
+	{
+		"id": "perseverance-wizard-orb",
+		"code": "TECHNOMAGIC_WIZARD_9_7_1",
+		"name": "Wisdom of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["wizard"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_7_1"
+	},
+	{
+		"id": "perseverance-archer-ring",
+		"code": "TECHNOMAGIC_ARCHER_9_3_1",
+		"name": "Wrath of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["archer"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_3_1"
+	},
+	{
+		"id": "perseverance-mechanic-armor",
+		"code": "TECHNOMAGIC_MECHANIC_9_1_1",
+		"name": "Passion of Perseverance Clothes",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["mechanic"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_MECHANIC_9_1_1"
+	},
+	{
+		"id": "perseverance-wizard-necklace",
+		"code": "TECHNOMAGIC_WIZARD_9_5_1",
+		"name": "Wisdom of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["wizard"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_WIZARD_9_5_1"
+	},
+	{
+		"id": "perseverance-archer-armor",
+		"code": "TECHNOMAGIC_ARCHER_9_1_1",
+		"name": "Wrath of Perseverance Pauldron",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["archer"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ARCHER_9_1_1"
+	},
+	{
+		"id": "authority-priest-necklace",
+		"code": "TECHNOMAGIC_PRIEST_9_5_3",
+		"name": "Blessing of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["priest"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_5_3"
+	},
+	{
+		"id": "hope-mechanic-secondary",
+		"code": "TECHNOMAGIC_MECHANIC_9_2_2",
+		"name": "Passion of Hope Shoes",
+		"set": "hope",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["mechanic"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_MECHANIC_9_2_2"
+	},
+	{
+		"id": "authority-mechanic-earrings",
+		"code": "TECHNOMAGIC_MECHANIC_9_4_3",
+		"name": "Passion of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["mechanic"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_4_3"
+	},
+	{
+		"id": "authority-priest-bracelet",
+		"code": "TECHNOMAGIC_PRIEST_9_6_3",
+		"name": "Blessing of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["priest"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_6_3"
+	},
+	{
+		"id": "perseverance-assassin-armor",
+		"code": "TECHNOMAGIC_ASSASSIN_9_1_1",
+		"name": "Coldness of Perseverance Jacket",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "armor",
+		"kind": "medium",
+		"classes": ["assassin"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_1_1"
+	},
+	{
+		"id": "authority-priest-armor",
+		"code": "TECHNOMAGIC_PRIEST_9_1_3",
+		"name": "Blessing of Authority Cape",
+		"set": "authority",
+		"tier": 9,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["priest"],
+		"main": ["defPhysical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_PRIEST_9_1_3"
+	},
+	{
+		"id": "perseverance-assassin-ring",
+		"code": "TECHNOMAGIC_ASSASSIN_9_3_1",
+		"name": "Coldness of Perseverance Ring",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["assassin"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_3_1"
+	},
+	{
+		"id": "authority-archer-bracelet",
+		"code": "TECHNOMAGIC_ARCHER_9_6_3",
+		"name": "Wrath of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["archer"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ARCHER_9_6_3"
+	},
+	{
+		"id": "authority-knight-earrings",
+		"code": "TECHNOMAGIC_KNIGHT_9_4_3",
+		"name": "Protection of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["knight"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_KNIGHT_9_4_3"
+	},
+	{
+		"id": "authority-priest-secondary",
+		"code": "TECHNOMAGIC_PRIEST_9_2_3",
+		"name": "Blessing of Authority Hood",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["priest"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_PRIEST_9_2_3"
+	},
+	{
+		"id": "perseverance-assassin-necklace",
+		"code": "TECHNOMAGIC_ASSASSIN_9_5_1",
+		"name": "Coldness of Perseverance Necklace",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["assassin"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_5_1"
+	},
+	{
+		"id": "hope-assassin-ring",
+		"code": "TECHNOMAGIC_ASSASSIN_9_3_2",
+		"name": "Coldness of Hope Ring",
+		"set": "hope",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": ["assassin"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_3_2"
+	},
+	{
+		"id": "authority-knight-secondary",
+		"code": "TECHNOMAGIC_KNIGHT_9_2_3",
+		"name": "Protection of Authority Shield",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight"],
+		"main": ["defMagical", 6395],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_KNIGHT_9_2_3"
+	},
+	{
+		"id": "authority-mechanic-bracelet",
+		"code": "TECHNOMAGIC_MECHANIC_9_6_3",
+		"name": "Passion of Authority Bracelet",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": ["mechanic"],
+		"main": ["defPhysical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_6_3"
+	},
+	{
+		"id": "authority-priest-earrings",
+		"code": "TECHNOMAGIC_PRIEST_9_4_3",
+		"name": "Blessing of Authority Earrings",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": ["priest"],
+		"main": ["atk", 5925],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_PRIEST_9_4_3"
+	},
+	{
+		"id": "perseverance-assassin-orb",
+		"code": "TECHNOMAGIC_ASSASSIN_9_7_1",
+		"name": "Coldness of Perseverance Orb",
+		"set": "perseverance",
+		"tier": 9,
+		"part": "orb",
+		"classes": ["assassin"],
+		"main": ["hp", 272354],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_ASSASSIN_9_7_1"
+	},
+	{
+		"id": "authority-archer-secondary",
+		"code": "TECHNOMAGIC_ARCHER_9_2_3",
+		"name": "Wrath of Authority Cloak",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": ["archer"],
+		"main": ["defMagical", 2132],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_ARCHER_9_2_3"
+	},
+	{
+		"id": "authority-wizard-secondary",
+		"code": "TECHNOMAGIC_WIZARD_9_2_3",
+		"name": "Wisdom of Authority Hat",
+		"set": "authority",
+		"tier": 9,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 1,
+		"icon": "TECHNOMAGIC_WIZARD_9_2_3"
+	},
+	{
+		"id": "authority-mechanic-necklace",
+		"code": "TECHNOMAGIC_MECHANIC_9_5_3",
+		"name": "Passion of Authority Necklace",
+		"set": "authority",
+		"tier": 9,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": ["mechanic"],
+		"main": ["defMagical", 4263],
+		"pool": "18",
+		"options": 2,
+		"unique": true,
+		"runes": 0,
+		"icon": "TECHNOMAGIC_MECHANIC_9_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-medium-secondary",
+		"code": "GEAR_LIGHT_8_6_2",
+		"name": "Gritty Frost Leather Cape",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 1777],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t8-necklace",
+		"code": "ACCESSORY_NECKLACE_8_6_4",
+		"name": "Swift Darkness Necklace",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-archer-weapon",
+		"code": "WEAPON_ARCHER_6_5_1",
+		"name": "Opportune Fire Bow",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 6037],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-archer-weapon",
+		"code": "WEAPON_ARCHER_6_5_2",
+		"name": "Gritty Frost Bow",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 6037],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-archer-weapon",
+		"code": "WEAPON_ARCHER_6_5_3",
+		"name": "Unrelenting Poison Bow",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 6037],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t6-archer-weapon",
+		"code": "WEAPON_ARCHER_6_5_4",
+		"name": "Swift Darkness Bow",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 6037],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t7-archer-weapon",
+		"code": "WEAPON_ARCHER_7_5_1",
+		"name": "Opportune Fire Bow",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 8987],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t7-archer-weapon",
+		"code": "WEAPON_ARCHER_7_5_3",
+		"name": "Unrelenting Poison Bow",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 8987],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-archer-weapon",
+		"code": "WEAPON_ARCHER_7_5_2",
+		"name": "Gritty Frost Bow",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 8987],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t7-archer-weapon",
+		"code": "WEAPON_ARCHER_7_5_4",
+		"name": "Swift Darkness Bow",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 8987],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-heavy-secondary",
+		"code": "GEAR_HEAVY_8_6_4",
+		"name": "Swift Darkness Shield",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 5329],
+		"pool": "8421+8422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t7-warrior-weapon",
+		"code": "WEAPON_WARRIOR_7_5_2",
+		"name": "Gritty Frost Greatsword",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 7255],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_2"
+	},
+	{
+		"id": "gritty-frost-t6-necklace",
+		"code": "ACCESSORY_NECKLACE_6_5_2",
+		"name": "Gritty Frost Necklace",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-bracelet",
+		"code": "ACCESSORY_BRACELET_6_5_3",
+		"name": "Unrelenting Poison Bracelet",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-bracelet",
+		"code": "ACCESSORY_BRACELET_8_6_2",
+		"name": "Gritty Frost Bracelet",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t7-warrior-weapon",
+		"code": "WEAPON_WARRIOR_7_5_1",
+		"name": "Opportune Fire Greatsword",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 7255],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t6-wizard-weapon",
+		"code": "WEAPON_WIZARD_6_5_4",
+		"name": "Swift Darkness Staff",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 5613],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-wizard-weapon",
+		"code": "WEAPON_WIZARD_6_5_1",
+		"name": "Opportune Fire Staff",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 5613],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-wizard-weapon",
+		"code": "WEAPON_WIZARD_6_5_2",
+		"name": "Gritty Frost Staff",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 5613],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-wizard-weapon",
+		"code": "WEAPON_WIZARD_6_5_3",
+		"name": "Unrelenting Poison Staff",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 5613],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t7-heavy-armor",
+		"code": "ARMOR_HEAVY_7_5_1",
+		"name": "Opportune Fire Plate Armor",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 4258],
+		"pool": "7411+7412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t8-medium-secondary",
+		"code": "GEAR_LIGHT_8_6_4",
+		"name": "Swift Darkness Leather Cape",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 1777],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t7-heavy-armor",
+		"code": "ARMOR_HEAVY_7_5_3",
+		"name": "Unrelenting Poison Plate Armor",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 4258],
+		"pool": "7411+7412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-heavy-armor",
+		"code": "ARMOR_HEAVY_7_5_2",
+		"name": "Gritty Frost Plate Armor",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 4258],
+		"pool": "7411+7412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t7-heavy-armor",
+		"code": "ARMOR_HEAVY_7_5_4",
+		"name": "Swift Darkness Plate Armor",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 4258],
+		"pool": "7411+7412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t8-bracelet",
+		"code": "ACCESSORY_BRACELET_8_6_1",
+		"name": "Opportune Fire Bracelet",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t7-necklace",
+		"code": "ACCESSORY_NECKLACE_7_5_3",
+		"name": "Unrelenting Poison Necklace",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-medium-secondary",
+		"code": "GEAR_LIGHT_7_5_2",
+		"name": "Gritty Frost Leather Cape",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 3194],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-ring",
+		"code": "ACCESSORY_RING_8_6_3",
+		"name": "Unrelenting Poison Ring",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-light-armor",
+		"code": "ARMOR_ROBE_6_5_2",
+		"name": "Gritty Frost Robe",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 2144],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t6-necklace",
+		"code": "ACCESSORY_NECKLACE_6_5_4",
+		"name": "Swift Darkness Necklace",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t8-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_8_6_2",
+		"name": "Gritty Frost Dagger",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 9969],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_8_6_3",
+		"name": "Unrelenting Poison Dagger",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 9969],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-heavy-secondary",
+		"code": "GEAR_HEAVY_8_6_2",
+		"name": "Gritty Frost Shield",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 5329],
+		"pool": "8421+8422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t8-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_8_6_1",
+		"name": "Opportune Fire Dagger",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 9969],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t7-warrior-weapon",
+		"code": "WEAPON_WARRIOR_7_5_4",
+		"name": "Swift Darkness Greatsword",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 7255],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_8_6_4",
+		"name": "Swift Darkness Dagger",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 9969],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-bracelet",
+		"code": "ACCESSORY_BRACELET_8_6_4",
+		"name": "Swift Darkness Bracelet",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t6-light-secondary",
+		"code": "GEAR_ROBE_6_5_4",
+		"name": "Swift Darkness Hat",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 2431],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-light-secondary",
+		"code": "GEAR_ROBE_6_5_1",
+		"name": "Opportune Fire Hat",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 2431],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t6-light-secondary",
+		"code": "GEAR_ROBE_6_5_3",
+		"name": "Unrelenting Poison Hat",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 2431],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-light-secondary",
+		"code": "GEAR_ROBE_6_5_2",
+		"name": "Gritty Frost Hat",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 2431],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t6-light-armor",
+		"code": "ARMOR_ROBE_6_5_1",
+		"name": "Opportune Fire Robe",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 2144],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t6-orb",
+		"code": "ORB_6_5_3",
+		"name": "Unrelenting Poison Orb",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 138285],
+		"pool": "6441+6442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-orb",
+		"code": "ORB_6_5_2",
+		"name": "Gritty Frost Orb",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 138285],
+		"pool": "6441+6442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t6-orb",
+		"code": "ORB_6_5_1",
+		"name": "Opportune Fire Orb",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 138285],
+		"pool": "6441+6442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t6-orb",
+		"code": "ORB_6_5_4",
+		"name": "Swift Darkness Orb",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 138285],
+		"pool": "6441+6442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t6-medium-secondary",
+		"code": "GEAR_LIGHT_6_5_4",
+		"name": "Swift Darkness Leather Cape",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 2145],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t7-light-armor",
+		"code": "ARMOR_ROBE_7_5_2",
+		"name": "Gritty Frost Robe",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 3194],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t7-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_7_5_4",
+		"name": "Swift Darkness Dagger",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 7962],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t7-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_7_5_2",
+		"name": "Gritty Frost Dagger",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 7962],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_7_5_3",
+		"name": "Unrelenting Poison Dagger",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 7962],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t7-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_7_5_1",
+		"name": "Opportune Fire Dagger",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 7962],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t6-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_6_5_4",
+		"name": "Swift Darkness Dagger",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 5349],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t6-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_6_5_3",
+		"name": "Unrelenting Poison Dagger",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 5349],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_6_5_2",
+		"name": "Gritty Frost Dagger",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 5349],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t6-assassin-weapon",
+		"code": "WEAPON_ASSASSIN_6_5_1",
+		"name": "Opportune Fire Dagger",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["assassin"],
+		"main": ["atk", 5349],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ASSASSIN_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t8-warrior-weapon",
+		"code": "WEAPON_WARRIOR_8_6_4",
+		"name": "Swift Darkness Greatsword",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 9081],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t8-medium-armor",
+		"code": "ARMOR_LIGHT_8_6_2",
+		"name": "Gritty Frost Scale Armor",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 4530],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-medium-armor",
+		"code": "ARMOR_LIGHT_8_6_3",
+		"name": "Unrelenting Poison Scale Armor",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 4530],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t8-medium-armor",
+		"code": "ARMOR_LIGHT_8_6_1",
+		"name": "Opportune Fire Scale Armor",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 4530],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t8-medium-armor",
+		"code": "ARMOR_LIGHT_8_6_4",
+		"name": "Swift Darkness Scale Armor",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 4530],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-earrings",
+		"code": "ACCESSORY_EARRING_8_6_4",
+		"name": "Swift Darkness Earrings",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 4938],
+		"pool": "8431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t8-earrings",
+		"code": "ACCESSORY_EARRING_8_6_1",
+		"name": "Opportune Fire Earrings",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 4938],
+		"pool": "8431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t8-earrings",
+		"code": "ACCESSORY_EARRING_8_6_3",
+		"name": "Unrelenting Poison Earrings",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 4938],
+		"pool": "8431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-earrings",
+		"code": "ACCESSORY_EARRING_8_6_2",
+		"name": "Gritty Frost Earrings",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 4938],
+		"pool": "8431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-medium-secondary",
+		"code": "GEAR_LIGHT_6_5_3",
+		"name": "Unrelenting Poison Leather Cape",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 2145],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_3"
+	},
+	{
+		"id": "unrelenting-poison-t8-warrior-weapon",
+		"code": "WEAPON_WARRIOR_8_6_3",
+		"name": "Unrelenting Poison Greatsword",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 9081],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t8-wizard-weapon",
+		"code": "WEAPON_WIZARD_8_6_1",
+		"name": "Opportune Fire Staff",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 10462],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t8-wizard-weapon",
+		"code": "WEAPON_WIZARD_8_6_3",
+		"name": "Unrelenting Poison Staff",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 10462],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-wizard-weapon",
+		"code": "WEAPON_WIZARD_8_6_2",
+		"name": "Gritty Frost Staff",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 10462],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t8-wizard-weapon",
+		"code": "WEAPON_WIZARD_8_6_4",
+		"name": "Swift Darkness Staff",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 10462],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t7-heavy-secondary",
+		"code": "GEAR_HEAVY_7_5_3",
+		"name": "Unrelenting Poison Shield",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 4258],
+		"pool": "7421+7422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_3"
+	},
+	{
+		"id": "unrelenting-poison-t7-medium-secondary",
+		"code": "GEAR_LIGHT_7_5_3",
+		"name": "Unrelenting Poison Leather Cape",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 3194],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t8-heavy-secondary",
+		"code": "GEAR_HEAVY_8_6_1",
+		"name": "Opportune Fire Shield",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 5329],
+		"pool": "8421+8422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-ring",
+		"code": "ACCESSORY_RING_6_5_2",
+		"name": "Gritty Frost Ring",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 127282],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t7-ring",
+		"code": "ACCESSORY_RING_7_5_1",
+		"name": "Opportune Fire Ring",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 181282],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t7-knight-weapon",
+		"code": "WEAPON_KNIGHT_7_5_4",
+		"name": "Swift Darkness Lance",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 6400],
+		"pool": "7432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-warrior-weapon",
+		"code": "WEAPON_WARRIOR_6_5_1",
+		"name": "Opportune Fire Greatsword",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 4870],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t7-knight-weapon",
+		"code": "WEAPON_KNIGHT_7_5_1",
+		"name": "Opportune Fire Lance",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 6400],
+		"pool": "7432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t7-knight-weapon",
+		"code": "WEAPON_KNIGHT_7_5_2",
+		"name": "Gritty Frost Lance",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 6400],
+		"pool": "7432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-knight-weapon",
+		"code": "WEAPON_KNIGHT_7_5_3",
+		"name": "Unrelenting Poison Lance",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 6400],
+		"pool": "7432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_3"
+	},
+	{
+		"id": "unrelenting-poison-t8-medium-secondary",
+		"code": "GEAR_LIGHT_8_6_3",
+		"name": "Unrelenting Poison Leather Cape",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 1777],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t7-bracelet",
+		"code": "ACCESSORY_BRACELET_7_5_4",
+		"name": "Swift Darkness Bracelet",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-heavy-armor",
+		"code": "ARMOR_HEAVY_8_6_4",
+		"name": "Swift Darkness Plate Armor",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 5329],
+		"pool": "8411+8412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t8-heavy-armor",
+		"code": "ARMOR_HEAVY_8_6_1",
+		"name": "Opportune Fire Plate Armor",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 5329],
+		"pool": "8411+8412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t7-wizard-weapon",
+		"code": "WEAPON_WIZARD_7_5_4",
+		"name": "Swift Darkness Staff",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 8356],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t8-heavy-armor",
+		"code": "ARMOR_HEAVY_8_6_3",
+		"name": "Unrelenting Poison Plate Armor",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 5329],
+		"pool": "8411+8412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-heavy-armor",
+		"code": "ARMOR_HEAVY_8_6_2",
+		"name": "Gritty Frost Plate Armor",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 5329],
+		"pool": "8411+8412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t7-wizard-weapon",
+		"code": "WEAPON_WIZARD_7_5_1",
+		"name": "Opportune Fire Staff",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 8356],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t7-wizard-weapon",
+		"code": "WEAPON_WIZARD_7_5_3",
+		"name": "Unrelenting Poison Staff",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 8356],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-wizard-weapon",
+		"code": "WEAPON_WIZARD_7_5_2",
+		"name": "Gritty Frost Staff",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["wizard", "priest"],
+		"main": ["atk", 8356],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WIZARD_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t6-knight-weapon",
+		"code": "WEAPON_KNIGHT_6_5_4",
+		"name": "Swift Darkness Lance",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 4299],
+		"pool": "6432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-knight-weapon",
+		"code": "WEAPON_KNIGHT_6_5_1",
+		"name": "Opportune Fire Lance",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 4299],
+		"pool": "6432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t6-knight-weapon",
+		"code": "WEAPON_KNIGHT_6_5_3",
+		"name": "Unrelenting Poison Lance",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 4299],
+		"pool": "6432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-knight-weapon",
+		"code": "WEAPON_KNIGHT_6_5_2",
+		"name": "Gritty Frost Lance",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 4299],
+		"pool": "6432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-light-armor",
+		"code": "ARMOR_ROBE_7_5_3",
+		"name": "Unrelenting Poison Robe",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 3194],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t8-light-armor",
+		"code": "ARMOR_ROBE_8_6_1",
+		"name": "Opportune Fire Robe",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 1777],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t7-ring",
+		"code": "ACCESSORY_RING_7_5_2",
+		"name": "Gritty Frost Ring",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 181282],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-bracelet",
+		"code": "ACCESSORY_BRACELET_7_5_3",
+		"name": "Unrelenting Poison Bracelet",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t6-necklace",
+		"code": "ACCESSORY_NECKLACE_6_5_1",
+		"name": "Opportune Fire Necklace",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t6-bracelet",
+		"code": "ACCESSORY_BRACELET_6_5_4",
+		"name": "Swift Darkness Bracelet",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t6-medium-secondary",
+		"code": "GEAR_LIGHT_6_5_2",
+		"name": "Gritty Frost Leather Cape",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 2145],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t7-necklace",
+		"code": "ACCESSORY_NECKLACE_7_5_4",
+		"name": "Swift Darkness Necklace",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-earrings",
+		"code": "ACCESSORY_EARRING_6_5_1",
+		"name": "Opportune Fire Earrings",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 2769],
+		"pool": "6431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-earrings",
+		"code": "ACCESSORY_EARRING_6_5_2",
+		"name": "Gritty Frost Earrings",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 2769],
+		"pool": "6431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-earrings",
+		"code": "ACCESSORY_EARRING_6_5_3",
+		"name": "Unrelenting Poison Earrings",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 2769],
+		"pool": "6431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t6-earrings",
+		"code": "ACCESSORY_EARRING_6_5_4",
+		"name": "Swift Darkness Earrings",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 2769],
+		"pool": "6431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t8-warrior-weapon",
+		"code": "WEAPON_WARRIOR_8_6_2",
+		"name": "Gritty Frost Greatsword",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 9081],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t8-orb",
+		"code": "ORB_8_6_4",
+		"name": "Swift Darkness Orb",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8441+8442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t8-orb",
+		"code": "ORB_8_6_2",
+		"name": "Gritty Frost Orb",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8441+8442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-orb",
+		"code": "ORB_8_6_3",
+		"name": "Unrelenting Poison Orb",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8441+8442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t8-orb",
+		"code": "ORB_8_6_1",
+		"name": "Opportune Fire Orb",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8441+8442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t7-heavy-secondary",
+		"code": "GEAR_HEAVY_7_5_2",
+		"name": "Gritty Frost Shield",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 4258],
+		"pool": "7421+7422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t6-heavy-secondary",
+		"code": "GEAR_HEAVY_6_5_1",
+		"name": "Opportune Fire Shield",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 2859],
+		"pool": "6421+6422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t7-earrings",
+		"code": "ACCESSORY_EARRING_7_5_1",
+		"name": "Opportune Fire Earrings",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 3943],
+		"pool": "7431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t7-earrings",
+		"code": "ACCESSORY_EARRING_7_5_3",
+		"name": "Unrelenting Poison Earrings",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 3943],
+		"pool": "7431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-earrings",
+		"code": "ACCESSORY_EARRING_7_5_2",
+		"name": "Gritty Frost Earrings",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 3943],
+		"pool": "7431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t7-earrings",
+		"code": "ACCESSORY_EARRING_7_5_4",
+		"name": "Swift Darkness Earrings",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "earrings",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["atk", 3943],
+		"pool": "7431",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_EARRING_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-bracelet",
+		"code": "ACCESSORY_BRACELET_6_5_1",
+		"name": "Opportune Fire Bracelet",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t6-medium-secondary",
+		"code": "GEAR_LIGHT_6_5_1",
+		"name": "Opportune Fire Leather Cape",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 2145],
+		"pool": "6421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t7-necklace",
+		"code": "ACCESSORY_NECKLACE_7_5_1",
+		"name": "Opportune Fire Necklace",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t8-warrior-weapon",
+		"code": "WEAPON_WARRIOR_8_6_1",
+		"name": "Opportune Fire Greatsword",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 9081],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t6-light-armor",
+		"code": "ARMOR_ROBE_6_5_4",
+		"name": "Swift Darkness Robe",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 2144],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t6-heavy-secondary",
+		"code": "GEAR_HEAVY_6_5_2",
+		"name": "Gritty Frost Shield",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 2859],
+		"pool": "6421+6422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t8-necklace",
+		"code": "ACCESSORY_NECKLACE_8_6_1",
+		"name": "Opportune Fire Necklace",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t6-ring",
+		"code": "ACCESSORY_RING_6_5_1",
+		"name": "Opportune Fire Ring",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 127282],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-warrior-weapon",
+		"code": "WEAPON_WARRIOR_6_5_2",
+		"name": "Gritty Frost Greatsword",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 4870],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_2"
+	},
+	{
+		"id": "gritty-frost-t7-necklace",
+		"code": "ACCESSORY_NECKLACE_7_5_2",
+		"name": "Gritty Frost Necklace",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t8-knight-weapon",
+		"code": "WEAPON_KNIGHT_8_6_1",
+		"name": "Opportune Fire Lance",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 7994],
+		"pool": "8432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t8-knight-weapon",
+		"code": "WEAPON_KNIGHT_8_6_2",
+		"name": "Gritty Frost Lance",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 7994],
+		"pool": "8432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-knight-weapon",
+		"code": "WEAPON_KNIGHT_8_6_3",
+		"name": "Unrelenting Poison Lance",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 7994],
+		"pool": "8432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t8-knight-weapon",
+		"code": "WEAPON_KNIGHT_8_6_4",
+		"name": "Swift Darkness Lance",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["knight"],
+		"main": ["atk", 7994],
+		"pool": "8432",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_KNIGHT_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t6-light-armor",
+		"code": "ARMOR_ROBE_6_5_3",
+		"name": "Unrelenting Poison Robe",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 2144],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t7-light-armor",
+		"code": "ARMOR_ROBE_7_5_4",
+		"name": "Swift Darkness Robe",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 3194],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t8-necklace",
+		"code": "ACCESSORY_NECKLACE_8_6_2",
+		"name": "Gritty Frost Necklace",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_2"
+	},
+	{
+		"id": "gritty-frost-t8-light-armor",
+		"code": "ARMOR_ROBE_8_6_2",
+		"name": "Gritty Frost Robe",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 1777],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t6-ring",
+		"code": "ACCESSORY_RING_6_5_4",
+		"name": "Swift Darkness Ring",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 127282],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-archer-weapon",
+		"code": "WEAPON_ARCHER_8_6_4",
+		"name": "Swift Darkness Bow",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 11252],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t7-ring",
+		"code": "ACCESSORY_RING_7_5_3",
+		"name": "Unrelenting Poison Ring",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 181282],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t8-archer-weapon",
+		"code": "WEAPON_ARCHER_8_6_1",
+		"name": "Opportune Fire Bow",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 11252],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t8-archer-weapon",
+		"code": "WEAPON_ARCHER_8_6_3",
+		"name": "Unrelenting Poison Bow",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 11252],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-archer-weapon",
+		"code": "WEAPON_ARCHER_8_6_2",
+		"name": "Gritty Frost Bow",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["archer"],
+		"main": ["atk", 11252],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_ARCHER_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t8-medium-secondary",
+		"code": "GEAR_LIGHT_8_6_1",
+		"name": "Opportune Fire Leather Cape",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 1777],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t7-bracelet",
+		"code": "ACCESSORY_BRACELET_7_5_2",
+		"name": "Gritty Frost Bracelet",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t7-light-armor",
+		"code": "ARMOR_ROBE_7_5_1",
+		"name": "Opportune Fire Robe",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 3194],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t6-heavy-armor",
+		"code": "ARMOR_HEAVY_6_5_1",
+		"name": "Opportune Fire Plate Armor",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 2859],
+		"pool": "6411+6412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-heavy-armor",
+		"code": "ARMOR_HEAVY_6_5_2",
+		"name": "Gritty Frost Plate Armor",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 2859],
+		"pool": "6411+6412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-heavy-armor",
+		"code": "ARMOR_HEAVY_6_5_3",
+		"name": "Unrelenting Poison Plate Armor",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 2859],
+		"pool": "6411+6412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t6-heavy-armor",
+		"code": "ARMOR_HEAVY_6_5_4",
+		"name": "Swift Darkness Plate Armor",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "armor",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defPhysical", 2859],
+		"pool": "6411+6412",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_HEAVY_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-ring",
+		"code": "ACCESSORY_RING_8_6_4",
+		"name": "Swift Darkness Ring",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t7-ring",
+		"code": "ACCESSORY_RING_7_5_4",
+		"name": "Swift Darkness Ring",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 181282],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t6-warrior-weapon",
+		"code": "WEAPON_WARRIOR_6_5_4",
+		"name": "Swift Darkness Greatsword",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 4870],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t8-light-secondary",
+		"code": "GEAR_ROBE_8_6_1",
+		"name": "Opportune Fire Hat",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3553],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t8-light-secondary",
+		"code": "GEAR_ROBE_8_6_2",
+		"name": "Gritty Frost Hat",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3553],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-light-secondary",
+		"code": "GEAR_ROBE_8_6_3",
+		"name": "Unrelenting Poison Hat",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3553],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t8-light-secondary",
+		"code": "GEAR_ROBE_8_6_4",
+		"name": "Swift Darkness Hat",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3553],
+		"pool": "8421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t7-heavy-secondary",
+		"code": "GEAR_HEAVY_7_5_1",
+		"name": "Opportune Fire Shield",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 4258],
+		"pool": "7421+7422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t7-warrior-weapon",
+		"code": "WEAPON_WARRIOR_7_5_3",
+		"name": "Unrelenting Poison Greatsword",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 7255],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t7-bracelet",
+		"code": "ACCESSORY_BRACELET_7_5_1",
+		"name": "Opportune Fire Bracelet",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 2841],
+		"pool": "7431+7432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t6-necklace",
+		"code": "ACCESSORY_NECKLACE_6_5_3",
+		"name": "Unrelenting Poison Necklace",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-bracelet",
+		"code": "ACCESSORY_BRACELET_6_5_2",
+		"name": "Gritty Frost Bracelet",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 1993],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t8-bracelet",
+		"code": "ACCESSORY_BRACELET_8_6_3",
+		"name": "Unrelenting Poison Bracelet",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "bracelet",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defPhysical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_BRACELET_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t7-medium-secondary",
+		"code": "GEAR_LIGHT_7_5_4",
+		"name": "Swift Darkness Leather Cape",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 3194],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t8-light-armor",
+		"code": "ARMOR_ROBE_8_6_4",
+		"name": "Swift Darkness Robe",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 1777],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t6-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_6_5_1",
+		"name": "Opportune Fire Gun",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 5506],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t6-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_6_5_2",
+		"name": "Gritty Frost Gun",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 5506],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t6-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_6_5_3",
+		"name": "Unrelenting Poison Gun",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 5506],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t6-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_6_5_4",
+		"name": "Swift Darkness Gun",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 5506],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t8-ring",
+		"code": "ACCESSORY_RING_8_6_1",
+		"name": "Opportune Fire Ring",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t7-light-secondary",
+		"code": "GEAR_ROBE_7_5_4",
+		"name": "Swift Darkness Hat",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3620],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t7-light-secondary",
+		"code": "GEAR_ROBE_7_5_1",
+		"name": "Opportune Fire Hat",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3620],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_1"
+	},
+	{
+		"id": "opportune-fire-t7-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_7_5_1",
+		"name": "Opportune Fire Gun",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 8200],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t7-light-secondary",
+		"code": "GEAR_ROBE_7_5_2",
+		"name": "Gritty Frost Hat",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3620],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-light-secondary",
+		"code": "GEAR_ROBE_7_5_3",
+		"name": "Unrelenting Poison Hat",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defMagical", 3620],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_ROBE_6_5_3"
+	},
+	{
+		"id": "unrelenting-poison-t7-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_7_5_3",
+		"name": "Unrelenting Poison Gun",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 8200],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_7_5_2",
+		"name": "Gritty Frost Gun",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 8200],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t7-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_7_5_4",
+		"name": "Swift Darkness Gun",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 8200],
+		"pool": "7431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_4"
+	},
+	{
+		"id": "swift-darkness-t7-heavy-secondary",
+		"code": "GEAR_HEAVY_7_5_4",
+		"name": "Swift Darkness Shield",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 4258],
+		"pool": "7421+7422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t6-heavy-secondary",
+		"code": "GEAR_HEAVY_6_5_3",
+		"name": "Unrelenting Poison Shield",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 2859],
+		"pool": "6421+6422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t7-orb",
+		"code": "ORB_7_5_2",
+		"name": "Gritty Frost Orb",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 190116],
+		"pool": "7441+7442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-orb",
+		"code": "ORB_7_5_3",
+		"name": "Unrelenting Poison Orb",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 190116],
+		"pool": "7441+7442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t7-orb",
+		"code": "ORB_7_5_1",
+		"name": "Opportune Fire Orb",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 190116],
+		"pool": "7441+7442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_1"
+	},
+	{
+		"id": "swift-darkness-t7-orb",
+		"code": "ORB_7_5_4",
+		"name": "Swift Darkness Orb",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "orb",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 190116],
+		"pool": "7441+7442",
+		"options": 4,
+		"runes": 0,
+		"icon": "ORB_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t7-medium-secondary",
+		"code": "GEAR_LIGHT_7_5_1",
+		"name": "Opportune Fire Leather Cape",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "secondary",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defMagical", 3194],
+		"pool": "7421",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_LIGHT_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t6-warrior-weapon",
+		"code": "WEAPON_WARRIOR_6_5_3",
+		"name": "Unrelenting Poison Greatsword",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "weapon",
+		"classes": ["warrior"],
+		"main": ["atk", 4870],
+		"pool": "6431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_WARRIOR_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t7-medium-armor",
+		"code": "ARMOR_LIGHT_7_5_4",
+		"name": "Swift Darkness Scale Armor",
+		"set": "swift-darkness",
+		"tier": 7,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 3620],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_4"
+	},
+	{
+		"id": "gritty-frost-t7-medium-armor",
+		"code": "ARMOR_LIGHT_7_5_2",
+		"name": "Gritty Frost Scale Armor",
+		"set": "gritty-frost",
+		"tier": 7,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 3620],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_2"
+	},
+	{
+		"id": "unrelenting-poison-t7-medium-armor",
+		"code": "ARMOR_LIGHT_7_5_3",
+		"name": "Unrelenting Poison Scale Armor",
+		"set": "unrelenting-poison",
+		"tier": 7,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 3620],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_3"
+	},
+	{
+		"id": "opportune-fire-t7-medium-armor",
+		"code": "ARMOR_LIGHT_7_5_1",
+		"name": "Opportune Fire Scale Armor",
+		"set": "opportune-fire",
+		"tier": 7,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 3620],
+		"pool": "7411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_1"
+	},
+	{
+		"id": "gritty-frost-t8-ring",
+		"code": "ACCESSORY_RING_8_6_2",
+		"name": "Gritty Frost Ring",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 226962],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_2"
+	},
+	{
+		"id": "swift-darkness-t6-medium-armor",
+		"code": "ARMOR_LIGHT_6_5_4",
+		"name": "Swift Darkness Scale Armor",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 2431],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t6-medium-armor",
+		"code": "ARMOR_LIGHT_6_5_3",
+		"name": "Unrelenting Poison Scale Armor",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 2431],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t6-medium-armor",
+		"code": "ARMOR_LIGHT_6_5_2",
+		"name": "Gritty Frost Scale Armor",
+		"set": "gritty-frost",
+		"tier": 6,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 2431],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_2"
+	},
+	{
+		"id": "opportune-fire-t6-medium-armor",
+		"code": "ARMOR_LIGHT_6_5_1",
+		"name": "Opportune Fire Scale Armor",
+		"set": "opportune-fire",
+		"tier": 6,
+		"part": "armor",
+		"kind": "medium",
+		"classes": [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		"main": ["defPhysical", 2431],
+		"pool": "6411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_LIGHT_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t8-heavy-secondary",
+		"code": "GEAR_HEAVY_8_6_3",
+		"name": "Unrelenting Poison Shield",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 5329],
+		"pool": "8421+8422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t6-heavy-secondary",
+		"code": "GEAR_HEAVY_6_5_4",
+		"name": "Swift Darkness Shield",
+		"set": "swift-darkness",
+		"tier": 6,
+		"part": "secondary",
+		"kind": "heavy",
+		"classes": ["knight", "warrior"],
+		"main": ["defMagical", 2859],
+		"pool": "6421+6422",
+		"options": 4,
+		"runes": 1,
+		"icon": "GEAR_HEAVY_6_5_4"
+	},
+	{
+		"id": "unrelenting-poison-t8-necklace",
+		"code": "ACCESSORY_NECKLACE_8_6_3",
+		"name": "Unrelenting Poison Necklace",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "accessory",
+		"kind": "necklace",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["defMagical", 3553],
+		"pool": "8431+8432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_NECKLACE_6_5_3"
+	},
+	{
+		"id": "unrelenting-poison-t8-light-armor",
+		"code": "ARMOR_ROBE_8_6_3",
+		"name": "Unrelenting Poison Robe",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "armor",
+		"kind": "light",
+		"classes": ["wizard", "priest"],
+		"main": ["defPhysical", 1777],
+		"pool": "8411",
+		"options": 4,
+		"runes": 1,
+		"icon": "ARMOR_ROBE_6_5_3"
+	},
+	{
+		"id": "unrelenting-poison-t6-ring",
+		"code": "ACCESSORY_RING_6_5_3",
+		"name": "Unrelenting Poison Ring",
+		"set": "unrelenting-poison",
+		"tier": 6,
+		"part": "accessory",
+		"kind": "ring",
+		"classes": [
+			"knight",
+			"warrior",
+			"archer",
+			"assassin",
+			"mechanic",
+			"wizard",
+			"priest"
+		],
+		"main": ["hp", 127282],
+		"pool": "6431+6432",
+		"options": 4,
+		"runes": 0,
+		"icon": "ACCESSORY_RING_6_5_3"
+	},
+	{
+		"id": "swift-darkness-t8-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_8_6_4",
+		"name": "Swift Darkness Gun",
+		"set": "swift-darkness",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 10266],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_4"
+	},
+	{
+		"id": "opportune-fire-t8-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_8_6_1",
+		"name": "Opportune Fire Gun",
+		"set": "opportune-fire",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 10266],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_1"
+	},
+	{
+		"id": "unrelenting-poison-t8-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_8_6_3",
+		"name": "Unrelenting Poison Gun",
+		"set": "unrelenting-poison",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 10266],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_3"
+	},
+	{
+		"id": "gritty-frost-t8-mechanic-weapon",
+		"code": "WEAPON_MECHANIC_8_6_2",
+		"name": "Gritty Frost Gun",
+		"set": "gritty-frost",
+		"tier": 8,
+		"part": "weapon",
+		"classes": ["mechanic"],
+		"main": ["atk", 10266],
+		"pool": "8431",
+		"options": 4,
+		"runes": 1,
+		"icon": "WEAPON_MECHANIC_6_5_2"
+	}
+];
+var KR_SETS$1 = {
+	"opportune-fire": {
+		"name": "Opportune Fire",
+		"two": { "crit": .18 },
+		"four": { "crit": .27 }
+	},
+	"gritty-frost": {
+		"name": "Gritty Frost",
+		"two": { "hp": .11 },
+		"four": { "hp": .165 }
+	},
+	"unrelenting-poison": {
+		"name": "Unrelenting Poison",
+		"two": { "critResist": .09 },
+		"four": { "critResist": .135 }
+	},
+	"swift-darkness": {
+		"name": "Swift Darkness",
+		"two": { "manaAttack": .11 },
+		"four": { "manaAttack": .165 }
+	},
+	"perseverance": {
+		"name": "Perseverance",
+		"detail": 9001,
+		"four": {
+			"knight": {
+				"skill": 8100110,
+				"text": "Increases DMG dealt to enemies by 10% and takes 10% reduced All DMG. This effect increases up to max 20% over 50 sec."
+			},
+			"priest": {
+				"skill": 8100710,
+				"text": "Increases the amount of own Heal Rate effects by 25% and Shield by 25%."
+			},
+			"warrior": {
+				"skill": 8100210,
+				"text": "Increases DMG dealt to enemies by 10% and ATK by 10%. This effect increases up to max 25% over 100 sec."
+			},
+			"wizard": {
+				"skill": 8100610,
+				"text": "Increases DMG dealt to enemies by 10% and Crit DMG by 20%. This effect increases DMG dealt to enemies up to max 25%, and Crit DMG up to max 50% over 100 sec."
+			},
+			"mechanic": {
+				"skill": 8100510,
+				"text": "Increases DMG dealt to enemies by 10% and Crit DMG by 20%. This effect increases DMG dealt to enemies up to max 25%, and Crit DMG up to max 50% over 100 sec."
+			},
+			"archer": {
+				"skill": 8100410,
+				"text": "Increases DMG dealt to enemies by 10% and ATK by 10%. This effect increases up to max 25% over 100 sec."
+			},
+			"assassin": {
+				"skill": 8100310,
+				"text": "Increases DMG dealt to enemies by 10% and ATK by 10%. This effect increases up to max 25% over 100 sec."
+			}
+		}
+	},
+	"hope": {
+		"name": "Hope",
+		"detail": 9002,
+		"four": {
+			"assassin": {
+				"skill": 8100320,
+				"text": "Increases Crit DMG by 40%. Upon Skill use, recovers 300 Mana, and additionally increases Crit DMG by 40% for 3 sec."
+			},
+			"warrior": {
+				"skill": 8100220,
+				"text": "Increases ATK Spd of all allies by 100. The effect multiplies by 2 for melee type Heroes."
+			},
+			"knight": {
+				"skill": 8100120,
+				"text": "Increases all allies' All DEF by 10% and ATK by 5%."
+			},
+			"wizard": {
+				"skill": 8100620,
+				"text": "Increases all allies' DMG dealt to enemies by 2%. After 30 sec, increases the effect of 1 ally who dealt the highest DMG to enemies by 2 times."
+			},
+			"priest": {
+				"skill": 8100730,
+				"text": "Increases Heal Rate of all allies by 6%. After 5 sec, increases Mana Recovery of all allies by 6%."
+			},
+			"mechanic": {
+				"skill": 8100520,
+				"text": "Recovers all allies' Mana by 500 and reduces Cooldown of all Skills by 0.5 sec every 10 sec."
+			},
+			"archer": {
+				"skill": 8100420,
+				"text": "Increases Crit DMG of all allies by 20%. This effect multiplies by 2 for ranged type Heroes."
+			}
+		}
+	},
+	"authority": {
+		"name": "Authority",
+		"detail": 9003,
+		"four": {
+			"wizard": {
+				"skill": 8100630,
+				"text": "After fully recovering Mana for the first time, increases Mana Recovery by 20% and ATK by 40%."
+			},
+			"mechanic": {
+				"skill": 8100530,
+				"text": "Increases own Crit Chance by 300. If own Crit Chance is over 1400, all hits become a Crit Hit."
+			},
+			"archer": {
+				"skill": 8100430,
+				"text": "Increases own ATK by 25%. At the beginning of each battle, this effect multiplies by 2 for 20 sec."
+			},
+			"warrior": {
+				"skill": 8100230,
+				"text": "Increases own Max HP by 30%. For 1 time only during the battle, recovers 30% of Max HP and permanently increases ATK Spd by 300 if own HP percentage falls below 50%."
+			},
+			"knight": {
+				"skill": 8100130,
+				"text": "Increases own All Block Chance by 300. Upon successful Block, reduces Cooldown of all Skills by 1 sec. This effect activates only once every 2.5 sec."
+			},
+			"assassin": {
+				"skill": 8100330,
+				"text": "Increases own DEF Penetration by 250 and DMG that ignores DEF by 12%. By killing an enemy, additionally increases DEF Penetration by 250 and DMG that ignores DEF by 12%."
+			},
+			"priest": {
+				"skill": 8100720,
+				"text": "Increases ATK of all allies by 10%."
+			}
+		}
+	}
+};
+/** TechnoMagic gear's unique options (KR's 47), by number: the fight's additional skill each is (null: none), and KR's words and numbers. */
+var KR_UNIQUE$1 = [
+	{
+		"n": 1,
+		"skill": "lone-foe",
+		"text": "Increases ATK by 35% when there is 1 enemy.",
+		"params": ["1", "35"]
+	},
+	{
+		"n": 2,
+		"skill": "lone-guard",
+		"text": "Increases DEF by 45% when there is 1 enemy.",
+		"params": ["1", "45"]
+	},
+	{
+		"n": 3,
+		"skill": null,
+		"text": "Increases ATK by 35% when there are 3 enemies.",
+		"params": ["3", "35"]
+	},
+	{
+		"n": 4,
+		"skill": null,
+		"text": "Increases DEF by 45% when there are 3 enemies.",
+		"params": ["3", "45"]
+	},
+	{
+		"n": 5,
+		"skill": "desperation",
+		"text": "Increases ATK by 50% for 10 sec when HP falls below 30%. This effect activates only once every 10 sec.",
+		"params": [
+			"30",
+			"10",
+			"50",
+			"10"
+		]
+	},
+	{
+		"n": 6,
+		"skill": "vigor",
+		"text": "Increases own DMG dealt to enemies by 25% when HP is above 95%.",
+		"params": ["95", "25"]
+	},
+	{
+		"n": 7,
+		"skill": "surge",
+		"text": "Increases DMG dealt to enemies by 15% for 10 sec when Mana is at 100%. This effect activates only once every 15 sec.",
+		"params": [
+			"100",
+			"10",
+			"15",
+			"15"
+		]
+	},
+	{
+		"n": 8,
+		"skill": "overflow",
+		"text": "Immediately reduces Cooldown of all allies by 3% when Mana is at 100%. This effect activates only once every 10 sec.",
+		"params": [
+			"100",
+			"3",
+			"10"
+		]
+	},
+	{
+		"n": 9,
+		"skill": "focus-1",
+		"text": "Reduces Cooldown of 1st Skill by 10% every 10 sec.",
+		"params": [
+			"10",
+			"1",
+			"10"
+		]
+	},
+	{
+		"n": 10,
+		"skill": "focus-2",
+		"text": "Reduces Cooldown of 2nd Skill by 10% every 10 sec.",
+		"params": [
+			"10",
+			"2",
+			"10"
+		]
+	},
+	{
+		"n": 11,
+		"skill": "focus-3",
+		"text": "Reduces Cooldown of 3rd Skill by 10% every 10 sec.",
+		"params": [
+			"10",
+			"3",
+			"10"
+		]
+	},
+	{
+		"n": 12,
+		"skill": "momentum",
+		"text": "Upon every Skill use, increases ATK by 2%. This effect can be stacked up to max 20 times.",
+		"params": ["2", "20"]
+	},
+	{
+		"n": 13,
+		"skill": "steadfast",
+		"text": "Upon every Skill use, takes 3% reduced DMG. This effect can be stacked up to max 8 times.",
+		"params": ["3", "8"]
+	},
+	{
+		"n": 14,
+		"skill": null,
+		"text": "Upon blocking the enemy’s attack, increases All Block by 20. This effect can be stacked up to max 20 times and activates only once every 2 sec.",
+		"params": [
+			"20",
+			"20",
+			"2"
+		]
+	},
+	{
+		"n": 15,
+		"skill": "physical-ward",
+		"text": "Takes 20% reduced P.DMG. This effect can increase up to 30% over 10 sec.",
+		"params": [
+			"20",
+			"10",
+			"30"
+		]
+	},
+	{
+		"n": 16,
+		"skill": "magical-ward",
+		"text": "Takes 20% reduced M.DMG. This effect can increase up to 30% over 10 sec.",
+		"params": [
+			"20",
+			"10",
+			"30"
+		]
+	},
+	{
+		"n": 17,
+		"skill": "persistence",
+		"text": "Increases DMG dealt to enemies by 3% every 15 sec. This effect can be stacked up to max 12 times.",
+		"params": [
+			"15",
+			"3",
+			"12"
+		]
+	},
+	{
+		"n": 18,
+		"skill": "parry",
+		"text": "Upon blocking an enemy attack, recovers 200 Mana. This effect activates only once every 1 sec.",
+		"params": ["200", "1"]
+	},
+	{
+		"n": 19,
+		"skill": "mending",
+		"text": "Upon Skill use, increases Heal Rate by 25% for 5 sec. This effect activates only once every 10 sec.",
+		"params": [
+			"5",
+			"25",
+			"10"
+		]
+	},
+	{
+		"n": 20,
+		"skill": null,
+		"text": "Increases DMG of [DMG that ignores DEF] by 25%.",
+		"params": ["25"]
+	},
+	{
+		"n": 21,
+		"skill": null,
+		"text": "Increases DMG of [Continuous DMG] by 20%.",
+		"params": ["20"]
+	},
+	{
+		"n": 22,
+		"skill": null,
+		"text": "Upon killing an enemy, increases ATK by 2%. This effect can be stacked up to max 25 times.",
+		"params": ["2", "25"]
+	},
+	{
+		"n": 23,
+		"skill": "warm-up",
+		"text": "At the beginning of each battle, increases ATK by 5%. This effect can be stacked up to max 15 times.",
+		"params": ["5", "15"]
+	},
+	{
+		"n": 24,
+		"skill": null,
+		"text": "Increases DEF by 7% per 1 enemy.",
+		"params": ["1", "7"]
+	},
+	{
+		"n": 25,
+		"skill": null,
+		"text": "Increases ATK by 6% per 1 enemy.",
+		"params": ["1", "6"]
+	},
+	{
+		"n": 26,
+		"skill": "war-cry",
+		"text": "Increases ATK of all allies by 5%.",
+		"params": ["5"]
+	},
+	{
+		"n": 27,
+		"skill": "whetstone",
+		"text": "Increases Crit DMG of all allies by 10%.",
+		"params": ["10"]
+	},
+	{
+		"n": 28,
+		"skill": "bastion",
+		"text": "Increases All DEF of all allies by 7%.",
+		"params": ["7"]
+	},
+	{
+		"n": 29,
+		"skill": "champion",
+		"text": "At the beginning of each battle, increases DMG dealt to enemies of the ally with the highest ATK by 2.5% for 200 sec.",
+		"params": ["200", "2.5"]
+	},
+	{
+		"n": 30,
+		"skill": "fundamentals",
+		"text": "Increases DMG of normal attacks by 25%.",
+		"params": ["25"]
+	},
+	{
+		"n": 31,
+		"skill": "iron-wall",
+		"text": "Increases All Block by 150. At the beginning of each battle, additionally increases All Block by 200 for 10 sec.",
+		"params": [
+			"150",
+			"10",
+			"200"
+		]
+	},
+	{
+		"n": 32,
+		"skill": "aegis",
+		"text": "Increases own Shield by 25%.",
+		"params": ["25"]
+	},
+	{
+		"n": 33,
+		"skill": "regeneration",
+		"text": "Recovers HP equal to 1% of Max HP for 1 sec.",
+		"params": ["1"]
+	},
+	{
+		"n": 34,
+		"skill": "mana-spring",
+		"text": "Recovers own Mana by 500 every 5 sec.",
+		"params": ["5", "500"]
+	},
+	{
+		"n": 35,
+		"skill": "berserk",
+		"text": "Reduces All DEF by 25% and increases ATK by 50%.",
+		"params": ["25", "50"]
+	},
+	{
+		"n": 36,
+		"skill": "fortress",
+		"text": "Reduces ATK by 20% and increases All DEF by 50%.",
+		"params": ["20", "50"]
+	},
+	{
+		"n": 37,
+		"skill": "tenacity",
+		"text": "Reduces the duration of CCs inflicted upon self by 15%.",
+		"params": ["15"]
+	},
+	{
+		"n": 38,
+		"skill": "mirage",
+		"text": "Increases Dodge Change by 200. Upon dodging an enemy attack, heals HP equal to 3% of Max HP. This effect activates only once every 3 sec.",
+		"params": [
+			"200",
+			"3",
+			"3"
+		]
+	},
+	{
+		"n": 39,
+		"skill": "overdrive",
+		"text": "Fixes ATK Spd to 1000 and increases ATK by 40%.",
+		"params": ["1000", "40"]
+	},
+	{
+		"n": 40,
+		"skill": "ruthless",
+		"text": "Increases Crit DMG by 50%.",
+		"params": ["50"]
+	},
+	{
+		"n": 41,
+		"skill": "swiftness",
+		"text": "Increases ATK Spd by 250.",
+		"params": ["250"]
+	},
+	{
+		"n": 42,
+		"skill": "piercing",
+		"text": "Increases DEF Penetration by 250.",
+		"params": ["250"]
+	},
+	{
+		"n": 43,
+		"skill": "vitality",
+		"text": "Increases Max HP by 25%.",
+		"params": ["25"]
+	},
+	{
+		"n": 44,
+		"skill": "guard",
+		"text": "Increases All Block by 250.",
+		"params": ["250"]
+	},
+	{
+		"n": 45,
+		"skill": "armor",
+		"text": "Increases All DEF by 25%.",
+		"params": ["25"]
+	},
+	{
+		"n": 46,
+		"skill": "precision",
+		"text": "Increases Crit Chance by 250.",
+		"params": ["250"]
+	},
+	{
+		"n": 47,
+		"skill": "might",
+		"text": "Increases ATK by 25%.",
+		"params": ["25"]
+	}
+];
+var KR_RUNES$1 = [
+	{
+		"id": "fierce-1",
+		"code": "RUNE_FIERCE_1",
+		"name": "Rune of Fierce Attack: Common",
+		"grade": 1,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "atk": .038 },
+		"icon": "RUNE_FIERCE_1"
+	},
+	{
+		"id": "precision-3",
+		"code": "RUNE_PRECISION_3",
+		"name": "Rune of Precision: Rare",
+		"grade": 3,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "acc": .072 },
+		"icon": "RUNE_PRECISION_3"
+	},
+	{
+		"id": "steel-1",
+		"code": "RUNE_STEEL_1",
+		"name": "Rune of Steel: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockPhysical": .063 },
+		"icon": "RUNE_STEEL_1"
+	},
+	{
+		"id": "heartless-4",
+		"code": "RUNE_HEARTLESS_4",
+		"name": "Rune of the Heartless: Heroic",
+		"grade": 4,
+		"color": "red",
+		"parts": ["secondary"],
+		"stats": { "crit": .133 },
+		"icon": "RUNE_HEARTLESS_4"
+	},
+	{
+		"id": "defense-agitation-5",
+		"code": "RUNE_DEFENSE_AGITATION_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"manaAttack": .22,
+			"defense": .11
+		},
+		"icon": "RUNE_DEFENSE_AGITATION_5"
+	},
+	{
+		"id": "frenzy-mprecovertime-5",
+		"code": "RUNE_FRENZY_MPRECOVERTIME_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"manaRegen": .33
+		},
+		"icon": "RUNE_FRENZY_MPRECOVERTIME_5"
+	},
+	{
+		"id": "sharpness-1",
+		"code": "RUNE_SHARPNESS_1",
+		"name": "Rune of Sharpness: Common",
+		"grade": 1,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "pen": .033 },
+		"icon": "RUNE_SHARPNESS_1"
+	},
+	{
+		"id": "heartless-3",
+		"code": "RUNE_HEARTLESS_3",
+		"name": "Rune of the Heartless: Rare",
+		"grade": 3,
+		"color": "red",
+		"parts": ["secondary"],
+		"stats": { "crit": .105 },
+		"icon": "RUNE_HEARTLESS_3"
+	},
+	{
+		"id": "protection-40",
+		"code": "RUNE_PROTECTION_40",
+		"name": "Rune of Protection: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defMagical": .162 },
+		"icon": "RUNE_PROTECTION_5",
+		"ancient": true
+	},
+	{
+		"id": "swiftness-mprecovertime-5",
+		"code": "RUNE_SWIFTNESS_MPRECOVERTIME_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"speed": .11,
+			"manaRegen": .33
+		},
+		"icon": "RUNE_SWIFTNESS_MPRECOVERTIME_5"
+	},
+	{
+		"id": "sharpness-2",
+		"code": "RUNE_SHARPNESS_2",
+		"name": "Rune of Sharpness: Uncommon",
+		"grade": 2,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "pen": .052 },
+		"icon": "RUNE_SHARPNESS_2"
+	},
+	{
+		"id": "fierce-precision-5",
+		"code": "RUNE_FIERCE_PRECISION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_PRECISION_5"
+	},
+	{
+		"id": "toughness-2",
+		"code": "RUNE_TOUGHNESS_2",
+		"name": "Rune of Toughness: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughPhysical": .076 },
+		"icon": "RUNE_TOUGHNESS_2"
+	},
+	{
+		"id": "exclusion-2",
+		"code": "RUNE_EXCLUSION_2",
+		"name": "Rune of Exclusion: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockMagical": .1 },
+		"icon": "RUNE_EXCLUSION_2"
+	},
+	{
+		"id": "toughness-1",
+		"code": "RUNE_TOUGHNESS_1",
+		"name": "Rune of Toughness: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughPhysical": .048 },
+		"icon": "RUNE_TOUGHNESS_1"
+	},
+	{
+		"id": "block-swiftness-5",
+		"code": "RUNE_BLOCK_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"speed": .11,
+			"block": .055
+		},
+		"icon": "RUNE_BLOCK_SWIFTNESS_5"
+	},
+	{
+		"id": "toughness-4",
+		"code": "RUNE_TOUGHNESS_4",
+		"name": "Rune of Toughness: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughPhysical": .133 },
+		"icon": "RUNE_TOUGHNESS_4"
+	},
+	{
+		"id": "vitality-5",
+		"code": "RUNE_VITALITY_5",
+		"name": "Rune of Vitality: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaRegen": .38 },
+		"icon": "RUNE_VITALITY_5"
+	},
+	{
+		"id": "fierce-sharpness-5",
+		"code": "RUNE_FIERCE_SHARPNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_SHARPNESS_5"
+	},
+	{
+		"id": "swiftness-40",
+		"code": "RUNE_SWIFTNESS_40",
+		"name": "Rune of Swiftness: Ancient",
+		"grade": 5,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "speed": .111 },
+		"icon": "RUNE_SWIFTNESS_5",
+		"ancient": true
+	},
+	{
+		"id": "fierce-mprecovertime-5",
+		"code": "RUNE_FIERCE_MPRECOVERTIME_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"atk": .11,
+			"manaRegen": .33
+		},
+		"icon": "RUNE_FIERCE_MPRECOVERTIME_5"
+	},
+	{
+		"id": "fierce-swiftness-5",
+		"code": "RUNE_FIERCE_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"speed": .11,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_SWIFTNESS_5"
+	},
+	{
+		"id": "fierce-thirst-5",
+		"code": "RUNE_FIERCE_THIRST_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"lifesteal": .11,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_THIRST_5"
+	},
+	{
+		"id": "totaldodgecri-resistance-5",
+		"code": "RUNE_TOTALDODGECRI_RESISTANCE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"resist": .11,
+			"critResist": .055
+		},
+		"icon": "RUNE_TOTALDODGECRI_RESISTANCE_5"
+	},
+	{
+		"id": "swiftness-stamina-5",
+		"code": "RUNE_SWIFTNESS_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"speed": .11,
+			"hp": .11
+		},
+		"icon": "RUNE_SWIFTNESS_STAMINA_5"
+	},
+	{
+		"id": "protection-reduced-5",
+		"code": "RUNE_PROTECTION_REDUCED_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"defMagical": .22,
+			"tough": .055
+		},
+		"icon": "RUNE_PROTECTION_REDUCED_5"
+	},
+	{
+		"id": "agility-5",
+		"code": "RUNE_AGILITY_5",
+		"name": "Rune of Agility: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgePhysical": .19 },
+		"icon": "RUNE_AGILITY_5"
+	},
+	{
+		"id": "avoid-block-5",
+		"code": "RUNE_AVOID_BLOCK_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"block": .055,
+			"dodge": .055
+		},
+		"icon": "RUNE_AVOID_BLOCK_5"
+	},
+	{
+		"id": "willpower-1",
+		"code": "RUNE_WILLPOWER_1",
+		"name": "Rune of Willpower: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughMagical": .048 },
+		"icon": "RUNE_WILLPOWER_1"
+	},
+	{
+		"id": "denial-4",
+		"code": "RUNE_DENIAL_4",
+		"name": "Rune of Denial: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefMagical": .105 },
+		"icon": "RUNE_DENIAL_4"
+	},
+	{
+		"id": "denial-5",
+		"code": "RUNE_DENIAL_5",
+		"name": "Rune of Denial: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefMagical": .15 },
+		"icon": "RUNE_DENIAL_5"
+	},
+	{
+		"id": "agility-3",
+		"code": "RUNE_AGILITY_3",
+		"name": "Rune of Agility: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgePhysical": .105 },
+		"icon": "RUNE_AGILITY_3"
+	},
+	{
+		"id": "ccchance-mprecovertime-5",
+		"code": "RUNE_CCCHANCE_MPRECOVERTIME_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"accuracy": .11,
+			"manaRegen": .33
+		},
+		"icon": "RUNE_CCCHANCE_MPRECOVERTIME_5"
+	},
+	{
+		"id": "denial-2",
+		"code": "RUNE_DENIAL_2",
+		"name": "Rune of Denial: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefMagical": .06 },
+		"icon": "RUNE_DENIAL_2"
+	},
+	{
+		"id": "denial-3",
+		"code": "RUNE_DENIAL_3",
+		"name": "Rune of Denial: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefMagical": .083 },
+		"icon": "RUNE_DENIAL_3"
+	},
+	{
+		"id": "reduced-mprecovertime-5",
+		"code": "RUNE_REDUCED_MPRECOVERTIME_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"manaRegen": .33,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_MPRECOVERTIME_5"
+	},
+	{
+		"id": "resistance-40",
+		"code": "RUNE_RESISTANCE_40",
+		"name": "Rune of Resistance: Ancient",
+		"grade": 5,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "resist": .111 },
+		"icon": "RUNE_RESISTANCE_5",
+		"ancient": true
+	},
+	{
+		"id": "denial-1",
+		"code": "RUNE_DENIAL_1",
+		"name": "Rune of Denial: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefMagical": .038 },
+		"icon": "RUNE_DENIAL_1"
+	},
+	{
+		"id": "stamina-3",
+		"code": "RUNE_STAMINA_3",
+		"name": "Rune of Stamina: Rare",
+		"grade": 3,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "hp": .083 },
+		"icon": "RUNE_STAMINA_3"
+	},
+	{
+		"id": "sharpness-frenzy-5",
+		"code": "RUNE_SHARPNESS_FRENZY_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"pen": .11
+		},
+		"icon": "RUNE_SHARPNESS_FRENZY_5"
+	},
+	{
+		"id": "heartless-swiftness-5",
+		"code": "RUNE_HEARTLESS_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"speed": .11
+		},
+		"icon": "RUNE_HEARTLESS_SWIFTNESS_5"
+	},
+	{
+		"id": "steel-5",
+		"code": "RUNE_STEEL_5",
+		"name": "Rune of Steel: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockPhysical": .25 },
+		"icon": "RUNE_STEEL_5"
+	},
+	{
+		"id": "totaldodgecri-recover-5",
+		"code": "RUNE_TOTALDODGECRI_RECOVER_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"critResist": .055
+		},
+		"icon": "RUNE_TOTALDODGECRI_RECOVER_5"
+	},
+	{
+		"id": "fierce-reduced-5",
+		"code": "RUNE_FIERCE_REDUCED_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"atk": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_FIERCE_REDUCED_5"
+	},
+	{
+		"id": "steel-2",
+		"code": "RUNE_STEEL_2",
+		"name": "Rune of Steel: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockPhysical": .1 },
+		"icon": "RUNE_STEEL_2"
+	},
+	{
+		"id": "heartless-thirst-5",
+		"code": "RUNE_HEARTLESS_THIRST_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"lifesteal": .11
+		},
+		"icon": "RUNE_HEARTLESS_THIRST_5"
+	},
+	{
+		"id": "patience-reduced-5",
+		"code": "RUNE_PATIENCE_REDUCED_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"defPhysical": .22,
+			"tough": .055
+		},
+		"icon": "RUNE_PATIENCE_REDUCED_5"
+	},
+	{
+		"id": "heartless-2",
+		"code": "RUNE_HEARTLESS_2",
+		"name": "Rune of the Heartless: Uncommon",
+		"grade": 2,
+		"color": "red",
+		"parts": ["secondary"],
+		"stats": { "crit": .076 },
+		"icon": "RUNE_HEARTLESS_2"
+	},
+	{
+		"id": "frenzy-precision-5",
+		"code": "RUNE_FRENZY_PRECISION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"acc": .11
+		},
+		"icon": "RUNE_FRENZY_PRECISION_5"
+	},
+	{
+		"id": "heartless-1",
+		"code": "RUNE_HEARTLESS_1",
+		"name": "Rune of the Heartless: Common",
+		"grade": 1,
+		"color": "red",
+		"parts": ["secondary"],
+		"stats": { "crit": .048 },
+		"icon": "RUNE_HEARTLESS_1"
+	},
+	{
+		"id": "reduced-recover-5",
+		"code": "RUNE_REDUCED_RECOVER_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_RECOVER_5"
+	},
+	{
+		"id": "fierce-heartless-5",
+		"code": "RUNE_FIERCE_HEARTLESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_HEARTLESS_5"
+	},
+	{
+		"id": "frenzy-reduced-5",
+		"code": "RUNE_FRENZY_REDUCED_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"tough": .055
+		},
+		"icon": "RUNE_FRENZY_REDUCED_5"
+	},
+	{
+		"id": "agitation-2",
+		"code": "RUNE_AGITATION_2",
+		"name": "Rune of Agitation: Uncommon",
+		"grade": 2,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaAttack": .052 },
+		"icon": "RUNE_AGITATION_2"
+	},
+	{
+		"id": "heartless-defense-5",
+		"code": "RUNE_HEARTLESS_DEFENSE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"defense": .11
+		},
+		"icon": "RUNE_HEARTLESS_DEFENSE_5"
+	},
+	{
+		"id": "reduced-avoid-5",
+		"code": "RUNE_REDUCED_AVOID_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"dodge": .055,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_AVOID_5"
+	},
+	{
+		"id": "sharpness-40",
+		"code": "RUNE_SHARPNESS_40",
+		"name": "Rune of Sharpness: Ancient",
+		"grade": 5,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "pen": .111 },
+		"icon": "RUNE_SHARPNESS_5",
+		"ancient": true
+	},
+	{
+		"id": "willpower-2",
+		"code": "RUNE_WILLPOWER_2",
+		"name": "Rune of Willpower: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughMagical": .076 },
+		"icon": "RUNE_WILLPOWER_2"
+	},
+	{
+		"id": "life-5",
+		"code": "RUNE_LIFE_5",
+		"name": "Rune of Life: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "recovery": .19 },
+		"icon": "RUNE_LIFE_5"
+	},
+	{
+		"id": "willpower-4",
+		"code": "RUNE_WILLPOWER_4",
+		"name": "Rune of Willpower: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughMagical": .133 },
+		"icon": "RUNE_WILLPOWER_4"
+	},
+	{
+		"id": "heartless-reduced-5",
+		"code": "RUNE_HEARTLESS_REDUCED_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_HEARTLESS_REDUCED_5"
+	},
+	{
+		"id": "frenzy-defense-5",
+		"code": "RUNE_FRENZY_DEFENSE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"defense": .11
+		},
+		"icon": "RUNE_FRENZY_DEFENSE_5"
+	},
+	{
+		"id": "sharpness-defense-5",
+		"code": "RUNE_SHARPNESS_DEFENSE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"defense": .11
+		},
+		"icon": "RUNE_SHARPNESS_DEFENSE_5"
+	},
+	{
+		"id": "fierce-defense-5",
+		"code": "RUNE_FIERCE_DEFENSE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"atk": .11,
+			"defense": .11
+		},
+		"icon": "RUNE_FIERCE_DEFENSE_5"
+	},
+	{
+		"id": "frenzy-agitation-5",
+		"code": "RUNE_FRENZY_AGITATION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_FRENZY_AGITATION_5"
+	},
+	{
+		"id": "agitation-swiftness-5",
+		"code": "RUNE_AGITATION_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"speed": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_AGITATION_SWIFTNESS_5"
+	},
+	{
+		"id": "flexibility-4",
+		"code": "RUNE_FLEXIBILITY_4",
+		"name": "Rune of Flexibility: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgeMagical": .133 },
+		"icon": "RUNE_FLEXIBILITY_4"
+	},
+	{
+		"id": "flexibility-3",
+		"code": "RUNE_FLEXIBILITY_3",
+		"name": "Rune of Flexibility: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgeMagical": .105 },
+		"icon": "RUNE_FLEXIBILITY_3"
+	},
+	{
+		"id": "protection-4",
+		"code": "RUNE_PROTECTION_4",
+		"name": "Rune of Protection: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defMagical": .133 },
+		"icon": "RUNE_PROTECTION_4"
+	},
+	{
+		"id": "protection-5",
+		"code": "RUNE_PROTECTION_5",
+		"name": "Rune of Protection: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defMagical": .19 },
+		"icon": "RUNE_PROTECTION_5"
+	},
+	{
+		"id": "exclusion-1",
+		"code": "RUNE_EXCLUSION_1",
+		"name": "Rune of Exclusion: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockMagical": .063 },
+		"icon": "RUNE_EXCLUSION_1"
+	},
+	{
+		"id": "denial-40",
+		"code": "RUNE_DENIAL_40",
+		"name": "Rune of Denial: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefMagical": .128 },
+		"icon": "RUNE_DENIAL_5",
+		"ancient": true
+	},
+	{
+		"id": "protection-1",
+		"code": "RUNE_PROTECTION_1",
+		"name": "Rune of Protection: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defMagical": .048 },
+		"icon": "RUNE_PROTECTION_1"
+	},
+	{
+		"id": "protection-2",
+		"code": "RUNE_PROTECTION_2",
+		"name": "Rune of Protection: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defMagical": .076 },
+		"icon": "RUNE_PROTECTION_2"
+	},
+	{
+		"id": "fierce-avoid-5",
+		"code": "RUNE_FIERCE_AVOID_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"atk": .11,
+			"dodge": .055
+		},
+		"icon": "RUNE_FIERCE_AVOID_5"
+	},
+	{
+		"id": "protection-3",
+		"code": "RUNE_PROTECTION_3",
+		"name": "Rune of Protection: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defMagical": .105 },
+		"icon": "RUNE_PROTECTION_3"
+	},
+	{
+		"id": "swiftness-4",
+		"code": "RUNE_SWIFTNESS_4",
+		"name": "Rune of Swiftness: Heroic",
+		"grade": 4,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "speed": .091 },
+		"icon": "RUNE_SWIFTNESS_4"
+	},
+	{
+		"id": "heartless-5",
+		"code": "RUNE_HEARTLESS_5",
+		"name": "Rune of the Heartless: Legendary",
+		"grade": 6,
+		"color": "red",
+		"parts": ["secondary"],
+		"stats": { "crit": .19 },
+		"icon": "RUNE_HEARTLESS_5"
+	},
+	{
+		"id": "thirst-40",
+		"code": "RUNE_THIRST_40",
+		"name": "Rune of Thirst: Ancient",
+		"grade": 5,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "lifesteal": .051 },
+		"icon": "RUNE_THIRST_5",
+		"ancient": true
+	},
+	{
+		"id": "thirst-swiftness-5",
+		"code": "RUNE_THIRST_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"lifesteal": .11,
+			"speed": .11
+		},
+		"icon": "RUNE_THIRST_SWIFTNESS_5"
+	},
+	{
+		"id": "ccchance-agitation-5",
+		"code": "RUNE_CCCHANCE_AGITATION_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"accuracy": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_CCCHANCE_AGITATION_5"
+	},
+	{
+		"id": "swiftness-1",
+		"code": "RUNE_SWIFTNESS_1",
+		"name": "Rune of Swiftness: Common",
+		"grade": 1,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "speed": .033 },
+		"icon": "RUNE_SWIFTNESS_1"
+	},
+	{
+		"id": "heartless-avoid-5",
+		"code": "RUNE_HEARTLESS_AVOID_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"dodge": .055
+		},
+		"icon": "RUNE_HEARTLESS_AVOID_5"
+	},
+	{
+		"id": "swiftness-2",
+		"code": "RUNE_SWIFTNESS_2",
+		"name": "Rune of Swiftness: Uncommon",
+		"grade": 2,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "speed": .052 },
+		"icon": "RUNE_SWIFTNESS_2"
+	},
+	{
+		"id": "defense-stamina-5",
+		"code": "RUNE_DEFENSE_STAMINA_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"defense": .11
+		},
+		"icon": "RUNE_DEFENSE_STAMINA_5"
+	},
+	{
+		"id": "potential-3",
+		"code": "RUNE_POTENTIAL_3",
+		"name": "Rune of Potential: Rare",
+		"grade": 3,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "manaDamage": .138 },
+		"icon": "RUNE_POTENTIAL_3"
+	},
+	{
+		"id": "patience-5",
+		"code": "RUNE_PATIENCE_5",
+		"name": "Rune of Patience: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defPhysical": .19 },
+		"icon": "RUNE_PATIENCE_5"
+	},
+	{
+		"id": "patience-4",
+		"code": "RUNE_PATIENCE_4",
+		"name": "Rune of Patience: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defPhysical": .133 },
+		"icon": "RUNE_PATIENCE_4"
+	},
+	{
+		"id": "defense-block-5",
+		"code": "RUNE_DEFENSE_BLOCK_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"block": .055,
+			"defense": .11
+		},
+		"icon": "RUNE_DEFENSE_BLOCK_5"
+	},
+	{
+		"id": "patience-1",
+		"code": "RUNE_PATIENCE_1",
+		"name": "Rune of Patience: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defPhysical": .048 },
+		"icon": "RUNE_PATIENCE_1"
+	},
+	{
+		"id": "potential-40",
+		"code": "RUNE_POTENTIAL_40",
+		"name": "Rune of Potential: Ancient",
+		"grade": 5,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "manaDamage": .213 },
+		"icon": "RUNE_POTENTIAL_5",
+		"ancient": true
+	},
+	{
+		"id": "agitation-3",
+		"code": "RUNE_AGITATION_3",
+		"name": "Rune of the Agitation: Rare",
+		"grade": 3,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaAttack": .072 },
+		"icon": "RUNE_AGITATION_3"
+	},
+	{
+		"id": "potential-5",
+		"code": "RUNE_POTENTIAL_5",
+		"name": "Rune of Potential: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "manaDamage": .25 },
+		"icon": "RUNE_POTENTIAL_5"
+	},
+	{
+		"id": "patience-3",
+		"code": "RUNE_PATIENCE_3",
+		"name": "Rune of Patience: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defPhysical": .105 },
+		"icon": "RUNE_PATIENCE_3"
+	},
+	{
+		"id": "patience-2",
+		"code": "RUNE_PATIENCE_2",
+		"name": "Rune of Patience: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defPhysical": .076 },
+		"icon": "RUNE_PATIENCE_2"
+	},
+	{
+		"id": "agitation-5",
+		"code": "RUNE_AGITATION_5",
+		"name": "Rune of Agitation: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaAttack": .13 },
+		"icon": "RUNE_AGITATION_5"
+	},
+	{
+		"id": "agitation-stamina-5",
+		"code": "RUNE_AGITATION_STAMINA_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_AGITATION_STAMINA_5"
+	},
+	{
+		"id": "resistance-5",
+		"code": "RUNE_RESISTANCE_5",
+		"name": "Rune of Resistance: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "resist": .13 },
+		"icon": "RUNE_RESISTANCE_5"
+	},
+	{
+		"id": "resistance-4",
+		"code": "RUNE_RESISTANCE_4",
+		"name": "Rune of Resistance: Heroic",
+		"grade": 4,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "resist": .091 },
+		"icon": "RUNE_RESISTANCE_4"
+	},
+	{
+		"id": "block-agitation-5",
+		"code": "RUNE_BLOCK_AGITATION_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"manaAttack": .22,
+			"block": .055
+		},
+		"icon": "RUNE_BLOCK_AGITATION_5"
+	},
+	{
+		"id": "willpower-3",
+		"code": "RUNE_WILLPOWER_3",
+		"name": "Rune of Willpower: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughMagical": .105 },
+		"icon": "RUNE_WILLPOWER_3"
+	},
+	{
+		"id": "resistance-1",
+		"code": "RUNE_RESISTANCE_1",
+		"name": "Rune of Resistance: Common",
+		"grade": 1,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "resist": .033 },
+		"icon": "RUNE_RESISTANCE_1"
+	},
+	{
+		"id": "heartless-block-5",
+		"code": "RUNE_HEARTLESS_BLOCK_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"block": .055
+		},
+		"icon": "RUNE_HEARTLESS_BLOCK_5"
+	},
+	{
+		"id": "agility-4",
+		"code": "RUNE_AGILITY_4",
+		"name": "Rune of Agility: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgePhysical": .133 },
+		"icon": "RUNE_AGILITY_4"
+	},
+	{
+		"id": "resistance-3",
+		"code": "RUNE_RESISTANCE_3",
+		"name": "Rune of Resistance: Rare",
+		"grade": 3,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "resist": .072 },
+		"icon": "RUNE_RESISTANCE_3"
+	},
+	{
+		"id": "sharpness-stamina-5",
+		"code": "RUNE_SHARPNESS_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"hp": .11
+		},
+		"icon": "RUNE_SHARPNESS_STAMINA_5"
+	},
+	{
+		"id": "resistance-2",
+		"code": "RUNE_RESISTANCE_2",
+		"name": "Rune of Resistance: Uncommon",
+		"grade": 2,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "resist": .052 },
+		"icon": "RUNE_RESISTANCE_2"
+	},
+	{
+		"id": "agility-1",
+		"code": "RUNE_AGILITY_1",
+		"name": "Rune of Agility: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgePhysical": .048 },
+		"icon": "RUNE_AGILITY_1"
+	},
+	{
+		"id": "heartless-stamina-5",
+		"code": "RUNE_HEARTLESS_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"hp": .11
+		},
+		"icon": "RUNE_HEARTLESS_STAMINA_5"
+	},
+	{
+		"id": "willpower-5",
+		"code": "RUNE_WILLPOWER_5",
+		"name": "Rune of Willpower: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughMagical": .19 },
+		"icon": "RUNE_WILLPOWER_5"
+	},
+	{
+		"id": "agility-2",
+		"code": "RUNE_AGILITY_2",
+		"name": "Rune of Agility: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgePhysical": .076 },
+		"icon": "RUNE_AGILITY_2"
+	},
+	{
+		"id": "sharpness-heartless-5",
+		"code": "RUNE_SHARPNESS_HEARTLESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"pen": .11
+		},
+		"icon": "RUNE_SHARPNESS_HEARTLESS_5"
+	},
+	{
+		"id": "frenzy-40",
+		"code": "RUNE_FRENZY_40",
+		"name": "Rune of Frenzy: Ancient",
+		"grade": 5,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "critDamage": .213 },
+		"icon": "RUNE_FRENZY_5",
+		"ancient": true
+	},
+	{
+		"id": "protection-stamina-5",
+		"code": "RUNE_PROTECTION_STAMINA_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"defMagical": .22
+		},
+		"icon": "RUNE_PROTECTION_STAMINA_5"
+	},
+	{
+		"id": "precision-2",
+		"code": "RUNE_PRECISION_2",
+		"name": "Rune of Precision: Uncommon",
+		"grade": 2,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "acc": .052 },
+		"icon": "RUNE_PRECISION_2"
+	},
+	{
+		"id": "patience-40",
+		"code": "RUNE_PATIENCE_40",
+		"name": "Rune of Patience: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "defPhysical": .162 },
+		"icon": "RUNE_PATIENCE_5",
+		"ancient": true
+	},
+	{
+		"id": "precision-1",
+		"code": "RUNE_PRECISION_1",
+		"name": "Rune of Precision: Common",
+		"grade": 1,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "acc": .033 },
+		"icon": "RUNE_PRECISION_1"
+	},
+	{
+		"id": "flexibility-2",
+		"code": "RUNE_FLEXIBILITY_2",
+		"name": "Rune of Flexibility: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgeMagical": .076 },
+		"icon": "RUNE_FLEXIBILITY_2"
+	},
+	{
+		"id": "reduced-swiftness-5",
+		"code": "RUNE_REDUCED_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"speed": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_SWIFTNESS_5"
+	},
+	{
+		"id": "flexibility-1",
+		"code": "RUNE_FLEXIBILITY_1",
+		"name": "Rune of Flexibility: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgeMagical": .048 },
+		"icon": "RUNE_FLEXIBILITY_1"
+	},
+	{
+		"id": "tenacity-5",
+		"code": "RUNE_TENACITY_5",
+		"name": "Rune of Tenacity: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "accuracy": .15 },
+		"icon": "RUNE_TENACITY_5"
+	},
+	{
+		"id": "sharpness-3",
+		"code": "RUNE_SHARPNESS_3",
+		"name": "Rune of Sharpness: Rare",
+		"grade": 3,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "pen": .072 },
+		"icon": "RUNE_SHARPNESS_3"
+	},
+	{
+		"id": "ccchance-swiftness-5",
+		"code": "RUNE_CCCHANCE_SWIFTNESS_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"accuracy": .11,
+			"speed": .11
+		},
+		"icon": "RUNE_CCCHANCE_SWIFTNESS_5"
+	},
+	{
+		"id": "sharpness-4",
+		"code": "RUNE_SHARPNESS_4",
+		"name": "Rune of Sharpness: Heroic",
+		"grade": 4,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "pen": .091 },
+		"icon": "RUNE_SHARPNESS_4"
+	},
+	{
+		"id": "frenzy-3",
+		"code": "RUNE_FRENZY_3",
+		"name": "Rune of Frenzy: Rare",
+		"grade": 3,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "critDamage": .138 },
+		"icon": "RUNE_FRENZY_3"
+	},
+	{
+		"id": "exclusion-3",
+		"code": "RUNE_EXCLUSION_3",
+		"name": "Rune of Exclusion: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockMagical": .138 },
+		"icon": "RUNE_EXCLUSION_3"
+	},
+	{
+		"id": "frenzy-2",
+		"code": "RUNE_FRENZY_2",
+		"name": "Rune of Frenzy: Uncommon",
+		"grade": 2,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "critDamage": .1 },
+		"icon": "RUNE_FRENZY_2"
+	},
+	{
+		"id": "frenzy-1",
+		"code": "RUNE_FRENZY_1",
+		"name": "Rune of Frenzy: Common",
+		"grade": 1,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "critDamage": .063 },
+		"icon": "RUNE_FRENZY_1"
+	},
+	{
+		"id": "swiftness-5",
+		"code": "RUNE_SWIFTNESS_5",
+		"name": "Rune of Swiftness: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "speed": .13 },
+		"icon": "RUNE_SWIFTNESS_5"
+	},
+	{
+		"id": "avoid-recover-5",
+		"code": "RUNE_AVOID_RECOVER_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"dodge": .055
+		},
+		"icon": "RUNE_AVOID_RECOVER_5"
+	},
+	{
+		"id": "reduced-totaldodgecri-5",
+		"code": "RUNE_REDUCED_TOTALDODGECRI_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"tough": .055,
+			"critResist": .055
+		},
+		"icon": "RUNE_REDUCED_TOTALDODGECRI_5"
+	},
+	{
+		"id": "exclusion-4",
+		"code": "RUNE_EXCLUSION_4",
+		"name": "Rune of Exclusion: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockMagical": .175 },
+		"icon": "RUNE_EXCLUSION_4"
+	},
+	{
+		"id": "swiftness-recover-5",
+		"code": "RUNE_SWIFTNESS_RECOVER_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"speed": .11
+		},
+		"icon": "RUNE_SWIFTNESS_RECOVER_5"
+	},
+	{
+		"id": "patience-stamina-5",
+		"code": "RUNE_PATIENCE_STAMINA_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"defPhysical": .22
+		},
+		"icon": "RUNE_PATIENCE_STAMINA_5"
+	},
+	{
+		"id": "sharpness-agitation-5",
+		"code": "RUNE_SHARPNESS_AGITATION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_SHARPNESS_AGITATION_5"
+	},
+	{
+		"id": "agitation-resistance-5",
+		"code": "RUNE_AGITATION_RESISTANCE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"resist": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_AGITATION_RESISTANCE_5"
+	},
+	{
+		"id": "frenzy-5",
+		"code": "RUNE_FRENZY_5",
+		"name": "Rune of Frenzy: Legendary",
+		"grade": 6,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "critDamage": .25 },
+		"icon": "RUNE_FRENZY_5"
+	},
+	{
+		"id": "frenzy-4",
+		"code": "RUNE_FRENZY_4",
+		"name": "Rune of Frenzy: Heroic",
+		"grade": 4,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "critDamage": .175 },
+		"icon": "RUNE_FRENZY_4"
+	},
+	{
+		"id": "swiftness-3",
+		"code": "RUNE_SWIFTNESS_3",
+		"name": "Rune of Swiftness: Rare",
+		"grade": 3,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "speed": .072 },
+		"icon": "RUNE_SWIFTNESS_3"
+	},
+	{
+		"id": "potential-2",
+		"code": "RUNE_POTENTIAL_2",
+		"name": "Rune of Potential: Uncommon",
+		"grade": 2,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "manaDamage": .1 },
+		"icon": "RUNE_POTENTIAL_2"
+	},
+	{
+		"id": "sharpness-precision-5",
+		"code": "RUNE_SHARPNESS_PRECISION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"pen": .11
+		},
+		"icon": "RUNE_SHARPNESS_PRECISION_5"
+	},
+	{
+		"id": "potential-1",
+		"code": "RUNE_POTENTIAL_1",
+		"name": "Rune of Potential: Common",
+		"grade": 1,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "manaDamage": .063 },
+		"icon": "RUNE_POTENTIAL_1"
+	},
+	{
+		"id": "precision-40",
+		"code": "RUNE_PRECISION_40",
+		"name": "Rune of Precision: Ancient",
+		"grade": 5,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "acc": .111 },
+		"icon": "RUNE_PRECISION_5",
+		"ancient": true
+	},
+	{
+		"id": "reduced-agitation-5",
+		"code": "RUNE_REDUCED_AGITATION_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"manaAttack": .22,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_AGITATION_5"
+	},
+	{
+		"id": "block-stamina-5",
+		"code": "RUNE_BLOCK_STAMINA_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"block": .055
+		},
+		"icon": "RUNE_BLOCK_STAMINA_5"
+	},
+	{
+		"id": "potential-4",
+		"code": "RUNE_POTENTIAL_4",
+		"name": "Rune of Potential: Heroic",
+		"grade": 4,
+		"color": "green",
+		"parts": ["secondary"],
+		"stats": { "manaDamage": .175 },
+		"icon": "RUNE_POTENTIAL_4"
+	},
+	{
+		"id": "sharpness-avoid-5",
+		"code": "RUNE_SHARPNESS_AVOID_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"dodge": .055
+		},
+		"icon": "RUNE_SHARPNESS_AVOID_5"
+	},
+	{
+		"id": "willpower-40",
+		"code": "RUNE_WILLPOWER_40",
+		"name": "Rune of Willpower: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughMagical": .162 },
+		"icon": "RUNE_WILLPOWER_5",
+		"ancient": true
+	},
+	{
+		"id": "avoid-agitation-5",
+		"code": "RUNE_AVOID_AGITATION_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"manaAttack": .22,
+			"dodge": .055
+		},
+		"icon": "RUNE_AVOID_AGITATION_5"
+	},
+	{
+		"id": "heartless-40",
+		"code": "RUNE_HEARTLESS_40",
+		"name": "Rune of the Heartless: Ancient",
+		"grade": 5,
+		"color": "red",
+		"parts": ["secondary"],
+		"stats": { "crit": .162 },
+		"icon": "RUNE_HEARTLESS_5",
+		"ancient": true
+	},
+	{
+		"id": "agitation-1",
+		"code": "RUNE_AGITATION_1",
+		"name": "Rune of Agitation: Common",
+		"grade": 1,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaAttack": .033 },
+		"icon": "RUNE_AGITATION_1"
+	},
+	{
+		"id": "ccchance-resistance-5",
+		"code": "RUNE_CCCHANCE_RESISTANCE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"resist": .11,
+			"accuracy": .11
+		},
+		"icon": "RUNE_CCCHANCE_RESISTANCE_5"
+	},
+	{
+		"id": "reduced-defense-5",
+		"code": "RUNE_REDUCED_DEFENSE_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"tough": .055,
+			"defense": .11
+		},
+		"icon": "RUNE_REDUCED_DEFENSE_5"
+	},
+	{
+		"id": "ccchance-reduced-5",
+		"code": "RUNE_CCCHANCE_REDUCED_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"accuracy": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_CCCHANCE_REDUCED_5"
+	},
+	{
+		"id": "defense-totaldodgecri-5",
+		"code": "RUNE_DEFENSE_TOTALDODGECRI_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critResist": .055,
+			"defense": .11
+		},
+		"icon": "RUNE_DEFENSE_TOTALDODGECRI_5"
+	},
+	{
+		"id": "sharpness-block-5",
+		"code": "RUNE_SHARPNESS_BLOCK_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"block": .055
+		},
+		"icon": "RUNE_SHARPNESS_BLOCK_5"
+	},
+	{
+		"id": "stamina-4",
+		"code": "RUNE_STAMINA_4",
+		"name": "Rune of Stamina: Heroic",
+		"grade": 4,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "hp": .105 },
+		"icon": "RUNE_STAMINA_4"
+	},
+	{
+		"id": "heartless-frenzy-5",
+		"code": "RUNE_HEARTLESS_FRENZY_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"critDamage": .22
+		},
+		"icon": "RUNE_HEARTLESS_FRENZY_5"
+	},
+	{
+		"id": "reduced-stamina-5",
+		"code": "RUNE_REDUCED_STAMINA_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_STAMINA_5"
+	},
+	{
+		"id": "stamina-1",
+		"code": "RUNE_STAMINA_1",
+		"name": "Rune of Stamina: Common",
+		"grade": 1,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "hp": .038 },
+		"icon": "RUNE_STAMINA_1"
+	},
+	{
+		"id": "steel-40",
+		"code": "RUNE_STEEL_40",
+		"name": "Rune of Steel: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockPhysical": .213 },
+		"icon": "RUNE_STEEL_5",
+		"ancient": true
+	},
+	{
+		"id": "agility-40",
+		"code": "RUNE_AGILITY_40",
+		"name": "Rune of Agility: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgePhysical": .162 },
+		"icon": "RUNE_AGILITY_5",
+		"ancient": true
+	},
+	{
+		"id": "heartless-precision-5",
+		"code": "RUNE_HEARTLESS_PRECISION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"acc": .11
+		},
+		"icon": "RUNE_HEARTLESS_PRECISION_5"
+	},
+	{
+		"id": "precision-agitation-5",
+		"code": "RUNE_PRECISION_AGITATION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_PRECISION_AGITATION_5"
+	},
+	{
+		"id": "stamina-recover-5",
+		"code": "RUNE_STAMINA_RECOVER_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"hp": .11
+		},
+		"icon": "RUNE_STAMINA_RECOVER_5"
+	},
+	{
+		"id": "ironwall-40",
+		"code": "RUNE_IRONWALL_40",
+		"name": "Rune of Iron Wall: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefPhysical": .128 },
+		"icon": "RUNE_IRONWALL_5",
+		"ancient": true
+	},
+	{
+		"id": "reduced-block-5",
+		"code": "RUNE_REDUCED_BLOCK_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"block": .055,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_BLOCK_5"
+	},
+	{
+		"id": "frenzy-swiftness-5",
+		"code": "RUNE_FRENZY_SWIFTNESS_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"speed": .11
+		},
+		"icon": "RUNE_FRENZY_SWIFTNESS_5"
+	},
+	{
+		"id": "precision-5",
+		"code": "RUNE_PRECISION_5",
+		"name": "Rune of Precision: Legendary",
+		"grade": 6,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "acc": .13 },
+		"icon": "RUNE_PRECISION_5"
+	},
+	{
+		"id": "heartless-agitation-5",
+		"code": "RUNE_HEARTLESS_AGITATION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"crit": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_HEARTLESS_AGITATION_5"
+	},
+	{
+		"id": "fierce-2",
+		"code": "RUNE_FIERCE_2",
+		"name": "Rune of Fierce Attack: Uncommon",
+		"grade": 2,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "atk": .06 },
+		"icon": "RUNE_FIERCE_2"
+	},
+	{
+		"id": "steel-3",
+		"code": "RUNE_STEEL_3",
+		"name": "Rune of Steel: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockPhysical": .138 },
+		"icon": "RUNE_STEEL_3"
+	},
+	{
+		"id": "fierce-agitation-5",
+		"code": "RUNE_FIERCE_AGITATION_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"atk": .11,
+			"manaAttack": .22
+		},
+		"icon": "RUNE_FIERCE_AGITATION_5"
+	},
+	{
+		"id": "precision-reduced-5",
+		"code": "RUNE_PRECISION_REDUCED_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_PRECISION_REDUCED_5"
+	},
+	{
+		"id": "fierce-3",
+		"code": "RUNE_FIERCE_3",
+		"name": "Rune of Fierce Attack: Rare",
+		"grade": 3,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "atk": .083 },
+		"icon": "RUNE_FIERCE_3"
+	},
+	{
+		"id": "fierce-4",
+		"code": "RUNE_FIERCE_4",
+		"name": "Rune of Fierce Attack: Heroic",
+		"grade": 4,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "atk": .105 },
+		"icon": "RUNE_FIERCE_4"
+	},
+	{
+		"id": "flexibility-5",
+		"code": "RUNE_FLEXIBILITY_5",
+		"name": "Rune of Flexibility: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgeMagical": .19 },
+		"icon": "RUNE_FLEXIBILITY_5"
+	},
+	{
+		"id": "fierce-5",
+		"code": "RUNE_FIERCE_5",
+		"name": "Rune of Fierce Attack: Legendary",
+		"grade": 6,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "atk": .15 },
+		"icon": "RUNE_FIERCE_5"
+	},
+	{
+		"id": "frenzy-block-5",
+		"code": "RUNE_FRENZY_BLOCK_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"block": .055
+		},
+		"icon": "RUNE_FRENZY_BLOCK_5"
+	},
+	{
+		"id": "flexibility-40",
+		"code": "RUNE_FLEXIBILITY_40",
+		"name": "Rune of Flexibility: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["secondary"],
+		"stats": { "dodgeMagical": .162 },
+		"icon": "RUNE_FLEXIBILITY_5",
+		"ancient": true
+	},
+	{
+		"id": "precision-ccchance-5",
+		"code": "RUNE_PRECISION_CCCHANCE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"accuracy": .11
+		},
+		"icon": "RUNE_PRECISION_CCCHANCE_5"
+	},
+	{
+		"id": "sharpness-5",
+		"code": "RUNE_SHARPNESS_5",
+		"name": "Rune of Sharpness: Legendary",
+		"grade": 6,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "pen": .13 },
+		"icon": "RUNE_SHARPNESS_5"
+	},
+	{
+		"id": "toughness-3",
+		"code": "RUNE_TOUGHNESS_3",
+		"name": "Rune of Toughness: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughPhysical": .105 },
+		"icon": "RUNE_TOUGHNESS_3"
+	},
+	{
+		"id": "exclusion-5",
+		"code": "RUNE_EXCLUSION_5",
+		"name": "Rune of Exclusion: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockMagical": .25 },
+		"icon": "RUNE_EXCLUSION_5"
+	},
+	{
+		"id": "defense-avoid-5",
+		"code": "RUNE_DEFENSE_AVOID_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"dodge": .055,
+			"defense": .11
+		},
+		"icon": "RUNE_DEFENSE_AVOID_5"
+	},
+	{
+		"id": "avoid-stamina-5",
+		"code": "RUNE_AVOID_STAMINA_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"dodge": .055
+		},
+		"icon": "RUNE_AVOID_STAMINA_5"
+	},
+	{
+		"id": "precision-avoid-5",
+		"code": "RUNE_PRECISION_AVOID_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"dodge": .055
+		},
+		"icon": "RUNE_PRECISION_AVOID_5"
+	},
+	{
+		"id": "precision-stamina-5",
+		"code": "RUNE_PRECISION_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"hp": .11
+		},
+		"icon": "RUNE_PRECISION_STAMINA_5"
+	},
+	{
+		"id": "defense-recover-5",
+		"code": "RUNE_DEFENSE_RECOVER_5",
+		"name": "Rune of Immortality: Velkazar",
+		"grade": 5,
+		"color": "blue",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"defense": .11
+		},
+		"icon": "RUNE_DEFENSE_RECOVER_5"
+	},
+	{
+		"id": "toughness-5",
+		"code": "RUNE_TOUGHNESS_5",
+		"name": "Rune of Toughness: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughPhysical": .19 },
+		"icon": "RUNE_TOUGHNESS_5"
+	},
+	{
+		"id": "resistance-recover-5",
+		"code": "RUNE_RESISTANCE_RECOVER_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"recovery": .11,
+			"resist": .11
+		},
+		"icon": "RUNE_RESISTANCE_RECOVER_5"
+	},
+	{
+		"id": "fierce-frenzy-5",
+		"code": "RUNE_FIERCE_FRENZY_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_FRENZY_5"
+	},
+	{
+		"id": "stamina-40",
+		"code": "RUNE_STAMINA_40",
+		"name": "Rune of Stamina: Ancient",
+		"grade": 5,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "hp": .128 },
+		"icon": "RUNE_STAMINA_5",
+		"ancient": true
+	},
+	{
+		"id": "toughness-40",
+		"code": "RUNE_TOUGHNESS_40",
+		"name": "Rune of Toughness: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "toughPhysical": .162 },
+		"icon": "RUNE_TOUGHNESS_5",
+		"ancient": true
+	},
+	{
+		"id": "frenzy-thirst-5",
+		"code": "RUNE_FRENZY_THIRST_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"lifesteal": .11
+		},
+		"icon": "RUNE_FRENZY_THIRST_5"
+	},
+	{
+		"id": "frenzy-avoid-5",
+		"code": "RUNE_FRENZY_AVOID_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"dodge": .055
+		},
+		"icon": "RUNE_FRENZY_AVOID_5"
+	},
+	{
+		"id": "agitation-40",
+		"code": "RUNE_AGITATION_40",
+		"name": "Rune of Agitation: Ancient",
+		"grade": 5,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaAttack": .111 },
+		"icon": "RUNE_AGITATION_5",
+		"ancient": true
+	},
+	{
+		"id": "swiftness-resistance-5",
+		"code": "RUNE_SWIFTNESS_RESISTANCE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"resist": .11,
+			"speed": .11
+		},
+		"icon": "RUNE_SWIFTNESS_RESISTANCE_5"
+	},
+	{
+		"id": "precision-block-5",
+		"code": "RUNE_PRECISION_BLOCK_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"block": .055
+		},
+		"icon": "RUNE_PRECISION_BLOCK_5"
+	},
+	{
+		"id": "ironwall-5",
+		"code": "RUNE_IRONWALL_5",
+		"name": "Rune of Iron Wall: Legendary",
+		"grade": 6,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefPhysical": .15 },
+		"icon": "RUNE_IRONWALL_5"
+	},
+	{
+		"id": "thirst-1",
+		"code": "RUNE_THIRST_1",
+		"name": "Rune of Thirst: Common",
+		"grade": 1,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "lifesteal": .015 },
+		"icon": "RUNE_THIRST_1"
+	},
+	{
+		"id": "reduced-resistance-5",
+		"code": "RUNE_REDUCED_RESISTANCE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"resist": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_REDUCED_RESISTANCE_5"
+	},
+	{
+		"id": "ironwall-4",
+		"code": "RUNE_IRONWALL_4",
+		"name": "Rune of Iron Wall: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefPhysical": .105 },
+		"icon": "RUNE_IRONWALL_4"
+	},
+	{
+		"id": "thirst-2",
+		"code": "RUNE_THIRST_2",
+		"name": "Rune of Thirst: Uncommon",
+		"grade": 2,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "lifesteal": .024 },
+		"icon": "RUNE_THIRST_2"
+	},
+	{
+		"id": "ironwall-3",
+		"code": "RUNE_IRONWALL_3",
+		"name": "Rune of Iron Wall: Rare",
+		"grade": 3,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefPhysical": .083 },
+		"icon": "RUNE_IRONWALL_3"
+	},
+	{
+		"id": "thirst-3",
+		"code": "RUNE_THIRST_3",
+		"name": "Rune of Thirst: Rare",
+		"grade": 3,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "lifesteal": .033 },
+		"icon": "RUNE_THIRST_3"
+	},
+	{
+		"id": "resistance-mprecovertime-5",
+		"code": "RUNE_RESISTANCE_MPRECOVERTIME_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"resist": .11,
+			"manaRegen": .33
+		},
+		"icon": "RUNE_RESISTANCE_MPRECOVERTIME_5"
+	},
+	{
+		"id": "ironwall-2",
+		"code": "RUNE_IRONWALL_2",
+		"name": "Rune of Iron Wall: Uncommon",
+		"grade": 2,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefPhysical": .06 },
+		"icon": "RUNE_IRONWALL_2"
+	},
+	{
+		"id": "thirst-4",
+		"code": "RUNE_THIRST_4",
+		"name": "Rune of Thirst: Heroic",
+		"grade": 4,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "lifesteal": .042 },
+		"icon": "RUNE_THIRST_4"
+	},
+	{
+		"id": "agitation-4",
+		"code": "RUNE_AGITATION_4",
+		"name": "Rune of Agitation: Heroic",
+		"grade": 4,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "manaAttack": .091 },
+		"icon": "RUNE_AGITATION_4"
+	},
+	{
+		"id": "ironwall-1",
+		"code": "RUNE_IRONWALL_1",
+		"name": "Rune of Iron Wall: Common",
+		"grade": 1,
+		"color": "blue",
+		"parts": ["weapon"],
+		"stats": { "blockDefPhysical": .038 },
+		"icon": "RUNE_IRONWALL_1"
+	},
+	{
+		"id": "thirst-5",
+		"code": "RUNE_THIRST_5",
+		"name": "Rune of Thirst: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["weapon"],
+		"stats": { "lifesteal": .06 },
+		"icon": "RUNE_THIRST_5"
+	},
+	{
+		"id": "fierce-block-5",
+		"code": "RUNE_FIERCE_BLOCK_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"atk": .11,
+			"block": .055
+		},
+		"icon": "RUNE_FIERCE_BLOCK_5"
+	},
+	{
+		"id": "frenzy-stamina-5",
+		"code": "RUNE_FRENZY_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"critDamage": .22,
+			"hp": .11
+		},
+		"icon": "RUNE_FRENZY_STAMINA_5"
+	},
+	{
+		"id": "stamina-5",
+		"code": "RUNE_STAMINA_5",
+		"name": "Rune of Stamina: Legendary",
+		"grade": 6,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "hp": .15 },
+		"icon": "RUNE_STAMINA_5"
+	},
+	{
+		"id": "fierce-40",
+		"code": "RUNE_FIERCE_40",
+		"name": "Rune of Fierce Attack: Ancient",
+		"grade": 5,
+		"color": "red",
+		"parts": ["weapon"],
+		"stats": { "atk": .128 },
+		"icon": "RUNE_FIERCE_5",
+		"ancient": true
+	},
+	{
+		"id": "stamina-2",
+		"code": "RUNE_STAMINA_2",
+		"name": "Rune of Stamina: Uncommon",
+		"grade": 2,
+		"color": "green",
+		"parts": ["armor"],
+		"stats": { "hp": .06 },
+		"icon": "RUNE_STAMINA_2"
+	},
+	{
+		"id": "fierce-stamina-5",
+		"code": "RUNE_FIERCE_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"hp": .11,
+			"atk": .11
+		},
+		"icon": "RUNE_FIERCE_STAMINA_5"
+	},
+	{
+		"id": "exclusion-40",
+		"code": "RUNE_EXCLUSION_40",
+		"name": "Rune of Exclusion: Ancient",
+		"grade": 5,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockMagical": .213 },
+		"icon": "RUNE_EXCLUSION_5",
+		"ancient": true
+	},
+	{
+		"id": "precision-defense-5",
+		"code": "RUNE_PRECISION_DEFENSE_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"acc": .11,
+			"defense": .11
+		},
+		"icon": "RUNE_PRECISION_DEFENSE_5"
+	},
+	{
+		"id": "sharpness-reduced-5",
+		"code": "RUNE_SHARPNESS_REDUCED_5",
+		"name": "Rune of Disaster: Velkazar",
+		"grade": 5,
+		"color": "green",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"pen": .11,
+			"tough": .055
+		},
+		"icon": "RUNE_SHARPNESS_REDUCED_5"
+	},
+	{
+		"id": "precision-4",
+		"code": "RUNE_PRECISION_4",
+		"name": "Rune of Precision: Heroic",
+		"grade": 4,
+		"color": "red",
+		"parts": ["armor"],
+		"stats": { "acc": .091 },
+		"icon": "RUNE_PRECISION_4"
+	},
+	{
+		"id": "steel-4",
+		"code": "RUNE_STEEL_4",
+		"name": "Rune of Steel: Heroic",
+		"grade": 4,
+		"color": "blue",
+		"parts": ["armor"],
+		"stats": { "blockPhysical": .175 },
+		"icon": "RUNE_STEEL_4"
+	},
+	{
+		"id": "thirst-stamina-5",
+		"code": "RUNE_THIRST_STAMINA_5",
+		"name": "Rune of Fear: Velkazar",
+		"grade": 5,
+		"color": "red",
+		"parts": [
+			"weapon",
+			"armor",
+			"secondary"
+		],
+		"stats": {
+			"lifesteal": .11,
+			"hp": .11
+		},
+		"icon": "RUNE_THIRST_STAMINA_5"
+	}
+];
+var KR_ARTIFACTS = [
+	{
+		"id": "artifact-1001",
+		"code": "ARTIFACT_UNIQUE_1001",
+		"name": "Apocalypsion's Tear",
+		"skills": [
+			80010011,
+			80010012,
+			80010013,
+			80010014,
+			80010015
+		],
+		"text": [
+			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 14% and 28% respectively. This effect does not stack with other similar effects cast by allies.",
+			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 17% and 34% respectively. This effect does not stack with other similar effects cast by allies.",
+			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 21% and 42% respectively. This effect does not stack with other similar effects cast by allies.",
+			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 25% and 50% respectively. This effect does not stack with other similar effects cast by allies.",
+			"When there is only 1 enemy or more than 5 enemies, increases ATK and Crit DMG of all allies by 30% and 60% respectively. This effect does not stack with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_1001"
+	},
+	{
+		"id": "artifact-14",
+		"code": "ARTIFACT_UNIQUE_14",
+		"name": "Mask of Harpy",
+		"skills": [
+			80000141,
+			80000142,
+			80000143,
+			80000144,
+			80000145
+		],
+		"text": [
+			"ATK upon Harpies increase by 48 %, and DMG resistance against Harpies increases by 24 %",
+			"ATK upon Harpies increase by 57 %, and DMG resistance against Harpies increases by 28 %",
+			"ATK upon Harpies increase by 69 %, and DMG resistance against Harpies increases by 34 %",
+			"ATK upon Harpies increase by 83 %, and DMG resistance against Harpies increases by 41 %",
+			"ATK upon Harpies increase by 100 %, and DMG resistance against Harpies increases by 50 %"
+		],
+		"icon": "ARTIFACT_UNIQUE_14"
+	},
+	{
+		"id": "artifact-24",
+		"code": "ARTIFACT_UNIQUE_24",
+		"name": "Earth Protection",
+		"skills": [
+			80000241,
+			80000242,
+			80000243,
+			80000244,
+			80000245
+		],
+		"text": [
+			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 10 sec.",
+			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 12 sec.",
+			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 14 sec.",
+			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 17 sec.",
+			"At the beginning of battle, gain CC immunity and a 50% boost to P. and M. DEF stats for 20 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_24"
+	},
+	{
+		"id": "artifact-34",
+		"code": "ARTIFACT_UNIQUE_34",
+		"name": "Mask of Draconic",
+		"skills": [
+			80000341,
+			80000342,
+			80000343,
+			80000344,
+			80000345
+		],
+		"text": [
+			"ATK upon Draconics increase by 48 %, and DMG resistance against Draconics increase by 24 %.",
+			"ATK upon Draconics increase by 57 %, and DMG resistance against Draconics increase by 28 %.",
+			"ATK upon Draconics increase by 69 %, and DMG resistance against Draconics increase by 34 %.",
+			"ATK upon Draconics increase by 83 %, and DMG resistance against Draconics increase by 41 %.",
+			"ATK upon Draconics increase by 100 %, and DMG resistance against Draconics increase by 50 %."
+		],
+		"icon": "ARTIFACT_UNIQUE_34"
+	},
+	{
+		"id": "artifact-44",
+		"code": "ARTIFACT_UNIQUE_44",
+		"name": "Infernal Whip",
+		"skills": [
+			80000441,
+			80000442,
+			80000443,
+			80000444,
+			80000445
+		],
+		"text": [
+			"Every 8 seconds, deals Magic Damage equal to 24% of Attack to all enemies and increases all damage they take by 12% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.5%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
+			"Every 8 seconds, deals Magic Damage equal to 29% of Attack to all enemies and increases all damage they take by 14% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.6%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
+			"Every 8 seconds, deals Magic Damage equal to 35% of Attack to all enemies and increases all damage they take by 17% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.7%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
+			"Every 8 seconds, deals Magic Damage equal to 42% of Attack to all enemies and increases all damage they take by 21% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 0.8%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies.",
+			"Every 8 seconds, deals Magic Damage equal to 50% of Attack to all enemies and increases all damage they take by 25% for 5 seconds. Each time this damage-increase effect activates, it is further increased by 1%, up to 25 stacks. This damage-increase effect cannot be used simultaneously with the same effect from other allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_44"
+	},
+	{
+		"id": "artifact-64",
+		"code": "ARTIFACT_UNIQUE_64",
+		"name": "Perfume of the Queen",
+		"skills": [
+			80000641,
+			80000642,
+			80000643,
+			80000644,
+			80000645
+		],
+		"text": [
+			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 4.8 sec.",
+			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 5.8 sec.",
+			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 7 sec.",
+			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 8.4 sec.",
+			"When inflicted by CC for 3 times, removes own Negative Effects, and increases ATK Spd by 500 and gains immunity to CC for 10 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_64"
+	},
+	{
+		"id": "artifact-1002",
+		"code": "ARTIFACT_UNIQUE_1002",
+		"name": "Golem's Fuel",
+		"skills": [
+			80010021,
+			80010022,
+			80010023,
+			80010024,
+			80010025
+		],
+		"text": [
+			"Increases DMG dealt to Non-Hero enemies by 12% and reduces DMG taken by 6%. If target is [Holy Golem], the effect is multiplied by 3.",
+			"Increases DMG dealt to Non-Hero enemies by 14% and reduces DMG taken by 7%. If target is [Holy Golem], the effect is multiplied by 3.",
+			"Increases DMG dealt to Non-Hero enemies by 17% and reduces DMG taken by 8.5%. If target is [Holy Golem], the effect is multiplied by 3.",
+			"Increases DMG dealt to Non-Hero enemies by 21% and reduces DMG taken by 10.5%. If target is [Holy Golem], the effect is multiplied by 3.",
+			"Increases DMG dealt to Non-Hero enemies by 25% and reduces DMG taken by 12.5%. If target is [Holy Golem], the effect is multiplied by 3."
+		],
+		"icon": "ARTIFACT_UNIQUE_1002"
+	},
+	{
+		"id": "artifact-11",
+		"code": "ARTIFACT_UNIQUE_11",
+		"name": "Madame's Bronze Mirrors",
+		"skills": [
+			80000111,
+			80000112,
+			80000113,
+			80000114,
+			80000115
+		],
+		"text": [
+			"Increases own M.Block Chance by 330 and M.DMG Reduction by 110.",
+			"Increases own M.Block Chance by 360 and M.DMG Reduction by 120.",
+			"Increases own M.Block Chance by 400 and M.DMG Reduction by 140.",
+			"Increases own M.Block Chance by 440 and M.DMG Reduction by 160.",
+			"Increases own M.Block Chance by 500 and M.DMG Reduction by 200."
+		],
+		"icon": "ARTIFACT_UNIQUE_11"
+	},
+	{
+		"id": "artifact-21",
+		"code": "ARTIFACT_UNIQUE_21",
+		"name": "Judgment of Light Bracelet",
+		"skills": [
+			80000211,
+			80000212,
+			80000213,
+			80000214,
+			80000215
+		],
+		"text": [
+			"ACC and CC ACC rise by 360.",
+			"ACC and CC ACC rise by 430.",
+			"ACC and CC ACC rise by 520.",
+			"ACC and CC ACC rise by 630.",
+			"ACC and CC ACC rise by 750."
+		],
+		"icon": "ARTIFACT_UNIQUE_21"
+	},
+	{
+		"id": "artifact-31",
+		"code": "ARTIFACT_UNIQUE_31",
+		"name": "Solar Stone",
+		"skills": [
+			80000311,
+			80000312,
+			80000313,
+			80000314,
+			80000315
+		],
+		"text": [
+			"Every sec, deals P.DMG equal to 24% of ATK to enemies within a circular area around self and reduces their Recovery by 36% for 5 sec.",
+			"Every sec, deals P.DMG equal to 29% of ATK to enemies within a circular area around self and reduces their Recovery by 43% for 5 sec.",
+			"Every sec, deals P.DMG equal to 35% of ATK to enemies within a circular area around self and reduces their Recovery by 52% for 5 sec.",
+			"Every sec, deals P.DMG equal to 42% of ATK to enemies within a circular area around self and reduces their Recovery by 62% for 5 sec.",
+			"Every sec, deals P.DMG equal to 50% of ATK to enemies within a circular area around self and reduces their Recovery by 75% for 5 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_31"
+	},
+	{
+		"id": "artifact-41",
+		"code": "ARTIFACT_UNIQUE_41",
+		"name": "Spellbound Ring of the Deep",
+		"skills": [
+			80000411,
+			80000412,
+			80000413,
+			80000414,
+			80000415
+		],
+		"text": [
+			"Upon the start of a battle for 10 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 24%.",
+			"Upon the start of a battle for 12 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 29%.",
+			"Upon the start of a battle for 14 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 35%.",
+			"Upon the start of a battle for 17 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 42%.",
+			"Upon the start of a battle for 20 sec, limit 1 enemy's ATK Spd to 1000 and reduce ATK by 50%."
+		],
+		"icon": "ARTIFACT_UNIQUE_41"
+	},
+	{
+		"id": "artifact-51",
+		"code": "ARTIFACT_UNIQUE_51",
+		"name": "Cross Pumpkin Head",
+		"skills": [
+			80000511,
+			80000512,
+			80000513,
+			80000514,
+			80000515
+		],
+		"text": [
+			"Increases Max HP by 24% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
+			"Increases Max HP by 29% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
+			"Increases Max HP by 35% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
+			"Increases Max HP by 42% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec.",
+			"Increases Max HP by 50% and deals P.DMG equal to 2% of Max HP to nearby enemies within a small area for 1 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_51"
+	},
+	{
+		"id": "artifact-61",
+		"code": "ARTIFACT_UNIQUE_61",
+		"name": "Happy Pumpkin Head",
+		"skills": [
+			80000611,
+			80000612,
+			80000613,
+			80000614,
+			80000615
+		],
+		"text": [
+			"Every 7 seconds, Healing is increased by 2.4%, and you recover HP equal to 120% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
+			"Every 7 seconds, Healing is increased by 2.8%, and you recover HP equal to 140% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
+			"Every 7 seconds, Healing is increased by 3.4%, and you recover HP equal to 170% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
+			"Every 7 seconds, Healing is increased by 4.2%, and you recover HP equal to 210% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled.",
+			"Every 7 seconds, Healing is increased by 5%, and you recover HP equal to 250% of your Attack. The Healing increase effect can stack up to 15 times and cannot be dispelled."
+		],
+		"icon": "ARTIFACT_UNIQUE_61"
+	},
+	{
+		"id": "artifact-12",
+		"code": "ARTIFACT_UNIQUE_12",
+		"name": "Sealed Chain of Ancient God",
+		"skills": [
+			80000121,
+			80000122,
+			80000123,
+			80000124,
+			80000125
+		],
+		"text": [
+			"Every 19 sec, cast Silence to a random enemy for 3.5 sec and remove positive effects.",
+			"Every 18 sec, cast Silence to a random enemy for 4 sec and remove positive effects.",
+			"Every 17 sec, cast Silence to a random enemy for 4.5 sec and remove positive effects.",
+			"Every 16 sec, cast Silence to a random enemy for 5 sec and remove positive effects.",
+			"Every 15 sec, cast Silence to a random enemy for 6 sec and remove positive effects."
+		],
+		"icon": "ARTIFACT_UNIQUE_12"
+	},
+	{
+		"id": "artifact-22",
+		"code": "ARTIFACT_UNIQUE_22",
+		"name": "Mask of Lizardman",
+		"skills": [
+			80000221,
+			80000222,
+			80000223,
+			80000224,
+			80000225
+		],
+		"text": [
+			"ATK upon Lizardmen increase by 48 %, and DMG resistance against Lizardmen increase by 24 %",
+			"ATK upon Lizardmen increase by 57 %, and DMG resistance against Lizardmen increase by 28 %",
+			"ATK upon Lizardmen increase by 69 %, and DMG resistance against Lizardmen increase by 34 %",
+			"ATK upon Lizardmen increase by 83 %, and DMG resistance against Lizardmen increase by 41 %",
+			"ATK upon Lizardmen increase by 100 %, and DMG resistance against Lizardmen increase by 50 %"
+		],
+		"icon": "ARTIFACT_UNIQUE_22"
+	},
+	{
+		"id": "artifact-32",
+		"code": "ARTIFACT_UNIQUE_32",
+		"name": "Orbs of Contract",
+		"skills": [
+			80000321,
+			80000322,
+			80000323,
+			80000324,
+			80000325
+		],
+		"text": [
+			"Every 7 seconds, increases your Magic Defense by an amount equal to 1.2% of your Attack. This effect stacks up to 6 times.",
+			"Every 7 seconds, increases your Magic Defense by an amount equal to 1.4% of your Attack. This effect stacks up to 6 times.",
+			"Every 7 seconds, increases your Magic Defense by an amount equal to 1.7% of your Attack. This effect stacks up to 6 times.",
+			"Every 7 seconds, increases your Magic Defense by an amount equal to 2% of your Attack. This effect stacks up to 6 times.",
+			"Every 7 seconds, increases your Magic Defense by an amount equal to 2.5% of your Attack. This effect stacks up to 6 times."
+		],
+		"icon": "ARTIFACT_UNIQUE_32"
+	},
+	{
+		"id": "artifact-42",
+		"code": "ARTIFACT_UNIQUE_42",
+		"name": "Guardian Crystal of the Deep",
+		"skills": [
+			80000421,
+			80000422,
+			80000423,
+			80000424,
+			80000425
+		],
+		"text": [
+			"When there is 1 enemy, all DEF is increased by 60%.",
+			"When there is 1 enemy, all DEF is increased by 72%.",
+			"When there is 1 enemy, all DEF is increased by 86%.",
+			"When there is 1 enemy, all DEF is increased by 103%.",
+			"When there is 1 enemy, all DEF is increased by 125%."
+		],
+		"icon": "ARTIFACT_UNIQUE_42"
+	},
+	{
+		"id": "artifact-52",
+		"code": "ARTIFACT_UNIQUE_52",
+		"name": "Angry Pumpkin Head",
+		"skills": [
+			80000521,
+			80000522,
+			80000523,
+			80000524,
+			80000525
+		],
+		"text": [
+			"All DMG taken is reduced by 12% and deal 12% more DMG to enemies.",
+			"All DMG taken is reduced by 14% and deal 14% more DMG to enemies.",
+			"All DMG taken is reduced by 17% and deal 17% more DMG to enemies.",
+			"All DMG taken is reduced by 20% and deal 20% more DMG to enemies.",
+			"All DMG taken is reduced by 25% and deal 25% more DMG to enemies."
+		],
+		"icon": "ARTIFACT_UNIQUE_52"
+	},
+	{
+		"id": "artifact-62",
+		"code": "ARTIFACT_UNIQUE_62",
+		"name": "Surprised Pumpkin Head",
+		"skills": [
+			80000621,
+			80000622,
+			80000623,
+			80000624,
+			80000625
+		],
+		"text": [
+			"When inflicted by CC, immediately recovers Mana by 14% and increases ATK Spd by 240 for 5 sec. This effect activates once every 30 sec.",
+			"When inflicted by CC, immediately recovers Mana by 17% and increases ATK Spd by 290 for 5 sec. This effect activates once every 30 sec.",
+			"When inflicted by CC, immediately recovers Mana by 21% and increases ATK Spd by 350 for 5 sec. This effect activates once every 30 sec.",
+			"When inflicted by CC, immediately recovers Mana by 25% and increases ATK Spd by 420 for 5 sec. This effect activates once every 30 sec.",
+			"When inflicted by CC, immediately recovers Mana by 30% and increases ATK Spd by 500 for 5 sec. This effect activates once every 30 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_62"
+	},
+	{
+		"id": "artifact-505",
+		"code": "ARTIFACT_UNIQUE_505",
+		"name": "Christmas Tree of Holy Night",
+		"skills": [
+			80005051,
+			80005052,
+			80005053,
+			80005054,
+			80005055
+		],
+		"text": [
+			"Increases Crit DMG by 60%.",
+			"Increases Crit DMG by 72%.",
+			"Increases Crit DMG by 87%.",
+			"Increases Crit DMG by 105%.",
+			"Increases Crit DMG by 125%."
+		],
+		"icon": "ARTIFACT_UNIQUE_505"
+	},
+	{
+		"id": "artifact-504",
+		"code": "ARTIFACT_UNIQUE_504",
+		"name": "Warm Turkey Dish",
+		"skills": [
+			80005041,
+			80005042,
+			80005043,
+			80005044,
+			80005045
+		],
+		"text": [
+			"Increases own Max HP by 12% and All Block Chance by 120.",
+			"Increases own Max HP by 14% and All Block Chance by 140.",
+			"Increases own Max HP by 17% and All Block Chance by 170.",
+			"Increases own Max HP by 21% and All Block Chance by 210.",
+			"Increases own Max HP by 25% and All Block Chance by 250."
+		],
+		"icon": "ARTIFACT_UNIQUE_504"
+	},
+	{
+		"id": "artifact-507",
+		"code": "ARTIFACT_UNIQUE_507",
+		"name": "Academic Achievement Award",
+		"skills": [
+			80005071,
+			80005072,
+			80005073,
+			80005074,
+			80005075
+		],
+		"text": [
+			"Increases ATK of all allies by 10%, and All DEF of self by 12%. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of all allies by 12%, and All DEF of self by 14%. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of all allies by 14%, and All DEF of self by 17%. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of all allies by 17%, and All DEF of self by 21%. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of all allies by 20%, and All DEF of self by 25%. This effect will not stack with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_507"
+	},
+	{
+		"id": "artifact-506",
+		"code": "ARTIFACT_UNIQUE_506",
+		"name": "New Year's Fanfare",
+		"skills": [
+			80005061,
+			80005062,
+			80005063,
+			80005064,
+			80005065
+		],
+		"text": [
+			"Increases ATK of 4 allies by 6% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of 4 allies by 7.2% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of 4 allies by 8.6% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of 4 allies by 10.4% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies.",
+			"Increases ATK of 4 allies by 12.5% for 20 sec at the beginning of every battle. This effect will not stack with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_506"
+	},
+	{
+		"id": "artifact-501",
+		"code": "ARTIFACT_UNIQUE_501",
+		"name": "Abyssal Eye",
+		"skills": [
+			80005011,
+			80005012,
+			80005013,
+			80005014,
+			80005015
+		],
+		"text": [
+			"When taking damage, deals Magic Damage equal to 60% of Attack to the attacker and reduces their Attack Speed by 480 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 2.4 seconds. This effect can only trigger once every 30 seconds.",
+			"When taking damage, deals Magic Damage equal to 72% of Attack to the attacker and reduces their Attack Speed by 580 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 2.9 seconds. This effect can only trigger once every 30 seconds.",
+			"When taking damage, deals Magic Damage equal to 86% of Attack to the attacker and reduces their Attack Speed by 700 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 3.5 seconds. This effect can only trigger once every 30 seconds.",
+			"When taking damage, deals Magic Damage equal to 105% of Attack to the attacker and reduces their Attack Speed by 840 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 4 seconds. This effect can only trigger once every 30 seconds.",
+			"When taking damage, deals Magic Damage equal to 125% of Attack to the attacker and reduces their Attack Speed by 1000 for 1.5 seconds. When the Attack Speed reduction ends, petrifies them for 5 seconds. This effect can only trigger once every 30 seconds."
+		],
+		"icon": "ARTIFACT_UNIQUE_501"
+	},
+	{
+		"id": "artifact-503",
+		"code": "ARTIFACT_UNIQUE_503",
+		"name": "Abyssal Nail Ornament",
+		"skills": [
+			80005031,
+			80005032,
+			80005033,
+			80005034,
+			80005035
+		],
+		"text": [
+			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 4.8% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
+			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 5.8% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
+			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 7% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
+			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 8.4% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds.",
+			"On attack, for 10 seconds, deals Defense-ignoring Physical Damage equal to 10% of Attack every 0.5 seconds to the enemy. This effect can only trigger once every 20 seconds."
+		],
+		"icon": "ARTIFACT_UNIQUE_503"
+	},
+	{
+		"id": "artifact-502",
+		"code": "ARTIFACT_UNIQUE_502",
+		"name": "Abyssal Crown",
+		"skills": [
+			80005021,
+			80005022,
+			80005023,
+			80005024,
+			80005025
+		],
+		"text": [
+			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 36%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 43%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 52%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 63%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"30 sec after the battle starts, increases ATK of the ally with the highest ATK by 75%. This effect cannot be dispelled, and it does not stack with other effects for allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_502"
+	},
+	{
+		"id": "artifact-509",
+		"code": "ARTIFACT_UNIQUE_509",
+		"name": "Ancient God King's Coin",
+		"skills": [
+			80005091,
+			80005092,
+			80005093,
+			80005094,
+			80005095
+		],
+		"text": [
+			"Increases ATK and Crit DMG by 24%.",
+			"Increases ATK and Crit DMG by 29%.",
+			"Increases ATK and Crit DMG by 35%.",
+			"Increases ATK and Crit DMG by 42%.",
+			"Increases ATK and Crit DMG by 50%."
+		],
+		"icon": "ARTIFACT_UNIQUE_509"
+	},
+	{
+		"id": "artifact-508",
+		"code": "ARTIFACT_UNIQUE_508",
+		"name": "Heart Cotton Candy",
+		"skills": [
+			80005081,
+			80005082,
+			80005083,
+			80005084,
+			80005085
+		],
+		"text": [
+			"When the battle starts, increases ATK of self and the ally with the highest ATK by 12% for 20 sec. This effect will not stack with other similar effects cast by allies.",
+			"When the battle starts, increases ATK of self and the ally with the highest ATK by 14% for 20 sec. This effect will not stack with other similar effects cast by allies.",
+			"When the battle starts, increases ATK of self and the ally with the highest ATK by 17% for 20 sec. This effect will not stack with other similar effects cast by allies.",
+			"When the battle starts, increases ATK of self and the ally with the highest ATK by 21% for 20 sec. This effect will not stack with other similar effects cast by allies.",
+			"When the battle starts, increases ATK of self and the ally with the highest ATK by 25% for 20 sec. This effect will not stack with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_508"
+	},
+	{
+		"id": "artifact-901",
+		"code": "ARTIFACT_UNIQUE_901",
+		"name": "Honorary Medal",
+		"skills": [
+			80009101,
+			80009102,
+			80009103,
+			80009104,
+			80009105
+		],
+		"text": [
+			"Increases ATK, HP, and All DEF of all allies by 9%. This effect does not stack with same effects from other allies.",
+			"Increases ATK, HP, and All DEF of all allies by 10.5%. This effect does not stack with same effects from other allies.",
+			"Increases ATK, HP, and All DEF of all allies by 12%. This effect does not stack with same effects from other allies.",
+			"Increases ATK, HP, and All DEF of all allies by 13.5%. This effect does not stack with same effects from other allies.",
+			"Increases ATK, HP, and All DEF of all allies by 15%. This effect does not stack with same effects from other allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_901"
+	},
+	{
+		"id": "artifact-900",
+		"code": "ARTIFACT_UNIQUE_900",
+		"name": "Honorary Trophy",
+		"skills": [
+			80009001,
+			80009002,
+			80009003,
+			80009004,
+			80009005
+		],
+		"text": [
+			"Increases ATK by 30% and Crit Chance by 300.",
+			"Increases ATK by 35% and Crit Chance by 350.",
+			"Increases ATK by 40% and Crit Chance by 400.",
+			"Increases ATK by 45% and Crit Chance by 450.",
+			"Increases ATK by 50% and Crit Chance by 500."
+		],
+		"icon": "ARTIFACT_UNIQUE_900"
+	},
+	{
+		"id": "artifact-902",
+		"code": "ARTIFACT_UNIQUE_902",
+		"name": "Hero's Plaque of Appreciation",
+		"skills": [
+			80009201,
+			80009202,
+			80009203,
+			80009204,
+			80009205
+		],
+		"text": [
+			"Increases Max HP by 30%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 60%. This effect is irremovable and does not stack with same effects from other allies.",
+			"Increases Max HP by 35%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 70%. This effect is irremovable and does not stack with same effects from other allies.",
+			"Increases Max HP by 40%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 80%. This effect is irremovable and does not stack with same effects from other allies.",
+			"Increases Max HP by 45%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 90%. This effect is irremovable and does not stack with same effects from other allies.",
+			"Increases Max HP by 50%. 30 sec after the battle starts, increases Crit DMG of the ally with the highest ATK excluding self by 100%. This effect is irremovable and does not stack with same effects from other allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_902"
+	},
+	{
+		"id": "artifact-1",
+		"code": "ARTIFACT_UNIQUE_1",
+		"name": "Burning Brazier of Elf",
+		"skills": [
+			80000011,
+			80000012,
+			80000013,
+			80000014,
+			80000015
+		],
+		"text": [
+			"Upon attacking an enemy, there is a 12% chance to recover 1 MP.",
+			"Upon attacking an enemy, there is a 14% chance to recover 1 MP.",
+			"Upon attacking an enemy, there is a 17% chance to recover 1 MP.",
+			"Upon attacking an enemy, there is a 20% chance to recover 1 MP.",
+			"Upon attacking an enemy, there is a 25% chance to recover 1 MP."
+		],
+		"icon": "ARTIFACT_UNIQUE_1"
+	},
+	{
+		"id": "artifact-2",
+		"code": "ARTIFACT_UNIQUE_2",
+		"name": "Drinking Horn of Ancient Cow",
+		"skills": [
+			80000021,
+			80000022,
+			80000023,
+			80000024,
+			80000025
+		],
+		"text": [
+			"Normal attacks have a 10% chance to increase ATK by 12% and ATK Spd by 120 for 10 sec.",
+			"Normal attacks have a 10% chance to increase ATK by 14% and ATK Spd by 140 for 10 sec.",
+			"Normal attacks have a 10% chance to increase ATK by 17% and ATK Spd by 170 for 10 sec.",
+			"Normal attacks have a 10% chance to increase ATK by 20% and ATK Spd by 200 for 10 sec.",
+			"Normal attacks have a 10% chance to increase ATK by 25% and ATK Spd by 250 for 10 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_2"
+	},
+	{
+		"id": "artifact-3",
+		"code": "ARTIFACT_UNIQUE_3",
+		"name": "Dice of Magical Letters",
+		"skills": [
+			80000031,
+			80000032,
+			80000033,
+			80000034,
+			80000035
+		],
+		"text": [
+			"Normal attacks have a 3% chance to deal 480% M.DMG.",
+			"Normal attacks have a 3% chance to deal 575% M.DMG.",
+			"Normal attacks have a 3% chance to deal 690% M.DMG.",
+			"Normal attacks have a 3% chance to deal 830% M.DMG.",
+			"Normal attacks have a 3% chance to deal 1,000% M.DMG."
+		],
+		"icon": "ARTIFACT_UNIQUE_3"
+	},
+	{
+		"id": "artifact-4",
+		"code": "ARTIFACT_UNIQUE_4",
+		"name": "Golden Cat Statue",
+		"skills": [
+			80000041,
+			80000042,
+			80000043,
+			80000044,
+			80000045
+		],
+		"text": [
+			"At the beginning of each battle, increases ATK Spd by 480 for 15 sec.",
+			"At the beginning of each battle, increases ATK Spd by 570 for 15 sec.",
+			"At the beginning of each battle, increases ATK Spd by 690 for 15 sec.",
+			"At the beginning of each battle, increases ATK Spd by 830 for 15 sec.",
+			"At the beginning of each battle, increases ATK Spd by 1,000 for 15 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_4"
+	},
+	{
+		"id": "artifact-5",
+		"code": "ARTIFACT_UNIQUE_5",
+		"name": "Pocket Watch of Ancient Civilization",
+		"skills": [
+			80000051,
+			80000052,
+			80000053,
+			80000054,
+			80000055
+		],
+		"text": [
+			"Reduces Cooldown of self's all Skills by 1.2 sec every 10 sec and increases ATK Spd by 96 for 5 sec.",
+			"Reduces Cooldown of self's all Skills by 1.4 sec every 10 sec and increases ATK Spd by 115 for 5 sec.",
+			"Reduces Cooldown of self's all Skills by 1.7 sec every 10 sec and increases ATK Spd by 138 for 5 sec.",
+			"Reduces Cooldown of self's all Skills by 2 sec every 10 sec and increases ATK Spd by 165 for 5 sec.",
+			"Reduces Cooldown of self's all Skills by 2.5 sec every 10 sec and increases ATK Spd by 200 for 5 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_5"
+	},
+	{
+		"id": "artifact-6",
+		"code": "ARTIFACT_UNIQUE_6",
+		"name": "Primer for the Heroes",
+		"skills": [
+			80000061,
+			80000062,
+			80000063,
+			80000064,
+			80000065
+		],
+		"text": [
+			"When HP is 20% or below, increases ATK by 36%, and increases ATK Spd and All DMG Reduction by 360.",
+			"When HP is 20% or below, increases ATK by 43%, and increases ATK Spd and All DMG Reduction by 430.",
+			"When HP is 20% or below, increases ATK by 51%, and increases ATK Spd and All DMG Reduction by 510.",
+			"When HP is 20% or below, increases ATK by 62%, and increases ATK Spd and All DMG Reduction by 620.",
+			"When HP is 20% or below, increases ATK by 75%, and increases ATK Spd and All DMG Reduction by 750."
+		],
+		"icon": "ARTIFACT_UNIQUE_6"
+	},
+	{
+		"id": "artifact-7",
+		"code": "ARTIFACT_UNIQUE_7",
+		"name": "The Ancient Scope",
+		"skills": [
+			80000071,
+			80000072,
+			80000073,
+			80000074,
+			80000075
+		],
+		"text": [
+			"When MP is at 100%, Crit Chance and ACC rise by 480 for 10 sec. Has a cooldown of 20 sec.",
+			"When MP is at 100%, Crit Chance and ACC rise by 570 for 10 sec. Has a cooldown of 20 sec.",
+			"When MP is at 100%, Crit Chance and ACC rise by 690 for 10 sec. Has a cooldown of 20 sec.",
+			"When MP is at 100%, Crit Chance and ACC rise by 830 for 10 sec. Has a cooldown of 20 sec.",
+			"When MP is at 100%, Crit Chance and ACC rise by 1000 for 10 sec. Has a cooldown of 20 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_7"
+	},
+	{
+		"id": "artifact-8",
+		"code": "ARTIFACT_UNIQUE_8",
+		"name": "Roaring Tiger Statue",
+		"skills": [
+			80000081,
+			80000082,
+			80000083,
+			80000084,
+			80000085
+		],
+		"text": [
+			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 16% and Attack Speed reduced by 160 for 10 seconds. This effect has a 30-second cooldown.",
+			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 20% and Attack Speed reduced by 200 for 10 seconds. This effect has a 30-second cooldown.",
+			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 24% and Attack Speed reduced by 240 for 10 seconds. This effect has a 30-second cooldown.",
+			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 29% and Attack Speed reduced by 290 for 10 seconds. This effect has a 30-second cooldown.",
+			"When your HP falls to 35% or lower, deals Physical Damage equal to 100% of Attack to nearby enemies and knocks them down. Enemies hit have their Attack reduced by 35% and Attack Speed reduced by 350 for 10 seconds. This effect has a 30-second cooldown."
+		],
+		"icon": "ARTIFACT_UNIQUE_8"
+	},
+	{
+		"id": "artifact-9",
+		"code": "ARTIFACT_UNIQUE_9",
+		"name": "Golden Apple of a Goddess",
+		"skills": [
+			80000091,
+			80000092,
+			80000093,
+			80000094,
+			80000095
+		],
+		"text": [
+			"When the hero's HP falls below 25%, recover 36% of max HP and dispel all negative effects. Activates 1 time only.",
+			"When the hero's HP falls below 25%, recover 43% of max HP and dispel all negative effects. Activates 1 time only.",
+			"When the hero's HP falls below 25%, recover 51% of max HP and dispel all negative effects. Activates 1 time only.",
+			"When the hero's HP falls below 25%, recover 62% of max HP and dispel all negative effects. Activates 1 time only.",
+			"When the hero's HP falls below 25%, recover 75% of max HP and dispel all negative effects. Activates 1 time only."
+		],
+		"icon": "ARTIFACT_UNIQUE_9"
+	},
+	{
+		"id": "artifact-18",
+		"code": "ARTIFACT_UNIQUE_18",
+		"name": "Undead Mask",
+		"skills": [
+			80000181,
+			80000182,
+			80000183,
+			80000184,
+			80000185
+		],
+		"text": [
+			"Increases DMG to Undead by 48 % and Resistance against Undead by 24%.",
+			"Increases DMG to Undead by 57 % and Resistance against Undead by 28%.",
+			"Increases DMG to Undead by 69 % and Resistance against Undead by 34%.",
+			"Increases DMG to Undead by 83 % and Resistance against Undead by 41%.",
+			"Increases DMG to Undead by 100 % and Resistance against Undead by 50%."
+		],
+		"icon": "ARTIFACT_UNIQUE_18"
+	},
+	{
+		"id": "artifact-28",
+		"code": "ARTIFACT_UNIQUE_28",
+		"name": "Insignia of Iron Conviction",
+		"skills": [
+			80000281,
+			80000282,
+			80000283,
+			80000284,
+			80000285
+		],
+		"text": [
+			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 580% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
+			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 690% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
+			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 830% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
+			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 1000% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated.",
+			"Every time you take Magic Damage 50 times, removes all harmful effects from yourself and creates a Shield that absorbs damage equal to 1200% of Attack for 5 seconds. While the Shield persists, you are immune to status effects and damage stacks are not accumulated."
+		],
+		"icon": "ARTIFACT_UNIQUE_28"
+	},
+	{
+		"id": "artifact-38",
+		"code": "ARTIFACT_UNIQUE_38",
+		"name": "Assassin's Veil",
+		"skills": [
+			80000381,
+			80000382,
+			80000383,
+			80000384,
+			80000385
+		],
+		"text": [
+			"Increases P.Dodge by 120. Each successful dodge increases ATK by 1.2%, stacking up to max 20 times.",
+			"Increases P.Dodge by 140. Each successful dodge increases ATK by 1.4%, stacking up to max 20 times.",
+			"Increases P.Dodge by 170. Each successful dodge increases ATK by 1.7%, stacking up to max 20 times.",
+			"Increases P.Dodge by 210. Each successful dodge increases ATK by 2.1%, stacking up to max 20 times.",
+			"Increases P.Dodge by 250. Each successful dodge increases ATK by 2.5%, stacking up to max 20 times."
+		],
+		"icon": "ARTIFACT_UNIQUE_38"
+	},
+	{
+		"id": "artifact-48",
+		"code": "ARTIFACT_UNIQUE_48",
+		"name": "Magical Flute",
+		"skills": [
+			80000481,
+			80000482,
+			80000483,
+			80000484,
+			80000485
+		],
+		"text": [
+			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 120 for 4 sec.",
+			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 140 for 4 sec.",
+			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 170 for 4 sec.",
+			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 210 for 4 sec.",
+			"Every 8 sec, increases ATK Spd of 2 random allies and the caster by 250 for 4 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_48"
+	},
+	{
+		"id": "artifact-58",
+		"code": "ARTIFACT_UNIQUE_58",
+		"name": "Kiddy Chick",
+		"skills": [
+			80000581,
+			80000582,
+			80000583,
+			80000584,
+			80000585
+		],
+		"text": [
+			"ATK Spd is increased by 96",
+			"ATK Spd is increased by 115",
+			"ATK Spd is increased by 138",
+			"ATK Spd is increased by 165",
+			"ATK Spd is increased by 200"
+		],
+		"icon": "ARTIFACT_UNIQUE_58"
+	},
+	{
+		"id": "artifact-68",
+		"code": "ARTIFACT_UNIQUE_68",
+		"name": "Fragment of an Ancient Kingdom",
+		"skills": [
+			80000681,
+			80000682,
+			80000683,
+			80000684,
+			80000685
+		],
+		"text": [
+			"Increases CC Resist by 240 and CC ACC by 240.",
+			"Increases CC Resist by 290 and CC ACC by 290.",
+			"Increases CC Resist by 350 and CC ACC by 350.",
+			"Increases CC Resist by 420 and CC ACC by 420.",
+			"Increases CC Resist by 500 and CC ACC by 500."
+		],
+		"icon": "ARTIFACT_UNIQUE_68"
+	},
+	{
+		"id": "artifact-515",
+		"code": "ARTIFACT_UNIQUE_515",
+		"name": "Forge Hammer MK-II",
+		"skills": [
+			80005151,
+			80005152,
+			80005153,
+			80005154,
+			80005155
+		],
+		"text": [
+			"Normal attacks have a 5% chance to increase ATK Spd by 480 for 5 sec.",
+			"Normal attacks have a 5% chance to increase ATK Spd by 580 for 5 sec.",
+			"Normal attacks have a 5% chance to increase ATK Spd by 700 for 5 sec.",
+			"Normal attacks have a 5% chance to increase ATK Spd by 840 for 5 sec.",
+			"Normal attacks have a 5% chance to increase ATK Spd by 1000 for 5 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_515"
+	},
+	{
+		"id": "artifact-514",
+		"code": "ARTIFACT_UNIQUE_514",
+		"name": "Pumpkin-Stuck Evil Spirit",
+		"skills": [
+			80005141,
+			80005142,
+			80005143,
+			80005144,
+			80005145
+		],
+		"text": [
+			"Increases own Max HP by 24%. When there is 1 enemy, increases ATK of all allies by 24%. This effect will not stack with other similar effects cast by allies.",
+			"Increases own Max HP by 29%. When there is 1 enemy, increases ATK of all allies by 29%. This effect will not stack with other similar effects cast by allies.",
+			"Increases own Max HP by 35%. When there is 1 enemy, increases ATK of all allies by 35%. This effect will not stack with other similar effects cast by allies.",
+			"Increases own Max HP by 42%. When there is 1 enemy, increases ATK of all allies by 42%. This effect will not stack with other similar effects cast by allies.",
+			"Increases own Max HP by 50%. When there is 1 enemy, increases ATK of all allies by 50%. This effect will not stack with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_514"
+	},
+	{
+		"id": "artifact-517",
+		"code": "ARTIFACT_UNIQUE_517",
+		"name": "Otherworldly Sword",
+		"skills": [
+			80005171,
+			80005172,
+			80005173,
+			80005174,
+			80005175
+		],
+		"text": [
+			"Consumes 4.8% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 60 times and are automatically deactivated when HP falls below 25%.",
+			"Consumes 5.7% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 70 times and are automatically deactivated when HP falls below 25%.",
+			"Consumes 6.9% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 80 times and are automatically deactivated when HP falls below 25%.",
+			"Consumes 8.3% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 90 times and are automatically deactivated when HP falls below 25%.",
+			"Consumes 10% of current HP for 1 sec and disables Lifesteal, but increases DMG dealt by 0.5% and Crit DMG by 0.5% every sec. These effects stack up to 100 times and are automatically deactivated when HP falls below 25%."
+		],
+		"icon": "ARTIFACT_UNIQUE_517"
+	},
+	{
+		"id": "artifact-516",
+		"code": "ARTIFACT_UNIQUE_516",
+		"name": "New-Type Thruster",
+		"skills": [
+			80005161,
+			80005162,
+			80005163,
+			80005164,
+			80005165
+		],
+		"text": [
+			"When inflicted by CC, reduces all skill cooldowns by 6 sec and recovers 600 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
+			"When inflicted by CC, reduces all skill cooldowns by 7 sec and recovers 700 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
+			"When inflicted by CC, reduces all skill cooldowns by 8 sec and recovers 800 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
+			"When inflicted by CC, reduces all skill cooldowns by 9 sec and recovers 900 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec.",
+			"When inflicted by CC, reduces all skill cooldowns by 10 sec and recovers 1000 Mana for 1 sec for 3 sec. Has a cooldown of 20 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_516"
+	},
+	{
+		"id": "artifact-511",
+		"code": "ARTIFACT_UNIQUE_511",
+		"name": "Master Chef’s Recipe Book",
+		"skills": [
+			80005111,
+			80005112,
+			80005113,
+			80005114,
+			80005115
+		],
+		"text": [
+			"Increases self's All DEF by 12%, and Heal Rate by 12%.",
+			"Increases self's All DEF by 14%, and Heal Rate by 14%.",
+			"Increases self's All DEF by 17%, and Heal Rate by 17%.",
+			"Increases self's All DEF by 21%, and Heal Rate by 21%.",
+			"Increases self's All DEF by 25%, and Heal Rate by 25%."
+		],
+		"icon": "ARTIFACT_UNIQUE_511"
+	},
+	{
+		"id": "artifact-510",
+		"code": "ARTIFACT_UNIQUE_510",
+		"name": "Pendulum of Fantasy",
+		"skills": [
+			80005101,
+			80005102,
+			80005103,
+			80005104,
+			80005105
+		],
+		"text": [
+			"At the beginning of each battle, permanently increases ATK by 12%. This effect stacks up to max 5 times, and is irremovable.",
+			"At the beginning of each battle, permanently increases ATK by 14%. This effect stacks up to max 5 times, and is irremovable.",
+			"At the beginning of each battle, permanently increases ATK by 17%. This effect stacks up to max 5 times, and is irremovable.",
+			"At the beginning of each battle, permanently increases ATK by 21%. This effect stacks up to max 5 times, and is irremovable.",
+			"At the beginning of each battle, permanently increases ATK by 25%. This effect stacks up to max 5 times, and is irremovable."
+		],
+		"icon": "ARTIFACT_UNIQUE_510"
+	},
+	{
+		"id": "artifact-513",
+		"code": "ARTIFACT_UNIQUE_513",
+		"name": "Juno's Special Dessert",
+		"skills": [
+			80005131,
+			80005132,
+			80005133,
+			80005134,
+			80005135
+		],
+		"text": [
+			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 12% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
+			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 14% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
+			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 17% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
+			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 21% for 5 sec. This effect cannot be used with other similar effects cast by allies.",
+			"Upon taking a hit, there is a 20% chance to increase All DMG the target takes by 25% for 5 sec. This effect cannot be used with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_513"
+	},
+	{
+		"id": "artifact-512",
+		"code": "ARTIFACT_UNIQUE_512",
+		"name": "Juno's Special Vitality Stew",
+		"skills": [
+			80005121,
+			80005122,
+			80005123,
+			80005124,
+			80005125
+		],
+		"text": [
+			"On Normal Attack, inflicts Physical DoT equal to 240% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
+			"On Normal Attack, inflicts Physical DoT equal to 290% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
+			"On Normal Attack, inflicts Physical DoT equal to 350% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
+			"On Normal Attack, inflicts Physical DoT equal to 420% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies.",
+			"On Normal Attack, inflicts Physical DoT equal to 500% of Attack over 5 seconds. This effect cannot be used simultaneously with the same effect from other allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_512"
+	},
+	{
+		"id": "artifact-519",
+		"code": "ARTIFACT_UNIQUE_519",
+		"name": "Otherworldly Radiance",
+		"skills": [
+			80005191,
+			80005192,
+			80005193,
+			80005194,
+			80005195
+		],
+		"text": [
+			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 24% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1000. DMG Reduction effect is irremovable.",
+			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 29% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1200. DMG Reduction effect is irremovable.",
+			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 35% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1400. DMG Reduction effect is irremovable.",
+			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 42% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 1700. DMG Reduction effect is irremovable.",
+			"At the beginning of the first battle, and every 15 sec, gains [Otherworldly Radiance] that lasts for 4 sec. If [Otherworldly Radiance] is still active after 4 sec, dispels negative effects from self and reduces All DMG taken by 50% for 4 sec. If [Otherworldly Radiance] is dispelled in 4 sec, dispels positive effects from 2 random enemies, knocks them away for 3 sec, and reduces their Mana by 2000. DMG Reduction effect is irremovable."
+		],
+		"icon": "ARTIFACT_UNIQUE_519"
+	},
+	{
+		"id": "artifact-518",
+		"code": "ARTIFACT_UNIQUE_518",
+		"name": "Otherworldly Helm",
+		"skills": [
+			80005181,
+			80005182,
+			80005183,
+			80005184,
+			80005185
+		],
+		"text": [
+			"Increases self's Max HP by 24%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 55% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
+			"Increases self's Max HP by 29%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 60% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
+			"Increases self's Max HP by 35%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 65% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
+			"Increases self's Max HP by 42%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 70% for 5 sec. This effect is irremovable and has a 30 sec Cooldown.",
+			"Increases self's Max HP by 50%, and upon taking DMG 3 times, reduces [DMG dealt to Heroes] of self and 2 enemies with the highest ATK by 75% for 5 sec. This effect is irremovable and has a 30 sec Cooldown."
+		],
+		"icon": "ARTIFACT_UNIQUE_518"
+	},
+	{
+		"id": "artifact-15",
+		"code": "ARTIFACT_UNIQUE_15",
+		"name": "Mask of Orc",
+		"skills": [
+			80000151,
+			80000152,
+			80000153,
+			80000154,
+			80000155
+		],
+		"text": [
+			"ATK upon Orcs increase by 48 %, and DMG resistance against Orcs increases by 24 %",
+			"ATK upon Orcs increase by 57 %, and DMG resistance against Orcs increases by 28 %",
+			"ATK upon Orcs increase by 69 %, and DMG resistance against Orcs increases by 34 %",
+			"ATK upon Orcs increase by 83 %, and DMG resistance against Orcs increases by 41 %",
+			"ATK upon Orcs increase by 100 %, and DMG resistance against Orcs increases by 50 %"
+		],
+		"icon": "ARTIFACT_UNIQUE_15"
+	},
+	{
+		"id": "artifact-25",
+		"code": "ARTIFACT_UNIQUE_25",
+		"name": "Blessing of Earth",
+		"skills": [
+			80000251,
+			80000252,
+			80000253,
+			80000254,
+			80000255
+		],
+		"text": [
+			"When there is 1 enemy, ATK is boosted by 48%.",
+			"When there is 1 enemy, ATK is boosted by 58%.",
+			"When there is 1 enemy, ATK is boosted by 69%.",
+			"When there is 1 enemy, ATK is boosted by 83%.",
+			"When there is 1 enemy, ATK is boosted by 100%."
+		],
+		"icon": "ARTIFACT_UNIQUE_25"
+	},
+	{
+		"id": "artifact-35",
+		"code": "ARTIFACT_UNIQUE_35",
+		"name": "Ring of Spirit Morph",
+		"skills": [
+			80000351,
+			80000352,
+			80000353,
+			80000354,
+			80000355
+		],
+		"text": [
+			"At the beginning of every battle, HP does not fall below 10% for 5 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
+			"At the beginning of every battle, HP does not fall below 10% for 6 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
+			"At the beginning of every battle, HP does not fall below 10% for 7 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
+			"At the beginning of every battle, HP does not fall below 10% for 8 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable.",
+			"At the beginning of every battle, HP does not fall below 10% for 9 sec. If HP falls below 15% for the duration of Skill, DMG dealt to Heroes will be reduced by 70% for 5 sec. All effects are irremovable."
+		],
+		"icon": "ARTIFACT_UNIQUE_35"
+	},
+	{
+		"id": "artifact-45",
+		"code": "ARTIFACT_UNIQUE_45",
+		"name": "Infernal Bond",
+		"skills": [
+			80000451,
+			80000452,
+			80000453,
+			80000454,
+			80000455
+		],
+		"text": [
+			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 3 sec.",
+			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 3.5 sec.",
+			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 4 sec.",
+			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 5 sec.",
+			"At the beginning of each battle, increases a random enemy's Cooldown of all Skills by 6 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_45"
+	},
+	{
+		"id": "artifact-55",
+		"code": "ARTIFACT_UNIQUE_55",
+		"name": "Christmas Star Ornament",
+		"skills": [
+			80000551,
+			80000552,
+			80000553,
+			80000554,
+			80000555
+		],
+		"text": [
+			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 310%. Also, Crit Resistance is increased by 120. This effect cannot be dispelled.",
+			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 370%. Also, Crit Resistance is increased by 140. This effect cannot be dispelled.",
+			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 450%. Also, Crit Resistance is increased by 170. This effect cannot be dispelled.",
+			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 540%. Also, Crit Resistance is increased by 210. This effect cannot be dispelled.",
+			"At the beginning of each battle, for 5 sec, increase Mana Recovery per sec by 650%. Also, Crit Resistance is increased by 250. This effect cannot be dispelled."
+		],
+		"icon": "ARTIFACT_UNIQUE_55"
+	},
+	{
+		"id": "artifact-65",
+		"code": "ARTIFACT_UNIQUE_65",
+		"name": "Crystal Music Box",
+		"skills": [
+			80000651,
+			80000652,
+			80000653,
+			80000654,
+			80000655
+		],
+		"text": [
+			"Increases DMG to Hero by 24 % and takes 12% increased DMG.",
+			"Increases DMG to Hero by 29 % and takes 14% increased DMG.",
+			"Increases DMG to Hero by 35 % and takes 17% increased DMG.",
+			"Increases DMG to Hero by 42 % and takes 21% increased DMG.",
+			"Increases DMG to Hero by 50 % and takes 25% increased DMG."
+		],
+		"icon": "ARTIFACT_UNIQUE_65"
+	},
+	{
+		"id": "artifact-524",
+		"code": "ARTIFACT_UNIQUE_524",
+		"name": "Abyssal Breath",
+		"skills": [
+			80005241,
+			80005242,
+			80005243,
+			80005244,
+			80005245
+		],
+		"text": [
+			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 6% and heals HP of all allies equal to 2.5% of Max HP every 9 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
+			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 7.2% and heals HP of all allies equal to 2.5% of Max HP every 8 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
+			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 8.6% and heals HP of all allies equal to 2.5% of Max HP every 7 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
+			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 10.4% and heals HP of all allies equal to 2.5% of Max HP every 6 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies.",
+			"Increases DMG dealt to Non-Hero enemies of 2 allies with the highest ATK excluding self by 12.5% and heals HP of all allies equal to 2.5% of Max HP every 5 sec. When there is 1 enemy, increases Heal Rate by x2. This effect does not stack with effects from other allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_524"
+	},
+	{
+		"id": "artifact-521",
+		"code": "ARTIFACT_UNIQUE_521",
+		"name": "Treasure Hunt Capsule",
+		"skills": [
+			80005211,
+			80005212,
+			80005213,
+			80005214,
+			80005215
+		],
+		"text": [
+			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1.2 sec and increases DMG dealt to non-Hero enemies by 1.2%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
+			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1.4 sec and increases DMG dealt to non-Hero enemies by 1.4%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
+			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 1.7 sec and increases DMG dealt to non-Hero enemies by 1.7%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
+			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 2.1 sec and increases DMG dealt to non-Hero enemies by 2.1%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled.",
+			"At the beginning of each battle, immediately reduces Cooldown of self's all Skills by 2.5 sec and increases DMG dealt to non-Hero enemies by 2.5%. The DMG Boost against Non-Hero enemies can be stacked up to max 10 times and is irremovable. At 10 stacks, the Cooldown Reduction effect is doubled."
+		],
+		"icon": "ARTIFACT_UNIQUE_521"
+	},
+	{
+		"id": "artifact-520",
+		"code": "ARTIFACT_UNIQUE_520",
+		"name": "Heart of the Abyss",
+		"skills": [
+			80005201,
+			80005202,
+			80005203,
+			80005204,
+			80005205
+		],
+		"text": [
+			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 10% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
+			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 12% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
+			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 14% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
+			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 17% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable.",
+			"At the beginning of every battle, increases ATK of the ally with the highest ATK by 20% and reduces ATK of the enemy with the highest ATK by 15% for 100 sec. The ATK Boost effect can be stacked up to max 5 times, and all effects are irremovable."
+		],
+		"icon": "ARTIFACT_UNIQUE_520"
+	},
+	{
+		"id": "artifact-523",
+		"code": "ARTIFACT_UNIQUE_523",
+		"name": "Belt Ornament of the Deep",
+		"skills": [
+			80005231,
+			80005232,
+			80005233,
+			80005234,
+			80005235
+		],
+		"text": [
+			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 24% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
+			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 29% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
+			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 35% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
+			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 42% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies.",
+			"At the beginning of the first battle, and every 30 sec, reduces DMG all allies take from enemies by 50% for 3 sec. This effect is irremovable and does not stack with effects from other allies. Each time the effect expires, dispels negative effects from all allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_523"
+	},
+	{
+		"id": "artifact-522",
+		"code": "ARTIFACT_UNIQUE_522",
+		"name": "Earth Fortress",
+		"skills": [
+			80005221,
+			80005222,
+			80005223,
+			80005224,
+			80005225
+		],
+		"text": [
+			"When there is 1 enemy, reduces the target's Heal Rate by 12% and increases own DMG dealt to Bosses by 12%. This effect does not stack with effects from other allies.",
+			"When there is 1 enemy, reduces the target's Heal Rate by 14% and increases own DMG dealt to Bosses by 14%. This effect does not stack with effects from other allies.",
+			"When there is 1 enemy, reduces the target's Heal Rate by 17% and increases own DMG dealt to Bosses by 17%. This effect does not stack with effects from other allies.",
+			"When there is 1 enemy, reduces the target's Heal Rate by 21% and increases own DMG dealt to Bosses by 21%. This effect does not stack with effects from other allies.",
+			"When there is 1 enemy, reduces the target's Heal Rate by 25% and increases own DMG dealt to Bosses by 25%. This effect does not stack with effects from other allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_522"
+	},
+	{
+		"id": "artifact-1003",
+		"code": "ARTIFACT_UNIQUE_1003",
+		"name": "Solenis' Engraving",
+		"skills": [
+			80010031,
+			80010032,
+			80010033,
+			80010034,
+			80010035
+		],
+		"text": [
+			"Increases All DEF by 2.4% and Max HP by 1.2% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
+			"Increases All DEF by 2.8% and Max HP by 1.4% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
+			"Increases All DEF by 3.4% and Max HP by 1.7% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
+			"Increases All DEF by 4.2% and Max HP by 2.1% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies.",
+			"Increases All DEF by 5% and Max HP by 2.5% for all allies every 10 sec. This effect can be stacked up to max 12 times and is irremovable. This effect does not stack with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_1003"
+	},
+	{
+		"id": "artifact-16",
+		"code": "ARTIFACT_UNIQUE_16",
+		"name": "Mask of Dark Elf",
+		"skills": [
+			80000161,
+			80000162,
+			80000163,
+			80000164,
+			80000165
+		],
+		"text": [
+			"ATK upon Dark Elves increase by 48 %, and DMG resistance against Dark Elves increases by 24 %",
+			"ATK upon Dark Elves increase by 57 %, and DMG resistance against Dark Elves increases by 28 %",
+			"ATK upon Dark Elves increase by 69 %, and DMG resistance against Dark Elves increases by 34 %",
+			"ATK upon Dark Elves increase by 83 %, and DMG resistance against Dark Elves increases by 41 %",
+			"ATK upon Dark Elves increase by 100 %, and DMG resistance against Dark Elves increases by 50 %"
+		],
+		"icon": "ARTIFACT_UNIQUE_16"
+	},
+	{
+		"id": "artifact-26",
+		"code": "ARTIFACT_UNIQUE_26",
+		"name": "Earth Core",
+		"skills": [
+			80000261,
+			80000262,
+			80000263,
+			80000264,
+			80000265
+		],
+		"text": [
+			"ATK, HP and all DEF are increased by 12%.",
+			"ATK, HP and all DEF are increased by 14%.",
+			"ATK, HP and all DEF are increased by 17%.",
+			"ATK, HP and all DEF are increased by 20%.",
+			"ATK, HP and all DEF are increased by 25%."
+		],
+		"icon": "ARTIFACT_UNIQUE_26"
+	},
+	{
+		"id": "artifact-36",
+		"code": "ARTIFACT_UNIQUE_36",
+		"name": "Feather of Sacrifice",
+		"skills": [
+			80000361,
+			80000362,
+			80000363,
+			80000364,
+			80000365
+		],
+		"text": [
+			"For 120 sec after the battle starts, takes 12% extra DMG and increases all DMG taken by the enemy boss by 12%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"For 120 sec after the battle starts, takes 14% extra DMG and increases all DMG taken by the enemy boss by 14%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"For 120 sec after the battle starts, takes 17% extra DMG and increases all DMG taken by the enemy boss by 17%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"For 120 sec after the battle starts, takes 21% extra DMG and increases all DMG taken by the enemy boss by 21%. This effect cannot be dispelled, and it does not stack with other effects for allies.",
+			"For 120 sec after the battle starts, takes 25% extra DMG and increases all DMG taken by the enemy boss by 25%. This effect cannot be dispelled, and it does not stack with other effects for allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_36"
+	},
+	{
+		"id": "artifact-46",
+		"code": "ARTIFACT_UNIQUE_46",
+		"name": "Infernal Gate",
+		"skills": [
+			80000461,
+			80000462,
+			80000463,
+			80000464,
+			80000465
+		],
+		"text": [
+			"Increases All DEF by 12%, DMG dealt to enemies by 7.2%, and DMG dealt to Non-Hero enemies by 7.2%.",
+			"Increases All DEF by 14%, DMG dealt to enemies by 8.6%, and DMG dealt to Non-Hero enemies by 8.6%.",
+			"Increases All DEF by 17%, DMG dealt to enemies by 10.5%, and DMG dealt to Non-Hero enemies by 10.5%.",
+			"Increases All DEF by 21%, DMG dealt to enemies by 12.5%, and DMG dealt to Non-Hero enemies by 12.5%.",
+			"Increases All DEF by 25%, DMG dealt to enemies by 15%, and DMG dealt to Non-Hero enemies by 15%."
+		],
+		"icon": "ARTIFACT_UNIQUE_46"
+	},
+	{
+		"id": "artifact-56",
+		"code": "ARTIFACT_UNIQUE_56",
+		"name": "New Year's Fireworks",
+		"skills": [
+			80000561,
+			80000562,
+			80000563,
+			80000564,
+			80000565
+		],
+		"text": [
+			"ATK is increased by 6% for 60 sec at the start of each battle.",
+			"ATK is increased by 7.2% for 60 sec at the start of each battle.",
+			"ATK is increased by 8.6% for 60 sec at the start of each battle.",
+			"ATK is increased by 10.4% for 60 sec at the start of each battle.",
+			"ATK is increased by 12.5% for 60 sec at the start of each battle."
+		],
+		"icon": "ARTIFACT_UNIQUE_56"
+	},
+	{
+		"id": "artifact-66",
+		"code": "ARTIFACT_UNIQUE_66",
+		"name": "Amethyst Pendulum",
+		"skills": [
+			80000661,
+			80000662,
+			80000663,
+			80000664,
+			80000665
+		],
+		"text": [
+			"Increases All Crit Resistance by 240 for 7 sec every 10 sec.",
+			"Increases All Crit Resistance by 290 for 7 sec every 10 sec.",
+			"Increases All Crit Resistance by 350 for 7 sec every 10 sec.",
+			"Increases All Crit Resistance by 420 for 7 sec every 10 sec.",
+			"Increases All Crit Resistance by 500 for 7 sec every 10 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_66"
+	},
+	{
+		"id": "artifact-13",
+		"code": "ARTIFACT_UNIQUE_13",
+		"name": "Mask of Goblin",
+		"skills": [
+			80000131,
+			80000132,
+			80000133,
+			80000134,
+			80000135
+		],
+		"text": [
+			"ATK upon Goblins increase by 48 %, and DMG resistance against Goblins increases by 24 %",
+			"ATK upon Goblins increase by 57 %, and DMG resistance against Goblins increases by 28 %",
+			"ATK upon Goblins increase by 69 %, and DMG resistance against Goblins increases by 34 %",
+			"ATK upon Goblins increase by 83 %, and DMG resistance against Goblins increases by 41 %",
+			"ATK upon Goblins increase by 100 %, and DMG resistance against Goblins increases by 50 %"
+		],
+		"icon": "ARTIFACT_UNIQUE_13"
+	},
+	{
+		"id": "artifact-23",
+		"code": "ARTIFACT_UNIQUE_23",
+		"name": "Earth Storm",
+		"skills": [
+			80000231,
+			80000232,
+			80000233,
+			80000234,
+			80000235
+		],
+		"text": [
+			"When inflicted by CC, recovers 700 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 14% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
+			"When inflicted by CC, recovers 800 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 17% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
+			"When inflicted by CC, recovers 1000 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 21% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
+			"When inflicted by CC, recovers 1200 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 25% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec.",
+			"When inflicted by CC, recovers 1500 Mana and gains [Earth Storm] for 10 sec, increasing All DMG taken by nearby enemies by 30% for 1 sec. When activated in the Arena, [Earth Storm] deals P.DMG equal to 3% of the target’s Max HP to nearby enemies for 1 sec. This effect cannot Crit, and [Earth Storm] has a cooldown of 20 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_23"
+	},
+	{
+		"id": "artifact-33",
+		"code": "ARTIFACT_UNIQUE_33",
+		"name": "Tome of Black Magic",
+		"skills": [
+			80000331,
+			80000332,
+			80000333,
+			80000334,
+			80000335
+		],
+		"text": [
+			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 2.4% of the target’s current HP for 1 sec and reduces Mana by 240. This effect only applies in the Arena.",
+			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 2.9% of the target’s current HP for 1 sec and reduces Mana by 290. This effect only applies in the Arena.",
+			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 3.5% of the target’s current HP for 1 sec and reduces Mana by 350. This effect only applies in the Arena.",
+			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 4.2% of the target’s current HP for 1 sec and reduces Mana by 420. This effect only applies in the Arena.",
+			"Every 10 sec, selects a random enemy. For 5 sec, deals DEF-ignoring DMG equal to 5% of the target’s current HP for 1 sec and reduces Mana by 500. This effect only applies in the Arena."
+		],
+		"icon": "ARTIFACT_UNIQUE_33"
+	},
+	{
+		"id": "artifact-43",
+		"code": "ARTIFACT_UNIQUE_43",
+		"name": "Infernal Greatsword",
+		"skills": [
+			80000431,
+			80000432,
+			80000433,
+			80000434,
+			80000435
+		],
+		"text": [
+			"Own heal rate decreases by 30%, while Penetration increases by 360 and Crit DMG increases by 36%",
+			"Own heal rate decreases by 30%, while Penetration increases by 430 and Crit DMG increases by 43%",
+			"Own heal rate decreases by 30%, while Penetration increases by 520 and Crit DMG increases by 52%",
+			"Own heal rate decreases by 30%, while Penetration increases by 630 and Crit DMG increases by 63%",
+			"Own heal rate decreases by 30%, while Penetration increases by 750 and Crit DMG increases by 75%"
+		],
+		"icon": "ARTIFACT_UNIQUE_43"
+	},
+	{
+		"id": "artifact-53",
+		"code": "ARTIFACT_UNIQUE_53",
+		"name": "Well-Done Turkey Roast",
+		"skills": [
+			80000531,
+			80000532,
+			80000533,
+			80000534,
+			80000535
+		],
+		"text": [
+			"Every 15 sec, recovers HP equal to 1.2% of Max HP every sec for 3 sec.",
+			"Every 15 sec, recovers HP equal to 1.4% of Max HP every sec for 3 sec.",
+			"Every 15 sec, recovers HP equal to 1.7% of Max HP every sec for 3 sec.",
+			"Every 15 sec, recovers HP equal to 2% of Max HP every sec for 3 sec.",
+			"Every 15 sec, recovers HP equal to 2.5% of Max HP every sec for 3 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_53"
+	},
+	{
+		"id": "artifact-63",
+		"code": "ARTIFACT_UNIQUE_63",
+		"name": "Fantastic Hybrid Animals",
+		"skills": [
+			80000631,
+			80000632,
+			80000633,
+			80000634,
+			80000635
+		],
+		"text": [
+			"When the battle starts, increases DMG to Non-Hero enemies by 14% and takes 14% reduced DMG for 200 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 17% and takes 17% reduced DMG for 200 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 21% and takes 21% reduced DMG for 200 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 25% and takes 25% reduced DMG for 200 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 30% and takes 30% reduced DMG for 200 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_63"
+	},
+	{
+		"id": "artifact-19",
+		"code": "ARTIFACT_UNIQUE_19",
+		"name": "Soul Spring Water",
+		"skills": [
+			80000191,
+			80000192,
+			80000193,
+			80000194,
+			80000195
+		],
+		"text": [
+			"At the beginning of each battle, heals 28% HP and recovers 14% Mana.",
+			"At the beginning of each battle, heals 34% HP and recovers 17% Mana.",
+			"At the beginning of each battle, heals 42% HP and recovers 21% Mana.",
+			"At the beginning of each battle, heals 50% HP and recovers 25% Mana.",
+			"At the beginning of each battle, heals 60% HP and recovers 30% Mana."
+		],
+		"icon": "ARTIFACT_UNIQUE_19"
+	},
+	{
+		"id": "artifact-29",
+		"code": "ARTIFACT_UNIQUE_29",
+		"name": "Sorcerous Black Dagger",
+		"skills": [
+			80000291,
+			80000292,
+			80000293,
+			80000294,
+			80000295
+		],
+		"text": [
+			"Upon auto-attacking, there is a 12% chance to reduce the enemy's mana by 700. Has a cooldown of 6 sec.",
+			"Upon auto-attacking, there is a 14% chance to reduce the enemy's mana by 800. Has a cooldown of 6 sec.",
+			"Upon auto-attacking, there is a 16% chance to reduce the enemy's mana by 1000. Has a cooldown of 6 sec.",
+			"Upon auto-attacking, there is a 18% chance to reduce the enemy's mana by 1200. Has a cooldown of 6 sec.",
+			"Upon auto-attacking, there is a 20% chance to reduce the enemy's mana by 1500. Has a cooldown of 6 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_29"
+	},
+	{
+		"id": "artifact-39",
+		"code": "ARTIFACT_UNIQUE_39",
+		"name": "Nail Ornament of the Deep",
+		"skills": [
+			80000391,
+			80000392,
+			80000393,
+			80000394,
+			80000395
+		],
+		"text": [
+			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 24% for 200 sec. This effect is irremovable.",
+			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 29% for 200 sec. This effect is irremovable.",
+			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 35% for 200 sec. This effect is irremovable.",
+			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 42% for 200 sec. This effect is irremovable.",
+			"At the beginning of each battle, fixes self's DEF to 0 and increases DMG dealt to bosses by 50% for 200 sec. This effect is irremovable."
+		],
+		"icon": "ARTIFACT_UNIQUE_39"
+	},
+	{
+		"id": "artifact-49",
+		"code": "ARTIFACT_UNIQUE_49",
+		"name": "Lion of Protection",
+		"skills": [
+			80000491,
+			80000492,
+			80000493,
+			80000494,
+			80000495
+		],
+		"text": [
+			"Increases own P.DEF by 24%, and P.Block by 120.",
+			"Increases own P.DEF by 29%, and P.Block by 140.",
+			"Increases own P.DEF by 35%, and P.Block by 170.",
+			"Increases own P.DEF by 42%, and P.Block by 210.",
+			"Increases own P.DEF by 50%, and P.Block by 250."
+		],
+		"icon": "ARTIFACT_UNIQUE_49"
+	},
+	{
+		"id": "artifact-59",
+		"code": "ARTIFACT_UNIQUE_59",
+		"name": "Cooling Delicacy in the Summer",
+		"skills": [
+			80000591,
+			80000592,
+			80000593,
+			80000594,
+			80000595
+		],
+		"text": [
+			"When the battle begins, reduces DMG from non-Hero enemies by 24% for 30 second(s), and recovers 120 MP every 2 second(s).",
+			"When the battle begins, reduces DMG from non-Hero enemies by 28% for 30 second(s), and recovers 140 MP every 2 second(s).",
+			"When the battle begins, reduces DMG from non-Hero enemies by 34% for 30 second(s), and recovers 170 MP every 2 second(s).",
+			"When the battle begins, reduces DMG from non-Hero enemies by 42% for 30 second(s), and recovers 210 MP every 2 second(s).",
+			"When the battle begins, reduces DMG from non-Hero enemies by 50% for 30 second(s), and recovers 250 MP every 2 second(s)."
+		],
+		"icon": "ARTIFACT_UNIQUE_59"
+	},
+	{
+		"id": "artifact-1000",
+		"code": "ARTIFACT_UNIQUE_1000",
+		"name": "Dragon's Doomstone",
+		"skills": [
+			80010001,
+			80010002,
+			80010003,
+			80010004,
+			80010005
+		],
+		"text": [
+			"Increases DMG dealt to Non-Hero enemies by 12% and takes 6% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
+			"Increases DMG dealt to Non-Hero enemies by 14% and takes 7% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
+			"Increases DMG dealt to Non-Hero enemies by 17% and takes 8.5% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
+			"Increases DMG dealt to Non-Hero enemies by 21% and takes 10.5% reduced DMG from them. If the target is a [Dragon], the effect is tripled.",
+			"Increases DMG dealt to Non-Hero enemies by 25% and takes 12.5% reduced DMG from them. If the target is a [Dragon], the effect is tripled."
+		],
+		"icon": "ARTIFACT_UNIQUE_1000"
+	},
+	{
+		"id": "artifact-17",
+		"code": "ARTIFACT_UNIQUE_17",
+		"name": "Mask of Evil King",
+		"skills": [
+			80000171,
+			80000172,
+			80000173,
+			80000174,
+			80000175
+		],
+		"text": [
+			"Inflict 12% more DMG upon bosses.",
+			"Inflict 14% more DMG upon bosses.",
+			"Inflict 17% more DMG upon bosses.",
+			"Inflict 20% more DMG upon bosses.",
+			"Inflict 25% more DMG upon bosses."
+		],
+		"icon": "ARTIFACT_UNIQUE_17"
+	},
+	{
+		"id": "artifact-27",
+		"code": "ARTIFACT_UNIQUE_27",
+		"name": "Frost Giant Mask",
+		"skills": [
+			80000271,
+			80000272,
+			80000273,
+			80000274,
+			80000275
+		],
+		"text": [
+			"ATK upon Frost Giants increases by 48 %, and DMG resistance against Frost Giants increases by 24 %.",
+			"ATK upon Frost Giants increases by 57 %, and DMG resistance against Frost Giants increases by 28 %.",
+			"ATK upon Frost Giants increases by 69 %, and DMG resistance against Frost Giants increases by 34 %.",
+			"ATK upon Frost Giants increases by 83 %, and DMG resistance against Frost Giants increases by 41 %.",
+			"ATK upon Frost Giants increases by 100 %, and DMG resistance against Frost Giants increases by 50 %."
+		],
+		"icon": "ARTIFACT_UNIQUE_27"
+	},
+	{
+		"id": "artifact-37",
+		"code": "ARTIFACT_UNIQUE_37",
+		"name": "Vase of Sacrifice",
+		"skills": [
+			80000371,
+			80000372,
+			80000373,
+			80000374,
+			80000375
+		],
+		"text": [
+			"When you take damage 50 times, heals a random ally’s HP by 240% of your Attack and increases that ally’s Attack by 36% for 10 seconds.",
+			"When you take damage 50 times, heals a random ally’s HP by 290% of your Attack and increases that ally’s Attack by 43% for 10 seconds.",
+			"When you take damage 50 times, heals a random ally’s HP by 350% of your Attack and increases that ally’s Attack by 51% for 10 seconds.",
+			"When you take damage 50 times, heals a random ally’s HP by 420% of your Attack and increases that ally’s Attack by 63% for 10 seconds.",
+			"When you take damage 50 times, heals a random ally’s HP by 500% of your Attack and increases that ally’s Attack by 75% for 10 seconds."
+		],
+		"icon": "ARTIFACT_UNIQUE_37"
+	},
+	{
+		"id": "artifact-47",
+		"code": "ARTIFACT_UNIQUE_47",
+		"name": "Book of the Mad",
+		"skills": [
+			80000471,
+			80000472,
+			80000473,
+			80000474,
+			80000475
+		],
+		"text": [
+			"Reduces own Mana by 120 every sec and increases DMG dealt to enemies by 17%.",
+			"Reduces own Mana by 140 every sec and increases DMG dealt to enemies by 21%.",
+			"Reduces own Mana by 170 every sec and increases DMG dealt to enemies by 25%.",
+			"Reduces own Mana by 210 every sec and increases DMG dealt to enemies by 30%.",
+			"Reduces own Mana by 250 every sec and increases DMG dealt to enemies by 35%."
+		],
+		"icon": "ARTIFACT_UNIQUE_47"
+	},
+	{
+		"id": "artifact-57",
+		"code": "ARTIFACT_UNIQUE_57",
+		"name": "Fancy Traditional Pendant",
+		"skills": [
+			80000571,
+			80000572,
+			80000573,
+			80000574,
+			80000575
+		],
+		"text": [
+			"Crit Chance is increased by 120 and Crit DMG is increased by 24%.",
+			"Crit Chance is increased by 140 and Crit DMG is increased by 29%.",
+			"Crit Chance is increased by 170 and Crit DMG is increased by 35%.",
+			"Crit Chance is increased by 210 and Crit DMG is increased by 42%.",
+			"Crit Chance is increased by 250 and Crit DMG is increased by 50%."
+		],
+		"icon": "ARTIFACT_UNIQUE_57"
+	},
+	{
+		"id": "artifact-67",
+		"code": "ARTIFACT_UNIQUE_67",
+		"name": "Goddess of Glory",
+		"skills": [
+			80000671,
+			80000672,
+			80000673,
+			80000674,
+			80000675
+		],
+		"text": [
+			"Increases ATK Spd of 4 allies by 120 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
+			"Increases ATK Spd of 4 allies by 140 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
+			"Increases ATK Spd of 4 allies by 170 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
+			"Increases ATK Spd of 4 allies by 210 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies.",
+			"Increases ATK Spd of 4 allies by 250 for 20 sec when the battle starts. This effect will not be stacked with other similar effects cast by allies."
+		],
+		"icon": "ARTIFACT_UNIQUE_67"
+	},
+	{
+		"id": "artifact-10",
+		"code": "ARTIFACT_UNIQUE_10",
+		"name": "Golden Mask of Ancient King",
+		"skills": [
+			80000101,
+			80000102,
+			80000103,
+			80000104,
+			80000105
+		],
+		"text": [
+			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 3.5 sec. Has a cooldown of 5 sec.",
+			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 4 sec. Has a cooldown of 5 sec.",
+			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 5 sec. Has a cooldown of 5 sec.",
+			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 6 sec. Has a cooldown of 5 sec.",
+			"Upon taking a hit, there is a 5% chance to gain invulnerability to all DMG for 7.5 sec. Has a cooldown of 5 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_10"
+	},
+	{
+		"id": "artifact-20",
+		"code": "ARTIFACT_UNIQUE_20",
+		"name": "Talismans of Resistance",
+		"skills": [
+			80000201,
+			80000202,
+			80000203,
+			80000204,
+			80000205
+		],
+		"text": [
+			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 1.5 sec. Has a Cooldown of 19 sec.",
+			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 2 sec. Has a Cooldown of 18 sec.",
+			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 2.5 sec. Has a Cooldown of 17 sec.",
+			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 3 sec. Has a Cooldown of 16 sec.",
+			"Upon receiving a negative effect, removes all negative effects. Afterward, gains immunity to CC for 3.5 sec. Has a Cooldown of 15 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_20"
+	},
+	{
+		"id": "artifact-30",
+		"code": "ARTIFACT_UNIQUE_30",
+		"name": "Tarot Card of Loss",
+		"skills": [
+			80000301,
+			80000302,
+			80000303,
+			80000304,
+			80000305
+		],
+		"text": [
+			"Reduces Crit Chance by 180 and increases ATK by 36%.",
+			"Reduces Crit Chance by 210 and increases ATK by 43%.",
+			"Reduces Crit Chance by 260 and increases ATK by 52%.",
+			"Reduces Crit Chance by 310 and increases ATK by 63%.",
+			"Reduces Crit Chance by 375 and increases ATK by 75%."
+		],
+		"icon": "ARTIFACT_UNIQUE_30"
+	},
+	{
+		"id": "artifact-40",
+		"code": "ARTIFACT_UNIQUE_40",
+		"name": "Trident of the Deep",
+		"skills": [
+			80000401,
+			80000402,
+			80000403,
+			80000404,
+			80000405
+		],
+		"text": [
+			"Dealing DMG to enemies 100 times increases ATK by 36% and Crit Chance by 240 for 15 sec. This effect cannot be dispelled.",
+			"Dealing DMG to enemies 100 times increases ATK by 44% and Crit Chance by 290 for 15 sec. This effect cannot be dispelled.",
+			"Dealing DMG to enemies 100 times increases ATK by 53% and Crit Chance by 350 for 15 sec. This effect cannot be dispelled.",
+			"Dealing DMG to enemies 100 times increases ATK by 63% and Crit Chance by 420 for 15 sec. This effect cannot be dispelled.",
+			"Dealing DMG to enemies 100 times increases ATK by 75% and Crit Chance by 500 for 15 sec. This effect cannot be dispelled."
+		],
+		"icon": "ARTIFACT_UNIQUE_40"
+	},
+	{
+		"id": "artifact-60",
+		"code": "ARTIFACT_UNIQUE_60",
+		"name": "LuLu's Necklace",
+		"skills": [
+			80000601,
+			80000602,
+			80000603,
+			80000604,
+			80000605
+		],
+		"text": [
+			"When the battle starts, increases DMG to Non-Hero enemies by 24% for 30 sec, and recovers Mana by 240 every 5 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 28% for 30 sec, and recovers Mana by 280 every 5 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 34% for 30 sec, and recovers Mana by 340 every 5 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 42% for 30 sec, and recovers Mana by 420 every 5 sec.",
+			"When the battle starts, increases DMG to Non-Hero enemies by 50% for 30 sec, and recovers Mana by 500 every 5 sec."
+		],
+		"icon": "ARTIFACT_UNIQUE_60"
+	}
+];
+//#endregion
+//#region src/technomagic/sim/artifacts.ts
+/** The same at every refinement. */
+var all = (n) => [
+	n,
+	n,
+	n,
+	n,
+	n
+];
+/** King's Raid's thousandths, at each refinement, as shares (or points: 1000 is 1). */
+var k = (...t) => t.map((n) => n / 1e3);
+/** Every artifact the fight has a use for, by id (KR_ARTIFACTS'). */
+var ARTIFACTS = {
+	"artifact-1001": { allies: {
+		atk: k(140, 170, 210, 250, 300),
+		critDamage: k(280, 340, 420, 500, 600)
+	} },
+	"artifact-24": { start: {
+		on: "self",
+		lasts: [
+			10,
+			12,
+			14,
+			17,
+			20
+		],
+		defense: all(.5),
+		guards: true
+	} },
+	"artifact-44": { timer: {
+		every: 8,
+		lasts: 5,
+		hit: [
+			240,
+			290,
+			350,
+			420,
+			500
+		],
+		weakness: k(120, 140, 170, 210, 250),
+		grows: k(5, 6, 7, 8, 10),
+		most: 25
+	} },
+	"artifact-1002": {
+		foes: k(120, 140, 170, 210, 250),
+		taken: k(-60, -70, -85, -105, -125)
+	},
+	"artifact-11": { own: {
+		blockMagical: [
+			330,
+			360,
+			400,
+			440,
+			500
+		],
+		toughMagical: [
+			110,
+			120,
+			140,
+			160,
+			200
+		]
+	} },
+	"artifact-21": { own: {
+		acc: [
+			360,
+			430,
+			520,
+			630,
+			750
+		],
+		accuracy: [
+			360,
+			430,
+			520,
+			630,
+			750
+		]
+	} },
+	"artifact-41": { bossAtk: {
+		atk: k(-240, -290, -350, -420, -500),
+		lasts: [
+			10,
+			12,
+			14,
+			17,
+			20
+		]
+	} },
+	"artifact-61": { timer: {
+		every: 7,
+		heal: k(1200, 1400, 1700, 2100, 2500),
+		recovery: k(24, 28, 34, 42, 50),
+		most: 15
+	} },
+	"artifact-32": { timer: {
+		every: 7,
+		mdef: k(12, 14, 17, 20, 25),
+		most: 6
+	} },
+	"artifact-42": { own: { defense: k(600, 720, 860, 1030, 1250) } },
+	"artifact-52": {
+		own: { tough: [
+			120,
+			140,
+			170,
+			200,
+			250
+		] },
+		dmg: k(120, 140, 170, 200, 250)
+	},
+	"artifact-62": { onKnock: {
+		wait: all(30),
+		manaShare: k(140, 170, 210, 250, 300),
+		speed: [
+			240,
+			290,
+			350,
+			420,
+			500
+		],
+		lasts: all(5)
+	} },
+	"artifact-505": { own: { critDamage: k(600, 720, 870, 1050, 1250) } },
+	"artifact-504": { own: {
+		hp: k(120, 140, 170, 210, 250),
+		block: [
+			120,
+			140,
+			170,
+			210,
+			250
+		]
+	} },
+	"artifact-507": {
+		allies: { atk: k(100, 120, 140, 170, 200) },
+		own: { defense: k(120, 140, 170, 210, 250) }
+	},
+	"artifact-506": { start: {
+		on: "allies",
+		lasts: all(20),
+		atk: k(60, 72, 86, 104, 125)
+	} },
+	"artifact-502": { later: {
+		after: 30,
+		atk: k(360, 430, 520, 630, 750)
+	} },
+	"artifact-509": { own: {
+		atk: k(240, 290, 350, 420, 500),
+		critDamage: k(240, 290, 350, 420, 500)
+	} },
+	"artifact-508": { start: {
+		on: "self-top",
+		lasts: all(20),
+		atk: k(120, 140, 170, 210, 250)
+	} },
+	"artifact-901": { allies: {
+		atk: k(90, 105, 120, 135, 150),
+		hp: k(90, 105, 120, 135, 150),
+		defense: k(90, 105, 120, 135, 150)
+	} },
+	"artifact-900": { own: {
+		atk: k(300, 350, 400, 450, 500),
+		crit: [
+			300,
+			350,
+			400,
+			450,
+			500
+		]
+	} },
+	"artifact-902": {
+		own: { hp: k(300, 350, 400, 450, 500) },
+		later: {
+			after: 30.5,
+			others: true,
+			critDamage: k(600, 700, 800, 900, 1e3)
+		}
+	},
+	"artifact-1": { onBasic: {
+		chance: k(120, 140, 170, 200, 250),
+		wait: 1,
+		mana: 1e3
+	} },
+	"artifact-2": { onBasic: {
+		chance: all(.1),
+		wait: 10,
+		atk: k(120, 140, 170, 200, 250),
+		speed: [
+			120,
+			140,
+			170,
+			200,
+			250
+		],
+		lasts: 10
+	} },
+	"artifact-3": { onBasic: {
+		chance: all(.03),
+		wait: 1,
+		hit: [
+			4800,
+			5750,
+			6900,
+			8300,
+			1e4
+		]
+	} },
+	"artifact-4": { start: {
+		on: "self",
+		lasts: all(15),
+		speed: [
+			480,
+			570,
+			690,
+			830,
+			1e3
+		]
+	} },
+	"artifact-5": { timer: {
+		every: 10,
+		cooldown: [
+			1.2,
+			1.4,
+			1.7,
+			2,
+			2.5
+		],
+		speed: [
+			96,
+			115,
+			138,
+			165,
+			200
+		],
+		lasts: 5
+	} },
+	"artifact-6": { low: {
+		below: .2,
+		atk: k(360, 430, 510, 620, 750),
+		speed: [
+			360,
+			430,
+			510,
+			620,
+			750
+		],
+		tough: [
+			360,
+			430,
+			510,
+			620,
+			750
+		]
+	} },
+	"artifact-7": { fullMana: {
+		wait: 20,
+		crit: [
+			480,
+			570,
+			690,
+			830,
+			1e3
+		],
+		acc: [
+			480,
+			570,
+			690,
+			830,
+			1e3
+		],
+		lasts: 10
+	} },
+	"artifact-9": { rescue: {
+		below: .25,
+		heal: k(360, 430, 510, 620, 750)
+	} },
+	"artifact-38": {
+		own: { dodgePhysical: [
+			120,
+			140,
+			170,
+			210,
+			250
+		] },
+		onDodge: {
+			atk: k(12, 14, 17, 21, 25),
+			most: 20
+		}
+	},
+	"artifact-48": { timer: {
+		every: 8,
+		lasts: 4,
+		speed: [
+			120,
+			140,
+			170,
+			210,
+			250
+		],
+		random: 2
+	} },
+	"artifact-58": { own: { speed: [
+		96,
+		115,
+		138,
+		165,
+		200
+	] } },
+	"artifact-68": { own: {
+		resist: [
+			240,
+			290,
+			350,
+			420,
+			500
+		],
+		accuracy: [
+			240,
+			290,
+			350,
+			420,
+			500
+		]
+	} },
+	"artifact-515": { onBasic: {
+		chance: all(.05),
+		wait: 0,
+		speed: [
+			480,
+			580,
+			700,
+			840,
+			1e3
+		],
+		lasts: 5
+	} },
+	"artifact-514": {
+		own: { hp: k(240, 290, 350, 420, 500) },
+		allies: { atk: k(240, 290, 350, 420, 500) }
+	},
+	"artifact-516": { onKnock: {
+		wait: all(20),
+		cooldown: [
+			6,
+			7,
+			8,
+			9,
+			10
+		],
+		manaEach: [
+			600,
+			700,
+			800,
+			900,
+			1e3
+		]
+	} },
+	"artifact-511": { own: {
+		defense: k(120, 140, 170, 210, 250),
+		recovery: k(120, 140, 170, 210, 250)
+	} },
+	"artifact-510": { own: { atk: k(120, 140, 170, 210, 250) } },
+	"artifact-513": { onHurt: {
+		chance: .2,
+		wait: all(0),
+		lasts: all(5),
+		weakness: k(120, 140, 170, 210, 250)
+	} },
+	"artifact-25": { own: { atk: k(480, 580, 690, 830, 1e3) } },
+	"artifact-35": { undying: {
+		floor: .1,
+		lasts: [
+			5,
+			6,
+			7,
+			8,
+			9
+		]
+	} },
+	"artifact-55": { start: {
+		on: "self",
+		lasts: all(5),
+		mana: k(3100, 3700, 4500, 5400, 6500),
+		critResist: [
+			120,
+			140,
+			170,
+			210,
+			250
+		]
+	} },
+	"artifact-521": {
+		opening: { cooldown: [
+			1.2,
+			1.4,
+			1.7,
+			2.1,
+			2.5
+		] },
+		foes: k(12, 14, 17, 21, 25)
+	},
+	"artifact-520": { start: {
+		on: "top",
+		lasts: all(100),
+		atk: k(100, 120, 140, 170, 200)
+	} },
+	"artifact-523": {
+		start: {
+			on: "allies",
+			lasts: all(3),
+			tough: [
+				240,
+				290,
+				350,
+				420,
+				500
+			]
+		},
+		timer: {
+			every: 30,
+			lasts: 3,
+			tough: [
+				240,
+				290,
+				350,
+				420,
+				500
+			]
+		}
+	},
+	"artifact-522": {
+		bossHeal: k(-120, -140, -170, -210, -250),
+		boss: k(120, 140, 170, 210, 250)
+	},
+	"artifact-26": { own: {
+		atk: k(120, 140, 170, 200, 250),
+		hp: k(120, 140, 170, 200, 250),
+		defense: k(120, 140, 170, 200, 250)
+	} },
+	"artifact-36": { start: {
+		on: "self",
+		lasts: all(120),
+		boss: k(120, 140, 170, 210, 250)
+	} },
+	"artifact-46": {
+		own: { defense: k(120, 140, 170, 210, 250) },
+		dmg: k(72, 86, 105, 125, 150),
+		foes: k(72, 86, 105, 125, 150)
+	},
+	"artifact-56": { start: {
+		on: "self",
+		lasts: all(60),
+		atk: k(60, 72, 86, 104, 125)
+	} },
+	"artifact-66": { timer: {
+		every: 10,
+		lasts: 7,
+		critResist: [
+			240,
+			290,
+			350,
+			420,
+			500
+		]
+	} },
+	"artifact-23": { onKnock: {
+		wait: all(20),
+		mana: [
+			700,
+			800,
+			1e3,
+			1200,
+			1500
+		],
+		weakness: k(140, 170, 210, 250, 300)
+	} },
+	"artifact-43": { own: {
+		recovery: all(-.3),
+		pen: [
+			360,
+			430,
+			520,
+			630,
+			750
+		],
+		critDamage: k(360, 430, 520, 630, 750)
+	} },
+	"artifact-53": { timer: {
+		every: 15,
+		lasts: 3,
+		hot: k(12, 14, 17, 20, 25)
+	} },
+	"artifact-63": { start: {
+		on: "self",
+		lasts: all(200),
+		foes: k(140, 170, 210, 250, 300),
+		taken: k(-140, -170, -210, -250, -300)
+	} },
+	"artifact-19": { opening: {
+		heal: k(280, 340, 420, 500, 600),
+		mana: k(140, 170, 210, 250, 300)
+	} },
+	"artifact-39": { start: {
+		on: "self",
+		lasts: all(200),
+		noDef: true,
+		boss: k(240, 290, 350, 420, 500)
+	} },
+	"artifact-49": { own: {
+		defPhysical: k(240, 290, 350, 420, 500),
+		blockPhysical: [
+			120,
+			140,
+			170,
+			210,
+			250
+		]
+	} },
+	"artifact-59": { start: {
+		on: "self",
+		lasts: all(30),
+		taken: k(-240, -280, -340, -420, -500),
+		manaEach: [
+			120,
+			140,
+			170,
+			210,
+			250
+		]
+	} },
+	"artifact-1000": {
+		foes: k(120, 140, 170, 210, 250),
+		taken: k(-60, -70, -85, -105, -125),
+		dragon: k(215, 246, 291, 348, 400),
+		dragonTaken: k(-128, -150, -186, -235, -289)
+	},
+	"artifact-17": { boss: k(120, 140, 170, 200, 250) },
+	"artifact-47": {
+		drain: [
+			-120,
+			-140,
+			-170,
+			-210,
+			-250
+		],
+		dmg: k(170, 210, 250, 300, 350)
+	},
+	"artifact-57": { own: {
+		crit: [
+			120,
+			140,
+			170,
+			210,
+			250
+		],
+		critDamage: k(240, 290, 350, 420, 500)
+	} },
+	"artifact-67": { start: {
+		on: "allies",
+		lasts: all(20),
+		speed: [
+			120,
+			140,
+			170,
+			210,
+			250
+		]
+	} },
+	"artifact-10": { onHurt: {
+		chance: .05,
+		wait: [
+			8.5,
+			9,
+			10,
+			11,
+			12.5
+		],
+		lasts: [
+			3.5,
+			4,
+			5,
+			6,
+			7.5
+		],
+		invulnerable: true
+	} },
+	"artifact-20": { onKnock: {
+		wait: [
+			19,
+			18,
+			17,
+			16,
+			15
+		],
+		immune: [
+			1.5,
+			2,
+			2.5,
+			3,
+			3.5
+		]
+	} },
+	"artifact-30": { own: {
+		crit: [
+			-180,
+			-210,
+			-260,
+			-310,
+			-375
+		],
+		atk: k(360, 430, 520, 630, 750)
+	} },
+	"artifact-40": { blows: {
+		count: 100,
+		atk: k(360, 440, 530, 630, 750),
+		crit: [
+			240,
+			290,
+			350,
+			420,
+			500
+		],
+		lasts: 15
+	} },
+	"artifact-60": { start: {
+		on: "self",
+		lasts: all(30),
+		foes: k(240, 280, 340, 420, 500),
+		manaEach: [
+			240,
+			280,
+			340,
+			420,
+			500
+		]
+	} },
+	"artifact-64": { onKnock: {
+		wait: all(0),
+		count: 3,
+		speed: all(500),
+		lasts: [
+			4.8,
+			5.8,
+			7,
+			8.4,
+			10
+		]
+	} }
+};
+/** Its name, and what it does at each refinement, in King's Raid's words. */
+var DATA = new Map(KR_ARTIFACTS.map((one) => [one.id, one]));
+/** An artifact as a hero wears it: which, and its tier (R1 to R5); null: none, or one the fight has no use for. */
+function artifactOf(worn) {
+	const def = worn && ARTIFACTS[worn.id];
+	return worn && def ? {
+		id: worn.id,
+		def,
+		tier: Math.min(5, Math.max(1, Math.floor(worn.tier) || 1))
+	} : null;
+}
+/** A number at its tier. */
+var at = (tiers, tier) => tiers?.[tier - 1] ?? 0;
+/** What its own stats gain from the start (as its gear's). */
+function artifactStats(worn) {
+	if (!worn) return {};
+	return Object.fromEntries(Object.entries(worn.def.own ?? {}).map(([stat, tiers]) => [stat, at(tiers, worn.tier)]));
+}
+/** An artifact as a square on its wearer's card. */
+var artifactBuff = (worn) => {
+	const data = DATA.get(worn.id);
+	return {
+		name: data?.name ?? "Artifact",
+		about: data?.text?.[worn.tier - 1] ?? "",
+		icon: "🏺"
+	};
+};
+/** What every ally gains of an artifact's `allies`, from every hero on the field wearing one: the highest of each. */
+function alliesFrom(field, key) {
+	let most = 0;
+	for (const on of field) {
+		const worn = on.artifact;
+		if (on.hp > 0 && worn) most = Math.max(most, at(worn.def.allies?.[key], worn.tier));
+	}
+	return most;
+}
+var SHOWN = (worn) => ({
+	...artifactBuff(worn),
+	about: "Its artifact."
+});
+/** An artifact's hooks for the hero wearing it (`self`). */
+function artifactHooks(self, fight) {
+	const worn = self.artifact;
+	if (!worn) return null;
+	const { def, tier } = worn;
+	const t = (tiers) => at(tiers, tier);
+	const shown = SHOWN(worn);
+	const name = `artifact ${self.index}`;
+	let stacks = 0;
+	let knocks = 0;
+	let dodges = 0;
+	let struck = 0;
+	let rescued = false;
+	let manaEach = 0;
+	let manaFor = 0;
+	/** A status of its artifact's on `on`, for `lasts` seconds. */
+	const give = (on, lasts, does, as = name) => put(on, {
+		name: as,
+		left: lasts,
+		...does,
+		shown
+	});
+	/**
+	* A status of its artifact's on the boss, for `lasts` seconds (shown under its health as a curse): one for the artifact,
+	* whoever wears it (King's Raid's: the same artifact's on the boss don't stack between allies).
+	*/
+	const curse = (lasts, does, as = `${worn.id} on the boss`) => put(fight.boss().statuses, {
+		name: as,
+		left: lasts,
+		...does,
+		shown: "curse"
+	});
+	const standing = () => fight.field().filter((on) => on.hp > 0);
+	const top = (others) => standing().reduce((best, on) => others && on === self ? best : !best || on.stats.atk > best.stats.atk ? on : best, null);
+	const whom = (on) => {
+		if (on === "self") return [self];
+		if (on === "allies") return standing();
+		const best = top(false);
+		return on === "top" ? best ? [best] : [] : [.../* @__PURE__ */ new Set([self, ...best ? [best] : []])];
+	};
+	const earlyOn = () => def.start !== void 0 && fight.elapsed() < t(def.start.lasts);
+	/** `n` of `from` at random, each once (by the fight's chances, so the bot's and every page's fight pick the same). */
+	const picked = (from, n) => {
+		const left = [...from];
+		const out = [];
+		while (out.length < n && left.length > 0) out.push(...left.splice(Math.floor(fight.roll() * left.length), 1));
+		return out;
+	};
+	return {
+		deals(foe) {
+			const early = earlyOn() ? def.start : void 0;
+			const boss = foe === fight.boss();
+			return 1 + t(def.dmg) + t(def.foes) + t(early?.foes) + (boss ? t(def.boss) + t(early?.boss) : 0) + (fight.dragon ? t(def.dragon) : 0);
+		},
+		taken() {
+			const early = earlyOn() ? def.start : void 0;
+			return 1 + t(def.taken) + t(early?.taken) + (fight.dragon ? t(def.dragonTaken) : 0);
+		},
+		begin() {
+			const start = def.start;
+			if (start) {
+				for (const on of whom(start.on)) {
+					give(on.statuses, t(start.lasts), {
+						...start.atk && { atk: t(start.atk) },
+						...start.speed && { speed: t(start.speed) },
+						...start.defense && { defends: 1 + t(start.defense) },
+						...start.tough && { tough: t(start.tough) },
+						...start.critResist && { critResist: t(start.critResist) },
+						...start.mana && { mana: 1 + t(start.mana) },
+						...start.guards && { guards: true }
+					});
+					if (start.tough) on.statuses = on.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
+				}
+				if (start.manaEach) {
+					manaEach = t(start.manaEach);
+					manaFor = t(start.lasts);
+				}
+			}
+			const opening = def.opening;
+			if (opening) {
+				if (opening.heal) fight.heal(self, t(opening.heal) * self.stats.hp);
+				if (opening.mana) self.mana = Math.min(MAX_MANA, self.mana + t(opening.mana) * MAX_MANA);
+				if (opening.cooldown) self.cooldowns = self.cooldowns.map((left) => Math.max(0, left - t(opening.cooldown)));
+			}
+			if (def.bossAtk) curse(t(def.bossAtk.lasts), { deals: 1 + t(def.bossAtk.atk) });
+			if (def.bossHeal) curse(Infinity, { heals: 1 + t(def.bossHeal) }, `${worn.id} heals`);
+			if (def.timer) self.perkWaits[name] = def.timer.every;
+		},
+		tick(dt) {
+			const timer = def.timer;
+			const up = self.hp > 0 && fight.field().includes(self);
+			if (def.drain && up) self.mana = Math.max(0, self.mana + t(def.drain) * dt);
+			if (manaFor > 0 && up) {
+				self.mana = Math.min(MAX_MANA, self.mana + manaEach * Math.min(dt, manaFor));
+				manaFor -= dt;
+			}
+			if (timer && up && fight.due(self, name, timer.every)) {
+				const lasts = timer.lasts ?? 0;
+				if (timer.speed) for (const on of [self, ...picked(standing().filter((on) => on !== self), timer.random ?? 0)]) give(on.statuses, lasts, { speed: t(timer.speed) });
+				if (timer.critResist) give(self.statuses, lasts, { critResist: t(timer.critResist) });
+				if (timer.cooldown) self.cooldowns = self.cooldowns.map((left) => Math.max(0, left - t(timer.cooldown)));
+				if (timer.heal) fight.heal(self, t(timer.heal) * self.stats.atk);
+				if (timer.recovery || timer.mdef) {
+					stacks = Math.min(timer.most ?? 1, stacks + 1);
+					give(self.statuses, Infinity, {
+						...timer.recovery && { heals: 1 + t(timer.recovery) * stacks },
+						...timer.mdef && { bolsters: { magical: t(timer.mdef) * stacks * self.stats.atk } },
+						count: stacks
+					});
+				}
+				if (timer.hot) give(self.statuses, lasts, {}, `${name} heals`);
+				if (timer.tough) for (const on of standing()) {
+					give(on.statuses, lasts, { tough: t(timer.tough) }, `${name} tough`);
+					on.statuses = on.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
+				}
+				if (timer.hit) {
+					fight.hit(self, t(timer.hit));
+					curse(lasts, { takes: 1 + t(timer.weakness) + t(timer.grows) * stacks });
+					stacks = Math.min(timer.most ?? 0, stacks + 1);
+				}
+			}
+			if (timer?.hot && up && self.statuses.some((status) => status.name === `${name} heals`)) fight.heal(self, t(timer.hot) * self.stats.hp * dt);
+			const later = def.later;
+			if (later && fight.elapsed() >= later.after && fight.elapsed() - dt < later.after) {
+				const best = top(later.others === true);
+				if (best) give(best.statuses, Infinity, {
+					...later.atk && { atk: t(later.atk) },
+					...later.critDamage && { critDamage: t(later.critDamage) }
+				}, `${name} later`);
+			}
+			const low = def.low;
+			if (low && up) {
+				const under = self.hp <= self.stats.hp * low.below;
+				const on = self.statuses.some((status) => status.name === `${name} low`);
+				if (under && !on) give(self.statuses, Infinity, {
+					atk: t(low.atk),
+					speed: t(low.speed),
+					tough: t(low.tough)
+				}, `${name} low`);
+				if (!under && on) self.statuses = self.statuses.filter((status) => status.name !== `${name} low`);
+			}
+			if (def.rescue && up && !rescued && self.hp < self.stats.hp * def.rescue.below) {
+				rescued = true;
+				self.statuses = self.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
+				fight.heal(self, t(def.rescue.heal) * self.stats.hp);
+			}
+			const full = def.fullMana;
+			if (full && up && self.mana >= 6e3 && fight.due(self, `${name} full`, full.wait)) give(self.statuses, full.lasts, {
+				critPoints: t(full.crit),
+				acc: t(full.acc)
+			});
+		},
+		basic() {
+			const on = def.onBasic;
+			if (!on || fight.roll() >= t(on.chance) || !fight.due(self, `${name} attack`, on.wait)) return;
+			if (on.mana) self.mana = Math.min(MAX_MANA, self.mana + on.mana);
+			if (on.atk || on.speed) give(self.statuses, on.lasts ?? 0, {
+				...on.atk && { atk: t(on.atk) },
+				...on.speed && { speed: t(on.speed) }
+			});
+			if (on.hit) fight.hit(self, t(on.hit));
+		},
+		blow() {
+			const blows = def.blows;
+			if (!blows) return;
+			struck++;
+			if (struck >= blows.count) {
+				struck = 0;
+				give(self.statuses, blows.lasts, {
+					atk: t(blows.atk),
+					critPoints: t(blows.crit)
+				}, `${name} blows`);
+			}
+		},
+		hurt() {
+			const on = def.onHurt;
+			if (!on || self.hp <= 0 || fight.roll() >= on.chance || !fight.due(self, `${name} hurt`, t(on.wait))) return;
+			if (on.invulnerable) give(self.statuses, t(on.lasts), { takes: 0 });
+			if (on.weakness) curse(t(on.lasts), { takes: 1 + t(on.weakness) });
+		},
+		knocked() {
+			const on = def.onKnock;
+			if (!on) return true;
+			if (on.count) {
+				knocks++;
+				if (knocks < on.count) return true;
+				knocks = 0;
+			} else if (!fight.due(self, `${name} knocked`, t(on.wait))) return true;
+			if (on.mana) self.mana = Math.min(MAX_MANA, self.mana + t(on.mana));
+			if (on.manaShare) self.mana = Math.min(MAX_MANA, self.mana + t(on.manaShare) * MAX_MANA);
+			if (on.speed) give(self.statuses, t(on.lasts), { speed: t(on.speed) });
+			if (on.cooldown) self.cooldowns = self.cooldowns.map((left) => Math.max(0, left - t(on.cooldown)));
+			if (on.manaEach) {
+				manaEach = t(on.manaEach);
+				manaFor = 3;
+			}
+			if (on.weakness) curse(10, { takes: 1 + t(on.weakness) });
+			if (on.immune) {
+				give(self.statuses, t(on.immune), { guards: true });
+				return false;
+			}
+			return true;
+		},
+		dodged() {
+			const on = def.onDodge;
+			if (!on) return;
+			dodges = Math.min(on.most, dodges + 1);
+			give(self.statuses, Infinity, {
+				atk: t(on.atk) * dodges,
+				count: dodges
+			});
+		},
+		noDef() {
+			return def.start?.noDef === true && earlyOn();
+		},
+		floor() {
+			return def.undying && fight.elapsed() < t(def.undying.lasts) ? def.undying.floor * self.stats.hp : 0;
+		}
+	};
+}
+//#endregion
 //#region src/technomagic/sim/gear.ts
 /** A hero's stats with what its gear gives it (as ../../heroes/stats.ts shows them). Flat ATK (a unique weapon's), flat HP (a main unique treasure's, a TechnoMagic weapon's) and flat DEF (a TechnoMagic armor's) are added before the shares of them. */
 function geared(stats, gear = {}) {
@@ -2072,14 +18983,15 @@ function geared(stats, gear = {}) {
 		crit: plus(stats.crit, gear.crit),
 		speed: plus(stats.speed, gear.speed),
 		pen: plus(stats.pen, gear.pen),
+		acc: plus(stats.acc, gear.acc),
 		resist: plus(stats.resist, gear.resist),
 		block: {
 			physical: plus(stats.block.physical, both(gear.block, gear.blockPhysical)),
 			magical: plus(stats.block.magical, both(gear.block, gear.blockMagical))
 		},
 		dodge: {
-			physical: plus(stats.dodge.physical, gear.dodge),
-			magical: plus(stats.dodge.magical, gear.dodge)
+			physical: plus(stats.dodge.physical, both(gear.dodge, gear.dodgePhysical)),
+			magical: plus(stats.dodge.magical, both(gear.dodge, gear.dodgeMagical))
 		},
 		blockDef: {
 			physical: (stats.blockDef?.physical ?? 0) + both(gear.blockDef, gear.blockDefPhysical) / POINTS,
@@ -3982,68 +20894,154 @@ var TM_SETS = [
 	"hope",
 	"authority"
 ];
-/** What each class is, for each set (a class the set does nothing for is left out). */
-var ROLES = {
+/** Perseverance's growing DMG and ATK, King's Raid's TechSet_50: every 2 seconds 0.3% more, 50 times. */
+var GROWS = {
+	every: 2,
+	most: 50,
+	dmg: .003
+};
+/** Each set's skill for each class: King's Raid's (EquipSetBonusTable's 4-piece UseSkill, SkillTable's numbers). */
+var SET_EFFECTS = {
 	perseverance: {
-		warrior: "dps",
-		assassin: "dps",
-		archer: "dps",
-		mechanic: "dps",
-		wizard: "dps",
-		priest: "support",
-		knight: "support"
+		knight: {
+			dmg: .1,
+			own: { tough: 100 },
+			grows: {
+				every: 1,
+				most: 50,
+				dmg: .002,
+				tough: 2
+			}
+		},
+		warrior: {
+			dmg: .1,
+			own: { atk: .1 },
+			grows: {
+				...GROWS,
+				atk: .003
+			}
+		},
+		assassin: {
+			dmg: .1,
+			own: { atk: .1 },
+			grows: {
+				...GROWS,
+				atk: .003
+			}
+		},
+		archer: {
+			dmg: .1,
+			own: { atk: .1 },
+			grows: {
+				...GROWS,
+				atk: .003
+			}
+		},
+		mechanic: {
+			dmg: .1,
+			own: { critDamage: .2 },
+			grows: {
+				...GROWS,
+				critDamage: .006
+			}
+		},
+		wizard: {
+			dmg: .1,
+			own: { critDamage: .2 },
+			grows: {
+				...GROWS,
+				critDamage: .006
+			}
+		},
+		priest: { own: { heal: .25 } }
 	},
 	hope: {
-		priest: "support",
-		mechanic: "support",
-		knight: "knight"
+		knight: { allies: {
+			defense: .1,
+			atk: .05
+		} },
+		warrior: { allies: {
+			speed: 100,
+			twice: "front"
+		} },
+		assassin: {
+			own: { critDamage: .4 },
+			onSkill: {
+				mana: 300,
+				critDamage: .4,
+				lasts: 3
+			}
+		},
+		archer: { allies: {
+			critDamage: .2,
+			twice: "back"
+		} },
+		mechanic: { tick: {
+			every: 10,
+			mana: 500,
+			cooldown: .5
+		} },
+		wizard: {
+			allies: { dmg: .02 },
+			top: {
+				after: 30,
+				dmg: .02
+			}
+		},
+		priest: { allies: {
+			recovery: .06,
+			mana: .06,
+			manaAfter: 5
+		} }
 	},
 	authority: {
-		warrior: "dps",
-		assassin: "dps",
-		archer: "dps",
-		wizard: "dps",
-		priest: "support",
-		mechanic: "support",
-		knight: "knight"
+		knight: {
+			own: { block: 300 },
+			onBlock: {
+				cooldown: 1,
+				wait: 2.5
+			}
+		},
+		warrior: {
+			own: { hp: .3 },
+			secondWind: {
+				below: .5,
+				heal: .3,
+				speed: 300
+			}
+		},
+		assassin: {
+			own: { pen: 250 },
+			pastDef: .12
+		},
+		archer: {
+			own: { atk: .25 },
+			opening: {
+				atk: .25,
+				lasts: 20
+			}
+		},
+		mechanic: {
+			own: { crit: 300 },
+			allCrit: { at: 1400 }
+		},
+		wizard: { fullMana: {
+			mana: .2,
+			atk: .4
+		} },
+		priest: { allies: { atk: .1 } }
 	}
 };
-/** A hero's set as it fights: which, and what its class is to it (null: no set, or one that does nothing for its class). */
+/** A hero's set as it fights: which, and what it does for its class (null: no set). */
 function setOf(set, heroClass) {
 	if (!set || !TM_SETS.includes(set)) return null;
-	const role = ROLES[set][heroClass];
-	return role ? {
+	return {
 		id: set,
-		role
-	} : null;
+		effect: SET_EFFECTS[set][heroClass]
+	};
 }
-var PERSEVERANCE = {
-	/** A damage dealer's DMG: so much more at once, and `step` more every `every` seconds, `most` times. */
-	dmg: .1,
-	step: .015,
-	every: 10,
-	most: 10,
-	/** What each support wearing it gives every ally. */
-	atk: .05,
-	defense: .1
-};
-var HOPE = {
-	/** What each support wearing it gives every ally. */
-	atk: .05,
-	defense: .1,
-	/** A knight: what it takes, and the share of what the boss deals every other ally that it takes instead. */
-	taken: .9,
-	covers: .2
-};
-var AUTHORITY$1 = {
-	/** A damage dealer's penetration (points). */
-	pen: 500,
-	/** A support's mana at the start, and how long the ally with the highest ATK can't be knocked down. */
-	mana: 2 * SECTION,
-	guardFor: 15,
-	/** A knight's CC resist (points). */
-	resist: 300
-};
+/** How many stacks of a set's growing effect it has `elapsed` seconds into the fight. */
+var grown = (effect, elapsed) => effect.grows ? Math.min(effect.grows.most, Math.floor(elapsed / effect.grows.every)) : 0;
 var NAMES$1 = {
 	perseverance: "Perseverance",
 	hope: "Hope",
@@ -4054,36 +21052,37 @@ var ICONS = {
 	hope: "🛡️",
 	authority: "⚡"
 };
-/** What a support of Perseverance's or Hope's gives every ally. */
-var ALLIES = (set) => `every ally +${pct(set.atk)} ATK and +${pct(set.defense)} defense (again for every other hero wearing it so)`;
-/** What each set does for a hero in each role it has: its card says it, and the bot (its pieces, and the heroes page). */
-var ABOUT$1 = {
-	perseverance: {
-		dps: `+${pct(PERSEVERANCE.dmg)} DMG, and another +${fine(PERSEVERANCE.step)} every ${PERSEVERANCE.every} seconds (up to +${pct(PERSEVERANCE.dmg + PERSEVERANCE.step * PERSEVERANCE.most)} after ${PERSEVERANCE.every * PERSEVERANCE.most} seconds)`,
-		support: ALLIES(PERSEVERANCE)
-	},
-	hope: {
-		support: ALLIES(HOPE),
-		knight: `takes ${pct(1 - HOPE.taken)} less, and takes ${pct(HOPE.covers)} of what the boss deals every other ally`
-	},
-	authority: {
-		dps: `+${AUTHORITY$1.pen} penetration`,
-		support: `+${AUTHORITY$1.mana / SECTION} mana sections at the start; the ally with the highest ATK can’t be knocked down for ${AUTHORITY$1.guardFor} seconds`,
-		knight: `+${pct(AUTHORITY$1.resist / POINTS)} CC resist; its skills strip what helps the boss`
-	}
-};
-/** Each set as the bot has it: its name and icon, and what it does for a hero of each class wearing three of its pieces (a class it does nothing for left out). */
+/** What a set does for each class, in King's Raid's words. */
+var about = (id, heroClass) => (KR_SETS$1[id]?.four)?.[heroClass]?.text ?? "";
+/** Each set as the bot has it: its name and icon, and what it does for a hero of each class wearing four of its pieces. */
 var SET_INFO = TM_SETS.map((id) => ({
 	id,
 	name: NAMES$1[id],
 	icon: ICONS[id],
-	effects: Object.fromEntries(Object.entries(ROLES[id]).map(([heroClass, role]) => [heroClass, ABOUT$1[id][role]]))
+	effects: Object.fromEntries(Object.keys(SET_EFFECTS[id]).map((heroClass) => [heroClass, about(id, heroClass)]))
 }));
-/** What Authority's support puts on the ally with the highest ATK. */
-var GUARDED$2 = {
-	name: "Authority",
-	about: "Can’t be knocked down.",
-	icon: "⚡"
+/** What a set's triggered effects put on their wearer: shown on its card. */
+var SET_UP = {
+	onSkill: {
+		name: "Hope",
+		about: "More crit DMG.",
+		icon: "🛡️"
+	},
+	secondWind: {
+		name: "Authority",
+		about: "ATK Spd up for good.",
+		icon: "⚡"
+	},
+	fullMana: {
+		name: "Authority",
+		about: "Mana recovery and ATK up for good.",
+		icon: "⚡"
+	},
+	top: {
+		name: "Hope",
+		about: "Deals more DMG.",
+		icon: "🛡️"
+	}
 };
 //#endregion
 //#region src/technomagic/sim/skills.ts
@@ -4091,7 +21090,7 @@ var GUARDED$2 = {
 var SKILL = {
 	vigor: {
 		dmg: .25,
-		above: .75
+		above: .95
 	},
 	persistence: {
 		dmg: .03,
@@ -4129,7 +21128,7 @@ var SKILL = {
 		most: 20
 	},
 	overdrive: {
-		speed: 2e3,
+		speed: 1e3,
 		atk: .4
 	},
 	regeneration: {
@@ -4170,7 +21169,7 @@ var SKILL = {
 		most: .3,
 		over: 10
 	},
-	bastion: { defense: .09 },
+	bastion: { defense: .07 },
 	ruthless: { critDamage: .5 },
 	piercing: { pen: 250 },
 	precision: { crit: 250 },
@@ -4180,7 +21179,7 @@ var SKILL = {
 		wait: 1
 	},
 	"lone-foe": { atk: .35 },
-	"lone-guard": { defense: .35 },
+	"lone-guard": { defense: .45 },
 	armor: { defense: .25 },
 	"mana-spring": {
 		mana: 500,
@@ -5566,7 +22565,218 @@ function treasureAbout(hero, skill, tier) {
 	} : null;
 }
 //#endregion
+//#region src/technomagic/sim/heroes/reach.ts
+var REACH = {
+	annette: {
+		attack: 0,
+		skills: [
+			1,
+			0,
+			3
+		]
+	},
+	crow: {
+		attack: 0,
+		skills: [
+			3,
+			2,
+			0
+		]
+	},
+	"dark-lord-kasel": {
+		attack: 1,
+		skills: [
+			2,
+			2,
+			Infinity
+		]
+	},
+	erze: {
+		attack: 0,
+		skills: [
+			Infinity,
+			0,
+			0
+		]
+	},
+	ezekiel: {
+		attack: 0,
+		skills: [
+			3,
+			0,
+			0
+		]
+	},
+	"fallen-frey": {
+		attack: 0,
+		skills: [
+			Infinity,
+			0,
+			2.5
+		]
+	},
+	gau: {
+		attack: 1.5,
+		skills: [
+			2,
+			0,
+			4.5
+		]
+	},
+	gremory: {
+		attack: 0,
+		skills: [
+			0,
+			0,
+			0
+		]
+	},
+	kirze: {
+		attack: 1.5,
+		skills: [
+			3,
+			Infinity,
+			1.5
+		]
+	},
+	klaus: {
+		attack: 1,
+		skills: [
+			0,
+			1,
+			0
+		]
+	},
+	laias: {
+		attack: 0,
+		skills: [
+			0,
+			0,
+			Infinity
+		]
+	},
+	loman: {
+		attack: 1,
+		skills: [
+			2,
+			0,
+			1
+		]
+	},
+	lorraine: {
+		attack: 0,
+		skills: [
+			2.5,
+			0,
+			4.5
+		]
+	},
+	lucikiel: {
+		attack: 2,
+		skills: [
+			3.5,
+			2,
+			5
+		]
+	},
+	morrah: {
+		attack: 1,
+		skills: [
+			0,
+			0,
+			0
+		]
+	},
+	naila: {
+		attack: 0,
+		skills: [
+			0,
+			0,
+			5
+		]
+	},
+	neraxis: {
+		attack: 0,
+		skills: [
+			2,
+			Infinity,
+			4
+		]
+	},
+	oddy: {
+		attack: 0,
+		skills: [
+			1.5,
+			0,
+			Infinity
+		]
+	},
+	phillop: {
+		attack: .5,
+		skills: [
+			2,
+			1,
+			0
+		]
+	},
+	"rebel-klaus": {
+		attack: 1.8,
+		skills: [
+			3,
+			Infinity,
+			5
+		]
+	},
+	selene: {
+		attack: 0,
+		skills: [
+			0,
+			0,
+			2
+		]
+	},
+	seria: {
+		attack: 1,
+		skills: [
+			2,
+			4,
+			0
+		]
+	},
+	tanya: {
+		attack: 0,
+		skills: [
+			0,
+			5,
+			0
+		]
+	},
+	valance: {
+		attack: 0,
+		skills: [
+			0,
+			0,
+			0
+		]
+	},
+	yanne: {
+		attack: 0,
+		skills: [
+			0,
+			5,
+			0
+		]
+	}
+};
+//#endregion
 //#region src/technomagic/sim/fight.ts
+/** The dragons' ids: King's Raid's Dragon race, for an artifact's DMG against one (./artifacts.ts). */
+var DRAGON_IDS = /* @__PURE__ */ new Set([
+	"temeraire",
+	"scalaxia",
+	"zyrrkinoth",
+	"armarta"
+]);
 /** The additional skills that come round again every so many seconds: each first comes once that long has gone. */
 var EVERY = [
 	"regeneration",
@@ -5588,6 +22798,8 @@ var SECOND = Math.round(1 / TICK);
 var FAN = .6;
 /** How far short of where it stands (along the field) a hero begins turning toward it, to arrive there and wait for the rest. */
 var NEAR = 6;
+/** Where a wave's minions stand: about this far along the field (before the boss), as its wave has them, closer together (the field is narrower here). */
+var MINION_X = 4.5;
 function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
 	const random = seeded(seed);
 	const roll = () => random.next();
@@ -5598,7 +22810,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const sums = [];
 	let pending = [];
 	const maxHp = def.stats.hp * scaleAt(def, firstStage, solo).hp;
-	const foe = {
+	const boss = {
+		index: 0,
+		kind: "boss",
 		def,
 		part: { lands: {} },
 		hp: maxHp,
@@ -5606,8 +22820,50 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		stunned: 0,
 		slowed: 0,
 		slowRate: 1,
-		statuses: []
+		statuses: [],
+		x: 7,
+		z: 0,
+		away: false
 	};
+	/** Every enemy that has come onto the field, the boss first. */
+	const foes = [boss];
+	/**
+	* The enemy in question (Fight.foe): set as a hero's move lands (the one it is fighting), as a blow lands (the one it lands
+	* on), as an enemy's own move goes (that one); otherwise the boss, or while it is away the first minion standing.
+	*/
+	let focus = null;
+	/** The enemies standing on the field (not away, not beaten). */
+	const standing = () => foes.filter((one) => !one.away && one.hp > 0);
+	const current = () => focus ?? (!boss.away ? boss : standing()[0] ?? boss);
+	/** `run` with `on` the enemy in question (and back to the one before after). */
+	function as(on, run) {
+		const was = focus;
+		focus = on;
+		try {
+			return run();
+		} finally {
+			focus = was;
+		}
+	}
+	/** Whom each hero is fighting: the enemy nearest it (as King's Raid's heroes go for theirs), kept until it is beaten or away. */
+	const aims = /* @__PURE__ */ new Map();
+	function targetOf(fighter) {
+		const aim = aims.get(fighter);
+		if (aim && !aim.away && aim.hp > 0) return aim;
+		const far = (one) => (one.x - fighter.x) * (one.x - fighter.x) + (one.z - fighter.z) * (one.z - fighter.z);
+		const near = standing().reduce((best, one) => !best || far(one) < far(best) - 1e-9 ? one : best, null);
+		if (near) aims.set(fighter, near);
+		else aims.delete(fighter);
+		return near;
+	}
+	/** `run` as `fighter` would have it: the enemy in question the one it is fighting. */
+	const asFighter = (fighter, run) => as(targetOf(fighter) ?? current(), run);
+	/** A raid of more than one wave (BossDef.waves): its waves past the first, as its stage has them as the fight begins; the wave it is on, and how many seconds are left of the heroes' run on to the next. */
+	const later = def.waves?.at(Math.min(stagesOf(def), Math.max(1, Math.floor(firstStage) || 1))) ?? [];
+	const waves = 1 + later.length;
+	let wave = 1;
+	let moving = 0;
+	const minions = /* @__PURE__ */ new Map();
 	let tick = 0;
 	let elapsed = 0;
 	/** Seconds of the raid's time gone, against this boss; and how long its raid lasts. */
@@ -5634,19 +22890,24 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/** What every ally gains from the start, by perks like Battle Cry (each wearer's: the first in full, the rest each `again`). */
 	const startAura = (key) => auraTotal(perkSets.map((perks) => [...perks.values()]), key);
 	const battleCry = startAura("hp");
-	const fighters = heroes.map(({ def: hero, skin = 0, gear: worn = {}, set: wearing = null, uw = null, skills: tm = null, sub = false }, index) => {
+	const artifactHp = heroes.reduce((most, { artifact }) => {
+		const worn = artifactOf(artifact);
+		return Math.max(most, worn ? at(worn.def.allies?.hp, worn.tier) : 0);
+	}, 0);
+	const fighters = heroes.map(({ def: hero, skin = 0, gear: worn = {}, set: wearing = null, uw = null, skills: tm = null, sub = false, artifact = null }, index) => {
 		const set = setOf(wearing, hero.class);
+		const relic = artifactOf(artifact);
 		const tier = uniqueOf(hero.id, uw);
 		const skills = skillsOf(tm);
 		const n = (id) => skills[id] ?? 0;
 		const perks = perkSets[index];
 		const gear = withPerks(worn, perks.values());
 		if (battleCry > 0) gear.hp = (gear.hp ?? 0) + battleCry;
+		for (const [stat, value] of Object.entries({ ...set?.effect.own }).concat(Object.entries(artifactStats(relic)))) gear[stat] = (gear[stat] ?? 0) + value;
+		if (artifactHp > 0) gear.hp = (gear.hp ?? 0) + artifactHp;
 		gear.atk = (gear.atk ?? 0) + CLASS_BUFF.atk + (KR_HEROES[hero.id]?.books.atk ?? 0);
 		gear.hp = (gear.hp ?? 0) + CLASS_BUFF.hp;
 		const stats = perkedStats(geared(hero.stats, gear), perks.values());
-		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY$1.pen;
-		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY$1.resist;
 		skilledStats(stats, skills);
 		stats.crit += KR_HEROES[hero.id]?.books.critStat ?? 0;
 		const motion = motionOf(hero);
@@ -5683,6 +22944,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			critTimes: 2 + stats.critDamage + (gear.critDamage ?? 0) + skilledCritDamage(skills),
 			healTimes: 1 + (gear.heal ?? 0),
 			set,
+			setDone: {
+				wind: false,
+				full: false
+			},
+			artifact: relic,
 			unique: tier === null ? null : {
 				tier,
 				casts: 0
@@ -5697,6 +22963,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			controlTimes: 1 + (gear.control ?? 0),
 			accuracy: gear.accuracy ?? 0,
 			lifesteal: gear.lifesteal ?? 0,
+			recovery: gear.recovery ?? 0,
+			manaDamage: gear.manaDamage ?? 0,
 			critResist: {
 				physical: (gear.critResist ?? 0) + (gear.critResistPhysical ?? 0),
 				magical: (gear.critResist ?? 0) + (gear.critResistMagical ?? 0)
@@ -5710,7 +22978,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			shield: 0,
 			shieldLeft: 0,
 			statuses: [],
-			mana: Math.min(MAX_MANA, set?.id === "authority" && set.role === "support" ? AUTHORITY$1.mana : 0),
+			mana: 0,
 			sub,
 			auto: sub || raid,
 			cooldowns: hero.abilities.map(() => 0),
@@ -5788,11 +23056,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const going = /* @__PURE__ */ new Map();
 	let aim = null;
 	let was = false;
-	const bossBusy = () => going.size > 0 || foe.stunned > 0;
+	const bossBusy = () => going.size > 0 || boss.stunned > 0;
 	/** The boss begins an attack: not while it is stunned, or while any part of it the attack needs is still at another. */
 	function bossUse(attack) {
 		const plan = def.plans[attack] ?? [];
-		if (foe.stunned > 0 || plan.length === 0 || plan.some(([, by]) => going.has(by))) return;
+		if (boss.away || boss.stunned > 0 || plan.length === 0 || plan.some(([, by]) => going.has(by))) return;
 		plan.forEach(([move, by, after], part) => {
 			const moves = going.get(by) ?? [];
 			moves.push({
@@ -5808,7 +23076,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			kind: "boss-use",
 			attack
 		});
-		foe.part.used?.(attack);
+		as(boss, () => boss.part.used?.(attack));
 	}
 	/** The boss's stats as it stands the heroes' blows at this stage: its defenses so many times its own. */
 	function bossStands() {
@@ -5830,13 +23098,27 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const far = (fighter) => (fighter.x - 7) * (fighter.x - 7) + fighter.z * fighter.z;
 		return from.reduce((nearest, fighter) => !nearest || far(fighter) < far(nearest) - 1e-9 ? fighter : nearest, null);
 	};
+	/** Each hero's artifact's hooks (./artifacts.ts), wearing one the fight has a use for. */
+	const relics = /* @__PURE__ */ new Map();
 	/** Whom the boss is going for: another, should that one have left the field, or the fight. */
 	const aimed = () => {
 		if (!aim || !field.includes(aim) || away(aim.statuses)) aim = anyone();
 		return aim;
 	};
-	/** Heroes on the field, standing and in the fight, with a set's `role` (each support of Hope's or Perseverance's gives every ally more). */
-	const wearing = (id, role) => field.filter((on) => on.hp > 0 && !away(on.statuses) && on.set?.id === id && on.set.role === role);
+	/**
+	* What the sets worn by the heroes on the field, standing and in the fight, give `to` (an ally) of `key` (./sets.ts
+	* SetEffect.allies), added up: twice over the front line's ATK Spd, or the rest's crit DMG, for a set that says so; mana
+	* recovery only once its time has come.
+	*/
+	const allied = (to, key) => field.reduce((sum, on) => {
+		const allies = on.hp > 0 && !away(on.statuses) ? on.set?.effect.allies : void 0;
+		if (!allies?.[key] || key === "mana" && elapsed < (allies.manaAfter ?? 0)) return sum;
+		const front = lineOf(to.def) === "front";
+		const twice = allies.twice === "front" && key === "speed" && front || allies.twice === "back" && key === "critDamage" && !front;
+		return sum + allies[key] * (twice ? 2 : 1);
+	}, 0);
+	/** Its set's effect (none: an empty one). */
+	const setEffect = (by) => by.set?.effect ?? {};
 	/** How many of an additional skill the heroes on the field, standing and in the fight, have between them (one that gives every ally something). */
 	const among = (id) => field.reduce((count, on) => count + (on.hp > 0 && !away(on.statuses) ? on.skills[id] ?? 0 : 0), 0);
 	/** What every ally gains, as this step began, from the perks of the heroes on the field and standing (./perks.ts's auras). */
@@ -5865,21 +23147,27 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const has = (fighter, id) => fighter.skills[id] ?? 0;
 	const bears = (fighter, name) => fighter.statuses.some((status) => status.name === name);
 	/**
-	* How many times its ATK a hero's blows, heals and shields go by, for now: every Hope and Perseverance support
-	* on the field and every War Cry among them; and its own Momentum's stacks and Desperation. (All added up, as King's
-	* Raid's ATK is: ./combat/status.ts.)
+	* How many times its ATK a hero's blows, heals and shields go by, for now: what the sets on the field give every ally
+	* and every War Cry among them; its own set's, growing, at first or once its mana has been full; and its own Momentum's
+	* stacks and Desperation. (All added up, as King's Raid's ATK is: ./combat/status.ts.)
 	*/
-	const atkTimes = (by) => stacked([
-		1 + HOPE.atk * wearing("hope", "support").length + PERSEVERANCE.atk * wearing("perseverance", "support").length + SKILL["war-cry"].atk * among("war-cry") + auras.atk,
-		1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum"),
-		bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1
-	]);
+	const atkTimes = (by) => {
+		const own = setEffect(by);
+		const set = (own.grows?.atk ?? 0) * grown(own, elapsed) + (own.opening && elapsed < own.opening.lasts ? own.opening.atk : 0) + (own.fullMana && by.setDone.full ? own.fullMana.atk : 0);
+		return stacked([
+			1 + allied(by, "atk") + set + SKILL["war-cry"].atk * among("war-cry") + auras.atk + alliesFrom(field, "atk") + adding(by.statuses, "atk"),
+			1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum"),
+			bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1
+		]);
+	};
 	/**
-	* How many times as much DMG a hero's blows deal besides (not its heals): Perseverance's damage dealer, growing as
-	* the fight goes on; and its own Vigor while its health is high, Persistence growing, and Fundamentals on its attack.
+	* How many times as much DMG a hero's blows deal besides (not its heals): its set's, growing as the fight goes on, and
+	* what the sets on the field give every ally; and its own Vigor while its health is high, Persistence growing, and
+	* Fundamentals on its attack.
 	*/
 	const dmgTimes = (by) => {
-		const set = by.set?.id === "perseverance" && by.set.role === "dps" ? PERSEVERANCE.dmg + PERSEVERANCE.step * Math.min(PERSEVERANCE.most, Math.floor(elapsed / PERSEVERANCE.every)) : 0;
+		const own = setEffect(by);
+		const set = (own.dmg ?? 0) + (own.grows?.dmg ?? 0) * grown(own, elapsed) + allied(by, "dmg");
 		const vigor = by.hp > by.stats.hp * SKILL.vigor.above ? SKILL.vigor.dmg * has(by, "vigor") : 0;
 		const persistence = SKILL.persistence.dmg * has(by, "persistence") * Math.min(SKILL.persistence.most, Math.floor(elapsed / SKILL.persistence.every));
 		const fundamentals = attacking === by ? SKILL.fundamentals.dmg * has(by, "fundamentals") : 0;
@@ -5951,19 +23239,20 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const ability = sim.slot(fighter, index);
 		if (!ability || fighter.doing || !sim.ready(fighter, index)) return false;
 		begin(fighter, ability.move, index);
-		if (fighter.set?.id === "authority" && fighter.set.role === "knight") dispel();
 		for (const perk of fighter.perkDefs) if (perk.skill?.index === index) usedWith(fighter, perk.skill);
 		fighter.cooldowns[index] = ability.cooldown;
 		fighter.lastUsed[index] = elapsed;
 		fighter.mana -= ability.cost * SECTION;
 		spent.set(fighter, (spent.get(fighter) ?? 0) + ability.cost * SECTION);
-		fighter.part.used?.(index, ability);
+		asFighter(fighter, () => fighter.part.used?.(index, ability));
 		uniqueCast(fighter);
 		skillCast(fighter);
+		setCast(fighter);
 		return true;
 	}
 	/** What helps the boss (makes it deal more) is gone. */
 	function dispel() {
+		const foe = current();
 		for (let i = foe.statuses.length - 1; i >= 0; i--) if ((foe.statuses[i].deals ?? 1) > 1) foe.statuses.splice(i, 1);
 	}
 	/** A status a skill puts on a hero for a while (a perk's: SkillStatus), shown as its skill's square. */
@@ -5995,7 +23284,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/** What a skill leaves on the boss as its first blow lands (a perk's: SkillMark). */
 	function marked(mark) {
 		const { name, lasts, ...does } = mark;
-		put(foe.statuses, {
+		put(current().statuses, {
 			name,
 			left: lasts,
 			...does,
@@ -6048,6 +23337,49 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			left: SKILL.mending.lasts,
 			shown: MENDING_UP
 		});
+	}
+	/** A hero has used a skill: its set's that comes of it (Hope's assassin: mana, and crit DMG for a while). */
+	function setCast(fighter) {
+		const on = setEffect(fighter).onSkill;
+		if (!on) return;
+		fighter.mana = Math.min(MAX_MANA, fighter.mana + on.mana);
+		put(fighter.statuses, {
+			name: SET_UP.onSkill.name,
+			left: on.lasts,
+			critDamage: on.critDamage,
+			shown: SET_UP.onSkill
+		});
+	}
+	/**
+	* A step's time passes for a hero's set (on the field, standing and in the fight): Hope's mechanic's mana and cooldowns for
+	* every ally, every so often; Authority's wizard's, once its mana is first full; Authority's warrior's second wind.
+	*/
+	function setTick(fighter) {
+		const own = setEffect(fighter);
+		if (!field.includes(fighter) || fighter.hp <= 0 || away(fighter.statuses)) return;
+		if (own.tick && perkDue(fighter, "set", own.tick.every)) for (const ally of field.filter((on) => on.hp > 0 && !away(on.statuses))) {
+			ally.mana = Math.min(MAX_MANA, ally.mana + own.tick.mana);
+			ally.cooldowns = ally.cooldowns.map((left) => Math.max(0, left - (own.tick?.cooldown ?? 0)));
+		}
+		if (own.fullMana && !fighter.setDone.full && fighter.mana >= 6e3) {
+			fighter.setDone.full = true;
+			put(fighter.statuses, {
+				name: SET_UP.fullMana.name,
+				left: Infinity,
+				mana: 1 + own.fullMana.mana,
+				shown: SET_UP.fullMana
+			});
+		}
+		if (own.secondWind && !fighter.setDone.wind && fighter.hp < fighter.stats.hp * own.secondWind.below) {
+			fighter.setDone.wind = true;
+			sim.heal(fighter, own.secondWind.heal * fighter.stats.hp);
+			fighter.stats.speed += own.secondWind.speed;
+			put(fighter.statuses, {
+				name: SET_UP.secondWind.name,
+				left: Infinity,
+				shown: SET_UP.secondWind
+			});
+		}
 	}
 	/** Whether a hero's additional skill that waits between times comes now (it has it, and its wait is over): then it waits again, `again` seconds. */
 	function due(fighter, id, again) {
@@ -6159,18 +23491,23 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					by: fighter,
 					move
 				};
-				if (attacking && doing.landed === 1) fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaPerAttack);
-				const own = fighter.part.lands[move];
-				if (own) own(index);
-				else common[move]?.(fighter, index);
-				attacking = null;
-				basic = 0;
-				landing = null;
-				if (doing.blows === 1) {
-					for (const mark of fighter.moveMarks[move] ?? []) marked(mark);
-					const slowing = doing.skill === void 0 ? void 0 : fighter.perkDefs.find((perk) => perk.skill?.index === doing.skill && perk.skill?.slow)?.skill?.slow;
-					if (slowing) sim.slow(slowing.points, slowing.lasts);
+				if (attacking && doing.landed === 1) {
+					fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaPerAttack);
+					relics.get(fighter)?.basic();
 				}
+				asFighter(fighter, () => {
+					const own = fighter.part.lands[move];
+					if (own) own(index);
+					else common[move]?.(fighter, index);
+					attacking = null;
+					basic = 0;
+					landing = null;
+					if (doing.blows === 1) {
+						for (const mark of fighter.moveMarks[move] ?? []) marked(mark);
+						const slowing = doing.skill === void 0 ? void 0 : fighter.perkDefs.find((perk) => perk.skill?.index === doing.skill && perk.skill?.slow)?.skill?.slow;
+						if (slowing) sim.slow(slowing.points, slowing.lasts);
+					}
+				});
 			}
 			if (fighter.doing !== doing || result) return;
 		}
@@ -6183,7 +23520,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	}
 	/** The boss's parts go on by `dt`: each blow that lands, on whoever it is going for (or as its part says). */
 	function bossAdvance(dt) {
-		const rate = foe.slowed > 0 ? foe.slowRate : 1;
+		const rate = boss.slowed > 0 ? boss.slowRate : 1;
 		for (const [by, moves] of going) {
 			const doing = moves[0];
 			if (!doing) {
@@ -6201,17 +23538,371 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				doing.hit = true;
 				const [least, most] = move.hurts ?? [0, 0];
 				const amount = least + roll() * (most - least);
-				const own = foe.part.lands[doing.attack];
-				if (own) own(doing.part, amount);
-				else {
-					const target = aimed();
-					if (target) sim.hurt(target, amount);
-				}
+				const own = boss.part.lands[doing.attack];
+				as(boss, () => {
+					if (own) own(doing.part, amount);
+					else {
+						const target = aimed();
+						if (target) sim.hurt(target, amount);
+					}
+				});
 				if (result) return;
 			}
 			if (doing.t >= move.length && going.get(by) === moves) {
 				moves.shift();
 				if (moves.length === 0) going.delete(by);
+			}
+		}
+	}
+	/** A hero's blow on one enemy (`foe`), as Fight.hit says. */
+	function strikeFoe(foe, by, amount, counted, pierce, whole) {
+		if (foe.hp <= 0 || foe.away || result) return false;
+		const { attack, crit } = by.def.passive ?? NO_PASSIVE;
+		const { atk, deals: type, crit: points, pen } = by.stats;
+		const allCrit = by.set?.effect.allCrit;
+		const critical = allCrit !== void 0 && points >= allCrit.at || roll() < share$2(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit") + adding(by.statuses, "critPoints")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses);
+		const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
+		const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
+		const setCrit = (setEffect(by).grows?.critDamage ?? 0) * grown(setEffect(by), elapsed) + allied(by, "critDamage") + alliesFrom(field, "critDamage");
+		const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused + setCrit;
+		const skilled = landing?.by === by ? by.moveDmg[landing.move] ?? 1 : 1;
+		const acc = by.acc + auras.acc + adding(by.statuses, "acc");
+		const plain = foe === boss ? bossStands() : foe.def.stats;
+		const lower = {
+			physical: blocking(foe.statuses, "physical"),
+			magical: blocking(foe.statuses, "magical")
+		};
+		const dodge = {
+			physical: Math.max(0, plain.dodge.physical + dodging(foe.statuses, "physical")),
+			magical: Math.max(0, plain.dodge.magical + dodging(foe.statuses, "magical"))
+		};
+		const stood = {
+			...plain,
+			dodge,
+			block: {
+				physical: Math.max(0, plain.block.physical + lower.physical),
+				magical: Math.max(0, plain.block.magical + lower.magical)
+			}
+		};
+		const through = whole || landing?.by === by && by.moveWhole.has(landing.move);
+		const against = through ? {
+			...stood,
+			physical: 0,
+			magical: 0
+		} : {
+			...stood,
+			physical: stood.physical * defending(foe.statuses, "physical"),
+			magical: stood.magical * defending(foe.statuses, "magical")
+		};
+		const power = (1 + bookShare(by, "dmg") + skilled - 1) * (through ? 1 + (setEffect(by).pastDef ?? 0) : 1);
+		const more = amplified([
+			dmgTimes(by),
+			attack,
+			...deals(by.statuses),
+			by.perkDmg,
+			by.part.deals?.() ?? 1,
+			relics.get(by)?.deals(foe) ?? 1,
+			...takes(foe.statuses, type)
+		]);
+		const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll, acc);
+		if (dodged) {
+			events.push({
+				kind: "number",
+				on: "boss",
+				foe: foe.index,
+				amount: 0,
+				type: "dodged"
+			});
+			return false;
+		}
+		events.push({
+			kind: "boss-hit",
+			foe: foe.index
+		});
+		relics.get(by)?.blow();
+		const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.mark.name, perk.mark.every)));
+		const struck = taken * (foe.part.taken?.[type] ?? 1);
+		const dealt = deathless && foe === boss ? struck : Math.min(foe.hp, struck);
+		foe.hp -= dealt;
+		if (deathless && foe === boss && foe.hp <= 0) foe.hp = foe.maxHp;
+		by.dealt += dealt;
+		events.push({
+			kind: "number",
+			on: "boss",
+			foe: foe.index,
+			amount: dealt,
+			type: blocked ? "blocked" : critical ? "crit" : "hit"
+		});
+		for (const { mark } of marking) if (mark) put(foe.statuses, {
+			name: mark.name,
+			left: mark.lasts,
+			...mark.takes && { takes: mark.takes },
+			...mark.deals && { deals: mark.deals },
+			...mark.crit && { crit: mark.crit },
+			shown: "curse"
+		});
+		const wound = critical ? by.perkDefs.find((perk) => perk.wound) : void 0;
+		if (wound?.wound) {
+			by.wound = wound.wound.lasts;
+			put(foe.statuses, {
+				name: wound.name ?? "Mortal Wound",
+				left: wound.wound.lasts,
+				heals: wound.wound.heals,
+				shown: "curse"
+			});
+		}
+		if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
+			const stolen = Math.min(dealt * share$2(curved(CURVE.chance, by.lifesteal)) * healing(by.statuses) * (boss.part.healing?.() ?? 1), by.stats.hp - by.hp);
+			if (stolen > 0) by.hp += stolen;
+		}
+		const skillIndex = critical && landing?.by === by && attacking !== by ? by.doing?.skill : void 0;
+		if (skillIndex !== void 0) for (const perk of by.perkDefs) {
+			if (perk.skill?.index !== skillIndex) continue;
+			if (perk.skill.critMana) by.mana = Math.min(MAX_MANA, by.mana + perk.skill.critMana);
+			if (perk.skill.critCooldown) by.cooldowns[skillIndex] = Math.max(0, by.cooldowns[skillIndex] - (by.abilities[skillIndex]?.cooldown ?? 0) * perk.skill.critCooldown);
+		}
+		if (counted) {
+			for (const fighter of fighters) fighter.part.struck?.(by);
+			foe.part.struck?.(by, dealt, critical);
+			by.part.blow?.(attacking !== by);
+		}
+		if (counted && foe.hp > 0 && by.id === "kirze" && by.unique && roll() < ELICIPIRA.chance) {
+			const was = attacking;
+			attacking = null;
+			strikeFoe(foe, by, atTier(ELICIPIRA.blow, by.unique.tier) * ELICIPIRA.boss, false, 0, false);
+			attacking = was;
+		}
+		if (foe.hp > 0) {
+			if (foe === boss && wave === 1 && waves > 1 && def.waves && foe.hp <= foe.maxHp * def.waves.leaves) bossLeave();
+			return critical;
+		}
+		beaten(foe);
+		return critical;
+	}
+	/**
+	* A hero's blow: on the enemy in question (as its move lands, the one it is fighting; else the one it would be), and, as far
+	* about it as the move reaches (./heroes/reach.ts), on every other enemy there (not counted again: a blow of its own each).
+	*/
+	function hitting(by, amount, counted, pierce, whole) {
+		const target = focus && !focus.away && focus.hp > 0 ? focus : targetOf(by);
+		if (!target) return false;
+		const critical = as(target, () => strikeFoe(target, by, amount, counted, pierce, whole));
+		const reach = counted ? reachOf(by) : 0;
+		if (reach > 0) {
+			for (const other of standing()) if (other !== target && (other.x - target.x) * (other.x - target.x) + (other.z - target.z) * (other.z - target.z) <= reach * reach) as(other, () => strikeFoe(other, by, amount, false, pierce, whole));
+		}
+		return critical;
+	}
+	/** How far about its target a hero's blow landing now reaches (metres): its attack's, or the skill's it is using (./heroes/reach.ts). */
+	function reachOf(by) {
+		const reach = REACH[by.id];
+		if (!reach) return 0;
+		if (attacking === by) return reach.attack;
+		const skill = landing?.by === by ? by.doing?.skill : void 0;
+		return skill === void 0 ? 0 : reach.skills[skill] ?? 0;
+	}
+	/** An enemy beaten: the boss, won; a minion, off the field (and its wave, once no other stands, over). */
+	function beaten(foe) {
+		if (foe === boss) {
+			as(boss, () => sim.stun(1, { down: true }));
+			boss.part.beaten?.();
+			end("won");
+			return;
+		}
+		foe.away = true;
+		minions.delete(foe);
+		events.push({
+			kind: "foe-down",
+			foe: foe.index
+		});
+		if (boss.away && wave < waves && standing().length === 0) nextWave();
+	}
+	/** The boss flies off the field (the first wave over): the heroes move on. */
+	function bossLeave() {
+		boss.away = true;
+		boss.stunned = 0;
+		going.clear();
+		events.push({ kind: "boss-leave" });
+		nextWave();
+	}
+	/** On to the next wave: the heroes run on (nothing else happens meanwhile), and what is there comes onto the field as they arrive (arrive()). */
+	function nextWave() {
+		wave++;
+		moving = 3;
+		aims.clear();
+		for (const on of field) on.doing = null;
+		events.push({
+			kind: "wave",
+			wave,
+			of: waves
+		});
+	}
+	/** Arrived at a wave: its minions come onto the field, and at the last, the boss comes back, its landing on the heroes. */
+	function arrive() {
+		const list = later[wave - 2] ?? [];
+		/** How many have stood where each spot is so far (by where the wave has them). */
+		const placed = /* @__PURE__ */ new Map();
+		for (const one of list) {
+			const made = minionOf(one, solo);
+			const kind = MINIONS[one.kind];
+			let x = MINION_X + one.x * .5;
+			let z = one.z * .45;
+			const spot = `${one.x},${one.z}`;
+			const before = placed.get(spot) ?? 0;
+			placed.set(spot, before + 1);
+			if (before > 0) {
+				x += Math.cos(before * Math.PI * 2 / 5) * 1.8;
+				z += Math.sin(before * Math.PI * 2 / 5) * 1.8;
+			}
+			const foe = {
+				index: foes.length,
+				kind: one.kind,
+				def: {
+					id: one.kind,
+					name: kind.name,
+					stats: made.stats
+				},
+				part: {
+					lands: {},
+					...kind.steady && { steady: true }
+				},
+				hp: made.hp,
+				maxHp: made.hp,
+				stunned: 0,
+				slowed: 0,
+				slowRate: 1,
+				statuses: [],
+				x,
+				z,
+				away: false
+			};
+			foes.push(foe);
+			minions.set(foe, {
+				def: kind,
+				atk: made.atk,
+				doing: null,
+				rest: 0,
+				skill: kind.skill?.first ?? 0,
+				life: 0,
+				fused: false
+			});
+			events.push({
+				kind: "foe-enter",
+				foe: foe.index,
+				minion: one.kind,
+				x,
+				z
+			});
+		}
+		if (wave === waves && boss.away && def.waves) {
+			boss.away = false;
+			events.push({ kind: "boss-return" });
+			const { share, knock } = def.waves.lands;
+			as(boss, () => {
+				for (const on of reachable()) {
+					sim.hurt(on, on.hp * share, false);
+					sim.knock(on, knock);
+				}
+			});
+		}
+	}
+	/** The heroes an enemy can reach: on the field, standing, and in the fight. */
+	const reachable = () => field.filter((on) => on.hp > 0 && !away(on.statuses));
+	/** The hero a minion goes for: the nearest it, or (`random`) any. */
+	function heroFor(foe, random = false) {
+		const can = reachable();
+		if (can.length === 0) return null;
+		if (random) return can[Math.floor(roll() * can.length)] ?? null;
+		const far = (on) => (on.x - foe.x) * (on.x - foe.x) + (on.z - foe.z) * (on.z - foe.z);
+		return can.reduce((best, on) => far(on) < far(best) - 1e-9 ? on : best);
+	}
+	/** The minions' moves go on by `dt`: each fights by itself (./bosses/dragon/minions.ts). */
+	function minionsAdvance(dt) {
+		for (const [foe, minion] of minions) {
+			if (foe.away || foe.hp <= 0) continue;
+			minion.life += dt;
+			const fuse = minion.def.fuse;
+			if (fuse && !minion.fused && minion.life >= fuse.after) {
+				minion.fused = true;
+				events.push({
+					kind: "foe-use",
+					foe: foe.index,
+					move: "skill"
+				});
+				as(foe, () => {
+					for (const on of reachable()) sim.hurt(on, on.stats.hp * fuse.share, false);
+				});
+				if (result) return;
+				continue;
+			}
+			if (foe.stunned > 0) {
+				minion.doing = null;
+				continue;
+			}
+			minion.rest -= dt;
+			minion.skill -= dt;
+			if (!minion.doing && minion.rest <= 0) {
+				const skill = minion.def.skill && minion.skill <= 0 ? minion.def.skill : null;
+				const move = skill ?? minion.def.attack;
+				const target = heroFor(foe, move.random);
+				if (!target) continue;
+				if (skill) minion.skill = skill.cooldown;
+				minion.doing = {
+					move,
+					t: 0,
+					landed: 0,
+					target
+				};
+				events.push({
+					kind: "foe-use",
+					foe: foe.index,
+					move: skill ? "skill" : "attack"
+				});
+			}
+			const doing = minion.doing;
+			if (!doing) continue;
+			doing.t += dt * (foe.slowed > 0 ? foe.slowRate : 1);
+			while (doing.landed < doing.move.lands.length && doing.t >= doing.move.lands[doing.landed]) {
+				doing.landed++;
+				as(foe, () => minionBlow(foe, minion, doing));
+				if (result) return;
+			}
+			if (doing.t >= doing.move.length) {
+				minion.doing = null;
+				minion.rest = minion.def.rest;
+			}
+		}
+	}
+	/** A blow of a minion's move lands: on its target (or, gone, another), and every hero as far about it as it reaches; and what it leaves on each. */
+	function minionBlow(foe, minion, doing) {
+		const was = doing.target;
+		const target = was && was.hp > 0 && field.includes(was) && !away(was.statuses) ? was : heroFor(foe, doing.move.random);
+		if (!target) return;
+		doing.target = target;
+		const { reach, leaves } = doing.move;
+		const struck = reach === Infinity ? reachable() : reachable().filter((on) => on === target || (on.x - target.x) * (on.x - target.x) + (on.z - target.z) * (on.z - target.z) <= reach * reach);
+		for (const on of struck) {
+			const took = sim.hurt(on, doing.move.share * minion.atk, true, doing.move.deals);
+			if (!leaves || took <= 0 || on.hp <= 0) continue;
+			if ("freeze" in leaves) sim.knock(on, leaves.freeze);
+			else if ("slow" in leaves) {
+				const { lasts, pace, ...shown } = leaves.slow;
+				put(on.statuses, {
+					name: shown.name,
+					left: lasts,
+					pace,
+					shown
+				});
+			} else {
+				const { each, most, ...shown } = leaves.weaken;
+				const count = Math.min(most, (on.statuses.find((status) => status.name === shown.name)?.count ?? 0) + 1);
+				put(on.statuses, {
+					name: shown.name,
+					left: Infinity,
+					count,
+					deals: Math.max(0, 1 - each * count),
+					shown
+				});
 			}
 		}
 	}
@@ -6221,7 +23912,18 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		get field() {
 			return field;
 		},
-		foe,
+		get foe() {
+			return current();
+		},
+		boss,
+		foes,
+		get wave() {
+			return wave;
+		},
+		waves,
+		get moving() {
+			return moving;
+		},
 		party,
 		get stage() {
 			return stage;
@@ -6252,121 +23954,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		sums,
 		roll,
 		hit(by, amount, counted = true, pierce = 0, whole = false) {
-			if (foe.hp <= 0 || result) return false;
-			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
-			const { atk, deals: type, crit: points, pen } = by.stats;
-			const critical = roll() < share$2(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses);
-			const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
-			const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
-			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused;
-			const skilled = landing?.by === by ? by.moveDmg[landing.move] ?? 1 : 1;
-			const acc = by.acc + auras.acc;
-			const plain = bossStands();
-			const lower = {
-				physical: blocking(foe.statuses, "physical"),
-				magical: blocking(foe.statuses, "magical")
-			};
-			const dodge = {
-				physical: Math.max(0, plain.dodge.physical + dodging(foe.statuses, "physical")),
-				magical: Math.max(0, plain.dodge.magical + dodging(foe.statuses, "magical"))
-			};
-			const stood = {
-				...plain,
-				dodge,
-				block: {
-					physical: Math.max(0, plain.block.physical + lower.physical),
-					magical: Math.max(0, plain.block.magical + lower.magical)
-				}
-			};
-			const against = whole || landing?.by === by && by.moveWhole.has(landing.move) ? {
-				...stood,
-				physical: 0,
-				magical: 0
-			} : {
-				...stood,
-				physical: stood.physical * defending(foe.statuses, "physical"),
-				magical: stood.magical * defending(foe.statuses, "magical")
-			};
-			const power = 1 + bookShare(by, "dmg") + skilled - 1;
-			const more = amplified([
-				dmgTimes(by),
-				attack,
-				...deals(by.statuses),
-				by.perkDmg,
-				by.part.deals?.() ?? 1,
-				...takes(foe.statuses, type)
-			]);
-			const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll, acc);
-			if (dodged) {
-				events.push({
-					kind: "number",
-					on: "boss",
-					amount: 0,
-					type: "dodged"
-				});
-				return false;
-			}
-			events.push({ kind: "boss-hit" });
-			const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.mark.name, perk.mark.every)));
-			const struck = taken * (foe.part.taken?.[type] ?? 1);
-			const dealt = deathless ? struck : Math.min(foe.hp, struck);
-			foe.hp -= dealt;
-			if (deathless && foe.hp <= 0) foe.hp = foe.maxHp;
-			by.dealt += dealt;
-			events.push({
-				kind: "number",
-				on: "boss",
-				amount: dealt,
-				type: blocked ? "blocked" : critical ? "crit" : "hit"
-			});
-			for (const { mark } of marking) if (mark) put(foe.statuses, {
-				name: mark.name,
-				left: mark.lasts,
-				...mark.takes && { takes: mark.takes },
-				...mark.deals && { deals: mark.deals },
-				...mark.crit && { crit: mark.crit },
-				shown: "curse"
-			});
-			const wound = critical ? by.perkDefs.find((perk) => perk.wound) : void 0;
-			if (wound?.wound) {
-				by.wound = wound.wound.lasts;
-				put(foe.statuses, {
-					name: wound.name ?? "Mortal Wound",
-					left: wound.wound.lasts,
-					heals: wound.wound.heals,
-					shown: "curse"
-				});
-			}
-			if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
-				const stolen = Math.min(dealt * share$2(curved(CURVE.chance, by.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
-				if (stolen > 0) by.hp += stolen;
-			}
-			const skillIndex = critical && landing?.by === by && attacking !== by ? by.doing?.skill : void 0;
-			if (skillIndex !== void 0) for (const perk of by.perkDefs) {
-				if (perk.skill?.index !== skillIndex) continue;
-				if (perk.skill.critMana) by.mana = Math.min(MAX_MANA, by.mana + perk.skill.critMana);
-				if (perk.skill.critCooldown) by.cooldowns[skillIndex] = Math.max(0, by.cooldowns[skillIndex] - (by.abilities[skillIndex]?.cooldown ?? 0) * perk.skill.critCooldown);
-			}
-			if (counted) {
-				for (const fighter of fighters) fighter.part.struck?.(by);
-				foe.part.struck?.(by, dealt, critical);
-				by.part.blow?.(attacking !== by);
-			}
-			if (counted && foe.hp > 0 && by.id === "kirze" && by.unique && roll() < ELICIPIRA.chance) {
-				const was = attacking;
-				attacking = null;
-				sim.hit(by, atTier(ELICIPIRA.blow, by.unique.tier) * ELICIPIRA.boss, false);
-				attacking = was;
-			}
-			if (foe.hp > 0) return critical;
-			sim.stun(1, { down: true });
-			foe.part.beaten?.();
-			end("won");
-			return critical;
+			return hitting(by, amount, counted, pierce, whole);
 		},
 		heal(fighter, amount, by) {
 			if (fighter.hp <= 0) return;
-			const given = Math.min(amount * byAttack(by) * healed(by) * healing(fighter.statuses) * (foe.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
+			const given = Math.min(amount * byAttack(by) * healed(by) * healing(fighter.statuses, 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
 			fighter.hp += given;
 			if (by) by.healed += given;
 			if (given > 0) events.push({
@@ -6378,14 +23970,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		},
 		shield(fighter, amount, seconds = Infinity, by) {
 			if (fighter.hp <= 0) return;
-			const given = amount * byAttack(by) * healed(by) * (by ? 1 + SKILL.aegis.shield * has(by, "aegis") : 1) * (foe.part.shielding?.() ?? 1);
+			const given = amount * byAttack(by) * healed(by) * (by ? 1 + SKILL.aegis.shield * has(by, "aegis") : 1) * (boss.part.shielding?.() ?? 1);
 			fighter.shield += given;
 			fighter.shieldLeft = Math.max(fighter.shieldLeft, seconds);
 			if (by) by.healed += given;
 		},
 		target: aimed,
-		hurt(target, amount, blockable = true) {
+		hurt(target, amount, blockable = true, kind) {
 			if (target.hp <= 0 || away(target.statuses) || result) return 0;
+			const foe = current();
 			if (target.immune > 0 || target.part.untouched?.()) {
 				if (target.immune > 0) target.immune--;
 				events.push({
@@ -6396,17 +23989,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				});
 				return 0;
 			}
-			const type = foe.def.stats.deals;
-			const guarded = 1 + HOPE.defense * wearing("hope", "support").length + PERSEVERANCE.defense * wearing("perseverance", "support").length + SKILL.bastion.defense * among("bastion");
+			const type = kind ?? foe.def.stats.deals;
+			const guarded = 1 + allied(target, "defense") + SKILL.bastion.defense * among("bastion") + alliesFrom(field, "defense");
+			const toughened = (setEffect(target).grows?.tough ?? 0) * grown(setEffect(target), elapsed) + adding(target.statuses, "tough");
+			const bare = relics.get(target)?.noDef() === true;
 			const walled = elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0;
 			const stands = {
 				...target.stats,
-				physical: (target.stats.physical + bolstering(target.statuses, "physical") + bolstering(party, "physical")) * stacked([
+				physical: bare ? 0 : (target.stats.physical + bolstering(target.statuses, "physical") + bolstering(party, "physical")) * stacked([
 					guarded,
 					...defends(target.statuses, "physical"),
 					...defends(party, "physical")
 				]),
-				magical: (target.stats.magical + bolstering(target.statuses, "magical") + bolstering(party, "magical")) * stacked([
+				magical: bare ? 0 : (target.stats.magical + bolstering(target.statuses, "magical") + bolstering(party, "magical")) * stacked([
 					guarded,
 					...defends(target.statuses, "magical"),
 					...defends(party, "magical")
@@ -6414,6 +24009,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				block: {
 					physical: target.stats.block.physical + walled + blocking(target.statuses, "physical"),
 					magical: target.stats.block.magical + walled + blocking(target.statuses, "magical")
+				},
+				tough: {
+					physical: (target.stats.tough?.physical ?? 0) + toughened,
+					magical: (target.stats.tough?.magical ?? 0) + toughened
 				}
 			};
 			const nimbler = (target.nimble > 0 ? target.nimble * (target.perkDefs.find((perk) => perk.nimble)?.nimble?.dodge ?? 0) : 0) + (target.part.dodge?.() ?? 0);
@@ -6426,7 +24025,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				magical: Math.max(0, stands.dodge.magical + nimblest.magical)
 			};
 			const critical = roll() < share$2(curved(CURVE.crit, foe.def.stats.crit) - curved(CURVE.chance, target.critResist[type] + critResisting(target.statuses, type) + critResisting(party, type))) + critting(foe.statuses);
-			const scale = scaleAt(def, stage, solo);
+			const staged = scaleAt(def, stage, solo);
+			const scale = foe === boss ? staged : {
+				...staged,
+				deals: 1
+			};
 			const { taken, blocked, dodged } = strike(amount * scale.deals * dealing(foe.statuses) * rage(clock - raidTime) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
 				block: NONE,
@@ -6442,12 +24045,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				});
 				target.part.dodged?.();
 				if (due(target, "mirage", SKILL.mirage.wait)) sim.heal(target, SKILL.mirage.heal * has(target, "mirage") * target.stats.hp);
+				relics.get(target)?.dodged();
 				return 0;
 			}
 			events.push({
 				kind: "hurt",
 				who: target.index,
-				blocked
+				blocked,
+				...foe !== boss && { by: foe.index }
 			});
 			const ward = type === "physical" ? SKILL["physical-ward"] : SKILL["magical-ward"];
 			const warded = has(target, type === "physical" ? "physical-ward" : "magical-ward");
@@ -6455,36 +24060,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				...takes(party, type),
 				...takes(target.statuses, type),
 				target.def.passive?.taken ?? 1,
-				target.set?.id === "hope" && target.set.role === "knight" ? HOPE.taken : 1,
 				target.perkTaken[type],
 				target.part.takes?.() ?? 1,
+				relics.get(target)?.taken() ?? 1,
 				1 - Math.min(.9, SKILL.steadfast.taken * target.stacks.steadfast * has(target, "steadfast")),
 				warded > 0 ? 1 - Math.min(.9, warded * (ward.taken + (ward.most - ward.taken) * Math.min(1, elapsed / ward.over))) : 1
 			]);
-			const cover = target.def.class === "knight" ? void 0 : wearing("hope", "knight").find((knight) => knight !== target);
-			if (cover) {
-				const covered = dealt * HOPE.covers;
-				dealt -= covered;
-				const soak = Math.min(cover.shield, covered);
-				cover.shield -= soak;
-				if (covered > soak) {
-					const lost = Math.min(cover.hp, covered - soak);
-					cover.hp -= lost;
-					spare(cover);
-					cover.mana = Math.min(MAX_MANA, cover.mana + MANA_PER_HP_LOST * lost / cover.stats.hp);
-					events.push({
-						kind: "number",
-						on: cover.index,
-						amount: covered - soak,
-						type: "hit"
-					});
-					if (cover.hp <= 0) {
-						cover.shield = 0;
-						cover.doing = null;
-						cover.reserved = null;
-					}
-				}
-			}
 			const soaked = Math.min(target.shield, dealt);
 			target.shield -= soaked;
 			if (soaked > 0) events.push({
@@ -6494,7 +24075,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				type: "shield"
 			});
 			const losing = Math.min(target.hp, Math.max(0, dealt - soaked));
-			const lost = losing >= target.hp && target.hp > 1 && target.part.spared?.() ? target.hp - 1 : losing;
+			const floor = relics.get(target)?.floor() ?? 0;
+			const kept = floor > 0 && target.hp > floor ? Math.min(losing, target.hp - floor) : losing;
+			const lost = kept >= target.hp && target.hp > 1 && target.part.spared?.() ? target.hp - 1 : kept;
 			if (dealt > soaked) {
 				target.hp -= lost;
 				spare(target);
@@ -6510,8 +24093,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				target.doing = null;
 				target.reserved = null;
 			}
-			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * lost / target.stats.hp);
+			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * (1 + target.manaDamage) * lost / target.stats.hp);
 			if (dealt > 0) for (const fighter of fighters) fighter.part.hurt?.(target);
+			if (dealt > 0) relics.get(target)?.hurt();
 			for (const perk of target.perkDefs) {
 				if (perk.curse && perkDue(target, perk.name ?? perk.words, perk.curse.every)) put(foe.statuses, {
 					name: perk.name ?? "Curse",
@@ -6524,6 +24108,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (blocked) {
 				target.part.blocked?.();
 				if (target.hp > 0 && due(target, "parry", SKILL.parry.wait)) target.mana = Math.min(MAX_MANA, target.mana + SKILL.parry.mana * has(target, "parry"));
+				const onBlock = setEffect(target).onBlock;
+				if (onBlock && target.hp > 0 && perkDue(target, "set-block", onBlock.wait)) target.cooldowns = target.cooldowns.map((left) => Math.max(0, left - onBlock.cooldown));
 			}
 			return dealt;
 		},
@@ -6549,6 +24135,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (fighter.hp <= 0 || away(fighter.statuses) || fighter.statuses.some((status) => status.guards) || fighter.part.guards?.()) return;
 			const using = fighter.doing?.skill;
 			if (using !== void 0 && fighter.perkDefs.some((perk) => perk.skill?.index === using && perk.skill.steady)) return;
+			if (relics.get(fighter)?.knocked() === false) return;
 			stagger(fighter);
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity")) * (fighter.def.passive?.held ?? 1) * (fighter.part.held?.() ?? 1);
 			put(fighter.statuses, {
@@ -6560,13 +24147,28 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		},
 		stagger,
 		mend(amount) {
+			const foe = current();
 			if (foe.hp <= 0) return;
 			const given = Math.min(amount * healing(foe.statuses), foe.maxHp - foe.hp);
 			foe.hp += given;
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
+			const foe = current();
+			if (foe.away || foe.hp <= 0) return;
 			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses)))) : 1);
+			if (foe !== boss) {
+				if (foe.part.steady || held <= 0) return;
+				foe.stunned = Math.max(foe.stunned, held);
+				const minion = minions.get(foe);
+				if (minion) minion.doing = null;
+				events.push({
+					kind: "foe-daze",
+					foe: foe.index,
+					seconds: held
+				});
+				return;
+			}
 			const taken = foe.part.controlled && foe.hp > 0 ? foe.part.controlled(held, down) : {
 				seconds: held,
 				down
@@ -6582,11 +24184,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		slow(points, seconds) {
-			if (foe.part.steady) return;
+			const foe = current();
+			if (foe.part.steady || foe.away) return;
 			const rate = 1 - share$2(points);
 			foe.slowRate = rate;
 			foe.slowed = seconds;
-			events.push({
+			if (foe === boss) events.push({
 				kind: "boss-slow",
 				rate,
 				seconds
@@ -6618,6 +24221,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		marks() {
+			const foe = boss;
 			const marks = [];
 			if (foe.hp <= 0) marks.push({
 				text: "Beaten",
@@ -6649,7 +24253,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			for (const fighter of fighters) marks.push(...fighter.part.marks?.() ?? []);
 			return marks;
 		},
-		gauge: () => foe.part.gauge?.() ?? null,
+		gauge: () => boss.part.gauge?.() ?? null,
 		checksum() {
 			const word = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(8));
 			let hash = 2166136261;
@@ -6659,10 +24263,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			};
 			mix(tick);
 			mix(clock);
-			mix(foe.hp);
-			mix(foe.stunned);
-			mix(foe.slowed);
-			mix(foe.statuses.length);
+			mix(wave);
+			mix(moving);
+			for (const foe of foes) {
+				mix(foe.hp);
+				mix(foe.stunned);
+				mix(foe.slowed);
+				mix(foe.statuses.length);
+			}
 			for (const fighter of fighters) {
 				mix(fighter.hp);
 				mix(fighter.mana);
@@ -6696,31 +24304,46 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const before = fighters.map((fighter) => fighter.mana);
 			spent.clear();
 			idle = bossBusy() ? 0 : idle + dt;
-			if (bossAuto && idle >= (def.rest ?? 1.1)) {
-				const forced = foe.part.next?.() ?? null;
-				const may = def.attacks.filter((one) => foe.part.ready?.(one.name) ?? true);
+			if (bossAuto && !boss.away && moving <= 0 && idle >= (def.rest ?? 1.1)) {
+				const forced = boss.part.next?.() ?? null;
+				const may = def.attacks.filter((one) => boss.part.ready?.(one.name) ?? true);
 				const basic = def.basic;
 				const skill = basic ? may.find((one) => !basic.includes(one.name))?.name : void 0;
 				const plain = basic ? basic[Math.floor(roll() * basic.length)] : (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name;
 				bossUse(forced ?? skill ?? plain ?? "");
 			}
 			for (const fighter of fighters) {
-				fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling([...fighter.statuses, ...party]));
+				fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling([...fighter.statuses, ...party], 1 + allied(fighter, "mana")));
 				fighter.cooldowns = fighter.cooldowns.map((left) => Math.max(0, left - dt));
 				wear(fighter.statuses, dt);
 				fighter.shieldLeft = Math.max(0, fighter.shieldLeft - dt);
 				if (fighter.shieldLeft <= 0) fighter.shield = 0;
 				skillTick(fighter, dt);
 				perkTick(fighter, dt);
-				fighter.part.tick?.(dt);
+				setTick(fighter);
+				relics.get(fighter)?.tick(dt);
+				asFighter(fighter, () => fighter.part.tick?.(dt));
+				const top = setEffect(fighter).top;
+				if (top && elapsed >= top.after && elapsed - dt < top.after && field.includes(fighter) && fighter.hp > 0) {
+					const most = field.reduce((best, on) => on.hp > 0 && (!best || on.dealt > best.dealt) ? on : best, null);
+					if (most) put(most.statuses, {
+						name: `${SET_UP.top.name} ${fighter.index}`,
+						left: Infinity,
+						deals: 1 + top.dmg,
+						shown: SET_UP.top
+					});
+				}
 				if (result) return;
 			}
-			foe.slowed = Math.max(0, foe.slowed - dt);
-			foe.stunned = Math.max(0, foe.stunned - dt);
-			wear(foe.statuses, dt);
+			for (const foe of foes) {
+				foe.slowed = Math.max(0, foe.slowed - dt);
+				foe.stunned = Math.max(0, foe.stunned - dt);
+				wear(foe.statuses, dt);
+			}
 			wear(party, dt);
 			if (!deathless) clock += dt;
-			foe.part.tick?.(dt);
+			as(boss, () => boss.part.tick?.(dt));
+			if (result) return;
 			mendShown += dt;
 			if (mendShown >= 1) {
 				if (mended >= 1) events.push({
@@ -6733,13 +24356,20 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				mended = 0;
 				mendShown = 0;
 			}
+			if (moving > 0) {
+				moving = Math.max(0, moving - dt);
+				if (moving <= 0) arrive();
+				tick++;
+				if (tick % SECOND === 0) sums.push(sim.checksum());
+				return;
+			}
 			for (const on of field) {
 				on.rested = on.doing ? 0 : on.rested + dt;
 				if (on.auto && on.reserved === null && !on.doing) on.reserved = autoSkill(on);
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
 				if (!on.doing && on.hp > 0 && !bound(on.statuses)) {
 					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
-					else if (on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && foe.hp > 0) begin(on, on.attack, null);
+					else if (on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
 				}
 			}
 			const busy = bossBusy();
@@ -6747,9 +24377,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			was = busy;
 			bossAdvance(dt);
 			if (result) return;
+			minionsAdvance(dt);
+			if (result) return;
 			const reform = Math.min(1, dt * 4);
 			for (const on of field) {
-				const speed = (on.stats.speed + auras.speed + (on.part.speed?.() ?? 0)) * pacing(on.statuses, on.part.pace?.() ?? 1);
+				const speed = (on.stats.speed + auras.speed + allied(on, "speed") + adding(on.statuses, "speed") + (on.part.speed?.() ?? 0)) * pacing(on.statuses, on.part.pace?.() ?? 1);
 				on.haste = on.def.passive?.steady ? 1 : Math.max(300, curved(CURVE.speed, speed)) / POINTS;
 				advance(on, dt * on.haste);
 				if (result) return;
@@ -6818,7 +24450,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				deathless = !deathless;
 				if (deathless) {
 					for (const fighter of fighters) if (fighter.hp <= 0) sim.revive(fighter, 1);
-					if (foe.hp <= 0) foe.hp = foe.maxHp;
+					if (boss.hp <= 0) boss.hp = boss.maxHp;
 				}
 				return;
 			case "stage":
@@ -6826,15 +24458,24 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				return;
 		}
 	}
-	foe.part = def.join?.(sim) ?? foe.part;
-	if (fighters.some((fighter) => fighter.set?.id === "authority" && fighter.set.role === "support")) {
-		const strongest = fighters.reduce((best, fighter) => !best || fighter.stats.atk > best.stats.atk ? fighter : best, null);
-		if (strongest) put(strongest.statuses, {
-			name: GUARDED$2.name,
-			left: AUTHORITY$1.guardFor,
-			guards: true,
-			shown: GUARDED$2
+	boss.part = as(boss, () => def.join?.(sim)) ?? boss.part;
+	for (const fighter of fighters) {
+		const hooks = artifactHooks(fighter, {
+			elapsed: () => elapsed,
+			field: () => field,
+			boss: () => boss,
+			dragon: DRAGON_IDS.has(def.id),
+			roll,
+			hit: (by, amount) => void sim.hit(by, amount, true),
+			heal: (on, amount) => sim.heal(on, amount),
+			due: (on, name, again) => perkDue(on, name, again)
 		});
+		if (hooks) relics.set(fighter, hooks);
+	}
+	for (const hooks of relics.values()) hooks.begin();
+	for (const fighter of fighters) {
+		const tick = setEffect(fighter).tick;
+		if (tick) fighter.perkWaits.set = tick.every;
 	}
 	const champions = fighters.reduce((count, fighter) => count + has(fighter, "champion"), 0);
 	if (champions > 0) {
@@ -15421,7 +33062,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "9c73e1e2a472";
+var SIM_VERSION = "0c8107595988";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
@@ -15488,6 +33129,23 @@ var DRAGON_INFO = DRAGONS.map((boss) => ({
 	stages: stagesOf(boss)
 }));
 var TM_SET_INFO = SET_INFO;
+/** How many of a TechnoMagic set's pieces a hero wears for its effect. */
+var TM_SET_PIECES = 4;
+var KR_PIECES = KR_PIECES$1;
+var KR_POOLS = KR_POOLS$1;
+/** A main stat's base, times its refinement's factor (R1 to R5: thousandths, at max level) for its kind of stat. */
+var KR_REFINE = KR_REFINE$1;
+var KR_SETS = KR_SETS$1;
+var KR_RUNES = KR_RUNES$1;
+/** The TechnoMagic gear's unique options (King's Raid's 47), by number: the additional skill each is (null: none), and King's Raid's words and numbers. */
+var KR_UNIQUE = KR_UNIQUE$1;
+var TM_ARTIFACTS = KR_ARTIFACTS.filter((one) => one.id in ARTIFACTS).map(({ id, code, name, icon, text }) => ({
+	id,
+	code,
+	name,
+	icon,
+	text: (text ?? []).map((line) => line ?? "")
+}));
 var RAID_KINDS = /* @__PURE__ */ new Set([
 	"skill",
 	"auto",
@@ -15546,6 +33204,10 @@ function startRaid(run) {
 			skill: hero.ut.skill,
 			tier: hero.ut.tier
 		} : null;
+		const artifact = hero.artifact && typeof hero.artifact.id === "string" && typeof hero.artifact.tier === "number" ? {
+			id: hero.artifact.id,
+			tier: hero.artifact.tier
+		} : null;
 		entries.push({
 			def,
 			skin: hero.skin,
@@ -15555,7 +33217,8 @@ function startRaid(run) {
 			skills,
 			sub: run.solo === true && hero.sub === true,
 			perks,
-			ut
+			ut,
+			artifact
 		});
 	}
 	const sim = makeSim({
@@ -15629,4 +33292,4 @@ function replay(run, rawInputs, pageSums = []) {
 	};
 }
 //#endregion
-export { BOSS_IDS, DRAGON_INFO, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_BOSS_INFO, TM_HEROES, TM_SET_INFO, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, tmPerkStats, uniqueTreasureText, uniqueWeaponText };
+export { BOSS_IDS, DRAGON_INFO, KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, KR_UNIQUE, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_ARTIFACTS, TM_BOSS_INFO, TM_HEROES, TM_SET_INFO, TM_SET_PIECES, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, tmPerkStats, uniqueTreasureText, uniqueWeaponText };

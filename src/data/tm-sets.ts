@@ -1,17 +1,17 @@
 import type { RaidClassId } from '../constants/raid.js';
 import type { ItemDef, TmSetId } from '../types.js';
-import { TM_SET_INFO } from '../../vendor/technomagic-sim.mjs';
+import { TM_SET_INFO, TM_SET_PIECES as PIECES } from '../../vendor/technomagic-sim.mjs';
 
 /*
- * The TechnoMagic Raids' gear sets: one for each raid's boss, which drops only its own set's gear
- * (ItemDef.tmSet). A hero wearing three pieces of one set (of its two weapons and two armors, each working on
- * its class) has the set's effect, which depends on its class. Each set, and what it does, is the raid's (Koma-UI's
- * src/technomagic/sim/sets.ts, here as vendor/technomagic-sim.mjs's TM_SET_INFO, said for the heroes page and each
- * piece's own): which boss drops it is the bot's.
+ * The TechnoMagic Raids' gear sets: one for each raid's boss, which drops only its own set's gear (King's Raid's: its
+ * pieces are data/kr-gear.ts's, ItemDef.kr.set). A hero wearing four pieces of one set (of its Armor, Secondary Armor,
+ * Accessory and Orb, each working on its class) has the set's effect, which depends on its class. Each set, and what it
+ * does, is the raid's (Koma-UI's src/technomagic/sim/sets.ts: King's Raid's 4-piece skills, here as
+ * vendor/technomagic-sim.mjs's TM_SET_INFO, said for the heroes page and each piece's own): which boss drops it is the bot's.
  */
 
-/** How many pieces of a set make it: three of a hero's weapons and armors. */
-export const TM_SET_PIECES = 3;
+/** How many pieces of a set make it: four (the raid's). */
+export const TM_SET_PIECES: number = PIECES;
 
 export interface TmSet {
   id: TmSetId;

@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG } from '../../config.js';
-import { tmDropsOf } from '../../data/items.js';
+import { KR_DROPS, dragonPieces, dragonTier, runeCount, runeGradeWeights } from '../../constants/technomagic.js';
+import { KR_ITEMS_BY_ID, KR_RUNES, krPiecesOf } from '../../data/kr-gear.js';
 import { TM_ARMOR_DEFS } from '../../data/tm-main.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
 import { tmSetOfBoss } from '../../data/tm-sets.js';
@@ -47,10 +48,55 @@ export interface TmRng {
 
 const defaultRng: TmRng = { index: (max) => randomInt(0, max) };
 
-/** The TechnoMagic item a win against `boss` gives: one of its set's pieces, each as likely (null: it drops none). */
+/** The piece a win against `boss` gives: one of its set's (King's Raid's: data/kr-gear.ts), each as likely (null: it drops none). */
 export function rollTmDrop(boss: string, rng: TmRng = defaultRng): ItemDef | null {
   const set = tmSetOfBoss(boss);
-  const pool = set ? tmDropsOf(set.id) : [];
+  const pool = set ? krPiecesOf(set.id) : [];
+  return pool.length > 0 ? (pool[rng.index(pool.length)] as ItemDef) : null;
+}
+
+/** The pieces a Dragon Raid win against `dragon` at `stage` gives: its own set's, of its stage's tier, each as likely. */
+export function rollDragonPieces(dragon: string, stage: number, rng: TmRng = defaultRng): ItemDef[] {
+  const set = KR_DROPS.dragonSets[dragon];
+  const pool = set ? krPiecesOf(set, dragonTier(stage)) : [];
+  return pool.length === 0 ? [] : Array.from({ length: dragonPieces(stage) }, () => pool[rng.index(pool.length)] as ItemDef);
+}
+
+/** One of `weights`' indexes, as likely as its weight (none: the first). */
+function weighted(weights: readonly number[], rng: TmRng): number {
+  const scale = 1000;
+  const total = weights.reduce((sum, w) => sum + Math.round(w * scale), 0);
+  if (total <= 0) return 0;
+  let at = rng.index(total);
+  for (let i = 0; i < weights.length; i++) {
+    at -= Math.round((weights[i] as number) * scale);
+    if (at < 0) return i;
+  }
+  return weights.length - 1;
+}
+
+/**
+ * The runes a win at `stage` gives (their ids): runeCount of them, each of a grade rolled by its raid's weights
+ * (`dragon`: the Dragon Raid's, else a TechnoMagic Raid's), a grade 5 one a Velkazar rune now and then, else an Ancient one;
+ * then one of that grade's runes, each as likely.
+ */
+export function rollRunes(stage: number, dragon: boolean, rng: TmRng = defaultRng): string[] {
+  const weights = runeGradeWeights(stage, dragon);
+  const out: string[] = [];
+  for (let n = runeCount(stage); n > 0; n--) {
+    const grade = weighted(weights, rng) + 1;
+    const velkazar = grade === 5 && rng.index(1000) < KR_DROPS.velkazar * 1000;
+    const pool = KR_RUNES.filter((rune) => rune.grade === grade && (grade !== 5 || (rune.ancient === true) !== velkazar));
+    if (pool.length > 0) out.push((pool[rng.index(pool.length)] as (typeof KR_RUNES)[number]).id);
+  }
+  return out;
+}
+
+/** The artifact a TechnoMagic Raid win at `stage` gives now and then (null: none this time): any as likely. */
+export function rollArtifact(stage: number, rng: TmRng = defaultRng): ItemDef | null {
+  const chance = KR_DROPS.artifact + KR_DROPS.artifactPerStage * Math.max(0, Math.floor(stage) - 1);
+  if (rng.index(10_000) >= Math.round(chance * 10_000)) return null;
+  const pool = [...KR_ITEMS_BY_ID.values()].filter((item) => item.kr?.part === 'artifact');
   return pool.length > 0 ? (pool[rng.index(pool.length)] as ItemDef) : null;
 }
 

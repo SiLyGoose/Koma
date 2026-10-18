@@ -5,21 +5,49 @@ import type { RaidClassId } from './raid.js';
 /* The TechnoMagic Raid's heroes on the site: what the bot's GET /api/heroes and the heroes page say of them. */
 
 /**
- * Where a hero wears gear: two weapons, two armors and a treasure (its main treasure), and three sub treasure slots
- * beside it (side1 to side3), as King's Raid's. The raid's gear and the TechnoMagic Raid's go in them (lib/game/heroes.ts's
- * heroWearable), each in a slot of its item's kind; a sub treasure slot only takes the hero's own unique treasures, and
- * only while its main treasure is one too (King's Raid's: only a unique treasure has sub treasures); of one there only
- * its options count (its HP and effect are a main treasure's alone).
+ * Where a hero wears gear, as King's Raid's: its Weapon (its own unique weapon, or a dragon set's weapon), Armor, Secondary
+ * Armor, Accessory and Orb (King's Raid's hero gear: the bot's data/kr-gear.ts), its Treasure (its main treasure) with three
+ * sub treasure slots beside it (side1 to side3), and its Artifact. Only hero gear goes in them (lib/game/heroes.ts's
+ * heroWearable: never the members' own), each in the slot of its part; a sub treasure slot only takes the hero's own unique
+ * treasures, and only while its main treasure is one too (only a unique treasure has sub treasures); of one there only its
+ * options count (its HP and effect are a main treasure's alone).
  */
-export type HeroSlot = 'weapon1' | 'weapon2' | 'armor1' | 'armor2' | 'treasure' | 'side1' | 'side2' | 'side3';
+export type HeroSlot = 'weapon' | 'armor' | 'secondary' | 'accessory' | 'orb' | 'treasure' | 'side1' | 'side2' | 'side3' | 'artifact';
 
-export const HERO_SLOTS: readonly HeroSlot[] = ['weapon1', 'weapon2', 'armor1', 'armor2', 'treasure', 'side1', 'side2', 'side3'];
+export const HERO_SLOTS: readonly HeroSlot[] = ['weapon', 'armor', 'secondary', 'accessory', 'orb', 'treasure', 'side1', 'side2', 'side3', 'artifact'];
 
 /** A hero's sub treasure slots: only its own unique treasures go in them. */
 export const SIDE_SLOTS: readonly HeroSlot[] = ['side1', 'side2', 'side3'];
 
-/** Which kind of item goes in a hero's slot. */
-export const HERO_SLOT_KIND: Readonly<Record<HeroSlot, Slot>> = { weapon1: 'weapon', weapon2: 'weapon', armor1: 'armor', armor2: 'armor', treasure: 'treasure', side1: 'treasure', side2: 'treasure', side3: 'treasure' };
+/** The part of a hero's gear a piece is (King's Raid's), which says the slot it goes in. */
+export type HeroPart = 'weapon' | 'armor' | 'secondary' | 'accessory' | 'orb' | 'treasure' | 'artifact';
+
+export const HERO_PARTS: readonly HeroPart[] = ['weapon', 'armor', 'secondary', 'accessory', 'orb', 'treasure', 'artifact'];
+
+/** Which part goes in each of a hero's slots. */
+export const HERO_SLOT_PART: Readonly<Record<HeroSlot, HeroPart>> = {
+  weapon: 'weapon',
+  armor: 'armor',
+  secondary: 'secondary',
+  accessory: 'accessory',
+  orb: 'orb',
+  treasure: 'treasure',
+  side1: 'treasure',
+  side2: 'treasure',
+  side3: 'treasure',
+  artifact: 'artifact',
+};
+
+/** Each part's name, as King's Raid's (its Secondary Gear here is Secondary Armor). */
+export const HERO_PART_NAME: Readonly<Record<HeroPart, string>> = {
+  weapon: 'Weapon',
+  armor: 'Armor',
+  secondary: 'Secondary Armor',
+  accessory: 'Accessory',
+  orb: 'Orb',
+  treasure: 'Treasure',
+  artifact: 'Artifact',
+};
 
 /** How far a hero can be transcended. */
 export const TRANSCEND_MAX = 5;
@@ -55,7 +83,28 @@ export interface TranscendPerk {
   cost: number;
 }
 
-/** One copy a hero can wear (the raid's gear, or the TechnoMagic Raid's), as the heroes page shows it. */
+/** A rune, as the heroes page shows it: its id, name, grade (1 Common to 6 Legendary), colour, icon, and what it gives, a line each. */
+export interface HeroRune {
+  id: string;
+  name: string;
+  grade: number;
+  color: string;
+  icon: string;
+  lines: string[];
+}
+
+/** A rune the member has (not socketed), how many, and the parts it goes in. */
+export type HeroRuneStack = HeroRune & { count: number; parts: HeroPart[] };
+
+/** One of a copy's options: its stat, its line ("+14% ATK"), and its step of `steps` (an upgrade raises one a step). */
+export interface HeroOption {
+  stat: string;
+  line: string;
+  step: number;
+  steps: number;
+}
+
+/** One copy a hero can wear (King's Raid's hero gear, a unique weapon or treasure, an artifact), as the heroes page shows it. */
 export interface HeroCopy {
   id: string;
   itemId: string;
@@ -64,8 +113,30 @@ export interface HeroCopy {
   slot: Slot;
   description: string;
   level: number;
-  /** Its top refinement level: 1 for TechnoMagic gear, which is never refined (as GearCopy's). */
+  /** Its top refinement level (R5; 1 for the old TechnoMagic gear, never refined). */
   maxLevel: number;
+  /** The part of a hero's gear it is (the slot it goes in), and its kind: an accessory's (ring, earrings…), an armor's weight. */
+  part: HeroPart;
+  kind: string | null;
+  /** King's Raid's hero gear: its set (its id and name) and tier; null: none. */
+  krSet: { id: string; name: string; tier: number } | null;
+  /** The classes of hero it works on (empty: any). */
+  classes: RaidClassId[];
+  /** Its icon (King's Raid's: Koma-UI's public/kr/items/<icon>.webp), or null for gear with its own picture. */
+  icon: string | null;
+  /** Its options (King's Raid's random options), in order. */
+  options: HeroOption[];
+  /** Its rune sockets, each the rune in it (null: empty); none for a part with no sockets. */
+  runes: (HeroRune | null)[];
+  /**
+   * What rerolling one of its options costs (POST /api/heroes/reroll), its unique option (TechnoMagic gear's additional
+   * skill), and upgrading an option a step (POST /api/heroes/upgrade: one at random not yet at its top); null where it can't be.
+   */
+  reroll: number | null;
+  rerollUnique: number | null;
+  upgrade: number | null;
+  /** Its set's bonuses: what each number of its pieces worn gives, and whether that is on (the hero wearing it has as many). */
+  setBonuses: { pieces: number; text: string; active: boolean }[];
   /** Locked by the member (POST /api/heroes/lock, as the gear page's): never sold or used up by a refine. */
   locked: boolean;
   /** What selling it pays in points (POST /api/heroes/sell, as the gear page's): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
@@ -99,6 +170,14 @@ export interface HeroCopy {
   refine: GearRefine;
 }
 
+/** A set a hero wears pieces of: which, how many, and each bonus with whether it is on. */
+export interface HeroSetView {
+  id: string;
+  name: string;
+  pieces: number;
+  bonuses: { pieces: number; text: string; active: boolean }[];
+}
+
 /** One hero, as the shop and the heroes page show it. */
 export interface HeroView {
   /** The site knows it by this id (its src/technomagic/ folder). */
@@ -118,8 +197,12 @@ export interface HeroView {
    * armors' P.DEF and M.DEF as they are (defPhysicalFlat, defMagicalFlat).
    */
   bonus: HeroBonus;
-  /** The TechnoMagic set its weapons and armors are most of: which, how many pieces, and whether its effect is on (three of them). Null with none. */
+  /** The TechnoMagic set its gear is most of: which, how many pieces, and whether its effect is on (four of them). Null with none. */
   set: { id: TmSetId; pieces: number; active: boolean } | null;
+  /** Every set it wears pieces of (TechnoMagic and dragon sets), with their bonuses. */
+  sets: HeroSetView[];
+  /** Its artifact's effect: its name, tier (its refinement, 1 to 5) and what it does then; null: none worn. */
+  artifact: { name: string; tier: number; text: string } | null;
   /** The additional skills of the TechnoMagic gear it wears that work on it (the sim's ids, one for each piece). */
   skills: string[];
   /** The same as lines, like "+25% ATK" (then its set's, and its additional skills', last). */
@@ -159,6 +242,8 @@ export interface HeroesView {
   /** Every copy the member owns that a hero can wear, best first (stars, then level, then name). */
   copies: HeroCopy[];
   balance: number;
+  /** The runes they have, not socketed (King's Raid's: the bot's data/kr-gear.ts), best first. */
+  runes: HeroRuneStack[];
   /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
   gems: number;
   essences: Record<EssenceId, number>;
@@ -168,7 +253,13 @@ export interface HeroesView {
 export type HeroesSold = HeroesView & { sold: GearSale };
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
-export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'busy';
+export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'duplicate' | 'no_main_treasure' | 'busy';
+
+/** Why a rune wasn't socketed or taken out (nothing changed). */
+export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'busy';
+
+/** Why an option wasn't rerolled or upgraded (nothing was spent). */
+export type HeroOptionError = 'not_found' | 'no_option' | 'maxed' | 'too_poor' | 'busy';
 
 /** Why a copy wasn't refined (nothing was used up). */
 export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy';
@@ -212,7 +303,46 @@ export const TRANSCEND_PERKS: readonly TranscendPerk[] = [
 ];
 
 /** What gear can raise in the raid, in the order its lines are listed (the bot's lib/game/heroes.ts HERO_STATS says what each is). */
-export const HERO_STAT_IDS = ['atkFlat', 'atk', 'hpFlat', 'hp', 'crit', 'critDamage', 'speed', 'pen', 'defense', 'defPhysicalFlat', 'defPhysical', 'defMagicalFlat', 'defMagical', 'block', 'blockPhysical', 'blockMagical', 'blockDef', 'blockDefPhysical', 'blockDefMagical', 'dodge', 'tough', 'toughPhysical', 'toughMagical', 'resist', 'accuracy', 'lifesteal', 'critResist', 'heal', 'control', 'manaAttack', 'manaRegen'] as const;
+export const HERO_STAT_IDS = [
+  'atkFlat',
+  'atk',
+  'hpFlat',
+  'hp',
+  'crit',
+  'critDamage',
+  'speed',
+  'pen',
+  'acc',
+  'defense',
+  'defPhysicalFlat',
+  'defPhysical',
+  'defMagicalFlat',
+  'defMagical',
+  'block',
+  'blockPhysical',
+  'blockMagical',
+  'blockDef',
+  'blockDefPhysical',
+  'blockDefMagical',
+  'dodge',
+  'dodgePhysical',
+  'dodgeMagical',
+  'tough',
+  'toughPhysical',
+  'toughMagical',
+  'resist',
+  'accuracy',
+  'lifesteal',
+  'critResist',
+  'critResistPhysical',
+  'critResistMagical',
+  'heal',
+  'recovery',
+  'control',
+  'manaAttack',
+  'manaRegen',
+  'manaDamage',
+] as const;
 export type HeroStat = (typeof HERO_STAT_IDS)[number];
 
 /** What gear gives a hero: a share for each stat (0.1: 10% more, or 100 points). */

@@ -68,3 +68,57 @@ export const DRAGON_DROPS: readonly Readonly<Partial<Record<3 | 4, number>>>[] =
 /** What a Dragon Raid win at `stage` drops (past the last stage, as much as the last). */
 export const dragonDrops = (stage: number): Readonly<Partial<Record<3 | 4, number>>> =>
   DRAGON_DROPS[Math.min(DRAGON_DROPS.length, Math.max(1, Math.floor(stage))) - 1] as Readonly<Partial<Record<3 | 4, number>>>;
+
+/**
+ * King's Raid's hero gear the raids drop besides (data/kr-gear.ts), each piece of its raid's set (a TechnoMagic Raid's,
+ * its boss's: tmDropCount of them; a dragon's, its own: `dragonPieces` of them by its stage, 1 to 10), and their runes:
+ *
+ *   - a dragon's set (King's Raid's: the Fire Dragon's Opportune Fire, the Ice Dragon's Gritty Frost, the Poison Dragon's
+ *     Unrelenting Poison, the Black Dragon's Swift Darkness), of the tier its stage reaches (`dragonTiers`: from stage 1, 4
+ *     and 8);
+ *   - runes, `runes` of them a win by its stage (1 to 3: 1, 4 to 6: 2, 7 on: 3), each of a grade (1 Common to 6
+ *     Legendary) rolled by its raid's weights at its stage: a dragon's climbing from `dragonGrades[0]` at stage 1 to
+ *     `dragonGrades[1]` at 10; a TechnoMagic Raid's from `tmGrades[0]` at stage 1 to `tmGrades[1]` at 8 (the hardest raid:
+ *     its runes are better even at stage 1); a grade 5 one a Velkazar rune `velkazar` of the time, else an Ancient one;
+ *   - an artifact, now and then, from a TechnoMagic Raid: `artifact` of the time at stage 1, `artifactPerStage` more for each
+ *     stage past it.
+ */
+export const KR_DROPS = {
+  dragonSets: { temeraire: 'opportune-fire', scalaxia: 'gritty-frost', zyrrkinoth: 'unrelenting-poison', armarta: 'swift-darkness' } as Readonly<Record<string, string>>,
+  dragonPieces: [1, 1, 2, 2, 3, 3, 4, 5, 6, 7] as readonly number[],
+  dragonTiers: [
+    [1, 6],
+    [4, 7],
+    [8, 8],
+  ] as readonly (readonly [number, number])[],
+  runes: [1, 1, 1, 2, 2, 2, 3] as readonly number[],
+  dragonGrades: [
+    [40, 35, 20, 5, 0, 0],
+    [0, 0, 10, 30, 35, 25],
+  ] as readonly (readonly number[])[],
+  tmGrades: [
+    [0, 0, 30, 40, 20, 10],
+    [0, 0, 0, 20, 40, 40],
+  ] as readonly (readonly number[])[],
+  velkazar: 0.4,
+  artifact: 0.03,
+  artifactPerStage: 0.01,
+} as const;
+
+/** How many runes a win at `stage` gives (past the last listed, as many as the last). */
+export const runeCount = (stage: number): number => KR_DROPS.runes[Math.min(KR_DROPS.runes.length, Math.max(1, Math.floor(stage))) - 1] as number;
+
+/** How many dragon set pieces a Dragon Raid win at `stage` gives, and of which tier. */
+export const dragonPieces = (stage: number): number => KR_DROPS.dragonPieces[Math.min(KR_DROPS.dragonPieces.length, Math.max(1, Math.floor(stage))) - 1] as number;
+export const dragonTier = (stage: number): number => KR_DROPS.dragonTiers.filter(([from]) => stage >= from).at(-1)?.[1] ?? 6;
+
+/**
+ * The weights of each rune grade (1 to 6) a win at `stage` rolls: its raid's (`dragon`: the Dragon Raid's over its 10 stages,
+ * else a TechnoMagic Raid's over its 8), from its first stage's to its last's in even steps.
+ */
+export function runeGradeWeights(stage: number, dragon: boolean): number[] {
+  const [first, last] = (dragon ? KR_DROPS.dragonGrades : KR_DROPS.tmGrades) as readonly (readonly number[])[];
+  const stages = dragon ? 10 : 8;
+  const along = Math.min(1, Math.max(0, (Math.floor(stage) - 1) / (stages - 1)));
+  return (first as readonly number[]).map((from, i) => from + ((last as readonly number[])[i] as number - from) * along);
+}

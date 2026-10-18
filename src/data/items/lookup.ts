@@ -1,11 +1,13 @@
 import { ITEM_SUGGEST } from '../../constants/index.js';
 import { editDistance, normalize } from '../../lib/text.js';
 import type { ItemDef, Stars, TmSetId } from '../../types.js';
+import { KR_ITEMS } from '../kr-gear.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 
+/** Every item by id: the catalog's, and King's Raid's hero gear and artifacts (../kr-gear.ts: never pulled, nor listed with the catalog's). */
 export const ITEMS_BY_ID: ReadonlyMap<string, ItemDef> = new Map(
-  ITEMS.map((item): [string, ItemDef] => [item.id, item]),
+  [...ITEMS, ...KR_ITEMS].map((item): [string, ItemDef] => [item.id, item]),
 );
 
 export function itemsByStars(stars: Stars): ItemDef[] {

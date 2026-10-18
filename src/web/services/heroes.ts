@@ -3,7 +3,10 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroesSold, HeroMembers } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError } from '../../protocol/heroes.js';
+
+/** Every reason a change to their heroes or their gear isn't made. */
+type HeroError = HeroEquipError | HeroPerksError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | 'owned' | 'too_poor';
 
 export type { HeroesSold, HeroMembers };
 
@@ -21,7 +24,7 @@ export function heroService(deps: ApiDeps) {
   const store = deps.heroes ?? heroStore;
 
   /** The heroes as they stand after a change, or the change's error. */
-  const answer = (result: HeroesView | 'not_found' | 'owned' | 'too_poor' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'duplicate' | 'no_main_treasure' | 'busy' | 'perk_locked' | 'too_many_points' | 'maxed' | 'no_duplicate' | 'bad_material'): HeroesView => {
+  const answer = (result: HeroesView | HeroError): HeroesView => {
     if (typeof result === 'string') throw new ApiError(result);
     return result;
   };
@@ -60,6 +63,12 @@ export function heroService(deps: ApiDeps) {
       answer(await store.perks(guildId, userId, hero, perks)),
     transcend: async (guildId: string, userId: string, hero: string): Promise<HeroesView> => answer(await store.transcend(guildId, userId, hero)),
     refine: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.refine(guildId, userId, copy)),
+    /** Puts one of their runes in a copy's socket (or, `rune` null, takes the one in it out). */
+    rune: async (guildId: string, userId: string, copy: string, socket: number, rune: string | null): Promise<HeroesView> => answer(await store.rune(guildId, userId, copy, socket, rune)),
+    /** Rerolls one of a copy's options (or its unique option). */
+    reroll: async (guildId: string, userId: string, copy: string, option: number | 'unique'): Promise<HeroesView> => answer(await store.reroll(guildId, userId, copy, option)),
+    /** Upgrades one of a copy's options a step. */
+    upgrade: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy)),
 
     /** Sells those copies (the same one twice counts once). */
     async sell(guildId: string, userId: string, copies: string[]): Promise<HeroesSold> {
