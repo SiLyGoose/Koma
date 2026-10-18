@@ -16,7 +16,8 @@ import { DRAGON_RAID, TechnoMagicRooms, type Peer, type RoomDeps } from '../src/
 
 const ALL = HEROES.map((hero) => hero.id);
 const LINEUP = HEROES.slice(0, TM_ROOM.slots);
-const STRONG = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
+// (A UW R5's ATK, a TechnoMagic weapon's and a UT R5's HP, and good potentials and more: the bosses are King's Raid's playtest's.)
+const STRONG = { atkFlat: 110_000, hpFlat: 3_900_000, atk: 1, hp: 0.5, crit: 400, pen: 500, critDamage: 1, speed: 300 };
 
 test("dragon: King's Raid's four dragons, on a page and socket of their own", () => {
   assert.deepEqual(DRAGON_IDS, ['temeraire', 'scalaxia', 'zyrrkinoth', 'armarta']);

@@ -8,7 +8,7 @@ var NONE = {
 /** As many points as are 100%. */
 var POINTS = 1e3;
 /** The share of a stat in points (0 to 1). */
-var share = (points) => Math.min(1, Math.max(0, points / POINTS));
+var share$2 = (points) => Math.min(1, Math.max(0, points / POINTS));
 /**
 * King's Raid's soft caps: a stat's points past its soft cap count half (past `hard`, a fifth), so none is easily
 * pushed to 100%. Each stat's (SOFT) is where the fight uses it.
@@ -73,15 +73,15 @@ var BLOCKED = .5;
 * `roll` is the fight's chances (../sim/random.ts).
 */
 function strike(amount, type, target, pen, reach, roll) {
-	if (roll() < share(soft(target.dodge[type], SOFT.chance, SOFT.hard))) return {
+	if (roll() < share$2(soft(target.dodge[type], SOFT.chance, SOFT.hard))) return {
 		taken: 0,
 		blocked: false,
 		dodged: true
 	};
-	const blocked = roll() < share(soft(target.block[type], SOFT.chance, SOFT.hard));
-	const defense = Math.max(0, target[type]) * (1 - share(soft(pen, SOFT.pen)));
+	const blocked = roll() < share$2(soft(target.block[type], SOFT.chance, SOFT.hard));
+	const defense = Math.max(0, target[type]) * (1 - share$2(soft(pen, SOFT.pen)));
 	const kept = blocked ? Math.max(0, BLOCKED - soft((target.blockDef?.[type] ?? 0) * POINTS, SOFT.blockDef) / POINTS) : 1;
-	const tough = 1 - share(soft(target.tough?.[type] ?? 0, SOFT.tough));
+	const tough = 1 - share$2(soft(target.tough?.[type] ?? 0, SOFT.tough));
 	return {
 		taken: amount * (1 - DEF_MOST * Math.min(1, defense / reach)) * kept * tough,
 		blocked,
@@ -272,42 +272,46 @@ function withGauge(fight, own, size) {
 	};
 }
 //#endregion
+//#region src/technomagic/sim/bosses/playtest.ts
+var HEROES_DEAL = .39;
+var HEROES_HP = .59;
+//#endregion
 //#region src/technomagic/sim/bosses/dragon/common.ts
 var KR_HP$1 = [
-	9262e3,
-	9262e3,
-	9262e3,
-	9262e3,
-	9262e3,
-	9872e3,
-	1239e4,
-	1312e4,
-	1593e4,
-	2113e4
+	931159153,
+	1120206503,
+	1347633837,
+	1950395922,
+	3900791843,
+	4560670244,
+	5725394959,
+	7635313815,
+	9271452032,
+	15491771741
 ];
-var KR_DEF = [
-	79200,
-	79200,
-	79200,
-	79200,
-	79200,
-	93600,
-	115200,
-	151200,
-	183600,
-	259200
+var KR_ATK$1 = [
+	1898512,
+	2284691,
+	2748592,
+	3977565,
+	7955939,
+	11434363,
+	13797120,
+	28289856,
+	34351968,
+	65045376
 ];
-var KR_ATK = [
-	809600,
-	809600,
-	809600,
-	809600,
-	809600,
-	1060800,
-	128e4,
-	2083200,
-	2529600,
-	3801600
+var KR_DEF$1 = [
+	92822,
+	111751,
+	134402,
+	194515,
+	389110,
+	504410,
+	620813,
+	1026648,
+	1246644,
+	2217456
 ];
 var KR_LEVEL = [
 	77,
@@ -321,28 +325,27 @@ var KR_LEVEL = [
 	115,
 	120
 ];
-var HP$1 = 12.5;
-var DEALS$1 = 1.4;
-var ROOM_HP$1 = 1.7;
-/** A dragon's health and defense at stage 1, for its stats. */
+var FIRE_ATK = 1763309 / 1898512;
+var HIGH_DEF = 132660 / 92822;
+var KR_PARTY$1 = 9;
+var SOLO = 7;
+/** A dragon's health and defense at stage 1, for its stats: its lower defense, and its higher. */
 var FIRST = {
-	hp: KR_HP$1[0] * HP$1,
-	def: KR_DEF[0]
+	hp: KR_HP$1[0] * HEROES_DEAL * 8 / KR_PARTY$1,
+	def: KR_DEF$1[0],
+	high: KR_DEF$1[0] * HIGH_DEF
 };
-/**
-* A dragon's stages, fought with others and alone: so many times as hard its blows, and so many times its health, as the
-* rest's (`own`: how it stood the test fights, with King's Raid's playtest's rules, beside what they were before).
-*/
-function dragonStages(own = {}) {
+/** A dragon's stages, fought with others and alone (`atk`: its ATK, of the others'). */
+function dragonStages({ atk = 1 } = {}) {
 	const scales = (times) => KR_HP$1.map((hp, i) => ({
-		hp: hp / KR_HP$1[0] * times * (own.hp ?? 1),
-		deals: DEALS$1 * (own.deals ?? 1) * (KR_ATK[i] / KR_ATK[0]),
-		defense: KR_DEF[i] / KR_DEF[0],
+		hp: hp / KR_HP$1[0] * times,
+		deals: HEROES_HP * atk * (KR_ATK$1[i] / KR_ATK$1[0]),
+		defense: KR_DEF$1[i] / KR_DEF$1[0],
 		level: KR_LEVEL[i]
 	}));
 	return {
 		room: scales(1),
-		solo: scales(1 / ROOM_HP$1)
+		solo: scales(SOLO / 8)
 	};
 }
 /** Neither blocks nor dodges, of either kind; and sees past 400 points of a hero's defense. */
@@ -421,27 +424,34 @@ function cooldowns(of) {
 }
 /** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: the Hard Dragon Raid's). */
 var withDragonGauge = (fight, own) => withGauge(fight, own, DRAGON_GAUGE);
-/** How long each of its moves takes, when its blow lands, and what that takes of whoever it lands on, least to most, before their defense. */
+/** What a blow takes, as a share of a dragon's ATK at stage 1 (King's Raid's playtest's: its skill's damage share). */
+var share$1 = (of) => [of * KR_ATK$1[0], of * KR_ATK$1[0]];
+/**
+* How long each of its moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense: as
+* the playtest's dragons' skills have it, of their ATK (a dragon's attack 250%; its quick skill 120%; Tail Strike 100%; a
+* tail smash 40%, a blow of its breath 30%, of its storm 25%; its landing 200%. Its share of a hero's health that some add
+* is not here).
+*/
 var MOVES$1 = {
 	bite: {
 		length: 1.7,
 		hit: .8,
-		hurts: [28e4, 4e5]
+		hurts: share$1(2.5)
 	},
 	claw: {
 		length: 1.6,
 		hit: .75,
-		hurts: [24e4, 34e4]
+		hurts: share$1(1.2)
 	},
 	sweep: {
 		length: 2.1,
 		hit: 1,
-		hurts: [16e4, 23e4]
+		hurts: share$1(1)
 	},
 	smash: {
 		length: 1.1,
 		hit: .55,
-		hurts: [11e4, 16e4]
+		hurts: share$1(.4)
 	},
 	inhale: {
 		length: 1.4,
@@ -450,12 +460,12 @@ var MOVES$1 = {
 	breath: {
 		length: .55,
 		hit: .25,
-		hurts: [12e4, 17e4]
+		hurts: share$1(.3)
 	},
 	roar: {
 		length: 2.1,
 		hit: .6,
-		hurts: [6e4, 9e4]
+		hurts: share$1(.25)
 	},
 	rise: {
 		length: 1.4,
@@ -464,12 +474,12 @@ var MOVES$1 = {
 	storm: {
 		length: 1,
 		hit: .45,
-		hurts: [2e5, 28e4]
+		hurts: share$1(.25)
 	},
 	land: {
 		length: 1.3,
 		hit: .85,
-		hurts: [3e5, 42e4]
+		hurts: share$1(2)
 	},
 	gaze: {
 		length: 1.8,
@@ -718,7 +728,7 @@ var ARMARTA = {
 		crit: 150,
 		resist: 200
 	},
-	stages: dragonStages({ deals: .9 }),
+	stages: dragonStages(),
 	attacks: [
 		{
 			name: "bite",
@@ -758,22 +768,38 @@ var ARMARTA = {
 };
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/attacks.ts
+/**
+* Its M.ATK at each stage, as King's Raid's playtest builds it (its Galgoria raid, chapter 10's stages 1 to 8: its stats at
+* the stage's level, times its MonsterTierTable entry: KR-extracted/scripts/boss-stats.mjs). Its blows are shares of it.
+*/
+var KR_ATK = [
+	4515117,
+	5942354,
+	8184999,
+	9373382,
+	13161563,
+	19055025,
+	23048231,
+	39699242
+];
+/** What a blow takes: `of` its ATK at stage 1 (how much of that each skill's blow takes is ./skills.ts). */
+var share = (of) => [of * KR_ATK[0], of * KR_ATK[0]];
 var HEADS = [
 	"C",
 	"L",
 	"R"
 ];
-/** How long each of its heads' moves takes, when its blow lands, and what that takes of whoever it lands on, least to most, before their defense. */
+/** How long each of its heads' moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense (its ATK; each skill takes its share of it). */
 var MOVES = {
 	spit: {
 		length: 2,
 		hit: .88,
-		hurts: [3e5, 45e4]
+		hurts: share(1)
 	},
 	roar: {
 		length: 2.1,
 		hit: .5,
-		hurts: [2e5, 3e5]
+		hurts: share(1.5)
 	},
 	slam: {
 		length: 1.9,
@@ -882,13 +908,16 @@ var ATTACKS = [
 ];
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/skills.ts
+/** Its attack's share of its ATK. */
+var HEAD = 3.3;
 var IMPRISONMENT = {
 	hits: 150,
 	lasts: 8,
-	deals: 1.3
+	deals: 1.7
 };
 var DESTROYER = {
-	share: .3,
+	venom: .55,
+	share: 100 / 110,
 	down: 3,
 	cooldown: 10
 };
@@ -900,16 +929,18 @@ var SWAMP = {
 	cooldown: 17
 };
 var EXPLOSION = {
+	blow: 1.1,
 	lasts: 10,
 	deals: .5,
 	crit: -.5,
 	cooldown: 18
 };
 var FATAL = {
+	blow: 1.4,
 	after: 3,
 	heals: .2,
 	most: 5,
-	deals: .1,
+	deals: .14,
 	mostOnIt: 10
 };
 /** What it gives itself back a second, of its health, and how much more its healing gives it: from stage `from` on, `later`. */
@@ -1030,8 +1061,11 @@ function ownPart(fight) {
 	}
 	return {
 		lands: {
+			left: (_part, amount) => venom(amount * HEAD),
+			centre: (_part, amount) => venom(amount * HEAD),
+			right: (_part, amount) => venom(amount * HEAD),
 			destroyer(part, amount) {
-				if (part < 3) return venom(amount);
+				if (part < 3) return venom(amount * DESTROYER.venom);
 				if (part > 3) return;
 				const heroes = reachable();
 				fight.cue(null, "destroyer", heroes);
@@ -1059,7 +1093,7 @@ function ownPart(fight) {
 			explosion(part, amount) {
 				const heroes = reachable();
 				for (const fighter of heroes) {
-					fight.hurt(fighter, amount);
+					fight.hurt(fighter, amount * EXPLOSION.blow);
 					if (part === 0) put(fighter.statuses, {
 						name: WEAKENED$1.name,
 						left: EXPLOSION.lasts,
@@ -1078,7 +1112,7 @@ function ownPart(fight) {
 			fatal(_part, amount) {
 				const heroes = reachable();
 				for (const fighter of heroes) {
-					fight.hurt(fighter, amount);
+					fight.hurt(fighter, amount * FATAL.blow);
 					stack(fighter.statuses, FATAL_VENOM.name, FATAL.most, (count) => ({
 						heals: Math.max(0, 1 - FATAL.heals * count),
 						shown: FATAL_VENOM
@@ -1157,58 +1191,27 @@ function ownPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/index.ts
-/**
-* So many times less health than the game's: a hero's ATK here is the game's (its unique weapon's and its potentials'), but
-* what more King's Raid's heroes deal to it (sets, more DMG to bosses, buffs) is not here. (Before HP, which it cuts.)
-*/
-var GEARED = 115;
-/**
-* Its health at stage 1, before GEARED: more than the game's (20 billion), so that (with GEARED and DEALS) 8 heroes on Auto
-* at Transcend 5 (ATK Up, Monster Hunting, HP Up, two class perks, T5 Light) with R1 unique weapons and no other gear win
-* about 4 times in 5, in about 2½ minutes (tried over 60 fights, King's Raid's playtest's rules: no stun holds it). Its
-* stages 2 and 3 go up from it evenly (each so many times the last) to stage 4.
-*/
-var FIRST_HP = 384e8;
-/**
-* Its health and defense (P.DEF and M.DEF alike) at each stage, as King's Raid's Galgoria raid has them at its stages 1
-* to 5 (its table, from its players' guides on DC Inside's King's Raid gallery: 20 to 87.6 billion HP, 117,000 to 222,300
-* DEF); 6 to 8 go on from there (a first guess: the game's stage 6 is said to be past 300,000 DEF). But for its health at
-* stages 1 to 3 (FIRST_HP). That health is the game's raid's, with more than one player, cut by GEARED; alone, it is
-* ROOM_HP times less again. And how hard its blows are, either way.
-*/
 var KR_HP = [
-	2e10,
-	269e8,
-	378e8,
-	507e8,
-	876e8,
-	12e10,
-	165e9,
-	225e9
+	14184543765,
+	19721142351,
+	26463862400,
+	37178723386,
+	49825627800,
+	71216166313,
+	86139389687,
+	158093465948
 ];
-var HP = KR_HP.map((hp, i) => (i < 3 ? FIRST_HP * (KR_HP[3] / FIRST_HP) ** (i / 3) : hp) / GEARED);
-var DEF = [
-	117e3,
-	128300,
-	142e3,
-	175300,
-	222300,
-	3e5,
-	38e4,
-	47e4
+var KR_DEF = [
+	53269,
+	57090,
+	68670,
+	82450,
+	116318,
+	124308,
+	164065,
+	261750
 ];
-var ROOM_HP = 1.7;
-var DEALS = [
-	.2,
-	.225,
-	.25,
-	.275,
-	.3,
-	.325,
-	.35,
-	.375
-];
-/** Its level at each stage, as King's Raid's playtest has its Galgoria raid (CampaignWaveTable, chapter 10). */
+var LIFE_DEF = 6e4;
 var LEVEL = [
 	88,
 	90,
@@ -1219,22 +1222,24 @@ var LEVEL = [
 	116,
 	125
 ];
+var KR_PARTY = 7;
+var HP = KR_HP.map((hp) => hp * HEROES_DEAL * 8 / KR_PARTY);
+var DEF = KR_DEF.map((def) => def + LIFE_DEF);
 var scales = (times) => HP.map((hp, i) => ({
 	hp: hp / HP[0] * times,
-	deals: DEALS[i],
+	deals: HEROES_HP * (KR_ATK[i] / KR_ATK[0]),
 	defense: DEF[i] / DEF[0],
 	level: LEVEL[i]
 }));
 /**
 * Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
-* 20% more physical damage (./skills.ts). Its health and defenses are the game's (HP, DEF), and so huge: heroes
-* wear it down only with penetration, and with what cuts its healing (it gives itself back its health all the while:
-* ./skills.ts). How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
+* 20% more physical damage (./skills.ts). Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
+* best with penetration, and with what cuts its healing (it gives itself back its health all the while: ./skills.ts).
+* How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
 * ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
 * No stun holds it: stuns wear its CC Gauge down instead (../gauge.ts), the shorter for its CC resist (accuracy tells),
 * and empty, it is Down a while. Its blows see past 500 points of a hero's defense (the playtest's PiercePower). Now and
-* then a blow of its is a crit (crit resist tells): a first guess, as its CC resist and how hard its blows are (DEALS, and
-* ./attacks.ts).
+* then a blow of its is a crit (crit resist tells): a first guess, as its CC resist is.
 */
 var GALGORIA = {
 	id: "galgoria",
@@ -1252,7 +1257,7 @@ var GALGORIA = {
 	},
 	stages: {
 		room: scales(1),
-		solo: scales(1 / ROOM_HP)
+		solo: scales(KR_PARTY / 8)
 	},
 	attacks: ATTACKS,
 	plans: PLANS,
@@ -1519,7 +1524,7 @@ var SCALAXIA = {
 		hp: FIRST.hp,
 		deals: "magical",
 		physical: FIRST.def,
-		magical: FIRST.def,
+		magical: FIRST.high,
 		...OPEN,
 		block: {
 			physical: 0,
@@ -1536,10 +1541,7 @@ var SCALAXIA = {
 		crit: 100,
 		resist: 150
 	},
-	stages: dragonStages({
-		deals: .5,
-		hp: .7
-	}),
+	stages: dragonStages(),
 	attacks: [
 		{
 			name: "bite",
@@ -1680,7 +1682,7 @@ var TEMERAIRE = {
 	stats: {
 		hp: FIRST.hp,
 		deals: "magical",
-		physical: FIRST.def,
+		physical: FIRST.high,
 		magical: FIRST.def,
 		...OPEN,
 		tough: {
@@ -1690,7 +1692,7 @@ var TEMERAIRE = {
 		crit: 100,
 		resist: 150
 	},
-	stages: dragonStages({ deals: .7 }),
+	stages: dragonStages({ atk: FIRE_ATK }),
 	attacks: [
 		{
 			name: "bite",
@@ -1853,7 +1855,7 @@ var ZYRRKINOTH = {
 		crit: 100,
 		resist: 150
 	},
-	stages: dragonStages({ deals: .5 }),
+	stages: dragonStages(),
 	attacks: [
 		{
 			name: "bite",
@@ -3550,7 +3552,7 @@ var SKILLS = [
 		id: "mirage",
 		name: "Mirage",
 		tier: "S",
-		about: `Increases dodge by ${pct(share(SKILL.mirage.dodge))}. On dodging, recovers ${pct(SKILL.mirage.heal)} of max HP (once ${every$1(SKILL.mirage.wait)}).`
+		about: `Increases dodge by ${pct(share$2(SKILL.mirage.dodge))}. On dodging, recovers ${pct(SKILL.mirage.heal)} of max HP (once ${every$1(SKILL.mirage.wait)}).`
 	},
 	{
 		id: "fundamentals",
@@ -3598,7 +3600,7 @@ var SKILLS = [
 		id: "swiftness",
 		name: "Swiftness",
 		tier: "A",
-		about: `Increases attack speed by ${pct(share(SKILL.swiftness.speed))}.`
+		about: `Increases attack speed by ${pct(share$2(SKILL.swiftness.speed))}.`
 	},
 	{
 		id: "focus-2",
@@ -3658,19 +3660,19 @@ var SKILLS = [
 		id: "piercing",
 		name: "Piercing",
 		tier: "B",
-		about: `Increases penetration by ${pct(share(SKILL.piercing.pen))}.`
+		about: `Increases penetration by ${pct(share$2(SKILL.piercing.pen))}.`
 	},
 	{
 		id: "precision",
 		name: "Precision",
 		tier: "B",
-		about: `Increases crit chance by ${pct(share(SKILL.precision.crit))}.`
+		about: `Increases crit chance by ${pct(share$2(SKILL.precision.crit))}.`
 	},
 	{
 		id: "guard",
 		name: "Guard",
 		tier: "B",
-		about: `Increases block by ${pct(share(SKILL.guard.block))}.`
+		about: `Increases block by ${pct(share$2(SKILL.guard.block))}.`
 	},
 	{
 		id: "parry",
@@ -3724,7 +3726,7 @@ var SKILLS = [
 		id: "iron-wall",
 		name: "Iron Wall",
 		tier: "F",
-		about: `Increases block by ${pct(share(SKILL["iron-wall"].block))}, and by ${pct(share(SKILL["iron-wall"].more))} more for the first ${seconds(SKILL["iron-wall"].lasts)}.`
+		about: `Increases block by ${pct(share$2(SKILL["iron-wall"].block))}, and by ${pct(share$2(SKILL["iron-wall"].more))} more for the first ${seconds(SKILL["iron-wall"].lasts)}.`
 	},
 	{
 		id: "tenacity",
@@ -4676,7 +4678,7 @@ var CLASS_PERKS = {
 			mark: {
 				name: "Special Bullet",
 				deals: .85,
-				crit: -share(150),
+				crit: -share$2(150),
 				lasts: Infinity
 			}
 		}, ({ mark }) => `Attacked target loses ${pct(1 - mark.deals)} of ATK and ${Math.round(-mark.crit * POINTS)} of Crit Chance. Does not stack.`),
@@ -5117,12 +5119,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			magical: def.stats.magical * times
 		};
 	}
-	/** One of the heroes on the field the boss can go for (not one out of the fight), at random: one standing, if any is (null: there is none). */
+	/**
+	* The hero on the field the boss goes for (not one out of the fight): the one nearest it, as King's Raid's bosses go for
+	* theirs; one standing, if any is (null: there is none). Of two as near, the one that came onto the field first.
+	*/
 	const anyone = () => {
 		const there = field.filter((fighter) => !away(fighter.statuses));
 		const up = there.filter((fighter) => fighter.hp > 0);
 		const from = up.length > 0 ? up : there;
-		return from.length > 0 ? from[Math.floor(roll() * from.length)] : null;
+		const far = (fighter) => (fighter.x - 7) * (fighter.x - 7) + fighter.z * fighter.z;
+		return from.reduce((nearest, fighter) => !nearest || far(fighter) < far(nearest) - 1e-9 ? fighter : nearest, null);
 	};
 	/** Whom the boss is going for: another, should that one have left the field, or the fight. */
 	const aimed = () => {
@@ -5535,7 +5541,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (foe.hp <= 0 || result) return false;
 			const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 			const { atk, deals: type, crit: points, pen } = by.stats;
-			const critical = roll() < share(points + auras.crit + critTaking(foe.statuses, type) - (foe.part.critResist ?? 0)) + crit + critting(by.statuses);
+			const critical = roll() < share$2(points + auras.crit + critTaking(foe.statuses, type) - (foe.part.critResist ?? 0)) + crit + critting(by.statuses);
 			const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
 			const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
 			const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused;
@@ -5614,7 +5620,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				});
 			}
 			if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
-				const stolen = Math.min(dealt * share(soft(by.lifesteal, SOFT.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
+				const stolen = Math.min(dealt * share$2(soft(by.lifesteal, SOFT.lifesteal)) * healing(by.statuses) * (foe.part.healing?.() ?? 1), by.stats.hp - by.hp);
 				if (stolen > 0) by.hp += stolen;
 			}
 			const skillIndex = critical && landing?.by === by && attacking !== by ? by.doing?.skill : void 0;
@@ -5697,7 +5703,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: stands.dodge.physical + nimbler,
 				magical: stands.dodge.magical + nimbler
 			};
-			const critical = roll() < share(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type) - critResisting(party, type)) + critting(foe.statuses);
+			const critical = roll() < share$2(foe.def.stats.crit - target.critResist[type] - critResisting(target.statuses, type) - critResisting(party, type)) + critting(foe.statuses);
 			const scale = scaleAt(def, stage, solo);
 			const { taken, blocked, dodged } = strike(amount * scale.deals * dealing(foe.statuses) * rage(clock - 210) * (critical ? 2 : 1), type, blockable ? stands : {
 				...stands,
@@ -5825,7 +5831,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity")) * (fighter.def.passive?.held ?? 1) * (fighter.part.held?.() ?? 1);
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share(soft(fighter.stats.resist + resisting(fighter.statuses) + auras.resist, SOFT.resist))) * shorter,
+				left: seconds * (1 - share$2(soft(fighter.stats.resist + resisting(fighter.statuses) + auras.resist, SOFT.resist))) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});
@@ -5838,7 +5844,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			mended += given;
 		},
 		stun(seconds, { down = false, by } = {}) {
-			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share(soft(Math.max(0, foe.def.stats.resist + resisting(foe.statuses)), SOFT.resist) - soft(by.accuracy + auras.accuracy + accurate(by.statuses), SOFT.acc))) : 1);
+			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(soft(Math.max(0, foe.def.stats.resist + resisting(foe.statuses)), SOFT.resist) - soft(by.accuracy + auras.accuracy + accurate(by.statuses), SOFT.acc))) : 1);
 			const taken = foe.part.controlled && foe.hp > 0 ? foe.part.controlled(held, down) : {
 				seconds: held,
 				down
@@ -5855,7 +5861,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		},
 		slow(points, seconds) {
 			if (foe.part.steady) return;
-			const rate = 1 - share(points);
+			const rate = 1 - share$2(points);
 			foe.slowRate = rate;
 			foe.slowed = seconds;
 			events.push({
@@ -6290,7 +6296,7 @@ var ANNETTE = {
 		{
 			name: "Emergency Treatment",
 			auto: { heals: true },
-			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
+			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share$2(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal)} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
 			icon: "🩹",
 			art: art$24(1),
@@ -6317,7 +6323,7 @@ var ANNETTE = {
 				index: 0,
 				mark: {
 					name: "Triplex Condensing Lens",
-					crit: -share(UT$24.lens.crit),
+					crit: -share$2(UT$24.lens.crit),
 					lasts: UT$24.lens.lasts
 				}
 			}
@@ -6399,7 +6405,7 @@ var ANNETTE = {
 			if (self.perks.has("t5-dark")) for (const ally of allies()) put(ally.statuses, {
 				name: ROUSED.name,
 				left: over,
-				pace: 1 + share(PERKS$24.allies.speed),
+				pace: 1 + share$2(PERKS$24.allies.speed),
 				deals: 1 + PERKS$24.allies.atk * self.stats.atk / ally.stats.atk,
 				shown: ROUSED
 			});
@@ -6442,7 +6448,7 @@ var ANNETTE = {
 							name: TREATED.name,
 							left: TREATMENT.lasts,
 							resist: TREATMENT.resist,
-							crit: share(TREATMENT.crit),
+							crit: share$2(TREATMENT.crit),
 							deals: 1 + TREATMENT.dmg,
 							guards: true,
 							shown: TREATED_OVER
@@ -6628,7 +6634,7 @@ var GUARDED$1 = {
 /** What his Transcend 5's Dark gives every ally when another is hit. */
 var WARDED$2 = {
 	name: "Knight’s Guard",
-	about: `P.DEF +${pct(PERKS$23.ward.defends - 1)} and P.Crit Resist +${pct(share(PERKS$23.ward.critResist))}.`,
+	about: `P.DEF +${pct(PERKS$23.ward.defends - 1)} and P.Crit Resist +${pct(share$2(PERKS$23.ward.critResist))}.`,
 	icon: "🛡️",
 	art: art$23(3)
 };
@@ -6654,7 +6660,7 @@ var KLAUS = {
 		},
 		{
 			name: "Shield Strike",
-			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
+			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share$2(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
 			words: `Deals ${dmg("knight", SHIELD_STRIKE.blow)} P.DMG proportional to P.DEF to enemies in range and knocks them back. Hit enemies' All DEF and ATK Spd is reduced by ${pct(SHIELD_STRIKE.exposed - 1)} and ${SHIELD_STRIKE.speed} for ${SHIELD_STRIKE.lasts} sec, respectively. Upon blocking an attack, skill cooldown is reduced by 0.5 sec.`,
 			icon: "🛡️",
 			art: art$23(1),
@@ -6695,7 +6701,7 @@ var KLAUS = {
 				mark: {
 					name: "Firm Determination",
 					critTaken: UT$23.determination.critResist,
-					crit: -share(k(UT$23.determination.crit)),
+					crit: -share$2(k(UT$23.determination.crit)),
 					lasts: UT$23.determination.lasts
 				}
 			}
@@ -6729,7 +6735,7 @@ var KLAUS = {
 		"s4-light": { words: "Casting time is greatly boosted." },
 		"s4-dark": { words: `Reduces an additional ${pct(PERKS$23.weaker)} of ATK.` },
 		"t5-light": t5Light({ blockPhysical: 200 }, ({ blockPhysical }) => `P.Block +${blockPhysical}`),
-		"t5-dark": { words: `When an ally other than this hero is hit by an attack, increases all allies' P.DEF by ${pct(PERKS$23.ward.defends - 1)} and P.Crit Resist by ${pct(share(PERKS$23.ward.critResist))} (${PERKS$23.ward.every} sec Cooldown).` }
+		"t5-dark": { words: `When an ally other than this hero is hit by an attack, increases all allies' P.DEF by ${pct(PERKS$23.ward.defends - 1)} and P.Crit Resist by ${pct(share$2(PERKS$23.ward.critResist))} (${PERKS$23.ward.every} sec Cooldown).` }
 	},
 	attack: "swing",
 	timing: {
@@ -6973,7 +6979,7 @@ var EZEKIEL = {
 		},
 		{
 			name: "Dawning Despair",
-			about: `A dash and a blow: the boss’s attacks ${pct(share(DESPAIR.speed))} slower for ${DESPAIR.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR.stun} seconds, and his attacks are ${pct(share(DESPAIR.speed))} quicker for ${DESPAIR.lasts}, for ${pct(DESPAIR.cost)} of the health he has.`,
+			about: `A dash and a blow: the boss’s attacks ${pct(share$2(DESPAIR.speed))} slower for ${DESPAIR.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR.stun} seconds, and his attacks are ${pct(share$2(DESPAIR.speed))} quicker for ${DESPAIR.lasts}, for ${pct(DESPAIR.cost)} of the health he has.`,
 			words: `Dashes to an enemy with the highest ATK and deals ${dmg("assassin", DESPAIR.blow)} M.DMG to enemies in range, reducing their ATK Spd by ${DESPAIR.speed}. [Fury] - Consumes ${pct(DESPAIR.cost)} of current HP to activate. Effect range increases, Stuns target for ${DESPAIR.stun} sec, and increases own ATK Spd by ${DESPAIR.speed} for ${DESPAIR.lasts} sec.`,
 			icon: "💨",
 			art: art$22(1),
@@ -7014,7 +7020,7 @@ var EZEKIEL = {
 				self: {
 					name: "Wild Beast’s Choker",
 					lasts: UT$22.choker.lasts,
-					pace: 1 + share(k(UT$22.choker.speed))
+					pace: 1 + share$2(k(UT$22.choker.speed))
 				}
 			}
 		})),
@@ -7132,7 +7138,7 @@ var EZEKIEL = {
 					put(self.statuses, {
 						name: QUICKENED$1.name,
 						left: DESPAIR.lasts,
-						pace: 1 + share(DESPAIR.speed),
+						pace: 1 + share$2(DESPAIR.speed),
 						shown: QUICKENED$1
 					});
 				},
@@ -7343,7 +7349,7 @@ var FALLEN_FREY = {
 		},
 		{
 			name: "Blessing of Doom",
-			about: `A shield on the ${BLESSING$1.allies} allies with the lowest health for ${BLESSING$1.lasts} seconds, their attacks ${pct(share(BLESSING$1.speed))} quicker meanwhile.`,
+			about: `A shield on the ${BLESSING$1.allies} allies with the lowest health for ${BLESSING$1.lasts} seconds, their attacks ${pct(share$2(BLESSING$1.speed))} quicker meanwhile.`,
 			words: `Grants [Blessing of Doom] to ${BLESSING$1.allies} allies with the lowest HP, absorbing ${healed("priest", BLESSING$1.shield)} DMG for ${BLESSING$1.lasts} sec. The shield grants immunity to CC and increases ATK Spd by ${BLESSING$1.speed} for the duration. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack to dispel negative effects from self and additionally dispels negative effects from targets.`,
 			icon: "🔮",
 			art: art$21(1),
@@ -7447,14 +7453,14 @@ var FALLEN_FREY = {
 			put(strongest.statuses, {
 				name: FALLEN_BOND.name,
 				left: Infinity,
-				pace: 1 + share(PERKS$21.bond.speed),
+				pace: 1 + share$2(PERKS$21.bond.speed),
 				shown: FALLEN_BOND
 			});
 		}
 		if (strongest && self.perks.has("t5-dark")) put(strongest.statuses, {
 			name: FALLEN_FAVOUR.name,
 			left: PERKS$21.favour.lasts,
-			pace: 1 + share(PERKS$21.favour.speed),
+			pace: 1 + share$2(PERKS$21.favour.speed),
 			deals: PERKS$21.favour.deals,
 			shown: FALLEN_FAVOUR
 		});
@@ -7509,7 +7515,7 @@ var FALLEN_FREY = {
 						put(ally.statuses, {
 							name: BLESSED$1.name,
 							left: lasts,
-							pace: 1 + share(BLESSING$1.speed),
+							pace: 1 + share$2(BLESSING$1.speed),
 							...block,
 							...egg,
 							shown: BLESSED$1
@@ -7863,7 +7869,7 @@ var GREMORY = {
 				filling -= now;
 				self.mana = Math.min(MAX_MANA, self.mana + MAX_MANA * atTier(PIGRITIA.mana, tier) * now / PIGRITIA.over);
 			},
-			pace: () => tier === null ? 1 : 1 + share(atTier(PIGRITIA.speed, tier)),
+			pace: () => tier === null ? 1 : 1 + share$2(atTier(PIGRITIA.speed, tier)),
 			lit: () => sealed.every(Boolean)
 		};
 	}
@@ -7962,11 +7968,11 @@ var art$19 = skillArt("kirze");
 /** Her passive, the game's End to Evil Deeds!: her ATK higher, more of her blows critical, and the stuns on a boss longer. */
 var EVIL_DEEDS = {
 	attack: 1 + DEEDS.atk,
-	crit: share(DEEDS.crit),
+	crit: share$2(DEEDS.crit),
 	control: 1 + DEEDS.control,
 	shown: {
 		name: "End to Evil Deeds!",
-		about: `Passive. Her blows are ${pct(DEEDS.atk)} harder and ${pct(share(DEEDS.crit))} more often critical, and her stuns on a boss last ${pct(DEEDS.control)} longer.`,
+		about: `Passive. Her blows are ${pct(DEEDS.atk)} harder and ${pct(share$2(DEEDS.crit))} more often critical, and her stuns on a boss last ${pct(DEEDS.control)} longer.`,
 		icon: "⚜️",
 		art: art$19(3)
 	},
@@ -8011,7 +8017,7 @@ var KIRZE = {
 		},
 		{
 			name: "Bloom, Crimson Flower!",
-			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
+			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share$2(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
 			words: `Summons Arcane Crystals and deals ${dmg("warrior", FLOWER.line)} M.DMG to frontal enemies in a straight line. Shortly afterward, causes an explosion that deals ${dmg("warrior", FLOWER.burst)} additional M.DMG and inflicts [Arcane Crystal Curse] upon enemies for ${FLOWER.slowed} sec, reducing their ATK Spd by ${FLOWER.speed}. Attacking enemies under [Arcane Crystal Curse] inflicts a stack of [Arcane Crystal Energy]. [Arcane Crystal Curse] explodes after ${FLOWER.curse} sec, dealing M.DMG equal to ${dmg("warrior", FLOWER.end)} + ${dmg("warrior", FLOWER.each)} per stack of Arcane Crystal Energy.`,
 			icon: "🌺",
 			art: art$19(2),
@@ -8381,7 +8387,7 @@ var LAIAS = {
 	],
 	perks: {
 		"s1-light": { words: `Heal rate is increased by ${pct(PERKS$18.heals - 1)}.` },
-		"s1-dark": { words: `Upon healing, M.Crit Resistance rises by ${pct(share(PERKS$18.critResist))}.` },
+		"s1-dark": { words: `Upon healing, M.Crit Resistance rises by ${pct(share$2(PERKS$18.critResist))}.` },
 		"s2-light": { words: "Changes the target to the ally with the highest ATK." },
 		"s2-dark": said({ skill: {
 			index: 1,
@@ -9190,7 +9196,7 @@ var MORRAH = {
 					if (self.perks.has("s1-light")) put(self.statuses, {
 						name: QUICKENED.name,
 						left: BURNING.lasts,
-						pace: 1 + share(PERKS$16.quicker),
+						pace: 1 + share$2(PERKS$16.quicker),
 						shown: QUICKENED
 					});
 				},
@@ -9228,11 +9234,11 @@ var MORRAH = {
 					put(self.statuses, {
 						name: "Hatchling Leather Gloves",
 						left: hellfire,
-						takes: { magical: 1 - share(less) },
+						takes: { magical: 1 - share$2(less) },
 						critResist: { magical: UT$16.gloves.critResist },
 						shown: {
 							name: "Hatchling Leather Gloves",
-							about: `Takes ${pct(share(less))} less magical DMG, and is crit less.`,
+							about: `Takes ${pct(share$2(less))} less magical DMG, and is crit less.`,
 							icon: "🧤",
 							art: art$16(1)
 						}
@@ -9459,7 +9465,7 @@ var SERIA = {
 		},
 		{
 			name: "Blood Scattering Blade",
-			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
+			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share$2(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
 			words: `Rapidly charges forward to deal ${dmg("warrior", SCATTER.rush)} M.DMG and inflicts irremovable Original Sin of Blood on enemies for ${SCATTER.lasts} sec. Enemies under Original Sin of Blood have their ATK Spd reduced by ${SCATTER.speed}. Shortly afterward, attacks enemies under Original Sin of Blood ${SCATTER.cuts} times, and deals additional ${dmg("warrior", SCATTER.cut * SCATTER.cuts)} M.DMG, and if the target is not a hero, deals additional ${dmg("warrior", SCATTER.through * SCATTER.cuts)} DEF Ignoring M.DMG.`,
 			icon: "🩸",
 			art: art$15(1),
@@ -9884,7 +9890,7 @@ var VALANCE = {
 		} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
 		"s4-light": { words: `Reduces DMG all allies take by ${pct(1 - PERKS$14.taken)} in Technomagic Kingdom.` },
 		"s4-dark": { words: `Additionally increases all allies' DMG dealt to Bosses by ${pct(PERKS$14.boss)} in Technomagic Kingdom.` },
-		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${pct(share(speed))}`),
+		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${pct(share$2(speed))}`),
 		"t5-dark": { words: `Reduces all DMG all allies take by ${fine(PERKS$14.piece)} and increases All DMG all enemies take by ${fine(PERKS$14.piece)}. This effect can be stacked up to the number of Technomagic Gear equipped to self.` }
 	},
 	attack: "bolt",
@@ -9956,7 +9962,7 @@ var VALANCE = {
 					const tea = fromTreasure(self, 1, UT$14.tea.block);
 					const more = {
 						...self.perks.has("s2-light") && { takes: PERKS$14.fieldTaken },
-						...self.perks.has("s2-dark") && { pace: 1 + share(PERKS$14.fieldSpeed) },
+						...self.perks.has("s2-dark") && { pace: 1 + share$2(PERKS$14.fieldSpeed) },
 						...tea > 0 && { blocks: {
 							physical: tea,
 							magical: tea
@@ -10665,7 +10671,7 @@ var SELENE = {
 				left: MOON.lasts,
 				count: moon,
 				deals: (1 + MOON.atk * moon / self.stats.atk) * circlet,
-				crit: share(MOON.crit * moon),
+				crit: share$2(MOON.crit * moon),
 				shown: MOONLIT
 			});
 		};
@@ -11247,7 +11253,7 @@ var ODDY = {
 						put(ally.statuses, {
 							name: DISTORTED.name,
 							left: DISTORTION.lasts,
-							pace: 1 + share(DISTORTION.speed),
+							pace: 1 + share$2(DISTORTION.speed),
 							shown: DISTORTED
 						});
 						ally.cooldowns = ally.cooldowns.map((left, i) => ally === self && i === 2 ? left : Math.max(0, left * DISTORTION.cooldowns - less));
@@ -11913,7 +11919,7 @@ var NAILA = {
 			if (self.perks.has("s4-dark")) put(self.statuses, {
 				name: WHIRLED.name,
 				left: TORNADO$1.lasts,
-				pace: 1 + share(PERKS$8.speed),
+				pace: 1 + share$2(PERKS$8.speed),
 				shown: WHIRLED
 			});
 		};
@@ -12231,7 +12237,7 @@ var YANNE = {
 						left: UNLEASHED.lasts,
 						deals: (1 + UNLEASHED.atk / self.stats.atk) * (1 + fromTreasure(self, 2, UT$7.steak.dmg)),
 						pen: UNLEASHED.pen,
-						...self.perks.has("s3-light") && { pace: 1 + share(PERKS$7.speed) },
+						...self.perks.has("s3-light") && { pace: 1 + share$2(PERKS$7.speed) },
 						...self.perks.has("s3-dark") && { takes: PERKS$7.taken },
 						shown: UNLEASH
 					});
@@ -12844,7 +12850,7 @@ var ERZE = {
 					left: PERION.lasts,
 					count: greed,
 					deals: 1 + PERION.atk * greed,
-					pace: 1 + share(PERION.speed * greed),
+					pace: 1 + share$2(PERION.speed * greed),
 					shown: PERION_UP
 				});
 			}
@@ -13578,7 +13584,7 @@ var GAU = {
 				left: ENRAGE.lasts,
 				count: rage,
 				deals: (1 + atk / self.stats.atk) * (1 + ENRAGE.dmg * rage),
-				...fury && { crit: share(PERKS$3.fury.crit * rage) },
+				...fury && { crit: share$2(PERKS$3.fury.crit * rage) },
 				...bracelet > 0 && rage >= most && { pen: bracelet },
 				shown: RAGING
 			});
@@ -13587,7 +13593,7 @@ var GAU = {
 		const strike = (amount, counted = true) => {
 			const before = self.dealt;
 			const critical = fight.hit(self, amount, counted);
-			if (self.perks.has("s4-dark") && rage > 0) fight.heal(self, (self.dealt - before) * share(PERKS$3.fury.lifesteal * rage));
+			if (self.perks.has("s4-dark") && rage > 0) fight.heal(self, (self.dealt - before) * share$2(PERKS$3.fury.lifesteal * rage));
 			return critical;
 		};
 		/** His attack: a blow, a stack of Enrage (all begun again); with his unique weapon, now and then a blow more and the boss frozen. */
@@ -13627,7 +13633,7 @@ var GAU = {
 							name: ROARED.name,
 							left: ROAR.lasts,
 							deals: 1 + atk / ally.stats.atk,
-							...self.perks.has("s2-dark") && { pace: 1 + share(PERKS$3.speed) },
+							...self.perks.has("s2-dark") && { pace: 1 + share$2(PERKS$3.speed) },
 							...horn > 0 && { critDamage: horn },
 							shown: ROARED
 						});
@@ -13900,7 +13906,7 @@ var TANYA = {
 			put(self.statuses, {
 				name: STEALTHED.name,
 				left: STEALTH.lasts,
-				crit: share(STEALTH.crit),
+				crit: share$2(STEALTH.crit),
 				...tier !== null && { critDamage: atTier(CAETHASIS.critDamage, tier) },
 				shown: STEALTHED
 			});
@@ -14113,7 +14119,7 @@ var UT$1 = {
 var art$1 = skillArt("rebel-klaus");
 var POWER_OF_GALICTA = {
 	attack: 1,
-	crit: share(GALICTA_POWER.crit),
+	crit: share$2(GALICTA_POWER.crit),
 	control: 1,
 	shown: {
 		name: "Power of Galicta",
@@ -14671,7 +14677,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "a6234ef4dd0c";
+var SIM_VERSION = "edddb4069db3";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;

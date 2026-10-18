@@ -25,7 +25,8 @@ import type { ItemCopyDoc, MemberDoc } from '../src/types.js';
 /** The heroes a raid's run fields: as many as a room's lineup holds (the first of them). */
 const LINEUP = HEROES.slice(0, TM_ROOM.slots);
 const run = (seed: number, gear: Record<string, number>, stage = 1, solo = false): Run => ({ boss: TM_BOSS, seed, stage, solo, heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear })) });
-const STRONG = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
+// (A UW R5's ATK, a TechnoMagic weapon's and a UT R5's HP, and good potentials and more: the bosses are King's Raid's playtest's.)
+const STRONG = { atkFlat: 110_000, hpFlat: 3_900_000, atk: 1, hp: 0.5, crit: 400, pen: 500, critDamage: 1, speed: 300 };
 const ALL = HEROES.map((hero) => hero.id);
 
 test("technomagic: the bot's heroes are the sim's, each with a skin, and the boss", () => {

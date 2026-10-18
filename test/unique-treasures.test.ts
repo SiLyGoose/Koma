@@ -103,7 +103,7 @@ test('unique treasures: the raid is told the main one alone; the sub ones count 
 
 test('unique treasures: the main one changes its hero’s fight, the same every time; one the fight doesn’t know is none', () => {
   const run = (ut: { skill: number; tier: number } | null) =>
-    replay({ boss: 'galgoria', seed: 7, stage: 1, heroes: [{ id: 'kirze', skin: 0, gear: { hp: 3, defense: 2 }, ut }, { id: 'klaus', skin: 0, gear: { hp: 3, defense: 2 } }] }, []);
+    replay({ boss: 'galgoria', seed: 7, stage: 1, heroes: [{ id: 'kirze', skin: 0, gear: { hpFlat: 40_000_000, hp: 3, defense: 2 }, ut }, { id: 'klaus', skin: 0, gear: { hpFlat: 40_000_000, hp: 3, defense: 2 } }] }, []);
   const plain = run(null);
   // Lotus of Crimson Crystal: Blade of Judgment cheaper and harder.
   const lotus = run({ skill: 1, tier: 5 });
