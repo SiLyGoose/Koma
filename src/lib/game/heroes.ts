@@ -174,9 +174,17 @@ export type HeroPiece = GearPiece & { potentials?: readonly TmPotential[]; optio
 /** How much of a stat as its line says it: a share (a percent), or flat as it is. */
 const amount = (stat: HeroStat, value: number): string => (HERO_STATS[stat].flat ? fmt(Math.round(value)) : formatPercent(value));
 
-/** A copy's main stat as the pages show it: King's Raid's gear's at its refinement (the old TechnoMagic gear's, by its copy's armor DEF); null: none. */
+/**
+ * A copy's main stat as the pages show it, at its stars: King's Raid's gear's; a unique weapon's ATK (for its hero's class)
+ * and a unique treasure's HP (as its hero's main treasure: King's Raid's); the old TechnoMagic gear's, by its copy's armor
+ * DEF. Null: none (an artifact).
+ */
 export function copyMainStat(item: ItemDef, copy: Partial<Pick<ItemCopyDoc, 'tmArmorDef' | 'level'>>): MainStat | null {
-  if (item.kr?.main) return { name: KR_MAIN_NAME[item.kr.main[0]], value: krMainValue(item.kr, refineLevel(copy.level ?? 1, 0)) };
+  const stars = refineLevel(copy.level ?? 1, 0);
+  if (item.kr?.main) return { name: KR_MAIN_NAME[item.kr.main[0]], value: krMainValue(item.kr, stars) };
+  const owner = uniqueClass(item);
+  if (owner) return { name: KR_MAIN_NAME.atk, value: uwAttack(owner, stars) };
+  if (item.uniqueTreasure) return { name: KR_MAIN_NAME.hp, value: utHp(stars) };
   const main = tmMainStat(item, copy.tmArmorDef);
   return main && { name: main.name, value: main.value };
 }
