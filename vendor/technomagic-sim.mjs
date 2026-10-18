@@ -273,8 +273,8 @@ function withGauge(fight, own, size) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/playtest.ts
-var HEROES_DEAL = .39;
-var HEROES_HP = .59;
+var HEROES_DEAL = .68;
+var HEROES_HP = .74;
 //#endregion
 //#region src/technomagic/sim/bosses/dragon/common.ts
 var KR_HP$1 = [
@@ -1417,6 +1417,14 @@ function rage(over) {
 	const power = 60 / (20 - over) - 2;
 	return power >= MOST_RAGE_POWER ? MOST_RAGE : exp2(power);
 }
+/**
+* King's Raid's class buffs, as its playtest has them at their most (every class alike, in every raid): a share more ATK and
+* max HP for every hero (added up with the rest of each, as the game's are).
+*/
+var CLASS_BUFF = {
+	atk: .52,
+	hp: .52
+};
 /** What a blow of a hero's attack takes of the boss, before the boss's defense, where King's Raid's playtest doesn't say (./heroes/kr.ts); and how much harder a critical blow is (before its gear's crit damage). */
 var BLOW = 1100;
 //#endregion
@@ -1950,6 +1958,903 @@ function geared(stats, gear = {}) {
 	};
 }
 //#endregion
+//#region src/technomagic/sim/heroes/kr.ts
+var KR_HEROES = {
+	annette: {
+		mana: {
+			regen: 75,
+			attack: 425
+		},
+		wait: .3,
+		attack: [{
+			lands: [
+				1,
+				1.2,
+				1.4
+			],
+			blows: [
+				800,
+				800,
+				800
+			],
+			until: 1.7
+		}],
+		books: {
+			dmg: [
+				.25,
+				0,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				.25,
+				0,
+				0
+			]
+		}
+	},
+	crow: {
+		mana: {
+			regen: 75,
+			attack: 450
+		},
+		wait: 0,
+		attack: [{
+			lands: [.9],
+			blows: [2600],
+			until: 1.8
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	"dark-lord-kasel": {
+		mana: {
+			regen: 75,
+			attack: 0
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3, .8],
+				blows: [700, 700],
+				until: 1.3
+			},
+			{
+				lands: [.3, .4],
+				blows: [700, 700],
+				until: 1.1
+			},
+			{
+				lands: [.7],
+				blows: [700],
+				until: 2.3
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	erze: {
+		mana: {
+			regen: 75,
+			attack: 250
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [500],
+				until: .6
+			},
+			{
+				lands: [.3, .7],
+				blows: [500, 500],
+				until: .9
+			},
+			{
+				lands: [.7],
+				blows: [1500],
+				until: 1.5
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	ezekiel: {
+		mana: {
+			regen: 75,
+			attack: 185
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [670],
+				until: .5
+			},
+			{
+				lands: [.2, .5],
+				blows: [670, 670],
+				until: .8
+			},
+			{
+				lands: [.4],
+				blows: [670],
+				until: .7
+			},
+			{
+				lands: [.3],
+				blows: [670],
+				until: 1
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	"fallen-frey": {
+		mana: {
+			regen: 85,
+			attack: 500
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.1],
+			blows: [2500],
+			until: 2
+		}],
+		books: {
+			dmg: [
+				.5,
+				0,
+				.5,
+				0
+			],
+			heal: [
+				.5,
+				.5,
+				0,
+				0
+			]
+		}
+	},
+	gau: {
+		mana: {
+			regen: 75,
+			attack: 340
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.9],
+				blows: [1350],
+				until: 1.3
+			},
+			{
+				lands: [.3, .7],
+				blows: [1350, 1350],
+				until: 1.2
+			},
+			{
+				lands: [.3],
+				blows: [1350],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	gremory: {
+		mana: {
+			regen: 75,
+			attack: 600
+		},
+		wait: 0,
+		attack: [{
+			lands: [
+				1,
+				1.1,
+				1.2
+			],
+			blows: [
+				1e3,
+				1e3,
+				1e3
+			],
+			until: 2.4
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	kirze: {
+		mana: {
+			regen: 150,
+			attack: 325
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3, .5],
+				blows: [1e3, 1e3],
+				until: .8
+			},
+			{
+				lands: [.4, 1],
+				blows: [1e3, 1e3],
+				until: 1.3
+			},
+			{
+				lands: [.7],
+				blows: [1e3],
+				until: 1.8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	klaus: {
+		mana: {
+			regen: 75,
+			attack: 330
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.5, .7],
+				blows: [880, 880],
+				until: 1
+			},
+			{
+				lands: [.6, 1.1],
+				blows: [880, 880],
+				until: 1.4
+			},
+			{
+				lands: [.7],
+				blows: [880],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	laias: {
+		mana: {
+			regen: 85,
+			attack: 425
+		},
+		wait: .3,
+		attack: [{
+			lands: [1],
+			blows: [1920],
+			until: 1.7
+		}],
+		books: {
+			dmg: [
+				0,
+				0,
+				.5,
+				.5
+			],
+			heal: [
+				.5,
+				.25,
+				0,
+				0
+			]
+		}
+	},
+	loman: {
+		mana: {
+			regen: 75,
+			attack: 250
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [800],
+				until: .5
+			},
+			{
+				lands: [.4],
+				blows: [800],
+				until: .9
+			},
+			{
+				lands: [.2, .7],
+				blows: [800, 800],
+				until: 1
+			},
+			{
+				lands: [.6],
+				blows: [1200],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.25,
+				0,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				.5,
+				0,
+				0
+			]
+		}
+	},
+	lorraine: {
+		mana: {
+			regen: 100,
+			attack: 325
+		},
+		wait: 0,
+		attack: [{
+			lands: [.3],
+			blows: [1540],
+			until: 1.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	lucikiel: {
+		mana: {
+			regen: 100,
+			attack: 292
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [750],
+				until: .6
+			},
+			{
+				lands: [.4, 1.2],
+				blows: [750, 750],
+				until: 1.4
+			},
+			{
+				lands: [.5],
+				blows: [750],
+				until: 1.5
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				.5
+			]
+		}
+	},
+	morrah: {
+		mana: {
+			regen: 75,
+			attack: 240
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [912],
+				until: .6
+			},
+			{
+				lands: [.2, .4],
+				blows: [912, 912],
+				until: .8
+			},
+			{
+				lands: [.5],
+				blows: [912],
+				until: .8
+			},
+			{
+				lands: [.8],
+				blows: [912],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	naila: {
+		mana: {
+			regen: 75,
+			attack: 235
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [760],
+				until: .6
+			},
+			{
+				lands: [
+					.1,
+					.3,
+					.7
+				],
+				blows: [
+					760,
+					760,
+					760
+				],
+				until: .9
+			},
+			{
+				lands: [.3],
+				blows: [760],
+				until: .7
+			},
+			{
+				lands: [.6],
+				blows: [760],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	neraxis: {
+		mana: {
+			regen: 75,
+			attack: 255
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4, .6],
+				blows: [800, 800],
+				until: .8
+			},
+			{
+				lands: [.2],
+				blows: [800],
+				until: .4
+			},
+			{
+				lands: [.4, 1.1],
+				blows: [800, 800],
+				until: 1.9
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	oddy: {
+		mana: {
+			regen: 75,
+			attack: 550
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.4],
+			blows: [3100],
+			until: 2.2
+		}],
+		books: {
+			dmg: [
+				.25,
+				.25,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	phillop: {
+		mana: {
+			regen: 75,
+			attack: 275
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [1056],
+				until: .7
+			},
+			{
+				lands: [.3, .6],
+				blows: [1056, 1056],
+				until: 1
+			},
+			{
+				lands: [.2],
+				blows: [1056],
+				until: .6
+			},
+			{
+				lands: [.6],
+				blows: [1056],
+				until: 2.1
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	"rebel-klaus": {
+		mana: {
+			regen: 75,
+			attack: 210
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4, .6],
+				blows: [360, 360],
+				until: .8
+			},
+			{
+				lands: [.3, .6],
+				blows: [360, 360],
+				until: .9
+			},
+			{
+				lands: [.2, .4],
+				blows: [360, 360],
+				until: .8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.75
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	selene: {
+		mana: {
+			regen: 75,
+			attack: 500
+		},
+		wait: 0,
+		attack: [{
+			lands: [1],
+			blows: [2860],
+			until: 2
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	seria: {
+		mana: {
+			regen: 75,
+			attack: 275
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [1e3],
+				until: .6
+			},
+			{
+				lands: [.5],
+				blows: [1e3],
+				until: .7
+			},
+			{
+				lands: [.4, .8],
+				blows: [950, 950],
+				until: 2
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	tanya: {
+		mana: {
+			regen: 75,
+			attack: 285
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [
+					.5,
+					.7,
+					.9,
+					1.4
+				],
+				blows: [
+					682,
+					682,
+					682,
+					682
+				],
+				until: 1.6
+			},
+			{
+				lands: [.2, .3],
+				blows: [682, 682],
+				until: 1.1
+			},
+			{
+				lands: [.2],
+				blows: [682],
+				until: .7
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	valance: {
+		mana: {
+			regen: 75,
+			attack: 425
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [1400],
+			until: 2.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				0,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	},
+	yanne: {
+		mana: {
+			regen: 75,
+			attack: 375
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [2e3],
+			until: 1.5
+		}, {
+			lands: [1],
+			blows: [2e3],
+			until: 1.5
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			]
+		}
+	}
+};
+//#endregion
 //#region src/technomagic/sim/shown.ts
 /** The pictures of `hero`'s skills, by index (its passive last). */
 var skillArt = (hero) => (skill) => ({
@@ -2169,557 +3074,19 @@ var CLASS_STATS = Object.fromEntries(CLASSES.map((one) => {
 var indexed = (kind, dmg) => POINTS * dmg / KINGS_RAID[kind].atk;
 /** A heal or a shield as the King's Raid Index has it: so that a hero of `kind`, at its class's ATK, gives just `amount` (a heal gives as much more as its healer's attack is over ATK). */
 var indexedHeal = (kind, amount) => amount * ATK / KINGS_RAID[kind].atk;
-/** What a blow of `blow` deals from a hero of `kind` at its class's ATK, as its words say it (the Index's own number, where it has one). */
-var dmg = (kind, blow) => num(Math.round(blow * KINGS_RAID[kind].atk / POINTS));
-/** What a heal or a shield of `amount` gives from a hero of `kind` at its class's ATK, as its words say it. */
-var healed = (kind, amount) => num(Math.round(amount * KINGS_RAID[kind].atk / ATK));
-//#endregion
-//#region src/technomagic/sim/heroes/kr.ts
-var KR_HEROES = {
-	annette: {
-		mana: {
-			regen: 75,
-			attack: 425
-		},
-		wait: .3,
-		attack: [{
-			lands: [
-				1,
-				1.2,
-				1.4
-			],
-			blows: [
-				800,
-				800,
-				800
-			],
-			until: 1.7
-		}]
-	},
-	crow: {
-		mana: {
-			regen: 75,
-			attack: 450
-		},
-		wait: 0,
-		attack: [{
-			lands: [.9],
-			blows: [2600],
-			until: 1.8
-		}]
-	},
-	"dark-lord-kasel": {
-		mana: {
-			regen: 75,
-			attack: 0
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3, .8],
-				blows: [700, 700],
-				until: 1.3
-			},
-			{
-				lands: [.3, .4],
-				blows: [700, 700],
-				until: 1.1
-			},
-			{
-				lands: [.7],
-				blows: [700],
-				until: 2.3
-			}
-		]
-	},
-	erze: {
-		mana: {
-			regen: 75,
-			attack: 250
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [500],
-				until: .6
-			},
-			{
-				lands: [.3, .7],
-				blows: [500, 500],
-				until: .9
-			},
-			{
-				lands: [.7],
-				blows: [1500],
-				until: 1.5
-			}
-		]
-	},
-	ezekiel: {
-		mana: {
-			regen: 75,
-			attack: 185
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [670],
-				until: .5
-			},
-			{
-				lands: [.2, .5],
-				blows: [670, 670],
-				until: .8
-			},
-			{
-				lands: [.4],
-				blows: [670],
-				until: .7
-			},
-			{
-				lands: [.3],
-				blows: [670],
-				until: 1
-			}
-		]
-	},
-	"fallen-frey": {
-		mana: {
-			regen: 85,
-			attack: 500
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.1],
-			blows: [2500],
-			until: 2
-		}]
-	},
-	gau: {
-		mana: {
-			regen: 75,
-			attack: 340
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.9],
-				blows: [1350],
-				until: 1.3
-			},
-			{
-				lands: [.3, .7],
-				blows: [1350, 1350],
-				until: 1.2
-			},
-			{
-				lands: [.3],
-				blows: [1350],
-				until: 1.6
-			}
-		]
-	},
-	gremory: {
-		mana: {
-			regen: 75,
-			attack: 600
-		},
-		wait: 0,
-		attack: [{
-			lands: [
-				1,
-				1.1,
-				1.2
-			],
-			blows: [
-				1e3,
-				1e3,
-				1e3
-			],
-			until: 2.4
-		}]
-	},
-	kirze: {
-		mana: {
-			regen: 150,
-			attack: 325
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3, .5],
-				blows: [1e3, 1e3],
-				until: .8
-			},
-			{
-				lands: [.4, 1],
-				blows: [1e3, 1e3],
-				until: 1.3
-			},
-			{
-				lands: [.7],
-				blows: [1e3],
-				until: 1.8
-			}
-		]
-	},
-	klaus: {
-		mana: {
-			regen: 75,
-			attack: 330
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.5, .7],
-				blows: [880, 880],
-				until: 1
-			},
-			{
-				lands: [.6, 1.1],
-				blows: [880, 880],
-				until: 1.4
-			},
-			{
-				lands: [.7],
-				blows: [880],
-				until: 1.6
-			}
-		]
-	},
-	laias: {
-		mana: {
-			regen: 85,
-			attack: 425
-		},
-		wait: .3,
-		attack: [{
-			lands: [1],
-			blows: [1920],
-			until: 1.7
-		}]
-	},
-	loman: {
-		mana: {
-			regen: 75,
-			attack: 250
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [800],
-				until: .5
-			},
-			{
-				lands: [.4],
-				blows: [800],
-				until: .9
-			},
-			{
-				lands: [.2, .7],
-				blows: [800, 800],
-				until: 1
-			},
-			{
-				lands: [.6],
-				blows: [1200],
-				until: 1.6
-			}
-		]
-	},
-	lorraine: {
-		mana: {
-			regen: 100,
-			attack: 325
-		},
-		wait: 0,
-		attack: [{
-			lands: [.3],
-			blows: [1540],
-			until: 1.3
-		}]
-	},
-	lucikiel: {
-		mana: {
-			regen: 100,
-			attack: 292
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [750],
-				until: .6
-			},
-			{
-				lands: [.4, 1.2],
-				blows: [750, 750],
-				until: 1.4
-			},
-			{
-				lands: [.5],
-				blows: [750],
-				until: 1.5
-			}
-		]
-	},
-	morrah: {
-		mana: {
-			regen: 75,
-			attack: 240
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [912],
-				until: .6
-			},
-			{
-				lands: [.2, .4],
-				blows: [912, 912],
-				until: .8
-			},
-			{
-				lands: [.5],
-				blows: [912],
-				until: .8
-			},
-			{
-				lands: [.8],
-				blows: [912],
-				until: 1.6
-			}
-		]
-	},
-	naila: {
-		mana: {
-			regen: 75,
-			attack: 235
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [760],
-				until: .6
-			},
-			{
-				lands: [
-					.1,
-					.3,
-					.7
-				],
-				blows: [
-					760,
-					760,
-					760
-				],
-				until: .9
-			},
-			{
-				lands: [.3],
-				blows: [760],
-				until: .7
-			},
-			{
-				lands: [.6],
-				blows: [760],
-				until: 1.6
-			}
-		]
-	},
-	neraxis: {
-		mana: {
-			regen: 75,
-			attack: 255
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4, .6],
-				blows: [800, 800],
-				until: .8
-			},
-			{
-				lands: [.2],
-				blows: [800],
-				until: .4
-			},
-			{
-				lands: [.4, 1.1],
-				blows: [800, 800],
-				until: 1.9
-			}
-		]
-	},
-	oddy: {
-		mana: {
-			regen: 75,
-			attack: 550
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.4],
-			blows: [3100],
-			until: 2.2
-		}]
-	},
-	phillop: {
-		mana: {
-			regen: 75,
-			attack: 275
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [1056],
-				until: .7
-			},
-			{
-				lands: [.3, .6],
-				blows: [1056, 1056],
-				until: 1
-			},
-			{
-				lands: [.2],
-				blows: [1056],
-				until: .6
-			},
-			{
-				lands: [.6],
-				blows: [1056],
-				until: 2.1
-			}
-		]
-	},
-	"rebel-klaus": {
-		mana: {
-			regen: 75,
-			attack: 210
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4, .6],
-				blows: [360, 360],
-				until: .8
-			},
-			{
-				lands: [.3, .6],
-				blows: [360, 360],
-				until: .9
-			},
-			{
-				lands: [.2, .4],
-				blows: [360, 360],
-				until: .8
-			}
-		]
-	},
-	selene: {
-		mana: {
-			regen: 75,
-			attack: 500
-		},
-		wait: 0,
-		attack: [{
-			lands: [1],
-			blows: [2860],
-			until: 2
-		}]
-	},
-	seria: {
-		mana: {
-			regen: 75,
-			attack: 275
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [1e3],
-				until: .6
-			},
-			{
-				lands: [.5],
-				blows: [1e3],
-				until: .7
-			},
-			{
-				lands: [.4, .8],
-				blows: [950, 950],
-				until: 2
-			}
-		]
-	},
-	tanya: {
-		mana: {
-			regen: 75,
-			attack: 285
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [
-					.5,
-					.7,
-					.9,
-					1.4
-				],
-				blows: [
-					682,
-					682,
-					682,
-					682
-				],
-				until: 1.6
-			},
-			{
-				lands: [.2, .3],
-				blows: [682, 682],
-				until: 1.1
-			},
-			{
-				lands: [.2],
-				blows: [682],
-				until: .7
-			}
-		]
-	},
-	valance: {
-		mana: {
-			regen: 75,
-			attack: 425
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [1400],
-			until: 2.3
-		}]
-	},
-	yanne: {
-		mana: {
-			regen: 75,
-			attack: 375
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [2e3],
-			until: 1.5
-		}, {
-			lands: [1],
-			blows: [2e3],
-			until: 1.5
-		}]
-	}
-};
+/**
+* What a blow of `blow` deals from a hero of `kind` at its class's ATK, as its words say it (the Index's own number, where it
+* has one), `books` times as much (bookDmg: as it is with its skill's books).
+*/
+var dmg = (kind, blow, books = 1) => num(Math.round(blow * books * KINGS_RAID[kind].atk / POINTS));
+/** What a heal or a shield of `amount` gives from a hero of `kind` at its class's ATK, as its words say it, `books` times as much (bookHeal). */
+var healed = (kind, amount, books = 1) => num(Math.round(amount * books * KINGS_RAID[kind].atk / ATK));
+/**
+* A hero's skills are as they are with all their books (King's Raid's playtest's: ./kr.ts), there being none to get here: how
+* many times as much the `index`th skill's damage is for them (3: its passive's), and its heals and shields.
+*/
+var bookDmg = (id, index) => 1 + (KR_HEROES[id]?.books.dmg[index] ?? 0);
+var bookHeal = (id, index) => 1 + (KR_HEROES[id]?.books.heal[index] ?? 0);
 //#endregion
 //#region src/technomagic/sim/heroes/moves.ts
 /** `count` blows, the first `first` seconds in and each `every` after the last. */
@@ -4945,6 +5312,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const perks = perkSets[index];
 		const gear = withPerks(worn, perks.values());
 		if (battleCry > 0) gear.hp = (gear.hp ?? 0) + battleCry;
+		gear.atk = (gear.atk ?? 0) + CLASS_BUFF.atk;
+		gear.hp = (gear.hp ?? 0) + CLASS_BUFF.hp;
 		const stats = perkedStats(geared(hero.stats, gear), perks.values());
 		if (set?.id === "authority" && set.role === "dps") stats.pen += AUTHORITY$1.pen;
 		if (set?.id === "authority" && set.role === "knight") stats.resist += AUTHORITY$1.resist;
@@ -5187,8 +5556,22 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	};
 	/** How many times as much a heal or a shield gives for the hero whose it is (its attack, its gear and its Mending; one that is no hero's: as much as it says). */
 	const byAttack = (by) => by ? by.stats.atk / ATK * atkTimes(by) * by.healTimes * (bears(by, MENDING_UP.name) ? 1 + SKILL.mending.heal * has(by, "mending") : 1) : 1;
-	/** How many times as much the heal or shield of the skill landing gives, by its perks (its main unique treasure's: moveHeals). */
-	const healed = (by) => by && landing?.by === by ? by.moveHeals[landing.move] ?? 1 : 1;
+	/**
+	* Its skills' books (./heroes/kr.ts: all of them), on what of its own lands (`kind`: its blows, or its heals and shields): the
+	* skill using's; what comes of one later, or of its passive, as its books give on the whole (those that give any). Its
+	* attack's, none.
+	*/
+	const bookShare = (by, kind) => {
+		if (attacking === by) return 0;
+		const books = KR_HEROES[by.id]?.books[kind];
+		if (!books) return 0;
+		const skill = landing?.by === by ? by.doing?.skill : void 0;
+		if (skill !== void 0) return books[skill] ?? 0;
+		const some = books.filter((one) => one > 0);
+		return some.length > 0 ? some.reduce((sum, one) => sum + one, 0) / some.length : 0;
+	};
+	/** How many times as much the heal or shield of the skill landing gives, by its books and its perks (its main unique treasure's: moveHeals), added up as King's Raid's skill power is. */
+	const healed = (by) => by ? 1 + bookShare(by, "heal") + (landing?.by === by ? by.moveHeals[landing.move] ?? 1 : 1) - 1 : 1;
 	/** Deathless: a hero brought down is whole again. */
 	function spare(fighter) {
 		if (deathless && fighter.hp <= 0) fighter.hp = fighter.stats.hp;
@@ -5569,16 +5952,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: seen.physical * defending(foe.statuses, "physical"),
 				magical: seen.magical * defending(foe.statuses, "magical")
 			};
+			const power = 1 + bookShare(by, "dmg") + skilled - 1;
 			const more = amplified([
 				dmgTimes(by),
 				attack,
 				...deals(by.statuses),
 				by.perkDmg,
-				skilled,
 				by.part.deals?.() ?? 1,
 				...takes(foe.statuses, type)
 			]);
-			const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll);
+			const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll);
 			if (dodged) {
 				events.push({
 					kind: "number",
@@ -6286,7 +6669,7 @@ var ANNETTE = {
 		{
 			name: "Blasting Ray",
 			about: `Rascal fires a ray into the boss: for ${RAY.lasts} seconds it hits ${pct(RAY.weaker)} softer and takes ${pct(RAY.takes)} more magical damage. [Overcharged]: a second ray, and twice that.`,
-			words: `Attacks enemies in a straight line, dealing ${dmg("mechanic", RAY.blow)} M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals ${dmg("mechanic", RAY.extra)} extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG.`,
+			words: `Attacks enemies in a straight line, dealing ${dmg("mechanic", RAY.blow, bookDmg("annette", 0))} M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals ${dmg("mechanic", RAY.extra, bookDmg("annette", 0))} extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG.`,
 			icon: "🔆",
 			art: art$24(0),
 			move: "ray",
@@ -6297,7 +6680,7 @@ var ANNETTE = {
 			name: "Emergency Treatment",
 			auto: { heals: true },
 			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share$2(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
-			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal)} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
+			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal, bookHeal("annette", 1))} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC.`,
 			icon: "🩹",
 			art: art$24(1),
 			move: "treatment",
@@ -6307,7 +6690,7 @@ var ANNETTE = {
 		{
 			name: "Process of Elimination",
 			about: `A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for ${ELIMINATION.stun} seconds, and leaves it taking ${pct(ELIMINATION.takes)} more magical damage for ${ELIMINATION.lasts}.`,
-			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing ${dmg("mechanic", ELIMINATION.blow)} M.DMG. When in Overcharge state, deals ${dmg("mechanic", ELIMINATION.over)} M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion.`,
+			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing ${dmg("mechanic", ELIMINATION.blow, bookDmg("annette", 2))} M.DMG. When in Overcharge state, deals ${dmg("mechanic", ELIMINATION.over, bookDmg("annette", 2))} M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion.`,
 			icon: "💣",
 			art: art$24(2),
 			move: "elimination",
@@ -6622,7 +7005,7 @@ var VOW_OF_KNIGHTS = {
 		icon: "🛡️",
 		art: art$23(3)
 	},
-	words: `Upon blocking, deals ${dmg("knight", VOW.blow)} P.DMG to frontal enemies and decreases ATK of affected targets by ${pct(1 - VOW.weak)} for ${VOW.lasts} sec. Recovers ${VOW.mana} MP after hitting the target. When an ally excluding self takes DMG increases all allies' P.DEF by 20% and P.Crit Resistance by 200 for 5 sec. This effect only activates once every 10 sec.`
+	words: `Upon blocking, deals ${dmg("knight", VOW.blow, bookDmg("klaus", 3))} P.DMG to frontal enemies and decreases ATK of affected targets by ${pct(1 - VOW.weak)} for ${VOW.lasts} sec. Recovers ${VOW.mana} MP after hitting the target. When an ally excluding self takes DMG increases all allies' P.DEF by 20% and P.Crit Resistance by 200 for 5 sec. This effect only activates once every 10 sec.`
 };
 /** What Guardian Shield gives every hero for a while: shown on each card, with how long it has left. */
 var GUARDED$1 = {
@@ -6651,7 +7034,7 @@ var KLAUS = {
 		{
 			name: "Cut Ground",
 			about: `A leap and a blow down on the boss that stuns it for ${CUT_GROUND.stun} seconds.`,
-			words: `Leaps into the air and deals ${dmg("knight", CUT_GROUND.blow)} P.DMG to enemies in range, stunning them for ${CUT_GROUND.stun} sec.`,
+			words: `Leaps into the air and deals ${dmg("knight", CUT_GROUND.blow, bookDmg("klaus", 0))} P.DMG to enemies in range, stunning them for ${CUT_GROUND.stun} sec.`,
 			icon: "⚔️",
 			art: art$23(0),
 			move: "slam",
@@ -6661,7 +7044,7 @@ var KLAUS = {
 		{
 			name: "Shield Strike",
 			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share$2(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
-			words: `Deals ${dmg("knight", SHIELD_STRIKE.blow)} P.DMG proportional to P.DEF to enemies in range and knocks them back. Hit enemies' All DEF and ATK Spd is reduced by ${pct(SHIELD_STRIKE.exposed - 1)} and ${SHIELD_STRIKE.speed} for ${SHIELD_STRIKE.lasts} sec, respectively. Upon blocking an attack, skill cooldown is reduced by 0.5 sec.`,
+			words: `Deals ${dmg("knight", SHIELD_STRIKE.blow, bookDmg("klaus", 1))} P.DMG proportional to P.DEF to enemies in range and knocks them back. Hit enemies' All DEF and ATK Spd is reduced by ${pct(SHIELD_STRIKE.exposed - 1)} and ${SHIELD_STRIKE.speed} for ${SHIELD_STRIKE.lasts} sec, respectively. Upon blocking an attack, skill cooldown is reduced by 0.5 sec.`,
 			icon: "🛡️",
 			art: art$23(1),
 			move: "bash",
@@ -6927,7 +7310,7 @@ var CURSED_BLOOD = {
 		icon: "🩸",
 		art: art$22(3)
 	},
-	words: `Ezekiel gains 1 stack of 'Cursed Blood' at the end of skill. Upon the ${nth(CURSED.most)} stack, consumes Cursed Blood to reset all skill cooldown, dealing ${dmg("assassin", CURSED.blow)} M.DMG to nearby enemies and knocking them down for ${CURSED.down} sec, while activating Fury for ${CURSED.lasts} sec, that cannot be dispelled. While in Fury state, goes into an auto-battle mode that cannot be controlled, and ATK is increased by ${pct(CURSED.atk)}, auto attack DMG is ${fold(CLAW$1.fury)}, and all Skill effect are reinforced. Cannot gain Cursed Blood during Fury state, except for when killing an enemy.`
+	words: `Ezekiel gains 1 stack of 'Cursed Blood' at the end of skill. Upon the ${nth(CURSED.most)} stack, consumes Cursed Blood to reset all skill cooldown, dealing ${dmg("assassin", CURSED.blow, bookDmg("ezekiel", 3))} M.DMG to nearby enemies and knocking them down for ${CURSED.down} sec, while activating Fury for ${CURSED.lasts} sec, that cannot be dispelled. While in Fury state, goes into an auto-battle mode that cannot be controlled, and ATK is increased by ${pct(CURSED.atk)}, auto attack DMG is ${fold(CLAW$1.fury)}, and all Skill effect are reinforced. Cannot gain Cursed Blood during Fury state, except for when killing an enemy.`
 };
 /** His stacks of Cursed Blood: shown beside his passive, with how many he has. */
 var STACKED = {
@@ -6970,7 +7353,7 @@ var EZEKIEL = {
 		{
 			name: "Destructive Instinct",
 			about: `A swipe of his demon arm, then a blow to the ground that knocks the boss down for ${INSTINCT.down} seconds. In [Fury]: both ${pct(INSTINCT.fury - 1)} harder, for ${pct(INSTINCT.cost)} of the health he has.`,
-			words: `Swipes nearby enemies in a circular range and deals ${dmg("assassin", INSTINCT.swipe)} M.DMG. Then strikes the ground, dealing ${dmg("assassin", INSTINCT.strike)} M.DMG and knocking down enemies for ${INSTINCT.down} sec. [Fury] - Consumes ${pct(INSTINCT.cost)} of current HP to activate. Effect range increases and swipe attack draws in enemies.`,
+			words: `Swipes nearby enemies in a circular range and deals ${dmg("assassin", INSTINCT.swipe, bookDmg("ezekiel", 0))} M.DMG. Then strikes the ground, dealing ${dmg("assassin", INSTINCT.strike, bookDmg("ezekiel", 0))} M.DMG and knocking down enemies for ${INSTINCT.down} sec. [Fury] - Consumes ${pct(INSTINCT.cost)} of current HP to activate. Effect range increases and swipe attack draws in enemies.`,
 			icon: "🌀",
 			art: art$22(0),
 			move: "instinct",
@@ -6980,7 +7363,7 @@ var EZEKIEL = {
 		{
 			name: "Dawning Despair",
 			about: `A dash and a blow: the boss’s attacks ${pct(share$2(DESPAIR.speed))} slower for ${DESPAIR.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR.stun} seconds, and his attacks are ${pct(share$2(DESPAIR.speed))} quicker for ${DESPAIR.lasts}, for ${pct(DESPAIR.cost)} of the health he has.`,
-			words: `Dashes to an enemy with the highest ATK and deals ${dmg("assassin", DESPAIR.blow)} M.DMG to enemies in range, reducing their ATK Spd by ${DESPAIR.speed}. [Fury] - Consumes ${pct(DESPAIR.cost)} of current HP to activate. Effect range increases, Stuns target for ${DESPAIR.stun} sec, and increases own ATK Spd by ${DESPAIR.speed} for ${DESPAIR.lasts} sec.`,
+			words: `Dashes to an enemy with the highest ATK and deals ${dmg("assassin", DESPAIR.blow, bookDmg("ezekiel", 1))} M.DMG to enemies in range, reducing their ATK Spd by ${DESPAIR.speed}. [Fury] - Consumes ${pct(DESPAIR.cost)} of current HP to activate. Effect range increases, Stuns target for ${DESPAIR.stun} sec, and increases own ATK Spd by ${DESPAIR.speed} for ${DESPAIR.lasts} sec.`,
 			icon: "💨",
 			art: art$22(1),
 			move: "despair",
@@ -6990,7 +7373,7 @@ var EZEKIEL = {
 		{
 			name: "Strike of Doom",
 			about: `A charged blow that stuns the boss for ${DOOM.stun} seconds. In [Fury]: ${times(DOOM.fury)} as hard, for ${pct(DOOM.cost)} of the health he has.`,
-			words: `Charges energy and attacks target enemy, dealing ${dmg("assassin", DOOM.blow)} M.DMG and inflicting Stun for ${DOOM.stun} sec. Ignores target's DMG Reduction effects. [Fury] - Consumes ${pct(DOOM.cost)} of current HP to activate. Attacks enemies in range of target and DMG is ${fold(DOOM.fury)}.`,
+			words: `Charges energy and attacks target enemy, dealing ${dmg("assassin", DOOM.blow, bookDmg("ezekiel", 2))} M.DMG and inflicting Stun for ${DOOM.stun} sec. Ignores target's DMG Reduction effects. [Fury] - Consumes ${pct(DOOM.cost)} of current HP to activate. Attacks enemies in range of target and DMG is ${fold(DOOM.fury)}.`,
 			icon: "💥",
 			art: art$22(2),
 			move: "doom",
@@ -7340,7 +7723,7 @@ var FALLEN_FREY = {
 			name: "Light of Doom",
 			auto: { heals: true },
 			about: "Heals the ally with the lowest health and those near it, then the light bursts on the boss.",
-			words: `Heals ${healed("priest", LIGHT.heal)} HP of the ally with the lowest HP and nearby allies and increases Heal Rate by 20% for 10 sec. Afterward, explodes the area around the target and deals ${dmg("priest", LIGHT.blast)} M.DMG to enemies in range, reducing their Heal Rate by 20% for 10 sec. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and dispels positive effects of all enemies within range.`,
+			words: `Heals ${healed("priest", LIGHT.heal, bookHeal("fallen-frey", 0))} HP of the ally with the lowest HP and nearby allies and increases Heal Rate by 20% for 10 sec. Afterward, explodes the area around the target and deals ${dmg("priest", LIGHT.blast, bookDmg("fallen-frey", 0))} M.DMG to enemies in range, reducing their Heal Rate by 20% for 10 sec. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and dispels positive effects of all enemies within range.`,
 			icon: "✴️",
 			art: art$21(0),
 			move: "light",
@@ -7350,7 +7733,7 @@ var FALLEN_FREY = {
 		{
 			name: "Blessing of Doom",
 			about: `A shield on the ${BLESSING$1.allies} allies with the lowest health for ${BLESSING$1.lasts} seconds, their attacks ${pct(share$2(BLESSING$1.speed))} quicker meanwhile.`,
-			words: `Grants [Blessing of Doom] to ${BLESSING$1.allies} allies with the lowest HP, absorbing ${healed("priest", BLESSING$1.shield)} DMG for ${BLESSING$1.lasts} sec. The shield grants immunity to CC and increases ATK Spd by ${BLESSING$1.speed} for the duration. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack to dispel negative effects from self and additionally dispels negative effects from targets.`,
+			words: `Grants [Blessing of Doom] to ${BLESSING$1.allies} allies with the lowest HP, absorbing ${healed("priest", BLESSING$1.shield, bookHeal("fallen-frey", 1))} DMG for ${BLESSING$1.lasts} sec. The shield grants immunity to CC and increases ATK Spd by ${BLESSING$1.speed} for the duration. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack to dispel negative effects from self and additionally dispels negative effects from targets.`,
 			icon: "🔮",
 			art: art$21(1),
 			move: "blessing",
@@ -7360,7 +7743,7 @@ var FALLEN_FREY = {
 		{
 			name: "Heaven’s Vengeance",
 			about: `${VENGEANCE.hits} blows of light on the boss, through some of its defense, each leaving it ${pct(VENGEANCE.exposed)} easier to hurt for ${VENGEANCE.lasts} seconds (up to ${VENGEANCE.most} times over). With [Darkened Power], every blow stuns it for ${VENGEANCE.stun} seconds.`,
-			words: `Brings Heaven's Vengeance upon a random enemy and nearby enemies over ${VENGEANCE.hits} hits, dealing ${dmg("priest", VENGEANCE.blow)} M.DMG each hit and increasing All DMG the target takes by ${pct(VENGEANCE.exposed)} for ${VENGEANCE.lasts} sec. ${VENGEANCE.pierce} additional DEF Penetration applies to this Skill. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and inflicts Stun on the hit enemies for ${VENGEANCE.stun} sec each hit. The DMG Boost effect can be stacked up to max ${VENGEANCE.most} times.`,
+			words: `Brings Heaven's Vengeance upon a random enemy and nearby enemies over ${VENGEANCE.hits} hits, dealing ${dmg("priest", VENGEANCE.blow, bookDmg("fallen-frey", 2))} M.DMG each hit and increasing All DMG the target takes by ${pct(VENGEANCE.exposed)} for ${VENGEANCE.lasts} sec. ${VENGEANCE.pierce} additional DEF Penetration applies to this Skill. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and inflicts Stun on the hit enemies for ${VENGEANCE.stun} sec each hit. The DMG Boost effect can be stacked up to max ${VENGEANCE.most} times.`,
 			icon: "☄️",
 			art: art$21(2),
 			move: "vengeance",
@@ -7714,7 +8097,7 @@ var GREMORY = {
 		{
 			name: "Pochi, bite them!",
 			about: `${BITES} bites, each harder for her [Mana Charge], each leaving [Pochi’s Mark]: the boss hits ${pct(POCHI.weaker)} softer for each, for ${POCHI.lasts} seconds (up to ${POCHI.most}). Sealed once used.`,
-			words: `Attacks an enemy ${BITES} times, dealing ${dmg("assassin", POCHI.bite)} M.DMG and inflicting [Pochi's Mark] each hit. The M.DMG of each hit increases by ${pct(POCHI.more)} per every stack of [Mana Charge]. [Pochi's Mark] reduces target's ATK by ${pct(POCHI.weaker)} for ${POCHI.lasts} sec, and it can be stacked up to max ${POCHI.most} times. If the target is a Boss, each hit deals additional ${dmg("assassin", POCHI.boss)} M.DMG. The additional M.DMG increases by ${pct(POCHI.bossMore)} per every stack of [Mana Charge]. This skill is sealed after use.`,
+			words: `Attacks an enemy ${BITES} times, dealing ${dmg("assassin", POCHI.bite, bookDmg("gremory", 0))} M.DMG and inflicting [Pochi's Mark] each hit. The M.DMG of each hit increases by ${pct(POCHI.more)} per every stack of [Mana Charge]. [Pochi's Mark] reduces target's ATK by ${pct(POCHI.weaker)} for ${POCHI.lasts} sec, and it can be stacked up to max ${POCHI.most} times. If the target is a Boss, each hit deals additional ${dmg("assassin", POCHI.boss, bookDmg("gremory", 0))} M.DMG. The additional M.DMG increases by ${pct(POCHI.bossMore)} per every stack of [Mana Charge]. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "🐶",
 			art: art$20(0),
@@ -7725,7 +8108,7 @@ var GREMORY = {
 		{
 			name: "Puchi, knock them away!",
 			about: `A blow from behind that stuns the boss for ${PUCHI.stun} seconds. Sealed once used.`,
-			words: `Attacks the farthest enemy from behind, dealing ${dmg("assassin", PUCHI.blow)} M.DMG. Afterward, inflicts Stun for ${PUCHI.stun} sec and [Puchi's Mark] on the target. This skill is sealed after use.`,
+			words: `Attacks the farthest enemy from behind, dealing ${dmg("assassin", PUCHI.blow, bookDmg("gremory", 1))} M.DMG. Afterward, inflicts Stun for ${PUCHI.stun} sec and [Puchi's Mark] on the target. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "💥",
 			art: art$20(1),
@@ -7736,7 +8119,7 @@ var GREMORY = {
 		{
 			name: "Pippi, wrap them!",
 			about: `${WRAPS} blows, each leaving [Pippi’s Mark]: the boss takes ${pct(PIPPI.takes)} more magical damage for each, for ${PIPPI.lasts} seconds (up to ${PIPPI.most}). With all ${PIPPI.most} on it, each blow deals more, through its defense. Sealed once used.`,
-			words: `Deals a total of ${dmg("assassin", PIPPI.blow * WRAPS)} M.DMG over ${WRAPS} times to the target and enemies within a large area around the target, inflicting [Pippi's Mark] on hit targets each hit. If this skill deals DMG to a target inflicted with ${PIPPI.most} stacks of [Pippi's Mark], each hit deals additional ${dmg("assassin", PIPPI.through)} M.DMG that ignores DEF. [Pippi's Mark] increases M.DMG the target takes by ${pct(PIPPI.takes)} for ${PIPPI.lasts} sec, and it can be stacked up to max ${PIPPI.most} times. This skill is sealed after use.`,
+			words: `Deals a total of ${dmg("assassin", PIPPI.blow * WRAPS, bookDmg("gremory", 2))} M.DMG over ${WRAPS} times to the target and enemies within a large area around the target, inflicting [Pippi's Mark] on hit targets each hit. If this skill deals DMG to a target inflicted with ${PIPPI.most} stacks of [Pippi's Mark], each hit deals additional ${dmg("assassin", PIPPI.through, bookDmg("gremory", 2))} M.DMG that ignores DEF. [Pippi's Mark] increases M.DMG the target takes by ${pct(PIPPI.takes)} for ${PIPPI.lasts} sec, and it can be stacked up to max ${PIPPI.most} times. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "🎀",
 			art: art$20(2),
@@ -7998,7 +8381,7 @@ var KIRZE = {
 		{
 			name: "Slash, Blade of Judgment!",
 			about: `${JUDGMENT.cuts} cuts as she spins, then a blow that knocks the boss down for ${JUDGMENT.down} seconds.`,
-			words: `Deals ${dmg("warrior", JUDGMENT.cut * JUDGMENT.cuts)} M.DMG over ${JUDGMENT.cuts} attacks to nearby enemies in a circular range of self. Then, attacks frontal enemies in range, dealing ${dmg("warrior", JUDGMENT.blow)} M.DMG and knocking them down for ${JUDGMENT.down} sec.`,
+			words: `Deals ${dmg("warrior", JUDGMENT.cut * JUDGMENT.cuts, bookDmg("kirze", 0))} M.DMG over ${JUDGMENT.cuts} attacks to nearby enemies in a circular range of self. Then, attacks frontal enemies in range, dealing ${dmg("warrior", JUDGMENT.blow, bookDmg("kirze", 0))} M.DMG and knocking them down for ${JUDGMENT.down} sec.`,
 			icon: "🌀",
 			art: art$19(0),
 			move: "judgment",
@@ -8008,7 +8391,7 @@ var KIRZE = {
 		{
 			name: "Disperse, Crystal Haze!",
 			about: `A burst that stuns the boss for ${HAZE.stun} seconds. Then for ${HAZE.lasts} seconds she is ${pct(HAZE.quicker - 1)} quicker, and a shockwave goes out from her every ${HAZE.every} seconds that stuns it for ${HAZE.waveStun}.`,
-			words: `Unleashes the power of Arcane Crystals within to deal ${dmg("warrior", HAZE.burst)} M.DMG to all enemies and stun them for ${HAZE.stun} sec. Upon casting, activates [Arcane Crystal Awakening] for ${HAZE.lasts} sec, which increases ATK Spd of all allies by 300 and releases a shockwave every ${HAZE.every} sec to enemies in range of self, dealing ${dmg("warrior", HAZE.wave)} M.DMG and stunning them for ${HAZE.waveStun} sec.`,
+			words: `Unleashes the power of Arcane Crystals within to deal ${dmg("warrior", HAZE.burst, bookDmg("kirze", 1))} M.DMG to all enemies and stun them for ${HAZE.stun} sec. Upon casting, activates [Arcane Crystal Awakening] for ${HAZE.lasts} sec, which increases ATK Spd of all allies by 300 and releases a shockwave every ${HAZE.every} sec to enemies in range of self, dealing ${dmg("warrior", HAZE.wave, bookDmg("kirze", 1))} M.DMG and stunning them for ${HAZE.waveStun} sec.`,
 			icon: "💠",
 			art: art$19(1),
 			move: "haze",
@@ -8018,7 +8401,7 @@ var KIRZE = {
 		{
 			name: "Bloom, Crimson Flower!",
 			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share$2(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
-			words: `Summons Arcane Crystals and deals ${dmg("warrior", FLOWER.line)} M.DMG to frontal enemies in a straight line. Shortly afterward, causes an explosion that deals ${dmg("warrior", FLOWER.burst)} additional M.DMG and inflicts [Arcane Crystal Curse] upon enemies for ${FLOWER.slowed} sec, reducing their ATK Spd by ${FLOWER.speed}. Attacking enemies under [Arcane Crystal Curse] inflicts a stack of [Arcane Crystal Energy]. [Arcane Crystal Curse] explodes after ${FLOWER.curse} sec, dealing M.DMG equal to ${dmg("warrior", FLOWER.end)} + ${dmg("warrior", FLOWER.each)} per stack of Arcane Crystal Energy.`,
+			words: `Summons Arcane Crystals and deals ${dmg("warrior", FLOWER.line, bookDmg("kirze", 2))} M.DMG to frontal enemies in a straight line. Shortly afterward, causes an explosion that deals ${dmg("warrior", FLOWER.burst, bookDmg("kirze", 2))} additional M.DMG and inflicts [Arcane Crystal Curse] upon enemies for ${FLOWER.slowed} sec, reducing their ATK Spd by ${FLOWER.speed}. Attacking enemies under [Arcane Crystal Curse] inflicts a stack of [Arcane Crystal Energy]. [Arcane Crystal Curse] explodes after ${FLOWER.curse} sec, dealing M.DMG equal to ${dmg("warrior", FLOWER.end, bookDmg("kirze", 2))} + ${dmg("warrior", FLOWER.each, bookDmg("kirze", 2))} per stack of Arcane Crystal Energy.`,
 			icon: "🌺",
 			art: art$19(2),
 			move: "flower",
@@ -8327,7 +8710,7 @@ var LAIAS = {
 			name: "Healing Droplets",
 			auto: { heals: true },
 			about: `Heals every ally, and for ${DROPLETS.lasts} seconds healing reaches them ${pct(DROPLETS.heals)} more (${DROPLETS.lowTimes} times that for one at ${pct(DROPLETS.low)} of its health or less).`,
-			words: `Heals ${healed("priest", DROPLETS.heal)} HP of all allies and increases Heal Rate by ${pct(DROPLETS.heals)} for ${DROPLETS.lasts} sec. If the target's HP is ${pct(DROPLETS.low)} or below, Heal Rate increases by ${DROPLETS.lowTimes} times.`,
+			words: `Heals ${healed("priest", DROPLETS.heal, bookHeal("laias", 0))} HP of all allies and increases Heal Rate by ${pct(DROPLETS.heals)} for ${DROPLETS.lasts} sec. If the target's HP is ${pct(DROPLETS.low)} or below, Heal Rate increases by ${DROPLETS.lowTimes} times.`,
 			icon: "💧",
 			art: art$18(0),
 			move: "droplets",
@@ -8337,7 +8720,7 @@ var LAIAS = {
 		{
 			name: "Bubble Shield",
 			about: `A shield on the ally with the lowest health: for ${BUBBLE.lasts} seconds it takes ${pct(1 - BUBBLE.taken)} less from the boss and deals ${pct(BUBBLE.dmg)} more. While the shield holds it can’t be knocked down, hits ${pct(BUBBLE.atk)} harder and is healed every second.`,
-			words: `For ${BUBBLE.lasts} sec, casts a Shield that blocks ${healed("priest", BUBBLE.shield)} DMG on the ally with the lowest HP. While the Shield is active, gains immunity to CC, increases ATK and heals ${healed("priest", BUBBLE.heal)} HP every sec. For ${BUBBLE.lasts} sec, the ally takes ${pct(1 - BUBBLE.taken)} reduced DMG from Non-Hero targets and increases DMG dealt to Non-Hero enemies by ${pct(BUBBLE.dmg)}. The DMG Reduction effect from and the DMG Boost effect to Non-Hero enemies is irremovable.`,
+			words: `For ${BUBBLE.lasts} sec, casts a Shield that blocks ${healed("priest", BUBBLE.shield, bookHeal("laias", 1))} DMG on the ally with the lowest HP. While the Shield is active, gains immunity to CC, increases ATK and heals ${healed("priest", BUBBLE.heal, bookHeal("laias", 1))} HP every sec. For ${BUBBLE.lasts} sec, the ally takes ${pct(1 - BUBBLE.taken)} reduced DMG from Non-Hero targets and increases DMG dealt to Non-Hero enemies by ${pct(BUBBLE.dmg)}. The DMG Reduction effect from and the DMG Boost effect to Non-Hero enemies is irremovable.`,
 			icon: "🫧",
 			art: art$18(1),
 			move: "bubble",
@@ -8347,7 +8730,7 @@ var LAIAS = {
 		{
 			name: "Festival of the Flow",
 			about: `Knocks the boss down for ${FESTIVAL.down} seconds, heals every ally ${pct(FESTIVAL.heal)} of its max HP and gives every other ally ${FESTIVAL.mana / SECTION} mana. Then for ${FESTIVAL.lasts} seconds a whirlpool every ${FESTIVAL.every} seconds strikes the boss and knocks it down for ${FESTIVAL.whirlDown}.`,
-			words: `Deals ${dmg("priest", FESTIVAL.blow)} M.DMG to nearby enemies and knocks them down for ${FESTIVAL.down} sec. Upon casting, heals HP of all allies by ${pct(FESTIVAL.heal)} of their Max HP and recovers ${FESTIVAL.mana / SECTION} orbs of Mana of allies excluding self. Afterward, for ${FESTIVAL.lasts} sec, creates a whirlpool every ${FESTIVAL.every} sec that deals ${dmg("priest", FESTIVAL.whirl)} M.DMG to random enemies and knocks them down for ${FESTIVAL.whirlDown} sec.`,
+			words: `Deals ${dmg("priest", FESTIVAL.blow, bookDmg("laias", 2))} M.DMG to nearby enemies and knocks them down for ${FESTIVAL.down} sec. Upon casting, heals HP of all allies by ${pct(FESTIVAL.heal)} of their Max HP and recovers ${FESTIVAL.mana / SECTION} orbs of Mana of allies excluding self. Afterward, for ${FESTIVAL.lasts} sec, creates a whirlpool every ${FESTIVAL.every} sec that deals ${dmg("priest", FESTIVAL.whirl, bookDmg("laias", 2))} M.DMG to random enemies and knocks them down for ${FESTIVAL.whirlDown} sec.`,
 			icon: "🌊",
 			art: art$18(2),
 			move: "festival",
@@ -8682,7 +9065,7 @@ var BLADE_LEAF = {
 		icon: "🍃",
 		art: art$17(3)
 	},
-	words: `When dealing a normal attack, attacks a random enemy ${LEAF.times} times with a ${pct(LEAF.chance)} chance of inflicting ${dmg("wizard", LEAF.blow)} M.DMG and 1 stack of Poison for ${POISON.lasts} seconds. Poison inflicts a total of ${dmg("wizard", POISON.each * POISON.lasts)} M.DMG over ${POISON.lasts} seconds, reduces Heal Rate, and can be stacked up to max ${POISON.most} times. If Lorraine dies, Poison effects on enemies will disappear.`
+	words: `When dealing a normal attack, attacks a random enemy ${LEAF.times} times with a ${pct(LEAF.chance)} chance of inflicting ${dmg("wizard", LEAF.blow, bookDmg("lorraine", 3))} M.DMG and 1 stack of Poison for ${POISON.lasts} seconds. Poison inflicts a total of ${dmg("wizard", POISON.each * POISON.lasts, bookDmg("lorraine", 3))} M.DMG over ${POISON.lasts} seconds, reduces Heal Rate, and can be stacked up to max ${POISON.most} times. If Lorraine dies, Poison effects on enemies will disappear.`
 };
 /** What her skills leave on the boss. */
 var POISONED = "Poison";
@@ -8699,7 +9082,7 @@ var LORRAINE = {
 		{
 			name: "Thornbush Forest",
 			about: `${THORNS.hits} blows, each leaving a [Poison] on the boss (up to ${POISON.most}): each eats at it every second and leaves it healed ${pct(POISON.heals)} less.`,
-			words: `Attacks ${THORNS.hits} times at random, dealing a total of ${dmg("wizard", THORNS.blow * THORNS.hits)} M.DMG to enemies in range and inflicting 1 stack of Poison with each attack.`,
+			words: `Attacks ${THORNS.hits} times at random, dealing a total of ${dmg("wizard", THORNS.blow * THORNS.hits, bookDmg("lorraine", 0))} M.DMG to enemies in range and inflicting 1 stack of Poison with each attack.`,
 			icon: "🌿",
 			art: art$17(0),
 			move: "thornbush",
@@ -8709,7 +9092,7 @@ var LORRAINE = {
 		{
 			name: "Tangled Vine",
 			about: `A blow that leaves ${VINE.poison} [Poison] and shackles the boss for ${VINE.shackle} seconds (it can do nothing); ${VINE.after} seconds after, a blow the harder for each [Poison] on it.`,
-			words: `Deals ${dmg("wizard", VINE.blow)} M.DMG to enemies in a straight line, stacking ${VINE.poison} Poison and shackling them for ${VINE.shackle} sec. After some time, deals ${dmg("wizard", VINE.each)} M.DMG for each Poison stack.`,
+			words: `Deals ${dmg("wizard", VINE.blow, bookDmg("lorraine", 1))} M.DMG to enemies in a straight line, stacking ${VINE.poison} Poison and shackling them for ${VINE.shackle} sec. After some time, deals ${dmg("wizard", VINE.each, bookDmg("lorraine", 1))} M.DMG for each Poison stack.`,
 			icon: "🪢",
 			art: art$17(1),
 			move: "vine",
@@ -8719,7 +9102,7 @@ var LORRAINE = {
 		{
 			name: "Wrath of the Forest",
 			about: `A blow that knocks the boss down for ${WRATH.down} seconds, ${pct(WRATH.more)} harder for each [Poison] on it.`,
-			words: `Deals ${dmg("wizard", WRATH.blow)} M.DMG to enemies in range and knocks them down for ${WRATH.down} sec. Enemies inflicted by Poison takes ${pct(WRATH.more)} more DMG per every stack.`,
+			words: `Deals ${dmg("wizard", WRATH.blow, bookDmg("lorraine", 2))} M.DMG to enemies in range and knocks them down for ${WRATH.down} sec. Enemies inflicted by Poison takes ${pct(WRATH.more)} more DMG per every stack.`,
 			icon: "🌳",
 			art: art$17(2),
 			move: "wrath",
@@ -9009,7 +9392,7 @@ var FIRE_SMASH = {
 		icon: "🔥",
 		art: art$16(3)
 	},
-	words: `Upon Block, deals ${dmg("knight", SMASH$1.blow)} M.DMG to enemies in range, and inflicts ${SMASH$1.flames} stack of Flame.`
+	words: `Upon Block, deals ${dmg("knight", SMASH$1.blow, bookDmg("morrah", 3))} M.DMG to enemies in range, and inflicts ${SMASH$1.flames} stack of Flame.`
 };
 /** What Burning Power gives her for a while: shown beside her passive, with how long it has left. */
 var BURNING_UP = {
@@ -9054,7 +9437,7 @@ var MORRAH = {
 		{
 			name: "Burning Power",
 			about: `A blow that knocks the boss down for ${seconds(BURNING.down)} and leaves ${BURNING.flames} [Flame] on it. Then for ${BURNING.lasts} seconds each blow of her attack deals more and leaves a [Flame]. Both are ${pct(FLAME.more)} harder for each [Flame] on the boss.`,
-			words: `Deals ${dmg("knight", BURNING.blow)} M.DMG to enemies in range and knocks them down, inflicting ${BURNING.flames} stacks of Flame. Then for ${BURNING.lasts} sec, each auto attack deals ${dmg("knight", CLEAVE.burning)} M.DMG and inflicts 1 stack of Flame on enemy. Per each stacked Flame, DMG is increased by ${pct(FLAME.more)}. Each Flame stack deals separate ${dmg("knight", FLAME.each)} M.DMG every second and reduces Heal rate by ${pct(FLAME.heals)}.`,
+			words: `Deals ${dmg("knight", BURNING.blow, bookDmg("morrah", 0))} M.DMG to enemies in range and knocks them down, inflicting ${BURNING.flames} stacks of Flame. Then for ${BURNING.lasts} sec, each auto attack deals ${dmg("knight", CLEAVE.burning, bookDmg("morrah", 0))} M.DMG and inflicts 1 stack of Flame on enemy. Per each stacked Flame, DMG is increased by ${pct(FLAME.more)}. Each Flame stack deals separate ${dmg("knight", FLAME.each, bookDmg("morrah", 0))} M.DMG every second and reduces Heal rate by ${pct(FLAME.heals)}.`,
 			icon: "🔥",
 			art: art$16(0),
 			move: "burning",
@@ -9075,7 +9458,7 @@ var MORRAH = {
 		{
 			name: "Lava Eruption",
 			about: `A blow that knocks the boss down for ${seconds(ERUPTION.down)}, ${pct(FLAME.more)} harder for each [Flame] on it.`,
-			words: `Deals ${dmg("knight", ERUPTION.blow)} M.DMG to enemies in range and inflict knock down. Per every stacked Flame, DMG is increased by ${pct(FLAME.more)}.`,
+			words: `Deals ${dmg("knight", ERUPTION.blow, bookDmg("morrah", 2))} M.DMG to enemies in range and inflict knock down. Per every stacked Flame, DMG is increased by ${pct(FLAME.more)}.`,
 			icon: "☄️",
 			art: art$16(2),
 			move: "eruption",
@@ -9456,7 +9839,7 @@ var SERIA = {
 		{
 			name: "Mysterious Sword - Falling Petals",
 			about: `A cut across the boss. For ${PETALS.window} seconds after, this slot holds [Mysterious Sword - Blossom], once.`,
-			words: `Performs a horizontal slash to the front and deals ${dmg("warrior", PETALS.blow)} M.DMG to the target and enemies in a narrow range. Can activate [Mysterious Sword - Blossom] (${BLOSSOM_SKILL.cost} Mana: a vertical slash to the front, dealing ${dmg("warrior", BLOSSOM.blow)} M.DMG to the target and enemies in a narrow range) once within ${PETALS.window} sec after use.`,
+			words: `Performs a horizontal slash to the front and deals ${dmg("warrior", PETALS.blow, bookDmg("seria", 0))} M.DMG to the target and enemies in a narrow range. Can activate [Mysterious Sword - Blossom] (${BLOSSOM_SKILL.cost} Mana: a vertical slash to the front, dealing ${dmg("warrior", BLOSSOM.blow, bookDmg("seria", 0))} M.DMG to the target and enemies in a narrow range) once within ${PETALS.window} sec after use.`,
 			icon: "🌸",
 			art: art$15(0),
 			move: "petals",
@@ -9466,7 +9849,7 @@ var SERIA = {
 		{
 			name: "Blood Scattering Blade",
 			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share$2(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
-			words: `Rapidly charges forward to deal ${dmg("warrior", SCATTER.rush)} M.DMG and inflicts irremovable Original Sin of Blood on enemies for ${SCATTER.lasts} sec. Enemies under Original Sin of Blood have their ATK Spd reduced by ${SCATTER.speed}. Shortly afterward, attacks enemies under Original Sin of Blood ${SCATTER.cuts} times, and deals additional ${dmg("warrior", SCATTER.cut * SCATTER.cuts)} M.DMG, and if the target is not a hero, deals additional ${dmg("warrior", SCATTER.through * SCATTER.cuts)} DEF Ignoring M.DMG.`,
+			words: `Rapidly charges forward to deal ${dmg("warrior", SCATTER.rush, bookDmg("seria", 1))} M.DMG and inflicts irremovable Original Sin of Blood on enemies for ${SCATTER.lasts} sec. Enemies under Original Sin of Blood have their ATK Spd reduced by ${SCATTER.speed}. Shortly afterward, attacks enemies under Original Sin of Blood ${SCATTER.cuts} times, and deals additional ${dmg("warrior", SCATTER.cut * SCATTER.cuts, bookDmg("seria", 1))} M.DMG, and if the target is not a hero, deals additional ${dmg("warrior", SCATTER.through * SCATTER.cuts, bookDmg("seria", 1))} DEF Ignoring M.DMG.`,
 			icon: "🩸",
 			art: art$15(1),
 			move: "scatter",
@@ -9476,7 +9859,7 @@ var SERIA = {
 		{
 			name: "Red Moon Blade",
 			about: `A great cut, harder on a boss. Used in [Moonlight] (${seconds(MOON$1.light)} of it every ${MOON$1.every} seconds): it cuts again, and the boss is healed ${pct(1 - MOON$1.heals)} less for ${MOON$1.unhealed} seconds.`,
-			words: `Brandishes a moon-bloodying sword, dealing ${dmg("warrior", MOON$1.blow)} M.DMG to enemies in a wide range, and additional ${dmg("warrior", MOON$1.boss)} M.DMG on non-Hero enemies. When the moon is ripe, gains Moonlight for ${MOON$1.light} sec, and when cast at this state, deals ${dmg("warrior", MOON$1.ripe)} M.DMG to enemies and reduces their Heal Rate by ${pct(1 - MOON$1.heals)}. If the target is not a hero, deals additional ${dmg("warrior", MOON$1.ripeBoss)} M.DMG.`,
+			words: `Brandishes a moon-bloodying sword, dealing ${dmg("warrior", MOON$1.blow, bookDmg("seria", 2))} M.DMG to enemies in a wide range, and additional ${dmg("warrior", MOON$1.boss, bookDmg("seria", 2))} M.DMG on non-Hero enemies. When the moon is ripe, gains Moonlight for ${MOON$1.light} sec, and when cast at this state, deals ${dmg("warrior", MOON$1.ripe, bookDmg("seria", 2))} M.DMG to enemies and reduces their Heal Rate by ${pct(1 - MOON$1.heals)}. If the target is not a hero, deals additional ${dmg("warrior", MOON$1.ripeBoss, bookDmg("seria", 2))} M.DMG.`,
 			icon: "🌙",
 			art: art$15(2),
 			move: "moon",
@@ -9831,7 +10214,7 @@ var VALANCE = {
 		{
 			name: "Prototype – VA",
 			about: `Clears what the boss has left on the ally with the highest ATK, and gives it a [Hologram] for ${HOLOGRAM.lasts} seconds: ${pct(HOLOGRAM.atk)} more ATK and ${pct(HOLOGRAM.crit)} more crit chance, healed every second, its skills ready ${pct(HOLOGRAM.cooldown)} sooner, and nothing the boss does holds it.`,
-			words: `Dispels negative effects from the ally with the highest ATK and grants [Hologram] for ${HOLOGRAM.lasts} sec. [Hologram] increases the target’s ATK, Crit Chance, heals ${healed("mechanic", HOLOGRAM.heal)} HP every sec, and reduces its Cooldown of all active Skills by ${HOLOGRAM.cooldown} sec. While [Hologram] is active, the target gains immunity to negative effects.`,
+			words: `Dispels negative effects from the ally with the highest ATK and grants [Hologram] for ${HOLOGRAM.lasts} sec. [Hologram] increases the target’s ATK, Crit Chance, heals ${healed("mechanic", HOLOGRAM.heal, bookHeal("valance", 0))} HP every sec, and reduces its Cooldown of all active Skills by ${HOLOGRAM.cooldown} sec. While [Hologram] is active, the target gains immunity to negative effects.`,
 			icon: "💠",
 			art: art$14(0),
 			move: "prototype",
@@ -9841,7 +10224,7 @@ var VALANCE = {
 		{
 			name: "Absolute Protection Field – LA",
 			about: `A field for ${FIELD.lasts} seconds that reaches every ally: ${pct(FIELD.defense - 1)} more defense, can’t be knocked down, and healed and given mana every second.`,
-			words: `Creates an [Violet Force Field] that lasts for ${FIELD.lasts} sec within a wide range of self. Allies within the range of [Violet Force Field] have their All DEF increased by ${pct(FIELD.defense - 1)}, gain immunity to CC, and have ${healed("mechanic", FIELD.heal)} HP healed and Mana recovered every sec.`,
+			words: `Creates an [Violet Force Field] that lasts for ${FIELD.lasts} sec within a wide range of self. Allies within the range of [Violet Force Field] have their All DEF increased by ${pct(FIELD.defense - 1)}, gain immunity to CC, and have ${healed("mechanic", FIELD.heal, bookHeal("valance", 1))} HP healed and Mana recovered every sec.`,
 			icon: "🟣",
 			art: art$14(1),
 			move: "field",
@@ -9851,7 +10234,7 @@ var VALANCE = {
 		{
 			name: "Ultimate Laser Cannon – NCE",
 			about: `A laser that stuns the boss for ${CANNON.stun} seconds, then ${CANNON.lasers} more, each stunning it for ${CANNON.laserStun}; each leaves it [Manipulated] for ${CANNON.lasts} seconds (up to ${CANNON.most} times over): taking ${pct(CANNON.takes)} more and healed ${pct(CANNON.heals)} less.`,
-			words: `Summons laser cannons behind self that fire laser beams, dealing ${dmg("mechanic", CANNON.blow)} P.DMG to the enemy. The hit target is inflicted with Stun for ${CANNON.stun} sec and becomes [Manipulated] for ${CANNON.lasts} sec. Afterward, the cannons additionally fire a total of ${CANNON.lasers} laser beams to random enemies. Each laser beam deals ${dmg("mechanic", CANNON.laser)} P.DMG, inflicts Stun on the hit target for ${CANNON.laserStun} sec, and inflicts [Manipulated] for ${CANNON.lasts} sec. Enemies who are [Manipulated] have their Heal Rate reduced by ${pct(CANNON.heals)} and take ${pct(CANNON.takes)} increased All DMG. [Manipulated] can be stacked up to max ${CANNON.most} times.`,
+			words: `Summons laser cannons behind self that fire laser beams, dealing ${dmg("mechanic", CANNON.blow, bookDmg("valance", 2))} P.DMG to the enemy. The hit target is inflicted with Stun for ${CANNON.stun} sec and becomes [Manipulated] for ${CANNON.lasts} sec. Afterward, the cannons additionally fire a total of ${CANNON.lasers} laser beams to random enemies. Each laser beam deals ${dmg("mechanic", CANNON.laser, bookDmg("valance", 2))} P.DMG, inflicts Stun on the hit target for ${CANNON.laserStun} sec, and inflicts [Manipulated] for ${CANNON.lasts} sec. Enemies who are [Manipulated] have their Heal Rate reduced by ${pct(CANNON.heals)} and take ${pct(CANNON.takes)} increased All DMG. [Manipulated] can be stacked up to max ${CANNON.most} times.`,
 			icon: "🔫",
 			art: art$14(2),
 			move: "cannon",
@@ -10179,7 +10562,7 @@ var ARMOR_OF_THE_DEMON_GOD = {
 		icon: "🛡️",
 		art: art$13(3)
 	},
-	words: `Reduces All DMG taken by ${pct(1 - ARMOR$1.taken)} and the duration of CC by ${pct(1 - ARMOR$1.held)}. Upon every Skill use, creates [Authority of the Demon God] that absorbs ${healed("wizard", ARMOR$1.shield)} DMG for ${ARMOR$1.lasts} sec. Gains immunity to CC for the duration of [Authority of the Demon God].`
+	words: `Reduces All DMG taken by ${pct(1 - ARMOR$1.taken)} and the duration of CC by ${pct(1 - ARMOR$1.held)}. Upon every Skill use, creates [Authority of the Demon God] that absorbs ${healed("wizard", ARMOR$1.shield, bookHeal("lucikiel", 3))} DMG for ${ARMOR$1.lasts} sec. Gains immunity to CC for the duration of [Authority of the Demon God].`
 };
 /** What Annihilation Wave's slot holds once it is used (its picture is the game's for it, past his passive's). */
 var SURGE_SKILL = {
@@ -10223,7 +10606,7 @@ var LUCIKIEL = {
 		{
 			name: "Death Storm",
 			about: `${STORM.hits} blows that leave [Shadow of Death] on the boss for ${SHADOW.lasts} seconds: it eats at the boss every second and leaves it healed ${pct(1 - SHADOW.heals)} less.`,
-			words: `Attacks the target and nearby enemies ${STORM.hits} times, dealing a total of ${dmg("wizard", STORM.blow * STORM.hits)} M.DMG and leaving a [Shadow of Death]. [Shadow of Death] deals ${dmg("wizard", SHADOW.each * SHADOW.lasts)} M.DMG and reduces the target's Heal Rate by ${pct(1 - SHADOW.heals)} over ${SHADOW.lasts} sec.`,
+			words: `Attacks the target and nearby enemies ${STORM.hits} times, dealing a total of ${dmg("wizard", STORM.blow * STORM.hits, bookDmg("lucikiel", 0))} M.DMG and leaving a [Shadow of Death]. [Shadow of Death] deals ${dmg("wizard", SHADOW.each * SHADOW.lasts, bookDmg("lucikiel", 0))} M.DMG and reduces the target's Heal Rate by ${pct(1 - SHADOW.heals)} over ${SHADOW.lasts} sec.`,
 			icon: "🌪️",
 			art: art$13(0),
 			move: "storm",
@@ -10233,7 +10616,7 @@ var LUCIKIEL = {
 		{
 			name: "Annihilation Wave",
 			about: `A blow that stuns the boss for ${WAVE.stun} seconds, and a blow more. Used, this slot holds [Annihilation Surge].`,
-			words: `Attacks frontal enemies within range 2 times. The first attack deals ${dmg("wizard", WAVE.blow)} M.DMG and inflicts Stun for ${WAVE.stun} sec. The second attack deals ${dmg("wizard", WAVE.blow)} M.DMG and draws in hit targets in front of self. After use, the Skill changes to [Annihilation Surge].`,
+			words: `Attacks frontal enemies within range 2 times. The first attack deals ${dmg("wizard", WAVE.blow, bookDmg("lucikiel", 1))} M.DMG and inflicts Stun for ${WAVE.stun} sec. The second attack deals ${dmg("wizard", WAVE.blow, bookDmg("lucikiel", 1))} M.DMG and draws in hit targets in front of self. After use, the Skill changes to [Annihilation Surge].`,
 			icon: "🌊",
 			art: art$13(1),
 			move: "wave",
@@ -10243,7 +10626,7 @@ var LUCIKIEL = {
 		{
 			name: "Doomsday",
 			about: `${DOOMSDAY.hits} blows, the last knocking the boss down for ${DOOMSDAY.down} seconds and leaving [Pain of Doom] on it for ${PAIN.lasts}: each blow of his on it meanwhile deals more.`,
-			words: `Attacks nearby enemies ${DOOMSDAY.hits} times, dealing ${dmg("wizard", DOOMSDAY.blow)} M.DMG each, and draws them in front of self. The last hit deals ${dmg("wizard", DOOMSDAY.last)} more M.DMG, knocks down hit targets for ${DOOMSDAY.down} sec, and leaves [Pain of Doom] that lasts for ${PAIN.lasts} sec. Each time Lucikiel attacks targets inflicted with [Pain of Doom] with a normal or Skill attack, he deals additional ${dmg("wizard", PAIN.blow)} M.DMG.`,
+			words: `Attacks nearby enemies ${DOOMSDAY.hits} times, dealing ${dmg("wizard", DOOMSDAY.blow, bookDmg("lucikiel", 2))} M.DMG each, and draws them in front of self. The last hit deals ${dmg("wizard", DOOMSDAY.last, bookDmg("lucikiel", 2))} more M.DMG, knocks down hit targets for ${DOOMSDAY.down} sec, and leaves [Pain of Doom] that lasts for ${PAIN.lasts} sec. Each time Lucikiel attacks targets inflicted with [Pain of Doom] with a normal or Skill attack, he deals additional ${dmg("wizard", PAIN.blow, bookDmg("lucikiel", 2))} M.DMG.`,
 			icon: "☄️",
 			art: art$13(2),
 			move: "doomsday",
@@ -10543,7 +10926,7 @@ var SELENE = {
 		{
 			name: "Arrow Rain",
 			about: `${RAIN.arrows} arrows at the boss.`,
-			words: `Shoots ${RAIN.arrows} arrows to random enemies and deals a total of ${dmg("archer", RAIN.blow * RAIN.arrows)} P.DMG.`,
+			words: `Shoots ${RAIN.arrows} arrows to random enemies and deals a total of ${dmg("archer", RAIN.blow * RAIN.arrows, bookDmg("selene", 0))} P.DMG.`,
 			icon: "🏹",
 			art: art$12(0),
 			move: "rain",
@@ -10553,7 +10936,7 @@ var SELENE = {
 		{
 			name: "Rush",
 			about: `${RUSH.arrows} arrows that launch at the boss.`,
-			words: `Upon attacking, summons ${RUSH.arrows} arrows that launch towards the enemy. Each arrow deals ${dmg("archer", RUSH.blow)} P.DMG.`,
+			words: `Upon attacking, summons ${RUSH.arrows} arrows that launch towards the enemy. Each arrow deals ${dmg("archer", RUSH.blow, bookDmg("selene", 1))} P.DMG.`,
 			icon: "💨",
 			art: art$12(1),
 			move: "rush",
@@ -10563,7 +10946,7 @@ var SELENE = {
 		{
 			name: "Moonlight Flash",
 			about: `An arrow the harder the more of the boss’s health is left, knocking it down for ${FLASH.down} seconds, and a blow more through its defense.`,
-			words: `Fires an arrow in a straight line, dealing P.DMG to all enemies in range based on the target's remaining HP. Deals a maximum of ${dmg("archer", FLASH.most)} P.DMG and knocks down the target. Against Bosses, deals additional ${dmg("archer", FLASH.boss)} P.DMG that ignores DEF.`,
+			words: `Fires an arrow in a straight line, dealing P.DMG to all enemies in range based on the target's remaining HP. Deals a maximum of ${dmg("archer", FLASH.most, bookDmg("selene", 2))} P.DMG and knocks down the target. Against Bosses, deals additional ${dmg("archer", FLASH.boss, bookDmg("selene", 2))} P.DMG that ignores DEF.`,
 			icon: "🌕",
 			art: art$12(2),
 			move: "flash",
@@ -10840,7 +11223,7 @@ var CROW = {
 		{
 			name: "Target will be Eliminated.",
 			about: `${ELIMINATE.shots} shots, then ${ELIMINATE.marks} [Hunting Dog’s Fang Marks] on the boss (up to ${FANG.most}, for ${FANG.lasts} seconds).`,
-			words: `Deals a total of ${dmg("mechanic", ELIMINATE.blow * ELIMINATE.shots)} P.DMG to enemies in front over ${ELIMINATE.shots} times and leaves ${ELIMINATE.marks} 'Hunting Dog's Fang Marks' for ${FANG.lasts} sec. Hunting Dog's Fang Mark stacks up to max ${FANG.most} times.`,
+			words: `Deals a total of ${dmg("mechanic", ELIMINATE.blow * ELIMINATE.shots, bookDmg("crow", 0))} P.DMG to enemies in front over ${ELIMINATE.shots} times and leaves ${ELIMINATE.marks} 'Hunting Dog's Fang Marks' for ${FANG.lasts} sec. Hunting Dog's Fang Mark stacks up to max ${FANG.most} times.`,
 			icon: "🔫",
 			art: art$11(0),
 			move: "eliminate",
@@ -10850,7 +11233,7 @@ var CROW = {
 		{
 			name: "Struggle is Meaningless.",
 			about: `${STRUGGLE.shots} shots, then a Frost Bullet that freezes the boss for ${STRUGGLE.freeze} seconds and leaves a freezing area under it for ${STRUGGLE.area}: every ${STRUGGLE.every} seconds it strikes, with a ${pct(STRUGGLE.chance)} chance to freeze the boss for ${STRUGGLE.chilled}.`,
-			words: `Attacks a random enemy ${STRUGGLE.shots} times and deals a total of ${dmg("mechanic", STRUGGLE.blow * STRUGGLE.shots)} P.DMG. Shoots a Frost Bullet that deals ${dmg("mechanic", STRUGGLE.frost)} P.DMG to target and surrounding enemies, freezing them for ${STRUGGLE.freeze} sec. The special Frost Bullet creates a freezing area for ${STRUGGLE.area} seconds that deals ${dmg("mechanic", STRUGGLE.chill)} P.DMG every ${STRUGGLE.every} sec, with a ${pct(STRUGGLE.chance)} chance to freeze for ${STRUGGLE.chilled} sec.`,
+			words: `Attacks a random enemy ${STRUGGLE.shots} times and deals a total of ${dmg("mechanic", STRUGGLE.blow * STRUGGLE.shots, bookDmg("crow", 1))} P.DMG. Shoots a Frost Bullet that deals ${dmg("mechanic", STRUGGLE.frost, bookDmg("crow", 1))} P.DMG to target and surrounding enemies, freezing them for ${STRUGGLE.freeze} sec. The special Frost Bullet creates a freezing area for ${STRUGGLE.area} seconds that deals ${dmg("mechanic", STRUGGLE.chill, bookDmg("crow", 1))} P.DMG every ${STRUGGLE.every} sec, with a ${pct(STRUGGLE.chance)} chance to freeze for ${STRUGGLE.chilled} sec.`,
 			icon: "❄️",
 			art: art$11(1),
 			move: "struggle",
@@ -10860,7 +11243,7 @@ var CROW = {
 		{
 			name: "Even Gods shall Die.",
 			about: `He focuses, then a laser, harder for each [Hunting Dog’s Fang Mark] on the boss (all of them spent), and ${pct(GODS.focus - 1)} harder for his focus.`,
-			words: `Takes position and focuses to shoot a laser, dealing ${dmg("mechanic", GODS.blow)} P.DMG to frontal enemies within range, and consumes target's stack of Hunting Dog's Fang Mark to deal additional ${dmg("mechanic", GODS.each)} P.DMG per each stack. Depending on the focusing time, the effect's range increases, and DMG is increased up to max ${pct(GODS.focus - 1)}. Once the focus is completed, knocks back the enemy far away.`,
+			words: `Takes position and focuses to shoot a laser, dealing ${dmg("mechanic", GODS.blow, bookDmg("crow", 2))} P.DMG to frontal enemies within range, and consumes target's stack of Hunting Dog's Fang Mark to deal additional ${dmg("mechanic", GODS.each, bookDmg("crow", 2))} P.DMG per each stack. Depending on the focusing time, the effect's range increases, and DMG is increased up to max ${pct(GODS.focus - 1)}. Once the focus is completed, knocks back the enemy far away.`,
 			icon: "💥",
 			art: art$11(2),
 			move: "gods",
@@ -11099,7 +11482,7 @@ var CLOCK_MAGIC = {
 		icon: "🕰️",
 		art: art$10(3)
 	},
-	words: `Upon using the skill, next ${CLOCK.attacks} attacks deal additional ${dmg("mechanic", CLOCK.blow)} M.DMG with a ${pct(CLOCK.chance)} chance to petrify the target for ${CLOCK.petrify} sec. This effect activates every ${CLOCK.every} sec.`
+	words: `Upon using the skill, next ${CLOCK.attacks} attacks deal additional ${dmg("mechanic", CLOCK.blow, bookDmg("oddy", 3))} M.DMG with a ${pct(CLOCK.chance)} chance to petrify the target for ${CLOCK.petrify} sec. This effect activates every ${CLOCK.every} sec.`
 };
 /** Clock Magic's attacks to come: shown on her card. */
 var TICKING = {
@@ -11128,7 +11511,7 @@ var ODDY = {
 		{
 			name: "Time Fracture",
 			about: `A blow that petrifies the boss for ${FRACTURE.petrify} seconds.`,
-			words: `Deals ${dmg("mechanic", FRACTURE.blow)} M.DMG to enemies in a straight line, and inflicts Petrify for ${FRACTURE.petrify} sec.`,
+			words: `Deals ${dmg("mechanic", FRACTURE.blow, bookDmg("oddy", 0))} M.DMG to enemies in a straight line, and inflicts Petrify for ${FRACTURE.petrify} sec.`,
 			icon: "⌛",
 			art: art$10(0),
 			move: "fracture",
@@ -11138,7 +11521,7 @@ var ODDY = {
 		{
 			name: "Time Fragments",
 			about: `${FRAGMENTS.hits} blows. ${pct(FRAGMENTS.chance)} of the time, it is ready again at once and costs nothing the next time.`,
-			words: `Attacks random enemies ${FRAGMENTS.hits} times, dealing a total of ${dmg("mechanic", FRAGMENTS.blow * FRAGMENTS.hits)} M.DMG. With ${pct(FRAGMENTS.chance)} chance, 'Time Fragments' cooldown resets and consumes no mana for the next single activation.`,
+			words: `Attacks random enemies ${FRAGMENTS.hits} times, dealing a total of ${dmg("mechanic", FRAGMENTS.blow * FRAGMENTS.hits, bookDmg("oddy", 1))} M.DMG. With ${pct(FRAGMENTS.chance)} chance, 'Time Fragments' cooldown resets and consumes no mana for the next single activation.`,
 			icon: "🧩",
 			art: art$10(1),
 			move: "fragments",
@@ -11148,7 +11531,7 @@ var ODDY = {
 		{
 			name: "Time Distortion",
 			about: `A blow; every ally +${DISTORTION.speed} attack speed for ${DISTORTION.lasts} seconds, and what is left of every ally’s cooldowns halved.`,
-			words: `Deals ${dmg("mechanic", DISTORTION.blow)} M.DMG to all enemies and increases all allies' ATK Spd by ${DISTORTION.speed} for ${DISTORTION.lasts} sec. All allies' skill cooldown is reduced by ${pct(DISTORTION.cooldowns)}. 'Time Distortion' is not affected by skill cooldown reduction.`,
+			words: `Deals ${dmg("mechanic", DISTORTION.blow, bookDmg("oddy", 2))} M.DMG to all enemies and increases all allies' ATK Spd by ${DISTORTION.speed} for ${DISTORTION.lasts} sec. All allies' skill cooldown is reduced by ${pct(DISTORTION.cooldowns)}. 'Time Distortion' is not affected by skill cooldown reduction.`,
 			icon: "⏳",
 			art: art$10(2),
 			move: "distortion",
@@ -11424,7 +11807,7 @@ var PHILLOP = {
 		{
 			name: "Collision",
 			about: `A blow that knocks the boss down for ${COLLISION.down} seconds.`,
-			words: `Deals ${dmg("knight", COLLISION.blow)} P.DMG and knocks down the enemy for ${COLLISION.down} sec.`,
+			words: `Deals ${dmg("knight", COLLISION.blow, bookDmg("phillop", 0))} P.DMG and knocks down the enemy for ${COLLISION.down} sec.`,
 			icon: "💥",
 			art: art$9(0),
 			move: "collision",
@@ -11434,7 +11817,7 @@ var PHILLOP = {
 		{
 			name: "Headbutt",
 			about: `A dash and a blow: the boss’s attacks ${pct(HEADBUTT.speed / POINTS)} slower for ${HEADBUTT.slowed} seconds.`,
-			words: `Dashes toward the enemy and deals ${dmg("knight", HEADBUTT.blow)} P.DMG, knocking them back. Hit enemy's Attack Spd is reduced by ${pct(HEADBUTT.speed / POINTS)} for ${HEADBUTT.slowed} sec.`,
+			words: `Dashes toward the enemy and deals ${dmg("knight", HEADBUTT.blow, bookDmg("phillop", 1))} P.DMG, knocking them back. Hit enemy's Attack Spd is reduced by ${pct(HEADBUTT.speed / POINTS)} for ${HEADBUTT.slowed} sec.`,
 			icon: "🐏",
 			art: art$9(1),
 			move: "headbutt",
@@ -11741,7 +12124,7 @@ var TORNADO_STRIKE = {
 		icon: "🌪️",
 		art: art$8(3)
 	},
-	words: `Every ${nth(TORNADO$1.every)} normal attack has a ${pct(TORNADO$1.chance)} chance to deal additional ${dmg("warrior", TORNADO$1.blow)} P.DMG to the target. The target takes ${pct(TORNADO$1.takes - 1)} increased P.DMG for ${TORNADO$1.lasts} sec and is knocked down for ${TORNADO$1.down} sec.`
+	words: `Every ${nth(TORNADO$1.every)} normal attack has a ${pct(TORNADO$1.chance)} chance to deal additional ${dmg("warrior", TORNADO$1.blow, bookDmg("naila", 3))} P.DMG to the target. The target takes ${pct(TORNADO$1.takes - 1)} increased P.DMG for ${TORNADO$1.lasts} sec and is knocked down for ${TORNADO$1.down} sec.`
 };
 /** What Wind Reading gives every ally, and its Dark gives her. */
 var READ = {
@@ -11784,7 +12167,7 @@ var NAILA = {
 		{
 			name: "Fierce Winds",
 			about: `Two dashes through the boss, each a blow that knocks it down for ${WINDS.down} seconds.`,
-			words: `Dashes toward the enemy 2 times, dealing ${dmg("warrior", WINDS.blow * CODED.winds.lands.length)} P.DMG to enemies in range, knocking them down for ${WINDS.down} sec. If the target is not a Hero, deals additional ${dmg("warrior", WINDS.boss * CODED.winds.lands.length)} P.DMG.`,
+			words: `Dashes toward the enemy 2 times, dealing ${dmg("warrior", WINDS.blow * CODED.winds.lands.length, bookDmg("naila", 0))} P.DMG to enemies in range, knocking them down for ${WINDS.down} sec. If the target is not a Hero, deals additional ${dmg("warrior", WINDS.boss * CODED.winds.lands.length, bookDmg("naila", 0))} P.DMG.`,
 			icon: "💨",
 			art: art$8(0),
 			move: "winds",
@@ -11805,7 +12188,7 @@ var NAILA = {
 		{
 			name: "Dive Bomb",
 			about: `She flies up and strikes the boss, ${pct(DIVE.downed - 1)} harder while she has it knocked down.`,
-			words: `Flies up and strikes ${dmg("warrior", DIVE.blow)} P.DMG to enemies in range. Knocked down enemies take ${pct(DIVE.downed - 1)} increased DMG. If the target is not a Hero, deals additional ${dmg("warrior", DIVE.boss)} P.DMG.`,
+			words: `Flies up and strikes ${dmg("warrior", DIVE.blow, bookDmg("naila", 2))} P.DMG to enemies in range. Knocked down enemies take ${pct(DIVE.downed - 1)} increased DMG. If the target is not a Hero, deals additional ${dmg("warrior", DIVE.boss, bookDmg("naila", 2))} P.DMG.`,
 			icon: "🦅",
 			art: art$8(2),
 			move: "dive",
@@ -12093,7 +12476,7 @@ var YANNE = {
 		{
 			name: "Focus Shot!",
 			about: `An arrow, focused on as long as she can (its DMG doubled).`,
-			words: `Taking up a stance, focuses for a while and deals ${dmg("archer", FOCUS.blow)} P.DMG to enemies in a straight line. If the target is a dragon, inflicts Stun for 3 sec. The longer she focuses, DMG and Stun duration are increased by 100%.`,
+			words: `Taking up a stance, focuses for a while and deals ${dmg("archer", FOCUS.blow, bookDmg("yanne", 0))} P.DMG to enemies in a straight line. If the target is a dragon, inflicts Stun for 3 sec. The longer she focuses, DMG and Stun duration are increased by 100%.`,
 			icon: "🎯",
 			art: art$7(0),
 			move: "focus",
@@ -12103,7 +12486,7 @@ var YANNE = {
 		{
 			name: "Wipeout!",
 			about: "A great arrow at the boss.",
-			words: `Deals ${dmg("archer", WIPEOUT.blow)} P.DMG to target enemy and other enemies in range. If the target is a Dragon, deals extra DMG that ignores DEF.`,
+			words: `Deals ${dmg("archer", WIPEOUT.blow, bookDmg("yanne", 1))} P.DMG to target enemy and other enemies in range. If the target is a Dragon, deals extra DMG that ignores DEF.`,
 			icon: "💥",
 			art: art$7(1),
 			move: "wipeout",
@@ -12396,7 +12779,7 @@ var NERAXIS = {
 		{
 			name: "Black Lightning Claw",
 			about: `A blow, and a second after a blow more that stuns the boss for ${CLAW.stun} seconds.`,
-			words: `Draws enemies towards the target and deals ${dmg("knight", CLAW.blow)} M.DMG. Deals ${dmg("knight", CLAW.after)} M.DMG around the target after 1 sec and stuns them for ${CLAW.stun} sec. Reduces ATK Spd of hit enemies by ${CLAW.speed} for ${CLAW.slowed} sec.`,
+			words: `Draws enemies towards the target and deals ${dmg("knight", CLAW.blow, bookDmg("neraxis", 0))} M.DMG. Deals ${dmg("knight", CLAW.after, bookDmg("neraxis", 0))} M.DMG around the target after 1 sec and stuns them for ${CLAW.stun} sec. Reduces ATK Spd of hit enemies by ${CLAW.speed} for ${CLAW.slowed} sec.`,
 			icon: "⚡",
 			art: art$6(0),
 			move: "lightning",
@@ -12406,7 +12789,7 @@ var NERAXIS = {
 		{
 			name: "Obsidian Roar",
 			about: `Every ally +${num(ROAR$1.more)} ATK, P.DEF and M.DEF for ${ROAR$1.lasts} seconds; a blow, and the boss’s ATK ${pct(ROAR$1.weaker)} lower meanwhile.`,
-			words: `Increases ATK, P.DEF, and M.DEF of all allies by ${num(ROAR$1.more)} for ${ROAR$1.lasts} sec. Deals ${dmg("knight", ROAR$1.blow)} M.DMG to all enemies and reduces their ATK by ${pct(ROAR$1.weaker)} for ${ROAR$1.lasts} sec.`,
+			words: `Increases ATK, P.DEF, and M.DEF of all allies by ${num(ROAR$1.more)} for ${ROAR$1.lasts} sec. Deals ${dmg("knight", ROAR$1.blow, bookDmg("neraxis", 1))} M.DMG to all enemies and reduces their ATK by ${pct(ROAR$1.weaker)} for ${ROAR$1.lasts} sec.`,
 			icon: "🐉",
 			art: art$6(1),
 			move: "roar",
@@ -12417,7 +12800,7 @@ var NERAXIS = {
 		{
 			name: "Breath of Destruction",
 			about: `Six blows, each taking ${pct(BREATH.weaker)} of the boss’s M.DEF for ${BREATH.lasts} second and stunning it for ${BREATH.stun} second.`,
-			words: `Deals a total of ${dmg("knight", BREATH.blow * CODED.breath.lands.length)} M.DMG to enemies within a large area around the target over 6 times and reduces their M.DEF by ${pct(BREATH.weaker)} for ${BREATH.lasts} sec. Each hit stuns the enemy for ${BREATH.stun} sec.`,
+			words: `Deals a total of ${dmg("knight", BREATH.blow * CODED.breath.lands.length, bookDmg("neraxis", 2))} M.DMG to enemies within a large area around the target over 6 times and reduces their M.DEF by ${pct(BREATH.weaker)} for ${BREATH.lasts} sec. Each hit stuns the enemy for ${BREATH.stun} sec.`,
 			icon: "🌋",
 			art: art$6(2),
 			move: "breath",
@@ -12749,7 +13132,7 @@ var ERZE = {
 		{
 			name: "Sweet Blood",
 			about: `A blow that steals ${pct(SWEET.steals)} of what it deals, its cooldown ${SWEET.sooner} seconds shorter; and a stack of it (at ${SWEET.most}, ${SWEET.more} blows more).`,
-			words: `Deals ${dmg("assassin", SWEET.blow)} P.DMG to all enemies and steals HP equal to ${pct(SWEET.steals)} of DMG dealt. Reduces Cooldown of [Sweet Blood] by ${SWEET.sooner} sec on each hit, and gains 1 stack of [Sweet Blood]. [Sweet Blood] can be stacked up to ${SWEET.most} times, and using the skill with ${SWEET.most} stacks of [Sweet Blood] grants additional hits and removes [Sweet Blood] stacks.`,
+			words: `Deals ${dmg("assassin", SWEET.blow, bookDmg("erze", 0))} P.DMG to all enemies and steals HP equal to ${pct(SWEET.steals)} of DMG dealt. Reduces Cooldown of [Sweet Blood] by ${SWEET.sooner} sec on each hit, and gains 1 stack of [Sweet Blood]. [Sweet Blood] can be stacked up to ${SWEET.most} times, and using the skill with ${SWEET.most} stacks of [Sweet Blood] grants additional hits and removes [Sweet Blood] stacks.`,
 			icon: "🩸",
 			art: art$5(0),
 			move: "sweet",
@@ -12759,7 +13142,7 @@ var ERZE = {
 		{
 			name: "Soaking Blood",
 			about: `For ${SOAK.lasts} seconds nothing touches her and she can’t be knocked down; after ${SOAK.after}, a blow on the boss that steals ${pct(SOAK.steals)} of what it deals (a blow more for every ${SOAK.per} stacks of it).`,
-			words: `Dispels all negative effects and gains immunity to all CCs, P.DMG, and M.DMG for ${SOAK.lasts} sec. Inflicts 1 stack of [Soaking Blood] on all enemies, and additional 1 stack upon attacking a target with [Soaking Blood]. [Soaking Blood] can be stacked up to ${SOAK.most} times. Deals ${dmg("assassin", SOAK.blow)} P.DMG to enemies with [Soaking Blood] stacks after ${SOAK.after} sec, and steals HP equal to ${pct(SOAK.steals)} of the DMG dealt. For every ${SOAK.per} stack(s) of [Soaking Blood], hit count increases by 1 and removes [Soaking Blood] stacks upon attacking.`,
+			words: `Dispels all negative effects and gains immunity to all CCs, P.DMG, and M.DMG for ${SOAK.lasts} sec. Inflicts 1 stack of [Soaking Blood] on all enemies, and additional 1 stack upon attacking a target with [Soaking Blood]. [Soaking Blood] can be stacked up to ${SOAK.most} times. Deals ${dmg("assassin", SOAK.blow, bookDmg("erze", 1))} P.DMG to enemies with [Soaking Blood] stacks after ${SOAK.after} sec, and steals HP equal to ${pct(SOAK.steals)} of the DMG dealt. For every ${SOAK.per} stack(s) of [Soaking Blood], hit count increases by 1 and removes [Soaking Blood] stacks upon attacking.`,
 			icon: "🛡️",
 			art: art$5(1),
 			move: "soak",
@@ -12769,7 +13152,7 @@ var ERZE = {
 		{
 			name: "Blood Liberation",
 			about: `For ${LIBERATION.lasts} seconds, every second a blow and a blow more.`,
-			words: `Deals ${dmg("assassin", LIBERATION.blow)} P.DMG to all enemies every ${LIBERATION.every} sec for ${LIBERATION.lasts} sec. Each hit of [Blood Liberation] causes an additional hit on 1 random enemy.`,
+			words: `Deals ${dmg("assassin", LIBERATION.blow, bookDmg("erze", 2))} P.DMG to all enemies every ${LIBERATION.every} sec for ${LIBERATION.lasts} sec. Each hit of [Blood Liberation] causes an additional hit on 1 random enemy.`,
 			icon: "🌹",
 			art: art$5(2),
 			move: "liberation",
@@ -13075,7 +13458,7 @@ var LAST_GATEKEEPER = {
 		icon: "🏰",
 		art: art$4(3)
 	},
-	words: `Stacks [Endurance] every second. [Endurance] cannot be dispelled, and when stacked ${GATEKEEPER.most} times, deals ${dmg("knight", GATEKEEPER.blow)} P.DMG, ignoring DEF on nearby enemies and reduces ATK of affected enemies by ${pct(GATEKEEPER.weaker)} for ${GATEKEEPER.lasts} second(s). A successful block grants 1 additional [Endurance] stack. This effect is activated only once every ${GATEKEEPER.every} second(s).`
+	words: `Stacks [Endurance] every second. [Endurance] cannot be dispelled, and when stacked ${GATEKEEPER.most} times, deals ${dmg("knight", GATEKEEPER.blow, bookDmg("loman", 3))} P.DMG, ignoring DEF on nearby enemies and reduces ATK of affected enemies by ${pct(GATEKEEPER.weaker)} for ${GATEKEEPER.lasts} second(s). A successful block grants 1 additional [Endurance] stack. This effect is activated only once every ${GATEKEEPER.every} second(s).`
 };
 /** Shrouding Creed's shield, and what every ally takes less for a while; Transcend 5's Dark; Endurance's stacks. */
 var SHROUDED = {
@@ -13119,7 +13502,7 @@ var LOMAN = {
 		{
 			name: "Cut Ground",
 			about: `A blow that knocks the boss down for ${CUT.down} seconds; it takes ${pct(CUT.weakness)} more physical damage for ${CUT.lasts} seconds.`,
-			words: `Deals ${dmg("knight", CUT.blow)} P.DMG to frontal enemies within range and knocks them down for ${CUT.down} sec, increasing P.Weakness of the affected targets by ${pct(CUT.weakness)} for ${CUT.lasts} sec.`,
+			words: `Deals ${dmg("knight", CUT.blow, bookDmg("loman", 0))} P.DMG to frontal enemies within range and knocks them down for ${CUT.down} sec, increasing P.Weakness of the affected targets by ${pct(CUT.weakness)} for ${CUT.lasts} sec.`,
 			icon: "⚔️",
 			art: art$4(0),
 			move: "ground",
@@ -13140,7 +13523,7 @@ var LOMAN = {
 		{
 			name: "Knight's Creed",
 			about: `Two blows that stun the boss for ${CREED.stun} seconds, and a last swing that stuns it for ${CREED.lastStun} and leaves the [Mark of Creed] on it for ${CREED.lasts}: each other ally’s blow on it a blow of his more.`,
-			words: `Hits frontal enemies within range 3 times. First 2 hits deal ${dmg("knight", CREED.blow * 2)} P.DMG and stun enemies for ${CREED.stun} second(s) while the last hit attacks enemies in wider range 2 times, dealing ${dmg("knight", CREED.last)} P.DMG in total. The last hit stuns enemies for ${CREED.lastStun} seconds and leaves [Mark of Creed] on the enemies, damaging them for ${CREED.lasts} second(s). Targets with [Mark of Creed] take additional ${dmg("knight", CREED.mark)} P.DMG from allies excluding caster. Additional DMG effect is activated only once every ${CREED.every} second(s).`,
+			words: `Hits frontal enemies within range 3 times. First 2 hits deal ${dmg("knight", CREED.blow * 2, bookDmg("loman", 2))} P.DMG and stun enemies for ${CREED.stun} second(s) while the last hit attacks enemies in wider range 2 times, dealing ${dmg("knight", CREED.last, bookDmg("loman", 2))} P.DMG in total. The last hit stuns enemies for ${CREED.lastStun} seconds and leaves [Mark of Creed] on the enemies, damaging them for ${CREED.lasts} second(s). Targets with [Mark of Creed] take additional ${dmg("knight", CREED.mark, bookDmg("loman", 2))} P.DMG from allies excluding caster. Additional DMG effect is activated only once every ${CREED.every} second(s).`,
 			icon: "✝️",
 			art: art$4(2),
 			move: "creed",
@@ -13478,7 +13861,7 @@ var GAU = {
 		{
 			name: "Smash",
 			about: `Two blows, the first knocking the boss down for ${SMASH.down} seconds.`,
-			words: `Deals ${dmg("warrior", SMASH.blow * CODED.smash.lands.length)} P.DMG to enemies within range, and the first attack knocks them down for ${SMASH.down} sec and reduces their ATK Spd by ${SMASH.speed} for ${SMASH.slowed} sec.`,
+			words: `Deals ${dmg("warrior", SMASH.blow * CODED.smash.lands.length, bookDmg("gau", 0))} P.DMG to enemies within range, and the first attack knocks them down for ${SMASH.down} sec and reduces their ATK Spd by ${SMASH.speed} for ${SMASH.slowed} sec.`,
 			icon: "🪓",
 			art: art$3(0),
 			move: "smash",
@@ -13499,7 +13882,7 @@ var GAU = {
 		{
 			name: "Vortex",
 			about: `A whirl of blows, the last freezing the boss for ${VORTEX.freeze} seconds; he can’t be knocked down meanwhile.`,
-			words: `Deals ${dmg("warrior", VORTEX.blow * CODED.vortex.lands.length)} P.DMG to nearby enemies. If the target is not a Hero, deals P.DMG. The last attack freezes nearby enemies for ${VORTEX.freeze} sec. Gains immunity to CC for the duration of Skill.`,
+			words: `Deals ${dmg("warrior", VORTEX.blow * CODED.vortex.lands.length, bookDmg("gau", 2))} P.DMG to nearby enemies. If the target is not a Hero, deals P.DMG. The last attack freezes nearby enemies for ${VORTEX.freeze} sec. Gains immunity to CC for the duration of Skill.`,
 			icon: "🌀",
 			art: art$3(2),
 			move: "vortex",
@@ -13777,7 +14160,7 @@ var SILENT_AMBUSH = {
 		icon: "🗡️",
 		art: art$2(3)
 	},
-	words: `Deals additional ${dmg("assassin", AMBUSH.blow)} P.DMG to the enemy and silences them for 1 sec upon a Critical Hit with the skill. If the target is not a Hero, deals additional ${dmg("assassin", AMBUSH.boss)} P.DMG that ignores DEF and reduces the target's ATK Spd by ${AMBUSH.speed} for ${AMBUSH.slowed} sec.`
+	words: `Deals additional ${dmg("assassin", AMBUSH.blow, bookDmg("tanya", 3))} P.DMG to the enemy and silences them for 1 sec upon a Critical Hit with the skill. If the target is not a Hero, deals additional ${dmg("assassin", AMBUSH.boss, bookDmg("tanya", 3))} P.DMG that ignores DEF and reduces the target's ATK Spd by ${AMBUSH.speed} for ${AMBUSH.slowed} sec.`
 };
 /** Stealth on her; Bleed on the boss. */
 var STEALTHED = {
@@ -13805,7 +14188,7 @@ var TANYA = {
 		{
 			name: "Target Sighted",
 			about: `The boss takes ${pct(SIGHTED.takes - 1)} more physical damage for ${SIGHTED.lasts} seconds; a blow that knocks it down (in Stealth: stunned for ${SIGHTED.stun} seconds; else, Stealth).`,
-			words: `Moves behind the enemy with the lowest P.DEF and increase their P.DMG taken by ${pct(SIGHTED.takes - 1)}, while knocking them down and inflicting ${dmg("assassin", SIGHTED.blow)} P.DMG. If in a Stealth state, stun said enemy for ${SIGHTED.stun} sec. If not, gain Stealth for ${STEALTH.lasts} sec. While in a Stealth State, Crit Rate and Dodge Rate rises by ${STEALTH.crit}.`,
+			words: `Moves behind the enemy with the lowest P.DEF and increase their P.DMG taken by ${pct(SIGHTED.takes - 1)}, while knocking them down and inflicting ${dmg("assassin", SIGHTED.blow, bookDmg("tanya", 0))} P.DMG. If in a Stealth state, stun said enemy for ${SIGHTED.stun} sec. If not, gain Stealth for ${STEALTH.lasts} sec. While in a Stealth State, Crit Rate and Dodge Rate rises by ${STEALTH.crit}.`,
 			icon: "🎯",
 			art: art$2(0),
 			move: "sighted",
@@ -13815,7 +14198,7 @@ var TANYA = {
 		{
 			name: "Blade Tornado",
 			about: `Three blows, each a stack of Bleed on the boss (in Stealth: it is healed ${pct(1 - TORNADO.heals)} less for ${TORNADO.lasts} seconds, her Stealth spent; else, Stealth).`,
-			words: `Attacks nearby enemies 3 times and deals a total of ${dmg("assassin", TORNADO.blow * CODED.tornado.lands.length)} P.DMG, inflicting 1 stack of Bleed per each hit. If used in a Stealth state, target's heal rate is reduced by ${pct(1 - TORNADO.heals)}, and Stealth is dispelled. If not, turns into Stealth mode for ${STEALTH.lasts} sec. [Stealth] Crit Rate and Dodge Rate are increased by ${STEALTH.crit}.`,
+			words: `Attacks nearby enemies 3 times and deals a total of ${dmg("assassin", TORNADO.blow * CODED.tornado.lands.length, bookDmg("tanya", 1))} P.DMG, inflicting 1 stack of Bleed per each hit. If used in a Stealth state, target's heal rate is reduced by ${pct(1 - TORNADO.heals)}, and Stealth is dispelled. If not, turns into Stealth mode for ${STEALTH.lasts} sec. [Stealth] Crit Rate and Dodge Rate are increased by ${STEALTH.crit}.`,
 			icon: "🌪️",
 			art: art$2(1),
 			move: "tornado",
@@ -13825,7 +14208,7 @@ var TANYA = {
 		{
 			name: "Whisper of Death",
 			about: "Six blows and a seventh (out of Stealth: Stealth).",
-			words: `Attacks random enemies 6 times and deals a total of ${dmg("assassin", WHISPER.blow * (CODED.whisper.lands.length - 1))} P.DMG, then deals one additional attack of ${dmg("assassin", WHISPER.last)} extra P.DMG. If used in Stealth state, dispels all enemies' buffs. If not, turns into Stealth mode for ${STEALTH.lasts} sec. [Stealth] Crit Rate and Dodge Rate are increased by ${STEALTH.crit}.`,
+			words: `Attacks random enemies 6 times and deals a total of ${dmg("assassin", WHISPER.blow * (CODED.whisper.lands.length - 1), bookDmg("tanya", 2))} P.DMG, then deals one additional attack of ${dmg("assassin", WHISPER.last, bookDmg("tanya", 2))} extra P.DMG. If used in Stealth state, dispels all enemies' buffs. If not, turns into Stealth mode for ${STEALTH.lasts} sec. [Stealth] Crit Rate and Dodge Rate are increased by ${STEALTH.crit}.`,
 			icon: "💀",
 			art: art$2(2),
 			move: "whisper",
@@ -14127,7 +14510,7 @@ var POWER_OF_GALICTA = {
 		icon: "🗡️",
 		art: art$1(3)
 	},
-	words: `Rebel Klaus is not affected by Block stats, but his Crit Chance increases by ${GALICTA_POWER.crit}, and when his DEF Penetration reaches ${num(GALICTA_POWER.whole)} or above, all of his attacks ignore the target's DEF. Additionally, his normal attack deal additional ${dmg("warrior", GALICTA_POWER.blow)} P.DMG to all enemies and inflict [Curse of Galicta] upon them for ${GALICTA_POWER.lasts} sec. If the target is already inflicted with [Curse of Galicta], the target won't take additional DMG.`
+	words: `Rebel Klaus is not affected by Block stats, but his Crit Chance increases by ${GALICTA_POWER.crit}, and when his DEF Penetration reaches ${num(GALICTA_POWER.whole)} or above, all of his attacks ignore the target's DEF. Additionally, his normal attack deal additional ${dmg("warrior", GALICTA_POWER.blow, bookDmg("rebel-klaus", 3))} P.DMG to all enemies and inflict [Curse of Galicta] upon them for ${GALICTA_POWER.lasts} sec. If the target is already inflicted with [Curse of Galicta], the target won't take additional DMG.`
 };
 /** [Indomitable Will] on him; Galicta's DMG stacks on him. */
 var WILLED = {
@@ -14157,7 +14540,7 @@ var REBEL_KLAUS = {
 		{
 			name: "Determined Strike",
 			about: `A blow that stuns the boss for ${DETERMINED.stun} seconds, and a blow more against a boss.`,
-			words: `Deals ${dmg("warrior", DETERMINED.blow)} P.DMG to frontal enemies within range and inflicts Stun for ${DETERMINED.stun} sec. If the target is a boss, deals additional ${dmg("warrior", DETERMINED.boss)} P.DMG.`,
+			words: `Deals ${dmg("warrior", DETERMINED.blow, bookDmg("rebel-klaus", 0))} P.DMG to frontal enemies within range and inflicts Stun for ${DETERMINED.stun} sec. If the target is a boss, deals additional ${dmg("warrior", DETERMINED.boss, bookDmg("rebel-klaus", 0))} P.DMG.`,
 			icon: "⚔️",
 			art: art$1(0),
 			move: "determined",
@@ -14167,7 +14550,7 @@ var REBEL_KLAUS = {
 		{
 			name: "Indomitable Will",
 			about: `A blow, and [Indomitable Will] for ${WILL.lasts} seconds: ATK Spd +${WILL.speed}, and what knocks him down holds him ${pct(WILL.held)} as long.`,
-			words: `Deals ${dmg("warrior", WILL.blow)} P.DMG to nearby enemies, entering into the irremoveable state [Indomitable Will] for ${WILL.lasts} sec. While in [Indomitable Will] state, ATK Spd is increased by ${WILL.speed} and the duration of CC inflicted upon self is reduced by ${pct(1 - WILL.held)}.`,
+			words: `Deals ${dmg("warrior", WILL.blow, bookDmg("rebel-klaus", 1))} P.DMG to nearby enemies, entering into the irremoveable state [Indomitable Will] for ${WILL.lasts} sec. While in [Indomitable Will] state, ATK Spd is increased by ${WILL.speed} and the duration of CC inflicted upon self is reduced by ${pct(1 - WILL.held)}.`,
 			icon: "🔥",
 			art: art$1(1),
 			move: "indomitable",
@@ -14177,7 +14560,7 @@ var REBEL_KLAUS = {
 		{
 			name: "Perish.",
 			about: `Blows on the boss one after another, and a last that knocks it down for ${PERISH.down} seconds.`,
-			words: `Attacks a random enemy 6 times, dealing ${dmg("warrior", PERISH.blow)} P.DMG each hit. Afterward, delivers an additional attack that deals ${dmg("warrior", PERISH.last)} P.DMG to nearby enemies and knocks them down for ${PERISH.down} sec.`,
+			words: `Attacks a random enemy 6 times, dealing ${dmg("warrior", PERISH.blow, bookDmg("rebel-klaus", 2))} P.DMG each hit. Afterward, delivers an additional attack that deals ${dmg("warrior", PERISH.last, bookDmg("rebel-klaus", 2))} P.DMG to nearby enemies and knocks them down for ${PERISH.down} sec.`,
 			icon: "💀",
 			art: art$1(2),
 			move: "perish",
@@ -14491,7 +14874,7 @@ var HEROES = [
 			{
 				name: "Judgment Blade",
 				about: `Two blows. [Dark Lord]: a blow more that knocks the boss down for ${JUDGE.down} seconds. Needs ${FALLEN.needs[0]} [Dark Energy].`,
-				words: `Attacks frontal enemies in a straight line 2 times, dealing ${dmg("warrior", JUDGE.blow)} P.DMG each and preventing enemies from recovering Mana for 2 seconds. [Dark Lord] Additionally attacks enemies in a wide range 1 time, dealing ${dmg("warrior", JUDGE.lord)} P.DMG and knocking them down for ${JUDGE.down} seconds. Requires ${FALLEN.needs[0]} or more stacks of [Dark Energy] for use.`,
+				words: `Attacks frontal enemies in a straight line 2 times, dealing ${dmg("warrior", JUDGE.blow, bookDmg("dark-lord-kasel", 0))} P.DMG each and preventing enemies from recovering Mana for 2 seconds. [Dark Lord] Additionally attacks enemies in a wide range 1 time, dealing ${dmg("warrior", JUDGE.lord, bookDmg("dark-lord-kasel", 0))} P.DMG and knocking them down for ${JUDGE.down} seconds. Requires ${FALLEN.needs[0]} or more stacks of [Dark Energy] for use.`,
 				tag: `${FALLEN.needs[0]} Dark Energy`,
 				icon: "⚔️",
 				art: art(0),
@@ -14502,7 +14885,7 @@ var HEROES = [
 			{
 				name: "Doom",
 				about: `Three blows that knock the boss down for ${RUIN.down} seconds. [Dark Lord]: a blow more. Needs ${FALLEN.needs[1]} [Dark Energy].`,
-				words: `Explodes darkness and attacks frontal enemies in a straight line 3 times, dealing ${dmg("warrior", RUIN.blow)} P.DMG each and knocking them away for ${RUIN.down} seconds. [Dark Lord] Deals ${dmg("warrior", RUIN.lord)} P.DMG to 1 enemy furthest away and pulls them in front of self, exploding darkness afterward. Can be used with ${FALLEN.needs[1]} or more stacks of [Dark Energy].`,
+				words: `Explodes darkness and attacks frontal enemies in a straight line 3 times, dealing ${dmg("warrior", RUIN.blow, bookDmg("dark-lord-kasel", 1))} P.DMG each and knocking them away for ${RUIN.down} seconds. [Dark Lord] Deals ${dmg("warrior", RUIN.lord, bookDmg("dark-lord-kasel", 1))} P.DMG to 1 enemy furthest away and pulls them in front of self, exploding darkness afterward. Can be used with ${FALLEN.needs[1]} or more stacks of [Dark Energy].`,
 				tag: `${FALLEN.needs[1]} Dark Energy`,
 				icon: "💥",
 				art: art(1),
@@ -14513,7 +14896,7 @@ var HEROES = [
 			{
 				name: "Advent of the Dark Lord",
 				about: `What the boss has left on him cleared, a blow, and [Dark Lord] for ${ADVENT.lasts} seconds: all his [Dark Energy] spent, each +${pct(ADVENT.atk)} ATK and +${ADVENT.pen} penetration; his skills enhanced, immune to CC, and his attack deals more. Needs ${FALLEN.needs[2]} [Dark Energy].`,
-				words: `Dispels negative effects from self and enters into an irremovable [Dark Lord] state for ${ADVENT.lasts} sec, dealing ${dmg("warrior", ADVENT.blow)} P.DMG to nearby enemies in a circular range of self. During [Dark Lord] state, all Skills are enhanced, gains immunity to CC, and normal attacks deal additional ${dmg("warrior", ADVENT.blowMore)} P.DMG each hit. Requires ${FALLEN.needs[2]} or more stacks of [Dark Energy] for use. Upon use, consumes all stacks to increase own ATK, and DEF Penetration by ${ADVENT.pen} per stack.`,
+				words: `Dispels negative effects from self and enters into an irremovable [Dark Lord] state for ${ADVENT.lasts} sec, dealing ${dmg("warrior", ADVENT.blow, bookDmg("dark-lord-kasel", 2))} P.DMG to nearby enemies in a circular range of self. During [Dark Lord] state, all Skills are enhanced, gains immunity to CC, and normal attacks deal additional ${dmg("warrior", ADVENT.blowMore, bookDmg("dark-lord-kasel", 2))} P.DMG each hit. Requires ${FALLEN.needs[2]} or more stacks of [Dark Energy] for use. Upon use, consumes all stacks to increase own ATK, and DEF Penetration by ${ADVENT.pen} per stack.`,
 				tag: `${FALLEN.needs[2]} Dark Energy`,
 				icon: "😈",
 				art: art(2),
@@ -14677,7 +15060,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "edddb4069db3";
+var SIM_VERSION = "f1f75b637144";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
