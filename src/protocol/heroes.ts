@@ -130,8 +130,9 @@ export interface HeroCopy {
   /** Its rune sockets, each the rune in it (null: empty); none for a part with no sockets. */
   runes: (HeroRune | null)[];
   /**
-   * What rerolling one of its options costs (POST /api/heroes/reroll), its unique option (TechnoMagic gear's additional
-   * skill), and upgrading an option a step (POST /api/heroes/upgrade: one at random not yet at its top); null where it can't be.
+   * What rerolling one of its options costs (POST /api/heroes/reroll; zeiucoins), its unique option (TechnoMagic gear's
+   * additional skill; komaGems), and upgrading an option a step (POST /api/heroes/upgrade: one at random not yet at its top;
+   * zeiucoins); null where it can't be.
    */
   reroll: number | null;
   rerollUnique: number | null;
@@ -260,7 +261,7 @@ export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_h
 export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'busy';
 
 /** Why an option wasn't rerolled or upgraded (nothing was spent). */
-export type HeroOptionError = 'not_found' | 'no_option' | 'maxed' | 'too_poor' | 'busy';
+export type HeroOptionError = 'not_found' | 'no_option' | 'maxed' | 'too_poor' | 'no_gems' | 'busy';
 
 /** Why a copy wasn't refined (nothing was used up). */
 export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy';

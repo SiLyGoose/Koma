@@ -1,5 +1,5 @@
 import { ITEMS_BY_ID } from '../data/items.js';
-import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
+import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
 import { enhanceUtOptions, rollTmSkill } from '../lib/game/technomagic.js';
@@ -78,9 +78,22 @@ const refund = async (guildId: string, userId: string, cost: number): Promise<vo
   if (cost > 0) await collections().members.updateOne({ guildId, userId }, { $inc: { points: cost } });
 };
 
+/** Takes `gems` komaGems from the member (false: they haven't so many). */
+async function payGems(guildId: string, userId: string, gems: number): Promise<boolean> {
+  if (gems <= 0) return true;
+  const paid = await collections().members.updateOne({ guildId, userId, gems: { $gte: gems } }, { $inc: { gems: -gems } });
+  return paid.modifiedCount > 0;
+}
+
+/** Gives `gems` komaGems back. */
+const refundGems = async (guildId: string, userId: string, gems: number): Promise<void> => {
+  if (gems > 0) await collections().members.updateOne({ guildId, userId }, { $inc: { gems } });
+};
+
 /**
- * Rerolls one of a copy's options (its `index`th, from 0) or (`index` 'unique') its unique option (TechnoMagic gear's
- * additional skill), for points, the price climbing with how many times that one was rerolled.
+ * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
+ * rerolled; or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
+ * (too few: 'no_gems').
  */
 export async function rerollOption(guildId: string, userId: string, copyId: string, index: number | 'unique', rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
@@ -90,17 +103,17 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   if (!copy || !item || !kr) return { ok: false, reason: 'not_found' };
   if (index === 'unique') {
     if (!kr.unique) return { ok: false, reason: 'no_option' };
-    const cost = rerollPrice(copy.tmSkillRerolls ?? 0);
-    if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
+    const gems = UNIQUE_REROLL_GEMS;
+    if (!(await payGems(guildId, userId, gems))) return { ok: false, reason: 'no_gems' };
     const done = await items.updateOne(
       { guildId, userId, _id: copyId, tmSkill: copy.tmSkill ?? { $exists: false }, tmSkillRerolls: copy.tmSkillRerolls ?? { $exists: false } },
       { $set: { tmSkill: rollTmSkill(rng), tmSkillRerolls: (copy.tmSkillRerolls ?? 0) + 1 } },
     );
     if (done.modifiedCount === 0) {
-      await refund(guildId, userId, cost);
+      await refundGems(guildId, userId, gems);
       return { ok: false, reason: 'busy' };
     }
-    await recordLedger([{ guildId, userId, delta: -cost, reason: 'kr_reroll', itemId: item.id }]);
+    await recordLedger([{ guildId, userId, delta: 0, gemDelta: -gems, reason: 'kr_reroll', itemId: item.id }]);
     return { ok: true };
   }
   const options = copy.options ?? [];

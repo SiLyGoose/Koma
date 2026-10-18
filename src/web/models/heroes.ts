@@ -1,7 +1,7 @@
 import { CONFIG } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
-import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, rerollPrice, upgradable, upgradePrice } from '../../data/kr-gear.js';
+import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, rerollPrice, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
 import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
 import {
@@ -141,7 +141,8 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
   const maxed = kr ? options.every((option) => option.step >= (poolOption(kr.pool, option.stat)?.steps ?? 0)) : true;
   return {
     reroll: kr && pool && options.length > 0 ? Math.min(...options.map((option) => rerollPrice(option.rerolls ?? 0))) : null,
-    rerollUnique: kr?.unique ? rerollPrice(copy.tmSkillRerolls ?? 0) : null,
+    // (In komaGems.)
+    rerollUnique: kr?.unique ? UNIQUE_REROLL_GEMS : null,
     // (A unique treasure's options: enhanced, while one is below its range's top.)
     upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).some(enhanceable) ? UT_ENHANCE.price : null) : kr && upgradable(kr) && options.length > 0 && !maxed ? upgradePrice(kr) : null,
   };

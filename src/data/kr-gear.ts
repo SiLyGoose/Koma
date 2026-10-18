@@ -206,7 +206,7 @@ export function upgradeKrOption(kr: KrItem, options: readonly KrOption[], rng: K
 }
 
 /** Whether a copy's options can be upgraded at all (King's Raid's TechnoMagic gear's can't: only rerolled). */
-export const upgradable = (kr: KrItem): boolean => kr.options > 0 && !KR_TM_SETS.includes(kr.set ?? '');
+export const upgradable = (kr: KrItem): boolean => kr.options > 0;
 
 /**
  * What rerolling an option costs (points): King's Raid's gem prices for it, five points a gem, climbing with how many times it
@@ -215,9 +215,16 @@ export const upgradable = (kr: KrItem): boolean => kr.options > 0 && !KR_TM_SETS
 export const REROLL_PRICES: readonly number[] = [500, 1_000, 2_000, 4_000, 6_000, 8_000];
 export const rerollPrice = (rerolls: number): number => REROLL_PRICES[Math.min(REROLL_PRICES.length - 1, Math.max(0, Math.floor(rerolls)))] as number;
 
-/** What upgrading an option a step costs (points), by the piece's tier: King's Raid's materials for it (EquipOptionUpgradeTable's Legendary). */
+/**
+ * What upgrading an option a step costs (points): a dragon set's piece by its tier, King's Raid's materials for it
+ * (EquipOptionUpgradeTable's Legendary); a TechnoMagic piece's, TM_UPGRADE_PRICE (the user's).
+ */
 export const UPGRADE_PRICES: Readonly<Record<number, number>> = { 6: 512, 7: 768, 8: 1_152 };
-export const upgradePrice = (kr: KrItem): number => UPGRADE_PRICES[kr.tier] ?? UPGRADE_PRICES[8] ?? 0;
+export const TM_UPGRADE_PRICE = 1_000;
+export const upgradePrice = (kr: KrItem): number => (KR_TM_SETS.includes(kr.set ?? '') ? TM_UPGRADE_PRICE : (UPGRADE_PRICES[kr.tier] ?? UPGRADE_PRICES[8] ?? 0));
+
+/** What rerolling a TechnoMagic piece's unique option (its additional effect) costs, in komaGems: the same every time (the user's). */
+export const UNIQUE_REROLL_GEMS = 1;
 
 export const KR_RUNES_BY_ID: ReadonlyMap<string, KrRuneData> = new Map(KR_RUNES.map((rune) => [rune.id, rune]));
 

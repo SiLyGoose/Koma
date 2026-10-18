@@ -10,7 +10,7 @@ import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
 import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES, UT_OPTION_LINES } from '../src/data/tm-potentials.js';
-import { krOptionValue, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption } from '../src/data/kr-gear.js';
+import { krOptionValue, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption, upgradePrice } from '../src/data/kr-gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -628,13 +628,15 @@ test("technomagic: each piece rolls King's Raid's options (each a different stat
   }
   // Its value: so far between its least and most (Perseverance's ATK: 12%, 14%, 16%).
   assert.deepEqual([0, 1, 2].map((step) => krOptionValue(tm, { stat: 'atk', step })), [0.12, 0.14, 0.16]);
-  // A reroll rolls one again, counted; an upgrade raises one not at its top a step (TechnoMagic gear's are never upgraded).
+  // A reroll rolls one again, counted; an upgrade raises one not at its top a step (TechnoMagic gear's too, for 1,000 zeiucoins).
   const rerolled = rerollKrOption(tm, [{ stat: 'atk', step: 0 }, { stat: 'hp', step: 0 }], 0, { index: () => 0 });
   assert.equal(rerolled?.[0]?.rerolls, 1);
   assert.equal(rerolled?.[1]?.stat, 'hp');
   assert.deepEqual(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 3 }], { index: () => 0 }), [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 4 }]);
   assert.equal(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }]), null);
-  assert.ok(!upgradable(tm) && upgradable(dragon));
+  assert.ok(upgradable(tm) && upgradable(dragon));
+  assert.deepEqual(upgradeKrOption(tm, [{ stat: 'atk', step: 0 }, { stat: 'hp', step: 2 }], { index: () => 0 }), [{ stat: 'atk', step: 1 }, { stat: 'hp', step: 2 }]);
+  assert.equal(upgradePrice(tm), 1_000);
   assert.deepEqual([0, 1, 5, 9].map(rerollPrice), [500, 1_000, 8_000, 8_000]);
 });
 
