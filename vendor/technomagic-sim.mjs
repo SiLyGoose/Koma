@@ -303,6 +303,36 @@ function blocking(on, type) {
 var bound = (on) => on.some((status) => status.binds || status.away);
 var away = (on) => on.some((status) => status.away);
 //#endregion
+//#region src/technomagic/sim/shown.ts
+/** One of King's Raid's own icons for what is on someone. */
+var stateArt = (state) => ({ state });
+/** The pictures of `hero`'s skills, by index (its passive last). */
+var skillArt = (hero) => (skill) => ({
+	hero,
+	skill
+});
+/** A share as a whole percentage (0.25: "25%"). */
+var pct = (share) => `${Math.round(share * 100)}%`;
+/** How many times as much, as a card says it ("twice", "three times"), and as King's Raid does ("doubled", "tripled"); and a place in a count ("3rd"). */
+var times = (n) => n === 2 ? "twice" : n === 3 ? "three times" : `${n} times`;
+var fold = (n) => n === 2 ? "doubled" : n === 3 ? "tripled" : `${n} times as much`;
+var nth = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : [
+	"th",
+	"st",
+	"nd",
+	"rd"
+][n % 10] ?? "th"}`;
+/** So many seconds, as a card says it ("1 second", "3 seconds"). */
+var seconds = (n) => `${n} second${n === 1 ? "" : "s"}`;
+/** Every so many seconds ("every second", "every 3 seconds"). */
+var every$1 = (n) => n === 1 ? "every second" : `every ${n} seconds`;
+/** A share as King's Raid says it: "half", or a percent. */
+var part = (share) => share === .5 ? "half" : pct(share);
+/** A number as King's Raid writes it, its thousands set apart (12000: "12,000"). */
+var num = (n) => n.toLocaleString("en-US");
+/** To a tenth of a percent (0.048: "4.8%"). */
+var fine = (share) => `${Math.round(share * 1e3) / 10}%`;
+//#endregion
 //#region src/technomagic/sim/bosses/dragon/minions.ts
 /** A hatchling: its bite, and every 8 seconds its four blows in front of it (the ice one's slowing whoever they land on). */
 var hatchling = (name, leaves) => ({
@@ -331,16 +361,29 @@ var hatchling = (name, leaves) => ({
 		...leaves && { leaves }
 	}
 });
+/** The ice hatchling's frost: its attacks 2% slower, for 15 seconds (the playtest's DragonSnow). */
+var SNOW = { slow: {
+	name: "Dragon Snow",
+	about: "Attack speed down.",
+	icon: "❄️",
+	art: stateArt("1940"),
+	harmful: true,
+	pace: .98,
+	lasts: 15
+} };
+/** The poison wyrm's venom: 1% less damage for every blow of it, up to 100, for the rest of the fight (the playtest's DragonAttackDown). */
+var VENOM = { weaken: {
+	name: "Wyrm Venom",
+	about: "Deals less damage for the rest of the fight.",
+	icon: "🐍",
+	art: stateArt("AttackDown"),
+	harmful: true,
+	each: .01,
+	most: 100
+} };
 var MINIONS = {
 	"hatchling-fire": hatchling("Fire Hatchling"),
-	"hatchling-ice": hatchling("Ice Hatchling", { slow: {
-		name: "Dragon Snow",
-		about: "Attack speed down.",
-		icon: "❄️",
-		harmful: true,
-		pace: .98,
-		lasts: 15
-	} }),
+	"hatchling-ice": hatchling("Ice Hatchling", SNOW),
 	"hatchling-poison": hatchling("Poison Hatchling"),
 	"hatchling-black": hatchling("Black Hatchling"),
 	"ice-pillar": {
@@ -386,14 +429,7 @@ var MINIONS = {
 			],
 			share: .1,
 			reach: Infinity,
-			leaves: { weaken: {
-				name: "Wyrm Venom",
-				about: "Deals less damage for the rest of the fight.",
-				icon: "🐍",
-				harmful: true,
-				each: .01,
-				most: 100
-			} }
+			leaves: VENOM
 		}
 	},
 	wyrmling: {
@@ -3439,12 +3475,14 @@ var DARK$1 = {
 	name: "Dark Flames",
 	about: `Black fire eats at it every second, and ${Math.round((1 - FLAMES.heals) * 100)}% less healing reaches it.`,
 	icon: "🖤",
+	art: stateArt("440420"),
 	harmful: true
 };
 var STONE = {
 	name: "Petrified",
 	about: "Turned to stone by its gaze: it can do nothing.",
 	icon: "🗿",
+	art: stateArt("Stone"),
 	harmful: true
 };
 var ASHEN = "Ashen Nox";
@@ -3499,6 +3537,7 @@ function armartaPart(fight) {
 				const count = Math.min(ECLIPSE.most, (foe.statuses.find((status) => status.name === ASHEN)?.count ?? 0) + 1);
 				const status = {
 					name: ASHEN,
+					art: stateArt("Eclipse"),
 					left: Infinity,
 					deals: 1 + ECLIPSE.deals * count,
 					count,
@@ -3788,35 +3827,41 @@ var IMPRISONED = {
 	name: "Swamp Imprisonment",
 	about: "Shut away in the swamp: it can do nothing, and the boss can’t reach it.",
 	icon: "🪤",
+	art: stateArt("3590043"),
 	harmful: true
 };
 var UNBOUND = {
 	name: "Swamp Imprisonment (free)",
 	about: `An ally is shut away: ${Math.round((IMPRISONMENT.deals - 1) * 100)}% more damage dealt meanwhile.`,
-	icon: "🗡️"
+	icon: "🗡️",
+	art: stateArt("AttackUp")
 };
 var POISONED$2 = {
 	name: "Poisonous Swamp",
 	about: `Hurt every second; mana fills ${Math.round((1 - SWAMP.mana) * 100)}% slower, and ATK is ${Math.round((SWAMP.deals - 1) * 100)}% higher.`,
 	icon: "🫧",
+	art: stateArt("3590020"),
 	harmful: true
 };
 var WEAKENED$1 = {
 	name: "Poisonous Explosion",
 	about: `Hits ${Math.round((1 - EXPLOSION$1.deals) * 100)}% softer.`,
 	icon: "💥",
+	art: stateArt("3590030"),
 	harmful: true
 };
 var DULLED = {
 	name: "Poisonous Explosion (crit)",
 	about: `${Math.round(-EXPLOSION$1.crit * 1e3)} less crit chance.`,
 	icon: "💥",
+	art: stateArt("3590030"),
 	harmful: true
 };
 var FATAL_VENOM = {
 	name: "Fatal Venom",
 	about: `${Math.round(FATAL.heals * 100)}% less healing reaches it for each (the rest of the fight), and the boss hits harder.`,
 	icon: "☠️",
+	art: stateArt("3590040"),
 	harmful: true
 };
 /** Its skills that count toward Fatal Venom, and each one's cooldown; and how long each waits as the fight begins (the playtest's). */
@@ -3951,6 +3996,7 @@ function ownPart(fight) {
 				}
 				stack(foe.statuses, FATAL_VENOM.name, FATAL.mostOnIt, (count) => ({
 					deals: 1 + FATAL.deals * count,
+					art: FATAL_VENOM.art,
 					shown: "venom"
 				}));
 				fight.cue(null, "fatal", heroes);
@@ -4005,16 +4051,21 @@ function ownPart(fight) {
 		marks() {
 			return [
 				{
-					text: "Life Force",
-					tone: "venom"
+					text: "Persistent Life Force",
+					tone: "venom",
+					art: stateArt("3590041")
 				},
 				{
-					text: `Imprisonment ${hits}/${IMPRISONMENT.hits}`,
-					tone: "venom"
+					text: `Swamp Imprisonment ${hits}/${IMPRISONMENT.hits}`,
+					tone: "venom",
+					art: stateArt("3590043"),
+					count: `${hits}/${IMPRISONMENT.hits}`
 				},
 				{
 					text: `Fatal Venom ${Math.min(used, FATAL.after)}/${FATAL.after}`,
-					tone: "venom"
+					tone: "venom",
+					art: stateArt("3590040"),
+					count: `${Math.min(used, FATAL.after)}/${FATAL.after}`
 				}
 			];
 		}
@@ -4286,12 +4337,14 @@ var FROSTED = {
 	name: "Frost",
 	about: `At ${FROST.freezeAt} of it, Frozen.`,
 	icon: "❄️",
+	art: stateArt("1940"),
 	harmful: true
 };
 var FROZEN = {
 	name: "Freeze",
 	about: `Frozen: it can do nothing, and takes ${Math.round((FROST.takes - 1) * 100)}% more damage.`,
 	icon: "🧊",
+	art: stateArt("Frozen"),
 	harmful: true
 };
 function scalaxiaPart(fight) {
@@ -4448,6 +4501,7 @@ var BURN = {
 	name: "Burn",
 	about: `Fire eats at it every second: ${Math.round(BREATH$2.burn * 100)}% of the breath's blow.`,
 	icon: "🔥",
+	art: stateArt("Burn"),
 	harmful: true
 };
 function temerairePart(fight) {
@@ -4473,6 +4527,7 @@ function temerairePart(fight) {
 		}
 		put(foe.statuses, {
 			name: FLAME$1,
+			art: stateArt("RedFire3"),
 			left: Infinity,
 			deals: BLESSING$3.deals,
 			takes: { physical: BLESSING$3.physical },
@@ -4610,12 +4665,14 @@ var POISONED$1 = {
 	name: "Poison",
 	about: `Eats at it every second, the more for every stack; at ${POISON$1.petrifyAt}, Petrified.`,
 	icon: "🧪",
+	art: stateArt("CriticalPoison"),
 	harmful: true
 };
 var PETRIFIED = {
 	name: "Petrified",
 	about: "Turned to stone: it can do nothing.",
 	icon: "🗿",
+	art: stateArt("Stone"),
 	harmful: true
 };
 function zyrrkinothPart(fight) {
@@ -4682,7 +4739,9 @@ function zyrrkinothPart(fight) {
 		},
 		marks: () => [{
 			text: `Toxic Scales ${Math.round(taken.physical * 100)}%`,
-			tone: "venom"
+			tone: "venom",
+			art: stateArt("440396"),
+			count: `${Math.round(taken.physical * 100)}%`
 		}]
 	});
 }
@@ -18978,7 +19037,8 @@ var artifactBuff = (worn) => {
 	return {
 		name: data?.name ?? "Artifact",
 		about: data?.text?.[worn.tier] ?? "",
-		icon: "🏺"
+		icon: "🏺",
+		...data && { art: { item: data.icon } }
 	};
 };
 /** What every ally gains of an artifact's `allies`, from every hero on the field wearing one: the highest of each. */
@@ -21132,34 +21192,6 @@ var KR_HEROES = {
 	}
 };
 //#endregion
-//#region src/technomagic/sim/shown.ts
-/** The pictures of `hero`'s skills, by index (its passive last). */
-var skillArt = (hero) => (skill) => ({
-	hero,
-	skill
-});
-/** A share as a whole percentage (0.25: "25%"). */
-var pct = (share) => `${Math.round(share * 100)}%`;
-/** How many times as much, as a card says it ("twice", "three times"), and as King's Raid does ("doubled", "tripled"); and a place in a count ("3rd"). */
-var times = (n) => n === 2 ? "twice" : n === 3 ? "three times" : `${n} times`;
-var fold = (n) => n === 2 ? "doubled" : n === 3 ? "tripled" : `${n} times as much`;
-var nth = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : [
-	"th",
-	"st",
-	"nd",
-	"rd"
-][n % 10] ?? "th"}`;
-/** So many seconds, as a card says it ("1 second", "3 seconds"). */
-var seconds = (n) => `${n} second${n === 1 ? "" : "s"}`;
-/** Every so many seconds ("every second", "every 3 seconds"). */
-var every$1 = (n) => n === 1 ? "every second" : `every ${n} seconds`;
-/** A share as King's Raid says it: "half", or a percent. */
-var part = (share) => share === .5 ? "half" : pct(share);
-/** A number as King's Raid writes it, its thousands set apart (12000: "12,000"). */
-var num = (n) => n.toLocaleString("en-US");
-/** To a tenth of a percent (0.048: "4.8%"). */
-var fine = (share) => `${Math.round(share * 1e3) / 10}%`;
-//#endregion
 //#region src/technomagic/sim/heroes/kit.ts
 /** A hero with no passive. */
 var NO_PASSIVE = {
@@ -22579,22 +22611,26 @@ var SET_UP = {
 	onSkill: {
 		name: "Hope",
 		about: "More crit DMG.",
-		icon: "🛡️"
+		icon: "🛡️",
+		art: stateArt("AttackUp")
 	},
 	secondWind: {
 		name: "Authority",
 		about: "ATK Spd up for good.",
-		icon: "⚡"
+		icon: "⚡",
+		art: stateArt("SpeedUp")
 	},
 	fullMana: {
 		name: "Authority",
 		about: "Mana recovery and ATK up for good.",
-		icon: "⚡"
+		icon: "⚡",
+		art: stateArt("AttackUp")
 	},
 	top: {
 		name: "Hope",
 		about: "Deals more DMG.",
-		icon: "🛡️"
+		icon: "🛡️",
+		art: stateArt("AttackUp")
 	}
 };
 //#endregion
@@ -22720,6 +22756,51 @@ var SKILL = {
 		lasts: 10
 	},
 	tenacity: { control: .15 }
+};
+/**
+* The picture of each on a hero's card: King's Raid's own status icon for what it does (its gear skills have none of
+* their own): ATK or DMG up, DEF up, a shield, quicker, unseen (dodge), not to be knocked down, mana.
+*/
+var STATE = {
+	vigor: "AttackUp",
+	persistence: "AttackUp",
+	"war-cry": "AttackUp",
+	whetstone: "AttackUp",
+	champion: "AttackUp",
+	berserk: "ArenaPowerUp",
+	fortress: "DefenseUp",
+	aegis: "Shield",
+	mirage: "Hide",
+	fundamentals: "AttackUp",
+	vitality: "DefenseUp",
+	overflow: "SpeedUp",
+	momentum: "AttackUp",
+	overdrive: "SpeedUp",
+	regeneration: "Shield",
+	steadfast: "DefenseUp",
+	swiftness: "SpeedUp",
+	"focus-1": "SpeedUp",
+	"focus-2": "SpeedUp",
+	"focus-3": "SpeedUp",
+	"warm-up": "AttackUp",
+	might: "AttackUp",
+	"physical-ward": "DefenseUp",
+	"magical-ward": "DefenseUp",
+	bastion: "DefenseUp",
+	ruthless: "AttackUp",
+	piercing: "AttackUp",
+	precision: "AttackUp",
+	guard: "DefenseUp",
+	parry: "Electronic",
+	"lone-foe": "AttackUp",
+	"lone-guard": "DefenseUp",
+	armor: "DefenseUp",
+	"mana-spring": "Electronic",
+	surge: "AttackUp",
+	desperation: "AttackUp",
+	mending: "Shield",
+	"iron-wall": "DefenseUp",
+	tenacity: "ImmuneCc"
 };
 /** Every additional skill, in the tier list's order. */
 var SKILLS = [
@@ -22999,22 +23080,26 @@ var skilledCritDamage = (skills) => SKILL.ruthless.critDamage * (skills.ruthless
 var CHAMPION_UP = {
 	name: "Champion",
 	about: "DMG dealt higher.",
-	icon: "👑"
+	icon: "👑",
+	art: stateArt(STATE.champion)
 };
 var SURGE_UP = {
 	name: "Surge",
 	about: "DMG dealt higher.",
-	icon: "⚡"
+	icon: "⚡",
+	art: stateArt(STATE.surge)
 };
 var DESPERATION_UP = {
 	name: "Desperation",
 	about: "ATK higher.",
-	icon: "🔥"
+	icon: "🔥",
+	art: stateArt(STATE.desperation)
 };
 var MENDING_UP = {
 	name: "Mending",
 	about: "Heals and shields stronger.",
-	icon: "💚"
+	icon: "💚",
+	art: stateArt(STATE.mending)
 };
 //#endregion
 //#region src/technomagic/sim/unique.ts
@@ -24014,7 +24099,54 @@ var ABOUT = {
 	estelle: (tier) => `[Adventure Guide] lasts ${atTier(STOSMOS.longer, tier)} seconds longer, and meanwhile every ally's ATK is ${pct(atTier(STOSMOS.atk, tier))} higher.`,
 	"dark-lord-kasel": (tier) => `Each of his blows leaves the boss healed ${fine(atTier(AEA.heals, tier))} less for ${AEA.lasts} seconds (up to ${AEA.most} times over), and has a ${pct(AEA.chance)} chance to deal ${pct(atTier(AEA.blow, tier) / 1e3)} of his ATK more.`
 };
-EXIAN.name, ELICIPIRA.name, ROSMERTA.name, PIGRITIA.name, RASCAL.name, CARPRAIN.name, ELTOIRRE.name, ELSION.name, BARBATOS.name, ROBURU.name, CORBEAU.name, GIGANTE.name, NOTOS.name, AKISTRA.name, TEMPODIANA.name, ATEIN.name, BARORO.name, SVELTA.name, ACRAVITA.name, PERION.name, GAIAMENES.name, NUMINU.name, CAETHASIS.name, GALICTA.name, AEA.name, LEGIOS.name, EXCILIUS.name, MAXITHEA.name, MONOLITH.name, IGNISIUS.name, MK1.name, LEVIATHAN.name, RIVENTINA.name, SHATTERER.name, ZARIES.name, TERSIA.name, TERRAVION.name, CIELAMAHA.name, BENEDICIA.name, NEW_ROAD.name, SCHWANHEITE.name, NEMECIA.name, NAAV.name, STOSMOS.name;
+var NAMES = {
+	klaus: EXIAN.name,
+	kirze: ELICIPIRA.name,
+	"fallen-frey": ROSMERTA.name,
+	gremory: PIGRITIA.name,
+	annette: RASCAL.name,
+	morrah: CARPRAIN.name,
+	laias: ELTOIRRE.name,
+	seria: ELSION.name,
+	ezekiel: BARBATOS.name,
+	lorraine: ROBURU.name,
+	valance: CORBEAU.name,
+	lucikiel: GIGANTE.name,
+	selene: NOTOS.name,
+	crow: AKISTRA.name,
+	oddy: TEMPODIANA.name,
+	phillop: ATEIN.name,
+	naila: BARORO.name,
+	yanne: SVELTA.name,
+	neraxis: ACRAVITA.name,
+	erze: PERION.name,
+	loman: GAIAMENES.name,
+	gau: NUMINU.name,
+	tanya: CAETHASIS.name,
+	"rebel-klaus": GALICTA.name,
+	"dark-lord-kasel": AEA.name,
+	theo: LEGIOS.name,
+	priscilla: EXCILIUS.name,
+	glenwys: MAXITHEA.name,
+	chase: MONOLITH.name,
+	aselica: IGNISIUS.name,
+	lakrak: MK1.name,
+	miruru: LEVIATHAN.name,
+	mirianne: RIVENTINA.name,
+	kara: SHATTERER.name,
+	zafir: ZARIES.name,
+	pansirone: TERSIA.name,
+	isolet: TERRAVION.name,
+	lilia: CIELAMAHA.name,
+	lucias: BENEDICIA.name,
+	rehartna: NEW_ROAD.name,
+	shea: SCHWANHEITE.name,
+	lavril: NEMECIA.name,
+	evan: NAAV.name,
+	estelle: STOSMOS.name
+};
+/** A hero's unique weapon's name (none: it has none here). */
+var uniqueName = (hero) => NAMES[hero];
 /** The heroes that have a unique weapon, by id. */
 var UNIQUE_HEROES = Object.keys(ABOUT);
 /** What a hero's unique weapon does at a tier (null: it has none). */
@@ -25037,7 +25169,18 @@ var KNOCKED = {
 	name: "Knocked down",
 	about: "Can do nothing until it is up.",
 	icon: "💫",
+	art: stateArt("Down"),
 	harmful: true
+};
+/** King's Raid's icon for what is on the boss, by its kind, for one whose hero's skill has no picture of the name. */
+var TONE_STATE = {
+	stun: "Stun",
+	down: "Down",
+	slow: "SpeedDown",
+	curse: "DefenseDown",
+	venom: "Poison",
+	burn: "Burn",
+	rage: "AttackUp"
 };
 /** Steps in a second (a checksum is kept at the end of each). */
 var SECOND = Math.round(1 / TICK);
@@ -25491,7 +25634,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		fighter.lastUsed[index] = elapsed;
 		fighter.mana -= ability.cost * SECTION;
 		spent.set(fighter, (spent.get(fighter) ?? 0) + ability.cost * SECTION);
-		asFighter(fighter, () => fighter.part.used?.(index, ability));
+		noting(ability.art ?? passiveArt(fighter), () => asFighter(fighter, () => fighter.part.used?.(index, ability)));
 		uniqueCast(fighter);
 		skillCast(fighter);
 		setCast(fighter);
@@ -25745,7 +25888,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaPerAttack);
 					relics.get(fighter)?.basic();
 				}
-				asFighter(fighter, () => {
+				noting(fighter.abilities.find((one) => one.move === move)?.art ?? passiveArt(fighter), () => asFighter(fighter, () => {
 					const own = fighter.part.lands[move];
 					if (own) own(index);
 					else common[move]?.(fighter, index);
@@ -25757,7 +25900,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 						const slowing = doing.skill === void 0 ? void 0 : fighter.perkDefs.find((perk) => perk.skill?.index === doing.skill && perk.skill?.slow)?.skill?.slow;
 						if (slowing) sim.slow(slowing.points, slowing.lasts);
 					}
-				});
+				}));
 			}
 			if (fighter.doing !== doing || result) return;
 		}
@@ -25876,12 +26019,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		foe.hp -= dealt;
 		if (deathless && foe === boss && foe.hp <= 0) foe.hp = foe.maxHp;
 		by.dealt += dealt;
+		const skill = landing?.by === by && by.doing?.skill !== void 0;
 		events.push({
 			kind: "number",
 			on: "boss",
 			foe: foe.index,
 			amount: dealt,
-			type: blocked ? "blocked" : critical ? "crit" : "hit"
+			type: critical ? "crit" : blocked ? "blocked" : skill ? "skill" : "hit"
 		});
 		for (const { mark } of marking) if (mark) put(foe.statuses, {
 			name: mark.name,
@@ -26156,6 +26300,31 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 		}
 	}
+	/**
+	* What is on the boss, shown by a picture of what put it there: a skill's, passive's, unique weapon's or artifact's of a
+	* hero on the field by its name (`named`, its words in brackets after it aside); else (`whose`) the picture of what the
+	* hero was doing as it was put there first: the skill it used, or whose move was landing, or its passive (its attack's
+	* blows, and what goes on by itself). Only the page asks: nothing the fight does turns on these.
+	*/
+	const named = /* @__PURE__ */ new Map();
+	for (const { def, artifact } of fighters) {
+		for (const shown of [...def.abilities, ...def.passive ? [def.passive.shown] : []]) if (shown.art && !named.has(shown.name)) named.set(shown.name, shown.art);
+		const weapon = uniqueName(def.id);
+		if (weapon) named.set(weapon, { uw: def.id });
+		const relic = artifact && artifactBuff(artifact);
+		if (relic?.art) named.set(relic.name, relic.art);
+	}
+	const whose = /* @__PURE__ */ new Map();
+	/** `run` (what `fighter` does), with what it puts on the boss first known by `art`. */
+	const noting = (art, run) => {
+		if (!art) return run();
+		const before = boss.statuses.slice();
+		const done = run();
+		for (const status of boss.statuses) if (!before.includes(status) && !whose.has(status.name)) whose.set(status.name, art);
+		return done;
+	};
+	const passiveArt = (fighter) => fighter.def.passive?.shown.art;
+	const statusArt = (status) => status.art ?? named.get(status.name) ?? named.get(status.name.replace(/ \(.*\)$/, "")) ?? whose.get(status.name) ?? stateArt(TONE_STATE[status.shown]);
 	const sim = {
 		raid,
 		fighters,
@@ -26235,7 +26404,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					kind: "number",
 					on: target.index,
 					amount: 0,
-					type: "immune"
+					type: "immune",
+					...(kind ?? foe.def.stats.deals) === "magical" && { magical: true }
 				});
 				return 0;
 			}
@@ -26335,7 +26505,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					kind: "number",
 					on: target.index,
 					amount: dealt - soaked,
-					type: blocked ? "blocked" : critical ? "crit" : "hit"
+					type: critical ? "crit" : blocked ? "blocked" : "hit"
 				});
 			}
 			if (target.hp <= 0) {
@@ -26349,6 +26519,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			for (const perk of target.perkDefs) {
 				if (perk.curse && perkDue(target, perk.name ?? perk.words, perk.curse.every)) put(foe.statuses, {
 					name: perk.name ?? "Curse",
+					art: stateArt("AttackDown"),
 					left: perk.curse.lasts,
 					deals: perk.curse.deals,
 					shown: "curse"
@@ -26479,24 +26650,34 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 			else if (foe.stunned > 0) marks.push({
 				text: `Stunned ${Math.ceil(foe.stunned)}`,
-				tone: "stun"
+				tone: "stun",
+				art: stateArt("Stun"),
+				count: String(Math.ceil(foe.stunned))
 			});
 			if (foe.slowed > 0) marks.push({
 				text: `Slowed ${Math.ceil(foe.slowed)}`,
-				tone: "slow"
+				tone: "slow",
+				art: stateArt("SpeedDown"),
+				count: String(Math.ceil(foe.slowed))
 			});
 			if (foe.hp > 0 && clock > raidTime) {
 				const times = rage(clock - raidTime);
+				const shown = `×${times < 10 ? times.toFixed(1) : Math.round(times).toLocaleString("en-US")}`;
 				marks.push({
-					text: `Enraged ×${times < 10 ? times.toFixed(1) : Math.round(times).toLocaleString("en-US")}`,
-					tone: "rage"
+					text: `Enraged ${shown}`,
+					tone: "rage",
+					art: stateArt("AttackUp"),
+					count: shown
 				});
 			}
 			for (const status of foe.statuses) {
 				const stacked = status.count !== void 0 && Number.isFinite(status.left) ? ` ×${status.count}` : "";
+				const count = Number.isFinite(status.left) ? String(Math.ceil(status.left)) : `×${status.count ?? 1}`;
 				marks.push({
-					text: `${status.name}${stacked} ${Number.isFinite(status.left) ? Math.ceil(status.left) : `×${status.count ?? 1}`}`,
-					tone: status.shown
+					text: `${status.name}${stacked} ${count}`,
+					tone: status.shown,
+					art: statusArt(status),
+					count
 				});
 			}
 			marks.push(...foe.part.marks?.() ?? []);
@@ -26572,7 +26753,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				perkTick(fighter, dt);
 				setTick(fighter);
 				relics.get(fighter)?.tick(dt);
-				asFighter(fighter, () => fighter.part.tick?.(dt));
+				noting(passiveArt(fighter), () => asFighter(fighter, () => fighter.part.tick?.(dt)));
 				const top = setEffect(fighter).top;
 				if (top && elapsed >= top.after && elapsed - dt < top.after && field.includes(fighter) && fighter.hp > 0) {
 					const most = field.reduce((best, on) => on.hp > 0 && (!best || on.dealt > best.dealt) ? on : best, null);
@@ -26870,7 +27051,8 @@ var CHARGING = {
 var CHARGED$1 = {
 	name: "Charge",
 	about: `At ${CHARGE$1.full} she is [Overcharged].`,
-	icon: "⚡"
+	icon: "⚡",
+	art: art$43(0)
 };
 /** Overcharged: shown on her card, with how long it has left. */
 var OVERCHARGED = {
@@ -27424,6 +27606,7 @@ var KLAUS = {
 				fight.hit(self, VOW.blow);
 				put(fight.foe.statuses, {
 					name: "Weakened",
+					art: art$42(3),
 					left: VOW.lasts,
 					deals: VOW.weak - (self.perks.has("s4-dark") ? PERKS$42.weaker : 0),
 					shown: "slow"
@@ -27571,7 +27754,8 @@ var CURSED_BLOOD = {
 var STACKED = {
 	name: "Cursed Blood",
 	about: `At ${CURSED.most}, he is in [Fury].`,
-	icon: "🩸"
+	icon: "🩸",
+	art: art$41(0)
 };
 /** Fury: shown on his card, with how long it has left. */
 var FURY$1 = {
@@ -27937,7 +28121,8 @@ var TAINTED_ANGEL = {
 var DARKENED$1 = {
 	name: "Darkened Power",
 	about: "Her next skill spends one: [Heaven’s Vengeance] then stuns the boss with every blow.",
-	icon: "🖤"
+	icon: "🖤",
+	art: art$40(3)
 };
 /** What Blessing of Doom gives each ally it shields: shown on its card, with how long it has left. */
 var BLESSED$3 = {
@@ -28327,7 +28512,8 @@ var SLEEPING = {
 var CHARGED = {
 	name: "Mana Charge",
 	about: `Each: +${pct(CHARGE.atk)} ATK and +${pct(CHARGE.dmg)} to all she deals; [Pochi, bite them!] hits harder for each.`,
-	icon: "🔋"
+	icon: "🔋",
+	art: art$39(3)
 };
 /** How many times each of her skills strikes (its move's blows). */
 var BITES = CODED.pochi.lands.length;
@@ -28817,7 +29003,9 @@ var KIRZE = {
 			}] : [],
 			marks: () => curse ? [{
 				text: `Curse ${Math.ceil(curse.left)} · ${curse.blows} blows`,
-				tone: "curse"
+				tone: "curse",
+				art: art$38(2),
+				count: String(Math.ceil(curse.left))
 			}] : []
 		};
 	}
@@ -33677,7 +33865,9 @@ var ERZE = {
 			}] : []],
 			marks: () => soakStacks > 0 && soaking > 0 ? [{
 				text: `Soaking Blood ×${soakStacks} ${Math.ceil(soaking)}s`,
-				tone: "curse"
+				tone: "curse",
+				art: art$24(1),
+				count: `×${soakStacks}`
 			}] : []
 		};
 	}
@@ -34064,7 +34254,9 @@ var LOMAN = {
 			}] : [],
 			marks: () => marked > 0 ? [{
 				text: `Mark of Creed ${Math.ceil(marked)}s`,
-				tone: "curse"
+				tone: "curse",
+				art: art$23(2),
+				count: String(Math.ceil(marked))
 			}] : []
 		};
 	}
@@ -34753,7 +34945,9 @@ var TANYA = {
 			}] : [],
 			marks: () => bleeds.length > 0 ? [{
 				text: `${BLED} ×${bleeds.length}`,
-				tone: "curse"
+				tone: "curse",
+				art: stateArt("Bleeding"),
+				count: `×${bleeds.length}`
 			}] : []
 		};
 	}
@@ -42675,7 +42869,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "43764c126a58";
+var SIM_VERSION = "50d8467a043b";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
