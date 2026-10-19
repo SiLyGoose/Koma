@@ -1,3 +1,4 @@
+import type { HeroPart } from './heroes.js';
 import type { MainStat, Slot, Stars } from './items.js';
 import type { RaidClassId } from './raid.js';
 
@@ -11,6 +12,8 @@ export interface GearCopy {
   name: string;
   stars: Stars;
   slot: Slot;
+  /** Hero gear: the part of a hero's gear it is (an accessory's slot is 'treasure', its part 'accessory'). Null: not hero gear. */
+  part: HeroPart | null;
   description: string;
   level: number;
   /** Its top refinement level: 1 for TechnoMagic gear, which is never refined (no level is shown for it, and no refine offered). */

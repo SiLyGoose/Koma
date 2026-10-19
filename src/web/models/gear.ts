@@ -4,7 +4,7 @@ import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
 import { keptCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
-import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
+import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, partOf, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
@@ -155,6 +155,7 @@ export function gearView(
       name: item.name,
       stars: item.stars,
       slot: item.slot,
+      part: partOf(item),
       description: item.description,
       level,
       maxLevel,
