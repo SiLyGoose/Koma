@@ -735,6 +735,11 @@ export interface GuildDoc {
    * became confined to it too (see services/migrate.ts's field-rename step).
    */
   channelId?: string | null;
+  /**
+   * The channel random events pop up in, when it isn't the one above (services/channel.ts getEventsChannelId).
+   * Missing or null: they spawn in `channelId`, as they always did.
+   */
+  eventsChannelId?: string | null;
   /** When the next event is due. Missing or null means one has not been scheduled yet. */
   nextEventAt?: Date | null;
   /**

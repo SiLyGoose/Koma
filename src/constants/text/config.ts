@@ -63,6 +63,8 @@ export const configText = {
    * with `config set channel` / cleared with `config reset channel` just like any other setting.
    */
   channelNone: 'None',
+  /** The `events` setting left unset: random events pop up in the `channel` one. */
+  eventsChannelSame: 'Same as `channel`',
   channelInvalid: 'must be a channel mention or id, or "off"',
   channelMissing: "I can't find that channel in this server.",
   channelNotText: 'That is not a text channel I can send messages in. Pick a normal text channel.',

@@ -1,4 +1,5 @@
-import type { OpenCrateDoc } from '../types.js';
+import type { Filter } from 'mongodb';
+import type { GuildDoc, OpenCrateDoc } from '../types.js';
 import { collections } from '../db.js';
 import type { CrateShare } from '../lib/events/crate.js';
 import { ensureMember } from './economy/index.js';
@@ -7,7 +8,7 @@ import { ensureMember } from './economy/index.js';
  * The database side of the random events: when each server's next event is due, and handing out
  * what an event pays. Which channel a server is confined to (and so where its events spawn) is
  * services/channel.ts's job, not this file's; `listEventGuilds` and `claimEventSlot` below just
- * read/filter on that same `channelId` field. Points only move through single conditional
+ * read/filter on those same fields (`eventsChannelId`, else `channelId`). Points only move through single conditional
  * updates, like everywhere else in the bot.
  */
 
@@ -18,12 +19,16 @@ export interface EventGuild {
   nextEventAt: Date | null;
 }
 
+/** A server has events on: it has a channel for them, its own events channel or the one it is confined to. */
+const EVENTS_ON: Filter<GuildDoc> = { $or: [{ eventsChannelId: { $type: 'string' } }, { channelId: { $type: 'string' } }] };
+
 /** Every server that has a channel to spawn events in (see services/channel.ts). */
 export async function listEventGuilds(): Promise<EventGuild[]> {
-  const docs = await collections().guilds.find({ channelId: { $ne: null } }).toArray();
-  return docs.flatMap((doc) =>
-    typeof doc.channelId === 'string' ? [{ guildId: doc._id, channelId: doc.channelId, nextEventAt: doc.nextEventAt ?? null }] : [],
-  );
+  const docs = await collections().guilds.find(EVENTS_ON).toArray();
+  return docs.flatMap((doc) => {
+    const channelId = doc.eventsChannelId ?? doc.channelId;
+    return typeof channelId === 'string' ? [{ guildId: doc._id, channelId, nextEventAt: doc.nextEventAt ?? null }] : [];
+  });
 }
 
 /**
@@ -36,7 +41,7 @@ export async function claimEventSlot(guildId: string, observed: Date | null, nex
   const set: { nextEventAt: Date; lastEventAt?: Date } = { nextEventAt: next };
   if (fired) set.lastEventAt = now;
   const claimed = await collections().guilds.findOneAndUpdate(
-    { _id: guildId, nextEventAt: observed, channelId: { $ne: null } },
+    { _id: guildId, nextEventAt: observed, ...EVENTS_ON },
     { $set: set },
   );
   return claimed !== null;

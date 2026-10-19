@@ -119,7 +119,7 @@ test('newsletter command: registered, admin only, prefix only', () => {
   assert.ok(commands.includes(newsletter));
   assert.equal(newsletter.adminOnly, true);
   assert.ok(SLASH_EXCLUDED.includes('newsletter'));
-  assert.deepEqual([...PER_SERVER_CHANNELS], ['channel', 'newsletter']);
+  assert.deepEqual([...PER_SERVER_CHANNELS], ['channel', 'events', 'newsletter']);
 });
 
 test('newsletter command: only the bot admin can use it; the admin gets the usage for anything else', async () => {

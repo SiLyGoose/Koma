@@ -7,7 +7,7 @@ export const eventsText = {
   listField: 'Events',
   /** One line of the list of events: the id you type to start it, its name, its chance of being picked at random, and what it does. */
   listLine: (id: string, label: string, description: string, chance: string) => `\`${id}\` **${label}** (${chance}): ${description}`,
-  startNoChannel: 'No dedicated channel is set for this server.',
+  startNoChannel: 'No channel is set for events in this server: set one with `config set events` (or `config set channel`).',
   startBusy: 'An event is already happening in this server. Wait until it is over.',
   startBadChannel: 'I could not use the channel any more (it is gone, or I lost permission there). An admin needs to choose it again.',
   /** `ids` is the list of event ids. */

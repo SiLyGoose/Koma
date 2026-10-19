@@ -8,7 +8,7 @@ import { parseChannelArg, parseRoleArg } from '../lib/parse.js';
 import { findEquipmentEffectId, findSpec, formatValue, getPath, GROUPS, SPECS, specsUnder, type SettingSpec } from '../lib/settings-spec.js';
 import { TM_POTENTIAL_IDS } from '../data/tm-potentials.js';
 import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
-import { getChannelId, setChannelId } from '../services/channel.js';
+import { getChannelId, getOwnEventsChannelId, setChannelId, setEventsChannelId } from '../services/channel.js';
 import { getNewsletterChannelId, setNewsletterChannelId } from '../services/newsletter.js';
 import { getNotifyRoleIds, setNotifyRoleId, type NotifyRoleSetting } from '../services/roles.js';
 import { refreshRoleMessage } from '../newsletter/roles.js';
@@ -20,12 +20,13 @@ import type { Command, CommandContext } from '../discord/types.js';
 export { GROUPS };
 
 /**
- * The per-server channel settings: `channel` (the one channel commands and events are confined to,
- * services/channel.ts) and `newsletter` (where the newsletter goes, services/newsletter.ts). They
+ * The per-server channel settings: `channel` (the one channel commands are confined to, and events spawn
+ * in without one of their own, services/channel.ts), `events` (where random events pop up) and
+ * `newsletter` (where the newsletter goes, services/newsletter.ts). They
  * aren't SettingSpec entries (each server has its own, in its `guilds` document, not the one global
  * settings document), but they're listed, set and reset like every other setting.
  */
-export const PER_SERVER_CHANNELS = ['channel', 'newsletter'] as const;
+export const PER_SERVER_CHANNELS = ['channel', 'events', 'newsletter'] as const;
 type ChannelKey = (typeof PER_SERVER_CHANNELS)[number];
 
 const isChannelKey = (key: string): key is ChannelKey => (PER_SERVER_CHANNELS as readonly string[]).includes(key);
@@ -33,9 +34,15 @@ const isChannelKey = (key: string): key is ChannelKey => (PER_SERVER_CHANNELS as
 /** Where each per-server channel setting is read and written. Only the bot admin can write them (checked in the services). */
 const CHANNEL_STORE: Record<ChannelKey, { get(guildId: string): Promise<string | null>; set(actorId: string, guildId: string, channelId: string | null): Promise<{ ok: boolean }> }> = {
   channel: { get: getChannelId, set: setChannelId },
+  // None of its own: events spawn in `channel`.
+  events: { get: getOwnEventsChannelId, set: setEventsChannelId },
   // A newsletter channel chosen now gets its first weekly digest at the next reset.
   newsletter: { get: getNewsletterChannelId, set: (actorId, guildId, channelId) => setNewsletterChannelId(actorId, guildId, channelId, raidWeek()) },
 };
+
+/** A channel setting's value, in words: its channel, or none (`events` with none: its events go in `channel`). */
+const showChannel = (key: ChannelKey, channelId: string | null): string =>
+  channelId !== null ? `<#${channelId}>` : key === 'events' ? TEXT.config.eventsChannelSame : TEXT.config.channelNone;
 
 /** Why a channel can't be used, in words. */
 function channelProblemText(problem: ChannelProblem, channelId: string): string {
@@ -53,7 +60,7 @@ function channelProblemText(problem: ChannelProblem, channelId: string): string 
 async function handleChannelChange(ctx: CommandContext, key: ChannelKey, action: 'set' | 'reset', rawValue: string): Promise<void> {
   const store = CHANNEL_STORE[key];
   const before = await store.get(ctx.guildId);
-  const beforeDisplay = before === null ? TEXT.config.channelNone : `<#${before}>`;
+  const beforeDisplay = showChannel(key, before);
 
   const apply = async (newId: string | null, newDisplay: string): Promise<void> => {
     const result = await store.set(ctx.user.id, ctx.guildId, newId);
@@ -65,7 +72,7 @@ async function handleChannelChange(ctx: CommandContext, key: ChannelKey, action:
   };
 
   if (action === 'reset') {
-    await apply(null, TEXT.config.channelNone);
+    await apply(null, showChannel(key, null));
     return;
   }
 
@@ -74,7 +81,7 @@ async function handleChannelChange(ctx: CommandContext, key: ChannelKey, action:
     return;
   }
   if (['off', 'none', 'disable'].includes(rawValue.toLowerCase())) {
-    await apply(null, TEXT.config.channelNone);
+    await apply(null, showChannel(key, null));
     return;
   }
 
@@ -227,7 +234,7 @@ export const config: Command = {
         getNotifyRoleIds(ctx.guildId).catch(() => null),
       ]);
       const perServer = [
-        ...PER_SERVER_CHANNELS.map((key, index) => ({ key, value: channelIds[index] ? `<#${channelIds[index]}>` : TEXT.config.channelNone })),
+        ...PER_SERVER_CHANNELS.map((key, index) => ({ key, value: showChannel(key, channelIds[index] ?? null) })),
         ...NOTIFY_ROLES.map((role) => ({ key: role.setting, value: showRole(roleIds?.[role.key] ?? null) })),
       ];
       const groups: ConfigGroup[] = GROUPS.map((group) => ({
