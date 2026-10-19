@@ -222,6 +222,15 @@ async function runCrate(ctx: EventContext): Promise<void> {
   await settleCrate(crate);
 }
 
+/**
+ * Whether a crate message has its picture attached. Discord leaves an attachment its embed shows out of the message's
+ * attachments, so it is looked for in the embed's image too: missed, every edit would drop it from the embed and Discord
+ * would show the still-attached picture above it.
+ */
+const isPictured = (message: Message): boolean =>
+  message.attachments.some((file) => file.name === CRATE.imageName) ||
+  message.embeds.some((embed) => embed.image?.url.split('?')[0]?.endsWith(`/${CRATE.imageName}`) === true);
+
 /** Picks one crate up again after a restart: goes on listening if it is still open, or settles it if its time ran out while the bot was off. */
 async function resumeCrate(client: Client, guildId: string, saved: OpenCrateDoc): Promise<void> {
   const release = claimGuild(guildId);
@@ -253,7 +262,7 @@ async function resumeCrate(client: Client, guildId: string, saved: OpenCrateDoc)
     messageId: saved.messageId,
     pile: saved.pile,
     tier: crateTier(saved.pile, CONFIG.events.crate.minPoints, CONFIG.events.crate.maxPoints),
-    pictured: Boolean(message?.attachments?.find((file) => file.name === CRATE.imageName)),
+    pictured: message !== null && isPictured(message),
     endsAtMs: saved.endsAt.getTime(),
     grabbers: new Set(saved.grabbers),
     persisted: true,
