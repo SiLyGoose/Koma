@@ -10,7 +10,7 @@ import { ensureMember, recordLedger } from './economy/shared.js';
 /*
  * The members' mailboxes (MailDoc, the `mail` collection): mail the bot sends (a Hero Item pull's Unique Weapon or Unique
  * Treasure Ticket: grantReward) and the bot admin sends with a title, a message and rewards (the mail command: sendMail).
- * A member reads it on the site (its mail icon shows how many are unread) and claims what it carries: points, komaGems,
+ * A member reads it on the site (its mail icon shows how many wait for them: unread, or with rewards unclaimed) and claims what it carries: points, komaGems,
  * komaTokens, copies of an item, runes, or a selector, whose hero (and, a unique treasure's, which of its four) they pick as
  * they claim it. Claimed once: a second claim finds it claimed.
  */
@@ -60,18 +60,22 @@ export async function grantReward(guildId: string, userId: string, item: ItemDef
   return rune;
 }
 
-/** A member's mail, the newest first; and how many they haven't read. */
+/** A member's mails that wait for them: unread, or read with rewards not yet claimed. */
+const waitingMail = (guildId: string, userId: string) => ({
+  guildId,
+  userId,
+  $or: [{ readAt: { $exists: false } }, { 'attachments.0': { $exists: true }, claimedAt: { $exists: false } }],
+});
+
+/** A member's mail, the newest first; and how many wait for them (unread, or with rewards unclaimed). */
 export async function listMail(guildId: string, userId: string): Promise<{ mail: MailDoc[]; unread: number }> {
   const { mail } = collections();
-  const [list, unread] = await Promise.all([
-    mail.find({ guildId, userId }).sort({ createdAt: -1 }).limit(MAIL_SHOWN).toArray(),
-    mail.countDocuments({ guildId, userId, readAt: { $exists: false } }),
-  ]);
+  const [list, unread] = await Promise.all([mail.find({ guildId, userId }).sort({ createdAt: -1 }).limit(MAIL_SHOWN).toArray(), mail.countDocuments(waitingMail(guildId, userId))]);
   return { mail: list, unread };
 }
 
-/** How many mails a member hasn't read. */
-export const unreadMail = (guildId: string, userId: string): Promise<number> => collections().mail.countDocuments({ guildId, userId, readAt: { $exists: false } });
+/** How many mails wait for a member: unread, or with rewards unclaimed. */
+export const unreadMail = (guildId: string, userId: string): Promise<number> => collections().mail.countDocuments(waitingMail(guildId, userId));
 
 /** Marks a member's mail read (all of it, with no id). */
 export async function readMail(guildId: string, userId: string, id: string | null, now: Date = new Date()): Promise<void> {

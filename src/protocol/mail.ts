@@ -49,7 +49,7 @@ export interface MailHero {
   treasures: MailTicketItem[];
 }
 
-/** GET /api/mail: their mail (the newest first), and how many unread. */
+/** GET /api/mail: their mail (the newest first), and how many wait for them (its badge): unread, or with rewards unclaimed. */
 export interface MailboxView {
   mail: MailView[];
   unread: number;
