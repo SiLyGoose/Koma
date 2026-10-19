@@ -682,7 +682,7 @@ test('technomagic: a hero has its gear’s additional skills in the fight, the s
 
 test('technomagic: a run takes the additional skills of the TechnoMagic copies a hero wears that work on its class', () => {
   const copy = (id: string, itemId: string, tmSkill?: string): ItemCopyDoc => ({ _id: id, guildId: 'g', userId: 'u', itemId, level: 1, obtainedAt: new Date(), ...(tmSkill && { tmSkill }) });
-  // Kirze (a warrior): two warrior pieces with Vigor, the priest's Secondary Armor, and a dragon set's Orb (no unique option).
+  // Kirze (a warrior): two warrior pieces with Vigor, the priest's Mantle, and a dragon set's Orb (no unique option).
   const copies = [copy('a', 'perseverance-warrior-armor', 'vigor'), copy('b', 'perseverance-priest-secondary', 'berserk'), copy('c', 'perseverance-warrior-ring', 'vigor'), copy('d', 'opportune-fire-t8-orb')];
   const member = { heroes: { kirze: { boughtAt: new Date(), equipment: { armor: 'a', secondary: 'b', accessory: 'c', orb: 'd' } } }, points: 0 } as unknown as MemberDoc;
   // The priest's piece does nothing on Kirze, and the dragon set's has no skill.

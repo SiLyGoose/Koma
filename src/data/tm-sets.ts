@@ -4,7 +4,7 @@ import { TM_SET_INFO, TM_SET_PIECES as PIECES } from '../../vendor/technomagic-s
 
 /*
  * The TechnoMagic Raids' gear sets: one for each raid's boss, which drops only its own set's gear (King's Raid's: its
- * pieces are data/kr-gear.ts's, ItemDef.kr.set). A hero wearing four pieces of one set (of its Armor, Secondary Armor,
+ * pieces are data/kr-gear.ts's, ItemDef.kr.set). A hero wearing four pieces of one set (of its Armor, Mantle,
  * Accessory and Orb, each working on its class) has the set's effect, which depends on its class. Each set, and what it
  * does, is the raid's (Koma-UI's src/technomagic/sim/sets.ts: King's Raid's 4-piece skills, here as
  * vendor/technomagic-sim.mjs's TM_SET_INFO, said for the heroes page and each piece's own): which boss drops it is the bot's.

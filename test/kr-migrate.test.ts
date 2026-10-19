@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { ITEMS_BY_ID, TM_DROPS } from '../src/data/items.js';
 import { migratedCopy, migratedEquipment, migratedItemId, migratedOptions } from '../src/services/kr-migrate.js';
 
-test("kr migrate: every old TechnoMagic piece becomes its class's Perseverance piece: a weapon its Orb, an armor its Armor or Secondary Armor, a treasure its Earrings", () => {
+test("kr migrate: every old TechnoMagic piece becomes its class's Perseverance piece: a weapon its Orb, an armor its Armor or Mantle, a treasure its Earrings", () => {
   for (const old of TM_DROPS) {
     const to = migratedItemId(old.id, 'physical');
     assert.ok(to && ITEMS_BY_ID.get(to)?.kr, old.id);

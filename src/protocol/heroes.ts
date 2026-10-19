@@ -5,8 +5,8 @@ import type { RaidClassId } from './raid.js';
 /* The TechnoMagic Raid's heroes on the site: what the bot's GET /api/heroes and the heroes page say of them. */
 
 /**
- * Where a hero wears gear, as King's Raid's: its Weapon (its own unique weapon, or a dragon set's weapon), Armor, Secondary
- * Armor, Accessory and Orb (King's Raid's hero gear: the bot's data/kr-gear.ts), its Treasure (its main treasure) with three
+ * Where a hero wears gear, as King's Raid's: its Weapon (its own unique weapon, or a dragon set's weapon), Armor, Mantle,
+ * Accessory and Orb (King's Raid's hero gear: the bot's data/kr-gear.ts), its Treasure (its main treasure) with three
  * sub treasure slots beside it (side1 to side3), and its Artifact. Only hero gear goes in them (lib/game/heroes.ts's
  * heroWearable: never the members' own), each in the slot of its part; a sub treasure slot only takes the hero's own unique
  * treasures, and only while its main treasure is one too (only a unique treasure has sub treasures); of one there only its
@@ -38,11 +38,11 @@ export const HERO_SLOT_PART: Readonly<Record<HeroSlot, HeroPart>> = {
   artifact: 'artifact',
 };
 
-/** Each part's name, as King's Raid's (its Secondary Gear here is Secondary Armor). */
+/** Each part's name, as King's Raid's (its Secondary Gear here is the Mantle: shields, hats, capes, gloves… M.DEF). */
 export const HERO_PART_NAME: Readonly<Record<HeroPart, string>> = {
   weapon: 'Weapon',
   armor: 'Armor',
-  secondary: 'Secondary Armor',
+  secondary: 'Mantle',
   accessory: 'Accessory',
   orb: 'Orb',
   treasure: 'Treasure',

@@ -9,7 +9,7 @@ import { KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, TM_ARTIFACTS, type K
  * playtest's tables), here from vendor/technomagic-sim.mjs. Every piece is an item (KR_ITEMS: ItemDef.kr), never pulled:
  *
  *   - the TechnoMagic sets' pieces (Perseverance, Galgoria's; Hope, Siegfried's; Authority, Ascalon's): each class's Armor,
- *     Secondary Armor, four Accessories (Earrings, Ring, Bracelet, Necklace) and Orb, each with 2 options and a unique option
+ *     Mantle, four Accessories (Earrings, Ring, Bracelet, Necklace) and Orb, each with 2 options and a unique option
  *     (its additional skill: ItemCopyDoc.tmSkill), dropped by its raid;
  *   - the dragon sets (Opportune Fire, Gritty Frost, Unrelenting Poison, Swift Darkness) at tiers 6 to 8: every part, each
  *     class's weapon, with 4 options, dropped by the Dragon Raid (the higher its stage, the higher the tier);
@@ -37,7 +37,7 @@ export const KR_DRAGON_TIERS: readonly number[] = [6, 7, 8];
 export const UW_RUNES = 3;
 
 const CLASS_NAME: Readonly<Record<string, string>> = { knight: 'knights', warrior: 'warriors', assassin: 'assassins', archer: 'archers', mechanic: 'mechanics', wizard: 'wizards', priest: 'priests' };
-const PART_NAME: Readonly<Record<HeroPart, string>> = { weapon: 'Weapon', armor: 'Armor', secondary: 'Secondary Armor', accessory: 'Accessory', orb: 'Orb', treasure: 'Treasure', artifact: 'Artifact' };
+const PART_NAME: Readonly<Record<HeroPart, string>> = { weapon: 'Weapon', armor: 'Armor', secondary: 'Mantle', accessory: 'Accessory', orb: 'Orb', treasure: 'Treasure', artifact: 'Artifact' };
 
 /** What a piece is, said under its name: its set, its part, and who wears it. */
 function describe(piece: (typeof KR_PIECES)[number]): string {

@@ -8,11 +8,11 @@ import { HERO_SLOTS, type HeroDoc, type HeroSlot, type ItemCopyDoc, type KrOptio
  * runs them on the database: on a copy of it first). Nobody loses what they have:
  *
  *   - a TechnoMagic weapon (its main stat HP) becomes its class's Perseverance Orb; a TechnoMagic armor its Armor (its main
- *     stat P.DEF) or Secondary Armor (M.DEF); a TechnoMagic treasure its Earrings (an Accessory). Each at R5, as their main
+ *     stat P.DEF) or Mantle (M.DEF); a TechnoMagic treasure its Earrings (an Accessory). Each at R5, as their main
  *     stats were King's Raid's at 5★; their additional skill kept as their unique option; their potentials become their two
  *     options (those of the pool's stats, the best first, each at the step nearest its share of its old range), the rest rolled;
  *   - a hero's old slots become King's Raid's: its first weapon (a unique weapon) its Weapon, a TechnoMagic weapon its Orb, its
- *     armors its Armor and Secondary Armor (by what each became), its treasure its Treasure (a TechnoMagic one its Accessory),
+ *     armors its Armor and Mantle (by what each became), its treasure its Treasure (a TechnoMagic one its Accessory),
  *     its subs as they were. What no longer goes on a hero (the members' own gear), and a second piece for a slot already
  *     filled, comes off: it stays the member's, unchanged.
  */

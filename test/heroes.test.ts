@@ -100,7 +100,7 @@ test("King's Raid's hero gear: never pulled, heroes only, each piece of a set, a
     assert.ok(!gachaItems(gear.stars).includes(gear), gear.id);
     assert.equal(gear.effects.length, 0, gear.id);
   }
-  // Galgoria drops Perseverance: an Armor, a Secondary Armor, four Accessories and an Orb for every hero's class.
+  // Galgoria drops Perseverance: an Armor, a Mantle, four Accessories and an Orb for every hero's class.
   for (const hero of HEROES) {
     for (const part of ['armor', 'secondary', 'accessory', 'orb'] as const) assert.ok(krPiecesOf('perseverance').some((gear) => gear.kr?.part === part && krWornBy(gear.kr, hero.class)), `${hero.class} ${part}`);
   }
@@ -147,7 +147,7 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.equal(elsewhere.get('kirze')?.bonus.atkFlat, 0);
 });
 
-test("heroes: King's Raid's slots: Weapon, Armor, Secondary Armor, Accessory, Orb, Treasure with three subs, and Artifact", () => {
+test("heroes: King's Raid's slots: Weapon, Armor, Mantle, Accessory, Orb, Treasure with three subs, and Artifact", () => {
   assert.deepEqual(heroSlotsFor(item('perseverance-warrior-armor')), ['armor']);
   assert.deepEqual(heroSlotsFor(item('perseverance-warrior-secondary')), ['secondary']);
   assert.deepEqual(heroSlotsFor(item('perseverance-warrior-ring')), ['accessory']);

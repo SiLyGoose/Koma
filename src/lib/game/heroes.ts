@@ -22,7 +22,7 @@ export { HERO_SLOT_PART, HERO_STAT_IDS, SIDE_SLOTS, type HeroBonus, type HeroSta
 /*
  * The TechnoMagic Raid's heroes (data/heroes.ts), with no database: which gear they wear, where, and what it does for them in
  * the raid. A hero wears King's Raid's hero gear (data/kr-gear.ts: ItemDef.kr), as King's Raid's heroes do: a Weapon (its own
- * unique weapon, or a dragon set's), Armor, Secondary Armor, Accessory and Orb, a Treasure with three sub treasures, and an
+ * unique weapon, or a dragon set's), Armor, Mantle, Accessory and Orb, a Treasure with three sub treasures, and an
  * Artifact; never the members' own gear. A copy can be on one hero only, in one slot.
  *
  * What gear does for a hero is its stats in the raid (the raid's own, Koma-UI's src/technomagic/): a piece's main stat at its
