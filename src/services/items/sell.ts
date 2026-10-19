@@ -77,17 +77,17 @@ export type SaleResult =
 
 /**
  * Sells these copies. Each one is only sold if it is still owned by the member and is not worn
- * or locked right now, so a sale can never take gear they put on after it was planned. Points are paid for
+ * or locked right now (`locked`: locked ones too, the heroes page's sale that says so), so a sale can never take gear they put on after it was planned. Points are paid for
  * exactly the copies that were removed, so two sales of the same copies at once pay only once.
  */
-export async function sellCopies(guildId: string, userId: string, copyIds: readonly string[]): Promise<SaleResult> {
+export async function sellCopies(guildId: string, userId: string, copyIds: readonly string[], { locked = false } = {}): Promise<SaleResult> {
   const { items, members, ledger } = collections();
   await ensureMember(guildId, userId);
 
   const member = await members.findOne({ guildId, userId });
   const worn = keptCopyIds(member);
   const candidates = (await items.find({ guildId, userId, _id: { $in: [...copyIds] } }).toArray()).filter(
-    (copy) => !worn.has(copy._id) && !copy.locked && ITEMS_BY_ID.has(copy.itemId),
+    (copy) => !worn.has(copy._id) && (locked || !copy.locked) && ITEMS_BY_ID.has(copy.itemId),
   );
 
   // Remove the copies one item at a time, so we know exactly how many of each were really removed.
@@ -97,7 +97,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
   const removedDocs: ItemCopyDoc[] = [];
   let allRemoved = true;
   for (const [, group] of byItem) {
-    const result = await items.deleteMany({ guildId, userId, _id: { $in: group.map((copy) => copy._id) }, locked: { $ne: true } });
+    const result = await items.deleteMany({ guildId, userId, _id: { $in: group.map((copy) => copy._id) }, ...(locked ? {} : { locked: { $ne: true } }) });
     if (result.deletedCount < group.length) allRemoved = false; // another sale removed (or a lock kept) some of these at the same moment
     // Every copy in a group is of the same item, so only how many we removed matters for the pay.
     removedDocs.push(...group.slice(0, result.deletedCount));

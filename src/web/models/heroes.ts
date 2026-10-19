@@ -82,8 +82,8 @@ export interface HeroStore {
   reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
   /** Upgrades one of a copy's options a step, for points: the heroes after, or why not. */
   upgrade: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroOptionError>;
-  /** Sells those of their copies that can be (the gear page's sale): what it came to, or 'nothing_to_sell'. */
-  sell: (guildId: string, userId: string, copies: readonly string[]) => Promise<GearSale | 'nothing_to_sell'>;
+  /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too): what it came to, or 'nothing_to_sell'. */
+  sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
   lock: (guildId: string, userId: string, copy: string, locked: boolean) => Promise<boolean>;
 }
@@ -203,6 +203,7 @@ export function heroesView(
       setBonuses: bonuses,
       locked: copy.locked === true,
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
+      sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
       effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
@@ -335,6 +336,6 @@ export const heroStore: HeroStore = {
     const result = await upgradeOption(guildId, userId, copy);
     return result.ok ? load(guildId, userId) : result.reason;
   },
-  sell: (guildId, userId, copies) => gearStore.sell(guildId, userId, copies),
+  sell: (guildId, userId, copies, locked) => gearStore.sell(guildId, userId, copies, locked),
   lock: (guildId, userId, copy, locked) => gearStore.lock(guildId, userId, copy, locked),
 };

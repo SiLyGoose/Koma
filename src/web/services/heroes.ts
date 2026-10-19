@@ -70,9 +70,9 @@ export function heroService(deps: ApiDeps) {
     /** Upgrades one of a copy's options a step. */
     upgrade: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy)),
 
-    /** Sells those copies (the same one twice counts once). */
-    async sell(guildId: string, userId: string, copies: string[]): Promise<HeroesSold> {
-      const sold = await store.sell(guildId, userId, [...new Set(copies)]);
+    /** Sells those copies (the same one twice counts once; `locked`: locked ones too). */
+    async sell(guildId: string, userId: string, copies: string[], locked = false): Promise<HeroesSold> {
+      const sold = await store.sell(guildId, userId, [...new Set(copies)], locked);
       if (sold === 'nothing_to_sell') throw new ApiError(sold);
       return { ...(await store.view(guildId, userId)), sold };
     },

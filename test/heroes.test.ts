@@ -238,6 +238,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(armor?.setEffect?.active, false);
   assert.equal(view.copies.find((copy) => copy.id === 'ring')?.upgrade, null, 'all its options at their top');
   assert.equal(view.copies.find((copy) => copy.id === 'spare')?.sell !== null, true);
+  assert.equal(view.copies.find((copy) => copy.id === 'spare')?.sellLocked, null, 'not locked: nothing to sell it for apart');
   const [kirze, klaus] = view.heroes;
   assert.equal(kirze?.owned, true);
   assert.equal(klaus?.owned, false);
@@ -295,8 +296,8 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`refine ${copy}`);
       return copy === 'c1' ? empty : 'no_duplicate';
     },
-    sell: async (guildId, userId, copies) => {
-      calls.push(`sell ${copies.join(',')}`);
+    sell: async (guildId, userId, copies, locked) => {
+      calls.push(`sell ${copies.join(',')}${locked ? ' locked' : ''}`);
       return copies.includes('c1') ? { count: 1, earned: 250 } : 'nothing_to_sell';
     },
     lock: async (guildId, userId, copy, locked) => {
@@ -385,6 +386,9 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal(sold.status, 200);
     assert.deepEqual(((await sold.json()) as { sold: unknown }).sold, { count: 1, earned: 250 });
     assert.deepEqual(await (await post('/api/heroes/sell', { guild: 'g1', copies: ['c2'] })).json(), { error: 'nothing_to_sell' });
+    // Locked ones too, when the page says so.
+    assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: ['c1'], locked: true })).status, 200);
+    assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: ['c1'], locked: 'yes' })).status, 400);
     assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: [] })).status, 400);
     assert.equal((await post('/api/heroes/lock', { guild: 'g1', copy: 'c1', locked: true })).status, 200);
     assert.equal((await post('/api/heroes/lock', { guild: 'g1', copy: 'c2', locked: true })).status, 404);
@@ -419,6 +423,7 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'refine c2',
       'sell c1,c2',
       'sell c2',
+      'sell c1 locked',
       'lock c1 true',
       'lock c2 true',
     ]);
