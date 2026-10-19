@@ -25626,10 +25626,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			skill: skill !== null
 		});
 	}
-	/** A hero uses a skill (true if it did: it must be free). */
+	/** Whether a hero is free for a skill: doing nothing, or only its attack (which the skill cuts short, as King's Raid's does; not another skill, nor its flinch or entrance). */
+	function cuttable(fighter) {
+		const { doing } = fighter;
+		return !doing || doing.move === fighter.attack && doing.skill === void 0;
+	}
+	/** A hero uses a skill (true if it did: it must be free, or only attacking). */
 	function use(fighter, index) {
 		const ability = sim.slot(fighter, index);
-		if (!ability || fighter.doing || !sim.ready(fighter, index)) return false;
+		if (!ability || !cuttable(fighter) || !sim.ready(fighter, index)) return false;
 		begin(fighter, ability.move, index);
 		for (const perk of fighter.perkDefs) if (perk.skill?.index === index) usedWith(fighter, perk.skill);
 		fighter.cooldowns[index] = ability.cooldown;
@@ -26806,11 +26811,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			for (const on of field) {
 				on.rested = on.doing ? 0 : on.rested + dt;
-				if (on.auto && on.reserved === null && !on.doing) on.reserved = autoSkill(on);
+				if (on.auto && on.reserved === null && cuttable(on)) on.reserved = autoSkill(on);
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
-				if (!on.doing && on.hp > 0 && !bound(on.statuses)) {
+				if (on.hp > 0 && !bound(on.statuses)) {
 					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
-					else if (on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
+					else if (!on.doing && on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
 				}
 			}
 			const busy = bossBusy();
@@ -42879,7 +42884,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "547a9de83ccb";
+var SIM_VERSION = "e16f8d1424df";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
