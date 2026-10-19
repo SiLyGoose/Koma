@@ -23045,24 +23045,29 @@ var ELICIPIRA = {
 		12500
 	]
 };
+/**
+* How many allies it reaches (those with the highest ATK), how long, and its heal (a share of her ATK) and penetration. Its
+* 5★ is King's Raid's as the user has it (140%, +200); below that, shodyra's steps scaled down to it.
+*/
 var ROSMERTA = {
 	name: "Angel’s Despair, Rosmerta",
+	allies: 2,
 	lasts: 7,
 	heal: [
-		1.667,
-		2,
-		2.4,
-		2.9,
-		3.5,
-		4.2
+		.54,
+		.66,
+		.82,
+		.97,
+		1.17,
+		1.4
 	],
 	pen: [
-		200,
-		240,
-		290,
-		350,
-		420,
-		500
+		80,
+		96,
+		116,
+		140,
+		168,
+		200
 	]
 };
 /** Its attack speed (points), its heal and mana on sleeping (shares of her max HP and max mana, the mana over `over` seconds), and the ATK each Mana Charge adds. */
@@ -23966,7 +23971,7 @@ var atTier = (list, tier) => {
 var ABOUT = {
 	klaus: (tier) => `Every ${EXIAN.every}rd skill he uses, his ATK and defense are ${pct(atTier(EXIAN.boost, tier))} higher for ${EXIAN.lasts} seconds.`,
 	kirze: (tier) => `Each of her blows has a ${pct(ELICIPIRA.chance)} chance to deal ${pct(atTier(ELICIPIRA.blow, tier) / 1e3)} of her ATK more, doubled against the boss.`,
-	"fallen-frey": (tier) => `Each skill she uses heals her by ${pct(atTier(ROSMERTA.heal, tier))} of her ATK, and gives her +${atTier(ROSMERTA.pen, tier)} penetration for ${ROSMERTA.lasts} seconds.`,
+	"fallen-frey": (tier) => `Each skill she uses heals the ${ROSMERTA.allies} allies with the highest ATK by ${pct(atTier(ROSMERTA.heal, tier))} of her ATK, and gives them +${atTier(ROSMERTA.pen, tier)} DEF penetration for ${ROSMERTA.lasts} seconds.`,
 	gremory: (tier) => `+${atTier(PIGRITIA.speed, tier)} attack speed. Each time she sleeps she is healed by ${pct(atTier(PIGRITIA.heal, tier))} of her max HP and recovers ${pct(atTier(PIGRITIA.mana, tier))} of her mana over ${PIGRITIA.over} seconds, and each Mana Charge gives her ${fine(atTier(PIGRITIA.charge, tier))} more ATK.`,
 	annette: (tier) => `Every ${atTier(RASCAL.every, tier)} seconds she gains a Charge (even while Overcharged) and ${pct(RASCAL.mana)} of her mana. While she is Overcharged, every ally deals ${pct(RASCAL.dmg)} more and takes ${pct(RASCAL.taken)} less (${pct(RASCAL.dmg * RASCAL.top)} for the ally with the highest ATK).`,
 	morrah: (tier) => `Each blow of her attack has a ${pct(CARPRAIN.chance)} chance to leave the boss hitting ${pct(atTier(CARPRAIN.weaker, tier))} less hard and taking ${pct(atTier(CARPRAIN.weaker, tier))} more magical damage for ${CARPRAIN.lasts} seconds (${pct(atTier(CARPRAIN.weaker, tier) * CARPRAIN.full)} more with 100 Flame on it).`,
@@ -25690,13 +25695,16 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				shown: EXIAN_UP
 			});
 		} else if (fighter.id === "fallen-frey") {
-			sim.heal(fighter, atTier(ROSMERTA.heal, unique.tier) * ATK, fighter);
-			put(fighter.statuses, {
-				name: ROSMERTA_UP.name,
-				left: ROSMERTA.lasts,
-				pen: atTier(ROSMERTA.pen, unique.tier),
-				shown: ROSMERTA_UP
-			});
+			const top = field.filter((ally) => ally.hp > 0 && !away(ally.statuses)).sort((a, b) => b.stats.atk - a.stats.atk).slice(0, ROSMERTA.allies);
+			for (const ally of top) {
+				sim.heal(ally, atTier(ROSMERTA.heal, unique.tier) * ATK, fighter);
+				put(ally.statuses, {
+					name: ROSMERTA_UP.name,
+					left: ROSMERTA.lasts,
+					pen: atTier(ROSMERTA.pen, unique.tier),
+					shown: ROSMERTA_UP
+				});
+			}
 		}
 	}
 	/** What comes of the moves every hero has, as each part lands (unless its own part says otherwise). */
@@ -42667,7 +42675,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "19e12d36380a";
+var SIM_VERSION = "43764c126a58";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
