@@ -8,6 +8,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   type ButtonInteraction,
+  type ModalSubmitInteraction,
 } from 'discord.js';
 import { CONFIG } from '../../config.js';
 import { CODE, CODE_LENGTH, TEXT } from '../../constants/index.js';
@@ -17,37 +18,50 @@ import { parseGuess, rollCode, scoreGuess, type Mark } from '../../lib/events/co
 import { fmt, mention } from '../../lib/format.js';
 import { payShares } from '../../services/events.js';
 import { chargeIntoVault, claimVault, getVaultPool, refundFromVault, vaultCost } from '../../services/vault.js';
+import { siteGameLink, webConfig } from '../../web/config.js';
 import { eventPing } from '../ping.js';
 import type { EventContext, GameEvent } from '../types.js';
+import { codedleChanged, codedleClosed, codedleOpened, type CodeGuess, type CodedleEnd, type CodedleGame, type GuessOutcome } from './codedle-games.js';
 import { LiveMessage, showResult } from './vault-game.js';
 
 /*
  * Codedle: the vault is locked with a random CODE_LENGTH-digit code, and the first person
  * to guess it wins the prize (the vault pool times events.vault.multiplier). Anyone can guess, as
- * often as they like, through a pop-up; each guess costs events.codedle.guessCost, added to the
- * vault. Every guess is scored Wordle-style (lib/events/code.ts), but only the guesser sees their
+ * often as they like, through a pop-up or on the site's Codedle page (its Play on the site button:
+ * web/games/codedle/, the one game through ./codedle-games.ts); each guess costs events.codedle.guessCost,
+ * added to the vault. Every guess is scored Wordle-style (lib/events/code.ts), but only the guesser sees their
  * own guesses and hints (privately, after each guess or with My guesses); the live screen only
  * counts them. The full board is revealed when the game ends. If time runs out the code is revealed and the money stays in
  * the vault. Like the other vault games it isn't saved to the database: a restart mid-game
  * ends it without a payout, and guess fees already paid stay in the vault.
  */
 
-export interface CodeGuess {
-  userId: string;
-  guess: string;
-  marks: Mark[];
-}
+export type { CodeGuess };
 
 const SQUARES: Record<Mark, string> = { hit: '🟩', near: '🟨', miss: '⬛' };
 
 export const squares = (marks: readonly Mark[]): string => marks.map((mark) => SQUARES[mark]).join('');
 
-export function guessRow(): ActionRowBuilder<ButtonBuilder> {
+/** The live screen's buttons: Guess, My guesses, and (`site`: the site's link to the game) Play on the site. */
+export function guessRow(site: string | null = null): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(CODE.guessId).setLabel(TEXT.codedle.guessButton).setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(CODE.mineId).setLabel(TEXT.codedle.mineButton).setStyle(ButtonStyle.Secondary),
+    ...(site ? [new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(site).setLabel(TEXT.codedle.siteButton).setEmoji('🔐')] : []),
   );
 }
+
+/** A guess not taken, in words. */
+function refusalText(reason: Extract<GuessOutcome, { ok: false }>['reason'], guessCost: number): string {
+  if (reason === 'bad_guess') return TEXT.codedle.badGuess(CODE_LENGTH);
+  if (reason === 'over') return TEXT.codedle.over;
+  if (reason === 'cant_afford') return TEXT.codedle.cantAfford(fmt(guessCost));
+  return TEXT.codedle.somethingWrong;
+}
+
+/** Who sent `submit`, as the server names them. */
+const nameOf = (submit: ModalSubmitInteraction): string =>
+  submit.member && 'displayName' in submit.member ? submit.member.displayName : submit.user.displayName;
 
 /**
  * The most recent guesses, oldest first, with a note about any older ones. `withNames` adds who
@@ -117,16 +131,58 @@ async function runCodedle(ctx: EventContext): Promise<void> {
   const code = rollCode(CODE_LENGTH);
   const endsAtMs = Date.now() + cfg.seconds * 1000;
   const endsAtUnix = Math.floor(endsAtMs / 1000);
+  const web = webConfig();
+  const site = web ? siteGameLink(web, 'codedle', guild.id) : null;
 
   const guesses: CodeGuess[] = [];
   let over = false;
-  let winner: string | null = null;
-  const view = () => ({ embeds: [codeEmbed(prize, cfg.guessCost, endsAtUnix, guesses)], components: [guessRow()] });
+  let winner: { userId: string; name: string } | null = null;
+  const view = () => ({ embeds: [codeEmbed(prize, cfg.guessCost, endsAtUnix, guesses)], components: [guessRow(site)] });
 
   const message = await channel.send({ ...view(), ...(await eventPing(guild)) });
   console.log(`Codedle for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const live = new LiveMessage(message, CODE.refreshMs);
   const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.seconds * 1000 });
+
+  /** The game, as its pop-up and the site's page both play it. */
+  const game: CodedleGame = {
+    prize,
+    guessCost: cfg.guessCost,
+    endsAt: endsAtMs,
+    guesses,
+    async guess(userId, name, text) {
+      const guess = parseGuess(text, CODE_LENGTH);
+      if (!guess) return { ok: false, reason: 'bad_guess' };
+      if (over) return { ok: false, reason: 'over' };
+      let charged: boolean;
+      try {
+        charged = await chargeIntoVault(guild.id, userId, cfg.guessCost, 'code_guess');
+      } catch (err) {
+        console.error(`Could not charge a Codedle guess in ${guild.id}:`, err);
+        return { ok: false, reason: 'failed' };
+      }
+      if (!charged) return { ok: false, reason: 'cant_afford' };
+      // The game may have ended while the fee was being taken: then the guess doesn't count, so give the fee back.
+      if (over) {
+        await refundFromVault(guild.id, userId, cfg.guessCost, 'code_refund').catch((err) =>
+          console.error(`Could not refund a late Codedle guess in ${guild.id}:`, err),
+        );
+        return { ok: false, reason: 'over' };
+      }
+
+      // From here on nothing is awaited until the guess is on the board, so two guesses can't both win.
+      const marks = scoreGuess(code, guess);
+      guesses.push({ userId, name, guess, marks });
+      const won = guess === code;
+      if (won) {
+        over = true;
+        winner = { userId, name };
+        collector.stop('cracked');
+      } else live.show(view());
+      codedleChanged(guild.id);
+      return { ok: true, guess, marks, won };
+    },
+  };
 
   const handleGuess = async (press: ButtonInteraction): Promise<void> => {
     const userId = press.user.id;
@@ -142,65 +198,47 @@ async function runCodedle(ctx: EventContext): Promise<void> {
     const submit = await press.awaitModalSubmit({ time: CODE.modalMs, filter: (m) => m.customId === modalId && m.user.id === userId }).catch(() => null);
     if (!submit) return;
 
-    const guess = parseGuess(submit.fields.getTextInputValue(CODE.inputId), CODE_LENGTH);
-    if (!guess) return replyPrivately(submit, TEXT.codedle.badGuess(CODE_LENGTH));
-    if (over) return replyPrivately(submit, TEXT.codedle.over);
-
-    let charged: boolean;
-    try {
-      charged = await chargeIntoVault(guild.id, userId, cfg.guessCost, 'code_guess');
-    } catch (err) {
-      console.error(`Could not charge a Codedle guess in ${guild.id}:`, err);
-      return replyPrivately(submit, TEXT.codedle.somethingWrong);
-    }
-    if (!charged) return replyPrivately(submit, TEXT.codedle.cantAfford(fmt(cfg.guessCost)));
-    // The game may have ended while the fee was being taken: then the guess doesn't count, so give the fee back.
-    if (over) {
-      await refundFromVault(guild.id, userId, cfg.guessCost, 'code_refund').catch((err) =>
-        console.error(`Could not refund a late Codedle guess in ${guild.id}:`, err),
-      );
-      return replyPrivately(submit, TEXT.codedle.over);
-    }
-
-    // From here on nothing is awaited until the guess is on the board, so two guesses can't both win.
-    const marks = scoreGuess(code, guess);
-    guesses.push({ userId, guess, marks });
-    if (guess === code) {
-      over = true;
-      winner = userId;
-      collector.stop('cracked');
-      return replyPrivately(submit, TEXT.codedle.youWon(fmt(prize)));
-    }
-    live.show(view());
-    return replyPrivately(submit, `${TEXT.codedle.wrong(squares(marks), guess)}\n\n${myBoardText(guesses, userId)}`);
+    const outcome = await game.guess(userId, nameOf(submit), submit.fields.getTextInputValue(CODE.inputId));
+    if (!outcome.ok) return replyPrivately(submit, refusalText(outcome.reason, cfg.guessCost));
+    if (outcome.won) return replyPrivately(submit, TEXT.codedle.youWon(fmt(prize)));
+    return replyPrivately(submit, `${TEXT.codedle.wrong(squares(outcome.marks), outcome.guess)}\n\n${myBoardText(guesses, userId)}`);
   };
 
-  collector.on('collect', (press) => {
-    if (press.customId === CODE.mineId) {
-      void replyPrivately(press, myBoardText(guesses, press.user.id));
-      return;
-    }
-    if (press.customId !== CODE.guessId) return;
-    handleGuess(press).catch((err) => console.error(`A Codedle guess failed in ${guild.id}:`, err));
-  });
-  await new Promise<void>((resolve) => collector.once('end', () => resolve()));
-  over = true;
-  await live.stop();
+  /** How it ended, for the site's page (null: the prize couldn't be paid). */
+  let end: CodedleEnd | null = null;
+  codedleOpened(guild.id, game);
+  try {
+    collector.on('collect', (press) => {
+      if (press.customId === CODE.mineId) {
+        void replyPrivately(press, myBoardText(guesses, press.user.id));
+        return;
+      }
+      if (press.customId !== CODE.guessId) return;
+      handleGuess(press).catch((err) => console.error(`A Codedle guess failed in ${guild.id}:`, err));
+    });
+    await new Promise<void>((resolve) => collector.once('end', () => resolve()));
+    over = true;
+    await live.stop();
 
-  if (winner) {
-    try {
-      const payout = await payShares(guild.id, [{ userId: winner, amount: prize }], 'code_prize');
-      const taken = payout.paid.reduce((sum, share) => sum + share.amount, 0);
-      await claimVault(guild.id, vaultCost(basePool, prize, taken));
-      if (taken === 0) throw new Error('the prize could not be paid');
-    } catch (err) {
-      console.error(`Could not pay the Codedle prize in ${guild.id}:`, err);
-      await showResult(message, channel, codeFailedEmbed(), 'Codedle');
-      return;
+    const cracked = winner as { userId: string; name: string } | null;
+    if (cracked) {
+      try {
+        const payout = await payShares(guild.id, [{ userId: cracked.userId, amount: prize }], 'code_prize');
+        const taken = payout.paid.reduce((sum, share) => sum + share.amount, 0);
+        await claimVault(guild.id, vaultCost(basePool, prize, taken));
+        if (taken === 0) throw new Error('the prize could not be paid');
+      } catch (err) {
+        console.error(`Could not pay the Codedle prize in ${guild.id}:`, err);
+        await showResult(message, channel, codeFailedEmbed(), 'Codedle');
+        return;
+      }
     }
+    end = { code, prize, winner: cracked, guesses: [...guesses], endedAt: Date.now() };
+    console.log(`Codedle in ${guild.id} ended: ${cracked ? 'cracked' : 'not cracked'} after ${guesses.length} guesses.`);
+    await showResult(message, channel, codeResultEmbed(code, prize, guesses, cracked?.userId ?? null), 'Codedle');
+  } finally {
+    codedleClosed(guild.id, end);
   }
-  console.log(`Codedle in ${guild.id} ended: ${winner ? 'cracked' : 'not cracked'} after ${guesses.length} guesses.`);
-  await showResult(message, channel, codeResultEmbed(code, prize, guesses, winner), 'Codedle');
 }
 
 export const codedle: GameEvent = {

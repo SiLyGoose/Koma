@@ -1,4 +1,4 @@
-import { BACCARAT_WEB, DRAGON_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB } from '../constants/index.js';
+import { BACCARAT_WEB, CODEDLE_WEB, DRAGON_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB } from '../constants/index.js';
 import { optionalEnv } from '../env.js';
 import type { Game } from '../protocol/site.js';
 
@@ -77,6 +77,7 @@ export const GAMES = {
   minesweeper: { page: '/games/minesweeper', socket: MINESWEEPER_WEB.path },
   technomagic: { page: '/games/technomagic', socket: TM_WEB.path },
   dragon: { page: '/games/dragon', socket: DRAGON_WEB.path },
+  codedle: { page: '/games/codedle', socket: CODEDLE_WEB.path },
 } as const satisfies Record<Game, { page: string; socket: string }>;
 export type { Game };
 

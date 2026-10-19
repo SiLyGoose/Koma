@@ -10,6 +10,8 @@ export const codedleText = {
     `Only you can see your guesses and hints. Press **My guesses** to see them again.`,
   guessButton: 'Guess',
   mineButton: 'My guesses',
+  /** The link to the game on the site (the Codedle page: a board to type guesses into, as Wordle's). */
+  siteButton: 'Play on the site',
   modalTitle: 'Codedle',
   /** The pop-up's text box label. */
   inputLabel: (length: number) => `Your ${length}-digit guess`,

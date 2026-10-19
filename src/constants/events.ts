@@ -55,5 +55,11 @@ export const CODE_LENGTH = 5;
  */
 export const CODE = { guessId: 'code_guess', mineId: 'code_mine', inputId: 'code', modalMs: 120_000, boardMax: 10, refreshMs: 1_500 } as const;
 
+/**
+ * Codedle's web page (web/games/codedle/): its web socket's path, how long a page has to say hello, how many messages a
+ * second it may send, and the most guesses a revealed board shows it.
+ */
+export const CODEDLE_WEB = { path: '/codedle', helloMs: 10_000, messagesPerSecond: 20, boardMax: 60 } as const;
+
 /** Split or Steal's buttons and screen, like HEIST's. */
 export const SPLIT_STEAL = { joinId: 'ss_join', splitId: 'ss_split', stealId: 'ss_steal', refreshMs: 3_000, listMax: 15 } as const;
