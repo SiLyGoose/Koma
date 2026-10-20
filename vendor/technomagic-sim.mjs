@@ -32072,10 +32072,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/**
 	* Auto: the skill a hero uses now (null: none yet: it attacks meanwhile). Of the skills it wants (a heal once an ally
 	* is hurt or bears something it can clear, one that keeps a status up once that runs out, any other always), it goes
-	* for the one it has gone longest without whose cooldown is over (the dearer, where alike), or else the one whose
-	* cooldown ends soonest, and saves its mana for it; another it uses meanwhile only if that still has its mana once it
-	* can be used, by what the hero gains a second lately. One whose moment its hero says hasn't come is saved for, not
-	* used. At full mana, rather than waste what it gains, the one it has gone longest without that it can use.
+	* for the one it has gone longest without whose cooldown is over (the cheaper, where alike: at the start, when it has
+	* used none, the one it has the mana for soonest, rather than nothing for as long as the dearest takes), or else the
+	* one whose cooldown ends soonest, and saves its mana for it; another it uses meanwhile only if that still has its mana
+	* once it can be used, by what the hero gains a second lately. One whose moment its hero says hasn't come is saved for,
+	* not used (or, one its hero says waits, neither). At full mana, rather than waste what it gains, the one it has gone
+	* longest without that it can use.
 	*/
 	function autoSkill(on) {
 		if (!on.abilities.some((_, index) => sim.ready(on, index))) return null;
@@ -32084,7 +32086,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const slots = on.abilities.map((_, index) => ({
 			index,
 			ability: sim.slot(on, index)
-		})).filter((one) => one.ability !== null && wanted(on, one.index, one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || b.ability.cost - a.ability.cost || b.index - a.index);
+		})).filter((one) => one.ability !== null && wanted(on, one.index, one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || a.ability.cost - b.ability.cost || a.index - b.index);
 		const ripe = (index) => on.part.ripe?.(index) ?? true;
 		const usable = ({ index }) => ripe(index) && sim.ready(on, index);
 		const target = slots.find((slot) => wait(slot.index) <= 0) ?? slots.reduce((soonest, slot) => !soonest || wait(slot.index) < wait(soonest.index) ? slot : soonest, void 0);
@@ -32100,9 +32102,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	}
 	/**
 	* Auto: whether `on`'s skill in slot `index` is wanted now (a heal once an ally is hurt or bears something it can clear, or
-	* whenever it is the only one of its skills off cooldown; one that keeps a status up once it runs out).
+	* whenever it is the only one of its skills off cooldown; one that keeps a status up once it runs out; not one its hero
+	* says waits).
 	*/
 	function wanted(on, index, ability) {
+		if (on.part.waits?.(index)) return false;
 		const allies = field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		const alone = on.cooldowns[index] <= 0 && on.abilities.every((_, other) => other === index || sim.slot(on, other) === null || on.cooldowns[other] > 0);
 		if (ability.auto?.heals && !alone && !allies.some((ally) => ally.hp < ally.stats.hp * AUTO.hurt || ally.statuses.some((status) => status.shown.harmful === true && !status.binds && !status.away))) return false;
@@ -34794,7 +34798,7 @@ var FALLEN_FREY = {
 				} else darkening = 0;
 			},
 			lit: () => stacks > 0,
-			ripe: (index) => index !== 2 || stacks > 0,
+			waits: (index) => index === 2 && stacks === 0,
 			buffs: () => stacks > 0 ? [{
 				...DARKENED$1,
 				count: stacks
@@ -49292,7 +49296,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "511b3c65130c";
+var SIM_VERSION = "906e7232621a";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
