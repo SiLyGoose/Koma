@@ -10201,14 +10201,13 @@ function marchLeft(k) {
 	return t < BRAKE ? t * t / (BRAKE * 1.7) : (2 * t - BRAKE) / 1.7;
 }
 /**
-* A hero's Auto (./fight.ts autoSkill): an ally below this share of its max HP is hurt (a heal is wanted); a status
-* with less than this many seconds left is as good as gone (a skill that puts it up again is wanted); and over how
-* many seconds the mana a hero gains is counted, to know how soon it will have a skill's.
+* A hero's Auto (./fight.ts autoSkill): how often it picks a skill, as King's Raid's does (every half second while it has
+* none and isn't using one); and a status with less than this many seconds left is as good as gone (a skill that puts it
+* up again is of use).
 */
 var AUTO = {
-	hurt: .7,
-	spare: 1,
-	income: 8
+	every: .5,
+	spare: 1
 };
 var SECTION = 1e3;
 var MAX_MANA = 6 * SECTION;
@@ -31577,8 +31576,6 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const random = seeded(seed);
 	const roll = () => random.next();
 	const events = [];
-	/** The mana each hero has spent on skills this step (what it gained is counted past it, for its Auto). */
-	const spent = /* @__PURE__ */ new Map();
 	const log = [];
 	const sums = [];
 	let pending = [];
@@ -31758,8 +31755,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			auto: sub || raid,
 			cooldowns: hero.abilities.map(() => 0),
 			reserved: null,
-			lastUsed: hero.abilities.map(() => -Infinity),
-			income: mana.regen * (1 + (gear.manaRegen ?? 0)),
+			autoPicked: false,
+			autoWait: 0,
 			rested: 0,
 			dealt: 0,
 			healed: 0,
@@ -32019,9 +32016,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		begin(fighter, ability.move, index);
 		for (const perk of fighter.perkDefs) if (perk.skill?.index === index) usedWith(fighter, perk.skill);
 		fighter.cooldowns[index] = ability.cooldown;
-		fighter.lastUsed[index] = elapsed;
 		fighter.mana -= ability.cost * SECTION;
-		spent.set(fighter, (spent.get(fighter) ?? 0) + ability.cost * SECTION);
 		noting(ability.art ?? passiveArt(fighter), () => asFighter(fighter, () => fighter.part.used?.(index, ability)));
 		uniqueCast(fighter);
 		skillCast(fighter);
@@ -32070,46 +32065,22 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 	}
 	/**
-	* Auto: the skill a hero uses now (null: none yet: it attacks meanwhile). Of the skills it wants (a heal once an ally
-	* is hurt or bears something it can clear, one that keeps a status up once that runs out, any other always), it goes
-	* for the one it has gone longest without whose cooldown is over (the cheaper, where alike: at the start, when it has
-	* used none, the one it has the mana for soonest, rather than nothing for as long as the dearest takes), or else the
-	* one whose cooldown ends soonest, and saves its mana for it; another it uses meanwhile only if that still has its mana
-	* once it can be used, by what the hero gains a second lately. One whose moment its hero says hasn't come is saved for,
-	* not used (or, one its hero says waits, neither). At full mana, rather than waste what it gains, the one it has gone
-	* longest without that it can use.
+	* Auto, as King's Raid's goes (BattleManagement.UpdateSkillAutoReserve): every AUTO.every seconds that a hero has
+	* nothing reserved and isn't using a skill, one of its skills whose cooldown is over, at random, reserved whatever its
+	* mana (the hero attacks till it has it, as with one pressed) and kept till used (null: none). Unlike King's Raid's,
+	* not one that would be wasted (wanted: a status it keeps up still is; its hero says it waits).
 	*/
 	function autoSkill(on) {
-		if (!on.abilities.some((_, index) => sim.ready(on, index))) return null;
-		const wait = (index) => on.cooldowns[index];
-		const last = (index) => on.lastUsed[index] ?? -Infinity;
-		const slots = on.abilities.map((_, index) => ({
-			index,
-			ability: sim.slot(on, index)
-		})).filter((one) => one.ability !== null && wanted(on, one.index, one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || a.ability.cost - b.ability.cost || a.index - b.index);
-		const ripe = (index) => on.part.ripe?.(index) ?? true;
-		const usable = ({ index }) => ripe(index) && sim.ready(on, index);
-		const target = slots.find((slot) => wait(slot.index) <= 0) ?? slots.reduce((soonest, slot) => !soonest || wait(slot.index) < wait(soonest.index) ? slot : soonest, void 0);
-		if (!target) return null;
-		if (usable(target)) return target.index;
-		for (const slot of slots) {
-			if (slot === target || !usable(slot)) continue;
-			const lacks = target.ability.cost * SECTION - (on.mana - slot.ability.cost * SECTION);
-			if (lacks <= 0 || lacks <= on.income * wait(target.index)) return slot.index;
-		}
-		if (on.mana < 6e3) return null;
-		return slots.find(usable)?.index ?? null;
+		const ready = on.abilities.flatMap((_, index) => {
+			const ability = sim.slot(on, index);
+			return ability && on.cooldowns[index] <= 0 && wanted(on, index, ability) ? [index] : [];
+		});
+		return ready.length > 0 ? ready[Math.floor(roll() * ready.length)] : null;
 	}
-	/**
-	* Auto: whether `on`'s skill in slot `index` is wanted now (a heal once an ally is hurt or bears something it can clear, or
-	* whenever it is the only one of its skills off cooldown; one that keeps a status up once it runs out; not one its hero
-	* says waits).
-	*/
+	/** Auto: whether `on`'s skill in slot `index` would be of use now (not one that keeps a status up while it still is, nor one its hero says waits). */
 	function wanted(on, index, ability) {
 		if (on.part.waits?.(index)) return false;
 		const allies = field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
-		const alone = on.cooldowns[index] <= 0 && on.abilities.every((_, other) => other === index || sim.slot(on, other) === null || on.cooldowns[other] > 0);
-		if (ability.auto?.heals && !alone && !allies.some((ally) => ally.hp < ally.stats.hp * AUTO.hurt || ally.statuses.some((status) => status.shown.harmful === true && !status.binds && !status.away))) return false;
 		const keeps = ability.auto?.keeps;
 		if (keeps && [party, ...allies.map((ally) => ally.statuses)].some((on) => on.some((status) => status.name === keeps && status.left > AUTO.spare))) return false;
 		return true;
@@ -33142,8 +33113,6 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const dt = TICK;
 			elapsed += dt;
 			aurasNow();
-			const before = fighters.map((fighter) => fighter.mana);
-			spent.clear();
 			idle = bossBusy() ? 0 : idle + dt;
 			if (bossAuto && !boss.away && moving <= 0 && idle >= (def.rest ?? 1.1)) {
 				const forced = boss.part.next?.() ?? null;
@@ -33211,10 +33180,22 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			for (const on of field) {
 				on.rested = on.doing ? 0 : on.rested + dt;
-				if (on.auto && on.reserved === null && cuttable(on)) on.reserved = autoSkill(on);
+				on.autoWait = on.doing?.skill !== void 0 ? 0 : on.autoWait + dt;
+				if (on.reserved !== null && on.autoPicked) {
+					const ability = sim.slot(on, on.reserved);
+					if (!on.auto || !ability || on.cooldowns[on.reserved] > 0 || !wanted(on, on.reserved, ability)) {
+						on.reserved = null;
+						on.autoWait = 0;
+					}
+				}
+				if (on.auto && on.reserved === null && on.autoWait >= AUTO.every) {
+					on.reserved = autoSkill(on);
+					on.autoPicked = true;
+					on.autoWait = 0;
+				}
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
 				if (on.hp > 0 && !bound(on.statuses)) {
-					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
+					if (on.reserved !== null && (!on.autoPicked || (on.part.ripe?.(on.reserved) ?? true)) && use(on, on.reserved)) on.reserved = null;
 					else if (!on.doing && on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
 				}
 			}
@@ -33236,12 +33217,6 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				on.z += (z - on.z) * reform;
 			}
 			if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= raidTime + 20)) end("lost");
-			fighters.forEach((fighter, i) => {
-				const was = before[i];
-				if (was >= 6e3 || fighter.mana >= 6e3) return;
-				const gained = Math.max(0, fighter.mana - was + (spent.get(fighter) ?? 0));
-				fighter.income += (gained / dt - fighter.income) * (dt / AUTO.income);
-			});
 			tick++;
 			if (tick % SECOND === 0) sums.push(sim.checksum());
 		}
@@ -33253,7 +33228,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			case "skill":
 				if (!fighter) return;
 				if (fighter.reserved === input.skill) fighter.reserved = null;
-				else if (sim.reservable(fighter, input.skill)) fighter.reserved = input.skill;
+				else if (sim.reservable(fighter, input.skill)) {
+					fighter.reserved = input.skill;
+					fighter.autoPicked = false;
+				}
 				return;
 			case "auto":
 				if (fighter && !fighter.sub) fighter.auto = !fighter.auto;
@@ -33521,7 +33499,6 @@ var ANNETTE = {
 		},
 		{
 			name: "Emergency Treatment",
-			auto: { heals: true },
 			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share$2(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal, bookHeal("annette", 1))} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "🩹",
@@ -34579,7 +34556,6 @@ var FALLEN_FREY = {
 	abilities: [
 		{
 			name: "Light of Doom",
-			auto: { heals: true },
 			about: "Heals the ally with the lowest health and those near it, then the light bursts on the boss.",
 			words: `Heals ${healed("priest", LIGHT.heal, bookHeal("fallen-frey", 0))} HP of the ally with the lowest HP and nearby allies and increases Heal Rate by 20% for 10 sec. Afterward, explodes the area around the target and deals ${dmg("priest", LIGHT.blast, bookDmg("fallen-frey", 0))} M.DMG to enemies in range, reducing their Heal Rate by 20% for 10 sec. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack and dispels positive effects of all enemies within range.`,
 			icon: "✴️",
@@ -35582,7 +35558,6 @@ var LAIAS = {
 	abilities: [
 		{
 			name: "Healing Droplets",
-			auto: { heals: true },
 			about: `Heals every ally, and for ${DROPLETS.lasts} seconds healing reaches them ${pct(DROPLETS.heals)} more (${DROPLETS.lowTimes} times that for one at ${pct(DROPLETS.low)} of its health or less).`,
 			words: `Heals ${healed("priest", DROPLETS.heal, bookHeal("laias", 0))} HP of all allies and increases Heal Rate by ${pct(DROPLETS.heals)} for ${DROPLETS.lasts} sec. If the target's HP is ${pct(DROPLETS.low)} or below, Heal Rate increases by ${DROPLETS.lowTimes} times.`,
 			icon: "💧",
@@ -43629,7 +43604,6 @@ var ASELICA = {
 		},
 		{
 			name: "Judgment of the Sun",
-			auto: { heals: true },
 			about: `Eight blows, each lowering the boss's M.DEF for ${JUDGMENT$1.lasts} seconds, and eight heals for her allies, their P.DEF higher; then a blow that knocks the boss down for ${JUDGMENT$1.down} seconds, and a great heal.`,
 			words: `Takes position and focuses to heal HP of nearby allies 8 times for a total of ${healed("knight", JUDGMENT$1.heal * 8, bookHeal("aselica", 2))} + ${pct(JUDGMENT$1.healDefense * 8 * JUDGMENT$1.books)} of Aselica's P.DEF and increase their P.DEF by ${num(Math.round(JUDGMENT$1.guard * JUDGMENT$1.books))} for ${JUDGMENT$1.lasts} sec. Enemies within range take a total of ${dmg("knight", JUDGMENT$1.blow * 8, bookDmg("aselica", 2))} M.DMG over 8 times and have their M.DEF reduced by ${num(JUDGMENT$1.defense)} for ${JUDGMENT$1.lasts} sec. At the end of casting, heals HP of allies within range by ${healed("knight", JUDGMENT$1.lastHeal, bookHeal("aselica", 2))} + ${pct(JUDGMENT$1.lastHp * JUDGMENT$1.books)} of Aselica's Max HP, deals ${dmg("knight", JUDGMENT$1.last, bookDmg("aselica", 2))} M.DMG to enemies, and knocks them down for ${JUDGMENT$1.down} sec.`,
 			icon: "⚖️",
@@ -45260,7 +45234,7 @@ var KARA = {
 				siege = !siege;
 				mode();
 			},
-			ripe: (index) => !(siege && index === 2),
+			waits: (index) => siege && index === 2,
 			tick(dt) {
 				if (focusLeft > 0) {
 					focusLeft -= dt;
@@ -46064,10 +46038,8 @@ var PANSIRONE = {
 				}
 				lettered = [];
 				presentLeft = Math.max(0, presentLeft - dt);
-				if (dying > 0) {
-					self.cooldowns[0] = 0;
-					self.lastUsed[0] = -Infinity;
-				} else self.cooldowns[0] = Math.max(self.cooldowns[0] ?? 0, presentLeft);
+				if (dying > 0) self.cooldowns[0] = 0;
+				else self.cooldowns[0] = Math.max(self.cooldowns[0] ?? 0, presentLeft);
 				if (self.perks.has("t5-dark") && heating < PERKS$8.dark.until) {
 					heating += dt;
 					heatNext += dt;
@@ -46959,7 +46931,6 @@ var LUCIAS = {
 	abilities: [
 		{
 			name: "Path of Blessings",
-			auto: { heals: true },
 			about: `Heals the ${PATH.allies} allies with the lowest HP; they take ${pct(1 - PATH.taken)} less physical damage for ${PATH.lasts} seconds.`,
 			words: `Heals ${PATH.allies} allies with the lowest HP by ${healed("priest", PATH.heal, bookHeal("lucias", 0))} and targets take ${pct(1 - PATH.taken)} reduced P.DMG for ${PATH.lasts} sec.`,
 			icon: "🙏",
@@ -47315,7 +47286,6 @@ var REHARTNA = {
 		},
 		{
 			name: "Crystal Clear, Matimaruma!",
-			auto: { heals: true },
 			about: `The ally with the lowest HP healed, and a shield on it for ${CRYSTAL.lasts} seconds (immune to CC); while it holds, every second its allies healed and their DEF higher, the boss struck and slowed.`,
 			words: `Immediately heals HP of the ally with the lowest HP by ${healed("priest", CRYSTAL.heal, bookHeal("rehartna", 1))}, creating a shield that absorbs ${healed("priest", CRYSTAL.shield, bookHeal("rehartna", 1))} DMG and grants immunity to CC for ${CRYSTAL.lasts} sec. While the shield is active, heals HP of all allies near the target by ${healed("priest", CRYSTAL.each, bookHeal("rehartna", 1))} every sec, and increases All DEF by ${num(CRYSTAL.defense)}. Enemies take ${dmg("priest", CRYSTAL.blow, bookDmg("rehartna", 1))} DMG and have their ATK Spd reduced by ${CRYSTAL.slow}.`,
 			icon: "💎",
@@ -47687,7 +47657,6 @@ var SHEA = {
 	abilities: [
 		{
 			name: "Green Nature’s Melody",
-			auto: { heals: true },
 			about: `For ${MELODY.lasts} seconds: every ally healed eight times, and taking ${pct(MELODY.taken)} less (in [Trance]: healed twice as much, and ${pct(MELODY.tranced)} less).`,
 			words: `Heals all allies' HP by a total of ${healed("priest", MELODY.heal * 8, bookHeal("shea", 0))} over 8 times, and reduces All DMG all allies take by ${pct(MELODY.taken)} for ${MELODY.lasts} sec. If used during [Trance] state, this Skill's Heal Rate increases by 100% and changes the DMG Reduction effect to ${pct(MELODY.tranced)}.`,
 			icon: "🍃",
@@ -48082,7 +48051,6 @@ var LAVRIL = {
 		},
 		{
 			name: "Bear Up...!",
-			auto: { heals: true },
 			about: `The ally with the highest ATK healed, then healed every second for ${BEAR.lasts} seconds, its ATK ${pct(BEAR.atk)} and crit DMG ${pct(BEAR.critDamage)} higher meanwhile. For ${BEAR.after} seconds after, You Scare Me...! in its place.`,
 			words: `Heals HP of an ally with the highest ATK by ${healed("priest", BEAR.heal, bookHeal("lavril", 1))}, heals HP by ${healed("priest", BEAR.each, bookHeal("lavril", 1))} every 1 sec for ${BEAR.lasts} sec, and increases ATK and Crit DMG of the ally by ${pct(BEAR.atk)} and ${pct(BEAR.critDamage)} + ${pct(BEAR.share)} of Lavril's Crit DMG respectively for ${BEAR.lasts} sec. After Skill use, [You Scare Me...!] can be used within ${BEAR.after} sec.`,
 			icon: "🧸",
@@ -48258,10 +48226,8 @@ var LAVRIL = {
 				if (voidLeft > 0) voidLeft -= dt;
 				if (scaring > 0) scaring -= dt;
 				bearCooldown = Math.max(0, bearCooldown - dt);
-				if (scaring > 0) {
-					self.cooldowns[1] = 0;
-					self.lastUsed[1] = -Infinity;
-				} else self.cooldowns[1] = Math.max(self.cooldowns[1] ?? 0, bearCooldown);
+				if (scaring > 0) self.cooldowns[1] = 0;
+				else self.cooldowns[1] = Math.max(self.cooldowns[1] ?? 0, bearCooldown);
 				if (!linked && fight.field.includes(self) && self.hp > 0) {
 					linked = allies().filter((ally) => ally !== self).sort((a, b) => b.stats.atk - a.stats.atk)[0] ?? self;
 					const atk = LINK.atk * LINK.books * (wearsTreasure(self, 3) ? 1 + UT$2.tear.atk : 1);
@@ -48556,7 +48522,6 @@ var EVAN = {
 	abilities: [
 		{
 			name: "Purification of Life",
-			auto: { heals: true },
 			about: `Every ally healed; for ${PURIFY.lasts} seconds healing reaches them ${pct(PURIFY.heals)} more.`,
 			words: `Heals HP of all allies by ${healed("priest", PURIFY.heal, bookHeal("evan", 0))} and increases Heal Rate of healed allies by ${pct(PURIFY.heals)} for ${PURIFY.lasts} sec.`,
 			icon: "⚗️",
@@ -49055,7 +49020,6 @@ var HEROES = [
 		abilities: [
 			{
 				name: "Blow, Tailwind!!",
-				auto: { heals: true },
 				about: `What the boss left on every ally cleared, every ally healed, and [Tailwind] for ${TAILWIND.lasts} seconds (immune to CC). Turns into Blow, Headwind!!.`,
 				words: `Dispels negative effects from all allies, heals their HP by ${healed("archer", TAILWIND.heal, bookHeal("estelle", 0))}, and grants [Tailwind] that lasts for ${TAILWIND.lasts} sec. For the duration of [Tailwind], the affected ally gains immunity to CC. After use, changes the Skill to [Blow, Headwind!!].\nWhen used during [Adventure Guide] state, the duration of [Tailwind] increases by ${GUIDE.longer} sec.`,
 				icon: "🍃",
@@ -49296,7 +49260,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "906e7232621a";
+var SIM_VERSION = "7585b3f381fe";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
