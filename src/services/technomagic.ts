@@ -4,7 +4,7 @@ import { HEROES_BY_ID } from '../data/heroes.js';
 import { keptPerks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
-import { dragonClearGems, tmDropCount } from '../constants/technomagic.js';
+import { dragonClearGems, tmClearGems, tmDropCount } from '../constants/technomagic.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
 import { rollArtifact, rollDragonPieces, rollRunes, rollTmDrop, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
 import { rollKrOptions } from '../data/kr-gear.js';
@@ -180,9 +180,11 @@ async function payPoints(guildId: string, userId: string, points: number, reason
 
 /**
  * A TechnoMagic Raid win at `stage`: that stage's pieces of the boss's set (tmDropCount), each copy with its options and its
- * additional skill rolled for it; its runes; now and then an artifact; and `hero.winPoints` points.
+ * additional skill rolled for it; its runes; now and then an artifact; `hero.winPoints` points; and komaGems for each stage up
+ * to it they hadn't cleared (tmClearGems: a win clears every stage under it too; this run isn't marked won yet).
  */
 async function payTmWin(guildId: string, userId: string, boss: string, stage: number): Promise<TmWin> {
+  const cleared = await clearedStage(guildId, userId, boss);
   const finds: TmFind[] = [];
   for (let n = tmDropCount(stage); n > 0; n--) {
     const item = rollTmDrop(boss);
@@ -195,7 +197,9 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
   await giveRunes(guildId, userId, runes);
   const points = Math.max(0, CONFIG.hero.winPoints);
   await payPoints(guildId, userId, points, 'tm_win');
-  return { finds, runes, points };
+  const gems = tmClearGems(cleared, stage);
+  if (gems > 0) await giveGems(guildId, userId, gems, 'tm_gems');
+  return { finds, runes, points, gems, firstClears: Math.max(0, stage - cleared) };
 }
 
 /**

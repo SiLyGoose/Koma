@@ -161,6 +161,19 @@ export function dragonClearGems(cleared: number, stage: number, mode: 'normal' |
   return gems;
 }
 
+/**
+ * The komaGems a TechnoMagic Raid stage pays each player the first time they clear it, by its stage (the first is stage 1's),
+ * a step up where its drops do (TM_DROP_COUNTS); as the Dragon Raid's, a win clears every stage under it too (tmClearGems).
+ */
+export const TM_GEMS: readonly number[] = [5, 5, 5, 10, 10, 10, 20, 20];
+
+/** The komaGems a TechnoMagic Raid win at `stage` pays a member whose highest cleared stage was `cleared`: each stage past it, up to `stage` (past the last, as the last). */
+export function tmClearGems(cleared: number, stage: number): number {
+  let gems = 0;
+  for (let at = Math.max(0, Math.floor(cleared)) + 1; at <= Math.floor(stage); at++) gems += TM_GEMS[Math.min(TM_GEMS.length, at) - 1] ?? 0;
+  return gems;
+}
+
 /** The weights of each rune grade a Normal Dragon Raid's win at `stage` rolls, where it pays as none of the Hard Dragon Raid's: from `grades[0]` at stage 1 to `grades[1]` at the last such stage. */
 export function normalRuneGradeWeights(stage: number): number[] {
   const [first, last] = KR_DROPS.normal.grades as readonly (readonly number[])[];

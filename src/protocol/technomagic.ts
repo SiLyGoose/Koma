@@ -121,9 +121,9 @@ export interface DropView {
 }
 
 /**
- * What a fight that is over gave each player (by id): the items found, the points paid, and (the Dragon Raid's) the hero
- * essences, so many of each kind, the komaGems, and how many stages it cleared for them for the first time (a win clears those
- * under it too; each pays komaGems once).
+ * What a fight that is over gave each player (by id): the items found, the points paid, (the Dragon Raid's) the hero essences,
+ * so many of each kind, and the komaGems, and how many stages it cleared for them for the first time (a win clears those under
+ * it too; each pays komaGems once).
  */
 export interface OverView {
   result: 'won' | 'lost';

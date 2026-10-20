@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { DRAGON_DROPS, DRAGON_GEMS, dragonClearGems, dragonDrops, dragonGems, TM_ROOM } from '../src/constants/index.js';
+import { DRAGON_DROPS, DRAGON_GEMS, dragonClearGems, dragonDrops, dragonGems, TM_GEMS, tmClearGems, TM_ROOM } from '../src/constants/index.js';
 import { HEROES } from '../src/data/heroes.js';
 import { DRAGON_ESSENCES, ESSENCES } from '../src/data/transcend.js';
 import { DRAGON_IDS, DRAGONS, dragonPay, isDragon, rollDragonEssences, rollDragonGear } from '../src/lib/game/dragon.js';
@@ -53,6 +53,10 @@ test('dragon: each stage pays komaGems the first time it is cleared, and a win c
   assert.equal(dragonClearGems(10, 3, 'hard'), 0, 'under what they have cleared: none');
   assert.equal(dragonClearGems(1, 10, 'normal'), 1 * 5 + 2 * 4, 'carried from Normal 1 to 10: stages 2 to 10');
   assert.equal(dragonClearGems(0, 20, 'normal') + dragonClearGems(0, 10, 'hard'), 100, 'every stage of a dragon: 100');
+  assert.equal(TM_GEMS.length, 8, "Galgoria's stages");
+  assert.equal(tmClearGems(0, 8), 85, 'every stage of the TechnoMagic Raid: 85');
+  assert.equal(tmClearGems(2, 4), 5 + 10, 'carried from 2 to 4: stages 3 and 4');
+  assert.equal(tmClearGems(8, 8), 0);
 });
 
 test('dragon: a Normal win pays as the Hard stage it is as tough as; one easier than all of them, less than Hard stage 1', () => {

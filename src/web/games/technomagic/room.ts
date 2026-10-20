@@ -768,11 +768,9 @@ export class TechnoMagicRoom {
       result,
       drops: Object.fromEntries([...got].map(([userId, { drops }]) => [userId, drops])),
       points: Object.fromEntries([...got].map(([userId, { points }]) => [userId, points])),
-      ...(this.raid.kind === 'dragon' && {
-        essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])),
-        gems: Object.fromEntries([...got].map(([userId, { gems }]) => [userId, gems ?? 0])),
-        firstClears: Object.fromEntries([...got].map(([userId, { firstClears }]) => [userId, firstClears ?? 0])),
-      }),
+      ...(this.raid.kind === 'dragon' && { essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])) }),
+      gems: Object.fromEntries([...got].map(([userId, { gems }]) => [userId, gems ?? 0])),
+      firstClears: Object.fromEntries([...got].map(([userId, { firstClears }]) => [userId, firstClears ?? 0])),
     };
     // Those gone during it: still waited for, for what's left of their time.
     for (const member of this.members.values()) if (!member.peer) this.waitFor(member);

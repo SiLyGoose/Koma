@@ -397,7 +397,7 @@ export interface TmRunDoc {
   drops?: string[];
   /** A Dragon Raid win's hero essences, so many of each kind. */
   essences?: Partial<Record<EssenceId, number>>;
-  /** A Dragon Raid win's komaGems (its first clear of its stage's only). */
+  /** A Dragon or TechnoMagic Raid win's komaGems (for the stages it cleared for the first time). */
   gems?: number;
 }
 
@@ -601,6 +601,8 @@ export type LedgerReason =
   | 'raid_gems'
   // komaGems for a Dragon Raid win (0 points, gemDelta): the first at its stage only.
   | 'dragon_gems'
+  // komaGems for a TechnoMagic Raid win (0 points, gemDelta): its stage's first clear's, and those under it it cleared.
+  | 'tm_gems'
   // Hero essences for beating it (0 points; essenceDelta).
   | 'raid_essences'
   | 'dragon_essences'
