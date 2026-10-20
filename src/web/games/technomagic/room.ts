@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
+import { DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import type { RaidClassId } from '../../../constants/raid.js';
 import { KR_TM_SETS } from '../../../data/kr-gear.js';
 import { copyMainStat, heroItemLines, partOf, potentialLines, setBonusLines } from '../../../lib/game/heroes.js';
 import { runeView } from '../../models/heroes.js';
-import { DRAGONS } from '../../../lib/game/dragon.js';
+import { DRAGONS, isDragon } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
 import { beginRun, clearedStages, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
@@ -22,7 +22,7 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * (single player: nobody else gets in, and it isn't said in Discord). Whoever creates a raid is its host (1P; when the
  * host goes, whoever has been in it longest is); a page that names no raid joins an open one against its boss, or creates
  * one. Getting ready, each picks heroes of their own
- * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
+ * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots (a dragon's: DRAGON_ROOM.slots)
  * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
@@ -248,14 +248,19 @@ export class TechnoMagicRoom {
     return this.single;
   }
 
+  /** Its lineup's sizes: a dragon's (DRAGON_ROOM, King's Raid's Dragon Raid party) or the TechnoMagic Raid's. */
+  private sizes(): typeof TM_ROOM | typeof DRAGON_ROOM {
+    return isDragon(this.boss.id) ? DRAGON_ROOM : TM_ROOM;
+  }
+
   private slots(): number {
-    return this.solo() ? TM_ROOM.soloSlots : TM_ROOM.slots;
+    return this.solo() ? this.sizes().soloSlots : this.sizes().slots;
   }
 
   /** How many heroes `userId` may bring. */
   private limit(userId: string): number {
-    if (this.solo()) return TM_ROOM.soloSlots;
-    return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
+    if (this.solo()) return this.sizes().soloSlots;
+    return userId === this.host() ? this.sizes().hostHeroes : this.sizes().guestHeroes;
   }
 
   /** How many stages the boss has in the raid's mode. */
@@ -356,7 +361,7 @@ export class TechnoMagicRoom {
 
   /** How many heroes the Main Team takes alone, or the Sub Team (`sub`). */
   private teamSlots(sub: boolean): number {
-    return sub ? TM_ROOM.soloSlots - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
+    return sub ? this.sizes().soloSlots - this.sizes().mainTeam : this.sizes().mainTeam;
   }
 
   /**

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { GAMES } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { TM_ROOM } from '../src/constants/index.js';
+import { DRAGON_ROOM, TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
@@ -19,7 +19,7 @@ import { heroesView } from '../src/web/models/heroes.js';
 import { databankView } from '../src/web/models/databank.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/technomagic/protocol.js';
 import { localFights, workerFights, type Intent, type Progress } from '../src/web/games/technomagic/fight.js';
-import { TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
+import { DRAGON_RAID, TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
 import { type BegunRun } from '../src/services/technomagic.js';
 import type { ItemCopyDoc, MemberDoc } from '../src/types.js';
 
@@ -773,4 +773,28 @@ test('technomagic: a fight in the worker thread goes as one run right here, step
   assert.deepEqual(await play(workerFights), here);
   // A run that makes no sense: why, from either.
   assert.equal(await workerFights.start({ ...fight, boss: 'nobody' }), 'boss');
+});
+
+test('dragon room: 9 heroes with others (the host 4, everyone else 3), 8 alone (a Main Team of 4 and a Sub Team of 4)', () => {
+  const h = harness();
+  const dragons = new TechnoMagicRooms(h.deps, DRAGON_RAID);
+  const a = h.peer();
+  dragons.join(h.player('a'), a, ALL, 0, h.deps, false, 'temeraire');
+  const b = h.peer();
+  dragons.join(h.player('b'), b, ALL, 0, h.deps, false, 'temeraire');
+  assert.equal(b.room().slots, DRAGON_ROOM.slots);
+  assert.equal(DRAGON_ROOM.slots, 9);
+  assert.deepEqual(b.room().players.map((p) => [p.host, p.limit]), [[true, 4], [false, 3]]);
+
+  const c = h.peer();
+  const { room } = dragons.join(h.player('c'), c, ALL, 0, h.deps, true, 'temeraire')!;
+  assert.equal(c.room().slots, 8);
+  for (const hero of ALL.slice(0, 4)) assert.equal(room.pick('c', hero, 0), null);
+  for (const hero of ALL.slice(4, 8)) assert.equal(room.pick('c', hero, 0, true), null);
+  assert.equal(room.pick('c', ALL[8] as string, 0, true), 'limit');
+
+  // The TechnoMagic Raid's stay as they are.
+  const d = h.peer();
+  h.rooms.join(h.player('d'), d, ALL, 0, h.deps, true);
+  assert.equal(d.room().slots, TM_ROOM.soloSlots);
 });

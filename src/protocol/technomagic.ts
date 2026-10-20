@@ -11,8 +11,8 @@ import type { MainStat } from './items.js';
  * A server has as many raids (rooms others can join: the bot's web/games/technomagic/room.ts) as its players create, each
  * against a boss and with an id of its own (the front page's Find Raid lists them: LobbyView), and each player can have one of
  * their own (single player: nobody else gets in, and nothing is said in Discord). Getting ready (`prep`), everyone in it picks heroes of their own into its
- * lineup (the host up to 4, everyone else up to 3, 8 in all, even while the host is alone in it; single player, up to 7 against an easier boss: 4 in the Main
- * Team, whose skills are theirs to use, and 3 in the Sub Team, on Auto for the whole fight), says they're ready,
+ * lineup (the host up to 4, everyone else up to 3, 8 in all, a dragon's 9, even while the host is alone in it; single player, up to 7 against an easier
+ * boss, a dragon's 8: 4 in the Main Team, whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight), says they're ready,
  * and the host starts the fight at a stage they have opened (won the one before it); a dragon's raid is in its Normal or Hard
  * mode, the host's pick, each mode's stages opened apart. The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
  * the bot runs it by its own clock with every player's presses, and every page runs the same one from the
