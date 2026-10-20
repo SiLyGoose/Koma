@@ -1,9 +1,10 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG, type Settings } from '../../config.js';
-import { dragonDrops } from '../../constants/technomagic.js';
+import { dragonDrops, NORMAL_PAYS_FROM, normalPaysAs } from '../../constants/technomagic.js';
 import { RAID_DROPS } from '../../data/items.js';
 import { DRAGON_ESSENCES, ESSENCES, type EssenceId } from '../../data/transcend.js';
 import type { ItemDef } from '../../types.js';
+import type { RaidMode } from '../../protocol/technomagic.js';
 import { DRAGON_INFO, type BossInfo } from '../../../vendor/technomagic-sim.mjs';
 
 /*
@@ -26,8 +27,19 @@ export interface DragonRng {
 
 const defaultRng: DragonRng = { index: (max) => randomInt(0, max) };
 
-/** What a win at `stage` pays each player: so many points, and so many of each of its dragon's essences. */
-export function dragonPay(stage: number, cfg: Settings['dragon'] = CONFIG.dragon): { points: number; essences: number } {
+/**
+ * What a win at `stage` pays each player: so many points, and so many of each of its dragon's essences. In `mode` Normal, as
+ * the Hard stage it pays as (normalPaysAs); one easier than all of them, what Hard stage 1 pays, as much less as its stage
+ * is of the first that pays as one of Hard's.
+ */
+export function dragonPay(stage: number, cfg: Settings['dragon'] = CONFIG.dragon, mode: RaidMode = 'hard'): { points: number; essences: number } {
+  if (mode === 'normal') {
+    const as = normalPaysAs(stage);
+    if (as > 0) return dragonPay(as, cfg);
+    const first = dragonPay(1, cfg);
+    const of = Math.max(1, Math.floor(stage)) / NORMAL_PAYS_FROM;
+    return { points: Math.round(first.points * of), essences: Math.round(first.essences * of) };
+  }
   const past = Math.max(0, Math.floor(stage) - 1);
   return { points: Math.max(0, cfg.winPoints + cfg.pointsPerStage * past), essences: Math.max(0, cfg.essences + cfg.essencesPerStage * past) };
 }

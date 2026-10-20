@@ -10,6 +10,7 @@ import { rollArtifact, rollDragonPieces, rollRunes, rollTmDrop, rollTmSkill, SIM
 import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
 import type { ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
+import type { RaidMode } from '../protocol/technomagic.js';
 import { addCopy, ensureMember } from './economy/index.js';
 import { giveEssences } from './economy/essences.js';
 import { recordLedger } from './economy/shared.js';
@@ -22,6 +23,7 @@ import { recordLedger } from './economy/shared.js';
  * (ItemCopyDoc.tmSkill, tmPotentials; an armor's main stat's DEF too, tmArmorDef), and `hero.winPoints` points.
  * The Dragon Raid's runs are kept the same way (their boss a dragon: lib/game/dragon.ts), and a win gives each player hero
  * gear (raid items: DRAGON_DROPS), points and hero essences of its dragon's kinds, more at the higher stages (`dragon.*`).
+ * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
  */
 
 /** The ids of the heroes a member owns (that still exist). */
@@ -30,16 +32,23 @@ export async function ownedHeroes(guildId: string, userId: string): Promise<stri
   return Object.keys(member?.heroes ?? {}).filter((id) => HEROES_BY_ID.has(id));
 }
 
-/** The highest stage a member has won a run against `boss` at (0: none yet). */
-export async function clearedStage(guildId: string, userId: string, boss: string = TM_BOSS): Promise<number> {
-  const best = await collections().tmRuns.findOne({ guildId, userId, boss, result: 'won' }, { sort: { stage: -1 }, projection: { stage: 1 } });
+/** The highest stage a member has won a run against `boss` at, in `mode` (0: none yet). A run with no mode is a Hard one (every run from before Normal). */
+export async function clearedStage(guildId: string, userId: string, boss: string = TM_BOSS, mode: RaidMode = 'hard'): Promise<number> {
+  const best = await collections().tmRuns.findOne({ guildId, userId, boss, result: 'won', mode: mode === 'normal' ? 'normal' : { $ne: 'normal' } }, { sort: { stage: -1 }, projection: { stage: 1 } });
   return best?.stage ?? 0;
 }
 
-/** A room's run, begun: its id, boss and seed, and for each player the heroes they own and each one's gear. */
+/** The highest stage a member has won against `boss` in each mode (0: none yet). */
+export async function clearedStages(guildId: string, userId: string, boss: string = TM_BOSS): Promise<Record<RaidMode, number>> {
+  const [hard, normal] = await Promise.all([clearedStage(guildId, userId, boss, 'hard'), isDragon(boss) ? clearedStage(guildId, userId, boss, 'normal') : 0]);
+  return { hard, normal };
+}
+
+/** A room's run, begun: its id, boss, the boss's mode (none: Hard) and the seed, and for each player the heroes they own and each one's gear. */
 export interface BegunRun {
   id: string;
   boss: string;
+  mode?: RaidMode;
   seed: number;
   players: Map<
     string,
@@ -57,12 +66,12 @@ export interface BegunRun {
 }
 
 /**
- * Begins a room's run against `boss` at `stage` for each of its players with their `heroes` (the lineup's): reads what each
- * owns and their gear, and keeps a run for each.
+ * Begins a room's run against `boss` (in `mode`) at `stage` for each of its players with their `heroes` (the lineup's): reads
+ * what each owns and their gear, and keeps a run for each.
  */
-export async function beginRun(guildId: string, stage: number, players: readonly { userId: string; heroes: readonly { id: string; skin: number }[] }[], now: Date = new Date(), boss: string = TM_BOSS): Promise<BegunRun> {
+export async function beginRun(guildId: string, stage: number, players: readonly { userId: string; heroes: readonly { id: string; skin: number }[] }[], now: Date = new Date(), boss: string = TM_BOSS, mode: RaidMode = 'hard'): Promise<BegunRun> {
   const { items, members, tmRuns } = collections();
-  const run: BegunRun = { id: randomBytes(12).toString('base64url'), boss, seed: randomBytes(4).readUInt32LE(0), players: new Map() };
+  const run: BegunRun = { id: randomBytes(12).toString('base64url'), boss, mode, seed: randomBytes(4).readUInt32LE(0), players: new Map() };
   for (const { userId, heroes } of players) {
     const [member, copies] = await Promise.all([
       members.findOne({ guildId, userId }, { projection: { heroes: 1 } }),
@@ -85,6 +94,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       guildId,
       userId,
       boss,
+      ...(mode === 'normal' && { mode }),
       seed: run.seed,
       stage,
       heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, artifact: artifacts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
@@ -144,7 +154,7 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
   for (const userId of run.players.keys()) {
     // One who left it (forfeited) is paid nothing, and it counts as lost for them (it opens no stage).
     const paid = result === 'won' && !forfeited.has(userId);
-    const won: TmWin = !paid ? { finds: [], points: 0 } : dragon ? await payDragonWin(guildId, userId, run.boss, stage) : await payTmWin(guildId, userId, run.boss, stage);
+    const won: TmWin = !paid ? { finds: [], points: 0 } : dragon ? await payDragonWin(guildId, userId, run.boss, stage, run.mode) : await payTmWin(guildId, userId, run.boss, stage);
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
@@ -182,13 +192,13 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
   return { finds, runes, points };
 }
 
-/** A Dragon Raid win at `stage` against `dragon`: pieces of its set (rollDragonPieces), its runes, its points, and its dragon's essences (dragonPay). */
-async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number): Promise<TmWin> {
+/** A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, and its dragon's essences (dragonPay). */
+async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
   const finds: TmFind[] = [];
-  for (const item of rollDragonPieces(dragon, stage)) finds.push(await findPiece(guildId, userId, item));
-  const runes = rollRunes(stage, true);
+  for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item));
+  const runes = rollRunes(stage, true, undefined, mode);
   await giveRunes(guildId, userId, runes);
-  const pay = dragonPay(stage);
+  const pay = dragonPay(stage, undefined, mode);
   await payPoints(guildId, userId, pay.points, 'dragon_win');
   const essences = rollDragonEssences(dragon, pay.essences);
   await giveEssences(guildId, userId, essences, 'dragon_essences');

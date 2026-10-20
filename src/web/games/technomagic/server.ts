@@ -18,9 +18,11 @@ export type { Peer } from './room.js';
 /** A few words on what a player is doing, for the online list, from a message sent to their page. */
 function describe(message: ServerMessage): string | null {
   if (message.t !== 'room') return null;
-  const { phase, players, stage, boss } = message.state;
+  const { phase, players, stage, boss, mode } = message.state;
   const what = phase === 'fight' ? 'Fighting' : phase === 'over' ? 'Done' : 'Getting ready';
-  return `${boss.name} · Stage ${stage} · ${what} · ${players.length} in`;
+  // (A dragon's: its mode, Normal or Hard.)
+  const at = boss.normal === undefined ? `Stage ${stage}` : `${mode === 'normal' ? 'Normal' : 'Hard'} ${stage}`;
+  return `${boss.name} · ${at} · ${what} · ${players.length} in`;
 }
 
 /** Plays the TechnoMagic Raid (or, its rooms the Dragon Raid's, the Dragon Raid) in `rooms` with the page `page`. */
@@ -46,7 +48,7 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             console.error('Could not read whose heroes are whose:', err);
             return [] as string[];
           }),
-          deps.cleared(player.guildId, player.userId, boss).catch(() => 0),
+          deps.cleared(player.guildId, player.userId, boss).catch(() => ({ hard: 0, normal: 0 })),
         ]);
         if (hello.gone) return;
         const joined = rooms.join(player, peer, owned, cleared, deps, single, boss, wanted);
@@ -70,6 +72,8 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             return answer(room.ready(userId, message.on));
           case 'stage':
             return answer(room.setStage(userId, message.stage));
+          case 'mode':
+            return answer(room.setMode(userId, message.mode));
           case 'begin':
             return answer(await room.begin(userId, message.force === true));
           case 'boss':

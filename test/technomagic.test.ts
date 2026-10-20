@@ -35,7 +35,7 @@ test("technomagic: the bot's heroes are the sim's, each with a skin, and the bos
   assert.ok(HEROES.length > 0);
   for (const hero of HEROES) assert.ok(hero.skins >= 1, hero.id);
   assert.match(SIM_VERSION, /^[0-9a-f]{12}$/);
-  assert.equal(MOST_STAGE, 10, "the dragons' 10 (Galgoria has 8)");
+  assert.equal(MOST_STAGE, 20, "the Normal dragons' 20 (the Hard ones have 10, Galgoria 8)");
   assert.equal(GAMES.technomagic.page, '/games/technomagic');
 });
 

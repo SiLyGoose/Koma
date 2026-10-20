@@ -6,7 +6,7 @@ export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 export declare const MOST_INPUTS = 20000;
-/** The most stages any boss has (each boss's own: BossInfo.stages). */
+/** The most stages any boss has, in either mode (each boss's own: BossInfo.stages, and its Normal mode's: BossInfo.normal). */
 export declare const MOST_STAGE: number;
 /**
  * A hero in a raid: its id, the index of its skin, what its gear gives it (the bot's HeroBonus), the TechnoMagic
@@ -56,13 +56,17 @@ export interface TmSkill {
 /** Every additional skill a piece of TechnoMagic gear may come with (one, rolled as it drops: each as likely); and the most a hero has. */
 export declare const TM_SKILLS: readonly TmSkill[];
 export declare const MOST_TM_SKILLS: number;
-/** A raid as the bot gave it to the pages: the boss, the seed, the stage, its heroes in order, and whether it is fought alone (the boss easier). */
+/**
+ * A raid as the bot gave it to the pages: the boss, the seed, the stage, its heroes in order, whether it is fought alone (the
+ * boss easier), and against which of the boss's modes (a dragon's Normal mode, or its Hard; none said: Hard, the only one most have).
+ */
 export interface Run {
     boss: string;
     seed: number;
     stage: number;
     heroes: readonly RunHero[];
     solo?: boolean;
+    mode?: BossMode;
 }
 /** How a raid played over went. */
 export interface Replay {
@@ -112,11 +116,14 @@ export declare function tmPerkStats(hero: string, perks: readonly string[]): {
 /** The heroes there are, in the order of their cards; and the bosses, by id. */
 export declare const TM_HEROES: readonly TmHero[];
 export declare const BOSS_IDS: readonly string[];
-/** A boss as the bot says it: its id, its name and how many stages it has. */
+/** Which of a boss's modes a raid is against (./bosses/boss.ts BossMode): a dragon's Normal mode, or its Hard. */
+export type BossMode = 'normal' | 'hard';
+/** A boss as the bot says it: its id, its name and how many stages it has (in its Hard mode); and, one with a Normal mode, how many that has. */
 export interface BossInfo {
     id: string;
     name: string;
     stages: number;
+    normal?: number;
 }
 /** The TechnoMagic Raid's bosses, and the Dragon Raid's dragons, in order. */
 export declare const TM_BOSS_INFO: readonly BossInfo[];

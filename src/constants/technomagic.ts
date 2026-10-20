@@ -81,7 +81,13 @@ export const dragonDrops = (stage: number): Readonly<Partial<Record<3 | 4, numbe
  *     `dragonGrades[1]` at 10; a TechnoMagic Raid's from `tmGrades[0]` at stage 1 to `tmGrades[1]` at 8 (the hardest raid:
  *     its runes are better even at stage 1); a grade 5 one a Velkazar rune `velkazar` of the time, else an Ancient one;
  *   - an artifact, now and then, from a TechnoMagic Raid: `artifact` of the time at stage 1, `artifactPerStage` more for each
- *     stage past it.
+ *     stage past it;
+ *   - a Normal Dragon Raid's win (a dragon's Normal mode, stages 1 to 20), as `normal` says: a stage as tough as one of the Hard
+ *     Dragon Raid's (its dragon's health as much, as King's Raid's tables have them: from stage 13 on) pays as that one does
+ *     (`paysAs`, by the stage; 0: none is). An easier one gives a piece of its dragon's set of tier `tier` from stage
+ *     `piecesFrom` on (the playtest's Normal stages 7 and 8 are its T6 ones), `runes` runes, each of a grade rolled by weights
+ *     climbing from `grades[0]` at stage 1 to `grades[1]` (the Hard Dragon Raid's stage 1's) at the last such stage, and the
+ *     points and essences Hard stage 1 pays (the `dragon.*` settings), so much less: as its stage is of the first that pays as one of Hard's.
  */
 export const KR_DROPS = {
   dragonSets: { temeraire: 'opportune-fire', scalaxia: 'gritty-frost', zyrrkinoth: 'unrelenting-poison', armarta: 'swift-darkness' } as Readonly<Record<string, string>>,
@@ -103,6 +109,16 @@ export const KR_DROPS = {
   velkazar: 0.4,
   artifact: 0.03,
   artifactPerStage: 0.01,
+  normal: {
+    paysAs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 4, 7, 8, 9, 10, 10] as readonly number[],
+    piecesFrom: 7,
+    tier: 6,
+    runes: 1,
+    grades: [
+      [60, 30, 10, 0, 0, 0],
+      [40, 35, 20, 5, 0, 0],
+    ] as readonly (readonly number[])[],
+  },
 } as const;
 
 /** How many runes a win at `stage` gives (past the last listed, as many as the last). */
@@ -111,6 +127,20 @@ export const runeCount = (stage: number): number => KR_DROPS.runes[Math.min(KR_D
 /** How many dragon set pieces a Dragon Raid win at `stage` gives, and of which tier. */
 export const dragonPieces = (stage: number): number => KR_DROPS.dragonPieces[Math.min(KR_DROPS.dragonPieces.length, Math.max(1, Math.floor(stage))) - 1] as number;
 export const dragonTier = (stage: number): number => KR_DROPS.dragonTiers.filter(([from]) => stage >= from).at(-1)?.[1] ?? 6;
+
+/** The Hard Dragon Raid's stage a Normal Dragon Raid's win at `stage` pays as (0: none, it is easier than all of them; past the last, as the last). */
+export const normalPaysAs = (stage: number): number => KR_DROPS.normal.paysAs[Math.min(KR_DROPS.normal.paysAs.length, Math.max(1, Math.floor(stage))) - 1] ?? 0;
+
+/** The first Normal Dragon Raid stage that pays as one of the Hard Dragon Raid's (the ones before it are easier than all of them). */
+export const NORMAL_PAYS_FROM: number = KR_DROPS.normal.paysAs.findIndex((as) => as > 0) + 1;
+
+/** The weights of each rune grade a Normal Dragon Raid's win at `stage` rolls, where it pays as none of the Hard Dragon Raid's: from `grades[0]` at stage 1 to `grades[1]` at the last such stage. */
+export function normalRuneGradeWeights(stage: number): number[] {
+  const [first, last] = KR_DROPS.normal.grades as readonly (readonly number[])[];
+  const easy = Math.max(2, NORMAL_PAYS_FROM - 1);
+  const along = Math.min(1, Math.max(0, (Math.floor(stage) - 1) / (easy - 1)));
+  return (first as readonly number[]).map((from, i) => from + ((last as readonly number[])[i] as number - from) * along);
+}
 
 /**
  * The weights of each rune grade (1 to 6) a win at `stage` rolls: its raid's (`dragon`: the Dragon Raid's over its 10 stages,

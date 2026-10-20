@@ -5,7 +5,7 @@ import { DRAGON_DROPS, dragonDrops, TM_ROOM } from '../src/constants/index.js';
 import { HEROES } from '../src/data/heroes.js';
 import { DRAGON_ESSENCES, ESSENCES } from '../src/data/transcend.js';
 import { DRAGON_IDS, DRAGONS, dragonPay, isDragon, rollDragonEssences, rollDragonGear } from '../src/lib/game/dragon.js';
-import { replay, TM_BOSS } from '../src/lib/game/technomagic.js';
+import { replay, rollDragonPieces, TM_BOSS } from '../src/lib/game/technomagic.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 import type { BegunRun } from '../src/services/technomagic.js';
 import type { Player } from '../src/web/auth/token.js';
@@ -38,6 +38,18 @@ test('dragon: a win pays more points and essences at each stage, and the setting
   assert.deepEqual(dragonPay(1, DEFAULTS.dragon), { points: 750, essences: 8 });
   assert.deepEqual(dragonPay(10, DEFAULTS.dragon), { points: 3_000, essences: 44 });
   for (const key of ['dragon.winPoints', 'dragon.pointsPerStage', 'dragon.essences', 'dragon.essencesPerStage']) assert.ok(findSpec(key), key);
+});
+
+test('dragon: a Normal win pays as the Hard stage it is as tough as; one easier than all of them, less than Hard stage 1', () => {
+  assert.deepEqual(dragonPay(13, DEFAULTS.dragon, 'normal'), dragonPay(3, DEFAULTS.dragon), 'Normal 13: as tough as Hard 3');
+  assert.deepEqual(dragonPay(20, DEFAULTS.dragon, 'normal'), dragonPay(10, DEFAULTS.dragon));
+  assert.deepEqual(dragonPay(1, DEFAULTS.dragon, 'normal'), { points: 58, essences: 1 });
+  assert.deepEqual(dragonPay(12, DEFAULTS.dragon, 'normal'), { points: 692, essences: 7 });
+  const first = { index: () => 0 };
+  assert.deepEqual(rollDragonPieces('temeraire', 6, first, 'normal'), [], 'no gear before Normal 7');
+  const seven = rollDragonPieces('temeraire', 7, first, 'normal');
+  assert.deepEqual(seven.map((item) => item.kr?.tier), [6], 'a T6 piece from Normal 7 (the playtest’s T6 stages)');
+  assert.deepEqual(rollDragonPieces('temeraire', 20, first, 'normal').map((item) => item.kr?.tier), rollDragonPieces('temeraire', 10, first).map((item) => item.kr?.tier));
 });
 
 test('dragon: each dragon gives two kinds of essences after its element, every kind from one dragon or another', () => {
@@ -84,13 +96,15 @@ function harness() {
   const ticks: (() => void)[] = [];
   const announced: [string, string][] = [];
   const begun: string[] = [];
+  const modes: string[] = [];
   const deps: RoomDeps = {
     now: () => clock,
     avatar: () => null,
     owned: async () => ALL,
-    cleared: async () => 0,
-    begin: async (_g, _stage, players, boss) => {
+    cleared: async () => ({ hard: 0, normal: 0 }),
+    begin: async (_g, _stage, players, boss, mode) => {
       begun.push(boss);
+      modes.push(mode);
       return {
         id: 'run',
         boss,
@@ -123,7 +137,7 @@ function harness() {
       await new Promise((resolve) => setImmediate(resolve));
     }
   };
-  return { rooms, deps, peer, player, announced, begun, pass };
+  return { rooms, deps, peer, player, announced, begun, modes, pass };
 }
 
 test('dragon room: a page naming no raid joins an open one against the dragon it names, or creates one, said in Discord with its dragon', () => {
@@ -132,14 +146,15 @@ test('dragon room: a page naming no raid joins an open one against the dragon it
   const temeraire = h.rooms.join(h.player('a'), a, ALL, 0, h.deps)!;
   const state = a.room();
   assert.equal(state.raid, 'dragon');
-  assert.deepEqual(state.boss, { id: 'temeraire', name: 'Temeraire', stages: 10 }, 'the first dragon, with none named');
+  assert.deepEqual(state.boss, { id: 'temeraire', name: 'Temeraire', stages: 10, normal: 20 }, 'the first dragon, with none named');
+  assert.equal(state.mode, 'hard', 'in Hard, unless the host picks Normal');
   assert.deepEqual(state.bosses.map((boss) => boss.id), DRAGON_IDS);
   assert.equal(state.link, 'https://site/?play=dragon&guild=g1&mode=multi&boss=temeraire');
 
   const b = h.peer();
   const armarta = h.rooms.join(h.player('b'), b, ALL, 0, h.deps, false, 'armarta')!;
   assert.notEqual(armarta.room, temeraire.room);
-  assert.deepEqual(b.room().boss, { id: 'armarta', name: 'Armarta', stages: 10 });
+  assert.deepEqual(b.room().boss, { id: 'armarta', name: 'Armarta', stages: 10, normal: 20 });
   assert.deepEqual(h.announced, [['A', 'temeraire'], ['B', 'armarta']]);
 
   // One that isn't a dragon: the first dragon's room. And one page a player: a's page in another dragon's room takes over.
@@ -180,8 +195,8 @@ test('dragon room: raids are created apart, joined by their id, and listed for F
   // Joined by its id (whatever dragon the page names), or a page naming none goes into an open one.
   const c = h.peer();
   assert.equal(h.rooms.join(h.player('c'), c, ALL, 0, h.deps, false, 'armarta', { room: id! })!.room, first.room);
-  assert.deepEqual(c.room().boss, { id: 'temeraire', name: 'Temeraire', stages: 10 });
-  assert.deepEqual(h.rooms.bossFor(h.player('d'), { room: id! }), { id: 'temeraire', name: 'Temeraire', stages: 10 });
+  assert.deepEqual(c.room().boss, { id: 'temeraire', name: 'Temeraire', stages: 10, normal: 20 });
+  assert.deepEqual(h.rooms.bossFor(h.player('d'), { room: id! }), { id: 'temeraire', name: 'Temeraire', stages: 10, normal: 20 });
   // Find Raid: the fullest first; none against another dragon.
   const listed = h.rooms.lobbies('g1', 'temeraire');
   assert.deepEqual(listed.map((one) => [one.id, one.host.name, one.players, one.most]), [
@@ -207,10 +222,10 @@ test('dragon room: the host takes the raid against another dragon, everyone with
   assert.equal(await room.setBoss('b', 'armarta'), 'only_host');
   assert.equal(await room.setBoss('a', 'galgoria'), 'closed', 'not one of the raid’s');
   // The host has won stage 3 against Armarta: up to 4 there.
-  h.deps.cleared = async (_g, userId, boss) => (userId === 'a' && boss === 'armarta' ? 3 : 0);
+  h.deps.cleared = async (_g, userId, boss) => ({ hard: userId === 'a' && boss === 'armarta' ? 3 : 0, normal: 0 });
   assert.equal(await room.setBoss('a', 'armarta'), null);
   for (const page of [a, b]) {
-    assert.deepEqual(page.room().boss, { id: 'armarta', name: 'Armarta', stages: 10 });
+    assert.deepEqual(page.room().boss, { id: 'armarta', name: 'Armarta', stages: 10, normal: 20 });
     assert.deepEqual(page.room().players.map((p) => p.id), ['a', 'b'], 'everyone with it');
   }
   assert.deepEqual([a.room().stage, a.room().unlocked], [4, 4], 'the highest stage the host has opened against it');
@@ -231,4 +246,48 @@ test('dragon room: the host takes the raid against another dragon, everyone with
   assert.equal(room.part('a'), null);
   assert.deepEqual(h.rooms.lobbies('g1', 'armarta'), []);
   assert.equal(h.rooms.bossFor(h.player('a'), { room: 'x' }), null);
+});
+
+test('dragon room: the host takes the raid between Normal and Hard, each with its own stages opened, and the run is in its mode', async () => {
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL, { hard: 2, normal: 5 }, h.deps, false, 'temeraire', { create: true })!;
+  const b = h.peer();
+  h.rooms.join(h.player('b'), b, ALL, 0, h.deps, false, 'temeraire', { room: a.room().room! });
+  assert.deepEqual([a.room().mode, a.room().stage, a.room().stages, a.room().unlocked], ['hard', 3, 10, 3]);
+  assert.equal(room.setMode('b', 'normal'), 'only_host');
+  assert.equal(room.setMode('a', 'normal'), null);
+  for (const page of [a, b]) assert.deepEqual([page.room().mode, page.room().stage, page.room().stages, page.room().unlocked], ['normal', 6, 20, 6], 'the highest Normal stage the host has opened');
+  assert.equal(h.rooms.lobbies('g1', 'temeraire')[0]?.mode, 'normal', 'Find Raid says its mode');
+  assert.equal(room.setStage('a', 7), 'locked');
+  assert.equal(room.setStage('a', 4), null);
+  assert.equal(room.setMode('a', 'hard'), null);
+  assert.deepEqual([a.room().mode, a.room().stage], ['hard', 3]);
+  assert.equal(room.setMode('a', 'normal'), null);
+  assert.equal(room.setStage('a', 1), null);
+  assert.equal(room.pick('a', ALL[0]!, 0), null);
+  for (const hero of ALL.slice(1, 4)) assert.equal(room.pick('b', hero, 0), null);
+  assert.equal(room.ready('b', true), null);
+  assert.equal(await room.begin('a'), null);
+  assert.deepEqual(h.modes, ['normal']);
+  assert.equal(room.setMode('a', 'hard'), 'closed', 'not in a fight');
+  for (let i = 0; i < 200 && a.room().phase === 'fight'; i++) await h.pass(1_000);
+  assert.equal(a.room().over?.result, 'won');
+  assert.equal(room.back('a'), null);
+  assert.deepEqual([a.room().mode, a.room().unlocked], ['normal', 6], 'a Normal 1 win opens nothing new past Normal 6');
+  assert.equal(room.setMode('a', 'hard'), null);
+  assert.equal(a.room().unlocked, 3, 'Hard untouched');
+
+  assert.deepEqual(parseClientMessage('{"t":"mode","mode":"normal"}'), { t: 'mode', mode: 'normal' });
+  assert.equal(parseClientMessage('{"t":"mode","mode":"hell"}'), null);
+});
+
+test('dragon room: the TechnoMagic Raid has no Normal mode', () => {
+  const h = harness();
+  const rooms = new TechnoMagicRooms(h.deps);
+  const a = h.peer();
+  const { room } = rooms.join(h.player('a'), a, ALL, 0, h.deps)!;
+  assert.equal(a.room().boss.normal, undefined);
+  assert.equal(room.setMode('a', 'normal'), 'closed');
+  assert.equal(a.room().mode, 'hard');
 });

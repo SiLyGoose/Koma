@@ -13,7 +13,8 @@ import type { MainStat } from './items.js';
  * their own (single player: nobody else gets in, and nothing is said in Discord). Getting ready (`prep`), everyone in it picks heroes of their own into its
  * lineup (the host up to 4, everyone else up to 3, 8 in all, even while the host is alone in it; single player, up to 7 against an easier boss: 4 in the Main
  * Team, whose skills are theirs to use, and 3 in the Sub Team, on Auto for the whole fight), says they're ready,
- * and the host starts the fight at a stage they have opened (won the one before it). The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
+ * and the host starts the fight at a stage they have opened (won the one before it); a dragon's raid is in its Normal or Hard
+ * mode, the host's pick, each mode's stages opened apart. The fight is the site's sim (its src/technomagic/sim/, the bot's vendor/technomagic-sim.mjs):
  * the bot runs it by its own clock with every player's presses, and every page runs the same one from the
  * same seed with the same presses (`fight`, then `turn` after `turn`), never going past the step the bot has
  * reached. So how it ends is the bot's word alone, and what a win gives is rolled by the bot (`over`).
@@ -25,6 +26,8 @@ import type { MainStat } from './items.js';
  *                 unpick    takes one of theirs out of it
  *                 ready     says they're ready (or not), anyone but the host
  *                 stage     the raid's stage (the host)
+ *                 mode      the raid's mode, Normal or Hard (the host, getting ready: a dragon's), at the highest stage
+ *                           the host has opened in it
  *                 begin     starts the fight (the host, with everyone ready; or `force`d, at once: who has no hero in
  *                           sits it out), getting ready or from a fight over
  *                 boss      takes the raid, everyone in it with it, against another of the raid's bosses (the host,
@@ -55,6 +58,7 @@ export type ClientMessage =
   | { t: 'unpick'; hero: string }
   | { t: 'ready'; on: boolean }
   | { t: 'stage'; stage: number }
+  | { t: 'mode'; mode: RaidMode }
   | { t: 'begin'; force?: boolean }
   | { t: 'boss'; boss: string }
   | { t: 'part' }
@@ -129,11 +133,18 @@ export interface OverView {
 /** Which raid a room is: the TechnoMagic Raid, or the Dragon Raid. */
 export type RaidKind = 'technomagic' | 'dragon';
 
-/** A boss as the room says it, and how many stages it has. */
+/**
+ * Which of a boss's modes a raid is against: a dragon's Normal mode (King's Raid's Normal Dragon Raid) or its Hard mode
+ * (the Hard Dragon Raid's); a boss with only the one, Hard.
+ */
+export type RaidMode = 'normal' | 'hard';
+
+/** A boss as the room says it, and how many stages it has (in its Hard mode); and, a dragon, how many its Normal mode has. */
 export interface BossView {
   id: string;
   name: string;
   stages: number;
+  normal?: number;
 }
 
 export interface RoomState {
@@ -148,9 +159,11 @@ export interface RoomState {
   bosses: BossView[];
   /** The raid's id, which its link and the front page's Find Raid join it by (null: a room of one's own, single player). */
   room: string | null;
+  /** Which of the boss's modes the raid is against (the host picks it: `mode`), and its stage and how many stages that mode has. */
+  mode: RaidMode;
   stage: number;
   stages: number;
-  /** The highest stage the host may pick: the one after the highest they have won. */
+  /** The highest stage the host may pick: the one after the highest they have won (in the raid's mode). */
   unlocked: number;
   /** How many heroes the lineup takes now. */
   slots: number;
@@ -165,7 +178,7 @@ export interface RoomState {
 }
 
 /**
- * What a fight is run from: the boss, the seed, the stage, whether it is fought alone, and each hero in it
+ * What a fight is run from: the boss, the seed, the stage, whether it is fought alone, the boss's mode (none: Hard), and each hero in it
  * (whose, which, its skin, what its gear gives it, the TechnoMagic set whose effect it has, or null, and its own
  * unique weapon's tier, 1 to 5, or null, its main unique treasure (which of its four, 1 to 4, at which tier) or null, the
  * additional skill of each piece of TechnoMagic gear it wears, its transcendence perks, and, alone, whether it is in the Sub Team).
@@ -176,6 +189,7 @@ export interface FightStart {
   seed: number;
   stage: number;
   solo: boolean;
+  mode?: RaidMode;
   heroes: { owner: string; id: string; skin: number; gear: Record<string, number>; set: string | null; uw: number | null; ut: { skill: number; tier: number } | null; skills: string[]; perks: string[]; sub?: boolean }[];
 }
 
@@ -215,6 +229,7 @@ export interface LobbyView {
   boss: BossView;
   /** Its host (1P). */
   host: { name: string; avatar: string };
+  mode: RaidMode;
   stage: number;
   players: number;
   /** As many as it takes. */

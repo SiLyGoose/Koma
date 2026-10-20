@@ -379,6 +379,8 @@ export interface TmRunDoc {
   guildId: string;
   userId: string;
   boss: string;
+  /** A dragon's run in its Normal mode (none: Hard, the only one most bosses have, and every run from before). */
+  mode?: 'normal';
   seed: number;
   stage: number;
   /** Their heroes in it. */

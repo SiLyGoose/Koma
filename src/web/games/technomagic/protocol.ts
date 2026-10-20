@@ -39,6 +39,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
       return typeof m.on === 'boolean' ? { t: 'ready', on: m.on } : null;
     case 'stage':
       return index(m.stage, 100) ? { t: 'stage', stage: m.stage } : null;
+    case 'mode':
+      return m.mode === 'normal' || m.mode === 'hard' ? { t: 'mode', mode: m.mode } : null;
     case 'press':
       return index(m.fighter, 64) && index(m.skill, 16) ? { t: 'press', fighter: m.fighter, skill: m.skill } : null;
     case 'auto':

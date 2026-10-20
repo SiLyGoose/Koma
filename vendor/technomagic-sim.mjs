@@ -133,10 +133,14 @@ var ATK = 19592;
 */
 var DEF_MOST = .9;
 /**
-* The most defense that counts against an attacker of each level from 70 (King's Raid's DefenceLevelTable): straight from
-* one of these levels to the next, and on past the last as from the one before.
+* The most defense that counts against an attacker of each level from 30 (King's Raid's DefenceLevelTable, the Normal
+* Dragon Raid's lowest stage's level): straight from one of these levels to the next, and on past the last as from the one before.
 */
 var REACH$1 = [
+	[30, 7258],
+	[40, 13287],
+	[50, 24510],
+	[60, 74200],
 	[70, 155459],
 	[80, 196561],
 	[90, 198457],
@@ -460,6 +464,5867 @@ var MINIONS = {
 			deals: "magical"
 		}
 	}
+};
+//#endregion
+//#region src/technomagic/sim/bosses/dragon/normal.ts
+var NORMAL_STAGES = {
+	temeraire: {
+		hp: [
+			1820832,
+			2450178,
+			3881268,
+			7448968,
+			12434160,
+			22290271,
+			35204016,
+			87313086,
+			115429043,
+			244351426,
+			304207296,
+			430082899,
+			926316222,
+			1522982618,
+			2279061699,
+			3891727409,
+			5582511616,
+			8377048043,
+			10575830117,
+			12595983189
+		],
+		atk: [
+			19964,
+			26877,
+			42637,
+			81770,
+			136600,
+			244803,
+			400685,
+			842012,
+			1113560,
+			2781630,
+			3721502,
+			5262180,
+			11332519,
+			18631681,
+			27883262,
+			47614875,
+			68300016,
+			102493415,
+			129395584,
+			154112207
+		],
+		def: [
+			760,
+			1071,
+			1912,
+			3145,
+			5172,
+			8399,
+			9144,
+			19225,
+			25452,
+			63544,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			803462,
+			1205645,
+			1522102,
+			1812848
+		],
+		pdef: [
+			760,
+			1071,
+			1912,
+			3145,
+			5172,
+			8399,
+			9144,
+			19225,
+			25452,
+			63544,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			803462,
+			1205645,
+			1522102,
+			1812848
+		],
+		level: [
+			30,
+			36,
+			40,
+			46,
+			50,
+			56,
+			60,
+			66,
+			70,
+			76,
+			80,
+			83,
+			86,
+			90,
+			94,
+			100,
+			105,
+			110,
+			110,
+			110
+		]
+	},
+	scalaxia: {
+		hp: [
+			2211384,
+			2975720,
+			4713766,
+			6468397,
+			15101211,
+			20723602,
+			35204016,
+			72168886,
+			97795692,
+			181465332,
+			304207296,
+			430082899,
+			926316222,
+			1522982618,
+			2279061699,
+			3891727409,
+			5582511616,
+			8377048043,
+			10575830117,
+			12595983189
+		],
+		atk: [
+			19964,
+			26877,
+			42637,
+			58465,
+			136600,
+			187401,
+			400685,
+			597182,
+			1113560,
+			2065754,
+			3721502,
+			5262180,
+			11332519,
+			18631681,
+			27883262,
+			47614875,
+			68300016,
+			102493415,
+			129395584,
+			154112207
+		],
+		def: [
+			760,
+			1071,
+			1912,
+			2543,
+			5172,
+			6980,
+			9144,
+			13634,
+			25452,
+			47191,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			803462,
+			1205645,
+			1522102,
+			1812848
+		],
+		pdef: [
+			760,
+			1071,
+			1912,
+			2543,
+			5172,
+			6980,
+			9144,
+			13634,
+			25452,
+			47191,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			803462,
+			1205645,
+			1522102,
+			1812848
+		],
+		level: [
+			30,
+			36,
+			40,
+			46,
+			50,
+			56,
+			60,
+			66,
+			70,
+			76,
+			80,
+			83,
+			86,
+			90,
+			94,
+			100,
+			105,
+			110,
+			110,
+			110
+		]
+	},
+	zyrrkinoth: {
+		hp: [
+			2211384,
+			2975720,
+			4713766,
+			6468397,
+			15101211,
+			20723602,
+			35204016,
+			72168886,
+			134523165,
+			181465332,
+			304207296,
+			430082899,
+			926316222,
+			1522982618,
+			2279061699,
+			3891727409,
+			5943366513,
+			8424202388,
+			9360225133,
+			11232269851
+		],
+		atk: [
+			19964,
+			26877,
+			42637,
+			58465,
+			136600,
+			187401,
+			400685,
+			597182,
+			1113560,
+			2065754,
+			3721502,
+			5262180,
+			11332519,
+			18631681,
+			27883262,
+			47614875,
+			72714950,
+			103070363,
+			114522625,
+			137427150
+		],
+		def: [
+			760,
+			1071,
+			1912,
+			2543,
+			5172,
+			6980,
+			9144,
+			13634,
+			25452,
+			47191,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			641550,
+			909326,
+			1010363,
+			1212435
+		],
+		pdef: [
+			760,
+			1071,
+			1912,
+			2543,
+			5172,
+			6980,
+			9144,
+			13634,
+			25452,
+			47191,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			641550,
+			909326,
+			1010363,
+			1212435
+		],
+		level: [
+			30,
+			36,
+			40,
+			46,
+			50,
+			56,
+			60,
+			66,
+			70,
+			76,
+			80,
+			83,
+			86,
+			90,
+			94,
+			100,
+			105,
+			110,
+			110,
+			110
+		]
+	},
+	armarta: {
+		hp: [
+			2632603,
+			3542536,
+			5611637,
+			7700475,
+			17977632,
+			30457984,
+			41909561,
+			62458787,
+			116423463,
+			216030180,
+			362151524,
+			512003446,
+			1102757383,
+			1813074625,
+			2713168690,
+			4633008797,
+			7075436252,
+			10028812532,
+			11143125121,
+			13371749914
+		],
+		atk: [
+			19964,
+			26877,
+			42637,
+			58465,
+			136600,
+			187401,
+			400685,
+			597182,
+			1113560,
+			2065754,
+			3721502,
+			5262180,
+			11332519,
+			18631681,
+			27883262,
+			47614875,
+			72714950,
+			103070363,
+			114522625,
+			137427150
+		],
+		def: [
+			760,
+			1071,
+			1912,
+			2543,
+			5172,
+			6980,
+			8534,
+			12725,
+			23755,
+			44045,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			641550,
+			909326,
+			1010363,
+			1212435
+		],
+		pdef: [
+			760,
+			1071,
+			1912,
+			2543,
+			5172,
+			6980,
+			8534,
+			12725,
+			23755,
+			44045,
+			43771,
+			61880,
+			133245,
+			219125,
+			327905,
+			462144,
+			641550,
+			909326,
+			1010363,
+			1212435
+		],
+		level: [
+			30,
+			36,
+			40,
+			46,
+			50,
+			56,
+			60,
+			66,
+			70,
+			76,
+			80,
+			83,
+			86,
+			90,
+			94,
+			100,
+			105,
+			110,
+			110,
+			110
+		]
+	}
+};
+var NORMAL_WAVES = {
+	temeraire: [
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 122854,
+				atk: 4991,
+				def: [760, 760]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 165311,
+				atk: 6719,
+				def: [1071, 1071]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 261867,
+				atk: 10659,
+				def: [1912, 1912]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 502595,
+				atk: 20442,
+				def: [3145, 3145]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 838948,
+				atk: 34150,
+				def: [5172, 5172]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 1503966,
+				atk: 61200,
+				def: [8399, 8399]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 1955749,
+				atk: 100171,
+				def: [9144, 9144]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 4109693,
+				atk: 210503,
+				def: [19225, 19225]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 5433057,
+				atk: 278390,
+				def: [25452, 25452]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 13575030,
+				atk: 695405,
+				def: [63544, 63544]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 16900384,
+				atk: 930373,
+				def: [43771, 43771]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 23893488,
+				atk: 1315545,
+				def: [61880, 61880]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 51461984,
+				atk: 2833127,
+				def: [133245, 133245]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 84610061,
+				atk: 4657916,
+				def: [219125, 219125]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 126614539,
+				atk: 6970814,
+				def: [327905, 327905]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 216207051,
+				atk: 11903714,
+				def: [462144, 462144]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 310139263,
+				atk: 17074998,
+				def: [803462, 803462]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 465391280,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 587545861,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			}
+		]],
+		[[
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 0,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			}
+		], [
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 8,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: 6,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: 4,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: 2,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 6,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 5,
+				z: -2,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 4,
+				z: -4,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 3,
+				z: -6,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: -8,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-fire",
+				x: 1,
+				z: 0,
+				hp: 699776737,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			}
+		]]
+	],
+	scalaxia: [
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 58969,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 58969,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 58969,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 58969,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 196569,
+				atk: 4991,
+				def: [760, 760]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 196569,
+			atk: 4991,
+			def: [760, 760]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 196569,
+			atk: 4991,
+			def: [760, 760]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 79343,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 79343,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 79343,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 79343,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 264493,
+				atk: 6719,
+				def: [1071, 1071]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 264493,
+			atk: 6719,
+			def: [1071, 1071]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 264493,
+			atk: 6719,
+			def: [1071, 1071]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 125690,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 125690,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 125690,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 125690,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 418985,
+				atk: 10659,
+				def: [1912, 1912]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 418985,
+			atk: 10659,
+			def: [1912, 1912]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 418985,
+			atk: 10659,
+			def: [1912, 1912]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 172475,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 172475,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 172475,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 172475,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 574958,
+				atk: 14616,
+				def: [2543, 2543]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 574958,
+			atk: 14616,
+			def: [2543, 2543]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 574958,
+			atk: 14616,
+			def: [2543, 2543]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 402702,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 402702,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 402702,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 402702,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 1342317,
+				atk: 34150,
+				def: [5172, 5172]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 1342317,
+			atk: 34150,
+			def: [5172, 5172]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 1342317,
+			atk: 34150,
+			def: [5172, 5172]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 552627,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 552627,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 552627,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 552627,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 1842066,
+				atk: 46850,
+				def: [6980, 6980]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 1842066,
+			atk: 46850,
+			def: [6980, 6980]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 1842066,
+			atk: 46850,
+			def: [6980, 6980]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 938727,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 938727,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 938727,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 938727,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 3129209,
+				atk: 100171,
+				def: [9144, 9144]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 3129209,
+			atk: 100171,
+			def: [9144, 9144]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 3129209,
+			atk: 100171,
+			def: [9144, 9144]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 1399053,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 1399053,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 1399053,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 1399053,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 4663548,
+				atk: 149295,
+				def: [13634, 13634]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 4663548,
+			atk: 149295,
+			def: [13634, 13634]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 4663548,
+			atk: 149295,
+			def: [13634, 13634]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 3587222,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 3587222,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 3587222,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 3587222,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 11957612,
+				atk: 278390,
+				def: [25452, 25452]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 11957612,
+			atk: 278390,
+			def: [25452, 25452]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 11957612,
+			atk: 278390,
+			def: [25452, 25452]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 4839004,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 4839004,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 4839004,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 4839004,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 16130306,
+				atk: 516437,
+				def: [47191, 47191]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 16130306,
+			atk: 516437,
+			def: [47191, 47191]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 16130306,
+			atk: 516437,
+			def: [47191, 47191]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 8112156,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 8112156,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 8112156,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 8112156,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 27040579,
+				atk: 930373,
+				def: [43771, 43771]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 27040579,
+			atk: 930373,
+			def: [43771, 43771]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 27040579,
+			atk: 930373,
+			def: [43771, 43771]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 11468779,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 11468779,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 11468779,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 11468779,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 38229408,
+				atk: 1315545,
+				def: [61880, 61880]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 38229408,
+			atk: 1315545,
+			def: [61880, 61880]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 38229408,
+			atk: 1315545,
+			def: [61880, 61880]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 24701688,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 24701688,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 24701688,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 24701688,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 82339094,
+				atk: 2833127,
+				def: [133245, 133245]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 82339094,
+			atk: 2833127,
+			def: [133245, 133245]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 82339094,
+			atk: 2833127,
+			def: [133245, 133245]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 40612541,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 40612541,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 40612541,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 40612541,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 135376429,
+				atk: 4657916,
+				def: [219125, 219125]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 135376429,
+			atk: 4657916,
+			def: [219125, 219125]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 135376429,
+			atk: 4657916,
+			def: [219125, 219125]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 60775199,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 60775199,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 60775199,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 60775199,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 202583538,
+				atk: 6970814,
+				def: [327905, 327905]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 202583538,
+			atk: 6970814,
+			def: [327905, 327905]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 202583538,
+			atk: 6970814,
+			def: [327905, 327905]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 103779634,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 103779634,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 103779634,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 103779634,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 345931817,
+				atk: 11903714,
+				def: [462144, 462144]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 345931817,
+			atk: 11903714,
+			def: [462144, 462144]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 345931817,
+			atk: 11903714,
+			def: [462144, 462144]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 148866318,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 148866318,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 148866318,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 148866318,
+				atk: 17074998,
+				def: [803462, 803462]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 496222414,
+				atk: 17074998,
+				def: [803462, 803462]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 496222414,
+			atk: 17074998,
+			def: [803462, 803462]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 496222414,
+			atk: 17074998,
+			def: [803462, 803462]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 223387041,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 223387041,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 223387041,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 223387041,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 744625081,
+				atk: 25623350,
+				def: [1205645, 1205645]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 744625081,
+			atk: 25623350,
+			def: [1205645, 1205645]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 744625081,
+			atk: 25623350,
+			def: [1205645, 1205645]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 282021036,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 282021036,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 282021036,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 282021036,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 940072157,
+				atk: 32348888,
+				def: [1522102, 1522102]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 940072157,
+			atk: 32348888,
+			def: [1522102, 1522102]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 940072157,
+			atk: 32348888,
+			def: [1522102, 1522102]
+		}]],
+		[[
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: 8,
+				hp: 335891670,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 2,
+				z: -8,
+				hp: 335891670,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: -3,
+				hp: 335891670,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "hatchling-ice",
+				x: 1,
+				z: 3,
+				hp: 335891670,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			},
+			{
+				kind: "ice-pillar",
+				x: 6,
+				z: 0,
+				hp: 1119641325,
+				atk: 38528044,
+				def: [1812848, 1812848]
+			}
+		], [{
+			kind: "ice-pillar",
+			x: 0,
+			z: 4,
+			hp: 1119641325,
+			atk: 38528044,
+			def: [1812848, 1812848]
+		}, {
+			kind: "ice-pillar",
+			x: 0,
+			z: -4,
+			hp: 1119641325,
+			atk: 38528044,
+			def: [1812848, 1812848]
+		}]]
+	],
+	zyrrkinoth: [
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 196569,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 196569,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 196569,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 196569,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 196569,
+				atk: 4991,
+				def: [760, 760]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 147430,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 147430,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 147430,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 147430,
+				atk: 4991,
+				def: [760, 760]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 147430,
+				atk: 4991,
+				def: [760, 760]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 264493,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 264493,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 264493,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 264493,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 264493,
+				atk: 6719,
+				def: [1071, 1071]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 198376,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 198376,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 198376,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 198376,
+				atk: 6719,
+				def: [1071, 1071]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 198376,
+				atk: 6719,
+				def: [1071, 1071]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 418985,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 418985,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 418985,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 418985,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 418985,
+				atk: 10659,
+				def: [1912, 1912]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 314234,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 314234,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 314234,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 314234,
+				atk: 10659,
+				def: [1912, 1912]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 314234,
+				atk: 10659,
+				def: [1912, 1912]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 574958,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 574958,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 574958,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 574958,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 574958,
+				atk: 14616,
+				def: [2543, 2543]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 431214,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 431214,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 431214,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 431214,
+				atk: 14616,
+				def: [2543, 2543]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 431214,
+				atk: 14616,
+				def: [2543, 2543]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 1342317,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 1342317,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 1342317,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 1342317,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 1342317,
+				atk: 34150,
+				def: [5172, 5172]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 1006738,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 1006738,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 1006738,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 1006738,
+				atk: 34150,
+				def: [5172, 5172]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 1006738,
+				atk: 34150,
+				def: [5172, 5172]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 1842066,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 1842066,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 1842066,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 1842066,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 1842066,
+				atk: 46850,
+				def: [6980, 6980]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 1381550,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 1381550,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 1381550,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 1381550,
+				atk: 46850,
+				def: [6980, 6980]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 1381550,
+				atk: 46850,
+				def: [6980, 6980]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 3129209,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 3129209,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 3129209,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 3129209,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 3129209,
+				atk: 100171,
+				def: [9144, 9144]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 2346919,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 2346919,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 2346919,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 2346919,
+				atk: 100171,
+				def: [9144, 9144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 2346919,
+				atk: 100171,
+				def: [9144, 9144]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 4663548,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 4663548,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 4663548,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 4663548,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 4663548,
+				atk: 149295,
+				def: [13634, 13634]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 3497690,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 3497690,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 3497690,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 3497690,
+				atk: 149295,
+				def: [13634, 13634]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 3497690,
+				atk: 149295,
+				def: [13634, 13634]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 8692909,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 8692909,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 8692909,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 8692909,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 8692909,
+				atk: 278390,
+				def: [25452, 25452]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 6519704,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 6519704,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 6519704,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 6519704,
+				atk: 278390,
+				def: [25452, 25452]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 6519704,
+				atk: 278390,
+				def: [25452, 25452]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 16130306,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 16130306,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 16130306,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 16130306,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 16130306,
+				atk: 516437,
+				def: [47191, 47191]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 12097698,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 12097698,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 12097698,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 12097698,
+				atk: 516437,
+				def: [47191, 47191]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 12097698,
+				atk: 516437,
+				def: [47191, 47191]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 27040579,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 27040579,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 27040579,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 27040579,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 27040579,
+				atk: 930373,
+				def: [43771, 43771]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 20280390,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 20280390,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 20280390,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 20280390,
+				atk: 930373,
+				def: [43771, 43771]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 20280390,
+				atk: 930373,
+				def: [43771, 43771]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 38229408,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 38229408,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 38229408,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 38229408,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 38229408,
+				atk: 1315545,
+				def: [61880, 61880]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 28672056,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 28672056,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 28672056,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 28672056,
+				atk: 1315545,
+				def: [61880, 61880]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 28672056,
+				atk: 1315545,
+				def: [61880, 61880]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 82339094,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 82339094,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 82339094,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 82339094,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 82339094,
+				atk: 2833127,
+				def: [133245, 133245]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 61754219,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 61754219,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 61754219,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 61754219,
+				atk: 2833127,
+				def: [133245, 133245]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 61754219,
+				atk: 2833127,
+				def: [133245, 133245]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 135376429,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 135376429,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 135376429,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 135376429,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 135376429,
+				atk: 4657916,
+				def: [219125, 219125]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 101532183,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 101532183,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 101532183,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 101532183,
+				atk: 4657916,
+				def: [219125, 219125]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 101532183,
+				atk: 4657916,
+				def: [219125, 219125]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 202583538,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 202583538,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 202583538,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 202583538,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 202583538,
+				atk: 6970814,
+				def: [327905, 327905]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 151937998,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 151937998,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 151937998,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 151937998,
+				atk: 6970814,
+				def: [327905, 327905]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 151937998,
+				atk: 6970814,
+				def: [327905, 327905]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 345931817,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 345931817,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 345931817,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 345931817,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 345931817,
+				atk: 11903714,
+				def: [462144, 462144]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 259448640,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 259448640,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 259448640,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 259448640,
+				atk: 11903714,
+				def: [462144, 462144]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 259448640,
+				atk: 11903714,
+				def: [462144, 462144]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 528298678,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 528298678,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 528298678,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 528298678,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 528298678,
+				atk: 18178738,
+				def: [641550, 641550]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 396224548,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 396224548,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 396224548,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 396224548,
+				atk: 18178738,
+				def: [641550, 641550]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 396224548,
+				atk: 18178738,
+				def: [641550, 641550]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 748816607,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 748816607,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 748816607,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 748816607,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 748816607,
+				atk: 25767583,
+				def: [909326, 909326]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 561612455,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 561612455,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 561612455,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 561612455,
+				atk: 25767583,
+				def: [909326, 909326]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 561612455,
+				atk: 25767583,
+				def: [909326, 909326]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 832018863,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 832018863,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 832018863,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 832018863,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 832018863,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 624014147,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 624014147,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 624014147,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 624014147,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 624014147,
+				atk: 28630656,
+				def: [1010363, 1010363]
+			}
+		]],
+		[[
+			{
+				kind: "wyrm",
+				x: 2,
+				z: 0,
+				hp: 998422142,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 1,
+				hp: 998422142,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: 2,
+				hp: 998422142,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -1,
+				hp: 998422142,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "wyrmling",
+				x: 0,
+				z: -2,
+				hp: 998422142,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			}
+		], [
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 748816607,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 748816607,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 1.5,
+				hp: 748816607,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: -2,
+				hp: 748816607,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			},
+			{
+				kind: "hatchling-poison",
+				x: -2,
+				z: 2,
+				hp: 748816607,
+				atk: 34356788,
+				def: [1212435, 1212435]
+			}
+		]]
+	],
+	armarta: []
 };
 //#endregion
 //#region src/technomagic/sim/bosses/dragon/waves.ts
@@ -3014,13 +8879,17 @@ var WAVES = {
 };
 //#endregion
 //#region src/technomagic/sim/bosses/gauge.ts
-/** Galgoria's (chapter 10's), and the Hard Dragon Raid's (911 to 914's). */
+/** Galgoria's (chapter 10's), the Hard Dragon Raid's (911 to 914's) and the Normal Dragon Raid's (901 to 904's). */
 var GALGORIA_GAUGE = {
 	full: 1e5,
 	regen: 7e3
 };
 var DRAGON_GAUGE = {
 	full: 3e4,
+	regen: 3e3
+};
+var NORMAL_DRAGON_GAUGE = {
+	full: 1e4,
 	regen: 3e3
 };
 /** What a second of a stun takes from it (a stun's or a knock down's CC power alike: the game's 1000 for each). */
@@ -3138,6 +9007,8 @@ var FIRE_ATK = 1763309 / 1898512;
 var HIGH_DEF = 132660 / 92822;
 var KR_PARTY$1 = 9;
 var SOLO = 7;
+/** The Normal Dragon Raid's party (its MainSquardCount), which its dragons' health is for. */
+var KR_NORMAL_PARTY = 6;
 /** A dragon's health and defense at stage 1, for its stats: its lower defense, and its higher. */
 var FIRST$1 = {
 	hp: KR_HP$1[0] * HEROES_DEAL * 8 / KR_PARTY$1,
@@ -3172,6 +9043,55 @@ var OPEN = {
 	crit: 250,
 	resist: 0
 };
+/**
+* A dragon's Normal mode (BossDef.normal), as King's Raid's playtest's Normal Dragon Raid has it (chapters 901 to 904:
+* ./normal.ts): its own stats at each of its 20 stages, scaled to the heroes here as its Hard mode's are (its health the
+* game's for its party of KR_NORMAL_PARTY), its P.DEF and M.DEF the game's (alike, in every Normal dragon); its waves, flying off at
+* `leaves` of its health (the playtest's OnHpRatio: Scalaxia's 600, the rest's 500), and its landing a blow of 20% of its
+* ATK that knocks the heroes down 1.5 seconds (its OnBeginPlaying(0, 3)); its CC Gauge the Normal Dragon Raid's, and its
+* ultimate open from `leaves` too. Its skills are its Hard mode's: `part`, told its mode.
+*/
+function normalDragon(hard, leaves, part) {
+	const own = NORMAL_STAGES[hard.id];
+	if (!own) throw new Error(`${hard.name} has no Normal stages`);
+	const first = own.hp[0] * HEROES_DEAL * 8 / KR_NORMAL_PARTY;
+	const scales = (times) => own.hp.map((hp, i) => ({
+		hp: hp / own.hp[0] * times,
+		deals: HEROES_HP * (own.atk[i] / KR_ATK$1[0]),
+		defense: own.def[i] / own.def[0],
+		level: own.level[i]
+	}));
+	const waves = NORMAL_WAVES[hard.id] ?? [];
+	const mode = {
+		gauge: NORMAL_DRAGON_GAUGE,
+		ultimate: leaves
+	};
+	const { waves: _hard, normal: _normal, ...rest } = hard;
+	return {
+		...rest,
+		stats: {
+			...hard.stats,
+			hp: first,
+			physical: own.pdef[0],
+			magical: own.def[0]
+		},
+		stages: {
+			room: scales(1),
+			solo: scales(SOLO / 8)
+		},
+		...waves.length > 0 && { waves: {
+			at: (stage) => waves[stage - 1] ?? [],
+			party: KR_NORMAL_PARTY,
+			leaves,
+			lands: {
+				share: 0,
+				blow: .2 * KR_ATK$1[0],
+				knock: 1.5
+			}
+		} },
+		join: (fight) => part(fight, mode)
+	};
+}
 /** The heroes a dragon can reach: on the field, standing, and in the fight. */
 var reachable = (fight) => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
 /** A blow on whoever it is going for, then `then` on them. */
@@ -3251,10 +9171,15 @@ function cooldowns(of) {
 function fraction(fight, heroes, share) {
 	for (const fighter of heroes) if (fighter && fighter.hp > 0) fight.hurt(fighter, fighter.hp * share, false);
 }
-/** A dragon's ultimate is open once it is down to this share of its health (the playtest's OnHpRatio 700). */
+/** A dragon's ultimate is open once it is down to this share of its health (the Hard Dragon Raid's OnHpRatio 700). */
 var ULTIMATE = .7;
-/** Whether a dragon's ultimate is open. */
-var opened = (fight) => fight.foe.hp <= fight.foe.maxHp * ULTIMATE;
+/** Whether a dragon's ultimate is open (at `at` of its health: none said, ULTIMATE). */
+var opened = (fight, at = ULTIMATE) => fight.foe.hp <= fight.foe.maxHp * at;
+/** A Hard dragon's mode: the Hard Dragon Raid's CC Gauge (../gauge.ts), its ultimate open at ULTIMATE. */
+var HARD = {
+	gauge: DRAGON_GAUGE,
+	ultimate: ULTIMATE
+};
 /** How long a dragon rests after an attack: as long as makes its bite take its plain attack's time, `seconds` (the playtest's). */
 var restFor = (seconds) => seconds - 1.7;
 /**
@@ -3272,11 +9197,11 @@ var dragonWaves = (id) => ({
 });
 /**
 * A minion of a wave (./waves.ts) as the dragons are scaled: its health the game's as much less as the heroes here deal and
-* as much more as there are of them (alone, as much less again); its ATK (what its blows are shares of: ./minions.ts) as much
-* less as the heroes here have less health; its defenses the game's; and the rest as the hard dragons' (OPEN).
+* as much more as there are of them than its raid's `party` (alone, as much less again); its ATK (what its blows are shares
+* of: ./minions.ts) as much less as the heroes here have less health; its defenses the game's; and the rest as the hard dragons' (OPEN).
 */
-function minionOf(minion, solo) {
-	const hp = minion.hp * HEROES_DEAL * 8 / KR_PARTY$1 * (solo ? SOLO / 8 : 1);
+function minionOf(minion, solo, party = KR_PARTY$1) {
+	const hp = minion.hp * HEROES_DEAL * 8 / party * (solo ? SOLO / 8 : 1);
 	return {
 		hp,
 		atk: minion.atk * HEROES_HP,
@@ -3289,8 +9214,8 @@ function minionOf(minion, solo) {
 		}
 	};
 }
-/** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: the Hard Dragon Raid's). */
-var withDragonGauge = (fight, own) => withGauge(fight, own, DRAGON_GAUGE);
+/** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: of `size`, none said the Hard Dragon Raid's). */
+var withDragonGauge = (fight, own, size = DRAGON_GAUGE) => withGauge(fight, own, size);
 /** What a blow takes, as a share of a dragon's ATK at stage 1 (King's Raid's playtest's: its skill's damage share). */
 var share$1 = (of) => [of * KR_ATK$1[0], of * KR_ATK$1[0]];
 /**
@@ -3486,7 +9411,7 @@ var STONE = {
 	harmful: true
 };
 var ASHEN = "Ashen Nox";
-function armartaPart(fight) {
+function armartaPart(fight, mode = HARD) {
 	const { foe } = fight;
 	const waits = cooldowns({
 		claw: [6.5, 2],
@@ -3556,7 +9481,7 @@ function armartaPart(fight) {
 			dealt.set(by, (dealt.get(by) ?? 0) + amount);
 		},
 		used: waits.used,
-		ready: (attack) => waits.ready(attack) && (attack !== "eclipse" || opened(fight)),
+		ready: (attack) => waits.ready(attack) && (attack !== "eclipse" || opened(fight, mode.ultimate)),
 		tick(dt) {
 			waits.tick(dt);
 			eating(dt);
@@ -3571,7 +9496,7 @@ function armartaPart(fight) {
 			}
 		},
 		marks: () => []
-	});
+	}, mode.gauge);
 }
 //#endregion
 //#region src/technomagic/sim/bosses/armarta/index.ts
@@ -3580,7 +9505,7 @@ function armartaPart(fight) {
 * Raid, its Black Flame Breath leaves the Dark Flames, which eat at whoever it lands on; and its gaze turns a hero to
 * stone. Its blows are physical (as the playtest's). What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
 */
-var ARMARTA = {
+var hard$3 = {
 	id: "armarta",
 	name: "Armarta",
 	stats: {
@@ -3630,6 +9555,11 @@ var ARMARTA = {
 	},
 	moves: MOVES$1,
 	join: armartaPart
+};
+/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): its ultimate open at half of its health (the playtest's OnHpRatio 500). */
+var ARMARTA = {
+	...hard$3,
+	normal: normalDragon(hard$3, .5, armartaPart)
 };
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/attacks.ts
@@ -4347,7 +10277,7 @@ var FROZEN = {
 	art: stateArt("Frozen"),
 	harmful: true
 };
-function scalaxiaPart(fight) {
+function scalaxiaPart(fight, mode = HARD) {
 	const waits = cooldowns({
 		claw: [5, 3],
 		sweep: [20, 18],
@@ -4399,7 +10329,7 @@ function scalaxiaPart(fight) {
 			waits.used(attack);
 			if (attack === "storm") fight.cue(null, "pillars");
 		},
-		ready: (attack) => waits.ready(attack) && (attack !== "storm" || opened(fight)),
+		ready: (attack) => waits.ready(attack) && (attack !== "storm" || opened(fight, mode.ultimate)),
 		tick: waits.tick,
 		beaten() {
 			for (const fighter of fight.fighters) {
@@ -4407,7 +10337,7 @@ function scalaxiaPart(fight) {
 				lift(fighter, FROZEN.name);
 			}
 		}
-	});
+	}, mode.gauge);
 }
 //#endregion
 //#region src/technomagic/sim/bosses/scalaxia/index.ts
@@ -4418,7 +10348,7 @@ function scalaxiaPart(fight) {
 * for its 1000 M.Block power (368 more on its curve), 200 M.Tough, and 60% less M.DMG taken (./skills.ts). What its skills do
 * is ./skills.ts; its body is the page's (../../../bosses/dragon/), with the ice pillars its storm calls up.
 */
-var SCALAXIA = {
+var hard$2 = {
 	id: "scalaxia",
 	name: "Scalaxia",
 	stats: {
@@ -4482,6 +10412,11 @@ var SCALAXIA = {
 	moves: MOVES$1,
 	join: scalaxiaPart
 };
+/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at 60% of its health (the playtest's OnHpRatio 600). */
+var SCALAXIA = {
+	...hard$2,
+	normal: normalDragon(hard$2, .6, scalaxiaPart)
+};
 //#endregion
 //#region src/technomagic/sim/bosses/temeraire/skills.ts
 var BLESSING$3 = {
@@ -4504,7 +10439,7 @@ var BURN = {
 	art: stateArt("Burn"),
 	harmful: true
 };
-function temerairePart(fight) {
+function temerairePart(fight, mode = HARD) {
 	const { foe } = fight;
 	const waits = cooldowns({
 		claw: [5, 3],
@@ -4567,7 +10502,7 @@ function temerairePart(fight) {
 		},
 		used: waits.used,
 		next: () => flame <= 0 && waits.ready("blessing") ? "blessing" : null,
-		ready: (attack) => attack !== "blessing" && waits.ready(attack) && (attack !== "eruption" || opened(fight)),
+		ready: (attack) => attack !== "blessing" && waits.ready(attack) && (attack !== "eruption" || opened(fight, mode.ultimate)),
 		tick(dt) {
 			waits.tick(dt);
 			burning(dt);
@@ -4577,7 +10512,7 @@ function temerairePart(fight) {
 			for (const fighter of fight.fighters) lift(fighter, BURN.name);
 		},
 		marks: () => []
-	});
+	}, mode.gauge);
 }
 //#endregion
 //#region src/technomagic/sim/bosses/temeraire/index.ts
@@ -4586,7 +10521,7 @@ function temerairePart(fight) {
 * attacks deal massive M.DMG, it shrugs off most P.DMG (the playtest's 900 P.Tough, where the game's tip has it blocking it all), and its Blessing of the Flame is worn away by heroes that hit often.
 * What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
 */
-var TEMERAIRE = {
+var hard$1 = {
 	id: "temeraire",
 	name: "Temeraire",
 	stats: {
@@ -4642,6 +10577,11 @@ var TEMERAIRE = {
 	moves: MOVES$1,
 	join: temerairePart
 };
+/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
+var TEMERAIRE = {
+	...hard$1,
+	normal: normalDragon(hard$1, .5, temerairePart)
+};
 //#endregion
 //#region src/technomagic/sim/bosses/zyrrkinoth/skills.ts
 var SCALES = {
@@ -4675,7 +10615,7 @@ var PETRIFIED = {
 	art: stateArt("Stone"),
 	harmful: true
 };
-function zyrrkinothPart(fight) {
+function zyrrkinothPart(fight, mode = HARD) {
 	const waits = cooldowns({
 		claw: [5, 2.5],
 		smashes: [15, 8],
@@ -4743,7 +10683,7 @@ function zyrrkinothPart(fight) {
 			art: stateArt("440396"),
 			count: `${Math.round(taken.physical * 100)}%`
 		}]
-	});
+	}, mode.gauge);
 }
 //#endregion
 //#region src/technomagic/sim/bosses/zyrrkinoth/index.ts
@@ -4753,7 +10693,7 @@ function zyrrkinothPart(fight) {
 * Spd; and its poison, stacked high enough, petrifies. Its blows are physical. What its skills do is ./skills.ts; its body
 * is the page's (../../../bosses/dragon/).
 */
-var ZYRRKINOTH = {
+var hard = {
 	id: "zyrrkinoth",
 	name: "Zyrrkinoth",
 	stats: {
@@ -4804,6 +10744,11 @@ var ZYRRKINOTH = {
 	moves: MOVES$1,
 	join: zyrrkinothPart
 };
+/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
+var ZYRRKINOTH = {
+	...hard,
+	normal: normalDragon(hard, .5, zyrrkinothPart)
+};
 //#endregion
 //#region src/technomagic/sim/bosses/index.ts
 /** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
@@ -4821,6 +10766,8 @@ var BOSSES = [...TM_BOSSES, ...DRAGONS];
 //#region src/technomagic/sim/bosses/boss.ts
 /** How many stages a boss has: the higher, the harder it is on the heroes (as its stages say). */
 var stagesOf = (def) => def.stages.room.length;
+/** A boss as it is in `mode` (its Normal mode, where it has one; else, or none said, its own). */
+var bossIn = (def, mode) => mode === "normal" && def.normal || def;
 /** A boss's scale at `stage` (1 to its last; past it, its last), alone or not. */
 function scaleAt(def, stage, solo) {
 	const row = solo ? def.stages.solo : def.stages.room;
@@ -26146,7 +32093,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		/** How many have stood where each spot is so far (by where the wave has them). */
 		const placed = /* @__PURE__ */ new Map();
 		for (const one of list) {
-			const made = minionOf(one, solo);
+			const made = minionOf(one, solo, def.waves?.party);
 			const kind = MINIONS[one.kind];
 			let x = MINION_X + one.x * .5;
 			let z = one.z * .45;
@@ -26200,10 +32147,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (wave === waves && boss.away && def.waves) {
 			boss.away = false;
 			events.push({ kind: "boss-return" });
-			const { share, knock } = def.waves.lands;
+			const { share, blow, knock } = def.waves.lands;
 			as(boss, () => {
 				for (const on of reachable()) {
-					sim.hurt(on, on.hp * share, false);
+					if (share > 0) sim.hurt(on, on.hp * share, false);
+					if (blow) sim.hurt(on, blow);
 					sim.knock(on, knock);
 				}
 			});
@@ -42884,14 +48832,14 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "e16f8d1424df";
+var SIM_VERSION = "44d66c06d502";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 var MOST_INPUTS = 2e4;
-/** The most stages any boss has (each boss's own: BossInfo.stages). */
-var MOST_STAGE = Math.max(...BOSSES.map(stagesOf));
+/** The most stages any boss has, in either mode (each boss's own: BossInfo.stages, and its Normal mode's: BossInfo.normal). */
+var MOST_STAGE = Math.max(...BOSSES.flatMap((boss) => [stagesOf(boss), ...boss.normal ? [stagesOf(boss.normal)] : []]));
 /**
 * What a hero's unique treasure (its `skill`th: 1 to 4, UT1 to UT4) does at a tier (1 to 5) as its main treasure, as the
 * bot says it: its name, and King's Raid's words with the fight's numbers (null: no such hero or treasure).
@@ -42939,17 +48887,15 @@ var TM_HEROES = HEROES.map((hero) => ({
 	treasures: (hero.treasures ?? []).map((one) => one.name)
 }));
 var BOSS_IDS = BOSSES.map((boss) => boss.id);
+var infoOf = (boss) => ({
+	id: boss.id,
+	name: boss.name,
+	stages: stagesOf(boss),
+	...boss.normal && { normal: stagesOf(boss.normal) }
+});
 /** The TechnoMagic Raid's bosses, and the Dragon Raid's dragons, in order. */
-var TM_BOSS_INFO = TM_BOSSES.map((boss) => ({
-	id: boss.id,
-	name: boss.name,
-	stages: stagesOf(boss)
-}));
-var DRAGON_INFO = DRAGONS.map((boss) => ({
-	id: boss.id,
-	name: boss.name,
-	stages: stagesOf(boss)
-}));
+var TM_BOSS_INFO = TM_BOSSES.map(infoOf);
+var DRAGON_INFO = DRAGONS.map(infoOf);
 var TM_SET_INFO = SET_INFO;
 /** How many of a TechnoMagic set's pieces a hero wears for its effect. */
 var TM_SET_PIECES = 4;
@@ -43010,8 +48956,10 @@ function readInputs(raw, heroes) {
 /** A raid ready to be fought (a string: why the run makes no sense). */
 function startRaid(run) {
 	if (!Number.isInteger(run.seed)) return "seed";
-	const boss = BOSSES.find((one) => one.id === run.boss);
-	if (!boss) return "boss";
+	const found = BOSSES.find((one) => one.id === run.boss);
+	if (!found) return "boss";
+	if (run.mode !== void 0 && run.mode !== "hard" && !(run.mode === "normal" && found.normal)) return "mode";
+	const boss = bossIn(found, run.mode);
 	if (!whole(run.stage - 1, stagesOf(boss))) return "stage";
 	if (run.heroes.length === 0 || run.heroes.length > 9) return "heroes";
 	const entries = [];

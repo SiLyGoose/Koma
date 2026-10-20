@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG } from '../../config.js';
-import { KR_DROPS, dragonPieces, dragonTier, runeCount, runeGradeWeights } from '../../constants/technomagic.js';
+import { KR_DROPS, dragonPieces, dragonTier, normalPaysAs, normalRuneGradeWeights, runeCount, runeGradeWeights } from '../../constants/technomagic.js';
+import type { RaidMode } from '../../protocol/technomagic.js';
 import { KR_ITEMS_BY_ID, KR_RUNES, krPiecesOf } from '../../data/kr-gear.js';
 import { TM_ARMOR_DEFS } from '../../data/tm-main.js';
 import { potentialStep, TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
@@ -55,11 +56,18 @@ export function rollTmDrop(boss: string, rng: TmRng = defaultRng): ItemDef | nul
   return pool.length > 0 ? (pool[rng.index(pool.length)] as ItemDef) : null;
 }
 
-/** The pieces a Dragon Raid win against `dragon` at `stage` gives: its own set's, of its stage's tier, each as likely. */
-export function rollDragonPieces(dragon: string, stage: number, rng: TmRng = defaultRng): ItemDef[] {
+/**
+ * The pieces a Dragon Raid win against `dragon` at `stage` gives: its own set's, of its stage's tier, each as likely. In `mode`
+ * Normal, as the Hard stage it pays as (normalPaysAs); one easier than all of them, a piece of KR_DROPS.normal's tier from its
+ * `piecesFrom` stage on.
+ */
+export function rollDragonPieces(dragon: string, stage: number, rng: TmRng = defaultRng, mode: RaidMode = 'hard'): ItemDef[] {
   const set = KR_DROPS.dragonSets[dragon];
-  const pool = set ? krPiecesOf(set, dragonTier(stage)) : [];
-  return pool.length === 0 ? [] : Array.from({ length: dragonPieces(stage) }, () => pool[rng.index(pool.length)] as ItemDef);
+  const as = mode === 'normal' ? normalPaysAs(stage) : stage;
+  const easy = mode === 'normal' && as === 0;
+  const pool = set ? krPiecesOf(set, easy ? KR_DROPS.normal.tier : dragonTier(as)) : [];
+  const count = easy ? Number(stage >= KR_DROPS.normal.piecesFrom) : dragonPieces(as);
+  return pool.length === 0 ? [] : Array.from({ length: count }, () => pool[rng.index(pool.length)] as ItemDef);
 }
 
 /** One of `weights`' indexes, as likely as its weight (none: the first). */
@@ -80,10 +88,13 @@ function weighted(weights: readonly number[], rng: TmRng): number {
  * (`dragon`: the Dragon Raid's, else a TechnoMagic Raid's), a grade 5 one a Velkazar rune now and then, else an Ancient one;
  * then one of that grade's runes, each as likely.
  */
-export function rollRunes(stage: number, dragon: boolean, rng: TmRng = defaultRng): string[] {
-  const weights = runeGradeWeights(stage, dragon);
+export function rollRunes(stage: number, dragon: boolean, rng: TmRng = defaultRng, mode: RaidMode = 'hard'): string[] {
+  // (A Normal Dragon Raid's win: as the Hard stage it pays as, or one easier than all of them KR_DROPS.normal's runes.)
+  const as = dragon && mode === 'normal' ? normalPaysAs(stage) : stage;
+  const easy = as === 0;
+  const weights = easy ? normalRuneGradeWeights(stage) : runeGradeWeights(as, dragon);
   const out: string[] = [];
-  for (let n = runeCount(stage); n > 0; n--) {
+  for (let n = easy ? KR_DROPS.normal.runes : runeCount(as); n > 0; n--) {
     const grade = weighted(weights, rng) + 1;
     const velkazar = grade === 5 && rng.index(1000) < KR_DROPS.velkazar * 1000;
     const pool = KR_RUNES.filter((rune) => rune.grade === grade && (grade !== 5 || (rune.ancient === true) !== velkazar));

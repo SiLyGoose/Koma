@@ -7,14 +7,14 @@ import { copyMainStat, heroItemLines, partOf, potentialLines, setBonusLines } fr
 import { runeView } from '../../models/heroes.js';
 import { DRAGONS } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
-import { beginRun, clearedStage, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
+import { beginRun, clearedStages, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { dragonRoomLink, technomagicRoomLink, webConfig } from '../../config.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
 import { workerFights, type FightEngine, type Fights, type Intent } from './fight.js';
-import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, PickView, RaidKind, RoomState, ServerMessage, TurnInput } from './protocol.js';
+import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, PickView, RaidKind, RaidMode, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
 /*
  * The TechnoMagic Raid's rooms: raids others can join, as many in a server as its players create (each with an id of its
@@ -40,8 +40,9 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  *
  * The Dragon Raid's rooms are the same (dragonRooms), each against one of its dragons (a page names the dragon it wants),
  * and its run is against that dragon (lib/game/dragon.ts). Each boss's stages are opened apart. Getting ready, the host can
- * take the raid against another dragon, everyone in it with it (`setBoss`); and anyone can leave it for good (`part`), to
- * create one of their own against another. Two raids are never put together.
+ * take the raid against another dragon, everyone in it with it (`setBoss`), or into the dragon's other mode, Normal or Hard
+ * (`setMode`: each mode's stages are opened apart too); and anyone can leave it for good (`part`), to create one of their own
+ * against another. Two raids are never put together.
  */
 
 /** A raid whose rooms these are: which, and its bosses (the first is fought unless a page names another). */
@@ -76,15 +77,21 @@ function dropView({ item, skill, potentials, options }: TmFind): DropView {
 /** Where the room sends a player's messages: their page, or a fake in tests. */
 export type Peer = ConnectionPeer<ServerMessage>;
 
+/** The highest stage someone has won against a boss in each mode (0: none). */
+export type Cleared = Readonly<Record<RaidMode, number>>;
+
+/** How far someone has got, as it is told: in each mode, or (a number) in Hard alone. */
+const clearedOf = (cleared: Partial<Cleared> | number): Cleared => (typeof cleared === 'number' ? { hard: cleared, normal: 0 } : { hard: cleared.hard ?? 0, normal: cleared.normal ?? 0 });
+
 /** The database, the clock, Discord and where fights run, so tests can stand in for them. */
 export interface RoomDeps {
   now: () => number;
   avatar: (guildId: string, userId: string) => string | null;
   owned: (guildId: string, userId: string) => Promise<string[]>;
-  /** The highest stage they have won a run against `boss` at (0: none). */
-  cleared: (guildId: string, userId: string, boss: string) => Promise<number>;
-  /** Begins a run against `boss` (services/technomagic.ts beginRun). */
-  begin: (guildId: string, stage: number, players: Parameters<typeof beginRun>[2], boss: string) => Promise<BegunRun>;
+  /** The highest stage they have won a run against `boss` at, in each mode (0: none). */
+  cleared: (guildId: string, userId: string, boss: string) => Promise<Cleared>;
+  /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun). */
+  begin: (guildId: string, stage: number, players: Parameters<typeof beginRun>[2], boss: string, mode: RaidMode) => Promise<BegunRun>;
   /** What a run over gave each player (nothing to those who `forfeited` it): the items found, the points paid, and the hero essences. */
   finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, { drops: DropView[]; points: number; essences?: Record<string, number> }>>;
   /** Says in the server's channel that `host` has created raid `room`, against `boss`. Not waited for. */
@@ -102,8 +109,8 @@ export const realRoomDeps: RoomDeps = {
   now: Date.now,
   avatar: () => null,
   owned: ownedHeroes,
-  cleared: clearedStage,
-  begin: (guildId, stage, players, boss) => beginRun(guildId, stage, players, new Date(), boss),
+  cleared: clearedStages,
+  begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
     return new Map([...found].map(([userId, { finds, runes, points, essences }]) => [userId, { drops: finds.map(dropView), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }) }]));
@@ -144,8 +151,8 @@ interface Member {
   avatar: string;
   owned: Set<string>;
   ready: boolean;
-  /** The highest stage they have won at (0: none): as host, they may pick up to the one after it. */
-  cleared: number;
+  /** The highest stage they have won at, in each mode (0: none): as host, they may pick up to the one after it. */
+  cleared: Cleared;
 }
 
 interface Fight {
@@ -174,6 +181,8 @@ export class TechnoMagicRoom {
   /** In the order they came in: the first is the host. */
   private readonly members = new Map<string, Member>();
   private lineup: PickView[] = [];
+  /** The boss's mode the raid is against (a dragon's Normal or Hard; any other boss's, Hard), and its stage in it. */
+  private mode: RaidMode = 'hard';
   private stage = 1;
   /** The host the stage was last set for (a new one gets the highest they have opened). */
   private stageHost: string | null = null;
@@ -213,7 +222,7 @@ export class TechnoMagicRoom {
   view(): LobbyView | null {
     const host = this.members.get(this.host() ?? '');
     if (this.id === null || this.closed || !host) return null;
-    return { id: this.id, boss: this.boss, host: { name: host.player.name, avatar: host.avatar }, stage: this.stage, players: this.members.size, most: TM_ROOM.players, phase: this.phase };
+    return { id: this.id, boss: this.boss, host: { name: host.player.name, avatar: host.avatar }, mode: this.mode, stage: this.stage, players: this.members.size, most: TM_ROOM.players, phase: this.phase };
   }
 
   get full(): boolean {
@@ -249,17 +258,22 @@ export class TechnoMagicRoom {
     return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
   }
 
-  /** The highest stage the host may pick, and the one the room starts at: the one after the highest they have won (the first, for one who has won none). */
+  /** How many stages the boss has in the raid's mode. */
+  private stages(): number {
+    return this.mode === 'normal' ? (this.boss.normal ?? this.boss.stages) : this.boss.stages;
+  }
+
+  /** The highest stage the host may pick, and the one the room starts at: the one after the highest they have won in the raid's mode (the first, for one who has won none). */
   private unlocked(): number {
     const host = this.members.get(this.host() ?? '');
-    return Math.min(this.boss.stages, (host?.cleared ?? 0) + 1);
+    return Math.min(this.stages(), (host?.cleared[this.mode] ?? 0) + 1);
   }
 
   /**
-   * A page for `player`, who owns `owned` and has won up to stage `cleared`, joins
+   * A page for `player`, who owns `owned` and has won up to stage `cleared` (in each mode, or a number: in Hard), joins
    * (or comes back). Returns the page it took over from (another tab), if any.
    */
-  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0): Peer | null {
+  join(player: Player, peer: Peer, owned: readonly string[], cleared: Partial<Cleared> | number = 0): Peer | null {
     const before = this.members.get(player.userId);
     before?.awayEnds?.();
     this.members.set(player.userId, {
@@ -270,7 +284,7 @@ export class TechnoMagicRoom {
       avatar: this.deps.avatar(this.guildId, player.userId) ?? avatarUrl(player.userId, null),
       owned: new Set(owned),
       ready: before?.ready ?? false,
-      cleared: Math.max(cleared, before?.cleared ?? 0),
+      cleared: { hard: Math.max(clearedOf(cleared).hard, before?.cleared.hard ?? 0), normal: Math.max(clearedOf(cleared).normal, before?.cleared.normal ?? 0) },
     });
     if (!before) this.trim();
     this.tell();
@@ -417,16 +431,29 @@ export class TechnoMagicRoom {
   setStage(userId: string, stage: number): AnswerCode | null {
     if (this.phase !== 'prep' || this.starting) return 'closed';
     if (userId !== this.host()) return 'only_host';
-    const picked = Math.min(this.boss.stages, Math.max(1, Math.floor(stage)));
+    const picked = Math.min(this.stages(), Math.max(1, Math.floor(stage)));
     if (picked > this.unlocked()) return 'locked';
     this.stage = picked;
     this.tell();
     return null;
   }
 
+  /** The host takes the raid into the boss's other mode (a dragon's Normal or Hard), getting ready: at the highest stage they have opened in it. */
+  setMode(userId: string, mode: RaidMode): AnswerCode | null {
+    if (this.phase !== 'prep' || this.starting) return 'closed';
+    if (userId !== this.host()) return 'only_host';
+    if (mode === 'normal' && this.boss.normal === undefined) return 'closed';
+    if (mode === this.mode) return null;
+    this.mode = mode;
+    this.stage = this.unlocked();
+    this.tell();
+    return null;
+  }
+
   /**
    * The host takes the raid against `boss` (another of the raid's), getting ready: everyone in it goes with it, their picks
-   * kept but nobody ready, and the stage the highest the host has opened against it. Each page goes to it once told.
+   * kept but nobody ready, in the same mode (Hard, where it has no Normal one), and the stage the highest the host has opened
+   * against it. Each page goes to it once told.
    */
   async setBoss(userId: string, boss: string): Promise<AnswerCode | null> {
     if (this.phase !== 'prep' || this.starting || this.id === null) return 'closed';
@@ -436,19 +463,20 @@ export class TechnoMagicRoom {
     if (next.id === this.boss.id) return null;
     // (Nothing about the room changes while how far each has got against it is read.)
     this.starting = true;
-    let cleared: number[];
+    let cleared: Cleared[];
     const members = [...this.members.values()];
     try {
-      cleared = await Promise.all(members.map((member) => this.deps.cleared(this.guildId, member.player.userId, next.id).catch(() => 0)));
+      cleared = await Promise.all(members.map((member) => this.deps.cleared(this.guildId, member.player.userId, next.id).catch(() => clearedOf(0))));
     } finally {
       this.starting = false;
     }
     if (this.closed) return 'closed';
     members.forEach((member, i) => {
-      member.cleared = cleared[i] ?? 0;
+      member.cleared = cleared[i] ?? clearedOf(0);
       member.ready = false;
     });
     this.against = next;
+    if (next.normal === undefined) this.mode = 'hard';
     this.stage = this.unlocked();
     this.tell();
     return null;
@@ -484,11 +512,12 @@ export class TechnoMagicRoom {
     this.starting = true;
     this.tell();
     const stage = this.stage;
+    const mode = this.mode;
     const solo = this.solo();
     let run: BegunRun;
     try {
       const players = members.map((member) => ({ userId: member.player.userId, heroes: this.lineup.filter((pick) => pick.owner === member.player.userId).map(({ hero, skin }) => ({ id: hero, skin })) }));
-      run = await this.deps.begin(this.guildId, stage, players, this.boss.id);
+      run = await this.deps.begin(this.guildId, stage, players, this.boss.id, mode);
     } catch (err) {
       console.error('Could not begin a TechnoMagic Raid run:', err);
       this.starting = false;
@@ -508,6 +537,7 @@ export class TechnoMagicRoom {
       seed: run.seed,
       stage,
       solo,
+      mode,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
         return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, artifact: player?.artifacts?.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
@@ -515,7 +545,7 @@ export class TechnoMagicRoom {
     };
     let engine: FightEngine | string;
     try {
-      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, skills, perks, sub }) => ({ id, skin, gear, set, uw, ut, skills, perks, sub })) });
+      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, mode, heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, skills, perks, sub }) => ({ id, skin, gear, set, uw, ut, skills, perks, sub })) });
     } catch (err) {
       engine = err instanceof Error ? err.message : String(err);
     }
@@ -709,12 +739,13 @@ export class TechnoMagicRoom {
       console.error('Could not finish a TechnoMagic Raid run:', err);
     }
     if (this.fight !== fight) return;
-    // A win opens the next stage for everyone in it to the end.
+    // A win opens the next stage (in its mode) for everyone in it to the end.
     if (result === 'won') {
+      const mode = fight.start.mode ?? 'hard';
       for (const userId of fight.run.players.keys()) {
         if (fight.forfeited.has(userId)) continue;
         const member = this.members.get(userId);
-        if (member) member.cleared = Math.max(member.cleared, fight.start.stage);
+        if (member) member.cleared = { ...member.cleared, [mode]: Math.max(member.cleared[mode], fight.start.stage) };
       }
     }
     this.fight = null;
@@ -764,8 +795,9 @@ export class TechnoMagicRoom {
       boss: this.boss,
       bosses: [...this.raid.bosses],
       room: this.id,
+      mode: this.mode,
       stage: this.stage,
-      stages: this.boss.stages,
+      stages: this.stages(),
       unlocked: this.unlocked(),
       slots: this.slots(),
       solo: this.solo(),
@@ -864,7 +896,7 @@ export class TechnoMagicRooms {
    * already, else an open one), or a new one when there is none. Null when the raid named is full, or gone. A page of
    * theirs in another room is taken over, as one in the same room is: one page a player.
    */
-  join(player: Player, peer: Peer, owned: readonly string[], cleared = 0, deps: RoomDeps = this.realDeps, single = false, boss?: string, wanted: RoomWanted = {}): { room: TechnoMagicRoom; replaced: Peer | null } | null {
+  join(player: Player, peer: Peer, owned: readonly string[], cleared: Partial<Cleared> | number = 0, deps: RoomDeps = this.realDeps, single = false, boss?: string, wanted: RoomWanted = {}): { room: TechnoMagicRoom; replaced: Peer | null } | null {
     const against = this.bossOf(boss);
     let room: TechnoMagicRoom | undefined;
     if (single) {
