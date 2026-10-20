@@ -32383,7 +32383,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/** On to the next wave: the heroes run on (nothing else happens meanwhile), and what is there comes onto the field as they arrive (arrive()). */
 	function nextWave() {
 		wave++;
-		moving = 3;
+		moving = 5;
 		aims.clear();
 		for (const on of field) on.doing = null;
 		events.push({
@@ -49133,7 +49133,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "fc766efed059";
+var SIM_VERSION = "20c888f57f2e";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
