@@ -347,7 +347,8 @@ var hatchling = (name, leaves) => ({
 		length: 1.8,
 		lands: [.7],
 		share: 1,
-		reach: 0
+		reach: 0,
+		range: 1.5
 	},
 	rest: .2,
 	skill: {
@@ -362,6 +363,7 @@ var hatchling = (name, leaves) => ({
 		],
 		share: .8,
 		reach: 1.5,
+		range: 3,
 		...leaves && { leaves }
 	}
 });
@@ -418,7 +420,8 @@ var MINIONS = {
 			length: 1.3,
 			lands: [.8],
 			share: .5,
-			reach: 0
+			reach: 0,
+			range: 12
 		},
 		rest: 0,
 		skill: {
@@ -433,6 +436,7 @@ var MINIONS = {
 			],
 			share: .1,
 			reach: Infinity,
+			range: 12,
 			leaves: VENOM
 		}
 	},
@@ -445,7 +449,8 @@ var MINIONS = {
 			length: 1.3,
 			lands: [.8],
 			share: .5,
-			reach: 0
+			reach: 0,
+			range: 4
 		},
 		rest: 1,
 		skill: {
@@ -461,6 +466,7 @@ var MINIONS = {
 			],
 			share: .5,
 			reach: 2,
+			range: 4,
 			deals: "magical"
 		}
 	}
@@ -25300,6 +25306,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 34
 		}
 	},
 	crow: {
@@ -25334,6 +25346,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .7,
+			index: 52
 		}
 	},
 	"dark-lord-kasel": {
@@ -25380,6 +25398,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 84
 		}
 	},
 	erze: {
@@ -25426,6 +25450,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 500,
+			size: .5,
+			index: 56
 		}
 	},
 	ezekiel: {
@@ -25477,6 +25507,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 500,
+			size: .6,
+			index: 38
 		}
 	},
 	"fallen-frey": {
@@ -25511,6 +25547,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 85
 		}
 	},
 	gau: {
@@ -25557,6 +25599,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .7,
+			index: 5
 		}
 	},
 	gremory: {
@@ -25599,6 +25647,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 100,
+			size: .5,
+			index: 86
 		}
 	},
 	kirze: {
@@ -25645,6 +25699,12 @@ var KR_HEROES = {
 			],
 			critStat: 250,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .8,
+			index: 71
 		}
 	},
 	klaus: {
@@ -25691,6 +25751,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 15
 		}
 	},
 	laias: {
@@ -25725,6 +25791,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 30
 		}
 	},
 	loman: {
@@ -25776,6 +25848,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .6,
+			index: 93
 		}
 	},
 	lorraine: {
@@ -25810,6 +25888,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 13
 		}
 	},
 	lucikiel: {
@@ -25856,6 +25940,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .6,
+			index: 100
 		}
 	},
 	morrah: {
@@ -25907,6 +25997,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 23
 		}
 	},
 	naila: {
@@ -25966,6 +26062,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 21
 		}
 	},
 	neraxis: {
@@ -26012,6 +26114,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .6,
+			index: 61
 		}
 	},
 	oddy: {
@@ -26046,6 +26154,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 42
 		}
 	},
 	phillop: {
@@ -26097,6 +26211,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 6
 		}
 	},
 	"rebel-klaus": {
@@ -26143,6 +26263,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 83
 		}
 	},
 	selene: {
@@ -26177,6 +26303,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 200,
+			size: .5,
+			index: 10
 		}
 	},
 	seria: {
@@ -26223,6 +26355,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 55
 		}
 	},
 	tanya: {
@@ -26279,6 +26417,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 500,
+			size: .7,
+			index: 37
 		}
 	},
 	valance: {
@@ -26313,6 +26457,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: .15
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 111
 		}
 	},
 	yanne: {
@@ -26351,6 +26501,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 300,
+			size: .6,
+			index: 45
 		}
 	},
 	pansirone: {
@@ -26397,6 +26553,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 100,
+			size: .6,
+			index: 72
 		}
 	},
 	shea: {
@@ -26431,6 +26593,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 66
 		}
 	},
 	priscilla: {
@@ -26477,6 +26645,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 44
 		}
 	},
 	glenwys: {
@@ -26531,6 +26705,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 87
 		}
 	},
 	theo: {
@@ -26585,6 +26765,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 40
 		}
 	},
 	chase: {
@@ -26636,6 +26822,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .8,
+			index: 73
 		}
 	},
 	lakrak: {
@@ -26670,6 +26862,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 400,
+			size: .5,
+			index: 7
 		}
 	},
 	miruru: {
@@ -26704,6 +26902,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 400,
+			size: .5,
+			index: 12
 		}
 	},
 	mirianne: {
@@ -26755,6 +26959,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 500,
+			size: .5,
+			index: 65
 		}
 	},
 	kara: {
@@ -26789,6 +26999,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .6,
+			index: 67
 		}
 	},
 	estelle: {
@@ -26827,6 +27043,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 101
 		}
 	},
 	isolet: {
@@ -26861,6 +27083,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 200,
+			size: .5,
+			index: 82
 		}
 	},
 	evan: {
@@ -26895,6 +27123,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 79
 		}
 	},
 	rehartna: {
@@ -26929,6 +27163,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 300,
+			size: .5,
+			index: 48
 		}
 	},
 	lucias: {
@@ -26963,6 +27203,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 100,
+			size: .5,
+			index: 59
 		}
 	},
 	lilia: {
@@ -27007,6 +27253,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 400,
+			size: .5,
+			index: 57
 		}
 	},
 	aselica: {
@@ -27063,6 +27315,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .7,
+			index: 51
 		}
 	},
 	lavril: {
@@ -27101,6 +27359,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 54
 		}
 	},
 	zafir: {
@@ -27135,6 +27399,12 @@ var KR_HEROES = {
 			],
 			critStat: 0,
 			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 300,
+			size: .5,
+			index: 46
 		}
 	}
 };
@@ -27146,7 +27416,7 @@ var NO_PASSIVE = {
 	crit: 0,
 	control: 1
 };
-/** Where each class usually stands: knights and warriors in the frontline, priests and wizards in the backline, the rest between. */
+/** Where each class usually stands (for a hero King's Raid's playtest hasn't): knights and warriors in the frontline, priests and wizards in the backline, the rest between. */
 var CLASS_LINES = {
 	knight: "front",
 	warrior: "front",
@@ -27156,8 +27426,8 @@ var CLASS_LINES = {
 	wizard: "back",
 	priest: "back"
 };
-/** Where a hero stands: its own line, if it has one, or its class's. */
-var lineOf = (def) => def.line ?? CLASS_LINES[def.class];
+/** Where a hero stands: its own line, if it has one; or King's Raid's (its position: ./kr.ts); or its class's. */
+var lineOf = (def) => def.line ?? KR_HEROES[def.id]?.stand.line ?? CLASS_LINES[def.class];
 var LINE_RANK = {
 	front: 0,
 	middle: 1,
@@ -31137,6 +31407,39 @@ var FAN = .6;
 var NEAR = 6;
 /** Where a wave's minions stand: about this far along the field (before the boss), as its wave has them, closer together (the field is narrower here). */
 var MINION_X = 4.5;
+/** How far forward each line stands, for an enemy picking whom to go for. */
+var LINE_FORWARD = {
+	front: 3,
+	middle: 2,
+	back: 1
+};
+/** A hero's width (metres) when King's Raid's playtest hasn't it: most of its heroes'. */
+var HERO_SIZE = .5;
+/**
+* The hero of `from` an enemy at (`x`, `z`) goes for, as King's Raid's go for theirs (its playtest's
+* BattleCreatureList.SortBySkillDistance): of those within its reach (`reach`, metres to a hero's edge), the one furthest
+* forward: by its line, then its weight in it (./heroes/kr.ts stand), then the better of its defenses, then its index in the
+* game's tables. None within it: the nearest (to its edge). Of two alike, the one that came onto the field first.
+*/
+function foremost(from, x, z, reach) {
+	const edge = (on) => Math.hypot(on.x - x, on.z - z) - (KR_HEROES[on.id]?.stand.size ?? HERO_SIZE);
+	const within = from.filter((on) => edge(on) <= reach + 1e-9);
+	if (within.length === 0) return from.reduce((best, on) => !best || edge(on) < edge(best) - 1e-9 ? on : best, null);
+	const rank = (on) => {
+		const stand = KR_HEROES[on.id]?.stand;
+		return [
+			LINE_FORWARD[lineOf(on.def)],
+			stand?.weight ?? 0,
+			Math.max(on.stats.physical, on.stats.magical),
+			stand?.index ?? 0
+		];
+	};
+	const ahead = (a, b) => {
+		const i = a.findIndex((n, k) => n !== b[k]);
+		return i >= 0 && a[i] > b[i];
+	};
+	return within.reduce((best, on) => ahead(rank(on), rank(best)) ? on : best);
+}
 function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
 	const random = seeded(seed);
 	const roll = () => random.next();
@@ -31427,15 +31730,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		};
 	}
 	/**
-	* The hero on the field the boss goes for (not one out of the fight): the one nearest it, as King's Raid's bosses go for
-	* theirs; one standing, if any is (null: there is none). Of two as near, the one that came onto the field first.
+	* The hero on the field the boss goes for (not one out of the fight): as King's Raid's bosses go for theirs (foremost);
+	* one standing, if any is (null: there is none).
 	*/
 	const anyone = () => {
 		const there = field.filter((fighter) => !away(fighter.statuses));
 		const up = there.filter((fighter) => fighter.hp > 0);
-		const from = up.length > 0 ? up : there;
-		const far = (fighter) => (fighter.x - 7) * (fighter.x - 7) + fighter.z * fighter.z;
-		return from.reduce((nearest, fighter) => !nearest || far(fighter) < far(nearest) - 1e-9 ? fighter : nearest, null);
+		return foremost(up.length > 0 ? up : there, 7, 0, 8);
 	};
 	/** Each hero's artifact's hooks (./artifacts.ts), wearing one the fight has a use for. */
 	const relics = /* @__PURE__ */ new Map();
@@ -32159,13 +32460,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	}
 	/** The heroes an enemy can reach: on the field, standing, and in the fight. */
 	const reachable = () => field.filter((on) => on.hp > 0 && !away(on.statuses));
-	/** The hero a minion goes for: the nearest it, or (`random`) any. */
-	function heroFor(foe, random = false) {
+	/** The hero a minion goes for with `move`: as King's Raid's go for theirs (foremost, within the move's range), or (`random`) any. */
+	function heroFor(foe, move) {
 		const can = reachable();
 		if (can.length === 0) return null;
-		if (random) return can[Math.floor(roll() * can.length)] ?? null;
-		const far = (on) => (on.x - foe.x) * (on.x - foe.x) + (on.z - foe.z) * (on.z - foe.z);
-		return can.reduce((best, on) => far(on) < far(best) - 1e-9 ? on : best);
+		if (move.random) return can[Math.floor(roll() * can.length)] ?? null;
+		return foremost(can, foe.x, foe.z, move.range ?? 0);
 	}
 	/** The minions' moves go on by `dt`: each fights by itself (./bosses/dragon/minions.ts). */
 	function minionsAdvance(dt) {
@@ -32195,7 +32495,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (!minion.doing && minion.rest <= 0) {
 				const skill = minion.def.skill && minion.skill <= 0 ? minion.def.skill : null;
 				const move = skill ?? minion.def.attack;
-				const target = heroFor(foe, move.random);
+				const target = heroFor(foe, move);
 				if (!target) continue;
 				if (skill) minion.skill = skill.cooldown;
 				minion.doing = {
@@ -32227,7 +32527,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/** A blow of a minion's move lands: on its target (or, gone, another), and every hero as far about it as it reaches; and what it leaves on each. */
 	function minionBlow(foe, minion, doing) {
 		const was = doing.target;
-		const target = was && was.hp > 0 && field.includes(was) && !away(was.statuses) ? was : heroFor(foe, doing.move.random);
+		const target = was && was.hp > 0 && field.includes(was) && !away(was.statuses) ? was : heroFor(foe, doing.move);
 		if (!target) return;
 		doing.target = target;
 		const { reach, leaves } = doing.move;
@@ -33745,7 +34045,6 @@ var EZEKIEL = {
 	id: "ezekiel",
 	name: "Ezekiel",
 	class: "assassin",
-	line: "front",
 	skins: ["Ezekiel"],
 	stats: {
 		...CLASS_STATS.assassin,
@@ -37043,7 +37342,6 @@ var LUCIKIEL = {
 	id: "lucikiel",
 	name: "Lucikiel",
 	class: "wizard",
-	line: "front",
 	skins: ["Lucikiel"],
 	stats: {
 		...CLASS_STATS.wizard,
@@ -40680,7 +40978,6 @@ var TANYA = {
 	id: "tanya",
 	name: "Tanya",
 	class: "assassin",
-	line: "front",
 	skins: ["Tanya"],
 	stats: {
 		...CLASS_STATS.assassin,
@@ -48832,7 +49129,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "44d66c06d502";
+var SIM_VERSION = "6d9124b3e9b5";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
