@@ -22,6 +22,7 @@ import {
   krLine,
   partOf,
   perkLines,
+  potentialLines,
   raidValue,
   runeLines,
   setBonusLines,
@@ -40,7 +41,7 @@ import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.j
 import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemWorth } from '../../lib/game/items/sell.js';
 import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
-import { UT_ENHANCE } from '../../data/tm-potentials.js';
+import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
 import { keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
@@ -122,8 +123,21 @@ export function runeStacks(runes: MemberDoc['runes']): HeroRuneStack[] {
 
 const HERO_STAT_IDS_SET: ReadonlySet<string> = new Set(HERO_STAT_IDS);
 
-/** A copy's options as the page shows them. */
+/**
+ * A copy's options as the page shows them: a unique treasure's, its potentials, each so many steps of its range's
+ * (potentialStep: an enhance's), never rerolled.
+ */
 function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
+  if (item.uniqueTreasure) {
+    return (copy.tmPotentials ?? []).flatMap((potential) => {
+      const range = CONFIG.hero.potentials[potential.stat];
+      const line = potentialLines([potential])[0];
+      if (!range || !line) return [];
+      const size = potentialStep(range);
+      const steps = Math.round((range.max - range.min) / size);
+      return [{ stat: potential.stat, line, step: Math.min(steps, Math.max(0, Math.round((potential.value - range.min) / size))), steps, price: 0 }];
+    });
+  }
   const kr = item.kr;
   if (!kr) return [];
   return (copy.options ?? []).map((option) => ({

@@ -96,7 +96,10 @@ export interface HeroRune {
 /** A rune the member has (not socketed), how many, and the parts it goes in. */
 export type HeroRuneStack = HeroRune & { count: number; parts: HeroPart[] };
 
-/** One of a copy's options: its stat, its line ("ATK +14%"), its step of `steps` (an upgrade raises one a step), and what rerolling it costs. */
+/**
+ * One of a copy's options (a unique treasure's: its potentials): its stat, its line ("ATK +14%"), its step of `steps` (an upgrade
+ * raises one a step), and what rerolling it costs (a unique treasure's: 0, never rerolled).
+ */
 export interface HeroOption {
   stat: string;
   line: string;

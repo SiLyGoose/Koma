@@ -249,6 +249,11 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(armor?.setEffect?.pieces, 4);
   assert.equal(armor?.setEffect?.active, false);
   assert.equal(view.copies.find((copy) => copy.id === 'ring')?.upgrade, null, 'all its options at their top');
+  // A unique treasure's options are its potentials, each a step of its range's, enhanced (the forge's), never rerolled.
+  const cape = heroesView([{ _id: 'cape', itemId: 'cape-of-justice', level: 1, tmPotentials: [{ stat: 'atk', value: 0.07 }, { stat: 'defPhysical', value: 0.22 }] }], member).copies[0];
+  assert.deepEqual(cape?.options.map(({ line, step, steps }) => [line, step, steps]), [['+7% ATK', 2, 7], ['+22% P. DEF', 11, 11]]);
+  assert.equal(cape?.upgrade, 1_152);
+  assert.equal(cape?.reroll, null);
   assert.equal(view.copies.find((copy) => copy.id === 'spare')?.sell !== null, true);
   assert.equal(view.copies.find((copy) => copy.id === 'spare')?.sellLocked, null, 'not locked: nothing to sell it for apart');
   const [kirze, klaus] = view.heroes;
