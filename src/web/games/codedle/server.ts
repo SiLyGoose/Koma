@@ -16,6 +16,7 @@ function describe(message: ServerMessage): string | null {
   if (message.t !== 'state') return null;
   const { live } = message.state;
   if (!live) return 'Waiting for the vault';
+  if (live.mine.length === 0 && Date.now() < live.opensAt) return 'Waiting for the vault to open';
   return `Cracking the vault · ${live.mine.length} ${live.mine.length === 1 ? 'guess' : 'guesses'}`;
 }
 
@@ -35,6 +36,7 @@ export function codedleState(userId: string, game: CodedleGame | null, last: Cod
     live: game && {
       prize: game.prize,
       guessCost: game.guessCost,
+      opensAt: game.opensAt,
       endsAt: game.endsAt,
       guesses: game.guesses.length,
       guessers: new Set(game.guesses.map((guess) => guess.userId)).size,

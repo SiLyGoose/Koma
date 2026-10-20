@@ -2,9 +2,10 @@ import { boldMoney } from '../currency.js';
 
 export const codedleText = {
   title: 'Codedle',
-  /** `prize` is what's in play, `length` how many digits, `cost` what a guess costs ('' when free), `unix` when it closes. */
-  description: (prize: string, length: number, cost: string, unix: number) =>
-    `The vault is locked with a **${length}-digit** code, and ${boldMoney(prize)} is inside. The first to guess it wins it all. Closes <t:${unix}:R>.\n\n` +
+  /** `prize` is what's in play, `length` how many digits, `cost` what a guess costs ('' when free), `opens` when guessing opens (null: it has), `unix` when it closes. */
+  description: (prize: string, length: number, cost: string, opens: number | null, unix: number) =>
+    `The vault is locked with a **${length}-digit** code, and ${boldMoney(prize)} is inside. The first to guess it wins it all. ` +
+    `${opens === null ? `Closes <t:${unix}:R>.` : `Guessing opens <t:${opens}:R>: open it on the site now to be ready.`}\n\n` +
     `Press **Guess** and type ${length} digits (repeats allowed). ${cost === '' ? 'Guessing is free.' : `Each guess costs ${boldMoney(cost)}, added to the vault.`}\n` +
     `🟩 right digit, right spot · 🟨 in the code, wrong spot · ⬛ not in the code\n` +
     `Only you can see your guesses and hints. Press **My guesses** to see them again.`,
@@ -28,6 +29,8 @@ export const codedleText = {
   guessCount: (count: number) => `${count} ${count === 1 ? 'guess' : 'guesses'} so far`,
   badGuess: (length: number) => `That isn't a ${length}-digit code. Type exactly ${length} digits, like ${'1234567890'.slice(0, length)}.`,
   cantAfford: (cost: string) => `A guess costs ${boldMoney(cost)} and you don't have enough.`,
+  /** Guessed before guessing opens (`unix`). */
+  early: (unix: number) => `Not yet: guessing opens <t:${unix}:R>.`,
   over: 'Too late, this vault is already closed.',
   /** A wrong guess, told privately. */
   wrong: (squares: string, guess: string) => `${squares} \`${guess}\` Not quite. Only you can see this hint.`,

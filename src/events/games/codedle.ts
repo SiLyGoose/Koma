@@ -26,7 +26,8 @@ import { LiveMessage, showResult } from './vault-game.js';
 
 /*
  * Codedle: the vault is locked with a random CODE_LENGTH-digit code, and the first person
- * to guess it wins the prize (the vault pool times events.vault.multiplier). Anyone can guess, as
+ * to guess it wins the prize (the vault pool times events.vault.multiplier). It is announced events.codedle.waitSeconds
+ * before guessing opens, so everyone has time to open it (on the site too). Then anyone can guess, as
  * often as they like, through a pop-up or on the site's Codedle page (its Play on the site button:
  * web/games/codedle/, the one game through ./codedle-games.ts); each guess costs events.codedle.guessCost,
  * added to the vault. Every guess is scored Wordle-style (lib/events/code.ts), but only the guesser sees their
@@ -42,18 +43,19 @@ const SQUARES: Record<Mark, string> = { hit: '🟩', near: '🟨', miss: '⬛' }
 
 export const squares = (marks: readonly Mark[]): string => marks.map((mark) => SQUARES[mark]).join('');
 
-/** The live screen's buttons: Guess, My guesses, and (`site`: the site's link to the game) Play on the site. */
-export function guessRow(site: string | null = null): ActionRowBuilder<ButtonBuilder> {
+/** The live screen's buttons: Guess, My guesses (both off until guessing opens), and (`site`: the site's link to the game) Play on the site. */
+export function guessRow(site: string | null = null, open = true): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(CODE.guessId).setLabel(TEXT.codedle.guessButton).setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(CODE.mineId).setLabel(TEXT.codedle.mineButton).setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId(CODE.guessId).setLabel(TEXT.codedle.guessButton).setStyle(ButtonStyle.Primary).setDisabled(!open),
+    new ButtonBuilder().setCustomId(CODE.mineId).setLabel(TEXT.codedle.mineButton).setStyle(ButtonStyle.Secondary).setDisabled(!open),
     ...(site ? [new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(site).setLabel(TEXT.codedle.siteButton).setEmoji('🔐')] : []),
   );
 }
 
-/** A guess not taken, in words. */
-function refusalText(reason: Extract<GuessOutcome, { ok: false }>['reason'], guessCost: number): string {
+/** A guess not taken, in words (`opensAtUnix`: when guessing opens). */
+function refusalText(reason: Extract<GuessOutcome, { ok: false }>['reason'], guessCost: number, opensAtUnix: number): string {
   if (reason === 'bad_guess') return TEXT.codedle.badGuess(CODE_LENGTH);
+  if (reason === 'early') return TEXT.codedle.early(opensAtUnix);
   if (reason === 'over') return TEXT.codedle.over;
   if (reason === 'cant_afford') return TEXT.codedle.cantAfford(fmt(guessCost));
   return TEXT.codedle.somethingWrong;
@@ -82,11 +84,11 @@ export function myBoardText(guesses: readonly CodeGuess[], userId: string): stri
   return `${TEXT.codedle.mineTitle(mine.length)}\n${boardText(mine, false)}`;
 }
 
-/** The live game: the rules and how many guesses there have been. The guesses themselves are private. */
-export function codeEmbed(prize: number, guessCost: number, endsAtUnix: number, guesses: readonly CodeGuess[]): BotEmbed {
+/** The live game: the rules, when guessing opens (`opensAtUnix`; null: it has), and how many guesses there have been. The guesses themselves are private. */
+export function codeEmbed(prize: number, guessCost: number, opensAtUnix: number | null, endsAtUnix: number, guesses: readonly CodeGuess[]): BotEmbed {
   return createEmbed()
     .setTitle(TEXT.codedle.title)
-    .setDescription(TEXT.codedle.description(fmt(prize), CODE_LENGTH, guessCost > 0 ? fmt(guessCost) : '', endsAtUnix))
+    .setDescription(TEXT.codedle.description(fmt(prize), CODE_LENGTH, guessCost > 0 ? fmt(guessCost) : '', opensAtUnix, endsAtUnix))
     .setFooter({ text: TEXT.codedle.guessCount(guesses.length) });
 }
 
@@ -129,31 +131,47 @@ async function runCodedle(ctx: EventContext): Promise<void> {
   }
   const prize = Math.round(basePool * CONFIG.events.vault.multiplier);
   const code = rollCode(CODE_LENGTH);
-  const endsAtMs = Date.now() + cfg.seconds * 1000;
+  const opensAtMs = Date.now() + cfg.waitSeconds * 1000;
+  const endsAtMs = opensAtMs + cfg.seconds * 1000;
+  const opensAtUnix = Math.floor(opensAtMs / 1000);
   const endsAtUnix = Math.floor(endsAtMs / 1000);
+  const isOpen = (): boolean => Date.now() >= opensAtMs;
   const web = webConfig();
   const site = web ? siteGameLink(web, 'codedle', guild.id) : null;
 
   const guesses: CodeGuess[] = [];
   let over = false;
   let winner: { userId: string; name: string } | null = null;
-  const view = () => ({ embeds: [codeEmbed(prize, cfg.guessCost, endsAtUnix, guesses)], components: [guessRow(site)] });
+  const view = () => {
+    const open = isOpen();
+    return { embeds: [codeEmbed(prize, cfg.guessCost, open ? null : opensAtUnix, endsAtUnix, guesses)], components: [guessRow(site, open)] };
+  };
 
   const message = await channel.send({ ...view(), ...(await eventPing(guild)) });
   console.log(`Codedle for ${prize} points (base ${basePool}) opened in ${guild.id}.`);
   const live = new LiveMessage(message, CODE.refreshMs);
-  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: cfg.seconds * 1000 });
+  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: Math.max(0, endsAtMs - Date.now()) });
+  // Guessing opens: the message's buttons come on, and the site's pages are told.
+  const opening = setTimeout(
+    () => {
+      live.show(view());
+      codedleChanged(guild.id);
+    },
+    Math.max(0, opensAtMs - Date.now()),
+  );
 
   /** The game, as its pop-up and the site's page both play it. */
   const game: CodedleGame = {
     prize,
     guessCost: cfg.guessCost,
+    opensAt: opensAtMs,
     endsAt: endsAtMs,
     guesses,
     async guess(userId, name, text) {
       const guess = parseGuess(text, CODE_LENGTH);
       if (!guess) return { ok: false, reason: 'bad_guess' };
       if (over) return { ok: false, reason: 'over' };
+      if (!isOpen()) return { ok: false, reason: 'early' };
       let charged: boolean;
       try {
         charged = await chargeIntoVault(guild.id, userId, cfg.guessCost, 'code_guess');
@@ -187,6 +205,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
   const handleGuess = async (press: ButtonInteraction): Promise<void> => {
     const userId = press.user.id;
     if (over) return replyPrivately(press, TEXT.codedle.over);
+    if (!isOpen()) return replyPrivately(press, TEXT.codedle.early(opensAtUnix));
 
     // A fresh id per press, so an old pop-up left open can't be mistaken for this one.
     const modalId = `code_${randomUUID()}`;
@@ -199,7 +218,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
     if (!submit) return;
 
     const outcome = await game.guess(userId, nameOf(submit), submit.fields.getTextInputValue(CODE.inputId));
-    if (!outcome.ok) return replyPrivately(submit, refusalText(outcome.reason, cfg.guessCost));
+    if (!outcome.ok) return replyPrivately(submit, refusalText(outcome.reason, cfg.guessCost, opensAtUnix));
     if (outcome.won) return replyPrivately(submit, TEXT.codedle.youWon(fmt(prize)));
     return replyPrivately(submit, `${TEXT.codedle.wrong(squares(outcome.marks), outcome.guess)}\n\n${myBoardText(guesses, userId)}`);
   };
@@ -237,6 +256,7 @@ async function runCodedle(ctx: EventContext): Promise<void> {
     console.log(`Codedle in ${guild.id} ended: ${cracked ? 'cracked' : 'not cracked'} after ${guesses.length} guesses.`);
     await showResult(message, channel, codeResultEmbed(code, prize, guesses, cracked?.userId ?? null), 'Codedle');
   } finally {
+    clearTimeout(opening);
     codedleClosed(guild.id, end);
   }
 }

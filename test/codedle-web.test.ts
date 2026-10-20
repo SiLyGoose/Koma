@@ -12,6 +12,7 @@ const guess = (userId: string, name: string, code: string, g: string): CodeGuess
 const game = (guesses: CodeGuess[]): CodedleGame => ({
   prize: 5000,
   guessCost: 10,
+  opensAt: 1_699_999_700_000,
   endsAt: 1_700_000_000_000,
   guesses,
   guess: async () => ({ ok: false, reason: 'over' }),

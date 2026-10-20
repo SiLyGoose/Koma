@@ -16,13 +16,14 @@ export interface CodeGuess {
 }
 
 /** What came of a guess: its hint (and whether it cracked the code), or why it wasn't taken (nothing was charged). */
-export type GuessOutcome = { ok: true; guess: string; marks: Mark[]; won: boolean } | { ok: false; reason: 'bad_guess' | 'over' | 'cant_afford' | 'failed' };
+export type GuessOutcome = { ok: true; guess: string; marks: Mark[]; won: boolean } | { ok: false; reason: 'bad_guess' | 'early' | 'over' | 'cant_afford' | 'failed' };
 
 /** A Codedle going on. */
 export interface CodedleGame {
   readonly prize: number;
   readonly guessCost: number;
-  /** When it closes (ms since 1970). */
+  /** When guessing opens, and when it closes (ms since 1970). */
+  readonly opensAt: number;
   readonly endsAt: number;
   readonly guesses: readonly CodeGuess[];
   /** `name` guesses `text` (as typed): charged for it, and scored. */

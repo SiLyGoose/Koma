@@ -407,7 +407,8 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.splitSteal.minPlayers', 'Events', 'Fewest people who have to join Split or Steal for it to be played.', 2, 50),
   int('events.splitSteal.joinSeconds', 'Events', 'Seconds Split or Steal stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.splitSteal.decideSeconds', 'Events', 'Seconds the Split or Steal players have to choose.', 10, MAX_EVENT_SECONDS),
-  int('events.codedle.seconds', 'Events', 'Seconds everyone has to crack the code in Codedle.', 30, MAX_EVENT_SECONDS),
+  int('events.codedle.waitSeconds', 'Events', "Seconds between Codedle's announcement and guessing opening, for everyone to open it (0 opens it at once).", 0, MAX_EVENT_SECONDS),
+  int('events.codedle.seconds', 'Events', 'Seconds everyone has to crack the code in Codedle, once guessing opens.', 30, MAX_EVENT_SECONDS),
   int('events.codedle.guessCost', 'Events', `What each Codedle guess costs, added to the vault (0 makes guessing free).`, 0, MAX_POINTS),
 
   ...RAID_BOSS_IDS.map((boss) =>

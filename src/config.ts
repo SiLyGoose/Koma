@@ -212,7 +212,9 @@ export interface Settings {
       fine: number;
     };
     codedle: {
-      /** How long the crew has to crack the code, in seconds. */
+      /** How long after it's announced guessing opens, in seconds: time for everyone to open it (on the site, too). */
+      waitSeconds: number;
+      /** How long the crew has to crack the code, in seconds, once guessing opens. */
       seconds: number;
       /** What each guess costs, added to the vault. 0 makes guessing free. */
       guessCost: number;
@@ -447,8 +449,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // also grows by 100 an hour on its own. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
   // a round (about a 3% chance of lasting all 10), and anyone caught pays 50. Split or Steal needs 2+
-  // players, with a minute to join and 30 seconds to choose. Codedle gives 5 minutes to guess a
-  // 5-digit code, at 10 points a guess (added to the vault).
+  // players, with a minute to join and 30 seconds to choose. Codedle opens 5 minutes after it's announced, then gives
+  // 5 minutes to guess a 5-digit code, at 10 points a guess (added to the vault).
   events: {
     minMinutes: 120,
     maxMinutes: 360,
@@ -456,7 +458,7 @@ export const DEFAULTS: Readonly<Settings> = {
     vault: { multiplier: 1, hourlyGrowth: 100, maxPool: 0, lossShare: 0.4 },
     heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
-    codedle: { seconds: 300, guessCost: 10 },
+    codedle: { waitSeconds: 300, seconds: 300, guessCost: 10 },
   },
   // The raid's numbers, set in simulated fights where the party picks the best of some ninety ways to
   // play (real parties do worse). Each boss's HP lets a party without gear win level 1 about 9 times in

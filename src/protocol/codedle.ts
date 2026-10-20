@@ -3,9 +3,9 @@
  * JSON object with a `t` saying what it is. The site keeps a copy (its `yarn sync`).
  *
  * Codedle is a random event (the bot's events/games/codedle.ts): the vault is locked with a code of `length` digits, and
- * the first to guess it takes the prize. It is played in Discord (its Guess pop-up) and on this page alike, the one game:
+ * the first to guess it takes the prize. Guessing opens a while after it's announced (`opensAt`), for everyone to get here. It is played in Discord (its Guess pop-up) and on this page alike, the one game:
  * each guess costs its fee, and is scored Wordle-style. A page is told only its own player's guesses and hints while the
- * vault is locked (and how many guesses everyone has made); once it opens, or time runs out, the code and everyone's
+ * vault is locked (and how many guesses everyone has made); once it is cracked, or time runs out, the code and everyone's
  * guesses. With no Codedle going, the page shows how the last one in the server ended, and waits for the next.
  *
  *   page -> bot   hello    first message: the token from the link
@@ -27,9 +27,10 @@ export interface CodedleRow {
 
 /** A Codedle going on, as one player sees it. */
 export interface CodedleLive {
-  /** What is in the vault, what a guess costs (0: free), and when it closes (ms since 1970). */
+  /** What is in the vault, what a guess costs (0: free), when guessing opens, and when it closes (ms since 1970). */
   prize: number;
   guessCost: number;
+  opensAt: number;
   endsAt: number;
   /** How many guesses everyone has made, and how many players made them. */
   guesses: number;
@@ -62,8 +63,8 @@ export interface CodedleState {
   boardMax: number;
 }
 
-/** Why a guess wasn't taken: not `length` digits, no Codedle going (or it just closed), not enough points, or something went wrong. */
-export type CodedleRefusal = 'bad_guess' | 'over' | 'cant_afford' | 'failed';
+/** Why a guess wasn't taken: not `length` digits, guessing not open yet, no Codedle going (or it just closed), not enough points, or something went wrong. */
+export type CodedleRefusal = 'bad_guess' | 'early' | 'over' | 'cant_afford' | 'failed';
 
 export type ClientMessage = { t: 'hello'; token: string } | { t: 'guess'; guess: string; seq: number };
 

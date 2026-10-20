@@ -61,6 +61,7 @@ test('codedle is in the event list', () => {
 
 test('codedle settings: defaults valid, in the Events group, held to their limits', () => {
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
+  assert.equal(DEFAULTS.events.codedle.waitSeconds, 300);
   assert.equal(DEFAULTS.events.codedle.seconds, 300);
   assert.equal(DEFAULTS.events.codedle.guessCost, 10);
   const seconds = findSpec('events.codedle.seconds');
@@ -69,6 +70,9 @@ test('codedle settings: defaults valid, in the Events group, held to their limit
   assert.equal(seconds.group, 'Events');
   assert.equal(parseInput(seconds, '10').ok, false, 'too short to play');
   assert.deepEqual(parseInput(cost, '0'), { ok: true, value: 0 }, 'free guessing is allowed');
+  const wait = findSpec('events.codedle.waitSeconds');
+  assert.ok(wait);
+  assert.deepEqual(parseInput(wait, '0'), { ok: true, value: 0 }, 'opening at once is allowed');
   assert.equal(parseInput(cost, '-1').ok, false);
 });
 
@@ -78,6 +82,8 @@ test('codedle constants pass the startup check, and its button ids are unique', 
   assert.equal(new Set(ids).size, ids.length);
   const buttons = guessRow().toJSON().components as { custom_id: string }[];
   assert.deepEqual(buttons.map((b) => b.custom_id), [CODE.guessId, CODE.mineId]);
+  const waiting = guessRow(null, false).toJSON().components as { disabled?: boolean }[];
+  assert.ok(waiting.every((b) => b.disabled), 'no guessing before it opens');
 });
 
 // ---------------------------------------------------------------------------
@@ -87,14 +93,17 @@ test('codedle constants pass the startup check, and its button ids are unique', 
 const guess = (userId: string, code: string, g: string): CodeGuess => ({ userId, guess: g, marks: scoreGuess(code, g) });
 
 test("live screen: prize, cost and a guess count, but nobody's guesses or hints", () => {
-  const empty = data(codeEmbed(5000, 10, 1_700_000_000, []));
+  const empty = data(codeEmbed(5000, 10, null, 1_700_000_000, []));
   assert.equal(empty.title, TEXT.codedle.title);
   assert.match(empty.description ?? '', /5,000/);
   assert.match(empty.description ?? '', /5-digit/);
   assert.match(empty.description ?? '', /<t:1700000000:R>/);
-  assert.match(data(codeEmbed(5000, 0, 1, [])).description ?? '', /free/);
+  assert.match(data(codeEmbed(5000, 0, null, 1, [])).description ?? '', /free/);
+  const waiting = data(codeEmbed(5000, 10, 1_699_999_700, 1_700_000_000, [])).description ?? '';
+  assert.match(waiting, /opens <t:1699999700:R>/);
+  assert.doesNotMatch(waiting, /<t:1700000000:R>/, 'when it opens, not when it closes');
 
-  const live = data(codeEmbed(5000, 10, 1, [guess('1', '12345', '67890')]));
+  const live = data(codeEmbed(5000, 10, null, 1, [guess('1', '12345', '67890')]));
   assert.equal(live.fields?.length ?? 0, 0, 'no board on the public screen');
   assert.doesNotMatch(JSON.stringify(live), /67890/);
   assert.equal(live.footer?.text, TEXT.codedle.guessCount(1));
