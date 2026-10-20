@@ -5,8 +5,8 @@ export const technomagicText = {
   /** What `k!technomagic` says, above the button to the site. */
   intro:
     'Galgoria, the three-headed chimera, waits in the swamp. Bring your heroes (buy them in the site\'s shop, gear them on the Heroes page) and fight it together on the Koma site, ' +
-    'as in King\'s Raid: the host brings up to 4 heroes, everyone else up to 2, 9 in all (alone, up to 8 against an easier boss). Heroes that fall stay down. ' +
-    "Each of your first runs of the day gives a piece of Galgoria's Perseverance set for a win: three pieces on a hero (of its weapons and armors) give its set effect.",
+    'as in King\'s Raid: the host brings up to 4 heroes, everyone else up to 3, 8 in all (alone, up to 7 against an easier boss). Heroes that fall stay down. ' +
+    "Every win gives pieces of Galgoria's Perseverance set (more at the higher stages), runes and points: four pieces on a hero (of its Armor, Mantle, Accessories and Orb) give its set effect. There is no daily limit.",
   /** The line under it once someone has opened a room. */
   opened: (host: string) => `**${host}** has opened a room. Join in!`,
   footer: 'Log in with Discord on the site.',

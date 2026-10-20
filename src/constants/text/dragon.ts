@@ -6,7 +6,7 @@ export const dragonText = {
   intro:
     "King's Raid's dragons wait in their lairs: Temeraire of fire, Scalaxia of ice, Zyrrkinoth of venom and Armarta, the Black Dragon. Bring your heroes and fight one together on the Koma site, " +
     'as in the TechnoMagic Raid (or alone, against an easier dragon). Break a dragon\'s CC Gauge with your heroes\' stuns to knock it down before its breath. ' +
-    'Every win gives hero gear (raid items), points and two kinds of hero essences (the dragon\'s), more at the higher stages. There is no daily limit.',
+    'Every win gives pieces of the dragon\'s own gear set (four on a hero give its set effect), runes, points and two kinds of hero essences (the dragon\'s), more at the higher stages. There is no daily limit.',
   /** The embed once someone has opened a room against `dragon`. */
   opened: (host: string, dragon: string) => `**${host}** has opened a room against **${dragon}**. Join in!`,
   openedTitle: (dragon: string) => `🐉 Dragon Raid: ${dragon}`,
