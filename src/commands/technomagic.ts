@@ -3,6 +3,7 @@ import { ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonStyle, type C
 import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import type { Command } from '../discord/types.js';
+import { raidPing } from '../events/ping.js';
 import { getChannelId } from '../services/channel.js';
 import { technomagicRoomLink, webConfig, type WebConfig } from '../web/config.js';
 
@@ -33,14 +34,14 @@ export function technomagicMessage(config: WebConfig, guildId: string, opened?: 
   return { embeds: [embed], components: [row], files: [picture()] };
 }
 
-/** Says in the server's channel (the one the bot is confined to) that `host` has created raid `room`. Without one, nothing. */
+/** Says in the server's channel (the one the bot is confined to) that `host` has created raid `room`, pinging the server's raid role. Without one, nothing. */
 export async function announceTechnoMagic(client: Client<true>, guildId: string, host: string, room: string): Promise<void> {
   const config = webConfig();
   const channelId = await getChannelId(guildId);
   if (!config || !channelId) return;
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel || !channel.isSendable() || channel.isDMBased()) return;
-  await channel.send(technomagicMessage(config, guildId, { host, room }));
+  await channel.send({ ...technomagicMessage(config, guildId, { host, room }), ...(await raidPing(channel.guild)) });
 }
 
 export const technomagic: Command = {

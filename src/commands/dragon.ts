@@ -4,6 +4,7 @@ import { TEXT } from '../constants/index.js';
 import { createEmbed } from '../lib/embed.js';
 import { DRAGONS } from '../lib/game/dragon.js';
 import type { Command } from '../discord/types.js';
+import { raidPing } from '../events/ping.js';
 import { getChannelId } from '../services/channel.js';
 import { dragonRoomLink, webConfig, type WebConfig } from '../web/config.js';
 
@@ -38,14 +39,14 @@ export function dragonMessage(config: WebConfig, guildId: string, opened?: { hos
   return { embeds: [embed], components: [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)], files: [picture(shown.id)] };
 }
 
-/** Says in the server's channel (the one the bot is confined to) that `host` has created raid `room` against `dragon`. Without one, nothing. */
+/** Says in the server's channel (the one the bot is confined to) that `host` has created raid `room` against `dragon`, pinging the server's raid role. Without one, nothing. */
 export async function announceDragon(client: Client<true>, guildId: string, host: string, dragon: string, room: string): Promise<void> {
   const config = webConfig();
   const channelId = await getChannelId(guildId);
   if (!config || !channelId) return;
   const channel = await client.channels.fetch(channelId).catch(() => null);
   if (!channel || !channel.isSendable() || channel.isDMBased()) return;
-  await channel.send(dragonMessage(config, guildId, { host, dragon, room }));
+  await channel.send({ ...dragonMessage(config, guildId, { host, dragon, room }), ...(await raidPing(channel.guild)) });
 }
 
 export const dragon: Command = {
