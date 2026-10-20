@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { DRAGON_DROPS, dragonDrops, TM_ROOM } from '../src/constants/index.js';
+import { DRAGON_DROPS, DRAGON_GEMS, dragonDrops, dragonGems, TM_ROOM } from '../src/constants/index.js';
 import { HEROES } from '../src/data/heroes.js';
 import { DRAGON_ESSENCES, ESSENCES } from '../src/data/transcend.js';
 import { DRAGON_IDS, DRAGONS, dragonPay, isDragon, rollDragonEssences, rollDragonGear } from '../src/lib/game/dragon.js';
@@ -38,6 +38,20 @@ test('dragon: a win pays more points and essences at each stage, and the setting
   assert.deepEqual(dragonPay(1, DEFAULTS.dragon), { points: 750, essences: 8 });
   assert.deepEqual(dragonPay(10, DEFAULTS.dragon), { points: 3_000, essences: 44 });
   for (const key of ['dragon.winPoints', 'dragon.pointsPerStage', 'dragon.essences', 'dragon.essencesPerStage']) assert.ok(findSpec(key), key);
+});
+
+test('dragon: a win pays komaGems by its mode and stage, twice as many the first time', () => {
+  assert.equal(DRAGON_GEMS.normal.length, 20);
+  assert.equal(DRAGON_GEMS.hard.length, 10);
+  assert.equal(dragonGems(1, 'normal'), 1);
+  assert.equal(dragonGems(20, 'normal'), 4);
+  assert.equal(dragonGems(1, 'hard'), 3);
+  assert.equal(dragonGems(10, 'hard'), 10);
+  assert.equal(dragonGems(10, 'hard', true), 20);
+  assert.equal(dragonGems(99, 'hard'), 10, 'past the last stage, as the last');
+  const total = (mode: 'normal' | 'hard', first: boolean): number => DRAGON_GEMS[mode].reduce((sum, _, i) => sum + dragonGems(i + 1, mode, first), 0);
+  assert.equal(total('normal', false) + total('hard', false), 100, 'a win at every stage of a dragon: 100');
+  assert.equal(total('normal', true) + total('hard', true), 200, 'the first time at each: 200');
 });
 
 test('dragon: a Normal win pays as the Hard stage it is as tough as; one easier than all of them, less than Hard stage 1', () => {

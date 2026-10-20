@@ -120,7 +120,10 @@ export interface DropView {
   setEffect: { pieces: number; text: string } | null;
 }
 
-/** What a fight that is over gave each player (by id): the items found, the points paid, and (the Dragon Raid's) the hero essences, so many of each kind. */
+/**
+ * What a fight that is over gave each player (by id): the items found, the points paid, and (the Dragon Raid's) the hero
+ * essences, so many of each kind, the komaGems, and whether it was their first win at its stage (its komaGems doubled).
+ */
 export interface OverView {
   result: 'won' | 'lost';
   drops: Record<string, DropView[]>;
@@ -128,6 +131,8 @@ export interface OverView {
   runes?: Record<string, { id: string; name: string; icon: string; grade: number }[]>;
   points: Record<string, number>;
   essences?: Record<string, Record<string, number>>;
+  gems?: Record<string, number>;
+  firstClear?: Record<string, boolean>;
 }
 
 /** Which raid a room is: the TechnoMagic Raid, or the Dragon Raid. */

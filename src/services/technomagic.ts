@@ -4,14 +4,14 @@ import { HEROES_BY_ID } from '../data/heroes.js';
 import { keptPerks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
-import { tmDropCount } from '../constants/technomagic.js';
+import { dragonGems, tmDropCount } from '../constants/technomagic.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
 import { rollArtifact, rollDragonPieces, rollRunes, rollTmDrop, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
 import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
 import type { ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
 import type { RaidMode } from '../protocol/technomagic.js';
-import { addCopy, ensureMember } from './economy/index.js';
+import { addCopy, ensureMember, giveGems } from './economy/index.js';
 import { giveEssences } from './economy/essences.js';
 import { recordLedger } from './economy/shared.js';
 
@@ -22,7 +22,8 @@ import { recordLedger } from './economy/shared.js';
  * runs they have won that day: there is no daily limit) TechnoMagic items (TM_DROP_COUNTS, by the stage), each copy with an additional skill and its potentials rolled for it
  * (ItemCopyDoc.tmSkill, tmPotentials; an armor's main stat's DEF too, tmArmorDef), and `hero.winPoints` points.
  * The Dragon Raid's runs are kept the same way (their boss a dragon: lib/game/dragon.ts), and a win gives each player hero
- * gear (raid items: DRAGON_DROPS), points and hero essences of its dragon's kinds, more at the higher stages (`dragon.*`).
+ * gear (raid items: DRAGON_DROPS), points and hero essences of its dragon's kinds, more at the higher stages (`dragon.*`), and
+ * komaGems (DRAGON_GEMS), twice as many the first time they beat that stage.
  * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
  */
 
@@ -118,12 +119,17 @@ export interface TmFind {
   armorDef?: TmArmorDef;
 }
 
-/** What a run over gave a player: the items they found, the runes (their ids), the points they were paid, and (the Dragon Raid's) the hero essences. */
+/**
+ * What a run over gave a player: the items they found, the runes (their ids), the points they were paid, and (the Dragon Raid's)
+ * the hero essences and komaGems, and whether it was the first time they beat that stage (its komaGems doubled).
+ */
 export interface TmWin {
   finds: TmFind[];
   runes?: string[];
   points: number;
   essences?: Partial<Record<EssenceId, number>>;
+  gems?: number;
+  firstClear?: boolean;
 }
 
 /** A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it. */
@@ -158,7 +164,7 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
-      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.map(({ item }) => item.id), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }) } },
+      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.map(({ item }) => item.id), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }), ...(won.gems && { gems: won.gems }) } },
     );
   }
   return found;
@@ -192,8 +198,18 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
   return { finds, runes, points };
 }
 
-/** A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, and its dragon's essences (dragonPay). */
+/** Whether a member has won a run against `boss` at `stage` in `mode` before (this one's isn't marked won yet). */
+async function wonBefore(guildId: string, userId: string, boss: string, stage: number, mode: RaidMode): Promise<boolean> {
+  const won = await collections().tmRuns.findOne({ guildId, userId, boss, stage, result: 'won', mode: mode === 'normal' ? 'normal' : { $ne: 'normal' } }, { projection: { _id: 1 } });
+  return won !== null;
+}
+
+/**
+ * A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, its
+ * dragon's essences (dragonPay), and its komaGems (dragonGems: doubled the first time they beat that stage).
+ */
 async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
+  const firstClear = !(await wonBefore(guildId, userId, dragon, stage, mode));
   const finds: TmFind[] = [];
   for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item));
   const runes = rollRunes(stage, true, undefined, mode);
@@ -202,5 +218,7 @@ async function payDragonWin(guildId: string, userId: string, dragon: string, sta
   await payPoints(guildId, userId, pay.points, 'dragon_win');
   const essences = rollDragonEssences(dragon, pay.essences);
   await giveEssences(guildId, userId, essences, 'dragon_essences');
-  return { finds, runes, points: pay.points, essences };
+  const gems = dragonGems(stage, mode, firstClear);
+  if (gems > 0) await giveGems(guildId, userId, gems, 'dragon_gems');
+  return { finds, runes, points: pay.points, essences, gems, firstClear };
 }

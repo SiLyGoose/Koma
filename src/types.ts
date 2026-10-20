@@ -243,7 +243,7 @@ export interface MemberDoc {
   totalPulls: number;
   /** komaTokens: free gacha pulls, one each, spent before points. Missing means 0. */
   tokens?: number;
-  /** komaGems, won by beating the weekly raid. Missing means 0. */
+  /** komaGems, won by beating the weekly raid and the Dragon Raid. Missing means 0. */
   gems?: number;
   /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
   essences?: Partial<Record<EssenceId, number>>;
@@ -395,6 +395,8 @@ export interface TmRunDoc {
   drops?: string[];
   /** A Dragon Raid win's hero essences, so many of each kind. */
   essences?: Partial<Record<EssenceId, number>>;
+  /** A Dragon Raid win's komaGems (twice as many the first time at its stage). */
+  gems?: number;
 }
 
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
@@ -594,6 +596,8 @@ export type LedgerReason =
   | 'raid_reward'
   | 'raid_tokens'
   | 'raid_gems'
+  // komaGems for a Dragon Raid win (0 points, gemDelta), twice as many the first time at its stage.
+  | 'dragon_gems'
   // Hero essences for beating it (0 points; essenceDelta).
   | 'raid_essences'
   | 'dragon_essences'

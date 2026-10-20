@@ -138,6 +138,23 @@ export const normalPaysAs = (stage: number): number => KR_DROPS.normal.paysAs[Ma
 /** The first Normal Dragon Raid stage that pays as one of the Hard Dragon Raid's (the ones before it are easier than all of them). */
 export const NORMAL_PAYS_FROM: number = KR_DROPS.normal.paysAs.findIndex((as) => as > 0) + 1;
 
+/**
+ * The komaGems a Dragon Raid win pays each player, by its mode and stage (the first is stage 1's): every win, and
+ * `firstClear` times as many the first time they beat that stage of that dragon in that mode (the user's).
+ */
+export const DRAGON_GEMS = {
+  normal: [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4] as readonly number[],
+  hard: [3, 3, 3, 3, 5, 5, 5, 10, 10, 10] as readonly number[],
+  firstClear: 2,
+} as const;
+
+/** The komaGems a Dragon Raid win at `stage` in `mode` pays (`first`: their first win there). Past the last stage, as the last. */
+export function dragonGems(stage: number, mode: 'normal' | 'hard', first = false): number {
+  const table = DRAGON_GEMS[mode];
+  const gems = table[Math.min(table.length, Math.max(1, Math.floor(stage))) - 1] ?? 0;
+  return first ? gems * DRAGON_GEMS.firstClear : gems;
+}
+
 /** The weights of each rune grade a Normal Dragon Raid's win at `stage` rolls, where it pays as none of the Hard Dragon Raid's: from `grades[0]` at stage 1 to `grades[1]` at the last such stage. */
 export function normalRuneGradeWeights(stage: number): number[] {
   const [first, last] = KR_DROPS.normal.grades as readonly (readonly number[])[];

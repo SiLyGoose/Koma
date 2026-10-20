@@ -83,6 +83,15 @@ export type Cleared = Readonly<Record<RaidMode, number>>;
 /** How far someone has got, as it is told: in each mode, or (a number) in Hard alone. */
 const clearedOf = (cleared: Partial<Cleared> | number): Cleared => (typeof cleared === 'number' ? { hard: cleared, normal: 0 } : { hard: cleared.hard ?? 0, normal: cleared.normal ?? 0 });
 
+/** What a run over gave a player: the items found, the points paid, and (the Dragon Raid's) the hero essences and komaGems, and whether it was their first win at its stage. */
+export interface Got {
+  drops: DropView[];
+  points: number;
+  essences?: Record<string, number>;
+  gems?: number;
+  firstClear?: boolean;
+}
+
 /** The database, the clock, Discord and where fights run, so tests can stand in for them. */
 export interface RoomDeps {
   now: () => number;
@@ -92,8 +101,8 @@ export interface RoomDeps {
   cleared: (guildId: string, userId: string, boss: string) => Promise<Cleared>;
   /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun). */
   begin: (guildId: string, stage: number, players: Parameters<typeof beginRun>[2], boss: string, mode: RaidMode) => Promise<BegunRun>;
-  /** What a run over gave each player (nothing to those who `forfeited` it): the items found, the points paid, and the hero essences. */
-  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, { drops: DropView[]; points: number; essences?: Record<string, number> }>>;
+  /** What a run over gave each player (nothing to those who `forfeited` it): the items found, the points paid, the hero essences and komaGems, and whether it was their first win at its stage. */
+  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, Got>>;
   /** Says in the server's channel that `host` has created raid `room`, against `boss`. Not waited for. */
   announce: (guildId: string, host: string, boss: string, room: string) => void;
   /** The link others join raid `room` (against `boss`) by (null: there is no site). */
@@ -113,7 +122,7 @@ export const realRoomDeps: RoomDeps = {
   begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map([...found].map(([userId, { finds, runes, points, essences }]) => [userId, { drops: finds.map(dropView), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }) }]));
+    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, firstClear }]) => [userId, { drops: finds.map(dropView), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClear !== undefined && { firstClear }) }]));
   },
   announce: () => {},
   link: (guildId, _boss, room) => {
@@ -737,7 +746,7 @@ export class TechnoMagicRoom {
     fight.done = true;
     fight.stop();
     fight.engine.close();
-    let got = new Map<string, { drops: DropView[]; points: number; essences?: Record<string, number> }>();
+    let got = new Map<string, Got>();
     try {
       got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick, fight.forfeited);
     } catch (err) {
@@ -759,7 +768,11 @@ export class TechnoMagicRoom {
       result,
       drops: Object.fromEntries([...got].map(([userId, { drops }]) => [userId, drops])),
       points: Object.fromEntries([...got].map(([userId, { points }]) => [userId, points])),
-      ...(this.raid.kind === 'dragon' && { essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])) }),
+      ...(this.raid.kind === 'dragon' && {
+        essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])),
+        gems: Object.fromEntries([...got].map(([userId, { gems }]) => [userId, gems ?? 0])),
+        firstClear: Object.fromEntries([...got].map(([userId, { firstClear }]) => [userId, firstClear === true])),
+      }),
     };
     // Those gone during it: still waited for, for what's left of their time.
     for (const member of this.members.values()) if (!member.peer) this.waitFor(member);
