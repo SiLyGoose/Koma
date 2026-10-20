@@ -32065,17 +32065,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 	}
 	/**
-	* Auto, as King's Raid's goes (BattleManagement.UpdateSkillAutoReserve): every AUTO.every seconds that a hero has
-	* nothing reserved and isn't using a skill, one of its skills whose cooldown is over, at random, reserved whatever its
-	* mana (the hero attacks till it has it, as with one pressed) and kept till used (null: none). Unlike King's Raid's,
-	* not one that would be wasted (wanted: a status it keeps up still is; its hero says it waits).
+	* Auto, much as King's Raid's goes (BattleManagement.UpdateSkillAutoReserve): every AUTO.every seconds that a hero has
+	* nothing reserved and isn't using a skill, one of its skills at random (null: none). Unlike King's Raid's, only one it
+	* can use now (it never waits on one for its mana), and not one that would be wasted (wanted: a status it keeps up still
+	* is; its hero says it waits); one whose moment its hero says it is, before any other.
 	*/
 	function autoSkill(on) {
 		const ready = on.abilities.flatMap((_, index) => {
 			const ability = sim.slot(on, index);
-			return ability && on.cooldowns[index] <= 0 && wanted(on, index, ability) ? [index] : [];
+			return ability && sim.ready(on, index) && wanted(on, index, ability) ? [index] : [];
 		});
-		return ready.length > 0 ? ready[Math.floor(roll() * ready.length)] : null;
+		const now = ready.filter((index) => on.part.now?.(index));
+		const from = now.length > 0 ? now : ready;
+		return from.length > 0 ? from[Math.floor(roll() * from.length)] : null;
 	}
 	/** Auto: whether `on`'s skill in slot `index` would be of use now (not one that keeps a status up while it still is, nor one its hero says waits). */
 	function wanted(on, index, ability) {
@@ -33183,7 +33185,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				on.autoWait = on.doing?.skill !== void 0 ? 0 : on.autoWait + dt;
 				if (on.reserved !== null && on.autoPicked) {
 					const ability = sim.slot(on, on.reserved);
-					if (!on.auto || !ability || on.cooldowns[on.reserved] > 0 || !wanted(on, on.reserved, ability)) {
+					if (!on.auto || !ability || !sim.ready(on, on.reserved) || !wanted(on, on.reserved, ability)) {
 						on.reserved = null;
 						on.autoWait = 0;
 					}
@@ -33195,7 +33197,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				}
 				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
 				if (on.hp > 0 && !bound(on.statuses)) {
-					if (on.reserved !== null && (!on.autoPicked || (on.part.ripe?.(on.reserved) ?? true)) && use(on, on.reserved)) on.reserved = null;
+					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
 					else if (!on.doing && on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
 				}
 			}
@@ -36927,7 +36929,7 @@ var SERIA = {
 				if (candle > 0) candle--;
 			},
 			lit: () => moonlight > 0,
-			ripe: (index) => index !== 2 || moonlight > 0,
+			now: (index) => index === 2 && moonlight > 0,
 			buffs: () => moonlight > 0 ? [{
 				...MOONLIGHT,
 				left: moonlight
@@ -49260,7 +49262,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "7585b3f381fe";
+var SIM_VERSION = "44d53613f1ec";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
