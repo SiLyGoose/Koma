@@ -25,10 +25,13 @@ test('kr migrate: a copy keeps its strength: R5 (its main stat was 5★), its po
     { stat: 'atk', step: 2 },
     { stat: 'defPhysical', step: 1 },
   ]);
-  // None of the pool's: both rolled, different stats.
+  // None of the pool's: both rolled, as a new copy's are (the same stat twice or not).
   const rolled = migratedOptions('perseverance-warrior-orb', [{ stat: 'tough', value: 0.1 }]);
   assert.equal(rolled.length, 2);
-  assert.notEqual(rolled[0]?.stat, rolled[1]?.stat);
+  // One of the pool's: it, and one rolled, which may be the same stat.
+  const one = migratedOptions('perseverance-warrior-orb', [{ stat: 'atk', value: 0.12 }], { index: () => 0 });
+  assert.equal(one.length, 2);
+  assert.deepEqual(one[0], { stat: 'atk', step: 2 });
   assert.equal(migratedCopy({ itemId: 'the-guardian-exian' }), null);
 });
 

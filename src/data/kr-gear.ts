@@ -16,8 +16,8 @@ import { KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, TM_ARTIFACTS, type K
  *   - the artifacts the fight has a use for (vendor's TM_ARTIFACTS), in a hero's artifact slot.
  *
  * Every copy is at its max level (King's Raid's +30): only its refinement (King's Raid's stars, R1 to R5: a duplicate used up
- * each, as any gear's) raises its main stat (KR_REFINE). Its options (ItemCopyDoc.options) are rolled as it drops, each a
- * different stat of its pool's, by its pool's weights, at a step at random; a reroll rolls one again, an upgrade raises one a
+ * each, as any gear's) raises its main stat (KR_REFINE). Its options (ItemCopyDoc.options) are rolled as it drops, each any
+ * stat of its pool's (two may be the same, as King's Raid's), by its pool's weights, at a step at random; a reroll rolls one again, an upgrade raises one a
  * step. Its runes (KR_RUNES: King's Raid's 224) go in its sockets, as many as its part has (and a unique weapon's three).
  */
 
@@ -171,31 +171,32 @@ function pickOption(pool: readonly KrOptionData[], taken: ReadonlySet<string>, r
 /** A step at random, any as likely (0 to the option's steps). */
 const stepOf = (option: KrOptionData, rng: KrRng): number => rng.index(option.steps + 1);
 
-/** The options a piece drops with: its pool's, as many as it has, each a different stat, by their weights, each at a step at random. */
+/**
+ * The options a piece drops with: its pool's, as many as it has, by their weights, each at a step at random. Any of them
+ * may be the same stat as another, as King's Raid's may (four ATK lines and all).
+ */
 export function rollKrOptions(kr: KrItem, rng: KrRng = defaultRng): KrOption[] {
   const pool = kr.pool ? (KR_POOLS[kr.pool] ?? []) : [];
   const out: KrOption[] = [];
-  const taken = new Set<string>();
   while (out.length < kr.options) {
-    const option = pickOption(pool, taken, rng);
+    const option = pickOption(pool, new Set(), rng);
     if (!option) break;
-    taken.add(option.stat);
     out.push({ stat: option.stat, step: stepOf(option, rng) });
   }
   return out;
 }
 
 /**
- * A copy's options with its `index`th rolled again: another of its pool's stats (King's Raid's TechnoMagic gear may roll the
- * same again: EnableRenewSameOption), at a step at random; its rerolls counted. Null: no such option.
+ * A copy's options with its `index`th rolled again: any of its pool's stats, the copy's other options' too, but the one it
+ * was (King's Raid's TechnoMagic gear may roll that again as well: EnableRenewSameOption), at a step at random; its rerolls
+ * counted. Null: no such option.
  */
 export function rerollKrOption(kr: KrItem, options: readonly KrOption[], index: number, rng: KrRng = defaultRng): KrOption[] | null {
   const old = options[index];
   if (!old) return null;
   const pool = kr.pool ? (KR_POOLS[kr.pool] ?? []) : [];
   const same = KR_TM_SETS.includes(kr.set ?? '');
-  const others = new Set(options.filter((_, i) => i !== index || !same).map((option) => option.stat));
-  const option = pickOption(pool, others, rng);
+  const option = pickOption(pool, new Set(same ? [] : [old.stat]), rng);
   if (!option) return null;
   return options.map((one, i) => (i === index ? { stat: option.stat, step: stepOf(option, rng), rerolls: (old.rerolls ?? 0) + 1 } : one));
 }

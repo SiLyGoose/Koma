@@ -69,12 +69,8 @@ export function migratedOptions(newItemId: string, potentials: readonly TmPotent
     out.push({ stat, step: Math.round(along(potential) * option.steps) });
     if (out.length >= kr.options) return out;
   }
-  // (The rest rolled, of stats it hasn't yet.)
-  for (const rolled of rollKrOptions(kr, rng)) {
-    if (out.length >= kr.options) break;
-    if (!out.some((one) => one.stat === rolled.stat)) out.push(rolled);
-  }
-  return out;
+  // (The rest rolled, as a new copy's are: any stat, one it has already too.)
+  return [...out, ...rollKrOptions(kr, rng).slice(0, kr.options - out.length)];
 }
 
 /** What a copy becomes (null: it isn't old TechnoMagic gear, and stays as it is). */

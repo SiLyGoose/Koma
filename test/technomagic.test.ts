@@ -10,7 +10,7 @@ import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
 import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES, UT_OPTION_LINES } from '../src/data/tm-potentials.js';
-import { krOptionValue, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption, upgradePrice } from '../src/data/kr-gear.js';
+import { KR_POOLS, krOptionValue, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption, upgradePrice } from '../src/data/kr-gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -661,7 +661,7 @@ test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7
   assert.equal(tmDropCount(MOST_STAGE), 5, 'past its last stage, as much as the last');
 });
 
-test("technomagic: each piece rolls King's Raid's options (each a different stat of its pool, at a step), rerolled and upgraded as King's Raid's; a unique treasure rolls its 2 options", () => {
+test("technomagic: each piece rolls King's Raid's options (any stat of its pool, two the same or not, at a step), rerolled and upgraded as King's Raid's; a unique treasure rolls its 2 options", () => {
   // A unique treasure's options: still 2 of the potentials, each within its range.
   assert.equal(UT_OPTION_LINES, 2);
   for (let i = 0; i < 100; i++) {
@@ -669,22 +669,30 @@ test("technomagic: each piece rolls King's Raid's options (each a different stat
     assert.equal(new Set(rolled.map(({ stat }) => stat)).size, 2);
     for (const { stat, value } of rolled) assert.ok(value >= TM_POTENTIAL_RANGES[stat].min - 1e-9 && value <= TM_POTENTIAL_RANGES[stat].max + 1e-9, `${stat} ${value}`);
   }
-  // A Perseverance piece: 2 options from its pool, each a different stat; a dragon piece, 4.
+  // A Perseverance piece: 2 options from its pool; a dragon piece, 4. Any may be the same stat as another, as King's Raid's.
   const tm = ITEMS_BY_ID.get('perseverance-warrior-armor')!.kr!;
   const dragon = ITEMS_BY_ID.get('opportune-fire-t8-heavy-armor')!.kr!;
   for (let i = 0; i < 100; i++) {
     const options = rollKrOptions(tm);
     assert.equal(options.length, 2);
-    assert.notEqual(options[0]?.stat, options[1]?.stat);
     for (const option of options) assert.ok(option.step >= 0 && option.step <= 2, option.stat);
-    assert.equal(new Set(rollKrOptions(dragon).map((option) => option.stat)).size, 4);
+    assert.equal(rollKrOptions(dragon).length, 4);
   }
+  const first = rollKrOptions(dragon, { index: () => 0 });
+  assert.equal(new Set(first.map((option) => option.stat)).size, 1);
+  assert.equal(first.length, 4);
   // Its value: so far between its least and most (Perseverance's ATK: 12%, 14%, 16%).
   assert.deepEqual([0, 1, 2].map((step) => krOptionValue(tm, { stat: 'atk', step })), [0.12, 0.14, 0.16]);
   // A reroll rolls one again, counted; an upgrade raises one not at its top a step (TechnoMagic gear's too, for 1,000 zeiucoins).
   const rerolled = rerollKrOption(tm, [{ stat: 'atk', step: 0 }, { stat: 'hp', step: 0 }], 0, { index: () => 0 });
   assert.equal(rerolled?.[0]?.rerolls, 1);
   assert.equal(rerolled?.[1]?.stat, 'hp');
+  // It may land on another option's stat; a dragon piece's never on the one it was (a TechnoMagic piece's may).
+  const pool = (kr: typeof tm) => KR_POOLS[kr.pool!]!.map((option) => option.stat);
+  const [tmFirst, dragonFirst, dragonSecond] = [pool(tm)[0]!, pool(dragon)[0]!, pool(dragon)[1]!];
+  assert.equal(rerollKrOption(tm, [{ stat: tmFirst, step: 0 }, { stat: tmFirst, step: 0 }], 0, { index: () => 0 })?.[0]?.stat, tmFirst);
+  assert.equal(rerollKrOption(dragon, [{ stat: dragonFirst, step: 0 }, { stat: dragonSecond, step: 0 }], 0, { index: () => 0 })?.[0]?.stat, dragonSecond);
+  assert.equal(rerollKrOption(dragon, [{ stat: dragonSecond, step: 0 }, { stat: dragonFirst, step: 0 }], 0, { index: () => 0 })?.[0]?.stat, dragonFirst);
   assert.deepEqual(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 3 }], { index: () => 0 }), [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 4 }]);
   assert.equal(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }]), null);
   assert.ok(upgradable(tm) && upgradable(dragon));
