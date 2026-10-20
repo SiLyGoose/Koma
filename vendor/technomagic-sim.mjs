@@ -49133,7 +49133,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "021e10c26faf";
+var SIM_VERSION = "fc766efed059";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
@@ -49171,6 +49171,7 @@ var TM_HEROES = HEROES.map((hero) => ({
 	id: hero.id,
 	name: hero.name,
 	class: hero.class,
+	deals: hero.stats.deals,
 	skins: hero.skins.length,
 	skills: [...hero.abilities.map(({ name, cost, cooldown, tag, words, about }) => ({
 		name,

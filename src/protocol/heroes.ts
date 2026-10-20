@@ -188,6 +188,8 @@ export interface HeroView {
   id: string;
   name: string;
   class: RaidClassId;
+  /** The kind of damage its blows deal (the raid's). */
+  deals: 'physical' | 'magical';
   /** What it costs in points. */
   price: number;
   owned: boolean;

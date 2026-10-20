@@ -87,6 +87,8 @@ export interface TmHero {
     id: string;
     name: string;
     class: string;
+    /** The kind of damage its blows deal. */
+    deals: DamageType;
     skins: number;
     /** Its three skills, then its passive: as the heroes page says them (King's Raid's words, with the fight's numbers). */
     skills: TmHeroSkill[];

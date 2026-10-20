@@ -265,6 +265,7 @@ export function heroesView(
       id: hero.id,
       name: hero.name,
       class: hero.class,
+      deals: hero.deals,
       price: CONFIG.hero.price,
       owned: doc !== undefined,
       equipped,

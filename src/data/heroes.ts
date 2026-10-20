@@ -14,6 +14,8 @@ export interface HeroDef {
   id: string;
   name: string;
   class: RaidClassId;
+  /** The kind of damage its blows deal. */
+  deals: 'physical' | 'magical';
   /** How many skins it has (its own first): one is picked for the raid by its index. */
   skins: number;
   /** Its three skills, then its passive, as the heroes page says them (the raid's). */
@@ -23,9 +25,9 @@ export interface HeroDef {
 const isRaidClass = (id: string): id is RaidClassId => (RAID_CLASS_IDS as readonly string[]).includes(id);
 
 /** In the order the shop and the heroes page show them. */
-export const HEROES: readonly HeroDef[] = TM_HEROES.map(({ id, name, class: heroClass, skins, skills }) => {
+export const HEROES: readonly HeroDef[] = TM_HEROES.map(({ id, name, class: heroClass, deals, skins, skills }) => {
   if (!isRaidClass(heroClass)) throw new Error(`The raid's hero ${id} is of a class the bot doesn't know (${heroClass})`);
-  return { id, name, class: heroClass, skins, abilities: skills };
+  return { id, name, class: heroClass, deals, skins, abilities: skills };
 });
 
 export const HEROES_BY_ID: ReadonlyMap<string, HeroDef> = new Map(HEROES.map((hero) => [hero.id, hero]));
