@@ -23,7 +23,7 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * host goes, whoever has been in it longest is); a page that names no raid joins an open one against its boss, or creates
  * one. Getting ready, each picks heroes of their own
  * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
- * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
+ * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, the Dragon Raid's TM_ROOM.dragonSoloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
  * starts the fight at the stage they picked (or sooner, forcing it: whoever has no hero in sits it out). One whose page goes away (a reload, a phone switching apps) keeps their place
@@ -248,13 +248,18 @@ export class TechnoMagicRoom {
     return this.single;
   }
 
+  /** How many heroes the lineup takes alone: the Dragon Raid's more. */
+  private soloSlots(): number {
+    return this.raid.kind === 'dragon' ? TM_ROOM.dragonSoloSlots : TM_ROOM.soloSlots;
+  }
+
   private slots(): number {
-    return this.solo() ? TM_ROOM.soloSlots : TM_ROOM.slots;
+    return this.solo() ? this.soloSlots() : TM_ROOM.slots;
   }
 
   /** How many heroes `userId` may bring. */
   private limit(userId: string): number {
-    if (this.solo()) return TM_ROOM.soloSlots;
+    if (this.solo()) return this.soloSlots();
     return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
   }
 
@@ -356,7 +361,7 @@ export class TechnoMagicRoom {
 
   /** How many heroes the Main Team takes alone, or the Sub Team (`sub`). */
   private teamSlots(sub: boolean): number {
-    return sub ? TM_ROOM.soloSlots - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
+    return sub ? this.soloSlots() - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
   }
 
   /**

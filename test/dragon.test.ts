@@ -181,6 +181,21 @@ test("dragon room: a run is against the room's dragon, and a win says the essenc
   assert.deepEqual(over?.points, { a: 750 });
 });
 
+test('dragon room: single player, up to 8 heroes, a Main Team of 4 and a Sub Team of 4', async () => {
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 0, h.deps, true, 'temeraire')!;
+  assert.equal(a.room().slots, TM_ROOM.dragonSoloSlots);
+  assert.equal(TM_ROOM.dragonSoloSlots, 8);
+  const [main, sub] = [ALL.slice(0, TM_ROOM.mainTeam), ALL.slice(TM_ROOM.mainTeam, TM_ROOM.dragonSoloSlots)];
+  for (const hero of main) assert.equal(room.pick('a', hero, 0), null);
+  for (const hero of sub) assert.equal(room.pick('a', hero, 0, true), null);
+  assert.equal(a.room().lineup.length, 8);
+  assert.equal(room.pick('a', ALL[TM_ROOM.dragonSoloSlots] as string, 0, true), 'limit');
+  assert.equal(await room.begin('a'), null);
+  assert.equal(a.room().phase, 'fight');
+});
+
 test('dragon room: raids are created apart, joined by their id, and listed for Find Raid; one over is gone', () => {
   const h = harness();
   const a = h.peer();
