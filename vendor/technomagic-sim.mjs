@@ -29165,7 +29165,7 @@ var SKILLS = [
 		id: "magical-ward",
 		name: "Magical Ward",
 		tier: "B",
-		about: `Reduces magical DMG taken by ${pct(SKILL["magical-ward"].taken)}, rising to ${pct(SKILL["magical-ward"].most)} over the first ${seconds(SKILL["magical-ward"].over)}.`
+		about: `Reduces magic DMG taken by ${pct(SKILL["magical-ward"].taken)}, rising to ${pct(SKILL["magical-ward"].most)} over the first ${seconds(SKILL["magical-ward"].over)}.`
 	},
 	{
 		id: "bastion",
@@ -29467,7 +29467,7 @@ var RASCAL = {
 	],
 	top: 2
 };
-/** The chance a blow of her attack has, how long what it leaves on the boss lasts (seconds), and how much less hard it hits and more magical damage it takes (`full` times that more with her Flame stacked full on it). */
+/** The chance a blow of her attack has, how long what it leaves on the boss lasts (seconds), and how much less hard it hits and more magic damage it takes (`full` times that more with her Flame stacked full on it). */
 var CARPRAIN = {
 	name: "Flame of Victory, Carprain",
 	chance: .2,
@@ -29563,7 +29563,7 @@ var BARBATOS = {
 		500
 	]
 };
-/** How often (seconds) it strikes a poisoned boss, how hard (at ATK), and how much lower its M.DEF and more magical damage it takes after, for `lasts` seconds. */
+/** How often (seconds) it strikes a poisoned boss, how hard (at ATK), and how much lower its M.DEF and more magic damage it takes after, for `lasts` seconds. */
 var ROBURU = {
 	name: "World Tree’s Will, Roburu",
 	every: 7,
@@ -30021,7 +30021,7 @@ var MONOLITH = {
 	],
 	heal: .2
 };
-/** Aselica's: every how many blows; the boss's more magical damage taken, for how long; its stun. */
+/** Aselica's: every how many blows; the boss's more magic damage taken, for how long; its stun. */
 var IGNISIUS = {
 	name: "Solar Halo, Ignisius",
 	every: 5,
@@ -33507,7 +33507,7 @@ var ANNETTE = {
 	abilities: [
 		{
 			name: "Blasting Ray",
-			about: `Rascal fires a ray into the boss: for ${RAY.lasts} seconds it hits ${pct(RAY.weaker)} softer and takes ${pct(RAY.takes)} more magical damage. [Overcharged]: a second ray, and twice that.`,
+			about: `Rascal fires a ray into the boss: for ${RAY.lasts} seconds it hits ${pct(RAY.weaker)} softer and takes ${pct(RAY.takes)} more magic damage. [Overcharged]: a second ray, and twice that.`,
 			words: `Attacks enemies in a straight line, dealing ${dmg("mechanic", RAY.blow, bookDmg("annette", 0))} M.DMG, reducing their ATK by ${pct(RAY.weaker)} and hit enemies take ${pct(RAY.takes)} increased M.DMG for ${RAY.lasts} sec. If the skill is used when in Overcharge state, deals ${dmg("mechanic", RAY.extra, bookDmg("annette", 0))} extra M.DMG, additionally reduces their ATK by ${pct(RAY.weaker)}, and hit enemies take ${pct(RAY.takes)} increased M.DMG. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "🔆",
 			art: art$43(0),
@@ -33528,7 +33528,7 @@ var ANNETTE = {
 		},
 		{
 			name: "Process of Elimination",
-			about: `A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for ${ELIMINATION.stun} seconds, and leaves it taking ${pct(ELIMINATION.takes)} more magical damage for ${ELIMINATION.lasts}.`,
+			about: `A ball of energy that bursts on the boss. [Overcharged]: it bursts harder, stuns the boss for ${ELIMINATION.stun} seconds, and leaves it taking ${pct(ELIMINATION.takes)} more magic damage for ${ELIMINATION.lasts}.`,
 			words: `Fires an exploding energy ball to a random target and nearby enemies in range, dealing ${dmg("mechanic", ELIMINATION.blow, bookDmg("annette", 2))} M.DMG. When in Overcharge state, deals ${dmg("mechanic", ELIMINATION.over, bookDmg("annette", 2))} M.DMG, increases M.DMG enemies take by ${pct(ELIMINATION.takes)} for ${ELIMINATION.lasts} sec, and inflicts Stun for ${ELIMINATION.stun} sec upon explosion. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "💣",
 			art: art$43(2),
@@ -34977,7 +34977,7 @@ var GREMORY = {
 		},
 		{
 			name: "Pippi, wrap them!",
-			about: `${WRAPS} blows, each leaving [Pippi’s Mark]: the boss takes ${pct(PIPPI.takes)} more magical damage for each, for ${PIPPI.lasts} seconds (up to ${PIPPI.most}). With all ${PIPPI.most} on it, each blow deals more, through its defense. Sealed once used.`,
+			about: `${WRAPS} blows, each leaving [Pippi’s Mark]: the boss takes ${pct(PIPPI.takes)} more magic damage for each, for ${PIPPI.lasts} seconds (up to ${PIPPI.most}). With all ${PIPPI.most} on it, each blow deals more, through its defense. Sealed once used.`,
 			words: `Deals a total of ${dmg("assassin", PIPPI.blow * WRAPS, bookDmg("gremory", 2))} M.DMG over ${WRAPS} times to the target and enemies within a large area around the target, inflicting [Pippi's Mark] on hit targets each hit. If this skill deals DMG to a target inflicted with ${PIPPI.most} stacks of [Pippi's Mark], each hit deals additional ${dmg("assassin", PIPPI.through, bookDmg("gremory", 2))} M.DMG that ignores DEF. [Pippi's Mark] increases M.DMG the target takes by ${pct(PIPPI.takes)} for ${PIPPI.lasts} sec, and it can be stacked up to max ${PIPPI.most} times. This skill is sealed after use.`,
 			tag: "Sealed after use",
 			icon: "🎀",
@@ -35526,7 +35526,7 @@ var BLESSING$1 = {
 	control: 1,
 	shown: {
 		name: "Blessing of the Water Dragon",
-		about: `Passive. +${WATER_DRAGON.resist} CC Resist for her; every ally has ${pct(WATER_DRAGON.defense - 1)} more M.DEF and ${WATER_DRAGON.critResist} M.Crit Resistance, and each skill she uses has every ally take ${pct(1 - WATER_DRAGON.taken)} less magical damage for ${WATER_DRAGON.lasts} seconds.`,
+		about: `Passive. +${WATER_DRAGON.resist} CC Resist for her; every ally has ${pct(WATER_DRAGON.defense - 1)} more M.DEF and ${WATER_DRAGON.critResist} M.Crit Resistance, and each skill she uses has every ally take ${pct(1 - WATER_DRAGON.taken)} less magic damage for ${WATER_DRAGON.lasts} seconds.`,
 		icon: "🐉",
 		art: art$37(3)
 	},
@@ -35541,7 +35541,7 @@ var BLESSED$2 = {
 };
 var WARDED$2 = {
 	name: "Water Dragon’s Ward",
-	about: `Takes ${pct(1 - WATER_DRAGON.taken)} less magical damage.`,
+	about: `Takes ${pct(1 - WATER_DRAGON.taken)} less magic damage.`,
 	icon: "💧",
 	art: art$37(3)
 };
@@ -36215,7 +36215,7 @@ var PERKS$35 = {
 };
 /**
 * Her unique treasures' numbers (1★ to 5★: ../treasures.ts): Burning Power's DMG; Hellfire's less taken (points) and
-* M.Crit resist for a block of a magical blow while it lasts; Lava Eruption's DMG and less M.DEF on the boss; Fire Smash's
+* M.Crit resist for a block of a magic blow while it lasts; Lava Eruption's DMG and less M.DEF on the boss; Fire Smash's
 * more Flame and slower boss (ATK Spd, points).
 */
 var UT$35 = {
@@ -36503,7 +36503,7 @@ var MORRAH = {
 						critResist: { magical: UT$35.gloves.critResist },
 						shown: {
 							name: "Hatchling Leather Gloves",
-							about: `Takes ${pct(share$2(less))} less magical DMG, and is crit less.`,
+							about: `Takes ${pct(share$2(less))} less magic DMG, and is crit less.`,
 							icon: "🧤",
 							art: art$35(1)
 						}
@@ -42012,7 +42012,7 @@ var CRASH = {
 	more: played("warrior", 371, 13945),
 	stun: .3
 };
-/** God of Lightning: its blow, and how long it knocks the boss down; the boss's more magical damage taken, and for how long; and the state's seconds, For Jane's chance more and ATK more (flat, its books' half again with it). */
+/** God of Lightning: its blow, and how long it knocks the boss down; the boss's more magic damage taken, and for how long; and the state's seconds, For Jane's chance more and ATK more (flat, its books' half again with it). */
 var THUNDER = {
 	blow: played("warrior", 3932, 120385),
 	down: 2,
@@ -42157,7 +42157,7 @@ var THEO = {
 		},
 		{
 			name: "God of Lightning",
-			about: `A spear of lightning that knocks the boss down for ${THUNDER.down} seconds; it takes ${pct(THUNDER.takes - 1)} more magical damage for ${THUNDER.marked} seconds. He is the God of Lightning for ${THUNDER.lasts} seconds: his ATK far higher, and For Jane ${pct(THUNDER.chance)} likelier.`,
+			about: `A spear of lightning that knocks the boss down for ${THUNDER.down} seconds; it takes ${pct(THUNDER.takes - 1)} more magic damage for ${THUNDER.marked} seconds. He is the God of Lightning for ${THUNDER.lasts} seconds: his ATK far higher, and For Jane ${pct(THUNDER.chance)} likelier.`,
 			words: `Upon casting, activates 'God of Lightning' and throws a spear of lightning at the enemy, dealing ${dmg("warrior", THUNDER.blow, bookDmg("theo", 1))} M.DMG and knocking them back. Hit enemy takes ${pct(THUNDER.takes - 1)} increased M.DMG for ${THUNDER.marked} sec. While in 'God of Lightning' state, increases activation chance of 'For Jane' by ${pct(THUNDER.chance)} and ATK by ${Math.round(THUNDER.atk * THUNDER.books).toLocaleString("en-US")} for ${THUNDER.lasts} sec.`,
 			icon: "⚡",
 			art: art$18(1),
@@ -43491,7 +43491,7 @@ var CURSE = {
 	heal: .01,
 	blessed: 5
 };
-/** Her own perks' numbers: Sword of the Sun's Light's more magical damage taken; Blessing's Light's allies; Curse's Dark's stacks; Transcend 5's Dark's share of her P.DEF. */
+/** Her own perks' numbers: Sword of the Sun's Light's more magic damage taken; Blessing's Light's allies; Curse's Dark's stacks; Transcend 5's Dark's share of her P.DEF. */
 var PERKS$14 = {
 	takes: 1.25,
 	lasts: 10,
@@ -43502,7 +43502,7 @@ var PERKS$14 = {
 /**
 * Her unique treasures' numbers (1★ to 5★: ../treasures.ts; King's Raid's own): Sword of the Sun's mana for each blow;
 * Blessing's less physical damage taken for its ally; Judgment's more P.DEF and M.DEF less; Curse's longer Blind and the
-* boss's more magical damage taken.
+* boss's more magic damage taken.
 */
 var UT$14 = {
 	dawn: { mana: [
@@ -43708,7 +43708,7 @@ var ASELICA = {
 		const allies = () => fight.field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		/** Judgment of the Sun's more (Guardian's Trumpet). */
 		const trumpet = 1 + fromTreasure(self, 2, UT$14.trumpet.more);
-		/** Curse of the Sun: a stack on the boss; at its most, a blow, and the boss hitting less hard (Will of Light: and taking more magical damage). */
+		/** Curse of the Sun: a stack on the boss; at its most, a blow, and the boss hitting less hard (Will of Light: and taking more magic damage). */
 		const curse = () => {
 			cursed++;
 			curseLeft = CURSE.lasts;
@@ -44544,7 +44544,7 @@ var MIRURU = {
 };
 //#endregion
 //#region src/technomagic/sim/heroes/mirianne.ts
-/** Target Lock On: each of its three blows, its stun, and its blow more on one under [Target Lock On]; [Target Lock On]'s more magical damage taken, for how long. */
+/** Target Lock On: each of its three blows, its stun, and its blow more on one under [Target Lock On]; [Target Lock On]'s more magic damage taken, for how long. */
 var LOCK = {
 	blow: played("assassin", 1148, 39054),
 	stun: .6,
@@ -44675,7 +44675,7 @@ var MIRIANNE = {
 	abilities: [
 		{
 			name: "Target Lock On",
-			about: `Three blows that stun the boss for ${LOCK.stun} seconds, each harder on one under [Target Lock On]; the last puts it on for ${LOCK.lasts} seconds (${pct(LOCK.takes - 1)} more magical damage taken).`,
+			about: `Three blows that stun the boss for ${LOCK.stun} seconds, each harder on one under [Target Lock On]; the last puts it on for ${LOCK.lasts} seconds (${pct(LOCK.takes - 1)} more magic damage taken).`,
 			words: `Attacks the enemy with the lowest M.DEF 3 times, dealing ${dmg("assassin", LOCK.blow, bookDmg("mirianne", 0))} M.DMG and stunning them for ${LOCK.stun}sec. If the target is under [Target Lock On], deals additional ${dmg("assassin", LOCK.more, bookDmg("mirianne", 0))} M.DMG. The final hit inflicts [Target Lock On] on the enemy for ${LOCK.lasts}sec.`,
 			icon: "🎯",
 			art: art$11(0),
@@ -44923,7 +44923,7 @@ var PERKS$10 = {
 };
 /**
 * Her unique treasures' numbers (1★ to 5★: ../treasures.ts; King's Raid's own): Anti-personnel Laser's (and Siege Laser's)
-* more DMG and the boss's more magical damage taken; Wide-area Cannon's slowing and Focused Fire's share off its cooldown and
+* more DMG and the boss's more magic damage taken; Wide-area Cannon's slowing and Focused Fire's share off its cooldown and
 * mana on a crit; the Siege Weapon's more DMG and the most its crits lower the boss's M.DEF; Essence's more DEF, and her crit DMG.
 */
 var UT$10 = {
@@ -46112,7 +46112,7 @@ var ICARUS = {
 	healLasts: 60,
 	blazes: 9
 };
-/** Quintessence: her crit DMG (its books' more), mana for each skill, each [Explosive Reaction]'s ATK (up to so many), and each [Blazing Storm]'s less magical damage for every ally (up to so many, no more often than so often). */
+/** Quintessence: her crit DMG (its books' more), mana for each skill, each [Explosive Reaction]'s ATK (up to so many), and each [Blazing Storm]'s less magic damage for every ally (up to so many, no more often than so often). */
 var ESSENCE = {
 	critDamage: 1.5,
 	mana: 1500,
@@ -46191,7 +46191,7 @@ var ESSENCE_SHOWN = {
 	steady: true,
 	shown: {
 		name: "Quintessence of Technomagic",
-		about: `Passive. Her attack speed fixed; +${pct(ESSENCE.critDamage)} crit DMG; ${ESSENCE.mana} mana for each skill. Each [Explosive Reaction] +${pct(ESSENCE.atk)} ATK (up to ${ESSENCE.reactions}); each [Blazing Storm], every ally takes ${pct(ESSENCE.taken)} less magical damage (up to ${ESSENCE.storms}).`,
+		about: `Passive. Her attack speed fixed; +${pct(ESSENCE.critDamage)} crit DMG; ${ESSENCE.mana} mana for each skill. Each [Explosive Reaction] +${pct(ESSENCE.atk)} ATK (up to ${ESSENCE.reactions}); each [Blazing Storm], every ally takes ${pct(ESSENCE.taken)} less magic damage (up to ${ESSENCE.storms}).`,
 		icon: "⚙️",
 		art: art$7(3)
 	},
@@ -46205,7 +46205,7 @@ var REACTED = {
 };
 var SHELTERED$1 = {
 	name: "Blazing Storm",
-	about: "Takes less magical damage for each.",
+	about: "Takes less magic damage for each.",
 	icon: "🌪️",
 	art: art$7(2)
 };
@@ -46323,7 +46323,7 @@ var ISOLET = {
 				shown: REACTED
 			});
 		};
-		/** A [Blazing Storm] made: every ally takes less magical damage (no more often than so often; Quintessence's Dark: their healing more). */
+		/** A [Blazing Storm] made: every ally takes less magic damage (no more often than so often; Quintessence's Dark: their healing more). */
 		const shelter = () => {
 			if (stormWait > 0) return;
 			stormWait = ESSENCE.every;
@@ -47887,7 +47887,7 @@ var SHEA = {
 };
 //#endregion
 //#region src/technomagic/sim/heroes/lavril.ts
-/** G-go Away!: its blow; the boss's more magical damage taken and lower Crit Resistance, for how long; [Lavril's Ectoplasm]'s blow every so often, for how long; the share of each blow healed to every ally. */
+/** G-go Away!: its blow; the boss's more magic damage taken and lower Crit Resistance, for how long; [Lavril's Ectoplasm]'s blow every so often, for how long; the share of each blow healed to every ally. */
 var AWAY = {
 	blow: played("priest", 2494, 124894),
 	takes: 1.25,
@@ -47908,14 +47908,14 @@ var BEAR = {
 	share: .15,
 	after: 5
 };
-/** You Scare Me...!: its blow; the boss's attack speed less (points) and more magical damage taken, for how long. */
+/** You Scare Me...!: its blow; the boss's attack speed less (points) and more magic damage taken, for how long. */
 var SCARE = {
 	blow: played("priest", 4968, 163739),
 	slow: 250,
 	takes: 1.25,
 	lasts: 15
 };
-/** Leave Me Alone...!: its blow; the tornado for how long, a blow every so often, each stack's less ATK and more magical damage taken (up to so many, for how long). */
+/** Leave Me Alone...!: its blow; the tornado for how long, a blow every so often, each stack's less ATK and more magic damage taken (up to so many, for how long). */
 var ALONE = {
 	blow: played("priest", 1355, 38194),
 	lasts: 6,
@@ -47950,7 +47950,7 @@ var PERKS$2 = {
 /**
 * Her unique treasures' numbers (1★ to 5★: ../treasures.ts; King's Raid's own): G-go Away!'s more DMG and the boss healed
 * less; Bear Up's more healing and crit DMG, and You Scare Me's more DMG and M.DEF less; Leave Me Alone's more stacks and
-* more magical damage taken for each blow; Together's more ATK and healing for her linked ally.
+* more magic damage taken for each blow; Together's more ATK and healing for her linked ally.
 */
 var UT$2 = {
 	tarot: {
@@ -48048,7 +48048,7 @@ var VOID = {
 /** You Scare Me...!: in Bear Up...!'s place for a while after it. */
 var YOU_SCARE_ME = {
 	name: "You Scare Me...!",
-	about: `A great blow; the boss's attack speed ${SCARE.slow} lower and ${pct(SCARE.takes - 1)} more magical damage taken for ${SCARE.lasts} seconds.`,
+	about: `A great blow; the boss's attack speed ${SCARE.slow} lower and ${pct(SCARE.takes - 1)} more magic damage taken for ${SCARE.lasts} seconds.`,
 	words: `Deals ${dmg("priest", SCARE.blow, bookDmg("lavril", 1))} M.DMG to the enemy and reduces its ATK Spd by ${SCARE.slow} for ${SCARE.lasts} sec while increasing M.DMG it takes by ${pct(SCARE.takes - 1)}.`,
 	icon: "😱",
 	art: art$2(1),
@@ -48068,7 +48068,7 @@ var LAVRIL = {
 	abilities: [
 		{
 			name: "G-go Away!",
-			about: `A blow; for ${AWAY.lasts} seconds the boss takes ${pct(AWAY.takes - 1)} more magical damage and is likelier critically hit, and [Lavril's Ectoplasm] on it for ${AWAY.ectoLasts}: a blow every ${AWAY.every} seconds. Each heals every ally ${pct(AWAY.drain)} of it.`,
+			about: `A blow; for ${AWAY.lasts} seconds the boss takes ${pct(AWAY.takes - 1)} more magic damage and is likelier critically hit, and [Lavril's Ectoplasm] on it for ${AWAY.ectoLasts}: a blow every ${AWAY.every} seconds. Each heals every ally ${pct(AWAY.drain)} of it.`,
 			words: `Deals ${dmg("priest", AWAY.blow, bookDmg("lavril", 0))} M.DMG to the target, increasing M.DMG it takes by ${pct(AWAY.takes - 1)} and reduces its All Crit Resistance by ${AWAY.critTaken} for ${AWAY.lasts} sec. The hit target becomes affected by 'Lavril's Ectoplasm' for ${AWAY.ectoLasts} sec, taking ${dmg("priest", AWAY.ecto, bookDmg("lavril", 0))} M.DMG every ${AWAY.every} sec. Dealing DMG with this Skill heals HP of all allies by ${pct(AWAY.drain)} of DMG dealt. When the target is killed, resets this Skill's Cooldown and recovers self's Mana by 1 orb.`,
 			icon: "👻",
 			art: art$2(0),
@@ -48089,7 +48089,7 @@ var LAVRIL = {
 		},
 		{
 			name: "Leave Me Alone...!",
-			about: `A blow and a spectral tornado for ${ALONE.lasts} seconds; each of its blows leaves the boss hitting ${pct(ALONE.share)} less hard and taking ${pct(ALONE.share)} more magical damage (up to ${ALONE.most} times).`,
+			about: `A blow and a spectral tornado for ${ALONE.lasts} seconds; each of its blows leaves the boss hitting ${pct(ALONE.share)} less hard and taking ${pct(ALONE.share)} more magic damage (up to ${ALONE.most} times).`,
 			words: `Swirls a Spectral Tornado within a wide frontal range of self, dealing ${dmg("priest", ALONE.tick, bookDmg("lavril", 2))} M.DMG every ${ALONE.every} sec over ${ALONE.lasts} sec. Each hit reduces ATK of the target by ${pct(ALONE.share)} for ${ALONE.marked} sec, and increases M.DMG it takes by ${pct(ALONE.share)}. This effect can be stacked up to max ${ALONE.most} times.`,
 			icon: "🌪️",
 			art: art$2(2),
@@ -49292,7 +49292,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "c9cf2a9a8b3e";
+var SIM_VERSION = "6e192024ea5d";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
