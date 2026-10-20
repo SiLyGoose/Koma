@@ -46,6 +46,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
     case 'boss':
       return id(m.boss) ? { t: 'boss', boss: m.boss } : null;
     case 'begin':
+      if (m.force !== undefined && typeof m.force !== 'boolean') return null;
+      return m.force ? { t: 'begin', force: true } : { t: 'begin' };
     case 'part':
     case 'auto-all':
     case 'give-up':

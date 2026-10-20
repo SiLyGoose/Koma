@@ -26,7 +26,7 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
- * starts the fight at the stage they picked. One whose page goes away (a reload, a phone switching apps) keeps their place
+ * starts the fight at the stage they picked (or sooner, forcing it: whoever has no hero in sits it out). One whose page goes away (a reload, a phone switching apps) keeps their place
  * and picks for TM_ROOM.awayMs, to come back to; the room stays open for them meanwhile, even with nobody else in it.
  *
  * The fight is the site's sim, run by the bot's clock (in a worker thread: ./fight.ts): every TM_FIGHT.turnMs it
@@ -35,7 +35,8 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * player presses only their own heroes. One whose page goes during the fight has their heroes fight on, on Auto, and
  * can come back to it. One who leaves it for good (Leave: `quit`) forfeits what it gives them and is out of the room,
  * their heroes fighting on all the same; alone, in a room of their own, that loses the fight. The fight over, a win gives each player in it TechnoMagic items and points
- * (services/technomagic.ts), and anyone takes the room back to getting ready, or runs it again (`again`).
+ * (services/technomagic.ts), and anyone takes the room back to getting ready, or is in for running it again (`again`): once
+ * everyone is, the next fight starts by itself.
  *
  * The Dragon Raid's rooms are the same (dragonRooms), each against one of its dragons (a page names the dragon it wants),
  * and its run is against that dragon (lib/game/dragon.ts). Each boss's stages are opened apart. Getting ready, the host can
@@ -307,7 +308,8 @@ export class TechnoMagicRoom {
   /**
    * An away member didn't come back in time. Getting ready, they leave the room, their picks with them. A fight's
    * players stay in it to its end (finish waits for them again), and a fight over keeps them in its results until
-   * the room goes back to getting ready (back). Either way, the room closes once nobody is left to come back.
+   * the room goes back to getting ready (back) or the next fight starts (and everyone else in for it, it does now). Either
+   * way, the room closes once nobody is left to come back.
    */
   private gone(member: Member): void {
     const { userId } = member.player;
@@ -320,7 +322,8 @@ export class TechnoMagicRoom {
       this.trim();
     }
     if (this.closeIfEmpty()) return;
-    this.tell();
+    if (this.phase === 'over') void this.startIfAllIn();
+    else this.tell();
   }
 
   /** Whether anyone has the page open. */
@@ -463,14 +466,20 @@ export class TechnoMagicRoom {
     return null;
   }
 
-  /** The host starts the fight: everyone else ready, and everyone with a hero in. */
-  async begin(userId: string): Promise<AnswerCode | null> {
-    if (this.phase !== 'prep' || this.starting) return 'closed';
+  /**
+   * The host starts the fight, getting ready or from a fight over (without going back to getting ready): everyone else
+   * ready, and everyone with a hero in; or (`force`) at once, those with no hero in sitting it out.
+   */
+  async begin(userId: string, force = false): Promise<AnswerCode | null> {
+    if ((this.phase !== 'prep' && this.phase !== 'over') || this.starting) return 'closed';
     if (userId !== this.host()) return 'only_host';
+    if (this.phase === 'over') this.dropGone();
     if (this.stage > this.unlocked()) return 'locked';
-    const members = [...this.members.values()];
-    if (members.some((member) => member.player.userId !== userId && !member.ready)) return 'not_ready';
-    if (this.lineup.length === 0 || members.some((member) => !this.lineup.some((pick) => pick.owner === member.player.userId))) return 'no_heroes';
+    const inIt = (member: Member): boolean => this.lineup.some((pick) => pick.owner === member.player.userId);
+    const all = [...this.members.values()];
+    if (!force && all.some((member) => member.player.userId !== userId && !member.ready)) return 'not_ready';
+    if (this.lineup.length === 0 || (!force && !all.every(inIt))) return 'no_heroes';
+    const members = all.filter(inIt);
 
     this.starting = true;
     this.tell();
@@ -588,25 +597,47 @@ export class TechnoMagicRoom {
 
   /** From a fight over, back to getting ready (anyone gone longer than TM_ROOM.awayMs is gone from the room; the rest are still waited for). */
   back(userId: string): AnswerCode | null {
-    if (!this.members.has(userId) || this.phase !== 'over') return 'closed';
+    if (!this.members.has(userId) || this.phase !== 'over' || this.starting) return 'closed';
     this.phase = 'prep';
     this.over = null;
-    for (const [id, member] of this.members) if (this.pastBack(member)) this.members.delete(id);
-    this.lineup = this.lineup.filter((pick) => this.members.has(pick.owner));
-    this.trim();
+    this.dropGone();
     this.tell();
     return null;
   }
 
+  /** Those gone longer than TM_ROOM.awayMs out of the room, their picks with them. */
+  private dropGone(): void {
+    for (const [id, member] of this.members) if (this.pastBack(member)) this.members.delete(id);
+    this.lineup = this.lineup.filter((pick) => this.members.has(pick.owner));
+    this.trim();
+  }
+
   /**
-   * From a fight over, the same again: back to getting ready, and then the host starts the next fight (everyone else
-   * has to be ready for it, as with Start Battle), and anyone else says they're ready for it.
+   * From a fight over, the same again: `userId` is in for the next fight, which starts by itself once everyone still waited
+   * for is (the host can start it sooner: begin's `force`), never going back to getting ready. One with no hero in (in
+   * since the fight began) takes the room back to getting ready, to pick theirs. Getting ready, the host's starts the fight
+   * and anyone else's says they're ready.
    */
   async again(userId: string): Promise<AnswerCode | null> {
-    if (!this.members.has(userId)) return 'closed';
-    if (this.phase === 'over') this.back(userId);
-    if (this.phase !== 'prep') return 'closed';
-    return userId === this.host() ? this.begin(userId) : this.ready(userId, true);
+    const member = this.members.get(userId);
+    if (!member) return 'closed';
+    if (this.phase === 'prep') return userId === this.host() ? this.begin(userId) : this.ready(userId, true);
+    if (this.phase !== 'over' || this.starting) return 'closed';
+    if (!this.lineup.some((pick) => pick.owner === userId)) return this.back(userId);
+    member.ready = true;
+    return this.startIfAllIn();
+  }
+
+  /** A fight over: the next one starts once everyone still waited for is in for it (`again`); until then, the room as it is. */
+  private async startIfAllIn(): Promise<AnswerCode | null> {
+    const waiting = [...this.members.values()].some((member) => !member.ready && !this.pastBack(member));
+    if (this.phase !== 'over' || this.starting || waiting) {
+      this.tell();
+      return null;
+    }
+    this.dropGone();
+    const host = this.host();
+    return host ? this.begin(host) : null;
   }
 
   /**
@@ -720,7 +751,8 @@ export class TechnoMagicRoom {
       avatar: member.avatar,
       number: i + 1,
       host: member.player.userId === host,
-      ready: member.player.userId === host || member.ready,
+      // (A fight over: whether they're in for the next one, the host too.)
+      ready: (this.phase !== 'over' && member.player.userId === host) || member.ready,
       away: member.peer === null,
       limit: this.limit(member.player.userId),
       owned: [...member.owned],

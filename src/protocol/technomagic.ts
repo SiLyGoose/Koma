@@ -25,7 +25,8 @@ import type { MainStat } from './items.js';
  *                 unpick    takes one of theirs out of it
  *                 ready     says they're ready (or not), anyone but the host
  *                 stage     the raid's stage (the host)
- *                 begin     starts the fight (the host, with everyone ready)
+ *                 begin     starts the fight (the host, with everyone ready; or `force`d, at once: who has no hero in
+ *                           sits it out), getting ready or from a fight over
  *                 boss      takes the raid, everyone in it with it, against another of the raid's bosses (the host,
  *                           getting ready): each page then goes to it (`room`'s boss is another than its own)
  *                 part      leaves the raid for good, getting ready: their place and picks go at once
@@ -36,8 +37,9 @@ import type { MainStat } from './items.js';
  *                           heroes fight on with everyone else's, on Auto, while they are out of the room at
  *                           once (single player: the fight is lost, and they stay in it)
  *                 back      from a fight over to getting ready again
- *                 again     from a fight over, the same again: the host's starts the next fight (once everyone else is
- *                           ready), anyone else's says they're ready for it
+ *                 again     from a fight over, the same again: says they're in for the next fight, which starts by
+ *                           itself once everyone is, without going back to getting ready (one with no hero in goes
+ *                           back to getting ready, to pick)
  *                 parted    its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's)
  *                 chat      says something to the room (./chat.ts)
  *   bot -> page   room      the room as it is now: whenever anything about it changes
@@ -53,7 +55,7 @@ export type ClientMessage =
   | { t: 'unpick'; hero: string }
   | { t: 'ready'; on: boolean }
   | { t: 'stage'; stage: number }
-  | { t: 'begin' }
+  | { t: 'begin'; force?: boolean }
   | { t: 'boss'; boss: string }
   | { t: 'part' }
   | { t: 'press'; fighter: number; skill: number }
@@ -74,7 +76,7 @@ export interface PlayerView {
   /** Their place in the room (1: the host, who started it or has been in it longest). */
   number: number;
   host: boolean;
-  /** Ready to fight (the host always is). */
+  /** Ready to fight (getting ready, the host always is); a fight over, in for the next one (`again`). */
   ready: boolean;
   /** Not on the page right now (gone during a fight: their heroes fight on, on Auto). */
   away: boolean;

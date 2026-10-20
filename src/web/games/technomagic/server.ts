@@ -71,7 +71,7 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
           case 'stage':
             return answer(room.setStage(userId, message.stage));
           case 'begin':
-            return answer(await room.begin(userId));
+            return answer(await room.begin(userId, message.force === true));
           case 'boss':
             return answer(await room.setBoss(userId, message.boss));
           case 'part':

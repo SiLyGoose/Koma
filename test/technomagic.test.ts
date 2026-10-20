@@ -426,20 +426,73 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(again.result, 'won');
   assert.equal(again.ticks, h.finished[0]?.ticks);
 
-  // Run again: the host's starts the next fight only with everyone else ready for it; anyone else's says they are.
-  assert.equal(await room.again('a'), 'not_ready');
-  assert.equal(a.room().phase, 'prep');
-  assert.equal(a.room().lineup.length, 3);
-  assert.equal(await room.again('guest'), null);
-  assert.equal(a.room().players.find((p) => p.id === 'guest')?.ready, true);
+  // Run again: each says they're in for the next fight, the room staying on the result; once everyone is, it starts by itself.
   assert.equal(await room.again('a'), null);
+  assert.equal(a.room().phase, 'over');
+  assert.deepEqual(a.room().players.map((p) => p.ready), [true, false], 'the host in, the guest not yet');
+  assert.equal(await room.again('guest'), null);
   assert.equal(a.room().phase, 'fight');
+  assert.equal(a.room().lineup.length, 3);
   assert.equal(a.got.filter((m) => m.t === 'fight').length, 2);
+  assert.ok(!a.got.some((m) => m.t === 'room' && m.state.phase === 'prep'), 'never back to getting ready');
   assert.equal(room.giveUp('a'), null);
   await h.pass(200);
   assert.equal(a.room().phase, 'over');
+
+  // The host can start it without waiting (forcing it): straight from the result.
+  assert.equal(await room.again('a'), null);
+  assert.equal(await room.begin('a'), 'not_ready');
+  assert.equal(await room.begin('guest', true), 'only_host');
+  assert.equal(await room.begin('a', true), null);
+  assert.equal(a.room().phase, 'fight');
+  assert.equal(room.giveUp('a'), null);
+  await h.pass(200);
   assert.equal(room.back('a'), null);
   assert.equal(a.room().phase, 'prep');
+});
+
+test('technomagic room: the host can force the start, those not ready fighting all the same and those with no hero in sitting it out', async () => {
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('b'), h.peer(), ALL);
+  h.rooms.join(h.player('c'), h.peer(), ALL);
+  room.pick('a', 'kirze', 0);
+  room.pick('b', 'klaus', 0);
+  assert.equal(await room.begin('a'), 'not_ready');
+  room.ready('b', true);
+  room.ready('c', true);
+  assert.equal(await room.begin('a'), 'no_heroes');
+  room.ready('b', false);
+  assert.equal(await room.begin('a', true), null);
+  const fight = a.got.find((m) => m.t === 'fight');
+  assert.ok(fight && fight.t === 'fight');
+  assert.deepEqual(fight.fight.heroes.map((hero) => hero.owner), ['a', 'b']);
+  assert.equal(room.giveUp('a'), null);
+  await h.pass(200);
+  assert.deepEqual(Object.keys(a.room().over?.points ?? {}), ['a', 'b'], 'c, with no hero in, isn’t in the run');
+
+  // Run again: each in for the next fight, on the result still; c, with no hero in, takes the room back to getting ready.
+  assert.equal(await room.again('a'), null);
+  assert.equal(await room.again('b'), null);
+  assert.equal(a.room().phase, 'over');
+  assert.deepEqual(a.room().players.map((p) => p.ready), [true, true, false]);
+  assert.equal(await room.again('c'), null);
+  assert.equal(a.room().phase, 'prep');
+  room.pick('c', 'fallen-frey', 0);
+  room.ready('b', true);
+  room.ready('c', true);
+  assert.equal(await room.begin('a'), null);
+  assert.equal(room.giveUp('a'), null);
+  await h.pass(200);
+  assert.equal(a.room().phase, 'over');
+  // Everyone in: it starts by itself, never back to getting ready.
+  const told = a.got.length;
+  for (const id of ['c', 'b']) assert.equal(await room.again(id), null);
+  assert.equal(a.room().phase, 'over');
+  assert.equal(await room.again('a'), null);
+  assert.equal(a.room().phase, 'fight');
+  assert.ok(!a.got.slice(told).some((m) => m.t === 'room' && m.state.phase === 'prep'));
 });
 
 test('technomagic room: one who leaves the fight (quit) forfeits what it gives them, their heroes fighting on; alone, it is lost', async () => {
