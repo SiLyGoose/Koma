@@ -473,7 +473,7 @@ test("heroes: a hero's perk effects, what its picked perks give its stats, spell
     points: 0,
   } as unknown as MemberDoc);
   const effects = (id: string) => view.heroes.find((hero) => hero.id === id)?.perkEffects;
-  assert.deepEqual(effects('kirze'), ['+45% Attack', '+15% Health', '+15% Critical Chance', '+30% Critical Damage', '+10% Attack Speed', '+15% Physical and Magical Defense', '+Attack equal to 50% of Physical Defense']);
+  assert.deepEqual(effects('kirze'), ['+45% Attack', '+15% Health', '+15% Critical Chance', '+30% Critical Damage', '+10% Attack Speed', '+15% Physical and Magic Defense', '+Attack equal to 50% of Physical Defense']);
   assert.deepEqual(effects('klaus'), ['+15% Health']);
   assert.deepEqual(effects('morrah'), []);
   assert.deepEqual(effects('laias'), [], 'not recruited: no perks');
