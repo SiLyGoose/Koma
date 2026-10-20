@@ -4,7 +4,7 @@ import type { RaidStats } from './lib/events/raid.js';
 import type { RaidBossId, RaidClassId } from './constants/raid.js';
 import type { EssenceId } from './data/transcend.js';
 import type { HeroPart, HeroSlot } from './protocol/heroes.js';
-import type { Slot, Stars, TmSetId } from './protocol/items.js';
+import type { BannerId, Slot, Stars, TmSetId } from './protocol/items.js';
 
 export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
 export { HERO_SLOTS, type HeroSlot } from './protocol/heroes.js';
@@ -718,6 +718,8 @@ export interface LedgerDoc {
   reason: LedgerReason;
   otherUserId?: string;
   itemId?: string;
+  /** A gacha pull's: the banner it was pulled on (missing on pulls from before it was written down: lib/game/items/history.ts). */
+  banner?: BannerId;
   createdAt: Date;
 }
 

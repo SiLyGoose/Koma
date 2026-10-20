@@ -9,6 +9,8 @@ import { BANNERS, type BannerId } from '../../types.js';
 /** Which banner: the standard one when it isn't said. */
 const Banner = z.enum(BANNERS as [BannerId, ...BannerId[]]).nullish();
 const View = z.object({ banner: Banner });
+/** A page of the history: the first (the newest pulls) when it isn't said. */
+const History = z.object({ banner: Banner, page: z.coerce.number().int().min(1).max(100_000).nullish() });
 const Pull = z.object({ multi: z.boolean().nullish(), banner: Banner });
 /** The item the guarantee is to give: any of them when it isn't said. */
 const Pick = z.object({ banner: Banner, item: z.string().nullish() });
@@ -18,6 +20,11 @@ export function gachaController(gacha: GachaService) {
     async view(req, res) {
       const { banner } = parse(View, req.query);
       res.json(await gacha.view(res.locals.guildId, res.locals.session.userId, banner ?? 'standard'));
+    },
+
+    async history(req, res) {
+      const { banner, page } = parse(History, req.query);
+      res.json(await gacha.history(res.locals.guildId, res.locals.session.userId, banner ?? 'standard', page ?? 1));
     },
 
     async pull(req, res) {

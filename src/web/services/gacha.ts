@@ -1,9 +1,9 @@
 import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
-import { gachaStore, type BannerResult, type BannerView } from '../models/gacha.js';
+import { gachaStore, type BannerResult, type BannerView, type PullHistory } from '../models/gacha.js';
 import type { BannerId } from '../../types.js';
 
-/* The banner page: what a pull costs a member, and pulling (gacha.ts's store). */
+/* The banner page: what a pull costs a member, pulling, and their pull history (gacha.ts's store). */
 
 export type GachaService = ReturnType<typeof gachaService>;
 
@@ -12,6 +12,9 @@ export function gachaService(deps: ApiDeps) {
 
   return {
     view: (guildId: string, userId: string, banner: BannerId): Promise<BannerView> => store.view(guildId, userId, banner),
+
+    /** A page of their pulls on a banner, the newest first. */
+    history: (guildId: string, userId: string, banner: BannerId, page: number): Promise<PullHistory> => store.history(guildId, userId, banner, page),
 
     /** One pull, or a multi pull, on a banner. */
     async pull(guildId: string, userId: string, multi: boolean, banner: BannerId): Promise<BannerResult> {

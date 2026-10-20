@@ -58,6 +58,7 @@ export type { Me } from './services/login.js';
  *   GET  /api/databank        every item and what it does at each level, and every raid boss: Databank (models/databank.ts)
  *   GET  /api/raid/week?guild=…   the server's raid: this week's boss, and how far its difficulty is unlocked: RaidWeekView (services/raid.ts)
  *   GET  /api/gacha?guild=…&banner=…   the banner page: what a pull costs the member, their komaTokens and pity on a banner (standard, or limited), and the limited banner: BannerView (models/gacha.ts)
+ *   GET  /api/gacha/history?guild=…&banner=…&page=…   their pulls on a banner, the newest first, a page at a time (1: the newest): PullHistory (models/gacha.ts)
  *   POST /api/gacha/pull {guild, multi, banner}   one pull, or a multi pull (`multi` true), on a banner: BannerResult (`closed` when the limited banner isn't open)
  *   POST /api/gacha/pick {guild, banner, item}   picks the item a banner's guarantee gives them (one of the view's `choices`; null: any of them): BannerView
  *   GET  /api/outfits?guild=…   the outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)

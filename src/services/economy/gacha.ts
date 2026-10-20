@@ -278,10 +278,10 @@ async function pullMany(guildId: string, userId: string, times: number, banner: 
   await recordLedger([
     ...rolled.map((item, i) =>
       i < tokensUsed
-        ? { guildId, userId, delta: 0, tokenDelta: -1, reason: 'gacha_token' as const, itemId: item.id }
-        : { guildId, userId, delta: -cost, reason: 'gacha' as const, itemId: item.id },
+        ? { guildId, userId, delta: 0, tokenDelta: -1, reason: 'gacha_token' as const, itemId: item.id, banner }
+        : { guildId, userId, delta: -cost, reason: 'gacha' as const, itemId: item.id, banner },
     ),
-    ...rolledExtras.map((item) => ({ guildId, userId, delta: 0, reason: 'gacha_bonus' as const, itemId: item.id })),
+    ...rolledExtras.map((item) => ({ guildId, userId, delta: 0, reason: 'gacha_bonus' as const, itemId: item.id, banner })),
   ]);
   return {
     ok: true,

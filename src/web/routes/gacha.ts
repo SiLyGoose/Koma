@@ -11,6 +11,7 @@ export function gachaRoutes(deps: ApiDeps): Router {
   return Router()
     .use(signedIn(deps), member(deps))
     .get('/', gacha.view)
+    .get('/history', gacha.history)
     .post('/pull', gacha.pull)
     .post('/pick', gacha.pick);
 }

@@ -1,25 +1,27 @@
 import { CONFIG, STARS } from '../../config.js';
 import { MULTI_PULLS, PITY_STARS } from '../../constants/index.js';
 import { collections } from '../../db.js';
-import { featuredItems, HERO_BANNER, LIMITED_BANNER, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.js';
+import { featuredItems, HERO_BANNER, ITEMS_BY_ID, LIMITED_BANNER, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { canUseItem, gearEffects, itemEffectiveness } from '../../lib/game/items/equipment.js';
 import { heroOnly } from '../../lib/game/heroes.js';
 import { bannerWeights, guaranteeChoices, ownTreasures, topChance } from '../../lib/game/items/gacha.js';
+import { HISTORY_PAGE, historyFilter } from '../../lib/game/items/history.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
 import { guaranteePick, isGuaranteed, pityCount, pullGacha, pullMulti, setGuaranteePick, type PulledItem } from '../../services/economy/index.js';
 import { resolveGear } from '../../services/items/gear.js';
 import type { BannerId, ItemDef, Stars } from '../../types.js';
-import type { BannerItem, BannerPull, BannerResult, BannerView, HeroBanner, LimitedBanner } from '../../protocol/gacha.js';
+import type { BannerItem, BannerPull, BannerResult, BannerView, HeroBanner, LimitedBanner, PullHistory, PullRecord } from '../../protocol/gacha.js';
 
-export type { BannerItem, BannerPull, BannerResult, BannerView, HeroBanner, LimitedBanner };
+export type { BannerItem, BannerPull, BannerResult, BannerView, HeroBanner, LimitedBanner, PullHistory, PullRecord };
 
 /*
  * The site's banner page (GET /api/gacha, POST /api/gacha/pull, POST /api/gacha/pick): pulling from
  * the gacha, as `gacha` and `gacha multi` do in Discord (the same payment, pity and guarantee:
  * services/economy/gacha.ts), what the page shows beside the buttons (the price, their komaTokens,
- * their pity, the odds), and picking the item the guarantee gives. Each takes which banner (`banner`:
- * the standard one when left out).
+ * their pity, the odds), picking the item the guarantee gives, and their pull history (GET
+ * /api/gacha/history: lib/game/items/history.ts). Each takes which banner (`banner`: the standard one
+ * when left out).
  */
 
 /** What the gacha routes use (the database's, unless a test says otherwise). */
@@ -29,6 +31,8 @@ export interface GachaStore {
   pull: (guildId: string, userId: string, multi: boolean, banner: BannerId) => Promise<BannerResult | 'too_poor' | 'closed'>;
   /** Picks the item a banner's guarantee gives them (null: any of them): the banner after, or 'not_found' when the guarantee can't give that item. */
   pick: (guildId: string, userId: string, banner: BannerId, itemId: string | null) => Promise<BannerView | 'not_found'>;
+  /** A page of their pulls on a banner, the newest first (1: the newest; past the last: the last). */
+  history: (guildId: string, userId: string, banner: BannerId, page: number) => Promise<PullHistory>;
 }
 
 const bannerItem = (item: ItemDef): BannerItem => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, description: item.description, uniqueWeapon: item.uniqueWeapon ?? null, uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null, });
@@ -115,6 +119,39 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
   };
 }
 
+/** A page of a member's pulls on a banner, from the ledger. */
+async function pullHistory(guildId: string, userId: string, banner: BannerId, page: number): Promise<PullHistory> {
+  const { ledger } = collections();
+  const filter = historyFilter(guildId, userId, banner);
+  const total = await ledger.countDocuments(filter);
+  const pages = Math.max(1, Math.ceil(total / HISTORY_PAGE));
+  const shown = Math.min(Math.max(1, page), pages);
+  // (A multi pull's entries share their time: in the order they were written, the last first.)
+  const entries = await ledger
+    .find(filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .skip((shown - 1) * HISTORY_PAGE)
+    .limit(HISTORY_PAGE)
+    .toArray();
+  const pulls = entries.map((entry): PullRecord => {
+    const id = entry.itemId ?? '';
+    const item = ITEMS_BY_ID.get(id);
+    return {
+      itemId: id,
+      name: item?.name ?? id,
+      stars: item?.stars ?? 1,
+      slot: item?.slot ?? 'treasure',
+      part: item?.kr?.part ?? null,
+      grant: item?.grant ? ('selector' in item.grant ? 'ticket' : 'rune') : null,
+      icon: item?.kr?.icon ?? item?.grant?.icon ?? null,
+      bonus: entry.reason === 'gacha_bonus',
+      removed: !item,
+      at: entry.createdAt.getTime(),
+    };
+  });
+  return { banner, page: shown, pages, perPage: HISTORY_PAGE, total, pulls };
+}
+
 export const gachaStore: GachaStore = {
   view: bannerView,
   pull: async (guildId, userId, multi, banner) => {
@@ -130,4 +167,5 @@ export const gachaStore: GachaStore = {
     };
   },
   pick: async (guildId, userId, banner, itemId) => ((await setGuaranteePick(guildId, userId, banner, itemId)) ? bannerView(guildId, userId, banner) : 'not_found'),
+  history: pullHistory,
 };

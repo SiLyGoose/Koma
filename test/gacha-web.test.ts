@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
-import type { BannerPull, BannerResult, BannerView, GachaStore } from '../src/web/models/gacha.js';
+import type { BannerPull, BannerResult, BannerView, GachaStore, PullHistory } from '../src/web/models/gacha.js';
 import { signSession } from '../src/web/auth/login.js';
 
 const SITE: WebConfig = {
@@ -43,6 +43,7 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
   };
   const item: BannerPull = { itemId: 'rusty-dagger', name: 'Rusty Dagger', stars: 1, slot: 'weapon', description: '', isNew: true, count: 1, borrowed: null };
   const pulls: { guildId: string; userId: string; multi: boolean; banner: string }[] = [];
+  const histories: { guildId: string; userId: string; banner: string; page: number }[] = [];
   let limitedOpen = true;
   const store: GachaStore = {
     view: async (_guildId, _userId, banner) => ({ ...view, banner }),
@@ -53,6 +54,10 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
       return { pulls: Array.from({ length: multi ? 10 : 1 }, () => item), extras: [], cost: multi ? 810 : 0, tokensUsed: 1, view: { ...view, banner } };
     },
     pick: async (_guildId, _userId, banner, itemId) => (itemId === null || itemId === 'c4' ? { ...view, banner, pick: itemId } : 'not_found'),
+    history: async (guildId, userId, banner, page): Promise<PullHistory> => {
+      histories.push({ guildId, userId, banner, page });
+      return { banner, page, pages: 3, perPage: 6, total: 13, pulls: [{ itemId: 'rusty-dagger', name: 'Rusty Dagger', stars: 1, slot: 'weapon', part: null, grant: null, icon: null, bonus: false, removed: false, at: 5 }] };
+    },
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -111,6 +116,21 @@ test('banner page: a logged-in member sees the banner and pulls in their own ser
     assert.equal((await fetch(`${base}/api/gacha/pick`, post({ guild: 'g1', item: 'frog' }))).status, 404);
     assert.equal((await fetch(`${base}/api/gacha/pick`, post({ guild: 'g1', item: 4 }))).status, 400);
     assert.equal((await fetch(`${base}/api/gacha/pick`, post({ guild: 'g2', item: 'c4' }))).status, 403);
+
+    // The history: the standard banner's first page unless asked, a banner and page by name, and only in their own servers.
+    const history = await fetch(`${base}/api/gacha/history?guild=g1`, { headers });
+    assert.equal(history.status, 200);
+    assert.equal(((await history.json()) as PullHistory).pulls[0]?.name, 'Rusty Dagger');
+    assert.equal((await fetch(`${base}/api/gacha/history?guild=g1&banner=hero&page=2`, { headers })).status, 200);
+    assert.equal((await fetch(`${base}/api/gacha/history?guild=g1&page=0`, { headers })).status, 400);
+    assert.equal((await fetch(`${base}/api/gacha/history?guild=g1&page=two`, { headers })).status, 400);
+    assert.equal((await fetch(`${base}/api/gacha/history?guild=g1&banner=nope`, { headers })).status, 400);
+    assert.equal((await fetch(`${base}/api/gacha/history?guild=g2`, { headers })).status, 403);
+    assert.equal((await fetch(`${base}/api/gacha/history?guild=g1`, { headers: { Origin: SITE.origin } })).status, 401);
+    assert.deepEqual(histories, [
+      { guildId: 'g1', userId: 'u1', banner: 'standard', page: 1 },
+      { guildId: 'g1', userId: 'u1', banner: 'hero', page: 2 },
+    ]);
 
     assert.deepEqual(pulls, [
       { guildId: 'g1', userId: 'u1', multi: false, banner: 'standard' },
