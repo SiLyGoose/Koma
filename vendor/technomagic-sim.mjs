@@ -10768,6 +10768,8 @@ var DRAGONS = [
 ];
 /** Every boss there is. */
 var BOSSES = [...TM_BOSSES, ...DRAGONS];
+/** Whether a boss (by its id) is one of the Dragon Raid's. */
+var isDragon = (id) => DRAGONS.some((boss) => boss.id === id);
 //#endregion
 //#region src/technomagic/sim/bosses/boss.ts
 /** How many stages a boss has: the higher, the harder it is on the heroes (as its stages say). */
@@ -29321,18 +29323,28 @@ var MENDING_UP = {
 //#endregion
 //#region src/technomagic/sim/unique.ts
 /** Each weapon's numbers at its stars, 0★ to 5★ (the index is its stars: King's Raid's, kingsraid.shodyra.com's). */
+/** Every so many skills of his: every ally's P.DEF and ATK higher (shares) for `lasts` seconds, the ATK `top` times that for the ally with the highest ATK. */
 var EXIAN = {
 	name: "The Guardian, Exian",
 	every: 3,
 	lasts: 15,
-	boost: [
+	defense: [
 		.1,
 		.12,
 		.14,
 		.17,
 		.21,
 		.25
-	]
+	],
+	atk: [
+		.1,
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
+	],
+	top: 2
 };
 var ELICIPIRA = {
 	name: "Judgment Edge, Elicipira",
@@ -29348,8 +29360,9 @@ var ELICIPIRA = {
 	]
 };
 /**
-* How many allies it reaches (those with the highest ATK), how long, and its heal (a share of her ATK) and penetration. Its
-* 5★ is King's Raid's as the user has it (140%, +200); below that, shodyra's steps scaled down to it.
+* How many allies it reaches (those with the highest ATK), how long, and its heal (a share of her ATK) and penetration; and
+* Dark Lord Kasel's ATK Spd (points), with her. Its 5★ is King's Raid's as the user has it (140%, +200); below that,
+* shodyra's steps scaled down to it (Dark Lord Kasel's the same as the penetration, as King's Raid's are).
 */
 var ROSMERTA = {
 	name: "Angel’s Despair, Rosmerta",
@@ -29364,6 +29377,14 @@ var ROSMERTA = {
 		1.4
 	],
 	pen: [
+		80,
+		96,
+		116,
+		140,
+		168,
+		200
+	],
+	kasel: [
 		80,
 		96,
 		116,
@@ -29421,8 +29442,22 @@ var RASCAL = {
 		.7
 	],
 	mana: .01,
-	dmg: .02,
-	taken: .02,
+	dmg: [
+		.02,
+		.024,
+		.029,
+		.035,
+		.042,
+		.05
+	],
+	taken: [
+		.02,
+		.024,
+		.029,
+		.035,
+		.042,
+		.05
+	],
 	top: 2
 };
 /** The chance a blow of her attack has, how long what it leaves on the boss lasts (seconds), and how much less hard it hits and more magical damage it takes (`full` times that more with her Flame stacked full on it). */
@@ -29471,7 +29506,7 @@ var ELSION = {
 	most: 5,
 	healed: 20
 };
-/** How much more healing reaches every ally, how often (seconds) the ally with the lowest health is healed, and by how much (a share of her ATK). */
+/** How much more healing reaches every ally, and their M.DEF higher by a share of her ATK; how often (seconds) the ally with the lowest health is healed, and by how much (a share of her ATK). */
 var ELTOIRRE = {
 	name: "Flowing Circle, Eltoirre",
 	heals: [
@@ -29482,6 +29517,7 @@ var ELTOIRRE = {
 		.17,
 		.2
 	],
+	defense: .05,
 	every: 5,
 	mend: [
 		1,
@@ -29520,7 +29556,7 @@ var BARBATOS = {
 		500
 	]
 };
-/** How often (seconds) it strikes a poisoned boss, how hard (at ATK), and how much more magical damage the boss takes after, for `lasts` seconds. */
+/** How often (seconds) it strikes a poisoned boss, how hard (at ATK), and how much lower its M.DEF and more magical damage it takes after, for `lasts` seconds. */
 var ROBURU = {
 	name: "World Tree’s Will, Roburu",
 	every: 7,
@@ -29531,6 +29567,14 @@ var ROBURU = {
 		1700,
 		2100,
 		2500
+	],
+	defense: [
+		.1,
+		.12,
+		.14,
+		.17,
+		.21,
+		.25
 	],
 	takes: [
 		.1,
@@ -29659,35 +29703,63 @@ var ATEIN = {
 	most: 100,
 	lasts: 10
 };
-/** What a critical blow leaves eating at the boss over `lasts` seconds (all of it, at ATK), and how much more physical damage it takes meanwhile. */
+/**
+* A critical blow: for `lasts` seconds its target takes more physical damage and has less CC resist (points); and on a boss, a
+* stack on her (up to `most`, for as long), each her DMG higher.
+*/
 var BARORO = {
 	name: "Cursed Claws, Baroro",
 	lasts: 10,
-	blow: [
-		1500,
-		1800,
-		2160,
-		2580,
-		3100,
-		5e3
-	],
 	takes: [
 		.2,
 		.24,
-		.28,
-		.34,
-		.41,
+		.29,
+		.35,
+		.42,
 		.5
-	]
+	],
+	resist: [
+		200,
+		240,
+		290,
+		350,
+		420,
+		500
+	],
+	boss: [
+		.02,
+		.024,
+		.029,
+		.035,
+		.042,
+		.05
+	],
+	most: 10
 };
-/** What a critical blow of hers deals more (at ATK) and the mana it gains her, no sooner than `every` seconds after the last (the same at every tier). */
+/** What a critical blow of hers deals more (at ATK) and the mana it gains her; on a dragon, a blow more again (at ATK) and a stun; no sooner than `every` seconds after the last. */
 var SVELTA = {
 	name: "Dragonbane, Svelta",
-	blow: 500,
+	blow: [
+		500,
+		600,
+		720,
+		860,
+		1030,
+		1250
+	],
 	mana: 150,
+	dragon: [
+		800,
+		960,
+		1150,
+		1380,
+		1660,
+		2e3
+	],
+	stun: 1.5,
 	every: .5
 };
-/** How many blows of his attack bring it on; its blow (at ATK) and stun; and the Storm of Neraxis for `lasts` seconds: every ally's defense higher by a share of his, and its ATK (a share). */
+/** How many blows of his attack bring it on; its blow (at ATK) and stun, on so many enemies at random; and the Storm of Neraxis for `lasts` seconds: every ally's defense higher by a share of his, and its ATK (a share). */
 var ACRAVITA = {
 	name: "Roaring Dragonmaw, Acravita",
 	blows: [
@@ -29700,6 +29772,7 @@ var ACRAVITA = {
 	],
 	blow: 1e3,
 	stun: .5,
+	enemies: 2,
 	lasts: 10,
 	defense: [
 		.04,
@@ -29786,7 +29859,7 @@ var NUMINU = {
 	],
 	freeze: 2
 };
-/** In Stealth for `lasts` seconds from the start, untouched for the first so many; and her crit damage higher (a share) while she is in Stealth. */
+/** In Stealth for `lasts` seconds from the start, untouched for the first so many; and each time she goes into Stealth, her crit damage higher (a share) for `boosted` seconds. */
 var CAETHASIS = {
 	name: "Demon of the Calm, Caethasis",
 	lasts: 10,
@@ -29805,7 +29878,8 @@ var CAETHASIS = {
 		.52,
 		.62,
 		.75
-	]
+	],
+	boosted: 10
 };
 /** His penetration more (points); the share of his current HP each skill costs him, and the DMG each stack adds (a share), for `lasts` seconds, up to `most`. */
 var GALICTA = {
@@ -29955,34 +30029,41 @@ var IGNISIUS = {
 	lasts: 10,
 	stun: .5
 };
-/** Lakrak's: its chance, up to how many; each one's ATK, attack speed and more to Non-Hero enemies. */
+/** Lakrak's: what it adds to an [Experiment]'s chance of success; on each success a stack, up to how many, each his ATK, attack speed and more to Non-Hero enemies. */
 var MK1 = {
 	name: "Lakrak MK-1",
-	chance: .25,
-	most: 7,
+	success: [
+		.2,
+		.24,
+		.29,
+		.35,
+		.42,
+		.5
+	],
+	most: 4,
 	atk: [
-		.03,
-		.036,
-		.043,
-		.051,
-		.062,
-		.075
+		.06,
+		.072,
+		.086,
+		.105,
+		.125,
+		.15
 	],
 	speed: [
-		30,
-		36,
-		43,
-		51,
-		62,
-		75
+		60,
+		72,
+		86,
+		105,
+		125,
+		150
 	],
 	boss: [
-		.03,
-		.036,
-		.043,
-		.051,
-		.062,
-		.075
+		.06,
+		.072,
+		.086,
+		.105,
+		.125,
+		.15
 	]
 };
 /** Miruru's: its chance, its blow (a share of ATK); the boss's more physical damage taken, for how long. */
@@ -30164,7 +30245,7 @@ var SCHWANHEITE = {
 		430,
 		520,
 		630,
-		700
+		750
 	],
 	sooner: [
 		.1,
@@ -30253,13 +30334,41 @@ var STOSMOS = {
 		.25
 	]
 };
-/** What every ally gains by the TechnoMagic gear it wears (the same at every tier): 1 piece, more ATK; 2, more defense; 3, more max HP (here: taking that much less); 4, more DMG. */
+/** What every ally gains by the TechnoMagic gear it wears: 1 piece, more ATK; 2, more defense; 3, more max HP (here: taking that much less); 4, more DMG. */
 var CORBEAU = {
 	name: "Wonder of Magos Le’Flamme, Corbeau Rose",
-	atk: .06,
-	defense: .06,
-	hp: .06,
-	dmg: .04
+	atk: [
+		.06,
+		.072,
+		.086,
+		.104,
+		.126,
+		.15
+	],
+	defense: [
+		.06,
+		.072,
+		.086,
+		.104,
+		.126,
+		.15
+	],
+	hp: [
+		.06,
+		.072,
+		.086,
+		.104,
+		.126,
+		.15
+	],
+	dmg: [
+		.04,
+		.048,
+		.058,
+		.07,
+		.084,
+		.1
+	]
 };
 /**
 * A tier's (its stars') number from a weapon's or treasure's list: a list of six is its 0★ to 5★; a list of five, its 1★ to
@@ -30276,29 +30385,29 @@ var atTier = (list, tier) => {
 * skillText); a state of the hero's is named as King's Raid's are ("[Overcharge] state", "Fury state").
 */
 var ABOUT = {
-	klaus: (tier) => `After using own active Skill ${EXIAN.every} times, increases own DEF by ${fine(atTier(EXIAN.boost, tier))} and ATK by ${fine(atTier(EXIAN.boost, tier))} for ${EXIAN.lasts} sec.`,
+	klaus: (tier) => `After using own active Skill ${EXIAN.every} times, increases all allies' P.DEF by ${fine(atTier(EXIAN.defense, tier))} and ATK by ${fine(atTier(EXIAN.atk, tier))} for ${EXIAN.lasts} sec. The ATK Boost effect multiplies by ${EXIAN.top} for the ally with the highest ATK.`,
 	kirze: (tier) => `Normal and Skill attacks have a ${fine(ELICIPIRA.chance)} chance to deal additional M.DMG equal to ${fine(atTier(ELICIPIRA.blow, tier) / 1e3)} of ATK. DMG is increased by ${ELICIPIRA.boss} times against Bosses.`,
-	"fallen-frey": (tier) => `Upon using a Skill, heals HP of ${ROSMERTA.allies} allies with the highest ATK equal to ${fine(atTier(ROSMERTA.heal, tier))} of Fallen Frey's ATK and increases DEF Penetration by ${atTier(ROSMERTA.pen, tier)} for ${ROSMERTA.lasts} sec.`,
+	"fallen-frey": (tier) => `Upon using a Skill, heals HP of ${ROSMERTA.allies} allies with the highest ATK equal to ${fine(atTier(ROSMERTA.heal, tier))} of Fallen Frey's ATK and increases DEF Penetration by ${atTier(ROSMERTA.pen, tier)} for ${ROSMERTA.lasts} sec. If [Dark Lord Kasel] is an ally, increases ATK Spd of [Dark Lord Kasel] by ${atTier(ROSMERTA.kasel, tier)}.`,
 	gremory: (tier) => `Increases ATK Spd by ${atTier(PIGRITIA.speed, tier)}. Upon using [Eh, whatever. I’m gonna sleep.], Gremory heals HP equal to ${fine(atTier(PIGRITIA.heal, tier))} of her Max HP and recovers Mana by ${fine(atTier(PIGRITIA.mana, tier))} over ${PIGRITIA.over} sec. Each stack of *Mana Charge* increases ATK by an additional ${fine(atTier(PIGRITIA.charge, tier))}.`,
-	annette: (tier) => `Gains 1 stack of *Charge* every ${atTier(RASCAL.every, tier)} sec, and recovers Mana by ${fine(RASCAL.mana)}. *Charge* stacks can also be gained during the [Overcharge] state. Additionally, increases all allies' DMG dealt to Bosses by ${fine(RASCAL.dmg)} and reduces DMG all allies take by ${fine(RASCAL.taken)} for the duration of [Overcharge]. This effect is multiplied by ${RASCAL.top} for the ally with the highest ATK.`,
-	laias: (tier) => `Increases the Heal Rate of all allies by ${fine(atTier(ELTOIRRE.heals, tier))}. Every ${ELTOIRRE.every} sec, heals the ally with the lowest HP by ${fine(atTier(ELTOIRRE.mend, tier))} of own ATK.`,
+	annette: (tier) => `Gains 1 stack of *Charge* every ${atTier(RASCAL.every, tier)} sec, and recovers Mana by ${fine(RASCAL.mana)}. *Charge* stacks can also be gained during the [Overcharge] state. Additionally, increases all allies' DMG dealt to Bosses by ${fine(atTier(RASCAL.dmg, tier))} and reduces DMG all allies take by ${fine(atTier(RASCAL.taken, tier))} for the duration of [Overcharge]. This effect is multiplied by ${RASCAL.top} for the ally with the highest ATK.`,
+	laias: (tier) => `Increases the Heal Rate of all allies by ${fine(atTier(ELTOIRRE.heals, tier))} and M.DEF by ${fine(ELTOIRRE.defense)} of Laias's ATK. Every ${ELTOIRRE.every} sec, heals the ally with the lowest HP by ${fine(atTier(ELTOIRRE.mend, tier))} of own ATK.`,
 	seria: (tier) => `Upon a Crit Skill Hit, deals additional M.DMG equal to ${fine(atTier(ELSION.blow, tier) / 1e3)} of ATK. Hit target has its Heal Rate reduced by ${fine(atTier(ELSION.unhealed, tier))} for ${ELSION.lasts} sec and increases own Heal Rate by ${fine(atTier(ELSION.heals, tier))} for ${ELSION.healed} sec. The Heal Rate Boost effect can be stacked up to max ${ELSION.most} times and is irremovable.`,
 	morrah: (tier) => `Normal attacks have a ${fine(CARPRAIN.chance)} chance to reduce ATK of the target by ${fine(atTier(CARPRAIN.weaker, tier))} and cause the target to take ${fine(atTier(CARPRAIN.weaker, tier))} increased M.DMG for ${CARPRAIN.lasts} sec. If the target has 100 or more stacks of *Flame*, M.DMG boost is multiplied by ${CARPRAIN.full}.`,
 	ezekiel: (tier) => `Increases the duration of [Fury] by ${atTier(BARBATOS.longer, tier)} sec. While in [Fury] state, increases Crit DMG by ${fine(atTier(BARBATOS.critDamage, tier))} and CC Resist by ${atTier(BARBATOS.resist, tier)}.`,
-	lorraine: (tier) => `Deals M.DMG equal to ${fine(atTier(ROBURU.blow, tier) / 1e3)} of ATK to enemies inflicted with *Poison* every ${ROBURU.every} sec, increasing M.DMG the target takes by ${fine(atTier(ROBURU.takes, tier))} for ${ROBURU.lasts} sec.`,
-	valance: () => `The following buffs are applied to the target based on the number of TechnoMagic Gear equipped to each ally. 1 Part: Increases ATK by ${fine(CORBEAU.atk)}. 2 Parts: Increases All DEF by ${fine(CORBEAU.defense)}. 3 Parts: Increases Max HP by ${fine(CORBEAU.hp)}. 4 Parts: Increases DMG dealt to enemies by ${fine(CORBEAU.dmg)}.`,
+	lorraine: (tier) => `Deals M.DMG equal to ${fine(atTier(ROBURU.blow, tier) / 1e3)} of ATK to enemies inflicted with *Poison* every ${ROBURU.every} sec, reducing M.DEF by ${fine(atTier(ROBURU.defense, tier))} and increasing M.DMG the target takes by ${fine(atTier(ROBURU.takes, tier))} for ${ROBURU.lasts} sec.`,
+	valance: (tier) => `The following buffs are applied to the target based on the number of TechnoMagic Gear equipped to each ally. 1 Part: Increases ATK by ${fine(atTier(CORBEAU.atk, tier))}. 2 Parts: Increases All DEF by ${fine(atTier(CORBEAU.defense, tier))}. 3 Parts: Increases Max HP by ${fine(atTier(CORBEAU.hp, tier))}. 4 Parts: Increases DMG dealt to enemies by ${fine(atTier(CORBEAU.dmg, tier))}.`,
 	lucikiel: (tier) => `Gains a stack of *[Incarnation of Doom]* upon attacking an enemy ${GIGANTE.blows} times. Each stack of *[Incarnation of Doom]* increases ATK by ${fine(atTier(GIGANTE.atk, tier))} and ATK Spd by ${atTier(GIGANTE.speed, tier)}. This effect can be stacked up to max ${GIGANTE.most} times and is irremovable. At ${GIGANTE.most} stacks of *[Incarnation of Doom]*, Lucikiel's normal and Skill attacks deal additional M.DMG that ignores DEF equal to ${fine(atTier(GIGANTE.blow, tier) / 1e3)} of his ATK to a target.`,
 	selene: (tier) => `Upon a Crit Hit, ATK Spd is increased by ${atTier(NOTOS.speed, tier)} for ${NOTOS.lasts} sec, and for the duration, each auto attack fires an arrow that deals extra P.DMG equal to ${fine(atTier(NOTOS.arrow, tier) / 1e3)} of ATK.`,
 	crow: (tier) => `The normal attack shoots an additional bullet that deals ${fine(atTier(AKISTRA.bullet, tier) / 1e3)} of ATK as P.DMG. When the skill ends, 'Hellhound, Akistra' is activated, increasing ATK and Crit DMG by ${fine(atTier(AKISTRA.boost, tier))} for ${AKISTRA.lasts} sec. 'Hellhound, Akistra' is only activated once every ${AKISTRA.every} sec.`,
 	oddy: (tier) => `Upon using [Time Distortion], all allies' Skill Cooldown is reduced by an extra ${atTier(TEMPODIANA.cooldown, tier)} sec, and ATK is increased by ${fine(atTier(TEMPODIANA.atk, tier))} for ${TEMPODIANA.lasts} sec.`,
 	phillop: (tier) => `Upon taking DMG, increases All DEF of all allies except self by ${fine(atTier(ATEIN.defense, tier))} for ${ATEIN.guards} sec and stacks 1 *Dragon Rage* upon self. *Dragon Rage* can be stacked up to max ${ATEIN.most} times, and each stack increases own ATK and DEF by ${fine(atTier(ATEIN.rage, tier))} for ${ATEIN.lasts} sec.`,
-	naila: (tier) => `Upon a Critical Hit, deals P.DMG equal to ${fine(atTier(BARORO.blow, tier) / 1e3)} of ATK to the target over ${BARORO.lasts} sec, and increases P.DMG the target takes by ${fine(atTier(BARORO.takes, tier))} for the duration.`,
-	yanne: () => `Upon a Crit Hit, deals additional P.DMG equal to ${fine(SVELTA.blow / 1e3)} of ATK and recovers ${SVELTA.mana} Mana. A ${SVELTA.every} sec Cooldown is applied to this effect.`,
-	neraxis: (tier) => `After landing ${atTier(ACRAVITA.blows, tier)} normal attacks, deals additional M.DMG equal to ${fine(ACRAVITA.blow / 1e3)} of ATK to the enemy, inflicts Stun on it for ${ACRAVITA.stun} sec, and enters [Storm of Neraxis] state for ${ACRAVITA.lasts} sec. For the duration of [Storm of Neraxis], increases all allies' P.DEF equal to ${fine(atTier(ACRAVITA.defense, tier))} of own P.DEF, M.DEF equal to ${fine(atTier(ACRAVITA.defense, tier))} of own M.DEF, and ATK by ${fine(atTier(ACRAVITA.atk, tier))}.`,
+	naila: (tier) => `Upon a Critical Hit, increases P.DMG the target takes by ${fine(atTier(BARORO.takes, tier))} for ${BARORO.lasts} sec, and reduces its CC Resist by ${atTier(BARORO.resist, tier)}. If the target is a Boss, Naila deals ${fine(atTier(BARORO.boss, tier))} increased DMG. The DMG Boost effect against Bosses can be stacked up to max ${BARORO.most} times.`,
+	yanne: (tier) => `Upon a Crit Hit, deals additional P.DMG equal to ${fine(atTier(SVELTA.blow, tier) / 1e3)} of ATK and recovers ${SVELTA.mana} Mana. If the target is a Dragon, deals additional P.DMG equal to ${fine(atTier(SVELTA.dragon, tier) / 1e3)} of ATK and inflicts Stun for ${SVELTA.stun} sec. A ${SVELTA.every} sec Cooldown is applied to this effect.`,
+	neraxis: (tier) => `After landing ${atTier(ACRAVITA.blows, tier)} normal attacks, deals additional M.DMG equal to ${fine(ACRAVITA.blow / 1e3)} of ATK to ${ACRAVITA.enemies} random enemies, inflicts Stun on them for ${ACRAVITA.stun} sec, and enters [Storm of Neraxis] state for ${ACRAVITA.lasts} sec. For the duration of [Storm of Neraxis], increases all allies' P.DEF equal to ${fine(atTier(ACRAVITA.defense, tier))} of own P.DEF, M.DEF equal to ${fine(atTier(ACRAVITA.defense, tier))} of own M.DEF, and ATK by ${fine(atTier(ACRAVITA.atk, tier))}.`,
 	erze: (tier) => `Each Skill hit increases own ATK by ${fine(PERION.atk)} and ATK Spd by ${PERION.speed} for ${PERION.lasts} sec. This effect can be stacked up to max ${atTier(PERION.most, tier)} times and is irremovable.`,
 	loman: (tier) => `*Pride of Orvelia* is stacked on every use of skills. When stacked ${GAIAMENES.skills} times, *Blessing of Orvelia* is activated, dealing ${fine(atTier(GAIAMENES.blow, tier) / 1e3)} of ATK as P.DMG to the enemy and increasing P.DMG the target takes by ${fine(atTier(GAIAMENES.weakness, tier))} for ${GAIAMENES.lasts} sec. *Blessing of Orvelia* also increases own M.DEF by ${fine(atTier(GAIAMENES.defense, tier))} for ${GAIAMENES.guards} sec.`,
 	gau: (tier) => `Increases own Max HP by ${fine(atTier(NUMINU.hp, tier))}. Normal attacks have a ${fine(NUMINU.chance)} chance of dealing additional P.DMG equal to ${fine(atTier(NUMINU.blow, tier) / 1e3)} of ATK and freezing the enemy for ${NUMINU.freeze} sec.`,
-	tanya: (tier) => `At the beginning of each battle, enters [Stealth] state for ${CAETHASIS.lasts} sec and dodges all attacks for ${atTier(CAETHASIS.untouched, tier)} sec. While in [Stealth] state, her Crit DMG is increased by ${fine(atTier(CAETHASIS.critDamage, tier))}.`,
+	tanya: (tier) => `At the beginning of each battle, enters [Stealth] state for ${CAETHASIS.lasts} sec and dodges all attacks for ${atTier(CAETHASIS.untouched, tier)} sec. Every time Tanya enters [Stealth] state, her Crit DMG increases by ${fine(atTier(CAETHASIS.critDamage, tier))} for ${CAETHASIS.boosted} sec.`,
 	"rebel-klaus": (tier) => `Increases DEF Penetration by ${atTier(GALICTA.pen, tier)}. Upon every Skill use, consumes ${fine(GALICTA.hp)} of own current HP but increases DMG dealt to enemies by ${fine(atTier(GALICTA.dmg, tier))} for ${GALICTA.lasts} sec instead. The DMG Boost effect can be stacked up to max ${GALICTA.most} times and is irremovable.`,
 	"dark-lord-kasel": (tier) => `Normal and Skill attacks reduce Heal Rate of the target by ${fine(atTier(AEA.heals, tier))} for ${AEA.lasts} sec and have a ${fine(AEA.chance)} chance of dealing additional P.DMG equal to ${fine(atTier(AEA.blow, tier) / 1e3)} of ATK. The Heal Rate Reduction effect can be stacked up to max ${AEA.most} times.`,
 	theo: (tier) => `Normal and Skill attacks stack *Lightning* upon self. At ${LEGIOS.stacks} stacks, activates 'Lightning Bolt, Legios', increasing own ATK Spd by ${atTier(LEGIOS.speed, tier)}, Crit DMG by ${fine(atTier(LEGIOS.critDamage, tier))}, and DEF Penetration by ${atTier(LEGIOS.pen, tier)} for ${LEGIOS.lasts} sec. While 'Lightning Bolt, Legios' is activated, *Lightning* does not stack. This effect is irremovable.`,
@@ -30306,7 +30415,7 @@ var ABOUT = {
 	glenwys: (tier) => `Whenever a Skill is cast, increases ATK of all allies by ${fine(atTier(MAXITHEA.atk, tier))} and Crit DMG by ${fine(atTier(MAXITHEA.critDamage, tier))}. This effect stacks up to ${MAXITHEA.most} times, and all effects are doubled at max stack. This effect cannot be dispelled.`,
 	chase: (tier) => `Increases own Crit DMG by ${fine(atTier(MONOLITH.critDamage, tier))}. Upon auto attack, deals P.DMG equal to ${fine(atTier(MONOLITH.flame, tier))} of ATK with *[Flame of Monolith]* and recovers HP equal to ${fine(MONOLITH.heal)} of DMG dealt. While in [Remove Limit] state, the effect of *[Flame of Monolith]* is doubled.`,
 	aselica: (tier) => `Attacking the enemy with ${IGNISIUS.every} normal attacks increases M.DMG the target takes by ${fine(atTier(IGNISIUS.takes, tier))} for ${IGNISIUS.lasts} sec, and inflicts Stun for ${IGNISIUS.stun} sec. The M.DMG Boost effect is irremovable.`,
-	lakrak: (tier) => `Each normal attack hit has a ${fine(MK1.chance)} chance to stack *Gunpowder*, increasing ATK by ${fine(atTier(MK1.atk, tier))}, ATK Spd by ${atTier(MK1.speed, tier)}, and DMG to Non-Hero enemies by ${fine(atTier(MK1.boss, tier))}. This effect can be stacked up to max ${MK1.most} times and is irremovable.`,
+	lakrak: (tier) => `Increases the success rate of an *[Experiment]* by ${fine(atTier(MK1.success, tier))}, and every time Lakrak has a successful *[Experiment]*, increases ATK by ${fine(atTier(MK1.atk, tier))}, ATK Spd by ${atTier(MK1.speed, tier)}, and DMG to Non-Hero enemies by ${fine(atTier(MK1.boss, tier))}. This effect can be stacked up to max ${MK1.most} times and is irremovable.`,
 	miruru: (tier) => `Deals P.DMG equal to ${fine(atTier(LEVIATHAN.blow, tier))} of ATK to the enemies inflicted by the [Boooooom!] skill at a ${fine(LEVIATHAN.chance)} chance, and the target takes ${fine(atTier(LEVIATHAN.takes, tier))} more P.DMG for ${LEVIATHAN.lasts} sec.`,
 	mirianne: (tier) => `Increases ATK Spd by ${atTier(RIVENTINA.speed, tier)}, and attacks on *[Target Lock On]* enemies deal ${fine(atTier(RIVENTINA.blow, tier))} of ATK as extra M.DMG. Extra damage effect occurs once in ${RIVENTINA.every} sec.`,
 	kara: (tier) => `Increases ATK by ${fine(SHATTERER.atk)} every sec. Can be stacked up to max ${atTier(SHATTERER.most, tier)} times.`,
@@ -30381,13 +30490,19 @@ function uniqueOf(hero, tier) {
 /** What Exian gives Klaus for a while, what Rosmerta gives Fallen Frey, what Rascal gives every ally while Annette is Overcharged, and what Eltoirre gives every ally while Laias is on the field. */
 var EXIAN_UP = {
 	name: "The Guardian, Exian",
-	about: "ATK and defense higher.",
+	about: "P.DEF and ATK higher (the ATK twice as much for the ally with the highest ATK).",
 	icon: "🛡️",
 	art: { uw: "klaus" }
 };
 var ROSMERTA_UP = {
 	name: "Angel’s Despair, Rosmerta",
 	about: "Sees past more of the boss’s defense.",
+	icon: "🖤",
+	art: { uw: "fallen-frey" }
+};
+var ROSMERTA_KASEL = {
+	name: "Angel’s Despair, Rosmerta (Dark Lord Kasel)",
+	about: "Attack speed higher, with Fallen Frey.",
 	icon: "🖤",
 	art: { uw: "fallen-frey" }
 };
@@ -30399,7 +30514,7 @@ var RASCAL_UP = {
 };
 var ELTOIRRE_UP = {
 	name: "Flowing Circle, Eltoirre",
-	about: "Healing reaches it the more while Laias is on the field.",
+	about: "Healing reaches it the more, and M.DEF higher by a share of Laias’s ATK, while Laias is on the field.",
 	icon: "☥",
 	art: { uw: "laias" }
 };
@@ -30483,9 +30598,15 @@ var NUMINU_UP = {
 };
 var CAETHASIS_UP = {
 	name: "Demon of the Calm, Caethasis",
-	about: "Crit damage higher while in Stealth.",
+	about: "Crit damage higher.",
 	icon: "👁️",
 	art: { uw: "tanya" }
+};
+var BARORO_UP = {
+	name: "Cursed Claws, Baroro",
+	about: "DMG higher for each.",
+	icon: "🐾",
+	art: { uw: "naila" }
 };
 var GALICTA_UP = {
 	name: "Adversary of the Goddess, Galicta",
@@ -30524,8 +30645,8 @@ var MONOLITH_UP = {
 	art: { uw: "chase" }
 };
 var MK1_UP = {
-	name: "Gunpowder",
-	about: "ATK, attack speed and DMG to Non-Hero enemies higher for each.",
+	name: "Lakrak MK-1",
+	about: "ATK, attack speed and DMG to Non-Hero enemies higher for each [Experiment] success.",
 	icon: "💣",
 	art: { uw: "lakrak" }
 };
@@ -32092,18 +32213,21 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const unique = fighter.unique;
 		if (!unique) return;
 		unique.casts++;
+		const byAtk = () => field.filter((ally) => ally.hp > 0 && !away(ally.statuses)).sort((a, b) => b.stats.atk - a.stats.atk);
 		if (fighter.id === "klaus" && unique.casts % EXIAN.every === 0) {
-			const boost = 1 + atTier(EXIAN.boost, unique.tier);
-			put(fighter.statuses, {
-				name: EXIAN_UP.name,
-				left: EXIAN.lasts,
-				deals: boost,
-				defends: boost,
-				shown: EXIAN_UP
-			});
+			const allies = byAtk();
+			for (const ally of allies) {
+				const atk = atTier(EXIAN.atk, unique.tier) * (ally === allies[0] ? EXIAN.top : 1);
+				put(ally.statuses, {
+					name: EXIAN_UP.name,
+					left: EXIAN.lasts,
+					atk,
+					defends: { physical: 1 + atTier(EXIAN.defense, unique.tier) },
+					shown: EXIAN_UP
+				});
+			}
 		} else if (fighter.id === "fallen-frey") {
-			const top = field.filter((ally) => ally.hp > 0 && !away(ally.statuses)).sort((a, b) => b.stats.atk - a.stats.atk).slice(0, ROSMERTA.allies);
-			for (const ally of top) {
+			for (const ally of byAtk().slice(0, ROSMERTA.allies)) {
 				sim.heal(ally, atTier(ROSMERTA.heal, unique.tier) * ATK, fighter);
 				put(ally.statuses, {
 					name: ROSMERTA_UP.name,
@@ -32112,6 +32236,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					shown: ROSMERTA_UP
 				});
 			}
+			for (const kasel of byAtk().filter((ally) => ally.id === "dark-lord-kasel")) put(kasel.statuses, {
+				name: ROSMERTA_KASEL.name,
+				left: ROSMERTA.lasts,
+				speed: atTier(ROSMERTA.kasel, unique.tier),
+				shown: ROSMERTA_KASEL
+			});
 		}
 	}
 	/** What comes of the moves every hero has, as each part lands (unless its own part says otherwise). */
@@ -32641,6 +32771,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		hit(by, amount, counted = true, pierce = 0, whole = false) {
 			return hitting(by, amount, counted, pierce, whole);
 		},
+		on: as,
 		heal(fighter, amount, by) {
 			if (fighter.hp <= 0) return;
 			const given = Math.min(amount * byAttack(by) * healed(by) * healing(fighter.statuses, 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
@@ -33598,8 +33729,8 @@ var ANNETTE = {
 							put(ally.statuses, {
 								name: RASCAL_UP.name,
 								left: over,
-								deals: 1 + RASCAL.dmg * k,
-								takes: 1 - RASCAL.taken * k,
+								deals: 1 + atTier(RASCAL.dmg, tier) * k,
+								takes: 1 - atTier(RASCAL.taken, tier) * k,
 								shown: RASCAL_UP
 							});
 						}
@@ -35646,6 +35777,7 @@ var LAIAS = {
 						name: ELTOIRRE_UP.name,
 						left: Infinity,
 						heals: 1 + atTier(ELTOIRRE.heals, tier),
+						bolsters: { magical: self.stats.atk * ELTOIRRE.defense },
 						shown: ELTOIRRE_UP
 					});
 				}
@@ -35987,6 +36119,7 @@ var LORRAINE = {
 							put(fight.foe.statuses, {
 								name: ROBURU.name,
 								left: ROBURU.lasts,
+								defends: { magical: 1 - atTier(ROBURU.defense, tier) },
 								takes: { magical: 1 + atTier(ROBURU.takes, tier) },
 								shown: "curse"
 							});
@@ -37191,9 +37324,9 @@ var VALANCE = {
 						name: CORBEAU_UP.name,
 						left: Infinity,
 						count: pieces,
-						deals: (1 + CORBEAU.atk) * (pieces >= 4 ? 1 + CORBEAU.dmg : 1),
-						...pieces >= 2 ? { defends: 1 + CORBEAU.defense } : {},
-						...pieces >= 3 ? { takes: 1 / (1 + CORBEAU.hp) } : {},
+						deals: (1 + atTier(CORBEAU.atk, self.unique.tier)) * (pieces >= 4 ? 1 + atTier(CORBEAU.dmg, self.unique.tier) : 1),
+						...pieces >= 2 ? { defends: 1 + atTier(CORBEAU.defense, self.unique.tier) } : {},
+						...pieces >= 3 ? { takes: 1 / (1 + atTier(CORBEAU.hp, self.unique.tier)) } : {},
 						shown: CORBEAU_UP
 					});
 				}
@@ -39032,24 +39165,35 @@ var NAILA = {
 		until: 4.3
 	}] },
 	join(fight, self) {
-		/** Her attacks toward Tornado Strike's next chance; how long she has the boss knocked down yet; Transcend 5's Dark's stacks; her unique weapon's blow on the boss, how long it lasts yet, and toward its next bite. */
+		/** Her attacks toward Tornado Strike's next chance; how long she has the boss knocked down yet; Transcend 5's Dark's stacks. */
 		let attacks = 0;
 		let downed = 0;
 		let gusts = 0;
-		let baroro = 0;
-		let bitten = 0;
 		const tier = self.unique?.tier ?? null;
-		/** A blow of hers: a critical one, with her unique weapon, leaves the boss losing health and taking more physical damage (begun again). */
+		/**
+		* A blow of hers: a critical one, with her unique weapon, leaves its target taking more physical damage and with less CC
+		* resist (begun again); on the boss, a stack more on her (up to so many, begun again), each her DMG higher.
+		*/
 		const strike = (amount) => {
 			const critical = fight.hit(self, amount);
 			if (critical && tier !== null) {
-				baroro = BARORO.lasts;
 				put(fight.foe.statuses, {
 					name: BARORO.name,
 					left: BARORO.lasts,
 					takes: { physical: 1 + atTier(BARORO.takes, tier) },
+					resist: -atTier(BARORO.resist, tier),
 					shown: "curse"
 				});
+				if (fight.foe === fight.boss) {
+					const stacks = Math.min(BARORO.most, (self.statuses.find((status) => status.name === BARORO_UP.name)?.count ?? 0) + 1);
+					put(self.statuses, {
+						name: BARORO_UP.name,
+						left: BARORO.lasts,
+						count: stacks,
+						deals: 1 + atTier(BARORO.boss, tier) * stacks,
+						shown: BARORO_UP
+					});
+				}
 			}
 			return critical;
 		};
@@ -39119,16 +39263,6 @@ var NAILA = {
 			},
 			tick(dt) {
 				downed = Math.max(0, downed - dt);
-				if (baroro <= 0 || tier === null) {
-					bitten = 0;
-					return;
-				}
-				baroro -= dt;
-				bitten += dt;
-				if (bitten >= 1) {
-					bitten -= 1;
-					fight.hit(self, atTier(BARORO.blow, tier) / BARORO.lasts, false);
-				}
 			},
 			deals: () => 1 + PERKS$27.dodge.atk * gusts,
 			speed: () => PERKS$27.dodge.speed * gusts,
@@ -39369,13 +39503,17 @@ var YANNE = {
 		let unleashed = 0;
 		let svelta = 0;
 		const tier = self.unique?.tier ?? null;
-		/** A blow of hers: a critical one, with her unique weapon (no sooner than a moment after the last), a blow more and mana. */
+		/** A blow of hers: a critical one, with her unique weapon (no sooner than a moment after the last), a blow more and mana; on a dragon, a blow more again and a stun. */
 		const shoot = (amount) => {
 			const critical = fight.hit(self, amount);
 			if (critical && tier !== null && svelta <= 0) {
 				svelta = SVELTA.every;
-				fight.hit(self, SVELTA.blow, false);
+				fight.hit(self, atTier(SVELTA.blow, tier), false);
 				self.mana = Math.min(MAX_MANA, self.mana + SVELTA.mana);
+				if (isDragon(fight.foe.def.id)) {
+					fight.hit(self, atTier(SVELTA.dragon, tier), false);
+					fight.stun(SVELTA.stun, { by: self });
+				}
 			}
 			return critical;
 		};
@@ -39676,13 +39814,20 @@ var NERAXIS = {
 		const more = () => self.perks.has("s4-dark") && self.hp < self.stats.hp * PERKS$25.low.below ? PERKS$25.low.more : 1;
 		/** A blow of one of his skills. */
 		const blow = (amount) => fight.hit(self, amount * more());
-		/** His attack: a blow; every so many, with his unique weapon, a blow more, a stun, and the Storm of Neraxis on every ally. */
+		/** His attack: a blow; every so many, with his unique weapon, a blow more and a stun on so many enemies at random, and the Storm of Neraxis on every ally. */
 		const attack = (amount) => {
 			fight.hit(self, amount);
 			if (tier === null || ++blows < atTier(ACRAVITA.blows, tier)) return;
 			blows = 0;
-			fight.hit(self, ACRAVITA.blow, false);
-			fight.stun(ACRAVITA.stun, { by: self });
+			const standing = fight.foes.filter((foe) => foe.hp > 0 && !foe.away);
+			for (let n = 0; n < ACRAVITA.enemies && standing.length > 0; n++) {
+				const [foe] = standing.splice(Math.floor(fight.roll() * standing.length), 1);
+				if (!foe) break;
+				fight.on(foe, () => {
+					fight.hit(self, ACRAVITA.blow, false);
+					fight.stun(ACRAVITA.stun, { by: self });
+				});
+			}
 			storm = ACRAVITA.lasts;
 			const share = atTier(ACRAVITA.defense, tier);
 			for (const ally of fight.field) {
@@ -41091,15 +41236,20 @@ var TANYA = {
 		const bleeds = [];
 		let bleeding = 0;
 		const tier = self.unique?.tier ?? null;
-		/** In Stealth for a while: her crit chance higher (and with her unique weapon, her crit damage); her dodge (dodge, below). */
+		/** In Stealth for a while: her crit chance higher; her dodge (dodge, below). With her unique weapon, her crit damage higher for a while as she goes into it. */
 		const hide = () => {
 			stealth = STEALTH.lasts;
 			put(self.statuses, {
 				name: STEALTHED.name,
 				left: STEALTH.lasts,
 				crit: share$2(STEALTH.crit),
-				...tier !== null && { critDamage: atTier(CAETHASIS.critDamage, tier) },
 				shown: STEALTHED
+			});
+			if (tier !== null) put(self.statuses, {
+				name: CAETHASIS_UP.name,
+				left: CAETHASIS.boosted,
+				critDamage: atTier(CAETHASIS.critDamage, tier),
+				shown: CAETHASIS_UP
 			});
 			fight.cue(self, "stealth");
 		};
@@ -41208,10 +41358,6 @@ var TANYA = {
 			untouched: () => untouched > 0,
 			dodge: () => stealth > 0 ? STEALTH.dodge : 0,
 			lit: () => stealth > 0,
-			buffs: () => tier !== null && stealth > 0 ? [{
-				...CAETHASIS_UP,
-				left: stealth
-			}] : [],
 			marks: () => bleeds.length > 0 ? [{
 				text: `${BLED} ×${bleeds.length}`,
 				tone: "curse",
@@ -43919,12 +44065,12 @@ var LAKRAK = {
 	join(fight, self) {
 		const tier = self.unique?.tier ?? null;
 		const starts = attackStarts("lakrak");
-		/** His next skill enhanced; whether the skill going is; Glue Bomb's bombs, and how long each has yet; whether his first shell is still to come (Bada Boom Cannonball); his unique weapon's Gunpowder. */
+		/** His next skill enhanced; whether the skill going is; Glue Bomb's bombs, and how long each has yet; whether his first shell is still to come (Bada Boom Cannonball); his unique weapon's stacks. */
 		let success = false;
 		let enhanced = false;
 		let bombs = [];
 		let first = wearsTreasure(self, 3);
-		let gunpowder = 0;
+		let stacks = 0;
 		/** A skill of his going (its [Experiment] comes as it ends). */
 		let skilling = false;
 		/** A bomb bursts: on the boss, harder on [Explosive Substance] (Goblincraft Gunpowder: a critical one, mana). */
@@ -43945,18 +44091,6 @@ var LAKRAK = {
 						first = false;
 						fight.hit(self, CANNON$1.blow);
 						fight.stun(CANNON$1.stun + (self.perks.has("s4-light") ? PERKS$13.stun : 0), { by: self });
-					}
-					if (tier !== null && gunpowder < MK1.most && fight.roll() < MK1.chance) {
-						gunpowder++;
-						put(self.statuses, {
-							name: MK1_UP.name,
-							left: Infinity,
-							count: gunpowder,
-							atk: atTier(MK1.atk, tier) * gunpowder,
-							speed: atTier(MK1.speed, tier) * gunpowder,
-							deals: 1 + atTier(MK1.boss, tier) * gunpowder,
-							shown: MK1_UP
-						});
 					}
 				},
 				rapid() {
@@ -43996,8 +44130,20 @@ var LAKRAK = {
 				}
 				if (!skilling || self.doing?.skill !== void 0) return;
 				skilling = false;
-				if (enhanced || fight.roll() >= CANNON$1.success) return;
+				if (enhanced || fight.roll() >= CANNON$1.success + (tier !== null ? atTier(MK1.success, tier) : 0)) return;
 				success = true;
+				if (tier !== null) {
+					stacks = Math.min(MK1.most, stacks + 1);
+					put(self.statuses, {
+						name: MK1_UP.name,
+						left: Infinity,
+						count: stacks,
+						atk: atTier(MK1.atk, tier) * stacks,
+						speed: atTier(MK1.speed, tier) * stacks,
+						deals: 1 + atTier(MK1.boss, tier) * stacks,
+						shown: MK1_UP
+					});
+				}
 				put(self.statuses, {
 					name: SUCCESS.name,
 					left: Infinity,
@@ -49138,7 +49284,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "31c6a8a3d785";
+var SIM_VERSION = "aded6fc4ab5c";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
