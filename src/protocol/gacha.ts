@@ -69,8 +69,8 @@ export interface BannerView {
   /** Pulls since their last top-tier item, and the pull that guarantees one: null when pity isn't in effect. */
   pity: { count: number; softStart: number; hardPity: number } | null;
   /**
-   * Their next top-tier item is one of their own treasures (their last was someone else's). On the
-   * limited banner: it is a featured item (their last one there wasn't).
+   * Their next top-tier item here is one the guarantee is for (their last one here wasn't): one of their own treasures
+   * (standard), a featured item (limited), or the item they picked (`pick`, where it is another).
    */
   guaranteed: boolean;
   /**
@@ -79,15 +79,31 @@ export interface BannerView {
    */
   own: { itemId: string; name: string; stars: Stars; slot: Slot } | null;
   /**
-   * The items this banner's guarantee can give them (their own treasures, or the limited banner's
-   * featured items), and the one they picked for it to give (an item id): null for any of them.
+   * The items they can pick for this banner's guarantee to give (any exclusive treasure on the standard banner, their
+   * own first; the limited banner's featured items; any unique weapon or treasure on the Hero Item one), and the one
+   * they picked (an item id). Null: none picked, so the guarantee is for any of their own treasures (standard), any
+   * featured item (limited), or there is none (the Hero Item banner; the standard one for a member with no treasure).
    */
-  choices: { itemId: string; name: string; stars: Stars; slot: Slot }[];
+  choices: GuaranteeChoice[];
   pick: string | null;
   /** Each tier's chance (0 to 1) on a pull before pity raises the top one. */
   rates: Record<Stars, number>;
   /** The chance (0 to 1) each of their pulls gives a second item for nothing (Pot of Greed): 0 without it. */
   extraChance: number;
+}
+
+/** An item the guarantee can be picked to give: its name and tier, whether it is one of the member's own treasures, and a unique weapon's or treasure's hero. */
+export interface GuaranteeChoice {
+  itemId: string;
+  name: string;
+  stars: Stars;
+  slot: Slot;
+  /** Made for them (their own exclusive treasure). Left out: a bot from before. */
+  mine?: boolean;
+  /** A unique weapon: the id of the hero that wields it (null: not one). Left out: a bot from before. */
+  uniqueWeapon?: string | null;
+  /** A unique treasure: the hero that wears it, and which of its four it is. Null: not one. Left out: a bot from before. */
+  uniqueTreasure?: { hero: string; skill: number } | null;
 }
 
 /** One item pulled, in the order they came. */

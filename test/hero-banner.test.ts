@@ -9,7 +9,7 @@ import { BANNERS } from '../src/types.js';
 
 /*
  * The Hero Item banner: its 4-star pulls are the heroes' unique weapons and unique treasures (half each, each of a kind
- * as likely), its lower ones the standard banner's, with its own weights and pity and no guarantee; and no other banner
+ * as likely), its lower ones the standard banner's, with its own weights and pity, and a guarantee only for the one picked; and no other banner
  * ever gives one.
  */
 
@@ -75,15 +75,27 @@ test('hero banner: a unique weapon now and then comes with stars (Kingâ€™s Raidâ
   assert.equal(pulledLevel(gachaItems(4)[0]!, 0.9999), 1);
 });
 
-test('hero banner: no guarantee, nothing to pick, and its pity starts over on a unique weapon', () => {
-  assert.deepEqual(guaranteeChoices(HXLON, 'hero'), []);
+test('hero banner: any unique weapon or treasure can be picked; with none picked nothing is guaranteed, and its pity starts over on a unique weapon', () => {
+  assert.deepEqual(guaranteeChoices(HXLON, 'hero').map((one) => one.id), [...UNIQUE_WEAPONS, ...UNIQUE_TREASURES].map((one) => one.id));
   for (const one of UNIQUE_WEAPONS) assert.equal(nextGuarantee(HXLON, one, 'hero'), false);
   const weapon = UNIQUE_WEAPONS[0]!;
   const filler = gachaItems(1)[0]!;
   // Every third pull since the last gives a unique weapon (pulls 3 and 6): the counter starts over after each
-  // (two pulls since, after 8), and nothing is ever guaranteed.
+  // (two pulls since, after 8), and with nothing picked nothing is ever guaranteed.
   const result = rollPulls(0, 8, true, (n) => (n === 3 ? weapon : filler), { userId: HXLON, banner: 'hero', guaranteed: true });
   assert.deepEqual(result.items.map((one) => one === weapon), [false, false, true, false, false, true, false, false]);
   assert.equal(result.counter, 2);
   assert.equal(result.guaranteed, false);
+});
+
+test("hero banner: a pick is guaranteed after a top-tier item that isn't it, and the pick itself clears it", () => {
+  const [picked, other] = [...UNIQUE_WEAPONS, ...UNIQUE_TREASURES];
+  assert.ok(picked && other);
+  assert.equal(nextGuarantee(HXLON, other, 'hero', picked.id), true);
+  assert.equal(nextGuarantee(HXLON, picked, 'hero', picked.id), false);
+  // Guaranteed, a top-tier pull (the hard pity's) is the pick, every time.
+  const { hardPity } = CONFIG.gacha.pity;
+  if (hardPity > 0) for (let i = 0; i < 30; i++) assert.equal(rollItem(hardPity, HXLON, true, 1, 'hero', undefined, picked.id).id, picked.id);
+  // A pick the banner can't give is none.
+  assert.equal(nextGuarantee(HXLON, other, 'hero', gachaItems(1)[0]!.id), false);
 });

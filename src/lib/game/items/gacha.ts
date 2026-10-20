@@ -105,14 +105,35 @@ export function ownTreasures(userId: string): ItemDef[] {
   return gachaItems(PITY_STARS).filter((item) => item.usableBy?.includes(userId) ?? false);
 }
 
+/** The standard banner's exclusive treasures: its pity-tier items made for a member (`usableBy`), anyone's. */
+export function exclusiveTreasures(): ItemDef[] {
+  return gachaItems(PITY_STARS).filter((item) => (item.usableBy?.length ?? 0) > 0);
+}
+
 /**
- * The items a banner's guarantee can give a member: their own treasures on the standard banner, the
- * featured items on the limited one, none on the Hero Item one (it has no guarantee). They can pick which
- * of them it gives (MemberDoc.guaranteedPick and .limitedPick).
+ * The items a member can pick for a banner's guarantee to give (MemberDoc.guaranteedPick, .limitedPick and .heroPick):
+ * any exclusive treasure on the standard banner (their own first), a featured item on the limited one, any unique weapon
+ * or unique treasure on the Hero Item one.
  */
 export function guaranteeChoices(userId: string, banner: BannerId): ItemDef[] {
-  if (banner === 'hero') return [];
-  return banner === 'limited' ? featuredItems() : ownTreasures(userId);
+  if (banner === 'hero') return [...UNIQUE_WEAPONS, ...UNIQUE_TREASURES];
+  if (banner === 'limited') return featuredItems();
+  const own = ownTreasures(userId);
+  return [...own, ...exclusiveTreasures().filter((item) => !own.includes(item))];
+}
+
+/**
+ * What a banner's guarantee is for, with `pick` picked (an item id; one it can't give: none): any of the banner's own
+ * (their own treasures on the standard banner, the featured items on the limited one: the Hero Item one has none) unless
+ * the pick is another, then just it. A guaranteed pity-tier item is one of these (the pick, where it is one of them), and
+ * one that isn't any of them sets the guarantee (nextGuarantee). Empty: no guarantee (nothing picked on the Hero Item
+ * banner, or a member with no treasure of their own and none picked on the standard one).
+ */
+export function guaranteeTargets(userId: string | undefined, banner: BannerId, pick?: string): { wins: ItemDef[]; gives: ItemDef[] } {
+  const own = banner === 'limited' ? featuredItems() : banner === 'standard' && userId !== undefined ? ownTreasures(userId) : [];
+  const picked = pick === undefined ? undefined : guaranteeChoices(userId ?? '', banner).find((item) => item.id === pick);
+  if (!picked) return { wins: own, gives: own };
+  return own.includes(picked) ? { wins: own, gives: [picked] } : { wins: [picked], gives: [picked] };
 }
 
 /**
@@ -144,11 +165,11 @@ export function heroBannerPool(stars: Stars): ItemDef[] {
  *
  * When the roll lands on the pity tier, the banner decides the pick. On the standard one, a
  * `guaranteed` pick is made only among `userId`'s own treasures (see ownTreasures) instead of the
- * whole tier. On the limited one it is one of the featured items (featuredItems) `featuredChance` of
+ * whole tier (or the item they picked: guaranteeTargets). On the limited one it is one of the featured items (featuredItems) `featuredChance` of
  * the time, and always when `guaranteed`; otherwise one of the standard banner's. A `guaranteed` pick
  * is the item they picked (`pick`, an item id) when the guarantee can give it. On the Hero Item one (with its own
  * weights: bannerWeights) it is a unique weapon (UNIQUE_WEAPONS) HERO_BANNER.weaponShare of the time and a unique
- * treasure (UNIQUE_TREASURES) the rest, each of a kind as likely, and nothing is guaranteed.
+ * treasure (UNIQUE_TREASURES) the rest, each of a kind as likely; a `guaranteed` one is the one they picked.
  */
 export function rollItem(
   pullNumber = 1,
@@ -161,11 +182,10 @@ export function rollItem(
 ): ItemDef {
   const stars = rollStarsAtPull(pullNumber, bannerWeights(banner), undefined, minStars);
   let pool = gachaItems(stars);
-  const picked = (choices: ItemDef[]): ItemDef[] => {
-    const one = guaranteed ? choices.find((item) => item.id === pick) : undefined;
-    return one ? [one] : choices;
-  };
-  if (stars === PITY_STARS && banner === 'hero') {
+  const { gives } = guaranteeTargets(userId, banner, pick);
+  if (stars === PITY_STARS && banner === 'hero' && guaranteed && gives.length > 0) {
+    pool = gives;
+  } else if (stars === PITY_STARS && banner === 'hero') {
     // (A kind with none: the other.)
     const weapon = UNIQUE_TREASURES.length === 0 || (UNIQUE_WEAPONS.length > 0 && chance(HERO_BANNER.weaponShare));
     const kind = weapon ? UNIQUE_WEAPONS : UNIQUE_TREASURES;
@@ -176,32 +196,24 @@ export function rollItem(
     if (kinds.length > 0) pool = kinds;
   } else if (stars === PITY_STARS && banner === 'limited') {
     const featured = featuredItems();
-    if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = picked(featured);
-  } else if (stars === PITY_STARS && guaranteed && userId) {
-    const own = ownTreasures(userId);
-    if (own.length > 0) pool = picked(own);
+    if (featured.length > 0 && (guaranteed || chance(featuredChance))) pool = guaranteed && gives.length > 0 ? gives : featured;
+  } else if (stars === PITY_STARS && guaranteed && gives.length > 0) {
+    pool = gives;
   }
   return pickRandom(pool);
 }
 
 /**
- * Where a member's guarantee stands on a banner after they pull a pity-tier item from it.
- *
- * On the standard banner, getting one of their own treasures clears it; getting someone else's sets
- * it, so their next pity-tier item is one of their own. A member with no treasure of their own never
- * has a guarantee there. On the limited banner, a featured item clears it and any other sets it, so
- * their next pity-tier item there is a featured one. The Hero Item banner has none.
+ * Where a member's guarantee on a banner stands after they pull a pity-tier item from it (`pick`: the item they picked
+ * for it, see guaranteeTargets). One the guarantee is for clears it; any other sets it, so their next pity-tier item
+ * there is one it is for. On the standard banner that is any of their own treasures (or the other exclusive treasure
+ * they picked); on the limited one, any featured item; on the Hero Item one, the unique weapon or treasure they picked.
+ * With none to be for (nothing picked on the Hero Item banner, no treasure of their own and none picked on the
+ * standard one), there is no guarantee.
  */
-export function nextGuarantee(userId: string | undefined, item: ItemDef, banner: BannerId = 'standard'): boolean {
-  if (banner === 'hero') return false;
-  if (banner === 'limited') {
-    const featured = featuredItems();
-    return featured.length > 0 && !featured.some((one) => one.id === item.id);
-  }
-  if (userId === undefined) return false;
-  const own = ownTreasures(userId);
-  if (own.length === 0) return false;
-  return !own.some((mine) => mine.id === item.id);
+export function nextGuarantee(userId: string | undefined, item: ItemDef, banner: BannerId = 'standard', pick?: string): boolean {
+  const { wins } = guaranteeTargets(userId, banner, pick);
+  return wins.length > 0 && !wins.some((one) => one.id === item.id);
 }
 
 /**
@@ -245,12 +257,12 @@ export function rollPulls(
     best = Math.max(best, item.stars);
     if (item.stars === PITY_STARS) {
       if (pityOn) counter = 0;
-      guaranteed = nextGuarantee(userId, item, banner);
+      guaranteed = nextGuarantee(userId, item, banner, pick);
     }
     if (extraChance > 0 && chance(extraChance)) {
       const extra = doRoll(1, guaranteed, 1);
       extras.push(extra);
-      if (extra.stars === PITY_STARS) guaranteed = nextGuarantee(userId, extra, banner);
+      if (extra.stars === PITY_STARS) guaranteed = nextGuarantee(userId, extra, banner, pick);
     }
   }
   return { items, extras, counter, guaranteed };

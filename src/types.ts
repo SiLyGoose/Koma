@@ -292,17 +292,21 @@ export interface MemberDoc {
   limitedPity?: number;
   limitedGuaranteed?: boolean;
   /**
-   * Pulls on the Hero Item banner since their last pity-tier item there (a unique weapon). That banner has
-   * no guarantee: every one of its pity-tier items is a unique weapon, each as likely. Missing means 0.
+   * The same two for the Hero Item banner: pulls there since their last pity-tier item (a unique weapon or
+   * treasure), and whether their next one is guaranteed to be the one they picked (heroPick: their last one
+   * there wasn't). With nothing picked there is no guarantee there. Missing means 0 and false.
    */
   heroPity?: number;
+  heroGuaranteed?: boolean;
   /**
-   * The item they picked for each banner's guarantee to give (the site's banner page): one of their own
-   * treasures on the standard banner, a featured item on the limited one. Missing, or an item the
-   * guarantee can't give any more (a limited banner since replaced), means any of them.
+   * The item they picked for each banner's guarantee to give (the site's banner page): any exclusive treasure
+   * on the standard banner (lib/game/items/gacha.ts guaranteeChoices), a featured item on the limited one, any
+   * unique weapon or treasure on the Hero Item one. Missing, or an item the guarantee can't give any more (a
+   * limited banner since replaced), means none: their own treasures, any featured item, no guarantee.
    */
   guaranteedPick?: string;
   limitedPick?: string;
+  heroPick?: string;
   /**
    * What this member is wearing: the gear of their active loadout. Missing on members who have
    * never equipped anything.

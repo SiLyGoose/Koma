@@ -11,9 +11,9 @@ import { extraPullChance, pullCost } from '../../perks/index.js';
 import { guaranteePick, isGuaranteed, pityCount, pullGacha, pullMulti, setGuaranteePick, type PulledItem } from '../../services/economy/index.js';
 import { resolveGear } from '../../services/items/gear.js';
 import type { BannerId, ItemDef, Stars } from '../../types.js';
-import type { BannerItem, BannerPull, BannerResult, BannerView, HeroBanner, LimitedBanner, PullHistory, PullRecord } from '../../protocol/gacha.js';
+import type { BannerItem, BannerPull, BannerResult, BannerView, GuaranteeChoice, HeroBanner, LimitedBanner, PullHistory, PullRecord } from '../../protocol/gacha.js';
 
-export type { BannerItem, BannerPull, BannerResult, BannerView, HeroBanner, LimitedBanner, PullHistory, PullRecord };
+export type { BannerItem, BannerPull, BannerResult, BannerView, GuaranteeChoice, HeroBanner, LimitedBanner, PullHistory, PullRecord };
 
 /*
  * The site's banner page (GET /api/gacha, POST /api/gacha/pull, POST /api/gacha/pick): pulling from
@@ -98,6 +98,13 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
   // Only the standard banner's guarantee gives their own treasure.
   const [own] = banner === 'standard' ? ownTreasures(userId) : [];
   const brief = (item: ItemDef) => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot });
+  const mine = new Set(ownTreasures(userId).map((item) => item.id));
+  const choice = (item: ItemDef): GuaranteeChoice => ({
+    ...brief(item),
+    mine: mine.has(item.id),
+    uniqueWeapon: item.uniqueWeapon ?? null,
+    uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
+  });
   const gear = gearEffects(await resolveGear(guildId, userId, member?.equipment), userId);
   return {
     banner,
@@ -112,7 +119,7 @@ async function bannerView(guildId: string, userId: string, banner: BannerId): Pr
     pity: pityOn ? { count: pityCount(member, banner), softStart, hardPity } : null,
     guaranteed: isGuaranteed(member, banner),
     own: own ? brief(own) : null,
-    choices: guaranteeChoices(userId, banner).map(brief),
+    choices: guaranteeChoices(userId, banner).map(choice),
     pick: guaranteePick(member, userId, banner),
     rates: rates(banner),
     extraChance: extraPullChance(gear),
