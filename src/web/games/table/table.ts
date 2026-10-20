@@ -31,6 +31,10 @@ import { playerKey, type Player } from '../../auth/token.js';
  * come back to it. Meanwhile their chips come off the table (leaving still costs nothing), and the vote
  * to deal is everyone else's. Not back by then, they leave the table.
  *
+ * Each seat shows its player's points, which their chips are checked against while betting. They are
+ * looked up when the player sits down or comes back to their seat, at the start of every betting (they
+ * may have changed outside the table), and taken from settling each round they play.
+ *
  * What differs between games is in its PartyGame: its spots (`S`), its round (`R`, and `V` as the
  * page is shown it), and anything else it puts on the table (`X`).
  */
@@ -82,6 +86,16 @@ export const realBaseDeps: Omit<TableDeps<string, unknown>, 'play' | 'deal'> = {
     return () => clearTimeout(timer);
   },
 };
+
+/** A player's points now, or null when they couldn't be looked up. */
+async function lookUpBalance(deps: Pick<TableDeps<string, unknown>, 'balance'>, live: LiveGame, guildId: string, userId: string): Promise<number | null> {
+  try {
+    return await deps.balance(guildId, userId);
+  } catch (err) {
+    console.error(`Could not look up a ${live} player’s balance:`, err);
+    return null;
+  }
+}
 
 /** Where a table left off: its last round and how many it had dealt. */
 export interface TableHistory<V> {
@@ -147,10 +161,11 @@ export class PartyTable<S extends string, R, V, X> {
   }
 
   /**
-   * Seats `player`, or, when they already sit here (a reload, another tab), gives their seat to this
-   * page. Returns the page it took the seat from, if any (to be told it was replaced).
+   * Seats `player` with `balance` (their points, looked up just now; null when they couldn't be), or,
+   * when they already sit here (a reload, another tab), gives their seat to this page. Returns the page
+   * it took the seat from, if any (to be told it was replaced).
    */
-  async sit(player: Player, peer: Peer): Promise<Peer | null> {
+  sit(player: Player, peer: Peer, balance: number | null): Peer | null {
     const existing = this.seats.find((s) => s.player.userId === player.userId);
     if (existing) {
       const before = existing.peer;
@@ -159,16 +174,20 @@ export class PartyTable<S extends string, R, V, X> {
       existing.player = player;
       existing.awayEnds?.();
       existing.awayEnds = null;
-      // Back from away: everyone sees them here again.
-      if (back) this.broadcast();
+      // Their points may have changed outside the table meanwhile. Not while a round is dealt: settling it has them.
+      const moved = balance !== null && this.phase === 'betting' && balance !== existing.balance;
+      if (moved) existing.balance = balance;
+      // Back from away (or with other points): everyone sees it.
+      if (back || moved) this.broadcast();
       else this.send(existing);
       peer.send(this.chat.history());
       return before === peer ? null : before;
     }
-    const seat: Seat<S> = {
+    this.seats.push({
       player,
       avatar: this.deps.avatar(this.guildId, player.userId) ?? avatarUrl(player.userId, null),
-      balance: 0,
+      // Not looked up: 0 until the next betting looks again.
+      balance: balance ?? 0,
       bets: {},
       result: null,
       refused: false,
@@ -176,13 +195,7 @@ export class PartyTable<S extends string, R, V, X> {
       ready: false,
       peer,
       awayEnds: null,
-    };
-    this.seats.push(seat);
-    try {
-      seat.balance = await this.deps.balance(this.guildId, player.userId);
-    } catch (err) {
-      console.error(`Could not look up a ${this.game.live} player’s balance:`, err);
-    }
+    });
     this.broadcast();
     peer.send(this.chat.history());
     return null;
@@ -272,6 +285,27 @@ export class PartyTable<S extends string, R, V, X> {
     this.endsAt = this.deps.now() + bettingMs;
     this.cancel = this.deps.schedule(bettingMs, () => void this.dealNow());
     if (announce) this.broadcast();
+    void this.lookUpBalances();
+  }
+
+  /**
+   * Looks everyone's points up again for the betting just started: they may have changed outside the
+   * table (a claim, another game), and bets are checked against them.
+   */
+  private async lookUpBalances(): Promise<void> {
+    const rounds = this.rounds;
+    const seats = [...this.seats];
+    const found = await Promise.all(seats.map((s) => lookUpBalance(this.deps, this.game.live, this.guildId, s.player.userId)));
+    // The betting is over already: settling the round has their points.
+    if (this.closed || this.phase !== 'betting' || this.rounds !== rounds) return;
+    let moved = false;
+    seats.forEach((seat, i) => {
+      const balance = found[i];
+      if (balance === null || balance === undefined || balance === seat.balance) return;
+      seat.balance = balance;
+      moved = true;
+    });
+    if (moved) this.broadcast();
   }
 
   /** The betting is over: deals the round, settling everyone with chips down. */
@@ -377,6 +411,8 @@ export class PartyTables<S extends string, R, V, X> {
    * table, and the page they were replaced from, if any.
    */
   async seat(player: Player, peer: Peer, deps: TableDeps<S, R> = this.realDeps): Promise<{ table: PartyTable<S, R, V, X>; replaced: Peer | null }> {
+    // Looked up before they're seated, so nobody is shown them with none meanwhile.
+    const balance = await lookUpBalance(deps, this.game.live, player.guildId, player.userId);
     const open = this.tables.get(player.guildId) ?? [];
     const key = playerKey(player);
     const last = this.lastTable.get(key);
@@ -407,7 +443,7 @@ export class PartyTables<S extends string, R, V, X> {
       this.tables.set(player.guildId, [...open, table].sort((a, b) => a.number - b.number));
     }
     this.lastTable.set(key, table);
-    const replaced = await table.sit(player, peer);
+    const replaced = table.sit(player, peer, balance);
     return { table, replaced };
   }
 

@@ -258,6 +258,34 @@ test('baccarat table: chips a player can no longer cover are refused at the deal
   b.connection.closed();
 });
 
+test('baccarat table: points a player gets outside the table show on coming back to their seat and at the next betting', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, balances } = fakeTable([4, 3, 4, 3], { u1: 0, u2: 700 });
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  assert.equal(a.page.last().seats[0]?.balance, 0);
+  assert.ok(
+    a.page.got.every((m) => m.t !== 'table' || m.state.seats.every((s) => s.userId !== 'u2' || s.balance === 700)),
+    'a newcomer is never shown with no points',
+  );
+
+  // Claimed in Discord, then reloaded: the seat they come back to has them, and they can bet them.
+  balances.u1 = 10_000;
+  const again = await join(deps, 'u1', 'ZEIU');
+  assert.equal(b.page.last().seats[0]?.balance, 10_000, 'everyone sees it');
+  await again.connection.receive(bets(1, { player: 5_000 }));
+  assert.deepEqual(again.page.last().seats[0]?.bets, { player: 5_000 });
+
+  // Won somewhere else while seated: the next betting looks again.
+  await tick(BACCARAT_TABLE.bettingMs);
+  balances.u2 = 9_000;
+  await tick(BACCARAT_TABLE.showMs);
+  assert.deepEqual([again.page.last().phase, again.page.last().seats[1]?.balance], ['betting', 9_000]);
+  again.connection.closed();
+  b.connection.closed();
+});
+
 test('baccarat table: a new page takes over the seat, and a bad message or token hangs up', async () => {
   resetLive();
   resetTables();
