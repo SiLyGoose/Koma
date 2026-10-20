@@ -4,8 +4,8 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { GROUPS } from '../src/commands/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { gachaItems, ITEMS, ITEMS_BY_ID, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
-import { KR_DRAGON_SETS, KR_ITEMS, KR_TM_SETS, krMainValue, krPiecesOf, krWornBy } from '../src/data/kr-gear.js';
+import { findItem, gachaItems, ITEMS, ITEMS_BY_ID, UNIQUE_WEAPONS, validateItems } from '../src/data/items.js';
+import { KR_DRAGON_SETS, KR_ITEMS, KR_TM_SETS, krMainValue, krPiecesOf, krWornBy, tieredName } from '../src/data/kr-gear.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TM_SET_LABEL, TM_SET_PIECES, TM_SETS_BY_ID } from '../src/data/tm-sets.js';
 import { bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, perksCost, RAID_BOSS_ESSENCES, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, transcendCost, transcendPicks, transcendPoints } from '../src/data/transcend.js';
@@ -106,6 +106,17 @@ test("King's Raid's hero gear: never pulled, heroes only, each piece of a set, a
   }
   // The dragon sets: every part at tiers 6 to 8, and a weapon for every class.
   for (const set of KR_DRAGON_SETS) for (const tier of [6, 7, 8]) assert.equal(krPiecesOf(set, tier).length, 17, `${set} T${tier}`);
+  // A dragon piece is named alike at every tier (its tier is its card's tab); by name with its tier, or its id, just that one.
+  const t6 = item('opportune-fire-t6-knight-weapon');
+  const t8 = item('opportune-fire-t8-knight-weapon');
+  assert.equal(t6.name, t8.name);
+  assert.doesNotMatch(t8.name, / T\d+$/);
+  assert.equal(tieredName(t8), `${t8.name} T8`);
+  const tiers = KR_ITEMS.filter((one) => one.name === t8.name);
+  assert.deepEqual(findItem(t8.name, tiers), { kind: 'ambiguous', matches: tiers });
+  assert.deepEqual(findItem(`${t8.name} t8`, tiers), { kind: 'found', item: t8 });
+  assert.deepEqual(findItem(t6.id, tiers), { kind: 'found', item: t6 });
+  assert.doesNotThrow(validateItems);
   // The members' own gear (the raid's and the gacha's) no longer goes on heroes.
   assert.ok(!heroWearable(item('worldbreaker-maul')) && !heroWearable(item('rusty-dagger')));
   assert.ok(ITEMS.filter((one) => one.uniqueWeapon === undefined && one.uniqueTreasure === undefined).every((one) => !heroWearable(one)));

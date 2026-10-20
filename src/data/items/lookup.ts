@@ -1,7 +1,7 @@
 import { ITEM_SUGGEST } from '../../constants/index.js';
 import { editDistance, normalize } from '../../lib/text.js';
 import type { ItemDef, Stars, TmSetId } from '../../types.js';
-import { KR_GRANTS, KR_ITEMS } from '../kr-gear.js';
+import { KR_GRANTS, KR_ITEMS, tieredName } from '../kr-gear.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 
@@ -48,15 +48,17 @@ export const tmDropsOf = (set: TmSetId): ItemDef[] => TM_DROPS.filter((item) => 
 export type ItemLookup = { kind: 'found'; item: ItemDef } | { kind: 'ambiguous'; matches: ItemDef[] } | { kind: 'none' };
 
 /**
- * Finds an item by its name or id, ignoring case and punctuation. An exact match wins;
- * otherwise a partial name works as long as it points to exactly one item.
+ * Finds an item by its name or id, ignoring case and punctuation. An exact match wins (a dragon set's piece's name is
+ * each of its tiers': with its tier after it, "… T8", just that one); otherwise a partial name works as long as it points
+ * to exactly one item.
  */
 export function findItem(query: string, pool: readonly ItemDef[] = ITEMS): ItemLookup {
   const wanted = normalize(query);
   if (wanted === '') return { kind: 'none' };
 
-  const exact = pool.find((item) => normalize(item.name) === wanted || normalize(item.id) === wanted);
-  if (exact) return { kind: 'found', item: exact };
+  const exact = pool.filter((item) => normalize(item.name) === wanted || normalize(item.id) === wanted || normalize(tieredName(item)) === wanted);
+  if (exact.length === 1) return { kind: 'found', item: exact[0] as ItemDef };
+  if (exact.length > 1) return { kind: 'ambiguous', matches: exact };
 
   const partial = pool.filter((item) => normalize(item.name).includes(wanted));
   if (partial.length === 1) return { kind: 'found', item: partial[0] as ItemDef };

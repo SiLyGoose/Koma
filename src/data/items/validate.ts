@@ -3,7 +3,7 @@ import { normalize } from '../../lib/text.js';
 import { EFFECTS } from '../../perks/index.js';
 import { SLOTS, STARS } from '../../types.js';
 import { HEROES_BY_ID } from '../heroes.js';
-import { KR_GRANTS, KR_ITEMS } from '../kr-gear.js';
+import { KR_GRANTS, KR_ITEMS, tieredName } from '../kr-gear.js';
 import { LIMITED_BANNER } from './banner.js';
 import { ITEMS } from './catalog.js';
 import { gachaItems, ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from './lookup.js';
@@ -62,11 +62,12 @@ export function validateItems(): void {
       }
     }
   }
-  // King's Raid's hero gear and artifacts (../kr-gear.ts): ids and names of their own, beside the catalog's.
+  // King's Raid's hero gear and artifacts (../kr-gear.ts): ids and names of their own, beside the catalog's (a dragon set's
+  // piece's tiers sharing its name: each its own with its tier, which finding one by name takes too).
   for (const item of [...KR_ITEMS, ...KR_GRANTS]) {
     if (ids.has(item.id)) throw new Error(`Duplicate item id (King's Raid gear): ${item.id}`);
     ids.add(item.id);
-    const name = normalize(item.name);
+    const name = normalize(tieredName(item));
     if (names.has(name)) throw new Error(`Two items share the name "${item.name}" (King's Raid gear), so it could not be equipped by name.`);
     names.add(name);
   }

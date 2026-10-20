@@ -47,12 +47,15 @@ function describe(piece: (typeof KR_PIECES)[number]): string {
   return `${from}: ${PART_NAME[piece.part as HeroPart]} for ${who}.`;
 }
 
-/** Every piece and artifact, as items. A dragon piece's name says its tier: its set's pieces are named alike at every tier. */
+/**
+ * Every piece and artifact, as items. A dragon set's piece is named alike at every tier (its tier is its kr.tier, which the site's card
+ * says on its tab): tieredName says it with its tier, where a name alone has to tell them apart.
+ */
 export const KR_ITEMS: readonly ItemDef[] = [
   ...KR_PIECES.map(
     (piece): ItemDef => ({
       id: piece.id,
-      name: KR_TM_SETS.includes(piece.set) ? piece.name : `${piece.name} T${piece.tier}`,
+      name: piece.name,
       stars: 4,
       slot: SLOT_OF[piece.part as HeroPart],
       description: describe(piece),
@@ -227,6 +230,12 @@ export const upgradePrice = (kr: KrItem): number => (KR_TM_SETS.includes(kr.set 
 export const UNIQUE_REROLL_GEMS = 1;
 
 export const KR_RUNES_BY_ID: ReadonlyMap<string, KrRuneData> = new Map(KR_RUNES.map((rune) => [rune.id, rune]));
+
+/** Whether an item is a dragon set's piece: named alike at every tier of its set. */
+export const isDragonPiece = (item: ItemDef): boolean => !!item.kr?.set && KR_DRAGON_SETS.includes(item.kr.set);
+
+/** An item's name with a dragon set's piece's tier after it ("Opportune Fire Sword T8"), where its name alone could be another tier's. */
+export const tieredName = (item: ItemDef): string => (isDragonPiece(item) ? `${item.name} T${item.kr?.tier}` : item.name);
 
 /** Whether a rune goes in a piece of `part` (a unique weapon's sockets: a weapon's). */
 export const runeFits = (rune: KrRuneData, part: HeroPart): boolean => (rune.parts as readonly string[]).includes(part);

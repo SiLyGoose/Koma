@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } from 'discord.js';
 import { ITEM_SUGGEST, TEXT } from '../constants/index.js';
 import { ITEMS, findItem, suggestItems } from '../data/items.js';
+import { tieredName } from '../data/kr-gear.js';
 import { createEmbed } from '../lib/embed.js';
 import { itemStars } from '../lib/format.js';
 import type { ItemDef } from '../types.js';
@@ -57,7 +58,7 @@ function questionRow(choices: readonly ItemDef[]): ActionRowBuilder<ButtonBuilde
   const picks = choices.map((item, i) =>
     new ButtonBuilder()
       .setCustomId(`${ITEM_SUGGEST.prefix}${i}`)
-      .setLabel(choices.length === 1 ? t.yesButton : item.name)
+      .setLabel(choices.length === 1 ? t.yesButton : tieredName(item))
       .setStyle(ButtonStyle.Primary),
   );
   const no = new ButtonBuilder()
@@ -81,8 +82,8 @@ export async function askDidYouMean(ctx: CommandContext, query: string, choices:
     .setTitle(t.title)
     .setDescription(
       choices.length === 1 && only
-        ? t.one(query, only.name)
-        : t.many(query, choices.map((item) => t.line(item.name)).join('\n')),
+        ? t.one(query, tieredName(only))
+        : t.many(query, choices.map((item) => t.line(tieredName(item))).join('\n')),
     )
     .setFooter({ text: t.footer(ITEM_SUGGEST.timeoutMs / 1000) });
   const sent = await ctx.reply({ embeds: [embed], components: [questionRow(choices)], ephemeral: false });
@@ -137,7 +138,7 @@ export async function resolveItem(ctx: CommandContext, query: string, text: Item
   const lookup = findItem(query, pool);
   if (lookup.kind === 'found') return { item: lookup.item, ctx };
   if (lookup.kind === 'ambiguous') {
-    await ctx.reply(text.ambiguous(lookup.matches.map((item) => item.name)));
+    await ctx.reply(text.ambiguous(lookup.matches.map(tieredName)));
     return null;
   }
 
