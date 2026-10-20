@@ -4,7 +4,7 @@ import { HEROES_BY_ID } from '../data/heroes.js';
 import { keptPerks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
-import { dragonGems, tmDropCount } from '../constants/technomagic.js';
+import { dragonClearGems, tmDropCount } from '../constants/technomagic.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
 import { rollArtifact, rollDragonPieces, rollRunes, rollTmDrop, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
 import { rollKrOptions } from '../data/kr-gear.js';
@@ -23,7 +23,7 @@ import { recordLedger } from './economy/shared.js';
  * (ItemCopyDoc.tmSkill, tmPotentials; an armor's main stat's DEF too, tmArmorDef), and `hero.winPoints` points.
  * The Dragon Raid's runs are kept the same way (their boss a dragon: lib/game/dragon.ts), and a win gives each player hero
  * gear (raid items: DRAGON_DROPS), points and hero essences of its dragon's kinds, more at the higher stages (`dragon.*`), and
- * the first time they beat that stage, komaGems (DRAGON_GEMS).
+ * komaGems for each stage up to it they hadn't cleared before (DRAGON_GEMS).
  * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
  */
 
@@ -121,7 +121,7 @@ export interface TmFind {
 
 /**
  * What a run over gave a player: the items they found, the runes (their ids), the points they were paid, and (the Dragon Raid's)
- * the hero essences and komaGems, and whether it was the first time they beat that stage (only that pays komaGems).
+ * the hero essences and komaGems, and how many stages it cleared for the first time (each pays komaGems: it and those under it).
  */
 export interface TmWin {
   finds: TmFind[];
@@ -129,7 +129,7 @@ export interface TmWin {
   points: number;
   essences?: Partial<Record<EssenceId, number>>;
   gems?: number;
-  firstClear?: boolean;
+  firstClears?: number;
 }
 
 /** A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it. */
@@ -198,18 +198,13 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
   return { finds, runes, points };
 }
 
-/** Whether a member has won a run against `boss` at `stage` in `mode` before (this one's isn't marked won yet). */
-async function wonBefore(guildId: string, userId: string, boss: string, stage: number, mode: RaidMode): Promise<boolean> {
-  const won = await collections().tmRuns.findOne({ guildId, userId, boss, stage, result: 'won', mode: mode === 'normal' ? 'normal' : { $ne: 'normal' } }, { projection: { _id: 1 } });
-  return won !== null;
-}
-
 /**
  * A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, its
- * dragon's essences (dragonPay), and the first time they beat that stage, its komaGems (dragonGems).
+ * dragon's essences (dragonPay), and komaGems for each stage up to it they hadn't cleared (dragonClearGems: a win clears every
+ * stage under it too, as their progress is the highest they have won; this run isn't marked won yet).
  */
 async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
-  const firstClear = !(await wonBefore(guildId, userId, dragon, stage, mode));
+  const cleared = await clearedStage(guildId, userId, dragon, mode);
   const finds: TmFind[] = [];
   for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item));
   const runes = rollRunes(stage, true, undefined, mode);
@@ -218,7 +213,7 @@ async function payDragonWin(guildId: string, userId: string, dragon: string, sta
   await payPoints(guildId, userId, pay.points, 'dragon_win');
   const essences = rollDragonEssences(dragon, pay.essences);
   await giveEssences(guildId, userId, essences, 'dragon_essences');
-  const gems = dragonGems(stage, mode, firstClear);
+  const gems = dragonClearGems(cleared, stage, mode);
   if (gems > 0) await giveGems(guildId, userId, gems, 'dragon_gems');
-  return { finds, runes, points: pay.points, essences, gems, firstClear };
+  return { finds, runes, points: pay.points, essences, gems, firstClears: Math.max(0, stage - cleared) };
 }

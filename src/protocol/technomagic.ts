@@ -122,7 +122,8 @@ export interface DropView {
 
 /**
  * What a fight that is over gave each player (by id): the items found, the points paid, and (the Dragon Raid's) the hero
- * essences, so many of each kind, the komaGems, and whether it was their first win at its stage (only that pays komaGems).
+ * essences, so many of each kind, the komaGems, and how many stages it cleared for them for the first time (a win clears those
+ * under it too; each pays komaGems once).
  */
 export interface OverView {
   result: 'won' | 'lost';
@@ -132,7 +133,7 @@ export interface OverView {
   points: Record<string, number>;
   essences?: Record<string, Record<string, number>>;
   gems?: Record<string, number>;
-  firstClear?: Record<string, boolean>;
+  firstClears?: Record<string, number>;
 }
 
 /** Which raid a room is: the TechnoMagic Raid, or the Dragon Raid. */

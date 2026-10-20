@@ -83,13 +83,13 @@ export type Cleared = Readonly<Record<RaidMode, number>>;
 /** How far someone has got, as it is told: in each mode, or (a number) in Hard alone. */
 const clearedOf = (cleared: Partial<Cleared> | number): Cleared => (typeof cleared === 'number' ? { hard: cleared, normal: 0 } : { hard: cleared.hard ?? 0, normal: cleared.normal ?? 0 });
 
-/** What a run over gave a player: the items found, the points paid, and (the Dragon Raid's) the hero essences and komaGems, and whether it was their first win at its stage. */
+/** What a run over gave a player: the items found, the points paid, and (the Dragon Raid's) the hero essences and komaGems, and how many stages it cleared for them for the first time. */
 export interface Got {
   drops: DropView[];
   points: number;
   essences?: Record<string, number>;
   gems?: number;
-  firstClear?: boolean;
+  firstClears?: number;
 }
 
 /** The database, the clock, Discord and where fights run, so tests can stand in for them. */
@@ -122,7 +122,7 @@ export const realRoomDeps: RoomDeps = {
   begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, firstClear }]) => [userId, { drops: finds.map(dropView), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClear !== undefined && { firstClear }) }]));
+    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, firstClears }]) => [userId, { drops: finds.map(dropView), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }) }]));
   },
   announce: () => {},
   link: (guildId, _boss, room) => {
@@ -771,7 +771,7 @@ export class TechnoMagicRoom {
       ...(this.raid.kind === 'dragon' && {
         essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])),
         gems: Object.fromEntries([...got].map(([userId, { gems }]) => [userId, gems ?? 0])),
-        firstClear: Object.fromEntries([...got].map(([userId, { firstClear }]) => [userId, firstClear === true])),
+        firstClears: Object.fromEntries([...got].map(([userId, { firstClears }]) => [userId, firstClears ?? 0])),
       }),
     };
     // Those gone during it: still waited for, for what's left of their time.

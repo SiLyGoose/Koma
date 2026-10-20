@@ -139,19 +139,26 @@ export const normalPaysAs = (stage: number): number => KR_DROPS.normal.paysAs[Ma
 export const NORMAL_PAYS_FROM: number = KR_DROPS.normal.paysAs.findIndex((as) => as > 0) + 1;
 
 /**
- * The komaGems a Dragon Raid win pays each player the first time they beat that stage of that dragon in that mode, by its
- * mode and stage (the first is stage 1's); a win there after pays none (the user's).
+ * The komaGems a Dragon Raid stage pays each player the first time they clear it (that dragon's, in that mode), by its mode and
+ * stage (the first is stage 1's); a win there after pays none (the user's). A win clears every stage under it too (a member's
+ * progress is the highest stage they have won), so a member carried past stages pays for each of them (dragonClearGems).
  */
 export const DRAGON_GEMS = {
   normal: [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 4] as readonly number[],
   hard: [3, 3, 3, 3, 5, 5, 5, 10, 10, 10] as readonly number[],
 } as const;
 
-/** The komaGems a Dragon Raid win at `stage` in `mode` pays: its first clear's (`first`), else none. Past the last stage, as the last. */
-export function dragonGems(stage: number, mode: 'normal' | 'hard', first: boolean): number {
-  if (!first) return 0;
+/** The komaGems clearing `stage` in `mode` the first time pays. Past the last stage, as the last. */
+export function dragonGems(stage: number, mode: 'normal' | 'hard'): number {
   const table = DRAGON_GEMS[mode];
   return table[Math.min(table.length, Math.max(1, Math.floor(stage))) - 1] ?? 0;
+}
+
+/** The komaGems a Dragon Raid win at `stage` in `mode` pays a member whose highest cleared stage there was `cleared`: each stage past it, up to `stage`. */
+export function dragonClearGems(cleared: number, stage: number, mode: 'normal' | 'hard'): number {
+  let gems = 0;
+  for (let at = Math.max(0, Math.floor(cleared)) + 1; at <= Math.floor(stage); at++) gems += dragonGems(at, mode);
+  return gems;
 }
 
 /** The weights of each rune grade a Normal Dragon Raid's win at `stage` rolls, where it pays as none of the Hard Dragon Raid's: from `grades[0]` at stage 1 to `grades[1]` at the last such stage. */
