@@ -438,6 +438,11 @@ export interface ItemCopyDoc {
   tmSkill?: string;
   /** How many times its additional skill was rerolled (the price climbs with it). Missing means never. */
   tmSkillRerolls?: number;
+  /**
+   * The additional skill its last reroll rolled (a TM_SKILLS id), waiting for the member to keep it or the one it has
+   * (services/kr-gear.ts's keepTmSkill); until then the copy has its tmSkill, in the raid too. Missing means none waits.
+   */
+  tmSkillPending?: string;
   /** King's Raid's hero gear (ItemDef.kr): the options this copy rolled as it dropped (data/kr-gear.ts). Missing on any other copy. */
   options?: KrOption[];
   /**

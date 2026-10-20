@@ -26,6 +26,7 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/refine', ...siteOrLink, heroes.refine)
     .post('/rune', ...siteOrLink, heroes.rune)
     .post('/reroll', ...siteOrLink, heroes.reroll)
+    .post('/keep', ...siteOrLink, heroes.keep)
     .post('/upgrade', ...siteOrLink, heroes.upgrade)
     .post('/sell', ...site, heroes.sell)
     .post('/lock', ...site, heroes.lock);

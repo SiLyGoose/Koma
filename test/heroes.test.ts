@@ -221,7 +221,7 @@ test("heroes: King's Raid's gear raises their stats: its main stat by its refine
 
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
   const copies = [
-    { _id: 'armor', itemId: 'perseverance-warrior-armor', level: 5, options: [{ stat: 'atk', step: 0 }, { stat: 'critDamage', step: 2 }], tmSkill: 'vigor', runes: ['patience-5'] },
+    { _id: 'armor', itemId: 'perseverance-warrior-armor', level: 5, options: [{ stat: 'atk', step: 0 }, { stat: 'critDamage', step: 2 }], tmSkill: 'vigor', tmSkillPending: 'berserk', runes: ['patience-5'] },
     { _id: 'maul', itemId: 'worldbreaker-maul', level: 2, locked: true }, // the members' own: no hero wears it
     { _id: 'ring', itemId: 'opportune-fire-t8-ring', level: 1, options: [{ stat: 'crit', step: 10 }] },
     { _id: 'spare', itemId: 'opportune-fire-t8-ring', level: 1 },
@@ -245,6 +245,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(armor?.upgrade, 1_000, "TechnoMagic gear's options are upgraded for 1,000 zeiucoins (the user's)");
   assert.equal(armor?.rerollUnique, 1, 'and its additional effect rerolled for 1 komaGem');
   assert.ok(armor?.additional?.startsWith('Vigor'));
+  assert.ok(armor?.rerolled?.startsWith('Berserk'), 'its rerolled effect waits beside it, not yet its own');
   assert.equal(armor?.setEffect?.pieces, 4);
   assert.equal(armor?.setEffect?.active, false);
   assert.equal(view.copies.find((copy) => copy.id === 'ring')?.upgrade, null, 'all its options at their top');
@@ -322,6 +323,10 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     reroll: async (guildId, userId, copy, option) => {
       calls.push(`reroll ${copy} ${option}`);
       return option === 1 ? 'no_option' : empty;
+    },
+    keep: async (guildId, userId, copy, keep) => {
+      calls.push(`keep ${copy} ${keep}`);
+      return copy === 'c1' ? empty : 'no_option';
     },
     upgrade: async (guildId, userId, copy) => {
       calls.push(`upgrade ${copy}`);
@@ -410,10 +415,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 0 })).status, 200);
     assert.equal((await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 'unique' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 1 })).json(), { error: 'no_option' });
+    // A rerolled effect kept, or the one it had: nothing rolled, 'no_option'; neither, a bad request.
+    assert.equal((await post('/api/heroes/keep', { guild: 'g1', copy: 'c1', keep: 'new' })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/keep', { guild: 'g1', copy: 'c2', keep: 'old' })).json(), { error: 'no_option' });
+    assert.equal((await post('/api/heroes/keep', { guild: 'g1', copy: 'c1', keep: 'both' })).status, 400);
     assert.equal((await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c1' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c2' })).json(), { error: 'maxed' });
-    assert.deepEqual(calls.slice(-8), ['rune c1 0 fierce-5', 'rune c1 0 null', 'rune c1 0 none', 'reroll c1 0', 'reroll c1 unique', 'reroll c1 1', 'upgrade c1', 'upgrade c2']);
-    calls.length -= 8;
+    assert.deepEqual(calls.slice(-10), ['rune c1 0 fierce-5', 'rune c1 0 null', 'rune c1 0 none', 'reroll c1 0', 'reroll c1 unique', 'reroll c1 1', 'keep c1 new', 'keep c2 old', 'upgrade c1', 'upgrade c2']);
+    calls.length -= 10;
     assert.deepEqual(calls, [
       'equip kirze weapon c1',
       'buy g1 u1 kirze',

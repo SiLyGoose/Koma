@@ -2,7 +2,7 @@ import type { LoadoutNameBlock, RefineBlock } from '../models/gear.js';
 
 /* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
 
-export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'needs_pick' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'loadout_locked' | RefineBlock | LoadoutNameBlock;
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'needs_pick' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'pending' | 'loadout_locked' | RefineBlock | LoadoutNameBlock;
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
@@ -39,6 +39,7 @@ const STATUS: Record<ErrorCode, number> = {
   too_many_points: 409,
   perk_locked: 409,
   no_gems: 409,
+  pending: 409,
   loadout_locked: 409,
   name_too_long: 409,
   name_bad_characters: 409,

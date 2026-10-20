@@ -42,18 +42,18 @@ import { equippedCopyIds, itemWorth } from '../../lib/game/items/sell.js';
 import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
-import { rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
+import { keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
-import type { HeroCopy, HeroEquipError, HeroesView, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView } from '../../protocol/heroes.js';
+import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView } from '../../protocol/heroes.js';
 import { gearStore, refineState } from './gear.js';
 
 export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine, /rune, /reroll,
- * /upgrade, /sell, /lock): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
+ * /keep, /upgrade, /sell, /lock): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
  * theirs wears (King's Raid's hero gear: data/kr-gear.ts), with what it gives it in the raid and every copy a hero could wear,
  * their runes, and how far each is transcended and the perks picked for it (the heroes page). The rules are lib/game/heroes.ts's
  * (data/transcend.ts transcendence's); buying, gearing and transcending them, services/heroes.ts; runes and options, services/kr-gear.ts.
@@ -80,6 +80,8 @@ export interface HeroStore {
   rune: (guildId: string, userId: string, copy: string, socket: number, rune: string | null) => Promise<HeroesView | HeroRuneError>;
   /** Rerolls one of a copy's options (or its unique option), for points: the heroes after, or why not. */
   reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
+  /** Keeps a TechnoMagic copy's rerolled additional skill ('new') or the one it had ('old'): the heroes after, or why not. */
+  keep: (guildId: string, userId: string, copy: string, keep: HeroKeep) => Promise<HeroesView | HeroOptionError>;
   /** Upgrades one of a copy's options a step, for points: the heroes after, or why not. */
   upgrade: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroOptionError>;
   /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too): what it came to, or 'nothing_to_sell'. */
@@ -89,7 +91,7 @@ export interface HeroStore {
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
-  Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmArmorDef' | 'options' | 'runes' | 'tmSkillRerolls'>>;
+  Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmArmorDef' | 'options' | 'runes' | 'tmSkillRerolls' | 'tmSkillPending'>>;
 
 /** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
 export function skillLines(skills: readonly string[]): string[] {
@@ -209,6 +211,7 @@ export function heroesView(
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
       additional: kr?.unique ? tmSkillLine(copy.tmSkill) : null,
+      rerolled: kr?.unique ? tmSkillLine(copy.tmSkillPending) : null,
       additionalActive: lit.get(copy._id)?.additional ?? false,
       skill: kr?.unique ? (copy.tmSkill ?? null) : null,
       class: item.class ?? (kr && kr.classes.length === 1 ? (kr.classes[0] as RaidClassId) : null),
@@ -332,6 +335,10 @@ export const heroStore: HeroStore = {
   },
   reroll: async (guildId, userId, copy, option) => {
     const result = await rerollOption(guildId, userId, copy, option);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  keep: async (guildId, userId, copy, keep) => {
+    const result = await keepTmSkill(guildId, userId, copy, keep);
     return result.ok ? load(guildId, userId) : result.reason;
   },
   upgrade: async (guildId, userId, copy) => {

@@ -158,6 +158,11 @@ export interface HeroCopy {
   setEffect: { pieces: number; text: string; active: boolean } | null;
   /** TechnoMagic gear: the additional skill this copy came with, like "Vigor: Increases DMG…" (null: none). */
   additional: string | null;
+  /**
+   * TechnoMagic gear: the additional skill its last reroll rolled, as `additional` (null: none), waiting for the member to keep
+   * it or the one it has (POST /api/heroes/keep); till then it has `additional`, and its effect can't be rerolled again.
+   */
+  rerolled: string | null;
   /** Whether its additional skill is on: a hero of its class wears it. */
   additionalActive: boolean;
   /** TechnoMagic gear: the additional skill this copy came with (the sim's id), or null. */
@@ -266,8 +271,14 @@ export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_h
 /** Why a rune wasn't socketed or taken out (nothing changed). */
 export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'busy';
 
-/** Why an option wasn't rerolled or upgraded (nothing was spent). */
-export type HeroOptionError = 'not_found' | 'no_option' | 'maxed' | 'too_poor' | 'no_gems' | 'busy';
+/**
+ * Why an option wasn't rerolled or upgraded, or a rerolled effect kept (nothing was spent). 'pending': its effect was
+ * rerolled and the member hasn't kept one yet.
+ */
+export type HeroOptionError = 'not_found' | 'no_option' | 'maxed' | 'too_poor' | 'no_gems' | 'pending' | 'busy';
+
+/** Which additional skill a TechnoMagic copy keeps after its reroll (POST /api/heroes/keep): the one it had, or the one rolled. */
+export type HeroKeep = 'old' | 'new';
 
 /** Why a copy wasn't refined (nothing was used up). */
 export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy';

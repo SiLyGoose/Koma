@@ -3,7 +3,7 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroEquipError, HeroesSold, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError } from '../../protocol/heroes.js';
 
 /** Every reason a change to their heroes or their gear isn't made. */
 type HeroError = HeroEquipError | HeroPerksError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | 'owned' | 'too_poor';
@@ -67,6 +67,8 @@ export function heroService(deps: ApiDeps) {
     rune: async (guildId: string, userId: string, copy: string, socket: number, rune: string | null): Promise<HeroesView> => answer(await store.rune(guildId, userId, copy, socket, rune)),
     /** Rerolls one of a copy's options (or its unique option). */
     reroll: async (guildId: string, userId: string, copy: string, option: number | 'unique'): Promise<HeroesView> => answer(await store.reroll(guildId, userId, copy, option)),
+    /** Keeps a TechnoMagic copy's rerolled additional skill, or the one it had. */
+    keep: async (guildId: string, userId: string, copy: string, keep: HeroKeep): Promise<HeroesView> => answer(await store.keep(guildId, userId, copy, keep)),
     /** Upgrades one of a copy's options a step. */
     upgrade: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy)),
 

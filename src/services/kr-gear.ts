@@ -4,7 +4,7 @@ import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
 import { enhanceUtOptions, rollTmSkill } from '../lib/game/technomagic.js';
 import { UT_ENHANCE } from '../data/tm-potentials.js';
-import type { HeroOptionError, HeroRuneError } from '../protocol/heroes.js';
+import type { HeroKeep, HeroOptionError, HeroRuneError } from '../protocol/heroes.js';
 import type { ItemCopyDoc } from '../types.js';
 import { recordLedger } from './economy/shared.js';
 
@@ -93,7 +93,8 @@ const refundGems = async (guildId: string, userId: string, gems: number): Promis
 /**
  * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
  * rerolled; or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
- * (too few: 'no_gems').
+ * (too few: 'no_gems'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
+ * and till then it isn't rerolled again ('pending').
  */
 export async function rerollOption(guildId: string, userId: string, copyId: string, index: number | 'unique', rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
@@ -103,11 +104,12 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   if (!copy || !item || !kr) return { ok: false, reason: 'not_found' };
   if (index === 'unique') {
     if (!kr.unique) return { ok: false, reason: 'no_option' };
+    if (copy.tmSkillPending !== undefined) return { ok: false, reason: 'pending' };
     const gems = UNIQUE_REROLL_GEMS;
     if (!(await payGems(guildId, userId, gems))) return { ok: false, reason: 'no_gems' };
     const done = await items.updateOne(
-      { guildId, userId, _id: copyId, tmSkill: copy.tmSkill ?? { $exists: false }, tmSkillRerolls: copy.tmSkillRerolls ?? { $exists: false } },
-      { $set: { tmSkill: rollTmSkill(rng), tmSkillRerolls: (copy.tmSkillRerolls ?? 0) + 1 } },
+      { guildId, userId, _id: copyId, tmSkill: copy.tmSkill ?? { $exists: false }, tmSkillRerolls: copy.tmSkillRerolls ?? { $exists: false }, tmSkillPending: { $exists: false } },
+      { $set: { tmSkillPending: rollTmSkill(rng), tmSkillRerolls: (copy.tmSkillRerolls ?? 0) + 1 } },
     );
     if (done.modifiedCount === 0) {
       await refundGems(guildId, userId, gems);
@@ -130,6 +132,23 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   }
   await recordLedger([{ guildId, userId, delta: -cost, reason: 'kr_reroll', itemId: item.id }]);
   return { ok: true };
+}
+
+/**
+ * Settles a TechnoMagic copy's rerolled additional skill: `keep` 'new' takes the one rolled (tmSkillPending), 'old' keeps the
+ * one it had; the one rolled is gone either way (already paid for). None rolled: 'no_option'.
+ */
+export async function keepTmSkill(guildId: string, userId: string, copyId: string, keep: HeroKeep): Promise<OptionResult> {
+  const { items } = collections();
+  const copy = await items.findOne({ guildId, userId, _id: copyId });
+  if (!copy) return { ok: false, reason: 'not_found' };
+  const rolled = copy.tmSkillPending;
+  if (rolled === undefined) return { ok: false, reason: 'no_option' };
+  const done = await items.updateOne(
+    { guildId, userId, _id: copyId, tmSkillPending: rolled },
+    keep === 'new' ? { $set: { tmSkill: rolled }, $unset: { tmSkillPending: '' } } : { $unset: { tmSkillPending: '' } },
+  );
+  return done.modifiedCount === 0 ? { ok: false, reason: 'busy' } : { ok: true };
 }
 
 /**
