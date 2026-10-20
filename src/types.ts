@@ -313,8 +313,10 @@ export interface MemberDoc {
    * loadout with its default name. See LoadoutDoc and constants/items/loadouts.ts.
    */
   loadouts?: Record<string, LoadoutDoc>;
-  /** Which loadout is active (1 to LOADOUTS.count); its gear is `equipment`. Missing means 1. */
+  /** Which loadout is active (1 to loadoutSlots); its gear is `equipment`. Missing means 1. */
   activeLoadout?: number | null;
+  /** How many loadouts they have, the ones they unlocked for points included. Missing or null means LOADOUTS.free. */
+  loadoutSlots?: number | null;
   /** The outfits this member bought (data/outfits.ts ids; never the default, which everyone has). Missing means none. */
   outfits?: string[];
   /** The outfit they wear: one of theirs. Missing or null means the default (services/outfits.ts). */
@@ -595,6 +597,8 @@ export type LedgerReason =
   | 'raid_refund'
   // A duplicate copy used up to refine another (0 points; itemId is the item).
   | 'refine'
+  // Points paid to unlock another gear loadout (services/items/loadouts.ts).
+  | 'loadout_unlock'
   // Points paid for an outfit in the site's shop (services/outfits.ts; itemId is the outfit).
   | 'outfit'
   // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).

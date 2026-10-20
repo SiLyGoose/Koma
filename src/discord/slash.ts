@@ -500,7 +500,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   loadout: {
-    description: 'See your gear loadouts, switch to one, or rename one.',
+    description: 'See your gear loadouts, switch to one, rename one, or unlock another.',
     build: (b) =>
       void b
         .addSubcommand((s) => s.setName('list').setDescription('See your loadouts and the gear in each'))
@@ -516,9 +516,11 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
             .setDescription('Name a loadout (leave the name out to reset it)')
             .addIntegerOption((o) => o.setName('number').setDescription('Which loadout').setRequired(true).setMinValue(1).setMaxValue(LOADOUTS.count))
             .addStringOption((o) => o.setName('name').setDescription('Its new name').setMaxLength(LOADOUTS.maxNameLength)),
-        ),
+        )
+        .addSubcommand((s) => s.setName('unlock').setDescription(`Unlock your next loadout for ${CURRENCY_NAME}`)),
     toArgs: (i) => {
       const action = i.options.getSubcommand();
+      if (action === 'unlock') return ['unlock'];
       if (action === 'switch') return [i.options.getString('loadout', true)];
       if (action === 'rename') {
         const name = i.options.getString('name');

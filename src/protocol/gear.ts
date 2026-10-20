@@ -82,6 +82,11 @@ export interface GearView {
   totals: string[];
   /** Their loadouts, in order: the active one is what they're wearing. */
   loadouts: GearLoadout[];
+  /**
+   * The loadouts they haven't unlocked, in order, and what each costs in points (POST /api/gear/loadout/unlock):
+   * only the first can be unlocked next. Empty for someone else's gear (and missing from a bot from before them).
+   */
+  lockedLoadouts?: GearLockedLoadout[];
   /** Every number their gear can change, with and without it (the page's Common tab), raid last. */
   stats: StatSection[];
   /** Their points in the server (null when not known), for what a refine leaves them. */
@@ -101,6 +106,12 @@ export interface GearLoadout {
   active: boolean;
   /** The copy id in each slot (only copies they still own, in the slot they fit), or null. */
   equipped: Record<Slot, string | null>;
+}
+
+/** A loadout they haven't unlocked yet, and what unlocking it costs in points. */
+export interface GearLockedLoadout {
+  number: number;
+  price: number;
 }
 
 /**

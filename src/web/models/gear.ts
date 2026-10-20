@@ -3,7 +3,7 @@ import { REFINE } from '../../constants/index.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { DEFAULT_OUTFIT } from '../../data/outfits.js';
 import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEffects, type GearPiece } from '../../lib/game/items/equipment.js';
-import { keptCopyIds, loadoutsOf, type LoadoutView } from '../../lib/game/items/loadouts.js';
+import { keptCopyIds, loadoutsOf, lockedLoadoutsOf, type LoadoutView, type LockedLoadout } from '../../lib/game/items/loadouts.js';
 import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, partOf, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
@@ -18,7 +18,7 @@ import { wornOutfit } from '../../services/outfits.js';
 import { raidClassesOf, raidClassOf, setRaidClass } from '../../services/raid-class.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
 import { RAID_CLASS_IDS, TEXT, type RaidClassId } from '../../constants/index.js';
-import { renameLoadout, switchLoadout } from '../../services/items/loadouts.js';
+import { renameLoadout, switchLoadout, unlockLoadout } from '../../services/items/loadouts.js';
 import type { EquipmentDoc, ItemCopyDoc, ItemDef, MemberDoc, Slot } from '../../types.js';
 import { gearStats } from './stats.js';
 import { SLOTS } from '../../types.js';
@@ -27,7 +27,7 @@ import type { GearCopy, GearLoadout, GearRefine, GearSale, GearView, LoadoutName
 export type { GearCopy, GearLoadout, GearRefine, GearSale, GearView, LoadoutNameBlock, RefineBlock };
 
 /*
- * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /loadout/rename, /refine, /sell and /lock):
+ * The site's gear page (GET /api/gear and /api/gear/members, POST /api/gear/equip, /unequip, /unequip-all, /loadout, /loadout/rename, /loadout/unlock, /refine, /sell and /lock):
  * every copy a member owns, what each one does at its level, which copy sits in each slot, and their
  * loadouts; and, to look at, the same for anyone else in the server with gear. The effect lines
  * are the gear card's, as Discord shows them (custom emoji codes and *italics* included); the page
@@ -44,6 +44,7 @@ export function wornGear(view: GearView): GearView {
     ...view,
     copies: view.copies.filter((copy) => worn.has(copy.id)),
     loadouts: view.loadouts.filter((loadout) => loadout.active),
+    lockedLoadouts: [],
     balance: null,
   };
 }
@@ -59,10 +60,15 @@ export interface GearStore {
   equip: (guildId: string, userId: string, copyId: string) => Promise<boolean>;
   unequip: (guildId: string, userId: string, slot: Slot) => Promise<void>;
   unequipAll: (guildId: string, userId: string) => Promise<void>;
-  /** False when their loadouts kept changing while switching (nothing changed). */
-  switchLoadout: (guildId: string, userId: string, number: number) => Promise<boolean>;
-  /** Names loadout `number` (an empty name: its default one again): 'ok', or why it can't have that name. */
-  renameLoadout: (guildId: string, userId: string, number: number, name: string) => Promise<'ok' | LoadoutNameBlock>;
+  /** 'ok', 'busy' when their loadouts kept changing while switching (nothing changed), or 'loadout_locked' when they haven't unlocked it. */
+  switchLoadout: (guildId: string, userId: string, number: number) => Promise<'ok' | 'busy' | 'loadout_locked'>;
+  /** Names loadout `number` (an empty name: its default one again): 'ok', or why it can't have that name (or 'loadout_locked'). */
+  renameLoadout: (guildId: string, userId: string, number: number, name: string) => Promise<'ok' | LoadoutNameBlock | 'loadout_locked'>;
+  /**
+   * Unlocks loadout `number` for its price: 'ok', or why not ('owned' when they have it, 'loadout_locked' when another
+   * comes first, 'maxed' when there's none left, 'too_poor', or 'busy' when their loadouts changed meanwhile).
+   */
+  unlockLoadout: (guildId: string, userId: string, number: number) => Promise<'ok' | 'owned' | 'loadout_locked' | 'maxed' | 'too_poor' | 'busy'>;
   /**
    * Refines that copy one level, using up `materialId` (null: the lowest-level spare it could use): 'ok',
    * or why not ('not_found' when they don't own it, 'bad_material' when that material can't be used up,
@@ -119,7 +125,8 @@ export function refineState(
  * `loadouts` all their loadouts (by default just the one they're wearing) and `balance` their points
  * (null when not known: no refine is then held back for the price),
  * `outfit` the outfit they wear, `raidClass` their raid class, `heroWorn` the copies their heroes wear
- * (each with the hero's name) and `tmOn` which of their TechnoMagic copies' effects are on (activeTmEffects).
+ * (each with the hero's name), `tmOn` which of their TechnoMagic copies' effects are on (activeTmEffects) and `locked` the
+ * loadouts they could unlock (none for someone else's).
  */
 export function gearView(
   copies: readonly CopyInfo[],
@@ -131,6 +138,7 @@ export function gearView(
   raidClass: RaidClassId | null = null,
   heroWorn: ReadonlyMap<string, string> = new Map(),
   tmOn: ReadonlyMap<string, TmEffectsOn> = new Map(),
+  locked: readonly LockedLoadout[] = [],
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
   const kept = new Set([...wornIds, ...heroWorn.keys()]);
@@ -211,6 +219,7 @@ export function gearView(
       active: loadout.active,
       equipped: loadout.active ? equipped : fitting(loadout.equipment),
     })),
+    lockedLoadouts: locked.map(({ number, price }) => ({ number, price })),
     balance,
     outfit,
     class: raidClass,
@@ -231,7 +240,18 @@ export const gearStore: GearStore = {
   view: async (guildId, userId) => {
     const { items, members } = collections();
     const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
-    return gearView(copies, member?.equipment, userId, loadoutsOf(member), member?.points ?? 0, wornOutfit(member), raidClassOf(member), heroNames(member), activeTmEffects(copies, member));
+    return gearView(
+      copies,
+      member?.equipment,
+      userId,
+      loadoutsOf(member),
+      member?.points ?? 0,
+      wornOutfit(member),
+      raidClassOf(member),
+      heroNames(member),
+      activeTmEffects(copies, member),
+      lockedLoadoutsOf(member),
+    );
   },
   peek: async (guildId, userId) => {
     const { items, members } = collections();
@@ -256,10 +276,17 @@ export const gearStore: GearStore = {
   unequipAll: async (guildId, userId) => {
     await unequipAll(guildId, userId);
   },
-  switchLoadout: async (guildId, userId, number) => (await switchLoadout(guildId, userId, number)).ok,
+  switchLoadout: async (guildId, userId, number) => {
+    const result = await switchLoadout(guildId, userId, number);
+    return result.ok ? 'ok' : result.reason === 'locked' ? 'loadout_locked' : 'busy';
+  },
   renameLoadout: async (guildId, userId, number, name) => {
     const result = await renameLoadout(guildId, userId, number, name);
-    return result.ok ? 'ok' : `name_${result.reason}`;
+    return result.ok ? 'ok' : result.reason === 'locked' ? 'loadout_locked' : `name_${result.reason}`;
+  },
+  unlockLoadout: async (guildId, userId, number) => {
+    const result = await unlockLoadout(guildId, userId, number);
+    return result.ok ? 'ok' : result.reason === 'locked' ? 'loadout_locked' : result.reason;
   },
   refine: async (guildId, userId, copyId, materialId) => {
     const { items, members } = collections();

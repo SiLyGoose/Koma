@@ -188,6 +188,9 @@ export function validateConstants(): void {
   if (!(Number.isInteger(REFINE.bigStep) && REFINE.bigStep >= 1)) problems.push('REFINE.bigStep must be a whole number of at least 1');
   if (REFINE.bigSteps.some((l) => !(Number.isInteger(l) && l >= 2 && l <= REFINE.maxLevel))) problems.push('REFINE.bigSteps must be levels from 2 to REFINE.maxLevel');
   if (!(Number.isInteger(LOADOUTS.count) && LOADOUTS.count >= 1 && LOADOUTS.count <= 9)) problems.push('LOADOUTS.count must be a whole number from 1 to 9');
+  if (!(Number.isInteger(LOADOUTS.free) && LOADOUTS.free >= 1 && LOADOUTS.free <= LOADOUTS.count)) problems.push('LOADOUTS.free must be a whole number from 1 to LOADOUTS.count');
+  if (LOADOUTS.free + LOADOUTS.unlockPrices.length !== LOADOUTS.count) problems.push('LOADOUTS.unlockPrices must have a price for every loadout after LOADOUTS.free, up to LOADOUTS.count');
+  if (LOADOUTS.unlockPrices.some((price) => !(Number.isInteger(price) && price >= 0))) problems.push('LOADOUTS.unlockPrices must be whole numbers of at least 0');
   if (!(Number.isInteger(LOADOUTS.maxNameLength) && LOADOUTS.maxNameLength >= 1 && LOADOUTS.maxNameLength <= 100)) problems.push('LOADOUTS.maxNameLength must be a whole number from 1 to 100');
   if (!(LOADOUT_BUTTONS.idleMs >= 5000)) problems.push('LOADOUT_BUTTONS.idleMs must be at least 5000');
   if (!(Number.isInteger(RAID_COMBAT.support.shieldBreak) && RAID_COMBAT.support.shieldBreak >= 1)) problems.push('RAID_COMBAT.support.shieldBreak must be a whole number of at least 1');

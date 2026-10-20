@@ -59,6 +59,11 @@ export function gearController(gear: GearService) {
       res.json(await gear.switchLoadout(res.locals.guildId, res.locals.session.userId, loadout));
     },
 
+    async unlockLoadout(req, res) {
+      const { loadout } = parse(Loadout, req.body);
+      res.json(await gear.unlockLoadout(res.locals.guildId, res.locals.session.userId, loadout));
+    },
+
     async renameLoadout(req, res) {
       const { loadout, name } = parse(Rename, req.body);
       res.json(await gear.renameLoadout(res.locals.guildId, res.locals.session.userId, loadout, name));

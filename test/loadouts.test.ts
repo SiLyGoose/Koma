@@ -6,6 +6,8 @@ import {
   checkLoadoutName,
   findLoadout,
   loadoutCopyIds,
+  loadoutCountOf,
+  lockedLoadoutsOf,
   loadoutName,
   loadoutsOf,
   LOADOUT_NUMBERS,
@@ -30,6 +32,32 @@ test('loadouts: numbered 1 to LOADOUTS.count, loadout 1 active when nothing (or 
   assert.equal(activeLoadoutOf({ activeLoadout: 99 }), 1);
   assert.equal(activeLoadoutOf({ activeLoadout: null }), 1);
   assert.equal(activeLoadoutOf(member), 2);
+});
+
+test('loadouts: LOADOUTS.free to start, the rest unlocked one at a time for their prices', () => {
+  assert.equal(LOADOUTS.free + LOADOUTS.unlockPrices.length, LOADOUTS.count);
+  assert.equal(loadoutCountOf(null), LOADOUTS.free);
+  assert.equal(loadoutCountOf({ loadoutSlots: 4 }), 4);
+  // Nonsense stored counts as the free ones, or as many as there can be.
+  assert.equal(loadoutCountOf({ loadoutSlots: 1 }), LOADOUTS.free);
+  assert.equal(loadoutCountOf({ loadoutSlots: 99 }), LOADOUTS.count);
+  assert.deepEqual(lockedLoadoutsOf(null), [
+    { number: 4, price: LOADOUTS.unlockPrices[0] },
+    { number: 5, price: LOADOUTS.unlockPrices[1] },
+  ]);
+  assert.deepEqual(lockedLoadoutsOf({ loadoutSlots: 4 }), [{ number: 5, price: LOADOUTS.unlockPrices[1] }]);
+  assert.deepEqual(lockedLoadoutsOf({ loadoutSlots: 5 }), []);
+
+  // Only unlocked ones are listed, found or worn.
+  assert.equal(loadoutsOf(member).length, LOADOUTS.free);
+  assert.equal(loadoutsOf({ ...member, loadoutSlots: 5 }).length, 5);
+  assert.deepEqual(findLoadout(loadoutsOf(member), '4'), { kind: 'none' });
+  assert.deepEqual(findLoadout(loadoutsOf({ ...member, loadoutSlots: 4 }), '4'), { kind: 'found', number: 4 });
+  assert.equal(activeLoadoutOf({ activeLoadout: 4 }), 1);
+  assert.equal(activeLoadoutOf({ activeLoadout: 4, loadoutSlots: 4 }), 4);
+  // A locked loadout's default name stays free for it.
+  assert.deepEqual(checkLoadoutName(member, 1, 'Loadout 5'), { ok: false, reason: 'taken', number: 5 });
+  assert.deepEqual(checkLoadoutName(member, 1, 'unlock'), { ok: false, reason: 'reserved' });
 });
 
 test('loadouts: unnamed ones get "Loadout <n>", and the active one holds what is worn', () => {

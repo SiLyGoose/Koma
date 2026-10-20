@@ -64,7 +64,15 @@ export function gearService(deps: ApiDeps) {
     },
 
     async switchLoadout(guildId: string, userId: string, loadout: number): Promise<GearView> {
-      if (!(await store.switchLoadout(guildId, userId, loadout))) throw new ApiError('busy');
+      const result = await store.switchLoadout(guildId, userId, loadout);
+      if (result !== 'ok') throw new ApiError(result);
+      return store.view(guildId, userId);
+    },
+
+    /** Unlocks their next loadout (`loadout`, which has to be it) for its price. */
+    async unlockLoadout(guildId: string, userId: string, loadout: number): Promise<GearView> {
+      const result = await store.unlockLoadout(guildId, userId, loadout);
+      if (result !== 'ok') throw new ApiError(result);
       return store.view(guildId, userId);
     },
 
