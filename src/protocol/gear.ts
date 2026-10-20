@@ -39,8 +39,10 @@ export interface GearCopy {
   refine: GearRefine;
   /** Locked by the member (services/items/lock.ts): never sold or used up by a refine. */
   locked: boolean;
-  /** What selling it pays in points (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
+  /** What selling it pays (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
   sell: number | null;
+  /** Hero gear: what selling it pays is gear powder, not points (left out by a bot from before gear powder). */
+  sellPowder?: boolean;
   /** TechnoMagic gear, a unique weapon or a unique treasure: only heroes wear it (the heroes page), never the member. */
   heroOnly: boolean;
   /** A unique weapon: the id of the one hero that wields it (null: not one). */
@@ -124,7 +126,9 @@ export type LoadoutNameProblem = 'too_long' | 'bad_characters' | 'no_letters' | 
 /** What a sale from the gear page sold (POST /api/gear/sell answers the GearView with it). */
 export interface GearSale {
   count: number;
+  /** The points it paid, and (hero gear's) the gear powder (left out by a bot from before gear powder). */
   earned: number;
+  powder?: number;
 }
 
 /** One number: what it is with their gear, and what it would be without (null when gear doesn't change it). */

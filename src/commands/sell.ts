@@ -1,3 +1,4 @@
+import { CONFIG } from '../config.js';
 import { CURRENCY_NAME, TEXT } from '../constants/index.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { createEmbed, type BotEmbed } from '../lib/embed.js';
@@ -10,8 +11,11 @@ import { CONFIRM_TIMEOUT_MS, askToConfirm } from '../discord/confirm.js';
 import { resolveItem } from '../discord/item-pick.js';
 import type { Command } from '../discord/types.js';
 
-const lineText = (line: { item: ItemDef; count: number; total: number }) =>
-  TEXT.sell.line(line.item.name, line.count, fmt(line.total));
+const lineText = (line: { item: ItemDef; count: number; unit: 'points' | 'powder'; total: number }) =>
+  TEXT.sell.line(line.item.name, line.count, fmt(line.total), line.unit === 'powder');
+
+/** The gear powder a sale paid, formatted, to say beside its points (left out: none). */
+const powderOf = (powder: number): string | undefined => (powder > 0 ? fmt(powder) : undefined);
 
 /** The embed shown after a sale. `remaining` is how many copies of a single item are left (only for selling one). */
 function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, remaining: number | null): BotEmbed {
@@ -21,11 +25,12 @@ function soldEmbed(user: string, result: Extract<SaleResult, { ok: true }>, rema
     .setTitle(TEXT.sell.soldTitle)
     .setDescription(
       (single && first
-        ? TEXT.sell.soldOne(user, first.item.name, fmt(result.earned))
-        : `${TEXT.sell.soldMany(user, result.lines.reduce((sum, line) => sum + line.count, 0), fmt(result.earned))}\n\n${joinLimited(result.lines.map(lineText), 3500)}`) +
+        ? TEXT.sell.soldOne(user, first.item.name, fmt(result.earned), powderOf(result.powder))
+        : `${TEXT.sell.soldMany(user, result.lines.reduce((sum, line) => sum + line.count, 0), fmt(result.earned), powderOf(result.powder))}\n\n${joinLimited(result.lines.map(lineText), 3500)}`) +
         (result.skipped > 0 ? `\n${TEXT.sell.skipped(result.skipped)}` : ''),
     )
     .addFields({ name: TEXT.sell.balanceField, value: money(result.balance), inline: true });
+  if (result.powder > 0) embed.addFields({ name: TEXT.sell.powderField, value: TEXT.sell.powderValue(fmt(result.powderBalance), fmt(CONFIG.sell.powderPerGem)), inline: true });
   if (remaining !== null) embed.setFooter({ text: TEXT.sell.footerLeft(remaining) });
   return embed;
 }
@@ -58,7 +63,7 @@ function refusal(p: string, plan: Extract<SalePlan, { ok: false }>, target: Sell
 export const sell: Command = {
   name: 'sell',
   category: 'items',
-  description: `Sell items you are not wearing (or locked) for ${CURRENCY_NAME}: one copy, some copies, all copies of an item, or a whole tier.`,
+  description: `Sell items you are not wearing (or locked) for ${CURRENCY_NAME} (hero gear for gear powder): one copy, some copies, all copies of an item, or a whole tier.`,
   usage: 'sell <item> | sell <number> <item> | sell all <item> | sell stars <1-4>',
   slashUsage: 'sell one | some | all | stars',
 
@@ -114,7 +119,7 @@ export const sell: Command = {
     // Selling many shows what would be sold and waits for a yes.
     const prompt = createEmbed()
       .setTitle(TEXT.sell.confirmTitle)
-      .setDescription(TEXT.sell.confirmDescription(fmt(plan.total), plan.count, joinLimited(plan.lines.map(lineText), 3500)))
+      .setDescription(TEXT.sell.confirmDescription(fmt(plan.total), plan.count, joinLimited(plan.lines.map(lineText), 3500), powderOf(plan.powder)))
       .setFooter({ text: TEXT.sell.confirmFooter(CONFIRM_TIMEOUT_MS / 1000) });
     const outcome = await askToConfirm(ctx, prompt, ctx.user.id, {
       confirm: TEXT.sell.confirmButton,

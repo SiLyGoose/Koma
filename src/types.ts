@@ -245,6 +245,8 @@ export interface MemberDoc {
   tokens?: number;
   /** komaGems, won by beating the weekly raid and the Dragon Raid. Missing means 0. */
   gems?: number;
+  /** Gear powder, from selling hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
+  powder?: number;
   /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
   essences?: Partial<Record<EssenceId, number>>;
   /** King's Raid's runes they have, not socketed (data/kr-gear.ts's ids), how many of each: dropped by the TechnoMagic and Dragon Raids. Missing means none. */
@@ -395,7 +397,7 @@ export interface TmRunDoc {
   drops?: string[];
   /** A Dragon Raid win's hero essences, so many of each kind. */
   essences?: Partial<Record<EssenceId, number>>;
-  /** A Dragon Raid win's komaGems (twice as many the first time at its stage). */
+  /** A Dragon Raid win's komaGems (its first clear of its stage's only). */
   gems?: number;
 }
 
@@ -530,6 +532,7 @@ export type LedgerReason =
   | 'claim_tax_paid'
   | 'claim_tax_received'
   | 'gacha'
+  // Selling items: points for the member's own gear, gear powder (powderDelta) for hero gear; itemId is the item.
   | 'sell'
   | 'plinko_bet'
   | 'plinko_payout'
@@ -596,7 +599,7 @@ export type LedgerReason =
   | 'raid_reward'
   | 'raid_tokens'
   | 'raid_gems'
-  // komaGems for a Dragon Raid win (0 points, gemDelta), twice as many the first time at its stage.
+  // komaGems for a Dragon Raid win (0 points, gemDelta): the first at its stage only.
   | 'dragon_gems'
   // Hero essences for beating it (0 points; essenceDelta).
   | 'raid_essences'
@@ -628,6 +631,8 @@ export type LedgerReason =
   | 'raid_shop_refresh'
   // komaGems and hero essences spent transcending a hero (0 points, gemDelta, essenceDelta; itemId is the hero).
   | 'transcend'
+  // Gear powder crafted into komaGems (0 points, powderDelta, gemDelta).
+  | 'craft_gems'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 
@@ -727,6 +732,8 @@ export interface LedgerDoc {
   tokenDelta?: number;
   /** Change in komaGems, when the entry moved any. */
   gemDelta?: number;
+  /** Change in gear powder, when the entry moved any. */
+  powderDelta?: number;
   /** Hero essences given (+) or spent (-), by kind (data/transcend.ts EssenceId). */
   essenceDelta?: Partial<Record<EssenceId, number>>;
   reason: LedgerReason;

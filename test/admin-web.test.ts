@@ -89,7 +89,7 @@ test('admin web: only the bot admin, logged in, sees and changes the settings; /
     const chance = view.settings.find((setting) => setting.key === 'rob.successChance');
     assert.deepEqual(chance && { min: chance.min, max: chance.max, percent: chance.percent, shown: chance.shown }, { min: 0, max: 1, percent: true, shown: '50%' });
     assert.match(view.settings.find((setting) => setting.key === 'claim.min')?.description ?? '', /points/);
-    assert.match(view.settings.find((setting) => setting.key === 'sell.technomagic')?.description ?? '', /^Points for selling/);
+    assert.match(view.settings.find((setting) => setting.key === 'sell.price.1')?.description ?? '', /^Points for selling/);
     // The prefix, from the bot's .env: shown, but not to be changed here.
     assert.ok(view.settings.find((setting) => setting.key === 'prefix')?.locked);
     assert.equal(view.settings.find((setting) => setting.key === 'claim.min')?.locked, undefined);

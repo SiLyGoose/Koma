@@ -1,10 +1,14 @@
 import { CONFIG } from '../../../config.js';
 import { ITEMS } from '../../../data/items.js';
+import { KR_ITEMS } from '../../../data/kr-gear.js';
+import { heroOnly } from '../heroes.js';
 import { SLOTS, STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } from '../../../types.js';
 
 /*
  * The pure parts of selling items: reading what the member typed, choosing which copies to sell,
- * and working out what a sale is worth. The database side is in services/items/sell.ts.
+ * and working out what a sale is worth. The database side is in services/items/sell.ts. The member's own gear sells for
+ * points; hero gear (King's Raid's pieces, TechnoMagic gear, artifacts, unique weapons and treasures: heroOnly) for gear
+ * powder, as King's Raid's grinding gives Magic Powder, `sell.powderPerGem` of it crafting a komaGem (services/economy/powder.ts).
  */
 
 /** What a member asked to sell. */
@@ -95,24 +99,45 @@ export function sellPrice(stars: Stars): number {
   return CONFIG.sell.price[stars];
 }
 
-/** What one copy of an item sells for: TechnoMagic gear at its own price, everything else at its star tier's. */
-export function itemSellPrice(item: ItemDef): number {
-  return item.tmDrop ? CONFIG.sell.technomagic : sellPrice(item.stars);
+/** What a sale pays in: points, or (hero gear) gear powder. */
+export type SaleUnit = 'points' | 'powder';
+
+/** What one copy of an item sells for and in what: hero gear for gear powder (itemSellPowder), everything else its star tier's points. */
+export function itemWorth(item: ItemDef): { unit: SaleUnit; each: number } {
+  return heroOnly(item) ? { unit: 'powder', each: itemSellPowder(item) } : { unit: 'points', each: sellPrice(item.stars) };
 }
 
-/** One line of a sale: how many of an item, and what they are worth together. */
+/** The points one copy of an item sells for (hero gear: none, it sells for gear powder). */
+export const itemSellPrice = (item: ItemDef): number => (heroOnly(item) ? 0 : sellPrice(item.stars));
+
+/**
+ * The gear powder one copy of hero gear sells for (anything else: none): a King's Raid piece by its tier (the dragon sets' 6 to
+ * 8, the TechnoMagic sets' 9, an artifact's 10), the old TechnoMagic gear its own, a unique weapon or treasure its own.
+ */
+export function itemSellPowder(item: ItemDef): number {
+  if (!heroOnly(item)) return 0;
+  const powder = CONFIG.sell.powder;
+  if (item.kr) return Math.max(0, Math.floor(powder[String(item.kr.tier) as keyof typeof powder] ?? 0));
+  return Math.max(0, Math.floor(item.tmDrop ? powder.technomagic : powder.unique));
+}
+
+/** One line of a sale: how many of an item, and what they are worth together, in what. */
 export interface SaleLine {
   item: ItemDef;
   count: number;
+  unit: SaleUnit;
   each: number;
   total: number;
 }
+
+/** Every item a sale can price: the catalog's and King's Raid's hero gear. */
+const SOLD: readonly ItemDef[] = [...ITEMS, ...KR_ITEMS];
 
 /**
  * Groups item ids into sale lines: highest star tier first, and in catalog order within a tier.
  * Ids that aren't in the catalog are left out (their star tier, so their price, is unknown).
  */
-export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[] = ITEMS, price: (item: ItemDef) => number = itemSellPrice): SaleLine[] {
+export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[] = SOLD, worth: (item: ItemDef) => { unit: SaleUnit; each: number } = itemWorth): SaleLine[] {
   const counts = new Map<string, number>();
   for (const id of itemIds) counts.set(id, (counts.get(id) ?? 0) + 1);
 
@@ -120,11 +145,13 @@ export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[
   for (const item of catalog) {
     const count = counts.get(item.id);
     if (!count) continue;
-    const each = price(item);
-    lines.push({ item, count, each, total: each * count });
+    const { unit, each } = worth(item);
+    lines.push({ item, count, unit, each, total: each * count });
   }
   return lines.sort((a, b) => b.item.stars - a.item.stars);
 }
 
-export const saleTotal = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + line.total, 0);
+/** What a sale's lines pay in points, and in gear powder. */
+export const saleTotal = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + (line.unit === 'points' ? line.total : 0), 0);
+export const salePowder = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + (line.unit === 'powder' ? line.total : 0), 0);
 export const saleCount = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + line.count, 0);

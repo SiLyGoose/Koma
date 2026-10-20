@@ -9,7 +9,7 @@ import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { leastStars, maxLevelOf, refineable, refineCopyPlan, refineCost, refineLevel, starsOf } from '../../lib/game/items/refine.js';
-import { equippedCopyIds, itemSellPrice, saleCount } from '../../lib/game/items/sell.js';
+import { equippedCopyIds, itemWorth, saleCount } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
 import { setCopyLocked } from '../../services/items/lock.js';
 import { refineItem } from '../../services/items/refine.js';
@@ -176,7 +176,8 @@ export function gearView(
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       locked,
-      sell: kept.has(copy._id) || locked ? null : itemSellPrice(item),
+      sell: kept.has(copy._id) || locked ? null : itemWorth(item).each,
+      sellPowder: itemWorth(item).unit === 'powder',
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
       uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
@@ -306,7 +307,7 @@ export const gearStore: GearStore = {
   sell: async (guildId, userId, copyIds, locked = false) => {
     const result = await sellCopies(guildId, userId, copyIds, { locked });
     if (!result.ok) return result.reason;
-    return { count: saleCount(result.lines), earned: result.earned };
+    return { count: saleCount(result.lines), earned: result.earned, powder: result.powder };
   },
   lock: (guildId, userId, copyId, locked) => setCopyLocked(guildId, userId, copyId, locked),
   setClass: setRaidClass,

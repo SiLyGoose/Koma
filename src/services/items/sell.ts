@@ -1,13 +1,13 @@
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { heroOnly } from '../../lib/game/heroes.js';
-import { saleCount, saleLines, saleTotal, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
+import { saleCount, saleLines, salePowder, saleTotal, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
 
 /*
- * Selling items for points. A member can sell copies they aren't wearing: one copy of an item,
+ * Selling items for points, and hero gear for gear powder (lib/game/items/sell.ts itemWorth). A member can sell copies they aren't wearing: one copy of an item,
  * every unworn copy of an item, or every unworn item of a star tier. "Worn" here means in any of
  * their loadouts, the active one or a saved one, or on one of their heroes (lib/game/items/loadouts.ts's
  * keptCopyIds). Selling has two steps so a
@@ -28,7 +28,8 @@ export type SellTarget =
   | { kind: 'stars'; stars: Stars };
 
 export type SalePlan =
-  | { ok: true; copyIds: string[]; lines: SaleLine[]; count: number; total: number }
+  /** `total` the points it pays, `powder` the gear powder. */
+  | { ok: true; copyIds: string[]; lines: SaleLine[]; count: number; total: number; powder: number }
   /** They own none of it. */
   | { ok: false; reason: 'not_owned' }
   /** They own some, but every copy is worn. */
@@ -59,7 +60,7 @@ export async function planSale(guildId: string, userId: string, target: SellTarg
   const chosen =
     target.kind === 'one' ? [worstCopy(sellable) as ItemCopyDoc] : target.kind === 'some' ? worstCopies(sellable, target.amount) : sellable;
   const lines = saleLines(chosen.map((copy) => copy.itemId));
-  return { ok: true, copyIds: chosen.map((copy) => copy._id), lines, count: saleCount(lines), total: saleTotal(lines) };
+  return { ok: true, copyIds: chosen.map((copy) => copy._id), lines, count: saleCount(lines), total: saleTotal(lines), powder: salePowder(lines) };
 }
 
 export type SaleResult =
@@ -67,8 +68,11 @@ export type SaleResult =
       ok: true;
       /** What was actually sold. */
       lines: SaleLine[];
+      /** The points it paid, and the gear powder; their balances after. */
       earned: number;
+      powder: number;
       balance: number;
+      powderBalance: number;
       /** How many of the planned copies could not be sold any more (worn, or sold in the meantime). */
       skipped: number;
     }
@@ -77,7 +81,7 @@ export type SaleResult =
 
 /**
  * Sells these copies. Each one is only sold if it is still owned by the member and is not worn
- * or locked right now (`locked`: locked ones too, the heroes page's sale that says so), so a sale can never take gear they put on after it was planned. Points are paid for
+ * or locked right now (`locked`: locked ones too, the heroes page's sale that says so), so a sale can never take gear they put on after it was planned. Points (and gear powder) are paid for
  * exactly the copies that were removed, so two sales of the same copies at once pay only once.
  */
 export async function sellCopies(guildId: string, userId: string, copyIds: readonly string[], { locked = false } = {}): Promise<SaleResult> {
@@ -105,16 +109,16 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
 
   const lines = saleLines(removedDocs.map((copy) => copy.itemId));
   const earned = saleTotal(lines);
+  const powder = salePowder(lines);
   if (removedDocs.length === 0) return { ok: false, reason: 'nothing_to_sell' };
 
   let balance: number;
+  let powderBalance: number;
   try {
-    if (earned > 0) {
-      const updated = await members.findOneAndUpdate({ guildId, userId }, { $inc: { points: earned } }, { returnDocument: 'after' });
-      balance = updated?.points ?? earned;
-    } else {
-      balance = (await members.findOne({ guildId, userId }))?.points ?? 0;
-    }
+    const inc = { ...(earned > 0 && { points: earned }), ...(powder > 0 && { powder }) };
+    const updated = Object.keys(inc).length > 0 ? await members.findOneAndUpdate({ guildId, userId }, { $inc: inc }, { returnDocument: 'after' }) : await members.findOne({ guildId, userId });
+    balance = updated?.points ?? earned;
+    powderBalance = updated?.powder ?? powder;
   } catch (err) {
     // Could not pay, so give the copies back (only when we know nobody else touched them).
     if (allRemoved) {
@@ -131,7 +135,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
 
   const entries: LedgerDoc[] = lines
     .filter((line) => line.total > 0)
-    .map((line) => ({ guildId, userId, delta: line.total, reason: 'sell' as const, itemId: line.item.id, createdAt: new Date() }));
+    .map((line) => ({ guildId, userId, ...(line.unit === 'powder' ? { delta: 0, powderDelta: line.total } : { delta: line.total }), reason: 'sell' as const, itemId: line.item.id, createdAt: new Date() }));
   if (entries.length > 0) {
     try {
       await ledger.insertMany(entries);
@@ -140,5 +144,5 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
     }
   }
 
-  return { ok: true, lines, earned, balance, skipped: copyIds.length - removedDocs.length };
+  return { ok: true, lines, earned, powder, balance, powderBalance, skipped: copyIds.length - removedDocs.length };
 }

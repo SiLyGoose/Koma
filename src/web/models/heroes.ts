@@ -38,7 +38,7 @@ import {
 import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
-import { equippedCopyIds, itemSellPrice } from '../../lib/game/items/sell.js';
+import { equippedCopyIds, itemWorth } from '../../lib/game/items/sell.js';
 import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
@@ -202,8 +202,9 @@ export function heroesView(
       ...optionCosts(item, copy),
       setBonuses: bonuses,
       locked: copy.locked === true,
-      sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
-      sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
+      sell: kept.has(copy._id) || copy.locked === true ? null : itemWorth(item).each,
+      sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemWorth(item).each,
+      sellPowder: itemWorth(item).unit === 'powder',
       effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,

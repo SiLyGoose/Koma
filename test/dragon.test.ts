@@ -40,18 +40,17 @@ test('dragon: a win pays more points and essences at each stage, and the setting
   for (const key of ['dragon.winPoints', 'dragon.pointsPerStage', 'dragon.essences', 'dragon.essencesPerStage']) assert.ok(findSpec(key), key);
 });
 
-test('dragon: a win pays komaGems by its mode and stage, twice as many the first time', () => {
+test('dragon: the first win at a stage pays komaGems by its mode and stage, a win there after none', () => {
   assert.equal(DRAGON_GEMS.normal.length, 20);
   assert.equal(DRAGON_GEMS.hard.length, 10);
-  assert.equal(dragonGems(1, 'normal'), 1);
-  assert.equal(dragonGems(20, 'normal'), 4);
-  assert.equal(dragonGems(1, 'hard'), 3);
-  assert.equal(dragonGems(10, 'hard'), 10);
-  assert.equal(dragonGems(10, 'hard', true), 20);
-  assert.equal(dragonGems(99, 'hard'), 10, 'past the last stage, as the last');
-  const total = (mode: 'normal' | 'hard', first: boolean): number => DRAGON_GEMS[mode].reduce((sum, _, i) => sum + dragonGems(i + 1, mode, first), 0);
-  assert.equal(total('normal', false) + total('hard', false), 100, 'a win at every stage of a dragon: 100');
-  assert.equal(total('normal', true) + total('hard', true), 200, 'the first time at each: 200');
+  assert.equal(dragonGems(1, 'normal', true), 1);
+  assert.equal(dragonGems(20, 'normal', true), 4);
+  assert.equal(dragonGems(1, 'hard', true), 3);
+  assert.equal(dragonGems(10, 'hard', true), 10);
+  assert.equal(dragonGems(10, 'hard', false), 0, 'not the first time: none');
+  assert.equal(dragonGems(99, 'hard', true), 10, 'past the last stage, as the last');
+  const total = (mode: 'normal' | 'hard'): number => DRAGON_GEMS[mode].reduce((sum, _, i) => sum + dragonGems(i + 1, mode, true), 0);
+  assert.equal(total('normal') + total('hard'), 100, 'every stage of a dragon cleared once: 100');
 });
 
 test('dragon: a Normal win pays as the Hard stage it is as tough as; one easier than all of them, less than Hard stage 1', () => {

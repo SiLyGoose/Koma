@@ -18,10 +18,15 @@ export interface RaidShopItem {
   owned: number;
 }
 
-/** GET /api/raid-shop: this week's shelf, best tier first, and the member's komaGems. */
+/**
+ * GET /api/raid-shop: this week's shelf, best tier first, and the member's komaGems; and their gear powder (what selling hero
+ * gear pays), `powderPerGem` of which crafts a komaGem (POST /api/raid-shop/craft). Left out by a bot from before gear powder.
+ */
 export interface RaidShopView {
   items: RaidShopItem[];
   gems: number;
+  powder?: number;
+  powderPerGem?: number;
   /** When the shelf changes (ms): the start of the next raid week. */
   resetsAt: number;
   /**

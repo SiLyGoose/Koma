@@ -23,7 +23,7 @@ import { recordLedger } from './economy/shared.js';
  * (ItemCopyDoc.tmSkill, tmPotentials; an armor's main stat's DEF too, tmArmorDef), and `hero.winPoints` points.
  * The Dragon Raid's runs are kept the same way (their boss a dragon: lib/game/dragon.ts), and a win gives each player hero
  * gear (raid items: DRAGON_DROPS), points and hero essences of its dragon's kinds, more at the higher stages (`dragon.*`), and
- * komaGems (DRAGON_GEMS), twice as many the first time they beat that stage.
+ * the first time they beat that stage, komaGems (DRAGON_GEMS).
  * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
  */
 
@@ -121,7 +121,7 @@ export interface TmFind {
 
 /**
  * What a run over gave a player: the items they found, the runes (their ids), the points they were paid, and (the Dragon Raid's)
- * the hero essences and komaGems, and whether it was the first time they beat that stage (its komaGems doubled).
+ * the hero essences and komaGems, and whether it was the first time they beat that stage (only that pays komaGems).
  */
 export interface TmWin {
   finds: TmFind[];
@@ -206,7 +206,7 @@ async function wonBefore(guildId: string, userId: string, boss: string, stage: n
 
 /**
  * A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, its
- * dragon's essences (dragonPay), and its komaGems (dragonGems: doubled the first time they beat that stage).
+ * dragon's essences (dragonPay), and the first time they beat that stage, its komaGems (dragonGems).
  */
 async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
   const firstClear = !(await wonBefore(guildId, userId, dragon, stage, mode));

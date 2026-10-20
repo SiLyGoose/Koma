@@ -16,6 +16,7 @@ export { claimHourly } from './claim.js';
 export type { ClaimResult } from './claim.js';
 export { addCopy, getPity, giveTokens, guaranteePick, isGuaranteed, pityCount, pullGacha, pullMulti, setGuaranteePick } from './gacha.js';
 export { giveGems } from './gems.js';
+export { craftGems, type CraftResult } from './powder.js';
 export type { PullResult, PulledItem, MultiPullResult, PullRefusal } from './gacha.js';
 export { rob } from './rob.js';
 export type { RobResult } from './rob.js';
