@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
+import { DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import type { RaidClassId } from '../../../constants/raid.js';
 import { KR_TM_SETS } from '../../../data/kr-gear.js';
@@ -23,7 +23,7 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * host goes, whoever has been in it longest is); a page that names no raid joins an open one against its boss, or creates
  * one. Getting ready, each picks heroes of their own
  * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
- * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
+ * in all, even while the host is in it alone (single player, in a room of their own: as many as its raid's soloSlots, 7 for TechnoMagic and 8 for a dragon, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
  * starts the fight at the stage they picked (or sooner, forcing it: whoever has no hero in sits it out). One whose page goes away (a reload, a phone switching apps) keeps their place
@@ -49,10 +49,12 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
 export interface RaidSetup {
   kind: RaidKind;
   bosses: readonly BossView[];
+  /** How many heroes single player brings: TM_ROOM.mainTeam in the Main Team, the rest in the Sub Team. */
+  soloSlots: number;
 }
 
-export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOSSES };
-export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS };
+export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOSSES, soloSlots: TM_ROOM.soloSlots };
+export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS, soloSlots: DRAGON_ROOM.soloSlots };
 
 /** A drop as the page shows it: an item found, with what its copy came with. */
 function dropView({ item, skill, potentials, options }: TmFind): DropView {
@@ -249,12 +251,12 @@ export class TechnoMagicRoom {
   }
 
   private slots(): number {
-    return this.solo() ? TM_ROOM.soloSlots : TM_ROOM.slots;
+    return this.solo() ? this.raid.soloSlots : TM_ROOM.slots;
   }
 
   /** How many heroes `userId` may bring. */
   private limit(userId: string): number {
-    if (this.solo()) return TM_ROOM.soloSlots;
+    if (this.solo()) return this.raid.soloSlots;
     return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
   }
 
@@ -356,7 +358,7 @@ export class TechnoMagicRoom {
 
   /** How many heroes the Main Team takes alone, or the Sub Team (`sub`). */
   private teamSlots(sub: boolean): number {
-    return sub ? TM_ROOM.soloSlots - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
+    return sub ? this.raid.soloSlots - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
   }
 
   /**

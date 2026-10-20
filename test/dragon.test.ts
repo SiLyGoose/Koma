@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
-import { DRAGON_DROPS, dragonDrops, TM_ROOM } from '../src/constants/index.js';
+import { DRAGON_DROPS, DRAGON_ROOM, dragonDrops, TM_ROOM } from '../src/constants/index.js';
 import { HEROES } from '../src/data/heroes.js';
 import { DRAGON_ESSENCES, ESSENCES } from '../src/data/transcend.js';
 import { DRAGON_IDS, DRAGONS, dragonPay, isDragon, rollDragonEssences, rollDragonGear } from '../src/lib/game/dragon.js';
@@ -126,7 +126,7 @@ function harness() {
   const rooms = new TechnoMagicRooms(deps, DRAGON_RAID);
   const peer = () => {
     const got: ServerMessage[] = [];
-    const p: Peer & { room: () => RoomState } = { send: (m) => got.push(m), close: () => {}, room: () => (got.filter((m) => m.t === 'room').at(-1) as { state: RoomState }).state };
+    const p: Peer & { got: ServerMessage[]; room: () => RoomState } = { got, send: (m) => got.push(m), close: () => {}, room: () => (got.filter((m) => m.t === 'room').at(-1) as { state: RoomState }).state };
     return p;
   };
   const player = (userId: string): Player => ({ guildId: 'g1', userId, name: userId.toUpperCase() });
@@ -290,4 +290,28 @@ test('dragon room: the TechnoMagic Raid has no Normal mode', () => {
   assert.equal(a.room().boss.normal, undefined);
   assert.equal(room.setMode('a', 'normal'), 'closed');
   assert.equal(a.room().mode, 'hard');
+});
+
+test('dragon room: single player brings 8 heroes, a Main Team of 4 and a Sub Team of 4 (a TechnoMagic Raid, 7)', async () => {
+  assert.equal(DRAGON_ROOM.soloSlots, 8);
+  assert.equal(TM_ROOM.soloSlots, 7, 'the TechnoMagic Raid keeps its 7');
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 0, h.deps, true)!;
+  assert.equal(a.room().solo, true);
+  assert.equal(a.room().slots, 8);
+  assert.equal(a.room().players.find((p) => p.id === 'a')?.limit, 8);
+  const [main, sub] = [ALL.slice(0, 4), ALL.slice(4, 8)];
+  for (const hero of main) assert.equal(room.pick('a', hero, 0), null);
+  assert.equal(room.pick('a', ALL[8] as string, 0), 'team_full', 'the Main Team takes 4');
+  for (const hero of sub) assert.equal(room.pick('a', hero, 0, true), null);
+  assert.equal(room.pick('a', ALL[8] as string, 0, true), 'limit', 'all 8 in: no 9th');
+  assert.deepEqual(a.room().lineup.map((pick) => [pick.hero, pick.sub === true]), [...main.map((hero) => [hero, false]), ...sub.map((hero) => [hero, true])]);
+
+  // All 8 go into the fight, the Sub Team's 4 on Auto.
+  assert.equal(await room.begin('a'), null);
+  const fight = a.got.find((m) => m.t === 'fight');
+  assert.ok(fight && fight.t === 'fight');
+  assert.equal(fight.fight.heroes.length, 8);
+  assert.deepEqual(fight.fight.heroes.map((hero) => hero.sub === true), [false, false, false, false, true, true, true, true]);
 });

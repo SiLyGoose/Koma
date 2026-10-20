@@ -24,6 +24,14 @@ export const TM_ROOM = {
 } as const;
 
 /**
+ * The Dragon Raid's rooms are TM_ROOM's, but for single player: `soloSlots` heroes, a full Main Team and a
+ * full Sub Team (TM_ROOM.mainTeam each), not TechnoMagic's 7.
+ */
+export const DRAGON_ROOM = {
+  soloSlots: 8,
+} as const;
+
+/**
  * The fight's clock on the bot: it steps the fight every `turnMs` (as many steps as are due) and tells the
  * pages what everyone pressed and up to which step they may go. A room's lineup goes up in the server's
  * channel when it is opened, at most once every `announceMs`.
