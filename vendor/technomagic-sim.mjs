@@ -29346,6 +29346,11 @@ var EXIAN = {
 	],
 	top: 2
 };
+/**
+* Kirze's: the chance a blow has, its blow more (at ATK), the more against a boss; how much more each stack of [Arcane Crystal
+* Energy] makes her curse's burst (King's Raid's says only that it amplifies them: this raid's own), and how far about its
+* target [Bloom, Crimson Flower!] lands with it (every enemy: King's Raid's says only that it greatly widens it).
+*/
 var ELICIPIRA = {
 	name: "Judgment Edge, Elicipira",
 	chance: .04,
@@ -29357,7 +29362,9 @@ var ELICIPIRA = {
 		8600,
 		1e4,
 		12500
-	]
+	],
+	crystals: .5,
+	reach: Infinity
 };
 /**
 * How many allies it reaches (those with the highest ATK), how long, and its heal (a share of her ATK) and penetration; and
@@ -30386,7 +30393,7 @@ var atTier = (list, tier) => {
 */
 var ABOUT = {
 	klaus: (tier) => `After using own active Skill ${EXIAN.every} times, increases all allies' P.DEF by ${fine(atTier(EXIAN.defense, tier))} and ATK by ${fine(atTier(EXIAN.atk, tier))} for ${EXIAN.lasts} sec. The ATK Boost effect multiplies by ${EXIAN.top} for the ally with the highest ATK.`,
-	kirze: (tier) => `Normal and Skill attacks have a ${fine(ELICIPIRA.chance)} chance to deal additional M.DMG equal to ${fine(atTier(ELICIPIRA.blow, tier) / 1e3)} of ATK. DMG is increased by ${ELICIPIRA.boss} times against Bosses.`,
+	kirze: (tier) => `Amplifies the power of *Arcane Crystals*: each stack of [Arcane Crystal Energy] deals ${fine(ELICIPIRA.crystals)} more DMG. Greatly increases the effect range of [Bloom, Crimson Flower!], reaching all enemies. Normal and Skill attacks have a ${fine(ELICIPIRA.chance)} chance to deal additional M.DMG equal to ${fine(atTier(ELICIPIRA.blow, tier) / 1e3)} of ATK. DMG is increased by ${ELICIPIRA.boss} times against Bosses.`,
 	"fallen-frey": (tier) => `Upon using a Skill, heals HP of ${ROSMERTA.allies} allies with the highest ATK equal to ${fine(atTier(ROSMERTA.heal, tier))} of Fallen Frey's ATK and increases DEF Penetration by ${atTier(ROSMERTA.pen, tier)} for ${ROSMERTA.lasts} sec. If [Dark Lord Kasel] is an ally, increases ATK Spd of [Dark Lord Kasel] by ${atTier(ROSMERTA.kasel, tier)}.`,
 	gremory: (tier) => `Increases ATK Spd by ${atTier(PIGRITIA.speed, tier)}. Upon using [Eh, whatever. I’m gonna sleep.], Gremory heals HP equal to ${fine(atTier(PIGRITIA.heal, tier))} of her Max HP and recovers Mana by ${fine(atTier(PIGRITIA.mana, tier))} over ${PIGRITIA.over} sec. Each stack of *Mana Charge* increases ATK by an additional ${fine(atTier(PIGRITIA.charge, tier))}.`,
 	annette: (tier) => `Gains 1 stack of *Charge* every ${atTier(RASCAL.every, tier)} sec, and recovers Mana by ${fine(RASCAL.mana)}. *Charge* stacks can also be gained during the [Overcharge] state. Additionally, increases all allies' DMG dealt to Bosses by ${fine(atTier(RASCAL.dmg, tier))} and reduces DMG all allies take by ${fine(atTier(RASCAL.taken, tier))} for the duration of [Overcharge]. This effect is multiplied by ${RASCAL.top} for the ally with the highest ATK.`,
@@ -32487,6 +32494,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (!reach) return 0;
 		if (attacking === by) return reach.attack;
 		const skill = landing?.by === by ? by.doing?.skill : void 0;
+		if (skill === 2 && by.id === "kirze" && by.unique) return ELICIPIRA.reach;
 		return skill === void 0 ? 0 : reach.skills[skill] ?? 0;
 	}
 	/** An enemy beaten: the boss, won; a minion, off the field (and its wave, once no other stands, over). */
@@ -35388,7 +35396,7 @@ var KIRZE = {
 						const { blows } = curse;
 						curse = null;
 						fight.cue(self, "curse");
-						fight.hit(self, FLOWER.end + FLOWER.each * blows, false);
+						fight.hit(self, FLOWER.end + FLOWER.each * blows * (self.unique ? 1 + ELICIPIRA.crystals : 1), false);
 					}
 				}
 			},
@@ -49284,7 +49292,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "457ce236cc9c";
+var SIM_VERSION = "c9cf2a9a8b3e";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
