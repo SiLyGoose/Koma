@@ -31951,7 +31951,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const slots = on.abilities.map((_, index) => ({
 			index,
 			ability: sim.slot(on, index)
-		})).filter((one) => one.ability !== null && wanted(one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || b.ability.cost - a.ability.cost || b.index - a.index);
+		})).filter((one) => one.ability !== null && wanted(on, one.index, one.ability)).sort((a, b) => (last(a.index) === last(b.index) ? 0 : last(a.index) < last(b.index) ? -1 : 1) || b.ability.cost - a.ability.cost || b.index - a.index);
 		const ripe = (index) => on.part.ripe?.(index) ?? true;
 		const usable = ({ index }) => ripe(index) && sim.ready(on, index);
 		const target = slots.find((slot) => wait(slot.index) <= 0) ?? slots.reduce((soonest, slot) => !soonest || wait(slot.index) < wait(soonest.index) ? slot : soonest, void 0);
@@ -31965,10 +31965,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (on.mana < 6e3) return null;
 		return slots.find(usable)?.index ?? null;
 	}
-	/** Auto: whether a skill is wanted now (a heal once an ally is hurt or bears something it can clear; one that keeps a status up once it runs out). */
-	function wanted(ability) {
+	/**
+	* Auto: whether `on`'s skill in slot `index` is wanted now (a heal once an ally is hurt or bears something it can clear, or
+	* whenever it is the only one of its skills off cooldown; one that keeps a status up once it runs out).
+	*/
+	function wanted(on, index, ability) {
 		const allies = field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
-		if (ability.auto?.heals && !allies.some((ally) => ally.hp < ally.stats.hp * AUTO.hurt || ally.statuses.some((status) => status.shown.harmful === true && !status.binds && !status.away))) return false;
+		const alone = on.cooldowns[index] <= 0 && on.abilities.every((_, other) => other === index || sim.slot(on, other) === null || on.cooldowns[other] > 0);
+		if (ability.auto?.heals && !alone && !allies.some((ally) => ally.hp < ally.stats.hp * AUTO.hurt || ally.statuses.some((status) => status.shown.harmful === true && !status.binds && !status.away))) return false;
 		const keeps = ability.auto?.keeps;
 		if (keeps && [party, ...allies.map((ally) => ally.statuses)].some((on) => on.some((status) => status.name === keeps && status.left > AUTO.spare))) return false;
 		return true;
@@ -49129,7 +49133,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "6d9124b3e9b5";
+var SIM_VERSION = "021e10c26faf";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
