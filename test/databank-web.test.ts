@@ -8,6 +8,7 @@ import { bossEssences, RAID_BOSS_ESSENCES } from '../src/data/transcend.js';
 import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, REFINE, TEXT } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
+import { ARTIFACT_TEXT, KR_ITEMS } from '../src/data/kr-gear.js';
 import { formatMultiplier, formatPercent } from '../src/lib/format.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { classTraits } from '../src/lib/game/raid-classes.js';
@@ -15,6 +16,10 @@ import { signSession } from '../src/web/auth/login.js';
 import { createApi } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { databankView } from '../src/web/models/databank.js';
+
+/** King's Raid's artifacts, which the databank lists after the catalog's items; and how many items it lists in all. */
+const ARTIFACTS = KR_ITEMS.filter((item) => item.kr?.part === 'artifact');
+const SHOWN = ITEMS.length + ARTIFACTS.length;
 
 const SITE: WebConfig = {
   siteUrl: 'https://koma-ui.vercel.app',
@@ -28,8 +33,8 @@ const SITE: WebConfig = {
 test('databank page: every item, highest tier first, with its effects at each level', () => {
   const { maxLevel, items } = databankView();
   assert.equal(maxLevel, REFINE.maxLevel);
-  assert.equal(items.length, ITEMS.length);
-  for (let i = 1; i < items.length; i++) assert.ok(items[i - 1]!.stars >= items[i]!.stars);
+  assert.equal(items.length, SHOWN);
+  for (let i = 1; i < ITEMS.length; i++) assert.ok(items[i - 1]!.stars >= items[i]!.stars);
 
   const withBonus = ITEMS.find((item) => item.bonus)!;
   const plain = ITEMS.find((item) => !item.bonus && !item.usableBy)!;
@@ -42,6 +47,22 @@ test('databank page: every item, highest tier first, with its effects at each le
   assert.equal(shown(plain.id).borrowed, null);
   assert.deepEqual(shown(withBonus.id).effects.at(-1), describeEffects(withBonus, 1, REFINE.maxLevel), 'its R5 bonus included');
   assert.ok(shown(exclusive.id).borrowed !== null && shown(exclusive.id).borrowed! < 1);
+});
+
+test("databank page: King's Raid's artifacts after the catalog, A to Z, with their icon and their words at each of their stars", () => {
+  const { items } = databankView();
+  const shown = items.slice(ITEMS.length);
+  assert.ok(ARTIFACTS.length > 0);
+  assert.deepEqual(shown.map((item) => item.id).sort(), ARTIFACTS.map((item) => item.id).sort());
+  for (let i = 1; i < shown.length; i++) assert.ok(shown[i - 1]!.name.localeCompare(shown[i]!.name) <= 0);
+  for (const item of shown) {
+    const def = ARTIFACTS.find((one) => one.id === item.id)!;
+    assert.equal(item.part, 'artifact');
+    assert.equal(item.icon, def.kr?.icon);
+    assert.deepEqual(item.sources, ['technomagic', 'heroBanner']);
+    // (★1 to the top: King's Raid's words for that many stars.)
+    assert.deepEqual(item.effects, Array.from({ length: REFINE.maxLevel }, (_, i) => [ARTIFACT_TEXT.get(item.id)![i + 1]!]), item.id);
+  }
 });
 
 test('databank page: says where each item comes from, and the raid drop chance', () => {
@@ -163,7 +184,7 @@ test('the API: a big reply goes compressed to a browser that takes it (brotli, e
     const br = await ask('/api/databank', 'gzip, deflate, br');
     assert.deepEqual([br.status, br.headers['content-encoding'], br.headers['content-type']], [200, 'br', 'application/json; charset=utf-8']);
     assert.match(String(br.headers.vary), /Accept-Encoding/);
-    assert.equal(itemsIn(brotliDecompressSync(br.body)), ITEMS.length);
+    assert.equal(itemsIn(brotliDecompressSync(br.body)), SHOWN);
     const plain = await ask('/api/databank', 'identity');
     assert.ok(br.body.length * 5 < plain.body.length, 'far smaller');
 
@@ -190,10 +211,10 @@ test('the API: a big reply goes compressed to a browser that takes it (brotli, e
 
     const gz = await ask('/api/databank', 'gzip;q=1, br;q=0');
     assert.equal(gz.headers['content-encoding'], 'gzip');
-    assert.equal(itemsIn(gunzipSync(gz.body)), ITEMS.length);
+    assert.equal(itemsIn(gunzipSync(gz.body)), SHOWN);
 
     assert.equal(plain.headers['content-encoding'], undefined);
-    assert.equal(itemsIn(plain.body), ITEMS.length);
+    assert.equal(itemsIn(plain.body), SHOWN);
     // A small reply (not logged in) as it is.
     const small = await ask('/api/me', 'br');
     assert.deepEqual([small.status, small.headers['content-encoding'], JSON.parse(small.body.toString('utf8'))], [401, undefined, { error: 'not_logged_in' }]);
@@ -212,7 +233,7 @@ test('databank page: answers the site without a login, and nothing else', async 
   try {
     const res = await fetch(`${base}/api/databank`, { headers: { Origin: SITE.origin } });
     assert.equal(res.status, 200);
-    assert.equal(((await res.json()) as { items: unknown[] }).items.length, ITEMS.length);
+    assert.equal(((await res.json()) as { items: unknown[] }).items.length, SHOWN);
     assert.equal((await fetch(`${base}/api/databank`)).status, 404);
   } finally {
     server.closeAllConnections();

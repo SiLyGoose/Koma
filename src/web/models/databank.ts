@@ -4,6 +4,7 @@ import { bossEssences } from '../../data/transcend.js';
 import { raidRewards } from '../../lib/events/raid.js';
 import { RAID_BOSS_IDS, RAID_CLASS_IDS, REFINE, TEXT, type RaidBossId } from '../../constants/index.js';
 import { heroBannerItem, ITEMS } from '../../data/items.js';
+import { ARTIFACT_TEXT, KR_ITEMS } from '../../data/kr-gear.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
@@ -74,6 +75,34 @@ function setOf(item: ItemDef): DatabankItem['set'] {
   const set = item.tmSet && TM_SETS_BY_ID.get(item.tmSet);
   return set ? { name: set.name, boss: set.boss, effects: set.effects, pieces: TM_SET_PIECES, effect: tmSetEffect(item) } : null;
 }
+/**
+ * King's Raid's artifacts (T10), as the databank shows them: what each does at each of its stars (King's Raid's words, as a
+ * hero's piece says them), from a TechnoMagic Raid win now and then or the Hero Item banner's top tier.
+ */
+function artifactView(item: ItemDef, levels: readonly number[]): DatabankItem {
+  const text = ARTIFACT_TEXT.get(item.id);
+  return {
+    id: item.id,
+    name: item.name,
+    stars: item.stars,
+    slot: item.slot,
+    part: 'artifact',
+    description: item.description,
+    effects: levels.map((level) => {
+      const line = text?.[treasureTier(level)];
+      return line ? [line] : [];
+    }),
+    borrowed: null,
+    source: 'technomagic',
+    sources: ['technomagic', 'heroBanner'],
+    class: null,
+    uniqueWeapon: null,
+    uniqueTreasure: null,
+    set: null,
+    ...(item.kr?.icon && { icon: item.kr.icon }),
+  };
+}
+
 export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
   const list = items.map(
@@ -104,6 +133,9 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
   const tier = (item: DatabankItem): number => (item.source === 'technomagic' ? 5 : item.uniqueTreasure !== null ? 4.4 : item.source === 'heroBanner' ? 4.5 : item.stars);
   list.sort((a, b) => tier(b) - tier(a));
+  // (King's Raid's artifacts after them, A to Z: a list of their own on the site.)
+  const artifacts = KR_ITEMS.filter((item) => item.kr?.part === 'artifact').map((item) => artifactView(item, levels));
+  list.push(...artifacts.sort((a, b) => a.name.localeCompare(b.name)));
   return {
     maxLevel: REFINE.maxLevel,
     raidDropChance: CONFIG.raid.dropChance,
