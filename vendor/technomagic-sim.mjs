@@ -31760,6 +31760,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			rested: 0,
 			dealt: 0,
 			healed: 0,
+			shielded: 0,
+			mitigated: 0,
 			doing: null,
 			haste: 1,
 			x: 0,
@@ -32776,7 +32778,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const given = amount * byAttack(by) * healed(by) * (by ? 1 + SKILL.aegis.shield * has(by, "aegis") : 1) * (boss.part.shielding?.() ?? 1);
 			fighter.shield += given;
 			fighter.shieldLeft = Math.max(fighter.shieldLeft, seconds);
-			if (by) by.healed += given;
+			if (by) by.shielded += given;
 		},
 		target: aimed,
 		hurt(target, amount, blockable = true, kind) {
@@ -32834,12 +32836,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				...staged,
 				deals: 1
 			};
-			const { taken, blocked, dodged } = strike(amount * scale.deals * dealing(foe.statuses) * rage(clock - raidTime) * (critical ? 2 : 1), type, blockable ? stands : {
+			const blow = amount * scale.deals * dealing(foe.statuses) * rage(clock - raidTime) * (critical ? 2 : 1);
+			const { taken, blocked, dodged } = strike(blow, type, blockable ? stands : {
 				...stands,
 				block: NONE,
 				dodge: NONE
 			}, foe.def.stats.pen ?? 0, reachAt(scale.level), roll, foe.def.stats.acc ?? 0);
 			if (dodged) {
+				target.mitigated += blow;
 				target.nimble = 0;
 				events.push({
 					kind: "number",
@@ -32870,6 +32874,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				1 - Math.min(.9, SKILL.steadfast.taken * target.stacks.steadfast * has(target, "steadfast")),
 				warded > 0 ? 1 - Math.min(.9, warded * (ward.taken + (ward.most - ward.taken) * Math.min(1, elapsed / ward.over))) : 1
 			]);
+			target.mitigated += Math.max(0, blow - dealt);
 			const soaked = Math.min(target.shield, dealt);
 			target.shield -= soaked;
 			if (soaked > 0) events.push({
@@ -49265,7 +49270,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "3bdbe53979a8";
+var SIM_VERSION = "869b783fd443";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
