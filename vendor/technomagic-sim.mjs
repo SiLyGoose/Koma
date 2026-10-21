@@ -31762,6 +31762,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			healed: 0,
 			shielded: 0,
 			mitigated: 0,
+			taken: 0,
 			doing: null,
 			haste: 1,
 			x: 0,
@@ -32875,6 +32876,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				warded > 0 ? 1 - Math.min(.9, warded * (ward.taken + (ward.most - ward.taken) * Math.min(1, elapsed / ward.over))) : 1
 			]);
 			target.mitigated += Math.max(0, blow - dealt);
+			target.taken += dealt;
 			const soaked = Math.min(target.shield, dealt);
 			target.shield -= soaked;
 			if (soaked > 0) events.push({
@@ -49270,7 +49272,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "869b783fd443";
+var SIM_VERSION = "aad5713c1c69";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
