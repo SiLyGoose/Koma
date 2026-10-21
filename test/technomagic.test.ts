@@ -218,6 +218,18 @@ test('technomagic room: single player is a room of their own, not said in Discor
   assert.equal(back.replaced, a);
 });
 
+test('technomagic room: says how far each player’s heroes are transcended (none for heroes given by id)', () => {
+  const h = harness();
+  const a = h.peer();
+  h.rooms.join(h.player('a'), a, new Map(ALL.map((id, i) => [id, i === 0 ? 3 : 0])));
+  const b = h.peer();
+  h.rooms.join(h.player('b'), b, ALL);
+  const [first, second] = b.room().players;
+  assert.deepEqual(first?.owned, ALL);
+  assert.deepEqual(first?.transcend, { [ALL[0] as string]: 3 }, 'only the transcended ones');
+  assert.deepEqual(second?.transcend, {});
+});
+
 test('technomagic room: the host brings up to 4, everyone else 3, 8 in all, even alone in the server’s room', async () => {
   const h = harness();
   const a = h.peer();

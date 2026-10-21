@@ -92,11 +92,16 @@ export interface Got {
   firstClears?: number;
 }
 
+/** The heroes a player owns: their ids (none transcended), or by id how far each is transcended. */
+export type Owned = readonly string[] | ReadonlyMap<string, number>;
+const isMap = (owned: Owned): owned is ReadonlyMap<string, number> => owned instanceof Map;
+
 /** The database, the clock, Discord and where fights run, so tests can stand in for them. */
 export interface RoomDeps {
   now: () => number;
   avatar: (guildId: string, userId: string) => string | null;
-  owned: (guildId: string, userId: string) => Promise<string[]>;
+  /** The heroes they own: their ids, or by id how far each is transcended (none said: 0). */
+  owned: (guildId: string, userId: string) => Promise<Owned>;
   /** The highest stage they have won a run against `boss` at, in each mode (0: none). */
   cleared: (guildId: string, userId: string, boss: string) => Promise<Cleared>;
   /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun). */
@@ -158,7 +163,8 @@ interface Member {
   awaySince: number | null;
   awayEnds: (() => void) | null;
   avatar: string;
-  owned: Set<string>;
+  /** The heroes they own, by id, with how far each is transcended. */
+  owned: Map<string, number>;
   ready: boolean;
   /** The highest stage they have won at, in each mode (0: none): as host, they may pick up to the one after it. */
   cleared: Cleared;
@@ -287,7 +293,7 @@ export class TechnoMagicRoom {
    * A page for `player`, who owns `owned` and has won up to stage `cleared` (in each mode, or a number: in Hard), joins
    * (or comes back). Returns the page it took over from (another tab), if any.
    */
-  join(player: Player, peer: Peer, owned: readonly string[], cleared: Partial<Cleared> | number = 0): Peer | null {
+  join(player: Player, peer: Peer, owned: Owned, cleared: Partial<Cleared> | number = 0): Peer | null {
     const before = this.members.get(player.userId);
     before?.awayEnds?.();
     this.members.set(player.userId, {
@@ -296,7 +302,7 @@ export class TechnoMagicRoom {
       awaySince: null,
       awayEnds: null,
       avatar: this.deps.avatar(this.guildId, player.userId) ?? avatarUrl(player.userId, null),
-      owned: new Set(owned),
+      owned: new Map(isMap(owned) ? owned : owned.map((id) => [id, 0])),
       ready: before?.ready ?? false,
       cleared: { hard: Math.max(clearedOf(cleared).hard, before?.cleared.hard ?? 0), normal: Math.max(clearedOf(cleared).normal, before?.cleared.normal ?? 0) },
     });
@@ -802,7 +808,8 @@ export class TechnoMagicRoom {
       ready: (this.phase !== 'over' && member.player.userId === host) || member.ready,
       away: member.peer === null,
       limit: this.limit(member.player.userId),
-      owned: [...member.owned],
+      owned: [...member.owned.keys()],
+      transcend: Object.fromEntries([...member.owned].filter(([, level]) => level > 0)),
     }));
     const state: Omit<RoomState, 'you'> = {
       phase: this.phase,
@@ -912,7 +919,7 @@ export class TechnoMagicRooms {
    * already, else an open one), or a new one when there is none. Null when the raid named is full, or gone. A page of
    * theirs in another room is taken over, as one in the same room is: one page a player.
    */
-  join(player: Player, peer: Peer, owned: readonly string[], cleared: Partial<Cleared> | number = 0, deps: RoomDeps = this.realDeps, single = false, boss?: string, wanted: RoomWanted = {}): { room: TechnoMagicRoom; replaced: Peer | null } | null {
+  join(player: Player, peer: Peer, owned: Owned, cleared: Partial<Cleared> | number = 0, deps: RoomDeps = this.realDeps, single = false, boss?: string, wanted: RoomWanted = {}): { room: TechnoMagicRoom; replaced: Peer | null } | null {
     const against = this.bossOf(boss);
     let room: TechnoMagicRoom | undefined;
     if (single) {

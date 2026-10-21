@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { CONFIG } from '../config.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
-import { keptPerks } from '../data/transcend.js';
+import { keptPerks, transcendLevel } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
 import { dragonClearGems, tmClearGems, tmDropCount } from '../constants/technomagic.js';
@@ -27,10 +27,10 @@ import { recordLedger } from './economy/shared.js';
  * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
  */
 
-/** The ids of the heroes a member owns (that still exist). */
-export async function ownedHeroes(guildId: string, userId: string): Promise<string[]> {
+/** The heroes a member owns (that still exist), by id, with how far each is transcended (0 to TRANSCEND_MAX). */
+export async function ownedHeroes(guildId: string, userId: string): Promise<Map<string, number>> {
   const member = await collections().members.findOne({ guildId, userId }, { projection: { heroes: 1 } });
-  return Object.keys(member?.heroes ?? {}).filter((id) => HEROES_BY_ID.has(id));
+  return new Map(Object.entries(member?.heroes ?? {}).flatMap(([id, hero]) => (HEROES_BY_ID.has(id) ? [[id, transcendLevel(hero?.transcend)] as const] : [])));
 }
 
 /** The highest stage a member has won a run against `boss` at, in `mode` (0: none yet). A run with no mode is a Hard one (every run from before Normal). */

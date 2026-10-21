@@ -87,6 +87,8 @@ export interface PlayerView {
   /** How many heroes they may bring, and the ids of the heroes they own. */
   limit: number;
   owned: string[];
+  /** How far each of their heroes is transcended, by id (1 to 5; one not in it, not at all). None: a bot from before it said. */
+  transcend?: Record<string, number>;
 }
 
 /** A hero in the lineup: whose, which, in which of its skins, and (alone) whether it is in the Sub Team. */
