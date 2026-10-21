@@ -32065,23 +32065,25 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 	}
 	/**
-	* Auto, much as King's Raid's goes (BattleManagement.UpdateSkillAutoReserve): every AUTO.every seconds that a hero has
-	* nothing reserved and isn't using a skill, one of its skills at random (null: none). Unlike King's Raid's, only one it
-	* can use now (it never waits on one for its mana), and not one that would be wasted (wanted: a status it keeps up still
-	* is; its hero says it waits); one whose moment its hero says it is, before any other.
+	* Auto, as King's Raid's goes (BattleManagement.UpdateSkillAutoReserve): every AUTO.every seconds that a hero has
+	* nothing reserved and isn't using a skill (but while its skills say Auto picks only from some), one of its skills whose
+	* cooldown is over at random (null: none), whatever its mana (the hero attacks till it has it), nor one its skills say
+	* Auto may not pick. Unlike King's Raid's, not one that would be wasted (wanted: a status it keeps up still is; its hero
+	* says it waits); one whose moment its hero says it is, before any other.
 	*/
 	function autoSkill(on) {
 		const ready = on.abilities.flatMap((_, index) => {
 			const ability = sim.slot(on, index);
-			return ability && sim.ready(on, index) && wanted(on, index, ability) ? [index] : [];
+			return ability && sim.reservable(on, index) && on.cooldowns[index] <= 0 && wanted(on, index, ability) ? [index] : [];
 		});
 		const now = ready.filter((index) => on.part.now?.(index));
 		const from = now.length > 0 ? now : ready;
 		return from.length > 0 ? from[Math.floor(roll() * from.length)] : null;
 	}
-	/** Auto: whether `on`'s skill in slot `index` would be of use now (not one that keeps a status up while it still is, nor one its hero says waits). */
+	/** Auto: whether `on`'s skill in slot `index` may be picked now (not one its skills say not to, nor one that keeps a status up while it still is, nor one its hero says waits). */
 	function wanted(on, index, ability) {
-		if (on.part.waits?.(index)) return false;
+		const only = on.part.autoOnly?.();
+		if (only && !only.includes(index) || on.part.autoOff?.(index) || on.part.waits?.(index)) return false;
 		const allies = field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		const keeps = ability.auto?.keeps;
 		if (keeps && [party, ...allies.map((ally) => ally.statuses)].some((on) => on.some((status) => status.name === keeps && status.left > AUTO.spare))) return false;
@@ -33182,10 +33184,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			for (const on of field) {
 				on.rested = on.doing ? 0 : on.rested + dt;
-				on.autoWait = on.doing?.skill !== void 0 ? 0 : on.autoWait + dt;
+				on.autoWait = on.doing?.skill !== void 0 && !on.part.autoOnly?.() ? 0 : on.autoWait + dt;
 				if (on.reserved !== null && on.autoPicked) {
 					const ability = sim.slot(on, on.reserved);
-					if (!on.auto || !ability || !sim.ready(on, on.reserved) || !wanted(on, on.reserved, ability)) {
+					if (!on.auto || !ability || on.cooldowns[on.reserved] > 0 || !wanted(on, on.reserved, ability)) {
 						on.reserved = null;
 						on.autoWait = 0;
 					}
@@ -43198,7 +43200,6 @@ var CHASE = {
 		},
 		{
 			name: "Remove Limit",
-			auto: { keeps: UNLEASHED.name },
 			about: `${pct(LIMIT.cost)} of his HP: what the boss has left on him cleared, and a blow. Then [Remove Limit] until his HP is under ${pct(LIMIT.floor)}: ${pct(LIMIT.drain)} of it lost every second, immune to CC, +${pct(LIMIT.critDamage)} crit DMG and +${LIMIT.speed} attack speed (growing, up to twice), and each part of his attack a blow more.`,
 			words: `Upon activation, [Remove Limit] takes effect. When activated, consumes ${pct(LIMIT.cost)} of current HP to remove all negative effects from self and deal ${dmg("warrior", LIMIT.blow, bookDmg("chase", 1))} P.DMG to nearby enemies in range. While [Remove Limit] is activated, consumes ${pct(LIMIT.drain)} of current HP every 1 sec, gains immunity to CC, increases Crit DMG by ${pct(LIMIT.critDamage)} and ATK Spd by ${LIMIT.speed}, and enhances normal attacks. The HP consumption, Crit DMG and ATK Spd Boost grow stronger over time. This effect is irremovable, and is automatically deactivated when HP falls under ${pct(LIMIT.floor)}.`,
 			icon: "🩸",
@@ -43338,6 +43339,7 @@ var CHASE = {
 				}
 			},
 			slot: (index) => rising > 0 || index === 1 && limit ? null : self.abilities[index] ?? null,
+			autoOff: (index) => index === 1 && limit,
 			spared() {
 				if (rising > 0) return true;
 				if (risen) return false;
@@ -45236,7 +45238,8 @@ var KARA = {
 				siege = !siege;
 				mode();
 			},
-			waits: (index) => siege && index === 2,
+			autoOnly: () => siege ? [0, 1] : null,
+			autoOff: (index) => siege && index === 2,
 			tick(dt) {
 				if (focusLeft > 0) {
 					focusLeft -= dt;
@@ -49262,7 +49265,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "44d53613f1ec";
+var SIM_VERSION = "3bdbe53979a8";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
