@@ -14,7 +14,7 @@ const Slot = z.enum(HERO_SLOTS as [string, ...string[]]);
 const Equip = Hero.extend({ slot: Slot, copy: CopyId });
 const Refine = z.object({ copy: CopyId });
 /** `locked`: locked copies are sold too (the page asked them first). */
-const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX), locked: z.boolean().optional() });
+const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX), locked: z.boolean().optional(), salvage: z.boolean().optional() });
 const Lock = z.object({ copy: CopyId, locked: z.boolean() });
 /** A rune into a copy's socket, or (null) the one in it out. */
 const Rune = z.object({ copy: CopyId, socket: z.number().int().min(0).max(8), rune: z.string().max(64).nullable() });
@@ -94,8 +94,8 @@ export function heroController(heroes: HeroService) {
     },
 
     async sell(req, res) {
-      const { copies, locked } = parse(Sell, req.body);
-      res.json(await heroes.sell(res.locals.guildId, res.locals.session.userId, copies, locked));
+      const { copies, locked, salvage } = parse(Sell, req.body);
+      res.json(await heroes.sell(res.locals.guildId, res.locals.session.userId, copies, locked, salvage));
     },
 
     async lock(req, res) {

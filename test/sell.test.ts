@@ -7,7 +7,7 @@ import { messageContext } from '../src/discord/context.js';
 import { CONFIG, DEFAULTS } from '../src/config.js';
 import { CURRENCY_EMOJI, TEXT } from '../src/constants/index.js';
 import { createEmbed } from '../src/lib/embed.js';
-import { equippedCopyIds, itemSellPowder, itemSellPrice, itemWorth, parseSellArgs, saleCount, saleLines, salePowder, saleTotal, sellPrice, worstCopies, worstCopy } from '../src/lib/game/items/sell.js';
+import { equippedCopyIds, itemSalvage, itemSellPrice, itemWorth, parseSellArgs, saleCount, saleLines, salePowder, saleTotal, salvageWorth, sellPrice, worstCopies, worstCopy } from '../src/lib/game/items/sell.js';
 import { KR_ITEMS } from '../src/data/kr-gear.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import { ITEMS } from '../src/data/items.js';
@@ -132,25 +132,30 @@ test('sell: prices come from the live settings', () => {
   }
 });
 
-test('sell: hero gear sells for gear powder (by its tier), never points; the member\'s own gear for points', () => {
+test('sell: hero gear sells for a T1\'s points, or salvages for komaDust (by its tier); the member\'s own gear sells for its tier\'s points', () => {
   const tm: ItemDef = { ...item('tm', 4), tmDrop: true, tmSet: 'perseverance', class: 'mechanic' };
   const t8 = KR_ITEMS.find((one) => one.kr?.tier === 8)!;
   const artifact = KR_ITEMS.find((one) => one.kr?.part === 'artifact')!;
   assert.deepEqual(DEFAULTS.sell.powder, { 6: 20, 7: 40, 8: 80, 9: 120, 10: 200, technomagic: 120, unique: 500 });
   assert.equal(DEFAULTS.sell.powderPerGem, 1000);
-  assert.equal(itemSellPowder(t8), DEFAULTS.sell.powder[8]);
-  assert.equal(itemSellPowder(artifact), DEFAULTS.sell.powder[10]);
-  assert.equal(itemSellPowder(tm), DEFAULTS.sell.powder.technomagic);
-  assert.equal(itemSellPrice(tm), 0, 'no points for hero gear');
+  assert.equal(itemSalvage(t8), DEFAULTS.sell.powder[8]);
+  assert.equal(itemSalvage(artifact), DEFAULTS.sell.powder[10]);
+  assert.equal(itemSalvage(tm), DEFAULTS.sell.powder.technomagic);
+  assert.equal(itemSellPrice(tm), CONFIG.sell.price[1], 'hero gear (4★) sells at a T1\'s price');
+  assert.equal(itemSellPrice(artifact), CONFIG.sell.price[1]);
   assert.deepEqual(itemWorth(item('x', 4)), { unit: 'points', each: CONFIG.sell.price[4] });
-  assert.equal(itemSellPowder(item('x', 4)), 0);
+  assert.equal(itemSalvage(item('x', 4)), 0);
   const before = CONFIG.sell.powder.technomagic;
   try {
     CONFIG.sell.powder.technomagic = 321;
     const lines = saleLines(['tm', 'x', 'tm'], [tm, item('x', 4)]);
-    assert.deepEqual(lines.map((l) => [l.item.id, l.unit, l.each, l.total]), [['tm', 'powder', 321, 642], ['x', 'points', CONFIG.sell.price[4], CONFIG.sell.price[4]]]);
-    assert.equal(saleTotal(lines), CONFIG.sell.price[4], 'points: the member\'s own gear only');
-    assert.equal(salePowder(lines), 642);
+    assert.deepEqual(lines.map((l) => [l.item.id, l.unit, l.each, l.total]), [['tm', 'points', CONFIG.sell.price[1], CONFIG.sell.price[1] * 2], ['x', 'points', CONFIG.sell.price[4], CONFIG.sell.price[4]]]);
+    assert.equal(saleTotal(lines), CONFIG.sell.price[1] * 2 + CONFIG.sell.price[4]);
+    assert.equal(salePowder(lines), 0);
+    const salvaged = saleLines(['tm', 'tm'], [tm], salvageWorth);
+    assert.deepEqual(salvaged.map((l) => [l.item.id, l.unit, l.each, l.total]), [['tm', 'powder', 321, 642]]);
+    assert.equal(saleTotal(salvaged), 0);
+    assert.equal(salePowder(salvaged), 642);
   } finally {
     CONFIG.sell.powder.technomagic = before;
   }
@@ -188,9 +193,9 @@ test('sell: the messages', () => {
   assert.equal(TEXT.sell.soldOne('<@1>', 'Rusty Dagger', '40'), `<@1> sold **Rusty Dagger** for **40** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.sell.soldMany('<@1>', 4, '400'), `<@1> sold **4** items for **400** ${CURRENCY_EMOJI}`);
   assert.equal(TEXT.sell.line('Kippah', 2, '200'), `Kippah x2 · 200 ${CURRENCY_EMOJI}`);
-  assert.equal(TEXT.sell.line('Opportune Fire Sword', 2, '160', true), 'Opportune Fire Sword x2 · 160 Gear Powder');
-  assert.equal(TEXT.sell.soldOne('<@1>', 'Opportune Fire Sword', '0', '80'), '<@1> sold **Opportune Fire Sword** for **80** Gear Powder');
-  assert.equal(TEXT.sell.soldMany('<@1>', 3, '400', '80'), `<@1> sold **3** items for **400** ${CURRENCY_EMOJI} and **80** Gear Powder`);
+  assert.equal(TEXT.sell.line('Opportune Fire Sword', 2, '160', true), 'Opportune Fire Sword x2 · 160 komaDust');
+  assert.equal(TEXT.sell.soldOne('<@1>', 'Opportune Fire Sword', '0', '80'), '<@1> sold **Opportune Fire Sword** for **80** komaDust');
+  assert.equal(TEXT.sell.soldMany('<@1>', 3, '400', '80'), `<@1> sold **3** items for **400** ${CURRENCY_EMOJI} and **80** komaDust`);
   assert.equal(TEXT.sell.footerLeft(0), 'You have none left');
   assert.equal(TEXT.sell.footerLeft(2), 'You have 2 left');
   assert.equal(TEXT.sell.skipped(1), '1 item could not be sold any more and was kept.');

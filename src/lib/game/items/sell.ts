@@ -6,9 +6,10 @@ import { SLOTS, STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type S
 
 /*
  * The pure parts of selling items: reading what the member typed, choosing which copies to sell,
- * and working out what a sale is worth. The database side is in services/items/sell.ts. The member's own gear sells for
- * points; hero gear (King's Raid's pieces, TechnoMagic gear, artifacts, unique weapons and treasures: heroOnly) for gear
- * powder, as King's Raid's grinding gives Magic Powder, `sell.powderPerGem` of it crafting a komaGem (services/economy/powder.ts).
+ * and working out what a sale is worth. The database side is in services/items/sell.ts. Everything sells for points, hero
+ * gear (King's Raid's pieces, TechnoMagic gear, artifacts, unique weapons and treasures: heroOnly), counted 4★, at a T1's
+ * price. Hero gear can be salvaged instead, for komaDust (stored as the member's `powder`), as King's Raid's grinding gives
+ * Magic Powder, `sell.powderPerGem` of it crafting a komaGem (services/economy/powder.ts).
  */
 
 /** What a member asked to sell. */
@@ -99,22 +100,23 @@ export function sellPrice(stars: Stars): number {
   return CONFIG.sell.price[stars];
 }
 
-/** What a sale pays in: points, or (hero gear) gear powder. */
+/** What a sale pays in: points (selling), or komaDust (salvaging hero gear; `powder` on the member). */
 export type SaleUnit = 'points' | 'powder';
 
-/** What one copy of an item sells for and in what: hero gear for gear powder (itemSellPowder), everything else its star tier's points. */
-export function itemWorth(item: ItemDef): { unit: SaleUnit; each: number } {
-  return heroOnly(item) ? { unit: 'powder', each: itemSellPowder(item) } : { unit: 'points', each: sellPrice(item.stars) };
-}
+/** The points one copy of an item sells for: its star tier's, but hero gear (4★) a T1's. */
+export const itemSellPrice = (item: ItemDef): number => sellPrice(heroOnly(item) ? 1 : item.stars);
 
-/** The points one copy of an item sells for (hero gear: none, it sells for gear powder). */
-export const itemSellPrice = (item: ItemDef): number => (heroOnly(item) ? 0 : sellPrice(item.stars));
+/** What one copy of an item sells for: its points (itemSellPrice). */
+export const itemWorth = (item: ItemDef): { unit: SaleUnit; each: number } => ({ unit: 'points', each: itemSellPrice(item) });
+
+/** What salvaging one copy gives: hero gear its komaDust (itemSalvage); anything else can't be salvaged, so nothing. */
+export const salvageWorth = (item: ItemDef): { unit: SaleUnit; each: number } => ({ unit: 'powder', each: itemSalvage(item) });
 
 /**
- * The gear powder one copy of hero gear sells for (anything else: none): a King's Raid piece by its tier (the dragon sets' 6 to
- * 8, the TechnoMagic sets' 9, an artifact's 10), the old TechnoMagic gear its own, a unique weapon or treasure its own.
+ * The komaDust salvaging one copy of hero gear gives (anything else: none): a King's Raid piece by its tier (the dragon sets' 6
+ * to 8, the TechnoMagic sets' 9, an artifact's 10), the old TechnoMagic gear its own, a unique weapon or treasure its own.
  */
-export function itemSellPowder(item: ItemDef): number {
+export function itemSalvage(item: ItemDef): number {
   if (!heroOnly(item)) return 0;
   const powder = CONFIG.sell.powder;
   if (item.kr) return Math.max(0, Math.floor(powder[String(item.kr.tier) as keyof typeof powder] ?? 0));
@@ -151,7 +153,7 @@ export function saleLines(itemIds: readonly string[], catalog: readonly ItemDef[
   return lines.sort((a, b) => b.item.stars - a.item.stars);
 }
 
-/** What a sale's lines pay in points, and in gear powder. */
+/** What a sale's lines pay in points, and in komaDust. */
 export const saleTotal = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + (line.unit === 'points' ? line.total : 0), 0);
 export const salePowder = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + (line.unit === 'powder' ? line.total : 0), 0);
 export const saleCount = (lines: readonly SaleLine[]): number => lines.reduce((sum, line) => sum + line.count, 0);

@@ -14,7 +14,7 @@ import type { Command } from '../discord/types.js';
 const lineText = (line: { item: ItemDef; count: number; unit: 'points' | 'powder'; total: number }) =>
   TEXT.sell.line(line.item.name, line.count, fmt(line.total), line.unit === 'powder');
 
-/** The gear powder a sale paid, formatted, to say beside its points (left out: none). */
+/** The komaDust a sale paid, formatted, to say beside its points (left out: none). */
 const powderOf = (powder: number): string | undefined => (powder > 0 ? fmt(powder) : undefined);
 
 /** The embed shown after a sale. `remaining` is how many copies of a single item are left (only for selling one). */
@@ -63,7 +63,7 @@ function refusal(p: string, plan: Extract<SalePlan, { ok: false }>, target: Sell
 export const sell: Command = {
   name: 'sell',
   category: 'items',
-  description: `Sell items you are not wearing (or locked) for ${CURRENCY_NAME} (hero gear for gear powder): one copy, some copies, all copies of an item, or a whole tier.`,
+  description: `Sell items you are not wearing (or locked) for ${CURRENCY_NAME} (hero gear at a T1's price): one copy, some copies, all copies of an item, or a whole tier.`,
   usage: 'sell <item> | sell <number> <item> | sell all <item> | sell stars <1-4>',
   slashUsage: 'sell one | some | all | stars',
 

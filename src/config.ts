@@ -93,12 +93,12 @@ export interface Settings {
     /** Points a member gets for selling one item of each star tier (sell command). */
     price: Record<Stars, number>;
     /**
-     * Gear powder for selling one piece of hero gear (lib/game/items/sell.ts itemSellPowder): a King's Raid piece by its tier (the
+     * komaDust for salvaging one piece of hero gear (lib/game/items/sell.ts itemSalvage): a King's Raid piece by its tier (the
      * dragon sets' 6 to 8, the TechnoMagic sets' 9, an artifact's 10), the old TechnoMagic gear (ItemDef.tmDrop), and a unique
-     * weapon or treasure. Hero gear sells for nothing else.
+     * weapon or treasure. Selling it pays a T1's points instead.
      */
     powder: Record<'6' | '7' | '8' | '9' | '10' | 'technomagic' | 'unique', number>;
-    /** Gear powder that crafts one komaGem (King's Raid's 1,000 Fragments of Infinity to a Stone of Infinity). */
+    /** komaDust that crafts one komaGem (King's Raid's 1,000 Fragments of Infinity to a Stone of Infinity). */
     powderPerGem: number;
   };
   plinko: {
@@ -415,7 +415,7 @@ export const DEFAULTS: Readonly<Settings> = {
     wealthTaxRate: 0.01,
   },
   // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
-  // Hero gear sells for gear powder, 1,000 of it a komaGem: a Hard Dragon Raid win at stage 10 (7 T8 pieces) is about half of one.
+  // Hero gear salvages for komaDust, 1,000 of it a komaGem: a Hard Dragon Raid win at stage 10 (7 T8 pieces) is about half of one.
   sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 }, powder: { 6: 20, 7: 40, 8: 80, 9: 120, 10: 200, technomagic: 120, unique: 500 }, powderPerGem: 1000 },
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.

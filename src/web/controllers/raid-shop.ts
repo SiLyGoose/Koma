@@ -6,7 +6,7 @@ import { parse } from '../lib/validate.js';
 /* The raid shop's requests. Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
 const Item = z.object({ item: z.string() });
-/** How many komaGems to craft from gear powder at once. */
+/** How many komaGems to craft from komaDust at once. */
 const Craft = z.object({ count: z.number().int().min(1).max(1000) });
 
 export function raidShopController(shop: RaidShopService) {

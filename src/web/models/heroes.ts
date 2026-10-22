@@ -39,7 +39,7 @@ import {
 import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
-import { equippedCopyIds, itemWorth } from '../../lib/game/items/sell.js';
+import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
 import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
@@ -85,8 +85,8 @@ export interface HeroStore {
   keep: (guildId: string, userId: string, copy: string, keep: HeroKeep) => Promise<HeroesView | HeroOptionError>;
   /** Upgrades one of a copy's options a step, for points: the heroes after, or why not. */
   upgrade: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroOptionError>;
-  /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too): what it came to, or 'nothing_to_sell'. */
-  sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
+  /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too; `salvage`: salvaged): what it came to, or 'nothing_to_sell'. */
+  sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean, salvage?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
   lock: (guildId: string, userId: string, copy: string, locked: boolean) => Promise<boolean>;
 }
@@ -218,9 +218,9 @@ export function heroesView(
       ...optionCosts(item, copy),
       setBonuses: bonuses,
       locked: copy.locked === true,
-      sell: kept.has(copy._id) || copy.locked === true ? null : itemWorth(item).each,
-      sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemWorth(item).each,
-      sellPowder: itemWorth(item).unit === 'powder',
+      sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
+      sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
+      ...(heroOnly(item) && { salvage: itemSalvage(item) }),
       effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
@@ -363,6 +363,6 @@ export const heroStore: HeroStore = {
     const result = await upgradeOption(guildId, userId, copy);
     return result.ok ? load(guildId, userId) : result.reason;
   },
-  sell: (guildId, userId, copies, locked) => gearStore.sell(guildId, userId, copies, locked),
+  sell: (guildId, userId, copies, locked, salvage) => gearStore.sell(guildId, userId, copies, locked, salvage),
   lock: (guildId, userId, copy, locked) => gearStore.lock(guildId, userId, copy, locked),
 };

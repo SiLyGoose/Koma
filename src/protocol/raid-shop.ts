@@ -19,8 +19,8 @@ export interface RaidShopItem {
 }
 
 /**
- * GET /api/raid-shop: this week's shelf, best tier first, and the member's komaGems; and their gear powder (what selling hero
- * gear pays), `powderPerGem` of which crafts a komaGem (POST /api/raid-shop/craft). Left out by a bot from before gear powder.
+ * GET /api/raid-shop: this week's shelf, best tier first, and the member's komaGems; and their komaDust (what salvaging hero
+ * gear pays), `powderPerGem` of which crafts a komaGem (POST /api/raid-shop/craft). Left out by a bot from before komaDust.
  */
 export interface RaidShopView {
   items: RaidShopItem[];

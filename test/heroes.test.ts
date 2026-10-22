@@ -313,9 +313,10 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`refine ${copy}`);
       return copy === 'c1' ? empty : 'no_duplicate';
     },
-    sell: async (guildId, userId, copies, locked) => {
-      calls.push(`sell ${copies.join(',')}${locked ? ' locked' : ''}`);
-      return copies.includes('c1') ? { count: 1, earned: 250 } : 'nothing_to_sell';
+    sell: async (guildId, userId, copies, locked, salvage) => {
+      calls.push(`sell ${copies.join(',')}${locked ? ' locked' : ''}${salvage ? ' salvage' : ''}`);
+      if (!copies.includes('c1')) return 'nothing_to_sell';
+      return salvage ? { count: 1, earned: 0, powder: 200 } : { count: 1, earned: 250 };
     },
     lock: async (guildId, userId, copy, locked) => {
       calls.push(`lock ${copy} ${locked}`);
@@ -410,6 +411,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     // Locked ones too, when the page says so.
     assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: ['c1'], locked: true })).status, 200);
     assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: ['c1'], locked: 'yes' })).status, 400);
+    // Salvaged for komaDust instead.
+    const salvaged = await post('/api/heroes/sell', { guild: 'g1', copies: ['c1'], salvage: true });
+    assert.deepEqual(((await salvaged.json()) as { sold: unknown }).sold, { count: 1, earned: 0, powder: 200 });
+    assert.ok(calls.includes('sell c1 salvage'));
+    assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: ['c1'], salvage: 'yes' })).status, 400);
     assert.equal((await post('/api/heroes/sell', { guild: 'g1', copies: [] })).status, 400);
     assert.equal((await post('/api/heroes/lock', { guild: 'g1', copy: 'c1', locked: true })).status, 200);
     assert.equal((await post('/api/heroes/lock', { guild: 'g1', copy: 'c2', locked: true })).status, 404);
@@ -449,6 +455,7 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'sell c1,c2',
       'sell c2',
       'sell c1 locked',
+      'sell c1 salvage',
       'lock c1 true',
       'lock c2 true',
     ]);

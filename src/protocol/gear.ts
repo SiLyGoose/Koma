@@ -41,8 +41,8 @@ export interface GearCopy {
   locked: boolean;
   /** What selling it pays (services/items/sell.ts): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
   sell: number | null;
-  /** Hero gear: what selling it pays is gear powder, not points (left out by a bot from before gear powder). */
-  sellPowder?: boolean;
+  /** Hero gear: the komaDust salvaging it gives (POST /api/gear/sell with `salvage`), whenever it can be sold; left out: it can't be salvaged. */
+  salvage?: number;
   /** TechnoMagic gear, a unique weapon or a unique treasure: only heroes wear it (the heroes page), never the member. */
   heroOnly: boolean;
   /** A unique weapon: the id of the one hero that wields it (null: not one). */
@@ -131,7 +131,7 @@ export type LoadoutNameProblem = 'too_long' | 'bad_characters' | 'no_letters' | 
 /** What a sale from the gear page sold (POST /api/gear/sell answers the GearView with it). */
 export interface GearSale {
   count: number;
-  /** The points it paid, and (hero gear's) the gear powder (left out by a bot from before gear powder). */
+  /** The points it paid, and the komaDust (a salvage's; left out by a bot from before komaDust). */
   earned: number;
   powder?: number;
 }

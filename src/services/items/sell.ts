@@ -1,13 +1,13 @@
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { heroOnly } from '../../lib/game/heroes.js';
-import { saleCount, saleLines, salePowder, saleTotal, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
+import { itemWorth, saleCount, saleLines, salePowder, saleTotal, salvageWorth, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../../types.js';
 import { ensureMember } from '../economy/index.js';
 
 /*
- * Selling items for points, and hero gear for gear powder (lib/game/items/sell.ts itemWorth). A member can sell copies they aren't wearing: one copy of an item,
+ * Selling items for points (lib/game/items/sell.ts itemWorth), or salvaging hero gear for komaDust (salvageWorth). A member can sell copies they aren't wearing: one copy of an item,
  * every unworn copy of an item, or every unworn item of a star tier. "Worn" here means in any of
  * their loadouts, the active one or a saved one, or on one of their heroes (lib/game/items/loadouts.ts's
  * keptCopyIds). Selling has two steps so a
@@ -28,7 +28,7 @@ export type SellTarget =
   | { kind: 'stars'; stars: Stars };
 
 export type SalePlan =
-  /** `total` the points it pays, `powder` the gear powder. */
+  /** `total` the points it pays, `powder` the komaDust. */
   | { ok: true; copyIds: string[]; lines: SaleLine[]; count: number; total: number; powder: number }
   /** They own none of it. */
   | { ok: false; reason: 'not_owned' }
@@ -68,7 +68,7 @@ export type SaleResult =
       ok: true;
       /** What was actually sold. */
       lines: SaleLine[];
-      /** The points it paid, and the gear powder; their balances after. */
+      /** The points it paid, and the komaDust; their balances after. */
       earned: number;
       powder: number;
       balance: number;
@@ -81,18 +81,20 @@ export type SaleResult =
 
 /**
  * Sells these copies. Each one is only sold if it is still owned by the member and is not worn
- * or locked right now (`locked`: locked ones too, the heroes page's sale that says so), so a sale can never take gear they put on after it was planned. Points (and gear powder) are paid for
- * exactly the copies that were removed, so two sales of the same copies at once pay only once.
+ * or locked right now (`locked`: locked ones too, the heroes page's sale that says so), so a sale can never take gear they put on after it was planned. Points (and komaDust) are paid for
+ * exactly the copies that were removed, so two sales of the same copies at once pay only once. `salvage`: salvaged for komaDust instead,
+ * only the hero gear among them (anything else is kept).
  */
-export async function sellCopies(guildId: string, userId: string, copyIds: readonly string[], { locked = false } = {}): Promise<SaleResult> {
+export async function sellCopies(guildId: string, userId: string, copyIds: readonly string[], { locked = false, salvage = false } = {}): Promise<SaleResult> {
   const { items, members, ledger } = collections();
   await ensureMember(guildId, userId);
 
   const member = await members.findOne({ guildId, userId });
   const worn = keptCopyIds(member);
-  const candidates = (await items.find({ guildId, userId, _id: { $in: [...copyIds] } }).toArray()).filter(
-    (copy) => !worn.has(copy._id) && (locked || !copy.locked) && ITEMS_BY_ID.has(copy.itemId),
-  );
+  const candidates = (await items.find({ guildId, userId, _id: { $in: [...copyIds] } }).toArray()).filter((copy) => {
+    const item = ITEMS_BY_ID.get(copy.itemId);
+    return !worn.has(copy._id) && (locked || !copy.locked) && item !== undefined && (!salvage || heroOnly(item));
+  });
 
   // Remove the copies one item at a time, so we know exactly how many of each were really removed.
   const byItem = new Map<string, ItemCopyDoc[]>();
@@ -107,7 +109,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
     removedDocs.push(...group.slice(0, result.deletedCount));
   }
 
-  const lines = saleLines(removedDocs.map((copy) => copy.itemId));
+  const lines = saleLines(removedDocs.map((copy) => copy.itemId), undefined, salvage ? salvageWorth : itemWorth);
   const earned = saleTotal(lines);
   const powder = salePowder(lines);
   if (removedDocs.length === 0) return { ok: false, reason: 'nothing_to_sell' };
@@ -135,7 +137,7 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
 
   const entries: LedgerDoc[] = lines
     .filter((line) => line.total > 0)
-    .map((line) => ({ guildId, userId, ...(line.unit === 'powder' ? { delta: 0, powderDelta: line.total } : { delta: line.total }), reason: 'sell' as const, itemId: line.item.id, createdAt: new Date() }));
+    .map((line) => ({ guildId, userId, ...(line.unit === 'powder' ? { delta: 0, powderDelta: line.total } : { delta: line.total }), reason: salvage ? ('salvage' as const) : ('sell' as const), itemId: line.item.id, createdAt: new Date() }));
   if (entries.length > 0) {
     try {
       await ledger.insertMany(entries);

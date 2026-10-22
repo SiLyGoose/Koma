@@ -146,8 +146,8 @@ export interface HeroCopy {
   locked: boolean;
   /** What selling it pays (POST /api/heroes/sell, as the gear page's): null when it's worn, saved in a loadout, on a hero or locked, so never sold. */
   sell: number | null;
-  /** Hero gear: what selling it pays is gear powder, not points (raid items, which heroes wear too, sell for points). */
-  sellPowder?: boolean;
+  /** Hero gear: the komaDust salvaging it gives (POST /api/heroes/sell with `salvage`), whenever it can be sold; left out: it can't be salvaged (raid items, which heroes wear too). */
+  salvage?: number;
   /** What selling it pays though it's locked (POST /api/heroes/sell with `locked`): null when it isn't locked, or is worn, saved in a loadout or on a hero. */
   sellLocked: number | null;
   /** What it does on a hero, a line for each stat it raises (for a class item, on a hero of its class): a TechnoMagic copy's potentials. */

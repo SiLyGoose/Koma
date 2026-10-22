@@ -1,9 +1,9 @@
 import { CURRENCY_EMOJI } from '../../core.js';
 import { boldMoney } from '../currency.js';
 
-/** What a sale paid: its points, or (hero gear) its gear powder, or both (`powder` left out: points only). Each already formatted. */
+/** What a sale paid: its points, or (hero gear) its komaDust, or both (`powder` left out: points only). Each already formatted. */
 const worth = (points: string, powder?: string): string =>
-  powder === undefined ? boldMoney(points) : points === '0' ? `**${powder}** Gear Powder` : `${boldMoney(points)} and **${powder}** Gear Powder`;
+  powder === undefined ? boldMoney(points) : points === '0' ? `**${powder}** komaDust` : `${boldMoney(points)} and **${powder}** komaDust`;
 
 export const sellText = {
   usage: (p: string) =>
@@ -31,15 +31,15 @@ export const sellText = {
     `The only ${stars} items you have are in your loadouts, so none can be sold. Take them off with \`${p}unequip\` first (for a saved loadout, switch to it with \`${p}loadout\`).`,
   onlyLockedTier: (p: string, stars: string) =>
     `The only ${stars} items you have are locked or in your loadouts, so none can be sold. Unlock them with \`${p}unlock <item>\` first.`,
-  /** Result of selling. `user` is a mention, `points` already formatted, and `powder` the gear powder hero gear paid (left out: none). */
+  /** Result of selling. `user` is a mention, `points` already formatted, and `powder` the komaDust hero gear paid (left out: none). */
   soldTitle: 'Sold',
   soldOne: (user: string, name: string, points: string, powder?: string) => `${user} sold **${name}** for ${worth(points, powder)}`,
   soldMany: (user: string, count: number, points: string, powder?: string) => `${user} sold **${count}** items for ${worth(points, powder)}`,
-  /** One line of a sale: an item, how many, and what they were worth together (`powder`: in gear powder, hero gear's). */
-  line: (name: string, count: number, amount: string, powder = false) => `${name} x${count} · ${amount} ${powder ? 'Gear Powder' : CURRENCY_EMOJI}`,
+  /** One line of a sale: an item, how many, and what they were worth together (`powder`: in komaDust, hero gear's). */
+  line: (name: string, count: number, amount: string, powder = false) => `${name} x${count} · ${amount} ${powder ? 'komaDust' : CURRENCY_EMOJI}`,
   balanceField: 'Balance',
-  /** Beside the balance, after a sale that paid gear powder: theirs, and what crafts a komaGem from it on the site. */
-  powderField: 'Gear Powder',
+  /** Beside the balance, after a salvage that paid komaDust: theirs, and what crafts a komaGem from it on the site. */
+  powderField: 'komaDust',
   powderValue: (powder: string, perGem: string) => `${powder} (${perGem} crafts a komaGem in the site's Raid Gear shop)`,
   footerLeft: (count: number) => (count === 0 ? 'You have none left' : `You have ${count} left`),
   /** Shown when some of what was planned could no longer be sold (equipped or already sold in the meantime). */

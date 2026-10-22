@@ -2,7 +2,7 @@ import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
 import { raidShopStore, type RaidShopView } from '../models/raid-shop.js';
 
-/* The site's raid shop: the member's shelf of raid items this week, buying one with komaGems, paying for a new shelf, and crafting komaGems from gear powder (raid-shop.ts's store). */
+/* The site's raid shop: the member's shelf of raid items this week, buying one with komaGems, paying for a new shelf, and crafting komaGems from komaDust (raid-shop.ts's store). */
 
 export type RaidShopService = ReturnType<typeof raidShopService>;
 

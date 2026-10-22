@@ -23,7 +23,7 @@ export interface RaidShopStore {
   buy: (guildId: string, userId: string, id: string) => Promise<RaidShopView | 'not_found' | 'too_poor'>;
   /** Pays for a new shelf: the shop after, or why not (nothing was spent). */
   refresh: (guildId: string, userId: string) => Promise<RaidShopView | 'no_refreshes' | 'too_poor' | 'busy'>;
-  /** Crafts `count` komaGems from their gear powder: the shop after, or why not (nothing was spent). */
+  /** Crafts `count` komaGems from their komaDust: the shop after, or why not (nothing was spent). */
   craft: (guildId: string, userId: string, count: number) => Promise<RaidShopView | 'too_poor' | 'bad_request'>;
 }
 

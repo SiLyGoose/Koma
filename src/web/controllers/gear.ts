@@ -20,7 +20,7 @@ const Unequip = z.object({ slot: z.enum(SLOTS) });
 const Loadout = z.object({ loadout: z.number().refine((n) => LOADOUT_NUMBERS.includes(n)) });
 const Rename = Loadout.extend({ name: z.string().max(NAME_MAX) });
 const Refine = z.object({ copy: CopyId, material: CopyId.nullish() });
-const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX) });
+const Sell = z.object({ copies: z.array(CopyId).min(1).max(SELL_MAX), salvage: z.boolean().optional() });
 const Lock = z.object({ copy: CopyId, locked: z.boolean() });
 const Class = z.object({ class: z.enum(RAID_CLASS_IDS).nullable() });
 
@@ -75,8 +75,8 @@ export function gearController(gear: GearService) {
     },
 
     async sell(req, res) {
-      const { copies } = parse(Sell, req.body);
-      res.json(await gear.sell(res.locals.guildId, res.locals.session.userId, copies));
+      const { copies, salvage } = parse(Sell, req.body);
+      res.json(await gear.sell(res.locals.guildId, res.locals.session.userId, copies, salvage));
     },
 
     async setClass(req, res) {

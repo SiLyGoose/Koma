@@ -9,7 +9,7 @@ import { tmSkillLine } from '../../lib/game/technomagic.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { leastStars, maxLevelOf, refineable, refineCopyPlan, refineCost, refineLevel, starsOf } from '../../lib/game/items/refine.js';
-import { equippedCopyIds, itemWorth, saleCount } from '../../lib/game/items/sell.js';
+import { equippedCopyIds, itemSalvage, itemSellPrice, saleCount } from '../../lib/game/items/sell.js';
 import { equipCopy, unequipAll, unequipSlot } from '../../services/items/equipment.js';
 import { setCopyLocked } from '../../services/items/lock.js';
 import { refineItem } from '../../services/items/refine.js';
@@ -77,9 +77,10 @@ export interface GearStore {
   refine: (guildId: string, userId: string, copyId: string, materialId: string | null) => Promise<'ok' | RefineBlock | 'bad_material' | 'not_found' | 'busy'>;
   /**
    * Sells those copies (the ones still theirs and not worn or in a loadout; nor locked, unless `locked`): how many were
-   * sold and for how many points, or 'nothing_to_sell' when none of them could be.
+   * sold and for how many points, or 'nothing_to_sell' when none of them could be. `salvage`: the hero gear among them
+   * salvaged for komaDust instead.
    */
-  sell: (guildId: string, userId: string, copyIds: readonly string[], locked?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
+  sell: (guildId: string, userId: string, copyIds: readonly string[], locked?: boolean, salvage?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks that copy: false when they don't own it. */
   lock: (guildId: string, userId: string, copyId: string, locked: boolean) => Promise<boolean>;
   /** Sets their raid class (null: none). */
@@ -176,8 +177,8 @@ export function gearView(
       borrowed: canUseItem(item, userId) ? null : share,
       refine: { blocked: null, cost: null, spare: null, after: null },
       locked,
-      sell: kept.has(copy._id) || locked ? null : itemWorth(item).each,
-      sellPowder: itemWorth(item).unit === 'powder',
+      sell: kept.has(copy._id) || locked ? null : itemSellPrice(item),
+      ...(heroOnly(item) && { salvage: itemSalvage(item) }),
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
       uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
@@ -308,8 +309,8 @@ export const gearStore: GearStore = {
     // (TechnoMagic gear is at its one level, as refineState says.)
     return result.reason === 'not_owned' ? 'not_found' : result.reason === 'not_refineable' ? 'maxed' : result.reason;
   },
-  sell: async (guildId, userId, copyIds, locked = false) => {
-    const result = await sellCopies(guildId, userId, copyIds, { locked });
+  sell: async (guildId, userId, copyIds, locked = false, salvage = false) => {
+    const result = await sellCopies(guildId, userId, copyIds, { locked, salvage });
     if (!result.ok) return result.reason;
     return { count: saleCount(result.lines), earned: result.earned, powder: result.powder };
   },

@@ -54,7 +54,7 @@ export type { Me } from './services/login.js';
  *   POST /api/gear/loadout/rename {guild, loadout, name}   names loadout number `loadout` (an empty name: its default one again): GearView
  *   POST /api/gear/loadout/unlock {guild, loadout}   unlocks loadout number `loadout` (their next one) for its price in points: GearView
  *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
- *   POST /api/gear/sell {guild, copies}   sells those of their copies (not worn, in a loadout or locked) for points: GearView & { sold: GearSale }
+ *   POST /api/gear/sell {guild, copies, salvage?}   sells those of their copies (not worn, in a loadout or locked) for points, or salvages the hero gear among them for komaDust: GearView & { sold: GearSale }
  *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
  *   GET  /api/databank        every item and what it does at each level, and every raid boss: Databank (models/databank.ts)
  *   GET  /api/raid/week?guild=…   the server's raid: this week's boss, and how far its difficulty is unlocked: RaidWeekView (services/raid.ts)
@@ -73,7 +73,7 @@ export type { Me } from './services/login.js';
  *   POST /api/heroes/transcend {guild, hero}   transcends one of their heroes a level, for hero essences and komaGems: HeroesView
  *   POST /api/heroes/perks {guild, hero, perks}   picks one of their hero's transcendence perks, all of them at once (none: reset): HeroesView
  *   POST /api/heroes/refine {guild, copy}   refines one of their copies a level (the heroes page), using up a spare copy of it: HeroesView
- *   POST /api/heroes/sell {guild, copies, locked?}   sells those of their copies (not worn, in a loadout, on a hero, or locked unless `locked`) for points (the heroes page): HeroesView & { sold: GearSale }
+ *   POST /api/heroes/sell {guild, copies, locked?, salvage?}   sells those of their copies (not worn, in a loadout, on a hero, or locked unless `locked`) for points, or salvages the hero gear among them for komaDust (the heroes page): HeroesView & { sold: GearSale }
  *   POST /api/heroes/lock {guild, copy, locked}   locks (or unlocks) one of their copies (the heroes page): HeroesView
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView

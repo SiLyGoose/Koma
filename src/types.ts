@@ -245,7 +245,7 @@ export interface MemberDoc {
   tokens?: number;
   /** komaGems, won by beating the weekly raid and the Dragon Raid. Missing means 0. */
   gems?: number;
-  /** Gear powder, from selling hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
+  /** komaDust, from salvaging hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
   powder?: number;
   /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
   essences?: Partial<Record<EssenceId, number>>;
@@ -537,8 +537,10 @@ export type LedgerReason =
   | 'claim_tax_paid'
   | 'claim_tax_received'
   | 'gacha'
-  // Selling items: points for the member's own gear, gear powder (powderDelta) for hero gear; itemId is the item.
+  // Selling items for points; itemId is the item.
   | 'sell'
+  // Salvaging hero gear for komaDust (powderDelta); itemId is the item.
+  | 'salvage'
   | 'plinko_bet'
   | 'plinko_payout'
   | 'blackjack_bet'
@@ -638,7 +640,7 @@ export type LedgerReason =
   | 'raid_shop_refresh'
   // komaGems and hero essences spent transcending a hero (0 points, gemDelta, essenceDelta; itemId is the hero).
   | 'transcend'
-  // Gear powder crafted into komaGems (0 points, powderDelta, gemDelta).
+  // komaDust crafted into komaGems (0 points, powderDelta, gemDelta).
   | 'craft_gems'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
@@ -739,7 +741,7 @@ export interface LedgerDoc {
   tokenDelta?: number;
   /** Change in komaGems, when the entry moved any. */
   gemDelta?: number;
-  /** Change in gear powder, when the entry moved any. */
+  /** Change in komaDust, when the entry moved any. */
   powderDelta?: number;
   /** Hero essences given (+) or spent (-), by kind (data/transcend.ts EssenceId). */
   essenceDelta?: Partial<Record<EssenceId, number>>;

@@ -3,14 +3,14 @@ import { collections } from '../../db.js';
 import { ensureMember, recordLedger } from './shared.js';
 
 /*
- * Gear powder: what selling hero gear pays (services/items/sell.ts), as King's Raid's grinding gives Magic Powder. It is kept on
+ * komaDust: what salvaging hero gear gives (services/items/sell.ts), as King's Raid's grinding gives Magic Powder. It is kept on
  * the member (`powder`, missing means 0), and `sell.powderPerGem` of it crafts a komaGem (King's Raid's 1,000 Fragments of
  * Infinity to a Stone of Infinity).
  */
 
 export type CraftResult = { ok: true; gems: number; powder: number } | { ok: false; reason: 'bad_count' | 'too_poor' };
 
-/** Crafts `count` komaGems from the member's gear powder, all at once or none (too little: 'too_poor'). Returns their balances after. */
+/** Crafts `count` komaGems from the member's komaDust, all at once or none (too little: 'too_poor'). Returns their balances after. */
 export async function craftGems(guildId: string, userId: string, count: number): Promise<CraftResult> {
   if (!Number.isInteger(count) || count < 1) return { ok: false, reason: 'bad_count' };
   const cost = Math.max(1, Math.floor(CONFIG.sell.powderPerGem)) * count;
