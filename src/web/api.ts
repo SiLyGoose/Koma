@@ -40,6 +40,7 @@ export type { Me } from './services/login.js';
  *   POST /api/login {code}    trades the code Discord gave the site for a session: { session, me }
  *   GET  /api/me              who is logged in, and the servers they can play in: Me
  *   POST /api/play {guild, game}   a link to play `game` in that server: { url }
+ *   POST /api/link/refresh {token} or {refresh}   an open game page's link renewed (a link's token still good, or its refresh token): LinkRefresh
  *   GET  /api/raid-rooms?guild=…&game=technomagic|dragon&boss=…   that server's raids against `boss`, for Find Raid: Lobbies
  *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }

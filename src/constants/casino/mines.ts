@@ -32,6 +32,8 @@ export const MINE = {
  * - `path`: where the web socket listens (Caddy passes this path on to it).
  * - `defaultPort`: the port it listens on, on this machine only, unless MINE_WEB_PORT says otherwise.
  * - `linkTtlMs`: how long a link into a game works (the site asks for a new one each time it opens one).
+ * - `refreshTtlMs`: how long an open game page can go without trading for a new link (auth/token.ts signRefreshToken): it
+ *   trades every so often while it's open, so only a page shut away (asleep) this long has its link run out.
  * - `helloMs`: how long a new connection has to say which run it is for.
  * - `messagesPerSecond` and `maxMessageBytes`: a connection sending more, or bigger, is cut off.
  * - `pingMs`: how often connections are checked; one that doesn't answer is dropped.
@@ -40,6 +42,7 @@ export const MINE_WEB = {
   path: '/mines',
   defaultPort: 8787,
   linkTtlMs: 2 * 60 * 60_000,
+  refreshTtlMs: 7 * 24 * 60 * 60_000,
   helloMs: 10_000,
   messagesPerSecond: 30,
   maxMessageBytes: 2048,

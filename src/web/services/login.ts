@@ -4,8 +4,8 @@ import type { ApiDeps } from '../api.js';
 import { GAMES, gameLink, type Game } from '../config.js';
 import { ApiError } from '../lib/errors.js';
 import { authorizeUrl, avatarUrl, exchangeCode, guildIconUrl, signSession, type Session } from '../auth/login.js';
-import { signToken } from '../auth/token.js';
-import type { LogIn, Me } from '../../protocol/site.js';
+import { signRefreshToken, signToken, signWatchToken, verifyRefreshToken, verifyToken, verifyWatchToken, type Refresh } from '../auth/token.js';
+import type { LinkRefresh, LogIn, Me } from '../../protocol/site.js';
 
 export type { Me };
 
@@ -62,6 +62,27 @@ export function loginService(deps: ApiDeps) {
       if (name === null) throw new ApiError('not_member');
       const token = signToken({ guildId, userId: session.userId, name }, MINE_WEB.linkTtlMs);
       return gameLink(config, game, token);
+    },
+
+    /**
+     * An open game page's link renewed, for a link's token still good (the page just opened: its first refresh token
+     * with it) or its refresh token: a new token for it, and a new refresh token. Only while the member is still in its
+     * server (their name there as it is now).
+     */
+    async refreshLink(given: { token?: string; refresh?: string }, now = Date.now()): Promise<LinkRefresh> {
+      const watch = given.token ? verifyWatchToken(given.token, now) : null;
+      const play = given.token && !watch ? verifyToken(given.token, now) : null;
+      const held: Refresh | null = given.refresh ? verifyRefreshToken(given.refresh, now) : play ? { player: play, target: null } : watch ? { player: watch.viewer, target: watch.targetId } : null;
+      if (!held) throw new ApiError('not_logged_in');
+      const { guildId, userId } = held.player;
+      const name = deps.guild(guildId) ? await deps.memberName(guildId, userId) : null;
+      if (name === null) throw new ApiError('not_member');
+      const player = { guildId, userId, name };
+      return {
+        token: held.target === null ? signToken(player, MINE_WEB.linkTtlMs, now) : signWatchToken({ viewer: player, targetId: held.target }, MINE_WEB.linkTtlMs, now),
+        refresh: signRefreshToken({ player, target: held.target }, MINE_WEB.refreshTtlMs, now),
+        lastsMs: MINE_WEB.linkTtlMs,
+      };
     },
   };
 }

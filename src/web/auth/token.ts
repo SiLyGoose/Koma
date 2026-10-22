@@ -83,5 +83,32 @@ export function verifyWatchToken(token: string, now = Date.now(), key: Buffer = 
   return { viewer: { guildId: g, userId: u, name: n }, targetId: t };
 }
 
+/**
+ * A link's refresh token: what an open game page trades for a new token for its link as that one runs out (POST
+ * /api/link/refresh), so a page left open for hours (its player away, the computer asleep) carries on rather than its link
+ * running out. It lasts far longer than a link (MINE_WEB.refreshTtlMs), and each trade gives a new one with it. Whose
+ * link it is, and (`target`) whom a watch link watches; it can't be used to play or watch by itself (verifyToken and
+ * verifyWatchToken take only their own).
+ */
+export interface Refresh {
+  player: Player;
+  /** A watch link's: whom it watches (null: a link to play). */
+  target: string | null;
+}
+
+export function signRefreshToken(refresh: Refresh, ttlMs: number, now = Date.now(), key: Buffer = KEY): string {
+  const { player, target } = refresh;
+  return signData({ k: 'r', g: player.guildId, u: player.userId, n: player.name, ...(target !== null && { t: target }), e: now + ttlMs }, key);
+}
+
+/** Whose link a refresh token renews, or null when it isn't one (or is made up, changed or too old). */
+export function verifyRefreshToken(token: string, now = Date.now(), key: Buffer = KEY): Refresh | null {
+  const data = verifyData(token, key, now);
+  if (!data || data.k !== 'r') return null;
+  const { g, u, n, t } = data;
+  if (typeof g !== 'string' || typeof u !== 'string' || typeof n !== 'string' || (t !== undefined && typeof t !== 'string')) return null;
+  return { player: { guildId: g, userId: u, name: n }, target: t ?? null };
+}
+
 /** One key per member per server, for looking up what they are playing. */
 export const playerKey = (player: Pick<Player, 'guildId' | 'userId'>): string => `${player.guildId}:${player.userId}`;

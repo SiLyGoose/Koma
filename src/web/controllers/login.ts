@@ -8,6 +8,7 @@ import { parse } from '../lib/validate.js';
 
 const State = z.object({ state: z.string().regex(/^[\w-]{8,128}$/) });
 const Code = z.object({ code: z.string().max(256) });
+const Renew = z.union([z.object({ token: z.string().max(2048) }).strict(), z.object({ refresh: z.string().max(2048) }).strict()]);
 const Play = z.object({ guild: z.string(), game: z.string().refine((game): game is Game => game in GAMES) });
 
 export function loginController(login: LoginService) {
@@ -26,6 +27,11 @@ export function loginController(login: LoginService) {
     /** After middleware/auth.ts's signedIn. */
     async me(_req, res) {
       res.json(await login.me(res.locals.session));
+    },
+
+    /** A game page's link renewed (no session: what it trades is in the body). */
+    async refreshLink(req, res) {
+      res.json(await login.refreshLink(parse(Renew, req.body)));
     },
 
     /** After middleware/auth.ts's signedIn. */

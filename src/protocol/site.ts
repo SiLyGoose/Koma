@@ -50,6 +50,17 @@ export interface LogIn {
   me: Me;
 }
 
+/**
+ * POST /api/link/refresh: a game page's link renewed (its token, or a watch link's, good for `lastsMs` from now: a span,
+ * so a page whose clock is off still renews it in time), and the refresh token to trade for the next one (the one traded
+ * keeps working until it runs out).
+ */
+export interface LinkRefresh {
+  token: string;
+  refresh: string;
+  lastsMs: number;
+}
+
 /** POST /api/play and /api/watch: the link to open. */
 export interface Link {
   url: string;
