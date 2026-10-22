@@ -120,6 +120,8 @@ export interface DropView {
   description: string;
   itemClass: string | null;
   setEffect: { pieces: number; text: string } | null;
+  /** The komaDust it was salvaged for as it dropped, by the player's rule (protocol/heroes.ts SalvageRule): they don't have it. Left out: it is theirs. */
+  salvaged?: number;
 }
 
 /**

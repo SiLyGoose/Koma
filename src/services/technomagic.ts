@@ -11,7 +11,9 @@ import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
 import type { ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
 import type { RaidMode } from '../protocol/technomagic.js';
+import type { SalvageRule } from '../protocol/heroes.js';
 import { addCopy, ensureMember, giveGems } from './economy/index.js';
+import { loadAutoSalvage, salvageDrop, salvagesDrop } from './items/salvage.js';
 import { giveEssences } from './economy/essences.js';
 import { recordLedger } from './economy/shared.js';
 
@@ -23,7 +25,8 @@ import { recordLedger } from './economy/shared.js';
  * (ItemCopyDoc.tmSkill, tmPotentials; an armor's main stat's DEF too, tmArmorDef), and `hero.winPoints` points.
  * The Dragon Raid's runs are kept the same way (their boss a dragon: lib/game/dragon.ts), and a win gives each player hero
  * gear (raid items: DRAGON_DROPS), points and hero essences of its dragon's kinds, more at the higher stages (`dragon.*`), and
- * komaGems for each stage up to it they hadn't cleared before (DRAGON_GEMS).
+ * komaGems for each stage up to it they hadn't cleared before (DRAGON_GEMS). A drop of hero gear their salvage rule takes
+ * (./items/salvage.ts) is salvaged for komaDust as it drops, in its place.
  * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
  */
 
@@ -117,6 +120,8 @@ export interface TmFind {
   potentials: TmPotential[];
   options?: KrOption[];
   armorDef?: TmArmorDef;
+  /** The komaDust it was salvaged for as it dropped, by their rule (./items/salvage.ts): they don't have it. */
+  salvaged?: number;
 }
 
 /**
@@ -132,13 +137,18 @@ export interface TmWin {
   firstClears?: number;
 }
 
-/** A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it. */
-async function findPiece(guildId: string, userId: string, item: ItemDef): Promise<TmFind> {
-  const { copy } = await addCopy(guildId, userId, item.id);
+/**
+ * A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it; or, one their
+ * `salvage` rule takes, its komaDust in its place (what it rolled is still said, for the end screen to show what went).
+ */
+async function findPiece(guildId: string, userId: string, item: ItemDef, salvage: SalvageRule | null = null): Promise<TmFind> {
   const options = item.kr ? rollKrOptions(item.kr) : [];
   const skill = item.kr?.unique ? rollTmSkill() : null;
+  const found: TmFind = { item, skill, potentials: [], ...(options.length > 0 && { options }) };
+  if (salvagesDrop(salvage, item)) return { ...found, salvaged: await salvageDrop(guildId, userId, item) };
+  const { copy } = await addCopy(guildId, userId, item.id);
   if (options.length > 0 || skill) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }) } });
-  return { item, skill, potentials: [], ...(options.length > 0 && { options }) };
+  return found;
 }
 
 /** Runes found: added to the member's. */
@@ -164,7 +174,7 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
-      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.map(({ item }) => item.id), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }), ...(won.gems && { gems: won.gems }) } },
+      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.filter((find) => find.salvaged === undefined).map(({ item }) => item.id), ...(won.finds.some((find) => find.salvaged !== undefined) && { salvaged: won.finds.flatMap((find) => (find.salvaged === undefined ? [] : [find.item.id])) }), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }), ...(won.gems && { gems: won.gems }) } },
     );
   }
   return found;
@@ -185,11 +195,12 @@ async function payPoints(guildId: string, userId: string, points: number, reason
  */
 async function payTmWin(guildId: string, userId: string, boss: string, stage: number): Promise<TmWin> {
   const cleared = await clearedStage(guildId, userId, boss);
+  const salvage = await loadAutoSalvage(guildId, userId);
   const finds: TmFind[] = [];
   for (let n = tmDropCount(stage); n > 0; n--) {
     const item = rollTmDrop(boss);
     if (!item) break;
-    finds.push(await findPiece(guildId, userId, item));
+    finds.push(await findPiece(guildId, userId, item, salvage));
   }
   const artifact = rollArtifact(stage);
   if (artifact) finds.push(await findPiece(guildId, userId, artifact));
@@ -209,8 +220,9 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
  */
 async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
   const cleared = await clearedStage(guildId, userId, dragon, mode);
+  const salvage = await loadAutoSalvage(guildId, userId);
   const finds: TmFind[] = [];
-  for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item));
+  for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item, salvage));
   const runes = rollRunes(stage, true, undefined, mode);
   await giveRunes(guildId, userId, runes);
   const pay = dragonPay(stage, undefined, mode);

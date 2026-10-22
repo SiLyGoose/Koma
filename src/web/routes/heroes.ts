@@ -6,7 +6,7 @@ import { heroService } from '../services/heroes.js';
 
 /*
  * /api/heroes: the shop's Heroes tab and the heroes page (theirs, and others' to look at), for a logged-in member in a
- * server they're in. A game's link answers all but buying, selling and locking too (those stay on the site, as the gear page's
+ * server they're in. A game's link answers all but buying, selling, locking and the salvage rule too (those stay on the site, as the gear page's
  * do), for its own member in its own server: the TechnoMagic Raid's Manage shows the heroes page in a popup, so they gear their
  * heroes without leaving the room.
  */
@@ -29,5 +29,6 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/keep', ...siteOrLink, heroes.keep)
     .post('/upgrade', ...siteOrLink, heroes.upgrade)
     .post('/sell', ...site, heroes.sell)
-    .post('/lock', ...site, heroes.lock);
+    .post('/lock', ...site, heroes.lock)
+    .post('/auto-salvage', ...site, heroes.autoSalvage);
 }

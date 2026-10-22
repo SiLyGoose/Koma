@@ -263,6 +263,33 @@ export interface HeroesView {
   /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
   gems: number;
   essences: Record<EssenceId, number>;
+  /** The rule their hero gear's drops are salvaged by as they drop (POST /api/heroes/auto-salvage); null: none is (left out by a bot from before it). */
+  autoSalvage?: SalvageRule | null;
+}
+
+/** The tiers of King's Raid's hero gear a salvage rule can take: the dragon sets' (6 to 8) and the TechnoMagic sets' (9); never a T10's. */
+export const SALVAGE_TIERS: readonly number[] = [6, 7, 8, 9];
+
+/** The most stars a salvage rule can take a piece at (its stars, 0★ to 5★: a drop's are 0). */
+export const SALVAGE_STARS_MAX = 5;
+
+/** The parts a salvage rule can pick: those the tiers it takes have. */
+export const SALVAGE_PARTS: readonly HeroPart[] = ['weapon', 'armor', 'secondary', 'accessory', 'orb'];
+
+/**
+ * Which hero gear to salvage for komaDust: the heroes page's Salvage by rule picks what matches, and, kept as the member's
+ * (`autoSalvage`), the TechnoMagic Raid and the Dragon Raid salvage their drops that match as they drop, rather than give them.
+ * What it takes is the bot's lib/game/items/salvage.ts salvageMatches (the site's heroes/salvage-rule.ts, the same).
+ */
+export interface SalvageRule {
+  /** Its tiers (SALVAGE_TIERS): none, nothing matches. */
+  tiers: number[];
+  /** Pieces at this many stars or fewer. */
+  stars: number;
+  /** Only these parts (SALVAGE_PARTS); none: any. */
+  parts: HeroPart[];
+  /** Only gear no class but these wears (a piece every class wears matches only with none picked); none: any. */
+  classes: RaidClassId[];
 }
 
 /** POST /api/heroes/sell's answer: the heroes after, and what the sale came to. */

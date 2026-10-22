@@ -74,6 +74,7 @@ export type { Me } from './services/login.js';
  *   POST /api/heroes/perks {guild, hero, perks}   picks one of their hero's transcendence perks, all of them at once (none: reset): HeroesView
  *   POST /api/heroes/refine {guild, copy}   refines one of their copies a level (the heroes page), using up a spare copy of it: HeroesView
  *   POST /api/heroes/sell {guild, copies, locked?, salvage?}   sells those of their copies (not worn, in a loadout, on a hero, or locked unless `locked`) for points, or salvages the hero gear among them for komaDust (the heroes page): HeroesView & { sold: GearSale }
+ *   POST /api/heroes/auto-salvage {guild, rule}   keeps the rule their hero gear's drops are salvaged by as they drop (null: none): HeroesView
  *   POST /api/heroes/lock {guild, copy, locked}   locks (or unlocks) one of their copies (the heroes page): HeroesView
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView

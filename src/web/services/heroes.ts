@@ -3,7 +3,7 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule } from '../../protocol/heroes.js';
 
 /** Every reason a change to their heroes or their gear isn't made. */
 type HeroError = HeroEquipError | HeroPerksError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | 'owned' | 'too_poor';
@@ -32,11 +32,11 @@ export function heroService(deps: ApiDeps) {
   return {
     view: (guildId: string, userId: string): Promise<HeroesView> => store.view(guildId, userId),
 
-    /** Someone else's heroes, to look at: only while they're in the server, and not their points, komaGems or essences. */
+    /** Someone else's heroes, to look at: only while they're in the server, and not their points, komaGems, essences or salvage rule. */
     async peek(guildId: string, userId: string): Promise<HeroesView> {
       if ((await deps.memberName(guildId, userId)) === null) throw new ApiError('not_found');
       const view = await store.view(guildId, userId);
-      return { ...view, balance: 0, gems: 0, essences: Object.fromEntries(Object.keys(view.essences ?? {}).map((id) => [id, 0])) as HeroesView['essences'] };
+      return { ...view, balance: 0, gems: 0, essences: Object.fromEntries(Object.keys(view.essences ?? {}).map((id) => [id, 0])) as HeroesView['essences'], autoSalvage: null };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */
@@ -83,5 +83,8 @@ export function heroService(deps: ApiDeps) {
       if (!(await store.lock(guildId, userId, copy, locked))) throw new ApiError('not_found');
       return store.view(guildId, userId);
     },
+
+    /** Keeps the rule their hero gear's drops are salvaged by as they drop (null: none any more). */
+    autoSalvage: (guildId: string, userId: string, rule: SalvageRule | null): Promise<HeroesView> => store.autoSalvage(guildId, userId, rule),
   };
 }

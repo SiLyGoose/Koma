@@ -2,6 +2,8 @@ import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import { TRANSCEND_PERKS } from '../../data/transcend.js';
 import { HERO_SLOTS } from '../../types.js';
+import { RAID_CLASS_IDS } from '../../constants/index.js';
+import { SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, type HeroPart } from '../../protocol/heroes.js';
 import { ApiError } from '../lib/errors.js';
 import type { HeroService } from '../services/heroes.js';
 import { CopyId, parse, UserId } from '../lib/validate.js';
@@ -24,6 +26,17 @@ const Reroll = z.object({ copy: CopyId, option: z.union([z.number().int().min(0)
 const Keep = z.object({ copy: CopyId, keep: z.enum(['old', 'new']) });
 /** One slot, or (left out) all of them. */
 const Unequip = Hero.extend({ slot: Slot.nullish() });
+/** The rule their drops are salvaged by (protocol/heroes.ts SalvageRule), or (null) none. */
+const AutoSalvage = z.object({
+  rule: z
+    .object({
+      tiers: z.array(z.number().int().refine((tier) => SALVAGE_TIERS.includes(tier))).max(SALVAGE_TIERS.length),
+      stars: z.number().int().min(0).max(SALVAGE_STARS_MAX),
+      parts: z.array(z.enum(SALVAGE_PARTS as [HeroPart, ...HeroPart[]])).max(SALVAGE_PARTS.length),
+      classes: z.array(z.enum(RAID_CLASS_IDS)).max(RAID_CLASS_IDS.length),
+    })
+    .nullable(),
+});
 /** Every perk picked (data/transcend.ts's). */
 const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
 
@@ -101,6 +114,11 @@ export function heroController(heroes: HeroService) {
     async lock(req, res) {
       const { copy, locked } = parse(Lock, req.body);
       res.json(await heroes.lock(res.locals.guildId, res.locals.session.userId, copy, locked));
+    },
+
+    async autoSalvage(req, res) {
+      const { rule } = parse(AutoSalvage, req.body);
+      res.json(await heroes.autoSalvage(res.locals.guildId, res.locals.session.userId, rule));
     },
   } satisfies Record<string, RequestHandler>;
 }

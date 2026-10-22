@@ -3,7 +3,7 @@ import type { EffectId } from './perks/index.js';
 import type { RaidStats } from './lib/events/raid.js';
 import type { RaidBossId, RaidClassId } from './constants/raid.js';
 import type { EssenceId } from './data/transcend.js';
-import type { HeroPart, HeroSlot } from './protocol/heroes.js';
+import type { HeroPart, HeroSlot, SalvageRule } from './protocol/heroes.js';
 import type { BannerId, Slot, Stars, TmSetId } from './protocol/items.js';
 
 export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
@@ -247,6 +247,8 @@ export interface MemberDoc {
   gems?: number;
   /** komaDust, from salvaging hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
   powder?: number;
+  /** The rule their hero gear's drops are salvaged by as they drop, for komaDust (services/items/salvage.ts). Missing means none is. */
+  autoSalvage?: SalvageRule;
   /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
   essences?: Partial<Record<EssenceId, number>>;
   /** King's Raid's runes they have, not socketed (data/kr-gear.ts's ids), how many of each: dropped by the TechnoMagic and Dragon Raids. Missing means none. */
@@ -390,11 +392,13 @@ export interface TmRunDoc {
   /** The sim's version it was fought with (a hash of it; a number, for a run from before). */
   version: string | number;
   startedAt: Date;
-  /** When it was over, how (after so many steps), and the item ids found. */
+  /** When it was over, how (after so many steps), and the item ids found and kept. */
   claimedAt?: Date;
   result?: 'won' | 'lost';
   ticks?: number;
   drops?: string[];
+  /** The item ids found and salvaged as they dropped, by the member's rule (services/items/salvage.ts). */
+  salvaged?: string[];
   /** A Dragon Raid win's hero essences, so many of each kind. */
   essences?: Partial<Record<EssenceId, number>>;
   /** A Dragon or TechnoMagic Raid win's komaGems (for the stages it cleared for the first time). */
