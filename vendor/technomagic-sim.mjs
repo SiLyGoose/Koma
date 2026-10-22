@@ -30408,7 +30408,7 @@ var STOSMOS = {
 		.25
 	]
 };
-/** Jane's: its blow every second (a share of ATK) on the enemies within so far, their ATK less a moment; the ally with the highest ATK's more to Non-Hero enemies; the [Coffin]'s mana (a share). */
+/** Jane's: its blow every second (a share of ATK) on the enemies within so far, their ATK less a moment; the coffin's mana (a share). */
 var EREKURA = {
 	name: "Unchanging Mind, Erekura",
 	blow: [
@@ -30427,14 +30427,6 @@ var EREKURA = {
 		.24,
 		.29,
 		.35
-	],
-	boss: [
-		.06,
-		.07,
-		.08,
-		.1,
-		.12,
-		.15
 	],
 	mana: .3
 };
@@ -30533,7 +30525,7 @@ var ABOUT = {
 	lavril: (tier) => `Upon using a skill, gains [Void Soul] for ${atTier(NEMECIA.untouched, tier)} sec and dodges all attacks. This effect activates once every ${NEMECIA.every} sec. Increases Crit DMG of the ally under *[Soul Link]* by ${fine(atTier(NEMECIA.critDamage, tier))}.`,
 	evan: (tier) => `Whenever Evan uses a Skill, recovers own Mana by ${atTier(NAAV.mana, tier)}, reduces P.DMG all allies take by ${fine(atTier(NAAV.taken, tier))} for ${NAAV.lasts} sec, and increases P.DMG all enemies take by ${fine(atTier(NAAV.takes, tier))} for ${NAAV.lasts} sec.`,
 	estelle: (tier) => `Increases the duration of [Adventure Guide] by ${atTier(STOSMOS.longer, tier)} sec, and ATK of all allies by ${fine(atTier(STOSMOS.atk, tier))} while Estelle is in [Adventure Guide] state.`,
-	jane: (tier) => `Deals M.DMG equal to ${fine(atTier(EREKURA.blow, tier))} of ATK to nearby enemies and reduces their ATK by ${fine(atTier(EREKURA.weaker, tier))} every sec. Additionally, increases DMG dealt against Non-Hero enemies of the ally with the highest ATK excluding self by ${fine(atTier(EREKURA.boss, tier))}. The DMG Boost effect is irremovable. When the Passive Skill is activated, recovers ${fine(EREKURA.mana)} of Mana.`
+	jane: (tier) => `Per every sec, deals ${fine(atTier(EREKURA.blow, tier))} of ATK as M.DMG to nearby enemies, and reduces their ATK by ${fine(atTier(EREKURA.weaker, tier))}. When the passive skill is activated, recovers ${fine(EREKURA.mana)} of mana.`
 };
 var NAMES = {
 	klaus: EXIAN.name,
@@ -30827,12 +30819,6 @@ var STOSMOS_UP = {
 	about: "ATK higher.",
 	icon: "🍃",
 	art: { uw: "estelle" }
-};
-var EREKURA_UP = {
-	name: "Unchanging Mind, Erekura",
-	about: "Deals more to Non-Hero enemies.",
-	icon: "⚰️",
-	art: { uw: "jane" }
 };
 //#endregion
 //#region src/technomagic/sim/perks.ts
@@ -49350,40 +49336,38 @@ var MARK = "Mark of Death";
 var RITES = {
 	blow: indexed("knight", 125027),
 	reach: 3,
-	stun: 5
+	stun: 3
 };
-/** Mark of Death: how long, a blow every second (the Index's 93,150 over its while); the more magic damage taken, and more again for each use while it is on, up to how many. */
+/** Mark of Death: how long, a blow every second (the Index's 93,150 over its while); the more magic damage taken. */
 var DEATH = {
 	lasts: 30,
 	tick: indexed("knight", 3105),
-	takes: .25,
-	more: .2,
-	most: 5
+	takes: 1.25
 };
-/** Day of Ruin: how long, a blow every second (the more on a marked enemy: the playtest's share of ATK again), the share of what it deals healing her, its chance to stun, for how long; its fourth book's mana for each blow (a share). */
+/** Day of Ruin: how long, a blow every second (the more on a marked enemy: the playtest's share of ATK again), the share of what it deals healing her; its fourth book's mana for each blow (a share). */
 var RUIN = {
 	lasts: 15,
 	tick: indexed("knight", 36690),
 	marked: played("knight", 814) / played("knight", 814, 22746),
 	drinks: 1,
-	chance: .1,
-	stun: 1,
 	mana: .01
 };
-/** Rest in Peace: every ally's M.DEF more (flat); the coffin, how long, its heal (and a share of her max HP, its books' half again), and its blow every second (a share of her max HP). */
+/** Rest in Peace: the coffin, how long, its heal (and a share of her max HP, its books' half again). */
 var REST = {
-	defense: 21669,
 	lasts: 5,
 	heal: indexedHeal("knight", 411702),
 	hp: .06,
-	books: 1.5,
-	blow: .05
+	books: 1.5
 };
-/** Her own perks' numbers: Funeral Rites' Light's more magic damage taken, for how long; Mark of Death's Light's while; Rest in Peace's Dark's stun; Transcend 5's Dark's ATK and healing for each blow, up to how many, for how long. */
+/** Her own perks' numbers: Funeral Rites' Light's more magic damage taken, for how long; Mark of Death's Light's while; Day of Ruin's Dark's chance to stun, for how long; Rest in Peace's Light's blow every second (a share of her max HP), how far about her, and its Dark's stun; Transcend 5's Dark's ATK and healing for each blow, up to how many, for how long. */
 var PERKS = {
 	takes: 1.25,
 	lasts: 10,
 	markLasts: 10,
+	chance: .1,
+	ruinStun: 1,
+	burn: .05,
+	reach: 6.6,
 	stun: 2,
 	dark: {
 		each: .01,
@@ -49454,21 +49438,15 @@ var REST_SHOWN = {
 	control: 1,
 	shown: {
 		name: "Rest in Peace",
-		about: `Passive. Every ally's M.DEF is ${num(REST.defense)} higher. A blow that would bring her down puts her in a coffin instead, once a fight: healed, for ${REST.lasts} seconds nothing touches her and she does nothing, and every second a blow on the enemies near her.`,
+		about: `Passive. A blow that would bring her down puts her in a coffin instead, once a fight: healed, and for ${REST.lasts} seconds nothing touches her and she does nothing.`,
 		icon: "⚰️",
 		art: art(3)
 	},
-	words: `Increases M.DEF of all allies by ${num(REST.defense)}. Upon taking fatal DMG, enters a coffin for ${REST.lasts} sec and heals HP equal to ${healed("knight", REST.heal, bookHeal("jane", 3))} + ${pct(REST.hp * REST.books)} of Max HP. While inside the coffin, Jane is not affected by ATK Spd effects, ignores All DMG, and deals M.DMG equal to ${pct(REST.blow)} of Max HP to nearby enemies every sec.`
+	words: `Upon taking a deathblow, enters a coffin for ${REST.lasts} sec and heals ${healed("knight", REST.heal, bookHeal("jane", 3))} + ${pct(REST.hp * REST.books)} of Max HP. Gains immunity to all DMG while inside the coffin.`
 };
 var COFFIN = {
 	name: "Coffin",
-	about: "Nothing touches her and she does nothing; every second, a blow on the enemies near her.",
-	icon: "⚰️",
-	art: art(3)
-};
-var RESTING = {
-	name: "Rest in Peace",
-	about: "M.DEF higher.",
+	about: "Nothing touches her and she does nothing.",
 	icon: "⚰️",
 	art: art(3)
 };
@@ -49566,8 +49544,8 @@ var HEROES = [
 			},
 			{
 				name: "Mark of Death",
-				about: `A Mark on every enemy for ${DEATH.lasts} seconds: a blow every second, and ${pct(DEATH.takes)} more magic damage taken, ${pct(DEATH.more)} more again for each use while it is on (up to ${DEATH.most} times).`,
-				words: `Engraves a Mark on all enemies for ${DEATH.lasts} sec and deals ${dmg("knight", DEATH.tick * DEATH.lasts, bookDmg("jane", 1))} continuous M.DMG. Enemies engraved with the Mark take ${pct(DEATH.takes)} increased M.DMG. This effect increases by ${pct(DEATH.more)} upon every use. This effect can be stacked up to max ${DEATH.most} times and is irremovable.`,
+				about: `A Mark on every enemy for ${DEATH.lasts} seconds: a blow every second, and ${pct(DEATH.takes - 1)} more magic damage taken.`,
+				words: `Engraves a Mark on all enemies for ${DEATH.lasts} sec and deals ${dmg("knight", DEATH.tick * DEATH.lasts, bookDmg("jane", 1))} M.DMG over time. Enemies engraved with Mark takes ${pct(DEATH.takes - 1)} more M.DMG.`,
 				icon: "💀",
 				art: art(1),
 				move: "mark",
@@ -49576,8 +49554,8 @@ var HEROES = [
 			},
 			{
 				name: "Day of Ruin",
-				about: `For ${RUIN.lasts} seconds, a blow every second on every enemy (harder on a marked one), now and then stunning, all it deals healing her; nothing knocks her down meanwhile.`,
-				words: `Deals ${dmg("knight", RUIN.tick, bookDmg("jane", 2))} M.DMG to all enemies every sec for ${RUIN.lasts} sec, heals own HP equal to ${pct(RUIN.drinks)} of DMG dealt, and inflicts Stun on the hit target for ${RUIN.stun} sec with a ${pct(RUIN.chance)} chance. For the duration of the Skill, gains immunity to CC. Against Marked targets, deals ${dmg("knight", RUIN.tick * RUIN.marked, bookDmg("jane", 2))} increased M.DMG.`,
+				about: `For ${RUIN.lasts} seconds, a blow every second on every enemy (harder on a marked one), all it deals healing her; nothing knocks her down meanwhile.`,
+				words: `For ${RUIN.lasts} sec, deals ${dmg("knight", RUIN.tick, bookDmg("jane", 2))} M.DMG every sec to all enemies and recovers ${pct(RUIN.drinks)} of DMG as own HP. Gains immunity to CC. Marked enemies take ${dmg("knight", RUIN.tick * RUIN.marked, bookDmg("jane", 2))} increased DMG.`,
 				icon: "🌸",
 				art: art(2),
 				move: "ruinday",
@@ -49601,7 +49579,7 @@ var HEROES = [
 			})),
 			treasure("Death-imbued Cushion", (k) => ({ words: `[Mark of Death] Increases ATK by ${pct(UT.cushion.atk)} and Crit DMG by ${pct(k(UT.cushion.critDamage))} for ${UT.cushion.lasts} sec when the marked enemy dies. This effect stacks up to ${UT.cushion.most} times.` })),
 			treasure("Flowers of a Forgotten Dukedom", (k) => ({
-				words: `[Day of Ruin] Increases DMG by ${pct(k(UT.flowers.dmg))}. Dealing DMG reduces target's M.DEF by ${pct(UT.flowers.defense)} for ${UT.flowers.lasts} sec. This effect can be stacked up to max ${UT.flowers.most} times.`,
+				words: `[Day of Ruin] DMG is increased by ${pct(k(UT.flowers.dmg))} and with every DMG dealt, target's M.DEF is reduced by ${pct(UT.flowers.defense)} for ${UT.flowers.lasts} sec. This effect can be stacked max ${UT.flowers.most} times.`,
 				skill: {
 					index: 2,
 					dmg: 1 + k(UT.flowers.dmg)
@@ -49631,32 +49609,28 @@ var HEROES = [
 				index: 2,
 				dmg: 1.4
 			} }, ({ skill }) => `DMG is increased by ${pct(skill.dmg - 1)}.`),
-			"s3-dark": said({ skill: {
-				index: 2,
-				cleanse: "allies"
-			} }, () => "Upon use, dispels negative effects of all allies."),
-			"s4-light": { words: "Upon activation, dispels positive effects of all enemies." },
+			"s3-dark": { words: `Has a ${pct(PERKS.chance)} chance to Stun enemies for ${PERKS.ruinStun} sec.` },
+			"s4-light": { words: `While inside the Coffin, deal DMG worth ${pct(PERKS.burn)} of max HP to nearby enemies.` },
 			"s4-dark": { words: `Upon activation, stun all enemies for ${PERKS.stun} sec.` },
 			"t5-light": t5Light({ blockMagical: 200 }, ({ blockMagical }) => `M. Block +${blockMagical}`),
 			"t5-dark": { words: `Each hit of Jane's attacks increase her ATK and Recovery Rate by ${pct(PERKS.dark.each)} each. (Maximum stack number is ${PERKS.dark.most})` }
 		},
 		join(fight, self) {
 			const tier = self.unique?.tier ?? null;
-			/** The Mark on each enemy: how long it has yet, and toward its next blow; the uses stacked in it. */
+			/** The Mark on each enemy: how long it has yet, and toward its next blow. */
 			const marked = /* @__PURE__ */ new Map();
 			/** Day of Ruin: how long it has yet, and toward its next blow; Flowers of a Forgotten Dukedom's stacks on each enemy. */
 			let ruin = 0;
 			let ruining = 0;
 			const flowers = /* @__PURE__ */ new Map();
-			/** The coffin: how long it has yet (0: not in it), toward its next blow; whether it has been used. */
+			/** The coffin: how long it has yet (0: not in it), toward its Light's next blow; whether it has been used. */
 			let coffin = 0;
 			let burning = 0;
 			let buried = false;
-			/** Death-imbued Cushion's stacks; Transcend 5's Dark's; toward her unique weapon's next blow; whether Rest in Peace's M.DEF and her unique weapon's ally are given. */
+			/** Death-imbued Cushion's stacks; Transcend 5's Dark's; toward her unique weapon's next blow. */
 			let cushion = 0;
 			let devoted = 0;
 			let pulsing = 0;
-			let begun = false;
 			const markLasts = self.perks.has("s2-light") ? PERKS.markLasts : DEATH.lasts;
 			/** The enemies standing; and those within so far of one. */
 			const standing = () => fight.foes.filter((foe) => foe.hp > 0 && !foe.away);
@@ -49670,7 +49644,7 @@ var HEROES = [
 				const dealt = self.dealt - before;
 				if (drinks > 0 && dealt > 0) fight.heal(self, dealt * drinks, void 0, self);
 			};
-			/** Rest in Peace's coffin: healed; nothing touches her and she does nothing for a while; her allies cleansed (First Friend Doll), what helps the enemies gone (its Light), the enemies stunned (its Dark); her unique weapon's mana. */
+			/** Rest in Peace's coffin: healed; nothing touches her and she does nothing for a while; her allies cleansed (First Friend Doll), the enemies stunned (its Dark); her unique weapon's mana. */
 			const bury = () => {
 				buried = true;
 				coffin = REST.lasts;
@@ -49685,10 +49659,7 @@ var HEROES = [
 				fight.heal(self, REST.heal, self);
 				fight.heal(self, REST.hp * self.stats.hp * REST.books, void 0, self);
 				if (wearsTreasure(self, 3)) for (const ally of allies()) ally.statuses = ally.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
-				for (const foe of standing()) {
-					if (self.perks.has("s4-light")) foe.statuses = foe.statuses.filter((status) => (status.deals ?? 1) <= 1);
-					if (self.perks.has("s4-dark")) fight.on(foe, () => fight.stun(PERKS.stun, { by: self }));
-				}
+				if (self.perks.has("s4-dark")) for (const foe of standing()) fight.on(foe, () => fight.stun(PERKS.stun, { by: self }));
 				if (tier !== null) self.mana = Math.min(MAX_MANA, self.mana + MAX_MANA * EREKURA.mana);
 				fight.cue(self, "coffin");
 			};
@@ -49703,17 +49674,14 @@ var HEROES = [
 					mark(part) {
 						if (part !== 1) return;
 						for (const foe of standing()) {
-							const uses = Math.min(DEATH.most, (marked.get(foe)?.uses ?? 0) + 1);
 							marked.set(foe, {
 								left: markLasts,
-								tick: marked.get(foe)?.tick ?? 0,
-								uses
+								tick: marked.get(foe)?.tick ?? 0
 							});
 							put(foe.statuses, {
 								name: MARK,
 								left: markLasts,
-								count: uses,
-								takes: { magical: 1 + DEATH.takes + DEATH.more * (uses - 1) },
+								takes: { magical: DEATH.takes },
 								shown: "curse"
 							});
 						}
@@ -49752,28 +49720,12 @@ var HEROES = [
 				untouched: () => coffin > 0,
 				guards: () => ruin > 0,
 				tick(dt) {
-					if (!begun && fight.field.includes(self)) {
-						begun = true;
-						for (const ally of allies()) put(ally.statuses, {
-							name: RESTING.name,
-							left: Infinity,
-							bolsters: { magical: REST.defense },
-							shown: RESTING
-						});
-						const top = allies().filter((ally) => ally !== self).sort((a, b) => b.stats.atk - a.stats.atk)[0];
-						if (top && tier !== null) put(top.statuses, {
-							name: EREKURA_UP.name,
-							left: Infinity,
-							deals: 1 + atTier(EREKURA.boss, tier),
-							shown: EREKURA_UP
-						});
-					}
 					if (coffin > 0) {
 						coffin -= dt;
 						burning += dt;
 						if (burning >= 1) {
 							burning -= 1;
-							for (const foe of near(fight.foe, EREKURA.reach)) strike(foe, 1e3 * REST.blow * self.stats.hp / self.stats.atk);
+							if (self.perks.has("s4-light")) for (const foe of near(fight.foe, PERKS.reach)) strike(foe, 1e3 * PERKS.burn * self.stats.hp / self.stats.atk);
 						}
 						if (coffin <= 0 && wearsTreasure(self, 3)) put(self.statuses, {
 							name: FRIEND.name,
@@ -49817,7 +49769,7 @@ var HEROES = [
 							for (const foe of standing()) {
 								strike(foe, RUIN.tick * (marked.has(foe) ? 1 + RUIN.marked : 1) * (self.moveDmg.ruinday ?? 1), RUIN.drinks);
 								self.mana = Math.min(MAX_MANA, self.mana + MAX_MANA * RUIN.mana);
-								if (fight.roll() < RUIN.chance) fight.on(foe, () => fight.stun(RUIN.stun, { by: self }));
+								if (self.perks.has("s3-dark") && fight.roll() < PERKS.chance) fight.on(foe, () => fight.stun(PERKS.ruinStun, { by: self }));
 								if (!wearsTreasure(self, 2)) continue;
 								const count = Math.min(UT.flowers.most, (flowers.get(foe) ?? 0) + 1);
 								flowers.set(foe, count);
@@ -49852,10 +49804,9 @@ var HEROES = [
 				marks: () => {
 					const on = marked.get(fight.foe);
 					return on ? [{
-						text: `Mark of Death ×${on.uses} ${Math.ceil(on.left)}s`,
+						text: `Mark of Death ${Math.ceil(on.left)}s`,
 						tone: "curse",
-						art: art(1),
-						count: `×${on.uses}`
+						art: art(1)
 					}] : [];
 				}
 			};
@@ -49865,7 +49816,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "46534e7a1b6d";
+var SIM_VERSION = "cf3275c854fe";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
