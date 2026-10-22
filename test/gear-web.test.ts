@@ -338,6 +338,17 @@ test('gear page: refining a unique weapon or treasure says its main stat at the 
   }
 });
 
+test('gear page: refining an artifact says its effect at its stars, and at the next, stronger', () => {
+  const copies = [
+    { _id: 'art', itemId: 'artifact-1001', level: 1 },
+    { _id: 'art-spare', itemId: 'artifact-1001', level: 0 },
+  ];
+  const art = gearView(copies, null, 'x', undefined, null).copies.find((c) => c.id === 'art')!;
+  assert.equal(art.effects.length, 1);
+  assert.match(art.effects[0]!, /by 14% and 28%/); // 1★
+  assert.match(art.refine.after?.[0] ?? '', /by 17% and 34%/); // 2★
+});
+
 test('gear page: each copy says what it sells for, unless it is worn or saved in a loadout', () => {
   const copies = [
     { _id: 'worn', itemId: 'rusty-dagger', level: 1 },

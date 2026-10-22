@@ -158,9 +158,12 @@ export function gearView(
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
     const setEffect = tmSetEffect(item);
-    // (Hero gear's lines as the heroes page has them: a unique weapon's own effect, its ATK being its main stat.)
+    // (Hero gear's lines as the heroes page has them: a unique weapon's own effect, its ATK being its main stat; an
+    // artifact's effect at its stars.)
     const linesAt = (at: number): string[] =>
-      item.tmDrop || item.uniqueTreasure || item.uniqueWeapon !== undefined ? heroItemLines(item, at, copy.tmPotentials) : describeEffects(item, share, at);
+      item.tmDrop || item.uniqueTreasure || item.uniqueWeapon !== undefined || item.kr?.part === 'artifact'
+        ? heroItemLines(item, at, copy.tmPotentials)
+        : describeEffects(item, share, at);
     const view: GearCopy = {
       id: copy._id,
       itemId: item.id,
