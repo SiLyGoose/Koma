@@ -123,6 +123,15 @@ test('live api: a game page lists who is online with its own link, and gets a li
       live.players.map(({ userId, name, avatar, activity, status, watchable }) => ({ userId, name, avatar, activity, status, watchable })),
       [{ userId: 'u1', name: 'ZEIU', avatar: 'https://cdn/ZEIU.png', activity: 'mines', status: '100 on 3 💣 · 1.10x', watchable: true }],
     );
+    // Someone in a game that can't be watched (a raid, poker: /api/watch refuses it) has no Watch.
+    playerJoined('technomagic', 'g', 'u3', 'HXLON', page(), () => null).send({ t: 'state' });
+    playerJoined('poker', 'g', 'u4', 'MOCHI', page(), () => null).send({ t: 'state' });
+    const more = (await (await fetch(`${base}/api/live`, { headers })).json()) as Live;
+    assert.deepEqual(
+      more.players.map(({ userId, watchable }) => [userId, watchable]).sort(),
+      [['u1', true], ['u3', false], ['u4', false]],
+    );
+    assert.equal((await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'technomagic', target: 'u3' }) })).status, 400);
     const watch = await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'mines', target: 'u1' }) });
     const { url } = (await watch.json()) as { url: string };
     assert.ok(url.startsWith('https://site/games/mines/#w='));

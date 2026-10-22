@@ -27,8 +27,9 @@ export function liveService(deps: ApiDeps) {
         players: online(guildId).map((p) => ({
           ...p,
           avatar: deps.avatar?.(guildId, p.userId) ?? avatarUrl(p.userId, null),
-          // The raid has no watching: anyone in the server can open the raid itself.
-          watchable: p.activity !== 'hub' && p.activity !== 'raid' && p.userId !== viewer.userId,
+          // Only the games that can be watched (WATCHABLE, as POST /api/watch takes): the raids are joined as rooms instead,
+          // minesweeper and Codedle are one board for the whole server, and poker's cards are each player's own.
+          watchable: (WATCHABLE as readonly string[]).includes(p.activity) && p.userId !== viewer.userId,
         })),
       };
     },
