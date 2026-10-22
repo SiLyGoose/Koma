@@ -65,6 +65,11 @@ export interface GearRefine {
   spare: number | null;
   /** What it would do at the next level, as `effects` (null when it can't go up). */
   after: string[] | null;
+  /**
+   * Its main stat at the next level, as `mainStat` (a unique weapon's ATK and a unique treasure's HP go up with its stars);
+   * null when it can't go up or has none (missing from a bot from before it).
+   */
+  mainAfter?: MainStat | null;
 }
 
 /**

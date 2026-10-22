@@ -318,7 +318,23 @@ test('gear page: TechnoMagic gear is never refined, even with a spare: it has th
   const view = gearView(copies, null, 'x', undefined, 1_000_000);
   for (const copy of view.copies) {
     assert.deepEqual([copy.level, copy.maxLevel], [1, 1], copy.id);
-    assert.deepEqual(copy.refine, { blocked: 'maxed', cost: null, spare: null, after: null }, copy.id);
+    assert.deepEqual(copy.refine, { blocked: 'maxed', cost: null, spare: null, after: null, mainAfter: null }, copy.id);
+  }
+});
+
+test('gear page: refining a unique weapon or treasure says its main stat at the next stars, higher', () => {
+  const copies = [
+    { _id: 'uw', itemId: 'the-guardian-exian', level: 1 },
+    { _id: 'uw-spare', itemId: 'the-guardian-exian', level: 0 },
+    { _id: 'ut', itemId: 'lotus-of-crimson-crystal', level: 2 },
+    { _id: 'ut-spare', itemId: 'lotus-of-crimson-crystal', level: 0 },
+  ];
+  const view = gearView(copies, null, 'x', undefined, null);
+  for (const [id, name] of [['uw', 'ATK'], ['ut', 'HP']] as const) {
+    const copy = view.copies.find((c) => c.id === id)!;
+    assert.equal(copy.mainStat?.name, name, id);
+    assert.equal(copy.refine.mainAfter?.name, name, id);
+    assert.ok(copy.refine.mainAfter!.value > copy.mainStat!.value, id);
   }
 });
 

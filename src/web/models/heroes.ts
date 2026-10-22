@@ -236,7 +236,11 @@ export function heroesView(
       refine: { blocked: null, cost: null, spare: null, after: null },
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, member?.points ?? 0);
-    view.refine = { ...refine, after: to === null ? null : heroItemLines(item, to, copy.tmPotentials, copy.options, runes) };
+    view.refine = {
+      ...refine,
+      after: to === null ? null : heroItemLines(item, to, copy.tmPotentials, copy.options, runes),
+      mainAfter: to === null ? null : copyMainStat(item, { ...copy, level: to }),
+    };
     list.push(view);
     pieces.set(copy._id, {
       view,

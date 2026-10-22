@@ -185,7 +185,11 @@ export function gearView(
       hero: heroWorn.get(copy._id) ?? null,
     };
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance);
-    view.refine = { ...refine, after: to === null ? null : item.uniqueTreasure ? heroItemLines(item, to, copy.tmPotentials) : describeEffects(item, share, to) };
+    view.refine = {
+      ...refine,
+      after: to === null ? null : item.uniqueTreasure ? heroItemLines(item, to, copy.tmPotentials) : describeEffects(item, share, to),
+      mainAfter: to === null ? null : copyMainStat(item, { ...copy, level: to }),
+    };
     list.push(view);
     byId.set(view.id, { view, piece: { item, level } });
   }
