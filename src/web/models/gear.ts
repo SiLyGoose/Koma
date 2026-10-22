@@ -158,6 +158,9 @@ export function gearView(
     const locked = copy.locked === true;
     const share = itemEffectiveness(item, userId);
     const setEffect = tmSetEffect(item);
+    // (Hero gear's lines as the heroes page has them: a unique weapon's own effect, its ATK being its main stat.)
+    const linesAt = (at: number): string[] =>
+      item.tmDrop || item.uniqueTreasure || item.uniqueWeapon !== undefined ? heroItemLines(item, at, copy.tmPotentials) : describeEffects(item, share, at);
     const view: GearCopy = {
       id: copy._id,
       itemId: item.id,
@@ -168,7 +171,7 @@ export function gearView(
       description: item.description,
       level,
       maxLevel,
-      effects: item.tmDrop || item.uniqueTreasure ? heroItemLines(item, level, copy.tmPotentials) : describeEffects(item, share, level),
+      effects: linesAt(level),
       mainStat: copyMainStat(item, copy),
       setEffect: setEffect === null ? null : { pieces: TM_SET_PIECES, text: setEffect, active: tmOn.get(copy._id)?.set ?? false },
       additional: item.tmDrop ? tmSkillLine(copy.tmSkill) : null,
@@ -188,7 +191,7 @@ export function gearView(
     const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance);
     view.refine = {
       ...refine,
-      after: to === null ? null : item.uniqueTreasure ? heroItemLines(item, to, copy.tmPotentials) : describeEffects(item, share, to),
+      after: to === null ? null : linesAt(to),
       mainAfter: to === null ? null : copyMainStat(item, { ...copy, level: to }),
     };
     list.push(view);
