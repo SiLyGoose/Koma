@@ -11,7 +11,7 @@ import { bannerWeights, guaranteeChoices, pulledLevel, rollPulls, topChance } fr
 import { rollUtOptions } from '../../lib/game/technomagic.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
 import type { BannerId, ItemCopyDoc, ItemDef, KrOption, MemberDoc, TmPotential } from '../../types.js';
-import { heroOnly } from '../../lib/game/heroes.js';
+import { autoLocked, heroOnly } from '../../lib/game/heroes.js';
 import { resolveGear } from '../items/gear.js';
 import { isDuplicateKey, recordLedger, ensureMember } from './shared.js';
 
@@ -85,14 +85,14 @@ export type PullResult =
   | PullRefusal;
 
 /**
- * Gives the member a new copy of an item (locked when it's 4★): at `level` stars (unless said, a hero's gear's 0★, King's
+ * Gives the member a new copy of an item (locked when it's 4★, of a hero's gear only its T10: autoLocked): at `level` stars (unless said, a hero's gear's 0★, King's
  * Raid's, and the members' own gear's 1★), with `tmPotentials` (a unique treasure's options) when given. `count` is how many
  * copies of it they now have.
  */
 export async function addCopy(guildId: string, userId: string, itemId: string, made: { level?: number; tmPotentials?: TmPotential[]; options?: KrOption[] } = {}): Promise<{ copy: ItemCopyDoc; count: number }> {
   const { items } = collections();
   const item = ITEMS_BY_ID.get(itemId);
-  const locked = item?.stars === 4;
+  const locked = item !== undefined && autoLocked(item);
   const level = made.level ?? (item && heroOnly(item) ? 0 : 1);
   for (let attempt = 0; ; attempt++) {
     const copy: ItemCopyDoc = { _id: newCopyId(), guildId, userId, itemId, level, obtainedAt: new Date(), ...(locked && { locked }), ...(made.tmPotentials && { tmPotentials: made.tmPotentials }), ...(made.options && made.options.length > 0 && { options: made.options }) };

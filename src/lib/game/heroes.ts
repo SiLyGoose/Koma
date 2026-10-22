@@ -63,6 +63,12 @@ export const heroWearable = (item: ItemDef): boolean => item.kr !== undefined ||
 /** Whether only heroes wear an item (the member can't): hero gear (the old TechnoMagic gear too), and the unique weapons and treasures. */
 export const heroOnly = (item: ItemDef): boolean => item.kr !== undefined || item.tmDrop === true || uniqueOwner(item) !== undefined;
 
+/** Whether an item is a hero's T10 gear (King's Raid's top tier): a unique weapon or treasure, or an artifact. */
+export const topTier = (item: ItemDef): boolean => uniqueOwner(item) !== undefined || item.kr?.tier === 10;
+
+/** Whether a copy of an item locks by itself as it is got or refined: the members' own 4★ gear, but of a hero's gear only its T10 (topTier). */
+export const autoLocked = (item: ItemDef): boolean => (heroOnly(item) ? topTier(item) : item.stars === 4);
+
 /** Whether hero `heroId` may wear an item: any of them, but a unique weapon or treasure only its own. */
 export const wieldedBy = (item: ItemDef, heroId: string): boolean => {
   const owner = uniqueOwner(item);

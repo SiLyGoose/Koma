@@ -4,6 +4,7 @@ import { leastStars, refineable, refineCopyPlan, refineCost, refineLevel, refine
 import { equippedCopyIds } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemDef } from '../../types.js';
+import { heroOnly, topTier } from '../../lib/game/heroes.js';
 import { recordLedger } from '../economy/shared.js';
 import { gearChanged } from './gear-events.js';
 
@@ -72,7 +73,8 @@ export async function refineItem(guildId: string, userId: string, item: ItemDef,
   }
   const raised = await items.findOneAndUpdate(
     { _id: plan.target._id, guildId, userId, level: plan.target.level },
-    { $set: { level: plan.to, locked: true } },
+    // (Locked by it, but of a hero's gear only its T10.)
+    { $set: { level: plan.to, ...((!heroOnly(item) || topTier(item)) && { locked: true }) } },
     { returnDocument: 'after' },
   );
   if (!raised) {
