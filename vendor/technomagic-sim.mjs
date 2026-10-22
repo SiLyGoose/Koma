@@ -31906,9 +31906,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		resist: 0,
 		mend: 0
 	};
+	/** The heroes whose Inner Peace the mend is, as this step began: its healing is theirs, shared evenly. */
+	let menders = [];
 	function aurasNow() {
-		const standing = field.filter((on) => on.hp > 0 && !away(on.statuses)).map((on) => on.perkDefs);
-		for (const key of Object.keys(auras)) auras[key] = auraTotal(standing, key);
+		const standing = field.filter((on) => on.hp > 0 && !away(on.statuses));
+		for (const key of Object.keys(auras)) auras[key] = auraTotal(standing.map((on) => on.perkDefs), key);
+		menders = standing.filter((on) => on.perkDefs.some((perk) => perk.allies?.mend));
 	}
 	/** Whether a hero's perk that waits between times (by its name) comes now: then it waits again, `again` seconds. */
 	function perkDue(fighter, name, again) {
@@ -32049,7 +32052,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	function usedWith(fighter, skill) {
 		const ability = fighter.abilities[skill.index];
 		if (skill.mana) fighter.mana = Math.min(MAX_MANA, fighter.mana + skill.mana);
-		if (skill.heal) sim.heal(fighter, skill.heal * fighter.stats.hp);
+		if (skill.heal) sim.heal(fighter, skill.heal * fighter.stats.hp, void 0, fighter);
 		const allies = field.filter((ally) => ally.hp > 0 && !away(ally.statuses));
 		if (skill.cleanse) for (const ally of skill.cleanse === "self" ? [fighter] : allies) ally.statuses = ally.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
 		if (skill.dispel) dispel();
@@ -32136,7 +32139,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		}
 		if (own.secondWind && !fighter.setDone.wind && fighter.hp < fighter.stats.hp * own.secondWind.below) {
 			fighter.setDone.wind = true;
-			sim.heal(fighter, own.secondWind.heal * fighter.stats.hp);
+			sim.heal(fighter, own.secondWind.heal * fighter.stats.hp, void 0, fighter);
 			fighter.stats.speed += own.secondWind.speed;
 			put(fighter.statuses, {
 				name: SET_UP.secondWind.name,
@@ -32158,7 +32161,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (!field.includes(fighter) || fighter.hp <= 0 || away(fighter.statuses)) return;
 		const n = (id) => has(fighter, id);
 		const full = fighter.mana >= MAX_MANA;
-		if (due(fighter, "regeneration", SKILL.regeneration.every)) sim.heal(fighter, SKILL.regeneration.heal * n("regeneration") * fighter.stats.hp);
+		if (due(fighter, "regeneration", SKILL.regeneration.every)) sim.heal(fighter, SKILL.regeneration.heal * n("regeneration") * fighter.stats.hp, void 0, fighter);
 		if (due(fighter, "mana-spring", SKILL["mana-spring"].every)) fighter.mana = Math.min(MAX_MANA, fighter.mana + SKILL["mana-spring"].mana * n("mana-spring"));
 		for (const id of [
 			"focus-1",
@@ -32193,7 +32196,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const wound = fighter.wound > 0 ? fighter.perkDefs.find((perk) => perk.wound)?.wound : void 0;
 		if (wound && (tick + 1) % SECOND === 0) sim.hit(fighter, wound.each, false);
 		if ((tick + 1) % SECOND !== 0 || !field.includes(fighter) || fighter.hp <= 0 || away(fighter.statuses)) return;
-		if (auras.mend > 0) sim.heal(fighter, auras.mend * fighter.stats.hp);
+		if (auras.mend > 0) {
+			const given = sim.heal(fighter, auras.mend * fighter.stats.hp);
+			for (const by of menders) by.healed += given / menders.length;
+		}
 		const nimble = fighter.perkDefs.find((perk) => perk.nimble)?.nimble;
 		if (nimble) fighter.nimble = Math.min(nimble.most, fighter.nimble + 1);
 	}
@@ -32762,17 +32768,19 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			return hitting(by, amount, counted, pierce, whole);
 		},
 		on: as,
-		heal(fighter, amount, by) {
-			if (fighter.hp <= 0) return;
+		heal(fighter, amount, by, from) {
+			if (fighter.hp <= 0) return 0;
 			const given = Math.min(amount * byAttack(by) * healed(by) * healing(fighter.statuses, 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
 			fighter.hp += given;
-			if (by) by.healed += given;
+			const giver = by ?? from;
+			if (giver) giver.healed += given;
 			if (given > 0) events.push({
 				kind: "number",
 				on: fighter.index,
 				amount: given,
 				type: "heal"
 			});
+			return given;
 		},
 		shield(fighter, amount, seconds = Infinity, by) {
 			if (fighter.hp <= 0) return;
@@ -32853,7 +32861,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 					type: "dodged"
 				});
 				target.part.dodged?.();
-				if (due(target, "mirage", SKILL.mirage.wait)) sim.heal(target, SKILL.mirage.heal * has(target, "mirage") * target.stats.hp);
+				if (due(target, "mirage", SKILL.mirage.wait)) sim.heal(target, SKILL.mirage.heal * has(target, "mirage") * target.stats.hp, void 0, target);
 				relics.get(target)?.dodged();
 				return 0;
 			}
@@ -33302,7 +33310,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			dragon: DRAGON_IDS.has(def.id),
 			roll,
 			hit: (by, amount) => void sim.hit(by, amount, true),
-			heal: (on, amount) => sim.heal(on, amount),
+			heal: (on, amount) => void sim.heal(on, amount, void 0, fighter),
 			due: (on, name, again) => perkDue(on, name, again)
 		});
 		if (hooks) relics.set(fighter, hooks);
@@ -34016,7 +34024,7 @@ var KLAUS = {
 				});
 				self.mana = Math.min(MAX_MANA, self.mana + VOW.mana);
 				if (wearsTreasure(self, 3)) {
-					fight.heal(self, UT$42.mittens.heal * self.stats.hp);
+					fight.heal(self, UT$42.mittens.heal * self.stats.hp, void 0, self);
 					put(self.statuses, {
 						name: "Mittens",
 						left: UT$42.mittens.lasts,
@@ -35092,7 +35100,7 @@ var GREMORY = {
 					shown: CHARGED
 				});
 				if (tier !== null) {
-					fight.heal(self, atTier(PIGRITIA.heal, tier) * self.stats.hp);
+					fight.heal(self, atTier(PIGRITIA.heal, tier) * self.stats.hp, void 0, self);
 					filling = PIGRITIA.over;
 				}
 			},
@@ -35720,7 +35728,7 @@ var LAIAS = {
 						by: self
 					});
 					for (const ally of on) {
-						fight.heal(ally, ally.stats.hp * (FESTIVAL.heal + (self.perks.has("s3-dark") ? PERKS$37.festival : 0)));
+						fight.heal(ally, ally.stats.hp * (FESTIVAL.heal + (self.perks.has("s3-dark") ? PERKS$37.festival : 0)), void 0, self);
 						if (ally !== self) ally.mana = Math.min(MAX_MANA, ally.mana + FESTIVAL.mana);
 					}
 					flowing = FESTIVAL.lasts;
@@ -36475,7 +36483,7 @@ var MORRAH = {
 						down: true,
 						by: self
 					});
-					if (self.perks.has("s3-dark")) fight.heal(self, PERKS$35.drain * Math.max(0, before - fight.foe.hp));
+					if (self.perks.has("s3-dark")) fight.heal(self, PERKS$35.drain * Math.max(0, before - fight.foe.hp), void 0, self);
 				}
 			},
 			blocked() {
@@ -38895,7 +38903,7 @@ var PHILLOP = {
 						},
 						shown: INCARNATION
 					});
-					fight.heal(self, INCARNATE.heal * self.stats.hp);
+					fight.heal(self, INCARNATE.heal * self.stats.hp, void 0, self);
 					if (self.perks.has("s3-dark")) fight.stun(PERKS$28.stun, { by: self });
 				}
 			},
@@ -40157,7 +40165,7 @@ var ERZE = {
 			const before = self.dealt;
 			const critical = fight.hit(self, amount, counted);
 			const dealt = self.dealt - before;
-			if (steals > 0 && dealt > 0) fight.heal(self, dealt * steals);
+			if (steals > 0 && dealt > 0) fight.heal(self, dealt * steals, void 0, self);
 			if (skill && dealt > 0 && tier !== null) {
 				greed = Math.min(atTier(PERION.most, tier), greed + 1);
 				greedLeft = PERION.lasts;
@@ -40924,7 +40932,7 @@ var GAU = {
 		const strike = (amount, counted = true) => {
 			const before = self.dealt;
 			const critical = fight.hit(self, amount, counted);
-			if (self.perks.has("s4-dark") && rage > 0) fight.heal(self, (self.dealt - before) * share$2(PERKS$22.fury.lifesteal * rage));
+			if (self.perks.has("s4-dark") && rage > 0) fight.heal(self, (self.dealt - before) * share$2(PERKS$22.fury.lifesteal * rage), void 0, self);
 			return critical;
 		};
 		/** His attack: a blow, a stack of Enrage (all begun again); with his unique weapon, now and then a blow more and the boss frozen. */
@@ -40985,7 +40993,7 @@ var GAU = {
 				mending += dt;
 				if (mending < 1) return;
 				mending -= 1;
-				fight.heal(self, PERKS$22.mend.heal * self.stats.atk);
+				fight.heal(self, PERKS$22.mend.heal * self.stats.atk, void 0, self);
 			},
 			takes() {
 				const uw = tier !== null ? 1 / (1 + atTier(NUMINU.hp, tier)) : 1;
@@ -43288,7 +43296,7 @@ var CHASE = {
 		let relentless = 0;
 		let next = 0;
 		/** A heal of a share of a blow (as his ATK has it). */
-		const drink = (blow, share) => fight.heal(self, blow / 1e3 * self.stats.atk * share);
+		const drink = (blow, share) => void fight.heal(self, blow / 1e3 * self.stats.atk * share, void 0, self);
 		/** [Remove Limit] off: its state gone. */
 		const off = () => {
 			limit = false;
@@ -43341,7 +43349,7 @@ var CHASE = {
 					});
 					else if (part === 1) fight.stun(FURY.stun, { by: self });
 					const heals = self.perks.has("s3-light") ? PERKS$15.heals : 1;
-					if (part === 0) fight.heal(self, self.stats.hp * FURY.heal * heals);
+					if (part === 0) fight.heal(self, self.stats.hp * FURY.heal * heals, void 0, self);
 					drink(blow, FURY.drain * heals);
 				}
 			},
@@ -43382,7 +43390,7 @@ var CHASE = {
 				if (self.hp <= 0) return;
 				if (rose) {
 					rose = false;
-					fight.heal(self, self.stats.hp * HELL.floor);
+					fight.heal(self, self.stats.hp * HELL.floor, void 0, self);
 				}
 				const lost = 1 - self.hp / self.stats.hp;
 				put(self.statuses, {
@@ -43797,7 +43805,7 @@ var ASELICA = {
 						});
 						for (const ally of on.filter((one) => one !== self)) {
 							fight.heal(ally, JUDGMENT$1.heal, self);
-							fight.heal(ally, JUDGMENT$1.healDefense * self.stats.physical * JUDGMENT$1.books);
+							fight.heal(ally, JUDGMENT$1.healDefense * self.stats.physical * JUDGMENT$1.books, void 0, self);
 							put(ally.statuses, {
 								name: GUARDED.name,
 								left: JUDGMENT$1.lasts,
@@ -43815,7 +43823,7 @@ var ASELICA = {
 					});
 					for (const ally of on) {
 						fight.heal(ally, JUDGMENT$1.lastHeal, self);
-						fight.heal(ally, JUDGMENT$1.lastHp * self.stats.hp * JUDGMENT$1.books);
+						fight.heal(ally, JUDGMENT$1.lastHp * self.stats.hp * JUDGMENT$1.books, void 0, self);
 					}
 				}
 			},
@@ -43835,7 +43843,7 @@ var ASELICA = {
 				mending += dt;
 				if (mending >= 1) {
 					mending -= 1;
-					for (const ally of fight.fighters) if (ally.statuses.some((status) => status.name === ANGEL.name)) fight.heal(ally, self.stats.hp * CURSE.heal);
+					for (const ally of fight.fighters) if (ally.statuses.some((status) => status.name === ANGEL.name)) fight.heal(ally, self.stats.hp * CURSE.heal, void 0, self);
 				}
 				if (!sheltered && self.perks.has("t5-dark") && fight.field.includes(self)) {
 					sheltered = true;
@@ -47766,7 +47774,7 @@ var SHEA = {
 					if (part === 0) {
 						fight.cue(self, "melody", on);
 						for (const ally of on) {
-							if (self.perks.has("s1-light")) fight.heal(ally, ally.stats.hp * PERKS$3.heal);
+							if (self.perks.has("s1-light")) fight.heal(ally, ally.stats.hp * PERKS$3.heal, void 0, self);
 							put(ally.statuses, {
 								name: SHELTERED.name,
 								left: MELODY.lasts,
@@ -48148,7 +48156,7 @@ var LAVRIL = {
 		const drain = (amount) => {
 			const alive = fight.foe.hp > 0;
 			fight.hit(self, amount);
-			for (const ally of allies()) fight.heal(ally, amount / 1e3 * self.stats.atk * AWAY.drain * (self.perks.has("s1-dark") ? PERKS$2.heals : 1));
+			for (const ally of allies()) fight.heal(ally, amount / 1e3 * self.stats.atk * AWAY.drain * (self.perks.has("s1-dark") ? PERKS$2.heals : 1), void 0, self);
 			if (alive && fight.foe.hp <= 0) {
 				self.cooldowns[0] = 0;
 				self.mana = Math.min(MAX_MANA, self.mana + SECTION);
@@ -49272,7 +49280,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "aad5713c1c69";
+var SIM_VERSION = "22866e0dfe83";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
