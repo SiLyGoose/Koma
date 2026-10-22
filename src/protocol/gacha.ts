@@ -129,6 +129,8 @@ export interface BannerPull {
   level: number;
   /** A hero's gear (King's Raid's pieces and artifacts, unique weapons and treasures): its level is its stars. Left out: a bot from before. */
   heroOnly?: boolean;
+  /** Hero gear: the part of a hero it is (partOf: a unique weapon's the weapon, a unique treasure's the treasure). Null: not hero gear. Left out: a bot from before. */
+  part?: HeroPart | null;
 }
 
 /** POST /api/gacha/pull: what came out, what it was paid with, and the banner as it stands after. */

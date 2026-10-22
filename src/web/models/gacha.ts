@@ -4,7 +4,7 @@ import { collections } from '../../db.js';
 import { featuredItems, HERO_BANNER, ITEMS_BY_ID, LIMITED_BANNER, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.js';
 import { limitedWindow } from '../../lib/game/items/banner.js';
 import { canUseItem, gearEffects, itemEffectiveness } from '../../lib/game/items/equipment.js';
-import { heroOnly } from '../../lib/game/heroes.js';
+import { heroOnly, partOf } from '../../lib/game/heroes.js';
 import { bannerWeights, guaranteeChoices, ownTreasures, topChance } from '../../lib/game/items/gacha.js';
 import { HISTORY_PAGE, historyFilter } from '../../lib/game/items/history.js';
 import { extraPullChance, pullCost } from '../../perks/index.js';
@@ -88,6 +88,7 @@ const pulled = (userId: string, { item, isNew, count, level }: PulledItem): Bann
   uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
   level,
   heroOnly: heroOnly(item),
+  part: partOf(item),
 });
 
 async function bannerView(guildId: string, userId: string, banner: BannerId): Promise<BannerView> {
