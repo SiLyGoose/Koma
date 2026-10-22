@@ -1195,6 +1195,15 @@ export const ITEMS: readonly ItemDef[] = [
     effects: [],
     uniqueWeapon: 'estelle',
   },
+  {
+    id: 'unchanging-mind-erekura',
+    name: 'Unchanging Mind, Erekura',
+    stars: 4,
+    slot: 'weapon',
+    description: 'When Malduk’s magic resurrected Jane as an undead, she should not have felt anything.',
+    effects: [],
+    uniqueWeapon: 'jane',
+  },
   // The heroes' unique treasures (uniqueTreasure): King's Raid's own, four for each TechnoMagic Raid hero (UT1 to UT4: one
   // for each of its skills, then its passive), only pulled from the Hero Item banner (as its 4-star tier, beside the unique
   // weapons) and only worn by their own hero: one as its main treasure (its effect, Koma-UI's sim/treasures.ts, as far as
@@ -2783,5 +2792,41 @@ export const ITEMS: readonly ItemDef[] = [
     description: '’ Click. BOOM! A photograph that holds the babbles and happiness of that day.',
     effects: [],
     uniqueTreasure: { hero: 'estelle', skill: 4 },
+  },
+  {
+    id: 'funeral-doll',
+    name: 'Funeral Doll',
+    stars: 4,
+    slot: 'treasure',
+    description: 'A doll used in funeral ceremonies in the Republic of Gray. It is normally made to look like the deceased and put in front of the tombstone.',
+    effects: [],
+    uniqueTreasure: { hero: 'jane', skill: 1 },
+  },
+  {
+    id: 'death-imbued-cushion',
+    name: 'Death-imbued Cushion',
+    stars: 4,
+    slot: 'treasure',
+    description: 'The cushion that Jane hugs to sleep inside the coffin. It’s imbued with the spirits that fell asleep with her inside the coffin.',
+    effects: [],
+    uniqueTreasure: { hero: 'jane', skill: 2 },
+  },
+  {
+    id: 'flowers-of-a-forgotten-dukedom',
+    name: 'Flowers of a Forgotten Dukedom',
+    stars: 4,
+    slot: 'treasure',
+    description: 'A flower of the Republic that can no longer be found. It is also known as the Flower of Boundaries that connects life and death, and it gets its nourishment from destruction.',
+    effects: [],
+    uniqueTreasure: { hero: 'jane', skill: 3 },
+  },
+  {
+    id: 'first-friend-doll',
+    name: 'First Friend Doll',
+    stars: 4,
+    slot: 'treasure',
+    description: 'A doll that looks just like Rephy, Jane’s first friend. Jane froze in front of a shop selling poison.',
+    effects: [],
+    uniqueTreasure: { hero: 'jane', skill: 4 },
   },
 ];
