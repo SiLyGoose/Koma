@@ -44,6 +44,7 @@ import type { MainStat } from './items.js';
  *                           itself once everyone is, without going back to getting ready (one with no hero in goes
  *                           back to getting ready, to pick)
  *                 parted    its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's)
+ *                 heroes    reads their heroes again (the page's Manage closed: one may have been transcended meanwhile)
  *                 chat      says something to the room (./chat.ts)
  *   bot -> page   room      the room as it is now: whenever anything about it changes
  *                 fight     a fight has begun (or is going on, for a page that just joined): what to run it from
@@ -70,6 +71,7 @@ export type ClientMessage =
   | { t: 'back' }
   | { t: 'again' }
   | { t: 'parted'; no: number; second: number }
+  | { t: 'heroes' }
   | ChatClientMessage;
 
 /** Someone in the room. */

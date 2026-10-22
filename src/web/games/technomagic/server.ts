@@ -96,6 +96,12 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             return answer(await room.again(userId));
           case 'parted':
             return room.parted(userId, message.no, message.second);
+          case 'heroes': {
+            // (Not read: what they had stays.)
+            const owned = await deps.owned(player.guildId, player.userId).catch(() => null);
+            if (owned) room.reowned(userId, owned);
+            return;
+          }
           case 'chat':
             return room.say(userId, message.text, await chatImage(message));
         }

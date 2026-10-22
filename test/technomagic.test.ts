@@ -230,6 +230,20 @@ test('technomagic room: says how far each player’s heroes are transcended (non
   assert.deepEqual(second?.transcend, {});
 });
 
+test('technomagic room: a player’s heroes read again (Manage closed) are what every page shows', () => {
+  const h = harness();
+  const a = h.peer();
+  h.rooms.join(h.player('a'), a, ALL);
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('b'), b, ALL)!;
+  assert.equal(room.pick('a', ALL[0] as string, 0), null);
+  assert.equal(room.pick('a', ALL[1] as string, 0), null);
+  room.reowned('a', new Map(ALL.slice(1).map((id) => [id, id === ALL[1] ? 4 : 0])));
+  const [first] = b.room().players;
+  assert.deepEqual(first?.transcend, { [ALL[1] as string]: 4 });
+  assert.deepEqual(b.room().lineup.map((pick) => pick.hero), [ALL[1]], 'one no longer theirs goes out');
+});
+
 test('technomagic room: the host brings up to 4, everyone else 3, 8 in all, even alone in the server’s room', async () => {
   const h = harness();
   const a = h.peer();

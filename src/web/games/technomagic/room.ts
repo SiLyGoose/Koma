@@ -428,6 +428,18 @@ export class TechnoMagicRoom {
     return null;
   }
 
+  /**
+   * `userId`'s heroes read again (their page's Manage closed: one may have been transcended meanwhile), for every page to
+   * show. Getting ready, one of theirs in the lineup they no longer own goes out of it.
+   */
+  reowned(userId: string, owned: Owned): void {
+    const member = this.members.get(userId);
+    if (!member) return;
+    member.owned = new Map(isMap(owned) ? owned : owned.map((id) => [id, 0]));
+    if (this.phase === 'prep' && !this.starting) this.lineup = this.lineup.filter((pick) => pick.owner !== userId || member.owned.has(pick.hero));
+    this.tell();
+  }
+
   /** `userId` takes their hero `hero` out of the lineup. */
   unpick(userId: string, hero: string): AnswerCode | null {
     const member = this.members.get(userId);
