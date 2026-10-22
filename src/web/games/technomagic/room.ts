@@ -566,7 +566,7 @@ export class TechnoMagicRoom {
     };
     let engine: FightEngine | string;
     try {
-      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, mode, heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, skills, perks, sub }) => ({ id, skin, gear, set, uw, ut, skills, perks, sub })) });
+      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, mode, heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, artifact, skills, perks, sub }) => ({ id, skin, gear, set, uw, ut, artifact, skills, perks, sub })) });
     } catch (err) {
       engine = err instanceof Error ? err.message : String(err);
     }

@@ -463,6 +463,27 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(a.room().phase, 'prep');
 });
 
+test("technomagic room: a hero's artifact goes into the fight, the bot's and the pages'", async () => {
+  const h = harness();
+  const begin = h.deps.begin;
+  h.deps.begin = async (...args) => {
+    const run = await begin(...args);
+    for (const player of run.players.values()) player.artifacts = new Map(ALL.map((id) => [id, id === 'kirze' ? { id: 'artifact-1001', tier: 3 } : null]));
+    return run;
+  };
+  const runs: Run[] = [];
+  h.deps.fights = { start: (run) => (runs.push(run), localFights.start(run)) };
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  room.pick('a', 'kirze', 0);
+  room.pick('a', 'klaus', 0);
+  assert.equal(await room.begin('a'), null);
+  const fight = a.got.find((m) => m.t === 'fight');
+  assert.ok(fight && fight.t === 'fight');
+  assert.deepEqual(fight.fight.heroes.map((hero) => hero.artifact), [{ id: 'artifact-1001', tier: 3 }, null]);
+  assert.deepEqual(runs[0]?.heroes.map((hero) => hero.artifact), [{ id: 'artifact-1001', tier: 3 }, null]);
+});
+
 test('technomagic room: the host can force the start, those not ready fighting all the same and those with no hero in sitting it out', async () => {
   const h = harness();
   const a = h.peer();
