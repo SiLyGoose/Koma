@@ -9745,9 +9745,9 @@ var FATAL = {
 	deals: .14,
 	mostOnIt: 10
 };
-/** What it gives itself back a second, of its health, and how much more its healing gives it: from stage `from` on, `later`. */
+/** What it gives itself back a second, of its health, and how much higher its Heal Rate is: from stage `from` on, `later`. */
 var LIFE_FORCE = {
-	share: .00393,
+	share: .01,
 	healing: .7,
 	later: 1.2,
 	from: 4
@@ -9841,6 +9841,8 @@ function ownPart(fight) {
 	let swampAmount = 0;
 	/** Whether the fight is at stage 4 or past it. */
 	const late = () => fight.stage >= STAGES.from;
+	/** Its own Heal Rate, as a share (added up with what is on it). */
+	const lifeForce = () => 1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing);
 	/** The heroes the boss can reach. */
 	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
 	/** The hero that has dealt the most since the last is shut away in the swamp; every other hero deals more meanwhile. */
@@ -9965,7 +9967,7 @@ function ownPart(fight) {
 		},
 		tick(dt) {
 			for (const [attack, left] of cooldowns) cooldowns.set(attack, Math.max(0, left - dt));
-			fight.mend(foe.maxHp * LIFE_FORCE.share * (1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing)) * dt);
+			fight.mend(foe.maxHp * LIFE_FORCE.share * dt, lifeForce());
 			if (swamp > 0) {
 				swamp -= dt;
 				swampHurts += dt;
@@ -9986,11 +9988,13 @@ function ownPart(fight) {
 		unstolen: true,
 		steady: true,
 		marks() {
+			const heals = `${Number((LIFE_FORCE.share * healing(foe.statuses, lifeForce()) * 100).toPrecision(2))}%`;
 			return [
 				{
-					text: "Persistent Life Force",
+					text: `Persistent Life Force ${heals}`,
 					tone: "venom",
-					art: stateArt("3590041")
+					art: stateArt("3590041"),
+					count: heals
 				},
 				{
 					text: `Swamp Imprisonment ${hits}/${IMPRISONMENT.hits}`,
@@ -33078,10 +33082,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		},
 		stagger,
-		mend(amount) {
+		mend(amount, ...more) {
 			const foe = current();
 			if (foe.hp <= 0) return;
-			const given = Math.min(amount * healing(foe.statuses), foe.maxHp - foe.hp);
+			const given = Math.min(amount * healing(foe.statuses, ...more), foe.maxHp - foe.hp);
 			foe.hp += given;
 			mended += given;
 		},
@@ -49838,7 +49842,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "7204c0dda765";
+var SIM_VERSION = "4ff9f27d7b4b";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
