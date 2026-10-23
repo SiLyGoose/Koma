@@ -36,6 +36,8 @@ export const TM_FIGHT = {
   turnMs: 100,
   /** The most presses (skills and Autos) a player makes in a turn: more are dropped (nobody taps faster than this). */
   pressesPerTurn: 4,
+  /** A page whose run of a fight parted from the bot's is given it again no more than once in this long (ms). */
+  resyncMs: 2000,
   announceMs: 10 * 60_000,
 } as const;
 

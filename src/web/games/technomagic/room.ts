@@ -185,8 +185,9 @@ interface Fight {
   /** What the players asked of it since it was last stepped on, and whether it is being stepped on now. */
   pending: Intent[];
   stepping: boolean;
-  /** How many times each player's page said its run of it parted from the bot's (the first time, it is given the fight again: resync). */
+  /** How many times each player's page said its run of it parted from the bot's, and when it was last given the fight again for it. */
   parted: Map<string, number>;
+  resynced: Map<string, number>;
   /** The presses (skills and Autos) each player has made since it was last stepped on: no more than TM_FIGHT.pressesPerTurn. */
   presses: Map<string, number>;
   /** The players who left it for good (`quit`): it gives them nothing. */
@@ -595,7 +596,7 @@ export class TechnoMagicRoom {
       this.tell();
       return 'failed';
     }
-    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Map(), presses: new Map(), forfeited: new Set(), stop: () => {}, done: false };
+    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Map(), resynced: new Map(), presses: new Map(), forfeited: new Set(), stop: () => {}, done: false };
     this.fight = fight;
     this.ended = null;
     this.phase = 'fight';
@@ -729,9 +730,10 @@ export class TechnoMagicRoom {
 
   /**
    * `userId`'s page says its run of fight `no` (going on, or just over) parted from the bot's at `second` (its checksum then
-   * wasn't the bot's). The bot's is the one that counts: the first time, the page is given the fight again (its start and
-   * every press so far), to run it again from the start up to where the bot's is. The same sim, seed and presses never part,
-   * so a page that parts again with them all is something to look into (it isn't given it again: it would only part again).
+   * wasn't the bot's). The bot's is the one that counts: each time, the page is given the fight again (its start and every
+   * press so far), to run it again from the start up to where the bot's is (showing Reconnecting… meanwhile), but no more
+   * than once every TM_FIGHT.resyncMs (a page asking without end is let be: it asks again by reconnecting). The same sim,
+   * seed and presses never part, so it is something to look into: noted the first two times.
    */
   parted(userId: string, no: number, second: number): void {
     const fight = [this.fight, this.ended].find((one) => one?.start.no === no);
@@ -739,10 +741,14 @@ export class TechnoMagicRoom {
     if (!fight || !member) return;
     const times = (fight.parted.get(userId) ?? 0) + 1;
     fight.parted.set(userId, times);
-    if (times > 2) return;
-    const again = times === 1 ? 'given the fight again' : 'again after it was given the fight again';
-    console.warn(`A page's TechnoMagic Raid fight parted from the bot's (${again}): server ${this.guildId}, run ${fight.run.id}, sim ${SIM_VERSION}, second ${second}, player ${userId}.`);
-    if (times === 1 && member.peer) this.showFight(member.peer, fight);
+    if (times <= 2) {
+      const again = times === 1 ? 'given the fight again' : 'again after it was given the fight again';
+      console.warn(`A page's TechnoMagic Raid fight parted from the bot's (${again}): server ${this.guildId}, run ${fight.run.id}, sim ${SIM_VERSION}, second ${second}, player ${userId}.`);
+    }
+    const now = this.deps.now();
+    if (!member.peer || now - (fight.resynced.get(userId) ?? -Infinity) < TM_FIGHT.resyncMs) return;
+    fight.resynced.set(userId, now);
+    this.showFight(member.peer, fight);
   }
 
   /** `userId` says `text` to the room, with a picture (`image`) or not. */

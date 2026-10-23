@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { GAMES } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
-import { DRAGON_ROOM, TM_ROOM } from '../src/constants/index.js';
+import { DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
@@ -638,18 +638,22 @@ test('technomagic room: a page back after the fight is over, or whose run parted
   assert.equal(ran.result, over.result);
   assert.equal(ran.ticks, over.upTo);
 
-  // Parted: given the fight again the first time; parting again, it isn't (it would only part again).
+  // Parted: given the fight again each time, but no more than once every TM_FIGHT.resyncMs.
   const warn = console.warn;
   const warned: string[] = [];
   console.warn = (line: string) => void warned.push(line);
   try {
-    const before = back.got.length;
+    const given = () => back.got.filter((m) => m.t === 'fight' || m.t === 'turn').map((m) => m.t);
+    const before = given().length;
     room.parted('b', start.fight.no, 12);
-    assert.deepEqual(back.got.slice(before).map((m) => m.t), ['fight', 'turn']);
+    assert.deepEqual(given().slice(before), ['fight', 'turn']);
     room.parted('b', start.fight.no, 12);
+    assert.equal(given().length, before + 2, 'not again so soon');
+    await h.pass(TM_FIGHT.resyncMs);
     room.parted('b', start.fight.no, 12);
-    assert.equal(back.got.length, before + 2);
+    assert.deepEqual(given().slice(before + 2), ['fight', 'turn'], 'given it again once it has been a while');
     room.parted('b', start.fight.no + 1, 3);
+    assert.equal(given().length, before + 4, 'not a fight there was');
     assert.equal(warned.length, 2, 'noted the first two times, for a fight there was');
   } finally {
     console.warn = warn;
