@@ -34,6 +34,8 @@ export const DRAGON_ROOM = { ...TM_ROOM, slots: 9, soloSlots: 8 } as const;
  */
 export const TM_FIGHT = {
   turnMs: 100,
+  /** The most presses (skills and Autos) a player makes in a turn: more are dropped (nobody taps faster than this). */
+  pressesPerTurn: 4,
   announceMs: 10 * 60_000,
 } as const;
 

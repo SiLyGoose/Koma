@@ -599,6 +599,84 @@ test('technomagic room: one who presses Auto and leaves in the same turn has the
   assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 1]]);
 });
 
+test('technomagic room: a page back after the fight is over, or whose run parted from the bot\'s, is given the whole fight to run to the bot\'s end', async () => {
+  const h = harness();
+  const a = h.peer();
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('b'), b, ALL);
+  room.pick('a', 'kirze', 0);
+  room.pick('a', 'fallen-frey', 0);
+  room.pick('b', 'klaus', 0);
+  room.ready('b', true);
+  assert.equal(await room.begin('a'), null);
+  const start = a.got.find((m) => m.t === 'fight');
+  assert.ok(start && start.t === 'fight');
+  room.autoAll('a');
+  await h.pass(300);
+
+  // b's page drops mid-fight; the fight runs to its end without it.
+  room.leave('b', b);
+  for (let i = 0; i < 300 && a.room().phase === 'fight'; i++) await h.pass(1000);
+  const over = a.room().over;
+  assert.ok(over);
+  assert.equal(over.no, start.fight.no);
+  assert.equal(over.upTo, h.finished[0]?.ticks, 'the result says the step the fight ended at');
+
+  // Back as the result is up: the whole fight, every press, up to its last step.
+  const back = h.peer();
+  h.rooms.join(h.player('b'), back, ALL);
+  const again = back.got.filter((m) => m.t === 'fight');
+  assert.equal(again.length, 1);
+  assert.ok(again[0]?.t === 'fight' && again[0].fight.no === start.fight.no);
+  const all = back.got.find((m) => m.t === 'turn');
+  assert.ok(all && all.t === 'turn');
+  assert.equal(all.upTo, over.upTo);
+  const told = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
+  assert.deepEqual(all.inputs, told);
+  const ran = replay({ boss: TM_BOSS, seed: 77, stage: 1, heroes: start.fight.heroes.map(({ id, skin, gear, skills }) => ({ id, skin, gear, skills })) }, all.inputs);
+  assert.equal(ran.result, over.result);
+  assert.equal(ran.ticks, over.upTo);
+
+  // Parted: given the fight again the first time; parting again, it isn't (it would only part again).
+  const warn = console.warn;
+  const warned: string[] = [];
+  console.warn = (line: string) => void warned.push(line);
+  try {
+    const before = back.got.length;
+    room.parted('b', start.fight.no, 12);
+    assert.deepEqual(back.got.slice(before).map((m) => m.t), ['fight', 'turn']);
+    room.parted('b', start.fight.no, 12);
+    room.parted('b', start.fight.no, 12);
+    assert.equal(back.got.length, before + 2);
+    room.parted('b', start.fight.no + 1, 3);
+    assert.equal(warned.length, 2, 'noted the first two times, for a fight there was');
+  } finally {
+    console.warn = warn;
+  }
+
+  // Back to getting ready: the fight is let go, and a page back then isn't given it.
+  assert.equal(room.back('a'), null);
+  const later = h.peer();
+  h.rooms.join(h.player('b'), later, ALL);
+  assert.ok(!later.got.some((m) => m.t === 'fight'));
+});
+
+test('technomagic room: a player presses no more than a few times a turn (the rest dropped), so the fight\'s presses stay few', async () => {
+  const h = harness();
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  room.pick('a', 'kirze', 0);
+  room.pick('a', 'fallen-frey', 0);
+  assert.equal(await room.begin('a'), null);
+  for (let i = 0; i < 20; i++) room.press('a', i % 2, 0);
+  await h.pass(100);
+  for (let i = 0; i < 3; i++) room.auto('a', 0);
+  await h.pass(100);
+  const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
+  assert.deepEqual(pressed.map((input) => input.kind), ['skill', 'skill', 'skill', 'skill', 'auto', 'auto', 'auto']);
+});
+
 test('technomagic room: the host can give up, and a room with nobody left is gone', async () => {
   const h = harness();
   const a = h.peer();

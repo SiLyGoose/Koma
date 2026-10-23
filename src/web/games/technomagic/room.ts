@@ -185,8 +185,10 @@ interface Fight {
   /** What the players asked of it since it was last stepped on, and whether it is being stepped on now. */
   pending: Intent[];
   stepping: boolean;
-  /** The players whose pages said their run of it parted from the bot's. */
-  parted: Set<string>;
+  /** How many times each player's page said its run of it parted from the bot's (the first time, it is given the fight again: resync). */
+  parted: Map<string, number>;
+  /** The presses (skills and Autos) each player has made since it was last stepped on: no more than TM_FIGHT.pressesPerTurn. */
+  presses: Map<string, number>;
   /** The players who left it for good (`quit`): it gives them nothing. */
   forfeited: Set<string>;
   stop: () => void;
@@ -204,6 +206,11 @@ export class TechnoMagicRoom {
   private stageHost: string | null = null;
   private phase: RoomState['phase'] = 'prep';
   private fight: Fight | null = null;
+  /**
+   * The fight just over, kept while its result is up (until the next fight begins, or the room goes back to getting
+   * ready): a page back meanwhile is given all of it, to draw it to its end (and its Battle Stats) before the result.
+   */
+  private ended: Fight | null = null;
   private over: OverView | null = null;
   /** The host has pressed Start and the run is being begun (nothing about the lineup changes meanwhile). */
   private starting = false;
@@ -310,7 +317,8 @@ export class TechnoMagicRoom {
     if (!before) this.trim();
     this.tell();
     peer.send(this.chat.history());
-    if (this.fight) this.showFight(peer);
+    const shown = this.fight ?? (this.phase === 'over' ? this.ended : null);
+    if (shown) this.showFight(peer, shown);
     return before?.peer && before.peer !== peer ? before.peer : null;
   }
 
@@ -587,15 +595,16 @@ export class TechnoMagicRoom {
       this.tell();
       return 'failed';
     }
-    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Set(), forfeited: new Set(), stop: () => {}, done: false };
+    const fight: Fight = { start, engine, run, startedAt: this.deps.now(), owners: start.heroes.map((hero) => hero.owner), tick: 0, inputs: [], sums: [], pending: [], stepping: false, parted: new Map(), presses: new Map(), forfeited: new Set(), stop: () => {}, done: false };
     this.fight = fight;
+    this.ended = null;
     this.phase = 'fight';
     this.over = null;
     for (const member of this.members.values()) member.ready = false;
     // (One away as it starts: their heroes fight on Auto until they're back.)
     for (const member of this.members.values()) if (!member.peer) fight.pending.push({ kind: 'autos', fighters: this.mine(member.player.userId), on: true });
     this.tell();
-    for (const member of this.members.values()) if (member.peer) this.showFight(member.peer);
+    for (const member of this.members.values()) if (member.peer) this.showFight(member.peer, fight);
     fight.stop = this.deps.every(TM_FIGHT.turnMs, () => void this.turn(fight));
     return null;
   }
@@ -607,7 +616,21 @@ export class TechnoMagicRoom {
 
   /** `userId` presses skill `skill` of their hero `fighter`. */
   press(userId: string, fighter: number, skill: number): void {
-    if (this.owns(userId, fighter)) this.fight?.pending.push({ kind: 'skill', fighter, skill });
+    if (this.owns(userId, fighter) && this.pressing(userId)) this.fight?.pending.push({ kind: 'skill', fighter, skill });
+  }
+
+  /**
+   * Whether `userId` may press once more before the fight is next stepped on (one more counted): no more than
+   * TM_FIGHT.pressesPerTurn, more than anyone taps, so a page pressing without end can't fill the fight's presses (every
+   * page coming back draws the fight again from all of them).
+   */
+  private pressing(userId: string): boolean {
+    const { fight } = this;
+    if (!fight) return false;
+    const made = fight.presses.get(userId) ?? 0;
+    if (made >= TM_FIGHT.pressesPerTurn) return false;
+    fight.presses.set(userId, made + 1);
+    return true;
   }
 
   /** The heroes of the fight that are `userId`'s, by their places in the lineup: not the Sub Team's, which are on Auto for good (one who has left the room: none). */
@@ -618,12 +641,12 @@ export class TechnoMagicRoom {
 
   /** `userId` turns their hero `fighter`'s Auto on or off (not one of the Sub Team's). */
   auto(userId: string, fighter: number): void {
-    if (this.owns(userId, fighter) && this.mine(userId).includes(fighter)) this.fight?.pending.push({ kind: 'auto', fighter });
+    if (this.owns(userId, fighter) && this.mine(userId).includes(fighter) && this.pressing(userId)) this.fight?.pending.push({ kind: 'auto', fighter });
   }
 
   /** `userId` turns every hero of theirs' Auto on (or, with all of them on already, off). */
   autoAll(userId: string): void {
-    if (this.fight && !this.fight.done) this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId) });
+    if (this.fight && !this.fight.done && this.members.has(userId) && this.pressing(userId)) this.fight.pending.push({ kind: 'autos', fighters: this.mine(userId) });
   }
 
   /** The host gives up the fight: lost. */
@@ -663,6 +686,7 @@ export class TechnoMagicRoom {
     if (!this.members.has(userId) || this.phase !== 'over' || this.starting) return 'closed';
     this.phase = 'prep';
     this.over = null;
+    this.ended = null;
     this.dropGone();
     this.tell();
     return null;
@@ -704,14 +728,21 @@ export class TechnoMagicRoom {
   }
 
   /**
-   * `userId`'s page says its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's: the
-   * same sim, seed and presses should never part, so it is something to look into). Noted once a page, for the fight going on.
+   * `userId`'s page says its run of fight `no` (going on, or just over) parted from the bot's at `second` (its checksum then
+   * wasn't the bot's). The bot's is the one that counts: the first time, the page is given the fight again (its start and
+   * every press so far), to run it again from the start up to where the bot's is. The same sim, seed and presses never part,
+   * so a page that parts again with them all is something to look into (it isn't given it again: it would only part again).
    */
   parted(userId: string, no: number, second: number): void {
-    const { fight } = this;
-    if (!fight || fight.start.no !== no || fight.parted.has(userId)) return;
-    fight.parted.add(userId);
-    console.warn(`A page's TechnoMagic Raid fight parted from the bot's: server ${this.guildId}, run ${fight.run.id}, sim ${SIM_VERSION}, second ${second}, player ${userId}.`);
+    const fight = [this.fight, this.ended].find((one) => one?.start.no === no);
+    const member = this.members.get(userId);
+    if (!fight || !member) return;
+    const times = (fight.parted.get(userId) ?? 0) + 1;
+    fight.parted.set(userId, times);
+    if (times > 2) return;
+    const again = times === 1 ? 'given the fight again' : 'again after it was given the fight again';
+    console.warn(`A page's TechnoMagic Raid fight parted from the bot's (${again}): server ${this.guildId}, run ${fight.run.id}, sim ${SIM_VERSION}, second ${second}, player ${userId}.`);
+    if (times === 1 && member.peer) this.showFight(member.peer, fight);
   }
 
   /** `userId` says `text` to the room, with a picture (`image`) or not. */
@@ -730,6 +761,7 @@ export class TechnoMagicRoom {
     fight.stepping = true;
     const due = Math.floor((this.deps.now() - fight.startedAt) / (STEP_SECONDS * 1000));
     try {
+      fight.presses.clear();
       const progress = await fight.engine.advance(due, fight.pending.splice(0));
       if (fight.done) return;
       const told = { inputs: fight.inputs.length, sums: fight.sums.length };
@@ -752,10 +784,8 @@ export class TechnoMagicRoom {
     return { t: 'turn', no: fight.start.no, upTo: fight.tick, inputs: fight.inputs.slice(from), sums };
   }
 
-  /** A page joining (or back) during a fight: what to run it from, and everything so far. */
-  private showFight(peer: Peer): void {
-    const { fight } = this;
-    if (!fight) return;
+  /** A page joining (or back) during a fight or as its result is up, or given it again (parted): what to run it from, and everything so far. */
+  private showFight(peer: Peer, fight: Fight): void {
     peer.send({ t: 'fight', fight: fight.start });
     peer.send(this.turnOf(fight, 0, 0));
   }
@@ -782,9 +812,12 @@ export class TechnoMagicRoom {
       }
     }
     this.fight = null;
+    this.ended = fight;
     this.phase = 'over';
     this.over = {
       result,
+      no: fight.start.no,
+      upTo: fight.tick,
       drops: Object.fromEntries([...got].map(([userId, { drops }]) => [userId, drops])),
       points: Object.fromEntries([...got].map(([userId, { points }]) => [userId, points])),
       ...(this.raid.kind === 'dragon' && { essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])) }),

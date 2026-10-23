@@ -133,6 +133,9 @@ export interface DropView {
  */
 export interface OverView {
   result: 'won' | 'lost';
+  /** Which fight it was (FightStart.no), and the step it ended at: a page draws its run of it that far before showing this. */
+  no: number;
+  upTo: number;
   drops: Record<string, DropView[]>;
   /** The runes each found (King's Raid's: their names and icons). */
   runes?: Record<string, { id: string; name: string; icon: string; grade: number }[]>;
