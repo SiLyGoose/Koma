@@ -17,8 +17,8 @@ import { KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, TM_ARTIFACTS, type K
  *
  * Every copy is at its max level (King's Raid's +30): only its refinement (King's Raid's stars, R1 to R5: a duplicate used up
  * each, as any gear's) raises its main stat (KR_REFINE). Its options (ItemCopyDoc.options) are rolled as it drops, each any
- * stat of its pool's (two may be the same, as King's Raid's), by its pool's weights, at a step at random; a reroll rolls one again, an upgrade raises one a
- * step. Its runes (KR_RUNES: King's Raid's 224) go in its sockets, as many as its part has (and a unique weapon's three).
+ * stat of its pool's (two may be the same, as King's Raid's), by its pool's weights, at a step at random; a reroll rolls one again, an enhance rolls one's
+ * step again (its stat kept). Its runes (KR_RUNES: King's Raid's 224) go in its sockets, as many as its part has (and a unique weapon's three).
  */
 
 export { KR_POOLS, KR_RUNES, KR_SETS };
@@ -201,12 +201,15 @@ export function rerollKrOption(kr: KrItem, options: readonly KrOption[], index: 
   return options.map((one, i) => (i === index ? { stat: option.stat, step: stepOf(option, rng), rerolls: (old.rerolls ?? 0) + 1 } : one));
 }
 
-/** A copy's options with one of those not at their top raised a step, at random (null: all are at their top). */
-export function upgradeKrOption(kr: KrItem, options: readonly KrOption[], rng: KrRng = defaultRng): KrOption[] | null {
-  const open = options.map((option, i) => ({ option, i, steps: poolOption(kr.pool, option.stat)?.steps ?? 0 })).filter(({ option, steps }) => option.step < steps);
-  if (open.length === 0) return null;
-  const { i } = open[rng.index(open.length)] as { i: number };
-  return options.map((one, k) => (k === i ? { ...one, step: one.step + 1 } : one));
+/**
+ * A copy's options with its `index`th's amount rolled again: the same stat, at a step at random (any as likely: it may go
+ * down, or land where it was, never a straight climb to the top). Null: no such option.
+ */
+export function upgradeKrOption(kr: KrItem, options: readonly KrOption[], index: number, rng: KrRng = defaultRng): KrOption[] | null {
+  const old = options[index];
+  const option = old ? poolOption(kr.pool, old.stat) : undefined;
+  if (!old || !option) return null;
+  return options.map((one, i) => (i === index ? { ...one, step: stepOf(option, rng) } : one));
 }
 
 /** Whether a copy's options can be upgraded at all (King's Raid's TechnoMagic gear's can't: only rerolled). */
@@ -220,7 +223,7 @@ export const REROLL_PRICES: readonly number[] = [500, 1_000, 2_000, 4_000, 6_000
 export const rerollPrice = (rerolls: number): number => REROLL_PRICES[Math.min(REROLL_PRICES.length - 1, Math.max(0, Math.floor(rerolls)))] as number;
 
 /**
- * What upgrading an option a step costs (points): a dragon set's piece by its tier, King's Raid's materials for it
+ * What enhancing an option (rolling its amount again) costs (points): a dragon set's piece by its tier, King's Raid's materials for it
  * (EquipOptionUpgradeTable's Legendary); a TechnoMagic piece's, TM_UPGRADE_PRICE (the user's).
  */
 export const UPGRADE_PRICES: Readonly<Record<number, number>> = { 6: 512, 7: 768, 8: 1_152 };

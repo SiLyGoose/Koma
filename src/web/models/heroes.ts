@@ -40,7 +40,7 @@ import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
 import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
 import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
-import { enhanceable, TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
+import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
 import { keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
@@ -84,8 +84,8 @@ export interface HeroStore {
   reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
   /** Keeps a TechnoMagic copy's rerolled additional skill ('new') or the one it had ('old'): the heroes after, or why not. */
   keep: (guildId: string, userId: string, copy: string, keep: HeroKeep) => Promise<HeroesView | HeroOptionError>;
-  /** Upgrades one of a copy's options a step, for points: the heroes after, or why not. */
-  upgrade: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroOptionError>;
+  /** Enhances one of a copy's options (its `option`th: its amount rolled again), for points: the heroes after, or why not. */
+  upgrade: (guildId: string, userId: string, copy: string, option: number) => Promise<HeroesView | HeroOptionError>;
   /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too; `salvage`: salvaged): what it came to, or 'nothing_to_sell'. */
   sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean, salvage?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
@@ -157,13 +157,12 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
   const kr = item.kr;
   const options = copy.options ?? [];
   const pool = kr?.pool ? KR_POOLS[kr.pool] : undefined;
-  const maxed = kr ? options.every((option) => option.step >= (poolOption(kr.pool, option.stat)?.steps ?? 0)) : true;
   return {
     reroll: kr && pool && options.length > 0 ? Math.min(...options.map((option) => rerollPrice(option.rerolls ?? 0))) : null,
     // (In komaGems.)
     rerollUnique: kr?.unique ? UNIQUE_REROLL_GEMS : null,
-    // (A unique treasure's options: enhanced, while one is below its range's top.)
-    upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).some(enhanceable) ? UT_ENHANCE.price : null) : kr && upgradable(kr) && options.length > 0 && !maxed ? upgradePrice(kr) : null,
+    // (Enhancing rolls an amount again, so a copy with options always can, at their top or not; a unique treasure's too.)
+    upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? UT_ENHANCE.price : null) : kr && upgradable(kr) && options.length > 0 ? upgradePrice(kr) : null,
   };
 }
 
@@ -362,8 +361,8 @@ export const heroStore: HeroStore = {
     const result = await keepTmSkill(guildId, userId, copy, keep);
     return result.ok ? load(guildId, userId) : result.reason;
   },
-  upgrade: async (guildId, userId, copy) => {
-    const result = await upgradeOption(guildId, userId, copy);
+  upgrade: async (guildId, userId, copy, option) => {
+    const result = await upgradeOption(guildId, userId, copy, option);
     return result.ok ? load(guildId, userId) : result.reason;
   },
   sell: (guildId, userId, copies, locked, salvage) => gearStore.sell(guildId, userId, copies, locked, salvage),

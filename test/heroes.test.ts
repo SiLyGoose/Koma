@@ -249,7 +249,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.ok(armor?.rerolled?.startsWith('Berserk'), 'its rerolled effect waits beside it, not yet its own');
   assert.equal(armor?.setEffect?.pieces, 4);
   assert.equal(armor?.setEffect?.active, false);
-  assert.equal(view.copies.find((copy) => copy.id === 'ring')?.upgrade, null, 'all its options at their top');
+  assert.equal(view.copies.find((copy) => copy.id === 'ring')?.upgrade, 1_152, 'all its options at their top, and still enhanced: their amounts rolled again');
   // A unique treasure's options are its potentials, each a step of its range's, enhanced (the forge's), never rerolled.
   const cape = heroesView([{ _id: 'cape', itemId: 'cape-of-justice', level: 1, tmPotentials: [{ stat: 'atk', value: 0.07 }, { stat: 'defPhysical', value: 0.22 }] }], member).copies[0];
   assert.deepEqual(cape?.options.map(({ line, step, steps }) => [line, step, steps]), [['+7% ATK', 2, 7], ['+22% P. DEF', 11, 11]]);
@@ -335,9 +335,9 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`keep ${copy} ${keep}`);
       return copy === 'c1' ? empty : 'no_option';
     },
-    upgrade: async (guildId, userId, copy) => {
-      calls.push(`upgrade ${copy}`);
-      return copy === 'c1' ? empty : 'maxed';
+    upgrade: async (guildId, userId, copy, option) => {
+      calls.push(`upgrade ${copy} ${option}`);
+      return option === 0 ? empty : 'no_option';
     },
   };
   const deps: ApiDeps = {
@@ -431,9 +431,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await post('/api/heroes/keep', { guild: 'g1', copy: 'c1', keep: 'new' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/keep', { guild: 'g1', copy: 'c2', keep: 'old' })).json(), { error: 'no_option' });
     assert.equal((await post('/api/heroes/keep', { guild: 'g1', copy: 'c1', keep: 'both' })).status, 400);
-    assert.equal((await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c1' })).status, 200);
-    assert.deepEqual(await (await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c2' })).json(), { error: 'maxed' });
-    assert.deepEqual(calls.slice(-10), ['rune c1 0 fierce-5', 'rune c1 0 null', 'rune c1 0 none', 'reroll c1 0', 'reroll c1 unique', 'reroll c1 1', 'keep c1 new', 'keep c2 old', 'upgrade c1', 'upgrade c2']);
+    // An option's amount rolled again: the option's index needed.
+    assert.equal((await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c1', option: 0 })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c1', option: 1 })).json(), { error: 'no_option' });
+    assert.equal((await post('/api/heroes/upgrade', { guild: 'g1', copy: 'c1' })).status, 400);
+    assert.deepEqual(calls.slice(-10), ['rune c1 0 fierce-5', 'rune c1 0 null', 'rune c1 0 none', 'reroll c1 0', 'reroll c1 unique', 'reroll c1 1', 'keep c1 new', 'keep c2 old', 'upgrade c1 0', 'upgrade c1 1']);
     calls.length -= 10;
     assert.deepEqual(calls, [
       'equip kirze weapon c1',

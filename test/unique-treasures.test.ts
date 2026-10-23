@@ -4,7 +4,7 @@ import { HEROES } from '../src/data/heroes.js';
 import { gachaItems, ITEMS_BY_ID, UNIQUE_TREASURES, validateItems } from '../src/data/items.js';
 import { UT_OPTION_LINES } from '../src/data/tm-potentials.js';
 import { fitsSlot, heroItemLines, heroOnly, heroSlotsFor, heroWearable, pieceBonus, raidGear, SIDE_SLOTS, wieldedBy } from '../src/lib/game/heroes.js';
-import { enhanceable, enhanceUtOptions, rollUtOptions } from '../src/lib/game/technomagic.js';
+import { enhanceUtOptions, rollUtOptions } from '../src/lib/game/technomagic.js';
 import { TM_POTENTIAL_RANGES } from '../src/data/tm-potentials.js';
 import { heroesView } from '../src/web/models/heroes.js';
 import { replay, uniqueTreasureText } from '../vendor/technomagic-sim.mjs';
@@ -127,12 +127,15 @@ test("unique treasures: the stats King's Raid adds roll in their ranges (Recover
   }
   for (const stat of Object.keys(added)) assert.ok(seen.has(stat), `${stat} never rolled`);
 
-  // One option a step higher, the other as it was; at the top, only the other; both at the top, none.
+  // The option picked rolled again anywhere in its range (its steps: recovery's half percents), the other as it was; at its top too.
   const options: TmPotential[] = [{ stat: 'recovery', value: 0.145 }, { stat: 'acc', value: 0.11 }];
-  assert.deepEqual(enhanceUtOptions(options), [{ stat: 'recovery', value: 0.15 }, { stat: 'acc', value: 0.11 }]);
-  assert.equal(enhanceable({ stat: 'acc', value: 0.11 }), false);
-  assert.equal(enhanceUtOptions([{ stat: 'recovery', value: 0.15 }, { stat: 'acc', value: 0.11 }]), null);
-  const low: TmPotential[] = [{ stat: 'atk', value: 0.05 }, { stat: 'crit', value: 0.05 }];
-  const once = enhanceUtOptions(low)!;
-  assert.equal(Math.round((once[0]!.value + once[1]!.value) * 1000), 110);
+  assert.deepEqual(enhanceUtOptions(options, 0, { index: () => 0 }), [{ stat: 'recovery', value: 0.075 }, { stat: 'acc', value: 0.11 }]);
+  assert.deepEqual(enhanceUtOptions(options, 0, { index: () => 1 }), [{ stat: 'recovery', value: 0.08 }, { stat: 'acc', value: 0.11 }]);
+  assert.deepEqual(enhanceUtOptions(options, 1, { index: () => 0 }), [{ stat: 'recovery', value: 0.145 }, { stat: 'acc', value: 0.05 }]);
+  assert.deepEqual(enhanceUtOptions(options, 1, { index: (n) => n - 1 }), [{ stat: 'recovery', value: 0.145 }, { stat: 'acc', value: 0.11 }]);
+  assert.equal(enhanceUtOptions(options, 2), null);
+  for (let i = 0; i < 200; i++) {
+    const [{ value }] = enhanceUtOptions([{ stat: 'atk', value: 0.12 }], 0)!;
+    assert.ok(value >= 0.05 - 1e-9 && value <= 0.12 + 1e-9 && Math.abs(value * 100 - Math.round(value * 100)) < 1e-6, `atk ${value}`);
+  }
 });

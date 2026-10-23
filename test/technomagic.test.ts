@@ -740,10 +740,13 @@ test("technomagic: each piece rolls King's Raid's options (any stat of its pool,
   assert.equal(rerollKrOption(tm, [{ stat: tmFirst, step: 0 }, { stat: tmFirst, step: 0 }], 0, { index: () => 0 })?.[0]?.stat, tmFirst);
   assert.equal(rerollKrOption(dragon, [{ stat: dragonFirst, step: 0 }, { stat: dragonSecond, step: 0 }], 0, { index: () => 0 })?.[0]?.stat, dragonSecond);
   assert.equal(rerollKrOption(dragon, [{ stat: dragonSecond, step: 0 }, { stat: dragonFirst, step: 0 }], 0, { index: () => 0 })?.[0]?.stat, dragonFirst);
-  assert.deepEqual(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 3 }], { index: () => 0 }), [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 4 }]);
-  assert.equal(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }]), null);
+  // Enhancing rolls the picked option's amount again, its stat kept: down as well as up, at its top or not; no such option, null.
+  const top = (kr: typeof tm, stat: string) => KR_POOLS[kr.pool!]!.find((option) => option.stat === stat)!.steps;
+  assert.deepEqual(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 3 }], 0, { index: () => 2 }), [{ stat: 'atk', step: 2 }, { stat: 'crit', step: 3 }]);
+  assert.deepEqual(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }, { stat: 'crit', step: 3 }], 1, { index: (n) => n - 1 }), [{ stat: 'atk', step: 10 }, { stat: 'crit', step: top(dragon, 'crit') }]);
+  assert.equal(upgradeKrOption(dragon, [{ stat: 'atk', step: 10 }], 1), null);
   assert.ok(upgradable(tm) && upgradable(dragon));
-  assert.deepEqual(upgradeKrOption(tm, [{ stat: 'atk', step: 0 }, { stat: 'hp', step: 2 }], { index: () => 0 }), [{ stat: 'atk', step: 1 }, { stat: 'hp', step: 2 }]);
+  assert.deepEqual(upgradeKrOption(tm, [{ stat: 'atk', step: 0, rerolls: 2 }, { stat: 'hp', step: 2 }], 0, { index: () => 1 }), [{ stat: 'atk', step: 1, rerolls: 2 }, { stat: 'hp', step: 2 }]);
   assert.equal(upgradePrice(tm), 1_000);
   assert.deepEqual([0, 1, 5, 9].map(rerollPrice), [500, 1_000, 8_000, 8_000]);
 });

@@ -22,6 +22,8 @@ const Lock = z.object({ copy: CopyId, locked: z.boolean() });
 const Rune = z.object({ copy: CopyId, socket: z.number().int().min(0).max(8), rune: z.string().max(64).nullable() });
 /** One of a copy's options (from 0), or its unique option. */
 const Reroll = z.object({ copy: CopyId, option: z.union([z.number().int().min(0).max(8), z.literal('unique')]) });
+/** One of a copy's options (from 0), its amount rolled again. */
+const Upgrade = z.object({ copy: CopyId, option: z.number().int().min(0).max(8) });
 /** A TechnoMagic copy's rerolled additional skill kept ('new'), or the one it had ('old'). */
 const Keep = z.object({ copy: CopyId, keep: z.enum(['old', 'new']) });
 /** One slot, or (left out) all of them. */
@@ -102,8 +104,8 @@ export function heroController(heroes: HeroService) {
     },
 
     async upgrade(req, res) {
-      const { copy } = parse(Refine, req.body);
-      res.json(await heroes.upgrade(res.locals.guildId, res.locals.session.userId, copy));
+      const { copy, option } = parse(Upgrade, req.body);
+      res.json(await heroes.upgrade(res.locals.guildId, res.locals.session.userId, copy, option));
     },
 
     async sell(req, res) {

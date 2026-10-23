@@ -98,7 +98,7 @@ export type HeroRuneStack = HeroRune & { count: number; parts: HeroPart[] };
 
 /**
  * One of a copy's options (a unique treasure's: its potentials): its stat, its line ("ATK +14%"), its step of `steps` (an upgrade
- * raises one a step), and what rerolling it costs (a unique treasure's: 0, never rerolled).
+ * rolls one's again), and what rerolling it costs (a unique treasure's: 0, never rerolled).
  */
 export interface HeroOption {
   stat: string;
@@ -134,8 +134,8 @@ export interface HeroCopy {
   runes: (HeroRune | null)[];
   /**
    * What rerolling one of its options costs (POST /api/heroes/reroll; zeiucoins), its unique option (TechnoMagic gear's
-   * additional skill; komaGems), and upgrading an option a step (POST /api/heroes/upgrade: one at random not yet at its top;
-   * zeiucoins); null where it can't be.
+   * additional skill; komaGems), and upgrading an option (POST /api/heroes/upgrade with its `option`: its amount rolled
+   * again, anywhere from its least to its most; zeiucoins); null where it can't be.
    */
   reroll: number | null;
   rerollUnique: number | null;
@@ -305,7 +305,7 @@ export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune'
  * Why an option wasn't rerolled or upgraded, or a rerolled effect kept (nothing was spent). 'pending': its effect was
  * rerolled and the member hasn't kept one yet.
  */
-export type HeroOptionError = 'not_found' | 'no_option' | 'maxed' | 'too_poor' | 'no_gems' | 'pending' | 'busy';
+export type HeroOptionError = 'not_found' | 'no_option' | 'too_poor' | 'no_gems' | 'pending' | 'busy';
 
 /** Which additional skill a TechnoMagic copy keeps after its reroll (POST /api/heroes/keep): the one it had, or the one rolled. */
 export type HeroKeep = 'old' | 'new';

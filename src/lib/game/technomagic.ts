@@ -131,38 +131,31 @@ export function rollTmPotentials(rng: TmRng = defaultRng, lines: number = TM_POT
   while (out.length < lines && pool.length > 0) {
     const [stat] = pool.splice(rng.index(pool.length), 1);
     if (stat === undefined) break;
-    // (In whole percents, or half ones for a range whose ends aren't whole: potentialStep.)
-    const range = CONFIG.hero.potentials[stat];
-    const step = potentialStep(range);
-    const low = Math.round(range.min / step);
-    const high = Math.max(low, Math.round(range.max / step));
-    out.push({ stat, value: Math.round((low + rng.index(high - low + 1)) * step * 1000) / 1000 });
+    out.push({ stat, value: rollPotentialValue(CONFIG.hero.potentials[stat], rng) });
   }
   return out;
+}
+
+/** An amount between a range's ends, any as likely: in whole percents, or half ones for a range whose ends aren't whole (potentialStep). */
+function rollPotentialValue(range: { min: number; max: number }, rng: TmRng): number {
+  const step = potentialStep(range);
+  const low = Math.round(range.min / step);
+  const high = Math.max(low, Math.round(range.max / step));
+  return Math.round((low + rng.index(high - low + 1)) * step * 1000) / 1000;
 }
 
 /** The options a unique treasure's copy comes with as it is pulled: UT_OPTION_LINES of the potentials, rolled as TechnoMagic gear's are. */
 export const rollUtOptions = (rng: TmRng = defaultRng): TmPotential[] => rollTmPotentials(rng, UT_OPTION_LINES);
 
-/** Whether a unique treasure's option is below its range's top (it can be enhanced). */
-export const enhanceable = ({ stat, value }: TmPotential): boolean => {
-  const range = CONFIG.hero.potentials[stat];
-  return range !== undefined && value < range.max - 1e-9;
-};
-
 /**
- * A unique treasure's options with one of those below their range's top, at random, a step higher (potentialStep, never past
- * the top): UT_ENHANCE. Null: all are at their top.
+ * A unique treasure's options with its `index`th's amount rolled again, anywhere in its range (as it was pulled: it may go
+ * down, or land where it was): UT_ENHANCE. Null: no such option.
  */
-export function enhanceUtOptions(options: readonly TmPotential[], rng: TmRng = defaultRng): TmPotential[] | null {
-  const open = options.map((option, i) => ({ option, i })).filter(({ option }) => enhanceable(option));
-  if (open.length === 0) return null;
-  const { i } = open[rng.index(open.length)] as { i: number };
-  return options.map((option, k) => {
-    if (k !== i) return option;
-    const range = CONFIG.hero.potentials[option.stat];
-    return { ...option, value: Math.min(range.max, Math.round((option.value + potentialStep(range)) * 1000) / 1000) };
-  });
+export function enhanceUtOptions(options: readonly TmPotential[], index: number, rng: TmRng = defaultRng): TmPotential[] | null {
+  const old = options[index];
+  const range = old ? CONFIG.hero.potentials[old.stat] : undefined;
+  if (!old || !range) return null;
+  return options.map((option, i) => (i === index ? { ...option, value: rollPotentialValue(range, rng) } : option));
 }
 
 /** A copy's potentials to the nearest whole percent: null if they already are (as the copies from before that were not). */

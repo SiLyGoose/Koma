@@ -11,7 +11,7 @@ import { recordLedger } from './economy/shared.js';
 /*
  * King's Raid's hero gear in the database (the rules are data/kr-gear.ts's): runes put in a copy's sockets and taken out
  * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out), and a copy's options rerolled
- * or upgraded for points (King's Raid's gem prices: data/kr-gear.ts's REROLL_PRICES and UPGRADE_PRICES). Each spends first,
+ * or their amounts rolled again (enhanced) for points (King's Raid's gem prices: data/kr-gear.ts's REROLL_PRICES and UPGRADE_PRICES). Each spends first,
  * then changes the copy only as it was (its options as read): anything else changed it meanwhile, it is paid back.
  */
 
@@ -152,17 +152,17 @@ export async function keepTmSkill(guildId: string, userId: string, copyId: strin
 }
 
 /**
- * Upgrades one of a copy's options a step (one at random of those not at their top), for points by its tier; a unique
- * treasure's, enhanced (UT_ENHANCE: refining it doesn't). All at their top: 'maxed'.
+ * Enhances one of a copy's options (its `index`th, from 0): its amount rolled again, its stat kept (it may go down), for points
+ * by its tier; a unique treasure's, as UT_ENHANCE has it (refining it doesn't). Not an option it has: 'no_option'.
  */
-export async function upgradeOption(guildId: string, userId: string, copyId: string, rng?: KrRng): Promise<OptionResult> {
+export async function upgradeOption(guildId: string, userId: string, copyId: string, index: number, rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
   if (copy && item?.uniqueTreasure) {
     const options = copy.tmPotentials ?? [];
-    const after = enhanceUtOptions(options, rng);
-    if (!after) return { ok: false, reason: options.length > 0 ? 'maxed' : 'no_option' };
+    const after = enhanceUtOptions(options, index, rng);
+    if (!after) return { ok: false, reason: 'no_option' };
     if (!(await pay(guildId, userId, UT_ENHANCE.price))) return { ok: false, reason: 'too_poor' };
     const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options }, { $set: { tmPotentials: after } });
     if (done.modifiedCount === 0) {
@@ -176,8 +176,8 @@ export async function upgradeOption(guildId: string, userId: string, copyId: str
   if (!copy || !item || !kr) return { ok: false, reason: 'not_found' };
   if (!upgradable(kr)) return { ok: false, reason: 'no_option' };
   const options = copy.options ?? [];
-  const after = upgradeKrOption(kr, options, rng);
-  if (!after) return { ok: false, reason: 'maxed' };
+  const after = upgradeKrOption(kr, options, index, rng);
+  if (!after) return { ok: false, reason: 'no_option' };
   const cost = upgradePrice(kr);
   if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
   const done = await items.updateOne({ guildId, userId, _id: copyId, options }, { $set: { options: after } });

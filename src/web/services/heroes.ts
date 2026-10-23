@@ -69,8 +69,8 @@ export function heroService(deps: ApiDeps) {
     reroll: async (guildId: string, userId: string, copy: string, option: number | 'unique'): Promise<HeroesView> => answer(await store.reroll(guildId, userId, copy, option)),
     /** Keeps a TechnoMagic copy's rerolled additional skill, or the one it had. */
     keep: async (guildId: string, userId: string, copy: string, keep: HeroKeep): Promise<HeroesView> => answer(await store.keep(guildId, userId, copy, keep)),
-    /** Upgrades one of a copy's options a step. */
-    upgrade: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy)),
+    /** Enhances one of a copy's options: its amount rolled again. */
+    upgrade: async (guildId: string, userId: string, copy: string, option: number): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy, option)),
 
     /** Sells those copies (the same one twice counts once; `locked`: locked ones too; `salvage`: the hero gear among them salvaged for komaDust). */
     async sell(guildId: string, userId: string, copies: string[], locked = false, salvage = false): Promise<HeroesSold> {
