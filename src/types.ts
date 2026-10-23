@@ -74,7 +74,7 @@ export interface ItemDef {
   kr?: KrItem;
   /**
    * A reward, never a copy (data/kr-gear.ts KR_GRANTS): a unique weapon or treasure selector, sent to the member's mailbox
-   * to be picked there; or a rune of a grade, rolled as it is given. Its icon is King's Raid's. Missing means it isn't one.
+   * to be held as a ticket once claimed; or a rune of a grade, rolled as it is given. Its icon is King's Raid's. Missing means it isn't one.
    */
   grant?: ItemGrant;
 }
@@ -84,7 +84,7 @@ export type ItemGrant = { selector: 'uw' | 'ut'; icon: string } | { runeGrade: n
 
 /**
  * Something a mail carries (services/mail.ts), given as it is claimed: points, komaGems, komaTokens, copies of an item, runes,
- * or a selector (a unique weapon of any hero, or a unique treasure of any hero's, picked as it is claimed).
+ * or a selector (a ticket held, member.selectors: a unique weapon of any hero, or a unique treasure of any hero's, picked as it is used).
  */
 export type MailAttachment =
   | { kind: 'points'; amount: number }
@@ -107,7 +107,7 @@ export interface MailDoc {
   createdAt: Date;
   readAt?: Date;
   claimedAt?: Date;
-  /** Claimed: what each of its attachments was picked as (a selector's item id), by its index; null for any other. */
+  /** Claimed back when a selector was picked as it was claimed: what each attachment was picked as (its item id), by its index; null for any other. */
   picked?: (string | null)[];
 }
 
@@ -248,7 +248,8 @@ export interface MemberDoc {
   /** komaDust, from salvaging hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
   powder?: number;
   /**
-   * Unique Weapon and Unique Treasure Tickets crafted from komaDust (services/economy/powder.ts), held until used (its hero's
+   * Unique Weapon and Unique Treasure Tickets crafted from komaDust (services/economy/powder.ts) or claimed from mail
+   * (services/mail.ts), held until used (its hero's
    * item picked as it is). Missing means none.
    */
   selectors?: { uw?: number; ut?: number };

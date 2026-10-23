@@ -7,9 +7,9 @@
 export interface MailAttachmentView {
   text: string;
   icon: string | null;
-  /** A selector: a unique weapon or a unique treasure, picked as it is claimed. */
+  /** A selector: a Unique Weapon or Unique Treasure Ticket, held once claimed (RaidShopView.selectors) and picked as it is used. */
   selector: 'uw' | 'ut' | null;
-  /** A selector claimed: what it was picked as (its item). Null otherwise (left out: a bot from before). */
+  /** A selector claimed back when it was picked as it was claimed: what it was picked as (its item). Null otherwise. */
   picked?: MailPickItem | null;
   /** One of the bot's currencies (zeiucoins, komaGems, komaTokens): its emoji is its picture. Left out: none. */
   currency?: 'points' | 'gems' | 'tokens';
@@ -55,13 +55,13 @@ export interface MailboxView {
   unread: number;
 }
 
-/** GET /api/mail/tickets: the heroes a ticket can be picked for (asked for as a ticket's popup opens, not with the mail). */
+/** GET /api/mail/tickets: the heroes a ticket can be picked for (asked for as a ticket's popup opens, using one). */
 export interface MailTickets {
   heroes: MailHero[];
 }
 
-/** POST /api/mail/claim's answer: the mailbox after, and what it gave, a line each. */
+/** POST /api/mail/claim's answer: the mailbox after, and what it gave, a line each (a ticket: "Unique Weapon Ticket"). */
 export type MailClaimed = MailboxView & { given: string[] };
 
 /** Why a mail wasn't claimed (nothing given). */
-export type MailClaimError = 'not_found' | 'claimed' | 'needs_pick' | 'bad_pick';
+export type MailClaimError = 'not_found' | 'claimed';

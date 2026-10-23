@@ -9,7 +9,7 @@ import { ensureMember, recordLedger } from './shared.js';
  * komaDust: what salvaging hero gear gives (services/items/sell.ts), as King's Raid's grinding gives Magic Powder. It is kept on
  * the member (`powder`, missing means 0), and `sell.powderPerGem` of it crafts a komaGem (King's Raid's 1,000 Fragments of
  * Infinity to a Stone of Infinity), and `sell.powderPerSelector` of it a Unique Weapon or Unique Treasure Ticket, held on the
- * member (`selectors`) until they use it: a unique weapon or treasure of any hero's, picked as they do (as a mailbox ticket's).
+ * member (`selectors`, as a mailbox's ticket claimed) until they use it: a unique weapon or treasure of any hero's, picked as they do.
  */
 
 export type CraftResult = { ok: true; gems: number; powder: number } | { ok: false; reason: 'bad_count' | 'too_poor' };

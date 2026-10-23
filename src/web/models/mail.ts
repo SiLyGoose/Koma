@@ -3,7 +3,7 @@ import { ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.
 import { copyMainStat } from '../../lib/game/heroes.js';
 import { uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import { KR_RUNES_BY_ID } from '../../data/kr-gear.js';
-import { claimMail, listMail, readMail, type SelectorPick } from '../../services/mail.js';
+import { claimMail, listMail, readMail } from '../../services/mail.js';
 import type { MailAttachment, MailDoc } from '../../types.js';
 import type { MailAttachmentView, MailboxView, MailClaimError, MailHero, MailPickItem, MailTicketItem, MailView } from '../../protocol/mail.js';
 
@@ -11,14 +11,14 @@ export type { MailboxView };
 
 /*
  * The mailbox on the site (GET /api/mail, POST /api/mail/read, /claim): a member's mail, the newest first, what each carries
- * a line each, and the heroes a selector can be picked for (services/mail.ts sends and claims it).
+ * a line each, and the heroes a ticket can be picked for, as it is used (services/mail.ts sends and claims it).
  */
 
 /** What the mail routes use (the database's, unless a test says otherwise). */
 export interface MailStore {
   view: (guildId: string, userId: string) => Promise<MailboxView>;
   read: (guildId: string, userId: string, id: string | null) => Promise<MailboxView>;
-  claim: (guildId: string, userId: string, id: string, picks?: SelectorPick | readonly SelectorPick[]) => Promise<(MailboxView & { given: string[] }) | MailClaimError>;
+  claim: (guildId: string, userId: string, id: string) => Promise<(MailboxView & { given: string[] }) | MailClaimError>;
 }
 
 const SELECTOR_ICON = { uw: 'WEAPON_UNIQUE_SELECT_ITEM', ut: 'TREASURE_UNIQUE_SELECT_ITEM' } as const;
@@ -72,7 +72,7 @@ function ticketItem(id: string | undefined): MailTicketItem | null {
   return { itemId: item.id, name: item.name, main: main && { name: main.name, value: main.value }, effect };
 }
 
-/** The heroes a selector can be picked for (GET /api/mail/tickets): every hero, with its unique weapon and its four unique treasures (those it has). */
+/** The heroes a ticket can be picked for (GET /api/mail/tickets, the Inventory's Others using one): every hero, with its unique weapon and its four unique treasures (those it has). */
 export const MAIL_HEROES: readonly MailHero[] = HEROES.map((hero) => ({
   id: hero.id,
   name: hero.name,
@@ -94,8 +94,8 @@ export const mailStore: MailStore = {
     await readMail(guildId, userId, id);
     return load(guildId, userId);
   },
-  claim: async (guildId, userId, id, picks) => {
-    const result = await claimMail(guildId, userId, id, picks);
+  claim: async (guildId, userId, id) => {
+    const result = await claimMail(guildId, userId, id);
     return result.ok ? { ...(await load(guildId, userId)), given: result.given } : result.reason;
   },
 };

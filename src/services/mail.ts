@@ -11,8 +11,8 @@ import { ensureMember, recordLedger } from './economy/shared.js';
  * The members' mailboxes (MailDoc, the `mail` collection): mail the bot sends (a Hero Item pull's Unique Weapon or Unique
  * Treasure Ticket: grantReward) and the bot admin sends with a title, a message and rewards (the mail command: sendMail).
  * A member reads it on the site (its mail icon shows how many wait for them: unread, or with rewards unclaimed) and claims what it carries: points, komaGems,
- * komaTokens, copies of an item, runes, or a selector, whose hero (and, a unique treasure's, which of its four) they pick as
- * they claim it. Claimed once: a second claim finds it claimed.
+ * komaTokens, copies of an item, runes, or a selector, held as a ticket (the member's `selectors`, the site's Inventory's
+ * Others) until they use it (services/economy/powder.ts useSelector). Claimed once: a second claim finds it claimed.
  */
 
 /** How many mails a mailbox shows at most (the newest). */
@@ -33,7 +33,7 @@ export async function everyoneIn(guildId: string): Promise<string[]> {
 }
 
 /**
- * Gives a reward item (ItemDef.grant) a pull gave: a selector as a mail (its ticket, to be picked in the mailbox), a rune of a
+ * Gives a reward item (ItemDef.grant) a pull gave: a selector as a mail (its ticket, held once claimed), a rune of a
  * grade to their runes. What it gave: the mail's id, or the rune's.
  */
 export async function grantReward(guildId: string, userId: string, item: ItemDef): Promise<string | null> {
@@ -46,7 +46,7 @@ export async function grantReward(guildId: string, userId: string, item: ItemDef
       guildId,
       userId,
       title: item.name,
-      message: `From the Hero Item banner: claim it to pick the ${grant.selector === 'uw' ? 'unique weapon' : 'unique treasure'} you want.`,
+      message: `From the Hero Item banner: claim it, then use it in your Inventory's Others to pick the ${grant.selector === 'uw' ? 'unique weapon' : 'unique treasure'} you want.`,
       from: 'system',
       attachments: [{ kind: 'selector', of: grant.selector }],
       createdAt: new Date(),
@@ -88,7 +88,7 @@ export interface SelectorPick {
   skill?: number;
 }
 
-export type ClaimResult = { ok: true; given: string[] } | { ok: false; reason: 'not_found' | 'claimed' | 'needs_pick' | 'bad_pick' };
+export type ClaimResult = { ok: true; given: string[] } | { ok: false; reason: 'not_found' | 'claimed' };
 
 /** The item a selector's pick is (undefined: no such hero's, or skill). */
 export function selectorItem(of: 'uw' | 'ut', pick: SelectorPick | undefined): ItemDef | undefined {
@@ -97,31 +97,20 @@ export function selectorItem(of: 'uw' | 'ut', pick: SelectorPick | undefined): I
 }
 
 /**
- * Claims a member's mail: everything it carries given (a selector, the unique weapon or treasure it was picked as: `picks`,
- * one for each of its selectors in order, or one for them all). What it gave, a line each; or why not ('needs_pick': a
- * selector with no pick, 'bad_pick': one that isn't a hero's). What each selector was picked as is kept (MailDoc.picked).
+ * Claims a member's mail: everything it carries given (a selector, a ticket of its kind held, picked as it is used). What it
+ * gave, a line each; or why not.
  */
-export async function claimMail(guildId: string, userId: string, id: string, picks?: SelectorPick | readonly SelectorPick[], now: Date = new Date()): Promise<ClaimResult> {
+export async function claimMail(guildId: string, userId: string, id: string, now: Date = new Date()): Promise<ClaimResult> {
   const { mail, members } = collections();
   const doc = await mail.findOne({ _id: id, guildId, userId });
   if (!doc) return { ok: false, reason: 'not_found' };
   if (doc.claimedAt) return { ok: false, reason: 'claimed' };
-  // Each selector's pick: its own, in order (or the one for them all).
-  let nth = 0;
-  const pickOf = (): SelectorPick | undefined => (Array.isArray(picks) ? picks[nth++] : (picks as SelectorPick | undefined));
-  const items = doc.attachments.map((one) => (one.kind === 'selector' ? { of: one.of, pick: pickOf() } : null));
-  if (items.some((one) => one && !one.pick)) return { ok: false, reason: 'needs_pick' };
-  const picked = items.map((one) => (one ? (selectorItem(one.of, one.pick)?.id ?? null) : null));
-  if (items.some((one, i) => one && picked[i] === null)) return { ok: false, reason: 'bad_pick' };
-  const claimed = await mail.updateOne(
-    { _id: id, claimedAt: { $exists: false } },
-    { $set: { claimedAt: now, readAt: doc.readAt ?? now, ...(picked.some((one) => one !== null) && { picked }) } },
-  );
+  const claimed = await mail.updateOne({ _id: id, claimedAt: { $exists: false } }, { $set: { claimedAt: now, readAt: doc.readAt ?? now } });
   if (claimed.modifiedCount === 0) return { ok: false, reason: 'claimed' };
   await ensureMember(guildId, userId);
   const given: string[] = [];
   const inc: Record<string, number> = {};
-  for (const [index, attachment] of doc.attachments.entries()) {
+  for (const attachment of doc.attachments) {
     switch (attachment.kind) {
       case 'points':
       case 'gems':
@@ -144,13 +133,10 @@ export async function claimMail(guildId: string, userId: string, id: string, pic
         given.push(`${attachment.count}× ${item.name}`);
         break;
       }
-      case 'selector': {
-        const item = ITEMS_BY_ID.get(picked[index] ?? '');
-        if (!item) break;
-        await addCopy(guildId, userId, item.id, { ...(item.uniqueTreasure && { tmPotentials: rollUtOptions() }) });
-        given.push(item.name);
+      case 'selector':
+        inc[`selectors.${attachment.of}`] = (inc[`selectors.${attachment.of}`] ?? 0) + 1;
+        given.push(attachment.of === 'uw' ? 'Unique Weapon Ticket' : 'Unique Treasure Ticket');
         break;
-      }
     }
   }
   if (Object.keys(inc).length > 0) await members.updateOne({ guildId, userId }, { $inc: inc });

@@ -8,13 +8,12 @@ import { MAIL_HEROES, mailStore } from '../models/mail.js';
 
 /*
  * /api/mail: the mailbox, for a logged-in member in a server they're in (and a game's link, for its own member there): their
- * mail, reading it, and claiming what it carries (a selector with the hero, and a unique treasure's skill, they pick).
+ * mail, reading it, and claiming what it carries (a selector held as a ticket, picked as it is used: /api/raid-shop/use).
  */
 
 const Read = z.object({ id: z.string().max(64).nullish() });
-const Pick = z.object({ hero: z.string().max(64), skill: z.number().int().min(1).max(4).optional() });
-/** A claim: the mail, and its selectors' picks (`picks`, one for each in order; or `hero` and `skill`, one for them all). */
-const Claim = z.object({ id: z.string().max(64), hero: z.string().max(64).optional(), skill: z.number().int().min(1).max(4).optional(), picks: z.array(Pick).max(20).optional() });
+/** A claim: the mail. */
+const Claim = z.object({ id: z.string().max(64) });
 
 export function mailRoutes(deps: ApiDeps): Router {
   const store = deps.mail ?? mailStore;
@@ -31,9 +30,8 @@ export function mailRoutes(deps: ApiDeps): Router {
       res.json(await store.read(res.locals.guildId, res.locals.session.userId, id ?? null));
     },
     async claim(req, res) {
-      const { id, hero, skill, picks } = parse(Claim, req.body);
-      const one = hero ? { hero, ...(skill && { skill }) } : undefined;
-      const result = await store.claim(res.locals.guildId, res.locals.session.userId, id, picks?.map((pick) => ({ hero: pick.hero, ...(pick.skill && { skill: pick.skill }) })) ?? one);
+      const { id } = parse(Claim, req.body);
+      const result = await store.claim(res.locals.guildId, res.locals.session.userId, id);
       if (typeof result === 'string') throw new ApiError(result);
       res.json(result);
     },

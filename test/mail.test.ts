@@ -36,7 +36,7 @@ test('mail command: whom to, the title, the message and the rewards', () => {
   assert.equal(parseReward('item:uw-selector'), null, 'a ticket is sent as uw or ut');
 });
 
-test('mail: a selector is any hero’s unique weapon, or any of a hero’s four unique treasures, picked as it is claimed', () => {
+test('mail: a selector is any hero’s unique weapon, or any of a hero’s four unique treasures, picked as its ticket is used', () => {
   assert.equal(selectorItem('uw', { hero: 'klaus' })?.uniqueWeapon, 'klaus');
   assert.equal(selectorItem('ut', { hero: 'klaus', skill: 3 })?.uniqueTreasure?.skill, 3);
   assert.equal(selectorItem('ut', { hero: 'klaus' }), undefined, "a unique treasure's skill picked too");
@@ -46,7 +46,7 @@ test('mail: a selector is any hero’s unique weapon, or any of a hero’s four 
   const items = MAIL_HEROES.flatMap((hero) => [hero.weapon, ...hero.treasures]);
   assert.deepEqual(items.filter((item) => !item?.main || item.main.value <= 0 || !item.effect).map((item) => item?.itemId), []);
   assert.deepEqual(attachmentView({ kind: 'selector', of: 'uw' }), { text: 'Unique Weapon Ticket', icon: 'WEAPON_UNIQUE_SELECT_ITEM', selector: 'uw', picked: null });
-  // Claimed: what it was picked as, beside it.
+  // Claimed back when it was picked as it was claimed: what it was picked as, beside it.
   const exian = selectorItem('uw', { hero: 'klaus' });
   assert.deepEqual(attachmentView({ kind: 'selector', of: 'uw' }, exian?.id).picked, { itemId: exian?.id, name: exian?.name });
   assert.equal(attachmentView({ kind: 'points', amount: 5000 }).text, '5,000 zeiucoins');
