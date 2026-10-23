@@ -224,3 +224,64 @@ test('raid shop web: a logged-in member sees the shelf and buys with komaGems, i
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+test('raid shop web: 10,000 komaDust crafts a Unique Weapon or Unique Treasure Ticket, held until used for a hero’s item', async () => {
+  assert.equal(DEFAULTS.sell.powderPerSelector, 10_000);
+  assert.ok(findSpec('sell.powderPerSelector'), 'a setting');
+  let state = { powder: 25_000, selectors: { uw: 0, ut: 0 } };
+  const view = (): RaidShopView => ({ refresh: { max: 5, left: 5, price: 5 }, items: [], gems: 0, resetsAt: 1_800_000_000_000, powder: state.powder, powderPerGem: 1000, powderPerSelector: 10_000, selectors: { ...state.selectors } });
+  const calls: string[] = [];
+  const store: RaidShopStore = {
+    view: async () => view(),
+    buy: async () => 'not_found',
+    refresh: async () => 'no_refreshes',
+    craft: async (_guildId, _userId, count, recipe) => {
+      calls.push(`craft ${count} ${recipe}`);
+      if (recipe === 'gem') return view();
+      if (state.powder < count * 10_000) return 'too_poor';
+      state = { powder: state.powder - count * 10_000, selectors: { ...state.selectors, [recipe]: state.selectors[recipe] + count } };
+      return view();
+    },
+    use: async (_guildId, _userId, of, pick) => {
+      calls.push(`use ${of} ${pick.hero} ${pick.skill ?? '-'}`);
+      if (pick.hero !== 'kirze') return 'bad_pick';
+      if (state.selectors[of] < 1) return 'not_owned';
+      state = { ...state, selectors: { ...state.selectors, [of]: state.selectors[of] - 1 } };
+      return { ...view(), given: of === 'uw' ? 'Kirze’s weapon' : 'Kirze’s treasure' };
+    },
+  };
+  const deps: ApiDeps = { config: SITE, clientId: () => '999', guild: (id) => (id === 'g1' ? { name: id, icon: null } : null), memberName: async () => 'ZEIU', balance: async () => 0, raidShop: store };
+  const session = signSession({ userId: 'u1', name: 'ZEIU', avatar: null, guildIds: ['g1'] }, 'shh');
+  const headers = { Origin: SITE.origin, 'Content-Type': 'application/json', Authorization: `Bearer ${session}` };
+  const server: Server = createServer(createApi(deps));
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const post = (path: string, body: unknown) => fetch(`${base}/api/raid-shop/${path}`, { method: 'POST', headers, body: JSON.stringify({ guild: 'g1', ...(body as object) }) });
+  try {
+    // komaGems by default, as before.
+    assert.equal((await post('craft', { count: 2 })).status, 200);
+    // Two tickets of their 25,000, then not a third.
+    const crafted = await post('craft', { count: 2, recipe: 'ut' });
+    assert.equal(crafted.status, 200);
+    assert.deepEqual(((await crafted.json()) as RaidShopView).selectors, { uw: 0, ut: 2 });
+    const poor = await post('craft', { count: 1, recipe: 'uw' });
+    assert.equal(poor.status, 409);
+    assert.deepEqual(await poor.json(), { error: 'too_poor' });
+    assert.equal((await post('craft', { count: 1, recipe: 'nope' })).status, 400);
+
+    // Used: one less held, and what it gave; a weapon they hold none of, a hero with none, a skill past 4.
+    const used = await post('use', { of: 'ut', hero: 'kirze', skill: 3 });
+    assert.equal(used.status, 200);
+    const after = (await used.json()) as RaidShopView & { given: string };
+    assert.equal(after.given, 'Kirze’s treasure');
+    assert.deepEqual(after.selectors, { uw: 0, ut: 1 });
+    const none = await post('use', { of: 'uw', hero: 'kirze' });
+    assert.equal(none.status, 409);
+    assert.deepEqual(await none.json(), { error: 'not_owned' });
+    assert.deepEqual(await (await post('use', { of: 'ut', hero: 'nobody', skill: 1 })).json(), { error: 'bad_pick' });
+    assert.equal((await post('use', { of: 'ut', hero: 'kirze', skill: 5 })).status, 400);
+    assert.deepEqual(calls, ['craft 2 gem', 'craft 2 ut', 'craft 1 uw', 'use ut kirze 3', 'use uw kirze -', 'use ut nobody 1']);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});

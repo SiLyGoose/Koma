@@ -247,6 +247,11 @@ export interface MemberDoc {
   gems?: number;
   /** komaDust, from salvaging hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
   powder?: number;
+  /**
+   * Unique Weapon and Unique Treasure Tickets crafted from komaDust (services/economy/powder.ts), held until used (its hero's
+   * item picked as it is). Missing means none.
+   */
+  selectors?: { uw?: number; ut?: number };
   /** The rule their hero gear's drops are salvaged by as they drop, for komaDust (services/items/salvage.ts). Missing means none is. */
   autoSalvage?: SalvageRule;
   /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
@@ -646,6 +651,8 @@ export type LedgerReason =
   | 'transcend'
   // komaDust crafted into komaGems (0 points, powderDelta, gemDelta).
   | 'craft_gems'
+  // komaDust crafted into Unique Weapon or Unique Treasure Tickets, sent to the mailbox (0 points, powderDelta; itemId is the ticket).
+  | 'craft_selector'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 

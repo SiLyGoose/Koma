@@ -8,5 +8,5 @@ import { raidShopService } from '../services/raid-shop.js';
 export function raidShopRoutes(deps: ApiDeps): Router {
   const shop = raidShopController(raidShopService(deps));
 
-  return Router().use(signedIn(deps), member(deps)).get('/', shop.view).post('/buy', shop.buy).post('/refresh', shop.refresh).post('/craft', shop.craft);
+  return Router().use(signedIn(deps), member(deps)).get('/', shop.view).post('/buy', shop.buy).post('/refresh', shop.refresh).post('/craft', shop.craft).post('/use', shop.use);
 }

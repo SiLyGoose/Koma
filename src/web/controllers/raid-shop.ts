@@ -6,8 +6,10 @@ import { parse } from '../lib/validate.js';
 /* The raid shop's requests. Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
 const Item = z.object({ item: z.string() });
-/** How many komaGems to craft from komaDust at once. */
-const Craft = z.object({ count: z.number().int().min(1).max(1000) });
+/** How many komaGems (or, `recipe` 'uw' or 'ut', tickets) to craft from komaDust at once. */
+const Craft = z.object({ count: z.number().int().min(1).max(1000), recipe: z.enum(['gem', 'uw', 'ut']).default('gem') });
+/** A ticket used: its kind, and the hero (and, a unique treasure's, which of its four) it is picked as. */
+const Use = z.object({ of: z.enum(['uw', 'ut']), hero: z.string().min(1).max(100), skill: z.number().int().min(1).max(4).optional() });
 
 export function raidShopController(shop: RaidShopService) {
   return {
@@ -25,8 +27,13 @@ export function raidShopController(shop: RaidShopService) {
     },
 
     async craft(req, res) {
-      const { count } = parse(Craft, req.body);
-      res.json(await shop.craft(res.locals.guildId, res.locals.session.userId, count));
+      const { count, recipe } = parse(Craft, req.body);
+      res.json(await shop.craft(res.locals.guildId, res.locals.session.userId, count, recipe));
+    },
+
+    async use(req, res) {
+      const { of, hero, skill } = parse(Use, req.body);
+      res.json(await shop.use(res.locals.guildId, res.locals.session.userId, of, { hero, ...(skill !== undefined && { skill }) }));
     },
   } satisfies Record<string, RequestHandler>;
 }

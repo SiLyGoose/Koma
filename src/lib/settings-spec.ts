@@ -196,6 +196,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('sell.powder.technomagic', 'Sell', 'komaDust for salvaging one piece of the old TechnoMagic gear.', 0, MAX_POINTS),
   int('sell.powder.unique', 'Sell', 'komaDust for salvaging one unique weapon or unique treasure.', 0, MAX_POINTS),
   int('sell.powderPerGem', 'Sell', 'komaDust that crafts one komaGem.', 1, MAX_POINTS),
+  int('sell.powderPerSelector', 'Sell', 'komaDust that crafts one Unique Weapon or Unique Treasure Ticket.', 1, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
   int('rob.minStolen', 'Rob', `Lowest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),

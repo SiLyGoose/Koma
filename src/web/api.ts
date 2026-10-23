@@ -80,6 +80,8 @@ export type { Me } from './services/login.js';
  *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
  *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
  *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView
+ *   POST /api/raid-shop/craft {guild, count, recipe?}   crafts komaGems (recipe 'gem', the default) or Unique Weapon / Unique Treasure Tickets ('uw', 'ut') from komaDust: RaidShopView
+ *   POST /api/raid-shop/use {guild, of, hero, skill?}   uses a ticket held for that hero's unique weapon ('uw') or unique treasure ('ut', its skill 1–4): RaidShopUsed
  *   GET  /api/admin/settings   every one of the bot's settings, for the admin page (the bot admin only): SettingsView (protocol/admin.ts)
  *   POST /api/admin/settings {changes}   changes some of them at once, as the config command would (all or none): SettingsSaved
  *
