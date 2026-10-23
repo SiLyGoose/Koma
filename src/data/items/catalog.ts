@@ -2507,7 +2507,7 @@ export const ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'with-association-certificate',
-    name: 'With Association Certificate',
+    name: 'Witch Association Certificate',
     stars: 4,
     slot: 'treasure',
     description: 'A certificate that proves that the awardee is officially a witch of the Witch Association.',
@@ -2624,7 +2624,7 @@ export const ITEMS: readonly ItemDef[] = [
   },
   {
     id: 'ultrasound-wave-generator',
-    name: 'Ultrasound Wave Generator',
+    name: 'Ultrasonic Wave Generator',
     stars: 4,
     slot: 'treasure',
     description: 'The core component of Matimaruma. It replaces the sound-generating component of Matimaruma to transform it into a weapon.',
