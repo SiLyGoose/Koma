@@ -33230,128 +33230,138 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			return hash >>> 0;
 		},
 		step() {
-			const now = pending;
-			pending = [];
-			for (const input of now) apply(input);
 			if (result) return;
-			if (tick < marching) {
-				tick++;
-				lineUp(tick / marching);
-				if (tick === marching) for (const on of field) on.doing = null;
-				if (tick % SECOND === 0) sums.push(sim.checksum());
-				return;
-			}
-			const dt = TICK;
-			elapsed += dt;
-			aurasNow();
-			idle = bossBusy() ? 0 : idle + dt;
-			if (bossAuto && !boss.away && moving <= 0 && idle >= (def.rest ?? 1.1)) {
-				const forced = boss.part.next?.() ?? null;
-				const may = def.attacks.filter((one) => boss.part.ready?.(one.name) ?? true);
-				const basic = def.basic;
-				const skill = basic ? may.find((one) => !basic.includes(one.name))?.name : void 0;
-				const plain = basic ? basic[Math.floor(roll() * basic.length)] : (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name;
-				bossUse(forced ?? skill ?? plain ?? "");
-			}
-			for (const fighter of fighters) {
-				fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling([...fighter.statuses, ...party], 1 + allied(fighter, "mana")));
-				fighter.cooldowns = fighter.cooldowns.map((left) => Math.max(0, left - dt));
-				wear(fighter.statuses, dt);
-				fighter.shieldLeft = Math.max(0, fighter.shieldLeft - dt);
-				if (fighter.shieldLeft <= 0) fighter.shield = 0;
-				skillTick(fighter, dt);
-				perkTick(fighter, dt);
-				setTick(fighter);
-				relics.get(fighter)?.tick(dt);
-				noting(passiveArt(fighter), () => asFighter(fighter, () => fighter.part.tick?.(dt)));
-				const top = setEffect(fighter).top;
-				if (top && elapsed >= top.after && elapsed - dt < top.after && field.includes(fighter) && fighter.hp > 0) {
-					const most = field.reduce((best, on) => on.hp > 0 && (!best || on.dealt > best.dealt) ? on : best, null);
-					if (most) put(most.statuses, {
-						name: `${SET_UP.top.name} ${fighter.index}`,
-						left: Infinity,
-						deals: 1 + top.dmg,
-						shown: SET_UP.top
-					});
-				}
-				if (result) return;
-			}
-			for (const foe of foes) {
-				foe.slowed = Math.max(0, foe.slowed - dt);
-				foe.stunned = Math.max(0, foe.stunned - dt);
-				wear(foe.statuses, dt);
-			}
-			wear(party, dt);
-			if (!deathless) clock += dt;
-			as(boss, () => boss.part.tick?.(dt));
-			if (result) return;
-			mendShown += dt;
-			if (mendShown >= 1) {
-				if (mended >= 1) events.push({
-					kind: "number",
-					on: "boss",
-					amount: mended,
-					type: "heal",
-					mend: true
-				});
-				mended = 0;
-				mendShown = 0;
-			}
-			if (lifting > 0 || moving > 0) {
-				if (lifting > 0) {
-					lifting = Math.max(0, lifting - dt);
-					if (lifting <= 0) nextWave();
-				} else {
-					moving = Math.max(0, moving - dt);
-					if (moving <= 0) arrive();
-				}
+			const from = tick;
+			stepOn();
+			if (tick === from) {
 				tick++;
 				if (tick % SECOND === 0) sums.push(sim.checksum());
-				return;
 			}
-			for (const on of field) {
-				on.rested = on.doing ? 0 : on.rested + dt;
-				on.autoWait = on.doing?.skill !== void 0 && !on.part.autoOnly?.() ? 0 : on.autoWait + dt;
-				if (on.reserved !== null && on.autoPicked) {
-					const ability = sim.slot(on, on.reserved);
-					if (!on.auto || !ability || on.cooldowns[on.reserved] > 0 || !wanted(on, on.reserved, ability)) {
-						on.reserved = null;
-						on.autoWait = 0;
-					}
-				}
-				if (on.auto && on.reserved === null && on.autoWait >= AUTO.every) {
-					on.reserved = autoSkill(on);
-					on.autoPicked = true;
-					on.autoWait = 0;
-				}
-				if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
-				if (on.hp > 0 && !bound(on.statuses)) {
-					if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
-					else if (!on.doing && on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
-				}
-			}
-			const busy = bossBusy();
-			if (busy && !was) aim = anyone();
-			was = busy;
-			bossAdvance(dt);
-			if (result) return;
-			minionsAdvance(dt);
-			if (result) return;
-			const reform = Math.min(1, dt * 4);
-			for (const on of field) {
-				const speed = (on.stats.speed + auras.speed + allied(on, "speed") + adding(on.statuses, "speed") + (on.part.speed?.() ?? 0)) * pacing(on.statuses, on.part.pace?.() ?? 1);
-				on.haste = on.def.passive?.steady ? 1 : Math.max(300, curved(CURVE.speed, speed)) / POINTS;
-				advance(on, dt * on.haste);
-				if (result) return;
-				const [x, z] = spots.get(on);
-				on.x += (x - on.x) * reform;
-				on.z += (z - on.z) * reform;
-			}
-			if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= raidTime + 20)) end("lost");
-			tick++;
-			if (tick % SECOND === 0) sums.push(sim.checksum());
 		}
 	};
+	/** One step on (sim.step): it may end the fight partway, without moving the step on. */
+	function stepOn() {
+		const now = pending;
+		pending = [];
+		for (const input of now) apply(input);
+		if (result) return;
+		if (tick < marching) {
+			tick++;
+			lineUp(tick / marching);
+			if (tick === marching) for (const on of field) on.doing = null;
+			if (tick % SECOND === 0) sums.push(sim.checksum());
+			return;
+		}
+		const dt = TICK;
+		elapsed += dt;
+		aurasNow();
+		idle = bossBusy() ? 0 : idle + dt;
+		if (bossAuto && !boss.away && moving <= 0 && idle >= (def.rest ?? 1.1)) {
+			const forced = boss.part.next?.() ?? null;
+			const may = def.attacks.filter((one) => boss.part.ready?.(one.name) ?? true);
+			const basic = def.basic;
+			const skill = basic ? may.find((one) => !basic.includes(one.name))?.name : void 0;
+			const plain = basic ? basic[Math.floor(roll() * basic.length)] : (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name;
+			bossUse(forced ?? skill ?? plain ?? "");
+		}
+		for (const fighter of fighters) {
+			fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaRegen * dt * filling([...fighter.statuses, ...party], 1 + allied(fighter, "mana")));
+			fighter.cooldowns = fighter.cooldowns.map((left) => Math.max(0, left - dt));
+			wear(fighter.statuses, dt);
+			fighter.shieldLeft = Math.max(0, fighter.shieldLeft - dt);
+			if (fighter.shieldLeft <= 0) fighter.shield = 0;
+			skillTick(fighter, dt);
+			perkTick(fighter, dt);
+			setTick(fighter);
+			relics.get(fighter)?.tick(dt);
+			noting(passiveArt(fighter), () => asFighter(fighter, () => fighter.part.tick?.(dt)));
+			const top = setEffect(fighter).top;
+			if (top && elapsed >= top.after && elapsed - dt < top.after && field.includes(fighter) && fighter.hp > 0) {
+				const most = field.reduce((best, on) => on.hp > 0 && (!best || on.dealt > best.dealt) ? on : best, null);
+				if (most) put(most.statuses, {
+					name: `${SET_UP.top.name} ${fighter.index}`,
+					left: Infinity,
+					deals: 1 + top.dmg,
+					shown: SET_UP.top
+				});
+			}
+			if (result) return;
+		}
+		for (const foe of foes) {
+			foe.slowed = Math.max(0, foe.slowed - dt);
+			foe.stunned = Math.max(0, foe.stunned - dt);
+			wear(foe.statuses, dt);
+		}
+		wear(party, dt);
+		if (!deathless) clock += dt;
+		as(boss, () => boss.part.tick?.(dt));
+		if (result) return;
+		mendShown += dt;
+		if (mendShown >= 1) {
+			if (mended >= 1) events.push({
+				kind: "number",
+				on: "boss",
+				amount: mended,
+				type: "heal",
+				mend: true
+			});
+			mended = 0;
+			mendShown = 0;
+		}
+		if (lifting > 0 || moving > 0) {
+			if (lifting > 0) {
+				lifting = Math.max(0, lifting - dt);
+				if (lifting <= 0) nextWave();
+			} else {
+				moving = Math.max(0, moving - dt);
+				if (moving <= 0) arrive();
+			}
+			tick++;
+			if (tick % SECOND === 0) sums.push(sim.checksum());
+			return;
+		}
+		for (const on of field) {
+			on.rested = on.doing ? 0 : on.rested + dt;
+			on.autoWait = on.doing?.skill !== void 0 && !on.part.autoOnly?.() ? 0 : on.autoWait + dt;
+			if (on.reserved !== null && on.autoPicked) {
+				const ability = sim.slot(on, on.reserved);
+				if (!on.auto || !ability || on.cooldowns[on.reserved] > 0 || !wanted(on, on.reserved, ability)) {
+					on.reserved = null;
+					on.autoWait = 0;
+				}
+			}
+			if (on.auto && on.reserved === null && on.autoWait >= AUTO.every) {
+				on.reserved = autoSkill(on);
+				on.autoPicked = true;
+				on.autoWait = 0;
+			}
+			if (on.reserved !== null && !sim.reservable(on, on.reserved) && !bound(on.statuses)) on.reserved = null;
+			if (on.hp > 0 && !bound(on.statuses)) {
+				if (on.reserved !== null && use(on, on.reserved)) on.reserved = null;
+				else if (!on.doing && on.rested >= (KR_HEROES[on.id]?.wait ?? .45) && targetOf(on)) begin(on, on.attack, null);
+			}
+		}
+		const busy = bossBusy();
+		if (busy && !was) aim = anyone();
+		was = busy;
+		bossAdvance(dt);
+		if (result) return;
+		minionsAdvance(dt);
+		if (result) return;
+		const reform = Math.min(1, dt * 4);
+		for (const on of field) {
+			const speed = (on.stats.speed + auras.speed + allied(on, "speed") + adding(on.statuses, "speed") + (on.part.speed?.() ?? 0)) * pacing(on.statuses, on.part.pace?.() ?? 1);
+			on.haste = on.def.passive?.steady ? 1 : Math.max(300, curved(CURVE.speed, speed)) / POINTS;
+			advance(on, dt * on.haste);
+			if (result) return;
+			const [x, z] = spots.get(on);
+			on.x += (x - on.x) * reform;
+			on.z += (z - on.z) * reform;
+		}
+		if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= raidTime + 20)) end("lost");
+		tick++;
+		if (tick % SECOND === 0) sums.push(sim.checksum());
+	}
 	/** An input, as it counts (one that makes no sense, or only does when trying things out, in a raid: none). */
 	function apply(input) {
 		const fighter = "fighter" in input ? fighters[input.fighter] : void 0;
@@ -49828,7 +49838,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "31ad634db9fd";
+var SIM_VERSION = "7204c0dda765";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
