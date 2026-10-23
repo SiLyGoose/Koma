@@ -785,9 +785,9 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   assert.deepEqual(still, NOTHING);
 });
 
-test('technomagic: a win gives 3 items at stages 1 to 3, 4 at 4 to 6, and 5 at 7 and 8', () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(tmDropCount), [3, 3, 3, 4, 4, 4, 5, 5]);
-  assert.equal(tmDropCount(MOST_STAGE), 5, 'past its last stage, as much as the last');
+test('technomagic: a win gives 1 item at stages 1 to 4, 2 at 5 to 7, and 3 at 8', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(tmDropCount), [1, 1, 1, 1, 2, 2, 2, 3]);
+  assert.equal(tmDropCount(MOST_STAGE), 3, 'past its last stage, as much as the last');
 });
 
 test("technomagic: each piece rolls King's Raid's options (any stat of its pool, two the same or not, at a step), rerolled and upgraded as King's Raid's; a unique treasure rolls its 2 options", () => {

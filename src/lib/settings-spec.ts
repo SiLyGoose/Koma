@@ -116,7 +116,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
 
   int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
-  int('hero.winPoints', 'Hero', `${CURRENCY_EMOJI} each won TechnoMagic Raid run pays, on top of its gear (3 to 5 items, more at the higher stages). There is no daily limit.`, 0, MAX_POINTS),
+  int('hero.winPoints', 'Hero', `${CURRENCY_EMOJI} each won TechnoMagic Raid run pays, on top of its gear (1 to 3 items, more at the higher stages). There is no daily limit.`, 0, MAX_POINTS),
   int('dragon.winPoints', 'Hero', `${CURRENCY_EMOJI} each won Dragon Raid run pays at stage 1, on top of its hero gear and essences. There is no daily limit.`, 0, MAX_POINTS),
   int('dragon.pointsPerStage', 'Hero', `${CURRENCY_EMOJI} more a won Dragon Raid run pays for every stage past 1.`, 0, MAX_POINTS),
   int('dragon.essences', 'Hero', "Hero essences of each of its dragon's two kinds a won Dragon Raid run pays at stage 1.", 0, MAX_POINTS),

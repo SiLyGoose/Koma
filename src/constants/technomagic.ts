@@ -43,9 +43,10 @@ export const TM_FIGHT = {
 
 /**
  * How many TechnoMagic items a win gives each player whose run gives gear, by the stage it was fought at (1 to 8:
- * the first number is stage 1's). Each is one of the boss's set's pieces, rolled apart.
+ * the first number is stage 1's): 1 up to stage 4, 2 from stage 5, 3 at stage 8 (King's Raid's gave only now and then one).
+ * Each is one of the boss's set's pieces, rolled apart.
  */
-export const TM_DROP_COUNTS: readonly number[] = [3, 3, 3, 4, 4, 4, 5, 5];
+export const TM_DROP_COUNTS: readonly number[] = [1, 1, 1, 1, 2, 2, 2, 3];
 
 /** How many items a win at `stage` gives (past the last stage, as many as the last). */
 export const tmDropCount = (stage: number): number => TM_DROP_COUNTS[Math.min(TM_DROP_COUNTS.length, Math.max(1, Math.floor(stage))) - 1] as number;
@@ -166,8 +167,8 @@ export function dragonClearGems(cleared: number, stage: number, mode: 'normal' |
 }
 
 /**
- * The komaGems a TechnoMagic Raid stage pays each player the first time they clear it, by its stage (the first is stage 1's),
- * a step up where its drops do (TM_DROP_COUNTS); as the Dragon Raid's, a win clears every stage under it too (tmClearGems).
+ * The komaGems a TechnoMagic Raid stage pays each player the first time they clear it, by its stage (the first is stage 1's);
+ * as the Dragon Raid's, a win clears every stage under it too (tmClearGems).
  */
 export const TM_GEMS: readonly number[] = [5, 5, 5, 10, 10, 10, 20, 20];
 
