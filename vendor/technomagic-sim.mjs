@@ -8961,7 +8961,7 @@ var HEROES_DEAL = .71;
 var HEROES_HP = .78;
 //#endregion
 //#region src/technomagic/sim/bosses/dragon/common.ts
-var KR_HP$1 = [
+var KR_HP = [
 	931159153,
 	1120206503,
 	1347633837,
@@ -9017,14 +9017,14 @@ var SOLO = 8;
 var KR_NORMAL_PARTY = 6;
 /** A dragon's health and defense at stage 1, for its stats: its lower defense, and its higher. */
 var FIRST$1 = {
-	hp: KR_HP$1[0] * HEROES_DEAL * 9 / KR_PARTY$1,
+	hp: KR_HP[0] * HEROES_DEAL * 9 / KR_PARTY$1,
 	def: KR_DEF$1[0],
 	high: KR_DEF$1[0] * HIGH_DEF
 };
 /** A dragon's stages, fought with others and alone (`atk`: its ATK, of the others'). */
 function dragonStages({ atk = 1 } = {}) {
-	const scales = (times) => KR_HP$1.map((hp, i) => ({
-		hp: hp / KR_HP$1[0] * times,
+	const scales = (times) => KR_HP.map((hp, i) => ({
+		hp: hp / KR_HP[0] * times,
 		deals: HEROES_HP * atk * (KR_ATK$1[i] / KR_ATK$1[0]),
 		defense: KR_DEF$1[i] / KR_DEF$1[0],
 		level: KR_LEVEL[i]
@@ -10009,7 +10009,14 @@ function ownPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/index.ts
-var KR_HP = [
+var LIVE_HP = [
+	2e10,
+	269e8,
+	378e8,
+	507e8,
+	876e8
+];
+var PLAYTEST_HP = [
 	14184543765,
 	19721142351,
 	26463862400,
@@ -10019,6 +10026,8 @@ var KR_HP = [
 	86139389687,
 	158093465948
 ];
+var LAST_LIVE = LIVE_HP.length - 1;
+var HP = PLAYTEST_HP.map((hp, i) => LIVE_HP[i] ?? LIVE_HP[LAST_LIVE] * hp / PLAYTEST_HP[LAST_LIVE]);
 var KR_DEF = [
 	53269,
 	57090,
@@ -10041,11 +10050,10 @@ var LEVEL = [
 	125
 ];
 var KR_PARTY = 7;
-var HP = KR_HP.map((hp) => hp * HEROES_DEAL * 8 / KR_PARTY);
 var DEF = KR_DEF.map((def) => def + LIFE_DEF);
 var scales = (times) => HP.map((hp, i) => ({
 	hp: hp / HP[0] * times,
-	deals: HEROES_HP * (KR_ATK[i] / KR_ATK[0]),
+	deals: KR_ATK[i] / KR_ATK[0],
 	defense: DEF[i] / DEF[0],
 	level: LEVEL[i]
 }));
@@ -49816,7 +49824,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "cf3275c854fe";
+var SIM_VERSION = "331bead08108";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
