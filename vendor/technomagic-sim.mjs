@@ -35254,7 +35254,7 @@ var FLOWER = {
 	burst: 40080,
 	speed: 200,
 	slowed: 5,
-	curse: 10,
+	curse: 5,
 	end: 20040,
 	each: 2670
 };
@@ -35264,15 +35264,20 @@ var DEEDS = {
 	crit: 200,
 	control: .3
 };
-/** Her own perks' numbers: the shockwave's longer stun, Crimson Flower's stronger slow (points), her DMG while awakened, her opening's (how long, how much), and Transcend 5's Dark's attack speed for each blow (most). */
+/**
+* Her own perks' numbers: Crimson Flower's stronger slow (points) and its stacks of [Arcane Crystal Energy] for each blow,
+* her DMG while awakened, her opening's (how long, how much), and Transcend 5's Dark's crit DMG and penetration, twice
+* that once she has attacked the boss so many times.
+*/
 var PERKS$39 = {
-	waveStun: .5,
 	slower: 300,
+	stacks: 2,
 	awakeDmg: 1.2,
 	opening: 20,
 	openingDmg: 1.25,
-	quicker: 5,
-	most: 100
+	critDamage: .4,
+	pen: 150,
+	attacks: 100
 };
 /**
 * Her unique treasures' numbers (1★ to 5★: ../treasures.ts): Blade of Judgment's DMG; Crystal Haze's attack speed
@@ -35317,12 +35322,12 @@ var UT$39 = {
 	peace: {
 		crit: 250,
 		control: [
-			.3,
-			.32,
-			.34,
-			.37,
-			.41,
-			.45
+			.1,
+			.12,
+			.14,
+			.17,
+			.21,
+			.25
 		]
 	}
 };
@@ -35346,6 +35351,13 @@ var AWAKENING$1 = {
 	about: `Quickened, and a shockwave goes out from her every ${HAZE.every} seconds.`,
 	icon: "💠",
 	art: art$39(1)
+};
+/** Transcend 5's Dark, twice over once she has attacked the boss enough: what more it gives her then. */
+var DOUBLED = {
+	name: "Transcend 5 Dark",
+	about: `Crit DMG +${pct(PERKS$39.critDamage)} and DEF Penetration +${PERKS$39.pen} more: she has attacked the boss ${PERKS$39.attacks} times.`,
+	icon: "🌑",
+	art: art$39(3)
 };
 var KIRZE = {
 	id: "kirze",
@@ -35417,10 +35429,10 @@ var KIRZE = {
 			}
 		})),
 		treasure("Moment of Peace", (k) => ({
-			words: `[End to Evil Deeds!] Increases Crit Chance by an additional ${UT$39.peace.crit} and the effect of the duration of CC increase changes to ${pct(k(UT$39.peace.control))}.`,
+			words: `[End to Evil Deeds!] Increases Crit Chance by an additional ${UT$39.peace.crit} and the duration of CC increase effect by an additional ${pct(k(UT$39.peace.control))}.`,
 			bonus: {
 				crit: UT$39.peace.crit,
-				control: (1 + k(UT$39.peace.control)) / (1 + DEEDS.control) - 1
+				control: (1 + DEEDS.control + k(UT$39.peace.control)) / (1 + DEEDS.control) - 1
 			}
 		}))
 	],
@@ -35433,14 +35445,20 @@ var KIRZE = {
 			index: 0,
 			dmg: 2
 		} }, ({ skill }) => `If there is only 1 enemy, DMG is increased by ${pct(skill.dmg - 1)}.`),
-		"s2-light": { words: `The duration of stun from the shockwave increases by ${PERKS$39.waveStun} sec against Non-Hero enemies.` },
+		"s2-light": said({ skill: {
+			index: 1,
+			cost: -1
+		} }, ({ skill }) => `Reduces Mana Cost by ${-skill.cost}.`),
 		"s2-dark": { words: `While under [Arcane Crystal Awakening], self deals ${pct(PERKS$39.awakeDmg - 1)} increased DMG to Non-Hero enemies.` },
 		"s3-light": { words: `Increases ATK Spd reduction by ${PERKS$39.slower}.` },
-		"s3-dark": { words: "If there is only 1 enemy, inflicts 2 stacks of [Arcane Crystal Energy]." },
+		"s3-dark": { words: `Inflicts ${PERKS$39.stacks} stacks of Arcane Crystal Energy.` },
 		"s4-light": { words: `At the beginning of each battle, self deals ${pct(PERKS$39.openingDmg - 1)} increased DMG to Non-Hero enemies for ${PERKS$39.opening} sec.` },
 		"s4-dark": said({ dmg: 1.15 }, ({ dmg }) => `Deals ${pct(dmg - 1)} increased DMG to Bosses.`),
 		"t5-light": t5Light({ speed: 100 }, ({ speed }) => `ATK Spd +${speed}`),
-		"t5-dark": { words: `Every normal and Skill attack increases ATK Spd by ${PERKS$39.quicker}. This effect can be stacked up to max ${PERKS$39.most} times.` }
+		"t5-dark": said({ bonus: {
+			critDamage: PERKS$39.critDamage,
+			pen: PERKS$39.pen
+		} }, ({ bonus }) => `Increases Crit DMG by ${pct(bonus.critDamage)} and DEF Penetration by ${bonus.pen}. This effect increases by 2 times after Kirze attacks the enemy ${PERKS$39.attacks} times.`)
 	},
 	timing: { attack: [{
 		lands: [1.29],
@@ -35459,9 +35477,9 @@ var KIRZE = {
 		let wave = 0;
 		/** Her curse on the boss: how long it has left, and the blows counted against it. */
 		let curse = null;
-		/** Her perks: how long her opening's more DMG lasts yet (End to Evil Deeds!'s Light), and her blows counted for attack speed (Transcend 5's Dark). */
+		/** Her perks: how long her opening's more DMG lasts yet (End to Evil Deeds!'s Light), and her blows on the boss counted (Transcend 5's Dark). */
 		let opening = self.perks.has("s4-light") ? PERKS$39.opening : 0;
-		let quicker = 0;
+		let attacks = 0;
 		return {
 			lands: {
 				judgment(part) {
@@ -35488,9 +35506,9 @@ var KIRZE = {
 					fight.slow(FLOWER.speed + (self.perks.has("s3-light") ? PERKS$39.slower : 0), FLOWER.slowed);
 				}
 			},
-			struck() {
-				if (!curse) return;
-				curse.blows++;
+			struck(by) {
+				if (!curse || by !== self) return;
+				curse.blows += self.perks.has("s3-dark") ? PERKS$39.stacks : 1;
 				const chance = fromTreasure(self, 2, UT$39.escape.chance);
 				if (chance > 0 && fight.roll() < chance) curse.blows += UT$39.escape.more;
 			},
@@ -35503,7 +35521,7 @@ var KIRZE = {
 						wave += HAZE.every;
 						fight.cue(self, "wave");
 						fight.hit(self, HAZE.wave);
-						fight.stun(HAZE.waveStun + (self.perks.has("s2-light") ? PERKS$39.waveStun : 0), { by: self });
+						fight.stun(HAZE.waveStun, { by: self });
 					}
 				}
 				if (curse) {
@@ -35518,9 +35536,17 @@ var KIRZE = {
 			},
 			pace: () => awake > 0 ? HAZE.quicker : 1,
 			deals: () => (awake > 0 && self.perks.has("s2-dark") ? PERKS$39.awakeDmg : 1) * (opening > 0 ? PERKS$39.openingDmg : 1),
-			speed: () => quicker * PERKS$39.quicker + (awake > 0 ? fromTreasure(self, 1, UT$39.hobby.speed) : 0),
+			speed: () => awake > 0 ? fromTreasure(self, 1, UT$39.hobby.speed) : 0,
 			blow() {
-				if (self.perks.has("t5-dark")) quicker = Math.min(PERKS$39.most, quicker + 1);
+				if (!self.perks.has("t5-dark") || attacks >= PERKS$39.attacks) return;
+				attacks++;
+				if (attacks === PERKS$39.attacks) put(self.statuses, {
+					name: DOUBLED.name,
+					left: Infinity,
+					critDamage: PERKS$39.critDamage,
+					pen: PERKS$39.pen,
+					shown: DOUBLED
+				});
 			},
 			lit: () => awake > 0,
 			buffs: () => awake > 0 ? [{
@@ -49833,7 +49859,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "3cd958fd4093";
+var SIM_VERSION = "c2cb77fe5fb0";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
