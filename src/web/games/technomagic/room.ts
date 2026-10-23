@@ -22,7 +22,7 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * (single player: nobody else gets in, and it isn't said in Discord). Whoever creates a raid is its host (1P; when the
  * host goes, whoever has been in it longest is); a page that names no raid joins an open one against its boss, or creates
  * one. Getting ready, each picks heroes of their own
- * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots
+ * into the lineup: the host up to TM_ROOM.hostHeroes, everyone else up to TM_ROOM.guestHeroes, TM_ROOM.slots (a dragon's: DRAGON_ROOM.slots)
  * in all, even while the host is in it alone (single player, in a room of their own: as many as TM_ROOM.soloSlots, the Dragon Raid's TM_ROOM.dragonSoloSlots, against an easier boss: TM_ROOM.mainTeam of them in the Main Team,
  * whose skills are theirs to use, and the rest in the Sub Team, on Auto for the whole fight); when someone comes or
  * goes, what no longer fits is taken out, the Sub Team first, then the last picked. Everyone but the host says they're ready, and the host
@@ -272,19 +272,24 @@ export class TechnoMagicRoom {
     return this.single;
   }
 
+  /** Its lineup's sizes: the Dragon Raid's (DRAGON_ROOM, King's Raid's Dragon Raid party) or the TechnoMagic Raid's. */
+  private sizes(): typeof TM_ROOM | typeof DRAGON_ROOM {
+    return this.raid.kind === 'dragon' ? DRAGON_ROOM : TM_ROOM;
+  }
+
   /** How many heroes the lineup takes alone: the Dragon Raid's more. */
   private soloSlots(): number {
-    return this.raid.kind === 'dragon' ? TM_ROOM.dragonSoloSlots : TM_ROOM.soloSlots;
+    return this.sizes().soloSlots;
   }
 
   private slots(): number {
-    return this.solo() ? this.soloSlots() : TM_ROOM.slots;
+    return this.solo() ? this.soloSlots() : this.sizes().slots;
   }
 
   /** How many heroes `userId` may bring. */
   private limit(userId: string): number {
     if (this.solo()) return this.soloSlots();
-    return userId === this.host() ? TM_ROOM.hostHeroes : TM_ROOM.guestHeroes;
+    return userId === this.host() ? this.sizes().hostHeroes : this.sizes().guestHeroes;
   }
 
   /** How many stages the boss has in the raid's mode. */
@@ -386,7 +391,7 @@ export class TechnoMagicRoom {
 
   /** How many heroes the Main Team takes alone, or the Sub Team (`sub`). */
   private teamSlots(sub: boolean): number {
-    return sub ? this.soloSlots() - TM_ROOM.mainTeam : TM_ROOM.mainTeam;
+    return sub ? this.soloSlots() - this.sizes().mainTeam : this.sizes().mainTeam;
   }
 
   /**

@@ -25,7 +25,7 @@ export const TM_ROOM = {
 } as const;
 
 /** A Dragon Raid room's lineup, as TM_ROOM's but for King's Raid's Dragon Raid party: 9 heroes all told (alone, 8). */
-export const DRAGON_ROOM = { ...TM_ROOM, slots: 9, soloSlots: 8 } as const;
+export const DRAGON_ROOM = { ...TM_ROOM, slots: 9, soloSlots: TM_ROOM.dragonSoloSlots } as const;
 
 /**
  * The fight's clock on the bot: it steps the fight every `turnMs` (as many steps as are due) and tells the
