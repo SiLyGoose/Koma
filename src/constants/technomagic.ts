@@ -42,11 +42,11 @@ export const TM_FIGHT = {
 } as const;
 
 /**
- * How many TechnoMagic items a win gives each player whose run gives gear, by the stage it was fought at (1 to 8:
- * the first number is stage 1's): 1 up to stage 4, 2 from stage 5, 3 at stage 8 (King's Raid's gave only now and then one).
+ * How many TechnoMagic items a win gives each player whose run gives gear, by the stage it was fought at (1 to 9:
+ * the first number is stage 1's): 1 up to stage 4, 2 from stage 5, 3 from stage 8 (King's Raid's gave only now and then one).
  * Each is one of the boss's set's pieces, rolled apart.
  */
-export const TM_DROP_COUNTS: readonly number[] = [1, 1, 1, 1, 2, 2, 2, 3];
+export const TM_DROP_COUNTS: readonly number[] = [1, 1, 1, 1, 2, 2, 2, 3, 3];
 
 /** How many items a win at `stage` gives (past the last stage, as many as the last). */
 export const tmDropCount = (stage: number): number => TM_DROP_COUNTS[Math.min(TM_DROP_COUNTS.length, Math.max(1, Math.floor(stage))) - 1] as number;
@@ -87,7 +87,7 @@ export const dragonDrops = (stage: number): Readonly<Partial<Record<3 | 4, numbe
  *     and 8);
  *   - runes, `runes` of them a win by its stage (1 to 3: 1, 4 to 6: 2, 7 on: 3), each of a grade (1 Common to 6
  *     Legendary) rolled by its raid's weights at its stage: a dragon's climbing from `dragonGrades[0]` at stage 1 to
- *     `dragonGrades[1]` at 10; a TechnoMagic Raid's from `tmGrades[0]` at stage 1 to `tmGrades[1]` at 8 (the hardest raid:
+ *     `dragonGrades[1]` at 10; a TechnoMagic Raid's from `tmGrades[0]` at stage 1 to `tmGrades[1]` at 9 (the hardest raid:
  *     its runes are better even at stage 1); a grade 5 one a Velkazar rune `velkazar` of the time, else an Ancient one;
  *   - an artifact, now and then, from a TechnoMagic Raid: `artifact` of the time at stage 1, `artifactPerStage` more for each
  *     stage past it;
@@ -170,7 +170,7 @@ export function dragonClearGems(cleared: number, stage: number, mode: 'normal' |
  * The komaGems a TechnoMagic Raid stage pays each player the first time they clear it, by its stage (the first is stage 1's);
  * as the Dragon Raid's, a win clears every stage under it too (tmClearGems).
  */
-export const TM_GEMS: readonly number[] = [5, 5, 5, 10, 10, 10, 20, 20];
+export const TM_GEMS: readonly number[] = [5, 5, 5, 10, 10, 10, 20, 20, 20];
 
 /** The komaGems a TechnoMagic Raid win at `stage` pays a member whose highest cleared stage was `cleared`: each stage past it, up to `stage` (past the last, as the last). */
 export function tmClearGems(cleared: number, stage: number): number {
@@ -189,11 +189,11 @@ export function normalRuneGradeWeights(stage: number): number[] {
 
 /**
  * The weights of each rune grade (1 to 6) a win at `stage` rolls: its raid's (`dragon`: the Dragon Raid's over its 10 stages,
- * else a TechnoMagic Raid's over its 8), from its first stage's to its last's in even steps.
+ * else a TechnoMagic Raid's over its 9), from its first stage's to its last's in even steps.
  */
 export function runeGradeWeights(stage: number, dragon: boolean): number[] {
   const [first, last] = (dragon ? KR_DROPS.dragonGrades : KR_DROPS.tmGrades) as readonly (readonly number[])[];
-  const stages = dragon ? 10 : 8;
+  const stages = dragon ? 10 : 9;
   const along = Math.min(1, Math.max(0, (Math.floor(stage) - 1) / (stages - 1)));
   return (first as readonly number[]).map((from, i) => from + ((last as readonly number[])[i] as number - from) * along);
 }

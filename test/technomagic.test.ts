@@ -35,7 +35,7 @@ test("technomagic: the bot's heroes are the sim's, each with a skin, and the bos
   assert.ok(HEROES.length > 0);
   for (const hero of HEROES) assert.ok(hero.skins >= 1, hero.id);
   assert.match(SIM_VERSION, /^[0-9a-f]{12}$/);
-  assert.equal(MOST_STAGE, 20, "the Normal dragons' 20 (the Hard ones have 10, Galgoria 8)");
+  assert.equal(MOST_STAGE, 20, "the Normal dragons' 20 (the Hard ones have 10, Galgoria 9)");
   assert.equal(GAMES.technomagic.page, '/games/technomagic');
 });
 
@@ -785,8 +785,8 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   assert.deepEqual(still, NOTHING);
 });
 
-test('technomagic: a win gives 1 item at stages 1 to 4, 2 at 5 to 7, and 3 at 8', () => {
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map(tmDropCount), [1, 1, 1, 1, 2, 2, 2, 3]);
+test('technomagic: a win gives 1 item at stages 1 to 4, 2 at 5 to 7, and 3 at 8 and 9', () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9].map(tmDropCount), [1, 1, 1, 1, 2, 2, 2, 3, 3]);
   assert.equal(tmDropCount(MOST_STAGE), 3, 'past its last stage, as much as the last');
 });
 

@@ -9570,7 +9570,7 @@ var ARMARTA = {
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/attacks.ts
 /**
-* Its M.ATK at each stage, as King's Raid's playtest builds it (its Galgoria raid, chapter 10's stages 1 to 8: its stats at
+* Its M.ATK at each stage, as King's Raid's playtest builds it (its Galgoria raid, chapter 10's stages 1 to 9: its stats at
 * the stage's level, times its MonsterTierTable entry: KR-extracted/scripts/boss-stats.mjs). Its blows are shares of it.
 */
 var KR_ATK = [
@@ -9581,7 +9581,8 @@ var KR_ATK = [
 	13161563,
 	19055025,
 	23048231,
-	39699242
+	39699242,
+	69801164
 ];
 /** What a blow takes: `of` its ATK at stage 1 (how much of that each skill's blow takes is ./skills.ts). */
 var share = (of) => [of * KR_ATK[0], of * KR_ATK[0]];
@@ -10024,7 +10025,8 @@ var PLAYTEST_HP = [
 	49825627800,
 	71216166313,
 	86139389687,
-	158093465948
+	158093465948,
+	295609113842
 ];
 var LAST_LIVE = LIVE_HP.length - 1;
 var HP = PLAYTEST_HP.map((hp, i) => LIVE_HP[i] ?? LIVE_HP[LAST_LIVE] * hp / PLAYTEST_HP[LAST_LIVE]);
@@ -10036,7 +10038,8 @@ var KR_DEF = [
 	116318,
 	124308,
 	164065,
-	261750
+	261750,
+	416588
 ];
 var LIFE_DEF = 6e4;
 var LEVEL = [
@@ -10047,7 +10050,8 @@ var LEVEL = [
 	108,
 	110,
 	116,
-	125
+	125,
+	134
 ];
 var KR_PARTY = 7;
 var DEF = KR_DEF.map((def) => def + LIFE_DEF);
@@ -49824,7 +49828,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "331bead08108";
+var SIM_VERSION = "31ad634db9fd";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
