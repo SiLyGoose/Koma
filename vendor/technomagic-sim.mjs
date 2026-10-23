@@ -10014,14 +10014,7 @@ function ownPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/index.ts
-var LIVE_HP = [
-	2e10,
-	269e8,
-	378e8,
-	507e8,
-	876e8
-];
-var PLAYTEST_HP = [
+var HP = [
 	14184543765,
 	19721142351,
 	26463862400,
@@ -10032,8 +10025,6 @@ var PLAYTEST_HP = [
 	158093465948,
 	295609113842
 ];
-var LAST_LIVE = LIVE_HP.length - 1;
-var HP = PLAYTEST_HP.map((hp, i) => LIVE_HP[i] ?? LIVE_HP[LAST_LIVE] * hp / PLAYTEST_HP[LAST_LIVE]);
 var KR_DEF = [
 	53269,
 	57090,
@@ -49842,7 +49833,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "4ff9f27d7b4b";
+var SIM_VERSION = "3cd958fd4093";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
