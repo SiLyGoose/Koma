@@ -3,14 +3,14 @@ import { test } from 'node:test';
 import { GAMES } from '../src/web/config.js';
 import { DEFAULTS } from '../src/config.js';
 import { DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../src/constants/index.js';
-import { ITEMS, TM_DROPS, tmDropsOf } from '../src/data/items.js';
+import { ITEMS, TM_DROPS } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TRANSCEND_PERKS } from '../src/data/transcend.js';
 import { raidBonuses, raidGear } from '../src/lib/game/heroes.js';
 import { MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, replay, rollTmArmorDef, rollTmDrop, rollTmPotentials, rollTmSkill, SIM_VERSION, startRaid, TM_BOSS, TM_SKILLS, tmSkillLine, wholePotentials, type Run } from '../src/lib/game/technomagic.js';
 import { tmDropCount } from '../src/constants/technomagic.js';
 import { TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, TM_POTENTIAL_RANGES, UT_OPTION_LINES } from '../src/data/tm-potentials.js';
-import { KR_POOLS, krOptionValue, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption, upgradePrice } from '../src/data/kr-gear.js';
+import { KR_POOLS, krOptionValue, krPiecesOf, rerollKrOption, rerollPrice, rollKrOptions, upgradable, upgradeKrOption, upgradePrice } from '../src/data/kr-gear.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { pieceBonus, potentialLines } from '../src/lib/game/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
@@ -46,9 +46,9 @@ test("technomagic: each hero's skills are the sim's, in King's Raid's words with
     const passive = hero.abilities[3];
     assert.ok(passive?.name && passive.text && passive.cost === null && passive.cooldown === null, `${hero.id}'s passive`);
   }
-  // The fight's numbers: Klaus's Cut Ground stuns for 5 seconds; Gremory's skills say they're sealed, not a cooldown.
+  // The fight's numbers: Klaus's Cut Ground's damage, and it stuns for 5 seconds; Gremory's skills say they're sealed, not a cooldown.
   const klaus = HEROES_BY_ID.get('klaus');
-  assert.equal(klaus?.abilities[0]?.text, 'Leaps into the air and deals P.DMG to enemies in range, stunning them for 5 sec.');
+  assert.equal(klaus?.abilities[0]?.text, 'Leaps into the air and deals 168,713 P.DMG to enemies in range, stunning them for 5 sec.');
   assert.deepEqual(
     HEROES_BY_ID.get('gremory')?.abilities.map(({ cost, tag }) => [cost, tag]),
     [[3, 'Sealed after use'], [3, 'Sealed after use'], [4, 'Sealed after use'], [null, 'Once all are sealed']],
@@ -59,7 +59,8 @@ test("technomagic: each hero's skills are the sim's, in King's Raid's words with
 });
 
 test('technomagic: a raid is the same every time it is run, and a strong party on Auto wins it', () => {
-  const inputs = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  // (Every hero on Auto from the start: nothing pressed.)
+  const inputs: unknown[] = [];
   const once = replay(run(42, STRONG), inputs);
   const again = replay(run(42, STRONG), inputs, once.sums);
   assert.equal(once.result, 'won');
@@ -68,7 +69,6 @@ test('technomagic: a raid is the same every time it is run, and a strong party o
   // The live raid, stepped by hand with the same inputs, is the same fight.
   const live = startRaid(run(42, STRONG));
   assert.ok(typeof live !== 'string');
-  for (const fighter of [0, 1, 2]) assert.ok(live.input({ kind: 'auto', fighter }));
   // (No fighter past the last hero.)
   assert.equal(live.input({ kind: 'skill', fighter: LINEUP.length, skill: 0 }), false);
   while (!live.result) live.step();
@@ -77,8 +77,8 @@ test('technomagic: a raid is the same every time it is run, and a strong party o
 });
 
 test('technomagic: alone the boss is easier; heroes that fall stay down; giving up is losing', () => {
-  const alone = replay(run(6, STRONG, 1, true), [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter })));
-  const together = replay(run(6, STRONG), [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter })));
+  const alone = replay(run(6, STRONG, 1, true), []);
+  const together = replay(run(6, STRONG), []);
   assert.ok(alone.ticks < together.ticks, `${alone.ticks} < ${together.ticks}`);
   // With no gear and nothing pressed, every hero falls and none gets up: lost before the boss's rage.
   const weak = replay(run(9, { hp: -0.9 }), []);
@@ -90,12 +90,14 @@ test('technomagic: alone the boss is easier; heroes that fall stay down; giving 
 test('technomagic: a win gives one piece of the boss own set, each as likely; no daily limit', () => {
   const cfg = DEFAULTS.hero;
   assert.ok(!('rewardsPerDay' in cfg));
-  assert.equal(cfg.winPoints, 100);
+  assert.equal(cfg.winPoints, 1_000);
   assert.equal(findSpec('hero.winPoints')?.group, 'Hero');
-  const pool = tmDropsOf('perseverance');
+  // (King's Raid's hero gear of the Perseverance set.)
+  const pool = krPiecesOf('perseverance');
+  assert.ok(pool.length > 0);
   assert.deepEqual(pool.map((_, i) => rollTmDrop('galgoria', { index: () => i })), pool);
-  assert.ok(pool.every((item) => item.tmSet === 'perseverance'));
-  assert.equal(rollTmDrop('siegfried', { index: () => 0 }), null, 'Hope has no gear yet');
+  assert.ok(pool.every((item) => item.kr?.set === 'perseverance'));
+  assert.equal(rollTmDrop('siegfried', { index: () => 0 })?.kr?.set, 'hope', "Siegfried's: the Hope set's");
   assert.equal(rollTmDrop('nobody'), null);
   assert.equal(findSpec('hero.rewardsPerDay'), undefined);
   assert.deepEqual(validateSettings(DEFAULTS), []);
@@ -375,14 +377,14 @@ test('technomagic room: single player, a Main Team of 4 and a Sub Team of 3 on A
   room.autoAll('a');
   await h.pass(200);
   const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
-  assert.deepEqual(pressed.map((input) => input.fighter), fight.fight.heroes.flatMap((hero, i) => (hero.sub ? [] : [i])), 'Auto for all: the Main Team only');
+  assert.deepEqual(pressed.map((input) => input.fighter), fight.fight.heroes.flatMap((hero, i) => (hero.sub ? [] : [i])), 'Auto for all (off): the Main Team only');
   const raid = startRaid({ boss: TM_BOSS, seed: 1, stage: 1, solo: true, heroes: fight.fight.heroes.map(({ id, skin, gear, sub }) => ({ id, skin, gear, sub })) });
   assert.ok(typeof raid !== 'string');
-  assert.deepEqual(raid.autos(), fight.fight.heroes.map((hero) => hero.sub === true));
+  assert.deepEqual(raid.autos(), fight.fight.heroes.map(() => true), 'everyone on Auto from the start');
   raid.input({ kind: 'auto', fighter: subs[0] as number });
   raid.input({ kind: 'all-auto' });
   raid.step();
-  assert.deepEqual(raid.autos(), fight.fight.heroes.map(() => true), 'the Main Team on Auto, the Sub Team still on it');
+  assert.deepEqual(raid.autos(), fight.fight.heroes.map((hero) => hero.sub === true), 'the Main Team off Auto, the Sub Team still on it');
   assert.equal(room.giveUp('a'), null);
   await h.pass(200);
   assert.equal(room.back('a'), null);
@@ -414,7 +416,7 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.deepEqual(fight.fight.heroes.map((hero) => hero.skills), [['vigor'], [], []]);
   assert.equal(room.pick('a', 'klaus', 0), 'closed');
 
-  // Their own heroes only: a's Auto on for both of theirs; guest can't press a's.
+  // Their own heroes only: a's Auto (off: every hero starts on it) for both of theirs; guest can't press a's.
   room.autoAll('a');
   room.press('guest', 0, 0);
   room.auto('guest', 2);
@@ -434,6 +436,9 @@ test('technomagic room: a fight is run by the bot, each pressing only their own 
   assert.equal(back.got.filter((m) => m.t === 'fight').length, 1);
   const sofar = back.got.find((m) => m.t === 'turn');
   assert.ok(sofar && sofar.t === 'turn' && sofar.inputs.length === 3);
+  // (And back on Auto, to fight on.)
+  room.autoAll('a');
+  room.auto('guest', 2);
 
   // The fight runs to its end on the bot's clock alone.
   for (let i = 0; i < 300 && a.room().phase === 'fight'; i++) await h.pass(1000);
@@ -554,14 +559,15 @@ test('technomagic room: one who leaves the fight (quit) forfeits what it gives t
   room.pick('b', 'klaus', 0);
   room.ready('b', true);
   assert.equal(await room.begin('a'), null);
-  room.autoAll('a');
+  // (Every hero on Auto from the start: b takes theirs off before going.)
+  room.auto('b', 2);
   assert.equal(room.quit('b'), null);
   assert.deepEqual(a.room().players.map((player) => player.id), ['a'], 'out of the room at once');
   room.autoAll('b');
   room.leave('b', b);
   await h.pass(100);
   const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
-  assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 0], ['auto', 1], ['auto', 2]], 'their hero on Auto too');
+  assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 2], ['auto', 2]], 'their hero back on Auto');
   // Coming back doesn't undo it.
   h.rooms.join(h.player('b'), h.peer(), ALL);
   for (let i = 0; i < 300 && a.room().phase === 'fight'; i++) await h.pass(1000);
@@ -591,12 +597,12 @@ test('technomagic room: one who presses Auto and leaves in the same turn has the
   room.pick('b', 'klaus', 0);
   room.ready('b', true);
   assert.equal(await room.begin('a'), null);
-  // Auto on, then gone before the next step: the Auto stays on (not turned over twice).
+  // Auto off (every hero starts on it), then gone before the next step: back on (not left off, nor turned over once more).
   room.auto('b', 1);
   room.leave('b', b);
   await h.pass(100);
   const pressed = a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : []));
-  assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 1]]);
+  assert.deepEqual(pressed.map((input) => [input.kind, input.fighter]), [['auto', 1], ['auto', 1]]);
 });
 
 test('technomagic room: a page back after the fight is over, or whose run parted from the bot\'s, is given the whole fight to run to the bot\'s end', async () => {
@@ -699,7 +705,8 @@ test('technomagic room: the host can give up, and a room with nobody left is gon
 });
 
 test('technomagic: a hero in a set’s pieces has its effect, the same every time the fight is run', () => {
-  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  // (Every hero on Auto from the start.)
+  const autos: unknown[] = [];
   const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
   const withSet = (set: string | null): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set })) });
   const plain = replay(withSet(null), autos);
@@ -715,7 +722,8 @@ test('technomagic: a hero in a set’s pieces has its effect, the same every tim
 });
 
 test("technomagic: Perseverance on a damage dealer (Kirze) makes the boss fall sooner (King's Raid's: its DMG and ATK, growing)", () => {
-  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  // (Every hero on Auto from the start.)
+  const autos: unknown[] = [];
   const GEARED = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
   const wearing = (who: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, set: who.includes(hero.id) ? 'perseverance' : null })) });
   const plain = replay(wearing([]), autos);
@@ -723,7 +731,8 @@ test("technomagic: Perseverance on a damage dealer (Kirze) makes the boss fall s
 });
 
 test("technomagic perks: a hero's transcendence perks change its fight, the same every time; one the fight doesn't know is none", () => {
-  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  // (Every hero on Auto from the start.)
+  const autos: unknown[] = [];
   const GEARED = { atk: 1.2, hp: 0.8, crit: 250, pen: 250, critDamage: 0.4, speed: 150 };
   const perked = (perks: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, perks })) });
   const plain = replay(perked([]), autos);
@@ -770,7 +779,7 @@ test("technomagic perks: each of a hero's own perks changes its fight, but for t
   const inputs = (perk: string) => {
     const skill = /^s([123])-/.exec(perk);
     const presses = skill ? [{ tick: 0, kind: 'auto', fighter: 0 }, ...Array.from({ length: 11 }, (_, i) => ({ tick: 150 + i * 600, kind: 'skill', fighter: 0, skill: Number(skill[1]) - 1 }))] : [];
-    return [{ tick: 0, kind: 'all-auto' }, ...presses];
+    return presses;
   };
   const key = (played: ReturnType<typeof replay>): string => JSON.stringify([played.ticks, played.dealt, played.sums]);
   const still: string[] = [];
@@ -848,8 +857,8 @@ test('technomagic: TechnoMagic gear’s additional skills, one rolled for each c
 });
 
 test('technomagic: a hero has its gear’s additional skills in the fight, the same every time it is run', () => {
-  // (Geared to win with every skill, Galgoria's crits and all.)
-  const autos = [0, 1, 2].map((fighter) => ({ tick: 0, kind: 'auto', fighter }));
+  // (Geared to win with every skill, Galgoria's crits and all; every hero on Auto from the start.)
+  const autos: unknown[] = [];
   const GEARED = { atk: 3, hp: 2, crit: 400, pen: 500, critDamage: 1, speed: 300 };
   const skilled = (skills: string[]): Run => ({ ...run(11, GEARED), heroes: LINEUP.map((hero) => ({ id: hero.id, skin: 0, gear: GEARED, skills })) });
   const plain = replay(skilled([]), autos);
