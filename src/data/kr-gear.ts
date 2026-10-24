@@ -134,9 +134,9 @@ export const KR_GRANTS: readonly ItemDef[] = [
   { id: 'rune-box-legendary', name: 'Mysterious Rune: Legendary', stars: 1, slot: 'treasure', description: 'A Legendary rune, any as likely.', effects: [], grant: { runeGrade: 6, icon: 'PACKAGE_RUNE_5' } },
 ];
 
-/** A rune of a grade, any as likely (null: none of it). */
-export function rollRuneOfGrade(grade: number, rng: KrRng = defaultRng): string | null {
-  const pool = KR_RUNES.filter((rune) => rune.grade === grade && rune.ancient !== true);
+/** A rune of a grade, any as likely (`ancient`: an Ancient one; null: none of it). */
+export function rollRuneOfGrade(grade: number, rng: KrRng = defaultRng, ancient = false): string | null {
+  const pool = KR_RUNES.filter((rune) => rune.grade === grade && (rune.ancient === true) === ancient);
   return pool.length > 0 ? (pool[rng.index(pool.length)] as KrRuneData).id : null;
 }
 

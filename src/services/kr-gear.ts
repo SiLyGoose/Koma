@@ -9,10 +9,11 @@ import { UT_ENHANCE } from '../data/tm-potentials.js';
 import type { HeroKeep, HeroOptionError, HeroRuneError } from '../protocol/heroes.js';
 import type { ItemCopyDoc } from '../types.js';
 import { recordLedger } from './economy/shared.js';
+import { RUNE_KEEP_PRICE } from '../protocol/runes.js';
 
 /*
  * King's Raid's hero gear in the database (the rules are data/kr-gear.ts's): runes put in a copy's sockets and taken out
- * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out), and a copy's options rerolled
+ * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out for RUNE_KEEP_PRICE points), and a copy's options rerolled
  * or their amounts rolled again (enhanced) for points (King's Raid's gem prices: data/kr-gear.ts's REROLL_PRICES and UPGRADE_PRICES). Each spends first,
  * then changes the copy only as it was (its options as read): anything else changed it meanwhile, it is paid back.
  */
@@ -25,7 +26,8 @@ const socketsOfCopy = (copy: Pick<ItemCopyDoc, 'runes'>, count: number): (string
 
 /**
  * Puts one of the member's runes (`runeId`) in a socket of one of their copies (its `socket`th, from 0): the rune that was
- * in it (if any) given back. Not a socket it has ('no_socket'), a rune not of its part ('wrong_part'), none of it ('no_rune').
+ * in it (if any) given back for RUNE_KEEP_PRICE points (too few: 'too_poor'). Not a socket it has ('no_socket'), a rune not
+ * of its part ('wrong_part'), none of it ('no_rune').
  */
 export async function socketRune(guildId: string, userId: string, copyId: string, socket: number, runeId: string): Promise<RuneResult> {
   const { items, members } = collections();
@@ -37,21 +39,32 @@ export async function socketRune(guildId: string, userId: string, copyId: string
   const rune = KR_RUNES_BY_ID.get(runeId);
   const part = partOf(item);
   if (!rune || !part || !runeFits(rune, part)) return { ok: false, reason: 'wrong_part' };
-  const taken = await members.updateOne({ guildId, userId, [`runes.${runeId}`]: { $gte: 1 } }, { $inc: { [`runes.${runeId}`]: -1 } });
-  if (taken.modifiedCount === 0) return { ok: false, reason: 'no_rune' };
   const before = socketsOfCopy(copy, count);
   const old = before[socket] ?? null;
+  const fee = old ? RUNE_KEEP_PRICE : 0;
+  if (!(await pay(guildId, userId, fee))) return { ok: false, reason: 'too_poor' };
+  const taken = await members.updateOne({ guildId, userId, [`runes.${runeId}`]: { $gte: 1 } }, { $inc: { [`runes.${runeId}`]: -1 } });
+  if (taken.modifiedCount === 0) {
+    await refund(guildId, userId, fee);
+    return { ok: false, reason: 'no_rune' };
+  }
   const after = before.map((one, i) => (i === socket ? runeId : one));
   const put = await items.updateOne({ guildId, userId, _id: copyId, ...(copy.runes ? { runes: copy.runes } : { runes: { $exists: false } }) }, { $set: { runes: after } });
   if (put.modifiedCount === 0) {
-    await members.updateOne({ guildId, userId }, { $inc: { [`runes.${runeId}`]: 1 } });
+    await members.updateOne({ guildId, userId }, { $inc: { [`runes.${runeId}`]: 1, points: fee } });
     return { ok: false, reason: 'busy' };
   }
-  if (old) await members.updateOne({ guildId, userId }, { $inc: { [`runes.${old}`]: 1 } });
+  if (old) {
+    await members.updateOne({ guildId, userId }, { $inc: { [`runes.${old}`]: 1 } });
+    await recordLedger([{ guildId, userId, delta: -fee, reason: 'rune_keep', itemId: item.id }]);
+  }
   return { ok: true };
 }
 
-/** Takes the rune out of a socket of one of their copies (its `socket`th), back to the member's runes. An empty one: 'no_rune'. */
+/**
+ * Takes the rune out of a socket of one of their copies (its `socket`th), back to the member's runes, for RUNE_KEEP_PRICE
+ * points (too few: 'too_poor'; King's Raid's Rune Preserve). An empty one: 'no_rune'.
+ */
 export async function unsocketRune(guildId: string, userId: string, copyId: string, socket: number): Promise<RuneResult> {
   const { items, members } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
@@ -62,9 +75,14 @@ export async function unsocketRune(guildId: string, userId: string, copyId: stri
   const before = socketsOfCopy(copy, count);
   const old = before[socket];
   if (!old) return { ok: false, reason: 'no_rune' };
+  if (!(await pay(guildId, userId, RUNE_KEEP_PRICE))) return { ok: false, reason: 'too_poor' };
   const out = await items.updateOne({ guildId, userId, _id: copyId, runes: copy.runes }, { $set: { runes: before.map((one, i) => (i === socket ? null : one)) } });
-  if (out.modifiedCount === 0) return { ok: false, reason: 'busy' };
+  if (out.modifiedCount === 0) {
+    await refund(guildId, userId, RUNE_KEEP_PRICE);
+    return { ok: false, reason: 'busy' };
+  }
   await members.updateOne({ guildId, userId }, { $inc: { [`runes.${old}`]: 1 } });
+  await recordLedger([{ guildId, userId, delta: -RUNE_KEEP_PRICE, reason: 'rune_keep', itemId: item.id }]);
   return { ok: true };
 }
 

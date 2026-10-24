@@ -40,7 +40,7 @@ export function heroService(deps: ApiDeps) {
       if ((await deps.memberName(guildId, userId)) === null) throw new ApiError('not_found');
       const view = await store.view(guildId, userId);
       const none = <K extends string>(of: Partial<Record<K, number>> | undefined): Record<K, number> => Object.fromEntries(Object.keys(of ?? {}).map((id) => [id, 0])) as Record<K, number>;
-      return { ...view, balance: 0, gems: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null };
+      return { ...view, balance: 0, gems: 0, runeFragments: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */

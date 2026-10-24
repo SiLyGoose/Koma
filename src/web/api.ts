@@ -18,6 +18,7 @@ import { databankRoutes } from './routes/databank.js';
 import { gachaRoutes } from './routes/gacha.js';
 import { gearRoutes } from './routes/gear.js';
 import { heroRoutes } from './routes/heroes.js';
+import { runeRoutes } from './routes/runes.js';
 import { mailRoutes } from './routes/mail.js';
 import type { MailStore } from './models/mail.js';
 import { liveRoutes } from './routes/live.js';
@@ -158,6 +159,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/gacha', gachaRoutes(deps))
     .use('/outfits', outfitRoutes(deps))
     .use('/heroes', heroRoutes(deps))
+    .use('/runes', runeRoutes(deps))
     .use('/mail', mailRoutes(deps))
     .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))

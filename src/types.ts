@@ -259,6 +259,8 @@ export interface MemberDoc {
   essences?: Partial<Record<EssenceId, number>>;
   /** King's Raid's runes they have, not socketed (data/kr-gear.ts's ids), how many of each: dropped by the TechnoMagic and Dragon Raids. Missing means none. */
   runes?: Record<string, number>;
+  /** Rune Fragments: disassembling runes gives them, Mysterious Runes are crafted from them (services/runes.ts). Missing means none. */
+  runeFragments?: number;
   /**
    * King's Raid's Technomagic Gear Upgrade Stones they have, by class (constants/technomagic.ts TM_STONES): dropped by the
    * TechnoMagic Raid, spent awakening TechnoMagic pieces of that class. Missing means none.
@@ -566,6 +568,10 @@ export type LedgerReason =
   | 'sell'
   // Salvaging hero gear for komaDust (powderDelta); itemId is the item.
   | 'salvage'
+  // Selling runes for points (services/runes.ts); 0 points for disassembling them.
+  | 'rune_sell'
+  // Taking a rune out of a socket and keeping it (services/kr-gear.ts).
+  | 'rune_keep'
   | 'plinko_bet'
   | 'plinko_payout'
   | 'blackjack_bet'

@@ -274,6 +274,8 @@ export interface HeroesView {
   balance: number;
   /** The runes they have, not socketed (King's Raid's: the bot's data/kr-gear.ts), best first. */
   runes: HeroRuneStack[];
+  /** Their Rune Fragments (disassembling runes gives them; they craft Mysterious Runes: protocol/runes.ts). Left out by a bot from before them. */
+  runeFragments?: number;
   /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
   gems: number;
   essences: Record<EssenceId, number>;
@@ -322,8 +324,11 @@ export type HeroesSold = HeroesView & { sold: GearSale };
 /** Why a change to a hero's gear wasn't made (nothing changed). */
 export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'duplicate' | 'no_main_treasure' | 'busy';
 
-/** Why a rune wasn't socketed or taken out (nothing changed). */
-export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'busy';
+/**
+ * Why a rune wasn't socketed or taken out (nothing changed): too_poor, too few zeiucoins to keep the one taken out (or put in
+ * over: protocol/runes.ts RUNE_KEEP_PRICE).
+ */
+export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'too_poor' | 'busy';
 
 /**
  * Why an option wasn't rerolled or upgraded, or a rerolled effect kept (nothing was spent). 'pending': its effect was
