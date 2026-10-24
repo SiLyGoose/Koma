@@ -10000,13 +10000,13 @@ function ownPart(fight) {
 					text: `Swamp Imprisonment ${hits}/${IMPRISONMENT.hits}`,
 					tone: "venom",
 					art: stateArt("3590043"),
-					count: `${hits}/${IMPRISONMENT.hits}`
+					count: String(hits)
 				},
 				{
 					text: `Fatal Venom ${Math.min(used, FATAL.after)}/${FATAL.after}`,
 					tone: "venom",
 					art: stateArt("3590040"),
-					count: `${Math.min(used, FATAL.after)}/${FATAL.after}`
+					count: String(Math.min(used, FATAL.after))
 				}
 			];
 		}
@@ -33164,13 +33164,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				text: `Stunned ${Math.ceil(foe.stunned)}`,
 				tone: "stun",
 				art: stateArt("Stun"),
-				count: String(Math.ceil(foe.stunned))
+				left: foe.stunned
 			});
 			if (foe.slowed > 0) marks.push({
 				text: `Slowed ${Math.ceil(foe.slowed)}`,
 				tone: "slow",
 				art: stateArt("SpeedDown"),
-				count: String(Math.ceil(foe.slowed))
+				left: foe.slowed
 			});
 			if (foe.hp > 0 && clock > raidTime) {
 				const times = rage(clock - raidTime);
@@ -33183,13 +33183,15 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				});
 			}
 			for (const status of foe.statuses) {
-				const stacked = status.count !== void 0 && Number.isFinite(status.left) ? ` ×${status.count}` : "";
-				const count = Number.isFinite(status.left) ? String(Math.ceil(status.left)) : `×${status.count ?? 1}`;
+				const timed = Number.isFinite(status.left);
+				const stacked = status.count !== void 0 && timed ? ` ×${status.count}` : "";
+				const said = timed ? String(Math.ceil(status.left)) : `×${status.count ?? 1}`;
+				const corner = status.count !== void 0 || !timed ? { count: String(status.count ?? 1) } : { left: status.left };
 				marks.push({
-					text: `${status.name}${stacked} ${count}`,
+					text: `${status.name}${stacked} ${said}`,
 					tone: status.shown,
 					art: statusArt(status),
-					count
+					...corner
 				});
 			}
 			marks.push(...foe.part.marks?.() ?? []);
@@ -35662,7 +35664,7 @@ var KIRZE = {
 				text: `Curse ${Math.ceil(curse.left)} · ${curse.blows} blows`,
 				tone: "curse",
 				art: art$39(2),
-				count: String(Math.ceil(curse.left))
+				left: curse.left
 			}] : []
 		};
 	}
@@ -40771,7 +40773,7 @@ var ERZE = {
 				text: `Soaking Blood ×${soakStacks} ${Math.ceil(soaking)}s`,
 				tone: "curse",
 				art: art$25(1),
-				count: `×${soakStacks}`
+				count: String(soakStacks)
 			}] : []
 		};
 	}
@@ -41164,7 +41166,7 @@ var LOMAN = {
 				text: `Mark of Creed ${Math.ceil(marked)}s`,
 				tone: "curse",
 				art: art$24(2),
-				count: String(Math.ceil(marked))
+				left: marked
 			}] : []
 		};
 	}
@@ -41864,7 +41866,7 @@ var TANYA = {
 				text: `${BLED} ×${bleeds.length}`,
 				tone: "curse",
 				art: stateArt("Bleeding"),
-				count: `×${bleeds.length}`
+				count: String(bleeds.length)
 			}] : []
 		};
 	}
@@ -50331,7 +50333,8 @@ var HEROES = [
 					return on ? [{
 						text: `Mark of Death ${Math.ceil(on.left)}s`,
 						tone: "curse",
-						art: art(1)
+						art: art(1),
+						left: on.left
 					}] : [];
 				}
 			};
@@ -50341,7 +50344,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "edda9f137c06";
+var SIM_VERSION = "04a5d5a64e1f";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
