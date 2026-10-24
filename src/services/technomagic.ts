@@ -123,6 +123,8 @@ export interface TmFind {
   armorDef?: TmArmorDef;
   /** The komaDust it was salvaged for as it dropped, by their rule (./items/salvage.ts): they don't have it. */
   salvaged?: number;
+  /** A TechnoMagic piece salvaged so: the Upgrade Stones of its class it gave too. */
+  salvagedStones?: number;
   /** A Reclaimed TechnoMagic piece (King's Raid's: constants/technomagic.ts TM_RECLAIMED), never salvaged as it drops. */
   reclaimed?: boolean;
 }
@@ -151,7 +153,10 @@ async function findPiece(guildId: string, userId: string, item: ItemDef, salvage
   const options = item.kr ? rollKrOptions(item.kr) : [];
   const skill = item.kr?.unique ? rollTmSkill() : null;
   const found: TmFind = { item, skill, potentials: [], ...(options.length > 0 && { options }), ...(reclaimed && { reclaimed }) };
-  if (!reclaimed && salvagesDrop(salvage, item)) return { ...found, salvaged: await salvageDrop(guildId, userId, item) };
+  if (!reclaimed && salvagesDrop(salvage, item)) {
+    const { dust, stones } = await salvageDrop(guildId, userId, item);
+    return { ...found, salvaged: dust, ...(stones > 0 && { salvagedStones: stones }) };
+  }
   const { copy } = await addCopy(guildId, userId, item.id);
   if (options.length > 0 || skill || reclaimed) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }), ...(reclaimed && { reclaimed }) } });
   return found;

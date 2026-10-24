@@ -58,13 +58,20 @@ export const tmDropCount = (stage: number): number => byStage(TM_DROP_COUNTS, st
  * King's Raid's Technomagic Gear Upgrade Stones, one kind for each class: what awakens a TechnoMagic piece of that class (0★ to
  * 5★), in place of a spare copy. A win gives `drops` of them by its stage (King's Raid's raids gave them from stage 7), all of
  * one class: one of the heroes the player brought. Awakening to each star costs `cost` (King's Raid's ValanceAwakenTable, by
- * the star it reaches), a Reclaimed piece `reclaimedCost` (its own rows: half as many again).
+ * the star it reaches), a Reclaimed piece `reclaimedCost` (its own rows: half as many again). Salvaging a TechnoMagic piece
+ * gives `salvage` of its class's, a Reclaimed one `reclaimedSalvage`, whatever its stars (King's Raid's EquipItemBreakTable),
+ * with its komaDust.
  */
 export const TM_STONES = {
   drops: [0, 0, 0, 0, 0, 0, 10, 15, 20],
   cost: [10, 20, 40, 80, 160],
   reclaimedCost: [15, 30, 60, 120, 240],
+  salvage: 1,
+  reclaimedSalvage: 2,
 } as const;
+
+/** How many Upgrade Stones salvaging a TechnoMagic piece gives (`reclaimed`: a Reclaimed one's). */
+export const tmSalvageStones = (reclaimed = false): number => (reclaimed ? TM_STONES.reclaimedSalvage : TM_STONES.salvage);
 
 /** A class's stones' name, King's Raid's: "Technomagic Gear Upgrade Stone (Warrior)". */
 export const tmStoneName = (cls: string): string => `Technomagic Gear Upgrade Stone (${cls.charAt(0).toUpperCase()}${cls.slice(1)})`;

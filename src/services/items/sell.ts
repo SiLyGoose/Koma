@@ -1,6 +1,9 @@
 import { collections } from '../../db.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { heroOnly } from '../../lib/game/heroes.js';
+import type { RaidClassId } from '../../constants/raid.js';
+import { tmSalvageStones } from '../../constants/technomagic.js';
+import { tmStoneClass } from '../../data/kr-gear.js';
 import { itemWorth, saleCount, saleLines, salePowder, saleTotal, salvageWorth, worstCopies, worstCopy, type SaleLine } from '../../lib/game/items/sell.js';
 import { keptCopyIds } from '../../lib/game/items/loadouts.js';
 import type { ItemCopyDoc, ItemDef, LedgerDoc, Stars } from '../../types.js';
@@ -71,6 +74,8 @@ export type SaleResult =
       /** The points it paid, and the komaDust; their balances after. */
       earned: number;
       powder: number;
+      /** A salvage's TechnoMagic pieces' Upgrade Stones, by class (King's Raid's: tmSalvageStones each). */
+      stones: Partial<Record<RaidClassId, number>>;
       balance: number;
       powderBalance: number;
       /** How many of the planned copies could not be sold any more (worn, or sold in the meantime). */
@@ -113,11 +118,18 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
   const earned = saleTotal(lines);
   const powder = salePowder(lines);
   if (removedDocs.length === 0) return { ok: false, reason: 'nothing_to_sell' };
+  // (A salvage's TechnoMagic pieces: their class's Upgrade Stones too, more for a Reclaimed one.)
+  const stones: Partial<Record<RaidClassId, number>> = {};
+  if (salvage)
+    for (const copy of removedDocs) {
+      const cls = tmStoneClass(ITEMS_BY_ID.get(copy.itemId) ?? { kr: undefined });
+      if (cls) stones[cls] = (stones[cls] ?? 0) + tmSalvageStones(copy.reclaimed === true);
+    }
 
   let balance: number;
   let powderBalance: number;
   try {
-    const inc = { ...(earned > 0 && { points: earned }), ...(powder > 0 && { powder }) };
+    const inc = { ...(earned > 0 && { points: earned }), ...(powder > 0 && { powder }), ...Object.fromEntries(Object.entries(stones).map(([cls, count]) => [`stones.${cls}`, count])) };
     const updated = Object.keys(inc).length > 0 ? await members.findOneAndUpdate({ guildId, userId }, { $inc: inc }, { returnDocument: 'after' }) : await members.findOne({ guildId, userId });
     balance = updated?.points ?? earned;
     powderBalance = updated?.powder ?? powder;
@@ -146,5 +158,5 @@ export async function sellCopies(guildId: string, userId: string, copyIds: reado
     }
   }
 
-  return { ok: true, lines, earned, powder, balance, powderBalance, skipped: copyIds.length - removedDocs.length };
+  return { ok: true, lines, earned, powder, stones, balance, powderBalance, skipped: copyIds.length - removedDocs.length };
 }

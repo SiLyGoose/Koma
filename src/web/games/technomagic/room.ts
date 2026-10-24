@@ -55,7 +55,7 @@ export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOS
 export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS };
 
 /** A drop as the page shows it: an item found, with what its copy came with. */
-function dropView({ item, skill, potentials, options, salvaged, reclaimed }: TmFind): DropView {
+function dropView({ item, skill, potentials, options, salvaged, salvagedStones, reclaimed }: TmFind): DropView {
   const tmSet = item.kr?.set && KR_TM_SETS.includes(item.kr.set) ? item.kr.set : undefined;
   const bonus = item.kr?.set ? setBonusLines(item.kr.set, item.kr.classes.length === 1 ? (item.kr.classes[0] as RaidClassId) : null, 0)[tmSet ? 0 : 1] : undefined;
   return {
@@ -72,6 +72,7 @@ function dropView({ item, skill, potentials, options, salvaged, reclaimed }: TmF
     itemClass: item.class ?? (item.kr && item.kr.classes.length === 1 ? (item.kr.classes[0] as string) : null),
     setEffect: bonus ? { pieces: bonus.pieces, text: bonus.text } : null,
     ...(salvaged !== undefined && { salvaged }),
+    ...(salvagedStones !== undefined && { salvagedStones }),
     ...(reclaimed && { reclaimed }),
   };
 }

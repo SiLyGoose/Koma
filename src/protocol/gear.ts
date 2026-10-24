@@ -148,6 +148,8 @@ export interface GearSale {
   /** The points it paid, and the komaDust (a salvage's; left out by a bot from before komaDust). */
   earned: number;
   powder?: number;
+  /** A salvage's TechnoMagic pieces' Upgrade Stones, by class (King's Raid's: 1 each, 2 a Reclaimed one). Left out: none. */
+  stones?: Partial<Record<RaidClassId, number>>;
 }
 
 /** One number: what it is with their gear, and what it would be without (null when gear doesn't change it). */

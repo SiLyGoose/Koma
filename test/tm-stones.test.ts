@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TM_RECLAIMED, tmReclaimedChance, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
+import { TM_RECLAIMED, tmReclaimedChance, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { isTmPiece, krMainValue, tmStoneClass } from '../src/data/kr-gear.js';
 import { copyMainStat } from '../src/lib/game/heroes.js';
@@ -18,6 +18,9 @@ test("TechnoMagic Raid: Upgrade Stones as King's Raid's: from stage 7, and what 
   assert.deepEqual([1, 6, 7, 8, 9, 12].map(tmStoneDrops), [0, 0, 10, 15, 20, 20]);
   assert.deepEqual([1, 2, 3, 4, 5].map((to) => tmStoneCost(to)), [10, 20, 40, 80, 160]);
   assert.deepEqual([1, 2, 3, 4, 5].map((to) => tmStoneCost(to, true)), [15, 30, 60, 120, 240]);
+  // (Salvaging one: King's Raid's EquipItemBreakTable, whatever its stars.)
+  assert.equal(tmSalvageStones(), 1);
+  assert.equal(tmSalvageStones(true), 2);
   assert.equal(tmStoneName('warrior'), 'Technomagic Gear Upgrade Stone (Warrior)');
 });
 

@@ -2,6 +2,8 @@ import { collections } from '../../db.js';
 import { RAID_CLASS_IDS, type RaidClassId } from '../../constants/index.js';
 import { partOf } from '../../lib/game/heroes.js';
 import { itemSalvage } from '../../lib/game/items/sell.js';
+import { tmSalvageStones } from '../../constants/technomagic.js';
+import { tmStoneClass } from '../../data/kr-gear.js';
 import { salvageMatches } from '../../lib/game/items/salvage.js';
 import { SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, type HeroPart, type SalvageRule } from '../../protocol/heroes.js';
 import type { ItemDef, MemberDoc } from '../../types.js';
@@ -47,12 +49,17 @@ export function salvagesDrop(rule: SalvageRule | null, item: ItemDef): boolean {
   return salvageMatches(rule, { tier: item.kr.tier, stars: 0, part, classes: item.kr.classes });
 }
 
-/** Salvages a drop of `item` rather than give it: its komaDust paid (and in the ledger, as a salvage). Returns the komaDust. */
-export async function salvageDrop(guildId: string, userId: string, item: ItemDef): Promise<number> {
+/**
+ * Salvages a drop of `item` rather than give it: its komaDust paid (and in the ledger, as a salvage), and a TechnoMagic piece's
+ * Upgrade Stones (King's Raid's: tmSalvageStones, of its class). Returns the komaDust and the stones.
+ */
+export async function salvageDrop(guildId: string, userId: string, item: ItemDef): Promise<{ dust: number; stones: number }> {
   const dust = itemSalvage(item);
-  if (dust <= 0) return 0;
+  const cls = tmStoneClass(item);
+  const stones = cls ? tmSalvageStones() : 0;
+  if (dust <= 0 && stones <= 0) return { dust: 0, stones: 0 };
   await ensureMember(guildId, userId);
-  await collections().members.updateOne({ guildId, userId }, { $inc: { powder: dust } });
-  await recordLedger([{ guildId, userId, delta: 0, powderDelta: dust, reason: 'salvage', itemId: item.id }]);
-  return dust;
+  await collections().members.updateOne({ guildId, userId }, { $inc: { ...(dust > 0 && { powder: dust }), ...(cls && stones > 0 && { [`stones.${cls}`]: stones }) } });
+  if (dust > 0) await recordLedger([{ guildId, userId, delta: 0, powderDelta: dust, reason: 'salvage', itemId: item.id }]);
+  return { dust, stones };
 }
