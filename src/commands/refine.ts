@@ -7,6 +7,7 @@ import { fmt, itemStars, money } from '../lib/format.js';
 import { getInventory } from '../services/economy/index.js';
 import { refineItem, type RefineResult } from '../services/items/refine.js';
 import { heroOnly } from '../lib/game/heroes.js';
+import { tmStoneName } from '../constants/technomagic.js';
 import type { ItemDef } from '../types.js';
 import type { Command, CommandContext, SentReply } from '../discord/types.js';
 import { followUpPrivately, replyPrivately } from '../discord/reply.js';
@@ -24,6 +25,7 @@ function refusalText(p: string, item: ItemDef, result: Exclude<RefineResult, { o
   if (result.reason === 'maxed') return t.maxed(item.name, REFINE.maxLevel, hero);
   if (result.reason === 'too_poor') return t.tooPoor(item.name, result.level + 1, fmt(result.price), fmt(result.balance), hero);
   if (result.reason === 'no_duplicate') return t.noDuplicate(item.name, result.level, hero);
+  if (result.reason === 'no_stones') return t.noStones(item.name, result.level + 1, tmStoneName(result.cls), result.need, result.have);
   return t.notOwned(p, item.name);
 }
 
@@ -38,7 +40,9 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
     .setTitle(t.title(item.name, SLOT_EMOJI[item.slot]))
     .setDescription(
       [
-        t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid), hero),
+        result.stones
+          ? t.doneStones(ctx.user.toString(), result.from, result.to, tmStoneName(result.stones.class), result.stones.paid, result.stones.left, fmt(result.paid))
+          : t.done(ctx.user.toString(), result.from, result.to, result.duplicatesLeft, fmt(result.paid), hero),
         ...(result.maxedCopies > 0 ? [`ℹ️ ${t.alsoMaxed(item.name, REFINE.maxLevel, result.maxedCopies, hero)}`] : []),
       ].join('\n'),
     )
@@ -55,7 +59,9 @@ function resultEmbed(ctx: CommandContext, result: Refined): BotEmbed {
  * there is a duplicate to use; no buttons otherwise. It's greyed out while they can't pay for it.
  */
 function buttonRows(result: Refined): ActionRowBuilder<ButtonBuilder>[] {
-  if (result.to >= REFINE.maxLevel || result.duplicatesLeft <= 0 || result.nextCost === null) return [];
+  // (A TechnoMagic piece's: while they have the stones the next star takes.)
+  const more = result.stones ? result.stones.next !== null && result.stones.left >= result.stones.next : result.duplicatesLeft > 0;
+  if (result.to >= REFINE.maxLevel || !more || result.nextCost === null) return [];
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()

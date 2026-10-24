@@ -175,7 +175,7 @@ export const worksOn = (item: ItemDef, heroClass: RaidClassId): boolean => (item
  * One piece a hero wears: and a unique treasure's options (ItemCopyDoc.tmPotentials); King's Raid's gear's options and the
  * runes in its sockets (a unique weapon's runes too); and (`main`) whether it is the hero's main treasure.
  */
-export type HeroPiece = GearPiece & { potentials?: readonly TmPotential[]; options?: readonly KrOption[]; runes?: readonly (string | null)[]; main?: boolean };
+export type HeroPiece = GearPiece & { potentials?: readonly TmPotential[]; options?: readonly KrOption[]; runes?: readonly (string | null)[]; main?: boolean; reclaimed?: boolean };
 
 /** How much of a stat as its line says it: a share (a percent), or flat as it is. */
 const amount = (stat: HeroStat, value: number): string => (HERO_STATS[stat].flat ? fmt(Math.round(value)) : formatPercent(value));
@@ -185,9 +185,9 @@ const amount = (stat: HeroStat, value: number): string => (HERO_STATS[stat].flat
  * and a unique treasure's HP (as its hero's main treasure: King's Raid's); the old TechnoMagic gear's, by its copy's armor
  * DEF. Null: none (an artifact).
  */
-export function copyMainStat(item: ItemDef, copy: Partial<Pick<ItemCopyDoc, 'tmArmorDef' | 'level'>>): MainStat | null {
+export function copyMainStat(item: ItemDef, copy: Partial<Pick<ItemCopyDoc, 'tmArmorDef' | 'level' | 'reclaimed'>>): MainStat | null {
   const stars = refineLevel(copy.level ?? 1, 0);
-  if (item.kr?.main) return { name: KR_MAIN_NAME[item.kr.main[0]], value: krMainValue(item.kr, stars) };
+  if (item.kr?.main) return { name: KR_MAIN_NAME[item.kr.main[0]], value: krMainValue(item.kr, stars, copy.reclaimed === true) };
   const owner = uniqueClass(item);
   if (owner) return { name: KR_MAIN_NAME.atk, value: uwAttack(owner, stars) };
   if (item.uniqueTreasure) return { name: KR_MAIN_NAME.hp, value: utHp(stars) };
@@ -215,7 +215,7 @@ export const socketsOf = (item: ItemDef): number => (item.uniqueWeapon !== undef
  * What one piece gives a hero of `heroClass`, stat by stat (nothing from a piece not of its class); and, when `heroId` says
  * which hero, nothing from another hero's unique weapon or treasure. (Its set's bonuses are the hero's: heroSetBonus.)
  */
-export function pieceBonus({ item, level, potentials = [], options = [], runes = [], main = false }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
+export function pieceBonus({ item, level, potentials = [], options = [], runes = [], main = false, reclaimed = false }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
   const out = noBonus();
   if (!worksOn(item, heroClass) || (heroId !== undefined && !wieldedBy(item, heroId))) return out;
   const owner = uniqueClass(item);
@@ -228,7 +228,7 @@ export function pieceBonus({ item, level, potentials = [], options = [], runes =
     // (Its main stat at its refinement, as it is; its options; an artifact's is the raid's.)
     if (kr.main) {
       const [stat, base] = kr.main;
-      const value = krMainValue(kr, level);
+      const value = krMainValue(kr, level, reclaimed);
       if (base > 0) out[stat === 'atk' ? 'atkFlat' : stat === 'hp' ? 'hpFlat' : stat === 'defPhysical' ? 'defPhysicalFlat' : 'defMagicalFlat'] += value;
     }
     for (const option of options) if (option.stat in out) out[option.stat as HeroStat] += krOptionValue(kr, option);
@@ -436,7 +436,7 @@ export const heroSkills = (pieces: readonly { item: ItemDef; skill?: string }[],
   pieces.filter(({ item, skill }) => item.kr?.unique && skill && worksOn(item, heroClass)).map(({ skill }) => skill as string);
 
 /** A copy as the raid counts it (what raidGear reads of each). */
-export type RaidCopy = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'tmArmorDef' | 'options' | 'runes'>>;
+export type RaidCopy = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' | 'tmPotentials'> & Partial<Pick<ItemCopyDoc, 'tmArmorDef' | 'options' | 'runes' | 'reclaimed'>>;
 
 /**
  * What each of the member's heroes' gear gives it in the raid, as the raid counts it (raidValue: points for a
@@ -477,6 +477,7 @@ export function raidGear(copies: readonly RaidCopy[], member: Pick<MemberDoc, 'h
         ...(copy.options && { options: copy.options }),
         ...(copy.runes && { runes: copy.runes }),
         ...(slot === 'treasure' && { main: true }),
+        ...(copy.reclaimed && { reclaimed: true }),
       });
       skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
       counted.push(copy._id);

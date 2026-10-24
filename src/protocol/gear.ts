@@ -14,6 +14,8 @@ export interface GearCopy {
   slot: Slot;
   /** Hero gear: the part of a hero's gear it is (an accessory's slot is 'treasure', its part 'accessory'). Null: not hero gear. */
   part: HeroPart | null;
+  /** A Reclaimed TechnoMagic piece (King's Raid's: its main stat higher, its awakening dearer in stones; its name says so). Left out for any other. */
+  reclaimed?: boolean;
   description: string;
   level: number;
   /** Its top refinement level: 1 for TechnoMagic gear, which is never refined (no level is shown for it, and no refine offered). */
@@ -61,8 +63,13 @@ export interface GearRefine {
   blocked: RefineBlock | null;
   /** What the next level costs in points (null at the top level). */
   cost: number | null;
-  /** The level of the spare copy it would use up when none is picked (null when there's none to use). */
+  /** The level of the spare copy it would use up when none is picked (null when there's none to use, or it takes stones). */
   spare: number | null;
+  /**
+   * A TechnoMagic piece's: the Upgrade Stones of its class it takes in place of a spare (King's Raid's: more for a Reclaimed
+   * one), and how many they have. Null or missing for any other copy (and at the top level).
+   */
+  stones?: TmStones | null;
   /** What it would do at the next level, as `effects` (null when it can't go up). */
   after: string[] | null;
   /**
@@ -72,12 +79,19 @@ export interface GearRefine {
   mainAfter?: MainStat | null;
 }
 
+/** The Upgrade Stones awakening a TechnoMagic piece takes: its class's (`class`), how many (`need`), and how many they have. */
+export interface TmStones {
+  class: RaidClassId;
+  need: number;
+  have: number;
+}
+
 /**
- * Why a copy can't be refined: it's at the top level (TechnoMagic gear always is), there's no spare copy of it to use up (another
- * copy of its item that isn't worn, saved in a loadout or locked), or they can't pay for it.
- * Every copy is refined as itself on the site, whatever level its item's other copies are at.
+ * Why a copy can't be refined: it's at the top level (the old TechnoMagic gear always is), there's no spare copy of it to use up (another
+ * copy of its item that isn't worn, saved in a loadout or locked), they haven't the Upgrade Stones a TechnoMagic piece takes, or
+ * they can't pay for it. Every copy is refined as itself on the site, whatever level its item's other copies are at.
  */
-export type RefineBlock = 'maxed' | 'no_duplicate' | 'too_poor';
+export type RefineBlock = 'maxed' | 'no_duplicate' | 'no_stones' | 'too_poor';
 
 /** GET /api/gear: a member's gear. */
 export interface GearView {

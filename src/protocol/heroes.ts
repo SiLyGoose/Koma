@@ -119,6 +119,11 @@ export interface HeroCopy {
   level: number;
   /** Its top refinement level (R5; 1 for the old TechnoMagic gear, never refined). */
   maxLevel: number;
+  /**
+   * A TechnoMagic piece that is Reclaimed (King's Raid's): its main stat higher, its awakening dearer in Upgrade Stones; its
+   * name says so. Left out for any other.
+   */
+  reclaimed?: boolean;
   /** The part of a hero's gear it is (the slot it goes in), and its kind: an accessory's (ring, earrings…), an armor's weight. */
   part: HeroPart;
   kind: string | null;
@@ -263,6 +268,11 @@ export interface HeroesView {
   /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
   gems: number;
   essences: Record<EssenceId, number>;
+  /**
+   * Their Technomagic Gear Upgrade Stones, by class (0 with none): what awakens a TechnoMagic piece of that class (King's
+   * Raid's), dropped by the TechnoMagic Raid from stage 7. Left out by a bot from before them.
+   */
+  stones?: Record<RaidClassId, number>;
   /** The rule their hero gear's drops are salvaged by as they drop (POST /api/heroes/auto-salvage); null: none is (left out by a bot from before it). */
   autoSalvage?: SalvageRule | null;
 }

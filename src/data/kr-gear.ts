@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import type { RaidClassId } from '../constants/raid.js';
+import { TM_RECLAIMED } from '../constants/technomagic.js';
 import type { HeroPart } from '../protocol/heroes.js';
 import type { ItemDef, KrItem, KrMainStat, KrOption, Slot } from '../types.js';
 import { KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, TM_ARTIFACTS, type KrOptionData, type KrRuneData } from '../../vendor/technomagic-sim.mjs';
@@ -15,8 +16,9 @@ import { KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, TM_ARTIFACTS, type K
  *     class's weapon, with 4 options, dropped by the Dragon Raid (the higher its stage, the higher the tier);
  *   - the artifacts the fight has a use for (vendor's TM_ARTIFACTS), in a hero's artifact slot.
  *
- * Every copy is at its max level (King's Raid's +30): only its refinement (King's Raid's stars, R1 to R5: a duplicate used up
- * each, as any gear's) raises its main stat (KR_REFINE). Its options (ItemCopyDoc.options) are rolled as it drops, each any
+ * Every copy is at its max level (King's Raid's +30): only its refinement (King's Raid's stars, 0★ to 5★: a duplicate used up
+ * each, as any gear's; a TechnoMagic piece's, its class's Upgrade Stones: constants/technomagic.ts TM_STONES) raises its main
+ * stat (KR_REFINE), and a Reclaimed TechnoMagic copy's is higher (TM_RECLAIMED). Its options (ItemCopyDoc.options) are rolled as it drops, each any
  * stat of its pool's (two may be the same, as King's Raid's), by its pool's weights, at a step at random; a reroll rolls one again, an enhance rolls one's
  * step again (its stat kept). Its runes (KR_RUNES: King's Raid's 224) go in its sockets, as many as its part has (and a unique weapon's three).
  */
@@ -28,6 +30,12 @@ const SLOT_OF: Readonly<Record<HeroPart, Slot>> = { weapon: 'weapon', armor: 'ar
 
 /** The TechnoMagic sets (each one raid's), apart from the dragon sets. */
 export const KR_TM_SETS: readonly string[] = ['perseverance', 'hope', 'authority'];
+
+/** Whether `item` is a TechnoMagic set's piece: awakened with its class's Upgrade Stones, and maybe Reclaimed. */
+export const isTmPiece = (item: Pick<ItemDef, 'kr'>): boolean => KR_TM_SETS.includes(item.kr?.set ?? '');
+
+/** The class whose Upgrade Stones awaken `item` (each TechnoMagic piece is one class's); null: not a TechnoMagic piece. */
+export const tmStoneClass = (item: Pick<ItemDef, 'kr'>): RaidClassId | null => (isTmPiece(item) ? (item.kr?.classes[0] ?? null) : null);
 
 /** The dragon sets, and their tiers, lowest first. */
 export const KR_DRAGON_SETS: readonly string[] = ['opportune-fire', 'gritty-frost', 'unrelenting-poison', 'swift-darkness'];
@@ -141,14 +149,17 @@ export const krPiecesOf = (set: string, tier?: number): ItemDef[] => KR_ITEMS.fi
 /** Whether a piece works on a hero of `heroClass`: one its classes include (an artifact, anyone). */
 export const krWornBy = (kr: KrItem, heroClass: RaidClassId): boolean => kr.classes.length === 0 || kr.classes.includes(heroClass);
 
-/** A piece's main stat at refinement `level` (R1 to R5): its base times King's Raid's factor at max level, as King's Raid works it out. */
-export function krMainValue(kr: KrItem, level: number): number {
+/**
+ * A piece's main stat at refinement `level` (0★ to 5★): its base times King's Raid's factor at max level, as King's Raid works it
+ * out (`reclaimed`: a Reclaimed TechnoMagic copy's, TM_RECLAIMED.main times as much).
+ */
+export function krMainValue(kr: KrItem, level: number, reclaimed = false): number {
   if (!kr.main) return 0;
   const [stat, base] = kr.main;
   const factors = stat === 'atk' ? KR_REFINE.atk : stat === 'hp' ? KR_REFINE.hp : KR_REFINE.def;
   // (Its stars are the index: 0★ to 5★.)
   const factor = factors[Math.min(factors.length - 1, Math.max(0, Math.floor(level)))] as number;
-  return Math.floor((base * factor) / 1000);
+  return Math.floor(((base * factor) / 1000) * (reclaimed ? TM_RECLAIMED.main : 1));
 }
 
 /** A main stat's name, as King's Raid's. */

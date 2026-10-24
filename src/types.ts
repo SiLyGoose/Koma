@@ -259,6 +259,11 @@ export interface MemberDoc {
   essences?: Partial<Record<EssenceId, number>>;
   /** King's Raid's runes they have, not socketed (data/kr-gear.ts's ids), how many of each: dropped by the TechnoMagic and Dragon Raids. Missing means none. */
   runes?: Record<string, number>;
+  /**
+   * King's Raid's Technomagic Gear Upgrade Stones they have, by class (constants/technomagic.ts TM_STONES): dropped by the
+   * TechnoMagic Raid, spent awakening TechnoMagic pieces of that class. Missing means none.
+   */
+  stones?: Partial<Record<RaidClassId, number>>;
   /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
   weeklyBossWeek?: string;
   /**
@@ -472,6 +477,11 @@ export interface ItemCopyDoc {
    * rolled as it dropped. Missing on any other copy (a TechnoMagic weapon's main stat is always HP).
    */
   tmArmorDef?: TmArmorDef;
+  /**
+   * TechnoMagic gear: Reclaimed (King's Raid's, constants/technomagic.ts TM_RECLAIMED), its main stat higher and its awakening
+   * dearer in stones. Missing means not.
+   */
+  reclaimed?: boolean;
   obtainedAt: Date;
 }
 

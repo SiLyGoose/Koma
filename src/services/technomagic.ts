@@ -6,7 +6,8 @@ import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
 import { dragonClearGems, tmClearGems, tmDropCount } from '../constants/technomagic.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
-import { rollArtifact, rollDragonPieces, rollRunes, rollTmDrop, rollTmSkill, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import { rollArtifact, rollDragonPieces, rollReclaimed, rollRunes, rollTmDrop, rollTmSkill, rollTmStones, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import type { RaidClassId } from '../constants/raid.js';
 import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
 import type { ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
@@ -122,6 +123,8 @@ export interface TmFind {
   armorDef?: TmArmorDef;
   /** The komaDust it was salvaged for as it dropped, by their rule (./items/salvage.ts): they don't have it. */
   salvaged?: number;
+  /** A Reclaimed TechnoMagic piece (King's Raid's: constants/technomagic.ts TM_RECLAIMED), never salvaged as it drops. */
+  reclaimed?: boolean;
 }
 
 /**
@@ -134,21 +137,31 @@ export interface TmWin {
   points: number;
   essences?: Partial<Record<EssenceId, number>>;
   gems?: number;
+  /** The TechnoMagic Raid's Upgrade Stones (from stage 7): their class, and how many. */
+  stones?: { class: RaidClassId; count: number };
   firstClears?: number;
 }
 
 /**
- * A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it; or, one their
- * `salvage` rule takes, its komaDust in its place (what it rolled is still said, for the end screen to show what went).
+ * A piece found: a copy of it, with its options and (TechnoMagic gear) its additional skill rolled for it, Reclaimed with
+ * `reclaimed`; or, one their `salvage` rule takes, its komaDust in its place (what it rolled is still said, for the end screen to
+ * show what went). A Reclaimed one is never salvaged.
  */
-async function findPiece(guildId: string, userId: string, item: ItemDef, salvage: SalvageRule | null = null): Promise<TmFind> {
+async function findPiece(guildId: string, userId: string, item: ItemDef, salvage: SalvageRule | null = null, reclaimed = false): Promise<TmFind> {
   const options = item.kr ? rollKrOptions(item.kr) : [];
   const skill = item.kr?.unique ? rollTmSkill() : null;
-  const found: TmFind = { item, skill, potentials: [], ...(options.length > 0 && { options }) };
-  if (salvagesDrop(salvage, item)) return { ...found, salvaged: await salvageDrop(guildId, userId, item) };
+  const found: TmFind = { item, skill, potentials: [], ...(options.length > 0 && { options }), ...(reclaimed && { reclaimed }) };
+  if (!reclaimed && salvagesDrop(salvage, item)) return { ...found, salvaged: await salvageDrop(guildId, userId, item) };
   const { copy } = await addCopy(guildId, userId, item.id);
-  if (options.length > 0 || skill) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }) } });
+  if (options.length > 0 || skill || reclaimed) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }), ...(reclaimed && { reclaimed }) } });
   return found;
+}
+
+/** Upgrade Stones found: added to the member's, of their class. */
+async function giveStones(guildId: string, userId: string, stones: { class: RaidClassId; count: number } | null): Promise<void> {
+  if (!stones || stones.count <= 0) return;
+  await ensureMember(guildId, userId);
+  await collections().members.updateOne({ guildId, userId }, { $inc: { [`stones.${stones.class}`]: stones.count } });
 }
 
 /** Runes found: added to the member's. */
@@ -170,7 +183,9 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
   for (const userId of run.players.keys()) {
     // One who left it (forfeited) is paid nothing, and it counts as lost for them (it opens no stage).
     const paid = result === 'won' && !forfeited.has(userId);
-    const won: TmWin = !paid ? { finds: [], points: 0 } : dragon ? await payDragonWin(guildId, userId, run.boss, stage, run.mode) : await payTmWin(guildId, userId, run.boss, stage);
+    // (The classes of the heroes they brought: whose Upgrade Stones a TechnoMagic Raid win gives.)
+    const classes = [...new Set([...(run.players.get(userId)?.gear.keys() ?? [])].flatMap((id) => HEROES_BY_ID.get(id)?.class ?? []))];
+    const won: TmWin = !paid ? { finds: [], points: 0 } : dragon ? await payDragonWin(guildId, userId, run.boss, stage, run.mode) : await payTmWin(guildId, userId, run.boss, stage, classes);
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
@@ -190,17 +205,18 @@ async function payPoints(guildId: string, userId: string, points: number, reason
 
 /**
  * A TechnoMagic Raid win at `stage`: that stage's pieces of the boss's set (tmDropCount), each copy with its options and its
- * additional skill rolled for it; its runes; now and then an artifact; `hero.winPoints` points; and komaGems for each stage up
- * to it they hadn't cleared (tmClearGems: a win clears every stage under it too; this run isn't marked won yet).
+ * additional skill rolled for it, now and then Reclaimed (rollReclaimed); its runes; now and then an artifact; Upgrade Stones of
+ * one of `classes` (the heroes they brought: rollTmStones); `hero.winPoints` points; and komaGems for each stage up to it they
+ * hadn't cleared (tmClearGems: a win clears every stage under it too; this run isn't marked won yet).
  */
-async function payTmWin(guildId: string, userId: string, boss: string, stage: number): Promise<TmWin> {
+async function payTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[] = []): Promise<TmWin> {
   const cleared = await clearedStage(guildId, userId, boss);
   const salvage = await loadAutoSalvage(guildId, userId);
   const finds: TmFind[] = [];
   for (let n = tmDropCount(stage); n > 0; n--) {
     const item = rollTmDrop(boss);
     if (!item) break;
-    finds.push(await findPiece(guildId, userId, item, salvage));
+    finds.push(await findPiece(guildId, userId, item, salvage, rollReclaimed(stage)));
   }
   const artifact = rollArtifact(stage);
   if (artifact) finds.push(await findPiece(guildId, userId, artifact));
@@ -208,9 +224,11 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
   await giveRunes(guildId, userId, runes);
   const points = Math.max(0, CONFIG.hero.winPoints);
   await payPoints(guildId, userId, points, 'tm_win');
+  const stones = rollTmStones(stage, classes);
+  await giveStones(guildId, userId, stones);
   const gems = tmClearGems(cleared, stage);
   if (gems > 0) await giveGems(guildId, userId, gems, 'tm_gems');
-  return { finds, runes, points, gems, firstClears: Math.max(0, stage - cleared) };
+  return { finds, runes, points, gems, ...(stones && { stones }), firstClears: Math.max(0, stage - cleared) };
 }
 
 /**

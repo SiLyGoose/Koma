@@ -17,6 +17,7 @@ const STATUS: Record<ErrorCode, number> = {
   busy: 409,
   maxed: 409,
   no_duplicate: 409,
+  no_stones: 409,
   bad_material: 409,
   too_poor: 409,
   nothing_to_sell: 409,

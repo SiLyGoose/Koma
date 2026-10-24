@@ -6,6 +6,8 @@ import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEf
 import { keptCopyIds, loadoutsOf, lockedLoadoutsOf, type LoadoutView, type LockedLoadout } from '../../lib/game/items/loadouts.js';
 import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, partOf, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
+import { tmStoneCost } from '../../constants/technomagic.js';
+import { tmStoneClass } from '../../data/kr-gear.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
 import { leastStars, maxLevelOf, refineable, refineCopyPlan, refineCost, refineLevel, starsOf } from '../../lib/game/items/refine.js';
@@ -89,21 +91,36 @@ export interface GearStore {
   classes: (guildId: string, userIds: readonly string[]) => Promise<(RaidClassId | null)[]>;
 }
 
-export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials' | 'tmArmorDef'>>;
+export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials' | 'tmArmorDef' | 'reclaimed'>>;
 
 /**
  * Whether refining `copyId` itself (a copy of `item`) can be done, with the member's copies of its item (`sameItem`), the
- * copies they wear or keep in any loadout (`kept`, never used up), and their points (null: not known,
- * never too poor), and the level it would go up to (null when it can't). TechnoMagic gear, never refined, is at its top.
+ * copies they wear or keep in any loadout (`kept`, never used up), their points and Upgrade Stones (`stones`; null: not known,
+ * never too poor), and the level it would go up to (null when it can't). The old TechnoMagic gear, never refined, is at its
+ * top; a TechnoMagic set's piece takes its class's stones in place of a spare.
  */
 export function refineState(
   copyId: string,
   sameItem: readonly CopyInfo[],
-  item: Pick<ItemDef, 'stars' | 'tmDrop'>,
+  item: Pick<ItemDef, 'stars' | 'tmDrop' | 'kr'>,
   kept: ReadonlySet<string>,
   balance: number | null,
+  stones: Partial<Record<RaidClassId, number>> | null = null,
 ): Omit<GearRefine, 'after'> & { to: number | null } {
   if (!refineable(item)) return { blocked: 'maxed', cost: null, spare: null, to: null };
+  const cls = tmStoneClass(item);
+  if (cls) {
+    const copy = sameItem.find((one) => one._id === copyId);
+    if (!copy) return { blocked: 'no_duplicate', cost: null, spare: null, to: null };
+    const level = refineLevel(copy.level, leastStars(item));
+    if (level >= REFINE.maxLevel) return { blocked: 'maxed', cost: null, spare: null, stones: null, to: null };
+    const to = level + 1;
+    const cost = refineCost(item.stars, to);
+    const need = tmStoneCost(to, copy.reclaimed === true);
+    const have = stones?.[cls] ?? 0;
+    const blocked = stones !== null && have < need ? 'no_stones' : balance !== null && balance < cost ? 'too_poor' : null;
+    return { blocked, cost, spare: null, stones: { class: cls, need, have }, to };
+  }
   const plan = refineCopyPlan(
     sameItem.map((copy) => ({ ...copy, obtainedAt: copy.obtainedAt ?? new Date(0) })),
     copyId,
@@ -140,6 +157,7 @@ export function gearView(
   heroWorn: ReadonlyMap<string, string> = new Map(),
   tmOn: ReadonlyMap<string, TmEffectsOn> = new Map(),
   locked: readonly LockedLoadout[] = [],
+  stones: Partial<Record<RaidClassId, number>> | null = null,
 ): GearView {
   const wornIds = equippedCopyIds(equipment);
   const kept = new Set([...wornIds, ...heroWorn.keys()]);
@@ -167,10 +185,11 @@ export function gearView(
     const view: GearCopy = {
       id: copy._id,
       itemId: item.id,
-      name: item.name,
+      name: copy.reclaimed ? `Reclaimed ${item.name}` : item.name,
       stars: item.stars,
       slot: item.slot,
       part: partOf(item),
+      ...(copy.reclaimed && { reclaimed: true }),
       description: item.description,
       level,
       maxLevel,
@@ -191,7 +210,7 @@ export function gearView(
       itemClass: item.class ?? null,
       hero: heroWorn.get(copy._id) ?? null,
     };
-    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance);
+    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance, stones);
     view.refine = {
       ...refine,
       after: to === null ? null : linesAt(to),
@@ -263,6 +282,7 @@ export const gearStore: GearStore = {
       heroNames(member),
       activeTmEffects(copies, member),
       lockedLoadoutsOf(member),
+      member?.stones ?? {},
     );
   },
   peek: async (guildId, userId) => {
@@ -308,7 +328,7 @@ export const gearStore: GearStore = {
     // This copy is the one raised, whatever level its item's other copies are at.
     const [sameItem, member] = await Promise.all([items.find({ guildId, userId, itemId: item.id }).toArray(), members.findOne({ guildId, userId })]);
     const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
-    const state = refineState(copyId, sameItem, item, kept, member?.points ?? 0);
+    const state = refineState(copyId, sameItem, item, kept, member?.points ?? 0, member?.stones ?? {});
     if (state.blocked) return state.blocked;
     const result = await refineItem(guildId, userId, item, { copy: copyId, material: materialId });
     if (result.ok) return 'ok';

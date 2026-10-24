@@ -124,6 +124,8 @@ export interface DropView {
   setEffect: { pieces: number; text: string } | null;
   /** The komaDust it was salvaged for as it dropped, by the player's rule (protocol/heroes.ts SalvageRule): they don't have it. Left out: it is theirs. */
   salvaged?: number;
+  /** A Reclaimed TechnoMagic piece (King's Raid's: its main stat higher; its name says so, and it is never salvaged as it drops). Left out: not one. */
+  reclaimed?: boolean;
 }
 
 /**
@@ -142,6 +144,8 @@ export interface OverView {
   points: Record<string, number>;
   essences?: Record<string, Record<string, number>>;
   gems?: Record<string, number>;
+  /** The Technomagic Gear Upgrade Stones each found (a TechnoMagic Raid win from stage 7): their class, and how many. */
+  stones?: Record<string, { class: string; count: number }>;
   firstClears?: Record<string, number>;
 }
 

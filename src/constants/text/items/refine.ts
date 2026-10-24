@@ -16,6 +16,12 @@ export const refineText = {
   noDuplicate: (name: string, level: number, hero = false) =>
     `Your **${name}** is at **${levelTag(level, hero)}**. ${verbs(hero).ing} it uses up a duplicate, and you don't have a spare one (locked copies and ones in a loadout${hero ? ' or on a hero' : ''} are never used up). Pull another!`,
   notRefineable: (name: string) => `**${name}** is TechnoMagic gear: it is never refined. What it does on a hero is its potentials, which stay as they came.`,
+  /** A TechnoMagic piece: awakening it to `to` takes `need` of `stone` (its class's Upgrade Stones), and they have `have`. */
+  noStones: (name: string, to: number, stone: string, need: number, have: number) =>
+    `Awakening your **${name}** to **${levelTag(to, true)}** takes **${need}** ${stone}, and you have **${have}**. The TechnoMagic Raid drops them from stage 7.`,
+  /** A TechnoMagic piece awakened from `from` to `to`, using `paid` of `stone` (`left` left) and `cost` points. */
+  doneStones: (user: string, from: number, to: number, stone: string, paid: number, left: number, cost: string) =>
+    `${user} awakened it from **${levelTag(from, true)}** to **${levelTag(to, true)}**, using **${paid}** ${stone}${cost === '0' ? '' : ` and ${boldMoney(cost)}`}. ${left} left.`,
   maxed: (name: string, max: number, hero = false) => `Your **${name}** is already fully ${verbs(hero).ed} (**${levelTag(max, hero)}**).`,
   busy: 'Your items changed while refining. Nothing was used up; try again.',
   title: (name: string, slot: string) => `${name} ${slot}`,

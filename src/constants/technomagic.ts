@@ -48,8 +48,45 @@ export const TM_FIGHT = {
  */
 export const TM_DROP_COUNTS: readonly number[] = [1, 1, 1, 1, 2, 2, 2, 3, 3];
 
+/** `table`'s entry for `stage` (1 to 9: the first is stage 1's; past the last, the last's). */
+const byStage = (table: readonly number[], stage: number): number => table[Math.min(table.length, Math.max(1, Math.floor(stage))) - 1] as number;
+
 /** How many items a win at `stage` gives (past the last stage, as many as the last). */
-export const tmDropCount = (stage: number): number => TM_DROP_COUNTS[Math.min(TM_DROP_COUNTS.length, Math.max(1, Math.floor(stage))) - 1] as number;
+export const tmDropCount = (stage: number): number => byStage(TM_DROP_COUNTS, stage);
+
+/**
+ * King's Raid's Technomagic Gear Upgrade Stones, one kind for each class: what awakens a TechnoMagic piece of that class (0★ to
+ * 5★), in place of a spare copy. A win gives `drops` of them by its stage (King's Raid's raids gave them from stage 7), all of
+ * one class: one of the heroes the player brought. Awakening to each star costs `cost` (King's Raid's ValanceAwakenTable, by
+ * the star it reaches), a Reclaimed piece `reclaimedCost` (its own rows: half as many again).
+ */
+export const TM_STONES = {
+  drops: [0, 0, 0, 0, 0, 0, 10, 15, 20],
+  cost: [10, 20, 40, 80, 160],
+  reclaimedCost: [15, 30, 60, 120, 240],
+} as const;
+
+/** A class's stones' name, King's Raid's: "Technomagic Gear Upgrade Stone (Warrior)". */
+export const tmStoneName = (cls: string): string => `Technomagic Gear Upgrade Stone (${cls.charAt(0).toUpperCase()}${cls.slice(1)})`;
+
+/** How many stones a win at `stage` gives. */
+export const tmStoneDrops = (stage: number): number => byStage(TM_STONES.drops, stage);
+
+/** What awakening a TechnoMagic piece to `to` stars (1 to 5) costs in stones (`reclaimed`: a Reclaimed one's). */
+export const tmStoneCost = (to: number, reclaimed = false): number => (reclaimed ? TM_STONES.reclaimedCost : TM_STONES.cost)[Math.min(5, Math.max(1, Math.floor(to))) - 1] as number;
+
+/**
+ * King's Raid's Reclaimed Technomagic Gear: a TechnoMagic piece with a higher main stat (`main` times as much: its
+ * EquipUpgradeStatTable rows, 7,875 to 6,000 for ATK and HP, 10,500 to 8,000 for DEF), its options and additional skill as
+ * any. Each TechnoMagic piece a win gives is one by `chance`, by its stage (King's Raid's: "a small chance", from stage 4).
+ */
+export const TM_RECLAIMED = {
+  chance: [0, 0, 0, 0.05, 0.05, 0.05, 0.08, 0.1, 0.12],
+  main: 1.3125,
+} as const;
+
+/** The chance a TechnoMagic piece a win at `stage` gives is Reclaimed. */
+export const tmReclaimedChance = (stage: number): number => byStage(TM_RECLAIMED.chance, stage);
 
 /** Playing it from its web page (the Koma-UI repo): `path` is where its web socket listens. */
 export const TM_WEB = {
