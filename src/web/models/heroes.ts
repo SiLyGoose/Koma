@@ -47,6 +47,8 @@ import { keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } fr
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
 import type { RaidClassId } from '../../constants/raid.js';
+import { tmSalvageStones } from '../../constants/technomagic.js';
+import { tmStoneClass } from '../../data/kr-gear.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
 import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule } from '../../protocol/heroes.js';
@@ -225,6 +227,7 @@ export function heroesView(
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
       sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
       ...(heroOnly(item) && { salvage: itemSalvage(item) }),
+      ...(tmStoneClass(item) && { salvageStones: { class: tmStoneClass(item) as RaidClassId, count: tmSalvageStones(copy.reclaimed === true) } }),
       effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,

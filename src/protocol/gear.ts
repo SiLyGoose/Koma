@@ -16,6 +16,8 @@ export interface GearCopy {
   part: HeroPart | null;
   /** A Reclaimed TechnoMagic piece (King's Raid's: its main stat higher, its awakening dearer in stones; its name says so). Left out for any other. */
   reclaimed?: boolean;
+  /** A TechnoMagic piece: the Upgrade Stones of its class salvaging it gives, in place of komaDust (King's Raid's). Left out for any other. */
+  salvageStones?: { class: RaidClassId; count: number };
   description: string;
   level: number;
   /** Its top refinement level: 1 for TechnoMagic gear, which is never refined (no level is shown for it, and no refine offered). */

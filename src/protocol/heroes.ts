@@ -124,6 +124,8 @@ export interface HeroCopy {
    * name says so. Left out for any other.
    */
   reclaimed?: boolean;
+  /** A TechnoMagic piece: the Upgrade Stones of its class salvaging it gives, in place of komaDust (King's Raid's). Left out for any other. */
+  salvageStones?: { class: RaidClassId; count: number };
   /** The part of a hero's gear it is (the slot it goes in), and its kind: an accessory's (ring, earrings…), an armor's weight. */
   part: HeroPart;
   kind: string | null;

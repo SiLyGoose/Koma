@@ -6,7 +6,7 @@ import { canUseItem, describeEffects, describeTotals, itemEffectiveness, totalEf
 import { keptCopyIds, loadoutsOf, lockedLoadoutsOf, type LoadoutView, type LockedLoadout } from '../../lib/game/items/loadouts.js';
 import { activeTmEffects, copyMainStat, heroItemLines, heroOnly, heroWorn, partOf, potentialLines, type TmEffectsOn } from '../../lib/game/heroes.js';
 import { tmSkillLine } from '../../lib/game/technomagic.js';
-import { tmStoneCost } from '../../constants/technomagic.js';
+import { tmSalvageStones, tmStoneCost } from '../../constants/technomagic.js';
 import { tmStoneClass } from '../../data/kr-gear.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { TM_SET_PIECES, tmSetEffect } from '../../data/tm-sets.js';
@@ -204,6 +204,7 @@ export function gearView(
       locked,
       sell: kept.has(copy._id) || locked ? null : itemSellPrice(item),
       ...(heroOnly(item) && { salvage: itemSalvage(item) }),
+      ...(tmStoneClass(item) && { salvageStones: { class: tmStoneClass(item) as RaidClassId, count: tmSalvageStones(copy.reclaimed === true) } }),
       heroOnly: heroOnly(item),
       uniqueWeapon: item.uniqueWeapon ?? null,
       uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,

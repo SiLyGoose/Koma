@@ -6,6 +6,7 @@ import { isTmPiece, krMainValue, tmStoneClass } from '../src/data/kr-gear.js';
 import { copyMainStat } from '../src/lib/game/heroes.js';
 import { rollReclaimed, rollTmStones } from '../src/lib/game/technomagic.js';
 import { refineState } from '../src/web/models/gear.js';
+import { itemSalvage } from '../src/lib/game/items/sell.js';
 import { heroesView } from '../src/web/models/heroes.js';
 import type { ItemDef, KrItem } from '../src/types.js';
 
@@ -79,4 +80,23 @@ test("heroes page: a Reclaimed copy says so, its main stat higher, and their sto
   assert.deepEqual(reclaimed?.refine.stones, { class: 'knight', need: 15, have: 25 });
   assert.equal(view.stones?.knight, 25);
   assert.equal(view.stones?.wizard, 0);
+});
+
+test("salvaging: a TechnoMagic piece gives its class's Upgrade Stones and no komaDust (King's Raid's has none), a dragon set's piece its komaDust", () => {
+  assert.equal(itemSalvage(item(ARMOR)), 0);
+  const dragon = [...ITEMS_BY_ID.values()].find((one) => one.kr && one.kr.tier === 8 && !isTmPiece(one)) as ItemDef;
+  assert.ok(itemSalvage(dragon) > 0);
+  const view = heroesView(
+    [
+      { _id: 'r', itemId: ARMOR, level: 0, locked: false, reclaimed: true, tmSkill: undefined, tmPotentials: undefined },
+      { _id: 'n', itemId: ARMOR, level: 0, locked: false, tmSkill: undefined, tmPotentials: undefined },
+      { _id: 'd', itemId: dragon.id, level: 0, locked: false, tmSkill: undefined, tmPotentials: undefined },
+    ],
+    { heroes: {}, points: 0, gems: 0, essences: {} },
+  );
+  const of = (id: string) => view.copies.find((copy) => copy.id === id);
+  assert.deepEqual([of('r')?.salvage, of('r')?.salvageStones], [0, { class: 'knight', count: 2 }]);
+  assert.deepEqual([of('n')?.salvage, of('n')?.salvageStones], [0, { class: 'knight', count: 1 }]);
+  assert.equal(of('d')?.salvageStones, undefined);
+  assert.ok((of('d')?.salvage ?? 0) > 0);
 });
