@@ -55,7 +55,7 @@ export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOS
 export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS };
 
 /** A drop as the page shows it: an item found, with what its copy came with. */
-function dropView({ item, skill, potentials, options, salvaged, salvagedStones, reclaimed }: TmFind): DropView {
+function dropView({ item, skill, potentials, options, salvaged, salvagedStones, salvagedCrystals, reclaimed }: TmFind): DropView {
   const tmSet = item.kr?.set && KR_TM_SETS.includes(item.kr.set) ? item.kr.set : undefined;
   const bonus = item.kr?.set ? setBonusLines(item.kr.set, item.kr.classes.length === 1 ? (item.kr.classes[0] as RaidClassId) : null, 0)[tmSet ? 0 : 1] : undefined;
   return {
@@ -73,6 +73,7 @@ function dropView({ item, skill, potentials, options, salvaged, salvagedStones, 
     setEffect: bonus ? { pieces: bonus.pieces, text: bonus.text } : null,
     ...(salvaged !== undefined && { salvaged }),
     ...(salvagedStones !== undefined && { salvagedStones }),
+    ...(salvagedCrystals !== undefined && item.kr?.set && { salvagedCrystals: { set: item.kr.set, count: salvagedCrystals } }),
     ...(reclaimed && { reclaimed }),
   };
 }
@@ -94,6 +95,8 @@ export interface Got {
   gems?: number;
   /** The Upgrade Stones found (a TechnoMagic Raid win from stage 7): their class, and how many. */
   stones?: { class: string; count: number };
+  /** The Boss Crystals found (a TechnoMagic Raid win): their set's (its boss's), and how many. */
+  crystals?: { set: string; count: number };
   firstClears?: number;
 }
 
@@ -132,7 +135,7 @@ export const realRoomDeps: RoomDeps = {
   begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, stones, firstClears }]) => [userId, { drops: finds.map(dropView), ...(stones && { stones }), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }) }]));
+    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, stones, crystals, firstClears }]) => [userId, { drops: finds.map(dropView), ...(stones && { stones }), ...(crystals && { crystals }), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }) }]));
   },
   announce: () => {},
   link: (guildId, _boss, room) => {
@@ -838,6 +841,7 @@ export class TechnoMagicRoom {
       ...(this.raid.kind === 'dragon' && { essences: Object.fromEntries([...got].map(([userId, { essences }]) => [userId, essences ?? {}])) }),
       gems: Object.fromEntries([...got].map(([userId, { gems }]) => [userId, gems ?? 0])),
       ...([...got.values()].some((one) => one.stones) && { stones: Object.fromEntries([...got].flatMap(([userId, { stones }]) => (stones ? [[userId, stones]] : []))) }),
+      ...([...got.values()].some((one) => one.crystals) && { crystals: Object.fromEntries([...got].flatMap(([userId, { crystals }]) => (crystals ? [[userId, crystals]] : []))) }),
       firstClears: Object.fromEntries([...got].map(([userId, { firstClears }]) => [userId, firstClears ?? 0])),
     };
     // Those gone during it: still waited for, for what's left of their time.

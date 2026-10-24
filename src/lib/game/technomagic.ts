@@ -4,6 +4,7 @@ import { KR_DROPS, dragonPieces, dragonTier, normalPaysAs, normalRuneGradeWeight
 import type { RaidClassId } from '../../constants/raid.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { RaidMode } from '../../protocol/technomagic.js';
+import type { HeroPart, TmCraftKind } from '../../protocol/heroes.js';
 import { KR_ITEMS_BY_ID, KR_RUNES, krPiecesOf } from '../../data/kr-gear.js';
 import { TM_ARMOR_DEFS } from '../../data/tm-main.js';
 import { potentialStep, TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
@@ -56,6 +57,15 @@ export function rollTmDrop(boss: string, rng: TmRng = defaultRng): ItemDef | nul
   const set = tmSetOfBoss(boss);
   const pool = set ? krPiecesOf(set.id) : [];
   return pool.length > 0 ? (pool[rng.index(pool.length)] as ItemDef) : null;
+}
+
+/**
+ * The pieces crafting TechnoMagic `set` picks one of (constants/technomagic.ts TM_CRAFT): `kind` 'any' any of its pieces, 'part'
+ * any class's of `part`, 'exact' `cls`'s of `part` (an accessory: any of its four kinds). None: it can't be so crafted.
+ */
+export function tmCraftPool(set: string, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null): ItemDef[] {
+  if ((kind !== 'any' && part === null) || (kind === 'exact' && cls === null)) return [];
+  return krPiecesOf(set).filter((item) => item.kr?.part !== 'artifact' && (kind === 'any' || item.kr?.part === part) && (kind !== 'exact' || (cls !== null && item.kr?.classes.includes(cls) === true)));
 }
 
 /** Whether a TechnoMagic piece a win at `stage` gives is Reclaimed (constants/technomagic.ts TM_RECLAIMED: from stage 4). */

@@ -4,9 +4,11 @@ import { HEROES_BY_ID } from '../data/heroes.js';
 import { keptPerks, transcendLevel } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
-import { dragonClearGems, tmClearGems, tmDropCount } from '../constants/technomagic.js';
+import { dragonClearGems, TM_CRAFT, tmClearGems, tmCrystalDrops, tmDropCount } from '../constants/technomagic.js';
+import { tmSetOfBoss } from '../data/tm-sets.js';
+import type { HeroPart, TmCraftKind } from '../protocol/heroes.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
-import { rollArtifact, rollDragonPieces, rollReclaimed, rollRunes, rollTmDrop, rollTmSkill, rollTmStones, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import { rollArtifact, rollDragonPieces, rollReclaimed, tmCraftPool, rollRunes, rollTmDrop, rollTmSkill, rollTmStones, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
 import type { RaidClassId } from '../constants/raid.js';
 import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
@@ -123,8 +125,11 @@ export interface TmFind {
   armorDef?: TmArmorDef;
   /** The komaDust it was salvaged for as it dropped, by their rule (./items/salvage.ts): they don't have it. */
   salvaged?: number;
-  /** A TechnoMagic piece salvaged so: the Upgrade Stones of its class it gave too. */
+  /** A TechnoMagic piece salvaged so: the Upgrade Stones of its class it gave too, and its set's Boss Crystals. */
   salvagedStones?: number;
+  salvagedCrystals?: number;
+  /** The copy it was given as (left out: salvaged). */
+  copy?: string;
   /** A Reclaimed TechnoMagic piece (King's Raid's: constants/technomagic.ts TM_RECLAIMED), never salvaged as it drops. */
   reclaimed?: boolean;
 }
@@ -141,6 +146,8 @@ export interface TmWin {
   gems?: number;
   /** The TechnoMagic Raid's Upgrade Stones (from stage 7): their class, and how many. */
   stones?: { class: RaidClassId; count: number };
+  /** The TechnoMagic Raid's Boss Crystals: its boss's (by its set), and how many. */
+  crystals?: { set: TmSetId; count: number };
   firstClears?: number;
 }
 
@@ -154,12 +161,19 @@ async function findPiece(guildId: string, userId: string, item: ItemDef, salvage
   const skill = item.kr?.unique ? rollTmSkill() : null;
   const found: TmFind = { item, skill, potentials: [], ...(options.length > 0 && { options }), ...(reclaimed && { reclaimed }) };
   if (!reclaimed && salvagesDrop(salvage, item)) {
-    const { dust, stones } = await salvageDrop(guildId, userId, item);
-    return { ...found, salvaged: dust, ...(stones > 0 && { salvagedStones: stones }) };
+    const { dust, stones, crystals } = await salvageDrop(guildId, userId, item);
+    return { ...found, salvaged: dust, ...(stones > 0 && { salvagedStones: stones }), ...(crystals > 0 && { salvagedCrystals: crystals }) };
   }
   const { copy } = await addCopy(guildId, userId, item.id);
   if (options.length > 0 || skill || reclaimed) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }), ...(reclaimed && { reclaimed }) } });
-  return found;
+  return { ...found, copy: copy._id };
+}
+
+/** Boss Crystals found: added to the member's, of their set. */
+async function giveCrystals(guildId: string, userId: string, crystals: { set: TmSetId; count: number } | null): Promise<void> {
+  if (!crystals || crystals.count <= 0) return;
+  await ensureMember(guildId, userId);
+  await collections().members.updateOne({ guildId, userId }, { $inc: { [`crystals.${crystals.set}`]: crystals.count } });
 }
 
 /** Upgrade Stones found: added to the member's, of their class. */
@@ -231,9 +245,13 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
   await payPoints(guildId, userId, points, 'tm_win');
   const stones = rollTmStones(stage, classes);
   await giveStones(guildId, userId, stones);
+  // (Its boss's Boss Crystals, more the higher the stage.)
+  const set = tmSetOfBoss(boss)?.id;
+  const crystals = set ? { set, count: tmCrystalDrops(stage) } : null;
+  await giveCrystals(guildId, userId, crystals);
   const gems = tmClearGems(cleared, stage);
   if (gems > 0) await giveGems(guildId, userId, gems, 'tm_gems');
-  return { finds, runes, points, gems, ...(stones && { stones }), firstClears: Math.max(0, stage - cleared) };
+  return { finds, runes, points, gems, ...(stones && { stones }), ...(crystals && crystals.count > 0 && { crystals }), firstClears: Math.max(0, stage - cleared) };
 }
 
 /**
@@ -255,4 +273,43 @@ async function payDragonWin(guildId: string, userId: string, dragon: string, sta
   const gems = dragonClearGems(cleared, stage, mode);
   if (gems > 0) await giveGems(guildId, userId, gems, 'dragon_gems');
   return { finds, runes, points: pay.points, essences, gems, firstClears: Math.max(0, stage - cleared) };
+}
+
+/**
+ * Crafts a piece of TechnoMagic `set` (King's Raid's Valance's Workshop: constants/technomagic.ts TM_CRAFT): `kind` 'any' any of
+ * its pieces, 'part' any class's piece of `part`, 'exact' `cls`'s piece of `part`, each as likely, for its price in the set's
+ * Boss Crystals and points (both taken at once, or neither). It comes as a drop does, its options and additional skill rolled,
+ * now and then Reclaimed; never salvaged. The piece, or why not (nothing was spent).
+ */
+export async function craftTmPiece(
+  guildId: string,
+  userId: string,
+  set: TmSetId,
+  kind: TmCraftKind,
+  part: HeroPart | null = null,
+  cls: RaidClassId | null = null,
+  rng: { index: (max: number) => number } = { index: (max) => randomBytes(4).readUInt32LE(0) % max },
+): Promise<{ ok: true; find: TmFind } | { ok: false; reason: 'no_crystals' | 'too_poor' | 'no_piece' | 'busy' }> {
+  const pool = tmCraftPool(set, kind, part, cls);
+  if (pool.length === 0) return { ok: false, reason: 'no_piece' };
+  const { crystals, points } = TM_CRAFT[kind];
+  const { members } = collections();
+  const field = `crystals.${set}`;
+  await ensureMember(guildId, userId);
+  const paid = await members.findOneAndUpdate({ guildId, userId, points: { $gte: points }, [field]: { $gte: crystals } }, { $inc: { points: -points, [field]: -crystals } });
+  if (!paid) {
+    const member = await members.findOne({ guildId, userId }, { projection: { points: 1, crystals: 1 } });
+    return { ok: false, reason: (member?.crystals?.[set] ?? 0) < crystals ? 'no_crystals' : 'too_poor' };
+  }
+  const item = pool[rng.index(pool.length)] as ItemDef;
+  try {
+    const find = await findPiece(guildId, userId, item, null, rng.index(10_000) < Math.round(TM_CRAFT.reclaimed * 10_000));
+    await recordLedger([{ guildId, userId, delta: -points, reason: 'tm_craft', itemId: item.id }]);
+    return { ok: true, find };
+  } catch (err) {
+    // (The piece wasn't given: what was paid, given back.)
+    await members.updateOne({ guildId, userId }, { $inc: { points, [field]: crystals } }).catch(() => {});
+    console.error('Could not give a crafted TechnoMagic piece:', err);
+    return { ok: false, reason: 'busy' };
+  }
 }

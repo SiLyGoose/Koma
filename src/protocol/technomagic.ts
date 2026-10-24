@@ -126,6 +126,8 @@ export interface DropView {
   salvaged?: number;
   /** A TechnoMagic piece salvaged so: the Upgrade Stones of its class (`itemClass`) it gave too (King's Raid's). Left out: none. */
   salvagedStones?: number;
+  /** The same's Boss Crystals of its set (named by its boss: King's Raid's Crystal of Galgoria). Left out: none. */
+  salvagedCrystals?: { set: string; count: number };
   /** A Reclaimed TechnoMagic piece (King's Raid's: its main stat higher; its name says so, and it is never salvaged as it drops). Left out: not one. */
   reclaimed?: boolean;
 }
@@ -148,6 +150,8 @@ export interface OverView {
   gems?: Record<string, number>;
   /** The Technomagic Gear Upgrade Stones each found (a TechnoMagic Raid win from stage 7): their class, and how many. */
   stones?: Record<string, { class: string; count: number }>;
+  /** The Boss Crystals each found (a TechnoMagic Raid win: its boss's, by its set). */
+  crystals?: Record<string, { set: string; count: number }>;
   firstClears?: Record<string, number>;
 }
 

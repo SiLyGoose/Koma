@@ -30,5 +30,6 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/upgrade', ...siteOrLink, heroes.upgrade)
     .post('/sell', ...site, heroes.sell)
     .post('/lock', ...site, heroes.lock)
-    .post('/auto-salvage', ...site, heroes.autoSalvage);
+    .post('/auto-salvage', ...site, heroes.autoSalvage)
+    .post('/craft', ...site, heroes.craft);
 }

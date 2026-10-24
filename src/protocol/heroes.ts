@@ -126,6 +126,13 @@ export interface HeroCopy {
   reclaimed?: boolean;
   /** A TechnoMagic piece: the Upgrade Stones of its class salvaging it gives, in place of komaDust (King's Raid's). Left out for any other. */
   salvageStones?: { class: RaidClassId; count: number };
+  /** A TechnoMagic piece: the Boss Crystals of its set (`set`) salvaging it gives too (King's Raid's). Left out for any other. */
+  salvageCrystals?: { set: TmSetId; count: number };
+  /**
+   * A TechnoMagic piece: its options are rerolled with its set's (`set`) Boss Crystals, King's Raid's, not zeiucoins: `reroll` and
+   * each option's `price` are how many. Left out for any other.
+   */
+  rerollCrystals?: TmSetId;
   /** The part of a hero's gear it is (the slot it goes in), and its kind: an accessory's (ring, earrings…), an armor's weight. */
   part: HeroPart;
   kind: string | null;
@@ -275,6 +282,11 @@ export interface HeroesView {
    * Raid's), dropped by the TechnoMagic Raid from stage 7. Left out by a bot from before them.
    */
   stones?: Record<RaidClassId, number>;
+  /**
+   * Their Boss Crystals, by TechnoMagic set (0 with none; King's Raid's: Crystal of Galgoria is Perseverance's): what crafts that
+   * set's pieces (POST /api/heroes/craft) and rerolls their options. Left out by a bot from before them.
+   */
+  crystals?: Record<TmSetId, number>;
   /** The rule their hero gear's drops are salvaged by as they drop (POST /api/heroes/auto-salvage); null: none is (left out by a bot from before it). */
   autoSalvage?: SalvageRule | null;
 }
@@ -317,7 +329,29 @@ export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune'
  * Why an option wasn't rerolled or upgraded, or a rerolled effect kept (nothing was spent). 'pending': its effect was
  * rerolled and the member hasn't kept one yet.
  */
-export type HeroOptionError = 'not_found' | 'no_option' | 'too_poor' | 'no_gems' | 'pending' | 'busy';
+export type HeroOptionError = 'not_found' | 'no_option' | 'too_poor' | 'no_gems' | 'no_crystals' | 'pending' | 'busy';
+
+/**
+ * Crafting a TechnoMagic set's piece (POST /api/heroes/craft, King's Raid's Valance's Workshop): any of its pieces, any class's
+ * piece of a part picked, or a class's part picked, for its Boss Crystals and zeiucoins (TM_CRAFT_PRICES).
+ */
+export type TmCraftKind = 'any' | 'part' | 'exact';
+
+/** What each way of crafting costs: the set's Boss Crystals, and zeiucoins (the bot's constants/technomagic.ts TM_CRAFT). */
+export const TM_CRAFT_PRICES: Readonly<Record<TmCraftKind, { crystals: number; points: number }>> = {
+  any: { crystals: 1_000, points: 1_000 },
+  part: { crystals: 2_000, points: 3_000 },
+  exact: { crystals: 4_000, points: 9_000 },
+};
+
+/** The parts a TechnoMagic piece can be crafted as (an accessory: any of its four kinds). */
+export const TM_CRAFT_PARTS: readonly HeroPart[] = ['armor', 'secondary', 'accessory', 'orb'];
+
+/** POST /api/heroes/craft: their heroes after, and the piece crafted (its copy's id, and its name: "Reclaimed …" for one). */
+export type HeroesCrafted = HeroesView & { crafted: { copy: string; name: string } };
+
+/** Why a TechnoMagic piece wasn't crafted (nothing was spent): too few Boss Crystals, too few zeiucoins, or no piece is so. */
+export type TmCraftError = 'no_crystals' | 'too_poor' | 'no_piece' | 'busy';
 
 /** Which additional skill a TechnoMagic copy keeps after its reroll (POST /api/heroes/keep): the one it had, or the one rolled. */
 export type HeroKeep = 'old' | 'new';

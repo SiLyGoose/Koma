@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TM_RECLAIMED, tmReclaimedChance, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
+import { TM_CRAFT, TM_CRYSTALS, TM_RECLAIMED, tmCrystalDrops, tmCrystalName, tmReclaimedChance, tmSalvageCrystals, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { isTmPiece, krMainValue, tmStoneClass } from '../src/data/kr-gear.js';
 import { copyMainStat } from '../src/lib/game/heroes.js';
-import { rollReclaimed, rollTmStones } from '../src/lib/game/technomagic.js';
+import { rollReclaimed, rollTmStones, tmCraftPool } from '../src/lib/game/technomagic.js';
 import { refineState } from '../src/web/models/gear.js';
 import { itemSalvage } from '../src/lib/game/items/sell.js';
 import { heroesView } from '../src/web/models/heroes.js';
@@ -99,4 +99,39 @@ test("salvaging: a TechnoMagic piece gives its class's Upgrade Stones and no kom
   assert.deepEqual([of('n')?.salvage, of('n')?.salvageStones], [0, { class: 'knight', count: 1 }]);
   assert.equal(of('d')?.salvageStones, undefined);
   assert.ok((of('d')?.salvage ?? 0) > 0);
+});
+
+test("Boss Crystals: a win's its boss's, more the higher the stage; salvaging a piece 100 (Reclaimed 200, King's Raid's); an option reroll 300", () => {
+  assert.deepEqual([1, 5, 9, 12].map(tmCrystalDrops), [100, 250, 500, 500]);
+  assert.equal(tmSalvageCrystals(), 100);
+  assert.equal(tmSalvageCrystals(true), 200);
+  assert.equal(TM_CRYSTALS.reroll, 300);
+  assert.equal(tmCrystalName('perseverance'), 'Crystal of Galgoria');
+  assert.equal(tmCrystalName('authority'), 'Crystal of Ascalon');
+});
+
+test("crafting TechnoMagic gear: King's Raid's three ways, for crystals and thousands of zeiucoins", () => {
+  assert.deepEqual(TM_CRAFT.any, { crystals: 1000, points: 1000 });
+  assert.deepEqual(TM_CRAFT.part, { crystals: 2000, points: 3000 });
+  assert.deepEqual(TM_CRAFT.exact, { crystals: 4000, points: 9000 });
+  const any = tmCraftPool('perseverance', 'any', null, null);
+  assert.ok(any.length >= 49 && any.every((piece) => piece.kr?.set === 'perseverance' && piece.kr.part !== 'artifact'));
+  const armor = tmCraftPool('hope', 'part', 'armor', null);
+  assert.equal(armor.length, 7, "every class's armor");
+  assert.deepEqual(tmCraftPool('hope', 'exact', 'armor', 'priest').map((piece) => piece.kr?.classes), [['priest']]);
+  assert.equal(tmCraftPool('hope', 'exact', 'accessory', 'priest').length, 4, 'an accessory: any of its four kinds');
+  assert.equal(tmCraftPool('hope', 'part', null, null).length, 0, 'a part needed');
+  assert.equal(tmCraftPool('hope', 'exact', 'armor', null).length, 0, 'a class needed');
+});
+
+test("heroes page: a TechnoMagic piece's rerolls and salvage in its set's crystals, and their crystals by set", () => {
+  const view = heroesView(
+    [{ _id: 'n', itemId: ARMOR, level: 0, locked: false, tmSkill: undefined, tmPotentials: undefined, options: [{ stat: 'atk', step: 0 }, { stat: 'atk', step: 0 }] }],
+    { heroes: {}, points: 0, gems: 0, essences: {}, crystals: { perseverance: 777 } },
+  );
+  const copy = view.copies[0];
+  assert.equal(copy?.rerollCrystals, 'perseverance');
+  assert.equal(copy?.reroll, 300);
+  assert.deepEqual(copy?.salvageCrystals, { set: 'perseverance', count: 100 });
+  assert.deepEqual(view.crystals, { perseverance: 777, hope: 0, authority: 0 });
 });

@@ -1,3 +1,5 @@
+import { craftTmPiece } from '../../services/technomagic.js';
+import type { HeroesCrafted, TmCraftError, TmCraftKind } from '../../protocol/heroes.js';
 import { CONFIG } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
@@ -47,8 +49,9 @@ import { keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } fr
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
 import type { RaidClassId } from '../../constants/raid.js';
-import { tmSalvageStones } from '../../constants/technomagic.js';
-import { tmStoneClass } from '../../data/kr-gear.js';
+import { TM_CRYSTALS, tmSalvageCrystals, tmSalvageStones } from '../../constants/technomagic.js';
+import { isTmPiece, tmStoneClass } from '../../data/kr-gear.js';
+import type { TmSetId } from '../../protocol/items.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
 import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule } from '../../protocol/heroes.js';
@@ -95,6 +98,8 @@ export interface HeroStore {
   lock: (guildId: string, userId: string, copy: string, locked: boolean) => Promise<boolean>;
   /** Keeps the rule their hero gear's drops are salvaged by (null: none any more): the heroes after. */
   autoSalvage: (guildId: string, userId: string, rule: SalvageRule | null) => Promise<HeroesView>;
+  /** Crafts a piece of TechnoMagic `set` (any, a part picked, or a class's part picked): their heroes after and the piece, or why not. */
+  craft: (guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null) => Promise<HeroesCrafted | TmCraftError>;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
@@ -151,7 +156,8 @@ function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
     line: HERO_STAT_IDS_SET.has(option.stat) ? krLine(option.stat as HeroStat, krOptionValue(kr, option)) : option.stat,
     step: option.step,
     steps: poolOption(kr.pool, option.stat)?.steps ?? 0,
-    price: rerollPrice(option.rerolls ?? 0),
+    // (A TechnoMagic piece's: its set's Boss Crystals.)
+    price: isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice(option.rerolls ?? 0),
   }));
 }
 
@@ -161,7 +167,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
   const options = copy.options ?? [];
   const pool = kr?.pool ? KR_POOLS[kr.pool] : undefined;
   return {
-    reroll: kr && pool && options.length > 0 ? Math.min(...options.map((option) => rerollPrice(option.rerolls ?? 0))) : null,
+    reroll: kr && pool && options.length > 0 ? (isTmPiece(item) ? TM_CRYSTALS.reroll : Math.min(...options.map((option) => rerollPrice(option.rerolls ?? 0)))) : null,
     // (In komaGems.)
     rerollUnique: kr?.unique ? UNIQUE_REROLL_GEMS : null,
     // (Enhancing rolls an amount again, so a copy with options always can, at their top or not; a unique treasure's too.)
@@ -172,7 +178,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(
   copies: readonly CopyInfo[],
-  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'autoSalvage' | 'stones'>> & Partial<LoadoutFields>) | null,
+  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'autoSalvage' | 'stones' | 'crystals'>> & Partial<LoadoutFields>) | null,
 ): HeroesView {
   const worn = heroWorn(member);
   // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
@@ -228,6 +234,7 @@ export function heroesView(
       sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
       ...(heroOnly(item) && { salvage: itemSalvage(item) }),
       ...(tmStoneClass(item) && { salvageStones: { class: tmStoneClass(item) as RaidClassId, count: tmSalvageStones(copy.reclaimed === true) } }),
+      ...(isTmPiece(item) && kr?.set && { salvageCrystals: { set: kr.set as TmSetId, count: tmSalvageCrystals(copy.reclaimed === true) }, rerollCrystals: kr.set as TmSetId }),
       effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
@@ -313,7 +320,8 @@ export function heroesView(
   });
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
   const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
-  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), gems: member?.gems ?? 0, essences, stones, autoSalvage: autoSalvageOf(member) };
+  const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), gems: member?.gems ?? 0, essences, stones, crystals, autoSalvage: autoSalvageOf(member) };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {
@@ -376,5 +384,11 @@ export const heroStore: HeroStore = {
   autoSalvage: async (guildId, userId, rule) => {
     await setAutoSalvage(guildId, userId, rule);
     return load(guildId, userId);
+  },
+  craft: async (guildId, userId, set, kind, part, cls) => {
+    const result = await craftTmPiece(guildId, userId, set, kind, part, cls);
+    if (!result.ok) return result.reason;
+    const { find } = result;
+    return { ...(await load(guildId, userId)), crafted: { copy: find.copy ?? '', name: find.reclaimed ? `Reclaimed ${find.item.name}` : find.item.name } };
   },
 };

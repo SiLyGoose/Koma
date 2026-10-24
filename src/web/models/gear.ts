@@ -339,7 +339,7 @@ export const gearStore: GearStore = {
   sell: async (guildId, userId, copyIds, locked = false, salvage = false) => {
     const result = await sellCopies(guildId, userId, copyIds, { locked, salvage });
     if (!result.ok) return result.reason;
-    return { count: saleCount(result.lines), earned: result.earned, powder: result.powder, ...(Object.keys(result.stones).length > 0 && { stones: result.stones }) };
+    return { count: saleCount(result.lines), earned: result.earned, powder: result.powder, ...(Object.keys(result.stones).length > 0 && { stones: result.stones }), ...(Object.keys(result.crystals).length > 0 && { crystals: result.crystals }) };
   },
   lock: (guildId, userId, copyId, locked) => setCopyLocked(guildId, userId, copyId, locked),
   setClass: setRaidClass,

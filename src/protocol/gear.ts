@@ -152,6 +152,8 @@ export interface GearSale {
   powder?: number;
   /** A salvage's TechnoMagic pieces' Upgrade Stones, by class (King's Raid's: 1 each, 2 a Reclaimed one). Left out: none. */
   stones?: Partial<Record<RaidClassId, number>>;
+  /** A salvage's TechnoMagic pieces' Boss Crystals, by set (King's Raid's: 100 each, 200 a Reclaimed one). Left out: none. */
+  crystals?: Partial<Record<string, number>>;
 }
 
 /** One number: what it is with their gear, and what it would be without (null when gear doesn't change it). */

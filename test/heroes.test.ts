@@ -242,7 +242,8 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.deepEqual(armor?.mainStat, { name: 'P. DEF', value: 54_997 });
   assert.deepEqual(armor?.options.map((option) => option.line), ['ATK +12%', 'Crit DMG +32%']);
   assert.deepEqual(armor?.runes.map((rune) => rune?.id ?? null), ['patience-5']);
-  assert.equal(armor?.reroll, 500);
+  assert.equal(armor?.reroll, 300, "TechnoMagic gear's options are rerolled for 300 of its set's Boss Crystals (King's Raid's)");
+  assert.equal(armor?.rerollCrystals, 'perseverance');
   assert.equal(armor?.upgrade, 1_000, "TechnoMagic gear's options are upgraded for 1,000 zeiucoins (the user's)");
   assert.equal(armor?.rerollUnique, 1, 'and its additional effect rerolled for 1 komaGem');
   assert.ok(armor?.additional?.startsWith('Vigor'));

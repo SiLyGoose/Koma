@@ -1,3 +1,4 @@
+import { TM_CRAFT_PRICES } from '../protocol/heroes.js';
 /*
  * The TechnoMagic Raid, played together on the games' site (web/games/technomagic/ for the rooms, Koma-UI's
  * src/technomagic/ for the fight, lib/game/technomagic.ts for its rewards). A server has one room: whoever
@@ -94,6 +95,38 @@ export const TM_RECLAIMED = {
 
 /** The chance a TechnoMagic piece a win at `stage` gives is Reclaimed. */
 export const tmReclaimedChance = (stage: number): number => byStage(TM_RECLAIMED.chance, stage);
+
+/**
+ * King's Raid's Boss Crystals, one kind for each TechnoMagic set: its boss's (`boss`: Crystal of Galgoria for Perseverance,
+ * Siegfried's for Hope, Ascalon's for Authority). They craft that set's pieces (TM_CRAFT) and reroll their options (`reroll`
+ * each: King's Raid's 300, its Reforge Ticket left out). A TechnoMagic Raid win gives `drops` of its boss's by its stage
+ * (King's Raid's: more the higher the stage); salvaging a piece gives `salvage` of its set's, a Reclaimed one
+ * `reclaimedSalvage` (King's Raid's EquipItemBreakTable).
+ */
+export const TM_CRYSTALS = {
+  boss: { perseverance: 'Galgoria', hope: 'Siegfried', authority: 'Ascalon' },
+  drops: [100, 125, 150, 200, 250, 300, 350, 400, 500],
+  reroll: 300,
+  salvage: 100,
+  reclaimedSalvage: 200,
+} as const;
+
+/** How many Boss Crystals a win at `stage` gives. */
+export const tmCrystalDrops = (stage: number): number => byStage(TM_CRYSTALS.drops, stage);
+
+/** How many Boss Crystals salvaging a TechnoMagic piece gives (`reclaimed`: a Reclaimed one's). */
+export const tmSalvageCrystals = (reclaimed = false): number => (reclaimed ? TM_CRYSTALS.reclaimedSalvage : TM_CRYSTALS.salvage);
+
+/** A set's crystals' name, King's Raid's: "Crystal of Galgoria". */
+export const tmCrystalName = (set: string): string => `Crystal of ${TM_CRYSTALS.boss[set as keyof typeof TM_CRYSTALS.boss] ?? set}`;
+
+/**
+ * Crafting a TechnoMagic set's piece (King's Raid's Valance's Workshop: its ValanceCraftTable), three ways: any of its pieces
+ * (`any`), any class's piece of a part picked (`part`), or a class's part picked (`exact`), each for its set's crystals and
+ * zeiucoins (King's Raid's gold, a thousandth: the user's; its Technomagic Experiment Reports left out). A crafted piece is
+ * Reclaimed by `reclaimed` (King's Raid's: "a small chance").
+ */
+export const TM_CRAFT = { ...TM_CRAFT_PRICES, reclaimed: 0.05 } as const;
 
 /** Playing it from its web page (the Koma-UI repo): `path` is where its web socket listens. */
 export const TM_WEB = {

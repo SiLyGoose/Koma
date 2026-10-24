@@ -264,6 +264,11 @@ export interface MemberDoc {
    * TechnoMagic Raid, spent awakening TechnoMagic pieces of that class. Missing means none.
    */
   stones?: Partial<Record<RaidClassId, number>>;
+  /**
+   * King's Raid's Boss Crystals they have, by TechnoMagic set (its boss's: constants/technomagic.ts TM_CRYSTALS): dropped by the
+   * TechnoMagic Raid and given by salvaging its pieces, spent crafting the set's pieces and rerolling their options. Missing means none.
+   */
+  crystals?: Partial<Record<TmSetId, number>>;
   /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
   weeklyBossWeek?: string;
   /**
@@ -654,6 +659,8 @@ export type LedgerReason =
   // Points paid to reroll one of a hero gear copy's options or its unique option, and to upgrade one a step (services/kr-gear.ts; itemId is the item).
   | 'kr_reroll'
   | 'kr_upgrade'
+  // Points (and Boss Crystals, not in the ledger) paid to craft a TechnoMagic piece (services/technomagic.ts; itemId is the piece).
+  | 'tm_craft'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).

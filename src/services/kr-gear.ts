@@ -1,3 +1,5 @@
+import { TM_CRYSTALS } from '../constants/technomagic.js';
+import { isTmPiece } from '../data/kr-gear.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
@@ -92,7 +94,7 @@ const refundGems = async (guildId: string, userId: string, gems: number): Promis
 
 /**
  * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
- * rerolled; or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
+ * rerolled (a TechnoMagic piece's: TM_CRYSTALS.reroll of its set's Boss Crystals, King's Raid's; too few: 'no_crystals'); or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
  * (too few: 'no_gems'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
  * and till then it isn't rerolled again ('pending').
  */
@@ -123,6 +125,20 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   if (!Number.isInteger(index) || !old) return { ok: false, reason: 'no_option' };
   const after = rerollKrOption(kr, options, index, rng);
   if (!after) return { ok: false, reason: 'no_option' };
+  // (A TechnoMagic piece's: its set's Boss Crystals, King's Raid's, not points.)
+  const set = isTmPiece(item) ? kr.set : undefined;
+  if (set) {
+    const crystals = TM_CRYSTALS.reroll;
+    const field = `crystals.${set}`;
+    const paid = await collections().members.updateOne({ guildId, userId, [field]: { $gte: crystals } }, { $inc: { [field]: -crystals } });
+    if (paid.modifiedCount === 0) return { ok: false, reason: 'no_crystals' };
+    const done = await items.updateOne({ guildId, userId, _id: copyId, options }, { $set: { options: after } });
+    if (done.modifiedCount === 0) {
+      await collections().members.updateOne({ guildId, userId }, { $inc: { [field]: crystals } });
+      return { ok: false, reason: 'busy' };
+    }
+    return { ok: true };
+  }
   const cost = rerollPrice(old.rerolls ?? 0);
   if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
   const done = await items.updateOne({ guildId, userId, _id: copyId, options }, { $set: { options: after } });
