@@ -465,6 +465,12 @@ export interface ItemCopyDoc {
    * (services/kr-gear.ts's keepTmSkill); until then the copy has its tmSkill, in the raid too. Missing means none waits.
    */
   tmSkillPending?: string;
+  /**
+   * The option its last reroll rolled (its `index`th's, from 0), waiting for the member to keep it or the one it has
+   * (services/kr-gear.ts's keepOption, King's Raid's Reforge); until then the copy has its options, in the raid too. Missing
+   * means none waits.
+   */
+  optionPending?: { index: number; option: KrOption };
   /** King's Raid's hero gear (ItemDef.kr): the options this copy rolled as it dropped (data/kr-gear.ts). Missing on any other copy. */
   options?: KrOption[];
   /**

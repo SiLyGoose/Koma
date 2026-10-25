@@ -24,8 +24,8 @@ const Rune = z.object({ copy: CopyId, socket: z.number().int().min(0).max(8), ru
 const Reroll = z.object({ copy: CopyId, option: z.union([z.number().int().min(0).max(8), z.literal('unique')]) });
 /** One of a copy's options (from 0), its amount rolled again. */
 const Upgrade = z.object({ copy: CopyId, option: z.number().int().min(0).max(8) });
-/** A TechnoMagic copy's rerolled additional skill kept ('new'), or the one it had ('old'). */
-const Keep = z.object({ copy: CopyId, keep: z.enum(['old', 'new']) });
+/** A TechnoMagic copy's rerolled additional skill kept ('new'), or the one it had ('old'); with `option` (its index), its rerolled option. */
+const Keep = z.object({ copy: CopyId, keep: z.enum(['old', 'new']), option: z.union([z.literal('unique'), z.number().int().min(0).max(8)]).default('unique') });
 /** One slot, or (left out) all of them. */
 const Unequip = Hero.extend({ slot: Slot.nullish() });
 /** The rule their drops are salvaged by (protocol/heroes.ts SalvageRule), or (null) none. */
@@ -106,8 +106,8 @@ export function heroController(heroes: HeroService) {
     },
 
     async keep(req, res) {
-      const { copy, keep } = parse(Keep, req.body);
-      res.json(await heroes.keep(res.locals.guildId, res.locals.session.userId, copy, keep));
+      const { copy, keep, option } = parse(Keep, req.body);
+      res.json(await heroes.keep(res.locals.guildId, res.locals.session.userId, copy, keep, option));
     },
 
     async upgrade(req, res) {

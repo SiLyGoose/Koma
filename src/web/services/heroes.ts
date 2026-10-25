@@ -71,8 +71,9 @@ export function heroService(deps: ApiDeps) {
     rune: async (guildId: string, userId: string, copy: string, socket: number, rune: string | null): Promise<HeroesView> => answer(await store.rune(guildId, userId, copy, socket, rune)),
     /** Rerolls one of a copy's options (or its unique option). */
     reroll: async (guildId: string, userId: string, copy: string, option: number | 'unique'): Promise<HeroesView> => answer(await store.reroll(guildId, userId, copy, option)),
-    /** Keeps a TechnoMagic copy's rerolled additional skill, or the one it had. */
-    keep: async (guildId: string, userId: string, copy: string, keep: HeroKeep): Promise<HeroesView> => answer(await store.keep(guildId, userId, copy, keep)),
+    /** Keeps a TechnoMagic copy's rerolled additional skill (or with `option` an index, a copy's rerolled option), or the one it had. */
+    keep: async (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique' = 'unique'): Promise<HeroesView> =>
+      answer(await store.keep(guildId, userId, copy, keep, option)),
     /** Enhances one of a copy's options: its amount rolled again. */
     upgrade: async (guildId: string, userId: string, copy: string, option: number): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy, option)),
 

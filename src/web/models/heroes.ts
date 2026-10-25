@@ -45,7 +45,7 @@ import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/item
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
 import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
-import { keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
+import { keepOption, keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
 import type { RaidClassId } from '../../constants/raid.js';
@@ -89,7 +89,7 @@ export interface HeroStore {
   /** Rerolls one of a copy's options (or its unique option), for points: the heroes after, or why not. */
   reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
   /** Keeps a TechnoMagic copy's rerolled additional skill ('new') or the one it had ('old'): the heroes after, or why not. */
-  keep: (guildId: string, userId: string, copy: string, keep: HeroKeep) => Promise<HeroesView | HeroOptionError>;
+  keep: (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
   /** Enhances one of a copy's options (its `option`th: its amount rolled again), for points: the heroes after, or why not. */
   upgrade: (guildId: string, userId: string, copy: string, option: number) => Promise<HeroesView | HeroOptionError>;
   /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too; `salvage`: salvaged): what it came to, or 'nothing_to_sell'. */
@@ -103,7 +103,7 @@ export interface HeroStore {
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
-  Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmArmorDef' | 'options' | 'runes' | 'tmSkillRerolls' | 'tmSkillPending' | 'reclaimed'>>;
+  Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmArmorDef' | 'options' | 'runes' | 'tmSkillRerolls' | 'tmSkillPending' | 'optionPending' | 'reclaimed'>>;
 
 /** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
 export function skillLines(skills: readonly string[]): string[] {
@@ -159,6 +159,13 @@ function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
     // (A TechnoMagic piece's: its set's Boss Crystals.)
     price: isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice(option.rerolls ?? 0),
   }));
+}
+
+/** A copy's rerolled option waiting to be kept, as its options are shown (null: none waits). */
+function rerolledOptionView(item: ItemDef, copy: CopyInfo): HeroCopy['rerolledOption'] {
+  const rolled = copy.optionPending;
+  const view = rolled ? optionViews(item, { ...copy, options: [rolled.option] })[0] : undefined;
+  return rolled && view ? { ...view, index: rolled.index } : null;
 }
 
 /** What a copy's next reroll costs (the cheapest of its options'), its unique option's, and an upgrade; null where it can't be. */
@@ -240,6 +247,7 @@ export function heroesView(
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
       additional: kr?.unique ? tmSkillLine(copy.tmSkill) : null,
       rerolled: kr?.unique ? tmSkillLine(copy.tmSkillPending) : null,
+      rerolledOption: rerolledOptionView(item, copy),
       additionalActive: lit.get(copy._id)?.additional ?? false,
       skill: kr?.unique ? (copy.tmSkill ?? null) : null,
       class: item.class ?? (kr && kr.classes.length === 1 ? (kr.classes[0] as RaidClassId) : null),
@@ -371,8 +379,8 @@ export const heroStore: HeroStore = {
     const result = await rerollOption(guildId, userId, copy, option);
     return result.ok ? load(guildId, userId) : result.reason;
   },
-  keep: async (guildId, userId, copy, keep) => {
-    const result = await keepTmSkill(guildId, userId, copy, keep);
+  keep: async (guildId, userId, copy, keep, option) => {
+    const result = option === 'unique' ? await keepTmSkill(guildId, userId, copy, keep) : await keepOption(guildId, userId, copy, keep, option);
     return result.ok ? load(guildId, userId) : result.reason;
   },
   upgrade: async (guildId, userId, copy, option) => {

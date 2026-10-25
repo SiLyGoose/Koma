@@ -180,6 +180,12 @@ export interface HeroCopy {
    * it or the one it has (POST /api/heroes/keep); till then it has `additional`, and its effect can't be rerolled again.
    */
   rerolled: string | null;
+  /**
+   * The option its last reroll rolled (for its `index`th, as `options` has them), waiting for the member to keep
+   * it or the one it has (POST /api/heroes/keep with that `option`, King's Raid's Reforge); till then it has `options`, and
+   * none of them can be rerolled or enhanced. Null: none waits.
+   */
+  rerolledOption: (HeroOption & { index: number }) | null;
   /** Whether its additional skill is on: a hero of its class wears it. */
   additionalActive: boolean;
   /** TechnoMagic gear: the additional skill this copy came with (the sim's id), or null. */
@@ -331,8 +337,8 @@ export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_h
 export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'too_poor' | 'busy';
 
 /**
- * Why an option wasn't rerolled or upgraded, or a rerolled effect kept (nothing was spent). 'pending': its effect was
- * rerolled and the member hasn't kept one yet.
+ * Why an option wasn't rerolled or upgraded, or a rerolled effect or option kept (nothing was spent). 'pending': its effect
+ * (or one of its options) was rerolled and the member hasn't kept one yet.
  */
 export type HeroOptionError = 'not_found' | 'no_option' | 'too_poor' | 'no_gems' | 'no_crystals' | 'pending' | 'busy';
 
@@ -358,7 +364,10 @@ export type HeroesCrafted = HeroesView & { crafted: { copy: string; name: string
 /** Why a TechnoMagic piece wasn't crafted (nothing was spent): too few Boss Crystals, too few zeiucoins, or no piece is so. */
 export type TmCraftError = 'no_crystals' | 'too_poor' | 'no_piece' | 'busy';
 
-/** Which additional skill a TechnoMagic copy keeps after its reroll (POST /api/heroes/keep): the one it had, or the one rolled. */
+/**
+ * Which additional skill a TechnoMagic copy keeps after its reroll (POST /api/heroes/keep), or which option a copy keeps after
+ * one of them was rerolled (with `option`, its index): the one it had, or the one rolled.
+ */
 export type HeroKeep = 'old' | 'new';
 
 /** Why a copy wasn't refined (nothing was used up). */

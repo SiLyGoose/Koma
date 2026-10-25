@@ -114,7 +114,8 @@ const refundGems = async (guildId: string, userId: string, gems: number): Promis
  * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
  * rerolled (a TechnoMagic piece's: TM_CRYSTALS.reroll of its set's Boss Crystals, King's Raid's; too few: 'no_crystals'); or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
  * (too few: 'no_gems'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
- * and till then it isn't rerolled again ('pending').
+ * and till then it isn't rerolled again ('pending'). An option rolled waits the same (optionPending, keepOption: King's Raid's
+ * Reforge keeps the old one or the new), and till then none of its options is rerolled or enhanced.
  */
 export async function rerollOption(guildId: string, userId: string, copyId: string, index: number | 'unique', rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
@@ -141,8 +142,12 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   const options = copy.options ?? [];
   const old = options[index];
   if (!Number.isInteger(index) || !old) return { ok: false, reason: 'no_option' };
-  const after = rerollKrOption(kr, options, index, rng);
-  if (!after) return { ok: false, reason: 'no_option' };
+  if (copy.optionPending !== undefined) return { ok: false, reason: 'pending' };
+  const rolled = rerollKrOption(kr, options, index, rng)?.[index];
+  if (!rolled) return { ok: false, reason: 'no_option' };
+  // (The option rolled waits beside the one it has: the copy keeps its options till the member picks.)
+  const unchanged = { guildId, userId, _id: copyId, options, optionPending: { $exists: false } };
+  const pending = { $set: { optionPending: { index, option: rolled } } };
   // (A TechnoMagic piece's: its set's Boss Crystals, King's Raid's, not points.)
   const set = isTmPiece(item) ? kr.set : undefined;
   if (set) {
@@ -150,7 +155,7 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
     const field = `crystals.${set}`;
     const paid = await collections().members.updateOne({ guildId, userId, [field]: { $gte: crystals } }, { $inc: { [field]: -crystals } });
     if (paid.modifiedCount === 0) return { ok: false, reason: 'no_crystals' };
-    const done = await items.updateOne({ guildId, userId, _id: copyId, options }, { $set: { options: after } });
+    const done = await items.updateOne(unchanged, pending);
     if (done.modifiedCount === 0) {
       await collections().members.updateOne({ guildId, userId }, { $inc: { [field]: crystals } });
       return { ok: false, reason: 'busy' };
@@ -159,7 +164,7 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
   }
   const cost = rerollPrice(old.rerolls ?? 0);
   if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
-  const done = await items.updateOne({ guildId, userId, _id: copyId, options }, { $set: { options: after } });
+  const done = await items.updateOne(unchanged, pending);
   if (done.modifiedCount === 0) {
     await refund(guildId, userId, cost);
     return { ok: false, reason: 'busy' };
@@ -181,6 +186,27 @@ export async function keepTmSkill(guildId: string, userId: string, copyId: strin
   const done = await items.updateOne(
     { guildId, userId, _id: copyId, tmSkillPending: rolled },
     keep === 'new' ? { $set: { tmSkill: rolled }, $unset: { tmSkillPending: '' } } : { $unset: { tmSkillPending: '' } },
+  );
+  return done.modifiedCount === 0 ? { ok: false, reason: 'busy' } : { ok: true };
+}
+
+/**
+ * Settles a copy's rerolled option (optionPending): `keep` 'new' puts the one rolled in its place, 'old' keeps the one it had;
+ * the one rolled is gone either way (already paid for), but the old one counts the reroll too (its price climbs as if taken).
+ * None rolled (or not its `index`th): 'no_option'.
+ */
+export async function keepOption(guildId: string, userId: string, copyId: string, keep: HeroKeep, index: number): Promise<OptionResult> {
+  const { items } = collections();
+  const copy = await items.findOne({ guildId, userId, _id: copyId });
+  if (!copy) return { ok: false, reason: 'not_found' };
+  const rolled = copy.optionPending;
+  const options = copy.options ?? [];
+  const old = rolled ? options[rolled.index] : undefined;
+  if (!rolled || !old || rolled.index !== index) return { ok: false, reason: 'no_option' };
+  const kept = keep === 'new' ? rolled.option : { ...old, rerolls: rolled.option.rerolls ?? old.rerolls };
+  const done = await items.updateOne(
+    { guildId, userId, _id: copyId, options, optionPending: rolled },
+    { $set: { options: options.map((one, i) => (i === rolled.index ? kept : one)) }, $unset: { optionPending: '' } },
   );
   return done.modifiedCount === 0 ? { ok: false, reason: 'busy' } : { ok: true };
 }
@@ -209,12 +235,14 @@ export async function upgradeOption(guildId: string, userId: string, copyId: str
   const kr = item?.kr;
   if (!copy || !item || !kr) return { ok: false, reason: 'not_found' };
   if (!upgradable(kr)) return { ok: false, reason: 'no_option' };
+  // (A rerolled option not yet kept: the member picks first.)
+  if (copy.optionPending !== undefined) return { ok: false, reason: 'pending' };
   const options = copy.options ?? [];
   const after = upgradeKrOption(kr, options, index, rng);
   if (!after) return { ok: false, reason: 'no_option' };
   const cost = upgradePrice(kr);
   if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
-  const done = await items.updateOne({ guildId, userId, _id: copyId, options }, { $set: { options: after } });
+  const done = await items.updateOne({ guildId, userId, _id: copyId, options, optionPending: { $exists: false } }, { $set: { options: after } });
   if (done.modifiedCount === 0) {
     await refund(guildId, userId, cost);
     return { ok: false, reason: 'busy' };
