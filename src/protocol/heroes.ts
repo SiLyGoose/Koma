@@ -1,6 +1,7 @@
 import type { MainStat, Slot, Stars, TmSetId } from './items.js';
 import type { GearRefine, GearSale, RefineBlock } from './gear.js';
 import type { RaidClassId } from './raid.js';
+import type { RuneBoxId } from './runes.js';
 
 /* The TechnoMagic Raid's heroes on the site: what the bot's GET /api/heroes and the heroes page say of them. */
 
@@ -297,6 +298,8 @@ export interface HeroesView {
    * set's pieces (POST /api/heroes/craft) and rerolls their options. Left out by a bot from before them.
    */
   crystals?: Record<TmSetId, number>;
+  /** What crafting TechnoMagic gear and Mysterious Runes costs (left out by a bot from before it was a setting). */
+  craft?: HeroesCraft;
   /** The rule their hero gear's drops are salvaged by as they drop (POST /api/heroes/auto-salvage); null: none is (left out by a bot from before it). */
   autoSalvage?: SalvageRule | null;
 }
@@ -346,16 +349,18 @@ export type HeroOptionError = 'not_found' | 'no_option' | 'too_poor' | 'no_gems'
 
 /**
  * Crafting a TechnoMagic set's piece (POST /api/heroes/craft, King's Raid's Valance's Workshop): any of its pieces, any class's
- * piece of a part picked, or a class's part picked, for its Boss Crystals and zeiucoins (TM_CRAFT_PRICES).
+ * piece of a part picked, or a class's part picked, for its Boss Crystals and zeiucoins (HeroesView.craft's `tm`).
  */
 export type TmCraftKind = 'any' | 'part' | 'exact';
 
-/** What each way of crafting costs: the set's Boss Crystals, and zeiucoins (the bot's constants/technomagic.ts TM_CRAFT). */
-export const TM_CRAFT_PRICES: Readonly<Record<TmCraftKind, { crystals: number; points: number }>> = {
-  any: { crystals: 1_000, points: 1_000 },
-  part: { crystals: 2_000, points: 3_000 },
-  exact: { crystals: 4_000, points: 9_000 },
-};
+/**
+ * What crafting costs, as the bot's settings say (its config's `craft`): each way of crafting a TechnoMagic piece (`tm`: the
+ * set's Boss Crystals, and zeiucoins), and one Mysterious Rune of each (`runes`: Rune Fragments; protocol/runes.ts RUNE_BOXES).
+ */
+export interface HeroesCraft {
+  tm: Record<TmCraftKind, { crystals: number; points: number }>;
+  runes: Record<RuneBoxId, number>;
+}
 
 /** The parts a TechnoMagic piece can be crafted as (an accessory: any of its four kinds). */
 export const TM_CRAFT_PARTS: readonly HeroPart[] = ['armor', 'secondary', 'accessory', 'orb'];

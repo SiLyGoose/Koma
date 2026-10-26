@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TM_CRAFT, TM_CRYSTALS, TM_RECLAIMED, tmCrystalDrops, tmCrystalName, tmReclaimedChance, tmSalvageCrystals, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
+import { TM_CRYSTALS, TM_RECLAIMED, tmCrystalDrops, tmCrystalName, tmReclaimedChance, tmSalvageCrystals, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
+import { DEFAULTS } from '../src/config.js';
+import { findSpec } from '../src/lib/settings-spec.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { isTmPiece, krMainValue, tmStoneClass } from '../src/data/kr-gear.js';
 import { copyMainStat } from '../src/lib/game/heroes.js';
@@ -111,9 +113,9 @@ test("Boss Crystals: a win's its boss's, more the higher the stage; salvaging a 
 });
 
 test("crafting TechnoMagic gear: King's Raid's three ways, for crystals and thousands of zeiucoins", () => {
-  assert.deepEqual(TM_CRAFT.any, { crystals: 1000, points: 1000 });
-  assert.deepEqual(TM_CRAFT.part, { crystals: 2000, points: 3000 });
-  assert.deepEqual(TM_CRAFT.exact, { crystals: 4000, points: 9000 });
+  assert.deepEqual(DEFAULTS.craft.tm, { any: { crystals: 1000, points: 1000 }, part: { crystals: 2000, points: 3000 }, exact: { crystals: 4000, points: 9000 } });
+  assert.equal(DEFAULTS.craft.reclaimed, 0.05);
+  for (const key of ['craft.tm.any.crystals', 'craft.tm.exact.points', 'craft.reclaimed']) assert.ok(findSpec(key), key);
   const any = tmCraftPool('perseverance', 'any', null, null);
   assert.ok(any.length >= 49 && any.every((piece) => piece.kr?.set === 'perseverance' && piece.kr.part !== 'artifact'));
   const armor = tmCraftPool('hope', 'part', 'armor', null);

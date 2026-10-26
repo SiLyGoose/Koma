@@ -28,7 +28,7 @@ import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
 import { announceDragon } from './commands/dragon.js';
-import { backfillVaultClaims, clearOpenVaults, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmArmorDefs, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, lowerSelectorPrice, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmArmorDefs, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -116,6 +116,9 @@ async function main(): Promise<void> {
   // Every start: clears any vault breaker left open by the old event (see clearOpenVaults).
   const clearedVaults = await clearOpenVaults();
   if (clearedVaults > 0) console.log(`Cleared ${clearedVaults} vault breaker(s) left open by the removed event.`);
+
+  // Once: the tickets' komaDust price stored at its old 10,000 is lowered to 1,000 (see lowerSelectorPrice).
+  if (await lowerSelectorPrice()) console.log('Lowered the Unique Weapon and Unique Treasure Tickets to 1,000 komaDust.');
 
   // Unless ENV=LOCAL, the command prefix lives in the database (settings collection, default
   // "k!"). Re-read it every minute so an edit in MongoDB takes effect without restarting the bot.

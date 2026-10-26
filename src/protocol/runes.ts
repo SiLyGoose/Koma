@@ -24,17 +24,16 @@ export interface RuneBox {
   name: string;
   /** The grade of the rune it gives (an Ancient one: an Ancient rune, of grade 5). */
   grade: number;
-  /** What one takes, in Rune Fragments. */
-  fragments: number;
   /** Its picture, public/kr/items/<icon>.webp (the Ancient one: King's Raid's has none, so the Legendary one's). */
   icon: string;
 }
 
+/** The Mysterious Runes (what one takes in Rune Fragments is the bot's setting: HeroesView.craft's `runes`). */
 export const RUNE_BOXES: readonly RuneBox[] = [
-  { id: 'uncommon', name: 'Mysterious Rune: Uncommon', grade: 2, fragments: 100, icon: 'PACKAGE_RUNE_2' },
-  { id: 'rare', name: 'Mysterious Rune: Rare', grade: 3, fragments: 250, icon: 'PACKAGE_RUNE_3' },
-  { id: 'heroic', name: 'Mysterious Rune: Heroic', grade: 4, fragments: 650, icon: 'PACKAGE_RUNE_4' },
-  { id: 'ancient', name: 'Mysterious Rune: Ancient', grade: 5, fragments: 2_000, icon: 'PACKAGE_RUNE_5' },
+  { id: 'uncommon', name: 'Mysterious Rune: Uncommon', grade: 2, icon: 'PACKAGE_RUNE_2' },
+  { id: 'rare', name: 'Mysterious Rune: Rare', grade: 3, icon: 'PACKAGE_RUNE_3' },
+  { id: 'heroic', name: 'Mysterious Rune: Heroic', grade: 4, icon: 'PACKAGE_RUNE_4' },
+  { id: 'ancient', name: 'Mysterious Rune: Ancient', grade: 5, icon: 'PACKAGE_RUNE_5' },
 ];
 
 /** The most runes one sale takes, and the most Mysterious Runes one craft makes. */

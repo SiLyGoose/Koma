@@ -1,3 +1,4 @@
+import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, rollRuneOfGrade, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
@@ -49,7 +50,7 @@ export async function craftRunes(guildId: string, userId: string, box: RuneBoxId
   if (!recipe || !Number.isInteger(count) || count < 1) return { ok: false, reason: 'not_found' };
   const rolled = Array.from({ length: count }, () => rollRuneOfGrade(recipe.grade, rng, box === 'ancient')).filter((id) => id !== null);
   if (rolled.length !== count) return { ok: false, reason: 'not_found' };
-  const cost = recipe.fragments * count;
+  const cost = Math.max(1, Math.floor(CONFIG.craft.runes[box])) * count;
   const inc: Record<string, number> = { runeFragments: -cost };
   for (const id of rolled) inc[`runes.${id}`] = (inc[`runes.${id}`] ?? 0) + 1;
   const done = await collections().members.updateOne({ guildId, userId, runeFragments: { $gte: cost } }, { $inc: inc });

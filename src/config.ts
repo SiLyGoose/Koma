@@ -4,6 +4,8 @@ import { validateSettings } from './lib/settings-spec.js';
 import { STARS } from './types.js';
 import type { Stars, TmPotentialId } from './types.js';
 import { TM_POTENTIAL_RANGES } from './data/tm-potentials.js';
+import type { TmCraftKind } from './protocol/heroes.js';
+import type { RuneBoxId } from './protocol/runes.js';
 
 export { STARS };
 
@@ -102,6 +104,18 @@ export interface Settings {
     powderPerGem: number;
     /** komaDust that crafts one Unique Weapon or Unique Treasure Ticket (a selector, to the mailbox). */
     powderPerSelector: number;
+  };
+  craft: {
+    /**
+     * What crafting a TechnoMagic set's piece costs (King's Raid's Valance's Workshop: services/technomagic.ts craftTmPiece), each
+     * way: any of its pieces (`any`), any class's piece of a part picked (`part`), or a class's part picked (`exact`), for the
+     * set's Boss Crystals and zeiucoins (King's Raid's gold, a thousandth).
+     */
+    tm: Record<TmCraftKind, { crystals: number; points: number }>;
+    /** The chance (0 to 1) a crafted TechnoMagic piece comes Reclaimed (King's Raid's: "a small chance"). */
+    reclaimed: number;
+    /** Rune Fragments one Mysterious Rune of each grade takes (protocol/runes.ts RUNE_BOXES; services/runes.ts craftRunes). */
+    runes: Record<RuneBoxId, number>;
   };
   plinko: {
     /** The smallest and biggest bet. */
@@ -418,7 +432,13 @@ export const DEFAULTS: Readonly<Settings> = {
   },
   // A pull costs 280 and gives a 1-star 69% of the time, so selling everything you pull gets back roughly 30%.
   // Hero gear salvages for komaDust, 1,000 of it a komaGem: a Hard Dragon Raid win at stage 10 (7 T8 pieces) is about half of one.
-  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 }, powder: { 6: 20, 7: 40, 8: 80, 9: 120, 10: 200, technomagic: 120, unique: 500 }, powderPerGem: 1000, powderPerSelector: 10000 },
+  sell: { price: { 1: 40, 2: 100, 3: 400, 4: 1500 }, powder: { 6: 20, 7: 40, 8: 80, 9: 120, 10: 200, technomagic: 120, unique: 500 }, powderPerGem: 1000, powderPerSelector: 1000 },
+  // King's Raid's: its Valance's Workshop (ValanceCraftTable, gold a thousandth) and CraftItemTable PACKAGE_RUNE_2/3/4/40.
+  craft: {
+    tm: { any: { crystals: 1000, points: 1000 }, part: { crystals: 2000, points: 3000 }, exact: { crystals: 4000, points: 9000 } },
+    reclaimed: 0.05,
+    runes: { uncommon: 100, rare: 250, heroic: 650, ancient: 2000 },
+  },
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.
   plinko: { minBet: 10, maxBet: 1000, payout: { 1: 9, 2: 3, 3: 1.4, 4: 0.7, 5: 0.4 } },

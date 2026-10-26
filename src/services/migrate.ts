@@ -360,6 +360,19 @@ export async function renameEventChannelField(): Promise<number> {
 }
 
 /*
+ * A Unique Weapon or Unique Treasure Ticket was 10,000 komaDust, and is 1,000 now (the user's): the settings document still says
+ * the old price (loadSettings only fills in what is missing), so it is lowered once, unless an admin had set it to something
+ * else. The marker in `meta` keeps it from undoing an admin's 10,000 set later. Runs before the settings are loaded.
+ */
+export async function lowerSelectorPrice(): Promise<boolean> {
+  const { meta, settings } = collections();
+  if (await meta.findOne({ _id: 'selectorPrice1000' })) return false;
+  const lowered = await settings.updateOne({ _id: 'global', 'sell.powderPerSelector': 10_000 }, { $set: { 'sell.powderPerSelector': 1_000 } });
+  await meta.updateOne({ _id: 'selectorPrice1000' }, { $set: { migratedAt: new Date() } }, { upsert: true });
+  return lowered.modifiedCount > 0;
+}
+
+/*
  * The vault breaker event was replaced by Greedy Heist and Split or Steal, which don't save
  * themselves. A vault breaker left open when the bot last stopped is just cleared: it only moved
  * points once it settled, so dropping it takes nothing from anyone. Idempotent, runs every start.

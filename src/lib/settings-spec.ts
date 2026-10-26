@@ -55,7 +55,7 @@ import { TM_POTENTIALS } from '../data/tm-potentials.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Minesweeper' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Hero' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Craft' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Minesweeper' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Hero' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -78,7 +78,7 @@ export interface SettingSpec {
  * so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
  * in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
  */
-export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Craft', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
 
 const MAX_POINTS = MAX_SETTING_POINTS;
 
@@ -195,8 +195,19 @@ export const SPECS: readonly SettingSpec[] = [
   int('sell.powder.10', 'Sell', 'komaDust for salvaging one artifact.', 0, MAX_POINTS),
   int('sell.powder.technomagic', 'Sell', 'komaDust for salvaging one piece of the old TechnoMagic gear.', 0, MAX_POINTS),
   int('sell.powder.unique', 'Sell', 'komaDust for salvaging one unique weapon or unique treasure.', 0, MAX_POINTS),
-  int('sell.powderPerGem', 'Sell', 'komaDust that crafts one komaGem.', 1, MAX_POINTS),
-  int('sell.powderPerSelector', 'Sell', 'komaDust that crafts one Unique Weapon or Unique Treasure Ticket.', 1, MAX_POINTS),
+  int('sell.powderPerGem', 'Craft', 'komaDust that crafts one komaGem.', 1, MAX_POINTS),
+  int('sell.powderPerSelector', 'Craft', 'komaDust that crafts one Unique Weapon or Unique Treasure Ticket.', 1, MAX_POINTS),
+  int('craft.tm.any.crystals', 'Craft', "Boss Crystals (the set's) crafting any piece of a TechnoMagic set takes.", 0, MAX_POINTS),
+  int('craft.tm.any.points', 'Craft', `${CURRENCY_EMOJI} crafting any piece of a TechnoMagic set takes.`, 0, MAX_POINTS),
+  int('craft.tm.part.crystals', 'Craft', "Boss Crystals (the set's) crafting a TechnoMagic piece of a part picked takes.", 0, MAX_POINTS),
+  int('craft.tm.part.points', 'Craft', `${CURRENCY_EMOJI} crafting a TechnoMagic piece of a part picked takes.`, 0, MAX_POINTS),
+  int('craft.tm.exact.crystals', 'Craft', "Boss Crystals (the set's) crafting a TechnoMagic piece of a class and part picked takes.", 0, MAX_POINTS),
+  int('craft.tm.exact.points', 'Craft', `${CURRENCY_EMOJI} crafting a TechnoMagic piece of a class and part picked takes.`, 0, MAX_POINTS),
+  { key: 'craft.reclaimed', group: 'Craft', description: 'Chance a crafted TechnoMagic piece comes Reclaimed.', type: 'number', min: 0, max: 1, percent: true },
+  int('craft.runes.uncommon', 'Craft', 'Rune Fragments one Mysterious Rune: Uncommon takes.', 1, MAX_POINTS),
+  int('craft.runes.rare', 'Craft', 'Rune Fragments one Mysterious Rune: Rare takes.', 1, MAX_POINTS),
+  int('craft.runes.heroic', 'Craft', 'Rune Fragments one Mysterious Rune: Heroic takes.', 1, MAX_POINTS),
+  int('craft.runes.ancient', 'Craft', 'Rune Fragments one Mysterious Rune: Ancient takes.', 1, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
   int('rob.minStolen', 'Rob', `Lowest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),

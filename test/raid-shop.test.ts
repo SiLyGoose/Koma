@@ -225,11 +225,11 @@ test('raid shop web: a logged-in member sees the shelf and buys with komaGems, i
   }
 });
 
-test('raid shop web: 10,000 komaDust crafts a Unique Weapon or Unique Treasure Ticket, held until used for a hero’s item', async () => {
-  assert.equal(DEFAULTS.sell.powderPerSelector, 10_000);
+test('raid shop web: 1,000 komaDust crafts a Unique Weapon or Unique Treasure Ticket, held until used for a hero’s item', async () => {
+  assert.equal(DEFAULTS.sell.powderPerSelector, 1_000);
   assert.ok(findSpec('sell.powderPerSelector'), 'a setting');
-  let state = { powder: 25_000, selectors: { uw: 0, ut: 0 } };
-  const view = (): RaidShopView => ({ refresh: { max: 5, left: 5, price: 5 }, items: [], gems: 0, resetsAt: 1_800_000_000_000, powder: state.powder, powderPerGem: 1000, powderPerSelector: 10_000, selectors: { ...state.selectors } });
+  let state = { powder: 2_500, selectors: { uw: 0, ut: 0 } };
+  const view = (): RaidShopView => ({ refresh: { max: 5, left: 5, price: 5 }, items: [], gems: 0, resetsAt: 1_800_000_000_000, powder: state.powder, powderPerGem: 1000, powderPerSelector: 1_000, selectors: { ...state.selectors } });
   const calls: string[] = [];
   const store: RaidShopStore = {
     view: async () => view(),
@@ -238,8 +238,8 @@ test('raid shop web: 10,000 komaDust crafts a Unique Weapon or Unique Treasure T
     craft: async (_guildId, _userId, count, recipe) => {
       calls.push(`craft ${count} ${recipe}`);
       if (recipe === 'gem') return view();
-      if (state.powder < count * 10_000) return 'too_poor';
-      state = { powder: state.powder - count * 10_000, selectors: { ...state.selectors, [recipe]: state.selectors[recipe] + count } };
+      if (state.powder < count * 1_000) return 'too_poor';
+      state = { powder: state.powder - count * 1_000, selectors: { ...state.selectors, [recipe]: state.selectors[recipe] + count } };
       return view();
     },
     use: async (_guildId, _userId, of, pick) => {
@@ -260,7 +260,7 @@ test('raid shop web: 10,000 komaDust crafts a Unique Weapon or Unique Treasure T
   try {
     // komaGems by default, as before.
     assert.equal((await post('craft', { count: 2 })).status, 200);
-    // Two tickets of their 25,000, then not a third.
+    // Two tickets of their 2,500, then not a third.
     const crafted = await post('craft', { count: 2, recipe: 'ut' });
     assert.equal(crafted.status, 200);
     assert.deepEqual(((await crafted.json()) as RaidShopView).selectors, { uw: 0, ut: 2 });

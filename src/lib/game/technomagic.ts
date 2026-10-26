@@ -60,7 +60,7 @@ export function rollTmDrop(boss: string, rng: TmRng = defaultRng): ItemDef | nul
 }
 
 /**
- * The pieces crafting TechnoMagic `set` picks one of (constants/technomagic.ts TM_CRAFT): `kind` 'any' any of its pieces, 'part'
+ * The pieces crafting TechnoMagic `set` picks one of (services/technomagic.ts craftTmPiece): `kind` 'any' any of its pieces, 'part'
  * any class's of `part`, 'exact' `cls`'s of `part` (an accessory: any of its four kinds). None: it can't be so crafted.
  */
 export function tmCraftPool(set: string, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null): ItemDef[] {

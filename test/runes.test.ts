@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { DEFAULTS } from '../src/config.js';
+import { findSpec } from '../src/lib/settings-spec.js';
 import { KR_RUNES, KR_RUNES_BY_ID, rollRuneOfGrade } from '../src/data/kr-gear.js';
 import { RUNE_BOXES, RUNE_FRAGMENTS, RUNE_KEEP_PRICE, RUNE_SELL_POINTS } from '../src/protocol/runes.js';
 
@@ -28,6 +30,7 @@ test("runes: each Mysterious Rune crafted gives a rune of its grade, the Ancient
       assert.equal(rune.ancient === true, box.id === 'ancient', box.id);
     }
   }
-  // (King's Raid's fragment costs: CraftItemTable PACKAGE_RUNE_2/3/4/40.)
-  assert.deepEqual(RUNE_BOXES.map((box) => box.fragments), [100, 250, 650, 2_000]);
+  // (King's Raid's fragment costs, settings: CraftItemTable PACKAGE_RUNE_2/3/4/40.)
+  assert.deepEqual(RUNE_BOXES.map((box) => DEFAULTS.craft.runes[box.id]), [100, 250, 650, 2_000]);
+  for (const box of RUNE_BOXES) assert.ok(findSpec(`craft.runes.${box.id}`), box.id);
 });

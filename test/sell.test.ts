@@ -160,7 +160,9 @@ test('sell: hero gear sells for a T1\'s points, or salvages for komaDust (by its
     CONFIG.sell.powder.technomagic = before;
   }
   assert.equal(saleLines([t8.id]).length, 1, "King's Raid's pieces are priced too");
-  for (const key of ['sell.powder.6', 'sell.powder.7', 'sell.powder.8', 'sell.powder.9', 'sell.powder.10', 'sell.powder.technomagic', 'sell.powder.unique', 'sell.powderPerGem']) assert.equal(findSpec(key)?.group, 'Sell', key);
+  for (const key of ['sell.powder.6', 'sell.powder.7', 'sell.powder.8', 'sell.powder.9', 'sell.powder.10', 'sell.powder.technomagic', 'sell.powder.unique']) assert.equal(findSpec(key)?.group, 'Sell', key);
+  // (What komaDust crafts is listed with the rest of crafting.)
+  for (const key of ['sell.powderPerGem', 'sell.powderPerSelector']) assert.equal(findSpec(key)?.group, 'Craft', key);
   const broken = structuredClone(DEFAULTS);
   broken.sell.powder[8] = -1;
   assert.ok(validateSettings(broken).some((problem) => problem.startsWith('sell.powder.8')));

@@ -4,7 +4,7 @@ import { HEROES_BY_ID } from '../data/heroes.js';
 import { keptPerks, transcendLevel } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { raidGear } from '../lib/game/heroes.js';
-import { dragonClearGems, TM_CRAFT, tmClearGems, tmCrystalDrops, tmDropCount } from '../constants/technomagic.js';
+import { dragonClearGems, tmClearGems, tmCrystalDrops, tmDropCount } from '../constants/technomagic.js';
 import { tmSetOfBoss } from '../data/tm-sets.js';
 import type { HeroPart, TmCraftKind } from '../protocol/heroes.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
@@ -276,7 +276,7 @@ async function payDragonWin(guildId: string, userId: string, dragon: string, sta
 }
 
 /**
- * Crafts a piece of TechnoMagic `set` (King's Raid's Valance's Workshop: constants/technomagic.ts TM_CRAFT): `kind` 'any' any of
+ * Crafts a piece of TechnoMagic `set` (King's Raid's Valance's Workshop: its price the config's craft.tm): `kind` 'any' any of
  * its pieces, 'part' any class's piece of `part`, 'exact' `cls`'s piece of `part`, each as likely, for its price in the set's
  * Boss Crystals and points (both taken at once, or neither). It comes as a drop does, its options and additional skill rolled,
  * now and then Reclaimed; never salvaged. The piece, or why not (nothing was spent).
@@ -292,7 +292,7 @@ export async function craftTmPiece(
 ): Promise<{ ok: true; find: TmFind } | { ok: false; reason: 'no_crystals' | 'too_poor' | 'no_piece' | 'busy' }> {
   const pool = tmCraftPool(set, kind, part, cls);
   if (pool.length === 0) return { ok: false, reason: 'no_piece' };
-  const { crystals, points } = TM_CRAFT[kind];
+  const { crystals, points } = CONFIG.craft.tm[kind];
   const { members } = collections();
   const field = `crystals.${set}`;
   await ensureMember(guildId, userId);
@@ -303,7 +303,7 @@ export async function craftTmPiece(
   }
   const item = pool[rng.index(pool.length)] as ItemDef;
   try {
-    const find = await findPiece(guildId, userId, item, null, rng.index(10_000) < Math.round(TM_CRAFT.reclaimed * 10_000));
+    const find = await findPiece(guildId, userId, item, null, rng.index(10_000) < Math.round(CONFIG.craft.reclaimed * 10_000));
     await recordLedger([{ guildId, userId, delta: -points, reason: 'tm_craft', itemId: item.id }]);
     return { ok: true, find };
   } catch (err) {

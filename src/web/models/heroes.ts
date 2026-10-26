@@ -329,7 +329,7 @@ export function heroesView(
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
   const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
   const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
-  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, autoSalvage: autoSalvageOf(member) };
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes } }, autoSalvage: autoSalvageOf(member) };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {
