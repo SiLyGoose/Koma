@@ -1,4 +1,4 @@
-import type { HeroesCrafted, HeroPart, TmCraftKind } from '../../protocol/heroes.js';
+import type { HeroesCrafted, HeroPart, TmAccessory, TmCraftKind } from '../../protocol/heroes.js';
 import type { TmSetId } from '../../protocol/items.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import type { ApiDeps } from '../api.js';
@@ -92,9 +92,9 @@ export function heroService(deps: ApiDeps) {
     /** Keeps the rule their hero gear's drops are salvaged by as they drop (null: none any more). */
     autoSalvage: (guildId: string, userId: string, rule: SalvageRule | null): Promise<HeroesView> => store.autoSalvage(guildId, userId, rule),
 
-    /** Crafts a piece of TechnoMagic `set` for its Boss Crystals and points (any of its pieces, a part picked, or a class's part picked). */
-    async craft(guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null): Promise<HeroesCrafted> {
-      const crafted = await store.craft(guildId, userId, set, kind, part, cls);
+    /** Crafts a piece of TechnoMagic `set` for its Boss Crystals and points (any of its pieces, a part picked, or a class's part picked; an accessory, of the kind picked). */
+    async craft(guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null, accessory: TmAccessory | null = null): Promise<HeroesCrafted> {
+      const crafted = await store.craft(guildId, userId, set, kind, part, cls, accessory);
       if (typeof crafted === 'string') throw new ApiError(crafted);
       return crafted;
     },

@@ -122,6 +122,9 @@ test("crafting TechnoMagic gear: King's Raid's three ways, for crystals and thou
   assert.equal(armor.length, 7, "every class's armor");
   assert.deepEqual(tmCraftPool('hope', 'exact', 'armor', 'priest').map((piece) => piece.kr?.classes), [['priest']]);
   assert.equal(tmCraftPool('hope', 'exact', 'accessory', 'priest').length, 4, 'an accessory: any of its four kinds');
+  assert.deepEqual(tmCraftPool('hope', 'exact', 'accessory', 'priest', 'earrings').map((piece) => [piece.kr?.kind, piece.kr?.classes]), [['earrings', ['priest']]], 'an accessory: the kind picked');
+  assert.ok(tmCraftPool('hope', 'part', 'accessory', null, 'ring').every((piece) => piece.kr?.kind === 'ring') && tmCraftPool('hope', 'part', 'accessory', null, 'ring').length === 7, 'any class’s ring');
+  assert.equal(tmCraftPool('hope', 'part', 'armor', null, 'ring').length, 0, 'a kind only with an accessory');
   assert.equal(tmCraftPool('hope', 'part', null, null).length, 0, 'a part needed');
   assert.equal(tmCraftPool('hope', 'exact', 'armor', null).length, 0, 'a class needed');
 });

@@ -362,8 +362,15 @@ export interface HeroesCraft {
   runes: Record<RuneBoxId, number>;
 }
 
-/** The parts a TechnoMagic piece can be crafted as (an accessory: any of its four kinds). */
+/** The parts a TechnoMagic piece can be crafted as (an accessory: any of its four kinds, or the one of TM_ACCESSORIES picked). */
 export const TM_CRAFT_PARTS: readonly HeroPart[] = ['armor', 'secondary', 'accessory', 'orb'];
+
+/** An accessory's four kinds (King's Raid's), any of which crafting one can be narrowed to (POST /api/heroes/craft's `accessory`). */
+export const TM_ACCESSORIES = ['ring', 'earrings', 'necklace', 'bracelet'] as const;
+export type TmAccessory = (typeof TM_ACCESSORIES)[number];
+
+/** Each accessory's name, as the pages say it. */
+export const TM_ACCESSORY_NAME: Readonly<Record<TmAccessory, string>> = { ring: 'Ring', earrings: 'Earrings', necklace: 'Necklace', bracelet: 'Bracelet' };
 
 /** POST /api/heroes/craft: their heroes after, and the piece crafted (its copy's id, and its name: "Reclaimed …" for one). */
 export type HeroesCrafted = HeroesView & { crafted: { copy: string; name: string } };

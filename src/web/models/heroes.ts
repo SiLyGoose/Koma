@@ -1,5 +1,5 @@
 import { craftTmPiece } from '../../services/technomagic.js';
-import type { HeroesCrafted, TmCraftError, TmCraftKind } from '../../protocol/heroes.js';
+import type { HeroesCrafted, TmAccessory, TmCraftError, TmCraftKind } from '../../protocol/heroes.js';
 import { CONFIG } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
@@ -99,7 +99,7 @@ export interface HeroStore {
   /** Keeps the rule their hero gear's drops are salvaged by (null: none any more): the heroes after. */
   autoSalvage: (guildId: string, userId: string, rule: SalvageRule | null) => Promise<HeroesView>;
   /** Crafts a piece of TechnoMagic `set` (any, a part picked, or a class's part picked): their heroes after and the piece, or why not. */
-  craft: (guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null) => Promise<HeroesCrafted | TmCraftError>;
+  craft: (guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null, accessory: TmAccessory | null) => Promise<HeroesCrafted | TmCraftError>;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
@@ -393,8 +393,8 @@ export const heroStore: HeroStore = {
     await setAutoSalvage(guildId, userId, rule);
     return load(guildId, userId);
   },
-  craft: async (guildId, userId, set, kind, part, cls) => {
-    const result = await craftTmPiece(guildId, userId, set, kind, part, cls);
+  craft: async (guildId, userId, set, kind, part, cls, accessory) => {
+    const result = await craftTmPiece(guildId, userId, set, kind, part, cls, accessory);
     if (!result.ok) return result.reason;
     const { find } = result;
     return { ...(await load(guildId, userId)), crafted: { copy: find.copy ?? '', name: find.reclaimed ? `Reclaimed ${find.item.name}` : find.item.name } };

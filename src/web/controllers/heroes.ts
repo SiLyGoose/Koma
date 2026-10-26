@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { TRANSCEND_PERKS } from '../../data/transcend.js';
 import { HERO_SLOTS } from '../../types.js';
 import { RAID_CLASS_IDS } from '../../constants/index.js';
-import { SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, TM_CRAFT_PARTS, type HeroPart } from '../../protocol/heroes.js';
+import { SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, TM_ACCESSORIES, TM_CRAFT_PARTS, type HeroPart } from '../../protocol/heroes.js';
 import { ApiError } from '../lib/errors.js';
 import type { HeroService } from '../services/heroes.js';
 import { CopyId, parse, UserId } from '../lib/validate.js';
@@ -39,12 +39,13 @@ const AutoSalvage = z.object({
     })
     .nullable(),
 });
-/** A TechnoMagic piece to craft: its set, and any of its pieces, a part picked, or a class's part picked (protocol/heroes.ts TmCraftKind). */
+/** A TechnoMagic piece to craft: its set, and any of its pieces, a part picked, or a class's part picked (protocol/heroes.ts TmCraftKind); an accessory, of the kind picked (none: any). */
 const Craft = z.object({
   set: z.enum(['perseverance', 'hope', 'authority']),
   kind: z.enum(['any', 'part', 'exact']),
   part: z.enum(TM_CRAFT_PARTS as [HeroPart, ...HeroPart[]]).nullish(),
   class: z.enum(RAID_CLASS_IDS).nullish(),
+  accessory: z.enum(TM_ACCESSORIES).nullish(),
 });
 /** Every perk picked (data/transcend.ts's). */
 const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
@@ -126,8 +127,8 @@ export function heroController(heroes: HeroService) {
     },
 
     async craft(req, res) {
-      const { set, kind, part, class: cls } = parse(Craft, req.body);
-      res.json(await heroes.craft(res.locals.guildId, res.locals.session.userId, set, kind, part ?? null, cls ?? null));
+      const { set, kind, part, class: cls, accessory } = parse(Craft, req.body);
+      res.json(await heroes.craft(res.locals.guildId, res.locals.session.userId, set, kind, part ?? null, cls ?? null, accessory ?? null));
     },
 
     async autoSalvage(req, res) {
