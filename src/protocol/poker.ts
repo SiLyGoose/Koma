@@ -138,8 +138,14 @@ export interface PokerState {
   rake: { rate: number; cap: number };
   /** This page's player's balance (to sit down with), as of their last look. */
   balance: number;
-  /** A bot can be added: they're seated and there's a free seat. */
+  /** A bot can be added: they're seated, under today's bot limit (`botWinnings`), and there's a free seat. */
   canAddBot: boolean;
+  /**
+   * What this page's player has won off the bots today, net (negative: lost to them), against the
+   * most they may (`limit`). Once they have, the bots sit out of the hands they're in, and they
+   * can't add one, until the next day. Null when they aren't seated, or there's no limit.
+   */
+  botWinnings: { won: number; limit: number } | null;
   turnSeconds: number;
 }
 
@@ -160,6 +166,8 @@ export type Refusal =
   | { reason: 'seat_taken' }
   /** Not their turn, or a move they can't make (the page is out of date). */
   | { reason: 'not_now' }
+  /** They have won the most they may off the bots today (PokerState.botWinnings). */
+  | { reason: 'bot_limit'; limit: number }
   /** Something went wrong on the bot's side. */
   | { reason: 'failed' };
 

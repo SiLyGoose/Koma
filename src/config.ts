@@ -164,6 +164,12 @@ export interface Settings {
     rakeCap: number;
     /** Seconds a player has for each move before they check (when it's free) or fold. */
     turnSeconds: number;
+    /**
+     * The most a member can win off the poker bots in a day, net (what they lost to bots that day
+     * counts against it). Once they have, bots sit out of the hands they're in, and they can't add
+     * one, until the next day. 0: no limit.
+     */
+    botDailyLimit: number;
   };
   mines: {
     /** The smallest and biggest bet. */
@@ -449,7 +455,7 @@ export const DEFAULTS: Readonly<Settings> = {
   // American roulette (0 and 00): every bet pays 36 / its pockets - 1 to 1, so the house keeps 5.26%.
   roulette: { minBet: 1, maxBet: 10_000 },
   // 10/20 blinds, sitting down with 20 to 100 big blinds, and a 5% rake (at most 5 big blinds) for the vault.
-  poker: { smallBlind: 10, bigBlind: 20, minBuyIn: 400, maxBuyIn: 2_000, rake: 0.05, rakeCap: 100, turnSeconds: 30 },
+  poker: { smallBlind: 10, bigBlind: 20, minBuyIn: 400, maxBuyIn: 2_000, rake: 0.05, rakeCap: 100, turnSeconds: 30, botDailyLimit: 5_000 },
   // Like Stake's Mines. The house edge is 2.5% with 1 mine and slides down to Stake's 1% with 24
   // (so a run pays back 97.5% to 99% of the bet on average), and a round stops at 100x.
   mines: {

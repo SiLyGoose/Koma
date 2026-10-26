@@ -58,6 +58,8 @@ function setup(balances: Record<string, number> = { a: 10_000, b: 10_000, c: 10_
   const clock = fakeClock();
   const seats = new Map<string, { userId: string; chips: number }>();
   const house: number[] = [];
+  /** What each member has won off the bots, net. */
+  const botWon: Record<string, number> = {};
   let next = 0;
   const deps: PokerDeps = {
     async buyIn(_guildId, userId, _tableKey, chips): Promise<BuyInResult> {
@@ -83,6 +85,10 @@ function setup(balances: Record<string, number> = { a: 10_000, b: 10_000, c: 10_
     },
     renewSeats: async () => {},
     houseTake: async (_guildId, amount) => void house.push(amount),
+    botWinnings: async (_guildId, userId) => botWon[userId] ?? 0,
+    addBotWinnings: async (_guildId, userId, _day, amount) => {
+      botWon[userId] = (botWon[userId] ?? 0) + amount;
+    },
     balance: async (_guildId, userId) => balances[userId] ?? 0,
     avatar: () => null,
     deck: fixedDeck,
@@ -104,6 +110,7 @@ function setup(balances: Record<string, number> = { a: 10_000, b: 10_000, c: 10_
     balances,
     seats,
     house,
+    botWon,
     clock,
     tables,
     table: () => current,
@@ -282,6 +289,63 @@ test('bots: a seated player adds one, it plays, and when it leaves its winnings 
   // Alone again: no hands.
   await t.tick(POKER_TABLE.nextHandMs * 2);
   assert.equal(t.state('a').phase, 'waiting');
+});
+
+test('bots: what a member wins off them, or loses to them, is counted (the rake is not theirs)', async () => {
+  const t = setup();
+  await t.join('a');
+  await t.table()?.sit('a', 1000);
+  await t.table()?.addBot('a');
+  await t.tick(POKER_TABLE.nextHandMs);
+  let saved = 1000;
+  let expected = 0;
+  let hands = 0;
+  let counted = 0;
+  for (let i = 0; i < 200 && hands < 4; i++) {
+    const s = t.state('a');
+    if (s.hand?.result) {
+      // Once the hand is saved: how a's chips changed, and what the bot made of it after the rake.
+      await t.tick(1);
+      const now = [...t.seats.values()][0]?.chips as number;
+      const change = now - saved;
+      const bot = -change - s.hand.result.rake;
+      if (change > 0 && bot < 0) expected += Math.min(change, -bot);
+      if (change < 0 && bot > 0) expected -= Math.min(-change, bot);
+      saved = now;
+      hands++;
+      assert.equal(t.botWon.a ?? 0, expected, `after hand ${hands}`);
+      if (change !== 0) counted++;
+      await t.tick(POKER_TABLE.nextHandMs);
+    } else if (turn(s) === 'a') await t.table()?.act('a', s.move?.check ? 'check' : 'fold');
+    else await t.tick(POKER_TABLE.botThinkMs[1]);
+  }
+  assert.equal(hands, 4);
+  assert.ok(counted > 0, 'something was won or lost');
+});
+
+test("bots: a member who won the day's most off them can't add one, and the bots sit out of their hands", async () => {
+  const limit = CONFIG.poker.botDailyLimit;
+  const t = setup();
+  t.botWon.a = limit;
+  await t.join('a');
+  await t.join('b');
+  await t.table()?.sit('b', 1000);
+  assert.equal(await t.table()?.addBot('b'), null);
+  assert.deepEqual(t.state('b').botWinnings, { won: 0, limit });
+  await t.table()?.sit('a', 1000);
+  assert.deepEqual(await t.table()?.addBot('a'), { reason: 'bot_limit', limit });
+  assert.equal(t.state('a').canAddBot, false);
+  assert.deepEqual(t.state('a').botWinnings, { won: limit, limit });
+  await t.tick(POKER_TABLE.nextHandMs);
+  const s = t.state('a');
+  assert.equal(s.phase, 'playing');
+  assert.deepEqual(s.seats.filter((x) => x?.inHand).map((x) => x?.id).sort(), ['a', 'b']);
+  assert.equal(s.seats.find((x) => x?.bot)?.inHand, false, 'the bot sits out');
+  // a gets up: b and the bot play on.
+  await t.table()?.stand('a');
+  for (let i = 0; i < 10 && t.state('b').hand?.result === null; i++) await t.table()?.act(turn(t.state('b')) as string, 'fold');
+  await t.tick(POKER_TABLE.nextHandMs * 2);
+  assert.equal(t.state('b').seats.find((x) => x?.bot)?.inHand, true);
 });
 
 test('refusals: a taken seat, out of the buy-in range, too poor, sitting twice', async () => {

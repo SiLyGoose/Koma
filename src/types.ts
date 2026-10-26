@@ -221,6 +221,8 @@ export interface MemberDoc {
    * null means 1.
    */
   claimGapHours?: number | null;
+  /** What they won off the poker bots on `day` (dayKey), net: negative when they lost (services/casino/poker.ts). Missing, or another day's, means none. */
+  pokerBots?: { day: string; net: number };
   /** Skips paid for today, per thing skipped (services/skips.ts). Missing means none. */
   skips?: Partial<Record<SkipId, SkipUse>>;
   /** Their raid class, picked on the site's gear page (services/raid-class.ts). Missing or null means none. */

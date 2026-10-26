@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { CONFIG } from '../../../config.js';
 import { POKER_BOT_NAMES, POKER_TABLE } from '../../../constants/index.js';
+import { dayKey } from '../../../lib/events/raid-week.js';
 import type { Card } from '../../../lib/game/casino/blackjack.js';
 import { botAction } from '../../../lib/game/casino/poker/bot.js';
 import {
@@ -15,7 +16,7 @@ import {
   type HandState,
   type PokerAction,
 } from '../../../lib/game/casino/poker/hand.js';
-import { buyIn, cashOut, houseTake, renewSeats, saveChips, type BuyInResult } from '../../../services/casino/poker.js';
+import { addBotWinnings, botWinnings, buyIn, cashOut, houseTake, renewSeats, saveChips, type BuyInResult } from '../../../services/casino/poker.js';
 import { getBalance } from '../../../services/economy/index.js';
 import { avatarUrl } from '../../auth/login.js';
 import { playerKey, type Player } from '../../auth/token.js';
@@ -39,7 +40,9 @@ import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage 
  * A player whose page goes away keeps their seat for POKER_TABLE.awayMs, sitting out of new hands
  * and checking or folding at once in the one they're in; after that they are cashed out. Any seated
  * player can add a bot to a free seat (its chips are the house's: what it ends up winning goes into
- * the vault when it leaves) and take one away. A table with nobody left at it closes.
+ * the vault when it leaves) and take one away. What each member wins off the bots is counted by day
+ * (countBotWinnings): once a member has won poker.botDailyLimit, the bots sit out of the hands they're
+ * dealt into, and they can't add one, until the next day. A table with nobody left at it closes.
  *
  * Everything that changes a table runs one at a time (`run`), so a move can't land in the middle of
  * a hand being saved.
@@ -55,6 +58,9 @@ export interface PokerDeps {
   cashOut: (seatId: string) => Promise<{ amount: number; balance: number } | null>;
   renewSeats: (tableKey: string) => Promise<void>;
   houseTake: (guildId: string, amount: number) => Promise<void>;
+  /** What a member has won off the bots on `day`, net, and adding to it. */
+  botWinnings: (guildId: string, userId: string, day: string) => Promise<number>;
+  addBotWinnings: (guildId: string, userId: string, day: string, amount: number) => Promise<void>;
   balance: (guildId: string, userId: string) => Promise<number>;
   avatar: (guildId: string, userId: string) => string | null;
   deck: () => Card[];
@@ -71,6 +77,8 @@ export const realPokerDeps: PokerDeps = {
   cashOut,
   renewSeats,
   houseTake,
+  botWinnings,
+  addBotWinnings,
   balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
   avatar: () => null,
   deck: shuffledDeck,
@@ -96,6 +104,8 @@ interface Seat {
   seatId: string | null;
   /** A bot's chips when it sat down (the house's), to settle up when it leaves. */
   stake: number;
+  /** A member's winnings off the bots on `day` (dayKey), net (unused for a bot). */
+  bots: { day: string; net: number };
   /** Gets up once the hand they're in is over. */
   leaving: boolean;
   /** When their page went away (null while it's here). */
@@ -274,6 +284,13 @@ export class PokerTable {
         return { reason: 'buy_in', min: bought.min, max: bought.max };
       }
       viewer.balance = bought.balance;
+      const day = this.today();
+      let won = 0;
+      try {
+        won = await this.deps.botWinnings(this.guildId, userId, day);
+      } catch (err) {
+        console.error('Could not look up a poker player’s winnings off the bots:', err);
+      }
       this.seats[at] = {
         seat: at,
         id: userId,
@@ -283,6 +300,7 @@ export class PokerTable {
         chips: bought.chips,
         seatId: bought.seatId,
         stake: 0,
+        bots: { day, net: won },
         leaving: false,
         awaySince: viewer.peer ? null : this.deps.now(),
       };
@@ -343,14 +361,16 @@ export class PokerTable {
   /** A seated member adds a bot in the first free seat. */
   addBot(userId: string): Promise<PokerRefusal> {
     return this.run(() => {
-      if (!this.seatOf(userId)) return { reason: 'not_now' };
+      const me = this.seatOf(userId);
+      if (!me) return { reason: 'not_now' };
+      if (this.botLimited(me)) return { reason: 'bot_limit', limit: CONFIG.poker.botDailyLimit };
       const at = this.seats.findIndex((s) => s === null);
       if (at < 0) return { reason: 'seat_taken' };
       const names = new Set(this.seats.map((s) => s?.name));
       const name = POKER_BOT_NAMES.find((n) => !names.has(n)) ?? `Bot ${this.botCount + 1}`;
       this.botCount++;
       const chips = CONFIG.poker.maxBuyIn;
-      this.seats[at] = { seat: at, id: `bot:${this.botCount}`, name, avatar: '', bot: true, chips, seatId: null, stake: chips, leaving: false, awaySince: null };
+      this.seats[at] = { seat: at, id: `bot:${this.botCount}`, name, avatar: '', bot: true, chips, seatId: null, stake: chips, bots: { day: '', net: 0 }, leaving: false, awaySince: null };
       this.maybeDeal();
       this.broadcast();
       return null;
@@ -371,6 +391,40 @@ export class PokerTable {
     });
   }
 
+  private today(): string {
+    return dayKey(new Date(this.deps.now()));
+  }
+
+  /** What a member's seat has won off the bots today, net. */
+  private botNet(seat: Seat): number {
+    return seat.bots.day === this.today() ? seat.bots.net : 0;
+  }
+
+  /** A member who has won the most they may off the bots today (poker.botDailyLimit). */
+  private botLimited(seat: Seat): boolean {
+    const limit = CONFIG.poker.botDailyLimit;
+    return !seat.bot && limit > 0 && this.botNet(seat) >= limit;
+  }
+
+  /**
+   * Counts what the members in a hand won off its bots (or lost to them), from how everyone's chips
+   * changed in it: what the bots lost, all told, is shared out among the members who came out ahead,
+   * by how far (each at most what they won); what the bots won, among the members who lost.
+   */
+  private async countBotWinnings(changes: { seat: Seat; change: number }[]): Promise<void> {
+    const bots = changes.reduce((sum, c) => sum + (c.seat.bot ? c.change : 0), 0);
+    if (bots === 0) return;
+    const sharers = changes.filter((c) => !c.seat.bot && Math.sign(c.change) === -Math.sign(bots));
+    const total = sharers.reduce((sum, c) => sum + Math.abs(c.change), 0);
+    const day = this.today();
+    for (const { seat, change } of sharers) {
+      const share = Math.min(Math.abs(change), Math.round((Math.abs(bots) * Math.abs(change)) / total));
+      const amount = bots < 0 ? share : -share;
+      seat.bots = { day, net: this.botNet(seat) + amount };
+      await this.deps.addBotWinnings(this.guildId, seat.id, day, amount).catch((err) => console.error('Could not count a poker player’s winnings off the bots:', err));
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Playing
   // -------------------------------------------------------------------------
@@ -387,9 +441,13 @@ export class PokerTable {
     });
   }
 
-  /** Who can be dealt in: seated with chips, not getting up, and (members) with their page here. */
+  /**
+   * Who can be dealt in: seated with chips, not getting up, and (members) with their page here. The
+   * bots sit out while one of the members has won the most they may off them today.
+   */
   private ready(): Seat[] {
-    return this.seats.filter((s): s is Seat => s !== null && s.chips > 0 && !s.leaving && s.awaySince === null);
+    const ready = this.seats.filter((s): s is Seat => s !== null && s.chips > 0 && !s.leaving && s.awaySince === null);
+    return ready.some((s) => this.botLimited(s)) ? ready.filter((s) => !s.bot) : ready;
   }
 
   /** Deals the next hand after a pause, when there are players for one and nothing else is going on. */
@@ -490,10 +548,14 @@ export class PokerTable {
   private async endHand(): Promise<void> {
     const hand = this.hand;
     if (!hand?.done || !hand.result) return;
+    const changes: { seat: Seat; change: number }[] = [];
     for (const p of hand.players) {
       const seat = this.seats[p.seat];
-      if (seat?.id === p.id) seat.chips = p.stack;
+      if (seat?.id !== p.id) continue;
+      changes.push({ seat, change: p.stack - seat.chips });
+      seat.chips = p.stack;
     }
+    await this.countBotWinnings(changes);
     for (const seat of this.humans()) {
       if (!seat.seatId || !hand.players.some((p) => p.id === seat.id)) continue;
       await this.deps.saveChips(seat.seatId, seat.chips).catch((err) => console.error('Could not save a poker player’s chips:', err));
@@ -552,7 +614,7 @@ export class PokerTable {
   /** The table as `userId` sees it. */
   view(userId: string): PokerState {
     const hand = this.hand;
-    const { smallBlind, bigBlind, minBuyIn, maxBuyIn, rake, rakeCap, turnSeconds } = CONFIG.poker;
+    const { smallBlind, bigBlind, minBuyIn, maxBuyIn, rake, rakeCap, turnSeconds, botDailyLimit } = CONFIG.poker;
     const playerOf = (id: string): HandPlayer | undefined => hand?.players.find((p) => p.id === id);
     const seats = this.seats.map((s): SeatView | null => {
       if (!s) return null;
@@ -579,6 +641,7 @@ export class PokerTable {
     const me = hand?.toAct !== null && hand?.toAct !== undefined ? hand.players[hand.toAct] : undefined;
     const legal = me?.id === userId && hand ? legalActions(hand) : null;
     const viewer = this.viewers.get(userId);
+    const mine = this.seatOf(userId);
     const playing = hand !== null && !hand.done;
     return {
       table: this.number,
@@ -592,7 +655,8 @@ export class PokerTable {
       buyIn: { min: minBuyIn, max: maxBuyIn },
       rake: { rate: rake, cap: rakeCap },
       balance: viewer?.balance ?? 0,
-      canAddBot: this.seatOf(userId) !== null && !this.full,
+      canAddBot: mine !== null && !this.botLimited(mine) && !this.full,
+      botWinnings: mine && botDailyLimit > 0 ? { won: this.botNet(mine), limit: botDailyLimit } : null,
       turnSeconds,
     };
   }

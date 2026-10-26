@@ -45,6 +45,8 @@ export interface HandPlayer {
   acted: boolean;
   /** Facing only an all-in that wasn't a full raise since they last acted: they may call or fold, not raise. */
   raiseLocked: boolean;
+  /** How many times they have bet or raised this hand, all streets together (the bots read it as strength). */
+  raises: number;
   last: PlayerMove | null;
 }
 
@@ -166,6 +168,7 @@ export function startHand(seated: readonly { id: string; seat: number; stack: nu
     allIn: false,
     acted: false,
     raiseLocked: false,
+    raises: 0,
     last: null,
   }));
   const n = players.length;
@@ -274,6 +277,7 @@ export function act(state: HandState, id: string, action: PokerAction): ActError
         }
       }
       state.currentBet = to;
+      p.raises++;
       p.last = p.allIn ? { type: 'allIn', to } : { type: opening ? 'bet' : 'raise', to };
       break;
     }

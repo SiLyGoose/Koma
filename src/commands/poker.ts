@@ -23,10 +23,10 @@ export const poker: Command = {
       await ctx.reply(TEXT.poker.off);
       return;
     }
-    const { smallBlind, bigBlind, minBuyIn, maxBuyIn, rake, rakeCap } = CONFIG.poker;
+    const { smallBlind, bigBlind, minBuyIn, maxBuyIn, rake, rakeCap, botDailyLimit } = CONFIG.poker;
     const embed = createEmbed()
       .setTitle(TEXT.poker.title)
-      .setDescription(TEXT.poker.intro(fmt(smallBlind), fmt(bigBlind), fmt(minBuyIn), fmt(maxBuyIn), formatPercent(rake), fmt(rakeCap)))
+      .setDescription(TEXT.poker.intro(fmt(smallBlind), fmt(bigBlind), fmt(minBuyIn), fmt(maxBuyIn), formatPercent(rake), fmt(rakeCap), botDailyLimit > 0 ? fmt(botDailyLimit) : null))
       .setFooter({ text: TEXT.poker.footer });
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setStyle(ButtonStyle.Link).setURL(siteGameLink(config, 'poker', ctx.guildId)).setLabel(TEXT.poker.playButton).setEmoji('♠️'),

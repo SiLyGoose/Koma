@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Card, Suit } from '../src/lib/game/casino/blackjack.js';
-import { botAction, estimateEquity } from '../src/lib/game/casino/poker/bot.js';
+import { botAction, chenScore, estimateEquity } from '../src/lib/game/casino/poker/bot.js';
 import { act, advance, buildPots, forfeit, legalActions, startHand, type HandOptions, type HandState } from '../src/lib/game/casino/poker/hand.js';
 import { bestHand, compareRanks, handName, rankFive } from '../src/lib/game/casino/poker/rank.js';
 import { parseClientMessage } from '../src/web/games/poker/protocol.js';
@@ -242,6 +242,29 @@ test('estimateEquity: aces are a big favourite, a made hand on the river is cert
   assert.ok(estimateEquity(cards('As Ad'), [], 1, seeded()) > 0.75);
   assert.ok(estimateEquity(cards('7s 2d'), [], 1, seeded()) < 0.45);
   assert.equal(estimateEquity(cards('Ah Kh'), cards('Qh Jh Th 2c 3d'), 3, seeded(), 50), 1);
+});
+
+test('chenScore: the best and the worst starting hands', () => {
+  assert.equal(chenScore(c('As'), c('Ad')), 20);
+  assert.equal(chenScore(c('Ks'), c('As')), 12);
+  assert.equal(chenScore(c('7s'), c('2d')), -1);
+  assert.equal(chenScore(c('2s'), c('2d')), 5);
+});
+
+test("estimateEquity: a hand that beats a random one is well behind a raiser's", () => {
+  assert.ok(estimateEquity(cards('Ah 9d'), [], [1], seeded()) > 0.55);
+  assert.ok(estimateEquity(cards('Ah 9d'), [], [0.05], seeded()) < 0.35);
+});
+
+test('botAction: a hand that beats a random one folds to a player who raised and raised again', () => {
+  const state = startHand(players(2000, 2000), 0, NO_RAKE, stacked(['Ks Kd', 'Ah 9d'], '3c 4d 8h Js Qc', 0));
+  // Heads up the button (p0) acts first: all in, as if after raising twice already.
+  assert.equal(act(state, 'p0', { type: 'raise', to: 2000 }), null);
+  (state.players[0] as HandState['players'][number]).raises = 3;
+  assert.deepEqual(botAction(state, seeded(3)), { type: 'fold' });
+  // Raised only the once, the same all in is called (A9 is ahead of any two cards).
+  (state.players[0] as HandState['players'][number]).raises = 0;
+  assert.deepEqual(botAction(state, seeded(3)), { type: 'call' });
 });
 
 test('botAction: always a move the bot may make, and it never folds what it can check', () => {

@@ -22,7 +22,9 @@ import { addVaultLoss } from '../vault.js';
  *    it out. A shutdown cashes out every seat of this process's tables straight away.
  *
  * The rake, and what the bots win, go into the vault (`houseTake`). The bots' chips are the house's:
- * what a player wins off a bot comes from nowhere when they cash out, like any casino win.
+ * what a player wins off a bot comes from nowhere when they cash out, like any casino win. So it is
+ * kept count of, by day, on the member (`botWinnings`), for the table to stop the bots playing them
+ * at poker.botDailyLimit.
  */
 
 type LedgerInput = Omit<LedgerDoc, 'createdAt'>;
@@ -111,6 +113,23 @@ export async function cashOut(seatId: string): Promise<{ amount: number; balance
 /** Pushes the lease of every seat at a table forward. Called every POKER_TABLE.heartbeatMs while the table is played. */
 export async function renewSeats(tableKey: string): Promise<void> {
   await collections().pokerSeats.updateMany({ tableKey }, { $set: { leaseUntil: leaseEnd() } });
+}
+
+/** What a member has won off the poker bots on `day` (dayKey), net: negative when they lost to them. */
+export async function botWinnings(guildId: string, userId: string, day: string): Promise<number> {
+  const member = await collections().members.findOne({ guildId, userId }, { projection: { pokerBots: 1 } });
+  return member?.pokerBots?.day === day ? member.pokerBots.net : 0;
+}
+
+/** Adds `amount` (negative: a loss) to what a member has won off the poker bots on `day`, starting the day afresh when what's stored is another day's. */
+export async function addBotWinnings(guildId: string, userId: string, day: string, amount: number): Promise<void> {
+  if (amount === 0) return;
+  const { members } = collections();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if ((await members.updateOne({ guildId, userId, 'pokerBots.day': day }, { $inc: { 'pokerBots.net': amount } })).matchedCount > 0) return;
+    // Another day's (or none): only set if it still is, so two tables at once can't both start the day.
+    if ((await members.updateOne({ guildId, userId, 'pokerBots.day': { $ne: day } }, { $set: { pokerBots: { day, net: amount } } })).matchedCount > 0) return;
+  }
 }
 
 /** Puts points into a server's vault: the rake, and what the bots won. */

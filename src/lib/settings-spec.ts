@@ -318,6 +318,7 @@ export const SPECS: readonly SettingSpec[] = [
   },
   int('poker.rakeCap', 'Poker', 'The most rake taken from one poker hand.', 0, MAX_POKER_STAKE),
   int('poker.turnSeconds', 'Poker', 'Seconds a poker player has for each move before they check (when free) or fold.', 5, MAX_POKER_TURN_SECONDS),
+  int('poker.botDailyLimit', 'Poker', `The most ${CURRENCY_EMOJI} a member can win off the poker bots in a day, net (0 means no limit). After that the bots sit out of the hands they're in until the next day.`, 0, MAX_POINTS),
 
   int('mines.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
   int('mines.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
