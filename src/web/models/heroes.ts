@@ -241,7 +241,7 @@ export function heroesView(
       sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
       ...(heroOnly(item) && { salvage: itemSalvage(item) }),
       ...(tmStoneClass(item) && { salvageStones: { class: tmStoneClass(item) as RaidClassId, count: tmSalvageStones(copy.reclaimed === true) } }),
-      ...(isTmPiece(item) && kr?.set && { salvageCrystals: { set: kr.set as TmSetId, count: tmSalvageCrystals(copy.reclaimed === true) }, rerollCrystals: kr.set as TmSetId }),
+      ...(isTmPiece(item) && kr?.set && { salvageCrystals: { set: kr.set as TmSetId, count: tmSalvageCrystals(copy.reclaimed === true) }, rerollCrystals: kr.set as TmSetId, ...(kr.unique && { rerollUniqueCrystals: TM_CRYSTALS.skillReroll }) }),
       effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,

@@ -246,6 +246,7 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   assert.equal(armor?.rerollCrystals, 'perseverance');
   assert.equal(armor?.upgrade, 1_000, "TechnoMagic gear's options are upgraded for 1,000 zeiucoins (the user's)");
   assert.equal(armor?.rerollUnique, 1, 'and its additional effect rerolled for 1 komaGem');
+  assert.equal(armor?.rerollUniqueCrystals, 300, "and 300 of its set's Boss Crystals (the user's)");
   assert.ok(armor?.additional?.startsWith('Vigor'));
   assert.ok(armor?.rerolled?.startsWith('Berserk'), 'its rerolled effect waits beside it, not yet its own');
   assert.deepEqual(armor?.rerolledOption && { index: armor.rerolledOption.index, stat: armor.rerolledOption.stat }, { index: 1, stat: 'atk' }, 'and its rerolled option, beside its options');

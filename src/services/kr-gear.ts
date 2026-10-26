@@ -113,7 +113,7 @@ const refundGems = async (guildId: string, userId: string, gems: number): Promis
 /**
  * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
  * rerolled (a TechnoMagic piece's: TM_CRYSTALS.reroll of its set's Boss Crystals, King's Raid's; too few: 'no_crystals'); or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
- * (too few: 'no_gems'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
+ * and TM_CRYSTALS.skillReroll of its set's Boss Crystals (too few: 'no_gems', 'no_crystals'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
  * and till then it isn't rerolled again ('pending'). An option rolled waits the same (optionPending, keepOption: King's Raid's
  * Reforge keeps the old one or the new), and till then none of its options is rerolled or enhanced.
  */
@@ -127,13 +127,26 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
     if (!kr.unique) return { ok: false, reason: 'no_option' };
     if (copy.tmSkillPending !== undefined) return { ok: false, reason: 'pending' };
     const gems = UNIQUE_REROLL_GEMS;
-    if (!(await payGems(guildId, userId, gems))) return { ok: false, reason: 'no_gems' };
+    // (And its set's Boss Crystals, given back if the komaGems or the reroll fail.)
+    const field = kr.set ? `crystals.${kr.set}` : undefined;
+    const crystals = field ? TM_CRYSTALS.skillReroll : 0;
+    const refundCrystals = async (): Promise<void> => {
+      if (field) await collections().members.updateOne({ guildId, userId }, { $inc: { [field]: crystals } });
+    };
+    if (field && (await collections().members.updateOne({ guildId, userId, [field]: { $gte: crystals } }, { $inc: { [field]: -crystals } })).modifiedCount === 0) {
+      return { ok: false, reason: 'no_crystals' };
+    }
+    if (!(await payGems(guildId, userId, gems))) {
+      await refundCrystals();
+      return { ok: false, reason: 'no_gems' };
+    }
     const done = await items.updateOne(
       { guildId, userId, _id: copyId, tmSkill: copy.tmSkill ?? { $exists: false }, tmSkillRerolls: copy.tmSkillRerolls ?? { $exists: false }, tmSkillPending: { $exists: false } },
       { $set: { tmSkillPending: rollTmSkill(rng), tmSkillRerolls: (copy.tmSkillRerolls ?? 0) + 1 } },
     );
     if (done.modifiedCount === 0) {
       await refundGems(guildId, userId, gems);
+      await refundCrystals();
       return { ok: false, reason: 'busy' };
     }
     await recordLedger([{ guildId, userId, delta: 0, gemDelta: -gems, reason: 'kr_reroll', itemId: item.id }]);

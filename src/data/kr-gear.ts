@@ -241,7 +241,7 @@ export const UPGRADE_PRICES: Readonly<Record<number, number>> = { 6: 512, 7: 768
 export const TM_UPGRADE_PRICE = 1_000;
 export const upgradePrice = (kr: KrItem): number => (KR_TM_SETS.includes(kr.set ?? '') ? TM_UPGRADE_PRICE : (UPGRADE_PRICES[kr.tier] ?? UPGRADE_PRICES[8] ?? 0));
 
-/** What rerolling a TechnoMagic piece's unique option (its additional effect) costs, in komaGems: the same every time (the user's). */
+/** What rerolling a TechnoMagic piece's unique option (its additional effect) costs, in komaGems, beside its set's TM_CRYSTALS.skillReroll Boss Crystals: the same every time (the user's). */
 export const UNIQUE_REROLL_GEMS = 1;
 
 export const KR_RUNES_BY_ID: ReadonlyMap<string, KrRuneData> = new Map(KR_RUNES.map((rune) => [rune.id, rune]));

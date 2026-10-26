@@ -99,7 +99,8 @@ export const tmReclaimedChance = (stage: number): number => byStage(TM_RECLAIMED
 /**
  * King's Raid's Boss Crystals, one kind for each TechnoMagic set: its boss's (`boss`: Crystal of Galgoria for Perseverance,
  * Siegfried's for Hope, Ascalon's for Authority). They craft that set's pieces (TM_CRAFT) and reroll their options (`reroll`
- * each: King's Raid's 300, its Reforge Ticket left out). A TechnoMagic Raid win gives `drops` of its boss's by its stage
+ * each: King's Raid's 300, its Reforge Ticket left out) and, `skillReroll` each beside a komaGem, their additional skill
+ * (the user's: King's Raid's took a Technomagic Skill Reforge Ticket). A TechnoMagic Raid win gives `drops` of its boss's by its stage
  * (King's Raid's: more the higher the stage); salvaging a piece gives `salvage` of its set's, a Reclaimed one
  * `reclaimedSalvage` (King's Raid's EquipItemBreakTable).
  */
@@ -107,6 +108,7 @@ export const TM_CRYSTALS = {
   boss: { perseverance: 'Galgoria', hope: 'Siegfried', authority: 'Ascalon' },
   drops: [100, 125, 150, 200, 250, 300, 350, 400, 500],
   reroll: 300,
+  skillReroll: 300,
   salvage: 100,
   reclaimedSalvage: 200,
 } as const;

@@ -133,6 +133,8 @@ export interface HeroCopy {
    * each option's `price` are how many. Left out for any other.
    */
   rerollCrystals?: TmSetId;
+  /** A TechnoMagic piece: the Boss Crystals of its set (rerollCrystals') rerolling its unique option takes too, beside `rerollUnique`'s komaGems. Left out for any other. */
+  rerollUniqueCrystals?: number;
   /** The part of a hero's gear it is (the slot it goes in), and its kind: an accessory's (ring, earrings…), an armor's weight. */
   part: HeroPart;
   kind: string | null;
@@ -148,7 +150,7 @@ export interface HeroCopy {
   runes: (HeroRune | null)[];
   /**
    * What rerolling one of its options costs (POST /api/heroes/reroll; zeiucoins), its unique option (TechnoMagic gear's
-   * additional skill; komaGems), and upgrading an option (POST /api/heroes/upgrade with its `option`: its amount rolled
+   * additional skill; komaGems, a TechnoMagic piece's with rerollUniqueCrystals), and upgrading an option (POST /api/heroes/upgrade with its `option`: its amount rolled
    * again, anywhere from its least to its most; zeiucoins); null where it can't be.
    */
   reroll: number | null;
