@@ -93,7 +93,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const artifacts = new Map([...owned].map((id) => [id, loadouts.get(id)?.artifact ?? null]));
     const skills = new Map([...owned].map((id) => [id, loadouts.get(id)?.skills ?? []]));
     // Its transcendence perks: those picked, as far as it is transcended.
-    const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend)]));
+    const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend, member?.heroes?.[id]?.scrollTp)]));
     run.players.set(userId, { owned, gear, sets, uws, uts, artifacts, skills, perks });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,

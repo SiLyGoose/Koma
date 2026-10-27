@@ -23,6 +23,7 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/unequip', ...siteOrLink, heroes.unequip)
     .post('/perks', ...siteOrLink, heroes.perks)
     .post('/transcend', ...siteOrLink, heroes.transcend)
+    .post('/scroll', ...siteOrLink, heroes.scroll)
     .post('/refine', ...siteOrLink, heroes.refine)
     .post('/rune', ...siteOrLink, heroes.rune)
     .post('/reroll', ...siteOrLink, heroes.reroll)
@@ -31,5 +32,6 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/sell', ...site, heroes.sell)
     .post('/lock', ...site, heroes.lock)
     .post('/auto-salvage', ...site, heroes.autoSalvage)
-    .post('/craft', ...site, heroes.craft);
+    .post('/craft', ...site, heroes.craft)
+    .post('/craft-scroll', ...site, heroes.craftScrolls);
 }

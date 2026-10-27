@@ -8,7 +8,7 @@ import { findItem, gachaItems, ITEMS, ITEMS_BY_ID, UNIQUE_WEAPONS, validateItems
 import { KR_DRAGON_SETS, KR_ITEMS, KR_TM_SETS, krMainValue, krPiecesOf, krWornBy, tieredName } from '../src/data/kr-gear.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TM_SET_LABEL, TM_SET_PIECES, TM_SETS_BY_ID } from '../src/data/tm-sets.js';
-import { bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, perksCost, RAID_BOSS_ESSENCES, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, transcendCost, transcendPicks, transcendPoints } from '../src/data/transcend.js';
+import { bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, perksCost, RAID_BOSS_ESSENCES, scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, transcendCost, transcendPicks, transcendPoints } from '../src/data/transcend.js';
 import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS } from '../src/constants/index.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
@@ -343,6 +343,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`upgrade ${copy} ${option}`);
       return option === 0 ? empty : 'no_option';
     },
+    craftScrolls: async (guildId, userId, set, count) => {
+      calls.push(`craftScrolls ${set} ${count}`);
+      return set === 'hope' ? empty : 'no_crystals';
+    },
+    scroll: async (guildId, userId, hero) => {
+      calls.push(`scroll ${hero}`);
+      return !owned.includes(hero) ? 'not_found' : hero === 'kirze' ? empty : 'scrolls_maxed';
+    },
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -397,6 +405,13 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     // Transcending a hero; and its perks: known ones, of the tiers it has reached, within its TP; none resets them.
     assert.equal((await post('/api/heroes/transcend', { guild: 'g1', hero: 'kirze' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/transcend', { guild: 'g1', hero: 'klaus' })).json(), { error: 'not_found' });
+    // Transcendence Scrolls: crafted from a set's Boss Crystals, used on a hero of theirs.
+    assert.equal((await post('/api/heroes/craft-scroll', { guild: 'g1', set: 'hope', count: 2 })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/craft-scroll', { guild: 'g1', set: 'authority', count: 1 })).json(), { error: 'no_crystals' });
+    assert.equal((await post('/api/heroes/craft-scroll', { guild: 'g1', set: 'hope', count: 0 })).status, 400);
+    assert.equal((await post('/api/heroes/craft-scroll', { guild: 'g1', set: 'nope', count: 1 })).status, 400);
+    assert.equal((await post('/api/heroes/scroll', { guild: 'g1', hero: 'kirze' })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/scroll', { guild: 'g1', hero: 'klaus' })).json(), { error: 'not_found' });
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['atk-up', 'hp-up'] })).status, 200);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: [] })).status, 200);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['nope'] })).status, 400);
@@ -455,6 +470,10 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'unequip kirze null',
       'transcend kirze',
       'transcend klaus',
+      'craftScrolls hope 2',
+      'craftScrolls authority 1',
+      'scroll kirze',
+      'scroll klaus',
       'perks kirze atk-up,hp-up',
       'perks kirze ',
       'perks kirze atk-up,hp-up,def-up',
@@ -542,11 +561,34 @@ test('heroes: transcendence, T0 to T5, each level more TP and its tier of perks;
   const view = heroesView([], { points: 0, gems: 7, essences: { justice: 40 }, heroes: { kirze: { boughtAt: new Date(0), transcend: 5, perks: ['t5-light', 'hp-up'] }, klaus: { boughtAt: new Date(0) } } });
   const kirze = view.heroes.find((hero) => hero.id === 'kirze');
   assert.deepEqual(kirze?.perks, ['hp-up', 't5-light']);
-  assert.deepEqual(kirze?.transcend, { level: 5, points: 80, next: null });
-  assert.deepEqual(view.heroes.find((hero) => hero.id === 'klaus')?.transcend, { level: 0, points: 0, next: { essences: { justice: 20, strategy: 20, patience: 20 }, gems: 1 } });
+  assert.deepEqual(kirze?.transcend, { level: 5, points: 80, scrolls: 0, next: null });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'klaus')?.transcend, { level: 0, points: 0, scrolls: 0, next: { essences: { justice: 20, strategy: 20, patience: 20 }, gems: 1 } });
   assert.deepEqual(view.heroes.find((hero) => hero.id === 'klaus')?.perks, []);
   assert.equal(view.gems, 7);
   assert.deepEqual(view.essences, { justice: 40, force: 0, wisdom: 0, strategy: 0, patience: 0, harmony: 0, fortune: 0 });
+});
+
+test('heroes: Transcendence Scrolls give a hero 5 TP each on top of its level’s, three at most (95 TP at T5); perks may use them', () => {
+  assert.equal(TP_SCROLL_POINTS, 5);
+  assert.equal(TP_SCROLL_MOST, 15);
+  assert.equal(TRANSCEND_POINTS + TP_SCROLL_MOST, 95);
+  assert.equal(scrollPoints(undefined), 0);
+  assert.equal(scrollPoints(10), 10);
+  assert.equal(scrollPoints(40), 15, 'never past three scrolls');
+  assert.equal(scrollPoints(-5), 0);
+  assert.equal(transcendPoints(5, 15), 95);
+  assert.equal(transcendPoints(1, 5), 25);
+  const t1 = TRANSCEND_PERKS.filter((perk) => perk.tier === 1).map((perk) => perk.id);
+  // 80 TP takes every tier-1 perk and two 15s; 95 one more.
+  assert.equal(transcendPicks([...t1, 's1-light', 's1-dark', 't5-dark'], 5), 'too_many_points');
+  assert.deepEqual(transcendPicks([...t1, 's1-light', 's1-dark', 't5-dark'], 5, 15), [...t1, 's1-light', 's1-dark', 't5-dark']);
+  assert.deepEqual(keptPerks([...t1, 's1-light', 's1-dark', 't5-dark'], 5, 15), [...t1, 's1-light', 's1-dark', 't5-dark']);
+  // Scroll TP never opens a tier.
+  assert.equal(transcendPicks(['class-1'], 1, 15), 'perk_locked');
+  const view = heroesView([], { points: 0, gems: 0, essences: {}, tpScrolls: 2, heroes: { kirze: { boughtAt: new Date(0), transcend: 5, scrollTp: 10 } } });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'kirze')?.transcend, { level: 5, points: 90, scrolls: 10, next: null });
+  assert.equal(view.tpScrolls, 2);
+  assert.equal(view.craft?.tpScroll, 5000);
 });
 
 test('heroes: transcending costs its class’s three essences (20, 30, 40, 50, then 60 of each) and komaGems (1 to 5); each raid boss gives three kinds', () => {

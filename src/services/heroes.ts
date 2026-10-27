@@ -1,9 +1,10 @@
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
-import { transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
+import { scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { fitsSlot, heroEquipMoves, heroWearable, SIDE_SLOTS, wieldedBy, worksOn } from '../lib/game/heroes.js';
+import type { TmSetId } from '../protocol/items.js';
 import { HERO_SLOTS, type HeroSlot } from '../types.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 
@@ -14,7 +15,8 @@ import { ensureMember, recordLedger } from './economy/shared.js';
  * buys at once can't both pay. Putting a copy on a hero takes it off any other hero (or other slot) it
  * was on, in the same update, which only matches while the copy is still where it was read to be.
  * Transcending one (data/transcend.ts) is one conditional update too: it only matches while the hero is
- * still at the level read and they have the essences and komaGems it costs.
+ * still at the level read and they have the essences and komaGems it costs. Transcendence Scrolls are crafted from any
+ * one set's Boss Crystals and used on a hero (more TP, data/transcend.ts), each one conditional update too.
  */
 
 export type BuyHeroResult = { ok: true; paid: number; balance: number } | { ok: false; reason: 'not_found' | 'owned' | 'too_poor' };
@@ -118,7 +120,7 @@ export async function pickHeroPerks(guildId: string, userId: string, heroId: str
   const member = await members.findOne({ guildId, userId });
   const hero = member?.heroes?.[heroId];
   if (!hero) return { ok: false, reason: 'not_found' };
-  const picked = transcendPicks(perks, hero.transcend);
+  const picked = transcendPicks(perks, hero.transcend, hero.scrollTp);
   if (typeof picked === 'string') return { ok: false, reason: picked };
   // (Only at the level read: one transcended meanwhile is fine, as it only has more TP.)
   const result = await members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: { [`heroes.${heroId}.perks`]: picked } });
@@ -161,6 +163,43 @@ export async function transcendHero(guildId: string, userId: string, heroId: str
   if (paid.matchedCount === 0) return { ok: false, reason: 'busy' };
   await recordLedger([{ guildId, userId, delta: 0, gemDelta: -cost.gems, essenceDelta: Object.fromEntries(essences.map(([id, amount]) => [id, -amount])), reason: 'transcend', itemId: heroId }]);
   return { ok: true, level: level + 1 };
+}
+
+export type TpScrollCraftResult = { ok: true; scrolls: number } | { ok: false; reason: 'bad_count' | 'no_crystals' };
+
+/** Crafts `count` Transcendence Scrolls from the member's Boss Crystals of `set` (the config's craft.tpScroll each), all at once or none. How many they hold after. */
+export async function craftTpScrolls(guildId: string, userId: string, set: TmSetId, count: number): Promise<TpScrollCraftResult> {
+  if (!Number.isInteger(count) || count < 1) return { ok: false, reason: 'bad_count' };
+  const cost = Math.max(1, Math.floor(CONFIG.craft.tpScroll)) * count;
+  const field = `crystals.${set}`;
+  await ensureMember(guildId, userId);
+  const after = await collections().members.findOneAndUpdate({ guildId, userId, [field]: { $gte: cost } }, { $inc: { [field]: -cost, tpScrolls: count } }, { returnDocument: 'after' });
+  if (!after) return { ok: false, reason: 'no_crystals' };
+  await recordLedger([{ guildId, userId, delta: 0, reason: 'craft_tp_scroll', itemId: `crystals:${set}` }]);
+  return { ok: true, scrolls: after.tpScrolls ?? count };
+}
+
+export type TpScrollUseResult = { ok: true; points: number } | { ok: false; reason: 'not_found' | 'no_scroll' | 'scrolls_maxed' };
+
+/**
+ * Uses one of the member's Transcendence Scrolls on their hero: TP_SCROLL_POINTS more TP for it, for good. 'not_found' for a
+ * hero that isn't theirs, 'no_scroll' with none held, 'scrolls_maxed' when scrolls gave it TP_SCROLL_MOST already (nothing was
+ * spent). The TP scrolls gave it after.
+ */
+export async function useTpScroll(guildId: string, userId: string, heroId: string): Promise<TpScrollUseResult> {
+  if (!HEROES_BY_ID.has(heroId)) return { ok: false, reason: 'not_found' };
+  const { members } = collections();
+  const field = `heroes.${heroId}.scrollTp`;
+  const used = await members.findOneAndUpdate(
+    // (Missing is none given yet.)
+    { guildId, userId, [`heroes.${heroId}`]: { $exists: true }, tpScrolls: { $gte: 1 }, $or: [{ [field]: { $exists: false } }, { [field]: { $lte: TP_SCROLL_MOST - TP_SCROLL_POINTS } }] },
+    { $inc: { tpScrolls: -1, [field]: TP_SCROLL_POINTS } },
+    { returnDocument: 'after' },
+  );
+  if (used) return { ok: true, points: scrollPoints(used.heroes?.[heroId]?.scrollTp) };
+  const member = await members.findOne({ guildId, userId });
+  const hero = member?.heroes?.[heroId];
+  return { ok: false, reason: !hero ? 'not_found' : scrollPoints(hero.scrollTp) >= TP_SCROLL_MOST ? 'scrolls_maxed' : 'no_scroll' };
 }
 
 /** Empties one of the member's hero's slots, or (`slot` null) all of them; its treasure slot, its sub treasure slots too. False when the hero isn't theirs. */

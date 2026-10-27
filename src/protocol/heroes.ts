@@ -56,8 +56,18 @@ export const TRANSCEND_MAX = 5;
 /** The TP a hero has at each level (Transcend 0 first). */
 export const TRANSCEND_TP: readonly number[] = [0, 20, 35, 50, 65, 80];
 
-/** The TP a hero has at its most. */
+/** The TP a hero has at its most from transcending (Transcendence Scrolls add more: TP_SCROLL_MOST). */
 export const TRANSCEND_POINTS = TRANSCEND_TP[TRANSCEND_MAX] as number;
+
+/**
+ * A Transcendence Scroll: crafted from any one TechnoMagic set's Boss Crystals (POST /api/heroes/craft-scroll; its price
+ * HeroesCraft's `tpScroll`), held (HeroesView's `tpScrolls`) until used on a hero (POST /api/heroes/scroll), which gives that
+ * hero TP_SCROLL_POINTS more TP for good, on top of its level's, up to TP_SCROLL_MOST from scrolls (95 TP at Transcend 5).
+ */
+export const TP_SCROLL_POINTS = 5;
+
+/** The most TP scrolls give one hero (three of them). */
+export const TP_SCROLL_MOST = 15;
 
 /** The hero essences: King's Raid's seven kinds (its fragments' types), each class using three of them. */
 export const ESSENCES = ['justice', 'force', 'wisdom', 'strategy', 'patience', 'harmony', 'fortune'] as const;
@@ -255,8 +265,11 @@ export interface HeroView {
   treasure: { name: string; skill: number; tier: number; text: string } | null;
   /** What those perks give its stats (its share too of what they give every ally), a line each, like "+30% Attack". */
   perkEffects: string[];
-  /** How far it is transcended (0 to TRANSCEND_MAX), the TP it has, and what the next level costs (null: none). */
-  transcend: { level: number; points: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
+  /**
+   * How far it is transcended (0 to TRANSCEND_MAX), the TP it has (its level's and its scrolls'), and what the next level costs
+   * (null: none); `scrolls`, the TP Transcendence Scrolls gave it (0 to TP_SCROLL_MOST; left out by a bot from before them).
+   */
+  transcend: { level: number; points: number; scrolls?: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
   /** Its three skills, then its passive. */
   abilities: HeroSkillView[];
 }
@@ -298,6 +311,8 @@ export interface HeroesView {
    * set's pieces (POST /api/heroes/craft) and rerolls their options. Left out by a bot from before them.
    */
   crystals?: Record<TmSetId, number>;
+  /** Their Transcendence Scrolls, not used yet (TP_SCROLL_POINTS). Left out by a bot from before them. */
+  tpScrolls?: number;
   /** What crafting TechnoMagic gear and Mysterious Runes costs (left out by a bot from before it was a setting). */
   craft?: HeroesCraft;
   /** The rule their hero gear's drops are salvaged by as they drop (POST /api/heroes/auto-salvage); null: none is (left out by a bot from before it). */
@@ -360,6 +375,8 @@ export type TmCraftKind = 'any' | 'part' | 'exact';
 export interface HeroesCraft {
   tm: Record<TmCraftKind, { crystals: number; points: number }>;
   runes: Record<RuneBoxId, number>;
+  /** The Boss Crystals, any one set's, one Transcendence Scroll takes (left out by a bot from before them). */
+  tpScroll?: number;
 }
 
 /** The parts a TechnoMagic piece can be crafted as (an accessory: any of its four kinds, or the one of TM_ACCESSORIES picked). */
@@ -392,6 +409,12 @@ export type HeroPerksError = 'not_found' | 'perk_locked' | 'too_many_points';
 
 /** Why a hero wasn't transcended (nothing was spent). */
 export type HeroTranscendError = 'not_found' | 'maxed' | 'too_poor' | 'busy';
+
+/** Why Transcendence Scrolls weren't crafted (nothing was spent): too few of that set's Boss Crystals. */
+export type TpScrollCraftError = 'no_crystals';
+
+/** Why a Transcendence Scroll wasn't used on a hero (nothing was spent): none held, or the hero has all scrolls give ('scrolls_maxed'). */
+export type TpScrollUseError = 'not_found' | 'no_scroll' | 'scrolls_maxed';
 
 /** Who in a server has heroes to look at (GET /api/heroes/members): the one asking first, then whoever has the most. */
 export interface HeroMembers {

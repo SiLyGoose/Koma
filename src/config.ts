@@ -116,6 +116,8 @@ export interface Settings {
     reclaimed: number;
     /** Rune Fragments one Mysterious Rune of each grade takes (protocol/runes.ts RUNE_BOXES; services/runes.ts craftRunes). */
     runes: Record<RuneBoxId, number>;
+    /** Boss Crystals, any one TechnoMagic set's, one Transcendence Scroll (+5 TP for a hero) takes (services/heroes.ts craftTpScrolls). */
+    tpScroll: number;
   };
   plinko: {
     /** The smallest and biggest bet. */
@@ -444,6 +446,7 @@ export const DEFAULTS: Readonly<Settings> = {
     tm: { any: { crystals: 1000, points: 1000 }, part: { crystals: 2000, points: 3000 }, exact: { crystals: 4000, points: 9000 } },
     reclaimed: 0.05,
     runes: { uncommon: 100, rare: 250, heroic: 650, ancient: 2000 },
+    tpScroll: 5000,
   },
   // On the 9-slot board the ball lands in the middle most often (70 in 256), so the middle pays the
   // least: these average out to about 98% of the bet.

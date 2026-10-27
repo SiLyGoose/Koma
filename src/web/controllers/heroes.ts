@@ -47,6 +47,8 @@ const Craft = z.object({
   class: z.enum(RAID_CLASS_IDS).nullish(),
   accessory: z.enum(TM_ACCESSORIES).nullish(),
 });
+/** Transcendence Scrolls to craft: the set whose Boss Crystals pay, and how many (the Craft tab's most at once). */
+const CraftScrolls = z.object({ set: z.enum(['perseverance', 'hope', 'authority']), count: z.number().int().min(1).max(1000) });
 /** Every perk picked (data/transcend.ts's). */
 const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
 
@@ -89,6 +91,16 @@ export function heroController(heroes: HeroService) {
     async transcend(req, res) {
       const { hero } = parse(Hero, req.body);
       res.json(await heroes.transcend(res.locals.guildId, res.locals.session.userId, hero));
+    },
+
+    async craftScrolls(req, res) {
+      const { set, count } = parse(CraftScrolls, req.body);
+      res.json(await heroes.craftScrolls(res.locals.guildId, res.locals.session.userId, set, count));
+    },
+
+    async scroll(req, res) {
+      const { hero } = parse(Hero, req.body);
+      res.json(await heroes.scroll(res.locals.guildId, res.locals.session.userId, hero));
     },
 
     async refine(req, res) {

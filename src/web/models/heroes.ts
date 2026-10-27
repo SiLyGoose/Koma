@@ -4,7 +4,7 @@ import { CONFIG } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, rerollPrice, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
-import { ESSENCES, keptPerks, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
+import { ESSENCES, keptPerks, scrollPoints, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
 import {
   activeSet,
@@ -44,7 +44,7 @@ import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js
 import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
-import { buyHero, equipHero, pickHeroPerks, transcendHero, unequipHero } from '../../services/heroes.js';
+import { buyHero, craftTpScrolls, equipHero, pickHeroPerks, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
 import { keepOption, keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
@@ -54,16 +54,16 @@ import { isTmPiece, tmStoneClass } from '../../data/kr-gear.js';
 import type { TmSetId } from '../../protocol/items.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
-import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule } from '../../protocol/heroes.js';
+import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 import { gearStore, refineState } from './gear.js';
 
 export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine, /rune, /reroll,
- * /keep, /upgrade, /sell, /lock, /auto-salvage): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
+ * /keep, /upgrade, /sell, /lock, /auto-salvage, /craft-scroll, /scroll): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
  * theirs wears (King's Raid's hero gear: data/kr-gear.ts), with what it gives it in the raid and every copy a hero could wear,
- * their runes, and how far each is transcended and the perks picked for it (the heroes page). The rules are lib/game/heroes.ts's
+ * their runes, and how far each is transcended, the perks picked for it and the Transcendence Scrolls used on it (the heroes page). The rules are lib/game/heroes.ts's
  * (data/transcend.ts transcendence's); buying, gearing and transcending them, services/heroes.ts; runes and options, services/kr-gear.ts.
  */
 
@@ -100,6 +100,10 @@ export interface HeroStore {
   autoSalvage: (guildId: string, userId: string, rule: SalvageRule | null) => Promise<HeroesView>;
   /** Crafts a piece of TechnoMagic `set` (any, a part picked, or a class's part picked): their heroes after and the piece, or why not. */
   craft: (guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null, accessory: TmAccessory | null) => Promise<HeroesCrafted | TmCraftError>;
+  /** Crafts `count` Transcendence Scrolls from `set`'s Boss Crystals: their heroes after, or why not (nothing was spent). */
+  craftScrolls: (guildId: string, userId: string, set: TmSetId, count: number) => Promise<HeroesView | TpScrollCraftError>;
+  /** Uses one of their Transcendence Scrolls on their hero (more TP): their heroes after, or why not (nothing was spent). */
+  scroll: (guildId: string, userId: string, hero: string) => Promise<HeroesView | TpScrollUseError>;
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
@@ -185,7 +189,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(
   copies: readonly CopyInfo[],
-  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals'>> & Partial<LoadoutFields>) | null,
+  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'tpScrolls'>> & Partial<LoadoutFields>) | null,
 ): HeroesView {
   const worn = heroWorn(member);
   // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
@@ -303,7 +307,7 @@ export function heroesView(
     const bonus = Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus;
     const set = heroSet(on, hero.class);
     const skills = heroSkills(skilled, hero.class);
-    const perks = keptPerks(doc?.perks, doc?.transcend);
+    const perks = keptPerks(doc?.perks, doc?.transcend, doc?.scrollTp);
     const sets = [...setCounts(on, hero.class)].map(([id, count]) => ({ id, name: KR_SETS[id]?.name ?? id, pieces: count, bonuses: setBonusLines(id, hero.class, count) }));
     return {
       id: hero.id,
@@ -322,14 +326,14 @@ export function heroesView(
       perks,
       treasure: main,
       perkEffects: perkLines(hero.id, perks),
-      transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend), next: transcendCost(hero.class, doc?.transcend) },
+      transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend, doc?.scrollTp), scrolls: scrollPoints(doc?.scrollTp), next: transcendCost(hero.class, doc?.transcend) },
       abilities: [...hero.abilities],
     };
   });
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
   const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
   const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
-  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes } }, autoSalvage: autoSalvageOf(member) };
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member) };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {
@@ -398,5 +402,14 @@ export const heroStore: HeroStore = {
     if (!result.ok) return result.reason;
     const { find } = result;
     return { ...(await load(guildId, userId)), crafted: { copy: find.copy ?? '', name: find.reclaimed ? `Reclaimed ${find.item.name}` : find.item.name } };
+  },
+  craftScrolls: async (guildId, userId, set, count) => {
+    const result = await craftTpScrolls(guildId, userId, set, count);
+    // (The route checks the count: 'bad_count' doesn't come.)
+    return result.ok ? load(guildId, userId) : 'no_crystals';
+  },
+  scroll: async (guildId, userId, hero) => {
+    const result = await useTpScroll(guildId, userId, hero);
+    return result.ok ? load(guildId, userId) : result.reason;
   },
 };

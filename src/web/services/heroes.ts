@@ -6,10 +6,10 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 
 /** Every reason a change to their heroes or their gear isn't made. */
-type HeroError = HeroEquipError | HeroPerksError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | 'owned' | 'too_poor';
+type HeroError = HeroEquipError | HeroPerksError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
 
 export type { HeroesSold, HeroMembers };
 
@@ -40,7 +40,7 @@ export function heroService(deps: ApiDeps) {
       if ((await deps.memberName(guildId, userId)) === null) throw new ApiError('not_found');
       const view = await store.view(guildId, userId);
       const none = <K extends string>(of: Partial<Record<K, number>> | undefined): Record<K, number> => Object.fromEntries(Object.keys(of ?? {}).map((id) => [id, 0])) as Record<K, number>;
-      return { ...view, balance: 0, gems: 0, runeFragments: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null };
+      return { ...view, balance: 0, gems: 0, runeFragments: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */
@@ -66,6 +66,10 @@ export function heroService(deps: ApiDeps) {
     perks: async (guildId: string, userId: string, hero: string, perks: readonly string[]): Promise<HeroesView> =>
       answer(await store.perks(guildId, userId, hero, perks)),
     transcend: async (guildId: string, userId: string, hero: string): Promise<HeroesView> => answer(await store.transcend(guildId, userId, hero)),
+    /** Crafts `count` Transcendence Scrolls from `set`'s Boss Crystals. */
+    craftScrolls: async (guildId: string, userId: string, set: TmSetId, count: number): Promise<HeroesView> => answer(await store.craftScrolls(guildId, userId, set, count)),
+    /** Uses one of their Transcendence Scrolls on their hero (more TP). */
+    scroll: async (guildId: string, userId: string, hero: string): Promise<HeroesView> => answer(await store.scroll(guildId, userId, hero)),
     refine: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.refine(guildId, userId, copy)),
     /** Puts one of their runes in a copy's socket (or, `rune` null, takes the one in it out). */
     rune: async (guildId: string, userId: string, copy: string, socket: number, rune: string | null): Promise<HeroesView> => answer(await store.rune(guildId, userId, copy, socket, rune)),

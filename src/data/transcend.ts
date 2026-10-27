@@ -1,7 +1,7 @@
 import type { RaidBossId, RaidClassId } from '../constants/raid.js';
-import { ESSENCE_NAME, ESSENCES, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier } from '../protocol/heroes.js';
+import { ESSENCE_NAME, ESSENCES, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier } from '../protocol/heroes.js';
 
-export { ESSENCE_NAME, ESSENCES, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier };
+export { ESSENCE_NAME, ESSENCES, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier };
 
 /*
  * The TechnoMagic Raid's heroes' transcendence, as King's Raid has it, on the site's heroes page.
@@ -20,13 +20,19 @@ export { ESSENCE_NAME, ESSENCES, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINT
  *   Transcend 5: a Light and a Dark one of its own (t5-light, t5-dark), 15 TP each.
  *
  * Any perk of a tier it has reached can be picked with any other, while their TP all told is no more than it has.
+ *
+ * Transcendence Scrolls (crafted from Boss Crystals: services/heroes.ts craftTpScrolls) give a hero TP_SCROLL_POINTS more
+ * each, on top of its level's, up to TP_SCROLL_MOST (HeroDoc.scrollTp): 95 TP at Transcend 5.
  */
 
 /** A hero's level as kept (missing: 0), within 0 and TRANSCEND_MAX. */
 export const transcendLevel = (level: number | undefined): number => Math.min(TRANSCEND_MAX, Math.max(0, Math.floor(level ?? 0)));
 
-/** The TP a hero has at `level`. */
-export const transcendPoints = (level: number | undefined): number => TRANSCEND_TP[transcendLevel(level)] as number;
+/** The TP Transcendence Scrolls gave a hero, as kept (missing: 0), within 0 and TP_SCROLL_MOST, in whole scrolls. */
+export const scrollPoints = (scrolls: number | undefined): number => Math.min(TP_SCROLL_MOST, Math.max(0, Math.floor((scrolls ?? 0) / TP_SCROLL_POINTS) * TP_SCROLL_POINTS));
+
+/** The TP a hero has at `level`, with what its Transcendence Scrolls gave it (`scrolls`). */
+export const transcendPoints = (level: number | undefined, scrolls?: number): number => (TRANSCEND_TP[transcendLevel(level)] as number) + scrollPoints(scrolls);
 
 /** The three essences each class's heroes transcend with, as King's Raid has them. */
 export const CLASS_ESSENCES: Readonly<Record<RaidClassId, readonly [EssenceId, EssenceId, EssenceId]>> = {
@@ -85,20 +91,20 @@ export const TRANSCEND_PERKS_BY_ID: ReadonlyMap<string, TranscendPerk> = new Map
 export const perksCost = (ids: readonly string[]): number => ids.reduce((sum, id) => sum + (TRANSCEND_PERKS_BY_ID.get(id)?.cost ?? 0), 0);
 
 /**
- * A hero at `level`'s perks as they are kept: each known one once, in TRANSCEND_PERKS' order. Or why they can't all
- * be had: 'perk_locked', one of a tier past its level; 'too_many_points', more TP than it has.
+ * A hero at `level`'s perks as they are kept (`scrolls`: the TP its Transcendence Scrolls gave it): each known one once, in
+ * TRANSCEND_PERKS' order. Or why they can't all be had: 'perk_locked', one of a tier past its level; 'too_many_points', more TP than it has.
  */
-export function transcendPicks(ids: readonly string[], level: number | undefined): string[] | 'perk_locked' | 'too_many_points' {
+export function transcendPicks(ids: readonly string[], level: number | undefined, scrolls?: number): string[] | 'perk_locked' | 'too_many_points' {
   const picked = TRANSCEND_PERKS.filter((perk) => ids.includes(perk.id));
   if (picked.some((perk) => perk.tier > transcendLevel(level))) return 'perk_locked';
   const out = picked.map((perk) => perk.id);
-  return perksCost(out) <= transcendPoints(level) ? out : 'too_many_points';
+  return perksCost(out) <= transcendPoints(level, scrolls) ? out : 'too_many_points';
 }
 
-/** The perks a hero at `level` has from what was kept (TRANSCEND_PERKS' order), leaving out any no longer known or of a tier past its level, and, past its TP, the last ones. */
-export function keptPerks(ids: readonly string[] | undefined, level: number | undefined): string[] {
+/** The perks a hero at `level` (and `scrolls`) has from what was kept (TRANSCEND_PERKS' order), leaving out any no longer known or of a tier past its level, and, past its TP, the last ones. */
+export function keptPerks(ids: readonly string[] | undefined, level: number | undefined, scrolls?: number): string[] {
   const out: string[] = [];
-  const points = transcendPoints(level);
+  const points = transcendPoints(level, scrolls);
   let spent = 0;
   for (const perk of TRANSCEND_PERKS) {
     if (!ids?.includes(perk.id) || perk.tier > transcendLevel(level) || spent + perk.cost > points) continue;

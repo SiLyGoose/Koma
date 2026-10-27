@@ -273,6 +273,8 @@ export interface MemberDoc {
    * TechnoMagic Raid and given by salvaging its pieces, spent crafting the set's pieces and rerolling their options. Missing means none.
    */
   crystals?: Partial<Record<TmSetId, number>>;
+  /** Transcendence Scrolls crafted from Boss Crystals and not used yet: each gives a hero TP_SCROLL_POINTS more TP (services/heroes.ts). Missing means none. */
+  tpScrolls?: number;
   /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
   weeklyBossWeek?: string;
   /**
@@ -369,6 +371,8 @@ export interface HeroDoc {
   transcend?: number;
   /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page. Missing means none. */
   perks?: string[];
+  /** The TP Transcendence Scrolls used on it gave it (0 to TP_SCROLL_MOST, data/transcend.ts), on top of its level's. Missing means 0. */
+  scrollTp?: number;
 }
 
 /** A hero in a TechnoMagic Raid run: which, in which of its skins (the site's), and what its gear gave it as the run began. */
@@ -688,6 +692,8 @@ export type LedgerReason =
   | 'craft_gems'
   // komaDust crafted into Unique Weapon or Unique Treasure Tickets, sent to the mailbox (0 points, powderDelta; itemId is the ticket).
   | 'craft_selector'
+  // Boss Crystals (not in the ledger) crafted into Transcendence Scrolls (0 points; services/heroes.ts; itemId is the set's crystals, `crystals:<set>`).
+  | 'craft_tp_scroll'
   // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
   | 'admin_correction';
 
