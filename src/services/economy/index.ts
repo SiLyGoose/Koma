@@ -18,6 +18,8 @@ export { addCopy, getPity, giveTokens, guaranteePick, isGuaranteed, pityCount, p
 export { giveGems } from './gems.js';
 export { craftGems, craftSelectors, heldSelectors, useSelector, type CraftResult, type SelectorCraftResult, type SelectorKind, type SelectorUseResult } from './powder.js';
 export type { PullResult, PulledItem, MultiPullResult, PullRefusal } from './gacha.js';
+export { pay } from './pay.js';
+export type { PayResult } from './pay.js';
 export { rob } from './rob.js';
 export type { RobResult } from './rob.js';
 export { playPlinko } from '../casino/plinko.js';

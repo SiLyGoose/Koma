@@ -633,6 +633,9 @@ export type LedgerReason =
   | 'skip_refund'
   // Points a member gave to the vault of their own accord (commands/donate.ts).
   | 'vault_donation'
+  // Points one member paid another (commands/pay.ts): otherUserId is the other one.
+  | 'pay_sent'
+  | 'pay_received'
   // A gacha pull paid for with a komaToken instead of points (0 points, tokenDelta -1).
   | 'gacha_token'
   // An extra item a pull gave for nothing (Pot of Greed): 0 points; itemId is the item.

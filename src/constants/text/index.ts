@@ -37,6 +37,7 @@ import { heistText } from './events/heist.js';
 import { splitStealText } from './events/split-steal.js';
 import { codedleText } from './events/codedle.js';
 import { giveText } from './give.js';
+import { payText } from './pay.js';
 import { configText } from './config.js';
 import { raidText } from './raid.js';
 import { newsletterText } from './newsletter.js';
@@ -92,6 +93,7 @@ export const TEXT = {
   splitSteal: splitStealText,
   codedle: codedleText,
   give: giveText,
+  pay: payText,
   config: configText,
   raid: raidText,
   newsletter: newsletterText,

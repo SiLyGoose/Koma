@@ -362,6 +362,14 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
     toArgs: (i) => [i.options.getString('amount', true)],
   },
 
+  pay: {
+    build: (b) =>
+      void b
+        .addUserOption((o) => o.setName('user').setDescription(`Who to give ${CURRENCY_NAME} to`).setRequired(true))
+        .addStringOption((o) => o.setName('amount').setDescription(`How many ${CURRENCY_NAME} to give them, or "all"`).setRequired(true).setMaxLength(20)),
+    toArgs: (i) => [mention(i.options.getUser('user', true).id), i.options.getString('amount', true)],
+  },
+
   plinko: {
     description: `Bet ${CURRENCY_NAME} and drop a ball down the plinko board. The slot it lands in decides the payout.`,
     build: (b) =>

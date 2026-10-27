@@ -16,6 +16,7 @@ import { leaderboard } from './leaderboard.js';
 import { loadout } from './loadout.js';
 import { mines } from './mines.js';
 import { newsletter } from './newsletter.js';
+import { pay } from './pay.js';
 import { pinecraft } from './pinecraft.js';
 import { minesweeper } from './minesweeper.js';
 import { technomagic } from './technomagic.js';
@@ -66,6 +67,7 @@ export const commands: Command[] = [
   leaderboard,
   vault,
   donate,
+  pay,
   config,
   events,
   newsletter,
