@@ -47,6 +47,8 @@ export interface HandPlayer {
   raiseLocked: boolean;
   /** How many times they have bet or raised this hand, all streets together (the bots read it as strength). */
   raises: number;
+  /** How many of those were after the flop (the bots read them as a hand that hit the board). */
+  postflopRaises: number;
   last: PlayerMove | null;
 }
 
@@ -169,6 +171,7 @@ export function startHand(seated: readonly { id: string; seat: number; stack: nu
     acted: false,
     raiseLocked: false,
     raises: 0,
+    postflopRaises: 0,
     last: null,
   }));
   const n = players.length;
@@ -278,6 +281,7 @@ export function act(state: HandState, id: string, action: PokerAction): ActError
       }
       state.currentBet = to;
       p.raises++;
+      if (state.street !== 'preflop') p.postflopRaises++;
       p.last = p.allIn ? { type: 'allIn', to } : { type: opening ? 'bet' : 'raise', to };
       break;
     }

@@ -3,7 +3,7 @@ import { CONFIG } from '../../../config.js';
 import { POKER_BOT_NAMES, POKER_TABLE } from '../../../constants/index.js';
 import { dayKey } from '../../../lib/events/raid-week.js';
 import type { Card } from '../../../lib/game/casino/blackjack.js';
-import { botAction } from '../../../lib/game/casino/poker/bot.js';
+import { botAction, PokerReads, randomStyle, type BotStyle } from '../../../lib/game/casino/poker/bot.js';
 import {
   act as handAct,
   advance,
@@ -33,7 +33,8 @@ import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage,
  * A hand is dealt whenever at least two players with chips are sitting in (bots count, but a table
  * with nobody but bots doesn't play): lib/game/casino/poker/hand.ts has the rules, and this runs it
  * with a clock. Each player has poker.turnSeconds for a move, after which they check (when it's
- * free) or fold. A bot takes a moment over its move (POKER_TABLE.botThinkMs). After every hand each
+ * free) or fold. A bot takes a moment over its move (POKER_TABLE.botThinkMs), plays in a style of
+ * its own (picked when it sits down) and remembers how the players at the table have played (reads). After every hand each
  * player's chips are saved, the rake goes into the vault, and anyone getting up (or out of chips)
  * leaves; then the next hand is dealt after POKER_TABLE.nextHandMs.
  *
@@ -116,6 +117,8 @@ interface Seat {
   leaving: boolean;
   /** When their page went away (null while it's here). */
   awaySince: number | null;
+  /** A bot's way of playing. */
+  style?: BotStyle;
 }
 
 /** A page at the table: its member, and how to reach it. */
@@ -147,6 +150,8 @@ export class PokerTable {
   private stopHeartbeat: (() => void) | null = null;
   private closed = false;
   private botCount = 0;
+  /** How the players here have played, as the bots remember it (what everyone at the table saw). */
+  private readonly reads = new PokerReads();
   /** The changes waiting their turn: everything that changes the table runs one after another. */
   private queue: Promise<void> = Promise.resolve();
   /** What the pages at the table (seated or not) say to each other. */
@@ -400,7 +405,7 @@ export class PokerTable {
       const name = POKER_BOT_NAMES.find((n) => !names.has(n)) ?? `Bot ${this.botCount + 1}`;
       this.botCount++;
       const chips = CONFIG.poker.maxBuyIn;
-      this.seats[at] = { seat: at, id: `bot:${this.botCount}`, name, avatar: '', bot: true, chips, seatId: null, stake: chips, bots: { day: '', net: 0 }, leaving: false, awaySince: null };
+      this.seats[at] = { seat: at, id: `bot:${this.botCount}`, name, avatar: '', bot: true, chips, seatId: null, stake: chips, bots: { day: '', net: 0 }, leaving: false, awaySince: null, style: randomStyle(this.deps.random) };
       this.maybeDeal();
       this.broadcast();
       return null;
@@ -487,7 +492,9 @@ export class PokerTable {
       const hand = this.hand;
       if (!hand || hand.toAct === null || hand.players[hand.toAct]?.id !== userId) return { reason: 'not_now' };
       const action = toAction(hand, move, amount);
-      if (!action || handAct(hand, userId, action) !== null) return { reason: 'not_now' };
+      if (!action) return { reason: 'not_now' };
+      this.reads.saw(hand, userId, action);
+      if (handAct(hand, userId, action) !== null) return { reason: 'not_now' };
       this.afterMove();
       return null;
     });
@@ -532,6 +539,7 @@ export class PokerTable {
       { small: smallBlind, big: bigBlind, rake: { rate: rake, cap: rakeCap } },
       this.deps.deck(),
     );
+    this.reads.dealt(this.hand);
     this.handNo++;
     this.afterMove();
   }
@@ -564,7 +572,8 @@ export class PokerTable {
       this.setTimer(from + Math.floor(this.deps.random() * (to - from)), () => {
         void this.run(() => {
           if (this.hand !== hand || hand.toAct === null || hand.players[hand.toAct] !== player) return;
-          const move = botAction(hand, this.deps.random);
+          const move = botAction(hand, this.deps.random, { style: seat.style, reads: this.reads });
+          this.reads.saw(hand, player.id, move);
           if (handAct(hand, player.id, move) !== null) handAct(hand, player.id, fallback(hand));
           this.afterMove();
         });
@@ -600,6 +609,7 @@ export class PokerTable {
   private async endHand(): Promise<void> {
     const hand = this.hand;
     if (!hand?.done || !hand.result) return;
+    this.reads.handOver(hand);
     const changes: { seat: Seat; change: number }[] = [];
     for (const p of hand.players) {
       const seat = this.seats[p.seat];

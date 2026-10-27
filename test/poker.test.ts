@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Card, Suit } from '../src/lib/game/casino/blackjack.js';
-import { botAction, chenScore, estimateEquity } from '../src/lib/game/casino/poker/bot.js';
-import { act, advance, buildPots, forfeit, legalActions, startHand, type HandOptions, type HandState } from '../src/lib/game/casino/poker/hand.js';
+import { botAction, chenScore, draws, estimateEquity, PokerReads, texture } from '../src/lib/game/casino/poker/bot.js';
+import { act, advance, buildPots, forfeit, legalActions, startHand, type HandOptions, type HandState, type PokerAction } from '../src/lib/game/casino/poker/hand.js';
 import { bestHand, compareRanks, handName, rankFive } from '../src/lib/game/casino/poker/rank.js';
 import { parseClientMessage } from '../src/web/games/poker/protocol.js';
 
@@ -287,6 +287,109 @@ test('botAction: always a move the bot may make, and it never folds what it can 
     const total = state.players.reduce((sum, p) => sum + p.stack, 0) + (state.result?.rake ?? 0);
     assert.equal(total, 4000);
   }
+});
+
+/** A heads-up hand on the flop: p0 (the button) raised before it, p1 called, and p1 has checked to p0. */
+function checkedToRaiser(holes: [string, string], board: string): HandState {
+  const state = startHand(players(2000, 2000), 0, NO_RAKE, stacked(holes, board, 0));
+  act(state, 'p0', { type: 'raise', to: 60 });
+  act(state, 'p1', { type: 'call' });
+  advance(state);
+  act(state, 'p1', { type: 'check' });
+  return state;
+}
+
+/** What a bot does in `state` over many tries, by move. */
+function moves(state: HandState, tries = 100): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (let i = 0; i < tries; i++) {
+    const move = botAction(state, seeded(i + 1));
+    out[move.type] = (out[move.type] ?? 0) + 1;
+  }
+  return out;
+}
+
+test('texture and draws: a wet board, a flush draw, an open-ended straight draw and a gutshot', () => {
+  assert.ok(texture(cards('9h Th 2h')).wet >= 0.5);
+  assert.ok(texture(cards('Ks 7d 2c')).wet < 0.3);
+  assert.deepEqual(draws(cards('Ah 5h'), cards('Kh 9h 2c')), { flush: true, straight: 0 });
+  assert.deepEqual(draws(cards('8c 9d'), cards('Ts Jh 2c')), { flush: false, straight: 2 });
+  assert.deepEqual(draws(cards('8c 9d'), cards('Js Qh 2c')), { flush: false, straight: 1 });
+  // No draws left to make on the river.
+  assert.deepEqual(draws(cards('Ah 5h'), cards('Kh 9h 2c 3d 7s')), { flush: false, straight: 0 });
+});
+
+test('estimateEquity: bottom pair is ahead of any two cards, but behind a player who bet the flop twice', () => {
+  const hole = cards('3h 5d');
+  const board = cards('3c Kh 9s');
+  assert.ok(estimateEquity(hole, board, [1], seeded()) > 0.55);
+  assert.ok(estimateEquity(hole, board, [{ start: 1, board: 2, bluffs: 0 }], seeded()) < 0.3);
+});
+
+test('botAction: the preflop raiser, checked to on the flop with nothing, bets some of the time but not always', () => {
+  const made = moves(checkedToRaiser(['7c 2d', 'Qs Qd'], 'Ks 9h 4c 3d 8s'));
+  assert.ok((made.raise ?? 0) > 20 && (made.raise ?? 0) < 95, JSON.stringify(made));
+  assert.equal(made.fold, undefined);
+});
+
+test('botAction: its bets are the same sizes with nothing as with a strong hand', () => {
+  const sizes = (state: HandState) => {
+    const out = new Set<number>();
+    for (let i = 0; i < 120; i++) {
+      const move: PokerAction = botAction(state, seeded(i + 1));
+      if (move.type === 'raise') out.add(move.to);
+    }
+    return out;
+  };
+  const bluffs = sizes(checkedToRaiser(['7c 2d', 'Qs Qd'], 'Ks 9h 4c 3d 8s'));
+  const value = sizes(checkedToRaiser(['Kc Kd', 'Qs Qd'], 'Ks 9h 4c 3d 8s'));
+  assert.ok(bluffs.size >= 3);
+  assert.deepEqual([...bluffs].sort(), [...value].sort());
+});
+
+test('botAction: a very strong hand sometimes checks to trap, on a dry flop', () => {
+  const made = moves(checkedToRaiser(['Kc Kd', 'Qs Qd'], 'Ks 9h 4c 3d 8s'));
+  assert.ok((made.check ?? 0) > 10 && (made.raise ?? 0) > 50, JSON.stringify(made));
+});
+
+test('botAction: a short stack goes all in or folds before the flop', () => {
+  const state = startHand(players(150, 2000), 0, NO_RAKE, stacked(['As Kd', '7c 2d'], '3c 4d 8h Js Qc', 0));
+  assert.deepEqual(botAction(state, seeded(2)), { type: 'raise', to: 150 });
+  const junk = startHand(players(150, 2000), 0, NO_RAKE, stacked(['7c 2d', 'As Kd'], '3c 4d 8h Js Qc', 0));
+  assert.deepEqual(botAction(junk, seeded(2)), { type: 'fold' });
+});
+
+test('PokerReads: a player caught bluffing is given a wider range, one who never folds is taken not to', () => {
+  const reads = new PokerReads();
+  const bluffer = (): HandState => {
+    // p0 bets every street with nothing and is called down by p1.
+    const state = startHand(players(2000, 2000), 0, NO_RAKE, stacked(['7c 2d', 'Qs Qd'], 'Ks 9h 4c 3d 8s', 0));
+    reads.dealt(state);
+    const move = (id: string, action: PokerAction) => {
+      reads.saw(state, id, action);
+      act(state, id, action);
+    };
+    move('p0', { type: 'raise', to: 60 });
+    move('p1', { type: 'call' });
+    for (let street = 0; street < 3; street++) {
+      advance(state);
+      move('p1', { type: 'check' });
+      move('p0', { type: 'raise', to: 100 });
+      move('p1', { type: 'call' });
+    }
+    advance(state);
+    reads.handOver(state);
+    return state;
+  };
+  const p0 = bluffer().players[0] as HandState['players'][number];
+  // A player the table hasn't seen yet is read by the betting alone.
+  const first = reads.range({ ...p0, id: 'stranger', raises: 1, postflopRaises: 0 });
+  for (let i = 0; i < 10; i++) bluffer();
+  const after = reads.range({ ...p0, raises: 1, postflopRaises: 0 });
+  assert.ok(after.start > first.start * 1.5 && after.bluffs > 0.5, JSON.stringify({ first, after }));
+  // p1 never folded to p0's bets: a calling station isn't bluffed.
+  assert.ok(reads.foldRate('p1') < 0.15);
+  assert.equal(reads.foldRate('nobody'), 0.45);
 });
 
 // ---------------------------------------------------------------------------
