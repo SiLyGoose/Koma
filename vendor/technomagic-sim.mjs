@@ -9715,7 +9715,7 @@ var HEAD = 3.3;
 var IMPRISONMENT = {
 	hits: 150,
 	lasts: 8,
-	deals: 1.7
+	atk: .7
 };
 var DESTROYER = {
 	venom: .55,
@@ -9769,7 +9769,7 @@ var IMPRISONED = {
 };
 var UNBOUND = {
 	name: "Swamp Imprisonment (free)",
-	about: `An ally is shut away: ${Math.round((IMPRISONMENT.deals - 1) * 100)}% more damage dealt meanwhile.`,
+	about: `An ally is held: ATK ${Math.round(IMPRISONMENT.atk * 100)}% higher meanwhile.`,
 	icon: "🗡️",
 	art: stateArt("AttackUp")
 };
@@ -9845,7 +9845,7 @@ function ownPart(fight) {
 	const lifeForce = () => 1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing);
 	/** The heroes the boss can reach. */
 	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
-	/** The hero that has dealt the most since the last is held in the swamp (whoever was, let out); every other hero deals more meanwhile. */
+	/** The hero that has dealt the most since the last is held in the swamp (whoever was, let out); every other hero's ATK is higher meanwhile. */
 	function imprison() {
 		const heroes = reachable();
 		for (const fighter of heroes) fighter.statuses = fighter.statuses.filter((status) => status.name !== IMPRISONED.name);
@@ -9865,7 +9865,7 @@ function ownPart(fight) {
 		for (const other of rest) put(other.statuses, {
 			name: UNBOUND.name,
 			left: IMPRISONMENT.lasts,
-			deals: IMPRISONMENT.deals,
+			atk: IMPRISONMENT.atk,
 			shown: UNBOUND
 		});
 		fight.cue(null, "imprison", [top]);
@@ -50348,7 +50348,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "8bf7518c754d";
+var SIM_VERSION = "306358cbe874";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
