@@ -9762,7 +9762,7 @@ var STAGES = {
 var TAKEN = { physical: 1.2 };
 var IMPRISONED = {
 	name: "Swamp Imprisonment",
-	about: "Shut away in the swamp: it can do nothing, and the boss can’t reach it.",
+	about: "Held in the swamp: it can do nothing (and can’t be knocked down), but the boss still hits it.",
 	icon: "🪤",
 	art: stateArt("3590043"),
 	harmful: true
@@ -9845,17 +9845,21 @@ function ownPart(fight) {
 	const lifeForce = () => 1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing);
 	/** The heroes the boss can reach. */
 	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
-	/** The hero that has dealt the most since the last is shut away in the swamp; every other hero deals more meanwhile. */
+	/** The hero that has dealt the most since the last is held in the swamp (whoever was, let out); every other hero deals more meanwhile. */
 	function imprison() {
-		const [top, ...rest] = reachable().sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
+		const heroes = reachable();
+		for (const fighter of heroes) fighter.statuses = fighter.statuses.filter((status) => status.name !== IMPRISONED.name);
+		const [top, ...rest] = heroes.sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
 		dealt.clear();
 		if (!top) return;
 		fight.stagger(top);
 		top.reserved = null;
+		top.statuses = top.statuses.filter((status) => status.name !== UNBOUND.name);
 		put(top.statuses, {
 			name: IMPRISONED.name,
 			left: IMPRISONMENT.lasts,
-			away: true,
+			binds: true,
+			guards: true,
 			shown: IMPRISONED
 		});
 		for (const other of rest) put(other.statuses, {
@@ -50344,7 +50348,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "04a5d5a64e1f";
+var SIM_VERSION = "8bf7518c754d";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
