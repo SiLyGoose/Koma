@@ -92,7 +92,9 @@ export type MailAttachment =
   | { kind: 'tokens'; amount: number }
   | { kind: 'item'; itemId: string; count: number }
   | { kind: 'rune'; runeId: string; count: number }
-  | { kind: 'selector'; of: 'uw' | 'ut' };
+  | { kind: 'selector'; of: 'uw' | 'ut' }
+  /** Transcendence Scrolls (Transcendence Attribute Points), held (MemberDoc.tpScrolls) once claimed. */
+  | { kind: 'tp'; count: number };
 
 /** A mail in a member's mailbox (services/mail.ts): its title and message, whom from, what it carries, and when it was read and claimed. */
 export interface MailDoc {

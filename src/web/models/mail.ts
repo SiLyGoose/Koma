@@ -3,6 +3,7 @@ import { ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../../data/items.
 import { copyMainStat } from '../../lib/game/heroes.js';
 import { uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
 import { KR_RUNES_BY_ID } from '../../data/kr-gear.js';
+import { TP_SCROLL_ICON, TP_SCROLL_NAME } from '../../data/transcend.js';
 import { claimMail, listMail, readMail } from '../../services/mail.js';
 import type { MailAttachment, MailDoc } from '../../types.js';
 import type { MailAttachmentView, MailboxView, MailClaimError, MailHero, MailPickItem, MailTicketItem, MailView } from '../../protocol/mail.js';
@@ -48,6 +49,8 @@ export function attachmentView(attachment: MailAttachment, picked?: string | nul
     }
     case 'selector':
       return { text: attachment.of === 'uw' ? 'Unique Weapon Ticket' : 'Unique Treasure Ticket', icon: SELECTOR_ICON[attachment.of], selector: attachment.of, picked: pickItem(picked) };
+    case 'tp':
+      return { text: `${attachment.count}× ${TP_SCROLL_NAME}`, icon: TP_SCROLL_ICON, selector: null };
   }
 }
 

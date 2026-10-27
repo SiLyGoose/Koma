@@ -3,6 +3,10 @@ import { ESSENCE_NAME, ESSENCES, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX
 
 export { ESSENCE_NAME, ESSENCES, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier };
 
+/** What a Transcendence Scroll is called to members, as King's Raid names the item (+5 TP for a hero), and its icon (King's Raid's, the site's public/kr/items/). */
+export const TP_SCROLL_NAME = 'Transcendence Attribute Point (5 TP)';
+export const TP_SCROLL_ICON = 'TRANCEND_5POINT';
+
 /*
  * The TechnoMagic Raid's heroes' transcendence, as King's Raid has it, on the site's heroes page.
  *

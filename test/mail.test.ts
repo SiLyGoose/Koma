@@ -34,6 +34,11 @@ test('mail command: whom to, the title, the message and the rewards', () => {
   assert.equal(mailTarget('everyone'), 'all');
   assert.equal(parseReward('points:0'), null);
   assert.equal(parseReward('item:uw-selector'), null, 'a ticket is sent as uw or ut');
+  assert.deepEqual(parseReward('tp'), { kind: 'tp', count: 1 });
+  assert.deepEqual(parseReward('TPx3'), { kind: 'tp', count: 3 });
+  assert.deepEqual(parseReward('tp:2'), { kind: 'tp', count: 2 });
+  assert.equal(parseReward('tpx0'), null);
+  assert.deepEqual(attachmentView({ kind: 'tp', count: 3 }), { text: '3× Transcendence Attribute Point (5 TP)', icon: 'TRANCEND_5POINT', selector: null });
 });
 
 test('mail: a selector is any hero’s unique weapon, or any of a hero’s four unique treasures, picked as its ticket is used', () => {

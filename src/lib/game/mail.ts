@@ -5,8 +5,8 @@ import type { MailAttachment } from '../../types.js';
 /*
  * The mail command's words (commands/mail.ts), with no database: whom to, the title, the message and the rewards, as
  * `<@user | all> | <title> | <message> [| <rewards>]`. Rewards are separated by commas or spaces: `points:5000`, `gems:20`,
- * `tokens:5`, `item:<item id>` (`x3` after it for 3), `rune:<rune id>` (the same), and `uw` or `ut` (a Unique Weapon or
- * Unique Treasure Ticket: a selector).
+ * `tokens:5`, `item:<item id>` (`x3` after it for 3), `rune:<rune id>` (the same), `uw` or `ut` (a Unique Weapon or
+ * Unique Treasure Ticket: a selector), and `tp` (a Transcendence Attribute Point (5 TP), `tpx3` or `tp:3` for 3).
  */
 
 /** The most of any one amount a mail may carry. */
@@ -29,6 +29,11 @@ export function parseReward(word: string): MailAttachment | null {
   const text = word.trim();
   if (/^(uw|selector:uw)$/i.test(text)) return { kind: 'selector', of: 'uw' };
   if (/^(ut|selector:ut)$/i.test(text)) return { kind: 'selector', of: 'ut' };
+  const tp = /^tp(?:x(\d+)|:(\d+))?$/i.exec(text);
+  if (tp) {
+    const count = Number(tp[1] ?? tp[2] ?? 1);
+    return Number.isSafeInteger(count) && count > 0 && count <= 100 ? { kind: 'tp', count } : null;
+  }
   const amount = /^(points|zeiucoins|coins|gems|tokens):(\d+)$/i.exec(text);
   if (amount) {
     const n = Number(amount[2]);

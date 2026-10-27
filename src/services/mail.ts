@@ -3,6 +3,7 @@ import { ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../data/items.js'
 import { KR_RUNES_BY_ID, rollKrOptions, rollRuneOfGrade } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { rollUtOptions } from '../lib/game/technomagic.js';
+import { TP_SCROLL_NAME } from '../data/transcend.js';
 import type { ItemDef, MailAttachment, MailDoc } from '../types.js';
 import { addCopy } from './economy/gacha.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
@@ -11,7 +12,7 @@ import { ensureMember, recordLedger } from './economy/shared.js';
  * The members' mailboxes (MailDoc, the `mail` collection): mail the bot sends (a Hero Item pull's Unique Weapon or Unique
  * Treasure Ticket: grantReward) and the bot admin sends with a title, a message and rewards (the mail command: sendMail).
  * A member reads it on the site (its mail icon shows how many wait for them: unread, or with rewards unclaimed) and claims what it carries: points, komaGems,
- * komaTokens, copies of an item, runes, or a selector, held as a ticket (the member's `selectors`, the site's Inventory's
+ * komaTokens, copies of an item, runes, Transcendence Attribute Points (tpScrolls), or a selector, held as a ticket (the member's `selectors`, the site's Inventory's
  * Others) until they use it (services/economy/powder.ts useSelector). Claimed once: a second claim finds it claimed.
  */
 
@@ -136,6 +137,10 @@ export async function claimMail(guildId: string, userId: string, id: string, now
       case 'selector':
         inc[`selectors.${attachment.of}`] = (inc[`selectors.${attachment.of}`] ?? 0) + 1;
         given.push(attachment.of === 'uw' ? 'Unique Weapon Ticket' : 'Unique Treasure Ticket');
+        break;
+      case 'tp':
+        inc.tpScrolls = (inc.tpScrolls ?? 0) + attachment.count;
+        given.push(`${attachment.count}× ${TP_SCROLL_NAME}`);
         break;
     }
   }
