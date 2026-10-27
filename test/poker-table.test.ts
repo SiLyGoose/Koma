@@ -385,3 +385,32 @@ test('a full table: the next page joins a new one', async () => {
   await t.join('p9');
   assert.equal(t.table()?.number, 2);
 });
+
+test('bots: a member alone at a table full of them makes room for the next page (a bot gets up, after its hand)', async () => {
+  const t = setup();
+  await t.join('a');
+  await t.table()?.sit('a', 1000);
+  for (let i = 1; i < POKER_TABLE.seats; i++) assert.equal(await t.table()?.addBot('a'), null);
+  const first = t.table();
+  assert.equal(t.state('a').canAddBot, false);
+  await t.tick(POKER_TABLE.nextHandMs);
+  assert.equal(t.state('a').phase, 'playing');
+  // Every bot is in the hand: one gets up once it's over, and b waits at the table for its seat.
+  await t.join('b');
+  assert.equal(t.table(), first);
+  assert.equal(t.state('a').seats.filter((s) => s?.leaving).length, 1);
+  assert.deepEqual(await t.table()?.addBot('a'), { reason: 'seat_taken' });
+  for (let i = 0; i < 40 && t.state('a').phase === 'playing'; i++) {
+    const s = t.state('a');
+    if (turn(s) === 'a') await t.table()?.act('a', 'fold');
+    else await t.tick(POKER_TABLE.botThinkMs[1]);
+  }
+  assert.equal(t.state('a').seats.filter((s) => s?.bot).length, POKER_TABLE.seats - 2);
+  // The free seat is b's: no bot can take it.
+  assert.equal(t.state('a').canAddBot, false);
+  assert.deepEqual(await t.table()?.addBot('a'), { reason: 'seat_taken' });
+  assert.equal(await t.table()?.sit('b', 1000), null);
+  // Two members now: the next page gets a table of its own.
+  await t.join('c');
+  assert.equal(t.table()?.number, 2);
+});

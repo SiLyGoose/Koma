@@ -44,6 +44,11 @@ import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage 
  * (countBotWinnings): once a member has won poker.botDailyLimit, the bots sit out of the hands they're
  * dealt into, and they can't add one, until the next day. A table with nobody left at it closes.
  *
+ * Bots never keep a member from playing: when every table is full, a member opening poker joins one
+ * where a member sits alone among bots (botFilled), and a bot gets up for them (makeRoom), instead of
+ * being put at a table of their own. A seat is kept for each member at a table who hasn't sat down
+ * yet: a bot can't be added to it.
+ *
  * Everything that changes a table runs one at a time (`run`), so a move can't land in the middle of
  * a hand being saved.
  */
@@ -141,6 +146,8 @@ export class PokerTable {
   private stopHeartbeat: (() => void) | null = null;
   private closed = false;
   private botCount = 0;
+  /** Members a bot is getting up for (makeRoom), until it has: one bot goes for each. */
+  private readonly roomFor = new Set<string>();
   /** The changes waiting their turn: everything that changes the table runs one after another. */
   private queue: Promise<void> = Promise.resolve();
   /** What the pages at the table (seated or not) say to each other. */
@@ -191,6 +198,21 @@ export class PokerTable {
 
   private humans(): Seat[] {
     return this.seats.filter((s): s is Seat => s !== null && !s.bot);
+  }
+
+  /** In the hand being played (even folded: its chips aren't settled until it's over). */
+  private inHand(seat: Seat): boolean {
+    return this.hand !== null && !this.hand.done && this.hand.players.some((p) => p.id === seat.id);
+  }
+
+  /** How many members have a page at the table but no seat. */
+  private waiting(): number {
+    return [...this.viewers.keys()].filter((id) => !this.seated(id)).length;
+  }
+
+  /** Full, with one member sitting among bots, and nobody else at it or on their way: a bot can get up for someone joining. */
+  get botFilled(): boolean {
+    return this.full && this.humans().length === 1 && this.roomFor.size === 0 && this.waiting() === 0 && this.seats.some((s) => s?.bot && !s.leaving);
   }
 
   // -------------------------------------------------------------------------
@@ -323,8 +345,7 @@ export class PokerTable {
 
   /** Gets `seat` up: straight away between hands, or (folding) once the hand they're in is over. */
   private async standUp(seat: Seat): Promise<void> {
-    const playing = this.hand && !this.hand.done && this.hand.players.some((p) => p.id === seat.id);
-    if (playing && this.hand) {
+    if (this.inHand(seat) && this.hand) {
       seat.leaving = true;
       forfeit(this.hand, seat.id);
       this.afterMove();
@@ -365,7 +386,7 @@ export class PokerTable {
       if (!me) return { reason: 'not_now' };
       if (this.botLimited(me)) return { reason: 'bot_limit', limit: CONFIG.poker.botDailyLimit };
       const at = this.seats.findIndex((s) => s === null);
-      if (at < 0) return { reason: 'seat_taken' };
+      if (at < 0 || !this.botSeatFree()) return { reason: 'seat_taken' };
       const names = new Set(this.seats.map((s) => s?.name));
       const name = POKER_BOT_NAMES.find((n) => !names.has(n)) ?? `Bot ${this.botCount + 1}`;
       this.botCount++;
@@ -382,13 +403,34 @@ export class PokerTable {
     return this.run(async () => {
       const seat = this.seats[seatNo];
       if (!this.seatOf(userId) || !seat?.bot) return { reason: 'not_now' };
-      // In the hand being played (even folded, its chips aren't settled until it's over): it goes after.
-      const playing = this.hand && !this.hand.done && this.hand.players.some((p) => p.id === seat.id);
-      if (playing) seat.leaving = true;
-      else await this.removeSeat(seat);
+      await this.botUp(seat);
       this.broadcast();
       return null;
     });
+  }
+
+  /** Gets a bot up for `userId`, who is joining this full table (see botFilled): one out of the hand if there is one. */
+  makeRoom(userId: string): Promise<void> {
+    this.roomFor.add(userId);
+    return this.run(async () => {
+      this.roomFor.delete(userId);
+      const bots = this.seats.filter((s): s is Seat => s !== null && s.bot && !s.leaving);
+      const bot = bots.find((s) => !this.inHand(s)) ?? bots.at(-1);
+      if (!this.full || !bot) return;
+      await this.botUp(bot);
+      this.broadcast();
+    });
+  }
+
+  /** A bot gets up: straight away, or after the hand it's in. */
+  private async botUp(seat: Seat): Promise<void> {
+    if (this.inHand(seat)) seat.leaving = true;
+    else await this.removeSeat(seat);
+  }
+
+  /** A free seat a bot may take: one is kept for each member at the table who hasn't sat down yet. */
+  private botSeatFree(): boolean {
+    return POKER_TABLE.seats - this.taken > this.waiting() + this.roomFor.size;
   }
 
   private today(): string {
@@ -655,7 +697,7 @@ export class PokerTable {
       buyIn: { min: minBuyIn, max: maxBuyIn },
       rake: { rate: rake, cap: rakeCap },
       balance: viewer?.balance ?? 0,
-      canAddBot: mine !== null && !this.botLimited(mine) && !this.full,
+      canAddBot: mine !== null && !this.botLimited(mine) && this.botSeatFree(),
       botWinnings: mine && botDailyLimit > 0 ? { won: this.botNet(mine), limit: botDailyLimit } : null,
       turnSeconds,
     };
@@ -736,8 +778,9 @@ export class PokerTables {
 
   /**
    * Puts `player`'s page at the table they sit at, the one they were at last if it has a free seat,
-   * or the first with one, opening a new table when all are full. Returns the table, and the page it
-   * took over from, if any.
+   * or the first with one. When all are full, a bot gets up for them at one where a member sits alone
+   * among bots, and a new table is opened when there's none. Returns the table, and the page it took
+   * over from, if any.
    */
   async join(player: Player, peer: Peer, deps: PokerDeps = this.realDeps): Promise<{ table: PokerTable; replaced: Peer | null }> {
     const open = this.tables.get(player.guildId) ?? [];
@@ -748,6 +791,10 @@ export class PokerTables {
       open.find((t) => t.has(player.userId)) ??
       (last && open.includes(last) && !last.full ? last : undefined) ??
       open.find((t) => !t.full);
+    if (!table) {
+      table = open.find((t) => t.botFilled);
+      await table?.makeRoom(player.userId);
+    }
     if (!table) {
       let number = 1;
       while (open.some((t) => t.number === number)) number++;
