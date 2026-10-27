@@ -7,7 +7,7 @@ import { greedyHeist, heistJoinEmbed, heistResultEmbed, heistRoundEmbed, heistRo
 import { GAME_EVENTS, validateEvents } from '../src/events/registry.js';
 import { choiceRow, joinRow, splitOrSteal, splitStealDecideEmbed, splitStealResultEmbed } from '../src/events/games/split-or-steal.js';
 import { limitedLines } from '../src/events/games/vault-game.js';
-import { addRoundLoot, alarmChance, roundPot, type HeistPlayer } from '../src/lib/events/heist.js';
+import { addRoundLoot, alarmChance, escapePlayer, quietMultiplier, roundPot, type HeistPlayer } from '../src/lib/events/heist.js';
 import { choiceOf, resolveSplitSteal, type SplitStealChoice } from '../src/lib/events/split-steal.js';
 import { findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 import { vaultCost, vaultGrowth } from '../src/services/vault.js';
@@ -57,6 +57,16 @@ test('heist loot: a round is split only between the players still inside', () =>
   // Nobody inside: nothing handed out.
   (players[0] as HeistPlayer).status = 'caught';
   assert.equal(addRoundLoot(players, 100, first), 0);
+});
+
+test('heist multiplier: 1, plus quietBonus for every quiet round, locked in (rounded down) on escaping', () => {
+  assert.equal(quietMultiplier(0, 0.1), 1);
+  assert.ok(Math.abs(quietMultiplier(3, 0.1) - 1.3) < 1e-12);
+  assert.equal(quietMultiplier(10, 0.1), 2);
+  assert.equal(quietMultiplier(10, 0), 1, 'a bonus of 0 turns it off');
+  const player: HeistPlayer = { userId: 'a', loot: 155, status: 'inside' };
+  escapePlayer(player, quietMultiplier(3, 0.1));
+  assert.deepEqual(player, { userId: 'a', loot: 201, status: 'escaped' });
 });
 
 // ---------------------------------------------------------------------------
@@ -133,6 +143,7 @@ test('vault game settings: defaults are valid, every one has a spec in the Event
     'events.heist.roundSeconds',
     'events.heist.alarmStart',
     'events.heist.alarmStep',
+    'events.heist.quietBonus',
     'events.heist.fine',
     'events.splitSteal.minPlayers',
     'events.splitSteal.joinSeconds',
@@ -188,9 +199,10 @@ test('vault game constants pass the startup check, and every button id is differ
 // ---------------------------------------------------------------------------
 
 test('heist screens: join, live rounds and the result', () => {
-  const join = data(heistJoinEmbed(5000, 10, 50, 1_700_000_000, 0));
+  const join = data(heistJoinEmbed(5000, 10, 50, 0.1, 1_700_000_000, 0));
   assert.equal(join.title, TEXT.heist.title);
   assert.match(join.description ?? '', /5,000/);
+  assert.match(join.description ?? '', /\*\*10%\*\*.*\*\*2x\*\*/);
   assert.match(join.description ?? '', /<t:1700000000:R>/);
   assert.equal(join.fields?.[0]?.value, TEXT.heist.crewNobody);
 
@@ -198,10 +210,14 @@ test('heist screens: join, live rounds and the result', () => {
     { userId: '1', loot: 300, status: 'inside' },
     { userId: '2', loot: 100, status: 'escaped' },
   ];
-  const live = data(heistRoundEmbed(3, 10, 4000, 0.2, players));
+  const live = data(heistRoundEmbed(3, 10, 4000, 0.2, 1.3, players));
   assert.equal(live.title, TEXT.heist.roundTitle(3, 10));
   assert.match(live.description ?? '', /20%/);
+  assert.match(live.description ?? '', /\*\*1\.3x\*\*/);
   assert.deepEqual(live.fields?.map((f) => f.name), [TEXT.heist.insideField, TEXT.heist.escapedField]);
+  // Those inside show what they'd leave with now; those out, what they left with.
+  assert.match(live.fields?.[0]?.value ?? '', /<@1> \*\*390\*\*/);
+  assert.match(live.fields?.[1]?.value ?? '', /<@2> \*\*100\*\*/);
 
   (players[0] as HeistPlayer).status = 'caught';
   const result = data(heistResultEmbed({ kind: 'alarm', round: 4 }, players, [{ userId: '1', amount: 50 }], 50, 100, 0));

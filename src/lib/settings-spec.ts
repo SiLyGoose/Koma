@@ -424,6 +424,16 @@ export const SPECS: readonly SettingSpec[] = [
     max: 1,
     percent: true,
   },
+  {
+    key: 'events.heist.quietBonus',
+    group: 'Events',
+    description:
+      'Added to the multiplier on Greedy Heist loot for every round the alarm stays quiet (10% pays 2x after 10 quiet rounds). Escaping locks it in. What it adds past the prize is new money. 0 turns it off.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
   int('events.heist.fine', 'Events', 'What everyone still inside a Greedy Heist when the alarm goes off pays, added to the vault.', 0, MAX_POINTS),
   int('events.splitSteal.minPlayers', 'Events', 'Fewest people who have to join Split or Steal for it to be played.', 2, 50),
   int('events.splitSteal.joinSeconds', 'Events', 'Seconds Split or Steal stays open for joining.', 10, MAX_EVENT_SECONDS),

@@ -238,6 +238,8 @@ export interface Settings {
       alarmStart: number;
       /** Added to the alarm chance every round after the first. */
       alarmStep: number;
+      /** Added to the multiplier on loot (which starts at 1) for every round the alarm stays quiet; escaping locks it in. */
+      quietBonus: number;
       /** What everyone still inside when the alarm goes off pays, added to the vault. */
       fine: number;
     };
@@ -486,7 +488,8 @@ export const DEFAULTS: Readonly<Settings> = {
   // The vault games put up 10x what's been lost to gambling since the last payout, and the vault
   // also grows by 100 an hour on its own. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
-  // a round (about a 3% chance of lasting all 10), and anyone caught pays 50. Split or Steal needs 2+
+  // a round (about a 3% chance of lasting all 10), every quiet round adds 0.1x to the loot of whoever
+  // escapes (2x for staying all 10), and anyone caught pays 50. Split or Steal needs 2+
   // players, with a minute to join and 30 seconds to choose. Codedle opens 5 minutes after it's announced, then gives
   // 5 minutes to guess a 5-digit code, at 10 points a guess (added to the vault).
   events: {
@@ -494,7 +497,7 @@ export const DEFAULTS: Readonly<Settings> = {
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
     vault: { multiplier: 1, hourlyGrowth: 100, maxPool: 0, lossShare: 0.4 },
-    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, fine: 50 },
+    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, quietBonus: 0.1, fine: 50 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { waitSeconds: 300, seconds: 300, guessCost: 10 },
   },
