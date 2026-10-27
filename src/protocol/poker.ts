@@ -5,12 +5,18 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  * What poker's web page (the Koma-UI repo) and the bot say to each other over the WebSocket. Every
  * message is one JSON object with a `t` saying what it is. The site keeps a copy (its `yarn sync`).
  *
- * A page joins a table (the bot's web/games/poker/table.ts) as soon as it says hello, and sees it from then on,
- * but only plays once it sits down with some chips. A page is only ever sent its own player's cards
- * (and everyone's that are face up): nothing in it, or its dev tools, gives anyone else's away. Poker
- * can't be watched for the same reason.
+ * A page that says hello is sent the server's tables (`tables`), as the Dragon Raid lists its raids:
+ * it joins one of them, or a new one, and sees it from then on (the bot's web/games/poker/table.ts),
+ * but only plays once it sits down with some chips. (A player already at a table, seated or not, is
+ * put back at it straight away.) A table full of members can't be joined; one with bots in it can: a
+ * bot gets up for each member joining, once the hand it's in is over, and they watch until it has.
+ * A page is only ever sent its own player's cards (and everyone's that are face up): nothing in it,
+ * or its dev tools, gives anyone else's away. Poker can't be watched for the same reason.
  *
  *   page -> bot   hello    first message: the token from the link
+ *                 tables   the server's tables again (`tables`)
+ *                 join     joins table `table`, or a new one ('new')
+ *                 leave    leaves the table they're at, not sitting at it, back to the tables
  *                 sit      sits down at `seat` (or the first free one) with `chips` from their balance
  *                 stand    stands up: their chips go back to their balance (straight away, or once the
  *                          hand they're in is over; they fold)
@@ -19,7 +25,8 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  *                 bot      adds a bot in the first free seat (`add` true), or takes the bot in `seat`
  *                          away (after the hand it's in)
  *                 chat     says something to the table (./chat.ts, with what the bot sends back)
- *   bot -> page   poker    the table as it is now: whenever anything about it changes
+ *   bot -> page   tables   the server's tables (after hello, `tables` and `leave`, and with a refused `join`)
+ *                 poker    the table as it is now: whenever anything about it changes
  *                 refused  something they asked couldn't be done, and why
  *                 error    and the bot closes the connection
  */
@@ -40,6 +47,9 @@ export type PlayerMove =
 
 export type ClientMessage =
   | { t: 'hello'; token: string }
+  | { t: 'tables' }
+  | { t: 'join'; table: number | 'new' }
+  | { t: 'leave' }
   | { t: 'sit'; chips: number; seat?: number }
   | { t: 'stand' }
   | { t: 'act'; move: PokerMove; amount?: number }
@@ -168,7 +178,31 @@ export type Refusal =
   | { reason: 'not_now' }
   /** They have won the most they may off the bots today (PokerState.botWinnings). */
   | { reason: 'bot_limit'; limit: number }
+  /** The table they asked to join is full of members (no bot to get up for them). */
+  | { reason: 'table_full' }
+  /** The table they asked to join has closed. */
+  | { reason: 'no_table' }
   /** Something went wrong on the bot's side. */
   | { reason: 'failed' };
 
-export type ServerMessage = { t: 'poker'; state: PokerState } | ({ t: 'refused' } & Refusal) | { t: 'error'; code: ErrorCode } | ChatServerMessage;
+/** A table in the server, as the page lists them before joining one. */
+export interface TableListing {
+  /** Its number in the server, from 1. */
+  table: number;
+  /** The members sitting at it. */
+  players: { name: string; avatar: string }[];
+  /** How many bots sit at it (one gets up for each member joining, once the hand it's in is over). */
+  bots: number;
+  seats: number;
+  /** A hand is being played. */
+  playing: boolean;
+  /** One more member can join: there's a free seat, or a bot to get up for them. */
+  open: boolean;
+}
+
+export type ServerMessage =
+  | { t: 'tables'; tables: TableListing[] }
+  | { t: 'poker'; state: PokerState }
+  | ({ t: 'refused' } & Refusal)
+  | { t: 'error'; code: ErrorCode }
+  | ChatServerMessage;

@@ -19,10 +19,10 @@ import {
 import { addBotWinnings, botWinnings, buyIn, cashOut, houseTake, renewSeats, saveChips, type BuyInResult } from '../../../services/casino/poker.js';
 import { getBalance } from '../../../services/economy/index.js';
 import { avatarUrl } from '../../auth/login.js';
-import { playerKey, type Player } from '../../auth/token.js';
+import type { Player } from '../../auth/token.js';
 import { Chat } from '../chat.js';
 import type { Peer as ConnectionPeer } from '../connection.js';
-import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage } from './protocol.js';
+import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage, TableListing } from './protocol.js';
 
 /*
  * The poker tables. A member opening poker joins (PokerTables.join) the table they sit at, the one
@@ -44,10 +44,11 @@ import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage 
  * (countBotWinnings): once a member has won poker.botDailyLimit, the bots sit out of the hands they're
  * dealt into, and they can't add one, until the next day. A table with nobody left at it closes.
  *
- * Bots never keep a member from playing: when every table is full, a member opening poker joins one
- * where a member sits alone among bots (botFilled), and a bot gets up for them (makeRoom), instead of
- * being put at a table of their own. A seat is kept for each member at a table who hasn't sat down
- * yet: a bot can't be added to it.
+ * A member opening poker picks a table from the server's (PokerTables.list), or opens a new one.
+ * Bots never keep them from playing: a table is open to them while it has a seat that isn't a
+ * member's, and joining, a bot gets up for them (makeRoom) once the hand it's in is over; they watch
+ * until it has. A seat is kept for each member at a table who hasn't sat down yet: a bot can't be
+ * added to it.
  *
  * Everything that changes a table runs one at a time (`run`), so a move can't land in the middle of
  * a hand being saved.
@@ -146,8 +147,6 @@ export class PokerTable {
   private stopHeartbeat: (() => void) | null = null;
   private closed = false;
   private botCount = 0;
-  /** Members a bot is getting up for (makeRoom), until it has: one bot goes for each. */
-  private readonly roomFor = new Set<string>();
   /** The changes waiting their turn: everything that changes the table runs one after another. */
   private queue: Promise<void> = Promise.resolve();
   /** What the pages at the table (seated or not) say to each other. */
@@ -179,10 +178,6 @@ export class PokerTable {
     return this.seats.filter((s) => s !== null).length;
   }
 
-  get full(): boolean {
-    return this.taken >= POKER_TABLE.seats;
-  }
-
   /** `userId` sits at this table or has a page at it. */
   has(userId: string): boolean {
     return this.viewers.has(userId) || this.seatOf(userId) !== null;
@@ -210,16 +205,28 @@ export class PokerTable {
     return [...this.viewers.keys()].filter((id) => !this.seated(id)).length;
   }
 
-  /** Full, with one member sitting among bots, and nobody else at it or on their way: a bot can get up for someone joining. */
-  get botFilled(): boolean {
-    return this.full && this.humans().length === 1 && this.roomFor.size === 0 && this.waiting() === 0 && this.seats.some((s) => s?.bot && !s.leaving);
+  /** Another member can join: there's a seat that isn't a member's (or kept for one), free or a bot's. */
+  get open(): boolean {
+    return this.humans().length + this.waiting() < POKER_TABLE.seats;
+  }
+
+  /** The table as the server's table list shows it. */
+  listing(): TableListing {
+    return {
+      table: this.number,
+      players: this.humans().map((s) => ({ name: s.name, avatar: s.avatar })),
+      bots: this.seats.filter((s) => s?.bot).length,
+      seats: POKER_TABLE.seats,
+      playing: this.hand !== null && !this.hand.done,
+      open: this.open,
+    };
   }
 
   // -------------------------------------------------------------------------
   // Pages coming and going
   // -------------------------------------------------------------------------
 
-  /** A page for `player` joins the table. Returns the page it took over from (another tab), if any. */
+  /** A page for `player` joins the table (a bot getting up for them, if it must). Returns the page it took over from (another tab), if any. */
   join(player: Player, peer: Peer): Promise<Peer | null> {
     return this.run(async () => {
       const before = this.viewers.get(player.userId);
@@ -229,6 +236,8 @@ export class PokerTable {
       if (seat) {
         seat.awaySince = null;
         seat.name = player.name;
+      } else {
+        await this.makeRoom();
       }
       try {
         viewer.balance = await this.deps.balance(this.guildId, player.userId);
@@ -409,17 +418,18 @@ export class PokerTable {
     });
   }
 
-  /** Gets a bot up for `userId`, who is joining this full table (see botFilled): one out of the hand if there is one. */
-  makeRoom(userId: string): Promise<void> {
-    this.roomFor.add(userId);
-    return this.run(async () => {
-      this.roomFor.delete(userId);
+  /**
+   * Gets bots up until there's a seat for every member at the table who hasn't sat down: one out of
+   * the hand if there is one (straight away), else one in it (once it's over).
+   */
+  private async makeRoom(): Promise<void> {
+    for (;;) {
+      const free = this.seats.filter((s) => s === null || s.leaving).length;
       const bots = this.seats.filter((s): s is Seat => s !== null && s.bot && !s.leaving);
       const bot = bots.find((s) => !this.inHand(s)) ?? bots.at(-1);
-      if (!this.full || !bot) return;
+      if (free >= this.waiting() || !bot) return;
       await this.botUp(bot);
-      this.broadcast();
-    });
+    }
   }
 
   /** A bot gets up: straight away, or after the hand it's in. */
@@ -430,7 +440,7 @@ export class PokerTable {
 
   /** A free seat a bot may take: one is kept for each member at the table who hasn't sat down yet. */
   private botSeatFree(): boolean {
-    return POKER_TABLE.seats - this.taken > this.waiting() + this.roomFor.size;
+    return POKER_TABLE.seats - this.taken > this.waiting();
   }
 
   private today(): string {
@@ -766,8 +776,6 @@ const fallback = (hand: HandState): PokerAction => (legalActions(hand)?.check ? 
 /** Every server's poker tables. */
 export class PokerTables {
   private readonly tables = new Map<string, PokerTable[]>();
-  /** The table each player was at last (by playerKey), to go back to while it has room. */
-  private readonly lastTable = new Map<string, PokerTable>();
 
   constructor(readonly realDeps: PokerDeps) {}
 
@@ -776,25 +784,26 @@ export class PokerTables {
     return this.tables.get(guildId) ?? [];
   }
 
+  /** A server's tables as its table list shows them. */
+  list(guildId: string): TableListing[] {
+    return this.in(guildId).map((t) => t.listing());
+  }
+
+  /** The table `player` sits at, or has a page at: they go straight back to it. */
+  tableOf(player: Player): PokerTable | null {
+    const open = this.in(player.guildId);
+    return open.find((t) => t.seated(player.userId)) ?? open.find((t) => t.has(player.userId)) ?? null;
+  }
+
   /**
-   * Puts `player`'s page at the table they sit at, the one they were at last if it has a free seat,
-   * or the first with one. When all are full, a bot gets up for them at one where a member sits alone
-   * among bots, and a new table is opened when there's none. Returns the table, and the page it took
-   * over from, if any.
+   * Puts `player`'s page at table `at`, or a new one ('new'): the table they're at already, if
+   * they are. Returns the table and the page it took over from, if any, or why they can't join.
    */
-  async join(player: Player, peer: Peer, deps: PokerDeps = this.realDeps): Promise<{ table: PokerTable; replaced: Peer | null }> {
-    const open = this.tables.get(player.guildId) ?? [];
-    const key = playerKey(player);
-    const last = this.lastTable.get(key);
-    let table =
-      open.find((t) => t.seated(player.userId)) ??
-      open.find((t) => t.has(player.userId)) ??
-      (last && open.includes(last) && !last.full ? last : undefined) ??
-      open.find((t) => !t.full);
-    if (!table) {
-      table = open.find((t) => t.botFilled);
-      await table?.makeRoom(player.userId);
-    }
+  async join(player: Player, peer: Peer, at: number | 'new', deps: PokerDeps = this.realDeps): Promise<{ table: PokerTable; replaced: Peer | null } | Refusal> {
+    const open = this.in(player.guildId);
+    let table = this.tableOf(player) ?? (at === 'new' ? undefined : open.find((t) => t.number === at));
+    if (!table && at !== 'new') return { reason: 'no_table' };
+    if (table && !table.has(player.userId) && !table.open) return { reason: 'table_full' };
     if (!table) {
       let number = 1;
       while (open.some((t) => t.number === number)) number++;
@@ -806,7 +815,6 @@ export class PokerTables {
       });
       this.tables.set(player.guildId, [...open, table].sort((a, b) => a.number - b.number));
     }
-    this.lastTable.set(key, table);
     const replaced = await table.join(player, peer);
     return { table, replaced };
   }
@@ -814,7 +822,6 @@ export class PokerTables {
   /** For tests: forgets every table. */
   reset(): void {
     this.tables.clear();
-    this.lastTable.clear();
   }
 }
 

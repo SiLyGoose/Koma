@@ -114,9 +114,11 @@ function setup(balances: Record<string, number> = { a: 10_000, b: 10_000, c: 10_
     clock,
     tables,
     table: () => current,
-    async join(userId: string) {
+    /** `userId`'s page joins table `at` (left out: the first, or a new one when there's none). */
+    async join(userId: string, at?: number | 'new') {
       const { peer } = page(userId);
-      const joined = await tables.join(player(userId), peer);
+      const joined = await tables.join(player(userId), peer, at ?? tables.in('g')[0]?.number ?? 'new');
+      if ('reason' in joined) return joined;
       current = joined.table;
       return joined;
     },
@@ -374,7 +376,7 @@ test('the table closes once nobody is at it, and the next page opens a new one',
   assert.equal(t.table()?.number, 1);
 });
 
-test('a full table: the next page joins a new one', async () => {
+test("a table full of members can't be joined: the page is told, and can open a new one", async () => {
   const balances: Record<string, number> = {};
   for (let i = 0; i < 10; i++) balances[`p${i}`] = 10_000;
   const t = setup(balances);
@@ -382,22 +384,28 @@ test('a full table: the next page joins a new one', async () => {
     await t.join(`p${i}`);
     await t.table()?.sit(`p${i}`, 1000);
   }
-  await t.join('p9');
+  assert.equal(t.tables.list('g')[0]?.open, false);
+  assert.deepEqual(await t.join('p9', 1), { reason: 'table_full' });
+  assert.deepEqual(await t.join('p9', 5), { reason: 'no_table' });
+  await t.join('p9', 'new');
   assert.equal(t.table()?.number, 2);
 });
 
-test('bots: a member alone at a table full of them makes room for the next page (a bot gets up, after its hand)', async () => {
+test('bots: a page joining a table full of them watches until one gets up for it, after the hand it is in', async () => {
   const t = setup();
   await t.join('a');
   await t.table()?.sit('a', 1000);
   for (let i = 1; i < POKER_TABLE.seats; i++) assert.equal(await t.table()?.addBot('a'), null);
   const first = t.table();
   assert.equal(t.state('a').canAddBot, false);
+  assert.deepEqual(t.tables.list('g'), [{ table: 1, players: [{ name: 'A', avatar: t.state('a').seats[0]?.avatar }], bots: POKER_TABLE.seats - 1, seats: POKER_TABLE.seats, playing: false, open: true }]);
   await t.tick(POKER_TABLE.nextHandMs);
   assert.equal(t.state('a').phase, 'playing');
-  // Every bot is in the hand: one gets up once it's over, and b waits at the table for its seat.
-  await t.join('b');
+  // Every bot is in the hand: one gets up once it's over, and b watches meanwhile.
+  await t.join('b', 1);
   assert.equal(t.table(), first);
+  assert.equal(t.state('b').seats.some((s) => s?.id === 'b'), false);
+  assert.equal(t.state('b').phase, 'playing');
   assert.equal(t.state('a').seats.filter((s) => s?.leaving).length, 1);
   assert.deepEqual(await t.table()?.addBot('a'), { reason: 'seat_taken' });
   for (let i = 0; i < 40 && t.state('a').phase === 'playing'; i++) {
@@ -410,7 +418,9 @@ test('bots: a member alone at a table full of them makes room for the next page 
   assert.equal(t.state('a').canAddBot, false);
   assert.deepEqual(await t.table()?.addBot('a'), { reason: 'seat_taken' });
   assert.equal(await t.table()?.sit('b', 1000), null);
-  // Two members now: the next page gets a table of its own.
-  await t.join('c');
-  assert.equal(t.table()?.number, 2);
+  // Between hands, a bot gets up for the next page straight away.
+  await t.join('c', 1);
+  assert.equal(t.table(), first);
+  assert.equal(t.state('c').seats.filter((s) => s?.bot).length, POKER_TABLE.seats - 3);
+  assert.equal(t.state('c').seats.filter((s) => s === null).length, 1);
 });

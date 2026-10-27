@@ -19,6 +19,9 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
   if (m.t === 'hello' && typeof m.token === 'string' && m.token.length <= 512) return { t: 'hello', token: m.token };
+  if (m.t === 'tables') return { t: 'tables' };
+  if (m.t === 'join' && (m.table === 'new' || (count(m.table) && m.table >= 1))) return { t: 'join', table: m.table };
+  if (m.t === 'leave') return { t: 'leave' };
   if (m.t === 'sit' && count(m.chips) && (m.seat === undefined || count(m.seat))) return { t: 'sit', chips: m.chips, ...(m.seat === undefined ? {} : { seat: m.seat }) };
   if (m.t === 'stand') return { t: 'stand' };
   if (m.t === 'act' && MOVES.includes(m.move as PokerMove) && (m.amount === undefined || count(m.amount))) {
