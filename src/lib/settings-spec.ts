@@ -208,7 +208,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('craft.runes.rare', 'Craft', 'Rune Fragments one Mysterious Rune: Rare takes.', 1, MAX_POINTS),
   int('craft.runes.heroic', 'Craft', 'Rune Fragments one Mysterious Rune: Heroic takes.', 1, MAX_POINTS),
   int('craft.runes.ancient', 'Craft', 'Rune Fragments one Mysterious Rune: Ancient takes.', 1, MAX_POINTS),
-  int('craft.tpScroll', 'Craft', "Boss Crystals (any one set's) one Transcendence Scroll (+5 TP for a hero) takes.", 1, MAX_POINTS),
+  int('craft.tpScroll', 'Craft', "Boss Crystals (any one set's) one Transcendence Attribute Point (+5 TP for a hero) takes.", 1, MAX_POINTS),
 
   { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
   int('rob.minStolen', 'Rob', `Lowest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),
