@@ -1,6 +1,6 @@
 import { CONFIG } from '../../../config.js';
 import { ITEMS } from '../../../data/items.js';
-import { isTmPiece, KR_ITEMS } from '../../../data/kr-gear.js';
+import { KR_ITEMS } from '../../../data/kr-gear.js';
 import { heroOnly } from '../heroes.js';
 import { SLOTS, STARS, type EquipmentDoc, type ItemCopyDoc, type ItemDef, type Stars } from '../../../types.js';
 
@@ -114,11 +114,11 @@ export const salvageWorth = (item: ItemDef): { unit: SaleUnit; each: number } =>
 
 /**
  * The komaDust salvaging one copy of hero gear gives (anything else: none): a King's Raid piece by its tier (the dragon sets' 6
- * to 8, an artifact's 10), the old TechnoMagic gear its own, a unique weapon or treasure its own. A TechnoMagic set's piece
- * gives none: its class's Upgrade Stones, as King's Raid's (constants/technomagic.ts tmSalvageStones).
+ * to 8, the TechnoMagic sets' 9, an artifact's 10), the old TechnoMagic gear its own, a unique weapon or treasure its own. A
+ * TechnoMagic set's piece gives its class's Upgrade Stones and its set's Boss Crystals too (constants/technomagic.ts tmSalvageStones).
  */
 export function itemSalvage(item: ItemDef): number {
-  if (!heroOnly(item) || isTmPiece(item)) return 0;
+  if (!heroOnly(item)) return 0;
   const powder = CONFIG.sell.powder;
   if (item.kr) return Math.max(0, Math.floor(powder[String(item.kr.tier) as keyof typeof powder] ?? 0));
   return Math.max(0, Math.floor(item.tmDrop ? powder.technomagic : powder.unique));

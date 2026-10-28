@@ -84,8 +84,8 @@ test("heroes page: a Reclaimed copy says so, its main stat higher, and their sto
   assert.equal(view.stones?.wizard, 0);
 });
 
-test("salvaging: a TechnoMagic piece gives its class's Upgrade Stones and no komaDust (King's Raid's has none), a dragon set's piece its komaDust", () => {
-  assert.equal(itemSalvage(item(ARMOR)), 0);
+test("salvaging: a TechnoMagic piece gives its class's Upgrade Stones and a T9's komaDust, a dragon set's piece its komaDust", () => {
+  assert.equal(itemSalvage(item(ARMOR)), DEFAULTS.sell.powder[9]);
   const dragon = [...ITEMS_BY_ID.values()].find((one) => one.kr && one.kr.tier === 8 && !isTmPiece(one)) as ItemDef;
   assert.ok(itemSalvage(dragon) > 0);
   const view = heroesView(
@@ -97,8 +97,8 @@ test("salvaging: a TechnoMagic piece gives its class's Upgrade Stones and no kom
     { heroes: {}, points: 0, gems: 0, essences: {} },
   );
   const of = (id: string) => view.copies.find((copy) => copy.id === id);
-  assert.deepEqual([of('r')?.salvage, of('r')?.salvageStones], [0, { class: 'knight', count: 2 }]);
-  assert.deepEqual([of('n')?.salvage, of('n')?.salvageStones], [0, { class: 'knight', count: 1 }]);
+  assert.deepEqual([of('r')?.salvage, of('r')?.salvageStones], [DEFAULTS.sell.powder[9], { class: 'knight', count: 2 }]);
+  assert.deepEqual([of('n')?.salvage, of('n')?.salvageStones], [DEFAULTS.sell.powder[9], { class: 'knight', count: 1 }]);
   assert.equal(of('d')?.salvageStones, undefined);
   assert.ok((of('d')?.salvage ?? 0) > 0);
 });

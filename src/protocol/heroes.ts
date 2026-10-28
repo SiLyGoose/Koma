@@ -135,7 +135,7 @@ export interface HeroCopy {
    * name says so. Left out for any other.
    */
   reclaimed?: boolean;
-  /** A TechnoMagic piece: the Upgrade Stones of its class salvaging it gives, in place of komaDust (King's Raid's). Left out for any other. */
+  /** A TechnoMagic piece: the Upgrade Stones of its class salvaging it gives besides its komaDust (King's Raid's). Left out for any other. */
   salvageStones?: { class: RaidClassId; count: number };
   /** A TechnoMagic piece: the Boss Crystals of its set (`set`) salvaging it gives too (King's Raid's). Left out for any other. */
   salvageCrystals?: { set: TmSetId; count: number };
