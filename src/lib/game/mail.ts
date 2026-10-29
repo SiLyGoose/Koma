@@ -1,12 +1,14 @@
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { KR_RUNES_BY_ID } from '../../data/kr-gear.js';
+import { LOOT_BOXES_BY_ID } from '../../data/loot-boxes.js';
 import type { MailAttachment } from '../../types.js';
 
 /*
  * The mail command's words (commands/mail.ts), with no database: whom to, the title, the message and the rewards, as
  * `<@user | all> | <title> | <message> [| <rewards>]`. Rewards are separated by commas or spaces: `points:5000`, `gems:20`,
  * `tokens:5`, `item:<item id>` (`x3` after it for 3), `rune:<rune id>` (the same), `uw` or `ut` (a Unique Weapon or
- * Unique Treasure Ticket: a selector), and `tp` (a Transcendence Attribute Point (5 TP), `tpx3` or `tp:3` for 3).
+ * Unique Treasure Ticket: a selector), `tp` (a Transcendence Attribute Point (5 TP), `tpx3` or `tp:3` for 3), and `box:<King's Raid
+ * code>` (a Dispatch Battle Loot: data/loot-boxes.ts, `x3` after it for 3).
  */
 
 /** The most of any one amount a mail may carry. */
@@ -40,6 +42,12 @@ export function parseReward(word: string): MailAttachment | null {
     if (!Number.isSafeInteger(n) || n <= 0 || n > MAIL_MOST) return null;
     const kind = (amount[1] as string).toLowerCase();
     return { kind: kind === 'gems' ? 'gems' : kind === 'tokens' ? 'tokens' : 'points', amount: n };
+  }
+  const box = /^box:(\w+?)(?:x(\d+))?$/i.exec(text);
+  if (box) {
+    const count = box[2] === undefined ? 1 : Number(box[2]);
+    const def = LOOT_BOXES_BY_ID.get((box[1] as string).toUpperCase());
+    return def && Number.isSafeInteger(count) && count > 0 && count <= 1000 ? { kind: 'box', boxId: def.id, count } : null;
   }
   const thing = /^(item|rune):([\w-]+?)(?:x(\d+))?$/i.exec(text);
   if (thing) {

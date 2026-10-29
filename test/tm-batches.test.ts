@@ -5,7 +5,9 @@ import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
 import { replay, STEP_SECONDS, TM_BOSS, type Run } from '../src/lib/game/technomagic.js';
-import { BATCH_BETWEEN_MS, batchReport, batchRunMs, batchWhere, TM_BATCH_MOST } from '../src/services/tm-batches.js';
+import { BATCH_BETWEEN_MS, batchLoot, batchReport, batchRunMs, batchWhere, TM_BATCH_MOST } from '../src/services/tm-batches.js';
+import { LOOT_BOXES, lootBoxOf } from '../src/data/loot-boxes.js';
+import { parseReward } from '../src/lib/game/mail.js';
 import { fightOut, localFights } from '../src/web/games/technomagic/fight.js';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import { signSession } from '../src/web/auth/login.js';
@@ -81,19 +83,43 @@ const batch = (over: Partial<TmBatchDoc> = {}): TmBatchDoc => ({
   ...over,
 });
 
-test('background raids: their mail says where they fought, how many were won and lost, what they cost, why they ended, and what they gave', () => {
+test('background raids: their mail says where they fought, how many were won and lost, how long and what they cost, why they ended, and carries their Dispatch Battle Loot', () => {
   assert.equal(batchWhere(batch()), 'Galgoria, stage 5');
   assert.equal(batchWhere(batch({ raid: 'dragon', boss: 'temeraire', mode: 'normal', stage: 7 })), 'Temeraire, Normal 7');
-  const report = batchReport(batch());
-  assert.match(report, /^3 raids of 200 fought against Galgoria, stage 5: 2 won, 1 lost\./);
+  const boxed = batch({ startedAt: new Date(0), endedAt: new Date(75 * 60_000), got: { points: 0, gems: 5, essences: {}, stones: {}, crystals: {}, items: {}, salvaged: {}, runes: {}, firstClears: 1, boxes: 2 } });
+  const report = batchReport(boxed);
+  assert.match(report, /^3 raids of 200 fought against Galgoria, stage 5: 2 won, 1 lost \(66\.7% won\)\./);
   assert.match(report, /You stopped them/);
-  assert.match(report, /They cost 300 zeiucoins\./);
-  assert.match(report, /• 2,000 zeiucoins/);
-  assert.match(report, /• 4 Technomagic Gear Upgrade Stone \(Warrior\)/);
-  assert.match(report, /• 250 Crystal of Galgoria/);
-  assert.match(report, /• 1 stage cleared for the first time/);
+  assert.match(report, /They took 1 h 15 min and cost 300 zeiucoins\./);
+  assert.match(report, /1 stage cleared for the first time: 5 komaGems, already yours\./);
+  assert.match(report, /Claim all 2, then open them in your Inventory's Others\./);
+  assert.doesNotMatch(report, /•/);
+  // A box each win, King's Raid's for its boss, mode and stage.
+  assert.deepEqual(batchLoot(boxed), [{ kind: 'box', boxId: 'DISPATCH_REWARD_BOX_GARGORIA_RAID_GRADE_5_NEW', count: 2 }]);
+  assert.deepEqual(batchLoot(batch({ raid: 'dragon', boss: 'scalaxia', mode: 'normal', stage: 12, got: { ...boxed.got } })), [{ kind: 'box', boxId: 'DISPATCH_REWARD_BOX_RAID_BLUE_T8_2', count: 2 }]);
+  assert.deepEqual(batchLoot(batch({ raid: 'dragon', boss: 'armarta', stage: 10, got: { ...boxed.got } })), [{ kind: 'box', boxId: 'DISPATCH_REWARD_BOX_RAID_HARD_BLACK_10', count: 2 }]);
+  // A batch from before the boxes: what its wins paid as they ended, and nothing to carry.
+  const old = batchReport(batch());
+  assert.match(old, /• 2,000 zeiucoins/);
+  assert.match(old, /• 4 Technomagic Gear Upgrade Stone \(Warrior\)/);
+  assert.match(old, /• 250 Crystal of Galgoria/);
+  assert.deepEqual(batchLoot(batch()), []);
   // Nothing won: said so.
-  assert.match(batchReport(batch({ won: 0, lost: 3, got: { points: 0, gems: 0, essences: {}, stones: {}, crystals: {}, items: {}, salvaged: {}, runes: {}, firstClears: 0 } })), /Nothing: no raid was won\./);
+  assert.match(batchReport(batch({ won: 0, lost: 3, got: { points: 0, gems: 0, essences: {}, stones: {}, crystals: {}, items: {}, salvaged: {}, runes: {}, firstClears: 0, boxes: 0 } })), /No raid was won, so there is no loot\./);
+});
+
+test("loot boxes: King's Raid's Dispatch Battle Loot, one for every stage of every boss and mode, named and pictured as King's Raid has them", () => {
+  assert.equal(LOOT_BOXES.length, 9 + 4 * 30);
+  assert.equal(new Set(LOOT_BOXES.map((box) => box.id)).size, LOOT_BOXES.length);
+  assert.equal(lootBoxOf('galgoria', 'hard', 9)?.name, 'Galgoria Raid Stage 9 Dispatch Battle Loot');
+  assert.equal(lootBoxOf('temeraire', 'hard', 3)?.name, 'Fire Dragon Hard Mode Stage 3 Dispatch Battle Loot');
+  assert.equal(lootBoxOf('zyrrkinoth', 'normal', 1)?.name, 'Poison Dragon T3 Stage 1 Dispatch Battle Loot');
+  assert.equal(lootBoxOf('zyrrkinoth', 'normal', 10)?.id, 'DISPATCH_REWARD_BOX_RAID_GREEN_T7_2');
+  assert.equal(lootBoxOf('scalaxia', 'hard', 1)?.icon, 'BOX_DRAGON_ICE');
+  assert.equal(lootBoxOf('galgoria', 'hard', 10), undefined);
+  // The mail command gives one too.
+  assert.deepEqual(parseReward('box:dispatch_reward_box_raid_hard_red_3x4'), { kind: 'box', boxId: 'DISPATCH_REWARD_BOX_RAID_HARD_RED_3', count: 4 });
+  assert.equal(parseReward('box:NOPE'), null);
 });
 
 test('background raids web: the raid page sees their batch, starts one (what it asks checked) and stops it, with its link or the site’s login', async () => {

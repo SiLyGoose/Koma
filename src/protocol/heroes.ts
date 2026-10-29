@@ -319,7 +319,51 @@ export interface HeroesView {
   craft?: HeroesCraft;
   /** The rule their hero gear's drops are salvaged by as they drop (POST /api/heroes/auto-salvage); null: none is (left out by a bot from before it). */
   autoSalvage?: SalvageRule | null;
+  /** The Dispatch Battle Loot they hold, unopened (none: empty; left out by a bot from before them). */
+  lootBoxes?: LootBoxStack[];
+  /** The most of them POST /api/heroes/open-box opens at once (left out by a bot from before them). */
+  lootOpenMost?: number;
 }
+
+/**
+ * King's Raid's Dispatch Battle Loot (the bot's data/loot-boxes.ts): what a won background raid gives, from its mail, held in the
+ * Inventory's Others until opened. Its id (King's Raid's item code), name and icon (the site's public/kr/items/<icon>.webp), the
+ * raid, boss (and its name), mode and stage whose win it gives, and how many they hold.
+ */
+export interface LootBoxStack {
+  id: string;
+  name: string;
+  icon: string;
+  raid: 'technomagic' | 'dragon';
+  boss: string;
+  bossName: string;
+  mode: 'hard' | 'normal';
+  stage: number;
+  count: number;
+}
+
+/**
+ * What opening Dispatch Battle Loot gave, all told (POST /api/heroes/open-box): how many were opened (fewer than asked: one
+ * couldn't be, and the rest were given back), zeiucoins, hero essences, Upgrade Stones and Boss Crystals (a salvaged drop's
+ * too), runes (by id), the hero gear copies given, and the komaDust of drops their salvage rule took.
+ */
+export interface LootOpened {
+  box: string;
+  count: number;
+  points: number;
+  essences: Partial<Record<EssenceId, number>>;
+  stones: Partial<Record<RaidClassId, number>>;
+  crystals: Partial<Record<TmSetId, number>>;
+  runes: Record<string, number>;
+  copies: string[];
+  dust: number;
+}
+
+/** POST /api/heroes/open-box: their heroes after (the copies given among them), and what the boxes gave. */
+export type HeroesOpened = HeroesView & { opened: LootOpened };
+
+/** Why no Dispatch Battle Loot was opened: no such box, or they don't hold that many. */
+export type LootOpenError = 'not_found' | 'not_enough';
 
 /** The tiers of King's Raid's hero gear a salvage rule can take: the dragon sets' (6 to 8) and the TechnoMagic sets' (9); never a T10's. */
 export const SALVAGE_TIERS: readonly number[] = [6, 7, 8, 9];

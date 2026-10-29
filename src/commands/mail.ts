@@ -18,7 +18,7 @@ import { attachmentView } from '../web/models/mail.js';
 const USAGE = (p: string): string =>
   [
     `**${p}mail** \`<@user | all> | <title> | <message> | [rewards]\``,
-    'Rewards, separated by commas: `points:5000`, `gems:20`, `tokens:5`, `item:<item id>` (`x3` for 3), `rune:<rune id>` (`x3` for 3), `uw` (a Unique Weapon Ticket), `ut` (a Unique Treasure Ticket), `tp` (a Transcendence Attribute Point (5 TP), `tpx3` for 3).',
+    'Rewards, separated by commas: `points:5000`, `gems:20`, `tokens:5`, `item:<item id>` (`x3` for 3), `rune:<rune id>` (`x3` for 3), `uw` (a Unique Weapon Ticket), `ut` (a Unique Treasure Ticket), `tp` (a Transcendence Attribute Point (5 TP), `tpx3` for 3), `box:<King’s Raid code>` (a Dispatch Battle Loot, `x3` for 3).',
     `For example: \`${p}mail all | Maintenance | Thanks for waiting! | points:5000, uw\``,
     '`all` is everyone with the notify role.',
   ].join('\n');

@@ -8,6 +8,7 @@ import { ApiError } from '../lib/errors.js';
 import type { HeroService } from '../services/heroes.js';
 import { CopyId, parse, UserId } from '../lib/validate.js';
 import { SELL_MAX } from './gear.js';
+import { LOOT_OPEN_MOST } from '../../services/loot-boxes.js';
 
 /* The heroes' requests (the shop's and the heroes page's). Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
 
@@ -49,6 +50,8 @@ const Craft = z.object({
 });
 /** Transcendence Scrolls to craft: the set whose Boss Crystals pay, and how many (the Craft tab's most at once). */
 const CraftScrolls = z.object({ set: z.enum(['perseverance', 'hope', 'authority']), count: z.number().int().min(1).max(1000) });
+/** Dispatch Battle Loot to open: the box (King's Raid's code), and how many (at most LOOT_OPEN_MOST at once). */
+const OpenBox = z.object({ box: z.string().max(64), count: z.number().int().min(1).max(LOOT_OPEN_MOST) });
 /** Every perk picked (data/transcend.ts's). */
 const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
 
@@ -141,6 +144,11 @@ export function heroController(heroes: HeroService) {
     async craft(req, res) {
       const { set, kind, part, class: cls, accessory } = parse(Craft, req.body);
       res.json(await heroes.craft(res.locals.guildId, res.locals.session.userId, set, kind, part ?? null, cls ?? null, accessory ?? null));
+    },
+
+    async openBox(req, res) {
+      const { box, count } = parse(OpenBox, req.body);
+      res.json(await heroes.openBox(res.locals.guildId, res.locals.session.userId, box, count));
     },
 
     async autoSalvage(req, res) {

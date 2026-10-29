@@ -33,5 +33,6 @@ export function heroRoutes(deps: ApiDeps): Router {
     .post('/lock', ...site, heroes.lock)
     .post('/auto-salvage', ...site, heroes.autoSalvage)
     .post('/craft', ...site, heroes.craft)
-    .post('/craft-scroll', ...site, heroes.craftScrolls);
+    .post('/craft-scroll', ...site, heroes.craftScrolls)
+    .post('/open-box', ...site, heroes.openBox);
 }

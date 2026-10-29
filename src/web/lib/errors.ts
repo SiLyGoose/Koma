@@ -3,7 +3,7 @@ import type { BatchRefusal } from '../../services/tm-batches.js';
 
 /* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
 
-export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'no_crystals' | 'no_piece' | 'no_fragments' | 'pending' | 'loadout_locked' | 'no_scroll' | 'scrolls_maxed' | RefineBlock | LoadoutNameBlock | BatchRefusal;
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'no_crystals' | 'no_piece' | 'no_fragments' | 'pending' | 'loadout_locked' | 'no_scroll' | 'scrolls_maxed' | 'not_enough' | RefineBlock | LoadoutNameBlock | BatchRefusal;
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
@@ -47,6 +47,7 @@ const STATUS: Record<ErrorCode, number> = {
   loadout_locked: 409,
   no_scroll: 409,
   scrolls_maxed: 409,
+  not_enough: 409,
   name_too_long: 409,
   name_bad_characters: 409,
   name_no_letters: 409,

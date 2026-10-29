@@ -5,10 +5,11 @@ import { ESSENCE_NAME, type EssenceId } from '../data/transcend.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, tieredName } from '../data/kr-gear.js';
 import { collections } from '../db.js';
+import { lootBoxOf } from '../data/loot-boxes.js';
 import { DRAGONS } from '../lib/game/dragon.js';
 import { STEP_SECONDS, TM_BOSSES, type Run } from '../lib/game/technomagic.js';
 import type { RaidMode } from '../protocol/technomagic.js';
-import type { TmBatchDoc, TmBatchGot } from '../types.js';
+import type { MailAttachment, TmBatchDoc, TmBatchGot } from '../types.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
 import { sendMail } from './mail.js';
 import { beginRun, clearedStages, finishRun, ownedHeroes, type BegunRun, type TmWin } from './technomagic.js';
@@ -19,10 +20,12 @@ import { beginRun, clearedStages, finishRun, ownedHeroes, type BegunRun, type Tm
  * their own on the raid's page. The bot fights them one after another while they're away, each as a room's run is: it
  * costs hero.backgroundPrice points as it begins (out of points, the batch ends), is begun with their heroes' gear and
  * outfits as they are then (./technomagic.ts beginRun), fought out on Auto (as a raid's heroes start: the fights' worker,
- * Fights.fightOut), and paid (finishRun) once as long has gone by as it would have taken played: its steps, and
- * BATCH_BETWEEN_MS for the loading and the results between runs. A lost one pays what a loss does and the batch goes on.
- * Stopped, the run being fought is given up (it pays nothing). Ended, for whatever reason, a mail says how every run went and
- * what they gave, all told. One batch runs at a time a member; while it does, they can't fight in the raids' rooms (their
+ * Fights.fightOut), and over (finishRun) once as long has gone by as it would have taken played: its steps, and
+ * BATCH_BETWEEN_MS for the loading and the results between runs. A win clears its stage then (its first clears' komaGems
+ * paid), and gives one of King's Raid's Dispatch Battle Loot of its boss, mode and stage (data/loot-boxes.ts) in place of the
+ * rest; a lost one pays nothing and the batch goes on. Stopped, the run being fought is given up (it pays nothing). Ended, for
+ * whatever reason, a mail says how the runs went and carries the boxes they won (claimed, they're held in the Inventory's
+ * Others until opened: ./loot-boxes.ts). One batch runs at a time a member; while it does, they can't fight in the raids' rooms (their
  * server.ts). Each step is kept in the batch's document, so a bot started again picks every batch up where it was
  * (resumeBatches).
  */
@@ -57,7 +60,7 @@ export type BatchRefusal = 'running' | 'fighting' | 'bad_count' | 'boss' | 'mode
 const newBatchId = (): string => randomBytes(12).toString('base64url');
 
 /** Nothing got yet. */
-const nothingGot = (): TmBatchGot => ({ points: 0, gems: 0, essences: {}, stones: {}, crystals: {}, items: {}, salvaged: {}, runes: {}, firstClears: 0 });
+const nothingGot = (): TmBatchGot => ({ points: 0, gems: 0, essences: {}, stones: {}, crystals: {}, items: {}, salvaged: {}, runes: {}, firstClears: 0, boxes: 0 });
 
 /** A member's batch running (null: none). */
 export const runningBatch = (guildId: string, userId: string): Promise<TmBatchDoc | null> => collections().tmBatches.findOne({ guildId, userId, state: 'running' });
@@ -228,20 +231,23 @@ function add(got: TmBatchGot, won: TmWin): void {
   got.firstClears += won.firstClears ?? 0;
 }
 
-/** Pays the batch's run over (`givenUp`: stopped, it pays nothing and counts as lost), into the batch (`batch` follows). */
+/** Ends the batch's run over (`givenUp`: stopped, it pays nothing and counts as lost): a win's first clears paid, and its box counted, into the batch (`batch` follows). */
 async function payCurrent(batch: TmBatchDoc, givenUp: boolean, now: Date): Promise<void> {
   const current = batch.current as NonNullable<TmBatchDoc['current']>;
   // (Paid once: a bot stopped after paying it, but before saying so in the batch, doesn't pay it again.)
   const record = await collections().tmRuns.findOne({ _id: `${current.run}:${batch.userId}` }, { projection: { claimedAt: 1 } });
   const result = givenUp ? 'lost' : current.result;
   if (!record?.claimedAt) {
-    const paid = await finishRun(batch.guildId, begunAgain(batch, current), batch.stage, current.result, current.ticks, givenUp ? new Set([batch.userId]) : new Set(), now);
+    const paid = await finishRun(batch.guildId, begunAgain(batch, current), batch.stage, current.result, current.ticks, givenUp ? new Set([batch.userId]) : new Set(), now, true);
     const won = paid.get(batch.userId);
     if (won) add(batch.got, won);
   }
   batch.done += 1;
-  if (result === 'won') batch.won += 1;
-  else batch.lost += 1;
+  // (Its Dispatch Battle Loot, counted with the win: the batch's mail carries them.)
+  if (result === 'won') {
+    batch.won += 1;
+    batch.got.boxes = (batch.got.boxes ?? 0) + 1;
+  } else batch.lost += 1;
   batch.current = null;
   await collections().tmBatches.updateOne({ _id: batch._id, 'current.run': current.run }, { $set: { current: null, got: batch.got, done: batch.done, won: batch.won, lost: batch.lost } });
 }
@@ -305,7 +311,7 @@ async function endBatch(batch: TmBatchDoc, end: NonNullable<TmBatchDoc['end']>, 
   clearTimeout(timers.get(batch._id));
   timers.delete(batch._id);
   if (!ended) return;
-  await sendMail(batch.guildId, [batch.userId], { from: 'system', title: batchTitle(ended), message: batchReport(ended), attachments: [] }, now);
+  await sendMail(batch.guildId, [batch.userId], { from: 'system', title: batchTitle(ended), message: batchReport(ended), attachments: batchLoot(ended) }, now);
 }
 
 // ---------------------------------------------------------------------------------------------- its mail
@@ -329,19 +335,42 @@ const ENDED: Record<NonNullable<TmBatchDoc['end']>, string> = {
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
-/** A batch's mail: how many runs were fought, won and lost, what they cost, why it ended, and everything they gave, all told. */
+/** How long a batch took: "2 h 5 min", "14 min", "under a minute". */
+function took(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return 'under a minute';
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} h ${minutes % 60} min` : `${minutes} min`;
+}
+
+/** The Dispatch Battle Loot a batch's wins gave (data/loot-boxes.ts), as its mail carries them (none: none won, or a batch from before them). */
+export function batchLoot(batch: TmBatchDoc): MailAttachment[] {
+  const box = lootBoxOf(batch.boss, batch.mode === 'normal' ? 'normal' : 'hard', batch.stage);
+  const count = batch.got.boxes ?? 0;
+  return box && count > 0 ? [{ kind: 'box', boxId: box.id, count }] : [];
+}
+
+/**
+ * A batch's mail: how many runs were fought, won and lost, how long they took and what they cost, why it ended, the stages
+ * they cleared for the first time, and where its Dispatch Battle Loot go (the mail carries them: batchLoot). A batch from before
+ * the boxes (its wins paid as they ended) says what they gave too.
+ */
 export function batchReport(batch: TmBatchDoc): string {
   const { got } = batch;
+  const rate = batch.done > 0 ? Math.round((batch.won / batch.done) * 1000) / 10 : 0;
   const lines: string[] = [
-    `${plural(batch.done, 'raid')} of ${batch.count} fought against ${batchWhere(batch)}: ${batch.won} won, ${batch.lost} lost.`,
+    `${plural(batch.done, 'raid')} of ${batch.count} fought against ${batchWhere(batch)}: ${batch.won} won, ${batch.lost} lost (${rate}% won).`,
     ENDED[batch.end ?? 'finished'],
-    `They cost ${plural(batch.spent, 'zeiucoin')}.`,
-    '',
-    'What they gave (already yours):',
+    `They took ${took((batch.endedAt ?? batch.startedAt).getTime() - batch.startedAt.getTime())} and cost ${plural(batch.spent, 'zeiucoin')}.`,
   ];
+  if (got.firstClears > 0) lines.push(`${plural(got.firstClears, 'stage')} cleared for the first time${got.gems > 0 ? `: ${plural(got.gems, 'komaGem')}, already yours` : ''}.`);
+  const loot = batchLoot(batch)[0];
+  if (loot?.kind === 'box') lines.push('', `Each win gave a Dispatch Battle Loot. Claim ${loot.count === 1 ? 'it' : `all ${loot.count.toLocaleString('en-US')}`}, then open ${loot.count === 1 ? 'it' : 'them'} in your Inventory's Others.`);
+  else if (batch.won === 0) lines.push('', 'No raid was won, so there is no loot.');
+
+  // (A batch from before the boxes: its wins paid as they ended.)
   const gave: string[] = [];
   if (got.points > 0) gave.push(plural(got.points, 'zeiucoin'));
-  if (got.gems > 0) gave.push(plural(got.gems, 'komaGem'));
   for (const [kind, n] of Object.entries(got.essences)) if (n) gave.push(`${n.toLocaleString('en-US')} ${ESSENCE_NAME[kind as EssenceId] ?? kind}`);
   for (const [cls, n] of Object.entries(got.stones)) gave.push(`${n.toLocaleString('en-US')} ${tmStoneName(cls)}`);
   for (const [set, n] of Object.entries(got.crystals)) gave.push(`${n.toLocaleString('en-US')} Crystal of ${TM_CRYSTALS.boss[set as keyof typeof TM_CRYSTALS.boss] ?? set}`);
@@ -352,7 +381,6 @@ export function batchReport(batch: TmBatchDoc): string {
   };
   for (const [id, n] of Object.entries(got.items)) gave.push(`${n}× ${itemName(id)}`);
   for (const [id, n] of Object.entries(got.salvaged)) gave.push(`${n}× ${itemName(id)} (salvaged as it dropped, by your rule)`);
-  if (got.firstClears > 0) gave.push(`${plural(got.firstClears, 'stage')} cleared for the first time`);
-  lines.push(...(gave.length > 0 ? gave.map((one) => `• ${one}`) : ['Nothing: no raid was won.']));
+  if (gave.length > 0) lines.push('', 'The raids won before the loot boxes gave (already yours):', ...gave.map((one) => `• ${one}`));
   return lines.join('\n');
 }

@@ -1,4 +1,4 @@
-import type { HeroesCrafted, HeroPart, TmAccessory, TmCraftKind } from '../../protocol/heroes.js';
+import type { HeroesCrafted, HeroesOpened, HeroPart, TmAccessory, TmCraftKind } from '../../protocol/heroes.js';
 import type { TmSetId } from '../../protocol/items.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import type { ApiDeps } from '../api.js';
@@ -40,7 +40,7 @@ export function heroService(deps: ApiDeps) {
       if ((await deps.memberName(guildId, userId)) === null) throw new ApiError('not_found');
       const view = await store.view(guildId, userId);
       const none = <K extends string>(of: Partial<Record<K, number>> | undefined): Record<K, number> => Object.fromEntries(Object.keys(of ?? {}).map((id) => [id, 0])) as Record<K, number>;
-      return { ...view, balance: 0, gems: 0, runeFragments: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null };
+      return { ...view, balance: 0, gems: 0, runeFragments: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null, lootBoxes: [] };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */
@@ -101,6 +101,13 @@ export function heroService(deps: ApiDeps) {
       const crafted = await store.craft(guildId, userId, set, kind, part, cls, accessory);
       if (typeof crafted === 'string') throw new ApiError(crafted);
       return crafted;
+    },
+
+    /** Opens `count` of their Dispatch Battle Loot `box` (a background raid's): their heroes after, and what it gave. */
+    async openBox(guildId: string, userId: string, box: string, count: number): Promise<HeroesOpened> {
+      const opened = await store.openBox(guildId, userId, box, count);
+      if (typeof opened === 'string') throw new ApiError(opened);
+      return opened;
     },
   };
 }

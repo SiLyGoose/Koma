@@ -94,7 +94,9 @@ export type MailAttachment =
   | { kind: 'rune'; runeId: string; count: number }
   | { kind: 'selector'; of: 'uw' | 'ut' }
   /** Transcendence Scrolls (Transcendence Attribute Points), held (MemberDoc.tpScrolls) once claimed. */
-  | { kind: 'tp'; count: number };
+  | { kind: 'tp'; count: number }
+  /** King's Raid's Dispatch Battle Loot (data/loot-boxes.ts, its id), held (MemberDoc.lootBoxes) once claimed. */
+  | { kind: 'box'; boxId: string; count: number };
 
 /** A mail in a member's mailbox (services/mail.ts): its title and message, whom from, what it carries, and when it was read and claimed. */
 export interface MailDoc {
@@ -277,6 +279,8 @@ export interface MemberDoc {
   crystals?: Partial<Record<TmSetId, number>>;
   /** Transcendence Scrolls crafted from Boss Crystals and not used yet: each gives a hero TP_SCROLL_POINTS more TP (services/heroes.ts). Missing means none. */
   tpScrolls?: number;
+  /** King's Raid's Dispatch Battle Loot claimed from background raids' mail and not opened yet, by box (data/loot-boxes.ts): services/loot-boxes.ts. Missing means none. */
+  lootBoxes?: Record<string, number>;
   /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
   weeklyBossWeek?: string;
   /**
@@ -482,6 +486,8 @@ export interface TmBatchGot {
   salvaged: Record<string, number>;
   runes: Record<string, number>;
   firstClears: number;
+  /** The Dispatch Battle Loot its wins gave (its mail carries them: data/loot-boxes.ts), in place of the rest; missing in a batch from before them (its wins paid as they ended). */
+  boxes?: number;
 }
 
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */

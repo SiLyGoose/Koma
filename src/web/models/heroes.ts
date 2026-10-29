@@ -1,5 +1,9 @@
 import { craftTmPiece } from '../../services/technomagic.js';
-import type { HeroesCrafted, TmAccessory, TmCraftError, TmCraftKind } from '../../protocol/heroes.js';
+import type { HeroesCrafted, HeroesOpened, LootBoxStack, LootOpenError, TmAccessory, TmCraftError, TmCraftKind } from '../../protocol/heroes.js';
+import { LOOT_BOXES, LOOT_BOXES_BY_ID } from '../../data/loot-boxes.js';
+import { LOOT_OPEN_MOST, openLootBoxes } from '../../services/loot-boxes.js';
+import { DRAGONS } from '../../lib/game/dragon.js';
+import { TM_BOSSES } from '../../lib/game/technomagic.js';
 import { CONFIG } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
@@ -105,6 +109,17 @@ export interface HeroStore {
   craftScrolls: (guildId: string, userId: string, set: TmSetId, count: number) => Promise<HeroesView | TpScrollCraftError>;
   /** Uses one of their Transcendence Scrolls on their hero (more TP): their heroes after, or why not (nothing was spent). */
   scroll: (guildId: string, userId: string, hero: string) => Promise<HeroesView | TpScrollUseError>;
+  /** Opens `count` of their Dispatch Battle Loot `box`: their heroes after and what it gave, or why not (none was opened). */
+  openBox: (guildId: string, userId: string, box: string, count: number) => Promise<HeroesOpened | LootOpenError>;
+}
+
+/** The Dispatch Battle Loot a member holds (MemberDoc.lootBoxes), in data/loot-boxes.ts's order: the Galgoria Raid's, then each dragon's Hard and Normal stages. */
+function lootStacks(held: Record<string, number> | undefined): LootBoxStack[] {
+  const bossName = (id: string): string => [...TM_BOSSES, ...DRAGONS].find((boss) => boss.id === id)?.name ?? id;
+  return LOOT_BOXES.flatMap((box) => {
+    const count = held?.[box.id] ?? 0;
+    return count > 0 ? [{ id: box.id, name: box.name, icon: box.icon, raid: box.raid, boss: box.boss, bossName: bossName(box.boss), mode: box.mode, stage: box.stage, count }] : [];
+  });
 }
 
 type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
@@ -190,7 +205,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(
   copies: readonly CopyInfo[],
-  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'tpScrolls'>> & Partial<LoadoutFields>) | null,
+  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'tpScrolls' | 'lootBoxes'>> & Partial<LoadoutFields>) | null,
 ): HeroesView {
   const worn = heroWorn(member);
   // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
@@ -335,7 +350,7 @@ export function heroesView(
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
   const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
   const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
-  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member) };
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member), lootBoxes: lootStacks(member?.lootBoxes), lootOpenMost: LOOT_OPEN_MOST };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {
@@ -413,5 +428,10 @@ export const heroStore: HeroStore = {
   scroll: async (guildId, userId, hero) => {
     const result = await useTpScroll(guildId, userId, hero);
     return result.ok ? load(guildId, userId) : result.reason;
+  },
+  openBox: async (guildId, userId, box, count) => {
+    if (!LOOT_BOXES_BY_ID.has(box)) return 'not_found';
+    const opened = await openLootBoxes(guildId, userId, box, count);
+    return typeof opened === 'string' ? opened : { ...(await load(guildId, userId)), opened };
   },
 };

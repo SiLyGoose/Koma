@@ -13,6 +13,8 @@ export interface MailAttachmentView {
   picked?: MailPickItem | null;
   /** One of the bot's currencies (zeiucoins, komaGems, komaTokens): its emoji is its picture. Left out: none. */
   currency?: 'points' | 'gems' | 'tokens';
+  /** King's Raid's Dispatch Battle Loot (a background raid's), held in the Inventory's Others once claimed and opened there. Left out: not one. */
+  box?: boolean;
 }
 
 /** An item a selector can be picked as: its id (its picture) and name. */

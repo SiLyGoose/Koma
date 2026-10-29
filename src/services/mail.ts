@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { ITEMS_BY_ID, UNIQUE_TREASURES, UNIQUE_WEAPONS } from '../data/items.js';
 import { KR_RUNES_BY_ID, rollKrOptions, rollRuneOfGrade } from '../data/kr-gear.js';
+import { LOOT_BOXES_BY_ID } from '../data/loot-boxes.js';
 import { collections } from '../db.js';
 import { rollUtOptions } from '../lib/game/technomagic.js';
 import { TP_SCROLL_NAME } from '../data/transcend.js';
@@ -12,7 +13,8 @@ import { ensureMember, recordLedger } from './economy/shared.js';
  * The members' mailboxes (MailDoc, the `mail` collection): mail the bot sends (a Hero Item pull's Unique Weapon or Unique
  * Treasure Ticket: grantReward) and the bot admin sends with a title, a message and rewards (the mail command: sendMail).
  * A member reads it on the site (its mail icon shows how many wait for them: unread, or with rewards unclaimed) and claims what it carries: points, komaGems,
- * komaTokens, copies of an item, runes, Transcendence Attribute Points (tpScrolls), or a selector, held as a ticket (the member's `selectors`, the site's Inventory's
+ * komaTokens, copies of an item, runes, Transcendence Attribute Points (tpScrolls), King's Raid's Dispatch Battle Loot (a background raid's:
+ * lootBoxes, opened in the site's Inventory's Others: ./loot-boxes.ts), or a selector, held as a ticket (the member's `selectors`, the site's Inventory's
  * Others) until they use it (services/economy/powder.ts useSelector). Claimed once: a second claim finds it claimed.
  */
 
@@ -142,6 +144,13 @@ export async function claimMail(guildId: string, userId: string, id: string, now
         inc.tpScrolls = (inc.tpScrolls ?? 0) + attachment.count;
         given.push(`${attachment.count}× ${TP_SCROLL_NAME}`);
         break;
+      case 'box': {
+        const box = LOOT_BOXES_BY_ID.get(attachment.boxId);
+        if (!box) break;
+        inc[`lootBoxes.${box.id}`] = (inc[`lootBoxes.${box.id}`] ?? 0) + attachment.count;
+        given.push(`${attachment.count}× ${box.name}`);
+        break;
+      }
     }
   }
   if (Object.keys(inc).length > 0) await members.updateOne({ guildId, userId }, { $inc: inc });

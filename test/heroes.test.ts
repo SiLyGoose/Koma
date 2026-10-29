@@ -351,6 +351,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       calls.push(`scroll ${hero}`);
       return !owned.includes(hero) ? 'not_found' : hero === 'kirze' ? empty : 'scrolls_maxed';
     },
+    openBox: async (guildId, userId, box, count) => {
+      calls.push(`openBox ${box} ${count}`);
+      if (box !== 'DISPATCH_REWARD_BOX_RAID_HARD_RED_3') return 'not_found';
+      return count > 5 ? 'not_enough' : { ...empty, opened: { box, count, points: 100 * count, essences: {}, stones: {}, crystals: {}, runes: {}, copies: [], dust: 0 } };
+    },
   };
   const deps: ApiDeps = {
     config: SITE,
@@ -412,6 +417,15 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await post('/api/heroes/craft-scroll', { guild: 'g1', set: 'nope', count: 1 })).status, 400);
     assert.equal((await post('/api/heroes/scroll', { guild: 'g1', hero: 'kirze' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/scroll', { guild: 'g1', hero: 'klaus' })).json(), { error: 'not_found' });
+    // Dispatch Battle Loot: opened up to LOOT_OPEN_MOST at once, as many as they hold.
+    const opened = await post('/api/heroes/open-box', { guild: 'g1', box: 'DISPATCH_REWARD_BOX_RAID_HARD_RED_3', count: 2 });
+    assert.equal(opened.status, 200);
+    assert.equal(((await opened.json()) as { opened: { points: number } }).opened.points, 200);
+    const short = await post('/api/heroes/open-box', { guild: 'g1', box: 'DISPATCH_REWARD_BOX_RAID_HARD_RED_3', count: 6 });
+    assert.equal(short.status, 409);
+    assert.deepEqual(await short.json(), { error: 'not_enough' });
+    assert.equal((await post('/api/heroes/open-box', { guild: 'g1', box: 'NOPE', count: 1 })).status, 404);
+    assert.equal((await post('/api/heroes/open-box', { guild: 'g1', box: 'DISPATCH_REWARD_BOX_RAID_HARD_RED_3', count: 201 })).status, 400);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['atk-up', 'hp-up'] })).status, 200);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: [] })).status, 200);
     assert.equal((await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['nope'] })).status, 400);
@@ -474,6 +488,9 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'craftScrolls authority 1',
       'scroll kirze',
       'scroll klaus',
+      'openBox DISPATCH_REWARD_BOX_RAID_HARD_RED_3 2',
+      'openBox DISPATCH_REWARD_BOX_RAID_HARD_RED_3 6',
+      'openBox NOPE 1',
       'perks kirze atk-up,hp-up',
       'perks kirze ',
       'perks kirze atk-up,hp-up,def-up',

@@ -205,9 +205,10 @@ async function giveRunes(guildId: string, userId: string, runes: readonly string
 
 /**
  * A room's run is over (`result`, after `ticks` steps): a win at `stage` pays each of its players (payTmWin, or a dragon's:
- * payDragonWin); those who left it (`forfeited`) get nothing. Returns what each got.
+ * payDragonWin); those who left it (`forfeited`) get nothing. `boxed` (a background raid's: ./tm-batches.ts): a win pays only
+ * its first clears' komaGems (payFirstClears), the rest its Dispatch Battle Loot's (./loot-boxes.ts). Returns what each got.
  */
-export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string> = new Set(), now: Date = new Date()): Promise<Map<string, TmWin>> {
+export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string> = new Set(), now: Date = new Date(), boxed = false): Promise<Map<string, TmWin>> {
   const found = new Map<string, TmWin>();
   const dragon = isDragon(run.boss);
   for (const userId of run.players.keys()) {
@@ -215,7 +216,13 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
     const paid = result === 'won' && !forfeited.has(userId);
     // (The classes of the heroes they brought: whose Upgrade Stones a TechnoMagic Raid win gives.)
     const classes = [...new Set([...(run.players.get(userId)?.gear.keys() ?? [])].flatMap((id) => HEROES_BY_ID.get(id)?.class ?? []))];
-    const won: TmWin = !paid ? { finds: [], points: 0 } : dragon ? await payDragonWin(guildId, userId, run.boss, stage, run.mode) : await payTmWin(guildId, userId, run.boss, stage, classes);
+    const won: TmWin = !paid
+      ? { finds: [], points: 0 }
+      : boxed
+        ? await payFirstClears(guildId, userId, run.boss, stage, run.mode)
+        : dragon
+          ? await payDragonWin(guildId, userId, run.boss, stage, run.mode)
+          : await payTmWin(guildId, userId, run.boss, stage, classes);
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
@@ -234,13 +241,33 @@ async function payPoints(guildId: string, userId: string, points: number, reason
 }
 
 /**
+ * A win's first clears alone: komaGems for each stage up to `stage` they hadn't cleared (tmClearGems, a dragon's dragonClearGems:
+ * a win clears every stage under it too; this run isn't marked won yet). A background raid's win pays this as it ends, the rest
+ * in its Dispatch Battle Loot.
+ */
+async function payFirstClears(guildId: string, userId: string, boss: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
+  const dragon = isDragon(boss);
+  const cleared = await clearedStage(guildId, userId, boss, dragon ? mode : 'hard');
+  const gems = dragon ? dragonClearGems(cleared, stage, mode) : tmClearGems(cleared, stage);
+  if (gems > 0) await giveGems(guildId, userId, gems, dragon ? 'dragon_gems' : 'tm_gems');
+  return { finds: [], points: 0, gems, firstClears: Math.max(0, stage - cleared) };
+}
+
+/**
+ * What one of a background raid's Dispatch Battle Loot gives (./loot-boxes.ts): a win at its stage, without first clears (its run
+ * paid them as it ended). A TechnoMagic Raid box's Upgrade Stones are of any class (its lineup isn't kept).
+ */
+export const payLootWin = (guildId: string, userId: string, boss: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> =>
+  isDragon(boss) ? payDragonWin(guildId, userId, boss, stage, mode, false) : payTmWin(guildId, userId, boss, stage, [], false);
+
+/**
  * A TechnoMagic Raid win at `stage`: that stage's pieces of the boss's set (tmDropCount), each copy with its options and its
  * additional skill rolled for it, now and then Reclaimed (rollReclaimed); its runes; now and then an artifact; Upgrade Stones of
- * one of `classes` (the heroes they brought: rollTmStones); `hero.winPoints` points; and komaGems for each stage up to it they
+ * one of `classes` (the heroes they brought: rollTmStones); `hero.winPoints` points; and (`clears`) komaGems for each stage up to it they
  * hadn't cleared (tmClearGems: a win clears every stage under it too; this run isn't marked won yet).
  */
-async function payTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[] = []): Promise<TmWin> {
-  const cleared = await clearedStage(guildId, userId, boss);
+async function payTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[] = [], clears = true): Promise<TmWin> {
+  const cleared = clears ? await clearedStage(guildId, userId, boss) : stage;
   const salvage = await loadAutoSalvage(guildId, userId);
   const finds: TmFind[] = [];
   for (let n = tmDropCount(stage); n > 0; n--) {
@@ -267,11 +294,11 @@ async function payTmWin(guildId: string, userId: string, boss: string, stage: nu
 
 /**
  * A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, its
- * dragon's essences (dragonPay), and komaGems for each stage up to it they hadn't cleared (dragonClearGems: a win clears every
+ * dragon's essences (dragonPay), and (`clears`) komaGems for each stage up to it they hadn't cleared (dragonClearGems: a win clears every
  * stage under it too, as their progress is the highest they have won; this run isn't marked won yet).
  */
-async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
-  const cleared = await clearedStage(guildId, userId, dragon, mode);
+async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard', clears = true): Promise<TmWin> {
+  const cleared = clears ? await clearedStage(guildId, userId, dragon, mode) : stage;
   const salvage = await loadAutoSalvage(guildId, userId);
   const finds: TmFind[] = [];
   for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item, salvage));
