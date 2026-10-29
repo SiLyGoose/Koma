@@ -35526,7 +35526,8 @@ var KIRZE = {
 		"Kirze_Job",
 		"Kirze_Halloween",
 		"Kirze_Christmas",
-		"Kirze_Wedding"
+		"Kirze_Wedding",
+		"Kirze_Glory2"
 	],
 	stats: {
 		...CLASS_STATS.warrior,
@@ -35881,7 +35882,9 @@ var LAIAS = {
 		"Laias_Maid",
 		"Laias_Wedding",
 		"Laias_Dessert",
-		"Laias_Summer21"
+		"Laias_Summer21",
+		"Laias_Glory2",
+		"Laias_Glory3"
 	],
 	stats: {
 		...CLASS_STATS.priest,
@@ -38595,7 +38598,10 @@ var CROW = {
 		"Crow_Christmas",
 		"Crow_School",
 		"Crow_DailyLook",
-		"Crow_Fallen"
+		"Crow_Fallen",
+		"Crow_Glory2",
+		"Crow_Glory3",
+		"Crow_Glory4"
 	],
 	stats: {
 		...CLASS_STATS.mechanic,
@@ -40713,7 +40719,8 @@ var ERZE = {
 		"Erze_School",
 		"Erze_DailyLook",
 		"Erze_Glory",
-		"Erze_Fallen"
+		"Erze_Fallen",
+		"Erze_Glory2"
 	],
 	stats: {
 		...CLASS_STATS.assassin,
@@ -42881,7 +42888,10 @@ var THEO = {
 		"Theo_Glory",
 		"Theo_UserPick",
 		"Theo_Dessert",
-		"Theo_Fallen"
+		"Theo_Fallen",
+		"Theo_Glory2",
+		"Theo_Glory3",
+		"Theo_Glory4"
 	],
 	stats: {
 		...CLASS_STATS.warrior,
@@ -43586,7 +43596,8 @@ var GLENWYS = {
 		"Glenwys_Glory",
 		"Glenwys_Dessert",
 		"Glenwys_Christmas",
-		"Glenwys_Fallen"
+		"Glenwys_Fallen",
+		"Glenwys_Glory2"
 	],
 	stats: {
 		...CLASS_STATS.knight,
@@ -45512,7 +45523,10 @@ var MIRIANNE = {
 		"Mirianne_Glory",
 		"Mirianne_School",
 		"Mirianne_Summer21",
-		"Mirianne_Halloween"
+		"Mirianne_Halloween",
+		"Mirianne_Glory2",
+		"Mirianne_Glory3",
+		"Mirianne_Glory4"
 	],
 	stats: {
 		...CLASS_STATS.assassin,
@@ -47512,7 +47526,8 @@ var LILIA = {
 		"Lilia_Christmas",
 		"Lilia_UserPick",
 		"Lilia_Glory",
-		"Lilia_Wedding"
+		"Lilia_Wedding",
+		"Lilia_Glory2"
 	],
 	stats: {
 		...CLASS_STATS.wizard,
@@ -48638,7 +48653,8 @@ var SHEA = {
 		"Shea_Job",
 		"Shea_Glory",
 		"Shea_Christmas",
-		"Shea_DailyLook"
+		"Shea_DailyLook",
+		"Shea_Glory2"
 	],
 	stats: {
 		...CLASS_STATS.priest,
@@ -50440,7 +50456,9 @@ var HEROES = [
 			"Jane_Wedding",
 			"Jane_Glory",
 			"Jane_Casual",
-			"Jane_Wedding21"
+			"Jane_Wedding21",
+			"Jane_Glory2",
+			"Jane_Glory3"
 		],
 		stats: {
 			...CLASS_STATS.knight,
@@ -50730,7 +50748,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "a1c36959c37b";
+var SIM_VERSION = "3603ff497f83";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
