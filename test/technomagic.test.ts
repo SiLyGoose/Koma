@@ -491,7 +491,7 @@ test("technomagic room: a hero's artifact goes into the fight, the bot's and the
     return run;
   };
   const runs: Run[] = [];
-  h.deps.fights = { start: (run) => (runs.push(run), localFights.start(run)) };
+  h.deps.fights = { ...localFights, start: (run) => (runs.push(run), localFights.start(run)) };
   const a = h.peer();
   const { room } = h.rooms.join(h.player('a'), a, ALL)!;
   room.pick('a', 'kirze', 0);

@@ -245,8 +245,11 @@ export type AnswerCode =
   /** It couldn't be done (the database didn't answer). */
   | 'failed';
 
-/** Why the bot closed the connection (`gone`: the raid asked for is over, everyone gone from it). */
-export type ErrorCode = 'bad_token' | 'replaced' | 'bad_message' | 'full' | 'gone';
+/**
+ * Why the bot closed the connection (`gone`: the raid asked for is over, everyone gone from it; `background`: their background
+ * raids are being fought, and they can't fight in a raid's room till those are over: GET /api/tm-batches says how they go).
+ */
+export type ErrorCode = 'bad_token' | 'replaced' | 'bad_message' | 'full' | 'gone' | 'background';
 
 /** A raid others can join, as the front page's Find Raid lists it (GET /api/raid-rooms). */
 export interface LobbyView {

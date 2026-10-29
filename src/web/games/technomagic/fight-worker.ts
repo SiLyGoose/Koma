@@ -1,9 +1,9 @@
 import { parentPort } from 'node:worker_threads';
-import { runnerFor, type FightRunner, type WorkerAsk, type WorkerReply } from './fight.js';
+import { fightOut, runnerFor, type FightRunner, type WorkerAsk, type WorkerReply } from './fight.js';
 
 /*
  * The worker thread every room's fight runs in (./fight.ts's workerFights): it starts each fight it is asked to, steps
- * it on as its room asks, and answers each ask with the number it came with. It loads the sim and nothing else of the bot.
+ * it on as its room asks, fights out a background raid's whole (every hero on Auto), and answers each ask with the number it came with. It loads the sim and nothing else of the bot.
  */
 
 const port = parentPort;
@@ -29,10 +29,12 @@ port.on('message', (asked: WorkerAsk) => {
       case 'close':
         fights.delete(asked.fight);
         return answer({ kind: 'closed' });
+      case 'fight-out':
+        return answer({ kind: 'fought', fought: fightOut(asked.run) });
     }
   } catch (err) {
     // (The fight it was about is no more: its room ends it.)
-    fights.delete(asked.fight);
+    if ('fight' in asked) fights.delete(asked.fight);
     answer({ kind: 'failed', error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
   }
 });

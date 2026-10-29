@@ -6,6 +6,7 @@ import type { GearStore } from './models/gear.js';
 import type { HeroStore } from './models/heroes.js';
 import type { OutfitStore } from './models/outfits.js';
 import type { HeroOutfitStore } from './models/hero-outfits.js';
+import type { TmBatchStore } from './models/tm-batches.js';
 import type { RaidShopStore } from './models/raid-shop.js';
 import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
@@ -26,6 +27,7 @@ import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
 import { outfitRoutes } from './routes/outfits.js';
 import { heroOutfitRoutes } from './routes/hero-outfits.js';
+import { tmBatchRoutes } from './routes/tm-batches.js';
 import { raidShopRoutes } from './routes/raid-shop.js';
 import { publicRoutes } from './routes/public.js';
 import { raidRoutes } from './routes/raid.js';
@@ -72,6 +74,9 @@ export type { Me } from './services/login.js';
  *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
  *   GET  /api/hero-outfits?guild=…   the heroes' outfits (King's Raid's costumes): what each costs, which are the member's, which heroes they own and what each wears: HeroOutfitsView (models/hero-outfits.ts)
  *   POST /api/hero-outfits/buy {guild, outfit}   buys an outfit for one of their heroes with points (the shop; it isn't put on): HeroOutfitsView
+ *   GET  /api/tm-batches?guild=…   their background raids (the raid's page): the batch running, or their last, what a run costs and their points: TmBatchesView (models/tm-batches.ts)
+ *   POST /api/tm-batches/start {guild, raid, boss, mode, stage, heroes, count}   starts a batch of background raids (out of their own room, which their page is sent away from): TmBatchesView
+ *   POST /api/tm-batches/stop {guild}   stops their batch (the raid being fought given up; the mail sent): TmBatchesView
  *   POST /api/hero-outfits/wear {guild, hero, outfit}   puts one of their hero's outfits on it (null: its own look) (its outfit room): HeroOutfitsView
  *   GET  /api/heroes?guild=…   the TechnoMagic Raid's heroes: what each costs, which are the member's, the gear each wears and what it gives it, and every copy a hero could wear: HeroesView (models/heroes.ts)
  *   POST /api/heroes/buy {guild, hero}   buys a hero with points (the shop): HeroesView
@@ -95,7 +100,7 @@ export type { Me } from './services/login.js';
  * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
  * the party's gear: anyone in the link's server) and the routes that change what the link's member
  * wears (routes/gear.ts: the raid's party screen lets them change it before the fight), and /api/heroes but buying, selling and locking
- * (routes/heroes.ts: the TechnoMagic Raid's Manage popup). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
+ * (routes/heroes.ts: the TechnoMagic Raid's Manage popup), and /api/tm-batches (routes/tm-batches.ts: the raid page's background raids). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
  * page shows (its end screen), when it was kept. The front page's /api/live counts as
  * being on the site (games/live.ts).
  *
@@ -131,6 +136,8 @@ export interface ApiDeps {
   outfits?: OutfitStore;
   /** The heroes' outfits, for the shop and the heroes' outfit room (the database's, unless a test says otherwise). */
   heroOutfits?: HeroOutfitStore;
+  /** Background raids, for the raid's page (the database's, unless a test says otherwise). */
+  tmBatches?: TmBatchStore;
   /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
   heroes?: HeroStore;
   /** The mailbox (the database's, unless a test says otherwise). */
@@ -166,6 +173,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/gacha', gachaRoutes(deps))
     .use('/outfits', outfitRoutes(deps))
     .use('/hero-outfits', heroOutfitRoutes(deps))
+    .use('/tm-batches', tmBatchRoutes(deps))
     .use('/heroes', heroRoutes(deps))
     .use('/runes', runeRoutes(deps))
     .use('/mail', mailRoutes(deps))

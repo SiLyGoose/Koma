@@ -435,6 +435,55 @@ export interface TmRunDoc {
   gems?: number;
 }
 
+/**
+ * A member's batch of background raids (services/tm-batches.ts, the `tm_batches` collection): up to TM_BATCH_MOST TechnoMagic or
+ * Dragon Raid runs against one boss, at one stage and mode, with one lineup (alone: Main Team and Sub Team), fought by the
+ * sim on Auto one after another while they're away, each taking as long as it would played, paid as each ends. One runs at a
+ * time a member; while it does, they can't fight in a raid's room.
+ */
+export interface TmBatchDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  raid: 'technomagic' | 'dragon';
+  boss: string;
+  /** A dragon's Normal mode (none: Hard). */
+  mode?: 'normal';
+  stage: number;
+  /** The lineup, in order: each hero's id, and whether it is in the Sub Team. */
+  heroes: { id: string; sub?: boolean }[];
+  /** How many runs were asked for; how many are over, won and lost; the points they cost. */
+  count: number;
+  done: number;
+  won: number;
+  lost: number;
+  spent: number;
+  state: 'running' | 'done';
+  /** They asked for it to stop: it does at its next step (straight away). */
+  stopAsked?: boolean;
+  /** Why it ended: every run fought, stopped, out of points, their heroes gone, or the sim couldn't fight it. */
+  end?: 'finished' | 'stopped' | 'too_poor' | 'no_heroes' | 'failed';
+  /** The run being fought: its run (to pay it), how it went and when it is over (it is paid then). */
+  current?: { run: string; seed: number; result: 'won' | 'lost'; ticks: number; startedAt: Date; endsAt: Date; heroes: string[] } | null;
+  /** What the runs over gave, all told. */
+  got: TmBatchGot;
+  startedAt: Date;
+  endedAt?: Date;
+}
+
+/** What a batch's runs gave, all told: points, komaGems, hero essences, Upgrade Stones and Boss Crystals by kind, items found (and salvaged as they dropped) and runes by id, and stages cleared for the first time. */
+export interface TmBatchGot {
+  points: number;
+  gems: number;
+  essences: Partial<Record<EssenceId, number>>;
+  stones: Record<string, number>;
+  crystals: Record<string, number>;
+  items: Record<string, number>;
+  salvaged: Record<string, number>;
+  runes: Record<string, number>;
+  firstClears: number;
+}
+
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
 export interface LoadoutDoc {
   /** The name the member gave it. Missing or null means the default, "Loadout <number>". */
@@ -681,6 +730,8 @@ export type LedgerReason =
   | 'hero_outfit'
   // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).
   | 'tm_win'
+  // Points paid for a background raid as it began (services/tm-batches.ts; hero.backgroundPrice; itemId is the batch).
+  | 'tm_background'
   // Points a won Dragon Raid run paid (services/technomagic.ts; dragon.winPoints).
   | 'dragon_win'
   // Points (komaGems, komaTokens) a mail gave as it was claimed (services/mail.ts).

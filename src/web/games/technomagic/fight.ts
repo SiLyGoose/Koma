@@ -1,14 +1,15 @@
 import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { startRaid, type LiveRaid, type Run } from '../../../../vendor/technomagic-sim.mjs';
+import { replay, startRaid, type LiveRaid, type Run } from '../../../../vendor/technomagic-sim.mjs';
 import type { TurnInput } from './protocol.js';
 
 /*
  * A room's fight as the room runs it (room.ts): the sim's raid, stepped on to where the room's clock has got with what
  * the players did before each step. The room asks a Fights for one and needn't know where it runs: in a worker thread
  * (workerFights: every room's fight in one thread beside the bot's, so a fight's steps never hold up Discord or the
- * site), or right here (localFights: the tests, which step it by a clock of their own).
+ * site), or right here (localFights: the tests, which step it by a clock of their own). A background raid (services/tm-batches.ts)
+ * is fought out the same way, whole, at once: every hero on Auto, as a raid's heroes start.
  */
 
 /** A press, before the step it counts at. */
@@ -37,9 +38,19 @@ export interface FightEngine {
   close(): void;
 }
 
-/** Where a room's fights are run: a fight from a run (a string: why the run makes no sense to the sim). */
+/** How a fight fought out went: won or lost, after so many steps. */
+export interface Fought {
+  result: 'won' | 'lost';
+  ticks: number;
+}
+
+/**
+ * Where a room's fights are run: a fight from a run (a string: why the run makes no sense to the sim); and a background raid's,
+ * fought out whole, with no one pressing anything (every hero on Auto), how it went (a string: why it couldn't be).
+ */
 export interface Fights {
   start(run: Run): Promise<FightEngine | string>;
+  fightOut(run: Run): Promise<Fought | string>;
 }
 
 /** A raid stepped on, with what the room asks of it before each step: what each FightEngine runs. */
@@ -91,6 +102,12 @@ export function runnerFor(run: Run): FightRunner | string {
   return typeof raid === 'string' ? raid : new FightRunner(raid);
 }
 
+/** A fight fought out whole with no one pressing anything (every hero on Auto): how it went, or why it couldn't be. */
+export function fightOut(run: Run): Fought | string {
+  const played = replay(run, []);
+  return played.result === 'invalid' ? (played.reason ?? 'invalid') : { result: played.result, ticks: played.ticks };
+}
+
 /** Fights run right here, as they are asked (the tests'). */
 export const localFights: Fights = {
   async start(run) {
@@ -98,12 +115,13 @@ export const localFights: Fights = {
     if (typeof runner === 'string') return runner;
     return { advance: async (due, intents) => runner.advance(due, intents), close: () => {} };
   },
+  fightOut: async (run) => fightOut(run),
 };
 
-/** What the bot asks of its worker (./fight-worker.ts): a fight started, stepped on, or done with. */
-export type WorkerRequest = { kind: 'start'; fight: number; run: Run } | { kind: 'advance'; fight: number; due: number; intents: readonly Intent[] } | { kind: 'close'; fight: number };
-/** What it answers: a fight started (or why not), how far one has got, one done with, or that what was asked failed (`error`). */
-export type WorkerReply = { kind: 'started'; error: string | null } | { kind: 'progress'; progress: Progress } | { kind: 'closed' } | { kind: 'failed'; error: string };
+/** What the bot asks of its worker (./fight-worker.ts): a fight started, stepped on, or done with; or one fought out whole. */
+export type WorkerRequest = { kind: 'start'; fight: number; run: Run } | { kind: 'advance'; fight: number; due: number; intents: readonly Intent[] } | { kind: 'close'; fight: number } | { kind: 'fight-out'; run: Run };
+/** What it answers: a fight started (or why not), how far one has got, one done with, how one fought out went, or that what was asked failed (`error`). */
+export type WorkerReply = { kind: 'started'; error: string | null } | { kind: 'progress'; progress: Progress } | { kind: 'closed' } | { kind: 'fought'; fought: Fought | string } | { kind: 'failed'; error: string };
 /** Each, with the number of the ask (its answer comes back with it). */
 export type WorkerAsk = WorkerRequest & { ask: number };
 export type WorkerAnswer = WorkerReply & { ask: number };
@@ -165,6 +183,11 @@ function makeWorkerFights(): Fights {
           if (worker) void ask({ kind: 'close', fight }).catch(() => {});
         },
       };
+    },
+    async fightOut(run) {
+      const answer = await ask({ kind: 'fight-out', run });
+      if (answer.kind !== 'fought') throw new Error(answer.kind === 'failed' ? answer.error : 'Unexpected answer');
+      return answer.fought;
     },
   };
 }

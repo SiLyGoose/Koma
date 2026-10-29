@@ -23,6 +23,8 @@ import { cashOutLiveSeats, startPokerSweeper } from './services/casino/poker.js'
 import type { ApiDeps } from './web/api.js';
 import { readWebConfig, setWebConfig, type WebConfig } from './web/config.js';
 import { startWebServer } from './web/server.js';
+import { pauseBatches, resumeBatches } from './services/tm-batches.js';
+import { workerFights } from './web/games/technomagic/fight.js';
 import { syncBio } from './discord/bio.js';
 import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
@@ -190,6 +192,8 @@ async function main(): Promise<void> {
     stopMineSweeper = startMineSweeper();
     // Chips left at poker tables when the bot last stopped go back to their players.
     stopPokerSweeper = startPokerSweeper();
+    // Background raids that were being fought when the bot last stopped go on where they were.
+    resumeBatches(workerFights).catch((err) => console.error('Could not pick up the background raids:', err));
     if (web) stopWebServer = startWebServer({ port: web.port, api: siteDeps(readyClient, web) });
     // The bio links to the site. Not from a local test bot: it shares the application (and so the
     // bio) with the real bot, and its site is usually localhost.
@@ -239,6 +243,7 @@ async function main(): Promise<void> {
     stopBetSweeper();
     stopMineSweeper();
     stopPokerSweeper();
+    pauseBatches();
     await stopWebServer();
     // Tables are being closed with the bot: give their bets back now instead of waiting for the sweeper.
     await refundLiveBets();

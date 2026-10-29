@@ -1,8 +1,9 @@
 import type { LoadoutNameBlock, RefineBlock } from '../models/gear.js';
+import type { BatchRefusal } from '../../services/tm-batches.js';
 
 /* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
 
-export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'no_crystals' | 'no_piece' | 'no_fragments' | 'pending' | 'loadout_locked' | 'no_scroll' | 'scrolls_maxed' | RefineBlock | LoadoutNameBlock;
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'no_crystals' | 'no_piece' | 'no_fragments' | 'pending' | 'loadout_locked' | 'no_scroll' | 'scrolls_maxed' | RefineBlock | LoadoutNameBlock | BatchRefusal;
 
 const STATUS: Record<ErrorCode, number> = {
   bad_request: 400,
@@ -51,6 +52,15 @@ const STATUS: Record<ErrorCode, number> = {
   name_no_letters: 409,
   name_reserved: 409,
   name_taken: 409,
+  // Background raids (services/tm-batches.ts): one running already, or in a raid's fight; or what was asked makes no sense.
+  running: 409,
+  fighting: 409,
+  locked: 409,
+  bad_count: 400,
+  boss: 400,
+  mode: 400,
+  heroes: 400,
+  team_full: 400,
 };
 
 /** Thrown by a service, controller or middleware when the site's request can't be done. */

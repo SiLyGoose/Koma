@@ -12,7 +12,7 @@ import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { dragonRoomLink, technomagicRoomLink, webConfig } from '../../config.js';
 import { Chat } from '../chat.js';
-import type { Peer as ConnectionPeer } from '../connection.js';
+import { refuse, type Peer as ConnectionPeer } from '../connection.js';
 import { workerFights, type FightEngine, type Fights, type Intent } from './fight.js';
 import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, PickView, RaidKind, RaidMode, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
@@ -112,6 +112,8 @@ export interface RoomDeps {
   owned: (guildId: string, userId: string) => Promise<Owned>;
   /** The skin each of their heroes is in (the outfit it wears), by id; one not in it is in its own look (none said: every one). */
   worn?: (guildId: string, userId: string) => Promise<ReadonlyMap<string, number>>;
+  /** Whether their background raids are being fought (none said: the database's word), keeping them out of the rooms till they're over. */
+  batching?: (guildId: string, userId: string) => Promise<boolean>;
   /** The highest stage they have won a run against `boss` at, in each mode (0: none). */
   cleared: (guildId: string, userId: string, boss: string) => Promise<Cleared>;
   /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun). */
@@ -272,6 +274,15 @@ export class TechnoMagicRoom {
   /** `userId`'s page in the room (null: not in it, or gone during a fight). */
   peerOf(userId: string): Peer | null {
     return this.members.get(userId)?.peer ?? null;
+  }
+
+  /** Whether `userId` is in the room's fight (one starting counts). */
+  fighting(userId: string): boolean {
+    return this.members.has(userId) && (this.phase === 'fight' || this.starting);
+  }
+
+  get guild(): string {
+    return this.guildId;
   }
 
   /** The host's id (null: nobody's in). */
@@ -1002,6 +1013,24 @@ export class TechnoMagicRooms {
       deps.announce(player.guildId, player.name, against.id, id);
     }
     return room;
+  }
+
+  /** The rooms `userId` is in, in server `guildId`. */
+  private roomsOf(guildId: string, userId: string): TechnoMagicRoom[] {
+    return [...this.rooms.values()].filter((room) => room.guild === guildId && room.has(userId));
+  }
+
+  /** Whether `userId` is fighting in one of the raid's rooms in `guildId` (or one is starting with them in it). */
+  fighting(guildId: string, userId: string): boolean {
+    return this.roomsOf(guildId, userId).some((room) => room.fighting(userId));
+  }
+
+  /** Sends `userId`'s page in `guildId` away from any room of the raid's it's in, saying why (`code`): its closing takes them out of it. */
+  sendAway(guildId: string, userId: string, code: string): void {
+    for (const room of this.roomsOf(guildId, userId)) {
+      const peer = room.peerOf(userId);
+      if (peer) refuse(peer, code);
+    }
   }
 
   /**

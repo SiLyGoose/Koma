@@ -4,6 +4,7 @@ import { chatImage } from '../chat.js';
 import { openGameConnection, refuse, serveSocket, type Connection } from '../connection.js';
 import { parseClientMessage, type AnswerCode, type ClientMessage, type ServerMessage } from './protocol.js';
 import { dragonRooms, technomagicRooms, type Peer, type RoomDeps, type TechnoMagicRoom, type TechnoMagicRooms } from './room.js';
+import { runningBatch } from '../../../services/tm-batches.js';
 
 /*
  * The web socket the TechnoMagic Raid's page plays through (connection.ts does the greeting). Once the player
@@ -25,6 +26,14 @@ function describe(message: ServerMessage): string | null {
   return `${boss.name} · ${at} · ${what} · ${players.length} in`;
 }
 
+/** Whether a member's background raids are being fought (services/tm-batches.ts). */
+const hasBatch = (guildId: string, userId: string): Promise<boolean> =>
+  runningBatch(guildId, userId).then(
+    (batch) => batch !== null,
+    // (Not to be read: they come in, as they would have before background raids.)
+    () => false,
+  );
+
 /** Plays the TechnoMagic Raid (or, its rooms the Dragon Raid's, the Dragon Raid) in `rooms` with the page `page`. */
 export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = technomagicRooms, deps: RoomDeps = rooms.realDeps): Connection {
   let room: TechnoMagicRoom | null = null;
@@ -43,6 +52,8 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
         const against = rooms.bossFor(player, wanted, 'boss' in greeting ? greeting.boss : undefined);
         if (!against) return refuse(peer, 'gone');
         const boss = against.id;
+        // Their background raids being fought: no raid's room for them till those are over.
+        if (await (deps.batching ?? hasBatch)(player.guildId, player.userId)) return refuse(peer, 'background');
         const [owned, cleared] = await Promise.all([
           deps.owned(player.guildId, player.userId).catch((err) => {
             console.error('Could not read whose heroes are whose:', err);

@@ -1,6 +1,6 @@
 import { MongoClient, type Collection } from 'mongodb';
 import { optionalEnv, requireEnv } from './env.js';
-import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MailDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc, TmRunDoc } from './types.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MailDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc, TmBatchDoc, TmRunDoc } from './types.js';
 
 export interface Collections {
   members: Collection<MemberDoc>;
@@ -32,6 +32,8 @@ export interface Collections {
   tmRuns: Collection<TmRunDoc>;
   /** The members' mailboxes: one document a mail (see services/mail.ts). */
   mail: Collection<MailDoc>;
+  /** Members' batches of background raids (see services/tm-batches.ts). */
+  tmBatches: Collection<TmBatchDoc>;
 }
 
 let client: MongoClient | undefined;
@@ -63,6 +65,7 @@ export async function connectDb(): Promise<Collections> {
     minesweeperClears: db.collection<MinesweeperClearDoc>('minesweeper_clears'),
     tmRuns: db.collection<TmRunDoc>('tm_runs'),
     mail: db.collection<MailDoc>('mail'),
+    tmBatches: db.collection<TmBatchDoc>('tm_batches'),
   };
 
   await Promise.all([
@@ -99,6 +102,10 @@ export async function connectDb(): Promise<Collections> {
     // A member's won TechnoMagic Raid runs, best stage first (the stages they have opened).
     collections.tmRuns.createIndex({ guildId: 1, userId: 1, result: 1, stage: -1 }),
     collections.mail.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
+    // A member's batch of background raids running (one at most: two started at once can't both be), and their latest; and every one running (resumed as the bot starts).
+    collections.tmBatches.createIndex({ guildId: 1, userId: 1 }, { unique: true, partialFilterExpression: { state: 'running' }, name: 'one_running' }),
+    collections.tmBatches.createIndex({ guildId: 1, userId: 1, startedAt: -1 }),
+    collections.tmBatches.createIndex({ state: 1 }),
   ]);
 
   client = mongo;
