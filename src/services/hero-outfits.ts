@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js';
-import { HERO_OUTFITS, HEROES_BY_ID } from '../data/heroes.js';
+import { HERO_OUTFITS, HEROES_BY_ID, isLegendOutfit } from '../data/heroes.js';
 import { collections } from '../db.js';
 import type { HeroDoc } from '../types.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
@@ -7,7 +7,7 @@ import { ensureMember, recordLedger } from './economy/shared.js';
 /*
  * Hero outfits (data/heroes.ts HERO_OUTFITS): King's Raid's costumes of the TechnoMagic Raid's heroes, each one of its
  * hero's skins. A hero always has its own look; the others are bought in the site's shop, once each, for
- * hero.outfitPrice points (burned), only for a hero the member owns (as King's Raid sells a costume to a hero's owner),
+ * hero.outfitPrice points (a Legend Costume hero.legendOutfitPrice: heroOutfitPrice) (burned), only for a hero the member owns (as King's Raid sells a costume to a hero's owner),
  * and put on in its outfit room whenever they like (buying one doesn't). Buying is one conditional update that only
  * matches while they own the hero, have the points and don't own the outfit yet, so two buys at once can't both pay.
  * The raid fights each hero in the one it wears (./technomagic.ts beginRun).
@@ -28,13 +28,16 @@ export const wornSkin = (heroId: string, hero: OutfitsOf): number => {
   return HERO_OUTFITS.get(outfit)?.skin ?? 0;
 };
 
+/** What outfit `id` costs: hero.outfitPrice, or a Legend Costume's hero.legendOutfitPrice. */
+export const heroOutfitPrice = (id: string): number => (isLegendOutfit(id) ? CONFIG.hero.legendOutfitPrice : CONFIG.hero.outfitPrice);
+
 export type BuyHeroOutfitResult = { ok: true; paid: number; balance: number } | { ok: false; reason: 'not_found' | 'not_owned' | 'owned' | 'too_poor' };
 
 /** Buys outfit `id` for the member's hero whose it is (it isn't put on). */
 export async function buyHeroOutfit(guildId: string, userId: string, id: string): Promise<BuyHeroOutfitResult> {
   const of = HERO_OUTFITS.get(id);
   if (!of) return { ok: false, reason: 'not_found' };
-  const price = CONFIG.hero.outfitPrice;
+  const price = heroOutfitPrice(id);
   const { members } = collections();
   await ensureMember(guildId, userId);
   const at = `heroes.${of.hero}`;

@@ -37895,7 +37895,11 @@ var LUCIKIEL = {
 	id: "lucikiel",
 	name: "Lucikiel",
 	class: "wizard",
-	skins: ["Lucikiel", "Lucikiel_Advance"],
+	skins: [
+		"Lucikiel",
+		"Lucikiel_Advance",
+		"Lucikiel_Legend"
+	],
 	stats: {
 		...CLASS_STATS.wizard,
 		deals: "magical"
@@ -39943,7 +39947,8 @@ var YANNE = {
 		"Yanne_School",
 		"Yanne_Summer",
 		"Yanne_Summer19",
-		"Yanne_Wedding"
+		"Yanne_Wedding",
+		"Yanne_Legend"
 	],
 	stats: {
 		...CLASS_STATS.archer,
@@ -45094,7 +45099,8 @@ var MIRURU = {
 		"Miruru_Christmas",
 		"Miruru_NewYear",
 		"Miruru_Halloween",
-		"Miruru_Wedding"
+		"Miruru_Wedding",
+		"Miruru_Legend"
 	],
 	stats: {
 		...CLASS_STATS.mechanic,
@@ -50666,7 +50672,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "64ef593f8252";
+var SIM_VERSION = "e996fb3fa42d";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;

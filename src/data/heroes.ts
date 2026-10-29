@@ -41,3 +41,6 @@ export const HEROES_BY_ID: ReadonlyMap<string, HeroDef> = new Map(HEROES.map((he
 export const HERO_OUTFITS: ReadonlyMap<string, { hero: string; skin: number }> = new Map(
   HEROES.flatMap((hero) => hero.outfits.slice(1).map((outfit, i) => [outfit, { hero: hero.id, skin: i + 1 }] as const)),
 );
+
+/** Whether an outfit is one of King's Raid's Legend Costumes (its skin `<Hero>_Legend`, Koma-UI's): sold at hero.legendOutfitPrice. */
+export const isLegendOutfit = (id: string): boolean => /_Legend\d*$/.test(id);

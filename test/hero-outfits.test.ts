@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
-import { DEFAULTS } from '../src/config.js';
-import { HERO_OUTFITS, HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
+import { CONFIG, DEFAULTS } from '../src/config.js';
+import { HERO_OUTFITS, HEROES, HEROES_BY_ID, isLegendOutfit } from '../src/data/heroes.js';
 import { findSpec, validateSettings } from '../src/lib/settings-spec.js';
-import { ownedHeroOutfits, wornSkin } from '../src/services/hero-outfits.js';
+import { heroOutfitPrice, ownedHeroOutfits, wornSkin } from '../src/services/hero-outfits.js';
 import { createApi, type ApiDeps } from '../src/web/api.js';
 import { signSession } from '../src/web/auth/login.js';
 import type { WebConfig } from '../src/web/config.js';
@@ -42,10 +42,18 @@ test('hero outfits: a hero has the ones bought for it, and wears its own look un
   assert.equal(wornSkin('kirze', { outfits: ['Annette_Halloween'], outfit: 'Annette_Halloween' }), 0); // another hero's
 });
 
-test("hero outfits: their price is a Hero setting, 5,000 points to start", () => {
+test("hero outfits: their price is a Hero setting, 5,000 points to start, a Legend Costume's another, 10,000", () => {
   assert.equal(DEFAULTS.hero.outfitPrice, 5_000);
   assert.equal(findSpec('hero.outfitPrice')?.group, 'Hero');
+  assert.equal(DEFAULTS.hero.legendOutfitPrice, 10_000);
+  assert.equal(findSpec('hero.legendOutfitPrice')?.group, 'Hero');
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
+  assert.equal(heroOutfitPrice('Kirze_Glory'), CONFIG.hero.outfitPrice);
+  for (const legend of ['Lucikiel_Legend', 'Yanne_Legend', 'Miruru_Legend']) {
+    assert.ok(HERO_OUTFITS.has(legend), legend);
+    assert.equal(heroOutfitPrice(legend), CONFIG.hero.legendOutfitPrice);
+  }
+  assert.deepEqual([...HERO_OUTFITS.keys()].filter(isLegendOutfit).sort(), ['Lucikiel_Legend', 'Miruru_Legend', 'Yanne_Legend']);
 });
 
 test("hero outfits web: a logged-in member sees every hero's outfits, buys one (not putting it on) and puts it on their hero, in their own servers only", async () => {

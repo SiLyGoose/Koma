@@ -1,7 +1,6 @@
-import { CONFIG } from '../../config.js';
 import { HEROES, HEROES_BY_ID } from '../../data/heroes.js';
 import { collections } from '../../db.js';
-import { buyHeroOutfit, ownedHeroOutfits, wearHeroOutfit, wornSkin } from '../../services/hero-outfits.js';
+import { buyHeroOutfit, heroOutfitPrice, ownedHeroOutfits, wearHeroOutfit, wornSkin } from '../../services/hero-outfits.js';
 import type { HeroOutfitsView, HeroOutfitView } from '../../protocol/hero-outfits.js';
 
 export type { HeroOutfitsView, HeroOutfitView };
@@ -31,7 +30,7 @@ async function heroOutfitsView(guildId: string, userId: string): Promise<HeroOut
     if (skin > 0) worn[id] = HEROES_BY_ID.get(id)!.outfits[skin];
   }
   return {
-    outfits: HEROES.flatMap((hero) => hero.outfits.slice(1).map((id) => ({ id, hero: hero.id, price: CONFIG.hero.outfitPrice, owned: owned.has(id) }))),
+    outfits: HEROES.flatMap((hero) => hero.outfits.slice(1).map((id) => ({ id, hero: hero.id, price: heroOutfitPrice(id), owned: owned.has(id) }))),
     heroes: mine.map(([id]) => id),
     worn,
     balance: member?.points ?? 0,
