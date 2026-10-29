@@ -270,6 +270,8 @@ export interface HeroView {
    * (null: none); `scrolls`, the TP Transcendence Scrolls gave it (0 to TP_SCROLL_MOST; left out by a bot from before them).
    */
   transcend: { level: number; points: number; scrolls?: number; next: { essences: Partial<Record<EssenceId, number>>; gems: number } | null };
+  /** The skin it's in (Koma-UI's src/technomagic/assets/heroes/<hero>.ts name): the outfit it wears, else its own look (left out by a bot from before outfits). */
+  outfit?: string;
   /** Its three skills, then its passive. */
   abilities: HeroSkillView[];
 }

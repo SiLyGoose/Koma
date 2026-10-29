@@ -90,6 +90,8 @@ export interface TmHero {
     /** The kind of damage its blows deal. */
     deals: DamageType;
     skins: number;
+    /** Its skins' names, by their index (its own first): the others are its outfits, bought and worn on the site. */
+    outfits: string[];
     /** Its three skills, then its passive: as the heroes page says them (King's Raid's words, with the fight's numbers). */
     skills: TmHeroSkill[];
     /** Its four unique treasures' names (UT1 to UT4: its skills', then its passive's). */

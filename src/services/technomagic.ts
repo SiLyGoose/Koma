@@ -19,6 +19,7 @@ import { addCopy, ensureMember, giveGems } from './economy/index.js';
 import { loadAutoSalvage, salvageDrop, salvagesDrop } from './items/salvage.js';
 import { giveEssences } from './economy/essences.js';
 import { recordLedger } from './economy/shared.js';
+import { wornSkin } from './hero-outfits.js';
 
 /*
  * TechnoMagic Raid runs in the database (the rules are lib/game/technomagic.ts's; the rooms they are fought
@@ -37,6 +38,12 @@ import { recordLedger } from './economy/shared.js';
 export async function ownedHeroes(guildId: string, userId: string): Promise<Map<string, number>> {
   const member = await collections().members.findOne({ guildId, userId }, { projection: { heroes: 1 } });
   return new Map(Object.entries(member?.heroes ?? {}).flatMap(([id, hero]) => (HEROES_BY_ID.has(id) ? [[id, transcendLevel(hero?.transcend)] as const] : [])));
+}
+
+/** The skin each of a member's heroes is in, by id (the outfit it wears: services/hero-outfits.ts); one in its own look is left out. */
+export async function wornSkins(guildId: string, userId: string): Promise<Map<string, number>> {
+  const member = await collections().members.findOne({ guildId, userId }, { projection: { heroes: 1 } });
+  return new Map(Object.entries(member?.heroes ?? {}).flatMap(([id, hero]) => (HEROES_BY_ID.has(id) && wornSkin(id, hero) > 0 ? [[id, wornSkin(id, hero)] as const] : [])));
 }
 
 /** The highest stage a member has won a run against `boss` at, in `mode` (0: none yet). A run with no mode is a Hard one (every run from before Normal). */
@@ -68,6 +75,8 @@ export interface BegunRun {
       artifacts: Map<string, { id: string; tier: number } | null>;
       skills: Map<string, string[]>;
       perks: Map<string, string[]>;
+      /** The skin each of their heroes fights in: the outfit it wears (services/hero-outfits.ts), else its own look (0); missing: as picked. */
+      skins?: Map<string, number>;
     }
   >;
 }
@@ -94,7 +103,9 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const skills = new Map([...owned].map((id) => [id, loadouts.get(id)?.skills ?? []]));
     // Its transcendence perks: those picked, as far as it is transcended.
     const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend, member?.heroes?.[id]?.scrollTp)]));
-    run.players.set(userId, { owned, gear, sets, uws, uts, artifacts, skills, perks });
+    // Each in the outfit it wears (whatever skin the page asked for).
+    const skins = new Map([...owned].map((id) => [id, wornSkin(id, member?.heroes?.[id])]));
+    run.players.set(userId, { owned, gear, sets, uws, uts, artifacts, skills, perks, skins });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,
       run: run.id,
@@ -104,7 +115,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       ...(mode === 'normal' && { mode }),
       seed: run.seed,
       stage,
-      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, artifact: artifacts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
+      heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, skin: skins.get(hero.id) ?? 0, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, artifact: artifacts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
       version: SIM_VERSION,
       startedAt: now,
     };

@@ -375,6 +375,10 @@ export interface HeroDoc {
   perks?: string[];
   /** The TP Transcendence Scrolls used on it gave it (0 to TP_SCROLL_MOST, data/transcend.ts), on top of its level's. Missing means 0. */
   scrollTp?: number;
+  /** Its outfits this member bought (data/heroes.ts HERO_OUTFITS names; never its own look). Missing means none. */
+  outfits?: string[];
+  /** The outfit it wears: one of its bought ones. Missing or null means its own look (services/hero-outfits.ts). */
+  outfit?: string | null;
 }
 
 /** A hero in a TechnoMagic Raid run: which, in which of its skins (the site's), and what its gear gave it as the run began. */
@@ -673,6 +677,8 @@ export type LedgerReason =
   | 'outfit'
   // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).
   | 'hero'
+  // Points paid for a hero's outfit in the site's shop (services/hero-outfits.ts; itemId is the outfit).
+  | 'hero_outfit'
   // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).
   | 'tm_win'
   // Points a won Dragon Raid run paid (services/technomagic.ts; dragon.winPoints).

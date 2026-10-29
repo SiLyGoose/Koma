@@ -33639,7 +33639,20 @@ var ANNETTE = {
 	id: "annette",
 	name: "Annette",
 	class: "mechanic",
-	skins: ["Annette", "Annette_Halloween"],
+	skins: [
+		"Annette",
+		"Annette_Halloween",
+		"Annette_Summer",
+		"Annette_Idol",
+		"Annette_School",
+		"Annette_Maid",
+		"Annette_Maid2",
+		"Annette_UserPick",
+		"Annette_Dessert",
+		"Annette_Dessert1",
+		"Annette_Glory",
+		"Annette_Glory2"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "magical"
@@ -34044,7 +34057,17 @@ var KLAUS = {
 	id: "klaus",
 	name: "Klaus",
 	class: "knight",
-	skins: ["Klaus"],
+	skins: [
+		"Klaus",
+		"Klaus_School",
+		"Klaus_Summer",
+		"Klaus_Idol",
+		"Klaus_Frozen",
+		"Klaus_Maid",
+		"Klaus_NewYear",
+		"Klaus_Summer19",
+		"Klaus_Wedding"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "physical"
@@ -34406,7 +34429,14 @@ var EZEKIEL = {
 	id: "ezekiel",
 	name: "Ezekiel",
 	class: "assassin",
-	skins: ["Ezekiel"],
+	skins: [
+		"Ezekiel",
+		"Ezekiel_School",
+		"Ezekiel_Summer",
+		"Ezekiel_Halloween",
+		"Ezekiel_Wedding",
+		"Ezekiel_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.assassin,
 		deals: "magical"
@@ -34782,7 +34812,7 @@ var FALLEN_FREY = {
 	id: "fallen-frey",
 	name: "Fallen Frey",
 	class: "priest",
-	skins: ["Fallen Frey"],
+	skins: ["Fallen Frey", "Fallen_Frey_Advance"],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "magical"
@@ -35477,7 +35507,14 @@ var KIRZE = {
 	id: "kirze",
 	name: "Kirze",
 	class: "warrior",
-	skins: ["Kirze", "Kirze_Glory"],
+	skins: [
+		"Kirze",
+		"Kirze_Glory",
+		"Kirze_Summer",
+		"Kirze_Job",
+		"Kirze_Halloween",
+		"Kirze_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "magical"
@@ -35820,7 +35857,18 @@ var LAIAS = {
 	id: "laias",
 	name: "Laias",
 	class: "priest",
-	skins: ["Laias"],
+	skins: [
+		"Laias",
+		"Laias_School",
+		"Laias_Summer",
+		"Laias_Summer2",
+		"Laias_Halloween",
+		"Laias_Idol",
+		"Laias_Glory",
+		"Laias_Maid",
+		"Laias_Wedding",
+		"Laias_Dessert"
+	],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "magical",
@@ -36212,7 +36260,15 @@ var LORRAINE = {
 	id: "lorraine",
 	name: "Lorraine",
 	class: "wizard",
-	skins: ["Lorraine", "Lorraine_Christmas"],
+	skins: [
+		"Lorraine",
+		"Lorraine_Christmas",
+		"Lorraine_School",
+		"Lorraine_Summer",
+		"Lorraine_Frozen",
+		"Lorraine_Summer19",
+		"Lorraine_Dessert"
+	],
 	stats: {
 		...CLASS_STATS.wizard,
 		deals: "magical"
@@ -36588,7 +36644,16 @@ var MORRAH = {
 	id: "morrah",
 	name: "Morrah",
 	class: "knight",
-	skins: ["Morrah"],
+	skins: [
+		"Morrah",
+		"Morrah_School",
+		"Morrah_Summer",
+		"Morrah_NewYear",
+		"Morrah_Wedding",
+		"Morrah_Halloween",
+		"Morrah_Summer20",
+		"Morrah_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "magical"
@@ -37019,7 +37084,16 @@ var SERIA = {
 	id: "seria",
 	name: "Seria",
 	class: "warrior",
-	skins: ["Seria", "Seria_Christmas"],
+	skins: [
+		"Seria",
+		"Seria_Christmas",
+		"Seria_NewYear",
+		"Seria_Wedding",
+		"Seria_Summer",
+		"Seria_School",
+		"Seria_Glory",
+		"Seria_Glory2"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		atk: CLASS_STATS.warrior.atk + WITCH.atk,
@@ -37821,7 +37895,7 @@ var LUCIKIEL = {
 	id: "lucikiel",
 	name: "Lucikiel",
 	class: "wizard",
-	skins: ["Lucikiel"],
+	skins: ["Lucikiel", "Lucikiel_Advance"],
 	stats: {
 		...CLASS_STATS.wizard,
 		deals: "magical"
@@ -38160,7 +38234,16 @@ var SELENE = {
 	id: "selene",
 	name: "Selene",
 	class: "archer",
-	skins: ["Selene"],
+	skins: [
+		"Selene",
+		"Selene_School",
+		"Selene_Summer",
+		"Selene_Idol",
+		"Selene_Frozen",
+		"Selene_Christmas",
+		"Selene_Summer19",
+		"Selene_Dessert"
+	],
 	stats: {
 		...CLASS_STATS.archer,
 		deals: "physical"
@@ -38477,7 +38560,19 @@ var CROW = {
 	id: "crow",
 	name: "Crow",
 	class: "mechanic",
-	skins: ["Crow"],
+	skins: [
+		"Crow",
+		"Crow_Wedding",
+		"Crow_Summer",
+		"Crow_Halloween",
+		"Crow_Story",
+		"Crow_NewYear",
+		"Crow_Glory",
+		"Crow_Job",
+		"Crow_Christmas",
+		"Crow_School",
+		"Crow_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		atk: CLASS_STATS.mechanic.atk + HUNTING$1.atk,
@@ -38786,7 +38881,14 @@ var ODDY = {
 	id: "oddy",
 	name: "Oddy",
 	class: "mechanic",
-	skins: ["Oddy"],
+	skins: [
+		"Oddy",
+		"Oddy_Halloween",
+		"Oddy_School",
+		"Oddy_Summer",
+		"Oddy_NewYear",
+		"Oddy_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "magical"
@@ -39101,7 +39203,13 @@ var PHILLOP = {
 	id: "phillop",
 	name: "Phillop",
 	class: "knight",
-	skins: ["Phillop"],
+	skins: [
+		"Phillop",
+		"Phillop_School",
+		"Phillop_Christmas",
+		"Phillop_Summer",
+		"Phillop_Halloween"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "physical"
@@ -39477,7 +39585,15 @@ var NAILA = {
 	id: "naila",
 	name: "Naila",
 	class: "warrior",
-	skins: ["Naila"],
+	skins: [
+		"Naila",
+		"Naila_School",
+		"Naila_Summer",
+		"Naila_Frozen",
+		"Naila_Wedding",
+		"Naila_Christmas",
+		"Naila_Halloween"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "physical"
@@ -39819,7 +39935,16 @@ var YANNE = {
 	id: "yanne",
 	name: "Yanne",
 	class: "archer",
-	skins: ["Yanne"],
+	skins: [
+		"Yanne",
+		"Yanne_Halloween",
+		"Yanne_Christmas",
+		"Yanne_NewYear",
+		"Yanne_School",
+		"Yanne_Summer",
+		"Yanne_Summer19",
+		"Yanne_Wedding"
+	],
 	stats: {
 		...CLASS_STATS.archer,
 		atk: CLASS_STATS.archer.atk + SLAYER.atk,
@@ -40168,7 +40293,14 @@ var NERAXIS = {
 	id: "neraxis",
 	name: "Neraxis",
 	class: "knight",
-	skins: ["Neraxis"],
+	skins: [
+		"Neraxis",
+		"Neraxis_Maid",
+		"Neraxis_Christmas",
+		"Neraxis_Summer",
+		"Neraxis_Dessert",
+		"Neraxis_Halloween"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		physical: CLASS_STATS.knight.physical + HIDE.defense,
@@ -40545,7 +40677,16 @@ var ERZE = {
 	id: "erze",
 	name: "Erze",
 	class: "assassin",
-	skins: ["Erze"],
+	skins: [
+		"Erze",
+		"Erze_Maid",
+		"Erze_NewYear",
+		"Erze_Wedding",
+		"Erze_Summer",
+		"Erze_Job",
+		"Erze_School",
+		"Erze_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.assassin,
 		deals: "physical"
@@ -40933,7 +41074,16 @@ var LOMAN = {
 	id: "loman",
 	name: "Loman",
 	class: "knight",
-	skins: ["Loman"],
+	skins: [
+		"Loman",
+		"Loman_Summer",
+		"Loman_Maid",
+		"Loman_NewYear",
+		"Loman_Summer19",
+		"Loman_Glory",
+		"Loman_Glory2",
+		"Loman_Halloween"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "physical"
@@ -41304,7 +41454,14 @@ var GAU = {
 	id: "gau",
 	name: "Gau",
 	class: "warrior",
-	skins: ["Gau"],
+	skins: [
+		"Gau",
+		"Gau_School",
+		"Gau_Halloween",
+		"Gau_Summer",
+		"Gau_Wedding",
+		"Gau_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "physical"
@@ -41636,7 +41793,15 @@ var TANYA = {
 	id: "tanya",
 	name: "Tanya",
 	class: "assassin",
-	skins: ["Tanya"],
+	skins: [
+		"Tanya",
+		"Tanya_Summer",
+		"Tanya_Summer2",
+		"Tanya_Halloween",
+		"Tanya_School",
+		"Tanya_Wedding",
+		"Tanya_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.assassin,
 		deals: "physical"
@@ -42006,7 +42171,7 @@ var REBEL_KLAUS = {
 	id: "rebel-klaus",
 	name: "Rebel Klaus",
 	class: "warrior",
-	skins: ["Rebel Klaus"],
+	skins: ["Rebel Klaus", "Rebel_Klaus_Advance"],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "physical"
@@ -42336,7 +42501,7 @@ var DARK_LORD_KASEL = {
 	id: "dark-lord-kasel",
 	name: "Dark Lord Kasel",
 	class: "warrior",
-	skins: ["Dark Lord Kasel"],
+	skins: ["Dark Lord Kasel", "Dark_Lord_Kasel_Advance"],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "physical"
@@ -42668,7 +42833,18 @@ var THEO = {
 	id: "theo",
 	name: "Theo",
 	class: "warrior",
-	skins: ["Theo"],
+	skins: [
+		"Theo",
+		"Theo_Idol",
+		"Theo_Christmas",
+		"Theo_School",
+		"Theo_Wedding",
+		"Theo_Story",
+		"Theo_Summer",
+		"Theo_Glory",
+		"Theo_UserPick",
+		"Theo_Dessert"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "magical"
@@ -43015,7 +43191,15 @@ var PRISCILLA = {
 	id: "priscilla",
 	name: "Priscilla",
 	class: "warrior",
-	skins: ["Priscilla"],
+	skins: [
+		"Priscilla",
+		"Priscilla_Halloween",
+		"Priscilla_Summer",
+		"Priscilla_NewYear",
+		"Priscilla_Wedding",
+		"Priscilla_Summer19",
+		"Priscilla_School"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "physical",
@@ -43357,7 +43541,14 @@ var GLENWYS = {
 	id: "glenwys",
 	name: "Glenwys",
 	class: "knight",
-	skins: ["Glenwys"],
+	skins: [
+		"Glenwys",
+		"Glenwys_Summer",
+		"Glenwys_Halloween",
+		"Glenwys_Glory",
+		"Glenwys_Dessert",
+		"Glenwys_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "physical"
@@ -43744,7 +43935,14 @@ var CHASE = {
 	id: "chase",
 	name: "Chase",
 	class: "warrior",
-	skins: ["Chase"],
+	skins: [
+		"Chase",
+		"Chase_Summer",
+		"Chase_Wedding",
+		"Chase_Halloween",
+		"Chase_UserPick",
+		"Chase_School"
+	],
 	stats: {
 		...CLASS_STATS.warrior,
 		deals: "physical",
@@ -44149,7 +44347,15 @@ var ASELICA = {
 	id: "aselica",
 	name: "Aselica",
 	class: "knight",
-	skins: ["Aselica"],
+	skins: [
+		"Aselica",
+		"Aselica_Wedding",
+		"Aselica_Summer",
+		"Aselica_Halloween",
+		"Aselica_Casual",
+		"Aselica_School",
+		"Aselica_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.knight,
 		deals: "magical"
@@ -44535,7 +44741,13 @@ var LAKRAK = {
 	id: "lakrak",
 	name: "Lakrak",
 	class: "mechanic",
-	skins: ["Lakrak"],
+	skins: [
+		"Lakrak",
+		"Lakrak_Halloween",
+		"Lakrak_Frozen",
+		"Lakrak_Summer",
+		"Lakrak_Job"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "physical"
@@ -44875,7 +45087,15 @@ var MIRURU = {
 	id: "miruru",
 	name: "Miruru",
 	class: "mechanic",
-	skins: ["Miruru"],
+	skins: [
+		"Miruru",
+		"Miruru_School",
+		"Miruru_Summer",
+		"Miruru_Christmas",
+		"Miruru_NewYear",
+		"Miruru_Halloween",
+		"Miruru_Wedding"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "physical"
@@ -45238,7 +45458,18 @@ var MIRIANNE = {
 	id: "mirianne",
 	name: "Mirianne",
 	class: "assassin",
-	skins: ["Mirianne"],
+	skins: [
+		"Mirianne",
+		"Mirianne_Frozen",
+		"Mirianne_Wedding",
+		"Mirianne_Summer",
+		"Mirianne_Maid",
+		"Mirianne_Christmas",
+		"Mirianne_UserPick",
+		"Mirianne_UserPick1",
+		"Mirianne_Glory",
+		"Mirianne_School"
+	],
 	stats: {
 		...CLASS_STATS.assassin,
 		deals: "magical"
@@ -45622,7 +45853,15 @@ var KARA = {
 	id: "kara",
 	name: "Kara",
 	class: "mechanic",
-	skins: ["Kara"],
+	skins: [
+		"Kara",
+		"Kara_Summer",
+		"Kara_Wedding",
+		"Kara_Maid",
+		"Kara_UserPick",
+		"Kara_Halloween",
+		"Kara_Christmas"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "magical"
@@ -46009,7 +46248,14 @@ var ZAFIR = {
 	id: "zafir",
 	name: "Zafir",
 	class: "archer",
-	skins: ["Zafir"],
+	skins: [
+		"Zafir",
+		"Zafir_Summer",
+		"Zafir_Wedding",
+		"Zafir_Halloween",
+		"Zafir_Casual",
+		"Zafir_School"
+	],
 	stats: {
 		...CLASS_STATS.archer,
 		deals: "physical"
@@ -46406,7 +46652,14 @@ var PANSIRONE = {
 	id: "pansirone",
 	name: "Pansirone",
 	class: "mechanic",
-	skins: ["Pansirone"],
+	skins: [
+		"Pansirone",
+		"Pansirone_Christmas",
+		"Pansirone_Wedding",
+		"Pansirone_Summer",
+		"Pansirone_DailyLook",
+		"Pansirone_April"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "physical"
@@ -46811,7 +47064,12 @@ var ISOLET = {
 	id: "isolet",
 	name: "Isolet",
 	class: "wizard",
-	skins: ["Isolet"],
+	skins: [
+		"Isolet",
+		"Isolet_Advance",
+		"Isolet_Christmas",
+		"Isolet_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.wizard,
 		deals: "physical",
@@ -47196,7 +47454,15 @@ var LILIA = {
 	id: "lilia",
 	name: "Lilia",
 	class: "wizard",
-	skins: ["Lilia"],
+	skins: [
+		"Lilia",
+		"Lilia_Summer",
+		"Lilia_Halloween",
+		"Lilia_Maid",
+		"Lilia_Christmas",
+		"Lilia_UserPick",
+		"Lilia_Glory"
+	],
 	stats: {
 		...CLASS_STATS.wizard,
 		deals: "physical",
@@ -47548,7 +47814,16 @@ var LUCIAS = {
 	id: "lucias",
 	name: "Lucias",
 	class: "priest",
-	skins: ["Lucias"],
+	skins: [
+		"Lucias",
+		"Lucias_Christmas",
+		"Lucias_Wedding",
+		"Lucias_Summer",
+		"Lucias_School",
+		"Lucias_Glory",
+		"Lucias_Glory2",
+		"Lucias_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "physical"
@@ -47911,7 +48186,13 @@ var REHARTNA = {
 	id: "rehartna",
 	name: "Rehartna",
 	class: "priest",
-	skins: ["Rehartna"],
+	skins: [
+		"Rehartna",
+		"Rehartna_Job",
+		"Rehartna_Christmas",
+		"Rehartna_Wedding",
+		"Rehartna_Summer"
+	],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "physical"
@@ -48295,7 +48576,16 @@ var SHEA = {
 	id: "shea",
 	name: "Shea",
 	class: "priest",
-	skins: ["Shea"],
+	skins: [
+		"Shea",
+		"Shea_Wedding",
+		"Shea_Summer",
+		"Shea_Halloween",
+		"Shea_Job",
+		"Shea_Glory",
+		"Shea_Christmas",
+		"Shea_DailyLook"
+	],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "magical"
@@ -48679,7 +48969,16 @@ var LAVRIL = {
 	id: "lavril",
 	name: "Lavril",
 	class: "priest",
-	skins: ["Lavril"],
+	skins: [
+		"Lavril",
+		"Lavril_NewYear",
+		"Lavril_UserPick",
+		"Lavril_Summer",
+		"Lavril_Christmas",
+		"Lavril_Glory",
+		"Lavril_Glory2",
+		"Lavril_Halloween"
+	],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "magical"
@@ -49165,7 +49464,14 @@ var EVAN = {
 	id: "evan",
 	name: "Evan",
 	class: "priest",
-	skins: ["Evan"],
+	skins: [
+		"Evan",
+		"Evan_Wedding",
+		"Evan_Summer",
+		"Evan_Christmas",
+		"Evan_DailyLook",
+		"Evan_DailyLook2"
+	],
 	stats: {
 		...CLASS_STATS.priest,
 		deals: "physical"
@@ -49623,7 +49929,7 @@ var ESTELLE = {
 	id: "estelle",
 	name: "Estelle",
 	class: "archer",
-	skins: ["Estelle"],
+	skins: ["Estelle", "Estelle_Advance"],
 	stats: {
 		...CLASS_STATS.archer,
 		deals: "physical",
@@ -50059,7 +50365,19 @@ var HEROES = [
 		id: "jane",
 		name: "Jane",
 		class: "knight",
-		skins: ["Jane"],
+		skins: [
+			"Jane",
+			"Jane_School",
+			"Jane_Summer",
+			"Jane_Summer2",
+			"Jane_Halloween",
+			"Jane_Idol",
+			"Jane_Christmas",
+			"Jane_NewYear",
+			"Jane_Wedding",
+			"Jane_Glory",
+			"Jane_Casual"
+		],
 		stats: {
 			...CLASS_STATS.knight,
 			deals: "magical"
@@ -50348,7 +50666,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "306358cbe874";
+var SIM_VERSION = "64ef593f8252";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
@@ -50388,6 +50706,7 @@ var TM_HEROES = HEROES.map((hero) => ({
 	class: hero.class,
 	deals: hero.stats.deals,
 	skins: hero.skins.length,
+	outfits: [...hero.skins],
 	skills: [...hero.abilities.map(({ name, cost, cooldown, tag, words, about }) => ({
 		name,
 		cost,

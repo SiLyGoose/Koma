@@ -7,7 +7,7 @@ import { copyMainStat, heroItemLines, partOf, potentialLines, setBonusLines } fr
 import { runeView } from '../../models/heroes.js';
 import { DRAGONS, isDragon } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
-import { beginRun, clearedStages, finishRun, ownedHeroes, type BegunRun, type TmFind } from '../../../services/technomagic.js';
+import { beginRun, clearedStages, finishRun, ownedHeroes, wornSkins, type BegunRun, type TmFind } from '../../../services/technomagic.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { dragonRoomLink, technomagicRoomLink, webConfig } from '../../config.js';
@@ -110,6 +110,8 @@ export interface RoomDeps {
   avatar: (guildId: string, userId: string) => string | null;
   /** The heroes they own: their ids, or by id how far each is transcended (none said: 0). */
   owned: (guildId: string, userId: string) => Promise<Owned>;
+  /** The skin each of their heroes is in (the outfit it wears), by id; one not in it is in its own look (none said: every one). */
+  worn?: (guildId: string, userId: string) => Promise<ReadonlyMap<string, number>>;
   /** The highest stage they have won a run against `boss` at, in each mode (0: none). */
   cleared: (guildId: string, userId: string, boss: string) => Promise<Cleared>;
   /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun). */
@@ -131,6 +133,7 @@ export const realRoomDeps: RoomDeps = {
   now: Date.now,
   avatar: () => null,
   owned: ownedHeroes,
+  worn: wornSkins,
   cleared: clearedStages,
   begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
@@ -173,6 +176,8 @@ interface Member {
   avatar: string;
   /** The heroes they own, by id, with how far each is transcended. */
   owned: Map<string, number>;
+  /** The skin each of their heroes is in (the outfit it wears), as last read; one not in it is in its own look (null: not read yet). */
+  worn: ReadonlyMap<string, number> | null;
   ready: boolean;
   /** The highest stage they have won at, in each mode (0: none): as host, they may pick up to the one after it. */
   cleared: Cleared;
@@ -324,10 +329,12 @@ export class TechnoMagicRoom {
       awayEnds: null,
       avatar: this.deps.avatar(this.guildId, player.userId) ?? avatarUrl(player.userId, null),
       owned: new Map(isMap(owned) ? owned : owned.map((id) => [id, 0])),
+      worn: before?.worn ?? null,
       ready: before?.ready ?? false,
       cleared: { hard: Math.max(clearedOf(cleared).hard, before?.cleared.hard ?? 0), normal: Math.max(clearedOf(cleared).normal, before?.cleared.normal ?? 0) },
     });
     if (!before) this.trim();
+    this.readWorn(player.userId);
     this.tell();
     peer.send(this.chat.history());
     const shown = this.fight ?? (this.phase === 'over' ? this.ended : null);
@@ -443,7 +450,8 @@ export class TechnoMagicRoom {
     if (mine.length >= this.limit(userId)) return 'limit';
     if (this.lineup.length >= this.slots()) return 'full';
     if (teamFull) return 'team_full';
-    this.lineup.push({ owner: userId, hero, skin: skin < (HEROES_BY_ID.get(hero)?.skins ?? 1) ? skin : 0, ...(into && { sub: true }) });
+    // In the outfit it wears (the bot's word, once read; the fight's is read again as it begins).
+    this.lineup.push({ owner: userId, hero, skin: member.worn ? (member.worn.get(hero) ?? 0) : skin < (HEROES_BY_ID.get(hero)?.skins ?? 1) ? skin : 0, ...(into && { sub: true }) });
     member.ready = false;
     this.tell();
     return null;
@@ -457,8 +465,25 @@ export class TechnoMagicRoom {
     const member = this.members.get(userId);
     if (!member) return;
     member.owned = new Map(isMap(owned) ? owned : owned.map((id) => [id, 0]));
+    this.readWorn(userId);
     if (this.phase === 'prep' && !this.starting) this.lineup = this.lineup.filter((pick) => pick.owner !== userId || member.owned.has(pick.hero));
     this.tell();
+  }
+
+  /** What `userId`'s heroes wear, read (not waited for): theirs in the lineup put in it, for every page to show. */
+  private readWorn(userId: string): void {
+    this.deps.worn?.(this.guildId, userId).then(
+      (worn) => {
+        const member = this.members.get(userId);
+        if (!member) return;
+        member.worn = worn;
+        if (this.phase !== 'prep' || this.starting) return;
+        if (!this.lineup.some((pick) => pick.owner === userId && pick.skin !== (worn.get(pick.hero) ?? 0))) return;
+        this.lineup = this.lineup.map((pick) => (pick.owner === userId ? { ...pick, skin: worn.get(pick.hero) ?? 0 } : pick));
+        this.tell();
+      },
+      (err) => console.error('Could not read what their heroes wear:', err),
+    );
   }
 
   /** `userId` takes their hero `hero` out of the lineup. */
@@ -594,7 +619,7 @@ export class TechnoMagicRoom {
       mode,
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, artifact: player?.artifacts?.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
+        return { owner: pick.owner, id: pick.hero, skin: player?.skins?.get(pick.hero) ?? pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, artifact: player?.artifacts?.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
       }),
     };
     let engine: FightEngine | string;

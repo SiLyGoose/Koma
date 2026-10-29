@@ -18,6 +18,11 @@ export interface HeroDef {
   deals: 'physical' | 'magical';
   /** How many skins it has (its own first): one is picked for the raid by its index. */
   skins: number;
+  /**
+   * Its skins' names, by that index (its own first): the others are its outfits (King's Raid's costumes), bought in the
+   * site's shop and worn on it (services/hero-outfits.ts). A name is its hero's own (`Kirze_Glory`).
+   */
+  outfits: readonly string[];
   /** Its three skills, then its passive, as the heroes page says them (the raid's). */
   abilities: readonly HeroSkillView[];
 }
@@ -25,9 +30,14 @@ export interface HeroDef {
 const isRaidClass = (id: string): id is RaidClassId => (RAID_CLASS_IDS as readonly string[]).includes(id);
 
 /** In the order the shop and the heroes page show them. */
-export const HEROES: readonly HeroDef[] = TM_HEROES.map(({ id, name, class: heroClass, deals, skins, skills }) => {
+export const HEROES: readonly HeroDef[] = TM_HEROES.map(({ id, name, class: heroClass, deals, skins, outfits, skills }) => {
   if (!isRaidClass(heroClass)) throw new Error(`The raid's hero ${id} is of a class the bot doesn't know (${heroClass})`);
-  return { id, name, class: heroClass, deals, skins, abilities: skills };
+  return { id, name, class: heroClass, deals, skins, outfits, abilities: skills };
 });
 
 export const HEROES_BY_ID: ReadonlyMap<string, HeroDef> = new Map(HEROES.map((hero) => [hero.id, hero]));
+
+/** Every hero's outfits (not its own look), by name: whose it is, and its skin's index. */
+export const HERO_OUTFITS: ReadonlyMap<string, { hero: string; skin: number }> = new Map(
+  HEROES.flatMap((hero) => hero.outfits.slice(1).map((outfit, i) => [outfit, { hero: hero.id, skin: i + 1 }] as const)),
+);

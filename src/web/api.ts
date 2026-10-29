@@ -5,6 +5,7 @@ import type { GachaStore } from './models/gacha.js';
 import type { GearStore } from './models/gear.js';
 import type { HeroStore } from './models/heroes.js';
 import type { OutfitStore } from './models/outfits.js';
+import type { HeroOutfitStore } from './models/hero-outfits.js';
 import type { RaidShopStore } from './models/raid-shop.js';
 import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
@@ -24,6 +25,7 @@ import type { MailStore } from './models/mail.js';
 import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
 import { outfitRoutes } from './routes/outfits.js';
+import { heroOutfitRoutes } from './routes/hero-outfits.js';
 import { raidShopRoutes } from './routes/raid-shop.js';
 import { publicRoutes } from './routes/public.js';
 import { raidRoutes } from './routes/raid.js';
@@ -68,6 +70,9 @@ export type { Me } from './services/login.js';
  *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points (the shop; it isn't put on): OutfitsView
  *   POST /api/gear/class {guild, class}   picks their raid class (null: none), which counts from their next raid's fight: GearView
  *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
+ *   GET  /api/hero-outfits?guild=…   the heroes' outfits (King's Raid's costumes): what each costs, which are the member's, which heroes they own and what each wears: HeroOutfitsView (models/hero-outfits.ts)
+ *   POST /api/hero-outfits/buy {guild, outfit}   buys an outfit for one of their heroes with points (the shop; it isn't put on): HeroOutfitsView
+ *   POST /api/hero-outfits/wear {guild, hero, outfit}   puts one of their hero's outfits on it (null: its own look) (its outfit room): HeroOutfitsView
  *   GET  /api/heroes?guild=…   the TechnoMagic Raid's heroes: what each costs, which are the member's, the gear each wears and what it gives it, and every copy a hero could wear: HeroesView (models/heroes.ts)
  *   POST /api/heroes/buy {guild, hero}   buys a hero with points (the shop): HeroesView
  *   POST /api/heroes/equip {guild, hero, slot, copy}   puts one of their copies in one of their hero's slots, off any other hero it was on (the heroes page): HeroesView
@@ -124,6 +129,8 @@ export interface ApiDeps {
   gacha?: GachaStore;
   /** Outfits, for the shop and the dressing room (the database's, unless a test says otherwise). */
   outfits?: OutfitStore;
+  /** The heroes' outfits, for the shop and the heroes' outfit room (the database's, unless a test says otherwise). */
+  heroOutfits?: HeroOutfitStore;
   /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
   heroes?: HeroStore;
   /** The mailbox (the database's, unless a test says otherwise). */
@@ -158,6 +165,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/gear', gearRoutes(deps))
     .use('/gacha', gachaRoutes(deps))
     .use('/outfits', outfitRoutes(deps))
+    .use('/hero-outfits', heroOutfitRoutes(deps))
     .use('/heroes', heroRoutes(deps))
     .use('/runes', runeRoutes(deps))
     .use('/mail', mailRoutes(deps))

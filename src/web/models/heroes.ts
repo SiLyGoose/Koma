@@ -44,6 +44,7 @@ import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js
 import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
+import { wornSkin } from '../../services/hero-outfits.js';
 import { buyHero, craftTpScrolls, equipHero, pickHeroPerks, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
 import { keepOption, keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
@@ -328,6 +329,7 @@ export function heroesView(
       perkEffects: perkLines(hero.id, perks),
       transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend, doc?.scrollTp), scrolls: scrollPoints(doc?.scrollTp), next: transcendCost(hero.class, doc?.transcend) },
       abilities: [...hero.abilities],
+      outfit: hero.outfits[wornSkin(hero.id, doc)] ?? hero.outfits[0],
     };
   });
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
