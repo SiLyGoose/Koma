@@ -46,7 +46,7 @@ export interface DatabankItem {
    * gear's potentials, a unique treasure's options. `effects` has only what comes after them. Left out: none.
    */
   pool?: DatabankPool;
-  /** King's Raid's gear (an artifact): its icon (Koma-UI's public/kr/items/<icon>.webp). Left out: an item with its own picture. */
+  /** King's Raid's gear (an artifact, a TechnoMagic set's piece): its icon (Koma-UI's public/kr/items/<icon>.webp). Left out: an item with its own picture (the old TechnoMagic gear too). */
   icon?: string;
 }
 

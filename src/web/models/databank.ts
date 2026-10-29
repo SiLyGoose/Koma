@@ -2,9 +2,9 @@ import { bossBrief } from '../../commands/raid.js';
 import { CONFIG } from '../../config.js';
 import { bossEssences } from '../../data/transcend.js';
 import { raidRewards } from '../../lib/events/raid.js';
-import { RAID_BOSS_IDS, RAID_CLASS_IDS, REFINE, TEXT, type RaidBossId } from '../../constants/index.js';
+import { RAID_BOSS_IDS, RAID_CLASS_IDS, REFINE, TEXT, type RaidBossId, type RaidClassId } from '../../constants/index.js';
 import { heroBannerItem, ITEMS } from '../../data/items.js';
-import { ARTIFACT_TEXT, KR_ITEMS } from '../../data/kr-gear.js';
+import { ARTIFACT_TEXT, isTmPiece, KR_ITEMS, KR_TM_SETS } from '../../data/kr-gear.js';
 import { describeEffects } from '../../lib/game/items/equipment.js';
 import { soldInRaidShop } from '../../lib/game/items/raid-shop.js';
 import { classTraits } from '../../lib/game/raid-classes.js';
@@ -16,7 +16,7 @@ import { utHp } from '../../data/ut-hp.js';
 import { HEROES, HEROES_BY_ID } from '../../data/heroes.js';
 import { partOf, treasureTier, uniqueTier } from '../../lib/game/heroes.js';
 import { uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
-import type { ItemDef } from '../../types.js';
+import type { ItemDef, TmSetId } from '../../types.js';
 import { difficultyLevels, picturePath } from '../games/raid/view.js';
 import type { Databank, DatabankBoss, DatabankItem, DatabankRaid, DatabankRewards, ItemSource } from '../../protocol/databank.js';
 
@@ -103,6 +103,42 @@ function artifactView(item: ItemDef, levels: readonly number[]): DatabankItem {
   };
 }
 
+/**
+ * King's Raid's TechnoMagic sets' pieces (each class's Armor, Mantle, Accessories and Orb), as the databank shows them: its
+ * set (whose boss drops it, and its 4-piece skill for the piece's class), its icon and its class. What a copy has (its main
+ * stat by its stars, the options and unique option it rolls, its rune sockets) the site says from King's Raid's data.
+ */
+function tmPieceView(item: ItemDef, levels: readonly number[]): DatabankItem {
+  const kr = item.kr;
+  const set = kr?.set ? TM_SETS_BY_ID.get(kr.set as TmSetId) : undefined;
+  const cls = kr?.classes[0] ?? null;
+  return {
+    id: item.id,
+    name: item.name,
+    stars: item.stars,
+    slot: item.slot,
+    part: kr?.part ?? null,
+    description: item.description,
+    effects: levels.map(() => []),
+    borrowed: null,
+    source: 'technomagic',
+    sources: ['technomagic'],
+    class: cls,
+    uniqueWeapon: null,
+    uniqueTreasure: null,
+    set: set ? { name: set.name, boss: set.boss, effects: set.effects, pieces: TM_SET_PIECES, effect: (cls && set.effects[cls]) ?? 'nothing for its class' } : null,
+    ...(kr?.icon && { icon: kr.icon }),
+  };
+}
+
+/** TechnoMagic pieces in the databank's order: by set (KR_TM_SETS's), then class (the raid's), then part, Armor to Orb. */
+const PART_ORDER: readonly string[] = ['armor', 'secondary', 'accessory', 'orb'];
+const byPiece = (a: ItemDef, b: ItemDef): number => {
+  const rank = (item: ItemDef): number[] => [KR_TM_SETS.indexOf(item.kr?.set ?? ''), RAID_CLASS_IDS.indexOf(item.kr?.classes[0] as RaidClassId), PART_ORDER.indexOf(item.kr?.part ?? '')];
+  const [x, y] = [rank(a), rank(b)];
+  return x.map((one, i) => one - (y[i] ?? 0)).find((diff) => diff !== 0) ?? 0;
+};
+
 export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   const levels = Array.from({ length: REFINE.maxLevel }, (_, i) => i + 1);
   const list = items.map(
@@ -133,7 +169,8 @@ export function databankView(items: readonly ItemDef[] = ITEMS): Databank {
   // Best first: TechnoMagic gear (a tier of its own, above 4 stars), the unique weapons (between it and 4 stars), then by stars.
   const tier = (item: DatabankItem): number => (item.source === 'technomagic' ? 5 : item.uniqueTreasure !== null ? 4.4 : item.source === 'heroBanner' ? 4.5 : item.stars);
   list.sort((a, b) => tier(b) - tier(a));
-  // (King's Raid's artifacts after them, A to Z: a list of their own on the site.)
+  // (King's Raid's TechnoMagic pieces, by set, class and part, then its artifacts, A to Z: lists of their own on the site.)
+  list.push(...[...KR_ITEMS.filter(isTmPiece)].sort(byPiece).map((item) => tmPieceView(item, levels)));
   const artifacts = KR_ITEMS.filter((item) => item.kr?.part === 'artifact').map((item) => artifactView(item, levels));
   list.push(...artifacts.sort((a, b) => a.name.localeCompare(b.name)));
   return {

@@ -8,7 +8,8 @@ import { bossEssences, RAID_BOSS_ESSENCES } from '../src/data/transcend.js';
 import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS, RAID_CLASS_IDS, RAID_CLASSES, RAID_COMBAT, RAID_DIFFICULTY, REFINE, TEXT } from '../src/constants/index.js';
 import { ITEMS } from '../src/data/items.js';
-import { ARTIFACT_TEXT, KR_ITEMS } from '../src/data/kr-gear.js';
+import { ARTIFACT_TEXT, isTmPiece, KR_ITEMS } from '../src/data/kr-gear.js';
+import { TM_SETS_BY_ID } from '../src/data/tm-sets.js';
 import { formatMultiplier, formatPercent } from '../src/lib/format.js';
 import { describeEffects } from '../src/lib/game/items/equipment.js';
 import { classTraits } from '../src/lib/game/raid-classes.js';
@@ -17,9 +18,10 @@ import { createApi } from '../src/web/api.js';
 import type { WebConfig } from '../src/web/config.js';
 import { databankView } from '../src/web/models/databank.js';
 
-/** King's Raid's artifacts, which the databank lists after the catalog's items; and how many items it lists in all. */
+/** King's Raid's TechnoMagic pieces and artifacts, which the databank lists after the catalog's items; and how many items it lists in all. */
+const TM_PIECES = KR_ITEMS.filter(isTmPiece);
 const ARTIFACTS = KR_ITEMS.filter((item) => item.kr?.part === 'artifact');
-const SHOWN = ITEMS.length + ARTIFACTS.length;
+const SHOWN = ITEMS.length + TM_PIECES.length + ARTIFACTS.length;
 
 const SITE: WebConfig = {
   siteUrl: 'https://koma-ui.vercel.app',
@@ -49,9 +51,31 @@ test('databank page: every item, highest tier first, with its effects at each le
   assert.ok(shown(exclusive.id).borrowed !== null && shown(exclusive.id).borrowed! < 1);
 });
 
-test("databank page: King's Raid's artifacts after the catalog, A to Z, with their icon and their words at each of their stars", () => {
+test("databank page: King's Raid's TechnoMagic pieces after the catalog, in their order, with their icon, class, part and set", () => {
   const { items } = databankView();
-  const shown = items.slice(ITEMS.length);
+  const shown = items.slice(ITEMS.length, ITEMS.length + TM_PIECES.length);
+  assert.ok(TM_PIECES.length > 0);
+  assert.deepEqual(shown.map((item) => item.id).sort(), TM_PIECES.map((item) => item.id).sort());
+  // (Galgoria's set first, then by class.)
+  assert.equal(shown[0]?.set?.boss, 'galgoria');
+  assert.equal(shown[0]?.class, RAID_CLASS_IDS[0]);
+  for (const item of shown) {
+    const def = TM_PIECES.find((one) => one.id === item.id)!;
+    const set = TM_SETS_BY_ID.get(def.kr!.set as never)!;
+    assert.equal(item.source, 'technomagic');
+    assert.deepEqual(item.sources, ['technomagic']);
+    assert.equal(item.icon, def.kr?.icon);
+    assert.equal(item.part, def.kr?.part);
+    assert.equal(item.class, def.kr?.classes[0]);
+    assert.equal(item.set?.name, set.name, item.id);
+    assert.equal(item.set?.boss, set.boss);
+    assert.equal(item.set?.effect, set.effects[item.class!] ?? 'nothing for its class');
+  }
+});
+
+test("databank page: King's Raid's artifacts after its TechnoMagic pieces, A to Z, with their icon and their words at each of their stars", () => {
+  const { items } = databankView();
+  const shown = items.slice(ITEMS.length + TM_PIECES.length);
   assert.ok(ARTIFACTS.length > 0);
   assert.deepEqual(shown.map((item) => item.id).sort(), ARTIFACTS.map((item) => item.id).sort());
   for (let i = 1; i < shown.length; i++) assert.ok(shown[i - 1]!.name.localeCompare(shown[i]!.name) <= 0);
