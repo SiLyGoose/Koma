@@ -869,8 +869,9 @@ test('technomagic: a hero has its gear’s additional skills in the fight, the s
     assert.deepEqual(replay(skilled([id]), autos, once.sums), once, id);
     if (JSON.stringify(once.sums) !== JSON.stringify(plain.sums)) changed++;
   }
-  // (Some need what this fight on Auto never has: a full mana bar, the other kind of damage, a hero near falling.)
-  assert.ok(changed >= TM_SKILLS.length - 6, `${changed} of ${TM_SKILLS.length} change the fight`);
+  // (Some need what this fight on Auto never has: a full mana bar, the other kind of damage, a hero near falling; or more enemies
+  // than the boss alone, or one brought down: Crowd Foe, Crowd Guard, Bloodlust.)
+  assert.ok(changed >= TM_SKILLS.length - 9, `${changed} of ${TM_SKILLS.length} change the fight`);
   // ATK up, DEF down: the boss falls sooner. Twice over: sooner again.
   const berserk = replay(skilled(['berserk']), autos);
   assert.ok(berserk.ticks < plain.ticks);

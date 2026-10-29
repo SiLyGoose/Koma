@@ -9758,8 +9758,6 @@ var STAGES = {
 	heals: .6,
 	shields: .4
 };
-/** How many times as much it takes of each kind of damage. */
-var TAKEN = { physical: 1.2 };
 var IMPRISONED = {
 	name: "Swamp Imprisonment",
 	about: "Held in the swamp: it can do nothing (and can’t be knocked down), but the boss still hits it.",
@@ -9988,7 +9986,6 @@ function ownPart(fight) {
 		},
 		healing: () => late() ? STAGES.heals : 1,
 		shielding: () => late() ? STAGES.shields : 1,
-		taken: TAKEN,
 		unstolen: true,
 		steady: true,
 		marks() {
@@ -10062,7 +10059,7 @@ var scales = (times) => HP.map((hp, i) => ({
 }));
 /**
 * Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
-* 20% more physical damage (./skills.ts). Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
+* physical and magic damage alike. Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
 * best with penetration, and with what cuts its healing (it gives itself back its health all the while: ./skills.ts).
 * How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
 * ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
@@ -18874,7 +18871,7 @@ var KR_SETS$1 = {
 		}
 	}
 };
-/** TechnoMagic gear's unique options (KR's 47), by number: the fight's additional skill each is (null: none), and KR's words and numbers. */
+/** TechnoMagic gear's unique options (KR's 47), by number: the fight's additional skill each is, and KR's words and numbers. */
 var KR_UNIQUE$1 = [
 	{
 		"n": 1,
@@ -18890,13 +18887,13 @@ var KR_UNIQUE$1 = [
 	},
 	{
 		"n": 3,
-		"skill": null,
+		"skill": "crowd-foe",
 		"text": "Increases ATK by 35% when there are 3 enemies.",
 		"params": ["3", "35"]
 	},
 	{
 		"n": 4,
-		"skill": null,
+		"skill": "crowd-guard",
 		"text": "Increases DEF by 45% when there are 3 enemies.",
 		"params": ["3", "45"]
 	},
@@ -18982,7 +18979,7 @@ var KR_UNIQUE$1 = [
 	},
 	{
 		"n": 14,
-		"skill": null,
+		"skill": "bulwark",
 		"text": "Upon blocking the enemy’s attack, increases All Block by 20. This effect can be stacked up to max 20 times and activates only once every 2 sec.",
 		"params": [
 			"20",
@@ -19038,19 +19035,19 @@ var KR_UNIQUE$1 = [
 	},
 	{
 		"n": 20,
-		"skill": null,
+		"skill": "sunder",
 		"text": "Increases DMG of [DMG that ignores DEF] by 25%.",
 		"params": ["25"]
 	},
 	{
 		"n": 21,
-		"skill": null,
+		"skill": "corrosion",
 		"text": "Increases DMG of [Continuous DMG] by 20%.",
 		"params": ["20"]
 	},
 	{
 		"n": 22,
-		"skill": null,
+		"skill": "bloodlust",
 		"text": "Upon killing an enemy, increases ATK by 2%. This effect can be stacked up to max 25 times.",
 		"params": ["2", "25"]
 	},
@@ -19062,13 +19059,13 @@ var KR_UNIQUE$1 = [
 	},
 	{
 		"n": 24,
-		"skill": null,
+		"skill": "phalanx",
 		"text": "Increases DEF by 7% per 1 enemy.",
 		"params": ["1", "7"]
 	},
 	{
 		"n": 25,
-		"skill": null,
+		"skill": "onslaught",
 		"text": "Increases ATK by 6% per 1 enemy.",
 		"params": ["1", "6"]
 	},
@@ -29052,7 +29049,28 @@ var SKILL = {
 		more: 200,
 		lasts: 10
 	},
-	tenacity: { control: .15 }
+	tenacity: { control: .15 },
+	bulwark: {
+		block: 20,
+		most: 20,
+		wait: 2
+	},
+	sunder: { dmg: .25 },
+	corrosion: { dmg: .2 },
+	onslaught: { atk: .06 },
+	phalanx: { defense: .07 },
+	bloodlust: {
+		atk: .02,
+		most: 25
+	},
+	"crowd-foe": {
+		atk: .35,
+		enemies: 3
+	},
+	"crowd-guard": {
+		defense: .45,
+		enemies: 3
+	}
 };
 /**
 * The picture of each on a hero's card: King's Raid's own status icon for what it does (its gear skills have none of
@@ -29097,7 +29115,15 @@ var STATE = {
 	desperation: "AttackUp",
 	mending: "Shield",
 	"iron-wall": "DefenseUp",
-	tenacity: "ImmuneCc"
+	tenacity: "ImmuneCc",
+	bulwark: "DefenseUp",
+	sunder: "AttackUp",
+	corrosion: "AttackUp",
+	onslaught: "AttackUp",
+	phalanx: "DefenseUp",
+	bloodlust: "AttackUp",
+	"crowd-foe": "AttackUp",
+	"crowd-guard": "DefenseUp"
 };
 /** Every additional skill, in the tier list's order. */
 var SKILLS = [
@@ -29282,6 +29308,12 @@ var SKILLS = [
 		about: `On blocking, recovers ${SKILL.parry.mana} mana (once ${every$1(SKILL.parry.wait)}).`
 	},
 	{
+		id: "bulwark",
+		name: "Bulwark",
+		tier: "B",
+		about: `Each block increases block by ${pct(share$2(SKILL.bulwark.block))} (up to ${SKILL.bulwark.most} times, once ${every$1(SKILL.bulwark.wait)}).`
+	},
+	{
 		id: "lone-foe",
 		name: "Lone Foe",
 		tier: "C",
@@ -29304,6 +29336,30 @@ var SKILLS = [
 		name: "Mana Spring",
 		tier: "C",
 		about: `Recovers ${SKILL["mana-spring"].mana} mana ${every$1(SKILL["mana-spring"].every)}.`
+	},
+	{
+		id: "sunder",
+		name: "Sunder",
+		tier: "C",
+		about: `Increases DMG that ignores DEF by ${pct(SKILL.sunder.dmg)}.`
+	},
+	{
+		id: "corrosion",
+		name: "Corrosion",
+		tier: "C",
+		about: `Increases continuous DMG (Poison, Bleed, Flame and the like) by ${pct(SKILL.corrosion.dmg)}.`
+	},
+	{
+		id: "onslaught",
+		name: "Onslaught",
+		tier: "C",
+		about: `Increases ATK by ${pct(SKILL.onslaught.atk)} for each enemy on the field.`
+	},
+	{
+		id: "phalanx",
+		name: "Phalanx",
+		tier: "C",
+		about: `Increases DEF by ${pct(SKILL.phalanx.defense)} for each enemy on the field.`
 	},
 	{
 		id: "surge",
@@ -29334,6 +29390,24 @@ var SKILLS = [
 		name: "Tenacity",
 		tier: "F",
 		about: `Reduces how long it is knocked down by ${pct(SKILL.tenacity.control)}.`
+	},
+	{
+		id: "bloodlust",
+		name: "Bloodlust",
+		tier: "F",
+		about: `Each enemy it brings down increases ATK by ${pct(SKILL.bloodlust.atk)} (up to ${SKILL.bloodlust.most} times).`
+	},
+	{
+		id: "crowd-foe",
+		name: "Crowd Foe",
+		tier: "F",
+		about: `With ${SKILL["crowd-foe"].enemies} enemies or more, increases ATK by ${pct(SKILL["crowd-foe"].atk)}.`
+	},
+	{
+		id: "crowd-guard",
+		name: "Crowd Guard",
+		tier: "F",
+		about: `With ${SKILL["crowd-guard"].enemies} enemies or more, increases DEF by ${pct(SKILL["crowd-guard"].defense)}.`
 	}
 ];
 SKILLS.map((skill) => skill.id);
@@ -29347,13 +29421,14 @@ function skillsOf(list) {
 /**
 * What a hero's additional skills (`skills`: how many of each) do to its own stats from the start of a fight, done to
 * `stats` (shares of ATK and defense added up, as gear's are; Overdrive fixes its attack speed): ./fight.ts fights with
-* them, and the heroes page shows them. What they do only now and then, or to every ally, ./fight.ts does as it goes.
+* them, and the heroes page shows them. What they do only now and then, to every ally, or by how many enemies there are
+* (foeSkills), ./fight.ts does as it goes.
 */
 function skilledStats(stats, skills) {
 	const n = (id) => skills[id] ?? 0;
 	stats.hp *= 1 + SKILL.vitality.hp * n("vitality");
-	stats.atk *= Math.max(0, 1 + SKILL.berserk.atk * n("berserk") + SKILL.fortress.atk * n("fortress") + SKILL.overdrive.atk * n("overdrive") + SKILL["warm-up"].atk * n("warm-up") + SKILL.might.atk * n("might") + SKILL["lone-foe"].atk * n("lone-foe"));
-	const sturdier = Math.max(0, 1 + SKILL.berserk.defense * n("berserk") + SKILL.fortress.defense * n("fortress") + SKILL["lone-guard"].defense * n("lone-guard") + SKILL.armor.defense * n("armor"));
+	stats.atk *= Math.max(0, 1 + SKILL.berserk.atk * n("berserk") + SKILL.fortress.atk * n("fortress") + SKILL.overdrive.atk * n("overdrive") + SKILL["warm-up"].atk * n("warm-up") + SKILL.might.atk * n("might"));
+	const sturdier = Math.max(0, 1 + SKILL.berserk.defense * n("berserk") + SKILL.fortress.defense * n("fortress") + SKILL.armor.defense * n("armor"));
 	stats.physical *= sturdier;
 	stats.magical *= sturdier;
 	stats.crit += SKILL.precision.crit * n("precision");
@@ -29370,6 +29445,20 @@ function skilledStats(stats, skills) {
 		magical: stats.dodge.magical + dodge
 	};
 	return stats;
+}
+/**
+* What a hero's additional skills that count enemies give it with `enemies` on the field: shares of ATK and DEF (Lone Foe,
+* Crowd Foe and Onslaught; Lone Guard, Crowd Guard and Phalanx). ./fight.ts adds them as the fight goes; the heroes page,
+* as a fight begins (the boss alone).
+*/
+function foeSkills(skills, enemies) {
+	const n = (id) => skills[id] ?? 0;
+	const lone = enemies === 1 ? 1 : 0;
+	const crowd = enemies >= SKILL["crowd-foe"].enemies ? 1 : 0;
+	return {
+		atk: SKILL["lone-foe"].atk * n("lone-foe") * lone + SKILL["crowd-foe"].atk * n("crowd-foe") * crowd + SKILL.onslaught.atk * n("onslaught") * enemies,
+		defense: SKILL["lone-guard"].defense * n("lone-guard") * lone + SKILL["crowd-guard"].defense * n("crowd-guard") * (enemies >= SKILL["crowd-guard"].enemies ? 1 : 0) + SKILL.phalanx.defense * n("phalanx") * enemies
+	};
 }
 /** How much harder a hero's critical blows are for its own additional skills (Ruthless). */
 var skilledCritDamage = (skills) => SKILL.ruthless.critDamage * (skills.ruthless ?? 0);
@@ -31844,7 +31933,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			skills,
 			stacks: {
 				momentum: 0,
-				steadfast: 0
+				steadfast: 0,
+				bloodlust: 0,
+				bulwark: 0
 			},
 			waits: Object.fromEntries(EVERY.filter((id) => n(id) > 0).map((id) => [id, SKILL[id].every])),
 			controlTimes: 1 + (gear.control ?? 0),
@@ -31941,6 +32032,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let attacking = null;
 	let basic = 0;
 	let landing = null;
+	/** Whether the blow landing now is continuous DMG (Fight.continuous: a Poison's, a Bleed's, a Flame's, a Mortal Wound's). */
+	let seeping = false;
 	/** How long the boss has been still; what each of its parts (heads) is doing, and will do after; whom it goes for, and whether it was busy last step. */
 	let idle = 0;
 	const going = /* @__PURE__ */ new Map();
@@ -32039,16 +32132,18 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const bears = (fighter, name) => fighter.statuses.some((status) => status.name === name);
 	/**
 	* How many times its ATK a hero's blows, heals and shields go by, for now: what the sets on the field give every ally
-	* and every War Cry among them; its own set's, growing, at first or once its mana has been full; and its own Momentum's
-	* stacks and Desperation. (All added up, as King's Raid's ATK is: ./combat/status.ts.)
+	* and every War Cry among them; its own set's, growing, at first or once its mana has been full; its own Momentum's and
+	* Bloodlust's stacks and Desperation; and what its skills that count enemies give for those standing now (foeSkills).
+	* (All added up, as King's Raid's ATK is: ./combat/status.ts.)
 	*/
 	const atkTimes = (by) => {
 		const own = setEffect(by);
 		const set = (own.grows?.atk ?? 0) * grown(own, elapsed) + (own.opening && elapsed < own.opening.lasts ? own.opening.atk : 0) + (own.fullMana && by.setDone.full ? own.fullMana.atk : 0);
 		return stacked([
 			1 + allied(by, "atk") + set + SKILL["war-cry"].atk * among("war-cry") + auras.atk + alliesFrom(field, "atk") + adding(by.statuses, "atk"),
-			1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum"),
-			bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1
+			1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum") + SKILL.bloodlust.atk * by.stacks.bloodlust * has(by, "bloodlust"),
+			bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1,
+			1 + foeSkills(by.skills, standing().length).atk
 		]);
 	};
 	/**
@@ -32309,7 +32404,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		for (const name of Object.keys(fighter.perkWaits)) fighter.perkWaits[name] = fighter.perkWaits[name] - dt;
 		fighter.wound = Math.max(0, fighter.wound - dt);
 		const wound = fighter.wound > 0 ? fighter.perkDefs.find((perk) => perk.wound)?.wound : void 0;
-		if (wound && (tick + 1) % SECOND === 0) sim.hit(fighter, wound.each, false);
+		if (wound && (tick + 1) % SECOND === 0) sim.continuous(fighter, wound.each);
 		if ((tick + 1) % SECOND !== 0 || !field.includes(fighter) || fighter.hp <= 0 || away(fighter.statuses)) return;
 		if (auras.mend > 0) {
 			const given = sim.heal(fighter, auras.mend * fighter.stats.hp);
@@ -32491,7 +32586,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			physical: stood.physical * defending(foe.statuses, "physical"),
 			magical: stood.magical * defending(foe.statuses, "magical")
 		};
-		const power = (1 + bookShare(by, "dmg") + skilled - 1) * (through ? 1 + (setEffect(by).pastDef ?? 0) : 1);
+		const pastDef = through ? 1 + (setEffect(by).pastDef ?? 0) + SKILL.sunder.dmg * has(by, "sunder") : 1;
+		const seeped = seeping ? 1 + SKILL.corrosion.dmg * has(by, "corrosion") : 1;
+		const power = (1 + bookShare(by, "dmg") + skilled - 1) * pastDef * seeped;
 		const more = amplified([
 			dmgTimes(by),
 			attack,
@@ -32575,6 +32672,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (foe === boss && wave === 1 && waves > 1 && def.waves && foe.hp <= foe.maxHp * def.waves.leaves) bossLeave();
 			return critical;
 		}
+		if (has(by, "bloodlust") > 0) by.stacks.bloodlust = Math.min(SKILL.bloodlust.most, by.stacks.bloodlust + 1);
 		beaten(foe);
 		return critical;
 	}
@@ -32884,6 +32982,14 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		hit(by, amount, counted = true, pierce = 0, whole = false) {
 			return hitting(by, amount, counted, pierce, whole);
 		},
+		continuous(by, amount) {
+			seeping = true;
+			try {
+				return hitting(by, amount, false, 0, false);
+			} finally {
+				seeping = false;
+			}
+		},
 		on: as,
 		heal(fighter, amount, by, from) {
 			if (fighter.hp <= 0) return 0;
@@ -32922,10 +33028,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				return 0;
 			}
 			const type = kind ?? foe.def.stats.deals;
-			const guarded = 1 + allied(target, "defense") + SKILL.bastion.defense * among("bastion") + alliesFrom(field, "defense");
+			const guarded = 1 + allied(target, "defense") + SKILL.bastion.defense * among("bastion") + alliesFrom(field, "defense") + foeSkills(target.skills, standing().length).defense;
 			const toughened = (setEffect(target).grows?.tough ?? 0) * grown(setEffect(target), elapsed) + adding(target.statuses, "tough");
 			const bare = relics.get(target)?.noDef() === true;
-			const walled = elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0;
+			const walled = (elapsed < SKILL["iron-wall"].lasts ? SKILL["iron-wall"].more * has(target, "iron-wall") : 0) + SKILL.bulwark.block * target.stacks.bulwark * has(target, "bulwark");
 			const stands = {
 				...target.stats,
 				physical: bare ? 0 : (target.stats.physical + bolstering(target.statuses, "physical") + bolstering(party, "physical")) * stacked([
@@ -33045,6 +33151,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			if (blocked) {
 				target.part.blocked?.();
 				if (target.hp > 0 && due(target, "parry", SKILL.parry.wait)) target.mana = Math.min(MAX_MANA, target.mana + SKILL.parry.mana * has(target, "parry"));
+				if (target.hp > 0 && due(target, "bulwark", SKILL.bulwark.wait)) target.stacks.bulwark = Math.min(SKILL.bulwark.most, target.stacks.bulwark + 1);
 				const onBlock = setEffect(target).onBlock;
 				if (onBlock && target.hp > 0 && perkDue(target, "set-block", onBlock.wait)) target.cooldowns = target.cooldowns.map((left) => Math.max(0, left - onBlock.cooldown));
 			}
@@ -33227,7 +33334,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				mix(fighter.shield);
 				mix(fighter.dealt);
 				mix(fighter.statuses.length);
-				mix(fighter.stacks.momentum + fighter.stacks.steadfast);
+				mix(fighter.stacks.momentum + fighter.stacks.steadfast + fighter.stacks.bloodlust + fighter.stacks.bulwark);
 				mix(fighter.doing ? fighter.doing.t : -1);
 				mix(fighter.reserved ?? -1);
 				mix(fighter.immune + fighter.nimble + fighter.wound);
@@ -36502,7 +36609,7 @@ var LORRAINE = {
 				bitten += dt;
 				if (bitten >= POISON.every) {
 					bitten -= POISON.every;
-					fight.hit(self, POISON.each * count * (self.perks.has("s4-dark") && fight.foe === fight.boss ? PERKS$37.boss : 1), false);
+					fight.continuous(self, POISON.each * count * (self.perks.has("s4-dark") && fight.foe === fight.boss ? PERKS$37.boss : 1));
 				}
 			},
 			lit: () => poisons() >= POISON.most
@@ -36903,7 +37010,7 @@ var MORRAH = {
 				if (burnt >= FLAME.every) {
 					burnt -= FLAME.every;
 					fight.cue(self, "flame");
-					fight.hit(self, each * count, false);
+					fight.continuous(self, each * count);
 				}
 			},
 			lit: () => burning > 0,
@@ -38111,7 +38218,7 @@ var LUCIKIEL = {
 				bitten += dt;
 				if (bitten >= SHADOW.every) {
 					bitten -= SHADOW.every;
-					fight.hit(self, SHADOW.each, false);
+					fight.continuous(self, SHADOW.each);
 				}
 			},
 			takes: () => self.perks.has("s4-dark") ? (ARMOR$1.taken - PERKS$33.taken) / ARMOR$1.taken : 1,
@@ -42062,7 +42169,7 @@ var TANYA = {
 				bleeding += dt;
 				if (bleeding < 1) return;
 				bleeding -= 1;
-				fight.hit(self, BLEED.each * bleeds.length, false);
+				fight.continuous(self, BLEED.each * bleeds.length);
 			},
 			untouched: () => untouched > 0,
 			dodge: () => stealth > 0 ? STEALTH.dodge : 0,
@@ -50748,7 +50855,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "3603ff497f83";
+var SIM_VERSION = "1029719187d9";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
@@ -50823,7 +50930,7 @@ var KR_POOLS = KR_POOLS$1;
 var KR_REFINE = KR_REFINE$1;
 var KR_SETS = KR_SETS$1;
 var KR_RUNES = KR_RUNES$1;
-/** The TechnoMagic gear's unique options (King's Raid's 47), by number: the additional skill each is (null: none), and King's Raid's words and numbers. */
+/** The TechnoMagic gear's unique options (King's Raid's 47), by number: the additional skill each is, and King's Raid's words and numbers. */
 var KR_UNIQUE = KR_UNIQUE$1;
 var TM_ARTIFACTS = KR_ARTIFACTS.filter((one) => one.id in ARTIFACTS).map(({ id, code, name, icon, text }) => ({
 	id,

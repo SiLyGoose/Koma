@@ -210,7 +210,7 @@ export declare const KR_REFINE: {
 };
 export declare const KR_SETS: Readonly<Record<string, KrSetData>>;
 export declare const KR_RUNES: readonly KrRuneData[];
-/** The TechnoMagic gear's unique options (King's Raid's 47), by number: the additional skill each is (null: none), and King's Raid's words and numbers. */
+/** The TechnoMagic gear's unique options (King's Raid's 47), by number: the additional skill each is, and King's Raid's words and numbers. */
 export declare const KR_UNIQUE: readonly {
     n: number;
     skill: string | null;
