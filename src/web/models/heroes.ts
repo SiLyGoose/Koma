@@ -8,7 +8,7 @@ import { CONFIG } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, rerollPrice, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
-import { ESSENCES, keptPerks, scrollPoints, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
+import { activePerkPage, ESSENCES, keptPerks, PERK_PAGES_MAX, perkPageCount, perkPagePrice, scrollPoints, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
 import {
   activeSet,
@@ -49,7 +49,7 @@ import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/item
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
 import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
 import { wornSkin } from '../../services/hero-outfits.js';
-import { buyHero, craftTpScrolls, equipHero, pickHeroPerks, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
+import { buyHero, buyPerkPage, craftTpScrolls, equipHero, pickHeroPerks, switchPerkPage, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
 import { keepOption, keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
@@ -59,14 +59,14 @@ import { isTmPiece, tmStoneClass } from '../../data/kr-gear.js';
 import type { TmSetId } from '../../protocol/items.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
-import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 import { gearStore, refineState } from './gear.js';
 
-export type { HeroCopy, HeroEquipError, HeroesView, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
+export type { HeroCopy, HeroEquipError, HeroesView, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine, /rune, /reroll,
- * /keep, /upgrade, /sell, /lock, /auto-salvage, /craft-scroll, /scroll): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
+ * /keep, /upgrade, /sell, /lock, /auto-salvage, /craft-scroll, /scroll, /perk-page, /perk-page/buy): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
  * theirs wears (King's Raid's hero gear: data/kr-gear.ts), with what it gives it in the raid and every copy a hero could wear,
  * their runes, and how far each is transcended, the perks picked for it and the Transcendence Scrolls used on it (the heroes page). The rules are lib/game/heroes.ts's
  * (data/transcend.ts transcendence's); buying, gearing and transcending them, services/heroes.ts; runes and options, services/kr-gear.ts.
@@ -85,6 +85,10 @@ export interface HeroStore {
   unequip: (guildId: string, userId: string, hero: string, slot: HeroSlot | null) => Promise<HeroesView | 'not_found'>;
   /** Picks their hero's transcendence perks, all of them at once (none: reset): the heroes after, or why not. */
   perks: (guildId: string, userId: string, hero: string, perks: readonly string[]) => Promise<HeroesView | HeroPerksError>;
+  /** Puts their hero's perk page `page` in use: the heroes after, or why not. */
+  perkPage: (guildId: string, userId: string, hero: string, page: number) => Promise<HeroesView | HeroPerkPageError>;
+  /** Buys their hero its next perk page, for points, and puts it in use: the heroes after, or why not (nothing was spent). */
+  buyPerkPage: (guildId: string, userId: string, hero: string, page: number) => Promise<HeroesView | HeroPerkPageError>;
   /** Transcends their hero one level: the heroes after, or why not. */
   transcend: (guildId: string, userId: string, hero: string) => Promise<HeroesView | HeroTranscendError>;
   /** Refines one of their copies a level (the gear page's refine, a spare copy of it used up): the heroes after, or why not. */
@@ -324,6 +328,10 @@ export function heroesView(
     const set = heroSet(on, hero.class);
     const skills = heroSkills(skilled, hero.class);
     const perks = keptPerks(doc?.perks, doc?.transcend, doc?.scrollTp);
+    // (Its other pages' perks as they're kept too, the one in use's `perks`.)
+    const pageCount = perkPageCount(doc?.perkPagesOwned);
+    const active = activePerkPage(doc?.perkPage, doc?.perkPagesOwned);
+    const pages = Array.from({ length: pageCount }, (_, i) => (i + 1 === active ? perks : keptPerks(doc?.perkPages?.[i + 1] ?? [], doc?.transcend, doc?.scrollTp)));
     const sets = [...setCounts(on, hero.class)].map(([id, count]) => ({ id, name: KR_SETS[id]?.name ?? id, pieces: count, bonuses: setBonusLines(id, hero.class, count) }));
     return {
       id: hero.id,
@@ -340,6 +348,7 @@ export function heroesView(
       skills,
       totals: [...heroStatLines(shares), ...setLines(set, hero.class, on), ...skillLines(skills)],
       perks,
+      perkPages: { active, pages, next: pageCount < PERK_PAGES_MAX ? perkPagePrice(pageCount + 1, CONFIG.hero) : null },
       treasure: main,
       perkEffects: perkLines(hero.id, perks),
       transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend, doc?.scrollTp), scrolls: scrollPoints(doc?.scrollTp), next: transcendCost(hero.class, doc?.transcend) },
@@ -382,6 +391,14 @@ export const heroStore: HeroStore = {
   unequip: async (guildId, userId, hero, slot) => ((await unequipHero(guildId, userId, hero, slot)) ? load(guildId, userId) : 'not_found'),
   perks: async (guildId, userId, hero, perks) => {
     const result = await pickHeroPerks(guildId, userId, hero, perks);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  perkPage: async (guildId, userId, hero, page) => {
+    const result = await switchPerkPage(guildId, userId, hero, page);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  buyPerkPage: async (guildId, userId, hero, page) => {
+    const result = await buyPerkPage(guildId, userId, hero, page);
     return result.ok ? load(guildId, userId) : result.reason;
   },
   transcend: async (guildId, userId, hero) => {

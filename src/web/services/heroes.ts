@@ -6,10 +6,10 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 
 /** Every reason a change to their heroes or their gear isn't made. */
-type HeroError = HeroEquipError | HeroPerksError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
+type HeroError = HeroEquipError | HeroPerksError | HeroPerkPageError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
 
 export type { HeroesSold, HeroMembers };
 
@@ -65,6 +65,10 @@ export function heroService(deps: ApiDeps) {
       answer(await store.unequip(guildId, userId, hero, slot)),
     perks: async (guildId: string, userId: string, hero: string, perks: readonly string[]): Promise<HeroesView> =>
       answer(await store.perks(guildId, userId, hero, perks)),
+    /** Puts their hero's perk page `page` in use. */
+    perkPage: async (guildId: string, userId: string, hero: string, page: number): Promise<HeroesView> => answer(await store.perkPage(guildId, userId, hero, page)),
+    /** Buys their hero its next perk page (for points) and puts it in use. */
+    buyPerkPage: async (guildId: string, userId: string, hero: string, page: number): Promise<HeroesView> => answer(await store.buyPerkPage(guildId, userId, hero, page)),
     transcend: async (guildId: string, userId: string, hero: string): Promise<HeroesView> => answer(await store.transcend(guildId, userId, hero)),
     /** Crafts `count` Transcendence Scrolls from `set`'s Boss Crystals. */
     craftScrolls: async (guildId: string, userId: string, set: TmSetId, count: number): Promise<HeroesView> => answer(await store.craftScrolls(guildId, userId, set, count)),

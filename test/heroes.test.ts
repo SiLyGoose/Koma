@@ -8,7 +8,8 @@ import { findItem, gachaItems, ITEMS, ITEMS_BY_ID, UNIQUE_WEAPONS, validateItems
 import { KR_DRAGON_SETS, KR_ITEMS, KR_TM_SETS, krMainValue, krPiecesOf, krWornBy, tieredName } from '../src/data/kr-gear.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { TM_SET_LABEL, TM_SET_PIECES, TM_SETS_BY_ID } from '../src/data/tm-sets.js';
-import { bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, perksCost, RAID_BOSS_ESSENCES, scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, transcendCost, transcendPicks, transcendPoints } from '../src/data/transcend.js';
+import { CONFIG } from '../src/config.js';
+import { activePerkPage, bossEssences, CLASS_ESSENCES, ESSENCES, keptPerks, PERK_PAGES_MAX, perkPageCount, perkPagePrice, perksCost, RAID_BOSS_ESSENCES, scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, transcendCost, transcendPicks, transcendPoints } from '../src/data/transcend.js';
 import { raidRewards } from '../src/lib/events/raid.js';
 import { RAID_BOSS_IDS } from '../src/constants/index.js';
 import { RAID_CLASS_IDS } from '../src/constants/index.js';
@@ -310,6 +311,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       const picked = transcendPicks(perks, 1);
       return typeof picked === 'string' ? picked : empty;
     },
+    perkPage: async (guildId, userId, hero, page) => {
+      calls.push(`perkPage ${hero} ${page}`);
+      return !owned.includes(hero) ? 'not_found' : page === 3 ? 'locked' : empty;
+    },
+    buyPerkPage: async (guildId, userId, hero, page) => {
+      calls.push(`buyPerkPage ${hero} ${page}`);
+      return !owned.includes(hero) ? 'not_found' : page === 2 ? empty : page === 1 ? 'owned' : 'too_poor';
+    },
     transcend: async (guildId, userId, hero) => {
       calls.push(`transcend ${hero}`);
       return owned.includes(hero) ? empty : 'not_found';
@@ -434,6 +443,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.deepEqual(await over.json(), { error: 'too_many_points' });
     assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'kirze', perks: ['t5-light'] })).json(), { error: 'perk_locked' });
     assert.deepEqual(await (await post('/api/heroes/perks', { guild: 'g1', hero: 'klaus', perks: [] })).json(), { error: 'not_found' });
+    // Its Transcend Perk pages: 1 to 3, one put in use, the next one bought.
+    assert.equal((await post('/api/heroes/perk-page', { guild: 'g1', hero: 'kirze', page: 2 })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/perk-page', { guild: 'g1', hero: 'kirze', page: 3 })).json(), { error: 'locked' });
+    assert.equal((await post('/api/heroes/perk-page', { guild: 'g1', hero: 'kirze', page: 4 })).status, 400);
+    assert.equal((await post('/api/heroes/perk-page', { guild: 'g1', hero: 'kirze', page: 0 })).status, 400);
+    assert.equal((await post('/api/heroes/perk-page/buy', { guild: 'g1', hero: 'kirze', page: 2 })).status, 200);
+    assert.deepEqual(await (await post('/api/heroes/perk-page/buy', { guild: 'g1', hero: 'kirze', page: 1 })).json(), { error: 'owned' });
+    assert.deepEqual(await (await post('/api/heroes/perk-page/buy', { guild: 'g1', hero: 'kirze', page: 3 })).json(), { error: 'too_poor' });
     // Refining a copy (a unique weapon, on the heroes page): with a spare of it, or why not.
     assert.equal((await post('/api/heroes/refine', { guild: 'g1', copy: 'c1' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/refine', { guild: 'g1', copy: 'c2' })).json(), { error: 'no_duplicate' });
@@ -496,6 +513,11 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       'perks kirze atk-up,hp-up,def-up',
       'perks kirze t5-light',
       'perks klaus ',
+      'perkPage kirze 2',
+      'perkPage kirze 3',
+      'buyPerkPage kirze 2',
+      'buyPerkPage kirze 1',
+      'buyPerkPage kirze 3',
       'refine c1',
       'refine c2',
       'sell c1,c2',
@@ -517,6 +539,7 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await linked('/api/heroes/equip', { guild: 'g2', hero: 'kirze', slot: 'weapon', copy: 'c1' })).status, 200);
     assert.equal((await linked('/api/heroes/unequip', { hero: 'kirze' })).status, 200);
     assert.equal((await linked('/api/heroes/perks', { hero: 'kirze', perks: [] })).status, 200);
+    assert.equal((await linked('/api/heroes/perk-page/buy', { hero: 'kirze', page: 2 })).status, 401, 'buying a perk page stays the site’s');
     assert.equal((await linked('/api/heroes/transcend', { hero: 'kirze' })).status, 200);
     assert.equal((await linked('/api/heroes/buy', { hero: 'klaus' })).status, 401, 'buying stays the site’s');
     assert.equal((await linked('/api/heroes/sell', { copies: ['c1'] })).status, 401, 'selling stays the site’s');
@@ -606,6 +629,32 @@ test('heroes: Transcendence Scrolls give a hero 5 TP each on top of its level’
   assert.deepEqual(view.heroes.find((hero) => hero.id === 'kirze')?.transcend, { level: 5, points: 90, scrolls: 10, next: null });
   assert.equal(view.tpScrolls, 2);
   assert.equal(view.craft?.tpScroll, 5000);
+});
+
+test('heroes: Transcend Perk pages, King’s Raid’s: 1 with the hero, up to 3 bought in order (5,000 then 10,000), each its own perks kept as the one in use’s are', () => {
+  assert.equal(PERK_PAGES_MAX, 3);
+  assert.equal(perkPageCount(undefined), 1);
+  assert.equal(perkPageCount(9), 3);
+  assert.equal(activePerkPage(undefined, undefined), 1);
+  assert.equal(activePerkPage(3, 2), 2, 'never a page it hasn’t');
+  assert.equal(perkPagePrice(2, CONFIG.hero), 5000);
+  assert.equal(perkPagePrice(3, CONFIG.hero), 10000);
+  assert.equal(perkPagePrice(4, CONFIG.hero), null);
+  const view = heroesView([], {
+    points: 0,
+    gems: 0,
+    essences: {},
+    heroes: {
+      // Page 2 in use; page 1 keeps a tier it has, and one past it (left out).
+      kirze: { boughtAt: new Date(0), transcend: 1, perks: ['hp-up'], perkPage: 2, perkPagesOwned: 2, perkPages: { 1: ['atk-up', 't5-dark'], 2: null } },
+      klaus: { boughtAt: new Date(0) },
+    },
+  });
+  const kirze = view.heroes.find((hero) => hero.id === 'kirze');
+  assert.deepEqual(kirze?.perks, ['hp-up']);
+  assert.deepEqual(kirze?.perkPages, { active: 2, pages: [['atk-up'], ['hp-up']], next: 10000 });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'klaus')?.perkPages, { active: 1, pages: [[]], next: 5000 });
+  assert.deepEqual(view.heroes.find((hero) => hero.id === 'laias')?.perkPages, { active: 1, pages: [[]], next: 5000 });
 });
 
 test('heroes: transcending costs its class’s three essences (20, 30, 40, 50, then 60 of each) and komaGems (1 to 5); each raid boss gives three kinds', () => {

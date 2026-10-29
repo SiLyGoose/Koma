@@ -69,6 +69,14 @@ export const TP_SCROLL_POINTS = 5;
 /** The most TP scrolls give one hero (three of them). */
 export const TP_SCROLL_MOST = 15;
 
+/**
+ * A hero's Transcend Perk pages (King's Raid's: up to 3 for each hero, its MaxTranscendHeroSkillPage): each its own pick of
+ * perks out of the same TP, one of them in use (the fight's). Page 1 comes with the hero; the next one is bought for that
+ * hero (POST /api/heroes/perk-page/buy, for HeroView.perkPages' `next` zeiucoins) and starts empty and in use; any bought
+ * one is put in use again with POST /api/heroes/perk-page.
+ */
+export const PERK_PAGES_MAX = 3;
+
 /** The hero essences: King's Raid's seven kinds (its fragments' types), each class using three of them. */
 export const ESSENCES = ['justice', 'force', 'wisdom', 'strategy', 'patience', 'harmony', 'fortune'] as const;
 
@@ -256,8 +264,13 @@ export interface HeroView {
   skills: string[];
   /** The same as lines, like "+25% ATK" (then its set's, and its additional skills', last). */
   totals: string[];
-  /** The transcendence perks picked for it (data/transcend.ts ids, in its order). */
+  /** The transcendence perks picked for it (data/transcend.ts ids, in its order): those of its perk page in use. */
   perks: string[];
+  /**
+   * Its Transcend Perk pages (PERK_PAGES_MAX): the one in use (1 on), each bought one's perks in order (as `perks` has them;
+   * the one in use's is `perks`), and what buying the next costs in zeiucoins (null: all bought). Left out by a bot from before them.
+   */
+  perkPages?: { active: number; pages: string[][]; next: number | null };
   /**
    * Its main treasure's effect, when that is one of its own unique treasures: its name, which of its four it is (1 to
    * 4), its tier (its refinement, 1 to 5) and what it does then. Null: none (its sub treasures give only their options).
@@ -452,6 +465,12 @@ export type HeroRefineError = RefineBlock | 'bad_material' | 'not_found' | 'busy
 
 /** Why a hero's transcendence perks weren't picked (nothing changed). */
 export type HeroPerksError = 'not_found' | 'perk_locked' | 'too_many_points';
+
+/**
+ * Why a hero's perk page wasn't put in use or bought (nothing was spent): 'locked', a page not bought yet (or, buying,
+ * not the next one); 'owned', bought already; 'maxed', all bought; 'too_poor', too few zeiucoins; 'busy', its pages changed meanwhile.
+ */
+export type HeroPerkPageError = 'not_found' | 'locked' | 'owned' | 'maxed' | 'too_poor' | 'busy';
 
 /** Why a hero wasn't transcended (nothing was spent). */
 export type HeroTranscendError = 'not_found' | 'maxed' | 'too_poor' | 'busy';

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { TRANSCEND_PERKS } from '../../data/transcend.js';
 import { HERO_SLOTS } from '../../types.js';
 import { RAID_CLASS_IDS } from '../../constants/index.js';
-import { SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, TM_ACCESSORIES, TM_CRAFT_PARTS, type HeroPart } from '../../protocol/heroes.js';
+import { PERK_PAGES_MAX, SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, TM_ACCESSORIES, TM_CRAFT_PARTS, type HeroPart } from '../../protocol/heroes.js';
 import { ApiError } from '../lib/errors.js';
 import type { HeroService } from '../services/heroes.js';
 import { CopyId, parse, UserId } from '../lib/validate.js';
@@ -52,6 +52,8 @@ const Craft = z.object({
 const CraftScrolls = z.object({ set: z.enum(['perseverance', 'hope', 'authority']), count: z.number().int().min(1).max(1000) });
 /** Dispatch Battle Loot to open: the box (King's Raid's code), and how many (at most LOOT_OPEN_MOST at once). */
 const OpenBox = z.object({ box: z.string().max(64), count: z.number().int().min(1).max(LOOT_OPEN_MOST) });
+/** One of a hero's perk pages (protocol/heroes.ts PERK_PAGES_MAX). */
+const PerkPage = Hero.extend({ page: z.number().int().min(1).max(PERK_PAGES_MAX) });
 /** Every perk picked (data/transcend.ts's). */
 const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
 
@@ -89,6 +91,16 @@ export function heroController(heroes: HeroService) {
     async perks(req, res) {
       const { hero, perks } = parse(Perks, req.body);
       res.json(await heroes.perks(res.locals.guildId, res.locals.session.userId, hero, perks));
+    },
+
+    async perkPage(req, res) {
+      const { hero, page } = parse(PerkPage, req.body);
+      res.json(await heroes.perkPage(res.locals.guildId, res.locals.session.userId, hero, page));
+    },
+
+    async buyPerkPage(req, res) {
+      const { hero, page } = parse(PerkPage, req.body);
+      res.json(await heroes.buyPerkPage(res.locals.guildId, res.locals.session.userId, hero, page));
     },
 
     async transcend(req, res) {

@@ -1,7 +1,7 @@
 import type { RaidBossId, RaidClassId } from '../constants/raid.js';
-import { ESSENCE_NAME, ESSENCES, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier } from '../protocol/heroes.js';
+import { ESSENCE_NAME, ESSENCES, PERK_PAGES_MAX, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier } from '../protocol/heroes.js';
 
-export { ESSENCE_NAME, ESSENCES, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier };
+export { ESSENCE_NAME, ESSENCES, PERK_PAGES_MAX, TP_SCROLL_MOST, TP_SCROLL_POINTS, TRANSCEND_MAX, TRANSCEND_PERKS, TRANSCEND_POINTS, TRANSCEND_TP, type EssenceId, type TranscendPerk, type TranscendTier };
 
 /** What a Transcendence Scroll is called to members, as King's Raid names the item (+5 TP for a hero), and its icon (King's Raid's, the site's public/kr/items/). */
 export const TP_SCROLL_NAME = 'Transcendence Attribute Point (5 TP)';
@@ -27,6 +27,9 @@ export const TP_SCROLL_ICON = 'TRANCEND_5POINT';
  *
  * Transcendence Scrolls (crafted from Boss Crystals: services/heroes.ts craftTpScrolls) give a hero TP_SCROLL_POINTS more
  * each, on top of its level's, up to TP_SCROLL_MOST (HeroDoc.scrollTp): 95 TP at Transcend 5.
+ *
+ * Its perks are on Transcend Perk pages (King's Raid's): it comes with one, and up to PERK_PAGES_MAX are bought for it
+ * (perkPagePrice), each its own pick out of the same TP; the one in use is HeroDoc.perks, the others kept in HeroDoc.perkPages.
  */
 
 /** A hero's level as kept (missing: 0), within 0 and TRANSCEND_MAX. */
@@ -116,4 +119,15 @@ export function keptPerks(ids: readonly string[] | undefined, level: number | un
     spent += perk.cost;
   }
   return out;
+}
+
+/** How many perk pages a hero has (HeroDoc.perkPagesOwned): 1 to PERK_PAGES_MAX. */
+export const perkPageCount = (owned: number | undefined): number => Math.min(PERK_PAGES_MAX, Math.max(1, Math.floor(owned ?? 1)));
+
+/** A hero's perk page in use (HeroDoc.perkPage), one of the `owned` it has. */
+export const activePerkPage = (page: number | null | undefined, owned: number | undefined): number => Math.min(perkPageCount(owned), Math.max(1, Math.floor(page ?? 1)));
+
+/** What buying perk page `page` costs in points (hero.perkPage2Price and perkPage3Price); null past PERK_PAGES_MAX (page 1 comes with the hero). */
+export function perkPagePrice(page: number, prices: { perkPage2Price: number; perkPage3Price: number }): number | null {
+  return page === 2 ? prices.perkPage2Price : page === 3 ? prices.perkPage3Price : null;
 }

@@ -375,8 +375,14 @@ export interface HeroDoc {
   equipment?: Partial<Record<HeroSlot, string | null>>;
   /** How far it is transcended (0 to TRANSCEND_MAX, data/transcend.ts), on the site's heroes page. Missing means 0. */
   transcend?: number;
-  /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page. Missing means none. */
+  /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page: its perk page in use's. Missing means none. */
   perks?: string[];
+  /** Its perk page in use (1 to PERK_PAGES_MAX, data/transcend.ts): its perks are `perks`. Missing or null means 1. */
+  perkPage?: number | null;
+  /** How many perk pages it has (bought for it: services/heroes.ts buyPerkPage). Missing means 1. */
+  perkPagesOwned?: number;
+  /** The perks kept on each of its other pages, by number (the one in use's is `perks`). Missing or null means none. */
+  perkPages?: Record<string, string[] | null>;
   /** The TP Transcendence Scrolls used on it gave it (0 to TP_SCROLL_MOST, data/transcend.ts), on top of its level's. Missing means 0. */
   scrollTp?: number;
   /** Its outfits this member bought (data/heroes.ts HERO_OUTFITS names; never its own look). Missing means none. */
@@ -732,6 +738,8 @@ export type LedgerReason =
   | 'outfit'
   // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).
   | 'hero'
+  // Points paid for another of a hero's Transcend Perk pages (services/heroes.ts buyPerkPage; itemId is the hero).
+  | 'perk_page'
   // Points paid for a hero's outfit in the site's shop (services/hero-outfits.ts; itemId is the outfit).
   | 'hero_outfit'
   // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).

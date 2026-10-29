@@ -1,7 +1,7 @@
 import { CONFIG } from '../config.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { HEROES_BY_ID } from '../data/heroes.js';
-import { scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
+import { activePerkPage, PERK_PAGES_MAX, perkPageCount, perkPagePrice, scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
 import { collections } from '../db.js';
 import { fitsSlot, heroEquipMoves, heroWearable, SIDE_SLOTS, wieldedBy, worksOn } from '../lib/game/heroes.js';
 import type { TmSetId } from '../protocol/items.js';
@@ -16,7 +16,9 @@ import { ensureMember, recordLedger } from './economy/shared.js';
  * was on, in the same update, which only matches while the copy is still where it was read to be.
  * Transcending one (data/transcend.ts) is one conditional update too: it only matches while the hero is
  * still at the level read and they have the essences and komaGems it costs. Transcendence Scrolls are crafted from any
- * one set's Boss Crystals and used on a hero (more TP, data/transcend.ts), each one conditional update too.
+ * one set's Boss Crystals and used on a hero (more TP, data/transcend.ts), each one conditional update too. A hero's
+ * Transcend Perk pages swap as gear loadouts do (services/items/loadouts.ts): the page in use's perks are its `perks`, the
+ * page left keeps them, in one update that only matches while no page was switched or bought meanwhile.
  */
 
 export type BuyHeroResult = { ok: true; paid: number; balance: number } | { ok: false; reason: 'not_found' | 'owned' | 'too_poor' };
@@ -125,6 +127,84 @@ export async function pickHeroPerks(guildId: string, userId: string, heroId: str
   // (Only at the level read: one transcended meanwhile is fine, as it only has more TP.)
   const result = await members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: { [`heroes.${heroId}.perks`]: picked } });
   return result.matchedCount > 0 ? { ok: true } : { ok: false, reason: 'not_found' };
+}
+
+export type PerkPageResult = { ok: true } | { ok: false; reason: 'not_found' | 'locked' | 'busy' };
+
+/**
+ * Puts the member's hero's perk page `to` in use (its perks the hero's; those it had kept on the page left): 'not_found' for
+ * a hero that isn't theirs, 'locked' for a page not bought for it, 'busy' when its pages changed meanwhile (nothing changed).
+ */
+export async function switchPerkPage(guildId: string, userId: string, heroId: string, to: number): Promise<PerkPageResult> {
+  if (!HEROES_BY_ID.has(heroId)) return { ok: false, reason: 'not_found' };
+  const { members } = collections();
+  const hero = (await members.findOne({ guildId, userId }))?.heroes?.[heroId];
+  if (!hero) return { ok: false, reason: 'not_found' };
+  if (to < 1 || to > perkPageCount(hero.perkPagesOwned)) return { ok: false, reason: 'locked' };
+  const from = activePerkPage(hero.perkPage, hero.perkPagesOwned);
+  if (from === to) return { ok: true };
+  const at = `heroes.${heroId}`;
+  // (Every value on the right is read from the document as it was before the update, so the two pages' perks swap exactly.)
+  const result = await members.updateOne({ guildId, userId, [`${at}.perkPage`]: hero.perkPage ?? null, [`${at}.perkPagesOwned`]: hero.perkPagesOwned ?? null }, [
+    {
+      $set: {
+        [`${at}.perkPages.${from}`]: { $ifNull: [`$${at}.perks`, []] },
+        [`${at}.perks`]: { $ifNull: [`$${at}.perkPages.${to}`, []] },
+        [`${at}.perkPages.${to}`]: null,
+        [`${at}.perkPage`]: to,
+      },
+    },
+  ]);
+  return result.matchedCount > 0 ? { ok: true } : { ok: false, reason: 'busy' };
+}
+
+export type PerkPageBuyResult =
+  | { ok: true; paid: number; balance: number }
+  | { ok: false; reason: 'not_found' | 'owned' | 'maxed' | 'locked' | 'busy' }
+  | { ok: false; reason: 'too_poor'; price: number; balance: number };
+
+/**
+ * Buys the member's hero its perk page `page` (its next one: King's Raid's are bought in order), for perkPagePrice points,
+ * and puts it in use, empty (the page left keeps its perks). 'not_found' for a hero that isn't theirs, 'owned' for a page
+ * it has, 'maxed' with PERK_PAGES_MAX, 'locked' for one past its next, 'busy' when its pages changed meanwhile (nothing was
+ * spent). One conditional update pays and adds it, so two buys at once can't both pay.
+ */
+export async function buyPerkPage(guildId: string, userId: string, heroId: string, page: number): Promise<PerkPageBuyResult> {
+  if (!HEROES_BY_ID.has(heroId)) return { ok: false, reason: 'not_found' };
+  const { members } = collections();
+  const hero = (await members.findOne({ guildId, userId }))?.heroes?.[heroId];
+  if (!hero) return { ok: false, reason: 'not_found' };
+  const owned = perkPageCount(hero.perkPagesOwned);
+  if (page <= owned) return { ok: false, reason: 'owned' };
+  if (owned >= PERK_PAGES_MAX) return { ok: false, reason: 'maxed' };
+  const price = perkPagePrice(page, CONFIG.hero);
+  if (page !== owned + 1 || price === null) return { ok: false, reason: 'locked' };
+  const from = activePerkPage(hero.perkPage, hero.perkPagesOwned);
+  const at = `heroes.${heroId}`;
+  const bought = await members.findOneAndUpdate(
+    { guildId, userId, [`${at}.perkPage`]: hero.perkPage ?? null, [`${at}.perkPagesOwned`]: hero.perkPagesOwned ?? null, points: { $gte: price } },
+    [
+      {
+        $set: {
+          points: { $subtract: ['$points', price] },
+          [`${at}.perkPages.${from}`]: { $ifNull: [`$${at}.perks`, []] },
+          [`${at}.perks`]: { $literal: [] },
+          [`${at}.perkPage`]: page,
+          [`${at}.perkPagesOwned`]: page,
+        },
+      },
+    ],
+    { returnDocument: 'after' },
+  );
+  if (!bought) {
+    const member = await members.findOne({ guildId, userId });
+    const now = member?.heroes?.[heroId];
+    if (!now) return { ok: false, reason: 'not_found' };
+    if ((now.perkPage ?? null) !== (hero.perkPage ?? null) || (now.perkPagesOwned ?? null) !== (hero.perkPagesOwned ?? null)) return { ok: false, reason: 'busy' };
+    return { ok: false, reason: 'too_poor', price, balance: member?.points ?? 0 };
+  }
+  if (price > 0) await recordLedger([{ guildId, userId, delta: -price, reason: 'perk_page', itemId: heroId }]);
+  return { ok: true, paid: price, balance: bought.points };
 }
 
 export type HeroTranscendResult = { ok: true; level: number } | { ok: false; reason: 'not_found' | 'maxed' | 'too_poor' | 'busy' };
