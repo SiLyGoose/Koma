@@ -91,6 +91,8 @@ export interface PlayerView {
   owned: string[];
   /** How far each of their heroes is transcended, by id (1 to 5; one not in it, not at all). None: a bot from before it said. */
   transcend?: Record<string, number>;
+  /** The skin each of their heroes is in (the outfit it wears: its place among its skins), by id; one not in it, its own look (0). None: none worn, or a bot from before outfits. */
+  outfits?: Record<string, number>;
 }
 
 /** A hero in the lineup: whose, which, in which of its skins, and (alone) whether it is in the Sub Team. */

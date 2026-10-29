@@ -481,16 +481,16 @@ export class TechnoMagicRoom {
     this.tell();
   }
 
-  /** What `userId`'s heroes wear, read (not waited for): theirs in the lineup put in it, for every page to show. */
+  /** What `userId`'s heroes wear, read (not waited for): theirs in the lineup put in it, and every page told (their heroes' faces in it). */
   private readWorn(userId: string): void {
     this.deps.worn?.(this.guildId, userId).then(
       (worn) => {
         const member = this.members.get(userId);
         if (!member) return;
         member.worn = worn;
-        if (this.phase !== 'prep' || this.starting) return;
-        if (!this.lineup.some((pick) => pick.owner === userId && pick.skin !== (worn.get(pick.hero) ?? 0))) return;
-        this.lineup = this.lineup.map((pick) => (pick.owner === userId ? { ...pick, skin: worn.get(pick.hero) ?? 0 } : pick));
+        // (Getting ready: theirs in the lineup in it too.)
+        if (this.phase === 'prep' && !this.starting) this.lineup = this.lineup.map((pick) => (pick.owner === userId ? { ...pick, skin: worn.get(pick.hero) ?? 0 } : pick));
+        // Every page told: their lineup's heroes, and their faces (the players' outfits).
         this.tell();
       },
       (err) => console.error('Could not read what their heroes wear:', err),
@@ -912,6 +912,7 @@ export class TechnoMagicRoom {
       limit: this.limit(member.player.userId),
       owned: [...member.owned.keys()],
       transcend: Object.fromEntries([...member.owned].filter(([, level]) => level > 0)),
+      ...(member.worn && member.worn.size > 0 && { outfits: Object.fromEntries(member.worn) }),
     }));
     const state: Omit<RoomState, 'you'> = {
       phase: this.phase,
