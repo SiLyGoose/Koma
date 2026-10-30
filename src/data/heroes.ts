@@ -44,3 +44,24 @@ export const HERO_OUTFITS: ReadonlyMap<string, { hero: string; skin: number }> =
 
 /** Whether an outfit is one of King's Raid's Legend Costumes (its skin `<Hero>_Legend`, Koma-UI's): sold at hero.legendOutfitPrice. */
 export const isLegendOutfit = (id: string): boolean => /_Legend\d*$/.test(id);
+
+/** Heroes whose Glory League costumes have all four of King's Raid's tiers: `_Glory` of Honor, 2 of Brilliant Honor, 3 of Glaring Honor, 4 of Eternal Honor. */
+const FOUR_GLORY_TIERS = new Set(['Crow', 'Mirianne', 'Scarlet', 'Theo']);
+/** Heroes whose `_Glory2` is of Brilliant Honor and `_Glory3` Champion <Hero> of Honor. */
+const BRILLIANT_GLORY = new Set(['Jane', 'Laias']);
+
+/**
+ * A Glory League costume's tier (its skin `<Hero>_Glory<N>`, Koma-UI's, and its title there), else null: `honor` (of
+ * Honor, Champion of Honor), `brilliant` (of Brilliant Honor) or `glaring` (of Glaring Honor, and Eternal Honor above it).
+ * Any other hero's `_Glory2` is of Glaring Honor. Sold at hero.honorOutfitPrice, brilliantOutfitPrice or glaringOutfitPrice.
+ */
+export function gloryTier(id: string): 'honor' | 'brilliant' | 'glaring' | null {
+  const glory = /^(.+)_Glory(\d*)$/.exec(id);
+  if (!glory) return null;
+  const [, hero, n] = glory;
+  const tier = Number(n || 1);
+  if (tier === 1) return 'honor';
+  if (FOUR_GLORY_TIERS.has(hero)) return tier === 2 ? 'brilliant' : 'glaring';
+  if (BRILLIANT_GLORY.has(hero)) return tier === 2 ? 'brilliant' : 'honor';
+  return 'glaring';
+}

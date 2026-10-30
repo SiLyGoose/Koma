@@ -42,13 +42,32 @@ test('hero outfits: a hero has the ones bought for it, and wears its own look un
   assert.equal(wornSkin('kirze', { outfits: ['Annette_Halloween'], outfit: 'Annette_Halloween' }), 0); // another hero's
 });
 
-test("hero outfits: their price is a Hero setting, 5,000 points to start, a Legend Costume's another, 10,000", () => {
+test("hero outfits: their price is a Hero setting, 5,000 points to start, Glory League's by tier 10,000 / 15,000 / 20,000, a Legend Costume's 25,000", () => {
   assert.equal(DEFAULTS.hero.outfitPrice, 5_000);
-  assert.equal(findSpec('hero.outfitPrice')?.group, 'Hero');
-  assert.equal(DEFAULTS.hero.legendOutfitPrice, 10_000);
-  assert.equal(findSpec('hero.legendOutfitPrice')?.group, 'Hero');
+  assert.equal(DEFAULTS.hero.honorOutfitPrice, 10_000);
+  assert.equal(DEFAULTS.hero.brilliantOutfitPrice, 15_000);
+  assert.equal(DEFAULTS.hero.glaringOutfitPrice, 20_000);
+  assert.equal(DEFAULTS.hero.legendOutfitPrice, 25_000);
+  for (const key of ['outfitPrice', 'honorOutfitPrice', 'brilliantOutfitPrice', 'glaringOutfitPrice', 'legendOutfitPrice']) assert.equal(findSpec(`hero.${key}`)?.group, 'Hero', key);
   assert.deepEqual(validateSettings(structuredClone(DEFAULTS)), []);
-  assert.equal(heroOutfitPrice('Kirze_Glory'), CONFIG.hero.outfitPrice);
+  assert.equal(heroOutfitPrice('Kirze_Halloween'), CONFIG.hero.outfitPrice);
+  // King's Raid's titles (Koma-UI's): of Honor, of Brilliant Honor, of Glaring Honor, of Eternal Honor, Champion of Honor
+  const tiers: Record<string, number> = {
+    Kirze_Glory: CONFIG.hero.honorOutfitPrice,
+    Kirze_Glory2: CONFIG.hero.glaringOutfitPrice,
+    Crow_Glory: CONFIG.hero.honorOutfitPrice,
+    Crow_Glory2: CONFIG.hero.brilliantOutfitPrice,
+    Crow_Glory3: CONFIG.hero.glaringOutfitPrice,
+    Crow_Glory4: CONFIG.hero.glaringOutfitPrice,
+    Jane_Glory2: CONFIG.hero.brilliantOutfitPrice,
+    Jane_Glory3: CONFIG.hero.honorOutfitPrice,
+  };
+  for (const [id, price] of Object.entries(tiers)) {
+    assert.ok(HERO_OUTFITS.has(id), id);
+    assert.equal(heroOutfitPrice(id), price, id);
+  }
+  // every Glory League costume is priced by a tier
+  for (const id of HERO_OUTFITS.keys()) if (/_Glory\d*$/.test(id)) assert.notEqual(heroOutfitPrice(id), CONFIG.hero.outfitPrice, id);
   for (const legend of ['Lucikiel_Legend', 'Yanne_Legend', 'Miruru_Legend']) {
     assert.ok(HERO_OUTFITS.has(legend), legend);
     assert.equal(heroOutfitPrice(legend), CONFIG.hero.legendOutfitPrice);
