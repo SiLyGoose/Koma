@@ -33443,7 +33443,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const own = setEffect(by);
 		const set = (own.grows?.atk ?? 0) * grown(own, elapsed) + (own.opening && elapsed < own.opening.lasts ? own.opening.atk : 0) + (own.fullMana && by.setDone.full ? own.fullMana.atk : 0);
 		return stacked([
-			1 + allied(by, "atk") + set + SKILL["war-cry"].atk * among("war-cry") + auras.atk + alliesFrom(field, "atk") + adding(by.statuses, "atk"),
+			1 + allied(by, "atk") + set + SKILL["war-cry"].atk * among("war-cry") + auras.atk + alliesFrom(field, "atk") + adding(by.statuses, "atk") + adding(party, "atk"),
 			1 + SKILL.momentum.atk * by.stacks.momentum * has(by, "momentum") + SKILL.bloodlust.atk * by.stacks.bloodlust * has(by, "bloodlust"),
 			bears(by, DESPERATION_UP.name) ? 1 + SKILL.desperation.atk * has(by, "desperation") : 1,
 			1 + foeSkills(by.skills, standing().length).atk
@@ -33860,13 +33860,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 		const { atk, deals: type, crit: points, pen } = by.stats;
 		const allCrit = by.set?.effect.allCrit;
-		const critical = allCrit !== void 0 && points >= allCrit.at || roll() < share$2(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit") + adding(by.statuses, "critPoints")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses);
+		const critical = allCrit !== void 0 && points >= allCrit.at || roll() < share$2(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit") + adding(by.statuses, "critPoints") + adding(party, "critPoints")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses) + critting(party);
 		const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
 		const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
 		const setCrit = (setEffect(by).grows?.critDamage ?? 0) * grown(setEffect(by), elapsed) + allied(by, "critDamage") + alliesFrom(field, "critDamage");
-		const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + auras.critDamage + focused + setCrit;
+		const critTimes = by.critTimes + SKILL.whetstone.critDamage * among("whetstone") + critDamaging(by.statuses) + critDamaging(party) + auras.critDamage + focused + setCrit;
 		const skilled = landing?.by === by ? by.moveDmg[landing.move] ?? 1 : 1;
-		const acc = by.acc + auras.acc + adding(by.statuses, "acc");
+		const acc = by.acc + auras.acc + adding(by.statuses, "acc") + adding(party, "acc");
 		const plain = foe === boss ? bossStands() : foe.def.stats;
 		const lower = {
 			physical: blocking(foe.statuses, "physical"),
@@ -33901,12 +33901,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			dmgTimes(by),
 			attack,
 			...deals(by.statuses),
+			...deals(party),
 			by.perkDmg,
 			by.part.deals?.() ?? 1,
 			relics.get(by)?.deals(foe) ?? 1,
 			...takes(foe.statuses, type)
 		]);
-		const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses), reachAt(100), roll, acc);
+		const { taken, blocked, dodged } = strike(amount * (atk / POINTS) * atkTimes(by) * power * more * (critical ? critTimes : 1), type, against, pen + auras.pen + pierce + piercing(by.statuses) + piercing(party), reachAt(100), roll, acc);
 		if (dodged) {
 			events.push({
 				kind: "number",
@@ -33955,7 +33956,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		}
 		if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
-			const stolen = Math.min(dealt * share$2(curved(CURVE.chance, by.lifesteal)) * healing(by.statuses) * (boss.part.healing?.() ?? 1), by.stats.hp - by.hp);
+			const stolen = Math.min(dealt * share$2(curved(CURVE.chance, by.lifesteal)) * healing([...by.statuses, ...party]) * (boss.part.healing?.() ?? 1), by.stats.hp - by.hp);
 			if (stolen > 0) by.hp += stolen;
 		}
 		const skillIndex = critical && landing?.by === by && attacking !== by ? by.doing?.skill : void 0;
@@ -34301,7 +34302,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		on: as,
 		heal(fighter, amount, by, from) {
 			if (fighter.hp <= 0) return 0;
-			const given = Math.min(amount * byAttack(by) * healed(by) * healing(fighter.statuses, 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
+			const given = Math.min(amount * byAttack(by) * healed(by) * healing([...fighter.statuses, ...party], 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
 			fighter.hp += given;
 			const giver = by ?? from;
 			if (giver) giver.healed += given;
@@ -34508,7 +34509,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		stun(seconds, { down = false, by } = {}) {
 			const foe = current();
 			if (foe.away || foe.hp <= 0) return;
-			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses)))) : 1);
+			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses) + accurate(party)))) : 1);
 			if (foe !== boss) {
 				if (foe.part.steady || held <= 0) return;
 				foe.stunned = Math.max(foe.stunned, held);
@@ -34782,7 +34783,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (result) return;
 		const reform = Math.min(1, dt * 4);
 		for (const on of field) {
-			const speed = (on.stats.speed + auras.speed + allied(on, "speed") + adding(on.statuses, "speed") + (on.part.speed?.() ?? 0)) * pacing(on.statuses, on.part.pace?.() ?? 1);
+			const speed = (on.stats.speed + auras.speed + allied(on, "speed") + adding(on.statuses, "speed") + adding(party, "speed") + (on.part.speed?.() ?? 0)) * pacing([...on.statuses, ...party], on.part.pace?.() ?? 1);
 			on.haste = on.def.passive?.steady ? 1 : Math.max(300, curved(CURVE.speed, speed)) / POINTS;
 			advance(on, dt * on.haste);
 			if (result) return;
@@ -56881,7 +56882,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "e149f1e74791";
+var SIM_VERSION = "495f4b5f617f";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
