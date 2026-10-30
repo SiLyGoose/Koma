@@ -109,9 +109,11 @@ test('background raids: their mail says where they fought, how many were won and
 });
 
 test("loot boxes: King's Raid's Dispatch Battle Loot, one for every stage of every boss and mode, named and pictured as King's Raid has them", () => {
-  assert.equal(LOOT_BOXES.length, 9 + 4 * 30);
+  assert.equal(LOOT_BOXES.length, 2 * 9 + 4 * 30);
   assert.equal(new Set(LOOT_BOXES.map((box) => box.id)).size, LOOT_BOXES.length);
   assert.equal(lootBoxOf('galgoria', 'hard', 9)?.name, 'Galgoria Raid Stage 9 Dispatch Battle Loot');
+  assert.equal(lootBoxOf('siegfried', 'hard', 4)?.id, 'DISPATCH_REWARD_BOX_SIEGFRIED_RAID_GRADE_4_NEW');
+  assert.equal(lootBoxOf('siegfried', 'hard', 1)?.icon, 'BOX_NONIDENTIFIED_TECHNOMAGIC_SIEGFRIED');
   assert.equal(lootBoxOf('temeraire', 'hard', 3)?.name, 'Fire Dragon Hard Mode Stage 3 Dispatch Battle Loot');
   assert.equal(lootBoxOf('zyrrkinoth', 'normal', 1)?.name, 'Poison Dragon T3 Stage 1 Dispatch Battle Loot');
   assert.equal(lootBoxOf('zyrrkinoth', 'normal', 10)?.id, 'DISPATCH_REWARD_BOX_RAID_GREEN_T7_2');

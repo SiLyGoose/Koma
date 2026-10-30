@@ -421,7 +421,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
   },
 
   technomagic: {
-    description: "The TechnoMagic Raid on the Koma site: your heroes against Galgoria, together, as in King's Raid.",
+    description: "The TechnoMagic Raid on the Koma site: your heroes against Galgoria and Siegfried, together, as in King's Raid.",
     // The room is on the site: this is just the link there.
     build: () => {},
     toArgs: () => [],

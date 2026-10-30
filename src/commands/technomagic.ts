@@ -9,7 +9,7 @@ import { technomagicRoomLink, webConfig, type WebConfig } from '../web/config.js
 
 /*
  * `k!technomagic`: the TechnoMagic Raid is played on the games' site (web/games/technomagic/, and the
- * Koma-UI repo), so this says what it is, with Galgoria, and links there. The link is the same for
+ * Koma-UI repo), so this says what it is, with Galgoria (its first boss), and links there. The link is the same for
  * everyone: the site logs them in with Discord and opens its Find Raid (multiplayer). When someone creates a raid on the
  * site (not a room of their own, single player), the same goes up in the server's channel with that raid's link
  * (announceTechnoMagic), so others can join it.
@@ -48,7 +48,7 @@ export const technomagic: Command = {
   name: 'technomagic',
   category: 'adventure',
   aliases: ['tm', 'tmraid'],
-  description: "The TechnoMagic Raid on the Koma site: bring your heroes against Galgoria together, as in King's Raid. Wins give TechnoMagic gear.",
+  description: "The TechnoMagic Raid on the Koma site: bring your heroes against Galgoria and Siegfried together, as in King's Raid. Wins give TechnoMagic gear.",
 
   async execute(ctx) {
     const config = webConfig();

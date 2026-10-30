@@ -8,7 +8,7 @@ var NONE = {
 /** As many points as are 100%. */
 var POINTS = 1e3;
 /** The share of a stat in points (0 to 1). */
-var share$2 = (points) => Math.min(1, Math.max(0, points / POINTS));
+var share$3 = (points) => Math.min(1, Math.max(0, points / POINTS));
 /** As StatAttenuationData.Attenuate. */
 function curved(c, x) {
 	if (x === 0) return 0;
@@ -164,15 +164,15 @@ var BLOCKED = .5;
 * left. `roll` is the fight's chances (../sim/random.ts).
 */
 function strike(amount, type, target, pen, reach, roll, acc = 0) {
-	if (roll() < share$2(curved(CURVE.chance, target.dodge[type]) - curved(CURVE.acc, acc))) return {
+	if (roll() < share$3(curved(CURVE.chance, target.dodge[type]) - curved(CURVE.acc, acc))) return {
 		taken: 0,
 		blocked: false,
 		dodged: true
 	};
-	const blocked = roll() < share$2(curved(CURVE.chance, target.block[type]));
-	const defense = Math.max(0, target[type]) * (1 - share$2(curved(CURVE.pen, pen)));
+	const blocked = roll() < share$3(curved(CURVE.chance, target.block[type]));
+	const defense = Math.max(0, target[type]) * (1 - share$3(curved(CURVE.pen, pen)));
 	const kept = blocked ? Math.max(0, BLOCKED - curved(CURVE.blockDef, (target.blockDef?.[type] ?? 0) * POINTS) / POINTS) : 1;
-	const tough = 1 - share$2(curved(CURVE.pen, target.tough?.[type] ?? 0));
+	const tough = 1 - share$3(curved(CURVE.pen, target.tough?.[type] ?? 0));
 	return {
 		taken: amount * (1 - DEF_MOST * Math.min(1, defense / reach)) * kept * tough,
 		blocked,
@@ -306,6 +306,7 @@ function blocking(on, type) {
 /** A bearer of these can do nothing; is out of the fight altogether. */
 var bound = (on) => on.some((status) => status.binds || status.away);
 var away = (on) => on.some((status) => status.away);
+var sealed = (on) => on.some((status) => status.seals);
 //#endregion
 //#region src/technomagic/sim/shown.ts
 /** One of King's Raid's own icons for what is on someone. */
@@ -8973,7 +8974,7 @@ var KR_HP = [
 	9271452032,
 	15491771741
 ];
-var KR_ATK$1 = [
+var KR_ATK$2 = [
 	1898512,
 	2284691,
 	2748592,
@@ -9011,13 +9012,13 @@ var KR_LEVEL = [
 ];
 var FIRE_ATK = 1763309 / 1898512;
 var HIGH_DEF = 132660 / 92822;
-var KR_PARTY$1 = 9;
+var KR_PARTY$2 = 9;
 var SOLO = 8;
 /** The Normal Dragon Raid's party (its MainSquardCount), which its dragons' health is for. */
 var KR_NORMAL_PARTY = 6;
 /** A dragon's health and defense at stage 1, for its stats: its lower defense, and its higher. */
 var FIRST$1 = {
-	hp: KR_HP[0] * HEROES_DEAL * 9 / KR_PARTY$1,
+	hp: KR_HP[0] * HEROES_DEAL * 9 / KR_PARTY$2,
 	def: KR_DEF$1[0],
 	high: KR_DEF$1[0] * HIGH_DEF
 };
@@ -9025,7 +9026,7 @@ var FIRST$1 = {
 function dragonStages({ atk = 1 } = {}) {
 	const scales = (times) => KR_HP.map((hp, i) => ({
 		hp: hp / KR_HP[0] * times,
-		deals: HEROES_HP * atk * (KR_ATK$1[i] / KR_ATK$1[0]),
+		deals: HEROES_HP * atk * (KR_ATK$2[i] / KR_ATK$2[0]),
 		defense: KR_DEF$1[i] / KR_DEF$1[0],
 		level: KR_LEVEL[i]
 	}));
@@ -9063,7 +9064,7 @@ function normalDragon(hard, leaves, part) {
 	const first = own.hp[0] * HEROES_DEAL * 9 / KR_NORMAL_PARTY;
 	const scales = (times) => own.hp.map((hp, i) => ({
 		hp: hp / own.hp[0] * times,
-		deals: HEROES_HP * (own.atk[i] / KR_ATK$1[0]),
+		deals: HEROES_HP * (own.atk[i] / KR_ATK$2[0]),
 		defense: own.def[i] / own.def[0],
 		level: own.level[i]
 	}));
@@ -9091,7 +9092,7 @@ function normalDragon(hard, leaves, part) {
 			leaves,
 			lands: {
 				share: 0,
-				blow: .2 * KR_ATK$1[0],
+				blow: .2 * KR_ATK$2[0],
 				knock: 1.5
 			}
 		} },
@@ -9210,7 +9211,7 @@ var dragonWaves = (id) => ({
 * as much more as there are of them than its raid's `party` (alone, as much less again); its ATK (what its blows are shares
 * of: ./minions.ts) as much less as the heroes here have less health; its defenses the game's; and the rest as the hard dragons' (OPEN).
 */
-function minionOf(minion, solo, party = KR_PARTY$1) {
+function minionOf(minion, solo, party = KR_PARTY$2) {
 	const hp = minion.hp * HEROES_DEAL * 9 / party * (solo ? SOLO / 9 : 1);
 	return {
 		hp,
@@ -9227,33 +9228,33 @@ function minionOf(minion, solo, party = KR_PARTY$1) {
 /** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: of `size`, none said the Hard Dragon Raid's). */
 var withDragonGauge = (fight, own, size = DRAGON_GAUGE) => withGauge(fight, own, size);
 /** What a blow takes, as a share of a dragon's ATK at stage 1 (King's Raid's playtest's: its skill's damage share). */
-var share$1 = (of) => [of * KR_ATK$1[0], of * KR_ATK$1[0]];
+var share$2 = (of) => [of * KR_ATK$2[0], of * KR_ATK$2[0]];
 /**
 * How long each of its moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense: as
 * the playtest's dragons' skills have it, of their ATK (a dragon's attack 250%; its quick skill 120%; Tail Strike 100%; a
 * tail smash 40%, a blow of its breath 30%, of its storm 25%; its landing 200%. Its share of a hero's health that some add
 * is not here).
 */
-var MOVES$1 = {
+var MOVES$2 = {
 	bite: {
 		length: 1.7,
 		hit: .8,
-		hurts: share$1(2.5)
+		hurts: share$2(2.5)
 	},
 	claw: {
 		length: 1.6,
 		hit: .75,
-		hurts: share$1(1.2)
+		hurts: share$2(1.2)
 	},
 	sweep: {
 		length: 2.1,
 		hit: 1,
-		hurts: share$1(1)
+		hurts: share$2(1)
 	},
 	smash: {
 		length: 1.1,
 		hit: .55,
-		hurts: share$1(.4)
+		hurts: share$2(.4)
 	},
 	inhale: {
 		length: 1.4,
@@ -9262,12 +9263,12 @@ var MOVES$1 = {
 	breath: {
 		length: .55,
 		hit: .25,
-		hurts: share$1(.3)
+		hurts: share$2(.3)
 	},
 	roar: {
 		length: 2.1,
 		hit: .6,
-		hurts: share$1(.25)
+		hurts: share$2(.25)
 	},
 	rise: {
 		length: 1.4,
@@ -9276,12 +9277,12 @@ var MOVES$1 = {
 	storm: {
 		length: 1,
 		hit: .45,
-		hurts: share$1(.25)
+		hurts: share$2(.25)
 	},
 	land: {
 		length: 1.3,
 		hit: .85,
-		hurts: share$1(2)
+		hurts: share$2(2)
 	},
 	gaze: {
 		length: 1.8,
@@ -9289,7 +9290,7 @@ var MOVES$1 = {
 	}
 };
 /** Its moves in each of its attacks, by the attack's name: each after the last is done. */
-var PLANS$1 = {
+var PLANS$2 = {
 	bite: [[
 		"bite",
 		"D",
@@ -9557,14 +9558,14 @@ var hard$3 = {
 		}
 	],
 	plans: {
-		bite: PLANS$1.bite,
-		claw: PLANS$1.claw,
-		sweep: PLANS$1.sweep,
-		breath: PLANS$1.breath,
-		gaze: PLANS$1.gaze,
-		eclipse: PLANS$1.eclipse
+		bite: PLANS$2.bite,
+		claw: PLANS$2.claw,
+		sweep: PLANS$2.sweep,
+		breath: PLANS$2.breath,
+		gaze: PLANS$2.gaze,
+		eclipse: PLANS$2.eclipse
 	},
-	moves: MOVES$1,
+	moves: MOVES$2,
 	join: armartaPart
 };
 /** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): its ultimate open at half of its health (the playtest's OnHpRatio 500). */
@@ -9578,7 +9579,7 @@ var ARMARTA = {
 * Its M.ATK at each stage, as King's Raid's playtest builds it (its Galgoria raid, chapter 10's stages 1 to 9: its stats at
 * the stage's level, times its MonsterTierTable entry: KR-extracted/scripts/boss-stats.mjs). Its blows are shares of it.
 */
-var KR_ATK = [
+var KR_ATK$1 = [
 	4515117,
 	5942354,
 	8184999,
@@ -9590,23 +9591,23 @@ var KR_ATK = [
 	69801164
 ];
 /** What a blow takes: `of` its ATK at stage 1 (how much of that each skill's blow takes is ./skills.ts). */
-var share = (of) => [of * KR_ATK[0], of * KR_ATK[0]];
+var share$1 = (of) => [of * KR_ATK$1[0], of * KR_ATK$1[0]];
 var HEADS = [
 	"C",
 	"L",
 	"R"
 ];
 /** How long each of its heads' moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense (its ATK; each skill takes its share of it). */
-var MOVES = {
+var MOVES$1 = {
 	spit: {
 		length: 2,
 		hit: .88,
-		hurts: share(1)
+		hurts: share$1(1)
 	},
 	roar: {
 		length: 2.1,
 		hit: .5,
-		hurts: share(1.5)
+		hurts: share$1(1.5)
 	},
 	slam: {
 		length: 1.9,
@@ -9614,7 +9615,7 @@ var MOVES = {
 	}
 };
 /** The heads' moves in each of its skills, by its name. */
-var PLANS = {
+var PLANS$1 = {
 	left: [[
 		"spit",
 		"L",
@@ -9683,7 +9684,7 @@ var PLANS = {
 	]]
 };
 /** Its attacks, as Boss auto picks them (one head's venom the most often, by itself) and as their buttons say. */
-var ATTACKS = [
+var ATTACKS$1 = [
 	{
 		name: "left",
 		label: "Left head"
@@ -9783,7 +9784,7 @@ var POISONED$2 = {
 	art: stateArt("3590020"),
 	harmful: true
 };
-var WEAKENED$1 = {
+var WEAKENED$2 = {
 	name: "Poisonous Explosion",
 	about: `Hits ${Math.round((1 - EXPLOSION$1.deals) * 100)}% softer.`,
 	icon: "💥",
@@ -9917,10 +9918,10 @@ function ownPart(fight) {
 				for (const fighter of heroes) {
 					fight.hurt(fighter, amount * EXPLOSION$1.blow);
 					if (part === 0) put(fighter.statuses, {
-						name: WEAKENED$1.name,
+						name: WEAKENED$2.name,
 						left: EXPLOSION$1.lasts,
 						deals: EXPLOSION$1.deals,
-						shown: WEAKENED$1
+						shown: WEAKENED$2
 					});
 					else put(fighter.statuses, {
 						name: DULLED.name,
@@ -10023,7 +10024,7 @@ function ownPart(fight) {
 }
 //#endregion
 //#region src/technomagic/sim/bosses/galgoria/index.ts
-var HP = [
+var HP$1 = [
 	14184543765,
 	19721142351,
 	26463862400,
@@ -10046,7 +10047,7 @@ var KR_DEF = [
 	416588
 ];
 var LIFE_DEF = 6e4;
-var LEVEL = [
+var LEVEL$1 = [
 	88,
 	90,
 	95,
@@ -10057,13 +10058,13 @@ var LEVEL = [
 	125,
 	134
 ];
-var KR_PARTY = 7;
-var DEF$1 = KR_DEF.map((def) => def + LIFE_DEF);
-var scales = (times) => HP.map((hp, i) => ({
-	hp: hp / HP[0] * times,
-	deals: KR_ATK[i] / KR_ATK[0],
-	defense: DEF$1[i] / DEF$1[0],
-	level: LEVEL[i]
+var KR_PARTY$1 = 7;
+var DEF$2 = KR_DEF.map((def) => def + LIFE_DEF);
+var scales$1 = (times) => HP$1.map((hp, i) => ({
+	hp: hp / HP$1[0] * times,
+	deals: KR_ATK$1[i] / KR_ATK$1[0],
+	defense: DEF$2[i] / DEF$2[0],
+	level: LEVEL$1[i]
 }));
 /**
 * Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
@@ -10079,10 +10080,10 @@ var GALGORIA = {
 	id: "galgoria",
 	name: "Galgoria",
 	stats: {
-		hp: HP[0],
+		hp: HP$1[0],
 		deals: "magical",
-		physical: DEF$1[0],
-		magical: DEF$1[0],
+		physical: DEF$2[0],
+		magical: DEF$2[0],
 		block: NONE,
 		dodge: NONE,
 		crit: 100,
@@ -10091,18 +10092,18 @@ var GALGORIA = {
 		acc: 300
 	},
 	stages: {
-		room: scales(1),
-		solo: scales(KR_PARTY / 8)
+		room: scales$1(1),
+		solo: scales$1(KR_PARTY$1 / 8)
 	},
 	basic: [
 		"left",
 		"centre",
 		"right"
 	],
-	rest: 3.1 - MOVES.spit.length,
-	attacks: ATTACKS,
-	plans: PLANS,
-	moves: MOVES,
+	rest: 3.1 - MOVES$1.spit.length,
+	attacks: ATTACKS$1,
+	plans: PLANS$1,
+	moves: MOVES$1,
 	join: galgoriaPart
 };
 //#endregion
@@ -10280,7 +10281,7 @@ var SMASH$2 = {
 	health: 1 / 3
 };
 var BREATH$3 = { frost: 2 };
-var STORM$1 = {
+var STORM$2 = {
 	mana: 1500,
 	health: .42
 };
@@ -10336,10 +10337,10 @@ function scalaxiaPart(fight, mode = HARD) {
 			},
 			storm(part, amount) {
 				if (part === 0) return;
-				if (part < 3) return void fraction(fight, all$1(fight, amount, (fighter) => frost(fighter, 1), "storm"), STORM$1.health);
+				if (part < 3) return void fraction(fight, all$1(fight, amount, (fighter) => frost(fighter, 1), "storm"), STORM$2.health);
 				all$1(fight, amount, (fighter) => {
 					freeze(fighter);
-					fighter.mana = Math.max(0, Math.min(MAX_MANA, fighter.mana - STORM$1.mana));
+					fighter.mana = Math.max(0, Math.min(MAX_MANA, fighter.mana - STORM$2.mana));
 				}, "glacial");
 			},
 			bite: (_part, amount) => single(fight, amount, (fighter) => frost(fighter, 1)),
@@ -10424,20 +10425,3410 @@ var hard$2 = {
 		}
 	],
 	plans: {
-		bite: PLANS$1.bite,
-		claw: PLANS$1.claw,
-		sweep: PLANS$1.sweep,
-		smashes: PLANS$1.smashes,
-		breath: PLANS$1.breath,
-		storm: PLANS$1.storm
+		bite: PLANS$2.bite,
+		claw: PLANS$2.claw,
+		sweep: PLANS$2.sweep,
+		smashes: PLANS$2.smashes,
+		breath: PLANS$2.breath,
+		storm: PLANS$2.storm
 	},
-	moves: MOVES$1,
+	moves: MOVES$2,
 	join: scalaxiaPart
 };
 /** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at 60% of its health (the playtest's OnHpRatio 600). */
 var SCALAXIA = {
 	...hard$2,
 	normal: normalDragon(hard$2, .6, scalaxiaPart)
+};
+//#endregion
+//#region src/technomagic/sim/bosses/siegfried/attacks.ts
+/**
+* His P.ATK at each stage, as King's Raid's playtest builds it (its Siegfried raid, chapter 10's dungeons 1101 to 1109: his
+* stats at the stage's level, times its MonsterTierTable entry: KR-extracted/scripts/boss-stats.mjs). His blows are shares of it.
+*/
+var KR_ATK = [
+	1740938,
+	2291250,
+	2790888,
+	3560201,
+	5875322,
+	8003111,
+	10971720,
+	18293418,
+	30248640
+];
+/** What a blow takes: `of` his ATK at stage 1 (how much of that each skill's blow takes is ./skills.ts). */
+var share = (of) => [of * KR_ATK[0], of * KR_ATK[0]];
+/** How long each of his moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense. */
+var MOVES = {
+	swing1: {
+		length: .6,
+		hit: .4,
+		hurts: share(1.2)
+	},
+	swing2: {
+		length: .6,
+		hit: .2,
+		hurts: share(1.2)
+	},
+	swing3: {
+		length: 1.6,
+		hit: .6,
+		hurts: share(1.2)
+	},
+	strike1: {
+		length: 2,
+		hit: 1.4,
+		hurts: share(2)
+	},
+	strike2: {
+		length: 2,
+		hit: .4,
+		hurts: share(2)
+	},
+	summon: {
+		length: 2.7,
+		hit: null
+	},
+	blade: {
+		length: .3,
+		hit: 0,
+		hurts: share(.3)
+	},
+	judgement: {
+		length: 2.5,
+		hit: 1.1,
+		hurts: share(3)
+	},
+	rise: {
+		length: 2.2,
+		hit: 1.2
+	}
+};
+var SWORD$3 = [
+	[
+		"swing1",
+		"S",
+		0
+	],
+	[
+		"swing2",
+		"S",
+		0
+	],
+	[
+		"swing3",
+		"S",
+		0
+	]
+];
+/** His moves in each of his attacks, by the attack's name: each after the last is done. */
+var PLANS = {
+	slash: SWORD$3,
+	slash2: SWORD$3,
+	slash3: SWORD$3,
+	strike: [[
+		"strike1",
+		"S",
+		0
+	], [
+		"strike2",
+		"S",
+		0
+	]],
+	storm: [
+		[
+			"summon",
+			"S",
+			0
+		],
+		...Array.from({ length: 20 }, () => [
+			"blade",
+			"S",
+			0
+		]),
+		[
+			"judgement",
+			"S",
+			0
+		]
+	],
+	rise: [[
+		"rise",
+		"S",
+		0
+	]]
+};
+/** His attacks, as Boss auto picks them (his sword, as it is in the life he is in, whenever no skill is ready) and as their buttons say. */
+var ATTACKS = [
+	{
+		name: "slash",
+		label: "Sword"
+	},
+	{
+		name: "slash2",
+		label: "Sword (second life)"
+	},
+	{
+		name: "slash3",
+		label: "Sword (third life)"
+	},
+	{
+		name: "strike",
+		label: "Divine Strike"
+	},
+	{
+		name: "storm",
+		label: "Divine Storm of Blades"
+	},
+	{
+		name: "rise",
+		label: "Divine Power"
+	}
+];
+//#endregion
+//#region src/technomagic/sim/heroes/kr.ts
+var KR_HEROES = {
+	annette: {
+		mana: {
+			regen: 75,
+			attack: 425
+		},
+		wait: .3,
+		attack: [{
+			lands: [
+				1,
+				1.2,
+				1.4
+			],
+			blows: [
+				800,
+				800,
+				800
+			],
+			until: 1.7
+		}],
+		books: {
+			dmg: [
+				.25,
+				0,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				.25,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 34
+		}
+	},
+	crow: {
+		mana: {
+			regen: 75,
+			attack: 450
+		},
+		wait: 0,
+		attack: [{
+			lands: [.9],
+			blows: [2600],
+			until: 1.8
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .7,
+			index: 52
+		}
+	},
+	"dark-lord-kasel": {
+		mana: {
+			regen: 75,
+			attack: 0
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3, .8],
+				blows: [700, 700],
+				until: 1.3
+			},
+			{
+				lands: [.3, .4],
+				blows: [700, 700],
+				until: 1.1
+			},
+			{
+				lands: [.7],
+				blows: [700],
+				until: 2.3
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 84
+		}
+	},
+	erze: {
+		mana: {
+			regen: 75,
+			attack: 250
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [500],
+				until: .6
+			},
+			{
+				lands: [.3, .7],
+				blows: [500, 500],
+				until: .9
+			},
+			{
+				lands: [.7],
+				blows: [1500],
+				until: 1.5
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 500,
+			size: .5,
+			index: 56
+		}
+	},
+	ezekiel: {
+		mana: {
+			regen: 75,
+			attack: 185
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [670],
+				until: .5
+			},
+			{
+				lands: [.2, .5],
+				blows: [670, 670],
+				until: .8
+			},
+			{
+				lands: [.4],
+				blows: [670],
+				until: .7
+			},
+			{
+				lands: [.3],
+				blows: [670],
+				until: 1
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 500,
+			size: .6,
+			index: 38
+		}
+	},
+	"fallen-frey": {
+		mana: {
+			regen: 85,
+			attack: 500
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.1],
+			blows: [2500],
+			until: 2
+		}],
+		books: {
+			dmg: [
+				.5,
+				0,
+				.5,
+				0
+			],
+			heal: [
+				.5,
+				.5,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 85
+		}
+	},
+	gau: {
+		mana: {
+			regen: 75,
+			attack: 340
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.9],
+				blows: [1350],
+				until: 1.3
+			},
+			{
+				lands: [.3, .7],
+				blows: [1350, 1350],
+				until: 1.2
+			},
+			{
+				lands: [.3],
+				blows: [1350],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .7,
+			index: 5
+		}
+	},
+	gremory: {
+		mana: {
+			regen: 75,
+			attack: 600
+		},
+		wait: 0,
+		attack: [{
+			lands: [
+				1,
+				1.1,
+				1.2
+			],
+			blows: [
+				1e3,
+				1e3,
+				1e3
+			],
+			until: 2.4
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 100,
+			size: .5,
+			index: 86
+		}
+	},
+	kirze: {
+		mana: {
+			regen: 150,
+			attack: 325
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3, .5],
+				blows: [1e3, 1e3],
+				until: .8
+			},
+			{
+				lands: [.4, 1],
+				blows: [1e3, 1e3],
+				until: 1.3
+			},
+			{
+				lands: [.7],
+				blows: [1e3],
+				until: 1.8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 250,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .8,
+			index: 71
+		}
+	},
+	klaus: {
+		mana: {
+			regen: 75,
+			attack: 330
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.5, .7],
+				blows: [880, 880],
+				until: 1
+			},
+			{
+				lands: [.6, 1.1],
+				blows: [880, 880],
+				until: 1.4
+			},
+			{
+				lands: [.7],
+				blows: [880],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 15
+		}
+	},
+	laias: {
+		mana: {
+			regen: 85,
+			attack: 425
+		},
+		wait: .3,
+		attack: [{
+			lands: [1],
+			blows: [1920],
+			until: 1.7
+		}],
+		books: {
+			dmg: [
+				0,
+				0,
+				.5,
+				.5
+			],
+			heal: [
+				.5,
+				.25,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 30
+		}
+	},
+	loman: {
+		mana: {
+			regen: 75,
+			attack: 250
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [800],
+				until: .5
+			},
+			{
+				lands: [.4],
+				blows: [800],
+				until: .9
+			},
+			{
+				lands: [.2, .7],
+				blows: [800, 800],
+				until: 1
+			},
+			{
+				lands: [.6],
+				blows: [1200],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.25,
+				0,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				.5,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .6,
+			index: 93
+		}
+	},
+	lorraine: {
+		mana: {
+			regen: 100,
+			attack: 325
+		},
+		wait: 0,
+		attack: [{
+			lands: [.3],
+			blows: [1540],
+			until: 1.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 13
+		}
+	},
+	lucikiel: {
+		mana: {
+			regen: 100,
+			attack: 292
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [750],
+				until: .6
+			},
+			{
+				lands: [.4, 1.2],
+				blows: [750, 750],
+				until: 1.4
+			},
+			{
+				lands: [.5],
+				blows: [750],
+				until: 1.5
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				.5
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .6,
+			index: 100
+		}
+	},
+	morrah: {
+		mana: {
+			regen: 75,
+			attack: 240
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [912],
+				until: .6
+			},
+			{
+				lands: [.2, .4],
+				blows: [912, 912],
+				until: .8
+			},
+			{
+				lands: [.5],
+				blows: [912],
+				until: .8
+			},
+			{
+				lands: [.8],
+				blows: [912],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 23
+		}
+	},
+	naila: {
+		mana: {
+			regen: 75,
+			attack: 235
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [760],
+				until: .6
+			},
+			{
+				lands: [
+					.1,
+					.3,
+					.7
+				],
+				blows: [
+					760,
+					760,
+					760
+				],
+				until: .9
+			},
+			{
+				lands: [.3],
+				blows: [760],
+				until: .7
+			},
+			{
+				lands: [.6],
+				blows: [760],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 21
+		}
+	},
+	neraxis: {
+		mana: {
+			regen: 75,
+			attack: 255
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4, .6],
+				blows: [800, 800],
+				until: .8
+			},
+			{
+				lands: [.2],
+				blows: [800],
+				until: .4
+			},
+			{
+				lands: [.4, 1.1],
+				blows: [800, 800],
+				until: 1.9
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .6,
+			index: 61
+		}
+	},
+	oddy: {
+		mana: {
+			regen: 75,
+			attack: 550
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.4],
+			blows: [3100],
+			until: 2.2
+		}],
+		books: {
+			dmg: [
+				.25,
+				.25,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				250,
+				250,
+				250,
+				250
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 42
+		}
+	},
+	phillop: {
+		mana: {
+			regen: 75,
+			attack: 275
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [1056],
+				until: .7
+			},
+			{
+				lands: [.3, .6],
+				blows: [1056, 1056],
+				until: 1
+			},
+			{
+				lands: [.2],
+				blows: [1056],
+				until: .6
+			},
+			{
+				lands: [.6],
+				blows: [1056],
+				until: 2.1
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 6
+		}
+	},
+	"rebel-klaus": {
+		mana: {
+			regen: 75,
+			attack: 210
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4, .6],
+				blows: [360, 360],
+				until: .8
+			},
+			{
+				lands: [.3, .6],
+				blows: [360, 360],
+				until: .9
+			},
+			{
+				lands: [.2, .4],
+				blows: [360, 360],
+				until: .8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.75
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 83
+		}
+	},
+	selene: {
+		mana: {
+			regen: 75,
+			attack: 500
+		},
+		wait: 0,
+		attack: [{
+			lands: [1],
+			blows: [2860],
+			until: 2
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 200,
+			size: .5,
+			index: 10
+		}
+	},
+	seria: {
+		mana: {
+			regen: 75,
+			attack: 275
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [1e3],
+				until: .6
+			},
+			{
+				lands: [.5],
+				blows: [1e3],
+				until: .7
+			},
+			{
+				lands: [.4, .8],
+				blows: [950, 950],
+				until: 2
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 55
+		}
+	},
+	tanya: {
+		mana: {
+			regen: 75,
+			attack: 285
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [
+					.5,
+					.7,
+					.9,
+					1.4
+				],
+				blows: [
+					682,
+					682,
+					682,
+					682
+				],
+				until: 1.6
+			},
+			{
+				lands: [.2, .3],
+				blows: [682, 682],
+				until: 1.1
+			},
+			{
+				lands: [.2],
+				blows: [682],
+				until: .7
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 500,
+			size: .7,
+			index: 37
+		}
+	},
+	valance: {
+		mana: {
+			regen: 75,
+			attack: 425
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [1400],
+			until: 2.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				0,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: .15
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 111
+		}
+	},
+	yanne: {
+		mana: {
+			regen: 75,
+			attack: 375
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [2e3],
+			until: 1.5
+		}, {
+			lands: [1],
+			blows: [2e3],
+			until: 1.5
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 300,
+			size: .6,
+			index: 45
+		}
+	},
+	pansirone: {
+		mana: {
+			regen: 75,
+			attack: 475
+		},
+		wait: 0,
+		attack: [{
+			lands: [
+				.6,
+				.8,
+				1,
+				1.2,
+				1.4
+			],
+			blows: [
+				500,
+				500,
+				500,
+				500,
+				500
+			],
+			until: 1.9
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 100,
+			size: .6,
+			index: 72
+		}
+	},
+	shea: {
+		mana: {
+			regen: 85,
+			attack: 400
+		},
+		wait: 0,
+		attack: [{
+			lands: [.4],
+			blows: [800],
+			until: 1.6
+		}],
+		books: {
+			dmg: [
+				0,
+				0,
+				.5,
+				.5
+			],
+			heal: [
+				.5,
+				0,
+				0,
+				.5
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 66
+		}
+	},
+	priscilla: {
+		mana: {
+			regen: 75,
+			attack: 330
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [1240],
+				until: .6
+			},
+			{
+				lands: [.4, .8],
+				blows: [1240, 1240],
+				until: 1
+			},
+			{
+				lands: [.5, 1.3],
+				blows: [1240, 1240],
+				until: 2.4
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 44
+		}
+	},
+	glenwys: {
+		mana: {
+			regen: 75,
+			attack: 308
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3, .8],
+				blows: [700, 700],
+				until: 1.1
+			},
+			{
+				lands: [.3],
+				blows: [1e3],
+				until: .5
+			},
+			{
+				lands: [
+					.3,
+					.7,
+					1.1
+				],
+				blows: [
+					700,
+					700,
+					700
+				],
+				until: 2.1
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 87
+		}
+	},
+	theo: {
+		mana: {
+			regen: 75,
+			attack: 240
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [
+					.3,
+					.5,
+					1
+				],
+				blows: [
+					900,
+					900,
+					900
+				],
+				until: 1.2
+			},
+			{
+				lands: [.6],
+				blows: [900],
+				until: .8
+			},
+			{
+				lands: [.4],
+				blows: [900],
+				until: .9
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 40
+		}
+	},
+	chase: {
+		mana: {
+			regen: 75,
+			attack: 235
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [950],
+				until: .7
+			},
+			{
+				lands: [.5],
+				blows: [1100],
+				until: .9
+			},
+			{
+				lands: [.4],
+				blows: [900],
+				until: .6
+			},
+			{
+				lands: [.4, .9],
+				blows: [1050, 1050],
+				until: 1.6
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				1.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .8,
+			index: 73
+		}
+	},
+	lakrak: {
+		mana: {
+			regen: 75,
+			attack: 325
+		},
+		wait: 0,
+		attack: [{
+			lands: [.7],
+			blows: [1430],
+			until: 1.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				.25,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 400,
+			size: .5,
+			index: 7
+		}
+	},
+	miruru: {
+		mana: {
+			regen: 75,
+			attack: 450
+		},
+		wait: 0,
+		attack: [{
+			lands: [.9],
+			blows: [1880],
+			until: 1.8
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 400,
+			size: .5,
+			index: 12
+		}
+	},
+	mirianne: {
+		mana: {
+			regen: 75,
+			attack: 155
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [1e3],
+				until: .6
+			},
+			{
+				lands: [.2],
+				blows: [1e3],
+				until: .4
+			},
+			{
+				lands: [.4],
+				blows: [1e3],
+				until: .6
+			},
+			{
+				lands: [.5],
+				blows: [1e3],
+				until: .9
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				.5,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 500,
+			size: .5,
+			index: 65
+		}
+	},
+	kara: {
+		mana: {
+			regen: 75,
+			attack: 475
+		},
+		wait: 0,
+		attack: [{
+			lands: [.9, 1],
+			blows: [1400, 1400],
+			until: 1.9
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .6,
+			index: 67
+		}
+	},
+	estelle: {
+		mana: {
+			regen: 75,
+			attack: 412
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [1400],
+			until: 1.8
+		}, {
+			lands: [1.2],
+			blows: [1400],
+			until: 1.5
+		}],
+		books: {
+			dmg: [
+				0,
+				.5,
+				0,
+				0
+			],
+			heal: [
+				.5,
+				0,
+				.5,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 101
+		}
+	},
+	isolet: {
+		mana: {
+			regen: 100,
+			attack: 425
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.1],
+			blows: [2e3],
+			until: 1.7
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 200,
+			size: .5,
+			index: 82
+		}
+	},
+	evan: {
+		mana: {
+			regen: 85,
+			attack: 575
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.1],
+			blows: [3500],
+			until: 2.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 79
+		}
+	},
+	rehartna: {
+		mana: {
+			regen: 85,
+			attack: 525
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [2500],
+			until: 2.1
+		}],
+		books: {
+			dmg: [
+				.5,
+				0,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				.5,
+				0,
+				.5
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 300,
+			size: .5,
+			index: 48
+		}
+	},
+	lucias: {
+		mana: {
+			regen: 85,
+			attack: 450
+		},
+		wait: 0,
+		attack: [{
+			lands: [.8],
+			blows: [2200],
+			until: 1.8
+		}],
+		books: {
+			dmg: [
+				0,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				.5,
+				.5,
+				0,
+				.6
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 100,
+			size: .5,
+			index: 59
+		}
+	},
+	lilia: {
+		mana: {
+			regen: 200,
+			attack: 450
+		},
+		wait: 0,
+		attack: [{
+			lands: [
+				.8,
+				.8,
+				.9,
+				.9
+			],
+			blows: [
+				650,
+				650,
+				650,
+				650
+			],
+			until: 1.8
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 400,
+			size: .5,
+			index: 57
+		}
+	},
+	aselica: {
+		mana: {
+			regen: 75,
+			attack: 210
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [650],
+				until: .5
+			},
+			{
+				lands: [.5, .7],
+				blows: [650, 650],
+				until: 1
+			},
+			{
+				lands: [.4],
+				blows: [650],
+				until: .7
+			},
+			{
+				lands: [.4],
+				blows: [650],
+				until: .9
+			},
+			{
+				lands: [],
+				blows: [],
+				until: .3
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				.5,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .7,
+			index: 51
+		}
+	},
+	lavril: {
+		mana: {
+			regen: 85,
+			attack: 325
+		},
+		wait: 0,
+		attack: [{
+			lands: [1],
+			blows: [1300],
+			until: 1.4
+		}, {
+			lands: [],
+			blows: [],
+			until: 1.2
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				.5,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 100,
+			size: .5,
+			index: 54
+		}
+	},
+	zafir: {
+		mana: {
+			regen: 75,
+			attack: 450
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.1],
+			blows: [2600],
+			until: 1.8
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				.5,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 300,
+			size: .5,
+			index: 46
+		}
+	},
+	jane: {
+		mana: {
+			regen: 75,
+			attack: 440
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [1590],
+				until: 1.2
+			},
+			{
+				lands: [.4, .7],
+				blows: [1590, 1590],
+				until: 1.9
+			},
+			{
+				lands: [.4],
+				blows: [1590],
+				until: 2.2
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.25,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				.5
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 25
+		}
+	},
+	shakmeh: {
+		mana: {
+			regen: 75,
+			attack: 183
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [750],
+				until: .5
+			},
+			{
+				lands: [.3],
+				blows: [750],
+				until: .7
+			},
+			{
+				lands: [.3, .4],
+				blows: [750, 750],
+				until: .8
+			},
+			{
+				lands: [.2],
+				blows: [750],
+				until: .5
+			},
+			{
+				lands: [.4],
+				blows: [750],
+				until: 1.2
+			},
+			{
+				lands: [],
+				blows: [],
+				until: .8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .5,
+			index: 80
+		}
+	},
+	isaiah: {
+		mana: {
+			regen: 85,
+			attack: 575
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.2],
+			blows: [1400],
+			until: 2.3
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "middle",
+			weight: 200,
+			size: .5,
+			index: 102
+		}
+	},
+	gladi: {
+		mana: {
+			regen: 75,
+			attack: 210
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [670],
+				until: .5
+			},
+			{
+				lands: [
+					.3,
+					.5,
+					.7
+				],
+				blows: [
+					670,
+					670,
+					670
+				],
+				until: 1
+			},
+			{
+				lands: [.3, .5],
+				blows: [670, 670],
+				until: .7
+			},
+			{
+				lands: [.7],
+				blows: [1e3],
+				until: 1.2
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 500,
+			size: .6,
+			index: 91
+		}
+	},
+	cecilia: {
+		mana: {
+			regen: 75,
+			attack: 435
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [
+					.3,
+					.9,
+					1.3
+				],
+				blows: [
+					850,
+					850,
+					850
+				],
+				until: 1.6
+			},
+			{
+				lands: [
+					.4,
+					.9,
+					1.4
+				],
+				blows: [
+					850,
+					850,
+					850
+				],
+				until: 1.8
+			},
+			{
+				lands: [
+					.4,
+					.5,
+					.6,
+					.7,
+					.8
+				],
+				blows: [
+					500,
+					500,
+					500,
+					900,
+					900
+				],
+				until: 1.8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 400,
+			size: .6,
+			index: 70
+		}
+	},
+	roi: {
+		mana: {
+			regen: 75,
+			attack: 290
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [
+					.3,
+					.6,
+					.8
+				],
+				blows: [
+					728,
+					728,
+					728
+				],
+				until: 1
+			},
+			{
+				lands: [.4, .7],
+				blows: [728, 728],
+				until: 1.2
+			},
+			{
+				lands: [.6],
+				blows: [728],
+				until: 1.3
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 500,
+			size: .5,
+			index: 4
+		}
+	},
+	lewisia: {
+		mana: {
+			regen: 100,
+			attack: 425
+		},
+		wait: 0,
+		attack: [{
+			lands: [1],
+			blows: [2400],
+			until: 1.7
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 400,
+			size: .5,
+			index: 32
+		}
+	},
+	ricardo: {
+		mana: {
+			regen: 75,
+			attack: 265
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.4],
+				blows: [682],
+				until: .6
+			},
+			{
+				lands: [.3],
+				blows: [682],
+				until: 1.1
+			},
+			{
+				lands: [.3],
+				blows: [682],
+				until: .5
+			},
+			{
+				lands: [.5],
+				blows: [682],
+				until: 2.1
+			}
+		],
+		books: {
+			dmg: [
+				.25,
+				.25,
+				.25,
+				.25
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 700,
+			size: .6,
+			index: 36
+		}
+	},
+	shamilla: {
+		mana: {
+			regen: 75,
+			attack: 375
+		},
+		wait: 0,
+		attack: [{
+			lands: [.8],
+			blows: [2e3],
+			until: 1.5
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				0
+			],
+			heal: [
+				0,
+				0,
+				0,
+				.5
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 300,
+			size: .6,
+			index: 53
+		}
+	},
+	scarlet: {
+		mana: {
+			regen: 75,
+			attack: 285
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3],
+				blows: [900],
+				until: .6
+			},
+			{
+				lands: [
+					.1,
+					.4,
+					.7
+				],
+				blows: [
+					900,
+					900,
+					900
+				],
+				until: 1.1
+			},
+			{
+				lands: [.2, .7],
+				blows: [900, 900],
+				until: 1.7
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 62
+		}
+	},
+	talisha: {
+		mana: {
+			regen: 75,
+			attack: 600
+		},
+		wait: 0,
+		attack: [{
+			lands: [1.6],
+			blows: [3600],
+			until: 2.4
+		}],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				0,
+				.5
+			],
+			heal: [
+				0,
+				.5,
+				.5,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "back",
+			weight: 300,
+			size: .5,
+			index: 99
+		}
+	},
+	hilda: {
+		mana: {
+			regen: 75,
+			attack: 466
+		},
+		wait: 0,
+		attack: [
+			{
+				lands: [.3, .8],
+				blows: [700, 700],
+				until: 1.1
+			},
+			{
+				lands: [.4],
+				blows: [700],
+				until: 1.7
+			},
+			{
+				lands: [
+					.2,
+					.4,
+					.6,
+					.8,
+					1.6
+				],
+				blows: [
+					700,
+					700,
+					700,
+					700,
+					700
+				],
+				until: 2.8
+			}
+		],
+		books: {
+			dmg: [
+				.5,
+				.5,
+				.5,
+				.5
+			],
+			heal: [
+				0,
+				0,
+				0,
+				0
+			],
+			crit: [
+				0,
+				0,
+				0,
+				0
+			],
+			critStat: 0,
+			atk: 0
+		},
+		stand: {
+			line: "front",
+			weight: 600,
+			size: .5,
+			index: 81
+		}
+	}
+};
+//#endregion
+//#region src/technomagic/sim/bosses/siegfried/skills.ts
+/** Where he would stand in King's Raid: so far before whoever he is going for (his attack's reach, 2.5 m). */
+var STEP$1 = 2.5;
+/** How far about there his sword's blows reach in each of his lives (metres, to a hero's edge). */
+var SWORD$2 = [
+	3,
+	6.5,
+	12
+];
+/** Divine Strike: its line (long, wide), how long it knocks down for, and how many times its DEF cut stacks. */
+var STRIKE$1 = {
+	long: 10,
+	wide: 4,
+	down: 3,
+	most: 20,
+	cooldown: 17,
+	first: 5
+};
+/** His DEF cut on a hero, at each stage (the playtest's 3591050 to 3591057, by its waves). */
+var DEF_CUT = [
+	2e3,
+	2e3,
+	2400,
+	2800,
+	3200,
+	3600,
+	4200,
+	5e3,
+	5600
+];
+/** Divine Storm of Blades: the mana each small sword gives, how long a full hero's skills are sealed, how long he falls after it and how much more he takes meanwhile. */
+var STORM$1 = {
+	mana: 400,
+	seal: 8.4,
+	fall: 7,
+	taken: .3,
+	cooldown: 21,
+	first: 10
+};
+/** Divine Power: how many times he rises, how much higher his health and ATK are each time. */
+var RISE = {
+	times: 2,
+	hp: .3,
+	atk: .3
+};
+/** His block (points), of every kind: his Divine Rampage's. */
+var BLOCK = { base: 1e3 };
+/** His mana: what fills a second at each stage, and what a blow of his that lands gives him (one blocked takes MANA_BLOCKED). */
+var MANA_RATE = [
+	150,
+	150,
+	180,
+	210,
+	240,
+	255,
+	270,
+	300,
+	330
+];
+var MANA_HIT = [
+	50,
+	50,
+	60,
+	70,
+	80,
+	85,
+	90,
+	100,
+	110
+];
+/** Full, his blows see past so much more of a hero's defense (points), for so long at a time. */
+var RAMPAGE$2 = {
+	pen: 500,
+	lasts: 10
+};
+/** Distorted Dawn's from stage 4 (the playtest's 3591044): more block, his attack's blows and the heroes' attacks' on him harder, his ATK lower at first. */
+var DAWN = {
+	from: 4,
+	block: 1e3,
+	attack: .5,
+	taken: .5,
+	weak: .3,
+	weakFor: 10
+};
+var BROKEN$1 = {
+	name: "Divine Strike",
+	about: "DEF lower for the rest of the fight, the more for every stack.",
+	icon: "🗡️",
+	art: stateArt("3591010"),
+	harmful: true
+};
+var SEALED = {
+	name: "Divine Storm of Blades",
+	about: "Its skills are sealed: it can only attack.",
+	icon: "🔒",
+	art: stateArt("3591020"),
+	harmful: true
+};
+/** What is on him that is his own, not the heroes' (what Divine Power keeps as he rises). */
+var RISEN$1 = "Divine Power";
+var RAMPAGING = "Divine Rampage";
+var DAWNING = "Distorted Dawn";
+var WEAKENED$1 = "Distorted Dawn (ATK)";
+var OWN = /* @__PURE__ */ new Set([
+	RISEN$1,
+	RAMPAGING,
+	DAWNING,
+	WEAKENED$1
+]);
+var RAGE$1 = "rage";
+function siegfriedPart(fight) {
+	const boss = fight.boss;
+	const at = Math.min(DEF_CUT.length, Math.max(1, fight.stage)) - 1;
+	const dawn = fight.stage >= DAWN.from;
+	/** His health whole in his first life. */
+	const whole = boss.maxHp;
+	/** How many times he has risen; how long he is rising for yet (nothing hurts him), how long until he falls after his storm and how long he is fallen for yet. */
+	let lives = 0;
+	let rising = 0;
+	let fallIn = 0;
+	let falling = 0;
+	/** Only his own fall knocks him down (he has no CC gauge to break). */
+	let fall = false;
+	let mana = 0;
+	let rampage = 0;
+	const cooldowns = /* @__PURE__ */ new Map([["strike", STRIKE$1.first], ["storm", STORM$1.first]]);
+	const taken = {
+		physical: 1,
+		magical: 1.3
+	};
+	if (dawn) {
+		put(boss.statuses, {
+			name: DAWNING,
+			left: Infinity,
+			blocks: {
+				physical: DAWN.block,
+				magical: DAWN.block
+			},
+			art: stateArt("3591042"),
+			shown: RAGE$1
+		});
+		put(boss.statuses, {
+			name: WEAKENED$1,
+			left: DAWN.weakFor,
+			deals: 1 - DAWN.weak,
+			art: stateArt("AttackDown"),
+			shown: "curse"
+		});
+	}
+	/** The heroes he can reach. */
+	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
+	const size = (on) => KR_HEROES[on.id]?.stand.size ?? .5;
+	/** Where he would stand in King's Raid as he goes for `target` (STEP before it, toward him), and the way he faces from there. */
+	function stance(target) {
+		const away = Math.hypot(boss.x - target.x, boss.z - target.z) || 1;
+		const dx = (target.x - boss.x) / away;
+		const dz = (target.z - boss.z) / away;
+		return {
+			x: target.x - dx * STEP$1,
+			z: target.z - dz * STEP$1,
+			dx,
+			dz
+		};
+	}
+	/** The heroes within `reach` of where he would stand going for whoever he is going for (that one first). */
+	function about(reach) {
+		const target = fight.target();
+		if (!target || target.hp <= 0) return [];
+		const { x, z } = stance(target);
+		return [target, ...reachable().filter((on) => on !== target && Math.hypot(on.x - x, on.z - z) - size(on) <= reach)];
+	}
+	/** The heroes down the line before him (Divine Strike's), toward whoever he is going for (that one first). */
+	function line() {
+		const target = fight.target();
+		if (!target || target.hp <= 0) return [];
+		const { x, z, dx, dz } = stance(target);
+		const inLine = (on) => {
+			const along = (on.x - x) * dx + (on.z - z) * dz;
+			const across = Math.abs((on.x - x) * dz - (on.z - z) * dx);
+			return along >= -size(on) && along <= STRIKE$1.long + size(on) && across <= STRIKE$1.wide / 2 + size(on);
+		};
+		return [target, ...reachable().filter((on) => on !== target && inLine(on))];
+	}
+	/** His sword's blow on those it reaches in the life he is in (harder from stage 4 on). */
+	function sword(amount) {
+		const heroes = about(SWORD$2[Math.min(lives, SWORD$2.length - 1)]);
+		for (const fighter of heroes) fight.hurt(fighter, amount * (dawn ? 1 + DAWN.attack : 1));
+	}
+	/** His DEF cut on a hero: one more stack. */
+	function cut(fighter) {
+		const count = Math.min(STRIKE$1.most, (fighter.statuses.find((status) => status.name === BROKEN$1.name)?.count ?? 0) + 1);
+		const cutBy = -DEF_CUT[at] * count;
+		put(fighter.statuses, {
+			name: BROKEN$1.name,
+			left: Infinity,
+			count,
+			bolsters: {
+				physical: cutBy,
+				magical: cutBy
+			},
+			shown: BROKEN$1
+		});
+	}
+	/** He loses power and falls (after his storm): down for STORM.fall seconds, taking more. */
+	function fallDown() {
+		falling = STORM$1.fall;
+		fall = true;
+		fight.stun(STORM$1.fall, { down: true });
+		fall = false;
+		fight.cue(null, "fall");
+	}
+	/** What he takes of each kind now: nothing as he rises, more as he lies fallen. */
+	function settle() {
+		const more = falling > 0 ? STORM$1.taken : 0;
+		taken.physical = rising > 0 ? 0 : 1 + more;
+		taken.magical = rising > 0 ? 0 : 1.3 + more;
+	}
+	return {
+		lands: {
+			slash: (_part, amount) => sword(amount),
+			slash2: (_part, amount) => sword(amount),
+			slash3: (_part, amount) => sword(amount),
+			strike(part, amount) {
+				const heroes = line();
+				for (const fighter of heroes) {
+					fight.hurt(fighter, amount);
+					if (part === 0 || fighter.hp <= 0) continue;
+					fight.knock(fighter, STRIKE$1.down);
+					cut(fighter);
+				}
+				if (part > 0) fight.cue(null, "strike", heroes);
+			},
+			storm(part, amount) {
+				const heroes = reachable();
+				if (part <= 20) {
+					for (const fighter of heroes) {
+						fight.hurt(fighter, amount);
+						if (fighter.hp > 0) fighter.mana = Math.min(MAX_MANA, fighter.mana + STORM$1.mana);
+					}
+					return;
+				}
+				const sealed = [];
+				for (const fighter of heroes) {
+					const full = fighter.mana >= MAX_MANA * .999;
+					fight.hurt(fighter, amount);
+					if (!full || fighter.hp <= 0) continue;
+					fighter.reserved = null;
+					put(fighter.statuses, {
+						name: SEALED.name,
+						left: STORM$1.seal,
+						seals: true,
+						shown: SEALED
+					});
+					sealed.push(fighter);
+				}
+				if (sealed.length > 0) fight.cue(null, "seal", sealed);
+				fallIn = (MOVES.judgement?.length ?? 0) - (MOVES.judgement?.hit ?? 0);
+			},
+			rise() {
+				boss.statuses = boss.statuses.filter((status) => OWN.has(status.name));
+				boss.maxHp = whole * (1 + RISE.hp * lives);
+				boss.hp = boss.maxHp;
+				put(boss.statuses, {
+					name: RISEN$1,
+					left: Infinity,
+					count: lives,
+					deals: 1 + RISE.atk * lives,
+					art: stateArt("3591030"),
+					shown: RAGE$1
+				});
+				fight.cue(null, `rise${lives}`);
+			}
+		},
+		spared() {
+			if (rising > 0) return true;
+			if (lives >= RISE.times) return false;
+			lives++;
+			rising = MOVES.rise?.length ?? 0;
+			fallIn = 0;
+			falling = 0;
+			settle();
+			fight.force("rise");
+			return true;
+		},
+		landed(on, blocked) {
+			mana = Math.max(0, Math.min(MAX_MANA, mana + (blocked ? -100 : MANA_HIT[at])));
+			if (on.shield <= 0) return;
+			on.shield = 0;
+			fight.cue(null, "shatter", [on]);
+		},
+		controlled: (seconds) => fall ? {
+			seconds,
+			down: true
+		} : null,
+		used(attack) {
+			if (attack === "strike") cooldowns.set(attack, STRIKE$1.cooldown);
+			else if (attack === "storm") cooldowns.set(attack, STORM$1.cooldown);
+		},
+		ready(attack) {
+			if (attack === "slash") return lives === 0;
+			if (attack === "slash2") return lives === 1;
+			if (attack === "slash3") return lives === 2;
+			if (attack === "rise") return false;
+			return (cooldowns.get(attack) ?? 0) <= 0;
+		},
+		delay(seconds) {
+			for (const attack of cooldowns.keys()) cooldowns.set(attack, (cooldowns.get(attack) ?? 0) + seconds);
+		},
+		tick(dt) {
+			for (const [attack, left] of cooldowns) cooldowns.set(attack, Math.max(0, left - dt));
+			rising = Math.max(0, rising - dt);
+			falling = Math.max(0, falling - dt);
+			if (fallIn > 0) {
+				fallIn -= dt;
+				if (fallIn <= 0) fallDown();
+			}
+			settle();
+			mana = Math.min(MAX_MANA, mana + MANA_RATE[at] * dt);
+			rampage = Math.max(0, rampage - dt);
+			if (mana >= 6e3 && rampage <= 0) {
+				rampage = RAMPAGE$2.lasts;
+				put(boss.statuses, {
+					name: RAMPAGING,
+					left: RAMPAGE$2.lasts,
+					pen: RAMPAGE$2.pen,
+					art: stateArt("3591040"),
+					shown: RAGE$1
+				});
+			}
+		},
+		taken,
+		attackTaken: dawn ? 1 + DAWN.taken : 1,
+		fixedDefense: true,
+		steady: true,
+		gauge: () => mana / MAX_MANA,
+		marks() {
+			return [{
+				text: `Divine Power: rises ${RISE.times - lives} more time${RISE.times - lives === 1 ? "" : "s"}`,
+				tone: RAGE$1,
+				art: stateArt("3591030"),
+				count: String(RISE.times - lives)
+			}, {
+				text: `Mana ${num(Math.floor(mana))}/${num(MAX_MANA)}`,
+				tone: RAGE$1,
+				art: stateArt("3591040"),
+				count: pct(mana / MAX_MANA)
+			}];
+		}
+	};
+}
+//#endregion
+//#region src/technomagic/sim/bosses/siegfried/index.ts
+var HP = [
+	3373161894,
+	4439718518,
+	5407239249,
+	6897858420,
+	10616618247,
+	15370197869,
+	21071258811,
+	40977826560,
+	71573773248
+];
+var DEF$1 = [
+	60371,
+	64875,
+	78480,
+	90695,
+	119300,
+	117765,
+	129525,
+	143963,
+	198375
+];
+var LEVEL = [
+	88,
+	90,
+	95,
+	100,
+	108,
+	110,
+	116,
+	125,
+	134
+];
+var KR_PARTY = 7;
+var scales = (times) => HP.map((hp, i) => ({
+	hp: hp / HP[0] * times,
+	deals: KR_ATK[i] / KR_ATK[0],
+	defense: DEF$1[i] / DEF$1[0],
+	level: LEVEL[i]
+}));
+/**
+* Siegfried, the King of Dawn, corrupted (King's Raid's Distorted Dawn). His blows are physical. He blocks every kind of
+* blow (his Divine Rampage: BLOCK), takes 30% more magic damage (the playtest's MagicalDefensePower -300), and rises again
+* twice as he would be beaten, whole and stronger each time. What his skills do is ./skills.ts; his body is the page's
+* (../../../bosses/siegfried/). No stun holds him (his raid's CC gauge is 999,999: none to break). His blows see past 500
+* points of a hero's defense (the playtest's PiercePower) and 450 of its dodge (his Divine Rampage's hit chance). Now and
+* then a blow of his is a crit (crit resist tells): a first guess, as Galgoria's.
+*/
+var SIEGFRIED = {
+	id: "siegfried",
+	name: "Siegfried",
+	stats: {
+		hp: HP[0],
+		deals: "physical",
+		physical: DEF$1[0],
+		magical: DEF$1[0],
+		block: {
+			physical: BLOCK.base,
+			magical: BLOCK.base
+		},
+		dodge: NONE,
+		crit: 100,
+		resist: 0,
+		pen: 500,
+		acc: 450
+	},
+	stages: {
+		room: scales(1),
+		solo: scales(KR_PARTY / 8)
+	},
+	basic: [
+		"slash",
+		"slash2",
+		"slash3"
+	],
+	rest: 0,
+	attacks: ATTACKS,
+	plans: PLANS,
+	moves: MOVES,
+	join: siegfriedPart
 };
 //#endregion
 //#region src/technomagic/sim/bosses/temeraire/skills.ts
@@ -10590,14 +13981,14 @@ var hard$1 = {
 		}
 	],
 	plans: {
-		bite: PLANS$1.bite,
-		claw: PLANS$1.claw,
-		sweep: PLANS$1.sweep,
-		breath: PLANS$1.breath,
-		blessing: PLANS$1.roar,
-		eruption: PLANS$1.eclipse
+		bite: PLANS$2.bite,
+		claw: PLANS$2.claw,
+		sweep: PLANS$2.sweep,
+		breath: PLANS$2.breath,
+		blessing: PLANS$2.roar,
+		eruption: PLANS$2.eclipse
 	},
-	moves: MOVES$1,
+	moves: MOVES$2,
 	join: temerairePart
 };
 /** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
@@ -10759,13 +14150,13 @@ var hard = {
 		}
 	],
 	plans: {
-		bite: PLANS$1.bite,
-		claw: PLANS$1.claw,
-		sweep: PLANS$1.sweep,
-		smashes: PLANS$1.smashes,
-		breath: PLANS$1.breath
+		bite: PLANS$2.bite,
+		claw: PLANS$2.claw,
+		sweep: PLANS$2.sweep,
+		smashes: PLANS$2.smashes,
+		breath: PLANS$2.breath
 	},
-	moves: MOVES$1,
+	moves: MOVES$2,
 	join: zyrrkinothPart
 };
 /** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
@@ -10776,7 +14167,7 @@ var ZYRRKINOTH = {
 //#endregion
 //#region src/technomagic/sim/bosses/index.ts
 /** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
-var TM_BOSSES = [GALGORIA];
+var TM_BOSSES = [GALGORIA, SIEGFRIED];
 /** The Dragon Raid's dragons, as King's Raid has them: Fire, Frost, Poison and Black. */
 var DRAGONS = [
 	TEMERAIRE,
@@ -25284,2816 +28675,6 @@ function geared(stats, gear = {}) {
 	};
 }
 //#endregion
-//#region src/technomagic/sim/heroes/kr.ts
-var KR_HEROES = {
-	annette: {
-		mana: {
-			regen: 75,
-			attack: 425
-		},
-		wait: .3,
-		attack: [{
-			lands: [
-				1,
-				1.2,
-				1.4
-			],
-			blows: [
-				800,
-				800,
-				800
-			],
-			until: 1.7
-		}],
-		books: {
-			dmg: [
-				.25,
-				0,
-				.25,
-				.25
-			],
-			heal: [
-				0,
-				.25,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .5,
-			index: 34
-		}
-	},
-	crow: {
-		mana: {
-			regen: 75,
-			attack: 450
-		},
-		wait: 0,
-		attack: [{
-			lands: [.9],
-			blows: [2600],
-			until: 1.8
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .7,
-			index: 52
-		}
-	},
-	"dark-lord-kasel": {
-		mana: {
-			regen: 75,
-			attack: 0
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3, .8],
-				blows: [700, 700],
-				until: 1.3
-			},
-			{
-				lands: [.3, .4],
-				blows: [700, 700],
-				until: 1.1
-			},
-			{
-				lands: [.7],
-				blows: [700],
-				until: 2.3
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 84
-		}
-	},
-	erze: {
-		mana: {
-			regen: 75,
-			attack: 250
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [500],
-				until: .6
-			},
-			{
-				lands: [.3, .7],
-				blows: [500, 500],
-				until: .9
-			},
-			{
-				lands: [.7],
-				blows: [1500],
-				until: 1.5
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 500,
-			size: .5,
-			index: 56
-		}
-	},
-	ezekiel: {
-		mana: {
-			regen: 75,
-			attack: 185
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [670],
-				until: .5
-			},
-			{
-				lands: [.2, .5],
-				blows: [670, 670],
-				until: .8
-			},
-			{
-				lands: [.4],
-				blows: [670],
-				until: .7
-			},
-			{
-				lands: [.3],
-				blows: [670],
-				until: 1
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 500,
-			size: .6,
-			index: 38
-		}
-	},
-	"fallen-frey": {
-		mana: {
-			regen: 85,
-			attack: 500
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.1],
-			blows: [2500],
-			until: 2
-		}],
-		books: {
-			dmg: [
-				.5,
-				0,
-				.5,
-				0
-			],
-			heal: [
-				.5,
-				.5,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 100,
-			size: .5,
-			index: 85
-		}
-	},
-	gau: {
-		mana: {
-			regen: 75,
-			attack: 340
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.9],
-				blows: [1350],
-				until: 1.3
-			},
-			{
-				lands: [.3, .7],
-				blows: [1350, 1350],
-				until: 1.2
-			},
-			{
-				lands: [.3],
-				blows: [1350],
-				until: 1.6
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.25,
-				.25
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .7,
-			index: 5
-		}
-	},
-	gremory: {
-		mana: {
-			regen: 75,
-			attack: 600
-		},
-		wait: 0,
-		attack: [{
-			lands: [
-				1,
-				1.1,
-				1.2
-			],
-			blows: [
-				1e3,
-				1e3,
-				1e3
-			],
-			until: 2.4
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 100,
-			size: .5,
-			index: 86
-		}
-	},
-	kirze: {
-		mana: {
-			regen: 150,
-			attack: 325
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3, .5],
-				blows: [1e3, 1e3],
-				until: .8
-			},
-			{
-				lands: [.4, 1],
-				blows: [1e3, 1e3],
-				until: 1.3
-			},
-			{
-				lands: [.7],
-				blows: [1e3],
-				until: 1.8
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 250,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .8,
-			index: 71
-		}
-	},
-	klaus: {
-		mana: {
-			regen: 75,
-			attack: 330
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.5, .7],
-				blows: [880, 880],
-				until: 1
-			},
-			{
-				lands: [.6, 1.1],
-				blows: [880, 880],
-				until: 1.4
-			},
-			{
-				lands: [.7],
-				blows: [880],
-				until: 1.6
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .5,
-			index: 15
-		}
-	},
-	laias: {
-		mana: {
-			regen: 85,
-			attack: 425
-		},
-		wait: .3,
-		attack: [{
-			lands: [1],
-			blows: [1920],
-			until: 1.7
-		}],
-		books: {
-			dmg: [
-				0,
-				0,
-				.5,
-				.5
-			],
-			heal: [
-				.5,
-				.25,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 100,
-			size: .5,
-			index: 30
-		}
-	},
-	loman: {
-		mana: {
-			regen: 75,
-			attack: 250
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [800],
-				until: .5
-			},
-			{
-				lands: [.4],
-				blows: [800],
-				until: .9
-			},
-			{
-				lands: [.2, .7],
-				blows: [800, 800],
-				until: 1
-			},
-			{
-				lands: [.6],
-				blows: [1200],
-				until: 1.6
-			}
-		],
-		books: {
-			dmg: [
-				.25,
-				0,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				.5,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .6,
-			index: 93
-		}
-	},
-	lorraine: {
-		mana: {
-			regen: 100,
-			attack: 325
-		},
-		wait: 0,
-		attack: [{
-			lands: [.3],
-			blows: [1540],
-			until: 1.3
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .5,
-			index: 13
-		}
-	},
-	lucikiel: {
-		mana: {
-			regen: 100,
-			attack: 292
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [750],
-				until: .6
-			},
-			{
-				lands: [.4, 1.2],
-				blows: [750, 750],
-				until: 1.4
-			},
-			{
-				lands: [.5],
-				blows: [750],
-				until: 1.5
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				.5
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .6,
-			index: 100
-		}
-	},
-	morrah: {
-		mana: {
-			regen: 75,
-			attack: 240
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [912],
-				until: .6
-			},
-			{
-				lands: [.2, .4],
-				blows: [912, 912],
-				until: .8
-			},
-			{
-				lands: [.5],
-				blows: [912],
-				until: .8
-			},
-			{
-				lands: [.8],
-				blows: [912],
-				until: 1.6
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .5,
-			index: 23
-		}
-	},
-	naila: {
-		mana: {
-			regen: 75,
-			attack: 235
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [760],
-				until: .6
-			},
-			{
-				lands: [
-					.1,
-					.3,
-					.7
-				],
-				blows: [
-					760,
-					760,
-					760
-				],
-				until: .9
-			},
-			{
-				lands: [.3],
-				blows: [760],
-				until: .7
-			},
-			{
-				lands: [.6],
-				blows: [760],
-				until: 1.6
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 21
-		}
-	},
-	neraxis: {
-		mana: {
-			regen: 75,
-			attack: 255
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4, .6],
-				blows: [800, 800],
-				until: .8
-			},
-			{
-				lands: [.2],
-				blows: [800],
-				until: .4
-			},
-			{
-				lands: [.4, 1.1],
-				blows: [800, 800],
-				until: 1.9
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .6,
-			index: 61
-		}
-	},
-	oddy: {
-		mana: {
-			regen: 75,
-			attack: 550
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.4],
-			blows: [3100],
-			until: 2.2
-		}],
-		books: {
-			dmg: [
-				.25,
-				.25,
-				.25,
-				.25
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				250,
-				250,
-				250,
-				250
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .5,
-			index: 42
-		}
-	},
-	phillop: {
-		mana: {
-			regen: 75,
-			attack: 275
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [1056],
-				until: .7
-			},
-			{
-				lands: [.3, .6],
-				blows: [1056, 1056],
-				until: 1
-			},
-			{
-				lands: [.2],
-				blows: [1056],
-				until: .6
-			},
-			{
-				lands: [.6],
-				blows: [1056],
-				until: 2.1
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.25
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .5,
-			index: 6
-		}
-	},
-	"rebel-klaus": {
-		mana: {
-			regen: 75,
-			attack: 210
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4, .6],
-				blows: [360, 360],
-				until: .8
-			},
-			{
-				lands: [.3, .6],
-				blows: [360, 360],
-				until: .9
-			},
-			{
-				lands: [.2, .4],
-				blows: [360, 360],
-				until: .8
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.75
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 83
-		}
-	},
-	selene: {
-		mana: {
-			regen: 75,
-			attack: 500
-		},
-		wait: 0,
-		attack: [{
-			lands: [1],
-			blows: [2860],
-			until: 2
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.25
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 200,
-			size: .5,
-			index: 10
-		}
-	},
-	seria: {
-		mana: {
-			regen: 75,
-			attack: 275
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [1e3],
-				until: .6
-			},
-			{
-				lands: [.5],
-				blows: [1e3],
-				until: .7
-			},
-			{
-				lands: [.4, .8],
-				blows: [950, 950],
-				until: 2
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 55
-		}
-	},
-	tanya: {
-		mana: {
-			regen: 75,
-			attack: 285
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [
-					.5,
-					.7,
-					.9,
-					1.4
-				],
-				blows: [
-					682,
-					682,
-					682,
-					682
-				],
-				until: 1.6
-			},
-			{
-				lands: [.2, .3],
-				blows: [682, 682],
-				until: 1.1
-			},
-			{
-				lands: [.2],
-				blows: [682],
-				until: .7
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 500,
-			size: .7,
-			index: 37
-		}
-	},
-	valance: {
-		mana: {
-			regen: 75,
-			attack: 425
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [1400],
-			until: 2.3
-		}],
-		books: {
-			dmg: [
-				.5,
-				0,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: .15
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .5,
-			index: 111
-		}
-	},
-	yanne: {
-		mana: {
-			regen: 75,
-			attack: 375
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [2e3],
-			until: 1.5
-		}, {
-			lands: [1],
-			blows: [2e3],
-			until: 1.5
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 300,
-			size: .6,
-			index: 45
-		}
-	},
-	pansirone: {
-		mana: {
-			regen: 75,
-			attack: 475
-		},
-		wait: 0,
-		attack: [{
-			lands: [
-				.6,
-				.8,
-				1,
-				1.2,
-				1.4
-			],
-			blows: [
-				500,
-				500,
-				500,
-				500,
-				500
-			],
-			until: 1.9
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 100,
-			size: .6,
-			index: 72
-		}
-	},
-	shea: {
-		mana: {
-			regen: 85,
-			attack: 400
-		},
-		wait: 0,
-		attack: [{
-			lands: [.4],
-			blows: [800],
-			until: 1.6
-		}],
-		books: {
-			dmg: [
-				0,
-				0,
-				.5,
-				.5
-			],
-			heal: [
-				.5,
-				0,
-				0,
-				.5
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 100,
-			size: .5,
-			index: 66
-		}
-	},
-	priscilla: {
-		mana: {
-			regen: 75,
-			attack: 330
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [1240],
-				until: .6
-			},
-			{
-				lands: [.4, .8],
-				blows: [1240, 1240],
-				until: 1
-			},
-			{
-				lands: [.5, 1.3],
-				blows: [1240, 1240],
-				until: 2.4
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.25
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 44
-		}
-	},
-	glenwys: {
-		mana: {
-			regen: 75,
-			attack: 308
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3, .8],
-				blows: [700, 700],
-				until: 1.1
-			},
-			{
-				lands: [.3],
-				blows: [1e3],
-				until: .5
-			},
-			{
-				lands: [
-					.3,
-					.7,
-					1.1
-				],
-				blows: [
-					700,
-					700,
-					700
-				],
-				until: 2.1
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .5,
-			index: 87
-		}
-	},
-	theo: {
-		mana: {
-			regen: 75,
-			attack: 240
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [
-					.3,
-					.5,
-					1
-				],
-				blows: [
-					900,
-					900,
-					900
-				],
-				until: 1.2
-			},
-			{
-				lands: [.6],
-				blows: [900],
-				until: .8
-			},
-			{
-				lands: [.4],
-				blows: [900],
-				until: .9
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 40
-		}
-	},
-	chase: {
-		mana: {
-			regen: 75,
-			attack: 235
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [950],
-				until: .7
-			},
-			{
-				lands: [.5],
-				blows: [1100],
-				until: .9
-			},
-			{
-				lands: [.4],
-				blows: [900],
-				until: .6
-			},
-			{
-				lands: [.4, .9],
-				blows: [1050, 1050],
-				until: 1.6
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				1.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .8,
-			index: 73
-		}
-	},
-	lakrak: {
-		mana: {
-			regen: 75,
-			attack: 325
-		},
-		wait: 0,
-		attack: [{
-			lands: [.7],
-			blows: [1430],
-			until: 1.3
-		}],
-		books: {
-			dmg: [
-				.5,
-				.25,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 400,
-			size: .5,
-			index: 7
-		}
-	},
-	miruru: {
-		mana: {
-			regen: 75,
-			attack: 450
-		},
-		wait: 0,
-		attack: [{
-			lands: [.9],
-			blows: [1880],
-			until: 1.8
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 400,
-			size: .5,
-			index: 12
-		}
-	},
-	mirianne: {
-		mana: {
-			regen: 75,
-			attack: 155
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [1e3],
-				until: .6
-			},
-			{
-				lands: [.2],
-				blows: [1e3],
-				until: .4
-			},
-			{
-				lands: [.4],
-				blows: [1e3],
-				until: .6
-			},
-			{
-				lands: [.5],
-				blows: [1e3],
-				until: .9
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				.5,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 500,
-			size: .5,
-			index: 65
-		}
-	},
-	kara: {
-		mana: {
-			regen: 75,
-			attack: 475
-		},
-		wait: 0,
-		attack: [{
-			lands: [.9, 1],
-			blows: [1400, 1400],
-			until: 1.9
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .6,
-			index: 67
-		}
-	},
-	estelle: {
-		mana: {
-			regen: 75,
-			attack: 412
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [1400],
-			until: 1.8
-		}, {
-			lands: [1.2],
-			blows: [1400],
-			until: 1.5
-		}],
-		books: {
-			dmg: [
-				0,
-				.5,
-				0,
-				0
-			],
-			heal: [
-				.5,
-				0,
-				.5,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 100,
-			size: .5,
-			index: 101
-		}
-	},
-	isolet: {
-		mana: {
-			regen: 100,
-			attack: 425
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.1],
-			blows: [2e3],
-			until: 1.7
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 200,
-			size: .5,
-			index: 82
-		}
-	},
-	evan: {
-		mana: {
-			regen: 85,
-			attack: 575
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.1],
-			blows: [3500],
-			until: 2.3
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .5,
-			index: 79
-		}
-	},
-	rehartna: {
-		mana: {
-			regen: 85,
-			attack: 525
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [2500],
-			until: 2.1
-		}],
-		books: {
-			dmg: [
-				.5,
-				0,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				.5,
-				0,
-				.5
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 300,
-			size: .5,
-			index: 48
-		}
-	},
-	lucias: {
-		mana: {
-			regen: 85,
-			attack: 450
-		},
-		wait: 0,
-		attack: [{
-			lands: [.8],
-			blows: [2200],
-			until: 1.8
-		}],
-		books: {
-			dmg: [
-				0,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				.5,
-				.5,
-				0,
-				.6
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 100,
-			size: .5,
-			index: 59
-		}
-	},
-	lilia: {
-		mana: {
-			regen: 200,
-			attack: 450
-		},
-		wait: 0,
-		attack: [{
-			lands: [
-				.8,
-				.8,
-				.9,
-				.9
-			],
-			blows: [
-				650,
-				650,
-				650,
-				650
-			],
-			until: 1.8
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 400,
-			size: .5,
-			index: 57
-		}
-	},
-	aselica: {
-		mana: {
-			regen: 75,
-			attack: 210
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [650],
-				until: .5
-			},
-			{
-				lands: [.5, .7],
-				blows: [650, 650],
-				until: 1
-			},
-			{
-				lands: [.4],
-				blows: [650],
-				until: .7
-			},
-			{
-				lands: [.4],
-				blows: [650],
-				until: .9
-			},
-			{
-				lands: [],
-				blows: [],
-				until: .3
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				.5,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .7,
-			index: 51
-		}
-	},
-	lavril: {
-		mana: {
-			regen: 85,
-			attack: 325
-		},
-		wait: 0,
-		attack: [{
-			lands: [1],
-			blows: [1300],
-			until: 1.4
-		}, {
-			lands: [],
-			blows: [],
-			until: 1.2
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				.5,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 100,
-			size: .5,
-			index: 54
-		}
-	},
-	zafir: {
-		mana: {
-			regen: 75,
-			attack: 450
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.1],
-			blows: [2600],
-			until: 1.8
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				.5,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 300,
-			size: .5,
-			index: 46
-		}
-	},
-	jane: {
-		mana: {
-			regen: 75,
-			attack: 440
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [1590],
-				until: 1.2
-			},
-			{
-				lands: [.4, .7],
-				blows: [1590, 1590],
-				until: 1.9
-			},
-			{
-				lands: [.4],
-				blows: [1590],
-				until: 2.2
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.25,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				.5
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .5,
-			index: 25
-		}
-	},
-	shakmeh: {
-		mana: {
-			regen: 75,
-			attack: 183
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [750],
-				until: .5
-			},
-			{
-				lands: [.3],
-				blows: [750],
-				until: .7
-			},
-			{
-				lands: [.3, .4],
-				blows: [750, 750],
-				until: .8
-			},
-			{
-				lands: [.2],
-				blows: [750],
-				until: .5
-			},
-			{
-				lands: [.4],
-				blows: [750],
-				until: 1.2
-			},
-			{
-				lands: [],
-				blows: [],
-				until: .8
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .5,
-			index: 80
-		}
-	},
-	isaiah: {
-		mana: {
-			regen: 85,
-			attack: 575
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.2],
-			blows: [1400],
-			until: 2.3
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "middle",
-			weight: 200,
-			size: .5,
-			index: 102
-		}
-	},
-	gladi: {
-		mana: {
-			regen: 75,
-			attack: 210
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [670],
-				until: .5
-			},
-			{
-				lands: [
-					.3,
-					.5,
-					.7
-				],
-				blows: [
-					670,
-					670,
-					670
-				],
-				until: 1
-			},
-			{
-				lands: [.3, .5],
-				blows: [670, 670],
-				until: .7
-			},
-			{
-				lands: [.7],
-				blows: [1e3],
-				until: 1.2
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 500,
-			size: .6,
-			index: 91
-		}
-	},
-	cecilia: {
-		mana: {
-			regen: 75,
-			attack: 435
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [
-					.3,
-					.9,
-					1.3
-				],
-				blows: [
-					850,
-					850,
-					850
-				],
-				until: 1.6
-			},
-			{
-				lands: [
-					.4,
-					.9,
-					1.4
-				],
-				blows: [
-					850,
-					850,
-					850
-				],
-				until: 1.8
-			},
-			{
-				lands: [
-					.4,
-					.5,
-					.6,
-					.7,
-					.8
-				],
-				blows: [
-					500,
-					500,
-					500,
-					900,
-					900
-				],
-				until: 1.8
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 400,
-			size: .6,
-			index: 70
-		}
-	},
-	roi: {
-		mana: {
-			regen: 75,
-			attack: 290
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [
-					.3,
-					.6,
-					.8
-				],
-				blows: [
-					728,
-					728,
-					728
-				],
-				until: 1
-			},
-			{
-				lands: [.4, .7],
-				blows: [728, 728],
-				until: 1.2
-			},
-			{
-				lands: [.6],
-				blows: [728],
-				until: 1.3
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 500,
-			size: .5,
-			index: 4
-		}
-	},
-	lewisia: {
-		mana: {
-			regen: 100,
-			attack: 425
-		},
-		wait: 0,
-		attack: [{
-			lands: [1],
-			blows: [2400],
-			until: 1.7
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 400,
-			size: .5,
-			index: 32
-		}
-	},
-	ricardo: {
-		mana: {
-			regen: 75,
-			attack: 265
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.4],
-				blows: [682],
-				until: .6
-			},
-			{
-				lands: [.3],
-				blows: [682],
-				until: 1.1
-			},
-			{
-				lands: [.3],
-				blows: [682],
-				until: .5
-			},
-			{
-				lands: [.5],
-				blows: [682],
-				until: 2.1
-			}
-		],
-		books: {
-			dmg: [
-				.25,
-				.25,
-				.25,
-				.25
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 700,
-			size: .6,
-			index: 36
-		}
-	},
-	shamilla: {
-		mana: {
-			regen: 75,
-			attack: 375
-		},
-		wait: 0,
-		attack: [{
-			lands: [.8],
-			blows: [2e3],
-			until: 1.5
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				0
-			],
-			heal: [
-				0,
-				0,
-				0,
-				.5
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 300,
-			size: .6,
-			index: 53
-		}
-	},
-	scarlet: {
-		mana: {
-			regen: 75,
-			attack: 285
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3],
-				blows: [900],
-				until: .6
-			},
-			{
-				lands: [
-					.1,
-					.4,
-					.7
-				],
-				blows: [
-					900,
-					900,
-					900
-				],
-				until: 1.1
-			},
-			{
-				lands: [.2, .7],
-				blows: [900, 900],
-				until: 1.7
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 62
-		}
-	},
-	talisha: {
-		mana: {
-			regen: 75,
-			attack: 600
-		},
-		wait: 0,
-		attack: [{
-			lands: [1.6],
-			blows: [3600],
-			until: 2.4
-		}],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				0,
-				.5
-			],
-			heal: [
-				0,
-				.5,
-				.5,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "back",
-			weight: 300,
-			size: .5,
-			index: 99
-		}
-	},
-	hilda: {
-		mana: {
-			regen: 75,
-			attack: 466
-		},
-		wait: 0,
-		attack: [
-			{
-				lands: [.3, .8],
-				blows: [700, 700],
-				until: 1.1
-			},
-			{
-				lands: [.4],
-				blows: [700],
-				until: 1.7
-			},
-			{
-				lands: [
-					.2,
-					.4,
-					.6,
-					.8,
-					1.6
-				],
-				blows: [
-					700,
-					700,
-					700,
-					700,
-					700
-				],
-				until: 2.8
-			}
-		],
-		books: {
-			dmg: [
-				.5,
-				.5,
-				.5,
-				.5
-			],
-			heal: [
-				0,
-				0,
-				0,
-				0
-			],
-			crit: [
-				0,
-				0,
-				0,
-				0
-			],
-			critStat: 0,
-			atk: 0
-		},
-		stand: {
-			line: "front",
-			weight: 600,
-			size: .5,
-			index: 81
-		}
-	}
-};
-//#endregion
 //#region src/technomagic/sim/heroes/kit.ts
 /** A hero with no passive. */
 var NO_PASSIVE = {
@@ -30065,7 +30646,7 @@ var SKILLS = [
 		id: "mirage",
 		name: "Mirage",
 		tier: "S",
-		about: `Increases dodge by ${pct(share$2(SKILL.mirage.dodge))}. On dodging, recovers ${pct(SKILL.mirage.heal)} of max HP (once ${every$1(SKILL.mirage.wait)}).`
+		about: `Increases dodge by ${pct(share$3(SKILL.mirage.dodge))}. On dodging, recovers ${pct(SKILL.mirage.heal)} of max HP (once ${every$1(SKILL.mirage.wait)}).`
 	},
 	{
 		id: "fundamentals",
@@ -30113,7 +30694,7 @@ var SKILLS = [
 		id: "swiftness",
 		name: "Swiftness",
 		tier: "A",
-		about: `Increases attack speed by ${pct(share$2(SKILL.swiftness.speed))}.`
+		about: `Increases attack speed by ${pct(share$3(SKILL.swiftness.speed))}.`
 	},
 	{
 		id: "focus-2",
@@ -30173,19 +30754,19 @@ var SKILLS = [
 		id: "piercing",
 		name: "Piercing",
 		tier: "B",
-		about: `Increases penetration by ${pct(share$2(SKILL.piercing.pen))}.`
+		about: `Increases penetration by ${pct(share$3(SKILL.piercing.pen))}.`
 	},
 	{
 		id: "precision",
 		name: "Precision",
 		tier: "B",
-		about: `Increases crit chance by ${pct(share$2(SKILL.precision.crit))}.`
+		about: `Increases crit chance by ${pct(share$3(SKILL.precision.crit))}.`
 	},
 	{
 		id: "guard",
 		name: "Guard",
 		tier: "B",
-		about: `Increases block by ${pct(share$2(SKILL.guard.block))}.`
+		about: `Increases block by ${pct(share$3(SKILL.guard.block))}.`
 	},
 	{
 		id: "parry",
@@ -30197,7 +30778,7 @@ var SKILLS = [
 		id: "bulwark",
 		name: "Bulwark",
 		tier: "B",
-		about: `Each block increases block by ${pct(share$2(SKILL.bulwark.block))} (up to ${SKILL.bulwark.most} times, once ${every$1(SKILL.bulwark.wait)}).`
+		about: `Each block increases block by ${pct(share$3(SKILL.bulwark.block))} (up to ${SKILL.bulwark.most} times, once ${every$1(SKILL.bulwark.wait)}).`
 	},
 	{
 		id: "lone-foe",
@@ -30269,7 +30850,7 @@ var SKILLS = [
 		id: "iron-wall",
 		name: "Iron Wall",
 		tier: "F",
-		about: `Increases block by ${pct(share$2(SKILL["iron-wall"].block))}, and by ${pct(share$2(SKILL["iron-wall"].more))} more for the first ${seconds(SKILL["iron-wall"].lasts)}.`
+		about: `Increases block by ${pct(share$3(SKILL["iron-wall"].block))}, and by ${pct(share$3(SKILL["iron-wall"].more))} more for the first ${seconds(SKILL["iron-wall"].lasts)}.`
 	},
 	{
 		id: "tenacity",
@@ -32366,7 +32947,7 @@ var CLASS_PERKS = {
 			mark: {
 				name: "Special Bullet",
 				deals: .85,
-				crit: -share$2(150),
+				crit: -share$3(150),
 				lasts: Infinity
 			}
 		}, ({ mark }) => `Attacked target loses ${pct(1 - mark.deals)} of ATK and ${Math.round(-mark.crit * POINTS)} of Crit Chance. Does not stack.`),
@@ -33860,7 +34441,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const { attack, crit } = by.def.passive ?? NO_PASSIVE;
 		const { atk, deals: type, crit: points, pen } = by.stats;
 		const allCrit = by.set?.effect.allCrit;
-		const critical = allCrit !== void 0 && points >= allCrit.at || roll() < share$2(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit") + adding(by.statuses, "critPoints") + adding(party, "critPoints")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses) + critting(party);
+		const critical = allCrit !== void 0 && points >= allCrit.at || roll() < share$3(curved(CURVE.crit, points + auras.crit + bookShare(by, "crit") + adding(by.statuses, "critPoints") + adding(party, "critPoints")) + critTaking(foe.statuses, type) - curved(CURVE.chance, foe.part.critResist ?? 0)) + crit + critting(by.statuses) + critting(party);
 		const focus = by.perkDefs.find((perk) => perk.focus)?.focus;
 		const focused = focus ? focus.critDamage * Math.min(focus.most, Math.floor(elapsed / focus.every)) : 0;
 		const setCrit = (setEffect(by).grows?.critDamage ?? 0) * grown(setEffect(by), elapsed) + allied(by, "critDamage") + alliesFrom(field, "critDamage");
@@ -33876,20 +34457,22 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			physical: Math.max(0, plain.dodge.physical + dodging(foe.statuses, "physical")),
 			magical: Math.max(0, plain.dodge.magical + dodging(foe.statuses, "magical"))
 		};
+		const unblocked = by.def.passive?.unblocked === true;
 		const stood = {
 			...plain,
 			dodge,
-			block: {
+			block: unblocked ? NONE : {
 				physical: Math.max(0, plain.block.physical + lower.physical),
 				magical: Math.max(0, plain.block.magical + lower.magical)
 			}
 		};
 		const through = whole || landing?.by === by && by.moveWhole.has(landing.move);
+		const fixed = foe.part.fixedDefense === true;
 		const against = through ? {
 			...stood,
 			physical: 0,
 			magical: 0
-		} : {
+		} : fixed ? stood : {
 			...stood,
 			physical: stood.physical * defending(foe.statuses, "physical"),
 			magical: stood.magical * defending(foe.statuses, "magical")
@@ -33924,10 +34507,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 		relics.get(by)?.blow();
 		const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.mark.name, perk.mark.every)));
-		const struck = taken * (foe.part.taken?.[type] ?? 1);
+		const struck = taken * (foe.part.taken?.[type] ?? 1) * (attacking === by ? foe.part.attackTaken ?? 1 : 1);
 		const dealt = deathless && foe === boss ? struck : Math.min(foe.hp, struck);
 		foe.hp -= dealt;
 		if (deathless && foe === boss && foe.hp <= 0) foe.hp = foe.maxHp;
+		if (foe === boss && foe.hp <= 0 && as(boss, () => foe.part.spared?.() === true)) foe.hp = Math.max(foe.hp, 1);
 		by.dealt += dealt;
 		const skill = landing?.by === by && by.doing?.skill !== void 0;
 		events.push({
@@ -33956,7 +34540,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 		}
 		if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
-			const stolen = Math.min(dealt * share$2(curved(CURVE.chance, by.lifesteal)) * healing([...by.statuses, ...party]) * (boss.part.healing?.() ?? 1), by.stats.hp - by.hp);
+			const stolen = Math.min(dealt * share$3(curved(CURVE.chance, by.lifesteal)) * healing([...by.statuses, ...party]) * (boss.part.healing?.() ?? 1), by.stats.hp - by.hp);
 			if (stolen > 0) by.hp += stolen;
 		}
 		const skillIndex = critical && landing?.by === by && attacking !== by ? by.doing?.skill : void 0;
@@ -34371,7 +34955,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				physical: Math.max(0, stands.dodge.physical + nimblest.physical),
 				magical: Math.max(0, stands.dodge.magical + nimblest.magical)
 			};
-			const critical = roll() < share$2(curved(CURVE.crit, foe.def.stats.crit) - curved(CURVE.chance, target.critResist[type] + critResisting(target.statuses, type) + critResisting(party, type))) + critting(foe.statuses);
+			const critical = roll() < share$3(curved(CURVE.crit, foe.def.stats.crit) - curved(CURVE.chance, target.critResist[type] + critResisting(target.statuses, type) + critResisting(party, type))) + critting(foe.statuses);
 			const staged = scaleAt(def, stage, solo);
 			const scale = foe === boss ? staged : {
 				...staged,
@@ -34464,6 +35048,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				const onBlock = setEffect(target).onBlock;
 				if (onBlock && target.hp > 0 && perkDue(target, "set-block", onBlock.wait)) target.cooldowns = target.cooldowns.map((left) => Math.max(0, left - onBlock.cooldown));
 			}
+			if (foe === boss) boss.part.landed?.(target, blocked);
 			return dealt;
 		},
 		revive(fighter, share, by) {
@@ -34493,7 +35078,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const shorter = Math.max(0, 1 - SKILL.tenacity.control * has(fighter, "tenacity")) * (fighter.def.passive?.held ?? 1) * (fighter.part.held?.() ?? 1);
 			put(fighter.statuses, {
 				name: KNOCKED.name,
-				left: seconds * (1 - share$2(curved(CURVE.resist, fighter.stats.resist + resisting(fighter.statuses) + auras.resist))) * shorter,
+				left: seconds * (1 - share$3(curved(CURVE.resist, fighter.stats.resist + resisting(fighter.statuses) + auras.resist))) * shorter,
 				binds: true,
 				shown: KNOCKED
 			});
@@ -34509,7 +35094,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		stun(seconds, { down = false, by } = {}) {
 			const foe = current();
 			if (foe.away || foe.hp <= 0) return;
-			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$2(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses) + accurate(party)))) : 1);
+			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$3(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses) + accurate(party)))) : 1);
 			if (foe !== boss) {
 				if (foe.part.steady || held <= 0) return;
 				foe.stunned = Math.max(foe.stunned, held);
@@ -34539,7 +35124,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		slow(points, seconds) {
 			const foe = current();
 			if (foe.part.steady || foe.away) return;
-			const rate = 1 - share$2(points);
+			const rate = 1 - share$3(points);
 			foe.slowRate = rate;
 			foe.slowed = seconds;
 			if (foe === boss) events.push({
@@ -34558,6 +35143,12 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const minion = minions.get(foe);
 			if (minion?.def.skill) minion.skill = Math.max(0, minion.skill) + seconds;
 		},
+		force(attack) {
+			if (boss.away || result) return;
+			going.clear();
+			boss.stunned = 0;
+			bossUse(attack);
+		},
 		cue(who, name, targets = []) {
 			events.push({
 				kind: "cue",
@@ -34570,7 +35161,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			return sim.reservable(fighter, index) && fighter.cooldowns[index] <= 0 && fighter.mana >= sim.slot(fighter, index).cost * 1e3;
 		},
 		reservable(fighter, index) {
-			return sim.slot(fighter, index) !== null && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses);
+			return sim.slot(fighter, index) !== null && field.includes(fighter) && fighter.hp > 0 && !bound(fighter.statuses) && !sealed(fighter.statuses);
 		},
 		slot(fighter, index) {
 			if (index < 0 || index >= fighter.abilities.length) return null;
@@ -34694,7 +35285,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const may = def.attacks.filter((one) => boss.part.ready?.(one.name) ?? true);
 			const basic = def.basic;
 			const skill = basic ? may.find((one) => !basic.includes(one.name))?.name : void 0;
-			const plain = basic ? basic[Math.floor(roll() * basic.length)] : (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name;
+			const plains = basic?.filter((name) => boss.part.ready?.(name) ?? true);
+			const pool = plains && plains.length > 0 ? plains : basic;
+			const plain = pool ? pool[Math.floor(roll() * pool.length)] : (may[Math.floor(roll() * may.length)] ?? def.attacks[0])?.name;
 			bossUse(forced ?? skill ?? plain ?? "");
 		}
 		for (const fighter of fighters) {
@@ -35097,7 +35690,7 @@ var ANNETTE = {
 		},
 		{
 			name: "Emergency Treatment",
-			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share$2(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
+			about: `Clears what the boss has left on every ally (not what holds one down or shuts one away) and heals them over ${TREATMENT.lasts} seconds, and they stand being knocked down better meanwhile. [Overcharged]: they are also ${pct(share$3(TREATMENT.crit))} likelier to land a critical blow, deal ${pct(TREATMENT.dmg)} more, and can’t be knocked down.`,
 			words: `Dispels negative effects of all allies and heals a total of ${healed("mechanic", TREATMENT.heal, bookHeal("annette", 1))} HP for ${TREATMENT.lasts} sec while increasing CC Resistance by ${TREATMENT.resist}. While Overcharged, all allies' Crit Chance is increased by ${TREATMENT.crit} and DMG dealt to Non-Hero enemies by ${pct(TREATMENT.dmg)} and gains immunity to CC. Upon use, the amount of Charge gained is increased by 30%.`,
 			icon: "🩹",
 			art: art$55(1),
@@ -35124,7 +35717,7 @@ var ANNETTE = {
 				index: 0,
 				mark: {
 					name: "Triplex Condensing Lens",
-					crit: -share$2(UT$55.lens.crit),
+					crit: -share$3(UT$55.lens.crit),
 					lasts: UT$55.lens.lasts
 				}
 			}
@@ -35201,7 +35794,7 @@ var ANNETTE = {
 				name: shown.name,
 				left: over,
 				deals: 1 + CHARGE$1.atk,
-				pace: 1 + share$2(BOOKS.speed),
+				pace: 1 + share$3(BOOKS.speed),
 				shown
 			});
 			if (self.perks.has("s4-light")) {
@@ -35257,7 +35850,7 @@ var ANNETTE = {
 							name: TREATED.name,
 							left: TREATMENT.lasts,
 							resist: TREATMENT.resist,
-							crit: share$2(TREATMENT.crit),
+							crit: share$3(TREATMENT.crit),
 							deals: 1 + TREATMENT.dmg,
 							guards: true,
 							shown: TREATED_OVER
@@ -35466,7 +36059,7 @@ var BLOCKING = {
 /** What Vow of Knights gives every hero when another is hurt. */
 var WARDED$3 = {
 	name: "Knight’s Guard",
-	about: `P.DEF +${pct(VOW.ward.defends - 1)} and P.Crit Resist +${pct(share$2(VOW.ward.critResist))}.`,
+	about: `P.DEF +${pct(VOW.ward.defends - 1)} and P.Crit Resist +${pct(share$3(VOW.ward.critResist))}.`,
 	icon: "🛡️",
 	art: art$54(3)
 };
@@ -35513,7 +36106,7 @@ var KLAUS = {
 		},
 		{
 			name: "Shield Strike",
-			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share$2(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
+			about: `A blow with his shield: for ${SHIELD_STRIKE.lasts} seconds the boss attacks ${pct(share$3(SHIELD_STRIKE.speed))} slower and takes ${pct(SHIELD_STRIKE.exposed - 1)} more.`,
 			words: `Deals ${dmg("knight", SHIELD_STRIKE.blow, bookDmg("klaus", 1))} P.DMG proportional to P.DEF to enemies in range and knocks them back. Hit enemies' All DEF and ATK Spd is reduced by ${pct(SHIELD_STRIKE.exposed - 1)} and ${SHIELD_STRIKE.speed} for ${SHIELD_STRIKE.lasts} sec, respectively. Upon blocking an attack, skill cooldown is reduced by 0.5 sec.`,
 			icon: "🛡️",
 			art: art$54(1),
@@ -35554,7 +36147,7 @@ var KLAUS = {
 				mark: {
 					name: "Firm Determination",
 					critTaken: UT$54.determination.critResist,
-					crit: -share$2(k(UT$54.determination.crit)),
+					crit: -share$3(k(UT$54.determination.crit)),
 					lasts: UT$54.determination.lasts
 				}
 			}
@@ -35884,7 +36477,7 @@ var EZEKIEL = {
 		},
 		{
 			name: "Dawning Despair",
-			about: `A dash and a blow: the boss’s attacks ${pct(share$2(DESPAIR$1.speed))} slower for ${DESPAIR$1.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR$1.stun} seconds, and his attacks are ${pct(share$2(DESPAIR$1.speed))} quicker for ${DESPAIR$1.lasts}, for ${pct(DESPAIR$1.cost)} of the health he has.`,
+			about: `A dash and a blow: the boss’s attacks ${pct(share$3(DESPAIR$1.speed))} slower for ${DESPAIR$1.slowed} seconds. In [Fury]: it is also stunned for ${DESPAIR$1.stun} seconds, and his attacks are ${pct(share$3(DESPAIR$1.speed))} quicker for ${DESPAIR$1.lasts}, for ${pct(DESPAIR$1.cost)} of the health he has.`,
 			words: `Dashes to an enemy with the highest ATK and deals ${dmg("assassin", DESPAIR$1.blow, bookDmg("ezekiel", 1))} M.DMG to enemies in range, reducing their ATK Spd by ${DESPAIR$1.speed}. [Fury] - Consumes ${pct(DESPAIR$1.cost)} of current HP to activate. Effect range increases, Stuns target for ${DESPAIR$1.stun} sec, and increases own ATK Spd by ${DESPAIR$1.speed} for ${DESPAIR$1.lasts} sec.`,
 			icon: "💨",
 			art: art$53(1),
@@ -36038,7 +36631,7 @@ var EZEKIEL = {
 					put(self.statuses, {
 						name: QUICKENED$1.name,
 						left: DESPAIR$1.lasts,
-						pace: 1 + share$2(DESPAIR$1.speed),
+						pace: 1 + share$3(DESPAIR$1.speed),
 						shown: QUICKENED$1
 					});
 				},
@@ -36264,7 +36857,7 @@ var FALLEN_FREY = {
 		},
 		{
 			name: "Blessing of Doom",
-			about: `A shield on the ${BLESSING$3.allies} allies with the lowest health for ${BLESSING$3.lasts} seconds, their attacks ${pct(share$2(BLESSING$3.speed))} quicker meanwhile.`,
+			about: `A shield on the ${BLESSING$3.allies} allies with the lowest health for ${BLESSING$3.lasts} seconds, their attacks ${pct(share$3(BLESSING$3.speed))} quicker meanwhile.`,
 			words: `Grants [Blessing of Doom] to ${BLESSING$3.allies} allies with the lowest HP, absorbing ${healed("priest", BLESSING$3.shield, bookHeal("fallen-frey", 1))} DMG for ${BLESSING$3.lasts} sec. The shield grants immunity to CC and increases ATK Spd by ${BLESSING$3.speed} for the duration. If this Skill is used with 1 or more stacks of [Darkened Power], consumes 1 stack to dispel negative effects from self and additionally dispels negative effects from targets.`,
 			icon: "🔮",
 			art: art$52(1),
@@ -36431,7 +37024,7 @@ var FALLEN_FREY = {
 						put(ally.statuses, {
 							name: BLESSED$5.name,
 							left: lasts,
-							pace: 1 + share$2(BLESSING$3.speed),
+							pace: 1 + share$3(BLESSING$3.speed),
 							...block,
 							...egg,
 							shown: BLESSED$5
@@ -36804,7 +37397,7 @@ var GREMORY = {
 				filling -= now;
 				self.mana = Math.min(MAX_MANA, self.mana + MAX_MANA * atTier(PIGRITIA.mana, tier) * now / PIGRITIA.over);
 			},
-			pace: () => tier === null ? 1 : 1 + share$2(atTier(PIGRITIA.speed, tier)),
+			pace: () => tier === null ? 1 : 1 + share$3(atTier(PIGRITIA.speed, tier)),
 			lit: () => sealed.every(Boolean)
 		};
 	}
@@ -36912,11 +37505,11 @@ var art$50 = skillArt("kirze");
 /** Her passive, the game's End to Evil Deeds!: her ATK higher, more of her blows critical, and the stuns on a boss longer. */
 var EVIL_DEEDS = {
 	attack: 1 + DEEDS.atk,
-	crit: share$2(DEEDS.crit),
+	crit: share$3(DEEDS.crit),
 	control: 1 + DEEDS.control,
 	shown: {
 		name: "End to Evil Deeds!",
-		about: `Passive. Her blows are ${pct(DEEDS.atk)} harder and ${pct(share$2(DEEDS.crit))} more often critical, and her stuns on a boss last ${pct(DEEDS.control)} longer.`,
+		about: `Passive. Her blows are ${pct(DEEDS.atk)} harder and ${pct(share$3(DEEDS.crit))} more often critical, and her stuns on a boss last ${pct(DEEDS.control)} longer.`,
 		icon: "⚜️",
 		art: art$50(3)
 	},
@@ -36984,7 +37577,7 @@ var KIRZE = {
 		},
 		{
 			name: "Bloom, Crimson Flower!",
-			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share$2(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
+			about: `Crystals in a line to the boss, then they burst: its attacks are ${pct(share$3(FLOWER.speed))} slower for ${FLOWER.slowed} seconds, and it is cursed for ${FLOWER.curse}. When the curse ends it bursts, the harder for every blow landed on the boss meanwhile.`,
 			words: `Summons Arcane Crystals and deals ${dmg("warrior", FLOWER.line, bookDmg("kirze", 2))} M.DMG to frontal enemies in a straight line. Shortly afterward, causes an explosion that deals ${dmg("warrior", FLOWER.burst, bookDmg("kirze", 2))} additional M.DMG and inflicts [Arcane Crystal Curse] upon enemies for ${FLOWER.slowed} sec, reducing their ATK Spd by ${FLOWER.speed}. Attacking enemies under [Arcane Crystal Curse] inflicts a stack of [Arcane Crystal Energy]. [Arcane Crystal Curse] explodes after ${FLOWER.curse} sec, dealing M.DMG equal to ${dmg("warrior", FLOWER.end, bookDmg("kirze", 2))} + ${dmg("warrior", FLOWER.each, bookDmg("kirze", 2))} per stack of Arcane Crystal Energy.`,
 			icon: "🌺",
 			art: art$50(2),
@@ -37383,7 +37976,7 @@ var LAIAS = {
 	],
 	perks: {
 		"s1-light": { words: `Heal rate is increased by ${pct(PERKS$49.heals - 1)}.` },
-		"s1-dark": { words: `Upon healing, M. Crit Resistance rises by ${pct(share$2(PERKS$49.critResist))}.` },
+		"s1-dark": { words: `Upon healing, M. Crit Resistance rises by ${pct(share$3(PERKS$49.critResist))}.` },
 		"s2-light": { words: "Changes the target to the ally with the highest ATK." },
 		"s2-dark": said({ skill: {
 			index: 1,
@@ -38559,7 +39152,7 @@ var SERIA = {
 		},
 		{
 			name: "Blood Scattering Blade",
-			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share$2(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
+			about: `A rush in with a cut that leaves [Original Sin of Blood] (the boss’s attacks ${pct(share$3(SCATTER.speed))} slower for ${SCATTER.lasts} seconds); then ${SCATTER.cuts} more cuts, each with a blow more through its defense.`,
 			words: `Rapidly charges forward to deal ${dmg("warrior", SCATTER.rush, bookDmg("seria", 1))} M.DMG and inflicts irremovable Original Sin of Blood on enemies for ${SCATTER.lasts} sec. Enemies under Original Sin of Blood have their ATK Spd reduced by ${SCATTER.speed}. Shortly afterward, attacks enemies under Original Sin of Blood ${SCATTER.cuts} times, and deals additional ${dmg("warrior", SCATTER.cut * SCATTER.cuts, bookDmg("seria", 1))} M.DMG, and if the target is not a hero, deals additional ${dmg("warrior", SCATTER.through * SCATTER.cuts, bookDmg("seria", 1))} DEF Ignoring M.DMG.`,
 			icon: "🩸",
 			art: art$46(1),
@@ -39844,7 +40437,7 @@ var SELENE = {
 				left: MOON.lasts,
 				count: moon,
 				deals: (1 + MOON.atk * moon / self.stats.atk) * circlet,
-				crit: share$2(MOON.crit * moon),
+				crit: share$3(MOON.crit * moon),
 				critDamage: MOON.critDamage * moon,
 				shown: MOONLIT
 			});
@@ -40499,7 +41092,7 @@ var ODDY = {
 						put(ally.statuses, {
 							name: DISTORTED.name,
 							left: DISTORTION.lasts,
-							pace: 1 + share$2(DISTORTION.speed),
+							pace: 1 + share$3(DISTORTION.speed),
 							shown: DISTORTED
 						});
 						ally.cooldowns = ally.cooldowns.map((left, i) => ally === self && i === 2 ? left : Math.max(0, left * DISTORTION.cooldowns - less));
@@ -42276,7 +42869,7 @@ var ERZE = {
 					left: PERION.lasts,
 					count: greed,
 					deals: 1 + PERION.atk * greed,
-					pace: 1 + share$2(PERION.speed * greed),
+					pace: 1 + share$3(PERION.speed * greed),
 					shown: PERION_UP
 				});
 			}
@@ -43384,7 +43977,7 @@ var TANYA = {
 			put(self.statuses, {
 				name: STEALTHED.name,
 				left: STEALTH.lasts,
-				crit: share$2(STEALTH.crit),
+				crit: share$3(STEALTH.crit),
 				shown: STEALTHED
 			});
 			if (tier !== null) put(self.statuses, {
@@ -43604,11 +44197,12 @@ var UT$32 = {
 var art$32 = skillArt("rebel-klaus");
 var POWER_OF_GALICTA = {
 	attack: 1,
-	crit: share$2(GALICTA_POWER.crit),
+	crit: share$3(GALICTA_POWER.crit),
 	control: 1,
+	unblocked: true,
 	shown: {
 		name: "Power of Galicta",
-		about: `Passive. +${GALICTA_POWER.crit} crit chance; with ${num(GALICTA_POWER.whole)} penetration or more, his blows go through all of the boss’s defense. A blow of his attack deals a blow more and leaves [Curse of Galicta] on the boss for ${GALICTA_POWER.lasts} seconds (not the blow more while it is on).`,
+		about: `Passive. No block touches his blows. +${GALICTA_POWER.crit} crit chance; with ${num(GALICTA_POWER.whole)} penetration or more, his blows go through all of the boss’s defense. A blow of his attack deals a blow more and leaves [Curse of Galicta] on the boss for ${GALICTA_POWER.lasts} seconds (not the blow more while it is on).`,
 		icon: "🗡️",
 		art: art$32(3)
 	},
@@ -43757,7 +44351,7 @@ var REBEL_KLAUS = {
 		const protect = () => {
 			if (fight.foe !== fight.boss) return;
 			const pen = fight.boss.def.stats.pen ?? 0;
-			const through = (points) => 1 - share$2(curved(CURVE.pen, points));
+			const through = (points) => 1 - share$3(curved(CURVE.pen, points));
 			put(fight.party, {
 				name: PROTECTED$1.name,
 				left: GALICTA_POWER.lasts,
@@ -56882,7 +57476,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "495f4b5f617f";
+var SIM_VERSION = "8aee24b2badb";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
