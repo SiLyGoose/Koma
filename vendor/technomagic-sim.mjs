@@ -13732,6 +13732,9 @@ function siegfriedPart(fight) {
 		fixedDefense: true,
 		steady: true,
 		gauge: () => mana / MAX_MANA,
+		drain: (amount) => {
+			mana = Math.max(0, mana - amount);
+		},
 		marks() {
 			return [{
 				text: `Divine Power: rises ${RISE.times - lives} more time${RISE.times - lives === 1 ? "" : "s"}`,
@@ -28375,6 +28378,209 @@ var ARTIFACTS = {
 			8.4,
 			10
 		]
+	} },
+	"artifact-31": { aura: {
+		every: 1,
+		hit: [
+			200,
+			240,
+			290,
+			350,
+			420,
+			500
+		],
+		recovery: k(-300, -360, -430, -520, -620, -750),
+		lasts: 5
+	} },
+	"artifact-51": {
+		own: { hp: k(200, 240, 290, 350, 420, 500) },
+		aura: {
+			every: 1,
+			maxHp: all(.02),
+			once: true
+		}
+	},
+	"artifact-12": { chain: {
+		every: [
+			20,
+			19,
+			18,
+			17,
+			16,
+			15
+		],
+		silence: [
+			3,
+			3.5,
+			4,
+			4.5,
+			5,
+			6
+		]
+	} },
+	"artifact-501": { counter: {
+		wait: 30,
+		hit: [
+			500,
+			600,
+			720,
+			860,
+			1050,
+			1250
+		],
+		slow: [
+			400,
+			480,
+			580,
+			700,
+			840,
+			1e3
+		],
+		slowFor: 1.5,
+		stoneAt: 1.3,
+		stone: [
+			2,
+			2.4,
+			2.9,
+			3.5,
+			4,
+			5
+		]
+	} },
+	"artifact-503": { dot: {
+		wait: 20,
+		tick: .5,
+		lasts: 10,
+		amount: [
+			40,
+			48,
+			58,
+			70,
+			84,
+			100
+		],
+		whole: true
+	} },
+	"artifact-8": { roar: {
+		below: .35,
+		wait: 30,
+		hit: 1e3,
+		down: 3,
+		atk: k(-140, -160, -200, -240, -290, -350),
+		slow: [
+			140,
+			160,
+			200,
+			240,
+			290,
+			350
+		],
+		lasts: 10
+	} },
+	"artifact-28": { hits: {
+		count: 50,
+		kind: "magical",
+		lasts: 5,
+		shield: k(4800, 5800, 6900, 8300, 1e4, 12e3)
+	} },
+	"artifact-517": { sword: {
+		cost: k(40, 48, 57, 69, 83, 100),
+		each: .005,
+		most: [
+			50,
+			60,
+			70,
+			80,
+			90,
+			100
+		],
+		below: .25
+	} },
+	"artifact-512": { dot: {
+		basic: true,
+		wait: 0,
+		tick: .5,
+		lasts: 5,
+		amount: [
+			200,
+			240,
+			290,
+			350,
+			420,
+			500
+		],
+		shared: true
+	} },
+	"artifact-519": { radiance: {
+		every: 15,
+		lasts: 4,
+		taken: k(200, 240, 290, 350, 420, 500),
+		random: 2,
+		away: 3,
+		mana: [
+			800,
+			1e3,
+			1200,
+			1400,
+			1700,
+			2e3
+		]
+	} },
+	"artifact-518": {
+		own: { hp: k(200, 240, 290, 350, 420, 500) },
+		hits: {
+			count: 3,
+			wait: 30,
+			lasts: 5,
+			weaken: k(500, 550, 600, 650, 700, 750)
+		}
+	},
+	"artifact-45": { bond: [
+		2.5,
+		3,
+		3.5,
+		4,
+		5,
+		6
+	] },
+	"artifact-65": {},
+	"artifact-524": { breath: {
+		dmg: k(50, 60, 72, 86, 104, 125),
+		every: [
+			10,
+			9,
+			8,
+			7,
+			6,
+			5
+		],
+		heal: .025,
+		alone: 2
+	} },
+	"artifact-1003": { engraving: {
+		every: 10,
+		defense: k(20, 24, 28, 34, 42, 50),
+		hp: k(10, 12, 14, 17, 21, 25),
+		most: 12
+	} },
+	"artifact-33": {},
+	"artifact-29": { sap: {
+		chance: k(100, 120, 140, 160, 180, 200),
+		wait: 6,
+		mana: [
+			600,
+			700,
+			800,
+			1e3,
+			1200,
+			1500
+		]
+	} },
+	"artifact-37": { hits: {
+		count: 50,
+		lasts: 10,
+		heal: k(2e3, 2400, 2900, 3500, 4200, 5e3),
+		atk: k(300, 360, 430, 510, 630, 750)
 	} }
 };
 /** Its name, and what it does at each of its stars (0★ to 5★), in King's Raid's words. */
@@ -28422,7 +28628,7 @@ var SHOWN = (worn) => ({
 function artifactHooks(self, fight) {
 	const worn = self.artifact;
 	if (!worn) return null;
-	const { def, tier } = worn;
+	const { def, tier, id } = worn;
 	const t = (tiers) => at(tiers, tier);
 	const shown = SHOWN(worn);
 	const name = `artifact ${self.index}`;
@@ -28433,6 +28639,19 @@ function artifactHooks(self, fight) {
 	let rescued = false;
 	let manaEach = 0;
 	let manaFor = 0;
+	const dots = [];
+	let stoneOn = null;
+	let stoneIn = 0;
+	let hurts = 0;
+	let guardFor = 0;
+	let edge = 0;
+	let swordIn = 1;
+	let radiant = null;
+	let radiantFor = 0;
+	let engraved = 0;
+	const grown = /* @__PURE__ */ new Map();
+	let auraDone = false;
+	let waveBegun = true;
 	/** A status of its artifact's on `on`, for `lasts` seconds. */
 	const give = (on, lasts, does, as = name) => put(on, {
 		name: as,
@@ -28450,6 +28669,21 @@ function artifactHooks(self, fight) {
 		...does,
 		shown: "curse"
 	});
+	/** The same on any enemy; what was put on it. */
+	const mark = (foe, lasts, does, as = `${worn.id} on the boss`) => {
+		const status = {
+			name: as,
+			left: lasts,
+			...does,
+			shown: "curse"
+		};
+		put(foe.statuses, status);
+		return status;
+	};
+	/** Every harmful effect on a hero gone (not one that holds it: a knock down's). */
+	const cleanse = (on) => {
+		on.statuses = on.statuses.filter((status) => status.shown.harmful !== true || status.binds === true);
+	};
 	const standing = () => fight.field().filter((on) => on.hp > 0);
 	const top = (others) => standing().reduce((best, on) => others && on === self ? best : !best || on.stats.atk > best.stats.atk ? on : best, null);
 	const whom = (on) => {
@@ -28466,11 +28700,56 @@ function artifactHooks(self, fight) {
 		while (out.length < n && left.length > 0) out.push(...left.splice(Math.floor(fight.roll() * left.length), 1));
 		return out;
 	};
+	/** Whether its `breath` or `engraving` is the one on the field: no other hero standing wears it at more stars (or as many, before it). */
+	const leads = () => standing().every((on) => on === self || on.artifact?.id !== worn.id || on.artifact.tier < tier || on.artifact.tier === tier && on.index > self.index);
+	/** An enemy silenced: a boss, as the fight's stuns have it (its CC gauge takes it); a minion, its skill held back. */
+	const silence = (foe, seconds) => fight.on(foe, () => foe === fight.boss() ? fight.stun(self, seconds) : fight.delay(seconds));
+	/** Its continuous blows begin on `foe` (`shared`: in place of another ally's; its own, begun again). */
+	function dotOn(foe) {
+		const dot = def.dot;
+		if (!dot || foe.hp <= 0 || foe.away) return;
+		const as = dot.shared ? `${id} dot` : `${name} dot`;
+		const mine = dots.find((one) => one.foe === foe && foe.statuses.includes(one.status));
+		if (mine) {
+			if (!dot.shared) return;
+			mine.left = dot.lasts;
+			mine.status = mark(foe, dot.lasts + dot.tick / 2, {}, as);
+			return;
+		}
+		if (!fight.due(self, `${name} dot`, dot.wait)) return;
+		dots.push({
+			foe,
+			next: dot.tick,
+			left: dot.lasts,
+			status: mark(foe, dot.lasts + dot.tick / 2, {}, as)
+		});
+	}
+	/** Radiance on it, for so long. */
+	function shine(radiance) {
+		radiant = {
+			name: `${name} radiance`,
+			left: radiance.lasts + 1,
+			shown
+		};
+		put(self.statuses, radiant);
+		radiantFor = radiance.lasts;
+	}
+	/** As a wave begins (the first as the fight does): a random enemy's skills later; the two strongest allies' DMG more. */
+	function waveStart() {
+		if (def.bond) {
+			const foe = picked(fight.foes(), 1)[0];
+			if (foe) fight.on(foe, () => fight.delay(t(def.bond)));
+		}
+		if (def.breath && leads()) {
+			const strongest = standing().filter((on) => on !== self).sort((a, b) => b.stats.atk - a.stats.atk || a.index - b.index).slice(0, 2);
+			for (const on of strongest) give(on.statuses, Infinity, { deals: 1 + t(def.breath.dmg) }, id);
+		}
+	}
 	return {
 		deals(foe) {
 			const early = earlyOn() ? def.start : void 0;
 			const boss = foe === fight.boss();
-			return 1 + t(def.dmg) + t(def.foes) + t(early?.foes) + (boss ? t(def.boss) + t(early?.boss) : 0) + (fight.dragon ? t(def.dragon) : 0);
+			return 1 + t(def.dmg) + t(def.foes) + t(early?.foes) + (boss ? t(def.boss) + t(early?.boss) : 0) + (fight.dragon ? t(def.dragon) : 0) + (def.sword ? def.sword.each * edge : 0);
 		},
 		taken() {
 			const early = earlyOn() ? def.start : void 0;
@@ -28505,10 +28784,111 @@ function artifactHooks(self, fight) {
 			if (def.bossAtk) curse(t(def.bossAtk.lasts), { deals: 1 + t(def.bossAtk.atk) });
 			if (def.bossHeal) curse(Infinity, { heals: 1 + t(def.bossHeal) }, `${worn.id} heals`);
 			if (def.timer) self.perkWaits[name] = def.timer.every;
+			if (def.aura) self.perkWaits[`${name} aura`] = def.aura.every;
+			if (def.chain) self.perkWaits[`${name} chain`] = t(def.chain.every);
+			if (def.breath) self.perkWaits[`${name} breath`] = t(def.breath.every);
+			if (def.engraving) self.perkWaits[`${name} engraving`] = def.engraving.every;
+		},
+		wave() {
+			waveBegun = true;
 		},
 		tick(dt) {
 			const timer = def.timer;
 			const up = self.hp > 0 && fight.field().includes(self);
+			if (waveBegun && up) {
+				waveBegun = false;
+				waveStart();
+			}
+			guardFor = Math.max(0, guardFor - dt);
+			const aura = def.aura;
+			if (aura && up && !auraDone && fight.due(self, `${name} aura`, aura.every)) {
+				auraDone = aura.once === true;
+				const foe = fight.aim(self);
+				fight.on(foe, () => fight.hit(self, aura.maxHp ? t(aura.maxHp) * self.stats.hp * 1e3 / Math.max(1, self.stats.atk) : t(aura.hit)));
+				if (aura.recovery) mark(foe, aura.lasts ?? 0, { heals: 1 + t(aura.recovery) });
+			}
+			const chain = def.chain;
+			if (chain && up && fight.due(self, `${name} chain`, t(chain.every))) {
+				const foe = picked(fight.foes(), 1)[0];
+				if (foe) {
+					fight.on(foe, () => fight.dispel());
+					silence(foe, t(chain.silence));
+				}
+			}
+			if (stoneOn && (stoneIn -= dt) <= 0) {
+				const foe = stoneOn;
+				stoneOn = null;
+				fight.on(foe, () => fight.stun(self, t(def.counter?.stone)));
+			}
+			const dot = def.dot;
+			for (let i = dots.length - 1; dot && i >= 0; i--) {
+				const one = dots[i];
+				if (one.foe.hp <= 0 || one.foe.away || !one.foe.statuses.includes(one.status)) {
+					dots.splice(i, 1);
+					continue;
+				}
+				one.next -= dt;
+				while (one.next <= 1e-9 && one.left > 1e-9) {
+					one.next += dot.tick;
+					one.left -= dot.tick;
+					fight.on(one.foe, () => dot.whole ? fight.whole(self, t(dot.amount)) : fight.continuous(self, t(dot.amount)));
+				}
+				if (one.left <= 1e-9) dots.splice(i, 1);
+			}
+			const sword = def.sword;
+			if (sword && up) {
+				if (self.hp < self.stats.hp * sword.below) {
+					if (edge > 0) self.statuses = self.statuses.filter((status) => status.name !== `${name} sword`);
+					edge = 0;
+					swordIn = 1;
+				} else if ((swordIn -= dt) <= 0) {
+					swordIn += 1;
+					self.hp -= self.hp * t(sword.cost);
+					edge = Math.min(t(sword.most), edge + 1);
+					give(self.statuses, Infinity, {
+						critDamage: sword.each * edge,
+						count: edge
+					}, `${name} sword`);
+				}
+			}
+			const radiance = def.radiance;
+			if (radiance && up) {
+				if (radiantFor <= 0 && fight.due(self, `${name} radiance`, radiance.every)) shine(radiance);
+				else if (radiantFor > 0) {
+					const kept = radiant !== null && self.statuses.includes(radiant);
+					radiantFor = kept ? radiantFor - dt : 0;
+					if (!kept) for (const foe of picked(fight.foes(), radiance.random)) fight.on(foe, () => {
+						fight.dispel();
+						fight.stun(self, radiance.away);
+						fight.drain(t(radiance.mana));
+					});
+					else if (radiantFor <= 0) {
+						self.statuses = self.statuses.filter((status) => status !== radiant);
+						cleanse(self);
+						give(self.statuses, radiance.lasts, { takes: 1 - t(radiance.taken) }, `${name} kept`);
+					}
+				}
+			}
+			const engraving = def.engraving;
+			if (engraving && up && fight.due(self, `${name} engraving`, engraving.every) && leads()) {
+				engraved = Math.min(engraving.most, engraved + 1);
+				for (const on of standing()) {
+					give(on.statuses, Infinity, {
+						defends: 1 + t(engraving.defense) * engraved,
+						count: engraved
+					}, worn.id);
+					const added = grown.get(on) ?? 0;
+					const more = (on.stats.hp - added) * t(engraving.hp) * engraved - added;
+					on.stats.hp += more;
+					on.hp += more;
+					grown.set(on, added + more);
+				}
+			}
+			const breath = def.breath;
+			if (breath && up && fight.due(self, `${name} breath`, t(breath.every)) && leads()) {
+				const times = fight.foes().length === 1 ? breath.alone : 1;
+				for (const on of standing()) fight.heal(on, breath.heal * times * on.stats.hp);
+			}
 			if (def.drain && up) self.mana = Math.max(0, self.mana + t(def.drain) * dt);
 			if (manaFor > 0 && up) {
 				self.mana = Math.min(MAX_MANA, self.mana + manaEach * Math.min(dt, manaFor));
@@ -28571,6 +28951,12 @@ function artifactHooks(self, fight) {
 			});
 		},
 		basic() {
+			const sap = def.sap;
+			if (sap && fight.roll() < t(sap.chance) && fight.due(self, `${name} sap`, sap.wait)) {
+				const foe = fight.aim(self);
+				fight.on(foe, () => fight.drain(t(sap.mana)));
+			}
+			if (def.dot?.basic) dotOn(fight.aim(self));
 			const on = def.onBasic;
 			if (!on || fight.roll() >= t(on.chance) || !fight.due(self, `${name} attack`, on.wait)) return;
 			if (on.mana) self.mana = Math.min(MAX_MANA, self.mana + on.mana);
@@ -28581,6 +28967,7 @@ function artifactHooks(self, fight) {
 			if (on.hit) fight.hit(self, t(on.hit));
 		},
 		blow() {
+			if (def.dot && !def.dot.basic) dotOn(fight.foe());
 			const blows = def.blows;
 			if (!blows) return;
 			struck++;
@@ -28592,11 +28979,52 @@ function artifactHooks(self, fight) {
 				}, `${name} blows`);
 			}
 		},
-		hurt() {
+		hurt(type) {
+			if (self.hp <= 0) return;
 			const on = def.onHurt;
-			if (!on || self.hp <= 0 || fight.roll() >= on.chance || !fight.due(self, `${name} hurt`, t(on.wait))) return;
-			if (on.invulnerable) give(self.statuses, t(on.lasts), { takes: 0 });
-			if (on.weakness) curse(t(on.lasts), { takes: 1 + t(on.weakness) });
+			if (on && fight.roll() < on.chance && fight.due(self, `${name} hurt`, t(on.wait))) {
+				if (on.invulnerable) give(self.statuses, t(on.lasts), { takes: 0 });
+				if (on.weakness) curse(t(on.lasts), { takes: 1 + t(on.weakness) });
+			}
+			const counter = def.counter;
+			if (counter && fight.due(self, `${name} counter`, counter.wait)) {
+				const foe = fight.foe();
+				fight.on(foe, () => {
+					fight.hit(self, t(counter.hit));
+					fight.slow(t(counter.slow), counter.slowFor);
+				});
+				stoneOn = foe;
+				stoneIn = counter.stoneAt;
+			}
+			const roar = def.roar;
+			if (roar && self.hp <= self.stats.hp * roar.below && fight.due(self, `${name} roar`, roar.wait)) {
+				const foe = fight.foe();
+				fight.on(foe, () => {
+					fight.hit(self, roar.hit);
+					fight.stun(self, roar.down, true);
+					fight.slow(t(roar.slow), roar.lasts);
+				});
+				mark(foe, roar.lasts, { deals: 1 + t(roar.atk) });
+			}
+			const hits = def.hits;
+			if (hits && guardFor <= 0 && (!hits.kind || hits.kind === type && fight.due(self, `${name} hits`, .1))) {
+				hurts++;
+				if (hurts >= hits.count && (hits.wait === void 0 || fight.due(self, `${name} hits wait`, hits.wait))) {
+					hurts = 0;
+					if (hits.shield) {
+						cleanse(self);
+						fight.shield(self, t(hits.shield) * self.stats.atk, hits.lasts);
+						give(self.statuses, hits.lasts, { guards: true }, `${name} shield`);
+						guardFor = hits.lasts;
+					}
+					const ally = hits.heal ? picked(standing(), 1)[0] : void 0;
+					if (ally) {
+						fight.heal(ally, t(hits.heal) * self.stats.atk);
+						give(ally.statuses, hits.lasts, { atk: t(hits.atk) }, `${name} ally`);
+					}
+					if (hits.weaken) for (const foe of [...fight.foes()].sort((a, b) => Number(b === fight.boss()) - Number(a === fight.boss())).slice(0, 2)) mark(foe, hits.lasts, { deals: 1 - t(hits.weaken) }, `${worn.id} weaken`);
+				}
+			}
 		},
 		knocked() {
 			const on = def.onKnock;
@@ -28635,6 +29063,9 @@ function artifactHooks(self, fight) {
 		},
 		floor() {
 			return def.undying && fight.elapsed() < t(def.undying.lasts) ? def.undying.floor * self.stats.hp : 0;
+		},
+		steals() {
+			return def.sword === void 0;
 		}
 	};
 }
@@ -34539,7 +34970,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				shown: "curse"
 			});
 		}
-		if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen) {
+		if (by.lifesteal > 0 && by.hp > 0 && !foe.part.unstolen && relics.get(by)?.steals() !== false) {
 			const stolen = Math.min(dealt * share$3(curved(CURVE.chance, by.lifesteal)) * healing([...by.statuses, ...party]) * (boss.part.healing?.() ?? 1), by.stats.hp - by.hp);
 			if (stolen > 0) by.hp += stolen;
 		}
@@ -34700,6 +35131,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				}
 			});
 		}
+		for (const hooks of relics.values()) hooks.wave();
 	}
 	/** The heroes an enemy can reach: on the field, standing, and in the fight. */
 	const reachable = () => field.filter((on) => on.hp > 0 && !away(on.statuses));
@@ -35030,7 +35462,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * (1 + target.manaDamage) * lost / target.stats.hp);
 			if (dealt > 0) for (const fighter of fighters) fighter.part.hurt?.(target);
-			if (dealt > 0) relics.get(target)?.hurt();
+			if (dealt > 0) relics.get(target)?.hurt(type);
 			for (const perk of target.perkDefs) {
 				if (perk.curse && perkDue(target, perk.name ?? perk.words, perk.curse.every)) put(foe.statuses, {
 					name: perk.name ?? "Curse",
@@ -35455,10 +35887,25 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			elapsed: () => elapsed,
 			field: () => field,
 			boss: () => boss,
+			foe: current,
+			aim: (by) => targetOf(by) ?? current(),
+			foes: standing,
+			on: (foe, run) => void as(foe, run),
 			dragon: DRAGON_IDS.has(def.id),
 			roll,
 			hit: (by, amount) => void sim.hit(by, amount, true),
+			continuous: (by, amount) => void sim.continuous(by, amount),
+			whole: (by, amount) => void sim.hit(by, amount, false, 0, true),
 			heal: (on, amount) => void sim.heal(on, amount, void 0, fighter),
+			shield: (on, amount, seconds) => sim.shield(on, amount, seconds),
+			stun: (by, seconds, down = false) => sim.stun(seconds, {
+				down,
+				by
+			}),
+			slow: (points, seconds) => sim.slow(points, seconds),
+			delay: (seconds) => sim.delay(seconds),
+			dispel,
+			drain: (mana) => current().part.drain?.(mana),
 			due: (on, name, again) => perkDue(on, name, again)
 		});
 		if (hooks) relics.set(fighter, hooks);
@@ -57476,7 +57923,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "8aee24b2badb";
+var SIM_VERSION = "4b16f39f32cc";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
