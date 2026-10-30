@@ -32503,14 +32503,17 @@ function perkStats(perks) {
 }
 /** What every hero's Transcend 5 Light gives: ATK, DEF and HP so much more. */
 var T5_LIGHT = .15;
-/** A hero's Transcend 5 Light: ATK, DEF and HP +15%, and `more` of its own (as gear gives it), which `says` puts in words. */
+/**
+* A hero's Transcend 5 Light: ATK, DEF and HP +15%, and `more` of its own (as gear gives it), which `says` puts in words.
+* Its own ATK, DEF or HP is on top of the 15% (Evan's HP +10%: +25% in all).
+*/
 var t5Light = (more, says) => ({
 	words: `ATK, DEF, HP +${pct(T5_LIGHT)} / ${says(more)}`,
 	bonus: {
-		atk: T5_LIGHT,
-		defense: T5_LIGHT,
-		hp: T5_LIGHT,
-		...more
+		...more,
+		atk: T5_LIGHT + (more.atk ?? 0),
+		defense: T5_LIGHT + (more.defense ?? 0),
+		hp: T5_LIGHT + (more.hp ?? 0)
 	}
 });
 /**
@@ -36627,7 +36630,9 @@ var GREMORY = {
 	skins: [
 		"Gremory",
 		"Gremory_DailyLook",
-		"Gremory_Summer"
+		"Gremory_Summer",
+		"Gremory_Advance",
+		"Gremory_Advance2"
 	],
 	stats: {
 		...CLASS_STATS.assassin,
@@ -38937,7 +38942,12 @@ var VALANCE = {
 	id: "valance",
 	name: "Valance",
 	class: "mechanic",
-	skins: ["Valance", "Valance_Christmas"],
+	skins: [
+		"Valance",
+		"Valance_Christmas",
+		"Valance_Advance",
+		"Valance_Advance2"
+	],
 	stats: {
 		...CLASS_STATS.mechanic,
 		deals: "physical"
@@ -44668,7 +44678,8 @@ var PRISCILLA = {
 		"Priscilla_NewYear",
 		"Priscilla_Wedding",
 		"Priscilla_Summer19",
-		"Priscilla_School"
+		"Priscilla_School",
+		"Priscilla_Story"
 	],
 	stats: {
 		...CLASS_STATS.warrior,
@@ -52382,7 +52393,7 @@ var SHAKMEH = {
 		} }, () => "Dispels negative effects from all allies."),
 		"s4-light": { words: `Changes additional DMG proportional to Max HP percentage to ${fine(PERKS$10.blow)}.` },
 		"s4-dark": { words: `When there is 1 enemy, changes Heal Rate proportional to Max HP to ${fine(PERKS$10.heal)}.` },
-		"t5-light": t5Light({ hp: .25 }, ({ hp }) => `HP +${pct(hp - .15)}`),
+		"t5-light": t5Light({ hp: .1 }, ({ hp }) => `HP +${pct(hp)}`),
 		"t5-dark": { words: `Increases ATK of 1 ally with the highest ATK by ${fine(PERKS$10.dark.atk)} of own Max HP and takes ${pct(PERKS$10.dark.share)} of All DMG dealt to the target instead. This effect is irremovable, and when Shakmeh takes DMG of the ally instead, that DMG is reduced by ${pct(PERKS$10.dark.less)}. The ATK Boost rate is reduced to half in the Arena.` }
 	},
 	join(fight, self) {
@@ -52857,7 +52868,7 @@ var ISAIAH = {
 		"s3-dark": { words: `Increases Heal Rate and DMG of [Field of Atonement] by ${pct(PERKS$9.field - 1)} and ${pct(PERKS$9.field - 1)} respectively.` },
 		"s4-light": { words: `[Baptism of the Goddess] effect granted to the ally with the highest ATK additionally increases Crit DMG by ${pct(PERKS$9.critDamage)}.` },
 		"s4-dark": { words: "At the beginning of the first battle, gains 1 stack of *[Sin]*." },
-		"t5-light": t5Light({ hp: .25 }, ({ hp }) => `HP + ${pct(hp - .15)}`),
+		"t5-light": t5Light({ hp: .1 }, ({ hp }) => `HP + ${pct(hp)}`),
 		"t5-dark": { words: `Increases Toughness by ${PERKS$9.dark.tough} and Heal Rate by ${pct(PERKS$9.dark.heals)}.` }
 	},
 	join(fight, self) {
@@ -56870,7 +56881,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "a6850a3f275d";
+var SIM_VERSION = "e149f1e74791";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
