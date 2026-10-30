@@ -362,6 +362,13 @@ export interface MemberDoc {
    * the gear it wears (services/heroes.ts). Missing means none.
    */
   heroes?: Record<string, HeroDoc>;
+  /**
+   * Their hero gear loadouts (King's Raid's Gear Custom: services/hero-loadouts.ts), keyed by number ('1' to heroLoadoutSlots).
+   * A missing entry is an empty one with no name.
+   */
+  heroLoadouts?: Record<string, HeroLoadoutDoc>;
+  /** How many hero gear loadouts they have, those bought included. Missing or null means HERO_LOADOUTS.free (protocol/heroes.ts). */
+  heroLoadoutSlots?: number | null;
   createdAt: Date;
 }
 
@@ -494,6 +501,14 @@ export interface TmBatchGot {
   firstClears: number;
   /** The Dispatch Battle Loot its wins gave (its mail carries them: data/loot-boxes.ts), in place of the rest; missing in a batch from before them (its wins paid as they ended). */
   boxes?: number;
+}
+
+/** One of a member's hero gear loadouts (MemberDoc.heroLoadouts). */
+export interface HeroLoadoutDoc {
+  /** The name they gave it. Missing or null: none. */
+  name?: string | null;
+  /** The copy (ItemCopyDoc._id) kept for each of HERO_LOADOUT_SLOTS (protocol/heroes.ts): missing or null is none. */
+  pieces?: Partial<Record<HeroSlot, string | null>> | null;
 }
 
 /** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
@@ -740,6 +755,8 @@ export type LedgerReason =
   | 'hero'
   // Points paid for another of a hero's Transcend Perk pages (services/heroes.ts buyPerkPage; itemId is the hero).
   | 'perk_page'
+  // Points paid for another hero gear loadout (services/hero-loadouts.ts buyHeroLoadout).
+  | 'hero_loadout'
   // Points paid for a hero's outfit in the site's shop (services/hero-outfits.ts; itemId is the outfit).
   | 'hero_outfit'
   // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).

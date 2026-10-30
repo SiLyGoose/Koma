@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { TRANSCEND_PERKS } from '../../data/transcend.js';
 import { HERO_SLOTS } from '../../types.js';
 import { RAID_CLASS_IDS } from '../../constants/index.js';
-import { PERK_PAGES_MAX, SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, TM_ACCESSORIES, TM_CRAFT_PARTS, type HeroPart } from '../../protocol/heroes.js';
+import { HERO_LOADOUTS, PERK_PAGES_MAX, SALVAGE_PARTS, SALVAGE_STARS_MAX, SALVAGE_TIERS, TM_ACCESSORIES, TM_CRAFT_PARTS, type HeroPart } from '../../protocol/heroes.js';
 import { ApiError } from '../lib/errors.js';
 import type { HeroService } from '../services/heroes.js';
 import { CopyId, parse, UserId } from '../lib/validate.js';
@@ -54,6 +54,12 @@ const CraftScrolls = z.object({ set: z.enum(['perseverance', 'hope', 'authority'
 const OpenBox = z.object({ box: z.string().max(64), count: z.number().int().min(1).max(LOOT_OPEN_MOST) });
 /** One of a hero's perk pages (protocol/heroes.ts PERK_PAGES_MAX). */
 const PerkPage = Hero.extend({ page: z.number().int().min(1).max(PERK_PAGES_MAX) });
+/** One of their hero gear loadouts (protocol/heroes.ts HERO_LOADOUTS). */
+const Loadout = z.object({ loadout: z.number().int().min(1).max(HERO_LOADOUTS.most) });
+/** One of them, and the hero shown (to save what it wears, or to put it on). */
+const HeroLoadout = Hero.extend(Loadout.shape);
+/** One of them, and its new name (empty: none). Longer than a name can be is the store's to refuse, saying so. */
+const LoadoutName = Loadout.extend({ name: z.string().max(200) });
 /** Every perk picked (data/transcend.ts's). */
 const Perks = Hero.extend({ perks: z.array(z.enum(TRANSCEND_PERKS.map((perk) => perk.id) as [string, ...string[]])).max(TRANSCEND_PERKS.length) });
 
@@ -161,6 +167,30 @@ export function heroController(heroes: HeroService) {
     async openBox(req, res) {
       const { box, count } = parse(OpenBox, req.body);
       res.json(await heroes.openBox(res.locals.guildId, res.locals.session.userId, box, count));
+    },
+
+    async loadoutSave(req, res) {
+      const { hero, loadout } = parse(HeroLoadout, req.body);
+      res.json(await heroes.loadoutSave(res.locals.guildId, res.locals.session.userId, hero, loadout));
+    },
+
+    async loadoutEquip(req, res) {
+      const { hero, loadout } = parse(HeroLoadout, req.body);
+      res.json(await heroes.loadoutEquip(res.locals.guildId, res.locals.session.userId, hero, loadout));
+    },
+
+    async loadoutReset(req, res) {
+      const { loadout } = parse(Loadout, req.body);
+      res.json(await heroes.loadoutReset(res.locals.guildId, res.locals.session.userId, loadout));
+    },
+
+    async loadoutName(req, res) {
+      const { loadout, name } = parse(LoadoutName, req.body);
+      res.json(await heroes.loadoutName(res.locals.guildId, res.locals.session.userId, loadout, name));
+    },
+
+    async loadoutBuy(_req, res) {
+      res.json(await heroes.loadoutBuy(res.locals.guildId, res.locals.session.userId));
     },
 
     async autoSalvage(req, res) {

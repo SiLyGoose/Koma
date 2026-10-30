@@ -77,6 +77,20 @@ export const TP_SCROLL_MOST = 15;
  */
 export const PERK_PAGES_MAX = 3;
 
+/**
+ * Hero gear loadouts: King's Raid's Gear Custom (its EquipPresetInfo and StorageSlotExtendTable). They are the member's, not a
+ * hero's: numbered slots, HERO_LOADOUTS.free of them to begin with and more bought one at a time (POST /api/heroes/loadout/buy,
+ * for HeroLoadouts' `next` zeiucoins) up to HERO_LOADOUTS.most. Each keeps a hero's pieces in HERO_LOADOUT_SLOTS (never its
+ * Weapon or treasures, as King's Raid's): Save puts the pieces the hero shown wears there in it (POST /api/heroes/loadout/save),
+ * Equip puts its pieces on the hero shown (POST /api/heroes/loadout/equip: off any other hero wearing them), Reset empties it
+ * (POST /api/heroes/loadout/reset), and it can be named (POST /api/heroes/loadout/name). A piece kept in one is never sold,
+ * salvaged or used up by a refine, as a worn one isn't.
+ */
+export const HERO_LOADOUTS = { free: 4, most: 40, maxNameLength: 24 } as const;
+
+/** The slots a hero gear loadout keeps (King's Raid's SaveEquipParts: Armor, Mantle, Accessory, Orb and Artifact). */
+export const HERO_LOADOUT_SLOTS: readonly HeroSlot[] = ['armor', 'secondary', 'accessory', 'orb', 'artifact'];
+
 /** The hero essences: King's Raid's seven kinds (its fragments' types), each class using three of them. */
 export const ESSENCES = ['justice', 'force', 'wisdom', 'strategy', 'patience', 'harmony', 'fortune'] as const;
 
@@ -336,6 +350,24 @@ export interface HeroesView {
   lootBoxes?: LootBoxStack[];
   /** The most of them POST /api/heroes/open-box opens at once (left out by a bot from before them). */
   lootOpenMost?: number;
+  /** Their hero gear loadouts (HERO_LOADOUTS). Left out for someone else's heroes, and by a bot from before them. */
+  loadouts?: HeroLoadouts;
+}
+
+/** A member's hero gear loadouts: every one they have, in order, and what buying the next costs in zeiucoins (null: they have HERO_LOADOUTS.most). */
+export interface HeroLoadouts {
+  slots: HeroLoadoutView[];
+  next: number | null;
+}
+
+/**
+ * One hero gear loadout: its number (1 on), the name they gave it (null: none, "Loadout <number>"), and the copy kept in each of
+ * HERO_LOADOUT_SLOTS (only copies they still own; null: none).
+ */
+export interface HeroLoadoutView {
+  number: number;
+  name: string | null;
+  pieces: Partial<Record<HeroSlot, string | null>>;
 }
 
 /**
@@ -408,6 +440,15 @@ export type HeroesSold = HeroesView & { sold: GearSale };
 
 /** Why a change to a hero's gear wasn't made (nothing changed). */
 export type HeroEquipError = 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'duplicate' | 'no_main_treasure' | 'busy';
+
+/**
+ * Why a hero gear loadout wasn't saved, put on, emptied, named or bought (nothing changed, nothing was spent): 'not_found', a
+ * hero that isn't theirs; 'locked', a loadout they haven't bought; 'nothing_worn', saving a hero that wears none of
+ * HERO_LOADOUT_SLOTS; 'empty', putting on a loadout with nothing in it; 'wrong_class', one with nothing the hero can wear; 'too_long',
+ * a name past HERO_LOADOUTS.maxNameLength; 'bad_name', one with characters a name can't have; 'maxed', every loadout bought;
+ * 'too_poor', too few zeiucoins; 'busy', their heroes' gear or loadouts changed meanwhile.
+ */
+export type HeroLoadoutError = 'not_found' | 'locked' | 'nothing_worn' | 'empty' | 'wrong_class' | 'too_long' | 'bad_name' | 'maxed' | 'too_poor' | 'busy';
 
 /**
  * Why a rune wasn't socketed or taken out (nothing changed): too_poor, too few zeiucoins to keep the one taken out (or put in

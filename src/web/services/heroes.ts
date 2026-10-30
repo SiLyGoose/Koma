@@ -6,10 +6,10 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroEquipError, HeroesSold, HeroKeep, HeroMembers, HeroOptionError, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroKeep, HeroLoadoutError, HeroMembers, HeroOptionError, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 
 /** Every reason a change to their heroes or their gear isn't made. */
-type HeroError = HeroEquipError | HeroPerksError | HeroPerkPageError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
+type HeroError = HeroEquipError | HeroLoadoutError | HeroPerksError | HeroPerkPageError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
 
 export type { HeroesSold, HeroMembers };
 
@@ -35,12 +35,13 @@ export function heroService(deps: ApiDeps) {
   return {
     view: (guildId: string, userId: string): Promise<HeroesView> => store.view(guildId, userId),
 
-    /** Someone else's heroes, to look at: only while they're in the server, and not their points, komaGems, essences or salvage rule. */
+    /** Someone else's heroes, to look at: only while they're in the server, and not their points, komaGems, essences, salvage rule or gear loadouts. */
     async peek(guildId: string, userId: string): Promise<HeroesView> {
       if ((await deps.memberName(guildId, userId)) === null) throw new ApiError('not_found');
       const view = await store.view(guildId, userId);
       const none = <K extends string>(of: Partial<Record<K, number>> | undefined): Record<K, number> => Object.fromEntries(Object.keys(of ?? {}).map((id) => [id, 0])) as Record<K, number>;
-      return { ...view, balance: 0, gems: 0, runeFragments: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null, lootBoxes: [] };
+      const { loadouts: _loadouts, ...shown } = view;
+      return { ...shown, balance: 0, gems: 0, runeFragments: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null, lootBoxes: [] };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */
@@ -106,6 +107,17 @@ export function heroService(deps: ApiDeps) {
       if (typeof crafted === 'string') throw new ApiError(crafted);
       return crafted;
     },
+
+    /** Saves what their hero wears (its Armor, Mantle, Accessory, Orb and Artifact) into their hero gear loadout `number`. */
+    loadoutSave: async (guildId: string, userId: string, hero: string, number: number): Promise<HeroesView> => answer(await store.loadoutSave(guildId, userId, hero, number)),
+    /** Puts their hero gear loadout `number` on their hero (off any other hero wearing its pieces). */
+    loadoutEquip: async (guildId: string, userId: string, hero: string, number: number): Promise<HeroesView> => answer(await store.loadoutEquip(guildId, userId, hero, number)),
+    /** Empties their hero gear loadout `number`. */
+    loadoutReset: async (guildId: string, userId: string, number: number): Promise<HeroesView> => answer(await store.loadoutReset(guildId, userId, number)),
+    /** Names their hero gear loadout `number` (empty: no name). */
+    loadoutName: async (guildId: string, userId: string, number: number, name: string): Promise<HeroesView> => answer(await store.loadoutName(guildId, userId, number, name)),
+    /** Buys their next hero gear loadout, for points. */
+    loadoutBuy: async (guildId: string, userId: string): Promise<HeroesView> => answer(await store.loadoutBuy(guildId, userId)),
 
     /** Opens `count` of their Dispatch Battle Loot `box` (a background raid's): their heroes after, and what it gave. */
     async openBox(guildId: string, userId: string, box: string, count: number): Promise<HeroesOpened> {

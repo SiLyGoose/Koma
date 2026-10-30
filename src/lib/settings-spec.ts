@@ -124,6 +124,7 @@ export const SPECS: readonly SettingSpec[] = [
   int('hero.legendOutfitPrice', 'Hero', `Price of each Legend hero outfit (King's Raid's Legend Costumes) in the site's shop, in ${CURRENCY_EMOJI}: instead of the hero outfit price.`, 0, MAX_POINTS),
   int('hero.perkPage2Price', 'Hero', `Price of a hero's 2nd Transcend Perk page (King's Raid's: another pick of its perks to switch to) on the site's heroes page, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
   int('hero.perkPage3Price', 'Hero', `Price of a hero's 3rd Transcend Perk page on the site's heroes page, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.loadoutPrice', 'Hero', `Price of each hero gear loadout past the free ones (King's Raid's Gear Custom slots: a hero's Armor, Mantle, Accessory, Orb and Artifact kept to put on again) on the site's heroes page, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
   int('hero.winPoints', 'Hero', `${CURRENCY_EMOJI} each won TechnoMagic Raid run pays, on top of its gear (1 to 3 items, more at the higher stages). There is no daily limit.`, 0, MAX_POINTS),
   int('dragon.winPoints', 'Hero', `${CURRENCY_EMOJI} each won Dragon Raid run pays at stage 1, on top of its hero gear and essences. There is no daily limit.`, 0, MAX_POINTS),
   int('dragon.pointsPerStage', 'Hero', `${CURRENCY_EMOJI} more a won Dragon Raid run pays for every stage past 1.`, 0, MAX_POINTS),

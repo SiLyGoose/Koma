@@ -378,6 +378,8 @@ export interface Settings {
     /** What a hero's 2nd and 3rd Transcend Perk pages cost (services/heroes.ts buyPerkPage). */
     perkPage2Price: number;
     perkPage3Price: number;
+    /** What each hero gear loadout past the free ones costs (services/hero-loadouts.ts buyHeroLoadout: King's Raid's Gear Custom slots). */
+    loadoutPrice: number;
     backgroundPrice: number;
     winPoints: number;
     potentials: Record<TmPotentialId, { min: number; max: number }>;
@@ -576,7 +578,7 @@ export const DEFAULTS: Readonly<Settings> = {
     },
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, outfitPrice: 5_000, honorOutfitPrice: 10_000, brilliantOutfitPrice: 15_000, glaringOutfitPrice: 20_000, legendOutfitPrice: 25_000, perkPage2Price: 5_000, perkPage3Price: 10_000, backgroundPrice: 100, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  hero: { price: 25_000, outfitPrice: 5_000, honorOutfitPrice: 10_000, brilliantOutfitPrice: 15_000, glaringOutfitPrice: 20_000, legendOutfitPrice: 25_000, perkPage2Price: 5_000, perkPage3Price: 10_000, loadoutPrice: 5_000, backgroundPrice: 100, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
   // A Dragon Raid win: 750 at stage 1 up to 3,000 at stage 10, and 8 up to 44 of each of its dragon's two essences.
   dragon: { winPoints: 750, pointsPerStage: 250, essences: 8, essencesPerStage: 4 },
   skip: { claim: 300 },

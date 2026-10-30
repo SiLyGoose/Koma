@@ -2,6 +2,7 @@ import { LOADOUTS } from '../../../constants/index.js';
 import type { EquipmentDoc, MemberDoc } from '../../../types.js';
 import { normalize } from '../../text.js';
 import { heroCopyIds } from '../heroes.js';
+import { heroLoadoutCopyIds } from '../hero-loadouts.js';
 import { equippedCopyIds } from './sell.js';
 import type { LoadoutNameProblem } from '../../../protocol/gear.js';
 
@@ -81,10 +82,14 @@ export function loadoutCopyIds(member: LoadoutFields | null | undefined): Set<st
   return ids;
 }
 
-/** Every copy selling and refining never use up: one in any of the member's loadouts, or worn by one of their heroes (../heroes.ts). */
-export function keptCopyIds(member: (LoadoutFields & Pick<MemberDoc, 'heroes'>) | null | undefined): Set<string> {
+/**
+ * Every copy selling and refining never use up: one in any of the member's loadouts, worn by one of their heroes (../heroes.ts), or
+ * kept in one of their hero gear loadouts (../hero-loadouts.ts).
+ */
+export function keptCopyIds(member: (LoadoutFields & Pick<MemberDoc, 'heroes'> & Partial<Pick<MemberDoc, 'heroLoadouts' | 'heroLoadoutSlots'>>) | null | undefined): Set<string> {
   const ids = loadoutCopyIds(member);
   for (const id of heroCopyIds(member)) ids.add(id);
+  for (const id of heroLoadoutCopyIds(member)) ids.add(id);
   return ids;
 }
 
