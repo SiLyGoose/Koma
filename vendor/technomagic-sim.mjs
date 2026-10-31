@@ -412,6 +412,37 @@ var MINIONS = {
 			share: 10
 		}
 	},
+	slime: {
+		name: "Slime",
+		deals: "magical",
+		size: .75,
+		steady: true,
+		attack: {
+			length: 1.3,
+			lands: [],
+			share: 0,
+			reach: 0
+		},
+		rest: 0,
+		skill: {
+			cooldown: Infinity,
+			first: 0,
+			length: 10,
+			lands: [],
+			share: 0,
+			reach: 0,
+			range: Infinity
+		},
+		fuse: {
+			after: 10,
+			blast: {
+				share: 48,
+				reach: 4,
+				deals: "magical"
+			},
+			dies: true
+		}
+	},
 	wyrm: {
 		name: "Poison Wyrm",
 		deals: "physical",
@@ -6333,6 +6364,169 @@ var NORMAL_WAVES = {
 	],
 	armarta: []
 };
+/** The Slimes Zyrrkinoth's Poison Cloud calls up in its Normal mode, at each of its stages (1 to 20), as ./waves.ts SLIMES. */
+var NORMAL_SLIMES = [
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 172487,
+		atk: 1557,
+		def: [59, 59]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 232106,
+		atk: 2096,
+		def: [83, 83]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 367673,
+		atk: 3325,
+		def: [149, 149]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 504534,
+		atk: 4560,
+		def: [198, 198]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 1177894,
+		atk: 10654,
+		def: [403, 403]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 1616440,
+		atk: 14617,
+		def: [544, 544]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 2745913,
+		atk: 31253,
+		def: [713, 713]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 5629173,
+		atk: 46580,
+		def: [1063, 1063]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 10492806,
+		atk: 86857,
+		def: [1985, 1985]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 14154295,
+		atk: 161128,
+		def: [3680, 3680]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 23728169,
+		atk: 290277,
+		def: [3414, 3414]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 33546466,
+		atk: 410450,
+		def: [4826, 4826]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 72252665,
+		atk: 883936,
+		def: [10393, 10393]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 118792644,
+		atk: 1453271,
+		def: [17091, 17091]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 177766812,
+		atk: 2174894,
+		def: [25576, 25576]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 303554737,
+		atk: 3713960,
+		def: [36047, 36047]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 463582588,
+		atk: 5671766,
+		def: [50040, 50040]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 657087786,
+		atk: 8039488,
+		def: [70927, 70927]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 730097560,
+		atk: 8932764,
+		def: [78808, 78808]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 876117048,
+		atk: 10719317,
+		def: [94569, 94569]
+	}
+];
 //#endregion
 //#region src/technomagic/sim/bosses/dragon/waves.ts
 var WAVES = {
@@ -8884,6 +9078,89 @@ var WAVES = {
 	],
 	armarta: []
 };
+/** The Slimes Zyrrkinoth's Poison Cloud calls up, at each of its stages (1 to 10): at its own level, star and tier, at 7.8% (its SpawnCreature's statRatio 78). */
+var SLIMES = [
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 60525104,
+		atk: 211611,
+		def: [5170, 5170]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 72813181,
+		atk: 254552,
+		def: [6220, 6220]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 87596440,
+		atk: 306271,
+		def: [7487, 7487]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 126775253,
+		atk: 443241,
+		def: [10835, 10835]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 253551228,
+		atk: 886545,
+		def: [21677, 21677]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 296443950,
+		atk: 1274067,
+		def: [28100, 28100]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 372151155,
+		atk: 1537336,
+		def: [34585, 34585]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 496295227,
+		atk: 3152460,
+		def: [57198, 57198]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 602644175,
+		atk: 3827988,
+		def: [69455, 69455]
+	},
+	{
+		kind: "slime",
+		x: 0,
+		z: 0,
+		hp: 1006964613,
+		atk: 7247955,
+		def: [123529, 123529]
+	}
+];
 //#endregion
 //#region src/technomagic/sim/bosses/gauge.ts
 /** Galgoria's (chapter 10's), the Hard Dragon Raid's (911 to 914's) and the Normal Dragon Raid's (901 to 904's). */
@@ -9287,6 +9564,44 @@ var MOVES$2 = {
 	gaze: {
 		length: 1.8,
 		hit: 1.1
+	},
+	call: {
+		length: 3,
+		hit: .5
+	},
+	spit: {
+		length: .2,
+		hit: 0,
+		hurts: share$2(1.5)
+	},
+	linger: {
+		length: 2.6,
+		hit: null
+	},
+	soar: {
+		length: 5.3,
+		hit: 1.6
+	},
+	aloft: {
+		length: 1,
+		hit: 0
+	},
+	hover: {
+		length: .3,
+		hit: null
+	},
+	pour: {
+		length: .1,
+		hit: 0,
+		hurts: share$2(2.5)
+	},
+	hang: {
+		length: .2,
+		hit: null
+	},
+	slam: {
+		length: 2.5,
+		hit: 1.3
 	}
 };
 /** Its moves in each of its attacks, by the attack's name: each after the last is done. */
@@ -9390,7 +9705,61 @@ var PLANS$2 = {
 		"gaze",
 		"D",
 		0
-	]]
+	]],
+	cloud: [
+		[
+			"call",
+			"D",
+			0
+		],
+		[
+			"spit",
+			"D",
+			0
+		],
+		[
+			"spit",
+			"D",
+			0
+		],
+		[
+			"linger",
+			"D",
+			0
+		]
+	],
+	lands: [
+		[
+			"soar",
+			"D",
+			0
+		],
+		[
+			"aloft",
+			"D",
+			0
+		],
+		[
+			"hover",
+			"D",
+			0
+		],
+		...Array.from({ length: 5 }, () => [
+			"pour",
+			"D",
+			0
+		]),
+		[
+			"hang",
+			"D",
+			0
+		],
+		[
+			"slam",
+			"D",
+			0
+		]
+	]
 };
 //#endregion
 //#region src/technomagic/sim/bosses/armarta/skills.ts
@@ -9554,7 +9923,13 @@ var hard$3 = {
 		},
 		{
 			name: "eclipse",
-			label: "Ashen Eclipse"
+			label: "Ashen Eclipse",
+			warning: {
+				text: "Armarta starts to flap its wings powerfully.",
+				colour: "#ff8200",
+				lasts: 3,
+				breaks: true
+			}
 		}
 	],
 	plans: {
@@ -9711,7 +10086,11 @@ var ATTACKS$1 = [
 	},
 	{
 		name: "fatal",
-		label: "Fatal Venom"
+		label: "Fatal Venom",
+		warning: {
+			image: "warning",
+			lasts: 2
+		}
 	}
 ];
 //#endregion
@@ -10421,7 +10800,13 @@ var hard$2 = {
 		},
 		{
 			name: "storm",
-			label: "Glacial Storm"
+			label: "Glacial Storm",
+			warning: {
+				text: "Scalaxia soars, leaving an Ice Crystal on the ground.",
+				colour: "#ff0000",
+				lasts: 3,
+				breaks: true
+			}
 		}
 	],
 	plans: {
@@ -10583,7 +10968,12 @@ var ATTACKS = [
 	},
 	{
 		name: "rise",
-		label: "Divine Power"
+		label: "Divine Power",
+		warning: {
+			text: "Siegfried received Divine Power and has healed all of his HP.\nThe power of his sword becomes stronger.",
+			colour: "#ff8200",
+			lasts: 3
+		}
 	}
 ];
 //#endregion
@@ -13442,6 +13832,13 @@ var RISE = {
 	hp: .3,
 	atk: .3
 };
+/** Rising the second time: how much bigger he grows, from how far into his rise, over how long (his script's CreatureScale, linear). */
+var GROW = {
+	life: 2,
+	times: 1.2,
+	from: 1,
+	blend: .5
+};
 /** His block (points), of every kind: his Divine Rampage's. */
 var BLOCK = { base: 1e3 };
 /** His mana: what fills a second at each stage, and what a blow of his that lands gives him (one blocked takes MANA_BLOCKED). */
@@ -13608,11 +14005,11 @@ function siegfriedPart(fight) {
 		fall = false;
 		fight.cue(null, "fall");
 	}
-	/** What he takes of each kind now: nothing as he rises, more as he lies fallen. */
+	/** What he takes of each kind now: more as he lies fallen. (Nothing as he rises: untouched.) */
 	function settle() {
 		const more = falling > 0 ? STORM$1.taken : 0;
-		taken.physical = rising > 0 ? 0 : 1 + more;
-		taken.magical = rising > 0 ? 0 : 1.3 + more;
+		taken.physical = 1 + more;
+		taken.magical = 1.3 + more;
 	}
 	return {
 		lands: {
@@ -13680,6 +14077,12 @@ function siegfriedPart(fight) {
 			settle();
 			fight.force("rise");
 			return true;
+		},
+		untouched: () => rising > 0,
+		size() {
+			if (lives < GROW.life) return 1;
+			const into = rising > 0 ? (MOVES.rise?.length ?? 0) - rising : Infinity;
+			return 1 + (GROW.times - 1) * Math.min(1, Math.max(0, (into - GROW.from) / GROW.blend));
 		},
 		landed(on, blocked) {
 			mana = Math.max(0, Math.min(MAX_MANA, mana + (blocked ? -100 : MANA_HIT[at])));
@@ -13980,7 +14383,13 @@ var hard$1 = {
 		},
 		{
 			name: "eruption",
-			label: "Eruption"
+			label: "Eruption",
+			warning: {
+				text: "Temeraire starts to flap its wings powerfully.",
+				colour: "#ff8200",
+				lasts: 3,
+				breaks: true
+			}
 		}
 	],
 	plans: {
@@ -14018,6 +14427,27 @@ var LASH = {
 	knock: .6
 };
 var BREATH$1 = { stacks: 3 };
+/** Poison Cloud: how many Slimes, how far about it (its size, 5 m: SpawnCreature's own spread), and the Poison each of its two blows leaves. */
+var CLOUD = {
+	slimes: 7,
+	within: 5,
+	stacks: 15
+};
+/**
+* Poisoned Lands: its wings' blast (a share of each hero's health left: $ByMEHp4(150)) and how long it knocks them back;
+* each blow of its venom (250% of its ATK, MOVES.pour, and $ByMEHp4(800)) and the Poison it leaves; its landing
+* ($ByMEHp4(250)) and how long it knocks them back; and when in it it is out of reach, until it is over (seconds).
+*/
+var LANDS = {
+	blast: .15,
+	knock: 1.5,
+	pour: .8,
+	stacks: 10,
+	slam: .25,
+	down: 3,
+	from: 5,
+	until: 9.8
+};
 var POISONED$1 = {
 	name: "Poison",
 	about: `Eats at it every second, the more for every stack; at ${POISON$1.petrifyAt}, Petrified.`,
@@ -14037,8 +14467,15 @@ function zyrrkinothPart(fight, mode = HARD) {
 		claw: [5, 2.5],
 		smashes: [15, 8],
 		breath: [25, 12],
-		sweep: [20, 10]
+		cloud: [20, 10],
+		lands: [50, 25]
 	});
+	/** Its Slimes at this stage, in its mode. */
+	const slimes = mode === HARD ? SLIMES : NORMAL_SLIMES;
+	const slime = slimes[Math.min(slimes.length, Math.max(1, fight.stage)) - 1];
+	/** How far into its Poisoned Lands it is (seconds; null: it isn't), as long as nothing cut it short. */
+	let landing = null;
+	const aloft = () => landing !== null && landing >= LANDS.from && landing < LANDS.until;
 	/** The critical blows it has taken (up to SCALES.most): each has it take more. */
 	let cracks = 0;
 	const taken = {
@@ -14061,7 +14498,7 @@ function zyrrkinothPart(fight, mode = HARD) {
 		});
 		fight.cue(null, "petrify", [fighter]);
 	}
-	return withDragonGauge(fight, {
+	const part = withDragonGauge(fight, {
 		lands: {
 			smashes: (_part, amount) => void all$1(fight, amount, (fighter) => {
 				poison(fighter, LASH.stacks);
@@ -14072,8 +14509,27 @@ function zyrrkinothPart(fight, mode = HARD) {
 			},
 			bite: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
 			claw: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
-			sweep: (_part, amount) => void all$1(fight, amount, (fighter) => poison(fighter, POISON$1.blow), "sweep")
+			cloud(part, amount) {
+				if (part === 0) {
+					if (slime) fight.summon(slime, CLOUD.slimes, CLOUD.within);
+				} else single(fight, amount, (fighter) => poison(fighter, CLOUD.stacks));
+			},
+			lands(part, amount) {
+				if (part === 0) {
+					const heroes = reachable(fight);
+					fraction(fight, heroes, LANDS.blast);
+					for (const fighter of heroes) if (fighter.hp > 0) fight.knock(fighter, LANDS.knock);
+					fight.cue(null, "wings", heroes);
+				} else if (part === 1) fight.boss.statuses = fight.boss.statuses.filter((status) => status.name === "Down");
+				else if (part === 9) {
+					const heroes = reachable(fight);
+					fraction(fight, heroes, LANDS.slam);
+					for (const fighter of heroes) if (fighter.hp > 0) fight.knock(fighter, LANDS.down);
+					fight.cue(null, "landing", heroes);
+				} else fraction(fight, all$1(fight, amount, (fighter) => poison(fighter, LANDS.stacks), "venom"), LANDS.pour);
+			}
 		},
+		untouched: aloft,
 		struck(_by, _dealt, critical) {
 			if (!critical || cracks >= SCALES.most) return;
 			cracks++;
@@ -14082,12 +14538,17 @@ function zyrrkinothPart(fight, mode = HARD) {
 		critResist: SCALES.critResist,
 		taken,
 		steady: true,
-		used: waits.used,
+		used(attack) {
+			waits.used(attack);
+			landing = attack === "lands" ? 0 : null;
+		},
 		delay: waits.delay,
-		ready: waits.ready,
+		ready: (attack) => waits.ready(attack) && (attack === "lands" || attack === "cloud" && mode !== HARD ? opened(fight, mode.ultimate) : true),
 		tick(dt) {
 			waits.tick(dt);
 			eating(dt);
+			if (landing !== null) landing = fight.boss.stunned > 0 && !aloft() ? null : landing + dt;
+			if (landing !== null && landing >= LANDS.until) landing = null;
 		},
 		beaten() {
 			for (const fighter of fight.fighters) {
@@ -14102,6 +14563,14 @@ function zyrrkinothPart(fight, mode = HARD) {
 			count: `${Math.round(taken.physical * 100)}%`
 		}]
 	}, mode.gauge);
+	const held = part.controlled;
+	return {
+		...part,
+		controlled: (seconds, down) => aloft() ? null : held ? held(seconds, down) : {
+			seconds,
+			down
+		}
+	};
 }
 //#endregion
 //#region src/technomagic/sim/bosses/zyrrkinoth/index.ts
@@ -14140,24 +14609,40 @@ var hard = {
 			label: "Claw"
 		},
 		{
-			name: "sweep",
-			label: "Tail Sweep"
-		},
-		{
 			name: "smashes",
 			label: "Tail Lash"
 		},
 		{
 			name: "breath",
 			label: "Venomous Breath"
+		},
+		{
+			name: "cloud",
+			label: "Poison Cloud",
+			warning: {
+				image: "warning",
+				lasts: 3,
+				breaks: true
+			}
+		},
+		{
+			name: "lands",
+			label: "Poisoned Lands",
+			warning: {
+				text: "Zyrrkinoth starts to flap its wings powerfully.",
+				colour: "#ff8200",
+				lasts: 3,
+				breaks: true
+			}
 		}
 	],
 	plans: {
 		bite: PLANS$2.bite,
 		claw: PLANS$2.claw,
-		sweep: PLANS$2.sweep,
 		smashes: PLANS$2.smashes,
-		breath: PLANS$2.breath
+		breath: PLANS$2.breath,
+		cloud: PLANS$2.cloud,
+		lands: PLANS$2.lands
 	},
 	moves: MOVES$2,
 	join: zyrrkinothPart
@@ -34072,8 +34557,10 @@ var HERO_SIZE = .5;
 * forward: by its line, then its weight in it (./heroes/kr.ts stand), then the better of its defenses, then its index in the
 * game's tables. None within it: the nearest (to its edge). Of two alike, the one that came onto the field first.
 */
+/** How far a hero's edge is from a spot on the field (metres). */
+var edgeTo = (on, x, z) => Math.hypot(on.x - x, on.z - z) - (KR_HEROES[on.id]?.stand.size ?? HERO_SIZE);
 function foremost(from, x, z, reach) {
-	const edge = (on) => Math.hypot(on.x - x, on.z - z) - (KR_HEROES[on.id]?.stand.size ?? HERO_SIZE);
+	const edge = (on) => edgeTo(on, x, z);
 	const within = from.filter((on) => edge(on) <= reach + 1e-9);
 	if (within.length === 0) return from.reduce((best, on) => !best || edge(on) < edge(best) - 1e-9 ? on : best, null);
 	const rank = (on) => {
@@ -34355,6 +34842,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	let aim = null;
 	let was = false;
 	const bossBusy = () => going.size > 0 || boss.stunned > 0;
+	/** The boss's pattern alarm up now (its attack's warning), and how long it stays yet. */
+	let warned = null;
 	/** The boss begins an attack: not while it is stunned, or while any part of it the attack needs is still at another. */
 	function bossUse(attack) {
 		const plan = def.plans[attack] ?? [];
@@ -34374,6 +34863,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			kind: "boss-use",
 			attack
 		});
+		const warning = def.attacks.find((one) => one.name === attack)?.warning;
+		if (warning) warned = {
+			warning,
+			left: warning.lasts
+		};
 		as(boss, () => boss.part.used?.(attack));
 	}
 	/** The boss's stats as it stands the heroes' blows at this stage: its defenses so many times its own. */
@@ -34932,6 +35426,17 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			});
 			return false;
 		}
+		if (foe.part.untouched?.()) {
+			events.push({
+				kind: "number",
+				on: "boss",
+				foe: foe.index,
+				amount: 0,
+				type: "immune",
+				...type === "magical" && { magical: true }
+			});
+			return false;
+		}
 		events.push({
 			kind: "boss-hit",
 			foe: foe.index
@@ -35024,7 +35529,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		return skill === void 0 ? 0 : reach.skills[skill] ?? 0;
 	}
 	/** An enemy beaten: the boss, won; a minion, off the field (and its wave, once no other stands, over). */
-	function beaten(foe) {
+	function beaten(foe, blast = false) {
 		if (foe.away || result) return;
 		if (foe === boss) {
 			as(boss, () => sim.stun(1, { down: true }));
@@ -35036,7 +35541,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		minions.delete(foe);
 		events.push({
 			kind: "foe-down",
-			foe: foe.index
+			foe: foe.index,
+			...blast && { blast: true }
 		});
 		if (boss.away && wave < waves && standing().length === 0) nextWave();
 	}
@@ -35062,14 +35568,56 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			of: waves
 		});
 	}
+	/** A minion comes onto the field (one of a wave's, or one the boss calls up: Fight.summon), where it stands, as strong as the dragons' are scaled (minionOf). */
+	function enter(one, x, z) {
+		const made = minionOf(one, solo, def.waves?.party);
+		const kind = MINIONS[one.kind];
+		const foe = {
+			index: foes.length,
+			kind: one.kind,
+			def: {
+				id: one.kind,
+				name: kind.name,
+				stats: made.stats
+			},
+			part: {
+				lands: {},
+				...kind.steady && { steady: true }
+			},
+			hp: made.hp,
+			maxHp: made.hp,
+			stunned: 0,
+			slowed: 0,
+			slowRate: 1,
+			statuses: [],
+			x,
+			z,
+			away: false
+		};
+		foes.push(foe);
+		minions.set(foe, {
+			def: kind,
+			atk: made.atk,
+			doing: null,
+			rest: 0,
+			skill: kind.skill?.first ?? 0,
+			life: 0,
+			fused: false
+		});
+		events.push({
+			kind: "foe-enter",
+			foe: foe.index,
+			minion: one.kind,
+			x,
+			z
+		});
+	}
 	/** Arrived at a wave: its minions come onto the field, and at the last, the boss comes back, its landing on the heroes. */
 	function arrive() {
 		const list = later[wave - 2] ?? [];
 		/** How many have stood where each spot is so far (by where the wave has them). */
 		const placed = /* @__PURE__ */ new Map();
 		for (const one of list) {
-			const made = minionOf(one, solo, def.waves?.party);
-			const kind = MINIONS[one.kind];
 			let x = MINION_X + one.x * .5;
 			let z = one.z * .45;
 			const spot = `${one.x},${one.z}`;
@@ -35079,45 +35627,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				x += Math.cos(before * Math.PI * 2 / 5) * 1.8;
 				z += Math.sin(before * Math.PI * 2 / 5) * 1.8;
 			}
-			const foe = {
-				index: foes.length,
-				kind: one.kind,
-				def: {
-					id: one.kind,
-					name: kind.name,
-					stats: made.stats
-				},
-				part: {
-					lands: {},
-					...kind.steady && { steady: true }
-				},
-				hp: made.hp,
-				maxHp: made.hp,
-				stunned: 0,
-				slowed: 0,
-				slowRate: 1,
-				statuses: [],
-				x,
-				z,
-				away: false
-			};
-			foes.push(foe);
-			minions.set(foe, {
-				def: kind,
-				atk: made.atk,
-				doing: null,
-				rest: 0,
-				skill: kind.skill?.first ?? 0,
-				life: 0,
-				fused: false
-			});
-			events.push({
-				kind: "foe-enter",
-				foe: foe.index,
-				minion: one.kind,
-				x,
-				z
-			});
+			enter(one, x, z);
 		}
 		if (wave === waves && boss.away && def.waves) {
 			boss.away = false;
@@ -35150,15 +35660,23 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const fuse = minion.def.fuse;
 			if (fuse && !minion.fused && minion.life >= fuse.after) {
 				minion.fused = true;
-				events.push({
+				const { share, blast } = fuse;
+				if (!fuse.dies) events.push({
 					kind: "foe-use",
 					foe: foe.index,
 					move: "skill"
 				});
 				as(foe, () => {
-					for (const on of reachable()) sim.hurt(on, on.stats.hp * fuse.share, false);
+					if (share) for (const on of reachable()) sim.hurt(on, on.stats.hp * share, false);
+					if (blast) {
+						for (const on of reachable()) if (edgeTo(on, foe.x, foe.z) <= blast.reach + 1e-9) sim.hurt(on, blast.share * minion.atk, true, blast.deals);
+					}
 				});
 				if (result) return;
+				if (fuse.dies) {
+					foe.hp = 0;
+					beaten(foe, true);
+				}
 				continue;
 			}
 			if (foe.stunned > 0) {
@@ -35575,6 +36093,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			const minion = minions.get(foe);
 			if (minion?.def.skill) minion.skill = Math.max(0, minion.skill) + seconds;
 		},
+		summon(one, count, within) {
+			if (result) return;
+			for (let i = 0; i < count; i++) enter(one, boss.x + (roll() * 2 - 1) * within, boss.z + (roll() * 2 - 1) * within);
+			aims.clear();
+		},
 		force(attack) {
 			if (boss.away || result) return;
 			going.clear();
@@ -35652,6 +36175,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			return marks;
 		},
 		gauge: () => boss.part.gauge?.() ?? null,
+		alarm: () => warned && boss.hp > 0 && !result ? {
+			...warned.warning,
+			left: warned.left
+		} : null,
+		size: () => boss.part.size?.() ?? 1,
 		checksum() {
 			const word = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(8));
 			let hash = 2166136261;
@@ -35711,6 +36239,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		const dt = TICK;
 		elapsed += dt;
 		aurasNow();
+		if (warned && ((warned.left -= dt) <= 0 || warned.warning.breaks && boss.part.gauge?.() === 0)) warned = null;
 		idle = bossBusy() ? 0 : idle + dt;
 		if (bossAuto && !boss.away && moving <= 0 && idle >= (def.rest ?? 1.1)) {
 			const forced = boss.part.next?.() ?? null;
@@ -57923,7 +58452,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "4b16f39f32cc";
+var SIM_VERSION = "401bc89a33f3";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
