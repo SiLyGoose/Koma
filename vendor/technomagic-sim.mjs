@@ -35837,8 +35837,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		on: as,
 		heal(fighter, amount, by, from) {
 			if (fighter.hp <= 0) return 0;
-			const given = Math.min(amount * byAttack(by) * healed(by) * healing([...fighter.statuses, ...party], 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1), fighter.stats.hp - fighter.hp);
-			fighter.hp += given;
+			const given = amount * byAttack(by) * healed(by) * healing([...fighter.statuses, ...party], 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1);
+			fighter.hp = Math.min(fighter.stats.hp, fighter.hp + given);
 			const giver = by ?? from;
 			if (giver) giver.healed += given;
 			if (given > 0) events.push({
@@ -58453,7 +58453,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "8874d70713c0";
+var SIM_VERSION = "4f7a5e95f9ee";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
