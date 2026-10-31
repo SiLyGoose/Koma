@@ -10374,6 +10374,7 @@ function ownPart(fight) {
 		},
 		healing: () => late() ? STAGES.heals : 1,
 		shielding: () => late() ? STAGES.shields : 1,
+		taken: { physical: 1.2 },
 		unstolen: true,
 		steady: true,
 		marks() {
@@ -10447,7 +10448,7 @@ var scales$1 = (times) => HP$1.map((hp, i) => ({
 }));
 /**
 * Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
-* physical and magic damage alike. Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
+* 20% more physical damage (./skills.ts). Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
 * best with penetration, and with what cuts its healing (it gives itself back its health all the while: ./skills.ts).
 * How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
 * ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
@@ -58452,7 +58453,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "401bc89a33f3";
+var SIM_VERSION = "8874d70713c0";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
