@@ -369,7 +369,18 @@ export interface MemberDoc {
   heroLoadouts?: Record<string, HeroLoadoutDoc>;
   /** How many hero gear loadouts they have, those bought included. Missing or null means HERO_LOADOUTS.free (protocol/heroes.ts). */
   heroLoadoutSlots?: number | null;
+  /**
+   * Single player: the lineup they last had against each boss (services/solo-lineups.ts), keyed by raid and boss ('technomagic:galgoria',
+   * 'dragon:temeraire'): its heroes in order, and which are the Sub Team's. Missing: none kept.
+   */
+  soloLineups?: Record<string, SoloPickDoc[]>;
   createdAt: Date;
+}
+
+/** A hero in a member's kept single-player lineup (MemberDoc.soloLineups): which, and whether it is in the Sub Team. */
+export interface SoloPickDoc {
+  hero: string;
+  sub?: boolean;
 }
 
 /** One of a member's heroes (MemberDoc.heroes). */

@@ -349,6 +349,48 @@ test('technomagic room: the host picks only a stage they have opened, by winning
   assert.deepEqual([b.room().stage, b.room().unlocked], [1, 1]);
 });
 
+test('technomagic room: single player keeps the lineup last had against each boss, for their next room of their own', async () => {
+  const h = harness();
+  const saved = new Map<string, { hero: string; sub?: boolean }[]>();
+  const writes: string[] = [];
+  const deps: RoomDeps = {
+    ...h.deps,
+    lineups: {
+      read: async (_g, userId, raid, boss) => saved.get(`${userId}:${raid}:${boss}`) ?? [],
+      keep: async (_g, userId, raid, boss, picks) => {
+        writes.push(boss);
+        saved.set(`${userId}:${raid}:${boss}`, [...picks]);
+      },
+    },
+  };
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const [main, sub] = [ALL[0] as string, ALL[TM_ROOM.mainTeam] as string];
+  const a = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL, 0, deps, true)!;
+  await settle();
+  assert.deepEqual(writes, [], 'nothing kept before they pick');
+  assert.equal(room.pick('a', main, 0), null);
+  assert.equal(room.pick('a', sub, 0, true), null);
+  assert.deepEqual(saved.get(`a:technomagic:${TM_BOSS}`), [{ hero: main }, { hero: sub, sub: true }]);
+
+  // Their next room of their own (another page, the first gone): the same lineup again, in its teams; one they no longer own left out.
+  const again = new TechnoMagicRooms(deps);
+  const b = h.peer();
+  again.join(h.player('a'), b, ALL.filter((id) => id !== main), 0, deps, true);
+  await settle();
+  assert.deepEqual(b.room().lineup.map((pick) => [pick.hero, pick.sub === true]), [[sub, true]]);
+  assert.deepEqual(saved.get(`a:technomagic:${TM_BOSS}`), [{ hero: sub, sub: true }]);
+
+  // In the server's room, nothing is read or kept.
+  const before = writes.length;
+  const c = h.peer();
+  const { room: shared } = h.rooms.join(h.player('c'), c, ALL, 0, deps)!;
+  assert.equal(shared.pick('c', main, 0), null);
+  await settle();
+  assert.equal(writes.length, before);
+  assert.deepEqual(c.room().lineup.map((pick) => pick.hero), [main]);
+});
+
 test('technomagic room: single player, a Main Team of 4 and a Sub Team of 3 on Auto; in the server’s room, no teams', async () => {
   const h = harness();
   const a = h.peer();

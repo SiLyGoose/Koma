@@ -8,6 +8,8 @@ import { runeView } from '../../models/heroes.js';
 import { DRAGONS, isDragon } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
 import { beginRun, clearedStages, finishRun, ownedHeroes, wornSkins, type BegunRun, type TmFind } from '../../../services/technomagic.js';
+import { keepSoloLineup, soloLineup } from '../../../services/solo-lineups.js';
+import type { SoloPickDoc } from '../../../types.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { dragonRoomLink, technomagicRoomLink, webConfig } from '../../config.js';
@@ -112,6 +114,11 @@ export interface RoomDeps {
   owned: (guildId: string, userId: string) => Promise<Owned>;
   /** The skin each of their heroes is in (the outfit it wears), by id; one not in it is in its own look (none said: every one). */
   worn?: (guildId: string, userId: string) => Promise<ReadonlyMap<string, number>>;
+  /** Single player: the lineup they last had against a boss, read and kept (services/solo-lineups.ts; none said: none kept). */
+  lineups?: {
+    read: (guildId: string, userId: string, raid: RaidKind, boss: string) => Promise<readonly SoloPickDoc[]>;
+    keep: (guildId: string, userId: string, raid: RaidKind, boss: string, picks: readonly SoloPickDoc[]) => Promise<void>;
+  };
   /** Whether their background raids are being fought (none said: the database's word), keeping them out of the rooms till they're over. */
   batching?: (guildId: string, userId: string) => Promise<boolean>;
   /** The highest stage they have won a run against `boss` at, in each mode (0: none). */
@@ -136,6 +143,7 @@ export const realRoomDeps: RoomDeps = {
   avatar: () => null,
   owned: ownedHeroes,
   worn: wornSkins,
+  lineups: { read: soloLineup, keep: keepSoloLineup },
   cleared: clearedStages,
   begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
@@ -231,6 +239,11 @@ export class TechnoMagicRoom {
   private starting = false;
   private fights = 0;
   private readonly chat = new Chat();
+  /**
+   * Single player: the lineup as last kept (lineups.keep), once the one kept from before has been read and given them
+   * (null till then: nothing kept meanwhile, so the room's first, empty, lineup doesn't wipe it).
+   */
+  private kept: string | null = null;
   /** Nobody's left (onEmpty has been told). */
   private closed = false;
 
@@ -345,6 +358,7 @@ export class TechnoMagicRoom {
       cleared: { hard: Math.max(clearedOf(cleared).hard, before?.cleared.hard ?? 0), normal: Math.max(clearedOf(cleared).normal, before?.cleared.normal ?? 0) },
     });
     if (!before) this.trim();
+    if (!before && this.solo()) this.readLineup(player.userId);
     this.readWorn(player.userId);
     this.tell();
     peer.send(this.chat.history());
@@ -495,6 +509,43 @@ export class TechnoMagicRoom {
       },
       (err) => console.error('Could not read what their heroes wear:', err),
     );
+  }
+
+  /**
+   * Single player: the lineup `userId` last had against this boss, read (not waited for) and given them again, those of its
+   * heroes they still own picked in its order, each into its team; not if they've picked meanwhile, or the fight has begun.
+   * Kept from then on (keepLineup).
+   */
+  private readLineup(userId: string): void {
+    const lineups = this.deps.lineups;
+    if (!lineups) return;
+    lineups.read(this.guildId, userId, this.raid.kind, this.boss.id).then(
+      (picks) => {
+        if (!this.members.has(userId) || this.kept !== null) return;
+        if (this.phase === 'prep' && !this.starting && !this.lineup.some((pick) => pick.owner === userId)) {
+          for (const { hero, sub } of picks) this.pick(userId, hero, 0, sub === true);
+        }
+        // (Kept again only if it changed: one no longer theirs, say.)
+        this.kept = JSON.stringify(picks.map(({ hero, sub }) => ({ hero, ...(sub && { sub: true }) })));
+        this.tell();
+      },
+      (err) => {
+        console.error('Could not read their single player lineup:', err);
+        this.kept ??= '[]';
+      },
+    );
+  }
+
+  /** Single player, getting ready: the host's lineup kept as it changes (once the one from before has been read: readLineup). Not waited for. */
+  private keepLineup(): void {
+    const host = this.host();
+    const lineups = this.deps.lineups;
+    if (!lineups || !this.solo() || this.kept === null || !host || this.phase !== 'prep' || this.starting) return;
+    const picks = this.lineup.filter((pick) => pick.owner === host).map(({ hero, sub }) => ({ hero, ...(sub && { sub: true }) }));
+    const kept = JSON.stringify(picks);
+    if (kept === this.kept) return;
+    this.kept = kept;
+    lineups.keep(this.guildId, host, this.raid.kind, this.boss.id, picks).catch((err) => console.error('Could not keep their single player lineup:', err));
   }
 
   /** `userId` takes their hero `hero` out of the lineup. */
@@ -933,6 +984,7 @@ export class TechnoMagicRoom {
       over: this.over,
     };
     for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id } });
+    this.keepLineup();
   }
 }
 
