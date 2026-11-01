@@ -50,22 +50,25 @@ export function salvagesDrop(rule: SalvageRule | null, item: ItemDef): boolean {
 }
 
 /**
- * Salvages a drop of `item` rather than give it: its komaDust paid (and in the ledger, as a salvage), and a TechnoMagic piece's
- * Upgrade Stones and Boss Crystals (King's Raid's: tmSalvageStones of its class, tmSalvageCrystals of its set). Returns what it gave.
+ * What salvaging a drop of `item` gives: its komaDust, and a TechnoMagic piece's Upgrade Stones and Boss Crystals (King's Raid's:
+ * tmSalvageStones of its class, tmSalvageCrystals of its set); `inc`, what they add to the member's (none when it gives nothing).
  */
-export async function salvageDrop(guildId: string, userId: string, item: ItemDef): Promise<{ dust: number; stones: number; crystals: number }> {
+export function salvageGives(item: ItemDef): { dust: number; stones: number; crystals: number; inc: Record<string, number> } {
   const dust = itemSalvage(item);
   const cls = tmStoneClass(item);
   const stones = cls ? tmSalvageStones() : 0;
   // (And its set's Boss Crystals, King's Raid's.)
   const set = cls ? item.kr?.set : undefined;
   const crystals = set ? tmSalvageCrystals() : 0;
-  if (dust <= 0 && stones <= 0 && crystals <= 0) return { dust: 0, stones: 0, crystals: 0 };
+  return { dust, stones, crystals, inc: { ...(dust > 0 && { powder: dust }), ...(cls && stones > 0 && { [`stones.${cls}`]: stones }), ...(set && crystals > 0 && { [`crystals.${set}`]: crystals }) } };
+}
+
+/** Salvages a drop of `item` rather than give it: what salvageGives says paid (its komaDust in the ledger, as a salvage). Returns what it gave. */
+export async function salvageDrop(guildId: string, userId: string, item: ItemDef): Promise<{ dust: number; stones: number; crystals: number }> {
+  const { dust, stones, crystals, inc } = salvageGives(item);
+  if (Object.keys(inc).length === 0) return { dust: 0, stones: 0, crystals: 0 };
   await ensureMember(guildId, userId);
-  await collections().members.updateOne(
-    { guildId, userId },
-    { $inc: { ...(dust > 0 && { powder: dust }), ...(cls && stones > 0 && { [`stones.${cls}`]: stones }), ...(set && crystals > 0 && { [`crystals.${set}`]: crystals }) } },
-  );
+  await collections().members.updateOne({ guildId, userId }, { $inc: inc });
   if (dust > 0) await recordLedger([{ guildId, userId, delta: 0, powderDelta: dust, reason: 'salvage', itemId: item.id }]);
   return { dust, stones, crystals };
 }

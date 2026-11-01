@@ -12,13 +12,12 @@ import { rollArtifact, rollDragonPieces, rollReclaimed, tmCraftPool, rollRunes, 
 import type { RaidClassId } from '../constants/raid.js';
 import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
-import type { ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
+import type { ItemCopyDoc, ItemDef, KrOption, TmArmorDef, TmPotential, TmRunDoc, TmSetId } from '../types.js';
 import type { RaidMode } from '../protocol/technomagic.js';
 import type { SalvageRule } from '../protocol/heroes.js';
-import { addCopy, ensureMember, giveGems } from './economy/index.js';
-import { loadAutoSalvage, salvageDrop, salvagesDrop } from './items/salvage.js';
-import { giveEssences } from './economy/essences.js';
-import { recordLedger } from './economy/shared.js';
+import { ensureMember, giveGems, newCopy } from './economy/index.js';
+import { loadAutoSalvage, salvageGives, salvagesDrop } from './items/salvage.js';
+import { recordLedger, type LedgerInput } from './economy/shared.js';
 import { wornSkin } from './hero-outfits.js';
 
 /*
@@ -168,39 +167,60 @@ export interface TmWin {
  * show what went). A Reclaimed one is never salvaged.
  */
 async function findPiece(guildId: string, userId: string, item: ItemDef, salvage: SalvageRule | null = null, reclaimed = false): Promise<TmFind> {
+  const grant = newGrant();
+  const find = rollPiece(guildId, userId, item, grant, salvage, reclaimed);
+  await giveGrant(guildId, userId, grant);
+  return find;
+}
+
+/** findPiece's piece, rolled into `grant` (given with it). */
+function rollPiece(guildId: string, userId: string, item: ItemDef, grant: Grant, salvage: SalvageRule | null = null, reclaimed = false): TmFind {
   const options = item.kr ? rollKrOptions(item.kr) : [];
   const skill = item.kr?.unique ? rollTmSkill() : null;
   const found: TmFind = { item, skill, potentials: [], ...(options.length > 0 && { options }), ...(reclaimed && { reclaimed }) };
   if (!reclaimed && salvagesDrop(salvage, item)) {
-    const { dust, stones, crystals } = await salvageDrop(guildId, userId, item);
+    const { dust, stones, crystals, inc } = salvageGives(item);
+    for (const [field, n] of Object.entries(inc)) addTo(grant, field, n);
+    if (dust > 0) grant.ledger.push({ guildId, userId, delta: 0, powderDelta: dust, reason: 'salvage', itemId: item.id });
     return { ...found, salvaged: dust, ...(stones > 0 && { salvagedStones: stones }), ...(crystals > 0 && { salvagedCrystals: crystals }) };
   }
-  const { copy } = await addCopy(guildId, userId, item.id);
-  if (options.length > 0 || skill || reclaimed) await collections().items.updateOne({ _id: copy._id }, { $set: { ...(options.length > 0 && { options }), ...(skill && { tmSkill: skill }), ...(reclaimed && { reclaimed }) } });
+  const copy: ItemCopyDoc = { ...newCopy(guildId, userId, item.id, { options }), ...(skill && { tmSkill: skill }), ...(reclaimed && { reclaimed }) };
+  grant.copies.push(copy);
   return { ...found, copy: copy._id };
 }
 
-/** Boss Crystals found: added to the member's, of their set. */
-async function giveCrystals(guildId: string, userId: string, crystals: { set: TmSetId; count: number } | null): Promise<void> {
-  if (!crystals || crystals.count <= 0) return;
-  await ensureMember(guildId, userId);
-  await collections().members.updateOne({ guildId, userId }, { $inc: { [`crystals.${crystals.set}`]: crystals.count } });
+/**
+ * What wins give a member, gathered as they are rolled and given at once (giveGrant): what they add to the member's counts
+ * (points, komaDust, runes, Upgrade Stones, Boss Crystals, essences), their new copies, and the ledger's lines for them.
+ */
+interface Grant {
+  inc: Record<string, number>;
+  copies: ItemCopyDoc[];
+  ledger: LedgerInput[];
 }
 
-/** Upgrade Stones found: added to the member's, of their class. */
-async function giveStones(guildId: string, userId: string, stones: { class: RaidClassId; count: number } | null): Promise<void> {
-  if (!stones || stones.count <= 0) return;
-  await ensureMember(guildId, userId);
-  await collections().members.updateOne({ guildId, userId }, { $inc: { [`stones.${stones.class}`]: stones.count } });
+const newGrant = (): Grant => ({ inc: {}, copies: [], ledger: [] });
+
+/** Adds `n` of `field` (a member's count) to `grant`. */
+function addTo(grant: Grant, field: string, n: number): void {
+  if (n > 0) grant.inc[field] = (grant.inc[field] ?? 0) + n;
 }
 
-/** Runes found: added to the member's. */
-async function giveRunes(guildId: string, userId: string, runes: readonly string[]): Promise<void> {
-  if (runes.length === 0) return;
-  const inc: Record<string, number> = {};
-  for (const id of runes) inc[`runes.${id}`] = (inc[`runes.${id}`] ?? 0) + 1;
-  await ensureMember(guildId, userId);
-  await collections().members.updateOne({ guildId, userId }, { $inc: inc });
+/** Gives a member what `grant` gathered: its copies, its counts and its ledger lines, a write each (a round trip each, however many wins). */
+async function giveGrant(guildId: string, userId: string, grant: Grant): Promise<void> {
+  if (grant.copies.length > 0) await collections().items.insertMany(grant.copies);
+  if (Object.keys(grant.inc).length > 0) {
+    await ensureMember(guildId, userId);
+    await collections().members.updateOne({ guildId, userId }, { $inc: grant.inc });
+  }
+  await recordLedger(grant.ledger);
+}
+
+/** A win's runes and points (`reason`: whose), into `grant`. */
+function grantWin(guildId: string, userId: string, grant: Grant, runes: readonly string[], points: number, reason: 'tm_win' | 'dragon_win'): void {
+  for (const id of runes) addTo(grant, `runes.${id}`, 1);
+  addTo(grant, 'points', points);
+  if (points > 0) grant.ledger.push({ guildId, userId, delta: points, reason });
 }
 
 /**
@@ -232,14 +252,6 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
   return found;
 }
 
-/** Pays `points` points for a won run (`reason`: whose). */
-async function payPoints(guildId: string, userId: string, points: number, reason: 'tm_win' | 'dragon_win'): Promise<void> {
-  if (points <= 0) return;
-  await ensureMember(guildId, userId);
-  await collections().members.updateOne({ guildId, userId }, { $inc: { points } });
-  await recordLedger([{ guildId, userId, delta: points, reason }]);
-}
-
 /**
  * A win's first clears alone: komaGems for each stage up to `stage` they hadn't cleared (tmClearGems, a dragon's dragonClearGems:
  * a win clears every stage under it too; this run isn't marked won yet). A background raid's win pays this as it ends, the rest
@@ -254,63 +266,81 @@ async function payFirstClears(guildId: string, userId: string, boss: string, sta
 }
 
 /**
- * What one of a background raid's Dispatch Battle Loot gives (./loot-boxes.ts): a win at its stage, without first clears (its run
- * paid them as it ended). A TechnoMagic Raid box's Upgrade Stones are of any class (its lineup isn't kept).
+ * What `count` of a background raid's Dispatch Battle Loot give (./loot-boxes.ts): each a win at its stage, without first clears
+ * (its run paid them as it ended), all given at once. A TechnoMagic Raid box's Upgrade Stones are of any class (its lineup isn't kept).
  */
-export const payLootWin = (guildId: string, userId: string, boss: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> =>
-  isDragon(boss) ? payDragonWin(guildId, userId, boss, stage, mode, false) : payTmWin(guildId, userId, boss, stage, [], false);
+export async function payLootWins(guildId: string, userId: string, boss: string, stage: number, mode: RaidMode, count: number): Promise<TmWin[]> {
+  const salvage = await loadAutoSalvage(guildId, userId);
+  const grant = newGrant();
+  const wins = Array.from({ length: count }, () => (isDragon(boss) ? rollDragonWin(guildId, userId, boss, stage, mode, salvage, grant) : rollTmWin(guildId, userId, boss, stage, [], salvage, grant)));
+  await giveGrant(guildId, userId, grant);
+  return wins;
+}
 
 /**
  * A TechnoMagic Raid win at `stage`: that stage's pieces of the boss's set (tmDropCount), each copy with its options and its
  * additional skill rolled for it, now and then Reclaimed (rollReclaimed); its runes; now and then an artifact; Upgrade Stones of
- * one of `classes` (the heroes they brought: rollTmStones); `hero.winPoints` points; and (`clears`) komaGems for each stage up to it they
+ * one of `classes` (the heroes they brought: rollTmStones); `hero.winPoints` points; and komaGems for each stage up to it they
  * hadn't cleared (tmClearGems: a win clears every stage under it too; this run isn't marked won yet).
  */
-async function payTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[] = [], clears = true): Promise<TmWin> {
-  const cleared = clears ? await clearedStage(guildId, userId, boss) : stage;
-  const salvage = await loadAutoSalvage(guildId, userId);
+async function payTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[] = []): Promise<TmWin> {
+  const cleared = await clearedStage(guildId, userId, boss);
+  const grant = newGrant();
+  const won = rollTmWin(guildId, userId, boss, stage, classes, await loadAutoSalvage(guildId, userId), grant);
+  await giveGrant(guildId, userId, grant);
+  const gems = tmClearGems(cleared, stage);
+  if (gems > 0) await giveGems(guildId, userId, gems, 'tm_gems');
+  return { ...won, gems, firstClears: Math.max(0, stage - cleared) };
+}
+
+/** payTmWin's win but its komaGems, rolled into `grant` (given with it). */
+function rollTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[], salvage: SalvageRule | null, grant: Grant): TmWin {
   const finds: TmFind[] = [];
   for (let n = tmDropCount(stage); n > 0; n--) {
     const item = rollTmDrop(boss);
     if (!item) break;
-    finds.push(await findPiece(guildId, userId, item, salvage, rollReclaimed(stage)));
+    finds.push(rollPiece(guildId, userId, item, grant, salvage, rollReclaimed(stage)));
   }
   const artifact = rollArtifact(stage);
-  if (artifact) finds.push(await findPiece(guildId, userId, artifact));
+  if (artifact) finds.push(rollPiece(guildId, userId, artifact, grant));
   const runes = rollRunes(stage, false);
-  await giveRunes(guildId, userId, runes);
   const points = Math.max(0, CONFIG.hero.winPoints);
-  await payPoints(guildId, userId, points, 'tm_win');
+  grantWin(guildId, userId, grant, runes, points, 'tm_win');
   const stones = rollTmStones(stage, classes);
-  await giveStones(guildId, userId, stones);
+  if (stones) addTo(grant, `stones.${stones.class}`, stones.count);
   // (Its boss's Boss Crystals, more the higher the stage.)
   const set = tmSetOfBoss(boss)?.id;
   const crystals = set ? { set, count: tmCrystalDrops(stage) } : null;
-  await giveCrystals(guildId, userId, crystals);
-  const gems = tmClearGems(cleared, stage);
-  if (gems > 0) await giveGems(guildId, userId, gems, 'tm_gems');
-  return { finds, runes, points, gems, ...(stones && { stones }), ...(crystals && crystals.count > 0 && { crystals }), firstClears: Math.max(0, stage - cleared) };
+  if (crystals) addTo(grant, `crystals.${crystals.set}`, crystals.count);
+  return { finds, runes, points, ...(stones && { stones }), ...(crystals && crystals.count > 0 && { crystals }) };
 }
 
 /**
  * A Dragon Raid win at `stage` against `dragon` (in `mode`): pieces of its set (rollDragonPieces), its runes, its points, its
- * dragon's essences (dragonPay), and (`clears`) komaGems for each stage up to it they hadn't cleared (dragonClearGems: a win clears every
+ * dragon's essences (dragonPay), and komaGems for each stage up to it they hadn't cleared (dragonClearGems: a win clears every
  * stage under it too, as their progress is the highest they have won; this run isn't marked won yet).
  */
-async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard', clears = true): Promise<TmWin> {
-  const cleared = clears ? await clearedStage(guildId, userId, dragon, mode) : stage;
-  const salvage = await loadAutoSalvage(guildId, userId);
-  const finds: TmFind[] = [];
-  for (const item of rollDragonPieces(dragon, stage, undefined, mode)) finds.push(await findPiece(guildId, userId, item, salvage));
-  const runes = rollRunes(stage, true, undefined, mode);
-  await giveRunes(guildId, userId, runes);
-  const pay = dragonPay(stage, undefined, mode);
-  await payPoints(guildId, userId, pay.points, 'dragon_win');
-  const essences = rollDragonEssences(dragon, pay.essences);
-  await giveEssences(guildId, userId, essences, 'dragon_essences');
+async function payDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode = 'hard'): Promise<TmWin> {
+  const cleared = await clearedStage(guildId, userId, dragon, mode);
+  const grant = newGrant();
+  const won = rollDragonWin(guildId, userId, dragon, stage, mode, await loadAutoSalvage(guildId, userId), grant);
+  await giveGrant(guildId, userId, grant);
   const gems = dragonClearGems(cleared, stage, mode);
   if (gems > 0) await giveGems(guildId, userId, gems, 'dragon_gems');
-  return { finds, runes, points: pay.points, essences, gems, firstClears: Math.max(0, stage - cleared) };
+  return { ...won, gems, firstClears: Math.max(0, stage - cleared) };
+}
+
+/** payDragonWin's win but its komaGems, rolled into `grant` (given with it). */
+function rollDragonWin(guildId: string, userId: string, dragon: string, stage: number, mode: RaidMode, salvage: SalvageRule | null, grant: Grant): TmWin {
+  const finds = rollDragonPieces(dragon, stage, undefined, mode).map((item) => rollPiece(guildId, userId, item, grant, salvage));
+  const runes = rollRunes(stage, true, undefined, mode);
+  const pay = dragonPay(stage, undefined, mode);
+  grantWin(guildId, userId, grant, runes, pay.points, 'dragon_win');
+  const essences = rollDragonEssences(dragon, pay.essences);
+  const given = Object.entries(essences).filter(([, amount]) => (amount ?? 0) > 0);
+  for (const [id, amount] of given) addTo(grant, `essences.${id}`, amount ?? 0);
+  if (given.length > 0) grant.ledger.push({ guildId, userId, delta: 0, essenceDelta: Object.fromEntries(given), reason: 'dragon_essences' });
+  return { finds, runes, points: pay.points, essences };
 }
 
 /**
