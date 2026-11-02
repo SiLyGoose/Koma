@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { CONFIG } from '../config.js';
-import { DRAGON_ROOM, TM_CRYSTALS, TM_ROOM, tmStoneName } from '../constants/technomagic.js';
+import { DRAGON_ROOM, TM_CRYSTALS, TM_REPORT_NAME, TM_ROOM, tmStoneName } from '../constants/technomagic.js';
 import { ESSENCE_NAME, type EssenceId } from '../data/transcend.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, tieredName } from '../data/kr-gear.js';
@@ -226,6 +226,7 @@ function add(got: TmBatchGot, won: TmWin): void {
   for (const [kind, n] of Object.entries(won.essences ?? {})) more(got.essences as Record<string, number>, kind, n ?? 0);
   if (won.stones) more(got.stones, won.stones.class, won.stones.count);
   if (won.crystals) more(got.crystals, won.crystals.set, won.crystals.count);
+  if (won.reports) got.reports = (got.reports ?? 0) + won.reports;
   for (const find of won.finds) more(find.salvaged === undefined ? got.items : got.salvaged, find.item.id);
   for (const rune of won.runes ?? []) more(got.runes, rune);
   got.firstClears += won.firstClears ?? 0;
@@ -374,6 +375,7 @@ export function batchReport(batch: TmBatchDoc): string {
   for (const [kind, n] of Object.entries(got.essences)) if (n) gave.push(`${n.toLocaleString('en-US')} ${ESSENCE_NAME[kind as EssenceId] ?? kind}`);
   for (const [cls, n] of Object.entries(got.stones)) gave.push(`${n.toLocaleString('en-US')} ${tmStoneName(cls)}`);
   for (const [set, n] of Object.entries(got.crystals)) gave.push(`${n.toLocaleString('en-US')} Crystal of ${TM_CRYSTALS.boss[set as keyof typeof TM_CRYSTALS.boss] ?? set}`);
+  if ((got.reports ?? 0) > 0) gave.push(`${(got.reports ?? 0).toLocaleString('en-US')} ${TM_REPORT_NAME}${got.reports === 1 ? '' : 's'}`);
   for (const [rune, n] of Object.entries(got.runes)) gave.push(`${n}× ${KR_RUNES_BY_ID.get(rune)?.name ?? rune}`);
   const itemName = (id: string): string => {
     const item = ITEMS_BY_ID.get(id);

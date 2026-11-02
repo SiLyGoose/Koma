@@ -40,6 +40,7 @@ export async function openLootBoxes(guildId: string, userId: string, boxId: stri
     for (const [kind, n] of Object.entries(won.essences ?? {})) more(opened.essences, kind, n ?? 0);
     if (won.stones) more(opened.stones, won.stones.class, won.stones.count);
     if (won.crystals) more(opened.crystals, won.crystals.set, won.crystals.count);
+    if (won.reports) opened.reports = (opened.reports ?? 0) + won.reports;
     for (const rune of won.runes ?? []) more(opened.runes, rune, 1);
     for (const find of won.finds) {
       if (find.copy) opened.copies.push(find.copy);

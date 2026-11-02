@@ -149,6 +149,11 @@ export function heroController(heroes: HeroService) {
       res.json(await heroes.upgrade(res.locals.guildId, res.locals.session.userId, copy, option));
     },
 
+    async restore(req, res) {
+      const { copy } = parse(Refine, req.body);
+      res.json(await heroes.restore(res.locals.guildId, res.locals.session.userId, copy));
+    },
+
     async sell(req, res) {
       const { copies, locked, salvage } = parse(Sell, req.body);
       res.json(await heroes.sell(res.locals.guildId, res.locals.session.userId, copies, locked, salvage));

@@ -154,6 +154,8 @@ export interface OverView {
   stones?: Record<string, { class: string; count: number }>;
   /** The Boss Crystals each found (a TechnoMagic Raid win: its boss's, by its set). */
   crystals?: Record<string, { set: string; count: number }>;
+  /** The Technomagic Experiment Reports each found (a TechnoMagic Raid win, now and then from stage 4); left out for one who found none. */
+  reports?: Record<string, number>;
   firstClears?: Record<string, number>;
 }
 

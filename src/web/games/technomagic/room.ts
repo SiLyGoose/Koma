@@ -99,6 +99,8 @@ export interface Got {
   stones?: { class: string; count: number };
   /** The Boss Crystals found (a TechnoMagic Raid win): their set's (its boss's), and how many. */
   crystals?: { set: string; count: number };
+  /** The Technomagic Experiment Reports found (a TechnoMagic Raid win, now and then from stage 4). */
+  reports?: number;
   firstClears?: number;
 }
 
@@ -148,7 +150,7 @@ export const realRoomDeps: RoomDeps = {
   begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
   finish: async (guildId, run, stage, result, ticks, forfeited) => {
     const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, stones, crystals, firstClears }]) => [userId, { drops: finds.map(dropView), ...(stones && { stones }), ...(crystals && { crystals }), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }) }]));
+    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, stones, crystals, reports, firstClears }]) => [userId, { drops: finds.map(dropView), ...(stones && { stones }), ...(crystals && { crystals }), ...(reports && { reports }), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }) }]));
   },
   announce: () => {},
   link: (guildId, _boss, room) => {
@@ -929,6 +931,7 @@ export class TechnoMagicRoom {
       gems: Object.fromEntries([...got].map(([userId, { gems }]) => [userId, gems ?? 0])),
       ...([...got.values()].some((one) => one.stones) && { stones: Object.fromEntries([...got].flatMap(([userId, { stones }]) => (stones ? [[userId, stones]] : []))) }),
       ...([...got.values()].some((one) => one.crystals) && { crystals: Object.fromEntries([...got].flatMap(([userId, { crystals }]) => (crystals ? [[userId, crystals]] : []))) }),
+      ...([...got.values()].some((one) => one.reports) && { reports: Object.fromEntries([...got].flatMap(([userId, { reports }]) => (reports ? [[userId, reports]] : []))) }),
       firstClears: Object.fromEntries([...got].map(([userId, { firstClears }]) => [userId, firstClears ?? 0])),
     };
     // Those gone during it: still waited for, for what's left of their time.

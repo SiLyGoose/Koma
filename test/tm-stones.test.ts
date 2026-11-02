@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TM_CRYSTALS, TM_RECLAIMED, tmCrystalDrops, tmCrystalName, tmReclaimedChance, tmSalvageCrystals, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
+import { TM_CRYSTALS, TM_RECLAIMED, TM_REPORTS, tmCrystalDrops, tmCrystalName, tmReclaimedChance, tmReportChance, tmReportDrops, tmSalvageCrystals, tmSalvageStones, tmStoneCost, tmStoneDrops, tmStoneName } from '../src/constants/technomagic.js';
+import { tmRestorable } from '../src/services/kr-gear.js';
 import { DEFAULTS } from '../src/config.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { isTmPiece, krMainValue, tmStoneClass } from '../src/data/kr-gear.js';
 import { copyMainStat } from '../src/lib/game/heroes.js';
-import { rollReclaimed, rollTmStones, tmCraftPool } from '../src/lib/game/technomagic.js';
+import { rollReclaimed, rollTmReports, rollTmStones, tmCraftPool } from '../src/lib/game/technomagic.js';
 import { refineState } from '../src/web/models/gear.js';
 import { itemSalvage } from '../src/lib/game/items/sell.js';
 import { heroesView } from '../src/web/models/heroes.js';
@@ -139,4 +140,45 @@ test("heroes page: a TechnoMagic piece's rerolls and salvage in its set's crysta
   assert.equal(copy?.reroll, 300);
   assert.deepEqual(copy?.salvageCrystals, { set: 'perseverance', count: 100 });
   assert.deepEqual(view.crystals, { perseverance: 777, hope: 0, authority: 0 });
+});
+
+test("Technomagic Experiment Reports: now and then from a TechnoMagic Raid win from stage 4, more the higher; Restoration takes King's Raid's 40 and 10,000,000 gold (10,000 zeiucoins)", () => {
+  assert.deepEqual([1, 3].map(tmReportChance), [0, 0]);
+  assert.deepEqual([4, 9, 12].map(tmReportDrops), [2, 8, 8]);
+  assert.ok(tmReportChance(9) > tmReportChance(4));
+  assert.equal(rollTmReports(3, first), 0, 'none below stage 4');
+  assert.equal(rollTmReports(9, first), 8);
+  assert.equal(rollTmReports(9, { index: () => Math.round(tmReportChance(9) * 10_000) }), 0, 'just past its chance');
+  assert.deepEqual([TM_REPORTS.restore, TM_REPORTS.restorePoints], [40, 10_000]);
+});
+
+test('Technomagic Restoration: only a 5★ TechnoMagic piece not Reclaimed yet, never an artifact or other gear', () => {
+  const armor = item(ARMOR);
+  assert.equal(tmRestorable(armor, { level: 5 }), true);
+  assert.equal(tmRestorable(armor, { level: 4 }), false, 'below 5★');
+  assert.equal(tmRestorable(armor, { level: 5, reclaimed: true }), false, 'Reclaimed already');
+  const dragon = [...ITEMS_BY_ID.values()].find((one) => one.kr && one.kr.tier === 8 && !isTmPiece(one)) as ItemDef;
+  assert.equal(tmRestorable(dragon, { level: 5 }), false);
+  for (const artifact of [...ITEMS_BY_ID.values()].filter((one) => isTmPiece(one) && one.kr?.part === 'artifact')) assert.equal(tmRestorable(artifact, { level: 5 }), false, artifact.id);
+});
+
+test('heroes page: a 5★ TechnoMagic piece says what restoring it takes, and their reports', () => {
+  const view = heroesView(
+    [
+      { _id: 'top', itemId: ARMOR, level: 5, locked: true, tmSkill: undefined, tmPotentials: undefined },
+      { _id: 'low', itemId: ARMOR, level: 3, locked: false, tmSkill: undefined, tmPotentials: undefined },
+      { _id: 'done', itemId: ARMOR, level: 5, locked: false, reclaimed: true, tmSkill: undefined, tmPotentials: undefined },
+    ],
+    { heroes: {}, points: 0, gems: 0, essences: {}, reports: 55 },
+  );
+  const of = (id: string) => view.copies.find((copy) => copy.id === id);
+  const top = of('top');
+  assert.deepEqual(top?.restore, { reports: 40, points: 10_000, mainAfter: copyMainStat(item(ARMOR), { level: 0, reclaimed: true }) });
+  // (Reclaimed at 0★: below a 5★'s main stat till it is awakened again; above it at its 5★.)
+  assert.ok((top?.restore?.mainAfter?.value ?? 0) < (top?.mainStat?.value ?? 0));
+  assert.ok((copyMainStat(item(ARMOR), { level: 5, reclaimed: true })?.value ?? 0) > (top?.mainStat?.value ?? 0));
+  assert.equal(of('low')?.restore, null);
+  assert.equal(of('done')?.restore, null);
+  assert.equal(view.reports, 55);
+  assert.equal(heroesView([], { heroes: {}, points: 0, gems: 0, essences: {} }).reports, 0);
 });

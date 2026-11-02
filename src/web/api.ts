@@ -87,6 +87,7 @@ export type { Me } from './services/login.js';
  *   POST /api/heroes/perk-page {guild, hero, page}   puts one of their hero's Transcend Perk pages in use (its perks the hero's): HeroesView
  *   POST /api/heroes/perk-page/buy {guild, hero, page}   buys their hero its next Transcend Perk page with points, and puts it in use, empty: HeroesView
  *   POST /api/heroes/refine {guild, copy}   refines one of their copies a level (the heroes page), using up a spare copy of it: HeroesView
+ *   POST /api/heroes/restore {guild, copy}   restores one of their 5★ TechnoMagic pieces into a 0★ Reclaimed one, for Technomagic Experiment Reports and points (the forge): HeroesView
  *   POST /api/heroes/sell {guild, copies, locked?, salvage?}   sells those of their copies (not worn, in a loadout, on a hero, or locked unless `locked`) for points, or salvages the hero gear among them for komaDust (the heroes page): HeroesView & { sold: GearSale }
  *   POST /api/heroes/auto-salvage {guild, rule}   keeps the rule their hero gear's drops are salvaged by as they drop (null: none): HeroesView
  *   POST /api/heroes/lock {guild, copy, locked}   locks (or unlocks) one of their copies (the heroes page): HeroesView

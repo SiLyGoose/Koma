@@ -96,6 +96,27 @@ export const TM_RECLAIMED = {
 export const tmReclaimedChance = (stage: number): number => byStage(TM_RECLAIMED.chance, stage);
 
 /**
+ * King's Raid's Technomagic Experiment Reports (its TECHNOMAGIC_MATERIAL_PROMOTION): what Technomagic Restoration (Valance's
+ * Workshop) takes to make a 5★ TechnoMagic piece a 0★ Reclaimed one, its options and additional skill kept: `restore` of them
+ * and `restorePoints` zeiucoins (King's Raid's EquipUpgradeTierTable, every piece's row the same: 40 reports and 10,000,000 gold,
+ * its gold a thousandth as Valance's crafting is: config craft.tm). King's Raid sold them in packages; here a TechnoMagic Raid
+ * win gives `drops` of them by `chance`, by its stage (the user's: from stage 4, as Reclaimed pieces drop).
+ */
+export const TM_REPORTS = {
+  chance: [0, 0, 0, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25],
+  drops: [0, 0, 0, 2, 2, 3, 4, 6, 8],
+  restore: 40,
+  restorePoints: 10_000,
+} as const;
+
+/** The reports' name, King's Raid's. */
+export const TM_REPORT_NAME = 'Technomagic Experiment Report';
+
+/** The chance a win at `stage` gives reports, and how many it does. */
+export const tmReportChance = (stage: number): number => byStage(TM_REPORTS.chance, stage);
+export const tmReportDrops = (stage: number): number => byStage(TM_REPORTS.drops, stage);
+
+/**
  * King's Raid's Boss Crystals, one kind for each TechnoMagic set: its boss's (`boss`: Crystal of Galgoria for Perseverance,
  * Siegfried's for Hope, Ascalon's for Authority). They craft that set's pieces (the config's craft.tm) and reroll their options (`reroll`
  * each: King's Raid's 300, its Reforge Ticket left out) and, `skillReroll` each beside a komaGem, their additional skill

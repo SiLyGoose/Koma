@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { CONFIG } from '../../config.js';
-import { KR_DROPS, dragonPieces, dragonTier, normalPaysAs, normalRuneGradeWeights, runeCount, runeGradeWeights, tmReclaimedChance, tmStoneDrops } from '../../constants/technomagic.js';
+import { KR_DROPS, dragonPieces, dragonTier, normalPaysAs, normalRuneGradeWeights, runeCount, runeGradeWeights, tmReclaimedChance, tmReportChance, tmReportDrops, tmStoneDrops } from '../../constants/technomagic.js';
 import type { RaidClassId } from '../../constants/raid.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { RaidMode } from '../../protocol/technomagic.js';
@@ -77,6 +77,9 @@ export function tmCraftPool(set: string, kind: TmCraftKind, part: HeroPart | nul
 
 /** Whether a TechnoMagic piece a win at `stage` gives is Reclaimed (constants/technomagic.ts TM_RECLAIMED: from stage 4). */
 export const rollReclaimed = (stage: number, rng: TmRng = defaultRng): boolean => rng.index(10_000) < Math.round(tmReclaimedChance(stage) * 10_000);
+
+/** The Technomagic Experiment Reports a TechnoMagic Raid win at `stage` gives (constants/technomagic.ts TM_REPORTS: now and then, from stage 4): 0 for none. */
+export const rollTmReports = (stage: number, rng: TmRng = defaultRng): number => (rng.index(10_000) < Math.round(tmReportChance(stage) * 10_000) ? tmReportDrops(stage) : 0);
 
 /**
  * The Technomagic Gear Upgrade Stones a TechnoMagic Raid win at `stage` gives (tmStoneDrops: from stage 7), all of one class:

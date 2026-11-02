@@ -6,10 +6,10 @@ import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
 import { heroStore, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
-import type { HeroEquipError, HeroesSold, HeroKeep, HeroLoadoutError, HeroMembers, HeroOptionError, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import type { HeroEquipError, HeroesSold, HeroKeep, HeroLoadoutError, HeroMembers, HeroOptionError, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 
 /** Every reason a change to their heroes or their gear isn't made. */
-type HeroError = HeroEquipError | HeroLoadoutError | HeroPerksError | HeroPerkPageError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
+type HeroError = HeroEquipError | HeroLoadoutError | HeroPerksError | HeroPerkPageError | HeroRefineError | HeroTranscendError | HeroRuneError | HeroOptionError | HeroRestoreError | TpScrollCraftError | TpScrollUseError | 'owned' | 'too_poor';
 
 export type { HeroesSold, HeroMembers };
 
@@ -41,7 +41,7 @@ export function heroService(deps: ApiDeps) {
       const view = await store.view(guildId, userId);
       const none = <K extends string>(of: Partial<Record<K, number>> | undefined): Record<K, number> => Object.fromEntries(Object.keys(of ?? {}).map((id) => [id, 0])) as Record<K, number>;
       const { loadouts: _loadouts, ...shown } = view;
-      return { ...shown, balance: 0, gems: 0, runeFragments: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null, lootBoxes: [] };
+      return { ...shown, balance: 0, gems: 0, runeFragments: 0, reports: 0, tpScrolls: 0, essences: none(view.essences), ...(view.stones && { stones: none(view.stones) }), ...(view.crystals && { crystals: none(view.crystals) }), autoSalvage: null, lootBoxes: [] };
     },
 
     /** Who in the server has heroes: the one asking first (whatever they have), and not whoever left. */
@@ -85,6 +85,8 @@ export function heroService(deps: ApiDeps) {
       answer(await store.keep(guildId, userId, copy, keep, option)),
     /** Enhances one of a copy's options: its amount rolled again. */
     upgrade: async (guildId: string, userId: string, copy: string, option: number): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy, option)),
+    /** Restores a 5★ TechnoMagic piece into a 0★ Reclaimed one (King's Raid's Technomagic Restoration). */
+    restore: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.restore(guildId, userId, copy)),
 
     /** Sells those copies (the same one twice counts once; `locked`: locked ones too; `salvage`: the hero gear among them salvaged for komaDust). */
     async sell(guildId: string, userId: string, copies: string[], locked = false, salvage = false): Promise<HeroesSold> {

@@ -8,7 +8,7 @@ import { dragonClearGems, tmClearGems, tmCrystalDrops, tmDropCount } from '../co
 import { tmSetOfBoss } from '../data/tm-sets.js';
 import type { HeroPart, TmAccessory, TmCraftKind } from '../protocol/heroes.js';
 import { dragonPay, isDragon, rollDragonEssences } from '../lib/game/dragon.js';
-import { rollArtifact, rollDragonPieces, rollReclaimed, tmCraftPool, rollRunes, rollTmDrop, rollTmSkill, rollTmStones, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
+import { rollArtifact, rollDragonPieces, rollReclaimed, tmCraftPool, rollRunes, rollTmDrop, rollTmReports, rollTmSkill, rollTmStones, SIM_VERSION, TM_BOSS } from '../lib/game/technomagic.js';
 import type { RaidClassId } from '../constants/raid.js';
 import { rollKrOptions } from '../data/kr-gear.js';
 import type { EssenceId } from '../data/transcend.js';
@@ -158,6 +158,8 @@ export interface TmWin {
   stones?: { class: RaidClassId; count: number };
   /** The TechnoMagic Raid's Boss Crystals: its boss's (by its set), and how many. */
   crystals?: { set: TmSetId; count: number };
+  /** The TechnoMagic Raid's Technomagic Experiment Reports (now and then, from stage 4): how many. */
+  reports?: number;
   firstClears?: number;
 }
 
@@ -280,7 +282,8 @@ export async function payLootWins(guildId: string, userId: string, boss: string,
 /**
  * A TechnoMagic Raid win at `stage`: that stage's pieces of the boss's set (tmDropCount), each copy with its options and its
  * additional skill rolled for it, now and then Reclaimed (rollReclaimed); its runes; now and then an artifact; Upgrade Stones of
- * one of `classes` (the heroes they brought: rollTmStones); `hero.winPoints` points; and komaGems for each stage up to it they
+ * one of `classes` (the heroes they brought: rollTmStones); its boss's Boss Crystals; now and then Technomagic Experiment
+ * Reports (rollTmReports); `hero.winPoints` points; and komaGems for each stage up to it they
  * hadn't cleared (tmClearGems: a win clears every stage under it too; this run isn't marked won yet).
  */
 async function payTmWin(guildId: string, userId: string, boss: string, stage: number, classes: readonly RaidClassId[] = []): Promise<TmWin> {
@@ -312,7 +315,10 @@ function rollTmWin(guildId: string, userId: string, boss: string, stage: number,
   const set = tmSetOfBoss(boss)?.id;
   const crystals = set ? { set, count: tmCrystalDrops(stage) } : null;
   if (crystals) addTo(grant, `crystals.${crystals.set}`, crystals.count);
-  return { finds, runes, points, ...(stones && { stones }), ...(crystals && crystals.count > 0 && { crystals }) };
+  // (Now and then Technomagic Experiment Reports, what restoring a piece into a Reclaimed one takes.)
+  const reports = rollTmReports(stage);
+  addTo(grant, 'reports', reports);
+  return { finds, runes, points, ...(stones && { stones }), ...(crystals && crystals.count > 0 && { crystals }), ...(reports > 0 && { reports }) };
 }
 
 /**

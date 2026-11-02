@@ -189,6 +189,13 @@ export interface HeroCopy {
   reroll: number | null;
   rerollUnique: number | null;
   upgrade: number | null;
+  /**
+   * A TechnoMagic piece at 5★ not yet Reclaimed: what restoring it into a 0★ Reclaimed one takes (King's Raid's Technomagic
+   * Restoration: POST /api/heroes/restore), in Technomagic Experiment Reports (HeroesView's `reports`) and zeiucoins; its
+   * options and additional skill are kept; `mainAfter`, its main stat as it comes back (Reclaimed at 0★: lower than at 5★ till it is
+   * awakened again). Null for any other (below 5★, Reclaimed already, not TechnoMagic); left out by a bot from before it.
+   */
+  restore?: { reports: number; points: number; mainAfter: MainStat | null } | null;
   /** Its set's bonuses: what each number of its pieces worn gives, and whether that is on (the hero wearing it has as many). */
   setBonuses: { pieces: number; text: string; active: boolean }[];
   /** Locked by the member (POST /api/heroes/lock, as the gear page's): never sold or used up by a refine. */
@@ -340,6 +347,11 @@ export interface HeroesView {
    * set's pieces (POST /api/heroes/craft) and rerolls their options. Left out by a bot from before them.
    */
   crystals?: Record<TmSetId, number>;
+  /**
+   * Their Technomagic Experiment Reports (King's Raid's): what restores a 5★ TechnoMagic piece into a 0★ Reclaimed one (POST
+   * /api/heroes/restore: HeroCopy's `restore`), dropped now and then by the TechnoMagic Raid from stage 4. Left out by a bot from before them.
+   */
+  reports?: number;
   /** Their Transcendence Scrolls, not used yet (TP_SCROLL_POINTS). Left out by a bot from before them. */
   tpScrolls?: number;
   /** What crafting TechnoMagic gear and Mysterious Runes costs (left out by a bot from before it was a setting). */
@@ -399,6 +411,8 @@ export interface LootOpened {
   essences: Partial<Record<EssenceId, number>>;
   stones: Partial<Record<RaidClassId, number>>;
   crystals: Partial<Record<TmSetId, number>>;
+  /** Technomagic Experiment Reports (left out: none). */
+  reports?: number;
   runes: Record<string, number>;
   copies: string[];
   dust: number;
@@ -461,6 +475,12 @@ export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune'
  * (or one of its options) was rerolled and the member hasn't kept one yet.
  */
 export type HeroOptionError = 'not_found' | 'no_option' | 'too_poor' | 'no_gems' | 'no_crystals' | 'pending' | 'busy';
+
+/**
+ * Why a TechnoMagic piece wasn't restored (nothing was spent): not theirs, not one that can be (below 5★, Reclaimed already, not
+ * TechnoMagic: 'not_restorable'), too few Technomagic Experiment Reports ('no_reports') or zeiucoins, or it changed meanwhile.
+ */
+export type HeroRestoreError = 'not_found' | 'not_restorable' | 'no_reports' | 'too_poor' | 'busy';
 
 /**
  * Crafting a TechnoMagic set's piece (POST /api/heroes/craft, King's Raid's Valance's Workshop): any of its pieces, any class's

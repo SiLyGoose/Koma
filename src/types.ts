@@ -277,6 +277,11 @@ export interface MemberDoc {
    * TechnoMagic Raid and given by salvaging its pieces, spent crafting the set's pieces and rerolling their options. Missing means none.
    */
   crystals?: Partial<Record<TmSetId, number>>;
+  /**
+   * King's Raid's Technomagic Experiment Reports they have (constants/technomagic.ts TM_REPORTS): dropped now and then by the
+   * TechnoMagic Raid, spent restoring a 5★ TechnoMagic piece into a Reclaimed one (services/kr-gear.ts restoreTmPiece). Missing means none.
+   */
+  reports?: number;
   /** Transcendence Scrolls crafted from Boss Crystals and not used yet: each gives a hero TP_SCROLL_POINTS more TP (services/heroes.ts). Missing means none. */
   tpScrolls?: number;
   /** King's Raid's Dispatch Battle Loot claimed from background raids' mail and not opened yet, by box (data/loot-boxes.ts): services/loot-boxes.ts. Missing means none. */
@@ -506,6 +511,8 @@ export interface TmBatchGot {
   essences: Partial<Record<EssenceId, number>>;
   stones: Record<string, number>;
   crystals: Record<string, number>;
+  /** Technomagic Experiment Reports (missing in a batch from before them). */
+  reports?: number;
   items: Record<string, number>;
   salvaged: Record<string, number>;
   runes: Record<string, number>;
@@ -783,6 +790,8 @@ export type LedgerReason =
   | 'kr_upgrade'
   // Points (and Boss Crystals, not in the ledger) paid to craft a TechnoMagic piece (services/technomagic.ts; itemId is the piece).
   | 'tm_craft'
+  // Points (and Technomagic Experiment Reports, not in the ledger) paid to restore a 5★ TechnoMagic piece into a Reclaimed one (services/kr-gear.ts; itemId is the piece).
+  | 'tm_restore'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
   | 'raid_shop'
   // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).

@@ -52,16 +52,16 @@ import { wornSkin } from '../../services/hero-outfits.js';
 import { buyHeroLoadout, equipHeroLoadout, nameHeroLoadout, resetHeroLoadout, saveHeroLoadout } from '../../services/hero-loadouts.js';
 import { heroLoadoutViews, nextHeroLoadoutPrice } from '../../lib/game/hero-loadouts.js';
 import { buyHero, buyPerkPage, craftTpScrolls, equipHero, pickHeroPerks, switchPerkPage, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
-import { keepOption, keepTmSkill, rerollOption, socketRune, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
+import { keepOption, keepTmSkill, rerollOption, restoreTmPiece, socketRune, tmRestorable, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
 import type { RaidClassId } from '../../constants/raid.js';
-import { TM_CRYSTALS, tmSalvageCrystals, tmSalvageStones } from '../../constants/technomagic.js';
+import { TM_CRYSTALS, TM_REPORTS, tmSalvageCrystals, tmSalvageStones } from '../../constants/technomagic.js';
 import { isTmPiece, tmStoneClass } from '../../data/kr-gear.js';
 import type { TmSetId } from '../../protocol/items.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
-import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroLoadoutError, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroLoadoutError, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 import { gearStore, refineState } from './gear.js';
 
 export type { HeroCopy, HeroEquipError, HeroesView, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
@@ -103,6 +103,8 @@ export interface HeroStore {
   keep: (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
   /** Enhances one of a copy's options (its `option`th: its amount rolled again), for points: the heroes after, or why not. */
   upgrade: (guildId: string, userId: string, copy: string, option: number) => Promise<HeroesView | HeroOptionError>;
+  /** Restores one of their 5★ TechnoMagic pieces into a 0★ Reclaimed one, for Technomagic Experiment Reports and points: the heroes after, or why not (nothing was spent). */
+  restore: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroRestoreError>;
   /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too; `salvage`: salvaged): what it came to, or 'nothing_to_sell'. */
   sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean, salvage?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
@@ -221,7 +223,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(
   copies: readonly CopyInfo[],
-  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'tpScrolls' | 'lootBoxes' | 'heroLoadouts' | 'heroLoadoutSlots'>> & Partial<LoadoutFields>) | null,
+  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'reports' | 'tpScrolls' | 'lootBoxes' | 'heroLoadouts' | 'heroLoadoutSlots'>> & Partial<LoadoutFields>) | null,
 ): HeroesView {
   const worn = heroWorn(member);
   // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
@@ -271,6 +273,8 @@ export function heroesView(
       options: optionViews(item, copy),
       runes: runes.map((id) => (id ? runeView(id) : null)),
       ...optionCosts(item, copy),
+      // (King's Raid's Technomagic Restoration: a 5★ TechnoMagic piece into a 0★ Reclaimed one.)
+      restore: tmRestorable(item, copy) ? { reports: TM_REPORTS.restore, points: TM_REPORTS.restorePoints, mainAfter: copyMainStat(item, { ...copy, level: 0, reclaimed: true }) } : null,
       setBonuses: bonuses,
       locked: copy.locked === true,
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
@@ -371,7 +375,7 @@ export function heroesView(
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
   const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
   const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
-  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member), lootBoxes: lootStacks(member?.lootBoxes), lootOpenMost: LOOT_OPEN_MOST, loadouts: { slots: heroLoadoutViews(member, new Set(list.map((copy) => copy.id))), next: nextHeroLoadoutPrice(member, CONFIG.hero.loadoutPrice) } };
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, reports: member?.reports ?? 0, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member), lootBoxes: lootStacks(member?.lootBoxes), lootOpenMost: LOOT_OPEN_MOST, loadouts: { slots: heroLoadoutViews(member, new Set(list.map((copy) => copy.id))), next: nextHeroLoadoutPrice(member, CONFIG.hero.loadoutPrice) } };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {
@@ -435,6 +439,10 @@ export const heroStore: HeroStore = {
   },
   upgrade: async (guildId, userId, copy, option) => {
     const result = await upgradeOption(guildId, userId, copy, option);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  restore: async (guildId, userId, copy) => {
+    const result = await restoreTmPiece(guildId, userId, copy);
     return result.ok ? load(guildId, userId) : result.reason;
   },
   sell: (guildId, userId, copies, locked, salvage) => gearStore.sell(guildId, userId, copies, locked, salvage),

@@ -1,13 +1,16 @@
-import { TM_CRYSTALS } from '../constants/technomagic.js';
+import { REFINE } from '../constants/index.js';
+import { TM_CRYSTALS, TM_REPORTS } from '../constants/technomagic.js';
 import { isTmPiece } from '../data/kr-gear.js';
+import { starsOf } from '../lib/game/items/refine-share.js';
+import { gearChanged } from './items/gear-events.js';
 import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
 import { enhanceUtOptions, rollTmSkill } from '../lib/game/technomagic.js';
 import { UT_ENHANCE } from '../data/tm-potentials.js';
-import type { HeroKeep, HeroOptionError, HeroRuneError } from '../protocol/heroes.js';
-import type { ItemCopyDoc } from '../types.js';
+import type { HeroKeep, HeroOptionError, HeroRestoreError, HeroRuneError } from '../protocol/heroes.js';
+import type { ItemCopyDoc, ItemDef } from '../types.js';
 import { recordLedger } from './economy/shared.js';
 import { RUNE_KEEP_PRICE } from '../protocol/runes.js';
 
@@ -109,6 +112,44 @@ async function payGems(guildId: string, userId: string, gems: number): Promise<b
 const refundGems = async (guildId: string, userId: string, gems: number): Promise<void> => {
   if (gems > 0) await collections().members.updateOne({ guildId, userId }, { $inc: { gems } });
 };
+
+/**
+ * Whether a copy of `item` can be restored into a Reclaimed one (King's Raid's Technomagic Restoration: EquipUpgradeTierTable's
+ * rows are every TechnoMagic piece's but its artifacts'): a TechnoMagic piece at its top star, not Reclaimed already.
+ */
+export const tmRestorable = (item: ItemDef, copy: Pick<ItemCopyDoc, 'level' | 'reclaimed'>): boolean =>
+  isTmPiece(item) && item.kr?.part !== 'artifact' && copy.reclaimed !== true && starsOf(item, copy.level) >= REFINE.maxLevel;
+
+export type RestoreResult = { ok: true } | { ok: false; reason: HeroRestoreError };
+
+/**
+ * Restores one of the member's 5★ TechnoMagic pieces into a 0★ Reclaimed one (King's Raid's Technomagic Restoration, at Valance's
+ * Workshop): TM_REPORTS.restore Technomagic Experiment Reports and TM_REPORTS.restorePoints zeiucoins, both taken at once (or
+ * neither), then the copy itself made Reclaimed and 0★, its options, additional skill, runes, lock and wearer kept (King's Raid's:
+ * "a +0 Reclaimed Technomagic Gear with the same Additional Options and Additional Skill"). Changed meanwhile: both given back.
+ */
+export async function restoreTmPiece(guildId: string, userId: string, copyId: string): Promise<RestoreResult> {
+  const { items, members } = collections();
+  const copy = await items.findOne({ guildId, userId, _id: copyId });
+  const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
+  if (!copy || !item) return { ok: false, reason: 'not_found' };
+  if (!tmRestorable(item, copy)) return { ok: false, reason: 'not_restorable' };
+  const reports = TM_REPORTS.restore;
+  const points = TM_REPORTS.restorePoints;
+  const paid = await members.findOneAndUpdate({ guildId, userId, points: { $gte: points }, reports: { $gte: reports } }, { $inc: { points: -points, reports: -reports } });
+  if (!paid) {
+    const member = await members.findOne({ guildId, userId }, { projection: { reports: 1 } });
+    return { ok: false, reason: (member?.reports ?? 0) < reports ? 'no_reports' : 'too_poor' };
+  }
+  const done = await items.updateOne({ guildId, userId, _id: copyId, level: copy.level, reclaimed: { $ne: true } }, { $set: { level: 0, reclaimed: true } });
+  if (done.modifiedCount === 0) {
+    await members.updateOne({ guildId, userId }, { $inc: { points, reports } }).catch((err) => console.error(`Could not give back ${points} and ${reports} reports after a failed restoration:`, err));
+    return { ok: false, reason: 'busy' };
+  }
+  await recordLedger([{ guildId, userId, delta: -points, reason: 'tm_restore', itemId: item.id }]);
+  gearChanged(guildId, userId);
+  return { ok: true };
+}
 
 /**
  * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
