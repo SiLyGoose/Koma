@@ -23109,7 +23109,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "atk": .038 },
+		"stats": { "atk": .03 },
 		"icon": "RUNE_FIERCE_1"
 	},
 	{
@@ -23119,7 +23119,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "acc": .072 },
+		"stats": { "acc": .1 },
 		"icon": "RUNE_PRECISION_3"
 	},
 	{
@@ -23129,7 +23129,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockPhysical": .063 },
+		"stats": { "blockPhysical": .03 },
 		"icon": "RUNE_STEEL_1"
 	},
 	{
@@ -23139,7 +23139,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "red",
 		"parts": ["secondary"],
-		"stats": { "crit": .133 },
+		"stats": { "crit": .15 },
 		"icon": "RUNE_HEARTLESS_4"
 	},
 	{
@@ -23183,7 +23183,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "pen": .033 },
+		"stats": { "pen": .03 },
 		"icon": "RUNE_SHARPNESS_1"
 	},
 	{
@@ -23193,7 +23193,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "red",
 		"parts": ["secondary"],
-		"stats": { "crit": .105 },
+		"stats": { "crit": .1 },
 		"icon": "RUNE_HEARTLESS_3"
 	},
 	{
@@ -23203,7 +23203,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defMagical": .162 },
+		"stats": { "defMagical": .4 },
 		"icon": "RUNE_PROTECTION_5",
 		"ancient": true
 	},
@@ -23231,7 +23231,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "pen": .052 },
+		"stats": { "pen": .05 },
 		"icon": "RUNE_SHARPNESS_2"
 	},
 	{
@@ -23258,7 +23258,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughPhysical": .076 },
+		"stats": { "toughPhysical": .05 },
 		"icon": "RUNE_TOUGHNESS_2"
 	},
 	{
@@ -23268,7 +23268,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockMagical": .1 },
+		"stats": { "blockMagical": .05 },
 		"icon": "RUNE_EXCLUSION_2"
 	},
 	{
@@ -23278,7 +23278,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughPhysical": .048 },
+		"stats": { "toughPhysical": .03 },
 		"icon": "RUNE_TOUGHNESS_1"
 	},
 	{
@@ -23305,7 +23305,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughPhysical": .133 },
+		"stats": { "toughPhysical": .15 },
 		"icon": "RUNE_TOUGHNESS_4"
 	},
 	{
@@ -23455,7 +23455,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgePhysical": .19 },
+		"stats": { "dodgePhysical": .25 },
 		"icon": "RUNE_AGILITY_5"
 	},
 	{
@@ -23482,7 +23482,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughMagical": .048 },
+		"stats": { "toughMagical": .03 },
 		"icon": "RUNE_WILLPOWER_1"
 	},
 	{
@@ -23492,7 +23492,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefMagical": .105 },
+		"stats": { "blockDefMagical": .15 },
 		"icon": "RUNE_DENIAL_4"
 	},
 	{
@@ -23502,7 +23502,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefMagical": .15 },
+		"stats": { "blockDefMagical": .25 },
 		"icon": "RUNE_DENIAL_5"
 	},
 	{
@@ -23512,7 +23512,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgePhysical": .105 },
+		"stats": { "dodgePhysical": .1 },
 		"icon": "RUNE_AGILITY_3"
 	},
 	{
@@ -23539,7 +23539,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefMagical": .06 },
+		"stats": { "blockDefMagical": .05 },
 		"icon": "RUNE_DENIAL_2"
 	},
 	{
@@ -23549,7 +23549,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefMagical": .083 },
+		"stats": { "blockDefMagical": .1 },
 		"icon": "RUNE_DENIAL_3"
 	},
 	{
@@ -23576,7 +23576,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "resist": .111 },
+		"stats": { "resist": .2 },
 		"icon": "RUNE_RESISTANCE_5",
 		"ancient": true
 	},
@@ -23587,7 +23587,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefMagical": .038 },
+		"stats": { "blockDefMagical": .03 },
 		"icon": "RUNE_DENIAL_1"
 	},
 	{
@@ -23597,7 +23597,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "hp": .083 },
+		"stats": { "hp": .1 },
 		"icon": "RUNE_STAMINA_3"
 	},
 	{
@@ -23685,7 +23685,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockPhysical": .1 },
+		"stats": { "blockPhysical": .05 },
 		"icon": "RUNE_STEEL_2"
 	},
 	{
@@ -23729,7 +23729,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "red",
 		"parts": ["secondary"],
-		"stats": { "crit": .076 },
+		"stats": { "crit": .05 },
 		"icon": "RUNE_HEARTLESS_2"
 	},
 	{
@@ -23756,7 +23756,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "red",
 		"parts": ["secondary"],
-		"stats": { "crit": .048 },
+		"stats": { "crit": .03 },
 		"icon": "RUNE_HEARTLESS_1"
 	},
 	{
@@ -23817,7 +23817,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "manaAttack": .052 },
+		"stats": { "manaAttack": .1 },
 		"icon": "RUNE_AGITATION_2"
 	},
 	{
@@ -23861,7 +23861,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "pen": .111 },
+		"stats": { "pen": .2 },
 		"icon": "RUNE_SHARPNESS_5",
 		"ancient": true
 	},
@@ -23872,7 +23872,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughMagical": .076 },
+		"stats": { "toughMagical": .05 },
 		"icon": "RUNE_WILLPOWER_2"
 	},
 	{
@@ -23892,7 +23892,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughMagical": .133 },
+		"stats": { "toughMagical": .15 },
 		"icon": "RUNE_WILLPOWER_4"
 	},
 	{
@@ -24004,7 +24004,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgeMagical": .133 },
+		"stats": { "dodgeMagical": .15 },
 		"icon": "RUNE_FLEXIBILITY_4"
 	},
 	{
@@ -24014,7 +24014,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgeMagical": .105 },
+		"stats": { "dodgeMagical": .1 },
 		"icon": "RUNE_FLEXIBILITY_3"
 	},
 	{
@@ -24024,7 +24024,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defMagical": .133 },
+		"stats": { "defMagical": .3 },
 		"icon": "RUNE_PROTECTION_4"
 	},
 	{
@@ -24034,7 +24034,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defMagical": .19 },
+		"stats": { "defMagical": .5 },
 		"icon": "RUNE_PROTECTION_5"
 	},
 	{
@@ -24044,7 +24044,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockMagical": .063 },
+		"stats": { "blockMagical": .03 },
 		"icon": "RUNE_EXCLUSION_1"
 	},
 	{
@@ -24054,7 +24054,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefMagical": .128 },
+		"stats": { "blockDefMagical": .2 },
 		"icon": "RUNE_DENIAL_5",
 		"ancient": true
 	},
@@ -24065,7 +24065,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defMagical": .048 },
+		"stats": { "defMagical": .06 },
 		"icon": "RUNE_PROTECTION_1"
 	},
 	{
@@ -24075,7 +24075,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defMagical": .076 },
+		"stats": { "defMagical": .1 },
 		"icon": "RUNE_PROTECTION_2"
 	},
 	{
@@ -24102,7 +24102,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defMagical": .105 },
+		"stats": { "defMagical": .2 },
 		"icon": "RUNE_PROTECTION_3"
 	},
 	{
@@ -24112,7 +24112,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "speed": .091 },
+		"stats": { "speed": .075 },
 		"icon": "RUNE_SWIFTNESS_4"
 	},
 	{
@@ -24122,7 +24122,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "red",
 		"parts": ["secondary"],
-		"stats": { "crit": .19 },
+		"stats": { "crit": .25 },
 		"icon": "RUNE_HEARTLESS_5"
 	},
 	{
@@ -24132,7 +24132,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "lifesteal": .051 },
+		"stats": { "lifesteal": .2 },
 		"icon": "RUNE_THIRST_5",
 		"ancient": true
 	},
@@ -24177,7 +24177,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "speed": .033 },
+		"stats": { "speed": .015 },
 		"icon": "RUNE_SWIFTNESS_1"
 	},
 	{
@@ -24204,7 +24204,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "speed": .052 },
+		"stats": { "speed": .025 },
 		"icon": "RUNE_SWIFTNESS_2"
 	},
 	{
@@ -24231,7 +24231,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "green",
 		"parts": ["secondary"],
-		"stats": { "manaDamage": .138 },
+		"stats": { "manaDamage": .35 },
 		"icon": "RUNE_POTENTIAL_3"
 	},
 	{
@@ -24241,7 +24241,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defPhysical": .19 },
+		"stats": { "defPhysical": .5 },
 		"icon": "RUNE_PATIENCE_5"
 	},
 	{
@@ -24251,7 +24251,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defPhysical": .133 },
+		"stats": { "defPhysical": .3 },
 		"icon": "RUNE_PATIENCE_4"
 	},
 	{
@@ -24278,7 +24278,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defPhysical": .048 },
+		"stats": { "defPhysical": .06 },
 		"icon": "RUNE_PATIENCE_1"
 	},
 	{
@@ -24288,7 +24288,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "green",
 		"parts": ["secondary"],
-		"stats": { "manaDamage": .213 },
+		"stats": { "manaDamage": .6 },
 		"icon": "RUNE_POTENTIAL_5",
 		"ancient": true
 	},
@@ -24299,7 +24299,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "manaAttack": .072 },
+		"stats": { "manaAttack": .2 },
 		"icon": "RUNE_AGITATION_3"
 	},
 	{
@@ -24309,7 +24309,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "green",
 		"parts": ["secondary"],
-		"stats": { "manaDamage": .25 },
+		"stats": { "manaDamage": .75 },
 		"icon": "RUNE_POTENTIAL_5"
 	},
 	{
@@ -24319,7 +24319,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defPhysical": .105 },
+		"stats": { "defPhysical": .2 },
 		"icon": "RUNE_PATIENCE_3"
 	},
 	{
@@ -24329,7 +24329,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defPhysical": .076 },
+		"stats": { "defPhysical": .1 },
 		"icon": "RUNE_PATIENCE_2"
 	},
 	{
@@ -24339,7 +24339,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "manaAttack": .13 },
+		"stats": { "manaAttack": .5 },
 		"icon": "RUNE_AGITATION_5"
 	},
 	{
@@ -24366,7 +24366,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "resist": .13 },
+		"stats": { "resist": .25 },
 		"icon": "RUNE_RESISTANCE_5"
 	},
 	{
@@ -24376,7 +24376,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "resist": .091 },
+		"stats": { "resist": .15 },
 		"icon": "RUNE_RESISTANCE_4"
 	},
 	{
@@ -24403,7 +24403,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughMagical": .105 },
+		"stats": { "toughMagical": .1 },
 		"icon": "RUNE_WILLPOWER_3"
 	},
 	{
@@ -24413,7 +24413,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "resist": .033 },
+		"stats": { "resist": .03 },
 		"icon": "RUNE_RESISTANCE_1"
 	},
 	{
@@ -24440,7 +24440,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgePhysical": .133 },
+		"stats": { "dodgePhysical": .15 },
 		"icon": "RUNE_AGILITY_4"
 	},
 	{
@@ -24450,7 +24450,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "resist": .072 },
+		"stats": { "resist": .1 },
 		"icon": "RUNE_RESISTANCE_3"
 	},
 	{
@@ -24477,7 +24477,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "resist": .052 },
+		"stats": { "resist": .05 },
 		"icon": "RUNE_RESISTANCE_2"
 	},
 	{
@@ -24487,7 +24487,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgePhysical": .048 },
+		"stats": { "dodgePhysical": .03 },
 		"icon": "RUNE_AGILITY_1"
 	},
 	{
@@ -24514,7 +24514,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughMagical": .19 },
+		"stats": { "toughMagical": .25 },
 		"icon": "RUNE_WILLPOWER_5"
 	},
 	{
@@ -24524,7 +24524,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgePhysical": .076 },
+		"stats": { "dodgePhysical": .05 },
 		"icon": "RUNE_AGILITY_2"
 	},
 	{
@@ -24551,7 +24551,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "critDamage": .213 },
+		"stats": { "critDamage": .4 },
 		"icon": "RUNE_FRENZY_5",
 		"ancient": true
 	},
@@ -24579,7 +24579,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "acc": .052 },
+		"stats": { "acc": .05 },
 		"icon": "RUNE_PRECISION_2"
 	},
 	{
@@ -24589,7 +24589,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "defPhysical": .162 },
+		"stats": { "defPhysical": .4 },
 		"icon": "RUNE_PATIENCE_5",
 		"ancient": true
 	},
@@ -24600,7 +24600,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "acc": .033 },
+		"stats": { "acc": .03 },
 		"icon": "RUNE_PRECISION_1"
 	},
 	{
@@ -24610,7 +24610,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgeMagical": .076 },
+		"stats": { "dodgeMagical": .05 },
 		"icon": "RUNE_FLEXIBILITY_2"
 	},
 	{
@@ -24637,7 +24637,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgeMagical": .048 },
+		"stats": { "dodgeMagical": .03 },
 		"icon": "RUNE_FLEXIBILITY_1"
 	},
 	{
@@ -24657,7 +24657,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "pen": .072 },
+		"stats": { "pen": .1 },
 		"icon": "RUNE_SHARPNESS_3"
 	},
 	{
@@ -24684,7 +24684,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "pen": .091 },
+		"stats": { "pen": .15 },
 		"icon": "RUNE_SHARPNESS_4"
 	},
 	{
@@ -24694,7 +24694,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "critDamage": .138 },
+		"stats": { "critDamage": .2 },
 		"icon": "RUNE_FRENZY_3"
 	},
 	{
@@ -24704,7 +24704,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockMagical": .138 },
+		"stats": { "blockMagical": .1 },
 		"icon": "RUNE_EXCLUSION_3"
 	},
 	{
@@ -24724,7 +24724,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "critDamage": .063 },
+		"stats": { "critDamage": .06 },
 		"icon": "RUNE_FRENZY_1"
 	},
 	{
@@ -24778,7 +24778,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockMagical": .175 },
+		"stats": { "blockMagical": .15 },
 		"icon": "RUNE_EXCLUSION_4"
 	},
 	{
@@ -24856,7 +24856,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "critDamage": .25 },
+		"stats": { "critDamage": .5 },
 		"icon": "RUNE_FRENZY_5"
 	},
 	{
@@ -24866,7 +24866,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "critDamage": .175 },
+		"stats": { "critDamage": .3 },
 		"icon": "RUNE_FRENZY_4"
 	},
 	{
@@ -24876,7 +24876,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "speed": .072 },
+		"stats": { "speed": .05 },
 		"icon": "RUNE_SWIFTNESS_3"
 	},
 	{
@@ -24886,7 +24886,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "green",
 		"parts": ["secondary"],
-		"stats": { "manaDamage": .1 },
+		"stats": { "manaDamage": .2 },
 		"icon": "RUNE_POTENTIAL_2"
 	},
 	{
@@ -24913,7 +24913,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "green",
 		"parts": ["secondary"],
-		"stats": { "manaDamage": .063 },
+		"stats": { "manaDamage": .1 },
 		"icon": "RUNE_POTENTIAL_1"
 	},
 	{
@@ -24923,7 +24923,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "acc": .111 },
+		"stats": { "acc": .2 },
 		"icon": "RUNE_PRECISION_5",
 		"ancient": true
 	},
@@ -24968,7 +24968,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "green",
 		"parts": ["secondary"],
-		"stats": { "manaDamage": .175 },
+		"stats": { "manaDamage": .5 },
 		"icon": "RUNE_POTENTIAL_4"
 	},
 	{
@@ -24995,7 +24995,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughMagical": .162 },
+		"stats": { "toughMagical": .2 },
 		"icon": "RUNE_WILLPOWER_5",
 		"ancient": true
 	},
@@ -25023,7 +25023,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "red",
 		"parts": ["secondary"],
-		"stats": { "crit": .162 },
+		"stats": { "crit": .2 },
 		"icon": "RUNE_HEARTLESS_5",
 		"ancient": true
 	},
@@ -25034,7 +25034,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "manaAttack": .033 },
+		"stats": { "manaAttack": .05 },
 		"icon": "RUNE_AGITATION_1"
 	},
 	{
@@ -25129,7 +25129,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "hp": .105 },
+		"stats": { "hp": .15 },
 		"icon": "RUNE_STAMINA_4"
 	},
 	{
@@ -25173,7 +25173,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "hp": .038 },
+		"stats": { "hp": .03 },
 		"icon": "RUNE_STAMINA_1"
 	},
 	{
@@ -25183,7 +25183,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockPhysical": .213 },
+		"stats": { "blockPhysical": .2 },
 		"icon": "RUNE_STEEL_5",
 		"ancient": true
 	},
@@ -25194,7 +25194,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgePhysical": .162 },
+		"stats": { "dodgePhysical": .2 },
 		"icon": "RUNE_AGILITY_5",
 		"ancient": true
 	},
@@ -25256,7 +25256,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefPhysical": .128 },
+		"stats": { "blockDefPhysical": .2 },
 		"icon": "RUNE_IRONWALL_5",
 		"ancient": true
 	},
@@ -25301,7 +25301,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "acc": .13 },
+		"stats": { "acc": .25 },
 		"icon": "RUNE_PRECISION_5"
 	},
 	{
@@ -25328,7 +25328,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "atk": .06 },
+		"stats": { "atk": .05 },
 		"icon": "RUNE_FIERCE_2"
 	},
 	{
@@ -25338,7 +25338,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockPhysical": .138 },
+		"stats": { "blockPhysical": .1 },
 		"icon": "RUNE_STEEL_3"
 	},
 	{
@@ -25382,7 +25382,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "atk": .083 },
+		"stats": { "atk": .1 },
 		"icon": "RUNE_FIERCE_3"
 	},
 	{
@@ -25392,7 +25392,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "atk": .105 },
+		"stats": { "atk": .15 },
 		"icon": "RUNE_FIERCE_4"
 	},
 	{
@@ -25402,7 +25402,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgeMagical": .19 },
+		"stats": { "dodgeMagical": .25 },
 		"icon": "RUNE_FLEXIBILITY_5"
 	},
 	{
@@ -25412,7 +25412,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "atk": .15 },
+		"stats": { "atk": .25 },
 		"icon": "RUNE_FIERCE_5"
 	},
 	{
@@ -25439,7 +25439,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["secondary"],
-		"stats": { "dodgeMagical": .162 },
+		"stats": { "dodgeMagical": .2 },
 		"icon": "RUNE_FLEXIBILITY_5",
 		"ancient": true
 	},
@@ -25467,7 +25467,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "pen": .13 },
+		"stats": { "pen": .25 },
 		"icon": "RUNE_SHARPNESS_5"
 	},
 	{
@@ -25477,7 +25477,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughPhysical": .105 },
+		"stats": { "toughPhysical": .1 },
 		"icon": "RUNE_TOUGHNESS_3"
 	},
 	{
@@ -25582,7 +25582,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughPhysical": .19 },
+		"stats": { "toughPhysical": .25 },
 		"icon": "RUNE_TOUGHNESS_5"
 	},
 	{
@@ -25626,7 +25626,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "hp": .128 },
+		"stats": { "hp": .2 },
 		"icon": "RUNE_STAMINA_5",
 		"ancient": true
 	},
@@ -25637,7 +25637,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "toughPhysical": .162 },
+		"stats": { "toughPhysical": .2 },
 		"icon": "RUNE_TOUGHNESS_5",
 		"ancient": true
 	},
@@ -25682,7 +25682,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "manaAttack": .111 },
+		"stats": { "manaAttack": .4 },
 		"icon": "RUNE_AGITATION_5",
 		"ancient": true
 	},
@@ -25727,7 +25727,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefPhysical": .15 },
+		"stats": { "blockDefPhysical": .25 },
 		"icon": "RUNE_IRONWALL_5"
 	},
 	{
@@ -25737,7 +25737,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "lifesteal": .015 },
+		"stats": { "lifesteal": .03 },
 		"icon": "RUNE_THIRST_1"
 	},
 	{
@@ -25764,7 +25764,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefPhysical": .105 },
+		"stats": { "blockDefPhysical": .15 },
 		"icon": "RUNE_IRONWALL_4"
 	},
 	{
@@ -25774,7 +25774,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "lifesteal": .024 },
+		"stats": { "lifesteal": .05 },
 		"icon": "RUNE_THIRST_2"
 	},
 	{
@@ -25784,7 +25784,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefPhysical": .083 },
+		"stats": { "blockDefPhysical": .1 },
 		"icon": "RUNE_IRONWALL_3"
 	},
 	{
@@ -25794,7 +25794,7 @@ var KR_RUNES$1 = [
 		"grade": 3,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "lifesteal": .033 },
+		"stats": { "lifesteal": .1 },
 		"icon": "RUNE_THIRST_3"
 	},
 	{
@@ -25821,7 +25821,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefPhysical": .06 },
+		"stats": { "blockDefPhysical": .05 },
 		"icon": "RUNE_IRONWALL_2"
 	},
 	{
@@ -25831,7 +25831,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "lifesteal": .042 },
+		"stats": { "lifesteal": .15 },
 		"icon": "RUNE_THIRST_4"
 	},
 	{
@@ -25841,7 +25841,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "manaAttack": .091 },
+		"stats": { "manaAttack": .3 },
 		"icon": "RUNE_AGITATION_4"
 	},
 	{
@@ -25851,7 +25851,7 @@ var KR_RUNES$1 = [
 		"grade": 1,
 		"color": "blue",
 		"parts": ["weapon"],
-		"stats": { "blockDefPhysical": .038 },
+		"stats": { "blockDefPhysical": .03 },
 		"icon": "RUNE_IRONWALL_1"
 	},
 	{
@@ -25861,7 +25861,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "green",
 		"parts": ["weapon"],
-		"stats": { "lifesteal": .06 },
+		"stats": { "lifesteal": .25 },
 		"icon": "RUNE_THIRST_5"
 	},
 	{
@@ -25905,7 +25905,7 @@ var KR_RUNES$1 = [
 		"grade": 6,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "hp": .15 },
+		"stats": { "hp": .25 },
 		"icon": "RUNE_STAMINA_5"
 	},
 	{
@@ -25915,7 +25915,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "red",
 		"parts": ["weapon"],
-		"stats": { "atk": .128 },
+		"stats": { "atk": .2 },
 		"icon": "RUNE_FIERCE_5",
 		"ancient": true
 	},
@@ -25926,7 +25926,7 @@ var KR_RUNES$1 = [
 		"grade": 2,
 		"color": "green",
 		"parts": ["armor"],
-		"stats": { "hp": .06 },
+		"stats": { "hp": .05 },
 		"icon": "RUNE_STAMINA_2"
 	},
 	{
@@ -25953,7 +25953,7 @@ var KR_RUNES$1 = [
 		"grade": 5,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockMagical": .213 },
+		"stats": { "blockMagical": .2 },
 		"icon": "RUNE_EXCLUSION_5",
 		"ancient": true
 	},
@@ -25998,7 +25998,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "red",
 		"parts": ["armor"],
-		"stats": { "acc": .091 },
+		"stats": { "acc": .15 },
 		"icon": "RUNE_PRECISION_4"
 	},
 	{
@@ -26008,7 +26008,7 @@ var KR_RUNES$1 = [
 		"grade": 4,
 		"color": "blue",
 		"parts": ["armor"],
-		"stats": { "blockPhysical": .175 },
+		"stats": { "blockPhysical": .15 },
 		"icon": "RUNE_STEEL_4"
 	},
 	{
@@ -58453,7 +58453,7 @@ var HEROES = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "4f7a5e95f9ee";
+var SIM_VERSION = "64b5a786419e";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;

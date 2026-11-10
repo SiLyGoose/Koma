@@ -151,7 +151,7 @@ test('unique weapons: one for each hero, heroes only, only its own hero wields i
   assert.equal(raidValue('atkFlat', 96_209), 96_209);
   assert.match(heroItemLines(exian, 2).at(-1) ?? '', /^Klaus only, ★2: /);
   // Its three rune sockets: their runes count on its hero.
-  assert.equal(pieceBonus({ item: exian, level: 1, runes: ['fierce-5', null, null] }, 'knight', 'klaus').atk, 0.15);
+  assert.equal(pieceBonus({ item: exian, level: 1, runes: ['fierce-5', null, null] }, 'knight', 'klaus').atk, 0.25);
   const copies = [
     { _id: 'a', itemId: 'the-guardian-exian', level: 3 },
     { _id: 'c', itemId: 'judgment-edge-elicipira', level: 4 },
@@ -220,8 +220,8 @@ test("heroes: King's Raid's gear raises their stats: its main stat by its refine
   assert.equal(on.defPhysicalFlat, 54_997);
   assert.equal(on.atk, 0.16);
   assert.equal(on.critDamage, 0.24);
-  assert.deepEqual(heroItemLines(armor, 5, undefined, options, ['patience-5']), ['ATK +16%', 'Crit DMG +24%', 'P. DEF +19%']);
-  assert.equal(pieceBonus({ item: armor, level: 5, options, runes: ['patience-5'] }, 'warrior').defPhysical, 0.19);
+  assert.deepEqual(heroItemLines(armor, 5, undefined, options, ['patience-5']), ['ATK +16%', 'Crit DMG +24%', 'P. DEF +50%']);
+  assert.equal(pieceBonus({ item: armor, level: 5, options, runes: ['patience-5'] }, 'warrior').defPhysical, 0.5);
   // Not on another class.
   assert.ok(Object.values(pieceBonus({ item: armor, level: 5, options }, 'priest')).every((n) => n === 0));
   // A dragon set's bonuses: 2 pieces its 2-piece stats, 4 its 4-piece ones too (Opportune Fire: crit 180, then 270 more).
