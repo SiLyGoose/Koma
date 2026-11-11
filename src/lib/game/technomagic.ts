@@ -194,6 +194,19 @@ export function enhanceUtOptions(options: readonly TmPotential[], index: number,
   return options.map((option, i) => (i === index ? { ...option, value: rollPotentialValue(range, rng) } : option));
 }
 
+/**
+ * A unique treasure's `index`th option rolled again (UT_REROLL): another potential, none of the copy's options' (its own
+ * included: a reroll always changes the stat; enhancing rolls only the amount), at an amount anywhere in its range. Null: no
+ * such option, or no potential left to roll.
+ */
+export function rerollUtOption(options: readonly TmPotential[], index: number, rng: TmRng = defaultRng): TmPotential | null {
+  if (!Number.isInteger(index) || !options[index]) return null;
+  const held = new Set(options.map((option) => option.stat));
+  const pool = TM_POTENTIAL_IDS.filter((stat) => !held.has(stat) && CONFIG.hero.potentials[stat]);
+  const stat = pool[rng.index(pool.length)];
+  return pool.length > 0 && stat !== undefined ? { stat, value: rollPotentialValue(CONFIG.hero.potentials[stat], rng) } : null;
+}
+
 /** A copy's potentials to the nearest whole percent: null if they already are (as the copies from before that were not). */
 export function wholePotentials(potentials: readonly TmPotential[]): TmPotential[] | null {
   const whole = potentials.map(({ stat, value }) => ({ stat, value: wholePercent(value) }));

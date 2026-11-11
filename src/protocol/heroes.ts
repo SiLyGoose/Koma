@@ -131,7 +131,7 @@ export type HeroRuneStack = HeroRune & { count: number; parts: HeroPart[] };
 
 /**
  * One of a copy's options (a unique treasure's: its potentials): its stat, its line ("ATK +14%"), its step of `steps` (an upgrade
- * rolls one's again), and what rerolling it costs (a unique treasure's: 0, never rerolled).
+ * rolls one's again), and what rerolling it costs (a unique treasure's: UT_REROLL's points).
  */
 export interface HeroOption {
   stat: string;

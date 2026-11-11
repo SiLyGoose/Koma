@@ -7,8 +7,8 @@ import { ITEMS_BY_ID } from '../data/items.js';
 import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
-import { enhanceUtOptions, rollTmSkill } from '../lib/game/technomagic.js';
-import { UT_ENHANCE } from '../data/tm-potentials.js';
+import { enhanceUtOptions, rerollUtOption, rollTmSkill } from '../lib/game/technomagic.js';
+import { UT_ENHANCE, UT_REROLL } from '../data/tm-potentials.js';
 import type { HeroKeep, HeroOptionError, HeroRestoreError, HeroRuneError } from '../protocol/heroes.js';
 import type { ItemCopyDoc, ItemDef } from '../types.js';
 import { recordLedger } from './economy/shared.js';
@@ -156,12 +156,29 @@ export async function restoreTmPiece(guildId: string, userId: string, copyId: st
  * rerolled (a TechnoMagic piece's: TM_CRYSTALS.reroll of its set's Boss Crystals, King's Raid's; too few: 'no_crystals'); or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
  * and TM_CRYSTALS.skillReroll of its set's Boss Crystals (too few: 'no_gems', 'no_crystals'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
  * and till then it isn't rerolled again ('pending'). An option rolled waits the same (optionPending, keepOption: King's Raid's
- * Reforge keeps the old one or the new), and till then none of its options is rerolled or enhanced.
+ * Reforge keeps the old one or the new), and till then none of its options is rerolled or enhanced. A unique treasure's option
+ * (one of its tmPotentials): another potential, for UT_REROLL's points, waiting the same (potentialPending).
  */
 export async function rerollOption(guildId: string, userId: string, copyId: string, index: number | 'unique', rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
+  // A unique treasure's option: another potential, for UT_REROLL's points, waiting beside the one it has (potentialPending).
+  if (copy && item?.uniqueTreasure) {
+    if (index === 'unique') return { ok: false, reason: 'no_option' };
+    const options = copy.tmPotentials ?? [];
+    if (copy.potentialPending !== undefined) return { ok: false, reason: 'pending' };
+    const rolled = rerollUtOption(options, index, rng);
+    if (!rolled) return { ok: false, reason: 'no_option' };
+    if (!(await pay(guildId, userId, UT_REROLL.price))) return { ok: false, reason: 'too_poor' };
+    const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options, potentialPending: { $exists: false } }, { $set: { potentialPending: { index, option: rolled } } });
+    if (done.modifiedCount === 0) {
+      await refund(guildId, userId, UT_REROLL.price);
+      return { ok: false, reason: 'busy' };
+    }
+    await recordLedger([{ guildId, userId, delta: -UT_REROLL.price, reason: 'kr_reroll', itemId: item.id }]);
+    return { ok: true };
+  }
   const kr = item?.kr;
   if (!copy || !item || !kr) return { ok: false, reason: 'not_found' };
   if (index === 'unique') {
@@ -253,6 +270,19 @@ export async function keepOption(guildId: string, userId: string, copyId: string
   const { items } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   if (!copy) return { ok: false, reason: 'not_found' };
+  // (A unique treasure's: its potentials'.)
+  if (copy.potentialPending !== undefined || ITEMS_BY_ID.get(copy.itemId)?.uniqueTreasure) {
+    const waiting = copy.potentialPending;
+    const potentials = copy.tmPotentials ?? [];
+    if (!waiting || !potentials[waiting.index] || waiting.index !== index) return { ok: false, reason: 'no_option' };
+    const done = await items.updateOne(
+      { guildId, userId, _id: copyId, tmPotentials: potentials, potentialPending: waiting },
+      keep === 'new' ? { $set: { tmPotentials: potentials.map((one, i) => (i === waiting.index ? waiting.option : one)) }, $unset: { potentialPending: '' } } : { $unset: { potentialPending: '' } },
+    );
+    if (done.modifiedCount === 0) return { ok: false, reason: 'busy' };
+    gearChanged(guildId, userId);
+    return { ok: true };
+  }
   const rolled = copy.optionPending;
   const options = copy.options ?? [];
   const old = rolled ? options[rolled.index] : undefined;
@@ -274,11 +304,13 @@ export async function upgradeOption(guildId: string, userId: string, copyId: str
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
   if (copy && item?.uniqueTreasure) {
+    // (A rerolled option not yet kept: the member picks first.)
+    if (copy.potentialPending !== undefined) return { ok: false, reason: 'pending' };
     const options = copy.tmPotentials ?? [];
     const after = enhanceUtOptions(options, index, rng);
     if (!after) return { ok: false, reason: 'no_option' };
     if (!(await pay(guildId, userId, UT_ENHANCE.price))) return { ok: false, reason: 'too_poor' };
-    const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options }, { $set: { tmPotentials: after } });
+    const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options, potentialPending: { $exists: false } }, { $set: { tmPotentials: after } });
     if (done.modifiedCount === 0) {
       await refund(guildId, userId, UT_ENHANCE.price);
       return { ok: false, reason: 'busy' };

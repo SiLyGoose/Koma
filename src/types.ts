@@ -577,6 +577,12 @@ export interface ItemCopyDoc {
    * means none waits.
    */
   optionPending?: { index: number; option: KrOption };
+  /**
+   * A unique treasure: the option (potential) its last reroll rolled (its `index`th's, as tmPotentials has them), waiting for
+   * the member to keep it or the one it has (services/kr-gear.ts's keepOption); until then the copy has its tmPotentials, and
+   * none of them is rerolled or enhanced. Missing means none waits.
+   */
+  potentialPending?: { index: number; option: TmPotential };
   /** King's Raid's hero gear (ItemDef.kr): the options this copy rolled as it dropped (data/kr-gear.ts). Missing on any other copy. */
   options?: KrOption[];
   /**
