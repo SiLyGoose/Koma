@@ -313,7 +313,8 @@ export interface DivineRun {
     } | null;
 }
 /**
- * The most steps a run can take: MOST_TICKS for the TechnoMagic Raid and the Dragon Raid; a Divine Punishment boss's, its own
+ * The most steps a run can take: MOST_TICKS for the TechnoMagic Raid and the Dragon Raid (Ascalon's, each of his waves' time and
+ * rage, and the runs on between them); a Divine Punishment boss's, its own
  * time and rage (Armarta's 600 seconds, Luciteron's 120 and none), and a karma dungeon's with its card picks besides (the fight
  * stands still while the heroes pick: as many as its most waves). Its inputs are read up to it (readInputs), and a replay goes on
  * to it.

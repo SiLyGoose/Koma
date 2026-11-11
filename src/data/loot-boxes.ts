@@ -37,10 +37,15 @@ const range = (n: number): number[] => Array.from({ length: n }, (_, i) => i + 1
 /** A dragon's Normal stage as King's Raid's tier and stage: 1 to 10 are T3 to T7, two each; 11 to 20, T8's 1 to 10. */
 const normalTier = (stage: number): { tier: number; at: number } => (stage <= 10 ? { tier: 3 + Math.floor((stage - 1) / 2), at: ((stage - 1) % 2) + 1 } : { tier: 8, at: stage - 10 });
 
-/** Each TechnoMagic Raid boss as King's Raid's Dispatch Battle Loot names it: its code, and its name. */
-const TM_BOXES: Readonly<Record<string, { code: string; name: string }>> = {
+/**
+ * Each TechnoMagic Raid boss as King's Raid's Dispatch Battle Loot names it: its code, and its name; and its box's picture
+ * where it isn't its code's (`icon`: Ascalon's BOX_NONIDENTIFIED_TECHNOMAGIC_ASCALON is named in the playtest but not
+ * drawn in any of its atlases, so his boxes show Siegfried's).
+ */
+const TM_BOXES: Readonly<Record<string, { code: string; name: string; icon?: string }>> = {
   galgoria: { code: 'GARGORIA', name: 'Galgoria' },
   siegfried: { code: 'SIEGFRIED', name: 'Siegfried' },
+  ascalon: { code: 'ASCALON', name: 'Ascalon', icon: 'BOX_NONIDENTIFIED_TECHNOMAGIC_SIEGFRIED' },
 };
 
 export const LOOT_BOXES: readonly LootBoxDef[] = [
@@ -53,7 +58,7 @@ export const LOOT_BOXES: readonly LootBoxDef[] = [
         boss,
         mode: 'hard',
         stage,
-        icon: `BOX_NONIDENTIFIED_TECHNOMAGIC_${tm.code}`,
+        icon: tm.icon ?? `BOX_NONIDENTIFIED_TECHNOMAGIC_${tm.code}`,
       }),
     ),
   ),

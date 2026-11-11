@@ -48,7 +48,7 @@ export const technomagic: Command = {
   name: 'technomagic',
   category: 'adventure',
   aliases: ['tm', 'tmraid'],
-  description: "The TechnoMagic Raid on the Koma site: bring your heroes against Galgoria and Siegfried together, as in King's Raid. Wins give TechnoMagic gear.",
+  description: "The TechnoMagic Raid on the Koma site: bring your heroes against Galgoria, Siegfried and Ascalon together, as in King's Raid. Wins give TechnoMagic gear.",
 
   async execute(ctx) {
     const config = webConfig();
