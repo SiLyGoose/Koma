@@ -16,6 +16,7 @@ export function divineRoutes(deps: ApiDeps): Router {
 
   return Router()
     .get('/', ...siteOrLink, divine.view)
+    .get('/rewards', ...siteOrLink, divine.rewards)
     .post('/open', ...siteOrLink, divine.open)
     .post('/reset', ...siteOrLink, divine.reset)
     .post('/void', ...site, divine.buyVoid)

@@ -10,19 +10,26 @@ import {
   DIVINE_GROUPS,
   DIVINE_INFO,
   DIVINE_LEVELS,
+  dungeonsOf,
   enterRefusal,
+  finalLines,
+  finalRow,
   highestOpenable,
   KARMA_OPEN_PRICE,
   KR_BLASPHEMY,
   lineText,
   openingOpen,
+  rewardLevelFirst,
+  rewardLevels,
+  sideLines,
+  sumLines,
   windowLive,
   type BlasphemyRuneData,
   type DivineBossInfo,
 } from '../../lib/game/divine.js';
 import { krLine, HERO_STATS } from '../../lib/game/heroes.js';
 import type { HeroStat } from '../../protocol/heroes.js';
-import type { BlasphemyView, DivineError, DivineGroupView, DivineView, DpFragment, ShardTier, VoidSocket } from '../../protocol/divine.js';
+import type { BlasphemyView, DivineError, DivineGroupView, DivineRewardItem, DivineRewardsView, DivineView, DpFragment, ShardTier, VoidSocket } from '../../protocol/divine.js';
 import {
   breakBlasphemy,
   breakSocketedBlasphemy,
@@ -42,7 +49,7 @@ import {
   type DivineResult,
 } from '../../services/divine.js';
 import type { SelectorPick } from '../../services/mail.js';
-import type { BlasphemyCopyDoc, DivineGroupId, MemberDoc } from '../../types.js';
+import type { BlasphemyCopyDoc, DivineGroupDoc, DivineGroupId, MemberDoc } from '../../types.js';
 
 /*
  * The Divine Punishment Raid's page (/api/divine): the member's openings, counters, shop, crafting and Runes of Blasphemy as the
@@ -136,6 +143,49 @@ export function divineView(
   };
 }
 
+/** Every set of `sides` (the empty set first, then by size, each in their order). */
+function subsets(sides: readonly string[]): string[][] {
+  const out: string[][] = [[]];
+  for (let size = 1; size <= sides.length; size++) {
+    const pick = (from: number, chosen: string[]): void => {
+      if (chosen.length === size) return void out.push(chosen);
+      for (let i = from; i < sides.length; i++) pick(i + 1, [...chosen, sides[i] as string]);
+    };
+    pick(0, []);
+  }
+  return out;
+}
+
+/**
+ * A group's Reward List at `level` (King's Raid's PunishmentRaidRewardInfoPopup), read from the lines a win pays (lib/game/divine.ts
+ * sideLines, finalLines): its final boss's Clear Reward and its win by each set of side bosses cleared its table has, and each side
+ * boss's Sub reward. No level: the one King's Raid's opens at (the opening's, else the one after the best). Refused: a level not 1
+ * to five past the best.
+ */
+export function rewardsView(state: DivineGroupDoc | undefined, group: DivineGroupId, level: number | undefined, now: Date = new Date(), info: readonly DivineBossInfo[] = DIVINE_INFO): DivineRewardsView | 'bad_level' {
+  const most = rewardLevels(state);
+  const at = level ?? rewardLevelFirst(state, now);
+  if (!Number.isInteger(at) || at < 1 || at > most) return 'bad_level';
+  const items = (lines: ReturnType<typeof sideLines>): DivineRewardItem[] => sumLines(lines).map((line) => ({ key: line.key, count: line.count, ...(line.ratio !== undefined && { ratio: line.ratio }) }));
+  const final = dungeonsOf(group, 'final', info)[0];
+  const sides = dungeonsOf(group, 'side', info);
+  const finalId = final?.id ?? group;
+  return {
+    group,
+    level: at,
+    most,
+    final: {
+      id: finalId,
+      name: final?.name ?? GROUP_NAME[group],
+      items: items(finalLines(finalId, [], at)),
+      byCleared: subsets(sides.map((one) => one.id))
+        .filter((cleared) => finalRow(finalId, cleared))
+        .map((cleared) => ({ cleared, items: items(finalLines(finalId, cleared, at)) })),
+    },
+    sides: sides.map((one) => ({ id: one.id, name: one.name, items: items(sideLines(one.id, at)) })),
+  };
+}
+
 /** The member's view, read. */
 async function load(guildId: string, userId: string): Promise<DivineView> {
   const [member, socketed] = await Promise.all([collections().members.findOne({ guildId, userId }), socketedBlasphemy(guildId, userId)]);
@@ -145,6 +195,7 @@ async function load(guildId: string, userId: string): Promise<DivineView> {
 /** The Divine Punishment page's reads and changes (the database's; tests stand in for it). */
 export interface DivineStore {
   view: (guildId: string, userId: string) => Promise<DivineView>;
+  rewards: (guildId: string, userId: string, group: DivineGroupId, level?: number) => Promise<DivineRewardsView | DivineError>;
   open: (guildId: string, userId: string, group: DivineGroupId, type: 'boss' | 'karma', level?: number) => Promise<DivineView | DivineError>;
   reset: (guildId: string, userId: string, group: DivineGroupId) => Promise<DivineView | DivineError>;
   buyVoid: (guildId: string, userId: string, socket: VoidSocket, count: number) => Promise<DivineView | DivineError>;
@@ -168,6 +219,10 @@ async function afterWith<T, K extends string>(guildId: string, userId: string, r
 
 export const divineStore: DivineStore = {
   view: load,
+  async rewards(guildId, userId, group, level) {
+    const member = await collections().members.findOne({ guildId, userId }, { projection: { divine: 1 } });
+    return rewardsView(member?.divine?.[group], group, level);
+  },
   open: async (guildId, userId, group, type, level) => after(guildId, userId, await openDivine(guildId, userId, group, type, level)),
   reset: async (guildId, userId, group) => after(guildId, userId, await resetDivine(guildId, userId, group)),
   buyVoid: async (guildId, userId, socket, count) => after(guildId, userId, await buyVoidRunes(guildId, userId, socket, count)),

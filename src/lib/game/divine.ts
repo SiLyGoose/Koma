@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { BLASPHEMY_STORAGE, KARMA_BONUS } from '../../constants/divine.js';
 import type { RaidClassId } from '../../constants/raid.js';
-import { BLASPHEMY_BLOOD, BLASPHEMY_FRACTION, BLASPHEMY_FRAGMENTS, DP_ALIVE_SECONDS, DP_FIXED, DP_KARMA_EXPONENT, DP_KARMA_REWARDS, DP_OPEN, DP_RAID_REWARDS, DP_SCALED, DP_SCALED_GROUPS } from '../../data/divine-kr.js';
+import { BLASPHEMY_BLOOD, BLASPHEMY_FRACTION, BLASPHEMY_FRAGMENTS, DP_ALIVE_SECONDS, DP_FIXED, DP_KARMA_EXPONENT, DP_KARMA_REWARDS, DP_OPEN, DP_RAID_REWARDS, DP_REWARD_LEVELS, DP_SCALED, DP_SCALED_GROUPS } from '../../data/divine-kr.js';
 import { HERO_STAT_IDS, type HeroStat } from '../../protocol/heroes.js';
 import type { BlasphemyCopyDoc, DivineBossDoc, DivineGroupDoc, DivineGroupId, DpFragment, ItemDef, ShardTier, VoidSocket } from '../../types.js';
 import * as sim from '../../../vendor/technomagic-sim.mjs';
@@ -189,20 +189,47 @@ export const scaledAt = (index: number, level: number): number => {
   return values[Math.min(values.length, Math.max(1, Math.floor(level))) - 1] ?? 0;
 };
 
-/** A scaled group's rewards at `level` into `pay`: each row's count, or (a ratio row, the Unique Gear Ticket) one by its chance in thousandths. */
-export function addScaled(pay: DivinePay, group: number, level: number, rng: DivineRng = defaultRng): void {
-  for (const index of DP_SCALED_GROUPS[group] ?? []) {
-    const row = DP_SCALED[index];
-    if (!row) continue;
-    const value = scaledAt(index, level);
-    addKey(pay, row.key, row.ratio ? Number(rng.index(1000) < value) : value);
-  }
+/**
+ * One thing a reward row gives: a reward key (data/divine-kr.ts's: 'blood.<group>', a fragment, 'legendary', 'ticket',
+ * 'empty.<tier>') and how many, or (a ratio row: KR's IsRatio, the Unique Gear Ticket's) one by its chance `ratio` in thousandths.
+ * A win pays its lines (payLines); the Reward List shows the same lines (rewardList), so the two never differ.
+ */
+export interface RewardLine {
+  key: string;
+  count: number;
+  ratio?: number;
 }
 
-/** A fixed reward row into `pay`, `times` over. */
-export function addFixed(pay: DivinePay, row: number, times = 1): void {
-  for (const [key, n] of Object.entries(DP_FIXED[row] ?? {})) addKey(pay, key, n * times);
+/** A fixed reward row's lines, `times` over. */
+export const fixedLines = (row: number, times = 1): RewardLine[] => Object.entries(DP_FIXED[row] ?? {}).map(([key, n]) => ({ key, count: n * times }));
+
+/** A scaled group's lines at `level`: each row's count, or (a ratio row) one by its chance at the level. */
+export function scaledLines(group: number, level: number): RewardLine[] {
+  return (DP_SCALED_GROUPS[group] ?? []).flatMap((index) => {
+    const row = DP_SCALED[index];
+    if (!row) return [];
+    const value = scaledAt(index, level);
+    return [row.ratio ? { key: row.key, count: 1, ratio: value } : { key: row.key, count: value }];
+  });
 }
+
+/** `lines` into `pay`: each count, and each ratio line one by its chance (rolled in order). */
+export function addLines(pay: DivinePay, lines: readonly RewardLine[], rng: DivineRng = defaultRng): void {
+  for (const line of lines) addKey(pay, line.key, line.ratio !== undefined ? Number(rng.index(1000) < line.ratio) : line.count);
+}
+
+/** What `lines` pay (addLines). */
+export function payLines(lines: readonly RewardLine[], rng: DivineRng = defaultRng): DivinePay {
+  const pay = noPay();
+  addLines(pay, lines, rng);
+  return pay;
+}
+
+/** A scaled group's rewards at `level` into `pay`: each row's count, or (a ratio row, the Unique Gear Ticket) one by its chance in thousandths. */
+export const addScaled = (pay: DivinePay, group: number, level: number, rng: DivineRng = defaultRng): void => addLines(pay, scaledLines(group, level), rng);
+
+/** A fixed reward row into `pay`, `times` over. */
+export const addFixed = (pay: DivinePay, row: number, times = 1): void => addLines(pay, fixedLines(row, times));
 
 /** The PunishmentRaidRewardTable row a side boss's win pays (its Sub row). */
 export const sideRow = (boss: string): (typeof DP_RAID_REWARDS)[number] | undefined => DP_RAID_REWARDS.find((row) => row.kind === 'sub' && row.set.length === 1 && row.set[0] === boss);
@@ -213,29 +240,46 @@ export function finalRow(final: string, cleared: readonly string[]): (typeof DP_
   return DP_RAID_REWARDS.find((row) => row.kind === 'active' && row.set.includes(final) && row.set.length === set.size && row.set.every((id) => set.has(id)));
 }
 
-/** A side boss's win at `level`: its Sub row's fixed reward and its scaled group (KR's 301 for a dragon, 401 for a mid-boss) at the level. */
-export function sideReward(boss: string, level: number, rng: DivineRng = defaultRng): DivinePay {
-  const pay = noPay();
+/** A side boss's win's lines at `level`: its Sub row's fixed reward, then its scaled group (KR's 301 for a dragon, 401 for a mid-boss) at the level. */
+export function sideLines(boss: string, level: number): RewardLine[] {
   const row = sideRow(boss);
-  if (!row) return pay;
-  addFixed(pay, row.reward);
-  addScaled(pay, row.group, level, rng);
-  return pay;
+  return row ? [...fixedLines(row.reward), ...scaledLines(row.group, level)] : [];
 }
+
+/** A final boss's win's lines at `level` with `cleared` side bosses in the opening: the Active row for that set, its fixed reward, then its scaled group. */
+export function finalLines(final: string, cleared: readonly string[], level: number): RewardLine[] {
+  const row = finalRow(final, cleared);
+  return row ? [...fixedLines(row.reward), ...scaledLines(row.group, level)] : [];
+}
+
+/** A side boss's win at `level`: its Sub row's fixed reward and its scaled group at the level (sideLines). */
+export const sideReward = (boss: string, level: number, rng: DivineRng = defaultRng): DivinePay => payLines(sideLines(boss, level), rng);
 
 /**
  * A final boss's win at `level` with `cleared` side bosses in the opening: the Active row for that set, its fixed reward and its
  * scaled group (Apocalypsion 100/101/102 by dragons cleared 0/1/2: fewer more; Solenis 200/201/202 by mid-bosses cleared: more more),
- * the group's Unique Gear Ticket by its chance at the level. (KR's quirk kept: Solenis' fixed rows give Apocalypsion's fragments.)
+ * the group's Unique Gear Ticket by its chance at the level (finalLines). (KR's quirk kept: Solenis' fixed rows give Apocalypsion's fragments.)
  */
-export function finalReward(final: string, cleared: readonly string[], level: number, rng: DivineRng = defaultRng): DivinePay {
-  const pay = noPay();
-  const row = finalRow(final, cleared);
-  if (!row) return pay;
-  addFixed(pay, row.reward);
-  addScaled(pay, row.group, level, rng);
-  return pay;
+export const finalReward = (final: string, cleared: readonly string[], level: number, rng: DivineRng = defaultRng): DivinePay => payLines(finalLines(final, cleared, level), rng);
+
+/** The same lines added up by what they give (a ratio line kept apart, with its chance), in the order each first comes: as the Reward List shows them. */
+export function sumLines(lines: readonly RewardLine[]): RewardLine[] {
+  const out: RewardLine[] = [];
+  for (const line of lines) {
+    const same = line.ratio === undefined ? out.find((one) => one.key === line.key && one.ratio === undefined) : undefined;
+    if (same) same.count += line.count;
+    else if (line.ratio !== undefined && line.ratio <= 0) continue;
+    else out.push({ ...line });
+  }
+  return out.filter((line) => line.count > 0);
 }
+
+/** The highest level the Reward List shows: five past the best (KR's ClearLevel + 5), at most the levels its rewards are tabled for. */
+export const rewardLevels = (group: DivineGroupDoc | undefined): number => Math.max(1, Math.min(DP_REWARD_LEVELS, (group?.best ?? 0) + 5));
+
+/** The level the Reward List opens at (KR's): the opening's while one is open, else the one after the best. */
+export const rewardLevelFirst = (group: DivineGroupDoc | undefined, now: Date): number =>
+  Math.min(rewardLevels(group), openingOpen(group?.boss, now) ? (group?.boss?.level ?? 1) : (group?.best ?? 0) + 1);
 
 /** KarmaRewardExponentialTable's factor for wave `wave`: the row with the highest level at or under it (1 below the first). */
 export const karmaExponent = (wave: number): number => DP_KARMA_EXPONENT.filter((row) => row.level <= wave).at(-1)?.value ?? 1;

@@ -9,6 +9,8 @@ import { CopyId, parse } from '../lib/validate.js';
 const Group = z.enum(['apocalypsion', 'solenis']);
 const Open = z.object({ group: Group, type: z.enum(['boss', 'karma']), level: z.number().int().min(1).max(10_000).optional() });
 const Reset = z.object({ group: Group });
+/** A group's Reward List: at a level, or (none said) the one King's Raid's opens at. */
+const Rewards = z.object({ group: Group, level: z.coerce.number().int().min(1).max(10_000).nullish() });
 const Void = z.object({ socket: z.enum(['doh', 'laz', 'geb', 'oth', 'ans']), count: z.number().int().min(1).max(100).optional() });
 const Artifact = z.object({ fragment: z.enum(['doomstone', 'tear', 'fuel', 'engraving']) });
 const Ticket = z.object({ of: z.enum(['uw', 'ut']), hero: z.string().min(1).max(64), skill: z.number().int().min(1).max(4).optional() });
@@ -27,6 +29,10 @@ export function divineController(divine: DivineService) {
   return {
     async view(_req, res) {
       res.json(await divine.view(...who(res)));
+    },
+    async rewards(req, res) {
+      const { group, level } = parse(Rewards, req.query);
+      res.json(await divine.rewards(...who(res), group, level ?? undefined));
     },
     async open(req, res) {
       const { group, type, level } = parse(Open, req.body);

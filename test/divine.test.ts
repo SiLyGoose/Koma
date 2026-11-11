@@ -40,13 +40,14 @@ import {
 import { pieceBonus, raidGear, runeBonus } from '../src/lib/game/heroes.js';
 import { ingredientRefusal, nextExtension, payInc, socketedIn } from '../src/services/divine.js';
 import { DivineRefusal } from '../src/services/divine.js';
-import { divineView } from '../src/web/models/divine.js';
+import { divineView, rewardsView } from '../src/web/models/divine.js';
 import { parseClientMessage, type RoomState, type ServerMessage } from '../src/web/games/technomagic/protocol.js';
 import { DIVINE_RAID, TechnoMagicRooms, type Peer, type RoomDeps } from '../src/web/games/technomagic/room.js';
 import type { Fights, Progress } from '../src/web/games/technomagic/fight.js';
 import type { BegunRun } from '../src/services/technomagic.js';
 import type { Player } from '../src/web/auth/token.js';
 import type { BlasphemyCopyDoc, DivineBossDoc, DivineGroupDoc, ItemDef, MemberDoc } from '../src/types.js';
+import type { DivineRewardItem, DivineRewardsView } from '../src/protocol/divine.js';
 import type { Run } from '../vendor/technomagic-sim.mjs';
 
 /*
@@ -196,6 +197,75 @@ test("divine rewards: a final boss's Active row by the side bosses cleared, more
   assert.deepEqual([both.blood, both.fragments.engraving, both.legendary], [{ solenis: 6 }, 60, 6]);
   const alone = finalReward('solenis', [], 1, always('max'));
   assert.deepEqual([alone.blood, alone.fragments.engraving], [{ solenis: 4 }, 42]);
+});
+
+/** What a Reward List's items come to, each count summed by what it gives, a chance hit (`hit`) or missed (a certain one, 1,000‰, always hit): as a DivinePay's counters. */
+function listed(items: readonly DivineRewardItem[], hit: boolean): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const item of items) if (item.ratio === undefined || hit || item.ratio >= 1000) out[item.key] = (out[item.key] ?? 0) + item.count;
+  return out;
+}
+/** A win's pay as the same counters. */
+const counters = (pay: ReturnType<typeof finalReward>): Record<string, number> => {
+  const out: Record<string, number> = {};
+  for (const [group, n] of Object.entries(pay.blood)) out[`blood.${group}`] = n;
+  for (const [fragment, n] of Object.entries(pay.fragments)) out[fragment] = n;
+  for (const [tier, n] of Object.entries(pay.empty)) out[`empty.${tier}`] = n;
+  if (pay.legendary) out.legendary = pay.legendary;
+  if (pay.tickets) out.ticket = pay.tickets;
+  return out;
+};
+
+test("divine reward list: King's Raid's levels (1 to five past the best, opening at the opening's or the one after the best), the rows a win pays", () => {
+  const fresh = rewardsView(undefined, 'apocalypsion', undefined, NOW) as DivineRewardsView;
+  assert.deepEqual([fresh.level, fresh.most], [1, 5]);
+  assert.equal((rewardsView({ best: 7 }, 'apocalypsion', undefined, NOW) as DivineRewardsView).level, 8, 'none open: the one after the best');
+  const open = rewardsView({ best: 7, boss: opened({ level: 6, cleared: ['dp-scalaxia'] }) }, 'apocalypsion', undefined, later(1000)) as DivineRewardsView;
+  assert.deepEqual([open.level, open.most], [6, 12]);
+  assert.equal(rewardsView({ best: 7 }, 'apocalypsion', 13, NOW), 'bad_level');
+  assert.equal(rewardsView({ best: 7 }, 'apocalypsion', 0, NOW), 'bad_level');
+  assert.equal((rewardsView({ best: 500 }, 'apocalypsion', undefined, NOW) as DivineRewardsView).most, 110, 'at most the levels tabled');
+
+  // Level 1, her Clear Reward (70010050 + group 100), summed: the scaled ticket apart, as its chance.
+  assert.deepEqual(fresh.final.items, [
+    { key: 'legendary', count: 10 },
+    { key: 'tear', count: 1_560 },
+    { key: 'ticket', count: 1 },
+    { key: 'doomstone', count: 1_000 },
+    { key: 'blood.apocalypsion', count: 6 },
+    { key: 'ticket', count: 1, ratio: 200 },
+  ]);
+  assert.deepEqual(fresh.sides.map((one) => one.id), ['dp-temeraire', 'dp-scalaxia', 'dp-zyrrkinoth', 'dp-armarta']);
+  assert.deepEqual(fresh.sides[0]?.items, [
+    { key: 'doomstone', count: 250 },
+    { key: 'legendary', count: 2 },
+    { key: 'tear', count: 309 },
+    { key: 'blood.apocalypsion', count: 1 },
+  ]);
+  // Every set her table has: none, each dragon, each two.
+  assert.deepEqual(fresh.final.byCleared.map((one) => one.cleared.length), [0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2]);
+  assert.deepEqual(fresh.final.byCleared[0]?.items, fresh.final.items);
+
+  for (const level of [1, 7, 20, 21, 55, 110]) {
+    const list = rewardsView({ best: 200 }, 'apocalypsion', level, NOW) as DivineRewardsView;
+    for (const one of list.final.byCleared) {
+      for (const hit of [true, false]) assert.deepEqual(listed(one.items, hit), counters(finalReward('apocalypsion', one.cleared, level, always(hit ? 0 : 'max'))), `her win at ${level} with ${one.cleared.join('+') || 'none'}, the ticket ${hit ? 'hit' : 'missed'}`);
+    }
+    for (const side of list.sides) assert.deepEqual(listed(side.items, false), counters(sideReward(side.id, level)), `${side.id} at ${level}`);
+    // A dragon cleared takes its Sub reward off hers: "Whenever you clear each Dragon dungeon, Apocalypsion's dynamic rewards are reduced".
+    const none = listed(list.final.items, false);
+    for (const side of list.sides) {
+      const less = listed(list.final.byCleared.find((one) => one.cleared.length === 1 && one.cleared[0] === side.id)?.items ?? [], false);
+      const sub = listed(side.items, false);
+      for (const key of Object.keys(none)) assert.equal((none[key] ?? 0) - (less[key] ?? 0), sub[key] ?? 0, `${side.id} at ${level}: ${key}`);
+    }
+  }
+
+  // Solenis: her two mid-bosses, and more with each cleared.
+  const solenis = rewardsView(undefined, 'solenis', 3, NOW) as DivineRewardsView;
+  assert.deepEqual(solenis.sides.map((one) => one.id), ['luciteron', 'altigma']);
+  assert.deepEqual(solenis.final.byCleared.map((one) => one.cleared), [[], ['luciteron'], ['altigma'], ['luciteron', 'altigma']]);
+  assert.ok(listed(solenis.final.byCleared[3]!.items, false)['blood.solenis']! > listed(solenis.final.items, false)['blood.solenis']!);
 });
 
 test("divine karma: King's Raid's GetFullFlask, the fragments by waves cleared, a win needing one Tier 1 shard", () => {

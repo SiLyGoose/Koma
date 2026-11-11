@@ -100,6 +100,7 @@ export type { Me } from './services/login.js';
  *   POST /api/raid-shop/use {guild, of, hero, skill?}   uses a ticket held for that hero's unique weapon ('uw') or unique treasure ('ut', its skill 1–4): RaidShopUsed
  *   GET  /api/admin/settings   every one of the bot's settings, for the admin page (the bot admin only): SettingsView (protocol/admin.ts)
  *   GET  /api/divine?guild=…   King's Raid's Divine Punishment Raid: the member's openings, counters, shop, crafting and Runes of Blasphemy: DivineView (models/divine.ts)
+ *   GET  /api/divine/rewards?guild=…&group=…&level=…   a group's Reward List at an Infinite level (King's Raid's PunishmentRaidRewardInfoPopup): DivineRewardsView
  *   POST /api/divine/open {guild, group, type, level?}   unlocks a group's boss dungeons at an Infinite level, or a Karma run, for zeiucoins: DivineView
  *   POST /api/divine/reset {guild, group}   closes a group's boss opening (King's Raid's ResetPunishmentRaid): DivineView
  *   POST /api/divine/void {guild, socket, count?}   buys Runes of Void: DivineView

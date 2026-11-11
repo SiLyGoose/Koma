@@ -6,6 +6,8 @@
  * weapon or treasure; Runes of Blasphemy are crafted, broken, kept, socketed and taken out here. The site keeps a copy (its `yarn sync`).
  *
  *   GET  /api/divine?guild=…                                   DivineView
+ *   GET  /api/divine/rewards?guild=…&group=…&level=…           its Reward List at a level (1 to five past its best; none said: the opening's,
+ *                                                              else the one after its best): DivineRewardsView
  *   POST /api/divine/open {guild, group, type, level?}         unlocks the group's boss dungeons at `level` (1 to the one after its best)
  *                                                              or a Karma run: DivineView
  *   POST /api/divine/reset {guild, group}                      closes its boss opening (KR's ResetPunishmentRaid; nothing paid back): DivineView
@@ -116,6 +118,45 @@ export interface DivineView {
     craft: { fragments: number; blood: number; ingredients: number };
     recipes: { id: string; name: string; group: DivineGroupId; socket: VoidSocket; legend: string }[];
   };
+}
+
+/**
+ * One thing a reward gives, as a win pays it: what (`key`: 'blood.<group>' Blood of Apostle, a fragment 'doomstone', 'tear', 'fuel'
+ * or 'engraving', 'legendary' Mysterious Rune: Legendary, 'ticket' Unique Gear Ticket, 'empty.<tier>' Empty Shards) and how many.
+ */
+export interface DivineRewardItem {
+  key: string;
+  count: number;
+  /** A chance in thousandths that one is given (King's Raid's IsRatio: the Unique Gear Ticket's), not a count (`count` is then 1). */
+  ratio?: number;
+}
+
+/** A dungeon's reward at a level on the Reward List: its id, its name, and what its win pays. */
+export interface DivineRewardDungeon {
+  id: string;
+  name: string;
+  items: DivineRewardItem[];
+}
+
+/**
+ * King's Raid's Reward List (PunishmentRaidRewardInfoPopup) of a group at an Infinite level: what each of its boss dungeons pays,
+ * read from the rows a win pays, so the two never differ. A side boss's card is its Sub row, which its win pays; the final boss's
+ * reward for each set of side bosses cleared before it is its Active row. Apocalypsion's reward with a dragon cleared is her reward
+ * with none less that dragon's Sub row ("Whenever you clear each Dragon dungeon, Apocalypsion's dynamic rewards are reduced"); Solenis'
+ * grows with each mid-boss cleared.
+ */
+export interface DivineRewardsView {
+  group: DivineGroupId;
+  level: number;
+  /** The highest level the list shows: five past the group's best (King's Raid's ClearLevel + 5), at most the levels its rewards are tabled for. */
+  most: number;
+  /** The final boss: its Clear Reward (its win with no side boss cleared before it) as `items`. */
+  final: DivineRewardDungeon & {
+    /** Its win by the side bosses cleared before it in the opening, each set its table has (none; one; for Apocalypsion, two dragons). */
+    byCleared: { cleared: string[]; items: DivineRewardItem[] }[];
+  };
+  /** The side bosses (Apocalypsion's dragons, Solenis' mid-bosses), in their order: each one's Sub reward at the level. */
+  sides: DivineRewardDungeon[];
 }
 
 /** Why something asked of /api/divine wasn't done (nothing was spent). */

@@ -1,7 +1,7 @@
 import type { ApiDeps } from '../api.js';
 import { ApiError } from '../lib/errors.js';
 import { divineStore } from '../models/divine.js';
-import type { BlasphemyBroken, BlasphemyCrafted, DivineArtifactCrafted, DivineError, DivineGroupId, DivineTicketUsed, DivineView, DpFragment, VoidSocket } from '../../protocol/divine.js';
+import type { BlasphemyBroken, BlasphemyCrafted, DivineArtifactCrafted, DivineError, DivineGroupId, DivineRewardsView, DivineTicketUsed, DivineView, DpFragment, VoidSocket } from '../../protocol/divine.js';
 import type { SelectorPick } from '../../services/mail.js';
 
 /* The Divine Punishment Raid's page (/api/divine): its store's (models/divine.ts), each answering the view after, or an ApiError. */
@@ -19,6 +19,7 @@ export function divineService(deps: ApiDeps) {
 
   return {
     view: (guildId: string, userId: string): Promise<DivineView> => store.view(guildId, userId),
+    rewards: async (guildId: string, userId: string, group: DivineGroupId, level?: number): Promise<DivineRewardsView> => answer(await store.rewards(guildId, userId, group, level)),
     open: async (guildId: string, userId: string, group: DivineGroupId, type: 'boss' | 'karma', level?: number): Promise<DivineView> => answer(await store.open(guildId, userId, group, type, level)),
     reset: async (guildId: string, userId: string, group: DivineGroupId): Promise<DivineView> => answer(await store.reset(guildId, userId, group)),
     buyVoid: async (guildId: string, userId: string, socket: VoidSocket, count: number): Promise<DivineView> => answer(await store.buyVoid(guildId, userId, socket, count)),
