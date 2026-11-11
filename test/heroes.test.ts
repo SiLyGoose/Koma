@@ -96,6 +96,7 @@ test('heroes: Kirze, Klaus, Fallen Frey, Gremory, Annette, Morrah, Laias, Seria,
       ['scarlet', 'warrior'],
       ['talisha', 'archer'],
       ['hilda', 'warrior'],
+      ['veronica', 'wizard'],
     ],
   );
   assert.equal(HEROES_BY_ID.size, HEROES.length);

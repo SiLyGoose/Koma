@@ -1303,6 +1303,15 @@ export const ITEMS: readonly ItemDef[] = [
     effects: [],
     uniqueWeapon: 'lewisia',
   },
+  {
+    id: 'infinite-charter-accordio',
+    name: 'Infinite Charter, Accordio',
+    stars: 4,
+    slot: 'weapon',
+    description: 'Her approval is needed to process any important items in the Guild Alliance.',
+    effects: [],
+    uniqueWeapon: 'veronica',
+  },
   // The heroes' unique treasures (uniqueTreasure): King's Raid's own, four for each TechnoMagic Raid hero (UT1 to UT4: one
   // for each of its skills, then its passive), only pulled from the Hero Item banner (as its 4-star tier, beside the unique
   // weapons) and only worn by their own hero: one as its main treasure (its effect, Koma-UI's sim/treasures.ts, as far as
@@ -3323,5 +3332,41 @@ export const ITEMS: readonly ItemDef[] = [
     description: 'A ring that the underworld Vampire society in Galluah Plains presented to the Scarlet Ruler in respect.',
     effects: [],
     uniqueTreasure: { hero: 'lewisia', skill: 4 },
+  },
+  {
+    id: 'guild-code-of-conduct',
+    name: 'Guild Code of Conduct',
+    stars: 4,
+    slot: 'treasure',
+    description: 'A manual that provides behavioral guidelines for the members of the guild.',
+    effects: [],
+    uniqueTreasure: { hero: 'veronica', skill: 1 },
+  },
+  {
+    id: 'pen-point-of-firm-will',
+    name: 'Pen Point of Firm Will',
+    stars: 4,
+    slot: 'treasure',
+    description: 'Pen point that Veronica always carries around. She had soaked it in the Spring of Promise for 100 days, just like Blacksmith Jin had advised.',
+    effects: [],
+    uniqueTreasure: { hero: 'veronica', skill: 2 },
+  },
+  {
+    id: 'seal-of-guild-manager',
+    name: 'Seal of Guild Manager',
+    stars: 4,
+    slot: 'treasure',
+    description: 'A seal given to the best guild manager of Orvel. All guild affairs can’t be processed without this seal.',
+    effects: [],
+    uniqueTreasure: { hero: 'veronica', skill: 3 },
+  },
+  {
+    id: 'guild-accounts-report',
+    name: 'Guild Accounts Report',
+    stars: 4,
+    slot: 'treasure',
+    description: 'A compilation of guild account reports that Veronica makes every month and every year.',
+    effects: [],
+    uniqueTreasure: { hero: 'veronica', skill: 4 },
   },
 ];
