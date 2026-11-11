@@ -13746,7 +13746,7 @@ var POWER_UP = {
 var EMPTY = MAX_MANA * .001;
 var INTERFERED = {
 	name: "Dimension Interference",
-	about: "Less mana recovery, the less for every stack (and, from stage 4, more DMG taken). Irremovable.",
+	about: "Less mana recovery, the less for every stack (and, from stage 4, more DMG taken for every stack of his bolts and gates; of his Eye, from stage 5). Irremovable.",
 	icon: "🌀",
 	art: stateArt("3592041")
 };
@@ -13768,6 +13768,9 @@ function ascalonPart(fight) {
 	const boss = fight.boss;
 	const stage = Math.min(KR_ATK$2.length, Math.max(1, fight.stage));
 	const up = stage >= 4;
+	const eyeWeak = stage >= 5;
+	/** Each hero's DMG-taken stacks (King's Raid's Ascalon_Weakness: its own count, given only by blows that have it). */
+	const weakness = /* @__PURE__ */ new Map();
 	/** He has come onto the field (the waves before him over), and how long since; and whether he was last step. */
 	let here = false;
 	/** Seconds until his next Dimension Barrage, his next 2% (3592043), and his waves' next Eye; the wave that Eye is of. */
@@ -13819,29 +13822,31 @@ function ascalonPart(fight) {
 			shown: SEALED$1
 		});
 	}
-	/** One more stack of [Dimension Interference] on a hero. */
-	function interfere(on) {
+	/** One more stack of [Dimension Interference] on a hero; and of its DMG taken, if the blow has it (`weak`). */
+	function interfere(on, weak) {
 		const count = Math.min(INTERFERENCE.most, (on.statuses.find((status) => status.name === INTERFERED.name)?.count ?? 0) + 1);
 		const less = 1 - INTERFERENCE.mana * count;
+		const weakCount = Math.min(INTERFERENCE.most, (weakness.get(on) ?? 0) + (weak ? 1 : 0));
+		weakness.set(on, weakCount);
 		put(on.statuses, {
 			name: INTERFERED.name,
 			left: Infinity,
 			count,
 			mana: less,
 			manaGain: less,
-			...up && { takes: 1 + INTERFERENCE.taken * count },
+			...weakCount > 0 && { takes: 1 + INTERFERENCE.taken * weakCount },
 			shown: INTERFERED
 		});
 	}
 	/** A blow of a gate's, or a bolt's: its mana taken, its skills sealed if it has none left, and [Dimension Interference]. Whether it landed. */
-	function dimension(on, amount, drain, sealFor, how) {
+	function dimension(on, amount, drain, sealFor, how, weak) {
 		if (fight.hurt(on, amount, true, void 0, how) <= 0 || on.hp <= 0) return false;
 		on.mana = Math.max(0, on.mana - drain);
 		if (on.mana <= EMPTY) {
 			seal(on, sealFor);
 			fight.cue(null, "seal", [on]);
 		}
-		interfere(on);
+		interfere(on, weak);
 		return true;
 	}
 	/** The beasts of his warp all beaten in time: his HP lower, his warp gone, and he is neutralized. */
@@ -13912,7 +13917,7 @@ function ascalonPart(fight) {
 				if (!top || top.hp <= 0 || !reachable().includes(top)) top = highest();
 				const on = top;
 				if (!on) return;
-				if (!dimension(on, amount * power(), BARRAGE.drain, BARRAGE.seal, { unavoidable: true })) return;
+				if (!dimension(on, amount * power(), BARRAGE.drain, BARRAGE.seal, { unavoidable: true }, up)) return;
 				const count = Math.min(BARRAGE.most, (on.statuses.find((status) => status.name === WEAKENED$3.name)?.count ?? 0) + 1);
 				put(on.statuses, {
 					name: WEAKENED$3.name,
@@ -13971,8 +13976,8 @@ function ascalonPart(fight) {
 			landing = landing.filter((gate) => gate.left > 0);
 			for (const gate of due) for (const on of gate.heroes) {
 				if (on.hp <= 0 || !reachable().includes(on)) continue;
-				if (gate.eye) dimension(on, on.stats.hp * EYE.share, EYE.drain, EYE.seal, { whole: true });
-				else dimension(on, GATE$2.share * KR_ATK$2[0] * power(), GATE$2.drain, GATE$2.seal, { unavoidable: true });
+				if (gate.eye) dimension(on, on.stats.hp * EYE.share, EYE.drain, EYE.seal, { whole: true }, eyeWeak);
+				else dimension(on, GATE$2.share * KR_ATK$2[0] * power(), GATE$2.drain, GATE$2.seal, { unavoidable: true }, up);
 			}
 			if (boss.away) {
 				if (fight.moving > 0 || fight.wave !== eyeWave) {
@@ -63807,7 +63812,7 @@ var KR_BLASPHEMY$1 = [
 //#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "2fc7f3d9311e";
+var SIM_VERSION = "91ef86ef3be5";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
