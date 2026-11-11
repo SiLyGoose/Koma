@@ -82,6 +82,7 @@ export type { Me } from './services/login.js';
  *   POST /api/hero-outfits/wear {guild, hero, outfit}   puts one of their hero's outfits on it (null: its own look) (its outfit room): HeroOutfitsView
  *   GET  /api/heroes?guild=…   the TechnoMagic Raid's heroes: what each costs, which are the member's, the gear each wears and what it gives it, and every copy a hero could wear: HeroesView (models/heroes.ts)
  *   POST /api/heroes/buy {guild, hero}   buys a hero with points (the shop): HeroesView
+ *   POST /api/heroes/starter {guild}   gives a member with no hero Roi (services/heroes.ts STARTER_HERO), for nothing, once: HeroesView ('owned': they have one)
  *   POST /api/heroes/equip {guild, hero, slot, copy}   puts one of their copies in one of their hero's slots, off any other hero it was on (the heroes page): HeroesView
  *   POST /api/heroes/unequip {guild, hero, slot?}   empties one of their hero's slots, or every one: HeroesView
  *   POST /api/heroes/transcend {guild, hero}   transcends one of their heroes a level, for hero essences and komaGems: HeroesView

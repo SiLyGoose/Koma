@@ -51,7 +51,7 @@ import { potentialStep, UT_ENHANCE, UT_REROLL } from '../../data/tm-potentials.j
 import { wornSkin } from '../../services/hero-outfits.js';
 import { buyHeroLoadout, equipHeroLoadout, nameHeroLoadout, resetHeroLoadout, saveHeroLoadout } from '../../services/hero-loadouts.js';
 import { heroLoadoutViews, nextHeroLoadoutPrice } from '../../lib/game/hero-loadouts.js';
-import { buyHero, buyPerkPage, craftTpScrolls, equipHero, pickHeroPerks, switchPerkPage, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
+import { buyHero, buyPerkPage, grantStarterHero, craftTpScrolls, equipHero, pickHeroPerks, switchPerkPage, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
 import { keepOption, keepTmSkill, rerollOption, restoreTmPiece, socketRune, tmRestorable, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
 import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
 import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
@@ -82,6 +82,8 @@ export interface HeroStore {
   owners: (guildId: string, limit: number) => Promise<{ userId: string; heroes: number }[]>;
   /** Buys a hero: the heroes after, or why not (nothing was spent). */
   buy: (guildId: string, userId: string, id: string) => Promise<HeroesView | 'not_found' | 'owned' | 'too_poor'>;
+  /** Gives them the starter hero (services/heroes.ts STARTER_HERO) for nothing, only while they have no hero: the heroes after, or 'owned'. */
+  starter: (guildId: string, userId: string) => Promise<HeroesView | 'owned'>;
   /** Puts one of their copies in one of their hero's slots (off any other hero it was on): the heroes after, or why not. */
   equip: (guildId: string, userId: string, hero: string, slot: HeroSlot, copy: string) => Promise<HeroesView | HeroEquipError>;
   /** Empties one of their hero's slots, or (`slot` null) all of them: the heroes after, or 'not_found' for a hero that isn't theirs. */
@@ -421,6 +423,10 @@ export const heroStore: HeroStore = {
   },
   buy: async (guildId, userId, id) => {
     const result = await buyHero(guildId, userId, id);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  starter: async (guildId, userId) => {
+    const result = await grantStarterHero(guildId, userId);
     return result.ok ? load(guildId, userId) : result.reason;
   },
   equip: async (guildId, userId, hero, slot, copy) => {

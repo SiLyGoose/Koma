@@ -19,6 +19,7 @@ export function heroRoutes(deps: ApiDeps): Router {
     .get('/', ...siteOrLink, heroes.view)
     .get('/members', ...siteOrLink, heroes.members)
     .post('/buy', ...site, heroes.buy)
+    .post('/starter', ...site, heroes.starter)
     .post('/equip', ...siteOrLink, heroes.equip)
     .post('/unequip', ...siteOrLink, heroes.unequip)
     .post('/perks', ...siteOrLink, heroes.perks)

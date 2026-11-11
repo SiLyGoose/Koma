@@ -315,6 +315,12 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
       { userId: '33', heroes: 3 },
       { userId: '22', heroes: 1 },
     ],
+    starter: async (guildId, userId) => {
+      calls.push(`starter ${guildId} ${userId}`);
+      if (owned.length) return 'owned';
+      owned = ['roi'];
+      return empty;
+    },
     buy: async (guildId, userId, id) => {
       calls.push(`buy ${guildId} ${userId} ${id}`);
       if (!HEROES_BY_ID.has(id)) return 'not_found';
@@ -430,6 +436,14 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
 
     // Not theirs to gear yet.
     assert.deepEqual(await (await post('/api/heroes/equip', { guild: 'g1', hero: 'kirze', slot: 'weapon', copy: 'c1' })).json(), { error: 'not_found' });
+    // A member with no hero is given Roi, once; with one, never.
+    const before = owned;
+    owned = [];
+    assert.equal((await post('/api/heroes/starter', { guild: 'g1' })).status, 200);
+    assert.deepEqual(owned, ['roi']);
+    assert.deepEqual(await (await post('/api/heroes/starter', { guild: 'g1' })).json(), { error: 'owned' });
+    assert.equal((await post('/api/heroes/starter', { guild: 'g2' })).status, 403);
+    owned = before;
     assert.equal((await post('/api/heroes/buy', { guild: 'g1', hero: 'kirze' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/buy', { guild: 'g1', hero: 'kirze' })).json(), { error: 'owned' });
     assert.equal((await post('/api/heroes/buy', { guild: 'g1', hero: 'nobody' })).status, 404);
@@ -519,6 +533,8 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     calls.length -= 11;
     assert.deepEqual(calls, [
       'equip kirze weapon c1',
+      'starter g1 u1',
+      'starter g1 u1',
       'buy g1 u1 kirze',
       'buy g1 u1 kirze',
       'buy g1 u1 nobody',

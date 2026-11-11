@@ -42,6 +42,25 @@ export async function buyHero(guildId: string, userId: string, id: string): Prom
   return { ok: true, paid: price, balance: bought.points };
 }
 
+/** The hero a member with none is given (the site's town needs one of theirs to walk it: Koma-UI src/v2/hero-pick.ts). */
+export const STARTER_HERO = 'roi';
+
+export type StarterHeroResult = { ok: true; hero: string } | { ok: false; reason: 'owned' };
+
+/**
+ * Gives the member STARTER_HERO for nothing, only while they have no hero at all: one conditional update that matches
+ * only then, so it's given once, and never to someone who has bought any. 'owned': they have a hero already.
+ */
+export async function grantStarterHero(guildId: string, userId: string): Promise<StarterHeroResult> {
+  const { members } = collections();
+  await ensureMember(guildId, userId);
+  const given = await members.updateOne(
+    { guildId, userId, $or: [{ heroes: { $exists: false } }, { heroes: {} }] },
+    { $set: { [`heroes.${STARTER_HERO}`]: { boughtAt: new Date(), equipment: {} } } },
+  );
+  return given.modifiedCount === 1 ? { ok: true, hero: STARTER_HERO } : { ok: false, reason: 'owned' };
+}
+
 export type HeroEquipResult = { ok: true } | { ok: false; reason: 'not_found' | 'not_owned' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'duplicate' | 'no_main_treasure' | 'busy' };
 
 /**

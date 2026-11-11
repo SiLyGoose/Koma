@@ -60,6 +60,7 @@ export function heroService(deps: ApiDeps) {
     },
 
     buy: async (guildId: string, userId: string, id: string): Promise<HeroesView> => answer(await store.buy(guildId, userId, id)),
+    starter: async (guildId: string, userId: string): Promise<HeroesView> => answer(await store.starter(guildId, userId)),
     equip: async (guildId: string, userId: string, hero: string, slot: HeroSlot, copy: string): Promise<HeroesView> =>
       answer(await store.equip(guildId, userId, hero, slot, copy)),
     unequip: async (guildId: string, userId: string, hero: string, slot: HeroSlot | null): Promise<HeroesView> =>

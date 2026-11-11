@@ -84,6 +84,11 @@ export function heroController(heroes: HeroService) {
       res.json(await heroes.buy(res.locals.guildId, res.locals.session.userId, hero));
     },
 
+    /** Their first hero, for nothing, while they have none (the site's town walks with it). */
+    async starter(_req, res) {
+      res.json(await heroes.starter(res.locals.guildId, res.locals.session.userId));
+    },
+
     async equip(req, res) {
       const { hero, slot, copy } = parse(Equip, req.body);
       res.json(await heroes.equip(res.locals.guildId, res.locals.session.userId, hero, slot as (typeof HERO_SLOTS)[number], copy));
