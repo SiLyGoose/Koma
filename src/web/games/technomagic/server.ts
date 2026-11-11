@@ -1,9 +1,9 @@
 import type { WebSocket } from 'ws';
-import { DRAGON_WEB, TM_WEB } from '../../../constants/index.js';
+import { DIVINE_WEB, DRAGON_WEB, TM_WEB } from '../../../constants/index.js';
 import { chatImage } from '../chat.js';
 import { openGameConnection, refuse, serveSocket, type Connection } from '../connection.js';
 import { parseClientMessage, type AnswerCode, type ClientMessage, type ServerMessage } from './protocol.js';
-import { dragonRooms, technomagicRooms, type Peer, type RoomDeps, type TechnoMagicRoom, type TechnoMagicRooms } from './room.js';
+import { divineRooms, dragonRooms, technomagicRooms, type Peer, type RoomDeps, type TechnoMagicRoom, type TechnoMagicRooms } from './room.js';
 import { runningBatch } from '../../../services/tm-batches.js';
 
 /*
@@ -11,7 +11,7 @@ import { runningBatch } from '../../../services/tm-batches.js';
  * says hello they join a raid of their server's (room.ts: the one their link names, a new one, or an open one), or a room
  * of their own (single player), with the heroes they own. One page per player: a new one takes over. It isn't watched:
  * anyone in the server can join in instead. The Dragon Raid's is the same, on a socket of its own (serveDragon), the page
- * naming the dragon it wants.
+ * naming the dragon it wants; and the Divine Punishment Raid's (serveDivine), solo only: always a room of their own.
  */
 
 export type { Peer } from './room.js';
@@ -37,16 +37,17 @@ const hasBatch = (guildId: string, userId: string): Promise<boolean> =>
 /** Plays the TechnoMagic Raid (or, its rooms the Dragon Raid's, the Dragon Raid) in `rooms` with the page `page`. */
 export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = technomagicRooms, deps: RoomDeps = rooms.realDeps): Connection {
   let room: TechnoMagicRoom | null = null;
-  const dragon = rooms.raid.kind === 'dragon';
+  const kind = rooms.raid.kind;
 
   return openGameConnection<ClientMessage, ServerMessage>(
-    { live: dragon ? 'dragon' : 'technomagic', limits: dragon ? DRAGON_WEB : TM_WEB, parse: parseClientMessage, describe: (m) => describe(m as ServerMessage) },
+    { live: kind, limits: kind === 'dragon' ? DRAGON_WEB : kind === 'divine' ? DIVINE_WEB : TM_WEB, parse: parseClientMessage, describe: (m) => describe(m as ServerMessage) },
     page,
     {
       async hello(hello) {
         const { player, greeting } = hello;
         const peer = hello.join();
-        const single = 'single' in greeting && greeting.single === true;
+        // (The Divine Punishment Raid is solo only, as King's Raid's.)
+        const single = kind === 'divine' || ('single' in greeting && greeting.single === true);
         const wanted = single ? {} : { ...('room' in greeting && greeting.room && { room: greeting.room }), ...('create' in greeting && greeting.create === true && { create: true }) };
         // The raid named is over (everyone gone from it).
         const against = rooms.bossFor(player, wanted, 'boss' in greeting ? greeting.boss : undefined);
@@ -62,7 +63,9 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
           deps.cleared(player.guildId, player.userId, boss).catch(() => ({ hard: 0, normal: 0 })),
         ]);
         if (hello.gone) return;
-        const joined = rooms.join(player, peer, owned, cleared, deps, single, boss, wanted);
+        // (A Divine Punishment page naming no dungeon keeps the one its room is against.)
+        const named = kind !== 'divine' || ('boss' in greeting && greeting.boss !== undefined);
+        const joined = rooms.join(player, peer, owned, cleared, deps, single, named ? boss : undefined, wanted);
         if (!joined) return refuse(peer, wanted.room && !rooms.lobby(player.guildId, wanted.room) ? 'gone' : 'full');
         room = joined.room;
         if (joined.replaced) refuse(joined.replaced, 'replaced');
@@ -113,6 +116,10 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
             if (owned) room.reowned(userId, owned);
             return;
           }
+          case 'card':
+            return room.card(userId, message.card);
+          case 'divine':
+            return answer(await room.setDivine(userId, message));
           case 'chat':
             return room.say(userId, message.text, await chatImage(message));
         }
@@ -129,6 +136,12 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
 export function serveTechnoMagic(socket: WebSocket, deps: Partial<Pick<RoomDeps, 'avatar' | 'announce'>> = {}): void {
   const real = { ...technomagicRooms.realDeps, ...Object.fromEntries(Object.entries(deps).filter(([, fn]) => fn)) };
   serveSocket<ServerMessage>(socket, (page) => openTechnoMagicConnection(page, technomagicRooms, real));
+}
+
+/** Plays the Divine Punishment Raid over a web socket just opened (as the TechnoMagic Raid, in its rooms: each player's own). */
+export function serveDivine(socket: WebSocket, deps: Partial<Pick<RoomDeps, 'avatar'>> = {}): void {
+  const real = { ...divineRooms.realDeps, ...Object.fromEntries(Object.entries(deps).filter(([, fn]) => fn)) };
+  serveSocket<ServerMessage>(socket, (page) => openTechnoMagicConnection(page, divineRooms, real));
 }
 
 /** Plays the Dragon Raid over a web socket just opened (as the TechnoMagic Raid, in the dragons' rooms). */

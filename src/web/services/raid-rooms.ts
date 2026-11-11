@@ -1,5 +1,5 @@
 import type { Lobbies, RaidKind } from '../../protocol/technomagic.js';
-import { dragonRooms, technomagicRooms, type TechnoMagicRooms } from '../games/technomagic/room.js';
+import { divineRooms, dragonRooms, technomagicRooms, type TechnoMagicRooms } from '../games/technomagic/room.js';
 
 export type { Lobbies };
 
@@ -8,7 +8,7 @@ export type { Lobbies };
 export type RaidRoomService = ReturnType<typeof raidRoomService>;
 
 /** `rooms`: each raid's rooms (the bot's own, unless a test says otherwise). */
-export function raidRoomService(rooms: Record<RaidKind, TechnoMagicRooms> = { technomagic: technomagicRooms, dragon: dragonRooms }) {
+export function raidRoomService(rooms: Record<RaidKind, TechnoMagicRooms> = { technomagic: technomagicRooms, dragon: dragonRooms, divine: divineRooms }) {
   return {
     /** `guildId`'s raids of `game` against `boss`, those that can be joined first. */
     list(guildId: string, game: RaidKind, boss: string): Lobbies {

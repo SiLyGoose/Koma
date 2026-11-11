@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import { DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
+import { DIVINE_ROOM, DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../../../constants/index.js';
+import { DIVINE_INFO, DIVINE_LEVELS, divineInfo, dungeonsOf, enterRefusal, openingOpen, type DivineBossInfo, type KarmaOutcome } from '../../../lib/game/divine.js';
+import { DivineRefusal, divineState, type DivineAsk } from '../../../services/divine.js';
 import { HEROES_BY_ID } from '../../../data/heroes.js';
 import type { RaidClassId } from '../../../constants/raid.js';
 import { KR_TM_SETS } from '../../../data/kr-gear.js';
@@ -7,16 +9,16 @@ import { copyMainStat, heroItemLines, partOf, potentialLines, setBonusLines } fr
 import { runeView } from '../../models/heroes.js';
 import { DRAGONS, isDragon } from '../../../lib/game/dragon.js';
 import { SIM_VERSION, STEP_SECONDS, TM_BOSSES, tmSkillLine } from '../../../lib/game/technomagic.js';
-import { beginRun, clearedStages, finishRun, ownedHeroes, wornSkins, type BegunRun, type TmFind } from '../../../services/technomagic.js';
+import { abortRun, beginRun, clearedStages, finishRun, ownedHeroes, wornSkins, type BegunRun, type TmFind } from '../../../services/technomagic.js';
 import { keepSoloLineup, soloLineup } from '../../../services/solo-lineups.js';
-import type { SoloPickDoc } from '../../../types.js';
+import type { DivineGroupId, MemberDoc, ShardTier, SoloPickDoc } from '../../../types.js';
 import { avatarUrl } from '../../auth/login.js';
 import type { Player } from '../../auth/token.js';
 import { dragonRoomLink, technomagicRoomLink, webConfig } from '../../config.js';
 import { Chat } from '../chat.js';
 import { refuse, type Peer as ConnectionPeer } from '../connection.js';
 import { workerFights, type FightEngine, type Fights, type Intent } from './fight.js';
-import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, PickView, RaidKind, RaidMode, RoomState, ServerMessage, TurnInput } from './protocol.js';
+import type { AnswerCode, BossView, DivinePaid, DivineRoomView, DropView, FightStart, LobbyView, OverView, PickView, RaidKind, RaidMode, RoomState, ServerMessage, TurnInput } from './protocol.js';
 
 /*
  * The TechnoMagic Raid's rooms: raids others can join, as many in a server as its players create (each with an id of its
@@ -45,6 +47,12 @@ import type { AnswerCode, BossView, DropView, FightStart, LobbyView, OverView, P
  * take the raid against another dragon, everyone in it with it (`setBoss`), or into the dragon's other mode, Normal or Hard
  * (`setMode`: each mode's stages are opened apart too); and anyone can leave it for good (`part`), to create one of their own
  * against another. Two raids are never put together.
+ *
+ * The Divine Punishment Raid's rooms (divineRooms) are solo only, one a player whatever the dungeon (its boss: a side boss, a final
+ * boss or a Karma dungeon, the host's pick: `setBoss`, `setDivine`): a boss dungeon's lineup is DIVINE_ROOM.bossSlots (bossMain in
+ * the Main Team), the Karma dungeon's DIVINE_ROOM.karmaSlots, one of each class; its stage is the Infinite level its opening was
+ * unlocked at (the member's openings, read: deps.divine), and it brings the shards picked. Entering is the bot's to check
+ * (services/divine.ts enterDivine): a refusal is answered.
  */
 
 /** A raid whose rooms these are: which, and its bosses (the first is fought unless a page names another). */
@@ -55,6 +63,16 @@ export interface RaidSetup {
 
 export const TECHNOMAGIC_RAID: RaidSetup = { kind: 'technomagic', bosses: TM_BOSSES };
 export const DRAGON_RAID: RaidSetup = { kind: 'dragon', bosses: DRAGONS };
+
+/** The Divine Punishment Raid's dungeons as rooms say them: a boss dungeon's stages its Infinite levels, the Karma dungeon's one. */
+export const DIVINE_BOSSES: readonly BossView[] = DIVINE_INFO.map((boss) => ({ id: boss.id, name: boss.name, stages: boss.kind === 'karma' ? 1 : DIVINE_LEVELS, divine: { group: boss.group, kind: boss.kind } }));
+export const DIVINE_RAID: RaidSetup = { kind: 'divine', bosses: DIVINE_BOSSES };
+
+/** A member's Divine Punishment openings and shards, as a room reads them (services/divine.ts divineState). */
+export type DivineState = Pick<MemberDoc, 'divine' | 'shards'>;
+
+/** A shard count by tier, every tier said. */
+const byTier = (of: Partial<Record<ShardTier, number>> | undefined): Record<ShardTier, number> => ({ '1': of?.['1'] ?? 0, '2': of?.['2'] ?? 0, '3': of?.['3'] ?? 0, '4': of?.['4'] ?? 0, '5': of?.['5'] ?? 0 });
 
 /** A drop as the page shows it: an item found, with what its copy came with. */
 function dropView({ item, skill, potentials, options, salvaged, salvagedStones, salvagedCrystals, reclaimed }: TmFind): DropView {
@@ -102,6 +120,8 @@ export interface Got {
   /** The Technomagic Experiment Reports found (a TechnoMagic Raid win, now and then from stage 4). */
   reports?: number;
   firstClears?: number;
+  /** A Divine Punishment run's: what it gave. */
+  divine?: DivinePaid;
 }
 
 /** The heroes a player owns: their ids (none transcended), or by id how far each is transcended. */
@@ -125,10 +145,14 @@ export interface RoomDeps {
   batching?: (guildId: string, userId: string) => Promise<boolean>;
   /** The highest stage they have won a run against `boss` at, in each mode (0: none). */
   cleared: (guildId: string, userId: string, boss: string) => Promise<Cleared>;
-  /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun). */
-  begin: (guildId: string, stage: number, players: Parameters<typeof beginRun>[2], boss: string, mode: RaidMode) => Promise<BegunRun>;
-  /** What a run over gave each player (nothing to those who `forfeited` it): the items found, the points paid, the hero essences and komaGems, and whether it was their first win at its stage. */
-  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>) => Promise<Map<string, Got>>;
+  /** Begins a run against `boss` in `mode` (services/technomagic.ts beginRun); a Divine Punishment one bringing `divine`'s shards (it throws a DivineRefusal when it can't be entered). */
+  begin: (guildId: string, stage: number, players: Parameters<typeof beginRun>[2], boss: string, mode: RaidMode, divine?: DivineAsk) => Promise<BegunRun>;
+  /** What a run over gave each player (nothing to those who `forfeited` it): the items found, the points paid, the hero essences and komaGems, and whether it was their first win at its stage. A karma run's `karma` outcome with it. */
+  finish: (guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string>, karma?: KarmaOutcome | null) => Promise<Map<string, Got>>;
+  /** A run begun whose fight never started (the sim refused it): what it took given back (none said: nothing). */
+  abort?: (guildId: string, run: BegunRun) => Promise<void>;
+  /** The Divine Punishment Raid: a player's openings and shards (none said: none read). */
+  divine?: (guildId: string, userId: string) => Promise<DivineState>;
   /** Says in the server's channel that `host` has created raid `room`, against `boss`. Not waited for. */
   announce: (guildId: string, host: string, boss: string, room: string) => void;
   /** The link others join raid `room` (against `boss`) by (null: there is no site). */
@@ -147,11 +171,12 @@ export const realRoomDeps: RoomDeps = {
   worn: wornSkins,
   lineups: { read: soloLineup, keep: keepSoloLineup },
   cleared: clearedStages,
-  begin: (guildId, stage, players, boss, mode) => beginRun(guildId, stage, players, new Date(), boss, mode),
-  finish: async (guildId, run, stage, result, ticks, forfeited) => {
-    const found = await finishRun(guildId, run, stage, result, ticks, forfeited);
-    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, stones, crystals, reports, firstClears }]) => [userId, { drops: finds.map(dropView), ...(stones && { stones }), ...(crystals && { crystals }), ...(reports && { reports }), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }) }]));
+  begin: (guildId, stage, players, boss, mode, divine) => beginRun(guildId, stage, players, new Date(), boss, mode, divine),
+  finish: async (guildId, run, stage, result, ticks, forfeited, karma) => {
+    const found = await finishRun(guildId, run, stage, result, ticks, forfeited, new Date(), false, karma ?? null);
+    return new Map([...found].map(([userId, { finds, runes, points, essences, gems, stones, crystals, reports, firstClears, divine }]) => [userId, { drops: finds.map(dropView), ...(stones && { stones }), ...(crystals && { crystals }), ...(reports && { reports }), runes: (runes ?? []).flatMap((id) => { const rune = runeView(id); return rune ? [{ id: rune.id, name: rune.name, icon: rune.icon, grade: rune.grade }] : []; }), points, ...(essences && { essences: essences as Record<string, number> }), ...(gems !== undefined && { gems }), ...(firstClears !== undefined && { firstClears }), ...(divine && { divine }) }]));
   },
+  abort: (guildId, run) => abortRun(guildId, run),
   announce: () => {},
   link: (guildId, _boss, room) => {
     const config = webConfig();
@@ -176,6 +201,14 @@ export const realDragonDeps: RoomDeps = {
     const config = webConfig();
     return config ? dragonRoomLink(config, guildId, boss, room) : null;
   },
+};
+
+/** The Divine Punishment Raid's: no links (solo only), its stages its openings' levels, and its openings read. */
+export const realDivineDeps: RoomDeps = {
+  ...realRoomDeps,
+  cleared: async () => ({ hard: 0, normal: 0 }),
+  link: () => null,
+  divine: divineState,
 };
 
 interface Member {
@@ -248,6 +281,10 @@ export class TechnoMagicRoom {
   private kept: string | null = null;
   /** Nobody's left (onEmpty has been told). */
   private closed = false;
+  /** The Divine Punishment Raid: the host's openings and shards as last read (null: not yet), and the shards picked to bring. */
+  private divineState: DivineState | null = null;
+  private shard: DivineRoomView['shard'] = null;
+  private bring: DivineRoomView['bring'] = null;
 
   constructor(
     readonly guildId: string,
@@ -310,9 +347,34 @@ export class TechnoMagicRoom {
     return this.single;
   }
 
-  /** Its lineup's sizes: the Dragon Raid's (DRAGON_ROOM, King's Raid's Dragon Raid party) or the TechnoMagic Raid's. */
-  private sizes(): typeof TM_ROOM | typeof DRAGON_ROOM {
+  /** The Divine Punishment dungeon a room of its is against (undefined: another raid's room). */
+  private dungeon(): DivineBossInfo | undefined {
+    return this.raid.kind === 'divine' ? divineInfo(this.boss.id) : undefined;
+  }
+
+  /** Whether it is against a Divine Punishment Karma dungeon (3 heroes, one of each class, no Sub Team). */
+  private karma(): boolean {
+    return this.dungeon()?.kind === 'karma';
+  }
+
+  /**
+   * Its lineup's sizes: the Dragon Raid's (DRAGON_ROOM, King's Raid's Dragon Raid party), the Divine Punishment Raid's (DIVINE_ROOM:
+   * a boss dungeon's 4 + 4, a Karma dungeon's 3, all in the Main Team), or the TechnoMagic Raid's.
+   */
+  private sizes(): { slots: number; soloSlots: number; mainTeam: number; hostHeroes: number; guestHeroes: number } {
+    if (this.raid.kind === 'divine') {
+      const slots = this.karma() ? DIVINE_ROOM.karmaSlots : DIVINE_ROOM.bossSlots;
+      return { slots, soloSlots: slots, mainTeam: this.karma() ? slots : DIVINE_ROOM.bossMain, hostHeroes: slots, guestHeroes: slots };
+    }
     return this.raid.kind === 'dragon' ? DRAGON_ROOM : TM_ROOM;
+  }
+
+  /** A Divine Punishment room's stage: a boss dungeon's opening's Infinite level (1 with none open), a Karma dungeon's 1. */
+  private divineLevel(): number {
+    const info = this.dungeon();
+    if (!info || info.kind === 'karma') return 1;
+    const opening = this.divineState?.divine?.[info.group]?.boss;
+    return opening && openingOpen(opening, new Date(this.deps.now())) ? Math.min(this.stages(), opening.level) : 1;
   }
 
   /** How many heroes the lineup takes alone: the Dragon Raid's more. */
@@ -337,6 +399,7 @@ export class TechnoMagicRoom {
 
   /** The highest stage the host may pick, and the one the room starts at: the one after the highest they have won in the raid's mode (the first, for one who has won none). */
   private unlocked(): number {
+    if (this.raid.kind === 'divine') return this.divineLevel();
     const host = this.members.get(this.host() ?? '');
     return Math.min(this.stages(), (host?.cleared[this.mode] ?? 0) + 1);
   }
@@ -362,6 +425,7 @@ export class TechnoMagicRoom {
     if (!before) this.trim();
     if (!before && this.solo()) this.readLineup(player.userId);
     this.readWorn(player.userId);
+    this.readDivine(player.userId);
     this.tell();
     peer.send(this.chat.history());
     const shown = this.fight ?? (this.phase === 'over' ? this.ended : null);
@@ -450,6 +514,22 @@ export class TechnoMagicRoom {
       return this.members.has(pick.owner) && count <= this.limit(pick.owner);
     });
     this.lineup = this.lineup.slice(0, this.slots());
+    if (this.raid.kind === 'divine' && this.solo()) {
+      // (Each team no fuller than it takes: a Karma dungeon has no Sub Team.)
+      let main = 0;
+      let sub = 0;
+      this.lineup = this.lineup.filter((pick) => (pick.sub ? ++sub <= this.teamSlots(true) : ++main <= this.teamSlots(false)));
+    }
+    if (this.karma()) {
+      // (A Karma dungeon: at most one hero of each class, King's Raid's BanRule "1,All".)
+      const classes = new Set<string>();
+      this.lineup = this.lineup.filter((pick) => {
+        const cls = HEROES_BY_ID.get(pick.hero)?.class ?? pick.hero;
+        if (classes.has(cls)) return false;
+        classes.add(cls);
+        return true;
+      });
+    }
   }
 
   /**
@@ -474,6 +554,7 @@ export class TechnoMagicRoom {
       return null;
     }
     if (this.lineup.some((pick) => pick.hero === hero)) return 'picked';
+    if (this.karma() && this.lineup.some((pick) => HEROES_BY_ID.get(pick.hero)?.class === HEROES_BY_ID.get(hero)?.class)) return 'class_taken';
     if (mine.length >= this.limit(userId)) return 'limit';
     if (this.lineup.length >= this.slots()) return 'full';
     if (teamFull) return 'team_full';
@@ -550,6 +631,43 @@ export class TechnoMagicRoom {
     lineups.keep(this.guildId, host, this.raid.kind, this.boss.id, picks).catch((err) => console.error('Could not keep their single player lineup:', err));
   }
 
+  /**
+   * The Divine Punishment Raid: `userId`'s openings and shards read (not waited for), for the room's stage (its opening's level) and
+   * what every page shows; only the host's count (solo only: theirs).
+   */
+  private readDivine(userId: string): void {
+    const read = this.deps.divine;
+    if (!read || this.raid.kind !== 'divine') return;
+    read(this.guildId, userId).then(
+      (state) => {
+        if (!this.members.has(userId) || userId !== this.host()) return;
+        this.divineState = state;
+        this.tell();
+      },
+      (err) => console.error('Could not read their Divine Punishment openings:', err),
+    );
+  }
+
+  /**
+   * The Divine Punishment Raid, getting ready (the host): another dungeon (`boss`, or `group` alone: its final boss's), and the
+   * shards to bring (`shard`: Full Shards into a boss dungeon; `empty`: Empty Shards into the Karma dungeon; null: none). Its openings
+   * are read again too (a page that just unlocked one says so).
+   */
+  async setDivine(userId: string, asked: { group?: DivineGroupId; boss?: string; shard?: DivineRoomView['shard']; empty?: DivineRoomView['bring'] }): Promise<AnswerCode | null> {
+    if (this.raid.kind !== 'divine' || this.phase !== 'prep' || this.starting) return 'closed';
+    if (userId !== this.host()) return 'only_host';
+    const boss = asked.boss ?? (asked.group && asked.group !== this.dungeon()?.group ? dungeonsOf(asked.group, 'final')[0]?.id : undefined);
+    if (boss && boss !== this.boss.id) {
+      const code = await this.setBoss(userId, boss);
+      if (code) return code;
+    }
+    if (asked.shard !== undefined) this.shard = asked.shard;
+    if (asked.empty !== undefined) this.bring = asked.empty;
+    this.readDivine(userId);
+    this.tell();
+    return null;
+  }
+
   /** `userId` takes their hero `hero` out of the lineup. */
   unpick(userId: string, hero: string): AnswerCode | null {
     const member = this.members.get(userId);
@@ -572,7 +690,8 @@ export class TechnoMagicRoom {
 
   /** The host picks the raid's stage: one they have opened (won the one before it). */
   setStage(userId: string, stage: number): AnswerCode | null {
-    if (this.phase !== 'prep' || this.starting) return 'closed';
+    // (A Divine Punishment room's stage is its opening's level: unlocked on the site, not picked here.)
+    if (this.phase !== 'prep' || this.starting || this.raid.kind === 'divine') return 'closed';
     if (userId !== this.host()) return 'only_host';
     const picked = Math.min(this.stages(), Math.max(1, Math.floor(stage)));
     if (picked > this.unlocked()) return 'locked';
@@ -599,7 +718,8 @@ export class TechnoMagicRoom {
    * against it. Each page goes to it once told.
    */
   async setBoss(userId: string, boss: string): Promise<AnswerCode | null> {
-    if (this.phase !== 'prep' || this.starting || this.id === null) return 'closed';
+    // (A room of one's own keeps its boss, but the Divine Punishment Raid's, one a player whatever the dungeon.)
+    if (this.phase !== 'prep' || this.starting || (this.id === null && this.raid.kind !== 'divine')) return 'closed';
     if (userId !== this.host()) return 'only_host';
     const next = this.raid.bosses.find((one) => one.id === boss);
     if (!next) return 'closed';
@@ -618,8 +738,14 @@ export class TechnoMagicRoom {
       member.cleared = cleared[i] ?? clearedOf(0);
       member.ready = false;
     });
+    // (Another Divine Punishment group: its shards are another's, so none are picked.)
+    if (next.divine?.group !== this.boss.divine?.group) {
+      this.shard = null;
+      this.bring = null;
+    }
     this.against = next;
     if (next.normal === undefined) this.mode = 'hard';
+    if (this.raid.kind === 'divine') this.trim();
     this.stage = this.unlocked();
     this.tell();
     return null;
@@ -651,6 +777,13 @@ export class TechnoMagicRoom {
     if (!force && all.some((member) => member.player.userId !== userId && !member.ready)) return 'not_ready';
     if (this.lineup.length === 0 || (!force && !all.every(inIt))) return 'no_heroes';
     const members = all.filter(inIt);
+    // (A Divine Punishment dungeon: refused at once as the openings last read say, before anything is spent; the bot checks again as it begins.)
+    const dungeon = this.dungeon();
+    if (dungeon && this.divineState) {
+      const refusal = enterRefusal(dungeon, this.divineState.divine?.[dungeon.group], new Date(this.deps.now()));
+      if (refusal) return refusal;
+    }
+    const divine: DivineAsk | undefined = dungeon ? (dungeon.kind === 'karma' ? { empty: this.bring } : { shard: this.shard }) : undefined;
 
     this.starting = true;
     this.tell();
@@ -660,14 +793,25 @@ export class TechnoMagicRoom {
     let run: BegunRun;
     try {
       const players = members.map((member) => ({ userId: member.player.userId, heroes: this.lineup.filter((pick) => pick.owner === member.player.userId).map(({ hero, skin }) => ({ id: hero, skin })) }));
-      run = await this.deps.begin(this.guildId, stage, players, this.boss.id, mode);
+      run = await this.deps.begin(this.guildId, stage, players, this.boss.id, mode, divine);
     } catch (err) {
-      console.error('Could not begin a TechnoMagic Raid run:', err);
       this.starting = false;
+      if (err instanceof DivineRefusal) {
+        // (Not entered: nothing was spent. Its openings read again, for the page to show why.)
+        this.readDivine(userId);
+        this.tell();
+        return err.code === 'busy' ? 'failed' : err.code;
+      }
+      console.error('Could not begin a TechnoMagic Raid run:', err);
       this.tell();
       return 'failed';
     }
     this.starting = false;
+    // (The shards picked are used up: none picked for the next.)
+    if (run.divine) {
+      this.shard = null;
+      this.bring = null;
+    }
     // What is theirs still (one sold since it was picked is left out).
     const lineup = this.lineup.filter((pick) => this.members.has(pick.owner) && run.players.get(pick.owner)?.owned.has(pick.hero));
     if (lineup.length === 0) {
@@ -678,22 +822,28 @@ export class TechnoMagicRoom {
       no: ++this.fights,
       boss: this.boss.id,
       seed: run.seed,
-      stage,
+      // (A Divine Punishment run's: its opening's Infinite level, as entering it read it.)
+      stage: run.divine ? (run.divine.level ?? 1) : stage,
       solo,
       mode,
+      ...(run.divine && { divine: run.divine }),
       heroes: lineup.map((pick) => {
         const player = run.players.get(pick.owner);
-        return { owner: pick.owner, id: pick.hero, skin: player?.skins?.get(pick.hero) ?? pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, artifact: player?.artifacts?.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }) };
+        const blasphemy = player?.blasphemy?.get(pick.hero) ?? [];
+        return { owner: pick.owner, id: pick.hero, skin: player?.skins?.get(pick.hero) ?? pick.skin, gear: player?.gear.get(pick.hero) ?? {}, set: player?.sets.get(pick.hero) ?? null, uw: player?.uws.get(pick.hero) ?? null, ut: player?.uts.get(pick.hero) ?? null, artifact: player?.artifacts?.get(pick.hero) ?? null, skills: player?.skills.get(pick.hero) ?? [], perks: player?.perks.get(pick.hero) ?? [], ...(solo && pick.sub && { sub: true }), ...(blasphemy.length > 0 && { blasphemy }) };
       }),
     };
     let engine: FightEngine | string;
     try {
-      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, mode, heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, artifact, skills, perks, sub }) => ({ id, skin, gear, set, uw, ut, artifact, skills, perks, sub })) });
+      engine = await this.deps.fights.start({ boss: start.boss, seed: start.seed, stage: start.stage, solo: start.solo, mode, ...(start.divine && { divine: start.divine }), heroes: start.heroes.map(({ id, skin, gear, set, uw, ut, artifact, skills, perks, sub, blasphemy }) => ({ id, skin, gear, set, uw, ut, artifact, skills, perks, sub, ...(blasphemy && { blasphemy }) })) });
     } catch (err) {
       engine = err instanceof Error ? err.message : String(err);
     }
     if (typeof engine === 'string') {
       console.error(`A TechnoMagic Raid fight could not start (${engine}).`);
+      // (What it took to enter given back: it was never fought.)
+      await this.deps.abort?.(this.guildId, run).catch((err) => console.error('Could not give back what a run that never started took:', err));
+      this.readDivine(userId);
       this.tell();
       return 'failed';
     }
@@ -744,6 +894,12 @@ export class TechnoMagicRoom {
   /** `userId` turns their hero `fighter`'s Auto on or off (not one of the Sub Team's). */
   auto(userId: string, fighter: number): void {
     if (this.owns(userId, fighter) && this.mine(userId).includes(fighter) && this.pressing(userId)) this.fight?.pending.push({ kind: 'auto', fighter });
+  }
+
+  /** The Divine Punishment Raid's Karma dungeon: `userId` picks card `card` of the three offered (the sim takes it when a pick is due). */
+  card(userId: string, card: 0 | 1 | 2): void {
+    const { fight } = this;
+    if (fight && !fight.done && this.raid.kind === 'divine' && this.members.has(userId) && fight.owners.includes(userId) && this.pressing(userId)) fight.pending.push({ kind: 'card', card });
   }
 
   /** `userId` turns every hero of theirs' Auto on (or, with all of them on already, off). */
@@ -876,7 +1032,7 @@ export class TechnoMagicRoom {
       fight.inputs.push(...progress.inputs);
       fight.sums.push(...progress.sums);
       this.send(this.turnOf(fight, told.inputs, told.sums));
-      if (progress.result) void this.finish(fight, progress.result);
+      if (progress.result) void this.finish(fight, progress.result, progress.karma ?? null);
     } catch (err) {
       console.error('A TechnoMagic Raid fight failed:', err);
       if (!fight.done) void this.finish(fight, 'lost');
@@ -897,14 +1053,14 @@ export class TechnoMagicRoom {
     peer.send(this.turnOf(fight, 0, 0));
   }
 
-  /** The fight is over (`result`): what it gave each player, and the room shows it. */
-  private async finish(fight: Fight, result: 'won' | 'lost'): Promise<void> {
+  /** The fight is over (`result`; a karma run's `karma` outcome): what it gave each player, and the room shows it. */
+  private async finish(fight: Fight, result: 'won' | 'lost', karma: KarmaOutcome | null = null): Promise<void> {
     fight.done = true;
     fight.stop();
     fight.engine.close();
     let got = new Map<string, Got>();
     try {
-      got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick, fight.forfeited);
+      got = await this.deps.finish(this.guildId, fight.run, fight.start.stage, result, fight.tick, fight.forfeited, karma);
     } catch (err) {
       console.error('Could not finish a TechnoMagic Raid run:', err);
     }
@@ -933,7 +1089,11 @@ export class TechnoMagicRoom {
       ...([...got.values()].some((one) => one.crystals) && { crystals: Object.fromEntries([...got].flatMap(([userId, { crystals }]) => (crystals ? [[userId, crystals]] : []))) }),
       ...([...got.values()].some((one) => one.reports) && { reports: Object.fromEntries([...got].flatMap(([userId, { reports }]) => (reports ? [[userId, reports]] : []))) }),
       firstClears: Object.fromEntries([...got].map(([userId, { firstClears }]) => [userId, firstClears ?? 0])),
+      ...([...got.values()].some((one) => one.divine) && { divine: Object.fromEntries([...got].flatMap(([userId, { divine }]) => (divine ? [[userId, divine]] : []))) }),
     };
+    // (A Divine Punishment run moved its opening on: read again.)
+    const host = this.host();
+    if (host) this.readDivine(host);
     // Those gone during it: still waited for, for what's left of their time.
     for (const member of this.members.values()) if (!member.peer) this.waitFor(member);
     if (this.closeIfEmpty()) return;
@@ -942,6 +1102,25 @@ export class TechnoMagicRoom {
 
   private send(message: ServerMessage): void {
     for (const member of this.members.values()) member.peer?.send(message);
+  }
+
+  /** A Divine Punishment room's openings and picks, as the page shows them (its group's opening, Karma run, refusal, shards). */
+  private divineView(): DivineRoomView {
+    const info = this.dungeon();
+    const group = info?.group ?? 'apocalypsion';
+    const state = this.divineState?.divine?.[group];
+    const now = new Date(this.deps.now());
+    const opening = state?.boss && openingOpen(state.boss, now) ? state.boss : null;
+    return {
+      group,
+      opening: opening && { level: opening.level, expires: opening.expires.toISOString(), cleared: [...opening.cleared] },
+      karma: state?.karma?.open === true,
+      refusal: info ? enterRefusal(info, state, now) : 'not_open',
+      empty: byTier(this.divineState?.shards?.empty?.[group]),
+      full: byTier(this.divineState?.shards?.full?.[group]),
+      shard: info?.kind === 'karma' ? null : this.shard,
+      bring: info?.kind === 'karma' ? this.bring : null,
+    };
   }
 
   /** Tells every page the room as it is now. */
@@ -953,6 +1132,8 @@ export class TechnoMagicRoom {
       if (host !== this.stageHost) this.stage = this.unlocked();
       this.stageHost = host;
       this.stage = Math.min(this.stage, this.unlocked());
+      // (A Divine Punishment room's is always its opening's level.)
+      if (this.raid.kind === 'divine') this.stage = this.unlocked();
     }
     const players = [...this.members.values()].map((member, i) => ({
       id: member.player.userId,
@@ -985,6 +1166,7 @@ export class TechnoMagicRoom {
       players,
       lineup: this.fight ? this.fight.start.heroes.map(({ owner, id, skin, sub }) => ({ owner, hero: id, skin, ...(sub && { sub }) })) : [...this.lineup],
       over: this.over,
+      ...(this.raid.kind === 'divine' && { divine: this.divineView() }),
     };
     for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id } });
     this.keepLineup();
@@ -1099,8 +1281,15 @@ export class TechnoMagicRooms {
     const against = this.bossOf(boss);
     let room: TechnoMagicRoom | undefined;
     if (single) {
-      const key = TechnoMagicRooms.ownKey(player, against.id);
-      room = this.rooms.get(key) ?? this.create(key, player, deps, against, null);
+      // (The Divine Punishment Raid's: one a player whatever the dungeon, taken to the one asked for.)
+      const divine = this.raid.kind === 'divine';
+      const key = TechnoMagicRooms.ownKey(player, divine ? 'divine' : against.id);
+      const had = this.rooms.get(key);
+      room = had ?? this.create(key, player, deps, against, null);
+      if (divine && had && boss !== undefined && had.boss.id !== against.id) {
+        const joined = room;
+        queueMicrotask(() => void joined.setBoss(player.userId, against.id));
+      }
     } else if (wanted.room) {
       room = this.lobby(player.guildId, wanted.room);
       if (!room || (room.full && !room.has(player.userId))) return null;
@@ -1120,3 +1309,4 @@ export class TechnoMagicRooms {
 
 export const technomagicRooms = new TechnoMagicRooms();
 export const dragonRooms = new TechnoMagicRooms(realDragonDeps, DRAGON_RAID);
+export const divineRooms = new TechnoMagicRooms(realDivineDeps, DIVINE_RAID);

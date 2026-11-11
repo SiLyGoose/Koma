@@ -1,6 +1,7 @@
 import type { ChatClientMessage, ChatServerMessage } from './chat.js';
 import type { HeroPart } from './heroes.js';
 import type { MainStat } from './items.js';
+import type { DivineGroupId, DpFragment, ShardTier } from './divine.js';
 
 /*
  * What the TechnoMagic Raid's web page (the Koma-UI repo) and the bot say to each other over the WebSocket. The Dragon Raid
@@ -18,6 +19,13 @@ import type { MainStat } from './items.js';
  * the bot runs it by its own clock with every player's presses, and every page runs the same one from the
  * same seed with the same presses (`fight`, then `turn` after `turn`), never going past the step the bot has
  * reached. So how it ends is the bot's word alone, and what a win gives is rolled by the bot (`over`).
+ *
+ * King's Raid's Divine Punishment Raid is played the same way too (its own socket, /divine), solo only, in one room of the player's
+ * own (`hello` names the dungeon: `boss`, one of its bosses; `boss` changes it): a boss dungeon's lineup is 4 Main and 4 Sub, at the
+ * Infinite level its opening was unlocked at (/api/divine: `stage` is that level, not picked here), with Full Shards picked to bring
+ * (`divine`'s `shard`); the Karma dungeon's 3 heroes, at most one of each class, with Empty Shards picked (`empty`), and a card picked
+ * after each wave (`card`). Entering checks the opening and uses up what it takes (`answer` says why not: 'not_open', 'cleared',
+ * 'not_allowed', 'no_shards').
  *
  *   page -> bot   hello     first message: the token from the link (`single`: into a room of their own; `room`: into
  *                           that raid; `create`: into a new one; neither: an open raid against `boss`, or a new one)
@@ -72,6 +80,14 @@ export type ClientMessage =
   | { t: 'again' }
   | { t: 'parted'; no: number; second: number }
   | { t: 'heroes' }
+  /** The Divine Punishment Raid: a karma card picked (which of the three offered). */
+  | { t: 'card'; card: 0 | 1 | 2 }
+  /**
+   * The Divine Punishment Raid, getting ready: another dungeon (`boss`; or `group` alone, its final boss's), and the shards to
+   * bring (`shard`: Full Shards of the group into a boss dungeon; `empty`: Empty Shards into the Karma dungeon; null: none). Its
+   * openings read again besides (after /api/divine's unlock).
+   */
+  | { t: 'divine'; group?: DivineGroupId; boss?: string; shard?: { tier: 1 | 2 | 3 | 4 | 5; count: number } | null; empty?: { tier: 2 | 3 | 4 | 5; count: number } | null }
   | ChatClientMessage;
 
 /** Someone in the room. */
@@ -157,10 +173,32 @@ export interface OverView {
   /** The Technomagic Experiment Reports each found (a TechnoMagic Raid win, now and then from stage 4); left out for one who found none. */
   reports?: Record<string, number>;
   firstClears?: Record<string, number>;
+  /** A Divine Punishment run's: what each got (left out for one who got nothing). */
+  divine?: Record<string, DivinePaid>;
 }
 
-/** Which raid a room is: the TechnoMagic Raid, or the Dragon Raid. */
-export type RaidKind = 'technomagic' | 'dragon';
+/**
+ * What a Divine Punishment run gave a player: its group's Blood of Apostle, fragments, Empty and Full Shards (by tier), Unique Gear
+ * Tickets and Legendary runes (rune ids: King's Raid's Mysterious Rune: Legendary opened); a karma run's waves and gauge, and of its
+ * Empty Shards brought how many filled and how many came back; a final boss's win, its opening closed and the best level after.
+ */
+export interface DivinePaid {
+  group: DivineGroupId;
+  blood?: number;
+  fragments?: Partial<Record<DpFragment, number>>;
+  empty?: Partial<Record<ShardTier, number>>;
+  full?: Partial<Record<ShardTier, number>>;
+  tickets?: number;
+  runes?: string[];
+  karma?: { waves: number; gauge: number };
+  emptyUsed?: number;
+  emptyBack?: number;
+  closed?: boolean;
+  best?: number;
+}
+
+/** Which raid a room is: the TechnoMagic Raid, the Dragon Raid, or the Divine Punishment Raid. */
+export type RaidKind = 'technomagic' | 'dragon' | 'divine';
 
 /**
  * Which of a boss's modes a raid is against: a dragon's Normal mode (King's Raid's Normal Dragon Raid) or its Hard mode
@@ -174,6 +212,24 @@ export interface BossView {
   name: string;
   stages: number;
   normal?: number;
+  /** A Divine Punishment dungeon's group and kind (a side boss, the final boss, the Karma dungeon). */
+  divine?: { group: DivineGroupId; kind: 'side' | 'final' | 'karma' };
+}
+
+/**
+ * A Divine Punishment room's openings and picks, as the room last read them (/api/divine has the rest): the group's boss opening
+ * (null: none open), its Karma run unlocked, the dungeon's refusal (null: it can be entered), the shards they have of the group,
+ * and the shards picked to bring.
+ */
+export interface DivineRoomView {
+  group: DivineGroupId;
+  opening: { level: number; expires: string; cleared: string[] } | null;
+  karma: boolean;
+  refusal: 'not_open' | 'cleared' | 'not_allowed' | null;
+  empty: Record<ShardTier, number>;
+  full: Record<ShardTier, number>;
+  shard: { tier: 1 | 2 | 3 | 4 | 5; count: number } | null;
+  bring: { tier: 2 | 3 | 4 | 5; count: number } | null;
 }
 
 export interface RoomState {
@@ -204,6 +260,8 @@ export interface RoomState {
   lineup: PickView[];
   /** The fight just over (null: none). */
   over: OverView | null;
+  /** A Divine Punishment room's openings and picks (left out: another raid's room). */
+  divine?: DivineRoomView;
 }
 
 /**
@@ -219,15 +277,20 @@ export interface FightStart {
   stage: number;
   solo: boolean;
   mode?: RaidMode;
-  heroes: { owner: string; id: string; skin: number; gear: Record<string, number>; set: string | null; uw: number | null; ut: { skill: number; tier: number } | null; artifact: { id: string; tier: number } | null; skills: string[]; perks: string[]; sub?: boolean }[];
+  /** A Divine Punishment run: its group, Infinite level (a boss dungeon's), side bosses cleared (a final boss's) and shards brought. */
+  divine?: { group: DivineGroupId; level?: number; cleared?: readonly string[]; shard?: { tier: 1 | 2 | 3 | 4 | 5; count: number } | null; empty?: { tier: 2 | 3 | 4 | 5; count: number } | null };
+  /** Each hero's `blasphemy`: per Rune of Blasphemy socketed in its gear, its class's line and rolled value (left out: none). */
+  heroes: { owner: string; id: string; skin: number; gear: Record<string, number>; set: string | null; uw: number | null; ut: { skill: number; tier: number } | null; artifact: { id: string; tier: number } | null; skills: string[]; perks: string[]; sub?: boolean; blasphemy?: { skill: string; value: number }[] }[];
 }
 
 /** One press, at the step it counts before: a skill (`skill` of hero `fighter`), or a hero's Auto. */
 export interface TurnInput {
   tick: number;
-  kind: 'skill' | 'auto' | 'leave';
+  kind: 'skill' | 'auto' | 'leave' | 'card';
   fighter?: number;
   skill?: number;
+  /** A karma card picked (the Divine Punishment Raid's Karma dungeon). */
+  card?: 0 | 1 | 2;
 }
 
 export type AnswerCode =
@@ -246,6 +309,13 @@ export type AnswerCode =
   | 'no_heroes'
   /** A stage the host hasn't opened yet (they haven't won the one before it). */
   | 'locked'
+  /** Divine Punishment: no opening (or Karma run) unlocked, a side boss cleared in it already, a third dragon, too few shards. */
+  | 'not_open'
+  | 'cleared'
+  | 'not_allowed'
+  | 'no_shards'
+  /** Divine Punishment's Karma dungeon: a hero of that class is in already. */
+  | 'class_taken'
   /** It couldn't be done (the database didn't answer). */
   | 'failed';
 

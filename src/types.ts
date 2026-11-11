@@ -5,6 +5,7 @@ import type { RaidBossId, RaidClassId } from './constants/raid.js';
 import type { EssenceId } from './data/transcend.js';
 import type { HeroPart, HeroSlot, SalvageRule } from './protocol/heroes.js';
 import type { BannerId, Slot, Stars, TmSetId } from './protocol/items.js';
+import type { DivineGroupId, DpFragment, ShardTier, VoidSocket } from './protocol/divine.js';
 
 export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
 export { HERO_SLOTS, type HeroSlot } from './protocol/heroes.js';
@@ -282,6 +283,35 @@ export interface MemberDoc {
    * TechnoMagic Raid, spent restoring a 5★ TechnoMagic piece into a Reclaimed one (services/kr-gear.ts restoreTmPiece). Missing means none.
    */
   reports?: number;
+  /**
+   * King's Raid's Divine Punishment Raid (lib/game/divine.ts, services/divine.ts): each group's openings (its boss dungeons' 7-day
+   * window and opening, its Karma unlock) and the highest Infinite level it has cleared. Missing means none opened yet.
+   */
+  divine?: Partial<Record<DivineGroupId, DivineGroupDoc>>;
+  /** Blood of Apostle, by group (King's Raid's BLOOD_OF_APOCALYPSION / BLOOD_OF_SOLENIS): boss dungeons give it, Runes of Blasphemy take it. Missing means none. */
+  blood?: Partial<Record<DivineGroupId, number>>;
+  /**
+   * The Divine Punishment Raid's four Artifact fragments (King's Raid's PUNISHMENT_RAID_FRAGMENT_1–4: Dragon's Doomstone, Apocalypsion's
+   * Tear, Golem's Fuel, Solenis' Engraving), 1,000 crafting their artifact. Missing means none.
+   */
+  dpFragments?: Partial<Record<DpFragment, number>>;
+  /**
+   * Shards (King's Raid's SHARD_EMPTY_* / SHARD_FULL_*), by Empty or Full, group and tier ('1' to '5'; kept by tier key, not an
+   * array, so a $inc never makes one): Full ones are brought into boss dungeons, Empty ones filled in the Karma dungeon. Tier 1 Empty is
+   * free and unlimited (never kept). Missing means none.
+   */
+  shards?: { empty?: Partial<Record<DivineGroupId, Partial<Record<ShardTier, number>>>>; full?: Partial<Record<DivineGroupId, Partial<Record<ShardTier, number>>>> };
+  /** Runes of Void (King's Raid's VOID_RUNE_1–5), by socket: each Rune of Blasphemy crafted takes one of its socket's. Missing means none. */
+  voidRunes?: Partial<Record<VoidSocket, number>>;
+  /** Unique Gear Tickets (King's Raid's ALL_UNIQUE_SELECT_ITEM_STAR_0_0) not used yet: each a 0★ unique weapon or treasure of their pick. Missing means none. */
+  uniqueTickets?: number;
+  /**
+   * Their Runes of Blasphemy, each with its own rolls (in storage, or in a copy's socket as `bl:<id>`: ItemCopyDoc.runes). Missing
+   * means none.
+   */
+  blasphemy?: BlasphemyCopyDoc[];
+  /** How many Runes of Blasphemy their storage holds (not socketed). Missing or null means BLASPHEMY_STORAGE.base. */
+  blasphemySlots?: number | null;
   /** Transcendence Scrolls crafted from Boss Crystals and not used yet: each gives a hero TP_SCROLL_POINTS more TP (services/heroes.ts). Missing means none. */
   tpScrolls?: number;
   /** King's Raid's Dispatch Battle Loot claimed from background raids' mail and not opened yet, by box (data/loot-boxes.ts): services/loot-boxes.ts. Missing means none. */
@@ -466,6 +496,42 @@ export interface TmRunDoc {
   essences?: Partial<Record<EssenceId, number>>;
   /** A Dragon or TechnoMagic Raid win's komaGems (for the stages it cleared for the first time). */
   gems?: number;
+  /** A Divine Punishment run (its boss one of DIVINE_INFO's): its group, Infinite level, side bosses cleared, shards brought; and, a karma run over, how it went. */
+  divine?: { group: DivineGroupId; level?: number; cleared?: string[]; shard?: { tier: number; count: number } | null; empty?: { tier: number; count: number } | null; karma?: { waves: number; gauge: number } };
+}
+
+/** The Divine Punishment Raid's groups, fragments, shard tiers and Void sockets (protocol/divine.ts). */
+export type { DivineGroupId, DpFragment, ShardTier, VoidSocket };
+
+/**
+ * A group's boss dungeons (MemberDoc.divine): King's Raid's OpenPunishmentRaidInfo. The 7-day window starts with an unlock made
+ * with none running (`since`, `expires`) and counts the final boss's clears in it (`clears`: the unlock's price ladder); the opening
+ * in it is `open` at `level` (the Infinite level unlocked), with the side bosses `cleared` in it.
+ */
+export interface DivineBossDoc {
+  open: boolean;
+  level: number;
+  since: Date;
+  expires: Date;
+  clears: number;
+  cleared: string[];
+}
+
+/** A group's Divine Punishment state: its boss opening, its Karma unlock (one run), the highest Infinite level cleared, and a revision (each change bumps it). */
+export interface DivineGroupDoc {
+  boss?: DivineBossDoc;
+  karma?: { open: boolean };
+  best?: number;
+  rev?: number;
+}
+
+/** A Rune of Blasphemy (MemberDoc.blasphemy): its id, which (the sim's KR_BLASPHEMY id), its main stat's rolled share, its three lines' rolls (by class group), and when it was made. */
+export interface BlasphemyCopyDoc {
+  id: string;
+  rune: string;
+  main: number;
+  lines: [number, number, number];
+  at: Date;
 }
 
 /**
@@ -796,6 +862,16 @@ export type LedgerReason =
   | 'kr_upgrade'
   // Points (and Boss Crystals, not in the ledger) paid to craft a TechnoMagic piece (services/technomagic.ts; itemId is the piece).
   | 'tm_craft'
+  // Points paid to unlock a Divine Punishment boss opening or Karma run (services/divine.ts; itemId is `divine:<group>:boss|karma`).
+  | 'divine_open'
+  // Points paid for Runes of Void in the Divine Punishment shop (services/divine.ts; itemId is `void:<socket>`).
+  | 'divine_void'
+  // Points (and 1,000 Divine Punishment fragments, not in the ledger) paid to craft its artifact (services/divine.ts; itemId is the artifact).
+  | 'divine_artifact'
+  // Points paid for more Rune of Blasphemy storage (services/divine.ts).
+  | 'blasphemy_storage'
+  // Points paid to take a Rune of Blasphemy out of a socket and keep it (services/divine.ts; itemId is the copy's item).
+  | 'blasphemy_keep'
   // Points (and Technomagic Experiment Reports, not in the ledger) paid to restore a 5★ TechnoMagic piece into a Reclaimed one (services/kr-gear.ts; itemId is the piece).
   | 'tm_restore'
   // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).

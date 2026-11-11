@@ -5,6 +5,8 @@ import { collections } from '../db.js';
 import { socketsOf } from '../lib/game/heroes.js';
 import { RUNE_BOXES, RUNE_FRAGMENTS, RUNE_SELL_POINTS, type RuneBoxId, type RuneError, type RuneSale } from '../protocol/runes.js';
 import { recordLedger } from './economy/shared.js';
+import { isBlasphemyRef } from '../lib/game/divine.js';
+import { breakSocketedBlasphemy } from './divine.js';
 
 /*
  * King's Raid's runes beyond their sockets, in the database (the rules are protocol/runes.ts's): the member's runes
@@ -68,6 +70,11 @@ export async function breakSocketedRune(guildId: string, userId: string, copyId:
   const before = Array.from({ length: count }, (_, i) => copy.runes?.[i] ?? null);
   const old = before[socket];
   if (!old) return { ok: false, reason: 'no_rune' };
+  // (A Rune of Blasphemy: broken as services/divine.ts breaks one, for its own fragments.)
+  if (isBlasphemyRef(old)) {
+    const broken = await breakSocketedBlasphemy(guildId, userId, copyId, socket);
+    return broken.ok ? { ok: true, value: broken.value } : { ok: false, reason: broken.reason === 'no_socket' || broken.reason === 'not_found' || broken.reason === 'no_rune' ? broken.reason : 'busy' };
+  }
   const out = await items.updateOne({ guildId, userId, _id: copyId, runes: copy.runes }, { $set: { runes: before.map((one, i) => (i === socket ? null : one)) } });
   if (out.modifiedCount === 0) return { ok: false, reason: 'busy' };
   const fragments = RUNE_FRAGMENTS[KR_RUNES_BY_ID.get(old)?.grade ?? 1] ?? 0;

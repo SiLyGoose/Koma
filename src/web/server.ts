@@ -11,7 +11,7 @@ import { serveRoulette } from './games/roulette/server.js';
 import { servePoker } from './games/poker/server.js';
 import { serveRaid } from './games/raid/server.js';
 import { serveMinesweeper } from './games/minesweeper/server.js';
-import { serveDragon, serveTechnoMagic } from './games/technomagic/server.js';
+import { serveDivine, serveDragon, serveTechnoMagic } from './games/technomagic/server.js';
 import { serveCodedle } from './games/codedle/server.js';
 
 /*
@@ -43,6 +43,8 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     // The TechnoMagic Raid's rooms, which say in Discord when one is opened (once the bot has logged in).
     [GAMES.technomagic.socket]: (socket) => serveTechnoMagic(socket, { avatar: api.avatar, announce: api.technomagic?.announce }),
     [GAMES.dragon.socket]: (socket) => serveDragon(socket, { avatar: api.avatar, announce: api.dragon?.announce }),
+    // King's Raid's Divine Punishment Raid: solo only, never said in Discord.
+    [GAMES.divine.socket]: (socket) => serveDivine(socket, { avatar: api.avatar }),
     [GAMES.codedle.socket]: serveCodedle,
     // The raid, once the bot can start one and read the week (it has logged in to Discord).
     ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),

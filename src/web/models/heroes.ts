@@ -63,6 +63,7 @@ import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
 import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroLoadoutError, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 import { gearStore, refineState } from './gear.js';
+import { blasphemyLookup, blasphemyMain, isBlasphemyRef, lineText, type BlasphemyLookup } from '../../lib/game/divine.js';
 
 export type { HeroCopy, HeroEquipError, HeroesView, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
@@ -159,6 +160,21 @@ export function runeView(id: string): HeroRune | null {
   return rune ? { id: rune.id, name: rune.name, grade: rune.grade, color: rune.color, icon: rune.icon, lines: runeLines(rune.id) } : null;
 }
 
+/** Which classes each of a Rune of Blasphemy's three lines is for (lib/game/divine.ts CLASS_LINE). */
+const BLASPHEMY_LINE_CLASSES = ['Warrior/Knight', 'Archer/Assassin/Mechanic', 'Wizard/Priest'] as const;
+
+/** A Rune of Blasphemy in a socket (`bl:<id>`) as the page shows it, as a rune: grade 7 (above Legendary), its main stat and its three lines with their rolls (null: none such). */
+export function blasphemyRuneView(ref: string, lookup: BlasphemyLookup): HeroRune | null {
+  const on = lookup.get(ref);
+  if (!on) return null;
+  const { data, copy } = on;
+  const main = HERO_STAT_IDS_SET.has(data.main.stat) ? [krLine(data.main.stat as HeroStat, copy.main)] : [];
+  return { id: ref, name: data.name, grade: 7, color: data.color, icon: data.icon, lines: [...main, ...data.lines.map((line, i) => `${BLASPHEMY_LINE_CLASSES[i]}: ${lineText(line, copy.lines[i] ?? line.min)}`)] };
+}
+
+/** A socket's rune as the page shows it: a rune's, or a Rune of Blasphemy's (`bl:<id>`, from the member's). */
+const socketView = (id: string, lookup: BlasphemyLookup): HeroRune | null => (isBlasphemyRef(id) ? blasphemyRuneView(id, lookup) : runeView(id));
+
 /** The member's runes, best first (grade, then name). */
 export function runeStacks(runes: MemberDoc['runes']): HeroRuneStack[] {
   return Object.entries(runes ?? {})
@@ -228,9 +244,11 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
 /** The heroes' view, from the member's copies and member document. */
 export function heroesView(
   copies: readonly CopyInfo[],
-  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'reports' | 'tpScrolls' | 'lootBoxes' | 'heroLoadouts' | 'heroLoadoutSlots'>> & Partial<LoadoutFields>) | null,
+  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'reports' | 'tpScrolls' | 'lootBoxes' | 'heroLoadouts' | 'heroLoadoutSlots' | 'blasphemy'>> & Partial<LoadoutFields>) | null,
 ): HeroesView {
   const worn = heroWorn(member);
+  // (Their Runes of Blasphemy, which a copy's sockets name as `bl:<id>`.)
+  const blasphemy = blasphemyLookup(member?.blasphemy);
   // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
   const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
   const lit = activeTmEffects(copies, member);
@@ -276,7 +294,7 @@ export function heroesView(
       classes: kr ? [...kr.classes] : item.class ? [item.class] : [],
       icon: kr?.icon ?? null,
       options: optionViews(item, copy),
-      runes: runes.map((id) => (id ? runeView(id) : null)),
+      runes: runes.map((id) => (id ? socketView(id, blasphemy) : null)),
       ...optionCosts(item, copy),
       // (King's Raid's Technomagic Restoration: a 5★ TechnoMagic piece into a 0★ Reclaimed one.)
       restore: tmRestorable(item, copy) ? { reports: TM_REPORTS.restore, points: TM_REPORTS.restorePoints, mainAfter: copyMainStat(item, { ...copy, level: 0, reclaimed: true }) } : null,
@@ -287,7 +305,7 @@ export function heroesView(
       ...(heroOnly(item) && { salvage: itemSalvage(item) }),
       ...(tmStoneClass(item) && { salvageStones: { class: tmStoneClass(item) as RaidClassId, count: tmSalvageStones(copy.reclaimed === true) } }),
       ...(isTmPiece(item) && kr?.set && { salvageCrystals: { set: kr.set as TmSetId, count: tmSalvageCrystals(copy.reclaimed === true) }, rerollCrystals: kr.set as TmSetId, ...(kr.unique && { rerollUniqueCrystals: TM_CRYSTALS.skillReroll }) }),
-      effects: heroItemLines(item, level, copy.tmPotentials, copy.options, runes),
+      effects: [...heroItemLines(item, level, copy.tmPotentials, copy.options, runes), ...runes.flatMap((id) => (isBlasphemyRef(id) ? (blasphemyRuneView(id, blasphemy)?.lines.slice(0, 1) ?? []) : []))],
       mainStat: copyMainStat(item, { ...copy, level }),
       setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
       additional: kr?.unique ? tmSkillLine(copy.tmSkill) : null,
@@ -311,7 +329,7 @@ export function heroesView(
     list.push(view);
     pieces.set(copy._id, {
       view,
-      piece: { item, level, ...(item.uniqueTreasure && copy.tmPotentials && { potentials: copy.tmPotentials }), ...(copy.options && { options: copy.options }), runes, ...(copy.reclaimed && { reclaimed: true }) },
+      piece: { item, level, ...(item.uniqueTreasure && copy.tmPotentials && { potentials: copy.tmPotentials }), ...(copy.options && { options: copy.options }), runes, ...(copy.reclaimed && { reclaimed: true }), ...(runes.some(isBlasphemyRef) && { blasphemy: blasphemyMain(runes, blasphemy) }) },
     });
   }
   // Best first: the unique weapons, then King's Raid's gear by tier (TechnoMagic gear's above the dragon sets'), the unique treasures, the artifacts.

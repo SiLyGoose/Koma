@@ -13,12 +13,16 @@ import type { HeroKeep, HeroOptionError, HeroRestoreError, HeroRuneError } from 
 import type { ItemCopyDoc, ItemDef } from '../types.js';
 import { recordLedger } from './economy/shared.js';
 import { RUNE_KEEP_PRICE } from '../protocol/runes.js';
+import { blasphemyIdOf, isBlasphemyRef } from '../lib/game/divine.js';
+import { socketBlasphemy, unsocketBlasphemy } from './divine.js';
 
 /*
  * King's Raid's hero gear in the database (the rules are data/kr-gear.ts's): runes put in a copy's sockets and taken out
  * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out for RUNE_KEEP_PRICE points), and a copy's options rerolled
  * or their amounts rolled again (enhanced) for points (King's Raid's gem prices: data/kr-gear.ts's REROLL_PRICES and UPGRADE_PRICES). Each spends first,
  * then changes the copy only as it was (its options as read): anything else changed it meanwhile, it is paid back.
+ * A Rune of Blasphemy in a socket (`bl:<id>`, the member's own copy: services/divine.ts) goes in and out through services/divine.ts:
+ * one named here is handed over to it, and one in the way is kept in its storage (its own keep price).
  */
 
 export type RuneResult = { ok: true } | { ok: false; reason: HeroRuneError };
@@ -33,6 +37,8 @@ const socketsOfCopy = (copy: Pick<ItemCopyDoc, 'runes'>, count: number): (string
  * of its part ('wrong_part'), none of it ('no_rune').
  */
 export async function socketRune(guildId: string, userId: string, copyId: string, socket: number, runeId: string): Promise<RuneResult> {
+  // (A Rune of Blasphemy of theirs: services/divine.ts's.)
+  if (isBlasphemyRef(runeId)) return blasphemyAnswer(await socketBlasphemy(guildId, userId, copyId, socket, blasphemyIdOf(runeId)));
   const { items, members } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
@@ -42,6 +48,12 @@ export async function socketRune(guildId: string, userId: string, copyId: string
   const rune = KR_RUNES_BY_ID.get(runeId);
   const part = partOf(item);
   if (!rune || !part || !runeFits(rune, part)) return { ok: false, reason: 'wrong_part' };
+  // (A Rune of Blasphemy in the way: kept in its storage first, for its own price.)
+  if (isBlasphemyRef(copy.runes?.[socket])) {
+    const kept = await unsocketBlasphemy(guildId, userId, copyId, socket);
+    if (!kept.ok) return blasphemyAnswer(kept);
+    return socketRune(guildId, userId, copyId, socket, runeId);
+  }
   const before = socketsOfCopy(copy, count);
   const old = before[socket] ?? null;
   const fee = old ? RUNE_KEEP_PRICE : 0;
@@ -78,6 +90,8 @@ export async function unsocketRune(guildId: string, userId: string, copyId: stri
   const before = socketsOfCopy(copy, count);
   const old = before[socket];
   if (!old) return { ok: false, reason: 'no_rune' };
+  // (A Rune of Blasphemy: into its storage, for its own keep price.)
+  if (isBlasphemyRef(old)) return blasphemyAnswer(await unsocketBlasphemy(guildId, userId, copyId, socket));
   if (!(await pay(guildId, userId, RUNE_KEEP_PRICE))) return { ok: false, reason: 'too_poor' };
   const out = await items.updateOne({ guildId, userId, _id: copyId, runes: copy.runes }, { $set: { runes: before.map((one, i) => (i === socket ? null : one)) } });
   if (out.modifiedCount === 0) {
@@ -87,6 +101,13 @@ export async function unsocketRune(guildId: string, userId: string, copyId: stri
   await members.updateOne({ guildId, userId }, { $inc: { [`runes.${old}`]: 1 } });
   await recordLedger([{ guildId, userId, delta: -RUNE_KEEP_PRICE, reason: 'rune_keep', itemId: item.id }]);
   return { ok: true };
+}
+
+/** services/divine.ts's answer as a rune's (its reasons a rune's but storage being full: 'busy'; one in two sockets: 'no_rune'). */
+function blasphemyAnswer(result: { ok: true } | { ok: false; reason: string }): RuneResult {
+  if (result.ok) return { ok: true };
+  const known: readonly HeroRuneError[] = ['not_found', 'no_socket', 'wrong_part', 'no_rune', 'too_poor', 'busy'];
+  return { ok: false, reason: known.includes(result.reason as HeroRuneError) ? (result.reason as HeroRuneError) : result.reason === 'socketed' ? 'no_rune' : 'busy' };
 }
 
 /** Takes `cost` points from the member (false: they haven't so many). */

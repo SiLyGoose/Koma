@@ -233,6 +233,8 @@ var dealing = (on) => amplified(deals(on));
 var pacing = (on, ...and) => stacked([...on.map(({ pace }) => pace ?? 1), ...and]);
 /** How many times as much healing reaches a bearer of these (`and`: more of the kind, besides). */
 var healing = (on, ...and) => stacked([...on.map(({ heals }) => heals ?? 1), ...and]);
+/** How many times as long a bearer of these's CC lasts. */
+var controlling = (on) => stacked(on.map(({ control }) => control ?? 1));
 /** How many times as fast a bearer of these gains mana (`and`: more of the kind, besides). */
 var filling = (on, ...and) => stacked([...on.map(({ mana }) => mana ?? 1), ...and]);
 /** What these add to how likely a bearer's blows are to be critical. */
@@ -388,7 +390,87 @@ var VENOM = { weaken: {
 	each: .01,
 	most: 100
 } };
+/**
+* A karma monster, as a stand-in (King's Raid's kits: KR-extracted/briefs/divine-punishment/gen/kit-karma-*.md): its plain
+* attack, `share` of its ATK on the hero it goes for within `range`, and its skill every `cooldown` seconds (`first` in), `skill`
+* of its ATK on that hero and as far about it as `reach`, knocking down (`freeze`) as long as its says. Their ops' blows that go
+* by their target's own M.ATK ($ByTargetMagicalAttack) are King's Raid's plain shares here (a first guess).
+*/
+var karmaMonster = (name, deals, share, range, skill) => ({
+	name,
+	deals,
+	size: .9,
+	attack: {
+		length: 2.4,
+		lands: [.9],
+		share,
+		reach: 0,
+		range
+	},
+	rest: .2,
+	skill: {
+		cooldown: skill.cooldown,
+		first: skill.first,
+		length: 3,
+		lands: [1.5],
+		share: skill.share,
+		reach: skill.reach,
+		range,
+		...skill.freeze && { leaves: { freeze: skill.freeze } }
+	}
+});
 var MINIONS = {
+	kauron: karmaMonster("Kauron", "magical", 3, 2, {
+		cooldown: 12,
+		first: 12,
+		share: 1.5,
+		reach: 0
+	}),
+	moira: karmaMonster("Moira", "magical", 3, 12, {
+		cooldown: 6,
+		first: 6,
+		share: 2,
+		reach: 0,
+		freeze: 1.5
+	}),
+	theakel: karmaMonster("Theakel", "physical", 3.2, 2, {
+		cooldown: 10,
+		first: 10,
+		share: 2,
+		reach: 0
+	}),
+	reuss: karmaMonster("Reuss", "physical", 3, 2, {
+		cooldown: 12,
+		first: 12,
+		share: 1,
+		reach: 2,
+		freeze: 1.5
+	}),
+	"golem-guardian": karmaMonster("Guardian Golem", "physical", 2.8, 2, {
+		cooldown: 10,
+		first: 5,
+		share: 0,
+		reach: 0
+	}),
+	"golem-destroyer": karmaMonster("Destroyer Golem", "physical", 2.8, 2, {
+		cooldown: 13,
+		first: 9,
+		share: 2,
+		reach: 0
+	}),
+	"golem-berserk": karmaMonster("Berserk Golem", "physical", 2.7, 2, {
+		cooldown: 7,
+		first: 8,
+		share: 1,
+		reach: 0
+	}),
+	"golem-mountain": karmaMonster("Mountain Golem", "physical", .5, 2, {
+		cooldown: 1,
+		first: 1,
+		share: 2,
+		reach: 0,
+		freeze: .5
+	}),
 	"hatchling-fire": hatchling("Fire Hatchling"),
 	"hatchling-ice": hatchling("Ice Hatchling", SNOW),
 	"hatchling-poison": hatchling("Poison Hatchling"),
@@ -9502,6 +9584,21 @@ function minionOf(minion, solo, party = KR_PARTY$2) {
 		}
 	};
 }
+/** A minion with King's Raid's own numbers (../boss.ts OwnMinion: Divine Punishment's), as they are: the rest as the hard dragons' (OPEN), or as it says. */
+function ownMinion(minion) {
+	return {
+		hp: minion.hp,
+		atk: minion.atk,
+		stats: {
+			hp: minion.hp,
+			deals: MINIONS[minion.kind].deals,
+			magical: minion.def[0],
+			physical: minion.def[1],
+			...OPEN,
+			...minion.stats
+		}
+	};
+}
 /** A dragon's part: its own (`own`), with its CC Gauge (../gauge.ts: of `size`, none said the Hard Dragon Raid's). */
 var withDragonGauge = (fight, own, size = DRAGON_GAUGE) => withGauge(fight, own, size);
 /** What a blow takes, as a share of a dragon's ATK at stage 1 (King's Raid's playtest's: its skill's damage share). */
@@ -9783,7 +9880,7 @@ var DARK$1 = {
 	art: stateArt("440420"),
 	harmful: true
 };
-var STONE = {
+var STONE$1 = {
 	name: "Petrified",
 	about: "Turned to stone by its gaze: it can do nothing.",
 	icon: "🗿",
@@ -9826,10 +9923,10 @@ function armartaPart(fight, mode = HARD) {
 				fight.stagger(top);
 				top.reserved = null;
 				put(top.statuses, {
-					name: STONE.name,
+					name: STONE$1.name,
 					left: GAZE.lasts,
 					binds: true,
-					shown: STONE
+					shown: STONE$1
 				});
 				fight.cue(null, "gaze", [top]);
 			},
@@ -9873,7 +9970,7 @@ function armartaPart(fight, mode = HARD) {
 			if (at >= 0) foe.statuses.splice(at, 1);
 			for (const fighter of fight.fighters) {
 				lift(fighter, DARK$1.name);
-				lift(fighter, STONE.name);
+				lift(fighter, STONE$1.name);
 			}
 		},
 		marks: () => []
@@ -9949,543 +10046,493 @@ var ARMARTA = {
 	normal: normalDragon(hard$3, .5, armartaPart)
 };
 //#endregion
-//#region src/technomagic/sim/bosses/galgoria/attacks.ts
-/**
-* Its M.ATK at each stage, as King's Raid's playtest builds it (its Galgoria raid, chapter 10's stages 1 to 9: its stats at
-* the stage's level, times its MonsterTierTable entry: KR-extracted/scripts/boss-stats.mjs). Its blows are shares of it.
-*/
-var KR_ATK$1 = [
-	4515117,
-	5942354,
-	8184999,
-	9373382,
-	13161563,
-	19055025,
-	23048231,
-	39699242,
-	69801164
-];
-/** What a blow takes: `of` its ATK at stage 1 (how much of that each skill's blow takes is ./skills.ts). */
-var share$1 = (of) => [of * KR_ATK$1[0], of * KR_ATK$1[0]];
-var HEADS = [
-	"C",
-	"L",
-	"R"
-];
-/** How long each of its heads' moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense (its ATK; each skill takes its share of it). */
-var MOVES$1 = {
-	spit: {
-		length: 2,
-		hit: .88,
-		hurts: share$1(1)
-	},
-	roar: {
-		length: 2.1,
-		hit: .5,
-		hurts: share$1(1.5)
-	},
-	slam: {
-		length: 1.9,
-		hit: .75
-	}
-};
-/** The heads' moves in each of its skills, by its name. */
-var PLANS$1 = {
-	left: [[
-		"spit",
-		"L",
-		0
-	]],
-	centre: [[
-		"spit",
-		"C",
-		0
-	]],
-	right: [[
-		"spit",
-		"R",
-		0
-	]],
-	destroyer: [
-		[
-			"spit",
-			"L",
-			0
-		],
-		[
-			"spit",
-			"C",
-			.38
-		],
-		[
-			"spit",
-			"R",
-			.76
-		],
-		[
-			"slam",
-			"L",
-			.76
-		],
-		[
-			"slam",
-			"C",
-			.38
-		],
-		[
-			"slam",
-			"R",
-			0
-		]
-	],
-	swamp: HEADS.map((head, i) => [
-		"roar",
-		head,
-		i * .07
-	]),
-	explosion: [[
-		"spit",
-		"L",
-		0
-	], [
-		"spit",
-		"R",
-		.2
-	]],
-	fatal: [[
-		"spit",
-		"C",
-		0
-	]]
-};
-/** Its attacks, as Boss auto picks them (one head's venom the most often, by itself) and as their buttons say. */
-var ATTACKS$1 = [
-	{
-		name: "left",
-		label: "Left head"
-	},
-	{
-		name: "centre",
-		label: "Centre head"
-	},
-	{
-		name: "right",
-		label: "Right head"
-	},
-	{
-		name: "destroyer",
-		label: "Swamp Destroyer"
-	},
-	{
-		name: "swamp",
-		label: "Poisonous Swamp"
-	},
-	{
-		name: "explosion",
-		label: "Poisonous Explosion"
-	},
-	{
-		name: "fatal",
-		label: "Fatal Venom",
-		warning: {
-			image: "warning",
-			lasts: 2
+//#region src/technomagic/sim/bosses/divine/kit.ts
+/** One body: all of a stand-in boss's moves are its. */
+var BODY$1 = "B";
+/** A boss's stand-in skills as its BossDef has them (`atk`: its ATK at level 1, which its blows are shares of): its attacks, plans, moves and plain attack. */
+function kitOf(skills, atk) {
+	const plans = {};
+	const moves = {};
+	for (const skill of skills) {
+		const plan = [];
+		skill.blows.forEach((at, i) => {
+			const from = i === 0 ? 0 : skill.blows[i - 1];
+			const last = i === skill.blows.length - 1;
+			const name = `${skill.name}${i}`;
+			const share = typeof skill.share === "number" ? skill.share : skill.share[i] ?? 0;
+			moves[name] = {
+				length: (last ? skill.length : at) - from,
+				hit: at - from,
+				hurts: [share * atk, share * atk]
+			};
+			plan.push([
+				name,
+				BODY$1,
+				0
+			]);
+		});
+		if (skill.blows.length === 0) {
+			moves[skill.name] = {
+				length: skill.length,
+				hit: null
+			};
+			plan.push([
+				skill.name,
+				BODY$1,
+				0
+			]);
 		}
-	}
-];
-//#endregion
-//#region src/technomagic/sim/bosses/galgoria/skills.ts
-/** Its attack's share of its ATK. */
-var HEAD = 3.3;
-var IMPRISONMENT = {
-	hits: 150,
-	lasts: 8,
-	atk: .7
-};
-var DESTROYER = {
-	venom: .55,
-	share: 100 / 110,
-	down: 3,
-	cooldown: 10
-};
-var SWAMP = {
-	lasts: 5,
-	every: 1,
-	mana: .6,
-	deals: 1.4,
-	cooldown: 17
-};
-var EXPLOSION$1 = {
-	blow: 1.1,
-	lasts: 10,
-	deals: .5,
-	crit: -.5,
-	cooldown: 18
-};
-var FATAL = {
-	blow: 1.4,
-	after: 3,
-	heals: .2,
-	most: 5,
-	deals: .14,
-	mostOnIt: 10
-};
-/** What it gives itself back a second, of its health, and how much higher its Heal Rate is: from stage `from` on, `later`. */
-var LIFE_FORCE = {
-	share: .01,
-	healing: .7,
-	later: 1.2,
-	from: 4
-};
-/** From stage 4 on: how much healing reaches the heroes, and how strong their shields are. */
-var STAGES = {
-	from: 4,
-	heals: .6,
-	shields: .4
-};
-var IMPRISONED = {
-	name: "Swamp Imprisonment",
-	about: "Held in the swamp: it can do nothing (and can’t be knocked down), but the boss still hits it.",
-	icon: "🪤",
-	art: stateArt("3590043"),
-	harmful: true
-};
-var UNBOUND = {
-	name: "Swamp Imprisonment (free)",
-	about: `An ally is held: ATK ${Math.round(IMPRISONMENT.atk * 100)}% higher meanwhile.`,
-	icon: "🗡️",
-	art: stateArt("AttackUp")
-};
-var POISONED$2 = {
-	name: "Poisonous Swamp",
-	about: `Hurt every second; mana fills ${Math.round((1 - SWAMP.mana) * 100)}% slower, and ATK is ${Math.round((SWAMP.deals - 1) * 100)}% higher.`,
-	icon: "🫧",
-	art: stateArt("3590020"),
-	harmful: true
-};
-var WEAKENED$2 = {
-	name: "Poisonous Explosion",
-	about: `Hits ${Math.round((1 - EXPLOSION$1.deals) * 100)}% softer.`,
-	icon: "💥",
-	art: stateArt("3590030"),
-	harmful: true
-};
-var DULLED = {
-	name: "Poisonous Explosion (crit)",
-	about: `${Math.round(-EXPLOSION$1.crit * 1e3)} less crit chance.`,
-	icon: "💥",
-	art: stateArt("3590030"),
-	harmful: true
-};
-var FATAL_VENOM = {
-	name: "Fatal Venom",
-	about: `${Math.round(FATAL.heals * 100)}% less healing reaches it for each (the rest of the fight), and the boss hits harder.`,
-	icon: "☠️",
-	art: stateArt("3590040"),
-	harmful: true
-};
-/** Its skills that count toward Fatal Venom, and each one's cooldown; and how long each waits as the fight begins (the playtest's). */
-var COOLDOWNS = {
-	destroyer: DESTROYER.cooldown,
-	swamp: SWAMP.cooldown,
-	explosion: EXPLOSION$1.cooldown
-};
-var FIRST = {
-	destroyer: 5,
-	swamp: 8,
-	explosion: 12
-};
-/** Stacks one more of a status that stays the rest of the fight, up to `most`: `made` makes it, `count` of them stacked. */
-function stack(on, name, most, made) {
-	const count = Math.min(most, (on.find((status) => status.name === name)?.count ?? 0) + 1);
-	put(on, {
-		...made(count),
-		name,
-		left: Infinity,
-		count
-	});
-}
-function galgoriaPart(fight) {
-	return withGauge(fight, ownPart(fight), GALGORIA_GAUGE);
-}
-/** What its skills do, but for its CC Gauge. */
-function ownPart(fight) {
-	const { foe } = fight;
-	/** Blows the heroes have landed toward the next imprisonment, and what each has dealt since the last. */
-	let hits = 0;
-	const dealt = /* @__PURE__ */ new Map();
-	/** The heroes shut away: a ring where each comes back out. */
-	const shut = /* @__PURE__ */ new Set();
-	/** Its skills' cooldowns, by name; its skills used toward Fatal Venom; and how long its swamp lasts yet, its blow each so often. */
-	const cooldowns = new Map(Object.entries(FIRST));
-	let used = 0;
-	let swamp = 0;
-	let swampHurts = 0;
-	let swampAmount = 0;
-	/** Whether the fight is at stage 4 or past it. */
-	const late = () => fight.stage >= STAGES.from;
-	/** Its own Heal Rate, as a share (added up with what is on it). */
-	const lifeForce = () => 1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing);
-	/** The heroes the boss can reach. */
-	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
-	/** The hero that has dealt the most since the last is held in the swamp (whoever was, let out); every other hero's ATK is higher meanwhile. */
-	function imprison() {
-		const heroes = reachable();
-		for (const fighter of heroes) fighter.statuses = fighter.statuses.filter((status) => status.name !== IMPRISONED.name);
-		const [top, ...rest] = heroes.sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
-		dealt.clear();
-		if (!top) return;
-		fight.stagger(top);
-		top.reserved = null;
-		top.statuses = top.statuses.filter((status) => status.name !== UNBOUND.name);
-		put(top.statuses, {
-			name: IMPRISONED.name,
-			left: IMPRISONMENT.lasts,
-			binds: true,
-			guards: true,
-			shown: IMPRISONED
-		});
-		for (const other of rest) put(other.statuses, {
-			name: UNBOUND.name,
-			left: IMPRISONMENT.lasts,
-			atk: IMPRISONMENT.atk,
-			shown: UNBOUND
-		});
-		fight.cue(null, "imprison", [top]);
-		shut.add(top);
-	}
-	/** The venom of a blow lands on whoever it is going for: what it takes, and then `then` on it. */
-	function venom(amount, then) {
-		const target = fight.target();
-		if (!target || target.hp <= 0) return;
-		fight.hurt(target, amount);
-		then?.(target);
+		plans[skill.name] = plan;
 	}
 	return {
+		attacks: skills.map(({ name, label, warning }) => ({
+			name,
+			label,
+			...warning && { warning }
+		})),
+		plans,
+		moves,
+		basic: skills.filter((one) => one.cooldown === void 0).map((one) => one.name)
+	};
+}
+/** The heroes a blow of `skill` lands on: whoever the boss goes for, every hero it can reach, or `n` of them at random. */
+function struck(fight, skill, picked) {
+	if (skill.on === "all") return reachable(fight);
+	if (skill.on === "target") {
+		const target = fight.target();
+		return target && target.hp > 0 ? [target] : [];
+	}
+	return picked.filter((on) => on.hp > 0);
+}
+/**
+* A boss's stand-in skills' part: each blow on whom its skill says, with what comes of it; their cooldowns (Boss auto picks a
+* skill as soon as it is ready, else its plain attack). `own` is what the boss has besides (its passives), over it.
+*/
+function kitPart(fight, skills, own = {}) {
+	const waits = cooldowns(Object.fromEntries(skills.filter((one) => one.cooldown !== void 0).map((one) => [one.name, [one.cooldown, one.first ?? one.cooldown]])));
+	/** The heroes picked at random for the skill under way; how many times each skill has been used. */
+	let picked = [];
+	const uses = /* @__PURE__ */ new Map();
+	const lands = {};
+	for (const skill of skills) lands[skill.name] = (blow, amount) => {
+		if (typeof skill.on === "number" && blow === 0) {
+			const from = reachable(fight).slice();
+			picked = [];
+			while (picked.length < skill.on && from.length > 0) picked.push(...from.splice(Math.floor(fight.roll() * from.length), 1));
+		}
+		const hard = amount * (1 + (skill.grows ?? 0) * Math.max(0, (uses.get(skill.name) ?? 1) - 1));
+		for (const on of struck(fight, skill, picked)) {
+			if (hard > 0) fight.hurt(on, hard, !skill.sure);
+			if (skill.hp && on.hp > 0) fight.hurt(on, on.stats.hp * skill.hp, false);
+			if (skill.stun && on.hp > 0 && (blow === 0 || skill.stunEvery)) fight.knock(on, skill.stun);
+			if (on.hp > 0) skill.then?.(on, blow);
+		}
+		if (blow === skill.blows.length - 1) skill.done?.();
+	};
+	const ownTick = own.tick;
+	const ownUsed = own.used;
+	const ownReady = own.ready;
+	return {
+		...own,
 		lands: {
-			left: (_part, amount) => venom(amount * HEAD),
-			centre: (_part, amount) => venom(amount * HEAD),
-			right: (_part, amount) => venom(amount * HEAD),
-			destroyer(part, amount) {
-				if (part < 3) return venom(amount * DESTROYER.venom);
-				if (part > 3) return;
-				const heroes = reachable();
-				fight.cue(null, "destroyer", heroes);
-				for (const fighter of heroes) {
-					fight.hurt(fighter, fighter.hp * DESTROYER.share, false);
-					fight.knock(fighter, DESTROYER.down);
-				}
-			},
-			swamp(part, amount) {
-				if (part > 0) return;
-				const heroes = reachable();
-				if (heroes.length === 0) return;
-				fight.cue(null, "swamp", heroes);
-				for (const fighter of heroes) put(fighter.statuses, {
-					name: POISONED$2.name,
-					left: SWAMP.lasts,
-					mana: SWAMP.mana,
-					deals: SWAMP.deals,
-					shown: POISONED$2
-				});
-				swamp = SWAMP.lasts;
-				swampHurts = 0;
-				swampAmount = amount / (SWAMP.lasts / SWAMP.every);
-			},
-			explosion(part, amount) {
-				const heroes = reachable();
-				for (const fighter of heroes) {
-					fight.hurt(fighter, amount * EXPLOSION$1.blow);
-					if (part === 0) put(fighter.statuses, {
-						name: WEAKENED$2.name,
-						left: EXPLOSION$1.lasts,
-						deals: EXPLOSION$1.deals,
-						shown: WEAKENED$2
-					});
-					else put(fighter.statuses, {
-						name: DULLED.name,
-						left: EXPLOSION$1.lasts,
-						crit: EXPLOSION$1.crit,
-						shown: DULLED
-					});
-				}
-				fight.cue(null, "explosion", heroes);
-			},
-			fatal(_part, amount) {
-				const heroes = reachable();
-				for (const fighter of heroes) {
-					fight.hurt(fighter, amount * FATAL.blow);
-					stack(fighter.statuses, FATAL_VENOM.name, FATAL.most, (count) => ({
-						heals: Math.max(0, 1 - FATAL.heals * count),
-						shown: FATAL_VENOM
-					}));
-				}
-				stack(foe.statuses, FATAL_VENOM.name, FATAL.mostOnIt, (count) => ({
-					deals: 1 + FATAL.deals * count,
-					art: FATAL_VENOM.art,
-					shown: "venom"
-				}));
-				fight.cue(null, "fatal", heroes);
-			}
-		},
-		struck(by, amount) {
-			dealt.set(by, (dealt.get(by) ?? 0) + amount);
-			if (++hits < IMPRISONMENT.hits) return;
-			hits = 0;
-			imprison();
+			...lands,
+			...own.lands
 		},
 		used(attack) {
-			const cooldown = COOLDOWNS[attack];
-			if (cooldown !== void 0) {
-				cooldowns.set(attack, cooldown);
-				used++;
-			} else if (attack === "fatal") used = 0;
+			waits.used(attack);
+			uses.set(attack, (uses.get(attack) ?? 0) + 1);
+			ownUsed?.(attack);
 		},
-		next: () => used >= FATAL.after ? "fatal" : null,
-		ready: (attack) => attack !== "fatal" && (cooldowns.get(attack) ?? 0) <= 0,
+		ready: (attack) => waits.ready(attack) && (ownReady?.(attack) ?? true),
 		delay(seconds) {
-			for (const attack of Object.keys(COOLDOWNS)) cooldowns.set(attack, (cooldowns.get(attack) ?? 0) + seconds);
-		},
-		beaten() {
-			hits = 0;
-			used = 0;
-			dealt.clear();
-			for (const on of [foe.statuses, ...fight.fighters.map((fighter) => fighter.statuses)]) {
-				const at = on.findIndex((status) => status.name === FATAL_VENOM.name);
-				if (at >= 0) on.splice(at, 1);
-			}
+			waits.delay(seconds);
+			own.delay?.(seconds);
 		},
 		tick(dt) {
-			for (const [attack, left] of cooldowns) cooldowns.set(attack, Math.max(0, left - dt));
-			fight.mend(foe.maxHp * LIFE_FORCE.share * dt, lifeForce());
-			if (swamp > 0) {
-				swamp -= dt;
-				swampHurts += dt;
-				if (swampHurts >= SWAMP.every) {
-					swampHurts -= SWAMP.every;
-					for (const fighter of reachable()) if (fighter.statuses.some((status) => status.name === POISONED$2.name)) fight.hurt(fighter, swampAmount);
-				}
-			}
-			for (const fighter of shut) {
-				if (fighter.statuses.some((status) => status.name === IMPRISONED.name)) continue;
-				shut.delete(fighter);
-				fight.cue(null, "free", [fighter]);
-			}
-		},
-		healing: () => late() ? STAGES.heals : 1,
-		shielding: () => late() ? STAGES.shields : 1,
-		taken: { physical: 1.2 },
-		unstolen: true,
-		steady: true,
-		marks() {
-			const heals = `${Number((LIFE_FORCE.share * healing(foe.statuses, lifeForce()) * 100).toPrecision(2))}%`;
-			return [
-				{
-					text: `Persistent Life Force ${heals}`,
-					tone: "venom",
-					art: stateArt("3590041"),
-					count: heals
-				},
-				{
-					text: `Swamp Imprisonment ${hits}/${IMPRISONMENT.hits}`,
-					tone: "venom",
-					art: stateArt("3590043"),
-					count: String(hits)
-				},
-				{
-					text: `Fatal Venom ${Math.min(used, FATAL.after)}/${FATAL.after}`,
-					tone: "venom",
-					art: stateArt("3590040"),
-					count: String(Math.min(used, FATAL.after))
-				}
-			];
+			waits.tick(dt);
+			ownTick?.(dt);
 		}
 	};
 }
-//#endregion
-//#region src/technomagic/sim/bosses/galgoria/index.ts
-var HP$1 = [
-	14184543765,
-	19721142351,
-	26463862400,
-	37178723386,
-	49825627800,
-	71216166313,
-	86139389687,
-	158093465948,
-	295609113842
-];
-var KR_DEF = [
-	53269,
-	57090,
-	68670,
-	82450,
-	116318,
-	124308,
-	164065,
-	261750,
-	416588
-];
-var LIFE_DEF = 6e4;
-var LEVEL$1 = [
-	88,
-	90,
-	95,
-	100,
-	108,
-	110,
-	116,
-	125,
-	134
-];
-var KR_PARTY$1 = 7;
-var DEF$2 = KR_DEF.map((def) => def + LIFE_DEF);
-var scales$1 = (times) => HP$1.map((hp, i) => ({
-	hp: hp / HP$1[0] * times,
-	deals: KR_ATK$1[i] / KR_ATK$1[0],
-	defense: DEF$2[i] / DEF$2[0],
-	level: LEVEL$1[i]
-}));
+/** Something a boss does every `every` seconds (the first `first` seconds in: none said, `every`), as its part's tick goes. */
+function timer(every, run, first = every) {
+	let left = first;
+	return (dt) => {
+		left -= dt;
+		while (left <= 0) {
+			left += every;
+			run();
+		}
+	};
+}
+/** ATK more at a level (thousandths): +100 a level to level 6, then +100 every other level to level 12, then +100 a level. */
+function infiniteAtk(level) {
+	if (level < 2) return 0;
+	if (level <= 6) return (level - 1) * 100;
+	if (level <= 12) return 500 + Math.floor((level - 6) / 2) * 100;
+	return 800 + (level - 12) * 100;
+}
+/** Max HP more at a level (thousandths): none to level 5, then 200 at level 6 and +100 a level. */
+var infiniteHp = (level) => level < 6 ? 0 : (level - 4) * 100;
 /**
-* Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
-* 20% more physical damage (./skills.ts). Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
-* best with penetration, and with what cuts its healing (it gives itself back its health all the while: ./skills.ts).
-* How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
-* ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
-* No stun holds it: stuns wear its CC Gauge down instead (../gauge.ts), and empty, it is Down a while; it has no CC resist,
-* as the playtest's. Its blows see past 500 points of a hero's defense (the playtest's PiercePower) and 300 of its dodge
-* (its Persistent Life Force's hit chance). Now and then a blow of its is a crit (crit resist tells): a first guess.
+* A boss's levels (1 to DIVINE_LEVELS) as its stages: so many times its health and as hard its blows as its level has them,
+* times `hp` and `deals` besides (what the side fights add to a final boss: ./apocalypsion.ts), at King's Raid's `level`
+* (the wave's creature level: 100, Armarta's 120). Alone the same.
 */
-var GALGORIA = {
-	id: "galgoria",
-	name: "Galgoria",
-	stats: {
-		hp: HP$1[0],
-		deals: "magical",
-		physical: DEF$2[0],
-		magical: DEF$2[0],
-		block: NONE,
-		dodge: NONE,
-		crit: 100,
-		resist: 0,
-		pen: 500,
-		acc: 300
+function infiniteStages({ hp = 1, deals = 1, level = 100 } = {}) {
+	const room = Array.from({ length: 99 }, (_, i) => ({
+		hp: hp * (1 + infiniteHp(i + 1) / 1e3),
+		deals: deals * (1 + infiniteAtk(i + 1) / 1e3),
+		level
+	}));
+	return {
+		room,
+		solo: room
+	};
+}
+//#endregion
+//#region src/technomagic/sim/bosses/divine/apocalypsion.ts
+/** The DMG and max HP the dragons alive give Tersio and Apocalypsion (shares more, added up as King's Raid's are), and their block, block DEF and Tough. */
+var PASSIVES = {
+	"dp-temeraire": {
+		dmg: .5,
+		block: { physical: 1e3 },
+		tough: { physical: 900 }
 	},
-	stages: {
-		room: scales$1(1),
-		solo: scales$1(KR_PARTY$1 / 8)
+	"dp-scalaxia": {
+		hp: .5,
+		block: { magical: 1e3 },
+		blockDef: { magical: 1 },
+		tough: { magical: 200 }
 	},
-	basic: [
-		"left",
-		"centre",
-		"right"
-	],
-	rest: 3.1 - MOVES$1.spit.length,
-	attacks: ATTACKS$1,
-	plans: PLANS$1,
-	moves: MOVES$1,
-	join: galgoriaPart
+	"dp-zyrrkinoth": { hp: .5 },
+	"dp-armarta": { dmg: .5 }
 };
+/** The dragons, in King's Raid's order. */
+var APOCALYPSION_SIDES = Object.keys(PASSIVES);
+var TERSIO_ATK = 15676182;
+var APOCALYPSION_ATK = 28203032;
+/** Both: magical, DEF 69,998, 400 penetration, every blow a hit (2000 ACC: none dodged). */
+var OWN$2 = {
+	deals: "magical",
+	physical: 69998,
+	magical: 69998,
+	block: NONE,
+	dodge: NONE,
+	crit: 0,
+	resist: 0,
+	pen: 400,
+	acc: 2e3
+};
+var FIRSTBORN = {
+	name: "Firstborn",
+	about: "Deals 4% less DMG a stack (irremovable).",
+	icon: "🐉",
+	art: stateArt("AttackDown"),
+	harmful: true
+};
+var DOOR = {
+	name: "Death's Door",
+	about: "Takes 5% more M.DMG a stack.",
+	icon: "👻",
+	art: stateArt("DefenseDown"),
+	harmful: true
+};
+var HAULED = {
+	name: "Hauled Into Hell",
+	about: "Out of the fight.",
+	icon: "🕳️",
+	art: stateArt("Stun"),
+	harmful: true
+};
+var CURSE$2 = {
+	name: "Infernal Curse",
+	about: "10% less ATK Spd and mana recovery a stack (irremovable).",
+	icon: "🔥",
+	art: stateArt("SpeedDown"),
+	harmful: true
+};
+/** Breaks a hero's shield (King's Raid's: Deathly Dragon's Fire, Shaking Earth). */
+var unshield = (on) => {
+	on.shield = 0;
+	on.shieldLeft = 0;
+};
+function tersioSkills() {
+	return [
+		{
+			name: "firstborn",
+			label: "Firstborn",
+			length: 5.5,
+			blows: [1.4],
+			share: .9,
+			on: "target",
+			hp: .03,
+			then: (on) => void addStacks(on, FIRSTBORN.name, 1, 10, Infinity, (n) => ({
+				deals: 1 - .04 * n,
+				shown: FIRSTBORN
+			}))
+		},
+		{
+			name: "breath",
+			label: "Deathly Dragon's Breath",
+			cooldown: 28,
+			first: 15,
+			length: 7,
+			blows: [2],
+			share: 3.3,
+			on: "all",
+			hp: .015,
+			stun: 2,
+			sure: true,
+			then: unshield
+		},
+		{
+			name: "annihilation",
+			label: "Overwhelming Annihilation",
+			cooldown: 28,
+			first: 18,
+			length: 6.8,
+			blows: [
+				3,
+				4,
+				5
+			],
+			share: 2,
+			on: "all",
+			stun: 1,
+			then: (on) => void (on.mana = Math.max(0, on.mana - 500))
+		},
+		{
+			name: "door",
+			label: "Death's Door",
+			cooldown: 32,
+			first: 22,
+			length: 9.1,
+			blows: [
+				2,
+				3,
+				4,
+				5,
+				6,
+				7
+			],
+			share: .6,
+			on: "all",
+			then: (on) => void addStacks(on, DOOR.name, 1, 15, Infinity, (n) => ({
+				takes: { magical: 1 + .05 * n },
+				shown: DOOR
+			}))
+		}
+	];
+}
+/** Tersio's part: his stand-in skills, Lost Self and Hauled Into Hell every 15 seconds, no CC holding him. */
+function tersioPart(fight) {
+	const { foe } = fight;
+	const lost = timer(15, () => put(foe.statuses, {
+		name: "Lost Self",
+		art: stateArt("AttackUp"),
+		left: 15,
+		deals: 1.5,
+		crit: .4,
+		shown: "rage"
+	}), 0);
+	const hauled = timer(15, () => {
+		const target = reachable(fight).reduce((best, on) => !best || on.stats.magical > best.stats.magical ? on : best, null);
+		if (!target) return;
+		fight.hurt(target, TERSIO_ATK, false);
+		if (target.hp <= 0) return;
+		put(target.statuses, {
+			name: HAULED.name,
+			left: 8,
+			binds: true,
+			away: true,
+			shown: HAULED
+		});
+		addStacks(target, CURSE$2.name, 1, 99, Infinity, (n) => ({
+			pace: Math.max(.1, 1 - .1 * n),
+			mana: Math.max(.1, 1 - .1 * n),
+			shown: CURSE$2
+		}));
+	});
+	return kitPart(fight, tersioSkills(), {
+		fixedDefense: true,
+		critResist: 1e3,
+		controlled: () => null,
+		tick(dt) {
+			lost(dt);
+			hauled(dt);
+		}
+	});
+}
+function apocalypsionSkills(fight) {
+	return [
+		{
+			name: "strike",
+			label: "Attack",
+			length: 4.2,
+			blows: [1.5],
+			share: 3,
+			on: "target",
+			hp: .045
+		},
+		{
+			name: "aura",
+			label: "Engraving Aura",
+			cooldown: 22,
+			first: 15,
+			length: 5,
+			blows: [
+				1,
+				1.6,
+				2.2,
+				3.2
+			],
+			share: 2.5,
+			on: "all",
+			stun: 1.5,
+			grows: .2,
+			then: () => fight.mend(fight.foe.maxHp * .015)
+		},
+		{
+			name: "earth",
+			label: "Shaking Earth",
+			cooldown: 25,
+			first: 20,
+			length: 4.5,
+			blows: [2],
+			share: 2,
+			on: "all",
+			stun: 1.5,
+			then: (on) => {
+				unshield(on);
+				on.mana = Math.max(0, on.mana - 1e3);
+			}
+		},
+		{
+			name: "abyss",
+			label: "Invitation to the Abyss",
+			cooldown: 33,
+			first: 30,
+			length: 7,
+			blows: [1.5, 5],
+			share: [3, 5],
+			on: "all",
+			stun: 1.5
+		}
+	];
+}
+/** Apocalypsion's part: her stand-in skills, and Wrath of the Matriarch a stage higher every 50 seconds; no CC holds her. */
+function apocalypsionPart(fight) {
+	const { foe } = fight;
+	let wrath = 0;
+	let mendFor = 0;
+	const rising = timer(50, () => {
+		wrath++;
+		if (wrath === 1) put(foe.statuses, {
+			name: "Wrath of the Matriarch",
+			art: stateArt("AttackUp"),
+			left: Infinity,
+			count: 1,
+			shown: "rage"
+		});
+	});
+	const part = kitPart(fight, apocalypsionSkills(fight), {
+		fixedDefense: true,
+		controlled: () => null,
+		tick(dt) {
+			rising(dt);
+			if (wrath >= 1) {
+				mendFor += dt;
+				if (mendFor >= 1) {
+					mendFor -= 1;
+					fight.mend(foe.maxHp * .025);
+				}
+				part.taken = {
+					physical: .7,
+					magical: .7
+				};
+			}
+			if (wrath >= 2 && !foe.statuses.some((status) => status.name === "Wrath (2)")) put(foe.statuses, {
+				name: "Wrath (2)",
+				art: stateArt("AttackUp"),
+				left: Infinity,
+				deals: 1.25,
+				shown: "rage"
+			});
+		}
+	});
+	return part;
+}
+/** The dragons left alive, of those cleared: what they give (DMG and HP shares more, and its stats with their block and Tough). */
+function alive(cleared) {
+	const living = APOCALYPSION_SIDES.filter((id) => !cleared.includes(id)).map((id) => PASSIVES[id] ?? {});
+	const sum = (of) => living.reduce((all, one) => all + (of(one) ?? 0), 0);
+	return {
+		dmg: 1 + sum((one) => one.dmg),
+		hp: 1 + sum((one) => one.hp),
+		stats: (own, hp) => ({
+			...own,
+			hp,
+			block: {
+				physical: own.block.physical + sum((one) => one.block?.physical),
+				magical: own.block.magical + sum((one) => one.block?.magical)
+			},
+			blockDef: {
+				physical: (own.blockDef?.physical ?? 0) + sum((one) => one.blockDef?.physical),
+				magical: (own.blockDef?.magical ?? 0) + sum((one) => one.blockDef?.magical)
+			},
+			tough: {
+				physical: (own.tough?.physical ?? 0) + sum((one) => one.tough?.physical),
+				magical: (own.tough?.magical ?? 0) + sum((one) => one.tough?.magical)
+			}
+		})
+	};
+}
+/** Apocalypsion herself (wave 2), with the dragons `cleared` (the others alive giving her their passives). */
+function apocalypsionOf(cleared) {
+	const given = alive(cleared);
+	const kit = kitOf(apocalypsionSkills({}), APOCALYPSION_ATK);
+	return {
+		id: "apocalypsion-boss",
+		name: "Apocalypsion",
+		stats: given.stats({
+			...OWN$2,
+			crit: 400
+		}, 0xf5c8987d2f),
+		stages: infiniteStages({
+			hp: given.hp,
+			deals: given.dmg
+		}),
+		...kit,
+		rest: .3,
+		time: 180,
+		join: apocalypsionPart
+	};
+}
+/** The fight (Tersio, then Apocalypsion), with the dragons `cleared` this opening (at most two: the bot keeps to it). */
+function apocalypsionFight(cleared = []) {
+	const given = alive(cleared);
+	const kit = kitOf(tersioSkills(), TERSIO_ATK);
+	return {
+		id: "apocalypsion",
+		name: "Apocalypsion",
+		stats: given.stats(OWN$2, 383614090488),
+		stages: infiniteStages({
+			hp: given.hp,
+			deals: given.dmg
+		}),
+		...kit,
+		rest: .3,
+		time: 180,
+		next: {
+			at: .01,
+			def: apocalypsionOf(cleared)
+		},
+		join: tersioPart
+	};
+}
+/** As it is with no dragon cleared: all four alive (the bot's run says which were: ./index.ts divineBoss). */
+var APOCALYPSION = apocalypsionFight();
 //#endregion
 //#region src/technomagic/sim/rules.ts
 /** The fight moves on in steps of this many seconds (thirty a second), whatever the page draws meanwhile. */
@@ -10825,6 +10872,2475 @@ var hard$2 = {
 var SCALAXIA = {
 	...hard$2,
 	normal: normalDragon(hard$2, .6, scalaxiaPart)
+};
+//#endregion
+//#region src/technomagic/sim/bosses/temeraire/skills.ts
+var BLESSING$4 = {
+	charges: 150,
+	deals: 1.5,
+	physical: .4,
+	cooldown: 30
+};
+var BREATH$2 = {
+	burn: .12,
+	lasts: 6
+};
+var TAIL = 2 / 3;
+var RAGE$1 = .73;
+var FLAME$1 = "Blessing of the Flame";
+var BURN = {
+	name: "Burn",
+	about: `Fire eats at it every second: ${Math.round(BREATH$2.burn * 100)}% of the breath's blow.`,
+	icon: "🔥",
+	art: stateArt("Burn"),
+	harmful: true
+};
+function temerairePart(fight, mode = HARD) {
+	const { foe } = fight;
+	const waits = cooldowns({
+		claw: [5, 3],
+		sweep: [13, 8],
+		breath: [25, 15],
+		blessing: BLESSING$4.cooldown,
+		eruption: [45, 30]
+	});
+	/** What of its flame is left (0: none on it), and how hard each hero's burn is. */
+	let flame = 0;
+	const burns = /* @__PURE__ */ new Map();
+	const burning = dot(fight, BURN.name, (fighter) => burns.get(fighter) ?? 0);
+	/** Its flame, on it as a status: so much harder, and P.DMG softer on it, with what is left of it. */
+	function kindle(left) {
+		flame = left;
+		if (flame <= 0) {
+			const at = foe.statuses.findIndex((status) => status.name === FLAME$1);
+			if (at >= 0) foe.statuses.splice(at, 1);
+			return;
+		}
+		put(foe.statuses, {
+			name: FLAME$1,
+			art: stateArt("RedFire3"),
+			left: Infinity,
+			deals: BLESSING$4.deals,
+			takes: { physical: BLESSING$4.physical },
+			count: flame,
+			shown: "burn"
+		});
+	}
+	return withDragonGauge(fight, {
+		lands: {
+			blessing(_part, amount) {
+				all$1(fight, amount, void 0, "blessing");
+				kindle(BLESSING$4.charges);
+			},
+			breath(part, amount) {
+				if (part < 1) return;
+				all$1(fight, amount, (fighter) => {
+					burns.set(fighter, Math.max(fighter.statuses.some((status) => status.name === BURN.name) ? burns.get(fighter) ?? 0 : 0, amount * BREATH$2.burn));
+					put(fighter.statuses, {
+						name: BURN.name,
+						left: BREATH$2.lasts,
+						shown: BURN
+					});
+				}, "flame");
+			},
+			eruption(part, amount) {
+				if (part === 1) fraction(fight, all$1(fight, amount, void 0, "eruption"), RAGE$1);
+			},
+			bite: (_part, amount) => single(fight, amount),
+			claw: (_part, amount) => single(fight, amount),
+			sweep(_part, amount) {
+				all$1(fight, amount, void 0, "sweep");
+				fraction(fight, [fight.target()], TAIL);
+			}
+		},
+		struck() {
+			if (flame > 0) kindle(flame - 1);
+		},
+		used: waits.used,
+		delay: waits.delay,
+		next: () => flame <= 0 && waits.ready("blessing") ? "blessing" : null,
+		ready: (attack) => attack !== "blessing" && waits.ready(attack) && (attack !== "eruption" || opened(fight, mode.ultimate)),
+		tick(dt) {
+			waits.tick(dt);
+			burning(dt);
+		},
+		beaten() {
+			kindle(0);
+			for (const fighter of fight.fighters) lift(fighter, BURN.name);
+		},
+		marks: () => []
+	}, mode.gauge);
+}
+//#endregion
+//#region src/technomagic/sim/bosses/temeraire/index.ts
+/**
+* Temeraire, the ancient red dragon of fire, of Dragia (the Dragon Raid's Fire Dragon). As in King's Raid, all its
+* attacks deal massive M.DMG, it shrugs off most P.DMG (the playtest's 900 P.Tough, where the game's tip has it blocking it all), and its Blessing of the Flame is worn away by heroes that hit often.
+* What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
+*/
+var hard$1 = {
+	id: "temeraire",
+	name: "Temeraire",
+	stats: {
+		hp: FIRST$1.hp,
+		deals: "magical",
+		physical: FIRST$1.high,
+		magical: FIRST$1.def,
+		...OPEN,
+		tough: {
+			physical: 900,
+			magical: 0
+		}
+	},
+	stages: dragonStages({ atk: FIRE_ATK }),
+	basic: ["bite"],
+	rest: restFor(2.4),
+	time: 180,
+	waves: dragonWaves("temeraire"),
+	attacks: [
+		{
+			name: "bite",
+			label: "Bite"
+		},
+		{
+			name: "claw",
+			label: "Claw"
+		},
+		{
+			name: "sweep",
+			label: "Tail Sweep"
+		},
+		{
+			name: "breath",
+			label: "Flame Breath"
+		},
+		{
+			name: "blessing",
+			label: "Blessing of the Flame"
+		},
+		{
+			name: "eruption",
+			label: "Eruption",
+			warning: {
+				text: "Temeraire starts to flap its wings powerfully.",
+				colour: "#ff8200",
+				lasts: 3,
+				breaks: true
+			}
+		}
+	],
+	plans: {
+		bite: PLANS$2.bite,
+		claw: PLANS$2.claw,
+		sweep: PLANS$2.sweep,
+		breath: PLANS$2.breath,
+		blessing: PLANS$2.roar,
+		eruption: PLANS$2.eclipse
+	},
+	moves: MOVES$2,
+	join: temerairePart
+};
+/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
+var TEMERAIRE = {
+	...hard$1,
+	normal: normalDragon(hard$1, .5, temerairePart)
+};
+//#endregion
+//#region src/technomagic/sim/bosses/zyrrkinoth/skills.ts
+var SCALES = {
+	critResist: 400,
+	per: .03,
+	most: 30
+};
+var POISON$1 = {
+	petrifyAt: 30,
+	lasts: 12,
+	petrify: 5,
+	hurts: 4e3,
+	blow: 2
+};
+var LASH = {
+	stacks: 5,
+	knock: .6
+};
+var BREATH$1 = { stacks: 3 };
+/** Poison Cloud: how many Slimes, how far about it (its size, 5 m: SpawnCreature's own spread), and the Poison each of its two blows leaves. */
+var CLOUD = {
+	slimes: 7,
+	within: 5,
+	stacks: 15
+};
+/**
+* Poisoned Lands: its wings' blast (a share of each hero's health left: $ByMEHp4(150)) and how long it knocks them back;
+* each blow of its venom (250% of its ATK, MOVES.pour, and $ByMEHp4(800)) and the Poison it leaves; its landing
+* ($ByMEHp4(250)) and how long it knocks them back; and when in it it is out of reach, until it is over (seconds).
+*/
+var LANDS = {
+	blast: .15,
+	knock: 1.5,
+	pour: .8,
+	stacks: 10,
+	slam: .25,
+	down: 3,
+	from: 5,
+	until: 9.8
+};
+var POISONED$2 = {
+	name: "Poison",
+	about: `Eats at it every second, the more for every stack; at ${POISON$1.petrifyAt}, Petrified.`,
+	icon: "🧪",
+	art: stateArt("CriticalPoison"),
+	harmful: true
+};
+var PETRIFIED = {
+	name: "Petrified",
+	about: "Turned to stone: it can do nothing.",
+	icon: "🗿",
+	art: stateArt("Stone"),
+	harmful: true
+};
+function zyrrkinothPart(fight, mode = HARD) {
+	const waits = cooldowns({
+		claw: [5, 2.5],
+		smashes: [15, 8],
+		breath: [25, 12],
+		cloud: [20, 10],
+		lands: [50, 25]
+	});
+	/** Its Slimes at this stage, in its mode. */
+	const slimes = mode === HARD ? SLIMES : NORMAL_SLIMES;
+	const slime = slimes[Math.min(slimes.length, Math.max(1, fight.stage)) - 1];
+	/** How far into its Poisoned Lands it is (seconds; null: it isn't), as long as nothing cut it short. */
+	let landing = null;
+	const aloft = () => landing !== null && landing >= LANDS.from && landing < LANDS.until;
+	/** The critical blows it has taken (up to SCALES.most): each has it take more. */
+	let cracks = 0;
+	const taken = {
+		physical: 1,
+		magical: 1
+	};
+	const eating = dot(fight, POISONED$2.name, (fighter) => stacksOf(fighter, POISONED$2.name) * POISON$1.hurts);
+	/** So much more Poison on a hero (none while it is stone): at POISON.petrifyAt, Petrified. */
+	function poison(fighter, by) {
+		if (fighter.statuses.some((status) => status.name === PETRIFIED.name)) return;
+		if (addStacks(fighter, POISONED$2.name, by, POISON$1.petrifyAt, POISON$1.lasts, () => ({ shown: POISONED$2 })) < POISON$1.petrifyAt) return;
+		lift(fighter, POISONED$2.name);
+		fight.stagger(fighter);
+		fighter.reserved = null;
+		put(fighter.statuses, {
+			name: PETRIFIED.name,
+			left: POISON$1.petrify,
+			binds: true,
+			shown: PETRIFIED
+		});
+		fight.cue(null, "petrify", [fighter]);
+	}
+	const part = withDragonGauge(fight, {
+		lands: {
+			smashes: (_part, amount) => void all$1(fight, amount, (fighter) => {
+				poison(fighter, LASH.stacks);
+				if (fighter.hp > 0) fight.knock(fighter, LASH.knock);
+			}, "lash"),
+			breath(part, amount) {
+				if (part >= 1) all$1(fight, amount, (fighter) => poison(fighter, BREATH$1.stacks), "venom");
+			},
+			bite: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
+			claw: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
+			cloud(part, amount) {
+				if (part === 0) {
+					if (slime) fight.summon(slime, CLOUD.slimes, CLOUD.within);
+				} else single(fight, amount, (fighter) => poison(fighter, CLOUD.stacks));
+			},
+			lands(part, amount) {
+				if (part === 0) {
+					const heroes = reachable(fight);
+					fraction(fight, heroes, LANDS.blast);
+					for (const fighter of heroes) if (fighter.hp > 0) fight.knock(fighter, LANDS.knock);
+					fight.cue(null, "wings", heroes);
+				} else if (part === 1) fight.boss.statuses = fight.boss.statuses.filter((status) => status.name === "Down");
+				else if (part === 9) {
+					const heroes = reachable(fight);
+					fraction(fight, heroes, LANDS.slam);
+					for (const fighter of heroes) if (fighter.hp > 0) fight.knock(fighter, LANDS.down);
+					fight.cue(null, "landing", heroes);
+				} else fraction(fight, all$1(fight, amount, (fighter) => poison(fighter, LANDS.stacks), "venom"), LANDS.pour);
+			}
+		},
+		untouched: aloft,
+		struck(_by, _dealt, critical) {
+			if (!critical || cracks >= SCALES.most) return;
+			cracks++;
+			taken.physical = taken.magical = 1 + SCALES.per * cracks;
+		},
+		critResist: SCALES.critResist,
+		taken,
+		steady: true,
+		used(attack) {
+			waits.used(attack);
+			landing = attack === "lands" ? 0 : null;
+		},
+		delay: waits.delay,
+		ready: (attack) => waits.ready(attack) && (attack === "lands" || attack === "cloud" && mode !== HARD ? opened(fight, mode.ultimate) : true),
+		tick(dt) {
+			waits.tick(dt);
+			eating(dt);
+			if (landing !== null) landing = fight.boss.stunned > 0 && !aloft() ? null : landing + dt;
+			if (landing !== null && landing >= LANDS.until) landing = null;
+		},
+		beaten() {
+			for (const fighter of fight.fighters) {
+				lift(fighter, POISONED$2.name);
+				lift(fighter, PETRIFIED.name);
+			}
+		},
+		marks: () => [{
+			text: `Toxic Scales ${Math.round(taken.physical * 100)}%`,
+			tone: "venom",
+			art: stateArt("440396"),
+			count: `${Math.round(taken.physical * 100)}%`
+		}]
+	}, mode.gauge);
+	const held = part.controlled;
+	return {
+		...part,
+		controlled: (seconds, down) => aloft() ? null : held ? held(seconds, down) : {
+			seconds,
+			down
+		}
+	};
+}
+//#endregion
+//#region src/technomagic/sim/bosses/zyrrkinoth/index.ts
+/**
+* Zyrrkinoth, the ancient green venomous dragon, of Grimvine (the Dragon Raid's Poison Dragon). As in King's Raid, it has
+* very high Crit Resistance and DMG Reduction, but takes more damage each time it takes Crit DMG; nothing changes its ATK
+* Spd; and its poison, stacked high enough, petrifies. Its blows are physical. What its skills do is ./skills.ts; its body
+* is the page's (../../../bosses/dragon/).
+*/
+var hard = {
+	id: "zyrrkinoth",
+	name: "Zyrrkinoth",
+	stats: {
+		hp: FIRST$1.hp,
+		deals: "physical",
+		physical: FIRST$1.def,
+		magical: FIRST$1.def,
+		...OPEN,
+		tough: {
+			physical: 900,
+			magical: 900
+		}
+	},
+	stages: dragonStages(),
+	basic: ["bite"],
+	rest: restFor(2.3),
+	time: 180,
+	waves: dragonWaves("zyrrkinoth"),
+	attacks: [
+		{
+			name: "bite",
+			label: "Bite"
+		},
+		{
+			name: "claw",
+			label: "Claw"
+		},
+		{
+			name: "smashes",
+			label: "Tail Lash"
+		},
+		{
+			name: "breath",
+			label: "Venomous Breath"
+		},
+		{
+			name: "cloud",
+			label: "Poison Cloud",
+			warning: {
+				image: "warning",
+				lasts: 3,
+				breaks: true
+			}
+		},
+		{
+			name: "lands",
+			label: "Poisoned Lands",
+			warning: {
+				text: "Zyrrkinoth starts to flap its wings powerfully.",
+				colour: "#ff8200",
+				lasts: 3,
+				breaks: true
+			}
+		}
+	],
+	plans: {
+		bite: PLANS$2.bite,
+		claw: PLANS$2.claw,
+		smashes: PLANS$2.smashes,
+		breath: PLANS$2.breath,
+		cloud: PLANS$2.cloud,
+		lands: PLANS$2.lands
+	},
+	moves: MOVES$2,
+	join: zyrrkinothPart
+};
+/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
+var ZYRRKINOTH = {
+	...hard,
+	normal: normalDragon(hard, .5, zyrrkinothPart)
+};
+//#endregion
+//#region src/technomagic/sim/bosses/divine/dragons.ts
+/** A minion of a Divine Punishment dragon's waves, at level 1: King's Raid's own HP, ATK and DEF (both kinds alike). */
+var OWN$1 = {
+	"hatchling-fire": {
+		hp: 4727044086,
+		atk: 10495507,
+		def: 157511
+	},
+	"hatchling-ice": {
+		hp: 1512657746,
+		atk: 8746257,
+		def: 75e3
+	},
+	"ice-pillar": {
+		hp: 5042188155,
+		atk: 8746257,
+		def: 6e4
+	},
+	wyrm: {
+		hp: 6302735194,
+		atk: 8746257,
+		def: 157511
+	},
+	wyrmling: {
+		hp: 6302735194,
+		atk: 8746257,
+		def: 157511
+	},
+	"hatchling-poison": {
+		hp: 4727047334,
+		atk: 8746257,
+		def: 157511
+	}
+};
+/** A dragon's waves past its first at a level: the Hard Dragon Raid's stage 1 waves' minions (kinds, where they stand), with King's Raid's Divine Punishment numbers, grown by the level. */
+function ownWaves(id) {
+	const first = WAVES[id]?.[0] ?? [];
+	return (level) => first.map((wave) => wave.map((one) => {
+		const own = OWN$1[one.kind] ?? {
+			hp: one.hp,
+			atk: one.atk,
+			def: one.def[0]
+		};
+		return {
+			...one,
+			own: true,
+			hp: own.hp * (1 + infiniteHp(level) / 1e3),
+			atk: own.atk * (1 + infiniteAtk(level) / 1e3),
+			def: [own.def, own.def]
+		};
+	}));
+}
+/**
+* A Divine Punishment dragon (`id`, King's Raid's name) from its Hard Dragon Raid one (`hard`): its health, ATK (its moves' blows
+* are shares of the Dragon Raid's KR_ATK at stage 1: so many times that), DEF (physical, magical), its star-grade lookup's
+* stats over the Hard one's, level, time, and waves (none: it has none).
+*/
+function dpDragon(hard, own) {
+	const { normal: _normal, waves: _waves, ...rest } = hard;
+	return {
+		...rest,
+		id: own.id,
+		stats: {
+			...hard.stats,
+			hp: own.hp,
+			physical: own.def[0],
+			magical: own.def[1],
+			...own.stats
+		},
+		stages: infiniteStages({
+			deals: own.atk / KR_ATK$2[0],
+			level: own.level ?? 100
+		}),
+		time: own.time,
+		...own.waves && hard.waves && { waves: {
+			...hard.waves,
+			at: ownWaves(hard.id)
+		} }
+	};
+}
+/** Temeraire, Guardian of Fire (60003): lookup 443, 1000 P.Block, 900 P.Tough, 250 crit and hit, 150 dodge. 180 seconds. */
+var DP_TEMERAIRE = dpDragon(TEMERAIRE, {
+	id: "dp-temeraire",
+	hp: 590884096452,
+	atk: 137753538,
+	def: [157513, 110259],
+	stats: {
+		block: {
+			physical: 1e3,
+			magical: 0
+		},
+		tough: {
+			physical: 900,
+			magical: 0
+		}
+	},
+	time: 180,
+	waves: true
+});
+/** Scalaxia, Guardian of Ice (60004): lookup 275 (the Hard one's: 1000 M.Block and M.Block DEF, 200 M.Tough, its less M.DMG taken in its skills). 300 seconds. */
+var DP_SCALAXIA = dpDragon(SCALAXIA, {
+	id: "dp-scalaxia",
+	hp: 590884096452,
+	atk: 98395391,
+	def: [157511, 225016],
+	time: 300,
+	waves: true
+});
+/** Zyrrkinoth, Guardian of Poison (60005): lookup 276, 900 P. and M.Tough (the Hard one's). 300 seconds. */
+var DP_ZYRRKINOTH = dpDragon(ZYRRKINOTH, {
+	id: "dp-zyrrkinoth",
+	hp: 679516710949,
+	atk: 113154698,
+	def: [181137, 181137],
+	time: 300,
+	waves: true
+});
+/** Armarta, Guardian of Darkness (60006): level 120, lookup 277 (nothing more); one wave. 600 seconds. */
+var DP_ARMARTA = dpDragon(ARMARTA, {
+	id: "dp-armarta",
+	hp: 590884096092,
+	atk: 137753534,
+	def: [157515, 157515],
+	level: 120,
+	time: 600,
+	waves: false
+});
+//#endregion
+//#region src/technomagic/sim/bosses/divine/karma-cards.ts
+/** A class's two Normal groups' cards: its ATK (`atk`: the three shares) and its HP, from card `id` on, in groups `group` and `group` + 1. */
+function normal(cls, name, id, group, atk) {
+	const chances = [
+		500,
+		350,
+		150
+	];
+	const hp = [
+		.2,
+		.4,
+		.6
+	];
+	return [...atk.map((share, i) => ({
+		id: id + i,
+		group,
+		groupChance: 571,
+		chance: chances[i],
+		classes: [cls],
+		text: `Increases ATK of ${name} by ${Math.round(share * 100)}%.`,
+		does: { atk: share }
+	})), ...hp.map((share, i) => ({
+		id: id + 3 + i,
+		group: group + 1,
+		groupChance: 571,
+		chance: chances[i],
+		classes: [cls],
+		text: `Increases HP of ${name} by ${Math.round(share * 100)}%.`,
+		does: { hp: share }
+	}))];
+}
+var LOW = [
+	.1,
+	.2,
+	.3
+];
+var ALL = [
+	"warrior",
+	"knight",
+	"assassin",
+	"archer",
+	"mechanic",
+	"wizard",
+	"priest"
+];
+var KARMA_CARDS = [
+	...normal("warrior", "Warrior", 1, 0, LOW),
+	...normal("knight", "Knight", 7, 2, [
+		.2,
+		.4,
+		.6
+	]),
+	...normal("assassin", "Assassin", 13, 4, LOW),
+	...normal("mechanic", "Mechanic", 19, 6, LOW),
+	...normal("archer", "Archer", 25, 8, LOW),
+	...normal("wizard", "Wizard", 31, 10, LOW),
+	...normal("priest", "Priest", 37, 12, LOW),
+	{
+		id: 43,
+		group: 14,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: ["warrior", "knight"],
+		text: "[Knight·Warrior] Increases Cooldown of all skills by 3 sec. Upon using a skill, brings 30% Threat Value from the hero with the highest Threat Value.",
+		does: { cooldown: 3 }
+	},
+	{
+		id: 45,
+		group: 16,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: ["warrior", "knight"],
+		text: "[Knight·Warrior] Increases ATK and HP by 150%. Reduces Mana Recovery Rate by 40%.",
+		does: {
+			atk: 1.5,
+			hp: 1.5,
+			mana: -.4
+		}
+	},
+	{
+		id: 46,
+		group: 17,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: [
+			"assassin",
+			"archer",
+			"mechanic"
+		],
+		text: "[Assassin·Archer·Mechanic] Reduces DMG dealt to enemies by 20%. Reduces Threat Value Gains by 35%.",
+		does: { dmg: -.2 }
+	},
+	{
+		id: 48,
+		group: 19,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: ALL,
+		text: "Reduces DMG all allies deal by 40%. Increases Max HP of all allies by 400%.",
+		does: {
+			dmg: -.4,
+			hp: 4
+		}
+	},
+	{
+		id: 49,
+		group: 20,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: ALL,
+		text: "Increases DMG all allies deal by 200%. Reduces Max HP of all allies by 50%.",
+		does: {
+			dmg: 2,
+			hp: -.5
+		}
+	},
+	{
+		id: 51,
+		group: 22,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: ["assassin"],
+		text: "[Assassin] Reduces Threat Value Gains to 40%.",
+		does: {}
+	},
+	{
+		id: 52,
+		group: 23,
+		groupChance: 90,
+		chance: 1e3,
+		most: 1,
+		classes: [
+			"archer",
+			"mechanic",
+			"wizard"
+		],
+		text: "[Archer·Mechanic·Wizard] Increases ATK by 200%. Increases HP by 150%.",
+		does: {
+			atk: 2,
+			hp: 1.5
+		}
+	}
+];
+//#endregion
+//#region src/technomagic/sim/bosses/divine/karma.ts
+/** (1000 + v) / 1000 to the power of floor(wave / every), less 1: by + * and / alone (../../rules.ts). */
+function growth(v, every, wave) {
+	let times = 1;
+	for (let k = 0; k < Math.floor(wave / every); k++) times *= (1e3 + v) / 1e3;
+	return times - 1;
+}
+/** How many times its own a stat is at a wave: its ops' growth, added up. */
+var grown$1 = (ops, wave) => 1 + ops.reduce((sum, [v, every]) => sum + growth(v, every, wave), 0);
+/** Every karma monster's blows always hit (2000 ACC: none dodged). */
+var SURE$1 = 2e3;
+/** The Karma Gauge's exponent for a wave (KarmaGaugeExponentialTable, both groups alike: as King's Raid's single floats). */
+function gaugeExponent(wave) {
+	if (wave >= 21) return .8600000143051147;
+	if (wave >= 6) return 1.2200000286102295;
+	return 1;
+}
+var INFERNO = {
+	name: "Inferno",
+	about: "2% of max HP every second.",
+	icon: "🔥",
+	art: stateArt("Burn"),
+	harmful: true
+};
+var SLOWED = {
+	name: "Karma Speed Debuff",
+	about: "4% less ATK Spd a stack.",
+	icon: "🐢",
+	art: stateArt("SpeedDown"),
+	harmful: true
+};
+var INPELE = {
+	id: "karma-apocalypsion",
+	name: "Karma Dungeon: Apocalypsion",
+	time: 120,
+	deals: "magical",
+	lookup: {
+		crit: 100,
+		dodge: {
+			physical: 100,
+			magical: 100
+		},
+		pen: 300,
+		resist: 200,
+		tough: {
+			physical: 400,
+			magical: 400
+		}
+	},
+	skills: () => [
+		{
+			name: "attack",
+			label: "Attack",
+			length: 2.7,
+			blows: [.5],
+			share: 4,
+			on: "target",
+			then: (on) => put(on.statuses, {
+				name: INFERNO.name,
+				left: 10,
+				shown: INFERNO
+			})
+		},
+		{
+			name: "skill1",
+			label: "Skill 1",
+			cooldown: 10,
+			first: 12,
+			length: 4.1,
+			blows: [2.9],
+			share: 0,
+			on: "target",
+			hp: .008,
+			stun: 2
+		},
+		{
+			name: "skill2",
+			label: "Skill 2",
+			cooldown: 18,
+			first: 12,
+			length: 4.2,
+			blows: [3],
+			share: 0,
+			on: "all",
+			hp: .09
+		}
+	],
+	grows: {
+		atk: [
+			[430, 1],
+			[1e4, 35],
+			[150, 5],
+			[9e3, 30],
+			[9e3, 31]
+		],
+		def: [
+			[10, 1],
+			[1e4, 35],
+			[9e3, 30],
+			[9e3, 31]
+		],
+		hp: [
+			[580, 1],
+			[1e4, 35],
+			[9e3, 30],
+			[9e3, 31]
+		]
+	},
+	stages: [
+		{
+			boss: {
+				hp: 50928e4,
+				atk: 40740,
+				def: 34629,
+				more: {
+					hp: 5,
+					atk: .5,
+					defense: 300
+				}
+			},
+			others: [
+				"kauron",
+				"kauron",
+				"moira",
+				"moira",
+				"theakel",
+				"theakel",
+				"reuss",
+				"reuss"
+			].map((kind) => ({
+				kind,
+				after: 0,
+				as: {
+					hp: 50928e4,
+					atk: 40740,
+					def: 34629
+				}
+			}))
+		},
+		{
+			boss: {
+				hp: 611136e3,
+				atk: 242500,
+				def: 34629,
+				more: {
+					hp: 8,
+					atk: 1,
+					dmg: .4,
+					defense: 400,
+					dodge: 500
+				}
+			},
+			others: []
+		},
+		{
+			boss: {
+				hp: 916704e3,
+				atk: 213400,
+				def: 46172,
+				more: {
+					hp: 9,
+					atk: .9,
+					dmg: .4,
+					defense: 500,
+					tough: 900
+				}
+			},
+			others: ["kauron", "moira"].map((kind) => ({
+				kind,
+				after: 0,
+				as: {
+					hp: 916704e3,
+					atk: 213400,
+					def: 46172,
+					more: {
+						hp: 1,
+						atk: .5,
+						defense: 300
+					}
+				}
+			}))
+		},
+		{
+			boss: {
+				hp: 712992e3,
+				atk: 36860,
+				def: 34629,
+				more: {
+					hp: 10,
+					atk: .5,
+					defense: 500,
+					tough: 500
+				}
+			},
+			others: [
+				"kauron",
+				"moira",
+				"theakel",
+				"reuss",
+				"kauron",
+				"moira",
+				"theakel",
+				"reuss"
+			].map((kind, i) => ({
+				kind,
+				after: i < 4 ? 4 : 8,
+				as: {
+					hp: 712992e3,
+					atk: 36860,
+					def: 34629
+				}
+			})),
+			summons: true
+		}
+	]
+};
+var VHEGORT = {
+	id: "karma-solenis",
+	name: "Karma Dungeon: Solenis",
+	time: 90,
+	deals: "physical",
+	lookup: {
+		crit: 100,
+		dodge: {
+			physical: 100,
+			magical: 100
+		},
+		pen: 300,
+		resist: 200
+	},
+	skills: () => [
+		{
+			name: "attack",
+			label: "Attack",
+			length: 4.4,
+			blows: [.7, 2],
+			share: [1.7, .7],
+			on: "target",
+			then: (on) => void addSlow(on)
+		},
+		{
+			name: "skill1",
+			label: "Skill 1",
+			cooldown: 7,
+			first: 10,
+			length: 6.3,
+			blows: [2.8],
+			share: 1.2,
+			on: "target",
+			hp: .021
+		},
+		{
+			name: "skill2",
+			label: "Skill 2",
+			cooldown: 9,
+			first: 10,
+			length: 6,
+			blows: [4.3],
+			share: 1.1,
+			on: "all",
+			hp: .009
+		},
+		{
+			name: "skill3",
+			label: "Skill 3",
+			cooldown: 9,
+			first: 14,
+			length: 5.6,
+			blows: [3.3],
+			share: .7,
+			on: "all",
+			hp: .0052,
+			stun: 1.5
+		}
+	],
+	grows: {
+		atk: [
+			[410, 1],
+			[1e4, 35],
+			[150, 5],
+			[9e3, 30],
+			[9e3, 31]
+		],
+		def: [
+			[10, 1],
+			[1e4, 35],
+			[9e3, 30],
+			[9e3, 31]
+		],
+		hp: [
+			[600, 1],
+			[1e4, 35],
+			[9e3, 30],
+			[9e3, 31]
+		]
+	},
+	stages: [
+		{
+			boss: {
+				hp: 628112e3,
+				atk: 36860,
+				def: 39576,
+				more: {
+					hp: 6,
+					atk: .4,
+					defense: 300
+				}
+			},
+			others: [
+				"golem-guardian",
+				"golem-guardian",
+				"golem-destroyer",
+				"golem-destroyer",
+				"golem-berserk",
+				"golem-berserk",
+				"golem-mountain",
+				"golem-mountain"
+			].map((kind) => ({
+				kind,
+				after: 0,
+				as: {
+					hp: 448650900,
+					atk: 36860,
+					def: 58200
+				}
+			}))
+		},
+		{
+			boss: {
+				hp: 729968e3,
+				atk: 194e3,
+				def: 39576,
+				more: {
+					hp: 9.2,
+					atk: .7,
+					dmg: .2,
+					defense: 400
+				}
+			},
+			others: []
+		},
+		{
+			boss: {
+				hp: 1001584e3,
+				atk: 174600,
+				def: 52768,
+				more: {
+					hp: 10.8,
+					atk: .6,
+					dmg: .1,
+					defense: 500,
+					block: 500
+				}
+			},
+			others: ["golem-guardian", "golem-destroyer"].map((kind) => ({
+				kind,
+				after: 0,
+				as: {
+					hp: 715416300,
+					atk: 174600,
+					def: 77600,
+					more: {
+						hp: 1.3,
+						atk: .3,
+						defense: 400
+					}
+				}
+			}))
+		},
+		{
+			boss: {
+				hp: 797872e3,
+				atk: 30070,
+				def: 39576,
+				more: {
+					hp: 12,
+					atk: .4,
+					defense: 500,
+					block: 500
+				}
+			},
+			others: [
+				"golem-guardian",
+				"golem-destroyer",
+				"golem-berserk",
+				"golem-mountain",
+				"golem-guardian",
+				"golem-destroyer",
+				"golem-berserk",
+				"golem-mountain"
+			].map((kind, i) => ({
+				kind,
+				after: i < 4 ? 4 : 8,
+				as: {
+					hp: 569907900,
+					atk: 30070,
+					def: 58200
+				}
+			})),
+			summons: true
+		}
+	],
+	part: (fight, stage) => stage === 2 ? { tick: (dt) => fight.mend(fight.foe.maxHp * .005 * dt) } : {}
+};
+/** Vhegort's plain attack: 4% less ATK Spd, stacking (King's Raid's Karma_SpeedDebuff). */
+function addSlow(on) {
+	const count = Math.min(20, (on.statuses.find((status) => status.name === SLOWED.name)?.count ?? 0) + 1);
+	put(on.statuses, {
+		name: SLOWED.name,
+		left: Infinity,
+		count,
+		pace: Math.max(.1, 1 - .04 * count),
+		shown: SLOWED
+	});
+}
+/** A monster of `group` at `wave` (from 1): its health, ATK and stats as its stage and the wave's growth have them. */
+function monster(group, one, wave) {
+	const more = one.more ?? {};
+	const def = one.def * grown$1(group.grows.def, wave);
+	return {
+		hp: one.hp * (1 + (more.hp ?? 0)) * grown$1(group.grows.hp, wave),
+		atk: one.atk * (1 + (more.atk ?? 0)) * grown$1(group.grows.atk, wave),
+		dmg: 1 + (more.dmg ?? 0),
+		def,
+		taken: 1 - (more.defense ?? 0) / 1e3,
+		stats: {
+			acc: SURE$1,
+			...more.tough && { tough: {
+				physical: more.tough,
+				magical: more.tough
+			} },
+			...more.dodge && { dodge: {
+				physical: more.dodge,
+				magical: more.dodge
+			} },
+			...more.block && { block: {
+				physical: more.block,
+				magical: more.block
+			} }
+		}
+	};
+}
+/** Where a stage's others stand about its boss (metres: along the field, across it), in turn. */
+var SPOTS = [
+	[-1, 3],
+	[-1, -3],
+	[1, 4],
+	[1, -4],
+	[-2, 1.5],
+	[-2, -1.5],
+	[2, 2],
+	[2, -2]
+];
+/** A group's karma dungeon as the fight has it: each wave's boss and others, its gauge and cards. */
+function karmaOf(group) {
+	const wave = (level) => {
+		const index = (level - 1) % group.stages.length;
+		const stage = group.stages[index];
+		const boss = monster(group, stage.boss, level);
+		const skills = group.skills(index + 1);
+		const lookup = group.lookup;
+		const def = {
+			id: group.id,
+			name: group.name,
+			stats: {
+				hp: boss.hp,
+				deals: group.deals,
+				physical: boss.def,
+				magical: boss.def,
+				block: NONE,
+				dodge: NONE,
+				crit: 0,
+				resist: 0,
+				...lookup,
+				...boss.stats,
+				...lookup.tough && boss.stats.tough && { tough: {
+					physical: lookup.tough.physical + boss.stats.tough.physical,
+					magical: lookup.tough.magical + boss.stats.tough.magical
+				} },
+				...lookup.dodge && boss.stats.dodge && { dodge: {
+					physical: lookup.dodge.physical + boss.stats.dodge.physical,
+					magical: lookup.dodge.magical + boss.stats.dodge.magical
+				} }
+			},
+			stages: {
+				room: [{
+					hp: 1,
+					deals: boss.dmg,
+					level: 100
+				}],
+				solo: [{
+					hp: 1,
+					deals: boss.dmg,
+					level: 100
+				}]
+			},
+			...kitOf(skills, boss.atk),
+			rest: .3,
+			time: group.time,
+			rage: 10,
+			join(fight) {
+				const own = group.part?.(fight, index + 1) ?? {};
+				const ownTick = own.tick;
+				let since = 0;
+				return kitPart(fight, skills, {
+					...own,
+					taken: {
+						physical: boss.taken,
+						magical: boss.taken
+					},
+					shielding: () => .25,
+					healing: () => .915,
+					tick(dt) {
+						ownTick?.(dt);
+						since += dt;
+						if (since < 1) return;
+						since -= 1;
+						for (const on of fight.field) if (on.hp > 0 && on.statuses.some((status) => status.name === INFERNO.name)) fight.hurt(on, on.stats.hp * .02, false);
+					}
+				});
+			}
+		};
+		const minion = (kind, as, at) => {
+			const made = monster(group, as, level);
+			const [x, z] = SPOTS[at % SPOTS.length];
+			return {
+				kind,
+				x,
+				z,
+				hp: made.hp,
+				atk: made.atk * made.dmg,
+				def: [made.def, made.def],
+				own: true,
+				stats: made.stats,
+				taken: made.taken
+			};
+		};
+		const others = stage.others.map(({ kind, after, as }, i) => ({
+			minion: minion(kind, as, i),
+			after
+		}));
+		const kinds = [...new Set(stage.others.map((one) => one.kind))];
+		return {
+			boss: def,
+			minions: others,
+			...stage.summons && { summon: {
+				every: 18,
+				minions: kinds.slice(0, 4).map((kind, i) => minion(kind, stage.others.find((one) => one.kind === kind)?.as ?? stage.boss, i))
+			} }
+		};
+	};
+	return {
+		wave,
+		gauge: {
+			first: 100,
+			exponent: gaugeExponent
+		},
+		least: 500,
+		most: 100,
+		cards: KARMA_CARDS,
+		pick: 10
+	};
+}
+/** A karma dungeon's BossDef: its first wave's boss, as the fight begins (the fight goes on to each next wave's: BossDef.karma). */
+function karmaDungeon(group) {
+	const karma = karmaOf(group);
+	return {
+		...karma.wave(1).boss,
+		karma
+	};
+}
+var KARMA_APOCALYPSION = karmaDungeon(INPELE);
+var KARMA_SOLENIS = karmaDungeon(VHEGORT);
+//#endregion
+//#region src/technomagic/sim/bosses/divine/solenis.ts
+var LUCITERON_ATK = 54666657;
+var ALTIGMA_ATK = 68;
+var SOLENIS_ATK = 55678e3;
+/** The three: physical, 400 penetration, every blow a hit (2000 ACC). */
+var GOLEM = {
+	deals: "physical",
+	block: NONE,
+	dodge: NONE,
+	crit: 0,
+	resist: 0,
+	pen: 400,
+	acc: 2e3
+};
+/** Takes a hero's shield and invincibility (Flame Circle). */
+var bare = (on) => {
+	on.shield = 0;
+	on.shieldLeft = 0;
+	on.immune = 0;
+};
+var STIGMA$1 = {
+	name: "Stigma",
+	about: "80% less healing received.",
+	icon: "✴️",
+	art: stateArt("RecoverDown"),
+	harmful: true
+};
+var SEARING = {
+	name: "Searing",
+	about: "P.DMG every second.",
+	icon: "🔥",
+	art: stateArt("Burn"),
+	harmful: true
+};
+var CONFLAGRATION = {
+	name: "Conflagration",
+	about: "1% less healing received a stack; at 10 stacks, DEF much lower.",
+	icon: "🔥",
+	art: stateArt("RecoverDown"),
+	harmful: true
+};
+var STONE = {
+	name: "Guardian Stone",
+	about: "15% less ATK Spd a stone; at 5, every hero dies.",
+	icon: "🪨",
+	art: stateArt("SpeedDown"),
+	harmful: true
+};
+var WEIGHT = {
+	name: "Bombardment of Retribution",
+	about: "5% less ATK and 3% less ATK Spd a stack.",
+	icon: "🎯",
+	art: stateArt("AttackDown"),
+	harmful: true
+};
+/**
+* Eternal Conflagration (Luciteron's, every second; Operate Luciteron's on Solenis): `share` of its ATK on every hero, nothing
+* blocking it, and a stack of [Conflagration] (1% less healing received; at 10 stacks, DEF `def` lower). Its 19 stacks'
+* irremovability and its enhanced Singular Retribution are not here.
+*/
+function conflagration(fight, atk, share, def) {
+	return () => {
+		for (const on of reachable(fight)) {
+			fight.hurt(on, atk * share, false);
+			if (on.hp > 0) addStacks(on, CONFLAGRATION.name, 1, 99, Infinity, (n) => ({
+				heals: Math.max(0, 1 - .01 * n),
+				...n >= 10 && { defends: 1 - def },
+				shown: CONFLAGRATION
+			}));
+		}
+	};
+}
+function luciteronSkills() {
+	return [
+		{
+			name: "attack",
+			label: "Attack",
+			length: 3.6,
+			blows: [1.2],
+			share: 3,
+			on: "target"
+		},
+		{
+			name: "circle",
+			label: "Flame Circle",
+			cooldown: 20,
+			first: 15,
+			length: 4.5,
+			blows: [
+				1,
+				2,
+				3,
+				4
+			],
+			share: .6,
+			on: "all",
+			grows: .2,
+			then: bare
+		},
+		{
+			name: "stigmatize",
+			label: "Stigmatize",
+			cooldown: 32,
+			first: 15,
+			length: 5,
+			blows: [1],
+			share: 0,
+			on: "all",
+			then: (on) => put(on.statuses, {
+				name: STIGMA$1.name,
+				left: 40,
+				heals: .2,
+				shown: STIGMA$1
+			})
+		},
+		{
+			name: "shackle",
+			label: "Searing Shackle",
+			cooldown: 18,
+			first: 15,
+			length: 3.4,
+			blows: [1],
+			share: 3,
+			on: 2,
+			then: (on) => put(on.statuses, {
+				name: SEARING.name,
+				left: 10,
+				shown: SEARING
+			})
+		}
+	];
+}
+function luciteronPart(fight) {
+	const { foe } = fight;
+	const burning = conflagration(fight, LUCITERON_ATK, .8, .5);
+	const each = timer(1, () => {
+		burning();
+		for (const on of reachable(fight)) if (on.statuses.some((status) => status.name === SEARING.name)) fight.hurt(on, LUCITERON_ATK * .5, false);
+		const held = foe.statuses.find((status) => status.name === "Fiery Gravitation");
+		put(foe.statuses, {
+			name: "Fiery Gravitation",
+			art: stateArt("AttackUp"),
+			left: Infinity,
+			count: (held?.count ?? 0) + 1,
+			deals: 1 + .05 * ((held?.count ?? 0) + 1),
+			shown: "rage"
+		});
+	});
+	return kitPart(fight, luciteronSkills(), {
+		cap: 1,
+		steady: true,
+		controlled: () => null,
+		tick: each
+	});
+}
+var LUCITERON = {
+	id: "luciteron",
+	name: "Luciteron",
+	stats: {
+		...GOLEM,
+		hp: 234492153462,
+		physical: 34,
+		magical: 34,
+		resist: 600
+	},
+	stages: infiniteStages(),
+	...kitOf(luciteronSkills(), LUCITERON_ATK),
+	rest: .3,
+	time: 120,
+	outlast: true,
+	join: luciteronPart
+};
+function altigmaSkills() {
+	return [
+		{
+			name: "attack",
+			label: "Attack",
+			length: 3.6,
+			blows: [1.2],
+			share: 3,
+			on: "target"
+		},
+		{
+			name: "curtain",
+			label: "Curtain of Isolation",
+			cooldown: 24,
+			first: 15,
+			length: 4,
+			blows: [],
+			share: 0,
+			on: "all"
+		},
+		{
+			name: "absorb",
+			label: "Absorb Earthen Power",
+			cooldown: 26,
+			first: 15,
+			length: 8.5,
+			blows: [],
+			share: 0,
+			on: "all"
+		},
+		{
+			name: "core",
+			label: "Earthen Core",
+			cooldown: 15,
+			first: 15,
+			length: 6.1,
+			blows: [],
+			share: 0,
+			on: "all"
+		}
+	];
+}
+function altigmaPart(fight) {
+	const { foe } = fight;
+	let curtain = 0;
+	let core = 0;
+	let coreTick = 0;
+	let stones = 0;
+	return kitPart(fight, altigmaSkills(), {
+		steady: true,
+		controlled: () => null,
+		used(attack) {
+			if (attack === "curtain") curtain = 10;
+			if (attack === "core") {
+				core = 6.1;
+				coreTick = 0;
+				put(foe.statuses, {
+					name: "Earthen Core",
+					art: stateArt("DefenseDown"),
+					left: 6.1,
+					defends: .7,
+					takes: 1.3,
+					shown: "curse"
+				});
+			}
+		},
+		tick(dt) {
+			if (curtain > 0) {
+				curtain = Math.max(0, curtain - dt);
+				fight.mend(foe.maxHp * .01 * dt, 1.5);
+			}
+			if (core <= 0) return;
+			core -= dt;
+			coreTick += dt;
+			while (coreTick >= .5) {
+				coreTick -= .5;
+				for (const on of reachable(fight)) {
+					fight.hurt(on, on.stats.hp * .01, false);
+					on.mana = Math.max(0, on.mana - 500);
+				}
+			}
+			if (core > 0) return;
+			stones++;
+			put(fight.party, {
+				name: STONE.name,
+				left: Infinity,
+				count: stones,
+				pace: Math.max(.1, 1 - .15 * stones),
+				shown: STONE
+			});
+			if (stones >= 5) for (const on of reachable(fight)) fight.hurt(on, on.stats.hp * 1e3, false);
+		},
+		marks: () => stones > 0 ? [{
+			text: `Guardian Stone ×${stones}`,
+			tone: "curse",
+			count: String(stones)
+		}] : []
+	});
+}
+var ALTIGMA = {
+	id: "altigma",
+	name: "Altigma",
+	stats: {
+		...GOLEM,
+		hp: 117246076731,
+		physical: 6790,
+		magical: 6790
+	},
+	stages: infiniteStages(),
+	...kitOf(altigmaSkills(), ALTIGMA_ATK),
+	rest: .3,
+	time: 150,
+	join: altigmaPart
+};
+function solenisSkills() {
+	return [
+		{
+			name: "attack",
+			label: "Attack",
+			length: 4.7,
+			blows: [1.5],
+			share: .5,
+			on: "target",
+			hp: .01
+		},
+		{
+			name: "singular",
+			label: "Singular Retribution",
+			cooldown: 29,
+			first: 17,
+			length: 11.6,
+			blows: [2, 7],
+			share: [1.8, 3.6],
+			on: "all",
+			hp: .01,
+			stun: 2,
+			stunEvery: true
+		},
+		{
+			name: "bombardment",
+			label: "Bombardment of Retribution",
+			cooldown: 33,
+			first: 23,
+			length: 7.6,
+			blows: [
+				2,
+				3,
+				4,
+				5,
+				6
+			],
+			share: .1,
+			on: "all",
+			hp: .05,
+			then: (on) => {
+				on.mana = Math.max(0, on.mana - 500);
+				addStacks(on, WEIGHT.name, 1, 20, Infinity, (n) => ({
+					atk: -.05 * n,
+					pace: Math.max(.1, 1 - .03 * n),
+					shown: WEIGHT
+				}));
+			}
+		},
+		{
+			name: "endless",
+			label: "Endless Retribution",
+			cooldown: 45,
+			first: 35,
+			length: 9.5,
+			blows: [
+				2.3,
+				5.5,
+				9.5
+			],
+			share: [
+				1.5,
+				2.1,
+				2.4
+			],
+			on: "all",
+			hp: .05
+		}
+	];
+}
+/** Solenis' part, with the mid-bosses `cleared` this opening operating. */
+function solenisPart(fight, cleared) {
+	const { foe } = fight;
+	const luciteron = cleared.includes("luciteron");
+	const altigma = cleared.includes("altigma");
+	let hits = 0;
+	let curtain = 0;
+	const operateLuciteron = luciteron ? timer(1, conflagration(fight, SOLENIS_ATK, .3, .8)) : null;
+	const operateAltigma = altigma ? timer(25, () => void (curtain = 10)) : null;
+	return kitPart(fight, solenisSkills(), {
+		fixedDefense: true,
+		steady: true,
+		critResist: 500,
+		controlled: () => null,
+		struck() {
+			if (++hits < 60) return;
+			hits = 0;
+			for (const on of reachable(fight)) fight.hurt(on, SOLENIS_ATK * (luciteron && altigma ? 6 : 2), false);
+		},
+		tick(dt) {
+			operateLuciteron?.(dt);
+			operateAltigma?.(dt);
+			if (curtain > 0) {
+				curtain = Math.max(0, curtain - dt);
+				fight.mend(foe.maxHp * .01 * dt, 1.5);
+			}
+			if (foe.hp <= foe.maxHp * .499 && !foe.statuses.some((status) => status.name === "Fanaticism")) put(foe.statuses, {
+				name: "Fanaticism",
+				art: stateArt("AttackUp"),
+				left: Infinity,
+				deals: 1.4,
+				shown: "rage"
+			});
+		},
+		beaten() {
+			for (const on of fight.fighters) {
+				lift(on, CONFLAGRATION.name);
+				if (stacksOf(on, WEIGHT.name) > 0) lift(on, WEIGHT.name);
+			}
+		}
+	});
+}
+/** Solenis, with the mid-bosses `cleared` this opening (Luciteron's and Altigma's ids). */
+function solenisFight(cleared = []) {
+	return {
+		id: "solenis",
+		name: "Solenis",
+		stats: {
+			...GOLEM,
+			hp: 23863394e5,
+			physical: 78085,
+			magical: 78085
+		},
+		stages: infiniteStages(),
+		...kitOf(solenisSkills(), SOLENIS_ATK),
+		rest: .3,
+		time: 300,
+		join: (fight) => solenisPart(fight, cleared)
+	};
+}
+/** As it is with neither mid-boss cleared. */
+var SOLENIS = solenisFight();
+/** The mid-bosses, in King's Raid's order. */
+var SOLENIS_SIDES = ["luciteron", "altigma"];
+//#endregion
+//#region src/technomagic/sim/bosses/divine/shards.ts
+/** Each tier's Duration (seconds, ShardItemTable: both groups alike). */
+var DURATION = [
+	30,
+	60,
+	100,
+	180,
+	240
+];
+var HEROES$1 = {
+	apocalypsion: [
+		{ acc: 100 },
+		{ acc: 150 },
+		{
+			acc: 250,
+			control: .1
+		},
+		{
+			acc: 300,
+			dmg: .15,
+			control: .2
+		},
+		{
+			acc: 400,
+			control: .3,
+			dmg: .3,
+			crit: 400
+		}
+	],
+	solenis: [
+		{ heal: .1 },
+		{ heal: .15 },
+		{
+			heal: .2,
+			cooldown: .02
+		},
+		{
+			heal: .25,
+			cooldown: .05,
+			mana: 1e3
+		},
+		{
+			heal: .3,
+			cooldown: .1,
+			mana: 2e3,
+			control: .3
+		}
+	]
+};
+var BOSSES$1 = {
+	apocalypsion: [
+		{},
+		{ hp: .1 },
+		{
+			hp: .2,
+			taken: .2
+		},
+		{
+			hp: .3,
+			taken: .3,
+			deals: .15
+		},
+		{
+			hp: .4,
+			taken: .4,
+			deals: .3,
+			crit: 400
+		}
+	],
+	solenis: [
+		{},
+		{ hp: .1 },
+		{
+			hp: .2,
+			critResist: 200
+		},
+		{
+			hp: .3,
+			critResist: 300
+		},
+		{
+			hp: .4,
+			critResist: 400,
+			deals: .3
+		}
+	]
+};
+var SHARD = {
+	name: "Full Shard",
+	about: "A Full Shard's power.",
+	icon: "💠",
+	art: stateArt("AttackUp")
+};
+var COOLDOWN_EVERY = 10;
+/**
+* A boss dungeon's boss with Full Shards brought (`use`: none, as it is): the heroes' buff put on as the fight begins, and (`final`:
+* the group's final boss) the boss's debuff; a boss after it in the same fight (Apocalypsion after Tersio) has the debuff too,
+* for what is left of its time.
+*/
+function withShards(def, use, final, heroes = true) {
+	if (!use || use.count <= 0) return def;
+	const tier = use.tier - 1;
+	const lasts = DURATION[tier] * use.count;
+	const buff = HEROES$1[use.group][tier] ?? {};
+	const debuff = final ? BOSSES$1[use.group][tier] ?? {} : {};
+	const join = def.join;
+	return {
+		...def,
+		...def.next && { next: {
+			...def.next,
+			def: withShards(def.next.def, use, final, false)
+		} },
+		join(fight) {
+			const part = join?.(fight) ?? { lands: {} };
+			const { foe } = fight;
+			const left = lasts - fight.elapsed;
+			if (heroes) put(fight.party, {
+				name: SHARD.name,
+				left: lasts,
+				...buff.acc && { acc: buff.acc },
+				...buff.dmg && { deals: 1 + buff.dmg },
+				...buff.control && { control: 1 + buff.control },
+				...buff.crit && { critPoints: buff.crit },
+				...buff.heal && { heals: 1 + buff.heal },
+				shown: SHARD
+			});
+			const lower = left > 0 ? debuff.hp ?? 0 : 0;
+			if (lower > 0) {
+				foe.maxHp *= 1 - lower;
+				foe.hp *= 1 - lower;
+			}
+			if (left > 0 && (debuff.taken || debuff.deals || debuff.crit || debuff.critResist)) put(foe.statuses, {
+				name: "Shard Curse",
+				art: stateArt("DefenseDown"),
+				left,
+				...debuff.taken && { takes: 1 + debuff.taken },
+				...debuff.deals && { deals: 1 - debuff.deals },
+				...debuff.crit && { crit: -debuff.crit / 1e3 },
+				...debuff.critResist && { critTaken: debuff.critResist },
+				shown: "curse"
+			});
+			let lowered = lower > 0;
+			let next = (Math.floor(fight.elapsed / COOLDOWN_EVERY) + 1) * COOLDOWN_EVERY;
+			const tick = part.tick;
+			return {
+				...part,
+				tick(dt) {
+					tick?.(dt);
+					const now = fight.elapsed;
+					if (lowered && now >= lasts) {
+						lowered = false;
+						foe.maxHp /= 1 - lower;
+						foe.hp /= 1 - lower;
+					}
+					if (!buff.cooldown && !buff.mana || now < next || now > lasts) return;
+					next += COOLDOWN_EVERY;
+					for (const on of fight.field) {
+						if (on.hp <= 0) continue;
+						if (buff.cooldown) on.cooldowns = on.cooldowns.map((wait, i) => Math.max(0, wait - (on.abilities[i]?.cooldown ?? 0) * (buff.cooldown ?? 0)));
+						if (buff.mana) on.mana = Math.min(MAX_MANA, on.mana + buff.mana);
+					}
+				}
+			};
+		}
+	};
+}
+//#endregion
+//#region src/technomagic/sim/bosses/divine/index.ts
+var DIVINE$1 = [
+	{
+		def: DP_TEMERAIRE,
+		group: "apocalypsion",
+		kind: "side"
+	},
+	{
+		def: DP_SCALAXIA,
+		group: "apocalypsion",
+		kind: "side"
+	},
+	{
+		def: DP_ZYRRKINOTH,
+		group: "apocalypsion",
+		kind: "side"
+	},
+	{
+		def: DP_ARMARTA,
+		group: "apocalypsion",
+		kind: "side"
+	},
+	{
+		def: APOCALYPSION,
+		group: "apocalypsion",
+		kind: "final"
+	},
+	{
+		def: LUCITERON,
+		group: "solenis",
+		kind: "side"
+	},
+	{
+		def: ALTIGMA,
+		group: "solenis",
+		kind: "side"
+	},
+	{
+		def: SOLENIS,
+		group: "solenis",
+		kind: "final"
+	},
+	{
+		def: KARMA_APOCALYPSION,
+		group: "apocalypsion",
+		kind: "karma"
+	},
+	{
+		def: KARMA_SOLENIS,
+		group: "solenis",
+		kind: "karma"
+	}
+];
+/** The Divine Punishment bosses' fights, in that order. */
+var DIVINE_BOSSES = DIVINE$1.map((one) => one.def);
+/** A group's side bosses, by id (the dragons; the mid-bosses). */
+var DIVINE_SIDES = {
+	apocalypsion: APOCALYPSION_SIDES,
+	solenis: SOLENIS_SIDES
+};
+/**
+* A Divine Punishment boss's fight as a run has it: a final boss as the side bosses `cleared` this opening leave it (Apocalypsion's
+* dragons alive giving their passives; Solenis' mid-bosses cleared operating), and a boss dungeon with the Full Shards brought
+* (`shard`: of its group's). A karma dungeon as it is.
+*/
+function divineFight(one, cleared, shard) {
+	if (one.kind === "karma") return one.def;
+	const sides = DIVINE_SIDES[one.group];
+	const known = cleared.filter((id) => sides.includes(id));
+	return withShards(one.kind === "final" ? one.group === "apocalypsion" ? apocalypsionFight(known) : solenisFight(known) : one.def, shard ? {
+		...shard,
+		group: one.group
+	} : null, one.kind === "final");
+}
+//#endregion
+//#region src/technomagic/sim/bosses/galgoria/attacks.ts
+/**
+* Its M.ATK at each stage, as King's Raid's playtest builds it (its Galgoria raid, chapter 10's stages 1 to 9: its stats at
+* the stage's level, times its MonsterTierTable entry: KR-extracted/scripts/boss-stats.mjs). Its blows are shares of it.
+*/
+var KR_ATK$1 = [
+	4515117,
+	5942354,
+	8184999,
+	9373382,
+	13161563,
+	19055025,
+	23048231,
+	39699242,
+	69801164
+];
+/** What a blow takes: `of` its ATK at stage 1 (how much of that each skill's blow takes is ./skills.ts). */
+var share$1 = (of) => [of * KR_ATK$1[0], of * KR_ATK$1[0]];
+var HEADS = [
+	"C",
+	"L",
+	"R"
+];
+/** How long each of its heads' moves takes, when its blow lands, and what that takes of whoever it lands on, before their defense (its ATK; each skill takes its share of it). */
+var MOVES$1 = {
+	spit: {
+		length: 2,
+		hit: .88,
+		hurts: share$1(1)
+	},
+	roar: {
+		length: 2.1,
+		hit: .5,
+		hurts: share$1(1.5)
+	},
+	slam: {
+		length: 1.9,
+		hit: .75
+	}
+};
+/** The heads' moves in each of its skills, by its name. */
+var PLANS$1 = {
+	left: [[
+		"spit",
+		"L",
+		0
+	]],
+	centre: [[
+		"spit",
+		"C",
+		0
+	]],
+	right: [[
+		"spit",
+		"R",
+		0
+	]],
+	destroyer: [
+		[
+			"spit",
+			"L",
+			0
+		],
+		[
+			"spit",
+			"C",
+			.38
+		],
+		[
+			"spit",
+			"R",
+			.76
+		],
+		[
+			"slam",
+			"L",
+			.76
+		],
+		[
+			"slam",
+			"C",
+			.38
+		],
+		[
+			"slam",
+			"R",
+			0
+		]
+	],
+	swamp: HEADS.map((head, i) => [
+		"roar",
+		head,
+		i * .07
+	]),
+	explosion: [[
+		"spit",
+		"L",
+		0
+	], [
+		"spit",
+		"R",
+		.2
+	]],
+	fatal: [[
+		"spit",
+		"C",
+		0
+	]]
+};
+/** Its attacks, as Boss auto picks them (one head's venom the most often, by itself) and as their buttons say. */
+var ATTACKS$1 = [
+	{
+		name: "left",
+		label: "Left head"
+	},
+	{
+		name: "centre",
+		label: "Centre head"
+	},
+	{
+		name: "right",
+		label: "Right head"
+	},
+	{
+		name: "destroyer",
+		label: "Swamp Destroyer"
+	},
+	{
+		name: "swamp",
+		label: "Poisonous Swamp"
+	},
+	{
+		name: "explosion",
+		label: "Poisonous Explosion"
+	},
+	{
+		name: "fatal",
+		label: "Fatal Venom",
+		warning: {
+			image: "warning",
+			lasts: 2
+		}
+	}
+];
+//#endregion
+//#region src/technomagic/sim/bosses/galgoria/skills.ts
+/** Its attack's share of its ATK. */
+var HEAD = 3.3;
+var IMPRISONMENT = {
+	hits: 150,
+	lasts: 8,
+	atk: .7
+};
+var DESTROYER = {
+	venom: .55,
+	share: 100 / 110,
+	down: 3,
+	cooldown: 10
+};
+var SWAMP = {
+	lasts: 5,
+	every: 1,
+	mana: .6,
+	deals: 1.4,
+	cooldown: 17
+};
+var EXPLOSION$1 = {
+	blow: 1.1,
+	lasts: 10,
+	deals: .5,
+	crit: -.5,
+	cooldown: 18
+};
+var FATAL = {
+	blow: 1.4,
+	after: 3,
+	heals: .2,
+	most: 5,
+	deals: .14,
+	mostOnIt: 10
+};
+/** What it gives itself back a second, of its health, and how much higher its Heal Rate is: from stage `from` on, `later`. */
+var LIFE_FORCE = {
+	share: .01,
+	healing: .7,
+	later: 1.2,
+	from: 4
+};
+/** From stage 4 on: how much healing reaches the heroes, and how strong their shields are. */
+var STAGES = {
+	from: 4,
+	heals: .6,
+	shields: .4
+};
+var IMPRISONED = {
+	name: "Swamp Imprisonment",
+	about: "Held in the swamp: it can do nothing (and can’t be knocked down), but the boss still hits it.",
+	icon: "🪤",
+	art: stateArt("3590043"),
+	harmful: true
+};
+var UNBOUND = {
+	name: "Swamp Imprisonment (free)",
+	about: `An ally is held: ATK ${Math.round(IMPRISONMENT.atk * 100)}% higher meanwhile.`,
+	icon: "🗡️",
+	art: stateArt("AttackUp")
+};
+var POISONED$1 = {
+	name: "Poisonous Swamp",
+	about: `Hurt every second; mana fills ${Math.round((1 - SWAMP.mana) * 100)}% slower, and ATK is ${Math.round((SWAMP.deals - 1) * 100)}% higher.`,
+	icon: "🫧",
+	art: stateArt("3590020"),
+	harmful: true
+};
+var WEAKENED$2 = {
+	name: "Poisonous Explosion",
+	about: `Hits ${Math.round((1 - EXPLOSION$1.deals) * 100)}% softer.`,
+	icon: "💥",
+	art: stateArt("3590030"),
+	harmful: true
+};
+var DULLED = {
+	name: "Poisonous Explosion (crit)",
+	about: `${Math.round(-EXPLOSION$1.crit * 1e3)} less crit chance.`,
+	icon: "💥",
+	art: stateArt("3590030"),
+	harmful: true
+};
+var FATAL_VENOM = {
+	name: "Fatal Venom",
+	about: `${Math.round(FATAL.heals * 100)}% less healing reaches it for each (the rest of the fight), and the boss hits harder.`,
+	icon: "☠️",
+	art: stateArt("3590040"),
+	harmful: true
+};
+/** Its skills that count toward Fatal Venom, and each one's cooldown; and how long each waits as the fight begins (the playtest's). */
+var COOLDOWNS = {
+	destroyer: DESTROYER.cooldown,
+	swamp: SWAMP.cooldown,
+	explosion: EXPLOSION$1.cooldown
+};
+var FIRST = {
+	destroyer: 5,
+	swamp: 8,
+	explosion: 12
+};
+/** Stacks one more of a status that stays the rest of the fight, up to `most`: `made` makes it, `count` of them stacked. */
+function stack(on, name, most, made) {
+	const count = Math.min(most, (on.find((status) => status.name === name)?.count ?? 0) + 1);
+	put(on, {
+		...made(count),
+		name,
+		left: Infinity,
+		count
+	});
+}
+function galgoriaPart(fight) {
+	return withGauge(fight, ownPart(fight), GALGORIA_GAUGE);
+}
+/** What its skills do, but for its CC Gauge. */
+function ownPart(fight) {
+	const { foe } = fight;
+	/** Blows the heroes have landed toward the next imprisonment, and what each has dealt since the last. */
+	let hits = 0;
+	const dealt = /* @__PURE__ */ new Map();
+	/** The heroes shut away: a ring where each comes back out. */
+	const shut = /* @__PURE__ */ new Set();
+	/** Its skills' cooldowns, by name; its skills used toward Fatal Venom; and how long its swamp lasts yet, its blow each so often. */
+	const cooldowns = new Map(Object.entries(FIRST));
+	let used = 0;
+	let swamp = 0;
+	let swampHurts = 0;
+	let swampAmount = 0;
+	/** Whether the fight is at stage 4 or past it. */
+	const late = () => fight.stage >= STAGES.from;
+	/** Its own Heal Rate, as a share (added up with what is on it). */
+	const lifeForce = () => 1 + (fight.stage >= LIFE_FORCE.from ? LIFE_FORCE.later : LIFE_FORCE.healing);
+	/** The heroes the boss can reach. */
+	const reachable = () => fight.field.filter((fighter) => fighter.hp > 0 && !fighter.statuses.some((status) => status.away));
+	/** The hero that has dealt the most since the last is held in the swamp (whoever was, let out); every other hero's ATK is higher meanwhile. */
+	function imprison() {
+		const heroes = reachable();
+		for (const fighter of heroes) fighter.statuses = fighter.statuses.filter((status) => status.name !== IMPRISONED.name);
+		const [top, ...rest] = heroes.sort((a, b) => (dealt.get(b) ?? 0) - (dealt.get(a) ?? 0));
+		dealt.clear();
+		if (!top) return;
+		fight.stagger(top);
+		top.reserved = null;
+		top.statuses = top.statuses.filter((status) => status.name !== UNBOUND.name);
+		put(top.statuses, {
+			name: IMPRISONED.name,
+			left: IMPRISONMENT.lasts,
+			binds: true,
+			guards: true,
+			shown: IMPRISONED
+		});
+		for (const other of rest) put(other.statuses, {
+			name: UNBOUND.name,
+			left: IMPRISONMENT.lasts,
+			atk: IMPRISONMENT.atk,
+			shown: UNBOUND
+		});
+		fight.cue(null, "imprison", [top]);
+		shut.add(top);
+	}
+	/** The venom of a blow lands on whoever it is going for: what it takes, and then `then` on it. */
+	function venom(amount, then) {
+		const target = fight.target();
+		if (!target || target.hp <= 0) return;
+		fight.hurt(target, amount);
+		then?.(target);
+	}
+	return {
+		lands: {
+			left: (_part, amount) => venom(amount * HEAD),
+			centre: (_part, amount) => venom(amount * HEAD),
+			right: (_part, amount) => venom(amount * HEAD),
+			destroyer(part, amount) {
+				if (part < 3) return venom(amount * DESTROYER.venom);
+				if (part > 3) return;
+				const heroes = reachable();
+				fight.cue(null, "destroyer", heroes);
+				for (const fighter of heroes) {
+					fight.hurt(fighter, fighter.hp * DESTROYER.share, false);
+					fight.knock(fighter, DESTROYER.down);
+				}
+			},
+			swamp(part, amount) {
+				if (part > 0) return;
+				const heroes = reachable();
+				if (heroes.length === 0) return;
+				fight.cue(null, "swamp", heroes);
+				for (const fighter of heroes) put(fighter.statuses, {
+					name: POISONED$1.name,
+					left: SWAMP.lasts,
+					mana: SWAMP.mana,
+					deals: SWAMP.deals,
+					shown: POISONED$1
+				});
+				swamp = SWAMP.lasts;
+				swampHurts = 0;
+				swampAmount = amount / (SWAMP.lasts / SWAMP.every);
+			},
+			explosion(part, amount) {
+				const heroes = reachable();
+				for (const fighter of heroes) {
+					fight.hurt(fighter, amount * EXPLOSION$1.blow);
+					if (part === 0) put(fighter.statuses, {
+						name: WEAKENED$2.name,
+						left: EXPLOSION$1.lasts,
+						deals: EXPLOSION$1.deals,
+						shown: WEAKENED$2
+					});
+					else put(fighter.statuses, {
+						name: DULLED.name,
+						left: EXPLOSION$1.lasts,
+						crit: EXPLOSION$1.crit,
+						shown: DULLED
+					});
+				}
+				fight.cue(null, "explosion", heroes);
+			},
+			fatal(_part, amount) {
+				const heroes = reachable();
+				for (const fighter of heroes) {
+					fight.hurt(fighter, amount * FATAL.blow);
+					stack(fighter.statuses, FATAL_VENOM.name, FATAL.most, (count) => ({
+						heals: Math.max(0, 1 - FATAL.heals * count),
+						shown: FATAL_VENOM
+					}));
+				}
+				stack(foe.statuses, FATAL_VENOM.name, FATAL.mostOnIt, (count) => ({
+					deals: 1 + FATAL.deals * count,
+					art: FATAL_VENOM.art,
+					shown: "venom"
+				}));
+				fight.cue(null, "fatal", heroes);
+			}
+		},
+		struck(by, amount) {
+			dealt.set(by, (dealt.get(by) ?? 0) + amount);
+			if (++hits < IMPRISONMENT.hits) return;
+			hits = 0;
+			imprison();
+		},
+		used(attack) {
+			const cooldown = COOLDOWNS[attack];
+			if (cooldown !== void 0) {
+				cooldowns.set(attack, cooldown);
+				used++;
+			} else if (attack === "fatal") used = 0;
+		},
+		next: () => used >= FATAL.after ? "fatal" : null,
+		ready: (attack) => attack !== "fatal" && (cooldowns.get(attack) ?? 0) <= 0,
+		delay(seconds) {
+			for (const attack of Object.keys(COOLDOWNS)) cooldowns.set(attack, (cooldowns.get(attack) ?? 0) + seconds);
+		},
+		beaten() {
+			hits = 0;
+			used = 0;
+			dealt.clear();
+			for (const on of [foe.statuses, ...fight.fighters.map((fighter) => fighter.statuses)]) {
+				const at = on.findIndex((status) => status.name === FATAL_VENOM.name);
+				if (at >= 0) on.splice(at, 1);
+			}
+		},
+		tick(dt) {
+			for (const [attack, left] of cooldowns) cooldowns.set(attack, Math.max(0, left - dt));
+			fight.mend(foe.maxHp * LIFE_FORCE.share * dt, lifeForce());
+			if (swamp > 0) {
+				swamp -= dt;
+				swampHurts += dt;
+				if (swampHurts >= SWAMP.every) {
+					swampHurts -= SWAMP.every;
+					for (const fighter of reachable()) if (fighter.statuses.some((status) => status.name === POISONED$1.name)) fight.hurt(fighter, swampAmount);
+				}
+			}
+			for (const fighter of shut) {
+				if (fighter.statuses.some((status) => status.name === IMPRISONED.name)) continue;
+				shut.delete(fighter);
+				fight.cue(null, "free", [fighter]);
+			}
+		},
+		healing: () => late() ? STAGES.heals : 1,
+		shielding: () => late() ? STAGES.shields : 1,
+		taken: { physical: 1.2 },
+		unstolen: true,
+		steady: true,
+		marks() {
+			const heals = `${Number((LIFE_FORCE.share * healing(foe.statuses, lifeForce()) * 100).toPrecision(2))}%`;
+			return [
+				{
+					text: `Persistent Life Force ${heals}`,
+					tone: "venom",
+					art: stateArt("3590041"),
+					count: heals
+				},
+				{
+					text: `Swamp Imprisonment ${hits}/${IMPRISONMENT.hits}`,
+					tone: "venom",
+					art: stateArt("3590043"),
+					count: String(hits)
+				},
+				{
+					text: `Fatal Venom ${Math.min(used, FATAL.after)}/${FATAL.after}`,
+					tone: "venom",
+					art: stateArt("3590040"),
+					count: String(Math.min(used, FATAL.after))
+				}
+			];
+		}
+	};
+}
+//#endregion
+//#region src/technomagic/sim/bosses/galgoria/index.ts
+var HP$1 = [
+	14184543765,
+	19721142351,
+	26463862400,
+	37178723386,
+	49825627800,
+	71216166313,
+	86139389687,
+	158093465948,
+	295609113842
+];
+var KR_DEF = [
+	53269,
+	57090,
+	68670,
+	82450,
+	116318,
+	124308,
+	164065,
+	261750,
+	416588
+];
+var LIFE_DEF = 6e4;
+var LEVEL$1 = [
+	88,
+	90,
+	95,
+	100,
+	108,
+	110,
+	116,
+	125,
+	134
+];
+var KR_PARTY$1 = 7;
+var DEF$2 = KR_DEF.map((def) => def + LIFE_DEF);
+var scales$1 = (times) => HP$1.map((hp, i) => ({
+	hp: hp / HP$1[0] * times,
+	deals: KR_ATK$1[i] / KR_ATK$1[0],
+	defense: DEF$2[i] / DEF$2[0],
+	level: LEVEL$1[i]
+}));
+/**
+* Galgoria: a chimera of three heads that spits venom. Its blows are magical. It neither blocks nor dodges, and takes
+* 20% more physical damage (./skills.ts). Its health and defenses are the playtest's (HP, DEF), so heroes wear it down
+* best with penetration, and with what cuts its healing (it gives itself back its health all the while: ./skills.ts).
+* How its attacks go is ./attacks.ts, and what its skills do ./skills.ts; what is drawn for them is
+* ../../../bosses/galgoria/fx.ts, and its body ../../../bosses/galgoria/model.ts.
+* No stun holds it: stuns wear its CC Gauge down instead (../gauge.ts), and empty, it is Down a while; it has no CC resist,
+* as the playtest's. Its blows see past 500 points of a hero's defense (the playtest's PiercePower) and 300 of its dodge
+* (its Persistent Life Force's hit chance). Now and then a blow of its is a crit (crit resist tells): a first guess.
+*/
+var GALGORIA = {
+	id: "galgoria",
+	name: "Galgoria",
+	stats: {
+		hp: HP$1[0],
+		deals: "magical",
+		physical: DEF$2[0],
+		magical: DEF$2[0],
+		block: NONE,
+		dodge: NONE,
+		crit: 100,
+		resist: 0,
+		pen: 500,
+		acc: 300
+	},
+	stages: {
+		room: scales$1(1),
+		solo: scales$1(KR_PARTY$1 / 8)
+	},
+	basic: [
+		"left",
+		"centre",
+		"right"
+	],
+	rest: 3.1 - MOVES$1.spit.length,
+	attacks: ATTACKS$1,
+	plans: PLANS$1,
+	moves: MOVES$1,
+	join: galgoriaPart
 };
 //#endregion
 //#region src/technomagic/sim/bosses/siegfried/attacks.ts
@@ -13904,7 +16420,7 @@ var OWN = /* @__PURE__ */ new Set([
 	DAWNING,
 	WEAKENED$1
 ]);
-var RAGE$1 = "rage";
+var RAGE = "rage";
 function siegfriedPart(fight) {
 	const boss = fight.boss;
 	const at = Math.min(DEF_CUT.length, Math.max(1, fight.stage)) - 1;
@@ -13934,7 +16450,7 @@ function siegfriedPart(fight) {
 				magical: DAWN.block
 			},
 			art: stateArt("3591042"),
-			shown: RAGE$1
+			shown: RAGE
 		});
 		put(boss.statuses, {
 			name: WEAKENED$1,
@@ -14063,7 +16579,7 @@ function siegfriedPart(fight) {
 					count: lives,
 					deals: 1 + RISE.atk * lives,
 					art: stateArt("3591030"),
-					shown: RAGE$1
+					shown: RAGE
 				});
 				fight.cue(null, `rise${lives}`);
 			}
@@ -14127,7 +16643,7 @@ function siegfriedPart(fight) {
 					left: RAMPAGE$2.lasts,
 					pen: RAMPAGE$2.pen,
 					art: stateArt("3591040"),
-					shown: RAGE$1
+					shown: RAGE
 				});
 			}
 		},
@@ -14142,12 +16658,12 @@ function siegfriedPart(fight) {
 		marks() {
 			return [{
 				text: `Divine Power: rises ${RISE.times - lives} more time${RISE.times - lives === 1 ? "" : "s"}`,
-				tone: RAGE$1,
+				tone: RAGE,
 				art: stateArt("3591030"),
 				count: String(RISE.times - lives)
 			}, {
 				text: `Mana ${num(Math.floor(mana))}/${num(MAX_MANA)}`,
-				tone: RAGE$1,
+				tone: RAGE,
 				art: stateArt("3591040"),
 				count: pct(mana / MAX_MANA)
 			}];
@@ -14196,15 +16712,10 @@ var scales = (times) => HP.map((hp, i) => ({
 	defense: DEF$1[i] / DEF$1[0],
 	level: LEVEL[i]
 }));
-/**
-* Siegfried, the King of Dawn, corrupted (King's Raid's Distorted Dawn). His blows are physical. He blocks every kind of
-* blow (his Divine Rampage: BLOCK), takes 30% more magic damage (the playtest's MagicalDefensePower -300), and rises again
-* twice as he would be beaten, whole and stronger each time. What his skills do is ./skills.ts; his body is the page's
-* (../../../bosses/siegfried/). No stun holds him (his raid's CC gauge is 999,999: none to break). His blows see past 500
-* points of a hero's defense (the playtest's PiercePower) and 450 of its dodge (his Divine Rampage's hit chance). Now and
-* then a blow of his is a crit (crit resist tells): a first guess, as Galgoria's.
-*/
-var SIEGFRIED = {
+//#endregion
+//#region src/technomagic/sim/bosses/index.ts
+/** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
+var TM_BOSSES = [GALGORIA, {
 	id: "siegfried",
 	name: "Siegfried",
 	stats: {
@@ -14236,427 +16747,7 @@ var SIEGFRIED = {
 	plans: PLANS,
 	moves: MOVES,
 	join: siegfriedPart
-};
-//#endregion
-//#region src/technomagic/sim/bosses/temeraire/skills.ts
-var BLESSING$4 = {
-	charges: 150,
-	deals: 1.5,
-	physical: .4,
-	cooldown: 30
-};
-var BREATH$2 = {
-	burn: .12,
-	lasts: 6
-};
-var TAIL = 2 / 3;
-var RAGE = .73;
-var FLAME$1 = "Blessing of the Flame";
-var BURN = {
-	name: "Burn",
-	about: `Fire eats at it every second: ${Math.round(BREATH$2.burn * 100)}% of the breath's blow.`,
-	icon: "🔥",
-	art: stateArt("Burn"),
-	harmful: true
-};
-function temerairePart(fight, mode = HARD) {
-	const { foe } = fight;
-	const waits = cooldowns({
-		claw: [5, 3],
-		sweep: [13, 8],
-		breath: [25, 15],
-		blessing: BLESSING$4.cooldown,
-		eruption: [45, 30]
-	});
-	/** What of its flame is left (0: none on it), and how hard each hero's burn is. */
-	let flame = 0;
-	const burns = /* @__PURE__ */ new Map();
-	const burning = dot(fight, BURN.name, (fighter) => burns.get(fighter) ?? 0);
-	/** Its flame, on it as a status: so much harder, and P.DMG softer on it, with what is left of it. */
-	function kindle(left) {
-		flame = left;
-		if (flame <= 0) {
-			const at = foe.statuses.findIndex((status) => status.name === FLAME$1);
-			if (at >= 0) foe.statuses.splice(at, 1);
-			return;
-		}
-		put(foe.statuses, {
-			name: FLAME$1,
-			art: stateArt("RedFire3"),
-			left: Infinity,
-			deals: BLESSING$4.deals,
-			takes: { physical: BLESSING$4.physical },
-			count: flame,
-			shown: "burn"
-		});
-	}
-	return withDragonGauge(fight, {
-		lands: {
-			blessing(_part, amount) {
-				all$1(fight, amount, void 0, "blessing");
-				kindle(BLESSING$4.charges);
-			},
-			breath(part, amount) {
-				if (part < 1) return;
-				all$1(fight, amount, (fighter) => {
-					burns.set(fighter, Math.max(fighter.statuses.some((status) => status.name === BURN.name) ? burns.get(fighter) ?? 0 : 0, amount * BREATH$2.burn));
-					put(fighter.statuses, {
-						name: BURN.name,
-						left: BREATH$2.lasts,
-						shown: BURN
-					});
-				}, "flame");
-			},
-			eruption(part, amount) {
-				if (part === 1) fraction(fight, all$1(fight, amount, void 0, "eruption"), RAGE);
-			},
-			bite: (_part, amount) => single(fight, amount),
-			claw: (_part, amount) => single(fight, amount),
-			sweep(_part, amount) {
-				all$1(fight, amount, void 0, "sweep");
-				fraction(fight, [fight.target()], TAIL);
-			}
-		},
-		struck() {
-			if (flame > 0) kindle(flame - 1);
-		},
-		used: waits.used,
-		delay: waits.delay,
-		next: () => flame <= 0 && waits.ready("blessing") ? "blessing" : null,
-		ready: (attack) => attack !== "blessing" && waits.ready(attack) && (attack !== "eruption" || opened(fight, mode.ultimate)),
-		tick(dt) {
-			waits.tick(dt);
-			burning(dt);
-		},
-		beaten() {
-			kindle(0);
-			for (const fighter of fight.fighters) lift(fighter, BURN.name);
-		},
-		marks: () => []
-	}, mode.gauge);
-}
-//#endregion
-//#region src/technomagic/sim/bosses/temeraire/index.ts
-/**
-* Temeraire, the ancient red dragon of fire, of Dragia (the Dragon Raid's Fire Dragon). As in King's Raid, all its
-* attacks deal massive M.DMG, it shrugs off most P.DMG (the playtest's 900 P.Tough, where the game's tip has it blocking it all), and its Blessing of the Flame is worn away by heroes that hit often.
-* What its skills do is ./skills.ts; its body is the page's (../../../bosses/dragon/).
-*/
-var hard$1 = {
-	id: "temeraire",
-	name: "Temeraire",
-	stats: {
-		hp: FIRST$1.hp,
-		deals: "magical",
-		physical: FIRST$1.high,
-		magical: FIRST$1.def,
-		...OPEN,
-		tough: {
-			physical: 900,
-			magical: 0
-		}
-	},
-	stages: dragonStages({ atk: FIRE_ATK }),
-	basic: ["bite"],
-	rest: restFor(2.4),
-	time: 180,
-	waves: dragonWaves("temeraire"),
-	attacks: [
-		{
-			name: "bite",
-			label: "Bite"
-		},
-		{
-			name: "claw",
-			label: "Claw"
-		},
-		{
-			name: "sweep",
-			label: "Tail Sweep"
-		},
-		{
-			name: "breath",
-			label: "Flame Breath"
-		},
-		{
-			name: "blessing",
-			label: "Blessing of the Flame"
-		},
-		{
-			name: "eruption",
-			label: "Eruption",
-			warning: {
-				text: "Temeraire starts to flap its wings powerfully.",
-				colour: "#ff8200",
-				lasts: 3,
-				breaks: true
-			}
-		}
-	],
-	plans: {
-		bite: PLANS$2.bite,
-		claw: PLANS$2.claw,
-		sweep: PLANS$2.sweep,
-		breath: PLANS$2.breath,
-		blessing: PLANS$2.roar,
-		eruption: PLANS$2.eclipse
-	},
-	moves: MOVES$2,
-	join: temerairePart
-};
-/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
-var TEMERAIRE = {
-	...hard$1,
-	normal: normalDragon(hard$1, .5, temerairePart)
-};
-//#endregion
-//#region src/technomagic/sim/bosses/zyrrkinoth/skills.ts
-var SCALES = {
-	critResist: 400,
-	per: .03,
-	most: 30
-};
-var POISON$1 = {
-	petrifyAt: 30,
-	lasts: 12,
-	petrify: 5,
-	hurts: 4e3,
-	blow: 2
-};
-var LASH = {
-	stacks: 5,
-	knock: .6
-};
-var BREATH$1 = { stacks: 3 };
-/** Poison Cloud: how many Slimes, how far about it (its size, 5 m: SpawnCreature's own spread), and the Poison each of its two blows leaves. */
-var CLOUD = {
-	slimes: 7,
-	within: 5,
-	stacks: 15
-};
-/**
-* Poisoned Lands: its wings' blast (a share of each hero's health left: $ByMEHp4(150)) and how long it knocks them back;
-* each blow of its venom (250% of its ATK, MOVES.pour, and $ByMEHp4(800)) and the Poison it leaves; its landing
-* ($ByMEHp4(250)) and how long it knocks them back; and when in it it is out of reach, until it is over (seconds).
-*/
-var LANDS = {
-	blast: .15,
-	knock: 1.5,
-	pour: .8,
-	stacks: 10,
-	slam: .25,
-	down: 3,
-	from: 5,
-	until: 9.8
-};
-var POISONED$1 = {
-	name: "Poison",
-	about: `Eats at it every second, the more for every stack; at ${POISON$1.petrifyAt}, Petrified.`,
-	icon: "🧪",
-	art: stateArt("CriticalPoison"),
-	harmful: true
-};
-var PETRIFIED = {
-	name: "Petrified",
-	about: "Turned to stone: it can do nothing.",
-	icon: "🗿",
-	art: stateArt("Stone"),
-	harmful: true
-};
-function zyrrkinothPart(fight, mode = HARD) {
-	const waits = cooldowns({
-		claw: [5, 2.5],
-		smashes: [15, 8],
-		breath: [25, 12],
-		cloud: [20, 10],
-		lands: [50, 25]
-	});
-	/** Its Slimes at this stage, in its mode. */
-	const slimes = mode === HARD ? SLIMES : NORMAL_SLIMES;
-	const slime = slimes[Math.min(slimes.length, Math.max(1, fight.stage)) - 1];
-	/** How far into its Poisoned Lands it is (seconds; null: it isn't), as long as nothing cut it short. */
-	let landing = null;
-	const aloft = () => landing !== null && landing >= LANDS.from && landing < LANDS.until;
-	/** The critical blows it has taken (up to SCALES.most): each has it take more. */
-	let cracks = 0;
-	const taken = {
-		physical: 1,
-		magical: 1
-	};
-	const eating = dot(fight, POISONED$1.name, (fighter) => stacksOf(fighter, POISONED$1.name) * POISON$1.hurts);
-	/** So much more Poison on a hero (none while it is stone): at POISON.petrifyAt, Petrified. */
-	function poison(fighter, by) {
-		if (fighter.statuses.some((status) => status.name === PETRIFIED.name)) return;
-		if (addStacks(fighter, POISONED$1.name, by, POISON$1.petrifyAt, POISON$1.lasts, () => ({ shown: POISONED$1 })) < POISON$1.petrifyAt) return;
-		lift(fighter, POISONED$1.name);
-		fight.stagger(fighter);
-		fighter.reserved = null;
-		put(fighter.statuses, {
-			name: PETRIFIED.name,
-			left: POISON$1.petrify,
-			binds: true,
-			shown: PETRIFIED
-		});
-		fight.cue(null, "petrify", [fighter]);
-	}
-	const part = withDragonGauge(fight, {
-		lands: {
-			smashes: (_part, amount) => void all$1(fight, amount, (fighter) => {
-				poison(fighter, LASH.stacks);
-				if (fighter.hp > 0) fight.knock(fighter, LASH.knock);
-			}, "lash"),
-			breath(part, amount) {
-				if (part >= 1) all$1(fight, amount, (fighter) => poison(fighter, BREATH$1.stacks), "venom");
-			},
-			bite: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
-			claw: (_part, amount) => single(fight, amount, (fighter) => poison(fighter, POISON$1.blow)),
-			cloud(part, amount) {
-				if (part === 0) {
-					if (slime) fight.summon(slime, CLOUD.slimes, CLOUD.within);
-				} else single(fight, amount, (fighter) => poison(fighter, CLOUD.stacks));
-			},
-			lands(part, amount) {
-				if (part === 0) {
-					const heroes = reachable(fight);
-					fraction(fight, heroes, LANDS.blast);
-					for (const fighter of heroes) if (fighter.hp > 0) fight.knock(fighter, LANDS.knock);
-					fight.cue(null, "wings", heroes);
-				} else if (part === 1) fight.boss.statuses = fight.boss.statuses.filter((status) => status.name === "Down");
-				else if (part === 9) {
-					const heroes = reachable(fight);
-					fraction(fight, heroes, LANDS.slam);
-					for (const fighter of heroes) if (fighter.hp > 0) fight.knock(fighter, LANDS.down);
-					fight.cue(null, "landing", heroes);
-				} else fraction(fight, all$1(fight, amount, (fighter) => poison(fighter, LANDS.stacks), "venom"), LANDS.pour);
-			}
-		},
-		untouched: aloft,
-		struck(_by, _dealt, critical) {
-			if (!critical || cracks >= SCALES.most) return;
-			cracks++;
-			taken.physical = taken.magical = 1 + SCALES.per * cracks;
-		},
-		critResist: SCALES.critResist,
-		taken,
-		steady: true,
-		used(attack) {
-			waits.used(attack);
-			landing = attack === "lands" ? 0 : null;
-		},
-		delay: waits.delay,
-		ready: (attack) => waits.ready(attack) && (attack === "lands" || attack === "cloud" && mode !== HARD ? opened(fight, mode.ultimate) : true),
-		tick(dt) {
-			waits.tick(dt);
-			eating(dt);
-			if (landing !== null) landing = fight.boss.stunned > 0 && !aloft() ? null : landing + dt;
-			if (landing !== null && landing >= LANDS.until) landing = null;
-		},
-		beaten() {
-			for (const fighter of fight.fighters) {
-				lift(fighter, POISONED$1.name);
-				lift(fighter, PETRIFIED.name);
-			}
-		},
-		marks: () => [{
-			text: `Toxic Scales ${Math.round(taken.physical * 100)}%`,
-			tone: "venom",
-			art: stateArt("440396"),
-			count: `${Math.round(taken.physical * 100)}%`
-		}]
-	}, mode.gauge);
-	const held = part.controlled;
-	return {
-		...part,
-		controlled: (seconds, down) => aloft() ? null : held ? held(seconds, down) : {
-			seconds,
-			down
-		}
-	};
-}
-//#endregion
-//#region src/technomagic/sim/bosses/zyrrkinoth/index.ts
-/**
-* Zyrrkinoth, the ancient green venomous dragon, of Grimvine (the Dragon Raid's Poison Dragon). As in King's Raid, it has
-* very high Crit Resistance and DMG Reduction, but takes more damage each time it takes Crit DMG; nothing changes its ATK
-* Spd; and its poison, stacked high enough, petrifies. Its blows are physical. What its skills do is ./skills.ts; its body
-* is the page's (../../../bosses/dragon/).
-*/
-var hard = {
-	id: "zyrrkinoth",
-	name: "Zyrrkinoth",
-	stats: {
-		hp: FIRST$1.hp,
-		deals: "physical",
-		physical: FIRST$1.def,
-		magical: FIRST$1.def,
-		...OPEN,
-		tough: {
-			physical: 900,
-			magical: 900
-		}
-	},
-	stages: dragonStages(),
-	basic: ["bite"],
-	rest: restFor(2.3),
-	time: 180,
-	waves: dragonWaves("zyrrkinoth"),
-	attacks: [
-		{
-			name: "bite",
-			label: "Bite"
-		},
-		{
-			name: "claw",
-			label: "Claw"
-		},
-		{
-			name: "smashes",
-			label: "Tail Lash"
-		},
-		{
-			name: "breath",
-			label: "Venomous Breath"
-		},
-		{
-			name: "cloud",
-			label: "Poison Cloud",
-			warning: {
-				image: "warning",
-				lasts: 3,
-				breaks: true
-			}
-		},
-		{
-			name: "lands",
-			label: "Poisoned Lands",
-			warning: {
-				text: "Zyrrkinoth starts to flap its wings powerfully.",
-				colour: "#ff8200",
-				lasts: 3,
-				breaks: true
-			}
-		}
-	],
-	plans: {
-		bite: PLANS$2.bite,
-		claw: PLANS$2.claw,
-		smashes: PLANS$2.smashes,
-		breath: PLANS$2.breath,
-		cloud: PLANS$2.cloud,
-		lands: PLANS$2.lands
-	},
-	moves: MOVES$2,
-	join: zyrrkinothPart
-};
-/** It, its Hard mode, with its Normal mode (../dragon/common.ts normalDragon): flying off at half of its health (the playtest's OnHpRatio 500). */
-var ZYRRKINOTH = {
-	...hard,
-	normal: normalDragon(hard, .5, zyrrkinothPart)
-};
-//#endregion
-//#region src/technomagic/sim/bosses/index.ts
-/** The bosses of the TechnoMagic Raid there are so far: the first is the one fought unless another is asked for. */
-var TM_BOSSES = [GALGORIA, SIEGFRIED];
+}];
 /** The Dragon Raid's dragons, as King's Raid has them: Fire, Frost, Poison and Black. */
 var DRAGONS = [
 	TEMERAIRE,
@@ -14664,8 +16755,14 @@ var DRAGONS = [
 	ZYRRKINOTH,
 	ARMARTA
 ];
+/** Divine Punishment's bosses (./divine/): its side bosses, final bosses and karma dungeons, in its order. */
+var DIVINE = DIVINE_BOSSES;
 /** Every boss there is. */
-var BOSSES = [...TM_BOSSES, ...DRAGONS];
+var BOSSES = [
+	...TM_BOSSES,
+	...DRAGONS,
+	...DIVINE
+];
 /** Whether a boss (by its id) is one of the Dragon Raid's. */
 var isDragon = (id) => DRAGONS.some((boss) => boss.id === id);
 //#endregion
@@ -29106,7 +31203,7 @@ function alliesFrom(field, key) {
 	}
 	return most;
 }
-var SHOWN = (worn) => ({
+var SHOWN$1 = (worn) => ({
 	...artifactBuff(worn),
 	about: "Its artifact."
 });
@@ -29116,7 +31213,7 @@ function artifactHooks(self, fight) {
 	if (!worn) return null;
 	const { def, tier, id } = worn;
 	const t = (tiers) => at(tiers, tier);
-	const shown = SHOWN(worn);
+	const shown = SHOWN$1(worn);
 	const name = `artifact ${self.index}`;
 	let stacks = 0;
 	let knocks = 0;
@@ -29552,6 +31649,164 @@ function artifactHooks(self, fight) {
 		},
 		steals() {
 			return def.sword === void 0;
+		}
+	};
+}
+//#endregion
+//#region src/technomagic/sim/blasphemy.ts
+var SHOWN = {
+	name: "Rune of Blasphemy",
+	about: "A Rune of Blasphemy.",
+	icon: "🔺",
+	art: stateArt("AttackUp")
+};
+/** By class group (1: Warrior, Knight; 2: Archer, Assassin, Mechanic; 3: Wizard, Priest): Laz's share of max HP, Geb's seconds and cooldown, Solenis' Oth's seconds. */
+var LAZ = [
+	.35,
+	.6,
+	.4
+];
+var GEB = [
+	[30, 60],
+	[50, 120],
+	[40, 80]
+];
+var OTH = [
+	5,
+	4,
+	3
+];
+/** A hero's Runes of Blasphemy's hooks (none: it has none the fight knows). */
+function blasphemyHooks(self, uses, fight) {
+	/** Its lines, by skill: the values of two of the same added up. */
+	const lines = /* @__PURE__ */ new Map();
+	for (const { skill, value } of uses) if (Number.isFinite(value) && value > 0) lines.set(skill, (lines.get(skill) ?? 0) + value);
+	if (lines.size === 0) return null;
+	const group = (skill) => Number(skill.slice(-1)) - 1;
+	const pick = (prefix) => {
+		for (const [skill, value] of lines) if (skill.startsWith(prefix)) return [skill, value];
+		return null;
+	};
+	const doh = pick("apocalypsion-doh-") ?? pick("solenis-doh-");
+	const laz = pick("apocalypsion-laz-") ?? pick("solenis-laz-");
+	const geb = pick("apocalypsion-geb-") ?? pick("solenis-geb-");
+	const othA = pick("apocalypsion-oth-");
+	const othS = pick("solenis-oth-");
+	const ans = pick("apocalypsion-ans-") ?? pick("solenis-ans-");
+	let lazWait = 0;
+	let reflected = 0;
+	let reflecting = geb ? GEB[group(geb[0])]?.[0] ?? 30 : 0;
+	let gebWait = geb ? GEB[group(geb[0])]?.[1] ?? 60 : 0;
+	let stored = 0;
+	let othWait = 0;
+	let mending = 0;
+	let mendTick = 0;
+	const chance = (percent) => fight.roll() < percent / 100;
+	return {
+		basic(foe) {
+			if (stored > 0 && foe) {
+				fight.harm(foe, self, stored);
+				stored = 0;
+			}
+			if (!doh) return;
+			const [skill, v] = doh;
+			const n = group(skill);
+			if (skill.startsWith("apocalypsion")) {
+				if (n === 2) {
+					if (chance(5)) for (const one of fight.foes()) fight.on(one, () => fight.hit(self, v * 10));
+				} else if (foe && chance(v)) fight.on(foe, () => fight.stun(self, 4, n === 0));
+				return;
+			}
+			if (n === 0 && chance(v)) fight.heal(self, 10 * ATK, self);
+			else if (n === 1 && chance(v)) fight.shield(self, ATK, 5, self);
+			else if (n === 2 && chance(5)) {
+				const ally = fight.allies().reduce((low, on) => !low || on.hp / on.stats.hp < low.hp / low.stats.hp ? on : low, null);
+				if (ally) fight.heal(ally, v / 100 * ATK, self);
+			}
+		},
+		hurt(dealt) {
+			if (geb && reflecting > 0) reflected += dealt;
+			if (laz && lazWait <= 0 && dealt >= self.stats.hp * (LAZ[group(laz[0])] ?? .35)) {
+				lazWait = 60;
+				if (laz[0].startsWith("apocalypsion")) put(self.statuses, {
+					name: "Blasphemy: Laz",
+					left: 3,
+					takes: Math.max(0, 1 - laz[1] / 100),
+					shown: SHOWN
+				});
+				else fight.shield(self, laz[1] / 100 * ATK, 3, self);
+			}
+			if (othS && othWait <= 0 && dealt > 0) {
+				othWait = 10;
+				mending = OTH[group(othS[0])] ?? 5;
+				mendTick = 0;
+			}
+		},
+		healed(amount) {
+			if (othA) stored += amount * othA[1] / 100;
+		},
+		tick(dt) {
+			lazWait = Math.max(0, lazWait - dt);
+			othWait = Math.max(0, othWait - dt);
+			if (mending > 0 && othS) {
+				mending -= dt;
+				mendTick += dt;
+				if (mendTick >= 1) {
+					mendTick -= 1;
+					fight.heal(self, self.stats.hp * othS[1] / 100, void 0, self);
+				}
+			}
+			if (!geb) return;
+			gebWait -= dt;
+			if (reflecting > 0) {
+				reflecting -= dt;
+				if (reflecting <= 0) {
+					const amount = reflected * geb[1] / 100;
+					reflected = 0;
+					for (const one of fight.foes()) {
+						fight.harm(one, self, amount);
+						if (geb[0].startsWith("solenis")) fight.on(one, () => {
+							fight.dispel();
+							fight.stun(self, 4, true);
+						});
+					}
+				}
+			}
+			if (gebWait <= 0) {
+				const [over, wait] = GEB[group(geb[0])] ?? [30, 60];
+				gebWait = wait;
+				reflecting = over;
+				reflected = 0;
+			}
+		},
+		died() {
+			if (!ans) return;
+			const [skill, v] = ans;
+			const allies = fight.allies().filter((on) => on !== self);
+			if (skill.startsWith("solenis")) {
+				const low = allies.reduce((best, on) => !best || on.hp / on.stats.hp < best.hp / best.stats.hp ? on : best, null);
+				if (low) put(low.statuses, {
+					name: "Blasphemy: Ans",
+					left: v,
+					takes: 0,
+					shown: SHOWN
+				});
+				return;
+			}
+			const n = group(skill);
+			for (const on of allies) if (n === 0) put(on.statuses, {
+				name: `Blasphemy: Ans ${self.index}`,
+				left: 20,
+				defends: 1 + v / 100,
+				shown: SHOWN
+			});
+			else if (n === 1) put(on.statuses, {
+				name: `Blasphemy: Ans ${self.index}`,
+				left: 20,
+				atk: v / 100,
+				shown: SHOWN
+			});
+			else fight.shield(on, on.stats.hp * v / 100, 20);
 		}
 	};
 }
@@ -34503,12 +36758,20 @@ var REACH = {
 };
 //#endregion
 //#region src/technomagic/sim/fight.ts
-/** The dragons' ids: King's Raid's Dragon race, for an artifact's DMG against one (./artifacts.ts). */
+/**
+* The dragons' ids: King's Raid's Dragon race, for an artifact's DMG against one (./artifacts.ts). (And Divine Punishment's: its
+* four, and Tersio and Apocalypsion's fight.)
+*/
 var DRAGON_IDS = /* @__PURE__ */ new Set([
 	"temeraire",
 	"scalaxia",
 	"zyrrkinoth",
-	"armarta"
+	"armarta",
+	"dp-temeraire",
+	"dp-scalaxia",
+	"dp-zyrrkinoth",
+	"dp-armarta",
+	"apocalypsion"
 ]);
 /** The additional skills that come round again every so many seconds: each first comes once that long has gone. */
 var EVERY = [
@@ -34518,6 +36781,13 @@ var EVERY = [
 	"focus-2",
 	"focus-3"
 ];
+/** What the karma cards a hero has taken give it (a karma dungeon's: ./bosses/divine/karma.ts). */
+var KARMA_BUFF = {
+	name: "Karma",
+	about: "What the karma cards taken give it.",
+	icon: "🃏",
+	art: stateArt("AttackUp")
+};
 /** What knocks a hero down: shown on its card, with how long it has left. */
 var KNOCKED = {
 	name: "Knocked down",
@@ -34579,7 +36849,12 @@ function foremost(from, x, z, reach) {
 	};
 	return within.reduce((best, on) => ahead(rank(on), rank(best)) ? on : best);
 }
-function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
+function makeSim({ boss: dungeon, heroes, seed, stage: firstStage, raid, solo = false, first = [], deathless: noDeaths = false }) {
+	/**
+	* The boss on the field (and all that is known of it): the raid's own, or the one after it in the same fight (BossDef.next:
+	* Apocalypsion after Tersio), or a karma dungeon's wave's (BossDef.karma). Its time, rage and what wins it are the raid's.
+	*/
+	let def = dungeon;
 	const random = seeded(seed);
 	const roll = () => random.next();
 	const events = [];
@@ -34637,7 +36912,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	const asFighter = (fighter, run) => as(targetOf(fighter) ?? current(), run);
 	/** A raid of more than one wave (BossDef.waves): its waves past the first, as its stage has them as the fight begins; the wave it is on, and how many seconds are left of the heroes' run on to the next. */
 	const later = def.waves?.at(Math.min(stagesOf(def), Math.max(1, Math.floor(firstStage) || 1))) ?? [];
-	const waves = 1 + later.length;
+	const waves = 1 + later.length + (def.next ? 1 : 0);
 	let wave = 1;
 	let moving = 0;
 	/** The boss flying off (the first wave over): seconds left until the heroes run on. */
@@ -34648,6 +36923,28 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/** Seconds of the raid's time gone, against this boss; and how long its raid lasts. */
 	let clock = 0;
 	const raidTime = def.time ?? 210;
+	/** How long the boss's rage lasts after it (then the heroes have lost). */
+	const rageTime = def.rage ?? 20;
+	/**
+	* A karma dungeon (BossDef.karma): its waves (the one on now, from 1; those cleared), the current wave's own monsters, those of
+	* them beaten, those yet to come (with when) and how long it has gone; what its boss calls up and when next; the cards
+	* offered (their indices in its cards) and how long the heroes have yet to pick, the cards taken (their numbers, and how many
+	* times each), and what the cards give each hero (and each one's max HP as it came in).
+	*/
+	const karma = dungeon.karma ?? null;
+	let karmaWave = 1;
+	let karmaCleared = 0;
+	let karmaMonsters = 0;
+	let karmaKills = 0;
+	let karmaComing = [];
+	let karmaFor = 0;
+	let karmaSummon;
+	let karmaSummonIn = 0;
+	let offer = null;
+	let offerLeft = 0;
+	const cardsTaken = [];
+	const takenCount = /* @__PURE__ */ new Map();
+	const cardGains = /* @__PURE__ */ new Map();
 	let stage = Math.min(stagesOf(def), Math.max(1, Math.floor(firstStage) || 1));
 	let bossAuto = raid;
 	let deathless = noDeaths && !raid;
@@ -34891,6 +37188,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	};
 	/** Each hero's artifact's hooks (./artifacts.ts), wearing one the fight has a use for. */
 	const relics = /* @__PURE__ */ new Map();
+	/** Each hero's Runes of Blasphemy's hooks (./blasphemy.ts), wearing any. */
+	const blasphemies = /* @__PURE__ */ new Map();
 	/** Whom the boss is going for: another, should that one have left the field, or the fight. */
 	const aimed = () => {
 		if (!aim || !field.includes(aim) || away(aim.statuses)) aim = anyone();
@@ -35046,7 +37345,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (!ability || !cuttable(fighter) || !sim.ready(fighter, index)) return false;
 		begin(fighter, ability.move, index);
 		for (const perk of fighter.perkDefs) if (perk.skill?.index === index) usedWith(fighter, perk.skill);
-		fighter.cooldowns[index] = ability.cooldown;
+		const longer = cardGains.get(fighter)?.cooldown;
+		fighter.cooldowns[index] = longer ? ability.cooldown + longer : ability.cooldown;
 		fighter.mana -= ability.cost * SECTION;
 		noting(ability.art ?? passiveArt(fighter), () => asFighter(fighter, () => fighter.part.used?.(index, ability)));
 		uniqueCast(fighter);
@@ -35301,6 +37601,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				if (attacking && doing.landed === 1) {
 					fighter.mana = Math.min(MAX_MANA, fighter.mana + fighter.manaPerAttack);
 					relics.get(fighter)?.basic();
+					const runes = blasphemies.get(fighter);
+					if (runes) {
+						const was = attacking;
+						attacking = null;
+						runes.basic(targetOf(fighter));
+						attacking = was;
+					}
 				}
 				noting(fighter.abilities.find((one) => one.move === move)?.art ?? passiveArt(fighter), () => asFighter(fighter, () => {
 					const own = fighter.part.lands[move];
@@ -35444,7 +37751,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 		relics.get(by)?.blow();
 		const marking = by.perkDefs.filter((perk) => perk.mark && (perk.mark.every === void 0 || perkDue(by, perk.mark.name, perk.mark.every)));
-		const struck = taken * (foe.part.taken?.[type] ?? 1) * (attacking === by ? foe.part.attackTaken ?? 1 : 1);
+		const uncapped = taken * (foe.part.taken?.[type] ?? 1) * (attacking === by ? foe.part.attackTaken ?? 1 : 1);
+		const struck = foe.part.cap === void 0 ? uncapped : Math.min(foe.part.cap, uncapped);
 		const dealt = deathless && foe === boss ? struck : Math.min(foe.hp, struck);
 		foe.hp -= dealt;
 		if (deathless && foe === boss && foe.hp <= 0) foe.hp = foe.maxHp;
@@ -35498,6 +37806,10 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			attacking = was;
 		}
 		if (foe.away || result) return critical;
+		if (foe === boss && def.next && foe.hp <= foe.maxHp * def.next.at) {
+			nextBoss();
+			return critical;
+		}
 		if (foe.hp > 0) {
 			if (foe === boss && wave === 1 && waves > 1 && def.waves && foe.hp <= foe.maxHp * def.waves.leaves) bossLeave();
 			return critical;
@@ -35505,6 +37817,36 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (has(by, "bloodlust") > 0) by.stacks.bloodlust = Math.min(SKILL.bloodlust.most, by.stacks.bloodlust + 1);
 		beaten(foe);
 		return critical;
+	}
+	/**
+	* So much taken off an enemy as it is (`by`'s, not counted: a Rune of Blasphemy's reflection), whatever its defense: only no
+	* more than its part lets a blow take (Luciteron's 1), and nothing while it is untouched. As a blow's: the boss beaten, or on
+	* to the next, as it would be.
+	*/
+	function harm(foe, by, amount) {
+		if (foe.hp <= 0 || foe.away || result || !(amount > 0) || foe.part.untouched?.()) return;
+		const capped = foe.part.cap === void 0 ? amount : Math.min(foe.part.cap, amount);
+		const dealt = deathless && foe === boss ? capped : Math.min(foe.hp, capped);
+		foe.hp -= dealt;
+		if (deathless && foe === boss && foe.hp <= 0) foe.hp = foe.maxHp;
+		if (foe === boss && foe.hp <= 0 && as(boss, () => foe.part.spared?.() === true)) foe.hp = Math.max(foe.hp, 1);
+		by.dealt += dealt;
+		events.push({
+			kind: "number",
+			on: "boss",
+			foe: foe.index,
+			amount: dealt,
+			type: "skill"
+		});
+		if (foe === boss && def.next && foe.hp <= foe.maxHp * def.next.at) {
+			nextBoss();
+			return;
+		}
+		if (foe.hp > 0) {
+			if (foe === boss && wave === 1 && waves > 1 && def.waves && foe.hp <= foe.maxHp * def.waves.leaves) bossLeave();
+			return;
+		}
+		beaten(foe);
 	}
 	/**
 	* A hero's blow: on the enemy in question (as its move lands, the one it is fighting; else the one it would be), and, as far
@@ -35532,12 +37874,26 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 	/** An enemy beaten: the boss, won; a minion, off the field (and its wave, once no other stands, over). */
 	function beaten(foe, blast = false) {
 		if (foe.away || result) return;
+		if (foe === boss && karma) {
+			boss.part.beaten?.();
+			boss.away = true;
+			boss.stunned = 0;
+			going.clear();
+			warned = null;
+			events.push({
+				kind: "foe-down",
+				foe: 0
+			});
+			karmaDown(true);
+			return;
+		}
 		if (foe === boss) {
 			as(boss, () => sim.stun(1, { down: true }));
 			boss.part.beaten?.();
 			end("won");
 			return;
 		}
+		const counted = minions.get(foe)?.counted ?? true;
 		foe.away = true;
 		minions.delete(foe);
 		events.push({
@@ -35546,6 +37902,205 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			...blast && { blast: true }
 		});
 		if (boss.away && wave < waves && standing().length === 0) nextWave();
+		if (karma) karmaDown(counted);
+	}
+	/**
+	* The boss on the field becomes `next` (another of the same fight's, or a karma wave's): whole, as its stage has it, nothing
+	* left on it, at nothing, and its part its own; the heroes look again for whom to fight. (The raid's time runs on.)
+	*/
+	function become(next) {
+		def = next;
+		boss.def = next;
+		boss.maxHp = next.stats.hp * scaleAt(next, stage, solo).hp;
+		boss.hp = boss.maxHp;
+		boss.away = false;
+		boss.stunned = 0;
+		boss.slowed = 0;
+		boss.slowRate = 1;
+		boss.statuses = [];
+		going.clear();
+		warned = null;
+		idle = 0;
+		aim = null;
+		was = false;
+		aims.clear();
+		boss.part = { lands: {} };
+		boss.part = as(boss, () => next.join?.(sim)) ?? boss.part;
+	}
+	/** A fight against two bosses: the first is gone (its share of its health reached), and the next comes in its place, the fight's next wave. */
+	function nextBoss() {
+		const next = def.next?.def;
+		if (!next) return;
+		boss.part.beaten?.();
+		wave++;
+		events.push({ kind: "boss-leave" });
+		events.push({
+			kind: "wave",
+			wave,
+			of: waves
+		});
+		become(next);
+		events.push({ kind: "boss-return" });
+	}
+	/** A karma wave's monster beaten (one of its own: counted toward the gauge); none left standing nor to come, its wave cleared. */
+	function karmaDown(counted) {
+		if (!karma) return;
+		if (counted) karmaKills++;
+		if (!boss.away || standing().length > 0 || karmaComing.length > 0) return;
+		karmaCleared++;
+		karmaKills = 0;
+		if (karmaCleared >= karma.most) {
+			end(karmaGauge() >= karma.least ? "won" : "lost");
+			return;
+		}
+		offer = dealCards();
+		offerLeft = karma.pick;
+		if (offer.length === 0) {
+			offer = null;
+			karmaNext();
+		} else events.push({
+			kind: "karma-offer",
+			cards: offer.map((i) => karma.cards[i].id),
+			left: offerLeft
+		});
+	}
+	/** The Karma Gauge's points (PunishmentHelper.GetFlaskExp): the waves cleared, all their worth; the wave under way, its share for those of its own beaten. */
+	function karmaGauge() {
+		if (!karma) return 0;
+		const { first, exponent } = karma.gauge;
+		const each = karmaMonsters > 0 ? karmaKills / karmaMonsters : 0;
+		if (karmaCleared < 1) return first * each;
+		let total = first;
+		let worth = first;
+		for (let i = 2; i <= karmaCleared; i++) {
+			worth *= exponent(i);
+			total += worth;
+		}
+		worth *= exponent(karmaCleared + 1);
+		return total + worth * each;
+	}
+	/**
+	* Three cards (indices in the karma dungeon's cards) for the heroes to pick from, as King's Raid deals them: from groups with a
+	* card for a class among the heroes not taken as often as it may be, each group as likely as its GroupChance and three
+	* different ones, and in each a card as likely as its UniqueChance. (Fewer, should there be fewer groups.)
+	*/
+	function dealCards() {
+		if (!karma) return [];
+		const classes = new Set(fighters.map((one) => one.def.class));
+		const open = karma.cards.flatMap((card, i) => card.classes.some((one) => classes.has(one)) && (card.most === void 0 || (takenCount.get(card.id) ?? 0) < card.most) ? [i] : []);
+		const groups = [];
+		for (const i of open) {
+			const group = karma.cards[i].group;
+			if (!groups.includes(group)) groups.push(group);
+		}
+		const weighted = (from, weight) => {
+			const total = from.reduce((sum, one) => sum + weight(one), 0);
+			let at = roll() * total;
+			for (const one of from) {
+				at -= weight(one);
+				if (at < 0) return one;
+			}
+			return from[from.length - 1];
+		};
+		const dealt = [];
+		while (dealt.length < 3 && groups.length > 0) {
+			const group = weighted(groups, (one) => karma.cards[open.find((i) => karma.cards[i].group === one)].groupChance);
+			groups.splice(groups.indexOf(group), 1);
+			const card = weighted(open.filter((i) => karma.cards[i].group === group), (i) => karma.cards[i].chance);
+			if (card !== void 0) dealt.push(card);
+		}
+		return dealt;
+	}
+	/**
+	* A card of those offered is taken (by its place among them; `auto`: picked for the heroes): what it does, for every hero of its
+	* classes (ATK, DMG and mana recovery by a status of the cards' sum; max HP more or less, its health with it, by its max HP as it
+	* came in; its skills' cooldowns longer); then the next wave comes.
+	*/
+	function pickCard(place, auto) {
+		if (!karma || !offer) return;
+		const index = offer[Math.max(0, Math.min(offer.length - 1, place))];
+		const card = karma.cards[index];
+		offer = null;
+		offerLeft = 0;
+		cardsTaken.push(card.id);
+		takenCount.set(card.id, (takenCount.get(card.id) ?? 0) + 1);
+		events.push({
+			kind: "karma-pick",
+			card: place,
+			id: card.id,
+			auto
+		});
+		for (const on of fighters) {
+			if (!card.classes.includes(on.def.class)) continue;
+			const gains = cardGains.get(on) ?? {
+				atk: 0,
+				hp: 0,
+				dmg: 0,
+				mana: 0,
+				cooldown: 0,
+				base: on.stats.hp
+			};
+			cardGains.set(on, gains);
+			gains.atk += card.does.atk ?? 0;
+			gains.dmg += card.does.dmg ?? 0;
+			gains.mana += card.does.mana ?? 0;
+			gains.cooldown += card.does.cooldown ?? 0;
+			if (card.does.hp) {
+				gains.hp += card.does.hp;
+				const ratio = on.stats.hp > 0 ? on.hp / on.stats.hp : 0;
+				on.stats.hp = Math.max(1, gains.base * (1 + gains.hp));
+				if (on.hp > 0) on.hp = Math.max(1, on.stats.hp * ratio);
+			}
+			put(on.statuses, {
+				name: KARMA_BUFF.name,
+				left: Infinity,
+				atk: gains.atk,
+				deals: 1 + gains.dmg,
+				mana: Math.max(0, 1 + gains.mana),
+				shown: KARMA_BUFF
+			});
+		}
+		karmaNext();
+	}
+	/** On to a karma dungeon's next wave: its boss in the last's place, its own minions coming as they do. */
+	function karmaNext() {
+		if (!karma) return;
+		karmaWave++;
+		const next = karma.wave(karmaWave);
+		karmaBegin(next);
+		become(next.boss);
+	}
+	/** A karma wave begins (`next`): its own monsters (its boss and its minions), those to come, and what its boss calls up. */
+	function karmaBegin(next) {
+		karmaMonsters = 1 + next.minions.length;
+		karmaKills = 0;
+		karmaComing = next.minions.slice();
+		karmaFor = 0;
+		karmaSummon = next.summon;
+		karmaSummonIn = next.summon?.every ?? 0;
+		events.push({
+			kind: "karma-wave",
+			wave: karmaWave
+		});
+	}
+	/** A karma wave's time passes: those of its minions due come; its boss, standing, calls up more every so often. */
+	function karmaTick(dt) {
+		if (!karma || offer) return;
+		karmaFor += dt;
+		const due = karmaComing.filter((one) => one.after <= karmaFor + 1e-9);
+		if (due.length > 0) {
+			karmaComing = karmaComing.filter((one) => !due.includes(one));
+			for (const { minion } of due) enter(minion, 7 + minion.x, minion.z);
+			aims.clear();
+		}
+		if (karmaSummon && !boss.away && boss.hp > 0) {
+			karmaSummonIn -= dt;
+			if (karmaSummonIn <= 0) {
+				karmaSummonIn += karmaSummon.every;
+				for (const minion of karmaSummon.minions) enter(minion, 7 + minion.x, minion.z, false);
+				aims.clear();
+			}
+		}
 	}
 	/** The boss flies off the field (the first wave over): the heroes stand while it does (nothing else happens meanwhile), then move on. */
 	function bossLeave() {
@@ -35570,8 +38125,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		});
 	}
 	/** A minion comes onto the field (one of a wave's, or one the boss calls up: Fight.summon), where it stands, as strong as the dragons' are scaled (minionOf). */
-	function enter(one, x, z) {
-		const made = minionOf(one, solo, def.waves?.party);
+	function enter(one, x, z, counted = true) {
+		const own = "own" in one && one.own === true ? one : null;
+		const made = own ? ownMinion(own) : minionOf(one, solo, def.waves?.party);
 		const kind = MINIONS[one.kind];
 		const foe = {
 			index: foes.length,
@@ -35583,7 +38139,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			},
 			part: {
 				lands: {},
-				...kind.steady && { steady: true }
+				...kind.steady && { steady: true },
+				...own?.taken !== void 0 && { taken: {
+					physical: own.taken,
+					magical: own.taken
+				} }
 			},
 			hp: made.hp,
 			maxHp: made.hp,
@@ -35603,7 +38163,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			rest: 0,
 			skill: kind.skill?.first ?? 0,
 			life: 0,
-			fused: false
+			fused: false,
+			counted
 		});
 		events.push({
 			kind: "foe-enter",
@@ -35838,7 +38399,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		heal(fighter, amount, by, from) {
 			if (fighter.hp <= 0) return 0;
 			const given = amount * byAttack(by) * healed(by) * healing([...fighter.statuses, ...party], 1 + fighter.recovery + allied(fighter, "recovery")) * (boss.part.healing?.() ?? 1);
+			const before = fighter.hp;
 			fighter.hp = Math.min(fighter.stats.hp, fighter.hp + given);
+			if (fighter.hp > before) blasphemies.get(fighter)?.healed(fighter.hp - before);
 			const giver = by ?? from;
 			if (giver) giver.healed += given;
 			if (given > 0) events.push({
@@ -35979,6 +38542,11 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				target.doing = null;
 				target.reserved = null;
 			}
+			const runes = blasphemies.get(target);
+			if (runes) {
+				if (dealt > 0) runes.hurt(dealt);
+				if (target.hp <= 0) runes.died();
+			}
 			target.mana = Math.min(MAX_MANA, target.mana + MANA_PER_HP_LOST * (1 + target.manaDamage) * lost / target.stats.hp);
 			if (dealt > 0) for (const fighter of fighters) fighter.part.hurt?.(target);
 			if (dealt > 0) relics.get(target)?.hurt(type);
@@ -36045,7 +38613,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		stun(seconds, { down = false, by } = {}) {
 			const foe = current();
 			if (foe.away || foe.hp <= 0) return;
-			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * (1 - share$3(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses) + accurate(party)))) : 1);
+			const held = seconds * (by ? (by.def.passive?.control ?? 1) * by.controlTimes * controlling([...by.statuses, ...party]) * (1 - share$3(curved(CURVE.resist, Math.max(0, foe.def.stats.resist + resisting(foe.statuses))) - curved(CURVE.accuracy, by.accuracy + auras.accuracy + accurate(by.statuses) + accurate(party)))) : 1);
 			if (foe !== boss) {
 				if (foe.part.steady || held <= 0) return;
 				foe.stunned = Math.max(foe.stunned, held);
@@ -36212,8 +38780,23 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 				for (const left of fighter.cooldowns) mix(left);
 			}
 			for (const n of random.state()) mix(n);
+			if (karma) {
+				mix(karmaWave);
+				mix(karmaGauge());
+				mix(offer ? offer.length : -1);
+				mix(offerLeft);
+				mix(cardsTaken.length);
+			}
 			return hash >>> 0;
 		},
+		karma: () => karma ? {
+			wave: karmaWave,
+			cleared: karmaCleared,
+			gauge: karmaGauge(),
+			offer: offer ? offer.map((i) => karma.cards[i].id) : null,
+			left: offer ? offerLeft : 0,
+			taken: [...cardsTaken]
+		} : null,
 		step() {
 			if (result) return;
 			const from = tick;
@@ -36234,6 +38817,13 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			tick++;
 			lineUp(tick / marching);
 			if (tick === marching) for (const on of field) on.doing = null;
+			if (tick % SECOND === 0) sums.push(sim.checksum());
+			return;
+		}
+		if (offer) {
+			offerLeft = Math.max(0, offerLeft - TICK);
+			if (offerLeft <= 0) pickCard(Math.floor(roll() * 2), true);
+			tick++;
 			if (tick % SECOND === 0) sums.push(sim.checksum());
 			return;
 		}
@@ -36262,6 +38852,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			perkTick(fighter, dt);
 			setTick(fighter);
 			relics.get(fighter)?.tick(dt);
+			blasphemies.get(fighter)?.tick(dt);
 			noting(passiveArt(fighter), () => asFighter(fighter, () => fighter.part.tick?.(dt)));
 			const top = setEffect(fighter).top;
 			if (top && elapsed >= top.after && elapsed - dt < top.after && field.includes(fighter) && fighter.hp > 0) {
@@ -36336,6 +38927,7 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (result) return;
 		minionsAdvance(dt);
 		if (result) return;
+		if (karma) karmaTick(dt);
 		const reform = Math.min(1, dt * 4);
 		for (const on of field) {
 			const speed = (on.stats.speed + auras.speed + allied(on, "speed") + adding(on.statuses, "speed") + adding(party, "speed") + (on.part.speed?.() ?? 0)) * pacing([...on.statuses, ...party], on.part.pace?.() ?? 1);
@@ -36346,7 +38938,8 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			on.x += (x - on.x) * reform;
 			on.z += (z - on.z) * reform;
 		}
-		if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= raidTime + 20)) end("lost");
+		if (!deathless && (field.length > 0 && field.every((on) => on.hp <= 0) || clock >= raidTime + rageTime)) end(karma && karmaGauge() >= karma.least ? "won" : "lost");
+		else if (!deathless && dungeon.outlast && clock >= raidTime) end("won");
 		tick++;
 		if (tick % SECOND === 0) sums.push(sim.checksum());
 	}
@@ -36373,6 +38966,9 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 			}
 			case "leave":
 				if (raid) end("lost");
+				return;
+			case "card":
+				if (offer && Number.isInteger(input.card) && input.card >= 0 && input.card < offer.length) pickCard(input.card, false);
 				return;
 		}
 		if (raid) return;
@@ -36441,6 +39037,31 @@ function makeSim({ boss: def, heroes, seed, stage: firstStage, raid, solo = fals
 		if (hooks) relics.set(fighter, hooks);
 	}
 	for (const hooks of relics.values()) hooks.begin();
+	for (const fighter of fighters) {
+		const uses = heroes[fighter.index]?.blasphemy;
+		if (!uses || uses.length === 0) continue;
+		const hooks = blasphemyHooks(fighter, uses, {
+			roll,
+			allies: () => field.filter((on) => on.hp > 0 && !away(on.statuses)),
+			foes: standing,
+			aim: (by) => targetOf(by),
+			on: (foe, run) => void as(foe, run),
+			hit: (by, amount) => void sim.hit(by, amount, false),
+			harm,
+			stun: (by, seconds, down) => sim.stun(seconds, {
+				down,
+				by
+			}),
+			heal: (on, amount, by, from) => void sim.heal(on, amount, by, from),
+			shield: (on, amount, seconds, by) => sim.shield(on, amount, seconds, by),
+			dispel
+		});
+		if (hooks) blasphemies.set(fighter, hooks);
+	}
+	if (karma) {
+		karmaBegin(karma.wave(1));
+		karmaTick(0);
+	}
 	for (const fighter of fighters) {
 		const tick = setEffect(fighter).tick;
 		if (tick) fighter.perkWaits.set = tick.every;
@@ -58451,16 +61072,1563 @@ var HEROES = [
 	}
 ];
 //#endregion
+//#region src/technomagic/sim/gear/blasphemy.ts
+var KR_BLASPHEMY$1 = [
+	{
+		"id": "blasphemy-fierce-doh",
+		"code": "RUNE_BLASPHAMY_FIERCE_1",
+		"name": "Rune of Blasphemy: Fierce Attack – Doh",
+		"group": "apocalypsion",
+		"socket": "doh",
+		"color": "red",
+		"legend": "fierce-5",
+		"main": {
+			"stat": "atk",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict knocks them back far away for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict Petrification for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-3",
+				"min": 10,
+				"max": 30,
+				"text": "Normal attacks have 5% chance to summon meteor that deals DMG equal to {v}% of ATK to all enemies."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_FIERCE_1"
+	},
+	{
+		"id": "blasphemy-fierce-laz",
+		"code": "RUNE_BLASPHAMY_FIERCE_2",
+		"name": "Rune of Blasphemy: Fierce Attack – Laz",
+		"group": "apocalypsion",
+		"socket": "laz",
+		"color": "red",
+		"legend": "fierce-5",
+		"main": {
+			"stat": "atk",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-laz-1",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-2",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-3",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_FIERCE_2"
+	},
+	{
+		"id": "blasphemy-fierce-geb",
+		"code": "RUNE_BLASPHAMY_FIERCE_3",
+		"name": "Rune of Blasphemy: Fierce Attack – Geb",
+		"group": "apocalypsion",
+		"socket": "geb",
+		"color": "red",
+		"legend": "fierce-5",
+		"main": {
+			"stat": "atk",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-geb-1",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-2",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-3",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_FIERCE_3"
+	},
+	{
+		"id": "blasphemy-ironwall-doh",
+		"code": "RUNE_BLASPHAMY_IRONWALL_1",
+		"name": "Rune of Blasphemy: Iron Wall – Doh",
+		"group": "apocalypsion",
+		"socket": "doh",
+		"color": "blue",
+		"legend": "ironwall-5",
+		"main": {
+			"stat": "blockDefPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict knocks them back far away for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict Petrification for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-3",
+				"min": 10,
+				"max": 30,
+				"text": "Normal attacks have 5% chance to summon meteor that deals DMG equal to {v}% of ATK to all enemies."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_IRONWALL_1"
+	},
+	{
+		"id": "blasphemy-ironwall-laz",
+		"code": "RUNE_BLASPHAMY_IRONWALL_2",
+		"name": "Rune of Blasphemy: Iron Wall – Laz",
+		"group": "apocalypsion",
+		"socket": "laz",
+		"color": "blue",
+		"legend": "ironwall-5",
+		"main": {
+			"stat": "blockDefPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-laz-1",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-2",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-3",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_IRONWALL_2"
+	},
+	{
+		"id": "blasphemy-ironwall-geb",
+		"code": "RUNE_BLASPHAMY_IRONWALL_3",
+		"name": "Rune of Blasphemy: Iron Wall – Geb",
+		"group": "apocalypsion",
+		"socket": "geb",
+		"color": "blue",
+		"legend": "ironwall-5",
+		"main": {
+			"stat": "blockDefPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-geb-1",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-2",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-3",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_IRONWALL_3"
+	},
+	{
+		"id": "blasphemy-toughness-doh",
+		"code": "RUNE_BLASPHAMY_TOUGHNESS_1",
+		"name": "Rune of Blasphemy: Toughness – Doh",
+		"group": "apocalypsion",
+		"socket": "doh",
+		"color": "blue",
+		"legend": "toughness-5",
+		"main": {
+			"stat": "toughPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict knocks them back far away for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict Petrification for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-3",
+				"min": 10,
+				"max": 30,
+				"text": "Normal attacks have 5% chance to summon meteor that deals DMG equal to {v}% of ATK to all enemies."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_TOUGHNESS_1"
+	},
+	{
+		"id": "blasphemy-toughness-laz",
+		"code": "RUNE_BLASPHAMY_TOUGHNESS_2",
+		"name": "Rune of Blasphemy: Toughness – Laz",
+		"group": "apocalypsion",
+		"socket": "laz",
+		"color": "blue",
+		"legend": "toughness-5",
+		"main": {
+			"stat": "toughPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-laz-1",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-2",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-3",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_TOUGHNESS_2"
+	},
+	{
+		"id": "blasphemy-toughness-geb",
+		"code": "RUNE_BLASPHAMY_TOUGHNESS_3",
+		"name": "Rune of Blasphemy: Toughness – Geb",
+		"group": "apocalypsion",
+		"socket": "geb",
+		"color": "blue",
+		"legend": "toughness-5",
+		"main": {
+			"stat": "toughPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-geb-1",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-2",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-3",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_TOUGHNESS_3"
+	},
+	{
+		"id": "blasphemy-thirst-doh",
+		"code": "RUNE_BLASPHAMY_THIRST_1",
+		"name": "Rune of Blasphemy: Thirst – Doh",
+		"group": "apocalypsion",
+		"socket": "doh",
+		"color": "green",
+		"legend": "thirst-5",
+		"main": {
+			"stat": "lifesteal",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict knocks them back far away for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict Petrification for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-3",
+				"min": 10,
+				"max": 30,
+				"text": "Normal attacks have 5% chance to summon meteor that deals DMG equal to {v}% of ATK to all enemies."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_THIRST_1"
+	},
+	{
+		"id": "blasphemy-thirst-laz",
+		"code": "RUNE_BLASPHAMY_THIRST_2",
+		"name": "Rune of Blasphemy: Thirst – Laz",
+		"group": "apocalypsion",
+		"socket": "laz",
+		"color": "green",
+		"legend": "thirst-5",
+		"main": {
+			"stat": "lifesteal",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-laz-1",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-2",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-3",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_THIRST_2"
+	},
+	{
+		"id": "blasphemy-thirst-geb",
+		"code": "RUNE_BLASPHAMY_THIRST_3",
+		"name": "Rune of Blasphemy: Thirst – Geb",
+		"group": "apocalypsion",
+		"socket": "geb",
+		"color": "green",
+		"legend": "thirst-5",
+		"main": {
+			"stat": "lifesteal",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-geb-1",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-2",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-3",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_THIRST_3"
+	},
+	{
+		"id": "blasphemy-precision-oth",
+		"code": "RUNE_BLASPHAMY_PRECISION_1",
+		"name": "Rune of Blasphemy: Precision – Oth",
+		"group": "apocalypsion",
+		"socket": "oth",
+		"color": "red",
+		"legend": "precision-5",
+		"main": {
+			"stat": "acc",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-oth-1",
+				"min": 5,
+				"max": 10,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-2",
+				"min": 7,
+				"max": 15,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-3",
+				"min": 3,
+				"max": 7,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_PRECISION_1"
+	},
+	{
+		"id": "blasphemy-steel-oth",
+		"code": "RUNE_BLASPHAMY_STEEL_1",
+		"name": "Rune of Blasphemy: Steel – Oth",
+		"group": "apocalypsion",
+		"socket": "oth",
+		"color": "blue",
+		"legend": "steel-5",
+		"main": {
+			"stat": "blockPhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-oth-1",
+				"min": 5,
+				"max": 10,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-2",
+				"min": 7,
+				"max": 15,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-3",
+				"min": 3,
+				"max": 7,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_STEEL_1"
+	},
+	{
+		"id": "blasphemy-patience-oth",
+		"code": "RUNE_BLASPHAMY_PATIENCE_1",
+		"name": "Rune of Blasphemy: Patience – Oth",
+		"group": "apocalypsion",
+		"socket": "oth",
+		"color": "blue",
+		"legend": "patience-5",
+		"main": {
+			"stat": "defPhysical",
+			"min": .5,
+			"max": .6
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-oth-1",
+				"min": 5,
+				"max": 10,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-2",
+				"min": 7,
+				"max": 15,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-3",
+				"min": 3,
+				"max": 7,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_PATIENCE_1"
+	},
+	{
+		"id": "blasphemy-resistance-oth",
+		"code": "RUNE_BLASPHAMY_RESISTANCE_1",
+		"name": "Rune of Blasphemy: Resistance – Oth",
+		"group": "apocalypsion",
+		"socket": "oth",
+		"color": "blue",
+		"legend": "resistance-5",
+		"main": {
+			"stat": "resist",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-oth-1",
+				"min": 5,
+				"max": 10,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-2",
+				"min": 7,
+				"max": 15,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			},
+			{
+				"skill": "apocalypsion-oth-3",
+				"min": 3,
+				"max": 7,
+				"text": "{v}% of received Healing is added to the next normal attack. Healing that exceeds DMG taken will not be applied."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_RESISTANCE_1"
+	},
+	{
+		"id": "blasphemy-flexibility-ans",
+		"code": "RUNE_BLASPHAMY_FLEXIBILITY_1",
+		"name": "Rune of Blasphemy: Flexibility – Ans",
+		"group": "apocalypsion",
+		"socket": "ans",
+		"color": "blue",
+		"legend": "flexibility-5",
+		"main": {
+			"stat": "dodgeMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-ans-1",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases DEF of all allies by {v}% for 20 sec."
+			},
+			{
+				"skill": "apocalypsion-ans-2",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases ATK of all allies by {v}% for 20 sec."
+			},
+			{
+				"skill": "apocalypsion-ans-3",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases HP of all allies by {v}% for 20 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_FLEXIBILITY_1"
+	},
+	{
+		"id": "blasphemy-agility-ans",
+		"code": "RUNE_BLASPHAMY_AGILITY_1",
+		"name": "Rune of Blasphemy: Agility – Ans",
+		"group": "apocalypsion",
+		"socket": "ans",
+		"color": "blue",
+		"legend": "agility-5",
+		"main": {
+			"stat": "dodgePhysical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-ans-1",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases DEF of all allies by {v}% for 20 sec."
+			},
+			{
+				"skill": "apocalypsion-ans-2",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases ATK of all allies by {v}% for 20 sec."
+			},
+			{
+				"skill": "apocalypsion-ans-3",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases HP of all allies by {v}% for 20 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_AGILITY_1"
+	},
+	{
+		"id": "blasphemy-vitality-doh",
+		"code": "RUNE_BLASPHAMY_VITALITY_1",
+		"name": "Rune of Blasphemy: Vitality – Doh",
+		"group": "apocalypsion",
+		"socket": "doh",
+		"color": "green",
+		"legend": "vitality-5",
+		"main": {
+			"stat": "manaRegen",
+			"min": .75,
+			"max": .82
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict knocks them back far away for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Normal attacks have {v}% chance to inflict Petrification for 4 sec."
+			},
+			{
+				"skill": "apocalypsion-doh-3",
+				"min": 10,
+				"max": 30,
+				"text": "Normal attacks have 5% chance to summon meteor that deals DMG equal to {v}% of ATK to all enemies."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_VITALITY_1"
+	},
+	{
+		"id": "blasphemy-vitality-laz",
+		"code": "RUNE_BLASPHAMY_VITALITY_2",
+		"name": "Rune of Blasphemy: Vitality – Laz",
+		"group": "apocalypsion",
+		"socket": "laz",
+		"color": "green",
+		"legend": "vitality-5",
+		"main": {
+			"stat": "manaRegen",
+			"min": .75,
+			"max": .82
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-laz-1",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-2",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-laz-3",
+				"min": 60,
+				"max": 80,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, reduces DMG the Hero takes by {v}% for 3 sec. (Cooldown: 60 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_VITALITY_2"
+	},
+	{
+		"id": "blasphemy-vitality-geb",
+		"code": "RUNE_BLASPHAMY_VITALITY_3",
+		"name": "Rune of Blasphemy: Vitality – Geb",
+		"group": "apocalypsion",
+		"socket": "geb",
+		"color": "green",
+		"legend": "vitality-5",
+		"main": {
+			"stat": "manaRegen",
+			"min": .75,
+			"max": .82
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-geb-1",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-2",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "apocalypsion-geb-3",
+				"min": 5,
+				"max": 10,
+				"text": "Shoots lightning that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_VITALITY_3"
+	},
+	{
+		"id": "blasphemy-life-ans",
+		"code": "RUNE_BLASPHAMY_LIFE_1",
+		"name": "Rune of Blasphemy: Life – Ans",
+		"group": "apocalypsion",
+		"socket": "ans",
+		"color": "green",
+		"legend": "life-5",
+		"main": {
+			"stat": "recovery",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "apocalypsion-ans-1",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases DEF of all allies by {v}% for 20 sec."
+			},
+			{
+				"skill": "apocalypsion-ans-2",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases ATK of all allies by {v}% for 20 sec."
+			},
+			{
+				"skill": "apocalypsion-ans-3",
+				"min": 25,
+				"max": 40,
+				"text": "Upon death of self, increases HP of all allies by {v}% for 20 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_LIFE_1"
+	},
+	{
+		"id": "blasphemy-sharpness-doh",
+		"code": "RUNE_BLASPHAMY_SHARPNESS_1",
+		"name": "Rune of Blasphemy: Sharpness – Doh",
+		"group": "solenis",
+		"socket": "doh",
+		"color": "red",
+		"legend": "sharpness-5",
+		"main": {
+			"stat": "pen",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to heal 1000% of ATK as HP upon normal attack."
+			},
+			{
+				"skill": "solenis-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to create shield that absorbs 100% of ATK upon normal attack for 5 sec."
+			},
+			{
+				"skill": "solenis-doh-3",
+				"min": 10,
+				"max": 20,
+				"text": "Has 5% chance to heal ally by {v}% of ATK upon normal attack."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_SHARPNESS_1"
+	},
+	{
+		"id": "blasphemy-sharpness-laz",
+		"code": "RUNE_BLASPHAMY_SHARPNESS_2",
+		"name": "Rune of Blasphemy: Sharpness – Laz",
+		"group": "solenis",
+		"socket": "laz",
+		"color": "red",
+		"legend": "sharpness-5",
+		"main": {
+			"stat": "pen",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-laz-1",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-2",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-3",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_SHARPNESS_2"
+	},
+	{
+		"id": "blasphemy-sharpness-geb",
+		"code": "RUNE_BLASPHAMY_SHARPNESS_3",
+		"name": "Rune of Blasphemy: Sharpness – Geb",
+		"group": "solenis",
+		"socket": "geb",
+		"color": "red",
+		"legend": "sharpness-5",
+		"main": {
+			"stat": "pen",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-geb-1",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "solenis-geb-2",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "solenis-geb-3",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_SHARPNESS_3"
+	},
+	{
+		"id": "blasphemy-denial-doh",
+		"code": "RUNE_BLASPHAMY_DENIAL_1",
+		"name": "Rune of Blasphemy: Denial - Doh",
+		"group": "solenis",
+		"socket": "doh",
+		"color": "blue",
+		"legend": "denial-5",
+		"main": {
+			"stat": "blockDefMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to heal 1000% of ATK as HP upon normal attack."
+			},
+			{
+				"skill": "solenis-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to create shield that absorbs 100% of ATK upon normal attack for 5 sec."
+			},
+			{
+				"skill": "solenis-doh-3",
+				"min": 10,
+				"max": 20,
+				"text": "Has 5% chance to heal ally by {v}% of ATK upon normal attack."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_DENIAL_1"
+	},
+	{
+		"id": "blasphemy-denial-laz",
+		"code": "RUNE_BLASPHAMY_DENIAL_2",
+		"name": "Rune of Blasphemy: Denial – Laz",
+		"group": "solenis",
+		"socket": "laz",
+		"color": "blue",
+		"legend": "denial-5",
+		"main": {
+			"stat": "blockDefMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-laz-1",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-2",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-3",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_DENIAL_2"
+	},
+	{
+		"id": "blasphemy-denial-geb",
+		"code": "RUNE_BLASPHAMY_DENIAL_3",
+		"name": "Rune of Blasphemy: Denial – Geb",
+		"group": "solenis",
+		"socket": "geb",
+		"color": "blue",
+		"legend": "denial-5",
+		"main": {
+			"stat": "blockDefMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-geb-1",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "solenis-geb-2",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "solenis-geb-3",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_DENIAL_3"
+	},
+	{
+		"id": "blasphemy-willpower-doh",
+		"code": "RUNE_BLASPHAMY_WILLPOWER_1",
+		"name": "Rune of Blasphemy: Willpower – Doh",
+		"group": "solenis",
+		"socket": "doh",
+		"color": "blue",
+		"legend": "willpower-5",
+		"main": {
+			"stat": "toughMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to heal 1000% of ATK as HP upon normal attack."
+			},
+			{
+				"skill": "solenis-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to create shield that absorbs 100% of ATK upon normal attack for 5 sec."
+			},
+			{
+				"skill": "solenis-doh-3",
+				"min": 10,
+				"max": 20,
+				"text": "Has 5% chance to heal ally by {v}% of ATK upon normal attack."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_WILLPOWER_1"
+	},
+	{
+		"id": "blasphemy-willpower-laz",
+		"code": "RUNE_BLASPHAMY_WILLPOWER_2",
+		"name": "Rune of Blasphemy: Willpower – Laz",
+		"group": "solenis",
+		"socket": "laz",
+		"color": "blue",
+		"legend": "willpower-5",
+		"main": {
+			"stat": "toughMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-laz-1",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-2",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-3",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_WILLPOWER_2"
+	},
+	{
+		"id": "blasphemy-willpower-geb",
+		"code": "RUNE_BLASPHAMY_WILLPOWER_3",
+		"name": "Rune of Blasphemy: Willpower – Geb",
+		"group": "solenis",
+		"socket": "geb",
+		"color": "blue",
+		"legend": "willpower-5",
+		"main": {
+			"stat": "toughMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-geb-1",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "solenis-geb-2",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "solenis-geb-3",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_WILLPOWER_3"
+	},
+	{
+		"id": "blasphemy-agitation-doh",
+		"code": "RUNE_BLASPHAMY_AGITATION_1",
+		"name": "Rune of Blasphemy: Agitation – Doh",
+		"group": "solenis",
+		"socket": "doh",
+		"color": "green",
+		"legend": "agitation-5",
+		"main": {
+			"stat": "manaAttack",
+			"min": .5,
+			"max": .6
+		},
+		"lines": [
+			{
+				"skill": "solenis-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to heal 1000% of ATK as HP upon normal attack."
+			},
+			{
+				"skill": "solenis-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to create shield that absorbs 100% of ATK upon normal attack for 5 sec."
+			},
+			{
+				"skill": "solenis-doh-3",
+				"min": 10,
+				"max": 20,
+				"text": "Has 5% chance to heal ally by {v}% of ATK upon normal attack."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_AGITATION_1"
+	},
+	{
+		"id": "blasphemy-agitation-laz",
+		"code": "RUNE_BLASPHAMY_AGITATION_2",
+		"name": "Rune of Blasphemy: Agitation – Laz",
+		"group": "solenis",
+		"socket": "laz",
+		"color": "green",
+		"legend": "agitation-5",
+		"main": {
+			"stat": "manaAttack",
+			"min": .5,
+			"max": .6
+		},
+		"lines": [
+			{
+				"skill": "solenis-laz-1",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-2",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-3",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_AGITATION_2"
+	},
+	{
+		"id": "blasphemy-agitation-geb",
+		"code": "RUNE_BLASPHAMY_AGITATION_3",
+		"name": "Rune of Blasphemy: Agitation – Geb",
+		"group": "solenis",
+		"socket": "geb",
+		"color": "green",
+		"legend": "agitation-5",
+		"main": {
+			"stat": "manaAttack",
+			"min": .5,
+			"max": .6
+		},
+		"lines": [
+			{
+				"skill": "solenis-geb-1",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "solenis-geb-2",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "solenis-geb-3",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_AGITATION_3"
+	},
+	{
+		"id": "blasphemy-frenzy-oth",
+		"code": "RUNE_BLASPHAMY_FRENZY_1",
+		"name": "Rune of Blasphemy: Frenzy – Oth",
+		"group": "solenis",
+		"socket": "oth",
+		"color": "red",
+		"legend": "frenzy-5",
+		"main": {
+			"stat": "critDamage",
+			"min": .5,
+			"max": .6
+		},
+		"lines": [
+			{
+				"skill": "solenis-oth-1",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 5 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-2",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 4 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-3",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 3 sec upon taking DMG. This effect activates once every 10 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_FRENZY_1"
+	},
+	{
+		"id": "blasphemy-exclusion-oth",
+		"code": "RUNE_BLASPHAMY_EXCLUSION_1",
+		"name": "Rune of Blasphemy: Exclusion – Oth",
+		"group": "solenis",
+		"socket": "oth",
+		"color": "blue",
+		"legend": "exclusion-5",
+		"main": {
+			"stat": "blockMagical",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-oth-1",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 5 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-2",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 4 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-3",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 3 sec upon taking DMG. This effect activates once every 10 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_EXCLUSION_1"
+	},
+	{
+		"id": "blasphemy-protection-oth",
+		"code": "RUNE_BLASPHAMY_PROTECTION_1",
+		"name": "Rune of Blasphemy: Protection – Oth",
+		"group": "solenis",
+		"socket": "oth",
+		"color": "blue",
+		"legend": "protection-5",
+		"main": {
+			"stat": "defMagical",
+			"min": .5,
+			"max": .6
+		},
+		"lines": [
+			{
+				"skill": "solenis-oth-1",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 5 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-2",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 4 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-3",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 3 sec upon taking DMG. This effect activates once every 10 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_PROTECTION_1"
+	},
+	{
+		"id": "blasphemy-stamina-oth",
+		"code": "RUNE_BLASPHAMY_STAMINA_1",
+		"name": "Rune of Blasphemy: Stamina – Oth",
+		"group": "solenis",
+		"socket": "oth",
+		"color": "green",
+		"legend": "stamina-5",
+		"main": {
+			"stat": "hp",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-oth-1",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 5 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-2",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 4 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-3",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 3 sec upon taking DMG. This effect activates once every 10 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_STAMINA_1"
+	},
+	{
+		"id": "blasphemy-heartless-ans",
+		"code": "RUNE_BLASPHAMY_HEARTLESS_1",
+		"name": "Rune of Blasphemy: Heartless – Ans",
+		"group": "solenis",
+		"socket": "ans",
+		"color": "red",
+		"legend": "heartless-5",
+		"main": {
+			"stat": "crit",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-ans-1",
+				"min": 2,
+				"max": 4,
+				"text": "Upon death, grants invincibility to ally with the lowest HP for {v} sec."
+			},
+			{
+				"skill": "solenis-ans-2",
+				"min": 2,
+				"max": 4,
+				"text": "Upon death, grants invincibility to ally with the lowest HP for {v} sec."
+			},
+			{
+				"skill": "solenis-ans-3",
+				"min": 2,
+				"max": 4,
+				"text": "Upon death, grants invincibility to ally with the lowest HP for {v} sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_HEARTLESS_1"
+	},
+	{
+		"id": "blasphemy-potential-ans",
+		"code": "RUNE_BLASPHAMY_POTENTIAL_1",
+		"name": "Rune of Blasphemy: Potential – Ans",
+		"group": "solenis",
+		"socket": "ans",
+		"color": "green",
+		"legend": "potential-5",
+		"main": {
+			"stat": "manaDamage",
+			"min": .75,
+			"max": .82
+		},
+		"lines": [
+			{
+				"skill": "solenis-ans-1",
+				"min": 2,
+				"max": 4,
+				"text": "Upon death, grants invincibility to ally with the lowest HP for {v} sec."
+			},
+			{
+				"skill": "solenis-ans-2",
+				"min": 2,
+				"max": 4,
+				"text": "Upon death, grants invincibility to ally with the lowest HP for {v} sec."
+			},
+			{
+				"skill": "solenis-ans-3",
+				"min": 2,
+				"max": 4,
+				"text": "Upon death, grants invincibility to ally with the lowest HP for {v} sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_POTENTIAL_1"
+	},
+	{
+		"id": "blasphemy-swiftness-doh",
+		"code": "RUNE_BLASPHAMY_SWIFTNESS_1",
+		"name": "Rune of Blasphemy: Swiftness - Doh",
+		"group": "solenis",
+		"socket": "doh",
+		"color": "green",
+		"legend": "swiftness-5",
+		"main": {
+			"stat": "speed",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-doh-1",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to heal 1000% of ATK as HP upon normal attack."
+			},
+			{
+				"skill": "solenis-doh-2",
+				"min": 1,
+				"max": 3,
+				"text": "Has {v}% chance to create shield that absorbs 100% of ATK upon normal attack for 5 sec."
+			},
+			{
+				"skill": "solenis-doh-3",
+				"min": 10,
+				"max": 20,
+				"text": "Has 5% chance to heal ally by {v}% of ATK upon normal attack."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_SWIFTNESS_1"
+	},
+	{
+		"id": "blasphemy-swiftness-laz",
+		"code": "RUNE_BLASPHAMY_SWIFTNESS_2",
+		"name": "Rune of Blasphemy: Swiftness – Laz",
+		"group": "solenis",
+		"socket": "laz",
+		"color": "green",
+		"legend": "swiftness-5",
+		"main": {
+			"stat": "speed",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-laz-1",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 35% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-2",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 60% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			},
+			{
+				"skill": "solenis-laz-3",
+				"min": 800,
+				"max": 1e3,
+				"text": "Upon taking a single hit that deals DMG equal to 40% of Max HP or higher, creates a shield equal to {v}% of ATK for 3 sec. (60 sec Cooldown)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_SWIFTNESS_2"
+	},
+	{
+		"id": "blasphemy-swiftness-geb",
+		"code": "RUNE_BLASPHAMY_SWIFTNESS_3",
+		"name": "Rune of Blasphemy: Swiftness – Geb",
+		"group": "solenis",
+		"socket": "geb",
+		"color": "green",
+		"legend": "swiftness-5",
+		"main": {
+			"stat": "speed",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-geb-1",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 30 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 60 sec)"
+			},
+			{
+				"skill": "solenis-geb-2",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 50 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 120 sec)"
+			},
+			{
+				"skill": "solenis-geb-3",
+				"min": 3,
+				"max": 5,
+				"text": "Shoots a shockwave that reflects {v}% of all DMG taken over 40 sec and deals DMG to all enemies. Dispels positive effects from the target and knocks them back far away for 4 sec. (Cooldown: 80 sec)"
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_SWIFTNESS_3"
+	},
+	{
+		"id": "blasphemy-tenacity-oth",
+		"code": "RUNE_BLASPHAMY_TENACITY_1",
+		"name": "Rune of Blasphemy: Tenacity – Oth",
+		"group": "solenis",
+		"socket": "oth",
+		"color": "green",
+		"legend": "tenacity-5",
+		"main": {
+			"stat": "accuracy",
+			"min": .25,
+			"max": .3
+		},
+		"lines": [
+			{
+				"skill": "solenis-oth-1",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 5 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-2",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 4 sec upon taking DMG. This effect activates once every 10 sec."
+			},
+			{
+				"skill": "solenis-oth-3",
+				"min": .5,
+				"max": 2,
+				"text": "Heals {v}% of Max HP every sec for 3 sec upon taking DMG. This effect activates once every 10 sec."
+			}
+		],
+		"icon": "RUNE_BLASPHAMY_TENACITY_1"
+	}
+];
+//#endregion
 //#region src/technomagic/sim/bot.ts
 /** The sim's version: a hash of it (./version.ts), so any change to it is another (a page whose sim isn't the bot's is told to reload). */
-var SIM_VERSION = "64b5a786419e";
+var SIM_VERSION = "deb9925dfa41";
 /** Seconds in a step, and the most steps a raid can take (the raid's time, and the boss's rage after it). */
 var STEP_SECONDS = TICK;
 var MOST_TICKS = Math.ceil(232 / TICK) + 1;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 var MOST_INPUTS = 2e4;
-/** The most stages any boss has, in either mode (each boss's own: BossInfo.stages, and its Normal mode's: BossInfo.normal). */
-var MOST_STAGE = Math.max(...BOSSES.flatMap((boss) => [stagesOf(boss), ...boss.normal ? [stagesOf(boss.normal)] : []]));
+/**
+* The most stages any boss of the TechnoMagic Raid or the Dragon Raid has, in either mode (each boss's own: BossInfo.stages, and
+* its Normal mode's: BossInfo.normal). Divine Punishment's levels are apart: DIVINE_LEVELS.
+*/
+var MOST_STAGE = Math.max(...[...TM_BOSSES, ...DRAGONS].flatMap((boss) => [stagesOf(boss), ...boss.normal ? [stagesOf(boss.normal)] : []]));
 /**
 * What a hero's unique treasure (its `skill`th: 1 to 4, UT1 to UT4) does at a tier (1 to 5) as its main treasure, as the
 * bot says it: its name, and King's Raid's words with the fight's numbers (null: no such hero or treasure).
@@ -58541,18 +62709,22 @@ var RAID_KINDS = /* @__PURE__ */ new Set([
 	"skill",
 	"auto",
 	"all-auto",
-	"leave"
+	"leave",
+	"card"
 ]);
 var whole = (n, below) => typeof n === "number" && Number.isInteger(n) && n >= 0 && n < below;
-/** The page's inputs, as they are taken (null: something in them makes no sense). Only what a raid takes. */
-function readInputs(raw, heroes) {
+/**
+* The page's inputs, as they are taken (null: something in them makes no sense). Only what a raid takes, before step `most` (none
+* said: MOST_TICKS; a Divine Punishment run's own: mostTicks).
+*/
+function readInputs(raw, heroes, most = MOST_TICKS) {
 	if (!Array.isArray(raw) || raw.length > 2e4) return null;
 	const inputs = [];
 	let last = 0;
 	for (const one of raw) {
 		if (typeof one !== "object" || one === null) return null;
-		const { tick, kind, fighter, skill } = one;
-		if (!whole(tick, MOST_TICKS) || tick < last || typeof kind !== "string" || !RAID_KINDS.has(kind)) return null;
+		const { tick, kind, fighter, skill, card } = one;
+		if (!whole(tick, most) || tick < last || typeof kind !== "string" || !RAID_KINDS.has(kind)) return null;
 		last = tick;
 		if (kind === "skill") {
 			if (!whole(fighter, heroes) || !whole(skill, 16)) return null;
@@ -58569,6 +62741,13 @@ function readInputs(raw, heroes) {
 				kind: "auto",
 				fighter
 			});
+		} else if (kind === "card") {
+			if (!whole(card, 3)) return null;
+			inputs.push({
+				tick,
+				kind: "card",
+				card
+			});
 		} else inputs.push({
 			tick,
 			kind
@@ -58582,9 +62761,14 @@ function startRaid(run) {
 	const found = BOSSES.find((one) => one.id === run.boss);
 	if (!found) return "boss";
 	if (run.mode !== void 0 && run.mode !== "hard" && !(run.mode === "normal" && found.normal)) return "mode";
-	const boss = bossIn(found, run.mode);
+	const divine = DIVINE$1.find((one) => one.def.id === found.id);
+	const fight = divine ? divineOf(divine, run) : null;
+	if (fight === "divine") return "divine";
+	const boss = fight ?? bossIn(found, run.mode);
 	if (!whole(run.stage - 1, stagesOf(boss))) return "stage";
 	if (run.heroes.length === 0 || run.heroes.length > 9) return "heroes";
+	if (divine && run.heroes.length > (divine.kind === "karma" ? KARMA_HEROES : DIVINE_HEROES)) return "heroes";
+	const solo = run.solo === true || divine !== void 0;
 	const entries = [];
 	for (const hero of run.heroes) {
 		const def = HEROES.find((one) => one.id === hero.id);
@@ -58601,6 +62785,10 @@ function startRaid(run) {
 			id: hero.artifact.id,
 			tier: hero.artifact.tier
 		} : null;
+		const blasphemy = Array.isArray(hero.blasphemy) ? hero.blasphemy.filter((one) => typeof one?.skill === "string" && Number.isFinite(one.value)).map(({ skill, value }) => ({
+			skill,
+			value
+		})) : [];
 		entries.push({
 			def,
 			skin: hero.skin,
@@ -58608,21 +62796,24 @@ function startRaid(run) {
 			set: typeof hero.set === "string" ? hero.set : null,
 			uw: typeof hero.uw === "number" ? hero.uw : null,
 			skills,
-			sub: run.solo === true && hero.sub === true,
+			sub: solo && hero.sub === true,
 			perks,
 			ut,
-			artifact
+			artifact,
+			blasphemy
 		});
 	}
+	if (divine?.kind === "karma" && new Set(entries.map((one) => one.def.class)).size < entries.length) return "heroes";
 	const sim = makeSim({
 		boss,
 		heroes: entries,
 		seed: run.seed,
 		stage: run.stage,
 		raid: true,
-		solo: run.solo === true
+		solo
 	});
 	const heroes = entries.length;
+	const most = mostTicks(run);
 	return {
 		get tick() {
 			return sim.tick;
@@ -58637,7 +62828,7 @@ function startRaid(run) {
 			const read = readInputs([{
 				...input,
 				tick: 0
-			}], heroes);
+			}], heroes, most);
 			if (!read?.[0]) return false;
 			const { tick: _tick, ...valid } = read[0];
 			sim.input(valid);
@@ -58648,7 +62839,14 @@ function startRaid(run) {
 			sim.events.length = 0;
 		},
 		autos: () => sim.fighters.map((fighter) => fighter.auto),
-		dealt: () => sim.fighters.map((fighter) => fighter.dealt)
+		dealt: () => sim.fighters.map((fighter) => fighter.dealt),
+		karma() {
+			const state = sim.karma();
+			return state ? {
+				waves: state.cleared,
+				gauge: state.gauge
+			} : null;
+		}
 	};
 }
 var invalid = (reason) => ({
@@ -58663,10 +62861,11 @@ var invalid = (reason) => ({
 function replay(run, rawInputs, pageSums = []) {
 	const raid = startRaid(run);
 	if (typeof raid === "string") return invalid(raid);
-	const inputs = readInputs(rawInputs, run.heroes.length);
+	const most = mostTicks(run);
+	const inputs = readInputs(rawInputs, run.heroes.length, most);
 	if (!inputs) return invalid("inputs");
 	let next = 0;
-	while (!raid.result && raid.tick < MOST_TICKS) {
+	while (!raid.result && raid.tick < most) {
 		while (next < inputs.length && inputs[next].tick === raid.tick) {
 			const { tick: _tick, ...input } = inputs[next];
 			raid.input(input);
@@ -58676,13 +62875,102 @@ function replay(run, rawInputs, pageSums = []) {
 	}
 	const sums = [...raid.sums];
 	const at = sums.findIndex((sum, i) => i < pageSums.length && pageSums[i] !== sum);
+	const karma = raid.karma();
 	return {
 		result: raid.result ?? "lost",
 		ticks: raid.tick,
 		sums,
 		parted: at < 0 ? null : at + 1,
-		dealt: raid.dealt()
+		dealt: raid.dealt(),
+		...karma && { karma }
 	};
 }
+/** Every Divine Punishment boss: Apocalypsion's four dragons and her, Solenis' two mid-bosses and her, and the two karma dungeons. */
+var DIVINE_INFO = DIVINE$1.map(({ def, group, kind }) => ({
+	id: def.id,
+	name: def.name,
+	group,
+	kind,
+	time: def.time ?? 210
+}));
+/** The highest Infinite level the sim has numbers for. */
+var DIVINE_LEVELS = 99;
+/** The heroes in a Divine Punishment boss dungeon (King's Raid's 4 Main and 4 Sub) and in a karma dungeon, at most. */
+var DIVINE_HEROES = 8;
+var KARMA_HEROES = 3;
+/** The most Full or Empty Shards a run is taken with (more than anyone has: a bound). */
+var MOST_SHARDS = 999;
+var tierOf = (n, from) => typeof n === "number" && Number.isInteger(n) && n >= from && n <= 5;
+var countOf = (n, least) => typeof n === "number" && Number.isInteger(n) && n >= least && n <= MOST_SHARDS;
+/** A Divine Punishment boss's fight as `run` has it ('divine': its run is missing, or makes no sense). */
+function divineOf(one, run) {
+	const divine = run.divine;
+	if (!divine || typeof divine !== "object" || divine.group !== one.group) return "divine";
+	if (one.kind !== "karma" && (!whole((divine.level ?? 0) - 1, 99) || divine.level !== run.stage)) return "divine";
+	const sides = DIVINE_SIDES[one.group];
+	const cleared = divine.cleared ?? [];
+	if (!Array.isArray(cleared) || !cleared.every((id) => typeof id === "string" && sides.includes(id))) return "divine";
+	const known = one.kind === "final" ? [...new Set(cleared)] : [];
+	if (one.group === "apocalypsion" && known.length > 2) return "divine";
+	const { shard, empty } = divine;
+	if (shard !== void 0 && shard !== null && (typeof shard !== "object" || !tierOf(shard.tier, 1) || !countOf(shard.count, 1))) return "divine";
+	if (empty !== void 0 && empty !== null && (typeof empty !== "object" || !tierOf(empty.tier, 2) || !countOf(empty.count, 0))) return "divine";
+	return divineFight(one, known, one.kind !== "karma" && shard ? {
+		tier: shard.tier,
+		count: shard.count
+	} : null);
+}
+/**
+* The most steps a run can take: MOST_TICKS for the TechnoMagic Raid and the Dragon Raid; a Divine Punishment boss's, its own
+* time and rage (Armarta's 600 seconds, Luciteron's 120 and none), and a karma dungeon's with its card picks besides (the fight
+* stands still while the heroes pick: as many as its most waves). Its inputs are read up to it (readInputs), and a replay goes on
+* to it.
+*/
+function mostTicks(run) {
+	const found = DIVINE$1.find((one) => one.def.id === run.boss)?.def;
+	if (!found) return MOST_TICKS;
+	const picks = found.karma ? found.karma.most * (found.karma.pick + 1) : 0;
+	return Math.ceil((2 + (found.time ?? 210) + (found.outlast ? 0 : found.rage ?? 20) + picks + 4 + 5 + 1) / TICK) + 1;
+}
+/** Each tier's Empty Shard's FlaskGauge (ShardFlaskItemTable, both groups alike): the gauge points that fill one. */
+var SHARD_GAUGE = {
+	1: 500,
+	2: 1200,
+	3: 2200,
+	4: 4500,
+	5: 1e4
+};
+/**
+* What a karma run's gauge fills, as King's Raid's PunishmentHelper.GetFullFlask has it: the Empty Shards brought (a tier 2 to 5)
+* first, as many as the gauge fills (floor(gauge / its FlaskGauge)) and no more than were brought; the rest into free Tier 1
+* Shards, 500 each. As the game's: one brought that the gauge fills none of gives nothing at all, not even Tier 1 Shards (its
+* `selectedFullFlaksCount <= 0` return; its AnyFlaskCollected counts that run as failed too).
+*/
+function fillShards(gauge, empty) {
+	const full = {
+		1: 0,
+		2: 0,
+		3: 0,
+		4: 0,
+		5: 0
+	};
+	let left = Number.isFinite(gauge) ? Math.max(0, gauge) : 0;
+	let used = 0;
+	if (empty && tierOf(empty.tier, 2)) {
+		used = Math.min(Math.floor(left / SHARD_GAUGE[empty.tier]), Math.max(0, Math.floor(empty.count)));
+		if (used <= 0) return {
+			empty: 0,
+			full
+		};
+		full[empty.tier] = used;
+		left -= used * SHARD_GAUGE[empty.tier];
+	}
+	full[1] = Math.floor(left / SHARD_GAUGE[1]);
+	return {
+		empty: used,
+		full
+	};
+}
+var KR_BLASPHEMY = KR_BLASPHEMY$1;
 //#endregion
-export { BOSS_IDS, DRAGON_INFO, KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, KR_UNIQUE, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_ARTIFACTS, TM_BOSS_INFO, TM_HEROES, TM_SET_INFO, TM_SET_PIECES, TM_SKILLS, UNIQUE_WEAPON_HEROES, readInputs, replay, startRaid, tmPerkStats, uniqueTreasureText, uniqueWeaponText };
+export { BOSS_IDS, DIVINE_INFO, DIVINE_LEVELS, DRAGON_INFO, KR_BLASPHEMY, KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, KR_UNIQUE, MOST_INPUTS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SHARD_GAUGE, SIM_VERSION, STEP_SECONDS, TM_ARTIFACTS, TM_BOSS_INFO, TM_HEROES, TM_SET_INFO, TM_SET_PIECES, TM_SKILLS, UNIQUE_WEAPON_HEROES, fillShards, mostTicks, readInputs, replay, startRaid, tmPerkStats, uniqueTreasureText, uniqueWeaponText };

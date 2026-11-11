@@ -6,7 +6,10 @@ export declare const STEP_SECONDS: number;
 export declare const MOST_TICKS: number;
 /** The most inputs a raid is taken with (more than anyone presses in its time). */
 export declare const MOST_INPUTS = 20000;
-/** The most stages any boss has, in either mode (each boss's own: BossInfo.stages, and its Normal mode's: BossInfo.normal). */
+/**
+ * The most stages any boss of the TechnoMagic Raid or the Dragon Raid has, in either mode (each boss's own: BossInfo.stages, and
+ * its Normal mode's: BossInfo.normal). Divine Punishment's levels are apart: DIVINE_LEVELS.
+ */
 export declare const MOST_STAGE: number;
 /**
  * A hero in a raid: its id, the index of its skin, what its gear gives it (the bot's HeroBonus), the TechnoMagic
@@ -34,6 +37,14 @@ export interface RunHero {
         id: string;
         tier: number;
     } | null;
+    /**
+     * For each Rune of Blasphemy it wears, the line for its class (KR_BLASPHEMY's lines' `skill`) and its rolled value (between the
+     * line's min and max): what it does in the fight (./blasphemy.ts). Its main option is in `gear`.
+     */
+    blasphemy?: readonly {
+        skill: string;
+        value: number;
+    }[] | null;
 }
 /**
  * What a hero's unique treasure (its `skill`th: 1 to 4, UT1 to UT4) does at a tier (1 to 5) as its main treasure, as the
@@ -67,6 +78,8 @@ export interface Run {
     heroes: readonly RunHero[];
     solo?: boolean;
     mode?: BossMode;
+    /** A Divine Punishment boss's run (one of DIVINE_INFO's: required for them, startRaid's 'divine' without it): see DivineRun. */
+    divine?: DivineRun;
 }
 /** How a raid played over went. */
 export interface Replay {
@@ -81,6 +94,8 @@ export interface Replay {
     parted: number | null;
     /** What each hero's blows took of the boss, by its place in the run. */
     dealt: number[];
+    /** A karma dungeon's: the waves cleared and the Karma Gauge's points as it ended. */
+    karma?: KarmaOutcome;
 }
 /** A hero there is (the bot sells it, and the heroes page gears it): its id, its name, its class, and how many skins it has (its own first). */
 export interface TmHero {
@@ -226,15 +241,22 @@ export interface TmArtifactInfo {
     text: readonly string[];
 }
 export declare const TM_ARTIFACTS: readonly TmArtifactInfo[];
-/** An input of the page's, as a raid takes it: a skill pressed, a hero's Auto, every hero's Auto, or leaving (with the step it came before). */
+/**
+ * An input of the page's, as a raid takes it: a skill pressed, a hero's Auto, every hero's Auto, leaving, or a karma dungeon's
+ * card picked (`card`: its place among the three offered) (with the step it came before).
+ */
 export interface RunInput {
     tick: number;
-    kind: 'skill' | 'auto' | 'all-auto' | 'leave';
+    kind: 'skill' | 'auto' | 'all-auto' | 'leave' | 'card';
     fighter?: number;
     skill?: number;
+    card?: 0 | 1 | 2;
 }
-/** The page's inputs, as they are taken (null: something in them makes no sense). Only what a raid takes. */
-export declare function readInputs(raw: unknown, heroes: number): RunInput[] | null;
+/**
+ * The page's inputs, as they are taken (null: something in them makes no sense). Only what a raid takes, before step `most` (none
+ * said: MOST_TICKS; a Divine Punishment run's own: mostTicks).
+ */
+export declare function readInputs(raw: unknown, heroes: number, most?: number): RunInput[] | null;
 /** A raid being fought, step by step: what the bot runs a room's fight with (each page runs its own, with the same inputs). */
 export interface LiveRaid {
     /** Steps taken so far, and how the raid ended (null: it hasn't). */
@@ -249,8 +271,100 @@ export interface LiveRaid {
     /** Whether each hero's Auto is on, and what each hero's blows have taken of the boss, by its place in the run. */
     autos(): boolean[];
     dealt(): number[];
+    /** A karma dungeon's waves cleared and Karma Gauge so far (null: the raid is none). */
+    karma(): KarmaOutcome | null;
 }
 /** A raid ready to be fought (a string: why the run makes no sense). */
 export declare function startRaid(run: Run): LiveRaid | string;
 /** Plays a raid over with the page's inputs (and, to say where it parts from the page's, its checksums). */
 export declare function replay(run: Run, rawInputs: unknown, pageSums?: readonly number[]): Replay;
+export type DivineGroup = 'apocalypsion' | 'solenis';
+/** A side boss (a dragon, a mid-boss), a group's final boss, or its karma dungeon. */
+export type DivineKind = 'side' | 'final' | 'karma';
+/** A Divine Punishment boss: its id (a Run's boss), name, group and kind, and how long its raid lasts (seconds: a karma dungeon's before its 10 of rage). */
+export interface DivineBossInfo {
+    id: string;
+    name: string;
+    group: DivineGroup;
+    kind: DivineKind;
+    time: number;
+}
+/** Every Divine Punishment boss: Apocalypsion's four dragons and her, Solenis' two mid-bosses and her, and the two karma dungeons. */
+export declare const DIVINE_INFO: readonly DivineBossInfo[];
+/** The highest Infinite level the sim has numbers for. */
+export declare const DIVINE_LEVELS: number;
+/**
+ * A Divine Punishment run: its group (the boss's); its Infinite level (a boss dungeon's, 1 to DIVINE_LEVELS: the Run's stage too;
+ * a karma dungeon has none); the side bosses cleared this opening (a final boss's: their ids, Apocalypsion's dragons two at most);
+ * the Full Shards brought (a boss dungeon's, of its group's: their tier and how many) and the Empty Shards (a karma dungeon's,
+ * tier 2 to 5: tier 1 is free and unlimited, as none).
+ */
+export interface DivineRun {
+    group: DivineGroup;
+    level?: number;
+    cleared?: readonly string[];
+    shard?: {
+        tier: 1 | 2 | 3 | 4 | 5;
+        count: number;
+    } | null;
+    empty?: {
+        tier: 2 | 3 | 4 | 5;
+        count: number;
+    } | null;
+}
+/**
+ * The most steps a run can take: MOST_TICKS for the TechnoMagic Raid and the Dragon Raid; a Divine Punishment boss's, its own
+ * time and rage (Armarta's 600 seconds, Luciteron's 120 and none), and a karma dungeon's with its card picks besides (the fight
+ * stands still while the heroes pick: as many as its most waves). Its inputs are read up to it (readInputs), and a replay goes on
+ * to it.
+ */
+export declare function mostTicks(run: Pick<Run, 'boss'>): number;
+/** How a karma run went: the waves cleared, and the Karma Gauge's points. */
+export interface KarmaOutcome {
+    waves: number;
+    gauge: number;
+}
+/** What a karma run's gauge fills: the Empty Shards brought used up, and the Full Shards made, by tier. */
+export interface ShardFill {
+    empty: number;
+    full: Record<1 | 2 | 3 | 4 | 5, number>;
+}
+/** Each tier's Empty Shard's FlaskGauge (ShardFlaskItemTable, both groups alike): the gauge points that fill one. */
+export declare const SHARD_GAUGE: Readonly<Record<1 | 2 | 3 | 4 | 5, number>>;
+/**
+ * What a karma run's gauge fills, as King's Raid's PunishmentHelper.GetFullFlask has it: the Empty Shards brought (a tier 2 to 5)
+ * first, as many as the gauge fills (floor(gauge / its FlaskGauge)) and no more than were brought; the rest into free Tier 1
+ * Shards, 500 each. As the game's: one brought that the gauge fills none of gives nothing at all, not even Tier 1 Shards (its
+ * `selectedFullFlaksCount <= 0` return; its AnyFlaskCollected counts that run as failed too).
+ */
+export declare function fillShards(gauge: number, empty: DivineRun['empty']): ShardFill;
+/** A Rune of Blasphemy's extra skill for a class group: its id (RunHero.blasphemy's skill), its rolled value's range, and King's Raid's words, {v} for the value. */
+export interface BlasphemyLine {
+    skill: string;
+    min: number;
+    max: number;
+    text: string;
+}
+/**
+ * A Rune of Blasphemy (./gear/blasphemy.ts: King's Raid's PunishmentRuneTable): its id, KR code and name; the group whose Blood
+ * crafts it; its socket (a unique weapon's Doh, Laz, Geb; an armor's Oth; a secondary's Ans); its colour; the Legendary rune
+ * it is crafted from (KR_RUNES' id: its main option's stat); its main option (a gear stat, its share from min to max); its three
+ * lines (Warrior and Knight; Archer, Assassin and Mechanic; Wizard and Priest); its icon (its code: not cut yet).
+ */
+export interface BlasphemyRuneData {
+    id: string;
+    code: string;
+    name: string;
+    group: DivineGroup;
+    socket: 'doh' | 'laz' | 'geb' | 'oth' | 'ans';
+    color: string;
+    legend: string;
+    main: {
+        stat: string;
+        min: number;
+        max: number;
+    };
+    lines: readonly [BlasphemyLine, BlasphemyLine, BlasphemyLine];
+    icon: string;
+}
+export declare const KR_BLASPHEMY: readonly BlasphemyRuneData[];

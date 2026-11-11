@@ -1,7 +1,7 @@
 import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { replay, startRaid, type LiveRaid, type Run } from '../../../../vendor/technomagic-sim.mjs';
+import { replay, startRaid, type KarmaOutcome, type LiveRaid, type Run } from '../../../../vendor/technomagic-sim.mjs';
 import type { TurnInput } from './protocol.js';
 
 /*
@@ -28,6 +28,8 @@ export interface Progress {
   result: 'won' | 'lost' | null;
   inputs: TurnInput[];
   sums: number[];
+  /** A Divine Punishment karma run that ended: its waves cleared and Karma Gauge (the sim's; left out: not one, or not over). */
+  karma?: KarmaOutcome | null;
 }
 
 /** A fight being run. */
@@ -69,7 +71,9 @@ export class FightRunner {
     }
     const sums = this.raid.sums.slice(this.summed);
     this.summed = this.raid.sums.length;
-    return { tick: this.raid.tick, result: this.raid.result, inputs, sums };
+    // (Over: a karma run's outcome, from a sim that keeps one.)
+    const karma = this.raid.result && typeof this.raid.karma === 'function' ? this.raid.karma() : null;
+    return { tick: this.raid.tick, result: this.raid.result, inputs, sums, ...(karma && { karma }) };
   }
 
   /** What is waiting, as the raid takes it before its next step: each Auto worked out by how the presses before it leave it. */

@@ -8,6 +8,7 @@ import type { OutfitStore } from './models/outfits.js';
 import type { HeroOutfitStore } from './models/hero-outfits.js';
 import type { TmBatchStore } from './models/tm-batches.js';
 import type { RaidShopStore } from './models/raid-shop.js';
+import type { DivineStore } from './models/divine.js';
 import type { exchangeCode } from './auth/login.js';
 import { signedIn } from './middleware/auth.js';
 import { compressJson } from './middleware/compress.js';
@@ -32,6 +33,7 @@ import { raidShopRoutes } from './routes/raid-shop.js';
 import { publicRoutes } from './routes/public.js';
 import { raidRoutes } from './routes/raid.js';
 import { raidRoomRoutes } from './routes/raid-rooms.js';
+import { divineRoutes } from './routes/divine.js';
 
 export type { GearMembers } from './services/gear.js';
 export type { Leaderboard, Live } from './services/live.js';
@@ -97,6 +99,16 @@ export type { Me } from './services/login.js';
  *   POST /api/raid-shop/craft {guild, count, recipe?}   crafts komaGems (recipe 'gem', the default) or Unique Weapon / Unique Treasure Tickets ('uw', 'ut') from komaDust: RaidShopView
  *   POST /api/raid-shop/use {guild, of, hero, skill?}   uses a ticket held for that hero's unique weapon ('uw') or unique treasure ('ut', its skill 1–4): RaidShopUsed
  *   GET  /api/admin/settings   every one of the bot's settings, for the admin page (the bot admin only): SettingsView (protocol/admin.ts)
+ *   GET  /api/divine?guild=…   King's Raid's Divine Punishment Raid: the member's openings, counters, shop, crafting and Runes of Blasphemy: DivineView (models/divine.ts)
+ *   POST /api/divine/open {guild, group, type, level?}   unlocks a group's boss dungeons at an Infinite level, or a Karma run, for zeiucoins: DivineView
+ *   POST /api/divine/reset {guild, group}   closes a group's boss opening (King's Raid's ResetPunishmentRaid): DivineView
+ *   POST /api/divine/void {guild, socket, count?}   buys Runes of Void: DivineView
+ *   POST /api/divine/artifact {guild, fragment}   crafts a fragment's artifact: DivineView & { crafted }
+ *   POST /api/divine/ticket {guild, of, hero, skill?}   uses a Unique Gear Ticket on a unique weapon or treasure: DivineView & { given }
+ *   POST /api/divine/blasphemy/craft {guild, rune, ingredients}   crafts a Rune of Blasphemy: DivineView & { crafted }
+ *   POST /api/divine/blasphemy/break {guild, id} or {guild, copy, socket}   breaks one for Rune Fragments: DivineView & { gained }
+ *   POST /api/divine/blasphemy/extend {guild}   more Rune of Blasphemy storage: DivineView
+ *   POST /api/divine/blasphemy/socket {guild, copy, socket, id}   / unsocket {guild, copy, socket}   puts one in a socket, or keeps it out of one: DivineView
  *   POST /api/admin/settings {changes}   changes some of them at once, as the config command would (all or none): SettingsSaved
  *
  * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
@@ -151,6 +163,8 @@ export interface ApiDeps {
   dragon?: { announce: (guildId: string, host: string, boss: string, room: string) => void };
   /** The raid shop (the database's, unless a test says otherwise). */
   raidShop?: RaidShopStore;
+  /** The Divine Punishment Raid's page (the database's, unless a test says otherwise). */
+  divine?: DivineStore;
   /** Changing the bot's settings, for the admin page (services/settings.ts's, unless a test says otherwise). */
   settings?: SettingsStore;
   login?: typeof exchangeCode;
@@ -183,6 +197,7 @@ export function createApi(deps: ApiDeps): Express {
     .use('/raid-shop', raidShopRoutes(deps))
     .use('/raid', raidRoutes(deps))
     .use('/raid-rooms', raidRoomRoutes(deps))
+    .use('/divine', divineRoutes(deps))
     .use('/admin', adminRoutes(deps))
     // Nothing else is there (once they've logged in).
     .use(signedIn(deps), notFound);

@@ -13,6 +13,7 @@ import { fmt, formatPercent } from '../format.js';
 import type { GearPiece } from './items/equipment.js';
 import { refineLevel } from './items/refine-share.js';
 import { tmPerkStats, uniqueTreasureText, uniqueWeaponText } from '../../../vendor/technomagic-sim.mjs';
+import { blasphemyLines, blasphemyLookup, blasphemyMain, isBlasphemyRef, KR_BLASPHEMY, type BlasphemyLookup, type BlasphemyRuneData } from './divine.js';
 import { HERO_PART_NAME, HERO_SLOT_PART, SIDE_SLOTS, type HeroPart } from '../../protocol/heroes.js';
 import { HERO_STAT_IDS, type HeroBonus, type HeroStat } from '../../protocol/heroes.js';
 import type { MainStat } from '../../protocol/items.js';
@@ -175,7 +176,15 @@ export const worksOn = (item: ItemDef, heroClass: RaidClassId): boolean => (item
  * One piece a hero wears: and a unique treasure's options (ItemCopyDoc.tmPotentials); King's Raid's gear's options and the
  * runes in its sockets (a unique weapon's runes too); and (`main`) whether it is the hero's main treasure.
  */
-export type HeroPiece = GearPiece & { potentials?: readonly TmPotential[]; options?: readonly KrOption[]; runes?: readonly (string | null)[]; main?: boolean; reclaimed?: boolean };
+export type HeroPiece = GearPiece & {
+  potentials?: readonly TmPotential[];
+  options?: readonly KrOption[];
+  runes?: readonly (string | null)[];
+  main?: boolean;
+  reclaimed?: boolean;
+  /** What the Runes of Blasphemy in its sockets give (their main stats, by stat: lib/game/divine.ts blasphemyMain; `runes` has them as `bl:<id>`). */
+  blasphemy?: Partial<Record<HeroStat, number>>;
+};
 
 /** How much of a stat as its line says it: a share (a percent), or flat as it is. */
 const amount = (stat: HeroStat, value: number): string => (HERO_STATS[stat].flat ? fmt(Math.round(value)) : formatPercent(value));
@@ -198,11 +207,14 @@ export function copyMainStat(item: ItemDef, copy: Partial<Pick<ItemCopyDoc, 'tmA
 /** The class of the hero a unique weapon is for (undefined: not one, or of a hero that's gone). */
 export const uniqueClass = (item: ItemDef): RaidClassId | undefined => (item.uniqueWeapon === undefined ? undefined : HEROES.find((hero) => hero.id === item.uniqueWeapon)?.class);
 
-/** What the runes in a piece's sockets give, stat by stat (shares). */
-export function runeBonus(runes: readonly (string | null)[] | undefined): Partial<Record<HeroStat, number>> {
-  const out: Partial<Record<HeroStat, number>> = {};
+/**
+ * What the runes in a piece's sockets give, stat by stat (shares). A Rune of Blasphemy in one (`bl:<id>`) is the member's own copy,
+ * read from `blasphemy` (none given: it gives nothing here).
+ */
+export function runeBonus(runes: readonly (string | null)[] | undefined, blasphemy?: BlasphemyLookup): Partial<Record<HeroStat, number>> {
+  const out: Partial<Record<HeroStat, number>> = { ...blasphemyMain(runes, blasphemy) };
   for (const id of runes ?? []) {
-    const rune = id ? KR_RUNES_BY_ID.get(id) : undefined;
+    const rune = id && !isBlasphemyRef(id) ? KR_RUNES_BY_ID.get(id) : undefined;
     for (const [stat, value] of Object.entries(rune?.stats ?? {})) if (stat in HERO_STATS) out[stat as HeroStat] = (out[stat as HeroStat] ?? 0) + (value as number);
   }
   return out;
@@ -215,7 +227,7 @@ export const socketsOf = (item: ItemDef): number => (item.uniqueWeapon !== undef
  * What one piece gives a hero of `heroClass`, stat by stat (nothing from a piece not of its class); and, when `heroId` says
  * which hero, nothing from another hero's unique weapon or treasure. (Its set's bonuses are the hero's: heroSetBonus.)
  */
-export function pieceBonus({ item, level, potentials = [], options = [], runes = [], main = false, reclaimed = false }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
+export function pieceBonus({ item, level, potentials = [], options = [], runes = [], main = false, reclaimed = false, blasphemy }: HeroPiece, heroClass: RaidClassId, heroId?: string): HeroBonus {
   const out = noBonus();
   if (!worksOn(item, heroClass) || (heroId !== undefined && !wieldedBy(item, heroId))) return out;
   const owner = uniqueClass(item);
@@ -234,6 +246,8 @@ export function pieceBonus({ item, level, potentials = [], options = [], runes =
     for (const option of options) if (option.stat in out) out[option.stat as HeroStat] += krOptionValue(kr, option);
   }
   if (socketsOf(item) > 0) for (const [stat, value] of Object.entries(runeBonus(runes))) out[stat as HeroStat] += value;
+  // (Its Runes of Blasphemy's main stats, as runes' are.)
+  if (socketsOf(item) > 0) for (const [stat, value] of Object.entries(blasphemy ?? {})) out[stat as HeroStat] += value;
   return out;
 }
 
@@ -427,6 +441,8 @@ export interface RaidGear {
   ut: { skill: number; tier: number } | null;
   artifact: { id: string; tier: number } | null;
   skills: string[];
+  /** The line for its class of each Rune of Blasphemy its gear has socketed, with its rolled value (RunHero.blasphemy). */
+  blasphemy: { skill: string; value: number }[];
   /** The ids of the copies it wears that count (as the raid counts them). */
   copies: string[];
 }
@@ -446,9 +462,11 @@ export type RaidCopy = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'tmSkill' 
  * treasure only on its own hero, each unique treasure once (a second copy of one counts for nothing), and sub treasures
  * only under a main one that is a unique treasure (as the heroes page shows them).
  */
-export function raidGear(copies: readonly RaidCopy[], member: Pick<MemberDoc, 'heroes'> | null): Map<string, RaidGear> {
+export function raidGear(copies: readonly RaidCopy[], member: (Pick<MemberDoc, 'heroes'> & Partial<Pick<MemberDoc, 'blasphemy'>>) | null, blasphemyData: readonly BlasphemyRuneData[] = KR_BLASPHEMY): Map<string, RaidGear> {
   const owned = new Map(copies.map((copy) => [copy._id, copy]));
   const worn = heroWorn(member);
+  // (Their Runes of Blasphemy, which a copy's sockets name as `bl:<id>`: the sim's, unless a test says otherwise.)
+  const blasphemy = blasphemyLookup(member?.blasphemy, blasphemyData);
   const out = new Map<string, RaidGear>();
   for (const hero of HEROES) {
     const doc = member?.heroes?.[hero.id];
@@ -459,6 +477,7 @@ export function raidGear(copies: readonly RaidCopy[], member: Pick<MemberDoc, 'h
     let uw: number | null = null;
     let ut: RaidGear['ut'] = null;
     let artifact: RaidGear['artifact'] = null;
+    const lines: RaidGear['blasphemy'] = [];
     const treasures = new Set<string>();
     for (const slot of HERO_SLOTS) {
       const copy = owned.get(doc.equipment?.[slot] ?? '');
@@ -478,7 +497,10 @@ export function raidGear(copies: readonly RaidCopy[], member: Pick<MemberDoc, 'h
         ...(copy.runes && { runes: copy.runes }),
         ...(slot === 'treasure' && { main: true }),
         ...(copy.reclaimed && { reclaimed: true }),
+        ...(socketsOf(item) > 0 && copy.runes?.some(isBlasphemyRef) && { blasphemy: blasphemyMain(copy.runes, blasphemy) }),
       });
+      // (Its Runes of Blasphemy's lines for the hero's class: only on a piece that works on it, as its stats.)
+      if (socketsOf(item) > 0 && worksOn(item, hero.class)) lines.push(...blasphemyLines(copy.runes, blasphemy, hero.class));
       skilled.push({ item, ...(copy.tmSkill !== undefined && { skill: copy.tmSkill }) });
       counted.push(copy._id);
     }
@@ -490,6 +512,7 @@ export function raidGear(copies: readonly RaidCopy[], member: Pick<MemberDoc, 'h
       ut,
       artifact,
       skills: heroSkills(skilled, hero.class),
+      blasphemy: lines,
       copies: counted,
     });
   }

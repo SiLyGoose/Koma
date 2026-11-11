@@ -19,6 +19,9 @@ import { ensureMember, giveGems, newCopy } from './economy/index.js';
 import { loadAutoSalvage, salvageGives, salvagesDrop } from './items/salvage.js';
 import { recordLedger, type LedgerInput } from './economy/shared.js';
 import { wornSkin } from './hero-outfits.js';
+import { isDivine, type DivineRun, type KarmaOutcome } from '../lib/game/divine.js';
+import type { DivinePaid } from '../protocol/technomagic.js';
+import { abortDivine, enterDivine, finishDivine, type DivineAsk } from './divine.js';
 
 /*
  * TechnoMagic Raid runs in the database (the rules are lib/game/technomagic.ts's; the rooms they are fought
@@ -31,6 +34,8 @@ import { wornSkin } from './hero-outfits.js';
  * komaGems for each stage up to it they hadn't cleared before (DRAGON_GEMS). A drop of hero gear their salvage rule takes
  * (./items/salvage.ts) is salvaged for komaDust as it drops, in its place.
  * A dragon's run is in its Normal or Hard mode (TmRunDoc.mode), each with stages of its own, opened apart.
+ * The Divine Punishment Raid's runs too (their boss one of lib/game/divine.ts's): entering checks the opening and takes what it uses
+ * (services/divine.ts enterDivine), and a run over pays its rows (finishDivine), its stage the opening's Infinite level.
  */
 
 /** The heroes a member owns (that still exist), by id, with how far each is transcended (0 to TRANSCEND_MAX). */
@@ -63,6 +68,8 @@ export interface BegunRun {
   boss: string;
   mode?: RaidMode;
   seed: number;
+  /** A Divine Punishment run's part (services/divine.ts enterDivine: its group, level, side bosses cleared, shards brought). */
+  divine?: DivineRun;
   players: Map<
     string,
     {
@@ -76,20 +83,27 @@ export interface BegunRun {
       perks: Map<string, string[]>;
       /** The skin each of their heroes fights in: the outfit it wears (services/hero-outfits.ts), else its own look (0); missing: as picked. */
       skins?: Map<string, number>;
+      /** Each hero's Runes of Blasphemy's lines for its class (RunHero.blasphemy); missing: none. */
+      blasphemy?: Map<string, { skill: string; value: number }[]>;
     }
   >;
 }
 
 /**
  * Begins a room's run against `boss` (in `mode`) at `stage` for each of its players with their `heroes` (the lineup's): reads
- * what each owns and their gear, and keeps a run for each.
+ * what each owns and their gear, and keeps a run for each. A Divine Punishment boss's: each enters it first (`divine`: the shards
+ * they bring; services/divine.ts enterDivine, which throws a DivineRefusal when they can't), its stage the opening's level.
  */
-export async function beginRun(guildId: string, stage: number, players: readonly { userId: string; heroes: readonly { id: string; skin: number }[] }[], now: Date = new Date(), boss: string = TM_BOSS, mode: RaidMode = 'hard'): Promise<BegunRun> {
+export async function beginRun(guildId: string, stage: number, players: readonly { userId: string; heroes: readonly { id: string; skin: number }[] }[], now: Date = new Date(), boss: string = TM_BOSS, mode: RaidMode = 'hard', divine?: DivineAsk): Promise<BegunRun> {
   const { items, members, tmRuns } = collections();
   const run: BegunRun = { id: randomBytes(12).toString('base64url'), boss, mode, seed: randomBytes(4).readUInt32LE(0), players: new Map() };
   for (const { userId, heroes } of players) {
+    if (isDivine(boss)) {
+      run.divine = await enterDivine(guildId, userId, boss, divine ?? {}, now);
+      stage = run.divine.level ?? 1;
+    }
     const [member, copies] = await Promise.all([
-      members.findOne({ guildId, userId }, { projection: { heroes: 1 } }),
+      members.findOne({ guildId, userId }, { projection: { heroes: 1, blasphemy: 1 } }),
       items.find({ guildId, userId }).toArray(),
     ]);
     const owned = new Set(Object.keys(member?.heroes ?? {}).filter((id) => HEROES_BY_ID.has(id)));
@@ -104,7 +118,8 @@ export async function beginRun(guildId: string, stage: number, players: readonly
     const perks = new Map([...owned].map((id) => [id, keptPerks(member?.heroes?.[id]?.perks, member?.heroes?.[id]?.transcend, member?.heroes?.[id]?.scrollTp)]));
     // Each in the outfit it wears (whatever skin the page asked for).
     const skins = new Map([...owned].map((id) => [id, wornSkin(id, member?.heroes?.[id])]));
-    run.players.set(userId, { owned, gear, sets, uws, uts, artifacts, skills, perks, skins });
+    const blasphemy = new Map([...owned].map((id) => [id, loadouts.get(id)?.blasphemy ?? []]));
+    run.players.set(userId, { owned, gear, sets, uws, uts, artifacts, skills, perks, skins, blasphemy });
     const doc: TmRunDoc = {
       _id: `${run.id}:${userId}`,
       run: run.id,
@@ -117,6 +132,7 @@ export async function beginRun(guildId: string, stage: number, players: readonly
       heroes: heroes.filter((hero) => owned.has(hero.id)).map((hero) => ({ ...hero, skin: skins.get(hero.id) ?? 0, gear: gear.get(hero.id) ?? {}, set: sets.get(hero.id) ?? null, uw: uws.get(hero.id) ?? null, ut: uts.get(hero.id) ?? null, artifact: artifacts.get(hero.id) ?? null, skills: skills.get(hero.id) ?? [], perks: perks.get(hero.id) ?? [] })),
       version: SIM_VERSION,
       startedAt: now,
+      ...(run.divine && { divine: { group: run.divine.group, ...(run.divine.level !== undefined && { level: run.divine.level }), ...(run.divine.cleared && { cleared: [...run.divine.cleared] }), shard: run.divine.shard ?? null, empty: run.divine.empty ?? null } }),
     };
     await tmRuns.insertOne(doc);
   }
@@ -161,6 +177,8 @@ export interface TmWin {
   /** The TechnoMagic Raid's Technomagic Experiment Reports (now and then, from stage 4): how many. */
   reports?: number;
   firstClears?: number;
+  /** A Divine Punishment run's: what it gave (services/divine.ts finishDivine). */
+  divine?: DivinePaid;
 }
 
 /**
@@ -228,9 +246,11 @@ function grantWin(guildId: string, userId: string, grant: Grant, runes: readonly
 /**
  * A room's run is over (`result`, after `ticks` steps): a win at `stage` pays each of its players (payTmWin, or a dragon's:
  * payDragonWin); those who left it (`forfeited`) get nothing. `boxed` (a background raid's: ./tm-batches.ts): a win pays only
- * its first clears' komaGems (payFirstClears), the rest its Dispatch Battle Loot's (./loot-boxes.ts). Returns what each got.
+ * its first clears' komaGems (payFirstClears), the rest its Dispatch Battle Loot's (./loot-boxes.ts). A Divine Punishment run's
+ * is services/divine.ts finishDivine's, won or lost (a karma run's Empty Shards come back as they didn't fill; `karma` its outcome).
+ * Returns what each got.
  */
-export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string> = new Set(), now: Date = new Date(), boxed = false): Promise<Map<string, TmWin>> {
+export async function finishRun(guildId: string, run: BegunRun, stage: number, result: 'won' | 'lost', ticks: number, forfeited: ReadonlySet<string> = new Set(), now: Date = new Date(), boxed = false, karma: KarmaOutcome | null = null): Promise<Map<string, TmWin>> {
   const found = new Map<string, TmWin>();
   const dragon = isDragon(run.boss);
   for (const userId of run.players.keys()) {
@@ -238,7 +258,10 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
     const paid = result === 'won' && !forfeited.has(userId);
     // (The classes of the heroes they brought: whose Upgrade Stones a TechnoMagic Raid win gives.)
     const classes = [...new Set([...(run.players.get(userId)?.gear.keys() ?? [])].flatMap((id) => HEROES_BY_ID.get(id)?.class ?? []))];
-    const won: TmWin = !paid
+    const divine = run.divine && isDivine(run.boss) ? await finishDivine(guildId, userId, run.boss, run.divine, paid, karma, now) : null;
+    const won: TmWin = divine
+      ? { finds: [], points: 0, divine, ...(divine.runes && { runes: divine.runes }) }
+      : !paid
       ? { finds: [], points: 0 }
       : boxed
         ? await payFirstClears(guildId, userId, run.boss, stage, run.mode)
@@ -248,10 +271,18 @@ export async function finishRun(guildId: string, run: BegunRun, stage: number, r
     found.set(userId, won);
     await collections().tmRuns.updateOne(
       { _id: `${run.id}:${userId}` },
-      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, drops: won.finds.filter((find) => find.salvaged === undefined).map(({ item }) => item.id), ...(won.finds.some((find) => find.salvaged !== undefined) && { salvaged: won.finds.flatMap((find) => (find.salvaged === undefined ? [] : [find.item.id])) }), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }), ...(won.gems && { gems: won.gems }) } },
+      { $set: { claimedAt: now, result: forfeited.has(userId) ? 'lost' : result, ticks, ...(divine?.karma && { 'divine.karma': divine.karma }), drops: won.finds.filter((find) => find.salvaged === undefined).map(({ item }) => item.id), ...(won.finds.some((find) => find.salvaged !== undefined) && { salvaged: won.finds.flatMap((find) => (find.salvaged === undefined ? [] : [find.item.id])) }), ...(won.runes && { runes: won.runes }), ...(won.essences && { essences: won.essences }), ...(won.gems && { gems: won.gems }) } },
     );
   }
   return found;
+}
+
+/** A run begun that was never fought (the sim refused it): a Divine Punishment run's entry given back (services/divine.ts abortDivine), and each kept run marked lost. */
+export async function abortRun(guildId: string, run: BegunRun, now: Date = new Date()): Promise<void> {
+  for (const userId of run.players.keys()) {
+    if (run.divine) await abortDivine(guildId, userId, run.boss, run.divine);
+    await collections().tmRuns.updateOne({ _id: `${run.id}:${userId}` }, { $set: { claimedAt: now, result: 'lost', ticks: 0 } });
+  }
 }
 
 /**
