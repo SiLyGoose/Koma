@@ -4,10 +4,10 @@ import { LOOT_BOXES, LOOT_BOXES_BY_ID } from '../../data/loot-boxes.js';
 import { LOOT_OPEN_MOST, openLootBoxes } from '../../services/loot-boxes.js';
 import { DRAGONS } from '../../lib/game/dragon.js';
 import { TM_BOSSES } from '../../lib/game/technomagic.js';
-import { CONFIG } from '../../config.js';
+import { CONFIG, rerollPrice } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
-import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, rerollPrice, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
+import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
 import { activePerkPage, ESSENCES, keptPerks, PERK_PAGES_MAX, perkPageCount, perkPagePrice, scrollPoints, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
 import { collections } from '../../db.js';
 import {
@@ -47,7 +47,7 @@ import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.j
 import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
-import { potentialStep, UT_ENHANCE, UT_REROLL } from '../../data/tm-potentials.js';
+import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
 import { wornSkin } from '../../services/hero-outfits.js';
 import { buyHeroLoadout, equipHeroLoadout, nameHeroLoadout, resetHeroLoadout, saveHeroLoadout } from '../../services/hero-loadouts.js';
 import { heroLoadoutViews, nextHeroLoadoutPrice } from '../../lib/game/hero-loadouts.js';
@@ -192,7 +192,7 @@ const HERO_STAT_IDS_SET: ReadonlySet<string> = new Set(HERO_STAT_IDS);
 
 /**
  * A copy's options as the page shows them: a unique treasure's, its potentials, each so many steps of its range's
- * (potentialStep: an enhance's), rerolled for UT_REROLL's points.
+ * (potentialStep: an enhance's), rerolled for the config's hero.rerollPrice points, as any hero gear's.
  */
 function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
   if (item.uniqueTreasure) {
@@ -202,7 +202,7 @@ function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
       if (!range || !line) return [];
       const size = potentialStep(range);
       const steps = Math.round((range.max - range.min) / size);
-      return [{ stat: potential.stat, line, step: Math.min(steps, Math.max(0, Math.round((potential.value - range.min) / size))), steps, price: UT_REROLL.price }];
+      return [{ stat: potential.stat, line, step: Math.min(steps, Math.max(0, Math.round((potential.value - range.min) / size))), steps, price: rerollPrice() }];
     });
   }
   const kr = item.kr;
@@ -213,7 +213,7 @@ function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
     step: option.step,
     steps: poolOption(kr.pool, option.stat)?.steps ?? 0,
     // (A TechnoMagic piece's: its set's Boss Crystals.)
-    price: isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice(option.rerolls ?? 0),
+    price: isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice(),
   }));
 }
 
@@ -235,7 +235,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
   const options = copy.options ?? [];
   const pool = kr?.pool ? KR_POOLS[kr.pool] : undefined;
   return {
-    reroll: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? UT_REROLL.price : null) : kr && pool && options.length > 0 ? (isTmPiece(item) ? TM_CRYSTALS.reroll : Math.min(...options.map((option) => rerollPrice(option.rerolls ?? 0)))) : null,
+    reroll: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? rerollPrice() : null) : kr && pool && options.length > 0 ? (isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice()) : null,
     // (In komaGems.)
     rerollUnique: kr?.unique ? UNIQUE_REROLL_GEMS : null,
     // (Enhancing rolls an amount again, so a copy with options always can, at their top or not; a unique treasure's too.)

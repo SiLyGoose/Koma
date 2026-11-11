@@ -26,12 +26,11 @@ export const UT_OPTION_LINES = 2;
  */
 export const UT_ENHANCE = { price: 1_152 } as const;
 
-/**
+/*
  * Rerolling a unique treasure's option (POST /api/heroes/reroll): the one picked rolled again into another potential (none
- * its other option has, nor the one it was), at an amount anywhere in its range, for `price` points. It waits beside the one
- * it has for the member to keep one (ItemCopyDoc.potentialPending). The price is my default (King's Raid's treasures had none).
+ * its other option has, nor the one it was), at an amount anywhere in its range, for the config's hero.rerollPrice points
+ * (config.ts's rerollPrice, as any hero gear's). It waits beside the one it has for the member to keep one (ItemCopyDoc.potentialPending).
  */
-export const UT_REROLL = { price: 2_000 } as const;
 
 /** Every potential, in the order they're listed (King's Raid's), with its name: a copy's lines', the settings' and the databank's (the user's). */
 export const TM_POTENTIALS: readonly { id: TmPotentialId; name: string }[] = [

@@ -4,11 +4,12 @@ import { isTmPiece } from '../data/kr-gear.js';
 import { starsOf } from '../lib/game/items/refine-share.js';
 import { gearChanged } from './items/gear-events.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { KR_RUNES_BY_ID, rerollKrOption, rerollPrice, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
+import { rerollPrice } from '../config.js';
+import { KR_RUNES_BY_ID, rerollKrOption, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
 import { enhanceUtOptions, rerollUtOption, rollTmSkill } from '../lib/game/technomagic.js';
-import { UT_ENHANCE, UT_REROLL } from '../data/tm-potentials.js';
+import { UT_ENHANCE } from '../data/tm-potentials.js';
 import type { HeroKeep, HeroOptionError, HeroRestoreError, HeroRuneError } from '../protocol/heroes.js';
 import type { ItemCopyDoc, ItemDef } from '../types.js';
 import { recordLedger } from './economy/shared.js';
@@ -19,7 +20,7 @@ import { socketBlasphemy, unsocketBlasphemy } from './divine.js';
 /*
  * King's Raid's hero gear in the database (the rules are data/kr-gear.ts's): runes put in a copy's sockets and taken out
  * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out for RUNE_KEEP_PRICE points), and a copy's options rerolled
- * or their amounts rolled again (enhanced) for points (King's Raid's gem prices: data/kr-gear.ts's REROLL_PRICES and UPGRADE_PRICES). Each spends first,
+ * or their amounts rolled again (enhanced) for points (a reroll: the config's hero.rerollPrice; an enhance: data/kr-gear.ts's UPGRADE_PRICES). Each spends first,
  * then changes the copy only as it was (its options as read): anything else changed it meanwhile, it is paid back.
  * A Rune of Blasphemy in a socket (`bl:<id>`, the member's own copy: services/divine.ts) goes in and out through services/divine.ts:
  * one named here is handed over to it, and one in the way is kept in its storage (its own keep price).
@@ -173,31 +174,32 @@ export async function restoreTmPiece(guildId: string, userId: string, copyId: st
 }
 
 /**
- * Rerolls one of a copy's options (its `index`th, from 0), for points, the price climbing with how many times that one was
- * rerolled (a TechnoMagic piece's: TM_CRYSTALS.reroll of its set's Boss Crystals, King's Raid's; too few: 'no_crystals'); or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
+ * Rerolls one of a copy's options (its `index`th, from 0), for the config's hero.rerollPrice points, the same every time
+ * (a TechnoMagic piece's: TM_CRYSTALS.reroll of its set's Boss Crystals, King's Raid's; too few: 'no_crystals'); or (`index` 'unique') its unique option (TechnoMagic gear's additional skill), for UNIQUE_REROLL_GEMS komaGems
  * and TM_CRYSTALS.skillReroll of its set's Boss Crystals (too few: 'no_gems', 'no_crystals'): the skill rolled waits beside the one it has (tmSkillPending) for the member to pick one (keepTmSkill),
  * and till then it isn't rerolled again ('pending'). An option rolled waits the same (optionPending, keepOption: King's Raid's
  * Reforge keeps the old one or the new), and till then none of its options is rerolled or enhanced. A unique treasure's option
- * (one of its tmPotentials): another potential, for UT_REROLL's points, waiting the same (potentialPending).
+ * (one of its tmPotentials): another potential, for the same points, waiting the same (potentialPending).
  */
 export async function rerollOption(guildId: string, userId: string, copyId: string, index: number | 'unique', rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
   const copy = await items.findOne({ guildId, userId, _id: copyId });
   const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
-  // A unique treasure's option: another potential, for UT_REROLL's points, waiting beside the one it has (potentialPending).
+  // A unique treasure's option: another potential, for the reroll's points, waiting beside the one it has (potentialPending).
   if (copy && item?.uniqueTreasure) {
     if (index === 'unique') return { ok: false, reason: 'no_option' };
     const options = copy.tmPotentials ?? [];
     if (copy.potentialPending !== undefined) return { ok: false, reason: 'pending' };
     const rolled = rerollUtOption(options, index, rng);
     if (!rolled) return { ok: false, reason: 'no_option' };
-    if (!(await pay(guildId, userId, UT_REROLL.price))) return { ok: false, reason: 'too_poor' };
+    const cost = rerollPrice();
+    if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
     const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options, potentialPending: { $exists: false } }, { $set: { potentialPending: { index, option: rolled } } });
     if (done.modifiedCount === 0) {
-      await refund(guildId, userId, UT_REROLL.price);
+      await refund(guildId, userId, cost);
       return { ok: false, reason: 'busy' };
     }
-    await recordLedger([{ guildId, userId, delta: -UT_REROLL.price, reason: 'kr_reroll', itemId: item.id }]);
+    await recordLedger([{ guildId, userId, delta: -cost, reason: 'kr_reroll', itemId: item.id }]);
     return { ok: true };
   }
   const kr = item?.kr;
@@ -254,7 +256,7 @@ export async function rerollOption(guildId: string, userId: string, copyId: stri
     }
     return { ok: true };
   }
-  const cost = rerollPrice(old.rerolls ?? 0);
+  const cost = rerollPrice();
   if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
   const done = await items.updateOne(unchanged, pending);
   if (done.modifiedCount === 0) {

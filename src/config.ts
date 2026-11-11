@@ -380,6 +380,8 @@ export interface Settings {
     perkPage3Price: number;
     /** What each hero gear loadout past the free ones costs (services/hero-loadouts.ts buyHeroLoadout: King's Raid's Gear Custom slots). */
     loadoutPrice: number;
+    /** What Reroll Substats costs, in points, the same every time (rerollPrice): any hero gear's but a TechnoMagic piece's (Boss Crystals). */
+    rerollPrice: number;
     backgroundPrice: number;
     winPoints: number;
     potentials: Record<TmPotentialId, { min: number; max: number }>;
@@ -578,7 +580,7 @@ export const DEFAULTS: Readonly<Settings> = {
     },
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, outfitPrice: 5_000, honorOutfitPrice: 10_000, brilliantOutfitPrice: 15_000, glaringOutfitPrice: 20_000, legendOutfitPrice: 25_000, perkPage2Price: 5_000, perkPage3Price: 10_000, loadoutPrice: 5_000, backgroundPrice: 100, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  hero: { price: 25_000, outfitPrice: 5_000, honorOutfitPrice: 10_000, brilliantOutfitPrice: 15_000, glaringOutfitPrice: 20_000, legendOutfitPrice: 25_000, perkPage2Price: 5_000, perkPage3Price: 10_000, loadoutPrice: 5_000, rerollPrice: 500, backgroundPrice: 100, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
   // A Dragon Raid win: 750 at stage 1 up to 3,000 at stage 10, and 8 up to 44 of each of its dragon's two essences.
   dragon: { winPoints: 750, pointsPerStage: 250, essences: 8, essencesPerStage: 4 },
   skip: { claim: 300 },
@@ -596,6 +598,12 @@ export const DEFAULTS: Readonly<Settings> = {
  * need them instead of caching them.
  */
 export const CONFIG: Settings = structuredClone(DEFAULTS);
+
+/**
+ * What rerolling one of a hero gear copy's substats costs in points (the forge's Reroll Substats): the config's
+ * hero.rerollPrice, the same every time. A dragon set's piece and a unique treasure alike; a TechnoMagic piece takes Boss Crystals.
+ */
+export const rerollPrice = (): number => Math.max(0, Math.floor(CONFIG.hero.rerollPrice));
 
 export function validateConfig(): void {
   if (!STARS.includes(PITY_STARS)) throw new Error(`PITY_STARS (${PITY_STARS}) must be one of ${STARS.join(', ')}`);

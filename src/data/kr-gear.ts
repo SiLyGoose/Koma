@@ -226,12 +226,7 @@ export function upgradeKrOption(kr: KrItem, options: readonly KrOption[], index:
 /** Whether a copy's options can be upgraded at all (King's Raid's TechnoMagic gear's can't: only rerolled). */
 export const upgradable = (kr: KrItem): boolean => kr.options > 0;
 
-/**
- * What rerolling an option costs (points): King's Raid's gem prices for it, five points a gem, climbing with how many times it
- * was rerolled (the last price on and on). Its unique option: as its first reroll's, climbing the same.
- */
-export const REROLL_PRICES: readonly number[] = [500, 1_000, 2_000, 4_000, 6_000, 8_000];
-export const rerollPrice = (rerolls: number): number => REROLL_PRICES[Math.min(REROLL_PRICES.length - 1, Math.max(0, Math.floor(rerolls)))] as number;
+/* (What rerolling an option costs in points: the config's hero.rerollPrice, config.ts's rerollPrice.) */
 
 /**
  * What enhancing an option (rolling its amount again) costs (points): a dragon set's piece by its tier, King's Raid's materials for it

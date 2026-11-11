@@ -21,7 +21,6 @@ import { signSession } from '../src/web/auth/login.js';
 import { signToken } from '../src/web/auth/token.js';
 import type { WebConfig } from '../src/web/config.js';
 import { heroesView, type HeroesView, type HeroStore } from '../src/web/models/heroes.js';
-import { UT_REROLL } from '../src/data/tm-potentials.js';
 import { rerollUtOption } from '../src/lib/game/technomagic.js';
 import type { MemberDoc } from '../src/types.js';
 
@@ -273,8 +272,8 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
   const cape = heroesView([{ _id: 'cape', itemId: 'cape-of-justice', level: 1, tmPotentials: [{ stat: 'atk', value: 0.07 }, { stat: 'defPhysical', value: 0.22 }] }], member).copies[0];
   assert.deepEqual(cape?.options.map(({ line, step, steps }) => [line, step, steps]), [['+7% ATK', 2, 7], ['+22% P. DEF', 11, 11]]);
   assert.equal(cape?.upgrade, 1_152);
-  assert.equal(cape?.reroll, UT_REROLL.price);
-  assert.deepEqual(cape?.options.map((option) => option.price), [UT_REROLL.price, UT_REROLL.price]);
+  assert.equal(cape?.reroll, 500, "rerolled for the config's hero.rerollPrice, as any hero gear's");
+  assert.deepEqual(cape?.options.map((option) => option.price), [500, 500]);
   assert.equal(cape?.rerolledOption, null);
   // Its rerolled option waits beside its own, as other gear's.
   const waiting = heroesView([{ _id: 'cape', itemId: 'cape-of-justice', level: 1, tmPotentials: [{ stat: 'atk', value: 0.07 }, { stat: 'defPhysical', value: 0.22 }], potentialPending: { index: 0, option: { stat: 'crit', value: 0.1 } } }], member).copies[0];
