@@ -188,20 +188,22 @@ test('friends: the hero a member walks the town as, else the first of theirs by 
   assert.equal(townHeroOf({ userId: 'u', heroes: ['nobody'], townHero: 'nobody' }), 'roi');
 });
 
-test('friends api: everyone in the server, those on the site first with what they do, the rest by name; members who left left out', async () => {
+test('friends api: everyone in the server with a hero, those on the site first with what they do, the rest by name; members who left left out', async () => {
   resetLive();
   playerJoined('mines', 'g', 'u1', 'ZEIU', page(), () => '100 on 3 💣').send({ t: 'state' });
+  // On the site but with no hero (never in the town): left out, as default Roi.
+  playerJoined('mines', 'g', 'u5', 'Pip', page(), () => '0 on 1 💣').send({ t: 'state' });
   const kept: string[] = [];
   const friends: ApiDeps['friends'] = {
     members: async () => [
       { userId: 'u1', heroes: ['kirze'], townHero: null },
       { userId: 'u3', heroes: ['kirze', 'klaus'], townHero: 'klaus' },
       { userId: 'u4', heroes: [], townHero: null },
-      { userId: 'gone', heroes: [], townHero: null },
+      { userId: 'gone', heroes: ['kirze'], townHero: null },
     ],
     townHero: async (guildId, userId, hero) => (kept.push(`${guildId} ${userId} ${hero}`), hero === 'kirze'),
   };
-  const names: Record<string, string> = { u2: 'INU', u3: 'mochi', u4: 'Bao' };
+  const names: Record<string, string> = { u2: 'INU', u3: 'mochi', u4: 'Bao', u5: 'Pip' };
   const session = signSession({ userId: 'u2', name: 'INU', avatar: null, guildIds: ['g'] }, 'shh');
   const headers = { Origin: SITE.origin, Authorization: `Bearer ${session}`, 'Content-Type': 'application/json' };
   await withApi(
@@ -214,7 +216,7 @@ test('friends api: everyone in the server, those on the site first with what the
           ['u1', 'ZEIU', 'kirze', 'mines'],
           // Asking is being on the site (the town), with no hero: Roi.
           ['u2', 'INU', 'roi', 'hub'],
-          ['u4', 'Bao', 'roi', null],
+          // u4 has no hero (default Roi): left out.
           ['u3', 'mochi', 'klaus', null],
         ],
       );

@@ -11,7 +11,7 @@ export interface FriendMember {
 }
 
 export interface FriendStore {
-  /** Everyone in a server the bot keeps anything for: who has heroes first, then the most points. At most `limit` of them. */
+  /** Everyone in a server with a hero: who has the most heroes first, then the most points. At most `limit` of them. */
   members: (guildId: string, limit: number) => Promise<FriendMember[]>;
   /** Keeps `hero` as the one they walk the town as: false when it isn't a hero they own. */
   townHero: (guildId: string, userId: string, hero: string) => Promise<boolean>;
@@ -25,6 +25,8 @@ export const friendStore: FriendStore = {
         // Only their heroes' ids, not the gear each wears.
         { $project: { _id: 0, userId: 1, points: 1, townHero: { $ifNull: ['$townHero', null] }, heroes: { $map: { input: { $objectToArray: { $ifNull: ['$heroes', {}] } }, in: '$$this.k' } } } },
         { $addFields: { owns: { $size: '$heroes' } } },
+        // (No hero: the friends list leaves them out, so they don't take up its places.)
+        { $match: { owns: { $gt: 0 } } },
         { $sort: { owns: -1, points: -1, userId: 1 } },
         { $limit: limit },
         { $project: { userId: 1, heroes: 1, townHero: 1 } },

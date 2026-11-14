@@ -26,6 +26,15 @@ export function townHeroOf(member: FriendMember | undefined): string {
   return owned[0]?.id ?? STARTER_HERO;
 }
 
+/**
+ * Whether the friends list shows them: only those with a hero of their own. Anyone with none would only stand there as the
+ * default Roi, not yet having been to the town (it gives Roi to whoever comes with no hero), so they're left out; the one
+ * asking is always shown.
+ */
+export function listedFriend(member: FriendMember | undefined): boolean {
+  return !!member && member.heroes.some((id) => HEROES_BY_ID.has(id));
+}
+
 export type LiveService = ReturnType<typeof liveService>;
 
 export function liveService(deps: ApiDeps) {
@@ -62,14 +71,15 @@ export function liveService(deps: ApiDeps) {
       };
     },
 
-    /** The friends list: everyone in the viewer's server the bot keeps anything for, those on the site first (the viewer among them). */
+    /** The friends list: everyone in the viewer's server with a hero (listedFriend), those on the site first (the viewer among them). */
     async friends(viewer: Player): Promise<Friends> {
       const { guildId } = viewer;
       const members = await friends.members(guildId, FRIENDS_MOST);
       const byId = new Map(members.map((member) => [member.userId, member]));
       const here = online(guildId);
       const onSite = new Set(here.map((p) => p.userId));
-      const on = here.map((p) => ({
+      const shown = (userId: string): boolean => userId === viewer.userId || listedFriend(byId.get(userId));
+      const on = here.filter((p) => shown(p.userId)).map((p) => ({
         userId: p.userId,
         name: p.name,
         avatar: avatarOf(guildId, p.userId),
@@ -79,7 +89,7 @@ export function liveService(deps: ApiDeps) {
       const off = (
         await Promise.all(
           members
-            .filter((member) => !onSite.has(member.userId))
+            .filter((member) => !onSite.has(member.userId) && shown(member.userId))
             .map(async (member) => {
               const name = member.userId === viewer.userId ? viewer.name : await nameOf(guildId, member.userId);
               return name === null ? null : { userId: member.userId, name, avatar: avatarOf(guildId, member.userId), hero: townHeroOf(member), online: null };

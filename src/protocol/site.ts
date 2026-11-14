@@ -33,8 +33,9 @@ export interface Live {
 }
 
 /**
- * The server's members who play with the bot (GET /api/friends): on the site now first (as /api/live has them, the
- * longest there first), then the rest by name. Each with the hero they walk v2's town as (POST /api/friends/hero), else
+ * The server's members who play with the bot and have a hero (GET /api/friends; those with none, who'd only stand there
+ * as the default Roi, left out, but for the one asking): on the site now first (as /api/live has them, the longest there
+ * first), then the rest by name. Each with the hero they walk v2's town as (POST /api/friends/hero), else
  * the first of theirs by name, else Roi (STARTER_HERO), as the town walks them.
  */
 export interface Friends {
