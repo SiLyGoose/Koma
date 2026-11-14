@@ -35,6 +35,13 @@ export function listedFriend(member: FriendMember | undefined): boolean {
   return !!member && member.heroes.some((id) => HEROES_BY_ID.has(id));
 }
 
+/**
+ * Whether the viewer can watch `userId` doing `activity`: only the games that can be watched (WATCHABLE, as POST /api/watch
+ * takes; the raids are joined as rooms instead, minesweeper and Codedle are one board for the whole server, and poker's cards
+ * are each player's own), and not themselves.
+ */
+const watchable = (activity: string, userId: string, viewer: Player): boolean => (WATCHABLE as readonly string[]).includes(activity) && userId !== viewer.userId;
+
 export type LiveService = ReturnType<typeof liveService>;
 
 export function liveService(deps: ApiDeps) {
@@ -64,9 +71,7 @@ export function liveService(deps: ApiDeps) {
         players: online(guildId).map((p) => ({
           ...p,
           avatar: deps.avatar?.(guildId, p.userId) ?? avatarUrl(p.userId, null),
-          // Only the games that can be watched (WATCHABLE, as POST /api/watch takes): the raids are joined as rooms instead,
-          // minesweeper and Codedle are one board for the whole server, and poker's cards are each player's own.
-          watchable: (WATCHABLE as readonly string[]).includes(p.activity) && p.userId !== viewer.userId,
+          watchable: watchable(p.activity, p.userId, viewer),
         })),
       };
     },
@@ -84,7 +89,7 @@ export function liveService(deps: ApiDeps) {
         name: p.name,
         avatar: avatarOf(guildId, p.userId),
         hero: townHeroOf(byId.get(p.userId)),
-        online: { activity: p.activity, status: p.status, since: p.since },
+        online: { activity: p.activity, status: p.status, since: p.since, watchable: watchable(p.activity, p.userId, viewer) },
       }));
       const off = (
         await Promise.all(

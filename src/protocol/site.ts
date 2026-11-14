@@ -47,8 +47,8 @@ export interface Friends {
     avatar: string;
     /** A hero's id (data/heroes.ts). */
     hero: string;
-    /** On the site now, and what they're doing; null: offline. */
-    online: { activity: 'hub' | Game; status: string; since: number } | null;
+    /** On the site now, and what they're doing (watchable: as /api/live says it, POST /api/watch takes it); null: offline. */
+    online: { activity: 'hub' | Game; status: string; since: number; watchable: boolean } | null;
   }[];
 }
 

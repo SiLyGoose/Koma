@@ -225,6 +225,8 @@ test('friends api: everyone in the server with a hero, those on the site first w
       assert.equal((await hero({ guild: 'g', hero: 'klaus' })).status, 404);
       assert.equal((await hero({ guild: 'other', hero: 'kirze' })).status, 403);
       assert.deepEqual(kept, ['g u2 kirze', 'g u2 klaus']);
+      // Watching: Mines can be, the town can't, nor can the one asking be.
+      assert.deepEqual(list.friends.map((f) => f.online?.watchable ?? null), [true, false, null]);
     },
     { friends, memberName: async (_g, userId) => names[userId] ?? null },
   );
