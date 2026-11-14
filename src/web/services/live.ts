@@ -6,7 +6,8 @@ import { ApiError } from '../lib/errors.js';
 import { hubSeen, isPlaying, online } from '../games/live.js';
 import { avatarUrl } from '../auth/login.js';
 import { signWatchToken, type Player } from '../auth/token.js';
-import { FRIENDS_MOST, WATCHABLE, type Friends, type Leaderboard, type Live, type WatchableGame } from '../../protocol/site.js';
+import { dragonRooms, technomagicRooms, type TechnoMagicRooms } from '../games/technomagic/room.js';
+import { FRIENDS_MOST, JOINABLE, WATCHABLE, type Friends, type Leaderboard, type Live, type WatchableGame } from '../../protocol/site.js';
 import { HEROES_BY_ID } from '../../data/heroes.js';
 import { STARTER_HERO } from '../../services/heroes.js';
 import { friendStore, type FriendMember } from '../models/friends.js';
@@ -37,14 +38,23 @@ export function listedFriend(member: FriendMember | undefined): boolean {
 
 /**
  * Whether the viewer can watch `userId` doing `activity`: only the games that can be watched (WATCHABLE, as POST /api/watch
- * takes; the raids are joined as rooms instead, minesweeper and Codedle are one board for the whole server, and poker's cards
- * are each player's own), and not themselves.
+ * takes: the raids among them; minesweeper and Codedle are one board for the whole server, and poker's cards are each
+ * player's own), and not themselves.
  */
 const watchable = (activity: string, userId: string, viewer: Player): boolean => (WATCHABLE as readonly string[]).includes(activity) && userId !== viewer.userId;
 
+/** Each joinable raid's rooms (the bot's own, unless a test says otherwise). */
+export type JoinRooms = Record<(typeof JOINABLE)[number], Pick<TechnoMagicRooms, 'joinableOf'>>;
+
+/** The raid `userId` is in, if the viewer could join it now (not their own: they're in it already). */
+function joinOf(rooms: JoinRooms, activity: string, guildId: string, userId: string, viewer: Player): { boss: string; room: string } | null {
+  if (userId === viewer.userId || !(JOINABLE as readonly string[]).includes(activity)) return null;
+  return rooms[activity as keyof JoinRooms].joinableOf(guildId, userId);
+}
+
 export type LiveService = ReturnType<typeof liveService>;
 
-export function liveService(deps: ApiDeps) {
+export function liveService(deps: ApiDeps, rooms: JoinRooms = { technomagic: technomagicRooms, dragon: dragonRooms }) {
   const friends = deps.friends ?? friendStore;
   /** Members found to have left a server, and when (by guild:user). */
   const gone = new Map<string, number>();
@@ -84,13 +94,16 @@ export function liveService(deps: ApiDeps) {
       const here = online(guildId);
       const onSite = new Set(here.map((p) => p.userId));
       const shown = (userId: string): boolean => userId === viewer.userId || listedFriend(byId.get(userId));
-      const on = here.filter((p) => shown(p.userId)).map((p) => ({
-        userId: p.userId,
-        name: p.name,
-        avatar: avatarOf(guildId, p.userId),
-        hero: townHeroOf(byId.get(p.userId)),
-        online: { activity: p.activity, status: p.status, since: p.since, watchable: watchable(p.activity, p.userId, viewer) },
-      }));
+      const on = here.filter((p) => shown(p.userId)).map((p) => {
+        const join = joinOf(rooms, p.activity, guildId, p.userId, viewer);
+        return {
+          userId: p.userId,
+          name: p.name,
+          avatar: avatarOf(guildId, p.userId),
+          hero: townHeroOf(byId.get(p.userId)),
+          online: { activity: p.activity, status: p.status, since: p.since, watchable: watchable(p.activity, p.userId, viewer), ...(join && { join }) },
+        };
+      });
       const off = (
         await Promise.all(
           members

@@ -1135,6 +1135,14 @@ export class TechnoMagicRoom {
       // (A Divine Punishment room's is always its opening's level.)
       if (this.raid.kind === 'divine') this.stage = this.unlocked();
     }
+    const state = this.stateOf();
+    for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id } });
+    this.keepLineup();
+  }
+
+  /** The room as every page is told it (but for whose page it is). */
+  private stateOf(): Omit<RoomState, 'you'> {
+    const host = this.host();
     const players = [...this.members.values()].map((member, i) => ({
       id: member.player.userId,
       name: member.player.name,
@@ -1168,8 +1176,25 @@ export class TechnoMagicRoom {
       over: this.over,
       ...(this.raid.kind === 'divine' && { divine: this.divineView() }),
     };
-    for (const [id, member] of this.members) member.peer?.send({ t: 'room', state: { ...state, you: id } });
-    this.keepLineup();
+    return state;
+  }
+
+  /**
+   * A watcher's page (`peer`) starts following `userId`'s raid: the room as theirs is told it (from you = them), what's been
+   * said in it, and the fight going on (or the one whose result is up) from its start, to run to where it is. From then on it
+   * is sent what their page is (web/games/live.ts).
+   */
+  showTo(userId: string, peer: Peer): void {
+    if (!this.members.has(userId)) return;
+    peer.send({ t: 'room', state: { ...this.stateOf(), you: userId } });
+    peer.send(this.chat.history());
+    const shown = this.fight ?? (this.phase === 'over' ? this.ended : null);
+    if (shown) this.showFight(peer, shown);
+  }
+
+  /** Whether another of the server's members could join it now: a raid (not anyone's own) getting ready, with room. */
+  get joinable(): boolean {
+    return this.id !== null && this.open;
   }
 }
 
@@ -1256,6 +1281,24 @@ export class TechnoMagicRooms {
   /** The rooms `userId` is in, in server `guildId`. */
   private roomsOf(guildId: string, userId: string): TechnoMagicRoom[] {
     return [...this.rooms.values()].filter((room) => room.guild === guildId && room.has(userId));
+  }
+
+  /** The room `userId`'s page is in, in `guildId` (null: none of the raid's). */
+  private roomWith(guildId: string, userId: string): TechnoMagicRoom | null {
+    return this.roomsOf(guildId, userId).find((room) => room.peerOf(userId) !== null) ?? null;
+  }
+
+  /** A watcher's page starts following `userId`'s raid in `guildId` (TechnoMagicRoom.showTo): false when they're in none. */
+  watch(guildId: string, userId: string, peer: Peer): boolean {
+    const room = this.roomWith(guildId, userId);
+    room?.showTo(userId, peer);
+    return room !== null;
+  }
+
+  /** The raid `userId` is in, in `guildId`, if others can join it now (getting ready, with room): its boss and id. */
+  joinableOf(guildId: string, userId: string): { boss: string; room: string } | null {
+    const room = this.roomWith(guildId, userId);
+    return room?.joinable && room.id !== null ? { boss: room.boss.id, room: room.id } : null;
   }
 
   /** Whether `userId` is fighting in one of the raid's rooms in `guildId` (or one is starting with them in it). */

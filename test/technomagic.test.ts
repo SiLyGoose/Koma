@@ -725,6 +725,49 @@ test('technomagic room: a page back after the fight is over, or whose run parted
   assert.ok(!later.got.some((m) => m.t === 'fight'));
 });
 
+test('technomagic room: a watcher follows a player’s raid, getting ready and mid-fight (the room as theirs, the fight from its start); a raid getting ready with room can be joined', async () => {
+  const h = harness();
+  const a = h.peer();
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  assert.deepEqual(parseClientMessage(JSON.stringify({ t: 'watch', token: 'w' })), { t: 'watch', token: 'w' });
+
+  // Getting ready: the room as a's page has it (you = a), and the raid can be joined.
+  const early = h.peer();
+  assert.equal(h.rooms.watch('g1', 'a', early), true);
+  assert.equal(early.room().you, 'a');
+  assert.equal(early.room().phase, 'prep');
+  assert.ok(!early.got.some((m) => m.t === 'fight'));
+  assert.deepEqual(h.rooms.joinableOf('g1', 'a'), { boss: room.boss.id, room: room.id });
+  assert.equal(h.rooms.watch('g1', 'nobody', h.peer()), false, 'not in a raid: nothing to follow');
+  assert.equal(h.rooms.joinableOf('g1', 'nobody'), null);
+
+  // Fighting: not to be joined; a watcher arriving now is given the fight so far, as a page back is.
+  h.rooms.join(h.player('b'), b, ALL);
+  room.pick('a', 'kirze', 0);
+  room.pick('b', 'klaus', 0);
+  room.ready('b', true);
+  assert.equal(await room.begin('a'), null);
+  room.autoAll('a');
+  await h.pass(500);
+  assert.equal(h.rooms.joinableOf('g1', 'a'), null, 'fighting: not to be joined');
+  const late = h.peer();
+  assert.equal(h.rooms.watch('g1', 'b', late), true);
+  assert.equal(late.room().you, 'b');
+  assert.equal(late.room().phase, 'fight');
+  const start = late.got.find((m) => m.t === 'fight');
+  const turn = late.got.find((m) => m.t === 'turn');
+  assert.ok(start?.t === 'fight' && turn?.t === 'turn');
+  assert.deepEqual(turn.inputs, a.got.flatMap((m) => (m.t === 'turn' ? m.inputs : [])));
+  assert.ok(turn.upTo > 0);
+
+  // A room of one's own is never to be joined, but can be watched.
+  const c = h.peer();
+  h.rooms.join(h.player('c'), c, ALL, 0, h.deps, true);
+  assert.equal(h.rooms.joinableOf('g1', 'c'), null);
+  assert.equal(h.rooms.watch('g1', 'c', h.peer()), true);
+});
+
 test('technomagic room: a player presses no more than a few times a turn (the rest dropped), so the fight\'s presses stay few', async () => {
   const h = harness();
   const a = h.peer();

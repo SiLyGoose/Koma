@@ -24,7 +24,7 @@ function shardPick<T extends number>(raw: unknown, tiers: readonly T[]): { tier:
   return tiers.includes(tier as T) && index(count, MOST_SHARDS + 1) && count >= 1 ? { tier: tier as T, count } : false;
 }
 
-/** Reads a message from the page. Null when it isn't a valid one. */
+/** Reads a message from the page (a watcher's first, `watch`, among them). Null when it isn't a valid one. */
 export function parseClientMessage(text: string): ClientMessage | null {
   let data: unknown;
   try {
@@ -46,6 +46,8 @@ export function parseClientMessage(text: string): ClientMessage | null {
         ...(typeof m.room === 'string' && { room: m.room }),
         ...(m.create === true && { create: true }),
       };
+    case 'watch':
+      return typeof m.token === 'string' && m.token.length <= 512 ? { t: 'watch', token: m.token } : null;
     case 'pick':
       if (!id(m.hero) || !index(m.skin, 64) || (m.sub !== undefined && typeof m.sub !== 'boolean')) return null;
       return m.sub ? { t: 'pick', hero: m.hero, skin: m.skin, sub: true } : { t: 'pick', hero: m.hero, skin: m.skin };

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { createApi, type ApiDeps, type Leaderboard, type Live } from '../src/web/api.js';
 import type { Friends } from '../src/protocol/site.js';
 import { signSession } from '../src/web/auth/login.js';
-import { townHeroOf } from '../src/web/services/live.js';
+import { liveService, townHeroOf } from '../src/web/services/live.js';
 import type { WebConfig } from '../src/web/config.js';
 import { addWatcher, HUB_TTL_MS, hubSeen, isPlaying, online, playerJoined, playerLeft, removeWatcher, resetLive, toWatchers, type LivePeer } from '../src/web/games/live.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken } from '../src/web/auth/token.js';
@@ -126,15 +126,17 @@ test('live api: a game page lists who is online with its own link, and gets a li
       live.players.map(({ userId, name, avatar, activity, status, watchable }) => ({ userId, name, avatar, activity, status, watchable })),
       [{ userId: 'u1', name: 'ZEIU', avatar: 'https://cdn/ZEIU.png', activity: 'mines', status: '100 on 3 💣 · 1.10x', watchable: true }],
     );
-    // Someone in a game that can't be watched (a raid, poker: /api/watch refuses it) has no Watch.
+    // Someone in a raid can be watched (getting ready and fighting); someone in poker can't (/api/watch refuses it).
     playerJoined('technomagic', 'g', 'u3', 'HXLON', page(), () => null).send({ t: 'state' });
     playerJoined('poker', 'g', 'u4', 'MOCHI', page(), () => null).send({ t: 'state' });
     const more = (await (await fetch(`${base}/api/live`, { headers })).json()) as Live;
     assert.deepEqual(
       more.players.map(({ userId, watchable }) => [userId, watchable]).sort(),
-      [['u1', true], ['u3', false], ['u4', false]],
+      [['u1', true], ['u3', true], ['u4', false]],
     );
-    assert.equal((await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'technomagic', target: 'u3' }) })).status, 400);
+    assert.equal((await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'poker', target: 'u4' }) })).status, 400);
+    const raid = await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'technomagic', target: 'u3' }) });
+    assert.ok(((await raid.json()) as { url: string }).url.startsWith('https://site/'));
     const watch = await fetch(`${base}/api/watch`, { method: 'POST', headers, body: JSON.stringify({ game: 'mines', target: 'u1' }) });
     const { url } = (await watch.json()) as { url: string };
     assert.ok(url.startsWith('https://site/games/mines/#w='));
@@ -230,4 +232,33 @@ test('friends api: everyone in the server with a hero, those on the site first w
     },
     { friends, memberName: async (_g, userId) => names[userId] ?? null },
   );
+});
+
+test('friends: someone in a raid can be watched, and joined while their raid is getting ready with room (not a room of their own, nor the Divine Punishment Raid)', async () => {
+  resetLive();
+  playerJoined('technomagic', 'g', 'u1', 'ZEIU', page(), () => null).send({ t: 'room' });
+  playerJoined('dragon', 'g', 'u3', 'mochi', page(), () => null).send({ t: 'room' });
+  playerJoined('divine', 'g', 'u4', 'Bao', page(), () => null).send({ t: 'room' });
+  const asked: string[] = [];
+  const rooms = {
+    technomagic: { joinableOf: (guildId: string, userId: string) => (asked.push(`tm ${guildId} ${userId}`), userId === 'u1' ? { boss: 'galgoria', room: 'abcd' } : null) },
+    dragon: { joinableOf: (guildId: string, userId: string) => (asked.push(`dragon ${guildId} ${userId}`), null) },
+  };
+  const members = ['u1', 'u3', 'u4'].map((userId) => ({ userId, heroes: ['kirze'], townHero: null }));
+  const deps = {
+    config: SITE,
+    clientId: () => '1',
+    guild: () => ({ name: 'Friends', icon: null }),
+    memberName: async () => 'X',
+    balance: async () => 0,
+    friends: { members: async () => members, townHero: async () => true },
+  } as ApiDeps;
+  const list = await liveService(deps, rooms).friends({ guildId: 'g', userId: 'u2', name: 'INU' });
+  const of = (userId: string) => list.friends.find((f) => f.userId === userId)?.online;
+  assert.deepEqual(of('u1'), { activity: 'technomagic', status: '', since: of('u1')?.since, watchable: true, join: { boss: 'galgoria', room: 'abcd' } });
+  assert.equal(of('u3')?.watchable, true);
+  assert.equal(of('u3')?.join, undefined, 'their dragon raid has no room, or is fighting');
+  assert.equal(of('u4')?.watchable, true);
+  assert.equal(of('u4')?.join, undefined, 'the Divine Punishment Raid is solo only');
+  assert.deepEqual(asked.sort(), ['dragon g u3', 'tm g u1']);
 });

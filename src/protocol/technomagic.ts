@@ -29,6 +29,8 @@ import type { DivineGroupId, DpFragment, ShardTier } from './divine.js';
  *
  *   page -> bot   hello     first message: the token from the link (`single`: into a room of their own; `room`: into
  *                           that raid; `create`: into a new one; neither: an open raid against `boss`, or a new one)
+ *                 watch     first message instead, from a watch link: follows that player's raid (getting ready, the
+ *                           fight and its result, as their page is sent it, from you = them), taking no part in it
  *                 pick      puts a hero of theirs (in one of its skins) in the lineup (alone: in the Main Team or
  *                           the Sub Team; one in the other team already is moved over)
  *                 unpick    takes one of theirs out of it
@@ -59,10 +61,13 @@ import type { DivineGroupId, DpFragment, ShardTier } from './divine.js';
  *                 turn      what everyone pressed, at which step, up to the step the fight has reached
  *                 answer    why something asked of the room wasn't done
  *                 error     and the bot closes the connection
+ *                 watching  (to a watcher) whose raid it follows; away: they've left it; watchers (to a player): how many watch
  */
 
 export type ClientMessage =
   | { t: 'hello'; token: string; single?: boolean; boss?: string; room?: string; create?: boolean }
+  /** Instead of hello: a watch link's token, to follow another player's raid (nothing else is taken from a watcher's page). */
+  | { t: 'watch'; token: string }
   | { t: 'pick'; hero: string; skin: number; sub?: boolean }
   | { t: 'unpick'; hero: string }
   | { t: 'ready'; on: boolean }
@@ -323,7 +328,8 @@ export type AnswerCode =
  * Why the bot closed the connection (`gone`: the raid asked for is over, everyone gone from it; `background`: their background
  * raids are being fought, and they can't fight in a raid's room till those are over: GET /api/tm-batches says how they go).
  */
-export type ErrorCode = 'bad_token' | 'replaced' | 'bad_message' | 'full' | 'gone' | 'background';
+/** (A watcher's: not_playing, the one it follows isn't in the raid; full, as many watch them as can.) */
+export type ErrorCode = 'bad_token' | 'replaced' | 'bad_message' | 'full' | 'gone' | 'background' | 'not_playing';
 
 /** A raid others can join, as the front page's Find Raid lists it (GET /api/raid-rooms). */
 export interface LobbyView {
@@ -350,4 +356,8 @@ export type ServerMessage =
   | { t: 'turn'; no: number; upTo: number; inputs: TurnInput[]; sums: [second: number, sum: number][] }
   | { t: 'answer'; to: string; code: AnswerCode }
   | { t: 'error'; code: ErrorCode }
+  /** Watching (the bot's web/games/live.ts): whose raid this page follows; they left it (their page went); how many watch the player. */
+  | { t: 'watching'; player: string }
+  | { t: 'away' }
+  | { t: 'watchers'; count: number }
   | ChatServerMessage;

@@ -9,8 +9,10 @@ import { runningBatch } from '../../../services/tm-batches.js';
 /*
  * The web socket the TechnoMagic Raid's page plays through (connection.ts does the greeting). Once the player
  * says hello they join a raid of their server's (room.ts: the one their link names, a new one, or an open one), or a room
- * of their own (single player), with the heroes they own. One page per player: a new one takes over. It isn't watched:
- * anyone in the server can join in instead. The Dragon Raid's is the same, on a socket of its own (serveDragon), the page
+ * of their own (single player), with the heroes they own. One page per player: a new one takes over. Anyone in the server
+ * can watch a player's raid instead, getting ready and fighting (a watch link: connection.ts, live.ts): the watcher's page is
+ * sent what the player's is, and, arriving, the room and the fight so far (watched: TechnoMagicRooms.watch); it takes no part
+ * in it. The Dragon Raid's is the same, on a socket of its own (serveDragon), the page
  * naming the dragon it wants; and the Divine Punishment Raid's (serveDivine), solo only: always a room of their own.
  */
 
@@ -123,6 +125,10 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
           case 'chat':
             return room.say(userId, message.text, await chatImage(message));
         }
+      },
+
+      watched(target, watcher) {
+        rooms.watch(target.guildId, target.userId, watcher);
       },
 
       left(player, peer) {

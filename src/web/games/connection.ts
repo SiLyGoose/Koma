@@ -49,6 +49,11 @@ export interface GameHandlers<C extends { t: string }, M> {
   hello(hello: Hello<M, Extract<C | Greeting, { t: 'hello' }>>): Promise<void>;
   /** Anything else a player's page says (after `join`). */
   message(player: Player, peer: Peer<M>, message: Exclude<C, Greeting>): Promise<void>;
+  /**
+   * A watcher's page has just started following `target` (after live.ts sent it who, and the last word on a game that keeps
+   * one): a game whose page can't start from one message (a raid's fight, run from its start) gives it all it needs here.
+   */
+  watched?(target: { guildId: string; userId: string }, page: Peer<M>): void;
   /** Something a watcher's page says (ignored when left out). */
   watching?(target: { guildId: string; userId: string }, page: Peer<M>, message: Exclude<C, Greeting>): Promise<void>;
   /** The page went away (the player's, whether or not they joined). */
@@ -103,6 +108,7 @@ export function openGameConnection<C extends { t: string }, M>(game: GameSocket<
         const added = addWatcher(game.live, target.guildId, target.userId, page);
         if (!added.ok) return refuse(page, added.reason);
         watching = target;
+        handlers.watched?.(target, page);
         return;
       }
       const who = verifyToken(token);

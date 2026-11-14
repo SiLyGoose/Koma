@@ -47,8 +47,11 @@ export interface Friends {
     avatar: string;
     /** A hero's id (data/heroes.ts). */
     hero: string;
-    /** On the site now, and what they're doing (watchable: as /api/live says it, POST /api/watch takes it); null: offline. */
-    online: { activity: 'hub' | Game; status: string; since: number; watchable: boolean } | null;
+    /**
+     * On the site now, and what they're doing (watchable: as /api/live says it, POST /api/watch takes it; join: the raid
+     * they're in, getting ready with room, as POST /api/play opens it with ?boss= and ?room=); null: offline.
+     */
+    online: { activity: 'hub' | Game; status: string; since: number; watchable: boolean; join?: { boss: string; room: string } } | null;
   }[];
 }
 
@@ -62,8 +65,11 @@ export interface Leaderboard {
   you: { rank: number; value: number } | null;
 }
 
-/** The games that can be watched. */
-export const WATCHABLE = ['mines', 'pinecraft', 'baccarat', 'roulette'] as const satisfies readonly Game[];
+/** The games that can be watched (the raids too: getting ready, the fight and its result, as the player's page has them). */
+export const WATCHABLE = ['mines', 'pinecraft', 'baccarat', 'roulette', 'technomagic', 'dragon', 'divine'] as const satisfies readonly Game[];
+
+/** The raids whose rooms others can join (the Divine Punishment Raid is solo only). */
+export const JOINABLE = ['technomagic', 'dragon'] as const satisfies readonly Game[];
 
 export type WatchableGame = (typeof WATCHABLE)[number];
 
