@@ -32,6 +32,28 @@ export interface Live {
   }[];
 }
 
+/**
+ * The server's members who play with the bot (GET /api/friends): on the site now first (as /api/live has them, the
+ * longest there first), then the rest by name. Each with the hero they walk v2's town as (POST /api/friends/hero), else
+ * the first of theirs by name, else Roi (STARTER_HERO), as the town walks them.
+ */
+export interface Friends {
+  /** The one asking. */
+  you: string;
+  friends: {
+    userId: string;
+    name: string;
+    avatar: string;
+    /** A hero's id (data/heroes.ts). */
+    hero: string;
+    /** On the site now, and what they're doing; null: offline. */
+    online: { activity: 'hub' | Game; status: string; since: number } | null;
+  }[];
+}
+
+/** The most members GET /api/friends lists (those on the site always, the rest as many as fit). */
+export const FRIENDS_MOST = 150;
+
 /** A Pinecraft leaderboard (GET /api/pinecraft/leaderboard): the best miners by `stat`, and where the one asking stands. */
 export interface Leaderboard {
   stat: PinecraftStat;

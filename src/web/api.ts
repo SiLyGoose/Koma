@@ -24,6 +24,7 @@ import { heroRoutes } from './routes/heroes.js';
 import { runeRoutes } from './routes/runes.js';
 import { mailRoutes } from './routes/mail.js';
 import type { MailStore } from './models/mail.js';
+import type { FriendStore } from './models/friends.js';
 import { liveRoutes } from './routes/live.js';
 import { loginRoutes } from './routes/login.js';
 import { outfitRoutes } from './routes/outfits.js';
@@ -50,6 +51,8 @@ export type { Me } from './services/login.js';
  *   POST /api/link/refresh {token} or {refresh}   an open game page's link renewed (a link's token still good, or its refresh token): LinkRefresh
  *   GET  /api/raid-rooms?guild=…&game=technomagic|dragon&boss=…   that server's raids against `boss`, for Find Raid: Lobbies
  *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
+ *   GET  /api/friends?guild=…   everyone in that server who plays with the bot, on the site or not, each with the hero they walk the town as: Friends
+ *   POST /api/friends/hero {guild, hero}   the hero they walk v2's town as (one they own), for the friends list: 204
  *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
  *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
  *   GET  /api/gear?guild=…    the member's gear in that server: GearView (models/gear.ts)
@@ -157,6 +160,8 @@ export interface ApiDeps {
   tmBatches?: TmBatchStore;
   /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
   heroes?: HeroStore;
+  /** The friends list's members (the database's, unless a test says otherwise). */
+  friends?: FriendStore;
   /** The mailbox (the database's, unless a test says otherwise). */
   mail?: MailStore;
   /** The TechnoMagic Raid's rooms: saying in the server's channel that raid `room` has been created (once the bot has logged in to Discord). */

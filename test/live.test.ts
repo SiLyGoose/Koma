@@ -3,6 +3,9 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { createApi, type ApiDeps, type Leaderboard, type Live } from '../src/web/api.js';
+import type { Friends } from '../src/protocol/site.js';
+import { signSession } from '../src/web/auth/login.js';
+import { townHeroOf } from '../src/web/services/live.js';
 import type { WebConfig } from '../src/web/config.js';
 import { addWatcher, HUB_TTL_MS, hubSeen, isPlaying, online, playerJoined, playerLeft, removeWatcher, resetLive, toWatchers, type LivePeer } from '../src/web/games/live.js';
 import { signToken, signWatchToken, verifyToken, verifyWatchToken } from '../src/web/auth/token.js';
@@ -93,13 +96,13 @@ const SITE: WebConfig = { siteUrl: 'https://site', origin: 'https://site', apiUr
 
 async function withApi(run: (base: string) => Promise<void>, extra: Partial<ApiDeps> = {}): Promise<void> {
   const deps: ApiDeps = {
-    ...extra,
     config: SITE,
     clientId: () => '1',
     guild: (id) => (id === 'g' ? { name: 'Friends', icon: null } : null),
     memberName: async () => 'INU',
     balance: async () => 0,
     avatar: (_, userId) => (userId === 'u1' ? 'https://cdn/ZEIU.png' : null),
+    ...extra,
   };
   const server: Server = createServer(createApi(deps));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -172,5 +175,55 @@ test('live api: the Pinecraft leaderboard, by blocks dug or coins earned, with w
       assert.deepEqual(asked, ['g dug u2', 'g earned u2']);
     },
     { leaderboard },
+  );
+});
+
+test('friends: the hero a member walks the town as, else the first of theirs by name, else Roi', () => {
+  assert.equal(townHeroOf(undefined), 'roi');
+  assert.equal(townHeroOf({ userId: 'u', heroes: [], townHero: null }), 'roi');
+  assert.equal(townHeroOf({ userId: 'u', heroes: ['klaus', 'kirze'], townHero: null }), 'kirze');
+  assert.equal(townHeroOf({ userId: 'u', heroes: ['klaus', 'kirze'], townHero: 'klaus' }), 'klaus');
+  // One they don't own any more (sold, or another server's), or one the bot doesn't know: as if none said.
+  assert.equal(townHeroOf({ userId: 'u', heroes: ['klaus', 'kirze'], townHero: 'roi' }), 'kirze');
+  assert.equal(townHeroOf({ userId: 'u', heroes: ['nobody'], townHero: 'nobody' }), 'roi');
+});
+
+test('friends api: everyone in the server, those on the site first with what they do, the rest by name; members who left left out', async () => {
+  resetLive();
+  playerJoined('mines', 'g', 'u1', 'ZEIU', page(), () => '100 on 3 💣').send({ t: 'state' });
+  const kept: string[] = [];
+  const friends: ApiDeps['friends'] = {
+    members: async () => [
+      { userId: 'u1', heroes: ['kirze'], townHero: null },
+      { userId: 'u3', heroes: ['kirze', 'klaus'], townHero: 'klaus' },
+      { userId: 'u4', heroes: [], townHero: null },
+      { userId: 'gone', heroes: [], townHero: null },
+    ],
+    townHero: async (guildId, userId, hero) => (kept.push(`${guildId} ${userId} ${hero}`), hero === 'kirze'),
+  };
+  const names: Record<string, string> = { u2: 'INU', u3: 'mochi', u4: 'Bao' };
+  const session = signSession({ userId: 'u2', name: 'INU', avatar: null, guildIds: ['g'] }, 'shh');
+  const headers = { Origin: SITE.origin, Authorization: `Bearer ${session}`, 'Content-Type': 'application/json' };
+  await withApi(
+    async (base) => {
+      const list = (await (await fetch(`${base}/api/friends?guild=g`, { headers })).json()) as Friends;
+      assert.equal(list.you, 'u2');
+      assert.deepEqual(
+        list.friends.map(({ userId, name, hero, online }) => [userId, name, hero, online?.activity ?? null]),
+        [
+          ['u1', 'ZEIU', 'kirze', 'mines'],
+          // Asking is being on the site (the town), with no hero: Roi.
+          ['u2', 'INU', 'roi', 'hub'],
+          ['u4', 'Bao', 'roi', null],
+          ['u3', 'mochi', 'klaus', null],
+        ],
+      );
+      const hero = (body: object) => fetch(`${base}/api/friends/hero`, { method: 'POST', headers, body: JSON.stringify(body) });
+      assert.equal((await hero({ guild: 'g', hero: 'kirze' })).status, 204);
+      assert.equal((await hero({ guild: 'g', hero: 'klaus' })).status, 404);
+      assert.equal((await hero({ guild: 'other', hero: 'kirze' })).status, 403);
+      assert.deepEqual(kept, ['g u2 kirze', 'g u2 klaus']);
+    },
+    { friends, memberName: async (_g, userId) => names[userId] ?? null },
   );
 });

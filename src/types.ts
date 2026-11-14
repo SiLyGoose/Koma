@@ -397,6 +397,8 @@ export interface MemberDoc {
    * the gear it wears (services/heroes.ts). Missing means none.
    */
   heroes?: Record<string, HeroDoc>;
+  /** The hero they walk v2's town as (one of `heroes`), for the friends list (POST /api/friends/hero). Missing or null: not said. */
+  townHero?: string | null;
   /**
    * Their hero gear loadouts (King's Raid's Gear Custom: services/hero-loadouts.ts), keyed by number ('1' to heroLoadoutSlots).
    * A missing entry is an empty one with no name.
