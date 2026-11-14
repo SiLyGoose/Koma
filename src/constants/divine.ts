@@ -22,17 +22,14 @@ export const DIVINE_WEB = {
 } as const;
 
 /**
- * The Divine Punishment shop and crafting, in zeiucoins:
- *   - `voidPrice`: a Rune of Void of any socket (default: KR sold only Doh and Laz, for 20,000 Challenge Raid points / 10,000 Glory,
- *     and Geb, Oth and Ans in no shop);
- *   - `artifactFragments` of one fragment and `artifactPoints` craft its artifact (KR's CraftItemTable: 1,000 fragments and 20,000 gold,
- *     the gold a thousandth as Valance's crafting is);
+ * The Divine Punishment shop and crafting. Their zeiucoin prices are the config's (config.ts divinePrice): a Rune of Void's
+ * (default: KR sold only Doh and Laz, for 20,000 Challenge Raid points / 10,000 Glory, and Geb, Oth and Ans in no shop) and an
+ * artifact's (KR's 20,000 gold, a thousandth as Valance's crafting is).
+ *   - `artifactFragments` of one fragment (and divine.artifactPrice zeiucoins) craft its artifact (KR's CraftItemTable: 1,000 fragments);
  *   - `goldPerPoint`: King's Raid's gold in zeiucoins (KR precedent: Valance's crafting, ÷1,000).
  */
 export const DIVINE_SHOP = {
-  voidPrice: 10_000,
   artifactFragments: 1_000,
-  artifactPoints: 20,
   goldPerPoint: 1_000,
 } as const;
 
@@ -40,17 +37,16 @@ export const DIVINE_SHOP = {
  * Rune of Blasphemy crafting and storage:
  *   - `ingredients` Legendary or Velkazar runes fill the craft's gauge (KR: PunishmentRuneMaxGauge 1,000, 100 a rune), beside one
  *     Legendary rune of its main stat (its `legend`), Rune Fragments and Blood from data/divine-kr.ts's tables, and a Rune of Void;
- *   - storage holds `base` (KR's MaxPunishmentRuneItemCount 100), `extendSlots` more for `extendPrice` zeiucoins at a time (KR: +4 for
- *     1,000 Gems; the price default) up to `most` (KR inference: the extension row applies while under 50 extensions, so 300);
- *   - taking one out of a socket and keeping it costs `keepPrice` zeiucoins (KR's PunishmentRunePreservePrice 200, in zeiucoins here).
+ *   - storage holds `base` (KR's MaxPunishmentRuneItemCount 100), `extendSlots` more at a time for the config's
+ *     divine.blasphemyExtendPrice zeiucoins (KR: +4 for 1,000 Gems) up to `most` (KR inference: the extension row applies while
+ *     under 50 extensions, so 300);
+ *   - taking one out of a socket and keeping it costs the config's divine.blasphemyKeepPrice zeiucoins (KR's PunishmentRunePreservePrice 200).
  */
 export const BLASPHEMY_STORAGE = {
   ingredients: 10,
   base: 100,
   extendSlots: 4,
-  extendPrice: 5_000,
   most: 300,
-  keepPrice: 200,
 } as const;
 
 /**

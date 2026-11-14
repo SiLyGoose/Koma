@@ -185,7 +185,7 @@ export const rollUtOptions = (rng: TmRng = defaultRng): TmPotential[] => rollTmP
 
 /**
  * A unique treasure's options with its `index`th's amount rolled again, anywhere in its range (as it was pulled: it may go
- * down, or land where it was): UT_ENHANCE. Null: no such option.
+ * down, or land where it was) (the config's hero.valueRerollUtPrice points). Null: no such option.
  */
 export function enhanceUtOptions(options: readonly TmPotential[], index: number, rng: TmRng = defaultRng): TmPotential[] | null {
   const old = options[index];

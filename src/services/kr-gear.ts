@@ -4,23 +4,21 @@ import { isTmPiece } from '../data/kr-gear.js';
 import { starsOf } from '../lib/game/items/refine-share.js';
 import { gearChanged } from './items/gear-events.js';
 import { ITEMS_BY_ID } from '../data/items.js';
-import { rerollPrice } from '../config.js';
+import { rerollPrice, restorePrice, runeKeepPrice, valueRerollPrice } from '../config.js';
 import { KR_RUNES_BY_ID, rerollKrOption, runeFits, UNIQUE_REROLL_GEMS, upgradable, upgradeKrOption, upgradePrice, type KrRng } from '../data/kr-gear.js';
 import { collections } from '../db.js';
 import { partOf, socketsOf } from '../lib/game/heroes.js';
 import { enhanceUtOptions, rerollUtOption, rollTmSkill } from '../lib/game/technomagic.js';
-import { UT_ENHANCE } from '../data/tm-potentials.js';
 import type { HeroKeep, HeroOptionError, HeroRestoreError, HeroRuneError } from '../protocol/heroes.js';
 import type { ItemCopyDoc, ItemDef } from '../types.js';
 import { recordLedger } from './economy/shared.js';
-import { RUNE_KEEP_PRICE } from '../protocol/runes.js';
 import { blasphemyIdOf, isBlasphemyRef } from '../lib/game/divine.js';
 import { socketBlasphemy, unsocketBlasphemy } from './divine.js';
 
 /*
  * King's Raid's hero gear in the database (the rules are data/kr-gear.ts's): runes put in a copy's sockets and taken out
- * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out for RUNE_KEEP_PRICE points), and a copy's options rerolled
- * or their amounts rolled again (enhanced) for points (a reroll: the config's hero.rerollPrice; an enhance: data/kr-gear.ts's UPGRADE_PRICES). Each spends first,
+ * (the member's runes, MemberDoc.runes: one used up as it goes in, given back as it comes out for the config's hero.runeKeepPrice points), and a copy's options rerolled
+ * or their amounts rolled again (enhanced) for points (a reroll: the config's hero.rerollPrice; an enhance: the config's hero.valueReroll…Price, config.ts valueRerollPrice). Each spends first,
  * then changes the copy only as it was (its options as read): anything else changed it meanwhile, it is paid back.
  * A Rune of Blasphemy in a socket (`bl:<id>`, the member's own copy: services/divine.ts) goes in and out through services/divine.ts:
  * one named here is handed over to it, and one in the way is kept in its storage (its own keep price).
@@ -34,7 +32,7 @@ const socketsOfCopy = (copy: Pick<ItemCopyDoc, 'runes'>, count: number): (string
 
 /**
  * Puts one of the member's runes (`runeId`) in a socket of one of their copies (its `socket`th, from 0): the rune that was
- * in it (if any) given back for RUNE_KEEP_PRICE points (too few: 'too_poor'). Not a socket it has ('no_socket'), a rune not
+ * in it (if any) given back for the config's hero.runeKeepPrice points (too few: 'too_poor'). Not a socket it has ('no_socket'), a rune not
  * of its part ('wrong_part'), none of it ('no_rune').
  */
 export async function socketRune(guildId: string, userId: string, copyId: string, socket: number, runeId: string): Promise<RuneResult> {
@@ -57,7 +55,7 @@ export async function socketRune(guildId: string, userId: string, copyId: string
   }
   const before = socketsOfCopy(copy, count);
   const old = before[socket] ?? null;
-  const fee = old ? RUNE_KEEP_PRICE : 0;
+  const fee = old ? runeKeepPrice() : 0;
   if (!(await pay(guildId, userId, fee))) return { ok: false, reason: 'too_poor' };
   const taken = await members.updateOne({ guildId, userId, [`runes.${runeId}`]: { $gte: 1 } }, { $inc: { [`runes.${runeId}`]: -1 } });
   if (taken.modifiedCount === 0) {
@@ -78,7 +76,7 @@ export async function socketRune(guildId: string, userId: string, copyId: string
 }
 
 /**
- * Takes the rune out of a socket of one of their copies (its `socket`th), back to the member's runes, for RUNE_KEEP_PRICE
+ * Takes the rune out of a socket of one of their copies (its `socket`th), back to the member's runes, for the config's hero.runeKeepPrice
  * points (too few: 'too_poor'; King's Raid's Rune Preserve). An empty one: 'no_rune'.
  */
 export async function unsocketRune(guildId: string, userId: string, copyId: string, socket: number): Promise<RuneResult> {
@@ -93,14 +91,15 @@ export async function unsocketRune(guildId: string, userId: string, copyId: stri
   if (!old) return { ok: false, reason: 'no_rune' };
   // (A Rune of Blasphemy: into its storage, for its own keep price.)
   if (isBlasphemyRef(old)) return blasphemyAnswer(await unsocketBlasphemy(guildId, userId, copyId, socket));
-  if (!(await pay(guildId, userId, RUNE_KEEP_PRICE))) return { ok: false, reason: 'too_poor' };
+  const fee = runeKeepPrice();
+  if (!(await pay(guildId, userId, fee))) return { ok: false, reason: 'too_poor' };
   const out = await items.updateOne({ guildId, userId, _id: copyId, runes: copy.runes }, { $set: { runes: before.map((one, i) => (i === socket ? null : one)) } });
   if (out.modifiedCount === 0) {
-    await refund(guildId, userId, RUNE_KEEP_PRICE);
+    await refund(guildId, userId, fee);
     return { ok: false, reason: 'busy' };
   }
   await members.updateOne({ guildId, userId }, { $inc: { [`runes.${old}`]: 1 } });
-  await recordLedger([{ guildId, userId, delta: -RUNE_KEEP_PRICE, reason: 'rune_keep', itemId: item.id }]);
+  await recordLedger([{ guildId, userId, delta: -fee, reason: 'rune_keep', itemId: item.id }]);
   return { ok: true };
 }
 
@@ -146,7 +145,7 @@ export type RestoreResult = { ok: true } | { ok: false; reason: HeroRestoreError
 
 /**
  * Restores one of the member's 5★ TechnoMagic pieces into a 0★ Reclaimed one (King's Raid's Technomagic Restoration, at Valance's
- * Workshop): TM_REPORTS.restore Technomagic Experiment Reports and TM_REPORTS.restorePoints zeiucoins, both taken at once (or
+ * Workshop): TM_REPORTS.restore Technomagic Experiment Reports and the config's hero.restorePrice zeiucoins, both taken at once (or
  * neither), then the copy itself made Reclaimed and 0★, its options, additional skill, runes, lock and wearer kept (King's Raid's:
  * "a +0 Reclaimed Technomagic Gear with the same Additional Options and Additional Skill"). Changed meanwhile: both given back.
  */
@@ -157,7 +156,7 @@ export async function restoreTmPiece(guildId: string, userId: string, copyId: st
   if (!copy || !item) return { ok: false, reason: 'not_found' };
   if (!tmRestorable(item, copy)) return { ok: false, reason: 'not_restorable' };
   const reports = TM_REPORTS.restore;
-  const points = TM_REPORTS.restorePoints;
+  const points = restorePrice();
   const paid = await members.findOneAndUpdate({ guildId, userId, points: { $gte: points }, reports: { $gte: reports } }, { $inc: { points: -points, reports: -reports } });
   if (!paid) {
     const member = await members.findOne({ guildId, userId }, { projection: { reports: 1 } });
@@ -320,7 +319,7 @@ export async function keepOption(guildId: string, userId: string, copyId: string
 
 /**
  * Enhances one of a copy's options (its `index`th, from 0): its amount rolled again, its stat kept (it may go down), for points
- * by its tier; a unique treasure's, as UT_ENHANCE has it (refining it doesn't). Not an option it has: 'no_option'.
+ * by its tier; a unique treasure's, the config's hero.valueRerollUtPrice (refining it doesn't). Not an option it has: 'no_option'.
  */
 export async function upgradeOption(guildId: string, userId: string, copyId: string, index: number, rng?: KrRng): Promise<OptionResult> {
   const { items } = collections();
@@ -332,13 +331,14 @@ export async function upgradeOption(guildId: string, userId: string, copyId: str
     const options = copy.tmPotentials ?? [];
     const after = enhanceUtOptions(options, index, rng);
     if (!after) return { ok: false, reason: 'no_option' };
-    if (!(await pay(guildId, userId, UT_ENHANCE.price))) return { ok: false, reason: 'too_poor' };
+    const cost = valueRerollPrice('unique');
+    if (!(await pay(guildId, userId, cost))) return { ok: false, reason: 'too_poor' };
     const done = await items.updateOne({ guildId, userId, _id: copyId, tmPotentials: options, potentialPending: { $exists: false } }, { $set: { tmPotentials: after } });
     if (done.modifiedCount === 0) {
-      await refund(guildId, userId, UT_ENHANCE.price);
+      await refund(guildId, userId, cost);
       return { ok: false, reason: 'busy' };
     }
-    await recordLedger([{ guildId, userId, delta: -UT_ENHANCE.price, reason: 'kr_upgrade', itemId: item.id }]);
+    await recordLedger([{ guildId, userId, delta: -cost, reason: 'kr_upgrade', itemId: item.id }]);
     return { ok: true };
   }
   const kr = item?.kr;

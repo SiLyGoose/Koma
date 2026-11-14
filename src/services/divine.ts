@@ -35,7 +35,7 @@ import { socketsOf } from '../lib/game/heroes.js';
 import { rollUtOptions } from '../lib/game/technomagic.js';
 import type { DivineError } from '../protocol/divine.js';
 import type { DivinePaid } from '../protocol/technomagic.js';
-import { RUNE_KEEP_PRICE } from '../protocol/runes.js';
+import { divinePrice, runeKeepPrice } from '../config.js';
 import type { BlasphemyCopyDoc, DivineGroupDoc, DivineGroupId, DpFragment, ItemCopyDoc, MemberDoc, ShardTier, VoidSocket } from '../types.js';
 import { addCopy } from './economy/gacha.js';
 import { ensureMember, recordLedger } from './economy/shared.js';
@@ -254,10 +254,10 @@ export async function divineState(guildId: string, userId: string): Promise<Pick
 
 /* ---------------------------------------------------------------- shop, artifacts, tickets */
 
-/** Buys `count` Runes of Void of a socket (DIVINE_SHOP.voidPrice each: my default). */
+/** Buys `count` Runes of Void of a socket (the config's divine.voidPrice each). */
 export async function buyVoidRunes(guildId: string, userId: string, socket: VoidSocket, count = 1): Promise<DivineResult> {
   if (!Number.isInteger(count) || count < 1) return fail('not_found');
-  const price = DIVINE_SHOP.voidPrice * count;
+  const price = divinePrice('voidPrice') * count;
   await ensureMember(guildId, userId);
   const paid = await collections().members.updateOne({ guildId, userId, points: { $gte: price } }, { $inc: { points: -price, [`voidRunes.${socket}`]: count } });
   if (paid.modifiedCount === 0) return fail('too_poor');
@@ -268,13 +268,14 @@ export async function buyVoidRunes(guildId: string, userId: string, socket: Void
 /** The artifact each fragment crafts (King's Raid's CraftItemTable 128/129/126/127: ARTIFACT_UNIQUE_1000–1003), the bot's item ids. */
 export const FRAGMENT_ARTIFACTS: Readonly<Record<DpFragment, string>> = { doomstone: 'artifact-1000', tear: 'artifact-1001', fuel: 'artifact-1002', engraving: 'artifact-1003' };
 
-/** Crafts a fragment's artifact (a 0★ copy) for DIVINE_SHOP.artifactFragments of it and artifactPoints zeiucoins (KR's 1,000 and 20,000 gold): the copy's id. */
+/** Crafts a fragment's artifact (a 0★ copy) for DIVINE_SHOP.artifactFragments of it and the config's divine.artifactPrice zeiucoins (KR's 1,000 and 20,000 gold): the copy's id. */
 export async function craftDivineArtifact(guildId: string, userId: string, fragment: DpFragment): Promise<DivineResult<string>> {
   const item = ITEMS_BY_ID.get(FRAGMENT_ARTIFACTS[fragment]);
   if (!item) return fail('not_found');
   const { members } = collections();
   const field = `dpFragments.${fragment}`;
-  const { artifactFragments: fragments, artifactPoints: points } = DIVINE_SHOP;
+  const fragments = DIVINE_SHOP.artifactFragments;
+  const points = divinePrice('artifactPrice');
   await ensureMember(guildId, userId);
   const paid = await members.updateOne({ guildId, userId, points: { $gte: points }, [field]: { $gte: fragments } }, { $inc: { points: -points, [field]: -fragments } });
   if (paid.modifiedCount === 0) {
@@ -411,8 +412,8 @@ export async function breakSocketedBlasphemy(guildId: string, userId: string, co
   return { ok: true, value: BLASPHEMY_BREAK_FRAGMENTS };
 }
 
-/** The next storage extension (null: at BLASPHEMY_STORAGE.most): `extendSlots` more for `extendPrice` zeiucoins (KR's +4 for 1,000 Gems; the price my default). */
-export const nextExtension = (slots: number): { slots: number; price: number } | null => (slots + BLASPHEMY_STORAGE.extendSlots <= BLASPHEMY_STORAGE.most ? { slots: BLASPHEMY_STORAGE.extendSlots, price: BLASPHEMY_STORAGE.extendPrice } : null);
+/** The next storage extension (null: at BLASPHEMY_STORAGE.most): `extendSlots` more for the config's divine.blasphemyExtendPrice zeiucoins (KR's +4 for 1,000 Gems). */
+export const nextExtension = (slots: number): { slots: number; price: number } | null => (slots + BLASPHEMY_STORAGE.extendSlots <= BLASPHEMY_STORAGE.most ? { slots: BLASPHEMY_STORAGE.extendSlots, price: divinePrice('blasphemyExtendPrice') } : null);
 
 /** Extends a member's Rune of Blasphemy storage once (nextExtension), paid at once with it. */
 export async function extendBlasphemyStorage(guildId: string, userId: string): Promise<DivineResult> {
@@ -444,8 +445,8 @@ const refundPoints = async (guildId: string, userId: string, cost: number): Prom
 /**
  * Puts one of the member's Runes of Blasphemy (`id`, in storage) in a copy's `socket`th socket: one of its kind's (lib/game/divine.ts
  * blasphemySocketOf: a unique weapon's Doh/Laz/Geb, an armor's Oth, a secondary's Ans; else 'wrong_part'), never two sockets at once
- * (King's Raid's AlreadyEquippedRune: 'socketed'). What was in the socket is kept: a rune back to their runes for RUNE_KEEP_PRICE, a Rune
- * of Blasphemy back to storage for BLASPHEMY_STORAGE.keepPrice.
+ * (King's Raid's AlreadyEquippedRune: 'socketed'). What was in the socket is kept: a rune back to their runes for the config's hero.runeKeepPrice, a Rune
+ * of Blasphemy back to storage for the config's divine.blasphemyKeepPrice.
  */
 export async function socketBlasphemy(guildId: string, userId: string, copyId: string, socket: number, id: string, data: readonly BlasphemyRuneData[] = KR_BLASPHEMY): Promise<DivineResult> {
   const { items, members } = collections();
@@ -461,7 +462,7 @@ export async function socketBlasphemy(guildId: string, userId: string, copyId: s
   const ref = blasphemyRef(id);
   const before = Array.from({ length: count }, (_, i) => copy.runes?.[i] ?? null);
   const old = before[socket] ?? null;
-  const fee = old === null ? 0 : isBlasphemyRef(old) ? BLASPHEMY_STORAGE.keepPrice : RUNE_KEEP_PRICE;
+  const fee = old === null ? 0 : isBlasphemyRef(old) ? divinePrice('blasphemyKeepPrice') : runeKeepPrice();
   if (!(await payPoints(guildId, userId, fee))) return fail('too_poor');
   const put = await items.updateOne({ guildId, userId, _id: copyId, ...(copy.runes ? { runes: copy.runes } : { runes: { $exists: false } }) }, { $set: { runes: before.map((one, i) => (i === socket ? ref : one)) } });
   if (put.modifiedCount === 0) {
@@ -480,7 +481,7 @@ export async function socketBlasphemy(guildId: string, userId: string, copyId: s
   return { ok: true, value: true };
 }
 
-/** Takes the Rune of Blasphemy out of a copy's `socket`th socket into storage, for BLASPHEMY_STORAGE.keepPrice (KR's PunishmentRunePreservePrice); storage full: 'storage_full'. */
+/** Takes the Rune of Blasphemy out of a copy's `socket`th socket into storage, for the config's divine.blasphemyKeepPrice (KR's PunishmentRunePreservePrice); storage full: 'storage_full'. */
 export async function unsocketBlasphemy(guildId: string, userId: string, copyId: string, socket: number): Promise<DivineResult> {
   const { items, members } = collections();
   const [copy, member, socketed] = await Promise.all([items.findOne({ guildId, userId, _id: copyId }), members.findOne({ guildId, userId }, { projection: { blasphemy: 1, blasphemySlots: 1 } }), socketedBlasphemy(guildId, userId)]);
@@ -493,7 +494,7 @@ export async function unsocketBlasphemy(guildId: string, userId: string, copyId:
   if (!isBlasphemyRef(ref)) return fail('no_rune');
   const stored = (member?.blasphemy ?? []).filter((one) => !socketed.has(one.id)).length;
   if (stored >= storageOf(member)) return fail('storage_full');
-  const fee = BLASPHEMY_STORAGE.keepPrice;
+  const fee = divinePrice('blasphemyKeepPrice');
   if (!(await payPoints(guildId, userId, fee))) return fail('too_poor');
   const out = await items.updateOne({ guildId, userId, _id: copyId, runes: copy.runes }, { $set: { runes: before.map((one, i) => (i === socket ? null : one)) } });
   if (out.modifiedCount === 0) {

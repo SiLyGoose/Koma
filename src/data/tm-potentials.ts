@@ -15,16 +15,16 @@ export const TM_POTENTIAL_LINES = 4;
 /**
  * How many options a unique treasure's copy rolls as it is pulled: King's Raid's treasures have two, from the pool and ranges
  * below (each a different one). Its hero has them wherever it wears it, its main treasure slot or a sub treasure slot (there,
- * all it gives: King's Raid's). Refining it doesn't change them; enhancing does (UT_ENHANCE: the one picked rolled again,
+ * all it gives: King's Raid's). Refining it doesn't change them; enhancing does (POST /api/heroes/upgrade: the one picked rolled again,
  * anywhere in its range, for points).
  */
 export const UT_OPTION_LINES = 2;
 
-/**
+/*
  * Enhancing a unique treasure's option (POST /api/heroes/upgrade): the one picked, its amount rolled again anywhere in its
- * range (in whole percents, or half ones for a range whose ends aren't whole), for `price` points.
+ * range (in whole percents, or half ones for a range whose ends aren't whole), for the config's hero.valueRerollUtPrice points
+ * (config.ts valueRerollPrice('unique')).
  */
-export const UT_ENHANCE = { price: 1_152 } as const;
 
 /*
  * Rerolling a unique treasure's option (POST /api/heroes/reroll): the one picked rolled again into another potential (none

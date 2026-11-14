@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import type { RaidClassId } from '../constants/raid.js';
 import { TM_RECLAIMED } from '../constants/technomagic.js';
+import { valueRerollPrice } from '../config.js';
 import type { HeroPart } from '../protocol/heroes.js';
 import type { ItemDef, KrItem, KrMainStat, KrOption, Slot } from '../types.js';
 import { KR_PIECES, KR_POOLS, KR_REFINE, KR_RUNES, KR_SETS, TM_ARTIFACTS, type KrOptionData, type KrRuneData } from '../../vendor/technomagic-sim.mjs';
@@ -229,12 +230,10 @@ export const upgradable = (kr: KrItem): boolean => kr.options > 0;
 /* (What rerolling an option costs in points: the config's hero.rerollPrice, config.ts's rerollPrice.) */
 
 /**
- * What enhancing an option (rolling its amount again) costs (points): a dragon set's piece by its tier, King's Raid's materials for it
- * (EquipOptionUpgradeTable's Legendary); a TechnoMagic piece's, TM_UPGRADE_PRICE (the user's).
+ * What enhancing an option (rolling its amount again: the forge's Reroll Values) costs in points: the config's, a dragon set's
+ * piece's by its tier and a TechnoMagic piece's (config.ts valueRerollPrice).
  */
-export const UPGRADE_PRICES: Readonly<Record<number, number>> = { 6: 512, 7: 768, 8: 1_152 };
-export const TM_UPGRADE_PRICE = 1_000;
-export const upgradePrice = (kr: KrItem): number => (KR_TM_SETS.includes(kr.set ?? '') ? TM_UPGRADE_PRICE : (UPGRADE_PRICES[kr.tier] ?? UPGRADE_PRICES[8] ?? 0));
+export const upgradePrice = (kr: KrItem): number => valueRerollPrice(KR_TM_SETS.includes(kr.set ?? '') ? 'technomagic' : kr);
 
 /** What rerolling a TechnoMagic piece's unique option (its additional effect) costs, in komaGems, beside its set's TM_CRYSTALS.skillReroll Boss Crystals: the same every time (the user's). */
 export const UNIQUE_REROLL_GEMS = 1;

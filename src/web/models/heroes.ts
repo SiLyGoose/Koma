@@ -4,7 +4,7 @@ import { LOOT_BOXES, LOOT_BOXES_BY_ID } from '../../data/loot-boxes.js';
 import { LOOT_OPEN_MOST, openLootBoxes } from '../../services/loot-boxes.js';
 import { DRAGONS } from '../../lib/game/dragon.js';
 import { TM_BOSSES } from '../../lib/game/technomagic.js';
-import { CONFIG, rerollPrice } from '../../config.js';
+import { CONFIG, rerollPrice, restorePrice, runeKeepPrice, valueRerollPrice } from '../../config.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { HEROES } from '../../data/heroes.js';
 import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
@@ -47,7 +47,7 @@ import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.j
 import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
 import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
 import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
-import { potentialStep, UT_ENHANCE } from '../../data/tm-potentials.js';
+import { potentialStep } from '../../data/tm-potentials.js';
 import { wornSkin } from '../../services/hero-outfits.js';
 import { buyHeroLoadout, equipHeroLoadout, nameHeroLoadout, resetHeroLoadout, saveHeroLoadout } from '../../services/hero-loadouts.js';
 import { heroLoadoutViews, nextHeroLoadoutPrice } from '../../lib/game/hero-loadouts.js';
@@ -239,7 +239,7 @@ function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | '
     // (In komaGems.)
     rerollUnique: kr?.unique ? UNIQUE_REROLL_GEMS : null,
     // (Enhancing rolls an amount again, so a copy with options always can, at their top or not; a unique treasure's too.)
-    upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? UT_ENHANCE.price : null) : kr && upgradable(kr) && options.length > 0 ? upgradePrice(kr) : null,
+    upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? valueRerollPrice('unique') : null) : kr && upgradable(kr) && options.length > 0 ? upgradePrice(kr) : null,
   };
 }
 
@@ -299,7 +299,7 @@ export function heroesView(
       runes: runes.map((id) => (id ? socketView(id, blasphemy) : null)),
       ...optionCosts(item, copy),
       // (King's Raid's Technomagic Restoration: a 5★ TechnoMagic piece into a 0★ Reclaimed one.)
-      restore: tmRestorable(item, copy) ? { reports: TM_REPORTS.restore, points: TM_REPORTS.restorePoints, mainAfter: copyMainStat(item, { ...copy, level: 0, reclaimed: true }) } : null,
+      restore: tmRestorable(item, copy) ? { reports: TM_REPORTS.restore, points: restorePrice(), mainAfter: copyMainStat(item, { ...copy, level: 0, reclaimed: true }) } : null,
       setBonuses: bonuses,
       locked: copy.locked === true,
       sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
@@ -400,7 +400,7 @@ export function heroesView(
   const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
   const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
   const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
-  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, gems: member?.gems ?? 0, essences, stones, crystals, reports: member?.reports ?? 0, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member), lootBoxes: lootStacks(member?.lootBoxes), lootOpenMost: LOOT_OPEN_MOST, loadouts: { slots: heroLoadoutViews(member, new Set(list.map((copy) => copy.id))), next: nextHeroLoadoutPrice(member, CONFIG.hero.loadoutPrice) } };
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, runeKeepPrice: runeKeepPrice(), gems: member?.gems ?? 0, essences, stones, crystals, reports: member?.reports ?? 0, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member), lootBoxes: lootStacks(member?.lootBoxes), lootOpenMost: LOOT_OPEN_MOST, loadouts: { slots: heroLoadoutViews(member, new Set(list.map((copy) => copy.id))), next: nextHeroLoadoutPrice(member, CONFIG.hero.loadoutPrice) } };
 }
 
 async function load(guildId: string, userId: string): Promise<HeroesView> {

@@ -382,6 +382,19 @@ export interface Settings {
     loadoutPrice: number;
     /** What Reroll Substats costs, in points, the same every time (rerollPrice): any hero gear's but a TechnoMagic piece's (Boss Crystals). */
     rerollPrice: number;
+    /**
+     * What Reroll Values costs, in points (valueRerollPrice: services/kr-gear.ts upgradeOption): a dragon set's piece by its
+     * tier (King's Raid's EquipOptionUpgradeTable's Legendary materials), a TechnoMagic piece's, and a unique treasure's.
+     */
+    valueRerollT6Price: number;
+    valueRerollT7Price: number;
+    valueRerollT8Price: number;
+    valueRerollTmPrice: number;
+    valueRerollUtPrice: number;
+    /** What Technomagic Restoration costs in points, beside its reports (services/kr-gear.ts restoreTmPiece: King's Raid's 10,000,000 gold, a thousandth). */
+    restorePrice: number;
+    /** What taking a rune out of a socket and keeping it costs in points (King's Raid's Rune Preserve; one put in over another: the other's). */
+    runeKeepPrice: number;
     backgroundPrice: number;
     winPoints: number;
     potentials: Record<TmPotentialId, { min: number; max: number }>;
@@ -397,6 +410,17 @@ export interface Settings {
     pointsPerStage: number;
     essences: number;
     essencesPerStage: number;
+  };
+  /**
+   * The Divine Punishment Raid's zeiucoin prices (services/divine.ts): a Rune of Void of any socket (`voidPrice`), crafting a
+   * fragment's artifact beside its fragments (`artifactPrice`), each Rune of Blasphemy storage extension (`blasphemyExtendPrice`),
+   * and taking a Rune of Blasphemy out of a socket into storage (`blasphemyKeepPrice`). Read through divinePrice.
+   */
+  divine: {
+    voidPrice: number;
+    artifactPrice: number;
+    blasphemyExtendPrice: number;
+    blasphemyKeepPrice: number;
   };
   skip: {
     claim: number;
@@ -580,9 +604,12 @@ export const DEFAULTS: Readonly<Settings> = {
     },
   },
   outfit: { price: 5_000 },
-  hero: { price: 25_000, outfitPrice: 5_000, honorOutfitPrice: 10_000, brilliantOutfitPrice: 15_000, glaringOutfitPrice: 20_000, legendOutfitPrice: 25_000, perkPage2Price: 5_000, perkPage3Price: 10_000, loadoutPrice: 5_000, rerollPrice: 500, backgroundPrice: 100, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
+  hero: { price: 25_000, outfitPrice: 5_000, honorOutfitPrice: 10_000, brilliantOutfitPrice: 15_000, glaringOutfitPrice: 20_000, legendOutfitPrice: 25_000, perkPage2Price: 5_000, perkPage3Price: 10_000, loadoutPrice: 5_000, rerollPrice: 500, valueRerollT6Price: 512, valueRerollT7Price: 768, valueRerollT8Price: 1_152, valueRerollTmPrice: 1_000, valueRerollUtPrice: 1_152, restorePrice: 10_000, runeKeepPrice: 100, backgroundPrice: 100, winPoints: 1_000, potentials: structuredClone(TM_POTENTIAL_RANGES) as Settings['hero']['potentials'] },
   // A Dragon Raid win: 750 at stage 1 up to 3,000 at stage 10, and 8 up to 44 of each of its dragon's two essences.
   dragon: { winPoints: 750, pointsPerStage: 250, essences: 8, essencesPerStage: 4 },
+  // Divine Punishment: KR sold Runes of Void for Challenge Raid points (10,000 a default), its artifacts' 20,000 gold a thousandth,
+  // a storage extension's 1,000 Gems (5,000 a default), and its Rune Preserve's 200.
+  divine: { voidPrice: 10_000, artifactPrice: 20, blasphemyExtendPrice: 5_000, blasphemyKeepPrice: 200 },
   skip: { claim: 300 },
   stonks: { capHours: 5 },
   // The wheel goes from 1x up to 5x, which averages 2.25x a spin.
@@ -604,6 +631,30 @@ export const CONFIG: Settings = structuredClone(DEFAULTS);
  * hero.rerollPrice, the same every time. A dragon set's piece and a unique treasure alike; a TechnoMagic piece takes Boss Crystals.
  */
 export const rerollPrice = (): number => Math.max(0, Math.floor(CONFIG.hero.rerollPrice));
+
+/** A price setting as it is paid: a whole number of points, none below 0. */
+const whole = (price: number): number => Math.max(0, Math.floor(price));
+
+/**
+ * What rerolling one of a hero gear copy's substats' values costs in points (the forge's Reroll Values): a dragon set's piece's
+ * by its tier (hero.valueRerollT6Price … T8; any other tier: T8's), a TechnoMagic piece's (hero.valueRerollTmPrice), a unique
+ * treasure's (hero.valueRerollUtPrice).
+ */
+export function valueRerollPrice(piece: { tier: number } | 'technomagic' | 'unique'): number {
+  const { hero } = CONFIG;
+  if (piece === 'technomagic') return whole(hero.valueRerollTmPrice);
+  if (piece === 'unique') return whole(hero.valueRerollUtPrice);
+  return whole(piece.tier === 6 ? hero.valueRerollT6Price : piece.tier === 7 ? hero.valueRerollT7Price : hero.valueRerollT8Price);
+}
+
+/** What Technomagic Restoration costs in points, beside its reports (TM_REPORTS.restore): the config's hero.restorePrice. */
+export const restorePrice = (): number => whole(CONFIG.hero.restorePrice);
+
+/** What taking a rune out of a socket and keeping it costs in points (one put in over another: the other's): the config's hero.runeKeepPrice. */
+export const runeKeepPrice = (): number => whole(CONFIG.hero.runeKeepPrice);
+
+/** One of the Divine Punishment Raid's zeiucoin prices, as the config has it now (divine.voidPrice and the rest). */
+export const divinePrice = (key: keyof Settings['divine']): number => whole(CONFIG.divine[key]);
 
 export function validateConfig(): void {
   if (!STARS.includes(PITY_STARS)) throw new Error(`PITY_STARS (${PITY_STARS}) must be one of ${STARS.join(', ')}`);

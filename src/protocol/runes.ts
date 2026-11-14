@@ -4,7 +4,7 @@ import type { HeroesView } from './heroes.js';
  * King's Raid's runes beyond their sockets, on the site (the bot's /api/runes): sold for zeiucoins or disassembled into Rune
  * Fragments (King's Raid's RuneItemBreakTable and ItemTable SellGold, both halved: the user's), Mysterious Runes crafted from
  * the fragments (King's Raid's CraftItemTable, its Rune Scrolls, gold and Ancient Runebook left out), and taking a rune out
- * of a socket: kept for RUNE_KEEP_PRICE zeiucoins (King's Raid's Rune Preserve, 100 rubies), else disassembled where it is.
+ * of a socket: kept for HeroesView's runeKeepPrice zeiucoins (King's Raid's Rune Preserve, 100 rubies), else disassembled where it is.
  */
 
 /** What selling a rune of each grade (1 Common to 6 Legendary; an Ancient one and a Velkazar one are 5) pays, in zeiucoins. */
@@ -12,9 +12,6 @@ export const RUNE_SELL_POINTS: Readonly<Record<number, number>> = { 1: 200, 2: 3
 
 /** The Rune Fragments disassembling a rune of each grade gives. */
 export const RUNE_FRAGMENTS: Readonly<Record<number, number>> = { 1: 8, 2: 20, 3: 50, 4: 125, 5: 312, 6: 500 };
-
-/** What taking a rune out of a socket and keeping it costs, in zeiucoins (one put in over another: the other's). */
-export const RUNE_KEEP_PRICE = 100;
 
 /** A Mysterious Rune crafted from Rune Fragments (King's Raid's PACKAGE_RUNE_*): a rune of its grade, any as likely. */
 export type RuneBoxId = 'uncommon' | 'rare' | 'heroic' | 'ancient';

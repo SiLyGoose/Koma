@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { DEFAULTS } from '../src/config.js';
 import { findSpec } from '../src/lib/settings-spec.js';
 import { KR_RUNES, KR_RUNES_BY_ID, rollRuneOfGrade } from '../src/data/kr-gear.js';
-import { RUNE_BOXES, RUNE_FRAGMENTS, RUNE_KEEP_PRICE, RUNE_SELL_POINTS } from '../src/protocol/runes.js';
+import { RUNE_BOXES, RUNE_FRAGMENTS, RUNE_SELL_POINTS } from '../src/protocol/runes.js';
 
 const first = { index: () => 0 };
 const last = { index: (max: number) => max - 1 };
@@ -17,7 +17,8 @@ test("runes: selling and disassembling give half King's Raid's (its SellGold and
   }
   // (Every rune has a grade with a price.)
   for (const rune of KR_RUNES) assert.ok(RUNE_SELL_POINTS[rune.grade] && RUNE_FRAGMENTS[rune.grade], rune.id);
-  assert.equal(RUNE_KEEP_PRICE, 100);
+  assert.equal(DEFAULTS.hero.runeKeepPrice, 100, "keeping one taken out: King's Raid's Rune Preserve, an admin setting");
+  assert.ok(findSpec('hero.runeKeepPrice'));
 });
 
 test("runes: each Mysterious Rune crafted gives a rune of its grade, the Ancient one an Ancient rune", () => {

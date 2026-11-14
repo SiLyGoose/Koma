@@ -149,7 +149,7 @@ test("Technomagic Experiment Reports: now and then from a TechnoMagic Raid win f
   assert.equal(rollTmReports(3, first), 0, 'none below stage 4');
   assert.equal(rollTmReports(9, first), 8);
   assert.equal(rollTmReports(9, { index: () => Math.round(tmReportChance(9) * 10_000) }), 0, 'just past its chance');
-  assert.deepEqual([TM_REPORTS.restore, TM_REPORTS.restorePoints], [40, 10_000]);
+  assert.deepEqual([TM_REPORTS.restore, DEFAULTS.hero.restorePrice], [40, 10_000]);
 });
 
 test('Technomagic Restoration: only a 5★ TechnoMagic piece not Reclaimed yet, never an artifact or other gear', () => {

@@ -334,6 +334,11 @@ export interface HeroesView {
   runes: HeroRuneStack[];
   /** Their Rune Fragments (disassembling runes gives them; they craft Mysterious Runes: protocol/runes.ts). Left out by a bot from before them. */
   runeFragments?: number;
+  /**
+   * What taking a rune out of a socket and keeping it costs, in zeiucoins (one put in over another: the other's; King's Raid's
+   * Rune Preserve): the bot's hero.runeKeepPrice setting. Left out by a bot from before it was a setting.
+   */
+  runeKeepPrice?: number;
   /** Their komaGems and hero essences (each kind, 0 with none): what transcending pays with. */
   gems: number;
   essences: Record<EssenceId, number>;
@@ -466,7 +471,7 @@ export type HeroLoadoutError = 'not_found' | 'locked' | 'nothing_worn' | 'empty'
 
 /**
  * Why a rune wasn't socketed or taken out (nothing changed): too_poor, too few zeiucoins to keep the one taken out (or put in
- * over: protocol/runes.ts RUNE_KEEP_PRICE).
+ * over: HeroesView's runeKeepPrice).
  */
 export type HeroRuneError = 'not_found' | 'no_socket' | 'wrong_part' | 'no_rune' | 'too_poor' | 'busy';
 

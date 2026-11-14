@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { GAMES } from '../src/web/config.js';
-import { CONFIG, DEFAULTS, rerollPrice } from '../src/config.js';
+import { CONFIG, DEFAULTS, rerollPrice, restorePrice, runeKeepPrice, valueRerollPrice } from '../src/config.js';
 import { DRAGON_ROOM, TM_FIGHT, TM_ROOM } from '../src/constants/index.js';
 import { ITEMS, TM_DROPS } from '../src/data/items.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
@@ -908,6 +908,24 @@ test('reroll substats: 500 points every time (the config’s hero.rerollPrice, a
     assert.equal(rerollPrice(), 750, 'the admin page’s price, as soon as it is changed');
   } finally {
     CONFIG.hero.rerollPrice = before;
+  }
+});
+
+test('the forge’s other zeiucoin prices are admin settings too: Reroll Values by tier (a TechnoMagic piece’s, a unique treasure’s), Restore Gear, keeping a rune', () => {
+  const keys = ['valueRerollT6Price', 'valueRerollT7Price', 'valueRerollT8Price', 'valueRerollTmPrice', 'valueRerollUtPrice', 'restorePrice', 'runeKeepPrice'] as const;
+  assert.deepEqual(keys.map((key) => DEFAULTS.hero[key]), [512, 768, 1_152, 1_000, 1_152, 10_000, 100], "the prices they were before they were settings");
+  for (const key of keys) assert.ok(findSpec(`hero.${key}`), `hero.${key} on the admin page`);
+  const before = structuredClone(CONFIG.hero);
+  try {
+    Object.assign(CONFIG.hero, { valueRerollT6Price: 6, valueRerollT7Price: 7, valueRerollT8Price: 8, valueRerollTmPrice: 9, valueRerollUtPrice: 10, restorePrice: 11, runeKeepPrice: 12 });
+    assert.deepEqual([6, 7, 8, 9].map((tier) => valueRerollPrice({ tier })), [6, 7, 8, 8], 'by tier (any other: T8’s)');
+    assert.equal(upgradePrice(ITEMS_BY_ID.get('opportune-fire-t8-heavy-armor')!.kr!), 8);
+    assert.equal(upgradePrice(ITEMS_BY_ID.get('perseverance-warrior-armor')!.kr!), 9, 'a TechnoMagic piece’s, whatever its tier');
+    assert.deepEqual([valueRerollPrice('unique'), restorePrice(), runeKeepPrice()], [10, 11, 12]);
+    CONFIG.hero.runeKeepPrice = -5.5;
+    assert.equal(runeKeepPrice(), 0, 'never below 0');
+  } finally {
+    Object.assign(CONFIG.hero, before);
   }
 });
 

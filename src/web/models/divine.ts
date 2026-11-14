@@ -1,4 +1,5 @@
 import { BLASPHEMY_STORAGE, DIVINE_SHOP } from '../../constants/divine.js';
+import { divinePrice } from '../../config.js';
 import { BLASPHEMY_BREAK_FRAGMENTS } from '../../data/divine-kr.js';
 import { ITEMS_BY_ID } from '../../data/items.js';
 import { KR_RUNES_BY_ID } from '../../data/kr-gear.js';
@@ -127,15 +128,15 @@ export function divineView(
     uniqueTickets: member?.uniqueTickets ?? 0,
     runeFragments: member?.runeFragments ?? 0,
     ingredientRunes: Object.fromEntries(Object.entries(member?.runes ?? {}).filter(([id, n]) => n > 0 && gaugeRune(id))),
-    shop: { voidPrice: DIVINE_SHOP.voidPrice },
-    artifacts: FRAGMENTS.map((fragment) => ({ fragment, itemId: FRAGMENT_ARTIFACTS[fragment], name: ITEMS_BY_ID.get(FRAGMENT_ARTIFACTS[fragment])?.name ?? FRAGMENT_ARTIFACTS[fragment], fragments: DIVINE_SHOP.artifactFragments, points: DIVINE_SHOP.artifactPoints })),
+    shop: { voidPrice: divinePrice('voidPrice') },
+    artifacts: FRAGMENTS.map((fragment) => ({ fragment, itemId: FRAGMENT_ARTIFACTS[fragment], name: ITEMS_BY_ID.get(FRAGMENT_ARTIFACTS[fragment])?.name ?? FRAGMENT_ARTIFACTS[fragment], fragments: DIVINE_SHOP.artifactFragments, points: divinePrice('artifactPrice') })),
     blasphemy: {
       owned: owned.flatMap((copy) => blasphemyView(copy, socketed.get(copy.id) ?? null, data) ?? []),
       slots,
       stored: owned.filter((copy) => !socketed.has(copy.id)).length,
       most: BLASPHEMY_STORAGE.most,
       extend: nextExtension(slots),
-      keepPrice: BLASPHEMY_STORAGE.keepPrice,
+      keepPrice: divinePrice('blasphemyKeepPrice'),
       breakFragments: BLASPHEMY_BREAK_FRAGMENTS,
       craft: cost,
       recipes: data.map((one) => ({ id: one.id, name: one.name, group: one.group, socket: one.socket, legend: one.legend })),

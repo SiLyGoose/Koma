@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BLASPHEMY_STORAGE } from '../src/constants/divine.js';
+import { CONFIG, DEFAULTS, divinePrice } from '../src/config.js';
+import { findSpec } from '../src/lib/settings-spec.js';
 import { HEROES, HEROES_BY_ID } from '../src/data/heroes.js';
 import { ITEMS_BY_ID } from '../src/data/items.js';
 import { KR_RUNES } from '../src/data/kr-gear.js';
@@ -318,6 +320,22 @@ test('divine blasphemy: craft costs by how many are owned, its gauge of 10 Legen
   assert.deepEqual(nextExtension(BLASPHEMY_STORAGE.base), { slots: 4, price: 5_000 });
   assert.equal(nextExtension(296)?.slots, 4);
   assert.equal(nextExtension(300), null, 'at most 300');
+});
+
+test('divine punishment: its zeiucoin prices are admin settings (a Rune of Void, an artifact craft, a storage extension, keeping a Rune of Blasphemy)', () => {
+  const keys = ['voidPrice', 'artifactPrice', 'blasphemyExtendPrice', 'blasphemyKeepPrice'] as const;
+  assert.deepEqual(keys.map((key) => DEFAULTS.divine[key]), [10_000, 20, 5_000, 200], 'the prices they were before they were settings');
+  for (const key of keys) assert.ok(findSpec(`divine.${key}`), `divine.${key} on the admin page`);
+  const before = structuredClone(CONFIG.divine);
+  try {
+    Object.assign(CONFIG.divine, { voidPrice: 1, artifactPrice: 2, blasphemyExtendPrice: 3, blasphemyKeepPrice: 4 });
+    assert.deepEqual(keys.map(divinePrice), [1, 2, 3, 4]);
+    assert.deepEqual(nextExtension(BLASPHEMY_STORAGE.base), { slots: 4, price: 3 }, 'the admin page’s price, as soon as it is changed');
+    CONFIG.divine.voidPrice = -1;
+    assert.equal(divinePrice('voidPrice'), 0, 'never below 0');
+  } finally {
+    Object.assign(CONFIG.divine, before);
+  }
 });
 
 test('divine blasphemy: a craft rolls its main stat and each line in their ranges, in whole steps', () => {
