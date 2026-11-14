@@ -1,0 +1,812 @@
+import {
+  CURRENCY_EMOJI,
+  GEM_NAME,
+  TOKEN_NAME,
+  MAX_BLACKJACK_NATURAL,
+  MAX_BLACKJACK_SECONDS,
+  MAX_CRATE_SECONDS,
+  MAX_LEADERBOARD_SIZE,
+  MAX_MINE_MULTIPLIER,
+  MAX_MINESWEEPER_PAR_SECONDS,
+  MAX_MINESWEEPER_SPEED_BONUS,
+  MAX_PINECRAFT_ENERGY,
+  MAX_PINECRAFT_VALUE,
+  MINESWEEPER_LEVEL_IDS,
+  MINESWEEPER_LEVEL_NAMES,
+  PINECRAFT_PAYING,
+  MAX_PITY,
+  MAX_PLINKO_MULTIPLIER,
+  MAX_BACCARAT_PAYOUT,
+  MAX_POKER_STAKE,
+  MAX_POKER_TURN_SECONDS,
+  MAX_PREFIX_LENGTH,
+  MAX_SETTING_POINTS,
+  MAX_STONKS_HOURS,
+  MAX_WHEEL_MULTIPLIER,
+  MAX_TIMER_MINUTES,
+  MAX_VAULT_MULTIPLIER,
+  MAX_EVENT_SECONDS,
+  MAX_HEIST_ROUNDS,
+  MAX_RAID_OVERHEAD,
+  MAX_RAID_ROUNDS,
+  MAX_RAID_SECONDS,
+  MAX_RAID_SHOP_REFRESHES,
+  MAX_RAID_SHOP_STOCK,
+  RAID_BOSS_IDS,
+  RAID_DIFFICULTY,
+  RAID_SHOP_STARS,
+  TEXT,
+  NUMBER_LOCALE,
+  PERCENT_DECIMALS,
+  PITY_STARS,
+  PLINKO_ROWS,
+} from '../constants/index.js';
+import { EFFECT_IDS, EFFECTS, type EffectId, type PerkDef } from '../perks/index.js';
+import { STARS } from '../types.js';
+import type { Settings } from '../config.js';
+import { BANNER_TIME_PATTERN, bannerTime } from './game/items/banner.js';
+import { TM_POTENTIALS } from '../data/tm-potentials.js';
+
+/*
+ * Describes every setting: its name, what it means, and what values are allowed.
+ * Used to validate values read from MongoDB and values typed into the admin config command.
+ * Setting names are dot paths into the settings document, e.g. "claim.min".
+ */
+
+export interface SettingSpec {
+  key: string;
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Craft' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Minesweeper' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Hero' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  description: string;
+  type: 'int' | 'number' | 'string';
+  min?: number;
+  max?: number;
+  /** Shown and accepted as a percentage: 0.4 or "40%". */
+  percent?: boolean;
+  /** Shown and accepted as a multiplier of a bet: 2.5 or "2.5x". */
+  multiplier?: boolean;
+  /** For strings: what a valid value looks like. */
+  pattern?: RegExp;
+  /** Human wording for `pattern`, used in error messages. */
+  expects?: string;
+  /** Tidies typed input before it is validated. */
+  normalize?: (raw: string) => string;
+}
+
+/**
+ * The groups, in the order the config command lists them and the site's admin page shows them.
+ * 'Stonks' was added as a settings-spec group (stonks.capHours) without ever being added here,
+ * so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
+ * in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
+ */
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Craft', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+
+const MAX_POINTS = MAX_SETTING_POINTS;
+
+function int(key: string, group: SettingSpec['group'], description: string, min: number, max: number): SettingSpec {
+  return { key, group, description, type: 'int', min, max };
+}
+
+export const SPECS: readonly SettingSpec[] = [
+  {
+    key: 'prefix',
+    group: 'General',
+    description: 'Text a message must start with to run a command.',
+    type: 'string',
+    pattern: new RegExp(`^\\S{1,${MAX_PREFIX_LENGTH}}$`),
+    expects: `1 to ${MAX_PREFIX_LENGTH} characters with no spaces`,
+  },
+  {
+    key: 'embedColor',
+    group: 'General',
+    description: 'Color of the stripe on every embed.',
+    type: 'string',
+    pattern: /^#[0-9a-fA-F]{6}$/,
+    expects: 'a hex color like #5865F2',
+    normalize: (raw) => (raw.startsWith('#') ? raw : `#${raw}`).toUpperCase(),
+  },
+  int('leaderboardSize', 'General', 'Rows shown on the leaderboard.', 1, MAX_LEADERBOARD_SIZE),
+
+  int('claim.min', 'Claim', `Lowest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
+  int('claim.max', 'Claim', `Highest number of ${CURRENCY_EMOJI} an hourly claim can give.`, 0, MAX_POINTS),
+
+  ...STARS.flatMap((stars) =>
+    [2, 3, 4, 5].map((level) => int(`refine.cost.${stars}.${level}`, 'Refine', `${CURRENCY_EMOJI} to refine a T${stars} item to ★${level} (on top of the duplicate it uses up; a hero's gear's ★1 costs its ★2's).`, 0, MAX_POINTS)),
+  ),
+
+  int('outfit.price', 'Outfit', `Price of each outfit in the site's shop (everyone has the default one), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+
+  int('hero.price', 'Hero', `Price of each TechnoMagic Raid hero in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.backgroundPrice', 'Hero', `Price of each background raid (a TechnoMagic or Dragon Raid run the bot fights on Auto while they're away), in ${CURRENCY_EMOJI}, paid as it begins.`, 0, MAX_POINTS),
+  int('hero.outfitPrice', 'Hero', `Price of each hero outfit (a TechnoMagic Raid hero's King's Raid costume) in the site's shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.honorOutfitPrice', 'Hero', `Price of each "of Honor" hero outfit (King's Raid's Glory League costumes' first tier) in the site's shop, in ${CURRENCY_EMOJI}: instead of the hero outfit price.`, 0, MAX_POINTS),
+  int('hero.brilliantOutfitPrice', 'Hero', `Price of each "of Brilliant Honor" hero outfit (King's Raid's Glory League costumes' middle tier) in the site's shop, in ${CURRENCY_EMOJI}: instead of the hero outfit price.`, 0, MAX_POINTS),
+  int('hero.glaringOutfitPrice', 'Hero', `Price of each "of Glaring Honor" or "of Eternal Honor" hero outfit (King's Raid's Glory League costumes' top tiers) in the site's shop, in ${CURRENCY_EMOJI}: instead of the hero outfit price.`, 0, MAX_POINTS),
+  int('hero.legendOutfitPrice', 'Hero', `Price of each Legend hero outfit (King's Raid's Legend Costumes) in the site's shop, in ${CURRENCY_EMOJI}: instead of the hero outfit price.`, 0, MAX_POINTS),
+  int('hero.perkPage2Price', 'Hero', `Price of a hero's 2nd Transcend Perk page (King's Raid's: another pick of its perks to switch to) on the site's heroes page, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.perkPage3Price', 'Hero', `Price of a hero's 3rd Transcend Perk page on the site's heroes page, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.loadoutPrice', 'Hero', `Price of each hero gear loadout past the free ones (King's Raid's Gear Custom slots: a hero's Armor, Mantle, Accessory, Orb and Artifact kept to put on again) on the site's heroes page, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.rerollPrice', 'Hero', `Price of each Reroll Substats in the site's forge (one substat of a hero gear piece or unique treasure rolled again), in ${CURRENCY_EMOJI}, the same every time. TechnoMagic pieces take Boss Crystals instead.`, 0, MAX_POINTS),
+  ...([6, 7, 8] as const).map((tier) => int(`hero.valueRerollT${tier}Price`, 'Hero', `Price of each Reroll Values in the site's forge (one substat's amount rolled again) on a T${tier} dragon set piece${tier === 8 ? ' (and any other tier)' : ''}, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS)),
+  int('hero.valueRerollTmPrice', 'Hero', `Price of each Reroll Values in the site's forge on a TechnoMagic piece, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.valueRerollUtPrice', 'Hero', `Price of each Reroll Values in the site's forge on a unique treasure (one of its potentials' amounts rolled again), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('hero.restorePrice', 'Hero', `Price of each Restore Gear in the site's forge (a 5★ TechnoMagic piece made a 0★ Reclaimed one), in ${CURRENCY_EMOJI}, on top of its Technomagic Experiment Reports.`, 0, MAX_POINTS),
+  int('hero.runeKeepPrice', 'Hero', `Price of taking a rune out of a hero gear piece's socket and keeping it (or swapping another in over it), in ${CURRENCY_EMOJI}. Disassembling it instead is free.`, 0, MAX_POINTS),
+  int('hero.winPoints', 'Hero', `${CURRENCY_EMOJI} each won TechnoMagic Raid run pays, on top of its gear (1 to 3 items, more at the higher stages). There is no daily limit.`, 0, MAX_POINTS),
+  int('dragon.winPoints', 'Hero', `${CURRENCY_EMOJI} each won Dragon Raid run pays at stage 1, on top of its hero gear and essences. There is no daily limit.`, 0, MAX_POINTS),
+  int('dragon.pointsPerStage', 'Hero', `${CURRENCY_EMOJI} more a won Dragon Raid run pays for every stage past 1.`, 0, MAX_POINTS),
+  int('dragon.essences', 'Hero', "Hero essences of each of its dragon's two kinds a won Dragon Raid run pays at stage 1.", 0, MAX_POINTS),
+  int('divine.voidPrice', 'Hero', `Price of each Rune of Void (any socket's) in the Divine Punishment shop, in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('divine.artifactPrice', 'Hero', `Price of crafting a Divine Punishment artifact from its fragments, in ${CURRENCY_EMOJI}, on top of the fragments.`, 0, MAX_POINTS),
+  int('divine.blasphemyExtendPrice', 'Hero', `Price of each Rune of Blasphemy storage extension (4 more slots, up to 300), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('divine.blasphemyKeepPrice', 'Hero', `Price of taking a Rune of Blasphemy out of a socket into storage (or swapping another rune in over it), in ${CURRENCY_EMOJI}.`, 0, MAX_POINTS),
+  int('dragon.essencesPerStage', 'Hero', 'Hero essences more of each kind a won Dragon Raid run pays for every stage past 1.', 0, MAX_POINTS),
+  ...TM_POTENTIALS.flatMap(({ id, name }) =>
+    (['min', 'max'] as const).map(
+      (end): SettingSpec => ({
+        key: `hero.potentials.${id}.${end}`,
+        group: 'Hero',
+        description: `The ${end === 'min' ? 'least' : 'most'} a TechnoMagic copy's ${name} potential can roll as it drops (a chance's points are this share of 1000).`,
+        type: 'number',
+        min: 0,
+        max: 1,
+        percent: true,
+      }),
+    ),
+  ),
+
+  int('skip.claim', 'Skip', `Price of the first claim cooldown skip each day, in ${CURRENCY_EMOJI}. Each skip after it that day costs double.`, 0, MAX_POINTS),
+
+  int('gacha.cost', 'Gacha', `Cost of one pull, in ${CURRENCY_EMOJI}`, 1, MAX_POINTS),
+  int('gacha.starWeights.1', 'Gacha', 'Relative chance of a T1 pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.2', 'Gacha', 'Relative chance of a T2 pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.3', 'Gacha', 'Relative chance of a T3 pull.', 0, MAX_POINTS),
+  int('gacha.starWeights.4', 'Gacha', 'Relative chance of a T4 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.1', 'Gacha', 'Hero Item banner: relative chance of a T1 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.2', 'Gacha', 'Hero Item banner: relative chance of a T2 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.3', 'Gacha', 'Hero Item banner: relative chance of a T3 pull.', 0, MAX_POINTS),
+  int('gacha.heroStarWeights.4', 'Gacha', 'Hero Item banner: relative chance of a unique weapon or treasure.', 0, MAX_POINTS),
+  int(
+    'gacha.pity.softStart',
+    'Gacha',
+    `Pull number (since the last T${PITY_STARS}) where the T${PITY_STARS} chance starts rising.`,
+    1,
+    MAX_PITY,
+  ),
+  int(
+    'gacha.pity.hardPity',
+    'Gacha',
+    `Pull number (since the last T${PITY_STARS}) that is guaranteed to give one (0 turns pity off).`,
+    0,
+    MAX_PITY,
+  ),
+  ...(
+    [
+      ['start', 'When the limited banner opens. With it off, the banner is closed.'],
+      ['end', 'When the limited banner closes. With it off, the banner stays open once it has started.'],
+    ] as const
+  ).map(([edge, description]): SettingSpec => ({
+    key: `gacha.limited.${edge}`,
+    group: 'Gacha',
+    description: `${description} A date, or a date and time, on the Eastern clock.`,
+    type: 'string',
+    pattern: BANNER_TIME_PATTERN,
+    expects: 'a date like 2026-10-31, a date and time like 2026-10-31 18:00, or off',
+    normalize: (raw) => raw.toLowerCase().replace(/\s+/g, ' ').replace(/(\d)t(\d)/, '$1 $2'),
+  })),
+  {
+    key: 'gacha.limited.featuredChance',
+    group: 'Gacha',
+    description: `Chance a T${PITY_STARS} from the limited banner is one of its featured items. After one that isn't, the next one always is.`,
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+
+  int('sell.price.1', 'Sell', `${CURRENCY_EMOJI} for selling one T1 item.`, 0, MAX_POINTS),
+  int('sell.price.2', 'Sell', `${CURRENCY_EMOJI} for selling one T2 item.`, 0, MAX_POINTS),
+  int('sell.price.3', 'Sell', `${CURRENCY_EMOJI} for selling one T3 item.`, 0, MAX_POINTS),
+  int('sell.price.4', 'Sell', `${CURRENCY_EMOJI} for selling one T4 item.`, 0, MAX_POINTS),
+  int('sell.powder.6', 'Sell', "komaDust for salvaging one T6 King's Raid piece (a dragon set's).", 0, MAX_POINTS),
+  int('sell.powder.7', 'Sell', "komaDust for salvaging one T7 King's Raid piece (a dragon set's).", 0, MAX_POINTS),
+  int('sell.powder.8', 'Sell', "komaDust for salvaging one T8 King's Raid piece (a dragon set's).", 0, MAX_POINTS),
+  int('sell.powder.9', 'Sell', "komaDust for salvaging one T9 King's Raid piece (a TechnoMagic set's).", 0, MAX_POINTS),
+  int('sell.powder.10', 'Sell', 'komaDust for salvaging one artifact.', 0, MAX_POINTS),
+  int('sell.powder.technomagic', 'Sell', 'komaDust for salvaging one piece of the old TechnoMagic gear.', 0, MAX_POINTS),
+  int('sell.powder.unique', 'Sell', 'komaDust for salvaging one unique weapon or unique treasure.', 0, MAX_POINTS),
+  int('sell.powderPerGem', 'Craft', 'komaDust that crafts one komaGem.', 1, MAX_POINTS),
+  int('sell.powderPerSelector', 'Craft', 'komaDust that crafts one Unique Weapon or Unique Treasure Ticket.', 1, MAX_POINTS),
+  int('craft.tm.any.crystals', 'Craft', "Boss Crystals (the set's) crafting any piece of a TechnoMagic set takes.", 0, MAX_POINTS),
+  int('craft.tm.any.points', 'Craft', `${CURRENCY_EMOJI} crafting any piece of a TechnoMagic set takes.`, 0, MAX_POINTS),
+  int('craft.tm.part.crystals', 'Craft', "Boss Crystals (the set's) crafting a TechnoMagic piece of a part picked takes.", 0, MAX_POINTS),
+  int('craft.tm.part.points', 'Craft', `${CURRENCY_EMOJI} crafting a TechnoMagic piece of a part picked takes.`, 0, MAX_POINTS),
+  int('craft.tm.exact.crystals', 'Craft', "Boss Crystals (the set's) crafting a TechnoMagic piece of a class and part picked takes.", 0, MAX_POINTS),
+  int('craft.tm.exact.points', 'Craft', `${CURRENCY_EMOJI} crafting a TechnoMagic piece of a class and part picked takes.`, 0, MAX_POINTS),
+  { key: 'craft.reclaimed', group: 'Craft', description: 'Chance a crafted TechnoMagic piece comes Reclaimed.', type: 'number', min: 0, max: 1, percent: true },
+  int('craft.runes.uncommon', 'Craft', 'Rune Fragments one Mysterious Rune: Uncommon takes.', 1, MAX_POINTS),
+  int('craft.runes.rare', 'Craft', 'Rune Fragments one Mysterious Rune: Rare takes.', 1, MAX_POINTS),
+  int('craft.runes.heroic', 'Craft', 'Rune Fragments one Mysterious Rune: Heroic takes.', 1, MAX_POINTS),
+  int('craft.runes.ancient', 'Craft', 'Rune Fragments one Mysterious Rune: Ancient takes.', 1, MAX_POINTS),
+  int('craft.tpScroll', 'Craft', "Boss Crystals (any one set's) one Transcendence Attribute Point (+5 TP for a hero) takes.", 1, MAX_POINTS),
+
+  { key: 'rob.successChance', group: 'Rob', description: 'Chance a rob succeeds.', type: 'number', min: 0, max: 1, percent: true },
+  int('rob.minStolen', 'Rob', `Lowest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),
+  int('rob.maxStolen', 'Rob', `Highest number of ${CURRENCY_EMOJI} a successful rob takes.`, 1, MAX_POINTS),
+  int('rob.minVictimBalance', 'Rob', `Members with fewer ${CURRENCY_EMOJI} than this cannot be robbed (1 means anyone who has some).`, 1, MAX_POINTS),
+  int('rob.failFine', 'Rob', `Fine a caught robber pays the victim. A member needs at least this many ${CURRENCY_EMOJI} to rob.`, 0, MAX_POINTS),
+  int('rob.cooldownMinutes', 'Rob', 'Minutes a robber must wait between attempts.', 1, MAX_TIMER_MINUTES),
+  int('rob.wealthTaxThreshold', 'Rob', `A successful rob of a member holding more than this many ${CURRENCY_EMOJI} also takes the wealth tax of what they hold over it.`, 0, MAX_POINTS),
+  {
+    key: 'rob.wealthTaxRate',
+    group: 'Rob',
+    description: 'Wealth tax: the share of what a victim holds over rob.wealthTaxThreshold that a successful rob also takes (gear can raise it).',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  int(
+    'rob.victimProtectionMinutes',
+    'Rob',
+    'Minutes a member is protected from robbery after being robbed, counted from that robbery (0 turns it off).',
+    0,
+    MAX_TIMER_MINUTES,
+  ),
+  {
+    key: 'rob.minChance',
+    group: 'Rob',
+    description: 'Lowest success chance equipment can push a rob down to (never raises a lower base chance).',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'rob.maxChance',
+    group: 'Rob',
+    description: 'Highest success chance equipment can push a rob up to (never lowers a higher base chance).',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+
+  int('plinko.minBet', 'Plinko', 'Smallest bet on plinko.', 1, MAX_POINTS),
+  int('plinko.maxBet', 'Plinko', 'Biggest bet on plinko.', 1, MAX_POINTS),
+  // One payout per slot counting in from the edge (the board is mirrored), generated from PLINKO_ROWS.
+  ...Array.from({ length: PLINKO_ROWS / 2 + 1 }, (_, i): SettingSpec => {
+    const place = i + 1;
+    const where = place === 1 ? 'the two outermost slots' : place === PLINKO_ROWS / 2 + 1 ? 'the middle slot' : `the two slots ${i} in from the edge`;
+    return {
+      key: `plinko.payout.${place}`,
+      group: 'Plinko',
+      description: `What ${where} pay, as a multiple of the bet (2x pays double, 0.5x pays half back).`,
+      type: 'number',
+      min: 0,
+      max: MAX_PLINKO_MULTIPLIER,
+      multiplier: true,
+    };
+  }),
+
+  int('blackjack.minBet', 'Blackjack', 'Smallest bet on blackjack.', 1, MAX_POINTS),
+  int('blackjack.maxBet', 'Blackjack', 'Biggest bet on blackjack (a double can go above it).', 1, MAX_POINTS),
+  {
+    key: 'blackjack.naturalPayout',
+    group: 'Blackjack',
+    description: 'What a blackjack pays as a multiple of the bet, on top of getting the bet back (1.5x is 3 to 2, 1x is even money).',
+    type: 'number',
+    min: 0,
+    max: MAX_BLACKJACK_NATURAL,
+    multiplier: true,
+  },
+  int('blackjack.joinSeconds', 'Blackjack', 'Seconds a blackjack party stays open for joining.', 5, MAX_BLACKJACK_SECONDS),
+  int('blackjack.turnSeconds', 'Blackjack', 'Seconds a blackjack player has to act before they stand.', 5, MAX_BLACKJACK_SECONDS),
+
+  int('baccarat.minBet', 'Baccarat', 'Smallest bet in baccarat, counting every chip on the table.', 1, MAX_POINTS),
+  int('baccarat.maxBet', 'Baccarat', 'Biggest bet in baccarat, counting every chip on the table.', 1, MAX_POINTS),
+  ...(
+    [
+      ['banker', 'A winning Banker bet pays this to 1 (0.95 is even money less a 5% commission).'],
+      ['tie', 'A winning Tie bet pays this to 1.'],
+      ['kirin', 'The Kirin side bet (the Player wins with three cards worth 8) pays this to 1.'],
+      ['phoenix', 'The Phoenix side bet (the Banker wins with three cards worth 7) pays this to 1.'],
+    ] as const
+  ).map(([spot, description]): SettingSpec => ({
+    key: `baccarat.payout.${spot}`,
+    group: 'Baccarat',
+    description,
+    type: 'number',
+    min: 0,
+    max: MAX_BACCARAT_PAYOUT,
+  })),
+
+  int('roulette.minBet', 'Roulette', 'Smallest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
+  int('roulette.maxBet', 'Roulette', 'Biggest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
+
+  int('poker.smallBlind', 'Poker', "The small blind at every poker table.", 1, MAX_POKER_STAKE),
+  int('poker.bigBlind', 'Poker', 'The big blind at every poker table (also the least a bet or raise can be).', 1, MAX_POKER_STAKE),
+  int('poker.minBuyIn', 'Poker', 'The fewest chips a player can sit down at a poker table with.', 1, MAX_POKER_STAKE),
+  int('poker.maxBuyIn', 'Poker', 'The most chips a player can sit down at a poker table with.', 1, MAX_POKER_STAKE),
+  {
+    key: 'poker.rake',
+    group: 'Poker',
+    description: "The house's cut of each poker hand that sees a flop. It goes into the vault.",
+    type: 'number',
+    min: 0,
+    max: 0.25,
+    percent: true,
+  },
+  int('poker.rakeCap', 'Poker', 'The most rake taken from one poker hand.', 0, MAX_POKER_STAKE),
+  int('poker.turnSeconds', 'Poker', 'Seconds a poker player has for each move before they check (when free) or fold.', 5, MAX_POKER_TURN_SECONDS),
+  int('poker.botDailyLimit', 'Poker', `The most ${CURRENCY_EMOJI} a member can win off the poker bots in a day, net (0 means no limit). After that the bots sit out of the hands they're in until the next day.`, 0, MAX_POINTS),
+
+  int('mines.minBet', 'Mines', 'Smallest bet in Mines.', 1, MAX_POINTS),
+  int('mines.maxBet', 'Mines', 'Biggest bet in Mines.', 1, MAX_POINTS),
+  {
+    key: 'mines.edgeFewest',
+    group: 'Mines',
+    description: "The mine's house edge with 1 mine. With more mines it slides evenly to mines.edgeMost at the most mines.",
+    type: 'number',
+    min: 0,
+    max: 0.5,
+    percent: true,
+  },
+  {
+    key: 'mines.edgeMost',
+    group: 'Mines',
+    description: "The mine's house edge with the most mines (24).",
+    type: 'number',
+    min: 0,
+    max: 0.5,
+    percent: true,
+  },
+  {
+    key: 'mines.maxMultiplier',
+    group: 'Mines',
+    description: 'A mine round that reaches this multiplier is cashed out there by itself.',
+    type: 'number',
+    min: 1,
+    max: MAX_MINE_MULTIPLIER,
+    multiplier: true,
+  },
+
+  int('pinecraft.maxEnergy', 'Pinecraft', 'The most energy a member can have in Pinecraft. Digging a block takes one.', 1, MAX_PINECRAFT_ENERGY),
+  int('pinecraft.energyMinutes', 'Pinecraft', 'Minutes for one Pinecraft energy to come back.', 1, MAX_TIMER_MINUTES),
+  ...PINECRAFT_PAYING.map((block) => int(`pinecraft.value.${block}`, 'Pinecraft', `${CURRENCY_EMOJI} paid for each ${block} block dug in Pinecraft.`, 0, MAX_PINECRAFT_VALUE)),
+
+  ...MINESWEEPER_LEVEL_IDS.map((level) =>
+    int(`minesweeper.pool.${level}`, 'Minesweeper', `${CURRENCY_EMOJI} a cleared ${MINESWEEPER_LEVEL_NAMES[level]} board of minesweeper pays, shared between its players by the tiles each opened.`, 0, MAX_POINTS),
+  ),
+  ...MINESWEEPER_LEVEL_IDS.map((level) =>
+    int(
+      `minesweeper.parSeconds.${level}`,
+      'Minesweeper',
+      `Par time of a ${MINESWEEPER_LEVEL_NAMES[level]} board of minesweeper, in seconds: one cleared sooner pays more, the most at half of it.`,
+      1,
+      MAX_MINESWEEPER_PAR_SECONDS,
+    ),
+  ),
+  {
+    key: 'minesweeper.speedBonus',
+    group: 'Minesweeper',
+    description: 'What a minesweeper board cleared in half its par time or less pays, as a multiple of its pool (1x: speed pays nothing).',
+    type: 'number',
+    min: 1,
+    max: MAX_MINESWEEPER_SPEED_BONUS,
+    multiplier: true,
+  },
+
+  int('events.minMinutes', 'Events', 'Fewest minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
+  int('events.maxMinutes', 'Events', 'Most minutes between one random event and the next.', 5, MAX_TIMER_MINUTES),
+  int('events.crate.minPoints', 'Events', `Fewest ${CURRENCY_EMOJI} a point crate can hold.`, 1, MAX_POINTS),
+  int('events.crate.maxPoints', 'Events', `Most ${CURRENCY_EMOJI} a point crate can hold.`, 1, MAX_POINTS),
+  int('events.crate.seconds', 'Events', 'Seconds the point crate stays open for grabbing.', 10, MAX_CRATE_SECONDS),
+
+  {
+    key: 'events.vault.multiplier',
+    group: 'Events',
+    description: 'What a vault game (Greedy Heist, Split or Steal) puts up, as a multiple of the points lost to gambling since the last payout.',
+    type: 'number',
+    min: 0,
+    max: MAX_VAULT_MULTIPLIER,
+    multiplier: true,
+  },
+  int('events.vault.hourlyGrowth', 'Events', `${CURRENCY_EMOJI} added to the vault every hour on its own, in every server with events on (0 turns it off).`, 0, MAX_POINTS),
+  {
+    key: 'events.vault.lossShare',
+    group: 'Events',
+    description: 'The share of every gambling loss, heist fine and Codedle guess that goes into the vault. The rest is gone for good.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  int('events.vault.maxPool', 'Events', `The most ${CURRENCY_EMOJI} a vault game pays out of the vault. The vault itself keeps filling past it (losses, hourly growth, donations), and the rest waits for later games (0 means no cap).`, 0, MAX_POINTS),
+  int('events.heist.joinSeconds', 'Events', 'Seconds a Greedy Heist stays open for joining.', 10, MAX_EVENT_SECONDS),
+  int('events.heist.rounds', 'Events', 'Most rounds a Greedy Heist lasts. The prize is handed out a slice per round.', 1, MAX_HEIST_ROUNDS),
+  int('events.heist.roundSeconds', 'Events', 'Seconds each Greedy Heist round lasts (time to decide whether to escape).', 2, 60),
+  {
+    key: 'events.heist.alarmStart',
+    group: 'Events',
+    description: 'The chance the alarm goes off in the first round of a Greedy Heist.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'events.heist.alarmStep',
+    group: 'Events',
+    description: 'Added to the Greedy Heist alarm chance every round after the first.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'events.heist.quietBonus',
+    group: 'Events',
+    description:
+      'Added to the multiplier on Greedy Heist loot for every round the alarm stays quiet (10% pays 2x after 10 quiet rounds). Escaping locks it in. What it adds past the prize is new money. 0 turns it off.',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  int('events.heist.fine', 'Events', 'What everyone still inside a Greedy Heist when the alarm goes off pays, added to the vault.', 0, MAX_POINTS),
+  int('events.splitSteal.minPlayers', 'Events', 'Fewest people who have to join Split or Steal for it to be played.', 2, 50),
+  int('events.splitSteal.joinSeconds', 'Events', 'Seconds Split or Steal stays open for joining.', 10, MAX_EVENT_SECONDS),
+  int('events.splitSteal.decideSeconds', 'Events', 'Seconds the Split or Steal players have to choose.', 10, MAX_EVENT_SECONDS),
+  int('events.codedle.waitSeconds', 'Events', "Seconds between Codedle's announcement and guessing opening, for everyone to open it (0 opens it at once).", 0, MAX_EVENT_SECONDS),
+  int('events.codedle.seconds', 'Events', 'Seconds everyone has to crack the code in Codedle, once guessing opens.', 30, MAX_EVENT_SECONDS),
+  int('events.codedle.guessCost', 'Events', `What each Codedle guess costs, added to the vault (0 makes guessing free).`, 0, MAX_POINTS),
+
+  ...RAID_BOSS_IDS.map((boss) =>
+    int(`raid.hpPerRaider.${boss}`, 'Raid', `The ${TEXT.raid.bosses[boss].name}'s HP for every raider past raid.hpOverhead.${boss}.`, 1, MAX_POINTS),
+  ),
+  ...RAID_BOSS_IDS.map(
+    (boss): SettingSpec => ({
+      key: `raid.hpOverhead.${boss}`,
+      group: 'Raid',
+      description: `How many raiders the ${TEXT.raid.bosses[boss].name} keeps busy guarding, healing and supporting (they add no HP; every raider past them adds raid.hpPerRaider.${boss}).`,
+      type: 'number',
+      min: 0,
+      max: MAX_RAID_OVERHEAD,
+    }),
+  ),
+  int('raid.minRaiders', 'Raid', 'A raid with fewer raiders than this fights a boss with as much HP as if it had this many (so a raid needs a few people).', 1, 50),
+  int('raid.playerHp', 'Raid', "Every raid player's HP.", 1, MAX_POINTS),
+  int('raid.maxRounds', 'Raid', 'Rounds before the raid boss flies off and the raid is lost.', 1, MAX_RAID_ROUNDS),
+  int('raid.turnSeconds', 'Raid', 'Seconds raid players have to pick their action each round.', 10, MAX_RAID_SECONDS),
+  int('raid.reward', 'Raid', `${CURRENCY_EMOJI} each raid player who took part gets when the boss is beaten at difficulty 1.`, 0, MAX_POINTS),
+  int('raid.rewardPerLevel', 'Raid', `${CURRENCY_EMOJI} more each raid player gets for every difficulty level past 1 (500 makes level 3 pay 1,000 more).`, 0, MAX_POINTS),
+  int('raid.tokenReward', 'Raid', `${TOKEN_NAME} (one free gacha pull each) each raid player who took part gets when the boss is beaten.`, 0, MAX_POINTS),
+  int('raid.gemReward', 'Raid', `${GEM_NAME} each raid player who took part gets when the boss is beaten, below difficulty ${RAID_DIFFICULTY.milestoneEvery}.`, 0, MAX_POINTS),
+  int(
+    'raid.gemRewardMilestone',
+    'Raid',
+    `${GEM_NAME} more each raid player gets from difficulty ${RAID_DIFFICULTY.milestoneEvery} on, and as many again at ${RAID_DIFFICULTY.milestoneEvery * 2} (the levels in between pay no more).`,
+    0,
+    MAX_POINTS,
+  ),
+  int('raid.essenceReward', 'Raid', `Hero essences of each of its boss's three kinds each raid player who took part gets when the boss is beaten at difficulty 1 (they transcend the TechnoMagic Raid's heroes).`, 0, MAX_POINTS),
+  int('raid.essenceRewardPerLevel', 'Raid', `Hero essences more of each kind each raid player gets for every difficulty level past 1 (5 makes level 3 pay 10 more).`, 0, MAX_POINTS),
+  int('raid.weeklyMultiplier', 'Raid', "How many times over the Weekly Boss pays (its points, komaTokens, komaGems, essences and raid items): only each member's first win of the raid week is paid.", 1, 100),
+  ...RAID_SHOP_STARS.map((stars) => int(`raid.shop.price.${stars}`, 'Raid', `${GEM_NAME} a T${stars} raid item costs in the site's raid shop.`, 0, MAX_POINTS)),
+  ...RAID_SHOP_STARS.map((stars) =>
+    int(`raid.shop.stock.${stars}`, 'Raid', `How many T${stars} raid items the site's raid shop has on its shelf each week (0: none).`, 0, MAX_RAID_SHOP_STOCK),
+  ),
+  int(
+    'raid.shop.refreshCost',
+    'Raid',
+    `${GEM_NAME} a member's first refresh of their raid shop shelf costs each week. Each one after it that week costs this much more (5: then 10, 15…).`,
+    0,
+    MAX_POINTS,
+  ),
+  int('raid.shop.refreshes', 'Raid', "How many times a week a member can refresh their raid shop shelf (0: it can't be refreshed).", 0, MAX_RAID_SHOP_REFRESHES),
+  {
+    key: 'raid.dropChance',
+    group: 'Raid',
+    description:
+      'Chance a beaten raid boss drops raid items (only bosses drop them), before raid.dropChancePerRaider. One roll for the whole party: on a hit, everyone who took part finds what its difficulty drops (one T3 item at level 1; T4 ones only at levels 5 and 10).',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'raid.dropChancePerRaider',
+    group: 'Raid',
+    description: 'How much each raid player who took part adds to raid.dropChance (the total is capped at 100%).',
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+  {
+    key: 'raid.difficultyHp',
+    group: 'Raid',
+    description: "How much of its HP a raid boss gains for every difficulty level past 1 (2% makes level 3's boss 4% bigger).",
+    type: 'number',
+    min: 0,
+    max: 5,
+    percent: true,
+  },
+  ...RAID_BOSS_IDS.map((boss) =>
+    int(
+      `raid.gearHp.${boss}`,
+      'Raid',
+      `HP the ${TEXT.raid.bosses[boss].name} has on top for every raider from difficulty ${RAID_DIFFICULTY.gearFrom} on, the levels built for parties in raid gear. It climbs to that in equal steps from level 2 (0: every level is only as hard as raid.difficultyHp makes it).`,
+      0,
+      MAX_POINTS,
+    ),
+  ),
+  {
+    key: 'raid.difficultyDamage',
+    group: 'Raid',
+    description: 'How much harder a raid boss hits for every difficulty level past 1 (1% makes level 3 hit 2% harder).',
+    type: 'number',
+    min: 0,
+    max: 5,
+    percent: true,
+  },
+  {
+    key: 'raid.topDamage',
+    group: 'Raid',
+    description: `How much harder still a raid boss hits at difficulty ${RAID_DIFFICULTY.max}, on top of raid.difficultyDamage. It climbs to that in equal steps from difficulty ${RAID_DIFFICULTY.topFrom} (60% makes level ${RAID_DIFFICULTY.topFrom} hit 20% harder).`,
+    type: 'number',
+    min: 0,
+    max: 5,
+    percent: true,
+  },
+
+  int(
+    'stonks.capHours',
+    'Stonks',
+    "Hours after a claim is first ready that STONKS!'s claim multiplier takes to reach its cap (equipment.stackosaurus.<stars>) and stop climbing.",
+    1,
+    MAX_STONKS_HOURS,
+  ),
+
+  {
+    key: 'wheel.maxMultiplier',
+    group: 'Wheel',
+    description:
+      "The biggest multiplier on the Wheelchair's prize wheel (it starts at 1x). Its slices stretch to reach it. 1x makes every slice 1x, so the wheel does nothing.",
+    type: 'number',
+    min: 1,
+    max: MAX_WHEEL_MULTIPLIER,
+    multiplier: true,
+  },
+
+  {
+    key: 'equipment.borrowed.effectiveness',
+    group: 'Equipment',
+    description:
+      "How much of an exclusive item's effects (someone else's unique treasure) a member gets while wearing it. The members it is made for, and the admin, always get all of it.",
+    type: 'number',
+    min: 0,
+    max: 1,
+    percent: true,
+  },
+
+  // One setting per effect per tier, generated from the effect registry.
+  ...EFFECT_IDS.flatMap((id) =>
+    STARS.map(
+      (stars): SettingSpec => ({
+        key: `equipment.${id}.${stars}`,
+        group: 'Equipment',
+        description: `${EFFECTS[id].description} For T${stars} items.`,
+        type: 'number',
+        min: EFFECTS[id].min,
+        max: EFFECTS[id].max,
+        percent: !(EFFECTS[id] as PerkDef).plain,
+      }),
+    ),
+  ),
+];
+
+export function findSpec(key: string): SettingSpec | undefined {
+  const wanted = key.trim().toLowerCase();
+  return SPECS.find((spec) => spec.key.toLowerCase() === wanted);
+}
+
+/**
+ * Every setting under `prefix` (`refine.cost`: every refine cost; `refine.cost.2`: the T2 ones),
+ * in the list's order: the keys that start with it and a dot, whatever the case. Not the one setting
+ * called exactly that (findSpec has it), and none for a prefix that isn't a whole part of a key
+ * (`refine.co` matches nothing).
+ */
+export function specsUnder(prefix: string): SettingSpec[] {
+  const wanted = `${prefix.trim().replace(/\.+$/, '').toLowerCase()}.`;
+  if (wanted === '.') return [];
+  return SPECS.filter((spec) => spec.key.toLowerCase().startsWith(wanted));
+}
+
+/**
+ * Matches "equipment.<effect>" with no tier (e.g. from `config reset equipment.robChance`), the
+ * form that means "every tier of this effect", and returns the effect's canonical id. Returns
+ * undefined for anything else, including a full `equipment.<effect>.<stars>` key.
+ */
+export function findEquipmentEffectId(key: string): EffectId | undefined {
+  const match = /^equipment\.([^.]+)$/i.exec(key.trim());
+  if (!match) return undefined;
+  const wanted = (match[1] as string).toLowerCase();
+  return EFFECT_IDS.find((id) => id.toLowerCase() === wanted);
+}
+
+// ---------------------------------------------------------------------------
+// Dot-path helpers
+// ---------------------------------------------------------------------------
+
+export function getPath(source: unknown, path: string): unknown {
+  let current: unknown = source;
+  for (const part of path.split('.')) {
+    if (current === null || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+export function setPath(target: object, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current = target as Record<string, unknown>;
+  for (const part of parts.slice(0, -1)) {
+    const next = current[part];
+    if (next === null || typeof next !== 'object') current[part] = {};
+    current = current[part] as Record<string, unknown>;
+  }
+  current[parts[parts.length - 1] as string] = value;
+}
+
+// ---------------------------------------------------------------------------
+// Validation
+// ---------------------------------------------------------------------------
+
+function formatNumber(spec: SettingSpec, n: number): string {
+  if (spec.multiplier) return `${Number(n.toFixed(2))}x`;
+  return spec.percent ? `${Number((n * 100).toFixed(PERCENT_DECIMALS))}%` : n.toLocaleString(NUMBER_LOCALE);
+}
+
+function rangeText(spec: SettingSpec): string {
+  const { min, max } = spec;
+  if (min !== undefined && max !== undefined) return ` between ${formatNumber(spec, min)} and ${formatNumber(spec, max)}`;
+  if (min !== undefined) return ` of at least ${formatNumber(spec, min)}`;
+  if (max !== undefined) return ` of at most ${formatNumber(spec, max)}`;
+  return '';
+}
+
+/** Returns a problem description like "must be a whole number between 1 and 25", or null if fine. */
+export function validateValue(spec: SettingSpec, value: unknown): string | null {
+  if (spec.type === 'string') {
+    if (typeof value !== 'string' || (spec.pattern !== undefined && !spec.pattern.test(value))) {
+      return `must be ${spec.expects ?? 'text'}`;
+    }
+    return null;
+  }
+
+  const kind =
+    spec.type === 'int' ? 'a whole number' : spec.percent ? 'a percentage like 40% or 0.4' : spec.multiplier ? 'a multiplier like 2.5 or 2.5x' : 'a number';
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    (spec.type === 'int' && !Number.isInteger(value)) ||
+    (spec.min !== undefined && value < spec.min) ||
+    (spec.max !== undefined && value > spec.max)
+  ) {
+    return `must be ${kind}${rangeText(spec)}`;
+  }
+  return null;
+}
+
+export type ParseResult = { ok: true; value: string | number } | { ok: false; error: string };
+
+/** Turns text typed by the admin into a value for the setting, and validates it. */
+export function parseInput(spec: SettingSpec, raw: string): ParseResult {
+  const text = raw.trim();
+  let value: string | number;
+
+  if (spec.type === 'string') {
+    value = spec.normalize ? spec.normalize(text) : text;
+  } else if (text === '') {
+    value = Number.NaN;
+  } else if (spec.multiplier && /x$/i.test(text)) {
+    const number = text.slice(0, -1).trim();
+    value = number === '' ? Number.NaN : Number(number);
+  } else if (spec.percent && text.endsWith('%')) {
+    value = Number(text.slice(0, -1).trim()) / 100;
+  } else {
+    value = Number(text.replace(/[,_]/g, ''));
+  }
+
+  const problem = validateValue(spec, value);
+  return problem ? { ok: false, error: problem } : { ok: true, value };
+}
+
+export function formatValue(spec: SettingSpec, value: unknown): string {
+  if (typeof value === 'number') return formatNumber(spec, value);
+  return String(value);
+}
+
+/** Checks rules that involve more than one setting. Returns a problem, or null if fine. */
+export function checkConstraints(settings: Settings): string | null {
+  if (settings.claim.min > settings.claim.max) {
+    return 'claim.min cannot be higher than claim.max';
+  }
+  if (settings.rob.minStolen > settings.rob.maxStolen) {
+    return 'rob.minStolen cannot be higher than rob.maxStolen';
+  }
+  if (settings.plinko.minBet > settings.plinko.maxBet) {
+    return 'plinko.minBet cannot be higher than plinko.maxBet';
+  }
+  if (settings.blackjack.minBet > settings.blackjack.maxBet) {
+    return 'blackjack.minBet cannot be higher than blackjack.maxBet';
+  }
+  if (settings.baccarat.minBet > settings.baccarat.maxBet) {
+    return 'baccarat.minBet cannot be higher than baccarat.maxBet';
+  }
+  if (settings.roulette.minBet > settings.roulette.maxBet) {
+    return 'roulette.minBet cannot be higher than roulette.maxBet';
+  }
+  if (settings.poker.smallBlind > settings.poker.bigBlind) {
+    return 'poker.smallBlind cannot be higher than poker.bigBlind';
+  }
+  if (settings.poker.minBuyIn > settings.poker.maxBuyIn) {
+    return 'poker.minBuyIn cannot be higher than poker.maxBuyIn';
+  }
+  if (settings.poker.minBuyIn < settings.poker.bigBlind) {
+    return 'poker.minBuyIn must be at least poker.bigBlind';
+  }
+  for (const boss of RAID_BOSS_IDS) {
+    if (settings.raid.minRaiders <= settings.raid.hpOverhead[boss]) return `raid.minRaiders must be more than raid.hpOverhead.${boss}`;
+  }
+  for (const { id } of TM_POTENTIALS) {
+    if (settings.hero.potentials[id].min > settings.hero.potentials[id].max) return `hero.potentials.${id}.min cannot be higher than hero.potentials.${id}.max`;
+  }
+  if (settings.mines.minBet > settings.mines.maxBet) {
+    return 'mines.minBet cannot be higher than mines.maxBet';
+  }
+  if (settings.events.minMinutes > settings.events.maxMinutes) {
+    return 'events.minMinutes cannot be higher than events.maxMinutes';
+  }
+  if (settings.events.crate.minPoints > settings.events.crate.maxPoints) {
+    return 'events.crate.minPoints cannot be higher than events.crate.maxPoints';
+  }
+  if (settings.rob.minChance > settings.rob.maxChance) {
+    return 'rob.minChance cannot be higher than rob.maxChance';
+  }
+  const { softStart, hardPity } = settings.gacha.pity;
+  if (hardPity > 0 && softStart > hardPity) {
+    return 'gacha.pity.softStart cannot be higher than gacha.pity.hardPity';
+  }
+  const limited = { start: bannerTime(settings.gacha.limited.start), end: bannerTime(settings.gacha.limited.end) };
+  for (const edge of ['start', 'end'] as const) {
+    if (Number.isNaN(limited[edge])) return `gacha.limited.${edge} is not a real date`;
+  }
+  if (limited.start !== null && limited.end !== null && limited.start >= limited.end) {
+    return 'gacha.limited.start must be before gacha.limited.end';
+  }
+  const weights = settings.gacha.starWeights;
+  if (STARS.reduce((sum, stars) => sum + weights[stars], 0) <= 0) {
+    return 'at least one of gacha.starWeights.1 to .4 must be above 0';
+  }
+  const heroWeights = settings.gacha.heroStarWeights;
+  if (STARS.reduce((sum, stars) => sum + heroWeights[stars], 0) <= 0) {
+    return 'at least one of gacha.heroStarWeights.1 to .4 must be above 0';
+  }
+  return null;
+}
+
+/** Every problem with a full settings object, one string per problem. */
+export function validateSettings(settings: Settings): string[] {
+  const problems: string[] = [];
+  for (const spec of SPECS) {
+    const problem = validateValue(spec, getPath(settings, spec.key));
+    if (problem) problems.push(`${spec.key} ${problem}`);
+  }
+  if (problems.length === 0) {
+    const cross = checkConstraints(settings);
+    if (cross) problems.push(cross);
+  }
+  return problems;
+}

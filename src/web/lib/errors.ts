@@ -1,0 +1,95 @@
+import type { LoadoutNameBlock, RefineBlock } from '../models/gear.js';
+import type { BatchRefusal } from '../../services/tm-batches.js';
+
+/* The site API's errors: a code the site knows, answered as { error: code } with the code's status (middleware/errors.ts). */
+
+export type ErrorCode = 'bad_request' | 'no_login' | 'not_logged_in' | 'not_member' | 'not_admin' | 'invalid_setting' | 'discord_failed' | 'not_found' | 'not_playing' | 'busy' | 'bad_material' | 'nothing_to_sell' | 'owned' | 'not_owned' | 'no_refreshes' | 'closed' | 'wrong_slot' | 'wrong_hero' | 'wrong_class' | 'no_socket' | 'wrong_part' | 'no_rune' | 'no_option' | 'claimed' | 'bad_pick' | 'duplicate' | 'no_main_treasure' | 'too_many_points' | 'perk_locked' | 'no_gems' | 'no_crystals' | 'no_reports' | 'not_restorable' | 'not_open' | 'already_open' | 'bad_level' | 'no_blood' | 'no_void' | 'storage_full' | 'storage_maxed' | 'socketed' | 'no_tickets' | 'no_piece' | 'no_fragments' | 'pending' | 'loadout_locked' | 'no_scroll' | 'scrolls_maxed' | 'not_enough' | 'nothing_worn' | 'empty' | 'too_long' | 'bad_name' | RefineBlock | LoadoutNameBlock | BatchRefusal;
+
+const STATUS: Record<ErrorCode, number> = {
+  bad_request: 400,
+  no_login: 404,
+  not_logged_in: 401,
+  not_member: 403,
+  not_admin: 403,
+  invalid_setting: 400,
+  discord_failed: 502,
+  not_found: 404,
+  not_playing: 409,
+  busy: 409,
+  maxed: 409,
+  no_duplicate: 409,
+  no_stones: 409,
+  bad_material: 409,
+  too_poor: 409,
+  nothing_to_sell: 409,
+  owned: 409,
+  not_owned: 409,
+  no_refreshes: 409,
+  closed: 409,
+  wrong_slot: 409,
+  wrong_hero: 409,
+  wrong_class: 409,
+  no_socket: 409,
+  wrong_part: 409,
+  no_rune: 409,
+  no_fragments: 409,
+  no_option: 409,
+  claimed: 409,
+  bad_pick: 409,
+  duplicate: 409,
+  no_main_treasure: 409,
+  too_many_points: 409,
+  perk_locked: 409,
+  no_gems: 409,
+  no_crystals: 409,
+  no_reports: 409,
+  not_restorable: 409,
+  not_open: 409,
+  already_open: 409,
+  bad_level: 400,
+  no_blood: 409,
+  no_void: 409,
+  storage_full: 409,
+  storage_maxed: 409,
+  socketed: 409,
+  no_tickets: 409,
+  no_piece: 400,
+  pending: 409,
+  loadout_locked: 409,
+  no_scroll: 409,
+  scrolls_maxed: 409,
+  nothing_worn: 409,
+  empty: 409,
+  too_long: 409,
+  bad_name: 409,
+  not_enough: 409,
+  name_too_long: 409,
+  name_bad_characters: 409,
+  name_no_letters: 409,
+  name_reserved: 409,
+  name_taken: 409,
+  // Background raids (services/tm-batches.ts): one running already, or in a raid's fight; or what was asked makes no sense.
+  running: 409,
+  fighting: 409,
+  locked: 409,
+  bad_count: 400,
+  boss: 400,
+  mode: 400,
+  heroes: 400,
+  team_full: 400,
+};
+
+/** Thrown by a service, controller or middleware when the site's request can't be done. */
+export class ApiError extends Error {
+  /** `detail`, if any, is answered beside the code (invalid_setting's `problems`). */
+  constructor(
+    readonly code: ErrorCode,
+    readonly detail?: Readonly<Record<string, unknown>>,
+  ) {
+    super(code);
+  }
+
+  get status(): number {
+    return STATUS[this.code];
+  }
+}

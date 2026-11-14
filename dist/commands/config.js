@@ -1,0 +1,322 @@
+import { CONFIG, isAdmin, STARS } from '../config.js';
+import { CONFIG_BUTTONS, NOTIFY_ROLES, TEXT } from '../constants/index.js';
+import { createEmbed } from '../lib/embed.js';
+import { EFFECT_IDS } from '../perks/index.js';
+import { buildConfigPages } from '../lib/config-page.js';
+import { checkEventChannel } from '../events/channel.js';
+import { parseChannelArg, parseRoleArg } from '../lib/parse.js';
+import { findEquipmentEffectId, findSpec, formatValue, getPath, GROUPS, SPECS, specsUnder } from '../lib/settings-spec.js';
+import { TM_POTENTIAL_IDS } from '../data/tm-potentials.js';
+import { changeSetting, getPrefix, isPrefixFromEnv, resetEquipmentEffect, resetSetting, resetSettingsUnder } from '../services/settings.js';
+import { getChannelId, getOwnEventsChannelId, setChannelId, setEventsChannelId } from '../services/channel.js';
+import { getNewsletterChannelId, setNewsletterChannelId } from '../services/newsletter.js';
+import { getNotifyRoleIds, setNotifyRoleId } from '../services/roles.js';
+import { refreshRoleMessage } from '../newsletter/roles.js';
+import { raidWeek } from '../lib/events/raid-week.js';
+import { paginate } from '../discord/paginate.js';
+/** The settings' groups, in the order `config list` shows them (lib/settings-spec.ts, which the site's admin page shares). */
+export { GROUPS };
+/**
+ * The per-server channel settings: `channel` (the one channel commands are confined to, and events spawn
+ * in without one of their own, services/channel.ts), `events` (where random events pop up) and
+ * `newsletter` (where the newsletter goes, services/newsletter.ts). They
+ * aren't SettingSpec entries (each server has its own, in its `guilds` document, not the one global
+ * settings document), but they're listed, set and reset like every other setting.
+ */
+export const PER_SERVER_CHANNELS = ['channel', 'events', 'newsletter'];
+const isChannelKey = (key) => PER_SERVER_CHANNELS.includes(key);
+/** Where each per-server channel setting is read and written. Only the bot admin can write them (checked in the services). */
+const CHANNEL_STORE = {
+    channel: { get: getChannelId, set: setChannelId },
+    // None of its own: events spawn in `channel`.
+    events: { get: getOwnEventsChannelId, set: setEventsChannelId },
+    // A newsletter channel chosen now gets its first weekly digest at the next reset.
+    newsletter: { get: getNewsletterChannelId, set: (actorId, guildId, channelId) => setNewsletterChannelId(actorId, guildId, channelId, raidWeek()) },
+};
+/** A channel setting's value, in words: its channel, or none (`events` with none: its events go in `channel`). */
+const showChannel = (key, channelId) => channelId !== null ? `<#${channelId}>` : key === 'events' ? TEXT.config.eventsChannelSame : TEXT.config.channelNone;
+/** Why a channel can't be used, in words. */
+function channelProblemText(problem, channelId) {
+    if (problem === 'missing')
+        return TEXT.config.channelMissing;
+    if (problem === 'not_text')
+        return TEXT.config.channelNotText;
+    return TEXT.config.channelNoPermission(`<#${channelId}>`);
+}
+/**
+ * Handles `config set <channel setting> <value>` / `config reset <channel setting>` (`channel` or
+ * `newsletter`, see PER_SERVER_CHANNELS): validates and stores the channel, then replies with the
+ * same "changed"/"reset" wording every other setting uses, so it reads like just another config
+ * change even though it's stored separately (one value per server, not the single global settings document).
+ */
+async function handleChannelChange(ctx, key, action, rawValue) {
+    const store = CHANNEL_STORE[key];
+    const before = await store.get(ctx.guildId);
+    const beforeDisplay = showChannel(key, before);
+    const apply = async (newId, newDisplay) => {
+        const result = await store.set(ctx.user.id, ctx.guildId, newId);
+        if (!result.ok) {
+            await ctx.reply(TEXT.config.adminOnly);
+            return;
+        }
+        await ctx.reply((action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(key, beforeDisplay, newDisplay));
+    };
+    if (action === 'reset') {
+        await apply(null, showChannel(key, null));
+        return;
+    }
+    if (!rawValue) {
+        await ctx.reply(TEXT.config.askValue(ctx.prefix, key));
+        return;
+    }
+    if (['off', 'none', 'disable'].includes(rawValue.toLowerCase())) {
+        await apply(null, showChannel(key, null));
+        return;
+    }
+    const channelId = parseChannelArg(rawValue);
+    if (channelId === null) {
+        await ctx.reply(TEXT.config.invalidValue(key, TEXT.config.channelInvalid));
+        return;
+    }
+    const checked = await checkEventChannel(ctx.guild, channelId);
+    if (!checked.ok) {
+        await ctx.reply(channelProblemText(checked.problem, channelId));
+        return;
+    }
+    await apply(channelId, `<#${channelId}>`);
+}
+/**
+ * The per-server role settings: `notifyRole` (pinged when an event starts) and `raidRole` (pinged
+ * when a raid's preparation starts), which the role message also hands out (services/roles.ts).
+ * Like the channels, each server has its own, and they're listed, set and reset like every other setting.
+ */
+export const PER_SERVER_ROLES = NOTIFY_ROLES.map((role) => role.setting);
+/** The role setting `key` names (in any case), if it is one. */
+const roleSetting = (key) => NOTIFY_ROLES.find((role) => role.setting.toLowerCase() === key.toLowerCase());
+const showRole = (roleId) => (roleId === null ? TEXT.config.channelNone : `<@&${roleId}>`);
+/**
+ * Handles `config set <role setting> <value>` / `config reset <role setting>`: a role of this
+ * server (a mention or an id), or "off" for none. A reset goes back to the built-in role. The role
+ * message, if one is up, is rewritten to match.
+ */
+async function handleRoleChange(ctx, role, action, rawValue) {
+    const key = role.setting;
+    const before = (await getNotifyRoleIds(ctx.guildId))[role.key];
+    const apply = async (newId) => {
+        const result = await setNotifyRoleId(ctx.user.id, ctx.guildId, role.key, newId);
+        if (!result.ok) {
+            await ctx.reply(TEXT.config.adminOnly);
+            return;
+        }
+        const after = newId === undefined ? role.roleId : newId;
+        await refreshRoleMessage(ctx.guild);
+        const lines = [(action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(key, showRole(before), showRole(after))];
+        // The role message can only hand out roles below the bot's own.
+        if (after !== null && ctx.guild.roles.cache.get(after)?.editable === false)
+            lines.push(TEXT.newsletter.rolesTooHigh(showRole(after)));
+        await ctx.reply(lines.join('\n'));
+    };
+    if (action === 'reset') {
+        await apply(undefined);
+        return;
+    }
+    if (!rawValue) {
+        await ctx.reply(TEXT.config.askValue(ctx.prefix, key));
+        return;
+    }
+    if (['off', 'none', 'disable'].includes(rawValue.toLowerCase())) {
+        await apply(null);
+        return;
+    }
+    const roleId = parseRoleArg(rawValue);
+    if (roleId === null) {
+        await ctx.reply(TEXT.config.invalidValue(key, TEXT.config.roleInvalid));
+        return;
+    }
+    if (!ctx.guild.roles.cache.has(roleId)) {
+        await ctx.reply(TEXT.config.roleMissing);
+        return;
+    }
+    await apply(roleId);
+}
+function describeValue(spec) {
+    const value = getPath(CONFIG, spec.key);
+    const shown = formatValue(spec, value);
+    // With ENV=LOCAL the prefix in use is the one from .env, not the one stored in MongoDB.
+    if (spec.key === 'prefix' && isPrefixFromEnv())
+        return TEXT.config.prefixFromEnvValue(getPrefix());
+    // Show each star weight as the chance it actually works out to.
+    if (spec.key.startsWith('gacha.starWeights.') && typeof value === 'number') {
+        const total = STARS.reduce((sum, stars) => sum + CONFIG.gacha.starWeights[stars], 0);
+        if (total > 0)
+            return TEXT.config.starShare(shown, Number(((value / total) * 100).toFixed(1)));
+    }
+    return shown;
+}
+/**
+ * The lines for one group of the list. Equipment shows one line per effect with all three tiers.
+ * General also shows the per-server settings: the channels (`channel` and `newsletter`) and the
+ * roles (`notifyRole` and `raidRole`), already put into words in `perServer`. They aren't real
+ * SettingSpec entries -- they live in the `guilds` collection, one value per server, not the single
+ * global settings document every other setting here comes from (see PER_SERVER_CHANNELS, PER_SERVER_ROLES).
+ */
+function groupLines(group, perServer) {
+    if (group === 'Equipment') {
+        // The Equipment settings that aren't per-effect (like equipment.borrowed.effectiveness), then one line per effect.
+        const perEffect = new Set(EFFECT_IDS.flatMap((id) => STARS.map((stars) => `equipment.${id}.${stars}`)));
+        const others = SPECS.filter((spec) => spec.group === group && !perEffect.has(spec.key));
+        const general = others.map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+        return [...general, ...EFFECT_IDS.map((id) => {
+                const tiers = STARS.map((stars) => {
+                    const spec = findSpec(`equipment.${id}.${stars}`);
+                    return describeValue(spec);
+                });
+                return TEXT.config.equipmentSetting(id, STARS.join('|'), tiers.join(' / '));
+            })];
+    }
+    if (group === 'Hero') {
+        // The hero settings, then one line per TechnoMagic potential with both ends of its range (as Equipment does its tiers).
+        const ranged = new Set(TM_POTENTIAL_IDS.flatMap((id) => [`hero.potentials.${id}.min`, `hero.potentials.${id}.max`]));
+        const general = SPECS.filter((spec) => spec.group === group && !ranged.has(spec.key)).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+        const ends = (id) => ['min', 'max'].map((end) => describeValue(findSpec(`hero.potentials.${id}.${end}`))).join(' / ');
+        return [...general, ...TM_POTENTIAL_IDS.map((id) => TEXT.config.setting(`hero.potentials.${id}.min|max`, ends(id)))];
+    }
+    const lines = SPECS.filter((spec) => spec.group === group).map((spec) => TEXT.config.setting(spec.key, describeValue(spec)));
+    if (group === 'General')
+        lines.push(...perServer.map(({ key, value }) => TEXT.config.setting(key, value)));
+    return lines;
+}
+export const config = {
+    name: 'config',
+    category: 'bot',
+    aliases: ['settings'],
+    description: 'See the bot settings. Only the bot admin can change them.',
+    usage: 'config [list | <group> | set <setting> <value> | reset <setting> | reset <start of settings>]',
+    slashUsage: 'config list [group] | set | reset',
+    async execute(ctx) {
+        const { args } = ctx;
+        const p = ctx.prefix;
+        const action = args[0]?.toLowerCase();
+        // "config <group>" (e.g. "config plinko") jumps straight to that group's page instead of
+        // opening the book on page one. Matched case-insensitively against the group names below,
+        // plus "channel" as a shortcut straight to General (where that setting lives); anything else
+        // that isn't list/view/set/reset falls through to the unknown-action reply.
+        const jumpGroup = action === undefined ? undefined : (GROUPS.find((group) => group.toLowerCase() === action) ?? (isChannelKey(action) || roleSetting(action) ? 'General' : undefined));
+        if (action === undefined || action === 'list' || action === 'view' || jumpGroup !== undefined) {
+            // Everything else in this list comes straight from the in-memory CONFIG, so a database
+            // hiccup here shouldn't take the whole listing down over one extra per-server field --
+            // it just shows the channels and roles as unset until the next successful read.
+            const [channelIds, roleIds] = await Promise.all([
+                Promise.all(PER_SERVER_CHANNELS.map((key) => CHANNEL_STORE[key].get(ctx.guildId).catch(() => null))),
+                getNotifyRoleIds(ctx.guildId).catch(() => null),
+            ]);
+            const perServer = [
+                ...PER_SERVER_CHANNELS.map((key, index) => ({ key, value: showChannel(key, channelIds[index] ?? null) })),
+                ...NOTIFY_ROLES.map((role) => ({ key: role.setting, value: showRole(roleIds?.[role.key] ?? null) })),
+            ];
+            const groups = GROUPS.map((group) => ({
+                name: group === 'Equipment' ? TEXT.config.equipmentGroup(STARS.map((stars) => `${stars}-star`).join(' / ')) : group,
+                lines: groupLines(group, perServer),
+            }));
+            const pages = buildConfigPages(groups);
+            const footerText = isAdmin(ctx.user.id) ? TEXT.config.footerAdmin(p) : TEXT.config.footerOthers;
+            // A named group's page is found by its formatted display name: either the bare-named page
+            // it got if it fit on one, or the first of its numbered sub-pages if it didn't (Equipment
+            // and Hero, with its potentials, are big enough to split).
+            let startIndex = 0;
+            if (jumpGroup !== undefined) {
+                const jumpName = groups[GROUPS.indexOf(jumpGroup)].name;
+                const found = pages.findIndex((page) => page[0]?.name === jumpName || page[0]?.name.startsWith(`${jumpName} — page 1/`));
+                if (found >= 0)
+                    startIndex = found;
+            }
+            // Usually one page. A long settings list becomes a book: Previous/Next buttons flip
+            // between pages on the same message instead of one giant embed (which is how this broke
+            // Discord's per-field/embed limits in the first place).
+            const render = (index) => {
+                const embed = createEmbed()
+                    .setTitle(pages.length > 1 ? TEXT.config.titlePage(TEXT.config.title, index + 1, pages.length) : TEXT.config.title)
+                    .addFields(pages[index] ?? []);
+                if (index === pages.length - 1)
+                    embed.setFooter({ text: footerText });
+                return { embeds: [embed] };
+            };
+            await paginate(ctx, pages.length, render, ctx.user.id, { previous: TEXT.config.previousButton, next: TEXT.config.nextButton, notYours: TEXT.config.notYours }, CONFIG_BUTTONS.idleMs, startIndex);
+            return;
+        }
+        if (action !== 'set' && action !== 'reset') {
+            await ctx.reply(TEXT.config.unknownAction(p));
+            return;
+        }
+        // Everything below changes something, so it is admin only.
+        if (!isAdmin(ctx.user.id)) {
+            await ctx.reply(TEXT.config.adminOnly);
+            return;
+        }
+        const key = args[1];
+        if (!key) {
+            await ctx.reply(action === 'set' ? TEXT.config.usageSet(p) : TEXT.config.usageReset(p));
+            return;
+        }
+        // "config reset equipment.<effect>" (no star tier) resets all star tiers of that effect at once,
+        // instead of doing equipment.<effect>.1 through .4 one at a time. A single tier can still be reset
+        // on its own with the usual equipment.<effect>.<stars> key.
+        if (action === 'reset') {
+            const effectId = findEquipmentEffectId(key);
+            if (effectId) {
+                const result = await resetEquipmentEffect(ctx.user.id, effectId);
+                if (!result.ok) {
+                    await ctx.reply(result.error);
+                    return;
+                }
+                await ctx.reply(TEXT.config.resetEquipment(result.key, result.results));
+                return;
+            }
+        }
+        // `channel` and `newsletter` aren't real SettingSpec entries -- they're per-server (see
+        // PER_SERVER_CHANNELS), not the bot's global settings -- but they're set and reset the same way.
+        const channelKey = key.toLowerCase();
+        if (isChannelKey(channelKey)) {
+            await handleChannelChange(ctx, channelKey, action, args.slice(2).join(' '));
+            return;
+        }
+        // The per-server roles (PER_SERVER_ROLES), the same way.
+        const role = roleSetting(key);
+        if (role) {
+            await handleRoleChange(ctx, role, action, args.slice(2).join(' '));
+            return;
+        }
+        // "config reset refine.cost" (not a setting, but the start of some): every setting under it, in one go.
+        if (action === 'reset' && !findSpec(key) && specsUnder(key).length > 0) {
+            const result = await resetSettingsUnder(ctx.user.id, key);
+            if (!result.ok) {
+                await ctx.reply(result.error);
+                return;
+            }
+            await ctx.reply(TEXT.config.resetMany(result.key, result.results));
+            return;
+        }
+        if (!findSpec(key)) {
+            await ctx.reply(TEXT.config.noSuchSetting(p, key));
+            return;
+        }
+        let result;
+        if (action === 'set') {
+            const value = args.slice(2).join(' ');
+            if (!value) {
+                await ctx.reply(TEXT.config.askValue(p, key));
+                return;
+            }
+            result = await changeSetting(ctx.user.id, key, value);
+        }
+        else {
+            result = await resetSetting(ctx.user.id, key);
+        }
+        if (!result.ok) {
+            await ctx.reply(result.error);
+            return;
+        }
+        await ctx.reply((action === 'reset' ? TEXT.config.reset : TEXT.config.changed)(result.key, result.oldValue, result.newValue));
+    },
+};
+//# sourceMappingURL=config.js.map

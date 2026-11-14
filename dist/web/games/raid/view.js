@@ -1,0 +1,152 @@
+import { CONFIG } from '../../../config.js';
+import { fmt } from '../../../lib/format.js';
+import { RAID_DIFFICULTY, TEXT } from '../../../constants/index.js';
+import { bossBrief, essenceReward, intentText, moodOf } from '../../../commands/raid.js';
+import { actionProblem, bossHpFor, canAct, damageRanking, classOf, difficultyOf, RAID_ACTIONS, raidRewards } from '../../../lib/events/raid.js';
+import { raidDropCounts, raidDropsOn } from '../../../lib/game/items/raid-drops.js';
+import { STARS } from '../../../types.js';
+/*
+ * The raid as one player's page sees it (protocol.ts's RaidView): the raid going on in their server
+ * (lib/events/raid-live.ts), or, with none, this week's boss, ready to start another.
+ */
+/** How many lines of the action log a page is sent. */
+const LOG_LINES = 30;
+/** How long a page keeps showing how the last raid ended, before going back to the party screen to start another. */
+const OVER_MS = 5 * 60_000;
+/** What a raider did, for the end screen (the stats raids from before didn't keep count as 0). */
+export const statsOf = (s) => ({
+    damage: s?.damage ?? 0,
+    healed: s?.healed ?? 0,
+    mitigated: s?.mitigated ?? 0,
+    healedSelf: s?.healedSelf ?? 0,
+    healedAllies: s?.healedAllies ?? 0,
+    supportDamage: s?.supportDamage ?? 0,
+    damageTaken: s?.damageTaken ?? 0,
+});
+/** What the winners of a fight with `boss` were paid, with the currencies' emojis (and its hero essences). */
+const rewardText = (points, tokens, gems, essences, boss) => TEXT.raid.rewardList(fmt(points), tokens, gems, boss ? essenceReward(boss, essences) : null);
+/** What each difficulty level does to the boss and drops for a win, for the page's pickers (before the lobby, and in it) and the databank. */
+export const difficultyLevels = () => Array.from({ length: RAID_DIFFICULTY.max }, (_, i) => {
+    const { level, hp, damage, gear, wall } = difficultyOf(i + 1, CONFIG.raid);
+    const counts = raidDropCounts(level, CONFIG.raid.weeklyMultiplier);
+    const drops = raidDropsOn(CONFIG.raid) ? [...STARS].reverse().flatMap((stars) => ((counts[stars] ?? 0) > 0 ? [{ stars, count: counts[stars] ?? 0 }] : [])) : [];
+    return { level, hp, damage, gear, wall, drops };
+});
+/** The raid items one raider found, for their loot screen: best first. Null when they found none. */
+function lootOf(key, items) {
+    if (key === undefined || items.length === 0)
+        return null;
+    return {
+        key,
+        items: [...items]
+            .sort((a, b) => b.item.stars - a.item.stars)
+            .map(({ item, isNew }) => ({ itemId: item.id, name: item.name, stars: item.stars, slot: item.slot, ...(isNew === undefined ? {} : { isNew }) })),
+    };
+}
+/** The boss's picture, under the bot's /api (api.ts serves it). */
+export const picturePath = (boss, mood) => `/api/raid/boss?${new URLSearchParams({ boss, mood })}`;
+/** `avatar` is a member's profile picture, when the bot knows it. */
+export function raidView(you, week, live, now = Date.now(), avatar = () => null) {
+    // The last raid, until a while after it ended (or the week reset).
+    const recent = live && (live.phase !== 'over' || (live.endedAt !== null && now - live.endedAt < OVER_MS && now < week.resetsAt)) ? live : null;
+    // One that never came to a fight (everyone left, it was disbanded, or it was called off): the
+    // party screen, to start again, with a word on how the lobby went.
+    const end = recent?.phase === 'over' ? recent.over?.end : undefined;
+    const unfought = end === 'no_players' || end === 'disbanded' || end === 'called_off' ? end : null;
+    const current = unfought ? null : recent;
+    const bossId = current?.boss ?? week.boss;
+    const b = TEXT.raid.bosses[bossId];
+    const difficulty = current?.difficulty ?? 1;
+    const base = {
+        you,
+        names: current ? Object.fromEntries(current.names) : {},
+        avatars: current ? Object.fromEntries([...current.names.keys()].flatMap((id) => (avatar(id) ? [[id, avatar(id)]] : []))) : {},
+        boss: { id: bossId, name: b.name, emoji: b.emoji },
+        brief: bossBrief(CONFIG.raid, bossId, difficulty),
+        drops: raidDropsOn(CONFIG.raid) ? { chance: CONFIG.raid.dropChance, perRaider: CONFIG.raid.dropChancePerRaider } : null,
+        difficulty,
+        resetsAt: week.resetsAt,
+        idle: null,
+        lobby: null,
+        fight: null,
+        over: null,
+    };
+    const view = (mood, rest) => ({ ...base, mood, picture: picturePath(bossId, mood), ...rest });
+    if (current?.phase === 'lobby' && current.lobby) {
+        const { players, maxDifficulty } = current.lobby;
+        const picked = current.lobby.difficulty;
+        const bossHp = bossHpFor(players.length, bossId, CONFIG.raid, difficultyOf(picked, CONFIG.raid));
+        return view('calm', {
+            phase: 'lobby',
+            difficulty: picked,
+            brief: bossBrief(CONFIG.raid, bossId, picked),
+            lobby: { host: players[0] ?? current.host, players: [...players], bossHp, difficulty: picked, maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels(), gearHp: CONFIG.raid.gearHp[bossId] },
+        });
+    }
+    if (current?.phase === 'fight' && current.fight) {
+        const { state, log } = current.fight;
+        const turn = current.fight.turn();
+        const problems = Object.fromEntries(RAID_ACTIONS.map((action) => [action, actionProblem(state, you, action)]));
+        return view(moodOf(state), {
+            phase: 'fight',
+            fight: {
+                round: state.round,
+                maxRounds: state.maxRounds,
+                bossHp: state.bossHp,
+                bossMaxHp: state.bossMaxHp,
+                enrage: state.enrage,
+                shielded: state.shielded,
+                deflects: state.deflects,
+                rallied: state.rallied,
+                rallyMultiplier: state.rallyMultiplier,
+                intent: intentText(state),
+                open: turn.open,
+                endsAt: turn.endsAt,
+                players: state.players.map((p) => ({
+                    userId: p.userId,
+                    hp: p.hp,
+                    maxHp: p.maxHp,
+                    cc: p.hp > 0 && p.cc ? { effect: p.cc.effect, turns: p.cc.turns } : null,
+                    blight: p.hp > 0 ? p.blight : 0,
+                    picked: turn.choices.get(p.userId)?.action ?? null,
+                    canAct: canAct(p),
+                    class: p.class ?? null,
+                    wards: classOf(p).ward,
+                })),
+                log: log.slice(-LOG_LINES),
+                problems,
+            },
+        });
+    }
+    if (current?.phase === 'over' && current.over) {
+        const { end, state, rewarded, loot } = current.over;
+        const paid = raidRewards(state?.difficulty ?? 1, CONFIG.raid);
+        return view(state ? moodOf(state) : 'calm', {
+            phase: 'over',
+            over: {
+                end,
+                rounds: state?.round ?? 0,
+                bossHp: state?.bossHp ?? 0,
+                bossMaxHp: state?.bossMaxHp ?? 0,
+                ranking: state ? damageRanking(state).map((p) => ({ userId: p.userId, damage: p.stats.damage })) : [],
+                players: state ? state.players.map((p) => ({ userId: p.userId, ...statsOf(p.stats) })) : [],
+                lastHit: state?.lastHit ?? null,
+                reward: rewarded ? paid : null,
+                // (It is the Weekly Boss: only each winner's first win of the week pays.)
+                rewardText: rewarded
+                    ? `${rewardText(paid.points, paid.tokens, paid.gems, paid.essences, state?.boss ?? null)} for their first win of the week${current.over.paidAlready?.includes(you) ? " (you had this week's already, so this one pays you nothing)" : ''}`
+                    : null,
+                gear: current.gear.size > 0,
+                loot: lootOf(loot?.key, loot?.drops.filter((drop) => drop.userId === you) ?? []),
+            },
+        });
+    }
+    // No raid going on here (as far as this bot knows): one can be started, unless one is starting in Discord.
+    const idleWeek = week.status === null ? 'open' : 'busy';
+    const mood = 'calm';
+    const canStart = idleWeek === 'open' && week.channel;
+    // Whoever starts it picks its difficulty first.
+    const pick = canStart ? { pick: { maxDifficulty: week.maxDifficulty, topDifficulty: RAID_DIFFICULTY.max, levels: difficultyLevels(), gearHp: CONFIG.raid.gearHp[bossId] } } : {};
+    return view(mood, { phase: 'idle', idle: { week: idleWeek, canStart, ...(unfought ? { last: unfought } : {}), ...pick } });
+}
+//# sourceMappingURL=view.js.map

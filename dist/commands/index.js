@@ -1,0 +1,89 @@
+import { balance } from './balance.js';
+import { blackjack } from './blackjack.js';
+import { claim } from './claim.js';
+import { config } from './config.js';
+import { databank } from './databank.js';
+import { donate } from './donate.js';
+import { equip } from './equip.js';
+import { events } from './events.js';
+import { gacha } from './gacha.js';
+import { gear } from './gear.js';
+import { give } from './give.js';
+import { mail } from './mail.js';
+import { createHelpCommand } from './help.js';
+import { inventory } from './inventory.js';
+import { leaderboard } from './leaderboard.js';
+import { loadout } from './loadout.js';
+import { mines } from './mines.js';
+import { newsletter } from './newsletter.js';
+import { pay } from './pay.js';
+import { pinecraft } from './pinecraft.js';
+import { minesweeper } from './minesweeper.js';
+import { technomagic } from './technomagic.js';
+import { dragon } from './dragon.js';
+import { plinko } from './plinko.js';
+import { baccarat } from './baccarat.js';
+import { roulette } from './roulette.js';
+import { poker } from './poker.js';
+import { raid } from './raid.js';
+import { refine } from './refine.js';
+import { rob } from './rob.js';
+import { sell } from './sell.js';
+import { skip } from './skip.js';
+import { unequip } from './unequip.js';
+import { raidClass } from './class.js';
+import { lock, unlock } from './lock.js';
+import { vault } from './vault.js';
+export const commands = [
+    claim,
+    skip,
+    gacha,
+    inventory,
+    equip,
+    unequip,
+    loadout,
+    refine,
+    lock,
+    unlock,
+    sell,
+    gear,
+    raidClass,
+    databank,
+    balance,
+    rob,
+    plinko,
+    baccarat,
+    roulette,
+    poker,
+    blackjack,
+    mines,
+    pinecraft,
+    minesweeper,
+    technomagic,
+    dragon,
+    raid,
+    leaderboard,
+    vault,
+    donate,
+    pay,
+    config,
+    events,
+    newsletter,
+    mail,
+    give,
+    createHelpCommand(() => commands),
+];
+/** Every command name and alias, lowercase, mapped to its command. */
+export const commandMap = buildCommandMap(commands);
+function buildCommandMap(list) {
+    const map = new Map();
+    for (const command of list) {
+        for (const key of [command.name, ...(command.aliases ?? [])]) {
+            if (map.has(key))
+                throw new Error(`Duplicate command name or alias: ${key}`);
+            map.set(key, command);
+        }
+    }
+    return map;
+}
+//# sourceMappingURL=index.js.map

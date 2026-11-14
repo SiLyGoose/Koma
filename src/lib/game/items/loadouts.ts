@@ -1,0 +1,147 @@
+import { LOADOUTS } from '../../../constants/index.js';
+import type { EquipmentDoc, MemberDoc } from '../../../types.js';
+import { normalize } from '../../text.js';
+import { heroCopyIds } from '../heroes.js';
+import { heroLoadoutCopyIds } from '../hero-loadouts.js';
+import { equippedCopyIds } from './sell.js';
+import type { LoadoutNameProblem } from '../../../protocol/gear.js';
+
+/*
+ * Gear loadouts (constants/items/loadouts.ts): the rules, with no database. A member's active loadout is
+ * what they wear (MemberDoc.equipment); every other loadout keeps its gear in MemberDoc.loadouts. They have
+ * the first LOADOUTS.free, and the ones after those once unlocked (MemberDoc.loadoutSlots).
+ */
+
+/** The fields of a member document that loadouts are made from. */
+export type LoadoutFields = Pick<MemberDoc, 'equipment' | 'loadouts' | 'activeLoadout'> & Partial<Pick<MemberDoc, 'loadoutSlots'>>;
+
+/** Every loadout number there can be, 1 to LOADOUTS.count, unlocked or not. */
+export const LOADOUT_NUMBERS: readonly number[] = Array.from({ length: LOADOUTS.count }, (_, i) => i + 1);
+
+/** Words the loadout command reads as actions, so no loadout can be named one of them. */
+export const LOADOUT_WORDS: readonly string[] = ['list', 'rename', 'unlock'];
+
+/** How many loadouts the member has: the free ones, and those they unlocked. */
+export function loadoutCountOf(member: Pick<LoadoutFields, 'loadoutSlots'> | null | undefined): number {
+  const slots = member?.loadoutSlots;
+  return typeof slots === 'number' && Number.isInteger(slots) ? Math.min(LOADOUTS.count, Math.max(LOADOUTS.free, slots)) : LOADOUTS.free;
+}
+
+/** A loadout they don't have yet, and what unlocking it costs. */
+export interface LockedLoadout {
+  number: number;
+  price: number;
+}
+
+/** The loadouts the member hasn't unlocked, in order: only the first can be unlocked next. */
+export function lockedLoadoutsOf(member: Pick<LoadoutFields, 'loadoutSlots'> | null | undefined): LockedLoadout[] {
+  return LOADOUT_NUMBERS.filter((number) => number > loadoutCountOf(member)).map((number) => ({
+    number,
+    price: LOADOUTS.unlockPrices[number - LOADOUTS.free - 1] ?? 0,
+  }));
+}
+
+/** Letters, numbers, spaces and a little punctuation: nothing that could format text or ping anyone. */
+const NAME_CHARACTERS = /^[\p{L}\p{N} '’.!?&+-]+$/u;
+
+export const defaultLoadoutName = (number: number): string => `Loadout ${number}`;
+
+/** The member's active loadout. Anything missing or out of range (or not unlocked) counts as loadout 1. */
+export function activeLoadoutOf(member: LoadoutFields | null | undefined): number {
+  const active = member?.activeLoadout;
+  return typeof active === 'number' && Number.isInteger(active) && active >= 1 && active <= loadoutCountOf(member) ? active : 1;
+}
+
+export function loadoutName(member: LoadoutFields | null | undefined, number: number): string {
+  return member?.loadouts?.[String(number)]?.name || defaultLoadoutName(number);
+}
+
+export interface LoadoutView {
+  number: number;
+  name: string;
+  active: boolean;
+  /** The copies in it (for the active one, what the member is wearing). */
+  equipment: EquipmentDoc | null;
+}
+
+/** Every loadout a member has, in order (not the locked ones). */
+export function loadoutsOf(member: LoadoutFields | null | undefined): LoadoutView[] {
+  const active = activeLoadoutOf(member);
+  return LOADOUT_NUMBERS.slice(0, loadoutCountOf(member)).map((number) => ({
+    number,
+    name: loadoutName(member, number),
+    active: number === active,
+    equipment: (number === active ? member?.equipment : member?.loadouts?.[String(number)]?.equipment) ?? null,
+  }));
+}
+
+/** Every copy in any of the member's loadouts, worn or saved. Selling and refining never use these up. */
+export function loadoutCopyIds(member: LoadoutFields | null | undefined): Set<string> {
+  const ids = new Set<string>();
+  for (const loadout of loadoutsOf(member)) for (const id of equippedCopyIds(loadout.equipment)) ids.add(id);
+  return ids;
+}
+
+/**
+ * Every copy selling and refining never use up: one in any of the member's loadouts, worn by one of their heroes (../heroes.ts), or
+ * kept in one of their hero gear loadouts (../hero-loadouts.ts).
+ */
+export function keptCopyIds(member: (LoadoutFields & Pick<MemberDoc, 'heroes'> & Partial<Pick<MemberDoc, 'heroLoadouts' | 'heroLoadoutSlots'>>) | null | undefined): Set<string> {
+  const ids = loadoutCopyIds(member);
+  for (const id of heroCopyIds(member)) ids.add(id);
+  for (const id of heroLoadoutCopyIds(member)) ids.add(id);
+  return ids;
+}
+
+export type LoadoutLookup = { kind: 'found'; number: number } | { kind: 'ambiguous'; names: string[] } | { kind: 'none' };
+
+/**
+ * Finds a loadout by its number or its name, ignoring case and punctuation. An exact name wins;
+ * otherwise part of a name works as long as it points to exactly one loadout.
+ */
+export function findLoadout(loadouts: readonly Pick<LoadoutView, 'number' | 'name'>[], query: string): LoadoutLookup {
+  const trimmed = query.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const number = Number(trimmed);
+    return loadouts.some((loadout) => loadout.number === number) ? { kind: 'found', number } : { kind: 'none' };
+  }
+  const wanted = normalize(trimmed);
+  if (wanted === '') return { kind: 'none' };
+
+  const exact = loadouts.find((loadout) => normalize(loadout.name) === wanted);
+  if (exact) return { kind: 'found', number: exact.number };
+
+  const partial = loadouts.filter((loadout) => normalize(loadout.name).includes(wanted));
+  if (partial.length === 1) return { kind: 'found', number: (partial[0] as LoadoutView).number };
+  if (partial.length > 1) return { kind: 'ambiguous', names: partial.map((loadout) => loadout.name) };
+  return { kind: 'none' };
+}
+
+export type NameCheck =
+  /** `name` is null to go back to the default name. */
+  | { ok: true; name: string | null }
+  | { ok: false; reason: Exclude<LoadoutNameProblem, 'taken'> }
+  /** Another loadout already goes by this name (`number` is that one). */
+  | { ok: false; reason: 'taken'; number: number };
+
+/**
+ * Checks a new name for loadout `number`, tidying its spaces. An empty name means the default
+ * again. A name must have a letter in it (so it can't be mistaken for a loadout number), can't be
+ * one of the command's words, and can't match another of the member's loadouts (or a locked one's
+ * default name), so switching by name always finds exactly one.
+ */
+export function checkLoadoutName(member: LoadoutFields | null | undefined, number: number, raw: string): NameCheck {
+  const name = raw.trim().replace(/\s+/g, ' ');
+  if (name === '') return { ok: true, name: null };
+  if (name.length > LOADOUTS.maxNameLength) return { ok: false, reason: 'too_long' };
+  if (!NAME_CHARACTERS.test(name)) return { ok: false, reason: 'bad_characters' };
+  if (!/\p{L}/u.test(name)) return { ok: false, reason: 'no_letters' };
+  const wanted = normalize(name);
+  if (LOADOUT_WORDS.includes(wanted)) return { ok: false, reason: 'reserved' };
+  const clash = loadoutsOf(member).find((loadout) => loadout.number !== number && normalize(loadout.name) === wanted);
+  if (clash) return { ok: false, reason: 'taken', number: clash.number };
+  // A loadout not unlocked yet keeps its default name free, for when it is.
+  const later = lockedLoadoutsOf(member).find((loadout) => normalize(defaultLoadoutName(loadout.number)) === wanted);
+  if (later) return { ok: false, reason: 'taken', number: later.number };
+  return { ok: true, name: name === defaultLoadoutName(number) ? null : name };
+}

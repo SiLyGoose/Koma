@@ -1,0 +1,100 @@
+import { createServer } from 'node:http';
+import { WebSocketServer, type WebSocket } from 'ws';
+import { CHAT, MINE_WEB } from '../constants/index.js';
+import { createApi, type ApiDeps } from './api.js';
+import type { RaidSiteDeps } from './games/raid/server.js';
+import { GAMES } from './config.js';
+import { serveMine } from './games/mines/server.js';
+import { servePinecraft } from './games/pinecraft/server.js';
+import { serveBaccarat } from './games/baccarat/server.js';
+import { serveRoulette } from './games/roulette/server.js';
+import { servePoker } from './games/poker/server.js';
+import { serveRaid } from './games/raid/server.js';
+import { serveMinesweeper } from './games/minesweeper/server.js';
+import { serveDivine, serveDragon, serveTechnoMagic } from './games/technomagic/server.js';
+import { serveCodedle } from './games/codedle/server.js';
+
+/*
+ * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
+ * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
+ * (api.ts, an Express app), and takes the games' web sockets, each game's in its own folder under games/ (mines/,
+ * pinecraft/, baccarat/, roulette/, poker/, raid/, minesweeper/, technomagic/ (with the Dragon Raid's), codedle/; baccarat and roulette share table/, and every game connection.ts).
+ * Only the site's own origin may connect.
+ */
+
+export interface WebServerOptions {
+  port: number;
+  host?: string;
+  api: ApiDeps;
+}
+
+
+/** Starts the server. Returns a function that stops it. */
+export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptions): () => Promise<void> {
+  const { origin } = api.config;
+  const SOCKETS: Record<string, (socket: WebSocket) => void> = {
+    [GAMES.mines.socket]: serveMine,
+    [GAMES.pinecraft.socket]: (socket) => servePinecraft(socket),
+    // The table games show each player's profile picture at the table.
+    [GAMES.baccarat.socket]: (socket) => serveBaccarat(socket, api.avatar),
+    [GAMES.roulette.socket]: (socket) => serveRoulette(socket, api.avatar),
+    [GAMES.poker.socket]: (socket) => servePoker(socket, api.avatar),
+    [GAMES.minesweeper.socket]: (socket) => serveMinesweeper(socket, api.avatar),
+    // The TechnoMagic Raid's rooms, which say in Discord when one is opened (once the bot has logged in).
+    [GAMES.technomagic.socket]: (socket) => serveTechnoMagic(socket, { avatar: api.avatar, announce: api.technomagic?.announce }),
+    [GAMES.dragon.socket]: (socket) => serveDragon(socket, { avatar: api.avatar, announce: api.dragon?.announce }),
+    // King's Raid's Divine Punishment Raid: solo only, never said in Discord.
+    [GAMES.divine.socket]: (socket) => serveDivine(socket, { avatar: api.avatar }),
+    [GAMES.codedle.socket]: serveCodedle,
+    // The raid, once the bot can start one and read the week (it has logged in to Discord).
+    ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
+  };
+  const http = createServer(createApi(api));
+  // Big enough for a line of chat with a pasted picture (games/chat.ts), the biggest thing a page says.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MINE_WEB.maxMessageBytes + CHAT.maxImageLength });
+  // Connections that stopped answering (a phone gone to sleep) are dropped.
+  const alive = new WeakSet<WebSocket>();
+
+  http.on('upgrade', (req, socket, head) => {
+    const path = new URL(req.url ?? '/', 'http://bot').pathname;
+    const serve = SOCKETS[path];
+    if (!serve || req.headers.origin !== origin) {
+      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      alive.add(ws);
+      ws.on('pong', () => alive.add(ws));
+      serve(ws);
+    });
+  });
+
+  const ping = setInterval(() => {
+    for (const socket of wss.clients) {
+      if (!alive.has(socket)) {
+        socket.terminate();
+        continue;
+      }
+      alive.delete(socket);
+      socket.ping();
+    }
+  }, MINE_WEB.pingMs);
+  ping.unref();
+
+  http.on('error', (err) => console.error("The games' web server failed:", err));
+  http.listen(port, host, () =>
+    console.log(
+      `The games' web server is listening on ${host}:${port} for ${origin} (${Object.keys(SOCKETS).join(', ')}, /api${api.config.clientSecret ? ', with Discord login' : ', no login: DS_CLIENT_SECRET is not set'}).`,
+    ),
+  );
+
+  return () =>
+    new Promise((resolve) => {
+      clearInterval(ping);
+      for (const socket of wss.clients) socket.terminate();
+      wss.close();
+      http.close(() => resolve());
+      http.closeAllConnections();
+    });
+}

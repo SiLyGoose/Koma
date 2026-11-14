@@ -1,0 +1,77 @@
+import { boldMoney } from './currency.js';
+export const newsletterText = {
+    // ---------------------------------------------------------------------------
+    // The weekly digest, sent when the raid week resets.
+    /** `date` is the day the new week started, like "October 3". */
+    weeklyTitle: (date) => `📰 Koma Weekly · ${date}`,
+    weeklyIntro: 'A new raid week has begun.',
+    /** In a preview: the digest covers the week so far, and goes out when it ends. */
+    previewIntro: (unix) => `Preview: this week so far. The real one goes out <t:${unix}:R>.`,
+    /** The same, while the weekly digest is turned off (NEWSLETTER.weeklyDigest). */
+    previewIntroOff: "Preview: this week so far. The weekly newsletter is turned off, so this won't be sent.",
+    robsField: (preview) => (preview ? '💰 This week in robs so far' : '💰 Last week in robs'),
+    robsNone: 'Nobody robbed anyone.',
+    /** `attempts` robs: `gotAway` got away with it, `caught` were caught, `slipped` slipped (Piplup). */
+    robsCount: (attempts, gotAway, caught, slipped) => `**${attempts}** rob${attempts === 1 ? '' : 's'}: ${gotAway} got away, ${caught} got caught${slipped > 0 ? `, ${slipped} slipped` : ''}.`,
+    robsBiggest: (robber, victim, amount) => `💸 Biggest heist: ${robber} took ${boldMoney(amount)} from ${victim}`,
+    robsTopRobber: (who, amount, count) => `🥷 Top robber: ${who}, ${boldMoney(amount)} from ${count} rob${count === 1 ? '' : 's'}`,
+    robsMostRobbed: (who, amount, count) => `🎯 Most robbed: ${who}, lost ${boldMoney(amount)} in ${count} rob${count === 1 ? '' : 's'}`,
+    /** `boss` is like "🐉 Wyvern". A preview's is next week's. */
+    newBoss: (boss, preview) => `${preview ? "Next week's" : "This week's"} Weekly Boss is **${boss}**. Good luck!`,
+    // ---------------------------------------------------------------------------
+    // Patch notes, sent by the bot admin.
+    /** `version` is like "1.0" (the "v" is added here). */
+    patchTitle: (version) => `🛠️ Patch notes v${version}`,
+    /** Each section's field name (lib/patch-notes.ts). */
+    patchSections: { added: '✨ Added', changed: '🔧 Changed', fixed: '🐛 Fixed', removed: '🗑️ Removed' },
+    /** A section too long for its embed field. `section` is its field name. */
+    patchSectionTooLong: (section, max) => `The ${section} section can be at most ${max} characters. Move some of it into another section or the intro.`,
+    patchConfirm: (servers) => `Send to ${servers} server${servers === 1 ? '' : 's'}`,
+    patchCancel: 'Cancel',
+    notYours: 'Only the bot admin can answer this.',
+    /** Shown with the preview, above the buttons. */
+    patchPreviewFooter: 'Preview. Nothing has been sent yet.',
+    patchSent: (sent, failed) => `Patch notes sent to ${sent} server${sent === 1 ? '' : 's'}.${failed > 0 ? ` ${failed} could not be reached (their newsletter channel is gone or I can't post there).` : ''}`,
+    patchCancelled: 'Patch notes cancelled. Nothing was sent.',
+    patchTimedOut: 'No answer, so the patch notes were not sent.',
+    patchNoServers: (p) => `No server has a newsletter channel yet. Choose one with \`${p}config set newsletter #channel\`.`,
+    patchEmpty: (p) => [
+        `Write the version and then the notes after the command, one change per line. A line with just **Added**, **Changed**, **Fixed** or **Removed** starts that section, and anything above the first one is the intro:`,
+        '```',
+        `${p}newsletter patch 1.0`,
+        'A few new things this week!',
+        'Added',
+        '- Raid bosses in the databank',
+        'Changed',
+        '- Multi pulls always give a 3★ or better',
+        '```',
+    ].join('\n'),
+    /** The word after `patch` isn't a version. */
+    patchBadVersion: (p, word) => `"${word}" isn't a version number. Start with one, like \`${p}newsletter patch 1.0\` and then the notes.`,
+    patchTooLong: (max) => `Patch notes can be at most ${max} characters.`,
+    // ---------------------------------------------------------------------------
+    // The role message: members react to it for their notification roles.
+    rolesTitle: '🔔 Notification roles',
+    rolesIntro: 'React below to get a role. Take your reaction off again to drop it.',
+    /** What each role (NOTIFY_ROLES' keys) is for. */
+    rolesAbout: { general: 'general notifications', raid: 'raids' },
+    rolesLine: (emoji, roleId, about) => `${emoji} <@&${roleId}>: ${about}`,
+    /** `link` is the message's. */
+    rolesPosted: (link) => `Posted the role message: ${link}`,
+    rolesAlready: (link) => `The role message is already up: ${link}\nDelete it first if you want a new one.`,
+    rolesNone: "This server has none of the notification roles, so there's nothing to hand out.",
+    rolesNoChannel: "I can't post in the newsletter channel. I need to see it, send messages and embeds, read its history and add reactions there.",
+    rolesNoManage: 'I need the Manage Roles permission to hand out roles.',
+    /** Roles the bot can't give: they're above its own. `roles` are mentions. */
+    rolesTooHigh: (roles) => `I can't give ${roles} yet: move my role above ${roles.includes(' ') ? 'them' : 'it'} in the server's role list.`,
+    // ---------------------------------------------------------------------------
+    // The command itself.
+    adminOnly: 'Only the bot admin can use the newsletter command.',
+    noChannel: (p) => `This server has no newsletter channel. Choose one with \`${p}config set newsletter #channel\`.`,
+    usage: (p) => [
+        `\`${p}newsletter preview\`: what this server's weekly newsletter looks like so far`,
+        `\`${p}newsletter roles\`: post the message members react to for their notification roles, in this server's newsletter channel (once)`,
+        `\`${p}newsletter patch <version> <notes>\`: send patch notes for that version (like \`1.0\`) to every server's newsletter channel, in Added, Changed, Fixed and Removed sections (you see a preview first)`,
+    ].join('\n'),
+};
+//# sourceMappingURL=newsletter.js.map

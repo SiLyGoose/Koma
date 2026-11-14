@@ -1,0 +1,151 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { CURRENCY_EMOJI, MULTI_MIN_STARS, MULTI_PULLS, SLOT_EMOJI, TEXT, validateConstants } from '../src/constants/index.js';
+import { nextGuarantee, ownTreasures, rollItem, rollPulls } from '../src/lib/game/items/gacha.js';
+import { gachaItems, itemsByStars } from '../src/data/items.js';
+import type { ItemDef, Stars } from '../src/types.js';
+
+const item = (stars: Stars): ItemDef => ({ id: `t${stars}`, name: `Test ${stars}`, stars, slot: 'weapon', description: '', effects: [] });
+
+test('multi: the size is a sensible number and passes the startup check', () => {
+  assert.ok(Number.isInteger(MULTI_PULLS) && MULTI_PULLS >= 2 && MULTI_PULLS <= 30);
+  validateConstants();
+});
+
+test('multi: every pull is numbered in order, and a top-tier item starts the count over', () => {
+  const numbers: number[] = [];
+  // Pull number 5 (since the last 4-star) is a 4-star, everything else is a 1-star.
+  const roll = (n: number) => {
+    numbers.push(n);
+    return item(n === 5 ? 4 : 1);
+  };
+  const { items, counter } = rollPulls(2, 10, true, roll);
+  assert.deepEqual(numbers, [3, 4, 5, 1, 2, 3, 4, 5, 1, 2]);
+  assert.deepEqual(items.map((i) => i.stars), [1, 1, 4, 1, 1, 1, 1, 4, 1, 1]);
+  assert.equal(counter, 2);
+});
+
+test('multi: a 4-star on the very last pull leaves the counter at 0, and none leaves it counting', () => {
+  const last = rollPulls(0, 3, true, (n) => item(n === 3 ? 4 : 2));
+  assert.equal(last.counter, 0);
+  const none = rollPulls(7, 10, true, () => item(2));
+  assert.equal(none.counter, 17);
+  assert.equal(none.items.length, 10);
+});
+
+test('multi: with pity off every pull is number 1 and the counter is meaningless', () => {
+  const numbers: number[] = [];
+  const { items } = rollPulls(50, 4, false, (n) => {
+    numbers.push(n);
+    return item(4);
+  });
+  assert.deepEqual(numbers, [1, 1, 1, 1]);
+  assert.equal(items.length, 4);
+});
+
+test('multi: a single pull is the same as a multi of one', () => {
+  const single = rollPulls(89, 1, true, (n) => item(n >= 90 ? 4 : 1));
+  assert.equal(single.items[0]?.stars, 4);
+  assert.equal(single.counter, 0);
+  const noReset = rollPulls(10, 1, true, () => item(1));
+  assert.equal(noReset.counter, 11);
+});
+
+test('multi: the last pull is lifted to the minimum tier only when nothing before it reached it', () => {
+  const floors: Stars[] = [];
+  const roll = (stars: Stars) => (_n: number, _g: boolean, floor: Stars) => {
+    floors.push(floor);
+    return item(Math.max(stars, floor) as Stars);
+  };
+  // All 1-stars: only the last pull is rolled from 3 up.
+  const low = rollPulls(0, 10, true, roll(1), {}, 3);
+  assert.deepEqual(floors, [1, 1, 1, 1, 1, 1, 1, 1, 1, 3]);
+  assert.deepEqual(low.items.map((i) => i.stars), [1, 1, 1, 1, 1, 1, 1, 1, 1, 3]);
+
+  // A 3-star or better earlier on leaves the last pull alone.
+  floors.length = 0;
+  rollPulls(0, 10, true, (n, g, floor) => roll(n === 4 ? 3 : 1)(n, g, floor), {}, 3);
+  assert.deepEqual(floors, Array(10).fill(1));
+  floors.length = 0;
+  rollPulls(0, 10, true, (n, g, floor) => roll(n === 2 ? 4 : 1)(n, g, floor), {}, 3);
+  assert.deepEqual(floors, Array(10).fill(1));
+
+  // Without a minimum (a single pull) nothing is lifted.
+  floors.length = 0;
+  rollPulls(0, 1, true, roll(1));
+  assert.deepEqual(floors, [1]);
+});
+
+test('multi: every real multi pull has at least one item of the minimum tier or better', () => {
+  for (let i = 0; i < 500; i++) {
+    const { items } = rollPulls(0, MULTI_PULLS, true, undefined, {}, MULTI_MIN_STARS);
+    assert.ok(items.some((pulled) => pulled.stars >= MULTI_MIN_STARS), `no ${MULTI_MIN_STARS}-star or better in ${items.map((p) => p.stars).join(',')}`);
+  }
+});
+
+test('multi: the messages', () => {
+  assert.equal(
+    TEXT.gacha.usage('k!'),
+    `Use \`k!gacha\` for one pull, or \`k!gacha multi\` for ${MULTI_PULLS} pulls at once. Add \`limited\` to pull from the limited banner (\`k!gacha banner\` shows what is on it), or \`hero\` to pull from the Hero Item banner, for the heroes' unique weapons.`,
+  );
+  assert.equal(
+    TEXT.gacha.multiCantAfford('k!', 10, '2,800', '100'),
+    `A multi pull (10 pulls) costs **2,800** ${CURRENCY_EMOJI} and you have **100** ${CURRENCY_EMOJI} Use \`k!claim\` to earn more.`,
+  );
+  assert.equal(TEXT.gacha.multiTitle(10), 'Multi pull x10');
+  assert.equal(TEXT.gacha.multiLine(SLOT_EMOJI.armor, 'Kippah', false), `Kippah ${SLOT_EMOJI.armor}`);
+  assert.equal(TEXT.gacha.multiLine(SLOT_EMOJI.armor, 'Kippah', true), `Kippah ${SLOT_EMOJI.armor} · New!`);
+  assert.equal(TEXT.gacha.multiLineTop(SLOT_EMOJI.weapon, 'C4', true), `**C4** ${SLOT_EMOJI.weapon} · New!`);
+  assert.equal(TEXT.gacha.multiExclusive('C4', '<@1>', '50%'), 'C4 is made for <@1>. It only works at 50% for you.');
+  assert.equal(TEXT.gacha.multiTier('★', 9), '★ x9');
+  assert.equal(TEXT.gacha.multiFooterNew(1), '1 new item!');
+  assert.equal(TEXT.gacha.multiFooterNew(3), '3 new items!');
+});
+
+// HXLON's own treasure is the Frog; C4 is someone else's.
+const HXLON = '262072810422140929';
+const NOBODY = '1';
+const treasure = (id: string): ItemDef => itemsByStars(4).find((i) => i.id === id) as ItemDef;
+
+test('guarantee: ownTreasures lists the treasures made for the member', () => {
+  assert.deepEqual(ownTreasures(HXLON).map((i) => i.id), ['frog']);
+  assert.deepEqual(ownTreasures(NOBODY), []);
+});
+
+test('guarantee: a treasure made for someone else sets it, your own clears it, and it never sets for a member with no treasure', () => {
+  assert.equal(nextGuarantee(HXLON, treasure('c4')), true);
+  assert.equal(nextGuarantee(HXLON, treasure('frog')), false);
+  assert.equal(nextGuarantee(NOBODY, treasure('c4')), false);
+});
+
+test('guarantee: carried through a multi pull, and only lower tiers leave it alone', () => {
+  const seen: boolean[] = [];
+  const order = [item(1), treasure('c4'), item(2), treasure('frog'), item(3), treasure('c4')];
+  const { items, guaranteed, counter } = rollPulls(0, order.length, true, (_n, g) => {
+    seen.push(g);
+    return order[seen.length - 1] as ItemDef;
+  }, { userId: HXLON, guaranteed: false });
+  assert.equal(items.length, 6);
+  // Set after the C4, cleared after the Frog, set again after the last C4.
+  assert.deepEqual(seen, [false, false, true, true, false, false]);
+  assert.equal(guaranteed, true);
+  assert.equal(counter, 0);
+});
+
+test('guarantee: a guaranteed treasure pull always gives the member their own treasure', () => {
+  // Pull 90 is hard pity with the default settings, so it is always a treasure.
+  for (let i = 0; i < 200; i++) assert.equal(rollItem(90, HXLON, true).id, 'frog');
+  // Without the guarantee every 4-star the gacha gives can come up, and never a raid drop.
+  const ids = new Set<string>();
+  for (let i = 0; i < 2000; i++) ids.add(rollItem(90, HXLON, false).id);
+  assert.equal(ids.size, gachaItems(4).length);
+  assert.ok(itemsByStars(4).some((item) => item.raidDrop), 'there are raid drops in the 4-star tier to leave out');
+  for (const item of itemsByStars(4).filter((i) => i.raidDrop)) assert.ok(!ids.has(item.id), `${item.id} was pulled`);
+});
+
+test('gacha: every pull shows how far along the pity counter is', async () => {
+  const { pityField } = await import('../src/commands/gacha.js');
+  const { PITY_STARS } = await import('../src/constants/index.js');
+  const { tierLabel } = await import('../src/lib/format.js');
+  assert.deepEqual(pityField({ count: 12, hardPity: 90 }), { name: `Pity (${tierLabel(PITY_STARS)})`, value: '12 / 90', inline: true });
+});

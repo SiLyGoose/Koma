@@ -1,0 +1,219 @@
+import express, { Router, type Express } from 'express';
+import type { pinecraftLeaderboard } from '../services/pinecraft.js';
+import type { WebConfig } from './config.js';
+import type { GachaStore } from './models/gacha.js';
+import type { GearStore } from './models/gear.js';
+import type { HeroStore } from './models/heroes.js';
+import type { OutfitStore } from './models/outfits.js';
+import type { HeroOutfitStore } from './models/hero-outfits.js';
+import type { TmBatchStore } from './models/tm-batches.js';
+import type { RaidShopStore } from './models/raid-shop.js';
+import type { DivineStore } from './models/divine.js';
+import type { exchangeCode } from './auth/login.js';
+import { signedIn } from './middleware/auth.js';
+import { compressJson } from './middleware/compress.js';
+import { errors, notFound } from './middleware/errors.js';
+import { cors, siteOnly } from './middleware/site.js';
+import type { RaidSiteDeps } from './games/raid/server.js';
+import type { SettingsStore } from './services/admin.js';
+import { adminRoutes } from './routes/admin.js';
+import { databankRoutes } from './routes/databank.js';
+import { gachaRoutes } from './routes/gacha.js';
+import { gearRoutes } from './routes/gear.js';
+import { heroRoutes } from './routes/heroes.js';
+import { runeRoutes } from './routes/runes.js';
+import { mailRoutes } from './routes/mail.js';
+import type { MailStore } from './models/mail.js';
+import type { FriendStore } from './models/friends.js';
+import { liveRoutes } from './routes/live.js';
+import { loginRoutes } from './routes/login.js';
+import { outfitRoutes } from './routes/outfits.js';
+import { heroOutfitRoutes } from './routes/hero-outfits.js';
+import { tmBatchRoutes } from './routes/tm-batches.js';
+import { raidShopRoutes } from './routes/raid-shop.js';
+import { publicRoutes } from './routes/public.js';
+import { raidRoutes } from './routes/raid.js';
+import { raidRoomRoutes } from './routes/raid-rooms.js';
+import { divineRoutes } from './routes/divine.js';
+
+export type { GearMembers } from './services/gear.js';
+export type { Leaderboard, Live } from './services/live.js';
+export type { Me } from './services/login.js';
+
+/*
+ * What the site asks the bot over https, for members who log in on it with Discord (auth/login.ts)
+ * rather than opening a game from a link in Discord:
+ *
+ *   GET  /api/login?state=…   sends the browser to Discord to log in (Discord sends it back to the site)
+ *   POST /api/login {code}    trades the code Discord gave the site for a session: { session, me }
+ *   GET  /api/me              who is logged in, and the servers they can play in: Me
+ *   POST /api/play {guild, game}   a link to play `game` in that server: { url }
+ *   POST /api/link/refresh {token} or {refresh}   an open game page's link renewed (a link's token still good, or its refresh token): LinkRefresh
+ *   GET  /api/raid-rooms?guild=…&game=technomagic|dragon&boss=…   that server's raids against `boss`, for Find Raid: Lobbies
+ *   GET  /api/live?guild=…    who's on the site in that server, and what they're doing: Live
+ *   GET  /api/friends?guild=…   everyone in that server who plays with the bot, on the site or not, each with the hero they walk the town as: Friends
+ *   POST /api/friends/hero {guild, hero}   the hero they walk v2's town as (one they own), for the friends list: 204
+ *   POST /api/watch {guild, game, target}   a link to watch `target` play `game`: { url }
+ *   GET  /api/pinecraft/leaderboard?guild=…&stat=dug|earned   the server's best miners: Leaderboard
+ *   GET  /api/gear?guild=…    the member's gear in that server: GearView (models/gear.ts)
+ *   GET  /api/gear?guild=…&user=…   someone else's gear in that server, to look at: GearView without their points or komaGems
+ *   GET  /api/gear/members?guild=…   who in that server has gear, the member first: GearMembers
+ *   POST /api/gear/equip {guild, copy}   puts on one of their copies: GearView
+ *   POST /api/gear/unequip {guild, slot}   empties a slot: GearView
+ *   POST /api/gear/unequip-all {guild}   empties every slot: GearView
+ *   POST /api/gear/loadout {guild, loadout}   switches to loadout number `loadout`: GearView
+ *   POST /api/gear/loadout/rename {guild, loadout, name}   names loadout number `loadout` (an empty name: its default one again): GearView
+ *   POST /api/gear/loadout/unlock {guild, loadout}   unlocks loadout number `loadout` (their next one) for its price in points: GearView
+ *   POST /api/gear/refine {guild, copy, material?}   refines one of their copies a level, using up `material` (another copy of it): GearView
+ *   POST /api/gear/sell {guild, copies, salvage?}   sells those of their copies (not worn, in a loadout or locked) for points, or salvages the hero gear among them for komaDust: GearView & { sold: GearSale }
+ *   POST /api/gear/lock {guild, copy, locked}   locks (or unlocks) one of their copies, so it's never sold or used up by a refine: GearView
+ *   GET  /api/databank        every item and what it does at each level, and every raid boss: Databank (models/databank.ts)
+ *   GET  /api/raid/week?guild=…   the server's raid: this week's boss, and how far its difficulty is unlocked: RaidWeekView (services/raid.ts)
+ *   GET  /api/gacha?guild=…&banner=…   the banner page: what a pull costs the member, their komaTokens and pity on a banner (standard, or limited), and the limited banner: BannerView (models/gacha.ts)
+ *   GET  /api/gacha/history?guild=…&banner=…&page=…   their pulls on a banner, the newest first, a page at a time (1: the newest): PullHistory (models/gacha.ts)
+ *   POST /api/gacha/pull {guild, multi, banner}   one pull, or a multi pull (`multi` true), on a banner: BannerResult (`closed` when the limited banner isn't open)
+ *   POST /api/gacha/pick {guild, banner, item}   picks the item a banner's guarantee gives them (one of the view's `choices`; null: any of them): BannerView
+ *   GET  /api/outfits?guild=…   the outfits: what each costs, which are the member's and which they wear: OutfitsView (models/outfits.ts)
+ *   POST /api/outfits/buy {guild, outfit}   buys an outfit with points (the shop; it isn't put on): OutfitsView
+ *   POST /api/gear/class {guild, class}   picks their raid class (null: none), which counts from their next raid's fight: GearView
+ *   POST /api/outfits/wear {guild, outfit}   puts on one of their outfits (the dressing room): OutfitsView
+ *   GET  /api/hero-outfits?guild=…   the heroes' outfits (King's Raid's costumes): what each costs, which are the member's, which heroes they own and what each wears: HeroOutfitsView (models/hero-outfits.ts)
+ *   POST /api/hero-outfits/buy {guild, outfit}   buys an outfit for one of their heroes with points (the shop; it isn't put on): HeroOutfitsView
+ *   GET  /api/tm-batches?guild=…   their background raids (the raid's page): the batch running, or their last, what a run costs and their points: TmBatchesView (models/tm-batches.ts)
+ *   POST /api/tm-batches/start {guild, raid, boss, mode, stage, heroes, count}   starts a batch of background raids (out of their own room, which their page is sent away from): TmBatchesView
+ *   POST /api/tm-batches/stop {guild}   stops their batch (the raid being fought given up; the mail sent): TmBatchesView
+ *   POST /api/hero-outfits/wear {guild, hero, outfit}   puts one of their hero's outfits on it (null: its own look) (its outfit room): HeroOutfitsView
+ *   GET  /api/heroes?guild=…   the TechnoMagic Raid's heroes: what each costs, which are the member's, the gear each wears and what it gives it, and every copy a hero could wear: HeroesView (models/heroes.ts)
+ *   POST /api/heroes/buy {guild, hero}   buys a hero with points (the shop): HeroesView
+ *   POST /api/heroes/starter {guild}   gives a member with no hero Roi (services/heroes.ts STARTER_HERO), for nothing, once: HeroesView ('owned': they have one)
+ *   POST /api/heroes/equip {guild, hero, slot, copy}   puts one of their copies in one of their hero's slots, off any other hero it was on (the heroes page): HeroesView
+ *   POST /api/heroes/unequip {guild, hero, slot?}   empties one of their hero's slots, or every one: HeroesView
+ *   POST /api/heroes/transcend {guild, hero}   transcends one of their heroes a level, for hero essences and komaGems: HeroesView
+ *   POST /api/heroes/perks {guild, hero, perks}   picks one of their hero's transcendence perks, all of them at once (none: reset): HeroesView
+ *   POST /api/heroes/perk-page {guild, hero, page}   puts one of their hero's Transcend Perk pages in use (its perks the hero's): HeroesView
+ *   POST /api/heroes/perk-page/buy {guild, hero, page}   buys their hero its next Transcend Perk page with points, and puts it in use, empty: HeroesView
+ *   POST /api/heroes/refine {guild, copy}   refines one of their copies a level (the heroes page), using up a spare copy of it: HeroesView
+ *   POST /api/heroes/restore {guild, copy}   restores one of their 5★ TechnoMagic pieces into a 0★ Reclaimed one, for Technomagic Experiment Reports and points (the forge): HeroesView
+ *   POST /api/heroes/sell {guild, copies, locked?, salvage?}   sells those of their copies (not worn, in a loadout, on a hero, or locked unless `locked`) for points, or salvages the hero gear among them for komaDust (the heroes page): HeroesView & { sold: GearSale }
+ *   POST /api/heroes/auto-salvage {guild, rule}   keeps the rule their hero gear's drops are salvaged by as they drop (null: none): HeroesView
+ *   POST /api/heroes/lock {guild, copy, locked}   locks (or unlocks) one of their copies (the heroes page): HeroesView
+ *   GET  /api/raid-shop?guild=…   the raid items on the server's shelf this week, their prices in komaGems and the member's gems: RaidShopView (models/raid-shop.ts)
+ *   POST /api/raid-shop/buy {guild, item}   buys a copy of one of them with komaGems: RaidShopView
+ *   POST /api/raid-shop/refresh {guild}   pays komaGems for a new shelf of their own (a few times a week, each dearer): RaidShopView
+ *   POST /api/raid-shop/craft {guild, count, recipe?}   crafts komaGems (recipe 'gem', the default) or Unique Weapon / Unique Treasure Tickets ('uw', 'ut') from komaDust: RaidShopView
+ *   POST /api/raid-shop/use {guild, of, hero, skill?}   uses a ticket held for that hero's unique weapon ('uw') or unique treasure ('ut', its skill 1–4): RaidShopUsed
+ *   GET  /api/admin/settings   every one of the bot's settings, for the admin page (the bot admin only): SettingsView (protocol/admin.ts)
+ *   GET  /api/divine?guild=…   King's Raid's Divine Punishment Raid: the member's openings, counters, shop, crafting and Runes of Blasphemy: DivineView (models/divine.ts)
+ *   GET  /api/divine/rewards?guild=…&group=…&level=…   a group's Reward List at an Infinite level (King's Raid's PunishmentRaidRewardInfoPopup): DivineRewardsView
+ *   POST /api/divine/open {guild, group, type, level?}   unlocks a group's boss dungeons at an Infinite level, or a Karma run, for zeiucoins: DivineView
+ *   POST /api/divine/reset {guild, group}   closes a group's boss opening (King's Raid's ResetPunishmentRaid): DivineView
+ *   POST /api/divine/void {guild, socket, count?}   buys Runes of Void: DivineView
+ *   POST /api/divine/artifact {guild, fragment}   crafts a fragment's artifact: DivineView & { crafted }
+ *   POST /api/divine/ticket {guild, of, hero, skill?}   uses a Unique Gear Ticket on a unique weapon or treasure: DivineView & { given }
+ *   POST /api/divine/blasphemy/craft {guild, rune, ingredients}   crafts a Rune of Blasphemy: DivineView & { crafted }
+ *   POST /api/divine/blasphemy/break {guild, id} or {guild, copy, socket}   breaks one for Rune Fragments: DivineView & { gained }
+ *   POST /api/divine/blasphemy/extend {guild}   more Rune of Blasphemy storage: DivineView
+ *   POST /api/divine/blasphemy/socket {guild, copy, socket, id}   / unsocket {guild, copy, socket}   puts one in a socket, or keeps it out of one: DivineView
+ *   POST /api/admin/settings {changes}   changes some of them at once, as the config command would (all or none): SettingsSaved
+ *
+ * /api/live, /api/watch and the leaderboard also take the token from a game page's own link, as
+ * "Authorization: Game <token>" (the server is the link's). So do GET /api/gear (the raid page shows
+ * the party's gear: anyone in the link's server) and the routes that change what the link's member
+ * wears (routes/gear.ts: the raid's party screen lets them change it before the fight), and /api/heroes but buying, selling and locking
+ * (routes/heroes.ts: the TechnoMagic Raid's Manage popup), and /api/tm-batches (routes/tm-batches.ts: the raid page's background raids). And GET /api/raid/gear?user=…: a raider's gear as they fought the raid the
+ * page shows (its end screen), when it was kept. The front page's /api/live counts as
+ * being on the site (games/live.ts).
+ *
+ * Everything but the first and the databank takes the session as "Authorization: Bearer <session>", and only answers
+ * the site's own origin. Errors are { error } with a code the site knows (lib/errors.ts).
+ *
+ * Each request goes through four layers, each using only the one below it:
+ *   routes/        which paths there are, and the middleware and controller each goes through
+ *   middleware/    who is asking (auth.ts), the site's origin (site.ts), and answering errors (errors.ts)
+ *   controllers/   reads what a request says (lib/validate.ts), asks a service, and answers
+ *   services/      what the site can do, with no requests in sight: the stores (models/gear.ts, models/gacha.ts, models/outfits.ts), Discord, live.ts…
+ * Errors are thrown anywhere as an ApiError (lib/errors.ts).
+ */
+
+export interface ApiDeps {
+  config: WebConfig;
+  /** The bot's application id (the OAuth2 client id), once it has logged in to Discord. */
+  clientId: () => string | null;
+  /** One of the bot's servers, or null when it isn't in it. */
+  guild: (guildId: string) => { name: string; icon: string | null } | null;
+  /** A member's name in a server, or null when they aren't in it (any more). */
+  memberName: (guildId: string, userId: string) => Promise<string | null>;
+  balance: (guildId: string, userId: string) => Promise<number>;
+  /** A member's avatar picture in a server, if the bot knows it. */
+  avatar?: (guildId: string, userId: string) => string | null;
+  /** Pinecraft's leaderboards (the database's, unless a test says otherwise). */
+  leaderboard?: typeof pinecraftLeaderboard;
+  /** Members' gear, for the gear page (the database's, unless a test says otherwise). */
+  gear?: GearStore;
+  /** The gacha, for the banner page (the database's, unless a test says otherwise). */
+  gacha?: GachaStore;
+  /** Outfits, for the shop and the dressing room (the database's, unless a test says otherwise). */
+  outfits?: OutfitStore;
+  /** The heroes' outfits, for the shop and the heroes' outfit room (the database's, unless a test says otherwise). */
+  heroOutfits?: HeroOutfitStore;
+  /** Background raids, for the raid's page (the database's, unless a test says otherwise). */
+  tmBatches?: TmBatchStore;
+  /** The TechnoMagic Raid's heroes, for the shop and the heroes page (the database's, unless a test says otherwise). */
+  heroes?: HeroStore;
+  /** The friends list's members (the database's, unless a test says otherwise). */
+  friends?: FriendStore;
+  /** The mailbox (the database's, unless a test says otherwise). */
+  mail?: MailStore;
+  /** The TechnoMagic Raid's rooms: saying in the server's channel that raid `room` has been created (once the bot has logged in to Discord). */
+  technomagic?: { announce: (guildId: string, host: string, boss: string, room: string) => void };
+  /** The Dragon Raid's rooms: saying in the server's channel that raid `room` (against `boss`, a dragon) has been created. */
+  dragon?: { announce: (guildId: string, host: string, boss: string, room: string) => void };
+  /** The raid shop (the database's, unless a test says otherwise). */
+  raidShop?: RaidShopStore;
+  /** The Divine Punishment Raid's page (the database's, unless a test says otherwise). */
+  divine?: DivineStore;
+  /** Changing the bot's settings, for the admin page (services/settings.ts's, unless a test says otherwise). */
+  settings?: SettingsStore;
+  login?: typeof exchangeCode;
+  /** The raid's page (web/games/raid), once the bot is logged in to Discord. */
+  raid?: RaidSiteDeps;
+}
+
+/** Big enough for a sale of the most copies POST /api/gear/sell takes. */
+const MAX_BODY_BYTES = 32_768;
+
+/** The site's API, under /api. Anything else is a plain 404. */
+export function createApi(deps: ApiDeps): Express {
+  const { origin } = deps.config;
+  const api = Router()
+    .use(cors(origin), compressJson)
+    .use(publicRoutes(deps))
+    // Everything else is for the site only, with bodies in JSON (whatever they say they are).
+    .use(siteOnly(origin), express.json({ limit: MAX_BODY_BYTES, type: () => true }))
+    .use('/databank', databankRoutes())
+    .use(loginRoutes(deps))
+    .use(liveRoutes(deps))
+    .use('/gear', gearRoutes(deps))
+    .use('/gacha', gachaRoutes(deps))
+    .use('/outfits', outfitRoutes(deps))
+    .use('/hero-outfits', heroOutfitRoutes(deps))
+    .use('/tm-batches', tmBatchRoutes(deps))
+    .use('/heroes', heroRoutes(deps))
+    .use('/runes', runeRoutes(deps))
+    .use('/mail', mailRoutes(deps))
+    .use('/raid-shop', raidShopRoutes(deps))
+    .use('/raid', raidRoutes(deps))
+    .use('/raid-rooms', raidRoomRoutes(deps))
+    .use('/divine', divineRoutes(deps))
+    .use('/admin', adminRoutes(deps))
+    // Nothing else is there (once they've logged in).
+    .use(signedIn(deps), notFound);
+
+  const app = express();
+  app.disable('x-powered-by');
+  app.set('etag', false);
+  app.use('/api', api);
+  app.use(errors);
+  app.use((_req, res) => void res.status(404).type('text/plain').send('Not found'));
+  return app;
+}

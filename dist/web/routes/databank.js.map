@@ -1,0 +1,1 @@
+{"version":3,"file":"databank.js","sourceRoot":"","sources":["../../../src/web/routes/databank.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,SAAS,CAAC;AACjC,OAAO,EAAE,kBAAkB,EAAE,MAAM,4BAA4B,CAAC;AAEhE,mEAAmE;AACnE,MAAM,UAAU,cAAc;IAC5B,MAAM,QAAQ,GAAG,kBAAkB,EAAE,CAAC;IAEtC,OAAO,MAAM,EAAE,CAAC,GAAG,CAAC,GAAG,EAAE,QAAQ,CAAC,IAAI,CAAC,CAAC;AAC1C,CAAC"}

@@ -1,0 +1,27 @@
+import { boldGems, boldMoney, boldTokens } from './currency.js';
+
+export const balanceText = {
+  title: (name: string) => `${name}'s balance`,
+  points: (points: string) => `${boldMoney(points)}`,
+  /** Under the points: the member's komaTokens (shown even at 0). */
+  tokens: (tokens: number) => boldTokens(tokens),
+  /** Under the komaTokens: the member's komaGems (shown even at 0). */
+  gems: (gems: number) => boldGems(gems),
+  claimField: 'Hourly claim',
+  claimReady: (p: string) => `Ready. Use \`${p}claim\`!`,
+  claimWait: (unix: number) => `Claimed. Next one <t:${unix}:R>`,
+  /** STONKS!: what a claim now would be multiplied by, and when it tops out (`cap`, like "7.5x"). */
+  stonksClimbing: (multiplier: string, cap: string, unix: number) => `STONKS! **${multiplier}**, climbing to **${cap}** <t:${unix}:R>`,
+  stonksMaxed: (multiplier: string) => `STONKS! **${multiplier}** (maxed)`,
+  robField: 'Rob cooldown',
+  robReady: (p: string) => `Ready. Use \`${p}rob @user\`!`,
+  robWait: (unix: number) => `Recovering. Ready <t:${unix}:R>`,
+  /** Status effects on the member, one line each. The field only appears while there is one. */
+  effectsField: 'Effects',
+  /** Withered by a Coughing Baby wearer. `taker` is a mention, `rate` like "25%". */
+  witheredSelf: (rate: string, taker: string) => `Withered: ${taker} takes ${rate} of your next claim.`,
+  witheredOther: (rate: string, taker: string) => `Withered: ${taker} takes ${rate} of their next claim.`,
+  /** Marked by a Frog wearer: part of their next successful rob goes to `taker` (a mention). */
+  robTaxSelf: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of your next rob (unless you rob them).`,
+  robTaxOther: (rate: string, taker: string) => `Yowch, My Coins! ${taker} takes ${rate} of their next rob (unless they rob ${taker}).`,
+};

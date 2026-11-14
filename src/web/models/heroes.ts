@@ -1,0 +1,548 @@
+import { craftTmPiece } from '../../services/technomagic.js';
+import type { HeroesCrafted, HeroesOpened, LootBoxStack, LootOpenError, TmAccessory, TmCraftError, TmCraftKind } from '../../protocol/heroes.js';
+import { LOOT_BOXES, LOOT_BOXES_BY_ID } from '../../data/loot-boxes.js';
+import { LOOT_OPEN_MOST, openLootBoxes } from '../../services/loot-boxes.js';
+import { DRAGONS } from '../../lib/game/dragon.js';
+import { TM_BOSSES } from '../../lib/game/technomagic.js';
+import { CONFIG, rerollPrice, restorePrice, runeKeepPrice, valueRerollPrice } from '../../config.js';
+import { ITEMS_BY_ID } from '../../data/items.js';
+import { HEROES } from '../../data/heroes.js';
+import { ARTIFACT_TEXT, KR_POOLS, KR_RUNES_BY_ID, KR_SETS, KR_TM_SETS, krOptionValue, poolOption, UNIQUE_REROLL_GEMS, upgradable, upgradePrice } from '../../data/kr-gear.js';
+import { activePerkPage, ESSENCES, keptPerks, PERK_PAGES_MAX, perkPageCount, perkPagePrice, scrollPoints, transcendCost, transcendLevel, transcendPoints, type EssenceId } from '../../data/transcend.js';
+import { collections } from '../../db.js';
+import {
+  activeSet,
+  activeTmEffects,
+  copyMainStat,
+  countsOnce,
+  fitsSlot,
+  HERO_STAT_IDS,
+  heroBonus,
+  heroItemLines,
+  heroOnly,
+  heroSet,
+  heroSkills,
+  heroStatLines,
+  heroWearable,
+  heroWorn,
+  krLine,
+  partOf,
+  perkLines,
+  potentialLines,
+  raidValue,
+  runeLines,
+  setBonusLines,
+  setCounts,
+  setLines,
+  SIDE_SLOTS,
+  socketsOf,
+  treasureTier,
+  wieldedBy,
+  type HeroBonus,
+  type HeroPiece,
+  type HeroStat,
+} from '../../lib/game/heroes.js';
+import { uniqueTreasureText } from '../../../vendor/technomagic-sim.mjs';
+import { keptCopyIds, type LoadoutFields } from '../../lib/game/items/loadouts.js';
+import { maxLevelOf, refineLevel, starsOf } from '../../lib/game/items/refine.js';
+import { equippedCopyIds, itemSalvage, itemSellPrice } from '../../lib/game/items/sell.js';
+import { TM_SKILLS_BY_ID, tmSkillLine } from '../../lib/game/technomagic.js';
+import { potentialStep } from '../../data/tm-potentials.js';
+import { wornSkin } from '../../services/hero-outfits.js';
+import { buyHeroLoadout, equipHeroLoadout, nameHeroLoadout, resetHeroLoadout, saveHeroLoadout } from '../../services/hero-loadouts.js';
+import { heroLoadoutViews, nextHeroLoadoutPrice } from '../../lib/game/hero-loadouts.js';
+import { buyHero, buyPerkPage, grantStarterHero, craftTpScrolls, equipHero, pickHeroPerks, switchPerkPage, transcendHero, unequipHero, useTpScroll } from '../../services/heroes.js';
+import { keepOption, keepTmSkill, rerollOption, restoreTmPiece, socketRune, tmRestorable, unsocketRune, upgradeOption } from '../../services/kr-gear.js';
+import { autoSalvageOf, setAutoSalvage } from '../../services/items/salvage.js';
+import { HERO_SLOTS, type HeroSlot, type ItemCopyDoc, type ItemDef, type MemberDoc } from '../../types.js';
+import type { RaidClassId } from '../../constants/raid.js';
+import { TM_CRYSTALS, TM_REPORTS, tmSalvageCrystals, tmSalvageStones } from '../../constants/technomagic.js';
+import { isTmPiece, tmStoneClass } from '../../data/kr-gear.js';
+import type { TmSetId } from '../../protocol/items.js';
+import { RAID_CLASS_IDS } from '../../protocol/raid.js';
+import type { GearSale } from '../../protocol/gear.js';
+import type { HeroCopy, HeroEquipError, HeroesChange, HeroesView, HeroKeep, HeroLoadoutError, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import { copiesByItem, gearStore, refineState } from './gear.js';
+import { blasphemyLookup, blasphemyMain, isBlasphemyRef, lineText, type BlasphemyLookup } from '../../lib/game/divine.js';
+
+export type { HeroCopy, HeroEquipError, HeroesChange, HeroesView, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
+
+/*
+ * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine, /rune, /reroll,
+ * /keep, /upgrade, /sell, /lock, /auto-salvage, /craft-scroll, /scroll, /perk-page, /perk-page/buy, /loadout/*): every hero, what one costs and which are the member's (the shop's Heroes tab), and the gear each of
+ * theirs wears (King's Raid's hero gear: data/kr-gear.ts), with what it gives it in the raid and every copy a hero could wear,
+ * their runes, and how far each is transcended, the perks picked for it and the Transcendence Scrolls used on it (the heroes page). The rules are lib/game/heroes.ts's
+ * (data/transcend.ts transcendence's); buying, gearing and transcending them, services/heroes.ts; runes and options, services/kr-gear.ts.
+ */
+
+/** What the hero routes use (the database's, unless a test says otherwise). */
+export interface HeroStore {
+  view: (guildId: string, userId: string) => Promise<HeroesView>;
+  /** Who in a server has heroes, and how many: the most first, at most `limit` of them. */
+  owners: (guildId: string, limit: number) => Promise<{ userId: string; heroes: number }[]>;
+  /** Buys a hero: the heroes after, or why not (nothing was spent). */
+  buy: (guildId: string, userId: string, id: string) => Promise<HeroesView | 'not_found' | 'owned' | 'too_poor'>;
+  /** Gives them the starter hero (services/heroes.ts STARTER_HERO) for nothing, only while they have no hero: the heroes after, or 'owned'. */
+  starter: (guildId: string, userId: string) => Promise<HeroesView | 'owned'>;
+  /** Puts one of their copies in one of their hero's slots (off any other hero it was on): the heroes after, or why not. */
+  equip: (guildId: string, userId: string, hero: string, slot: HeroSlot, copy: string) => Promise<HeroesView | HeroEquipError>;
+  /** Empties one of their hero's slots, or (`slot` null) all of them: the heroes after, or 'not_found' for a hero that isn't theirs. */
+  unequip: (guildId: string, userId: string, hero: string, slot: HeroSlot | null) => Promise<HeroesView | 'not_found'>;
+  /** Picks their hero's transcendence perks, all of them at once (none: reset): the heroes after, or why not. */
+  perks: (guildId: string, userId: string, hero: string, perks: readonly string[]) => Promise<HeroesView | HeroPerksError>;
+  /** Puts their hero's perk page `page` in use: the heroes after, or why not. */
+  perkPage: (guildId: string, userId: string, hero: string, page: number) => Promise<HeroesView | HeroPerkPageError>;
+  /** Buys their hero its next perk page, for points, and puts it in use: the heroes after, or why not (nothing was spent). */
+  buyPerkPage: (guildId: string, userId: string, hero: string, page: number) => Promise<HeroesView | HeroPerkPageError>;
+  /** Transcends their hero one level: the heroes after, or why not. */
+  transcend: (guildId: string, userId: string, hero: string) => Promise<HeroesView | HeroTranscendError>;
+  /** Refines one of their copies a level (the gear page's refine, a spare copy of it used up): the heroes after, or why not. */
+  refine: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroRefineError>;
+  /** Puts one of their runes in a copy's socket (`rune` null: takes the one in it out): the heroes after, or why not. */
+  rune: (guildId: string, userId: string, copy: string, socket: number, rune: string | null) => Promise<HeroesView | HeroRuneError>;
+  /** Rerolls one of a copy's options (or its unique option), for points: the heroes after (the copies it could have changed), or why not. */
+  reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesChange | HeroOptionError>;
+  /** Keeps a TechnoMagic copy's rerolled additional skill ('new') or the one it had ('old'): the heroes after (the copies it could have changed), or why not. */
+  keep: (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique') => Promise<HeroesChange | HeroOptionError>;
+  /** Enhances one of a copy's options (its `option`th: its amount rolled again), for points: the heroes after (the copies it could have changed), or why not. */
+  upgrade: (guildId: string, userId: string, copy: string, option: number) => Promise<HeroesChange | HeroOptionError>;
+  /** Restores one of their 5★ TechnoMagic pieces into a 0★ Reclaimed one, for Technomagic Experiment Reports and points: the heroes after (the copies it could have changed), or why not (nothing was spent). */
+  restore: (guildId: string, userId: string, copy: string) => Promise<HeroesChange | HeroRestoreError>;
+  /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too; `salvage`: salvaged): what it came to, or 'nothing_to_sell'. */
+  sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean, salvage?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
+  /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
+  lock: (guildId: string, userId: string, copy: string, locked: boolean) => Promise<boolean>;
+  /** Keeps the rule their hero gear's drops are salvaged by (null: none any more): the heroes after. */
+  autoSalvage: (guildId: string, userId: string, rule: SalvageRule | null) => Promise<HeroesView>;
+  /** Crafts a piece of TechnoMagic `set` (any, a part picked, or a class's part picked): their heroes after and the piece, or why not. */
+  craft: (guildId: string, userId: string, set: TmSetId, kind: TmCraftKind, part: HeroPart | null, cls: RaidClassId | null, accessory: TmAccessory | null) => Promise<HeroesCrafted | TmCraftError>;
+  /** Crafts `count` Transcendence Scrolls from `set`'s Boss Crystals: their heroes after, or why not (nothing was spent). */
+  craftScrolls: (guildId: string, userId: string, set: TmSetId, count: number) => Promise<HeroesView | TpScrollCraftError>;
+  /** Uses one of their Transcendence Scrolls on their hero (more TP): their heroes after, or why not (nothing was spent). */
+  scroll: (guildId: string, userId: string, hero: string) => Promise<HeroesView | TpScrollUseError>;
+  /** Opens `count` of their Dispatch Battle Loot `box`: their heroes after and what it gave, or why not (none was opened). */
+  openBox: (guildId: string, userId: string, box: string, count: number) => Promise<HeroesOpened | LootOpenError>;
+  /** Saves what their hero wears into their hero gear loadout `number`: the heroes after, or why not. */
+  loadoutSave: (guildId: string, userId: string, hero: string, number: number) => Promise<HeroesView | HeroLoadoutError>;
+  /** Puts their hero gear loadout `number` on their hero: the heroes after, or why not. */
+  loadoutEquip: (guildId: string, userId: string, hero: string, number: number) => Promise<HeroesView | HeroLoadoutError>;
+  /** Empties their hero gear loadout `number`: the heroes after, or why not. */
+  loadoutReset: (guildId: string, userId: string, number: number) => Promise<HeroesView | HeroLoadoutError>;
+  /** Names their hero gear loadout `number` (empty: no name): the heroes after, or why not. */
+  loadoutName: (guildId: string, userId: string, number: number, name: string) => Promise<HeroesView | HeroLoadoutError>;
+  /** Buys their next hero gear loadout, for points: the heroes after, or why not (nothing was spent). */
+  loadoutBuy: (guildId: string, userId: string) => Promise<HeroesView | HeroLoadoutError>;
+}
+
+/** The Dispatch Battle Loot a member holds (MemberDoc.lootBoxes), in data/loot-boxes.ts's order: the Galgoria Raid's, then each dragon's Hard and Normal stages. */
+function lootStacks(held: Record<string, number> | undefined): LootBoxStack[] {
+  const bossName = (id: string): string => [...TM_BOSSES, ...DRAGONS].find((boss) => boss.id === id)?.name ?? id;
+  return LOOT_BOXES.flatMap((box) => {
+    const count = held?.[box.id] ?? 0;
+    return count > 0 ? [{ id: box.id, name: box.name, icon: box.icon, raid: box.raid, boss: box.boss, bossName: bossName(box.boss), mode: box.mode, stage: box.stage, count }] : [];
+  });
+}
+
+type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked' | 'tmSkill' | 'tmPotentials'> &
+  Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmArmorDef' | 'options' | 'runes' | 'tmSkillRerolls' | 'tmSkillPending' | 'optionPending' | 'potentialPending' | 'reclaimed'>>;
+
+/** A hero's additional skills as lines, one for each skill (how many, when more than one), like "✴️ Vigor ×2: Increases DMG…". */
+export function skillLines(skills: readonly string[]): string[] {
+  const counts = new Map<string, number>();
+  for (const id of skills) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return [...counts].flatMap(([id, count]) => {
+    const skill = TM_SKILLS_BY_ID.get(id);
+    return skill ? [`✴️ ${skill.name}${count > 1 ? ` ×${count}` : ''}: ${skill.about}`] : [];
+  });
+}
+
+/** A rune as the page shows it (null: none such). */
+export function runeView(id: string): HeroRune | null {
+  const rune = KR_RUNES_BY_ID.get(id);
+  return rune ? { id: rune.id, name: rune.name, grade: rune.grade, color: rune.color, icon: rune.icon, lines: runeLines(rune.id) } : null;
+}
+
+/** Which classes each of a Rune of Blasphemy's three lines is for (lib/game/divine.ts CLASS_LINE). */
+const BLASPHEMY_LINE_CLASSES = ['Warrior/Knight', 'Archer/Assassin/Mechanic', 'Wizard/Priest'] as const;
+
+/** A Rune of Blasphemy in a socket (`bl:<id>`) as the page shows it, as a rune: grade 7 (above Legendary), its main stat and its three lines with their rolls (null: none such). */
+export function blasphemyRuneView(ref: string, lookup: BlasphemyLookup): HeroRune | null {
+  const on = lookup.get(ref);
+  if (!on) return null;
+  const { data, copy } = on;
+  const main = HERO_STAT_IDS_SET.has(data.main.stat) ? [krLine(data.main.stat as HeroStat, copy.main)] : [];
+  return { id: ref, name: data.name, grade: 7, color: data.color, icon: data.icon, lines: [...main, ...data.lines.map((line, i) => `${BLASPHEMY_LINE_CLASSES[i]}: ${lineText(line, copy.lines[i] ?? line.min)}`)] };
+}
+
+/** A socket's rune as the page shows it: a rune's, or a Rune of Blasphemy's (`bl:<id>`, from the member's). */
+const socketView = (id: string, lookup: BlasphemyLookup): HeroRune | null => (isBlasphemyRef(id) ? blasphemyRuneView(id, lookup) : runeView(id));
+
+/** The member's runes, best first (grade, then name). */
+export function runeStacks(runes: MemberDoc['runes']): HeroRuneStack[] {
+  return Object.entries(runes ?? {})
+    .flatMap(([id, count]) => {
+      const view = runeView(id);
+      const rune = KR_RUNES_BY_ID.get(id);
+      return view && rune && count > 0 ? [{ ...view, count, parts: [...rune.parts] as HeroPart[] }] : [];
+    })
+    .sort((a, b) => b.grade - a.grade || a.name.localeCompare(b.name));
+}
+
+const HERO_STAT_IDS_SET: ReadonlySet<string> = new Set(HERO_STAT_IDS);
+
+/**
+ * A copy's options as the page shows them: a unique treasure's, its potentials, each so many steps of its range's
+ * (potentialStep: an enhance's), rerolled for the config's hero.rerollPrice points, as any hero gear's.
+ */
+function optionViews(item: ItemDef, copy: CopyInfo): HeroCopy['options'] {
+  if (item.uniqueTreasure) {
+    return (copy.tmPotentials ?? []).flatMap((potential) => {
+      const range = CONFIG.hero.potentials[potential.stat];
+      const line = potentialLines([potential])[0];
+      if (!range || !line) return [];
+      const size = potentialStep(range);
+      const steps = Math.round((range.max - range.min) / size);
+      return [{ stat: potential.stat, line, step: Math.min(steps, Math.max(0, Math.round((potential.value - range.min) / size))), steps, price: rerollPrice() }];
+    });
+  }
+  const kr = item.kr;
+  if (!kr) return [];
+  return (copy.options ?? []).map((option) => ({
+    stat: option.stat,
+    line: HERO_STAT_IDS_SET.has(option.stat) ? krLine(option.stat as HeroStat, krOptionValue(kr, option)) : option.stat,
+    step: option.step,
+    steps: poolOption(kr.pool, option.stat)?.steps ?? 0,
+    // (A TechnoMagic piece's: its set's Boss Crystals.)
+    price: isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice(),
+  }));
+}
+
+/** A copy's rerolled option waiting to be kept, as its options are shown (null: none waits). */
+function rerolledOptionView(item: ItemDef, copy: CopyInfo): HeroCopy['rerolledOption'] {
+  // (A unique treasure's: one of its potentials.)
+  const rolled = item.uniqueTreasure ? copy.potentialPending : copy.optionPending;
+  const view = copy.potentialPending && item.uniqueTreasure
+    ? optionViews(item, { ...copy, tmPotentials: [copy.potentialPending.option] })[0]
+    : copy.optionPending && !item.uniqueTreasure
+      ? optionViews(item, { ...copy, options: [copy.optionPending.option] })[0]
+      : undefined;
+  return rolled && view ? { ...view, index: rolled.index } : null;
+}
+
+/** What a copy's next reroll costs (the cheapest of its options'), its unique option's, and an upgrade; null where it can't be. */
+function optionCosts(item: ItemDef, copy: CopyInfo): Pick<HeroCopy, 'reroll' | 'rerollUnique' | 'upgrade'> {
+  const kr = item.kr;
+  const options = copy.options ?? [];
+  const pool = kr?.pool ? KR_POOLS[kr.pool] : undefined;
+  return {
+    reroll: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? rerollPrice() : null) : kr && pool && options.length > 0 ? (isTmPiece(item) ? TM_CRYSTALS.reroll : rerollPrice()) : null,
+    // (In komaGems.)
+    rerollUnique: kr?.unique ? UNIQUE_REROLL_GEMS : null,
+    // (Enhancing rolls an amount again, so a copy with options always can, at their top or not; a unique treasure's too.)
+    upgrade: item.uniqueTreasure ? ((copy.tmPotentials ?? []).length > 0 ? valueRerollPrice('unique') : null) : kr && upgradable(kr) && options.length > 0 ? upgradePrice(kr) : null,
+  };
+}
+
+/** The heroes' view, from the member's copies and member document. */
+export function heroesView(
+  copies: readonly CopyInfo[],
+  member: (Pick<MemberDoc, 'heroes' | 'points' | 'gems' | 'essences'> & Partial<Pick<MemberDoc, 'runes' | 'runeFragments' | 'autoSalvage' | 'stones' | 'crystals' | 'reports' | 'tpScrolls' | 'lootBoxes' | 'heroLoadouts' | 'heroLoadoutSlots' | 'blasphemy'>> & Partial<LoadoutFields>) | null,
+): HeroesView {
+  const worn = heroWorn(member);
+  // (Their Runes of Blasphemy, which a copy's sockets name as `bl:<id>`.)
+  const blasphemy = blasphemyLookup(member?.blasphemy);
+  // (Never used up by a refine or sold: what the member, any loadout and their heroes wear.)
+  const kept = new Set([...equippedCopyIds(member?.equipment), ...keptCopyIds(member)]);
+  const lit = activeTmEffects(copies, member);
+  const classOf = (heroId: string | undefined): RaidClassId | null => (heroId ? (HEROES.find((one) => one.id === heroId)?.class ?? null) : null);
+  // (What each hero wears, for its sets' counts.)
+  const onHero = new Map<string, { item: ItemDef }[]>();
+  for (const copy of copies) {
+    const hero = worn.get(copy._id);
+    const item = ITEMS_BY_ID.get(copy.itemId);
+    if (hero && item) onHero.set(hero, [...(onHero.get(hero) ?? []), { item }]);
+  }
+  const sameItem = copiesByItem(copies);
+  const list: HeroCopy[] = [];
+  const pieces = new Map<string, { view: HeroCopy; piece: HeroPiece }>();
+  for (const copy of copies) {
+    const item = ITEMS_BY_ID.get(copy.itemId);
+    const part = item ? partOf(item) : null;
+    if (!item || !heroWearable(item) || part === null) continue;
+    const maxLevel = maxLevelOf(item);
+    // (Its stars, from 0★: King's Raid's.)
+    const level = Math.min(starsOf(item, copy.level), maxLevel);
+    const kr = item.kr;
+    const runes = Array.from({ length: socketsOf(item) }, (_, i) => copy.runes?.[i] ?? null);
+    const hero = worn.get(copy._id);
+    const heroClass = classOf(hero);
+    const setId = kr?.set;
+    const count = setId && hero && heroClass ? (setCounts(onHero.get(hero) ?? [], heroClass).get(setId) ?? 0) : 0;
+    const ownClass = heroClass ?? (kr && kr.classes.length === 1 ? (kr.classes[0] as RaidClassId) : null);
+    const bonuses = setId ? setBonusLines(setId, ownClass, count) : [];
+    const tmBonus = setId && KR_TM_SETS.includes(setId) ? bonuses[0] : undefined;
+    const view: HeroCopy = {
+      id: copy._id,
+      itemId: item.id,
+      name: copy.reclaimed ? `Reclaimed ${item.name}` : item.name,
+      stars: item.stars,
+      slot: item.slot,
+      description: item.description,
+      level,
+      maxLevel,
+      part,
+      ...(copy.reclaimed && { reclaimed: true }),
+      kind: kr?.kind ?? null,
+      krSet: setId ? { id: setId, name: KR_SETS[setId]?.name ?? setId, tier: kr?.tier ?? 0 } : null,
+      classes: kr ? [...kr.classes] : item.class ? [item.class] : [],
+      icon: kr?.icon ?? null,
+      options: optionViews(item, copy),
+      runes: runes.map((id) => (id ? socketView(id, blasphemy) : null)),
+      ...optionCosts(item, copy),
+      // (King's Raid's Technomagic Restoration: a 5★ TechnoMagic piece into a 0★ Reclaimed one.)
+      restore: tmRestorable(item, copy) ? { reports: TM_REPORTS.restore, points: restorePrice(), mainAfter: copyMainStat(item, { ...copy, level: 0, reclaimed: true }) } : null,
+      setBonuses: bonuses,
+      locked: copy.locked === true,
+      sell: kept.has(copy._id) || copy.locked === true ? null : itemSellPrice(item),
+      sellLocked: kept.has(copy._id) || copy.locked !== true ? null : itemSellPrice(item),
+      ...(heroOnly(item) && { salvage: itemSalvage(item) }),
+      ...(tmStoneClass(item) && { salvageStones: { class: tmStoneClass(item) as RaidClassId, count: tmSalvageStones(copy.reclaimed === true) } }),
+      ...(isTmPiece(item) && kr?.set && { salvageCrystals: { set: kr.set as TmSetId, count: tmSalvageCrystals(copy.reclaimed === true) }, rerollCrystals: kr.set as TmSetId, ...(kr.unique && { rerollUniqueCrystals: TM_CRYSTALS.skillReroll }) }),
+      effects: [...heroItemLines(item, level, copy.tmPotentials, copy.options, runes), ...runes.flatMap((id) => (isBlasphemyRef(id) ? (blasphemyRuneView(id, blasphemy)?.lines.slice(0, 1) ?? []) : []))],
+      mainStat: copyMainStat(item, { ...copy, level }),
+      setEffect: tmBonus ? { pieces: tmBonus.pieces, text: tmBonus.text, active: lit.get(copy._id)?.set ?? false } : null,
+      additional: kr?.unique ? tmSkillLine(copy.tmSkill) : null,
+      rerolled: kr?.unique ? tmSkillLine(copy.tmSkillPending) : null,
+      rerolledOption: rerolledOptionView(item, copy),
+      additionalActive: lit.get(copy._id)?.additional ?? false,
+      skill: kr?.unique ? (copy.tmSkill ?? null) : null,
+      class: item.class ?? (kr && kr.classes.length === 1 ? (kr.classes[0] as RaidClassId) : null),
+      heroOnly: heroOnly(item),
+      uniqueWeapon: item.uniqueWeapon ?? null,
+      uniqueTreasure: item.uniqueTreasure ? { hero: item.uniqueTreasure.hero, skill: item.uniqueTreasure.skill } : null,
+      hero: hero ?? null,
+      refine: { blocked: null, cost: null, spare: null, after: null },
+    };
+    const { to, ...refine } = refineState(copy._id, sameItem.get(copy.itemId) ?? [], item, kept, member?.points ?? 0, member?.stones ?? {});
+    view.refine = {
+      ...refine,
+      after: to === null ? null : heroItemLines(item, to, copy.tmPotentials, copy.options, runes),
+      mainAfter: to === null ? null : copyMainStat(item, { ...copy, level: to }),
+    };
+    list.push(view);
+    pieces.set(copy._id, {
+      view,
+      piece: { item, level, ...(item.uniqueTreasure && copy.tmPotentials && { potentials: copy.tmPotentials }), ...(copy.options && { options: copy.options }), runes, ...(copy.reclaimed && { reclaimed: true }), ...(runes.some(isBlasphemyRef) && { blasphemy: blasphemyMain(runes, blasphemy) }) },
+    });
+  }
+  // Best first: the unique weapons, then King's Raid's gear by tier (TechnoMagic gear's above the dragon sets'), the unique treasures, the artifacts.
+  const rank = (copy: HeroCopy): number => (copy.uniqueWeapon !== null ? 20 : copy.uniqueTreasure !== null ? 4 : copy.part === 'artifact' ? 3 : (copy.krSet?.tier ?? 0) + 5);
+  list.sort((a, b) => rank(b) - rank(a) || b.level - a.level || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+
+  const heroes = HEROES.map((hero): HeroView => {
+    const doc = member?.heroes?.[hero.id];
+    const equipped = {} as Record<HeroSlot, string | null>;
+    const on: HeroPiece[] = [];
+    const skilled: { item: HeroPiece['item']; skill?: string }[] = [];
+    // (Each unique treasure once: a second copy of one isn't worn. Its main treasure's effect, when it is one.)
+    const treasures = new Set<string>();
+    let main: HeroView['treasure'] = null;
+    let artifact: HeroView['artifact'] = null;
+    let underUt = false;
+    for (const slot of HERO_SLOTS) {
+      const found = pieces.get(doc?.equipment?.[slot] ?? '');
+      // (A sub treasure only under a main one that is a unique treasure: the treasure slot comes first.)
+      const fits = found !== undefined && fitsSlot(found.piece.item, slot) && found.view.hero === hero.id && wieldedBy(found.piece.item, hero.id) && (underUt || !SIDE_SLOTS.includes(slot)) && countsOnce(found.piece.item, treasures);
+      if (fits && slot === 'treasure' && found.piece.item.uniqueTreasure) underUt = true;
+      equipped[slot] = fits ? found.view.id : null;
+      if (fits) on.push(slot === 'treasure' ? { ...found.piece, main: true } : found.piece);
+      if (fits) skilled.push({ item: found.piece.item, ...(found.view.skill !== null && { skill: found.view.skill }) });
+      const ut = fits && slot === 'treasure' ? found.piece.item.uniqueTreasure : undefined;
+      const effect = ut && found ? uniqueTreasureText(hero.id, ut.skill, treasureTier(found.piece.level)) : null;
+      if (ut && found && effect) main = { name: effect.name, skill: ut.skill, tier: treasureTier(found.piece.level), text: effect.text };
+      if (fits && found.piece.item.kr?.part === 'artifact') {
+        const tier = starsOf(found.piece.item, found.piece.level);
+        artifact = { name: found.piece.item.name, tier, text: ARTIFACT_TEXT.get(found.piece.item.id)?.[tier] ?? '' };
+      }
+    }
+    const shares = heroBonus(on, hero.class, hero.id);
+    const bonus = Object.fromEntries(HERO_STAT_IDS.map((stat) => [stat, raidValue(stat, shares[stat])])) as HeroBonus;
+    const set = heroSet(on, hero.class);
+    const skills = heroSkills(skilled, hero.class);
+    const perks = keptPerks(doc?.perks, doc?.transcend, doc?.scrollTp);
+    // (Its other pages' perks as they're kept too, the one in use's `perks`.)
+    const pageCount = perkPageCount(doc?.perkPagesOwned);
+    const active = activePerkPage(doc?.perkPage, doc?.perkPagesOwned);
+    const pages = Array.from({ length: pageCount }, (_, i) => (i + 1 === active ? perks : keptPerks(doc?.perkPages?.[i + 1] ?? [], doc?.transcend, doc?.scrollTp)));
+    const sets = [...setCounts(on, hero.class)].map(([id, count]) => ({ id, name: KR_SETS[id]?.name ?? id, pieces: count, bonuses: setBonusLines(id, hero.class, count) }));
+    return {
+      id: hero.id,
+      name: hero.name,
+      class: hero.class,
+      deals: hero.deals,
+      price: CONFIG.hero.price,
+      owned: doc !== undefined,
+      equipped,
+      bonus,
+      set: set && { id: set.set, pieces: set.pieces, active: activeSet(set) !== null },
+      sets,
+      artifact,
+      skills,
+      totals: [...heroStatLines(shares), ...setLines(set, hero.class, on), ...skillLines(skills)],
+      perks,
+      perkPages: { active, pages, next: pageCount < PERK_PAGES_MAX ? perkPagePrice(pageCount + 1, CONFIG.hero) : null },
+      treasure: main,
+      perkEffects: perkLines(hero.id, perks),
+      transcend: { level: transcendLevel(doc?.transcend), points: transcendPoints(doc?.transcend, doc?.scrollTp), scrolls: scrollPoints(doc?.scrollTp), next: transcendCost(hero.class, doc?.transcend) },
+      abilities: [...hero.abilities],
+      outfit: hero.outfits[wornSkin(hero.id, doc)] ?? hero.outfits[0],
+    };
+  });
+  const essences = Object.fromEntries(ESSENCES.map((id) => [id, member?.essences?.[id] ?? 0])) as Record<EssenceId, number>;
+  const stones = Object.fromEntries(RAID_CLASS_IDS.map((id) => [id, member?.stones?.[id] ?? 0])) as Record<RaidClassId, number>;
+  const crystals = Object.fromEntries(KR_TM_SETS.map((id) => [id, member?.crystals?.[id as TmSetId] ?? 0])) as Record<TmSetId, number>;
+  return { heroes, copies: list, balance: member?.points ?? 0, runes: runeStacks(member?.runes), runeFragments: member?.runeFragments ?? 0, runeKeepPrice: runeKeepPrice(), gems: member?.gems ?? 0, essences, stones, crystals, reports: member?.reports ?? 0, tpScrolls: member?.tpScrolls ?? 0, craft: { tm: structuredClone(CONFIG.craft.tm), runes: { ...CONFIG.craft.runes }, tpScroll: CONFIG.craft.tpScroll }, autoSalvage: autoSalvageOf(member), lootBoxes: lootStacks(member?.lootBoxes), lootOpenMost: LOOT_OPEN_MOST, loadouts: { slots: heroLoadoutViews(member, new Set(list.map((copy) => copy.id))), next: nextHeroLoadoutPrice(member, CONFIG.hero.loadoutPrice) } };
+}
+
+async function load(guildId: string, userId: string): Promise<HeroesView> {
+  const { items, members } = collections();
+  const [copies, member] = await Promise.all([items.find({ guildId, userId }).toArray(), members.findOne({ guildId, userId })]);
+  return heroesView(copies, member);
+}
+
+/**
+ * The ids of the copies the heroes' view after a change to `copyId` needs, besides their other copies of its item (refineState's):
+ * it, and every copy they or their heroes wear or a loadout keeps (a hero's sets, effects and totals, and the loadouts, count those).
+ */
+export const nearCopyIds = (member: Parameters<typeof heroesView>[1], copyId: string): string[] => [...new Set([copyId, ...equippedCopyIds(member?.equipment), ...keptCopyIds(member)])];
+
+/**
+ * The heroes' view after a change to a copy of `itemId`, from the copies it needs (nearCopyIds's and that item's) and the member:
+ * HeroesView, with only that item's copies (the others' refines need their own item's spares, not loaded).
+ */
+export function heroesChange(copies: readonly CopyInfo[], member: Parameters<typeof heroesView>[1], itemId: string): HeroesChange {
+  const { copies: every, ...view } = heroesView(copies, member);
+  return { ...view, changed: every.filter((copy) => copy.itemId === itemId) };
+}
+
+/** Their heroes after a change to their copy `copyId`, from only the copies it could have changed (not every one they own). */
+async function loadChange(guildId: string, userId: string, copyId: string): Promise<HeroesChange> {
+  const { items, members } = collections();
+  const [member, copy] = await Promise.all([members.findOne({ guildId, userId }), items.findOne({ guildId, userId, _id: copyId }, { projection: { itemId: 1 } })]);
+  const near = { _id: { $in: nearCopyIds(member, copyId) } };
+  const copies = await items.find({ guildId, userId, ...(copy ? { $or: [near, { itemId: copy.itemId }] } : near) }).toArray();
+  return heroesChange(copies, member, copy?.itemId ?? '');
+}
+
+export const heroStore: HeroStore = {
+  view: load,
+  owners: async (guildId, limit) => {
+    const docs = await collections()
+      .members.find({ guildId, heroes: { $exists: true } }, { projection: { userId: 1, heroes: 1 } })
+      .toArray();
+    return docs
+      .map((doc) => ({ userId: doc.userId, heroes: Object.keys(doc.heroes ?? {}).filter((id) => HEROES.some((hero) => hero.id === id)).length }))
+      .filter((owner) => owner.heroes > 0)
+      .sort((a, b) => b.heroes - a.heroes || a.userId.localeCompare(b.userId))
+      .slice(0, limit);
+  },
+  buy: async (guildId, userId, id) => {
+    const result = await buyHero(guildId, userId, id);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  starter: async (guildId, userId) => {
+    const result = await grantStarterHero(guildId, userId);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  equip: async (guildId, userId, hero, slot, copy) => {
+    const result = await equipHero(guildId, userId, hero, slot, copy);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  unequip: async (guildId, userId, hero, slot) => ((await unequipHero(guildId, userId, hero, slot)) ? load(guildId, userId) : 'not_found'),
+  perks: async (guildId, userId, hero, perks) => {
+    const result = await pickHeroPerks(guildId, userId, hero, perks);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  perkPage: async (guildId, userId, hero, page) => {
+    const result = await switchPerkPage(guildId, userId, hero, page);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  buyPerkPage: async (guildId, userId, hero, page) => {
+    const result = await buyPerkPage(guildId, userId, hero, page);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  transcend: async (guildId, userId, hero) => {
+    const result = await transcendHero(guildId, userId, hero);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  refine: async (guildId, userId, copy) => {
+    const result = await gearStore.refine(guildId, userId, copy, null);
+    return result === 'ok' ? load(guildId, userId) : result;
+  },
+  rune: async (guildId, userId, copy, socket, rune) => {
+    const result = rune === null ? await unsocketRune(guildId, userId, copy, socket) : await socketRune(guildId, userId, copy, socket, rune);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  reroll: async (guildId, userId, copy, option) => {
+    const result = await rerollOption(guildId, userId, copy, option);
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
+  },
+  keep: async (guildId, userId, copy, keep, option) => {
+    const result = option === 'unique' ? await keepTmSkill(guildId, userId, copy, keep) : await keepOption(guildId, userId, copy, keep, option);
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
+  },
+  upgrade: async (guildId, userId, copy, option) => {
+    const result = await upgradeOption(guildId, userId, copy, option);
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
+  },
+  restore: async (guildId, userId, copy) => {
+    const result = await restoreTmPiece(guildId, userId, copy);
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
+  },
+  sell: (guildId, userId, copies, locked, salvage) => gearStore.sell(guildId, userId, copies, locked, salvage),
+  lock: (guildId, userId, copy, locked) => gearStore.lock(guildId, userId, copy, locked),
+  autoSalvage: async (guildId, userId, rule) => {
+    await setAutoSalvage(guildId, userId, rule);
+    return load(guildId, userId);
+  },
+  craft: async (guildId, userId, set, kind, part, cls, accessory) => {
+    const result = await craftTmPiece(guildId, userId, set, kind, part, cls, accessory);
+    if (!result.ok) return result.reason;
+    const { find } = result;
+    return { ...(await load(guildId, userId)), crafted: { copy: find.copy ?? '', name: find.reclaimed ? `Reclaimed ${find.item.name}` : find.item.name } };
+  },
+  craftScrolls: async (guildId, userId, set, count) => {
+    const result = await craftTpScrolls(guildId, userId, set, count);
+    // (The route checks the count: 'bad_count' doesn't come.)
+    return result.ok ? load(guildId, userId) : 'no_crystals';
+  },
+  scroll: async (guildId, userId, hero) => {
+    const result = await useTpScroll(guildId, userId, hero);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  openBox: async (guildId, userId, box, count) => {
+    if (!LOOT_BOXES_BY_ID.has(box)) return 'not_found';
+    const opened = await openLootBoxes(guildId, userId, box, count);
+    return typeof opened === 'string' ? opened : { ...(await load(guildId, userId)), opened };
+  },
+  loadoutSave: async (guildId, userId, hero, number) => {
+    const result = await saveHeroLoadout(guildId, userId, hero, number);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  loadoutEquip: async (guildId, userId, hero, number) => {
+    const result = await equipHeroLoadout(guildId, userId, hero, number);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  loadoutReset: async (guildId, userId, number) => {
+    const result = await resetHeroLoadout(guildId, userId, number);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  loadoutName: async (guildId, userId, number, name) => {
+    const result = await nameHeroLoadout(guildId, userId, number, name);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+  loadoutBuy: async (guildId, userId) => {
+    const result = await buyHeroLoadout(guildId, userId);
+    return result.ok ? load(guildId, userId) : result.reason;
+  },
+};

@@ -1,0 +1,96 @@
+import type { PinecraftStat } from './pinecraft.js';
+
+/* The site's own calls to the bot: logging in, who is logged in and where they can play, who is on the site, watching them, and the Pinecraft leaderboard. */
+
+/** The games on the site, each a page of its own (the bot's web/config.ts GAMES says where). */
+export const GAME_IDS = ['mines', 'pinecraft', 'baccarat', 'roulette', 'poker', 'raid', 'minesweeper', 'technomagic', 'dragon', 'divine', 'codedle'] as const;
+export type Game = (typeof GAME_IDS)[number];
+
+/** Who is logged in, and where they can play. */
+export interface Me {
+  user: { id: string; name: string; avatar: string };
+  servers: { id: string; name: string; icon: string | null; balance: number }[];
+  games: Game[];
+  /** Whether they're the bot admin, who can change the bot's settings on the site's admin page (./admin.ts). */
+  admin: boolean;
+}
+
+/** Who's on the site in a server (GET /api/live). */
+export interface Live {
+  /** The one asking. */
+  you: string;
+  players: {
+    userId: string;
+    name: string;
+    avatar: string;
+    activity: 'hub' | Game;
+    status: string;
+    watchers: number;
+    since: number;
+    /** Whether the one asking can watch them (they're in a game, and aren't the one asking). */
+    watchable: boolean;
+  }[];
+}
+
+/**
+ * The server's members who play with the bot and have a hero (GET /api/friends; those with none, who'd only stand there
+ * as the default Roi, left out, but for the one asking): on the site now first (as /api/live has them, the longest there
+ * first), then the rest by name. Each with the hero they walk v2's town as (POST /api/friends/hero), else
+ * the first of theirs by name, else Roi (STARTER_HERO), as the town walks them.
+ */
+export interface Friends {
+  /** The one asking. */
+  you: string;
+  friends: {
+    userId: string;
+    name: string;
+    avatar: string;
+    /** A hero's id (data/heroes.ts). */
+    hero: string;
+    /**
+     * On the site now, and what they're doing (watchable: as /api/live says it, POST /api/watch takes it; join: the raid
+     * they're in, getting ready with room, as POST /api/play opens it with ?boss= and ?room=); null: offline.
+     */
+    online: { activity: 'hub' | Game; status: string; since: number; watchable: boolean; join?: { boss: string; room: string } } | null;
+  }[];
+}
+
+/** The most members GET /api/friends lists (those on the site always, the rest as many as fit). */
+export const FRIENDS_MOST = 150;
+
+/** A Pinecraft leaderboard (GET /api/pinecraft/leaderboard): the best miners by `stat`, and where the one asking stands. */
+export interface Leaderboard {
+  stat: PinecraftStat;
+  rows: { rank: number; userId: string; name: string; avatar: string; value: number }[];
+  you: { rank: number; value: number } | null;
+}
+
+/** The games that can be watched (the raids too: getting ready, the fight and its result, as the player's page has them). */
+export const WATCHABLE = ['mines', 'pinecraft', 'baccarat', 'roulette', 'technomagic', 'dragon', 'divine'] as const satisfies readonly Game[];
+
+/** The raids whose rooms others can join (the Divine Punishment Raid is solo only). */
+export const JOINABLE = ['technomagic', 'dragon'] as const satisfies readonly Game[];
+
+export type WatchableGame = (typeof WATCHABLE)[number];
+
+/** POST /api/login: the session (kept by the page, sent with every call after), and who it is. */
+export interface LogIn {
+  session: string;
+  me: Me;
+}
+
+/**
+ * POST /api/link/refresh: a game page's link renewed (its token, or a watch link's, good for `lastsMs` from now: a span,
+ * so a page whose clock is off still renews it in time), and the refresh token to trade for the next one (the one traded
+ * keeps working until it runs out).
+ */
+export interface LinkRefresh {
+  token: string;
+  refresh: string;
+  lastsMs: number;
+}
+
+/** POST /api/play and /api/watch: the link to open. */
+export interface Link {
+  url: string;
+}

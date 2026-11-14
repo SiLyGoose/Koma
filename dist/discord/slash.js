@@ -1,0 +1,448 @@
+import { ApplicationIntegrationType, InteractionContextType, PermissionFlagsBits, SlashCommandBuilder, } from 'discord.js';
+import { CURRENCY_NAME, LOADOUTS, MAX_GIVE_AMOUNT, RAID_BOSS_IDS, RAID_CLASS_IDS, SLASH_EXCLUDED, SLOT_LABELS, TEXT } from '../constants/index.js';
+import { ITEMS, ITEMS_BY_ID } from '../data/items.js';
+import { GAME_EVENTS } from '../events/registry.js';
+import { itemChoices, nameChoices } from '../lib/autocomplete.js';
+import { mention, tierLabel } from '../lib/format.js';
+import { GROUPS, PER_SERVER_CHANNELS, PER_SERVER_ROLES } from '../commands/config.js';
+import { SPECS } from '../lib/settings-spec.js';
+import { getInventory } from '../services/economy/index.js';
+import { getPrefix } from '../services/settings.js';
+import { SKIPS } from '../services/skips.js';
+import { SLOTS, STARS } from '../types.js';
+/** The longest text Discord accepts for a command or option description. */
+export const MAX_SLASH_DESCRIPTION = 100;
+/** The description of a bet option (blackjack, plinko, the mine). */
+const BET_OPTION = `How many ${CURRENCY_NAME} to bet, or "all" for the most you can`;
+/** Every item in the catalog, filtered by what has been typed. */
+const anyItem = async (interaction) => itemChoices(interaction.options.getFocused(), ITEMS);
+/** Only the items the member owns (for equipping and selling). */
+const ownedItem = async (interaction) => {
+    if (!interaction.guildId)
+        return [];
+    const entries = await getInventory(interaction.guildId, interaction.user.id);
+    const owned = entries.map((entry) => ITEMS_BY_ID.get(entry.itemId)).filter((item) => item !== undefined);
+    return itemChoices(interaction.options.getFocused(), owned);
+};
+/** The `category` option of the item lists (databank, inventory): one gear slot, or every item if left out. */
+const categoryOption = (o) => o
+    .setName('category')
+    .setDescription('Only the items of one category')
+    .addChoices(...SLOTS.map((slot) => ({ name: SLOT_LABELS[slot], value: slot })));
+/** The chosen category, as the word a prefix command reads (nothing when left out). */
+const categoryArgs = (interaction) => {
+    const slot = interaction.options.getString('category');
+    return slot === null ? [] : [slot];
+};
+/** A user option that is left out to mean "me". */
+const userArgs = (interaction) => {
+    const user = interaction.options.getUser('user');
+    return user ? [mention(user.id)] : [];
+};
+export const SLASH = {
+    balance: {
+        build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Whose balance to see (you, if left out)')),
+        toArgs: userArgs,
+    },
+    blackjack: {
+        description: 'Play blackjack against the dealer, alone or at a party table of up to 5 players.',
+        build: (b) => void b
+            .addSubcommand((s) => s
+            .setName('play')
+            .setDescription('Play alone against the dealer')
+            .addStringOption((o) => o.setName('bet').setDescription(BET_OPTION).setRequired(true).setMaxLength(20)))
+            .addSubcommand((s) => s
+            .setName('party')
+            .setDescription('Open a table that others can join')
+            .addStringOption((o) => o.setName('bet').setDescription('Your bet, to sit down right away (others pick theirs when they join)').setMaxLength(20))),
+        toArgs: (i) => {
+            if (i.options.getSubcommand() === 'party') {
+                const bet = i.options.getString('bet');
+                return ['party', ...(bet === null ? [] : [bet])];
+            }
+            return [i.options.getString('bet', true)];
+        },
+    },
+    claim: { build: () => { }, toArgs: () => [] },
+    skip: {
+        description: `Pay ${CURRENCY_NAME} to skip a cooldown. Leave "what" out to see the prices.`,
+        build: (b) => void b.addStringOption((o) => o
+            .setName('what')
+            .setDescription('What to skip the wait for (leave out to see the prices)')
+            .addChoices(...SKIPS.map((s) => ({ name: TEXT.skip.names[s.id], value: s.id })))),
+        toArgs: (i) => {
+            const what = i.options.getString('what');
+            return what === null ? [] : [what];
+        },
+    },
+    config: {
+        build: (b) => void b
+            .addSubcommand((s) => s
+            .setName('list')
+            .setDescription('See every setting, or jump straight to one group')
+            .addStringOption((o) => o
+            .setName('group')
+            .setDescription('Jump straight to this group instead of starting on page one')
+            .addChoices(...GROUPS.map((group) => ({ name: group, value: group.toLowerCase() })))))
+            .addSubcommand((s) => s
+            .setName('set')
+            .setDescription('Change a setting (bot admin only)')
+            .addStringOption((o) => o.setName('setting').setDescription('Which setting, like claim.min').setRequired(true).setAutocomplete(true))
+            .addStringOption((o) => o.setName('value').setDescription('The new value').setRequired(true).setMaxLength(200)))
+            .addSubcommand((s) => s
+            .setName('reset')
+            .setDescription('Put a setting back to its default (bot admin only)')
+            .addStringOption((o) => o.setName('setting').setDescription('Which setting, like claim.min').setRequired(true).setAutocomplete(true))),
+        toArgs: (i) => {
+            const action = i.options.getSubcommand();
+            if (action === 'set')
+                return ['set', i.options.getString('setting', true), i.options.getString('value', true)];
+            if (action === 'reset')
+                return ['reset', i.options.getString('setting', true)];
+            const group = i.options.getString('group');
+            return group ? [group] : ['list'];
+        },
+        autocomplete: async (i) => nameChoices(i.options.getFocused(), 
+        // The per-server channels and roles aren't real SettingSpec entries (see commands/config.ts's
+        // handleChannelChange and handleRoleChange), but they're set/reset the same way, so they belong in the same list.
+        [...SPECS.map((spec) => spec.key), ...PER_SERVER_CHANNELS, ...PER_SERVER_ROLES]),
+    },
+    databank: {
+        description: 'See every item and what it does, or one item, tier or category, or the Weekly Bosses.',
+        build: (b) => void b
+            .addStringOption((o) => o.setName('item').setDescription('An item to see in detail (the whole list, if left out)').setAutocomplete(true).setMaxLength(100))
+            .addIntegerOption((o) => o
+            .setName('stars')
+            .setDescription('Only the items of one tier')
+            .addChoices(...STARS.map((stars) => ({ name: tierLabel(stars), value: stars }))))
+            .addStringOption(categoryOption)
+            .addStringOption((o) => o
+            .setName('boss')
+            .setDescription('The Weekly Bosses instead of items, opened on this one')
+            .addChoices({ name: 'All bosses', value: 'all' }, ...RAID_BOSS_IDS.map((id) => ({ name: TEXT.raid.bosses[id].name, value: id })))),
+        // An item, if given, wins over a boss, and a boss over the star tier and category.
+        toArgs: (i) => {
+            const item = i.options.getString('item');
+            if (item)
+                return [item];
+            const boss = i.options.getString('boss');
+            if (boss)
+                return ['bosses', ...(boss === 'all' ? [] : [boss])];
+            const stars = i.options.getInteger('stars');
+            return [...(stars === null ? [] : [String(stars)]), ...categoryArgs(i)];
+        },
+        autocomplete: anyItem,
+    },
+    equip: {
+        build: (b) => void b.addStringOption((o) => o.setName('item').setDescription('The weapon or armor to wear').setRequired(true).setAutocomplete(true).setMaxLength(100)),
+        toArgs: (i) => [i.options.getString('item', true)],
+        autocomplete: ownedItem,
+    },
+    events: {
+        description: 'Random events: see every event that can happen. Only the bot admin can start one.',
+        build: (b) => void b
+            .addSubcommand((s) => s.setName('status').setDescription('See every event that can happen'))
+            .addSubcommand((s) => s
+            .setName('start')
+            .setDescription('Start an event now, in the dedicated channel (bot admin only)')
+            .addStringOption((o) => o
+            .setName('event')
+            .setDescription('Which event (a random one, if left out)')
+            .addChoices(...GAME_EVENTS.map((event) => ({ name: event.label, value: event.id }))))),
+        toArgs: (i) => {
+            const action = i.options.getSubcommand();
+            if (action === 'start') {
+                const chosen = i.options.getString('event');
+                return chosen === null ? ['start'] : ['start', chosen];
+            }
+            return ['status'];
+        },
+    },
+    // Prefix only (SLASH_EXCLUDED): patch notes keep their line breaks, which an option can't hold.
+    // Kept so taking it off that list gives a working /newsletter for the parts that don't need them.
+    newsletter: {
+        description: 'Patch notes and the weekly newsletter (bot admin only).',
+        build: (b) => void b
+            .addSubcommand((s) => s.setName('preview').setDescription("What this server's weekly newsletter looks like so far"))
+            .addSubcommand((s) => s
+            .setName('note')
+            .setDescription('An announcement on top of the next weekly newsletter ("clear" removes it)')
+            .addStringOption((o) => o.setName('text').setDescription('The announcement, or "clear" (shows it, if left out)').setMaxLength(1000))),
+        toArgs: (i) => {
+            const action = i.options.getSubcommand();
+            if (action === 'note') {
+                const text = i.options.getString('text');
+                return text === null ? ['note'] : ['note', ...text.split(/\s+/)];
+            }
+            return ['preview'];
+        },
+    },
+    gacha: {
+        build: (b) => void b
+            .addBooleanOption((o) => o.setName('multi').setDescription('Pull several at once, for the price of that many pulls'))
+            .addBooleanOption((o) => o.setName('limited').setDescription('Pull from the limited banner instead of the standard one'))
+            .addBooleanOption((o) => o.setName('hero').setDescription("Pull from the Hero Item banner (the heroes' unique weapons) instead of the standard one"))
+            .addBooleanOption((o) => o.setName('banner').setDescription('Show the limited banner instead of pulling')),
+        toArgs: (i) => i.options.getBoolean('banner')
+            ? ['banner']
+            : [...(i.options.getBoolean('limited') ? ['limited'] : []), ...(i.options.getBoolean('hero') ? ['hero'] : []), ...(i.options.getBoolean('multi') ? ['multi'] : [])],
+    },
+    gear: {
+        description: 'See what you (or another member) have equipped, or with stats, the raid stats it gives.',
+        build: (b) => void b
+            .addUserOption((o) => o.setName('user').setDescription("Whose gear to see (yours, if left out)"))
+            .addBooleanOption((o) => o.setName('stats').setDescription('Show the raid stats the gear gives instead')),
+        toArgs: (i) => (i.options.getBoolean('stats') ? ['stats', ...userArgs(i)] : userArgs(i)),
+    },
+    mail: {
+        description: 'Send mail with rewards to a member, or everyone with the notify role (bot admin only).',
+        build: (b) => void b
+            .addStringOption((o) => o.setName('title').setDescription('The title').setRequired(true).setMaxLength(100))
+            .addStringOption((o) => o.setName('message').setDescription('The message').setRequired(true).setMaxLength(2000))
+            .addUserOption((o) => o.setName('user').setDescription('Whom to (left out: everyone with the notify role)'))
+            .addStringOption((o) => o.setName('rewards').setDescription('e.g. points:5000, gems:20, item:<id>x2, rune:<id>, uw, ut, tpx3').setMaxLength(500)),
+        toArgs: (i) => {
+            const user = i.options.getUser('user');
+            return [user ? user.id : 'all', '|', i.options.getString('title', true), '|', i.options.getString('message', true), '|', i.options.getString('rewards') ?? ''];
+        },
+    },
+    give: {
+        build: (b) => void b
+            .addStringOption((o) => o.setName('item').setDescription('The item to give').setRequired(true).setAutocomplete(true).setMaxLength(100))
+            .addIntegerOption((o) => o.setName('amount').setDescription('How many copies (1 if left out)').setMinValue(1).setMaxValue(MAX_GIVE_AMOUNT)),
+        toArgs: (i) => {
+            const amount = i.options.getInteger('amount');
+            return [i.options.getString('item', true), ...(amount === null ? [] : [String(amount)])];
+        },
+        autocomplete: anyItem,
+    },
+    help: {
+        build: (b) => void b.addStringOption((o) => o.setName('command').setDescription('Show how this command works, instead of the list').setAutocomplete(true)),
+        toArgs: (i) => {
+            const command = i.options.getString('command');
+            return command ? [command] : [];
+        },
+        autocomplete: async (i) => {
+            // Loaded here: the command list imports this file.
+            const { commands } = await import('../commands/index.js');
+            return nameChoices(i.options.getFocused(), commands.filter((c) => !c.adminOnly && hasSlash(c.name)).map((c) => c.name).sort());
+        },
+    },
+    inventory: {
+        description: "See the items you (or another member) have collected, or just one category.",
+        build: (b) => void b.addUserOption((o) => o.setName('user').setDescription("Whose items to see (yours, if left out)")).addStringOption(categoryOption),
+        toArgs: (i) => [...userArgs(i), ...categoryArgs(i)],
+    },
+    leaderboard: { build: () => { }, toArgs: () => [] },
+    class: {
+        build: (b) => void b.addStringOption((o) => o
+            .setName('class')
+            .setDescription('The raid class to pick (leave out to see yours)')
+            .addChoices(...RAID_CLASS_IDS.map((id) => ({ name: TEXT.raid.classes[id].name, value: id })), { name: 'None', value: 'none' })),
+        toArgs: (i) => {
+            const picked = i.options.getString('class');
+            return picked ? [picked] : [];
+        },
+    },
+    raid: {
+        description: "Fight the Weekly Boss together: your first win each week pays big. New boss every Saturday.",
+        build: (b) => void b
+            .addSubcommand((s) => s.setName('start').setDescription("Start a Weekly Boss fight against this week's boss"))
+            .addSubcommand((s) => s.setName('stats').setDescription("See this week's boss: its HP, phases and moves")),
+        toArgs: (i) => (i.options.getSubcommand() === 'stats' ? ['stats'] : []),
+    },
+    vault: { build: () => { }, toArgs: () => [] },
+    donate: {
+        build: (b) => void b.addStringOption((o) => o.setName('amount').setDescription(`How many ${CURRENCY_NAME} to give the vault, or "all"`).setRequired(true).setMaxLength(20)),
+        toArgs: (i) => [i.options.getString('amount', true)],
+    },
+    pay: {
+        build: (b) => void b
+            .addUserOption((o) => o.setName('user').setDescription(`Who to give ${CURRENCY_NAME} to`).setRequired(true))
+            .addStringOption((o) => o.setName('amount').setDescription(`How many ${CURRENCY_NAME} to give them, or "all"`).setRequired(true).setMaxLength(20)),
+        toArgs: (i) => [mention(i.options.getUser('user', true).id), i.options.getString('amount', true)],
+    },
+    plinko: {
+        description: `Bet ${CURRENCY_NAME} and drop a ball down the plinko board. The slot it lands in decides the payout.`,
+        build: (b) => void b.addStringOption((o) => o.setName('bet').setDescription(BET_OPTION).setRequired(true).setMaxLength(20)),
+        toArgs: (i) => [i.options.getString('bet', true)],
+    },
+    mines: {
+        description: `Stake-style mines on the Koma site: bet ${CURRENCY_NAME}, pick the mines, turn over tiles for gems.`,
+        // The bet and mines are picked on the site: this is just the link there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    baccarat: {
+        description: `Baccarat on the Koma site: bet ${CURRENCY_NAME} on Player, Banker, Tie, Kirin or Phoenix.`,
+        // The chips are placed on the site: this is just the link there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    roulette: {
+        description: `Roulette on the Koma site: bet ${CURRENCY_NAME} on numbers, colours, dozens and more.`,
+        // The chips are placed on the site: this is just the link there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    poker: {
+        description: `Texas hold'em on the Koma site: sit down with ${CURRENCY_NAME} as chips and play the table (or bots).`,
+        // Sitting down and playing happen on the site: this is just the link there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    pinecraft: {
+        description: `Dig through your own mine in the browser. Ores pay ${CURRENCY_NAME}; digging takes energy.`,
+        build: () => { },
+        toArgs: () => [],
+    },
+    minesweeper: {
+        description: 'Minesweeper on the Koma site: clear one board together with everyone in the server.',
+        // The level is picked on the site: this is just the link there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    technomagic: {
+        description: 'The TechnoMagic Raid on the Koma site: your heroes against Galgoria, Siegfried and Ascalon.',
+        // The room is on the site: this is just the link there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    dragon: {
+        description: "The Dragon Raid on the Koma site: your heroes against the dragons, for hero gear and essences.",
+        // The rooms are on the site: this is just the links there.
+        build: () => { },
+        toArgs: () => [],
+    },
+    rob: {
+        description: `Steal ${CURRENCY_NAME} from another member. One rob per hour, and a member can be robbed once an hour.`,
+        build: (b) => void b.addUserOption((o) => o.setName('user').setDescription('Who to rob').setRequired(true)),
+        toArgs: (i) => [mention(i.options.getUser('user', true).id)],
+    },
+    sell: {
+        description: 'Sell items you are not wearing: one copy, some copies, all copies of an item, or a tier.',
+        build: (b) => void b
+            .addSubcommand((s) => s
+            .setName('one')
+            .setDescription('Sell one copy of an item')
+            .addStringOption((o) => o.setName('item').setDescription('The item to sell').setRequired(true).setAutocomplete(true).setMaxLength(100)))
+            .addSubcommand((s) => s
+            .setName('some')
+            .setDescription('Sell a number of copies of an item (you are asked to confirm)')
+            .addStringOption((o) => o.setName('item').setDescription('The item to sell').setRequired(true).setAutocomplete(true).setMaxLength(100))
+            .addIntegerOption((o) => o.setName('amount').setDescription('How many copies').setRequired(true).setMinValue(1)))
+            .addSubcommand((s) => s
+            .setName('all')
+            .setDescription('Sell every copy of an item you are not wearing')
+            .addStringOption((o) => o.setName('item').setDescription('The item to sell').setRequired(true).setAutocomplete(true).setMaxLength(100)))
+            .addSubcommand((s) => s
+            .setName('stars')
+            .setDescription('Sell everything of one tier that you are not wearing')
+            .addIntegerOption((o) => o
+            .setName('tier')
+            .setDescription('The tier')
+            .setRequired(true)
+            .addChoices(...STARS.map((stars) => ({ name: tierLabel(stars), value: stars }))))),
+        toArgs: (i) => {
+            const mode = i.options.getSubcommand();
+            if (mode === 'all')
+                return ['all', i.options.getString('item', true)];
+            if (mode === 'some')
+                return [String(i.options.getInteger('amount', true)), i.options.getString('item', true)];
+            if (mode === 'stars')
+                return ['stars', String(i.options.getInteger('tier', true))];
+            return [i.options.getString('item', true)];
+        },
+        autocomplete: ownedItem,
+    },
+    refine: {
+        description: 'Refine an item: use up a duplicate of it to raise it one level, up to its full strength.',
+        build: (b) => void b.addStringOption((o) => o.setName('item').setDescription('The item to refine (uses up one duplicate of it)').setRequired(true).setAutocomplete(true).setMaxLength(100)),
+        toArgs: (i) => [i.options.getString('item', true)],
+        autocomplete: ownedItem,
+    },
+    lock: {
+        build: (b) => void b.addStringOption((o) => o.setName('item').setDescription('The item to lock a copy of').setRequired(true).setAutocomplete(true).setMaxLength(100)),
+        toArgs: (i) => [i.options.getString('item', true)],
+        autocomplete: ownedItem,
+    },
+    unlock: {
+        build: (b) => void b.addStringOption((o) => o.setName('item').setDescription('The item to unlock a copy of').setRequired(true).setAutocomplete(true).setMaxLength(100)),
+        toArgs: (i) => [i.options.getString('item', true)],
+        autocomplete: ownedItem,
+    },
+    loadout: {
+        description: 'See your gear loadouts, switch to one, rename one, or unlock another.',
+        build: (b) => void b
+            .addSubcommand((s) => s.setName('list').setDescription('See your loadouts and the gear in each'))
+            .addSubcommand((s) => s
+            .setName('switch')
+            .setDescription('Put on the gear of another loadout')
+            .addStringOption((o) => o.setName('loadout').setDescription('Its number or name').setRequired(true).setMaxLength(LOADOUTS.maxNameLength)))
+            .addSubcommand((s) => s
+            .setName('rename')
+            .setDescription('Name a loadout (leave the name out to reset it)')
+            .addIntegerOption((o) => o.setName('number').setDescription('Which loadout').setRequired(true).setMinValue(1).setMaxValue(LOADOUTS.count))
+            .addStringOption((o) => o.setName('name').setDescription('Its new name').setMaxLength(LOADOUTS.maxNameLength)))
+            .addSubcommand((s) => s.setName('unlock').setDescription(`Unlock your next loadout for ${CURRENCY_NAME}`)),
+        toArgs: (i) => {
+            const action = i.options.getSubcommand();
+            if (action === 'unlock')
+                return ['unlock'];
+            if (action === 'switch')
+                return [i.options.getString('loadout', true)];
+            if (action === 'rename') {
+                const name = i.options.getString('name');
+                return ['rename', String(i.options.getInteger('number', true)), ...(name === null ? [] : [name])];
+            }
+            return ['list'];
+        },
+    },
+    unequip: {
+        build: (b) => void b.addStringOption((o) => o
+            .setName('slot')
+            .setDescription('What to take off')
+            .setRequired(true)
+            .addChoices(...SLOTS.map((slot) => ({ name: SLOT_LABELS[slot], value: slot })), { name: 'All', value: 'all' })),
+        toArgs: (i) => [i.options.getString('slot', true)],
+    },
+};
+/** True when the command is available as a slash command: it has an entry in `SLASH` and isn't in `SLASH_EXCLUDED`. */
+export const hasSlash = (name) => Object.hasOwn(SLASH, name) && !SLASH_EXCLUDED.includes(name);
+/**
+ * The prefix to show in a hint that names `name`, like "use ${commandPrefix(ctx, 'rob')}rob
+ * @user!": `ctx.prefix` normally, so a hint shown from a command run as a slash command still
+ * says "/" -- but the real message prefix instead when `name` itself has no slash command
+ * (SLASH_EXCLUDED), so the hint never points at a "/command" that doesn't actually exist, even
+ * when it's shown from a different command that does have one and was run that way.
+ */
+export function commandPrefix(ctx, name) {
+    return hasSlash(name) ? ctx.prefix : getPrefix();
+}
+/** The slash command for `command`, or null if it doesn't have one. Throws if Discord would refuse it. */
+export function buildSlashCommand(command, spec = SLASH[command.name]) {
+    if (!spec)
+        return null;
+    const builder = new SlashCommandBuilder()
+        .setName(command.name)
+        .setDescription(spec.description ?? command.description)
+        // Only in servers: the economy is per server.
+        .setContexts(InteractionContextType.Guild)
+        .setIntegrationTypes(ApplicationIntegrationType.GuildInstall);
+    // An admin command is hidden from everyone but server admins. The command still checks who is
+    // the bot admin itself, so this only keeps it out of most members' command list.
+    if (command.adminOnly)
+        builder.setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+    spec.build(builder);
+    return builder;
+}
+/** What to register with Discord: every command that has a slash version (see `hasSlash`). */
+export function slashCommandData(commands) {
+    return commands.flatMap((command) => {
+        if (!hasSlash(command.name))
+            return [];
+        const builder = buildSlashCommand(command);
+        return builder ? [builder.toJSON()] : [];
+    });
+}
+//# sourceMappingURL=slash.js.map

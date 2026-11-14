@@ -1,0 +1,45 @@
+import { boldMoney } from '../currency.js';
+export const codedleText = {
+    title: 'Codedle',
+    /** `prize` is what's in play, `length` how many digits, `cost` what a guess costs ('' when free), `opens` when guessing opens (null: it has), `unix` when it closes. */
+    description: (prize, length, cost, opens, unix) => `The vault is locked with a **${length}-digit** code, and ${boldMoney(prize)} is inside. The first to guess it wins it all. ` +
+        `${opens === null ? `Closes <t:${unix}:R>.` : `Guessing opens <t:${opens}:R>: open it on the site now to be ready.`}\n\n` +
+        `Press **Guess** and type ${length} digits (repeats allowed). ${cost === '' ? 'Guessing is free.' : `Each guess costs ${boldMoney(cost)}, added to the vault.`}\n` +
+        `🟩 right digit, right spot · 🟨 in the code, wrong spot · ⬛ not in the code\n` +
+        `Only you can see your guesses and hints. Press **My guesses** to see them again.`,
+    guessButton: 'Guess',
+    mineButton: 'My guesses',
+    /** The link to the game on the site (the Codedle page: a board to type guesses into, as Wordle's). */
+    siteButton: 'Play on the site',
+    modalTitle: 'Codedle',
+    /** The pop-up's text box label. */
+    inputLabel: (length) => `Your ${length}-digit guess`,
+    inputPlaceholder: (length) => '0'.repeat(length),
+    boardField: 'Guesses so far',
+    boardEmpty: 'No guesses yet.',
+    /** One guess on the board: its hint squares, the digits, and who guessed ('' on a player's own board). */
+    boardLine: (squares, guess, user) => `${squares} \`${guess}\`${user === '' ? '' : ` ${user}`}`,
+    /** Shown under the board when older guesses are hidden. */
+    olderGuesses: (count) => `...and ${count} older ${count === 1 ? 'guess' : 'guesses'}`,
+    /** A player's own board, shown only to them. */
+    mineTitle: (count) => `**Your guesses** (${count})`,
+    mineEmpty: "You haven't guessed yet.",
+    guessCount: (count) => `${count} ${count === 1 ? 'guess' : 'guesses'} so far`,
+    badGuess: (length) => `That isn't a ${length}-digit code. Type exactly ${length} digits, like ${'1234567890'.slice(0, length)}.`,
+    cantAfford: (cost) => `A guess costs ${boldMoney(cost)} and you don't have enough.`,
+    /** Guessed before guessing opens (`unix`). */
+    early: (unix) => `Not yet: guessing opens <t:${unix}:R>.`,
+    over: 'Too late, this vault is already closed.',
+    /** A wrong guess, told privately. */
+    wrong: (squares, guess) => `${squares} \`${guess}\` Not quite. Only you can see this hint.`,
+    crackedTitle: 'Cracked!',
+    /** `user` guessed `code` and won `prize`, after `count` guesses in total. */
+    cracked: (user, code, prize, count) => `${user} cracked the code \`${code}\` and takes ${boldMoney(prize)}! It took **${count}** ${count === 1 ? 'guess' : 'guesses'} in all.`,
+    youWon: (prize) => `🟩🟩🟩🟩🟩 You cracked it! ${boldMoney(prize)} is yours.`,
+    lockedTitle: 'The vault stayed locked',
+    locked: (code, count) => `Nobody cracked it. The code was \`${code}\`, after **${count}** ${count === 1 ? 'guess' : 'guesses'}. The money stays in the vault.`,
+    failedTitle: 'The lock jammed',
+    failed: 'Something went wrong paying out the prize. Ask the bot admin to look at the logs.',
+    somethingWrong: 'Something went wrong with your guess, so it was not counted (and not charged). Try again.',
+};
+//# sourceMappingURL=codedle.js.map

@@ -1,0 +1,306 @@
+/*
+ * A small animated-GIF writer, so the bot needs no image library (like png.ts for still pictures).
+ * Discord plays a GIF in an embed smoothly, which a message edited once a second can't.
+ *
+ * A GIF has at most 256 colours, so the frames are reduced to one shared palette first: shared
+ * across the whole animation so a still background doesn't flicker between frames. The palette is
+ * picked by median cut (split the colour space where the most pixels are), and an ordered dither
+ * spreads the rounding over neighbouring pixels so soft glows don't turn into visible bands.
+ *
+ * After the first frame, each frame only stores what changed: the smallest rectangle around the
+ * pixels that differ from the frame before, with the unchanged pixels inside it left transparent
+ * so they show the frame underneath. A still background then costs almost nothing after the
+ * first frame, and the file (which every viewer has to download before it plays) stays small.
+ * https://www.w3.org/Graphics/GIF/spec-gif89a.txt
+ */
+/** 4 by 4 ordered-dither thresholds, 0 to 15. */
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+/** Palette entries for colours; the last of the 256 is kept for "unchanged" (transparent). */
+const COLORS = 255;
+const TRANSPARENT = 255;
+/** Colours are sorted into 32 levels a channel (15 bits in all) before the palette is picked. */
+const BITS = 5;
+const LEVELS = 1 << BITS;
+const STEP = 256 / LEVELS;
+/** One channel value, with the dither offset added, as one of LEVELS levels. */
+const levelOf = (value, offset) => {
+    const level = Math.floor((value + offset) / STEP);
+    return level < 0 ? 0 : level >= LEVELS ? LEVELS - 1 : level;
+};
+/** The 15-bit bin of the pixel at `i` (an RGBA offset) at (x, y), with the dither offset added. */
+function binOf(rgba, i, x, y, dither) {
+    const offset = dither ? (BAYER[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * STEP : 0;
+    return (levelOf(rgba[i], offset) << (BITS * 2)) | (levelOf(rgba[i + 1], offset) << BITS) | levelOf(rgba[i + 2], offset);
+}
+/** A byte buffer that grows as it is written to. */
+class Bytes {
+    data = new Uint8Array(1 << 16);
+    length = 0;
+    push(byte) {
+        if (this.length === this.data.length) {
+            const bigger = new Uint8Array(this.data.length * 2);
+            bigger.set(this.data);
+            this.data = bigger;
+        }
+        this.data[this.length++] = byte;
+    }
+    pushAll(bytes) {
+        for (let i = 0; i < bytes.length; i++)
+            this.push(bytes[i]);
+    }
+    setAt(at, byte) {
+        this.data[at] = byte;
+    }
+    toBuffer() {
+        return Buffer.from(this.data.buffer, 0, this.length);
+    }
+}
+/**
+ * The LZW code table, as flat arrays: the code for "prefix code, then index k" is at
+ * prefix * 256 + k, and only counts if its generation is the current one, so starting the table
+ * over is one number going up instead of clearing a million entries. Made once and reused.
+ */
+const LZW_SLOTS = 4096 * 256;
+let lzwCodes = null;
+let lzwGeneration = null;
+let generation = 0;
+const channelOf = (bin, channel) => (bin >> (BITS * (2 - channel))) & (LEVELS - 1);
+/**
+ * Picks up to 256 colours for the pixels counted in `counts` (one entry per 15-bit bin, with the
+ * real colours of those pixels added up in `sums`, three per bin) by median cut, and returns the
+ * palette plus which palette entry each bin maps to.
+ */
+function medianCut(counts, sums) {
+    const used = [];
+    for (let bin = 0; bin < counts.length; bin++)
+        if (counts[bin] > 0)
+            used.push(bin);
+    const boxes = [used];
+    while (boxes.length < COLORS) {
+        // Split the box with the most pixels among those that still have more than one bin.
+        let pick = -1;
+        let most = 0;
+        for (let b = 0; b < boxes.length; b++) {
+            const box = boxes[b];
+            if (box.length < 2)
+                continue;
+            let total = 0;
+            for (const bin of box)
+                total += counts[bin];
+            if (total > most) {
+                most = total;
+                pick = b;
+            }
+        }
+        if (pick === -1)
+            break;
+        const box = boxes[pick];
+        // Along its widest channel, at the pixel-weighted median.
+        let widest = 0;
+        let widestRange = -1;
+        for (let channel = 0; channel < 3; channel++) {
+            let low = LEVELS;
+            let high = -1;
+            for (const bin of box) {
+                const v = channelOf(bin, channel);
+                if (v < low)
+                    low = v;
+                if (v > high)
+                    high = v;
+            }
+            if (high - low > widestRange) {
+                widestRange = high - low;
+                widest = channel;
+            }
+        }
+        box.sort((a, b) => channelOf(a, widest) - channelOf(b, widest));
+        let seen = 0;
+        let cut = 1;
+        for (let i = 0; i < box.length - 1; i++) {
+            seen += counts[box[i]];
+            cut = i + 1;
+            if (seen * 2 >= most)
+                break;
+        }
+        boxes.splice(pick, 1, box.slice(0, cut), box.slice(cut));
+    }
+    // Each box's colour is the average of the real colours of its pixels, so a flat colour stays exact.
+    const palette = new Uint8Array(256 * 3);
+    const lookup = new Uint8Array(counts.length);
+    boxes.forEach((box, index) => {
+        const sum = [0, 0, 0];
+        let total = 0;
+        for (const bin of box) {
+            const n = counts[bin];
+            total += n;
+            for (let channel = 0; channel < 3; channel++)
+                sum[channel] = sum[channel] + sums[bin * 3 + channel];
+            lookup[bin] = index;
+        }
+        for (let channel = 0; channel < 3; channel++)
+            palette[index * 3 + channel] = Math.min(255, Math.round(sum[channel] / Math.max(1, total)));
+    });
+    return { palette, lookup };
+}
+/** GIF's LZW compression of one frame's palette indices, written to `into` as data sub-blocks (8-bit codes to start). */
+function lzw(indices, into) {
+    const minCodeSize = 8;
+    const clearCode = 1 << minCodeSize;
+    const endCode = clearCode + 1;
+    const codes = (lzwCodes ??= new Int16Array(LZW_SLOTS));
+    const generations = (lzwGeneration ??= new Int32Array(LZW_SLOTS));
+    // Compressed bytes, cut into sub-blocks of at most 255 as they come: the length byte is filled in when a block is full.
+    into.push(minCodeSize);
+    let blockStart = into.length;
+    into.push(0);
+    let blockSize = 0;
+    const out = (byte) => {
+        into.push(byte);
+        if (++blockSize === 255) {
+            into.setAt(blockStart, 255);
+            blockStart = into.length;
+            into.push(0);
+            blockSize = 0;
+        }
+    };
+    let bits = 0;
+    let bitCount = 0;
+    let codeSize = minCodeSize + 1;
+    const emit = (code) => {
+        bits |= code << bitCount;
+        bitCount += codeSize;
+        while (bitCount >= 8) {
+            out(bits & 255);
+            bits >>>= 8;
+            bitCount -= 8;
+        }
+    };
+    generation++;
+    let nextCode = endCode + 1;
+    emit(clearCode);
+    let prefix = indices[0];
+    for (let i = 1; i < indices.length; i++) {
+        const k = indices[i];
+        const key = (prefix << 8) | k;
+        if (generations[key] === generation) {
+            prefix = codes[key];
+            continue;
+        }
+        emit(prefix);
+        if (nextCode === 4096) {
+            // The table is full: start over.
+            emit(clearCode);
+            generation++;
+            nextCode = endCode + 1;
+            codeSize = minCodeSize + 1;
+        }
+        else {
+            if (nextCode >= 1 << codeSize)
+                codeSize++;
+            generations[key] = generation;
+            codes[key] = nextCode++;
+        }
+        prefix = k;
+    }
+    emit(prefix);
+    emit(endCode);
+    if (bitCount > 0)
+        out(bits & 255);
+    // Close the last sub-block (if it has anything in it), then the empty block that ends the data.
+    if (blockSize > 0) {
+        into.setAt(blockStart, blockSize);
+        into.push(0);
+    }
+    else
+        into.setAt(blockStart, 0);
+}
+const u16 = (n) => [n & 255, (n >> 8) & 255];
+/** An animated GIF of `frames`, each `width` by `height`. */
+export function encodeGif(width, height, frames, options = {}) {
+    const { dither = true, plays = 1 } = options;
+    if (frames.length === 0)
+        throw new Error('A GIF needs at least one frame');
+    for (const frame of frames) {
+        if (frame.rgba.length !== width * height * 4)
+            throw new Error(`A ${width}x${height} frame needs ${width * height * 4} bytes, got ${frame.rgba.length}`);
+    }
+    // One palette for every frame, from every frame's colours.
+    const counts = new Uint32Array(1 << (BITS * 3));
+    const sums = new Float64Array(counts.length * 3);
+    const bins = frames.map((frame) => {
+        const out = new Uint16Array(width * height);
+        for (let y = 0, p = 0; y < height; y++) {
+            for (let x = 0; x < width; x++, p++) {
+                const bin = binOf(frame.rgba, p * 4, x, y, dither);
+                out[p] = bin;
+                counts[bin] = counts[bin] + 1;
+                for (let channel = 0; channel < 3; channel++)
+                    sums[bin * 3 + channel] = sums[bin * 3 + channel] + frame.rgba[p * 4 + channel];
+            }
+        }
+        return out;
+    });
+    const { palette, lookup } = medianCut(counts, sums);
+    const bytes = new Bytes();
+    const push = (...values) => bytes.pushAll(values);
+    // Header and screen: a global 256-colour table follows.
+    push(...Buffer.from('GIF89a', 'ascii'), ...u16(width), ...u16(height), 0xf7, 0, 0);
+    bytes.pushAll(palette);
+    // Looping: the NETSCAPE2.0 block counts repeats after the first play; leaving it out plays once.
+    if (plays !== 1)
+        push(0x21, 0xff, 11, ...Buffer.from('NETSCAPE2.0', 'ascii'), 3, 1, ...u16(Math.max(0, plays - 1)), 0);
+    let previous = null;
+    for (let f = 0; f < frames.length; f++) {
+        const frame = frames[f];
+        const frameBins = bins[f];
+        const indices = new Uint8Array(width * height);
+        for (let p = 0; p < indices.length; p++)
+            indices[p] = lookup[frameBins[p]];
+        // The rectangle that changed since the last frame (all of the first frame).
+        let left = 0;
+        let top = 0;
+        let right = width - 1;
+        let bottom = height - 1;
+        if (previous) {
+            left = width;
+            top = height;
+            right = -1;
+            bottom = -1;
+            for (let y = 0, p = 0; y < height; y++) {
+                for (let x = 0; x < width; x++, p++) {
+                    if (indices[p] === previous[p])
+                        continue;
+                    if (x < left)
+                        left = x;
+                    if (x > right)
+                        right = x;
+                    if (y < top)
+                        top = y;
+                    bottom = y;
+                }
+            }
+            // Nothing changed: a single unchanged pixel still carries the frame's delay.
+            if (right < 0)
+                left = right = top = bottom = 0;
+        }
+        const w = right - left + 1;
+        const h = bottom - top + 1;
+        const part = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const p = (top + y) * width + left + x;
+                part[y * w + x] = previous && indices[p] === previous[p] ? TRANSPARENT : indices[p];
+            }
+        }
+        previous = indices;
+        // Graphic control: each frame is drawn over the last (disposal 1), its unchanged pixels
+        // transparent (after the first), delay in hundredths of a second.
+        push(0x21, 0xf9, 4, f === 0 ? 0x04 : 0x05, ...u16(Math.max(2, Math.round(frame.delayMs / 10))), f === 0 ? 0 : TRANSPARENT, 0);
+        // Where the frame goes on the screen; it uses the global palette.
+        push(0x2c, ...u16(left), ...u16(top), ...u16(w), ...u16(h), 0);
+        lzw(part, bytes);
+    }
+    push(0x3b);
+    return bytes.toBuffer();
+}
+//# sourceMappingURL=gif.js.map

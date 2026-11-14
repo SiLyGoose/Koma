@@ -1,0 +1,49 @@
+import { TEXT } from '../constants/index.js';
+import { ITEMS_BY_ID } from '../data/items.js';
+import { unequipSlot } from '../services/items/equipment.js';
+import { SLOTS } from '../types.js';
+/** Words a member can type for each slot; several spellings point at the unique treasure slot. */
+const SLOT_WORDS = {
+    weapon: 'weapon',
+    armor: 'armor',
+    unique: 'treasure',
+    ut: 'treasure',
+    treasure: 'treasure',
+};
+export const unequip = {
+    name: 'unequip',
+    category: 'gear',
+    description: 'Take off your weapon, your armor, your unique treasure, or everything.',
+    usage: 'unequip weapon|armor|treasure|all',
+    slashUsage: 'unequip <slot>',
+    async execute(ctx) {
+        const { args } = ctx;
+        const p = ctx.prefix;
+        const choice = args[0]?.toLowerCase();
+        let slots;
+        if (choice === 'all' || choice === 'both')
+            slots = SLOTS;
+        else if (choice !== undefined && choice in SLOT_WORDS)
+            slots = [SLOT_WORDS[choice]];
+        else {
+            await ctx.reply(TEXT.unequip.usage(p));
+            return;
+        }
+        const removed = [];
+        for (const slot of slots) {
+            const { removedId } = await unequipSlot(ctx.guildId, ctx.user.id, slot);
+            if (removedId)
+                removed.push(ITEMS_BY_ID.get(removedId)?.name ?? removedId);
+        }
+        await ctx.reply(removed.length > 0
+            ? TEXT.unequip.tookOff(removed)
+            : choice === 'all' || choice === 'both'
+                ? TEXT.unequip.nothingAtAll
+                : choice === 'armor'
+                    ? TEXT.unequip.noArmor
+                    : choice === 'weapon'
+                        ? TEXT.unequip.noWeapon
+                        : TEXT.unequip.noTreasure);
+    },
+};
+//# sourceMappingURL=unequip.js.map

@@ -1,0 +1,397 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { BACCARAT_TABLE } from '../src/constants/index.js';
+import { dealRound, parseBets, settleBets, totalBet, type BaccaratPayouts } from '../src/lib/game/casino/baccarat.js';
+import type { Card } from '../src/lib/game/casino/blackjack.js';
+import { parseClientMessage, type ServerMessage, type TableState } from '../src/web/games/baccarat/protocol.js';
+import { openConnection, type Peer } from '../src/web/games/baccarat/server.js';
+import { baccaratGame, handCode, resetTables, tablesIn, type TableDeps } from '../src/web/games/baccarat/table.js';
+import { online, resetLive } from '../src/web/games/live.js';
+import { signToken } from '../src/web/auth/token.js';
+
+const PAYOUTS: BaccaratPayouts = { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 };
+/** A card worth `points` (0 is a king). */
+const c = (points: number): Card => ({ rank: points === 0 ? 13 : points, suit: 'spades' });
+/** A shoe dealt in this order: Player, Banker, Player, Banker, then any third cards. */
+const shoe = (...points: number[]): Card[] => [...points.map(c), c(0), c(0)];
+
+test('baccarat web: only well-formed messages from the page are read', () => {
+  assert.deepEqual(parseClientMessage('{"t":"hello","token":"a.b"}'), { t: 'hello', token: 'a.b' });
+  assert.deepEqual(parseClientMessage('{"t":"bets","seq":1,"bets":{"banker":100,"kirin":10,"tie":0}}'), { t: 'bets', seq: 1, bets: { banker: 100, kirin: 10 } });
+  assert.deepEqual(parseClientMessage('{"t":"bets","seq":2,"bets":{}}'), { t: 'bets', seq: 2, bets: {} }, 'every chip taken back');
+  for (const bad of [
+    '',
+    '{"t":"bets","seq":1,"bets":{"dragon":10}}',
+    '{"t":"bets","seq":1,"bets":{"player":-5}}',
+    '{"t":"bets","seq":1,"bets":{"player":1.5}}',
+    '{"t":"bets","seq":0,"bets":{"player":5}}',
+    '{"t":"bets","bets":{"player":5}}',
+  ]) {
+    assert.equal(parseClientMessage(bad), null, bad);
+  }
+  assert.equal(parseBets([10]), null);
+});
+
+test('baccarat scoreboard: each hand is a short code of who won, the winning total, pairs and a natural', () => {
+  // Dealt Player, Banker, Player, Banker. Player 4+3 = 7, Banker 3+4 = 7: both stand, a tie on 7.
+  assert.equal(handCode(dealRound(shoe(4, 3, 3, 4))), 'T7');
+  // Player 5+3 = 8 (a natural), Banker 2+4 = 6.
+  assert.equal(handCode(dealRound(shoe(5, 2, 3, 4))), 'P8n');
+  // Player 4+4 = 8, Banker 3+3 = 6: a natural with a pair on each side.
+  assert.equal(handCode(dealRound(shoe(4, 3, 4, 3))), 'P8pbn');
+  // Player 5+2 = 7 stands, Banker 6+6 = 2 draws a king: Player wins on 7, a banker pair.
+  assert.equal(handCode(dealRound(shoe(5, 6, 2, 6))), 'P7b');
+});
+
+test('baccarat scoreboard: the table keeps its hands, oldest first, and a full scoreboard starts over (a new shoe)', () => {
+  const round = dealRound(shoe(5, 2, 3, 4));
+  let view = { ...baccaratGame.view(round, null), no: 1 };
+  assert.deepEqual(view.history, ['P8n']);
+  for (let no = 2; no <= BACCARAT_TABLE.history; no++) view = { ...baccaratGame.view(round, view), no };
+  assert.equal(view.history.length, BACCARAT_TABLE.history);
+  view = { ...baccaratGame.view(round, view), no: BACCARAT_TABLE.history + 1 };
+  assert.deepEqual(view.history, ['P8n']);
+});
+
+function fakePeer(): Peer & { got: ServerMessage[]; closed: boolean; last: () => TableState } {
+  const peer = {
+    got: [] as ServerMessage[],
+    closed: false,
+    send: (message: ServerMessage) => void peer.got.push(message),
+    close: () => void (peer.closed = true),
+    last: (): TableState => {
+      const found = [...peer.got].reverse().find((m) => m.t === 'table');
+      assert.ok(found?.t === 'table', 'the page was sent the table');
+      return found.state;
+    },
+  };
+  return peer;
+}
+
+/** A table with a fake clock, fake timers (fired by `tick`), fake balances, and every round dealt from `cards`. */
+function fakeTable(cards: number[], balances: Record<string, number> = {}) {
+  const clock = { now: 0 };
+  let timers: { at: number; run: () => void; off: boolean }[] = [];
+  const played: [string, number][] = [];
+  const balance = (userId: string): number => balances[userId] ?? 1000;
+  const deps: TableDeps = {
+    balance: async (_g, userId) => balance(userId),
+    avatar: (_g, userId) => `https://cdn.example/${userId}.png`,
+    deal: () => dealRound(shoe(...cards)),
+    now: () => clock.now,
+    schedule: (ms, run) => {
+      const timer = { at: clock.now + ms, run, off: false };
+      timers.push(timer);
+      return () => void (timer.off = true);
+    },
+    // The real settling, on the fake balances (no database).
+    play: async (_g, userId, bets, deal) => {
+      const round = deal!();
+      const bet = totalBet(bets);
+      if (bet > balance(userId)) return { ok: false, reason: 'too_poor', balance: balance(userId) };
+      const settled = settleBets(bets, round, PAYOUTS);
+      const payout = settled.reduce((sum, b) => sum + b.returned, 0);
+      balances[userId] = balance(userId) - bet + payout;
+      played.push([userId, bet]);
+      return { ok: true, round, bets: settled, bet, payout, net: payout - bet, balance: balances[userId] };
+    },
+  };
+  /** Moves the clock on by `ms`, firing the timers that come due. */
+  const tick = async (ms: number): Promise<void> => {
+    clock.now += ms;
+    for (const timer of timers.filter((t) => !t.off && t.at <= clock.now)) {
+      timer.off = true;
+      timer.run();
+    }
+    timers = timers.filter((t) => !t.off);
+    await new Promise((resolve) => setImmediate(resolve));
+  };
+  return { deps, tick, played, balances };
+}
+
+/** Seats a player: their page, and the connection it talks through. */
+async function join(deps: TableDeps, userId: string, name: string, guildId = 'g1') {
+  const page = fakePeer();
+  const connection = openConnection(page, deps);
+  await connection.receive(JSON.stringify({ t: 'hello', token: signToken({ guildId, userId, name }, 60_000) }));
+  return { page, connection };
+}
+
+const bets = (seq: number, chips: Record<string, number>): string => JSON.stringify({ t: 'bets', seq, bets: chips });
+
+test('baccarat table: players are seated together, up to 8 a table, and see each other with their pictures and balances', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick } = fakeTable([4, 3, 4, 3], { u1: 500 });
+  const players = [];
+  const seats = BACCARAT_TABLE.seats;
+  assert.equal(seats, 8);
+  for (let i = 1; i <= seats + 1; i++) players.push(await join(deps, `u${i}`, `P${i}`));
+  const first = players[0]!;
+  const state = first.page.last();
+  assert.equal(state.table, 1);
+  assert.equal(state.maxSeats, BACCARAT_TABLE.seats);
+  assert.deepEqual(state.seats.map((s) => s.userId), Array.from({ length: seats }, (_, i) => `u${i + 1}`), 'one more went to another table');
+  assert.deepEqual(state.seats[0], { userId: 'u1', name: 'P1', avatar: 'https://cdn.example/u1.png', balance: 500, bets: {}, result: null, refused: false, lastBets: null, ready: false });
+  assert.equal(state.phase, 'betting');
+  assert.equal(state.msLeft, BACCARAT_TABLE.bettingMs);
+  assert.equal(players[seats]!.page.last().table, 2);
+  assert.deepEqual(tablesIn('g1').map((t) => t.players), [seats, 1]);
+  assert.equal(online('g1').find((p) => p.userId === 'u1')?.status, `Table 1 · ${seats}/${seats} · Placing chips`);
+
+  // Someone's page goes: their seat is kept a while; not back by then, they leave, and the next newcomer takes their seat.
+  players[2]!.connection.closed();
+  assert.deepEqual(first.page.last().seats.filter((s) => s.away).map((s) => s.userId), ['u3']);
+  await tick(BACCARAT_TABLE.awayMs);
+  assert.deepEqual(first.page.last().seats.map((s) => s.userId), Array.from({ length: seats }, (_, i) => `u${i + 1}`).filter((u) => u !== 'u3'));
+  const late = await join(deps, 'late', 'Late');
+  assert.equal(late.page.last().table, 1);
+  for (const p of [...players, late]) p.connection.closed();
+  await tick(BACCARAT_TABLE.awayMs);
+  assert.deepEqual(tablesIn('g1'), [], 'empty tables close');
+});
+
+test('baccarat table: a page gone keeps its seat a while, its chips off the table and the vote to deal everyone else’s', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  await b.connection.receive(bets(1, { banker: 100 }));
+  b.connection.closed();
+  const away = a.page.last().seats.find((s) => s.userId === 'u2');
+  assert.deepEqual([away?.away, away?.bets], [true, {}], 'still seated, their chips off the table');
+
+  // The vote is a's alone while b is away; b's chips don't play.
+  await a.connection.receive(vote());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, []);
+
+  // Back in time: the same seat, here again.
+  await tick(BACCARAT_TABLE.awayMs - 1000);
+  const back = await join(deps, 'u2', 'INU');
+  assert.deepEqual(back.page.last().seats.map((s) => [s.userId, s.away ?? false]), [['u1', false], ['u2', false]]);
+  assert.equal(a.page.last().seats[1]?.away, undefined, 'everyone sees them back');
+  await tick(2000);
+  assert.equal(tablesIn('g1')[0]?.players, 2, 'their time running out after they came back changes nothing');
+  a.connection.closed();
+  back.connection.closed();
+});
+
+test('baccarat table: chips show to everyone as they go down, within the limit and the balance', async () => {
+  resetLive();
+  resetTables();
+  const { deps } = fakeTable([4, 3, 4, 3], { u2: 50 });
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  await a.connection.receive(bets(1, { banker: 100, kirin: 10 }));
+  assert.deepEqual(b.page.last().seats.find((s) => s.userId === 'u1')?.bets, { banker: 100, kirin: 10 }, 'INU sees the chips');
+  assert.equal(online('g1').find((p) => p.userId === 'u1')?.status, `Table 1 · 2/${BACCARAT_TABLE.seats} · 110 down`);
+
+  await b.connection.receive(bets(1, { player: 60 }));
+  assert.deepEqual(b.page.got.find((m) => m.t === 'refused'), { t: 'refused', seq: 1, reason: 'too_poor', balance: 50 });
+  await a.connection.receive(bets(2, { player: 10_001 }));
+  assert.deepEqual(a.page.got.find((m) => m.t === 'refused'), { t: 'refused', seq: 2, reason: 'too_big', limit: 10_000 });
+  assert.deepEqual(a.page.last().seats[0]?.bets, { banker: 100, kirin: 10 }, 'what is really down is sent back');
+  await a.connection.receive(bets(3, {}));
+  assert.deepEqual(b.page.last().seats[0]?.bets, {});
+  a.connection.closed();
+  b.connection.closed();
+});
+
+test('baccarat table: when the betting time is up, one round is dealt and everyone is settled on their own chips', async () => {
+  resetLive();
+  resetTables();
+  // Player 8 against Banker 6: a natural.
+  const { deps, tick, played, balances } = fakeTable([4, 3, 4, 3], { u1: 1000, u2: 1000, u3: 1000 });
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  const t = await join(deps, 'u3', 'LUNAEA');
+  await a.connection.receive(bets(1, { player: 100 }));
+  await b.connection.receive(bets(1, { banker: 200, tie: 10 }));
+  // LUNAEA has no chips down: she sits the round out.
+  await tick(BACCARAT_TABLE.bettingMs);
+  const state = t.page.last();
+  assert.equal(state.phase, 'dealing');
+  assert.equal(state.msLeft, BACCARAT_TABLE.showMs);
+  assert.deepEqual([state.round?.no, state.round?.winner, state.round?.playerTotal, state.round?.bankerTotal], [1, 'player', 8, 6]);
+  const [ZEIU, INU, LUNAEA] = state.seats;
+  assert.deepEqual([ZEIU?.result?.net, ZEIU?.balance, ZEIU?.lastBets], [100, 1100, { player: 100 }]);
+  assert.deepEqual([INU?.result?.net, INU?.balance], [-210, 790]);
+  assert.equal(LUNAEA?.result, null);
+  assert.deepEqual(played, [['u1', 100], ['u2', 210]]);
+  assert.deepEqual(balances, { u1: 1100, u2: 790, u3: 1000 });
+  assert.match(online('g1').find((p) => p.userId === 'u2')?.status ?? '', /Player wins · −210/);
+
+  // Chips can't go down while the round is shown; then a new round starts with an empty table.
+  await a.connection.receive(bets(2, { player: 100 }));
+  assert.deepEqual(a.page.got.find((m) => m.t === 'refused'), { t: 'refused', seq: 2, reason: 'closed' });
+  await tick(BACCARAT_TABLE.showMs);
+  const next = a.page.last();
+  assert.equal(next.phase, 'betting');
+  assert.deepEqual(next.seats.map((s) => [s.bets, s.result]), [[{}, null], [{}, null], [{}, null]]);
+  assert.equal(next.round?.no, 1, 'the last round stays on the table');
+
+  // Nobody bets: the round is still dealt (nobody is settled), and goes on the scoreboard.
+  await tick(BACCARAT_TABLE.bettingMs);
+  const idle = a.page.last();
+  assert.deepEqual([idle.phase, idle.round?.no, idle.round?.history.length, played.length], ['dealing', 2, 2, 2]);
+  assert.deepEqual(idle.seats.map((s) => s.result), [null, null, null]);
+  for (const p of [a, b, t]) p.connection.closed();
+});
+
+test('baccarat table: chips a player can no longer cover are refused at the deal, and the rest still play', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, balances } = fakeTable([4, 3, 4, 3], { u1: 1000, u2: 1000 });
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  await a.connection.receive(bets(1, { player: 800 }));
+  await b.connection.receive(bets(1, { player: 100 }));
+  balances.u1 = 300; // spent in Discord meanwhile
+  await tick(BACCARAT_TABLE.bettingMs);
+  const [ZEIU, INU] = b.page.last().seats;
+  assert.deepEqual([ZEIU?.refused, ZEIU?.result, ZEIU?.balance], [true, null, 300]);
+  assert.deepEqual([INU?.refused, INU?.result?.net], [false, 100]);
+  a.connection.closed();
+  b.connection.closed();
+});
+
+test('baccarat table: points a player gets outside the table show on coming back to their seat and at the next betting', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, balances } = fakeTable([4, 3, 4, 3], { u1: 0, u2: 700 });
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  assert.equal(a.page.last().seats[0]?.balance, 0);
+  assert.ok(
+    a.page.got.every((m) => m.t !== 'table' || m.state.seats.every((s) => s.userId !== 'u2' || s.balance === 700)),
+    'a newcomer is never shown with no points',
+  );
+
+  // Claimed in Discord, then reloaded: the seat they come back to has them, and they can bet them.
+  balances.u1 = 10_000;
+  const again = await join(deps, 'u1', 'ZEIU');
+  assert.equal(b.page.last().seats[0]?.balance, 10_000, 'everyone sees it');
+  await again.connection.receive(bets(1, { player: 5_000 }));
+  assert.deepEqual(again.page.last().seats[0]?.bets, { player: 5_000 });
+
+  // Won somewhere else while seated: the next betting looks again.
+  await tick(BACCARAT_TABLE.bettingMs);
+  balances.u2 = 9_000;
+  await tick(BACCARAT_TABLE.showMs);
+  assert.deepEqual([again.page.last().phase, again.page.last().seats[1]?.balance], ['betting', 9_000]);
+  again.connection.closed();
+  b.connection.closed();
+});
+
+test('baccarat table: a new page takes over the seat, and a bad message or token hangs up', async () => {
+  resetLive();
+  resetTables();
+  const { deps } = fakeTable([4, 3, 4, 3]);
+  const first = await join(deps, 'u1', 'ZEIU');
+  const second = await join(deps, 'u1', 'ZEIU');
+  assert.deepEqual(first.page.got.at(-1), { t: 'error', code: 'replaced' });
+  assert.equal(first.page.closed, true);
+  assert.deepEqual(second.page.last().seats.map((s) => s.userId), ['u1'], 'still one seat');
+  first.connection.closed();
+  assert.equal(tablesIn('g1')[0]?.players, 1, 'the old page going away leaves the seat alone');
+
+  await second.connection.receive('{"t":"bets","seq":1,"bets":{"dragon":1}}');
+  assert.deepEqual([second.page.got.at(-1), second.page.closed], [{ t: 'error', code: 'bad_message' }, true]);
+  second.connection.closed();
+
+  const stranger = fakePeer();
+  const other = openConnection(stranger, deps);
+  await other.receive(JSON.stringify({ t: 'hello', token: 'not.a-token' }));
+  assert.deepEqual([stranger.got.at(-1), stranger.closed], [{ t: 'error', code: 'bad_token' }, true]);
+  other.closed();
+});
+
+const vote = (ready = true): string => JSON.stringify({ t: 'deal', ready });
+
+test('baccarat table: alone at a table, voting to deal deals at once (with or without chips down)', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'ZEIU');
+  // No chips on the table: dealt anyway, nobody settled.
+  await a.connection.receive(vote());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual([a.page.last().phase, a.page.last().round?.no, played.length], ['dealing', 1, 0]);
+  await tick(BACCARAT_TABLE.showMs);
+  await a.connection.receive(bets(1, { player: 100 }));
+  await a.connection.receive(vote());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, [['u1', 100]]);
+  a.connection.closed();
+});
+
+test('baccarat table: a table everyone left keeps its scoreboard for whoever opens it next', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'ZEIU');
+  await tick(BACCARAT_TABLE.bettingMs);
+  await tick(BACCARAT_TABLE.showMs);
+  await tick(BACCARAT_TABLE.bettingMs);
+  assert.deepEqual(a.page.last().round?.history, ['P8pbn', 'P8pbn']);
+  a.connection.closed();
+  assert.equal(tablesIn('g1').length, 1, 'kept a while for them to come back');
+  await tick(BACCARAT_TABLE.awayMs);
+  assert.equal(tablesIn('g1').length, 0, 'the empty table is closed');
+
+  const b = await join(deps, 'u2', 'INU');
+  const reopened = b.page.last();
+  assert.deepEqual([reopened.table, reopened.phase, reopened.round?.no, reopened.round?.history], [1, 'betting', 2, ['P8pbn', 'P8pbn']]);
+  await tick(BACCARAT_TABLE.bettingMs);
+  assert.deepEqual([b.page.last().round?.no, b.page.last().round?.history.length], [3, 3]);
+  b.connection.closed();
+
+  // Another server's table 1 has its own.
+  const c = await join(deps, 'u3', 'LUNAEA', 'g2');
+  assert.equal(c.page.last().round, null);
+  c.connection.closed();
+});
+
+test('baccarat table: with others, the round is dealt once everyone has voted, and a vote can be taken back', async () => {
+  resetLive();
+  resetTables();
+  const { deps, tick, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  const c3 = await join(deps, 'u3', 'LUNAEA');
+  await a.connection.receive(bets(1, { player: 100 }));
+  await a.connection.receive(vote());
+  await b.connection.receive(vote());
+  assert.deepEqual(c3.page.last().seats.map((s) => s.ready), [true, true, false], 'everyone sees who voted');
+  await b.connection.receive(vote(false));
+  await c3.connection.receive(vote());
+  assert.equal(a.page.last().phase, 'betting', 'INU took his vote back');
+  await b.connection.receive(vote());
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, [['u1', 100]], 'only the player with chips down plays');
+
+  // The next round starts with nobody's vote.
+  await tick(BACCARAT_TABLE.showMs);
+  assert.deepEqual(a.page.last().seats.map((s) => s.ready), [false, false, false]);
+  for (const p of [a, b, c3]) p.connection.closed();
+});
+
+test('baccarat table: the last one who hasn’t voted leaving deals the round', async () => {
+  resetLive();
+  resetTables();
+  const { deps, played } = fakeTable([4, 3, 4, 3]);
+  const a = await join(deps, 'u1', 'ZEIU');
+  const b = await join(deps, 'u2', 'INU');
+  await a.connection.receive(bets(1, { banker: 50 }));
+  await a.connection.receive(vote());
+  b.connection.closed();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(a.page.last().phase, 'dealing');
+  assert.deepEqual(played, [['u1', 50]]);
+  a.connection.closed();
+});

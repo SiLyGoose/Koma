@@ -1,0 +1,280 @@
+import { CONFIG } from '../config.js';
+import { ITEMS_BY_ID } from '../data/items.js';
+import { HEROES_BY_ID } from '../data/heroes.js';
+import { activePerkPage, PERK_PAGES_MAX, perkPageCount, perkPagePrice, scrollPoints, TP_SCROLL_MOST, TP_SCROLL_POINTS, transcendCost, transcendLevel, transcendPicks } from '../data/transcend.js';
+import { collections } from '../db.js';
+import { fitsSlot, heroEquipMoves, heroWearable, SIDE_SLOTS, wieldedBy, worksOn } from '../lib/game/heroes.js';
+import { HERO_SLOTS } from '../types.js';
+import { ensureMember, recordLedger } from './economy/shared.js';
+/** Buys hero `id` for the member. */
+export async function buyHero(guildId, userId, id) {
+    if (!HEROES_BY_ID.has(id))
+        return { ok: false, reason: 'not_found' };
+    const price = CONFIG.hero.price;
+    const { members } = collections();
+    await ensureMember(guildId, userId);
+    const bought = await members.findOneAndUpdate({ guildId, userId, [`heroes.${id}`]: { $exists: false }, points: { $gte: price } }, { $inc: { points: -price }, $set: { [`heroes.${id}`]: { boughtAt: new Date(), equipment: {} } } }, { returnDocument: 'after' });
+    if (!bought) {
+        const member = await members.findOne({ guildId, userId });
+        return { ok: false, reason: member?.heroes?.[id] ? 'owned' : 'too_poor' };
+    }
+    if (price > 0)
+        await recordLedger([{ guildId, userId, delta: -price, reason: 'hero', itemId: id }]);
+    return { ok: true, paid: price, balance: bought.points };
+}
+/** The hero a member with none is given (the site's town needs one of theirs to walk it: Koma-UI src/v2/hero-pick.ts). */
+export const STARTER_HERO = 'roi';
+/**
+ * Gives the member STARTER_HERO for nothing, only while they have no hero at all: one conditional update that matches
+ * only then, so it's given once, and never to someone who has bought any. 'owned': they have a hero already.
+ */
+export async function grantStarterHero(guildId, userId) {
+    const { members } = collections();
+    await ensureMember(guildId, userId);
+    const given = await members.updateOne({ guildId, userId, $or: [{ heroes: { $exists: false } }, { heroes: {} }] }, { $set: { [`heroes.${STARTER_HERO}`]: { boughtAt: new Date(), equipment: {} } } });
+    return given.modifiedCount === 1 ? { ok: true, hero: STARTER_HERO } : { ok: false, reason: 'owned' };
+}
+/**
+ * Puts the member's copy `copyId` in their hero `heroId`'s `slot` (one its item goes in: heroSlotsFor), taking it
+ * off wherever else among their heroes it is. 'not_found': no such hero of theirs; 'not_owned': not a
+ * copy of theirs a hero can wear; 'wrong_slot': a slot it doesn't go in (a unique weapon only goes in the first
+ * weapon slot, a unique treasure only in its treasure slot or a sub treasure slot); 'wrong_hero': another hero's unique
+ * weapon or treasure; 'duplicate': a unique treasure the hero already wears another copy of, in another slot (each of
+ * its four once, as King's Raid's); 'no_main_treasure': a sub treasure slot, while the hero's main treasure isn't one of
+ * its unique treasures (only a unique treasure has sub treasures); 'busy': their heroes' gear kept changing meanwhile
+ * (nothing changed). A main treasure that isn't a unique treasure takes its sub treasures off, and so does a main one
+ * coming off a hero (moved elsewhere).
+ */
+export async function equipHero(guildId, userId, heroId, slot, copyId) {
+    const { items, members } = collections();
+    const copy = await items.findOne({ guildId, userId, _id: copyId });
+    const item = copy ? ITEMS_BY_ID.get(copy.itemId) : undefined;
+    if (!copy || !item || !heroWearable(item))
+        return { ok: false, reason: 'not_owned' };
+    if (!fitsSlot(item, slot))
+        return { ok: false, reason: 'wrong_slot' };
+    if (!wieldedBy(item, heroId))
+        return { ok: false, reason: 'wrong_hero' };
+    // (King's Raid's hero gear: only on a hero of its classes.)
+    const heroClass = HEROES_BY_ID.get(heroId)?.class;
+    if (heroClass && !worksOn(item, heroClass))
+        return { ok: false, reason: 'wrong_class' };
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const member = await members.findOne({ guildId, userId });
+        if (!HEROES_BY_ID.has(heroId) || !member?.heroes?.[heroId])
+            return { ok: false, reason: 'not_found' };
+        // (A sub treasure: only under a main one that is one of this hero's unique treasures.)
+        if (SIDE_SLOTS.includes(slot)) {
+            const mainId = member.heroes[heroId]?.equipment?.treasure;
+            const main = typeof mainId === 'string' && mainId !== '' && mainId !== copyId ? await items.findOne({ guildId, userId, _id: mainId }) : null;
+            const mainItem = main ? ITEMS_BY_ID.get(main.itemId) : undefined;
+            if (mainItem?.uniqueTreasure?.hero !== heroId)
+                return { ok: false, reason: 'no_main_treasure' };
+        }
+        // (A unique treasure: not another copy of it in another of this hero's slots.)
+        if (item.uniqueTreasure) {
+            const others = HERO_SLOTS.filter((one) => one !== slot)
+                .map((one) => member.heroes?.[heroId]?.equipment?.[one])
+                .filter((id) => typeof id === 'string' && id !== '' && id !== copyId);
+            if (others.length > 0 && (await items.countDocuments({ guildId, userId, _id: { $in: others }, itemId: item.id })) > 0)
+                return { ok: false, reason: 'duplicate' };
+        }
+        const { from, elsewhere } = heroEquipMoves(member.heroes, heroId, slot, copyId);
+        const moved = await members.updateOne({
+            guildId,
+            userId,
+            [`heroes.${heroId}`]: { $exists: true },
+            ...Object.fromEntries(from.map((path) => [path, copyId])),
+            ...Object.fromEntries(elsewhere.map((path) => [path, { $ne: copyId }])),
+        }, { $set: { [`heroes.${heroId}.equipment.${slot}`]: copyId, ...Object.fromEntries([...from, ...subsOff(heroId, slot, item.uniqueTreasure !== undefined, from)].map((path) => [path, null])) } });
+        if (moved.matchedCount > 0)
+            return { ok: true };
+    }
+    return { ok: false, reason: 'busy' };
+}
+/**
+ * The sub treasure slots a change empties (as dotted paths of the member document): this hero's when a treasure that isn't
+ * a unique treasure goes in its treasure slot, and any hero's whose main treasure the copy comes off (`from`).
+ */
+function subsOff(heroId, slot, unique, from) {
+    const heroes = new Set(from.filter((path) => path.endsWith('.equipment.treasure')).map((path) => path.split('.')[1]));
+    if (slot === 'treasure' && !unique)
+        heroes.add(heroId);
+    // (Moved into one of its own sub treasure slots: that one stays.)
+    return [...heroes].flatMap((id) => SIDE_SLOTS.map((side) => `heroes.${id}.equipment.${side}`)).filter((path) => path !== `heroes.${heroId}.equipment.${slot}`);
+}
+/**
+ * Picks the member's hero's transcendence perks (data/transcend.ts), all of them at once (none: reset): 'not_found'
+ * for a hero that isn't theirs, 'perk_locked' for one of a tier past its level, 'too_many_points' for perks costing
+ * more TP than it has (nothing changed).
+ */
+export async function pickHeroPerks(guildId, userId, heroId, perks) {
+    if (!HEROES_BY_ID.has(heroId))
+        return { ok: false, reason: 'not_found' };
+    const { members } = collections();
+    const member = await members.findOne({ guildId, userId });
+    const hero = member?.heroes?.[heroId];
+    if (!hero)
+        return { ok: false, reason: 'not_found' };
+    const picked = transcendPicks(perks, hero.transcend, hero.scrollTp);
+    if (typeof picked === 'string')
+        return { ok: false, reason: picked };
+    // (Only at the level read: one transcended meanwhile is fine, as it only has more TP.)
+    const result = await members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: { [`heroes.${heroId}.perks`]: picked } });
+    return result.matchedCount > 0 ? { ok: true } : { ok: false, reason: 'not_found' };
+}
+/**
+ * Puts the member's hero's perk page `to` in use (its perks the hero's; those it had kept on the page left): 'not_found' for
+ * a hero that isn't theirs, 'locked' for a page not bought for it, 'busy' when its pages changed meanwhile (nothing changed).
+ */
+export async function switchPerkPage(guildId, userId, heroId, to) {
+    if (!HEROES_BY_ID.has(heroId))
+        return { ok: false, reason: 'not_found' };
+    const { members } = collections();
+    const hero = (await members.findOne({ guildId, userId }))?.heroes?.[heroId];
+    if (!hero)
+        return { ok: false, reason: 'not_found' };
+    if (to < 1 || to > perkPageCount(hero.perkPagesOwned))
+        return { ok: false, reason: 'locked' };
+    const from = activePerkPage(hero.perkPage, hero.perkPagesOwned);
+    if (from === to)
+        return { ok: true };
+    const at = `heroes.${heroId}`;
+    // (Every value on the right is read from the document as it was before the update, so the two pages' perks swap exactly.)
+    const result = await members.updateOne({ guildId, userId, [`${at}.perkPage`]: hero.perkPage ?? null, [`${at}.perkPagesOwned`]: hero.perkPagesOwned ?? null }, [
+        {
+            $set: {
+                [`${at}.perkPages.${from}`]: { $ifNull: [`$${at}.perks`, []] },
+                [`${at}.perks`]: { $ifNull: [`$${at}.perkPages.${to}`, []] },
+                [`${at}.perkPages.${to}`]: null,
+                [`${at}.perkPage`]: to,
+            },
+        },
+    ]);
+    return result.matchedCount > 0 ? { ok: true } : { ok: false, reason: 'busy' };
+}
+/**
+ * Buys the member's hero its perk page `page` (its next one: King's Raid's are bought in order), for perkPagePrice points,
+ * and puts it in use, empty (the page left keeps its perks). 'not_found' for a hero that isn't theirs, 'owned' for a page
+ * it has, 'maxed' with PERK_PAGES_MAX, 'locked' for one past its next, 'busy' when its pages changed meanwhile (nothing was
+ * spent). One conditional update pays and adds it, so two buys at once can't both pay.
+ */
+export async function buyPerkPage(guildId, userId, heroId, page) {
+    if (!HEROES_BY_ID.has(heroId))
+        return { ok: false, reason: 'not_found' };
+    const { members } = collections();
+    const hero = (await members.findOne({ guildId, userId }))?.heroes?.[heroId];
+    if (!hero)
+        return { ok: false, reason: 'not_found' };
+    const owned = perkPageCount(hero.perkPagesOwned);
+    if (page <= owned)
+        return { ok: false, reason: 'owned' };
+    if (owned >= PERK_PAGES_MAX)
+        return { ok: false, reason: 'maxed' };
+    const price = perkPagePrice(page, CONFIG.hero);
+    if (page !== owned + 1 || price === null)
+        return { ok: false, reason: 'locked' };
+    const from = activePerkPage(hero.perkPage, hero.perkPagesOwned);
+    const at = `heroes.${heroId}`;
+    const bought = await members.findOneAndUpdate({ guildId, userId, [`${at}.perkPage`]: hero.perkPage ?? null, [`${at}.perkPagesOwned`]: hero.perkPagesOwned ?? null, points: { $gte: price } }, [
+        {
+            $set: {
+                points: { $subtract: ['$points', price] },
+                [`${at}.perkPages.${from}`]: { $ifNull: [`$${at}.perks`, []] },
+                [`${at}.perks`]: { $literal: [] },
+                [`${at}.perkPage`]: page,
+                [`${at}.perkPagesOwned`]: page,
+            },
+        },
+    ], { returnDocument: 'after' });
+    if (!bought) {
+        const member = await members.findOne({ guildId, userId });
+        const now = member?.heroes?.[heroId];
+        if (!now)
+            return { ok: false, reason: 'not_found' };
+        if ((now.perkPage ?? null) !== (hero.perkPage ?? null) || (now.perkPagesOwned ?? null) !== (hero.perkPagesOwned ?? null))
+            return { ok: false, reason: 'busy' };
+        return { ok: false, reason: 'too_poor', price, balance: member?.points ?? 0 };
+    }
+    if (price > 0)
+        await recordLedger([{ guildId, userId, delta: -price, reason: 'perk_page', itemId: heroId }]);
+    return { ok: true, paid: price, balance: bought.points };
+}
+/**
+ * Transcends the member's hero one level, paying its class's essences and komaGems (data/transcend.ts's transcendCost):
+ * 'not_found' for a hero that isn't theirs, 'maxed' at TRANSCEND_MAX, 'too_poor' without enough of either, 'busy' when
+ * it was transcended meanwhile (nothing was spent).
+ */
+export async function transcendHero(guildId, userId, heroId) {
+    const def = HEROES_BY_ID.get(heroId);
+    if (!def)
+        return { ok: false, reason: 'not_found' };
+    const { members } = collections();
+    const member = await members.findOne({ guildId, userId });
+    const hero = member?.heroes?.[heroId];
+    if (!hero)
+        return { ok: false, reason: 'not_found' };
+    const level = transcendLevel(hero.transcend);
+    const cost = transcendCost(def.class, level);
+    if (!cost)
+        return { ok: false, reason: 'maxed' };
+    const essences = Object.entries(cost.essences);
+    if ((member.gems ?? 0) < cost.gems || essences.some(([id, amount]) => (member.essences?.[id] ?? 0) < amount))
+        return { ok: false, reason: 'too_poor' };
+    const paid = await members.updateOne({
+        guildId,
+        userId,
+        // Still at that level (missing is level 0), with enough of everything.
+        [`heroes.${heroId}.transcend`]: level === 0 ? { $in: [null, 0] } : level,
+        gems: { $gte: cost.gems },
+        ...Object.fromEntries(essences.map(([id, amount]) => [`essences.${id}`, { $gte: amount }])),
+    }, {
+        $set: { [`heroes.${heroId}.transcend`]: level + 1 },
+        $inc: { gems: -cost.gems, ...Object.fromEntries(essences.map(([id, amount]) => [`essences.${id}`, -amount])) },
+    });
+    if (paid.matchedCount === 0)
+        return { ok: false, reason: 'busy' };
+    await recordLedger([{ guildId, userId, delta: 0, gemDelta: -cost.gems, essenceDelta: Object.fromEntries(essences.map(([id, amount]) => [id, -amount])), reason: 'transcend', itemId: heroId }]);
+    return { ok: true, level: level + 1 };
+}
+/** Crafts `count` Transcendence Scrolls from the member's Boss Crystals of `set` (the config's craft.tpScroll each), all at once or none. How many they hold after. */
+export async function craftTpScrolls(guildId, userId, set, count) {
+    if (!Number.isInteger(count) || count < 1)
+        return { ok: false, reason: 'bad_count' };
+    const cost = Math.max(1, Math.floor(CONFIG.craft.tpScroll)) * count;
+    const field = `crystals.${set}`;
+    await ensureMember(guildId, userId);
+    const after = await collections().members.findOneAndUpdate({ guildId, userId, [field]: { $gte: cost } }, { $inc: { [field]: -cost, tpScrolls: count } }, { returnDocument: 'after' });
+    if (!after)
+        return { ok: false, reason: 'no_crystals' };
+    await recordLedger([{ guildId, userId, delta: 0, reason: 'craft_tp_scroll', itemId: `crystals:${set}` }]);
+    return { ok: true, scrolls: after.tpScrolls ?? count };
+}
+/**
+ * Uses one of the member's Transcendence Scrolls on their hero: TP_SCROLL_POINTS more TP for it, for good. 'not_found' for a
+ * hero that isn't theirs, 'no_scroll' with none held, 'scrolls_maxed' when scrolls gave it TP_SCROLL_MOST already (nothing was
+ * spent). The TP scrolls gave it after.
+ */
+export async function useTpScroll(guildId, userId, heroId) {
+    if (!HEROES_BY_ID.has(heroId))
+        return { ok: false, reason: 'not_found' };
+    const { members } = collections();
+    const field = `heroes.${heroId}.scrollTp`;
+    const used = await members.findOneAndUpdate(
+    // (Missing is none given yet.)
+    { guildId, userId, [`heroes.${heroId}`]: { $exists: true }, tpScrolls: { $gte: 1 }, $or: [{ [field]: { $exists: false } }, { [field]: { $lte: TP_SCROLL_MOST - TP_SCROLL_POINTS } }] }, { $inc: { tpScrolls: -1, [field]: TP_SCROLL_POINTS } }, { returnDocument: 'after' });
+    if (used)
+        return { ok: true, points: scrollPoints(used.heroes?.[heroId]?.scrollTp) };
+    const member = await members.findOne({ guildId, userId });
+    const hero = member?.heroes?.[heroId];
+    return { ok: false, reason: !hero ? 'not_found' : scrollPoints(hero.scrollTp) >= TP_SCROLL_MOST ? 'scrolls_maxed' : 'no_scroll' };
+}
+/** Empties one of the member's hero's slots, or (`slot` null) all of them; its treasure slot, its sub treasure slots too. False when the hero isn't theirs. */
+export async function unequipHero(guildId, userId, heroId, slot) {
+    if (!HEROES_BY_ID.has(heroId))
+        return false;
+    const slots = slot === null ? HERO_SLOTS : slot === 'treasure' ? [slot, ...SIDE_SLOTS] : [slot];
+    const result = await collections().members.updateOne({ guildId, userId, [`heroes.${heroId}`]: { $exists: true } }, { $set: Object.fromEntries(slots.map((one) => [`heroes.${heroId}.equipment.${one}`, null])) });
+    return result.matchedCount > 0;
+}
+//# sourceMappingURL=heroes.js.map

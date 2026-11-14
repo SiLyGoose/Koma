@@ -1,0 +1,1181 @@
+import type { ObjectId } from 'mongodb';
+import type { EffectId } from './perks/index.js';
+import type { RaidStats } from './lib/events/raid.js';
+import type { RaidBossId, RaidClassId } from './constants/raid.js';
+import type { EssenceId } from './data/transcend.js';
+import type { HeroPart, HeroSlot, SalvageRule } from './protocol/heroes.js';
+import type { BannerId, Slot, Stars, TmSetId } from './protocol/items.js';
+import type { DivineGroupId, DpFragment, ShardTier, VoidSocket } from './protocol/divine.js';
+
+export { BANNERS, SLOTS, STARS, type BannerId, type Slot, type Stars, type TmSetId } from './protocol/items.js';
+export { HERO_SLOTS, type HeroSlot } from './protocol/heroes.js';
+
+export interface ItemDef {
+  id: string;
+  name: string;
+  stars: Stars;
+  slot: Slot;
+  description: string;
+  /**
+   * The effects this item gives while equipped. How strong each one is depends on the item's
+   * star tier and is set in the settings (equipment.<effect>.<stars>), not on the item.
+   */
+  effects: readonly EffectId[];
+  /**
+   * Discord user ids that can use this item's effects. Anyone can pull, own and equip it, but for
+   * everyone else it does nothing (the admin, ADMIN_USER_ID, can use every item, for testing).
+   * Missing means everyone can use it. When present it must list at least one id.
+   */
+  usableBy?: readonly string[];
+  /**
+   * Only drops from raid bosses: never pulled from the gacha, and a party that beats a raid boss has a
+   * chance (raid.dropChance, more with every raider) that each of them finds one (lib/game/items/raid-drops.ts).
+   * Missing means it's pulled as usual.
+   */
+  raidDrop?: true;
+  /**
+   * A limited item: never pulled from the standard banner, only from the limited banner while it is
+   * featured there (data/items/banner.ts) and the banner is open. Missing means it's pulled as usual.
+   */
+  limited?: true;
+  /**
+   * TechnoMagic gear: never pulled, only dropped by the TechnoMagic Raid, and only heroes wear it (a member
+   * can't: its perks are the heroes' stats, lib/game/heroes.ts). Missing means it's the members' own.
+   */
+  tmDrop?: true;
+  /** TechnoMagic gear: the set it belongs to, the one of the raid that drops it (data/tm-sets.ts). */
+  tmSet?: TmSetId;
+  /**
+   * A unique weapon: the id of the TechnoMagic Raid hero it is made for (data/heroes.ts). Only pulled from the
+   * Hero Item banner, as its pity tier (4 stars); only that hero wears it (a member can't, nor another hero),
+   * and besides its perks it has its own effect in the raid, as far as it is refined (Koma-UI's
+   * src/technomagic/sim/unique.ts). Missing means it isn't one.
+   */
+  uniqueWeapon?: string;
+  /**
+   * A unique treasure: the TechnoMagic Raid hero it is made for (data/heroes.ts), and which of its four it is (`skill`:
+   * 1 to 4, UT1 to UT4, its skills' then its passive's). Only pulled from the Hero Item banner, beside the unique weapons;
+   * only that hero wears it, as its main treasure (its effect in the raid, as far as it is refined: Koma-UI's
+   * src/technomagic/sim/treasures.ts) or in a sub treasure slot beside it (only its options). It has no perks: each copy's
+   * stats are the options it rolled as it was pulled (ItemCopyDoc.tmPotentials). Missing means it isn't one.
+   */
+  uniqueTreasure?: { hero: string; skill: 1 | 2 | 3 | 4 };
+  /**
+   * A class item: its perks only work for raiders of this class (constants/raid.ts's RAID_CLASSES). The
+   * databanks tag it and can list a class's items. Missing means it's for everyone.
+   */
+  class?: RaidClassId;
+  /** Optional: a bonus a copy gets once refined to R5 (see ItemBonus). */
+  bonus?: ItemBonus;
+  /**
+   * King's Raid's hero gear, or an artifact (data/kr-gear.ts): never pulled from the standard banners, dropped by the
+   * TechnoMagic and Dragon Raids and pulled from the Hero Item banner, and only heroes wear it, in the slot of its part.
+   * Missing means it isn't.
+   */
+  kr?: KrItem;
+  /**
+   * A reward, never a copy (data/kr-gear.ts KR_GRANTS): a unique weapon or treasure selector, sent to the member's mailbox
+   * to be held as a ticket once claimed; or a rune of a grade, rolled as it is given. Its icon is King's Raid's. Missing means it isn't one.
+   */
+  grant?: ItemGrant;
+}
+
+/** What a reward item gives: a selector (a unique weapon or a unique treasure of the member's choosing), or a rune of a grade. */
+export type ItemGrant = { selector: 'uw' | 'ut'; icon: string } | { runeGrade: number; icon: string };
+
+/**
+ * Something a mail carries (services/mail.ts), given as it is claimed: points, komaGems, komaTokens, copies of an item, runes,
+ * or a selector (a ticket held, member.selectors: a unique weapon of any hero, or a unique treasure of any hero's, picked as it is used).
+ */
+export type MailAttachment =
+  | { kind: 'points'; amount: number }
+  | { kind: 'gems'; amount: number }
+  | { kind: 'tokens'; amount: number }
+  | { kind: 'item'; itemId: string; count: number }
+  | { kind: 'rune'; runeId: string; count: number }
+  | { kind: 'selector'; of: 'uw' | 'ut' }
+  /** Transcendence Scrolls (Transcendence Attribute Points), held (MemberDoc.tpScrolls) once claimed. */
+  | { kind: 'tp'; count: number }
+  /** King's Raid's Dispatch Battle Loot (data/loot-boxes.ts, its id), held (MemberDoc.lootBoxes) once claimed. */
+  | { kind: 'box'; boxId: string; count: number };
+
+/** A mail in a member's mailbox (services/mail.ts): its title and message, whom from, what it carries, and when it was read and claimed. */
+export interface MailDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  title: string;
+  message: string;
+  /** The bot itself (a pull's selector), or the bot admin (a reward sent with the mail command). */
+  from: 'system' | 'admin';
+  attachments: MailAttachment[];
+  createdAt: Date;
+  readAt?: Date;
+  claimedAt?: Date;
+  /** Claimed back when a selector was picked as it was claimed: what each attachment was picked as (its item id), by its index; null for any other. */
+  picked?: (string | null)[];
+}
+
+/**
+ * A piece of King's Raid's hero gear (data/kr-gear.ts, from the CBT2 playtest's tables: vendor/technomagic-sim.mjs's
+ * KR_PIECES), or an artifact (its part 'artifact', and none of the rest but its icon): the part it is (its slot on a hero)
+ * and its kind (an accessory's, an armor's weight), its set and tier, the classes of hero it works on (all: none said), its
+ * main stat's base (refinement raises it: data/kr-gear.ts), the option pool it rolls `options` options from, whether it has a
+ * unique option (TechnoMagic gear's additional skill: ItemCopyDoc.tmSkill), its rune sockets, and its icon (King's Raid's).
+ */
+export interface KrItem {
+  part: HeroPart;
+  kind?: string;
+  set?: string;
+  tier: number;
+  classes: readonly RaidClassId[];
+  main?: readonly [KrMainStat, number];
+  pool?: string;
+  options: number;
+  unique?: boolean;
+  runes: number;
+  icon: string;
+}
+
+/** A King's Raid piece's main stat: flat ATK, HP, P.DEF or M.DEF. */
+export type KrMainStat = 'atk' | 'hp' | 'defPhysical' | 'defMagical';
+
+/**
+ * One of a King's Raid piece's options (ItemCopyDoc.options): the stat (its pool's option of it: data/kr-gear.ts), its step
+ * (0 to the option's steps: its value is so far between the option's least and most), and how many times it was rerolled
+ * (King's Raid's reroll price climbs with it).
+ */
+export interface KrOption {
+  stat: string;
+  step: number;
+  rerolls?: number;
+}
+
+/**
+ * A 4-star item's bonus, at REFINE.maxLevel: once a copy is at `level`, the item loses the perks in
+ * `removes` (say a drawback it outgrows) and shows `text` as an extra effect. Below that it works as
+ * if the bonus weren't there.
+ */
+export interface ItemBonus {
+  /** The refinement level it needs (REFINE.maxLevel). */
+  level: number;
+  /**
+   * The extra effect, for the gear card, like "Pinecraft: ores take no extra energy": the last line,
+   * under the item's other effects (the perks in `removes` lose theirs). To show a number that
+   * follows the settings, make it a function: `strength(effect)` is a perk's strength on this copy
+   * (a fraction, 0.5 for 50%) and `percent(n)` formats one, like "25%".
+   */
+  text: string | ((strength: (effect: EffectId) => number, percent: (n: number) => string) => string);
+  /** Perks of the item's it turns off. */
+  removes: readonly EffectId[];
+}
+
+/**
+ * What a member has equipped, as stored on their member document: the id of the specific copy
+ * (ItemCopyDoc._id) in each slot. Null or missing means empty.
+ */
+export interface EquipmentDoc {
+  weapon?: string | null;
+  armor?: string | null;
+  /** The unique treasure slot (see Slot above). */
+  treasure?: string | null;
+}
+
+/**
+ * The same loadout as item ids (ItemDef.id), which is what the effect math works with. Made
+ * from an EquipmentDoc by resolveGear, counting only copies the member still owns.
+ */
+export interface GearIds {
+  weapon?: string | null;
+  armor?: string | null;
+  treasure?: string | null;
+  /**
+   * The refinement level (1 to REFINE.maxLevel) of the copy in each slot, filled in by
+   * resolveGear. A slot left out here counts as fully refined (the item at its listed strength).
+   */
+  levels?: Partial<Record<Slot, number>>;
+  /** Whether the copy in each slot is locked (`lock`), filled in by resolveGear, for the gear card. Left out counts as not. */
+  locked?: Partial<Record<Slot, boolean>>;
+}
+
+/** One document per (server, user). */
+/** Something whose cooldown can be paid to skip (services/skips.ts). */
+export type SkipId = 'claim';
+
+/** How many times a member skipped one thing on `day` (YYYY-MM-DD, Eastern), for its doubling price. */
+export interface SkipUse {
+  day: string;
+  count: number;
+}
+
+export interface MemberDoc {
+  guildId: string;
+  userId: string;
+  points: number;
+  /** Whole hours since the Unix epoch (UTC) of the last claim. -1 means never. */
+  lastClaimHour: number;
+  lastRobAt: Date | null;
+  /**
+   * How many times longer than usual the cooldown that started at lastRobAt is (2 = doubled, from
+   * the slothCooldown gear effect), fixed when that rob was made. Missing or null means 1.
+   */
+  robCooldownScale?: number | null;
+  /**
+   * How many clock hours must pass after lastClaimHour before the next normal claim (2 = every
+   * second hour, from the slothCooldown gear effect), fixed when that claim was made. Missing or
+   * null means 1.
+   */
+  claimGapHours?: number | null;
+  /** What they won off the poker bots on `day` (dayKey), net: negative when they lost (services/casino/poker.ts). Missing, or another day's, means none. */
+  pokerBots?: { day: string; net: number };
+  /** Skips paid for today, per thing skipped (services/skips.ts). Missing means none. */
+  skips?: Partial<Record<SkipId, SkipUse>>;
+  /** Their raid class, picked on the site's gear page (services/raid-class.ts). Missing or null means none. */
+  raidClass?: RaidClassId | null;
+  /** How many times they refreshed their raid shop shelf in raid week `week` (RaidWeek.key). Missing, or another week's, means none. */
+  raidShop?: { week: string; refreshes: number };
+  /**
+   * When this member was last robbed successfully. They can't be robbed again until
+   * rob.victimProtectionMinutes after this. Missing or null means never.
+   */
+  lastRobbedAt?: Date | null;
+  /**
+   * A short lock held while someone is robbing this member, so two robs on the same victim run one
+   * after the other instead of at the same time. `robLockBy` is the holder's token and
+   * `robLockUntil` when the lock lapses on its own (in case the bot stops before releasing it).
+   * Both are missing or null when nobody is robbing them.
+   */
+  robLockUntil?: Date | null;
+  robLockBy?: string | null;
+  totalPulls: number;
+  /** komaTokens: free gacha pulls, one each, spent before points. Missing means 0. */
+  tokens?: number;
+  /** komaGems, won by beating the weekly raid and the Dragon Raid. Missing means 0. */
+  gems?: number;
+  /** komaDust, from salvaging hero gear (lib/game/items/sell.ts), crafted into komaGems (services/economy/powder.ts). Missing means 0. */
+  powder?: number;
+  /**
+   * Unique Weapon and Unique Treasure Tickets crafted from komaDust (services/economy/powder.ts) or claimed from mail
+   * (services/mail.ts), held until used (its hero's
+   * item picked as it is). Missing means none.
+   */
+  selectors?: { uw?: number; ut?: number };
+  /** The rule their hero gear's drops are salvaged by as they drop, for komaDust (services/items/salvage.ts). Missing means none is. */
+  autoSalvage?: SalvageRule;
+  /** Hero essences (data/transcend.ts EssenceId), won by beating the Weekly Boss and the Dragon Raid, and spent transcending heroes. Missing means none. */
+  essences?: Partial<Record<EssenceId, number>>;
+  /** King's Raid's runes they have, not socketed (data/kr-gear.ts's ids), how many of each: dropped by the TechnoMagic and Dragon Raids. Missing means none. */
+  runes?: Record<string, number>;
+  /** Rune Fragments: disassembling runes gives them, Mysterious Runes are crafted from them (services/runes.ts). Missing means none. */
+  runeFragments?: number;
+  /**
+   * King's Raid's Technomagic Gear Upgrade Stones they have, by class (constants/technomagic.ts TM_STONES): dropped by the
+   * TechnoMagic Raid, spent awakening TechnoMagic pieces of that class. Missing means none.
+   */
+  stones?: Partial<Record<RaidClassId, number>>;
+  /**
+   * King's Raid's Boss Crystals they have, by TechnoMagic set (its boss's: constants/technomagic.ts TM_CRYSTALS): dropped by the
+   * TechnoMagic Raid and given by salvaging its pieces, spent crafting the set's pieces and rerolling their options. Missing means none.
+   */
+  crystals?: Partial<Record<TmSetId, number>>;
+  /**
+   * King's Raid's Technomagic Experiment Reports they have (constants/technomagic.ts TM_REPORTS): dropped now and then by the
+   * TechnoMagic Raid, spent restoring a 5★ TechnoMagic piece into a Reclaimed one (services/kr-gear.ts restoreTmPiece). Missing means none.
+   */
+  reports?: number;
+  /**
+   * King's Raid's Divine Punishment Raid (lib/game/divine.ts, services/divine.ts): each group's openings (its boss dungeons' 7-day
+   * window and opening, its Karma unlock) and the highest Infinite level it has cleared. Missing means none opened yet.
+   */
+  divine?: Partial<Record<DivineGroupId, DivineGroupDoc>>;
+  /** Blood of Apostle, by group (King's Raid's BLOOD_OF_APOCALYPSION / BLOOD_OF_SOLENIS): boss dungeons give it, Runes of Blasphemy take it. Missing means none. */
+  blood?: Partial<Record<DivineGroupId, number>>;
+  /**
+   * The Divine Punishment Raid's four Artifact fragments (King's Raid's PUNISHMENT_RAID_FRAGMENT_1–4: Dragon's Doomstone, Apocalypsion's
+   * Tear, Golem's Fuel, Solenis' Engraving), 1,000 crafting their artifact. Missing means none.
+   */
+  dpFragments?: Partial<Record<DpFragment, number>>;
+  /**
+   * Shards (King's Raid's SHARD_EMPTY_* / SHARD_FULL_*), by Empty or Full, group and tier ('1' to '5'; kept by tier key, not an
+   * array, so a $inc never makes one): Full ones are brought into boss dungeons, Empty ones filled in the Karma dungeon. Tier 1 Empty is
+   * free and unlimited (never kept). Missing means none.
+   */
+  shards?: { empty?: Partial<Record<DivineGroupId, Partial<Record<ShardTier, number>>>>; full?: Partial<Record<DivineGroupId, Partial<Record<ShardTier, number>>>> };
+  /** Runes of Void (King's Raid's VOID_RUNE_1–5), by socket: each Rune of Blasphemy crafted takes one of its socket's. Missing means none. */
+  voidRunes?: Partial<Record<VoidSocket, number>>;
+  /** Unique Gear Tickets (King's Raid's ALL_UNIQUE_SELECT_ITEM_STAR_0_0) not used yet: each a 0★ unique weapon or treasure of their pick. Missing means none. */
+  uniqueTickets?: number;
+  /**
+   * Their Runes of Blasphemy, each with its own rolls (in storage, or in a copy's socket as `bl:<id>`: ItemCopyDoc.runes). Missing
+   * means none.
+   */
+  blasphemy?: BlasphemyCopyDoc[];
+  /** How many Runes of Blasphemy their storage holds (not socketed). Missing or null means BLASPHEMY_STORAGE.base. */
+  blasphemySlots?: number | null;
+  /** Transcendence Scrolls crafted from Boss Crystals and not used yet: each gives a hero TP_SCROLL_POINTS more TP (services/heroes.ts). Missing means none. */
+  tpScrolls?: number;
+  /** King's Raid's Dispatch Battle Loot claimed from background raids' mail and not opened yet, by box (data/loot-boxes.ts): services/loot-boxes.ts. Missing means none. */
+  lootBoxes?: Record<string, number>;
+  /** The raid week (RaidWeek.key) of the last Weekly Boss win they were paid for: only the first win of each week pays (services/raid.ts claimWeeklyWins). */
+  weeklyBossWeek?: string;
+  /**
+   * A tax waiting for this member's next hourly claim (see the claimTax gear effect): the share
+   * of that claim, and who it is paid to. Both are missing or null when there is none. They are
+   * cleared by the claim they apply to.
+   */
+  claimTaxRate?: number | null;
+  claimTaxBy?: string | null;
+  /**
+   * The same for this member's next successful rob (see the robTax gear effect): the share of what
+   * they steal, and who it is paid to. Cleared by the rob it applies to.
+   */
+  robTaxRate?: number | null;
+  robTaxBy?: string | null;
+  /**
+   * Thoccy Keyboard: when this member's recent successful robs were, for its streak (only the ones
+   * in the last ROB_STREAK_WINDOW_MS are kept). Emptied by a failed rob.
+   */
+  robStreakAt?: Date[] | null;
+  /**
+   * Thoccy Keyboard: set when this member failed a rob wearing it. The next successful rob against
+   * them takes this share more; cleared by that rob, or by a successful rob of their own.
+   */
+  vulnerableRate?: number | null;
+  /**
+   * Pulls since this member's last item of the pity tier (constants/items/gacha.ts PITY_STARS), counting the
+   * latest one. Missing means 0.
+   */
+  pity?: number;
+  /**
+   * Set when this member's last pity-tier item (unique treasure) was someone else's: their next
+   * one is guaranteed to be one of their own. Cleared when they get their own. Missing means false.
+   */
+  guaranteed?: boolean;
+  /**
+   * The same two for the limited banner, which counts its own pity (kept from one limited banner to
+   * the next): pulls there since their last pity-tier item, and whether their next one is guaranteed
+   * to be a featured item (their last one there wasn't). Missing means 0 and false.
+   */
+  limitedPity?: number;
+  limitedGuaranteed?: boolean;
+  /**
+   * The same two for the Hero Item banner: pulls there since their last pity-tier item (a unique weapon or
+   * treasure), and whether their next one is guaranteed to be the one they picked (heroPick: their last one
+   * there wasn't). With nothing picked there is no guarantee there. Missing means 0 and false.
+   */
+  heroPity?: number;
+  heroGuaranteed?: boolean;
+  /**
+   * The item they picked for each banner's guarantee to give (the site's banner page): any exclusive treasure
+   * on the standard banner (lib/game/items/gacha.ts guaranteeChoices), a featured item on the limited one, any
+   * unique weapon or treasure on the Hero Item one. Missing, or an item the guarantee can't give any more (a
+   * limited banner since replaced), means none: their own treasures, any featured item, no guarantee.
+   */
+  guaranteedPick?: string;
+  limitedPick?: string;
+  heroPick?: string;
+  /**
+   * What this member is wearing: the gear of their active loadout. Missing on members who have
+   * never equipped anything.
+   */
+  equipment?: EquipmentDoc;
+  /**
+   * This member's loadouts, keyed by number ('1' to LOADOUTS.count). A missing entry is an empty
+   * loadout with its default name. See LoadoutDoc and constants/items/loadouts.ts.
+   */
+  loadouts?: Record<string, LoadoutDoc>;
+  /** Which loadout is active (1 to loadoutSlots); its gear is `equipment`. Missing means 1. */
+  activeLoadout?: number | null;
+  /** How many loadouts they have, the ones they unlocked for points included. Missing or null means LOADOUTS.free. */
+  loadoutSlots?: number | null;
+  /** The outfits this member bought (data/outfits.ts ids; never the default, which everyone has). Missing means none. */
+  outfits?: string[];
+  /** The outfit they wear: one of theirs. Missing or null means the default (services/outfits.ts). */
+  outfit?: string | null;
+  /**
+   * The TechnoMagic Raid's heroes this member bought in the site's shop (data/heroes.ts ids), each with
+   * the gear it wears (services/heroes.ts). Missing means none.
+   */
+  heroes?: Record<string, HeroDoc>;
+  /** The hero they walk v2's town as (one of `heroes`), for the friends list (POST /api/friends/hero). Missing or null: not said. */
+  townHero?: string | null;
+  /**
+   * Their hero gear loadouts (King's Raid's Gear Custom: services/hero-loadouts.ts), keyed by number ('1' to heroLoadoutSlots).
+   * A missing entry is an empty one with no name.
+   */
+  heroLoadouts?: Record<string, HeroLoadoutDoc>;
+  /** How many hero gear loadouts they have, those bought included. Missing or null means HERO_LOADOUTS.free (protocol/heroes.ts). */
+  heroLoadoutSlots?: number | null;
+  /**
+   * Single player: the lineup they last had against each boss (services/solo-lineups.ts), keyed by raid and boss ('technomagic:galgoria',
+   * 'dragon:temeraire'): its heroes in order, and which are the Sub Team's. Missing: none kept.
+   */
+  soloLineups?: Record<string, SoloPickDoc[]>;
+  createdAt: Date;
+}
+
+/** A hero in a member's kept single-player lineup (MemberDoc.soloLineups): which, and whether it is in the Sub Team. */
+export interface SoloPickDoc {
+  hero: string;
+  sub?: boolean;
+}
+
+/** One of a member's heroes (MemberDoc.heroes). */
+export interface HeroDoc {
+  boughtAt: Date;
+  /**
+   * The copy (ItemCopyDoc._id) in each of its slots: missing or null is empty. A copy is on one hero
+   * at most (it can be on the member as well), and in one of its slots.
+   */
+  equipment?: Partial<Record<HeroSlot, string | null>>;
+  /** How far it is transcended (0 to TRANSCEND_MAX, data/transcend.ts), on the site's heroes page. Missing means 0. */
+  transcend?: number;
+  /** The transcendence perks picked for it (data/transcend.ts ids), on the site's heroes page: its perk page in use's. Missing means none. */
+  perks?: string[];
+  /** Its perk page in use (1 to PERK_PAGES_MAX, data/transcend.ts): its perks are `perks`. Missing or null means 1. */
+  perkPage?: number | null;
+  /** How many perk pages it has (bought for it: services/heroes.ts buyPerkPage). Missing means 1. */
+  perkPagesOwned?: number;
+  /** The perks kept on each of its other pages, by number (the one in use's is `perks`). Missing or null means none. */
+  perkPages?: Record<string, string[] | null>;
+  /** The TP Transcendence Scrolls used on it gave it (0 to TP_SCROLL_MOST, data/transcend.ts), on top of its level's. Missing means 0. */
+  scrollTp?: number;
+  /** Its outfits this member bought (data/heroes.ts HERO_OUTFITS names; never its own look). Missing means none. */
+  outfits?: string[];
+  /** The outfit it wears: one of its bought ones. Missing or null means its own look (services/hero-outfits.ts). */
+  outfit?: string | null;
+}
+
+/** A hero in a TechnoMagic Raid run: which, in which of its skins (the site's), and what its gear gave it as the run began. */
+export interface TmRunHero {
+  id: string;
+  skin: number;
+  gear: Record<string, number>;
+  /** The TechnoMagic set whose effect it had (four of its pieces worn: data/tm-sets.ts TM_SET_PIECES), or null. */
+  set?: TmSetId | null;
+  /** Its own unique weapon's tier (its refinement, 1 to 5), or null: none worn. */
+  uw?: number | null;
+  /** Its main treasure, one of its own unique treasures: which (1 to 4), at which tier (its refinement, 1 to 5); or null. */
+  ut?: { skill: number; tier: number } | null;
+  /** Its artifact: which (data/kr-gear.ts's id), at which tier (its refinement, 1 to 5); or null. */
+  artifact?: { id: string; tier: number } | null;
+  /** The additional skills of the TechnoMagic gear it wore (ItemCopyDoc.tmSkill), one for each piece. */
+  skills?: string[];
+  /** The transcendence perks it had (data/transcend.ts ids). */
+  perks?: string[];
+}
+
+/**
+ * One player's part in a TechnoMagic Raid run (services/technomagic.ts): a room's fight, begun by the bot with
+ * a seed and each player's heroes in the gear they wore then. The bot runs the fight itself (the site's sim),
+ * and keeps here how it went and what it gave.
+ */
+export interface TmRunDoc {
+  /** The run's id and the player's: `<run>:<userId>`. */
+  _id: string;
+  /** The run (one for everyone in the room). */
+  run: string;
+  guildId: string;
+  userId: string;
+  boss: string;
+  /** A dragon's run in its Normal mode (none: Hard, the only one most bosses have, and every run from before). */
+  mode?: 'normal';
+  seed: number;
+  stage: number;
+  /** Their heroes in it. */
+  heroes: TmRunHero[];
+  /** The sim's version it was fought with (a hash of it; a number, for a run from before). */
+  version: string | number;
+  startedAt: Date;
+  /** When it was over, how (after so many steps), and the item ids found and kept. */
+  claimedAt?: Date;
+  result?: 'won' | 'lost';
+  ticks?: number;
+  drops?: string[];
+  /** The item ids found and salvaged as they dropped, by the member's rule (services/items/salvage.ts). */
+  salvaged?: string[];
+  /** A Dragon Raid win's hero essences, so many of each kind. */
+  essences?: Partial<Record<EssenceId, number>>;
+  /** A Dragon or TechnoMagic Raid win's komaGems (for the stages it cleared for the first time). */
+  gems?: number;
+  /** A Divine Punishment run (its boss one of DIVINE_INFO's): its group, Infinite level, side bosses cleared, shards brought; and, a karma run over, how it went. */
+  divine?: { group: DivineGroupId; level?: number; cleared?: string[]; shard?: { tier: number; count: number } | null; empty?: { tier: number; count: number } | null; karma?: { waves: number; gauge: number } };
+}
+
+/** The Divine Punishment Raid's groups, fragments, shard tiers and Void sockets (protocol/divine.ts). */
+export type { DivineGroupId, DpFragment, ShardTier, VoidSocket };
+
+/**
+ * A group's boss dungeons (MemberDoc.divine): King's Raid's OpenPunishmentRaidInfo. The 7-day window starts with an unlock made
+ * with none running (`since`, `expires`) and counts the final boss's clears in it (`clears`: the unlock's price ladder); the opening
+ * in it is `open` at `level` (the Infinite level unlocked), with the side bosses `cleared` in it.
+ */
+export interface DivineBossDoc {
+  open: boolean;
+  level: number;
+  since: Date;
+  expires: Date;
+  clears: number;
+  cleared: string[];
+}
+
+/** A group's Divine Punishment state: its boss opening, its Karma unlock (one run), the highest Infinite level cleared, and a revision (each change bumps it). */
+export interface DivineGroupDoc {
+  boss?: DivineBossDoc;
+  karma?: { open: boolean };
+  best?: number;
+  rev?: number;
+}
+
+/** A Rune of Blasphemy (MemberDoc.blasphemy): its id, which (the sim's KR_BLASPHEMY id), its main stat's rolled share, its three lines' rolls (by class group), and when it was made. */
+export interface BlasphemyCopyDoc {
+  id: string;
+  rune: string;
+  main: number;
+  lines: [number, number, number];
+  at: Date;
+}
+
+/**
+ * A member's batch of background raids (services/tm-batches.ts, the `tm_batches` collection): up to TM_BATCH_MOST TechnoMagic or
+ * Dragon Raid runs against one boss, at one stage and mode, with one lineup (alone: Main Team and Sub Team), fought by the
+ * sim on Auto one after another while they're away, each taking as long as it would played, paid as each ends. One runs at a
+ * time a member; while it does, they can't fight in a raid's room.
+ */
+export interface TmBatchDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  raid: 'technomagic' | 'dragon';
+  boss: string;
+  /** A dragon's Normal mode (none: Hard). */
+  mode?: 'normal';
+  stage: number;
+  /** The lineup, in order: each hero's id, and whether it is in the Sub Team. */
+  heroes: { id: string; sub?: boolean }[];
+  /** How many runs were asked for; how many are over, won and lost; the points they cost. */
+  count: number;
+  done: number;
+  won: number;
+  lost: number;
+  spent: number;
+  state: 'running' | 'done';
+  /** They asked for it to stop: it does at its next step (straight away). */
+  stopAsked?: boolean;
+  /** Why it ended: every run fought, stopped, out of points, their heroes gone, or the sim couldn't fight it. */
+  end?: 'finished' | 'stopped' | 'too_poor' | 'no_heroes' | 'failed';
+  /** The run being fought: its run (to pay it), how it went and when it is over (it is paid then). */
+  current?: { run: string; seed: number; result: 'won' | 'lost'; ticks: number; startedAt: Date; endsAt: Date; heroes: string[] } | null;
+  /** What the runs over gave, all told. */
+  got: TmBatchGot;
+  startedAt: Date;
+  endedAt?: Date;
+}
+
+/** What a batch's runs gave, all told: points, komaGems, hero essences, Upgrade Stones and Boss Crystals by kind, items found (and salvaged as they dropped) and runes by id, and stages cleared for the first time. */
+export interface TmBatchGot {
+  points: number;
+  gems: number;
+  essences: Partial<Record<EssenceId, number>>;
+  stones: Record<string, number>;
+  crystals: Record<string, number>;
+  /** Technomagic Experiment Reports (missing in a batch from before them). */
+  reports?: number;
+  items: Record<string, number>;
+  salvaged: Record<string, number>;
+  runes: Record<string, number>;
+  firstClears: number;
+  /** The Dispatch Battle Loot its wins gave (its mail carries them: data/loot-boxes.ts), in place of the rest; missing in a batch from before them (its wins paid as they ended). */
+  boxes?: number;
+}
+
+/** One of a member's hero gear loadouts (MemberDoc.heroLoadouts). */
+export interface HeroLoadoutDoc {
+  /** The name they gave it. Missing or null: none. */
+  name?: string | null;
+  /** The copy (ItemCopyDoc._id) kept for each of HERO_LOADOUT_SLOTS (protocol/heroes.ts): missing or null is none. */
+  pieces?: Partial<Record<HeroSlot, string | null>> | null;
+}
+
+/** One of a member's gear loadouts, stored on their member document (see MemberDoc.loadouts). */
+export interface LoadoutDoc {
+  /** The name the member gave it. Missing or null means the default, "Loadout <number>". */
+  name?: string | null;
+  /**
+   * The gear it holds, kept only while it isn't active: the active loadout's gear is
+   * MemberDoc.equipment, and this is cleared when the loadout is switched to.
+   */
+  equipment?: EquipmentDoc | null;
+}
+
+/**
+ * One document per copy of an item a member owns, per server. Two copies of the same item are
+ * separate documents, so each can have its own level and can be traded on its own.
+ */
+export interface ItemCopyDoc {
+  /** Unique id of this copy. Equipment points at it. */
+  _id: string;
+  guildId: string;
+  userId: string;
+  /** The catalog item (ItemDef.id) this is a copy of. */
+  itemId: string;
+  /**
+   * Refinement level, 1 to REFINE.maxLevel (see constants/items/refine.ts): how much of the item's
+   * strength this copy gives. New copies start at 1; copies from before refining existed are 0,
+   * which counts as 1 (lib/game/items/refine.ts refineLevel).
+   */
+  level: number;
+  /** Locked by the member (`lock`, or the site): never sold and never used up by a refine. Missing means not. */
+  locked?: boolean;
+  /**
+   * TechnoMagic gear (King's Raid's: its unique option): the additional skill this copy came with (the sim's TM_SKILLS id,
+   * lib/game/technomagic.ts), rolled as it dropped; a hero wearing it has it in the raid. Missing on any other copy.
+   */
+  tmSkill?: string;
+  /** How many times its additional skill was rerolled (the price climbs with it). Missing means never. */
+  tmSkillRerolls?: number;
+  /**
+   * The additional skill its last reroll rolled (a TM_SKILLS id), waiting for the member to keep it or the one it has
+   * (services/kr-gear.ts's keepTmSkill); until then the copy has its tmSkill, in the raid too. Missing means none waits.
+   */
+  tmSkillPending?: string;
+  /**
+   * The option its last reroll rolled (its `index`th's, from 0), waiting for the member to keep it or the one it has
+   * (services/kr-gear.ts's keepOption, King's Raid's Reforge); until then the copy has its options, in the raid too. Missing
+   * means none waits.
+   */
+  optionPending?: { index: number; option: KrOption };
+  /**
+   * A unique treasure: the option (potential) its last reroll rolled (its `index`th's, as tmPotentials has them), waiting for
+   * the member to keep it or the one it has (services/kr-gear.ts's keepOption); until then the copy has its tmPotentials, and
+   * none of them is rerolled or enhanced. Missing means none waits.
+   */
+  potentialPending?: { index: number; option: TmPotential };
+  /** King's Raid's hero gear (ItemDef.kr): the options this copy rolled as it dropped (data/kr-gear.ts). Missing on any other copy. */
+  options?: KrOption[];
+  /**
+   * The runes in its sockets (data/kr-gear.ts's ids; null: an empty one), as many as it has sockets: King's Raid's hero gear
+   * and a unique weapon. Missing means all empty.
+   */
+  runes?: (string | null)[];
+  /**
+   * TechnoMagic gear: the potentials this copy came with (TM_POTENTIAL_LINES of them, each a different stat:
+   * lib/game/technomagic.ts), rolled as it dropped; a hero of its class wearing it has them in the raid. A unique
+   * treasure: its options (UT_OPTION_LINES of the same), rolled as it was pulled; its hero has them, in any of its
+   * treasure slots. Missing on any other copy.
+   */
+  tmPotentials?: TmPotential[];
+  /**
+   * TechnoMagic armor: the DEF its main stat is (data/tm-main.ts: P.DEF or M.DEF, King's Raid's Armor or Secondary Gear),
+   * rolled as it dropped. Missing on any other copy (a TechnoMagic weapon's main stat is always HP).
+   */
+  tmArmorDef?: TmArmorDef;
+  /**
+   * TechnoMagic gear: Reclaimed (King's Raid's, constants/technomagic.ts TM_RECLAIMED), its main stat higher and its awakening
+   * dearer in stones. Missing means not.
+   */
+  reclaimed?: boolean;
+  obtainedAt: Date;
+}
+
+/** The DEF a TechnoMagic armor's main stat is: physical (P.DEF) or magical (M.DEF). */
+export type TmArmorDef = 'physical' | 'magical';
+
+/** A stat a TechnoMagic copy's potential raises (each one of a hero's stats in the raid: lib/game/heroes.ts HeroStat). */
+export type TmPotentialId =
+  | 'atk'
+  | 'speed'
+  | 'hp'
+  | 'defense'
+  | 'defPhysical'
+  | 'defMagical'
+  | 'block'
+  | 'blockPhysical'
+  | 'blockMagical'
+  | 'blockDef'
+  | 'blockDefPhysical'
+  | 'blockDefMagical'
+  | 'dodge'
+  | 'tough'
+  | 'toughPhysical'
+  | 'toughMagical'
+  | 'accuracy'
+  | 'resist'
+  | 'crit'
+  | 'critDamage'
+  | 'manaAttack'
+  | 'manaRegen'
+  | 'lifesteal'
+  | 'critResist'
+  | 'pen'
+  // King's Raid's treasure options the old potentials hadn't (the user's ranges): ACC (hit chance), P./M. Dodge and Crit
+  // Resist, Recovery, and mana from damage taken.
+  | 'acc'
+  | 'dodgePhysical'
+  | 'dodgeMagical'
+  | 'critResistPhysical'
+  | 'critResistMagical'
+  | 'recovery'
+  | 'manaDamage';
+
+/** One of a TechnoMagic copy's potentials: the stat it raises, and by how much (a share, as a perk's strength is: 0.05 is 5% more, or 50 points). */
+export interface TmPotential {
+  stat: TmPotentialId;
+  value: number;
+}
+
+/**
+ * The old inventory: one document per (server, user, item) with a count. Nothing writes to it
+ * any more; it is only read once, by the migration to ItemCopyDoc (services/migrate.ts).
+ */
+export interface LegacyInventoryDoc {
+  _id: ObjectId;
+  guildId: string;
+  userId: string;
+  itemId: string;
+  count: number;
+  firstObtainedAt: Date;
+  /** Set by the migration once this stack has been turned into copies. */
+  migratedAt?: Date | null;
+}
+
+/** Small bookkeeping records, like "the inventory migration has finished". */
+export interface MetaDoc {
+  _id: string;
+  [key: string]: unknown;
+}
+
+export type LedgerReason =
+  | 'claim'
+  | 'claim_tax_paid'
+  | 'claim_tax_received'
+  | 'gacha'
+  // Selling items for points; itemId is the item.
+  | 'sell'
+  // Salvaging hero gear for komaDust (powderDelta); itemId is the item.
+  | 'salvage'
+  // Selling runes for points (services/runes.ts); 0 points for disassembling them.
+  | 'rune_sell'
+  // Taking a rune out of a socket and keeping it (services/kr-gear.ts).
+  | 'rune_keep'
+  | 'plinko_bet'
+  | 'plinko_payout'
+  | 'blackjack_bet'
+  | 'blackjack_double'
+  | 'blackjack_payout'
+  | 'blackjack_refund'
+  // Baccarat (web/games/baccarat/server.ts): every chip on the table, and what the winning ones paid back.
+  | 'baccarat_bet'
+  | 'baccarat_payout'
+  // Roulette (web/games/roulette/server.ts): the same.
+  | 'roulette_bet'
+  | 'roulette_payout'
+  // Poker (web/games/poker/table.ts): the chips taken to a table when sitting down, and what was
+  // left when standing up (the chips won and lost to the other players are the difference).
+  | 'poker_buyin'
+  | 'poker_cashout'
+  // The mine (commands/mines.ts): the bet, and what a cash out paid.
+  | 'mines_bet'
+  | 'mines_payout'
+  // Pinecraft (commands/pinecraft.ts): an ore dug (points, no bet).
+  | 'pinecraft_ore'
+  // Minesweeper (web/games/minesweeper/room.ts): a player's share of a board cleared (points, no bet).
+  | 'minesweeper_win'
+  | 'event_crate'
+  | 'rob_won'
+  | 'rob_lost'
+  // What the wheel (Wheelchair) added to or took from a robber's take. The victim never pays it.
+  | 'rob_wheel'
+  | 'rob_fine_paid'
+  | 'rob_fine_received'
+  | 'rob_tax_paid'
+  | 'rob_tax_received'
+  // A successful rob that slipped (Piplup): the take plus a penalty goes back to the victim.
+  | 'rob_slip_paid'
+  | 'rob_slip_received'
+  // A critical fail on the D20 (1): what the claim would have paid, times a d3, paid into the vault.
+  | 'd20_penalty'
+  // The old vault breaker's reasons: no longer written, kept so older ledger entries still type-check.
+  | 'vault_loot'
+  | 'vault_fine'
+  | 'heist_loot'
+  | 'heist_fine'
+  | 'split_steal'
+  | 'code_guess'
+  | 'code_refund'
+  | 'code_prize'
+  // Points paid to skip a cooldown (commands/skip.ts), one reason per thing skipped.
+  | 'skip_claim'
+  // The week's extra raid and its refund, back when a week had one raid: no longer written, kept for older entries.
+  | 'skip_raid'
+  | 'skip_refund'
+  // Points a member gave to the vault of their own accord (commands/donate.ts).
+  | 'vault_donation'
+  // Points one member paid another (commands/pay.ts): otherUserId is the other one.
+  | 'pay_sent'
+  | 'pay_received'
+  // A gacha pull paid for with a komaToken instead of points (0 points, tokenDelta -1).
+  | 'gacha_token'
+  // An extra item a pull gave for nothing (Pot of Greed): 0 points; itemId is the item.
+  | 'gacha_bonus'
+  // The weekly raid (commands/raid.ts): a boost paid for, points the boss stole, the points and the
+  // komaTokens (0 points, tokenDelta) for beating it, and points given back when a raid never
+  // finished (the bot stopped during it).
+  | 'raid_boost'
+  | 'raid_stolen'
+  | 'raid_reward'
+  | 'raid_tokens'
+  | 'raid_gems'
+  // komaGems for a Dragon Raid win (0 points, gemDelta): the first at its stage only.
+  | 'dragon_gems'
+  // komaGems for a TechnoMagic Raid win (0 points, gemDelta): its stage's first clear's, and those under it it cleared.
+  | 'tm_gems'
+  // Hero essences for beating it (0 points; essenceDelta).
+  | 'raid_essences'
+  | 'dragon_essences'
+  // komaGems spent forging a copy into a masterwork (0 points, gemDelta; itemId is the item). Masterworks
+  // are gone; only old entries have it.
+  | 'forge'
+  | 'raid_refund'
+  // A duplicate copy used up to refine another (0 points; itemId is the item).
+  | 'refine'
+  // Points paid to unlock another gear loadout (services/items/loadouts.ts).
+  | 'loadout_unlock'
+  // Points paid for an outfit in the site's shop (services/outfits.ts; itemId is the outfit).
+  | 'outfit'
+  // Points paid for a TechnoMagic hero in the site's shop (services/heroes.ts; itemId is the hero).
+  | 'hero'
+  // Points paid for another of a hero's Transcend Perk pages (services/heroes.ts buyPerkPage; itemId is the hero).
+  | 'perk_page'
+  // Points paid for another hero gear loadout (services/hero-loadouts.ts buyHeroLoadout).
+  | 'hero_loadout'
+  // Points paid for a hero's outfit in the site's shop (services/hero-outfits.ts; itemId is the outfit).
+  | 'hero_outfit'
+  // Points a won TechnoMagic Raid run paid (services/technomagic.ts; hero.winPoints).
+  | 'tm_win'
+  // Points paid for a background raid as it began (services/tm-batches.ts; hero.backgroundPrice; itemId is the batch).
+  | 'tm_background'
+  // Points a won Dragon Raid run paid (services/technomagic.ts; dragon.winPoints).
+  | 'dragon_win'
+  // Points (komaGems, komaTokens) a mail gave as it was claimed (services/mail.ts).
+  | 'mail'
+  // Points paid to reroll one of a hero gear copy's options or its unique option, and to upgrade one a step (services/kr-gear.ts; itemId is the item).
+  | 'kr_reroll'
+  | 'kr_upgrade'
+  // Points (and Boss Crystals, not in the ledger) paid to craft a TechnoMagic piece (services/technomagic.ts; itemId is the piece).
+  | 'tm_craft'
+  // Points paid to unlock a Divine Punishment boss opening or Karma run (services/divine.ts; itemId is `divine:<group>:boss|karma`).
+  | 'divine_open'
+  // Points paid for Runes of Void in the Divine Punishment shop (services/divine.ts; itemId is `void:<socket>`).
+  | 'divine_void'
+  // Points (and 1,000 Divine Punishment fragments, not in the ledger) paid to craft its artifact (services/divine.ts; itemId is the artifact).
+  | 'divine_artifact'
+  // Points paid for more Rune of Blasphemy storage (services/divine.ts).
+  | 'blasphemy_storage'
+  // Points paid to take a Rune of Blasphemy out of a socket and keep it (services/divine.ts; itemId is the copy's item).
+  | 'blasphemy_keep'
+  // Points (and Technomagic Experiment Reports, not in the ledger) paid to restore a 5★ TechnoMagic piece into a Reclaimed one (services/kr-gear.ts; itemId is the piece).
+  | 'tm_restore'
+  // komaGems spent on a raid item in the site's raid shop (0 points, gemDelta; itemId is the item).
+  | 'raid_shop'
+  // komaGems spent refreshing their shelf in the raid shop (0 points, gemDelta).
+  | 'raid_shop_refresh'
+  // komaGems and hero essences spent transcending a hero (0 points, gemDelta, essenceDelta; itemId is the hero).
+  | 'transcend'
+  // komaDust crafted into komaGems (0 points, powderDelta, gemDelta).
+  | 'craft_gems'
+  // komaDust crafted into Unique Weapon or Unique Treasure Tickets, sent to the mailbox (0 points, powderDelta; itemId is the ticket).
+  | 'craft_selector'
+  // Boss Crystals (not in the ledger) crafted into Transcendence Scrolls (0 points; services/heroes.ts; itemId is the set's crystals, `crystals:<set>`).
+  | 'craft_tp_scroll'
+  // A one-off fix made by hand (scripts/), like swapping an item given to the wrong member.
+  | 'admin_correction';
+
+/**
+ * A bet on a blackjack table that has not been settled yet. The points were taken from the member
+ * when they sat down, so this document is what says "this many points are on the table": whoever
+ * deletes it is the one that pays them back out (as a payout when the round ends, or as a refund
+ * if it never finishes), so a bet is paid out exactly once. `leaseUntil` is pushed forward while
+ * the table is being played; a bet whose lease has run out belongs to a table that died (the bot
+ * restarted) and is refunded by the sweeper (see services/casino/blackjack.ts).
+ */
+export interface BlackjackBetDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  /** Which table it is on. */
+  gameId: string;
+  /** Points on the table: the bet, and again after a double. */
+  bet: number;
+  leaseUntil: Date;
+  createdAt: Date;
+}
+
+/**
+ * A player's chips at a poker table (web/games/poker/table.ts). The buy-in was taken from their
+ * balance when they sat down, so this document is what says "these chips are at the table":
+ * whoever deletes it pays them out (standing up, or the sweeper when the table died), so they are
+ * paid exactly once. `chips` is saved after every hand (never in the middle of one, so a hand cut
+ * short by a restart simply never happened), and `leaseUntil` pushed forward while the table plays.
+ */
+export interface PokerSeatDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  /** The table it is at (its key in this process: see PokerTable). */
+  tableKey: string;
+  chips: number;
+  /** What they sat down with, all told (top-ups included): the ledger's buy-in. */
+  boughtIn: number;
+  leaseUntil: Date;
+  createdAt: Date;
+}
+
+/**
+ * A run in the mine that has not been settled yet. The bet was taken when the run started, so this
+ * document is what says "these points are down the mine": whoever deletes it is the one that pays
+ * out (a cash out, or nothing when dynamite went off), so a run is paid exactly once. `multiplier`
+ * is saved after every ore, and `leaseUntil` pushed forward while the run is played; a run whose
+ * lease has run out was cut short (the bot restarted) and the sweeper cashes it out at its
+ * multiplier (see services/casino/mines.ts).
+ */
+export interface MineRunDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  bet: number;
+  multiplier: number;
+  leaseUntil: Date;
+  createdAt: Date;
+}
+
+/**
+ * A member's Pinecraft world (see lib/game/pinecraft.ts): everything in it follows from `seed`, so
+ * all that is kept is which blocks have been dug, where the miner is, and their energy (as of
+ * `energyAt`; more has come back since). `_id` is "guildId:userId".
+ */
+export interface PinecraftWorldDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  seed: number;
+  /** Which layout of the world it was made with (PINECRAFT_WORLD.version); missing is the first. */
+  version?: number;
+  /** The week it was made for (pinecraftWeek's key); in a later week it starts over. */
+  week?: string;
+  /** The blocks dug, by index (row * size + column). */
+  mined: number[];
+  x: number;
+  y: number;
+  energy: number;
+  energyAt: Date;
+  /** Blocks dug since the last blast (with a Dynamite Stick); missing is 0. */
+  sinceBlast?: number;
+  /** Points its ores have paid, all told. */
+  earned: number;
+  /** Blocks dug, all told (every week's; `mined` is only this week's). Missing: counted from `mined` when next loaded. */
+  dugTotal?: number;
+  createdAt: Date;
+}
+
+/** Append-only record of every points change, for auditing. */
+export interface LedgerDoc {
+  guildId: string;
+  userId: string;
+  delta: number;
+  /** Change in komaTokens, when the entry moved any. */
+  tokenDelta?: number;
+  /** Change in komaGems, when the entry moved any. */
+  gemDelta?: number;
+  /** Change in komaDust, when the entry moved any. */
+  powderDelta?: number;
+  /** Hero essences given (+) or spent (-), by kind (data/transcend.ts EssenceId). */
+  essenceDelta?: Partial<Record<EssenceId, number>>;
+  reason: LedgerReason;
+  otherUserId?: string;
+  itemId?: string;
+  /** A gacha pull's: the banner it was pulled on (missing on pulls from before it was written down: lib/game/items/history.ts). */
+  banner?: BannerId;
+  createdAt: Date;
+}
+
+/**
+ * One document per server: the one channel it confines the bot to (services/channel.ts), and its
+ * state for the random events (src/events). `_id` is the server's id. Settings that are the same
+ * everywhere (how often, how big) are in SettingsDoc instead; this holds what differs between servers.
+ */
+export interface GuildDoc {
+  _id: string;
+  /**
+   * The one channel commands (message or slash) are confined to in this server, and where random
+   * events spawn. Missing or null means there's no restriction, and events are off. Used to be
+   * called `eventChannelId`, from when it only chose where events happened; renamed once commands
+   * became confined to it too (see services/migrate.ts's field-rename step).
+   */
+  channelId?: string | null;
+  /**
+   * The channel random events pop up in, when it isn't the one above (services/channel.ts getEventsChannelId).
+   * Missing or null: they spawn in `channelId`, as they always did.
+   */
+  eventsChannelId?: string | null;
+  /** When the next event is due. Missing or null means one has not been scheduled yet. */
+  nextEventAt?: Date | null;
+  /**
+   * The channel the newsletter (src/newsletter) goes to: the weekly digest and patch notes. Missing
+   * or null means the server gets no newsletter.
+   */
+  newsletterChannelId?: string | null;
+  /**
+   * The raid week (lib/events/raid-week.ts key) whose digest was last sent here, or the week the
+   * channel was chosen in (so the first digest waits for the next reset). Missing or null: not yet.
+   */
+  newsletterWeek?: string | null;
+  /**
+   * The message members react to for their notification roles (`newsletter roles`,
+   * src/newsletter/roles.ts). Missing or null: none has been posted here.
+   */
+  roleMessageId?: string | null;
+  /**
+   * The hardest raid difficulty the server has beaten (services/raid.ts): it can pick up to one level
+   * past it. Missing: none since difficulties came (a server that had beaten a raid before counts as 1).
+   */
+  raidDifficulty?: number;
+  /**
+   * The roles this server pings: for events (`config set notifyRole`) and for raids (`config set
+   * raidRole`), see services/roles.ts. Missing means the built-in one (NOTIFY_ROLES); null means none.
+   */
+  notifyRoleId?: string | null;
+  raidRoleId?: string | null;
+  /** When the last event started. */
+  lastEventAt?: Date | null;
+  /**
+   * The point crate that is open in this server right now, saved so that a restart of the bot
+   * does not lose it (it is picked up again, or paid out, when the bot starts). Removed when the
+   * crate is settled: whoever removes it is the one that pays.
+   */
+  openCrate?: OpenCrateDoc | null;
+  /**
+   * Points lost to gambling (a losing plinko drop, a lost blackjack hand, a caught rob's fine)
+   * that have not yet been paid out by a vault game (Greedy Heist, Split or Steal), or 0 if there is
+   * none. `events.vault.multiplier` times this is what a vault game puts up. Fed by `addVaultLoss` (services/vault.ts) from
+   * every game that loses points; a game added later feeds it the same way, one function call.
+   * Missing means 0 (no losses recorded yet).
+   */
+  vaultPool?: number;
+  /**
+   * How far the vault's hourly growth (events.vault.hourlyGrowth, see growVaults in
+   * services/vault.ts) has been paid up to. Missing means it hasn't started counting yet.
+   */
+  vaultGrownAt?: Date | null;
+  /**
+   * Running totals of what has gone into the vault since it was last claimed (a vault game paying
+   * out, see claimVault in services/vault.ts), by where it came from, for the vault command to show:
+   * losses and fines (everything through `addVaultLoss`), and the hourly growth. A claim sets them
+   * back to 0. Donations are counted from the ledger instead ('vault_donation', since
+   * vaultClaimedAt). Missing means 0.
+   */
+  vaultLosses?: number;
+  vaultGrown?: number;
+  /** When a vault game last paid out of the vault. Missing means it never has. */
+  vaultClaimedAt?: Date;
+  /** What was left in the vault right after that payout, carried into the current one. Missing means 0. */
+  vaultCarriedOver?: number;
+  /**
+   * Left over from the removed vault breaker event, which saved its open attempt here. Nothing
+   * writes it any more; services/migrate.ts clears it on start.
+   */
+  openVault?: unknown;
+}
+
+/** A point crate that has been posted and not settled yet. */
+export interface OpenCrateDoc {
+  channelId: string;
+  /** The crate message, which has the Grab button. */
+  messageId: string;
+  /** The points inside. */
+  pile: number;
+  /** When the crate opens (the grabbing stops). */
+  endsAt: Date;
+  /** Who has grabbed it so far (user ids), each once. */
+  grabbers: string[];
+}
+
+/**
+ * One document per raid: `_id` is "<server id>:<week key>:<start time>" (services/raid.ts newRaidId;
+ * raids from when there was one a week are "<server id>:<week key>", and their extra raid's has
+ * ":extra" after it). While the raid is being played (`preparing` or `fighting`) it also records every point that moved because of it, so
+ * a raid the bot never finished (it stopped part way) can give them back; see services/raid.ts.
+ */
+export interface RaidDoc {
+  _id: string;
+  guildId: string;
+  weekKey: string;
+  /** Which boss was fought. Raids saved before there was more than one boss don't have it: they were the dragon. */
+  boss?: RaidBossId;
+  startedBy: string;
+  status: 'preparing' | 'fighting' | 'won' | 'wiped' | 'fled';
+  channelId: string | null;
+  messageId: string | null;
+  /** Who is in the fight. */
+  players: string[];
+  /** Points each player spent on boosts, by user id. */
+  spent: Record<string, number>;
+  /** Points the boss stole from each player, by user id. */
+  stolen: Record<string, number>;
+  /** What `startedBy` paid for the week's extra raid, back when a week had one raid and `skip raid` bought another. */
+  skipPaid?: number;
+  /** Filled in when it ends: damage dealt by user id, and whose hit beat the boss. */
+  damage?: Record<string, number>;
+  /** Filled in when it ends: everything each player did, by user id (for `raid stats`). Raids from before it was saved only have `damage`. */
+  stats?: Record<string, RaidStats>;
+  lastHit?: string | null;
+  rounds?: number;
+  /** Each raider's gear as the fight started, by user id (web/models/gear.ts's wornGear), for the site's end screen. Raids from before it was saved don't have it. */
+  gear?: Record<string, unknown>;
+  /** Its difficulty level, set as the fight starts. Raids from before there were levels don't have it: they were level 1. */
+  difficulty?: number;
+  /** Won with the admin's test tools (`raid test kill`): it paid nothing and unlocks nothing. */
+  tested?: true;
+  /** The raid items each raider found for winning it, as item ids by user id (missing when none dropped). */
+  drops?: Record<string, string[]>;
+  /** Names that win's items for the site (its loot screen shows once per key), set with `drops`. */
+  lootKey?: string;
+  createdAt: Date;
+  endedAt?: Date | null;
+}
+
+/**
+ * Bot-wide settings: one document with _id "global". The other fields mirror the `Settings`
+ * shape in config.ts (prefix, embedColor, claim.min, gacha.cost, ...) and can be changed with
+ * the admin-only config command or directly in MongoDB.
+ */
+export interface SettingsDoc {
+  _id: string;
+  [key: string]: unknown;
+}
+
+/**
+ * A member's minesweeper record in a server (web/games/minesweeper/room.ts): the mines they have
+ * opened, the boards they helped clear, and the times a wrong flag of theirs sent someone else's
+ * chord into a mine. `_id` is "guildId:userId".
+ */
+export interface MinesweeperStatsDoc {
+  _id: string;
+  guildId: string;
+  userId: string;
+  bombs?: number;
+  wins?: number;
+  trolls?: number;
+}
+
+/**
+ * A minesweeper board cleared fast enough for its level's leaderboard in a server (see
+ * services/minesweeper.ts): how long it took, when, and everyone who opened a tile of it.
+ */
+export interface MinesweeperClearDoc {
+  guildId: string;
+  level: 'easy' | 'medium' | 'hard';
+  ms: number;
+  at: Date;
+  players: { id: string; name: string; tiles: number }[];
+}

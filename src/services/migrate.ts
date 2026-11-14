@@ -1,0 +1,478 @@
+import type { Filter } from 'mongodb';
+import { HOUR_MS } from '../constants/index.js';
+import { collections } from '../db.js';
+import { ITEMS_BY_ID, TM_DROPS } from '../data/items.js';
+import { rollTmArmorDef, rollTmPotentials, rollTmSkill, wholePotentials } from '../lib/game/technomagic.js';
+import { bestCopy } from '../lib/game/items/copies.js';
+import { reslotGear } from '../lib/game/items/reslot.js';
+import type { EquipmentDoc, ItemCopyDoc, LedgerDoc, TmArmorDef, TmPotential } from '../types.js';
+import { SLOTS } from '../types.js';
+
+/*
+ * One-time move from the old inventory (one document per item with a count, in the
+ * `inventory` collection) to one document per copy (the `items` collection).
+ *
+ *   1. Every old stack of N becomes N copies at level 0. Their ids are made from the old
+ *      document's id, so running this twice (or after a crash halfway) never duplicates
+ *      anything. Each old document is marked with `migratedAt` once its copies exist.
+ *   2. Equipped items used to be stored as item ids. They are changed to the id of the
+ *      member's best copy of that item (or cleared if they no longer own one).
+ *
+ * When both steps are done a marker is saved in the `meta` collection, and later starts skip
+ * everything. The old `inventory` collection is left in place, untouched apart from the
+ * `migratedAt` marks, so nothing is lost; it can be deleted whenever you like.
+ */
+
+const MARKER_ID = 'itemCopies';
+const BATCH = 500;
+
+export interface MigrationResult {
+  skipped: boolean;
+  stacks: number;
+  copies: number;
+  equipped: number;
+}
+
+export async function migrateInventory(): Promise<MigrationResult> {
+  const { inventory, items, members, meta } = collections();
+
+  if (await meta.findOne({ _id: MARKER_ID })) return { skipped: true, stacks: 0, copies: 0, equipped: 0 };
+
+  // Step 1: old stacks -> copies.
+  let stacks = 0;
+  let copies = 0;
+  const pending = await inventory.find({ migratedAt: null }).toArray();
+  for (const stack of pending) {
+    const wanted: ItemCopyDoc[] = [];
+    const count = Math.max(0, Math.floor(Number(stack.count) || 0));
+    for (let i = 0; i < count; i++) {
+      wanted.push({
+        _id: `legacy-${String(stack._id)}-${i}`,
+        guildId: stack.guildId,
+        userId: stack.userId,
+        itemId: stack.itemId,
+        level: 0,
+        obtainedAt: stack.firstObtainedAt ?? new Date(),
+      });
+    }
+
+    for (let start = 0; start < wanted.length; start += BATCH) {
+      const chunk = wanted.slice(start, start + BATCH);
+      // Skip copies that already exist from an interrupted earlier run.
+      const existing = await items.find({ _id: { $in: chunk.map((copy) => copy._id) } }).toArray();
+      const have = new Set(existing.map((copy) => copy._id));
+      const missing = chunk.filter((copy) => !have.has(copy._id));
+      if (missing.length > 0) {
+        await items.insertMany(missing);
+        copies += missing.length;
+      }
+    }
+    await inventory.updateOne({ _id: stack._id }, { $set: { migratedAt: new Date() } });
+    stacks += 1;
+  }
+
+  // Step 2: equipped item ids -> copy ids.
+  let equipped = 0;
+  const wearing = await members.find({ equipment: { $exists: true } }).toArray();
+  for (const member of wearing) {
+    for (const slot of SLOTS) {
+      const stored = member.equipment?.[slot];
+      if (!stored) continue;
+
+      const { guildId, userId } = member;
+      const alreadyCopy = await items.findOne({ guildId, userId, _id: stored });
+      if (alreadyCopy) continue;
+
+      const owned = await items.find({ guildId, userId, itemId: stored }).toArray();
+      const copy = bestCopy(owned);
+      await members.updateOne({ guildId, userId }, { $set: { [`equipment.${slot}`]: copy?._id ?? null } });
+      equipped += 1;
+    }
+  }
+
+  await meta.updateOne({ _id: MARKER_ID }, { $set: { migratedAt: new Date(), stacks, copies, equipped } }, { upsert: true });
+  return { skipped: false, stacks, copies, equipped };
+}
+
+/*
+ * Keeps unique-treasure items in the right equipment field. Unlike the marker-gated migration
+ * above, this is NOT gated to run once: it is cheap and fully idempotent, and it has to be
+ * repeatable, because the treasure list keeps growing as items in the catalog get turned into
+ * unique treasures (this happened once already: Wheelchair and D20 moved first, then C4, Frog,
+ * Sid the Sloth and Coughing Baby followed later, after some members already had them equipped
+ * as their weapon or armor). It does two things, every start:
+ *
+ *   1. Field rename: the treasure slot used to be stored as `equipment.unique` (from the
+ *      original refactor). Any member still holding that old field name gets it renamed to
+ *      `equipment.treasure` in one atomic $rename.
+ *   2. Stale slot: an item's catalog `slot` can change after members already have it equipped.
+ *      `equippedItems()` (lib/game/items/equipment.ts) only counts a copy that sits in the field
+ *      matching its *current* catalog slot, so a copy left behind in the wrong field gives its
+ *      wearer nothing and shows as a broken/unknown slot in `k!gear`. This step finds any
+ *      weapon/armor copy whose current catalog slot is 'treasure' and reconciles it: moves it
+ *      into the treasure slot if that slot is empty, or -- if the member is already wearing a
+ *      different treasure item -- just clears it from weapon/armor, since it wasn't doing
+ *      anything there anyway.
+ *
+ * The only way a member could need the move step for two items at once (a treasure item
+ * equipped as their weapon AND another as their armor, with the treasure slot itself still
+ * empty) is the admin, since real unique treasures are each exclusive to one other person. If
+ * that happens, the weapon one wins the treasure slot and the armor one is unequipped (same
+ * tie-break the original one-time migration used).
+ */
+
+export interface TreasureSlotSyncResult {
+  renamed: number;
+  moved: number;
+  cleared: number;
+  dropped: number;
+}
+
+export async function syncTreasureSlot(): Promise<TreasureSlotSyncResult> {
+  const { items, members } = collections();
+
+  // Step 1: equipment.unique -> equipment.treasure (the old field name from before the rename).
+  const renameResult = await members.updateMany(
+    { 'equipment.unique': { $exists: true } },
+    { $rename: { 'equipment.unique': 'equipment.treasure' } },
+  );
+  const renamed = renameResult.modifiedCount;
+
+  // Step 2: a treasure item stuck in weapon or armor (the catalog changed after it was equipped).
+  let moved = 0;
+  let cleared = 0;
+  let dropped = 0;
+  const wearing = await members
+    .find({ $or: [{ 'equipment.weapon': { $ne: null } }, { 'equipment.armor': { $ne: null } }] })
+    .toArray();
+  for (const member of wearing) {
+    const { guildId, userId } = member;
+    const weaponId = member.equipment?.weapon ?? null;
+    const armorId = member.equipment?.armor ?? null;
+    if (!weaponId && !armorId) continue;
+
+    const copyIds = [weaponId, armorId].filter((id): id is string => typeof id === 'string' && id !== '');
+    const copies = await items.find({ guildId, userId, _id: { $in: copyIds } }).toArray();
+    const weaponCopy = weaponId ? copies.find((copy) => copy._id === weaponId) : undefined;
+    const armorCopy = armorId ? copies.find((copy) => copy._id === armorId) : undefined;
+    const weaponIsTreasure = weaponCopy ? ITEMS_BY_ID.get(weaponCopy.itemId)?.slot === 'treasure' : false;
+    const armorIsTreasure = armorCopy ? ITEMS_BY_ID.get(armorCopy.itemId)?.slot === 'treasure' : false;
+    if (!weaponIsTreasure && !armorIsTreasure) continue;
+
+    const currentTreasureId = member.equipment?.treasure ?? null;
+    const update: Record<string, unknown> = {};
+    if (currentTreasureId) {
+      // Already wearing a (different) treasure item: the stale one wasn't doing anything, just clear it.
+      if (weaponIsTreasure) update['equipment.weapon'] = null;
+      if (armorIsTreasure) update['equipment.armor'] = null;
+      cleared += 1;
+    } else {
+      const winnerId = weaponIsTreasure ? weaponId : armorId;
+      update['equipment.treasure'] = winnerId;
+      if (weaponIsTreasure) update['equipment.weapon'] = null;
+      if (armorIsTreasure) update['equipment.armor'] = null;
+      moved += 1;
+      if (weaponIsTreasure && armorIsTreasure) dropped += 1;
+    }
+    await members.updateOne({ guildId, userId }, { $set: update });
+  }
+
+  return { renamed, moved, cleared, dropped };
+}
+
+/*
+ * Keeps weapons and armor in the right equipment field when an item's catalog slot changes between
+ * the two after members already wear it (the healing gear moved from armor to weapon). Like
+ * syncTreasureSlot it is cheap, idempotent and runs every start, and it runs after it. For the
+ * gear worn now and the gear in every saved loadout, a copy in the wrong field moves into the one
+ * its item belongs in when that is free (or swaps with a copy going the other way); otherwise it
+ * comes off, since it gave its wearer nothing where it was (see reslotGear).
+ */
+export async function syncGearSlots(): Promise<{ moved: number; cleared: number }> {
+  const { items, members } = collections();
+  let moved = 0;
+  let cleared = 0;
+  const wearing = await members
+    .find({ $or: [{ 'equipment.weapon': { $type: 'string' } }, { 'equipment.armor': { $type: 'string' } }, { loadouts: { $exists: true } }] })
+    .toArray();
+  for (const member of wearing) {
+    const { guildId, userId } = member;
+    const saved = Object.entries(member.loadouts ?? {}).filter(([, loadout]) => loadout?.equipment);
+    const sets: [string, EquipmentDoc | null | undefined][] = [
+      ['equipment', member.equipment],
+      ...saved.map(([key, loadout]): [string, EquipmentDoc | null | undefined] => [`loadouts.${key}.equipment`, loadout.equipment]),
+    ];
+    const copyIds = sets.flatMap(([, eq]) => [eq?.weapon, eq?.armor]).filter((id): id is string => typeof id === 'string' && id !== '');
+    if (copyIds.length === 0) continue;
+    const copies = await items.find({ guildId, userId, _id: { $in: copyIds } }).toArray();
+    const slotOf = (copyId: string) => {
+      const copy = copies.find((c) => c._id === copyId);
+      return copy ? ITEMS_BY_ID.get(copy.itemId)?.slot : undefined;
+    };
+
+    const update: Record<string, string | null> = {};
+    for (const [path, eq] of sets) {
+      const fixed = reslotGear(eq, slotOf);
+      if (!fixed) continue;
+      update[`${path}.weapon`] = fixed.weapon;
+      update[`${path}.armor`] = fixed.armor;
+      moved += fixed.moved;
+      cleared += fixed.cleared;
+    }
+    if (Object.keys(update).length > 0) await members.updateOne({ guildId, userId }, { $set: update });
+  }
+  return { moved, cleared };
+}
+
+/*
+ * Items taken out of the catalog when raid gear became raid-only, each with the raid drop that has
+ * its perk and takes its place: the 3-star gacha items whose exact perk was already a 3-star raid
+ * drop, and the 1- and 2-star raid gear (raids only drop 3- and 4-star items). Their copies become
+ * copies of the raid drop, keeping their ids (so whatever wears them, now or in a saved loadout,
+ * still does), levels and locks. Every pair shares a slot, so nothing has to move.
+ */
+export const RETIRED_ITEMS: Readonly<Record<string, string>> = {
+  'wyrmscale-plate': 'stalwart-pavise',
+  'troll-hide-cuirass': 'giants-hauberk',
+  'dragonslayer-greatsword': 'quarrybreaker-hammer',
+  'eagle-eye-crossbow': 'starfinder-longbow',
+  'heartseeker-rapier': 'wyvern-tooth',
+  'saints-mantle': 'cherubs-sash',
+  wyrmpiercer: 'whalers-lance',
+  soulrender: 'consecrated-sickle',
+  'sapling-wand': 'dragonbone-staff',
+  'willow-wand': 'dragonbone-staff',
+  'padded-gambeson': 'stalwart-pavise',
+  'studded-brigandine': 'stalwart-pavise',
+  'tin-whistle': 'war-banner',
+  'battle-horn': 'war-banner',
+  'thorned-club': 'consecrated-sickle',
+  'serrated-hatchet': 'consecrated-sickle',
+  'boiled-leather-vest': 'giants-hauberk',
+  'chainmail-hauberk': 'giants-hauberk',
+  'chipped-hand-axe': 'quarrybreaker-hammer',
+  'steel-warhammer': 'quarrybreaker-hammer',
+  'throwing-knives': 'starfinder-longbow',
+  'hunters-longbow': 'starfinder-longbow',
+  'barbed-spear': 'wyvern-tooth',
+  'executioners-axe': 'wyvern-tooth',
+  'acolytes-robe': 'cherubs-sash',
+  'clerics-vestments': 'cherubs-sash',
+  // TechnoMagic gear became a tier of its own, with no 3-star pieces: each became its slot's piece for its class.
+  'chimera-fang': 'tri-head-cleaver',
+  'venomglass-stiletto': 'tri-head-cleaver',
+  'aether-conduit': 'arcane-railgun',
+  'scaleweave-coat': 'chimera-hide-plate',
+  'mirror-buckler': 'chimera-hide-plate',
+  'cogwork-amulet': 'galgorias-heart',
+};
+
+/**
+ * Turns copies of RETIRED_ITEMS into copies of the items that replace them (see there). Idempotent
+ * and cheap once done (no copy has a retired id any more), so it runs every start.
+ */
+export async function retireItems(): Promise<number> {
+  const { items } = collections();
+  let swapped = 0;
+  for (const [from, to] of Object.entries(RETIRED_ITEMS)) {
+    swapped += (await items.updateMany({ itemId: from }, { $set: { itemId: to } })).modifiedCount;
+  }
+  return swapped;
+}
+
+/**
+ * TechnoMagic gear comes with an additional skill (ItemCopyDoc.tmSkill), rolled as it drops. Copies from
+ * before that (or from anywhere else that made one without it) are given one now, at random as a drop's is.
+ * Idempotent and cheap once done (no TechnoMagic copy lacks one), so it runs every start.
+ */
+export async function rollMissingTmSkills(roll: () => string = rollTmSkill): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmSkill: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmSkill: { $exists: false } }, update: { $set: { tmSkill: roll() } } } })));
+  }
+  return missing.length;
+}
+
+/**
+ * TechnoMagic gear comes with potentials (ItemCopyDoc.tmPotentials), rolled as it drops. Copies from before
+ * them are given theirs now, at random as a drop's are. Idempotent and cheap once done (no TechnoMagic copy
+ * lacks them), so it runs every start.
+ */
+export async function rollMissingTmPotentials(roll: () => TmPotential[] = rollTmPotentials): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmPotentials: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmPotentials: { $exists: false } }, update: { $set: { tmPotentials: roll() } } } })));
+  }
+  return missing.length;
+}
+
+/**
+ * TechnoMagic armor comes with its main stat's DEF (ItemCopyDoc.tmArmorDef: P.DEF or M.DEF), rolled as it drops.
+ * Copies from before that are given one now, at random as a drop's is. Idempotent and cheap once done (no
+ * TechnoMagic armor lacks one), so it runs every start.
+ */
+export async function rollMissingTmArmorDefs(roll: () => TmArmorDef = rollTmArmorDef): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.filter((item) => item.slot === 'armor').map((item) => item.id);
+  const missing = await items.find({ itemId: { $in: ids }, tmArmorDef: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await items.bulkWrite(batch.map(({ _id }) => ({ updateOne: { filter: { _id, tmArmorDef: { $exists: false } }, update: { $set: { tmArmorDef: roll() } } } })));
+  }
+  return missing.length;
+}
+
+/**
+ * TechnoMagic potentials are whole percents (rollTmPotentials rolls them so); the copies' from before, finer, are
+ * rounded to the nearest. Idempotent (a copy's already whole is left), so it runs every start.
+ */
+export async function roundTmPotentials(): Promise<number> {
+  const { items } = collections();
+  const ids = TM_DROPS.map((item) => item.id);
+  const copies = await items.find({ itemId: { $in: ids }, tmPotentials: { $exists: true } }, { projection: { _id: 1, tmPotentials: 1 } }).toArray();
+  const changed = copies.flatMap(({ _id, tmPotentials }) => {
+    const whole = wholePotentials(tmPotentials ?? []);
+    return whole ? [{ _id, whole }] : [];
+  });
+  for (let i = 0; i < changed.length; i += BATCH) {
+    await items.bulkWrite(changed.slice(i, i + BATCH).map(({ _id, whole }) => ({ updateOne: { filter: { _id }, update: { $set: { tmPotentials: whole } } } })));
+  }
+  return changed.length;
+}
+
+/*
+ * Field rename: a server's one dedicated channel used to be stored as `eventChannelId`, back
+ * when it only chose where random events happened; it's now `channelId` (see services/channel.ts
+ * and types.ts's GuildDoc), since commands are confined to it too. Cheap, fully idempotent (a
+ * $rename on a document that doesn't have the old field is a no-op), so like syncTreasureSlot
+ * above this runs every start instead of being gated behind a one-time marker.
+ */
+export async function renameEventChannelField(): Promise<number> {
+  const { guilds } = collections();
+  const result = await guilds.updateMany({ eventChannelId: { $exists: true } }, { $rename: { eventChannelId: 'channelId' } });
+  return result.modifiedCount;
+}
+
+/*
+ * A Unique Weapon or Unique Treasure Ticket was 10,000 komaDust, and is 1,000 now (the user's): the settings document still says
+ * the old price (loadSettings only fills in what is missing), so it is lowered once, unless an admin had set it to something
+ * else. The marker in `meta` keeps it from undoing an admin's 10,000 set later. Runs before the settings are loaded.
+ */
+export async function lowerSelectorPrice(): Promise<boolean> {
+  const { meta, settings } = collections();
+  if (await meta.findOne({ _id: 'selectorPrice1000' })) return false;
+  const lowered = await settings.updateOne({ _id: 'global', 'sell.powderPerSelector': 10_000 }, { $set: { 'sell.powderPerSelector': 1_000 } });
+  await meta.updateOne({ _id: 'selectorPrice1000' }, { $set: { migratedAt: new Date() } }, { upsert: true });
+  return lowered.modifiedCount > 0;
+}
+
+/*
+ * The vault breaker event was replaced by Greedy Heist and Split or Steal, which don't save
+ * themselves. A vault breaker left open when the bot last stopped is just cleared: it only moved
+ * points once it settled, so dropping it takes nothing from anyone. Idempotent, runs every start.
+ */
+export async function clearOpenVaults(): Promise<number> {
+  const { guilds } = collections();
+  const result = await guilds.updateMany({ openVault: { $exists: true } }, { $unset: { openVault: '' } });
+  return result.modifiedCount;
+}
+
+/*
+ * The mine was renamed Mines: its settings (`mine.*` in the settings document), the collection its
+ * rounds are kept in (mine_runs), and its ledger reasons (mine_bet, mine_payout) all say "mines"
+ * now. This moves what was stored under the old names, keeping the values: settings as they were
+ * set, rounds still being played (so they are paid out as usual), and the ledger's history. It has
+ * to run before the settings are loaded (they would otherwise be filled in with the defaults) and
+ * before the rounds' sweeper starts. Idempotent, and cheap once done: runs every start.
+ */
+export async function renameMinesData(): Promise<{ settings: boolean; rounds: number; ledger: number }> {
+  const { settings, minesRuns, oldMineRuns, ledger } = collections();
+
+  // Settings: moved over unless the new ones are already there, in which case the old are dropped.
+  const moved = await settings.updateMany({ mine: { $exists: true }, mines: { $exists: false } }, { $rename: { mine: 'mines' } });
+  await settings.updateMany({ mine: { $exists: true } }, { $unset: { mine: '' } });
+
+  // Rounds: copied into the new collection (skipping any already there), then the old one is dropped.
+  let rounds = 0;
+  const old = await oldMineRuns.find({}).toArray();
+  for (const doc of old) {
+    const result = await minesRuns.updateOne({ _id: doc._id }, { $setOnInsert: doc }, { upsert: true });
+    rounds += result.upsertedCount;
+  }
+  if (old.length > 0) await oldMineRuns.drop().catch(() => {});
+
+  // The ledger's history.
+  let renamed = 0;
+  for (const [from, to] of [
+    ['mine_bet', 'mines_bet'],
+    ['mine_payout', 'mines_payout'],
+  ] as const) {
+    const result = await ledger.updateMany({ reason: from } as unknown as Filter<LedgerDoc>, { $set: { reason: to } });
+    renamed += result.modifiedCount;
+  }
+  return { settings: moved.modifiedCount > 0, rounds, ledger: renamed };
+}
+
+/*
+ * The TechnoMagic Raid's hero Clause was renamed Klaus, his id with him (`clause` to `klaus`): members' hero (MemberDoc.heroes,
+ * with its gear, transcendence and perks), the runs he fought in (TmRunDoc.heroes, so one not yet claimed is still fought
+ * with him), and the ledger's purchases of him. A member who somehow has both keeps the Klaus they have. Idempotent, and
+ * cheap once done: runs every start.
+ */
+export async function renameClauseToKlaus(): Promise<{ members: number; runs: number; ledger: number }> {
+  const { members, tmRuns, ledger } = collections();
+  const moved = await members.updateMany({ 'heroes.clause': { $exists: true }, 'heroes.klaus': { $exists: false } }, { $rename: { 'heroes.clause': 'heroes.klaus' } });
+  await members.updateMany({ 'heroes.clause': { $exists: true } }, { $unset: { 'heroes.clause': '' } });
+  const runs = await tmRuns.updateMany({ 'heroes.id': 'clause' }, { $set: { 'heroes.$[hero].id': 'klaus' } }, { arrayFilters: [{ 'hero.id': 'clause' }] });
+  const bought = await ledger.updateMany({ reason: 'hero', itemId: 'clause' } as unknown as Filter<LedgerDoc>, { $set: { itemId: 'klaus' } });
+  return { members: moved.modifiedCount, runs: runs.modifiedCount, ledger: bought.modifiedCount };
+}
+
+/** Ledger reasons for a vault game paying out of the vault (a claim, see claimVault in services/vault.ts). */
+const VAULT_PAYOUT_REASONS = ['heist_loot', 'split_steal', 'code_prize'] as const;
+
+/**
+ * The vault command counts what went into the vault since it was last claimed, but claims only
+ * started being saved (vaultClaimedAt) later. For a server whose vault was claimed before that,
+ * this dates the last claim from the ledger's last vault game payout and estimates the totals
+ * since then, since the old ones were all-time and can't be split exactly: donations come from
+ * the ledger anyway, the hourly growth is the time since the claim at `perHour` (never more than
+ * was ever grown), and losses are the rest of what's in the vault, as if the claim had emptied it.
+ * The next real claim replaces all of this. Idempotent (only servers with no vaultClaimedAt),
+ * runs every start.
+ */
+export async function backfillVaultClaims(perHour: number, now: Date = new Date()): Promise<number> {
+  const { guilds, ledger } = collections();
+  const payouts = await ledger
+    .aggregate<{ _id: string; at: Date }>([
+      { $match: { reason: { $in: [...VAULT_PAYOUT_REASONS] } } },
+      { $group: { _id: '$guildId', at: { $max: '$createdAt' } } },
+    ])
+    .toArray();
+  let backfilled = 0;
+  for (const { _id: guildId, at } of payouts) {
+    const doc = await guilds.findOne({ _id: guildId });
+    if (!doc || doc.vaultClaimedAt) continue;
+    const [donations] = await ledger
+      .aggregate<{ amount: number }>([
+        { $match: { guildId, reason: 'vault_donation', createdAt: { $gte: at } } },
+        { $group: { _id: null, amount: { $sum: { $multiply: ['$delta', -1] } } } },
+      ])
+      .toArray();
+    const pool = doc.vaultPool ?? 0;
+    const grown = Math.min(doc.vaultGrown ?? 0, Math.max(0, Math.floor(((now.getTime() - at.getTime()) * Math.max(0, perHour)) / HOUR_MS)));
+    const losses = Math.max(0, pool - (donations?.amount ?? 0) - grown);
+    const result = await guilds.updateOne(
+      { _id: guildId, vaultClaimedAt: { $exists: false } },
+      { $set: { vaultClaimedAt: at, vaultCarriedOver: 0, vaultGrown: grown, vaultLosses: losses } },
+    );
+    backfilled += result.modifiedCount;
+  }
+  return backfilled;
+}

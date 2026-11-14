@@ -1,0 +1,125 @@
+import { MongoClient, type Collection } from 'mongodb';
+import { optionalEnv, requireEnv } from './env.js';
+import type { BlackjackBetDoc, GuildDoc, ItemCopyDoc, LedgerDoc, LegacyInventoryDoc, MailDoc, MemberDoc, MetaDoc, MineRunDoc, MinesweeperClearDoc, MinesweeperStatsDoc, PinecraftWorldDoc, PokerSeatDoc, RaidDoc, SettingsDoc, TmBatchDoc, TmRunDoc } from './types.js';
+
+export interface Collections {
+  members: Collection<MemberDoc>;
+  /** One document per copy of an item a member owns. */
+  items: Collection<ItemCopyDoc>;
+  /** The old inventory (a count per item). Only read by the one-time migration. */
+  inventory: Collection<LegacyInventoryDoc>;
+  ledger: Collection<LedgerDoc>;
+  settings: Collection<SettingsDoc>;
+  meta: Collection<MetaDoc>;
+  /** Per-server data that is not in the settings: the events channel and when the next event is due. */
+  guilds: Collection<GuildDoc>;
+  /** Points that are on a blackjack table right now (see services/casino/blackjack.ts). */
+  blackjackBets: Collection<BlackjackBetDoc>;
+  /** Runs in the mine being played right now (see services/casino/mines.ts). */
+  minesRuns: Collection<MineRunDoc>;
+  /** Where rounds were kept before the mine was renamed Mines. Only read by the one-time move (services/migrate.ts). */
+  oldMineRuns: Collection<MineRunDoc>;
+  /** One Pinecraft world per member per server (see services/pinecraft.ts). */
+  pinecraftWorlds: Collection<PinecraftWorldDoc>;
+  /** One per server per raid week (see services/raid.ts). */
+  raids: Collection<RaidDoc>;
+  pokerSeats: Collection<PokerSeatDoc>;
+  /** One per member per server: their minesweeper record (see services/minesweeper.ts). */
+  minesweeperStats: Collection<MinesweeperStatsDoc>;
+  /** A server's fastest minesweeper clears, by level (see services/minesweeper.ts). */
+  minesweeperClears: Collection<MinesweeperClearDoc>;
+  /** TechnoMagic Raid runs, begun and claimed (see services/technomagic.ts). */
+  tmRuns: Collection<TmRunDoc>;
+  /** The members' mailboxes: one document a mail (see services/mail.ts). */
+  mail: Collection<MailDoc>;
+  /** Members' batches of background raids (see services/tm-batches.ts). */
+  tmBatches: Collection<TmBatchDoc>;
+}
+
+let client: MongoClient | undefined;
+let cols: Collections | undefined;
+
+/** Connects using MONGODB_URL, creates indexes, and returns the collections. Safe to call twice. */
+export async function connectDb(): Promise<Collections> {
+  if (cols) return cols;
+
+  const mongo = new MongoClient(requireEnv('MONGODB_URL'));
+  await mongo.connect();
+  const db = mongo.db(optionalEnv('MONGODB_DB_NAME') ?? 'koma');
+
+  const collections: Collections = {
+    members: db.collection<MemberDoc>('members'),
+    items: db.collection<ItemCopyDoc>('items'),
+    inventory: db.collection<LegacyInventoryDoc>('inventory'),
+    ledger: db.collection<LedgerDoc>('ledger'),
+    settings: db.collection<SettingsDoc>('settings'),
+    meta: db.collection<MetaDoc>('meta'),
+    guilds: db.collection<GuildDoc>('guilds'),
+    blackjackBets: db.collection<BlackjackBetDoc>('blackjack_bets'),
+    minesRuns: db.collection<MineRunDoc>('mines_runs'),
+    oldMineRuns: db.collection<MineRunDoc>('mine_runs'),
+    pinecraftWorlds: db.collection<PinecraftWorldDoc>('pinecraft_worlds'),
+    raids: db.collection<RaidDoc>('raids'),
+    pokerSeats: db.collection<PokerSeatDoc>('poker_seats'),
+    minesweeperStats: db.collection<MinesweeperStatsDoc>('minesweeper_stats'),
+    minesweeperClears: db.collection<MinesweeperClearDoc>('minesweeper_clears'),
+    tmRuns: db.collection<TmRunDoc>('tm_runs'),
+    mail: db.collection<MailDoc>('mail'),
+    tmBatches: db.collection<TmBatchDoc>('tm_batches'),
+  };
+
+  await Promise.all([
+    // One member document per (server, user). The unique index also makes upserts safe.
+    collections.members.createIndex({ guildId: 1, userId: 1 }, { unique: true }),
+    // Leaderboard lookups.
+    collections.members.createIndex({ guildId: 1, points: -1 }),
+    // A member's copies, and their copies of one item.
+    collections.items.createIndex({ guildId: 1, userId: 1, itemId: 1 }),
+    collections.ledger.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
+    // The weekly newsletter's look at one kind of entry (robs) over one week in a server.
+    collections.ledger.createIndex({ guildId: 1, reason: 1, createdAt: 1 }),
+    // Which items a member has ever pulled or sold (the gacha's "New!"). Only entries with an item.
+    collections.ledger.createIndex(
+      { guildId: 1, userId: 1, itemId: 1 },
+      { partialFilterExpression: { itemId: { $exists: true } } },
+    ),
+    // The sweeper looks for bets whose lease ran out; a table renews the bets it owns by game.
+    collections.blackjackBets.createIndex({ leaseUntil: 1 }),
+    collections.blackjackBets.createIndex({ gameId: 1 }),
+    // The mine's sweeper looks for runs whose lease ran out.
+    collections.minesRuns.createIndex({ leaseUntil: 1 }),
+    // Pinecraft's leaderboards: a server's miners by coins earned, and by blocks dug.
+    collections.pinecraftWorlds.createIndex({ guildId: 1, earned: -1 }),
+    collections.pinecraftWorlds.createIndex({ guildId: 1, dugTotal: -1 }),
+    // Raids left unfinished when the bot stopped are looked up by status on start.
+    collections.raids.createIndex({ status: 1 }),
+    // A server's latest raid in a week (the site's raid page).
+    collections.raids.createIndex({ guildId: 1, weekKey: 1, createdAt: -1 }),
+    collections.pokerSeats.createIndex({ leaseUntil: 1 }),
+    collections.pokerSeats.createIndex({ tableKey: 1 }),
+    // Minesweeper's leaderboards: a server's fastest clears of a level.
+    collections.minesweeperClears.createIndex({ guildId: 1, level: 1, ms: 1 }),
+    // A member's won TechnoMagic Raid runs, best stage first (the stages they have opened).
+    collections.tmRuns.createIndex({ guildId: 1, userId: 1, result: 1, stage: -1 }),
+    collections.mail.createIndex({ guildId: 1, userId: 1, createdAt: -1 }),
+    // A member's batch of background raids running (one at most: two started at once can't both be), and their latest; and every one running (resumed as the bot starts).
+    collections.tmBatches.createIndex({ guildId: 1, userId: 1 }, { unique: true, partialFilterExpression: { state: 'running' }, name: 'one_running' }),
+    collections.tmBatches.createIndex({ guildId: 1, userId: 1, startedAt: -1 }),
+    collections.tmBatches.createIndex({ state: 1 }),
+  ]);
+
+  client = mongo;
+  cols = collections;
+  return collections;
+}
+
+export function collections(): Collections {
+  if (!cols) throw new Error('Database is not connected. Call connectDb() first.');
+  return cols;
+}
+
+export async function closeDb(): Promise<void> {
+  await client?.close();
+  client = undefined;
+  cols = undefined;
+}
