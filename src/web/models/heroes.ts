@@ -61,11 +61,11 @@ import { isTmPiece, tmStoneClass } from '../../data/kr-gear.js';
 import type { TmSetId } from '../../protocol/items.js';
 import { RAID_CLASS_IDS } from '../../protocol/raid.js';
 import type { GearSale } from '../../protocol/gear.js';
-import type { HeroCopy, HeroEquipError, HeroesView, HeroKeep, HeroLoadoutError, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
-import { gearStore, refineState } from './gear.js';
+import type { HeroCopy, HeroEquipError, HeroesChange, HeroesView, HeroKeep, HeroLoadoutError, HeroOptionError, HeroPart, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRune, HeroRuneError, HeroRuneStack, HeroTranscendError, HeroView, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
+import { copiesByItem, gearStore, refineState } from './gear.js';
 import { blasphemyLookup, blasphemyMain, isBlasphemyRef, lineText, type BlasphemyLookup } from '../../lib/game/divine.js';
 
-export type { HeroCopy, HeroEquipError, HeroesView, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
+export type { HeroCopy, HeroEquipError, HeroesChange, HeroesView, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroTranscendError, HeroView };
 
 /*
  * The TechnoMagic Raid's heroes on the site (GET /api/heroes, POST /api/heroes/buy, /equip, /unequip, /refine, /rune, /reroll,
@@ -100,14 +100,14 @@ export interface HeroStore {
   refine: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroRefineError>;
   /** Puts one of their runes in a copy's socket (`rune` null: takes the one in it out): the heroes after, or why not. */
   rune: (guildId: string, userId: string, copy: string, socket: number, rune: string | null) => Promise<HeroesView | HeroRuneError>;
-  /** Rerolls one of a copy's options (or its unique option), for points: the heroes after, or why not. */
-  reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
-  /** Keeps a TechnoMagic copy's rerolled additional skill ('new') or the one it had ('old'): the heroes after, or why not. */
-  keep: (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique') => Promise<HeroesView | HeroOptionError>;
-  /** Enhances one of a copy's options (its `option`th: its amount rolled again), for points: the heroes after, or why not. */
-  upgrade: (guildId: string, userId: string, copy: string, option: number) => Promise<HeroesView | HeroOptionError>;
-  /** Restores one of their 5★ TechnoMagic pieces into a 0★ Reclaimed one, for Technomagic Experiment Reports and points: the heroes after, or why not (nothing was spent). */
-  restore: (guildId: string, userId: string, copy: string) => Promise<HeroesView | HeroRestoreError>;
+  /** Rerolls one of a copy's options (or its unique option), for points: the heroes after (the copies it could have changed), or why not. */
+  reroll: (guildId: string, userId: string, copy: string, option: number | 'unique') => Promise<HeroesChange | HeroOptionError>;
+  /** Keeps a TechnoMagic copy's rerolled additional skill ('new') or the one it had ('old'): the heroes after (the copies it could have changed), or why not. */
+  keep: (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique') => Promise<HeroesChange | HeroOptionError>;
+  /** Enhances one of a copy's options (its `option`th: its amount rolled again), for points: the heroes after (the copies it could have changed), or why not. */
+  upgrade: (guildId: string, userId: string, copy: string, option: number) => Promise<HeroesChange | HeroOptionError>;
+  /** Restores one of their 5★ TechnoMagic pieces into a 0★ Reclaimed one, for Technomagic Experiment Reports and points: the heroes after (the copies it could have changed), or why not (nothing was spent). */
+  restore: (guildId: string, userId: string, copy: string) => Promise<HeroesChange | HeroRestoreError>;
   /** Sells those of their copies that can be (the gear page's sale; `locked`: locked ones too; `salvage`: salvaged): what it came to, or 'nothing_to_sell'. */
   sell: (guildId: string, userId: string, copies: readonly string[], locked?: boolean, salvage?: boolean) => Promise<GearSale | 'nothing_to_sell'>;
   /** Locks or unlocks one of their copies (the gear page's lock): false when they don't own it. */
@@ -262,6 +262,7 @@ export function heroesView(
     const item = ITEMS_BY_ID.get(copy.itemId);
     if (hero && item) onHero.set(hero, [...(onHero.get(hero) ?? []), { item }]);
   }
+  const sameItem = copiesByItem(copies);
   const list: HeroCopy[] = [];
   const pieces = new Map<string, { view: HeroCopy; piece: HeroPiece }>();
   for (const copy of copies) {
@@ -322,7 +323,7 @@ export function heroesView(
       hero: hero ?? null,
       refine: { blocked: null, cost: null, spare: null, after: null },
     };
-    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, member?.points ?? 0, member?.stones ?? {});
+    const { to, ...refine } = refineState(copy._id, sameItem.get(copy.itemId) ?? [], item, kept, member?.points ?? 0, member?.stones ?? {});
     view.refine = {
       ...refine,
       after: to === null ? null : heroItemLines(item, to, copy.tmPotentials, copy.options, runes),
@@ -409,6 +410,30 @@ async function load(guildId: string, userId: string): Promise<HeroesView> {
   return heroesView(copies, member);
 }
 
+/**
+ * The ids of the copies the heroes' view after a change to `copyId` needs, besides their other copies of its item (refineState's):
+ * it, and every copy they or their heroes wear or a loadout keeps (a hero's sets, effects and totals, and the loadouts, count those).
+ */
+export const nearCopyIds = (member: Parameters<typeof heroesView>[1], copyId: string): string[] => [...new Set([copyId, ...equippedCopyIds(member?.equipment), ...keptCopyIds(member)])];
+
+/**
+ * The heroes' view after a change to a copy of `itemId`, from the copies it needs (nearCopyIds's and that item's) and the member:
+ * HeroesView, with only that item's copies (the others' refines need their own item's spares, not loaded).
+ */
+export function heroesChange(copies: readonly CopyInfo[], member: Parameters<typeof heroesView>[1], itemId: string): HeroesChange {
+  const { copies: every, ...view } = heroesView(copies, member);
+  return { ...view, changed: every.filter((copy) => copy.itemId === itemId) };
+}
+
+/** Their heroes after a change to their copy `copyId`, from only the copies it could have changed (not every one they own). */
+async function loadChange(guildId: string, userId: string, copyId: string): Promise<HeroesChange> {
+  const { items, members } = collections();
+  const [member, copy] = await Promise.all([members.findOne({ guildId, userId }), items.findOne({ guildId, userId, _id: copyId }, { projection: { itemId: 1 } })]);
+  const near = { _id: { $in: nearCopyIds(member, copyId) } };
+  const copies = await items.find({ guildId, userId, ...(copy ? { $or: [near, { itemId: copy.itemId }] } : near) }).toArray();
+  return heroesChange(copies, member, copy?.itemId ?? '');
+}
+
 export const heroStore: HeroStore = {
   view: load,
   owners: async (guildId, limit) => {
@@ -460,19 +485,19 @@ export const heroStore: HeroStore = {
   },
   reroll: async (guildId, userId, copy, option) => {
     const result = await rerollOption(guildId, userId, copy, option);
-    return result.ok ? load(guildId, userId) : result.reason;
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
   },
   keep: async (guildId, userId, copy, keep, option) => {
     const result = option === 'unique' ? await keepTmSkill(guildId, userId, copy, keep) : await keepOption(guildId, userId, copy, keep, option);
-    return result.ok ? load(guildId, userId) : result.reason;
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
   },
   upgrade: async (guildId, userId, copy, option) => {
     const result = await upgradeOption(guildId, userId, copy, option);
-    return result.ok ? load(guildId, userId) : result.reason;
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
   },
   restore: async (guildId, userId, copy) => {
     const result = await restoreTmPiece(guildId, userId, copy);
-    return result.ok ? load(guildId, userId) : result.reason;
+    return result.ok ? loadChange(guildId, userId, copy) : result.reason;
   },
   sell: (guildId, userId, copies, locked, salvage) => gearStore.sell(guildId, userId, copies, locked, salvage),
   lock: (guildId, userId, copy, locked) => gearStore.lock(guildId, userId, copy, locked),

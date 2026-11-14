@@ -20,7 +20,7 @@ import { createApi, type ApiDeps } from '../src/web/api.js';
 import { signSession } from '../src/web/auth/login.js';
 import { signToken } from '../src/web/auth/token.js';
 import type { WebConfig } from '../src/web/config.js';
-import { heroesView, type HeroesView, type HeroStore } from '../src/web/models/heroes.js';
+import { heroesChange, heroesView, nearCopyIds, type HeroesChange, type HeroesView, type HeroStore } from '../src/web/models/heroes.js';
 import { rerollUtOption } from '../src/lib/game/technomagic.js';
 import type { MemberDoc } from '../src/types.js';
 
@@ -234,6 +234,34 @@ test("heroes: King's Raid's gear raises their stats: its main stat by its refine
   assert.equal(raidValue('crit', 0.45), 450);
 });
 
+test('heroes view after a change to one copy: from only the copies it could change, each as the whole view has it', () => {
+  const copies = [
+    { _id: 'armor', itemId: 'perseverance-warrior-armor', level: 5, options: [{ stat: 'atk', step: 0 }, { stat: 'critDamage', step: 2 }], tmSkill: 'vigor' }, // worn
+    { _id: 'armor2', itemId: 'perseverance-warrior-armor', level: 1, options: [{ stat: 'atk', step: 1 }], optionPending: { index: 0, option: { stat: 'crit', step: 2, rerolls: 1 } } }, // the one changed
+    { _id: 'ring', itemId: 'opportune-fire-t8-ring', level: 1, options: [{ stat: 'crit', step: 10 }] }, // worn
+    { _id: 'orb', itemId: 'opportune-fire-t8-orb', level: 1 }, // in a loadout
+    { _id: 'spare', itemId: 'opportune-fire-t8-heavy-armor', level: 1 }, // none of those
+  ];
+  const member = {
+    points: 30_000,
+    gems: 3,
+    essences: {},
+    crystals: { perseverance: 900 },
+    heroes: { kirze: { boughtAt: new Date(0), equipment: { armor: 'armor', accessory: 'ring' } } },
+    heroLoadoutSlots: 5,
+    heroLoadouts: { '1': { name: 'Fire', pieces: { orb: 'orb' } } },
+  } as never;
+  const near = new Set(nearCopyIds(member, 'armor2'));
+  assert.deepEqual([...near].sort(), ['armor', 'armor2', 'orb', 'ring']);
+  // (What the bot loads for it: those, and its item's other copies.)
+  const loaded = copies.filter((copy) => near.has(copy._id) || copy.itemId === 'perseverance-warrior-armor');
+  const { copies: every, ...whole } = heroesView(copies, member);
+  const { changed, ...change } = heroesChange(loaded, member, 'perseverance-warrior-armor');
+  assert.deepEqual(change, whole, 'its heroes, loadouts and balances are the whole view’s');
+  assert.deepEqual(changed, every.filter((copy) => copy.itemId === 'perseverance-warrior-armor'), "and its item's copies are as the whole view has them, in its order");
+  assert.ok(changed.find((copy) => copy.id === 'armor2')?.rerolledOption, 'the reroll waiting on it among them');
+});
+
 test('heroes view: every hero, the copies a hero can wear, and what each of theirs wears and gets from it', () => {
   const copies = [
     { _id: 'armor', itemId: 'perseverance-warrior-armor', level: 5, options: [{ stat: 'atk', step: 0 }, { stat: 'critDamage', step: 2 }], tmSkill: 'vigor', tmSkillPending: 'berserk', optionPending: { index: 1, option: { stat: 'atk', step: 3, rerolls: 1 } }, runes: ['patience-5'] },
@@ -306,6 +334,8 @@ test('heroes view: every hero, the copies a hero can wear, and what each of thei
 
 test('heroes web: a logged-in member sees the heroes, buys one and gears it, in their own servers only', async () => {
   const empty = { heroes: [], copies: [], balance: 0, runes: [] } as unknown as HeroesView;
+  // (A change to one copy answers with the copies it could have changed, not every one.)
+  const change = { heroes: [], changed: [], balance: 0, runes: [] } as unknown as HeroesChange;
   let owned: string[] = [];
   const calls: string[] = [];
   const store: HeroStore = {
@@ -375,15 +405,15 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     },
     reroll: async (guildId, userId, copy, option) => {
       calls.push(`reroll ${copy} ${option}`);
-      return option === 1 ? 'no_option' : empty;
+      return option === 1 ? 'no_option' : change;
     },
     keep: async (guildId, userId, copy, keep, option) => {
       calls.push(`keep ${copy} ${keep} ${option}`);
-      return copy === 'c1' ? empty : 'no_option';
+      return copy === 'c1' ? change : 'no_option';
     },
     upgrade: async (guildId, userId, copy, option) => {
       calls.push(`upgrade ${copy} ${option}`);
-      return option === 0 ? empty : 'no_option';
+      return option === 0 ? change : 'no_option';
     },
     craftScrolls: async (guildId, userId, set, count) => {
       calls.push(`craftScrolls ${set} ${count}`);
@@ -515,7 +545,9 @@ test('heroes web: a logged-in member sees the heroes, buys one and gears it, in 
     assert.equal((await post('/api/heroes/rune', { guild: 'g1', copy: 'c1', socket: 0, rune: 'fierce-5' })).status, 200);
     assert.equal((await post('/api/heroes/rune', { guild: 'g1', copy: 'c1', socket: 0, rune: null })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/rune', { guild: 'g1', copy: 'c1', socket: 0, rune: 'none' })).json(), { error: 'no_rune' });
-    assert.equal((await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 0 })).status, 200);
+    const rerolled = await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 0 });
+    assert.equal(rerolled.status, 200);
+    assert.deepEqual(((await rerolled.json()) as HeroesChange).changed, [], 'the copies it changed, not every one');
     assert.equal((await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 'unique' })).status, 200);
     assert.deepEqual(await (await post('/api/heroes/reroll', { guild: 'g1', copy: 'c1', option: 1 })).json(), { error: 'no_option' });
     // A rerolled effect kept, or the one it had: nothing rolled, 'no_option'; neither, a bad request.

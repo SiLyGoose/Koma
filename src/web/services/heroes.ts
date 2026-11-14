@@ -4,7 +4,7 @@ import type { RaidClassId } from '../../constants/raid.js';
 import type { ApiDeps } from '../api.js';
 import { avatarUrl, type Session } from '../auth/login.js';
 import { ApiError } from '../lib/errors.js';
-import { heroStore, type HeroesView } from '../models/heroes.js';
+import { heroStore, type HeroesChange, type HeroesView } from '../models/heroes.js';
 import type { HeroSlot } from '../../types.js';
 import type { HeroEquipError, HeroesSold, HeroKeep, HeroLoadoutError, HeroMembers, HeroOptionError, HeroPerkPageError, HeroPerksError, HeroRefineError, HeroRestoreError, HeroRuneError, HeroTranscendError, SalvageRule, TpScrollCraftError, TpScrollUseError } from '../../protocol/heroes.js';
 
@@ -27,7 +27,7 @@ export function heroService(deps: ApiDeps) {
   const store = deps.heroes ?? heroStore;
 
   /** The heroes as they stand after a change, or the change's error. */
-  const answer = (result: HeroesView | HeroError): HeroesView => {
+  const answer = <T extends object>(result: T | HeroError): T => {
     if (typeof result === 'string') throw new ApiError(result);
     return result;
   };
@@ -80,14 +80,14 @@ export function heroService(deps: ApiDeps) {
     /** Puts one of their runes in a copy's socket (or, `rune` null, takes the one in it out). */
     rune: async (guildId: string, userId: string, copy: string, socket: number, rune: string | null): Promise<HeroesView> => answer(await store.rune(guildId, userId, copy, socket, rune)),
     /** Rerolls one of a copy's options (or its unique option). */
-    reroll: async (guildId: string, userId: string, copy: string, option: number | 'unique'): Promise<HeroesView> => answer(await store.reroll(guildId, userId, copy, option)),
+    reroll: async (guildId: string, userId: string, copy: string, option: number | 'unique'): Promise<HeroesChange> => answer(await store.reroll(guildId, userId, copy, option)),
     /** Keeps a TechnoMagic copy's rerolled additional skill (or with `option` an index, a copy's rerolled option), or the one it had. */
-    keep: async (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique' = 'unique'): Promise<HeroesView> =>
+    keep: async (guildId: string, userId: string, copy: string, keep: HeroKeep, option: number | 'unique' = 'unique'): Promise<HeroesChange> =>
       answer(await store.keep(guildId, userId, copy, keep, option)),
     /** Enhances one of a copy's options: its amount rolled again. */
-    upgrade: async (guildId: string, userId: string, copy: string, option: number): Promise<HeroesView> => answer(await store.upgrade(guildId, userId, copy, option)),
+    upgrade: async (guildId: string, userId: string, copy: string, option: number): Promise<HeroesChange> => answer(await store.upgrade(guildId, userId, copy, option)),
     /** Restores a 5★ TechnoMagic piece into a 0★ Reclaimed one (King's Raid's Technomagic Restoration). */
-    restore: async (guildId: string, userId: string, copy: string): Promise<HeroesView> => answer(await store.restore(guildId, userId, copy)),
+    restore: async (guildId: string, userId: string, copy: string): Promise<HeroesChange> => answer(await store.restore(guildId, userId, copy)),
 
     /** Sells those copies (the same one twice counts once; `locked`: locked ones too; `salvage`: the hero gear among them salvaged for komaDust). */
     async sell(guildId: string, userId: string, copies: string[], locked = false, salvage = false): Promise<HeroesSold> {

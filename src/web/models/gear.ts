@@ -93,6 +93,17 @@ export interface GearStore {
 
 export type CopyInfo = Pick<ItemCopyDoc, '_id' | 'itemId' | 'level' | 'locked'> & Partial<Pick<ItemCopyDoc, 'obtainedAt' | 'tmSkill' | 'tmPotentials' | 'tmArmorDef' | 'reclaimed'>>;
 
+/** The copies grouped by their item, in their order: each copy's same-item copies for refineState, found once for all of them. */
+export function copiesByItem<T extends Pick<CopyInfo, 'itemId'>>(copies: readonly T[]): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const copy of copies) {
+    const same = out.get(copy.itemId);
+    if (same) same.push(copy);
+    else out.set(copy.itemId, [copy]);
+  }
+  return out;
+}
+
 /**
  * Whether refining `copyId` itself (a copy of `item`) can be done, with the member's copies of its item (`sameItem`), the
  * copies they wear or keep in any loadout (`kept`, never used up), their points and Upgrade Stones (`stones`; null: not known,
@@ -163,6 +174,7 @@ export function gearView(
   const kept = new Set([...wornIds, ...heroWorn.keys()]);
   for (const loadout of loadouts) for (const id of equippedCopyIds(loadout.equipment)) kept.add(id);
 
+  const sameItem = copiesByItem(copies);
   const list: GearCopy[] = [];
   /** Each copy's view, with its item and level. */
   const byId = new Map<string, { view: GearCopy; piece: GearPiece }>();
@@ -211,7 +223,7 @@ export function gearView(
       itemClass: item.class ?? null,
       hero: heroWorn.get(copy._id) ?? null,
     };
-    const { to, ...refine } = refineState(copy._id, copies.filter((other) => other.itemId === copy.itemId), item, kept, balance, stones);
+    const { to, ...refine } = refineState(copy._id, sameItem.get(copy.itemId) ?? [], item, kept, balance, stones);
     view.refine = {
       ...refine,
       after: to === null ? null : linesAt(to),

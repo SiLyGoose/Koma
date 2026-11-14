@@ -371,6 +371,14 @@ export interface HeroesView {
   loadouts?: HeroLoadouts;
 }
 
+/**
+ * POST /api/heroes/reroll, /keep, /upgrade and /restore: their heroes after a change to one copy, as HeroesView has them but
+ * without every copy. `changed` has the copies the change could have changed, each as HeroesView's `copies` has it (in its
+ * order): that copy and their other copies of its item. Every other copy is as it was, but for its `refine` (its blocked and
+ * its stones' `have`), which went by their balances before.
+ */
+export type HeroesChange = Omit<HeroesView, 'copies'> & { changed: HeroCopy[] };
+
 /** A member's hero gear loadouts: every one they have, in order, and what buying the next costs in zeiucoins (null: they have HERO_LOADOUTS.most). */
 export interface HeroLoadouts {
   slots: HeroLoadoutView[];
