@@ -1,0 +1,10 @@
+export const giveText = {
+    adminOnly: 'Only the bot admin can use this command.',
+    usage: (p, max) => `Use \`${p}give <item id> [amount]\` to give yourself an item (amount 1 to ${max}). This is for testing.`,
+    badAmount: (max) => `The amount must be a whole number from 1 to ${max}.`,
+    /** `ids` is a comma-separated list of every item id in the catalog. */
+    unknownItem: (id, ids) => `There is no item with the id "${id}". The ids are: ${ids}`,
+    /** `stars` is the star string; `given` is how many copies were added, `total` how many they own now. */
+    done: (name, id, given, total) => `Gave you **${name}** (\`${id}\`) ×${given}. You now own ${total}.`,
+};
+//# sourceMappingURL=give.js.map

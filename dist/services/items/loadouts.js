@@ -1,0 +1,89 @@
+import { collections } from '../../db.js';
+import { activeLoadoutOf, checkLoadoutName, loadoutCountOf, loadoutName, loadoutsOf, lockedLoadoutsOf } from '../../lib/game/items/loadouts.js';
+import { ensureMember } from '../economy/index.js';
+import { recordLedger } from '../economy/shared.js';
+import { gearChanged } from './gear-events.js';
+import { resolveGear } from './gear.js';
+/** A member's loadouts, with their copy ids as stored. */
+export async function getLoadoutViews(guildId, userId) {
+    return loadoutsOf(await collections().members.findOne({ guildId, userId }));
+}
+/** The loadouts a member hasn't unlocked yet, with their prices: the first is the one to unlock next. */
+export async function getLockedLoadouts(guildId, userId) {
+    return lockedLoadoutsOf(await collections().members.findOne({ guildId, userId }, { projection: { loadoutSlots: 1 } }));
+}
+/** A member's loadouts, with the items and levels in each. */
+export async function getLoadouts(guildId, userId) {
+    return Promise.all((await getLoadoutViews(guildId, userId)).map(async (loadout) => ({ ...loadout, gear: await resolveGear(guildId, userId, loadout.equipment) })));
+}
+/** Makes loadout `to` the active one: its gear goes on, and what they were wearing is saved to the one they left. */
+export async function switchLoadout(guildId, userId, to) {
+    const { members } = collections();
+    await ensureMember(guildId, userId);
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const member = await members.findOne({ guildId, userId });
+        if (to > loadoutCountOf(member))
+            return { ok: false, reason: 'locked' };
+        const from = activeLoadoutOf(member);
+        if (from === to) {
+            return { ok: true, from, to, name: loadoutName(member, to), alreadyActive: true, gear: await resolveGear(guildId, userId, member?.equipment) };
+        }
+        // Only if nobody switched in the meantime. Every value on the right is read from the document
+        // as it was before this update, so the two sets of gear swap places exactly.
+        const updated = await members.findOneAndUpdate({ guildId, userId, activeLoadout: member?.activeLoadout ?? null }, [
+            {
+                $set: {
+                    [`loadouts.${from}.equipment`]: { $ifNull: ['$equipment', null] },
+                    equipment: { $ifNull: [`$loadouts.${to}.equipment`, {}] },
+                    [`loadouts.${to}.equipment`]: null,
+                    activeLoadout: to,
+                },
+            },
+        ], { returnDocument: 'after' });
+        if (updated) {
+            gearChanged(guildId, userId);
+            return { ok: true, from, to, name: loadoutName(updated, to), alreadyActive: false, gear: await resolveGear(guildId, userId, updated.equipment) };
+        }
+    }
+    return { ok: false, reason: 'busy' };
+}
+/** Names loadout `number`. An empty name puts back its default name. */
+export async function renameLoadout(guildId, userId, number, raw) {
+    const { members } = collections();
+    await ensureMember(guildId, userId);
+    const member = await members.findOne({ guildId, userId });
+    if (number > loadoutCountOf(member))
+        return { ok: false, reason: 'locked' };
+    const check = checkLoadoutName(member, number, raw);
+    if (!check.ok)
+        return check;
+    const updated = await members.findOneAndUpdate({ guildId, userId }, { $set: { [`loadouts.${number}.name`]: check.name } }, { returnDocument: 'after' });
+    return { ok: true, before: loadoutName(member, number), after: loadoutName(updated, number) };
+}
+/**
+ * Unlocks their next loadout (`wanted`, if given, must be it), paying its price. One conditional update
+ * takes the points and adds the loadout, and only while nothing else has, so two unlocks at once can't both pay.
+ */
+export async function unlockLoadout(guildId, userId, wanted) {
+    const { members } = collections();
+    await ensureMember(guildId, userId);
+    const member = await members.findOne({ guildId, userId });
+    const next = lockedLoadoutsOf(member)[0];
+    if (wanted !== undefined && wanted <= loadoutCountOf(member))
+        return { ok: false, reason: 'owned', number: wanted };
+    if (!next)
+        return { ok: false, reason: 'maxed' };
+    if (wanted !== undefined && wanted !== next.number)
+        return { ok: false, reason: 'locked', number: next.number };
+    const unlocked = await members.findOneAndUpdate({ guildId, userId, loadoutSlots: member?.loadoutSlots ?? null, points: { $gte: next.price } }, { $inc: { points: -next.price }, $set: { loadoutSlots: next.number } }, { returnDocument: 'after' });
+    if (!unlocked) {
+        const now = await members.findOne({ guildId, userId });
+        if ((now?.loadoutSlots ?? null) !== (member?.loadoutSlots ?? null))
+            return { ok: false, reason: 'busy' };
+        return { ok: false, reason: 'too_poor', number: next.number, price: next.price, balance: now?.points ?? 0 };
+    }
+    if (next.price > 0)
+        await recordLedger([{ guildId, userId, delta: -next.price, reason: 'loadout_unlock' }]);
+    return { ok: true, number: next.number, name: loadoutName(unlocked, next.number), paid: next.price, balance: unlocked.points };
+}
+//# sourceMappingURL=loadouts.js.map

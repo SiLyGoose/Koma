@@ -1,0 +1,838 @@
+import { randomUUID } from 'node:crypto';
+import { CONFIG } from '../../../config.js';
+import { POKER_BOT_NAMES, POKER_TABLE } from '../../../constants/index.js';
+import { dayKey } from '../../../lib/events/raid-week.js';
+import type { Card } from '../../../lib/game/casino/blackjack.js';
+import { botAction, PokerReads, randomStyle, type BotStyle } from '../../../lib/game/casino/poker/bot.js';
+import {
+  act as handAct,
+  advance,
+  forfeit,
+  legalActions,
+  potTotal,
+  shuffledDeck,
+  startHand,
+  type HandPlayer,
+  type HandState,
+  type PokerAction,
+} from '../../../lib/game/casino/poker/hand.js';
+import { addBotWinnings, botWinnings, buyIn, cashOut, houseTake, renewSeats, saveChips, type BuyInResult } from '../../../services/casino/poker.js';
+import { getBalance } from '../../../services/economy/index.js';
+import { avatarUrl } from '../../auth/login.js';
+import type { Player } from '../../auth/token.js';
+import { Chat } from '../chat.js';
+import type { Peer as ConnectionPeer } from '../connection.js';
+import type { HandView, PokerMove, PokerState, Refusal, SeatView, ServerMessage, TableListing } from './protocol.js';
+
+/*
+ * The poker tables. A member opening poker joins (PokerTables.join) the table they sit at, the one
+ * they were at last if it has a free seat, or the first in their server with one, and a new table is
+ * opened when every one is full. Joining, they see the table; they play once they sit down with
+ * chips (taken from their balance: services/casino/poker.ts keeps them safe in the database).
+ *
+ * A hand is dealt whenever at least two players with chips are sitting in (bots count, but a table
+ * with nobody but bots doesn't play): lib/game/casino/poker/hand.ts has the rules, and this runs it
+ * with a clock. Each player has poker.turnSeconds for a move, after which they check (when it's
+ * free) or fold. A bot takes a moment over its move (POKER_TABLE.botThinkMs), plays in a style of
+ * its own (picked when it sits down) and remembers how the players at the table have played (reads). After every hand each
+ * player's chips are saved, the rake goes into the vault, and anyone getting up (or out of chips)
+ * leaves; then the next hand is dealt after POKER_TABLE.nextHandMs.
+ *
+ * A player whose page goes away keeps their seat for POKER_TABLE.awayMs, sitting out of new hands
+ * and checking or folding at once in the one they're in; after that they are cashed out. Any seated
+ * player can add a bot to a free seat (its chips are the house's: what it ends up winning goes into
+ * the vault when it leaves) and take one away. What each member wins off the bots is counted by day
+ * (countBotWinnings): once a member has won poker.botDailyLimit, the bots sit out of the hands they're
+ * dealt into, and they can't add one, until the next day. A table with nobody left at it closes.
+ *
+ * A member opening poker picks a table from the server's (PokerTables.list), or opens a new one.
+ * Bots never keep them from playing: a table is open to them while it has a seat that isn't a
+ * member's, and joining, a bot gets up for them (makeRoom) once the hand it's in is over; they watch
+ * until it has. A seat is kept for each member at a table who hasn't sat down yet: a bot can't be
+ * added to it.
+ *
+ * Everything that changes a table runs one at a time (`run`), so a move can't land in the middle of
+ * a hand being saved.
+ */
+
+/** Where the table sends a player's messages: their page, or a fake in tests. */
+export type Peer = ConnectionPeer<ServerMessage>;
+
+/** The points, pictures, cards, clock and bots, so tests can stand in for them. */
+export interface PokerDeps {
+  buyIn: (guildId: string, userId: string, tableKey: string, chips: number) => Promise<BuyInResult>;
+  saveChips: (seatId: string, chips: number) => Promise<void>;
+  cashOut: (seatId: string) => Promise<{ amount: number; balance: number } | null>;
+  renewSeats: (tableKey: string) => Promise<void>;
+  houseTake: (guildId: string, amount: number) => Promise<void>;
+  /** What a member has won off the bots on `day`, net, and adding to it. */
+  botWinnings: (guildId: string, userId: string, day: string) => Promise<number>;
+  addBotWinnings: (guildId: string, userId: string, day: string, amount: number) => Promise<void>;
+  balance: (guildId: string, userId: string) => Promise<number>;
+  avatar: (guildId: string, userId: string) => string | null;
+  deck: () => Card[];
+  /** Numbers from 0 up to 1, for the bots. */
+  random: () => number;
+  now: () => number;
+  /** Calls `run` in `ms`; returns a function that cancels it. */
+  schedule: (ms: number, run: () => void) => () => void;
+}
+
+export const realPokerDeps: PokerDeps = {
+  buyIn,
+  saveChips,
+  cashOut,
+  renewSeats,
+  houseTake,
+  botWinnings,
+  addBotWinnings,
+  balance: async (guildId, userId) => (await getBalance(guildId, userId)).points,
+  avatar: () => null,
+  deck: shuffledDeck,
+  random: Math.random,
+  now: Date.now,
+  schedule: (ms, run) => {
+    const timer = setTimeout(run, ms);
+    timer.unref();
+    return () => clearTimeout(timer);
+  },
+};
+
+interface Seat {
+  seat: number;
+  /** The member's id, or the bot's ("bot:1"). */
+  id: string;
+  name: string;
+  avatar: string;
+  bot: boolean;
+  /** Chips behind, between hands (in a hand, its HandPlayer's stack is what counts). */
+  chips: number;
+  /** A member's PokerSeatDoc (null for a bot). */
+  seatId: string | null;
+  /** A bot's chips when it sat down (the house's), to settle up when it leaves. */
+  stake: number;
+  /** A member's winnings off the bots on `day` (dayKey), net (unused for a bot). */
+  bots: { day: string; net: number };
+  /** Gets up once the hand they're in is over. */
+  leaving: boolean;
+  /** When their page went away (null while it's here). */
+  awaySince: number | null;
+  /** A bot's way of playing. */
+  style?: BotStyle;
+}
+
+/** A page at the table: its member, and how to reach it. */
+interface Viewer {
+  player: Player;
+  peer: Peer | null;
+  balance: number;
+}
+
+/** Each process's tables have keys of their own, so a restarted bot never mixes up seats left by the one before. */
+const PROCESS = randomUUID().slice(0, 8);
+
+/** What a member at the table can be told no, from a refusal. */
+export type PokerRefusal = Refusal | null;
+
+export class PokerTable {
+  /** Every seat, empty ones null. */
+  private readonly seats: (Seat | null)[] = Array.from({ length: POKER_TABLE.seats }, () => null);
+  /** Every page at the table (seated or not), by member. */
+  private readonly viewers = new Map<string, Viewer>();
+  private hand: HandState | null = null;
+  private handNo = 0;
+  /** The seat with the button in the last hand. */
+  private buttonSeat = -1;
+  /** When the turn being played (or the wait for the next hand) ends, and what cancels its timer. */
+  private deadline = 0;
+  private cancelTimer: (() => void) | null = null;
+  private nextHandPending = false;
+  private stopHeartbeat: (() => void) | null = null;
+  private closed = false;
+  private botCount = 0;
+  /** How the players here have played, as the bots remember it (what everyone at the table saw). */
+  private readonly reads = new PokerReads();
+  /** The changes waiting their turn: everything that changes the table runs one after another. */
+  private queue: Promise<void> = Promise.resolve();
+  /** What the pages at the table (seated or not) say to each other. */
+  private readonly chat = new Chat();
+  readonly key: string;
+
+  constructor(
+    readonly guildId: string,
+    readonly number: number,
+    private readonly deps: PokerDeps,
+    private readonly onEmpty: (table: PokerTable) => void,
+  ) {
+    this.key = `${PROCESS}:${guildId}:${number}`;
+    this.heartbeat();
+  }
+
+  /** Runs `change` once every change before it is done. Errors are logged, never left to break the queue. */
+  private run<T>(change: () => Promise<T> | T): Promise<T> {
+    const result = this.queue.then(change);
+    this.queue = result.then(
+      () => undefined,
+      (err) => console.error(`A poker table (${this.key}) failed:`, err),
+    );
+    return result;
+  }
+
+  /** How many are seated (bots too). */
+  get taken(): number {
+    return this.seats.filter((s) => s !== null).length;
+  }
+
+  /** `userId` sits at this table or has a page at it. */
+  has(userId: string): boolean {
+    return this.viewers.has(userId) || this.seatOf(userId) !== null;
+  }
+
+  seated(userId: string): boolean {
+    return this.seatOf(userId) !== null;
+  }
+
+  private seatOf(id: string): Seat | null {
+    return this.seats.find((s) => s?.id === id) ?? null;
+  }
+
+  private humans(): Seat[] {
+    return this.seats.filter((s): s is Seat => s !== null && !s.bot);
+  }
+
+  /** In the hand being played (even folded: its chips aren't settled until it's over). */
+  private inHand(seat: Seat): boolean {
+    return this.hand !== null && !this.hand.done && this.hand.players.some((p) => p.id === seat.id);
+  }
+
+  /** How many members have a page at the table but no seat. */
+  private waiting(): number {
+    return [...this.viewers.keys()].filter((id) => !this.seated(id)).length;
+  }
+
+  /** Another member can join: there's a seat that isn't a member's (or kept for one), free or a bot's. */
+  get open(): boolean {
+    return this.humans().length + this.waiting() < POKER_TABLE.seats;
+  }
+
+  /** The table as the server's table list shows it. */
+  listing(): TableListing {
+    return {
+      table: this.number,
+      players: this.humans().map((s) => ({ name: s.name, avatar: s.avatar })),
+      bots: this.seats.filter((s) => s?.bot).length,
+      seats: POKER_TABLE.seats,
+      playing: this.hand !== null && !this.hand.done,
+      open: this.open,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Pages coming and going
+  // -------------------------------------------------------------------------
+
+  /** A page for `player` joins the table (a bot getting up for them, if it must). Returns the page it took over from (another tab), if any. */
+  join(player: Player, peer: Peer): Promise<Peer | null> {
+    return this.run(async () => {
+      const before = this.viewers.get(player.userId);
+      const viewer: Viewer = { player, peer, balance: before?.balance ?? 0 };
+      this.viewers.set(player.userId, viewer);
+      const seat = this.seatOf(player.userId);
+      if (seat) {
+        seat.awaySince = null;
+        seat.name = player.name;
+      } else {
+        await this.makeRoom();
+      }
+      try {
+        viewer.balance = await this.deps.balance(this.guildId, player.userId);
+      } catch (err) {
+        console.error('Could not look up a poker player’s balance:', err);
+      }
+      this.maybeDeal();
+      this.broadcast();
+      peer.send(this.chat.history());
+      return before?.peer && before.peer !== peer ? before.peer : null;
+    });
+  }
+
+  /** `userId` says `text` to the table, with a picture (`image`) or not. */
+  say(userId: string, text: string, image?: string): void {
+    const viewer = this.viewers.get(userId);
+    const line = viewer && this.chat.say(viewer.player, text, this.deps.now(), image);
+    if (line) for (const each of this.viewers.values()) each.peer?.send({ t: 'chat', line });
+  }
+
+  /** The page `peer` went away. A seated player keeps their seat for a while (see the top of this file). */
+  leave(userId: string, peer: Peer): Promise<void> {
+    return this.run(async () => {
+      const viewer = this.viewers.get(userId);
+      if (!viewer || viewer.peer !== peer) return;
+      const seat = this.seatOf(userId);
+      if (!seat) {
+        this.viewers.delete(userId);
+        this.closeIfEmpty();
+        this.broadcast();
+        return;
+      }
+      viewer.peer = null;
+      seat.awaySince = this.deps.now();
+      const since = seat.awaySince;
+      this.deps.schedule(POKER_TABLE.awayMs, () => {
+        void this.run(async () => {
+          // Back since (or gone again later, which has its own timer).
+          if (seat.awaySince !== since || this.seats[seat.seat] !== seat) return;
+          await this.standUp(seat);
+          this.viewers.delete(userId);
+          this.closeIfEmpty();
+          this.broadcast();
+        });
+      });
+      // Their turn now: played for them.
+      this.playForAway();
+      this.broadcast();
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Sitting down and standing up
+  // -------------------------------------------------------------------------
+
+  /** Sits `userId` down at `seatNo` (or the first free seat) with `chips` from their balance. Null when they sat; why not otherwise. */
+  sit(userId: string, chips: number, seatNo?: number): Promise<PokerRefusal> {
+    return this.run(async () => {
+      const viewer = this.viewers.get(userId);
+      if (!viewer || this.seatOf(userId)) return { reason: 'not_now' };
+      const at = seatNo ?? this.seats.findIndex((s) => s === null);
+      if (at < 0 || at >= POKER_TABLE.seats || this.seats[at] !== null) return { reason: 'seat_taken' };
+      let bought: BuyInResult;
+      try {
+        bought = await this.deps.buyIn(this.guildId, userId, this.key, chips);
+      } catch (err) {
+        console.error('Could not buy a poker player in:', err);
+        return { reason: 'failed' };
+      }
+      if (!bought.ok) {
+        if (bought.reason === 'too_poor') {
+          viewer.balance = bought.balance;
+          return { reason: 'too_poor', balance: bought.balance };
+        }
+        return { reason: 'buy_in', min: bought.min, max: bought.max };
+      }
+      viewer.balance = bought.balance;
+      const day = this.today();
+      let won = 0;
+      try {
+        won = await this.deps.botWinnings(this.guildId, userId, day);
+      } catch (err) {
+        console.error('Could not look up a poker player’s winnings off the bots:', err);
+      }
+      this.seats[at] = {
+        seat: at,
+        id: userId,
+        name: viewer.player.name,
+        avatar: this.deps.avatar(this.guildId, userId) ?? avatarUrl(userId, null),
+        bot: false,
+        chips: bought.chips,
+        seatId: bought.seatId,
+        stake: 0,
+        bots: { day, net: won },
+        leaving: false,
+        awaySince: viewer.peer ? null : this.deps.now(),
+      };
+      this.maybeDeal();
+      this.broadcast();
+      return null;
+    });
+  }
+
+  /** `userId` stands up: their chips go back to their balance (once the hand they're in is over; they fold it). */
+  stand(userId: string): Promise<PokerRefusal> {
+    return this.run(async () => {
+      const seat = this.seatOf(userId);
+      if (!seat) return { reason: 'not_now' };
+      await this.standUp(seat);
+      this.broadcast();
+      return null;
+    });
+  }
+
+  /** Gets `seat` up: straight away between hands, or (folding) once the hand they're in is over. */
+  private async standUp(seat: Seat): Promise<void> {
+    if (this.inHand(seat) && this.hand) {
+      seat.leaving = true;
+      forfeit(this.hand, seat.id);
+      this.afterMove();
+      return;
+    }
+    await this.removeSeat(seat);
+    this.maybeDeal();
+  }
+
+  /** Frees `seat`, paying out its chips: a member's to their balance, a bot's winnings to the vault. */
+  private async removeSeat(seat: Seat): Promise<void> {
+    if (this.seats[seat.seat] !== seat) return;
+    this.seats[seat.seat] = null;
+    if (seat.bot) {
+      const won = seat.chips - seat.stake;
+      if (won > 0) await this.deps.houseTake(this.guildId, won).catch((err) => console.error('Could not put a poker bot’s winnings in the vault:', err));
+      return;
+    }
+    if (!seat.seatId) return;
+    try {
+      const paid = await this.deps.cashOut(seat.seatId);
+      const viewer = this.viewers.get(seat.id);
+      if (paid && viewer) viewer.balance = paid.balance;
+    } catch (err) {
+      // cashOut leaves the chips for the sweeper.
+      console.error('Could not cash a poker player out:', err);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Bots
+  // -------------------------------------------------------------------------
+
+  /** A seated member adds a bot in the first free seat. */
+  addBot(userId: string): Promise<PokerRefusal> {
+    return this.run(() => {
+      const me = this.seatOf(userId);
+      if (!me) return { reason: 'not_now' };
+      if (this.botLimited(me)) return { reason: 'bot_limit', limit: CONFIG.poker.botDailyLimit };
+      const at = this.seats.findIndex((s) => s === null);
+      if (at < 0 || !this.botSeatFree()) return { reason: 'seat_taken' };
+      const names = new Set(this.seats.map((s) => s?.name));
+      const name = POKER_BOT_NAMES.find((n) => !names.has(n)) ?? `Bot ${this.botCount + 1}`;
+      this.botCount++;
+      const chips = CONFIG.poker.maxBuyIn;
+      this.seats[at] = { seat: at, id: `bot:${this.botCount}`, name, avatar: '', bot: true, chips, seatId: null, stake: chips, bots: { day: '', net: 0 }, leaving: false, awaySince: null, style: randomStyle(this.deps.random) };
+      this.maybeDeal();
+      this.broadcast();
+      return null;
+    });
+  }
+
+  /** A seated member takes the bot in `seatNo` away (once the hand it's in is over). */
+  removeBot(userId: string, seatNo: number): Promise<PokerRefusal> {
+    return this.run(async () => {
+      const seat = this.seats[seatNo];
+      if (!this.seatOf(userId) || !seat?.bot) return { reason: 'not_now' };
+      await this.botUp(seat);
+      this.broadcast();
+      return null;
+    });
+  }
+
+  /**
+   * Gets bots up until there's a seat for every member at the table who hasn't sat down: one out of
+   * the hand if there is one (straight away), else one in it (once it's over).
+   */
+  private async makeRoom(): Promise<void> {
+    for (;;) {
+      const free = this.seats.filter((s) => s === null || s.leaving).length;
+      const bots = this.seats.filter((s): s is Seat => s !== null && s.bot && !s.leaving);
+      const bot = bots.find((s) => !this.inHand(s)) ?? bots.at(-1);
+      if (free >= this.waiting() || !bot) return;
+      await this.botUp(bot);
+    }
+  }
+
+  /** A bot gets up: straight away, or after the hand it's in. */
+  private async botUp(seat: Seat): Promise<void> {
+    if (this.inHand(seat)) seat.leaving = true;
+    else await this.removeSeat(seat);
+  }
+
+  /** A free seat a bot may take: one is kept for each member at the table who hasn't sat down yet. */
+  private botSeatFree(): boolean {
+    return POKER_TABLE.seats - this.taken > this.waiting();
+  }
+
+  private today(): string {
+    return dayKey(new Date(this.deps.now()));
+  }
+
+  /** What a member's seat has won off the bots today, net. */
+  private botNet(seat: Seat): number {
+    return seat.bots.day === this.today() ? seat.bots.net : 0;
+  }
+
+  /** A member who has won the most they may off the bots today (poker.botDailyLimit). */
+  private botLimited(seat: Seat): boolean {
+    const limit = CONFIG.poker.botDailyLimit;
+    return !seat.bot && limit > 0 && this.botNet(seat) >= limit;
+  }
+
+  /**
+   * Counts what the members in a hand won off its bots (or lost to them), from how everyone's chips
+   * changed in it: what the bots lost, all told, is shared out among the members who came out ahead,
+   * by how far (each at most what they won); what the bots won, among the members who lost.
+   */
+  private async countBotWinnings(changes: { seat: Seat; change: number }[]): Promise<void> {
+    const bots = changes.reduce((sum, c) => sum + (c.seat.bot ? c.change : 0), 0);
+    if (bots === 0) return;
+    const sharers = changes.filter((c) => !c.seat.bot && Math.sign(c.change) === -Math.sign(bots));
+    const total = sharers.reduce((sum, c) => sum + Math.abs(c.change), 0);
+    const day = this.today();
+    for (const { seat, change } of sharers) {
+      const share = Math.min(Math.abs(change), Math.round((Math.abs(bots) * Math.abs(change)) / total));
+      const amount = bots < 0 ? share : -share;
+      seat.bots = { day, net: this.botNet(seat) + amount };
+      await this.deps.addBotWinnings(this.guildId, seat.id, day, amount).catch((err) => console.error('Could not count a poker player’s winnings off the bots:', err));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Playing
+  // -------------------------------------------------------------------------
+
+  /** `userId`'s move, on their turn. */
+  act(userId: string, move: PokerMove, amount?: number): Promise<PokerRefusal> {
+    return this.run(() => {
+      const hand = this.hand;
+      if (!hand || hand.toAct === null || hand.players[hand.toAct]?.id !== userId) return { reason: 'not_now' };
+      const action = toAction(hand, move, amount);
+      if (!action) return { reason: 'not_now' };
+      this.reads.saw(hand, userId, action);
+      if (handAct(hand, userId, action) !== null) return { reason: 'not_now' };
+      this.afterMove();
+      return null;
+    });
+  }
+
+  /**
+   * Who can be dealt in: seated with chips, not getting up, and (members) with their page here. The
+   * bots sit out while one of the members has won the most they may off them today.
+   */
+  private ready(): Seat[] {
+    const ready = this.seats.filter((s): s is Seat => s !== null && s.chips > 0 && !s.leaving && s.awaySince === null);
+    return ready.some((s) => this.botLimited(s)) ? ready.filter((s) => !s.bot) : ready;
+  }
+
+  /** Deals the next hand after a pause, when there are players for one and nothing else is going on. */
+  private maybeDeal(): void {
+    if (this.closed || this.nextHandPending || (this.hand && !this.hand.done)) return;
+    const ready = this.ready();
+    if (ready.length < 2 || !ready.some((s) => !s.bot)) return;
+    this.nextHandPending = true;
+    this.setTimer(POKER_TABLE.nextHandMs, () => {
+      void this.run(() => {
+        this.nextHandPending = false;
+        this.deal();
+      });
+    });
+  }
+
+  private deal(): void {
+    const ready = this.ready();
+    if (this.closed || ready.length < 2 || !ready.some((s) => !s.bot)) {
+      this.broadcast();
+      return;
+    }
+    // The button moves to the next player dealt in, round the table.
+    const next = ready.find((s) => s.seat > this.buttonSeat) ?? (ready[0] as Seat);
+    this.buttonSeat = next.seat;
+    const { smallBlind, bigBlind, rake, rakeCap } = CONFIG.poker;
+    this.hand = startHand(
+      ready.map((s) => ({ id: s.id, seat: s.seat, stack: s.chips })),
+      ready.indexOf(next),
+      { small: smallBlind, big: bigBlind, rake: { rate: rake, cap: rakeCap } },
+      this.deps.deck(),
+    );
+    this.reads.dealt(this.hand);
+    this.handNo++;
+    this.afterMove();
+  }
+
+  /** After any move: the next turn, the next street, or the end of the hand. */
+  private afterMove(): void {
+    const hand = this.hand;
+    this.clearTimer();
+    if (!hand) return;
+    if (hand.done) {
+      void this.run(() => this.endHand());
+      this.broadcast();
+      return;
+    }
+    if (hand.toAct === null) {
+      this.setTimer(hand.cardsUp ? POKER_TABLE.allInStreetMs : POKER_TABLE.streetMs, () => {
+        void this.run(() => {
+          if (this.hand !== hand) return;
+          advance(hand);
+          this.afterMove();
+        });
+      });
+      this.broadcast();
+      return;
+    }
+    const player = hand.players[hand.toAct] as HandPlayer;
+    const seat = this.seats[player.seat];
+    if (seat?.bot) {
+      const [from, to] = POKER_TABLE.botThinkMs;
+      this.setTimer(from + Math.floor(this.deps.random() * (to - from)), () => {
+        void this.run(() => {
+          if (this.hand !== hand || hand.toAct === null || hand.players[hand.toAct] !== player) return;
+          const move = botAction(hand, this.deps.random, { style: seat.style, reads: this.reads });
+          this.reads.saw(hand, player.id, move);
+          if (handAct(hand, player.id, move) !== null) handAct(hand, player.id, fallback(hand));
+          this.afterMove();
+        });
+      });
+    } else if (!seat || seat.awaySince !== null || seat.leaving) {
+      this.playForAway();
+      return;
+    } else {
+      this.setTimer(CONFIG.poker.turnSeconds * 1000, () => {
+        void this.run(() => {
+          if (this.hand !== hand || hand.toAct === null || hand.players[hand.toAct] !== player) return;
+          handAct(hand, player.id, fallback(hand));
+          this.afterMove();
+        });
+      });
+    }
+    this.broadcast();
+  }
+
+  /** The player whose turn it is isn't here (or is getting up): they check when it's free, and fold otherwise. */
+  private playForAway(): void {
+    const hand = this.hand;
+    if (!hand || hand.toAct === null) return;
+    const player = hand.players[hand.toAct] as HandPlayer;
+    const seat = this.seats[player.seat];
+    if (seat && !seat.bot && (seat.awaySince !== null || seat.leaving)) {
+      handAct(hand, player.id, fallback(hand));
+      this.afterMove();
+    }
+  }
+
+  /** The hand is over: saves everyone's chips, takes the rake, lets those getting up (or out of chips) go, and deals on. */
+  private async endHand(): Promise<void> {
+    const hand = this.hand;
+    if (!hand?.done || !hand.result) return;
+    this.reads.handOver(hand);
+    const changes: { seat: Seat; change: number }[] = [];
+    for (const p of hand.players) {
+      const seat = this.seats[p.seat];
+      if (seat?.id !== p.id) continue;
+      changes.push({ seat, change: p.stack - seat.chips });
+      seat.chips = p.stack;
+    }
+    await this.countBotWinnings(changes);
+    for (const seat of this.humans()) {
+      if (!seat.seatId || !hand.players.some((p) => p.id === seat.id)) continue;
+      await this.deps.saveChips(seat.seatId, seat.chips).catch((err) => console.error('Could not save a poker player’s chips:', err));
+    }
+    if (hand.result.rake > 0) await this.deps.houseTake(this.guildId, hand.result.rake).catch((err) => console.error('Could not put poker rake in the vault:', err));
+    for (const seat of [...this.seats]) {
+      if (seat && (seat.leaving || seat.chips <= 0)) await this.removeSeat(seat);
+    }
+    this.closeIfEmpty();
+    this.maybeDeal();
+    this.broadcast();
+  }
+
+  // -------------------------------------------------------------------------
+  // Timers, closing
+  // -------------------------------------------------------------------------
+
+  private setTimer(ms: number, run: () => void): void {
+    this.clearTimer();
+    this.deadline = this.deps.now() + ms;
+    this.cancelTimer = this.deps.schedule(ms, run);
+  }
+
+  private clearTimer(): void {
+    this.cancelTimer?.();
+    this.cancelTimer = null;
+    this.deadline = 0;
+  }
+
+  /** Keeps the seats' chips leased in the database while the table is open. */
+  private heartbeat(): void {
+    this.stopHeartbeat = this.deps.schedule(POKER_TABLE.heartbeatMs, () => {
+      if (this.closed) return;
+      if (this.humans().length > 0) void this.deps.renewSeats(this.key).catch((err) => console.error('Could not renew poker seats:', err));
+      this.heartbeat();
+    });
+  }
+
+  /** Closes the table when no member is at it (seated or watching): the bots get up with it. */
+  private closeIfEmpty(): void {
+    if (this.closed || this.viewers.size > 0 || this.humans().length > 0) return;
+    this.closed = true;
+    this.clearTimer();
+    this.stopHeartbeat?.();
+    this.hand = null;
+    for (const seat of this.seats) {
+      if (seat?.bot) void this.removeSeat(seat);
+    }
+    this.onEmpty(this);
+  }
+
+  // -------------------------------------------------------------------------
+  // What the pages see
+  // -------------------------------------------------------------------------
+
+  /** The table as `userId` sees it. */
+  view(userId: string): PokerState {
+    const hand = this.hand;
+    const { smallBlind, bigBlind, minBuyIn, maxBuyIn, rake, rakeCap, turnSeconds, botDailyLimit } = CONFIG.poker;
+    const playerOf = (id: string): HandPlayer | undefined => hand?.players.find((p) => p.id === id);
+    const seats = this.seats.map((s): SeatView | null => {
+      if (!s) return null;
+      const p = playerOf(s.id);
+      const faceUp = p && hand && !p.folded && (hand.cardsUp || (hand.done && hand.result?.shown[p.id]));
+      return {
+        seat: s.seat,
+        id: s.id,
+        name: s.name,
+        avatar: s.avatar,
+        bot: s.bot,
+        // In a hand (being played, or just over and not yet saved), its stack is what they have.
+        chips: p ? p.stack : s.chips,
+        bet: p && !hand?.done ? p.bet : 0,
+        inHand: p !== undefined,
+        folded: p?.folded ?? false,
+        allIn: (p && !hand?.done && p.allIn) ?? false,
+        cards: p && (s.id === userId || faceUp) ? p.hole : null,
+        last: (p && !hand?.done && p.last) || null,
+        away: s.awaySince !== null,
+        leaving: s.leaving,
+      };
+    });
+    const me = hand?.toAct !== null && hand?.toAct !== undefined ? hand.players[hand.toAct] : undefined;
+    const legal = me?.id === userId && hand ? legalActions(hand) : null;
+    const viewer = this.viewers.get(userId);
+    const mine = this.seatOf(userId);
+    const playing = hand !== null && !hand.done;
+    return {
+      table: this.number,
+      you: userId,
+      seats,
+      hand: hand ? handView(hand, this.handNo) : null,
+      move: legal,
+      msLeft: this.deadline > 0 && (this.nextHandPending || (playing && hand?.toAct !== null)) ? Math.max(0, this.deadline - this.deps.now()) : 0,
+      phase: playing ? 'playing' : this.nextHandPending ? 'next' : 'waiting',
+      blinds: { small: smallBlind, big: bigBlind },
+      buyIn: { min: minBuyIn, max: maxBuyIn },
+      rake: { rate: rake, cap: rakeCap },
+      balance: viewer?.balance ?? 0,
+      canAddBot: mine !== null && !this.botLimited(mine) && this.botSeatFree(),
+      botWinnings: mine && botDailyLimit > 0 ? { won: this.botNet(mine), limit: botDailyLimit } : null,
+      turnSeconds,
+    };
+  }
+
+  private broadcast(): void {
+    for (const [userId, viewer] of this.viewers) viewer.peer?.send({ t: 'poker', state: this.view(userId) });
+  }
+
+  /** For tests: the hand being played. */
+  get currentHand(): HandState | null {
+    return this.hand;
+  }
+
+  /** For tests: waits for every change queued so far. */
+  settled(): Promise<void> {
+    return this.queue;
+  }
+}
+
+/** The hand as every page is shown it (cards aren't in it: SeatView has them, for whoever may see them). */
+function handView(hand: HandState, no: number): HandView {
+  const seatOf = (id: string): number => (hand.players.find((p) => p.id === id) as HandPlayer).seat;
+  const result = hand.result;
+  return {
+    no,
+    button: (hand.players[hand.button] as HandPlayer).seat,
+    street: hand.street,
+    board: [...hand.board],
+    pot: potTotal(hand),
+    toAct: hand.toAct === null ? null : (hand.players[hand.toAct] as HandPlayer).seat,
+    currentBet: hand.currentBet,
+    result: result
+      ? {
+          pots: result.pots.map((pot) => ({ amount: pot.amount, seats: pot.winners.map(seatOf), hand: pot.hand })),
+          rake: result.rake,
+          won: Object.fromEntries(Object.entries(result.won).map(([id, amount]) => [seatOf(id), amount])),
+          shown: Object.fromEntries(Object.entries(result.shown).map(([id, shown]) => [seatOf(id), shown])),
+        }
+      : null,
+  };
+}
+
+/** A page's move as the hand's: All in is a raise to everything they have (or a call, when that's all it comes to). Null when it can't be made. */
+function toAction(hand: HandState, move: PokerMove, amount?: number): PokerAction | null {
+  const legal = legalActions(hand);
+  if (!legal) return null;
+  switch (move) {
+    case 'fold':
+      return { type: 'fold' };
+    case 'check':
+      return { type: 'check' };
+    case 'call':
+      return { type: 'call' };
+    case 'raise':
+      return amount === undefined ? null : { type: 'raise', to: amount };
+    case 'allIn':
+      if (legal.raise) return { type: 'raise', to: legal.raise.max };
+      return legal.call > 0 ? { type: 'call' } : { type: 'check' };
+  }
+}
+
+/** What's done for a player who didn't move in time: check when it's free, fold otherwise. */
+const fallback = (hand: HandState): PokerAction => (legalActions(hand)?.check ? { type: 'check' } : { type: 'fold' });
+
+/** Every server's poker tables. */
+export class PokerTables {
+  private readonly tables = new Map<string, PokerTable[]>();
+
+  constructor(readonly realDeps: PokerDeps) {}
+
+  /** The tables open in a server. */
+  in(guildId: string): readonly PokerTable[] {
+    return this.tables.get(guildId) ?? [];
+  }
+
+  /** A server's tables as its table list shows them. */
+  list(guildId: string): TableListing[] {
+    return this.in(guildId).map((t) => t.listing());
+  }
+
+  /** The table `player` sits at, or has a page at: they go straight back to it. */
+  tableOf(player: Player): PokerTable | null {
+    const open = this.in(player.guildId);
+    return open.find((t) => t.seated(player.userId)) ?? open.find((t) => t.has(player.userId)) ?? null;
+  }
+
+  /**
+   * Puts `player`'s page at table `at`, or a new one ('new'): the table they're at already, if
+   * they are. Returns the table and the page it took over from, if any, or why they can't join.
+   */
+  async join(player: Player, peer: Peer, at: number | 'new', deps: PokerDeps = this.realDeps): Promise<{ table: PokerTable; replaced: Peer | null } | Refusal> {
+    const open = this.in(player.guildId);
+    let table = this.tableOf(player) ?? (at === 'new' ? undefined : open.find((t) => t.number === at));
+    if (!table && at !== 'new') return { reason: 'no_table' };
+    if (table && !table.has(player.userId) && !table.open) return { reason: 'table_full' };
+    if (!table) {
+      let number = 1;
+      while (open.some((t) => t.number === number)) number++;
+      const { guildId } = player;
+      table = new PokerTable(guildId, number, deps, (empty) => {
+        const list = this.tables.get(guildId)?.filter((t) => t !== empty) ?? [];
+        if (list.length > 0) this.tables.set(guildId, list);
+        else this.tables.delete(guildId);
+      });
+      this.tables.set(player.guildId, [...open, table].sort((a, b) => a.number - b.number));
+    }
+    const replaced = await table.join(player, peer);
+    return { table, replaced };
+  }
+
+  /** For tests: forgets every table. */
+  reset(): void {
+    this.tables.clear();
+  }
+}
+
+export const pokerTables = new PokerTables(realPokerDeps);

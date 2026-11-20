@@ -1,0 +1,147 @@
+import { bubbleBeam, bubbleBeamPenalty } from './items/bubble-beam.js';
+import { claimBonus } from './economy/claim-bonus.js';
+import { claimTax } from './rob/claim-tax.js';
+import { d20 } from './d20/index.js';
+import { fineReduction } from './rob/fine-reduction.js';
+import { glassCannonPenalty } from './items/glass-cannon-penalty.js';
+import { glassCannon } from './items/glass-cannon.js';
+import { guardBoost } from './raid/guard-boost.js';
+import { partyGuard } from './raid/party-guard.js';
+import { partyHeal } from './raid/party-heal.js';
+import { circleOfDeath } from './raid/circle-of-death.js';
+import { rallyCrit } from './raid/rally-crit.js';
+import { hexBoost } from './raid/hex-boost.js';
+import { assassinStrike } from './raid/assassin-strike.js';
+import { assassinCrit } from './raid/assassin-crit.js';
+import { archerRamp } from './raid/archer-ramp.js';
+import { warriorCounter } from './raid/warrior-counter.js';
+import { healCut } from './raid/heal-cut.js';
+import { healSplash } from './raid/heal-splash.js';
+import { iconicByMistake } from './items/iconic-by-mistake.js';
+import { maxHpDamage } from './raid/max-hp-damage.js';
+import { blastLoss, dynamiteBlast, energyRegen, freeDig, luckyOre, oreValueCut, pickaxeEnergyPenalty, pickaxeSpeed } from './pinecraft/index.js';
+import { pullDiscount } from './economy/pull-discount.js';
+import { greedCost, potOfGreed } from './economy/pot-of-greed.js';
+import { jobPay } from './economy/job-pay.js';
+import { robStreak, robStreakCap, robVulnerable } from './items/thoccy.js';
+import { burstFire, burstRecoil } from './items/mp5.js';
+import { rallyBoost } from './raid/rally-boost.js';
+import { raidAttack } from './raid/raid-attack.js';
+import { raidCritChance } from './raid/raid-crit-chance.js';
+import { raidCritDamage } from './raid/raid-crit-damage.js';
+import { raidHp } from './raid/raid-hp.js';
+import { healBonus } from './raid/heal-bonus.js';
+import { blightPurge } from './raid/blight-purge.js';
+import { raidSupport } from './raid/raid-support.js';
+import { robAmountCut } from './rob/rob-amount-cut.js';
+import { robAmount } from './rob/rob-amount.js';
+import { robChance } from './rob/rob-chance.js';
+import { robDefense } from './rob/rob-defense.js';
+import { robShield } from './rob/rob-shield.js';
+import { robTax } from './rob/rob-tax.js';
+import { wealthTax } from './rob/wealth-tax.js';
+import { slothCooldown } from './items/sloth-cooldown.js';
+import { slothDefense } from './items/sloth-defense.js';
+import { smart } from './items/smart.js';
+import { stackosaurus } from './items/stackosaurus.js';
+import { wheelSpin } from './wheel-spin/index.js';
+import { registerPerks } from './stats.js';
+/*
+ * Every perk by id, and the shapes built from that list. Kept apart from index.ts so stats.ts can
+ * read the registry without importing everything the index re-exports.
+ */
+/** Every perk, by id. The order here is the order they are listed in the settings and on the gear summary. */
+export const EFFECTS = {
+    // Offense: the wearer robbing someone.
+    robChance,
+    robAmount,
+    // Defense: someone robbing the wearer.
+    robDefense,
+    robShield,
+    // Sid the Sloth.
+    slothDefense,
+    slothCooldown,
+    // Caught protection.
+    fineReduction,
+    // Coughing Baby and Frog.
+    robAmountCut,
+    claimTax,
+    robTax,
+    wealthTax,
+    // Glass cannon.
+    glassCannon,
+    glassCannonPenalty,
+    // Chaewon Photocard.
+    smart,
+    iconicByMistake,
+    // Piplup.
+    bubbleBeam,
+    bubbleBeamPenalty,
+    // Unique-treasure perks.
+    wheelSpin,
+    d20,
+    stackosaurus,
+    // Economy.
+    claimBonus,
+    pullDiscount,
+    jobPay,
+    // Pot of Greed.
+    potOfGreed,
+    greedCost,
+    // Raid battles.
+    healSplash,
+    guardBoost,
+    rallyBoost,
+    maxHpDamage,
+    healCut,
+    raidHp,
+    raidAttack,
+    raidCritChance,
+    raidCritDamage,
+    raidSupport,
+    healBonus,
+    blightPurge,
+    // The raid classes' items: each only works for its class.
+    partyGuard,
+    partyHeal,
+    circleOfDeath,
+    rallyCrit,
+    hexBoost,
+    assassinStrike,
+    assassinCrit,
+    archerRamp,
+    warriorCounter,
+    // The TechnoMagic Raid's gear: its heroes' stats.
+    // The heroes' unique weapons (their own effects are the raid's).
+    // Thoccy Keyboard.
+    robStreak,
+    robStreakCap,
+    robVulnerable,
+    // MP5.
+    burstFire,
+    burstRecoil,
+    // Pinecraft.
+    pickaxeSpeed,
+    pickaxeEnergyPenalty,
+    dynamiteBlast,
+    blastLoss,
+    luckyOre,
+    energyRegen,
+    freeDig,
+    oreValueCut,
+};
+registerPerks(EFFECTS);
+export const EFFECT_IDS = Object.keys(EFFECTS);
+export function defaultEquipmentSettings() {
+    const out = {};
+    for (const id of EFFECT_IDS)
+        out[id] = { ...EFFECTS[id].defaults };
+    return out;
+}
+export function emptyTotals() {
+    const out = {};
+    for (const id of EFFECT_IDS)
+        out[id] = 0;
+    return out;
+}
+//# sourceMappingURL=registry.js.map

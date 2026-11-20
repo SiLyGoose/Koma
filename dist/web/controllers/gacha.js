@@ -1,0 +1,33 @@
+import { z } from 'zod';
+import { parse } from '../lib/validate.js';
+import { BANNERS } from '../../types.js';
+/* The banner page's requests. Each runs after middleware/auth.ts's member: res.locals has the server and who's asking. */
+/** Which banner: the standard one when it isn't said. */
+const Banner = z.enum(BANNERS).nullish();
+const View = z.object({ banner: Banner });
+/** A page of the history: the first (the newest pulls) when it isn't said. */
+const History = z.object({ banner: Banner, page: z.coerce.number().int().min(1).max(100_000).nullish() });
+const Pull = z.object({ multi: z.boolean().nullish(), banner: Banner });
+/** The item the guarantee is to give: any of them when it isn't said. */
+const Pick = z.object({ banner: Banner, item: z.string().nullish() });
+export function gachaController(gacha) {
+    return {
+        async view(req, res) {
+            const { banner } = parse(View, req.query);
+            res.json(await gacha.view(res.locals.guildId, res.locals.session.userId, banner ?? 'standard'));
+        },
+        async history(req, res) {
+            const { banner, page } = parse(History, req.query);
+            res.json(await gacha.history(res.locals.guildId, res.locals.session.userId, banner ?? 'standard', page ?? 1));
+        },
+        async pull(req, res) {
+            const { multi, banner } = parse(Pull, req.body);
+            res.json(await gacha.pull(res.locals.guildId, res.locals.session.userId, multi ?? false, banner ?? 'standard'));
+        },
+        async pick(req, res) {
+            const { banner, item } = parse(Pick, req.body);
+            res.json(await gacha.pick(res.locals.guildId, res.locals.session.userId, banner ?? 'standard', item ?? null));
+        },
+    };
+}
+//# sourceMappingURL=gacha.js.map

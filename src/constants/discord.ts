@@ -1,0 +1,84 @@
+/*
+ * Discord limits and timings: slash commands, autocomplete, embeds, buttons, avatars and the bio.
+ */
+
+/**
+ * How long a slash command may go without a reply before the bot tells Discord "one moment"
+ * (shown as "Koma is thinking..."). Discord fails a slash command that isn't answered within 3
+ * seconds, so keep this under 3000. A reply made after this is always public.
+ */
+export const SLASH_DEFER_AFTER_MS = 2500;
+
+/**
+ * Commands that can only be used with the prefix (`k!rob`), not as slash commands. They aren't
+ * registered with Discord, a slash command with that name is answered as unknown, and `/help`
+ * leaves them out. Their entries in `SLASH` (discord/slash.ts) can stay, so taking a name off
+ * this list brings the slash command back at the next start. Names are command names, in lower case.
+ */
+export const SLASH_EXCLUDED: readonly string[] = ['rob', 'newsletter'];
+
+/** Most choices Discord shows in an autocomplete list. */
+export const AUTOCOMPLETE_MAX_CHOICES = 25;
+
+/** Longest text put in one embed field before it is cut off with "...and N more" (Discord's own limit is 1024). */
+export const FIELD_MAX_LENGTH = 1_000;
+
+/**
+ * Most items shown on one page of the databank: it's a flip-through book, not one long list, so
+ * a tier with more than this splits into pages you page through with buttons instead of everything
+ * landing in one message.
+ */
+export const DATABANK_ITEMS_PER_PAGE = 5;
+
+/** How long the databank's buttons keep working after the last time they were used. */
+export const DATABANK_BUTTONS = { idleMs: 120_000 };
+
+/** How long the settings list's Previous/Next buttons keep working after the last time they were used. */
+export const CONFIG_BUTTONS = { idleMs: 120_000 };
+
+/**
+ * The help list's groups, in the order it shows them, and each one's heading. Every command says
+ * which it is in (Command.category).
+ */
+export const COMMAND_CATEGORIES = {
+  economy: '💰 Economy',
+  casino: '🎰 Casino',
+  items: '🎒 Items',
+  gear: '🛡️ Gear',
+  adventure: '🗺️ Adventure',
+  bot: '⚙️ Bot',
+} as const;
+export type CommandCategory = keyof typeof COMMAND_CATEGORIES;
+
+/** The most commands the help list shows a page (a group is never split between pages unless it alone has more). */
+export const HELP_PAGE_SIZE = 10;
+
+/** How long the help list's Previous/Next buttons keep working after the last time they were used. */
+export const HELP_BUTTONS = { idleMs: 120_000 };
+
+/**
+ * Fetching a member's profile picture for the blackjack table (src/discord/profile.ts): the size
+ * asked from Discord (a power of two from 16 to 4096; the picture is drawn 34 pixels across), how
+ * long to wait for it, the biggest file taken, and how many pictures are kept in memory. If the
+ * picture doesn't arrive in time the table shows a coloured circle with the first letter instead.
+ */
+export const AVATAR = { size: 64, timeoutMs: 3000, maxBytes: 300_000, cacheMax: 200 } as const;
+
+/**
+ * The bot's bio (its About Me: the application's description in the Developer Portal). At each
+ * start the bot keeps one line of it pointing at the games' site (WEB_URL): the line starting with
+ * `siteLabel` gets the site's address, or is added at the end if there isn't one. The rest of the
+ * bio is left as written in the portal. Changing `siteLabel` leaves the old line behind (delete it
+ * in the portal). Discord allows at most `maxLength` characters.
+ */
+export const BIO = {
+  siteLabel: 'Check out Komaverse:',
+  maxLength: 400,
+} as const;
+
+/**
+ * The bot's status (src/discord/status.ts): how long it has been up, in one of TEXT.status's lines.
+ * The uptime is refreshed every `refreshMs` (well under Discord's limit of 5 presence updates per 20
+ * seconds), and the line changes every `rotateMs`.
+ */
+export const STATUS = { refreshMs: 60_000, rotateMs: 15 * 60_000 } as const;

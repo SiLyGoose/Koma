@@ -1,0 +1,179 @@
+import { randomInt } from 'node:crypto';
+import { CONFIG } from '../../config.js';
+import { KR_DROPS, dragonPieces, dragonTier, normalPaysAs, normalRuneGradeWeights, runeCount, runeGradeWeights, tmReclaimedChance, tmReportChance, tmReportDrops, tmStoneDrops } from '../../constants/technomagic.js';
+import { RAID_CLASS_IDS } from '../../protocol/raid.js';
+import { KR_ITEMS_BY_ID, KR_RUNES, krPiecesOf } from '../../data/kr-gear.js';
+import { TM_ARMOR_DEFS } from '../../data/tm-main.js';
+import { potentialStep, TM_POTENTIAL_IDS, TM_POTENTIAL_LINES, UT_OPTION_LINES } from '../../data/tm-potentials.js';
+import { tmSetOfBoss } from '../../data/tm-sets.js';
+import { BOSS_IDS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_BOSS_INFO, TM_SKILLS, replay, startRaid, } from '../../../vendor/technomagic-sim.mjs';
+/*
+ * The TechnoMagic Raid, with no database. Its fight is Koma-UI's sim (src/technomagic/sim/), which the bot
+ * has as vendor/technomagic-sim.mjs (built there by its `yarn sync`): a room's fight is run by the bot with
+ * it (web/games/technomagic/), and every page runs the same one. A win gives TechnoMagic items (ItemDef.tmDrop) of
+ * the boss's own set (data/tm-sets.ts), more at the higher stages (TM_DROP_COUNTS), and each copy comes with one of the
+ * sim's additional skills (TM_SKILLS: the same list whatever the set) and TM_POTENTIAL_LINES potentials
+ * (data/tm-potentials.ts), rolled as it drops; an armor comes with its main stat's DEF too (data/tm-main.ts). The
+ * database side is services/technomagic.ts.
+ */
+export { BOSS_IDS, MOST_STAGE, MOST_TICKS, MOST_TM_SKILLS, SIM_VERSION, STEP_SECONDS, TM_SKILLS, replay, startRaid };
+export const TM_SKILLS_BY_ID = new Map(TM_SKILLS.map((skill) => [skill.id, skill]));
+/** The TechnoMagic Raid's bosses (the Dragon Raid's dragons are lib/game/dragon.ts's), and the one a run is fought against unless another is asked for. */
+export const TM_BOSSES = TM_BOSS_INFO;
+export const TM_BOSS = 'galgoria';
+const defaultRng = { index: (max) => randomInt(0, max) };
+/** The piece a win against `boss` gives: one of its set's (King's Raid's: data/kr-gear.ts), each as likely (null: it drops none). */
+export function rollTmDrop(boss, rng = defaultRng) {
+    const set = tmSetOfBoss(boss);
+    const pool = set ? krPiecesOf(set.id) : [];
+    return pool.length > 0 ? pool[rng.index(pool.length)] : null;
+}
+/**
+ * The pieces crafting TechnoMagic `set` picks one of (services/technomagic.ts craftTmPiece): `kind` 'any' any of its pieces, 'part'
+ * any class's of `part`, 'exact' `cls`'s of `part` (an accessory: any of its four kinds, or `accessory`'s alone). None: it can't be
+ * so crafted.
+ */
+export function tmCraftPool(set, kind, part, cls, accessory = null) {
+    if ((kind !== 'any' && part === null) || (kind === 'exact' && cls === null) || (accessory !== null && (kind === 'any' || part !== 'accessory')))
+        return [];
+    return krPiecesOf(set).filter((item) => item.kr?.part !== 'artifact' &&
+        (kind === 'any' || item.kr?.part === part) &&
+        (kind !== 'exact' || (cls !== null && item.kr?.classes.includes(cls) === true)) &&
+        (accessory === null || item.kr?.kind === accessory));
+}
+/** Whether a TechnoMagic piece a win at `stage` gives is Reclaimed (constants/technomagic.ts TM_RECLAIMED: from stage 4). */
+export const rollReclaimed = (stage, rng = defaultRng) => rng.index(10_000) < Math.round(tmReclaimedChance(stage) * 10_000);
+/** The Technomagic Experiment Reports a TechnoMagic Raid win at `stage` gives (constants/technomagic.ts TM_REPORTS: now and then, from stage 4): 0 for none. */
+export const rollTmReports = (stage, rng = defaultRng) => (rng.index(10_000) < Math.round(tmReportChance(stage) * 10_000) ? tmReportDrops(stage) : 0);
+/**
+ * The Technomagic Gear Upgrade Stones a TechnoMagic Raid win at `stage` gives (tmStoneDrops: from stage 7), all of one class:
+ * one of `classes`' (the heroes the player brought), each as likely; with none, any class's. Null: none at that stage.
+ */
+export function rollTmStones(stage, classes, rng = defaultRng) {
+    const count = tmStoneDrops(stage);
+    if (count <= 0)
+        return null;
+    const pool = classes.length > 0 ? classes : RAID_CLASS_IDS;
+    return { class: pool[rng.index(pool.length)], count };
+}
+/**
+ * The pieces a Dragon Raid win against `dragon` at `stage` gives: its own set's, of its stage's tier, each as likely. In `mode`
+ * Normal, as the Hard stage it pays as (normalPaysAs); one easier than all of them, a piece of KR_DROPS.normal's tier from its
+ * `piecesFrom` stage on.
+ */
+export function rollDragonPieces(dragon, stage, rng = defaultRng, mode = 'hard') {
+    const set = KR_DROPS.dragonSets[dragon];
+    const as = mode === 'normal' ? normalPaysAs(stage) : stage;
+    const easy = mode === 'normal' && as === 0;
+    const pool = set ? krPiecesOf(set, easy ? KR_DROPS.normal.tier : dragonTier(as)) : [];
+    const count = easy ? Number(stage >= KR_DROPS.normal.piecesFrom) : dragonPieces(as);
+    return pool.length === 0 ? [] : Array.from({ length: count }, () => pool[rng.index(pool.length)]);
+}
+/** One of `weights`' indexes, as likely as its weight (none: the first). */
+function weighted(weights, rng) {
+    const scale = 1000;
+    const total = weights.reduce((sum, w) => sum + Math.round(w * scale), 0);
+    if (total <= 0)
+        return 0;
+    let at = rng.index(total);
+    for (let i = 0; i < weights.length; i++) {
+        at -= Math.round(weights[i] * scale);
+        if (at < 0)
+            return i;
+    }
+    return weights.length - 1;
+}
+/**
+ * The runes a win at `stage` gives (their ids): runeCount of them, each of a grade rolled by its raid's weights
+ * (`dragon`: the Dragon Raid's, else a TechnoMagic Raid's), a grade 5 one a Velkazar rune now and then, else an Ancient one;
+ * then one of that grade's runes, each as likely.
+ */
+export function rollRunes(stage, dragon, rng = defaultRng, mode = 'hard') {
+    // (A Normal Dragon Raid's win: as the Hard stage it pays as, or one easier than all of them KR_DROPS.normal's runes.)
+    const as = dragon && mode === 'normal' ? normalPaysAs(stage) : stage;
+    const easy = as === 0;
+    const weights = easy ? normalRuneGradeWeights(stage) : runeGradeWeights(as, dragon);
+    const out = [];
+    for (let n = easy ? KR_DROPS.normal.runes : runeCount(as); n > 0; n--) {
+        const grade = weighted(weights, rng) + 1;
+        const velkazar = grade === 5 && rng.index(1000) < KR_DROPS.velkazar * 1000;
+        const pool = KR_RUNES.filter((rune) => rune.grade === grade && (grade !== 5 || (rune.ancient === true) !== velkazar));
+        if (pool.length > 0)
+            out.push(pool[rng.index(pool.length)].id);
+    }
+    return out;
+}
+/** The artifact a TechnoMagic Raid win at `stage` gives now and then (null: none this time): any as likely. */
+export function rollArtifact(stage, rng = defaultRng) {
+    const chance = KR_DROPS.artifact + KR_DROPS.artifactPerStage * Math.max(0, Math.floor(stage) - 1);
+    if (rng.index(10_000) >= Math.round(chance * 10_000))
+        return null;
+    const pool = [...KR_ITEMS_BY_ID.values()].filter((item) => item.kr?.part === 'artifact');
+    return pool.length > 0 ? pool[rng.index(pool.length)] : null;
+}
+/** The additional skill a piece of TechnoMagic gear comes with: one of TM_SKILLS, each as likely (its id). */
+export const rollTmSkill = (rng = defaultRng) => TM_SKILLS[rng.index(TM_SKILLS.length)].id;
+/** The DEF a piece of TechnoMagic armor's main stat is (data/tm-main.ts): P.DEF or M.DEF, each as likely. */
+export const rollTmArmorDef = (rng = defaultRng) => TM_ARMOR_DEFS[rng.index(TM_ARMOR_DEFS.length)];
+/** A potential's amount, to the nearest whole percent (as every copy's is). */
+export const wholePercent = (value) => Math.round(value * 100) / 100;
+/**
+ * The potentials a piece of TechnoMagic gear comes with: TM_POTENTIAL_LINES of them, each a different stat, each
+ * as likely, and each by a whole percent between its range's ends (the settings' hero.potentials, to the nearest
+ * whole percent), any as likely.
+ */
+export function rollTmPotentials(rng = defaultRng, lines = TM_POTENTIAL_LINES) {
+    const pool = [...TM_POTENTIAL_IDS];
+    const out = [];
+    while (out.length < lines && pool.length > 0) {
+        const [stat] = pool.splice(rng.index(pool.length), 1);
+        if (stat === undefined)
+            break;
+        out.push({ stat, value: rollPotentialValue(CONFIG.hero.potentials[stat], rng) });
+    }
+    return out;
+}
+/** An amount between a range's ends, any as likely: in whole percents, or half ones for a range whose ends aren't whole (potentialStep). */
+function rollPotentialValue(range, rng) {
+    const step = potentialStep(range);
+    const low = Math.round(range.min / step);
+    const high = Math.max(low, Math.round(range.max / step));
+    return Math.round((low + rng.index(high - low + 1)) * step * 1000) / 1000;
+}
+/** The options a unique treasure's copy comes with as it is pulled: UT_OPTION_LINES of the potentials, rolled as TechnoMagic gear's are. */
+export const rollUtOptions = (rng = defaultRng) => rollTmPotentials(rng, UT_OPTION_LINES);
+/**
+ * A unique treasure's options with its `index`th's amount rolled again, anywhere in its range (as it was pulled: it may go
+ * down, or land where it was) (the config's hero.valueRerollUtPrice points). Null: no such option.
+ */
+export function enhanceUtOptions(options, index, rng = defaultRng) {
+    const old = options[index];
+    const range = old ? CONFIG.hero.potentials[old.stat] : undefined;
+    if (!old || !range)
+        return null;
+    return options.map((option, i) => (i === index ? { ...option, value: rollPotentialValue(range, rng) } : option));
+}
+/**
+ * A unique treasure's `index`th option rolled again (UT_REROLL): another potential, none of the copy's options' (its own
+ * included: a reroll always changes the stat; enhancing rolls only the amount), at an amount anywhere in its range. Null: no
+ * such option, or no potential left to roll.
+ */
+export function rerollUtOption(options, index, rng = defaultRng) {
+    if (!Number.isInteger(index) || !options[index])
+        return null;
+    const held = new Set(options.map((option) => option.stat));
+    const pool = TM_POTENTIAL_IDS.filter((stat) => !held.has(stat) && CONFIG.hero.potentials[stat]);
+    const stat = pool[rng.index(pool.length)];
+    return pool.length > 0 && stat !== undefined ? { stat, value: rollPotentialValue(CONFIG.hero.potentials[stat], rng) } : null;
+}
+/** A copy's potentials to the nearest whole percent: null if they already are (as the copies from before that were not). */
+export function wholePotentials(potentials) {
+    const whole = potentials.map(({ stat, value }) => ({ stat, value: wholePercent(value) }));
+    return whole.some(({ value }, i) => value !== potentials[i]?.value) ? whole : null;
+}
+/** A copy's additional skill, as the site and the bot say it, like "Vigor: Increases DMG dealt by 25% while HP is above 75%." (null: none, or one the sim doesn't know). */
+export function tmSkillLine(id) {
+    const skill = id ? TM_SKILLS_BY_ID.get(id) : undefined;
+    return skill ? `${skill.name}: ${skill.about}` : null;
+}
+//# sourceMappingURL=technomagic.js.map

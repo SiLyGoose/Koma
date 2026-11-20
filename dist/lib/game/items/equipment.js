@@ -1,0 +1,141 @@
+import { CONFIG } from '../../../config.js';
+import { ADMIN_USER_ID } from '../../../constants/index.js';
+import { EFFECT_IDS, EFFECTS, emptyTotals } from '../../../perks/index.js';
+import { HEROES_BY_ID } from '../../../data/heroes.js';
+import { ITEMS_BY_ID } from '../../../data/items.js';
+import { uwAttack } from '../../../data/uw-attack.js';
+import { SLOTS } from '../../../types.js';
+import { fmt, formatPercent } from '../../format.js';
+import { refineShare } from './refine.js';
+import { REFINE } from '../../../constants/index.js';
+/**
+ * How much of a perk's full strength a copy at this refinement level gives: the usual refine share,
+ * or, for a perk with its own R1 value (`atR1`), a climb from that to full in the same steps.
+ */
+export function perkShare(effect, level) {
+    const share = refineShare(level);
+    const atR1 = EFFECTS[effect].atR1;
+    const lowest = refineShare(1);
+    if (atR1 === undefined || lowest >= 1)
+        return share;
+    return atR1 + ((1 - atR1) * (share - lowest)) / (1 - lowest);
+}
+/** How strong an effect is on an item of the given star tier, from the live settings. */
+export function effectStrength(effect, stars) {
+    return CONFIG.equipment[effect][stars];
+}
+/** Whether a copy of `item` at this refinement level has its refine bonus on (the item has one, and the copy is refined far enough). */
+export function bonusActive(item, level) {
+    return item.bonus !== undefined && level >= item.bonus.level;
+}
+/** The perks an item gives at a refinement level: its own, less the ones its refine bonus turns off once that is on. */
+export function itemEffects(item, level) {
+    if (!item.bonus || !bonusActive(item, level))
+        return [...item.effects];
+    const removes = item.bonus.removes;
+    return item.effects.filter((effect) => !removes.includes(effect));
+}
+/**
+ * The catalog items a member has equipped, with each copy's refinement level (fully refined when
+ * the gear doesn't say). Ids that are no longer in the catalog, or that sit in the wrong slot (say
+ * the catalog changed), are ignored rather than trusted.
+ */
+export function equippedGear(equipment) {
+    const pieces = [];
+    for (const slot of SLOTS) {
+        const id = equipment?.[slot];
+        if (!id)
+            continue;
+        const item = ITEMS_BY_ID.get(id);
+        if (item && item.slot === slot)
+            pieces.push({ item, level: equipment?.levels?.[slot] ?? REFINE.maxLevel });
+    }
+    return pieces;
+}
+/** Just the equipped items (see equippedGear). */
+export function equippedItems(equipment) {
+    return equippedGear(equipment).map((piece) => piece.item);
+}
+/**
+ * Whether `userId` gets this item's effects. Items with no `usableBy` list work for everyone;
+ * otherwise only the listed users, plus the admin (who can use everything, to test with).
+ */
+export function canUseItem(item, userId) {
+    if (!item.usableBy)
+        return true;
+    return userId === ADMIN_USER_ID || item.usableBy.includes(userId);
+}
+/**
+ * How much of an item's effects `userId` gets (1 is all of it): everything from an item they can
+ * use, and equipment.borrowed.effectiveness from someone else's exclusive item (a borrowed unique treasure).
+ */
+export function itemEffectiveness(item, userId) {
+    return canUseItem(item, userId) ? 1 : CONFIG.equipment.borrowed.effectiveness;
+}
+/**
+ * Adds up every effect across the given gear. Each piece counts at its refinement level's share
+ * (perkShare); a bare item counts as fully refined. With `userId`, each also counts at the share
+ * of its effects that member gets (itemEffectiveness); without it, in full.
+ */
+export function totalEffects(gear, userId) {
+    const totals = emptyTotals();
+    for (const piece of gear) {
+        const { item, level } = 'item' in piece ? piece : { item: piece, level: REFINE.maxLevel };
+        const share = userId === undefined ? 1 : itemEffectiveness(item, userId);
+        for (const effect of itemEffects(item, level))
+            totals[effect] += effectStrength(effect, item.stars) * share * perkShare(effect, level);
+    }
+    return totals;
+}
+/**
+ * Shortcut: the combined effects of everything a member has equipped. Someone else's exclusive
+ * item counts at equipment.borrowed.effectiveness. `userId` is the member the gear belongs to.
+ */
+export function gearEffects(equipment, userId) {
+    return totalEffects(equippedGear(equipment), userId);
+}
+/**
+ * The gear-card text for one perk at this strength: the perk's own `line` when it has one (like
+ * STONKS!'s hour-by-hour curve), otherwise its plain text at the formatted strength ("+10% ...").
+ * `strengthOf` is the strength of the other perks alongside it (see PerkDef.line).
+ */
+function effectLine(effect, strength, strengthOf) {
+    const perk = EFFECTS[effect];
+    return perk.line ? perk.line(strength, CONFIG, strengthOf) : perk.text(formatPercent(strength));
+}
+/**
+ * An item's refine bonus in words (ItemBonus.text), with any perk strengths it names worked out
+ * for this copy: at `share` of full effect (see itemEffectiveness) and refinement `level`.
+ */
+export function bonusText(item, share = 1, level = REFINE.maxLevel) {
+    const text = item.bonus?.text ?? '';
+    if (typeof text === 'string')
+        return text;
+    return text((effect) => effectStrength(effect, item.stars) * share * perkShare(effect, level), formatPercent);
+}
+/**
+ * One readable line per effect on an item, like "+10% rob success chance", at a refinement level
+ * (fully refined unless given). Once its refine bonus is on, the perks that turns off are left out
+ * and the bonus is the last line. `share` scales the strengths further, for an item worn at less
+ * than full effect (see itemEffectiveness).
+ */
+export function describeEffects(item, share = 1, level = REFINE.maxLevel) {
+    const effects = itemEffects(item, level);
+    const strength = (effect) => effects.includes(effect) ? effectStrength(effect, item.stars) * share * perkShare(effect, level) : 0;
+    const lines = effects.map((effect) => effectLine(effect, strength(effect), strength)).filter((line) => line !== '');
+    // A unique weapon: King's Raid's flat ATK for its hero's class, at this refinement (data/uw-attack.ts).
+    const owner = item.uniqueWeapon === undefined ? undefined : HEROES_BY_ID.get(item.uniqueWeapon);
+    if (owner)
+        lines.unshift(`Unique weapon: +${fmt(uwAttack(owner.class, level))} ATK`);
+    if (bonusActive(item, level))
+        lines.push(bonusText(item, share, level));
+    return lines;
+}
+/** One readable line per effect that is active in the totals, in the registry's order. */
+export function describeTotals(totals) {
+    const strength = (effect) => totals[effect] ?? 0;
+    return EFFECT_IDS.filter((effect) => totals[effect] > 0)
+        .map((effect) => effectLine(effect, totals[effect], strength))
+        .filter((line) => line !== '');
+}
+//# sourceMappingURL=equipment.js.map

@@ -1,0 +1,130 @@
+import { CONFIG } from '../config.js';
+import { CURRENCY_NAME, TEXT } from '../constants/index.js';
+import { ITEMS_BY_ID } from '../data/items.js';
+import { createEmbed } from '../lib/embed.js';
+import { fmt, joinLimited, money } from '../lib/format.js';
+import { parseSellArgs } from '../lib/game/items/sell.js';
+import { getInventory } from '../services/economy/index.js';
+import { planSale, sellCopies } from '../services/items/sell.js';
+import { CONFIRM_TIMEOUT_MS, askToConfirm } from '../discord/confirm.js';
+import { resolveItem } from '../discord/item-pick.js';
+const lineText = (line) => TEXT.sell.line(line.item.name, line.count, fmt(line.total), line.unit === 'powder');
+/** The komaDust a sale paid, formatted, to say beside its points (left out: none). */
+const powderOf = (powder) => (powder > 0 ? fmt(powder) : undefined);
+/** The embed shown after a sale. `remaining` is how many copies of a single item are left (only for selling one). */
+function soldEmbed(user, result, remaining) {
+    const [first] = result.lines;
+    const single = result.lines.length === 1 && first !== undefined && first.count === 1;
+    const embed = createEmbed()
+        .setTitle(TEXT.sell.soldTitle)
+        .setDescription((single && first
+        ? TEXT.sell.soldOne(user, first.item.name, fmt(result.earned), powderOf(result.powder))
+        : `${TEXT.sell.soldMany(user, result.lines.reduce((sum, line) => sum + line.count, 0), fmt(result.earned), powderOf(result.powder))}\n\n${joinLimited(result.lines.map(lineText), 3500)}`) +
+        (result.skipped > 0 ? `\n${TEXT.sell.skipped(result.skipped)}` : ''))
+        .addFields({ name: TEXT.sell.balanceField, value: money(result.balance), inline: true });
+    if (result.powder > 0)
+        embed.addFields({ name: TEXT.sell.powderField, value: TEXT.sell.powderValue(fmt(result.powderBalance), fmt(CONFIG.sell.powderPerGem)), inline: true });
+    if (remaining !== null)
+        embed.setFooter({ text: TEXT.sell.footerLeft(remaining) });
+    return embed;
+}
+/** The reply to something that couldn't be read as a sale. */
+function sellError(p, error, args) {
+    if (error === 'bad_stars')
+        return TEXT.sell.badStars(p);
+    if (error === 'bad_amount')
+        return TEXT.sell.badAmount(p);
+    if (error === 'missing_item') {
+        // "sell all" and "sell 3" each ask which item, in their own words.
+        return /^\d+$/.test((args[0] ?? '').trim()) ? TEXT.sell.askWhichAmount(p) : TEXT.sell.askWhichAll(p);
+    }
+    return TEXT.sell.usage(p);
+}
+/** Says why nothing can be sold. */
+function refusal(p, plan, target) {
+    if (plan.reason === 'not_enough' && target.kind === 'some') {
+        return TEXT.sell.notEnough(p, target.item.name, target.amount, plan.available);
+    }
+    if (target.kind === 'stars') {
+        const stars = `T${target.stars}`;
+        if (plan.reason === 'only_locked')
+            return TEXT.sell.onlyLockedTier(p, stars);
+        return plan.reason === 'not_owned' ? TEXT.sell.noneInTier(stars) : TEXT.sell.onlyEquippedTier(p, stars);
+    }
+    if (plan.reason === 'only_locked')
+        return TEXT.sell.onlyLocked(p, target.item.name);
+    return plan.reason === 'not_owned' ? TEXT.sell.notOwned(target.item.name) : TEXT.sell.onlyEquipped(p, target.item.name);
+}
+export const sell = {
+    name: 'sell',
+    category: 'items',
+    description: `Sell items you are not wearing (or locked) for ${CURRENCY_NAME} (hero gear at a T1's price): one copy, some copies, all copies of an item, or a whole tier.`,
+    usage: 'sell <item> | sell <number> <item> | sell all <item> | sell stars <1-4>',
+    slashUsage: 'sell one | some | all | stars',
+    async execute(ctx) {
+        const { args } = ctx;
+        const p = ctx.prefix;
+        const parsed = parseSellArgs(args);
+        if (!parsed.ok) {
+            await ctx.reply(sellError(p, parsed.error, args));
+            return;
+        }
+        const { request } = parsed;
+        // Work out what is being sold. Items are looked up among the ones the member owns.
+        let target;
+        if (request.kind === 'stars') {
+            target = { kind: 'stars', stars: request.stars };
+        }
+        else {
+            const entries = await getInventory(ctx.guildId, ctx.user.id);
+            const owned = entries.map((entry) => ITEMS_BY_ID.get(entry.itemId)).filter((item) => item !== undefined);
+            const pick = await resolveItem(ctx, request.query, { ambiguous: TEXT.sell.ambiguous, noSuchItem: TEXT.sell.noSuchItem(p, request.query) }, { items: owned, notOwned: TEXT.sell.notOwned });
+            if (!pick)
+                return;
+            // After a "Did you mean...?", the sale goes on that question's message.
+            ctx = pick.ctx;
+            target = request.kind === 'some' ? { kind: 'some', item: pick.item, amount: request.amount } : { kind: request.kind, item: pick.item };
+        }
+        const plan = await planSale(ctx.guildId, ctx.user.id, target);
+        if (!plan.ok) {
+            await ctx.reply(refusal(p, plan, target));
+            return;
+        }
+        const user = ctx.user.toString();
+        // One copy sells straight away.
+        if (target.kind === 'one') {
+            const result = await sellCopies(ctx.guildId, ctx.user.id, plan.copyIds);
+            if (!result.ok) {
+                await ctx.reply(TEXT.sell.nothingLeft);
+                return;
+            }
+            const left = (await getInventory(ctx.guildId, ctx.user.id)).find((entry) => entry.itemId === target.item.id)?.count ?? 0;
+            await ctx.reply({ embeds: [soldEmbed(user, result, left)] });
+            return;
+        }
+        // Selling many shows what would be sold and waits for a yes.
+        const prompt = createEmbed()
+            .setTitle(TEXT.sell.confirmTitle)
+            .setDescription(TEXT.sell.confirmDescription(fmt(plan.total), plan.count, joinLimited(plan.lines.map(lineText), 3500), powderOf(plan.powder)))
+            .setFooter({ text: TEXT.sell.confirmFooter(CONFIRM_TIMEOUT_MS / 1000) });
+        const outcome = await askToConfirm(ctx, prompt, ctx.user.id, {
+            confirm: TEXT.sell.confirmButton,
+            cancel: TEXT.sell.cancelButton,
+            notYours: TEXT.sell.notYours,
+        });
+        if (outcome.decision === 'timeout') {
+            await outcome.finish([createEmbed().setTitle(TEXT.sell.timedOutTitle).setDescription(TEXT.sell.timedOut)]);
+            return;
+        }
+        if (outcome.decision === 'cancel') {
+            await outcome.finish([createEmbed().setTitle(TEXT.sell.cancelledTitle).setDescription(TEXT.sell.cancelled)]);
+            return;
+        }
+        // Sell exactly the copies that were shown (each is checked again as it is sold).
+        const result = await sellCopies(ctx.guildId, ctx.user.id, plan.copyIds);
+        await outcome.finish(result.ok
+            ? [soldEmbed(user, result, null)]
+            : [createEmbed().setTitle(TEXT.sell.cancelledTitle).setDescription(TEXT.sell.nothingLeft)]);
+    },
+};
+//# sourceMappingURL=sell.js.map

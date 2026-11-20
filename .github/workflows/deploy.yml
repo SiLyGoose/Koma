@@ -1,0 +1,52 @@
+# Builds the bot on every push to master and publishes it to the `deploy` branch: the source as it
+# is, plus the built dist/ and DEPLOYED_FROM (the master commit it was built from). The GCP VM's
+# timer (/home/koma/deploy.sh) fetches that branch and restarts the bot, so the VM never compiles.
+name: Build for the VM
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# A newer push replaces a build still running, so the branch never goes back to an older commit.
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
+      - name: Publish to the deploy branch
+        run: |
+          subject=$(git log -1 --format=%s | cut -c1-100)
+          echo "$GITHUB_SHA" > DEPLOYED_FROM
+          rm -f dist/.tsbuildinfo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898341+github-actions[bot]@users.noreply.github.com"
+          git checkout --quiet --orphan deploy-build
+          git add -A
+          git add -f dist DEPLOYED_FROM
+          git commit --quiet -m "Build of ${GITHUB_SHA::7}: $subject"
+          git push --force --quiet origin HEAD:deploy
+
+  # Shown on the commit, but it doesn't hold back the deploy.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - run: yarn test
