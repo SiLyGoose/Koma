@@ -8,7 +8,8 @@ import { LASER } from '../../constants/index.js';
  * shorter every round. From the second round, some of the others can be fake ducks: just as green,
  * but saying something else (rollDecoys); pressing one is pressing a wrong button. Pressing before the laser fires, pressing a wrong button or not pressing in
  * time gets you caught (out, and fined: the event charges it). Only a player's first press in a
- * round counts, so mashing buttons only gets you caught. The players never caught split the prize;
+ * round counts, so mashing buttons only gets you caught. The players never caught split the prize by place, the fastest
+ * in all getting the most (rankWinners, rankedSplit);
  * if every one of them is caught, it stays in the vault.
  */
 
@@ -25,6 +26,34 @@ export interface LaserPlayer {
   caughtFor: Exclude<DuckResult, 'ducked'> | null;
   /** Their fastest duck, in milliseconds after the laser fired; null before their first. */
   bestMs: number | null;
+  /** All their ducks' times added up (ms): what ranks those who make it through, who have all ducked the same rounds. */
+  totalMs: number;
+}
+
+/** A duck in `ms`: kept as the player's best if it is, and added to their total. */
+export function recordDuck(player: LaserPlayer, ms: number): void {
+  player.bestMs = player.bestMs === null ? ms : Math.min(player.bestMs, ms);
+  player.totalMs += ms;
+}
+
+/** Those never caught, fastest first: the least time ducking in all, then the fastest single duck, then (a tie) by id, so the order is always the same. */
+export function rankWinners(players: readonly LaserPlayer[]): LaserPlayer[] {
+  return players.filter(isIn).sort((a, b) => a.totalMs - b.totalMs || (a.bestMs ?? Infinity) - (b.bestMs ?? Infinity) || (a.userId < b.userId ? -1 : a.userId > b.userId ? 1 : 0));
+}
+
+/**
+ * Splits `prize` between `ranked` (first place first) by place: with n winners, first gets n parts, second n - 1, and so
+ * on to 1 for the last (3 winners: half, a third and a sixth). Rounded down, the few points that leaves going one each
+ * from first place on, so the shares add up to exactly the prize and never go out of order.
+ */
+export function rankedSplit(prize: number, ranked: readonly string[]): { userId: string; amount: number }[] {
+  const n = ranked.length;
+  if (n === 0 || !(prize > 0)) return ranked.map((userId) => ({ userId, amount: 0 }));
+  const parts = (n * (n + 1)) / 2;
+  const shares = ranked.map((userId, i) => ({ userId, amount: Math.floor((prize * (n - i)) / parts) }));
+  let left = prize - shares.reduce((sum, share) => sum + share.amount, 0);
+  for (let i = 0; left > 0; i = (i + 1) % n, left--) (shares[i] as { amount: number }).amount++;
+  return shares;
 }
 
 export const isIn = (player: LaserPlayer): boolean => player.caughtFor === null;

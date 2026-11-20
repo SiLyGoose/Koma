@@ -66,7 +66,8 @@ export interface LaserEnded {
   prize: number;
   /** The round the last were caught in, or the last round played. */
   lastRound: number;
-  winners: { id: string; name: string; won: number; bestMs: number | null }[];
+  /** First place first (the least time ducking in all, 	otalMs): first place won the most, each after a little less. */
+  winners: { id: string; name: string; won: number; bestMs: number | null; totalMs: number }[];
   caught: { id: string; name: string; fine: number; round: number; caughtFor: LaserCaught }[];
   endedAt: number;
 }

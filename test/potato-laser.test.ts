@@ -6,7 +6,7 @@ import { hotPotato, potatoBlastEmbed, potatoLiveEmbed, potatoResultEmbed } from 
 import { laserGrid, laserJoinEmbed, laserResultEmbed, laserRow } from '../src/events/games/laser-grid.js';
 import { GAME_EVENTS, validateEvents } from '../src/events/registry.js';
 import { ClickGate } from '../src/lib/events/clicks.js';
-import { decoyCount, judgePress, laserWindowMs, parseSlotId, rollDecoys, settleRound, slotId, type DuckResult, type LaserPlayer } from '../src/lib/events/laser.js';
+import { decoyCount, judgePress, laserWindowMs, parseSlotId, rankedSplit, rankWinners, recordDuck, rollDecoys, settleRound, slotId, type DuckResult, type LaserPlayer } from '../src/lib/events/laser.js';
 import { blowUp, playersIn, potatoBlasts, pressPass, rollFuseMs, servePotato, type PotatoState } from '../src/lib/events/potato.js';
 import { checkConstraints, findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
@@ -133,12 +133,42 @@ test('fake ducks: none in the first round, then from 0 to LASER.maxDecoys', () =
   assert.ok(LASER.maxDecoys <= LASER.slots - 2);
 });
 
+test('laser press: a press after the first in a round changes nothing, and says what the first was', () => {
+  assert.match(TEXT.laser.alreadyPressed(TEXT.laser.firstDucked('0.42s')), /already pressed this round \(ducked in 0\.42s\), and it can't be changed/);
+  assert.match(TEXT.laser.alreadyPressed(TEXT.laser.early), /\(too early\)/);
+});
+
 test('fake ducks are pressing a wrong button', () => {
   // A fake duck is just another slot that isn't Duck!.
   assert.equal(judgePress('go', 3, 1, 1_000, 5_000), 'wrong');
 });
 
-const laserPlayers = (ids: string[]): LaserPlayer[] => ids.map((userId) => ({ userId, caughtRound: 0, caughtFor: null, bestMs: null }));
+const laserPlayers = (ids: string[]): LaserPlayer[] => ids.map((userId) => ({ userId, caughtRound: 0, caughtFor: null, bestMs: null, totalMs: 0 }));
+
+test('laser winners: the least time ducking in all is first, then the fastest single duck, then by id', () => {
+  const players = laserPlayers(['a', 'b', 'c', 'd']);
+  const [a, b, c, d] = players as [LaserPlayer, LaserPlayer, LaserPlayer, LaserPlayer];
+  for (const ms of [500, 700]) recordDuck(a, ms);
+  for (const ms of [400, 900]) recordDuck(b, ms);
+  for (const ms of [600, 600]) recordDuck(c, ms);
+  d.caughtFor = 'late';
+  assert.deepEqual([a.bestMs, a.totalMs], [500, 1200]);
+  // a and c both took 1.2s in all, and a's best (0.5s) beats c's (0.6s); b took 1.3s.
+  assert.deepEqual(rankWinners(players).map((p) => p.userId), ['a', 'c', 'b'], 'never the caught');
+});
+
+test('laser shares: first place the most, each after a little less, adding up to exactly the prize', () => {
+  assert.deepEqual(rankedSplit(600, ['a', 'b', 'c']).map((s) => s.amount), [300, 200, 100], 'a half, a third, a sixth');
+  assert.deepEqual(rankedSplit(1000, ['a', 'b']).map((s) => s.amount), [667, 333]);
+  assert.deepEqual(rankedSplit(1000, ['a']), [{ userId: 'a', amount: 1000 }]);
+  assert.deepEqual(rankedSplit(0, ['a', 'b']).map((s) => s.amount), [0, 0]);
+  assert.deepEqual(rankedSplit(500, []), []);
+  for (const [prize, n] of [[1001, 4], [7, 5], [123_457, 9], [2, 6]] as const) {
+    const amounts = rankedSplit(prize, Array.from({ length: n }, (_, i) => String(i))).map((s) => s.amount);
+    assert.equal(amounts.reduce((sum, x) => sum + x, 0), prize, ` over `);
+    for (let i = 1; i < n; i++) assert.ok((amounts[i - 1] as number) >= (amounts[i] as number), `in order: `);
+  }
+});
 
 test('laser round: everyone still in who did not duck is caught, not pressing counting as too slow', () => {
   const players = laserPlayers(['a', 'b', 'c', 'd']);
@@ -263,11 +293,11 @@ test('laser screens: before the laser every button looks alike, after it one say
   assert.equal(faked[3]?.style, faked[1]?.style, 'a fake duck is as green as Duck!');
 
   const players = laserPlayers(['1', '2']);
-  (players[0] as LaserPlayer).bestMs = 420;
+  recordDuck(players[0] as LaserPlayer, 420);
   settleRound(players, new Map([['1', 'ducked']]), 1);
   const result = data(laserResultEmbed(1000, 8, players, [{ userId: '1', amount: 1000 }], [{ userId: '2', amount: 50 }], 0));
   assert.equal(result.title, TEXT.laser.clearTitle);
-  assert.match(result.fields?.[0]?.value ?? '', /<@1> \+\*\*1,000\*\*.* \(fastest 0\.42s\)/);
+  assert.match(result.fields?.[0]?.value ?? '', /\*\*1\.\*\* <@1> \+\*\*1,000\*\*.* \(0\.42s in all\)/);
   assert.match(result.fields?.[1]?.value ?? '', /<@2> paid \*\*50\*\*.*: too slow \(round 1\)/);
 
   settleRound(players, new Map(), 2);

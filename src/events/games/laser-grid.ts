@@ -4,8 +4,8 @@ import { CONFIG } from '../../config.js';
 import { LASER, TEXT } from '../../constants/index.js';
 import { replyPrivately } from '../../discord/reply.js';
 import { createEmbed, type BotEmbed } from '../../lib/embed.js';
-import { splitPile, type CrateShare } from '../../lib/events/crate.js';
-import { decoyCount, isIn, judgePress, laserWindowMs, parseSlotId, rollDecoys, settleRound, slotId, type DuckResult, type LaserPhase, type LaserPlayer } from '../../lib/events/laser.js';
+import type { CrateShare } from '../../lib/events/crate.js';
+import { decoyCount, isIn, judgePress, laserWindowMs, parseSlotId, rankedSplit, rankWinners, recordDuck, rollDecoys, settleRound, slotId, type DuckResult, type LaserPhase, type LaserPlayer } from '../../lib/events/laser.js';
 import { fmt, mention } from '../../lib/format.js';
 import { randInt } from '../../lib/random.js';
 import { payShares } from '../../services/events.js';
@@ -24,7 +24,7 @@ import { collectJoiners, limitedLines, showResult } from './vault-game.js';
  * the wrong button or too slow, and you're caught and pay a fine into the vault. Only a player's
  * first press in a round counts, and every button's id carries its round and whether the laser
  * had fired when it was shown, so a press is judged by the screen the player actually saw, and a
- * press left over from an earlier round counts for nothing. Those never caught split the prize
+ * press left over from an earlier round counts for nothing. Those never caught split the prize by place, fastest first
  * (the vault pool times events.vault.multiplier), which comes out of the pool; if everyone is
  * caught, it stays in the vault.
  *
@@ -107,15 +107,14 @@ export function laserRoundOverEmbed(round: number, rounds: number, caught: numbe
 
 /** The end: who made it through and split the prize (none: it stays in the vault, `lastRound` being when the last were caught), and who paid what. */
 export function laserResultEmbed(prize: number, lastRound: number, players: readonly LaserPlayer[], paid: readonly CrateShare[], fines: readonly VaultFine[], failedPayouts: number): BotEmbed {
-  const winners = players.filter(isIn);
+  const winners = rankWinners(players);
   const embed = createEmbed();
   if (winners.length === 0) {
     embed.setTitle(TEXT.laser.allCaughtTitle).setDescription(TEXT.laser.allCaught(lastRound));
   } else {
-    const each = Math.floor(prize / winners.length);
-    embed.setTitle(TEXT.laser.clearTitle).setDescription(TEXT.laser.clear(winners.length, fmt(prize), fmt(each), prize - each * winners.length));
+    embed.setTitle(TEXT.laser.clearTitle).setDescription(TEXT.laser.clear(winners.length, fmt(prize)));
     const won = new Map(paid.map((share) => [share.userId, share.amount]));
-    const lines = winners.map((p) => TEXT.laser.winnerLine(mention(p.userId), fmt(won.get(p.userId) ?? 0), p.bestMs === null ? '' : reactionText(p.bestMs)));
+    const lines = winners.map((p, i) => TEXT.laser.winnerLine(i + 1, mention(p.userId), fmt(won.get(p.userId) ?? 0), reactionText(p.totalMs)));
     embed.addFields({ name: TEXT.laser.winnersField, value: limitedLines(lines, LASER.listMax, TEXT.laser.more, TEXT.laser.nobody) });
   }
   const caught = players.filter((p) => !isIn(p)).sort((a, b) => b.caughtRound - a.caughtRound);
@@ -134,7 +133,11 @@ export const laserFailedEmbed = (): BotEmbed => createEmbed().setTitle(TEXT.lase
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** What a press did, as the site is told it: how fast a duck was, or how the press was caught or why it did nothing. */
-export type LaserPress = { result: 'ducked'; ms: number } | { result: Exclude<DuckResult, 'ducked'> | 'stale' | 'closed' | 'already' | 'out' | 'notPlaying'; ms?: undefined };
+export type LaserPress =
+  | { result: 'ducked'; ms: number }
+  /** A press after the player's first this round: it does nothing, and says what the first was (ms: how fast, if it was a duck). */
+  | { result: 'already'; first: DuckResult; ms?: number }
+  | { result: Exclude<DuckResult, 'ducked'> | 'stale' | 'closed' | 'out' | 'notPlaying'; ms?: undefined };
 
 /** A Laser Grid going on, as the site plays it (web/games/laser/): the same game as its Discord message. */
 export interface LaserGame {
@@ -158,7 +161,7 @@ function pressReply(press: LaserPress): string {
   if (press.result === 'late') return TEXT.laser.caughtLate;
   if (press.result === 'stale') return TEXT.laser.staleButton;
   if (press.result === 'closed') return TEXT.laser.roundClosed;
-  if (press.result === 'already') return TEXT.laser.alreadyPressed;
+  if (press.result === 'already') return TEXT.laser.alreadyPressed(press.first === 'ducked' ? TEXT.laser.firstDucked(reactionText(press.ms ?? 0)) : WHY[press.first]);
   if (press.result === 'out') return TEXT.laser.youreOut;
   return TEXT.laser.notPlaying;
 }
@@ -242,7 +245,9 @@ async function runLaser(ctx: EventContext): Promise<void> {
       if (!isIn(player)) return { result: 'out' };
       if (pressedRound !== round) return { result: 'stale' };
       if (!open()) return { result: 'closed' };
-      if (results.has(userId)) return { result: 'already' };
+      // A player's first press in a round is the one that counts, and can't be changed.
+      const first = results.get(userId);
+      if (first) return { result: 'already', first, ms: reactions.get(userId) };
       // Judged the moment the press arrives, before anything is awaited.
       const nowMs = Date.now();
       const result = judgePress(pressedPhase, slot, duckSlot, nowMs, deadlineMs);
@@ -250,7 +255,7 @@ async function runLaser(ctx: EventContext): Promise<void> {
       if (result !== 'ducked') return { result };
       const ms = Math.max(0, nowMs - (firedAtMs ?? nowMs));
       reactions.set(userId, ms);
-      player.bestMs = player.bestMs === null ? ms : Math.min(player.bestMs, ms);
+      recordDuck(player, ms);
       return { result: 'ducked', ms };
     },
   };
@@ -263,7 +268,7 @@ async function runLaser(ctx: EventContext): Promise<void> {
       kind,
       prize: prizeFor(players.length),
       lastRound,
-      winners: players.filter(isIn).map((p) => ({ id: p.userId, name: nameOf(p.userId), won: won.get(p.userId) ?? 0, bestMs: p.bestMs })),
+      winners: rankWinners(players).map((p) => ({ id: p.userId, name: nameOf(p.userId), won: won.get(p.userId) ?? 0, bestMs: p.bestMs, totalMs: p.totalMs })),
       caught: players
         .filter((p) => !isIn(p))
         .map((p) => ({ id: p.userId, name: nameOf(p.userId), fine: fined.get(p.userId) ?? 0, round: p.caughtRound, caughtFor: p.caughtFor as Exclude<DuckResult, 'ducked'> })),
@@ -292,7 +297,7 @@ async function runLaser(ctx: EventContext): Promise<void> {
       joined: changed,
     });
     refreshJoin = () => {};
-    players = ids.map((userId) => ({ userId, caughtRound: 0, caughtFor: null, bestMs: null }));
+    players = ids.map((userId) => ({ userId, caughtRound: 0, caughtFor: null, bestMs: null, totalMs: 0 }));
     byId = new Map(players.map((player) => [player.userId, player]));
     if (ids.length === 0) {
       phase = 'roundOver';
@@ -353,14 +358,15 @@ async function runLaser(ctx: EventContext): Promise<void> {
     }
 
     // Pay those never caught, take that out of the pool, fine the caught.
-    const winners = players.filter(isIn).map((p) => p.userId);
+    // Fastest first: first place gets the most, and each place after a little less (rankedSplit).
+    const winners = rankWinners(players).map((p) => p.userId);
     const caughtIds = players.filter((p) => !isIn(p)).map((p) => p.userId);
     let paid: CrateShare[] = [];
     let failed = 0;
     let fines: VaultFine[] = [];
     try {
       if (winners.length > 0) {
-        const payout = await payShares(guild.id, splitPile(prize, winners), 'laser_prize');
+        const payout = await payShares(guild.id, rankedSplit(prize, winners), 'laser_prize');
         paid = payout.paid;
         failed = payout.failed.length;
         const taken = paid.reduce((sum, share) => sum + share.amount, 0);
