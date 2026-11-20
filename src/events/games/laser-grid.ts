@@ -205,6 +205,12 @@ async function runLaser(ctx: EventContext): Promise<void> {
   const reactions = new Map<string, number>();
   const changed = (): void => laserGames.changed(guild.id);
   const open = (): boolean => phase === 'ready' || phase === 'fire';
+  /** How `player`'s press this round went, for the site (never which button): their first press, or caught for not pressing. */
+  const pressNow = (player: LaserPlayer): LaserLive['players'][number]['now'] => {
+    const result = results.get(player.userId);
+    if (result) return { result, ms: reactions.get(player.userId) ?? null };
+    return player.caughtRound === round && player.caughtFor !== null && round > 0 ? { result: player.caughtFor, ms: null } : null;
+  };
 
   // What the site is shown: the laser only once it's on screen in Discord (its time started), so no page sees Duck! first.
   const shownPhase = (): LaserLive['phase'] => (phase === 'fire' && firedAtMs === null ? 'ready' : phase);
@@ -225,9 +231,10 @@ async function runLaser(ctx: EventContext): Promise<void> {
       deadline: phase === 'fire' && Number.isFinite(deadlineMs) ? deadlineMs : null,
       players:
         phase === 'joining'
-          ? [...joiners].map((id) => ({ id, name: nameOf(id), caughtRound: 0, caughtFor: null, bestMs: null }))
-          : players.map((p) => ({ id: p.userId, name: nameOf(p.userId), caughtRound: p.caughtRound, caughtFor: p.caughtFor, bestMs: p.bestMs })),
+          ? [...joiners].map((id) => ({ id, name: nameOf(id), caughtRound: 0, caughtFor: null, bestMs: null, totalMs: 0, now: null }))
+          : players.map((p) => ({ id: p.userId, name: nameOf(p.userId), caughtRound: p.caughtRound, caughtFor: p.caughtFor, bestMs: p.bestMs, totalMs: p.totalMs, now: pressNow(p) })),
       fastest: phase === 'roundOver' && fastest ? { id: fastest.userId, ms: fastest.ms } : null,
+      vault: basePool,
     }),
     plays: (userId) => joiners.has(userId),
     join(userId, name) {

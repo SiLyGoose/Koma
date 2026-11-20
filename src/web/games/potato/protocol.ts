@@ -1,4 +1,5 @@
 import type { ClientMessage } from '../../../protocol/potato.js';
+import { REACTIONS } from '../../../protocol/reactions.js';
 
 export * from '../../../protocol/potato.js';
 
@@ -15,6 +16,9 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if (typeof data !== 'object' || data === null) return null;
   const m = data as Record<string, unknown>;
   if ((m.t === 'hello' || m.t === 'watch') && typeof m.token === 'string' && m.token.length <= 512) return { t: m.t, token: m.token };
-  if (m.t === 'join' || m.t === 'pass') return { t: m.t };
+  if (m.t === 'join') return { t: 'join' };
+  // (Pass to a player picked: their id. One that isn't playing is tossed at random, as a Pass with none.)
+  if (m.t === 'pass') return m.to === undefined ? { t: 'pass' } : typeof m.to === 'string' && /^[\w-]{1,32}$/.test(m.to) ? { t: 'pass', to: m.to } : null;
+  if (m.t === 'react' && typeof m.emoji === 'number' && Number.isSafeInteger(m.emoji) && m.emoji >= 0 && m.emoji < REACTIONS.length) return { t: 'react', emoji: m.emoji };
   return null;
 }

@@ -7,7 +7,7 @@ import { laserGrid, laserJoinEmbed, laserResultEmbed, laserRow } from '../src/ev
 import { GAME_EVENTS, validateEvents } from '../src/events/registry.js';
 import { ClickGate } from '../src/lib/events/clicks.js';
 import { decoyCount, judgePress, laserWindowMs, parseSlotId, rankedSplit, rankWinners, recordDuck, rollDecoys, settleRound, slotId, type DuckResult, type LaserPlayer } from '../src/lib/events/laser.js';
-import { blowUp, playersIn, potatoBlasts, pressPass, rollFuseMs, servePotato, type PotatoState } from '../src/lib/events/potato.js';
+import { addMove, blowUp, playersIn, potatoBlasts, pressPass, rollFuseMs, servePotato, type PotatoState } from '../src/lib/events/potato.js';
 import { checkConstraints, findSpec, parseInput, validateSettings } from '../src/lib/settings-spec.js';
 
 const first = () => 0;
@@ -61,6 +61,23 @@ test('potato pass: the holder tosses it to someone else still in, and it counts 
   assert.deepEqual(pressPass(state, 'a', first), { kind: 'passed', to: 'c' }, 'never to themselves, never to someone out');
   assert.equal(state.holder, 'c');
   assert.equal(state.players[0]?.passes, 1);
+});
+
+test('potato pass to someone picked: the holder tosses it to them, if they are still in and not themselves, else at random', () => {
+  const state = potatoState(['a', 'b', 'c', 'd'], 'a');
+  assert.deepEqual(pressPass(state, 'a', first, 'c'), { kind: 'passed', to: 'c' }, 'to the one picked, not the first');
+  assert.equal(state.players[0]?.passes, 1);
+  (state.players[3] as { out: boolean }).out = true;
+  assert.deepEqual(pressPass(state, 'c', first, 'd'), { kind: 'passed', to: 'a' }, 'picked one is out: at random');
+  assert.deepEqual(pressPass(state, 'a', first, 'a'), { kind: 'passed', to: 'b' }, 'picked themselves: at random');
+  assert.deepEqual(pressPass(state, 'a', first, 'nobody'), { kind: 'grabbed', from: 'b' }, 'not the holder: a grab, whoever they picked');
+  assert.equal(state.holder, 'a');
+});
+
+test('potato trail: a move goes on the end, and only the last few are kept', () => {
+  const trail: number[] = [];
+  for (let i = 1; i <= 5; i++) addMove(trail, i, 3);
+  assert.deepEqual(trail, [3, 4, 5]);
 });
 
 test('potato pass: pressing when it is not yours grabs it; out, not playing and between potatoes do nothing', () => {

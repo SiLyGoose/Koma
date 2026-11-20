@@ -55,10 +55,11 @@ export function servePotato(state: PotatoState, pick: (below: number) => number 
 }
 
 /**
- * `userId` pressed Pass. The holder tosses it to another player still in, at random; anyone else
- * still in grabs it. Decided at once, so two presses can never both move the same potato.
+ * `userId` pressed Pass. The holder tosses it to another player still in: `to`, when they picked one who is (the site
+ * lets them), otherwise one at random. Anyone else still in grabs it, whoever they picked. Decided at once, so two
+ * presses can never both move the same potato.
  */
-export function pressPass(state: PotatoState, userId: string, pick: (below: number) => number = (n) => randomInt(n)): PassResult {
+export function pressPass(state: PotatoState, userId: string, pick: (below: number) => number = (n) => randomInt(n), to?: string): PassResult {
   const player = state.players.find((p) => p.userId === userId);
   if (!player) return { kind: 'notPlaying' };
   if (player.out) return { kind: 'out' };
@@ -71,10 +72,16 @@ export function pressPass(state: PotatoState, userId: string, pick: (below: numb
   const others = playersIn(state).filter((p) => p.userId !== userId);
   // Only the holder is left (can't happen while potatoes still go off, but never toss it to nobody).
   if (others.length === 0) return { kind: 'passed', to: userId };
-  const to = (others[pick(others.length)] as PotatoPlayer).userId;
+  const picked = others.find((p) => p.userId === to) ?? (others[pick(others.length)] as PotatoPlayer);
   player.passes++;
-  state.holder = to;
-  return { kind: 'passed', to };
+  state.holder = picked.userId;
+  return { kind: 'passed', to: picked.userId };
+}
+
+/** Adds `move` to the end of `trail`, keeping only its last `keep`. */
+export function addMove<T>(trail: T[], move: T, keep: number): void {
+  trail.push(move);
+  if (trail.length > keep) trail.splice(0, trail.length - keep);
 }
 
 /** The fuse of potato `blast` burned out: whoever holds it is out. Returns them (null if nobody held it). */

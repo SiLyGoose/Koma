@@ -50,9 +50,9 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     // King's Raid's Divine Punishment Raid: solo only, never said in Discord.
     [GAMES.divine.socket]: (socket) => serveDivine(socket, { avatar: api.avatar }),
     [GAMES.codedle.socket]: serveCodedle,
-    // The vault events played on the site too (and in Discord), the one game.
-    [GAMES.potato.socket]: servePotato,
-    [GAMES.laser.socket]: serveLaser,
+    // The vault events played on the site too (and in Discord), the one game: their pages show each player's picture.
+    [GAMES.potato.socket]: (socket) => servePotato(socket, api.avatar),
+    [GAMES.laser.socket]: (socket) => serveLaser(socket, api.avatar),
     // The raid, once the bot can start one and read the week (it has logged in to Discord).
     ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
   };

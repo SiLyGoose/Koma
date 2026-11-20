@@ -1,4 +1,5 @@
 import type { ClientMessage } from '../../../protocol/laser.js';
+import { REACTIONS } from '../../../protocol/reactions.js';
 
 export * from '../../../protocol/laser.js';
 
@@ -19,5 +20,6 @@ export function parseClientMessage(text: string): ClientMessage | null {
   if ((m.t === 'hello' || m.t === 'watch') && typeof m.token === 'string' && m.token.length <= 512) return { t: m.t, token: m.token };
   if (m.t === 'join') return { t: 'join' };
   if (m.t === 'press' && count(m.round, 1_000) && (m.phase === 'wait' || m.phase === 'go') && count(m.slot, 100)) return { t: 'press', round: m.round, phase: m.phase, slot: m.slot };
+  if (m.t === 'react' && count(m.emoji, REACTIONS.length)) return { t: 'react', emoji: m.emoji };
   return null;
 }

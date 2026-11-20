@@ -14,24 +14,34 @@
  * A press says the round and the phase the page was showing (`ready` buttons count as `wait`), so it is judged by the
  * screen the player saw; the time to duck is measured on the bot, from when the laser went out.
  *
- *   page -> bot   hello    first message: the token from the link (or `watch`, with a watch link's: see connection.ts)
- *                 join     joins the game while it's open for joining
- *                 press    presses slot `slot` of round `round`, as shown in `phase`
- *   bot -> page   state    the game as it is now: whenever anything about it changes
- *                 answer   what came of the page's join or press
- *                 error    and the bot closes the connection
+ *   page -> bot   hello      first message: the token from the link (or `watch`, with a watch link's: see connection.ts)
+ *                 join       joins the game while it's open for joining
+ *                 press      presses slot `slot` of round `round`, as shown in `phase`
+ *                 react      a reaction (./reactions.ts), from a watcher's page too
+ *   bot -> page   state      the game as it is now: whenever anything about it changes
+ *                 answer     what came of the page's join or press
+ *                 reaction   someone's reaction
+ *                 error      and the bot closes the connection
  */
+
+import type { ReactClientMessage, ReactionMessage } from './reactions.js';
 
 /** How a player was caught: pressed before the laser fired, pressed a laser, or didn't press Duck! in time. */
 export type LaserCaught = 'early' | 'wrong' | 'late';
 
-/** One player: id and name, when and how they were caught (0 and null while still in), and their fastest duck (ms, null before their first). */
+/**
+ * One player: id and name, when and how they were caught (0 and null while still in), their fastest duck (ms, null
+ * before their first), and all their ducks' times added up (what ranks those who make it through: the least first).
+ * `now`: how their press this round went (null: none yet), and how fast, a duck; never which button it was.
+ */
 export interface LaserPlayer {
   id: string;
   name: string;
   caughtRound: number;
   caughtFor: LaserCaught | null;
   bestMs: number | null;
+  totalMs: number;
+  now: { result: 'ducked' | LaserCaught; ms: number | null } | null;
 }
 
 /** A Laser Grid going on. */
@@ -57,6 +67,8 @@ export interface LaserLive {
   players: LaserPlayer[];
   /** The round's fastest duck (phase `roundOver`): who, and how fast (ms). */
   fastest: { id: string; ms: number } | null;
+  /** The vault's pool the prize came from (fines go back into it). */
+  vault: number;
 }
 
 /** How the last Laser Grid in the server ended. */
@@ -66,7 +78,7 @@ export interface LaserEnded {
   prize: number;
   /** The round the last were caught in, or the last round played. */
   lastRound: number;
-  /** First place first (the least time ducking in all, 	otalMs): first place won the most, each after a little less. */
+  /** First place first (the least time ducking in all, totalMs): first place won the most, each after a little less. */
   winners: { id: string; name: string; won: number; bestMs: number | null; totalMs: number }[];
   caught: { id: string; name: string; fine: number; round: number; caughtFor: LaserCaught }[];
   endedAt: number;
@@ -78,6 +90,8 @@ export interface LaserState {
   playing: boolean;
   live: LaserLive | null;
   last: LaserEnded | null;
+  /** The profile picture of each player in the game going on, or the last (by id). */
+  avatars: Record<string, string>;
 }
 
 /**
@@ -95,6 +109,7 @@ export type ClientMessage =
   | { t: 'hello'; token: string }
   | { t: 'watch'; token: string }
   | { t: 'join' }
-  | { t: 'press'; round: number; phase: 'wait' | 'go'; slot: number };
+  | { t: 'press'; round: number; phase: 'wait' | 'go'; slot: number }
+  | ReactClientMessage;
 
-export type ServerMessage = { t: 'state'; state: LaserState } | LaserAnswer | { t: 'error'; code: string };
+export type ServerMessage = { t: 'state'; state: LaserState } | LaserAnswer | ReactionMessage | { t: 'error'; code: string };

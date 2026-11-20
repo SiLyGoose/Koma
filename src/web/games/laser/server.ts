@@ -1,6 +1,7 @@
 import type { WebSocket } from 'ws';
 import { LASER_WEB } from '../../../constants/index.js';
 import { laserGames, type LaserGame } from '../../../events/games/laser-grid.js';
+import { avatarUrl } from '../../auth/login.js';
 import { serveSocket } from '../connection.js';
 import { siteEventServer } from '../site-event.js';
 import { parseClientMessage, type ClientMessage, type LaserState, type ServerMessage } from './protocol.js';
@@ -11,10 +12,18 @@ import { parseClientMessage, type ClientMessage, type LaserState, type ServerMes
  * presses in the same game, its press judged by the round and phase it was showing.
  */
 
-/** The game as `userId`'s page shows it. */
+/** A member's profile picture in a server, when the bot knows it (set by serveLaser). */
+type Avatar = (guildId: string, userId: string) => string | null;
+let avatarOf: Avatar = () => null;
+
+/** The game as `userId`'s page shows it, with the picture of everyone in it (or in the last). */
 export function laserState(guildId: string, userId: string): LaserState {
   const game = laserGames.in(guildId);
-  return { you: userId, playing: game?.plays(userId) ?? false, live: game?.live() ?? null, last: laserGames.last(guildId) };
+  const live = game?.live() ?? null;
+  const last = laserGames.last(guildId);
+  const ids = live ? live.players.map((p) => p.id) : [...(last?.winners ?? []), ...(last?.caught ?? [])].map((p) => p.id);
+  const avatars = Object.fromEntries(ids.map((id) => [id, avatarOf(guildId, id) ?? avatarUrl(id, null)]));
+  return { you: userId, playing: game?.plays(userId) ?? false, live, last, avatars };
 }
 
 /** A few words on what a player is doing, for the online list, from a message sent to their page. */
@@ -47,7 +56,8 @@ export const openLaserConnection = siteEventServer<LaserGame, unknown, ClientMes
   },
 });
 
-/** Plays Laser Grid over a web socket just opened. */
-export function serveLaser(socket: WebSocket): void {
+/** Plays Laser Grid over a web socket just opened (`avatar`: each player's picture, when the bot knows it). */
+export function serveLaser(socket: WebSocket, avatar?: Avatar): void {
+  if (avatar) avatarOf = avatar;
   serveSocket<ServerMessage>(socket, openLaserConnection);
 }

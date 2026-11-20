@@ -5,13 +5,13 @@ import { replyPrivately } from '../../discord/reply.js';
 import { createEmbed, type BotEmbed } from '../../lib/embed.js';
 import { ClickGate } from '../../lib/events/clicks.js';
 import { splitPile, type CrateShare } from '../../lib/events/crate.js';
-import { blowUp, playersIn, potatoBlasts, pressPass, rollFuseMs, servePotato, type PotatoState } from '../../lib/events/potato.js';
+import { addMove, blowUp, playersIn, potatoBlasts, pressPass, rollFuseMs, servePotato, type PotatoState } from '../../lib/events/potato.js';
 import { fmt, mention } from '../../lib/format.js';
 import { payShares } from '../../services/events.js';
 import { claimVault, fineIntoVault, getVaultPool, vaultCost, type VaultFine } from '../../services/vault.js';
 import { siteGameLink, webConfig } from '../../web/config.js';
 import { eventPing } from '../ping.js';
-import type { PotatoEnded, PotatoLive } from '../../protocol/potato.js';
+import { POTATO_TRAIL, type PotatoEnded, type PotatoLive, type PotatoMove } from '../../protocol/potato.js';
 import type { EventContext, GameEvent } from '../types.js';
 import { SiteGames } from './site-games.js';
 import { collectJoiners, limitedLines, LiveMessage, showResult } from './vault-game.js';
@@ -109,7 +109,8 @@ export interface PotatoGame {
   /** Whether `userId` joined it (and so plays it, rather than watching). */
   plays(userId: string): boolean;
   join(userId: string, name: string): 'ok' | 'closed' | 'already';
-  pass(userId: string): PotatoPress;
+  /** A press of Pass (`to`: the player the holder picked, on the site). */
+  pass(userId: string, to?: string): PotatoPress;
 }
 
 /** The Hot Potato going on in each server, and how the last ended (for the site). */
@@ -139,6 +140,10 @@ async function runPotato(ctx: EventContext): Promise<void> {
   let blasts = cfg.blasts;
   let blast = 0;
   let blown: string | null = null;
+  // When the potato going round came out, and what has happened to the potatoes (for the site).
+  let servedAt = 0;
+  const trail: PotatoMove[] = [];
+  const moved = (kind: PotatoMove['kind'], from: string | null, to: string | null): void => addMove(trail, { kind, from, to, blast, at: Date.now() }, POTATO_TRAIL);
   let refreshJoin: () => void = () => {};
   let refreshPlay: () => void = () => {};
   const gate = new ClickGate(CLICK_GAP_MS);
@@ -157,6 +162,9 @@ async function runPotato(ctx: EventContext): Promise<void> {
         : [...joiners].map((id) => ({ id, name: nameOf(id), out: false, blastedBy: 0, passes: 0 })),
       holder: state?.holder ?? null,
       blown,
+      vault: basePool,
+      servedAt,
+      trail: [...trail],
     }),
     plays: (userId) => joiners.has(userId),
     join(userId, name) {
@@ -168,12 +176,14 @@ async function runPotato(ctx: EventContext): Promise<void> {
       changed();
       return 'ok';
     },
-    pass(userId) {
+    pass(userId, to) {
       // Too soon after this player's last press that counted: it does nothing.
       if (!gate.admit(userId)) return { result: 'tooFast' };
       if (!state) return { result: joiners.has(userId) ? 'noPotato' : 'notPlaying' };
       // Decided the moment the press arrives, before anything is awaited, so two presses can't both move the potato.
-      const result = pressPass(state, userId);
+      const result = pressPass(state, userId, undefined, to);
+      if (result.kind === 'passed') moved('pass', userId, result.to);
+      if (result.kind === 'grabbed') moved('grab', result.from, userId);
       if (result.kind === 'passed' || result.kind === 'grabbed') {
         refreshPlay();
         changed();
@@ -194,6 +204,7 @@ async function runPotato(ctx: EventContext): Promise<void> {
       prize,
       winners: players.filter((p) => !p.out).map((p) => ({ id: p.userId, name: nameOf(p.userId), won: won.get(p.userId) ?? 0 })),
       out: players.filter((p) => p.out).map((p) => ({ id: p.userId, name: nameOf(p.userId), fine: fined.get(p.userId) ?? 0, blast: p.blastedBy })),
+      trail: [...trail],
       endedAt: Date.now(),
     };
   };
@@ -261,11 +272,13 @@ async function runPotato(ctx: EventContext): Promise<void> {
       for (blast = 1; blast <= blasts; blast++) {
         phase = 'potato';
         blown = null;
-        servePotato(playing);
+        moved('serve', null, servePotato(playing));
+        servedAt = Date.now();
         live.show(view());
         changed();
         await sleep(rollFuseMs(cfg.minFuseSeconds, cfg.maxFuseSeconds));
         blown = blowUp(playing, blast);
+        moved('blast', blown, null);
         phase = 'blast';
         const more = blast < blasts;
         live.show({ embeds: [potatoBlastEmbed(blast, blasts, blown, cfg.fine, more, playing)], components: [idleRow] });

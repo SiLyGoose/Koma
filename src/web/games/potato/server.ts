@@ -1,6 +1,7 @@
 import type { WebSocket } from 'ws';
 import { CLICK_GAP_MS, POTATO_WEB } from '../../../constants/index.js';
 import { potatoGames, type PotatoGame } from '../../../events/games/hot-potato.js';
+import { avatarUrl } from '../../auth/login.js';
 import { serveSocket } from '../connection.js';
 import { siteEventServer } from '../site-event.js';
 import { parseClientMessage, type ClientMessage, type PotatoState, type ServerMessage } from './protocol.js';
@@ -11,10 +12,18 @@ import { parseClientMessage, type ClientMessage, type PotatoState, type ServerMe
  * passes in the same game.
  */
 
-/** The game as `userId`'s page shows it. */
+/** A member's profile picture in a server, when the bot knows it (set by servePotato). */
+type Avatar = (guildId: string, userId: string) => string | null;
+let avatarOf: Avatar = () => null;
+
+/** The game as `userId`'s page shows it, with the picture of everyone in it (or in the last). */
 export function potatoState(guildId: string, userId: string): PotatoState {
   const game = potatoGames.in(guildId);
-  return { you: userId, playing: game?.plays(userId) ?? false, minPlayers: 2, gapMs: CLICK_GAP_MS, live: game?.live() ?? null, last: potatoGames.last(guildId) };
+  const live = game?.live() ?? null;
+  const last = potatoGames.last(guildId);
+  const ids = live ? live.players.map((p) => p.id) : [...(last?.winners ?? []), ...(last?.out ?? [])].map((p) => p.id);
+  const avatars = Object.fromEntries(ids.map((id) => [id, avatarOf(guildId, id) ?? avatarUrl(id, null)]));
+  return { you: userId, playing: game?.plays(userId) ?? false, minPlayers: 2, gapMs: CLICK_GAP_MS, live, last, avatars };
 }
 
 /** A few words on what a player is doing, for the online list, from a message sent to their page. */
@@ -41,14 +50,15 @@ export const openPotatoConnection = siteEventServer<PotatoGame, unknown, ClientM
       return joined === 'ok' ? { t: 'answer', to: 'join', ok: true } : { t: 'answer', to: 'join', ok: false, reason: joined };
     }
     if (!game) return { t: 'answer', to: 'pass', result: 'notPlaying' };
-    const press = game.pass(player.userId);
+    const press = game.pass(player.userId, message.to);
     if (press.result === 'passed') return { t: 'answer', to: 'pass', result: 'passed', name: press.name };
     if (press.result === 'grabbed') return { t: 'answer', to: 'pass', result: 'grabbed', name: press.name };
     return { t: 'answer', to: 'pass', result: press.result };
   },
 });
 
-/** Plays Hot Potato over a web socket just opened. */
-export function servePotato(socket: WebSocket): void {
+/** Plays Hot Potato over a web socket just opened (`avatar`: each player's picture, when the bot knows it). */
+export function servePotato(socket: WebSocket, avatar?: Avatar): void {
+  if (avatar) avatarOf = avatar;
   serveSocket<ServerMessage>(socket, openPotatoConnection);
 }
