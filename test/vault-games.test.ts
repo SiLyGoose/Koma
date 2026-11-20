@@ -144,7 +144,7 @@ test('vault game settings: defaults are valid, every one has a spec in the Event
     'events.heist.alarmStart',
     'events.heist.alarmStep',
     'events.heist.quietBonus',
-    'events.heist.fine',
+    'events.fine',
     'events.splitSteal.minPlayers',
     'events.splitSteal.joinSeconds',
     'events.splitSteal.decideSeconds',
@@ -153,7 +153,7 @@ test('vault game settings: defaults are valid, every one has a spec in the Event
     assert.ok(spec, key);
     assert.equal(spec.group, 'Events', key);
   }
-  for (const key of ['events.vault.minPlayers', 'events.vault.joinSeconds', 'events.vault.fine', 'events.vault.baseChance']) {
+  for (const key of ['events.vault.minPlayers', 'events.vault.joinSeconds', 'events.vault.fine', 'events.vault.baseChance', 'events.heist.fine', 'events.potato.fine', 'events.laser.fine']) {
     assert.equal(findSpec(key), undefined, key);
   }
 });

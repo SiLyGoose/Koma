@@ -119,7 +119,7 @@ export const potatoGames = new SiteGames<PotatoGame, PotatoEnded>('Hot Potato');
 async function runPotato(ctx: EventContext): Promise<void> {
   const { guild, channel } = ctx;
   // Settings are read once, so a change while the game runs doesn't alter it half way.
-  const cfg = { ...CONFIG.events.potato };
+  const cfg = { ...CONFIG.events.potato, fine: CONFIG.events.fine };
   const basePool = await getVaultPool(guild.id);
   if (basePool <= 0) {
     console.log(`Skipped Hot Potato in ${guild.id}: nothing has been lost to gambling yet.`);

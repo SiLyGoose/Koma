@@ -434,6 +434,26 @@ export async function renameClauseToKlaus(): Promise<{ members: number; runs: nu
   return { members: moved.modifiedCount, runs: runs.modifiedCount, ledger: bought.modifiedCount };
 }
 
+/*
+ * Greedy Heist, Hot Potato and Laser Grid each had their own fine (events.heist.fine,
+ * events.potato.fine, events.laser.fine); they all use the one events.fine now. Greedy Heist's
+ * becomes it, keeping what it was set to, unless events.fine is already there; then the old ones
+ * are dropped. It has to run before the settings are loaded (events.fine would otherwise be filled
+ * in with the default). Idempotent, and cheap once done: runs every start.
+ */
+export async function mergeEventFines(): Promise<boolean> {
+  const { settings } = collections();
+  const moved = await settings.updateMany(
+    { 'events.heist.fine': { $exists: true }, 'events.fine': { $exists: false } },
+    { $rename: { 'events.heist.fine': 'events.fine' } },
+  );
+  await settings.updateMany(
+    { $or: [{ 'events.heist.fine': { $exists: true } }, { 'events.potato.fine': { $exists: true } }, { 'events.laser.fine': { $exists: true } }] },
+    { $unset: { 'events.heist.fine': '', 'events.potato.fine': '', 'events.laser.fine': '' } },
+  );
+  return moved.modifiedCount > 0;
+}
+
 /** Ledger reasons for a vault game paying out of the vault (a claim, see claimVault in services/vault.ts). */
 const VAULT_PAYOUT_REASONS = ['heist_loot', 'split_steal', 'code_prize'] as const;
 

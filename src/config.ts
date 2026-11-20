@@ -234,6 +234,11 @@ export interface Settings {
       /** The share of each loss (and heist fine, and Codedle guess) that goes into the vault; the rest leaves circulation for good. */
       lossShare: number;
     };
+    /**
+     * What a player out of a vault game pays, added to the vault: one fine for them all (caught by
+     * Greedy Heist's alarm, holding a Hot Potato when it goes off, caught by the Laser Grid).
+     */
+    fine: number;
     heist: {
       /** How long the crew has to join, in seconds. */
       joinSeconds: number;
@@ -247,8 +252,6 @@ export interface Settings {
       alarmStep: number;
       /** Added to the multiplier on loot (which starts at 1) for every round the alarm stays quiet; escaping locks it in. */
       quietBonus: number;
-      /** What everyone still inside when the alarm goes off pays, added to the vault. */
-      fine: number;
     };
     codedle: {
       /** How long after it's announced guessing opens, in seconds: time for everyone to open it (on the site, too). */
@@ -274,8 +277,6 @@ export interface Settings {
       /** Each potato's hidden fuse is a random time from minFuseSeconds to maxFuseSeconds. */
       minFuseSeconds: number;
       maxFuseSeconds: number;
-      /** What whoever holds a potato when it goes off pays, added to the vault. */
-      fine: number;
     };
     laser: {
       /** How long people have to join, in seconds. */
@@ -285,8 +286,6 @@ export interface Settings {
       /** The time to press Duck! once the laser fires: windowSeconds in the first round, shrinking evenly to minWindowSeconds in the last. */
       windowSeconds: number;
       minWindowSeconds: number;
-      /** What everyone caught pays, added to the vault. */
-      fine: number;
       /** Added to the prize for every player who joins. New money: it never comes out of the vault. */
       bonusPerPlayer: number;
     };
@@ -561,22 +560,23 @@ export const DEFAULTS: Readonly<Settings> = {
   // also grows by 100 an hour on its own. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
   // a round (about a 3% chance of lasting all 10), every quiet round adds 0.1x to the loot of whoever
-  // escapes (2x for staying all 10), and anyone caught pays 100. Split or Steal needs 2+
+  // escapes (2x for staying all 10), and anyone caught pays the vault games' one fine, 100. Split or Steal needs 2+
   // players, with a minute to join and 30 seconds to choose. Codedle opens 5 minutes after it's announced, then gives
   // 5 minutes to guess a 5-digit code, at 10 points a guess (added to the vault). Hot Potato has a minute to join
-  // (2+ players), then up to 3 potatoes with a hidden 10 to 25 second fuse; each blows its holder out with a 100 fine.
-  // Laser Grid has a minute to join, then 11 rounds, the time to duck shrinking from 3 seconds to 0.5; anyone caught pays 100.
+  // (2+ players), then up to 3 potatoes with a hidden 10 to 25 second fuse; each blows its holder out with the fine.
+  // Laser Grid has a minute to join, then 11 rounds, the time to duck shrinking from 3 seconds to 0.5; anyone caught pays the fine.
   // Its prize is the vault's plus 5,000 for every player who joins (new money).
   events: {
     minMinutes: 120,
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
     vault: { multiplier: 1, hourlyGrowth: 100, maxPool: 0, lossShare: 0.4 },
-    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, quietBonus: 0.1, fine: 100 },
+    fine: 100,
+    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, quietBonus: 0.1 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { waitSeconds: 300, seconds: 300, guessCost: 10 },
-    potato: { joinSeconds: 60, blasts: 3, minFuseSeconds: 10, maxFuseSeconds: 25, fine: 100 },
-    laser: { joinSeconds: 60, rounds: 11, windowSeconds: 3, minWindowSeconds: 0.5, fine: 100, bonusPerPlayer: 5_000 },
+    potato: { joinSeconds: 60, blasts: 3, minFuseSeconds: 10, maxFuseSeconds: 25 },
+    laser: { joinSeconds: 60, rounds: 11, windowSeconds: 3, minWindowSeconds: 0.5, bonusPerPlayer: 5_000 },
   },
   // The raid's numbers, set in simulated fights where the party picks the best of some ninety ways to
   // play (real parties do worse). Each boss's HP lets a party without gear win level 1 about 9 times in

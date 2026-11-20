@@ -436,6 +436,13 @@ export const SPECS: readonly SettingSpec[] = [
     percent: true,
   },
   int('events.vault.maxPool', 'Events', `The most ${CURRENCY_EMOJI} a vault game pays out of the vault. The vault itself keeps filling past it (losses, hourly growth, donations), and the rest waits for later games (0 means no cap).`, 0, MAX_POINTS),
+  int(
+    'events.fine',
+    'Events',
+    "What a player out of a vault game pays, added to the vault: the same for all of them (caught by Greedy Heist's alarm, holding a Hot Potato when it goes off, caught by the Laser Grid).",
+    0,
+    MAX_POINTS,
+  ),
   int('events.heist.joinSeconds', 'Events', 'Seconds a Greedy Heist stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.heist.rounds', 'Events', 'Most rounds a Greedy Heist lasts. The prize is handed out a slice per round.', 1, MAX_HEIST_ROUNDS),
   int('events.heist.roundSeconds', 'Events', 'Seconds each Greedy Heist round lasts (time to decide whether to escape).', 2, 60),
@@ -467,7 +474,6 @@ export const SPECS: readonly SettingSpec[] = [
     max: 1,
     percent: true,
   },
-  int('events.heist.fine', 'Events', 'What everyone still inside a Greedy Heist when the alarm goes off pays, added to the vault.', 0, MAX_POINTS),
   int('events.splitSteal.minPlayers', 'Events', 'Fewest people who have to join Split or Steal for it to be played.', 2, 50),
   int('events.splitSteal.joinSeconds', 'Events', 'Seconds Split or Steal stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.splitSteal.decideSeconds', 'Events', 'Seconds the Split or Steal players have to choose.', 10, MAX_EVENT_SECONDS),
@@ -475,7 +481,6 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.potato.blasts', 'Events', 'How many potatoes go off in a Hot Potato, at most (never so many that nobody is left).', 1, MAX_POTATO_BLASTS),
   int('events.potato.minFuseSeconds', 'Events', "Shortest a Hot Potato's hidden fuse can be, in seconds.", 3, 300),
   int('events.potato.maxFuseSeconds', 'Events', "Longest a Hot Potato's hidden fuse can be, in seconds.", 3, 300),
-  int('events.potato.fine', 'Events', 'What whoever holds a Hot Potato when it goes off pays, added to the vault.', 0, MAX_POINTS),
   int('events.laser.joinSeconds', 'Events', 'Seconds Laser Grid stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.laser.rounds', 'Events', 'How many rounds a Laser Grid has.', 1, MAX_LASER_ROUNDS),
   {
@@ -494,7 +499,6 @@ export const SPECS: readonly SettingSpec[] = [
     min: 0.5,
     max: 30,
   },
-  int('events.laser.fine', 'Events', 'What everyone caught by the Laser Grid pays, added to the vault.', 0, MAX_POINTS),
   int(
     'events.laser.bonusPerPlayer',
     'Events',

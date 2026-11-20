@@ -92,7 +92,7 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 async function runHeist(ctx: EventContext): Promise<void> {
   const { guild, channel } = ctx;
   // Settings are read once, so a change while the heist runs doesn't alter it half way.
-  const cfg = { ...CONFIG.events.heist };
+  const cfg = { ...CONFIG.events.heist, fine: CONFIG.events.fine };
   const basePool = await getVaultPool(guild.id);
   if (basePool <= 0) {
     console.log(`Skipped a Greedy Heist in ${guild.id}: nothing has been lost to gambling yet.`);

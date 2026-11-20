@@ -30,7 +30,7 @@ import { startStatus } from './discord/status.js';
 import { raidGearSnapshot, raidWeekInfo, settleUnfinishedRaids, startRaidFromWeb } from './commands/raid.js';
 import { announceTechnoMagic } from './commands/technomagic.js';
 import { announceDragon } from './commands/dragon.js';
-import { backfillVaultClaims, clearOpenVaults, lowerSelectorPrice, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmArmorDefs, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
+import { backfillVaultClaims, clearOpenVaults, lowerSelectorPrice, mergeEventFines, migrateInventory, renameClauseToKlaus, renameEventChannelField, renameMinesData, retireItems, rollMissingTmArmorDefs, rollMissingTmPotentials, rollMissingTmSkills, roundTmPotentials, syncGearSlots, syncTreasureSlot } from './services/migrate.js';
 import { getPrefix, loadSettings, refreshSettings, setEnvPrefix } from './services/settings.js';
 
 async function main(): Promise<void> {
@@ -108,6 +108,10 @@ async function main(): Promise<void> {
       `Renamed the mine to Mines: settings ${minesRename.settings ? 'moved' : 'were already moved'}, ${minesRename.rounds} round(s) carried over, ${minesRename.ledger} ledger entries renamed.`,
     );
   }
+
+  // Every start: the vault games' own fines become the one events.fine (see mergeEventFines).
+  // Before the settings are loaded, so it keeps the value Greedy Heist's was set to.
+  if (await mergeEventFines()) console.log("Merged the vault games' fines into events.fine (Greedy Heist's value kept).");
 
   // Every start: moves what was stored under Clause's old id to Klaus's (see renameClauseToKlaus).
   const klaus = await renameClauseToKlaus();

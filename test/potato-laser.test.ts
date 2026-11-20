@@ -217,12 +217,10 @@ test('potato and laser settings: defaults are valid, each has an Events spec, he
     'events.potato.blasts',
     'events.potato.minFuseSeconds',
     'events.potato.maxFuseSeconds',
-    'events.potato.fine',
     'events.laser.joinSeconds',
     'events.laser.rounds',
     'events.laser.windowSeconds',
     'events.laser.minWindowSeconds',
-    'events.laser.fine',
     'events.laser.bonusPerPlayer',
   ]) {
     assert.equal(findSpec(key)?.group, 'Events', key);
