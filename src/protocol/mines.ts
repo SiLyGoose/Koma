@@ -122,6 +122,6 @@ export type ServerMessage =
   | { t: 'state'; seq: number; state: RunState; event?: RunEvent }
   | ({ t: 'refused'; seq: number } & StartRefusal)
   | { t: 'error'; code: ErrorCode }
-  | { t: 'watching'; player: string }
+  | { t: 'watching'; player: string; you?: string }
   | { t: 'watchers'; count: number }
   | { t: 'away' };

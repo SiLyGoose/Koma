@@ -1,4 +1,4 @@
-import { ComponentType, type ActionRowBuilder, type ButtonBuilder, type Message, type MessageEditOptions, type SendableChannels } from 'discord.js';
+import { ComponentType, type ActionRowBuilder, type ButtonBuilder, type ButtonInteraction, type Message, type MessageEditOptions, type SendableChannels } from 'discord.js';
 import { replyPrivately } from '../../discord/reply.js';
 import type { BotEmbed } from '../../lib/embed.js';
 
@@ -62,7 +62,20 @@ export interface JoinWindow {
   render: (joined: number) => { embeds: BotEmbed[]; components: ActionRowBuilder<ButtonBuilder>[] };
   joinedText: string;
   alreadyText: string;
+  /**
+   * For a game the site can join too: who has joined so far (shared with the site's joins; a new set when left out),
+   * their names as the server has them (filled in for those who join here), and `listen`, given a function that shows
+   * the message again (for a join on the site) and called after each join here.
+   */
+  joiners?: Set<string>;
+  names?: Map<string, string>;
+  listen?: (refresh: () => void) => void;
+  joined?: (userId: string) => void;
 }
+
+/** Who pressed a button, as the server names them. */
+export const pressedBy = (interaction: ButtonInteraction): string =>
+  interaction.member && 'displayName' in interaction.member ? interaction.member.displayName : interaction.user.displayName;
 
 /**
  * Listens for the Join button until the window closes. Returns who joined, in the order they
@@ -70,17 +83,22 @@ export interface JoinWindow {
  * counts once).
  */
 export async function collectJoiners(window: JoinWindow): Promise<string[]> {
-  const joiners = new Set<string>();
+  const joiners = window.joiners ?? new Set<string>();
   const remaining = window.endsAtMs - Date.now();
-  if (remaining <= 0) return [];
+  if (remaining <= 0) return [...joiners];
 
   const live = new LiveMessage(window.message, window.refreshMs);
+  window.listen?.(() => live.show(window.render(joiners.size)));
   const collector = window.message.createMessageComponentCollector({ componentType: ComponentType.Button, time: remaining });
   collector.on('collect', (interaction) => {
     if (interaction.customId !== window.joinId) return;
     const already = joiners.has(interaction.user.id);
     joiners.add(interaction.user.id);
-    if (!already) live.show(window.render(joiners.size));
+    if (!already) {
+      window.names?.set(interaction.user.id, pressedBy(interaction));
+      live.show(window.render(joiners.size));
+      window.joined?.(interaction.user.id);
+    }
     void replyPrivately(interaction, already ? window.alreadyText : window.joinedText);
   });
 

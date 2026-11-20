@@ -1,4 +1,4 @@
-import { BACCARAT_WEB, CODEDLE_WEB, DIVINE_WEB, DRAGON_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB } from '../constants/index.js';
+import { BACCARAT_WEB, CODEDLE_WEB, DIVINE_WEB, DRAGON_WEB, MINE_WEB, MINESWEEPER_WEB, PINECRAFT_WEB, POKER_WEB, RAID_WEB, ROULETTE_WEB, TM_WEB, DUCK_RACE_WEB, POTATO_WEB, LASER_WEB } from '../constants/index.js';
 import { optionalEnv } from '../env.js';
 import type { Game } from '../protocol/site.js';
 
@@ -72,6 +72,7 @@ export const GAMES = {
   pinecraft: { page: '/games/pinecraft', socket: PINECRAFT_WEB.path },
   baccarat: { page: '/games/baccarat', socket: BACCARAT_WEB.path },
   roulette: { page: '/games/roulette', socket: ROULETTE_WEB.path },
+  duckrace: { page: '/games/duckrace', socket: DUCK_RACE_WEB.path },
   poker: { page: '/games/poker', socket: POKER_WEB.path },
   raid: { page: '/games/raid', socket: RAID_WEB.path },
   minesweeper: { page: '/games/minesweeper', socket: MINESWEEPER_WEB.path },
@@ -79,6 +80,8 @@ export const GAMES = {
   dragon: { page: '/games/dragon', socket: DRAGON_WEB.path },
   divine: { page: '/games/divine', socket: DIVINE_WEB.path },
   codedle: { page: '/games/codedle', socket: CODEDLE_WEB.path },
+  potato: { page: '/games/potato', socket: POTATO_WEB.path },
+  laser: { page: '/games/laser', socket: LASER_WEB.path },
 } as const satisfies Record<Game, { page: string; socket: string }>;
 export type { Game };
 

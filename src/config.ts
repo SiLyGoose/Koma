@@ -153,6 +153,13 @@ export interface Settings {
     minBet: number;
     maxBet: number;
   };
+  duckRace: {
+    /** The smallest and biggest race, counting every chip on the table. */
+    minBet: number;
+    maxBet: number;
+    /** What a bet on the winning duck pays, to 1 (see lib/game/casino/duckrace.ts). */
+    payout: number;
+  };
   /** Texas hold'em at the poker tables (web/games/poker/table.ts). */
   poker: {
     /** The blinds every table plays. */
@@ -258,6 +265,30 @@ export interface Settings {
       joinSeconds: number;
       /** How long the players have to choose Split or Steal, in seconds. */
       decideSeconds: number;
+    };
+    potato: {
+      /** How long people have to join, in seconds. It takes at least 2. */
+      joinSeconds: number;
+      /** How many potatoes go off, at most (never so many that nobody is left). */
+      blasts: number;
+      /** Each potato's hidden fuse is a random time from minFuseSeconds to maxFuseSeconds. */
+      minFuseSeconds: number;
+      maxFuseSeconds: number;
+      /** What whoever holds a potato when it goes off pays, added to the vault. */
+      fine: number;
+    };
+    laser: {
+      /** How long people have to join, in seconds. */
+      joinSeconds: number;
+      /** How many rounds there are. */
+      rounds: number;
+      /** The time to press Duck! once the laser fires: windowSeconds in the first round, shrinking evenly to minWindowSeconds in the last. */
+      windowSeconds: number;
+      minWindowSeconds: number;
+      /** What everyone caught pays, added to the vault. */
+      fine: number;
+      /** Added to the prize for every player who joins. New money: it never comes out of the vault. */
+      bonusPerPlayer: number;
     };
   };
   /**
@@ -498,6 +529,8 @@ export const DEFAULTS: Readonly<Settings> = {
   baccarat: { minBet: 1, maxBet: 10_000, payout: { banker: 0.95, tie: 8, kirin: 25, phoenix: 40 } },
   // American roulette (0 and 00): every bet pays 36 / its pockets - 1 to 1, so the house keeps 5.26%.
   roulette: { minBet: 1, maxBet: 10_000 },
+  // Four ducks, each as likely to win: the winner pays 3 to 1 (4 times the bet back), an even game: neither the house nor the players come out ahead.
+  duckRace: { minBet: 1, maxBet: 10_000, payout: 3 },
   // 10/20 blinds, sitting down with 20 to 100 big blinds, and a 5% rake (at most 5 big blinds) for the vault.
   poker: { smallBlind: 10, bigBlind: 20, minBuyIn: 400, maxBuyIn: 2_000, rake: 0.05, rakeCap: 100, turnSeconds: 30, botDailyLimit: 5_000 },
   // Like Stake's Mines. The house edge is 2.5% with 1 mine and slides down to Stake's 1% with 24
@@ -528,17 +561,22 @@ export const DEFAULTS: Readonly<Settings> = {
   // also grows by 100 an hour on its own. A Greedy Heist has
   // a minute to join, then up to 10 rounds of 5 seconds; the alarm chance starts at 5% and climbs 5%
   // a round (about a 3% chance of lasting all 10), every quiet round adds 0.1x to the loot of whoever
-  // escapes (2x for staying all 10), and anyone caught pays 50. Split or Steal needs 2+
+  // escapes (2x for staying all 10), and anyone caught pays 100. Split or Steal needs 2+
   // players, with a minute to join and 30 seconds to choose. Codedle opens 5 minutes after it's announced, then gives
-  // 5 minutes to guess a 5-digit code, at 10 points a guess (added to the vault).
+  // 5 minutes to guess a 5-digit code, at 10 points a guess (added to the vault). Hot Potato has a minute to join
+  // (2+ players), then up to 3 potatoes with a hidden 10 to 25 second fuse; each blows its holder out with a 100 fine.
+  // Laser Grid has a minute to join, then 11 rounds, the time to duck shrinking from 3 seconds to 0.5; anyone caught pays 100.
+  // Its prize is the vault's plus 5,000 for every player who joins (new money).
   events: {
     minMinutes: 120,
     maxMinutes: 360,
     crate: { minPoints: 200, maxPoints: 600, seconds: 60 },
     vault: { multiplier: 1, hourlyGrowth: 100, maxPool: 0, lossShare: 0.4 },
-    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, quietBonus: 0.1, fine: 50 },
+    heist: { joinSeconds: 60, rounds: 10, roundSeconds: 5, alarmStart: 0.05, alarmStep: 0.05, quietBonus: 0.1, fine: 100 },
     splitSteal: { minPlayers: 2, joinSeconds: 60, decideSeconds: 30 },
     codedle: { waitSeconds: 300, seconds: 300, guessCost: 10 },
+    potato: { joinSeconds: 60, blasts: 3, minFuseSeconds: 10, maxFuseSeconds: 25, fine: 100 },
+    laser: { joinSeconds: 60, rounds: 11, windowSeconds: 3, minWindowSeconds: 0.5, fine: 100, bonusPerPlayer: 5_000 },
   },
   // The raid's numbers, set in simulated fights where the party picks the best of some ninety ways to
   // play (real parties do worse). Each boss's HP lets a party without gear win level 1 about 9 times in

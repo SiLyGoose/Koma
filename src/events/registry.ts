@@ -1,6 +1,8 @@
 import { randomUnit } from '../lib/random.js';
 import { codedle } from './games/codedle.js';
 import { greedyHeist } from './games/greedy-heist.js';
+import { hotPotato } from './games/hot-potato.js';
+import { laserGrid } from './games/laser-grid.js';
 import { pointCrate } from './games/point-crate.js';
 import { splitOrSteal } from './games/split-or-steal.js';
 import type { GameEvent } from './types.js';
@@ -9,7 +11,7 @@ import type { GameEvent } from './types.js';
  * Every event the bot can run. To add one, write it (see GameEvent in types.ts) and add it here:
  * the scheduler, `events start` and the slash command's choices all read this list.
  */
-export const GAME_EVENTS: readonly GameEvent[] = [pointCrate, greedyHeist, splitOrSteal, codedle];
+export const GAME_EVENTS: readonly GameEvent[] = [pointCrate, greedyHeist, splitOrSteal, codedle, hotPotato, laserGrid];
 
 /** Discord shows at most this many choices for one slash option. */
 const MAX_EVENTS = 25;

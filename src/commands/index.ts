@@ -24,6 +24,7 @@ import { dragon } from './dragon.js';
 import { plinko } from './plinko.js';
 import { baccarat } from './baccarat.js';
 import { roulette } from './roulette.js';
+import { duckrace } from './duckrace.js';
 import { poker } from './poker.js';
 import { raid } from './raid.js';
 import { refine } from './refine.js';
@@ -56,6 +57,7 @@ export const commands: Command[] = [
   plinko,
   baccarat,
   roulette,
+  duckrace,
   poker,
   blackjack,
   mines,

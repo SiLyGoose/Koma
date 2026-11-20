@@ -9,7 +9,7 @@ import { parseTableMessage, type ServerMessage } from './protocol.js';
  * The web socket a shared-table game's page (baccarat, roulette) plays through (connection.ts does
  * the greeting and watching). Once the player says hello they are seated at a shared table
  * (web/games/table/table.ts), and send their chips as they put them down. One page per player: a new one takes
- * over their seat.
+ * over their seat. Someone watching a player can chat with their table too, as a spectator.
  */
 
 /** A few words on what a player is doing, for the online list, from a message sent to their page. */
@@ -69,6 +69,13 @@ export function openTableConnection<S extends string, R, V, X>(tables: PartyTabl
           peer.send({ t: 'refused', seq: message.seq, ...refusal });
           table.resend(player.userId);
         }
+      },
+
+      // A watcher can chat with the table the player is at (as a spectator), and nothing else.
+      async watching(target, _watcher, message, viewer) {
+        if (message.t !== 'chat') return;
+        const at = tables.in(target.guildId).find((t) => t.has(target.userId));
+        at?.spectatorSays(target.userId, viewer, message.text, await chatImage(message));
       },
 
       left(player, peer) {

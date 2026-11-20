@@ -119,7 +119,7 @@ export type ServerMessage =
   | { t: 'state'; seq: number; state: WorldState; event?: WorldEvent }
   | { t: 'map'; map: WorldMap }
   | { t: 'error'; code: ErrorCode }
-  | { t: 'watching'; player: string }
+  | { t: 'watching'; player: string; you?: string }
   | { t: 'watchers'; count: number }
   | { t: 'away' }
   | { t: 'breaking'; dir: Direction };

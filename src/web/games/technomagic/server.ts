@@ -12,7 +12,7 @@ import { runningBatch } from '../../../services/tm-batches.js';
  * of their own (single player), with the heroes they own. One page per player: a new one takes over. Anyone in the server
  * can watch a player's raid instead, getting ready and fighting (a watch link: connection.ts, live.ts): the watcher's page is
  * sent what the player's is, and, arriving, the room and the fight so far (watched: TechnoMagicRooms.watch); it takes no part
- * in it. The Dragon Raid's is the same, on a socket of its own (serveDragon), the page
+ * in it but its chat, where its lines are a spectator's. The Dragon Raid's is the same, on a socket of its own (serveDragon), the page
  * naming the dragon it wants; and the Divine Punishment Raid's (serveDivine), solo only: always a room of their own.
  */
 
@@ -129,6 +129,11 @@ export function openTechnoMagicConnection(page: Peer, rooms: TechnoMagicRooms = 
 
       watched(target, watcher) {
         rooms.watch(target.guildId, target.userId, watcher);
+      },
+
+      // A watcher can chat with the room (as a spectator), and nothing else.
+      async watching(target, _watcher, message, viewer) {
+        if (message.t === 'chat') rooms.spectatorSays(target.guildId, target.userId, viewer, message.text, await chatImage(message));
       },
 
       left(player, peer) {

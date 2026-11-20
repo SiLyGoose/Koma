@@ -136,7 +136,7 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
               o
                 .setName('group')
                 .setDescription('Jump straight to this group instead of starting on page one')
-                .addChoices(...GROUPS.map((group) => ({ name: group, value: group.toLowerCase() }))),
+                .addChoices(...GROUPS.map((group) => ({ name: group, value: group.toLowerCase().replaceAll(' ', '') }))),
             ),
         )
         .addSubcommand((s) =>
@@ -395,6 +395,13 @@ export const SLASH: Readonly<Record<string, SlashSpec>> = {
 
   roulette: {
     description: `Roulette on the Koma site: bet ${CURRENCY_NAME} on numbers, colours, dozens and more.`,
+    // The chips are placed on the site: this is just the link there.
+    build: () => {},
+    toArgs: () => [],
+  },
+
+  duckrace: {
+    description: `Duck Race on the Koma site: bet ${CURRENCY_NAME} on one of four ducks and watch them race.`,
     // The chips are placed on the site: this is just the link there.
     build: () => {},
     toArgs: () => [],

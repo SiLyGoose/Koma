@@ -10,6 +10,7 @@ import { plinkoText } from './casino/plinko.js';
 import { baccaratText } from './casino/baccarat.js';
 import { pokerText } from './casino/poker.js';
 import { rouletteText } from './casino/roulette.js';
+import { duckRaceText } from './casino/duckrace.js';
 import { blackjackText } from './casino/blackjack.js';
 import { minesText } from './casino/mines.js';
 import { pinecraftText } from './pinecraft.js';
@@ -35,6 +36,8 @@ import { crateText } from './events/crate.js';
 import { vaultText } from './events/vault.js';
 import { heistText } from './events/heist.js';
 import { splitStealText } from './events/split-steal.js';
+import { potatoText } from './events/potato.js';
+import { laserText } from './events/laser.js';
 import { codedleText } from './events/codedle.js';
 import { giveText } from './give.js';
 import { payText } from './pay.js';
@@ -65,6 +68,7 @@ export const TEXT = {
   baccarat: baccaratText,
   poker: pokerText,
   roulette: rouletteText,
+  duckRace: duckRaceText,
   blackjack: blackjackText,
   mines: minesText,
   pinecraft: pinecraftText,
@@ -91,6 +95,8 @@ export const TEXT = {
   skip: skipText,
   heist: heistText,
   splitSteal: splitStealText,
+  potato: potatoText,
+  laser: laserText,
   codedle: codedleText,
   give: giveText,
   pay: payText,

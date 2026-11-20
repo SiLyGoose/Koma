@@ -3,7 +3,24 @@ import { MAX_BLACKJACK_NATURAL, MAX_BLACKJACK_SECONDS, BLACKJACK } from './casin
 import { ADMIN_USER_ID, SETTINGS_REFRESH_MS, MAX_REDUCTION, CURRENCY_EMOJI, TOKEN_EMOJI, GEM_EMOJI, CURRENCY_NAME, MAX_SETTING_POINTS, MAX_TIMER_MINUTES, MAX_LEADERBOARD_SIZE, MAX_PREFIX_LENGTH, MAX_GIVE_AMOUNT, CHANCE_STEPS } from './core.js';
 import { D20_ANIMATION, D20 } from './d20.js';
 import { AVATAR, SLASH_DEFER_AFTER_MS, SLASH_EXCLUDED, AUTOCOMPLETE_MAX_CHOICES, FIELD_MAX_LENGTH, DATABANK_ITEMS_PER_PAGE, DATABANK_BUTTONS, CONFIG_BUTTONS } from './discord.js';
-import { EVENTS, MAX_CRATE_SECONDS, CRATE, MAX_EVENT_SECONDS, MAX_VAULT_MULTIPLIER, MAX_HEIST_ROUNDS, HEIST, SPLIT_STEAL, CODE, CODE_LENGTH } from './events.js';
+import {
+  EVENTS,
+  EVENTS_LIST,
+  MAX_CRATE_SECONDS,
+  CRATE,
+  MAX_EVENT_SECONDS,
+  MAX_VAULT_MULTIPLIER,
+  MAX_HEIST_ROUNDS,
+  HEIST,
+  SPLIT_STEAL,
+  CODE,
+  CODE_LENGTH,
+  CLICK_GAP_MS,
+  MAX_POTATO_BLASTS,
+  POTATO,
+  MAX_LASER_ROUNDS,
+  LASER,
+} from './events.js';
 import { NOTIFY_ROLES } from './newsletter.js';
 import { STAR_SYMBOL, PERCENT_DECIMALS, SLOT_EMOJI } from './formatting.js';
 import { MULTI_PULLS, MULTI_MIN_STARS, MAX_PITY, GACHA_ANIMATION, PITY_STARS, STAR_COLORS } from './items/gacha.js';
@@ -135,11 +152,25 @@ export function validateConstants(): void {
   for (const [name, game] of [
     ['HEIST', HEIST],
     ['SPLIT_STEAL', SPLIT_STEAL],
-    ['CODE', { refreshMs: CODE.refreshMs, listMax: CODE.boardMax }],
+    ['POTATO', POTATO],
+    ['CODE',{ refreshMs: CODE.refreshMs, listMax: CODE.boardMax }],
     ['RAID', RAID],
   ] as const) {
     if (!(game.refreshMs >= 1000)) problems.push(`${name}.refreshMs must be at least 1000 (Discord limits message edits)`);
     if (!(Number.isInteger(game.listMax) && game.listMax >= 1 && game.listMax <= 50)) problems.push(`${name}.listMax must be a whole number from 1 to 50`);
+  }
+  // A page is one embed field per event, and an embed has at most 25 fields.
+  if (!(Number.isInteger(EVENTS_LIST.pageSize) && EVENTS_LIST.pageSize >= 1 && EVENTS_LIST.pageSize <= 25)) problems.push('EVENTS_LIST.pageSize must be a whole number from 1 to 25');
+  if (!(EVENTS_LIST.idleMs >= 5000)) problems.push('EVENTS_LIST.idleMs must be at least 5000');
+  if (!(CLICK_GAP_MS >= 100 && CLICK_GAP_MS <= 5000))problems.push('CLICK_GAP_MS must be from 100 to 5000');
+  if (!(POTATO.pauseMs >= 1000)) problems.push('POTATO.pauseMs must be at least 1000 (Discord limits message edits)');
+  if (!(Number.isInteger(LASER.listMax) && LASER.listMax >= 1 && LASER.listMax <= 50)) problems.push('LASER.listMax must be a whole number from 1 to 50');
+  if (!(Number.isInteger(LASER.slots) && LASER.slots >= 2 && LASER.slots <= 5)) problems.push('LASER.slots must be a whole number from 2 to 5 (one row of buttons)');
+  // Duck!, the fake ducks, and at least one laser.
+  if (!(Number.isInteger(LASER.maxDecoys) && LASER.maxDecoys >= 0 && LASER.maxDecoys <= LASER.slots - 2)) problems.push('LASER.maxDecoys must be a whole number from 0 to LASER.slots less 2');
+  // A round makes three edits (ready, laser, result); at least a second apart each, for Discord's limit on message edits.
+  if (!(LASER.minDelayMs >= 1000 && LASER.minDelayMs <= LASER.maxDelayMs && LASER.pauseMs >= 1000)) {
+    problems.push('LASER needs 1000 <= minDelayMs <= maxDelayMs, and pauseMs at least 1000 (Discord limits message edits)');
   }
   if (!(WHEEL_MIN_CHANCE >= 0 && WHEEL_MIN_CHANCE <= 1)) problems.push('WHEEL_MIN_CHANCE must be from 0 to 1');
   if (!(WHEEL_ANIMATION.frameMs >= 500)) problems.push('WHEEL_ANIMATION.frameMs must be at least 500 (Discord limits message edits)');
@@ -161,6 +192,8 @@ export function validateConstants(): void {
     ['MAX_CRATE_SECONDS', MAX_CRATE_SECONDS],
     ['MAX_EVENT_SECONDS', MAX_EVENT_SECONDS],
     ['MAX_HEIST_ROUNDS', MAX_HEIST_ROUNDS],
+    ['MAX_POTATO_BLASTS', MAX_POTATO_BLASTS],
+    ['MAX_LASER_ROUNDS', MAX_LASER_ROUNDS],
     ['MAX_RAID_SECONDS', MAX_RAID_SECONDS],
     ['MAX_RAID_ROUNDS', MAX_RAID_ROUNDS],
     ['CODE_LENGTH', CODE_LENGTH],

@@ -2,7 +2,8 @@
  * The chat beside a game played together (the shared tables, poker, minesweeper and the TechnoMagic Raid): what the
  * players at one table (or in one room) say to each other while they play (the bot's web/games/chat.ts keeps it).
  *
- *   page -> bot   chat     says `text` to everyone at the table, with a picture pasted in (`image`) or not
+ *   page -> bot   chat     says `text` to everyone at the table, with a picture pasted in (`image`) or not (a watcher's
+ *                          page too: its line is marked `spectator`)
  *   bot -> page   chats    the last lines said, on joining
  *                 chat     a line just said (the page's own too)
  *
@@ -22,6 +23,8 @@ export interface ChatLine {
   text: string;
   /** Its picture: a pasted one (`data:image/…`), or a GIF's address (`https://…`). */
   image?: string;
+  /** Said by someone watching a player there, not playing (the pages show it beside their name). */
+  spectator?: true;
   /** When (ms). */
   at: number;
 }

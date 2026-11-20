@@ -770,6 +770,9 @@ export type LedgerReason =
   // Roulette (web/games/roulette/server.ts): the same.
   | 'roulette_bet'
   | 'roulette_payout'
+  // The duck race (web/games/duckrace/server.ts): the same.
+  | 'duckrace_bet'
+  | 'duckrace_payout'
   // Poker (web/games/poker/table.ts): the chips taken to a table when sitting down, and what was
   // left when standing up (the chips won and lost to the other players are the difference).
   | 'poker_buyin'
@@ -804,6 +807,11 @@ export type LedgerReason =
   | 'code_guess'
   | 'code_refund'
   | 'code_prize'
+  // Hot Potato and Laser Grid (src/events/games): a winner's share of the vault prize, and the fine for being blown up or caught.
+  | 'potato_prize'
+  | 'potato_fine'
+  | 'laser_prize'
+  | 'laser_fine'
   // Points paid to skip a cooldown (commands/skip.ts), one reason per thing skipped.
   | 'skip_claim'
   // The week's extra raid and its refund, back when a week had one raid: no longer written, kept for older entries.

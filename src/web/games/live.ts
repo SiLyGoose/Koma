@@ -136,13 +136,13 @@ export function toWatchers(game: LiveGame, guildId: string, userId: string, mess
 
 export type WatchResult = { ok: true } | { ok: false; reason: 'not_playing' | 'full' };
 
-/** A watch-only page wants to follow a player in `game`: it is sent who, and the game as it is. */
-export function addWatcher(game: LiveGame, guildId: string, userId: string, page: LivePeer): WatchResult {
+/** A watch-only page (`viewerId`'s) wants to follow a player in `game`: it is sent who (and who it is), and the game as it is. */
+export function addWatcher(game: LiveGame, guildId: string, userId: string, page: LivePeer, viewerId?: string): WatchResult {
   const room = rooms.get(roomKey(game, guildId, userId));
   if (!room?.player) return { ok: false, reason: 'not_playing' };
   if (room.watchers.size >= MAX_WATCHERS && !room.watchers.has(page)) return { ok: false, reason: 'full' };
   room.watchers.add(page);
-  page.send({ t: 'watching', player: room.name });
+  page.send({ t: 'watching', player: room.name, ...(viewerId !== undefined && { you: viewerId }) });
   if (room.latest) page.send({ ...(room.latest as object), seq: 0 });
   tellCount(room);
   return { ok: true };

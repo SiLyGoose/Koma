@@ -28,3 +28,5 @@ export { playBaccarat } from '../casino/baccarat.js';
 export type { BaccaratResult } from '../casino/baccarat.js';
 export { playRoulette } from '../casino/roulette.js';
 export type { RouletteResult } from '../casino/roulette.js';
+export { playDuckRace } from '../casino/duckrace.js';
+export type { DuckRaceResult } from '../casino/duckrace.js';

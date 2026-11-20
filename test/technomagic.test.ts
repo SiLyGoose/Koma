@@ -768,6 +768,29 @@ test('technomagic room: a watcher follows a player’s raid, getting ready and m
   assert.equal(h.rooms.watch('g1', 'c', h.peer()), true);
 });
 
+test('technomagic room: a watcher chats with the room as a spectator (their line marked so), only while who they watch is in it', () => {
+  const h = harness();
+  const a = h.peer();
+  const b = h.peer();
+  const { room } = h.rooms.join(h.player('a'), a, ALL)!;
+  h.rooms.join(h.player('b'), b, ALL);
+  const lines = (peer: typeof a) => peer.got.flatMap((m) => (m.t === 'chat' ? [m.line] : []));
+
+  h.rooms.spectatorSays('g1', 'a', { userId: 'w', name: 'Watcher' }, 'go go');
+  for (const peer of [a, b]) assert.deepEqual(lines(peer).map(({ id, name, text, spectator }) => ({ id, name, text, spectator })), [{ id: 'w', name: 'Watcher', text: 'go go', spectator: true }]);
+  room.say('a', 'thanks');
+  assert.equal(lines(b).at(-1)?.spectator, undefined, 'a player’s line isn’t a spectator’s');
+  // Who arrives later is told it as said.
+  const late = h.peer();
+  h.rooms.watch('g1', 'b', late);
+  const history = late.got.find((m) => m.t === 'chats');
+  assert.ok(history?.t === 'chats');
+  assert.deepEqual(history.lines.map((l) => l.spectator ?? false), [true, false]);
+
+  h.rooms.spectatorSays('g1', 'nobody', { userId: 'w', name: 'Watcher' }, 'hello?');
+  assert.equal(lines(a).length, 2, 'watching no one in a raid: said to no one');
+});
+
 test('technomagic room: a player presses no more than a few times a turn (the rest dropped), so the fight\'s presses stay few', async () => {
   const h = harness();
   const a = h.peer();

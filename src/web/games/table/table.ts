@@ -208,6 +208,13 @@ export class PartyTable<S extends string, R, V, X> {
     if (line) for (const each of this.seats) each.peer?.send({ t: 'chat', line });
   }
 
+  /** `viewer`, watching `userId` (seated here), says `text` to the table as a spectator, with a picture (`image`) or not. */
+  spectatorSays(userId: string, viewer: { userId: string; name: string }, text: string, image?: string): void {
+    if (!this.has(userId)) return;
+    const line = this.chat.say(viewer, text, this.deps.now(), image, true);
+    if (line) for (const each of this.seats) each.peer?.send({ t: 'chat', line });
+  }
+
   /**
    * The page `peer` went away: its player's seat is kept for `awayMs` (see the top of this file), their chips taken off
    * (they weren't taken yet). Not back by then, they leave the table.

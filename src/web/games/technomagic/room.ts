@@ -1015,6 +1015,13 @@ export class TechnoMagicRoom {
     if (line) this.send({ t: 'chat', line });
   }
 
+  /** `viewer`, watching `userId` (in the room), says `text` to the room as a spectator, with a picture (`image`) or not. */
+  spectatorSays(userId: string, viewer: { userId: string; name: string }, text: string, image?: string): void {
+    if (!this.members.has(userId)) return;
+    const line = this.chat.say(viewer, text, this.deps.now(), image, true);
+    if (line) this.send({ t: 'chat', line });
+  }
+
   /**
    * The fight's clock: the steps due, each with what was asked of it before it; then everyone is told. (A turn that
    * comes while the last is still being stepped on waits for the next. A fight that fails is lost.)
@@ -1293,6 +1300,11 @@ export class TechnoMagicRooms {
     const room = this.roomWith(guildId, userId);
     room?.showTo(userId, peer);
     return room !== null;
+  }
+
+  /** `viewer`, watching `userId`'s raid in `guildId`, says something to its room (TechnoMagicRoom.spectatorSays). */
+  spectatorSays(guildId: string, userId: string, viewer: { userId: string; name: string }, text: string, image?: string): void {
+    this.roomWith(guildId, userId)?.spectatorSays(userId, viewer, text, image);
   }
 
   /** The raid `userId` is in, in `guildId`, if others can join it now (getting ready, with room): its boss and id. */

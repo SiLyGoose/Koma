@@ -126,6 +126,7 @@ const CASINO_REASONS: readonly { bet: LedgerReason; rest: readonly LedgerReason[
   { bet: 'blackjack_bet', rest: ['blackjack_double', 'blackjack_payout', 'blackjack_refund'] },
   { bet: 'baccarat_bet', rest: ['baccarat_payout'] },
   { bet: 'roulette_bet', rest: ['roulette_payout'] },
+  { bet: 'duckrace_bet', rest: ['duckrace_payout'] },
   { bet: 'mines_bet', rest: ['mines_payout'] },
   // A sitting at a poker table is one round: the chips taken to it, and what was left on leaving.
   { bet: 'poker_buyin', rest: ['poker_cashout'] },
@@ -133,7 +134,7 @@ const CASINO_REASONS: readonly { bet: LedgerReason; rest: readonly LedgerReason[
 
 /** The fines, penalties and charges that count as lost in full, less whatever of them was refunded. */
 const FINE_REASONS: readonly LedgerReason[] = [
-  'd20_penalty', 'rob_fine_paid', 'heist_fine', 'vault_fine',
+  'd20_penalty', 'rob_fine_paid', 'heist_fine', 'potato_fine', 'laser_fine', 'vault_fine',
   'code_guess', 'code_refund',
   'raid_boost', 'raid_stolen', 'raid_refund',
 ];
@@ -274,7 +275,7 @@ const FINE_AT_ONCE = 10;
  * what was collected to the vault pool. A member with fewer points than the fine still counts as
  * having paid it, they just can't lose more than they had.
  */
-export async function fineIntoVault(guildId: string, userIds: readonly string[], fine: number, reason: 'heist_fine'): Promise<VaultFine[]> {
+export async function fineIntoVault(guildId: string, userIds: readonly string[], fine: number, reason: 'heist_fine' | 'potato_fine' | 'laser_fine'): Promise<VaultFine[]> {
   if (userIds.length === 0 || fine <= 0) return userIds.map((userId) => ({ userId, amount: 0 }));
   const { members } = collections();
 

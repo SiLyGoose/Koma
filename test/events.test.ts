@@ -3,12 +3,13 @@ import { test } from 'node:test';
 import { renderCrate } from '../src/animations/images/crate-image.js';
 import { readPng } from './helpers/png.js';
 import type { CommandContext } from '../src/discord/types.js';
-import { events as eventCommand } from '../src/commands/events.js';
+import { eventPages, eventsPageEmbed, events as eventCommand } from '../src/commands/events.js';
 import { commands } from '../src/commands/index.js';
 import { ADMIN_USER_ID, DEFAULTS } from '../src/config.js';
-import { CRATE, EVENTS, MAX_CRATE_SECONDS, MINUTE_MS, TEXT, validateConstants } from '../src/constants/index.js';
+import { CRATE, EVENTS, EVENTS_LIST, MAX_CRATE_SECONDS, MINUTE_MS, TEXT, validateConstants } from '../src/constants/index.js';
 import { crumbledEmbed, failedEmbed, grabRow, openedEmbed, crateEmbed, pointCrate } from '../src/events/games/point-crate.js';
 import { claimGuild, isEventRunning } from '../src/events/busy.js';
+import { NEXT_ID, PREV_ID } from '../src/discord/paginate.js';
 import { crateFile, prepareEndPictures, setCrateRenderer } from '../src/events/games/crate-picture.js';
 import { GAME_EVENTS, eventChances, findEvent, pickEvent, validateEvents } from '../src/events/registry.js';
 import { decideTick, randomGapMs } from '../src/events/timing.js';
@@ -408,7 +409,8 @@ function fakeContext(userId: string, args: string[]): { ctx: CommandContext; rep
     args,
     reply: async (options: unknown) => {
       replies.push(options);
-      return {};
+      // Enough of a sent message for paginate to put its Previous/Next buttons on.
+      return { fetchMessage: async () => ({ createMessageComponentCollector: () => ({ on: () => {} }), edit: async () => ({}) }) };
     },
   } as unknown as CommandContext;
   return { ctx, replies };
@@ -429,11 +431,40 @@ test('event command: anyone can see the list; the admin gets the usage hint as i
     let { ctx, replies } = fakeContext('42', args);
     await eventCommand.execute(ctx);
     assert.equal(replies.length, 1, args.join(' '));
-    assert.equal(footer(replies[0]), TEXT.events.footerOthers, args.join(' '));
+    assert.match(footer(replies[0]) ?? '', /^Page 1 of \d+ · /, args.join(' '));
+    assert.ok(footer(replies[0])?.endsWith(TEXT.events.footerOthers), args.join(' '));
 
     ({ ctx, replies } = fakeContext(ADMIN_USER_ID, args));
     await eventCommand.execute(ctx);
-    assert.equal(footer(replies[0]), TEXT.events.usage('k!'), args.join(' '));
+    assert.ok(footer(replies[0])?.endsWith(TEXT.events.usage('k!')), args.join(' '));
+  }
+});
+
+test('event list: every event is on a page, EVENTS_LIST.pageSize a page, each with its whole description and how to start it', () => {
+  const entries = eventChances();
+  const pages = eventPages(entries);
+  assert.equal(pages.flat().length, GAME_EVENTS.length, 'none left out');
+  assert.ok(pages.every((page) => page.length >= 1 && page.length <= EVENTS_LIST.pageSize));
+  assert.deepEqual(eventPages(entries, 4).map((page) => page.length), [4, GAME_EVENTS.length - 4].filter((n) => n > 0));
+  assert.deepEqual(eventPages([]), [[]]);
+
+  const shown = data(eventsPageEmbed(pages[0] ?? [], 0, pages.length, 'hint'));
+  const firstEvent = pages[0]?.[0]?.event;
+  assert.ok(firstEvent);
+  assert.equal(shown.fields?.[0]?.value, TEXT.events.entryValue(firstEvent.id, firstEvent.description));
+  assert.ok(shown.fields?.every((field) => field.value.length <= 1024));
+  assert.equal(shown.footer?.text, TEXT.events.pageFooter(1, pages.length, 'hint'));
+  assert.equal(TEXT.events.pageFooter(1, 1, 'hint'), 'hint', 'one page: no page number');
+});
+
+test('event command: the list has Previous/Next once the events need more than one page', async () => {
+  const { ctx, replies } = fakeContext('42', []);
+  await eventCommand.execute(ctx);
+  const components = (replies[0] as { components?: { toJSON(): { components: { custom_id: string }[] } }[] }).components ?? [];
+  if (eventPages(eventChances()).length > 1) {
+    assert.deepEqual(components[0]?.toJSON().components.map((c) => c.custom_id), [PREV_ID, NEXT_ID]);
+  } else {
+    assert.equal(components.length, 0);
   }
 });
 

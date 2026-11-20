@@ -73,14 +73,15 @@ export class Chat {
   private readonly lastAt = new Map<string, number>();
 
   /**
-   * `who` says `text` (as parseChat left it), with `image` (chatImage's) or not. Returns the line, to
-   * tell everyone at the table, or null when they spoke too soon after their last (the line is dropped).
+   * `who` says `text` (as parseChat left it), with `image` (chatImage's) or not, as a `spectator` (watching someone
+   * there) or not. Returns the line, to tell everyone at the table, or null when they spoke too soon after their last
+   * (the line is dropped).
    */
-  say(who: { userId: string; name: string }, text: string, now: number, image?: string): ChatLine | null {
+  say(who: { userId: string; name: string }, text: string, now: number, image?: string, spectator = false): ChatLine | null {
     const last = this.lastAt.get(who.userId);
     if (last !== undefined && now - last < (pasted(image) ? CHAT.imageGapMs : CHAT.gapMs)) return null;
     this.lastAt.set(who.userId, now);
-    const line: ChatLine = { no: ++this.count, id: who.userId, name: who.name, text, ...(image ? { image } : {}), at: now };
+    const line: ChatLine = { no: ++this.count, id: who.userId, name: who.name, text, ...(image ? { image } : {}), at: now, ...(spectator && { spectator: true as const }) };
     this.lines.push(line);
     if (this.lines.length > CHAT.keep) this.lines.shift();
     if (pasted(image)) this.forgetImages();
@@ -93,7 +94,7 @@ export class Chat {
     for (let i = this.lines.length - 1; i >= 0; i--) {
       const line = this.lines[i] as ChatLine;
       if (!pasted(line.image) || ++kept <= CHAT.keepImages) continue;
-      if (line.text) this.lines[i] = { no: line.no, id: line.id, name: line.name, text: line.text, at: line.at };
+      if (line.text) this.lines[i] = { no: line.no, id: line.id, name: line.name, text: line.text, at: line.at, ...(line.spectator && { spectator: true as const }) };
       else this.lines.splice(i, 1);
     }
   }

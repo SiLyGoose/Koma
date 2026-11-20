@@ -23,7 +23,8 @@ import type { ChatClientMessage, ChatServerMessage } from './chat.js';
  *
  * Watching (the bot's web/games/live.ts): a watch-only page says `watch` with the token from its watch link instead of
  * `hello`, and is then sent everything the player's page is sent (the table as they see it), starting
- * with `watching` (whose game it is). `away` says the player's page went away (it may come back).
+ * with `watching` (whose game it is, and `you`: who watches). A watcher's page can say `chat` too (its line marked
+ * as a spectator's); nothing else it says is taken. `away` says the player's page went away (it may come back).
  * The player is sent `watchers` whenever how many are watching changes.
  */
 
@@ -123,7 +124,7 @@ export type ServerMessage<S extends string = string, R = unknown, X = unknown> =
   | { t: 'table'; state: TableState<S, R, X> }
   | ({ t: 'refused'; seq: number } & BetRefusal)
   | { t: 'error'; code: ErrorCode }
-  | { t: 'watching'; player: string }
+  | { t: 'watching'; player: string; you?: string }
   | { t: 'watchers'; count: number }
   | { t: 'away' }
   | ChatServerMessage;

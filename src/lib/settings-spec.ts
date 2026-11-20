@@ -17,6 +17,7 @@ import {
   MAX_PITY,
   MAX_PLINKO_MULTIPLIER,
   MAX_BACCARAT_PAYOUT,
+  MAX_DUCK_RACE_PAYOUT,
   MAX_POKER_STAKE,
   MAX_POKER_TURN_SECONDS,
   MAX_PREFIX_LENGTH,
@@ -27,6 +28,8 @@ import {
   MAX_VAULT_MULTIPLIER,
   MAX_EVENT_SECONDS,
   MAX_HEIST_ROUNDS,
+  MAX_LASER_ROUNDS,
+  MAX_POTATO_BLASTS,
   MAX_RAID_OVERHEAD,
   MAX_RAID_ROUNDS,
   MAX_RAID_SECONDS,
@@ -55,7 +58,7 @@ import { TM_POTENTIALS } from '../data/tm-potentials.js';
 
 export interface SettingSpec {
   key: string;
-  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Craft' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Poker' | 'Mines' | 'Pinecraft' | 'Minesweeper' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Hero' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
+  group: 'General' | 'Claim' | 'Gacha' | 'Sell' | 'Craft' | 'Rob' | 'Plinko' | 'Blackjack' | 'Baccarat' | 'Roulette' | 'Duck Race' | 'Poker' | 'Mines' | 'Pinecraft' | 'Minesweeper' | 'Events' | 'Raid' | 'Refine' | 'Outfit' | 'Hero' | 'Skip' | 'Stonks' | 'Wheel' | 'Equipment';
   description: string;
   type: 'int' | 'number' | 'string';
   min?: number;
@@ -78,7 +81,7 @@ export interface SettingSpec {
  * so it silently never showed up in `config list` -- fixed by listing it in the same spot it sits
  * in the SettingSpec['group'] union, right after 'Events' and before 'Equipment'.
  */
-export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Craft', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
+export const GROUPS: SettingSpec['group'][] = ['General', 'Claim', 'Gacha', 'Sell', 'Craft', 'Rob', 'Plinko', 'Blackjack', 'Baccarat', 'Roulette', 'Duck Race', 'Poker', 'Mines', 'Pinecraft', 'Minesweeper', 'Events', 'Raid', 'Refine', 'Outfit', 'Hero', 'Skip', 'Stonks', 'Wheel', 'Equipment'];
 
 const MAX_POINTS = MAX_SETTING_POINTS;
 
@@ -323,6 +326,17 @@ export const SPECS: readonly SettingSpec[] = [
   int('roulette.minBet', 'Roulette', 'Smallest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
   int('roulette.maxBet', 'Roulette', 'Biggest bet in roulette, counting every chip on the table.', 1, MAX_POINTS),
 
+  int('duckRace.minBet', 'Duck Race', 'Smallest bet in the duck race, counting every chip on the table.', 1, MAX_POINTS),
+  int('duckRace.maxBet', 'Duck Race', 'Biggest bet in the duck race, counting every chip on the table.', 1, MAX_POINTS),
+  {
+    key: 'duckRace.payout',
+    group: 'Duck Race',
+    description: 'A bet on the winning duck pays this to 1 (each of the four ducks wins a quarter of the races, so 3 is even with the house and 2.8 keeps 5%).',
+    type: 'number',
+    min: 0,
+    max: MAX_DUCK_RACE_PAYOUT,
+  },
+
   int('poker.smallBlind', 'Poker', "The small blind at every poker table.", 1, MAX_POKER_STAKE),
   int('poker.bigBlind', 'Poker', 'The big blind at every poker table (also the least a bet or raise can be).', 1, MAX_POKER_STAKE),
   int('poker.minBuyIn', 'Poker', 'The fewest chips a player can sit down at a poker table with.', 1, MAX_POKER_STAKE),
@@ -405,7 +419,7 @@ export const SPECS: readonly SettingSpec[] = [
   {
     key: 'events.vault.multiplier',
     group: 'Events',
-    description: 'What a vault game (Greedy Heist, Split or Steal) puts up, as a multiple of the points lost to gambling since the last payout.',
+    description: 'What a vault game (Greedy Heist, Split or Steal, Codedle, Hot Potato, Laser Grid) puts up, as a multiple of the points lost to gambling since the last payout.',
     type: 'number',
     min: 0,
     max: MAX_VAULT_MULTIPLIER,
@@ -415,7 +429,7 @@ export const SPECS: readonly SettingSpec[] = [
   {
     key: 'events.vault.lossShare',
     group: 'Events',
-    description: 'The share of every gambling loss, heist fine and Codedle guess that goes into the vault. The rest is gone for good.',
+    description: 'The share of every gambling loss, vault game fine and Codedle guess that goes into the vault. The rest is gone for good.',
     type: 'number',
     min: 0,
     max: 1,
@@ -457,6 +471,37 @@ export const SPECS: readonly SettingSpec[] = [
   int('events.splitSteal.minPlayers', 'Events', 'Fewest people who have to join Split or Steal for it to be played.', 2, 50),
   int('events.splitSteal.joinSeconds', 'Events', 'Seconds Split or Steal stays open for joining.', 10, MAX_EVENT_SECONDS),
   int('events.splitSteal.decideSeconds', 'Events', 'Seconds the Split or Steal players have to choose.', 10, MAX_EVENT_SECONDS),
+  int('events.potato.joinSeconds', 'Events', 'Seconds Hot Potato stays open for joining (it takes at least 2 players).', 10, MAX_EVENT_SECONDS),
+  int('events.potato.blasts', 'Events', 'How many potatoes go off in a Hot Potato, at most (never so many that nobody is left).', 1, MAX_POTATO_BLASTS),
+  int('events.potato.minFuseSeconds', 'Events', "Shortest a Hot Potato's hidden fuse can be, in seconds.", 3, 300),
+  int('events.potato.maxFuseSeconds', 'Events', "Longest a Hot Potato's hidden fuse can be, in seconds.", 3, 300),
+  int('events.potato.fine', 'Events', 'What whoever holds a Hot Potato when it goes off pays, added to the vault.', 0, MAX_POINTS),
+  int('events.laser.joinSeconds', 'Events', 'Seconds Laser Grid stays open for joining.', 10, MAX_EVENT_SECONDS),
+  int('events.laser.rounds', 'Events', 'How many rounds a Laser Grid has.', 1, MAX_LASER_ROUNDS),
+  {
+    key: 'events.laser.windowSeconds',
+    group: 'Events',
+    description: "Seconds to press Duck! in Laser Grid's first round, once the laser fires (it shrinks evenly to events.laser.minWindowSeconds by the last).",
+    type: 'number',
+    min: 0.5,
+    max: 30,
+  },
+  {
+    key: 'events.laser.minWindowSeconds',
+    group: 'Events',
+    description: "Seconds to press Duck! in Laser Grid's last round. Discord takes a few tenths of a second each way, so below 1 is very hard.",
+    type: 'number',
+    min: 0.5,
+    max: 30,
+  },
+  int('events.laser.fine', 'Events', 'What everyone caught by the Laser Grid pays, added to the vault.', 0, MAX_POINTS),
+  int(
+    'events.laser.bonusPerPlayer',
+    'Events',
+    `${CURRENCY_EMOJI} added to the Laser Grid prize for every player who joins. New money: it never comes out of the vault (0 turns it off).`,
+    0,
+    MAX_POINTS,
+  ),
   int('events.codedle.waitSeconds', 'Events', "Seconds between Codedle's announcement and guessing opening, for everyone to open it (0 opens it at once).", 0, MAX_EVENT_SECONDS),
   int('events.codedle.seconds', 'Events', 'Seconds everyone has to crack the code in Codedle, once guessing opens.', 30, MAX_EVENT_SECONDS),
   int('events.codedle.guessCost', 'Events', `What each Codedle guess costs, added to the vault (0 makes guessing free).`, 0, MAX_POINTS),
@@ -748,6 +793,9 @@ export function checkConstraints(settings: Settings): string | null {
   if (settings.roulette.minBet > settings.roulette.maxBet) {
     return 'roulette.minBet cannot be higher than roulette.maxBet';
   }
+  if (settings.duckRace.minBet > settings.duckRace.maxBet) {
+    return 'duckRace.minBet cannot be higher than duckRace.maxBet';
+  }
   if (settings.poker.smallBlind > settings.poker.bigBlind) {
     return 'poker.smallBlind cannot be higher than poker.bigBlind';
   }
@@ -771,6 +819,12 @@ export function checkConstraints(settings: Settings): string | null {
   }
   if (settings.events.crate.minPoints > settings.events.crate.maxPoints) {
     return 'events.crate.minPoints cannot be higher than events.crate.maxPoints';
+  }
+  if (settings.events.potato.minFuseSeconds > settings.events.potato.maxFuseSeconds) {
+    return 'events.potato.minFuseSeconds cannot be higher than events.potato.maxFuseSeconds';
+  }
+  if (settings.events.laser.minWindowSeconds > settings.events.laser.windowSeconds) {
+    return 'events.laser.minWindowSeconds cannot be higher than events.laser.windowSeconds';
   }
   if (settings.rob.minChance > settings.rob.maxChance) {
     return 'rob.minChance cannot be higher than rob.maxChance';

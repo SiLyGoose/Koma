@@ -218,12 +218,12 @@ export const config: Command = {
     const p = ctx.prefix;
     const action = args[0]?.toLowerCase();
 
-    // "config <group>" (e.g. "config plinko") jumps straight to that group's page instead of
+    // "config <group>" (e.g. "config plinko", "config duckrace" for Duck Race) jumps straight to that group's page instead of
     // opening the book on page one. Matched case-insensitively against the group names below,
     // plus "channel" as a shortcut straight to General (where that setting lives); anything else
     // that isn't list/view/set/reset falls through to the unknown-action reply.
     const jumpGroup =
-      action === undefined ? undefined : (GROUPS.find((group) => group.toLowerCase() === action) ?? (isChannelKey(action) || roleSetting(action) ? 'General' : undefined));
+      action === undefined ? undefined : (GROUPS.find((group) => group.toLowerCase().replaceAll(' ', '') === action) ?? (isChannelKey(action) || roleSetting(action) ? 'General' : undefined));
 
     if (action === undefined || action === 'list' || action === 'view' || jumpGroup !== undefined) {
       // Everything else in this list comes straight from the in-memory CONFIG, so a database

@@ -1,25 +1,48 @@
 import { isAdmin } from '../config.js';
-import { TEXT } from '../constants/index.js';
+import { EVENTS_LIST, TEXT } from '../constants/index.js';
+import { paginate } from '../discord/paginate.js';
 import { GAME_EVENTS, eventChances, findEvent, pickEvent } from '../events/registry.js';
 import { startEvent } from '../events/runner.js';
-import { createEmbed } from '../lib/embed.js';
-import { formatPercent, joinLimited } from '../lib/format.js';
+import type { GameEvent } from '../events/types.js';
+import { createEmbed, type BotEmbed } from '../lib/embed.js';
+import { formatPercent } from '../lib/format.js';
 import type { Command, CommandContext } from '../discord/types.js';
 
+/** One event on the list, with its chance of being picked at random. */
+export type EventEntry = { event: GameEvent; chance: number };
+
+/** `entries` in pages of `size`, in the order given (at least one page, empty when there are no events). */
+export function eventPages(entries: readonly EventEntry[], size: number = EVENTS_LIST.pageSize): EventEntry[][] {
+  const pages: EventEntry[][] = [];
+  for (let i = 0; i < entries.length; i += size) pages.push(entries.slice(i, i + size));
+  return pages.length > 0 ? pages : [[]];
+}
+
+/** Page `index` (from 0) of `pageCount`: an embed field per event, so each one's whole description fits. `hint` goes in the footer. */
+export function eventsPageEmbed(page: readonly EventEntry[], index: number, pageCount: number, hint: string): BotEmbed {
+  return createEmbed()
+    .setTitle(TEXT.events.statusTitle)
+    .addFields(page.map(({ event, chance }) => ({ name: TEXT.events.entryName(event.label, formatPercent(chance)), value: TEXT.events.entryValue(event.id, event.description) })))
+    .setFooter({ text: TEXT.events.pageFooter(index + 1, pageCount, hint) });
+}
+
 /**
- * Every event that can happen, with the chance of each being picked at random. Which channel
- * they spawn in is `k!config`'s business now (the `channel` setting), not shown here.
+ * Every event that can happen, with the chance of each being picked at random, EVENTS_LIST.pageSize
+ * a page with Previous/Next to flip through. Which channel they spawn in is `k!config`'s business
+ * (the `channel` setting), not shown here.
  */
 // The vault's size is the `vault` command's job (commands/vault.ts).
 async function showStatus(ctx: CommandContext): Promise<void> {
-  const embed = createEmbed()
-    .setTitle(TEXT.events.statusTitle)
-    .addFields({
-      name: TEXT.events.listField,
-      value: joinLimited(eventChances().map(({ event, chance }) => TEXT.events.listLine(event.id, event.label, event.description, formatPercent(chance)))),
-    })
-    .setFooter({ text: isAdmin(ctx.user.id) ? TEXT.events.usage(ctx.prefix) : TEXT.events.footerOthers });
-  await ctx.reply({ embeds: [embed] });
+  const pages = eventPages(eventChances());
+  const hint = isAdmin(ctx.user.id) ? TEXT.events.usage(ctx.prefix) : TEXT.events.footerOthers;
+  await paginate(
+    ctx,
+    pages.length,
+    (index) => ({ embeds: [eventsPageEmbed(pages[index] ?? [], index, pages.length, hint)] }),
+    ctx.user.id,
+    { previous: TEXT.events.previousButton, next: TEXT.events.nextButton, notYours: TEXT.events.notYours },
+    EVENTS_LIST.idleMs,
+  );
 }
 
 async function startNow(ctx: CommandContext): Promise<void> {

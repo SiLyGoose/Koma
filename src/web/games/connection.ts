@@ -54,8 +54,8 @@ export interface GameHandlers<C extends { t: string }, M> {
    * one): a game whose page can't start from one message (a raid's fight, run from its start) gives it all it needs here.
    */
   watched?(target: { guildId: string; userId: string }, page: Peer<M>): void;
-  /** Something a watcher's page says (ignored when left out). */
-  watching?(target: { guildId: string; userId: string }, page: Peer<M>, message: Exclude<C, Greeting>): Promise<void>;
+  /** Something a watcher's page says (ignored when left out); `viewer` is who is watching. */
+  watching?(target: { guildId: string; userId: string }, page: Peer<M>, message: Exclude<C, Greeting>, viewer: Player): Promise<void>;
   /** The page went away (the player's, whether or not they joined). */
   left?(player: Player, peer: Peer<M>): void;
 }
@@ -77,6 +77,8 @@ export function openGameConnection<C extends { t: string }, M>(game: GameSocket<
   let joined = false;
   let greeted = false;
   let watching: { guildId: string; userId: string } | null = null;
+  /** Who is watching, on a watcher's page. */
+  let viewer: Player | null = null;
   let gone = false;
 
   // A small budget of messages a second: far more than anyone can press keys, but not a flood.
@@ -92,7 +94,7 @@ export function openGameConnection<C extends { t: string }, M>(game: GameSocket<
     if (!message) return refuse(peer, 'bad_message');
 
     if (watching) {
-      if (message.t !== 'hello' && message.t !== 'watch') await handlers.watching?.(watching, page, message as Exclude<C, Greeting>);
+      if (message.t !== 'hello' && message.t !== 'watch' && viewer) await handlers.watching?.(watching, page, message as Exclude<C, Greeting>, viewer);
       return;
     }
 
@@ -105,9 +107,10 @@ export function openGameConnection<C extends { t: string }, M>(game: GameSocket<
         const watch = verifyWatchToken(token);
         if (!watch) return refuse(page, 'bad_token');
         const target = { guildId: watch.viewer.guildId, userId: watch.targetId };
-        const added = addWatcher(game.live, target.guildId, target.userId, page);
+        const added = addWatcher(game.live, target.guildId, target.userId, page, watch.viewer.userId);
         if (!added.ok) return refuse(page, added.reason);
         watching = target;
+        viewer = watch.viewer;
         handlers.watched?.(target, page);
         return;
       }

@@ -55,13 +55,13 @@ import type { DivineGroupId, DpFragment, ShardTier } from './divine.js';
  *                           back to getting ready, to pick)
  *                 parted    its run of fight `no` parted from the bot's at `second` (its checksum then wasn't the bot's)
  *                 heroes    reads their heroes again (the page's Manage closed: one may have been transcended meanwhile)
- *                 chat      says something to the room (./chat.ts)
+ *                 chat      says something to the room (./chat.ts); a watcher's page can too, as a spectator
  *   bot -> page   room      the room as it is now: whenever anything about it changes
  *                 fight     a fight has begun (or is going on, for a page that just joined): what to run it from
  *                 turn      what everyone pressed, at which step, up to the step the fight has reached
  *                 answer    why something asked of the room wasn't done
  *                 error     and the bot closes the connection
- *                 watching  (to a watcher) whose raid it follows; away: they've left it; watchers (to a player): how many watch
+ *                 watching  (to a watcher) whose raid it follows, and `you` (who watches); away: they've left it; watchers (to a player): how many watch
  */
 
 export type ClientMessage =
@@ -357,7 +357,7 @@ export type ServerMessage =
   | { t: 'answer'; to: string; code: AnswerCode }
   | { t: 'error'; code: ErrorCode }
   /** Watching (the bot's web/games/live.ts): whose raid this page follows; they left it (their page went); how many watch the player. */
-  | { t: 'watching'; player: string }
+  | { t: 'watching'; player: string; you?: string }
   | { t: 'away' }
   | { t: 'watchers'; count: number }
   | ChatServerMessage;

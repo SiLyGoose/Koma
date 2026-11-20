@@ -8,17 +8,20 @@ import { serveMine } from './games/mines/server.js';
 import { servePinecraft } from './games/pinecraft/server.js';
 import { serveBaccarat } from './games/baccarat/server.js';
 import { serveRoulette } from './games/roulette/server.js';
+import { serveDuckRace } from './games/duckrace/server.js';
 import { servePoker } from './games/poker/server.js';
 import { serveRaid } from './games/raid/server.js';
 import { serveMinesweeper } from './games/minesweeper/server.js';
 import { serveDivine, serveDragon, serveTechnoMagic } from './games/technomagic/server.js';
 import { serveCodedle } from './games/codedle/server.js';
+import { serveLaser } from './games/laser/server.js';
+import { servePotato } from './games/potato/server.js';
 
 /*
  * The bot's side of the games' web site: one server, listening on this machine only (Caddy in front
  * of it gives it its public https:// and wss:// address). It answers the site's requests under /api
  * (api.ts, an Express app), and takes the games' web sockets, each game's in its own folder under games/ (mines/,
- * pinecraft/, baccarat/, roulette/, poker/, raid/, minesweeper/, technomagic/ (with the Dragon Raid's), codedle/; baccarat and roulette share table/, and every game connection.ts).
+ * pinecraft/, baccarat/, roulette/, duckrace/, poker/, raid/, minesweeper/, technomagic/ (with the Dragon Raid's), codedle/, potato/, laser/ (those two through site-event.ts); baccarat, roulette and the duck race share table/, and every game connection.ts).
  * Only the site's own origin may connect.
  */
 
@@ -38,6 +41,7 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     // The table games show each player's profile picture at the table.
     [GAMES.baccarat.socket]: (socket) => serveBaccarat(socket, api.avatar),
     [GAMES.roulette.socket]: (socket) => serveRoulette(socket, api.avatar),
+    [GAMES.duckrace.socket]: (socket) => serveDuckRace(socket, api.avatar),
     [GAMES.poker.socket]: (socket) => servePoker(socket, api.avatar),
     [GAMES.minesweeper.socket]: (socket) => serveMinesweeper(socket, api.avatar),
     // The TechnoMagic Raid's rooms, which say in Discord when one is opened (once the bot has logged in).
@@ -46,6 +50,9 @@ export function startWebServer({ port, host = '127.0.0.1', api }: WebServerOptio
     // King's Raid's Divine Punishment Raid: solo only, never said in Discord.
     [GAMES.divine.socket]: (socket) => serveDivine(socket, { avatar: api.avatar }),
     [GAMES.codedle.socket]: serveCodedle,
+    // The vault events played on the site too (and in Discord), the one game.
+    [GAMES.potato.socket]: servePotato,
+    [GAMES.laser.socket]: serveLaser,
     // The raid, once the bot can start one and read the week (it has logged in to Discord).
     ...(api.raid ? { [GAMES.raid.socket]: (socket: WebSocket) => serveRaid(socket, api.raid as RaidSiteDeps) } : {}),
   };
